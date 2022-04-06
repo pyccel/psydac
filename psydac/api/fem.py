@@ -27,6 +27,7 @@ from psydac.mapping.discrete import NurbsMapping
 from psydac.fem.vector       import ProductFemSpace
 from psydac.fem.basic        import FemField
 from psydac.core.bsplines    import find_span, basis_funs_all_ders
+from psydac.ddm.cart         import InterfaceCartDecomposition
 
 __all__ = (
     'DiscreteBilinearForm',
@@ -222,9 +223,6 @@ class DiscreteBilinearForm(BasicDiscrete):
             axis        = target.axis
             test_ext    = target.ext
             trial_ext   = target.ext
-            test_grid   = QuadratureGrid( test_space, axis, test_ext)
-            trial_grid  = QuadratureGrid( trial_space, axis, trial_ext)
-            self._grid  = (test_grid,)
         elif isinstance(target, Interface):
             # this part treats the cases of:
             # integral(v_minus * u_plus)
@@ -239,17 +237,14 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_target = target.plus if isinstance(trial, PlusInterfaceOperator) else target.minus
             test_ext     = test_target.ext
             trial_ext    = trial_target.ext
-            test_grid    = QuadratureGrid( test_space, axis, test_ext)
-            trial_grid   = QuadratureGrid( trial_space, axis, trial_ext)
-            self._grid   = (test_grid, trial_grid) if test_target==target.minus else (trial_grid, test_grid)
-        else:
-            test_grid   = QuadratureGrid( test_space)
-            trial_grid  = QuadratureGrid( trial_space)
-            self._grid  = (test_grid,)
+            if (trial_target.axis, trial_target.ext) in trial_space._interfaces:
+                trial_space  = trial_space._interfaces[trial_target.axis, trial_target.ext]
+            self._test_ext  = test_target.ext
+            self._trial_ext = trial_target.ext
+
 
         #...
         kwargs['is_rational_mapping'] = is_rational_mapping
-        kwargs['comm']                = domain_h.comm
         kwargs['discrete_space']      = (trial_space, test_space)
         space_quad_order = [qo - 1 for qo in get_quad_order(test_space)]
         quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
@@ -268,11 +263,11 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._element_loop_ends   = tuple(np.int64(i+1!=n) for i,n in zip(ends, npts))
 
         kwargs['num_threads'] = self._num_threads
-        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
+        kwargs['comm']        = None
+        if vector_space.parallel:
+            kwargs['comm'] = vector_space.cart.comm
 
-        #...
-        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=test_grid, ext=test_ext)
-        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=trial_grid, ext=trial_ext)
+        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
         #...
         if isinstance(target, (Boundary, Interface)):
@@ -285,6 +280,38 @@ class DiscreteBilinearForm(BasicDiscrete):
             elif test_ext == 1:
                 if self._element_loop_ends[axis]:
                     self._func = do_nothing
+
+            if self._func == do_nothing:
+                self._free_args = ()
+                self._args      = ()
+                self._element_loop_starts = ()
+                self._element_loop_ends   = ()
+                self._global_matrices     = ()
+                self._threads_args        = ()
+                return
+
+        if isinstance(target, Boundary):
+            test_grid   = QuadratureGrid( test_space, axis, test_ext)
+            trial_grid  = QuadratureGrid( trial_space, axis, trial_ext)
+            self._grid  = (test_grid,)
+        elif isinstance(target, Interface):
+            # this part treats the cases of:
+            # integral(v_minus * u_plus)
+            # integral(v_plus  * u_minus)
+            # the other cases, integral(v_minus * u_minus) and integral(v_plus * u_plus)
+            # are converted to boundary integrals by Sympde
+            test_grid    = QuadratureGrid( test_space, axis, test_ext)
+            trial_grid   = QuadratureGrid( trial_space, axis, trial_ext)
+            self._grid   = (test_grid, trial_grid) if test_target==target.minus else (trial_grid, test_grid)
+            self._test_ext  = test_target.ext
+            self._trial_ext = trial_target.ext
+        else:
+            test_grid   = QuadratureGrid( test_space)
+            trial_grid  = QuadratureGrid( trial_space)
+            self._grid  = (test_grid,)
+        #...
+        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=test_grid, ext=test_ext)
+        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=trial_grid, ext=trial_ext)
 
         self._args , self._threads_args = self.construct_arguments(backend=kwargs.pop('backend', None))
 
@@ -452,8 +479,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         target          = self.kernel_expr.target
         test_degree     = np.array(self.test_basis.space.degree)
         trial_degree    = np.array(self.trial_basis.space.degree)
-        test_space      = self.test_basis.space.vector_space
-        trial_space     = self.trial_basis.space.vector_space
+        test_space      = self.spaces[1].vector_space
+        trial_space     = self.spaces[0].vector_space
         domain          = self.domain
         is_broken       = len(domain)>1
 
@@ -474,13 +501,16 @@ class DiscreteBilinearForm(BasicDiscrete):
             pads = test_degree
 
         if self._matrix is None and (is_broken or isinstance( expr, (ImmutableDenseMatrix, Matrix))):
-            self._matrix = BlockMatrix(self.spaces[0].vector_space,
-                                       self.spaces[1].vector_space)
+            self._matrix = BlockMatrix(trial_space, test_space)
+
+        if is_broken:
+            i,j = self.get_space_indices_from_target(domain, target )
+            test_space  = test_space.spaces[i]
+            trial_space = trial_space.spaces[j]
 
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # case of system of equations
 
             if is_broken: #multi patch
-                i,j = self.get_space_indices_from_target(domain, target )
                 if not self._matrix[i,j]:
                     self._matrix[i,j] = BlockMatrix(trial_space, test_space)
                 matrix = self._matrix[i,j]
@@ -498,11 +528,13 @@ class DiscreteBilinearForm(BasicDiscrete):
                     if matrix[k1,k2]:
                         global_mats[k1,k2] = matrix[k1,k2]
                     elif not i == j: # assembling in an interface (type(target) == Interface)
-                        axis        = target.axis
+                        axis   = target.axis
+                        ext_d  = self._trial_ext
+                        ext_c  = self._test_ext
                         test_spans  = self.test_basis.spans
                         trial_spans = self.trial_basis.spans
                         s_d = trial_spans[k2][axis][0] - trial_degree[k2][axis]
-                        s_c = test_spans[k1][axis][0] - test_degree[k1][axis]
+                        s_c = test_spans[k1][axis][0]  - test_degree[k1][axis]
                         direction = target.direction
                         direction = 1 if direction is None else direction
                         flip = [direction]*domain.dim
@@ -510,7 +542,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                         if self._func != do_nothing:
                             global_mats[k1,k2] = StencilInterfaceMatrix(tr_space, ts_space,
                                                                         s_d, s_c,
-                                                                        axis, pads=tuple(pads[k1,k2]), 
+                                                                        axis, axis,
+                                                                        ext_d, ext_c,
+                                                                        pads=tuple(pads[k1,k2]), 
                                                                         flip=flip,
                                                                         backend=backend)
                     else:
@@ -526,11 +560,12 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         else: # case of scalar equation
             if is_broken: # multi-patch
-                i,j = self.get_space_indices_from_target(domain, target )
                 if self._matrix[i,j]:
                     global_mats[i,j] = self._matrix[i,j]
                 elif not i == j: # assembling in an interface (type(target) == Interface)
-                    axis        = target.axis
+                    axis   = target.axis
+                    ext_d  = self._trial_ext
+                    ext_c  = self._test_ext
                     test_spans  = self.test_basis.spans
                     trial_spans = self.trial_basis.spans
                     s_d = trial_spans[0][axis][0] - trial_degree[axis]
@@ -541,8 +576,10 @@ class DiscreteBilinearForm(BasicDiscrete):
                     flip[axis] = 1
                     if self._func != do_nothing:
                         global_mats[i,j] = StencilInterfaceMatrix(trial_space, test_space, 
-                                                                  s_d, s_c, axis, flip=flip,
-                                                                  backend=backend)
+                                                                  s_d, s_c,
+                                                                  axis, axis,
+                                                                  ext_d, ext_c,
+                                                                  flip=flip, backend=backend)
                 else:
 
                     global_mats[i,j] = StencilMatrix(trial_space, test_space, pads=tuple(pads), backend=backend)
@@ -622,7 +659,7 @@ class DiscreteLinearForm(BasicDiscrete):
         if vector_space.parallel and vector_space.cart.num_threads>1:
             self._num_threads = vector_space.cart._num_threads
 
-        if vector_space.parallel and vector_space.cart.is_comm_null:
+        if vector_space.parallel and (vector_space.cart.is_comm_null or isinstance(vector_space.cart, InterfaceCartDecomposition)):
             self._free_args = ()
             self._func      = do_nothing
             self._args      = ()
@@ -632,7 +669,6 @@ class DiscreteLinearForm(BasicDiscrete):
 
         kwargs['discrete_space']      = test_space
         kwargs['is_rational_mapping'] = is_rational_mapping
-        kwargs['comm']                = domain_h.comm
 
         space_quad_order = [qo - 1 for qo in get_quad_order(test_space)]
         quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
@@ -641,6 +677,9 @@ class DiscreteLinearForm(BasicDiscrete):
         assert np.array_equal(quad_order, get_quad_order(test_space))
 
         kwargs['num_threads'] = self._num_threads
+        kwargs['comm']        = None
+        if vector_space.parallel:
+            kwargs['comm'] = vector_space.cart.comm
 
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 

@@ -81,7 +81,7 @@ class MultiCartDecomposition:
                 owned_groups.append(i)
 
         try:
-            carts = [CartDecomposition(n, p, P, reorder, comm=sub_comm, shifts=s, num_threads=num_threads)\
+            carts = [CartDecomposition(n, p, P, reorder, comm=sub_comm, global_comm=comm, shifts=s, num_threads=num_threads)\
                     for n,p,P,sub_comm,s in zip(npts, pads, periods, local_communicators, shifts)]
         except:
             comm.Abort(1)
@@ -175,7 +175,8 @@ class InterfacesCartDecomposition:
         interfaces_carts      = {}
 
         for i,j in interfaces:
-            interfaces_comm[i,j] = MPI.COMM_NULL 
+            interfaces_comm[i,j] = MPI.COMM_NULL
+
             if i in owned_groups or j in owned_groups:
                 if not local_groups[i]:
                     local_groups[i] = global_group.Range_incl([[rank_ranges[i][0], rank_ranges[i][1], 1]])
@@ -207,21 +208,20 @@ class InterfacesCartDecomposition:
 
                 if interfaces_comm[i,j].rank == interfaces_root_ranks[i,j][1]:
                     req.append(interfaces_comm[i,j].Isend((ranks_in_topo_j, ranks_in_topo_j.size, dtype), interfaces_root_ranks[i,j][0], tag=tag(i,j,-1)))
-                    req.append(interfaces_comm[i,j].Irecv((ranks_in_topo_i, ranks_in_topo_i.size, dtype), interfaces_root_ranks[i,j][0], tag=tag(i,j,1)))                  
+                    req.append(interfaces_comm[i,j].Irecv((ranks_in_topo_i, ranks_in_topo_i.size, dtype), interfaces_root_ranks[i,j][0], tag=tag(i,j,1)))
 
-
-            interfaces_carts[i,j] = InterfaceCartDecomposition(npts=[npts[i], npts[j]],
-                                                               pads=[pads[i], pads[j]],
-                                                               periods=[periods[i], periods[j]],
-                                                               comm=interfaces_comm[i,j],
-                                                               shifts=[shifts[i], shifts[j]],
-                                                               axes=axes, exts=exts, 
-                                                               ranks_in_topo=[ranks_in_topo_i, ranks_in_topo_j],
-                                                               local_groups=[local_groups[i], local_groups[j]],
-                                                               local_communicators=[local_communicators[i], local_communicators[j]],
-                                                               root_ranks=interfaces_root_ranks[i,j],
-                                                               requests=req,
-                                                               num_threads=num_threads)
+                interfaces_carts[i,j] = InterfaceCartDecomposition(npts=[npts[i], npts[j]],
+                                                                   pads=[pads[i], pads[j]],
+                                                                   periods=[periods[i], periods[j]],
+                                                                   comm=interfaces_comm[i,j],
+                                                                   shifts=[shifts[i], shifts[j]],
+                                                                   axes=axes, exts=exts, 
+                                                                   ranks_in_topo=[ranks_in_topo_i, ranks_in_topo_j],
+                                                                   local_groups=[local_groups[i], local_groups[j]],
+                                                                   local_communicators=[local_communicators[i], local_communicators[j]],
+                                                                   root_ranks=interfaces_root_ranks[i,j],
+                                                                   requests=req,
+                                                                   num_threads=num_threads)
 
         self._interfaces_groups = interfaces_groups
         self._interfaces_comm   = interfaces_comm
@@ -278,7 +278,7 @@ class CartDecomposition():
        Reverse the ownership of the processes along the specified axis.
 
     """
-    def __init__( self, npts, pads, periods, reorder, comm=None, shifts=None, nprocs=None, reverse_axis=None, num_threads=None ):
+    def __init__( self, npts, pads, periods, reorder, comm=None, global_comm=None, shifts=None, nprocs=None, reverse_axis=None, num_threads=None ):
 
         # Check input arguments
         # TODO: check that arguments are identical across all processes
@@ -299,6 +299,7 @@ class CartDecomposition():
         self._num_threads  = num_threads
         self._reorder      = reorder
         self._comm         = comm
+        self._global_comm  = comm if global_comm is None else global_comm
 
         # ...
         self._ndims = len( npts )
@@ -440,6 +441,10 @@ class CartDecomposition():
     @property
     def comm( self ):
         return self._comm
+
+    @property
+    def global_comm( self ):
+        return self._global_comm
 
     @property
     def comm_cart( self ):
@@ -882,9 +887,11 @@ class InterfaceCartDecomposition(CartDecomposition):
             elif not comm_plus == MPI.COMM_NULL:
                 self._intercomm = comm_plus.Create_intercomm(0, comm, root_minus)
 
-        if self.is_comm_null:
+        if self._intercomm == MPI.COMM_NULL:
             return
 
+#        high = self._local_rank_plus is not None
+#        self._intercomm = self._intercomm.Merge(high=high)
         # Store arrays with all the reduced starts and reduced ends along each direction
         self._reduced_global_starts_minus = [None]*self._ndims
         self._reduced_global_ends_minus   = [None]*self._ndims
@@ -1093,7 +1100,7 @@ class InterfaceCartDecomposition(CartDecomposition):
 
     @property
     def is_comm_null( self ):
-        return self.intercomm == MPI.COMM_NULL
+        return self._intercomm == MPI.COMM_NULL
 
     #---------------------------------------------------------------------------
     # Local properties
@@ -1169,7 +1176,7 @@ class InterfaceCartDecomposition(CartDecomposition):
 
         cart._npts_minus = tuple(n - ne for n,ne in zip(cart.npts_minus, n_elements))
         cart._npts_plus  = tuple(n - ne for n,ne in zip(cart.npts_plus, n_elements))
-        
+
         cart._shifts_minus = [max(1,m-1) for m in self.shifts_minus]
         cart._shifts_plus  = [max(1,m-1) for m in self.shifts_plus]
 
@@ -1513,8 +1520,11 @@ class CartDataExchanger:
 class InterfaceCartDataExchanger:
 
     def __init__(self, cart, dtype):
+
+        assert isinstance(cart, InterfaceCartDecomposition)
+
         args = self._create_buffer_types( cart, dtype )
-    
+
         self._cart          = cart
         self._dtype         = dtype
         self._send_types    = args[0]
@@ -1523,6 +1533,11 @@ class InterfaceCartDataExchanger:
         self._recv_counts   = args[3]
         self._indices       = args[4]
         self._recv_buf      = np.empty((self._displacements[-1],), dtype=dtype)
+
+    # ...
+    def update_ghost_regions( self, array_minus, array_plus ):
+        req = self.start_update_ghost_regions(array_minus, array_plus)
+        self.end_update_ghost_regions(req, array_minus, array_plus)
 
     # ...
     def start_update_ghost_regions( self, array_minus, array_plus ):
@@ -1582,9 +1597,4 @@ class InterfaceCartDataExchanger:
         recv_types       = mpi_type
 
         return send_types, recv_types, displacements, recv_counts, info['indices']
-
-def get_data_exchanger(cart):
-    if isinstance(cart, InterfaceCartDecomposition):
-        return InterfaceCartDataExchanger
-    return CartDataExchanger
 

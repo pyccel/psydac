@@ -338,7 +338,7 @@ class AST(object):
             trials              = expr.trial_functions
             fields              = expr.fields
             is_broken           = spaces[0].symbolic_space.is_broken
-            quad_order          = get_quad_order(spaces[0])
+            quad_order          = get_quad_order(spaces[1])
             tests_degrees       = get_degrees(tests, spaces[0])
             trials_degrees      = get_degrees(trials, spaces[1])
             multiplicity_tests  = get_multiplicity(tests, spaces[1].vector_space)

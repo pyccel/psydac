@@ -13,7 +13,7 @@ def partition_procs_per_patch(npts, size):
     diff       = [p*size-s for s,p in zip(sizes, percentage)]
     indices    = np.argsort(diff)[::-1]
     rm         = size-sum(sizes)
-    
+
     sizes[indices[:rm]] +=1
     assert sum(sizes) == size
 
@@ -27,21 +27,19 @@ def partition_procs_per_patch(npts, size):
     assert start == size
 
     ranges = np.array(ranges)
+    ranks  = [i[0] for i in ranges[indices[:rm]]]
 
-    sw_ranks = [i[0] for i in ranges[indices[:rm]]]
+    if len(ranks) == 0:
+        if any(s==0 for s in sizes):
+            raise ValueError("Cannot compute sizes with given input values!")
 
-    rank = 0
+    k = 0
     for i,s in enumerate(sizes):
-        if s == 0:
-            sizes[i] = 1
-            if sw_ranks:
-                e_rank    = sw_ranks.pop()
-                ranges[i] = [e_rank, e_rank]
-            else:
-                ranges[i] = [rank, rank]
-                rank      = (rank+1)%size
+        if s>0:continue
+        sizes[i]  = 1
+        ranges[i] = [ranks[k], ranks[k]]
+        k         = (k+1)%size
 
-    assert all(i[0]<=i[1] for i in ranges)
     return sizes, ranges
 
 #==============================================================================

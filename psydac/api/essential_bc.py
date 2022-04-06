@@ -76,7 +76,7 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
     elif isinstance(a, StencilInterfaceMatrix):
         V = a.codomain
         n = V.ndim * 2
-        if axis == a._dim:
+        if axis == a._c_axis:
             return
     else:
         raise TypeError('Cannot apply essential BC to object {} of type {}'\

@@ -187,7 +187,7 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
 
     return Wh
 
-def create_cart(spaces, interiors, comm, interfaces=None, nprocs=None, reverse_axis=None):
+def create_cart(spaces, interiors, comm, interfaces_info=None, nprocs=None, reverse_axis=None):
 
     from psydac.ddm.cart import CartDecomposition, MultiCartDecomposition, InterfacesCartDecomposition
     num_threads     = int(os.environ.get('OMP_NUM_THREADS',1))
@@ -228,13 +228,7 @@ def create_cart(spaces, interiors, comm, interfaces=None, nprocs=None, reverse_a
             shifts       = multiplicity,
             num_threads  = num_threads)
 
-        if interfaces:
-            interfaces_info = {}
-            for e in interfaces:
-                i = interiors.index(e.minus.domain)
-                j = interiors.index(e.plus.domain)
-                interfaces_info[i, j] = ((e.minus.axis, e.plus.axis),(e.minus.ext, e.plus.ext))
-
+        if interfaces_info:
             interfaces_cart = InterfacesCartDecomposition(cart, interfaces_info)
 
     return cart, interfaces_cart
@@ -335,8 +329,14 @@ def discretize_space(V, domain_h, *args, **kwargs):
                  # Create 1D finite element spaces and precompute quadrature data
                 spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree, knots[interior.name], periodic)]
 
+        interfaces_info = {}
+        for e in interfaces:
+            i = interiors.index(e.minus.domain)
+            j = interiors.index(e.plus.domain)
+            interfaces_info[i, j] = ((e.minus.axis, e.plus.axis),(e.minus.ext, e.plus.ext))
+
         if comm is not None:
-            cart, interfaces_cart = create_cart(spaces, interiors, comm, interfaces=interfaces, nprocs=None, reverse_axis=None)
+            cart, interfaces_cart = create_cart(spaces, interiors, comm, interfaces_info=interfaces_info, nprocs=None, reverse_axis=None)
 
             if interfaces_cart:
                 interfaces_cart = interfaces_cart.carts
@@ -357,16 +357,20 @@ def discretize_space(V, domain_h, *args, **kwargs):
         for e in interfaces:
             i = interiors.index(e.minus.domain)
             j = interiors.index(e.plus.domain)
-            print('start', comm.rank)
-            if comm is not None and not interfaces_cart[i,j].is_comm_null:
-                if not carts[i].is_comm_null:
-                    assert carts[j].is_comm_null
-                    g_spaces[e.plus.domain] = TensorFemSpace( *spaces[j], cart=interfaces_cart[i,j], quad_order=quad_order)
-                elif not carts[j].is_comm_null:
-                    assert carts[i].is_comm_null
-                    g_spaces[e.minus.domain] = TensorFemSpace( *spaces[i], cart=interfaces_cart[i,j], quad_order=quad_order)
+            if comm is None:
+                cart_minus = None
+                cart_plus  = None
+            else:
+                if not carts[i].is_comm_null and not carts[j].is_comm_null:
+                    cart_minus = carts[i]
+                    cart_plus  = carts[j]
+                else:
+                    cart_minus = interfaces_cart[i,j]
+                    cart_plus  = interfaces_cart[i,j]
 
-            print('end', comm.rank)
+            g_spaces[e.minus.domain].set_interface_space(e.minus.axis, e.minus.ext, spaces[i], cart=cart_minus, quad_order=quad_order)
+            g_spaces[e.plus.domain ].set_interface_space(e.plus.axis , e.plus.ext , spaces[j], cart=cart_plus, quad_order=quad_order)
+
     for inter in g_spaces:
         Vh = g_spaces[inter]
         if isinstance(V, ProductSpace):
@@ -378,11 +382,15 @@ def discretize_space(V, domain_h, *args, **kwargs):
             Vh = reduce_space_degrees(V, Vh, basis=basis, sequence=sequence)
 
         Vh.symbolic_space = V
+        for axis,ext in Vh._interfaces:
+            Vh._interfaces[axis, ext].symbolic_space = V
+
         g_spaces[inter]    = Vh
 
     Vh = ProductFemSpace(*g_spaces.values())
 
     Vh.symbolic_space      = V
+    Vh._interfaces.update(interfaces_info)
 
     return Vh
 

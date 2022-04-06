@@ -10,7 +10,7 @@ from scipy.sparse import coo_matrix
 from mpi4py import MPI
 
 from psydac.linalg.basic   import VectorSpace, Vector, Matrix
-from psydac.ddm.cart       import find_mpi_type, CartDecomposition, get_data_exchanger
+from psydac.ddm.cart       import find_mpi_type, CartDecomposition, InterfaceCartDecomposition, CartDataExchanger
 
 __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix']
 
@@ -85,7 +85,7 @@ class StencilVectorSpace( VectorSpace ):
             self._init_serial  ( *args, **kwargs )
 
     # ...
-    def _init_serial( self, npts, pads, periods, shifts=None, dtype=float ):
+    def _init_serial( self, npts, pads, periods, shifts=None, starts=None, ends=None, dtype=float ):
 
         if shifts is None:shifts = tuple(1 for _ in pads)
 
@@ -93,32 +93,38 @@ class StencilVectorSpace( VectorSpace ):
         self._parallel = False
 
         # Sequential attributes
-        self._starts        = tuple( 0   for n in npts )
-        self._ends          = tuple( n-1 for n in npts )
+        self._starts        = tuple( 0   for n in npts ) if starts is None else tuple(starts)
+        self._ends          = tuple( n-1 for n in npts ) if ends   is None else tuple(ends)
         self._pads          = tuple( pads )
         self._periods       = tuple( periods )
         self._shifts        = tuple( shifts )
         self._dtype         = dtype
         self._ndim          = len( npts )
+        self._shape         = tuple(e-s+1+2*m*p for s,e,m,p in zip(self._starts, self._ends, shifts, pads))
         self._parent_starts = tuple([None]*self._ndim)
         self._parent_ends   = tuple([None]*self._ndim)
 
         # Global dimensions of vector space
         self._npts   = tuple( npts )
 
+        self._interfaces = {}
     # ...
     def _init_parallel( self, cart, dtype=float ):
 
         assert isinstance( cart, CartDecomposition )
         # Global attributes
-        self._parallel = True
-        self._cart     = cart
-        self._ndim     = len(cart.npts)
-        self._npts     = cart.npts
-        self._pads     = cart.pads
-        self._periods  = cart.periods
-        self._shifts   = cart.shifts
-        self._dtype    = dtype
+        self._parallel   = True
+        self._cart       = cart
+        self._ndim       = cart._ndims
+        self._npts       = cart.npts
+        self._pads       = cart.pads
+        self._periods    = cart.periods
+        self._shifts     = cart.shifts
+        self._dtype      = dtype
+        self._starts     = (0,)*self._ndim
+        self._ends       = (0,)*self._ndim
+        self._shape      = (0,)*self._ndim
+        self._interfaces = {}
 
         if cart.is_comm_null:
             return
@@ -129,11 +135,15 @@ class StencilVectorSpace( VectorSpace ):
         self._parent_starts = cart.parent_starts
         self._parent_ends   = cart.parent_ends
 
-
         # Parallel attributes
         self._mpi_type     = find_mpi_type( dtype )
-        data_exachanger    = get_data_exchanger( cart )
-        self._synchronizer = data_exachanger(cart, dtype )
+        if not isinstance(cart, InterfaceCartDecomposition):
+            self._synchronizer = CartDataExchanger(cart, dtype )
+
+        if isinstance(cart, InterfaceCartDecomposition):
+            self._shape = cart.get_communication_infos(cart.axis)['recv_shape']
+        else:
+            self._shape = cart.shape
 
     #--------------------------------------
     # Abstract interface
@@ -210,6 +220,10 @@ class StencilVectorSpace( VectorSpace ):
     # Other properties/methods
     #--------------------------------------
     @property
+    def shape( self ):
+        return self._shape
+
+    @property
     def parallel( self ):
         return self._parallel
 
@@ -263,6 +277,26 @@ class StencilVectorSpace( VectorSpace ):
     def ndim( self ):
         return self._ndim
 
+    def set_interface(self, axis, ext, cart=None):
+
+        if cart is not None and not cart.is_comm_null:
+            assert isinstance(cart, CartDecomposition)
+            space = StencilVectorSpace(cart)
+        elif cart is None:
+            npts          = list(self.npts)
+            pads          = self.pads
+            starts        = [0]*len(npts)
+            ends          = tuple(n-1 for n in npts)
+            shifts        = self.shifts
+            periods       = list(self.periods)
+            npts[axis]    = pads[axis]+1
+            periods[axis] = False
+            if ext == 1:
+                starts[axis] = ends[axis]-pads[axis]
+
+            space = StencilVectorSpace(npts=npts, pads=pads, periods=periods, shifts=shifts, starts=starts, ends=ends)
+        self._interfaces[axis, ext] = space
+
 #===============================================================================
 class StencilVector( Vector ):
     """
@@ -277,18 +311,28 @@ class StencilVector( Vector ):
     def __init__( self, V ):
 
         assert isinstance( V, StencilVectorSpace )
-        self._space = V
 
-        if V.parallel and V.cart.is_comm_null:
-            sizes = []
-            data  = np.array([], dtype=V.dtype)
-            self._dot = lambda *x:0
-        else:
-            sizes = [e-s+1 + 2*m*p for s,e,p,m in zip(V.starts, V.ends, V.pads, V.shifts)]
-            data  = np.zeros( sizes, dtype=V.dtype )
-        self._sizes = tuple(sizes)
-        self._ndim  = len(V.npts)
-        self._data  = data
+        data  = np.zeros( V.shape, dtype=V.dtype )
+
+        self._space          = V
+        self._sizes          = V.shape
+        self._ndim           = len(V.npts)
+        self._data           = data
+        self._interface_data = {}
+
+        for axis, ext in V._interfaces:
+            if V.parallel and isinstance(V._interfaces[axis, ext].cart, InterfaceCartDecomposition):
+                data  = np.zeros( V._interfaces[axis, ext].shape, dtype=V.dtype )
+            elif V.parallel:
+                Vin          = V._interfaces[axis, ext]
+                slices       = [slice(s, e+2*p+1) for s,e,p in zip(Vin.starts, Vin.ends, Vin.pads)]
+                slices[axis] = slice(Vin.ends[axis]-Vin.pads[axis],None) if ext ==1 else slice(0,3*Vin.pads[axis]+1)
+                data         = self._data[tuple(slices)]
+            else:
+                Vin    = V._interfaces[axis, ext]
+                slices = [slice(s, e+2*p+1) for s,e,p in zip(Vin.starts, Vin.ends, Vin.pads)]
+                data   = self._data[tuple(slices)]
+            self._interface_data[axis, ext] = data
 
         # TODO: distinguish between different directions
         self._sync  = False
@@ -312,15 +356,13 @@ class StencilVector( Vector ):
         assert v._space is self._space
 
         res = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
-        if self._space.parallel and not self._space.cart.is_comm_null:
-            res = self._space.cart.comm_cart.allreduce( res, op=MPI.SUM )
-
+        if self._space.parallel:
+            res = self._space.cart.global_comm.allreduce( res, op=MPI.SUM )
         return res
 
     #...
     @staticmethod
     def _dot(v1, v2, pads, shifts):
-        ndim = len(v1.shape)
         index = tuple( slice(m*p,-m*p) for p,m in zip(pads, shifts))
         return np.dot(v1[index].flat, v2[index].flat)
 
@@ -566,7 +608,7 @@ class StencilVector( Vector ):
 
     # ...
     # TODO: maybe change name to 'exchange'
-    def update_ghost_regions( self, *, direction=None ):
+    def update_ghost_regions( self, *, direction=None):
         """
         Update ghost regions before performing non-local access to vector
         elements (e.g. in matrix-vector product).
@@ -577,7 +619,7 @@ class StencilVector( Vector ):
             Single direction along which to operate (if not specified, all of them).
 
         """
-        
+
         if self.space.parallel:
             if not self.space.cart.is_comm_null:
                 # PARALLEL CASE: fill in ghost regions with data from neighbors
@@ -676,7 +718,7 @@ class StencilMatrix( Matrix ):
                 assert p<=vp
 
         self._pads     = pads or tuple(V.pads)
-        dims           = [e-s+2*mi*p+1 for s,e,p,mi in zip(W.starts, W.ends, W.pads, W.shifts)]
+        dims           = list(W.shape)
         diags          = [compute_diag_len(p, md, mc) for p,md,mc in zip(self._pads, V.shifts, W.shifts)]
         self._data     = np.zeros( dims+diags, dtype=W.dtype )
         self._domain   = V
@@ -685,16 +727,11 @@ class StencilMatrix( Matrix ):
         self._backend  = backend
         self._is_T     = False
 
-        if V.parallel:
-            from psydac.ddm.cart import InterfaceCartDecomposition
-            if isinstance(W.cart, InterfaceCartDecomposition):
-                return
-
         # Parallel attributes
         if W.parallel:
-            data_exachanger  = get_data_exchanger( W.cart )
+            if W.cart.is_comm_null:return
             # Create data exchanger for ghost regions
-            self._synchronizer = data_exachanger(
+            self._synchronizer = CartDataExchanger(
                 cart        = W.cart,
                 dtype       = W.dtype,
                 coeff_shape = diags
@@ -768,6 +805,7 @@ class StencilMatrix( Matrix ):
         if not v.ghost_regions_in_sync:
             v.update_ghost_regions()
 
+        if self.codomain.parallel and self.codomain.cart.is_comm_null:return
         self._func(self._data, v._data, out._data, **self._args)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
@@ -1128,7 +1166,6 @@ class StencilMatrix( Matrix ):
     #--------------------------------------
     # Private methods
     #--------------------------------------
-
 
     # ...
     def _getindex( self, key ):
@@ -1601,7 +1638,7 @@ class StencilInterfaceMatrix(Matrix):
           Padding of the linear operator.
 
     """
-    def __init__( self, V, W, s_d, s_c, dim, *, flip=None, permutation=None, pads=None, backend=None ):
+    def __init__( self, V, W, s_d, s_c, d_axis, c_axis, d_ext, c_ext, *, flip=None, pads=None, backend=None ):
 
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W, StencilVectorSpace )
@@ -1613,29 +1650,34 @@ class StencilInterfaceMatrix(Matrix):
 
         self._pads        = pads or tuple(V.pads)
         dims              = [e-s+2*p+1 for s,e,p in zip(W.starts, W.ends, W.pads)]
-        dims[dim]         = 3*W.pads[dim] + 1
+        dims[c_axis]      = 3*W.pads[c_axis] + 1
         diags             = [2*p+1 for p in self._pads]
         self._data        = np.zeros( dims+diags, dtype=W.dtype )
         self._flip        = tuple([1]*len(dims) if flip is None else flip)
-        self._permutation = tuple(range(len(dims))) if  permutation is None else tuple(permutation)
+        self._permutation = list(range(len(dims)))
+        self._permutation[d_axis], self._permutation[c_axis] = self._permutation[c_axis], self._permutation[d_axis]
         self._domain      = V
         self._codomain    = W
-        self._dim         = dim
+        self._d_axis      = d_axis
+        self._c_axis      = c_axis
+        self._d_ext       = d_ext
+        self._c_ext       = c_ext
         self._d_start     = s_d
         self._c_start     = s_c
         self._ndim        = len( dims )
 
+        Vint = V._interfaces[d_axis, d_ext]
         # Number of rows in matrix (along each dimension)
-        nrows        = [e-s+1 for s,e in zip(V.starts, V.ends)]
-        nrows_extra  = [0 if eci<=edi else eci-edi for eci,edi in zip(W.ends,V.ends)]
-        nrows[dim]   = self._pads[dim] + 1 - nrows_extra[dim]
+        nrows        = [e-s+1 for s,e in zip(Vint.starts, Vint.ends)]
+        nrows_extra  = [0 if eci<=edi else eci-edi for eci,edi in zip(W.ends,Vint.ends)]
+        nrows[c_axis] = self._pads[c_axis] + 1 - nrows_extra[c_axis]
 
         args                 = {}
         args['nrows']        = tuple(nrows)
         args['nrows_extra']  = tuple(nrows_extra)
         args['dpads']        = tuple(V.pads)
         args['pads']         = tuple(self._pads)
-        args['dim']          = dim
+        args['c_axis']       = c_axis
         args['d_start']      = self._d_start
         args['c_start']      = self._c_start
         args['flip']         = self._flip
@@ -1691,7 +1733,8 @@ class StencilInterfaceMatrix(Matrix):
         else:
             out = StencilVector( self.codomain )
 
-        self._func(self._data, v._data, out._data, **self._args)
+        #if self.codomain.parallel and self.codomain.cart.is_comm_null:return
+        self._func(self._data, v._interface_data[self._d_axis, self._d_ext], out._data, **self._args)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
@@ -1699,14 +1742,14 @@ class StencilInterfaceMatrix(Matrix):
 
     # ...
     @staticmethod
-    def _dot(mat, v, out, nrows, nrows_extra, dpads, pads, dim, d_start, c_start, flip, permutation):
+    def _dot(mat, v, out, nrows, nrows_extra, dpads, pads, c_axis, d_start, c_start, flip, permutation):
         # Index for k=i-j
         nrows      = list(nrows)
         ndim       = len(v.shape)
         kk         = [slice(None)]*ndim
         diff       = [xp-p for xp,p in zip(dpads, pads)]
         nn         = v.shape
-        diff[dim] += d_start
+        #diff[dim] += d_start
         for xx in np.ndindex( *nrows ):
             ii    = [ p+x for p,x in zip(dpads,xx) ]
             jj    = [ slice(d+x,d+x+2*p+1) for x,p,d in zip(xx,pads,diff) ]
@@ -1714,7 +1757,7 @@ class StencilInterfaceMatrix(Matrix):
             jj    = tuple(jj[i] for i in permutation)
             ii_kk = tuple( ii + kk )
 
-            ii[dim] += c_start
+            ii[c_axis] += c_start
             out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
 
         new_nrows = nrows.copy()
@@ -1736,7 +1779,7 @@ class StencilInterfaceMatrix(Matrix):
                     ndiags = [2*p + 1-e for p,e in zip(pads,ee)]
                     kk     = [slice(None,diag) for diag in ndiags]
                     ii_kk  = tuple( list(ii) + kk )
-                    ii[dim] += c_start
+                    ii[c_axis] += c_start
                     out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
             new_nrows[d] += er
 
@@ -1792,11 +1835,11 @@ class StencilInterfaceMatrix(Matrix):
         W     = self.codomain
         ssc   = W.starts
         eec   = W.ends
-        ssd   = V.starts
-        eed   = V.ends
+        ssd   = V._interfaces[self._d_axis, self._d_ext].starts
+        eed   = V._interfaces[self._d_axis, self._d_ext].ends
         pads  = self._pads
         gpads = V.pads
-        dim   = self.dim
+        dim   = self._c_axis
 
         # Number of rows in the transposed matrix (along each dimension)
         nrows       = [e-s+1 for s,e in zip(ssd, eed)]
@@ -1820,7 +1863,7 @@ class StencilInterfaceMatrix(Matrix):
         args = {}
         args['d_start'] = self.d_start
         args['c_start'] = self.c_start
-        args['dim']     = self.dim
+        args['dim']     = self._c_axis
         args['nrows']   = tuple(nrows)
         args['ncols']   = tuple(ncols)
         args['gpads']   = tuple(gpads)

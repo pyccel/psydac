@@ -88,6 +88,7 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
         template = "| {:7d} | {:19.2e} |"
         print( template.format( 1, sqrt( am ) ) )
 
+    m = 1
     # Iterate to convergence
     for m in range( 2, maxiter+1 ):
 

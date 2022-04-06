@@ -6,6 +6,7 @@ import numpy as np
 from scipy.sparse import bmat, lil_matrix
 
 from psydac.linalg.basic import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
+from psydac.ddm.cart     import InterfaceCartDataExchanger
 
 __all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix', 'BlockDiagonalSolver']
 
@@ -48,6 +49,7 @@ class BlockVectorSpace( VectorSpace ):
         else:
             self._dtype = tuple(s.dtype for s in spaces)
 
+        self._interfaces = {}
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -142,6 +144,33 @@ class BlockVector( Vector ):
 
         # TODO: distinguish between different directions
         self._sync  = False
+
+        self._data_exchangers = {}
+        self._interface_buf   = {}
+
+        if V.parallel:
+            for i,j in V._interfaces:
+                cart_i = V.spaces[i].cart
+                cart_j = V.spaces[j].cart
+                axis_i,axis_j = V._interfaces[i,j][0]
+                ext_i,ext_j   = V._interfaces[i,j][1]
+                if cart_i.is_comm_null and cart_j.is_comm_null:continue
+                if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
+                if (axis_i, ext_i) not in V.spaces[i]._interfaces:continue
+
+                cart_ij       = V.spaces[i]._interfaces[axis_i, ext_i].cart
+                self._data_exchangers[i,j] = InterfaceCartDataExchanger(cart_ij, self.dtype)
+                buf = [None]*2
+                if cart_i.is_comm_null:
+                    buf[0] = self._blocks[i]._interface_data[axis_i, ext_i]
+                else:
+                    buf[0] = self._blocks[i]._data
+
+                if cart_j.is_comm_null:
+                    buf[1] = self._blocks[j]._interface_data[axis_j, ext_j]
+                else:
+                    buf[1] = self._blocks[j]._data
+                self._interface_buf[i,j] = tuple(buf)
 
     #--------------------------------------
     # Abstract interface
@@ -253,9 +282,16 @@ class BlockVector( Vector ):
 
     # ...
     def update_ghost_regions( self, *, direction=None ):
+        req = {}
+        for (i,j), data_ex in self._data_exchangers.items():
+            req[i,j] = data_ex.start_update_ghost_regions(*self._interface_buf[i,j])
+
         for vi in self.blocks:
             if not vi.ghost_regions_in_sync:
                 vi.update_ghost_regions(direction=direction)
+
+        for (i,j), data_ex in self._data_exchangers.items():
+            data_ex.end_update_ghost_regions(req[i,j], *self._interface_buf[i,j])
 
         # Flag ghost regions as up-to-date
         self._sync = True

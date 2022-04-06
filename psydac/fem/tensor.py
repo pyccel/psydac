@@ -20,11 +20,13 @@ from psydac.fem.basic      import FemSpace, FemField
 from psydac.fem.splines    import SplineSpace
 from psydac.fem.grid       import FemAssemblyGrid
 from psydac.ddm.cart       import CartDecomposition
+
 from psydac.core.bsplines  import (find_span,
                                    basis_funs,
                                    basis_funs_1st_der,
                                    basis_ders_on_quad_grid,
                                    elements_spans)
+
 from psydac.core.kernels import (eval_fields_2d_no_weights,
                                  eval_fields_2d_weighted,
                                  eval_fields_3d_no_weights,
@@ -90,7 +92,8 @@ class TensorFemSpace( FemSpace ):
         if self._quad_order is None:
             self._quad_order = [sp.degree for sp in self.spaces]
 
-        self._symbolic_space      = None
+        self._symbolic_space = None
+        self._interfaces     = {}
 
         if self._vector_space.parallel and self._vector_space.cart.is_comm_null:
             return
@@ -113,6 +116,7 @@ class TensorFemSpace( FemSpace ):
         self._interpolation_ready = False
         # Compute the local domains for every process
         if v.parallel:
+            cart = v.cart
             ndims = cart._ndims
             self._global_element_starts = [None]*ndims
             self._global_element_ends   = [None]*ndims
@@ -1012,10 +1016,25 @@ class TensorFemSpace( FemSpace ):
         else:
             v = v.reduce_elements(axes, n_elements)
             tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order, vector_space=v)
-        
+
         tensor_vec._interpolation_ready = False
         return tensor_vec
 
+    def set_interface_space(self, axis, ext, spaces, cart=None, quad_order=None):
+        axis = int(axis)
+        ext  = int(ext)
+        assert axis<self.ldim
+        assert ext in [-1,1]
+        assert len(spaces) == len(self.spaces)
+        if cart is not None:
+            assert isinstance(cart, CartDecomposition)
+            if cart.is_comm_null:return
+
+        vector_space = self.vector_space
+
+        vector_space.set_interface(axis, ext, cart)
+        space = TensorFemSpace( *spaces, vector_space=vector_space._interfaces[axis, ext], quad_order=quad_order)
+        self._interfaces[axis, ext] = space
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):
 
