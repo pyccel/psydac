@@ -802,8 +802,8 @@ class StencilMatrix( Matrix ):
             out = StencilVector( self.codomain )
 
         # Necessary if vector space is distributed across processes
-        if not v.ghost_regions_in_sync:
-            v.update_ghost_regions()
+#        if not v.ghost_regions_in_sync:
+#            v.update_ghost_regions()
 
         if self.codomain.parallel and self.codomain.cart.is_comm_null:return
         self._func(self._data, v._data, out._data, **self._args)
@@ -1668,13 +1668,16 @@ class StencilInterfaceMatrix(Matrix):
 
         Vint = V._interfaces[d_axis, d_ext]
         # Number of rows in matrix (along each dimension)
-        nrows        = [e-s+1 for s,e in zip(Vint.starts, Vint.ends)]
-        nrows_extra  = [0 if eci<=edi else eci-edi for eci,edi in zip(W.ends,Vint.ends)]
-        nrows[c_axis] = self._pads[c_axis] + 1 - nrows_extra[c_axis]
-
+        nrows         = [e-s+1 for s,e in zip(W.starts, W.ends)]
+        nrows[c_axis] = self._pads[c_axis] + 1
+        nrows_extra   = [0 if eci<=edi else eci-edi for eci,edi in zip(W.ends,Vint.ends)]
+        nrows         = [n-e for n,e in zip(nrows, nrows_extra)]
+        rows_starts   = list(W.starts)
+        rows_starts[c_axis] = 0
         args                 = {}
         args['nrows']        = tuple(nrows)
         args['nrows_extra']  = tuple(nrows_extra)
+        args['rows_starts']  = tuple(rows_starts)
         args['dpads']        = tuple(V.pads)
         args['pads']         = tuple(self._pads)
         args['c_axis']       = c_axis
@@ -1724,8 +1727,8 @@ class StencilInterfaceMatrix(Matrix):
         assert v.space is self.domain
 
         # Necessary if vector space is distributed across processes
-        if not v.ghost_regions_in_sync:
-            raise ValueError('ghost regions are not updated')
+#        if not v.ghost_regions_in_sync:
+#            raise ValueError('ghost regions are not updated')
 
         if out is not None:
             assert isinstance( out, StencilVector )
@@ -1742,14 +1745,15 @@ class StencilInterfaceMatrix(Matrix):
 
     # ...
     @staticmethod
-    def _dot(mat, v, out, nrows, nrows_extra, dpads, pads, c_axis, d_start, c_start, flip, permutation):
+    def _dot(mat, v, out, nrows, nrows_extra, rows_starts, dpads, pads, c_axis, d_start, c_start, flip, permutation):
         # Index for k=i-j
         nrows      = list(nrows)
         ndim       = len(v.shape)
         kk         = [slice(None)]*ndim
-        diff       = [xp-p for xp,p in zip(dpads, pads)]
+        diff       = [xp-p+s for xp,p,s in zip(dpads, pads, rows_starts)]
         nn         = v.shape
         #diff[dim] += d_start
+        ffffff = 1
         for xx in np.ndindex( *nrows ):
             ii    = [ p+x for p,x in zip(dpads,xx) ]
             jj    = [ slice(d+x,d+x+2*p+1) for x,p,d in zip(xx,pads,diff) ]
@@ -1759,6 +1763,7 @@ class StencilInterfaceMatrix(Matrix):
 
             ii[c_axis] += c_start
             out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
+
 
         new_nrows = nrows.copy()
         for d,er in enumerate(nrows_extra):
@@ -2055,7 +2060,7 @@ class StencilInterfaceMatrix(Matrix):
         ss  = self.codomain.starts
         pp  = self.codomain.pads
         nd  = len(pp)
-        dim = self.dim
+        dim = self._c_axis
 
         flip        = self._flip
         permutation = self._permutation

@@ -281,7 +281,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 if self._element_loop_ends[axis]:
                     self._func = do_nothing
 
-            if self._func == do_nothing:
+            if self._func == do_nothing and isinstance(target, Interface):
                 self._free_args = ()
                 self._args      = ()
                 self._element_loop_starts = ()

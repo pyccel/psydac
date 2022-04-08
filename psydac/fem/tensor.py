@@ -1018,6 +1018,11 @@ class TensorFemSpace( FemSpace ):
             tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order, vector_space=v)
 
         tensor_vec._interpolation_ready = False
+        for a,e in self._interfaces:
+            tensor_vec._interfaces[a,e] = self._interfaces[a,e].reduce_degree(axes, multiplicity=multiplicity, basis=basis)
+        
+        for a,e in self._interfaces:
+            tensor_vec.vector_space._interfaces[a,e] = tensor_vec._interfaces[a,e].vector_space
         return tensor_vec
 
     def set_interface_space(self, axis, ext, spaces, cart=None, quad_order=None):
