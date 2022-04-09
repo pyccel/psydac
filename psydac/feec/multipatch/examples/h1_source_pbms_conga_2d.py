@@ -32,7 +32,7 @@ from psydac.fem.basic        import FemField
 def solve_h1_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_L2', source_type='manu_poisson',
         eta=-10., mu=1., gamma_h=10.,
-        plot_source=False, plot_dir=None, hide_plots=True
+        plot_source=False, plot_dir=None, hide_plots=True, m_load_dir=""
 ):
     """
     solver for the problem: find u in H^1, such that
@@ -118,8 +118,8 @@ def solve_h1_source_pbm(
 
     print('Hodge operators...')
     # multi-patch (broken) linear operators / matrices
-    H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language)
-    H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language)
+    H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=0)
+    H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
 
     dH0_m = H0.get_dual_Hodge_sparse_matrix()  # = mass matrix of V0
     H0_m  = H0.to_sparse_matrix()              # = inverse mass matrix of V0
@@ -128,10 +128,8 @@ def solve_h1_source_pbm(
 
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language)
+    cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)    
     cP0_m = cP0.to_sparse_matrix()
-    # cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language)
-    # cP1_m = cP1.to_sparse_matrix()
 
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
@@ -220,8 +218,10 @@ def solve_h1_source_pbm(
     print('getting and plotting the FEM solution from numpy coefs array...')
     title = r'solution $\phi_h$ (amplitude)'
     params_str = 'eta={}_mu={}_gamma_h={}'.format(eta, mu, gamma_h)
-    plot_field(numpy_coeffs=uh_c, Vh=V0h, space_kind='h1', domain=domain, title=title, filename=plot_dir+params_str+'_phi_h.png', hide_plot=hide_plots)
+    plot_field(numpy_coeffs=uh_c, Vh=V0h, space_kind='h1', domain=domain, title=title, filename=plot_dir+'/'+params_str+'_phi_h.png', hide_plot=hide_plots)
 
+    print('u_ex:')
+    print(u_ex)
 
     if u_ex:
         u         = element_of(V0h.symbolic_space, name='u')

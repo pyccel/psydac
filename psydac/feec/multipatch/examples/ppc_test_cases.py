@@ -174,6 +174,9 @@ def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
         # exact solution of  -p'' = f  with hom. bc's on pretzel domain
         p_ex = phi
 
+        if source_type == 'manu_poisson' and mu == 1 and eta == 0:
+            u_ex = phi
+
         if not domain_name in ['pretzel', 'pretzel_f']:
             print("WARNING (87656547) -- I'm not sure we have an exact solution -- check the bc's on the domain "+domain_name)
             # raise NotImplementedError(domain_name)

@@ -886,7 +886,7 @@ class HodgeOperator( FemLinearOperator ):
                 self._sparse_matrix = load_npz(primal_Hodge_storage_fn)
             else:
                 assert not dual_Hodge_is_stored
-                print("[HodgeOperator] assembling both sparse matrices for storage...")
+                print("[HodgeOperator] assembling both sparse matrices for storage in {}...".format(load_dir))
                 self.assemble_dual_Hodge_matrix()
                 print("[HodgeOperator] storing primal Hodge sparse matrix in "+dual_Hodge_storage_fn)
                 save_npz(dual_Hodge_storage_fn, self._dual_Hodge_sparse_matrix)
