@@ -832,10 +832,10 @@ def get_K1_and_K1_inv(V1h, uniform_patches=False):
 #===============================================================================
 class HodgeOperator( FemLinearOperator ):
     """
-    Change of basis operator: dual basis -> primal basis
+    Change of basis operator: primal basis <-> dual basis
 
-        self._matrix: matrix of the primal Hodge = this is the INVERSE mass matrix !
-        self.dual_Hodge_matrix: this is the mass matrix
+        self._matrix:       mass matrix (for the primal Hodge op:   V0 -> dual V0)
+        self._dual_matrix:  inverse mass matrix (for dual Hodge op: dual V0 -> V0)
 
     Parameters
     ----------
@@ -866,8 +866,8 @@ class HodgeOperator( FemLinearOperator ):
         FemLinearOperator.__init__(self, fem_domain=Vh)
         self._domain_h = domain_h
         self._backend_language = backend_language
-        self._dual_Hodge_matrix = None
-        self._dual_Hodge_sparse_matrix = None
+        self._dual_matrix = None
+        self._dual_sparse_matrix = None
 
         if load_dir and isinstance(load_dir, str):
             if not os.path.exists(load_dir):
@@ -878,32 +878,60 @@ class HodgeOperator( FemLinearOperator ):
 
             primal_Hodge_is_stored = os.path.exists(primal_Hodge_storage_fn)
             dual_Hodge_is_stored = os.path.exists(dual_Hodge_storage_fn)
-            if primal_Hodge_is_stored:
-                assert dual_Hodge_is_stored
-                print(" ...            loading dual Hodge sparse matrix from "+dual_Hodge_storage_fn)
-                self._dual_Hodge_sparse_matrix = load_npz(dual_Hodge_storage_fn)
-                print("[HodgeOperator] loading primal Hodge sparse matrix from "+primal_Hodge_storage_fn)
+            if dual_Hodge_is_stored:
+                assert primal_Hodge_is_stored
+                print(" ...            loading primal Hodge sparse matrix from "+primal_Hodge_storage_fn)
                 self._sparse_matrix = load_npz(primal_Hodge_storage_fn)
+                print("[HodgeOperator] loading dual Hodge sparse matrix from "+dual_Hodge_storage_fn)
+                self._dual_sparse_matrix = load_npz(dual_Hodge_storage_fn)
             else:
-                assert not dual_Hodge_is_stored
+                assert not primal_Hodge_is_stored
                 print("[HodgeOperator] assembling both sparse matrices for storage in {}...".format(load_dir))
-                self.assemble_dual_Hodge_matrix()
-                print("[HodgeOperator] storing primal Hodge sparse matrix in "+dual_Hodge_storage_fn)
-                save_npz(dual_Hodge_storage_fn, self._dual_Hodge_sparse_matrix)
-                self.assemble_primal_Hodge_matrix()
+                self.assemble_primal_matrix()
                 print("[HodgeOperator] storing primal Hodge sparse matrix in "+primal_Hodge_storage_fn)
                 save_npz(primal_Hodge_storage_fn, self._sparse_matrix)
+                self.assemble_dual_matrix()
+                print("[HodgeOperator] storing dual Hodge sparse matrix in "+dual_Hodge_storage_fn)
+                save_npz(dual_Hodge_storage_fn, self._dual_sparse_matrix)
         else:
             # matrices are not stored, we will probably compute them later
             pass
 
-    def assemble_primal_Hodge_matrix(self):
+    def assemble_primal_matrix( self ):
+        """
+        the primal Hodge matrix is the patch-wise multi-patch mass matrix
+        it is not stored by default but assembled on demand
+        """
+        if self._primal_matrix is None:
+            Vh = self.fem_domain
+            assert Vh == self.fem_codomain
 
+            V = Vh.symbolic_space
+            domain = V.domain
+            u, v = elements_of(V, names='u, v')
+            if isinstance(u, ScalarFunction):
+                expr   = u*v
+            else:
+                expr   = dot(u,v)
+            a = BilinearForm((u,v), integral(domain, expr))
+            ah = discretize(a, self._domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[self._backend_language])
+
+            self._matrix = ah.assemble()  # Mass matrix in stencil format
+            self._sparse_matrix = self._matrix.tosparse()
+
+    def to_sparse_matrix( self ):
         if self._sparse_matrix is None:
-            if not self._dual_Hodge_matrix:
-                self.assemble_dual_Hodge_matrix()
+            self.assemble_primal_matrix()
 
-            M = self._dual_Hodge_matrix  # mass matrix of the (primal) basis
+        return self._sparse_matrix
+
+    def assemble_dual_matrix(self):
+
+        if self._dual_sparse_matrix is None:
+            if not self._primal_matrix:
+                self.assemble_primal_matrix()
+
+            M = self._primal_matrix  # mass matrix of the (primal) basis
             nrows = M.n_block_rows
             ncols = M.n_block_cols
 
@@ -915,51 +943,23 @@ class HodgeOperator( FemLinearOperator ):
                 inv_M_blocks.append(inv_Mii)
 
             inv_M = block_diag(inv_M_blocks)
-            self._sparse_matrix = inv_M
+            self._dual_sparse_matrix = inv_M
 
-    def to_sparse_matrix( self ):
+    def get_dual_sparse_matrix( self ):
         """
-        the Hodge matrix is the patch-wise inverse of the multi-patch mass matrix
+        the dual Hodge matrix is the patch-wise inverse of the multi-patch mass matrix
         it is not stored by default but computed on demand, by local (patch-wise) inversion of the mass matrix
         """
 
-        if (self._sparse_matrix is not None) or (self._matrix is not None):
-            return FemLinearOperator.to_sparse_matrix(self)
+        if self._dual_sparse_matrix is not None:
+            return self._dual_sparse_matrix
+            
+        if self._dual_matrix is not None:
+            return self._dual_matrix.tosparse()
 
-        self.assemble_primal_Hodge_matrix()
-
-        return self._sparse_matrix
-
-    def assemble_dual_Hodge_matrix( self ):
-        """
-        the dual Hodge matrix is the patch-wise multi-patch mass matrix
-        it is not stored by default but assembled on demand
-        """
-        if self._dual_Hodge_matrix is None:
-            Vh = self.fem_domain
-            assert Vh == self.fem_codomain
-
-            V = Vh.symbolic_space
-            domain = V.domain
-            # domain_h = V0h.domain:  would be nice...
-            u, v = elements_of(V, names='u, v')
-            # print(type(u))
-            # exit()
-            if isinstance(u, ScalarFunction):
-                expr   = u*v
-            else:
-                expr   = dot(u,v)
-            a = BilinearForm((u,v), integral(domain, expr))
-            ah = discretize(a, self._domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[self._backend_language])
-
-            self._dual_Hodge_matrix = ah.assemble()  # Mass matrix in stencil format
-            self._dual_Hodge_sparse_matrix = self._dual_Hodge_matrix.tosparse()
-
-    def get_dual_Hodge_sparse_matrix( self ):
-        if self._dual_Hodge_sparse_matrix is None:
-            self.assemble_dual_Hodge_matrix()
-
-        return self._dual_Hodge_sparse_matrix
+        self.assemble_dual_matrix()
+        return self._dual_sparse_matrix
+        
 
 #==============================================================================
 class BrokenGradient_2D(FemLinearOperator):
