@@ -287,8 +287,7 @@ class BlockVector( Vector ):
             req[i,j] = data_ex.start_update_ghost_regions(*self._interface_buf[i,j])
 
         for vi in self.blocks:
-            if not vi.ghost_regions_in_sync:
-                vi.update_ghost_regions(direction=direction)
+            vi.update_ghost_regions(direction=direction)
 
         for (i,j), data_ex in self._data_exchangers.items():
             data_ex.end_update_ghost_regions(req[i,j], *self._interface_buf[i,j])
@@ -419,7 +418,8 @@ class BlockLinearOperator( LinearOperator ):
         else:
             out = self.codomain.zeros()
 
-        v.update_ghost_regions()
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
 
         if self.n_block_rows == 1:
             for (_, j), L0j in self._blocks.items():
@@ -431,6 +431,7 @@ class BlockLinearOperator( LinearOperator ):
             for (i, j), Lij in self._blocks.items():
                 out[i] += Lij.dot(v[j])
 
+        out.ghost_regions_in_sync = False
         return out
 
     #--------------------------------------
