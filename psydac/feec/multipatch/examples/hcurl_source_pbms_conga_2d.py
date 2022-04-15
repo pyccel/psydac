@@ -25,6 +25,7 @@ from psydac.feec.multipatch.operators                   import HodgeOperator
 from psydac.feec.multipatch.plotting_utilities          import plot_field #, write_field_to_diag_grid, 
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_hcurl
+from psydac.feec.multipatch.utils_conga_2d              import DiagGrid
 from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
 from psydac.linalg.utilities                            import array_to_stencil
 from psydac.fem.basic                                   import FemField
@@ -34,6 +35,7 @@ def solve_hcurl_source_pbm(
         eta=-10., mu=1., nu=1., gamma_h=10.,
         plot_source=False, plot_dir=None, hide_plots=True,
         m_load_dir="", sol_filename="", sol_ref_filename="",
+        ref_nc=None, ref_deg=None,
 ):
     """
     solver for the problem: find u in H(curl), such that
@@ -226,21 +228,26 @@ def solve_hcurl_source_pbm(
     f_vect, u_bc, u_ex = get_source_and_solution_hcurl(
         source_type=source_type, eta=eta, mu=mu, domain=domain, domain_name=domain_name,
     )
-    # ref solution in V1h
+    # write values of ref solution on diag grid
+    diag_grid = DiagGrid(mappings=mappings, N_diag=100)
     if u_ex is not None:
         print('setting   uh_ref = P_geom(u_ex)   in V1h...')
         u_ex_x = lambdify(domain.coordinates, u_ex[0])
         u_ex_y = lambdify(domain.coordinates, u_ex[1])
         u_ex_log = [pull_2d_hcurl([u_ex_x, u_ex_y], m) for m in mappings_list]
         uh_ref = P1(u_ex_log)
+        diag_grid.write_sol_ref_values(uh_ref, space='V1')
     else:
-        print('importing   uh_ref  from file  {}...'.format(sol_ref_filename))
-        try:
-            uh_ref_c = np.load(sol_ref_filename)
-        except OSError:
-            print("-- WARNING: file not found, setting uh_ref = 0")
-            uh_ref_c = np.zeros(V1h.nbasis)
-        uh_ref = FemField(V1h, coeffs=array_to_stencil(uh_ref_c, V1h.vector_space))
+        print('importing   uh_ref  in ref_V1h  from file  {}...'.format(sol_ref_filename))
+        diag_grid.create_ref_fem_spaces(domain=domain, ref_nc=ref_nc, ref_deg=ref_deg)
+        diag_grid.import_ref_sol_from_coeffs(sol_ref_filename, space='V1')
+        diag_grid.write_sol_ref_values(space='V1')
+        # try:
+        #     uh_ref_c = np.load(sol_ref_filename)
+        # except OSError:
+        #     print("-- WARNING: file not found, setting uh_ref = 0")
+        #     uh_ref_c = np.zeros(V1h.nbasis)
+        # uh_ref = FemField(V1h, coeffs=array_to_stencil(uh_ref_c, V1h.vector_space))
 
     # compute approximate source f_h
     t_stamp = time_count(t_stamp)
@@ -295,8 +302,10 @@ def solve_hcurl_source_pbm(
         t_stamp = time_count(t_stamp)
         print('adding the lifted boundary condition...')
         uh_c += ubc_c
-
+    
+    uh = FemField(V1h, coeffs=array_to_stencil(uh_c, V1h.vector_space))
     t_stamp = time_count(t_stamp)
+
     print('plotting the FEM solution...')
     title = r'solution $u_h$ (amplitude) for $\eta = $'+repr(eta)
     params_str = 'eta={}_mu={}_nu={}_gamma_h={}'.format(eta, mu, nu, gamma_h)
@@ -307,19 +316,32 @@ def solve_hcurl_source_pbm(
         print('saving solution coeffs to file {}'.format(sol_filename))
         np.save(sol_filename, uh_c)
     time_count(t_stamp)
-
-    uh_ref_c = uh_ref.coeffs.toarray()
-    err_c = uh_c - uh_ref_c
-    l2_error = np.dot(err_c, H1_m.dot(err_c))**0.5
-    sol_norm = np.dot(uh_c, H1_m.dot(uh_c))**0.5
-    sol_ref_norm = np.dot(uh_ref_c, H1_m.dot(uh_ref_c))**0.5
+    
+    # diagnostics: error
+    diag_grid.write_sol_values(v=uh, space='V1')
+    sol_norm, sol_ref_norm, l2_error = diag_grid.compute_l2_error(space='V1')
     rel_l2_error = l2_error/(max(sol_norm, sol_ref_norm))
-    print(' ::  l2 norms  :: ')
-    print(' rel error =   {}'.format(rel_l2_error))
-    print(' solution =    {}'.format(sol_norm))
-    print(' ref sol =     {}'.format(sol_ref_norm))
+    print(' ::  l2 norms (computed via quadratures on diag_grid) :: ')
+    print(' solution :    {}'.format(sol_norm))
+    print(' ref sol  :     {}'.format(sol_ref_norm))
+    print(' rel error:   {}'.format(rel_l2_error))
+    
+    noms_and_errors = [sol_norm, sol_ref_norm, rel_l2_error]
 
-    return sol_norm, sol_ref_norm, rel_l2_error
+    if u_ex is not None:
+        print('u_ex is available: we compare quadrature on diag_grid with exact L2 error in V1h -- ')
+        uh_ref_c = uh_ref.coeffs.toarray()
+        err_c = uh_c - uh_ref_c
+        l2_error = np.dot(err_c, H1_m.dot(err_c))**0.5
+        sol_norm = np.dot(uh_c, H1_m.dot(uh_c))**0.5
+        sol_ref_norm = np.dot(uh_ref_c, H1_m.dot(uh_ref_c))**0.5
+        rel_l2_error = l2_error/(max(sol_norm, sol_ref_norm))
+        print(' ::  l2 norms (exact values for fields in V1h) :: ')
+        print(' solution :    {}'.format(sol_norm))
+        print(' ref sol  :     {}'.format(sol_ref_norm))
+        print(' rel error:   {}'.format(rel_l2_error))
+
+    return noms_and_errors
 
 if __name__ == '__main__':
 

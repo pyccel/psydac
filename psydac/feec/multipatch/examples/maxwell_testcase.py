@@ -45,9 +45,6 @@ source_proj='P_geom' # geom proj
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
 
-
-
-
 # backend_language = 'numba'
 backend_language='pyccel-gcc'
 
@@ -89,6 +86,8 @@ solve_hcurl_source_pbm(
     m_load_dir=m_load_dir,
     sol_filename=sol_filename,
     sol_ref_filename=sol_ref_filename,
+    ref_nc=ref_nc,
+    ref_deg=ref_deg,    
 )
 
 #
