@@ -106,15 +106,6 @@ def get_source_and_solution_hcurl(
         phi = exp(-tau**2/(2*sigma2))
         dx_tau = 2*( a*s + b*t)
         dy_tau = 2*(-a*s + b*t)
-        # dxx_tau = 2*(a + b)
-        # dyy_tau = 2*(a + b)
-
-        # dx_phi = (-tau*dx_tau/sigma2)*phi
-        # dy_phi = (-tau*dy_tau/sigma2)*phi
-        # grad_phi = Tuple(dx_phi, dy_phi)
-
-        # f_scal = -( (tau*dx_tau/sigma2)**2 - (tau*dxx_tau + dx_tau**2)/sigma2
-        #            +(tau*dy_tau/sigma2)**2 - (tau*dyy_tau + dy_tau**2)/sigma2 )*phi
 
         f_x =   dy_tau * phi
         f_y = - dx_tau * phi
@@ -125,6 +116,71 @@ def get_source_and_solution_hcurl(
 
     # u_ex = Tuple(0, 1)  # DEBUG
     return f_vect, u_bc, u_ex #, phi, grad_phi
+
+def get_source_and_solution_h1(source_type=None, eta=0, mu=0,
+                            domain=None, domain_name=None):
+
+    # exact solutions (if available)
+    u_ex = None
+
+    # bc solution: describe the bc on boundary. Inside domain, values should not matter. Homogeneous bc will be used if None
+    u_bc = None
+
+    # source terms
+    f_scal = None
+
+    # auxiliary term (for more diagnostics)
+    grad_phi = None
+    phi = None
+
+    x,y    = domain.coordinates
+
+    if source_type in ['manu_poisson_elliptic']:
+        x0 = 1.5
+        y0 = 1.5
+        s  = (x-x0) - (y-y0)
+        t  = (x-x0) + (y-y0)
+        a = (1/1.9)**2
+        b = (1/1.2)**2
+        sigma2 = 0.0121
+        tau = a*s**2 + b*t**2 - 1
+        phi = exp(-tau**2/(2*sigma2))
+        dx_tau = 2*( a*s + b*t)
+        dy_tau = 2*(-a*s + b*t)
+        dxx_tau = 2*(a + b)
+        dyy_tau = 2*(a + b)
+
+        dx_phi = (-tau*dx_tau/sigma2)*phi
+        dy_phi = (-tau*dy_tau/sigma2)*phi
+        grad_phi = Tuple(dx_phi, dy_phi)
+
+        f_scal = -( (tau*dx_tau/sigma2)**2 - (tau*dxx_tau + dx_tau**2)/sigma2
+                   +(tau*dy_tau/sigma2)**2 - (tau*dyy_tau + dy_tau**2)/sigma2 )*phi
+
+        # exact solution of  -p'' = f  with hom. bc's on pretzel domain
+        if mu == 1 and eta == 0:
+            u_ex = phi
+
+        if not domain_name in ['pretzel', 'pretzel_f']:
+            # we may have non-hom bc's            
+            u_bc = u_ex
+
+    elif source_type == 'manu_poisson_2':
+        f_scal = -4
+        u_ex   = x**2+y**2
+        u_bc   = u_ex
+
+    elif source_type == 'manu_poisson_sincos':
+        # manufactured solution for 
+        #  f = eta * u  -  mu * div grad u 
+        u_ex    = sin(pi*x)*cos(pi*y)
+        f_scal  = (eta + 2*mu*pi**2) * u_ex
+        u_bc = u_ex
+
+    else:
+        raise ValueError(source_type)
+
+    return f_scal, u_bc, u_ex
 
 
 

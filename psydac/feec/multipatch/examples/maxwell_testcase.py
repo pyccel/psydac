@@ -5,8 +5,6 @@ from psydac.feec.multipatch.utilities                   import time_count, FEM_s
 
 t_stamp_full = time_count()
 
-
-
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 #
 # test-case and numerical parameters:
@@ -23,10 +21,6 @@ eta = int(-omega**2 * roundoff)/roundoff
 nc = 16
 deg = 4
 
-# ref solution
-ref_nc = 20
-ref_deg = 6
-
 if homogeneous:
     case_dir = 'maxwell_hom'
     source_type = 'elliptic_J'
@@ -41,6 +35,10 @@ else:
 # domain_name = 'annulus_4'
 # source_proj='P_L2'
 source_proj='P_geom' # geom proj
+
+# ref solution (if no exact solution)
+ref_nc = 20
+ref_deg = 6
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 

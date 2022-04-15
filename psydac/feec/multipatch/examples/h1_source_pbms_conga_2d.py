@@ -23,7 +23,8 @@ from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
 from psydac.feec.multipatch.operators                   import HodgeOperator
 from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution
+from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_h1
+from psydac.feec.multipatch.utils_conga_2d              import DiagGrid
 from psydac.feec.multipatch.utilities                   import time_count
 
 from psydac.linalg.utilities import array_to_stencil
@@ -32,7 +33,9 @@ from psydac.fem.basic        import FemField
 def solve_h1_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_L2', source_type='manu_poisson',
         eta=-10., mu=1., gamma_h=10.,
-        plot_source=False, plot_dir=None, hide_plots=True, m_load_dir=""
+        plot_source=False, plot_dir=None, hide_plots=True,
+        m_load_dir="", sol_filename="", sol_ref_filename="",
+        ref_nc=None, ref_deg=None,
 ):
     """
     solver for the problem: find u in H^1, such that
@@ -84,17 +87,34 @@ def solve_h1_source_pbm(
     print(' backend_language = {}'.format(backend_language))
     print('---------------------------------------------------------------------------------------------------------')
 
-    print('building the multipatch domain...')
+    print()
+    print(' -- building discrete spaces and operators  --')
+
+    t_stamp = time_count()
+    print(' .. multi-patch domain...')
     domain = build_multipatch_domain(domain_name=domain_name)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
+
+    t_stamp = time_count(t_stamp)
+    print(' .. derham sequence...')
+    derham  = Derham(domain, ["H1", "Hcurl", "L2"])
+
+    t_stamp = time_count(t_stamp)
+    print(' .. discrete domain...')
     domain_h = discretize(domain, ncells=ncells)
 
-    print('building the symbolic and discrete deRham sequences...')
-    derham  = Derham(domain, ["H1", "Hcurl", "L2"])
+    t_stamp = time_count(t_stamp)
+    print(' .. discrete derham sequence...')
     derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
 
-    # multi-patch (broken) spaces
+    t_stamp = time_count(t_stamp)
+    print(' .. commuting projection operators...')
+    nquads = [4*(d + 1) for d in degree]
+    P0, P1, P2 = derham_h.projectors(nquads=nquads)
+
+    t_stamp = time_count(t_stamp)
+    print(' .. multi-patch spaces...')
     V0h = derham_h.V0
     V1h = derham_h.V1
     V2h = derham_h.V2
@@ -102,33 +122,37 @@ def solve_h1_source_pbm(
     print('dim(V1h) = {}'.format(V1h.nbasis))
     print('dim(V2h) = {}'.format(V2h.nbasis))
 
-    print('broken differential operators...')
-    # broken (patch-wise) differential operators
-    bD0, bD1 = derham_h.broken_derivatives_as_operators
-    bD0_m = bD0.to_sparse_matrix()
-    # bD1_m = bD1.to_sparse_matrix()
-
-    print('building the discrete operators:')
-    print('commuting projection operators...')
-    nquads = [4*(d + 1) for d in degree]
-    P0, P1, P2 = derham_h.projectors(nquads=nquads)
-
     I0 = IdLinearOperator(V0h)
     I0_m = I0.to_sparse_matrix()
 
-    print('Hodge operators...')
+    print(' .. Hodge operators...')
     # multi-patch (broken) linear operators / matrices
     H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=0)
     H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
 
+    t_stamp = time_count(t_stamp)
+    print(' .. Hodge matrix H0_m = M0_m ...')
     H0_m  = H0.to_sparse_matrix()        # = mass matrix of V0
+    t_stamp = time_count(t_stamp)
+    print(' .. dual Hodge matrix dH0_m = inv_M0_m ...')
     dH0_m = H0.get_dual_sparse_matrix()  # = inverse mass matrix of V0
+
+    t_stamp = time_count(t_stamp)
+    print(' .. Hodge matrix H1_m = M1_m ...')
     H1_m  = H1.to_sparse_matrix()  # = mass matrix of V1
 
-    print('conforming projection operators...')
+    t_stamp = time_count(t_stamp)
+    print(' .. conforming Projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
     cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)    
     cP0_m = cP0.to_sparse_matrix()
+
+    t_stamp = time_count(t_stamp)
+    print(' .. broken differential operators...')
+    # broken (patch-wise) differential operators
+    bD0, bD1 = derham_h.broken_derivatives_as_operators
+    bD0_m = bD0.to_sparse_matrix()
+    # bD1_m = bD1.to_sparse_matrix()
 
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
@@ -148,30 +172,33 @@ def solve_h1_source_pbm(
             ubc_c = None
         return ubc_c
 
+    print(' .. div grad operator...')
     # Conga (projection-based) stiffness matrices:
     # div grad:
     pre_DG_m = - bD0_m.transpose() @ H1_m @ bD0_m
 
     # jump penalization:
+    print(' .. jump stabilization matrix...')
     jump_penal_m = I0_m - cP0_m
     JP0_m = jump_penal_m.transpose() * H0_m * jump_penal_m
 
+    print(' .. full operator matrix...')
+    print('eta = {}'.format(eta))
+    print('mu = {}'.format(mu))
     pre_A_m = cP0_m.transpose() @ ( eta * H0_m - mu * pre_DG_m )  # useful for the boundary condition (if present)
     A_m = pre_A_m @ cP0_m + gamma_h * JP0_m
 
-    print('getting the source and ref solution...')
-    # (not all the returned functions are useful here)
-    N_diag = 200
-    method = 'conga'
-    f_scal, f_vect, u_bc, ph_ref, uh_ref, p_ex, u_ex, phi, grad_phi = get_source_and_solution(
+    t_stamp = time_count(t_stamp)
+    print()
+    print(' -- getting source --')
+    f_scal, u_bc, u_ex = get_source_and_solution_h1(
         source_type=source_type, eta=eta, mu=mu, domain=domain, domain_name=domain_name,
-        refsol_params=[N_diag, method, source_proj],
     )
-
+    # compute approximate source f_h
     # compute approximate source f_h
     b_c = f_c = None
     if source_proj == 'P_geom':
-        print('projecting the source with commuting projection P0...')
+        print(' .. projecting the source with commuting projection P0...')
         f = lambdify(domain.coordinates, f_scal)
         f_log = [pull_2d_h1(f, m) for m in mappings_list]
         f_h = P0(f_log)
@@ -179,7 +206,7 @@ def solve_h1_source_pbm(
         b_c = H0_m.dot(f_c)
 
     elif source_proj == 'P_L2':
-        print('projecting the source with L2 projection...')
+        print(' .. projecting the source with L2 projection...')
         v  = element_of(V0h.symbolic_space, name='v')
         expr = f_scal * v
         l = LinearForm(v, integral(domain, expr))
@@ -195,40 +222,86 @@ def solve_h1_source_pbm(
         plot_field(numpy_coeffs=f_c, Vh=V0h, space_kind='h1', domain=domain, title='f_h with P = '+source_proj, filename=plot_dir+'/fh_'+source_proj+'.png', hide_plot=hide_plots)
 
     ubc_c = lift_u_bc(u_bc)
-
     if ubc_c is not None:
         # modified source for the homogeneous pbm
+        t_stamp = time_count(t_stamp)
         print('modifying the source with lifted bc solution...')
         b_c = b_c - pre_A_m.dot(ubc_c)
 
+    print()
+    print(' -- ref solution: writing values on diag grid  --')
+    diag_grid = DiagGrid(mappings=mappings, N_diag=100)
+    if u_ex is not None:
+        print(' .. u_ex is known:')
+        print('    setting uh_ref = P_geom(u_ex)')
+        u_ex = lambdify(domain.coordinates, u_ex)
+        u_ex_log = [pull_2d_h1(u_ex, m) for m in mappings_list]
+        uh_ref = P0(u_ex_log)
+        diag_grid.write_sol_ref_values(uh_ref, space='V0')
+    else:
+        print(' .. u_ex is unknown:')
+        print('    importing uh_ref in ref_V1h from file {}...'.format(sol_ref_filename))
+        diag_grid.create_ref_fem_spaces(domain=domain, ref_nc=ref_nc, ref_deg=ref_deg)
+        diag_grid.import_ref_sol_from_coeffs(sol_ref_filename, space='V0')
+        diag_grid.write_sol_ref_values(space='V0')
+
+
     # direct solve with scipy spsolve
-    print('solving source problem with scipy.spsolve...')
+    t_stamp = time_count(t_stamp)
+    print()
+    print(' -- solving source problem with scipy.spsolve...')
     uh_c = spsolve(A_m, b_c)
 
     # project the homogeneous solution on the conforming problem space
-    print('projecting the homogeneous solution on the conforming problem space...')
+    print(' .. projecting the homogeneous solution on the conforming problem space...')
     uh_c = cP0_m.dot(uh_c)
 
     if ubc_c is not None:
         # adding the lifted boundary condition
-        print('adding the lifted boundary condition...')
+        print(' .. adding the lifted boundary condition...')
         uh_c += ubc_c
 
-    print('getting and plotting the FEM solution from numpy coefs array...')
-    title = r'solution $\phi_h$ (amplitude)'
-    params_str = 'eta={}_mu={}_gamma_h={}'.format(eta, mu, gamma_h)
-    plot_field(numpy_coeffs=uh_c, Vh=V0h, space_kind='h1', domain=domain, title=title, filename=plot_dir+'/'+params_str+'_phi_h.png', hide_plot=hide_plots)
+    uh = FemField(V0h, coeffs=array_to_stencil(uh_c, V0h.vector_space))
+    t_stamp = time_count(t_stamp)
 
-    print('u_ex:')
-    print(u_ex)
+    print()
+    print(' -- plots and diagnostics  --')
+    if plot_dir:
+        print(' .. plotting the FEM solution...')
+        title = r'solution $\phi_h$ (amplitude)'
+        params_str = 'eta={}_mu={}_gamma_h={}'.format(eta, mu, gamma_h)
+        plot_field(numpy_coeffs=uh_c, Vh=V0h, space_kind='h1', domain=domain, title=title, filename=plot_dir+'/'+params_str+'_phi_h.png', hide_plot=hide_plots)
+    if sol_filename:
+        print(' .. saving solution coeffs to file {}'.format(sol_filename))
+        np.save(sol_filename, uh_c)
 
-    if u_ex:
-        u         = element_of(V0h.symbolic_space, name='u')
-        l2norm    = Norm(u - u_ex, domain, kind='l2')
-        l2norm_h  = discretize(l2norm, domain_h, V0h)
-        uh_c      = array_to_stencil(uh_c, V0h.vector_space)
-        l2_error  = l2norm_h.assemble(u=FemField(V0h, coeffs=uh_c))
-        return l2_error
+    # diagnostics: error
+    diag_grid.write_sol_values(v=uh, space='V0')
+    sol_norm, sol_ref_norm, l2_error = diag_grid.compute_l2_error(space='V0')
+    rel_l2_error = l2_error/(max(sol_norm, sol_ref_norm))
+    print(' .. l2 norms (computed via quadratures on diag_grid) :: ')
+    print('    solution :    {}'.format(sol_norm))
+    print('    ref sol  :     {}'.format(sol_ref_norm))
+    print('    rel error:   {}'.format(rel_l2_error))
+    
+    noms_and_errors = [sol_norm, sol_ref_norm, rel_l2_error]
+
+    if u_ex is not None:
+        print(' -- u_ex is available: we compare quadrature on diag_grid with exact L2 error in V0h -- ')
+        uh_ref_c = uh_ref.coeffs.toarray()
+        err_c = uh_c - uh_ref_c
+        l2_error = np.dot(err_c, H0_m.dot(err_c))**0.5
+        sol_norm = np.dot(uh_c, H0_m.dot(uh_c))**0.5
+        sol_ref_norm = np.dot(uh_ref_c, H0_m.dot(uh_ref_c))**0.5
+        rel_l2_error = l2_error/(max(sol_norm, sol_ref_norm))
+        print(' .. l2 norms (exact values for fields in V1h) :: ')
+        print('    solution :    {}'.format(sol_norm))
+        print('    ref sol  :     {}'.format(sol_ref_norm))
+        print('    rel error:   {}'.format(rel_l2_error))
+
+    return noms_and_errors
+
+
 
 if __name__ == '__main__':
 

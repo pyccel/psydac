@@ -93,32 +93,34 @@ def solve_hcurl_source_pbm(
     print(' backend_language = {}'.format(backend_language))
     print('---------------------------------------------------------------------------------------------------------')
 
+    print()
+    print(' -- building discrete spaces and operators  --')
+
     t_stamp = time_count()
-    print('building symbolic domain sequence...')
+    print(' .. multi-patch domain...')
     domain = build_multipatch_domain(domain_name=domain_name)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
 
     t_stamp = time_count(t_stamp)
-    print('building derham sequence...')
+    print(' .. derham sequence...')
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
 
     t_stamp = time_count(t_stamp)
-    print('building discrete domain...')
+    print(' .. discrete domain...')
     domain_h = discretize(domain, ncells=ncells)
 
     t_stamp = time_count(t_stamp)
-    print('building discrete derham sequence...')
+    print(' .. discrete derham sequence...')
     derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
 
     t_stamp = time_count(t_stamp)
-    print('building commuting projection operators...')
+    print(' .. commuting projection operators...')
     nquads = [4*(d + 1) for d in degree]
     P0, P1, P2 = derham_h.projectors(nquads=nquads)
 
-    # multi-patch (broken) spaces
     t_stamp = time_count(t_stamp)
-    print('calling the multi-patch spaces...')
+    print(' .. multi-patch spaces...')
     V0h = derham_h.V0
     V1h = derham_h.V1
     V2h = derham_h.V2
@@ -127,12 +129,12 @@ def solve_hcurl_source_pbm(
     print('dim(V2h) = {}'.format(V2h.nbasis))
 
     t_stamp = time_count(t_stamp)
-    print('building the Id operator and matrix...')
+    print(' .. Id operator and matrix...')
     I1 = IdLinearOperator(V1h)
     I1_m = I1.to_sparse_matrix()
 
     t_stamp = time_count(t_stamp)
-    print('instanciating the Hodge operators...')
+    print(' .. Hodge operators...')
     # multi-patch (broken) linear operators / matrices
     # other option: define as Hodge Operators:
     H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=0)
@@ -140,25 +142,25 @@ def solve_hcurl_source_pbm(
     H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=2)
 
     t_stamp = time_count(t_stamp)
-    print('getting the Hodge matrix H0_m = M0_m ...')
+    print(' .. Hodge matrix H0_m = M0_m ...')
     H0_m  = H0.to_sparse_matrix()              
     t_stamp = time_count(t_stamp)
-    print('getting the dual Hodge matrix dH0_m = inv_M0_m ...')
+    print(' .. dual Hodge matrix dH0_m = inv_M0_m ...')
     dH0_m = H0.get_dual_sparse_matrix()  
 
     t_stamp = time_count(t_stamp)
-    print('getting the Hodge matrix H1_m = M1_m ...')
+    print(' .. Hodge matrix H1_m = M1_m ...')
     H1_m  = H1.to_sparse_matrix()              
     t_stamp = time_count(t_stamp)
-    print('getting the dual Hodge matrix dH1_m = inv_M1_m ...')
+    print(' .. dual Hodge matrix dH1_m = inv_M1_m ...')
     dH1_m = H1.get_dual_sparse_matrix()  
 
     t_stamp = time_count(t_stamp)
-    print('getting the Hodge matrix dH2_m = M2_m ...')
+    print(' .. Hodge matrix dH2_m = M2_m ...')
     H2_m = H2.to_sparse_matrix()              
 
     t_stamp = time_count(t_stamp)
-    print('building the conforming Projection operators and matrices...')
+    print(' .. conforming Projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
     cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
     cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
@@ -166,7 +168,7 @@ def solve_hcurl_source_pbm(
     cP1_m = cP1.to_sparse_matrix()
 
     t_stamp = time_count(t_stamp)
-    print('building the broken differential operators and matrices...')
+    print(' .. broken differential operators...')
     # broken (patch-wise) differential operators
     bD0, bD1 = derham_h.broken_derivatives_as_operators
     bD0_m = bD0.to_sparse_matrix()
@@ -194,38 +196,34 @@ def solve_hcurl_source_pbm(
     # Conga (projection-based) stiffness matrices
     # curl curl:
     t_stamp = time_count(t_stamp)
-    print('computing the curl-curl stiffness matrix...')
+    print(' .. curl-curl stiffness matrix...')
     print(bD1_m.shape, H2_m.shape )
     pre_CC_m = bD1_m.transpose() @ H2_m @ bD1_m
     # CC_m = cP1_m.transpose() @ pre_CC_m @ cP1_m  # Conga stiffness matrix
 
     # grad div:
     t_stamp = time_count(t_stamp)
-    print('computing the grad-div stiffness matrix...')
+    print(' .. grad-div stiffness matrix...')
     pre_GD_m = - H1_m @ bD0_m @ cP0_m @ dH0_m @ cP0_m.transpose() @ bD0_m.transpose() @ H1_m
     # GD_m = cP1_m.transpose() @ pre_GD_m @ cP1_m  # Conga stiffness matrix
 
-    # jump penalization:
+    # jump stabilization:
     t_stamp = time_count(t_stamp)
-    print('computing the jump penalization matrix...')
+    print(' .. jump stabilization matrix...')
     jump_penal_m = I1_m - cP1_m
     JP_m = jump_penal_m.transpose() * H1_m * jump_penal_m
 
     t_stamp = time_count(t_stamp)
-    print('computing the full operator matrix...')
+    print(' .. full operator matrix...')
     print('eta = {}'.format(eta))
     print('mu = {}'.format(mu))
     print('nu = {}'.format(nu))
     pre_A_m = cP1_m.transpose() @ ( eta * H1_m + mu * pre_CC_m - nu * pre_GD_m )  # useful for the boundary condition (if present)
     A_m = pre_A_m @ cP1_m + gamma_h * JP_m
 
-    # get exact source, bc's, ref solution...
-    # (not all the returned functions are useful here)
     t_stamp = time_count(t_stamp)
     print()
     print(' -- getting source --')
-    N_diag = 200
-    method = 'conga'
     f_vect, u_bc, u_ex = get_source_and_solution_hcurl(
         source_type=source_type, eta=eta, mu=mu, domain=domain, domain_name=domain_name,
     )
@@ -234,7 +232,7 @@ def solve_hcurl_source_pbm(
     b_c = f_c = None
     if source_proj == 'P_geom':
         # f_h = P1-geometric (commuting) projection of f_vect
-        print('projecting the source with commuting projection...')
+        print(' .. projecting the source with commuting projection...')
         f_x = lambdify(domain.coordinates, f_vect[0])
         f_y = lambdify(domain.coordinates, f_vect[1])
         f_log = [pull_2d_hcurl([f_x, f_y], m) for m in mappings_list]
@@ -244,7 +242,7 @@ def solve_hcurl_source_pbm(
 
     elif source_proj == 'P_L2':
         # f_h = L2 projection of f_vect
-        print('projecting the source with L2 projection...')
+        print(' .. projecting the source with L2 projection...')
         v  = element_of(V1h.symbolic_space, name='v')
         expr = dot(f_vect,v)
         l = LinearForm(v, integral(domain, expr))
@@ -263,7 +261,7 @@ def solve_hcurl_source_pbm(
     if ubc_c is not None:
         # modified source for the homogeneous pbm
         t_stamp = time_count(t_stamp)
-        print('modifying the source with lifted bc solution...')
+        print(' .. modifying the source with lifted bc solution...')
         b_c = b_c - pre_A_m.dot(ubc_c)
 
     print()
@@ -287,18 +285,18 @@ def solve_hcurl_source_pbm(
     # direct solve with scipy spsolve
     t_stamp = time_count(t_stamp)
     print()
-    print('solving source problem with scipy.spsolve...')
+    print(' -- solving source problem with scipy.spsolve...')
     uh_c = spsolve(A_m, b_c)
 
     # project the homogeneous solution on the conforming problem space
     t_stamp = time_count(t_stamp)
-    print('projecting the homogeneous solution on the conforming problem space...')
+    print(' .. projecting the homogeneous solution on the conforming problem space...')
     uh_c = cP1_m.dot(uh_c)
 
     if ubc_c is not None:
         # adding the lifted boundary condition
         t_stamp = time_count(t_stamp)
-        print('adding the lifted boundary condition...')
+        print(' .. adding the lifted boundary condition...')
         uh_c += ubc_c
     
     uh = FemField(V1h, coeffs=array_to_stencil(uh_c, V1h.vector_space))
@@ -328,7 +326,7 @@ def solve_hcurl_source_pbm(
     noms_and_errors = [sol_norm, sol_ref_norm, rel_l2_error]
 
     if u_ex is not None:
-        print('u_ex is available: we compare quadrature on diag_grid with exact L2 error in V1h -- ')
+        print(' -- u_ex is available: we compare quadrature on diag_grid with exact L2 error in V1h -- ')
         uh_ref_c = uh_ref.coeffs.toarray()
         err_c = uh_c - uh_ref_c
         l2_error = np.dot(err_c, H1_m.dot(err_c))**0.5
