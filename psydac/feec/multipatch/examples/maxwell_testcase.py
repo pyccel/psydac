@@ -11,7 +11,7 @@ t_stamp_full = time_count()
 #
 # test-case and numerical parameters:
 
-homogeneous = True # False #
+homogeneous = True # False # 
 
 omega = np.sqrt(170) # source time pulsation
 roundoff = 1e4
@@ -38,6 +38,7 @@ else:
     domain_name = 'pretzel_f'
     # domain_name = 'curved_L_shape'
 
+# domain_name = 'annulus_4'
 # source_proj='P_L2'
 source_proj='P_geom' # geom proj
 

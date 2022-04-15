@@ -26,6 +26,7 @@ def get_source_and_sol_for_magnetostatic_pbm(
     domain=None, domain_name=None,
     refsol_params=None
 ):
+    u_ex = None
     x,y    = domain.coordinates
     if source_type == 'dipole_J':
         # we compute two possible source terms:
@@ -60,10 +61,7 @@ def get_source_and_sol_for_magnetostatic_pbm(
     else:
         raise ValueError(source_type)
 
-    # ref solution in V1h:
-    uh_ref = get_sol_ref_V1h(source_type, domain, domain_name, refsol_params)
-
-    return f_scal, f_vect, j_scal, uh_ref
+    return f_scal, f_vect, j_scal # , u_ex
 
     
 def get_source_and_solution_hcurl(
@@ -125,6 +123,7 @@ def get_source_and_solution_hcurl(
     else:
         raise ValueError(source_type)
 
+    # u_ex = Tuple(0, 1)  # DEBUG
     return f_vect, u_bc, u_ex #, phi, grad_phi
 
 

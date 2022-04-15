@@ -222,33 +222,13 @@ def solve_hcurl_source_pbm(
     # get exact source, bc's, ref solution...
     # (not all the returned functions are useful here)
     t_stamp = time_count(t_stamp)
-    print('getting the source and ref solution...')
+    print()
+    print(' -- getting source --')
     N_diag = 200
     method = 'conga'
     f_vect, u_bc, u_ex = get_source_and_solution_hcurl(
         source_type=source_type, eta=eta, mu=mu, domain=domain, domain_name=domain_name,
     )
-    # write values of ref solution on diag grid
-    diag_grid = DiagGrid(mappings=mappings, N_diag=100)
-    if u_ex is not None:
-        print('setting   uh_ref = P_geom(u_ex)   in V1h...')
-        u_ex_x = lambdify(domain.coordinates, u_ex[0])
-        u_ex_y = lambdify(domain.coordinates, u_ex[1])
-        u_ex_log = [pull_2d_hcurl([u_ex_x, u_ex_y], m) for m in mappings_list]
-        uh_ref = P1(u_ex_log)
-        diag_grid.write_sol_ref_values(uh_ref, space='V1')
-    else:
-        print('importing   uh_ref  in ref_V1h  from file  {}...'.format(sol_ref_filename))
-        diag_grid.create_ref_fem_spaces(domain=domain, ref_nc=ref_nc, ref_deg=ref_deg)
-        diag_grid.import_ref_sol_from_coeffs(sol_ref_filename, space='V1')
-        diag_grid.write_sol_ref_values(space='V1')
-        # try:
-        #     uh_ref_c = np.load(sol_ref_filename)
-        # except OSError:
-        #     print("-- WARNING: file not found, setting uh_ref = 0")
-        #     uh_ref_c = np.zeros(V1h.nbasis)
-        # uh_ref = FemField(V1h, coeffs=array_to_stencil(uh_ref_c, V1h.vector_space))
-
     # compute approximate source f_h
     t_stamp = time_count(t_stamp)
     b_c = f_c = None
@@ -280,15 +260,33 @@ def solve_hcurl_source_pbm(
         plot_field(numpy_coeffs=f_c, Vh=V1h, space_kind='hcurl', domain=domain, title='f_h with P = '+source_proj, filename=plot_dir+'/fh_'+source_proj+'.png', hide_plot=hide_plots)
 
     ubc_c = lift_u_bc(u_bc)
-
     if ubc_c is not None:
         # modified source for the homogeneous pbm
         t_stamp = time_count(t_stamp)
         print('modifying the source with lifted bc solution...')
         b_c = b_c - pre_A_m.dot(ubc_c)
 
+    print()
+    print(' -- ref solution: writing values on diag grid  --')
+    diag_grid = DiagGrid(mappings=mappings, N_diag=100)
+    if u_ex is not None:
+        print(' .. u_ex is known:')
+        print('    setting uh_ref = P_geom(u_ex)')
+        u_ex_x = lambdify(domain.coordinates, u_ex[0])
+        u_ex_y = lambdify(domain.coordinates, u_ex[1])
+        u_ex_log = [pull_2d_hcurl([u_ex_x, u_ex_y], m) for m in mappings_list]
+        uh_ref = P1(u_ex_log)
+        diag_grid.write_sol_ref_values(uh_ref, space='V1')
+    else:
+        print(' .. u_ex is unknown:')
+        print('    importing uh_ref in ref_V1h from file {}...'.format(sol_ref_filename))
+        diag_grid.create_ref_fem_spaces(domain=domain, ref_nc=ref_nc, ref_deg=ref_deg)
+        diag_grid.import_ref_sol_from_coeffs(sol_ref_filename, space='V1')
+        diag_grid.write_sol_ref_values(space='V1')
+
     # direct solve with scipy spsolve
     t_stamp = time_count(t_stamp)
+    print()
     print('solving source problem with scipy.spsolve...')
     uh_c = spsolve(A_m, b_c)
 
@@ -306,14 +304,15 @@ def solve_hcurl_source_pbm(
     uh = FemField(V1h, coeffs=array_to_stencil(uh_c, V1h.vector_space))
     t_stamp = time_count(t_stamp)
 
-    print('plotting the FEM solution...')
-    title = r'solution $u_h$ (amplitude) for $\eta = $'+repr(eta)
-    params_str = 'eta={}_mu={}_nu={}_gamma_h={}'.format(eta, mu, nu, gamma_h)
-
+    print()
+    print(' -- plots and diagnostics  --')
     if plot_dir:
+        print(' .. plotting the FEM solution...')
+        title = r'solution $u_h$ (amplitude) for $\eta = $'+repr(eta)
+        params_str = 'eta={}_mu={}_nu={}_gamma_h={}'.format(eta, mu, nu, gamma_h)
         plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', domain=domain, title=title, filename=plot_dir+'/'+params_str+'_uh.png', hide_plot=hide_plots)
     if sol_filename:
-        print('saving solution coeffs to file {}'.format(sol_filename))
+        print(' .. saving solution coeffs to file {}'.format(sol_filename))
         np.save(sol_filename, uh_c)
     time_count(t_stamp)
     
@@ -321,10 +320,10 @@ def solve_hcurl_source_pbm(
     diag_grid.write_sol_values(v=uh, space='V1')
     sol_norm, sol_ref_norm, l2_error = diag_grid.compute_l2_error(space='V1')
     rel_l2_error = l2_error/(max(sol_norm, sol_ref_norm))
-    print(' ::  l2 norms (computed via quadratures on diag_grid) :: ')
-    print(' solution :    {}'.format(sol_norm))
-    print(' ref sol  :     {}'.format(sol_ref_norm))
-    print(' rel error:   {}'.format(rel_l2_error))
+    print(' .. l2 norms (computed via quadratures on diag_grid) :: ')
+    print('    solution :    {}'.format(sol_norm))
+    print('    ref sol  :     {}'.format(sol_ref_norm))
+    print('    rel error:   {}'.format(rel_l2_error))
     
     noms_and_errors = [sol_norm, sol_ref_norm, rel_l2_error]
 
@@ -336,10 +335,10 @@ def solve_hcurl_source_pbm(
         sol_norm = np.dot(uh_c, H1_m.dot(uh_c))**0.5
         sol_ref_norm = np.dot(uh_ref_c, H1_m.dot(uh_ref_c))**0.5
         rel_l2_error = l2_error/(max(sol_norm, sol_ref_norm))
-        print(' ::  l2 norms (exact values for fields in V1h) :: ')
-        print(' solution :    {}'.format(sol_norm))
-        print(' ref sol  :     {}'.format(sol_ref_norm))
-        print(' rel error:   {}'.format(rel_l2_error))
+        print(' .. l2 norms (exact values for fields in V1h) :: ')
+        print('    solution :    {}'.format(sol_norm))
+        print('    ref sol  :     {}'.format(sol_ref_norm))
+        print('    rel error:   {}'.format(rel_l2_error))
 
     return noms_and_errors
 

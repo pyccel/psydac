@@ -101,9 +101,11 @@ def get_grid_quad_weights(etas, patch_logvols, mappings_list):  #_obj):
         N1 = eta_1.shape[1]
 
         log_weight = patch_logvols[k]/(N0*N1)
+        Fk = mappings_list[k].get_callable_mapping()
         for i, x1i in enumerate(eta_1[:, 0]):
             for j, x2j in enumerate(eta_2[0, :]):
-                quad_weights[k][i, j] = push_2d_l2(one_field, x1i, x2j, mapping=mappings_list[k]) * log_weight
+                det_Fk_ij = Fk.metric_det(x1i, x2j)**0.5
+                quad_weights[k][i, j] = det_Fk_ij * log_weight
 
     return quad_weights
 
