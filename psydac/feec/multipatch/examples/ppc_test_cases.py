@@ -16,8 +16,6 @@ from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.plotting_utilities          import get_plotting_grid, my_small_plot, my_small_streamplot
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 
-from psydac.feec.multipatch.utilities import sol_ref_fn, error_fn, get_method_name, get_fem_name, get_load_dir
-
 comm = MPI.COMM_WORLD
 
 
@@ -67,17 +65,78 @@ def get_source_and_sol_for_magnetostatic_pbm(
 
     return f_scal, f_vect, j_scal, uh_ref
 
+    
+def get_source_and_solution_hcurl(
+    source_type=None, eta=0, mu=0, nu=0,
+    domain=None, domain_name=None):
+    """
+    """
+
+    # exact solutions (if available)
+    u_ex = None
+    
+    # bc solution: describe the bc on boundary. Inside domain, values should not matter. Homogeneous bc will be used if None
+    u_bc = None
+
+    # source terms
+    f_vect = None
+    
+    # auxiliary term (for more diagnostics)
+    grad_phi = None
+    phi = None
+
+    x,y    = domain.coordinates
+
+    if source_type == 'manu_maxwell_inhom':
+        # used for Maxwell equation with manufactured solution
+        alpha   = eta
+        u_ex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+        f_vect  = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                        alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+        u_bc = u_ex
+
+    elif source_type == 'elliptic_J':
+        # no manufactured solution for Maxwell pbm
+        x0 = 1.5
+        y0 = 1.5
+        s  = (x-x0) - (y-y0)
+        t  = (x-x0) + (y-y0)
+        a = (1/1.9)**2
+        b = (1/1.2)**2
+        sigma2 = 0.0121
+        tau = a*s**2 + b*t**2 - 1
+        phi = exp(-tau**2/(2*sigma2))
+        dx_tau = 2*( a*s + b*t)
+        dy_tau = 2*(-a*s + b*t)
+        # dxx_tau = 2*(a + b)
+        # dyy_tau = 2*(a + b)
+
+        # dx_phi = (-tau*dx_tau/sigma2)*phi
+        # dy_phi = (-tau*dy_tau/sigma2)*phi
+        # grad_phi = Tuple(dx_phi, dy_phi)
+
+        # f_scal = -( (tau*dx_tau/sigma2)**2 - (tau*dxx_tau + dx_tau**2)/sigma2
+        #            +(tau*dy_tau/sigma2)**2 - (tau*dyy_tau + dy_tau**2)/sigma2 )*phi
+
+        f_x =   dy_tau * phi
+        f_y = - dx_tau * phi
+        f_vect = Tuple(f_x, f_y)
+
+    else:
+        raise ValueError(source_type)
+
+    return f_vect, u_bc, u_ex #, phi, grad_phi
+
+
 
 def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
                             domain=None, domain_name=None,
                             refsol_params=None):
     """
+    PREVIOUS FUNCTION: TO DISCARD
+
     compute source and reference solution (exact, or reference values) when possible, depending on the source_type
     """
-
-    # ref solution (values on diag grid)
-    ph_ref = None
-    uh_ref = None
 
     # exact solutions (if available)
     u_ex = None
@@ -119,7 +178,7 @@ def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
 
     elif source_type == 'manutor_poisson':
         # todo: remove if not used ?
-        # same as manu_poisson, with arbitrary value for tor
+        # same as manu_poisson_ellip, with arbitrary value for tor
         x0 = 1.5
         y0 = 1.5
         s  = (x-x0) - (y-y0)
@@ -328,40 +387,6 @@ def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
     else:
         raise ValueError(source_type)
 
-    if u_ex is None:
-        uh_ref = get_sol_ref_V1h(source_type, domain, domain_name, refsol_params)
-
-    return f_scal, f_vect, u_bc, ph_ref, uh_ref, p_ex, u_ex, phi, grad_phi
+    return f_scal, f_vect, u_bc, p_ex, u_ex, phi, grad_phi
 
 
-def get_sol_ref_V1h( source_type=None, domain=None, domain_name=None, refsol_params=None ):
-    """
-    get a reference solution as a V1h FemField
-    """
-    uh_ref = None
-    if refsol_params is not None:
-        N_diag, method_ref, source_proj_ref = refsol_params
-        u_ref_filename = ( get_load_dir(method=method_ref, domain_name=domain_name,nc=None,deg=None,data='solutions')
-                         + sol_ref_fn(source_type, N_diag, source_proj=source_proj_ref) )
-        print("no exact solution for this test-case, looking for ref solution values in file {}...".format(u_ref_filename))
-        if os.path.isfile(u_ref_filename):
-            print("-- file found")
-            with open(u_ref_filename, 'rb') as file:
-                ncells_degree = np.load(file)
-                ncells   = [int(i) for i in ncells_degree['ncells_degree'][0]]
-                degree   = [int(i) for i in ncells_degree['ncells_degree'][1]]
-
-            derham   = Derham(domain, ["H1", "Hcurl", "L2"])
-            domain_h = discretize(domain, ncells=ncells, comm=comm)
-            V1h      = discretize(derham.V1, domain_h, degree=degree, basis='M')
-            uh_ref   = FemField(V1h)
-            for i,Vi in enumerate(V1h.spaces):
-                for j,Vij in enumerate(Vi.spaces):
-                    filename = u_ref_filename+'_%d_%d'%(i,j)
-                    uij = Vij.import_fields(filename, 'phi')
-                    uh_ref.fields[i].fields[j].coeffs._data = uij[0].coeffs._data
-
-        else:
-            print("-- no file, skipping it")
-
-    return uh_ref

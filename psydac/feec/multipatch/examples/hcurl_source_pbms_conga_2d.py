@@ -22,10 +22,10 @@ from psydac.feec.pull_push import pull_2d_hcurl
 from psydac.feec.multipatch.api                         import discretize
 from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
 from psydac.feec.multipatch.operators                   import HodgeOperator
-from psydac.feec.multipatch.plotting_utilities          import plot_field
+from psydac.feec.multipatch.plotting_utilities          import plot_field #, write_field_to_diag_grid, 
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution
-from psydac.feec.multipatch.utilities                   import time_count
+from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_hcurl
+from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
 from psydac.linalg.utilities                            import array_to_stencil
 from psydac.fem.basic                                   import FemField
 
@@ -33,7 +33,7 @@ def solve_hcurl_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
         eta=-10., mu=1., nu=1., gamma_h=10.,
         plot_source=False, plot_dir=None, hide_plots=True,
-        m_load_dir=None,
+        m_load_dir="", sol_filename="", sol_ref_filename="",
 ):
     """
     solver for the problem: find u in H(curl), such that
@@ -223,10 +223,24 @@ def solve_hcurl_source_pbm(
     print('getting the source and ref solution...')
     N_diag = 200
     method = 'conga'
-    f_scal, f_vect, u_bc, ph_ref, uh_ref, p_ex, u_ex, phi, grad_phi = get_source_and_solution(
+    f_vect, u_bc, u_ex = get_source_and_solution_hcurl(
         source_type=source_type, eta=eta, mu=mu, domain=domain, domain_name=domain_name,
-        refsol_params=[N_diag, method, source_proj],
     )
+    # ref solution in V1h
+    if u_ex is not None:
+        print('setting   uh_ref = P_geom(u_ex)   in V1h...')
+        u_ex_x = lambdify(domain.coordinates, u_ex[0])
+        u_ex_y = lambdify(domain.coordinates, u_ex[1])
+        u_ex_log = [pull_2d_hcurl([u_ex_x, u_ex_y], m) for m in mappings_list]
+        uh_ref = P1(u_ex_log)
+    else:
+        print('importing   uh_ref  from file  {}...'.format(sol_ref_filename))
+        try:
+            uh_ref_c = np.load(sol_ref_filename)
+        except OSError:
+            print("-- WARNING: file not found, setting uh_ref = 0")
+            uh_ref_c = np.zeros(V1h.nbasis)
+        uh_ref = FemField(V1h, coeffs=array_to_stencil(uh_ref_c, V1h.vector_space))
 
     # compute approximate source f_h
     t_stamp = time_count(t_stamp)
@@ -283,22 +297,29 @@ def solve_hcurl_source_pbm(
         uh_c += ubc_c
 
     t_stamp = time_count(t_stamp)
-    print('getting and plotting the FEM solution from numpy coefs array...')
+    print('plotting the FEM solution...')
     title = r'solution $u_h$ (amplitude) for $\eta = $'+repr(eta)
     params_str = 'eta={}_mu={}_nu={}_gamma_h={}'.format(eta, mu, nu, gamma_h)
 
     if plot_dir:
         plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', domain=domain, title=title, filename=plot_dir+'/'+params_str+'_uh.png', hide_plot=hide_plots)
-
+    if sol_filename:
+        print('saving solution coeffs to file {}'.format(sol_filename))
+        np.save(sol_filename, uh_c)
     time_count(t_stamp)
 
-    if u_ex:
-        u         = element_of(V1h.symbolic_space, name='u')
-        l2norm    = Norm(Matrix([u[0] - u_ex[0],u[1] - u_ex[1]]), domain, kind='l2')
-        l2norm_h  = discretize(l2norm, domain_h, V1h)
-        uh_c      = array_to_stencil(uh_c, V1h.vector_space)
-        l2_error  = l2norm_h.assemble(u=FemField(V1h, coeffs=uh_c))
-        return l2_error
+    uh_ref_c = uh_ref.coeffs.toarray()
+    err_c = uh_c - uh_ref_c
+    l2_error = np.dot(err_c, H1_m.dot(err_c))**0.5
+    sol_norm = np.dot(uh_c, H1_m.dot(uh_c))**0.5
+    sol_ref_norm = np.dot(uh_ref_c, H1_m.dot(uh_ref_c))**0.5
+    rel_l2_error = l2_error/(max(sol_norm, sol_ref_norm))
+    print(' ::  l2 norms  :: ')
+    print(' rel error =   {}'.format(rel_l2_error))
+    print(' solution =    {}'.format(sol_norm))
+    print(' ref sol =     {}'.format(sol_ref_norm))
+
+    return sol_norm, sol_ref_norm, rel_l2_error
 
 if __name__ == '__main__':
 
@@ -325,7 +346,7 @@ if __name__ == '__main__':
     domain_name = 'pretzel_f'
     # domain_name = 'curved_L_shape'
     nc = 20
-    deg = 2
+    deg = 6
 
     # nc = 2
     # deg = 2

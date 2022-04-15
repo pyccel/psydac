@@ -22,9 +22,9 @@ def source_name(source_type=None, source_proj=None):
     assert source_type and source_proj
     return source_type+'_'+source_proj
 
-def sol_ref_fn(source_type, N_diag, source_proj=None):
-    """ Get the reference solution filename based on the source term type"""
-    fn = 'u_ref_'+source_name(source_type, source_proj)+'_N'+repr(N_diag)+'.npz'
+def FEM_sol_fn(source_type=None, source_proj=None):
+    """ Get the filename for FEM solution coeffs in numpy array format """
+    fn = 'sol_'+source_name(source_type, source_proj)+'.npy'
     return fn
 
 def error_fn(source_type=None, method=None, conf_proj=None, k=None, domain_name=None,deg=None):
@@ -32,7 +32,7 @@ def error_fn(source_type=None, method=None, conf_proj=None, k=None, domain_name=
     return 'errors/error_'+domain_name+'_'+source_type+'_'+'_deg'+repr(deg)+'_'+get_method_name(method, k, conf_proj=conf_proj)+'.txt'
 
 def get_method_name(method=None, k=None, conf_proj=None, penal_regime=None):
-    """ Get method name used to solve the multpatch problem"""
+    """ Get method name used to solve the multpatch problem """
     if method == 'nitsche':
         method_name = method
         if k==1:
