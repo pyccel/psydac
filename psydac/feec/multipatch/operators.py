@@ -33,6 +33,7 @@ from psydac.fem.basic                import FemField
 from psydac.feec.global_projectors               import Projector_H1, Projector_Hcurl, Projector_L2
 from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_2D
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
+from psydac.feec.multipatch.utilities            import time_count
 
 def get_patch_index_from_face(domain, face):
     """ Return the patch index of subdomain/boundary
@@ -886,13 +887,18 @@ class HodgeOperator( FemLinearOperator ):
                 self._dual_sparse_matrix = load_npz(dual_Hodge_storage_fn)
             else:
                 assert not primal_Hodge_is_stored
-                print("[HodgeOperator] assembling both sparse matrices for storage in {}...".format(load_dir))
+                t_stamp = time_count()
+                print("[HodgeOperator] assembling sparse matrices for storage in {}...".format(load_dir))
                 self.assemble_primal_matrix()
                 print("[HodgeOperator] storing primal Hodge sparse matrix in "+primal_Hodge_storage_fn)
                 save_npz(primal_Hodge_storage_fn, self._sparse_matrix)
+                #
+                t_stamp = time_count(t_stamp)
                 self.assemble_dual_matrix()
                 print("[HodgeOperator] storing dual Hodge sparse matrix in "+dual_Hodge_storage_fn)
                 save_npz(dual_Hodge_storage_fn, self._dual_sparse_matrix)
+                print("[HodgeOperator] done.")
+                time_count(t_stamp)
         else:
             # matrices are not stored, we will probably compute them later
             pass
@@ -902,7 +908,7 @@ class HodgeOperator( FemLinearOperator ):
         the primal Hodge matrix is the patch-wise multi-patch mass matrix
         it is not stored by default but assembled on demand
         """
-        if self._primal_matrix is None:
+        if self._matrix is None:
             Vh = self.fem_domain
             assert Vh == self.fem_codomain
 
@@ -928,10 +934,10 @@ class HodgeOperator( FemLinearOperator ):
     def assemble_dual_matrix(self):
 
         if self._dual_sparse_matrix is None:
-            if not self._primal_matrix:
+            if self._matrix is None:
                 self.assemble_primal_matrix()
 
-            M = self._primal_matrix  # mass matrix of the (primal) basis
+            M = self._matrix  # mass matrix of the (primal) basis
             nrows = M.n_block_rows
             ncols = M.n_block_cols
 
