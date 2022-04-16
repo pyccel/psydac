@@ -33,6 +33,7 @@ from psydac.fem.basic        import FemField
 def solve_h1_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_L2', source_type='manu_poisson',
         eta=-10., mu=1., gamma_h=10.,
+        project_sol=True,
         plot_source=False, plot_dir=None, hide_plots=True,
         m_load_dir="", sol_filename="", sol_ref_filename="",
         ref_nc=None, ref_deg=None,
@@ -161,10 +162,6 @@ def solve_h1_source_pbm(
         if u_bc is not None:
             print('lifting the boundary condition in V0h...  [warning: Not Tested Yet!]')
             # note: for simplicity we apply the full P0 on u_bc, but we only need to set the boundary dofs
-            # u_bc = lambdify(domain.coordinates, u_bc)
-            # u_bc_log = [pull_2d_h1(u_bc, m) for m in mappings_list]
-            # # it's a bit weird to apply P1 on the list of (pulled back) logical fields -- why not just apply it on u_bc ?
-            # uh_bc = P0(u_bc_log)
             uh_bc = P0_phys(u_bc, P0, domain, mappings_list)
             ubc_c = uh_bc.coeffs.toarray()
             # removing internal dofs (otherwise ubc_c may already be a very good approximation of uh_c ...)
@@ -212,14 +209,6 @@ def solve_h1_source_pbm(
         tilde_f_c = derham_h.get_dual_dofs(space='V0', f=f_scal, backend_language=backend_language, return_format='numpy_array')
         if plot_source:
             f_c = dH0_m.dot(tilde_f_c)
-        # v  = element_of(V0h.symbolic_space, name='v')
-        # expr = f_scal * v
-        # l = LinearForm(v, integral(domain, expr))
-        # lh = discretize(l, domain_h, V0h, backend=PSYDAC_BACKENDS[backend_language])
-        # b  = lh.assemble()
-        # b_c = b.toarray()
-        # if plot_source:
-        #     f_c = dH0_m.dot(b_c)
     else:
         raise ValueError(source_proj)
 
@@ -239,9 +228,6 @@ def solve_h1_source_pbm(
     if u_ex is not None:
         print(' .. u_ex is known:')
         print('    setting uh_ref = P_geom(u_ex)')
-        # u_ex = lambdify(domain.coordinates, u_ex)
-        # u_ex_log = [pull_2d_h1(u_ex, m) for m in mappings_list]
-        # uh_ref = P0(u_ex_log)
         uh_ref = P0_phys(u_ex, P0, domain, mappings_list)
         diag_grid.write_sol_ref_values(uh_ref, space='V0')
     else:
@@ -260,7 +246,8 @@ def solve_h1_source_pbm(
 
     # project the homogeneous solution on the conforming problem space
     print(' .. projecting the homogeneous solution on the conforming problem space...')
-    uh_c = cP0_m.dot(uh_c)
+    if project_sol:
+        uh_c = cP0_m.dot(uh_c)
 
     if ubc_c is not None:
         # adding the lifted boundary condition
@@ -286,40 +273,24 @@ def solve_h1_source_pbm(
     
     if u_ex is not None:
         check_diags = get_Vh_diags_for(v=uh, v_ref=uh_ref, M_m=H0_m, msg='error between Ph(u_ex) and u_h')
-
+        diags['norm_Pu_ex'] = check_diags['sol_ref_norm']
+        diags['rel_l2_error_in_Vh'] = check_diags['rel_l2_error']
     return diags
 
 
-
 if __name__ == '__main__':
+    # quick run, to test 
 
     t_stamp_full = time_count()
-
-    quick_run = True
-    # quick_run = False
 
     omega = np.sqrt(170) # source
     roundoff = 1e4
     eta = int(-omega**2 * roundoff)/roundoff
-    # print(eta)
-    # source_type = 'elliptic_J'
     source_type = 'manu_poisson'
 
-    # if quick_run:
-    #     domain_name = 'curved_L_shape'
-    #     nc = 4
-    #     deg = 2
-    # else:
-    #     nc = 8
-    #     deg = 4
-
-    domain_name = 'pretzel_f'
-    # domain_name = 'curved_L_shape'
-    nc = 10
+    domain_name = 'curved_L_shape'
+    nc = 4
     deg = 2
-
-    # nc = 2
-    # deg = 2
 
     run_dir = '{}_{}_nc={}_deg={}/'.format(domain_name, source_type, nc, deg)
     solve_h1_source_pbm(
