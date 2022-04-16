@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from psydac.feec.multipatch.examples.hcurl_source_pbms_conga_2d import solve_hcurl_source_pbm
-from psydac.feec.multipatch.utilities                   import time_count, FEM_sol_fn
+from psydac.feec.multipatch.utilities                   import time_count, FEM_sol_fn, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir
 
 t_stamp_full = time_count()
 
@@ -47,18 +47,18 @@ ref_deg = 6
 # backend_language = 'numba'
 backend_language='pyccel-gcc'
 
-run_dir = '{}_{}_nc={}_deg={}'.format(domain_name, source_type, nc, deg)
-plot_dir = './plots/'+case_dir+'/'+run_dir
+run_dir = get_run_dir(domain_name, source_type, nc, deg)
+plot_dir = get_plot_dir(case_dir, run_dir)
+
 # to save and load matrices
-m_load_dir = './saved_matrices/matrices_{}_nc={}_deg={}'.format(domain_name, nc, deg)
+m_load_dir = get_mat_dir(domain_name, nc, deg)
 # to save the FEM sol
-sol_dir = './saved_solutions/'+case_dir+'/solutions_{}_nc={}_deg={}'.format(domain_name, nc, deg)
+sol_dir = get_sol_dir(case_dir, domain_name, nc, deg)
 sol_filename = sol_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
 if not os.path.exists(sol_dir):
     os.makedirs(sol_dir)
-
 # to load the ref FEM sol
-sol_ref_dir = './saved_solutions/'+case_dir+'/solutions_{}_nc={}_deg={}'.format(domain_name, ref_nc, ref_deg)
+sol_ref_dir = get_sol_dir(case_dir, domain_name, ref_nc, ref_deg)
 sol_ref_filename = sol_ref_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
 
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 

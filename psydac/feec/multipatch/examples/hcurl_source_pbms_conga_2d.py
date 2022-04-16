@@ -25,7 +25,7 @@ from psydac.feec.multipatch.operators                   import HodgeOperator
 from psydac.feec.multipatch.plotting_utilities          import plot_field #, write_field_to_diag_grid, 
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_hcurl
-from psydac.feec.multipatch.utils_conga_2d              import DiagGrid
+from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P1_phys, get_Vh_diags_for
 from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
 from psydac.linalg.utilities                            import array_to_stencil
 from psydac.fem.basic                                   import FemField
@@ -181,11 +181,12 @@ def solve_hcurl_source_pbm(
         if u_bc is not None:
             print('lifting the boundary condition in V1h...')
             # note: for simplicity we apply the full P1 on u_bc, but we only need to set the boundary dofs
-            u_bc_x = lambdify(domain.coordinates, u_bc[0])
-            u_bc_y = lambdify(domain.coordinates, u_bc[1])
-            u_bc_log = [pull_2d_hcurl([u_bc_x, u_bc_y], m) for m in mappings_list]
-            # it's a bit weird to apply P1 on the list of (pulled back) logical fields -- why not just apply it on u_bc ?
-            uh_bc = P1(u_bc_log)
+            # u_bc_x = lambdify(domain.coordinates, u_bc[0])
+            # u_bc_y = lambdify(domain.coordinates, u_bc[1])
+            # u_bc_log = [pull_2d_hcurl([u_bc_x, u_bc_y], m) for m in mappings_list]
+            # # it's a bit weird to apply P1 on the list of (pulled back) logical fields -- why not just apply it on u_bc ?
+            # uh_bc = P1(u_bc_log)
+            uh_bc = P1_phys(u_bc, P1, domain, mappings_list)
             ubc_c = uh_bc.coeffs.toarray()
             # removing internal dofs (otherwise ubc_c may already be a very good approximation of uh_c ...)
             ubc_c = ubc_c - cP1_m.dot(ubc_c)
@@ -229,28 +230,30 @@ def solve_hcurl_source_pbm(
     )
     # compute approximate source f_h
     t_stamp = time_count(t_stamp)
-    b_c = f_c = None
+    tilde_f_c = f_c = None
     if source_proj == 'P_geom':
         # f_h = P1-geometric (commuting) projection of f_vect
         print(' .. projecting the source with commuting projection...')
-        f_x = lambdify(domain.coordinates, f_vect[0])
-        f_y = lambdify(domain.coordinates, f_vect[1])
-        f_log = [pull_2d_hcurl([f_x, f_y], m) for m in mappings_list]
-        f_h = P1(f_log)
+        # f_x = lambdify(domain.coordinates, f_vect[0])
+        # f_y = lambdify(domain.coordinates, f_vect[1])
+        # f_log = [pull_2d_hcurl([f_x, f_y], m) for m in mappings_list]
+        # f_h = P1(f_log)
+        f_h = P1_phys(f_vect, P1, domain, mappings_list)
         f_c = f_h.coeffs.toarray()
-        b_c = H1_m.dot(f_c)
+        tilde_f_c = H1_m.dot(f_c)
 
     elif source_proj == 'P_L2':
         # f_h = L2 projection of f_vect
         print(' .. projecting the source with L2 projection...')
-        v  = element_of(V1h.symbolic_space, name='v')
-        expr = dot(f_vect,v)
-        l = LinearForm(v, integral(domain, expr))
-        lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
-        b  = lh.assemble()
-        b_c = b.toarray()
+        tilde_f_c = derham_h.get_dual_dofs(space='V1', f=f_vect, backend_language=backend_language, return_format='numpy_array')
+        # v  = element_of(V1h.symbolic_space, name='v')
+        # expr = dot(f_vect,v)
+        # l = LinearForm(v, integral(domain, expr))
+        # lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
+        # b  = lh.assemble()
+        # b_c = b.toarray()
         if plot_source:
-            f_c = dH1_m.dot(b_c)
+            f_c = dH1_m.dot(tilde_f_c)
     else:
         raise ValueError(source_proj)
 
@@ -262,7 +265,7 @@ def solve_hcurl_source_pbm(
         # modified source for the homogeneous pbm
         t_stamp = time_count(t_stamp)
         print(' .. modifying the source with lifted bc solution...')
-        b_c = b_c - pre_A_m.dot(ubc_c)
+        tilde_f_c = tilde_f_c - pre_A_m.dot(ubc_c)
 
     print()
     print(' -- ref solution: writing values on diag grid  --')
@@ -270,10 +273,11 @@ def solve_hcurl_source_pbm(
     if u_ex is not None:
         print(' .. u_ex is known:')
         print('    setting uh_ref = P_geom(u_ex)')
-        u_ex_x = lambdify(domain.coordinates, u_ex[0])
-        u_ex_y = lambdify(domain.coordinates, u_ex[1])
-        u_ex_log = [pull_2d_hcurl([u_ex_x, u_ex_y], m) for m in mappings_list]
-        uh_ref = P1(u_ex_log)
+        # u_ex_x = lambdify(domain.coordinates, u_ex[0])
+        # u_ex_y = lambdify(domain.coordinates, u_ex[1])
+        # u_ex_log = [pull_2d_hcurl([u_ex_x, u_ex_y], m) for m in mappings_list]
+        # uh_ref = P1(u_ex_log)
+        uh_ref = P1_phys(u_ex, P1, domain, mappings_list)
         diag_grid.write_sol_ref_values(uh_ref, space='V1')
     else:
         print(' .. u_ex is unknown:')
@@ -286,7 +290,7 @@ def solve_hcurl_source_pbm(
     t_stamp = time_count(t_stamp)
     print()
     print(' -- solving source problem with scipy.spsolve...')
-    uh_c = spsolve(A_m, b_c)
+    uh_c = spsolve(A_m, tilde_f_c)
 
     # project the homogeneous solution on the conforming problem space
     t_stamp = time_count(t_stamp)
@@ -314,31 +318,13 @@ def solve_hcurl_source_pbm(
         np.save(sol_filename, uh_c)
     time_count(t_stamp)
     
-    # diagnostics: error
-    diag_grid.write_sol_values(v=uh, space='V1')
-    sol_norm, sol_ref_norm, l2_error = diag_grid.compute_l2_error(space='V1')
-    rel_l2_error = l2_error/(max(sol_norm, sol_ref_norm))
-    print(' .. l2 norms (computed via quadratures on diag_grid) :: ')
-    print('    solution :    {}'.format(sol_norm))
-    print('    ref sol  :     {}'.format(sol_ref_norm))
-    print('    rel error:   {}'.format(rel_l2_error))
-    
-    noms_and_errors = [sol_norm, sol_ref_norm, rel_l2_error]
+    # diagnostics: errors
+    diags = diag_grid.get_diags_for(v=uh, space='V1')
 
     if u_ex is not None:
-        print(' -- u_ex is available: we compare quadrature on diag_grid with exact L2 error in V1h -- ')
-        uh_ref_c = uh_ref.coeffs.toarray()
-        err_c = uh_c - uh_ref_c
-        l2_error = np.dot(err_c, H1_m.dot(err_c))**0.5
-        sol_norm = np.dot(uh_c, H1_m.dot(uh_c))**0.5
-        sol_ref_norm = np.dot(uh_ref_c, H1_m.dot(uh_ref_c))**0.5
-        rel_l2_error = l2_error/(max(sol_norm, sol_ref_norm))
-        print(' .. l2 norms (exact values for fields in V1h) :: ')
-        print('    solution :    {}'.format(sol_norm))
-        print('    ref sol  :     {}'.format(sol_ref_norm))
-        print('    rel error:   {}'.format(rel_l2_error))
+        check_diags = get_Vh_diags_for(v=uh, v_ref=uh_ref, M_m=H1_m, msg='error between Ph(u_ex) and u_h')
 
-    return noms_and_errors
+    return diags
 
 if __name__ == '__main__':
 

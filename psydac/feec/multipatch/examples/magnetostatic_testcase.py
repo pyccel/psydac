@@ -11,7 +11,7 @@ t_stamp_full = time_count()
 #
 # test-case and numerical parameters:
 
-bc_type = 'metallic' # 'pseudo-vacuum' #
+bc_type = 'pseudo-vacuum' # 'metallic' # 
 
 source_type = 'dipole_J'
 source_proj = 'P_L2_wcurl_J'

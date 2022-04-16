@@ -24,7 +24,7 @@ from psydac.feec.multipatch.operators                   import HodgeOperator
 from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_h1
-from psydac.feec.multipatch.utils_conga_2d              import DiagGrid
+from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P0_phys, get_Vh_diags_for
 from psydac.feec.multipatch.utilities                   import time_count
 
 from psydac.linalg.utilities import array_to_stencil
@@ -160,11 +160,12 @@ def solve_h1_source_pbm(
     def lift_u_bc(u_bc):
         if u_bc is not None:
             print('lifting the boundary condition in V0h...  [warning: Not Tested Yet!]')
-            # note: for simplicity we apply the full P1 on u_bc, but we only need to set the boundary dofs
-            u_bc = lambdify(domain.coordinates, u_bc)
-            u_bc_log = [pull_2d_h1(u_bc, m) for m in mappings_list]
-            # it's a bit weird to apply P1 on the list of (pulled back) logical fields -- why not just apply it on u_bc ?
-            uh_bc = P0(u_bc_log)
+            # note: for simplicity we apply the full P0 on u_bc, but we only need to set the boundary dofs
+            # u_bc = lambdify(domain.coordinates, u_bc)
+            # u_bc_log = [pull_2d_h1(u_bc, m) for m in mappings_list]
+            # # it's a bit weird to apply P1 on the list of (pulled back) logical fields -- why not just apply it on u_bc ?
+            # uh_bc = P0(u_bc_log)
+            uh_bc = P0_phys(u_bc, P0, domain, mappings_list)
             ubc_c = uh_bc.coeffs.toarray()
             # removing internal dofs (otherwise ubc_c may already be a very good approximation of uh_c ...)
             ubc_c = ubc_c - cP0_m.dot(ubc_c)
@@ -195,26 +196,30 @@ def solve_h1_source_pbm(
         source_type=source_type, eta=eta, mu=mu, domain=domain, domain_name=domain_name,
     )
     # compute approximate source f_h
-    # compute approximate source f_h
-    b_c = f_c = None
+    # b_c = f_c = None
+    tilde_f_c = f_c = None
     if source_proj == 'P_geom':
         print(' .. projecting the source with commuting projection P0...')
-        f = lambdify(domain.coordinates, f_scal)
-        f_log = [pull_2d_h1(f, m) for m in mappings_list]
-        f_h = P0(f_log)
+        # f = lambdify(domain.coordinates, f_scal)
+        # f_log = [pull_2d_h1(f, m) for m in mappings_list]
+        # f_h = P0(f_log)
+        f_h = P0_phys(f_scal, P0, domain, mappings_list)        
         f_c = f_h.coeffs.toarray()
-        b_c = H0_m.dot(f_c)
+        tilde_f_c = H0_m.dot(f_c)
 
     elif source_proj == 'P_L2':
         print(' .. projecting the source with L2 projection...')
-        v  = element_of(V0h.symbolic_space, name='v')
-        expr = f_scal * v
-        l = LinearForm(v, integral(domain, expr))
-        lh = discretize(l, domain_h, V0h, backend=PSYDAC_BACKENDS[backend_language])
-        b  = lh.assemble()
-        b_c = b.toarray()
+        tilde_f_c = derham_h.get_dual_dofs(space='V0', f=f_scal, backend_language=backend_language, return_format='numpy_array')
         if plot_source:
-            f_c = dH0_m.dot(b_c)
+            f_c = dH0_m.dot(tilde_f_c)
+        # v  = element_of(V0h.symbolic_space, name='v')
+        # expr = f_scal * v
+        # l = LinearForm(v, integral(domain, expr))
+        # lh = discretize(l, domain_h, V0h, backend=PSYDAC_BACKENDS[backend_language])
+        # b  = lh.assemble()
+        # b_c = b.toarray()
+        # if plot_source:
+        #     f_c = dH0_m.dot(b_c)
     else:
         raise ValueError(source_proj)
 
@@ -226,7 +231,7 @@ def solve_h1_source_pbm(
         # modified source for the homogeneous pbm
         t_stamp = time_count(t_stamp)
         print('modifying the source with lifted bc solution...')
-        b_c = b_c - pre_A_m.dot(ubc_c)
+        tilde_f_c = tilde_f_c - pre_A_m.dot(ubc_c)
 
     print()
     print(' -- ref solution: writing values on diag grid  --')
@@ -234,9 +239,10 @@ def solve_h1_source_pbm(
     if u_ex is not None:
         print(' .. u_ex is known:')
         print('    setting uh_ref = P_geom(u_ex)')
-        u_ex = lambdify(domain.coordinates, u_ex)
-        u_ex_log = [pull_2d_h1(u_ex, m) for m in mappings_list]
-        uh_ref = P0(u_ex_log)
+        # u_ex = lambdify(domain.coordinates, u_ex)
+        # u_ex_log = [pull_2d_h1(u_ex, m) for m in mappings_list]
+        # uh_ref = P0(u_ex_log)
+        uh_ref = P0_phys(u_ex, P0, domain, mappings_list)
         diag_grid.write_sol_ref_values(uh_ref, space='V0')
     else:
         print(' .. u_ex is unknown:')
@@ -250,7 +256,7 @@ def solve_h1_source_pbm(
     t_stamp = time_count(t_stamp)
     print()
     print(' -- solving source problem with scipy.spsolve...')
-    uh_c = spsolve(A_m, b_c)
+    uh_c = spsolve(A_m, tilde_f_c)
 
     # project the homogeneous solution on the conforming problem space
     print(' .. projecting the homogeneous solution on the conforming problem space...')
@@ -275,31 +281,13 @@ def solve_h1_source_pbm(
         print(' .. saving solution coeffs to file {}'.format(sol_filename))
         np.save(sol_filename, uh_c)
 
-    # diagnostics: error
-    diag_grid.write_sol_values(v=uh, space='V0')
-    sol_norm, sol_ref_norm, l2_error = diag_grid.compute_l2_error(space='V0')
-    rel_l2_error = l2_error/(max(sol_norm, sol_ref_norm))
-    print(' .. l2 norms (computed via quadratures on diag_grid) :: ')
-    print('    solution :    {}'.format(sol_norm))
-    print('    ref sol  :     {}'.format(sol_ref_norm))
-    print('    rel error:   {}'.format(rel_l2_error))
+    # diagnostics: errors
+    diags = diag_grid.get_diags_for(v=uh, space='V0')
     
-    noms_and_errors = [sol_norm, sol_ref_norm, rel_l2_error]
-
     if u_ex is not None:
-        print(' -- u_ex is available: we compare quadrature on diag_grid with exact L2 error in V0h -- ')
-        uh_ref_c = uh_ref.coeffs.toarray()
-        err_c = uh_c - uh_ref_c
-        l2_error = np.dot(err_c, H0_m.dot(err_c))**0.5
-        sol_norm = np.dot(uh_c, H0_m.dot(uh_c))**0.5
-        sol_ref_norm = np.dot(uh_ref_c, H0_m.dot(uh_ref_c))**0.5
-        rel_l2_error = l2_error/(max(sol_norm, sol_ref_norm))
-        print(' .. l2 norms (exact values for fields in V1h) :: ')
-        print('    solution :    {}'.format(sol_norm))
-        print('    ref sol  :     {}'.format(sol_ref_norm))
-        print('    rel error:   {}'.format(rel_l2_error))
+        check_diags = get_Vh_diags_for(v=uh, v_ref=uh_ref, M_m=H0_m, msg='error between Ph(u_ex) and u_h')
 
-    return noms_and_errors
+    return diags
 
 
 
