@@ -26,7 +26,17 @@ def get_source_and_sol_for_magnetostatic_pbm(
     domain=None, domain_name=None,
     refsol_params=None
 ):
-    u_ex = None
+    """
+    provide source, and exact solutions when available, for:
+    
+    Find u=B in H(curl) such that
+    
+        div B = 0
+        curl B = j
+
+    written as a mixed problem, see solve_magnetostatic_pbm()
+    """
+    u_ex = None  # exact solution
     x,y    = domain.coordinates
     if source_type == 'dipole_J':
         # we compute two possible source terms:
@@ -61,13 +71,25 @@ def get_source_and_sol_for_magnetostatic_pbm(
     else:
         raise ValueError(source_type)
 
-    return f_scal, f_vect, j_scal # , u_ex
+    return f_scal, f_vect, j_scal, u_ex
 
     
 def get_source_and_solution_hcurl(
     source_type=None, eta=0, mu=0, nu=0,
     domain=None, domain_name=None):
     """
+    provide source, and exact solutions when available, for:
+    
+    Find u in H(curl) such that
+    
+      A u = f             on \Omega
+      n x u = n x u_bc    on \partial \Omega
+
+    with
+
+      A u := eta * u  +  mu * curl curl u  -  nu * grad div u
+    
+    see solve_hcurl_source_pbm()
     """
 
     # exact solutions (if available)
@@ -87,10 +109,12 @@ def get_source_and_solution_hcurl(
 
     if source_type == 'manu_maxwell_inhom':
         # used for Maxwell equation with manufactured solution
-        alpha   = eta
-        u_ex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
-        f_vect  = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
-                        alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+        f_vect  = Tuple(eta*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                        eta*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+        if nu != 0:
+            u_ex  = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+        else:
+            raise NotImplementedError
         u_bc = u_ex
 
     elif source_type == 'elliptic_J':
@@ -119,6 +143,20 @@ def get_source_and_solution_hcurl(
 
 def get_source_and_solution_h1(source_type=None, eta=0, mu=0,
                             domain=None, domain_name=None):
+    """
+    provide source, and exact solutions when available, for:
+    
+    Find u in H^1, such that
+
+      A u = f             on \Omega
+        u = u_bc          on \partial \Omega
+
+    with
+
+      A u := eta * u  -  mu * div grad u
+    
+    see solve_h1_source_pbm()
+    """
 
     # exact solutions (if available)
     u_ex = None
@@ -160,6 +198,8 @@ def get_source_and_solution_h1(source_type=None, eta=0, mu=0,
         # exact solution of  -p'' = f  with hom. bc's on pretzel domain
         if mu == 1 and eta == 0:
             u_ex = phi
+        else:
+            print('WARNING (54375385643): exact solution not available in this case!') 
 
         if not domain_name in ['pretzel', 'pretzel_f']:
             # we may have non-hom bc's            
@@ -167,12 +207,13 @@ def get_source_and_solution_h1(source_type=None, eta=0, mu=0,
 
     elif source_type == 'manu_poisson_2':
         f_scal = -4
-        u_ex   = x**2+y**2
+        if mu == 1 and eta == 0:
+            u_ex = x**2+y**2
+        else:
+            raise NotImplementedError
         u_bc   = u_ex
 
     elif source_type == 'manu_poisson_sincos':
-        # manufactured solution for 
-        #  f = eta * u  -  mu * div grad u 
         u_ex    = sin(pi*x)*cos(pi*y)
         f_scal  = (eta + 2*mu*pi**2) * u_ex
         u_bc = u_ex
@@ -184,13 +225,11 @@ def get_source_and_solution_h1(source_type=None, eta=0, mu=0,
 
 
 
-def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
+def get_source_and_solution_OBSOLETE(source_type=None, eta=0, mu=0, nu=0,
                             domain=None, domain_name=None,
                             refsol_params=None):
     """
-    PREVIOUS FUNCTION: TO DISCARD
-
-    compute source and reference solution (exact, or reference values) when possible, depending on the source_type
+    OBSOLETE: kept for some test-cases
     """
 
     # exact solutions (if available)

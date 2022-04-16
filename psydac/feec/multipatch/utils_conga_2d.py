@@ -1,15 +1,36 @@
 import numpy as np
 
+from sympy import lambdify
 from sympde.topology  import Derham
 
 from psydac.api.settings   import PSYDAC_BACKENDS
 from psydac.feec.pull_push import pull_2d_hcurl
+
+from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, pull_2d_l2
 
 from psydac.feec.multipatch.api                         import discretize
 from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
 from psydac.linalg.utilities                            import array_to_stencil
 from psydac.fem.basic                                   import FemField
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_quad_weights, get_grid_vals
+
+
+# commuting projections on the physical domain (should probably be in the interface)
+def P0_phys(f_phys, P0, domain, mappings_list):
+    f = lambdify(domain.coordinates, f_phys)
+    f_log = [pull_2d_h1(f, m) for m in mappings_list]
+    return P0(f_log)
+
+def P1_phys(f_phys, P1, domain, mappings_list):
+    f_x = lambdify(domain.coordinates, f_phys[0])
+    f_y = lambdify(domain.coordinates, f_phys[1])
+    f_log = [pull_2d_hcurl([f_x, f_y], m) for m in mappings_list]
+    return P1(f_log)
+
+def P2_phys(f_phys, P2, domain, mappings_list):
+    f = lambdify(domain.coordinates, f_phys)
+    f_log = [pull_2d_l2(f, m) for m in mappings_list]
+    return P2(f_log)
 
 def get_kind(space='V*'):
     # temp helper
@@ -22,6 +43,7 @@ def get_kind(space='V*'):
     else:
         raise ValueError(space)     
     return kind           
+
 
 #===============================================================================
 class DiagGrid():
@@ -126,4 +148,41 @@ class DiagGrid():
 
         return l2_norm_uh, l2_norm_u, l2_error
 
+    def get_diags_for(self, v, space='V*', print_diags=True):
+        self.write_sol_values(v, space)
+        sol_norm, sol_ref_norm, l2_error = self.compute_l2_error(space)
+        rel_l2_error = l2_error/(max(sol_norm, sol_ref_norm))
+        diags = {
+            'sol_norm': sol_norm,
+            'sol_ref_norm': sol_ref_norm,
+            'rel_l2_error': rel_l2_error,
+        }
+        if print_diags:
+            print(' .. l2 norms (computed via quadratures on diag_grid): ')
+            print(diags)
 
+        return diags
+
+
+def get_Vh_diags_for(v=None, v_ref=None, M_m=None, print_diags=True, msg='error between ?? and ?? in Vh'):
+    """
+    v, v_ref: FemField
+    M_m: mass matrix in scipy format
+    """
+    uh_c = v.coeffs.toarray()
+    uh_ref_c = v_ref.coeffs.toarray()
+    err_c = uh_c - uh_ref_c
+    l2_error = np.dot(err_c, M_m.dot(err_c))**0.5
+    sol_norm = np.dot(uh_c, M_m.dot(uh_c))**0.5
+    sol_ref_norm = np.dot(uh_ref_c, M_m.dot(uh_ref_c))**0.5
+    rel_l2_error = l2_error/(max(sol_norm, sol_ref_norm))
+    diags = {
+        'sol_norm': sol_norm,
+        'sol_ref_norm': sol_ref_norm,
+        'rel_l2_error': rel_l2_error,
+    }
+    if print_diags:
+        print(' .. l2 norms ({}): '.format(msg))
+        print(diags)        
+
+    return diags

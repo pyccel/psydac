@@ -19,14 +19,18 @@ from psydac.api.settings import PSYDAC_BACKENDS
 
 from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, pull_2d_l2
 
-from psydac.feec.multipatch.api                                import discretize
-from psydac.feec.multipatch.fem_linear_operators               import IdLinearOperator
-from psydac.feec.multipatch.operators                          import HodgeOperator
-from psydac.feec.multipatch.plotting_utilities                 import plot_field
-from psydac.feec.multipatch.multipatch_domain_utilities        import build_multipatch_domain
-from psydac.feec.multipatch.examples.ppc_test_cases            import get_source_and_sol_for_magnetostatic_pbm
-from psydac.feec.multipatch.examples.hcurl_eigen_pbms_conga_2d import get_eigenvalues
-from psydac.feec.multipatch.utilities                          import time_count
+from psydac.feec.multipatch.api                                 import discretize
+from psydac.feec.multipatch.fem_linear_operators                import IdLinearOperator
+from psydac.feec.multipatch.operators                           import HodgeOperator
+from psydac.feec.multipatch.plotting_utilities                  import plot_field
+from psydac.feec.multipatch.multipatch_domain_utilities         import build_multipatch_domain
+from psydac.feec.multipatch.examples.ppc_test_cases             import get_source_and_sol_for_magnetostatic_pbm
+from psydac.feec.multipatch.examples.hcurl_eigen_pbms_conga_2d  import get_eigenvalues
+from psydac.feec.multipatch.utils_conga_2d                      import DiagGrid, P0_phys, P1_phys, get_Vh_diags_for
+from psydac.feec.multipatch.utilities                           import time_count
+from psydac.linalg.utilities                                    import array_to_stencil
+from psydac.fem.basic                                           import FemField
+
 
 def solve_magnetostatic_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_L2_wcurl_J',
@@ -35,7 +39,8 @@ def solve_magnetostatic_pbm(
         dim_harmonic_space=0,
         project_solution=False,
         plot_source=False, plot_dir=None, hide_plots=True,
-        m_load_dir="",
+        m_load_dir="", sol_filename="", sol_ref_filename="",
+        ref_nc=None, ref_deg=None,
 ):
     """
     solver for a magnetostatic problem
@@ -112,16 +117,34 @@ def solve_magnetostatic_pbm(
     print(' backend_language = {}'.format(backend_language))
     print('---------------------------------------------------------------------------------------------------------')
 
-    print('building symbolic and discrete domain...')
+    print()
+    print(' -- building discrete spaces and operators  --')
+
+    t_stamp = time_count()
+    print(' .. multi-patch domain...')
     domain = build_multipatch_domain(domain_name=domain_name)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
+
+    t_stamp = time_count(t_stamp)
+    print(' .. derham sequence...')
+    derham  = Derham(domain, ["H1", "Hcurl", "L2"])
+
+    t_stamp = time_count(t_stamp)
+    print(' .. discrete domain...')
     domain_h = discretize(domain, ncells=ncells)
 
-    print('building symbolic and discrete derham sequences...')
-    derham  = Derham(domain, ["H1", "Hcurl", "L2"])
+    t_stamp = time_count(t_stamp)
+    print(' .. discrete derham sequence...')
     derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
 
+    t_stamp = time_count(t_stamp)
+    print(' .. commuting projection operators...')
+    nquads = [4*(d + 1) for d in degree]
+    P0, P1, P2 = derham_h.projectors(nquads=nquads)
+
+    t_stamp = time_count(t_stamp)
+    print(' .. multi-patch spaces...')
     V0h = derham_h.V0
     V1h = derham_h.V1
     V2h = derham_h.V2
@@ -129,32 +152,13 @@ def solve_magnetostatic_pbm(
     print('dim(V1h) = {}'.format(V1h.nbasis))
     print('dim(V2h) = {}'.format(V2h.nbasis))
 
-    print('building the discrete operators:')
-    print('commuting projection operators...')
-    nquads = [4*(d + 1) for d in degree]
-    P0, P1, P2 = derham_h.projectors(nquads=nquads)
+    t_stamp = time_count(t_stamp)
+    print(' .. Id operator and matrix...')
+    I1 = IdLinearOperator(V1h)
+    I1_m = I1.to_sparse_matrix()
 
-    # these physical projection operators should probably be in the interface...
-    def P0_phys(f_phys):
-        f = lambdify(domain.coordinates, f_phys)
-        f_log = [pull_2d_h1(f, m) for m in mappings_list]
-        return P0(f_log)
-
-    def P1_phys(f_phys):
-        f_x = lambdify(domain.coordinates, f_phys[0])
-        f_y = lambdify(domain.coordinates, f_phys[1])
-        f_log = [pull_2d_hcurl([f_x, f_y], m) for m in mappings_list]
-        return P1(f_log)
-
-    def P2_phys(f_phys):
-        f = lambdify(domain.coordinates, f_phys)
-        f_log = [pull_2d_l2(f, m) for m in mappings_list]
-        return P2(f_log)
-
-    I0_m = IdLinearOperator(V0h).to_sparse_matrix()
-    I1_m = IdLinearOperator(V1h).to_sparse_matrix()
-
-    print('Hodge operators...')
+    t_stamp = time_count(t_stamp)
+    print(' .. Hodge operators...')
     # multi-patch (broken) linear operators / matrices
     H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=0)
     H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
@@ -166,38 +170,44 @@ def solve_magnetostatic_pbm(
     dH1_m = H1.get_dual_sparse_matrix()              # = inverse mass matrix of V1
     H2_m  = H2.to_sparse_matrix()  # = mass matrix of V2
     dH2_m = H2.get_dual_sparse_matrix()              # = inverse mass matrix of V2
-
+    t_stamp = time_count(t_stamp)
+ 
     M0_m = H0_m
-    M1_m = H1_m  # usual notation
+    M1_m = H1_m
 
     hom_bc = (bc_type == 'pseudo-vacuum')  #  /!\  here u = B is in H(curl), not E  /!\
     print('with hom_bc = {}'.format(hom_bc))
 
-    print('conforming projection operators...')
+    print(' .. conforming Projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
     cP0 = derham_h.conforming_projection(space='V0', hom_bc=hom_bc, backend_language=backend_language, load_dir=m_load_dir)
     cP1 = derham_h.conforming_projection(space='V1', hom_bc=hom_bc, backend_language=backend_language, load_dir=m_load_dir)
     cP0_m = cP0.to_sparse_matrix()
     cP1_m = cP1.to_sparse_matrix()
 
-    print('broken differential operators...')
+    t_stamp = time_count(t_stamp)
+    print(' .. broken differential operators...')
+    # broken (patch-wise) differential operators
     bD0, bD1 = derham_h.broken_derivatives_as_operators
     bD0_m = bD0.to_sparse_matrix()
     bD1_m = bD1.to_sparse_matrix()
+
+    I0_m = IdLinearOperator(V0h).to_sparse_matrix()
+    I1_m = IdLinearOperator(V1h).to_sparse_matrix()
 
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
     # Conga (projection-based) operator matrices
-    print('grad matrix...')
+    print('.. grad matrix...')
     G_m = bD0_m @ cP0_m
     tG_m = H1_m @ G_m  # grad: V0h -> tV1h
 
-    print('curl-curl stiffness matrix...')
+    print('.. curl-curl stiffness matrix...')
     C_m = bD1_m @ cP1_m
     CC_m = C_m.transpose() @ H2_m @ C_m
 
-    # jump penalization and stabilization operators:
+    # jump stabilization operators:
     JP0_m = I0_m - cP0_m
     S0_m = JP0_m.transpose() @ H0_m @ JP0_m
 
@@ -213,7 +223,7 @@ def solve_magnetostatic_pbm(
     hf_cs = []
     if dim_harmonic_space > 0:
 
-        print('computing the harmonic fields...')
+        print('.. computing the harmonic fields...')
         gamma_Lh = 10  # penalization value should not change the kernel
 
         GD_m = - tG_m @ dH0_m @ G_m.transpose() @ H1_m   # todo: check with paper
@@ -222,7 +232,7 @@ def solve_magnetostatic_pbm(
 
         for i in range(dim_harmonic_space):
             lambda_i =  eigenvalues[i]
-            print(".. storing eigenmode #{}, with eigenvalue = {}".format(i, lambda_i))
+            print(" .. storing eigenmode #{}, with eigenvalue = {}".format(i, lambda_i))
             # check:
             if abs(lambda_i) > 1e-8:
                 print(" ****** WARNING! this eigenvalue should be 0!   ****** ")
@@ -239,37 +249,35 @@ def solve_magnetostatic_pbm(
             print(" ****** Warning -- something is probably wrong: ")
             print(" ******            eigenmode #{} should have positive eigenvalue: {}".format(dim_harmonic_space, lambda_i))
 
-        print('computing the full operator matrix with harmonic constraint...')
+        print(' .. computing the full operator matrix with harmonic constraint...')
         A_m = bmat([[ reg_S0_m,        tG_m.transpose(),  None ],
                     [     tG_m,  CC_m + gamma1_h * S1_m,  MH_m ],
                     [     None,        MH_m.transpose(),  None ]])
 
     else:
-        print('computing the full operator matrix without harmonic constraint...')
+        print(' .. computing the full operator matrix without harmonic constraint...')
 
         A_m = bmat([[ reg_S0_m,        tG_m.transpose() ],
                     [     tG_m,  CC_m + gamma1_h * S1_m ]])
-
-    # get exact source, bc's, ref solution...
-    # (not all the returned functions are useful here)
-    print('getting the source and ref solution...')
-    N_diag = 200
-    method = 'conga'
-    f_scal, f_vect, j_scal, uh_ref = get_source_and_sol_for_magnetostatic_pbm(source_type=source_type, domain=domain, domain_name=domain_name)
 
     # compute approximate source:
     #   ff_h = (f0_h, f1_h) = (P0_h f_scal, P1_h f_vect)  with projection operators specified by source_proj
     #   and dual-basis coefficients in column array  bb_c = (b0_c, b1_c)
     # note: f1_h may also be defined through the special option 'P_L2_wcurl_J' for magnetostatic problems
+
+    t_stamp = time_count(t_stamp)
+    print()
+    print(' -- getting source --')
+    f_scal, f_vect, j_scal, u_ex = get_source_and_sol_for_magnetostatic_pbm(source_type=source_type, domain=domain, domain_name=domain_name)
     f0_c = f1_c = j2_c = None
     assert source_proj in ['P_geom', 'P_L2', 'P_L2_wcurl_J']
 
     if f_scal is None:
         tilde_f0_c = np.zeros(V0h.nbasis)
     else:
-        print('approximating the V0 source with '+source_proj)
+        print(' .. approximating the V0 source with '+source_proj)
         if source_proj == 'P_geom':
-            f0_h = P0_phys(f_scal)
+            f0_h = P0_phys(f_scal, P0, domain, mappings_list)
             f0_c = f0_h.coeffs.toarray()
             tilde_f0_c = H0_m.dot(f0_c)
         else:
@@ -281,15 +289,15 @@ def solve_magnetostatic_pbm(
             tilde_j2_c = np.zeros(V2h.nbasis)
             tilde_f1_c = np.zeros(V1h.nbasis)
         else:
-            print('approximating the V1 source as a weak curl of j_scal')
+            print(' .. approximating the V1 source as a weak curl of j_scal')
             tilde_j2_c = derham_h.get_dual_dofs(space='V2', f=j_scal, backend_language=backend_language, return_format='numpy_array')
             tilde_f1_c = C_m.transpose().dot(tilde_j2_c)
     elif f_vect is None:
         tilde_f1_c  = np.zeros(V1h.nbasis)
     else:
-        print('approximating the V1 source with '+source_proj)
+        print(' .. approximating the V1 source with '+source_proj)
         if source_proj == 'P_geom':
-            f1_h = P1_phys(f_vect)
+            f1_h = P1_phys(f_vect, P1, domain, mappings_list)
             f1_c = f1_h.coeffs.toarray()
             tilde_f1_c = H1_m.dot(f1_c)
         else:
@@ -303,7 +311,7 @@ def solve_magnetostatic_pbm(
                    filename=plot_dir+'/f0h_'+source_proj+'.png', hide_plot=hide_plots)
         if f1_c is None:
             f1_c = dH1_m.dot(tilde_f1_c)
-        plot_field(numpy_coeffs=f1_c, Vh=V1h, space_kind='hcurl', domain=domain, title='f1_h with P = '+source_proj,
+        plot_field(numpy_coeffs=f1_c, Vh=V1h, space_kind='hcurl', plot_type='vector_field', domain=domain, title='f1_h with P = '+source_proj,
                    filename=plot_dir+'/f1h_'+source_proj+'.png', hide_plot=hide_plots)
         if source_proj == 'P_L2_wcurl_J':
             if j2_c is None:
@@ -311,15 +319,31 @@ def solve_magnetostatic_pbm(
             plot_field(numpy_coeffs=j2_c, Vh=V2h, space_kind='l2', domain=domain, title='P_L2 jh in V2h',
                        filename=plot_dir+'/j2h.png', hide_plot=hide_plots)
 
-    print("building block RHS")
+    print(" .. building block RHS")
     if dim_harmonic_space > 0:
         tilde_h_c = np.zeros(dim_harmonic_space)  # harmonic part of the rhs
         b_c = np.block([tilde_f0_c, tilde_f1_c, tilde_h_c])
     else:
         b_c = np.block([tilde_f0_c, tilde_f1_c])
 
+    print()
+    print(' -- ref solution: writing values on diag grid  --')
+    diag_grid = DiagGrid(mappings=mappings, N_diag=100)
+    if u_ex is not None:
+        print(' .. u_ex is known:')
+        print('    setting uh_ref = P_geom(u_ex)')
+        uh_ref = P1_phys(u_ex, P1, domain, mappings_list)
+        diag_grid.write_sol_ref_values(uh_ref, space='V1')
+    else:
+        print(' .. u_ex is unknown:')
+        print('    importing uh_ref in ref_V1h from file {}...'.format(sol_ref_filename))
+        diag_grid.create_ref_fem_spaces(domain=domain, ref_nc=ref_nc, ref_deg=ref_deg)
+        diag_grid.import_ref_sol_from_coeffs(sol_ref_filename, space='V1')
+        diag_grid.write_sol_ref_values(space='V1')
+
+
     # direct solve with scipy spsolve ------------------------------
-    print('solving source problem with scipy.spsolve...')
+    print(' -- solving source problem with scipy.spsolve...')
     sol_c = spsolve(A_m.asformat('csr'), b_c)
     #   ------------------------------------------------------------
     ph_c = sol_c[:V0h.nbasis]
@@ -334,7 +358,7 @@ def solve_magnetostatic_pbm(
             hh_c += hh_hbcoefs[i]*hi_c
 
     if project_solution:
-        print('projecting the homogeneous solution on the conforming problem space...')
+        print(' .. projecting the homogeneous solution on the conforming problem space...')
         uh_c = cP1_m.dot(uh_c)
         u_name = r'$P^1_h B_h$'
         ph_c = cP0_m.dot(ph_c)
@@ -343,23 +367,44 @@ def solve_magnetostatic_pbm(
         u_name = r'$B_h$'
         p_name = r'$p_h$'
 
-    print('getting and plotting the FEM solution from numpy coefs array...')
-    params_str = 'gamma0_h={}_gamma1_h={}'.format(gamma0_h, gamma1_h)
-    title = r'solution {} (amplitude)'.format(p_name)
-    plot_field(numpy_coeffs=ph_c, Vh=V0h, space_kind='h1',
-               domain=domain, title=title, filename=plot_dir+'/'+params_str+'_ph.png', hide_plot=hide_plots)
-    title = r'solution $h_h$ (amplitude)'
-    plot_field(numpy_coeffs=hh_c, Vh=V1h, space_kind='hcurl',
-               domain=domain, title=title, filename=plot_dir+'/'+params_str+'_hh.png', hide_plot=hide_plots)
-    title = r'solution {} (amplitude)'.format(u_name)
-    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl',
-               domain=domain, title=title, filename=plot_dir+'/'+params_str+'_uh.png', hide_plot=hide_plots)
-    title = r'solution {} (vector field)'.format(u_name)
-    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl',
-               domain=domain, title=title, filename=plot_dir+'/'+params_str+'_uh_vf.png', hide_plot=hide_plots)
-    title = r'solution {} (components)'.format(u_name)
-    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl',
-               domain=domain, title=title, filename=plot_dir+'/'+params_str+'_uh_xy.png', hide_plot=hide_plots)
+    uh = FemField(V1h, coeffs=array_to_stencil(uh_c, V1h.vector_space))
+    t_stamp = time_count(t_stamp)
+
+    print()
+    print(' -- plots and diagnostics  --')
+    if plot_dir:
+        print(' .. plotting the FEM solution...')
+        params_str = 'gamma0_h={}_gamma1_h={}'.format(gamma0_h, gamma1_h)
+        title = r'solution {} (amplitude)'.format(p_name)
+        plot_field(numpy_coeffs=ph_c, Vh=V0h, space_kind='h1', plot_type='amplitude',
+                domain=domain, title=title, filename=plot_dir+'/'+params_str+'_ph.png', hide_plot=hide_plots)
+        title = r'solution $h_h$ (amplitude)'
+        plot_field(numpy_coeffs=hh_c, Vh=V1h, space_kind='hcurl', plot_type='amplitude',
+                domain=domain, title=title, filename=plot_dir+'/'+params_str+'_hh.png', hide_plot=hide_plots)
+        title = r'solution {} (amplitude)'.format(u_name)
+        plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='amplitude',
+                domain=domain, title=title, filename=plot_dir+'/'+params_str+'_uh.png', hide_plot=hide_plots)
+        title = r'solution {} (vector field)'.format(u_name)
+        plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='vector_field',
+                domain=domain, title=title, filename=plot_dir+'/'+params_str+'_uh_vf.png', hide_plot=hide_plots)
+        title = r'solution {} (components)'.format(u_name)
+        plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='components',
+                domain=domain, title=title, filename=plot_dir+'/'+params_str+'_uh_xy.png', hide_plot=hide_plots)
+
+    if sol_filename:
+        print(' .. saving u (=B) solution coeffs to file {}'.format(sol_filename))
+        np.save(sol_filename, uh_c)
+
+    time_count(t_stamp)
+    
+    # diagnostics: errors
+    diags = diag_grid.get_diags_for(v=uh, space='V1')
+
+    if u_ex is not None:
+        check_diags = get_Vh_diags_for(v=uh, v_ref=uh_ref, M_m=H1_m, msg='error between Ph(u_ex) and u_h')
+
+    return diags
+
 
 if __name__ == '__main__':
 
