@@ -31,6 +31,11 @@ def error_fn(source_type=None, method=None, conf_proj=None, k=None, domain_name=
     """ Get the error filename based on the method used to solve the multpatch problem"""
     return 'errors/error_'+domain_name+'_'+source_type+'_'+'_deg'+repr(deg)+'_'+get_method_name(method, k, conf_proj=conf_proj)+'.txt'
 
+def diag_fn(source_type=None, source_proj=None):
+    """ Get the diagnostics filename"""
+    fn = 'diag_'+source_name(source_type, source_proj)+'.txt'
+    return fn
+
 def get_method_name(method=None, k=None, conf_proj=None, penal_regime=None):
     """ Get method name used to solve the multpatch problem """
     if method == 'nitsche':

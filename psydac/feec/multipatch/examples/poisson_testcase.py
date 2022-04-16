@@ -1,7 +1,8 @@
 import os
 import numpy as np
 from psydac.feec.multipatch.examples.h1_source_pbms_conga_2d import solve_h1_source_pbm
-from psydac.feec.multipatch.utilities                   import time_count, FEM_sol_fn, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir
+from psydac.feec.multipatch.utilities                   import time_count, FEM_sol_fn, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
+from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_file
 
 t_stamp_full = time_count()
 
@@ -36,12 +37,23 @@ ref_deg = 6
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
+params = {
+    'domain_name': domain_name,
+    'nc': nc,
+    'deg': deg,
+    'homogeneous': homogeneous,
+    'source_type': source_type,
+    'source_proj': source_proj, 
+    'ref_nc': ref_nc,
+    'ref_deg': ref_deg,
+}
 
 # backend_language = 'numba'
 backend_language='pyccel-gcc'
 
 run_dir = get_run_dir(domain_name, source_type, nc, deg)
 plot_dir = get_plot_dir(case_dir, run_dir)
+diag_filename = plot_dir+'/'+diag_fn(source_type=source_type, source_proj=source_proj)
 
 # to save and load matrices
 m_load_dir = get_mat_dir(domain_name, nc, deg)
@@ -63,7 +75,7 @@ sol_ref_filename = sol_ref_dir+'/'+FEM_sol_fn(source_type=source_type, source_pr
 # with
 #       A u := eta * u  -  mu * div grad u
 
-solve_h1_source_pbm(
+diags = solve_h1_source_pbm(
     nc=nc, deg=deg,
     eta=0,
     mu=1,
@@ -83,5 +95,7 @@ solve_h1_source_pbm(
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+
+write_diags_to_file(diags, script_filename=__file__, diag_filename=diag_filename, params=params)
 
 time_count(t_stamp_full, msg='full program')

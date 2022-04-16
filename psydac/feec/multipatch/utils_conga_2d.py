@@ -1,3 +1,6 @@
+import os
+import datetime
+
 import numpy as np
 
 from sympy import lambdify
@@ -186,3 +189,24 @@ def get_Vh_diags_for(v=None, v_ref=None, M_m=None, print_diags=True, msg='error 
         print(diags)        
 
     return diags
+
+
+def write_diags_to_file(diags, script_filename, diag_filename, params={}):
+    print(' -- writing diags to file {} --'.format(diag_filename))
+    if not os.path.exists(diag_filename):
+        open(diag_filename, 'w')
+
+    with open(diag_filename, 'a') as a_writer:
+        a_writer.write('\n')
+        a_writer.write(' ---------- ---------- ---------- ---------- ---------- ---------- \n')
+        a_writer.write(' run script:  \n   {}\n'.format(script_filename))
+        a_writer.write(' executed on: \n   {}\n\n'.format(datetime.datetime.now()))
+        a_writer.write(' params:  \n')
+        for key, value in params.items():
+            a_writer.write('   {}: {} \n'.format(key, value))
+        a_writer.write('\n')
+        a_writer.write(' diags:  \n')
+        for key, value in diags.items():
+            a_writer.write('   {}: {} \n'.format(key, value))
+        a_writer.write(' ---------- ---------- ---------- ---------- ---------- ---------- \n')
+        a_writer.write('\n')

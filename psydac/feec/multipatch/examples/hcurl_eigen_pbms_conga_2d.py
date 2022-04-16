@@ -164,7 +164,7 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
     ncv = 4*nb_eigs
     print('A_m.shape = ', A_m.shape)
     try_lgmres = True
-    max_shape_splu = 17000
+    max_shape_splu = 24000   # OK for nc=20, deg=6 on pretzel_f
     if A_m.shape[0] < max_shape_splu:
         print('(via sparse LU decomposition)')
         OPinv = None
