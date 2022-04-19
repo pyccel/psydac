@@ -276,6 +276,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
         assert isinstance(V, ProductSpace) and len(V.spaces) == 2
 
     g_spaces = {}
+    interfaces_info = {}
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
         # from a discrete geoemtry
         if len(domain_h.mappings.values()) > 1:
