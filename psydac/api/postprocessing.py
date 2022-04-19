@@ -980,7 +980,7 @@ class PostProcessManager:
 
         x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell, overlap=0)
 
-        conn, offsets, celltypes, cell_shape = self._compute_unstructured_mesh_info(mapping, 
+        conn, offsets, celltypes, cell_shape = self._compute_unstructured_mesh_info(mapping.space.local_domain, 
                                                                                     npts_per_cell=npts_per_cell, 
                                                                                     cell_indexes=cell_indexes)
 
