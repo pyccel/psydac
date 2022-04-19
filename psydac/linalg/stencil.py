@@ -1437,7 +1437,7 @@ class StencilMatrix( Matrix ):
 
     # ...
     def set_backend(self, backend):
-        from psydac.api.ast.linalg import LinearOperatorDot, tranpose_operator
+        from psydac.api.ast.linalg import LinearOperatorDot, TransposeOperator
         self._backend         = backend
         self._args            = self._dotargs_null.copy()
         self._transpose_args  = self._transpose_args_null.copy()
@@ -1446,7 +1446,7 @@ class StencilMatrix( Matrix ):
             self._func           = self._dot
             self._transpose_func = self._transpose
         else:
-            transpose            = tranpose_operator(self._ndim, backend=frozenset(backend.items()))
+            transpose = TransposeOperator(self._ndim, backend=frozenset(backend.items()))
             self._transpose_func = transpose.func
 
             nrows   = self._transpose_args.pop('nrows')
@@ -1470,9 +1470,11 @@ class StencilMatrix( Matrix ):
                     self._transpose_args[arg_name.format(i=i+1)] = np.int64(arg_val[i]) if isinstance(arg_val[i], int) else arg_val[i]
 
             if self.domain.parallel:
+                comm = self.domain.cart.comm
                 if self.domain == self.codomain:
                     # In this case nrows_extra[i] == 0 for all i
                     dot = LinearOperatorDot(self._ndim,
+                                    comm = comm,
                                     backend=frozenset(backend.items()),
                                     nrows_extra = self._args['nrows_extra'],
                                     gpads=self._args['gpads'],
@@ -1497,6 +1499,7 @@ class StencilMatrix( Matrix ):
 
                 else:
                     dot = LinearOperatorDot(self._ndim,
+                                            comm = comm,
                                             backend=frozenset(backend.items()),
                                             gpads=self._args['gpads'],
                                             pads=self._args['pads'],
@@ -1523,6 +1526,7 @@ class StencilMatrix( Matrix ):
 
             else:
                 dot = LinearOperatorDot(self._ndim,
+                                        comm = None,
                                         backend=frozenset(backend.items()),
                                         starts = tuple(self._args['starts']),
                                         nrows=tuple(self._args['nrows']),
@@ -2088,7 +2092,7 @@ class StencilInterfaceMatrix(Matrix):
             self._data[idx_ghost] = 0
 
     def set_backend(self, backend):
-        from psydac.api.ast.linalg import LinearOperatorDot, interface_tranpose_operator
+        from psydac.api.ast.linalg import LinearOperatorDot, InterfaceTransposeOperator
         self._backend         = backend
         self._args            = self._dotargs_null.copy()
         self._transpose_args  = self._transpose_args_null.copy()
@@ -2097,7 +2101,7 @@ class StencilInterfaceMatrix(Matrix):
             self._func           = self._dot
             self._transpose_func = self._transpose
         else:
-            transpose            = interface_tranpose_operator(self._ndim, backend=frozenset(backend.items()))
+            transpose = InterfaceTransposeOperator(self._ndim, backend=frozenset(backend.items()))
             self._transpose_func = transpose.func
 
             d_start = self._transpose_args.pop('d_start')
@@ -2127,9 +2131,11 @@ class StencilInterfaceMatrix(Matrix):
                     self._transpose_args[arg_name.format(i=i+1)] = arg_val[i]
 
             if self.domain.parallel:
+                comm = self.domain.cart.comm
                 if self.domain == self.codomain:
                     # In this case nrows_extra[i] == 0 for all i
                     dot = LinearOperatorDot(self._ndim,
+                                    comm = comm,
                                     backend=frozenset(backend.items()),
                                     nrows_extra = self._args['nrows_extra'],
                                     gpads=self._args['dpads'],
@@ -2150,6 +2156,7 @@ class StencilInterfaceMatrix(Matrix):
 
                 else:
                     dot = LinearOperatorDot(self._ndim,
+                                            comm = comm,
                                             backend=frozenset(backend.items()),
                                             gpads=self._args['dpads'],
                                             pads=self._args['pads'],
@@ -2173,6 +2180,7 @@ class StencilInterfaceMatrix(Matrix):
 
             else:
                 dot = LinearOperatorDot(self._ndim,
+                                        comm = None,
                                         backend=frozenset(backend.items()),
                                         nrows=self._args['nrows'],
                                         nrows_extra=self._args['nrows_extra'],
