@@ -3,6 +3,7 @@
 # Copyright 2019 Yaman Güçlü
 
 from operator import mod
+import mpi4py
 import numpy as np
 import pyevtk
 from sympy import N
@@ -11,9 +12,14 @@ import re
 import h5py as h5
 
 from psydac.cad.geometry import Geometry
+from psydac.feec.pushforward import Pushforward
 from psydac.utilities.utils import refine_array_1d
 from psydac.fem.basic import FemSpace, FemField
-
+from psydac.fem.vector import ProductFemSpace, VectorFemSpace
+from psydac.utilities.vtk import writeParallelVTKUnstructuredGrid
+from psydac.utilities.data_exchange import SpaceDataExchanger
+from pyevtk.hl import unstructuredGridToVTK
+from pyevtk.vtk import VtkQuad, VtkHexahedron
 
 #===============================================================================
 def get_grid_lines_2d(domain_h, V_h, *, refine=1):
@@ -566,6 +572,8 @@ class PostProcessManager:
         self._spaces = {}
         self._static_fields = {}
         self._snapshot_fields = {}
+        
+        self._last_loaded_fields = None
 
         self._loaded_t = None
         self._loaded_ts = None
@@ -573,6 +581,8 @@ class PostProcessManager:
 
         self.comm = comm
         self.fields_file = None
+
+        self.data_exchanger = None
 
         self._reconstruct_spaces()
         self.get_snapshot_list()
@@ -750,8 +760,7 @@ class PostProcessManager:
                             new_field.coeffs[index] = space_group[field_dset_name][index]
 
                             self._static_fields[field_dset_name] = new_field
-
-    
+ 
         for space_name, field_dict in temp_space_to_field.items():
             
             for field_name, list_coeffs in field_dict.items():
@@ -765,6 +774,9 @@ class PostProcessManager:
                     new_field.coeffs[i][index] = coeff[index]
 
                 self._static_fields[field_name] = new_field
+
+        self._last_loaded_fields = self._static_fields
+
 
     def load_snapshot(self, n, *fields):
         """Reads a particular snapshot from file
@@ -818,8 +830,13 @@ class PostProcessManager:
                             index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
                             for field_dset_name in space_group.keys():
                                 if field_dset_name in fields:
+                                    # Try to reuse memory
                                     try:
                                         self._snapshot_fields[field_dset_name].coeffs[index] = space_group[field_dset_name][index]
+                                        
+                                        # Ghost regions are not in sync anymore
+                                        if self.comm is not None:
+                                            self._snapshot_fields[field_dset_name].coeffs.ghost_regions_in_sync = False
                                     except KeyError:
                                         new_field = FemField(self._spaces[space_name])
                                         new_field.coeffs[index] = space_group[field_dset_name][index]
@@ -828,12 +845,15 @@ class PostProcessManager:
 
         for space_name, field_dict in temp_space_to_field.items():
             for field_name, list_coeffs in field_dict.items():
+                # Try to reuse memory
                 try:
                     for i, coeff in enumerate(list_coeffs):
                         Vi = self._spaces[space_name].vector_space.spaces[i]
                         index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
-
                         self._snapshot_fields[field_name].coeffs[i][index] = coeff[index]
+                        # Ghost regions are not in sync anymore
+                        if self.comm is not None:
+                            self._snapshot_fields[field_dset_name].coeffs.ghost_regions_in_sync = False
                 except KeyError:
                     new_field = FemField(self._spaces[space_name])
 
@@ -851,6 +871,8 @@ class PostProcessManager:
             if key not in fields:
                 del self._snapshot_fields[key]
 
+        self._last_loaded_fields = self._snapshot_fields
+
     def export_to_vtk(self, 
                       filename_pattern, 
                       grid, 
@@ -861,6 +883,7 @@ class PostProcessManager:
                       fields=None, 
                       additional_physical_functions=None,
                       additional_logical_functions=None,
+                      color_by_rank=True,
                       debug=False):
         """Exports some fields to vtk. 
 
@@ -886,13 +909,16 @@ class PostProcessManager:
             Only used if ``snapshot`` is not ``'none'``. 
 
         fields: dict
-            Dictionary with the fields to export as keys and the name under which to export them as values
+            Dictionary with the fields to export as values and the name under which to export them as keys
         
         additional_physical_functions : dict
             Dictionary of callable functions. Those functions will be called on (x_mesh, y_mesh, z_mesh)
 
         additional_logical_functions : dict
             Dictionary of callable functions. Those functions will be called on the grid.
+        
+        color_by_rank : bool, default=True
+            Adds a cellData attribute that represents the rank of the process that created the file. 
 
         debug : bool, default=False
             If true, returns ``(mesh, pointData_list)`` where ``mesh`` is ``(x_mesh, y_mesh,  z_mesh)``
@@ -905,46 +931,83 @@ class PostProcessManager:
         # =================================================
         # Common to everything
         # =================================================
-        # Get Mapping
+        
+        # Get Mappings
         mappings = self._domain_h.mappings
 
+        # Do not support Multipatch domains.
         if len(mappings.values()) != 1:
             raise NotImplementedError("Multipatch not supported yet")
 
+        # Singular mapping
         mapping = list(mappings.values())[0]
-
         ldim = mapping.ldim
 
-        if isinstance(npts_per_cell, int):
-            npts_per_cell = (npts_per_cell,) * ldim
+        self._pushforward = Pushforward(mapping, grid, npts_per_cell=npts_per_cell)
 
-        filename_static = filename_pattern + "_static"
-        filename_time_dependent = filename_static
-
-        # Check if launched in parallel
-        if self.comm is not None and self.comm.size >1:
-            rank = self.comm.Get_rank()
-            filename_static = filename_static + f"_{rank}"
-            filename_time_dependent = filename_time_dependent + f"_{rank}"
-
-        # Only regular tensor product grid is supported for now
-        grid_test = [np.asarray(grid[i]) for i in range(ldim)]
-        assert grid_test[0].ndim == 1 and npts_per_cell is not None
-        assert all(grid_test[i].ndim == grid_test[i+1].ndim for i in range(len(grid) - 1))
-        assert all(grid_test[i].size % npts_per_cell[i] == 0 for i in range(ldim))
-        
-        # Coordinates of the mesh, C Contiguous arrays
-        x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell)
-
-        if debug:
-            debug_result = ((x_mesh, y_mesh, z_mesh), [])
-
+        # Easy way to ensure everything is 3D
         if ldim == 2:
             slice_3d = (slice(0, None, 1), slice(0, None, 1), None)
         elif ldim == 3:
             slice_3d = (slice(0, None, 1), slice(0, None, 1), slice(0, None, 1))
         else:
-            raise NotImplementedError("1D case not Implemented yet")
+            raise NotImplementedError("1D case not supported")
+
+        # Check the grid argument
+        assert len(grid) == ldim
+        grid_test = [np.asarray(grid[i]) for i in range(ldim)]
+        assert all(grid_test[i].ndim == grid_test[i+1].ndim for i in range(len(grid) - 1))
+        
+        if grid_test[0].ndim == 1 and npts_per_cell is not None:
+            # Account for only an int being given
+            if isinstance(npts_per_cell, int):
+                npts_per_cell = (npts_per_cell,) * ldim
+
+            # Check that the grid is regular
+            assert all(grid_test[i].size % npts_per_cell[i] == 0 for i in range(ldim))
+            
+            cell_indexes = None
+
+        elif grid_test[0].ndim == 1 and npts_per_cell is None:
+            raise NotImplementedError("Only regular tensor grid are supported for now")
+        elif grid_test[0].ndim == ldim:
+            raise NotImplementedError("Only regular tensor grid are supported for now")
+        else:
+            raise ValueError("Wrong input for the grid parameters")
+
+        cellData =None
+        cellData_info = None    
+
+        x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell, overlap=0)
+
+        conn, offsets, celltypes, cell_shape = self._compute_unstructured_mesh_info(mapping, 
+                                                                                    npts_per_cell=npts_per_cell, 
+                                                                                    cell_indexes=cell_indexes)
+
+        # Check if launched in parallel
+        if self.comm is not None and self.comm.size >1:
+            # shortcut
+            rank = self.comm.Get_rank()
+            size = self.comm.Get_size()
+
+
+            if color_by_rank:
+                if ldim == 2:
+                    cellData = {'rank': np.full(tuple(cell_shape) + (1,), rank, dtype='i')}
+                elif ldim == 3:
+                    cellData = {'rank': np.full_like(cell_shape, rank, dtype='i')}
+                cellData_info = {'rank': (cellData['rank'].dtype, 1)}
+            # Filenames
+            filename_static = filename_pattern + f'.{rank}.' + 'static'
+            filename_time_dependent = filename_pattern + f'.{rank}'
+
+        else:
+            # Naming
+            filename_static = filename_pattern + ".static"
+            filename_time_dependent = filename_pattern
+
+        if debug:
+            debug_result = ((x_mesh, y_mesh, z_mesh), [])
 
         if fields is None:
             fields={}
@@ -960,38 +1023,13 @@ class PostProcessManager:
         # ============================
         if snapshots in ['all', 'none']:
             if self._static_fields == {}:
-                self.load_static(*fields.keys())
-            pointData_static = {}
-            smart_eval_dict = {}
+                self.load_static(*fields.values())
+            
+            if self.comm is not None and self.comm.rank == 0:
+                general_pointData_static_info = {}
 
-            for f_name, field in self._static_fields.items():
-                if f_name in fields.keys():
-                    try:
-                        smart_eval_dict[field.space][0].append(field)
-                        smart_eval_dict[field.space][1].append(fields[f_name])
-                    except KeyError:
-                        smart_eval_dict[field.space] = ([field], [fields[f_name]])
-
-            for space, (field_list_to_eval, name_list) in smart_eval_dict.items():
-                pushed_fields = space.pushforward_fields(grid,
-                                                            *field_list_to_eval,
-                                                            mapping=mapping,
-                                                            npts_per_cell=npts_per_cell)
-
-                if not isinstance(pushed_fields[0], list):
-                    pushed_fields = [[pushed_fields[i]] for i in range(len(pushed_fields))]
-
-                for i in range(len(name_list)):
-                    if len(pushed_fields[i]) == 1:
-                        # Means that this is a Scalar space.
-                        pointData_static[name_list[i]] = pushed_fields[i][0][slice_3d]
-                    else:
-                        # Means that this is a vector/product space and that we need to turn the
-                        # result into a 3-tuple (x_component, y_component, z_component)
-                        tuple_fields = tuple(pushed_fields[i][j][slice_3d] for j in range(ldim)) \
-                                                + (3-ldim) * (np.zeros_like(pushed_fields[i][0])[slice_3d],)
-                        pointData_static[name_list[i]] = tuple_fields
-
+            pointData_static = self._export_to_vtk_helper(x_mesh.shape, fields=fields)
+           
             if logical_grid:
                 mesh_grids = np.meshgrid(*grid_test, indexing = 'ij')
                 for i in range(ldim):
@@ -999,25 +1037,45 @@ class PostProcessManager:
             
             for f, name in additional_logical_functions.items():
                 mesh_grids = np.meshgrid(*grid_test, indexing = 'ij')
-                pointData_static[name] = f(*mesh_grids)[slice_3d]
+                pointData_static[name] = f(*mesh_grids)
 
             if ldim == 2:
                 for f, name in additional_physical_functions.items():
-                    pointData_static[name] = f(x_mesh, y_mesh)[slice_3d]
+                    pointData_static[name] = f(x_mesh, y_mesh)
             elif ldim == 3:
                 for f, name in additional_physical_functions.items():
                     pointData_static[name] = f(x_mesh, y_mesh, z_mesh)
             
             if debug:
                 debug_result[1].append(pointData_static)
+            
+            if self.comm is not None and self.comm.rank == 0:
+                for name, field in pointData_static.items():
+                    if isinstance(field, tuple):
+                        general_pointData_static_info[name] = (field[0].dtype, 3)
+                    else:
+                        general_pointData_static_info[name] = (field.dtype, 1)
+            
             # Export static fields to VTK
-            pyevtk.hl.gridToVTK(filename_static, x_mesh, y_mesh, z_mesh,
-                                pointData=pointData_static)
+            unstructuredGridToVTK(filename_static, x_mesh, y_mesh, z_mesh,
+                                  connectivity=conn,
+                                  offsets=offsets,
+                                  cell_types=celltypes,
+                                  pointData=pointData_static,
+                                  cellData=cellData)
+
+            if self.comm is not None and self.comm.Get_size() > 1 and self.comm.Get_rank() == 0:
+                writeParallelVTKUnstructuredGrid(filename_pattern + "_static", coordsdtype=x_mesh.dtype,
+                                                 sources=[filename_pattern + f".{r}"+'.static.vtu' for r in range(size)],
+                                                 ghostlevel=0,
+                                                 pointData=general_pointData_static_info,
+                                                 cellData=cellData_info)
 
         # =================================================
         # Time Dependent part
         # =================================================
         # get which snapshots to go through
+       
         if snapshots == 'all':
             snapshots = self._snapshot_list
         if isinstance(snapshots, int):
@@ -1025,88 +1083,180 @@ class PostProcessManager:
 
         if snapshots == 'none':
             snapshots = []
-
-        smart_eval_dict = {}
+        
         for i, snapshot in enumerate(snapshots):
-            self.load_snapshot(snapshot, *fields.keys())
+            self.load_snapshot(snapshot, *fields.values())
+            pointData_i = self._export_to_vtk_helper(x_mesh.shape, fields=fields)
 
-            for f_name, field in self._snapshot_fields.items():
-                if f_name in fields.keys():
-                    try:
-                        smart_eval_dict[field.space][0].append(field)
-                        smart_eval_dict[field.space][1].append(fields[f_name])
-                        smart_eval_dict[field.space][2].append(i)
-                    except KeyError:
-                        smart_eval_dict[field.space] = ([field], [fields[f_name]], [i])
-
-        pointData_full = {}
-
-        for space, (field_list_to_eval, name_list, time_list) in smart_eval_dict.items():
-            pushed_fields = space.pushforward_fields(grid,
-                                                     *field_list_to_eval,
-                                                     mapping=mapping,
-                                                     npts_per_cell=npts_per_cell)
-
-            if not isinstance(pushed_fields[0], list):
-                # This is space-dependent, so we only need to check for the first index.
-                pushed_fields = [[pushed_fields[i]] for i in range(len(pushed_fields))]
-
-
-            previous_time = time_list[0]
-            pointData_time = {}
-            for i in range(len(name_list)):
-
-                # Check if we are in the same snapshot as before, if yes do nothing,
-                # if not, we save the current pointData under the appropriate timestamp
-                current_time = time_list[i]
-
-                if current_time != previous_time:
-
-                    try:
-                        pointData_full[previous_time].update(pointData_time.copy())
-                    except KeyError:
-                        pointData_full[previous_time] = pointData_time.copy()
-
-                    previous_time = current_time
-
-                # Format the results
-                if len(pushed_fields[i]) == 1:
-                    pointData_time[name_list[i]] = pushed_fields[i][0][slice_3d]
-                else:
-                    # Means that this is a vector/product space and we need to turn the
-                    # result into a 3-tuple (x_component, y_component, z_component)
-                    tuple_fields = tuple(pushed_fields[i][j][slice_3d] for j in range(ldim)) \
-                                   + (3 - ldim) * (np.zeros_like(pushed_fields[i][0])[slice_3d],)
-                    pointData_time[name_list[i]] = tuple_fields
-
-            # Save at the end of the loop
-            try:
-                pointData_full[time_list[len(name_list) - 1]].update(pointData_time.copy())
-            except KeyError:
-                pointData_full[time_list[len(name_list) - 1]] = pointData_time.copy()
-
-        for i, pointData_full_i in enumerate(pointData_full.values()):
             if logical_grid:
                 mesh_grids = np.meshgrid(*grid_test, indexing = 'ij')
-                for i in range(ldim):
-                    pointData_full_i[f'x_{i}'] = mesh_grids[i]
+                for k in range(ldim):
+                    pointData_i[f'x_{k}'] = mesh_grids[k]
             
             for f, name in additional_logical_functions.items():
                 mesh_grids = np.meshgrid(*grid_test, indexing = 'ij')
-                pointData_full_i[name] = f(*mesh_grids)[slice_3d]
+                pointData_i[name] = f(*mesh_grids)[slice_3d]
                 
             if ldim == 2:
                 for f, name in additional_physical_functions.items():
-                    pointData_full_i[name] = f(x_mesh, y_mesh)[slice_3d]
+                    pointData_i[name] = f(x_mesh, y_mesh)[slice_3d]
             elif ldim == 3:
                 for f, name in additional_physical_functions.items():
-                    pointData_full_i[name] = f(x_mesh, y_mesh, z_mesh)
+                    pointData_i[name] = f(x_mesh, y_mesh, z_mesh)
 
             if debug:
-                debug_result[1].append(pointData_full_i)
+                debug_result[1].append(pointData_i)
+            
+            if self.comm is not None and size > 1 and rank == 0:
+    
+                general_pointData_time_info = {}
+                for name, data in pointData_i.items():
+                    if isinstance(data, tuple):
+                        general_pointData_time_info[name] = (data[0].dtype, 3)
+                    else:
+                        general_pointData_time_info[name] = (data.dtype, 1)
+                
+                writeParallelVTKUnstructuredGrid(filename_pattern + '.{0:0{1}d}'.format(i, lz),
+                                    coordsdtype= x_mesh.dtype,
+                                    sources=[filename_pattern + f'.{r}' + '.{0:0{1}d}'.format(i, lz) + '.vtu' for r in range(size)],
+                                    ghostlevel=0,
+                                    pointData=general_pointData_time_info,
+                                    cellData=cellData_info)
 
-            pyevtk.hl.gridToVTK(filename_time_dependent + '_{0:0{1}d}'.format(i, lz),
-                                x_mesh, y_mesh, z_mesh, pointData=pointData_full_i)
-        
+            unstructuredGridToVTK(filename_time_dependent + '.{0:0{1}d}'.format(i, lz),
+                                  x_mesh, y_mesh, z_mesh,
+                                  connectivity=conn,
+                                  offsets=offsets,
+                                  cell_types=celltypes,
+                                  pointData=pointData_i,
+                                  cellData=cellData)
+    
         if debug:
             return debug_result
+
+    def _export_to_vtk_helper(self, shape, fields=None):
+        """
+        Helper function to make the proper function easier to read.
+        The correct fields are supposed to be already loaded. 
+
+        Parameters
+        ----------
+
+        shape : tuple
+            Shape of the mesh
+        
+        fields : dict, optional
+            
+        """
+        fields_relevant = {}
+        for vtk_name, f_name in fields.items():
+            if f_name in self._last_loaded_fields.keys():
+                fields_relevant[vtk_name] = self._last_loaded_fields[f_name]
+        pointData_int = self._pushforward(fields=fields_relevant)
+        pointData = {}
+        if self._domain_h.ldim == 2:
+            for (name, field) in pointData_int:
+                if isinstance(field, tuple):
+                    pointData[name] = (np.reshape(field[0], shape), np.reshape(field[1], shape), np.zeros(shape))
+                else:
+                    pointData[name] = np.reshape(field, shape)
+        else:
+            for (name, field) in pointData_int:
+                pointData[name] = field
+
+        return pointData
+
+    def _compute_unstructured_mesh_info(self, mapping_local_domain, npts_per_cell=None, cell_indexes=None):
+        """
+        Computes the connection, offset and celltypes arrays for exportation
+        as VTK unstructured grid.
+
+        Parameters
+        ----------
+
+        mapping_local_domain : tuple of tuple
+
+        npts_per_cell : tuple of ints or ints, optional
+
+        cell_indexes : tuple of arrays, optional
+
+        Return 
+        ------
+        connectivity : ndarray
+            1D array containing the connectivity between points
+        offsets : ndarray 
+            1D array containing the index of the last vertex of each cell
+        celltypes : ndarray
+            1D array containing the type ID of each cell
+        cellshape : tuple
+            Number of cell in each direction.
+        """
+        starts, ends = mapping_local_domain
+        ldim = len(starts)
+
+        if npts_per_cell is not None:
+            n_elem = tuple(ends[i] + 1 - starts[i] for i in range(ldim))
+            
+            cellshape = np.array(n_elem) * (np.array(npts_per_cell) - 1)
+            total_number_cells_vtk = np.prod(cellshape)
+            celltypes = np.zeros(total_number_cells_vtk, dtype='i')
+            offsets = np.arange(1, total_number_cells_vtk + 1, dtype='i') * (2 ** ldim)
+            connectivity = np.zeros(total_number_cells_vtk * 2 ** ldim)
+            if ldim == 2: 
+                celltypes[:] = VtkQuad.tid
+                cellID = 0
+                for i_elem in range(n_elem[0]):
+                    for j_elem in range(n_elem[1]):
+                        for i_intra in range(npts_per_cell[0] - 1):
+                            for j_intra in range(npts_per_cell[1] - 1):
+                                row_top = i_elem * npts_per_cell[0] + i_intra
+                                col_left = j_elem * npts_per_cell[1] + j_intra
+
+                                topleft = row_top * n_elem[1] * npts_per_cell[1] + col_left
+                                topright = topleft + 1
+                                botleft = topleft + n_elem[1] * npts_per_cell[1] # next row
+                                botright = botleft + 1
+
+                                connectivity[4 * cellID: 4 * cellID + 4] = [topleft, topright, botright, botleft]
+
+                                cellID += 1
+            
+            elif ldim == 3:
+                celltypes[:] = VtkHexahedron.tid
+                cellID = 0
+                n_cols = n_elem[1] * npts_per_cell[1]
+                n_layers = n_elem[2] * npts_per_cell[2]
+                for i_elem in range(n_elem[0]):
+                    for j_elem in range(n_elem[1]):
+                        for k_elem in range(n_elem[2]):
+                            for i_intra in range(npts_per_cell[0] - 1):
+                                for j_intra in range(npts_per_cell[1] - 1):
+                                    for k_intra in range(npts_per_cell[2] - 1):
+                                        row_top = i_elem * npts_per_cell[0] + i_intra
+                                        col_left = j_elem * npts_per_cell[1] + j_intra
+                                        layer_front = k_elem * npts_per_cell[2] + k_intra
+                                        
+                                        top_left_front = row_top * n_cols * n_layers + col_left * n_layers + layer_front
+                                        top_left_back = top_left_front + 1
+                                        top_right_front = top_left_front + n_layers # next column
+                                        top_right_back = top_right_front + 1
+
+                                        bot_left_front = top_left_front + n_layers * n_cols # next row
+                                        bot_left_back = bot_left_front + 1
+                                        bot_right_front = bot_left_front + n_layers # next column
+                                        bot_right_back = bot_right_front + 1
+
+
+                                        connectivity[8 * cellID: 8 * cellID + 8] = [
+                                            top_left_front, top_right_front, bot_right_front, bot_left_front,
+                                            top_left_back, top_right_back, bot_right_back, bot_left_back
+                                        ]
+
+                                        cellID += 1
+        
+        elif cell_indexes is not None:
+            raise NotImplementedError("WIP")
+            
+        else:
+            raise NotImplementedError("Not Supported Yet")
+        return connectivity, offsets, celltypes, cellshape
