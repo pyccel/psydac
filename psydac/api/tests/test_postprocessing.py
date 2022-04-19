@@ -17,6 +17,12 @@ except KeyError:
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
 
+try:
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+except ImportError:
+    comm = None
+
 def test_OutputManager():
 
     domain = Square('D')
@@ -45,15 +51,8 @@ def test_OutputManager():
     Om.export_fields(uh=uh)
     Om.export_fields(vh=vh)
 
-<<<<<<< HEAD
-    try:
-        Om.export_fields(uh_static=uh)
-    except AssertionError:
-        pass
-=======
     with pytest.raises(AssertionError):
         Om.export_fields(uh_static=uh)
->>>>>>> devel
 
     expected_spaces_info = {'ndim': 2,
                             'fields': 'file.h5',
@@ -158,11 +157,7 @@ def test_PostProcessManager(geometry, refinement):
     # =================================================================
     # Part 1: Running a simulation
     # =================================================================
-<<<<<<< HEAD
-    geometry_file = os.path.join(mesh_dir, 'identity_2d.h5')
-=======
     geometry_file = os.path.join(mesh_dir, geometry)
->>>>>>> devel
     domain = Domain.from_file(geometry_file)
 
     V1 = ScalarFunctionSpace('V1', domain, kind='l2')
@@ -181,11 +176,7 @@ def test_PostProcessManager(geometry, refinement):
 
     npts_per_cell = refinement + 1
 
-<<<<<<< HEAD
-    grid = [refine_array_1d(V1h.breaks[i], refinement, remove_duplicates=False) for i in range(2)]
-=======
     grid = [refine_array_1d(V1h.breaks[i], refinement, remove_duplicates=False) for i in range(domainh.ldim)]
->>>>>>> devel
 
     # Output Manager Initialization
     output = OutputManager('space_example.yml', 'fields_example.h5')
@@ -243,16 +234,11 @@ def test_PostProcessManager(geometry, refinement):
         assert np.allclose(vh_grid_x_new, vh_grids[i][0])
         assert np.allclose(vh_grid_y_new, vh_grids[i][1])
 
-<<<<<<< HEAD
-    post.export_to_vtk('example_None', grid, npts_per_cell=npts_per_cell, snapshots='none', fields={'u':'field1', 'v':'field2', 'w':'field3'})
-    post.export_to_vtk('example_all', grid, npts_per_cell=npts_per_cell, snapshots='all', fields={'u':'field1', 'v':'field2', 'w':'field3'})
-    post.export_to_vtk('example_list', grid, npts_per_cell=npts_per_cell, snapshots=[9, 5, 6, 3], fields={'u':'field1', 'v':'field2', 'w':'field3'})
-=======
     mesh, static_fields = post.export_to_vtk('example_None', 
                                              grid, 
                                              npts_per_cell=npts_per_cell, 
                                              snapshots='none', 
-                                             fields={'u':'field1', 'v':'field2', 'w':'field3'}, 
+                                             fields={'field1': 'u', 'field2': 'v', 'field3': 'w'}, 
                                              debug=True)
     assert list(static_fields[0].keys()) == ['field3']
 
@@ -260,7 +246,7 @@ def test_PostProcessManager(geometry, refinement):
                                           grid, 
                                           npts_per_cell=npts_per_cell, 
                                           snapshots='all', 
-                                          fields={'u':'field1', 'v':'field2', 'w':'field3'},
+                                          fields={'field1': 'u', 'field2': 'v', 'field3': 'w'},
                                           debug=True)
     
     assert list(all_fields[0].keys()) == ['field3']
@@ -270,12 +256,10 @@ def test_PostProcessManager(geometry, refinement):
                                                grid, 
                                                npts_per_cell=npts_per_cell, 
                                                snapshots=[9, 5, 6, 3], 
-                                               fields={'u':'field1', 'v':'field2', 'w':'field3'},
+                                               fields={'field1': 'u', 'field2': 'v', 'field3': 'w'},
                                                debug=True)
 
     assert all(list(snapshot_fields[i].keys()) == ['field1', 'field2'] for i in range(4))
-
->>>>>>> devel
 
     # Clear files
     for f in glob.glob("example*.vts"): #VTK files
@@ -284,3 +268,122 @@ def test_PostProcessManager(geometry, refinement):
     os.remove('fields_example.h5')
 
 
+@pytest.mark.parallel
+def test_multipatch_parallel_export(interactive=False):
+    bounds1   = (0.5, 1.)
+    bounds2_A = (0, np.pi/2)
+    bounds2_B = (np.pi/2, np.pi)
+
+    A = Square('A',bounds1=bounds1, bounds2=bounds2_A)
+    B = Square('B',bounds1=bounds1, bounds2=bounds2_B)
+
+    domain = A.join(B, name='domain',
+                    bnd_minus=A.get_boundary(axis=1, ext=1),
+                    bnd_plus=B.get_boundary(axis=1, ext=-1))
+
+    Va = ScalarFunctionSpace('Va', A)
+    Vb = ScalarFunctionSpace('Vb', B)
+    V = ScalarFunctionSpace('V', domain)
+    Vv = VectorFunctionSpace('Vv', domain)
+    Vva = VectorFunctionSpace('Vva', A)
+
+    Om = OutputManager('spaces_multipatch.yml', 'fields_multipatch.h5', comm=comm)
+
+    domain_h = discretize(domain, ncells = [15, 15], comm=comm)
+    Ah = discretize(A, ncells = [5, 5], comm=comm)
+    Bh = discretize(B, ncells = [5, 5])
+
+    Vh = discretize(V, domain_h, degree=[3, 3])
+    Vah = discretize(Va, Ah, degree=[3, 3])
+    Vbh = discretize(Vb, Bh, degree=[3, 3])
+
+    Vvh = discretize(Vv, domain_h, degree=[3,3])
+    Vvah = discretize(Vva, Ah, degree=[3,3])
+
+    uh = FemField(Vh)
+    uah = FemField(Vah)
+    ubh = FemField(Vbh)
+
+    uvh = FemField(Vvh)
+    uvah = FemField(Vvah)
+
+    Om.add_spaces(V=Vh)
+    Om.add_spaces(Va=Vah)
+    Om.add_spaces(Vb=Vbh)
+    Om.add_spaces(Vv=Vvh)
+    Om.add_spaces(Vva=Vvah)
+
+    Om.set_static()
+    
+    Om.export_fields(field_A=uah, field_B=ubh,
+                     field_V=uh, uvh=uvh, uvah=uvah)
+    Om.add_snapshot(0., 0)
+    Om.export_fields(fA=uah, f_B=ubh,
+                     f_V=uh, uvh_0=uvh, uvah_0=uvah)
+    Om.export_space_info()
+    Om.close()
+
+    comm.Barrier()
+    if comm.Get_rank() == 0 and not interactive:
+        os.remove('spaces_multipatch.yml')
+        os.remove('fields_multipatch.h5')
+
+
+@pytest.mark.parallel
+@pytest.mark.parametrize('geometry', ['identity_2d.h5',
+                                      'identity_3d.h5',
+                                      'bent_pipe.h5'])
+def test_parallel_export(geometry, interactive=False):
+    rank = comm.Get_rank()
+    filename = os.path.join(mesh_dir, geometry)
+
+    domain = Domain.from_file(filename=filename)
+    domainh = discretize(domain, filename=filename, comm=comm)
+
+    V = ScalarFunctionSpace('V', domain, kind='H1')
+
+    Vh = discretize(V, domainh, degree=[3] * domainh.ldim)
+
+    f = FemField(Vh)
+
+    f.coeffs[:] = rank
+
+    Om = OutputManager('space_test_export.yml', 'fields_test_export.h5', comm=comm, mode='w')
+
+    Om.add_spaces(Vh=Vh)
+    Om.set_static()
+    Om.export_fields(f=f)
+
+    grid = [np.linspace(Vh.breaks[i][0], Vh.breaks[i][-1], Vh.ncells[i] * 2) for i in range(Vh.ldim)]
+    npts_per_cell = [2] * len(grid)
+    
+    for i in range(15):
+        f.coeffs[:] = i
+        Om.add_snapshot(t=float(i), ts=i)
+        Om.export_fields(f_t=f)
+    Om.export_space_info()
+    Om.close()
+    comm.Barrier()
+
+    Pm = PostProcessManager(geometry_file=filename, 
+                            space_file='space_test_export.yml', 
+                            fields_file='fields_test_export.h5', 
+                            comm=comm)
+
+    Pm.export_to_vtk('test', grid=grid, npts_per_cell=npts_per_cell, 
+                     fields={'f_t': 'time'}, snapshots='all')
+
+    comm.Barrier()
+
+    if rank == 0 and not interactive:
+        for f in glob.glob('test*.*vts'):
+            os.remove(f)
+        os.remove('space_test_export.yml')
+        os.remove('fields_test_export.h5')
+
+
+if __name__ == "__main__":
+    import sys
+    # Meant to showcase examples 
+    test_multipatch_parallel_export(True)
+    test_parallel_export(sys.argv[1], True)
