@@ -940,6 +940,7 @@ class PostProcessManager:
         # Singular mapping
         mapping = list(mappings.values())[0]
         ldim = mapping.ldim
+        local_domain = mapping.space.local_domain
 
         self._pushforward = Pushforward(mapping, grid, npts_per_cell=npts_per_cell)
 
@@ -963,6 +964,13 @@ class PostProcessManager:
 
             # Check that the grid is regular
             assert all(grid_test[i].size % npts_per_cell[i] == 0 for i in range(ldim))
+
+            grid_local = []
+            for i in range(len(grid_test)):
+                grid_local.append(grid_test[i][local_domain[0][i] * npts_per_cell[i]:
+                                                (local_domain[1][i] + 1) * npts_per_cell[i]])
+                
+            mesh_grids = np.meshgrid(*grid_local, indexing = 'ij')
             
             cell_indexes = None
 
@@ -1029,19 +1037,17 @@ class PostProcessManager:
             pointData_static = self._export_to_vtk_helper(x_mesh.shape, fields=fields)
            
             if logical_grid:
-                mesh_grids = np.meshgrid(*grid_test, indexing = 'ij')
                 for i in range(ldim):
                     pointData_static[f'x_{i}'] = mesh_grids[i]
             
-            for f, name in additional_logical_functions.items():
-                mesh_grids = np.meshgrid(*grid_test, indexing = 'ij')
+            for name, f in additional_logical_functions.items():
                 pointData_static[name] = f(*mesh_grids)
 
             if ldim == 2:
-                for f, name in additional_physical_functions.items():
+                for name, f in additional_physical_functions.items():
                     pointData_static[name] = f(x_mesh, y_mesh)
             elif ldim == 3:
-                for f, name in additional_physical_functions.items():
+                for name, f in additional_physical_functions.items():
                     pointData_static[name] = f(x_mesh, y_mesh, z_mesh)
             
             if debug:
@@ -1087,19 +1093,17 @@ class PostProcessManager:
             pointData_i = self._export_to_vtk_helper(x_mesh.shape, fields=fields)
 
             if logical_grid:
-                mesh_grids = np.meshgrid(*grid_test, indexing = 'ij')
                 for k in range(ldim):
                     pointData_i[f'x_{k}'] = mesh_grids[k]
             
-            for f, name in additional_logical_functions.items():
-                mesh_grids = np.meshgrid(*grid_test, indexing = 'ij')
-                pointData_i[name] = f(*mesh_grids)[slice_3d]
+            for name, f in additional_logical_functions.items():
+                pointData_i[name] = f(*mesh_grids)
                 
             if ldim == 2:
-                for f, name in additional_physical_functions.items():
-                    pointData_i[name] = f(x_mesh, y_mesh)[slice_3d]
+                for name, f  in additional_physical_functions.items():
+                    pointData_i[name] = f(x_mesh, y_mesh)
             elif ldim == 3:
-                for f, name in additional_physical_functions.items():
+                for name, f  in additional_physical_functions.items():
                     pointData_i[name] = f(x_mesh, y_mesh, z_mesh)
 
             if debug:
