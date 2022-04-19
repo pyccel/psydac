@@ -98,10 +98,6 @@ file.h5
     snapshot_n/
 ```
 In addition to that, psydac also has a class to read those files, recreate all the `FemSpace` and `FemField` objects and export them to `VTK`. 
-<<<<<<< HEAD
-## Usage
-Those two classes are meant to be used as follows.
-=======
 
 ## Usage of class `OutputManager`
 
@@ -112,7 +108,6 @@ An instance of the `OutputManager` class is created at the beginning of the simu
 
 References to the available FEM spaces are given to the OutputManager object through the `add_spaces(**kwargs)` method, and the corresponding YAML file is created upon calling the method `export_spaces_info()`. In order to inform the OutputManager object that the next fields to be exported are time-independent, the user should call the `set_static()` method. In the case of time-dependent fields, the user should prepare a time snapshot (which is defined for a specific time step index `ts` and time value `t`) by calling the method `add_snapshot(t, ts)`. In both cases the fields are exported to the HDF5 file through a call to the method `export_fields(**kwargs)`. Here is a usage example:
 
->>>>>>> devel
 ```python
 # SymPDE Layer
 # Discretization 
@@ -134,14 +129,6 @@ output_m.export_fields(u0=u0, u1=u1)
 output_m.export_spaces_info() # Writes the space information to Yaml
 ```
 
-<<<<<<< HEAD
-```python
-# geometry.h5 is where the domain comes from
-post = PostProcessManager(geometry_file='geometry.h5', space_file='spaces.yml', fields_file='fields.h5')
-# See PostProcessManager's docstring for me information on those
-post.export_to_vtk('filename_vtk', grid, npts_per_cell=npts_per_cell, snapshots='all', fields = {'u0': 'field1', 'u1': 'field2'})
-# See PostProcessManager.export_to_vtk's and TensorFemSpace.eval_fields' doscstrings for more information. 
-=======
 ## Usage of class `PostProcessManager`
 
 Typically the `PostProcessManager` class is used in a separate post-processing script, which is run after the simulation has finished. In essence it evaluates the FEM fields over a uniform grid (applying the appropriate push-forward operations) and exports the values to a VTK file (or a sequence of files in the case of a time series). An instance of the `PostProcessManager` class is created by specifying the following:
@@ -158,5 +145,4 @@ post = PostProcessManager(geometry_file='geometry.h5', space_file='spaces.yml', 
 
 # See PostProcessManager.export_to_vtk's and TensorFemSpace.eval_fields' doscstrings for more information
 post.export_to_vtk('filename_vtk', grid, npts_per_cell=npts_per_cell, snapshots='all', fields = {'u0': 'field1', 'u1': 'field2'})
->>>>>>> devel
 ```
