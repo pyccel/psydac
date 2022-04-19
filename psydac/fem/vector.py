@@ -182,6 +182,11 @@ class VectorFemSpace( FemSpace ):
         --------
         psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
         """
+        for f in fields:
+            # Necessary if vector coeffs is distributed across processes
+            if not f.coeffs.ghost_regions_in_sync:
+                f.coeffs.update_ghost_regions()
+
         result = []
         if isinstance(overlap, int):
             overlap = [overlap] * self.ldim
@@ -231,6 +236,11 @@ class VectorFemSpace( FemSpace ):
         --------
         psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
         """
+        for f in fields:
+            # Necessary if vector coeffs is distributed across processes
+            if not f.coeffs.ghost_regions_in_sync:
+                f.coeffs.update_ghost_regions()
+                
         result = []
         if isinstance(overlap, int):
             overlap = [overlap] * self.ldim
@@ -499,6 +509,11 @@ class ProductFemSpace( FemSpace ):
         --------
         psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
         """
+        for f in fields:
+            # Necessary if vector coeffs is distributed across processes
+            if not f.coeffs.ghost_regions_in_sync:
+                f.coeffs.update_ghost_regions()
+
         result = []
         if isinstance(overlap, int):
             overlap = [overlap] * self.ldim
@@ -548,6 +563,11 @@ class ProductFemSpace( FemSpace ):
         --------
         psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
         """
+        for f in fields:
+            # Necessary if vector coeffs is distributed across processes
+            if not f.coeffs.ghost_regions_in_sync:
+                f.coeffs.update_ghost_regions()
+
         result = []
         if isinstance(overlap, int):
             overlap = [overlap] * self.ldim
