@@ -19,9 +19,9 @@ def post_process(degree, ncells, npts_per_cell, is_logical):
     log_f = {}
 
     if is_logical:
-        log_f[u_e_logical] = 'u_e_log' 
+        log_f['u_e_log'] =  u_e_logical
     else:
-        phy_f[u_e_physical] = 'u_e_phy' 
+        phy_f['u_e_phy'] = u_e_physical
 
 
     Pm.export_to_vtk(f'poisson_3d_target_torus_{ne1}_{ne2}_{ne3}_{p1}_{p2}_{p3}_{npts_per_cell}_{is_logical}', 
