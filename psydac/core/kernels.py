@@ -4375,10 +4375,10 @@ def pushforward_2d_hcurl(fields_to_push: 'float[:,:,:,:]', inv_jac_mats: 'float[
         Push forwarded fields
     """
     for i_f in range(pushed_fields.shape[3]):
-        pushed_fields[:, :, 0, i_f] = (+ inv_jac_mats[:, :, 0, 0] * fields_to_push[0, :, :, i_f]
+        pushed_fields[i_f, 0, :, :] = (+ inv_jac_mats[:, :, 0, 0] * fields_to_push[0, :, :, i_f]
                                        + inv_jac_mats[:, :, 1, 0] * fields_to_push[1, :, :, i_f])
 
-        pushed_fields[:, :, 1, i_f] = (+ inv_jac_mats[:, :, 0, 1] * fields_to_push[0, :, :, i_f] 
+        pushed_fields[i_f, 1, :, :] = (+ inv_jac_mats[:, :, 0, 1] * fields_to_push[0, :, :, i_f] 
                                        + inv_jac_mats[:, :, 1, 1] * fields_to_push[1, :, :, i_f])
 
 
@@ -4407,15 +4407,15 @@ def pushforward_3d_hcurl(fields_to_push: 'float[:,:,:,:,:]', inv_jac_mats: 'floa
         y = fields_to_push[1, :, :, :, i_f]
         z = fields_to_push[2, :, :, :, i_f]
 
-        pushed_fields[:, :, :, 0, i_f] = + inv_jac_mats[:, :, :, 0, 0] * x \
+        pushed_fields[i_f, 0, :, :, :] = + inv_jac_mats[:, :, :, 0, 0] * x \
                                          + inv_jac_mats[:, :, :, 1, 0] * y \
                                          + inv_jac_mats[:, :, :, 2, 0] * z
 
-        pushed_fields[:, :, :, 1, i_f] = + inv_jac_mats[:, :, :, 0, 1] * x \
+        pushed_fields[i_f, 1, :, :, :] = + inv_jac_mats[:, :, :, 0, 1] * x \
                                          + inv_jac_mats[:, :, :, 1, 1] * y \
                                          + inv_jac_mats[:, :, :, 2, 1] * z
 
-        pushed_fields[:, :, :, 2, i_f] = + inv_jac_mats[:, :, :, 0, 2] * x \
+        pushed_fields[i_f, 2, :, :, :] = + inv_jac_mats[:, :, :, 0, 2] * x \
                                          + inv_jac_mats[:, :, :, 1, 2] * y \
                                          + inv_jac_mats[:, :, :, 2, 2] * z
 
@@ -4443,10 +4443,10 @@ def pushforward_2d_hdiv(fields_to_push: 'float[:,:,:,:]', jac_mats: 'float[:,:,:
     """
     for i_f in range(pushed_fields.shape[3]):
 
-        pushed_fields[:, :, 0, i_f] = (+ jac_mats[:, :, 0, 0] * fields_to_push[0, :, :, i_f] 
+        pushed_fields[i_f, 0, :, :] = (+ jac_mats[:, :, 0, 0] * fields_to_push[0, :, :, i_f] 
                                        + jac_mats[:, :, 0, 1] * fields_to_push[1, :, :, i_f])
                                     
-        pushed_fields[:, :, 1, i_f] = (+ jac_mats[:, :, 1, 0] * fields_to_push[0, :, :, i_f] 
+        pushed_fields[i_f, 1, :, :] = (+ jac_mats[:, :, 1, 0] * fields_to_push[0, :, :, i_f] 
                                        + jac_mats[:, :, 1, 1] * fields_to_push[1, :, :, i_f])
 
 
@@ -4476,14 +4476,14 @@ def pushforward_3d_hdiv(fields_to_push: 'float[:,:,:,:,:]', jac_mats: 'float[:,:
         y = fields_to_push[1, :, :, :, i_f]
         z = fields_to_push[2, :, :, :, i_f]
 
-        pushed_fields[:, :, :, 0, i_f] = + jac_mats[:, :, :, 0, 0] * x \
+        pushed_fields[i_f, 0, :, :, :] = + jac_mats[:, :, :, 0, 0] * x \
                                          + jac_mats[:, :, :, 0, 1] * y \
                                          + jac_mats[:, :, :, 0, 2] * z
 
-        pushed_fields[:, :, :, 1, i_f] = + jac_mats[:, :, :, 1, 0] * x \
+        pushed_fields[i_f, 1, :, :, :] = + jac_mats[:, :, :, 1, 0] * x \
                                          + jac_mats[:, :, :, 1, 1] * y \
                                          + jac_mats[:, :, :, 1, 2] * z
 
-        pushed_fields[:, :, :, 2, i_f] = + jac_mats[:, :, :, 2, 0] * x \
+        pushed_fields[i_f, 2 ,:, :, :] = + jac_mats[:, :, :, 2, 0] * x \
                                          + jac_mats[:, :, :, 2, 1] * y \
                                          + jac_mats[:, :, :, 2, 2] * z
