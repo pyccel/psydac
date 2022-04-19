@@ -36,7 +36,7 @@ def test_parallel_export(comm, geometry=None):
     domainh = discretize(domain, filename=filename, comm=comm)
 
     V = ScalarFunctionSpace('V', domain, kind='h1')
-    Vv = VectorFunctionSpace('Vv', domain, kind = 'hcurl')
+    Vv = VectorFunctionSpace('Vv', domain, kind = 'h1')
     Vh = discretize(V, domainh, degree=[3] * domainh.ldim)
     Vvh = discretize(Vv, domainh, degree=[3] * domainh.ldim)
 
@@ -69,8 +69,18 @@ def test_parallel_export(comm, geometry=None):
 
     Pm = PostProcessManager(geometry_file=filename, space_file='space_test.yml', fields_file='fields_test.h5', comm=comm)
 
+    for i in range(20):
+        Pm.load_snapshot(i, 'ff')
+        new_ff = Pm._last_loaded_fields['ff']
+
+        results = new_ff.space.eval_fields(grid, new_ff, npts_per_cell=npts_per_cell, overlap=1)
+        assert np.allclose(results[0][0], np.cos(pi/ 10 * i))
+        assert np.allclose(results[0][1], np.sin(pi/ 10 * i))
+
     Pm.export_to_vtk('test', grid=grid, npts_per_cell=npts_per_cell, 
-                     snapshots=[i for i in range(20)], fields={"circle": "ff"})
+                     snapshots='all', fields={"circle": "ff"}, 
+                     additional_logical_functions={'test_l': lambda X,Y : X[:, :, None]},
+                     additional_physical_functions={'test_phy': lambda X,Y : X})
 
 
 if __name__ == "__main__":
