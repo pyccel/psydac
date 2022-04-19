@@ -4,7 +4,7 @@
 import numpy as np
 
 from sympde.topology.space import BasicFunctionSpace
-from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
+from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVectorSpace
@@ -100,8 +100,8 @@ class VectorFemSpace( FemSpace ):
         return self.eval_fields(eta, field, weights=weights)[0]
 
     # ...
-    def eval_fields(self, grid, *fields, weights=None, npts_per_cell=None):
-        """Evaluate one or several fields on the given location(s) grid.
+    def eval_fields(self, grid, *fields, weights=None, npts_per_cell=None, overlap=0):
+        """Evaluates one or several fields on the given location(s) grid.
 
         Parameters
         -----------
@@ -119,6 +119,9 @@ class VectorFemSpace( FemSpace ):
             Number of evaluation points in each cell.
             If an integer is given, then assume that it is the same in every direction.
 
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+            
         Returns
         -------
         List of list of ndarray
@@ -137,14 +140,117 @@ class VectorFemSpace( FemSpace ):
                 result.append(self._spaces[i].eval_fields(grid,
                                                           *fields_i,
                                                           npts_per_cell=npts_per_cell,
-                                                          weights=weights.fields[i]))
+                                                          weights=weights.fields[i],
+                                                          overlap=overlap))
         else:
             for i in range(self.ldim):
                 fields_i = list(field.fields[i] for field in fields)
                 result.append(self._spaces[i].eval_fields(grid,
                                                           *fields_i,
-                                                          npts_per_cell=npts_per_cell))
-        return [[result[j][i] for j in range(self.ldim)] for i in range(len(fields))]
+                                                          npts_per_cell=npts_per_cell,
+                                                          overlap=overlap))
+        return [tuple(result[j][i] for j in range(self.ldim)) for i in range(len(fields))]
+
+    # ...
+    def eval_fields_regular_tensor_grid(self, grid, *fields, weights=None, overlap=0):
+        """Evaluates one or several fields on a regular tensor grid.
+
+        Parameters
+        -----------
+        grid : List of ndarray
+            List of 2D arrays representing each direction of the grid.
+            Each of these arrays should have shape (ne_xi, nv_xi) where ne_xi is the
+            number of cells in the domain in the direction xi and nv_xi is the number of
+            evaluation points in the same direction.
+
+        *fields : tuple of psydac.fem.basic.FemField
+            Fields to evaluate.
+
+        weights : psydac.fem.basic.FemField or None, optional
+            Weights field.
+
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+            
+        Returns
+        -------
+        List of list of ndarray
+            List of the same lengths as `self.ldim`, containing for each logical
+            coordinate, a list of `len(fields)` arrays, on for each logical coordinate.
+
+        See Also
+        --------
+        psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
+        """
+        result = []
+        if isinstance(overlap, int):
+            overlap = [overlap] * self.ldim
+        if weights is not None:
+            for i in range(self.ldim):
+                fields_i = list(field.fields[i] for field in fields)
+
+                result.append(self._spaces[i].eval_fields_regular_tensor_grid(grid,
+                                                                              *fields_i,
+                                                                              weights=weights.fields[i],
+                                                                              overlap=overlap[i]))
+        else:
+            for i in range(self.ldim):
+                fields_i = list(field.fields[i] for field in fields)
+
+                result.append(self._spaces[i].eval_fields_regular_tensor_grid(grid,
+                                                                              *fields_i,
+                                                                              overlap=overlap[i]))
+        
+        return result
+
+    # ...
+    def eval_fields_irregular_tensor_grid(self, grid, *fields, weights=None, overlap=0):
+        """Evaluates one or several fields on a regular tensor grid.
+
+        Parameters
+        -----------
+        grid : List of ndarray
+            List of 1D arrays representing each direction of the grid.
+
+        *fields : tuple of psydac.fem.basic.FemField
+            Fields to evaluate.
+
+        weights : psydac.fem.basic.FemField or None, optional
+            Weights field.
+
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+            
+        Returns
+        -------
+        List of list of ndarray
+            List of the same lengths as `self.ldim`, containing for each logical
+            coordinate, a list of `len(fields)` arrays, on for each logical coordinate.
+
+        See Also
+        --------
+        psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
+        """
+        result = []
+        if isinstance(overlap, int):
+            overlap = [overlap] * self.ldim
+        if weights is not None:
+            for i in range(self.ldim):
+                fields_i = list(field.fields[i] for field in fields)
+
+                result.append(self._spaces[i].eval_fields_irregular_tensor_grid(grid,
+                                                                                *fields_i,
+                                                                                weights=weights.fields[i],
+                                                                                overlap=overlap[i]))
+        else:
+            for i in range(self.ldim):
+                fields_i = list(field.fields[i] for field in fields)
+
+                result.append(self._spaces[i].eval_fields_irregular_tensor_grid(grid,
+                                                                                *fields_i,
+                                                                                overlap=overlap[i]))
+        
+        return result
 
     # ...
     def eval_field_gradient( self, field, *eta ):
@@ -161,159 +267,6 @@ class VectorFemSpace( FemSpace ):
         assert hasattr( f, '__call__' )
 
         raise NotImplementedError( "VectorFemSpace not yet operational" )
-
-    # ...
-    def pushforward_fields(self, grid, *fields, mapping, npts_per_cell=None):
-        """ Push forward fields on a given grid and a given mapping
-
-        Parameters
-        ----------
-        grid : List of ndarray
-            Grid on which to evaluate the fields
-
-        *fields : tuple of psydac.fem.basic.FemField
-            Fields to evaluate
-
-        mapping: psydac.mapping.SplineMapping
-            Mapping on which to push-forward
-
-        npts_per_cell: int or tuple of int or None, optional
-            number of evaluation points in each cell.
-            If an integer is given, then assume that it is the same in every direction.
-
-        Returns
-        -------
-        List of ndarray
-            push-forwarded fields
-        """
-
-        # Check that the fields belong to our space
-        assert all(f.space is self for f in fields)
-
-        # Check the grid argument
-        assert len(grid) == self.ldim
-        grid = [np.asarray(grid[i]) for i in range(self.ldim)]
-        assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
-
-        # --------------------------
-        # Case 1. Scalar coordinates
-        if (grid[0].size == 1) or grid[0].ndim == 0:
-            return [self.pushforward_field(f, *grid, mapping=mapping) for f in fields]
-
-        # Case 2. 1D array of coordinates and no npts_per_cell is given
-        # -> grid is tensor-product, but npts_per_cell is not the same in each cell
-        elif grid[0].ndim == 1 and npts_per_cell is None:
-            raise NotImplementedError("Having a different number of evaluation"
-                                      "points in the cells belonging to the same "
-                                      "logical dimension is not supported yet. "
-                                      "If you did use valid inputs, you need to provide"
-                                      "the number of evaluation points per cell in each direction"
-                                      "via the npts_per_cell keyword")
-
-        # Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer
-        # -> grid is tensor-product, and each cell has the same number of evaluation points
-        elif grid[0].ndim == 1 and npts_per_cell is not None:
-            if isinstance(npts_per_cell, int):
-                npts_per_cell = (npts_per_cell,) * self.ldim
-
-            for i in range(self.ldim):
-                ncells_i = len(self.spaces[0].breaks[i]) - 1
-                grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
-
-            pushed_fields = self.pushforward_fields_regular_tensor_grid(grid, *fields, mapping=mapping)
-            # return a list of list of C-contiguous arrays, one list for each field
-            # with one array for each dimension.
-            return [[np.ascontiguousarray(pushed_fields[..., j, i]) for j in range(self._ldim)]
-                    for i in range(len(fields))]
-
-        # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
-        # -> unstructured grid
-        elif grid[0].ndim == self.ldim and npts_per_cell is None:
-            raise NotImplementedError("Unstructured grids are not supported yet.")
-
-        # Case 5. Nonsensical input
-        else:
-            raise ValueError("This combination of argument isn't understood. The 4 cases understood are :\n"
-                             "Case 1. Scalar coordinates\n"
-                             "Case 2. 1D array of coordinates and no npts_per_cell is given\n"
-                             "Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer\n"
-                             "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
-
-    # ...
-    def pushforward_field(self, field, *eta, mapping, parent_kind=None):
-        assert field.space is self
-        assert len(eta) == self._ldim
-
-        if parent_kind is None:
-            kind = self._symbolic_space.kind
-        else:
-            kind = parent_kind
-
-        raise NotImplementedError("VectorFemSpace not yet operational")
-
-    # ...
-    def pushforward_fields_regular_tensor_grid(self, grid, *fields, mapping, parent_kind=None):
-        """Push-forwards fields on a regular tensor grid using a given a mapping.
-
-        Parameters
-        ----------
-        grid : List of ndarray
-            List of 2D arrays representing each direction of the grid.
-            Each of these arrays should have shape (ne_xi, nv_xi) where ne_xi is the
-            number of cells in the domain in the direction xi and nv_xi is the number of
-            evaluation points in the same direction.
-
-        fields: tuple of psydac.fem.basic.FemField
-            List of fields to evaluate.
-
-        mapping: psydac.mapping.SplineMapping
-            Mapping on which to push-forward
-
-        parent_kind : sympde.topology.datatype
-
-        Returns
-        -------
-        List of list of ndarray
-            Push-forwarded fields
-        """
-
-        if parent_kind is None:
-            kind = self._symbolic_space.kind
-        else:
-            kind = parent_kind
-
-        if kind is L2SpaceType() or kind is H1SpaceType():
-            pushed_fields_int = [self.spaces[i].pushforward_regular_tensor_grid(grid,
-                                                                                *[f.fields[i] for f in fields],
-                                                                                mapping=mapping,
-                                                                                parent_kind=kind)
-                                 for i in range(self._ldim)]
-            return [[pushed_fields_int[j][i] for j in range(self._ldim)] for i in range(len(fields))]
-
-        # out_fields is a list self._ldim of arrays of shape grid.shape + (len(fields),)
-        out_fields = np.asarray([self.spaces[i].eval_fields_regular_tensor_grid(grid, *[f.fields[i] for f in fields])
-                                 for i in range(self._ldim)])
-
-        pushed_fields = np.zeros(shape=out_fields.shape[1:-1] + (self.ldim, len(fields)))
-
-        if kind is HdivSpaceType():
-            jacobians = mapping.jac_mat_regular_tensor_grid(grid)
-            if self.ldim == 2:
-                pushforward_2d_hdiv(out_fields, jacobians, pushed_fields)
-            if self.ldim == 3:
-                pushforward_3d_hdiv(out_fields, jacobians, pushed_fields)
-
-        elif kind is HcurlSpaceType():
-            inv_jacobians = mapping.inv_jac_mat_regular_tensor_grid(grid)
-            if self.ldim == 2:
-                pushforward_2d_hcurl(out_fields, inv_jacobians, pushed_fields)
-            if self.ldim == 3:
-                pushforward_3d_hcurl(out_fields, inv_jacobians, pushed_fields)
-
-        else:
-            raise ValueError(f"Spaces of kind {kind} are not understood")
-
-        return pushed_fields
 
     #--------------------------------------------------------------------------
     # Other properties and methods
@@ -464,8 +417,8 @@ class ProductFemSpace( FemSpace ):
         # return self.eval_fields(eta, field, weights=weights)[0]
 
     # ...
-    def eval_fields(self, grid, *fields, weights=None, npts_per_cell=None):
-        """Evaluate one or several fields on the given location(s) grid.
+    def eval_fields(self, grid, *fields, weights=None, npts_per_cell=None, overlap=0):
+        """Evaluates one or several fields on the given location(s) grid.
 
         Parameters
         -----------
@@ -483,11 +436,14 @@ class ProductFemSpace( FemSpace ):
             Number of evaluation points in each cell.
             If an integer is given, then assume that it is the same in every direction.
 
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+            
         Returns
         -------
         List of list of ndarray
-            List of the same lengths as `fields`, containing for each field
-            a list of `self.ldim` arrays, one for each logical coordinate.
+            List of the same lengths as `fields`, containing for each field,
+            a list of `self.ldim` arrays, on for each logical coordinate.
 
         See Also
         --------
@@ -501,14 +457,117 @@ class ProductFemSpace( FemSpace ):
                 result.append(self._spaces[i].eval_fields(grid,
                                                           *fields_i,
                                                           npts_per_cell=npts_per_cell,
-                                                          weights=weights.fields[i]))
+                                                          weights=weights.fields[i],
+                                                          overlap=overlap))
         else:
             for i in range(self.ldim):
                 fields_i = list(field.fields[i] for field in fields)
                 result.append(self._spaces[i].eval_fields(grid,
                                                           *fields_i,
-                                                          npts_per_cell=npts_per_cell))
-        return [[result[j][i] for j in range(self.ldim)] for i in range(len(fields))]
+                                                          npts_per_cell=npts_per_cell,
+                                                          overlap=overlap))
+        return [tuple(result[j][i] for j in range(self.ldim)) for i in range(len(fields))]
+
+    # ...
+    def eval_fields_regular_tensor_grid(self, grid, *fields, weights=None, overlap=0):
+        """Evaluates one or several fields on a regular tensor grid.
+
+        Parameters
+        -----------
+        grid : List of ndarray
+            List of 2D arrays representing each direction of the grid.
+            Each of these arrays should have shape (ne_xi, nv_xi) where ne_xi is the
+            number of cells in the domain in the direction xi and nv_xi is the number of
+            evaluation points in the same direction.
+
+        *fields : tuple of psydac.fem.basic.FemField
+            Fields to evaluate.
+
+        weights : psydac.fem.basic.FemField or None, optional
+            Weights field.
+
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+            
+        Returns
+        -------
+        List of list of ndarray
+            List of the same lengths as `self.ldim`, containing for each logical
+            coordinate, a list of `len(fields)` arrays, on for each logical coordinate.
+
+        See Also
+        --------
+        psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
+        """
+        result = []
+        if isinstance(overlap, int):
+            overlap = [overlap] * self.ldim
+        if weights is not None:
+            for i in range(self.ldim):
+                fields_i = list(field.fields[i] for field in fields)
+
+                result.append(self._spaces[i].eval_fields_regular_tensor_grid(grid,
+                                                                              *fields_i,
+                                                                              weights=weights.fields[i],
+                                                                              overlap=overlap[i]))
+        else:
+            for i in range(self.ldim):
+                fields_i = list(field.fields[i] for field in fields)
+
+                result.append(self._spaces[i].eval_fields_regular_tensor_grid(grid,
+                                                                              *fields_i,
+                                                                              overlap=overlap[i]))
+        
+        return result
+
+    # ...
+    def eval_fields_irregular_tensor_grid(self, grid, *fields, weights=None, overlap=0):
+        """Evaluates one or several fields on a regular tensor grid.
+
+        Parameters
+        -----------
+        grid : List of ndarray
+            List of 1D arrays representing each direction of the grid.
+
+        *fields : tuple of psydac.fem.basic.FemField
+            Fields to evaluate.
+
+        weights : psydac.fem.basic.FemField or None, optional
+            Weights field.
+
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+            
+        Returns
+        -------
+        List of list of ndarray
+            List of the same lengths as `self.ldim`, containing for each logical
+            coordinate, a list of `len(fields)` arrays, on for each logical coordinate.
+
+        See Also
+        --------
+        psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
+        """
+        result = []
+        if isinstance(overlap, int):
+            overlap = [overlap] * self.ldim
+        if weights is not None:
+            for i in range(self.ldim):
+                fields_i = list(field.fields[i] for field in fields)
+
+                result.append(self._spaces[i].eval_fields_irregular_tensor_grid(grid,
+                                                                                *fields_i,
+                                                                                weights=weights.fields[i],
+                                                                                overlap=overlap[i]))
+        else:
+            for i in range(self.ldim):
+                fields_i = list(field.fields[i] for field in fields)
+
+                result.append(self._spaces[i].eval_fields_irregular_tensor_grid(grid,
+                                                                                *fields_i,
+                                                                                overlap=overlap[i]))
+        
+        return result
 
     # ...
     def eval_field_gradient( self, field, *eta ):
@@ -517,154 +576,6 @@ class ProductFemSpace( FemSpace ):
     # ...
     def integral( self, f ):
         raise NotImplementedError( "ProductFemSpace not yet operational" )
-
-    # ...
-    def pushforward_fields(self, grid, *fields, mapping, npts_per_cell=None):
-        """ Push forward fields on a given grid and a given mapping
-
-        Parameters
-        ----------
-        grid : List of ndarray
-            Grid on which to evaluate the fields
-
-        *fields : tuple of psydac.fem.basic.FemField
-            Fields to evaluate
-
-        mapping: psydac.mapping.SplineMapping
-            Mapping on which to push-forward
-
-        npts_per_cell: int or tuple of int or None, optional
-            number of evaluation points in each cell.
-            If an integer is given, then assume that it is the same in every direction.
-
-        Returns
-        -------
-        List of ndarray
-            push-forwarded fields
-        """
-
-        # Check that the fields belong to our space
-        assert all(f.space is self for f in fields)
-
-        # Check the grid argument
-        assert len(grid) == self.ldim
-        grid = [np.asarray(grid[i]) for i in range(self.ldim)]
-        assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
-
-        # --------------------------
-        # Case 1. Scalar coordinates
-        if (grid[0].size == 1) or grid[0].ndim == 0:
-            return [self.pushforward_field(f, *grid, mapping=mapping) for f in fields]
-
-        # Case 2. 1D array of coordinates and no npts_per_cell is given
-        # -> grid is tensor-product, but npts_per_cell is not the same in each cell
-        elif grid[0].ndim == 1 and npts_per_cell is None:
-            raise NotImplementedError("Having a different number of evaluation"
-                                      "points in the cells belonging to the same "
-                                      "logical dimension is not supported yet. "
-                                      "If you did use valid inputs, you need to provide"
-                                      "the number of evaluation points per cell in each direction"
-                                      "via the npts_per_cell keyword")
-
-        # Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer
-        # -> grid is tensor-product, and each cell has the same number of evaluation points
-        elif grid[0].ndim == 1 and npts_per_cell is not None:
-            if isinstance(npts_per_cell, int):
-                npts_per_cell = (npts_per_cell,) * self.ldim
-
-            for i in range(self.ldim):
-                ncells_i = len(self.spaces[0].breaks[i]) - 1
-                grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
-
-            pushed_fields = self.pushforward_fields_regular_tensor_grid(grid, *fields, mapping=mapping)
-            # return a list of list of C-contiguous arrays, one list for each field
-            # with one array for each dimension.
-            return [[np.ascontiguousarray(pushed_fields[..., j, i]) for j in range(self._ldim)]
-                    for i in range(len(fields))]
-
-        # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
-        # -> unstructured grid
-        elif grid[0].ndim == self.ldim and npts_per_cell is None:
-            raise NotImplementedError("Unstructured grids are not supported yet.")
-
-        # Case 5. Nonsensical input
-        else:
-            raise ValueError("This combination of argument isn't understood. The 4 cases understood are :\n"
-                             "Case 1. Scalar coordinates\n"
-                             "Case 2. 1D array of coordinates and no npts_per_cell is given\n"
-                             "Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer\n"
-                             "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
-
-    # ...
-    def pushforward_field(self, field, *eta, mapping, parent_kind=None):
-        assert field.space is self
-        assert len(eta) == self._ldim
-
-        raise NotImplementedError("ProductFemSpace not yet operational")
-
-    # ...
-    def pushforward_fields_regular_tensor_grid(self, grid, *fields, mapping, parent_kind=None):
-        """Push-forwards fields on a regular tensor grid using a given a mapping.
-
-        Parameters
-        ----------
-        grid : List of ndarray
-            List of 2D arrays representing each direction of the grid.
-            Each of these arrays should have shape (ne_xi, nv_xi) where ne_xi is the
-            number of cells in the domain in the direction xi and nv_xi is the number of
-            evaluation points in the same direction.
-
-        fields: tuple of psydac.fem.basic.FemField
-            List of fields to evaluate.
-
-        mapping: psydac.mapping.SplineMapping
-            Mapping on which to push-forward
-        
-        parent_kind : sympde.topology.datatype
-
-        Returns
-        -------
-        List of list of ndarray
-            Push-forwarded fields
-        """
-
-        if parent_kind is None:
-            kind = self._symbolic_space.kind
-        else:
-            kind = parent_kind
-
-        if kind is L2SpaceType() or kind is H1SpaceType():
-            pushed_fields_int = [self.spaces[i].pushforward_regular_tensor_grid(grid,
-                                                                                *[f.fields[i] for f in fields],
-                                                                                mapping=mapping,
-                                                                                parent_kind=kind)
-                                 for i in range(self._ldim)]
-            return [[pushed_fields_int[j][i] for j in range(self._ldim)] for i in range(len(fields))]
-
-        # out_fields is a list self._ldim of arrays of shape grid.shape + (len(fields),)
-        out_fields = np.asarray([self.spaces[i].eval_fields_regular_tensor_grid(grid, *[f.fields[i] for f in fields])
-                                 for i in range(self._ldim)])
-
-        pushed_fields = np.zeros(shape=out_fields.shape[1:-1] + (self.ldim, len(fields)))
-
-        if kind is HdivSpaceType():
-            jacobians = mapping.jac_mat_regular_tensor_grid(grid)
-            if self.ldim == 2:
-                pushforward_2d_hdiv(out_fields, jacobians, pushed_fields)
-            if self.ldim == 3:
-                pushforward_3d_hdiv(out_fields, jacobians, pushed_fields)
-
-        elif kind is HcurlSpaceType():
-            inv_jacobians = mapping.inv_jac_mat_regular_tensor_grid(grid)
-            if self.ldim == 2:
-                pushforward_2d_hcurl(out_fields, inv_jacobians, pushed_fields)
-            if self.ldim == 3:
-                pushforward_3d_hcurl(out_fields, inv_jacobians, pushed_fields)
-
-        else:
-            raise ValueError(f"Spaces of kind {kind} are not understood")
-
-        return pushed_fields
 
     #--------------------------------------------------------------------------
     # Other properties and methods
