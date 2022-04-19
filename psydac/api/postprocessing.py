@@ -15,9 +15,7 @@ from psydac.cad.geometry import Geometry
 from psydac.feec.pushforward import Pushforward
 from psydac.utilities.utils import refine_array_1d
 from psydac.fem.basic import FemSpace, FemField
-from psydac.fem.vector import ProductFemSpace, VectorFemSpace
 from psydac.utilities.vtk import writeParallelVTKUnstructuredGrid
-from psydac.utilities.data_exchange import SpaceDataExchanger
 from pyevtk.hl import unstructuredGridToVTK
 from pyevtk.vtk import VtkQuad, VtkHexahedron
 
