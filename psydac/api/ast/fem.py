@@ -337,13 +337,13 @@ class AST(object):
             tests               = expr.test_functions
             trials              = expr.trial_functions
             fields              = expr.fields
-            is_broken           = spaces[0].symbolic_space.is_broken
+            is_broken           = spaces[1].symbolic_space.is_broken
             quad_order          = get_quad_order(spaces[1])
             tests_degrees       = get_degrees(tests, spaces[0])
             trials_degrees      = get_degrees(trials, spaces[1])
             multiplicity_tests  = get_multiplicity(tests, spaces[1].vector_space)
             multiplicity_trials = get_multiplicity(trials, spaces[0].vector_space)
-            is_parallel         = spaces[0].vector_space.parallel
+            is_parallel         = spaces[1].vector_space.parallel
             spaces              = [V.symbolic_space for V in spaces]
 
         elif isinstance(expr, Functional):

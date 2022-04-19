@@ -1019,7 +1019,11 @@ class TensorFemSpace( FemSpace ):
 
         tensor_vec._interpolation_ready = False
         for a,e in self._interfaces:
-            tensor_vec._interfaces[a,e] = tensor_vec.set_interface_space(a, e, tensor_vec.spaces, tensor_vec.vector_space.cart, tensor_vec.quad_order)
+            v    = self._vector_space._interfaces[a,e]
+            cart = v.cart
+            if cart:
+                cart = v.cart.reduce_elements(axes, n_elements)
+            tensor_vec.set_interface_space(a, e, tensor_vec.spaces, cart=cart, quad_order=tensor_vec.quad_order)
 
         return tensor_vec
 

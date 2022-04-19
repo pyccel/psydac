@@ -148,30 +148,66 @@ class BlockVector( Vector ):
         self._data_exchangers = {}
         self._interface_buf   = {}
 
+
         if V.parallel:
             for i,j in V._interfaces:
-                cart_i = V.spaces[i].cart
-                cart_j = V.spaces[j].cart
                 axis_i,axis_j = V._interfaces[i,j][0]
                 ext_i,ext_j   = V._interfaces[i,j][1]
-                if cart_i.is_comm_null and cart_j.is_comm_null:continue
-                if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
-                if (axis_i, ext_i) not in V.spaces[i]._interfaces:continue
 
-                cart_ij       = V.spaces[i]._interfaces[axis_i, ext_i].cart
-                self._data_exchangers[i,j] = InterfaceCartDataExchanger(cart_ij, self.dtype)
-                buf = [None]*2
-                if cart_i.is_comm_null:
-                    buf[0] = self._blocks[i]._interface_data[axis_i, ext_i]
+                Vi = V.spaces[i]
+                Vj = V.spaces[j]
+                self._data_exchangers[i,j] = []
+                self._interface_buf[i,j]   = []
+                if isinstance(Vi, BlockVectorSpace):
+                    assert isinstance(Vj, BlockVectorSpace)
+                    for k,(Vik,Vjk) in enumerate(zip(Vi.spaces, Vj.spaces)):
+                        cart_i = Vik.cart
+                        cart_j = Vjk.cart
+
+                        if cart_i.is_comm_null and cart_j.is_comm_null:continue
+                        if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
+                        if not (axis_i, ext_i) in Vik._interfaces:continue
+                        cart_ij = Vik._interfaces[axis_i, ext_i].cart
+
+                        buf = [None]*2
+                        if cart_i.is_comm_null:
+                            buf[0] = self._blocks[i]._blocks[k]._interface_data[axis_i, ext_i]
+                        else:
+                            buf[0] = self._blocks[i]._blocks[k]._data
+
+                        if cart_j.is_comm_null:
+                            buf[1] = self._blocks[j]._blocks[k]._interface_data[axis_j, ext_j]
+                        else:
+                            buf[1] = self._blocks[j]._blocks[k]._data
+
+                        self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
+                        self._interface_buf[i,j].append(tuple(buf))
                 else:
-                    buf[0] = self._blocks[i]._data
+                    cart_i = Vi.cart
+                    cart_j = Vj.cart
+                    if cart_i.is_comm_null and cart_j.is_comm_null:continue
+                    if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
+                    if not (axis_i, ext_i) in Vi._interfaces:continue
 
-                if cart_j.is_comm_null:
-                    buf[1] = self._blocks[j]._interface_data[axis_j, ext_j]
-                else:
-                    buf[1] = self._blocks[j]._data
-                self._interface_buf[i,j] = tuple(buf)
+                    cart_ij = Vi._interfaces[axis_i, ext_i].cart
 
+                    buf = [None]*2
+                    if cart_i.is_comm_null:
+                        buf[0] = self._blocks[i]._interface_data[axis_i, ext_i]
+                    else:
+                        buf[0] = self._blocks[i]._data
+
+                    if cart_j.is_comm_null:
+                        buf[1] = self._blocks[j]._interface_data[axis_j, ext_j]
+                    else:
+                        buf[1] = self._blocks[j]._data
+
+                    self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
+                    self._interface_buf[i,j].append(tuple(buf))
+
+                if len(self._data_exchangers[i,j]) == 0:
+                    self._data_exchangers.pop((i,j))
+                    self._interface_buf.pop((i,j))
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -189,7 +225,6 @@ class BlockVector( Vector ):
 
         assert isinstance( v, BlockVector )
         assert v._space is self._space
-
         return sum( b1.dot( b2 ) for b1,b2 in zip( self._blocks, v._blocks ) )
 
     #...
@@ -283,14 +318,15 @@ class BlockVector( Vector ):
     # ...
     def update_ghost_regions( self, *, direction=None ):
         req = {}
-        for (i,j), data_ex in self._data_exchangers.items():
-            req[i,j] = data_ex.start_update_ghost_regions(*self._interface_buf[i,j])
+        for (i,j) in self._data_exchangers:
+            req[i,j] = [data_ex.start_update_ghost_regions(*bufs) for bufs,data_ex in zip(self._interface_buf[i,j], self._data_exchangers[i,j])]
 
         for vi in self.blocks:
             vi.update_ghost_regions(direction=direction)
 
-        for (i,j), data_ex in self._data_exchangers.items():
-            data_ex.end_update_ghost_regions(req[i,j], *self._interface_buf[i,j])
+        for (i,j) in self._data_exchangers:
+            for data_ex,bufs,req_ij in zip(self._data_exchangers[i,j], self._interface_buf[i,j], req[i,j]):
+                data_ex.end_update_ghost_regions(req_ij, *bufs)
 
         # Flag ghost regions as up-to-date
         self._sync = True

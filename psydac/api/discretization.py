@@ -364,10 +364,11 @@ def discretize_space(V, domain_h, *args, **kwargs):
                 if not carts[i].is_comm_null and not carts[j].is_comm_null:
                     cart_minus = carts[i]
                     cart_plus  = carts[j]
-                else:
+                elif (i,j) in interfaces_cart:
                     cart_minus = interfaces_cart[i,j]
                     cart_plus  = interfaces_cart[i,j]
-
+                else:
+                    continue
             g_spaces[e.minus.domain].set_interface_space(e.minus.axis, e.minus.ext, spaces[i], cart=cart_minus, quad_order=quad_order)
             g_spaces[e.plus.domain ].set_interface_space(e.plus.axis , e.plus.ext , spaces[j], cart=cart_plus, quad_order=quad_order)
 

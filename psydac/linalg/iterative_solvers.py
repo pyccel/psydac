@@ -258,6 +258,9 @@ def jacobi(A, b):
     from psydac.linalg.stencil import StencilMatrix, StencilVector
 
     # Sanity checks
+    if A is None:
+        return b.copy()*0.
+
     assert isinstance(A, (StencilMatrix, BlockMatrix))
     assert isinstance(b, (StencilVector, BlockVector))
     assert A.codomain == A.domain

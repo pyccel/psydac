@@ -49,7 +49,7 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
     k       = 1
 
     jump = lambda w:plus(w)-minus(w)
-    avr  = lambda w:(plus(w) + minus(w))/2
+    avr  = lambda w:0.5*plus(w) + 0.5*minus(w)
 
     expr1_I  =  cross(nn, jump(v))*curl(avr(u))\
                +k*cross(nn, jump(u))*curl(avr(v))\

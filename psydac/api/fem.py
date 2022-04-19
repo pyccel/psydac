@@ -237,7 +237,14 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_target = target.plus if isinstance(trial, PlusInterfaceOperator) else target.minus
             test_ext     = test_target.ext
             trial_ext    = trial_target.ext
-            if (trial_target.axis, trial_target.ext) in trial_space._interfaces:
+            if isinstance(trial_space, ProductFemSpace):
+                spaces = []
+                for sp in trial_space.spaces:
+                    if (trial_target.axis, trial_target.ext) in sp._interfaces:
+                        spaces.append(sp._interfaces[trial_target.axis, trial_target.ext])
+                if len(spaces) == len(trial_space.spaces):
+                    trial_space = ProductFemSpace(*spaces)
+            elif (trial_target.axis, trial_target.ext) in trial_space._interfaces:
                 trial_space  = trial_space._interfaces[trial_target.axis, trial_target.ext]
             self._test_ext  = test_target.ext
             self._trial_ext = trial_target.ext
@@ -976,7 +983,9 @@ class DiscreteFunctional(BasicDiscrete):
 
         kwargs['discrete_space']      = self._space
         kwargs['is_rational_mapping'] = is_rational_mapping
-        kwargs['comm']                = domain_h.comm
+        kwargs['comm']        = None
+        if vector_space.parallel:
+            kwargs['comm'] = vector_space.cart.comm
 
         space_quad_order = [qo - 1 for qo in get_quad_order(self._space)]
         quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
@@ -985,8 +994,9 @@ class DiscreteFunctional(BasicDiscrete):
         assert np.array_equal(quad_order, get_quad_order(self.space))
 
         kwargs['num_threads'] = num_threads
-        BasicDiscrete.__init__(self, expr, kernel_expr,  quad_order=quad_order, **kwargs)
 
+        BasicDiscrete.__init__(self, expr, kernel_expr,  quad_order=quad_order, **kwargs)
+        self._comm   = domain_h.comm
         # ...
         grid             = QuadratureGrid( self.space,  axis=axis, ext=ext)
         self._grid       = grid
@@ -1087,7 +1097,6 @@ class DiscreteFunctional(BasicDiscrete):
                 args += (v, )
 
         v = self._func(*args)
-
         if isinstance(self.expr, sym_Norm):
             if not( self.comm is None ):
                 v = self.comm.allreduce(sendobj=v)

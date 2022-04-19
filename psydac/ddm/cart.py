@@ -300,7 +300,7 @@ class CartDecomposition():
         self._reorder      = reorder
         self._comm         = comm
         self._global_comm  = comm if global_comm is None else global_comm
-
+        self._reverse_axis = reverse_axis
         # ...
         self._ndims = len( npts )
         # ...
@@ -326,7 +326,6 @@ class CartDecomposition():
         assert np.product(nprocs) == self._size
 
         self._dims = nprocs
-        self._reverse_axis = reverse_axis
         # ...
 
         # ...
@@ -598,7 +597,16 @@ class CartDecomposition():
         if isinstance(axes, int):
             axes = [axes]
 
-        cart = CartDecomposition(self._npts, self._pads, self._periods, self._reorder, shifts=self.shifts, reverse_axis=self.reverse_axis)
+        for axis in axes:assert(axis<self._ndims)
+
+        cart = CartDecomposition(self._npts, self._pads, self._periods, self._reorder, comm=self.comm, global_comm=self._global_comm, shifts=self.shifts, reverse_axis=self.reverse_axis)
+
+        # set pads and npts
+        cart._npts   = tuple(n - ne for n,ne in zip(cart.npts, n_elements))
+        cart._shifts = [max(1,m-1) for m in self.shifts]
+
+        if cart.is_comm_null:
+            return cart
 
         cart._dims      = self._dims
         cart._comm_cart = self._comm_cart
@@ -606,13 +614,6 @@ class CartDecomposition():
 
         coords          = cart.coords
         nprocs          = cart.nprocs
-
-        cart._shifts = [max(1,m-1) for m in self.shifts]
-
-        for axis in axes:assert(axis<cart._ndims)
-
-        # set pads and npts
-        cart._npts = tuple(n - ne for n,ne in zip(cart.npts, n_elements))
 
         # Store arrays with all the starts and ends along each direction
         cart._global_starts = [None]*self._ndims
@@ -802,6 +803,8 @@ class InterfaceCartDecomposition(CartDecomposition):
         self._npts_plus     = npts_plus
         self._pads_minus    = pads_minus
         self._pads_plus     = pads_plus
+        self._periods_minus = periods_minus
+        self._periods_plus  = periods_plus
         self._shifts_minus  = shifts_minus
         self._shifts_plus   = shifts_plus
         self._axis          = axis_minus
@@ -810,6 +813,8 @@ class InterfaceCartDecomposition(CartDecomposition):
         self._comm          = comm
         self._local_comm_minus = local_comm_minus
         self._local_comm_plus  = local_comm_plus
+        self._root_rank_minus  = root_rank_minus
+        self._root_rank_plus   = root_rank_plus
         self._ranks_in_topo_minus = ranks_in_topo_minus
         self._ranks_in_topo_plus  = ranks_in_topo_plus
         self._local_group_minus = local_groups[0]
@@ -833,6 +838,9 @@ class InterfaceCartDecomposition(CartDecomposition):
 
         nprocs_minus, block_shape_minus = compute_dims( size_minus, reduced_npts_minus, pads_minus )
         nprocs_plus, block_shape_plus   = compute_dims( size_plus, reduced_npts_plus, pads_plus )
+
+        self._nprocs_minus = nprocs_minus
+        self._nprocs_plus  = nprocs_plus
 
         if requests:
             dtype = find_mpi_type('int64')
@@ -989,12 +997,15 @@ class InterfaceCartDecomposition(CartDecomposition):
         # List of 1D global indices (without ghost regions)
         self._grids = tuple( range(s,e+1) for s,e in zip( self._starts, self._ends ) )
 
+        self._petsccart         = None
+        self._parent_starts     = tuple([None]*self._ndims)
+        self._parent_ends       = tuple([None]*self._ndims)
+        self._parent_npts_minus = tuple([None]*self._ndims)
+        self._parent_npts_plus  = tuple([None]*self._ndims)
+
         self._communication_infos = {}
         self._communication_infos[self._axis] = self._compute_communication_infos(self._axis)
 
-        self._petsccart     = None
-        self._parent_starts = tuple([None]*self._ndims)
-        self._parent_ends   = tuple([None]*self._ndims)
     #---------------------------------------------------------------------------
     # Global properties (same for each process)
     #---------------------------------------------------------------------------
@@ -1019,6 +1030,14 @@ class InterfaceCartDecomposition(CartDecomposition):
         return self._pads_plus
 
     @property
+    def periods_minus( self ):
+        return self._periods_minus
+
+    @property
+    def periods_plus( self ):
+        return self._periods_plus
+
+    @property
     def shifts_minus( self ):
         return self._shifts_minus
 
@@ -1033,6 +1052,14 @@ class InterfaceCartDecomposition(CartDecomposition):
     @property
     def ext_plus( self ):
         return self._ext_plus
+
+    @property
+    def root_rank_minus( self ):
+        return self._root_rank_minus
+
+    @property
+    def root_rank_plus( self ):
+        return self._root_rank_plus
 
     @property
     def ranks_in_topo_minus( self ):
@@ -1182,6 +1209,9 @@ class InterfaceCartDecomposition(CartDecomposition):
 
         assert all(axis<cart._ndims for axis in axes)
 
+        if cart.is_comm_null:
+            return cart
+
         # Store arrays with all the starts and ends along each direction
         cart._global_starts_minus = [None]*self._ndims
         cart._global_ends_minus   = [None]*self._ndims
@@ -1189,16 +1219,16 @@ class InterfaceCartDecomposition(CartDecomposition):
         cart._global_ends_plus    = [None]*self._ndims
 
         for axis in range( self._ndims ):
-            ni = cart.npts_minus[axis]
-            di = cart.nprocs_minus[axis]
-            pi = cart.pads_minus[axis]
-            mi = cart.shifts_minus[axis]
+            ni = cart._npts_minus[axis]
+            di = cart._nprocs_minus[axis]
+            pi = cart._pads_minus[axis]
+            mi = cart._shifts_minus[axis]
             r_starts_minus = cart._reduced_global_starts_minus[axis]
             r_ends_minus   = cart._reduced_global_ends_minus  [axis]
-            nj = cart.npts_plus[axis]
-            dj = cart.nprocs_plus[axis]
-            pj = cart.pads_plus[axis]
-            mj = cart.shifts_plus[axis]
+            nj = cart._npts_plus[axis]
+            dj = cart._nprocs_plus[axis]
+            pj = cart._pads_plus[axis]
+            mj = cart._shifts_plus[axis]
             r_starts_plus = cart._reduced_global_starts_plus[axis]
             r_ends_plus   = cart._reduced_global_ends_plus  [axis]
 
@@ -1229,11 +1259,14 @@ class InterfaceCartDecomposition(CartDecomposition):
             cart._starts = tuple( cart._global_starts_plus[d][c] for d,c in enumerate(coords) )
             cart._ends   = tuple( cart._global_ends_plus  [d][c] for d,c in enumerate(coords) )
 
+        cart._parent_starts = self.starts
+        cart._parent_ends   = self.ends
+        cart._parent_npts_minus = tuple(npts[0])
+        cart._parent_npts_plus  = tuple(npts[1])
+
         cart._communication_infos = {}
         cart._communication_infos[cart._axis] = cart._compute_communication_infos(cart._axis)
 
-        cart._parent_starts = self.starts
-        cart._parent_ends   = self.ends
         return cart
 
     def get_communication_infos( self, axis ):
@@ -1248,6 +1281,8 @@ class InterfaceCartDecomposition(CartDecomposition):
         # Mesh info
         npts_minus   = self._npts_minus
         npts_plus    = self._npts_plus
+        p_npts_minus = self._parent_npts_minus
+        p_npts_plus  = self._parent_npts_plus
         pads_minus   = self._pads_minus
         pads_plus    = self._pads_plus
         shifts_minus = self._shifts_minus
@@ -1255,6 +1290,10 @@ class InterfaceCartDecomposition(CartDecomposition):
         ext_minus    = self._ext_minus
         ext_plus     = self._ext_plus
         indices  = []
+
+        diff = 0
+        if p_npts_minus[axis] is not None:
+            diff = p_npts_minus[axis]-npts_minus[axis]
 
         if self._local_rank_minus is not None:
             rank_minus = self._local_rank_minus
@@ -1264,17 +1303,18 @@ class InterfaceCartDecomposition(CartDecomposition):
             send_shape   = [e-s+1+2*m*p for s,e,m,p in zip(starts, ends, shifts_minus, pads_minus)]
             send_starts  = [m*p for m,p in zip(shifts_minus, pads_minus)]
             m,p,s,e      = shifts_minus[axis], pads_minus[axis], starts[axis], ends[axis]
-            send_starts[axis] = m*p if ext_minus == -1 else m*p+e-s+1-p-1
-            starts[axis] = starts[axis] if ext_minus == -1 else ends[axis]-pads_minus[axis]
-            ends[axis]   = starts[axis]+pads_minus[axis] if ext_minus == -1 else ends[axis]
+            send_starts[axis] = m*p if ext_minus == -1 else m*p+e-s+1-p-1+diff
+            starts[axis] = starts[axis] if ext_minus == -1 else ends[axis]-pads_minus[axis]+diff
+            ends[axis]   = starts[axis]+pads_minus[axis]-diff if ext_minus == -1 else ends[axis]
             send_buf_shape    = [e-s+1 for s,e,p,m in zip(starts, ends, pads_minus, shifts_minus)]
+
             # ...
             coords = self._coords_from_rank_plus[self._boundary_ranks_plus[0]]
             starts = [self._global_starts_plus[d][c] for d,c in enumerate(coords)]
             ends   = [self._global_ends_plus[d][c] for d,c in enumerate(coords)]
 
             recv_shape       = [n+2*m*p for n,m,p in zip(npts_plus, shifts_plus, pads_plus)]
-            recv_shape[axis] = pads_plus[axis]+1 + 2*shifts_plus[axis]*pads_plus[axis]
+            recv_shape[axis] = pads_plus[axis]+1-diff + 2*shifts_plus[axis]*pads_plus[axis]
 
             displacements   = [0]*(len(self._boundary_ranks_plus)+1)
             recv_counts     = [None]*len(self._boundary_ranks_plus)
@@ -1282,13 +1322,13 @@ class InterfaceCartDecomposition(CartDecomposition):
                 coords = self._coords_from_rank_plus[b]
                 starts = [self._global_starts_plus[d][c] for d,c in enumerate(coords)]
                 ends   = [self._global_ends_plus[d][c] for d,c in enumerate(coords)]
-                starts[axis] = starts[axis] if ext_plus == -1 else ends[axis]-pads_plus[axis]
-                ends[axis]   = starts[axis]+pads_plus[axis] if ext_plus == -1 else ends[axis]
+                starts[axis] = starts[axis] if ext_plus == -1 else ends[axis]-pads_plus[axis]+diff
+                ends[axis]   = starts[axis]+pads_plus[axis]-diff if ext_plus == -1 else ends[axis]
                 shape_k = [e-s+1 for s,e in zip(starts, ends)]
                 recv_counts[k] = np.product(shape_k)
-                ranges       = [(s+p*m, p*m+e+1) for s,e,p,m in zip(starts, ends, pads_plus, shifts_plus)]
-                ranges[axis] = (shifts_plus[axis]*pads_plus[axis], shifts_plus[axis]*pads_plus[axis]+shape_k[axis])
-                indices     += [np.ravel_multi_index( ii, dims=recv_shape, order='C' ) for ii in itertools.product(*[range(*a) for a in ranges])] 
+                ranges         = [(s+p*m, p*m+e+1) for s,e,p,m in zip(starts, ends, pads_plus, shifts_plus)]
+                ranges[axis]   = (shifts_plus[axis]*pads_plus[axis], shifts_plus[axis]*pads_plus[axis]+shape_k[axis])
+                indices       += [np.ravel_multi_index( ii, dims=recv_shape, order='C' ) for ii in itertools.product(*[range(*a) for a in ranges])]
 
         elif self._local_rank_plus is not None:
             rank_plus = self._local_rank_plus
@@ -1298,9 +1338,9 @@ class InterfaceCartDecomposition(CartDecomposition):
             send_shape   = [e-s+1+2*m*p for s,e,m,p in zip(starts, ends, shifts_plus, pads_plus)]
             send_starts  = [m*p for m,p in zip(shifts_plus, pads_plus)]
             m,p,s,e = shifts_plus[axis], pads_plus[axis], starts[axis], ends[axis]
-            send_starts[axis] = m*p if ext_plus == -1 else m*p+e-s+1-p-1
-            starts[axis] = starts[axis] if ext_plus == -1 else ends[axis]-pads_plus[axis]
-            ends[axis]   = starts[axis]+pads_plus[axis] if ext_plus == -1 else ends[axis]
+            send_starts[axis] = m*p if ext_plus == -1 else m*p+e-s+1-p-1+diff
+            starts[axis] = starts[axis] if ext_plus == -1 else ends[axis]-pads_plus[axis]+diff
+            ends[axis]   = starts[axis]+pads_plus[axis]-diff if ext_plus == -1 else ends[axis]
             send_buf_shape  = [e-s+1 for s,e,p,m in zip(starts, ends, pads_plus, shifts_plus)]
 
             # ...
@@ -1309,7 +1349,7 @@ class InterfaceCartDecomposition(CartDecomposition):
             ends   = [self._global_ends_minus[d][c] for d,c in enumerate(coords)]
 
             recv_shape           = [n+2*m*p for n,m,p in zip(npts_minus, shifts_minus, pads_minus)]
-            recv_shape[axis]     = pads_minus[axis]+1 + 2*shifts_minus[axis]*pads_minus[axis]
+            recv_shape[axis]     = pads_minus[axis]+1-diff + 2*shifts_minus[axis]*pads_minus[axis]
 
             displacements   = [0]*(len(self._boundary_ranks_minus)+1)
             recv_counts     = [None]*len(self._boundary_ranks_minus)
@@ -1317,13 +1357,13 @@ class InterfaceCartDecomposition(CartDecomposition):
                 coords = self._coords_from_rank_minus[b]
                 starts = [self._global_starts_minus[d][c] for d,c in enumerate(coords)]
                 ends   = [self._global_ends_minus[d][c] for d,c in enumerate(coords)]
-                starts[axis] = starts[axis] if ext_minus == -1 else ends[axis]-pads_minus[axis]
-                ends[axis]   = starts[axis]+pads_minus[axis] if ext_minus == -1 else ends[axis]
+                starts[axis] = starts[axis] if ext_minus == -1 else ends[axis]-pads_minus[axis]+diff
+                ends[axis]   = starts[axis]+pads_minus[axis]-diff if ext_minus == -1 else ends[axis]
                 shape_k = [e-s+1 for s,e in zip(starts, ends)]
                 recv_counts[k] = np.product(shape_k)
                 ranges       = [(s+p*m, p*m+e+1) for s,e,p,m in zip(starts, ends, pads_minus, shifts_minus)]
                 ranges[axis] = (shifts_minus[axis]*pads_minus[axis], shifts_minus[axis]*pads_minus[axis]+shape_k[axis])
-                indices     += [np.ravel_multi_index( ii, dims=recv_shape, order='C' ) for ii in itertools.product(*[range(*a) for a in ranges])] 
+                indices     += [np.ravel_multi_index( ii, dims=recv_shape, order='C' ) for ii in itertools.product(*[range(*a) for a in ranges])]
 
         displacements[1:] = np.cumsum(recv_counts)
         # Store all information into dictionary
