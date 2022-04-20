@@ -849,8 +849,8 @@ class StencilMatrix( Matrix ):
             out = StencilVector( self.codomain )
 
         # Necessary if vector space is distributed across processes
-#        if not v.ghost_regions_in_sync:
-#            v.update_ghost_regions()
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
 
         if self.codomain.parallel and self.codomain.cart.is_comm_null:return
         self._func(self._data, v._data, out._data, **self._args)
