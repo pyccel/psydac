@@ -310,7 +310,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
         if isinstance(knots, (list, tuple)):
             assert len(interiors) == 1
-            knots = {interior.name:knots}
+            knots = {interiors[0].name:knots}
 
         spaces = [None]*len(interiors)
         for i,interior in enumerate(interiors):
