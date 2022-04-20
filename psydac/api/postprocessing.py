@@ -3,21 +3,28 @@
 # Copyright 2019 Yaman Güçlü
 
 from operator import mod
-import mpi4py
+from zlib import Z_RLE
 import numpy as np
-import pyevtk
 from sympy import N
 import yaml
 import re
 import h5py as h5
 
+from sympde.topology.mapping import Mapping
+from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace
+
+from pyevtk.hl import unstructuredGridToVTK
+from pyevtk.vtk import VtkQuad, VtkHexahedron
+
+from psydac.api.discretization import discretize
 from psydac.cad.geometry import Geometry
+from psydac.mapping.discrete import SplineMapping
+from psydac.core.bsplines import cell_index
 from psydac.feec.pushforward import Pushforward
 from psydac.utilities.utils import refine_array_1d
 from psydac.fem.basic import FemSpace, FemField
 from psydac.utilities.vtk import writeParallelVTKUnstructuredGrid
-from pyevtk.hl import unstructuredGridToVTK
-from pyevtk.vtk import VtkQuad, VtkHexahedron
+
 
 #===============================================================================
 def get_grid_lines_2d(domain_h, V_h, *, refine=1):
@@ -614,9 +621,6 @@ class PostProcessManager:
         """Reconstructs all of the spaces from reading the files.
 
         """
-        from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace
-        from psydac.api.discretization import discretize
-
         if self.geometry_filename  is not None:
             domain = Domain.from_file(self.geometry_filename)
             domain_h = discretize(domain, filename=self.geometry_filename, comm=self.comm)
@@ -937,10 +941,27 @@ class PostProcessManager:
         if len(mappings.values()) != 1:
             raise NotImplementedError("Multipatch not supported yet")
 
+        ldim = self._domain_h.ldim
         # Singular mapping
         mapping = list(mappings.values())[0]
-        ldim = mapping.ldim
-        local_domain = mapping.space.local_domain
+        if isinstance(mapping, SplineMapping):
+            local_domain = mapping.space.local_domain
+            space_0 = mapping.space
+
+        elif isinstance(mapping, Mapping):
+            if self._spaces is not {}:
+                space_0 = list(self._spaces.values())[0]
+                try:
+                    local_domain = space_0.local_domain
+                except AttributeError:
+                    local_domain = space_0.spaces[0].local_domain
+            else:
+                space_0s = ScalarFunctionSpace('s', self._domain)
+                space_0 = discretize(space_0s, self._domain_h)
+                try:
+                    local_domain = space_0.local_domain
+                except AttributeError:
+                    local_domain = space_0.spaces[0].local_domain
 
         self._pushforward = Pushforward(mapping, grid, npts_per_cell=npts_per_cell)
 
@@ -970,23 +991,43 @@ class PostProcessManager:
                 grid_local.append(grid_test[i][local_domain[0][i] * npts_per_cell[i]:
                                                 (local_domain[1][i] + 1) * npts_per_cell[i]])
                 
-            mesh_grids = np.meshgrid(*grid_local, indexing = 'ij')
-            
             cell_indexes = None
 
         elif grid_test[0].ndim == 1 and npts_per_cell is None:
-            raise NotImplementedError("Only regular tensor grid are supported for now")
+            cell_indexes = [cell_index(space_0.breaks[i], grid_test[i]) for i in range(ldim)]
+
+            grid_local = []
+            for i in range(ldim):
+                i_start = np.searchsorted(cell_indexes[i], local_domain[0][i], side='left')
+                i_end = np.searchsorted(cell_indexes[i], local_domain[1][i], side='right')
+                grid_local.append(grid_test[i][i_start:i_end])
+
         elif grid_test[0].ndim == ldim:
-            raise NotImplementedError("Only regular tensor grid are supported for now")
+            raise NotImplementedError("Not Supported Yet")
         else:
             raise ValueError("Wrong input for the grid parameters")
 
-        cellData =None
+        mesh_grids = np.meshgrid(*grid_local, indexing = 'ij')
+
+        cellData = None
         cellData_info = None    
 
-        x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell, overlap=0)
+        if isinstance(mapping, SplineMapping):
+            x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell, overlap=0)
+        elif isinstance(mapping, Mapping):
+            call_map = mapping.get_callable_mapping
+            if ldim == 2:
+                fx, fy = call_map._func_eval
+                x_mesh = fx(*mesh_grids)[:, :, None]
+                y_mesh = fy(*mesh_grids)[:, :, None]
+                z_mesh = np.zeros_like(x_mesh)
+            elif ldim == 3:
+                fx, fy, fz = call_map._func_eval
+                x_mesh = fx(*mesh_grids)
+                y_mesh = fy(*mesh_grids)
+                z_mesh = fz(*mesh_grids)                
 
-        conn, offsets, celltypes, cell_shape = self._compute_unstructured_mesh_info(mapping.space.local_domain, 
+        conn, offsets, celltypes, cell_shape = self._compute_unstructured_mesh_info(local_domain, 
                                                                                     npts_per_cell=npts_per_cell, 
                                                                                     cell_indexes=cell_indexes)
 
@@ -996,12 +1037,11 @@ class PostProcessManager:
             rank = self.comm.Get_rank()
             size = self.comm.Get_size()
 
-
             if color_by_rank:
                 if ldim == 2:
                     cellData = {'rank': np.full(tuple(cell_shape) + (1,), rank, dtype='i')}
                 elif ldim == 3:
-                    cellData = {'rank': np.full_like(cell_shape, rank, dtype='i')}
+                    cellData = {'rank': np.full(tuple(cell_shape), rank, dtype='i')}
                 cellData_info = {'rank': (cellData['rank'].dtype, 1)}
             # Filenames
             filename_static = filename_pattern + f'.{rank}.' + 'static'
@@ -1038,10 +1078,15 @@ class PostProcessManager:
            
             if logical_grid:
                 for i in range(ldim):
-                    pointData_static[f'x_{i}'] = mesh_grids[i]
+                    pointData_static[f'x_{i}'] = np.reshape(mesh_grids[i], x_mesh.shape)
             
             for name, f in additional_logical_functions.items():
-                pointData_static[name] = f(*mesh_grids)
+                data = f(*mesh_grids)
+                if isinstance(data, tuple):
+                    reshaped_tuple = tuple(np.reshape(data[i], x_mesh.shape))
+                    pointData_static[name] = reshaped_tuple
+                else:
+                    pointData_static[name] = np.reshape(data, x_mesh.shape) 
 
             if ldim == 2:
                 for name, f in additional_physical_functions.items():
@@ -1097,7 +1142,12 @@ class PostProcessManager:
                     pointData_i[f'x_{k}'] = mesh_grids[k]
             
             for name, f in additional_logical_functions.items():
-                pointData_i[name] = f(*mesh_grids)
+                data = f(*mesh_grids)
+                if isinstance(data, tuple):
+                    reshaped_tuple = tuple(np.reshape(data[i], x_mesh.shape))
+                    pointData_i[name] = reshaped_tuple
+                else:
+                    pointData_i[name] = np.reshape(data, x_mesh.shape) 
                 
             if ldim == 2:
                 for name, f  in additional_physical_functions.items():
@@ -1109,7 +1159,7 @@ class PostProcessManager:
             if debug:
                 debug_result[1].append(pointData_i)
             
-            if self.comm is not None and size > 1 and rank == 0:
+            if self.comm is not None and self.comm.Get_size() > 1 and self.comm.Get_rank() == 0:
     
                 general_pointData_time_info = {}
                 for name, data in pointData_i.items():
@@ -1257,8 +1307,68 @@ class PostProcessManager:
                                         cellID += 1
         
         elif cell_indexes is not None:
-            raise NotImplementedError("WIP")
-            
+            i_starts = [np.searchsorted(cell_indexes[i], starts[i], side='left') for i in range(ldim)]
+            i_ends = [np.searchsorted(cell_indexes[i], ends[i], side='right') for i in range(ldim)]
+            n_points = tuple(i_ends[i] - i_starts[i] for i in range(ldim))
+
+            uniques = [len(np.unique(cell_indexes[i][i_starts[i]: i_ends[i]])) for i in range(ldim)]
+            cellshape = np.array([n_points[i] - uniques[i] for i in range(ldim)])
+            total_number_cells_vtk = np.prod(cellshape)
+            celltypes = np.zeros(total_number_cells_vtk, dtype='i')
+            offsets = np.arange(1, total_number_cells_vtk + 1, dtype='i') * (2 ** ldim)
+            connectivity = np.zeros(total_number_cells_vtk * 2 ** ldim)
+            if ldim == 2:
+                cellID = 0
+                celltypes[:] = VtkQuad.tid
+                for i in range(i_ends[0] - 1 - i_starts[0]):
+                    if cell_indexes[0][i] == cell_indexes[0][i + 1]:
+                        for j in range(i_ends[1] - 1 - i_starts[1]):
+                            if cell_indexes[1][j] == cell_indexes[1][j + 1]:
+                                row_top = i
+                                col_left = j
+
+                                topleft = row_top * n_points[1] + col_left
+                                topright = topleft + 1
+                                botleft = topleft + n_points[1]
+                                botright = botleft +1
+
+                                connectivity[4 * cellID: 4 * cellID + 4] = [topleft, topright, botright, botleft]
+                                cellID += 1
+
+            elif ldim == 3:
+                cellID = 0
+                celltypes[:] = VtkHexahedron.tid
+                n_cols = n_points[1]
+                n_layers = n_points[2]
+                for i in range(i_ends[0] - 1 - i_starts[0]):
+                    if cell_indexes[0][i] == cell_indexes[0][i + 1]:
+                        for j in range(i_ends[1] - 1 - i_starts[1]):
+                            if cell_indexes[1][j] == cell_indexes[1][j + 1]:
+                                for k in range(i_ends[2] - 1 - i_starts[2]):
+                                    if cell_indexes[2][k] == cell_indexes[2][k + 1]:
+                                        row_top = i
+                                        col_left = j
+                                        layer_front = k
+
+                                        top_left_front = row_top * n_cols * n_layers + col_left * n_layers + layer_front
+                                        top_left_back = top_left_front + 1
+                                        top_right_front = top_left_front + n_layers # next column
+                                        top_right_back = top_right_front + 1
+
+                                        bot_left_front = top_left_front + n_layers * n_cols # next row
+                                        bot_left_back = bot_left_front + 1
+                                        bot_right_front = bot_left_front + n_layers # next column
+                                        bot_right_back = bot_right_front + 1
+
+
+                                        connectivity[8 * cellID: 8 * cellID + 8] = [
+                                            top_left_front, top_right_front, bot_right_front, bot_left_front,
+                                            top_left_back, top_right_back, bot_right_back, bot_left_back
+                                        ]
+
+                                        cellID += 1
+
+       
         else:
             raise NotImplementedError("Not Supported Yet")
         return connectivity, offsets, celltypes, cellshape

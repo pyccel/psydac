@@ -99,6 +99,8 @@ class Pushforward:
         fields : FemField or list of dict
             Fields to push-forward
         """
+        if fields is None or fields == {}:
+            return []
         # group fields by space
         space_dict = {}
         if isinstance(fields, FemField):
@@ -340,27 +342,41 @@ class Pushforward:
 
         index_trimming = ()
 
-        difference_starts = tuple(l_s - t_s  for l_s, t_s in zip(local_starts, target_starts))
-        difference_ends = tuple(l_e - t_e for l_e, t_e in zip(local_ends, target_ends))
-
         if self.npts_per_cell is not None:
+            difference_starts = tuple(l_s  - t_s  for l_s, t_s in zip(local_starts, target_starts))
+            difference_ends = tuple(l_e - t_e for l_e, t_e in zip(local_ends, target_ends))
             for i in range(ldim):
                 if local_starts[i] != global_starts[i]:
-                    theoretical_start = (difference_starts[i] - 1) * self.npts_per_cell[i] 
-                    if theoretical_start < 0:
-                        theoretical_start = 0
+                    theoretical_start = (1 - difference_starts) * self.npts_per_cell[i] 
                 else:
                     theoretical_start = 0
 
                 if local_ends[i] != global_ends[i]:
-                    theoretical_end = - (1 + difference_ends[i]) * self.npts_per_cell[i]  
-                    if theoretical_end >= 0:
+                    theoretical_end = - (1 + difference_ends[i]) * self.npts_per_cell[i] 
+                    if theoretical_end == 0: # We use negative index so it is needed to change -0 to None
                         theoretical_end = None
                 else:
                     theoretical_end = None
                 index_trimming += (slice(theoretical_start, theoretical_end, 1),)
+    
         elif self.cell_indexes is not None:
-            raise NotImplementedError("WIP")
+            for i in range(ldim):
+                if local_starts[i] != global_starts[i]:
+                    i_start_local_overlap = np.searchsorted(self.cell_indexes[i], local_starts[i] - 1)
+                    i_start_target = np.searchsorted(self.cell_indexes[i], target_starts[i])
+                    theoretical_start = i_start_target - i_start_local_overlap
+                else:
+                    theoretical_start = 0
+
+                if local_ends[i] != global_ends[i]:
+                    i_end_local_overlap = np.searchsorted(self.cell_indexes[i], local_ends[i] + 1)
+                    i_end_target = np.searchsorted(self.cell_indexes[i], target_ends[i])
+                    theoretical_end = - (i_end_local_overlap - i_end_target)
+                    if theoretical_end == 0: # We use negative index so it is needed to change -0 to None
+                        theoretical_end = None
+                else:
+                    theoretical_end = None
+                index_trimming += (slice(theoretical_start, theoretical_end, 1),)         
         else:
             raise NotImplementedError("Not supported yet")
         return index_trimming
