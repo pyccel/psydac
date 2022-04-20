@@ -230,25 +230,25 @@ class BlockVector( Vector ):
     #...
     def copy( self ):
         w = BlockVector( self._space, [b.copy() for b in self._blocks] )
-        w._sync    = self._sync
+        w._sync = False
         return w
 
     #...
     def __neg__( self ):
         w = BlockVector( self._space, [-b for b in self._blocks] )
-        w._sync    = self._sync
+        w._sync = False
         return w
 
     #...
     def __mul__( self, a ):
         w = BlockVector( self._space, [b*a for b in self._blocks] )
-        w._sync    = self._sync
+        w._sync = False
         return w
 
     #...
     def __rmul__( self, a ):
         w = BlockVector( self._space, [a*b for b in self._blocks] )
-        w._sync    = self._sync
+        w._sync    = False
         return w
 
     #...
@@ -256,7 +256,7 @@ class BlockVector( Vector ):
         assert isinstance( v, BlockVector )
         assert v._space is self._space
         w = BlockVector( self._space, [b1+b2 for b1,b2 in zip( self._blocks, v._blocks )] )
-        w._sync = self._sync and v._sync
+        w._sync = False
         return w
 
     #...
@@ -264,13 +264,14 @@ class BlockVector( Vector ):
         assert isinstance( v, BlockVector )
         assert v._space is self._space
         w = BlockVector( self._space, [b1-b2 for b1,b2 in zip( self._blocks, v._blocks )] )
-        w._sync = self._sync and v._sync
+        w._sync = False
         return w
 
     #...
     def __imul__( self, a ):
         for b in self._blocks:
             b *= a
+        self._sync = False
         return self
 
     #...
@@ -279,7 +280,7 @@ class BlockVector( Vector ):
         assert v._space is self._space
         for b1,b2 in zip( self._blocks, v._blocks ):
             b1 += b2
-        self._sync = self._sync and v._sync
+        self._sync = False
         return self
 
     #...
@@ -288,7 +289,7 @@ class BlockVector( Vector ):
         assert v._space is self._space
         for b1,b2 in zip( self._blocks, v._blocks ):
             b1 -= b2
-        self._sync = self._sync and v._sync
+        self._sync = False
         return self
 
     #--------------------------------------
