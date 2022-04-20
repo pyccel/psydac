@@ -7,6 +7,7 @@
 
 import sys
 import os
+import re
 import importlib
 import numpy as np
 from mpi4py import MPI
@@ -19,6 +20,7 @@ from psydac.api.utilities       import mkdir_p, touch_init_file, random_string, 
 
 __all__ = ('BasicCodeGen', 'BasicDiscrete')
 
+strip_str = lambda s:re.sub(r'[^\w]', '',s)
 #==============================================================================
 # TODO have it as abstract class
 class BasicCodeGen:
@@ -70,13 +72,14 @@ class BasicCodeGen:
             if comm.rank != root:
                 free_args = np.chararray((num_free_args[0],), itemsize=num_free_args[1])
 
-            req1 = comm.Ibcast((free_args, num_free_args[0], MPI.CHAR),  root=root)
+            req1 = comm.Ibcast((free_args, MPI.CHAR),  root=root)
             MPI.Request.Waitall([req1, req2, req3, req4])
 
-            tag        =  str(np.array(tag.decode(), dtype=np.str))
+            tag        =  strip_str(tag.decode())
             max_nderiv = int(max_nderiv)
             func_name  = str(np.array(func_name.decode(), dtype=np.str))
-            free_args  = tuple(free_args.astype(str).tolist())
+            free_args  = tuple([strip_str(s.decode()) for s in free_args])
+
             #user_functions = comm.bcast( user_functions, root=root )
         else:
             tag = random_string( 8 )
