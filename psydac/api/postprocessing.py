@@ -3,7 +3,6 @@
 # Copyright 2019 Yaman Güçlü
 
 from operator import mod
-from zlib import Z_RLE
 import numpy as np
 from sympy import N
 import yaml
@@ -500,7 +499,7 @@ class OutputManager:
         """Export the space info to Yaml
 
         """
-        if self.comm is None or self.comm.rank == 0:
+        if self.comm is None or self.comm.Get_rank() == 0:
             with open(self.filename_space, 'w') as f:
                 yaml.dump(data=self._spaces_info, stream=f, default_flow_style=None, sort_keys=False)
 
@@ -587,8 +586,6 @@ class PostProcessManager:
         self.comm = comm
         self.fields_file = None
 
-        self.data_exchanger = None
-
         self._reconstruct_spaces()
         self.get_snapshot_list()
 
@@ -645,7 +642,6 @@ class PostProcessManager:
         # -------------------------------------------------
         # Space reconstruction
         # -------------------------------------------------
-        common_to_all_patches = []
         for patch in space_info['patches']:
             try:
                 scalar_spaces = patch['scalar_spaces']
@@ -657,6 +653,9 @@ class PostProcessManager:
                 vector_spaces = {}
             already_used_names = []
 
+            if patch['name'] != domain.name:
+                raise ValueError("Multipatch not supported yet")
+            
             for v_sp in vector_spaces:
                 components = v_sp['components']
                 temp_v_sp = VectorFunctionSpace(name=v_sp['name'], domain=domain, kind=v_sp['kind'])
@@ -891,26 +890,26 @@ class PostProcessManager:
 
         Parameters
         ----------
-        filename_pattern: str
+        filename_pattern : str
             file pattern of the file
 
-        grid: List of ndarray
+        grid : List of ndarray
             Grid on which to evaluate the fields
 
-        npts_per_cell: int or tuple of int or None, optional
+        npts_per_cell : int or tuple of int or None, optional
             number of evaluation points in each cell.
             If an integer is given, then assume that it is the same in every direction.
 
-        snapshot: list of int or 'all' or 'none', default='none'
+        snapshot : list of int or 'all' or 'none', default='none'
             If a list is given, it will export every snapshot present in the list.
             If 'none', only the static fields will be exported.
             Finally, if 'all', will export every time step and the static part.
         
-        lz: int, default=4
+        lz : int, default=4
             Number of leading zeros in the time indexing of the files. 
             Only used if ``snapshot`` is not ``'none'``. 
 
-        fields: dict
+        fields : dict
             Dictionary with the fields to export as values and the name under which to export them as keys
         
         additional_physical_functions : dict
@@ -928,7 +927,7 @@ class PostProcessManager:
 
         Notes
         -----
-        This function only supports regular tensor grid.
+        This function only supports regular and irregular tensor grid.
         """
         # =================================================
         # Common to everything
@@ -964,14 +963,6 @@ class PostProcessManager:
                     local_domain = space_0.spaces[0].local_domain
 
         self._pushforward = Pushforward(mapping, grid, npts_per_cell=npts_per_cell)
-
-        # Easy way to ensure everything is 3D
-        if ldim == 2:
-            slice_3d = (slice(0, None, 1), slice(0, None, 1), None)
-        elif ldim == 3:
-            slice_3d = (slice(0, None, 1), slice(0, None, 1), slice(0, None, 1))
-        else:
-            raise NotImplementedError("1D case not supported")
 
         # Check the grid argument
         assert len(grid) == ldim
@@ -1368,7 +1359,6 @@ class PostProcessManager:
 
                                         cellID += 1
 
-       
         else:
             raise NotImplementedError("Not Supported Yet")
         return connectivity, offsets, celltypes, cellshape
