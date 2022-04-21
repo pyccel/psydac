@@ -151,7 +151,7 @@ def basis_funs(knots, degree, x, span, out=None):
         Bsplines at location ``x``.
     """
     knots = np.asarray(knots, dtype=float)
-    x = float(x)    
+    x = float(x)
     if out is None:
         out = np.zeros(degree + 1)
     basis_funs_p(knots, degree, x, span, out)
@@ -186,7 +186,7 @@ def basis_funs_array(knots, degree, span, x, out=None):
         Bsplines at each location in ``x``.
     """
     knots = np.asarray(knots, dtype=float)
-    x = np.asarray(x, dtype=float)    
+    x = np.asarray(x, dtype=float)
     if out is None:
         out = np.zeros((x.shape, degree + 1))
     basis_funs_array_p(knots, degree, x, span,  out)
