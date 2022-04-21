@@ -370,13 +370,16 @@ def test_parallel_export(geometry, interactive=False):
                             fields_file='fields_test_export.h5', 
                             comm=comm)
 
-    Pm.export_to_vtk('test', grid=grid, npts_per_cell=npts_per_cell, 
-                     fields={'f_t': 'time'}, snapshots='all')
+    Pm.export_to_vtk('test_regular_tensor_grid', grid=grid, npts_per_cell=npts_per_cell, 
+                     fields={'time': 'f_t'}, snapshots='all')
+    
+    Pm.export_to_vtk('test_irregular_tensorg_grid', grid=grid,
+                     fields={'time': 'f_t'}, snapshots='all')
 
     comm.Barrier()
 
     if rank == 0 and not interactive:
-        for f in glob.glob('test*.*vts'):
+        for f in glob.glob('test*.*vtu'):
             os.remove(f)
         os.remove('space_test_export.yml')
         os.remove('fields_test_export.h5')
