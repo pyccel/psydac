@@ -643,7 +643,7 @@ def merge_sort(a: 'float[:]') -> 'float[:]':
 
 
 # =============================================================================
-def breakpoints_p(knots: 'float[:]', degree: int, out: 'float[:]', tol: float = 1e-15) -> int:
+def breakpoints_p(knots: 'float[:]', degree: int, out: 'float[:]', tol: float = 1e-15):
     """
     Determine breakpoints' coordinates.
 
@@ -725,7 +725,7 @@ def greville_p(knots: 'float[:]', degree: int, periodic: bool, out:'float[:]'):
 
 
 # =============================================================================
-def elements_spans_p(knots: 'float[:]', degree: int, out: 'int[:]') -> int:
+def elements_spans_p(knots: 'float[:]', degree: int, out: 'int[:]'):
     """
     Compute the index of the last non-vanishing spline on each grid element
     (cell). The length of the returned array is the number of cells.
@@ -1007,7 +1007,7 @@ def basis_ders_on_quad_grid_p(knots: 'float[:]', degree: int, quad_grid: 'float[
                 out[ie, k, :, iq] = ders[:, k]
 
 
-def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:]') -> int:
+def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:]'):
     """
     Computes in which cells a given sorted array of locations belong.
 
