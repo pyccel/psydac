@@ -277,6 +277,8 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
     g_spaces = {}
     interfaces_info = {}
+    interfaces = []
+    
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
         # from a discrete geoemtry
         if len(domain_h.mappings.values()) > 1:
