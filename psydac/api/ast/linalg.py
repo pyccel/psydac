@@ -90,7 +90,7 @@ class LinearOperatorDot(SplBasic):
 
         # Generate random tag, unique for all processes in MPI communicator
         tag = random_string(8)
-        if comm is not None:
+        if comm is not None and comm.size>1:
             tag = comm.bcast(tag, root=0)
 
         # Create new instance of this class
@@ -150,6 +150,12 @@ class LinearOperatorDot(SplBasic):
         d_start         = toInteger(kwargs.pop('d_start', None))
         c_start         = toInteger(kwargs.pop('c_start', None))
 
+        if interface:
+            rows_starts  = variables('rs1:%s'%(ndim+1),  'int')
+            rows_starts  = tuple(map(toInteger, kwargs.pop('rows_starts', rows_starts)))
+        else:
+            rows_starts = tuple(map(toInteger,[0]*ndim))
+
         openmp          = False if backend is None else backend["openmp"]
 
         ndiags, _ = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
@@ -164,9 +170,9 @@ class LinearOperatorDot(SplBasic):
 
         ranges = [Range(variable_to_sympy(n)) for n in ndiags]
 
-        diff = [variable_to_sympy(gp-p) for gp,p in zip(gpads, pads)]
+        diff = [variable_to_sympy(gp-p-rs) for gp,p,rs in zip(gpads, pads, rows_starts)]
 
-        if d_start:bb[interface_axis] += d_start
+#        if d_start:bb[interface_axis] += d_start
 
         x_indices = []
         for i1,mi,mj,b,s,d,i2,f,xs in zip(indices1,cm,dm,bb,starts,diff,indices2,flip_axis,xshape):
@@ -275,6 +281,10 @@ class LinearOperatorDot(SplBasic):
         if isinstance(nrows_extra[0], Variable):
             func_args    = func_args + tuple(nrows_extra)
             firstprivate = firstprivate + tuple(nrows_extra)
+
+        if isinstance(rows_starts[0], Variable):
+            func_args = func_args + rows_starts
+            firstprivate = firstprivate + rows_starts
 
         decorators = {}
         header     = None
@@ -399,7 +409,6 @@ class TransposeOperator(SplBasic):
         return cls.__hashable_new__(ndim, comm_id, **kwargs)
 
     @classmethod
-    @lru_cache(maxsize=32)
     def __hashable_new__(cls, ndim, comm_id=None, **kwargs):
 
         # If integer communicator is provided, convert it to mpi4py object
@@ -407,8 +416,8 @@ class TransposeOperator(SplBasic):
 
         # Generate random tag, unique for all processes in MPI communicator
         tag = random_string(8)
-        if comm is not None:
-            tag = comm.bcast(tag, root=0)
+        if comm is not None and comm.size>1:
+            tag = comm.bcast(tag , root=0 )
 
         # Determine name based on number of dimensions
         name = cls.name_template.format(ndim=ndim)

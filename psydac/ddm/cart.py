@@ -223,6 +223,7 @@ class InterfacesCartDecomposition:
                                                                    requests=req,
                                                                    num_threads=num_threads)
 
+
         self._interfaces_groups = interfaces_groups
         self._interfaces_comm   = interfaces_comm
         self._carts             = interfaces_carts
@@ -299,6 +300,7 @@ class CartDecomposition():
         self._num_threads  = num_threads
         self._reorder      = reorder
         self._comm         = comm
+        self._local_comm   = comm
         self._global_comm  = comm if global_comm is None else global_comm
         self._reverse_axis = reverse_axis
         # ...
@@ -440,6 +442,10 @@ class CartDecomposition():
     @property
     def comm( self ):
         return self._comm
+
+    @property
+    def local_comm( self ):
+        return self._local_comm
 
     @property
     def global_comm( self ):
@@ -842,15 +848,13 @@ class InterfaceCartDecomposition(CartDecomposition):
         self._nprocs_minus = nprocs_minus
         self._nprocs_plus  = nprocs_plus
 
-        if requests:
-            dtype = find_mpi_type('int64')
-            MPI.Request.Waitall(requests)
+        if requests:MPI.Request.Waitall(requests)
+        dtype = find_mpi_type('int64')
+        if local_comm_minus != MPI.COMM_NULL:
+            local_comm_minus.Bcast((ranks_in_topo_plus,ranks_in_topo_plus.size, dtype), root=0)
 
-            if local_comm_minus != MPI.COMM_NULL:
-                local_comm_minus.Bcast((ranks_in_topo_plus,ranks_in_topo_plus.size, dtype), root=0)
-
-            if local_comm_plus != MPI.COMM_NULL:
-                local_comm_plus.Bcast((ranks_in_topo_minus,ranks_in_topo_minus.size, dtype), root=0)
+        if local_comm_plus != MPI.COMM_NULL:
+            local_comm_plus.Bcast((ranks_in_topo_minus,ranks_in_topo_minus.size, dtype), root=0)
 
         self._coords_from_rank_minus = np.array([np.unravel_index(rank, nprocs_minus) for rank in range(size_minus)])
         self._coords_from_rank_plus  = np.array([np.unravel_index(rank, nprocs_plus)  for rank in range(size_plus)])
@@ -890,10 +894,12 @@ class InterfaceCartDecomposition(CartDecomposition):
 
         if root_minus != root_plus:
             if not comm_minus == MPI.COMM_NULL:
-                self._intercomm = comm_minus.Create_intercomm(0, comm, root_plus)      
+                self._intercomm = comm_minus.Create_intercomm(0, comm, root_plus)
+                self._local_comm = comm_minus
 
             elif not comm_plus == MPI.COMM_NULL:
                 self._intercomm = comm_plus.Create_intercomm(0, comm, root_minus)
+                self._local_comm = comm_plus
 
         if self._intercomm == MPI.COMM_NULL:
             return
@@ -1167,6 +1173,10 @@ class InterfaceCartDecomposition(CartDecomposition):
     @property
     def local_comm_plus( self ):
         return self._local_comm_plus
+
+    @property
+    def local_comm( self ):
+        return self._local_comm
 
     @property
     def local_rank_minus( self ):

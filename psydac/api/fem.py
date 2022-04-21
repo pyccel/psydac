@@ -196,8 +196,6 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         if isinstance(test_space.vector_space, BlockVectorSpace):
             vector_space = test_space.vector_space.spaces[0]
-            if isinstance(test_space.vector_space, BlockVectorSpace):
-                vector_space = test_space.vector_space.spaces[0]
         else:
             vector_space = test_space.vector_space
 
@@ -248,7 +246,6 @@ class DiscreteBilinearForm(BasicDiscrete):
                 trial_space  = trial_space._interfaces[trial_target.axis, trial_target.ext]
             self._test_ext  = test_target.ext
             self._trial_ext = trial_target.ext
-
 
         #...
         kwargs['is_rational_mapping'] = is_rational_mapping

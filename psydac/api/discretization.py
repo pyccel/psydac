@@ -296,7 +296,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
         assert( len(degree) == ldim )
         assert(hasattr(domain_h, 'ncells'))
         interiors = domain_h.domain.interior
-        interfaces = []
         if isinstance(interiors, Union):
             interiors = interiors.args
             interfaces = domain_h.domain.interfaces
@@ -308,6 +307,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
         else:
             interiors = [interiors]
 
+        interfaces = [] if interfaces is None else interfaces
         if isinstance(knots, (list, tuple)):
             assert len(interiors) == 1
             knots = {interiors[0].name:knots}

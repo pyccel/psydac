@@ -7,7 +7,6 @@
 
 import sys
 import os
-import re
 import importlib
 import numpy as np
 from mpi4py import MPI
@@ -20,7 +19,6 @@ from psydac.api.utilities       import mkdir_p, touch_init_file, random_string, 
 
 __all__ = ('BasicCodeGen', 'BasicDiscrete')
 
-strip_str = lambda s:re.sub(r'[^\w]', '',s)
 #==============================================================================
 # TODO have it as abstract class
 class BasicCodeGen:
@@ -38,8 +36,8 @@ class BasicCodeGen:
         comm      = kwargs.pop('comm', None)
         root      = kwargs.pop('root', None)
 
-        # ...
-        if not( comm is None):
+        # ...
+        if not( comm is None) and comm.size>1:
             if root is None:
                 root = 0
 
@@ -49,37 +47,23 @@ class BasicCodeGen:
             if comm.rank == root:
                 tag = random_string( 8 )
                 ast = self._create_ast( expr, tag, comm=comm, backend=backend, **kwargs )
-                max_nderiv    = np.array(ast.nderiv)
-                func_name     = ast.expr.name.encode()
-                arguments     = ast.expr.arguments.copy()
-                free_args     = arguments.pop('fields', ()) +  arguments.pop('constants', ())
-                free_args     = np.char.array(tuple(str(i).encode() for i in free_args))
-                tag           = tag.encode()
-                num_free_args = np.array([len(free_args), int(free_args.itemsize)])
+                max_nderiv = ast.nderiv
+                func_name = ast.expr.name
+                arguments = ast.expr.arguments.copy()
+                free_args = arguments.pop('fields', ()) +  arguments.pop('constants', ())
+                free_args = tuple(str(i) for i in free_args)
+
             else:
-                tag           = bytearray(256)
-                max_nderiv    = np.array(0)
-                func_name     = bytearray(256)
-                num_free_args = np.array([0,0])
-                ast           = None
+                tag = None
+                ast = None
+                max_nderiv = None
+                func_name  = None
+                free_args  = None
 
-            req1 = comm.Ibcast((num_free_args, MPI.INT), root=root)
-            req2 = comm.Ibcast((tag, MPI.CHAR) , root=root )
-            req3 = comm.Ibcast((func_name, MPI.CHAR), root=root)
-            req4 = comm.Ibcast((max_nderiv, MPI.INT), root=root )
-            MPI.Request.Wait(req1)
-
-            if comm.rank != root:
-                free_args = np.chararray((num_free_args[0],), itemsize=num_free_args[1])
-
-            req1 = comm.Ibcast((free_args, MPI.CHAR),  root=root)
-            MPI.Request.Waitall([req1, req2, req3, req4])
-
-            tag        =  strip_str(tag.decode())
-            max_nderiv = int(max_nderiv)
-            func_name  = str(np.array(func_name.decode(), dtype=np.str))
-            free_args  = tuple([strip_str(s.decode()) for s in free_args])
-
+            tag        = comm.bcast(tag, root=root )
+            func_name  = comm.bcast(func_name, root=root)
+            max_nderiv = comm.bcast(max_nderiv, root=root )
+            free_args  = comm.bcast(free_args, root=root)
             #user_functions = comm.bcast( user_functions, root=root )
         else:
             tag = random_string( 8 )
@@ -108,7 +92,7 @@ class BasicCodeGen:
         self._dependencies_fname   = '{}.py'.format(self._dependencies_modname)
         # ...
 
-        # ... when using user defined functions, there must be passed as
+        # ... when using user defined functions, there must be passed as
         #     arguments of discretize. here we create a dictionary where the key
         #     is the function name, and the value is a valid implementation.
         # if user_functions:
@@ -120,7 +104,7 @@ class BasicCodeGen:
         if ast:
             self._save_code(self._generate_code(), backend=self.backend['name'])
 
-        if comm is not None:comm.Barrier()
+        if comm is not None and comm.size>1:comm.Barrier()
         # compile code
         self._compile(namespace)
 
@@ -267,9 +251,9 @@ class BasicDiscrete(BasicCodeGen):
 
         kwargs['kernel_expr'] = kernel_expr
         BasicCodeGen.__init__(self, expr, **kwargs)
-        # ...
+        # ...
         self._kernel_expr = kernel_expr
-        # ...
+        # ...
 
     @property
     def kernel_expr(self):
@@ -303,4 +287,5 @@ class BasicDiscrete(BasicCodeGen):
 
         return AST(expr, kernel_expr, discrete_space, mapping_space=mapping_space, tag=tag, quad_order=quad_order,
                     mapping=mapping, is_rational_mapping=is_rational_mapping, backend=backend, num_threads=num_threads)
+
 

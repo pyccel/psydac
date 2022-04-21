@@ -121,6 +121,7 @@ class StencilVectorSpace( VectorSpace ):
         self._periods    = cart.periods
         self._shifts     = cart.shifts
         self._dtype      = dtype
+        self._mpi_dtype  = find_mpi_type(dtype)
         self._starts     = (0,)*self._ndim
         self._ends       = (0,)*self._ndim
         self._shape      = (0,)*self._ndim
@@ -136,7 +137,6 @@ class StencilVectorSpace( VectorSpace ):
         self._parent_ends   = cart.parent_ends
 
         # Parallel attributes
-        self._mpi_type     = find_mpi_type( dtype )
         if not isinstance(cart, InterfaceCartDecomposition):
             self._synchronizer = CartDataExchanger(cart, dtype )
 
@@ -218,6 +218,10 @@ class StencilVectorSpace( VectorSpace ):
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
+    @property
+    def mpi_dtype( self ):
+        return self._mpi_dtype
+
     @property
     def shape( self ):
         return self._shape
@@ -325,6 +329,8 @@ class StencilVector( Vector ):
         self._sizes          = V.shape
         self._ndim           = len(V.npts)
         self._data           = data
+        self._dot_send_data = np.zeros((1,), dtype=V.dtype)
+        self._dot_recv_data = np.zeros((1,), dtype=V.dtype)
         self._interface_data = {}
 
         for axis, ext in V._interfaces:
@@ -346,7 +352,7 @@ class StencilVector( Vector ):
                     e = V.pads[axis]-diff
 
                 slices[axis] = slice(s,e+2*V.pads[axis]+1)
-                data         = self._data[tuple(slices)]
+                data         = self._data[tuple(slices)].copy()
             else:
                 Vin    = V._interfaces[axis, ext]
                 slices = [slice(s, e+2*p+1) for s,e,p in zip(Vin.starts, Vin.ends, Vin.pads)]
@@ -375,10 +381,13 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
 
-        res = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
+        self._dot_send_data[0] = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
         if self._space.parallel:
-            res = self._space.cart.global_comm.allreduce( res, op=MPI.SUM )
-        return res
+            self._space.cart.global_comm.Allreduce((self._dot_send_data, self.space.mpi_dtype),
+                                                   (self._dot_recv_data, self.space.mpi_dtype),
+                                                   op=MPI.SUM )
+            self._dot_send_data[0] = self._dot_recv_data[0]
+        return self._dot_send_data[0]
 
     #...
     @staticmethod
@@ -668,12 +677,12 @@ class StencilVector( Vector ):
                     e = V.pads[axis]-diff
 
                 slices[axis] = slice(s,e+2*V.pads[axis]+1)
-                self._interface_data[axis, ext][...] = self._data[tuple(slices)].copy()
+                self._interface_data[axis, ext][...] = self._data[tuple(slices)]
         elif not self.space.parallel:
             for axis, ext in self.space._interfaces:
                 V      = self.space._interfaces[axis, ext]
                 slices = [slice(s, e+2*p+1) for s,e,p in zip(V.starts, V.ends, V.pads)]
-                self._interface_data[axis, ext][...] = self._data[tuple(slices)].copy()
+                self._interface_data[axis, ext][...] = self._data[tuple(slices)]
 
         # Flag ghost regions as up-to-date
         self._sync = True
@@ -1571,7 +1580,7 @@ class StencilMatrix( Matrix ):
                     self._transpose_args[arg_name.format(i=i+1)] = np.int64(arg_val[i]) if isinstance(arg_val[i], int) else arg_val[i]
 
             if self.domain.parallel:
-                comm = self.domain.cart.comm
+                comm = self.codomain.cart.comm
                 if self.domain == self.codomain:
                     # In this case nrows_extra[i] == 0 for all i
                     dot = LinearOperatorDot(self._ndim,
@@ -1781,7 +1790,6 @@ class StencilInterfaceMatrix(Matrix):
             assert out.space is self.codomain
         else:
             out = StencilVector( self.codomain )
-
         self._func(self._data, v._interface_data[self._d_axis, self._d_ext], out._data, **self._args)
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
@@ -2229,16 +2237,16 @@ class StencilInterfaceMatrix(Matrix):
                           ('sk{i}', sk),('sl{i}', sl)])
 
             self._transpose_args            = {}
-            self._transpose_args['d_start'] = d_start
-            self._transpose_args['c_start'] = c_start
-            self._transpose_args['dim']     = dim
+            self._transpose_args['d_start'] =  np.int64(d_start)
+            self._transpose_args['c_start'] =  np.int64(c_start)
+            self._transpose_args['dim']     =  np.int64(dim)
 
             for arg_name, arg_val in args.items():
                 for i in range(len(nrows)):
-                    self._transpose_args[arg_name.format(i=i+1)] = arg_val[i]
+                    self._transpose_args[arg_name.format(i=i+1)] =  np.int64(arg_val[i])
 
             if self.domain.parallel:
-                comm = self.domain.cart.comm
+                comm = self.domain._interfaces[self._d_axis, self._d_ext].cart.local_comm
                 if self.domain == self.codomain:
                     # In this case nrows_extra[i] == 0 for all i
                     dot = LinearOperatorDot(self._ndim,
@@ -2251,16 +2259,19 @@ class StencilInterfaceMatrix(Matrix):
                                     cm = (1,)*self._ndim,
                                     interface=True,
                                     flip_axis=self._flip,
-                                    interface_axis=self._dim,
+                                    interface_axis=self._c_axis,
                                     d_start=self._d_start,
                                     c_start=self._c_start)
 
-                    nrows      = self._args.pop('nrows')
+                    nrows       = self._args.pop('nrows')
+                    rows_starts = self._args.pop('rows_starts')
 
                     self._args = {}
                     for i in range(len(nrows)):
-                        self._args['n{i}'.format(i=i+1)] = nrows[i]
+                        self._args['n{i}'.format(i=i+1)] =  np.int64(nrows[i])
 
+                    for i in range(len(nrows)):
+                        self._args['rs{i}'.format(i=i+1)] =  np.int64(rows_starts[i])
                 else:
                     dot = LinearOperatorDot(self._ndim,
                                             comm = comm,
@@ -2271,19 +2282,23 @@ class StencilInterfaceMatrix(Matrix):
                                             cm = (1,)*self._ndim,
                                             interface=True,
                                             flip_axis=self._flip,
-                                            interface_axis=self._dim,
+                                            interface_axis=self._c_axis,
                                             d_start=self._d_start,
                                             c_start=self._c_start)
 
                     nrows       = self._args.pop('nrows')
                     nrows_extra = self._args.pop('nrows_extra')
+                    rows_starts = self._args.pop('rows_starts')
 
                     self._args = {}
                     for i in range(len(nrows)):
-                        self._args['n{i}'.format(i=i+1)] = nrows[i]
+                        self._args['n{i}'.format(i=i+1)] =  np.int64(nrows[i])
 
                     for i in range(len(nrows)):
-                        self._args['ne{i}'.format(i=i+1)] = nrows_extra[i]
+                        self._args['ne{i}'.format(i=i+1)] =  np.int64(nrows_extra[i])
+
+                    for i in range(len(nrows)):
+                        self._args['rs{i}'.format(i=i+1)] =  np.int64(rows_starts[i])
 
             else:
                 dot = LinearOperatorDot(self._ndim,
@@ -2297,9 +2312,10 @@ class StencilInterfaceMatrix(Matrix):
                                         cm = (1,)*self._ndim,
                                         interface=True,
                                         flip_axis=self._flip,
-                                        interface_axis=self._dim,
+                                        interface_axis=self._c_axis,
                                         d_start=self._d_start,
-                                        c_start=self._c_start)
+                                        c_start=self._c_start,
+                                        rows_starts=(0,)*self._ndim)
 
                 self._args = {}
 
