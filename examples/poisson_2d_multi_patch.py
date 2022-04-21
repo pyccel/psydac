@@ -41,6 +41,7 @@ from mpi4py import MPI
 def diag_dot(A,x,y):
     x.update_ghost_regions()
     for i in range(len(x.blocks)):
+        if A[i,i] is None:continue
         A[i,i].dot(x[i], out=y[i])
 #==============================================================================
 
