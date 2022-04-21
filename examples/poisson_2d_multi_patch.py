@@ -51,6 +51,8 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None, backend=None)
     # 1. Abstract model
     #+++++++++++++++++++++++++++++++
 
+    timing   = {}
+    t0 = time.time()
     V   = ScalarFunctionSpace('V', domain, kind=None)
 
     u, v = elements_of(V, names='u, v')
@@ -79,9 +81,14 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None, backend=None)
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
 
+    t1 = time.time()
+    timing["Abstract model"] = t1-t0
+
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
     #+++++++++++++++++++++++++++++++
+
+    t0 = time.time()
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     Vh       = discretize(V, domain_h, degree=degree)
 
@@ -91,13 +98,17 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None, backend=None)
     h1norm_h = discretize(h1norm, domain_h, Vh, backend=backend)
 
     equation_h.set_solver('cg', info=True, tol=1e-8)
+    t1 = time.time()
 
-    timing   = {}
+    timing["Discretization"] = t1-t0
+
+    comm.Barrier()
     t0       = time.time()
     uh, info = equation_h.solve()
     t1       = time.time()
     timing['solution'] = t1-t0
 
+    comm.Barrier()
     t0 = time.time()
     l2_error = l2norm_h.assemble(u=uh)
     h1_error = h1norm_h.assemble(u=uh)
@@ -121,15 +132,43 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None, backend=None)
         t1 = time.time()
         T2 += t1-t0
 
-    T1                     = comm.reduce(T1/100, op=MPI.MAX)
-    T2                     = comm.reduce(T2/100, op=MPI.MAX)
-    timing['solution']    = comm.reduce(timing['solution'], op=MPI.MAX)
-    timing['diagnostics'] = comm.reduce(timing['diagnostics'], op=MPI.MAX)
+    T1                       = comm.reduce(T1/100, op=MPI.MAX)
+    T2                       = comm.reduce(T2/100, op=MPI.MAX)
+    timing["Abstract model"] = comm.reduce(timing["Abstract model"], op=MPI.MAX)
+    timing["Discretization"] = comm.reduce(timing["Discretization"], op=MPI.MAX)
+    timing['solution']       = comm.reduce(timing['solution'], op=MPI.MAX)
+    timing['diagnostics']    = comm.reduce(timing['diagnostics'], op=MPI.MAX)
  
     return uh, info, T1,T2, timing, l2_error, h1_error
 
 
 if __name__ == '__main__':
+
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        formatter_class = argparse.ArgumentDefaultsHelpFormatter,
+        description     = "Solve Poisson's equation on a 2D mulipatch domain."
+    )
+
+    parser.add_argument( '-d',
+        type    = int,
+        nargs   = 2,
+        default = [2,2],
+        metavar = ('P1','P2'),
+        dest    = 'degree',
+        help    = 'Spline degree along each dimension'
+    )
+
+    parser.add_argument( '-n',
+        type    = int,
+        nargs   = 2,
+        default = [10,10],
+        metavar = ('N1','N2'),
+        dest    = 'ncells',
+        help    = 'Number of grid cells (elements) along each dimension'
+    )
+
 
     from collections                               import OrderedDict
     from sympy                                     import lambdify
@@ -141,14 +180,18 @@ if __name__ == '__main__':
     x,y       = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
+    args     = parser.parse_args()
 
-    ne     = [2**4,2**4]
-    degree = [3,3]
+    ne     = vars(args)['ncells']
+    degree = vars(args)['degree']
 
     comm = MPI.COMM_WORLD
     u_h, info, T1, T2, timing, l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=ne, degree=degree, comm=comm, backend=PSYDAC_BACKEND_GPYCCEL)
 
     if comm.rank == 0:
+        print("number of patches     :: ", len(domain))
+        print("ncells                :: ", ne)
+        print("degree                :: ", degree)
         print("dot product    timing :: ", T1)
         print("dot product lb timing :: ", T2)
         print("problem        timing :: ", timing)
