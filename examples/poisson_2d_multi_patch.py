@@ -39,7 +39,6 @@ from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 
 from mpi4py import MPI
 def diag_dot(A,x,y):
-    x.update_ghost_regions()
     for i in range(len(x.blocks)):
         if A[i,i] is None:continue
         A[i,i].dot(x[i], out=y[i])
@@ -117,29 +116,33 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None, backend=None)
 
     A = equation_h.linear_system.lhs
     b = equation_h.linear_system.rhs
-    T1,T2 = 0,0
+    T1,T2,T3 = 0,0,0
     y = b.copy()*0
     for i in range(100):
         comm.Barrier()
         t0 = time.time()
         b.update_ghost_regions()
-        A.dot(b,out=y)
         t1 = time.time()
         T1 += t1-t0
+        t0 = time.time()
+        A.dot(b,out=y)
+        t1 = time.time()
+        T2 += t1-t0
         comm.Barrier()
         t0 = time.time()
         diag_dot(A,b,y)
         t1 = time.time()
-        T2 += t1-t0
+        T3 += t1-t0
 
     T1                       = comm.reduce(T1/100, op=MPI.MAX)
     T2                       = comm.reduce(T2/100, op=MPI.MAX)
+    T3                       = comm.reduce(T3/100, op=MPI.MAX)
     timing["Abstract model"] = comm.reduce(timing["Abstract model"], op=MPI.MAX)
     timing["Discretization"] = comm.reduce(timing["Discretization"], op=MPI.MAX)
     timing['solution']       = comm.reduce(timing['solution'], op=MPI.MAX)
     timing['diagnostics']    = comm.reduce(timing['diagnostics'], op=MPI.MAX)
  
-    return uh, info, T1,T2, timing, l2_error, h1_error
+    return uh, info, T1,T2,T3, timing, l2_error, h1_error
 
 
 if __name__ == '__main__':
@@ -186,14 +189,16 @@ if __name__ == '__main__':
     degree = vars(args)['degree']
 
     comm = MPI.COMM_WORLD
-    u_h, info, T1, T2, timing, l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=ne, degree=degree, comm=comm, backend=PSYDAC_BACKEND_GPYCCEL)
+    u_h, info, T1, T2, T3, timing, l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=ne, degree=degree, comm=comm, backend=PSYDAC_BACKEND_GPYCCEL)
 
     if comm.rank == 0:
+        print("number of mpi procs   :: ", comm.size)
         print("number of patches     :: ", len(domain))
         print("ncells                :: ", ne)
         print("degree                :: ", degree)
-        print("dot product    timing :: ", T1)
-        print("dot product lb timing :: ", T2)
+        print("communication  timing :: ", T1)
+        print("dot product    timing :: ", T2)
+        print("dot product lb timing :: ", T3)
         print("problem        timing :: ", timing)
         print("> CG info             :: ", info )
         print("L2 error              :: ", l2_error)
