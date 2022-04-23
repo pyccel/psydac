@@ -355,7 +355,7 @@ class LinearOperatorDot(SplBasic):
         # Cheapest solution is a broadcast from process 0
         comm = self.comm
         if comm is not None and comm.size > 1:
-            comm.bcast(0, root=0)
+            v = comm.bcast(0, root=0)
 
         module_name = self._modname
         sys.path.append(self.folder)
@@ -510,7 +510,7 @@ class TransposeOperator(SplBasic):
         # Cheapest solution is a broadcast from process 0
         comm = self.comm
         if comm is not None and comm.size > 1:
-            comm.bcast(0, root=0)
+            comm.Barrier()
 
         module_name = self._modname
         sys.path.append(self.folder)
