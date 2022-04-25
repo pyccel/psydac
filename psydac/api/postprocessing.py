@@ -2,9 +2,7 @@
 #
 # Copyright 2019 Yaman Güçlü
 
-from operator import mod
 import numpy as np
-from sympy import N
 import yaml
 import re
 import h5py as h5
