@@ -141,7 +141,7 @@ class StencilVectorSpace( VectorSpace ):
             self._synchronizer = CartDataExchanger(cart, dtype )
 
         if isinstance(cart, InterfaceCartDecomposition):
-            self._shape = cart.get_communication_infos(cart.axis)['recv_shape']
+            self._shape = cart.get_communication_infos(cart.axis)['gbuf_recv_shape'][0]
         else:
             self._shape = cart.shape
 
@@ -1728,8 +1728,7 @@ class StencilInterfaceMatrix(Matrix):
         nrows_extra   = [0 if (nci<=ndi or eci<nci-1) else nci-ndi for eci,nci,ndi in zip(W.ends, W.npts, V.npts)]
         nrows_extra[c_axis] = max(W.npts[c_axis]-V.npts[c_axis],0)
         nrows         = [n-e for n,e in zip(nrows, nrows_extra)]
-        rows_starts   = list(W.starts)
-        rows_starts[c_axis] = 0
+        rows_starts   = [0]*self._ndim
 
         args                 = {}
         args['nrows']        = tuple(nrows)

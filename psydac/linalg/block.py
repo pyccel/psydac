@@ -327,7 +327,7 @@ class BlockVector( Vector ):
 
         for (i,j) in self._data_exchangers:
             for data_ex,bufs,req_ij in zip(self._data_exchangers[i,j], self._interface_buf[i,j], req[i,j]):
-                data_ex.end_update_ghost_regions(req_ij, *bufs)
+                data_ex.end_update_ghost_regions(req_ij)
 
         # Flag ghost regions as up-to-date
         self._sync = True
