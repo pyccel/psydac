@@ -148,7 +148,6 @@ class BlockVector( Vector ):
         self._data_exchangers = {}
         self._interface_buf   = {}
 
-
         if V.parallel:
             for i,j in V._interfaces:
                 axis_i,axis_j = V._interfaces[i,j][0]
@@ -318,19 +317,26 @@ class BlockVector( Vector ):
 
     # ...
     def update_ghost_regions( self, *, direction=None ):
+
+        for vi in self.blocks:
+            vi.update_ghost_regions(direction=direction)
+        # Flag ghost regions as up-to-date
+        self._sync = True
+
+    def start_update_interface_ghost_regions( self ):
         req = {}
         for (i,j) in self._data_exchangers:
             req[i,j] = [data_ex.start_update_ghost_regions(*bufs) for bufs,data_ex in zip(self._interface_buf[i,j], self._data_exchangers[i,j])]
 
-        for vi in self.blocks:
-            vi.update_ghost_regions(direction=direction)
+        self._req = req
+
+    def end_update_interface_ghost_regions( self ):
 
         for (i,j) in self._data_exchangers:
-            for data_ex,bufs,req_ij in zip(self._data_exchangers[i,j], self._interface_buf[i,j], req[i,j]):
+            for data_ex,bufs,req_ij in zip(self._data_exchangers[i,j], self._interface_buf[i,j], self._req[i,j]):
                 data_ex.end_update_ghost_regions(req_ij)
 
-        # Flag ghost regions as up-to-date
-        self._sync = True
+
     # ...
     @property
     def n_blocks( self ):

@@ -2,6 +2,7 @@ import pytest
 import time
 import matplotlib.pyplot as plt
 import numpy as np
+from mpi4py import MPI
 
 from sympy.core.containers import Tuple
 from sympy                 import Matrix               
@@ -19,7 +20,7 @@ from sympde.topology import InteriorDomain, Union
 from sympde.topology import Boundary, NormalVector
 from sympde.topology import Domain
 from sympde.topology import trace_1
-from sympde.topology import Square
+from sympde.topology import Cube
 from sympde.topology import ElementDomain
 from sympde.topology import Area
 from sympde.topology import IdentityMapping, PolarMapping, AffineMapping
@@ -37,7 +38,18 @@ from psydac.fem.basic          import FemField
 from psydac.utilities.utils    import refine_array_1d
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 
-from mpi4py import MPI
+def union(domains, name):
+    assert len(domains)>1
+    domain = domains[0]
+    for p in domains[1:]:
+        domain = domain.join(p, name=name)
+    return domain
+
+def set_interfaces(domain, interfaces):
+    for I in interfaces:
+        domain = domain.join(domain, domain.name, bnd_minus=I[0], bnd_plus=I[1], direction=I[2])
+    return domain
+
 def diag_dot(A,x,y):
     for i in range(len(x.blocks)):
         if A[i,i] is None:continue
@@ -177,23 +189,23 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
         formatter_class = argparse.ArgumentDefaultsHelpFormatter,
-        description     = "Solve Poisson's equation on a 2D mulipatch domain."
+        description     = "Solve Poisson's equation on a 3D mulipatch domain."
     )
 
     parser.add_argument( '-d',
         type    = int,
-        nargs   = 2,
-        default = [2,2],
-        metavar = ('P1','P2'),
+        nargs   = 3,
+        default = [2,2,2],
+        metavar = ('P1','P2','P3'),
         dest    = 'degree',
         help    = 'Spline degree along each dimension'
     )
 
     parser.add_argument( '-n',
         type    = int,
-        nargs   = 2,
-        default = [10,10],
-        metavar = ('N1','N2'),
+        nargs   = 3,
+        default = [10,10,10],
+        metavar = ('N1','N2','N3'),
         dest    = 'ncells',
         help    = 'Number of grid cells (elements) along each dimension'
     )
@@ -205,10 +217,37 @@ if __name__ == '__main__':
     from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
     from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
 
-    domain    = build_pretzel()
-    x,y       = domain.coordinates
-    solution = sin(pi*x)*sin(pi*y)
-    f        = 2*pi**2*solution
+    A1 = Cube('A1',bounds1=(0, 0.5), bounds2=(0, 0.5), bounds3=(0, 1))
+    A2 = Cube('A2',bounds1=(0.5, 1), bounds2=(0, 0.5), bounds3=(0, 1))
+    A3 = Cube('A3',bounds1=(1, 1.5), bounds2=(0, 0.5), bounds3=(0, 1))
+    A4 = Cube('A4',bounds1=(0, 0.5), bounds2=(0.5, 1), bounds3=(0, 1))
+    A5 = Cube('A5',bounds1=(0.5, 1), bounds2=(0.5, 1), bounds3=(0, 1))
+    A6 = Cube('A6',bounds1=(1, 1.5), bounds2=(0.5, 1), bounds3=(0, 1))
+    A7 = Cube('A7',bounds1=(0, 0.5), bounds2=(1, 1.5), bounds3=(0, 1))
+    A8 = Cube('A8',bounds1=(0.5, 1), bounds2=(1, 1.5), bounds3=(0, 1))
+    A9 = Cube('A9',bounds1=(1, 1.5), bounds2=(1, 1.5), bounds3=(0, 1))
+
+    interfaces = [
+    [A1.get_boundary(axis=0, ext=+1), A2.get_boundary(axis=0, ext=-1),1],
+    [A2.get_boundary(axis=0, ext=+1), A3.get_boundary(axis=0, ext=-1),1],
+    [A4.get_boundary(axis=0, ext=+1), A5.get_boundary(axis=0, ext=-1),1],
+    [A5.get_boundary(axis=0, ext=+1), A6.get_boundary(axis=0, ext=-1),1],
+    [A7.get_boundary(axis=0, ext=+1), A8.get_boundary(axis=0, ext=-1),1],
+    [A8.get_boundary(axis=0, ext=+1), A9.get_boundary(axis=0, ext=-1),1],
+    [A1.get_boundary(axis=1, ext=+1), A4.get_boundary(axis=1, ext=-1),1],
+    [A2.get_boundary(axis=1, ext=+1), A5.get_boundary(axis=1, ext=-1),1],
+    [A3.get_boundary(axis=1, ext=+1), A6.get_boundary(axis=1, ext=-1),1],
+    [A4.get_boundary(axis=1, ext=+1), A7.get_boundary(axis=1, ext=-1),1],
+    [A5.get_boundary(axis=1, ext=+1), A8.get_boundary(axis=1, ext=-1),1],
+    [A6.get_boundary(axis=1, ext=+1), A9.get_boundary(axis=1, ext=-1),1],
+    ]
+
+    domain = union([A1, A2, A3, A4, A5, A6, A7, A8, A9], name = 'domain')
+    domain = set_interfaces(domain, interfaces)
+
+    x,y,z    = domain.coordinates
+    solution = sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f        = 3*pi**2*solution
     args     = parser.parse_args()
 
     ne     = vars(args)['ncells']
@@ -231,44 +270,3 @@ if __name__ == '__main__':
         print("> CG info                       :: ", info )
         print("L2 error                        :: ", l2_error)
         print("H1 error                        :: ", h1_error)
-#    # ...
-#    print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne[0], ne2=ne[1]) )
-#    print( '> Degree        :: [{p1},{p2}]'  .format( p1=degree[0], p2=degree[1] ) )
-#    print( '> CG info       :: ',info )
-#    print( '> L2 error      :: {:.2e}'.format( l2_error ) )
-#    print( '> H1 error      :: {:.2e}'.format( h1_error ) )
-#    print( '' )
-#    print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
-#    print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
-#    N = 20
-
-#    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-
-#    mappings_list = list(mappings.values())
-
-#    u_ex = lambdify(domain.coordinates, solution)
-#    f_ex = lambdify(domain.coordinates, f)
-#    F    = [f.get_callable_mapping() for f in mappings_list]
-
-#    u_ex_log = [lambda xi1, xi2,ff=f : u_ex(*ff(xi1,xi2)) for f in F]
-
-#    N=20
-#    etas, xx, yy = get_plotting_grid(mappings, N)
-#    gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(u_h.space, N, mappings, plotted_patch=1)
-
-#    grid_vals_h1 = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='h1')
-
-#    u_ref_vals = grid_vals_h1(u_ex_log)
-#    u_h_vals   = grid_vals_h1(u_h)
-#    u_err      = [abs(uir - uih) for uir, uih in zip(u_ref_vals, u_h_vals)]
-
-#    my_small_plot(
-#        title=r'Solution of Poisson problem $\Delta \phi = f$',
-#        vals=[u_ref_vals, u_h_vals, u_err],
-#        titles=[r'$\phi^{ex}(x,y)$', r'$\phi^h(x,y)$', r'$|(\phi-\phi^h)(x,y)|$'],
-#        xx=xx, yy=yy,
-#        gridlines_x1=gridlines_x1,
-#        gridlines_x2=gridlines_x2,
-#        surface_plot=True,
-#        cmap='jet',
-#    )
