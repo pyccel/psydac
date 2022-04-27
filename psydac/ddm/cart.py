@@ -196,8 +196,8 @@ class InterfacesCartDecomposition:
             req = []
             ranks_in_topo_i = None
             ranks_in_topo_j = None
-            axes = interfaces[i,j][0]
-            exts = interfaces[i,j][1]
+            axes   = interfaces[i,j][0]
+            exts   = interfaces[i,j][1]
             if interfaces_comm[i,j] != MPI.COMM_NULL:
                 ranks_in_topo_i = carts.carts[i].ranks_in_topo if i in owned_groups else np.full(local_groups[i].size, -1)
                 ranks_in_topo_j = carts.carts[j].ranks_in_topo if j in owned_groups else np.full(local_groups[j].size, -1)
@@ -215,7 +215,7 @@ class InterfacesCartDecomposition:
                                                                    periods=[periods[i], periods[j]],
                                                                    comm=interfaces_comm[i,j],
                                                                    shifts=[shifts[i], shifts[j]],
-                                                                   axes=axes, exts=exts, 
+                                                                   axes=axes, exts=exts,
                                                                    ranks_in_topo=[ranks_in_topo_i, ranks_in_topo_j],
                                                                    local_groups=[local_groups[i], local_groups[j]],
                                                                    local_communicators=[local_communicators[i], local_communicators[j]],
@@ -321,7 +321,7 @@ class CartDecomposition():
         reduced_npts = [(n-p-1)//m if m>1 else n if not P else n for n,m,p,P in zip(npts, shifts, pads, periods)]
 
         if nprocs is None:
-            nprocs, block_shape = compute_dims( self._size, reduced_npts, pads )
+            nprocs, block_shape = compute_dims( self._size, reduced_npts, [p+1 for p in pads] )
         else:
             assert len(nprocs) == len(npts)
 
@@ -784,6 +784,7 @@ class CartDecomposition():
                 'send_starts': tuple( send_starts ),
                 'recv_starts': tuple( recv_starts )}
         return info
+
 #===============================================================================
 class InterfaceCartDecomposition(CartDecomposition):
 
@@ -904,6 +905,9 @@ class InterfaceCartDecomposition(CartDecomposition):
         if self._intercomm == MPI.COMM_NULL:
             return
 
+        self._local_boundary_ranks_minus = boundary_group_minus.Translate_ranks(local_groups[0], self._boundary_ranks_minus, boundary_group_minus)
+        self._local_boundary_ranks_plus  = boundary_group_plus.Translate_ranks(local_groups[1], self._boundary_ranks_plus, boundary_group_plus)
+
 #        high = self._local_rank_plus is not None
 #        self._intercomm = self._intercomm.Merge(high=high)
         # Store arrays with all the reduced starts and reduced ends along each direction
@@ -1010,7 +1014,6 @@ class InterfaceCartDecomposition(CartDecomposition):
         self._parent_npts_plus  = tuple([None]*self._ndims)
 
         self._communication_infos = {}
-        self._communication_infos[self._axis] = self._compute_communication_infos(self._axis)
 
     #---------------------------------------------------------------------------
     # Global properties (same for each process)
@@ -1279,14 +1282,23 @@ class InterfaceCartDecomposition(CartDecomposition):
 
         return cart
 
+    def set_communication_info( self ):
+        self._communication_infos[self._axis] = self._compute_communication_infos(self._axis)
+
     def get_communication_infos( self, axis ):
+        return self._communication_infos[ axis ]
+
+    def set_communication_info_p2p( self, get_minus_starts_ends, get_plus_starts_ends ):
+        self._communication_infos[self._axis] = self._compute_communication_infos_p2p(self._axis, get_minus_starts_ends, get_plus_starts_ends)
+
+    def get_communication_infos_p2p( self, axis ):
         return self._communication_infos[ axis ]
 
     #---------------------------------------------------------------------------
     def _compute_communication_infos( self, axis ):
 
         if self._intercomm == MPI.COMM_NULL:
-            return 
+            return
 
         # Mesh info
         npts_minus   = self._npts_minus
@@ -1386,7 +1398,155 @@ class InterfaceCartDecomposition(CartDecomposition):
                 'indices'        : indices}
 
         return info
+    #---------------------------------------------------------------------------
+    def _compute_communication_infos_p2p( self, axis , get_minus_starts_ends, get_plus_starts_ends):
 
+        if self._intercomm == MPI.COMM_NULL:
+            return
+
+        # Mesh info
+        npts_minus   = self._npts_minus
+        npts_plus    = self._npts_plus
+        p_npts_minus = self._parent_npts_minus
+        p_npts_plus  = self._parent_npts_plus
+        pads_minus   = self._pads_minus
+        pads_plus    = self._pads_plus
+        shifts_minus = self._shifts_minus
+        shifts_plus  = self._shifts_plus
+        ext_minus    = self._ext_minus
+        ext_plus     = self._ext_plus
+        indices  = []
+
+        diff = 0
+        if p_npts_minus[axis] is not None:
+            diff = p_npts_minus[axis]-npts_minus[axis]
+
+        if self._local_rank_minus is not None:
+            rank_minus = self._local_rank_minus
+            coords = self._coords_from_rank_minus[rank_minus]
+            starts_minus = [self._global_starts_minus[d][c] for d,c in enumerate(coords)]
+            ends_minus   = [self._global_ends_minus[d][c] for d,c in enumerate(coords)]
+            starts_extended_minus = [s-p for s,p in zip(starts_minus, pads_minus)]
+            ends_extended_minus = [min(n, e+p) for e,p,n in zip(ends_minus, pads_minus, npts_minus)]
+            buf_shape   = [e-s+1+2*m*p for s,e,m,p in zip(starts_minus, ends_minus, shifts_minus, pads_minus)]
+            dest_ranks       = []
+            buf_send_shape   = []
+            gbuf_send_shape  = []
+            gbuf_send_starts = []
+            for k,rank_plus in enumerate(self._boundary_ranks_plus):
+                coords = self._coords_from_rank_plus[rank_plus]
+                starts = [self._global_starts_plus[d][c] for d,c in enumerate(coords)]
+                ends   = [self._global_ends_plus[d][c] for d,c in enumerate(coords)]
+                starts_m, ends_m = get_minus_starts_ends(starts, ends, npts_minus, npts_plus, axis, axis,
+                                                         ext_minus, ext_plus, pads_minus, pads_plus, diff)
+                starts_inter = [max(s1,s2) for s1,s2 in zip(starts_minus, starts_m)]
+                ends_inter   = [min(e1,e2) for e1,e2 in zip(ends_minus, ends_m)]
+                if any(s>=e if i!=axis else False for i,(s,e) in enumerate(zip(starts_inter, ends_inter))):
+                    continue
+
+                starts_inter[axis] = starts_minus[axis] if ext_minus == -1 else ends_minus[axis]-pads_minus[axis]+diff
+                ends_inter[axis]   = starts_minus[axis]+pads_minus[axis]-diff if ext_minus == -1 else ends_minus[axis]
+
+                dest_ranks.append(self._local_boundary_ranks_plus[k])
+                buf_send_shape.append([e-s+1 for s,e in zip(starts_inter, ends_inter)])
+                gbuf_send_shape.append(buf_shape)
+                gbuf_send_starts.append([si-s+p for si,s,p in zip(starts_inter, starts_minus, pads_minus)])
+
+            buf_shape   = [e-s+1+2*m*p for s,e,m,p in zip(starts_minus, ends_minus, shifts_plus, pads_plus)]
+            buf_shape[axis] = 3*pads_plus[axis]+1
+            source_ranks     = []
+            buf_recv_shape   = []
+            gbuf_recv_shape  = []
+            gbuf_recv_starts = []
+            for k,rank_plus in enumerate(self._boundary_ranks_plus):
+                coords = self._coords_from_rank_plus[rank_plus]
+                starts = [self._global_starts_plus[d][c] for d,c in enumerate(coords)]
+                ends   = [self._global_ends_plus[d][c] for d,c in enumerate(coords)]
+
+                starts_inter = [max(s1,s2) for s1,s2 in zip(starts_extended_minus, starts)]
+                ends_inter   = [min(e1,e2) for e1,e2 in zip(ends_extended_minus, ends)]
+                if any(s>=e if i!=axis else False for i,(s,e) in enumerate(zip(starts_inter, ends_inter))):
+                    continue
+
+                starts_extended_minus[axis] = 0
+                starts_inter[axis]          = pads_plus[axis]
+                ends_inter[axis]   = 2*pads_plus[axis]
+
+                source_ranks.append(self._local_boundary_ranks_plus[k])
+                buf_recv_shape.append([e-s+1 for s,e in zip(starts_inter, ends_inter)])
+                gbuf_recv_shape.append(buf_shape)
+                gbuf_recv_starts.append([si-s for si,s in zip(starts_inter, starts_extended_minus)])
+
+        elif self._local_rank_plus is not None:
+            rank_plus = self._local_rank_plus
+            coords = self._coords_from_rank_plus[rank_plus]
+            starts_plus = [self._global_starts_plus[d][c] for d,c in enumerate(coords)]
+            ends_plus   = [self._global_ends_plus[d][c] for d,c in enumerate(coords)]
+            starts_extended_plus = [s-p for s,p in zip(starts_plus, pads_plus)]
+            ends_extended_plus = [min(n, e+p) for e,p,n in zip(ends_plus, pads_plus, npts_plus)]
+            buf_shape   = [e-s+1+2*m*p for s,e,m,p in zip(starts_plus, ends_plus, shifts_plus, pads_plus)]
+            dest_ranks       = []
+            buf_send_shape   = []
+            gbuf_send_shape  = []
+            gbuf_send_starts = []
+
+            for k,rank_minus in enumerate(self._boundary_ranks_minus):
+                coords = self._coords_from_rank_minus[rank_minus]
+                starts = [self._global_starts_minus[d][c] for d,c in enumerate(coords)]
+                ends   = [self._global_ends_minus[d][c] for d,c in enumerate(coords)]
+                starts_p, ends_p = get_plus_starts_ends(starts, ends, npts_minus, npts_plus, axis, axis,
+                                                         ext_minus, ext_plus, pads_minus, pads_plus, diff)
+                starts_inter = [max(s1,s2) for s1,s2 in zip(starts_plus, starts_p)]
+                ends_inter   = [min(e1,e2) for e1,e2 in zip(ends_plus, ends_p)]
+                if any(s>=e if i!=axis else False for i,(s,e) in enumerate(zip(starts_inter, ends_inter))):
+                    continue
+
+                starts_inter[axis] = starts_plus[axis] if ext_plus == -1 else ends_plus[axis]-pads_plus[axis]+diff
+                ends_inter[axis]   = starts_plus[axis]+pads_plus[axis]-diff if ext_plus == -1 else ends_plus[axis]
+
+                dest_ranks.append(self._local_boundary_ranks_minus[k])
+                buf_send_shape.append([e-s+1 for s,e in zip(starts_inter, ends_inter)])
+                gbuf_send_shape.append(buf_shape)
+                gbuf_send_starts.append([si-s+p for si,s,p in zip(starts_inter, starts_plus, pads_plus)])
+
+            buf_shape        = [e-s+1+2*m*p for s,e,m,p in zip(starts_plus, ends_plus, shifts_minus, pads_minus)]
+            buf_shape[axis] = 3*pads_minus[axis]+1
+            source_ranks     = []
+            buf_recv_shape   = []
+            gbuf_recv_shape  = []
+            gbuf_recv_starts = []
+
+            for k,rank_minus in enumerate(self._boundary_ranks_minus):
+                coords = self._coords_from_rank_minus[rank_minus]
+                starts = [self._global_starts_minus[d][c] for d,c in enumerate(coords)]
+                ends   = [self._global_ends_minus[d][c] for d,c in enumerate(coords)]
+
+                starts_inter = [max(s1,s2) for s1,s2 in zip(starts_extended_plus, starts)]
+                ends_inter   = [min(e1,e2) for e1,e2 in zip(ends_extended_plus, ends)]
+                if any(s>=e if i!=axis else False for i,(s,e) in enumerate(zip(starts_inter, ends_inter))):
+                    continue
+
+                starts_extended_plus[axis] = 0
+                starts_inter[axis]          = pads_plus[axis]
+                ends_inter[axis]            = 2*pads_plus[axis]
+
+                source_ranks.append(self._local_boundary_ranks_minus[k])
+                buf_recv_shape.append([e-s+1 for s,e in zip(starts_inter, ends_inter)])
+                gbuf_recv_shape.append(buf_shape)
+                gbuf_recv_starts.append([si-s for si,s in zip(starts_inter, starts_extended_plus)])
+
+        # Store all information into dictionary
+        info = {'dest_ranks'       : tuple( dest_ranks ),
+                'buf_send_shape'   : tuple( buf_send_shape ),
+                'gbuf_send_shape'  : tuple( gbuf_send_shape  ),
+                'gbuf_send_starts' : tuple( gbuf_send_starts ),
+                'source_ranks'     : tuple( source_ranks ),
+                'buf_recv_shape'   : tuple( buf_recv_shape),
+                'gbuf_recv_shape'  : tuple( gbuf_recv_shape ),
+                'gbuf_recv_starts' : tuple( gbuf_recv_starts )
+                }
+
+        return info
 #===============================================================================
 class CartDataExchanger:
     """
@@ -1573,57 +1733,46 @@ class InterfaceCartDataExchanger:
 
         assert isinstance(cart, InterfaceCartDecomposition)
 
-        args = self._create_buffer_types( cart, dtype )
+        send_types, recv_types = self._create_buffer_types( cart, dtype )
 
         self._cart          = cart
         self._dtype         = dtype
-        self._send_types    = args[0]
-        self._recv_types    = args[1]
-        self._displacements = args[2]
-        self._recv_counts   = args[3]
-        self._indices       = args[4]
-        self._recv_buf      = np.empty((self._displacements[-1],), dtype=dtype)
+        self._send_types    = send_types
+        self._recv_types    = recv_types
+        self._dest_ranks    = cart.get_communication_infos_p2p( cart.axis )['dest_ranks']
+        self._source_ranks  = cart.get_communication_infos_p2p( cart.axis )['source_ranks']
 
     # ...
     def update_ghost_regions( self, array_minus, array_plus ):
         req = self.start_update_ghost_regions(array_minus, array_plus)
-        self.end_update_ghost_regions(req, array_minus, array_plus)
+        self.end_update_ghost_regions(req)
 
     # ...
     def start_update_ghost_regions( self, array_minus, array_plus ):
-        cart          = self._cart
-        send_type     = self._send_types
-        recv_type     = self._recv_types
-        recv_buf      = self._recv_buf
-        displacements = self._displacements
-        recv_counts   = self._recv_counts
-        indices       = self._indices
-        intercomm     = cart._intercomm
+        send_req = []
+        recv_req = []
+        cart      = self._cart
+        intercomm = cart.intercomm
 
-        raveled_array_minus = array_minus.ravel()
-        raveled_array_plus  = array_plus.ravel()
+        for i,(st,rank) in enumerate(zip(self._send_types, self._dest_ranks)):
+            if cart._local_rank_minus is not None:
+                send_buf = (array_minus, 1, st)
+            else:
+                send_buf = (array_plus, 1, st)
 
-        if cart._local_rank_minus is not None:
-            req = intercomm.Iallgatherv([raveled_array_minus, 1, send_type],[recv_buf, recv_counts, displacements[:-1], recv_type] )
+            send_req.append(intercomm.Isend( send_buf, rank ))
 
-        elif cart._local_rank_plus is not None:
-            req = intercomm.Iallgatherv([raveled_array_plus, 1, send_type],[recv_buf, recv_counts, displacements[:-1], recv_type] )
+        for i,(st,rank) in enumerate(zip(self._recv_types, self._source_ranks)):
+            if cart._local_rank_minus is not None:
+                recv_buf = (array_plus, 1, st)
+            else:
+                recv_buf = (array_minus, 1, st)
 
-        return req
+            recv_req.append(intercomm.Irecv( recv_buf, rank ))
+        return send_req + recv_req
 
-    def end_update_ghost_regions(self, req, array_minus, array_plus):
-        cart                = self._cart
-        indices             = self._indices
-        recv_buf            = self._recv_buf
-        raveled_array_minus = array_minus.ravel()
-        raveled_array_plus  = array_plus.ravel()
-
-        MPI.Request.wait(req)
-        if cart._local_rank_minus is not None:
-            raveled_array_plus[indices] = recv_buf
-        elif cart._local_rank_plus is not None:
-            raveled_array_minus[indices] = recv_buf
-
+    def end_update_ghost_regions(self, req):
+        MPI.Request.Waitall(req)
 
     @staticmethod
     def _create_buffer_types( cart, dtype ):
@@ -1631,20 +1780,21 @@ class InterfaceCartDataExchanger:
         assert isinstance( cart, InterfaceCartDecomposition )
 
         mpi_type = find_mpi_type( dtype )
-        info     = cart.get_communication_infos( cart.axis )
+        info     = cart.get_communication_infos_p2p( cart.axis )
 
-        send_data_shape  = list( info['send_shape' ] )
-        send_buf_shape   = list( info['send_buf_shape' ] )
-        send_starts      = list( info['send_starts'] )
+        send_types = [None]*len(info['dest_ranks'])
+        for i in range(len(info['dest_ranks'])):
+            send_types[i] = mpi_type.Create_subarray(
+                         sizes    = info['gbuf_send_shape'][i] ,
+                         subsizes = info['buf_send_shape'][i] ,
+                         starts   = info['gbuf_send_starts'][i]).Commit()
 
-        send_types = mpi_type.Create_subarray(
-                     sizes    = send_data_shape ,
-                     subsizes =  send_buf_shape ,
-                     starts   = send_starts).Commit()
+        recv_types = [None]*len(info['source_ranks'])
+        for i in range(len(info['source_ranks'])):
+            recv_types[i] = mpi_type.Create_subarray(
+                         sizes    = info['gbuf_recv_shape'][i] ,
+                         subsizes = info['buf_recv_shape'][i] ,
+                         starts   = info['gbuf_recv_starts'][i]).Commit()
 
-        displacements    = info['displacements']
-        recv_counts      = info['recv_counts']
-        recv_types       = mpi_type
-
-        return send_types, recv_types, displacements, recv_counts, info['indices']
+        return send_types, recv_types
 

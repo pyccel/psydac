@@ -514,6 +514,7 @@ class TransposeOperator(SplBasic):
 
         module_name = self._modname
         sys.path.append(self.folder)
+        importlib.invalidate_caches()
         package = importlib.import_module( module_name )
         sys.path.remove(self.folder)
 

@@ -3,6 +3,19 @@
 #===============================================================================
 # TEST MultiCartDecomposition in 2D
 #===============================================================================
+def get_minus_starts_ends(plus_starts, plus_ends, minus_npts, plus_npts, minus_axis, plus_axis, minus_ext, plus_ext, minus_pads, plus_pads, diff):
+    starts = [max(0,s-p) for s,p in zip(plus_starts, minus_pads)]
+    ends   = [min(n,e+p) for e,n,p in zip(plus_ends, minus_npts, minus_pads)]
+    starts[minus_axis] = 0 if minus_ext == -1 else ends[minus_axis]-minus_pads[minus_axis]
+    ends[minus_axis]   = ends[minus_axis] if minus_ext == 1 else minus_pads[minus_axis]
+    return starts, ends
+
+def get_plus_starts_ends(minus_starts, minus_ends, minus_npts, plus_npts, minus_axis, plus_axis, minus_ext, plus_ext, minus_pads, plus_pads, diff):
+    starts = [max(0,s-p) for s,p in zip(minus_starts, plus_pads)]
+    ends   = [min(n,e+p) for e,n,p in zip(minus_ends, plus_npts, plus_pads)]
+    starts[plus_axis] = 0 if plus_ext == -1 else ends[plus_axis]-plus_pads[plus_axis]
+    ends[plus_axis]   = ends[plus_axis] if plus_ext == 1 else plus_pads[plus_axis]
+    return starts, ends
 def run_carts_2d():
 
     import time
@@ -18,11 +31,11 @@ def run_carts_2d():
     N = 2
 
     # Number of elements
-    n1,n2 = 10,10
+    n1,n2 = 8,8
     n = [[n1,n2] for i in range(N)]
 
     # Padding ('thickness' of ghost region)
-    p1,p2 = 3,3
+    p1,p2 = 2,2
     p = [[p1,p2] for i in range(N)]
 
     # Periodicity
@@ -58,6 +71,12 @@ def run_carts_2d():
     syn_interface = {}
     dtype         = int
 
+    for i,j in interfaces:
+        if interface_carts.carts[i,j].is_comm_null:
+            continue
+        interface_carts.carts[i,j].set_communication_info_p2p(get_minus_starts_ends, get_plus_starts_ends)
+
+
     val = lambda k,i1,i2: k*n1*n2+i1*n1+i2 if (0<=i1<n1 and 0<=i2<n2) else 0
     for i,ci in enumerate(carts):
         if ci.comm != MPI.COMM_NULL:
@@ -68,28 +87,43 @@ def run_carts_2d():
             us[i][m1*p1:-m1*p1,m2*p2:-m2*p2] = [[val(i,i1,i2)for i2 in range(s2,e2+1)] for i1 in range(s1,e1+1)]
             synchronizer = CartDataExchanger( ci, us[i].dtype)
             syn[i] = synchronizer
+            print(i, ci.starts, ci.ends, comm.rank, flush=True)
+            print(us[i], flush=True)
         comm.Barrier()
 
     for i,j in interfaces:
         if interfaces[i,j].intercomm != MPI.COMM_NULL:
             if carts[i].comm == MPI.COMM_NULL:
-                shape = interfaces[i,j].get_communication_infos(interfaces[i,j]._axis)['recv_shape']
+                shape = interfaces[i,j].get_communication_infos_p2p(interfaces[i,j]._axis)['gbuf_recv_shape'][0]
                 us[i] = np.zeros(shape, dtype=dtype)
 
             if carts[j].comm == MPI.COMM_NULL:
-                shape = interfaces[i,j].get_communication_infos(interfaces[i,j]._axis)['recv_shape']
+                shape = interfaces[i,j].get_communication_infos_p2p(interfaces[i,j]._axis)['gbuf_recv_shape'][0]
                 us[j] = np.zeros(shape, dtype=dtype)
 
             syn_interface[i,j] = InterfaceCartDataExchanger(interfaces[i,j], dtype)
+
 
     req = {}
     for minus,plus in interfaces:
         if interfaces[minus,plus].intercomm != MPI.COMM_NULL:
             T1 = time.time()
-            req[minus, plus] = syn_interface[minus,plus].start_update_ghost_regions(us[minus], us[plus])
+            syn_interface[minus,plus].update_ghost_regions(us[minus], us[plus])
             T2 = time.time()
-            timmings_interfaces[minus,plus] = T2-T1       
+            timmings_interfaces[minus,plus] = T2-T1
+     
+    comm.Barrier()
+    print("#####", flush=True)
+    comm.Barrier()
+#    for minus,plus in interfaces:
+#        if interfaces[minus,plus].intercomm == MPI.COMM_NULL:
+#            continue
+#        if carts[minus].is_comm_null:
+#            print(us[minus], flush=True)
+#        else:
+#            print(us[plus], flush=True)
 
+    raise SystemExit()
     for i,ci in enumerate(carts):
         if ci.comm != MPI.COMM_NULL:
             T1 = time.time()

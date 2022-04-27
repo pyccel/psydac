@@ -121,7 +121,7 @@ class StencilVectorSpace( VectorSpace ):
         self._periods    = cart.periods
         self._shifts     = cart.shifts
         self._dtype      = dtype
-        self._mpi_dtype  = find_mpi_type(dtype)
+        self._mpi_type   = find_mpi_type(dtype)
         self._starts     = (0,)*self._ndim
         self._ends       = (0,)*self._ndim
         self._shape      = (0,)*self._ndim
@@ -141,7 +141,7 @@ class StencilVectorSpace( VectorSpace ):
             self._synchronizer = CartDataExchanger(cart, dtype )
 
         if isinstance(cart, InterfaceCartDecomposition):
-            self._shape = cart.get_communication_infos(cart.axis)['recv_shape']
+            self._shape = cart.get_communication_infos(cart.axis)['gbuf_recv_shape'][0]
         else:
             self._shape = cart.shape
 
@@ -219,8 +219,8 @@ class StencilVectorSpace( VectorSpace ):
     # Other properties/methods
     #--------------------------------------
     @property
-    def mpi_dtype( self ):
-        return self._mpi_dtype
+    def mpi_type( self ):
+        return self._mpi_type
 
     @property
     def shape( self ):
@@ -383,8 +383,8 @@ class StencilVector( Vector ):
 
         self._dot_send_data[0] = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
         if self._space.parallel:
-            self._space.cart.global_comm.Allreduce((self._dot_send_data, self.space.mpi_dtype),
-                                                   (self._dot_recv_data, self.space.mpi_dtype),
+            self._space.cart.global_comm.Allreduce((self._dot_send_data, self.space.mpi_type),
+                                                   (self._dot_recv_data, self.space.mpi_type),
                                                    op=MPI.SUM )
             self._dot_send_data[0] = self._dot_recv_data[0]
         return self._dot_send_data[0]
@@ -1728,8 +1728,7 @@ class StencilInterfaceMatrix(Matrix):
         nrows_extra   = [0 if (nci<=ndi or eci<nci-1) else nci-ndi for eci,nci,ndi in zip(W.ends, W.npts, V.npts)]
         nrows_extra[c_axis] = max(W.npts[c_axis]-V.npts[c_axis],0)
         nrows         = [n-e for n,e in zip(nrows, nrows_extra)]
-        rows_starts   = list(W.starts)
-        rows_starts[c_axis] = 0
+        rows_starts   = [0]*self._ndim
 
         args                 = {}
         args['nrows']        = tuple(nrows)
