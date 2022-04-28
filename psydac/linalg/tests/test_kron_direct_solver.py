@@ -249,8 +249,8 @@ def test_kron_solver_2d_transposed_ser(seed, n1, n2, p1, p2, P1, P2, direct_solv
     compare_solve(seed, MPI.COMM_SELF, [n1,n2], [p1,p2], [P1,P2], direct_solver, transposed=True, verbose=False)
 
 @pytest.mark.parametrize( 'seed', [0, 2] )
-@pytest.mark.parametrize( 'n1', [5, 8, 16, 17] )
-@pytest.mark.parametrize( 'n2', [4, 9] )
+@pytest.mark.parametrize( 'n1', [8, 16, 17] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
 @pytest.mark.parametrize( 'p1', [1, 2] )
 @pytest.mark.parametrize( 'p2', [1, 2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
@@ -271,9 +271,9 @@ def test_kron_solver_3d_ser(seed, n1, n2, n3, p1, p2, p3, P1=False, P2=True, P3=
     compare_solve(seed, MPI.COMM_SELF, [n1,n2,n3], [p1,p2,p3], [P1,P2,P3], direct_solver, transposed=False, verbose=False)
 
 @pytest.mark.parametrize( 'seed', [0, 2] )
-@pytest.mark.parametrize( 'n1', [5, 8, 16, 17] )
-@pytest.mark.parametrize( 'n2', [4, 9] )
-@pytest.mark.parametrize( 'n3', [4, 5] )
+@pytest.mark.parametrize( 'n1', [6, 8, 16, 17] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
+@pytest.mark.parametrize( 'n3', [8, 12] )
 @pytest.mark.parametrize( 'p1', [1, 2] )
 @pytest.mark.parametrize( 'p2', [1, 2] )
 @pytest.mark.parametrize( 'p3', [1, 2] )
