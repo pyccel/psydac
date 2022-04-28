@@ -317,11 +317,17 @@ class BlockVector( Vector ):
 
     # ...
     def update_ghost_regions( self, *, direction=None ):
-
+        self.start_update_interface_ghost_regions()
         for vi in self.blocks:
             vi.update_ghost_regions(direction=direction)
         # Flag ghost regions as up-to-date
+        self.end_update_interface_ghost_regions()
         self._sync = True
+
+    def update_ghost_regions_without_interfaces( self, *, direction=None ):
+        for vi in self.blocks:
+            vi.update_ghost_regions(direction=direction)
+        # Flag ghost regions as up-to-date
 
     def start_update_interface_ghost_regions( self ):
         req = {}

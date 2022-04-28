@@ -135,7 +135,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None, backend=None)
         comm.Barrier()
 
         t0 = time.time()
-        b.update_ghost_regions()
+        b.update_ghost_regions_without_interfaces()
         t1 = time.time()
         T1 += t1-t0
 
@@ -150,9 +150,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None, backend=None)
         comm.Barrier()
 
         t0 = time.time()
-        b.start_update_interface_ghost_regions()
         b.update_ghost_regions()
-        b.end_update_interface_ghost_regions()
         t1 = time.time()
         T3 += t1-t0
 
