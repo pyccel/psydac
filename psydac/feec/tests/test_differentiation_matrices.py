@@ -300,7 +300,7 @@ def test_directional_derivative_operator_1d_par(domain, ncells, degree, periodic
     run_directional_derivative_operator(MPI.COMM_WORLD, [domain], [ncells], [degree], [periodic], direction, negative, transposed, seed)
 
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8])])              
-@pytest.mark.parametrize('ncells', [(10, 11), (27, 15)])              
+@pytest.mark.parametrize('ncells', [(13, 15), (27, 15)])              
 @pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)]) 
 @pytest.mark.parametrize('direction', [0,1])
@@ -313,7 +313,7 @@ def test_directional_derivative_operator_2d_par(domain, ncells, degree, periodic
     run_directional_derivative_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
 
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  
-@pytest.mark.parametrize('ncells', [(5, 5, 7)])                       
+@pytest.mark.parametrize('ncells', [(10, 10, 13)])                       
 @pytest.mark.parametrize('degree', [(2, 2, 3)])            
 @pytest.mark.parametrize('periodic', [( True, False, False),          
                                       (False,  True, False),
