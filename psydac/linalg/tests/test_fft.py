@@ -84,7 +84,7 @@ def test_kron_fft_ser(seed, params, ffttype):
     method_test(seed, None, params, *decode_fft_type(ffttype), verbose=False)
 
 @pytest.mark.parametrize( 'seed', [0, 2] )
-@pytest.mark.parametrize( 'params', [([8], [2], [False]), ([8,9], [2,3], [False,True]), ([8,9,17], [2,3,7], [False,True,False])] )
+@pytest.mark.parametrize( 'params', [([16], [2], [False]), ([16,18], [2,3], [False,True]), ([16,18,37], [2,3,7], [False,True,False])] )
 @pytest.mark.parametrize( 'ffttype', ['fft', 'ifft', 'dct', 'idct', 'dst', 'idst'] )
 @pytest.mark.parallel
 def test_kron_fft_par(seed, params, ffttype):
