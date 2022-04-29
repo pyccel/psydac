@@ -312,7 +312,7 @@ class StencilVector( Vector ):
 
         self._dot_send_data[0] = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
         if self._space.parallel:
-            self._space.cart.global_comm.Allreduce((self._dot_send_data, self.space._mpi_type),
+            self._space.cart.comm.Allreduce((self._dot_send_data, self.space._mpi_type),
                                                    (self._dot_recv_data, self.space._mpi_type),
                                                    op=MPI.SUM )
             self._dot_send_data[0] = self._dot_recv_data[0]
