@@ -92,14 +92,15 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
         template = "| {:7d} | {:19.2e} |"
         print( template.format( 1, sqrt( am ) ) )
 
+    comm.Barrier()
+    t0 = time()
     # Iterate to convergence
     for m in range( 2, maxiter+1 ):
 
         if am < tol_sqr:
             m -= 1
             break
-        comm.Barrier()
-        t0 = time()
+
         p.update_ghost_regions()
         v   = A.dot(p, out=v)
         t1 = time()
@@ -110,11 +111,10 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
         p  *= (am1/am)
         p  += r
         am  = am1
-        t1 = time()
 
         if verbose:
             print( template.format( m, sqrt( am ) ) )
-
+    t1 = time()
 
     if verbose:
         print( "+---------+---------------------+")
