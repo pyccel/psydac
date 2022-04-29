@@ -98,6 +98,7 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
         if am < tol_sqr:
             m -= 1
             break
+        comm.Barrier()
         t0 = time()
         p.update_ghost_regions()
         v   = A.dot(p, out=v)
