@@ -36,6 +36,7 @@ from psydac.api.discretization import discretize
 from psydac.fem.basic          import FemField
 from psydac.utilities.utils    import refine_array_1d
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
+from psydac.linalg.iterative_solvers import cg
 
 from mpi4py import MPI
 #==============================================================================
