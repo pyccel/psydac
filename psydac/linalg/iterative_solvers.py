@@ -4,13 +4,14 @@ This module provides iterative solvers and precondionners.
 
 """
 import numpy as np
+import time
 
 from math import sqrt
 from psydac.linalg.basic     import LinearSolver, LinearOperator
 from psydac.linalg.utilities import _sym_ortho
-from time                    import time
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
+
 
 __all__ = ['cg', 'pcg', 'bicg', 'lsmr', 'minres', 'jacobi', 'weighted_jacobi']
 
@@ -75,9 +76,7 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
         x = x0.copy()
 
     # First values
-    v  = x.copy()
-    x.update_ghost_regions()
-    v  = A.dot(x, out=v)
+    v  = A.dot(x)
     r  = b - v
     am = r.dot( r )
     p  = r.copy()
@@ -91,9 +90,8 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
         print( "+---------+---------------------+")
         template = "| {:7d} | {:19.2e} |"
         print( template.format( 1, sqrt( am ) ) )
-
     comm.Barrier()
-    t0 = time()
+    t0 = time.time()
     # Iterate to convergence
     for m in range( 2, maxiter+1 ):
 
@@ -101,9 +99,7 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
             m -= 1
             break
 
-        p.update_ghost_regions()
         v   = A.dot(p, out=v)
-        t1 = time()
         l   = am / v.dot( p )
         x  += l*p
         r  -= l*v
@@ -114,14 +110,13 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
 
         if verbose:
             print( template.format( m, sqrt( am ) ) )
-    t1 = time()
-
+    t1 = time.time()
     if verbose:
         print( "+---------+---------------------+")
 
     T = comm.reduce(t1-t0, op=MPI.MAX)
     # Convergence information
-    info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am ), 'elapsed_time':T }
+    info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am ),'elapsed_time':T }
 
     return x, info
 # ...
