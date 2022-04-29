@@ -301,14 +301,8 @@ class StencilVector( Vector ):
     #...
     def dot( self, v ):
 
-#        assert isinstance( v, StencilVector )
-#        assert v._space is self._space
-
-#        res = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
-#        if self._space.parallel:
-#            res = self._space.cart.comm_cart.allreduce( res, op=MPI.SUM )
-
-#        return res
+        assert isinstance( v, StencilVector )
+        assert v._space is self._space
 
         self._dot_send_data[0] = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
         if self._space.parallel:
