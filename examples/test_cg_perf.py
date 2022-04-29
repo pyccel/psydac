@@ -76,7 +76,7 @@ def run_poisson_3d(solution, f, domain, ncells, degree, comm):
     l2norm_h = discretize(l2norm, domain_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL)
     h1norm_h = discretize(h1norm, domain_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL)
 
-    equation_h.set_solver('cg', info=True, tol=1e-14, maxiter=2)
+    equation_h.set_solver('cg', info=True, tol=1e-14)
 
     A = equation_h.lhs.assemble()
     b = equation_h.rhs.assemble()
