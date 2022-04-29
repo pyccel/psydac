@@ -75,8 +75,8 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
         x = x0.copy()
 
     # First values
-    x.update_ghost_regions()
     v  = x.copy()
+    x.update_ghost_regions()
     v  = A.dot(x, out=v)
     r  = b - v
     am = r.dot( r )
@@ -92,55 +92,24 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
         template = "| {:7d} | {:19.2e} |"
         print( template.format( 1, sqrt( am ) ) )
 
-
-    Ts = [0,0,0,0,0,0,0,0]
     # Iterate to convergence
     for m in range( 2, maxiter+1 ):
 
         if am < tol_sqr:
             m -= 1
             break
-        comm.Barrier()
         t0 = time()
         p.update_ghost_regions()
-        t1 = time()
-        comm.Barrier()
-        t0  = time()
         v   = A.dot(p, out=v)
         t1 = time()
-        Ts[0] = t1-t0
-        comm.Barrier()
-        t0 = time()
         l   = am / v.dot( p )
-        t1 = time()
-        Ts[1] = t1-t0
-        comm.Barrier()
-        t0 = time()
         x  += l*p
-        t1 = time()
-        Ts[2] = t1-t0
-        comm.Barrier()
-        t0 = time()
         r  -= l*v
-        t1 = time()
-        Ts[3] = t1-t0
-        comm.Barrier()
-        t0 = time()
         am1 = r.dot( r )
-        t1 = time()
-        Ts[4] = t1-t0
-        comm.Barrier()
-        t0 = time()
         p  *= (am1/am)
-        t1 = time()
-        Ts[5] = t1-t0
-        comm.Barrier()
-        t0 = time()
         p  += r
-        t1 = time()
-        Ts[6] = t1-t0
-        comm.Barrier()
         am  = am1
+        t1 = time()
 
         if verbose:
             print( template.format( m, sqrt( am ) ) )
@@ -148,10 +117,10 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
 
     if verbose:
         print( "+---------+---------------------+")
-    for i in range(8):
-        Ts[i] = comm.reduce(Ts[i], op=MPI.MAX)
+
+    T = comm.reduce(t1-t0, op=MPI.MAX)
     # Convergence information
-    info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am ), 'elapsed_time':Ts}
+    info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am ), 'elapsed_time':T }
 
     return x, info
 # ...
