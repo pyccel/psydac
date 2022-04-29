@@ -311,6 +311,7 @@ class StencilVector( Vector ):
                                             op=MPI.SUM )
             self._dot_send_data[0] = self._dot_recv_data[0]
         return self._dot_send_data[0]
+
     #...
     @staticmethod
     def _dot(v1, v2, pads, shifts):
@@ -741,24 +742,24 @@ class StencilMatrix( Matrix ):
     # ...
     def dot( self, v, out=None):
 
-        assert isinstance( v, StencilVector )
-        assert v.space is self.domain
+#        assert isinstance( v, StencilVector )
+#        assert v.space is self.domain
 
         # Necessary if vector space is distributed across processes
-        if not v.ghost_regions_in_sync:
-            v.update_ghost_regions()
+#        if not v.ghost_regions_in_sync:
+#            v.update_ghost_regions()
 
-        if out is not None:
-            assert isinstance( out, StencilVector )
-            assert out.space is self.codomain
-        else:
-            out = StencilVector( self.codomain )
+#        if out is not None:
+#            assert isinstance( out, StencilVector )
+#            assert out.space is self.codomain
+#        else:
+#            out = StencilVector( self.codomain )
 
 
         self._func(self._data, v._data, out._data, **self._args)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
-        out.ghost_regions_in_sync = False
+#        out.ghost_regions_in_sync = False
         return out
 
     # ...
