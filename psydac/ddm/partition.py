@@ -7,6 +7,27 @@ __all__ = ['compute_dims', 'partition_procs_per_patch']
 
 #==============================================================================
 def partition_procs_per_patch(npts, size):
+    """
+    Compute the number of processes in each patch.
+    The processes are distributed porportionally to the patch grid size.
+
+    Parameters
+    ----------
+    npts : list
+        Number of points along each dimension for each patch.
+
+    size : int
+        Number of processes.
+
+    Returns
+    -------
+    sizes : list of int
+        Number of processes in each patch.
+
+    ranges:
+        Range of process for each patch.
+
+    """
     npts       = [np.product(nc) for nc in npts]
     percentage = [nc/sum(npts) for nc in npts]
     sizes      = np.array([int(p*size) for p in percentage])

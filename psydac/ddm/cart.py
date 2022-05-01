@@ -36,6 +36,35 @@ def find_mpi_type( dtype ):
 
 #====================================================================================
 class MultiCartDecomposition:
+    """
+    This buids the cartition decomposition of multiple grids.
+    In each grid we compute a multi-dimensional cartesian topology using MPI sub-communicators.
+
+    Parameters
+    ----------
+    npts : list or tuple
+        Number of coefficients in the global grid along each dimension for each patch.
+
+    pads : list or tuple
+        Padding along each grid dimension for each patch.
+
+    periods : list or tuple of bool
+        Periodicity (True|False) along each grid dimension for each patch.
+
+    reorder : bool
+        Whether individual ranks can be changed in the new Cartesian communicator.
+
+    comm : mpi4py.MPI.Comm
+        MPI communicator that will be used to create the sub-communicators for each grid.
+        (optional: default is MPI_COMM_WORLD).
+
+    shifts: list or tuple
+        Shifts along each grid dimension for each patch.
+        It takes values bigger or equal to one, it represents the multiplicity of each knot.
+
+    num_threads: int
+       Number of threads for each MPI rank.
+    """
     def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD, shifts=None, num_threads=None ):
 
         # Check input arguments
@@ -153,6 +182,20 @@ class MultiCartDecomposition:
 
 #==================================================================================
 class InterfacesCartDecomposition:
+    """
+    This Connects the Cartesian grids when they share an interface.
+
+    Parameters
+    ----------
+
+    carts: MultiCartDecomposition
+        The cartition decomposition of multiple grids.
+
+    interfaces: dict
+        The connectivity of the grids.
+        It contains the grids that share an interface along with their axes and extremities.
+
+    """
     def __init__(self, carts, interfaces):
 
         assert isinstance(carts, MultiCartDecomposition)
@@ -277,6 +320,9 @@ class CartDecomposition():
 
     reverse_axis: int
        Reverse the ownership of the processes along the specified axis.
+
+    num_threads: int
+       Number of threads for each MPI rank.
 
     """
     def __init__( self, npts, pads, periods, reorder, comm=None, global_comm=None, shifts=None, nprocs=None, reverse_axis=None, num_threads=None ):
@@ -787,7 +833,53 @@ class CartDecomposition():
 
 #===============================================================================
 class InterfaceCartDecomposition(CartDecomposition):
+    """
+    The Cartesian decomposition of an interface constucted from the Cartesian decomposition of the patches that shares an interface.
+    This is built using a new inter-communicator between the cartition grids.
 
+    Parameters
+    ----------
+    npts : list
+        Number of coefficients in the global grid along each dimension for the patches that shares the interface.
+
+    pads : list
+        Padding along each grid dimension for the patches that shares the interface.
+
+    periods : list or tuple of bool
+        Periodicity (True|False) along each grid dimension for the patches that shares the interface.
+
+    comm : mpi4py.MPI.Comm
+        MPI communicator that will be used to spawn the cart decomposition
+
+    shifts: list or tuple of int
+        Shifts along each grid dimension.
+        It takes values bigger or equal to one, it represents the multiplicity of each knot.
+
+    axes: list of ints
+        The axes of the patches that constucts the interface.
+
+    exts: list of ints
+        The extremities of the patches that constucts the interface.
+
+    ranks_in_topo:
+        The ranks of the processes that shares the interface. 
+
+    local_groups: list of MPI.Group
+        The groups that constucts the patches that shares the interface.
+
+    local_communicators: list of intra-communicators
+        The communicators of the patches that shares the interface.
+
+    root_ranks: list of ints
+        The root ranks in the global communicator of the patches.
+
+    requests: list of MPI.Request
+        the requests of the communications between the cartesian topologies that constucts the interface.
+
+    num_threads: int
+       Number of threads for each MPI rank.
+
+    """
     def __init__(self, npts, pads, periods, comm, shifts, axes, exts, ranks_in_topo, local_groups, local_communicators, root_ranks, requests, num_threads):
 
         npts_minus, npts_plus       = npts
@@ -1728,7 +1820,22 @@ class CartDataExchanger:
 
 #===============================================================================
 class InterfaceCartDataExchanger:
+    """
+    This takes care of updating the ghost regions between two sides of an interface for a
+    multi-dimensional array distributed according to the given Cartesian
+    decomposition of a tensor-product grid of coefficients.
 
+    Parameters
+    ----------
+    cart : psydac.ddm.InterfaceCartDecomposition
+        Object that contains all information about the Cartesian decomposition
+        of a tensor-product grid of coefficients.
+
+    dtype : [type | str | numpy.dtype | mpi4py.MPI.Datatype]
+        Datatype of single coefficient (if scalar) or of each of its
+        components (if vector).
+
+    """
     def __init__(self, cart, dtype):
 
         assert isinstance(cart, InterfaceCartDecomposition)
@@ -1783,6 +1890,7 @@ class InterfaceCartDataExchanger:
         info     = cart.get_communication_infos_p2p( cart.axis )
 
         send_types = [None]*len(info['dest_ranks'])
+
         for i in range(len(info['dest_ranks'])):
             send_types[i] = mpi_type.Create_subarray(
                          sizes    = info['gbuf_send_shape'][i] ,
