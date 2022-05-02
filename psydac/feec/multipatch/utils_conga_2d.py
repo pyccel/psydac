@@ -130,7 +130,7 @@ class DiagGrid():
         self.sol_ref_vals[space] = get_grid_vals(v, self.etas, self.mappings_list, space_kind=get_kind(space))
 
     def compute_l2_error(self, space='V*'):
-        if space == 'V0':
+        if space in ['V0', 'V2']:
             u  = self.sol_ref_vals[space]
             uh = self.sol_vals[space]
             abs_u = [np.abs(p) for p in u]

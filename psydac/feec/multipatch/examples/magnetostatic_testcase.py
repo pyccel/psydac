@@ -21,12 +21,11 @@ assert source_proj in ['P_geom', 'P_L2', 'P_L2_wcurl_J']
 domain_name = 'pretzel_f'
 dim_harmonic_space = 3
 
-nc = 16
-deg = 4
+# nc_s = [4,8,16]
+# deg_s = [2,3,4,5]
 
-# nc = 20
-# deg = 6
-
+nc_s = [8]
+deg_s = [3]
 
 if bc_type == 'metallic':
     case_dir = 'magnetostatic_metal'
@@ -45,61 +44,68 @@ ref_deg = 6
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
-params = {
-    'domain_name': domain_name,
-    'nc': nc,
-    'deg': deg,
-    'bc_type': bc_type,
-    'source_type': source_type,
-    'source_proj': source_proj, 
-    'ref_nc': ref_nc,
-    'ref_deg': ref_deg,
-}
 
-# backend_language = 'numba'
-backend_language='pyccel-gcc'
+common_diag_filename = './'+case_dir+'_diags.txt'
 
-run_dir = get_run_dir(domain_name, source_type, nc, deg)
-plot_dir = get_plot_dir(case_dir, run_dir)
-diag_filename = plot_dir+'/'+diag_fn(source_type=source_type, source_proj=source_proj)
+for nc in nc_s:
+    for deg in deg_s:
 
-# to save and load matrices
-m_load_dir = get_mat_dir(domain_name, nc, deg)
-# to save the FEM sol and diags
-sol_dir = get_sol_dir(case_dir, domain_name, nc, deg)
-sol_filename = sol_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
-if not os.path.exists(sol_dir):
-    os.makedirs(sol_dir)
+        params = {
+            'domain_name': domain_name,
+            'nc': nc,
+            'deg': deg,
+            'bc_type': bc_type,
+            'source_type': source_type,
+            'source_proj': source_proj, 
+            'ref_nc': ref_nc,
+            'ref_deg': ref_deg,
+        }
 
-# to load the ref FEM sol
-sol_ref_dir = get_sol_dir(case_dir, domain_name, ref_nc, ref_deg)
-sol_ref_filename = sol_ref_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
+        # backend_language = 'numba'
+        backend_language='pyccel-gcc'
 
-# ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
-# calling ms solver
+        run_dir = get_run_dir(domain_name, source_type, nc, deg)
+        plot_dir = get_plot_dir(case_dir, run_dir)
+        diag_filename = plot_dir+'/'+diag_fn(source_type=source_type, source_proj=source_proj)
 
-diags = solve_magnetostatic_pbm(
-    nc=nc, deg=deg,
-    domain_name=domain_name,
-    source_type=source_type,
-    source_proj=source_proj,
-    bc_type=bc_type,
-    backend_language=backend_language,
-    dim_harmonic_space=dim_harmonic_space,
-    plot_source=True,
-    plot_dir=plot_dir,
-    # plot_dir='./plots/magnetostatic_runs/'+run_dir,
-    hide_plots=True,
-    m_load_dir=m_load_dir,
-    sol_filename=sol_filename,
-    sol_ref_filename=sol_ref_filename,
-    ref_nc=ref_nc,
-    ref_deg=ref_deg,    
-)
+        # to save and load matrices
+        m_load_dir = get_mat_dir(domain_name, nc, deg)
+        # to save the FEM sol and diags
+        sol_dir = get_sol_dir(case_dir, domain_name, nc, deg)
+        sol_filename = sol_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
+        if not os.path.exists(sol_dir):
+            os.makedirs(sol_dir)
 
-#
-# ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+        # to load the ref FEM sol
+        sol_ref_dir = get_sol_dir(case_dir, domain_name, ref_nc, ref_deg)
+        sol_ref_filename = sol_ref_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
 
-write_diags_to_file(diags, script_filename=__file__, diag_filename=diag_filename, params=params)
+        # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+        # calling ms solver
+
+        diags = solve_magnetostatic_pbm(
+            nc=nc, deg=deg,
+            domain_name=domain_name,
+            source_type=source_type,
+            source_proj=source_proj,
+            bc_type=bc_type,
+            backend_language=backend_language,
+            dim_harmonic_space=dim_harmonic_space,
+            plot_source=True,
+            plot_dir=plot_dir,
+            # plot_dir='./plots/magnetostatic_runs/'+run_dir,
+            hide_plots=True,
+            m_load_dir=m_load_dir,
+            sol_filename=sol_filename,
+            sol_ref_filename=sol_ref_filename,
+            ref_nc=ref_nc,
+            ref_deg=ref_deg,    
+        )
+
+        #
+        # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+
+        write_diags_to_file(diags, script_filename=__file__, diag_filename=diag_filename, params=params)
+        write_diags_to_file(diags, script_filename=__file__, diag_filename=common_diag_filename, params=params)
 
 time_count(t_stamp_full, msg='full program')

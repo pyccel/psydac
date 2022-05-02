@@ -10,99 +10,146 @@ t_stamp_full = time_count()
 #
 # test-case and numerical parameters:
 
-homogeneous = True # False # 
+homogeneous = False # True # 
 
-nc = 16
-deg = 4
+nc_s = [4,8,16]
+deg_s = [2,3,4,5]
+# nc_s = [20]
+# deg_s = [6]
 
-omega = np.sqrt(170) # source time pulsation
+# nc_s = [4]
+# deg_s = [2]
+# nc_s = [8]
+# deg_s = [3]
+
+if homogeneous:
+    ref_case_dir = 'maxwell_hom'
+    case_dir = 'maxwell_hom'
+    case_dir = 'maxwell_hom_test'
+
+    source_type = 'elliptic_J'
+    omega = np.sqrt(170) # source time pulsation
+
+    domain_name = 'pretzel_f'
+    cb_min_sol = 0
+    cb_max_sol = 0.8
+    
+    
+
+else:
+    ref_case_dir = 'maxwell_inhom'
+    
+    case_dir = 'maxwell_inhom_test'
+    # case_dir = 'maxwell_inhom_NFJ_PU_gs'
+    # case_dir = 'maxwell_inhom_FJ_PU_gs'
+
+    source_type = 'manu_maxwell_inhom'
+    omega = np.pi 
+
+    case_dir = 'maxwell_inhom_bigomega'
+    omega = np.sqrt(170)    
+
+    domain_name = 'pretzel_f'
+    # domain_name = 'curved_L_shape'
+    cb_min_sol = 0
+    cb_max_sol = 1
+
 roundoff = 1e4
 eta = int(-omega**2 * roundoff)/roundoff
 
 
-if homogeneous:
-    case_dir = 'maxwell_hom'
-    source_type = 'elliptic_J'
-    domain_name = 'pretzel_f'
-
-else:
-    case_dir = 'maxwell_inhom'
-    source_type = 'manu_maxwell_inhom'
-    domain_name = 'pretzel_f'
-    # domain_name = 'curved_L_shape'
-
 # domain_name = 'annulus_4'
-# source_proj='P_L2'
-source_proj='P_geom' # geom proj
+source_proj='P_L2'
+# source_proj='P_geom'
+
+filter_source = True # False # 
+project_sol = False # True # 
+gamma_h = 10
 
 # ref solution (if no exact solution)
 ref_nc = 20
 ref_deg = 6
+# ref_nc = 2
+# ref_deg = 2
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
-params = {
-    'domain_name': domain_name,
-    'nc': nc,
-    'deg': deg,
-    'homogeneous': homogeneous,
-    'source_type': source_type,
-    'source_proj': source_proj, 
-    'omega': omega,
-    'ref_nc': ref_nc,
-    'ref_deg': ref_deg,
-}
+common_diag_filename = './'+case_dir+'_diags.txt'
 
-# backend_language = 'numba'
-backend_language='pyccel-gcc'
+for nc in nc_s:
+    for deg in deg_s:
 
-run_dir = get_run_dir(domain_name, source_type, nc, deg)
-plot_dir = get_plot_dir(case_dir, run_dir)
-diag_filename = plot_dir+'/'+diag_fn(source_type=source_type, source_proj=source_proj)
+        params = {
+            'domain_name': domain_name,
+            'nc': nc,
+            'deg': deg,
+            'homogeneous': homogeneous,
+            'source_type': source_type,
+            'source_proj': source_proj,
+            'filter_source': filter_source, 
+            'project_sol': project_sol,
+            'omega': omega,
+            'gamma_h': gamma_h,
+            'ref_nc': ref_nc,
+            'ref_deg': ref_deg,
+        }
 
-# to save and load matrices
-m_load_dir = get_mat_dir(domain_name, nc, deg)
-# to save the FEM sol
-sol_dir = get_sol_dir(case_dir, domain_name, nc, deg)
-sol_filename = sol_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
-if not os.path.exists(sol_dir):
-    os.makedirs(sol_dir)
-# to load the ref FEM sol
-sol_ref_dir = get_sol_dir(case_dir, domain_name, ref_nc, ref_deg)
-sol_ref_filename = sol_ref_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
+        # backend_language = 'numba'
+        backend_language='pyccel-gcc'
 
-# ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
-# calling solver for:
-# 
-# find u in H(curl), s.t.
-#   A u = f             on \Omega
-#   n x u = n x u_bc    on \partial \Omega
-# with
-#   A u := eta * u  +  mu * curl curl u  -  nu * grad div u
+        run_dir = get_run_dir(domain_name, source_type, nc, deg)
+        plot_dir = get_plot_dir(case_dir, run_dir)
+        diag_filename = plot_dir+'/'+diag_fn(source_type=source_type, source_proj=source_proj)
 
-diags = solve_hcurl_source_pbm(
-    nc=nc, deg=deg,
-    eta=eta,
-    nu=0,
-    mu=1,
-    domain_name=domain_name,
-    source_type=source_type,
-    source_proj=source_proj,
-    backend_language=backend_language,
-    plot_source=True,
-    plot_dir=plot_dir,
-    hide_plots=True,
-    m_load_dir=m_load_dir,
-    sol_filename=sol_filename,
-    sol_ref_filename=sol_ref_filename,
-    ref_nc=ref_nc,
-    ref_deg=ref_deg,    
-)
+        # to save and load matrices
+        m_load_dir = get_mat_dir(domain_name, nc, deg)
+        # to save the FEM sol
+        sol_dir = get_sol_dir(case_dir, domain_name, nc, deg)
+        sol_filename = sol_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
+        if not os.path.exists(sol_dir):
+            os.makedirs(sol_dir)
+        # to load the ref FEM sol
+        sol_ref_dir = get_sol_dir(ref_case_dir, domain_name, ref_nc, ref_deg)
+        sol_ref_filename = sol_ref_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
 
-#
-# ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+        # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+        # calling solver for:
+        # 
+        # find u in H(curl), s.t.
+        #   A u = f             on \Omega
+        #   n x u = n x u_bc    on \partial \Omega
+        # with
+        #   A u := eta * u  +  mu * curl curl u  -  nu * grad div u
 
-write_diags_to_file(diags, script_filename=__file__, diag_filename=diag_filename, params=params)
+        diags = solve_hcurl_source_pbm(
+            nc=nc, deg=deg,
+            eta=eta,
+            nu=0,
+            mu=1,
+            domain_name=domain_name,
+            source_type=source_type,
+            source_proj=source_proj,
+            backend_language=backend_language,
+            plot_source=True,
+            project_sol=project_sol,
+            gamma_h=gamma_h,
+            filter_source=filter_source,
+            plot_dir=plot_dir,
+            hide_plots=True,
+            cb_min_sol=cb_min_sol, 
+            cb_max_sol=cb_max_sol,
+            m_load_dir=m_load_dir,
+            sol_filename=sol_filename,
+            sol_ref_filename=sol_ref_filename,
+            ref_nc=ref_nc,
+            ref_deg=ref_deg,    
+        )
+
+        #
+        # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+
+        write_diags_to_file(diags, script_filename=__file__, diag_filename=diag_filename, params=params)
+        write_diags_to_file(diags, script_filename=__file__, diag_filename=common_diag_filename, params=params)
 
 time_count(t_stamp_full, msg='full program')

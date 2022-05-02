@@ -190,7 +190,7 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
 
 #------------------------------------------------------------------------------
 def plot_field(
-    fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, domain=None, 
+    fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, domain=None, surface_plot=False, cb_min=None, cb_max=None,
     plot_type='amplitude', space_kind=None, title=None, filename='dummy_plot.png', subtitles=None, N_vis=20, vf_skip=2, hide_plot=True):
     """
     plot a discrete field (given as a FemField or by its coeffs in numpy or stencil format) on the given domain
@@ -266,7 +266,9 @@ def plot_field(
             titles=subtitles,
             xx=xx,
             yy=yy,
-            surface_plot=False,
+            surface_plot=surface_plot,
+            cb_min=cb_min,
+            cb_max=cb_max,
             save_fig=filename,
             save_vals = True,
             hide_plot=hide_plot,
@@ -303,6 +305,8 @@ def my_small_plot(
         gridlines_x2=None,
         surface_plot=False,
         cmap='viridis',
+        cb_min=None,
+        cb_max=None,
         save_fig=None,
         save_vals = False,
         hide_plot=False,
@@ -315,10 +319,12 @@ def my_small_plot(
     assert xx and yy
     n_plots = len(vals)
     if n_plots > 1:
-        assert n_plots == len(titles)
+        if titles is None or n_plots != len(titles):
+            titles = n_plots*[title]
     else:
         if titles:
             print('Warning [my_small_plot]: will discard argument titles for a single plot')
+        titles = [title]
 
     n_patches = len(xx)
     assert n_patches == len(yy)
@@ -330,8 +336,14 @@ def my_small_plot(
     fig.suptitle(title, fontsize=14)
 
     for i in range(n_plots):
-        vmin = np.min(vals[i])
-        vmax = np.max(vals[i])
+        if cb_min is None:
+            vmin = np.min(vals[i])
+        else:
+            vmin = cb_min
+        if cb_max is None:
+            vmax = np.max(vals[i])
+        else:
+            vmax = cb_max
         cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
         assert n_patches == len(vals[i])
         ax = fig.add_subplot(1, n_plots, i+1)
@@ -359,8 +371,14 @@ def my_small_plot(
         fig.suptitle(title+' -- surface', fontsize=14)
 
         for i in range(n_plots):
-            vmin = np.min(vals[i])
-            vmax = np.max(vals[i])
+            if cb_min is None:
+                vmin = np.min(vals[i])
+            else:
+                vmin = cb_min
+            if cb_max is None:
+                vmax = np.max(vals[i])
+            else:
+                vmax = cb_max
             cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
             assert n_patches == len(vals[i])
             ax = fig.add_subplot(1, n_plots, i+1, projection='3d')
@@ -380,7 +398,8 @@ def my_small_plot(
             save_fig_surf = save_fig[:-4]+'_surf'+ext
             print('saving surface plot in file '+save_fig_surf)
             plt.savefig(save_fig_surf, bbox_inches='tight', dpi=dpi)
-        else:
+        
+        if not hide_plot:
             plt.show()
 
 #------------------------------------------------------------------------------

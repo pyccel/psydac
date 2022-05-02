@@ -10,7 +10,7 @@ t_stamp_full = time_count()
 #
 # test-case and numerical parameters:
 
-homogeneous = True # False # 
+homogeneous = False # True # 
 
 nc_s = [4,8,16]
 deg_s = [2,3,4,5]
@@ -22,6 +22,7 @@ if homogeneous:
     case_dir = 'poisson_hom'
     source_type = 'manu_poisson_elliptic'
     domain_name = 'pretzel_f'
+    
     # domain_name = 'curved_L_shape'
 else:
     case_dir = 'poisson_inhom'
@@ -33,14 +34,18 @@ else:
 source_proj = 'P_L2'
 # source_proj='P_geom' # geom proj (interpolation) of source: quicker but not standard
 
-project_sol = True
+filter_source = True # False # 
+project_sol = False # True # 
+gamma_h = 10
 
 # ref solution (if no exact solution)
-ref_nc = 20
-ref_deg = 6
+ref_nc = 2
+ref_deg = 2
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+
+common_diag_filename = './'+case_dir+'_diags.txt'
 
 for nc in nc_s:
     for deg in deg_s:
@@ -107,5 +112,6 @@ for nc in nc_s:
         # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
         write_diags_to_file(diags, script_filename=__file__, diag_filename=diag_filename, params=params)
+        write_diags_to_file(diags, script_filename=__file__, diag_filename=common_diag_filename, params=params)
 
 time_count(t_stamp_full, msg='full program')

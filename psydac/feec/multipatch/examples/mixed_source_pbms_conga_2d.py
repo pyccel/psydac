@@ -402,6 +402,8 @@ def solve_magnetostatic_pbm(
 
     if u_ex is not None:
         check_diags = get_Vh_diags_for(v=uh, v_ref=uh_ref, M_m=H1_m, msg='error between Ph(u_ex) and u_h')
+        diags['norm_Pu_ex'] = check_diags['sol_ref_norm']
+        diags['rel_l2_error_in_Vh'] = check_diags['rel_l2_error']
 
     return diags
 

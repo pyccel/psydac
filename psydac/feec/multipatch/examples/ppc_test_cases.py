@@ -94,7 +94,9 @@ def get_source_and_solution_hcurl(
 
     # exact solutions (if available)
     u_ex = None
-    
+    curl_u_ex = None
+    div_u_ex = None
+
     # bc solution: describe the bc on boundary. Inside domain, values should not matter. Homogeneous bc will be used if None
     u_bc = None
 
@@ -111,8 +113,10 @@ def get_source_and_solution_hcurl(
         # used for Maxwell equation with manufactured solution
         f_vect  = Tuple(eta*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
                         eta*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
-        if nu != 0:
+        if nu == 0:
             u_ex  = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+            curl_u_ex = pi*(cos(pi*x)*cos(pi*y) - cos(pi*y))
+            div_u_ex = -pi*sin(pi*x)*sin(pi*y)
         else:
             raise NotImplementedError
         u_bc = u_ex
@@ -139,7 +143,7 @@ def get_source_and_solution_hcurl(
         raise ValueError(source_type)
 
     # u_ex = Tuple(0, 1)  # DEBUG
-    return f_vect, u_bc, u_ex #, phi, grad_phi
+    return f_vect, u_bc, u_ex, curl_u_ex, div_u_ex #, phi, grad_phi
 
 def get_source_and_solution_h1(source_type=None, eta=0, mu=0,
                             domain=None, domain_name=None):

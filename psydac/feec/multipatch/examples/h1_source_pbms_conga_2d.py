@@ -33,7 +33,7 @@ from psydac.fem.basic        import FemField
 def solve_h1_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_L2', source_type='manu_poisson',
         eta=-10., mu=1., gamma_h=10.,
-        project_sol=True,
+        project_sol=False, filter_source=True,
         plot_source=False, plot_dir=None, hide_plots=True,
         m_load_dir="", sol_filename="", sol_ref_filename="",
         ref_nc=None, ref_deg=None,
@@ -215,6 +215,10 @@ def solve_h1_source_pbm(
     if plot_source:
         plot_field(numpy_coeffs=f_c, Vh=V0h, space_kind='h1', domain=domain, title='f_h with P = '+source_proj, filename=plot_dir+'/fh_'+source_proj+'.png', hide_plot=hide_plots)
 
+    if filter_source:
+        print(' .. filtering the source...')
+        tilde_f_c = cP0_m.transpose() @ tilde_f_c
+
     ubc_c = lift_u_bc(u_bc)
     if ubc_c is not None:
         # modified source for the homogeneous pbm
@@ -245,8 +249,8 @@ def solve_h1_source_pbm(
     uh_c = spsolve(A_m, tilde_f_c)
 
     # project the homogeneous solution on the conforming problem space
-    print(' .. projecting the homogeneous solution on the conforming problem space...')
     if project_sol:
+        print(' .. projecting the homogeneous solution on the conforming problem space...')
         uh_c = cP0_m.dot(uh_c)
 
     if ubc_c is not None:
@@ -275,6 +279,7 @@ def solve_h1_source_pbm(
         check_diags = get_Vh_diags_for(v=uh, v_ref=uh_ref, M_m=H0_m, msg='error between Ph(u_ex) and u_h')
         diags['norm_Pu_ex'] = check_diags['sol_ref_norm']
         diags['rel_l2_error_in_Vh'] = check_diags['rel_l2_error']
+
     return diags
 
 
