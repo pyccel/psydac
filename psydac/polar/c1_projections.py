@@ -59,11 +59,13 @@ class C1Projector:
             y_ext = mapping.control_points[0:2,:,1]
 
             # Exclude ghost regions for calculations
-            x = x_ext[:, s2:e2+1]
-            y = y_ext[:, s2:e2+1]
+
+            x = x_ext[:, 0:e2-s2+1]
+            y = y_ext[:, 0:e2-s2+1]
 
             SQRT3     = np.sqrt(3.0)
             ONE_THIRD = 1.0/3.0
+
             (x0,y0)   = (x[0,0],y[0,0])
 
             # Define equilateral triangle enclosing first row of control points
