@@ -328,7 +328,6 @@ class OutputManager:
         knots = [scalar_space.spaces[i].knots.tolist() for i in range(ldim)]
         multiplicity = [int(m) for m in scalar_space.multiplicity]
         
-
         new_space = {'name': scalar_space_name,
                      'ldim': ldim,
                      'kind': self.space_types_to_str[kind],
@@ -636,8 +635,6 @@ class PostProcessManager:
 
         self._domain = domain
         self._domain_h = domain_h
-        
-        
 
         pdim = space_info['ndim']
 
