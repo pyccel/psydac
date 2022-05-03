@@ -16,7 +16,7 @@ from psydac.fem.tensor                  import TensorFemSpace
 
 #==============================================================================
 @pytest.mark.parametrize( 'degrees', [(2,2),(2,3),(3,2),(3,3)] )
-@pytest.mark.parametrize( 'ncells' , [(4,5),(6,6),(11,14)] )
+@pytest.mark.parametrize( 'ncells' , [(8,10),(10,12),(12,14)] )
 
 def test_c1_projections( degrees, ncells, verbose=False ):
 
@@ -85,7 +85,7 @@ def test_c1_projections( degrees, ncells, verbose=False ):
                 for k2 in range(1,p2):
                     j1 = (i1+k1)%n1
                     j2 = (i2+k2)%n2
-                    eps = perturbation[i1,i2,k1,k2]
+                    eps = perturbation[i1-s1,i2-s2,k1,k2]
                     A[i1,i2, k1, k2] += eps
                     A[j1,j2,-k1,-k2] += eps
 
