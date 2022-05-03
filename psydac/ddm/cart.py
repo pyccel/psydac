@@ -880,7 +880,7 @@ class InterfaceCartDecomposition(CartDecomposition):
        Number of threads for each MPI rank.
 
     """
-    def __init__(self, npts, pads, periods, comm, shifts, axes, exts, ranks_in_topo, local_groups, local_communicators, root_ranks, requests, num_threads):
+    def __init__(self, npts, pads, periods, comm, shifts, axes, exts, ranks_in_topo, local_groups, local_communicators, root_ranks, requests, num_threads, reduce_elements=False):
 
         npts_minus, npts_plus       = npts
         pads_minus, pads_plus       = pads
@@ -943,10 +943,10 @@ class InterfaceCartDecomposition(CartDecomposition):
 
         if requests:MPI.Request.Waitall(requests)
         dtype = find_mpi_type('int64')
-        if local_comm_minus != MPI.COMM_NULL:
+        if local_comm_minus != MPI.COMM_NULL and reduce_elements == False:
             local_comm_minus.Bcast((ranks_in_topo_plus,ranks_in_topo_plus.size, dtype), root=0)
 
-        if local_comm_plus != MPI.COMM_NULL:
+        if local_comm_plus != MPI.COMM_NULL and reduce_elements == False:
             local_comm_plus.Bcast((ranks_in_topo_minus,ranks_in_topo_minus.size, dtype), root=0)
 
         self._coords_from_rank_minus = np.array([np.unravel_index(rank, nprocs_minus) for rank in range(size_minus)])
@@ -1104,6 +1104,8 @@ class InterfaceCartDecomposition(CartDecomposition):
         self._parent_ends       = tuple([None]*self._ndims)
         self._parent_npts_minus = tuple([None]*self._ndims)
         self._parent_npts_plus  = tuple([None]*self._ndims)
+        self._get_minus_starts_ends = None
+        self._get_plus_starts_ends  = None
 
         self._communication_infos = {}
 
@@ -1300,11 +1302,13 @@ class InterfaceCartDecomposition(CartDecomposition):
         root_ranks   = [self.root_rank_minus, self.root_rank_plus]
         requests     = []
         num_threads  = self.num_threads
-        cart         = InterfaceCartDecomposition(npts, pads, periods, comm,
+
+        cart = InterfaceCartDecomposition(npts, pads, periods, comm,
                                          shifts, axes, exts,
                                          ranks_in_topo, local_groups,
                                          local_communicators,
-                                         root_ranks, requests, num_threads)
+                                         root_ranks, requests, num_threads, reduce_elements=True)
+
 
         cart._npts_minus = tuple(n - ne for n,ne in zip(cart.npts_minus, n_elements))
         cart._npts_plus  = tuple(n - ne for n,ne in zip(cart.npts_plus, n_elements))
@@ -1370,20 +1374,16 @@ class InterfaceCartDecomposition(CartDecomposition):
         cart._parent_npts_plus  = tuple(npts[1])
 
         cart._communication_infos = {}
-        cart._communication_infos[cart._axis] = cart._compute_communication_infos(cart._axis)
+        cart._get_minus_starts_ends = self._get_minus_starts_ends
+        cart._get_plus_starts_ends  = self._get_plus_starts_ends
+        cart._communication_infos[cart._axis] = cart._compute_communication_infos_p2p(cart._axis)
 
         return cart
 
-    def set_communication_info( self ):
-        self._communication_infos[self._axis] = self._compute_communication_infos(self._axis)
-
-    def get_communication_infos( self, axis ):
-        return self._communication_infos[ axis ]
-
-    def set_communication_info_p2p( self, get_minus_starts_ends, get_plus_starts_ends ):
+    def set_communication_info( self, get_minus_starts_ends, get_plus_starts_ends ):
         self._communication_infos[self._axis] = self._compute_communication_infos_p2p(self._axis, get_minus_starts_ends, get_plus_starts_ends)
 
-    def get_communication_infos_p2p( self, axis ):
+    def get_communication_infos( self, axis ):
         return self._communication_infos[ axis ]
 
     #---------------------------------------------------------------------------
@@ -1491,7 +1491,7 @@ class InterfaceCartDecomposition(CartDecomposition):
 
         return info
     #---------------------------------------------------------------------------
-    def _compute_communication_infos_p2p( self, axis , get_minus_starts_ends, get_plus_starts_ends):
+    def _compute_communication_infos_p2p( self, axis , get_minus_starts_ends=None, get_plus_starts_ends=None):
 
         if self._intercomm == MPI.COMM_NULL:
             return
@@ -1507,7 +1507,13 @@ class InterfaceCartDecomposition(CartDecomposition):
         shifts_plus  = self._shifts_plus
         ext_minus    = self._ext_minus
         ext_plus     = self._ext_plus
-        indices  = []
+        indices      = []
+
+        if get_minus_starts_ends is not None:
+            self._get_minus_starts_ends = get_minus_starts_ends
+
+        if get_plus_starts_ends is not None:
+            self._get_plus_starts_ends  = get_plus_starts_ends
 
         diff = 0
         if p_npts_minus[axis] is not None:
@@ -1529,7 +1535,7 @@ class InterfaceCartDecomposition(CartDecomposition):
                 coords = self._coords_from_rank_plus[rank_plus]
                 starts = [self._global_starts_plus[d][c] for d,c in enumerate(coords)]
                 ends   = [self._global_ends_plus[d][c] for d,c in enumerate(coords)]
-                starts_m, ends_m = get_minus_starts_ends(starts, ends, npts_minus, npts_plus, axis, axis,
+                starts_m, ends_m = self._get_minus_starts_ends(starts, ends, npts_minus, npts_plus, axis, axis,
                                                          ext_minus, ext_plus, pads_minus, pads_plus, diff)
                 starts_inter = [max(s1,s2) for s1,s2 in zip(starts_minus, starts_m)]
                 ends_inter   = [min(e1,e2) for e1,e2 in zip(ends_minus, ends_m)]
@@ -1545,7 +1551,7 @@ class InterfaceCartDecomposition(CartDecomposition):
                 gbuf_send_starts.append([si-s+p for si,s,p in zip(starts_inter, starts_minus, pads_minus)])
 
             buf_shape   = [e-s+1+2*m*p for s,e,m,p in zip(starts_minus, ends_minus, shifts_plus, pads_plus)]
-            buf_shape[axis] = 3*pads_plus[axis]+1
+            buf_shape[axis] = 3*pads_plus[axis]+1-diff
             source_ranks     = []
             buf_recv_shape   = []
             gbuf_recv_shape  = []
@@ -1562,7 +1568,7 @@ class InterfaceCartDecomposition(CartDecomposition):
 
                 starts_extended_minus[axis] = 0
                 starts_inter[axis]          = pads_plus[axis]
-                ends_inter[axis]   = 2*pads_plus[axis]
+                ends_inter[axis]            = 2*pads_plus[axis]-diff
 
                 source_ranks.append(self._local_boundary_ranks_plus[k])
                 buf_recv_shape.append([e-s+1 for s,e in zip(starts_inter, ends_inter)])
@@ -1586,7 +1592,7 @@ class InterfaceCartDecomposition(CartDecomposition):
                 coords = self._coords_from_rank_minus[rank_minus]
                 starts = [self._global_starts_minus[d][c] for d,c in enumerate(coords)]
                 ends   = [self._global_ends_minus[d][c] for d,c in enumerate(coords)]
-                starts_p, ends_p = get_plus_starts_ends(starts, ends, npts_minus, npts_plus, axis, axis,
+                starts_p, ends_p = self._get_plus_starts_ends(starts, ends, npts_minus, npts_plus, axis, axis,
                                                          ext_minus, ext_plus, pads_minus, pads_plus, diff)
                 starts_inter = [max(s1,s2) for s1,s2 in zip(starts_plus, starts_p)]
                 ends_inter   = [min(e1,e2) for e1,e2 in zip(ends_plus, ends_p)]
@@ -1602,7 +1608,7 @@ class InterfaceCartDecomposition(CartDecomposition):
                 gbuf_send_starts.append([si-s+p for si,s,p in zip(starts_inter, starts_plus, pads_plus)])
 
             buf_shape        = [e-s+1+2*m*p for s,e,m,p in zip(starts_plus, ends_plus, shifts_minus, pads_minus)]
-            buf_shape[axis] = 3*pads_minus[axis]+1
+            buf_shape[axis] = 3*pads_minus[axis]+1-diff
             source_ranks     = []
             buf_recv_shape   = []
             gbuf_recv_shape  = []
@@ -1620,7 +1626,7 @@ class InterfaceCartDecomposition(CartDecomposition):
 
                 starts_extended_plus[axis] = 0
                 starts_inter[axis]          = pads_plus[axis]
-                ends_inter[axis]            = 2*pads_plus[axis]
+                ends_inter[axis]            = 2*pads_plus[axis]-diff
 
                 source_ranks.append(self._local_boundary_ranks_minus[k])
                 buf_recv_shape.append([e-s+1 for s,e in zip(starts_inter, ends_inter)])
@@ -1846,8 +1852,8 @@ class InterfaceCartDataExchanger:
         self._dtype         = dtype
         self._send_types    = send_types
         self._recv_types    = recv_types
-        self._dest_ranks    = cart.get_communication_infos_p2p( cart.axis )['dest_ranks']
-        self._source_ranks  = cart.get_communication_infos_p2p( cart.axis )['source_ranks']
+        self._dest_ranks    = cart.get_communication_infos( cart.axis )['dest_ranks']
+        self._source_ranks  = cart.get_communication_infos( cart.axis )['source_ranks']
 
     # ...
     def update_ghost_regions( self, array_minus, array_plus ):
@@ -1887,7 +1893,7 @@ class InterfaceCartDataExchanger:
         assert isinstance( cart, InterfaceCartDecomposition )
 
         mpi_type = find_mpi_type( dtype )
-        info     = cart.get_communication_infos_p2p( cart.axis )
+        info     = cart.get_communication_infos( cart.axis )
 
         send_types = [None]*len(info['dest_ranks'])
 

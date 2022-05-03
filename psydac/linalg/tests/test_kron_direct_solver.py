@@ -298,7 +298,7 @@ def test_kron_solver_nd_ser(seed, dim):
 def test_kron_solver_nd_par(seed, dim):
     # for now, avoid too high dim's, since we solve the matrix completely on each rank as well...
 
-    npts_base = 8
+    npts_base = 4
     compare_solve(seed, MPI.COMM_WORLD, [npts_base]*dim, [1]*dim, [False]*dim, matrix_to_sparse, transposed=False, verbose=False)
 
 if __name__ == '__main__':

@@ -1021,8 +1021,7 @@ class TensorFemSpace( FemSpace ):
         for a,e in self._interfaces:
             v    = self._vector_space._interfaces[a,e]
             cart = v.cart
-            if cart:
-                cart = v.cart.reduce_elements(axes, n_elements)
+            if cart:cart = v.cart.reduce_elements(axes, n_elements)
             tensor_vec.set_interface_space(a, e, tensor_vec.spaces, cart=cart, quad_order=tensor_vec.quad_order)
 
         return tensor_vec
