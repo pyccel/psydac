@@ -10,10 +10,11 @@ t_stamp_full = time_count()
 #
 # test-case and numerical parameters:
 
-homogeneous = False # True # 
+homogeneous = True # False # 
 
-nc_s = [4,8,16]
+nc_s = [2, 4,8,16]
 deg_s = [2,3,4,5]
+
 # nc_s = [20]
 # deg_s = [6]
 
@@ -25,29 +26,26 @@ deg_s = [2,3,4,5]
 if homogeneous:
     ref_case_dir = 'maxwell_hom'
     case_dir = 'maxwell_hom'
-    case_dir = 'maxwell_hom_test'
+    # case_dir = 'maxwell_hom_test'
 
     source_type = 'elliptic_J'
     omega = np.sqrt(170) # source time pulsation
 
     domain_name = 'pretzel_f'
     cb_min_sol = 0
-    cb_max_sol = 0.8
+    cb_max_sol = 1
     
-    
-
 else:
     ref_case_dir = 'maxwell_inhom'
-    
-    case_dir = 'maxwell_inhom_test'
+    case_dir = 'maxwell_inhom'
     # case_dir = 'maxwell_inhom_NFJ_PU_gs'
     # case_dir = 'maxwell_inhom_FJ_PU_gs'
 
     source_type = 'manu_maxwell_inhom'
     omega = np.pi 
 
-    case_dir = 'maxwell_inhom_bigomega'
-    omega = np.sqrt(170)    
+    # case_dir = 'maxwell_inhom_bigomega'
+    # omega = np.sqrt(170)    
 
     domain_name = 'pretzel_f'
     # domain_name = 'curved_L_shape'
@@ -94,7 +92,6 @@ for nc in nc_s:
             'ref_nc': ref_nc,
             'ref_deg': ref_deg,
         }
-
         # backend_language = 'numba'
         backend_language='pyccel-gcc'
 
@@ -112,6 +109,8 @@ for nc in nc_s:
         # to load the ref FEM sol
         sol_ref_dir = get_sol_dir(ref_case_dir, domain_name, ref_nc, ref_deg)
         sol_ref_filename = sol_ref_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
+
+        print('Calling solve_hcurl_source_pbm() with params = {}'.format(params))
 
         # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
         # calling solver for:

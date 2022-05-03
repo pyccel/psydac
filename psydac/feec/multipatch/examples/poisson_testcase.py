@@ -10,12 +10,13 @@ t_stamp_full = time_count()
 #
 # test-case and numerical parameters:
 
-homogeneous = False # True # 
+homogeneous = True # False # 
 
-nc_s = [4,8,16]
+# nc_s = [2,4,8,16]
+nc_s = [20]
 deg_s = [2,3,4,5]
 
-# nc = 16
+# nc = 16 
 # deg = 4
 
 if homogeneous:
@@ -79,6 +80,8 @@ for nc in nc_s:
         # to load the ref FEM sol
         sol_ref_dir = get_sol_dir(case_dir, domain_name, ref_nc, ref_deg)
         sol_ref_filename = sol_ref_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
+
+        print('Calling solve_h1_source_pbm() with params = {}'.format(params))
 
         # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
         # calling solver for:
