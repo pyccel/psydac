@@ -1,6 +1,7 @@
 import numpy as np
 
 from sympde.topology.mapping import Mapping
+from sympde.topology.analytical_mapping import IdentityMapping
 from sympde.topology.datatype import UndefinedSpaceType, H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
 
 from psydac.mapping.discrete import SplineMapping
@@ -27,19 +28,29 @@ class Pushforward:
     npts_per_cell : tuple of int or int, optional
         Number of points per cell 
     """
-    def __init__(self, mapping, grid, npts_per_cell=None):
+    def __init__(self, mapping, grid, npts_per_cell=None, local_domain=None, global_domain=None, grid_local=None):
         # Process mapping argument
         ldim = mapping.ldim
-
+        self.is_identity = isinstance(mapping, IdentityMapping)
         if isinstance(mapping, Mapping):
             assert mapping.is_analytical
             # No support for non analytical mappings for now
             mapping_call = mapping.get_callable_mapping()
-            self.jacobian = lambda grid: mapping_call.jacobian(*grid)
-            self.jacobian_inv = lambda grid: mapping_call.jacobian_inv(*grid)
-            self.jacobian_det = lambda grid: np.sqrt(mapping_call.metric_det(*grid))
-            self.local_domain = None
-            self.global_domain = None
+            self.jacobian = lambda meshgrids: np.ascontiguousarray(
+                                                  np.moveaxis(
+                                                      mapping_call.jacobian(*meshgrids), [0, 1], [-1, -2]
+                                                  )
+                                              )
+            self.jacobian_inv = lambda meshgrids: np.ascontiguousarray(
+                                                      np.moveaxis(
+                                                          mapping_call.jacobian_inv(*meshgrids), [0, 1], [-1, -2]
+                                                      )
+                                                  )
+            self.jacobian_det = lambda meshgrids: np.ascontiguousarray(
+                                                      np.sqrt(mapping_call.metric_det(*meshgrids))
+                                                  )
+            self.local_domain = local_domain
+            self.global_domain = global_domain
 
         elif isinstance(mapping, SplineMapping):
             self.jacobian = mapping.jac_mat_grid
@@ -88,7 +99,10 @@ class Pushforward:
 
         else:
             raise ValueError("Grid argument is not understood")
-
+        if isinstance(mapping, Mapping):
+            self.meshgrids = np.meshgrid(*grid_local, indexing='ij', sparse=True)
+        else:
+            self.meshgrids = self.grid
         
     def __call__(self, fields):
         """
@@ -132,7 +146,7 @@ class Pushforward:
             except AttributeError:
                 self.local_domain = list(space_dict.keys())[0].spaces[0].local_domain
                 self.global_domain = ((0,) * self.ldim, tuple(nc_i - 1 for nc_i in list(space_dict.keys())[0].spaces[0].ncells))
-
+        
         out = []
         for space, (field_list, field_names) in space_dict.items():
             list_pushed_fields = self._dispatch_pushforward(space, field_list)
@@ -141,14 +155,13 @@ class Pushforward:
     
     def _dispatch_pushforward(self, space, field_list):
         """
-        Simple function to take care of the kindof the spaces.
+        Simple function to take care of the kind of the spaces.
         """
         try:
             kind = space.symbolic_space.kind
         except AttributeError:
             kind = UndefinedSpaceType()
-        
-        if kind is H1SpaceType() or UndefinedSpaceType():
+        if kind is H1SpaceType() or kind is UndefinedSpaceType() or self.is_identity:
             return self._pushforward_h1(space, field_list)
         
         elif kind is L2SpaceType():
@@ -218,10 +231,9 @@ class Pushforward:
             if overlap == 1:
                 index_trim = self._compute_index_trimming(local_domain=space.local_domain)
             else:
-                index_trim = (slice(0, None, 1),) * self.ldim              
-        
+                index_trim = (slice(0, None, 1),) * self.ldim
         if self.jac_det_temp is None:
-            self.jac_det_temp = self.jacobian_det(self.grid)
+            self.jac_det_temp = self.jacobian_det(self.meshgrids)
         
         if self.grid_type == 0:
             fields_eval = space.eval_fields_irregular_tensor_grid(self.grid, *field_list, overlap=overlap)
@@ -241,6 +253,7 @@ class Pushforward:
             return [tuple(np.ascontiguousarray(pushed_fields_list[i][..., j]) for i in range(self.ldim)) for j in range(len(field_list))]
         else:
             pushed_fields = np.zeros_like(fields_eval[index_trim])
+            print(pushed_fields.shape, index_trim, self.jac_det_temp.shape)
             if self.ldim == 2:
                 pushforward_2d_l2(fields_eval[index_trim], self.jac_det_temp, pushed_fields)
             if self.ldim == 3:
@@ -259,15 +272,15 @@ class Pushforward:
         fields_list : list of FemFields        
         """
         overlap = [int(space.spaces[i].local_domain != self.local_domain) for i in range(self.ldim)]
+        index_trim = []
         for i in range(self.ldim):
-            index_trim = []
             if overlap[i] == 1:
                 index_trim.append(self._compute_index_trimming(local_domain=space.spaces[i].local_domain))
             else:
                 index_trim.append((slice(0, None, 1),) * self.ldim)        
         
         if self.jac_temp is None:
-            self.jac_temp = self.jacobian(self.grid)
+            self.jac_temp = self.jacobian(self.meshgrids)
         
         if self.grid_type == 0:
             fields_eval = space.eval_fields_irregular_tensor_grid(self.grid, *field_list, overlap=overlap)
@@ -275,10 +288,9 @@ class Pushforward:
         elif self.grid_type == 1:
             fields_eval = space.eval_fields_regular_tensor_grid(self.grid, *field_list, overlap=overlap)
         
-        fields_eval = np.stack([fields_eval[i][index_trim[i], :] for i in range(self.ldim)], axis=0)
+        fields_eval = np.stack([fields_eval[i][(*index_trim[i], Ellipsis)] for i in range(self.ldim)], axis=0)
 
-        pushed_fields = np.zeros_like(fields_eval)
-
+        pushed_fields = np.zeros((fields_eval.shape[-1], *fields_eval.shape[:-1]))
         if self.ldim == 2:
             pushforward_2d_hdiv(fields_eval, self.jac_temp, pushed_fields)
         if self.ldim == 3:
@@ -297,15 +309,14 @@ class Pushforward:
         fields_list : list of FemFields        
         """
         overlap = [int(space.spaces[i].local_domain != self.local_domain) for i in range(self.ldim)]
+        index_trim = []
         for i in range(self.ldim):
-            index_trim = []
             if overlap[i] == 1:
                 index_trim.append(self._compute_index_trimming(local_domain=space.spaces[i].local_domain))
             else:
                 index_trim.append((slice(0, None, 1),) * self.ldim)   
-        
         if self.inv_jac_temp is None:
-            self.inv_jac_temp = self.jacobian(self.grid)
+            self.inv_jac_temp = self.jacobian_inv(self.meshgrids)
         
         if self.grid_type == 0:
             fields_eval = space.eval_fields_irregular_tensor_grid(self.grid, *field_list, overlap=overlap)
@@ -313,15 +324,14 @@ class Pushforward:
         elif self.grid_type == 1:
             fields_eval = space.eval_fields_regular_tensor_grid(self.grid, *field_list, overlap=overlap)
         
-        fields_eval = np.stack([fields_eval[i][index_trim[i], :] for i in range(self.ldim)], axis=0)
+        fields_eval = np.stack([fields_eval[i][(*index_trim[i], Ellipsis)] for i in range(self.ldim)], axis=0)
 
-        pushed_fields = np.zeros_like(fields_eval)
+        pushed_fields = np.zeros((fields_eval.shape[-1], *fields_eval.shape[:-1]))
 
         if self.ldim == 2:
-            pushforward_2d_hcurl(fields_eval, self.jac_temp, pushed_fields)
+            pushforward_2d_hcurl(fields_eval, self.inv_jac_temp, pushed_fields)
         if self.ldim == 3:
-            pushforward_3d_hcurl(fields_eval, self.jac_temp, pushed_fields)
-        
+            pushforward_3d_hcurl(fields_eval, self.inv_jac_temp, pushed_fields)
         return [tuple(np.ascontiguousarray(pushed_fields[j, i]) for i in range(self.ldim)) for j in range(len(field_list))]
     
     def _compute_index_trimming(self, local_domain):
@@ -347,7 +357,7 @@ class Pushforward:
             difference_ends = tuple(l_e - t_e for l_e, t_e in zip(local_ends, target_ends))
             for i in range(ldim):
                 if local_starts[i] != global_starts[i]:
-                    theoretical_start = (1 - difference_starts) * self.npts_per_cell[i] 
+                    theoretical_start = (1 - difference_starts[i]) * self.npts_per_cell[i] 
                 else:
                     theoretical_start = 0
 
