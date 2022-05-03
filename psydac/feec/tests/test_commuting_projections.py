@@ -16,7 +16,7 @@ import pytest
 #==============================================================================
 # Run test
 #==============================================================================
-@pytest.mark.parametrize('Nel', [4, 8])
+@pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
@@ -71,7 +71,7 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc):
     assert abs(error)<1e-9
 
 #==============================================================================
-@pytest.mark.parametrize('Nel', [4, 8])
+@pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
@@ -144,7 +144,7 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc):
     assert abs(error)<1e-9
 
 #==============================================================================
-@pytest.mark.parametrize('Nel', [4, 8])
+@pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
@@ -207,7 +207,7 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc):
     error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
     assert abs(error)<1e-9
 
-@pytest.mark.parametrize('Nel', [4, 8])
+@pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
@@ -259,7 +259,7 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc):
     error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
     assert abs(error)<1e-9
 
-@pytest.mark.parametrize('Nel', [4, 8])
+@pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
@@ -311,7 +311,7 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc):
     error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
     assert abs(error)<1e-9
 
-@pytest.mark.parametrize('Nel', [4, 8])
+@pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
@@ -370,7 +370,7 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc):
     error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
     assert abs(error)<1e-9
 
-@pytest.mark.parametrize('Nel', [4, 8])
+@pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
@@ -429,7 +429,7 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc):
     error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
     assert abs(error)<1e-9
 
-@pytest.mark.parametrize('Nel', [4, 8])
+@pytest.mark.parametrize('Nel', [16, 20])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
