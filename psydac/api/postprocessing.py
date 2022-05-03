@@ -8,10 +8,12 @@ import re
 import h5py as h5
 
 from sympde.topology.mapping import Mapping
+from sympde.topology.analytical_mapping import IdentityMapping
 from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace
+from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from pyevtk.hl import unstructuredGridToVTK
-from pyevtk.vtk import VtkQuad, VtkHexahedron
+from pyevtk.vtk import VtkHexahedron, VtkQuad
 
 from psydac.api.discretization import discretize
 from psydac.cad.geometry import Geometry
@@ -21,6 +23,7 @@ from psydac.feec.pushforward import Pushforward
 from psydac.utilities.utils import refine_array_1d
 from psydac.fem.basic import FemSpace, FemField
 from psydac.utilities.vtk import writeParallelVTKUnstructuredGrid
+from psydac.core.bsplines import elevate_knots
 
 
 #===============================================================================
@@ -141,11 +144,11 @@ class OutputManager:
     """
 
     space_types_to_str = {
-        'H1SpaceType()': 'h1',
-        'HcurlSpaceType()': 'hcurl',
-        'HdivSpaceType()': 'hdiv',
-        'L2SpaceType()': 'l2',
-        'UndefinedSpaceType()': 'undefined',
+        H1SpaceType(): 'h1',
+        HcurlSpaceType(): 'hcurl',
+        HdivSpaceType(): 'hdiv',
+        L2SpaceType(): 'l2',
+        UndefinedSpaceType(): 'undefined',
     }
 
     def __init__(self, filename_space, filename_fields, comm=None, mode='w'):
@@ -323,14 +326,17 @@ class OutputManager:
         degree = [scalar_space.spaces[i].degree for i in range(ldim)]
         basis = [scalar_space.spaces[i].basis for i in range(ldim)]
         knots = [scalar_space.spaces[i].knots.tolist() for i in range(ldim)]
+        multiplicity = [int(m) for m in scalar_space.multiplicity]
+        
 
         new_space = {'name': scalar_space_name,
                      'ldim': ldim,
-                     'kind': self.space_types_to_str[str(kind)],
+                     'kind': self.space_types_to_str[kind],
                      'dtype': dtype,
                      'rational': False,
                      'periodic': periodic,
                      'degree': degree,
+                     'multiplicity': multiplicity,
                      'basis': basis,
                      'knots': knots
                      }
@@ -339,6 +345,7 @@ class OutputManager:
                            'ndim': pdim,
                            'fields': self.filename_fields,
                            'patches': [{'name': patch,
+                                        'breakpoints': [scalar_space.breaks[i].tolist() for i in range(ldim)],
                                         'scalar_spaces': [new_space]
                                         }]
                            }
@@ -356,7 +363,9 @@ class OutputManager:
 
                 spaces_info['patches'][patch_index]['scalar_spaces'].append(new_space)
             else:
-                spaces_info['patches'].append({'name': patch, 'scalar_spaces': [new_space]})
+                spaces_info['patches'].append({'name': patch, 
+                                               'breakpoints': [scalar_space.breaks[i].tolist() for i in range(ldim)], 
+                                               'scalar_spaces': [new_space]})
 
         self._spaces_info = spaces_info
 
@@ -382,13 +391,13 @@ class OutputManager:
                                                    name=name + f'[{i}]',
                                                    dim=dim,
                                                    patch_name=patch_name,
-                                                   kind='UndefinedSpaceType()')
+                                                   kind=UndefinedSpaceType())
             scalar_spaces_info.append(sc_space_info)
 
         spaces_info = self._spaces_info
 
         new_vector_space = {'name': name,
-                            'kind': self.space_types_to_str[str(kind)],
+                            'kind': self.space_types_to_str[kind],
                             'components': scalar_spaces_info,
                             }
 
@@ -555,13 +564,11 @@ class PostProcessManager:
         List of all the snapshots
     """
 
-    def __init__(self, geometry_file=None, domain=None, space_file=None, fields_file=None, ncells=None, comm=None):
+    def __init__(self, geometry_file=None, domain=None, space_file=None, fields_file=None, comm=None):
         if geometry_file is None and domain is None:
             raise ValueError('Domain or geometry file needed')
         if geometry_file is not None and domain is not None:
             raise ValueError("Can't provide both geometry_file and domain")
-        if geometry_file is None:
-            assert ncells is not None
 
         self.geometry_filename = geometry_file
         self._domain = domain
@@ -570,7 +577,6 @@ class PostProcessManager:
         self.space_filename = space_file
         self.fields_filename = fields_file
 
-        self._ncells = ncells
         self._spaces = {}
         self._static_fields = {}
         self._snapshot_fields = {}
@@ -585,7 +591,6 @@ class PostProcessManager:
         self.fields_file = None
 
         self._reconstruct_spaces()
-        self.get_snapshot_list()
 
     @property
     def spaces(self):
@@ -616,22 +621,29 @@ class PostProcessManager:
         """Reconstructs all of the spaces from reading the files.
 
         """
+        space_info = self.read_space_info()
+
         if self.geometry_filename  is not None:
             domain = Domain.from_file(self.geometry_filename)
             domain_h = discretize(domain, filename=self.geometry_filename, comm=self.comm)
         else:
             domain = self._domain
-            domain_h = discretize(domain, ncells=self._ncells, comm=self.comm)
+            # Use the fact that it only works in single patch
+            assert space_info['patches'][0]['name'] == domain.name
+            breaks = space_info['patches'][0]['breakpoints']
+            ncells = len(breaks) - 1
+            domain_h = discretize(domain, ncells=ncells, comm=self.comm)
 
         self._domain = domain
         self._domain_h = domain_h
         
-        space_info = self.read_space_info()
+        
 
         pdim = space_info['ndim']
 
         assert pdim == domain.dim
         assert space_info['fields'] == self.fields_filename 
+        convert_deg_dict = _augment_space_degree_dict(domain_h.ldim)
 
         # No Multipatch Support for now
         assert len(domain_h.mappings) == 1
@@ -641,6 +653,7 @@ class PostProcessManager:
         # Space reconstruction
         # -------------------------------------------------
         for patch in space_info['patches']:
+            breaks = patch['breakpoints']
             try:
                 scalar_spaces = patch['scalar_spaces']
             except KeyError:
@@ -667,14 +680,31 @@ class PostProcessManager:
                 if len(basis) != 1:
                     raise NotImplementedError("Discretize doesn't support two different bases")
 
-                temp_kwargs_discretization = {
-                    'degree': [sc_sp['degree'] for sc_sp in components],
-                    'knots': [[np.asarray(sc_sp['knots'][i]) for i in range(sc_sp['ldim'])] for sc_sp in components],
-                    'basis': basis[0],
-                    'periodic': [sc_sp['periodic'] for sc_sp in components]
-                }
+                degree = [sc_sp['degree'] for sc_sp in components]
+                multiplicity = [sc_sp['multiplicity'] for sc_sp in components]
+                
+                new_degree, new_mul = convert_deg_dict[v_sp['kind']](degree, multiplicity)
+                
+                
+                knots = [[np.asarray(sc_sp['knots'][i]) for i in range(sc_sp['ldim'])] for sc_sp in components][0]
+                periodic = components[0]['periodic']
 
+                for i in range(components[0]['ldim']):
+                    if new_degree[i] != degree[0][i]:
+                        for j in range(new_degree[i] - degree[0][i]):
+                            knots[i] = elevate_knots(knots[i], degree[0][i], periodic=periodic[i])
+
+                temp_kwargs_discretization = {
+                    'degree':[int(new_degree[i]) for i in range(components[0]['ldim'])],
+                    'knots': knots,
+                    'basis': basis[0],
+                    'periodic':periodic,
+                    'comm': self.comm
+                }
                 self._spaces[v_sp['name']] = discretize(temp_v_sp, domain_h, **temp_kwargs_discretization)
+                
+                for b in range(len(breaks)):
+                    assert np.allclose(self._spaces[v_sp['name']].spaces[0].breaks[b], breaks[b]) 
 
             for sc_sp in scalar_spaces:
                 if sc_sp['name'] not in already_used_names:
@@ -684,15 +714,31 @@ class PostProcessManager:
                     if len(basis) != 1:
                         raise NotImplementedError("Discretize doesn't support two different bases")
 
+                    multiplicity = sc_sp['multiplicity']
+                    degree = sc_sp['degree']
+
+                    new_degree, new_mul = convert_deg_dict[sc_sp['kind']](degree, multiplicity)
+                    
+                    knots = [np.asarray(sc_sp['knots'][i]) for i in range(sc_sp['ldim'])]
+                    periodic = sc_sp['periodic']
+
+                    for i in range(sc_sp['ldim']):
+                        if new_degree[i] != degree[i]:
+                            for j in range(new_degree[i] - degree[i]):
+                                knots[i] = elevate_knots(knots[i], degree[i], periodic=periodic[i])                                    
+                    
                     temp_kwargs_discretization = {
-                        'degree': sc_sp['degree'],
-                        'knots': [np.asarray(sc_sp['knots'][i]) for i in range(sc_sp['ldim'])],
+                        'degree': [int(new_degree[i]) for i in range(sc_sp['ldim'])],
+                        'knots': knots,
                         'basis': basis[0],
-                        'periodic': sc_sp['periodic'],
+                        'periodic': periodic,
                         'comm': self.comm,
                     }
 
                     self._spaces[sc_sp['name']] = discretize(temp_sc_sp, domain_h, **temp_kwargs_discretization)
+
+                    for b in range(len(breaks)):
+                        assert np.allclose(self._spaces[sc_sp['name']].breaks[b], breaks[b])
 
     def get_snapshot_list(self):
         kwargs = {}
@@ -705,6 +751,11 @@ class PostProcessManager:
                 self._snapshot_list.append(int(k[-4:]))
         self.fields_file = fh5
 
+    def close(self):
+        if not self.fields_file is None:
+            self.fields_file.close()
+            self.fields_file = None
+        
     def load_static(self, *fields):
         """Reads static fields from file.
         
@@ -713,6 +764,8 @@ class PostProcessManager:
         *fields : tuple of str
             Names of the fields to load
         """
+        if self._snapshot_list is None:
+            self.get_snapshot_list()
         fh5 = self.fields_file
 
         static_group = fh5['static']
@@ -787,6 +840,8 @@ class PostProcessManager:
         *fields : tuple of str
             Names of the fields to load
         """
+        if self._snapshot_list is None:
+            self.get_snapshot_list()
         fh5 = self.fields_file
 
         snapshot_group = fh5[f'snapshot_{n:0>4}']
@@ -852,7 +907,7 @@ class PostProcessManager:
                         self._snapshot_fields[field_name].coeffs[i][index] = coeff[index]
                         # Ghost regions are not in sync anymore
                         if self.comm is not None:
-                            self._snapshot_fields[field_dset_name].coeffs.ghost_regions_in_sync = False
+                            self._snapshot_fields[field_name].coeffs.ghost_regions_in_sync = False
                 except KeyError:
                     new_field = FemField(self._spaces[space_name])
 
@@ -933,7 +988,6 @@ class PostProcessManager:
         
         # Get Mappings
         mappings = self._domain_h.mappings
-
         # Do not support Multipatch domains.
         if len(mappings.values()) != 1:
             raise NotImplementedError("Multipatch not supported yet")
@@ -941,26 +995,29 @@ class PostProcessManager:
         ldim = self._domain_h.ldim
         # Singular mapping
         mapping = list(mappings.values())[0]
+        if mapping is None:
+            try: 
+                mapping = self._domain.mapping
+            except:
+                mapping = IdentityMapping('F', len(grid))
+
         if isinstance(mapping, SplineMapping):
             local_domain = mapping.space.local_domain
+            global_domain = ((0,) * ldim, tuple(nc_i - 1 for nc_i in mapping.space.ncells))
             space_0 = mapping.space
 
         elif isinstance(mapping, Mapping):
-            if self._spaces is not {}:
-                space_0 = list(self._spaces.values())[0]
-                try:
-                    local_domain = space_0.local_domain
-                except AttributeError:
-                    local_domain = space_0.spaces[0].local_domain
-            else:
-                space_0s = ScalarFunctionSpace('s', self._domain)
-                space_0 = discretize(space_0s, self._domain_h)
-                try:
-                    local_domain = space_0.local_domain
-                except AttributeError:
-                    local_domain = space_0.spaces[0].local_domain
+            assert self._spaces is not {}
+            space_0 = list(self._spaces.values())[0]
+            try:
+                local_domain = space_0.local_domain
+                global_domain = ((0,) * ldim, tuple(nc_i - 1 for nc_i in space_0.ncells))
+            except AttributeError:
+                space_0 = space_0.spaces[0]
+                local_domain = space_0.local_domain
+                global_domain = ((0,) * ldim, tuple(nc_i - 1 for nc_i in space_0.ncells))
 
-        self._pushforward = Pushforward(mapping, grid, npts_per_cell=npts_per_cell)
+
 
         # Check the grid argument
         assert len(grid) == ldim
@@ -996,6 +1053,10 @@ class PostProcessManager:
         else:
             raise ValueError("Wrong input for the grid parameters")
 
+
+        self._pushforward = Pushforward(mapping, grid, npts_per_cell=npts_per_cell, local_domain=local_domain,
+                                        global_domain=global_domain, grid_local=grid_local)
+
         mesh_grids = np.meshgrid(*grid_local, indexing = 'ij')
 
         cellData = None
@@ -1004,18 +1065,14 @@ class PostProcessManager:
         if isinstance(mapping, SplineMapping):
             x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell, overlap=0)
         elif isinstance(mapping, Mapping):
-            call_map = mapping.get_callable_mapping
+            call_map = mapping.get_callable_mapping()
             if ldim == 2:
-                fx, fy = call_map._func_eval
-                x_mesh = fx(*mesh_grids)[:, :, None]
-                y_mesh = fy(*mesh_grids)[:, :, None]
+                x_mesh, y_mesh = call_map(*mesh_grids)
+                x_mesh = x_mesh[..., None]
+                y_mesh = y_mesh[..., None]
                 z_mesh = np.zeros_like(x_mesh)
             elif ldim == 3:
-                fx, fy, fz = call_map._func_eval
-                x_mesh = fx(*mesh_grids)
-                y_mesh = fy(*mesh_grids)
-                z_mesh = fz(*mesh_grids)                
-
+                x_mesh, y_mesh, z_mesh = call_map(*mesh_grids)
         conn, offsets, celltypes, cell_shape = self._compute_unstructured_mesh_info(local_domain, 
                                                                                     npts_per_cell=npts_per_cell, 
                                                                                     cell_indexes=cell_indexes)
@@ -1042,7 +1099,7 @@ class PostProcessManager:
             filename_time_dependent = filename_pattern
 
         if debug:
-            debug_result = ((x_mesh, y_mesh, z_mesh), [])
+            debug_result = ((x_mesh, y_mesh, z_mesh, conn, offsets, celltypes),[])
 
         if fields is None:
             fields={}
@@ -1072,7 +1129,7 @@ class PostProcessManager:
             for name, f in additional_logical_functions.items():
                 data = f(*mesh_grids)
                 if isinstance(data, tuple):
-                    reshaped_tuple = tuple(np.reshape(data[i], x_mesh.shape))
+                    reshaped_tuple = tuple(np.reshape(data[i], x_mesh.shape) for i in range(3))
                     pointData_static[name] = reshaped_tuple
                 else:
                     pointData_static[name] = np.reshape(data, x_mesh.shape) 
@@ -1124,6 +1181,7 @@ class PostProcessManager:
         
         for i, snapshot in enumerate(snapshots):
             self.load_snapshot(snapshot, *fields.values())
+            # print(i, fields)
             pointData_i = self._export_to_vtk_helper(x_mesh.shape, fields=fields)
 
             if logical_grid:
@@ -1203,6 +1261,10 @@ class PostProcessManager:
                     pointData[name] = np.reshape(field, shape)
         else:
             for (name, field) in pointData_int:
+                try:
+                    print(name, field.shape, shape)
+                except:
+                    print(name, field[0].shape, field[1].shape, field[2].shape, shape)
                 pointData[name] = field
 
         return pointData
@@ -1237,126 +1299,195 @@ class PostProcessManager:
 
         if npts_per_cell is not None:
             n_elem = tuple(ends[i] + 1 - starts[i] for i in range(ldim))
-            
-            cellshape = np.array(n_elem) * (np.array(npts_per_cell) - 1)
+            cellshape = np.array(n_elem) * (np.array(npts_per_cell)) - 1
             total_number_cells_vtk = np.prod(cellshape)
             celltypes = np.zeros(total_number_cells_vtk, dtype='i')
             offsets = np.arange(1, total_number_cells_vtk + 1, dtype='i') * (2 ** ldim)
-            connectivity = np.zeros(total_number_cells_vtk * 2 ** ldim)
+            connectivity = np.zeros(total_number_cells_vtk * 2 ** ldim, dtype='i')
             if ldim == 2: 
                 celltypes[:] = VtkQuad.tid
                 cellID = 0
-                for i_elem in range(n_elem[0]):
-                    for j_elem in range(n_elem[1]):
-                        for i_intra in range(npts_per_cell[0] - 1):
-                            for j_intra in range(npts_per_cell[1] - 1):
-                                row_top = i_elem * npts_per_cell[0] + i_intra
-                                col_left = j_elem * npts_per_cell[1] + j_intra
+                for i in range(n_elem[0] * npts_per_cell[0] - 1):
+                    for j  in range(n_elem[1] * npts_per_cell[1] - 1):
+                        row_top = i 
+                        col_left = j
 
-                                topleft = row_top * n_elem[1] * npts_per_cell[1] + col_left
-                                topright = topleft + 1
-                                botleft = topleft + n_elem[1] * npts_per_cell[1] # next row
-                                botright = botleft + 1
+                        # VTK uses Fortran ordering
+                        topleft = col_left * npts_per_cell[0] * n_elem[0] + row_top
+                        topright = topleft + 1
+                        botleft = topleft + n_elem[0] * npts_per_cell[0] # next column
+                        botright = botleft + 1
 
-                                connectivity[4 * cellID: 4 * cellID + 4] = [topleft, topright, botright, botleft]
+                        connectivity[4 * cellID: 4 * cellID + 4] = [topleft, topright, botright, botleft]
 
-                                cellID += 1
-            
+                        cellID += 1
+    
             elif ldim == 3:
                 celltypes[:] = VtkHexahedron.tid
                 cellID = 0
+                n_rows = n_elem[0] * npts_per_cell[0]
                 n_cols = n_elem[1] * npts_per_cell[1]
                 n_layers = n_elem[2] * npts_per_cell[2]
-                for i_elem in range(n_elem[0]):
-                    for j_elem in range(n_elem[1]):
-                        for k_elem in range(n_elem[2]):
-                            for i_intra in range(npts_per_cell[0] - 1):
-                                for j_intra in range(npts_per_cell[1] - 1):
-                                    for k_intra in range(npts_per_cell[2] - 1):
-                                        row_top = i_elem * npts_per_cell[0] + i_intra
-                                        col_left = j_elem * npts_per_cell[1] + j_intra
-                                        layer_front = k_elem * npts_per_cell[2] + k_intra
-                                        
-                                        top_left_front = row_top * n_cols * n_layers + col_left * n_layers + layer_front
-                                        top_left_back = top_left_front + 1
-                                        top_right_front = top_left_front + n_layers # next column
-                                        top_right_back = top_right_front + 1
+                for i in range(n_rows - 1):
+                    for j in range(n_cols - 1):
+                        for k in range(n_layers - 1):
 
-                                        bot_left_front = top_left_front + n_layers * n_cols # next row
-                                        bot_left_back = bot_left_front + 1
-                                        bot_right_front = bot_left_front + n_layers # next column
-                                        bot_right_back = bot_right_front + 1
+                            row_top = i
+                            col_left = j 
+                            layer_front = k
+                            
+                            # VTK uses Fortran ordering
+                            top_left_front = row_top + col_left * n_rows + layer_front * n_cols * n_rows
+                            top_left_back = top_left_front + 1
+                            top_right_front = top_left_front + n_rows # next column
+                            top_right_back = top_right_front + 1
 
+                            bot_left_front = top_left_front + n_rows * n_cols # next layer
+                            bot_left_back = bot_left_front + 1
+                            bot_right_front = bot_left_front + n_rows # next column
+                            bot_right_back = bot_right_front + 1
 
-                                        connectivity[8 * cellID: 8 * cellID + 8] = [
-                                            top_left_front, top_right_front, bot_right_front, bot_left_front,
-                                            top_left_back, top_right_back, bot_right_back, bot_left_back
-                                        ]
+                            try:
+                                connectivity[8 * cellID: 8 * cellID + 8] = [
+                                    top_left_front, top_right_front, bot_right_front, bot_left_front,
+                                    top_left_back, top_right_back, bot_right_back, bot_left_back
+                                ]
+                            except ValueError:
+                                print(i,j,k, cellID)
+                                raise ValueError()
 
-                                        cellID += 1
+                            cellID += 1
         
         elif cell_indexes is not None:
             i_starts = [np.searchsorted(cell_indexes[i], starts[i], side='left') for i in range(ldim)]
             i_ends = [np.searchsorted(cell_indexes[i], ends[i], side='right') for i in range(ldim)]
             n_points = tuple(i_ends[i] - i_starts[i] for i in range(ldim))
 
-            uniques = [len(np.unique(cell_indexes[i][i_starts[i]: i_ends[i]])) for i in range(ldim)]
-            cellshape = np.array([n_points[i] - uniques[i] for i in range(ldim)])
+            cellshape = np.array([n_points[i] - 1 for i in range(ldim)])
             total_number_cells_vtk = np.prod(cellshape)
             celltypes = np.zeros(total_number_cells_vtk, dtype='i')
             offsets = np.arange(1, total_number_cells_vtk + 1, dtype='i') * (2 ** ldim)
-            connectivity = np.zeros(total_number_cells_vtk * 2 ** ldim)
+            connectivity = np.zeros(total_number_cells_vtk * 2 ** ldim, dtype='i')
             if ldim == 2:
                 cellID = 0
                 celltypes[:] = VtkQuad.tid
                 for i in range(i_ends[0] - 1 - i_starts[0]):
-                    if cell_indexes[0][i] == cell_indexes[0][i + 1]:
-                        for j in range(i_ends[1] - 1 - i_starts[1]):
-                            if cell_indexes[1][j] == cell_indexes[1][j + 1]:
-                                row_top = i
-                                col_left = j
+                    for j in range(i_ends[1] - 1 - i_starts[1]):
 
-                                topleft = row_top * n_points[1] + col_left
-                                topright = topleft + 1
-                                botleft = topleft + n_points[1]
-                                botright = botleft +1
+                        row_top = i
+                        col_left = j
 
-                                connectivity[4 * cellID: 4 * cellID + 4] = [topleft, topright, botright, botleft]
-                                cellID += 1
+                        # VTK uses Fortran ordering
+                        topleft = row_top + col_left * n_points[0]
+                        topright = topleft + 1
+                        botleft = topleft + n_points[0]
+                        botright = botleft +1
+
+                        connectivity[4 * cellID: 4 * cellID + 4] = [topleft, topright, botright, botleft]
+                        cellID += 1
 
             elif ldim == 3:
                 cellID = 0
                 celltypes[:] = VtkHexahedron.tid
+                n_rows = n_points[0]
                 n_cols = n_points[1]
                 n_layers = n_points[2]
                 for i in range(i_ends[0] - 1 - i_starts[0]):
-                    if cell_indexes[0][i] == cell_indexes[0][i + 1]:
-                        for j in range(i_ends[1] - 1 - i_starts[1]):
-                            if cell_indexes[1][j] == cell_indexes[1][j + 1]:
-                                for k in range(i_ends[2] - 1 - i_starts[2]):
-                                    if cell_indexes[2][k] == cell_indexes[2][k + 1]:
-                                        row_top = i
-                                        col_left = j
-                                        layer_front = k
+                    for j in range(i_ends[1] - 1 - i_starts[1]):
+                        for k in range(i_ends[2] - 1 - i_starts[2]):
+                            row_top = i
+                            col_left = j
+                            layer_front = k
 
-                                        top_left_front = row_top * n_cols * n_layers + col_left * n_layers + layer_front
-                                        top_left_back = top_left_front + 1
-                                        top_right_front = top_left_front + n_layers # next column
-                                        top_right_back = top_right_front + 1
+                            # VTK uses Fortran ordering
+                            top_left_front = row_top + col_left * n_rows + layer_front * n_cols * n_rows
+                            top_left_back = top_left_front + 1
+                            top_right_front = top_left_front + n_rows # next column
+                            top_right_back = top_right_front + 1
 
-                                        bot_left_front = top_left_front + n_layers * n_cols # next row
-                                        bot_left_back = bot_left_front + 1
-                                        bot_right_front = bot_left_front + n_layers # next column
-                                        bot_right_back = bot_right_front + 1
+                            bot_left_front = top_left_front + n_rows * n_cols # next layer
+                            bot_left_back = bot_left_front + 1
+                            bot_right_front = bot_left_front + n_rows # next column
+                            bot_right_back = bot_right_front + 1
 
 
-                                        connectivity[8 * cellID: 8 * cellID + 8] = [
-                                            top_left_front, top_right_front, bot_right_front, bot_left_front,
-                                            top_left_back, top_right_back, bot_right_back, bot_left_back
-                                        ]
+                            connectivity[8 * cellID: 8 * cellID + 8] = [
+                                top_left_front, top_right_front, bot_right_front, bot_left_front,
+                                top_left_back, top_right_back, bot_right_back, bot_left_back
+                            ]
 
-                                        cellID += 1
+                            cellID += 1
 
         else:
             raise NotImplementedError("Not Supported Yet")
+
         return connectivity, offsets, celltypes, cellshape
+
+
+def _augment_space_degree_dict(ldim, sequence='DR'):
+    """
+    With the 'DR' sequence in 3D, all multiplicies are [r1, r2, r3] and we have
+     'H1'   : degree = [p1, p2, p3]
+     'Hcurl': degree = [[p1-1, p2, p3], [p1, p2-1, p3], [p1, p2, p3-1]]
+     'Hdiv' : degree = [[p1, p2-1, p3-1], [p1-1, p2, p3-1], [p1-1, p2-1, p3]]
+     'L2'   : degree = [p1-1, p2-1, p3-1]
+
+    With the 'TH' sequence in 2D we have:
+     'H1' : degree = [[p1, p2], [p1, p2]], multiplicity = [[r1, r2], [r1, r2]]
+     'L2' : degree = [p1-1, p2-1], multiplicity = [r1-1, r2-1]
+
+    With the 'RT' sequence in 2D we have:
+    'H1' : degree = [[p1, p2-1], [p1-1, p2]], multiplicity = [[r1,r2], [r1,r2]]
+    'L2' : degree = [p1-1, p2-1], multiplicity = [r1, r2]
+
+    With the 'N' sequence in 2D we have:
+    'H1' : degree = [[p1, p2], [p1, p2]], multiplicity = [[r1,r2+1], [r1+1,r2]]
+    'L2' : degree = [p1-1, p2-1], multiplicity = [r1, r2]
+    """
+    assert ldim in [2, 3]
+    
+    if sequence == 'DR':
+        def f_h1(degree, multiplicity):
+            if isinstance(degree[0], (list, tuple, np.ndarray)):
+                return degree[0], multiplicity
+            else:
+                return degree, multiplicity
+    
+        def f_l2(degree, multiplicity):
+            if isinstance(degree[0], (list, tuple, np.ndarray)):
+                return np.asarray(degree[0]) + 1, multiplicity
+            else:
+                return np.asarray(degree) + 1, multiplicity
+
+        if ldim == 2:
+            def f_hdiv(degree, multiplicity):
+                degree = np.asarray(degree[0])
+                degree += np.array([0, 1])
+                return degree, multiplicity
+
+            def f_hcurl(degree, multiplicity):
+                degree = np.asarray(degree[0])
+                degree += np.array([1, 0])
+                return degree, multiplicity
+
+        else:
+            def f_hdiv(degree, multiplicity):
+                degree = np.asarray(degree[0])
+                degree += np.array([0, 1, 1])
+                return degree, multiplicity
+
+            def f_hcurl(degree, multiplicity):
+                degree = np.asarray(degree[0])
+                degree += np.array([1, 0, 0])
+                return degree, multiplicity 
+
+        kind_dict = {
+            'h1': f_h1,
+            'hcurl': f_hcurl,
+            'hdiv': f_hdiv,
+            'l2': f_l2,
+            'undefined': f_h1, 
+        }
+        return kind_dict
+    else:
+        raise NotImplementedError("Only DR sequence is implemented")
