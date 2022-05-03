@@ -249,7 +249,7 @@ def create_cart(spaces, interiors, comm, interfaces_info=None, nprocs=None, reve
                 axes   = interfaces_info[i,j][0]
                 exts   = interfaces_info[i,j][1]
                 if (i,j) in interfaces_cart.carts and not interfaces_cart.carts[i,j].is_comm_null:
-                    interfaces_cart.carts[i,j].set_communication_info_p2p(get_minus_starts_ends, get_plus_starts_ends)
+                    interfaces_cart.carts[i,j].set_communication_info(get_minus_starts_ends, get_plus_starts_ends)
 
     return cart, interfaces_cart
 
