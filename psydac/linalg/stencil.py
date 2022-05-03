@@ -323,14 +323,12 @@ class StencilVector( Vector ):
 
         assert isinstance( V, StencilVectorSpace )
 
-        data  = np.zeros( V.shape, dtype=V.dtype )
-
         self._space          = V
         self._sizes          = V.shape
         self._ndim           = len(V.npts)
-        self._data           = data
-        self._dot_send_data = np.zeros((1,), dtype=V.dtype)
-        self._dot_recv_data = np.zeros((1,), dtype=V.dtype)
+        self._data           = np.zeros( V.shape, dtype=V.dtype )
+        self._dot_send_data  = np.zeros((1,), dtype=V.dtype)
+        self._dot_recv_data  = np.zeros((1,), dtype=V.dtype)
         self._interface_data = {}
 
         for axis, ext in V._interfaces:
@@ -383,11 +381,13 @@ class StencilVector( Vector ):
 
         self._dot_send_data[0] = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
         if self._space.parallel:
+            self._dot_send_data[0] = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
             self._space.cart.global_comm.Allreduce((self._dot_send_data, self.space.mpi_type),
                                                    (self._dot_recv_data, self.space.mpi_type),
                                                    op=MPI.SUM )
-            self._dot_send_data[0] = self._dot_recv_data[0]
-        return self._dot_send_data[0]
+            return self._dot_recv_data[0]
+        else:
+            return self._dot(self._data, v._data , self.space.pads, self.space.shifts)
 
     #...
     @staticmethod
