@@ -101,7 +101,7 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
 
 #==============================================================================
 @pytest.mark.parametrize('domain', [(0, 1)])
-@pytest.mark.parametrize('ncells', [13, 37])
+@pytest.mark.parametrize('ncells', [20, 37])
 @pytest.mark.parametrize('degree', [3])
 @pytest.mark.parametrize('periodic', [True, False])
 @pytest.mark.parametrize('funcs', [np.sin, np.exp])
@@ -111,7 +111,7 @@ def test_projection_parallel_1d(domain, ncells, degree, periodic, funcs, reduce)
     run_projection_comparison([domain], [ncells], [degree], [periodic], [funcs], reduce)
 
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8])])              
-@pytest.mark.parametrize('ncells', [(27, 15)])              
+@pytest.mark.parametrize('ncells', [(27, 40)])
 @pytest.mark.parametrize('degree', [(4, 5)])                 
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)])
 @pytest.mark.parametrize('funcs', [[lambda x,y: np.sin(x)*np.sin(y), lambda x,y: np.cos(x)*np.cos(y)],
@@ -122,7 +122,7 @@ def test_projection_parallel_2d(domain, ncells, degree, periodic, funcs, reduce)
     run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce) 
 
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  
-@pytest.mark.parametrize('ncells', [(5, 5, 7)])                       
+@pytest.mark.parametrize('ncells', [(14, 14, 20)])
 @pytest.mark.parametrize('degree', [(2, 2, 3)])            
 @pytest.mark.parametrize('periodic', [( True, False, False),          
                                       (False,  True, False),

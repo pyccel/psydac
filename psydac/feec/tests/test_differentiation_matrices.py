@@ -262,10 +262,10 @@ def test_directional_derivative_operator_interface():
 def test_directional_derivative_operator_1d_ser(domain, ncells, degree, periodic, direction, negative, transposed, seed):
     run_directional_derivative_operator(None, [domain], [ncells], [degree], [periodic], direction, negative, transposed, seed, True)
 
-@pytest.mark.parametrize('domain', [([-2, 3], [6, 8])])              
-@pytest.mark.parametrize('ncells', [(10, 9), (27, 15)])              
-@pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 
-@pytest.mark.parametrize('periodic', [(True, False), (False, True)]) 
+@pytest.mark.parametrize('domain', [([-2, 3], [6, 8])])
+@pytest.mark.parametrize('ncells', [(10, 9), (27, 15)])
+@pytest.mark.parametrize('degree', [(3, 2), (4, 5)])
+@pytest.mark.parametrize('periodic', [(True, False), (False, True)])
 @pytest.mark.parametrize('direction', [0,1])
 @pytest.mark.parametrize('negative', [True, False])
 @pytest.mark.parametrize('transposed', [True, False])
@@ -273,10 +273,10 @@ def test_directional_derivative_operator_1d_ser(domain, ncells, degree, periodic
 def test_directional_derivative_operator_2d_ser(domain, ncells, degree, periodic, direction, negative, transposed, seed):
     run_directional_derivative_operator(None, domain, ncells, degree, periodic, direction, negative, transposed, seed, True) 
 
-@pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  
-@pytest.mark.parametrize('ncells', [(4, 5, 7)])                       
-@pytest.mark.parametrize('degree', [(3, 2, 5), (2, 4, 7)])            
-@pytest.mark.parametrize('periodic', [( True, False, False),          
+@pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])
+@pytest.mark.parametrize('ncells', [(4, 5, 7)])
+@pytest.mark.parametrize('degree', [(3, 2, 5), (2, 4, 7)])
+@pytest.mark.parametrize('periodic', [( True, False, False),
                                       (False,  True, False),
                                       (False, False,  True)])
 @pytest.mark.parametrize('direction', [0,1,2])
@@ -299,10 +299,10 @@ def test_directional_derivative_operator_1d_par(domain, ncells, degree, periodic
     # TODO: re-enable KroneckerStencilMatrix assembly here (fails right now sometimes when transposing)
     run_directional_derivative_operator(MPI.COMM_WORLD, [domain], [ncells], [degree], [periodic], direction, negative, transposed, seed)
 
-@pytest.mark.parametrize('domain', [([-2, 3], [6, 8])])              
-@pytest.mark.parametrize('ncells', [(13, 15), (27, 15)])              
-@pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 
-@pytest.mark.parametrize('periodic', [(True, False), (False, True)]) 
+@pytest.mark.parametrize('domain', [([-2, 3], [6, 8])])
+@pytest.mark.parametrize('ncells', [(17, 25), (27, 39)])
+@pytest.mark.parametrize('degree', [(3, 2), (4, 5)])
+@pytest.mark.parametrize('periodic', [(True, False), (False, True)])
 @pytest.mark.parametrize('direction', [0,1])
 @pytest.mark.parametrize('negative', [True, False])
 @pytest.mark.parametrize('transposed', [True, False])
@@ -312,9 +312,9 @@ def test_directional_derivative_operator_2d_par(domain, ncells, degree, periodic
     # TODO: re-enable KroneckerStencilMatrix assembly here (fails right now sometimes when transposing)
     run_directional_derivative_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
 
-@pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  
-@pytest.mark.parametrize('ncells', [(10, 10, 13)])                       
-@pytest.mark.parametrize('degree', [(2, 2, 3)])            
+@pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])
+@pytest.mark.parametrize('ncells', [(10, 10, 13)])
+@pytest.mark.parametrize('degree', [(2, 2, 3)])
 @pytest.mark.parametrize('periodic', [( True, False, False),          
                                       (False,  True, False),
                                       (False, False,  True)])
