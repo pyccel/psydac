@@ -1178,7 +1178,6 @@ class PostProcessManager:
         
         for i, snapshot in enumerate(snapshots):
             self.load_snapshot(snapshot, *fields.values())
-            # print(i, fields)
             pointData_i = self._export_to_vtk_helper(x_mesh.shape, fields=fields)
 
             if logical_grid:
@@ -1258,10 +1257,6 @@ class PostProcessManager:
                     pointData[name] = np.reshape(field, shape)
         else:
             for (name, field) in pointData_int:
-                try:
-                    print(name, field.shape, shape)
-                except:
-                    print(name, field[0].shape, field[1].shape, field[2].shape, shape)
                 pointData[name] = field
 
         return pointData
@@ -1344,14 +1339,10 @@ class PostProcessManager:
                             bot_right_front = bot_left_front + n_rows # next column
                             bot_right_back = bot_right_front + 1
 
-                            try:
-                                connectivity[8 * cellID: 8 * cellID + 8] = [
-                                    top_left_front, top_right_front, bot_right_front, bot_left_front,
-                                    top_left_back, top_right_back, bot_right_back, bot_left_back
-                                ]
-                            except ValueError:
-                                print(i,j,k, cellID)
-                                raise ValueError()
+                            connectivity[8 * cellID: 8 * cellID + 8] = [
+                                top_left_front, top_right_front, bot_right_front, bot_left_front,
+                                top_left_back, top_right_back, bot_right_back, bot_left_back
+                            ]
 
                             cellID += 1
         
