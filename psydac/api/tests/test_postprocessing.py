@@ -453,7 +453,7 @@ def test_parallel_export_discrete_domain(geometry, kind, space, interactive=Fals
             except AttributeError:
                 assert field_data[0].shape == x_mesh.shape
 
-
+    Pm.comm.Barrier()
     if rank == 0 and not interactive:
         for f in glob.glob("test_export_discrete*.*vtu"):
             os.remove(f)
@@ -531,8 +531,7 @@ def test_parallel_export_topological_domain(domain, mapping, kind, space, intera
             except AttributeError:
                 assert field_data[0].shape == x_mesh.shape
 
-    Pm.close()
-
+    Pm.comm.Barrier()
     if rank == 0 and not interactive:
         for f in glob.glob("test_export_topo*.*vtu"):
             os.remove(f)
