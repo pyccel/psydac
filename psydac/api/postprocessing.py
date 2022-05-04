@@ -807,7 +807,7 @@ class PostProcessManager:
                         if field_dset_name in fields:
                             new_field = FemField(self._spaces[space_name])
                             new_field.coeffs[index] = space_group[field_dset_name][index]
-
+                            new_field.coeffs.update_ghost_regions()
                             self._static_fields[field_dset_name] = new_field
  
         for space_name, field_dict in temp_space_to_field.items():
@@ -821,7 +821,7 @@ class PostProcessManager:
                     index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
                     new_field.coeffs[i][index] = coeff[index]
-
+                new_field.coeffs.update_ghost_regions()
                 self._static_fields[field_name] = new_field
 
         self._last_loaded_fields = self._static_fields
@@ -885,13 +885,11 @@ class PostProcessManager:
                                     try:
                                         self._snapshot_fields[field_dset_name].coeffs[index] = space_group[field_dset_name][index]
                                         
-                                        # Ghost regions are not in sync anymore
-                                        if self.comm is not None:
-                                            self._snapshot_fields[field_dset_name].coeffs.ghost_regions_in_sync = False
+                                        self._snapshot_fields[field_dset_name].coeffs.update_ghost_regions()
                                     except KeyError:
                                         new_field = FemField(self._spaces[space_name])
                                         new_field.coeffs[index] = space_group[field_dset_name][index]
-
+                                        new_field.coeffs.update_ghost_regions()
                                         self._snapshot_fields[field_dset_name] = new_field
 
         for space_name, field_dict in temp_space_to_field.items():
@@ -903,8 +901,7 @@ class PostProcessManager:
                         index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
                         self._snapshot_fields[field_name].coeffs[i][index] = coeff[index]
                         # Ghost regions are not in sync anymore
-                        if self.comm is not None:
-                            self._snapshot_fields[field_name].coeffs.ghost_regions_in_sync = False
+                        self._snapshot_fields[field_name].coeffs.update_ghost_regions()
                 except KeyError:
                     new_field = FemField(self._spaces[space_name])
 
@@ -913,6 +910,7 @@ class PostProcessManager:
                         index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
                         new_field.coeffs[i][index] = coeff[index]
+                    new_field.coeffs.update_ghost_regions()
                     self._snapshot_fields[field_name] = new_field
 
         self._loaded_t = snapshot_group.attrs['t']
