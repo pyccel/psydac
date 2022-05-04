@@ -391,7 +391,6 @@ class Pushforward:
 
         else:
             raise NotImplementedError("Not supported yet")
-        print(index_trimming, local_domain, self.local_domain)
         return index_trimming
 
     def _index_trimming_helper(self, space):
