@@ -98,7 +98,7 @@ for nc in nc_s:
         # backend_language = 'numba'
         backend_language='pyccel-gcc'
 
-        run_dir = get_run_dir(domain_name, source_type, nc, deg)
+        run_dir = get_run_dir(domain_name, nc, deg, source_type=source_type)
         plot_dir = get_plot_dir(case_dir, run_dir)
         diag_filename = plot_dir+'/'+diag_fn(source_type=source_type, source_proj=source_proj)
 

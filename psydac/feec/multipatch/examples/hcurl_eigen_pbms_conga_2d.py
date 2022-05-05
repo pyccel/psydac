@@ -199,38 +199,43 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
     print("done: eigenvalues found: " + repr(eigenvalues))
     return eigenvalues, eigenvectors
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
 
-    t_stamp_full = time_count()
+#     t_stamp_full = time_count()
 
-    quick_run = True
-    # quick_run = False
+#     # quick_run = True
+#     # # quick_run = False
 
-    if quick_run:
-        domain_name = 'curved_L_shape'
-        nc = 4
-        deg = 2
-    else:
-        nc = 8
-        deg = 4
+#     # if quick_run:
+#     #     domain_name = 'curved_L_shape'
+#     #     nc = 4
+#     #     deg = 2
+#     # else:
+#     #     nc = 8
+#     #     deg = 4
 
-    domain_name = 'pretzel_f'
-    # domain_name = 'curved_L_shape'
-    nc = 10
-    deg = 2
+#     domain_name = 'pretzel_f'
+#     # domain_name = 'curved_L_shape'
+#     nc = 8
+#     deg = 3
 
-    m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
-    run_dir = 'eigenpbm_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
-    hcurl_solve_eigen_pbm(
-        nc=nc, deg=deg,
-        nu=0,
-        mu=1, #1,
-        sigma=1,
-        domain_name=domain_name,
-        backend_language='pyccel-gcc',
-        plot_dir='./plots/tests_source_february/'+run_dir,
-        hide_plots=True,
-        m_load_dir=m_load_dir,
-    )
+#     run_dir = get_run_dir(domain_name, source_type, nc, deg)
+#     plot_dir = get_plot_dir(case_dir, run_dir)
 
-    time_count(t_stamp_full, msg='full program')
+#     m_load_dir = get_mat_dir(domain_name, nc, deg)
+
+#     hcurl_solve_eigen_pbm(
+#         nc=nc, deg=deg,
+#         nu=0,
+#         mu=1, #1,
+#         sigma=.1,
+#         nb_eigs=6,
+#         nb_eigs_plot=6,
+#         domain_name=domain_name,
+#         backend_language='pyccel-gcc',
+#         plot_dir='./plots/tests_source_february/'+run_dir,
+#         hide_plots=True,
+#         m_load_dir=m_load_dir,
+#     )
+
+#     time_count(t_stamp_full, msg='full program')
