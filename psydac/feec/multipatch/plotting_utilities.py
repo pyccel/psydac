@@ -191,7 +191,7 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
 #------------------------------------------------------------------------------
 def plot_field(
     fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, domain=None, surface_plot=False, cb_min=None, cb_max=None,
-    plot_type='amplitude', space_kind=None, title=None, filename='dummy_plot.png', subtitles=None, N_vis=20, vf_skip=2, hide_plot=True):
+    plot_type='amplitude', cmap='hsv', space_kind=None, title=None, filename='dummy_plot.png', subtitles=None, N_vis=20, vf_skip=2, hide_plot=True):
     """
     plot a discrete field (given as a FemField or by its coeffs in numpy or stencil format) on the given domain
 
@@ -230,7 +230,6 @@ def plot_field(
                 xx=xx,
                 yy=yy,
                 amp_factor=2,
-                # save_fig=plot_dir+'uh_vf.png',
                 save_fig=filename,
                 hide_plot=hide_plot,
                 dpi = 200,
@@ -272,7 +271,7 @@ def plot_field(
             save_fig=filename,
             save_vals = True,
             hide_plot=hide_plot,
-            cmap='hsv',
+            cmap=cmap, 
             dpi = 400,
         )
 

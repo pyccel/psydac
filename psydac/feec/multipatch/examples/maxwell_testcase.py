@@ -12,25 +12,28 @@ t_stamp_full = time_count()
 
 homogeneous = True # False # 
 
-nc_s = [2, 4,8,16]
-deg_s = [2,3,4,5]
+# nc_s = [2,4,8,16]
+# deg_s = [2,3,4,5]
 
 # nc_s = [20]
 # deg_s = [6]
 
 # nc_s = [4]
 # deg_s = [2]
-# nc_s = [8]
-# deg_s = [3]
+nc_s = [20]
+deg_s = [6]
 
 if homogeneous:
-    ref_case_dir = 'maxwell_hom'
-    case_dir = 'maxwell_hom'
-    # case_dir = 'maxwell_hom_test'
-
+    # ref_case_dir = 'maxwell_hom_eta=50'
     source_type = 'elliptic_J'
+    
+    case_dir = 'maxwell_hom'   
     omega = np.sqrt(170) # source time pulsation
 
+    # case_dir = 'maxwell_hom_eta=50'
+    # omega = np.sqrt(50) # source time pulsation
+
+    ref_case_dir = case_dir
     domain_name = 'pretzel_f'
     cb_min_sol = 0
     cb_max_sol = 1
@@ -65,10 +68,10 @@ project_sol = False # True #
 gamma_h = 10
 
 # ref solution (if no exact solution)
-ref_nc = 20
-ref_deg = 6
-# ref_nc = 2
-# ref_deg = 2
+# ref_nc = 20
+# ref_deg = 6
+ref_nc = 2
+ref_deg = 2
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
@@ -110,8 +113,10 @@ for nc in nc_s:
         sol_ref_dir = get_sol_dir(ref_case_dir, domain_name, ref_nc, ref_deg)
         sol_ref_filename = sol_ref_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
 
-        print('Calling solve_hcurl_source_pbm() with params = {}'.format(params))
-
+        print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
+        print(' Calling solve_hcurl_source_pbm() with params = {}'.format(params))
+        print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
+        
         # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
         # calling solver for:
         # 

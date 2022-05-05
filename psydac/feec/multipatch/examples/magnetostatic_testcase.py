@@ -12,7 +12,7 @@ t_stamp_full = time_count()
 #
 # test-case and numerical parameters:
 
-bc_type = 'metallic' # 'pseudo-vacuum' # 
+bc_type =  'pseudo-vacuum' # 'metallic' # 
 
 source_type = 'dipole_J'
 source_proj = 'P_L2_wcurl_J'
@@ -21,29 +21,41 @@ assert source_proj in ['P_geom', 'P_L2', 'P_L2_wcurl_J']
 domain_name = 'pretzel_f'
 dim_harmonic_space = 3
 
-# nc_s = [4,8,16]
+# nc_s = [2,4,8,16]
 # deg_s = [2,3,4,5]
 
-nc_s = [8]
-deg_s = [3]
+# nc_s = [2,8]
+nc_s = [16]   ## 
+deg_s = [3]  ##
+
+# nc_s = [20]
+# deg_s = [6]
 
 if bc_type == 'metallic':
     case_dir = 'magnetostatic_metal'
+    cb_min_sol = 0
+    cb_max_sol = 0.08
 
 elif bc_type == 'pseudo-vacuum':
     case_dir = 'magnetostatic_vacuum'
+    cb_min_sol = 0
+    cb_max_sol = 0.1
 
 else:
     raise ValueError(bc_type)
     # domain_name = 'curved_L_shape'
 
+ref_case_dir = case_dir
+
 # ref solution (if no exact solution)
 ref_nc = 20
 ref_deg = 6
+# ref_nc = 2
+# ref_deg = 2
+
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
-
 
 common_diag_filename = './'+case_dir+'_diags.txt'
 
@@ -77,12 +89,16 @@ for nc in nc_s:
             os.makedirs(sol_dir)
 
         # to load the ref FEM sol
-        sol_ref_dir = get_sol_dir(case_dir, domain_name, ref_nc, ref_deg)
+        sol_ref_dir = get_sol_dir(ref_case_dir, domain_name, ref_nc, ref_deg)
         sol_ref_filename = sol_ref_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
+
+        print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
+        print(' Calling solve_magnetostatic_pbm() with params = {}'.format(params))
+        print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
 
         # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
         # calling ms solver
-
+        
         diags = solve_magnetostatic_pbm(
             nc=nc, deg=deg,
             domain_name=domain_name,
@@ -95,6 +111,8 @@ for nc in nc_s:
             plot_dir=plot_dir,
             # plot_dir='./plots/magnetostatic_runs/'+run_dir,
             hide_plots=True,
+            cb_min_sol=cb_min_sol,
+            cb_max_sol=cb_max_sol,
             m_load_dir=m_load_dir,
             sol_filename=sol_filename,
             sol_ref_filename=sol_ref_filename,

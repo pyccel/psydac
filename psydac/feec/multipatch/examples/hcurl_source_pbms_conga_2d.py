@@ -250,6 +250,7 @@ def solve_hcurl_source_pbm(
 
     if plot_source:
         plot_field(numpy_coeffs=f_c, Vh=V1h, space_kind='hcurl', domain=domain, title='f_h with P = '+source_proj, filename=plot_dir+'/fh_'+source_proj+'.png', hide_plot=hide_plots)
+        plot_field(numpy_coeffs=f_c, Vh=V1h, plot_type='vector_field', space_kind='hcurl', domain=domain, title='f_h with P = '+source_proj, filename=plot_dir+'/fh_'+source_proj+'_vf.png', hide_plot=hide_plots)
 
     if filter_source:
         print(' .. filtering the source...')
@@ -327,8 +328,13 @@ def solve_hcurl_source_pbm(
         print(' .. plotting the FEM solution...')
         title = r'solution $u_h$ (amplitude) for $\eta = $'+repr(eta)
         params_str = 'eta={}_mu={}_nu={}_gamma_h={}_Pf={}'.format(eta, mu, nu, gamma_h, source_proj)
-        plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, filename=plot_dir+'/'+params_str+'_uh.png', 
+        plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, 
+            filename=plot_dir+'/'+params_str+'_uh.png', 
             plot_type='amplitude', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
+        title = r'solution $u_h$ for $\eta = $'+repr(eta)
+        plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', domain=domain, title=title, 
+            filename=plot_dir+'/'+params_str+'_uh_vf.png', 
+            plot_type='vector_field', hide_plot=hide_plots)
     if sol_filename:
         print(' .. saving solution coeffs to file {}'.format(sol_filename))
         np.save(sol_filename, uh_c)

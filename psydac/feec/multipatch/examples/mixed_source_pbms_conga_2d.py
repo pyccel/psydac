@@ -39,6 +39,7 @@ def solve_magnetostatic_pbm(
         dim_harmonic_space=0,
         project_solution=False,
         plot_source=False, plot_dir=None, hide_plots=True,
+        cb_min_sol=None, cb_max_sol=None,
         m_load_dir="", sol_filename="", sol_ref_filename="",
         ref_nc=None, ref_deg=None,
 ):
@@ -316,7 +317,7 @@ def solve_magnetostatic_pbm(
         if source_proj == 'P_L2_wcurl_J':
             if j2_c is None:
                 j2_c = dH2_m.dot(tilde_j2_c)
-            plot_field(numpy_coeffs=j2_c, Vh=V2h, space_kind='l2', domain=domain, title='P_L2 jh in V2h',
+            plot_field(numpy_coeffs=j2_c, cmap='viridis', plot_type='components', Vh=V2h, space_kind='l2', domain=domain, title='jh in V2h',
                        filename=plot_dir+'/j2h.png', hide_plot=hide_plots)
 
     print(" .. building block RHS")
@@ -383,6 +384,7 @@ def solve_magnetostatic_pbm(
                 domain=domain, title=title, filename=plot_dir+'/'+params_str+'_hh.png', hide_plot=hide_plots)
         title = r'solution {} (amplitude)'.format(u_name)
         plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='amplitude',
+                cb_min=cb_min_sol, cb_max=cb_max_sol,
                 domain=domain, title=title, filename=plot_dir+'/'+params_str+'_uh.png', hide_plot=hide_plots)
         title = r'solution {} (vector field)'.format(u_name)
         plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='vector_field',

@@ -81,8 +81,10 @@ for nc in nc_s:
         sol_ref_dir = get_sol_dir(case_dir, domain_name, ref_nc, ref_deg)
         sol_ref_filename = sol_ref_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
 
-        print('Calling solve_h1_source_pbm() with params = {}'.format(params))
-
+        print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
+        print(' Calling solve_h1_source_pbm() with params = {}'.format(params))
+        print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
+        
         # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
         # calling solver for:
         # 
