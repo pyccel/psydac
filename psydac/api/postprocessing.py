@@ -932,7 +932,7 @@ class PostProcessManager:
                       fields=None, 
                       additional_physical_functions=None,
                       additional_logical_functions=None,
-                      color_by_rank=True,
+                      number_by_rank=True,
                       debug=False):
         """Exports some fields to vtk. 
 
@@ -966,7 +966,7 @@ class PostProcessManager:
         additional_logical_functions : dict
             Dictionary of callable functions. Those functions will be called on the grid.
         
-        color_by_rank : bool, default=True
+        number_by_rank : bool, default=True
             Adds a cellData attribute that represents the rank of the process that created the file. 
 
         debug : bool, default=False
@@ -1078,12 +1078,12 @@ class PostProcessManager:
             rank = self.comm.Get_rank()
             size = self.comm.Get_size()
 
-            if color_by_rank:
+            if number_by_rank:
                 if ldim == 2:
-                    cellData = {'rank': np.full(tuple(cell_shape) + (1,), rank, dtype='i')}
+                    cellData = {'MPI_RANK': np.full(tuple(cell_shape) + (1,), rank, dtype='i')}
                 elif ldim == 3:
-                    cellData = {'rank': np.full(tuple(cell_shape), rank, dtype='i')}
-                cellData_info = {'rank': (cellData['rank'].dtype, 1)}
+                    cellData = {'MPI_RANK': np.full(tuple(cell_shape), rank, dtype='i')}
+                cellData_info = {'MPI_RANK': (cellData['MPI_RANK'].dtype, 1)}
             # Filenames
             filename_static = filename_pattern + f'.{rank}.' + 'static'
             filename_time_dependent = filename_pattern + f'.{rank}'
