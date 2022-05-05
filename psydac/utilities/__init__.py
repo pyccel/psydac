@@ -1,4 +1,3 @@
-__all__ = ['integrate','quadratures']
+__all__ = ['quadratures']
 
-from psydac.utilities import integrate
 from psydac.utilities import quadratures
