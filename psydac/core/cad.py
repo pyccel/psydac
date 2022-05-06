@@ -1,0 +1,526 @@
+# coding: utf-8
+#
+# Copyright 2018 Ahmed Ratnani
+
+import numpy as np
+
+from .bsplines_pyccel import basis_funs_p as basis_funs
+from .bsplines_pyccel import find_span_p as find_span
+
+# ==========================================================
+def point_on_bspline_curve(pu: int, Tu: 'float[:]', P: 'float[:,:]', x: float, out: 'float[:]'):
+    """
+    Compute a b-spline curve point.
+
+    Reference: The NURBS Book, algorithm A3.1, page 82
+    """
+    d = P.shape[-1]
+    bu = np.zeros(pu + 1)
+
+    span = find_span( Tu, pu, x )
+    basis_funs( Tu, pu, x, span, bu )
+
+#    out = np.zeros(d)
+    out[:] = 0.
+    for k in range(0, pu+1):
+        out[:] += bu[k]*P[span-pu+k,:]
+
+# ==========================================================
+def insert_knot_bspline_curve(pu_in: int, Tu_in: 'float[:]', P_in: 'float[:,:]', t: float, times: int,
+                              Tu_out: 'float[:]', P_out: 'float[:,:]'):
+    """
+    Insert the Tu_in t times in the B-Spline curve defined by (Tu_in, pu_in, P_in).
+
+    Reference: The NURBS Book, algorithm A5.1, page 151
+    """
+    n = len(Tu_in) - pu_in - 1
+    n_new = n + times
+
+    # ... multiplicity of t if already in Tu_in
+    m = 0
+    for u in Tu_in:
+        # TODO add machine precision
+        if u == t:
+            m += 1
+    # ...
+
+    # compute the span
+    span = find_span( Tu_in, pu_in, t )
+
+    # ... create the new knot vector
+#    Tu_out = np.zeros(n_new+pu_in+1, dtype=np.float)
+
+    Tu_out[:] = 0.
+    Tu_out[:span+1] = Tu_in[:span+1]
+    Tu_out[span+1:span+times+1] = t
+    Tu_out[span+times+1:] = Tu_in[span+1:]
+    # ...
+
+    # ...
+    d = P_in.shape[1]
+    P_out[:,:] = 0.
+#    P_out = np.zeros((n_new, d), dtype=np.float)
+
+    # temporary array
+    R = np.zeros((pu_in+1, d), dtype=np.float)
+
+    P_out[:span-pu_in+1] = P_in[:span-pu_in+1]
+    P_out[span-m+times:] = P_in[span-m:]
+    R[:pu_in-m+1] = P_in[span-pu_in:span-m+1]
+
+    # insert t times
+    for j in range(1, times+1):
+        l = span - pu_in + j
+        for i in range(0, pu_in-j-m+1):
+            alpha = (t-Tu_in[l+i])/(Tu_in[i+span+1] - Tu_in[l+i])
+            R[i] = alpha*R[i+1] + (1. - alpha)*R[i]
+        P_out[l] = R[0]
+        P_out[span+times-j-m] = R[pu_in-j-m]
+
+    for i in range(l+1, span-m):
+        P_out[i] = R[i-l]
+    # ...
+
+# ==========================================================
+# NOTE only true for open knot vector
+def elevate_degree_bspline_curve(pu_in: int, Tu_in: 'float[:]', P_in: 'float[:,:]',
+                                 breaks: 'float[:]', multiplicities: 'int[:]',
+                                 m: int,
+                                 Tu_out: 'float[:]', P_out: 'float[:,:]'):
+    """elevate the B-Spline degree m times in the B-Spline curve defined by (Tu_in, degree, P)."""
+    # ...
+    n_in = len(Tu_in) - pu_in - 1
+    k = pu_in + 1
+    nd = P_in.shape[-1]
+
+#    breaks         = np.unique(Tu_in)
+#    multiplicities = [Tu_in.count(t) for t in breaks]
+    # ...
+
+    # ... out parameters
+    s = len(breaks) - 1
+
+    pu_out = pu_in + m
+    n_out = n_in + s * m
+    # ...
+
+    # ... allocate temporary arrays
+    Phat   = np.zeros((n_in,pu_in+1,nd), dtype=np.float)
+    Qhat   = np.zeros((n_out,pu_out+1,nd), dtype=np.float)
+    alphas = np.ones(pu_in+1, dtype=np.float)
+    betas  = np.zeros(s, dtype=np.int32)
+    # ...
+
+    # ... allocate out arrays
+#    P_out = np.zeros((n_out,nd), dtype=np.float)
+#    Tu_out = np.zeros(n_out+pu_out+1, dtype=np.float)
+    # ...
+
+    # ... compute alpha coeffs
+    for j in range(0, pu_in + 1 ):
+        for l in range(1, j+1):
+            alphas[j] *= ( k - l ) / ( k + m - l )
+    # ...
+
+    # ... compute beta coeffs
+    betas[1] = multiplicities[1]
+    for i in range(2, s):
+        betas[i] = betas[i-1] + multiplicities[i]
+    # ...
+
+    # ... compute Tu_out
+    i = 0
+    for t, mult in zip(breaks, multiplicities):
+        Tu_out[i:i+mult+m] = t
+        i += mult+m
+    # ...
+
+    # ... STEP 1
+    #     compute p(0,0:p-1) and p(beta(:),i)
+    Phat[:, 0, :] = P_in[:, :]
+    for j in range(1, pu_in+1):
+        for i in range(0, n_in-j):
+            if not( Tu_in[i+k] == Tu_in[i+j] ):
+                r = Tu_in[i+k] - Tu_in[i+j]
+                Phat[i,j,:] = ( Phat[i+1, j-1, :] - Phat[i, j-1, :] ) / r
+
+            else:
+                Phat[i,j,:] = 0.
+    # ...
+
+    # ... STEP 2
+    #     compute q(0,0:p-1)
+    for j in range(0, pu_in+1):
+        Qhat[0, j, :] = alphas[j] * Phat[0, j, :]
+
+    #     compute q(beta(l)+lm,j)
+    for l in range(1, s):
+        ml = multiplicities[l]
+        bl = betas[l]
+        for j in range(k-ml, k):
+            Qhat[bl+l*m,j,:] = alphas[j] * Phat[bl,j,:]
+
+    #     compute q(beta(l)+lm+i,j), i=1,m
+    for l in range(1, s):
+        bl = betas[l]
+        for j in range(1, m+1):
+            Qhat[bl+l*m, pu_in,:] = Qhat[bl+l*m, pu_in]
+    # ...
+
+    # ... STEP 3
+    #     compute q(i,0)
+    k = k + m
+
+    # first we compute control points generated by the first column
+    j = k - 1
+    while( j >= 1 ):
+        for i in range(0, k-j):
+            if not( Tu_out[i+k] == Tu_out[i+j] ):
+                Qhat[i+1,j-1,:] = Qhat[i,j-1,:] + Qhat[i,j,:] * ( Tu_out[i+k] - Tu_out[i+j] )
+        j -= 1
+
+    #
+    for l in range(1, s):
+        j = k-1
+        bl = betas[l]
+        while( j >= 1 ):
+            for i in range(bl+l*m, bl+l*m+k-j):
+                if not( Tu_out[i+k] == Tu_out[i+j] ):
+                    Qhat[i+1,j-1,:] = Qhat[i,j-1,:] + Qhat[i,j,:] * ( Tu_out[i+k] - Tu_out[i+j] )
+            j -= 1
+    # ...
+
+    # ... STEP 4
+    #     compute P_out
+    # TODO put to zero values that are at machine precision
+    P_out[:,:] = Qhat[:,0,:]
+    # ...
+
+# ==========================================================
+def point_on_bspline_surface(pu: int, pv: int, Tu: 'float[:]', Tv: 'float[:]', P: 'float[:,:,:]',
+                             u: float, v: float,
+                             out: 'float[:]'):
+    d = P.shape[-1]
+
+    span_u = find_span( Tu, pu, u )
+    span_v = find_span( Tv, pv, v )
+
+    bu = np.zeros(pu + 1)
+    bv = np.zeros(pv + 1)
+
+    basis_funs( Tu, pu, u, span_u, bu )
+    basis_funs( Tv, pv, v, span_v, bv )
+
+#    out = np.zeros(d)
+    out[:] = 0.
+    for ku in range(0, pu+1):
+        for kv in range(0, pv+1):
+            out[:] += bu[ku]*bv[kv]*P[span_u-pu+ku, span_v-pv+kv,:]
+
+# ==========================================================
+def insert_knot_bspline_surface(pu: int, pv: int, Tu: 'float[:]', Tv: 'float[:]', P: 'float[:,:,:]',
+                                t: float, times: int, axis: int,
+                                Tu_out: 'float[:]', Tv_out: 'float[:]', P_out: 'float[:,:,:]'):
+    """
+
+    Reference: The NURBS Book, algorithm A5.3, page 155
+    """
+
+    nu = P.shape[0]
+    nv = P.shape[1]
+    d  = P.shape[2]
+
+    R = np.zeros((max(nu,nv)+times, d), dtype=np.float)
+
+    if axis == 0:
+        j = 0
+        insert_knot_bspline_curve(pu, Tu, P[:,j,:], t, times, Tu_out, R)
+        P_out[:nu+times,j,:d] = R[:nu+times,:d]
+
+        for j in range(1,nv):
+            insert_knot_bspline_curve(pu, Tu, P[:,j,:], t, times, Tu_out, R)
+            P_out[:nu+times,j,:d] = R[:nu+times,:d]
+
+    if axis == 1:
+        i = 0
+        insert_knot_bspline_curve(pv, Tv, P[i,:,:], t, times, Tv_out, R)
+        P_out[i,:nv+times,:d] = R[:nv+times,:d]
+
+        for i in range(1,nu):
+            insert_knot_bspline_curve(pv, Tv, P[i,:,:], t, times, Tv_out, R)
+            P_out[i,:nv+times,:d] = R[:nv+times,:d]
+
+# ==========================================================
+def elevate_degree_bspline_surface(pu: int, pv: int, Tu: 'float[:]', Tv: 'float[:]', P: 'float[:,:,:]',
+                                   breaks_u: 'float[:]', breaks_v: 'float[:]',
+                                   multiplicities_u: 'int[:]', multiplicities_v: 'int[:]',
+                                   m:int , axis: int,
+                                   Tu_out: 'float[:]', Tv_out: 'float[:]', P_out: 'float[:,:,:]'):
+
+    nu = P.shape[0]
+    nv = P.shape[1]
+    d  = P.shape[2]
+
+    su = len(breaks_u) - 1
+    sv = len(breaks_v) - 1
+
+    if axis == 0:
+
+        Ru = np.zeros((nu+su*m,d), dtype=np.float)
+
+        j = 0
+        elevate_degree_bspline_curve(pu, Tu, P[:,j,:], breaks_u, multiplicities_u, m, Tu_out, Ru)
+        P_out[:,j,:] = Ru[:,:]
+
+        for j in range(1,nv):
+            elevate_degree_bspline_curve(pu, Tu, P[:,j,:], breaks_u, multiplicities_u, m, Tu_out, Ru)
+            P_out[:,j,:] = Ru[:,:]
+
+    if axis == 1:
+
+        Rv = np.zeros((nv+sv*m,d), dtype=np.float)
+
+        i = 0
+        elevate_degree_bspline_curve(pv, Tv, P[i,:,:], breaks_v, multiplicities_v, m, Tv_out, Rv)
+        P_out[i,:,:] = Rv[:,:]
+
+        for i in range(1,nu):
+            elevate_degree_bspline_curve(pv, Tv, P[i,:,:], breaks_v, multiplicities_v, m, Tv_out, Rv)
+            P_out[i,:,:] = Rv[:,:]
+
+# ==========================================================
+def translate_bspline_curve(pu: int, Tu: 'float[:]', P: 'float[:,:]', displacement: 'float[:]'):
+
+    n      = P.shape[0]
+    d      = P.shape[1]
+    for i in range(0, n):
+        P[i,:d] += displacement[:d]
+
+# ==========================================================
+def rotate_bspline_curve(pu: int, Tu: 'float[:]', P: 'float[:,:]', angle: float, center: 'float[:]'):
+
+    n      = P.shape[0]
+    d      = P.shape[1]
+
+    ca = np.cos(angle)
+    sa = np.sin(angle)
+
+    for i in range(0, n):
+        xi = P[i,0]
+        yi = P[i,1]
+        P[i,0] = center[0] + ca * ( xi - center[0] ) - sa * ( yi - center[1] )
+        P[i,1] = center[1] + sa * ( xi - center[0] ) + ca * ( yi - center[1] )
+
+# ==========================================================
+def homothetic_bspline_curve(pu: int, Tu: 'float[:]', P: 'float[:,:]', alpha: float, center: 'float[:]'):
+
+    n      = P.shape[0]
+    d      = P.shape[1]
+
+    for i in range(0, n):
+        xi = P[i,0]
+        yi = P[i,1]
+        P[i,0] = center[0] + alpha * ( xi - center[0] )
+        P[i,1] = center[1] + alpha * ( yi - center[1] )
+
+# ==========================================================
+def translate_bspline_surface(pu: int, pv: int, Tu: 'float[:]', Tv: 'float[:]', P: 'float[:,:,:]', displacement: 'float[:]'):
+
+    nu     = P.shape[0]
+    nv     = P.shape[1]
+    d      = P.shape[2]
+
+    for i in range(0, nu):
+        for j in range(0, nv):
+            P[i,j,:d] += displacement[:d]
+
+# ==========================================================
+def rotate_bspline_surface(pu: int, pv: int, Tu: 'float[:]', Tv: 'float[:]', P: 'float[:,:,:]', angle: float, center: 'float[:]'):
+
+    nu     = P.shape[0]
+    nv     = P.shape[1]
+    d      = P.shape[2]
+
+    ca = np.cos(angle)
+    sa = np.sin(angle)
+
+    for i in range(0, nu):
+        for j in range(0, nv):
+            xij = P[i,j,0]
+            yij = P[i,j,1]
+            P[i,j,0] = center[0] + ca * ( xij - center[0] ) - sa * ( yij - center[1] )
+            P[i,j,1] = center[1] + sa * ( xij - center[0] ) + ca * ( yij - center[1] )
+
+# ==========================================================
+def homothetic_bspline_surface(pu: int, pv: int, Tu: 'float[:]', Tv: 'float[:]', P: 'float[:,:,:]', alpha: float, center: 'float[:]'):
+
+    nu     = P.shape[0]
+    nv     = P.shape[1]
+    d      = P.shape[2]
+
+    for i in range(0, nu):
+        for j in range(0, nv):
+            xij = P[i,j,0]
+            yij = P[i,j,1]
+            P[i,j,0] = center[0] + alpha * ( xij - center[0] )
+            P[i,j,1] = center[1] + alpha * ( yij - center[1] )
+
+## ==========================================================
+#def point_on_nurbs_curve(Tu: 'float[:]', P: 'float[:,:]', W: 'float[:]', x: float, out: 'float[:]'):
+#    # weithed control points in d + 1
+#    n = P.shape[0]
+#    d = P.shape[1]
+#    Pw = np.zeros((n,d+1))
+#    for i in range(0, n):
+#        Pw[i,:d] = W[i]*P[i,:]
+#        Pw[i,d]  = W[i]
+#
+#    Qw = point_on_bspline_curve(Tu, Pw, x)
+#
+#    Q = np.zeros(d)
+#    Q[:] = Qw[:d]/Qw[d]
+#
+#    return Q
+
+## ==========================================================
+#def insert_knot_nurbs_curve(Tu: 'float[:]', pu, P, W, t, times=1):
+#    nu = P.shape[0]
+#    d  = P.shape[1]
+#
+#    Pw = np.zeros((nu,d+1))
+#    for i in range(0, nu):
+#        Pw[i,:d] = W[i]*P[i,:d]
+#        Pw[i,d]  = W[i]
+#
+#    Tu, pu, Pw = insert_knot_bspline_curve(Tu, pu, Pw, t, times=times)
+#
+#    nu = Pw.shape[0]
+#    P = np.zeros((nu,d))
+#    W = np.zeros(nu)
+#    for i in range(0, nu):
+#        W[i] = Pw[i,d]
+#        P[i,:d] = Pw[i,:d] / W[i]
+#
+#    return Tu, pu, P, W
+
+## ==========================================================
+#def elevate_degree_nurbs_curve(Tu: 'float[:]', pu, P, W, m=1):
+#    nu = P.shape[0]
+#    d  = P.shape[1]
+#
+#    Pw = np.zeros((nu,d+1))
+#    for i in range(0, nu):
+#        Pw[i,:d] = W[i]*P[i,:d]
+#        Pw[i,d]  = W[i]
+#
+#    Tu, pu, Pw = elevate_degree_bspline_curve(Tu, pu, Pw, m=m)
+#
+#    nu = Pw.shape[0]
+#    P = np.zeros((nu,d))
+#    W = np.zeros(nu)
+#    for i in range(0, nu):
+#        W[i] = Pw[i,d]
+#        P[i,:d] = Pw[i,:d] / W[i]
+#
+#    return Tu, pu, P, W
+#
+
+## ==========================================================
+#def insert_knot_nurbs_surface(Tu: 'float[:]', Tv: 'float[:]', pu, pv, P, W, t, times=1, axis=None):
+#    nu = P.shape[0]
+#    nv = P.shape[1]
+#    d  = P.shape[2]
+#
+#    Pw = np.zeros((nu,nv,d+1))
+#    for i in range(0, nu):
+#        for j in range(0, nv):
+#            Pw[i,j,:d] = W[i,j]*P[i,j,:d]
+#            Pw[i,j,d]  = W[i,j]
+#
+#    Tu, Tv, pu, pv, Pw = insert_knot_bspline_surface(Tu, Tv, pu, pv, Pw, t, times=times, axis=axis)
+#
+#    nu = Pw.shape[0]
+#    nv = Pw.shape[1]
+#    P = np.zeros((nu,nv,d))
+#    W = np.zeros((nu,nv))
+#    for i in range(0, nu):
+#        for j in range(0, nv):
+#            W[i,j] = Pw[i,j,d]
+#            P[i,j,:d] = Pw[i,j,:d] / W[i,j]
+#
+#    return Tu, Tv, pu, pv, P, W
+
+## ==========================================================
+#def point_on_nurbs_surface(Tu: 'float[:]', Tv: 'float[:]', P, W, u, v):
+#    nu = P.shape[0]
+#    nv = P.shape[1]
+#    d  = P.shape[2]
+#
+#    Pw = np.zeros((nu,nv,d+1))
+#    for i in range(0, nu):
+#        for j in range(0, nv):
+#            Pw[i,j,:d] = W[i,j]*P[i,j,:d]
+#            Pw[i,j,d]  = W[i,j]
+#
+#    Qw = point_on_bspline_surface(Tu, Tv, Pw, u, v)
+#
+#    Q = np.zeros(d)
+#    Q[:] = Qw[:d]/Qw[d]
+#
+#    return Q
+
+## ==========================================================
+#def elevate_degree_nurbs_surface(Tu: 'float[:]', Tv: 'float[:]', pu, pv, P, W, m=1, axis=None):
+#    nu = P.shape[0]
+#    nv = P.shape[1]
+#    d  = P.shape[2]
+#
+#    Pw = np.zeros((nu,nv,d+1))
+#    for i in range(0, nu):
+#        for j in range(0, nv):
+#            Pw[i,j,:d] = W[i,j]*P[i,j,:d]
+#            Pw[i,j,d]  = W[i,j]
+#
+#    Tu, Tv, pu, pv, Pw = elevate_degree_bspline_surface(Tu, Tv, pu, pv, Pw, m=m, axis=axis)
+#
+#    nu = Pw.shape[0]
+#    nv = Pw.shape[1]
+#    P = np.zeros((nu,nv,d))
+#    W = np.zeros((nu,nv))
+#    for i in range(0, nu):
+#        for j in range(0, nv):
+#            W[i,j] = Pw[i,j,d]
+#            P[i,j,:d] = Pw[i,j,:d] / W[i,j]
+#
+#    return Tu, Tv, pu, pv, P, W
+
+## ==========================================================
+#def translate_nurbs_curve(knots: 'float[:]', P, W, displacement):
+#    knots, Q = translate_bspline_curve(knots, P, displacement)
+#    return knots, Q, W
+
+## ==========================================================
+#def rotate_nurbs_curve(knots: 'float[:]', P, W, angle, center=[0.,0.]):
+#    knots, Q = rotate_bspline_curve(knots, P, angle, center=center)
+#    return knots, Q, W
+
+## ==========================================================
+#def homothetic_nurbs_curve(knots: 'float[:]', P, W, alpha, center=[0.,0.]):
+#    knots, Q = homothetic_bspline_curve(knots, P, alpha, center=center)
+#    return knots, Q, W
+
+## ==========================================================
+#def translate_nurbs_surface(Tu: 'float[:]', Tv: 'float[:]', P, W, displacement):
+#    Tu, Tv, Q = translate_bspline_surface(Tu, Tv, P, displacement)
+#    return Tu, Tv, Q, W
+
+## ==========================================================
+#def rotate_nurbs_surface(Tu: 'float[:]', Tv: 'float[:]', P, W, angle, center=[0.,0.]):
+#    Tu, Tv, Q = rotate_bspline_surface(Tu, Tv, P, angle, center=center)
+#    return Tu, Tv, Q, W
+
+## ==========================================================
+#def homothetic_nurbs_surface(Tu: 'float[:]', Tv: 'float[:]', P, W, alpha, center=[0.,0.]):
+#    Tu, Tv, Q = homothetic_bspline_surface(Tu, Tv, P, alpha, center=center)
+#    return Tu, Tv, Q, W
+
