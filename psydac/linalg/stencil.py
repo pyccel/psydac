@@ -285,6 +285,7 @@ class StencilVectorSpace( VectorSpace ):
         if cart is not None and not cart.is_comm_null:
             assert isinstance(cart, CartDecomposition)
             space = StencilVectorSpace(cart)
+            self._interfaces[axis, ext] = space
         elif cart is None:
             npts          = list(self.npts)
             pads          = self.pads
@@ -306,7 +307,7 @@ class StencilVectorSpace( VectorSpace ):
                 ends[axis] = pads[axis]-diff
 
             space = StencilVectorSpace(npts=npts, pads=pads, periods=periods, shifts=shifts, starts=starts, ends=ends)
-        self._interfaces[axis, ext] = space
+            self._interfaces[axis, ext] = space
 
 #===============================================================================
 class StencilVector( Vector ):
@@ -1584,13 +1585,15 @@ class StencilMatrix( Matrix ):
                 if self.domain == self.codomain:
                     # In this case nrows_extra[i] == 0 for all i
                     dot = LinearOperatorDot(self._ndim,
+                                    block_shape = (1,1),
+                                    keys = ((0,0),),
                                     comm = comm,
                                     backend=frozenset(backend.items()),
-                                    nrows_extra = self._args['nrows_extra'],
-                                    gpads=self._args['gpads'],
-                                    pads=self._args['pads'],
-                                    dm = self._args['dm'],
-                                    cm = self._args['cm'])
+                                    nrows_extra = (self._args['nrows_extra'],),
+                                    gpads=(self._args['gpads'],),
+                                    pads=(self._args['pads'],),
+                                    dm = (self._args['dm'],),
+                                    cm = (self._args['cm'],))
 
                     starts = self._args.pop('starts')
                     nrows  = self._args.pop('nrows')
@@ -1602,19 +1605,21 @@ class StencilMatrix( Matrix ):
                     self._args.pop('cm')
 
                     for i in range(len(nrows)):
-                        self._args['s{i}'.format(i=i+1)] = np.int64(starts[i])
+                        self._args['s00_{i}'.format(i=i+1)] = np.int64(starts[i])
 
                     for i in range(len(nrows)):
-                        self._args['n{i}'.format(i=i+1)] = np.int64(nrows[i])
+                        self._args['n00_{i}'.format(i=i+1)] = np.int64(nrows[i])
 
                 else:
                     dot = LinearOperatorDot(self._ndim,
+                                            block_shape = (1,1),
+                                            keys = ((0,0),),
                                             comm = comm,
                                             backend=frozenset(backend.items()),
-                                            gpads=self._args['gpads'],
-                                            pads=self._args['pads'],
-                                            dm = self._args['dm'],
-                                            cm = self._args['cm'])
+                                            gpads=(self._args['gpads'],),
+                                            pads=(self._args['pads'],),
+                                            dm = (self._args['dm'],),
+                                            cm = (self._args['cm'],))
 
                     starts      = self._args.pop('starts')
                     nrows       = self._args.pop('nrows')
@@ -1626,25 +1631,27 @@ class StencilMatrix( Matrix ):
                     self._args.pop('cm')
 
                     for i in range(len(nrows)):
-                        self._args['s{i}'.format(i=i+1)] = np.int64(starts[i])
+                        self._args['s00_{i}'.format(i=i+1)] = np.int64(starts[i])
 
                     for i in range(len(nrows)):
-                        self._args['n{i}'.format(i=i+1)] = np.int64(nrows[i])
+                        self._args['n00_{i}'.format(i=i+1)] = np.int64(nrows[i])
 
                     for i in range(len(nrows)):
-                        self._args['ne{i}'.format(i=i+1)] = np.int64(nrows_extra[i])
+                        self._args['ne00_{i}'.format(i=i+1)] = np.int64(nrows_extra[i])
 
             else:
                 dot = LinearOperatorDot(self._ndim,
+                                        block_shape = (1,1),
+                                        keys = ((0,0),),
                                         comm = None,
                                         backend=frozenset(backend.items()),
-                                        starts = tuple(self._args['starts']),
-                                        nrows=tuple(self._args['nrows']),
-                                        nrows_extra=self._args['nrows_extra'],
-                                        gpads=self._args['gpads'],
-                                        pads=self._args['pads'],
-                                        dm = self._args['dm'],
-                                        cm = self._args['cm'])
+                                        starts = (tuple(self._args['starts']),),
+                                        nrows=(tuple(self._args['nrows']),),
+                                        nrows_extra=(self._args['nrows_extra'],),
+                                        gpads=(self._args['gpads'],),
+                                        pads=(self._args['pads'],),
+                                        dm = (self._args['dm'],),
+                                        cm = (self._args['cm'],))
                 self._args.pop('nrows')
                 self._args.pop('nrows_extra')
                 self._args.pop('gpads')
@@ -1653,9 +1660,7 @@ class StencilMatrix( Matrix ):
                 self._args.pop('dm')
                 self._args.pop('cm')
 
-
             self._func = dot.func
-
 
 #===============================================================================
 # TODO [YG, 28.01.2021]:
@@ -1728,12 +1733,10 @@ class StencilInterfaceMatrix(Matrix):
         nrows_extra   = [0 if (nci<=ndi or eci<nci-1) else nci-ndi for eci,nci,ndi in zip(W.ends, W.npts, V.npts)]
         nrows_extra[c_axis] = max(W.npts[c_axis]-V.npts[c_axis],0)
         nrows         = [n-e for n,e in zip(nrows, nrows_extra)]
-        rows_starts   = [0]*self._ndim
 
         args                 = {}
         args['nrows']        = tuple(nrows)
         args['nrows_extra']  = tuple(nrows_extra)
-        args['rows_starts']  = tuple(rows_starts)
         args['dpads']        = tuple(V.pads)
         args['pads']         = tuple(self._pads)
         args['c_axis']       = c_axis
@@ -1789,6 +1792,7 @@ class StencilInterfaceMatrix(Matrix):
             assert out.space is self.codomain
         else:
             out = StencilVector( self.codomain )
+
         self._func(self._data, v._interface_data[self._d_axis, self._d_ext], out._data, **self._args)
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
@@ -2249,72 +2253,70 @@ class StencilInterfaceMatrix(Matrix):
                 if self.domain == self.codomain:
                     # In this case nrows_extra[i] == 0 for all i
                     dot = LinearOperatorDot(self._ndim,
+                                    block_shape = (1,1),
+                                    keys = ((0,0),),
                                     comm = comm,
                                     backend=frozenset(backend.items()),
-                                    nrows_extra = self._args['nrows_extra'],
-                                    gpads=self._args['dpads'],
-                                    pads=self._args['pads'],
-                                    dm = (1,)*self._ndim,
-                                    cm = (1,)*self._ndim,
+                                    nrows_extra=(self._args['nrows_extra'],),
+                                    gpads=(self._args['dpads'],),
+                                    pads=(self._args['pads'],),
+                                    dm = ((1,)*self._ndim,),
+                                    cm = ((1,)*self._ndim,),
                                     interface=True,
                                     flip_axis=self._flip,
                                     interface_axis=self._c_axis,
-                                    d_start=self._d_start,
-                                    c_start=self._c_start)
+                                    d_start=(self._d_start,),
+                                    c_start=(self._c_start,))
 
                     nrows       = self._args.pop('nrows')
-                    rows_starts = self._args.pop('rows_starts')
 
                     self._args = {}
                     for i in range(len(nrows)):
-                        self._args['n{i}'.format(i=i+1)] =  np.int64(nrows[i])
+                        self._args['n00_{i}'.format(i=i+1)] =  np.int64(nrows[i])
 
-                    for i in range(len(nrows)):
-                        self._args['rs{i}'.format(i=i+1)] =  np.int64(rows_starts[i])
                 else:
                     dot = LinearOperatorDot(self._ndim,
+                                            block_shape = (1,1),
+                                            keys = ((0,0),),
                                             comm = comm,
                                             backend=frozenset(backend.items()),
-                                            gpads=self._args['dpads'],
-                                            pads=self._args['pads'],
-                                            dm = (1,)*self._ndim,
-                                            cm = (1,)*self._ndim,
+                                            gpads=(self._args['dpads'],),
+                                            pads=(self._args['pads'],),
+                                            dm = ((1,)*self._ndim,),
+                                            cm = ((1,)*self._ndim,),
                                             interface=True,
                                             flip_axis=self._flip,
                                             interface_axis=self._c_axis,
-                                            d_start=self._d_start,
-                                            c_start=self._c_start)
+                                            d_start=(self._d_start,),
+                                            c_start=(self._c_start,))
 
                     nrows       = self._args.pop('nrows')
                     nrows_extra = self._args.pop('nrows_extra')
-                    rows_starts = self._args.pop('rows_starts')
 
                     self._args = {}
                     for i in range(len(nrows)):
-                        self._args['n{i}'.format(i=i+1)] =  np.int64(nrows[i])
+                        self._args['n00_{i}'.format(i=i+1)] =  np.int64(nrows[i])
 
                     for i in range(len(nrows)):
-                        self._args['ne{i}'.format(i=i+1)] =  np.int64(nrows_extra[i])
-
-                    for i in range(len(nrows)):
-                        self._args['rs{i}'.format(i=i+1)] =  np.int64(rows_starts[i])
+                        self._args['ne00_{i}'.format(i=i+1)] =  np.int64(nrows_extra[i])
 
             else:
                 dot = LinearOperatorDot(self._ndim,
+                                        block_shape = (1,1),
+                                        keys = ((0,0),),
                                         comm = None,
                                         backend=frozenset(backend.items()),
-                                        nrows=self._args['nrows'],
-                                        nrows_extra=self._args['nrows_extra'],
-                                        gpads=self._args['dpads'],
-                                        pads=self._args['pads'],
-                                        dm = (1,)*self._ndim,
-                                        cm = (1,)*self._ndim,
+                                        nrows=(self._args['nrows'],),
+                                        nrows_extra=(self._args['nrows_extra'],),
+                                        gpads=(self._args['dpads'],),
+                                        pads=(self._args['pads'],),
+                                        dm = ((1,)*self._ndim,),
+                                        cm = ((1,)*self._ndim,),
                                         interface=True,
                                         flip_axis=self._flip,
                                         interface_axis=self._c_axis,
-                                        d_start=self._d_start,
-                                        c_start=self._c_start,
-                                        rows_starts=(0,)*self._ndim)
+                                        d_start=(self._d_start,),
+                                        c_start=(self._c_start,))
 
                 self._args = {}
 

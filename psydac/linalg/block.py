@@ -425,6 +425,11 @@ class BlockLinearOperator( LinearOperator ):
             else:
                 raise ValueError( "Blocks can only be given as dict or 2D list/tuple." )
 
+        self._args = {}
+        self._args['n_rows'] = self._nrows
+        self._args['n_cols'] = self._ncols
+        self._func           = self._dot
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -465,18 +470,24 @@ class BlockLinearOperator( LinearOperator ):
         if not v.ghost_regions_in_sync:
             v.update_ghost_regions()
 
-        if self.n_block_rows == 1:
-            for (_, j), L0j in self._blocks.items():
-                out += L0j.dot(v[j])
-        elif self.n_block_cols == 1:
-            for (i, _), Li0 in self._blocks.items():
-                out[i] += Li0.dot(v)
-        else:
-            for (i, j), Lij in self._blocks.items():
-                out[i] += Lij.dot(v[j])
+        self._func(self._blocks, v, out, **self._args)
 
         out.ghost_regions_in_sync = False
         return out
+
+    #...
+    @staticmethod
+    def _dot(blocks, v, out, n_rows, n_cols):
+
+        if n_rows == 1:
+            for (_, j), L0j in blocks.items():
+                out += L0j.dot(v[j])
+        elif n_cols == 1:
+            for (i, _), Li0 in blocks.items():
+                out[i] += Li0.dot(v)
+        else:
+            for (i, j), Lij in blocks.items():
+                out[i] += Lij.dot(v[j])
 
     #--------------------------------------
     # Other properties/methods
@@ -603,12 +614,20 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             is the Matrix Mij (if None, we assume all entries are zeros)
 
     """
+
+    def __init__( self, V1, V2, blocks=None, backend=None ):
+        super(BlockMatrix, self).__init__(V1, V2, blocks=blocks)
+        self._backend = backend
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
     def toarray( self, **kwargs ):
         """ Convert to Numpy 2D array. """
         return self.tosparse(**kwargs).toarray()
+
+    def backend( self ):
+        return self._backend
 
     # ...
     def tosparse( self, **kwargs ):
@@ -774,6 +793,193 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         petsccart = cart.topetsc()
 
         return petsccart.petsc.Mat().createNest(blocks, comm=cart.comm)
+
+    def set_backend(self, backend):
+        from psydac.api.ast.linalg import LinearOperatorDot, TransposeOperator, InterfaceTransposeOperator
+        from psydac.linalg.stencil import StencilInterfaceMatrix
+        if backend is None:return
+        self._backend=backend
+
+        block_shape = (self.n_block_rows, self.n_block_cols)
+        keys        = tuple(self._blocks.keys())
+        ndim        = self._blocks[keys[0]]._ndim
+        c_starts    = []
+        d_starts    = []
+
+        interface   = isinstance(self._blocks[keys[0]], StencilInterfaceMatrix)
+        if interface:
+            interface_axis  = self._blocks[keys[0]]._c_axis
+            flip_axis       = self._blocks[keys[0]]._flip
+            permutation     = self._blocks[keys[0]]._permutation
+
+            for key in keys:
+                c_starts.append(self._blocks[key]._c_start)
+                d_starts.append(self._blocks[key]._d_start)
+        else:
+            interface_axis = None
+            flip_axis      = (1,)*ndim
+            permutation    = None
+            c_starts       = None
+            d_starts       = None
+
+        if interface:
+            transpose = InterfaceTransposeOperator(ndim, backend=frozenset(backend.items()))
+        else:
+            transpose = TransposeOperator(ndim, backend=frozenset(backend.items()))
+
+        for k,key in enumerate(keys):
+            self._blocks[key]._transpose_func = transpose.func
+            self._blocks[key]._transpose_args  = self._blocks[key]._transpose_args_null.copy()
+            nrows   = self._blocks[key]._transpose_args.pop('nrows')
+            ncols   = self._blocks[key]._transpose_args.pop('ncols')
+            gpads   = self._blocks[key]._transpose_args.pop('gpads')
+            pads    = self._blocks[key]._transpose_args.pop('pads')
+            ndiags  = self._blocks[key]._transpose_args.pop('ndiags')
+            ndiagsT = self._blocks[key]._transpose_args.pop('ndiagsT')
+            si      = self._blocks[key]._transpose_args.pop('si')
+            sk      = self._blocks[key]._transpose_args.pop('sk')
+            sl      = self._blocks[key]._transpose_args.pop('sl')
+
+            if interface:
+                args = dict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads )
+                          ,('nd{i}', ndiags),('ndT{i}', ndiagsT),('si{i}', si),
+                          ('sk{i}', sk),('sl{i}', sl)])
+
+                self._blocks[key]._transpose_args            = {}
+                self._blocks[key]._transpose_args['d_start'] =  np.int64(d_starts[k])
+                self._blocks[key]._transpose_args['c_start'] =  np.int64(c_starts[k])
+                self._blocks[key]._transpose_args['dim']     =  np.int64(dim)
+            else:
+                dm      = self._blocks[key]._transpose_args.pop('dm')
+                cm      = self._blocks[key]._transpose_args.pop('cm')
+                args = dict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads ),
+                                ('dm{i}', dm),('cm{i}', cm),('nd{i}', ndiags),
+                                ('ndT{i}', ndiagsT),('si{i}', si),('sk{i}', sk),('sl{i}', sl)])
+                self._blocks[key]._transpose_args = {}
+
+            for arg_name, arg_val in args.items():
+                for i in range(len(nrows)):
+                    self._blocks[key]._transpose_args[arg_name.format(i=i+1)] = np.int64(arg_val[i]) if isinstance(arg_val[i], int) else arg_val[i]
+
+        starts      = []
+        nrows       = []
+        nrows_extra = []
+        gpads       = []
+        pads        = []
+        dm          = []
+        cm          = []
+        for key in keys:
+            starts.append(self._blocks[key]._dotargs_null['starts'])
+            nrows.append(self._blocks[key]._dotargs_null['nrows'])
+            nrows_extra.append(self._blocks[key]._dotargs_null['nrows_extra'])
+            gpads.append(self._blocks[key]._dotargs_null['gpads'])
+            pads.append(self._blocks[key]._dotargs_null['pads'])
+            if interface:
+                cm.append((1,)*ndim)
+                dm.append((1,)*ndim)
+            else:
+                cm.append(self._blocks[key]._dotargs_null['cm'])
+                dm.append(self._blocks[key]._dotargs_null['dm'])
+
+        if self.domain.parallel:
+            comm = self.codomain.spaces[0].cart.comm if isinstance(self.codomain, BlockVectorSpace) else self.codomain.cart.comm
+            if self.domain == self.codomain:
+                # In this case nrows_extra[i] == 0 for all i
+                dot = LinearOperatorDot(ndim,
+                                block_shape=block_shape,
+                                keys=keys,
+                                comm=comm,
+                                backend=frozenset(backend.items()),
+                                nrows_extra = tuple(nrows_extra),
+                                gpads=tuple(gpads),
+                                pads=tuple(pads),
+                                dm=tuple(dm),
+                                cm=tuple(cm),
+                                interface=interface,
+                                flip_axis=flip_axis,
+                                interface_axis=interface_axis,
+                                d_start=d_starts,
+                                c_start=c_starts)
+
+                self._args = {}
+                if not interface:
+                    for k,key in enumerate(keys):
+                        key_str = ''.join(str(i) for i in key)
+                        starts_k = starts[k]
+                        for i in range(len(starts_k)):
+                            self._args['s{}_{}'.format(key_str, i+1)] = np.int64(starts_k[i])
+
+                for k,key in enumerate(keys):
+                    key_str = ''.join(str(i) for i in key)
+                    nrows_k  = nrows[k]
+                    for i in range(len(nrows_k)):
+                        self._args['n{}_{}'.format(key_str, i+1)] = np.int64(nrows_k[i])
+
+            else:
+                dot = LinearOperatorDot(ndim,
+                                        block_shape=block_shape,
+                                        keys=keys,
+                                        comm=comm,
+                                        backend=frozenset(backend.items()),
+                                        gpads=gpads,
+                                        pads=pads,
+                                        dm=dm,
+                                        cm=cm,
+                                        interface=interface,
+                                        flip_axis=flip_axis,
+                                        interface_axis=interface_axis,
+                                        d_start=d_starts,
+                                        c_start=c_starts)
+
+                self._args = {}
+                if not interface:
+                    for k,key in enumerate(keys):
+                        key_str       = ''.join(str(i) for i in key)
+                        starts_k      = starts[k]
+                        for i in range(len(starts_k)):
+                            self._args['s{}_{}'.format(key_str, i+1)] = np.int64(starts_k[i])
+
+                for k,key in enumerate(keys):
+                    key_str       = ''.join(str(i) for i in key)
+                    nrows_k       = nrows[k]
+                    for i in range(len(nrows_k)):
+                        self._args['n{}_{}'.format(key_str, i+1)] = np.int64(nrows_k[i])
+
+                for k,key in enumerate(keys):
+                    key_str       = ''.join(str(i) for i in key)
+                    nrows_extra_k = nrows_extra[k]
+                    for i in range(len(nrows_extra_k)):
+                        self._args['ne{}_{}'.format(key_str, i+1)] = np.int64(nrows_extra_k[i])
+
+        else:
+            dot = LinearOperatorDot(ndim,
+                                    block_shape=block_shape,
+                                    keys=keys,
+                                    comm=None,
+                                    backend=frozenset(backend.items()),
+                                    starts=tuple(starts),
+                                    nrows=tuple(nrows),
+                                    nrows_extra=tuple(nrows_extra),
+                                    gpads=tuple(gpads),
+                                    pads=tuple(pads),
+                                    dm=tuple(dm),
+                                    cm=tuple(cm),
+                                    interface=interface,
+                                    flip_axis=flip_axis,
+                                    interface_axis=interface_axis,
+                                    d_start=d_starts,
+                                    c_start=c_starts)
+            self._args = {}
+
+        self._blocks = [self._blocks[key]._data for key in keys]
+        dot = dot.func
+
+        def func(blocks, v, out, **args):
+            vs   = [vi._data for vi in v.blocks] if isinstance(v, BlockVector) else v._data
+            outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else out._data
+            dot(*blocks, *vs, *outs, **args)
+
+        self._func = func
 
 #===============================================================================
 class BlockDiagonalSolver( LinearSolver ):

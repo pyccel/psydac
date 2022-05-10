@@ -29,6 +29,7 @@ from psydac.pyccel.ast.datatypes import NativeInteger
 from psydac.api.ast.nodes     import FloorDiv
 from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.ast.utilities import build_pyccel_types_decorator
+from psydac.api.utilities     import flatten
 
 from psydac.fem.splines       import SplineSpace
 from psydac.fem.tensor        import TensorFemSpace
@@ -73,17 +74,17 @@ def toInteger(a):
 
 class LinearOperatorDot(SplBasic):
 
-    def __new__(cls, ndim, comm=None, **kwargs):
+    def __new__(cls, ndim, block_shape, comm=None, **kwargs):
         if comm is not None:
             assert isinstance(comm, MPI.Comm)
             comm_id = comm.py2f()
         else:
             comm_id = None
-        return cls.__hashable_new__(ndim, comm_id, **kwargs)
+        return cls.__hashable_new__(ndim, block_shape, comm_id, **kwargs)
 
     @classmethod
     @lru_cache(maxsize=32)
-    def __hashable_new__(cls, ndim, comm_id=None, **kwargs):
+    def __hashable_new__(cls, ndim, block_shape, comm_id=None, **kwargs):
 
         # If integer communicator is provided, convert it to mpi4py object
         comm = None if comm_id is None else MPI.COMM_WORLD.f2py(comm_id)
@@ -98,7 +99,7 @@ class LinearOperatorDot(SplBasic):
 
         # Initialize instance (code generation happens here)
         backend        = dict(kwargs.pop('backend'))
-        code           = obj._initialize(ndim, backend=backend, **kwargs)
+        code           = obj._initialize(ndim, block_shape, backend=backend, **kwargs)
         obj._arguments = dict((str(a.name), a) for a in code.arguments)
         obj._code      = code
         obj._folder    = obj._initialize_folder()
@@ -124,167 +125,189 @@ class LinearOperatorDot(SplBasic):
     def folder(self):
         return self._folder
 
-    def _initialize(self, ndim, **kwargs):
+    def _initialize(self, ndim, block_shape, **kwargs):
 
-        nrows           = tuple(map(toInteger,kwargs.pop('nrows', variables('n1:%s'%(ndim+1),  'int'))))
-        nrows_extra     = tuple(map(toInteger,kwargs.pop('nrows_extra', variables('ne1:%s'%(ndim+1),  'int'))))
-        starts          = tuple(map(toInteger,kwargs.pop('starts', variables('s1:%s'%(ndim+1),  'int'))))
-        indices1        = variables('i1:%s'%(ndim+1),  'int')
-        bb              = variables('b1:%s'%(ndim+1),  'int')
-        indices2        = variables('k1:%s'%(ndim+1),  'int')
-
-        v               = variables('v','real')
-        x, out          = variables('x, out','real', cls=IndexedVariable, rank=ndim)
-        mat             = variables('mat','real', cls=IndexedVariable, rank=2*ndim)
-
-        xshape          = variables('xn1:%s'%(ndim+1),  'int')
-        backend         = kwargs.pop('backend', None)
-
-        pads            = tuple(map(toInteger, kwargs.pop('pads')))
-        gpads           = tuple(map(toInteger,kwargs.pop('gpads')))
-        cm              = tuple(map(toInteger,kwargs.pop('cm')))
-        dm              = tuple(map(toInteger,kwargs.pop('dm')))
-        interface       = kwargs.pop('interface', False)
+        keys         = kwargs.pop('keys')
+        backend      = kwargs.pop('backend', None)
+        nrows        = list(kwargs.pop('nrows', [None]*len(keys)))
+        nrows_extra  = list(kwargs.pop('nrows_extra', [None]*len(keys)))
+        starts       = list(kwargs.pop('starts', [None]*len(keys)))
+        pads         = kwargs.pop('pads')
+        gpads        = kwargs.pop('gpads')
+        cm           = kwargs.pop('cm')
+        dm           = kwargs.pop('dm')
+        interface    = kwargs.pop('interface', False)
         flip_axis       = kwargs.pop('flip_axis',[1]*ndim)
         interface_axis  = kwargs.pop('interface_axis', None)
-        d_start         = toInteger(kwargs.pop('d_start', None))
-        c_start         = toInteger(kwargs.pop('c_start', None))
+        d_start         = kwargs.pop('d_start', None)
+        c_start         = kwargs.pop('c_start', None)
+        mats            = [variables('mat{}'.format(''.join(str(i) for i in key)),'real', cls=IndexedVariable, rank=2*ndim) for key in keys]
+        xs              = [variables('x{}'.format(i),'real', cls=IndexedVariable, rank=ndim) for i in range(block_shape[1])]
+        outs            = [variables('out{}'.format(i),'real', cls=IndexedVariable, rank=ndim) for i in range(block_shape[0])]
 
-        if interface:
-            rows_starts  = variables('rs1:%s'%(ndim+1),  'int')
-            rows_starts  = tuple(map(toInteger, kwargs.pop('rows_starts', rows_starts)))
-        else:
-            rows_starts = tuple(map(toInteger,[0]*ndim))
-
-        openmp          = False if backend is None else backend["openmp"]
-
-        ndiags, _ = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
-
-        inits  = [Assign(b,p*m+p+1-n-Mod(s,m)) for b,p,m,n,s in zip(bb, gpads, dm, ndiags, starts) if not isinstance(p*m+p+1-n-Mod(s,m),(int,np.int64, Integer))]
-
-        if any(f==-1 for f in flip_axis):
-            inits.append(Assign(xshape, Function('shape')(x)))
-
-        bb     = [b if not isinstance(p*m+p+1-n-Mod(s,m),(int,np.int64, Integer)) else p*m+p+1-n-Mod(s,m) for b,p,m,n,s in zip(bb, gpads, dm, ndiags, starts)]
-        body   = []
-
-        ranges = [Range(variable_to_sympy(n)) for n in ndiags]
-
-        diff = [variable_to_sympy(gp-p-rs) for gp,p,rs in zip(gpads, pads, rows_starts)]
-
-#        if d_start:bb[interface_axis] += d_start
-
-        x_indices = []
-        for i1,mi,mj,b,s,d,i2,f,xs in zip(indices1,cm,dm,bb,starts,diff,indices2,flip_axis,xshape):
-            index =  b-d+FloorDiv((i1+Mod(s,mj)),mi)*mj + i2
-            if f==-1:
-                index = xs-1-index
-            x_indices.append(index)
-
-        out_indices = [i+m*j for i,j,m in zip(indices1,gpads,cm)]
-        if c_start:out_indices[interface_axis] += c_start
-
-        v1 = x[tuple(x_indices)]
-        v2 = mat[tuple(i+m*j for i,j,m in zip(indices1,gpads,cm))+ tuple(indices2)]
-        v3 = out[tuple(out_indices)]
-
-        body = [AugAssign(v,'+' ,Mul(v2, v1))]
-
-        # Decompose fused loop over Cartesian product of multiple ranges
-        # into nested loops, each over a single range
-        for i,j in zip(indices2[::-1], ranges[::-1]):
-            body = [For(i,j, body)]
-
-        body.insert(0,Assign(v, 0.0))
-        body.append(Assign(v3,v))
-        ranges = [Range(variable_to_sympy(i)) for i in nrows]
-
-        # Decompose fused loop over Cartesian product of multiple ranges
-        # into nested loops, each over a single range
-        for i,j in zip(indices1[::-1], ranges[::-1]):
-            body = [For(i,j, body)]
-
-        if openmp:
-            pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
-            body   = [Comment(pragma)] + body
-
-        nrowscopy = list(nrows).copy()
-        nrows     = list(nrows)
-        for dim in range(ndim):
-
-            if nrows_extra[dim] == 0:continue
-
-            v1 = [b-d+FloorDiv((i1+(nrows[dim] if dim==x else 0)+Mod(s,mj)),mi)*mj + i2 for x,i1,mi,mj,b,s,d,i2 in zip(range(ndim), indices1,cm,dm,bb,starts,diff,indices2)]
-            v2 = [i+m*j for i,j,m in zip(indices1,gpads,cm)]
-
-            v2[dim] += nrows[dim]
-
-            v3 = v2
-
-            for i,v1i in enumerate(v1):
-                if flip_axis[i] == -1:
-                    v1[i] = xshape[i]-1-v1[i]
-
-            v1 = x[tuple(v1)]
-            v2 = mat[tuple(v2)+ indices2]
-
-            if c_start:v3[interface_axis] += c_start
-            v3 = out[tuple(v3)]
-
-            rows = list(nrows)
-            rows[dim] = nrows_extra[dim]
-
-            
-            ranges       = [variable_to_sympy(n) for n in ndiags]
-            ranges[dim] -= variable_to_sympy(indices1[dim]) + 1
-            ranges       = [ind if i>=dim else ind - Max(0, variable_to_sympy(d1)+1-variable_to_sympy(r)) for i,(ind,d1,r) in enumerate(zip(ranges, indices1, nrowscopy)) ]
-            ranges       = [Range(i) for i in ranges]
-
-            for_body = [AugAssign(v, '+',Mul(v1,v2))]
-
-            # Decompose fused loop over Cartesian product of multiple ranges
-            # into nested loops, each over a single range
-            for i,j in zip(indices2[::-1], ranges[::-1]):
-                for_body = [For(i,j, for_body)]
-
-            for_body.insert(0,Assign(v, 0.0))
-            for_body.append(Assign(v3,v))
-
-            ranges = [Range(variable_to_sympy(i)) for i in rows]
-
-            # Decompose fused loop over Cartesian product of multiple ranges
-            # into nested loops, each over a single range
-            for i,j in zip(indices1[::-1], ranges[::-1]):
-                for_body = [For(i,j, for_body)]
-
-            if openmp:
-                pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
-                for_body = [Comment(pragma)] + for_body
-
-            body += for_body
-
-            nrows[dim] += nrows_extra[dim]
-
-        body      = inits + body
-        func_args = (mat, x, out)
-        shared    = (mat, x, out)
+        func_args    = (*mats, *xs, *outs)
+        shared       = (*mats, *xs, *outs)
         firstprivate = ()
+        openmp       = False if backend is None else backend["openmp"]
+        gbody        = []
 
-        if not interface and isinstance(starts[0], Variable):
-            func_args = func_args       + tuple(starts)
-            firstprivate = firstprivate + tuple(starts)
+        for it in range(2):
+            diag_keys = True if it==0 else False
+            for k,key in enumerate(keys):
+                if diag_keys and key[0] != key[1]:continue
+                if not diag_keys and key[0] == key[1]:continue
+                key_str         = ''.join(str(i) for i in key)
+                nrows_k         = nrows[k] if nrows[k] else variables('n{}_1:%s'.format(key_str)%(ndim+1),  'int')
+                nrows_extra_k   = nrows_extra[k] if nrows_extra[k] else variables('ne{}_1:%s'.format(key_str)%(ndim+1),  'int')
+                starts_k        = starts[k] if starts[k] else variables('s{}_1:%s'.format(key_str)%(ndim+1),  'int')
+                nrows_k         = tuple(map(toInteger,nrows_k))
+                nrows_extra_k   = tuple(map(toInteger,nrows_extra_k))
+                starts_k        = tuple(map(toInteger,starts_k))
+                indices1        = variables('i1:%s'%(ndim+1),  'int')
+                bb              = variables('b1:%s'%(ndim+1),  'int')
+                indices2        = variables('k1:%s'%(ndim+1),  'int')
+                v               = variables('v{}'.format(key_str),'real')
+                xshape          = variables('xn1:%s'%(ndim+1),  'int')
 
-        if isinstance(nrowscopy[0], Variable):
-            func_args    = func_args + tuple(nrowscopy)
-            firstprivate = firstprivate + tuple(nrowscopy)
+                pads_k          = tuple(map(toInteger, pads[k]))
+                gpads_k         = tuple(map(toInteger,gpads[k]))
+                cm_k            = tuple(map(toInteger,cm[k]))
+                dm_k            = tuple(map(toInteger,dm[k]))
+                d_start_k       = toInteger(d_start[k] if d_start else None)
+                c_start_k       = toInteger(c_start[k] if c_start else None)
 
-        if isinstance(nrows_extra[0], Variable):
-            func_args    = func_args + tuple(nrows_extra)
-            firstprivate = firstprivate + tuple(nrows_extra)
+                nrows[k]       = tuple(nrows_k)
+                nrows_extra[k] = tuple(nrows_extra_k)
+                starts[k]      = tuple(starts_k)
 
-        if isinstance(rows_starts[0], Variable):
-            func_args = func_args + rows_starts
-            firstprivate = firstprivate + rows_starts
+                mat = mats[k]
+                x   = xs[key[1]]
+                out = outs[key[0]]
+
+                ndiags, _ = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads_k,cm_k,dm_k)]))
+
+                inits  = [Assign(b,p*m+p+1-n-Mod(s,m)) for b,p,m,n,s in zip(bb, gpads_k, dm_k, ndiags, starts_k) if not isinstance(p*m+p+1-n-Mod(s,m),(int,np.int64, Integer))]
+
+                if any(f==-1 for f in flip_axis):
+                    inits.append(Assign(xshape, Function('shape')(x)))
+
+                bb     = [b if not isinstance(p*m+p+1-n-Mod(s,m),(int,np.int64, Integer)) else p*m+p+1-n-Mod(s,m) for b,p,m,n,s in zip(bb, gpads_k, dm_k, ndiags, starts_k)]
+
+                ranges = [Range(variable_to_sympy(n)) for n in ndiags]
+                diff   = [variable_to_sympy(gp-p) for gp,p in zip(gpads_k, pads_k)]
+
+    #            if d_start_k:bb[interface_axis] += d_start_k
+
+                x_indices = []
+                for i1,mi,mj,b,s,d,i2,f,xl in zip(indices1,cm_k,dm_k,bb,starts_k,diff,indices2,flip_axis,xshape):
+                    index =  b-d+FloorDiv((i1+Mod(s,mj)),mi)*mj + i2
+                    if f==-1:
+                        index = xl-1-index
+                    x_indices.append(index)
+
+                out_indices = [i+m*j for i,j,m in zip(indices1,gpads_k,cm_k)]
+                if c_start_k:out_indices[interface_axis] += c_start_k
+
+                v1 = x[tuple(x_indices)]
+                v2 = mat[tuple(i+m*j for i,j,m in zip(indices1,gpads_k,cm_k))+ tuple(indices2)]
+                v3 = out[tuple(out_indices)]
+
+                body = [AugAssign(v,'+' ,Mul(v2, v1))]
+
+                # Decompose fused loop over Cartesian product of multiple ranges
+                # into nested loops, each over a single range
+                for i,j in zip(indices2[::-1], ranges[::-1]):
+                    body = [For(i,j, body)]
+
+                body.insert(0,Assign(v, 0.0))
+                if diag_keys:
+                    body.append(Assign(v3,v))
+                else:
+                    body.append(AugAssign(v3,'+',v))
+
+                ranges = [Range(variable_to_sympy(i)) for i in nrows_k]
+
+                # Decompose fused loop over Cartesian product of multiple ranges
+                # into nested loops, each over a single range
+                for i,j in zip(indices1[::-1], ranges[::-1]):
+                    body = [For(i,j, body)]
+
+                if openmp:
+                    pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
+                    body   = [Comment(pragma)] + body
+
+                nrowscopy_k = list(nrows_k).copy()
+                nrows_k     = list(nrows_k)
+                for dim in range(ndim):
+
+                    if nrows_extra_k[dim] == 0:continue
+
+                    v1 = [b-d+FloorDiv((i1+(nrows_k[dim] if dim==x else 0)+Mod(s,mj)),mi)*mj + i2 for x,i1,mi,mj,b,s,d,i2 in zip(range(ndim), indices1,cm_k,dm_k,bb,starts_k,diff,indices2)]
+                    v2 = [i+m*j for i,j,m in zip(indices1,gpads_k,cm_k)]
+
+                    v2[dim] += nrows_k[dim]
+
+                    v3 = v2
+
+                    for i,v1i in enumerate(v1):
+                        if flip_axis[i] == -1:
+                            v1[i] = xshape[i]-1-v1[i]
+
+                    v1 = x[tuple(v1)]
+                    v2 = mat[tuple(v2)+ indices2]
+
+                    if c_start_k:v3[interface_axis] += c_start_k
+                    v3 = out[tuple(v3)]
+
+                    rows = list(nrows_k)
+                    rows[dim] = nrows_extra_k[dim]
+
+                    ranges       = [variable_to_sympy(n) for n in ndiags]
+                    ranges[dim] -= variable_to_sympy(indices1[dim]) + 1
+                    ranges       = [ind if i>=dim else ind - Max(0, variable_to_sympy(d1)+1-variable_to_sympy(r)) for i,(ind,d1,r) in enumerate(zip(ranges, indices1, nrowscopy_k)) ]
+                    ranges       = [Range(i) for i in ranges]
+
+                    for_body = [AugAssign(v, '+',Mul(v1,v2))]
+
+                    # Decompose fused loop over Cartesian product of multiple ranges
+                    # into nested loops, each over a single range
+                    for i,j in zip(indices2[::-1], ranges[::-1]):
+                        for_body = [For(i,j, for_body)]
+
+                    for_body.insert(0,Assign(v, 0.0))
+                    for_body.append(Assign(v3,v))
+
+                    ranges = [Range(variable_to_sympy(i)) for i in rows]
+
+                    # Decompose fused loop over Cartesian product of multiple ranges
+                    # into nested loops, each over a single range
+                    for i,j in zip(indices1[::-1], ranges[::-1]):
+                        for_body = [For(i,j, for_body)]
+
+                    if openmp:
+                        pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
+                        for_body = [Comment(pragma)] + for_body
+
+                    body += for_body
+
+                    nrows_k[dim] += nrows_extra_k[dim]
+
+                body      = inits + body
+                gbody    += body
+
+        body = gbody
+
+        if not interface and isinstance(starts[0][0], Variable):
+            func_args    = func_args    + tuple(flatten(starts))
+            firstprivate = firstprivate + tuple(flatten(starts))
+
+        if isinstance(nrows[0][0], Variable):
+            func_args    = func_args    + tuple(flatten(nrows))
+            firstprivate = firstprivate + tuple(flatten(nrows))
+
+        if isinstance(nrows_extra[0][0], Variable):
+            func_args    = func_args    + tuple(flatten(nrows_extra))
+            firstprivate = firstprivate + tuple(flatten(nrows_extra))
 
         decorators = {}
         header     = None
@@ -409,6 +432,7 @@ class TransposeOperator(SplBasic):
         return cls.__hashable_new__(ndim, comm_id, **kwargs)
 
     @classmethod
+    @lru_cache(maxsize=32)
     def __hashable_new__(cls, ndim, comm_id=None, **kwargs):
 
         # If integer communicator is provided, convert it to mpi4py object
