@@ -148,6 +148,7 @@ class BlockVector( Vector ):
         self._data_exchangers = {}
         self._interface_buf   = {}
 
+        # Prepare the data exchangers for the interface data
         if V.parallel:
             for i,j in V._interfaces:
                 axis_i,axis_j = V._interfaces[i,j][0]
@@ -157,8 +158,9 @@ class BlockVector( Vector ):
                 Vj = V.spaces[j]
                 self._data_exchangers[i,j] = []
                 self._interface_buf[i,j]   = []
-                if isinstance(Vi, BlockVectorSpace):
-                    assert isinstance(Vj, BlockVectorSpace)
+
+                if isinstance(Vi, BlockVectorSpace) and isinstance(Vj, BlockVectorSpace):
+                    # case of a system of equations
                     for k,(Vik,Vjk) in enumerate(zip(Vi.spaces, Vj.spaces)):
                         cart_i = Vik.cart
                         cart_j = Vjk.cart
@@ -181,7 +183,8 @@ class BlockVector( Vector ):
 
                         self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
                         self._interface_buf[i,j].append(tuple(buf))
-                else:
+                elif  not isinstance(Vi, BlockVectorSpace) and not isinstance(Vj, BlockVectorSpace):
+                    # case of scalar equations
                     cart_i = Vi.cart
                     cart_j = Vj.cart
                     if cart_i.is_comm_null and cart_j.is_comm_null:continue
@@ -203,6 +206,8 @@ class BlockVector( Vector ):
 
                     self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
                     self._interface_buf[i,j].append(tuple(buf))
+                else:
+                    raise NotImplementedError("This case is not treated")
 
                 if len(self._data_exchangers[i,j]) == 0:
                     self._data_exchangers.pop((i,j))
@@ -320,8 +325,9 @@ class BlockVector( Vector ):
         self.start_update_interface_ghost_regions()
         for vi in self.blocks:
             vi.update_ghost_regions(direction=direction)
-        # Flag ghost regions as up-to-date
         self.end_update_interface_ghost_regions()
+
+        # Flag ghost regions as up-to-date
         self._sync = True
 
     def start_update_interface_ghost_regions( self ):

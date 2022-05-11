@@ -65,7 +65,7 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
    # Create vector spaces
     Vs  = [StencilVectorSpace( ci ) for ci in cart.carts]
 
-    # Create interface spaces
+    # Create the interface spaces
     for i,j in interfaces:
 
         if not cart.carts[i].is_comm_null and not cart.carts[j].is_comm_null:
@@ -77,7 +77,10 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
         else:
             continue
 
+        # set interface space for the minus space
         Vs[i].set_interface(0, 1, cart_minus)
+
+        # set interface space for the plus space
         Vs[j].set_interface(0, -1, cart_plus)
 
     V   = BlockVectorSpace(*Vs)

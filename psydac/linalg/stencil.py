@@ -332,10 +332,13 @@ class StencilVector( Vector ):
         self._dot_recv_data  = np.zeros((1,), dtype=V.dtype)
         self._interface_data = {}
 
+        # allocate data for the boundary that shares an interface
         for axis, ext in V._interfaces:
             if V.parallel and isinstance(V._interfaces[axis, ext].cart, InterfaceCartDecomposition):
+                # case where each patche belongs to a diffrent mpi rank
                 data  = np.zeros( V._interfaces[axis, ext].shape, dtype=V.dtype )
             elif V.parallel:
+                # case where each patch belongs to the same mpi rank
                 Vin          = V._interfaces[axis, ext]
                 slices       = [slice(s, e+2*p+1) for s,e,p in zip(Vin.starts, Vin.ends, Vin.pads)]
                 if V.parent_ends[axis] is not None:
@@ -353,6 +356,7 @@ class StencilVector( Vector ):
                 slices[axis] = slice(s,e+2*V.pads[axis]+1)
                 data         = self._data[tuple(slices)].copy()
             else:
+                # serial case
                 Vin    = V._interfaces[axis, ext]
                 slices = [slice(s, e+2*p+1) for s,e,p in zip(Vin.starts, Vin.ends, Vin.pads)]
                 data   = self._data[tuple(slices)].copy()

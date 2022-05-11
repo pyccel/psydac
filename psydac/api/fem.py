@@ -323,7 +323,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=test_grid, ext=test_ext)
         self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=trial_grid, ext=trial_ext)
 
-        self._args , self._threads_args = self.construct_arguments(backend=op_backend)
+        with_openmp  = (backend['name'] == 'pyccel' and backend['openmp']) if backend else False
+        self._args , self._threads_args = self.construct_arguments(backend=op_backend, with_openmp=with_openmp)
 
     @property
     def domain(self):
@@ -422,7 +423,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 j = i
         return i,j
 
-    def construct_arguments(self, backend=None):
+    def construct_arguments(self, backend=None, with_openmp=False):
 
         test_basis, test_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
         trial_basis, trial_degrees, pads      = construct_trial_space_arguments(self.trial_basis)
@@ -467,7 +468,6 @@ class DiscreteBilinearForm(BasicDiscrete):
         args = (*test_basis, *trial_basis, *map_basis, *spans, *map_span, *quads, *test_degrees, *trial_degrees, *map_degree, 
                 *n_elements, *quad_degrees, *pads, *mapping, *self._global_matrices)
 
-        with_openmp  = (backend['name'] == 'pyccel' and backend['openmp']) if backend else False
         with_openmp  = with_openmp and self._num_threads>1
 
         threads_args = ()
