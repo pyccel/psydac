@@ -1800,12 +1800,12 @@ class StencilInterfaceMatrix(Matrix):
 
     # ...
     @staticmethod
-    def _dot(mat, v, out, nrows, nrows_extra, rows_starts, dpads, pads, c_axis, d_start, c_start, flip, permutation):
+    def _dot(mat, v, out, nrows, nrows_extra, dpads, pads, c_axis, d_start, c_start, flip, permutation):
         # Index for k=i-j
         nrows      = list(nrows)
         ndim       = len(v.shape)
         kk         = [slice(None)]*ndim
-        diff       = [xp-p+s for xp,p,s in zip(dpads, pads, rows_starts)]
+        diff       = [xp-p for xp,p in zip(dpads, pads)]
 
         nn         = v.shape
         for xx in np.ndindex( *nrows ):

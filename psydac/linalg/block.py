@@ -795,6 +795,12 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         return petsccart.petsc.Mat().createNest(blocks, comm=cart.comm)
 
     def set_backend(self, backend):
+        if isinstance(self.domain, BlockVectorSpace) and isinstance(self.domain.spaces[0], BlockVectorSpace):
+            return
+
+        if isinstance(self.codomain, BlockVectorSpace) and isinstance(self.codomain.spaces[0], BlockVectorSpace):
+            return
+
         from psydac.api.ast.linalg import LinearOperatorDot, TransposeOperator, InterfaceTransposeOperator
         from psydac.linalg.stencil import StencilInterfaceMatrix
         if backend is None:return
