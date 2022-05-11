@@ -275,7 +275,10 @@ class LinearOperatorDot(SplBasic):
                         for_body = [For(i,j, for_body)]
 
                     for_body.insert(0,Assign(v, 0.0))
-                    for_body.append(Assign(v3,v))
+                    if diag_keys:
+                        for_body.append(Assign(v3,v))
+                    else:
+                        for_body.append(AugAssign(v3,'+',v))
 
                     ranges = [Range(variable_to_sympy(i)) for i in rows]
 
@@ -434,7 +437,6 @@ class TransposeOperator(SplBasic):
     @classmethod
     @lru_cache(maxsize=32)
     def __hashable_new__(cls, ndim, comm_id=None, **kwargs):
-
         # If integer communicator is provided, convert it to mpi4py object
         comm = None if comm_id is None else MPI.COMM_WORLD.f2py(comm_id)
 

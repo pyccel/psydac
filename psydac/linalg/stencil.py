@@ -1737,7 +1737,7 @@ class StencilInterfaceMatrix(Matrix):
         args                 = {}
         args['nrows']        = tuple(nrows)
         args['nrows_extra']  = tuple(nrows_extra)
-        args['dpads']        = tuple(V.pads)
+        args['gpads']        = tuple(V.pads)
         args['pads']         = tuple(self._pads)
         args['c_axis']       = c_axis
         args['d_start']      = self._d_start
@@ -1800,16 +1800,16 @@ class StencilInterfaceMatrix(Matrix):
 
     # ...
     @staticmethod
-    def _dot(mat, v, out, nrows, nrows_extra, dpads, pads, c_axis, d_start, c_start, flip, permutation):
+    def _dot(mat, v, out, nrows, nrows_extra, gpads, pads, c_axis, d_start, c_start, flip, permutation):
         # Index for k=i-j
         nrows      = list(nrows)
         ndim       = len(v.shape)
         kk         = [slice(None)]*ndim
-        diff       = [xp-p for xp,p in zip(dpads, pads)]
+        diff       = [xp-p for xp,p in zip(gpads, pads)]
 
         nn         = v.shape
         for xx in np.ndindex( *nrows ):
-            ii    = [ p+x for p,x in zip(dpads,xx) ]
+            ii    = [ p+x for p,x in zip(gpads,xx) ]
             jj    = [ slice(d+x,d+x+2*p+1) for x,p,d in zip(xx,pads,diff) ]
             jj    = [flip_axis(i,n) if f==-1 else i for i,f,n in zip(jj,flip,nn)]
             jj    = tuple(jj[i] for i in permutation)
@@ -1829,7 +1829,7 @@ class StencilInterfaceMatrix(Matrix):
                     xx = list(xx)
                     xx.insert(d, nrows[d]+n)
 
-                    ii     = [x+xp for x,xp in zip(xx, dpads)]
+                    ii     = [x+xp for x,xp in zip(xx, gpads)]
                     ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
                     jj     = [ slice(x+d, x+d+2*p+1-e) for x,p,d,e in zip(xx, pads, diff, ee) ]
                     jj     = [flip_axis(i,n) if f==-1 else i for i,f,n in zip(jj, flip, nn)]
@@ -2258,7 +2258,7 @@ class StencilInterfaceMatrix(Matrix):
                                     comm = comm,
                                     backend=frozenset(backend.items()),
                                     nrows_extra=(self._args['nrows_extra'],),
-                                    gpads=(self._args['dpads'],),
+                                    gpads=(self._args['gpads'],),
                                     pads=(self._args['pads'],),
                                     dm = ((1,)*self._ndim,),
                                     cm = ((1,)*self._ndim,),
@@ -2280,7 +2280,7 @@ class StencilInterfaceMatrix(Matrix):
                                             keys = ((0,0),),
                                             comm = comm,
                                             backend=frozenset(backend.items()),
-                                            gpads=(self._args['dpads'],),
+                                            gpads=(self._args['gpads'],),
                                             pads=(self._args['pads'],),
                                             dm = ((1,)*self._ndim,),
                                             cm = ((1,)*self._ndim,),
@@ -2308,7 +2308,7 @@ class StencilInterfaceMatrix(Matrix):
                                         backend=frozenset(backend.items()),
                                         nrows=(self._args['nrows'],),
                                         nrows_extra=(self._args['nrows_extra'],),
-                                        gpads=(self._args['dpads'],),
+                                        gpads=(self._args['gpads'],),
                                         pads=(self._args['pads'],),
                                         dm = ((1,)*self._ndim,),
                                         cm = ((1,)*self._ndim,),

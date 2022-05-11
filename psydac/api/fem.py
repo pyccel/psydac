@@ -271,7 +271,13 @@ class DiscreteBilinearForm(BasicDiscrete):
         if vector_space.parallel:
             kwargs['comm'] = vector_space.cart.comm
 
-        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
+        backend          = kwargs.pop('backend', None)
+        op_backend       = backend
+        assembly_backend = kwargs.pop('assembly_backend', None)
+        if backend is None:
+            backend = assembly_backend
+
+        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, backend=backend, **kwargs)
 
         #...
         if isinstance(target, (Boundary, Interface)):
@@ -317,7 +323,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=test_grid, ext=test_ext)
         self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=trial_grid, ext=trial_ext)
 
-        self._args , self._threads_args = self.construct_arguments(backend=kwargs.pop('backend', None))
+        self._args , self._threads_args = self.construct_arguments(backend=op_backend)
 
     @property
     def domain(self):
@@ -549,13 +555,11 @@ class DiscreteBilinearForm(BasicDiscrete):
                                                                         axis, axis,
                                                                         ext_d, ext_c,
                                                                         pads=tuple(pads[k1,k2]), 
-                                                                        flip=flip,
-                                                                        backend=backend)
+                                                                        flip=flip)
                     else:
                         global_mats[k1,k2] = StencilMatrix(tr_space,
                                                            ts_space,
-                                                           pads = tuple(pads[k1,k2]),
-                                                           backend=backend)
+                                                           pads = tuple(pads[k1,k2]))
 
                     matrix[k1,k2]        = global_mats[k1,k2]
                     md                   = matrix[k1,k2].domain.shifts
@@ -583,10 +587,10 @@ class DiscreteBilinearForm(BasicDiscrete):
                                                                   s_d, s_c,
                                                                   axis, axis,
                                                                   ext_d, ext_c,
-                                                                  flip=flip, backend=backend)
+                                                                  flip=flip)
                 else:
 
-                    global_mats[i,j] = StencilMatrix(trial_space, test_space, pads=tuple(pads), backend=backend)
+                    global_mats[i,j] = StencilMatrix(trial_space, test_space, pads=tuple(pads))
 
                 if (i,j) in global_mats:
                     self._matrix[i,j] = global_mats[i,j]
@@ -598,12 +602,19 @@ class DiscreteBilinearForm(BasicDiscrete):
                 if self._matrix:
                     global_mats[0,0] = self._matrix
                 else:
-                    global_mats[0,0] = StencilMatrix(trial_space, test_space, pads=tuple(pads), backend=backend)
+                    global_mats[0,0] = StencilMatrix(trial_space, test_space, pads=tuple(pads))
 
                 md                 = global_mats[0,0].domain.shifts
                 mc                 = global_mats[0,0].codomain.shifts
                 diag               = compute_diag_len(pads, md, mc)
                 self._matrix       = global_mats[0,0]
+
+        if backend is not None and is_broken:
+            for mat in global_mats.values():
+                mat.set_backend(backend)
+        elif backend is not None:
+            self._matrix.set_backend(backend)
+
         return  global_mats.values()
 
 #==============================================================================
@@ -907,7 +918,6 @@ class DiscreteLinearForm(BasicDiscrete):
         self._global_mats = list(global_mats.values())
         return global_mats.values()
 
-
 #==============================================================================
 class DiscreteFunctional(BasicDiscrete):
 
@@ -1114,7 +1124,7 @@ class DiscreteSumForm(BasicDiscrete):
 
         self._expr = a
 
-        backend = kwargs.get('backend', None)
+        backend = kwargs.pop('backend', None)
         self._backend = backend
 
         folder = kwargs.get('folder', None)
@@ -1130,18 +1140,27 @@ class DiscreteSumForm(BasicDiscrete):
         for e in kernel_expr:
             kwargs['target'] = e.target
             if isinstance(a, sym_BilinearForm):
-                ah = DiscreteBilinearForm(a, e, *args, **kwargs)
+                ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
                 kwargs['matrix'] = ah._matrix
 
             elif isinstance(a, sym_LinearForm):
-                ah = DiscreteLinearForm(a, e, *args, **kwargs)
+                ah = DiscreteLinearForm(a, e, *args, backend=backend, **kwargs)
                 kwargs['vector'] = ah._vector
+
             elif isinstance(a, sym_Functional):
-                ah = DiscreteFunctional(a, e, *args, **kwargs)
+                ah = DiscreteFunctional(a, e, *args, backend=backend, **kwargs)
 
             forms.append(ah)
             free_args.extend(ah.free_args)
             kwargs['boundary'] = None
+
+        if isinstance(a, sym_BilinearForm):
+            is_broken   = len(args[0].domain)>1
+            if self._backend is not None and is_broken:
+                for mat in kwargs['matrix']._blocks.values():
+                    mat.set_backend(backend)
+            elif self._backend is not None:
+                kwargs['matrix'].set_backend(backend)
 
         self._forms         = forms
         self._free_args     = tuple(set(free_args))

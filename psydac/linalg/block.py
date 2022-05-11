@@ -426,6 +426,7 @@ class BlockLinearOperator( LinearOperator ):
                 raise ValueError( "Blocks can only be given as dict or 2D list/tuple." )
 
         self._args = {}
+        self._blocks_as_args = self._blocks
         self._args['n_rows'] = self._nrows
         self._args['n_cols'] = self._ncols
         self._func           = self._dot
@@ -470,7 +471,7 @@ class BlockLinearOperator( LinearOperator ):
         if not v.ghost_regions_in_sync:
             v.update_ghost_regions()
 
-        self._func(self._blocks, v, out, **self._args)
+        self._func(self._blocks_as_args, v, out, **self._args)
 
         out.ghost_regions_in_sync = False
         return out
@@ -615,9 +616,9 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
     """
 
-    def __init__( self, V1, V2, blocks=None, backend=None ):
+    def __init__( self, V1, V2, blocks=None ):
         super(BlockMatrix, self).__init__(V1, V2, blocks=blocks)
-        self._backend = backend
+        self._backend = None
 
     #--------------------------------------
     # Abstract interface
@@ -665,23 +666,44 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     # ...
     def copy(self):
         blocks = {ij: Bij.copy() for ij, Bij in self._blocks.items()}
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        mat = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        if self._backend is not None:
+            mat._func = self._func
+            mat._args = self._args
+            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+            mat._backend = self._backend
+        return mat
 
     # ...
     def __neg__(self):
         blocks = {ij: -Bij for ij, Bij in self._blocks.items()}
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
-
+        mat    = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        if self._backend is not None:
+            mat._func = self._func
+            mat._args = self._args
+            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+            mat._backend = self._backend
+        return mat
     # ...
     def __mul__(self, a):
         blocks = {ij: Bij * a for ij, Bij in self._blocks.items()}
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
-
+        mat = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        if self._backend is not None:
+            mat._func = self._func
+            mat._args = self._args
+            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+            mat._backend = self._backend
+        return mat
     # ...
     def __rmul__(self, a):
         blocks = {ij: a * Bij for ij, Bij in self._blocks.items()}
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
-
+        mat = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        if self._backend is not None:
+            mat._func = self._func
+            mat._args = self._args
+            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+            mat._backend = self._backend
+        return mat
     # ...
     def __add__(self, M):
         assert isinstance(M, BlockMatrix)
@@ -694,8 +716,15 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             if   Bij is None: blocks[ij] = Mij.copy()
             elif Mij is None: blocks[ij] = Bij.copy()
             else            : blocks[ij] = Bij + Mij
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
-
+        mat = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        if len(mat._blocks) != len(self._blocks):
+            mat.set_backend(self._backend)
+        elif self._backend is not None:
+            mat._func = self._func
+            mat._args = self._args
+            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+            mat._backend = self._backend
+        return mat
     # ...
     def __sub__(self, M):
         assert isinstance(M, BlockMatrix)
@@ -708,7 +737,15 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             if   Bij is None: blocks[ij] = -Mij
             elif Mij is None: blocks[ij] =  Bij.copy()
             else            : blocks[ij] =  Bij - Mij
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        mat = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        if len(mat._blocks) != len(self._blocks):
+            mat.set_backend(self._backend)
+        elif self._backend is not None:
+            mat._func = self._func
+            mat._args = self._args
+            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+            mat._backend = self._backend
+        return mat
 
     # ...
     def __imul__(self, a):
@@ -774,7 +811,9 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     # ...
     def transpose(self):
         blocks = {(j, i): b.transpose() for (i, j), b in self._blocks.items()}
-        return BlockMatrix(self.codomain, self.domain, blocks=blocks)
+        mat = BlockMatrix(self.codomain, self.domain, blocks=blocks)
+        mat.set_backend(self._backend)
+        return mat
 
     # ...
     def topetsc( self ):
@@ -801,10 +840,12 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         if isinstance(self.codomain, BlockVectorSpace) and isinstance(self.codomain.spaces[0], BlockVectorSpace):
             return
 
+        if backend is None:return
+        if backend is self._backend:return
+        self._backend=backend
+
         from psydac.api.ast.linalg import LinearOperatorDot, TransposeOperator, InterfaceTransposeOperator
         from psydac.linalg.stencil import StencilInterfaceMatrix
-        if backend is None:return
-        self._backend=backend
 
         block_shape = (self.n_block_rows, self.n_block_cols)
         keys        = tuple(self._blocks.keys())
@@ -815,12 +856,17 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         interface   = isinstance(self._blocks[keys[0]], StencilInterfaceMatrix)
         if interface:
             interface_axis  = self._blocks[keys[0]]._c_axis
+            d_ext   = self._blocks[keys[0]]._d_ext
+            d_axis   = self._blocks[keys[0]]._d_axis
             flip_axis       = self._blocks[keys[0]]._flip
             permutation     = self._blocks[keys[0]]._permutation
 
             for key in keys:
                 c_starts.append(self._blocks[key]._c_start)
                 d_starts.append(self._blocks[key]._d_start)
+
+            c_starts = tuple(c_starts)
+            d_starts = tuple(d_starts)
         else:
             interface_axis = None
             flip_axis      = (1,)*ndim
@@ -854,7 +900,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                 self._blocks[key]._transpose_args            = {}
                 self._blocks[key]._transpose_args['d_start'] =  np.int64(d_starts[k])
                 self._blocks[key]._transpose_args['c_start'] =  np.int64(c_starts[k])
-                self._blocks[key]._transpose_args['dim']     =  np.int64(dim)
+                self._blocks[key]._transpose_args['dim']     =  np.int64(interface_axis)
             else:
                 dm      = self._blocks[key]._transpose_args.pop('dm')
                 cm      = self._blocks[key]._transpose_args.pop('cm')
@@ -875,7 +921,6 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         dm          = []
         cm          = []
         for key in keys:
-            starts.append(self._blocks[key]._dotargs_null['starts'])
             nrows.append(self._blocks[key]._dotargs_null['nrows'])
             nrows_extra.append(self._blocks[key]._dotargs_null['nrows_extra'])
             gpads.append(self._blocks[key]._dotargs_null['gpads'])
@@ -883,7 +928,9 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             if interface:
                 cm.append((1,)*ndim)
                 dm.append((1,)*ndim)
+                starts.append(None)
             else:
+                starts.append(self._blocks[key]._dotargs_null['starts'])
                 cm.append(self._blocks[key]._dotargs_null['cm'])
                 dm.append(self._blocks[key]._dotargs_null['dm'])
 
@@ -977,13 +1024,19 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                                     c_start=c_starts)
             self._args = {}
 
-        self._blocks = [self._blocks[key]._data for key in keys]
+        self._blocks_as_args = [self._blocks[key]._data for key in keys]
         dot = dot.func
 
-        def func(blocks, v, out, **args):
-            vs   = [vi._data for vi in v.blocks] if isinstance(v, BlockVector) else v._data
-            outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else out._data
-            dot(*blocks, *vs, *outs, **args)
+        if interface:
+            def func(blocks, v, out, **args):
+                    vs   = [vi._interface_data[d_axis, d_ext] for vi in v.blocks] if isinstance(v, BlockVector) else v._data
+                    outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else out._data
+                    dot(*blocks, *vs, *outs, **args)
+        else:
+            def func(blocks, v, out, **args):
+                vs   = [vi._data for vi in v.blocks] if isinstance(v, BlockVector) else v._data
+                outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else out._data
+                dot(*blocks, *vs, *outs, **args)
 
         self._func = func
 
