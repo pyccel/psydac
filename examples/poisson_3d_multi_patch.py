@@ -50,10 +50,6 @@ def set_interfaces(domain, interfaces):
         domain = domain.join(domain, domain.name, bnd_minus=I[0], bnd_plus=I[1], direction=I[2])
     return domain
 
-def diag_dot(A,x,y):
-    for i in range(len(x.blocks)):
-        if A[i,i] is None:continue
-        A[i,i].dot(x[i], out=y[i])
 #==============================================================================
 
 def run_poisson_2d(solution, f, domain, ncells, degree, comm=None, backend=None):
@@ -124,63 +120,14 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None, backend=None)
     l2_error = l2norm_h.assemble(u=uh)
     h1_error = h1norm_h.assemble(u=uh)
     t1       = time.time()
+
     timing['diagnostics'] = t1-t0
-
-    A = equation_h.linear_system.lhs
-    b = equation_h.linear_system.rhs
-    T1,T2,T3,T4,T5 = 0,0,0,0,0
-    y = b.copy()*0
-    for i in range(100):
-
-        comm.Barrier()
-
-        t0 = time.time()
-        b.update_ghost_regions()
-        t1 = time.time()
-        T1 += t1-t0
-
-        comm.Barrier()
-
-        t0 = time.time()
-        b.start_update_interface_ghost_regions()
-        b.end_update_interface_ghost_regions()
-        t1 = time.time()
-        T2 += t1-t0
-
-        comm.Barrier()
-
-        t0 = time.time()
-        b.start_update_interface_ghost_regions()
-        b.update_ghost_regions()
-        b.end_update_interface_ghost_regions()
-        t1 = time.time()
-        T3 += t1-t0
-
-        comm.Barrier()
-
-        t0 = time.time()
-        A.dot(b,out=y)
-        t1 = time.time()
-        T4 += t1-t0
-
-        comm.Barrier()
-
-        t0 = time.time()
-        diag_dot(A,b,y)
-        t1 = time.time()
-        T5 += t1-t0
-
-    T1                       = comm.reduce(T1/100, op=MPI.MAX)
-    T2                       = comm.reduce(T2/100, op=MPI.MAX)
-    T3                       = comm.reduce(T3/100, op=MPI.MAX)
-    T4                       = comm.reduce(T4/100, op=MPI.MAX)
-    T5                       = comm.reduce(T5/100, op=MPI.MAX)
     timing["Abstract model"] = comm.reduce(timing["Abstract model"], op=MPI.MAX)
     timing["Discretization"] = comm.reduce(timing["Discretization"], op=MPI.MAX)
     timing['solution']       = comm.reduce(timing['solution'], op=MPI.MAX)
     timing['diagnostics']    = comm.reduce(timing['diagnostics'], op=MPI.MAX)
  
-    return uh, info, T1,T2,T3,T4,T5,timing, l2_error, h1_error
+    return uh, info, timing, l2_error, h1_error
 
 
 if __name__ == '__main__':
@@ -254,18 +201,13 @@ if __name__ == '__main__':
     degree = vars(args)['degree']
 
     comm = MPI.COMM_WORLD
-    u_h, info, T1, T2, T3, T4, T5, timing, l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=ne, degree=degree, comm=comm, backend=PSYDAC_BACKEND_GPYCCEL)
+    u_h, info, timing, l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=ne, degree=degree, comm=comm, backend=PSYDAC_BACKEND_GPYCCEL)
 
     if comm.rank == 0:
         print("number of mpi procs             :: ", comm.size)
         print("number of patches               :: ", len(domain))
         print("ncells                          :: ", ne)
         print("degree                          :: ", degree)
-        print("interiors communication    time :: ", T1)
-        print("interface communication    time :: ", T2)
-        print("combined  communication    time :: ", T3)
-        print("dot product calculation    time :: ", T4)
-        print("dot product calculation lb time :: ", T5)
         print("problem        timings          :: ", timing)
         print("> CG info                       :: ", info )
         print("L2 error                        :: ", l2_error)
