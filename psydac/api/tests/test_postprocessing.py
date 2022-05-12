@@ -1,10 +1,9 @@
-from matplotlib import interactive
 import pytest
 import os
 import glob
 import numpy as np
 
-from sympde.topology import Square, Cube, ScalarFunctionSpace, VectorFunctionSpace, Domain
+from sympde.topology import Square, Cube, ScalarFunctionSpace, VectorFunctionSpace, Domain, Derham
 from sympde.topology.analytical_mapping import IdentityMapping, AffineMapping
 
 from psydac.api.discretization import discretize
@@ -152,7 +151,7 @@ def test_OutputManager():
                                          }]
                             }
     Om.export_space_info()
-    assert Om._spaces_info == expected_spaces_info
+    assert Om._space_info == expected_spaces_info
     
     # Remove files
     os.remove('file.h5')
@@ -208,6 +207,101 @@ def test_reconstruct_spaces_topological_domain(domain):
     assert space_info_1 == space_info_2
     os.remove("space.yml")
     os.remove("space_2.yml")
+
+
+@pytest.mark.parametrize('domain, seq', [(Square(), ['h1', 'hdiv', 'l2']), (Square(), ['h1', 'hcurl', 'l2']), (Cube(), None)])
+def test_reconstruct_DeRhamSequence_topological_domain(domain, seq):
+    deRham = Derham(domain, sequence=seq)
+
+    domain_h  = discretize(domain, ncells=[5]*domain.dim)
+    derham_h = discretize(deRham, domain_h, degree=[2]*domain.dim)
+
+    Om = OutputManager('space_derham.yml', 'f.h5')
+    Om.add_spaces(**dict(((Vh.symbolic_space.name, Vh) for Vh in derham_h.spaces)))
+    Om.export_space_info()
+
+    Pm = PostProcessManager(domain=domain, space_file='space_derham.yml', fields_file='f.h5')
+
+    Om2 = OutputManager('space_derham_2.yml', 'f.h5')
+
+    Om2.add_spaces(**Pm.spaces)
+    Om2.export_space_info()
+    space_info_1 = Om.space_info
+    space_info_2 = Om2.space_info
+
+    patches_1 = space_info_1['patches']
+    patches_2 = space_info_2['patches']
+
+    for patch1 in patches_1:
+        for patch2 in patches_2:
+            if patch1['name'] == patch2['name']:
+                for key in patch1.keys():
+                    value1 = patch1[key]
+                    value2 = patch2[key]
+                    assert type(value1) == type(value2)
+                    if 'space' in key:
+                        for space1 in value1:
+                            for space2 in value2:
+                                if space2['name'] == space1['name']:
+                                    for key_space in space1.keys():
+                                        assert space1[key_space] == space2[key_space]
+                    else:
+                        assert value1 == value2
+
+    os.remove('space_derham_2.yml')
+    os.remove('space_derham.yml')
+
+
+@pytest.mark.parametrize('geometry, seq', [('identity_2d.h5', ['h1', 'hdiv', 'l2']),
+                                           ('identity_2d.h5', ['h1', 'hcurl', 'l2']),
+                                           ('identity_3d.h5', None),
+                                           ('bent_pipe.h5', ['h1', 'hdiv', 'l2']),
+                                           ('bent_pipe.h5', ['h1', 'hcurl', 'l2'])])
+def test_reconstruct_DeRhamSequence_discrete_domain(geometry, seq):
+    
+    geometry_file = os.path.join(mesh_dir, geometry)
+    domain = Domain.from_file(geometry_file)
+
+    deRham = Derham(domain, sequence=seq)
+
+    domain_h  = discretize(domain, filename=geometry_file)
+    derham_h = discretize(deRham, domain_h, degree=[2]*domain.dim)
+
+    Om = OutputManager('space_derham.yml', 'f.h5')
+    Om.add_spaces(**dict(((Vh.symbolic_space.name, Vh) for Vh in derham_h.spaces)))
+    Om.export_space_info()
+
+    Pm = PostProcessManager(domain=domain, space_file='space_derham.yml', fields_file='f.h5')
+
+    Om2 = OutputManager('space_derham_2.yml', 'f.h5')
+
+    Om2.add_spaces(**Pm.spaces)
+    Om2.export_space_info()
+    space_info_1 = Om.space_info
+    space_info_2 = Om2.space_info
+
+    patches_1 = space_info_1['patches']
+    patches_2 = space_info_2['patches']
+
+    for patch1 in patches_1:
+        for patch2 in patches_2:
+            if patch1['name'] == patch2['name']:
+                for key in patch1.keys():
+                    value1 = patch1[key]
+                    value2 = patch2[key]
+                    assert type(value1) == type(value2)
+                    if 'space' in key:
+                        for space1 in value1:
+                            for space2 in value2:
+                                if space2['name'] == space1['name']:
+                                    for key_space in space1.keys():
+                                        assert space1[key_space] == space2[key_space]
+                    else:
+                        assert value1 == value2
+
+    os.remove('space_derham_2.yml')
+    os.remove('space_derham.yml')
+
 
 
 @pytest.mark.parametrize('geometry', ['identity_2d.h5', 'identity_3d.h5','bent_pipe.h5'])

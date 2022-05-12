@@ -120,7 +120,7 @@ class OutputManager:
 
     Attributes
     ----------
-    _spaces_info : dict
+    _space_info : dict
         Information about the spaces in a human readable format.
         It is written to ``filename_space`` in yaml.
     _spaces : List
@@ -153,7 +153,7 @@ class OutputManager:
 
     def __init__(self, filename_space, filename_fields, comm=None, mode='w'):
 
-        self._spaces_info = {}
+        self._space_info = {}
         self._spaces = []
 
         if filename_space[-4:] != ".yml" and filename_space[-4:] != ".yaml":
@@ -185,7 +185,7 @@ class OutputManager:
 
     @property
     def space_info(self):
-        return self._spaces_info
+        return self._space_info
 
     @property
     def spaces(self):
@@ -306,7 +306,7 @@ class OutputManager:
         new_space : dict
             Formatted space info.
         """
-        spaces_info = self._spaces_info
+        spaces_info = self._space_info
         
         scalar_space_name = name
         patch = patch_name
@@ -366,7 +366,7 @@ class OutputManager:
                                                'breakpoints': [scalar_space.breaks[i].tolist() for i in range(ldim)], 
                                                'scalar_spaces': [new_space]})
 
-        self._spaces_info = spaces_info
+        self._space_info = spaces_info
 
         return new_space
 
@@ -393,7 +393,7 @@ class OutputManager:
                                                    kind=UndefinedSpaceType())
             scalar_spaces_info.append(sc_space_info)
 
-        spaces_info = self._spaces_info
+        spaces_info = self._space_info
 
         new_vector_space = {'name': name,
                             'kind': self.space_types_to_str[kind],
@@ -408,7 +408,7 @@ class OutputManager:
         except KeyError:
             spaces_info['patches'][patch_index].update({'vector_spaces': [new_vector_space]})
 
-        self._spaces_info = spaces_info
+        self._space_info = spaces_info
 
     def export_fields(self, **fields):
         """
@@ -507,7 +507,7 @@ class OutputManager:
         """
         if self.comm is None or self.comm.Get_rank() == 0:
             with open(self.filename_space, 'w') as f:
-                yaml.dump(data=self._spaces_info, stream=f, default_flow_style=None, sort_keys=False)
+                yaml.dump(data=self._space_info, stream=f, default_flow_style=None, sort_keys=False)
 
 
 class PostProcessManager:
@@ -675,13 +675,14 @@ class PostProcessManager:
 
                 basis = list(set(basis))
                 if len(basis) != 1:
-                    raise NotImplementedError("Discretize doesn't support two different bases")
+                    basis = 'M'
+                else:
+                    basis = basis[0]
 
                 degree = [sc_sp['degree'] for sc_sp in components]
                 multiplicity = [sc_sp['multiplicity'] for sc_sp in components]
                 
                 new_degree, new_mul = convert_deg_dict[v_sp['kind']](degree, multiplicity)
-                
                 
                 knots = [[np.asarray(sc_sp['knots'][i]) for i in range(sc_sp['ldim'])] for sc_sp in components][0]
                 periodic = components[0]['periodic']
@@ -694,7 +695,7 @@ class PostProcessManager:
                 temp_kwargs_discretization = {
                     'degree':[int(new_degree[i]) for i in range(components[0]['ldim'])],
                     'knots': knots,
-                    'basis': basis[0],
+                    'basis': basis,
                     'periodic':periodic,
                     'comm': self.comm
                 }
@@ -709,7 +710,9 @@ class PostProcessManager:
 
                     basis = list(set(sc_sp['basis']))
                     if len(basis) != 1:
-                        raise NotImplementedError("Discretize doesn't support two different bases")
+                        basis = 'M'
+                    else:
+                        basis = basis[0]
 
                     multiplicity = sc_sp['multiplicity']
                     degree = sc_sp['degree']
@@ -727,7 +730,7 @@ class PostProcessManager:
                     temp_kwargs_discretization = {
                         'degree': [int(new_degree[i]) for i in range(sc_sp['ldim'])],
                         'knots': knots,
-                        'basis': basis[0],
+                        'basis': basis,
                         'periodic': periodic,
                         'comm': self.comm,
                     }
