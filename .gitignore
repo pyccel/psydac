@@ -25,3 +25,6 @@ psydac/core/*.so
 psydac/core/*.lock
 __*pyccel__
 .env
+
+# pytest directories
+__test__/
