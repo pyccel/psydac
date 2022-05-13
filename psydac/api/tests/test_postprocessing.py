@@ -238,7 +238,7 @@ def test_reconstruct_DeRhamSequence_topological_domain(domain, seq):
                 for key in patch1.keys():
                     value1 = patch1[key]
                     value2 = patch2[key]
-                    assert type(value1) == type(value2)
+                    assert isinstance(value1, type(value2))
                     if 'space' in key:
                         for space1 in value1:
                             for space2 in value2:
@@ -289,7 +289,7 @@ def test_reconstruct_DeRhamSequence_discrete_domain(geometry, seq):
                 for key in patch1.keys():
                     value1 = patch1[key]
                     value2 = patch2[key]
-                    assert type(value1) == type(value2)
+                    assert isinstance(value1, type(value2))
                     if 'space' in key:
                         for space1 in value1:
                             for space2 in value2:
