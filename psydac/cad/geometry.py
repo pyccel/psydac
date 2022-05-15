@@ -18,9 +18,10 @@ import random
 
 from mpi4py import MPI
 
-from psydac.fem.splines      import SplineSpace
-from psydac.fem.tensor       import TensorFemSpace
-from psydac.mapping.discrete import SplineMapping, NurbsMapping
+from psydac.fem.splines        import SplineSpace
+from psydac.fem.tensor         import TensorFemSpace
+from psydac.fem.utilities      import create_cart
+from psydac.mapping.discrete   import SplineMapping, NurbsMapping
 
 from sympde.topology       import Domain, Line, Square, Cube, NCubeInterior
 from sympde.topology.basic import Union
@@ -36,7 +37,7 @@ class Geometry( object ):
     # Option [1]: from a (domain, mappings) or a file
     #--------------------------------------------------------------------------
     def __init__( self, domain=None, mappings=None,
-                  filename=None, comm=MPI.COMM_WORLD ):
+                  filename=None, comm=None ):
 
         # ... read the geometry if the filename is given
         if not( filename is None ):
@@ -58,6 +59,7 @@ class Geometry( object ):
             self._ldim     = domain.dim
             self._pdim     = domain.dim # TODO must be given => only dim is  defined for a Domain
             self._mappings = mappings
+            self._cart     = None
 
         else:
             raise ValueError('Wrong input')
@@ -125,13 +127,17 @@ class Geometry( object ):
         return self._domain
 
     @property
+    def cart(self):
+        return self._cart
+
+    @property
     def mappings(self):
         return self._mappings
 
     def __len__(self):
         return len(self.domain)
 
-    def read( self, filename, comm=MPI.COMM_WORLD ):
+    def read( self, filename, comm=None ):
         # ... check extension of the file
         basename, ext = os.path.splitext(filename)
         if not(ext == '.h5'):
@@ -164,6 +170,7 @@ class Geometry( object ):
 
         # ... read patchs
         mappings = {}
+        spaces   = [None]*n_patches
         for i_patch in range( n_patches ):
 
             item  = yml['patches'][i_patch]
@@ -176,10 +183,36 @@ class Geometry( object ):
                 degree   = [int (p) for p in patch.attrs['degree'  ]]
                 periodic = [bool(b) for b in patch.attrs['periodic']]
                 knots    = [patch['knots_{}'.format(d)][:] for d in range( ldim )]
-                spaces   = [SplineSpace( degree=p, knots=k, periodic=b )
+                space_i  = [SplineSpace( degree=p, knots=k, periodic=b )
                             for p,k,b in zip( degree, knots, periodic )]
 
-                tensor_space = TensorFemSpace( *spaces, comm=comm )
+                spaces[i_patch] = space_i
+
+        assert all(spaces)
+        self._cart = None
+        if comm is not None:
+            cart = create_cart(spaces, comm)
+            self._cart = cart
+            if n_patches == 1:
+                carts = [cart]
+            else:
+                carts = cart.carts
+
+        for i_patch in range( n_patches ):
+
+            item  = yml['patches'][i_patch]
+            patch_name = item['name']
+            mapping_id = item['mapping_id']
+            dtype = item['type']
+            patch = h5[mapping_id]
+            space_i = spaces[i_patch]
+            if dtype in ['SplineMapping', 'NurbsMapping']:
+
+                if comm is None:
+                    tensor_space = TensorFemSpace( *space_i )
+                else:
+                    tensor_space = TensorFemSpace( *space_i, cart=carts[i_patch] )
+
                 if dtype == 'SplineMapping':
                     mapping = SplineMapping.from_control_points( tensor_space,
                                                                  patch['points'][..., :pdim] )

@@ -425,14 +425,30 @@ class AST(object):
 
         if mapping_space:
             f         = (tests+trials+fields)[0]
-            f         = f.duplicate('mapping_'+f.name)
-            f         = expand([f])[0]
-            mapping_degrees      = get_degrees([f], mapping_space)
-            multiplicity_mapping = get_multiplicity([f], mapping_space.vector_space)
-            d_mapping = {f: {'global': GlobalTensorQuadratureTestBasis (f),
-                             'span': GlobalSpan(f),
-                             'multiplicity':multiplicity_mapping[0],
-                             'degrees': mapping_degrees[0]}}
+            if isinstance(domain, Interface):    
+                f_m = f.duplicate('mapping_'+f.name)
+                f_m = expand([f_m])[0]
+                f_p = f.duplicate('mapping_plus_'+f.name)
+                f_p = expand([f_p])[0]
+                f   = (f_m, f_p)
+                mapping_degrees_m  = get_degrees([f_m], mapping_space[0])
+                mapping_degrees_p  = get_degrees([f_p], mapping_space[1])
+                multiplicity_mapping_m = get_multiplicity([f_m], mapping_space[0].vector_space)
+                multiplicity_mapping_p = get_multiplicity([f_p], mapping_space[1].vector_space)
+                mapping_degrees = (mapping_degrees_m, mapping_degrees_p)
+                multiplicity_mapping = (multiplicity_mapping_m, multiplicity_mapping_p)
+            else:
+                f  = f.duplicate('mapping_'+f.name)
+                f  = expand([f])[0]
+                f  = (f,)
+                mapping_degrees      = (get_degrees(f, mapping_space),)
+                multiplicity_mapping = (get_multiplicity(f, mapping_space.vector_space),)
+
+            d_mapping = {fi: {'global': GlobalTensorQuadratureTestBasis (fi),
+                             'span': GlobalSpan(fi),
+                             'multiplicity':multiplicity_mapping_i[0],
+                             'degrees': mapping_degrees_i[0]}
+                             for fi,mapping_degrees_i,multiplicity_mapping_i in zip(f,mapping_degrees,multiplicity_mapping) }
         else:
            d_mapping = {}
 
@@ -638,7 +654,11 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     lengths         = [el_length, quad_length]
 
     # ...........................................................................................
-    geo        = GeometryExpressions(mapping, nderiv)
+    if isinstance(domain, Interface):
+        geos = [GeometryExpressions(mapping.minus, nderiv), GeometryExpressions(mapping.plus, nderiv)]
+    else:
+        geos = [GeometryExpressions(mapping, nderiv)]
+
     g_coeffs   = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
     l_mats     = BlockStencilMatrixLocalBasis(trials, tests, terminal_expr, dim, tag)
     g_mats     = BlockStencilMatrixGlobalBasis(trials, tests, pads, m_tests, terminal_expr, l_mats.tag)
@@ -657,11 +677,17 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     #ind_element   = index_element.set_range(start=g_starts,stop=g_ends) if add_openmp else index_element.set_range(stop=el_length)
     ind_element   = index_element.set_range(start=l_starts,stop=l_ends) if add_openmp else index_element.set_range(stop=el_length)
     l_ind_element = local_index_element.set_range(stop=TensorInteger(2))
-    if mapping_space:
-        ind_dof_test  = index_dof_test.set_range(stop=Tuple(*[d+1 for d in list(d_mapping.values())[0]['degrees']]))
+    if mapping_space and isinstance(domain, Interface):
+        mappings = (mapping.minus, mapping.plus)
+        ind_dof_tests  = [index_dof_test.set_range(stop=Tuple(*[d+1 for d in d_mapping[f]['degrees']])) for f in d_mapping]
         # ...........................................................................................
-        eval_mapping = EvalMapping(ind_quad, ind_dof_test, list(d_mapping.values())[0]['global'],
-                        mapping, geo, mapping_space, nderiv, mask, is_rational_mapping)
+        eval_mappings = [EvalMapping(ind_quad, ind_dof_tests[i], d_mapping[fi]['global'],
+                        mappings[i], geos[i], mapping_space[i], nderiv, mask, is_rational_mapping[i]) for i,fi in enumerate(d_mapping)]
+    elif mapping_space:
+        ind_dof_tests  = [index_dof_test.set_range(stop=Tuple(*[d+1 for d in d_mapping[f]['degrees']])) for f in d_mapping]
+        # ...........................................................................................
+        eval_mappings = [EvalMapping(ind_quad, ind_dof_tests[i], d_mapping[fi]['global'],
+                        mapping, geos[i], mapping_space, nderiv, mask, is_rational_mapping) for i,fi in enumerate(d_mapping)]
 
     eval_fields = []
     for f in fields:
@@ -675,7 +701,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
     g_stmts = []
     if mapping_space:
-        g_stmts.append(eval_mapping)
+        g_stmts = g_stmts + eval_mappings
 
     g_stmts += [*eval_fields]
     g_stmts_texpr = []
@@ -724,7 +750,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                 # fields (and their derivatives) at a single quadrature point
                 stmts += flatten([eval_field.inits for eval_field in eval_fields])
          
-                loop  = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
+                loop  = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), *geos), ind_quad, stmts=stmts, mask=mask)
                 loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_scalars), loop)
 
                 # ... loop over trials
@@ -777,7 +803,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                                                               tests_multiplicity=m_tests, trials_multiplicity=m_trials)
 
                     l_sub_scalars =  BlockScalarLocalBasis(trials = sub_trials, tests=sub_tests, expr=sub_terminal_expr, tag=l_mats.tag)
-                    loop  = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
+                    loop  = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), *geos), ind_quad, stmts=stmts, mask=mask)
                     loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_scalars), loop)
 
                     # ... loop over trials
@@ -880,10 +906,10 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     args['mats']  = [g_mats]
 
     if mapping_space:
-        args['mapping'] = eval_mapping.coeffs
-        args['mapping_degrees'] = LengthDofTest(list(d_mapping.keys())[0])
-        args['mapping_basis'] = list(d_mapping.values())[0]['global']
-        args['mapping_spans'] = list(d_mapping.values())[0]['span']
+        args['mapping'] = flatten([eval_mapping.coeffs for eval_mapping in eval_mappings])
+        args['mapping_degrees'] = [LengthDofTest(f) for f in d_mapping]
+        args['mapping_basis'] = flatten([d_mapping[f]['global'] for f in d_mapping])
+        args['mapping_spans'] = flatten([d_mapping[f]['span'] for f in d_mapping])
 
     if fields:
         args['f_span']         = f_span.values()
@@ -932,13 +958,13 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         shared = (*thread_span.values(), coords_from_rank, rank_from_coords, global_thread_s, global_thread_e,
                   *args['tests_basis'], *args['trial_basis'], *args['spans'], *args['quads'], g_mats)
         if mapping_space:
-            shared = shared + (*eval_mapping.coeffs,  list(d_mapping.values())[0]['global'], list(d_mapping.values())[0]['span'])
+            shared = shared + (*args['mapping'],  *args['mapping_basis'], *args['mapping_spans'])
         if fields:
             shared = shared + (*f_span.values(), *args['f_coeffs'], *args['field_basis'])
 
         firstprivate = (*args['tests_degrees'].values(), *args['trials_degrees'].values(), *lengths, *pads, *b0s, *e0s, thread_id.length)
         if mapping_space:
-            firstprivate = firstprivate + (args['mapping_degrees'], )
+            firstprivate = firstprivate + (*args['mapping_degrees'], )
         if fields:
             firstprivate = firstprivate + ( *args['fields_degrees'], *args['f_pads'])
         if constants:
@@ -1212,9 +1238,9 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     if mapping_space:
         args['mapping'] = eval_mapping.coeffs
-        args['mapping_degrees'] = LengthDofTest(list(d_mapping.keys())[0])
-        args['mapping_basis'] = list(d_mapping.values())[0]['global']
-        args['mapping_spans'] = list(d_mapping.values())[0]['span']
+        args['mapping_degrees'] = [LengthDofTest(list(d_mapping.keys())[0])]
+        args['mapping_basis'] = [list(d_mapping.values())[0]['global']]
+        args['mapping_spans'] = [list(d_mapping.values())[0]['span']]
 
     if fields:
         args['f_span']         = f_span.values()
@@ -1261,7 +1287,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         firstprivate = (*args['tests_degrees'].values(), *lengths, *pads, thread_id.length)
 
         if mapping_space:
-            firstprivate = firstprivate + (args['mapping_degrees'], )
+            firstprivate = firstprivate + (*args['mapping_degrees'], )
         if fields:
             firstprivate = firstprivate + ( *args['fields_degrees'], *args['f_pads'])
         if constants:
@@ -1341,6 +1367,8 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
 
     """
 
+    backend   = kwargs.pop('backend', None)
+    is_pyccel = backend['name'] == 'pyccel' if backend else False
     pads   = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     g_quad = [GlobalTensorQuadratureGrid()]
     l_quad = [LocalTensorQuadratureGrid()]
@@ -1349,6 +1377,8 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     coeffs   = [CoefficientBasis(i) for i in expand(fields)]
     l_coeffs = [MatrixLocalBasis(i) for i in expand(fields)]
     g_coeffs = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
+
+    add_openmp = is_pyccel and backend['openmp'] and num_threads>1
 
     geo      = GeometryExpressions(mapping, nderiv)
 
@@ -1417,9 +1447,9 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
 
     if mapping_space:
         args['mapping']         = eval_mapping.coeffs
-        args['mapping_degrees'] = LengthDofTest(list(d_mapping.keys())[0])
-        args['mapping_basis']   = list(d_mapping.values())[0]['global']
-        args['mapping_spans']   = list(d_mapping.values())[0]['span']
+        args['mapping_degrees'] = [LengthDofTest(list(d_mapping.keys())[0])]
+        args['mapping_basis']   = [list(d_mapping.values())[0]['global']]
+        args['mapping_spans']   = [list(d_mapping.values())[0]['span']]
 
     args['f_coeffs'] = flatten(list(g_coeffs.values()))
     fields           = tuple(f.base if isinstance(f, IndexedVectorFunction) else f for f in fields)
@@ -1428,7 +1458,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     if constants:
         args['constants'] = constants
 
-    if num_threads>1:
+    if add_openmp:
         shared = (*args['tests_basis'], *args['spans'], *args['quads'], *args['f_coeffs'], g_vec)
         if mapping_space:
             shared = shared + (*eval_mapping.coeffs,  list(d_mapping.values())[0]['global'], list(d_mapping.values())[0]['span'])
@@ -1436,7 +1466,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         firstprivate = (*args['tests_degrees'].values(), *lengths, *args['global_pads'])
 
         if mapping_space:
-            firstprivate = firstprivate + (args['mapping_degrees'], )
+            firstprivate = firstprivate + (*args['mapping_degrees'], )
         if constants:
             firstprivate = firstprivate + (*constants,)
  

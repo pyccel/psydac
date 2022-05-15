@@ -19,7 +19,7 @@ from psydac.linalg.kron    import kronecker_solve
 from psydac.fem.basic      import FemSpace, FemField
 from psydac.fem.splines    import SplineSpace
 from psydac.fem.grid       import FemAssemblyGrid
-from psydac.ddm.cart       import CartDecomposition
+from psydac.fem.utilities  import create_cart
 
 from psydac.core.bsplines  import (find_span,
                                    basis_funs,
@@ -60,19 +60,7 @@ class TensorFemSpace( FemSpace ):
             comm         = kwargs['comm']
             nprocs       = kwargs.pop('nprocs', None)
             reverse_axis = kwargs.pop('reverse_axis', None)
-            num_threads  = int(os.environ.get('OMP_NUM_THREADS',1))
-
-            cart = CartDecomposition(
-                npts         = npts,
-                pads         = pads,
-                periods      = periods,
-                shifts       = multiplicity,
-                reorder      = True,
-                comm         = comm,
-                nprocs       = nprocs,
-                reverse_axis = reverse_axis,
-                num_threads  = num_threads
-            )
+            cart         = create_cart([self._spaces], comm, reverse_axis=reverse_axis, nprocs=nprocs)
 
             self._vector_space = StencilVectorSpace(cart)
 

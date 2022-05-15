@@ -452,12 +452,7 @@ class Parser(object):
         map_span    = args.pop('mapping_spans', None)
         thread_args = args.pop('thread_args', None)
 
-        if map_coeffs:
-            map_coeffs  = map_coeffs
-            map_degrees = [map_degrees]
-            map_basis   = [map_basis]
-            map_span    = [map_span]
-        else:
+        if not map_coeffs:
             map_coeffs  = []
             map_degrees = []
             map_basis   = []
@@ -1013,7 +1008,6 @@ class Parser(object):
     def _visit_MatrixGlobalBasis(self, expr, **kwargs):
         rank   = self._visit(expr.rank)
         target = SymbolicExpr(expr.target)
-
         name = 'global_arr_coeffs_{}'.format(target.name)
         var  = IndexedVariable(name, dtype='real', rank=rank)
         self.insert_variables(var)

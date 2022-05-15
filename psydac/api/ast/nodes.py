@@ -21,6 +21,7 @@ from sympde.topology import get_atom_logical_derivatives
 
 from psydac.pyccel.ast.core import AugAssign, Assign
 from psydac.pyccel.ast.core import _atomic
+from psydac.api.utilities   import flatten
 
 #==============================================================================
 # TODO move it
@@ -480,6 +481,7 @@ class EvalMapping(BaseNode):
         mapping_atoms  = components.arguments
         basis          = q_basis
         target         = basis.target
+
         multiplicity   = tuple(mapping_space.vector_space.shifts) if mapping_space else ()
         pads           = tuple(mapping_space.vector_space.pads) if mapping_space else ()
         
@@ -1882,13 +1884,7 @@ class Loop(BaseNode):
         others = [i for i in iterable if not isinstance(i, GeometryExpressions)]
         geos   = [i.expressions for i in iterable if isinstance(i, GeometryExpressions)]
 
-        if len(geos) == 1:
-            geos = list(geos[0])
-
-        elif len(geos) > 1:
-            raise NotImplementedError('TODO')
-
-        iterable = others + geos
+        iterable = others + flatten(geos)
         iterable = Tuple(*iterable)
         # ...
 

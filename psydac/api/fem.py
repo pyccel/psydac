@@ -154,19 +154,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         assert( len(args) == 2 )
 
         # ...
-        domain_h = args[0]
+        domain_h     = args[0]
         assert( isinstance(domain_h, Geometry) )
-
-        mapping = list(domain_h.mappings.values())[0]
-        self._mapping = mapping
-
-        is_rational_mapping = False
-        if not( mapping is None ):
-            is_rational_mapping = isinstance( mapping, NurbsMapping )
-            kwargs['mapping_space'] = mapping.space
-
-        self._is_rational_mapping = is_rational_mapping
-        # ...
 
         self._spaces = args[1]
         # ...
@@ -190,10 +179,32 @@ class DiscreteBilinearForm(BasicDiscrete):
             i,j = self.get_space_indices_from_target(domain, target )
             trial_space  = self.spaces[0].spaces[j]
             test_space = self.spaces[1].spaces[i]
+            if isinstance(target, Interface):
+                mapping_m = domain_h.mappings[target.minus.domain.name]
+                mapping_p = domain_h.mappings[target.plus.domain.name]
+                mapping   = (mapping_m, mapping_p) if mapping_m else None
+            else:
+                mapping = list(domain_h.mappings.values())[i]
         else:
             trial_space  = self.spaces[0]
             test_space   = self.spaces[1]
+            mapping = list(domain_h.mappings.values())[0]
 
+
+
+        self._mapping = mapping
+
+        is_rational_mapping = False
+        if not( mapping is None ) and not isinstance(target, Interface):
+            is_rational_mapping = isinstance( mapping, NurbsMapping )
+            kwargs['mapping_space'] = mapping.space
+        elif not( mapping is None ) and isinstance(target, Interface):
+            is_rational_mapping = (isinstance( mapping[0], NurbsMapping ), isinstance( mapping[1], NurbsMapping ))
+            kwargs['mapping_space'] = (mapping[0].space, mapping[1].space)
+
+        self._is_rational_mapping = is_rational_mapping
+        # ...
+        
         if isinstance(test_space.vector_space, BlockVectorSpace):
             vector_space = test_space.vector_space.spaces[0]
         else:
@@ -436,29 +447,43 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._global_matrices     = [M._data for M in global_mats]
 
         if self.mapping:
-            assert len(self.grid) == 1
-            mapping    = [e._coeffs._data for e in self.mapping._fields]
-            space      = self.mapping._fields[0].space
-            map_degree = space.degree
-            map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
-            map_basis  = [q.basis for q in space.quad_grids]
-            axis       = self.grid[0].axis
-            ext        = self.grid[0].ext
-            points     = self.grid[0].points
-            if axis is not None:
-                nderiv = self.max_nderiv
-                space  = space.spaces[axis]
-                points = points[axis]
-                local_span = find_span(space.knots, space.degree, points[0, 0])
+            if len(self.grid) == 1:
+                mappings = (self.mapping,)
+            elif len(self.grid) == 2:
+                mappings = self.mapping
+            mapping    = [e._coeffs._data for mapping in mappings for e in mapping._fields]
+            spaces     = [mapping._fields[0].space for mapping in mappings]
+            map_degree = [sp.degree for sp in spaces]
+            map_span   = [[q.spans-s for q,s in zip(sp.quad_grids, sp.vector_space.starts)] for sp in spaces]
+            map_basis  = [[q.basis for q in sp.quad_grids] for sp in spaces]
+            points     = [g.points for g in self.grid]
+
+            nderiv = self.max_nderiv
+            for i in range(len(self.grid)):
+                axis   = self.grid[i].axis
+                ext    = self.grid[i].ext
+                if axis is None:continue
+                space  = spaces[i].spaces[axis]
+                points_i = points[i][axis]
+                local_span = find_span(space.knots, space.degree, points_i[0, 0])
                 boundary_basis = basis_funs_all_ders(space.knots, space.degree,
-                                                     points[0, 0], local_span, nderiv, space.basis)
-                map_basis[axis] = map_basis[axis].copy()
-                map_basis[axis][0, :, 0:nderiv+1, 0] = np.transpose(boundary_basis)
+                                                     points_i[0, 0], local_span, nderiv, space.basis)
+                map_basis[i][axis] = map_basis[i][axis].copy()
+                map_basis[i][axis][0, :, 0:nderiv+1, 0] = np.transpose(boundary_basis)
                 if ext == 1:
-                    map_span[axis]    = map_span[axis].copy()
-                    map_span[axis][0] = map_span[axis][-1]
-            if self.is_rational_mapping:
-                mapping = [*mapping, self.mapping.weights_field.coeffs._data]
+                    map_span[i][axis]    = map_span[i][axis].copy()
+                    map_span[i][axis][0] = map_span[i][axis][-1]
+
+            map_degree = flatten(map_degree)
+            map_span   = flatten(map_span)
+            map_basis  = flatten(map_basis)
+            points     = flatten(points)
+            if len(self.grid) == 1 and self.is_rational_mapping:
+                mapping = [*mapping, *[mapp.weights_field.coeffs._data for mapp in mappings]]
+            elif len(self.grid)==2:
+                weights_m = [mappings[0].weights_field.coeffs._data] if self.is_rational_mapping[0] else []
+                weights_p = [mappings[1].weights_field.coeffs._data] if self.is_rational_mapping[1] else []
+                mapping   = [*mapping, *weights_m, *weights_p]
         else:
             mapping    = []
             map_degree = []
@@ -629,16 +654,6 @@ class DiscreteLinearForm(BasicDiscrete):
         domain_h = args[0]
         assert( isinstance(domain_h, Geometry) )
 
-        mapping = list(domain_h.mappings.values())[0]
-        self._mapping = mapping
-
-        is_rational_mapping = False
-        if not( mapping is None ):
-            is_rational_mapping = isinstance( mapping, NurbsMapping )
-            kwargs['mapping_space'] = mapping.space
-
-        self._is_rational_mapping = is_rational_mapping
-
         self._space  = args[1]
 
         if isinstance(kernel_expr, (tuple, list)):
@@ -659,8 +674,10 @@ class DiscreteLinearForm(BasicDiscrete):
         if len(domain)>1:
             i = self.get_space_indices_from_target(domain, target )
             test_space  = self._space.spaces[i]
+            mapping = list(domain_h.mappings.values())[i]
         else:
             test_space  = self._space
+            mapping = list(domain_h.mappings.values())[0]
 
         if isinstance(test_space.vector_space, BlockVectorSpace):
             vector_space = test_space.vector_space.spaces[0]
@@ -669,6 +686,7 @@ class DiscreteLinearForm(BasicDiscrete):
         else:
             vector_space = test_space.vector_space
 
+        self._mapping      = mapping
         self._vector_space = vector_space
         self._num_threads  = 1
         if vector_space.parallel and vector_space.cart.num_threads>1:
@@ -682,6 +700,12 @@ class DiscreteLinearForm(BasicDiscrete):
             self._global_matrices  = ()
             return
 
+        is_rational_mapping = False
+        if not( mapping is None ):
+            is_rational_mapping = isinstance( mapping, NurbsMapping )
+            kwargs['mapping_space'] = mapping.space
+
+        self._is_rational_mapping     = is_rational_mapping
         kwargs['discrete_space']      = test_space
         kwargs['is_rational_mapping'] = is_rational_mapping
 
@@ -931,16 +955,6 @@ class DiscreteFunctional(BasicDiscrete):
         domain_h = args[0]
         assert( isinstance(domain_h, Geometry) )
 
-        mapping = list(domain_h.mappings.values())[0]
-        self._mapping = mapping
-
-        is_rational_mapping = False
-        if not( mapping is None ):
-            is_rational_mapping = isinstance( mapping, NurbsMapping )
-            kwargs['mapping_space'] = mapping.space
-
-        self._is_rational_mapping = is_rational_mapping
-
         self._space = args[1]
 
         if isinstance(kernel_expr, (tuple, list)):
@@ -950,14 +964,21 @@ class DiscreteFunctional(BasicDiscrete):
                 raise ValueError('> Expecting only one kernel')
 
         # ...
-        self._kernel_expr = kernel_expr
-        domain       = self.kernel_expr.target
+        self._kernel_expr     = kernel_expr
+        self._target          = kernel_expr.target
+        self._symbolic_space  = self._space.symbolic_space
+        self._domain          = domain_h.domain
         # ...
 
-        test_sym_space   = self._space.symbolic_space
-        if test_sym_space.is_broken:
-            i = self.get_space_indices_from_target(test_sym_space.domain, domain)
+        domain = self.domain
+        target = self.target
+
+        if len(domain)>1:
+            i = self.get_space_indices_from_target(domain, target)
             self._space  = self._space.spaces[i]
+            mapping = list(domain_h.mappings.values())[i]
+        else:
+            mapping = list(domain_h.mappings.values())[0]
 
         if isinstance(self.space.vector_space, BlockVectorSpace):
             vector_space = self.space.vector_space.spaces[0]
@@ -978,18 +999,23 @@ class DiscreteFunctional(BasicDiscrete):
             self._comm      = domain_h.comm
             return
 
-        self._symbolic_space  = test_sym_space
-        self._domain          = domain
-
-        if isinstance(domain, Boundary):
-            ext        = domain.ext
-            axis       = domain.axis
+        if isinstance(target, Boundary):
+            ext        = target.ext
+            axis       = target.axis
         else:
             ext        = None
             axis       = None
 
-        kwargs['discrete_space']      = self._space
+        is_rational_mapping = False
+        if not( mapping is None ):
+            is_rational_mapping = isinstance( mapping, NurbsMapping )
+            kwargs['mapping_space'] = mapping.space
+
+        self._mapping                 = mapping
+        self._is_rational_mapping     = is_rational_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
+        kwargs['discrete_space']      = self._space
+
         kwargs['comm']        = None
         if vector_space.parallel:
             kwargs['comm'] = vector_space.cart.comm
@@ -1003,13 +1029,21 @@ class DiscreteFunctional(BasicDiscrete):
         kwargs['num_threads'] = num_threads
 
         BasicDiscrete.__init__(self, expr, kernel_expr,  quad_order=quad_order, **kwargs)
-        self._comm   = domain_h.comm
-        # ...
+
+        self._comm       = domain_h.comm
         grid             = QuadratureGrid( self.space,  axis=axis, ext=ext)
         self._grid       = grid
         self._test_basis = BasisValues( self.space, nderiv = self.max_nderiv, trial=True, grid=grid, ext=ext)
 
         self._args = self.construct_arguments()
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def target(self):
+        return self._target
 
     @property
     def space(self):
@@ -1090,8 +1124,7 @@ class DiscreteFunctional(BasicDiscrete):
                 if v.space.is_product:
                     coeffs = v.coeffs
                     if self._symbolic_space.is_broken:
-                        index = self.get_space_indices_from_target(self._symbolic_space.domain,
-                                                                   self._domain)
+                        index = self.get_space_indices_from_target(self._domain, self._target)
                         coeffs = coeffs[index]
 
                     if isinstance(coeffs, StencilVector):
