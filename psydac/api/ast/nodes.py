@@ -10,7 +10,7 @@ from sympy.core.singleton     import Singleton
 from sympy.core.containers    import Tuple
 from sympy.core.compatibility import with_metaclass
 
-from sympde.topology import elements_of
+from sympde.topology import element_of
 from sympde.topology import ScalarFunction, VectorFunction
 from sympde.topology import VectorFunctionSpace
 from sympde.topology import IndexedVectorFunction
@@ -489,7 +489,12 @@ class EvalMapping(BaseNode):
             space          = target.base.space
         else:
             space      = target.space
-        weight,        = elements_of(space, names='weight')
+
+        if mapping.is_plus:
+            weight = element_of(space, name='weight_plus')
+        else:
+            weight = element_of(space, name='weight')
+
         if isinstance(target, VectorFunction):
             target = target[0]
 

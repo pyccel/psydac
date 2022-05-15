@@ -451,7 +451,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 mappings = (self.mapping,)
             elif len(self.grid) == 2:
                 mappings = self.mapping
-            mapping    = [e._coeffs._data for mapping in mappings for e in mapping._fields]
+            map_coeffs = [[e._coeffs._data for e in mapping._fields] for mapping in mappings] 
             spaces     = [mapping._fields[0].space for mapping in mappings]
             map_degree = [sp.degree for sp in spaces]
             map_span   = [[q.spans-s for q,s in zip(sp.quad_grids, sp.vector_space.starts)] for sp in spaces]
@@ -478,12 +478,13 @@ class DiscreteBilinearForm(BasicDiscrete):
             map_span   = flatten(map_span)
             map_basis  = flatten(map_basis)
             points     = flatten(points)
-            if len(self.grid) == 1 and self.is_rational_mapping:
-                mapping = [*mapping, *[mapp.weights_field.coeffs._data for mapp in mappings]]
+            if len(self.grid) == 1:
+                weights = [mappings[0].weights_field.coeffs._data] if self.is_rational_mapping else []
+                mapping = [*map_coeffs[0], *weights]
             elif len(self.grid)==2:
                 weights_m = [mappings[0].weights_field.coeffs._data] if self.is_rational_mapping[0] else []
                 weights_p = [mappings[1].weights_field.coeffs._data] if self.is_rational_mapping[1] else []
-                mapping   = [*mapping, *weights_m, *weights_p]
+                mapping   = [*map_coeffs[0], *weights_m, *map_coeffs[1], *weights_p]
         else:
             mapping    = []
             map_degree = []

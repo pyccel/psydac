@@ -1,3 +1,5 @@
+# coding: utf-8
+#
 import h5py
 import yaml
 import numpy as np
