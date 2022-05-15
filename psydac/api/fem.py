@@ -180,8 +180,10 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_space  = self.spaces[0].spaces[j]
             test_space = self.spaces[1].spaces[i]
             if isinstance(target, Interface):
-                mapping_m = domain_h.mappings[target.minus.domain.name]
-                mapping_p = domain_h.mappings[target.plus.domain.name]
+                m,_       = self.get_space_indices_from_target(domain, target.minus )
+                p,_       = self.get_space_indices_from_target(domain, target.plus )
+                mapping_m = list(domain_h.mappings.values())[m]
+                mapping_p = list(domain_h.mappings.values())[p]
                 mapping   = (mapping_m, mapping_p) if mapping_m else None
             else:
                 mapping = list(domain_h.mappings.values())[i]
@@ -189,8 +191,6 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_space  = self.spaces[0]
             test_space   = self.spaces[1]
             mapping = list(domain_h.mappings.values())[0]
-
-
 
         self._mapping = mapping
 
