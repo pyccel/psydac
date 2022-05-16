@@ -4,7 +4,7 @@ import h5py
 import yaml
 import numpy as np
 
-from sympde.topology       import Domain, Line, Square, Cube, NCubeInterior
+from sympde.topology       import Domain, Line, Square, Cube, Mapping
 from sympde.topology.basic import Union
 
 def union(domains, name):
@@ -84,27 +84,30 @@ def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict,
     domains = []
     # ... topology
     if nurbs[0].dim == 1:
-        for nurbsi,patch_name in zip(nurbs, patch_names):
+        for i,(nurbsi,patch_name) in enumerate(zip(nurbs, patch_names)):
             bounds1 = (float(nurbsi.breaks(0)[0]), float(nurbsi.breaks(0)[-1]))
             domain  = Line(patch_name, bounds1=bounds1)
-            domains.append(domain)
+            mapping = Mapping(mapping_ids[i], dim=nurbs[0].dim)
+            domains.append(mapping(domain))
 
     elif nurbs[0].dim == 2:
-        for nurbsi,patch_name in zip(nurbs, patch_names):
+        for i,(nurbsi,patch_name) in enumerate(zip(nurbs, patch_names)):
             bounds1 = (float(nurbsi.breaks(0)[0]), float(nurbsi.breaks(0)[-1]))
             bounds2 = (float(nurbsi.breaks(1)[0]), float(nurbsi.breaks(1)[-1]))
             domain  = Square(patch_name, bounds1=bounds1, bounds2=bounds2)
-            domains.append(domain)
+            mapping = Mapping(mapping_ids[i], dim=nurbs[0].dim)
+            domains.append(mapping(domain))
 
     elif nurbs[0].dim == 3:
-        for nurbsi,patch_name in zip(nurbs, patch_names):
+        for i,(nurbsi,patch_name) in enumerate(zip(nurbs, patch_names)):
             bounds1 = (float(nurbsi.breaks(0)[0]), float(nurbsi.breaks(0)[-1]))
             bounds2 = (float(nurbsi.breaks(1)[0]), float(nurbsi.breaks(1)[-1]))
             bounds3 = (float(nurbsi.breaks(2)[0]), float(nurbsi.breaks(2)[-1]))
+            mapping = Mapping(mapping_ids[i], dim=nurbs[0].dim)
             domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
-            domains.append(domain)
+            domains.append(mapping(domain))
 
-    domain = union(domains, 'multipatch_domain')
+    domain = union(domains, filename[:-3])
     interfaces = []
     for edge in connectivity:
         minus,plus = connectivity[edge]
