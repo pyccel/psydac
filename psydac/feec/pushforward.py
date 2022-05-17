@@ -109,7 +109,7 @@ class Pushforward:
                 self.jacobian_inv = lambda : mapping.inv_jac_mat_irregular_tensor_grid(grid_as_arrays)
                 self.jacobian_det = lambda : mapping.jac_det_irregular_tensor_grid(grid_as_arrays)
             else:
-                raise NotImplementedError("Unstructured Grids aren't supported yet")
+                raise NotImplementedError("Unstructured grids aren't supported yet")
             
             self.local_domain = mapping.space.local_domain
             self.global_domain = ((0,) * ldim, tuple(nc_i - 1 for nc_i in mapping.space.ncells))
@@ -173,7 +173,7 @@ class Pushforward:
         
         return out
     
-    def _dispatch_pushforward(self, space, *field_list):
+    def _dispatch_pushforward(self, space, *fields):
         """
         Simple function to take care of the kind of the spaces.
         """
@@ -185,16 +185,16 @@ class Pushforward:
 
         # if IdentityMapping do as if everything was H1
         if kind is H1SpaceType() or kind is UndefinedSpaceType() or self.is_identity:
-            return self._pushforward_h1(space, *field_list)
+            return self._pushforward_h1(space, *fields)
         
         elif kind is L2SpaceType():
-            return self._pushforward_l2(space, *field_list)
+            return self._pushforward_l2(space, *fields)
         
         elif kind is HcurlSpaceType():
-            return self._pushforward_hcurl(space, *field_list)
+            return self._pushforward_hcurl(space, *fields)
         
         elif kind is HdivSpaceType():
-            return self._pushforward_hdiv(space, *field_list)
+            return self._pushforward_hdiv(space, *fields)
     
     def _pushforward_h1(self, space, *field_list):
         """
@@ -319,7 +319,7 @@ class Pushforward:
         ----------
         local_domain :  tuple of tuples of ints
             Local domain of the misaligned space.
-            Is usually given by `TensorFemSpace.local_domain`.
+            It is usually given by `TensorFemSpace.local_domain`.
             It is a 2-tuple (`starts`, `ends`) of `self.ldim`-tuples
             or integers indices. The indices in `start` correspond
             to the first cell that the space owns in a particular 
@@ -400,7 +400,7 @@ class Pushforward:
                 index_trimming += (slice(theoretical_start, theoretical_end, 1),)
 
         else:
-            raise NotImplementedError("Unstructured grid are not supported yet")
+            raise NotImplementedError("Unstructured grids are not supported yet")
         return index_trimming
 
     def _index_trimming_helper(self, space):

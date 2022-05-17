@@ -127,8 +127,8 @@ class VectorFemSpace( FemSpace ):
         Returns
         -------
         List of list of ndarray
-            List of the same lengths as `self.ldim`, containing for each logical
-            coordinate, a list of `len(fields)` arrays, on for each logical coordinate.
+            List of the same length as `fields`, containing for each field
+            a list of `self.ldim` arrays, i.e. one array for each logical coordinate.
 
         See Also
         --------
@@ -179,8 +179,8 @@ class VectorFemSpace( FemSpace ):
         Returns
         -------
         List of list of ndarray
-            List of length `self.ldim`, which contains a list of `len(fields)` arrays
-            for each logical coordinate.
+            List of the same length as `fields`, containing for each field
+            a list of `self.ldim` arrays, i.e. one array for each logical coordinate.
 
         See Also
         --------
@@ -236,9 +236,8 @@ class VectorFemSpace( FemSpace ):
         Returns
         -------
         List of list of ndarray
-            List of length `self.ldim`, which contains a list of `len(fields)` arrays
-            for each logical coordinate.
-
+            List of the same length as `fields`, containing for each field
+            a list of `self.ldim` arrays, i.e. one array for each logical coordinate.
 
         See Also
         --------
@@ -514,8 +513,8 @@ class ProductFemSpace( FemSpace ):
         Returns
         -------
         List of list of ndarray
-            List of the same lengths as `fields`, containing for each field,
-            a list of `self.ldim` arrays, on for each logical coordinate.
+            List of the same length as `fields`, containing for each field
+            a list of `self.ldim` arrays, i.e. one array for each logical coordinate.
 
         See Also
         --------
@@ -549,7 +548,7 @@ class ProductFemSpace( FemSpace ):
 
     # ...
     def eval_fields_irregular_tensor_grid(self, grid, *fields, weights=None, overlap=0):
-        """Evaluates one or several fields on an iregular tensor grid i.e.
+        """Evaluates one or several fields on an irregular tensor grid i.e.
         a tensor grid where the number of points per cell depends on the cell.
 
         Parameters
@@ -571,8 +570,8 @@ class ProductFemSpace( FemSpace ):
         Returns
         -------
         List of list of ndarray
-            List of the same lengths as `self.ldim`, containing for each logical
-            coordinate, a list of `len(fields)` arrays, on for each logical coordinate.
+            List of the same length as `fields`, containing for each field
+            a list of `self.ldim` arrays, i.e. one array for each logical coordinate.
 
         See Also
         --------
