@@ -1048,7 +1048,7 @@ class PostProcessManager:
                 grid_local.append(grid_test[i][i_start:i_end])
 
         elif grid_test[0].ndim == ldim:
-            raise NotImplementedError("Unstructured grid are not supported yet")
+            raise NotImplementedError("Unstructured grids are not supported yet")
         else:
             raise ValueError("Wrong input for the grid parameters")
 
