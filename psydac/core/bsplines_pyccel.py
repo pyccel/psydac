@@ -1149,9 +1149,9 @@ def basis_ders_on_irregular_grid_p(knots: 'float[:]', degree: int,
     """
     nx = i_grid.shape[0]
     if normalization:
-        integrals = np.zeros(knots.shape[0] - degree - 1)
-        basis_integrals_p(knots, degree, integrals)
-        scaling = 1.0 /integrals
+        scaling = np.zeros(knots.shape[0] - degree - 1)
+        basis_integrals_p(knots, degree, scaling)
+        scaling = 1.0 / scaling
 
     ders = np.zeros((nders + 1, degree + 1))
 
