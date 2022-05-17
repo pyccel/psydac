@@ -113,7 +113,9 @@ class VectorFemSpace( FemSpace ):
             Fields to evaluate.
 
         weights : psydac.fem.basic.FemField or None, optional
-            Weights field.
+            Weights field used to weight the basis functions thus
+            turning them into NURBS. The same weights field is used
+            for all of fields and they thus have to use the same basis functions.
 
         npts_per_cell: int, tuple of int or None, optional
             Number of evaluation points in each cell.
@@ -125,8 +127,8 @@ class VectorFemSpace( FemSpace ):
         Returns
         -------
         List of list of ndarray
-            List of the same lengths as `fields`, containing for each field,
-            a list of `self.ldim` arrays, on for each logical coordinate.
+            List of the same lengths as `self.ldim`, containing for each logical
+            coordinate, a list of `len(fields)` arrays, on for each logical coordinate.
 
         See Also
         --------
@@ -167,7 +169,9 @@ class VectorFemSpace( FemSpace ):
             Fields to evaluate.
 
         weights : psydac.fem.basic.FemField or None, optional
-            Weights field.
+            Weights field used to weight the basis functions thus
+            turning them into NURBS. The same weights field is used
+            for all of fields and they thus have to use the same basis functions.
 
         overlap : int
             How much to overlap. Only used in the distributed context.
@@ -175,8 +179,8 @@ class VectorFemSpace( FemSpace ):
         Returns
         -------
         List of list of ndarray
-            List of the same lengths as `self.ldim`, containing for each logical
-            coordinate, a list of `len(fields)` arrays, on for each logical coordinate.
+            List of length `self.ldim`, which contains a list of `len(fields)` arrays
+            for each logical coordinate.
 
         See Also
         --------
@@ -210,7 +214,8 @@ class VectorFemSpace( FemSpace ):
 
     # ...
     def eval_fields_irregular_tensor_grid(self, grid, *fields, weights=None, overlap=0):
-        """Evaluates one or several fields on a regular tensor grid.
+        """Evaluates one or several fields on an irregular tensor grid i.e.
+        a tensor grid where the number of points per cell depends on the cell.
 
         Parameters
         -----------
@@ -221,7 +226,9 @@ class VectorFemSpace( FemSpace ):
             Fields to evaluate.
 
         weights : psydac.fem.basic.FemField or None, optional
-            Weights field.
+            Weights field used to weight the basis functions thus
+            turning them into NURBS. The same weights field is used
+            for all of fields and they thus have to use the same basis functions.
 
         overlap : int
             How much to overlap. Only used in the distributed context.
@@ -229,8 +236,9 @@ class VectorFemSpace( FemSpace ):
         Returns
         -------
         List of list of ndarray
-            List of the same lengths as `self.ldim`, containing for each logical
-            coordinate, a list of `len(fields)` arrays, on for each logical coordinate.
+            List of length `self.ldim`, which contains a list of `len(fields)` arrays
+            for each logical coordinate.
+
 
         See Also
         --------
@@ -440,7 +448,9 @@ class ProductFemSpace( FemSpace ):
             Fields to evaluate.
 
         weights : psydac.fem.basic.FemField or None, optional
-            Weights field.
+            Weights field used to weight the basis functions thus
+            turning them into NURBS. The same weights field is used
+            for all of fields and they thus have to use the same basis functions.
 
         npts_per_cell: int, tuple of int or None, optional
             Number of evaluation points in each cell.
@@ -452,8 +462,8 @@ class ProductFemSpace( FemSpace ):
         Returns
         -------
         List of list of ndarray
-            List of the same lengths as `fields`, containing for each field,
-            a list of `self.ldim` arrays, on for each logical coordinate.
+            List of the same length as `fields`, containing for each field
+            a list of `self.ldim` arrays, i.e. one array for each logical coordinate.
 
         See Also
         --------
@@ -494,7 +504,9 @@ class ProductFemSpace( FemSpace ):
             Fields to evaluate.
 
         weights : psydac.fem.basic.FemField or None, optional
-            Weights field.
+            Weights field used to weight the basis functions thus
+            turning them into NURBS. The same weights field is used
+            for all of fields and they thus have to use the same basis functions.
 
         overlap : int
             How much to overlap. Only used in the distributed context.
@@ -502,8 +514,8 @@ class ProductFemSpace( FemSpace ):
         Returns
         -------
         List of list of ndarray
-            List of the same lengths as `self.ldim`, containing for each logical
-            coordinate, a list of `len(fields)` arrays, on for each logical coordinate.
+            List of the same lengths as `fields`, containing for each field,
+            a list of `self.ldim` arrays, on for each logical coordinate.
 
         See Also
         --------
@@ -537,7 +549,8 @@ class ProductFemSpace( FemSpace ):
 
     # ...
     def eval_fields_irregular_tensor_grid(self, grid, *fields, weights=None, overlap=0):
-        """Evaluates one or several fields on a regular tensor grid.
+        """Evaluates one or several fields on an iregular tensor grid i.e.
+        a tensor grid where the number of points per cell depends on the cell.
 
         Parameters
         -----------
@@ -548,7 +561,9 @@ class ProductFemSpace( FemSpace ):
             Fields to evaluate.
 
         weights : psydac.fem.basic.FemField or None, optional
-            Weights field.
+            Weights field used to weight the basis functions thus
+            turning them into NURBS. The same weights field is used
+            for all of fields and they thus have to use the same basis functions.
 
         overlap : int
             How much to overlap. Only used in the distributed context.

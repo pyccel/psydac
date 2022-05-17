@@ -927,7 +927,8 @@ class PostProcessManager:
 
     def export_to_vtk(self, 
                       filename_pattern, 
-                      grid, 
+                      grid,
+                      *,
                       npts_per_cell=None, 
                       snapshots='none', 
                       lz=4, 
@@ -1047,7 +1048,7 @@ class PostProcessManager:
                 grid_local.append(grid_test[i][i_start:i_end])
 
         elif grid_test[0].ndim == ldim:
-            raise NotImplementedError("Not Supported Yet")
+            raise NotImplementedError("Unstructured grid are not supported yet")
         else:
             raise ValueError("Wrong input for the grid parameters")
 

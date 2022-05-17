@@ -837,7 +837,7 @@ def cell_index(breaks, i_grid, tol=1e-15, out=None):
     breaks = np.asarray(breaks, dtype=float)
     i_grid = np.asarray(i_grid, dtype=float)
     if out is None:
-        out = np.zeros(len(i_grid), dtype=int)
+        out = np.zeros_like(i_grid, dtype=int)
     status = cell_index_p(breaks, i_grid, tol, out)
     if status == -1:
         raise ValueError("Encountered a point that was outside of the domain")
@@ -891,5 +891,7 @@ def basis_ders_on_irregular_grid(knots, degree, i_grid, cell_index, nders, norma
     if out is None:
         nx = i_grid.shape[0]
         out = np.zeros((nx, degree + 1, nders + 1))
+    else:
+        assert out.shape == (nx, degree + 1, nders + 1)
     basis_ders_on_irregular_grid_p(knots, degree, i_grid, cell_index, nders, normalization == 'M', out)
     return out

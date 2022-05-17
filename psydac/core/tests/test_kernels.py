@@ -40,6 +40,11 @@ except KeyError:
     mesh_dir = os.path.join(base_dir, 'mesh')
 
 
+# Tolerance for testing float equality
+RTOL = 1e-15
+ATOL = 1e-15
+
+
 @pytest.mark.parametrize('geometry', ('identity_2d.h5', 'identity_3d.h5', 'bent_pipe.h5',
                                       'collela_2d.h5', 'collela_3d.h5'))
 @pytest.mark.parametrize('npts_per_cell', [2, 3, 4])
@@ -175,23 +180,23 @@ def test_regular_jacobians(geometry, npts_per_cell):
                             jac_dets)
 
     try:
-        assert np.allclose(jacobian_matrix_direct, jac_mats)
+        assert np.allclose(jacobian_matrix_direct, jac_mats, atol=ATOL, rtol=RTOL)
     except NameError:
         pass
 
     if ldim == 2:
         for i, j in it.product(range(jac_mats.shape[0]), range(jac_mats.shape[1])):
             # Assert that the computed inverse is the inverse.
-            assert np.allclose(np.dot(jac_mats[i, j], inv_jac_mats[i, j]), np.eye(ldim))
+            assert np.allclose(np.dot(jac_mats[i, j], inv_jac_mats[i, j]), np.eye(ldim), atol=ATOL, rtol=RTOL)
             # Assert that the computed Jacobian determinant is the Jacobian determinant
-            assert np.allclose(np.linalg.det(jac_mats[i, j]), jac_dets[i, j])
+            assert np.allclose(np.linalg.det(jac_mats[i, j]), jac_dets[i, j], atol=ATOL, rtol=RTOL)
 
     if ldim == 3:
         for i, j, k in it.product(range(jac_mats.shape[0]), range(jac_mats.shape[1]), range(jac_mats.shape[2])):
             # Assert that the computed inverse is the inverse.
-            assert np.allclose(np.dot(jac_mats[i, j, k], inv_jac_mats[i, j, k]), np.eye(ldim))
+            assert np.allclose(np.dot(jac_mats[i, j, k], inv_jac_mats[i, j, k]), np.eye(ldim), atol=ATOL, rtol=RTOL)
             # Assert that the computed Jacobian determinant is the Jacobian determinant
-            assert np.allclose(np.linalg.det(jac_mats[i, j, k]), jac_dets[i, j, k])
+            assert np.allclose(np.linalg.det(jac_mats[i, j, k]), jac_dets[i, j, k], atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize('geometry', ('identity_2d.h5', 'identity_3d.h5', 'bent_pipe.h5',
@@ -321,23 +326,23 @@ def test_irregular_jacobians(geometry, npts):
                                       jac_dets)
 
     try:
-        assert np.allclose(jacobian_matrix_direct, jac_mats)
+        assert np.allclose(jacobian_matrix_direct, jac_mats, atol=ATOL, rtol=RTOL)
     except NameError:
         pass
 
     if ldim == 2:
         for i, j in it.product(range(jac_mats.shape[0]), range(jac_mats.shape[1])):
             # Assert that the computed inverse is the inverse.
-            assert np.allclose(np.dot(jac_mats[i, j], inv_jac_mats[i, j]), np.eye(ldim))
+            assert np.allclose(np.dot(jac_mats[i, j], inv_jac_mats[i, j]), np.eye(ldim), atol=ATOL, rtol=RTOL)
             # Assert that the computed Jacobian determinant is the Jacobian determinant
-            assert np.allclose(np.linalg.det(jac_mats[i, j]), jac_dets[i, j])
+            assert np.allclose(np.linalg.det(jac_mats[i, j]), jac_dets[i, j], atol=ATOL, rtol=RTOL)
 
     if ldim == 3:
         for i, j, k in it.product(range(jac_mats.shape[0]), range(jac_mats.shape[1]), range(jac_mats.shape[2])):
             # Assert that the computed inverse is the inverse.
-            assert np.allclose(np.dot(jac_mats[i, j, k], inv_jac_mats[i, j, k]), np.eye(ldim))
+            assert np.allclose(np.dot(jac_mats[i, j, k], inv_jac_mats[i, j, k]), np.eye(ldim), atol=ATOL, rtol=RTOL)
             # Assert that the computed Jacobian determinant is the Jacobian determinant
-            assert np.allclose(np.linalg.det(jac_mats[i, j, k]), jac_dets[i, j, k])
+            assert np.allclose(np.linalg.det(jac_mats[i, j, k]), jac_dets[i, j, k], atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize("knots, ldim, degree", 
@@ -465,8 +470,8 @@ def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
                                 *global_spans, global_arr_field, global_arr_w, out_field_w)
     
     print(f_direct.shape, out_field.shape)
-    assert np.allclose(out_field, f_direct)
-    assert np.allclose(out_field_w, f_direct_w)
+    assert np.allclose(out_field, f_direct, atol=ATOL, rtol=RTOL)
+    assert np.allclose(out_field_w, f_direct_w, atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize("knots, ldim, degree", 
@@ -605,8 +610,8 @@ def test_irregular_evaluations(knots, ldim, degree, npts):
                                           *global_spans, global_arr_field, global_arr_w, out_field_w)
     
     print(f_direct.shape, out_field.shape)
-    assert np.allclose(out_field, f_direct)
-    assert np.allclose(out_field_w, f_direct_w)
+    assert np.allclose(out_field, f_direct, atol=ATOL, rtol=RTOL)
+    assert np.allclose(out_field_w, f_direct_w, atol=ATOL, rtol=RTOL)
             
 
 @pytest.mark.parametrize('jac_det, ldim, field_to_push', [(np.ones((5, 5)), 2, np.ones((5, 5, 1))),
@@ -621,7 +626,7 @@ def test_pushforwards_l2(ldim, jac_det, field_to_push):
     if ldim == 3:
         pushforward_3d_l2(field_to_push, jac_det, out)
 
-    assert np.allclose(expected, out[..., 0])
+    assert np.allclose(expected, out[..., 0], atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize('ldim', (2, 3))
@@ -636,7 +641,7 @@ def test_pushforwards_hdiv(ldim):
     if ldim == 3:
         pushforward_3d_hdiv(field_to_push, jacobians, out)
 
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize('ldim', (2, 3))
@@ -651,4 +656,4 @@ def test_pushforwards_hcurl(ldim):
     if ldim == 3:
         pushforward_3d_hcurl(field_to_push, inv_jacobians, out)
 
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)

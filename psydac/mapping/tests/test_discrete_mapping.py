@@ -17,6 +17,10 @@ except KeyError:
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
 
+# Tolerance for testing float equality
+RTOL = 1e-15
+ATOL = 1e-15
+
 
 @pytest.mark.parametrize('geometry_file', ['collela_3d.h5', 'collela_2d.h5', 'bent_pipe.h5'])
 @pytest.mark.parametrize('npts_per_cell', [2, 3, 4])
@@ -58,9 +62,9 @@ def test_build_mesh_reg(geometry_file, npts_per_cell):
 
         assert x_mesh.flags['C_CONTIGUOUS'] and y_mesh.flags['C_CONTIGUOUS'] and z_mesh.flags['C_CONTIGUOUS']
 
-        assert np.allclose(x_mesh, x_mesh_l)
-        assert np.allclose(y_mesh, y_mesh_l)
-        assert np.allclose(z_mesh, z_mesh_l)
+        assert np.allclose(x_mesh, x_mesh_l, atol=ATOL, rtol=RTOL)
+        assert np.allclose(y_mesh, y_mesh_l, atol=ATOL, rtol=RTOL)
+        assert np.allclose(z_mesh, z_mesh_l, atol=ATOL, rtol=RTOL)
 
 @pytest.mark.parametrize('geometry_file', ['collela_3d.h5', 'collela_2d.h5', 'bent_pipe.h5'])
 @pytest.mark.parametrize('npts_i', [2, 5, 10, 25])
@@ -102,9 +106,9 @@ def test_build_mesh_i(geometry_file, npts_i):
 
         assert x_mesh.flags['C_CONTIGUOUS'] and y_mesh.flags['C_CONTIGUOUS'] and z_mesh.flags['C_CONTIGUOUS']
 
-        assert np.allclose(x_mesh, x_mesh_l)
-        assert np.allclose(y_mesh, y_mesh_l)
-        assert np.allclose(z_mesh, z_mesh_l)
+        assert np.allclose(x_mesh, x_mesh_l, atol=ATOL, rtol=RTOL)
+        assert np.allclose(y_mesh, y_mesh_l, atol=ATOL, rtol=RTOL)
+        assert np.allclose(z_mesh, z_mesh_l, atol=ATOL, rtol=RTOL)
 
 @pytest.mark.parallel
 @pytest.mark.parametrize('geometry',  ['collela_3d.h5', 'collela_2d.h5', 'bent_pipe.h5'])
@@ -171,9 +175,9 @@ def test_parallel_jacobians_regular(geometry, npts_per_cell):
         inv_jac_mat_par = fh5['inv_jac'][...]
         jac_dets_par = fh5['jac_dets'][...]
 
-        assert np.allclose(jac_mat_par, jacobian_matrix)
-        assert np.allclose(inv_jac_mat_par, inv_jacobian_matrix)
-        assert np.allclose(jac_dets_par, jacobian_determinants)
+        assert np.allclose(jac_mat_par, jacobian_matrix, atol=ATOL, rtol=RTOL)
+        assert np.allclose(inv_jac_mat_par, inv_jacobian_matrix, atol=ATOL, rtol=RTOL)
+        assert np.allclose(jac_dets_par, jacobian_determinants, atol=ATOL, rtol=RTOL)
 
         fh5.close()
         os.remove('result_parallel.h5')
@@ -245,9 +249,9 @@ def test_parallel_jacobians_irregular(geometry, npts_irregular):
         inv_jac_mat_par = fh5['inv_jac'][...]
         jac_dets_par = fh5['jac_dets'][...]
 
-        assert np.allclose(jac_mat_par, jacobian_matrix)
-        assert np.allclose(inv_jac_mat_par, inv_jacobian_matrix)
-        assert np.allclose(jac_dets_par, jacobian_determinants)
+        assert np.allclose(jac_mat_par, jacobian_matrix, atol=ATOL, rtol=RTOL)
+        assert np.allclose(inv_jac_mat_par, inv_jacobian_matrix, atol=ATOL, rtol=RTOL)
+        assert np.allclose(jac_dets_par, jacobian_determinants, atol=ATOL, rtol=RTOL)
 
         fh5.close()
         os.remove('result_parallel.h5')

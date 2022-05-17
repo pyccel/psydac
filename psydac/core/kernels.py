@@ -15,42 +15,42 @@ def eval_fields_3d_no_weights(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
     nc3: int
-        Number of cells in the Z direction
+        Number of cells in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
     k3: int
-        Number of evaluation points in the Z direction
+        Number of evaluation points in the X3 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
     global_basis_3: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Z direction
+        Basis functions values at each cell and quadrature points in the X3 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3: ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     glob_arr_coeff: ndarray of floats
-        Coefficients of the fields in the X,Y and Z directions
+        Coefficients of the fields in the X1,X2 and X3 directions
 
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
@@ -101,32 +101,32 @@ def eval_fields_2d_no_weights(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int,
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
 
     glob_arr_coeff: ndarray of floats
-        Coefficients of the fields in the X and Y directions
+        Coefficients of the fields in the X1 and X2 directions
 
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
@@ -170,42 +170,42 @@ def eval_fields_3d_irregular_no_weights(np1: int, np2: int, np3: int, f_p1: int,
     Parameters
     ----------
     np1 : int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2 : int
-        Number of points in the Y direction
+        Number of points in the X2 direction
     np3 : int
-        Number of points in the Z direction
+        Number of points in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
     cell_index_3 : ndarray of ints
-        Index of the cells in the Z direction
+        Index of the cells in the X3 direction
 
     global_basis_1 : ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2 : ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
     global_basis_3 : ndarray of floats
-        Basis functions values at each point in the Z direction
+        Basis functions values at each point in the X3 direction
 
     global_spans_1 : ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2 : ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3 : ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     glob_arr_coeff : ndarray of floats
-        Coefficients of the fields in the X, Y and Z directions
+        Coefficients of the fields in the X1, X2 and X3 directions
 
     out_fields : ndarray of floats
         Evaluated fields, filled with the correct values by the function
@@ -254,32 +254,32 @@ def eval_fields_2d_irregular_no_weights(np1: int, np2: int, f_p1: int, f_p2: int
     Parameters
     ----------
     np1: int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2: int
-        Number of points in the Y direction
+        Number of points in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
 
     glob_arr_coeff: ndarray of floats
-        Coefficients of the fields in the X and Y directions
+        Coefficients of the fields in the X1 and X2 directions
 
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
@@ -324,45 +324,45 @@ def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int,
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
     nc3: int
-        Number of cells in the Z direction
+        Number of cells in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
     k3: int
-        Number of evaluation points in the Z direction
+        Number of evaluation points in the X3 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
     global_basis_3: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Z direction
+        Basis functions values at each cell and quadrature points in the X3 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3: ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     glob_arr_coeff: ndarray of floats
-        Coefficients of the fields in the X,Y and Z directions
+        Coefficients of the fields in the X1,X2 and X3 directions
 
     global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X, Y and Z directions
+        Coefficients of the weight field in the X1, X2 and X3 directions
 
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
@@ -433,35 +433,35 @@ def eval_fields_2d_weighted(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
 
     global_basis_1: ndarray of float
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of float
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
 
     global_spans_1: ndarray of int
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of int
-        Spans in the Y direction
+        Spans in the X2 direction
 
     global_arr_coeff: ndarray of float
-        Coefficients of the fields in the X and Y directions
+        Coefficients of the fields in the X1 and X2 directions
 
     global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X and Y directions
+        Coefficients of the weight field in the X1 and X2 directions
 
     out_fields: ndarray of float
         Evaluated fields, filled with the correct values by the function
@@ -526,45 +526,45 @@ def eval_fields_3d_irregular_weighted(np1: int, np2: int, np3: int, f_p1: int, f
     Parameters
     ----------
     np1 : int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2 : int
-        Number of points in the Y direction
+        Number of points in the X2 direction
     np3 : int
-        Number of points in the Z direction
+        Number of points in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
     cell_index_3 : ndarray of ints
-        Index of the cells in the Z direction
+        Index of the cells in the X3 direction
 
     global_basis_1 : ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2 : ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
     global_basis_3 : ndarray of floats
-        Basis functions values at each point in the Z direction
+        Basis functions values at each point in the X3 direction
 
     global_spans_1 : ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2 : ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3 : ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     glob_arr_coeff : ndarray of floats
-        Coefficients of the fields in the X, Y and Z directions
+        Coefficients of the fields in the X1, X2 and X3 directions
 
     global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X, Y and Z directions
+        Coefficients of the weight field in the X1, X2 and X3 directions
 
     out_fields : ndarray of floats
         Evaluated fields, filled with the correct values by the function
@@ -629,35 +629,35 @@ def eval_fields_2d_irregular_weighted(np1: int, np2: int, f_p1: int, f_p2: int,
     Parameters
     ----------
     np1 : int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2 : int
-        Number of points in the Y direction
+        Number of points in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
 
     global_basis_1 : ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2 : ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
 
     global_spans_1 : ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2 : ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
 
     global_arr_coeff : ndarray of floats
-        Coefficients of the fields in the X and Y directions
+        Coefficients of the fields in the X1 and X2 directions
 
     global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X and Y directions
+        Coefficients of the weight field in the X1 and X2 directions
 
     out_fields : ndarray of floats
         Evaluated fields, filled with the correct values by the function
@@ -721,46 +721,46 @@ def eval_jac_det_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: in
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
     nc3: int
-        Number of cells in the Z direction
+        Number of cells in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
     k3: int
-        Number of evaluation points in the Z direction
+        Number of evaluation points in the X3 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
     global_basis_3: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Z direction
+        Basis functions values at each cell and quadrature points in the X3 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3: ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
     global_arr_coeff_z: ndarray of floats
-        Coefficients of the Z field
+        Coefficients of the X3 field
 
     jac_det: ndarray of floats
         Jacobian determinant on the grid.
@@ -878,34 +878,34 @@ def eval_jac_det_2d(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int, 
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
 
     jac_det: ndarray of floats
         Jacobian determinant on the grid.
@@ -983,46 +983,46 @@ def eval_jac_det_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: int
     Parameters
     ----------
     np1 : int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2 : int
-        Number of points in the Y direction
+        Number of points in the X2 direction
     np3 : int
-        Number of points in the Z direction
+        Number of points in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
     cell_index_3 : ndarray of ints
-        Index of the cells in the Z direction
+        Index of the cells in the X3 direction
 
     global_basis_1 : ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2 : ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
     global_basis_3 : ndarray of floats
-        Basis functions values at each point in the Z direction
+        Basis functions values at each point in the X3 direction
 
     global_spans_1 : ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2 : ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3 : ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
     global_arr_coeff_z: ndarray of floats
-        Coefficients of the Z field
+        Coefficients of the X3 field
 
     jac_det: ndarray of floats
         Jacobian determinant on the grid.
@@ -1115,34 +1115,34 @@ def eval_jac_det_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_ind
     Parameters
     ----------
     np1 : int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2 : int
-        Number of points in the Y direction
+        Number of points in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
 
     global_basis_1 : ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2 : ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
 
     global_spans_1 : ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2 : ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
 
     out_fields : ndarray of floats
         Evaluated fields, filled with the correct values by the function
@@ -1208,46 +1208,46 @@ def eval_jac_det_3d_weights(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, 
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
     nc3: int
-        Number of cells in the Z direction
+        Number of cells in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
     k3: int
-        Number of evaluation points in the Z direction
+        Number of evaluation points in the X3 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
     global_basis_3: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Z direction
+        Basis functions values at each cell and quadrature points in the X3 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3: ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
     global_arr_coeff_z: ndarray of floats
-        Coefficients of the Z field
+        Coefficients of the X3 field
 
     global_arr_coeff_weights: ndarray of floats
         Coefficients of the weight field
@@ -1432,34 +1432,34 @@ def eval_jac_det_2d_weights(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
 
     global_arr_coeff_weights: ndarray of floats
         Coefficients of the weights field
@@ -1587,46 +1587,46 @@ def eval_jac_det_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int, f
     Parameters
     ----------
     np1 : int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2 : int
-        Number of points in the Y direction
+        Number of points in the X2 direction
     np3 : int
-        Number of points in the Z direction
+        Number of points in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
     cell_index_3 : ndarray of ints
-        Index of the cells in the Z direction
+        Index of the cells in the X3 direction
 
     global_basis_1 : ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2 : ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
     global_basis_3 : ndarray of floats
-        Basis functions values at each point in the Z direction
+        Basis functions values at each point in the X3 direction
 
     global_spans_1 : ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2 : ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3 : ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
     global_arr_coeff_z: ndarray of floats
-        Coefficients of the Z field
+        Coefficients of the X3 field
     
     global_arr_coeff_weights: ndarray of floats
         Coefficients of the weights field
@@ -1769,34 +1769,34 @@ def eval_jac_det_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int,
     Parameters
     ----------
     np1 : int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2 : int
-        Number of points in the Y direction
+        Number of points in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
 
     global_basis_1 : ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2 : ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
 
     global_spans_1 : ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2 : ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
     
     global_arr_coeff_weights: ndarray of floats
         Coefficients of the weights field
@@ -1896,46 +1896,46 @@ def eval_jacobians_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: 
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
     nc3: int
-        Number of cells in the Z direction
+        Number of cells in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
     k3: int
-        Number of evaluation points in the Z direction
+        Number of evaluation points in the X3 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
     global_basis_3: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Z direction
+        Basis functions values at each cell and quadrature points in the X3 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3: ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
     global_arr_coeff_z: ndarray of floats
-        Coefficients of the Z field
+        Coefficients of the X3 field
 
     jacobians: ndarray of floats
         Jacobian matrix on the grid
@@ -2051,34 +2051,34 @@ def eval_jacobians_2d(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
 
     jacobians: ndarray of floats
         Jacobian matrix at every point of the grid
@@ -2158,46 +2158,46 @@ def eval_jacobians_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: i
     Parameters
     ----------
     np1 : int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2 : int
-        Number of points in the Y direction
+        Number of points in the X2 direction
     np3 : int
-        Number of points in the Z direction
+        Number of points in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
     cell_index_3 : ndarray of ints
-        Index of the cells in the Z direction
+        Index of the cells in the X3 direction
 
     global_basis_1 : ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2 : ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
     global_basis_3 : ndarray of floats
-        Basis functions values at each point in the Z direction
+        Basis functions values at each point in the X3 direction
 
     global_spans_1 : ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2 : ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3 : ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
     global_arr_coeff_z: ndarray of floats
-        Coefficients of the Z field
+        Coefficients of the X3 field
 
     jacobians: ndarray of floats
         Jacobian matrix on the grid
@@ -2287,34 +2287,34 @@ def eval_jacobians_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_i
     Parameters
     ----------
     np1 : int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2 : int
-        Number of points in the Y direction
+        Number of points in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
 
     global_basis_1 : ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2 : ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
 
     global_spans_1 : ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2 : ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
 
     jacobians: ndarray of floats
         Jacobian matrix on the grid
@@ -2380,46 +2380,46 @@ def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: in
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
     nc3: int
-        Number of cells in the Z direction
+        Number of cells in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
     k3: int
-        Number of evaluation points in the Z direction
+        Number of evaluation points in the X3 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
     global_basis_3: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Z direction
+        Basis functions values at each cell and quadrature points in the X3 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3: ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
     global_arr_coeff_z: ndarray of floats
-        Coefficients of the Z field
+        Coefficients of the X3 field
 
     global_arr_coeff_weights: ndarray of floats
         Coefficients of the weight field
@@ -2602,34 +2602,34 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
 
     global_arr_coeff_weights: ndarray of floats
         Coefficients of the weights field
@@ -2759,46 +2759,46 @@ def eval_jacobians_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int,
     Parameters
     ----------
     np1 : int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2 : int
-        Number of points in the Y direction
+        Number of points in the X2 direction
     np3 : int
-        Number of points in the Z direction
+        Number of points in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
     cell_index_3 : ndarray of ints
-        Index of the cells in the Z direction
+        Index of the cells in the X3 direction
 
     global_basis_1 : ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2 : ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
     global_basis_3 : ndarray of floats
-        Basis functions values at each point in the Z direction
+        Basis functions values at each point in the X3 direction
 
     global_spans_1 : ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2 : ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3 : ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
     global_arr_coeff_z: ndarray of floats
-        Coefficients of the Z field
+        Coefficients of the X3 field
 
     global_arr_coeff_weights: ndarray of floats
         Coefficients of the weight field
@@ -2938,36 +2938,36 @@ def eval_jacobians_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int
     Parameters
     ----------
     np1 : int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2 : int
-        Number of points in the Y direction
+        Number of points in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
     cell_index_3 : ndarray of ints
-        Index of the cells in the Z direction
+        Index of the cells in the X3 direction
 
     global_basis_1 : ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2 : ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
 
     global_spans_1 : ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2 : ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
 
     global_arr_coeff_weights: ndarray of floats
         Coefficients of the weight field
@@ -3070,46 +3070,46 @@ def eval_jacobians_inv_3d(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: int,
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
     nc3: int
-        Number of cells in the Z direction
+        Number of cells in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
     k3: int
-        Number of evaluation points in the Z direction
+        Number of evaluation points in the X3 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
     global_basis_3: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Z direction
+        Basis functions values at each cell and quadrature points in the X3 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3: ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
     global_arr_coeff_z: ndarray of floats
-        Coefficients of the Z field
+        Coefficients of the X3 field
 
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix on the grid
@@ -3240,34 +3240,34 @@ def eval_jacobians_inv_2d(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int, k2
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
 
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
@@ -3349,46 +3349,46 @@ def eval_jacobians_inv_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p
     Parameters
     ----------
     np1 : int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2 : int
-        Number of points in the Y direction
+        Number of points in the X2 direction
     np3 : int
-        Number of points in the Z direction
+        Number of points in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
     cell_index_3 : ndarray of ints
-        Index of the cells in the Z direction
+        Index of the cells in the X3 direction
 
     global_basis_1 : ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2 : ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
     global_basis_3 : ndarray of floats
-        Basis functions values at each point in the Z direction
+        Basis functions values at each point in the X3 direction
 
     global_spans_1 : ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2 : ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3 : ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
     global_arr_coeff_z: ndarray of floats
-        Coefficients of the Z field
+        Coefficients of the X3 field
 
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
@@ -3500,34 +3500,34 @@ def eval_jacobians_inv_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, ce
     Parameters
     ----------
     np1 : int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2 : int
-        Number of points in the Y direction
+        Number of points in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
 
     global_basis_1 : ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2 : ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
 
     global_spans_1 : ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2 : ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
 
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
@@ -3595,46 +3595,46 @@ def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
     nc3: int
-        Number of cells in the Z direction
+        Number of cells in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
     k3: int
-        Number of evaluation points in the Z direction
+        Number of evaluation points in the X3 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
     global_basis_3: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Z direction
+        Basis functions values at each cell and quadrature points in the X3 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3: ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
     global_arr_coeff_z: ndarray of floats
-        Coefficients of the Z field
+        Coefficients of the X3 field
 
     global_arr_coeff_weigths: ndarray of floats
         Coefficients of the weight field
@@ -3832,34 +3832,34 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1:
     Parameters
     ----------
     nc1: int
-        Number of cells in the X direction
+        Number of cells in the X1 direction
     nc2: int
-        Number of cells in the Y direction
+        Number of cells in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     k1: int
-        Number of evaluation points in the X direction
+        Number of evaluation points in the X1 direction
     k2: int
-        Number of evaluation points in the Y direction
+        Number of evaluation points in the X2 direction
 
     global_basis_1: ndarray of floats
-        Basis functions values at each cell and quadrature points in the X direction
+        Basis functions values at each cell and quadrature points in the X1 direction
     global_basis_2: ndarray of floats
-        Basis functions values at each cell and quadrature points in the Y direction
+        Basis functions values at each cell and quadrature points in the X2 direction
 
     global_spans_1: ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2: ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
 
     global_arr_coeff_weights: ndarray of floats
         Coefficients of the weights field
@@ -3991,46 +3991,46 @@ def eval_jacobians_inv_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: 
     Parameters
     ----------
     np1 : int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2 : int
-        Number of points in the Y direction
+        Number of points in the X2 direction
     np3 : int
-        Number of points in the Z direction
+        Number of points in the X3 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
     f_p3: int
-        Degree in the Z direction
+        Degree in the X3 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
     cell_index_3 : ndarray of ints
-        Index of the cells in the Z direction
+        Index of the cells in the X3 direction
 
     global_basis_1 : ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2 : ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
     global_basis_3 : ndarray of floats
-        Basis functions values at each point in the Z direction
+        Basis functions values at each point in the X3 direction
 
     global_spans_1 : ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2 : ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
     global_spans_3 : ndarray of ints
-        Spans in the Z direction
+        Spans in the X3 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
     global_arr_coeff_z: ndarray of floats
-        Coefficients of the Z field
+        Coefficients of the X3 field
 
     global_arr_coeff_weights: ndarray of floats
         Coefficients of the weight field
@@ -4188,34 +4188,34 @@ def eval_jacobians_inv_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2:
     Parameters
     ----------
     np1 : int
-        Number of points in the X direction
+        Number of points in the X1 direction
     np2 : int
-        Number of points in the Y direction
+        Number of points in the X2 direction
 
     f_p1: int
-        Degree in the X direction
+        Degree in the X1 direction
     f_p2: int
-        Degree in the Y direction
+        Degree in the X2 direction
 
     cell_index_1 : ndarray of ints
-        Index of the cells in the X direction
+        Index of the cells in the X1 direction
     cell_index_2 : ndarray of ints
-        Index of the cells in the Y direction
+        Index of the cells in the X2 direction
 
     global_basis_1 : ndarray of floats
-        Basis functions values at each point in the X direction
+        Basis functions values at each point in the X1 direction
     global_basis_2 : ndarray of floats
-        Basis functions values at each point in the Y direction
+        Basis functions values at each point in the X2 direction
 
     global_spans_1 : ndarray of ints
-        Spans in the X direction
+        Spans in the X1 direction
     global_spans_2 : ndarray of ints
-        Spans in the Y direction
+        Spans in the X2 direction
 
     global_arr_coeff_x: ndarray of floats
-        Coefficients of the X field
+        Coefficients of the X1 field
     global_arr_coeff_y: ndarray of floats
-        Coefficients of the Y field
+        Coefficients of the X2 field
 
     global_arr_coeff_weights: ndarray of floats
         Coefficients of the weight field

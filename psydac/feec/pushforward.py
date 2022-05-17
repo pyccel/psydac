@@ -37,7 +37,6 @@ class Pushforward:
         # Get ldim
         ldim = mapping.ldim
         self.is_identity = isinstance(mapping, IdentityMapping)
-        
 
         self.ldim = ldim
         self.jac_temp = None
@@ -136,7 +135,10 @@ class Pushforward:
 
         if isinstance(fields, list):
             fields = {f'field_{i}': fields[i] for i in range(len(fields))}
-    
+
+        if not isinstance(fields, dict):
+            raise ValueError(f"fields should be a FemField, a list or a dict and not {type(fields)}")
+
         # Group fields by space
         space_dict = {}
         for field_name, field in fields.items():
@@ -166,12 +168,12 @@ class Pushforward:
         # Call pushforward dispatcher
         out = []
         for space, (field_list, field_names) in space_dict.items():
-            list_pushed_fields = self._dispatch_pushforward(space, field_list)
+            list_pushed_fields = self._dispatch_pushforward(space, *field_list)
             out.extend((field_names[i], list_pushed_fields[i]) for i in range(len(list_pushed_fields)))
         
         return out
     
-    def _dispatch_pushforward(self, space, field_list):
+    def _dispatch_pushforward(self, space, *field_list):
         """
         Simple function to take care of the kind of the spaces.
         """
@@ -183,18 +185,18 @@ class Pushforward:
 
         # if IdentityMapping do as if everything was H1
         if kind is H1SpaceType() or kind is UndefinedSpaceType() or self.is_identity:
-            return self._pushforward_h1(space, field_list)
+            return self._pushforward_h1(space, *field_list)
         
         elif kind is L2SpaceType():
-            return self._pushforward_l2(space, field_list)
+            return self._pushforward_l2(space, *field_list)
         
         elif kind is HcurlSpaceType():
-            return self._pushforward_hcurl(space, field_list)
+            return self._pushforward_hcurl(space, *field_list)
         
         elif kind is HdivSpaceType():
-            return self._pushforward_hdiv(space, field_list)
+            return self._pushforward_hdiv(space, *field_list)
     
-    def _pushforward_h1(self, space, field_list):
+    def _pushforward_h1(self, space, *field_list):
         """
         Pushforward of h1 spaces
 
@@ -213,7 +215,7 @@ class Pushforward:
         else:
             return [np.ascontiguousarray(fields_eval[index_trim + (j,)]) for j in range(len(field_list))]
     
-    def _pushforward_l2(self, space, field_list):
+    def _pushforward_l2(self, space, *field_list):
         """
         Pushforward of l2 spaces
 
@@ -254,7 +256,7 @@ class Pushforward:
             
             return [np.ascontiguousarray(pushed_fields[..., j]) for j in range(len(field_list))]
 
-    def _pushforward_hdiv(self, space, field_list):
+    def _pushforward_hdiv(self, space, *field_list):
         """
         Pushforward of hdiv spaces
 
@@ -281,7 +283,7 @@ class Pushforward:
         
         return [tuple(np.ascontiguousarray(pushed_fields[j, i]) for i in range(self.ldim)) for j in range(len(field_list))]
 
-    def _pushforward_hcurl(self, space, field_list):
+    def _pushforward_hcurl(self, space, *field_list):
         """
         Pushforward of hcurl spaces
 
@@ -315,13 +317,21 @@ class Pushforward:
 
         Parameters
         ----------
-        local_domain :  tuple of tuples
+        local_domain :  tuple of tuples of ints
             Local domain of the misaligned space.
-        
+            Is usually given by `TensorFemSpace.local_domain`.
+            It is a 2-tuple (`starts`, `ends`) of `self.ldim`-tuples
+            or integers indices. The indices in `start` correspond
+            to the first cell that the space owns in a particular 
+            direction and the indices in ends correspond to the first 
+            cell that doesn't belong to the space.
+
         Returns
         -------
         index_trim : tuple of slices
-            tuple of ldim slice objects that 
+            tuple of ldim slice objects that convert from 
+            the misaligned domain + 1 cell of overlap to
+            `self.local_domain`. 
         """
         global_starts, global_ends = self.global_domain
         target_starts, target_ends = self.local_domain
@@ -390,7 +400,7 @@ class Pushforward:
                 index_trimming += (slice(theoretical_start, theoretical_end, 1),)
 
         else:
-            raise NotImplementedError("Not supported yet")
+            raise NotImplementedError("Unstructured grid are not supported yet")
         return index_trimming
 
     def _index_trimming_helper(self, space):
@@ -415,4 +425,4 @@ class Pushforward:
             else:
                 overlap = 0
                 index_trim = (slice(0, None, 1),) * self.ldim
-        return overlap, index_trim        
+        return overlap, index_trim

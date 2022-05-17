@@ -971,6 +971,9 @@ def basis_ders_on_quad_grid_p(knots: 'float[:]', degree: int, quad_grid: 'float[
     normalization : bool
         Set to False for B-splines, and True for M-splines.
 
+    offset : int, default=0
+        Assumes that the quadrature grid starts from cell number offset.
+
     out : array
         The result will be inserted into this array.
         It should be of the appropriate shape and dtype.
@@ -1012,7 +1015,8 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:
     Computes in which cells a given sorted array of locations belong.
 
     Locations close to a interior breakpoint will be assumed to be
-    present twice in the grid, once of for each cell. Boundary breakpoints are snapped to the interior of the domain.
+    present twice in the grid, once of for each cell. Boundary breakpoints are 
+    snapped to the interior of the domain.
 
     Parameters
     ----------
@@ -1099,8 +1103,10 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:
     return 0
 
         
-def basis_ders_on_irregular_grid_p(knots: 'float[:]', degree: int, i_grid: 'float[:]', cell_index: 'int[:]', nders: int, normalization: bool,
-                            out: 'float[:,:,:]'):
+def basis_ders_on_irregular_grid_p(knots: 'float[:]', degree: int, 
+                                   i_grid: 'float[:]', cell_index: 'int[:]', 
+                                   nders: int, normalization: bool,
+                                   out: 'float[:,:,:]'):
     """
     Evaluate B-Splines and their derivatives on an irregular_grid.
 

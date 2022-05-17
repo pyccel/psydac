@@ -18,6 +18,9 @@ except:
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
 
+# Tolerance for testing float equality
+RTOL = 1e-15
+ATOL = 1e-15
 
 from mpi4py import MPI 
 comm = MPI.COMM_WORLD
@@ -81,9 +84,9 @@ def test_eval_fields_regular(geometry, npts_per_cell):
         y_mesh_par = fh5['y_mesh'][...]
         z_mesh_par = fh5['z_mesh'][...]
 
-        assert np.allclose(x_mesh_par, x_mesh)
-        assert np.allclose(y_mesh_par, y_mesh)
-        assert np.allclose(z_mesh_par, z_mesh)
+        assert np.allclose(x_mesh_par, x_mesh, atol=ATOL, rtol=RTOL)
+        assert np.allclose(y_mesh_par, y_mesh, atol=ATOL, rtol=RTOL)
+        assert np.allclose(z_mesh_par, z_mesh, atol=ATOL, rtol=RTOL)
 
         fh5.close()
         os.remove('result_parallel.h5')
@@ -148,9 +151,9 @@ def test_eval_fields_irregular(geometry, npts_irregular):
         y_mesh_par = fh5['y_mesh'][...]
         z_mesh_par = fh5['z_mesh'][...]
 
-        assert np.allclose(x_mesh_par, x_mesh)
-        assert np.allclose(y_mesh_par, y_mesh)
-        assert np.allclose(z_mesh_par, z_mesh)
+        assert np.allclose(x_mesh_par, x_mesh, atol=ATOL, rtol=RTOL)
+        assert np.allclose(y_mesh_par, y_mesh, atol=ATOL, rtol=RTOL)
+        assert np.allclose(z_mesh_par, z_mesh, atol=ATOL, rtol=RTOL)
 
         fh5.close()
         os.remove('result_parallel_i.h5')

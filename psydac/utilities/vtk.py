@@ -28,17 +28,17 @@ def writeParallelVTKUnstructuredGrid(
         Number of ghost-levels by which
         the extents in the individual source files overlap.
     pointData : dict
-        dictionnary containing the information about the arrays
-        containing node centered data.
+        dictionary containing the information about the arrays
+        with node centered data.
         Keys shoud be the names of the arrays.
         Values are (dtype, number of components)
     cellData :
-        dictionnary containing the information about the arrays
-        containing cell centered data.
+        dictionary containing the information about the arrays
+        with cell centered data.
         Keys shoud be the names of the arrays.
         Values are (dtype, number of components)
     """
-    # Get the extension + check that it's consistent accros all source files
+    # Get the extension + check that it's consistent across all source files
     common_ext = sources[0].split(".")[-1]
     assert all(s.split(".")[-1] == common_ext for s in sources)
 

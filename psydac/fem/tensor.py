@@ -420,7 +420,7 @@ class TensorFemSpace( FemSpace ):
         List of ndarray of floats
             List of the evaluated fields.
         """
-        
+
         assert all(f.space is self for f in fields)
         for f in fields:
             # Necessary if vector coeffs is distributed across processes
