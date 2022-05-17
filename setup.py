@@ -56,7 +56,7 @@ install_requires = [
     'pyevtk',
 
     # Our packages from PyPi
-    'sympde==0.13.1',
+    'sympde>=0.13',
     'pyccel>=0.10.1',
     'gelato==0.11',
 
