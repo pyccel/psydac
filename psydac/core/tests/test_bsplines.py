@@ -156,7 +156,7 @@ def test_histopolation_matrix(lims, nc, p, periodic, tol=1e-13):
 def test_cell_index(i_grid, expected):
     breaks = np.array([0. , 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.])
     out = cell_index(breaks, np.asarray(i_grid))
-    assert np.allclose(expected, out)
+    assert np.array_equal(expected, out)
 
 #==============================================================================
 # SCRIPT FUNCTIONALITY: PLOT BASIS FUNCTIONS
