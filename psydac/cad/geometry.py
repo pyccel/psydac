@@ -23,7 +23,7 @@ from psydac.fem.tensor         import TensorFemSpace
 from psydac.fem.utilities      import create_cart
 from psydac.mapping.discrete   import SplineMapping, NurbsMapping
 
-from sympde.topology       import Domain, Line, Square, Cube, NCubeInterior
+from sympde.topology       import Domain, Line, Square, Cube, NCubeInterior, Mapping
 from sympde.topology.basic import Union
 
 #==============================================================================
@@ -427,6 +427,8 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
         bounds3 = (float(nurbs.breaks(2)[0]), float(nurbs.breaks(2)[-1]))
         domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
 
+    mapping = Mapping(mapping_id, dim=nurbs.dim)
+    domain  = mapping(domain)
     topo_yml = domain.todict()
 
     # Dump geometry metadata to string in YAML file format
