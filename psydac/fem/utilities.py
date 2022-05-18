@@ -72,7 +72,7 @@ def create_interfaces_cart(cart, interfaces_info=None):
 
 def construct_interface_spaces(g_spaces, spaces, cart, interiors, interfaces, comm, quad_order=None):
     interfaces_info = {}
-    if not interfaces:return
+    if not interfaces:return {}
     if comm is not None:
         for e in interfaces:
             i = interiors.index(e.minus.domain)
