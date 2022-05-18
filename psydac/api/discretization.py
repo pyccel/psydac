@@ -294,7 +294,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
             else:
                 carts = cart.carts
         else:
-            carts = None
+            cart = None
 
         for i,interior in enumerate(interiors):
             if comm is not None:
@@ -304,7 +304,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
             g_spaces[interior] = Vh
 
-        construct_interface_spaces(g_spaces, spaces, carts, interiors, interfaces, comm, quad_order=quad_order)
+        construct_interface_spaces(g_spaces, spaces, cart, interiors, interfaces, comm, quad_order=quad_order)
 
     for inter in g_spaces:
         Vh = g_spaces[inter]

@@ -70,8 +70,9 @@ def create_interfaces_cart(cart, interfaces_info=None):
 
     return interfaces_cart
 
-def construct_interface_spaces(g_spaces, spaces, carts, interiors, interfaces, comm, quad_order=None):
+def construct_interface_spaces(g_spaces, spaces, cart, interiors, interfaces, comm, quad_order=None):
     interfaces_info = {}
+    if not interfaces:return
     if comm is not None:
         for e in interfaces:
             i = interiors.index(e.minus.domain)
@@ -89,9 +90,9 @@ def construct_interface_spaces(g_spaces, spaces, carts, interiors, interfaces, c
             cart_minus = None
             cart_plus  = None
         else:
-            if not carts[i].is_comm_null and not carts[j].is_comm_null:
-                cart_minus = carts[i]
-                cart_plus  = carts[j]
+            if not cart.carts[i].is_comm_null and not cart.carts[j].is_comm_null:
+                cart_minus = cart.carts[i]
+                cart_plus  = cart.carts[j]
             elif (i,j) in interfaces_cart:
                 cart_minus = interfaces_cart[i,j]
                 cart_plus  = interfaces_cart[i,j]

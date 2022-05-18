@@ -205,8 +205,6 @@ class Geometry( object ):
                 carts = [cart]
             else:
                 carts = cart.carts
-        else:
-            carts = None
 
         g_spaces = {}
         for i_patch in range( n_patches ):
@@ -220,7 +218,7 @@ class Geometry( object ):
 
         # ... construct interface spaces
         if n_patches>1:
-            construct_interface_spaces(g_spaces, spaces, carts, interiors, interfaces, comm)
+            construct_interface_spaces(g_spaces, spaces, self._cart, interiors, interfaces, comm)
 
         for i_patch in range( n_patches ):
 
