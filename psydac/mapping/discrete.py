@@ -48,7 +48,8 @@ class SplineMapping:
         # coordinates, and d is index of physical component of interest.
         self._control_points = SplineMapping.ControlPoints( self )
 
-        self._name = name
+        self._name       = name
+        self._interfaces = {}
 
     @property
     def name(self):

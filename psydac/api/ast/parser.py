@@ -503,6 +503,7 @@ class Parser(object):
 
         inits = []
         for k,i in self.shapes.items():
+            if not k in self.variables:continue
             var = self.variables[k]
             if var in arguments or var.name in self.allocated:
                 continue
@@ -800,6 +801,8 @@ class Parser(object):
                 names = 'global_basis_{label}_1:{i}'.format(label=label,i=dim+1)
 
         targets = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+        if expr.index is not None:
+            return targets[expr.index]
 
         self.insert_variables(*targets)
 
@@ -840,6 +843,9 @@ class Parser(object):
                 names = 'local_basis_{label}_1:{i}'.format(label=label,i=dim+1)
 
         targets = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+        if expr.index is not None:
+            return targets[expr.index]
+
         self.insert_variables(*targets)
 
         arrays = {}
@@ -911,6 +917,25 @@ class Parser(object):
             targets = [targets]
         target = {target: tuple(zip(*targets))}
         return target
+
+    # ....................................................
+    def _visit_LocalSpan(self, expr, **kwargs):
+        dim    = self.dim
+        rank   = expr.rank
+        target = expr.target
+        label = SymbolicExpr(target).name
+
+        names  = 'local_span_{}_1:{}'.format(label, str(dim+1))
+        targets = variables(names, dtype='int', rank=rank, cls=IndexedVariable)
+        if expr.index is not None:
+            return targets[expr.index]
+
+        self.insert_variables(*targets)
+        if not isinstance(targets[0], (tuple, list, Tuple)):
+            targets = [targets]
+        target = {target: tuple(zip(*targets))}
+        return target
+
     # ....................................................
     def _visit_Span(self, expr, **kwargs):
         dim = self.dim
@@ -1541,6 +1566,10 @@ class Parser(object):
         args = list(zip(*args))
         return args
 
+    def _visit_Slice(self, expr, **kwargs):
+        args = [self._visit(a) if a is not None else None for a in expr.args]
+        return Slice(args[0], args[1])
+
     def _visit_TensorIntDiv(self, expr, **kwargs):
         args = [self._visit(a, **kwargs) for a in expr.args]
         arg1 = args[0]
@@ -1818,7 +1847,7 @@ class Parser(object):
         inits = [()]*dim
 
         for (i, l_xs),(j, g_xs) in zip(iterator.items(), generator.items()):
-            if isinstance(expr.generator.target, GlobalTensorQuadratureBasis):
+            if isinstance(expr.generator.target, (LocalTensorQuadratureBasis, GlobalTensorQuadratureBasis)):
                 positions = [expr.generator.target.positions[index_deriv]]
                 g_xs = [SplitArray(xs[0], positions, [self.nderiv+1]) for xs in g_xs]
                 g_xs = [tuple(self._visit(xs, **kwargs)) for xs in g_xs]
@@ -1826,7 +1855,7 @@ class Parser(object):
             for i in  range(dim):
                 ls = []
                 for l_x,g_x in zip(l_xs[i], g_xs[i]):
-                    if isinstance(expr.generator.target, GlobalTensorQuadratureBasis):
+                    if isinstance(expr.generator.target, (LocalTensorQuadratureBasis, GlobalTensorQuadratureBasis)):
                         lhs = self._visit_BasisAtom(BasisAtom(l_x))
                     else:
                         lhs = l_x

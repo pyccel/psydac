@@ -177,20 +177,25 @@ class DiscreteBilinearForm(BasicDiscrete):
         # ...
         if len(domain)>1:
             i,j = self.get_space_indices_from_target(domain, target )
+            test_space   = self.spaces[1].spaces[i]
             trial_space  = self.spaces[0].spaces[j]
-            test_space = self.spaces[1].spaces[i]
             if isinstance(target, Interface):
                 m,_       = self.get_space_indices_from_target(domain, target.minus )
                 p,_       = self.get_space_indices_from_target(domain, target.plus )
                 mapping_m = list(domain_h.mappings.values())[m]
                 mapping_p = list(domain_h.mappings.values())[p]
-                mapping   = (mapping_m, mapping_p) if mapping_m else None
+
+                mapping   = [mapping_m, mapping_p] if mapping_m else None
+                if mapping and m == j:
+                    mapping[0] = mapping[0]._interfaces[target.minus.axis, target.minus.ext]
+                elif mapping and p == j:
+                    mapping[1] = mapping[1]._interfaces[target.plus.axis, target.plus.ext]
             else:
                 mapping = list(domain_h.mappings.values())[i]
         else:
             trial_space  = self.spaces[0]
             test_space   = self.spaces[1]
-            mapping = list(domain_h.mappings.values())[0]
+            mapping      = list(domain_h.mappings.values())[0]
 
         self._mapping = mapping
 
@@ -255,6 +260,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     trial_space = ProductFemSpace(*spaces)
             elif (trial_target.axis, trial_target.ext) in trial_space._interfaces:
                 trial_space  = trial_space._interfaces[trial_target.axis, trial_target.ext]
+
             self._test_ext  = test_target.ext
             self._trial_ext = trial_target.ext
 

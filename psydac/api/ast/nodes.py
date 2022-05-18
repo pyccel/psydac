@@ -823,14 +823,18 @@ class GlobalTensorQuadratureBasis(ArrayNode):
     _positions = {index_quad: 3, index_deriv: 2, index_dof: 1, index_element: 0}
     _free_indices = [index_element, index_quad, index_dof]
 
-    def __new__(cls, target):
+    def __new__(cls, target, index=None):
         if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
             raise TypeError('Expecting a scalar/vector test function')
-        return Basic.__new__(cls, target)
+        return Basic.__new__(cls, target, index)
 
     @property
     def target(self):
         return self._args[0]
+
+    @property
+    def index(self):
+        return self._args[1]
 
     @property
     def unique_scalar_space(self):
@@ -846,22 +850,28 @@ class GlobalTensorQuadratureBasis(ArrayNode):
     def is_scalar(self):
         return isinstance(self.target, (ScalarFunction, IndexedVectorFunction))
 
+    def set_index(self, index):
+        return type(self)(self.target, index)
 #==============================================================================
 class LocalTensorQuadratureBasis(ArrayNode):
     """
     """
-    _rank = 3
-    _positions = {index_quad: 2, index_deriv: 1, index_dof: 0}
-    _free_indices = [index_dof]
+    _rank = 4
+    _positions = {index_quad: 3, index_deriv: 2, index_dof: 1, index_element: 0}
+    _free_indices = [index_element, index_quad, index_dof]
 
-    def __new__(cls, target):
+    def __new__(cls, target, index=None):
         if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
             raise TypeError('Expecting a scalar/vector test function')
-        return Basic.__new__(cls, target)
+        return Basic.__new__(cls, target, index)
 
     @property
     def target(self):
         return self._args[0]
+
+    @property
+    def index(self):
+        return self._args[1]
 
     @property
     def unique_scalar_space(self):
@@ -876,6 +886,9 @@ class LocalTensorQuadratureBasis(ArrayNode):
     @property
     def is_scalar(self):
         return isinstance(self.target, (ScalarFunction, IndexedVectorFunction))
+
+    def set_index(self, index):
+        return type(self)(self.target, index)
 #==============================================================================
 class TensorQuadratureBasis(ArrayNode):
     """
@@ -931,8 +944,8 @@ class GlobalTensorQuadratureTestBasis(GlobalTensorQuadratureBasis):
 
 #==============================================================================
 class LocalTensorQuadratureTestBasis(LocalTensorQuadratureBasis):
-    _positions = {index_quad: 2, index_deriv: 1, index_dof_test: 0}
-    _free_indices = [index_dof_test]
+    _positions = {index_quad: 3, index_deriv: 2, index_dof_test: 1, index_element: 0}
+    _free_indices = [index_element, index_quad, index_dof_test]
 
 #==============================================================================
 class TensorQuadratureTestBasis(TensorQuadratureBasis):
@@ -949,8 +962,8 @@ class GlobalTensorQuadratureTrialBasis(GlobalTensorQuadratureBasis):
 
 #==============================================================================
 class LocalTensorQuadratureTrialBasis(LocalTensorQuadratureBasis):
-    _positions = {index_quad: 2, index_deriv: 1, index_dof_trial: 0}
-    _free_indices = [index_dof_trial]
+    _positions = {index_quad: 3, index_deriv: 2, index_dof_trial: 1, index_element: 0}
+    _free_indices = [index_element, index_quad, index_dof_trial]
 
 #==============================================================================
 class TensorQuadratureTrialBasis(TensorQuadratureBasis):
@@ -1386,6 +1399,30 @@ class GlobalSpan(ArrayNode):
     def set_index(self, index):
         return GlobalSpan(self.target, index)
 
+#==============================================================================
+class LocalSpan(ArrayNode):
+    """
+     This represents the local span array
+    """
+    _rank = 1
+    _positions = {index_element: 0}
+
+    def __new__(cls, target, index=None):
+        if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
+            raise TypeError('Expecting a scalar/vector test function')
+
+        return Basic.__new__(cls, target, index)
+
+    @property
+    def target(self):
+        return self._args[0]
+
+    @property
+    def index(self):
+        return self._args[1]
+
+    def set_index(self, index):
+        return LocalSpan(self.target, index)
 #==============================================================================
 class GlobalThreadStarts(ArrayNode):
     """
@@ -2161,11 +2198,11 @@ def construct_itergener(a, index):
         generator = TensorGenerator(a, index)
         element   = TensorQuadrature(a.weights)
 
-    elif isinstance(a, GlobalTensorQuadratureTrialBasis):
+    elif isinstance(a, (LocalTensorQuadratureTrialBasis, GlobalTensorQuadratureTrialBasis)):
         generator = TensorGenerator(a, index)
         element   = TensorTrialBasis(a.target)
 
-    elif isinstance(a, GlobalTensorQuadratureTestBasis):
+    elif isinstance(a, (LocalTensorQuadratureTestBasis, GlobalTensorQuadratureTestBasis)):
         generator = TensorGenerator(a, index)
         element   = TensorTestBasis(a.target)
 
@@ -2177,7 +2214,7 @@ def construct_itergener(a, index):
         generator = TensorGenerator(a, index)
         element   = TensorBasis(a.target)
 
-    elif isinstance(a, GlobalSpan):
+    elif isinstance(a, (LocalSpan,GlobalSpan)):
         generator = TensorGenerator(a, index)
         element   = Span(a.target)
 
@@ -2206,16 +2243,10 @@ def construct_itergener(a, index):
     elif isinstance(element, TensorQuadrature):
         iterator = TensorIterator(element)
 
-    elif isinstance(element, LocalTensorQuadratureTrialBasis):
-        iterator = TensorIterator(element)
-
     elif isinstance(element, TensorQuadratureTrialBasis):
         iterator = TensorIterator(element)
 
     elif isinstance(element, TensorTrialBasis):
-        iterator = TensorIterator(element)
-
-    elif isinstance(element, LocalTensorQuadratureTestBasis):
         iterator = TensorIterator(element)
 
     elif isinstance(element, TensorQuadratureTestBasis):

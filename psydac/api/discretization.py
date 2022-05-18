@@ -36,7 +36,7 @@ from psydac.api.equation     import DiscreteEquation
 from psydac.api.utilities    import flatten
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
-from psydac.fem.utilities    import create_cart, create_interfaces_cart
+from psydac.fem.utilities    import create_cart, construct_interface_spaces
 from psydac.fem.vector       import ProductFemSpace
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
@@ -293,6 +293,8 @@ def discretize_space(V, domain_h, *args, **kwargs):
                 carts = [cart]
             else:
                 carts = cart.carts
+        else:
+            carts = None
 
         for i,interior in enumerate(interiors):
             if comm is not None:
@@ -302,35 +304,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
             g_spaces[interior] = Vh
 
-    interfaces_info = {}
-    if comm is not None:
-        for e in interfaces:
-            i = interiors.index(e.minus.domain)
-            j = interiors.index(e.plus.domain)
-            interfaces_info[i, j] = ((e.minus.axis, e.plus.axis),(e.minus.ext, e.plus.ext))
-
-        interfaces_cart = create_interfaces_cart(cart, interfaces_info=interfaces_info)
-        if interfaces_cart:
-            interfaces_cart = interfaces_cart.carts
-
-    for e in interfaces:
-        i = interiors.index(e.minus.domain)
-        j = interiors.index(e.plus.domain)
-        if comm is None:
-            cart_minus = None
-            cart_plus  = None
-        else:
-            if not carts[i].is_comm_null and not carts[j].is_comm_null:
-                cart_minus = carts[i]
-                cart_plus  = carts[j]
-            elif (i,j) in interfaces_cart:
-                cart_minus = interfaces_cart[i,j]
-                cart_plus  = interfaces_cart[i,j]
-            else:
-                continue
-
-        g_spaces[e.minus.domain].set_interface_space(e.minus.axis, e.minus.ext, spaces[i], cart=cart_minus, quad_order=quad_order)
-        g_spaces[e.plus.domain ].set_interface_space(e.plus.axis , e.plus.ext , spaces[j], cart=cart_plus, quad_order=quad_order)
+        construct_interface_spaces(g_spaces, spaces, carts, interiors, interfaces, comm, quad_order=quad_order)
 
     for inter in g_spaces:
         Vh = g_spaces[inter]

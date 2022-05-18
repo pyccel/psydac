@@ -20,10 +20,10 @@ from mpi4py import MPI
 
 from psydac.fem.splines        import SplineSpace
 from psydac.fem.tensor         import TensorFemSpace
-from psydac.fem.utilities      import create_cart
+from psydac.fem.utilities      import create_cart, construct_interface_spaces
 from psydac.mapping.discrete   import SplineMapping, NurbsMapping
 
-from sympde.topology       import Domain, Line, Square, Cube, NCubeInterior, Mapping
+from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, Mapping
 from sympde.topology.basic import Union
 
 #==============================================================================
@@ -145,7 +145,15 @@ class Geometry( object ):
         # ...
 
         # read the topological domain
-        domain = Domain.from_file(filename)
+        domain     = Domain.from_file(filename)
+        interfaces = domain.interfaces if domain.interfaces else []
+
+        if len(domain)==1:
+            interiors  = [domain.interior]
+        else:
+            interiors  = list(domain.interior.args)
+            if interfaces:
+                interfaces = [interfaces] if isinstance(interfaces, Interface) else list(interfaces.args)
 
         if not(comm is None):
             kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
@@ -197,6 +205,22 @@ class Geometry( object ):
                 carts = [cart]
             else:
                 carts = cart.carts
+        else:
+            carts = None
+
+        g_spaces = {}
+        for i_patch in range( n_patches ):
+
+            if comm is None:
+                tensor_space = TensorFemSpace( *spaces[i_patch] )
+            else:
+                tensor_space = TensorFemSpace( *spaces[i_patch], cart=carts[i_patch] )
+
+            g_spaces[interiors[i_patch]] = tensor_space
+
+        # ... construct interface spaces
+        if n_patches>1:
+            construct_interface_spaces(g_spaces, spaces, carts, interiors, interfaces, comm)
 
         for i_patch in range( n_patches ):
 
@@ -208,13 +232,14 @@ class Geometry( object ):
             space_i = spaces[i_patch]
             if dtype in ['SplineMapping', 'NurbsMapping']:
 
-                if comm is None:
-                    tensor_space = TensorFemSpace( *space_i )
-                else:
-                    tensor_space = TensorFemSpace( *space_i, cart=carts[i_patch] )
+                tensor_space = g_spaces[interiors[i_patch]]
 
                 if dtype == 'SplineMapping':
                     mapping = SplineMapping.from_control_points( tensor_space,
+                                                                 patch['points'][..., :pdim] )
+
+                    for axis,ext in tensor_space._interfaces:
+                        mapping._interfaces[axis,ext] = SplineMapping.from_control_points( tensor_space._interfaces[axis, ext],
                                                                  patch['points'][..., :pdim] )
 
                 elif dtype == 'NurbsMapping':
@@ -222,10 +247,15 @@ class Geometry( object ):
                                                                         patch['points'][..., :pdim],
                                                                         patch['weights'] )
 
-                mapping.set_name( item['name'] )
 
+                    for axis,ext in tensor_space._interfaces:
+                        mapping._interfaces[axis,ext] = NurbsMapping.from_control_points_weights( tensor_space._interfaces[axis, ext],
+                                                                        patch['points'][..., :pdim],
+                                                                        patch['weights'] )
+
+                mapping.set_name( item['name'] )
                 mappings[patch_name] = mapping
-        # ...
+
 
         # ... close the h5 file
         h5.close()

@@ -23,12 +23,12 @@ from sympde.topology.mapping     import InterfaceMapping
 from sympde.calculus.core        import is_zero
 
 from psydac.pyccel.ast.core import _atomic, Assign, Import, AugAssign, Return
-from psydac.pyccel.ast.core import Comment, Continue
+from psydac.pyccel.ast.core import Comment, Continue, Slice
 
 from .nodes import GlobalTensorQuadratureGrid, PlusGlobalTensorQuadratureGrid
 from .nodes import LocalTensorQuadratureGrid, PlusLocalTensorQuadratureGrid
-from .nodes import GlobalTensorQuadratureTestBasis
-from .nodes import GlobalTensorQuadratureTrialBasis
+from .nodes import GlobalTensorQuadratureTestBasis, LocalTensorQuadratureTestBasis
+from .nodes import GlobalTensorQuadratureTrialBasis, LocalTensorQuadratureTrialBasis
 from .nodes import LengthElement, LengthQuadrature
 from .nodes import LengthDofTrial, LengthDofTest
 from .nodes import LengthOuterDofTest, LengthInnerDofTest
@@ -39,7 +39,7 @@ from .nodes import BlockStencilVectorLocalBasis, StencilVectorLocalBasis
 from .nodes import BlockStencilVectorGlobalBasis
 from .nodes import GlobalElementBasis
 from .nodes import LocalElementBasis
-from .nodes import GlobalSpan, GlobalThreadSpan, Span
+from .nodes import GlobalSpan, LocalSpan, GlobalThreadSpan, Span
 from .nodes import CoefficientBasis
 from .nodes import MatrixLocalBasis, MatrixGlobalBasis
 from .nodes import MatrixRankFromCoords, MatrixCoordsFromRank
@@ -402,26 +402,34 @@ class AST(object):
 
             terminal_expr     = Matrix([[terminal_expr]])
 
-        d_tests  = {v: {'global': GlobalTensorQuadratureTestBasis (v), 
+        d_tests  = {v: {'global': GlobalTensorQuadratureTestBasis(v),
+                        'local' : LocalTensorQuadratureTestBasis(v),
                         'span': GlobalSpan(v),
+                        'local_span': LocalSpan(v),
                         'multiplicity':multiplicity_tests[i],
                         'degrees': tests_degrees[i],
                         'thread_span':GlobalThreadSpan(v)} for i,v in enumerate(tests) }
 
-        d_trials = {u: {'global': GlobalTensorQuadratureTrialBasis(u), 
+        d_trials = {u: {'global': GlobalTensorQuadratureTrialBasis(u),
+                        'local' : LocalTensorQuadratureTrialBasis(u),
                         'span': GlobalSpan(u),
+                        'local_span': LocalSpan(u),
                         'multiplicity':multiplicity_trials[i],
                         'degrees':trials_degrees[i]} for i,u in enumerate(trials)}
 
         if isinstance(expr, Functional):
-            d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f), 
+            d_fields = {f: {'global': GlobalTensorQuadratureTestBasis(f),
+                            'local' : LocalTensorQuadratureTestBasis(f),
                             'span': GlobalSpan(f),
+                            'local_span': LocalSpan(f),
                             'multiplicity':multiplicity_fields[i],
                             'degrees':fields_degrees[i]} for i,f in enumerate(fields)}
 
         else:
-            d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f), 
-                            'span': GlobalSpan(f)} for i,f in enumerate(fields)}
+            d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f),
+                            'local' : LocalTensorQuadratureTestBasis(f),
+                            'span': GlobalSpan(f),
+                            'local_span': LocalSpan(f)} for i,f in enumerate(fields)}
 
         if mapping_space:
             f         = (tests+trials+fields)[0]
@@ -445,7 +453,9 @@ class AST(object):
                 multiplicity_mapping = (get_multiplicity(f, mapping_space.vector_space),)
 
             d_mapping = {fi: {'global': GlobalTensorQuadratureTestBasis (fi),
+                              'local' : LocalTensorQuadratureTestBasis(fi),
                              'span': GlobalSpan(fi),
+                             'local_span': LocalSpan(fi),
                              'multiplicity':multiplicity_mapping_i[0],
                              'degrees': mapping_degrees_i[0]}
                              for fi,mapping_degrees_i,multiplicity_mapping_i in zip(f,mapping_degrees,multiplicity_mapping) }
@@ -628,10 +638,17 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     quad_order    = kwargs.pop('quad_order', None)
     thread_span   =  dict((u,d_tests[u]['thread_span']) for u in tests)
     # ...........................................................................................
-    g_span              = dict((u,d_tests[u]['span']) for u in tests)
-    f_span              = dict((f,d_fields[f]['span']) for f in fields)
+    if add_openmp:
+        span  = 'local_span'
+        basis = 'local'
+    else:
+        span  = 'span'
+        basis = 'global'
+
+    g_span              = dict((u,d_tests[u][span]) for u in tests)
+    f_span              = dict((f,d_fields[f][span]) for f in fields)
     if mapping_space:
-        m_span   = dict((f,d_mapping[f]['span']) for f in d_mapping)
+        m_span   = dict((f,d_mapping[f][span]) for f in d_mapping)
     else:
         m_span = {}
 
@@ -681,12 +698,12 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         mappings = (mapping.minus, mapping.plus)
         ind_dof_tests  = [index_dof_test.set_range(stop=Tuple(*[d+1 for d in d_mapping[f]['degrees']])) for f in d_mapping]
         # ...........................................................................................
-        eval_mappings = [EvalMapping(ind_quad, ind_dof_tests[i], d_mapping[fi]['global'],
+        eval_mappings = [EvalMapping(ind_quad, ind_dof_tests[i], d_mapping[fi][basis],
                         mappings[i], geos[i], mapping_space[i], nderiv, mask, is_rational_mapping[i]) for i,fi in enumerate(d_mapping)]
     elif mapping_space:
         ind_dof_tests  = [index_dof_test.set_range(stop=Tuple(*[d+1 for d in d_mapping[f]['degrees']])) for f in d_mapping]
         # ...........................................................................................
-        eval_mappings = [EvalMapping(ind_quad, ind_dof_tests[i], d_mapping[fi]['global'],
+        eval_mappings = [EvalMapping(ind_quad, ind_dof_tests[i], d_mapping[fi][basis],
                         mapping, geos[i], mapping_space, nderiv, mask, is_rational_mapping) for i,fi in enumerate(d_mapping)]
 
     eval_fields = []
@@ -695,7 +712,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
         l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
         ind_dof_test = index_dof_test.set_range(stop=lengths_fields[f]+1)
-        eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], 
+        eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f][basis],
                                  coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
         eval_fields += [eval_field]
 
@@ -723,8 +740,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
             if is_zero(sub_terminal_expr):
                 continue
 
-            q_basis_tests  = dict((v,d_tests[v]['global'])         for v in sub_tests)
-            q_basis_trials = dict((u,d_trials[u]['global'])        for u in sub_trials)
+            q_basis_tests  = dict((v,d_tests[v][basis])         for v in sub_tests)
+            q_basis_trials = dict((u,d_trials[u][basis])        for u in sub_trials)
             m_tests        = dict((v,d_tests[v]['multiplicity'])   for v in sub_tests)
             m_trials       = dict((u,d_trials[u]['multiplicity'])  for u in sub_trials)
             tests_degree   = dict((v,d_tests[v]['degrees'])        for v in sub_tests)
@@ -840,19 +857,137 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
         for i in range(dim):
             lhs   = local_thread_s.set_index(i)
-            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
-            rhs  = Array(Tuple(thr_s, AddNode(thr_s, IntDivNode(global_thread_l.set_index(i), Integer(2)))))
+            #thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            rhs  = Array(Tuple(0, IntDivNode(global_thread_l.set_index(i), Integer(2))))
             parallel_body += [Assign(lhs, rhs)]
 
         for i in range(dim):
             lhs = local_thread_e.set_index(i)
             thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
             thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
-            rhs = Array(Tuple(AddNode(thr_s, IntDivNode(global_thread_l.set_index(i), Integer(2))), AddNode(thr_e,Integer(1))))
+            rhs = Array(Tuple(IntDivNode(global_thread_l.set_index(i), Integer(2)), global_thread_l.set_index(i)))
             parallel_body += [Assign(lhs, rhs)]
 
+        get_d = lambda v:d_tests[v]['degrees'] if v in d_tests else d_tests[v.base]['degrees']
+        for i in range(dim):
+            parallel_body += [Allocate(d_tests[v]['local'].set_index(i),
+                              (global_thread_l.set_index(i),
+                              Integer(get_d(v)[i]+1),
+                              Integer(nderiv+1),
+                              Integer(quad_order[i]))) for v in d_tests]
 
-#        for i in range(dim):
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+            args1  = tuple([Slice(None,None)]*4)
+            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
+                      Slice(None,None),
+                      Slice(None,Integer(nderiv+1)),
+                      Slice(None,None))
+
+            parallel_body += [Assign(ProductGenerator(d_tests[v]['local'].set_index(i), Tuple(args1)),
+                                     ProductGenerator(d_tests[v]['global'].set_index(i),Tuple(args2)))
+                                     for v in d_tests]
+
+        get_d = lambda u:d_trials[u]['degrees'] if u in d_trials else d_trials[u.base]['degrees']
+        for i in range(dim):
+            parallel_body += [Allocate(d_trials[u]['local'].set_index(i),
+                              (global_thread_l.set_index(i),
+                              Integer(get_d(u)[i]+1),
+                              Integer(nderiv+1),
+                              Integer(quad_order[i]))) for u in d_trials]
+
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+            args1  = tuple([Slice(None,None)]*4)
+            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
+                      Slice(None,None),
+                      Slice(None,Integer(nderiv+1)),
+                      Slice(None,None))
+
+            parallel_body += [Assign(ProductGenerator(d_trials[u]['local'].set_index(i), Tuple(args1)),
+                                     ProductGenerator(d_trials[u]['global'].set_index(i),Tuple(args2)))
+                                     for u in d_trials]
+
+        for i in range(dim):
+            parallel_body += [Allocate(d_tests[v]['local_span'].set_index(i),
+                              (global_thread_l.set_index(i),)) for v in d_tests]
+
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+            args1  = (Slice(None,None),)
+            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),)
+
+            parallel_body += [Assign(ProductGenerator(d_tests[v]['local_span'].set_index(i), Tuple(args1)),
+                                     ProductGenerator(d_tests[v]['span'].set_index(i),Tuple(args2)))
+                                     for v in d_tests]
+
+
+        get_d = lambda f:d_fields[f]['degrees'] if f in d_fields else d_fields[f.base]['degrees']
+        for i in range(dim):
+            parallel_body += [Allocate(d_fields[f]['local'].set_index(i),
+                              (global_thread_l.set_index(i),
+                              Integer(get_d(f)[i]+1),
+                              Integer(nderiv+1),
+                              Integer(quad_order[i]))) for f in d_fields]
+
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+            args1  = tuple([Slice(None,None)]*4)
+            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
+                      Slice(None,None),
+                      Slice(None,Integer(nderiv+1)),
+                      Slice(None,None))
+
+            parallel_body += [Assign(ProductGenerator(d_fields[f]['local'].set_index(i), Tuple(args1)),
+                                     ProductGenerator(d_fields[f]['global'].set_index(i),Tuple(args2)))
+                                     for f in d_fields]
+
+        for i in range(dim):
+            parallel_body += [Allocate(d_fields[f]['local_span'].set_index(i),
+                              (global_thread_l.set_index(i),)) for f in d_fields]
+
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+            args1  = (Slice(None,None),)
+            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),)
+
+            parallel_body += [Assign(ProductGenerator(d_fields[f]['local_span'].set_index(i), Tuple(args1)),
+                                     ProductGenerator(d_fields[f]['span'].set_index(i),Tuple(args2)))
+                                     for f in d_fields]
+        if mapping_space:
+            get_d = lambda f:d_mapping[f]['degrees'] if f in d_mapping else d_mapping[f.base]['degrees']
+            for i in range(dim):
+                parallel_body += [Allocate(d_mapping[f]['local'].set_index(i),
+                                  (global_thread_l.set_index(i),
+                                  Integer(get_d(f)[i]+1),
+                                  Integer(nderiv+1),
+                                  Integer(quad_order[i]))) for f in d_mapping]
+
+                thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+                thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+                args1  = tuple([Slice(None,None)]*4)
+                args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
+                          Slice(None,None),
+                          Slice(None,Integer(nderiv+1)),
+                          Slice(None,None))
+
+                parallel_body += [Assign(ProductGenerator(d_mapping[f]['local'].set_index(i), Tuple(args1)),
+                                         ProductGenerator(d_mapping[f]['global'].set_index(i),Tuple(args2)))
+                                         for f in d_mapping]
+
+            for i in range(dim):
+                parallel_body += [Allocate(d_mapping[f]['local_span'].set_index(i),
+                                  (global_thread_l.set_index(i),)) for f in d_mapping]
+
+                thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+                thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+                args1  = (Slice(None,None),)
+                args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),)
+
+                parallel_body += [Assign(ProductGenerator(d_mapping[f]['local_span'].set_index(i), Tuple(args1)),
+                                         ProductGenerator(d_mapping[f]['span'].set_index(i),Tuple(args2)))
+                                         for f in d_mapping]
+    #        for i in range(dim):
 #            parallel_body += [Assign(neighbour_threads.set_index(i), ProductGenerator(rank_from_coords, 
 #                     Tuple(tuple(AddNode(thread_coords.set_index(j), Integer(i==j)) for j in range(dim)))))]
 
@@ -890,7 +1025,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     args['tests_basis']  = tuple(d_tests[v]['global'] for v in tests)
     args['trial_basis']  = tuple(d_trials[u]['global'] for u in trials)
 
-    args['spans'] = g_span.values()
+    args['spans'] = tuple(d_tests[v]['span'] for v in tests)
     args['quads'] = g_quad
 
     args['tests_degrees']  = lengths_tests
@@ -912,7 +1047,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         args['mapping_spans'] = flatten([d_mapping[f]['span'] for f in d_mapping])
 
     if fields:
-        args['f_span']         = f_span.values()
+        args['f_span']         =  tuple(d_fields[f]['span'] for f in fields)
         args['f_coeffs']       = flatten(list(g_coeffs.values()))
         args['field_basis']    = tuple(d_fields[f]['global'] for f in fields)
         args['fields_degrees'] = lengths_fields.values()
@@ -960,7 +1095,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         if mapping_space:
             shared = shared + (*args['mapping'],  *args['mapping_basis'], *args['mapping_spans'])
         if fields:
-            shared = shared + (*f_span.values(), *args['f_coeffs'], *args['field_basis'])
+            shared = shared + (*args['f_span'], *args['f_coeffs'], *args['field_basis'])
 
         firstprivate = (*args['tests_degrees'].values(), *args['trials_degrees'].values(), *lengths, *pads, *b0s, *e0s, thread_id.length)
         if mapping_space:
