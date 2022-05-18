@@ -230,9 +230,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
     if sequence in ['TH', 'N', 'RT']:
         assert isinstance(V, ProductSpace) and len(V.spaces) == 2
 
-    g_spaces        = {}
-    interfaces_info = {}
-
+    g_spaces   = {}
     domain     = domain_h.domain
     interfaces = domain.interfaces if domain.interfaces else []
 
@@ -249,6 +247,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
         spaces    = [m.space for m in mappings]
         g_spaces  = dict(zip(interiors, spaces))
         spaces    = [S.spaces for S in spaces]
+        interfaces_info = domain_h._interfaces
 
         if not( comm is None ) and ldim == 1:
             raise NotImplementedError('must create a TensorFemSpace in 1d')
@@ -304,7 +303,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
             g_spaces[interior] = Vh
 
-        construct_interface_spaces(g_spaces, spaces, cart, interiors, interfaces, comm, quad_order=quad_order)
+        interfaces_info = construct_interface_spaces(g_spaces, spaces, cart, interiors, interfaces, comm, quad_order=quad_order)
 
     for inter in g_spaces:
         Vh = g_spaces[inter]

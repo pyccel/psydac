@@ -102,4 +102,4 @@ def construct_interface_spaces(g_spaces, spaces, cart, interiors, interfaces, co
         g_spaces[e.minus.domain].set_interface_space(e.minus.axis, e.minus.ext, spaces[i], cart=cart_minus, quad_order=quad_order)
         g_spaces[e.plus.domain ].set_interface_space(e.plus.axis , e.plus.ext , spaces[j], cart=cart_plus, quad_order=quad_order)
 
-
+    return interfaces_info

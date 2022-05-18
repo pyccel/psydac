@@ -60,6 +60,7 @@ class Geometry( object ):
             self._pdim     = domain.dim # TODO must be given => only dim is  defined for a Domain
             self._mappings = mappings
             self._cart     = None
+            self._interfaces = {}
 
         else:
             raise ValueError('Wrong input')
@@ -218,7 +219,9 @@ class Geometry( object ):
 
         # ... construct interface spaces
         if n_patches>1:
-            construct_interface_spaces(g_spaces, spaces, self._cart, interiors, interfaces, comm)
+            interfaces_info = construct_interface_spaces(g_spaces, spaces, self._cart, interiors, interfaces, comm)
+        else:
+            interfaces_info = {}
 
         for i_patch in range( n_patches ):
 
@@ -264,6 +267,7 @@ class Geometry( object ):
         self._pdim       = pdim
         self._mappings   = mappings
         self._domain     = domain
+        self._interfaces = interfaces_info
         # ...
 
     def export( self, filename ):

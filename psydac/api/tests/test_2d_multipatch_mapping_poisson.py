@@ -245,53 +245,53 @@ def test_poisson_2d_2_patches_dirichlet_5():
 ###############################################################################
 
 #==============================================================================
-#@pytest.mark.parallel
-#def test_poisson_2d_2_patches_dirichlet_parallel_0():
+@pytest.mark.parallel
+def test_poisson_2d_2_patches_dirichlet_parallel_0():
 
-#    A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
-#    B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
+    A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
+    B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
 
-#    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-#    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
-#    D1     = mapping_1(A)
-#    D2     = mapping_2(B)
+    D1     = mapping_1(A)
+    D2     = mapping_2(B)
 
-#    domain = D1.join(D2, name = 'domain',
-#                bnd_minus = D1.get_boundary(axis=1, ext=1),
-#                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
+    domain = D1.join(D2, name = 'domain',
+                bnd_minus = D1.get_boundary(axis=1, ext=1),
+                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
 
-#    x,y = domain.coordinates
-#    solution = sin(pi*x)*sin(pi*y)
-#    f        = 2*pi**2*solution
+    x,y = domain.coordinates
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
 
-#    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2],
-#                                        comm=MPI.COMM_WORLD)
+    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2],
+                                        comm=MPI.COMM_WORLD)
 
-#    expected_l2_error = 0.017626479960982044
-#    expected_h1_error = 0.245058938982964
+    expected_l2_error = 0.017626479960982044
+    expected_h1_error = 0.245058938982964
 
-#    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
-#    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-#@pytest.mark.parallel
-#def test_poisson_2d_4_patches_dirichlet_parallel_0():
+@pytest.mark.parallel
+def test_poisson_2d_4_patches_dirichlet_parallel_0():
 
-#    filename = os.path.join(mesh_dir, 'multipatch/magnet.h5')
-#    domain   = Domain.from_file(filename)
+    filename = os.path.join(mesh_dir, 'multipatch/magnet.h5')
+    domain   = Domain.from_file(filename)
 
-#    x,y       = domain.coordinates
-#    solution  = x**2 + y**2
-#    f         = -4
+    x,y       = domain.coordinates
+    solution  = x**2 + y**2
+    f         = -4
 
-#    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename, comm=MPI.COMM_WORLD)
+    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename, comm=MPI.COMM_WORLD)
 
-#    expected_l2_error = 0.0005125346842747406
-#    expected_h1_error = 0.011177444549081917
+    expected_l2_error = 0.0005125346842747406
+    expected_h1_error = 0.011177444549081917
 
-#    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
-#    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
