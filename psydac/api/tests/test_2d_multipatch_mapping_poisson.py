@@ -275,23 +275,23 @@ def test_poisson_2d_2_patches_dirichlet_parallel_0():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-@pytest.mark.parallel
-def test_poisson_2d_4_patches_dirichlet_parallel_0():
+#@pytest.mark.parallel
+#def test_poisson_2d_4_patches_dirichlet_parallel_0():
 
-    filename = os.path.join(mesh_dir, 'multipatch/magnet.h5')
-    domain   = Domain.from_file(filename)
+#    filename = os.path.join(mesh_dir, 'multipatch/magnet.h5')
+#    domain   = Domain.from_file(filename)
 
-    x,y       = domain.coordinates
-    solution  = x**2 + y**2
-    f         = -4
+#    x,y       = domain.coordinates
+#    solution  = x**2 + y**2
+#    f         = -4
 
-    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename, comm=MPI.COMM_WORLD)
+#    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename, comm=MPI.COMM_WORLD)
 
-    expected_l2_error = 0.0005125346842747406
-    expected_h1_error = 0.011177444549081917
+#    expected_l2_error = 0.0005125346842747406
+#    expected_h1_error = 0.011177444549081917
 
-    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
-    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+#    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+#    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
