@@ -57,7 +57,7 @@ install_requires = [
 
     # Our packages from PyPi
     'sympde==0.14.1',
-    'pyccel>=0.10.1',
+    'pyccel>=1.5.1',
     'gelato==0.11',
 
     # Alternative backend to Pyccel is Numba
