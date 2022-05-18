@@ -750,8 +750,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
             es             = dict()
             for v in sub_tests:
                 v_str = str(SymbolicExpr(v))
-                bs[v] = variables(('b_{v}_1, b_{v}_2, b_{v}_3'.format(v=v_str)), dtype='int')[:dim] if is_parallel else [S.Zero]*dim
-                es[v] = variables(('e_{v}_1, e_{v}_2, e_{v}_3'.format(v=v_str)), dtype='int')[:dim] if is_parallel else [S.Zero]*dim
+                bs[v] = variables(('b_{v}_1, b_{v}_2, b_{v}_3'.format(v=v_str)), dtype='int')[:dim] if is_parallel and not add_openmp else [S.Zero]*dim
+                es[v] = variables(('e_{v}_1, e_{v}_2, e_{v}_3'.format(v=v_str)), dtype='int')[:dim] if is_parallel and not add_openmp else [S.Zero]*dim
 
             if all(a==1 for a in m_tests[sub_tests[0]]+m_trials[sub_trials[0]]):
                 stmts = []
@@ -787,7 +787,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                 stmts = Block(body)
                 g_stmts += [stmts]
 
-                if is_parallel:
+                if is_parallel and not add_openmp:
                     ln = Tuple(*[d-1 for d in tests_degree[sub_tests[0]]])
                     start_expr =  TensorMax(TensorMul(TensorAdd(TensorMul(ind_element, Tuple(*[-1]*dim)), ln), Tuple(*b0s)),Tuple(*[S.Zero]*dim))
                     start_expr = TensorAssignExpr(Tuple(*bs[sub_tests[0]]), start_expr)
