@@ -10,7 +10,7 @@ t_stamp_full = time_count()
 #
 # test-case and numerical parameters:
 
-homogeneous = True # False # 
+homogeneous = False # True # 
 
 # nc_s = [2,4,8,16]
 # deg_s = [2,3,4,5]
@@ -20,8 +20,8 @@ homogeneous = True # False #
 
 # nc_s = [4]
 # deg_s = [2]
-nc_s = [20]
-deg_s = [6]
+nc_s = [8]
+deg_s = [4]
 
 if homogeneous:
     # ref_case_dir = 'maxwell_hom_eta=50'

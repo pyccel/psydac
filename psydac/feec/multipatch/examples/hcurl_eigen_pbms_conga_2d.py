@@ -20,7 +20,7 @@ from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.utilities                   import time_count
 
 def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='python', mu=1, nu=1, gamma_h=10,
-                          sigma=None, nb_eigs=4, nb_eigs_plot=4,
+                          generalized_pbm=False, sigma=None, ref_sigmas=[], nb_eigs_solve=4, nb_eigs_plot=4, skip_eigs_threshold=None,
                           plot_dir=None, hide_plots=True, m_load_dir="",):
     """
     solver for the eigenvalue problem: find lambda in R and u in H0(curl), such that
@@ -50,6 +50,7 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     :param gamma_h: jump penalization parameter
     """
 
+    diags = {}
     ncells = [nc, nc]
     degree = [deg,deg]
     if sigma is None:
@@ -75,10 +76,13 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
 
     V0h = derham_h.V0
     V1h = derham_h.V1
-    V2h = derham_h.V2
+    V2h = derham_h.V2    
     print('dim(V0h) = {}'.format(V0h.nbasis))
     print('dim(V1h) = {}'.format(V1h.nbasis))
     print('dim(V2h) = {}'.format(V2h.nbasis))
+    diags['ndofs_V0'] = V0h.nbasis
+    diags['ndofs_V1'] = V1h.nbasis
+    diags['ndofs_V2'] = V2h.nbasis
 
     print('building the discrete operators:')
     print('commuting projection operators...')
@@ -116,41 +120,109 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
         os.makedirs(plot_dir)
 
     # Conga (projection-based) stiffness matrices
-    # curl curl:
-    print('curl-curl stiffness matrix...')
-    pre_CC_m = bD1_m.transpose() @ H2_m @ bD1_m
-    CC_m = cP1_m.transpose() @ pre_CC_m @ cP1_m  # Conga stiffness matrix
+    if mu != 0:
+        # curl curl:
+        print('curl-curl stiffness matrix...')
+        pre_CC_m = bD1_m.transpose() @ H2_m @ bD1_m
+        CC_m = cP1_m.transpose() @ pre_CC_m @ cP1_m  # Conga stiffness matrix
+    else:
+        CC_m = np.zeros_like(H1_m)
 
     # grad div:
-    print('grad-div stiffness matrix...')
-    pre_GD_m = - H1_m @ bD0_m @ cP0_m @ dH0_m @ cP0_m.transpose() @ bD0_m.transpose() @ H1_m
-    GD_m = cP1_m.transpose() @ pre_GD_m @ cP1_m  # Conga stiffness matrix
+    if nu != 0:
+        print('grad-div stiffness matrix...')
+        pre_GD_m = - H1_m @ bD0_m @ cP0_m @ dH0_m @ cP0_m.transpose() @ bD0_m.transpose() @ H1_m
+        GD_m = cP1_m.transpose() @ pre_GD_m @ cP1_m  # Conga stiffness matrix
+    else:
+        GD_m = np.zeros_like(H1_m)
 
     # jump penalization in V1h:
     jump_penal_m = I1_m - cP1_m
-    JP_m = jump_penal_m.transpose() * H1_m * jump_penal_m
+    JP_m = jump_penal_m.transpose() @ H1_m @ jump_penal_m
 
     print('computing the full operator matrix...')
     print('mu = {}'.format(mu))
     print('nu = {}'.format(nu))
     A_m = mu * CC_m - nu * GD_m + gamma_h * JP_m
 
-    eigenvalues, eigenvectors = get_eigenvalues(nb_eigs, sigma, A_m, H1_m)
+    if generalized_pbm:
+        B_m = cP1_m.transpose() @ H1_m @ cP1_m + JP_m
+    else:
+        B_m = H1_m
+    all_eigenvalues, all_eigenvectors_transp = get_eigenvalues(nb_eigs_solve, sigma, A_m, B_m)
 
-    # plot first eigenvalues
+    zero_eigenvalues = []
+    if skip_eigs_threshold is not None:
+        eigenvalues = []
+        eigenvectors = []
+        for val, vect in zip(all_eigenvalues, all_eigenvectors_transp.T):
+            if abs(val) < skip_eigs_threshold: 
+                zero_eigenvalues.append(val)
+                # we skip the eigenvector
+            else:
+                eigenvalues.append(val)
+                eigenvectors.append(vect)
+    else:
+        eigenvalues = all_eigenvalues
+        eigenvectors = all_eigenvectors_transp.T
 
+    for k, val in enumerate(eigenvalues):
+        diags['eigenvalue_{}'.format(k)] = val #eigenvalues[k]
+    
+    for k, val in enumerate(zero_eigenvalues):
+        diags['skipped eigenvalue_{}'.format(k)] = val
+    
+    nb_eigs = len(eigenvalues)
     for i in range(min(nb_eigs_plot, nb_eigs)):
 
         print('looking at emode i = {}... '.format(i))
         lambda_i  = eigenvalues[i]
-        emode_i = np.real(eigenvectors[:,i])
+        # emode_i = np.real(eigenvectors[:,i])
+        emode_i = np.real(eigenvectors[i])
         norm_emode_i = np.dot(emode_i,H1_m.dot(emode_i))
         print('norm of computed eigenmode: ', norm_emode_i)
+        # plot the broken eigenmode:
         eh_c = emode_i/norm_emode_i  # numpy coeffs of the normalized eigenmode
-        plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='mode e_{}, lambda_{}={}'.format(i,i,lambda_i),
-                   filename=plot_dir+'e_{}.png'.format(i), hide_plot=hide_plots)
+        params_str = 'gamma_h={}_gen={}'.format(gamma_h, generalized_pbm)
+        plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='e_{}, lambda_{}={}'.format(i,i,lambda_i),
+                    filename=plot_dir+'/'+params_str+'_e_{}.png'.format(i), hide_plot=hide_plots)
+        # also plot the projected eigenmode:
+        Peh_c = cP1_m.dot(eh_c)
+        plot_field(numpy_coeffs=Peh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='P e_{}, lambda_{}={}'.format(i,i,lambda_i),
+                    filename=plot_dir+'/'+params_str+'_Pe_{}.png'.format(i), hide_plot=hide_plots)
+        # same, as vector field:
+        plot_field(numpy_coeffs=Peh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='P e_{}, lambda_{}={}'.format(i,i,lambda_i), 
+                    filename=plot_dir+'/'+params_str+'_Pe_{}_vf.png'.format(i),
+                    plot_type='vector_field', hide_plot=hide_plots)
+        
+        plot_checks = False
+        if plot_checks:
+            # check: plot jump
+            plot_field(numpy_coeffs=eh_c-Peh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='(I-P) e_{}, lambda_{}={}'.format(i,i,lambda_i),
+                        filename=plot_dir+'/'+params_str+'_Jump_e_{}.png'.format(i), hide_plot=hide_plots)
 
-    return eigenvalues, eigenvectors
+            # check: curl e_i
+            Ceh_c = bD1_m @ cP1_m.dot(eh_c)
+            plot_field(numpy_coeffs=Ceh_c, Vh=V2h, space_kind='l2', domain=domain, title='C e_{}, lambda_{}={}'.format(i,i,lambda_i),
+                        filename=plot_dir+'/'+params_str+'_Ce_{}.png'.format(i), hide_plot=hide_plots)
+
+            # check: curl curl e_i
+            CCeh_c = dH1_m @ cP1_m.transpose() @ bD1_m.transpose() @ H2_m @ Ceh_c
+            plot_field(numpy_coeffs=CCeh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='CC e_{}'.format(i),
+                        filename=plot_dir+'/'+params_str+'_CCe_{}.png'.format(i), hide_plot=hide_plots)
+
+            # check: filtered lambda_i * e_i (should be = curl curl e_i)
+            fl_eh_c = lambda_i * dH1_m @ cP1_m.transpose() @ H1_m @ Peh_c
+            plot_field(numpy_coeffs=fl_eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='filtered lambda_i * e_{}'.format(i),
+                        filename=plot_dir+'/'+params_str+'_fl_e_{}.png'.format(i), hide_plot=hide_plots)
+
+    if ref_sigmas is not None:
+        errors = []
+        n_errs = min(len(ref_sigmas), len(eigenvalues))
+        for k in range(n_errs):
+            diags['error_{}'.format(k)] = abs(eigenvalues[k]-ref_sigmas[k])
+
+    return diags
 
 
 def get_eigenvalues(nb_eigs, sigma, A_m, M_m):

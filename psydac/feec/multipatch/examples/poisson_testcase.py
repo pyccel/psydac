@@ -59,6 +59,7 @@ for nc in nc_s:
             'source_type': source_type,
             'source_proj': source_proj, 
             'project_sol': project_sol,
+            'filter_source': filter_source,
             'ref_nc': ref_nc,
             'ref_deg': ref_deg,
         }

@@ -10,45 +10,79 @@ t_stamp_full = time_count()
 #
 # test-case and numerical parameters:
 
-# homogeneous = True # False # 
+operator = 'curl-curl' # 'grad-div' # 
+domain_name = 'pretzel_f' # 'curved_L_shape' # 
 
-# nc_s = [2,4,8,16]
-# deg_s = [2,3,4,5]
+nc_s = [2,4,8,16]
+deg_s = [2,3,4,5]
 
-nc_s = [8]
-deg_s = [3]
+# nc_s = [8]
+# deg_s = [4]
 
 # nc_s = [4]
 # deg_s = [2]
 # nc_s = [20]
-# deg_s = [6]
+nc_s = [20]
+deg_s = [5]
 
-# ref_case_dir = 'maxwell_hom_eta=50'
+# nc_s = [4,8,16,20]
+# deg_s = [3]
 
-case_dir = 'eigenpbm'   
-# omega = np.sqrt(170) # source time pulsation
+gamma_h = 0
+generalized_pbm = True  # solves generalized eigenvalue problem with:  B(v,w) = <Pv,Pw> + <(I-P)v,(I-P)w> in rhs
 
-# case_dir = 'maxwell_hom_eta=50'
-# omega = np.sqrt(50) # source time pulsation
+if operator == 'curl-curl':
+    nu=0
+    mu=1
+elif operator == 'grad-div':
+    nu=1
+    mu=0
+else:
+    raise ValueError(operator)
 
+case_dir = 'eigenpbm_'+operator
 ref_case_dir = case_dir
-domain_name = 'pretzel_f'
+
 cb_min_sol = None
 cb_max_sol = None
 
-# domain_name = 'annulus_4'
-# source_proj='P_L2'
-# source_proj='P_geom'
+ref_sigmas = [
+]
+sigma = 8
+nb_eigs_solve = 8
+nb_eigs_plot = 5 
+skip_eigs_threshold = 1e-7
 
-# filter_source = True # False # 
-# project_sol = False # True # 
-gamma_h = 10
+if domain_name == 'curved_L_shape':    
+    if operator == 'curl-curl':
+        # ref eigenvalues from Monique Dauge benchmark page
+        ref_sigmas = [
+            0.181857115231E+01,
+            0.349057623279E+01,
+            0.100656015004E+02,
+            0.101118862307E+02,
+            0.124355372484E+02,
+            ]
+        sigma = 10
+        nb_eigs_solve = 10 
+        nb_eigs_plot = 5 
 
-# ref solution (if no exact solution)
-# ref_nc = 20
-# ref_deg = 6
-ref_nc = 2
-ref_deg = 2
+elif domain_name in ['pretzel_f']:
+    if operator == 'curl-curl':
+        # ref sigmas computed with nc=20 and deg=6 and gamma = 0 (and generalized ev-pbm)
+        ref_sigmas = [
+            0.1795339843,
+            0.1992261261,
+            0.6992717244, 
+            0.8709410438, 
+            1.1945106937, 
+            1.2546992683,
+        ]
+
+        sigma = .8
+        # sigma = .6
+        nb_eigs_solve = 10 
+        nb_eigs_plot = 5 
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
@@ -60,12 +94,19 @@ for nc in nc_s:
 
         params = {
             'domain_name': domain_name,
+            'operator': operator,
+            'mu': mu,
+            'nu': nu,
             'nc': nc,
-            'deg': deg,
+            'deg': deg,            
             'gamma_h': gamma_h,
-            'ref_nc': ref_nc,
-            'ref_deg': ref_deg,
+            'generalized_pbm': generalized_pbm,
+            'nb_eigs_solve': nb_eigs_solve,
+            'skip_eigs_threshold': skip_eigs_threshold
         }
+
+        print(params)
+
         # backend_language = 'numba'
         backend_language='pyccel-gcc'
 
@@ -90,16 +131,20 @@ for nc in nc_s:
         #   A u := mu * curl curl u  -  nu * grad div u
         #
         # note:
-        #   - we look for nb_eigs eigenvalues close to sigma
+        #   - we look for nb_eigs_solve eigenvalues close to sigma (skip zero eigenvalues if skip_zero_eigs==True)
         #   - we plot nb_eigs_plot eigenvectors
 
         diags = hcurl_solve_eigen_pbm(
             nc=nc, deg=deg,
-            nu=0,
-            mu=1,
-            sigma=.6,
-            nb_eigs=6,
-            nb_eigs_plot=6,
+            gamma_h=gamma_h,
+            generalized_pbm=generalized_pbm,
+            nu=nu,
+            mu=mu,
+            sigma=sigma,
+            ref_sigmas=ref_sigmas,
+            skip_eigs_threshold=skip_eigs_threshold,
+            nb_eigs_solve=nb_eigs_solve,
+            nb_eigs_plot=nb_eigs_plot,
             domain_name=domain_name,
             backend_language=backend_language,
             plot_dir=plot_dir,

@@ -68,7 +68,7 @@ def solve_h1_source_pbm(
     :param source_proj: approximation operator for the source, possible values are 'P_geom' or 'P_L2'
     :param source_type: must be implemented in get_source_and_solution()
     """
-
+    diags = {}
     ncells = [nc, nc]
     degree = [deg,deg]
 
@@ -122,6 +122,9 @@ def solve_h1_source_pbm(
     print('dim(V0h) = {}'.format(V0h.nbasis))
     print('dim(V1h) = {}'.format(V1h.nbasis))
     print('dim(V2h) = {}'.format(V2h.nbasis))
+    diags['ndofs_V0'] = V0h.nbasis
+    diags['ndofs_V1'] = V1h.nbasis
+    diags['ndofs_V2'] = V2h.nbasis
 
     I0 = IdLinearOperator(V0h)
     I0_m = I0.to_sparse_matrix()
@@ -273,7 +276,9 @@ def solve_h1_source_pbm(
         np.save(sol_filename, uh_c)
 
     # diagnostics: errors
-    diags = diag_grid.get_diags_for(v=uh, space='V0')
+    err_diags = diag_grid.get_diags_for(v=uh, space='V0')
+    for key, value in err_diags.items():
+        diags[key] = value
     
     if u_ex is not None:
         check_diags = get_Vh_diags_for(v=uh, v_ref=uh_ref, M_m=H0_m, msg='error between Ph(u_ex) and u_h')

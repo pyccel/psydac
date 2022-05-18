@@ -72,6 +72,7 @@ def solve_hcurl_source_pbm(
     :param source_type: must be implemented in get_source_and_solution()
     :param m_load_dir: directory for matrix storage
     """
+    diags = {}
 
     ncells = [nc, nc]
     degree = [deg,deg]
@@ -132,6 +133,9 @@ def solve_hcurl_source_pbm(
     print('dim(V0h) = {}'.format(V0h.nbasis))
     print('dim(V1h) = {}'.format(V1h.nbasis))
     print('dim(V2h) = {}'.format(V2h.nbasis))
+    diags['ndofs_V0'] = V0h.nbasis
+    diags['ndofs_V1'] = V1h.nbasis
+    diags['ndofs_V2'] = V2h.nbasis
 
     t_stamp = time_count(t_stamp)
     print(' .. Id operator and matrix...')
@@ -341,7 +345,9 @@ def solve_hcurl_source_pbm(
     time_count(t_stamp)
     
     # diagnostics: errors
-    diags = diag_grid.get_diags_for(v=uh, space='V1')
+    err_diags = diag_grid.get_diags_for(v=uh, space='V1')
+    for key, value in err_diags.items():
+        diags[key] = value
 
     if u_ex is not None:
         check_diags = get_Vh_diags_for(v=uh, v_ref=uh_ref, M_m=H1_m, msg='error between Ph(u_ex) and u_h')
