@@ -789,7 +789,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
                 if is_parallel:
                     ln         = Tuple(*[d-1 for d in tests_degree[sub_tests[0]]])
-                    thr_s      = Tuple(*[ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i))) for i in range(dim)])
+                    thr_s      = Tuple(*[ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i))) for i in range(dim)]) if add_openmp else Tuple(*[0]*dim)
                     start_expr =  TensorMax(TensorMul(TensorAdd(TensorMul(TensorAdd(thr_s,ind_element), Tuple(*[-1]*dim)), ln), Tuple(*b0s)),Tuple(*[S.Zero]*dim))
                     start_expr = TensorAssignExpr(Tuple(*bs[sub_tests[0]]), start_expr)
                     end_expr   = TensorMax(TensorMul(TensorAdd(TensorMul(Tuple(*[-1]*dim), el_length), TensorAdd(TensorAdd(thr_s,ind_element), Tuple(*tests_degree[sub_tests[0]]))), Tuple(*e0s)), Tuple(*[S.Zero]*dim))
