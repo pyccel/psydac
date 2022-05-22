@@ -276,7 +276,7 @@ class Geometry( object ):
         else:
             mapping = list(mappings.values())[0]
             for f in mapping._fields:
-                f.update_ghost_regions()
+                f.coeffs.update_ghost_regions()
 
             if isinstance(mapping, NurbsMapping):
                 mapping.weights_field.coeffs.update_ghost_regions()
