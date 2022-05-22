@@ -20,7 +20,7 @@ from sympde.topology.space       import IndexedVectorFunction
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_logical_partial_derivatives
 from sympde.topology.mapping     import InterfaceMapping
-from sympde.calculus.core        import is_zero
+from sympde.calculus.core        import is_zero, PlusInterfaceOperator
 
 from psydac.pyccel.ast.core import _atomic, Assign, Import, AugAssign, Return
 from psydac.pyccel.ast.core import Comment, Continue, Slice
@@ -307,10 +307,8 @@ class AST(object):
         tests_degrees       = ()
         trials_degrees      = ()
         fields_degrees      = ()
-
         # ...
         domain        = terminal_expr.target
-        terminal_expr = terminal_expr.expr
         dim           = domain.dim
         constants     = expr.constants
         mask          = None
@@ -320,6 +318,15 @@ class AST(object):
 
         elif isinstance(domain, Interface):
             mask = Mask(domain.axis, None)
+            is_trial = {}
+            if isinstance(terminal_expr.trial, PlusInterfaceOperator):
+                is_trial[domain.plus] = True
+                is_trial[domain.minus] = False
+            else:
+                is_trial[domain.plus] = False
+                is_trial[domain.minus] = True
+
+            kwargs["is_trial"] = is_trial
 
         if isinstance(expr, LinearForm):
 
@@ -367,6 +374,7 @@ class AST(object):
         atoms_types = (ScalarFunction, VectorFunction, IndexedVectorFunction)
 
         nderiv = 1
+        terminal_expr = terminal_expr.expr
         if isinstance(terminal_expr, (ImmutableDenseMatrix, Matrix)):
             n_rows, n_cols    = terminal_expr.shape
             atomic_expr_field = {f:[] for f in fields}
@@ -626,6 +634,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     l_quad     = [LocalTensorQuadratureGrid(False)]
     b0s        = variables(('b01, b02, b03'), dtype='int')[:dim]
     e0s        = variables(('e01, e02, e03'), dtype='int')[:dim]
+
     if isinstance(domain, Interface):
         g_quad.append(PlusGlobalTensorQuadratureGrid(False))
         l_quad.append(PlusLocalTensorQuadratureGrid(False))
@@ -695,11 +704,12 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     ind_element   = index_element.set_range(start=l_starts,stop=l_ends) if add_openmp else index_element.set_range(stop=el_length)
     l_ind_element = local_index_element.set_range(stop=TensorInteger(2))
     if mapping_space and isinstance(domain, Interface):
+        is_trial = (kwargs["is_trial"][domain.minus], kwargs["is_trial"][domain.plus])
         mappings = (mapping.minus, mapping.plus)
         ind_dof_tests  = [index_dof_test.set_range(stop=Tuple(*[d+1 for d in d_mapping[f]['degrees']])) for f in d_mapping]
         # ...........................................................................................
         eval_mappings = [EvalMapping(ind_quad, ind_dof_tests[i], d_mapping[fi][basis],
-                        mappings[i], geos[i], mapping_space[i], nderiv, mask, is_rational_mapping[i]) for i,fi in enumerate(d_mapping)]
+                        mappings[i], geos[i], mapping_space[i], nderiv, mask, is_rational_mapping[i], trial=is_trial[i]) for i,fi in enumerate(d_mapping)]
     elif mapping_space:
         ind_dof_tests  = [index_dof_test.set_range(stop=Tuple(*[d+1 for d in d_mapping[f]['degrees']])) for f in d_mapping]
         # ...........................................................................................

@@ -477,7 +477,7 @@ class EvalMapping(BaseNode):
         is_rational: bool,optional
             True if the mapping is rational
     """
-    def __new__(cls, quads, indices_basis, q_basis, mapping, components, mapping_space, nderiv, mask=None, is_rational=None):
+    def __new__(cls, quads, indices_basis, q_basis, mapping, components, mapping_space, nderiv, mask=None, is_rational=None, trial=None):
         mapping_atoms  = components.arguments
         basis          = q_basis
         target         = basis.target
@@ -554,6 +554,8 @@ class EvalMapping(BaseNode):
         loop   = Loop((), quads, stmts=[loop, *rationalization], mask=mask)
 
         obj    = Basic.__new__(cls, loop, l_coeffs, g_coeffs, values, multiplicity, pads)
+        obj._mapping = mapping
+        obj._trial   = trial
         return obj
 
     @property
@@ -579,6 +581,15 @@ class EvalMapping(BaseNode):
     @property
     def pads(self):
         return self._args[5]
+
+    @property
+    def mapping(self):
+        return self._mapping
+
+    @property
+    def trial(self):
+        return self._trial
+
 #==============================================================================
 class IteratorBase(BaseNode):
     """

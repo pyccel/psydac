@@ -47,9 +47,7 @@ class SplineMapping:
         # indices [i1, ..., i_n, d] where (i1, ..., i_n) are indices of logical
         # coordinates, and d is index of physical component of interest.
         self._control_points = SplineMapping.ControlPoints( self )
-
-        self._name       = name
-        self._interfaces = {}
+        self._name           = name
 
     @property
     def name(self):
@@ -115,11 +113,11 @@ class SplineMapping:
         # Get spline coefficients for each coordinate X_i
         starts = tensor_space.vector_space.starts
         ends   = tensor_space.vector_space.ends
+
         idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
         for i,field in enumerate( fields ):
             idx_from = tuple(list(idx_to)+[i])
             field.coeffs[idx_to] = control_points[idx_from]
-            field.coeffs.update_ghost_regions()
 
         # Create SplineMapping object
         return cls( *fields )
@@ -716,12 +714,10 @@ class NurbsMapping( SplineMapping ):
             idx_from = tuple(list(idx_to)+[i])
 #            idw_from = tuple(idx_to)
             field.coeffs[idx_to] = control_points[idx_from] #* weights[idw_from]
-            field.coeffs.update_ghost_regions()
 
         # weights
         idx_from = tuple(idx_to)
         fields[-1].coeffs[idx_to] = weights[idx_from]
-        fields[-1].coeffs.update_ghost_regions()
 
         # Create SplineMapping object
         return cls( *fields )

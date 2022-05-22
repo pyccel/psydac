@@ -22,6 +22,7 @@ from psydac.fem.splines        import SplineSpace
 from psydac.fem.tensor         import TensorFemSpace
 from psydac.fem.utilities      import create_cart, construct_interface_spaces
 from psydac.mapping.discrete   import SplineMapping, NurbsMapping
+from psydac.linalg.block       import BlockVectorSpace, BlockVector
 
 from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, Mapping
 from sympde.topology.basic import Union
@@ -239,23 +240,46 @@ class Geometry( object ):
                     mapping = SplineMapping.from_control_points( tensor_space,
                                                                  patch['points'][..., :pdim] )
 
-                    for axis,ext in tensor_space._interfaces:
-                        mapping._interfaces[axis,ext] = SplineMapping.from_control_points( tensor_space._interfaces[axis, ext],
-                                                                 patch['points'][..., :pdim] )
-
                 elif dtype == 'NurbsMapping':
                     mapping = NurbsMapping.from_control_points_weights( tensor_space,
                                                                         patch['points'][..., :pdim],
                                                                         patch['weights'] )
 
-
-                    for axis,ext in tensor_space._interfaces:
-                        mapping._interfaces[axis,ext] = NurbsMapping.from_control_points_weights( tensor_space._interfaces[axis, ext],
-                                                                        patch['points'][..., :pdim],
-                                                                        patch['weights'] )
-
                 mapping.set_name( item['name'] )
                 mappings[patch_name] = mapping
+
+        if n_patches>1:
+            coeffs   = [[e._coeffs for e in mapping._fields] for mapping in mappings.values()]
+            spaces   = [[coeffs_ij.space for coeffs_ij in coeffs_i] for coeffs_i in coeffs]
+            spaces   = [BlockVectorSpace(*space) for space in spaces]
+            w_spaces = [sp.spaces[0] for sp in spaces]
+            space    = BlockVectorSpace(*spaces)
+            w_space  = BlockVectorSpace(*w_spaces)
+            space._interfaces = interfaces_info
+            w_space._interfaces = interfaces_info
+            v  = BlockVector(space)
+            w  = BlockVector(w_space)
+            mapping_list = list(mappings.values())
+            for i in range(n_patches):
+                for j in range(len(coeffs[i])):
+                    v[i][j] = coeffs[i][j]
+
+                mapping = mapping_list[i]
+                if isinstance(mapping, NurbsMapping):
+                    w[i] = mapping.weights_field.coeffs
+                else:
+                    w[i] = v[i][0].space.zeros()
+
+            v.update_ghost_regions()
+            w.update_ghost_regions()
+
+        else:
+            mapping = list(mappings.values())[0]
+            for f in mapping._fields:
+                f.update_ghost_regions()
+
+            if isinstance(mapping, NurbsMapping):
+                mapping.weights_field.coeffs.update_ghost_regions()
 
 
         # ... close the h5 file

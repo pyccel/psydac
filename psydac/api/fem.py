@@ -185,11 +185,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 mapping_m = list(domain_h.mappings.values())[m]
                 mapping_p = list(domain_h.mappings.values())[p]
 
-                mapping   = [mapping_m, mapping_p] if mapping_m else None
-                if mapping and m == j:
-                    mapping[0] = mapping[0]._interfaces[target.minus.axis, target.minus.ext]
-                elif mapping and p == j:
-                    mapping[1] = mapping[1]._interfaces[target.plus.axis, target.plus.ext]
+                mapping   = (mapping_m, mapping_p) if mapping_m else None
             else:
                 mapping = list(domain_h.mappings.values())[i]
         else:
@@ -209,7 +205,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         self._is_rational_mapping = is_rational_mapping
         # ...
-        
+
         if isinstance(test_space.vector_space, BlockVectorSpace):
             vector_space = test_space.vector_space.spaces[0]
         else:
@@ -454,15 +450,50 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         if self.mapping:
             if len(self.grid) == 1:
-                mappings = (self.mapping,)
+                map_coeffs = [[e._coeffs._data for e in self.mapping._fields]]
+                spaces     = [self.mapping._fields[0].space]
+                map_degree = [sp.degree for sp in spaces]
+                map_span   = [[q.spans-s for q,s in zip(sp.quad_grids, sp.vector_space.starts)] for sp in spaces]
+                map_basis  = [[q.basis for q in sp.quad_grids] for sp in spaces]
+                points     = [g.points for g in self.grid]
+                weights    = [self.mapping.weights_field.coeffs._data] if self.is_rational_mapping else []
             elif len(self.grid) == 2:
-                mappings = self.mapping
-            map_coeffs = [[e._coeffs._data for e in mapping._fields] for mapping in mappings] 
-            spaces     = [mapping._fields[0].space for mapping in mappings]
-            map_degree = [sp.degree for sp in spaces]
-            map_span   = [[q.spans-s for q,s in zip(sp.quad_grids, sp.vector_space.starts)] for sp in spaces]
-            map_basis  = [[q.basis for q in sp.quad_grids] for sp in spaces]
-            points     = [g.points for g in self.grid]
+                mappings = list(self.mapping)
+                target   = self.kernel_expr.target
+                assert isinstance(target, Interface)
+                i,j = self.get_space_indices_from_target(self.domain, target)
+                m,_ = self.get_space_indices_from_target(self.domain, target.minus)
+                p,_ = self.get_space_indices_from_target(self.domain, target.plus)
+
+                map_coeffs = [[e._coeffs for e in mapping._fields] for mapping in self.mapping]
+                spaces     = [mapping._fields[0].space for mapping in self.mapping]
+                weights_m  = [mappings[0].weights_field.coeffs] if self.is_rational_mapping[0] else []
+                weights_p  = [mappings[1].weights_field.coeffs] if self.is_rational_mapping[1] else []
+                if m == j:
+                    axis = target.minus.axis
+                    ext  = target.minus.ext
+                    spaces[0] = spaces[0]._interfaces[axis, ext]
+                    map_coeffs[0] = [coeff._interface_data[axis, ext] for coeff in map_coeffs[0]]
+                    map_coeffs[1] = [coeff._data for coeff in map_coeffs[1]]
+                    if weights_m:
+                        weights_m[0] = weights_m[0]._interface_data[axis, ext]
+                    if weights_p:
+                        weights_p[0] = weights_p[0]._data
+                elif p == j:
+                    axis = target.plus.axis
+                    ext  = target.plus.ext
+                    spaces[1] = spaces[1]._interfaces[axis, ext]
+                    map_coeffs[0] = [coeff._data for coeff in map_coeffs[0]]
+                    map_coeffs[1] = [coeff._interface_data[axis, ext] for coeff in map_coeffs[1]]
+                    if weights_m:
+                        weights_m[0] = weights_m[0]._data
+                    if weights_p:
+                        weights_p[0] = weights_p[0]._interface_data[axis, ext]
+
+                map_degree = [sp.degree for sp in spaces]
+                map_span   = [[q.spans-s for q,s in zip(sp.quad_grids, sp.vector_space.starts)] for sp in spaces]
+                map_basis  = [[q.basis for q in sp.quad_grids] for sp in spaces]
+                points     = [g.points for g in self.grid]
 
             nderiv = self.max_nderiv
             for i in range(len(self.grid)):
@@ -485,11 +516,8 @@ class DiscreteBilinearForm(BasicDiscrete):
             map_basis  = flatten(map_basis)
             points     = flatten(points)
             if len(self.grid) == 1:
-                weights = [mappings[0].weights_field.coeffs._data] if self.is_rational_mapping else []
                 mapping = [*map_coeffs[0], *weights]
             elif len(self.grid)==2:
-                weights_m = [mappings[0].weights_field.coeffs._data] if self.is_rational_mapping[0] else []
-                weights_p = [mappings[1].weights_field.coeffs._data] if self.is_rational_mapping[1] else []
                 mapping   = [*map_coeffs[0], *weights_m, *map_coeffs[1], *weights_p]
         else:
             mapping    = []
@@ -506,7 +534,6 @@ class DiscreteBilinearForm(BasicDiscrete):
         if with_openmp:
             threads_args = self._vector_space.cart.get_shared_memory_subdivision(n_elements)
             threads_args = (threads_args[0], threads_args[1], *threads_args[2], *threads_args[3], threads_args[4])
-
 
         args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
         threads_args = tuple(np.int64(a) if isinstance(a, int) else a for a in threads_args)

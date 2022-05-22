@@ -583,6 +583,8 @@ class Parser(object):
         lhs_slices = [Slice(None,None)]*dim
         multiplicity = expr.multiplicity
         pads         = expr.pads
+        is_trial = expr.trial
+        mapping  = expr.mapping
         for coeff, l_coeff in zip(coeffs, l_coeffs):
             spans   = flatten(self._visit_Span(Span(test))[test])
             degrees = self._visit_LengthDofTest(LengthDofTest(test))
@@ -590,6 +592,15 @@ class Parser(object):
             l_coeff = self._visit(l_coeff)
             rhs_starts = [multiplicity[i]*pads[i] + spans[i]-degrees[i] for i in range(dim)]
             rhs_ends   = [multiplicity[i]*pads[i] + spans[i]+1          for i in range(dim)]
+            if isinstance(self._target, Interface) and is_trial and mapping.is_plus :
+                axis             = self._target.plus.axis
+                rhs_starts[axis] = pads[axis]
+                rhs_ends[axis]   = pads[axis] + degrees[axis] + 1
+            elif isinstance(self._target, Interface) and is_trial and mapping.is_minus :
+                axis             = self._target.minus.axis
+                rhs_starts[axis] = pads[axis]
+                rhs_ends[axis]   = pads[axis] + degrees[axis] + 1
+
             rhs_slices = [Slice(s, e) for s,e in zip(rhs_starts, rhs_ends)]
             stmt       = self._visit_Assign(Assign(l_coeff[lhs_slices], coeff[rhs_slices]), **kwargs)
             stmts.append(stmt)

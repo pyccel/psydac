@@ -157,7 +157,6 @@ class BlockVector( Vector ):
                 Vi = V.spaces[i]
                 Vj = V.spaces[j]
                 self._data_exchangers[i,j] = []
-                self._interface_buf[i,j]   = []
 
                 if isinstance(Vi, BlockVectorSpace) and isinstance(Vj, BlockVectorSpace):
                     # case of a system of equations
@@ -169,20 +168,8 @@ class BlockVector( Vector ):
                         if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
                         if not (axis_i, ext_i) in Vik._interfaces:continue
                         cart_ij = Vik._interfaces[axis_i, ext_i].cart
-
-                        buf = [None]*2
-                        if cart_i.is_comm_null:
-                            buf[0] = self._blocks[i]._blocks[k]._interface_data[axis_i, ext_i]
-                        else:
-                            buf[0] = self._blocks[i]._blocks[k]._data
-
-                        if cart_j.is_comm_null:
-                            buf[1] = self._blocks[j]._blocks[k]._interface_data[axis_j, ext_j]
-                        else:
-                            buf[1] = self._blocks[j]._blocks[k]._data
-
                         self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
-                        self._interface_buf[i,j].append(tuple(buf))
+
                 elif  not isinstance(Vi, BlockVectorSpace) and not isinstance(Vj, BlockVectorSpace):
                     # case of scalar equations
                     cart_i = Vi.cart
@@ -192,26 +179,14 @@ class BlockVector( Vector ):
                     if not (axis_i, ext_i) in Vi._interfaces:continue
 
                     cart_ij = Vi._interfaces[axis_i, ext_i].cart
-
-                    buf = [None]*2
-                    if cart_i.is_comm_null:
-                        buf[0] = self._blocks[i]._interface_data[axis_i, ext_i]
-                    else:
-                        buf[0] = self._blocks[i]._data
-
-                    if cart_j.is_comm_null:
-                        buf[1] = self._blocks[j]._interface_data[axis_j, ext_j]
-                    else:
-                        buf[1] = self._blocks[j]._data
-
                     self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
-                    self._interface_buf[i,j].append(tuple(buf))
                 else:
                     raise NotImplementedError("This case is not treated")
 
-                if len(self._data_exchangers[i,j]) == 0:
-                    self._data_exchangers.pop((i,j))
-                    self._interface_buf.pop((i,j))
+            for i,j in V._interfaces:
+                if len(self._data_exchangers.get((i,j), [])) == 0:
+                    self._data_exchangers.pop((i,j), None)
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -331,6 +306,7 @@ class BlockVector( Vector ):
         self._sync = True
 
     def start_update_interface_ghost_regions( self ):
+        self._collect_interface_buf()
         req = {}
         for (i,j) in self._data_exchangers:
             req[i,j] = [data_ex.start_update_ghost_regions(*bufs) for bufs,data_ex in zip(self._interface_buf[i,j], self._data_exchangers[i,j])]
@@ -343,6 +319,52 @@ class BlockVector( Vector ):
             for data_ex,bufs,req_ij in zip(self._data_exchangers[i,j], self._interface_buf[i,j], self._req[i,j]):
                 data_ex.end_update_ghost_regions(req_ij)
 
+    def _collect_interface_buf( self ):
+        V = self.space
+        if not V.parallel:return
+        for i,j in V._interfaces:
+            if not (i,j) in self._data_exchangers:continue
+            axis_i,axis_j = V._interfaces[i,j][0]
+            ext_i,ext_j   = V._interfaces[i,j][1]
+            Vi = V.spaces[i]
+            Vj = V.spaces[j]
+            self._interface_buf[i,j]   = []
+            if isinstance(Vi, BlockVectorSpace) and isinstance(Vj, BlockVectorSpace):
+                # case of a system of equations
+                for k,(Vik,Vjk) in enumerate(zip(Vi.spaces, Vj.spaces)):
+
+                    cart_i = Vik.cart
+                    cart_j = Vjk.cart
+
+                    buf = [None]*2
+                    if cart_i.is_comm_null:
+                        buf[0] = self._blocks[i]._blocks[k]._interface_data[axis_i, ext_i]
+                    else:
+                        buf[0] = self._blocks[i]._blocks[k]._data
+
+                    if cart_j.is_comm_null:
+                        buf[1] = self._blocks[j]._blocks[k]._interface_data[axis_j, ext_j]
+                    else:
+                        buf[1] = self._blocks[j]._blocks[k]._data
+
+                    self._interface_buf[i,j].append(tuple(buf))
+            elif  not isinstance(Vi, BlockVectorSpace) and not isinstance(Vj, BlockVectorSpace):
+                # case of scalar equations
+                cart_i = Vi.cart
+                cart_j = Vj.cart
+
+                buf = [None]*2
+                if cart_i.is_comm_null:
+                    buf[0] = self._blocks[i]._interface_data[axis_i, ext_i]
+                else:
+                    buf[0] = self._blocks[i]._data
+
+                if cart_j.is_comm_null:
+                    buf[1] = self._blocks[j]._interface_data[axis_j, ext_j]
+                else:
+                    buf[1] = self._blocks[j]._data
+
+                self._interface_buf[i,j].append(tuple(buf))
 
     # ...
     @property
