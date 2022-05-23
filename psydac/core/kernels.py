@@ -615,7 +615,7 @@ def eval_fields_3d_irregular_weighted(np1: int, np2: int, np3: int, f_p1: int, f
 
                             temp_fields[:] += spline * coeff_fields * coeff_weight
 
-                            temp_weight+= spline * coeff_weight
+                            temp_weight += spline * coeff_weight
 
                 out_fields[i_p_1, i_p_2, i_p_3, :] += temp_fields / temp_weight
 
@@ -700,7 +700,7 @@ def eval_fields_2d_irregular_weighted(np1: int, np2: int, f_p1: int, f_p2: int,
 
                     temp_fields[:] += spline * coeff_fields * coeff_weight
 
-                    temp_weight+= spline * coeff_weight
+                    temp_weight += spline * coeff_weight
 
             out_fields[i_p_1, i_p_2, :] += temp_fields / temp_weight
 
@@ -1355,21 +1355,21 @@ def eval_jac_det_3d_weights(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, 
 
                                         coeff_weight = arr_coeff_weights[i_basis_1, i_basis_2, i_basis_3]
 
-                                        arr_x[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_x
-                                        arr_y[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_y
-                                        arr_z[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_z
+                                        arr_x[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_x * coeff_weight
+                                        arr_y[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_y * coeff_weight
+                                        arr_z[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_z * coeff_weight
 
-                                        arr_x_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_x
-                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x
-                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x
+                                        arr_x_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_x * coeff_weight
+                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x * coeff_weight
+                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x * coeff_weight
 
-                                        arr_y_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_y
-                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y
-                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y
+                                        arr_y_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_y * coeff_weight
+                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y * coeff_weight
+                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y * coeff_weight
 
-                                        arr_z_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_z
-                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z
-                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z
+                                        arr_z_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_z * coeff_weight
+                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z * coeff_weight
+                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z * coeff_weight
 
                                         arr_weights[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_weight
 
@@ -1531,21 +1531,21 @@ def eval_jac_det_2d_weights(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k
                             coeff_x = arr_coeffs_x[i_basis_1, i_basis_2]
                             coeff_y = arr_coeffs_y[i_basis_1, i_basis_2]
 
-                            coeff_weights = arr_coeff_weights[i_basis_1, i_basis_2]
+                            coeff_weight = arr_coeff_weights[i_basis_1, i_basis_2]
 
-                            arr_x[i_quad_1, i_quad_2] += mapping * coeff_x
-                            arr_y[i_quad_1, i_quad_2] += mapping * coeff_y
+                            arr_x[i_quad_1, i_quad_2] += mapping * coeff_x * coeff_weight
+                            arr_y[i_quad_1, i_quad_2] += mapping * coeff_y * coeff_weight
 
-                            arr_x_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_x
-                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x
+                            arr_x_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_x * coeff_weight
+                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x * coeff_weight
+ 
+                            arr_y_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_y * coeff_weight
+                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y * coeff_weight
 
-                            arr_y_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_y
-                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y
+                            arr_weights[i_quad_1, i_quad_2] += mapping * coeff_weight
 
-                            arr_weights[i_quad_1, i_quad_2] += mapping * coeff_weights
-
-                            arr_weights_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_weights
-                            arr_weights_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_weights
+                            arr_weights_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_weight
+                            arr_weights_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_weight
 
                     x = arr_x[i_quad_1, i_quad_2]
                     y = arr_y[i_quad_1, i_quad_2]
@@ -1714,23 +1714,23 @@ def eval_jac_det_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int, f
 
                             coeff_weight = arr_coeffs_weights[i_basis_1, i_basis_2, i_basis_3]
 
-                            temp_x = mapping * coeff_x
-                            temp_y = mapping * coeff_y
-                            temp_z = mapping * coeff_z
+                            temp_x += mapping * coeff_x * coeff_weight
+                            temp_y += mapping * coeff_y * coeff_weight
+                            temp_z += mapping * coeff_z * coeff_weight
 
                             temp_weight += mapping * coeff_weight
 
-                            temp_x_x1 += mapping_x1 * coeff_x
-                            temp_x_x2 += mapping_x2 * coeff_x
-                            temp_x_x3 += mapping_x3 * coeff_x
+                            temp_x_x1 += mapping_x1 * coeff_x * coeff_weight
+                            temp_x_x2 += mapping_x2 * coeff_x * coeff_weight
+                            temp_x_x3 += mapping_x3 * coeff_x * coeff_weight
 
-                            temp_y_x1 += mapping_x1 * coeff_y
-                            temp_y_x2 += mapping_x2 * coeff_y
-                            temp_y_x3 += mapping_x3 * coeff_y
+                            temp_y_x1 += mapping_x1 * coeff_y * coeff_weight
+                            temp_y_x2 += mapping_x2 * coeff_y * coeff_weight
+                            temp_y_x3 += mapping_x3 * coeff_y * coeff_weight
 
-                            temp_z_x1 += mapping_x1 * coeff_z
-                            temp_z_x2 += mapping_x2 * coeff_z
-                            temp_z_x3 += mapping_x3 * coeff_z
+                            temp_z_x1 += mapping_x1 * coeff_z * coeff_weight
+                            temp_z_x2 += mapping_x2 * coeff_z * coeff_weight
+                            temp_z_x3 += mapping_x3 * coeff_z * coeff_weight
 
                             temp_weight_x1 += mapping_x1 * coeff_weight
                             temp_weight_x2 += mapping_x2 * coeff_weight
@@ -1856,16 +1856,16 @@ def eval_jac_det_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int,
 
                     coeff_weight = arr_coeffs_weights[i_basis_1, i_basis_2]
 
-                    temp_x = mapping * coeff_x
-                    temp_y = mapping * coeff_y
+                    temp_x += mapping * coeff_x * coeff_weight
+                    temp_y += mapping * coeff_y * coeff_weight
 
                     temp_weight += mapping * coeff_weight
 
-                    temp_x_x1 += mapping_x1 * coeff_x
-                    temp_x_x2 += mapping_x2 * coeff_x
+                    temp_x_x1 += mapping_x1 * coeff_x * coeff_weight
+                    temp_x_x2 += mapping_x2 * coeff_x * coeff_weight
 
-                    temp_y_x1 += mapping_x1 * coeff_y
-                    temp_y_x2 += mapping_x2 * coeff_y
+                    temp_y_x1 += mapping_x1 * coeff_y * coeff_weight
+                    temp_y_x2 += mapping_x2 * coeff_y * coeff_weight
 
                     temp_weight_x1 += mapping_x1 * coeff_weight
                     temp_weight_x2 += mapping_x2 * coeff_weight
@@ -2527,21 +2527,21 @@ def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: in
 
                                         coeff_weight = arr_coeff_weights[i_basis_1, i_basis_2, i_basis_3]
 
-                                        arr_x[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_x
-                                        arr_y[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_y
-                                        arr_z[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_z
+                                        arr_x[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_x * coeff_weight
+                                        arr_y[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_y * coeff_weight
+                                        arr_z[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_z * coeff_weight
 
-                                        arr_x_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_x
-                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x
-                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x
+                                        arr_x_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_x * coeff_weight
+                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x * coeff_weight
+                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x * coeff_weight
 
-                                        arr_y_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_y
-                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y
-                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y
+                                        arr_y_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_y * coeff_weight
+                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y * coeff_weight
+                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y * coeff_weight
 
-                                        arr_z_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_z
-                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z
-                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z
+                                        arr_z_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_z * coeff_weight
+                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z * coeff_weight
+                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z * coeff_weight
 
                                         arr_weights[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_weight
 
@@ -2701,21 +2701,21 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int
                             coeff_x = arr_coeffs_x[i_basis_1, i_basis_2]
                             coeff_y = arr_coeffs_y[i_basis_1, i_basis_2]
 
-                            coeff_weights = arr_coeff_weights[i_basis_1, i_basis_2]
+                            coeff_weight = arr_coeff_weights[i_basis_1, i_basis_2]
 
-                            arr_x[i_quad_1, i_quad_2] += mapping * coeff_x
-                            arr_y[i_quad_1, i_quad_2] += mapping * coeff_y
+                            arr_x[i_quad_1, i_quad_2] += mapping * coeff_x * coeff_weight
+                            arr_y[i_quad_1, i_quad_2] += mapping * coeff_y * coeff_weight
 
-                            arr_x_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_x
-                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x
+                            arr_x_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_x * coeff_weight
+                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x * coeff_weight
 
-                            arr_y_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_y
-                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y
+                            arr_y_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_y * coeff_weight
+                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y * coeff_weight
 
-                            arr_weights[i_quad_1, i_quad_2] += mapping * coeff_weights
+                            arr_weights[i_quad_1, i_quad_2] += mapping * coeff_weight
 
-                            arr_weights_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_weights
-                            arr_weights_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_weights
+                            arr_weights_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_weight
+                            arr_weights_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_weight
 
                     x = arr_x[i_quad_1, i_quad_2]
                     y = arr_y[i_quad_1, i_quad_2]
@@ -2840,11 +2840,11 @@ def eval_jacobians_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int,
                                                                        span_2 - f_p2:1 + span_2,
                                                                        span_3 - f_p3:1 + span_3]
 
-                temp_x =0.0
-                temp_y =0.0
-                temp_z= 0.0
+                temp_x = 0.0
+                temp_y = 0.0
+                temp_z = 0.0
 
-                temp_weight= 0.0
+                temp_weight = 0.0
 
                 temp_x_x1 = 0.0
                 temp_x_x2 = 0.0
@@ -2886,23 +2886,23 @@ def eval_jacobians_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int,
 
                             coeff_weight = arr_coeffs_weights[i_basis_1, i_basis_2, i_basis_3]
 
-                            temp_x = mapping * coeff_x
-                            temp_y = mapping * coeff_y
-                            temp_z = mapping * coeff_z
+                            temp_x += mapping * coeff_x * coeff_weight
+                            temp_y += mapping * coeff_y * coeff_weight
+                            temp_z += mapping * coeff_z * coeff_weight
 
                             temp_weight += mapping * coeff_weight
 
-                            temp_x_x1 += mapping_x1 * coeff_x
-                            temp_x_x2 += mapping_x2 * coeff_x
-                            temp_x_x3 += mapping_x3 * coeff_x
+                            temp_x_x1 += mapping_x1 * coeff_x * coeff_weight
+                            temp_x_x2 += mapping_x2 * coeff_x * coeff_weight
+                            temp_x_x3 += mapping_x3 * coeff_x * coeff_weight
 
-                            temp_y_x1 += mapping_x1 * coeff_y
-                            temp_y_x2 += mapping_x2 * coeff_y
-                            temp_y_x3 += mapping_x3 * coeff_y
+                            temp_y_x1 += mapping_x1 * coeff_y * coeff_weight
+                            temp_y_x2 += mapping_x2 * coeff_y * coeff_weight
+                            temp_y_x3 += mapping_x3 * coeff_y * coeff_weight
 
-                            temp_z_x1 += mapping_x1 * coeff_z
-                            temp_z_x2 += mapping_x2 * coeff_z
-                            temp_z_x3 += mapping_x3 * coeff_z
+                            temp_z_x1 += mapping_x1 * coeff_z * coeff_weight
+                            temp_z_x2 += mapping_x2 * coeff_z * coeff_weight
+                            temp_z_x3 += mapping_x3 * coeff_z * coeff_weight
 
                             temp_weight_x1 += mapping_x1 * coeff_weight
                             temp_weight_x2 += mapping_x2 * coeff_weight
@@ -2995,10 +2995,10 @@ def eval_jacobians_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int
 
             arr_coeffs_weights[:, :] = global_arr_coeff_weights[span_1 - f_p1:1 + span_1,
                                                                 span_2 - f_p2:1 + span_2]
-            temp_x =0.0
-            temp_y =0.0
+            temp_x = 0.0
+            temp_y = 0.0
 
-            temp_weight= 0.0
+            temp_weight = 0.0
 
             temp_x_x1 = 0.0
             temp_x_x2 = 0.0
@@ -3027,16 +3027,16 @@ def eval_jacobians_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int
 
                     coeff_weight = arr_coeffs_weights[i_basis_1, i_basis_2]
 
-                    temp_x = mapping * coeff_x
-                    temp_y = mapping * coeff_y
+                    temp_x += mapping * coeff_x * coeff_weight
+                    temp_y += mapping * coeff_y * coeff_weight
 
                     temp_weight += mapping * coeff_weight
 
-                    temp_x_x1 += mapping_x1 * coeff_x
-                    temp_x_x2 += mapping_x2 * coeff_x
+                    temp_x_x1 += mapping_x1 * coeff_x * coeff_weight
+                    temp_x_x2 += mapping_x2 * coeff_x * coeff_weight
 
-                    temp_y_x1 += mapping_x1 * coeff_y
-                    temp_y_x2 += mapping_x2 * coeff_y
+                    temp_y_x1 += mapping_x1 * coeff_y * coeff_weight
+                    temp_y_x2 += mapping_x2 * coeff_y * coeff_weight
 
                     temp_weight_x1 += mapping_x1 * coeff_weight
                     temp_weight_x2 += mapping_x2 * coeff_weight
@@ -3742,21 +3742,21 @@ def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2
 
                                         coeff_weight = arr_coeff_weights[i_basis_1, i_basis_2, i_basis_3]
 
-                                        arr_x[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_x
-                                        arr_y[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_y
-                                        arr_z[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_z
+                                        arr_x[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_x * coeff_weight
+                                        arr_y[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_y * coeff_weight
+                                        arr_z[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_z * coeff_weight
 
-                                        arr_x_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_x
-                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x
-                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x
+                                        arr_x_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_x * coeff_weight
+                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x * coeff_weight
+                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x * coeff_weight
 
-                                        arr_y_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_y
-                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y
-                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y
+                                        arr_y_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_y * coeff_weight
+                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y * coeff_weight
+                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y * coeff_weight
 
-                                        arr_z_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_z
-                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z
-                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z
+                                        arr_z_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_z * coeff_weight
+                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z * coeff_weight
+                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z * coeff_weight
 
                                         arr_weights[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_weight
 
@@ -3931,21 +3931,21 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1:
                             coeff_x = arr_coeffs_x[i_basis_1, i_basis_2]
                             coeff_y = arr_coeffs_y[i_basis_1, i_basis_2]
 
-                            coeff_weights = arr_coeff_weights[i_basis_1, i_basis_2]
+                            coeff_weight = arr_coeff_weights[i_basis_1, i_basis_2]
 
-                            arr_x[i_quad_1, i_quad_2] += mapping * coeff_x
-                            arr_y[i_quad_1, i_quad_2] += mapping * coeff_y
+                            arr_x[i_quad_1, i_quad_2] += mapping * coeff_x * coeff_weight
+                            arr_y[i_quad_1, i_quad_2] += mapping * coeff_y * coeff_weight
 
-                            arr_x_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_x
-                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x
+                            arr_x_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_x * coeff_weight
+                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x * coeff_weight
 
-                            arr_y_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_y
-                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y
+                            arr_y_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_y * coeff_weight
+                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y * coeff_weight
 
-                            arr_weights[i_quad_1, i_quad_2] += mapping * coeff_weights
+                            arr_weights[i_quad_1, i_quad_2] += mapping * coeff_weight
 
-                            arr_weights_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_weights
-                            arr_weights_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_weights
+                            arr_weights_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_weight
+                            arr_weights_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_weight
 
                     x = arr_x[i_quad_1, i_quad_2]
                     y = arr_y[i_quad_1, i_quad_2]
@@ -4118,23 +4118,23 @@ def eval_jacobians_inv_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: 
 
                             coeff_weight = arr_coeffs_weights[i_basis_1, i_basis_2, i_basis_3]
 
-                            temp_x = mapping * coeff_x
-                            temp_y = mapping * coeff_y
-                            temp_z = mapping * coeff_z
+                            temp_x += mapping * coeff_x * coeff_weight
+                            temp_y += mapping * coeff_y * coeff_weight
+                            temp_z += mapping * coeff_z * coeff_weight
 
                             temp_weight += mapping * coeff_weight
 
-                            temp_x_x1 += mapping_x1 * coeff_x
-                            temp_x_x2 += mapping_x2 * coeff_x
-                            temp_x_x3 += mapping_x3 * coeff_x
+                            temp_x_x1 += mapping_x1 * coeff_x * coeff_weight
+                            temp_x_x2 += mapping_x2 * coeff_x * coeff_weight
+                            temp_x_x3 += mapping_x3 * coeff_x * coeff_weight
 
-                            temp_y_x1 += mapping_x1 * coeff_y
-                            temp_y_x2 += mapping_x2 * coeff_y
-                            temp_y_x3 += mapping_x3 * coeff_y
+                            temp_y_x1 += mapping_x1 * coeff_y * coeff_weight
+                            temp_y_x2 += mapping_x2 * coeff_y * coeff_weight
+                            temp_y_x3 += mapping_x3 * coeff_y * coeff_weight
 
-                            temp_z_x1 += mapping_x1 * coeff_z
-                            temp_z_x2 += mapping_x2 * coeff_z
-                            temp_z_x3 += mapping_x3 * coeff_z
+                            temp_z_x1 += mapping_x1 * coeff_z * coeff_weight
+                            temp_z_x2 += mapping_x2 * coeff_z * coeff_weight
+                            temp_z_x3 += mapping_x3 * coeff_z * coeff_weight
 
                             temp_weight_x1 += mapping_x1 * coeff_weight
                             temp_weight_x2 += mapping_x2 * coeff_weight
@@ -4275,16 +4275,16 @@ def eval_jacobians_inv_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2:
 
                     coeff_weight = arr_coeffs_weights[i_basis_1, i_basis_2]
 
-                    temp_x = mapping * coeff_x
-                    temp_y = mapping * coeff_y
+                    temp_x += mapping * coeff_x * coeff_weight
+                    temp_y += mapping * coeff_y * coeff_weight
 
                     temp_weight += mapping * coeff_weight
 
-                    temp_x_x1 += mapping_x1 * coeff_x
-                    temp_x_x2 += mapping_x2 * coeff_x
+                    temp_x_x1 += mapping_x1 * coeff_x * coeff_weight
+                    temp_x_x2 += mapping_x2 * coeff_x * coeff_weight
 
-                    temp_y_x1 += mapping_x1 * coeff_y
-                    temp_y_x2 += mapping_x2 * coeff_y
+                    temp_y_x1 += mapping_x1 * coeff_y * coeff_weight
+                    temp_y_x2 += mapping_x2 * coeff_y * coeff_weight
 
                     temp_weight_x1 += mapping_x1 * coeff_weight
                     temp_weight_x2 += mapping_x2 * coeff_weight
