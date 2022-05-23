@@ -478,6 +478,8 @@ class TensorFemSpace( FemSpace ):
         # Get contiguous copy of the spline coefficients required for evaluation
         index  = tuple( index )
         coeffs = field.coeffs[index].copy()
+        if weights:
+            coeffs *=  weights[index]
 
         # Evaluate each component of the gradient using algorithm described in "Option 1" above
         grad = []
