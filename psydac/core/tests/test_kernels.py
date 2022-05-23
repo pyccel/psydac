@@ -29,6 +29,7 @@ except KeyError:
     mesh_dir = os.path.join(base_dir, 'mesh')
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize('geometry', ('identity_2d.h5', 'identity_3d.h5', 'bent_pipe.h5',
                                       'collela_2d.h5', 'collela_3d.h5'))
 @pytest.mark.parametrize('refine', (1, 2))
