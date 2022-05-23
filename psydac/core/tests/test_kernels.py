@@ -41,8 +41,8 @@ except KeyError:
 
 
 # Tolerance for testing float equality
-RTOL = 1e-15
-ATOL = 1e-14
+RTOL = 1e-14
+ATOL = 1e-12
 
 @pytest.mark.parametrize('geometry', ('identity_2d.h5', 'identity_3d.h5', 'bent_pipe.h5',
                                       'collela_2d.h5', 'collela_3d.h5'))
@@ -72,17 +72,14 @@ def test_regular_jacobians(geometry, npts_per_cell):
                     for i in range(ldim)]
 
     # Direct API
-    try:
-        if ldim == 2:
-            jacobian_matrix_direct = np.array([[mapping.jac_mat(e1, e2) for e2 in regular_grid[1]] for e1 in regular_grid[0]])
+    if ldim == 2:
+        jacobian_matrix_direct = np.array([[mapping.jac_mat(e1, e2) for e2 in regular_grid[1]] for e1 in regular_grid[0]])
 
-        if ldim == 3:
-            jacobian_matrix_direct = np.array([[[mapping.jac_mat(e1, e2, e3)
-                                                 for e3 in regular_grid[2]]
-                                                for e2 in regular_grid[1]]
-                                               for e1 in regular_grid[0]])
-    except NotImplementedError:
-        pass
+    if ldim == 3:
+        jacobian_matrix_direct = np.array([[[mapping.jac_mat(e1, e2, e3)
+                                                for e3 in regular_grid[2]]
+                                            for e2 in regular_grid[1]]
+                                            for e1 in regular_grid[0]])
 
     # Mapping related quantities through kernel functions
     degree = space_h.degree
@@ -177,11 +174,8 @@ def test_regular_jacobians(geometry, npts_per_cell):
             eval_jac_det_3d(*ncells, *degree, *n_eval_points, *global_basis, *global_spans,
                             global_arr_x, global_arr_y, global_arr_z,
                             jac_dets)
-
-    try:
-        assert np.allclose(jacobian_matrix_direct, jac_mats, atol=ATOL, rtol=RTOL)
-    except NameError:
-        pass
+    print(np.max(jacobian_matrix_direct - jac_mats))
+    assert np.allclose(jacobian_matrix_direct, jac_mats, atol=ATOL, rtol=RTOL)
 
     if ldim == 2:
         for i, j in it.product(range(jac_mats.shape[0]), range(jac_mats.shape[1])):
@@ -216,17 +210,14 @@ def test_irregular_jacobians(geometry, npts):
     irregular_grid = [np.random.random(npts) for i in range(ldim)]
 
     # Direct API
-    try:
-        if ldim == 2:
-            jacobian_matrix_direct = np.array([[mapping.jac_mat(e1, e2) for e2 in irregular_grid[1]] for e1 in irregular_grid[0]])
+    if ldim == 2:
+        jacobian_matrix_direct = np.array([[mapping.jac_mat(e1, e2) for e2 in irregular_grid[1]] for e1 in irregular_grid[0]])
 
-        if ldim == 3:
-            jacobian_matrix_direct = np.array([[[mapping.jac_mat(e1, e2, e3)
-                                                 for e3 in irregular_grid[2]]
-                                                for e2 in irregular_grid[1]]
-                                               for e1 in irregular_grid[0]])
-    except NotImplementedError:
-        pass
+    if ldim == 3:
+        jacobian_matrix_direct = np.array([[[mapping.jac_mat(e1, e2, e3)
+                                                for e3 in irregular_grid[2]]
+                                            for e2 in irregular_grid[1]]
+                                            for e1 in irregular_grid[0]])
 
     # Mapping related quantities through kernel functions
     degree = space_h.degree
@@ -323,11 +314,8 @@ def test_irregular_jacobians(geometry, npts):
             eval_jac_det_irregular_3d(*npts, *degree, *cell_indexes, *global_basis, *global_spans,
                                       global_arr_x, global_arr_y, global_arr_z,
                                       jac_dets)
-
-    try:
-        assert np.allclose(jacobian_matrix_direct, jac_mats, atol=ATOL, rtol=RTOL)
-    except NameError:
-        pass
+    print(np.max(jacobian_matrix_direct - jac_mats))
+    assert np.allclose(jacobian_matrix_direct, jac_mats, atol=ATOL, rtol=RTOL)
 
     if ldim == 2:
         for i, j in it.product(range(jac_mats.shape[0]), range(jac_mats.shape[1])):
@@ -468,7 +456,6 @@ def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
         eval_fields_3d_weighted(*ncells, *degree, *n_eval_points, *global_basis,
                                 *global_spans, global_arr_field, global_arr_w, out_field_w)
     
-    print(f_direct.shape, out_field.shape)
     assert np.allclose(out_field, f_direct, atol=ATOL, rtol=RTOL)
     assert np.allclose(out_field_w, f_direct_w, atol=ATOL, rtol=RTOL)
 
@@ -608,7 +595,6 @@ def test_irregular_evaluations(knots, ldim, degree, npts):
         eval_fields_3d_irregular_weighted(*npts, *degree, *cell_indexes, *global_basis,
                                           *global_spans, global_arr_field, global_arr_w, out_field_w)
     
-    print(f_direct.shape, out_field.shape)
     assert np.allclose(out_field, f_direct, atol=ATOL, rtol=RTOL)
     assert np.allclose(out_field_w, f_direct_w, atol=ATOL, rtol=RTOL)
             
@@ -634,7 +620,6 @@ def test_pushforwards_hdiv(ldim):
     field_to_push = np.random.rand(ldim, *((5, ) * ldim), 1)
     expected = np.moveaxis(field_to_push,-1, 0)
     out = np.zeros(expected.shape)
-    print(field_to_push.shape, out.shape)
     if ldim == 2:
         pushforward_2d_hdiv(field_to_push, jacobians, out)
     if ldim == 3:
