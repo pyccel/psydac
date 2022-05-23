@@ -1,21 +1,19 @@
-import numpy as np
-import pytest
 import os
+import pytest
+
+import numpy as np
 import h5py as h5
 
 from sympde.topology import Domain
-from sympde.topology.analytical_mapping import PolarMapping
-from sympy import rad
-from psydac.api.discretization import discretize
-from psydac.utilities.utils import refine_array_1d
-
-
-from psydac.mapping.discrete import NurbsMapping
-from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.splines import SplineSpace
-from psydac.cad.geometry import export_nurbs_to_hdf5
 
 from igakit.cad import circle, ruled
+
+from psydac.api.discretization import discretize
+from psydac.core.bsplines import cell_index
+from psydac.fem.tensor import TensorFemSpace
+from psydac.fem.splines import SplineSpace
+from psydac.mapping.discrete import NurbsMapping
+from psydac.utilities.utils import refine_array_1d
 
 
 try:
