@@ -274,10 +274,6 @@ class FemField:
     # ...
     def gradient( self, *eta , weights=None):
         """Evaluate gradient of weighted field at location identified by logical coordinates eta."""
-
-        if weights is not None:
-            raise NotImplementedError('gradient evaluation is not available for a weighted field')
-
         return self._space.eval_field_gradient( self, *eta , weights=weights)
         
     # ...

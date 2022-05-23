@@ -931,25 +931,13 @@ class NurbsMapping( SplineMapping ):
         return x_mesh, y_mesh, z_mesh
     
     # ... 
-    def jac_mat( self, *eta):
-        raise NotImplementedError('TODO')
-#        return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
-
-    # ...
-    def jac_det(self, *eta):
-        raise NotImplementedError('TODO')
-        # return np.linalg.det(self.jac_mat(*eta))
-
-    # ...
-    def metric( self, *eta):
-        raise NotImplementedError('TODO')
-#        J = self.jac_mat( *eta )
-#        return np.dot( J.T, J )
-
-    # ...
-    def metric_det( self, *eta):
-        raise NotImplementedError('TODO')
-    #   return np.linalg.det( self.metric( *eta ) )
+    def jac_mat(self, *eta):
+        map_W = self._weights_field
+        w = map_W(*eta)
+        grad_w = np.array(map_W.gradient(*eta))
+        v = np.array([map_Xd(*eta, weights=map_W.coeffs)  for map_Xd in self._fields])
+        grad_v = np.array([map_Xd.gradient(*eta, weights=map_W.coeffs) for map_Xd in self._fields])
+        return grad_v / w - v[:, None] @ grad_w[None, :] / w**2
 
     # ...
     def jac_mat_grid(self, grid, npts_per_cell=None, overlap=0):

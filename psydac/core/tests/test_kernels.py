@@ -44,7 +44,6 @@ except KeyError:
 RTOL = 1e-15
 ATOL = 1e-14
 
-
 @pytest.mark.parametrize('geometry', ('identity_2d.h5', 'identity_3d.h5', 'bent_pipe.h5',
                                       'collela_2d.h5', 'collela_3d.h5'))
 @pytest.mark.parametrize('npts_per_cell', [2, 3, 4])
