@@ -11,9 +11,14 @@ import h5py
 import yaml
 
 from sympde.topology.mapping  import Mapping
+from sympde.topology.datatype import H1SpaceType, L2SpaceType, HdivSpaceType, HcurlSpaceType, UndefinedSpaceType
+from psydac.core.kernels import (pushforward_2d_l2, pushforward_3d_l2, 
+                                 pushforward_2d_hdiv, pushforward_3d_hdiv,
+                                 pushforward_2d_hcurl, pushforward_3d_hcurl)
 
-from psydac.fem.tensor    import TensorFemSpace
-from psydac.fem.basic     import FemField
+from psydac.fem.tensor import TensorFemSpace
+from psydac.fem.basic  import FemField
+from psydac.fem.vector import ProductFemSpace, VectorFemSpace
 
 __all__ = ['SplineMapping', 'NurbsMapping']
 
@@ -129,7 +134,7 @@ class SplineMapping:
     def __call__( self, *eta):
         return [map_Xd( *eta) for map_Xd in self._fields]
 
-    def build_mesh(self, grid, npts_per_cell=None):
+    def build_mesh(self, grid, npts_per_cell=None, overlap=0):
         """Evaluation of the mapping on the given grid.
 
         Parameters
@@ -141,6 +146,10 @@ class SplineMapping:
         npts_per_cell: int, tuple of int or None, optional
             Number of evaluation points in each cell.
             If an integer is given, then assume that it is the same in every direction.
+        
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+
         Returns
         -------
         x_mesh: 3D array of floats
@@ -155,7 +164,7 @@ class SplineMapping:
         psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
         """
 
-        mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell)
+        mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell, overlap=overlap)
         if self.ldim == 2:
             x_mesh = mesh[0][:, :, None]
             y_mesh = mesh[1][:, :, None]
@@ -187,7 +196,7 @@ class SplineMapping:
         return np.linalg.det( self.metric( *eta ) )
 
     # ...
-    def jac_mat_grid(self, grid, npts_per_cell=None):
+    def jac_mat_grid(self, grid, npts_per_cell=None, overlap=0):
         """Evaluates the Jacobian matrix of the mapping at the given location(s) grid.
 
         Parameters
@@ -198,6 +207,9 @@ class SplineMapping:
         npts_per_cell: int or tuple of int or None, optional
             number of evaluation points in each cell.
             If an integer is given, then assume that it is the same in every direction.
+
+        overlap : int
+            How much to overlap. Only used in the distributed context.
 
         Returns
         -------
@@ -224,12 +236,8 @@ class SplineMapping:
         # Case 2. 1D array of coordinates and no npts_per_cell is given
         # -> grid is tensor-product, but npts_per_cell is not the same in each cell
         elif grid[0].ndim == 1 and npts_per_cell is None:
-            raise NotImplementedError("Having a different number of evaluation"
-                                      "points in the cells belonging to the same "
-                                      "logical dimension is not supported yet. "
-                                      "If you did use valid inputs, you need to provide"
-                                      "the number of evaluation points per cell in each direction"
-                                      "via the npts_per_cell keyword")
+            jac_mats = self.jac_mat_irregular_tensor_grid(grid, overlap=overlap)
+            return jac_mats
 
         # Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer
         # -> grid is tensor-product, and each cell has the same number of evaluation points
@@ -239,7 +247,7 @@ class SplineMapping:
             for i in range(self.ldim):
                 ncells_i = len(self.space.breaks[i]) - 1
                 grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
-            jac_mats = self.jac_mat_regular_tensor_grid(grid)
+            jac_mats = self.jac_mat_regular_tensor_grid(grid, overlap=overlap)
             return jac_mats
 
         # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
@@ -256,7 +264,7 @@ class SplineMapping:
                              "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
 
     # ...
-    def jac_mat_regular_tensor_grid(self, grid):
+    def jac_mat_regular_tensor_grid(self, grid, overlap=0):
         """Evaluates the Jacobian matrix on a regular tensor product grid.
 
         Parameters
@@ -267,6 +275,9 @@ class SplineMapping:
             number of cells in the domain in the direction xi and nv_xi is the number of
             evaluation points in the same direction.
 
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+
         Returns
         -------
         jac_mats : ndarray
@@ -274,13 +285,12 @@ class SplineMapping:
             ``jac_mats[x_1, ..., x_ldim]`` is the Jacobian matrix at the location corresponding
             to ``(x_1, ..., x_ldim)``.
         """
-
         from psydac.core.kernels import eval_jacobians_2d, eval_jacobians_3d
 
-        ncells = [grid[i].shape[0] for i in range(self.ldim)]
-        n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
+        degree, global_basis, global_spans, local_shape = self.space.preprocess_regular_tensor_grid(grid, der=1, overlap=overlap)
 
-        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid, der=1)
+        ncells = [local_shape[i][0] for i in range(self.ldim)]
+        n_eval_points = [local_shape[i][1] for i in range(self.ldim)]
 
         jac_mats = np.zeros(tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim))
                             + (self.ldim, self.ldim))
@@ -290,18 +300,16 @@ class SplineMapping:
             global_arr_y = self._fields[1].coeffs._data
             global_arr_z = self._fields[2].coeffs._data
 
-            eval_jacobians_3d(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0], degree[1],
-                              degree[2], n_eval_points[0], n_eval_points[1], n_eval_points[2], global_basis[0],
-                              global_basis[1], global_basis[2], global_spans[0], global_spans[1], global_spans[2],
-                              global_arr_x, global_arr_y, global_arr_z, jac_mats)
+            eval_jacobians_3d(*ncells, *degree, *n_eval_points, *global_basis, 
+                              *global_spans, global_arr_x, global_arr_y, global_arr_z, 
+                              jac_mats)
 
         elif self.ldim == 2:
             global_arr_x = self._fields[0].coeffs._data
             global_arr_y = self._fields[1].coeffs._data
 
-            eval_jacobians_2d(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], n_eval_points[0],
-                              n_eval_points[1], global_basis[0], global_basis[1], global_spans[0], global_spans[1],
-                              global_arr_x, global_arr_y, jac_mats)
+            eval_jacobians_2d(*ncells, *degree, *n_eval_points, *global_basis, 
+                              *global_spans, global_arr_x, global_arr_y, jac_mats)
 
         else:
             raise NotImplementedError("TODO")
@@ -309,7 +317,56 @@ class SplineMapping:
         return jac_mats
 
     # ...
-    def inv_jac_mat_grid(self, grid, npts_per_cell=None):
+    def jac_mat_irregular_tensor_grid(self, grid, overlap=0):
+        """Evaluates the Jacobian matrix on an irregular tensor product grid.
+
+        Parameters
+        ----------
+        grid : List of ndarray
+            List of 1D arrays representing each direction of the grid.
+            
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+
+        Returns
+        -------
+        jac_mats : ndarray
+            ``self.ldim + 2`` D array of shape ``(n_x_1, ..., n_x_ldim, ldim, ldim)``.
+            ``jac_mats[x_1, ..., x_ldim]`` is the Jacobian matrix at the location corresponding
+            to ``(x_1, ..., x_ldim)``.
+        """
+        from psydac.core.kernels import eval_jacobians_irregular_2d, eval_jacobians_irregular_3d
+
+        degree, global_basis, global_spans, cell_indexes, \
+        local_shape = self.space.preprocess_irregular_tensor_grid(grid, der=1, overlap=overlap)
+
+        npts = local_shape
+
+        jac_mats = np.zeros(tuple(local_shape) + (self.ldim, self.ldim))
+
+        if self.ldim == 3:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+            global_arr_z = self._fields[2].coeffs._data
+
+            eval_jacobians_irregular_3d(*npts, *degree, *cell_indexes, *global_basis, 
+                                        *global_spans, global_arr_x, global_arr_y, global_arr_z, 
+                                        jac_mats)
+
+        elif self.ldim == 2:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+
+            eval_jacobians_irregular_2d(*npts, *degree, *cell_indexes, *global_basis, 
+                                        *global_spans, global_arr_x, global_arr_y, jac_mats)
+
+        else:
+            raise NotImplementedError("1D case not supported")
+
+        return jac_mats
+
+    # ...
+    def inv_jac_mat_grid(self, grid, npts_per_cell=None, overlap=0):
         """Evaluates the inverse of the Jacobian matrix of the mapping at the given location(s) grid.
 
         Parameters
@@ -320,6 +377,9 @@ class SplineMapping:
         npts_per_cell: int or tuple of int or None, optional
             number of evaluation points in each cell.
             If an integer is given, then assume that it is the same in every direction.
+
+        overlap : int
+            How much to overlap. Only used in the distributed context.
 
         Returns
         -------
@@ -346,12 +406,8 @@ class SplineMapping:
         # Case 2. 1D array of coordinates and no npts_per_cell is given
         # -> grid is tensor-product, but npts_per_cell is not the same in each cell
         elif grid[0].ndim == 1 and npts_per_cell is None:
-            raise NotImplementedError("Having a different number of evaluation"
-                                      "points in the cells belonging to the same "
-                                      "logical dimension is not supported yet. "
-                                      "If you did use valid inputs, you need to provide"
-                                      "the number of evaluation points per cell in each direction"
-                                      "via the npts_per_cell keyword")
+            inv_jac_mats = self.inv_jac_mat_irregular_tensor_grid(grid, overlap=overlap)
+            return inv_jac_mats
 
         # Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer
         # -> grid is tensor-product, and each cell has the same number of evaluation points
@@ -361,7 +417,7 @@ class SplineMapping:
             for i in range(self.ldim):
                 ncells_i = len(self.space.breaks[i]) - 1
                 grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
-            inv_jac_mats = self.inv_jac_mat_regular_tensor_grid(grid)
+            inv_jac_mats = self.inv_jac_mat_regular_tensor_grid(grid, overlap=overlap)
             return inv_jac_mats
 
         # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
@@ -378,7 +434,7 @@ class SplineMapping:
                              "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
 
     # ...
-    def inv_jac_mat_regular_tensor_grid(self, grid):
+    def inv_jac_mat_regular_tensor_grid(self, grid, overlap=0):
         """Evaluates the inverse of the Jacobian matrix on a regular tensor product grid.
 
         Parameters
@@ -389,6 +445,9 @@ class SplineMapping:
             number of cells in the domain in the direction xi and nv_xi is the number of
             evaluation points in the same direction.
 
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+
         Returns
         -------
         inv_jac_mats : ndarray
@@ -398,10 +457,10 @@ class SplineMapping:
         """
         from psydac.core.kernels import eval_jacobians_inv_2d, eval_jacobians_inv_3d
 
-        ncells = [grid[i].shape[0] for i in range(self.ldim)]
-        n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
+        degree, global_basis, global_spans, local_shape = self.space.preprocess_regular_tensor_grid(grid, der=1, overlap=overlap)
 
-        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid, der=1)
+        ncells = [local_shape[i][0] for i in range(self.ldim)]
+        n_eval_points = [local_shape[i][1] for i in range(self.ldim)]
 
         inv_jac_mats = np.zeros(tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim))
                                 + (self.ldim, self.ldim))
@@ -411,26 +470,74 @@ class SplineMapping:
             global_arr_y = self._fields[1].coeffs._data
             global_arr_z = self._fields[2].coeffs._data
 
-            eval_jacobians_inv_3d(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0], degree[1],
-                                  degree[2], n_eval_points[0], n_eval_points[1], n_eval_points[2], global_basis[0],
-                                  global_basis[1], global_basis[2], global_spans[0], global_spans[1], global_spans[2],
-                                  global_arr_x, global_arr_y, global_arr_z, inv_jac_mats)
+            eval_jacobians_inv_3d(*ncells, *degree, *n_eval_points, *global_basis, 
+                                  *global_spans, global_arr_x, global_arr_y, global_arr_z, 
+                                  inv_jac_mats)
 
         elif self.ldim == 2:
             global_arr_x = self._fields[0].coeffs._data
             global_arr_y = self._fields[1].coeffs._data
 
-            eval_jacobians_inv_2d(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], n_eval_points[0],
-                                  n_eval_points[1], global_basis[0], global_basis[1], global_spans[0], global_spans[1],
-                                  global_arr_x, global_arr_y, inv_jac_mats)
+            eval_jacobians_inv_2d(*ncells, *degree, *n_eval_points, *global_basis, 
+                                  *global_spans, global_arr_x, global_arr_y, inv_jac_mats)
 
         else:
-            raise NotImplementedError("TODO")
+            raise NotImplementedError("1D case not supported")
 
         return inv_jac_mats
 
     # ...
-    def jac_det_grid(self, grid, npts_per_cell=None):
+    def inv_jac_mat_irregular_tensor_grid(self, grid, overlap=0):
+        """Evaluates the inverse of the Jacobian matrix on an irregular tensor product grid.
+
+        Parameters
+        ----------
+        grid : List of ndarray
+            List of 1D arrays representing each direction of the grid.
+
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+
+        Returns
+        -------
+        inv_jac_mats : ndarray
+            ``self.ldim + 2`` D array of shape ``(n_x_1, ..., n_x_ldim, ldim, ldim)``.
+            ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the Jacobian matrix
+            at the location corresponding to ``(x_1, ..., x_ldim)``.
+        """
+        from psydac.core.kernels import (eval_jacobians_inv_irregular_2d, 
+                                         eval_jacobians_inv_irregular_3d)
+
+        degree, global_basis, global_spans, cell_indexes, \
+        local_shape = self.space.preprocess_irregular_tensor_grid(grid, der=1, overlap=overlap)
+
+        npts = local_shape
+
+        inv_jac_mats = np.zeros(tuple(local_shape) + (self.ldim, self.ldim))
+
+        if self.ldim == 3:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+            global_arr_z = self._fields[2].coeffs._data
+
+            eval_jacobians_inv_irregular_3d(*npts, *degree, *cell_indexes, *global_basis, 
+                                            *global_spans, global_arr_x, global_arr_y, global_arr_z, 
+                                            inv_jac_mats)
+
+        elif self.ldim == 2:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+
+            eval_jacobians_inv_irregular_2d(*npts, *degree, *cell_indexes, *global_basis, 
+                                            *global_spans, global_arr_x, global_arr_y, inv_jac_mats)
+
+        else:
+            raise NotImplementedError("1D case not supported")
+
+        return inv_jac_mats
+
+    # ...
+    def jac_det_grid(self, grid, npts_per_cell=None, overlap=0):
         """Evaluates the Jacobian determinant of the mapping at the given location(s) grid.
 
         Parameters
@@ -441,6 +548,9 @@ class SplineMapping:
         npts_per_cell: int or tuple of int or None, optional
             number of evaluation points in each cell.
             If an integer is given, then assume that it is the same in every direction.
+
+        overlap : int
+            How much to overlap. Only used in the distributed context.
 
         Returns
         -------
@@ -467,12 +577,8 @@ class SplineMapping:
         # Case 2. 1D array of coordinates and no npts_per_cell is given
         # -> grid is tensor-product, but npts_per_cell is not the same in each cell
         elif grid[0].ndim == 1 and npts_per_cell is None:
-            raise NotImplementedError("Having a different number of evaluation"
-                                      "points in the cells belonging to the same "
-                                      "logical dimension is not supported yet. "
-                                      "If you did use valid inputs, you need to provide"
-                                      "the number of evaluation points per cell in each direction"
-                                      "via the npts_per_cell keyword")
+            jac_dets = self.jac_det_irregular_tensor_grid(grid, overlap=overlap)
+            return jac_dets
 
         # Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer
         # -> grid is tensor-product, and each cell has the same number of evaluation points
@@ -482,7 +588,7 @@ class SplineMapping:
             for i in range(self.ldim):
                 ncells_i = len(self.space.breaks[i]) - 1
                 grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
-            jac_dets = self.jac_det_regular_tensor_grid(grid)
+            jac_dets = self.jac_det_regular_tensor_grid(grid, overlap=overlap)
             return jac_dets
 
         # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
@@ -499,7 +605,7 @@ class SplineMapping:
                              "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
 
     # ...
-    def jac_det_regular_tensor_grid(self, grid):
+    def jac_det_regular_tensor_grid(self, grid, overlap=0):
         """Evaluates the Jacobian determinant on a regular tensor product grid.
 
         Parameters
@@ -510,6 +616,9 @@ class SplineMapping:
             number of cells in the domain in the direction xi and nv_xi is the number of
             evaluation points in the same direction.
 
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+
         Returns
         -------
         jac_dets : ndarray
@@ -519,10 +628,11 @@ class SplineMapping:
         """
         from psydac.core.kernels import eval_jac_det_3d, eval_jac_det_2d
 
-        ncells = [grid[i].shape[0] for i in range(self.ldim)]
-        n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
+        degree, global_basis, global_spans, local_shape = self.space.preprocess_regular_tensor_grid(grid, der=1, 
+                                                                                                    overlap=overlap)
 
-        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid, der=1)
+        ncells = [local_shape[i][0] for i in range(self.ldim)]
+        n_eval_points = [local_shape[i][1] for i in range(self.ldim)]
 
         jac_dets = np.zeros(shape=tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim)))
 
@@ -532,18 +642,64 @@ class SplineMapping:
             global_arr_y = self._fields[1].coeffs._data
             global_arr_z = self._fields[2].coeffs._data
 
-            eval_jac_det_3d(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0], degree[1],
-                            degree[2], n_eval_points[0], n_eval_points[1], n_eval_points[2], global_basis[0],
-                            global_basis[1], global_basis[2], global_spans[0], global_spans[1], global_spans[2],
-                            global_arr_x, global_arr_y, global_arr_z, jac_dets)
+            eval_jac_det_3d(*ncells, *degree, *n_eval_points, *global_basis, 
+                            *global_spans, global_arr_x, global_arr_y, global_arr_z, jac_dets)
 
         elif self.ldim == 2:
             global_arr_x = self._fields[0].coeffs._data
             global_arr_y = self._fields[1].coeffs._data
 
-            eval_jac_det_2d(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], n_eval_points[0],
-                            n_eval_points[1], global_basis[0], global_basis[1], global_spans[0], global_spans[1],
-                            global_arr_x, global_arr_y, jac_dets)
+            eval_jac_det_2d(*ncells, *degree, *n_eval_points, *global_basis, 
+                            *global_spans, global_arr_x, global_arr_y, jac_dets)
+
+        else:
+            raise NotImplementedError("TODO")
+
+        return jac_dets
+
+    # ...
+    def jac_det_irregular_tensor_grid(self, grid, overlap=0):
+        """Evaluates the Jacobian determinant on an irregular tensor product grid.
+
+        Parameters
+        ----------
+        grid : List of ndarray
+            List of 1D arrays representing each direction of the grid.
+            
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+
+        Returns
+        -------
+        jac_dets : ndarray
+            ``self.ldim`` D array of shape ``(n_x_1, ..., n_x_ldim)``.
+            ``jac_dets[x_1, ..., x_ldim]`` is the Jacobian determinant
+            at the location corresponding to ``(x_1, ..., x_ldim)``.
+        """
+        from psydac.core.kernels import eval_jac_det_irregular_3d, eval_jac_det_irregular_2d
+
+        degree, global_basis, global_spans, cell_indexes, \
+        local_shape = self.space.preprocess_irregular_tensor_grid(grid, der=1, overlap=overlap)
+
+        npts = local_shape
+
+        jac_dets = np.zeros(local_shape)
+
+        if self.ldim == 3:
+
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+            global_arr_z = self._fields[2].coeffs._data
+
+            eval_jac_det_irregular_3d(*npts, *degree, *cell_indexes, *global_basis, 
+                                      *global_spans, global_arr_x, global_arr_y, global_arr_z, jac_dets)
+
+        elif self.ldim == 2:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+
+            eval_jac_det_irregular_2d(*npts, *degree, *cell_indexes, *global_basis, 
+                                      *global_spans, global_arr_x, global_arr_y, jac_dets)
 
         else:
             raise NotImplementedError("TODO")
@@ -734,15 +890,19 @@ class NurbsMapping( SplineMapping ):
         Xd = [map_Xd( *eta , weights=map_W.coeffs) for map_Xd in self._fields]
         return np.asarray( Xd ) / w
 
-    def build_mesh(self, grid, npts_per_cell=None):
+    def build_mesh(self, grid, npts_per_cell=None, overlap=0):
         """Evaluation of the mapping on the given grid.
 
         Parameters
         ----------
         grid : List of ndarray
             Each array in the list should correspond to a logical coordinate.
+        
         npts_per_cell : int, tuple of int or None, optional
 
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+            
         Returns
         -------
         x_mesh: 3D array of floats
@@ -756,7 +916,7 @@ class NurbsMapping( SplineMapping ):
         --------
         psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
         """
-        mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell, weights=self._weights_field)
+        mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell, weights=self._weights_field, overlap=overlap)
         if self.ldim == 2:
             x_mesh = mesh[0][:, :, None]
             y_mesh = mesh[1][:, :, None]
@@ -780,76 +940,7 @@ class NurbsMapping( SplineMapping ):
         return grad_v / w - v[:, None] @ grad_w[None, :] / w**2
 
     # ...
-    def jac_mat_grid(self, grid, npts_per_cell=None):
-        """Evaluates the Jacobian matrix of the mapping at the given location(s) grid.
-
-        Parameters
-        -----------
-        grid : List of array_like
-            Grid on which to evaluate the fields
-
-        npts_per_cell: int or tuple of int or None, optional
-            number of evaluation points in each cell.
-            If an integer is given, then assume that it is the same in every direction.
-
-        Returns
-        -------
-        array_like
-            Jacobian matrix at the location(s) grid.
-
-        See Also
-        --------
-        mapping.NurbsMapping.inv_jac_mat_grid : Evaluates the inverse
-            of the Jacobian matrix of the mapping at the given location(s) grid.
-        mapping.NurbsMapping.metric_det_grid : Evaluates the metric determinant
-            of the mapping at the given location(s) grid.
-        """
-
-        assert len(grid) == self.ldim
-        grid = [np.asarray(grid[i]) for i in range(self.ldim)]
-        assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
-
-        # --------------------------
-        # Case 1. Scalar coordinates
-        if (grid[0].size == 1) or grid[0].ndim == 0:
-            return self.jac_mat(*grid)
-
-        # Case 2. 1D array of coordinates and no npts_per_cell is given
-        # -> grid is tensor-product, but npts_per_cell is not the same in each cell
-        elif grid[0].ndim == 1 and npts_per_cell is None:
-            raise NotImplementedError("Having a different number of evaluation"
-                                      "points in the cells belonging to the same "
-                                      "logical dimension is not supported yet. "
-                                      "If you did use valid inputs, you need to provide"
-                                      "the number of evaluation points per cell in each direction"
-                                      "via the npts_per_cell keyword")
-
-        # Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer
-        # -> grid is tensor-product, and each cell has the same number of evaluation points
-        elif grid[0].ndim == 1 and npts_per_cell is not None:
-            if isinstance(npts_per_cell, int):
-                npts_per_cell = (npts_per_cell,) * self.ldim
-            for i in range(self.ldim):
-                ncells_i = len(self.space.breaks[i]) - 1
-                grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
-            jac_mats = self.jac_mat_regular_tensor_grid(grid)
-            return jac_mats
-
-        # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
-        # -> unstructured grid
-        elif grid[0].ndim == self.ldim and npts_per_cell is None:
-            raise NotImplementedError("Unstructured grids are not supported yet.")
-
-        # Case 5. Nonsensical input
-        else:
-            raise ValueError("This combination of argument isn't understood. The 4 cases understood are :\n"
-                             "Case 1. Scalar coordinates\n"
-                             "Case 2. 1D array of coordinates and no npts_per_cell is given\n"
-                             "Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer\n"
-                             "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
-
-    # ...
-    def jac_mat_regular_tensor_grid(self, grid):
+    def jac_mat_regular_tensor_grid(self, grid, overlap=0):
         """Evaluates the Jacobian matrix on a regular tensor product grid.
 
         Parameters
@@ -860,6 +951,9 @@ class NurbsMapping( SplineMapping ):
             number of cells in the domain in the direction xi and nv_xi is the number of
             evaluation points in the same direction.
 
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+
         Returns
         -------
         jac_mats : ndarray
@@ -869,10 +963,10 @@ class NurbsMapping( SplineMapping ):
         """
         from psydac.core.kernels import eval_jacobians_2d_weights, eval_jacobians_3d_weights
 
-        ncells = [grid[i].shape[0] for i in range(self.ldim)]
-        n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
+        degree, global_basis, global_spans, local_shape = self.space.preprocess_regular_tensor_grid(grid, der=1, overlap=overlap)
 
-        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid, der=1)
+        ncells = [local_shape[i][0] for i in range(self.ldim)]
+        n_eval_points = [local_shape[i][1] for i in range(self.ldim)]
 
         jac_mats = np.zeros(tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim))
                             + (self.ldim, self.ldim))
@@ -884,7 +978,7 @@ class NurbsMapping( SplineMapping ):
             global_arr_y = self._fields[1].coeffs._data
             global_arr_z = self._fields[2].coeffs._data
 
-            eval_jacobians_3d_weights(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0], degree[1],
+            eval_jacobians_3d_weights(ncells[0], ncells[1], ncells[2], degree[0], degree[1],
                                       degree[2], n_eval_points[0], n_eval_points[1], n_eval_points[2], global_basis[0],
                                       global_basis[1], global_basis[2], global_spans[0], global_spans[1],
                                       global_spans[2], global_arr_x, global_arr_y, global_arr_z, global_arr_weights,
@@ -894,7 +988,7 @@ class NurbsMapping( SplineMapping ):
             global_arr_x = self._fields[0].coeffs._data
             global_arr_y = self._fields[1].coeffs._data
 
-            eval_jacobians_2d_weights(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], n_eval_points[0],
+            eval_jacobians_2d_weights(ncells[0], ncells[1], degree[0], degree[1], n_eval_points[0],
                                       n_eval_points[1], global_basis[0], global_basis[1], global_spans[0],
                                       global_spans[1], global_arr_x, global_arr_y, global_arr_weights, jac_mats)
 
@@ -904,85 +998,69 @@ class NurbsMapping( SplineMapping ):
         return jac_mats
 
     # ...
-    def inv_jac_mat_grid(self, grid, npts_per_cell=None):
-        """Evaluates the inverse of the Jacobian matrix of the mapping at the given location(s) grid.
+    def jac_mat_irregular_tensor_grid(self, grid, overlap=0):
+        """Evaluates the Jacobian matrix on an irregular tensor product grid.
 
         Parameters
-        -----------
-        grid : List of array_like
-            Grid on which to evaluate the fields
+        ----------
+        grid : List of ndarray
+            List of 1D arrays representing each direction of the grid.
 
-        npts_per_cell: int or tuple of int or None, optional
-            number of evaluation points in each cell.
-            If an integer is given, then assume that it is the same in every direction.
+        overlap : int
+            How much to overlap. Only used in the distributed context.
 
         Returns
         -------
-        array_like
-            Inverse of the Jacobian matrix at the location(s) grid.
-
-        See Also
-        --------
-        mapping.NurbsMapping.jac_mat_grid : Evaluates the Jacobian matrix
-            of the mapping at the given location(s) grid.
-        mapping.NurbsMapping.metric_det_grid : Evaluates the metric determinant
-            of the mapping at the given location(s) grid.
+        jac_mats : ndarray
+            ``self.ldim + 2`` D array of shape ``(n_x_1, ..., n_x_ldim, ldim, ldim)``.
+            ``jac_mats[x_1, ..., x_ldim]`` is the Jacobian matrix at the location corresponding
+            to ``(x_1, ..., x_ldim)``.
         """
+        from psydac.core.kernels import (eval_jacobians_irregular_2d_weights, 
+                                         eval_jacobians_irregular_3d_weights)
 
-        assert len(grid) == self.ldim
-        grid = [np.asarray(grid[i]) for i in range(self.ldim)]
-        assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
+        degree, global_basis, global_spans, cell_indexes, \
+        local_shape = self.space.preprocess_irregular_tensor_grid(grid, der=1, overlap=overlap)
 
-        # --------------------------
-        # Case 1. Scalar coordinates
-        if (grid[0].size == 1) or grid[0].ndim == 0:
-            return np.linalg.inv(self.jac_mat(*grid))
+        npts = local_shape
 
-        # Case 2. 1D array of coordinates and no npts_per_cell is given
-        # -> grid is tensor-product, but npts_per_cell is not the same in each cell
-        elif grid[0].ndim == 1 and npts_per_cell is None:
-            raise NotImplementedError("Having a different number of evaluation"
-                                      "points in the cells belonging to the same "
-                                      "logical dimension is not supported yet. "
-                                      "If you did use valid inputs, you need to provide"
-                                      "the number of evaluation points per cell in each direction"
-                                      "via the npts_per_cell keyword")
+        jac_mats = np.zeros(tuple(local_shape) + (self.ldim, self.ldim))
 
-        # Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer
-        # -> grid is tensor-product, and each cell has the same number of evaluation points
-        elif grid[0].ndim == 1 and npts_per_cell is not None:
-            if isinstance(npts_per_cell, int):
-                npts_per_cell = (npts_per_cell,) * self.ldim
-            for i in range(self.ldim):
-                ncells_i = len(self.space.breaks[i]) - 1
-                grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
-            inv_jac_mats = self.inv_jac_mat_regular_tensor_grid(grid)
-            return inv_jac_mats
+        global_arr_weights = self._weights_field.coeffs._data
 
-        # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
-        # -> unstructured grid
-        elif grid[0].ndim == self.ldim and npts_per_cell is None:
-            raise NotImplementedError("Unstructured grids are not supported yet.")
+        if self.ldim == 3:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+            global_arr_z = self._fields[2].coeffs._data
 
-        # Case 5. Nonsensical input
+            eval_jacobians_irregular_3d_weights(*npts, *degree, *cell_indexes, *global_basis, 
+                                                *global_spans, global_arr_x, global_arr_y, global_arr_z, 
+                                                global_arr_weights, jac_mats)
+
+        elif self.ldim == 2:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+
+            eval_jacobians_irregular_2d_weights(*npts, *degree, *cell_indexes, *global_basis, 
+                                                *global_spans, global_arr_x, global_arr_y, 
+                                                global_arr_weights, jac_mats)
+
         else:
-            raise ValueError("This combination of argument isn't understood. The 4 cases understood are :\n"
-                             "Case 1. Scalar coordinates\n"
-                             "Case 2. 1D array of coordinates and no npts_per_cell is given\n"
-                             "Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer\n"
-                             "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
+            raise NotImplementedError("1D case not supported")
+
+        return jac_mats
 
     # ...
-    def inv_jac_mat_regular_tensor_grid(self, grid):
+    def inv_jac_mat_regular_tensor_grid(self, grid, overlap=0):
         """Evaluates the inverse of the Jacobian matrix on a regular tensor product grid.
 
          Parameters
          ----------
          grid : List of ndarray
-             List of 2D arrays representing each direction of the grid.
-             Each of these arrays should have shape (ne_xi, nv_xi) where ne_xi is the
-             number of cells in the domain in the direction xi and nv_xi is the number of
-             evaluation points in the same direction.
+             List of 1D arrays representing each direction of the grid.
+
+        overlap : int
+            How much to overlap. Only used in the distributed context.
 
          Returns
          -------
@@ -994,10 +1072,10 @@ class NurbsMapping( SplineMapping ):
 
         from psydac.core.kernels import eval_jacobians_inv_2d_weights, eval_jacobians_inv_3d_weights
 
-        ncells = [grid[i].shape[0] for i in range(self.ldim)]
-        n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
+        degree, global_basis, global_spans, local_shape = self.space.preprocess_regular_tensor_grid(grid, der=1, overlap=overlap)
 
-        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid, der=1)
+        ncells = [local_shape[i][0] for i in range(self.ldim)]
+        n_eval_points = [local_shape[i][1] for i in range(self.ldim)]
 
         inv_jac_mats = np.zeros(tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim))
                                 + (self.ldim, self.ldim))
@@ -1009,7 +1087,7 @@ class NurbsMapping( SplineMapping ):
             global_arr_y = self._fields[1].coeffs._data
             global_arr_z = self._fields[2].coeffs._data
 
-            eval_jacobians_inv_3d_weights(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0],
+            eval_jacobians_inv_3d_weights(ncells[0], ncells[1], ncells[2], degree[0],
                                           degree[1], degree[2], n_eval_points[0], n_eval_points[1], n_eval_points[2],
                                           global_basis[0], global_basis[1], global_basis[2], global_spans[0],
                                           global_spans[1], global_spans[2], global_arr_x, global_arr_y, global_arr_z,
@@ -1019,7 +1097,7 @@ class NurbsMapping( SplineMapping ):
             global_arr_x = self._fields[0].coeffs._data
             global_arr_y = self._fields[1].coeffs._data
 
-            eval_jacobians_inv_2d_weights(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1],
+            eval_jacobians_inv_2d_weights(ncells[0], ncells[1], degree[0], degree[1],
                                           n_eval_points[0], n_eval_points[1], global_basis[0], global_basis[1],
                                           global_spans[0], global_spans[1], global_arr_x, global_arr_y,
                                           global_arr_weights, inv_jac_mats)
@@ -1030,76 +1108,60 @@ class NurbsMapping( SplineMapping ):
         return inv_jac_mats
 
     # ...
-    def jac_det_grid(self, grid, npts_per_cell=None):
-        """Evaluates the Jacobian determinant of the mapping at the given location(s) grid.
+    def inv_jac_mat_irregular_tensor_grid(self, grid, overlap=0):
+        """Evaluates the inverse of the Jacobian matrix on an irregular tensor product grid.
 
         Parameters
-        -----------
-        grid : List of array_like
-            Grid on which to evaluate the fields
+        ----------
+        grid : List of ndarray
+            List of 1D arrays representing each direction of the grid.
 
-        npts_per_cell: int or tuple of int or None, optional
-            number of evaluation points in each cell.
-            If an integer is given, then assume that it is the same in every direction.
+        overlap : int
+            How much to overlap. Only used in the distributed context.
 
         Returns
         -------
-        array_like
-            Jacobian determinant at the location(s) grid.
-
-        See Also
-        --------
-        mapping.NurbsMapping.jac_mat_grid : Evaluates the Jacobian matrix
-            of the mapping at the given location(s) grid.
-        mapping.NurbsMapping.inv_jac_mat_grid : Evaluates the inverse
-            of the Jacobian matrix of the mapping at the given location(s) grid.
+        inv_jac_mats : ndarray
+            ``self.ldim + 2`` D array of shape ``(n_x_1, ..., n_x_ldim, ldim, ldim)``.
+            ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the Jacobian matrix
+            at the location corresponding to ``(x_1, ..., x_ldim)``.
         """
+        from psydac.core.kernels import (eval_jacobians_inv_irregular_2d_weights, 
+                                         eval_jacobians_inv_irregular_3d_weights)
 
-        assert len(grid) == self.ldim
-        grid = [np.asarray(grid[i]) for i in range(self.ldim)]
-        assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
+        degree, global_basis, global_spans, cell_indexes, \
+        local_shape = self.space.preprocess_irregular_tensor_grid(grid, der=1, overlap=overlap)
 
-        # --------------------------
-        # Case 1. Scalar coordinates
-        if (grid[0].size == 1) or grid[0].ndim == 0:
-            return self.metric(*grid) ** 0.5
+        npts = local_shape
 
-        # Case 2. 1D array of coordinates and no npts_per_cell is given
-        # -> grid is tensor-product, but npts_per_cell is not the same in each cell
-        elif grid[0].ndim == 1 and npts_per_cell is None:
-            raise NotImplementedError("Having a different number of evaluation"
-                                      "points in the cells belonging to the same "
-                                      "logical dimension is not supported yet. "
-                                      "If you did use valid inputs, you need to provide"
-                                      "the number of evaluation points per cell in each direction"
-                                      "via the npts_per_cell keyword")
+        inv_jac_mats = np.zeros(tuple(local_shape) + (self.ldim, self.ldim))
 
-        # Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer
-        # -> grid is tensor-product, and each cell has the same number of evaluation points
-        elif grid[0].ndim == 1 and npts_per_cell is not None:
-            if isinstance(npts_per_cell, int):
-                npts_per_cell = (npts_per_cell,) * self.ldim
-            for i in range(self.ldim):
-                ncells_i = len(self.space.breaks[i]) - 1
-                grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
-            jac_dets = self.metric_det_regular_tensor_grid(grid)
-            return jac_dets
+        global_arr_weights = self._weights_field.coeffs._data
 
-        # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
-        # -> unstructured grid
-        elif grid[0].ndim == self.ldim and npts_per_cell is None:
-            raise NotImplementedError("Unstructured grids are not supported yet.")
+        if self.ldim == 3:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+            global_arr_z = self._fields[2].coeffs._data
 
-        # Case 5. Nonsensical input
+            eval_jacobians_inv_irregular_3d_weights(*npts, *degree, *cell_indexes, *global_basis, 
+                                                    *global_spans, global_arr_x, global_arr_y, global_arr_z, 
+                                                    global_arr_weights, inv_jac_mats)
+
+        elif self.ldim == 2:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+
+            eval_jacobians_inv_irregular_2d_weights(*npts, *degree, *cell_indexes, *global_basis, 
+                                                    *global_spans, global_arr_x, global_arr_y, 
+                                                    global_arr_weights, inv_jac_mats)
+
         else:
-            raise ValueError("This combination of argument isn't understood. The 4 cases understood are :\n"
-                             "Case 1. Scalar coordinates\n"
-                             "Case 2. 1D array of coordinates and no npts_per_cell is given\n"
-                             "Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer\n"
-                             "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
+            raise NotImplementedError("1D case not supported")
+
+        return inv_jac_mats
 
     # ...
-    def jac_det_regular_tensor_grid(self, grid):
+    def jac_det_regular_tensor_grid(self, grid, overlap=0):
         """Evaluates the Jacobian determinant on a regular tensor product grid.
 
         Parameters
@@ -1110,6 +1172,9 @@ class NurbsMapping( SplineMapping ):
             number of cells in the domain in the direction xi and nv_xi is the number of
             evaluation points in the same direction.
 
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+
         Returns
         -------
         jac_dets : ndarray
@@ -1118,11 +1183,11 @@ class NurbsMapping( SplineMapping ):
             at the location corresponding to ``(x_1, ..., x_ldim)``.
         """
         from psydac.core.kernels import eval_jac_det_3d_weights, eval_jac_det_2d_weights
+        
+        degree, global_basis, global_spans, local_shape = self.space.preprocess_regular_tensor_grid(grid, der=1, overlap=overlap)
 
-        ncells = [grid[i].shape[0] for i in range(self.ldim)]
-        n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
-
-        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid, der=1)
+        ncells = [local_shape[i][0] for i in range(self.ldim)]
+        n_eval_points = [local_shape[i][1] for i in range(self.ldim)]
 
         jac_dets = np.zeros(shape=tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim)))
 
@@ -1134,7 +1199,7 @@ class NurbsMapping( SplineMapping ):
             global_arr_y = self._fields[1].coeffs._data
             global_arr_z = self._fields[2].coeffs._data
 
-            eval_jac_det_3d_weights(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0], degree[1],
+            eval_jac_det_3d_weights(ncells[0], ncells[1], ncells[2], degree[0], degree[1],
                                     degree[2], n_eval_points[0], n_eval_points[1], n_eval_points[2], global_basis[0],
                                     global_basis[1], global_basis[2], global_spans[0], global_spans[1],
                                     global_spans[2], global_arr_x, global_arr_y, global_arr_z, global_arr_weights,
@@ -1144,7 +1209,7 @@ class NurbsMapping( SplineMapping ):
             global_arr_x = self._fields[0].coeffs._data
             global_arr_y = self._fields[1].coeffs._data
 
-            eval_jac_det_2d_weights(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], n_eval_points[0],
+            eval_jac_det_2d_weights(ncells[0], ncells[1], degree[0], degree[1], n_eval_points[0],
                                     n_eval_points[1], global_basis[0], global_basis[1], global_spans[0],
                                     global_spans[1], global_arr_x, global_arr_y, global_arr_weights, jac_dets)
 
@@ -1152,6 +1217,64 @@ class NurbsMapping( SplineMapping ):
             raise NotImplementedError("1D case not Implemented")
 
         return jac_dets
+
+    # ...
+    def jac_det_irregular_tensor_grid(self, grid, overlap=0):
+        """Evaluates the Jacobian determinant on a regular tensor product grid.
+
+        Parameters
+        ----------
+        grid : List of ndarray
+            List of 2D arrays representing each direction of the grid.
+            Each of these arrays should have shape (ne_xi, nv_xi) where ne_xi is the
+            number of cells in the domain in the direction xi and nv_xi is the number of
+            evaluation points in the same direction.
+
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+
+        Returns
+        -------
+        jac_dets : ndarray
+            ``self.ldim`` D array of shape ``(n_x_1, ..., n_x_ldim)``.
+            ``jac_dets[x_1, ..., x_ldim]`` is the Jacobian determinant
+            at the location corresponding to ``(x_1, ..., x_ldim)``.
+        """
+        from psydac.core.kernels import (eval_jac_det_irregular_3d_weights, 
+                                         eval_jac_det_irregular_2d_weights)
+
+        degree, global_basis, global_spans, cell_indexes, \
+        local_shape = self.space.preprocess_irregular_tensor_grid(grid, der=1, overlap=overlap)
+
+        npts = local_shape
+
+        jac_dets = np.zeros(local_shape)
+
+        global_arr_weights = self._weights_field.coeffs._data
+
+        if self.ldim == 3:
+
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+            global_arr_z = self._fields[2].coeffs._data
+
+            eval_jac_det_irregular_3d_weights(*npts, *degree, *cell_indexes, *global_basis, 
+                                              *global_spans, global_arr_x, global_arr_y, global_arr_z, 
+                                              global_arr_weights, jac_dets)
+
+        elif self.ldim == 2:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+
+            eval_jac_det_irregular_2d_weights(*npts, *degree, *cell_indexes, *global_basis, 
+                                              *global_spans, global_arr_x, global_arr_y, 
+                                              global_arr_weights, jac_dets)
+
+        else:
+            raise NotImplementedError("TODO")
+
+        return jac_dets
+
 
     #--------------------------------------------------------------------------
     # Other properties/methods

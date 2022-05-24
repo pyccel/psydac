@@ -32,7 +32,9 @@ from psydac.core.bsplines_pyccel import (find_span_p,
                                          elevate_knots_p,
                                          quadrature_grid_p,
                                          basis_ders_on_quad_grid_p,
-                                         basis_integrals_p)
+                                         basis_integrals_p,
+                                         cell_index_p,
+                                         basis_ders_on_irregular_grid_p)
 
 __all__ = ['find_span',
            'find_spans',
@@ -49,7 +51,9 @@ __all__ = ['find_span',
            'elevate_knots',
            'quadrature_grid',
            'basis_integrals',
-           'basis_ders_on_quad_grid']
+           'basis_ders_on_quad_grid',
+           'cell_index',
+           'basis_ders_on_irregular_grid']
 
 
 #==============================================================================
@@ -113,7 +117,10 @@ def find_spans(knots, degree, x, out=None):
     knots = np.asarray(knots, dtype=float)
     x = np.asarray(x, dtype=float)
     if out is None:
-        out = np.zeros_like(x)
+        out = np.zeros_like(x, dtype=int)
+    else:
+        assert out.shape == x.shape and out.dtype == np.dtype('int')
+
     find_spans_p(knots, degree, x, out)
     return out
 
@@ -147,9 +154,12 @@ def basis_funs(knots, degree, x, span, out=None):
         Bsplines at location ``x``.
     """
     knots = np.asarray(knots, dtype=float)
+    # Get native float
     x = float(x)
     if out is None:
-        out = np.zeros(degree + 1)
+        out = np.zeros(degree + 1, dtype=float)
+    else:
+        assert out.shape == (degree + 1,) and out.dtype == np.dtype('float')
     basis_funs_p(knots, degree, x, span, out)
     return out
 
@@ -184,7 +194,9 @@ def basis_funs_array(knots, degree, span, x, out=None):
     knots = np.asarray(knots, dtype=float)
     x = np.asarray(x, dtype=float)
     if out is None:
-        out = np.zeros((x.shape, degree + 1))
+        out = np.zeros(x.shape + (degree + 1,), dtype=float)
+    else:
+        assert out.shape == x.shape + (degree + 1,) and out.dtype == np.dtype('float')
     basis_funs_array_p(knots, degree, x, span,  out)
     return out
 
@@ -227,9 +239,13 @@ def basis_funs_1st_der(knots, degree, x, span, out=None):
     .. [2] SELALIB, Semi-Lagrangian Library. http://selalib.gforge.inria.fr
     """
     knots = np.asarray(knots, dtype=float)
+    # Get native float to work on windows
     x = float(x)
     if out is None:
-        out = np.zeros(degree + 1)
+        out = np.zeros(degree + 1, dtype=float)
+    else:
+        assert out.shape == (degree + 1,) and out.dtype == np.dtype('float')
+
     basis_funs_1st_der_p(knots, degree, x, span, out)
     return out
 
@@ -274,9 +290,13 @@ def basis_funs_all_ders(knots, degree, x, span, n, normalization='B', out=None):
         for 0 <= i <= n and 0 <= j <= degree+1.
     """
     knots = np.asarray(knots, dtype=float)
+    # Get native float to work on windows
     x = float(x)
     if out is None:
-        out = np.zeros((n + 1, degree + 1))
+        out = np.zeros((n + 1, degree + 1), dtype=float)
+    else:
+        assert out.shape == (n + 1, degree + 1) and out.dtype == np.dtype('float')
+
     basis_funs_all_ders_p(knots, degree, x, span, n, normalization == 'M', out)
     return out
 
@@ -324,7 +344,9 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None):
         if periodic:
             nb -= degree
 
-        out = np.zeros((xgrid.shape[0], nb))
+        out = np.zeros((xgrid.shape[0], nb), dtype=float)
+    else:
+        assert out.shape == ((xgrid.shape[0], nb)) and out.dtype == np.dtype('float')
 
     bool_normalization = normalization == "M"
 
@@ -402,9 +424,15 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid, check_bo
 
     if out is None:
         if periodic:
-            out = np.zeros((len(xgrid), len(knots) - 2 * degree - 1))
+            out = np.zeros((len(xgrid), len(knots) - 2 * degree - 1), dtype=float)
         else:
-            out = np.zeros((len(xgrid) - 1, len(elevated_knots) - (degree + 1) - 1 - 1))
+            out = np.zeros((len(xgrid) - 1, len(elevated_knots) - (degree + 1) - 1 - 1), dtype=float)
+    else:
+        if periodic:
+            assert out.shape == (len(xgrid), len(knots) - 2 * degree - 1)
+        else:
+            assert out.shape == (len(xgrid) - 1, len(elevated_knots) - (degree + 1) - 1 - 1)
+        assert out.dtype == np.dtype('float')
 
     histopolation_matrix_p(knots, degree, periodic, normalization, xgrid, check_boundary, elevated_knots, out)
     return out
@@ -437,7 +465,9 @@ def breakpoints(knots, degree, tol=1e-15, out=None):
     """
     knots = np.asarray(knots, dtype=float)
     if out is None:
-        out = np.zeros(len(knots))
+        out = np.zeros(len(knots), dtype=float)
+    else:
+        assert out.shape == knots.shape and out.dtype == np.dtype('float')
     i_final = breakpoints_p(knots, degree, out, tol)
     return out[:i_final]
 
@@ -520,8 +550,9 @@ def elements_spans(knots, degree, out=None):
     """
     knots = np.asarray(knots, dtype=float)
     if out is None:
-        out = np.zeros(len(knots), dtype=int)
-
+        out = np.zeros(len(knots), dtype=np.int64)
+    else:
+        assert out.shape == knots.shape and out.dtype == np.dtype('int64')
     i_final = elements_spans_p(knots, degree, out)
     return out[:i_final]
 
@@ -568,14 +599,20 @@ def make_knots(breaks, degree, periodic, multiplicity=1, out=None):
     assert all( np.diff(breaks) > 0 )
     assert degree > 0
     assert 1 <= multiplicity and multiplicity <= degree + 1
+    # Cast potential numpy.int64 into python native int
+    multiplicity = int(multiplicity)
 
     if periodic:
         assert len(breaks) > degree
+
     breaks = np.asarray(breaks, dtype=float)
-    p = degree
     if out is None:
         out = np.zeros(multiplicity * len(breaks[1:-1]) + 2 + 2 * degree)
+    else:
+        assert out.shape == (multiplicity * len(breaks[1:-1]) + 2 + 2 * degree,) \
+            and out.dtype == np.dtype('float')
     make_knots_p(breaks, degree, periodic, out, multiplicity)
+
     return out
 
 #==============================================================================
@@ -617,16 +654,27 @@ def elevate_knots(knots, degree, periodic, multiplicity=1, tol=1e-15, out=None):
     new_knots : ndarray
         Knots sequence of spline space of degree p+1.
     """
+    multiplicity = int(multiplicity)
     knots = np.asarray(knots, dtype=float)
     if out is None:
         if periodic:
-            out = np.zeros(knots.shape[0] + 2)
+            out = np.zeros(knots.shape[0] + 2, dtype=float)
         else:
             shape = 2*(degree + 2)
             if len(knots) - 2 * (degree + 1) > 0:
                 uniques = np.asarray(np.diff(knots[degree + 1:-degree - 1]) > tol).nonzero()
                 shape += multiplicity * (1 + uniques[0].shape[0])
-            out = np.zeros(shape)
+            out = np.zeros(shape, dtype=float)
+    else:
+        if periodic:
+            assert out.shape == (knots.shape[0] + 2,) and out.dtype == np.dtype('float')
+        else:
+            shape = 2*(degree + 2)
+            if len(knots) - 2 * (degree + 1) > 0:
+                uniques = np.asarray(np.diff(knots[degree + 1:-degree - 1]) > tol).nonzero()
+                shape += multiplicity * (1 + uniques[0].shape[0])
+            assert out.shape == shape and out.dtype == np.dtype('float')
+
     elevate_knots_p(knots, degree, periodic, out, multiplicity, tol)
     return out
 
@@ -692,7 +740,7 @@ def quadrature_grid(breaks, quad_rule_x, quad_rule_w):
     return out1, out2
 
 #==============================================================================
-def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization, out=None):
+def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization, offset=0, out=None):
     """
     Evaluate B-Splines and their derivatives on the quadrature grid.
 
@@ -714,6 +762,9 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization, out=
 
     normalization : str
         Set to 'B' for B-splines, and 'M' for M-splines.
+    
+    offset : int, default=0
+        Assumes that the quadrature grid starts from cell number offset.
 
     out : array, optional
         If provided, the result will be inserted into this array.
@@ -743,12 +794,15 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization, out=
             [[0.5, 0.6875 , 0.75 , 0.6875 ]],
             [[0. , 0.03125, 0.125, 0.28125]]]])
     """
+    offset = int(offset)
     ne, nq = quad_grid.shape
     knots = np.asarray(knots, dtype=float)
     quad_grid = np.ascontiguousarray(quad_grid, dtype=float)
     if out is None:
-        out = np.zeros((ne, degree + 1, nders + 1, nq))
-    basis_ders_on_quad_grid_p(knots, degree, quad_grid, nders, normalization == 'M', out)
+        out = np.zeros((ne, degree + 1, nders + 1, nq), dtype=float)
+    else:
+        assert out.shape == (ne, degree + 1, nders + 1, nq) and out.dtype == np.dtype('float')
+    basis_ders_on_quad_grid_p(knots, degree, quad_grid, nders, normalization == 'M', offset, out)
     return out
 
 
@@ -788,6 +842,106 @@ def basis_integrals(knots, degree, out=None):
     """
     knots = np.asarray(knots, dtype=float)
     if out is None:
-        out = np.zeros(len(knots) - degree - 1)
+        out = np.zeros(len(knots) - degree - 1, dtype=float)
+    else:
+        assert out.shape is (len(knots) - degree - 1,) and out.dtype == np.dtype('float')
     basis_integrals_p(knots, degree, out)
+    return out
+
+#==============================================================================
+def cell_index(breaks, i_grid, tol=1e-15, out=None):
+    """
+    Computes in which cells a given array of locations belong.
+
+    Locations close to a interior breakpoint will be assumed to be
+    present twice in the grid, once of for each cell. Boundary breakpoints are snapped to the interior of the domain.
+
+    Parameters
+    ----------
+    breaks : array_like
+        Coordinates of breakpoints (= cell edges); given in increasing order and
+        with no duplicates.
+
+    i_grid : ndarray
+        1D array of all of the points on which to evaluate the 
+        basis functions. The points do not need to be sorted.
+
+    tol : float, default=1e-15
+        If the distance between a given point in ``i_grid`` and 
+        a breakpoint is less than ``tol`` then it is considered 
+        to be the breakpoint.
+    
+    out : array, optional
+        If given, the result will be inserted into this array.
+        It should be of the appropriate shape and dtype.
+    
+    Returns
+    -------
+    cell_index: ndarray
+        1D array of the same shape as ``i_grid``.
+        ``cell_index[i]`` is the index of the cell in which
+        ``i_grid[i]`` belong.
+    """
+    breaks = np.asarray(breaks, dtype=float)
+    i_grid = np.asarray(i_grid, dtype=float)
+    if out is None:
+        out = np.zeros_like(i_grid, dtype=np.int64)
+    else:
+        assert out.shape == i_grid.shape and out.dtype == np.dtype('int64')
+    status = cell_index_p(breaks, i_grid, tol, out)
+    if status == -1:
+        raise ValueError("Encountered a point that was outside of the domain")
+    return out
+
+#==============================================================================
+def basis_ders_on_irregular_grid(knots, degree, i_grid, cell_index, nders, normalization, out=None):
+    """
+    Evaluate B-Splines and their derivatives on an irregular_grid.
+
+    If called with normalization='M', this uses M-splines instead of B-splines.
+
+    Parameters
+    ----------
+    knots : array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    i_grid : ndarray
+        1D array of all of the points on which to evaluate the 
+        basis functions. The points do not need to be sorted
+    
+    cell_index : ndarray
+        1D array of the same shape as ``i_grid``.
+        ``cell_index[i]`` is the index of the cell in which
+        ``i_grid[i]`` belong.
+
+    nders : int
+        Maximum derivative of interest.
+
+    normalization : str
+        Set to 'B' for B-splines, and 'M' for M-splines.
+
+    out : array, optional
+        If given, the result will be inserted into this array.
+        It should be of the appropriate shape and dtype.
+
+    Returns
+    -------
+    out: ndarray
+        3D output array containing the values of B-Splines and their derivatives
+        at each point in ``i_grid``. Indices are:
+        . ie: location               (0 <= ie <  nx    )
+        . il: local basis function   (0 <= il <= degree)
+        . id: derivative             (0 <= id <= nders )
+    """
+    knots = np.asarray(knots, dtype=float)
+    i_grid = np.asarray(i_grid, dtype=float)
+    if out is None:
+        nx = i_grid.shape[0]
+        out = np.zeros((nx, degree + 1, nders + 1), dtype=float)
+    else:
+        assert out.shape == (nx, degree + 1, nders + 1) and out.dtype == np.dtype('float')
+    basis_ders_on_irregular_grid_p(knots, degree, i_grid, cell_index, nders, normalization == 'M', out)
     return out
