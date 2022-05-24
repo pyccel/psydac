@@ -307,11 +307,16 @@ def parse_input_arguments():
         metavar='R',
         dest='refinement',
         help='Refinement of the exported model')
+    
+    parser.add_argument('-m',
+        action='store_true',
+        dest='run_m',
+        help='Run the model')
 
     return parser.parse_args()
 
 #==============================================================================
-def main(degree, ncells, is_logical, plots, refinement):
+def main(degree, ncells, is_logical, plots, refinement, run_m):
 
     try: 
         from mpi4py import MPI
@@ -320,16 +325,16 @@ def main(degree, ncells, is_logical, plots, refinement):
     except ImportError:
         comm = None
         rank = 0
+    if run_m:
+        namespace = run_model(ncells, degree, comm, is_logical)
 
-    namespace = run_model(ncells, degree, comm, is_logical)
-
-    if rank == 0:
-        print()
-        print('L2 Norm error = {}'.format(namespace['l2_norm_ue']))
-        print('L2 Norm exact solution = {}'.format(namespace['l2_norm_e']))
-        print(flush=True)
+        if rank == 0:
+            print()
+            print('L2 Norm error = {}'.format(namespace['l2_norm_ue']))
+            print('L2 Norm exact solution = {}'.format(namespace['l2_norm_e']))
+            print(flush=True)
     
-    save_model(ncells, degree, is_logical, namespace, comm)
+        save_model(ncells, degree, is_logical, namespace, comm)
 
     if plots:
         export_model(ncells, degree, is_logical, comm, refinement)
