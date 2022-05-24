@@ -24,15 +24,12 @@ from psydac.ddm.cart       import CartDecomposition
 from psydac.core.bsplines  import (find_span,
                                    basis_funs,
                                    basis_funs_1st_der,
-                                   basis_ders_on_quad_grid)
-
-from psydac.core.kernels import (eval_fields_2d_no_weights,
+                                   basis_ders_on_quad_grid,
                                    elements_spans,
                                    cell_index,
                                    basis_ders_on_irregular_grid)
 
-from psydac.core.kernels import (eval_fields_2d_irregular_weighted, 
-                                 eval_fields_2d_no_weights,
+from psydac.core.kernels import (eval_fields_2d_no_weights,
                                  eval_fields_2d_irregular_no_weights,
                                  eval_fields_2d_weighted,
                                  eval_fields_2d_irregular_weighted,
