@@ -123,7 +123,7 @@ class StencilVectorSpace( VectorSpace ):
         self._dtype      = dtype
         self._mpi_type   = find_mpi_type(dtype)
         self._starts     = (0,)*self._ndim
-        self._ends       = (0,)*self._ndim
+        self._ends       = (-1,)*self._ndim
         self._shape      = (0,)*self._ndim
         self._interfaces = {}
 
