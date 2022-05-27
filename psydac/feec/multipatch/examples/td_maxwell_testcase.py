@@ -1,6 +1,5 @@
 import os
 import numpy as np
-from psydac.feec.multipatch.examples.test_P1_2d import test_P1
 from psydac.feec.multipatch.examples.td_maxwell_conga_2d import solve_td_maxwell_pbm
 from psydac.feec.multipatch.utilities                   import time_count, FEM_sol_fn, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
 from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_file
@@ -188,23 +187,6 @@ for nc in nc_s:
         # to load the ref FEM sol
         sol_ref_dir = get_sol_dir(ref_case_dir, domain_name, ref_nc, ref_deg)
         sol_ref_filename = sol_ref_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
-
-        print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
-        print(' Calling test_P1() with params = {}'.format(params))
-        print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
-
-
-        test_P1(nc=nc, deg=deg, domain_name=domain_name, backend_language=backend_language, 
-        source_type=source_type, source_proj=source_proj,
-        conf_proj=conf_proj, filter_source=filter_source,
-        plot_dir=plot_dir, hide_plots=True,
-        cb_min_sol=cb_min_sol, cb_max_sol=cb_max_sol,
-        m_load_dir=m_load_dir
-        )
-
-        exit()
-
-
 
         print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
         print(' Calling solve_hcurl_source_pbm() with params = {}'.format(params))

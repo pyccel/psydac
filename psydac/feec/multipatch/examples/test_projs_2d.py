@@ -1,5 +1,6 @@
 # coding: utf-8
 
+from multiprocessing.dummy import Value
 from pytest import param
 from mpi4py import MPI
 
@@ -9,6 +10,7 @@ from collections import OrderedDict
 import matplotlib.pyplot as plt
 
 from sympy import lambdify, Matrix
+from sympy import pi, cos, sin, Tuple, exp
 
 from scipy.sparse.linalg import spsolve
 from scipy import special
@@ -27,14 +29,14 @@ from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
 from psydac.feec.multipatch.operators                   import HodgeOperator, get_K0_and_K0_inv, get_K1_and_K1_inv
 from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_hcurl, get_div_free_pulse, get_curl_free_pulse
+from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_hcurl, get_div_free_pulse, get_curl_free_pulse, get_phi_pulse
 from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P0_phys, P1_phys, P2_phys, get_Vh_diags_for
 from psydac.feec.multipatch.utilities                   import time_count
 from psydac.feec.multipatch.utilities                   import get_run_dir, get_plot_dir, get_mat_dir
 from psydac.fem.basic                                   import FemField
 
 def test_P1(
-        nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_type=None, source_proj=None,
+        nc=4, deg=4, domain_name='pretzel_f', backend_language=None, rho_source_type=None, source_type=None, source_proj=None,
         conf_proj='GSP', filter_source=True,
         plot_dir=None, hide_plots=True,
         cb_min_sol=None, cb_max_sol=None,
@@ -157,25 +159,36 @@ def test_P1(
 
     def plot_J_source(f_c):
             print(' .. plotting the source...')
-            title = r'source $J_h$ (amplitude)'
+            title = r'$J_h$, source = {}, proj = {}, nc = {}, deg = {}'.format(source_type, source_proj, nc, deg)
             params_str = 'J={}_PJ={}'.format(source_type, source_proj)
             plot_field(numpy_coeffs=f_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, 
-                filename=plot_dir+'/'+params_str+'_Jh.pdf', cmap='hot',
+                filename=plot_dir+'/'+params_str+'_Jh.png', cmap='hot',
                 plot_type='amplitude', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
+
+            plot_field(numpy_coeffs=f_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, 
+                filename=plot_dir+'/'+params_str+'_Jh_xy.png', cmap='hot',
+                plot_type='components', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
+
             plot_field(numpy_coeffs=f_c, Vh=V1h, space_kind='hcurl', domain=domain, title=title, 
-                filename=plot_dir+'/'+params_str+'_Jh_vf.pdf',
+                filename=plot_dir+'/'+params_str+'_Jh_vf.png',
                 plot_type='vector_field', vf_skip=1, hide_plot=hide_plots)
 
+    def plot_rho_source(rho_c):
+            rho_c[:] += 1e-10 * np.random.random(size=V0h.nbasis)
+            print(' .. plotting the rho source...')
+            title = r'$\rho_h$, source = {}, proj = {}, nc = {}, deg = {}'.format(rho_source_type, source_proj, nc, deg)
+            params_str = 'rho={}_PJ={}'.format(rho_source_type, source_proj)
+            plot_field(numpy_coeffs=rho_c, Vh=V0h, space_kind='h1', domain=domain, surface_plot=False, title=title, 
+                filename=plot_dir+'/'+params_str+'_rho.png', cmap='hot',
+                plot_type='components', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
 
     t_stamp = time_count(t_stamp)
-    print()
-    print(' -- getting source --')
-    if source_type == 'zero':
 
-        f0_c = np.zeros(V1h.nbasis)
-    
-    else:
-        
+
+    # -------- -------- -------- -------- -------- -------- -------- -------- -------- -------- -------- -------- 
+    # projecting a source in V1
+
+    if source_type:
         if source_type == 'pulse':
 
             f0 = get_div_free_pulse(x_0=1.0, y_0=1.0, domain=domain)
@@ -183,6 +196,14 @@ def test_P1(
         elif source_type == 'cf_pulse':
 
             f0 = get_curl_free_pulse(x_0=1.0, y_0=1.0, domain=domain)
+
+        elif source_type == '1x':
+
+            f0 = Tuple(1, 0)
+
+        elif source_type == '1y':
+
+            f0 = Tuple(0, 1)
 
         else:
 
@@ -223,21 +244,93 @@ def test_P1(
 
         f0_c = dH1_m.dot(tilde_f0_c)
 
-    t_stamp = time_count(t_stamp)
-    
-    plot_J_source(f0_c)
-    
+        t_stamp = time_count(t_stamp)
+        
+        plot_J_source(f0_c)
+
+    else:
+
+        print(' No J source -- ')
+
+    # -------- -------- -------- -------- -------- -------- -------- -------- -------- -------- -------- -------- 
+    # projecting a source in V0
+
+    if rho_source_type:
+
+        if rho_source_type == 'scal_pulse':
+
+            rho = get_phi_pulse(x_0=1.0, y_0=1.0, domain=domain)
+
+        elif rho_source_type == '1':
+
+            rho = 1
+
+        else:
+            raise ValueError
+
+        t_stamp = time_count(t_stamp)
+        tilde_rho_c = rho_c = None
+        if source_proj == 'P_geom':
+            print(' .. projecting the source with commuting projection...')
+            rho_h = P0_phys(rho, P0, domain, mappings_list)
+            rho_c = rho_h.coeffs.toarray()
+            tilde_rho_c = H0_m.dot(rho_c)  # not needed here I think
+
+        elif source_proj == 'P_L2':
+            # helper: save/load coefs
+            sdd_filename = m_load_dir+'/'+rho_source_type+'_rho_dual_dofs.npy'
+            if os.path.exists(sdd_filename):
+                print(' .. loading source dual dofs from file {}'.format(sdd_filename))
+                tilde_rho_c = np.load(sdd_filename)
+            else:
+                print(' .. projecting the source with L2 projection...')
+                tilde_rho_c = derham_h.get_dual_dofs(space='V0', f=rho, backend_language=backend_language, return_format='numpy_array')
+                print(' .. saving source dual dofs to file {}'.format(sdd_filename))
+                np.save(sdd_filename, tilde_rho_c)
+
+        else:
+            raise ValueError(source_proj)
+
+        t_stamp = time_count(t_stamp)
+        if filter_source:
+            print(' .. filtering the source...')
+            tilde_rho_c = cP0_m.transpose() @ tilde_rho_c
+
+        rho_c = dH0_m.dot(tilde_rho_c)
+
+        t_stamp = time_count(t_stamp)
+        
+        plot_rho_source(rho_c)
+
+    else:
+
+        print(' No rho source -- ')
+            
     time_count(t_stamp)
     
 
+
+
+#  ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+#
+#  ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+#
+#  ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+#
+#  ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+
+
+
 if __name__ == '__main__':
 
-    source_type = 'cf_pulse' # 'pulse' # 'elliptic_J' #
+    rho_source_type = '' # '1' # 'scal_pulse'
+    source_type = '1y' # '' # 
+    # source_type = 'cf_pulse' # 'pulse' # 'elliptic_J' #
     source_proj = 'P_geom' #'P_L2' # 
     filter_source = False # True # 
 
-    nc_s = [8]
-    deg_s = [5]
+    nc_s = [16]
+    deg_s = [7] # [2,3,4,5,6]
     
     case_dir = 'test_P1_J=' + source_type + '_' + source_proj
     if filter_source:
@@ -259,6 +352,7 @@ if __name__ == '__main__':
                 'nc': nc,
                 'deg': deg,
                 'source_type': source_type,
+                'rho_source_type': rho_source_type,
                 'source_proj': source_proj,
                 'conf_proj': conf_proj,
                 'filter_source': filter_source, 
@@ -277,7 +371,7 @@ if __name__ == '__main__':
             print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
 
             test_P1(nc=nc, deg=deg, domain_name=domain_name, backend_language=backend_language, 
-            source_type=source_type, source_proj=source_proj,
+            source_type=source_type, rho_source_type=rho_source_type, source_proj=source_proj,
             conf_proj=conf_proj, filter_source=filter_source,
             plot_dir=plot_dir, hide_plots=True,
             cb_min_sol=cb_min_sol, cb_max_sol=cb_max_sol,
