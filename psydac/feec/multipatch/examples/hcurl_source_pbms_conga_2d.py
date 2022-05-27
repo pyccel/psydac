@@ -34,7 +34,7 @@ def solve_hcurl_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
         eta=-10., mu=1., nu=1., gamma_h=10.,     
         project_sol=False, filter_source=True,
-        plot_source=False, plot_dir=None, hide_plots=True,
+        plot_source=False, plot_dir=None, hide_plots=True, skip_plot_titles=False,
         cb_min_sol=None, cb_max_sol=None,
         m_load_dir="", sol_filename="", sol_ref_filename="",
         ref_nc=None, ref_deg=None,
@@ -253,8 +253,16 @@ def solve_hcurl_source_pbm(
         raise ValueError(source_proj)
 
     if plot_source:
-        plot_field(numpy_coeffs=f_c, Vh=V1h, space_kind='hcurl', domain=domain, title='f_h with P = '+source_proj, filename=plot_dir+'/fh_'+source_proj+'.png', hide_plot=hide_plots)
-        plot_field(numpy_coeffs=f_c, Vh=V1h, plot_type='vector_field', space_kind='hcurl', domain=domain, title='f_h with P = '+source_proj, filename=plot_dir+'/fh_'+source_proj+'_vf.png', hide_plot=hide_plots)
+        if skip_plot_titles:
+            title = ''
+            title_vf = ''
+        else:
+            title = 'f_h with P = '+source_proj
+            title_vf = 'f_h with P = '+source_proj
+        plot_field(numpy_coeffs=f_c, Vh=V1h, space_kind='hcurl', domain=domain, 
+            title=title, filename=plot_dir+'/fh_'+source_proj+'.png', hide_plot=hide_plots)
+        plot_field(numpy_coeffs=f_c, Vh=V1h, plot_type='vector_field', space_kind='hcurl', domain=domain, 
+            title=title_vf, filename=plot_dir+'/fh_'+source_proj+'_vf.png', hide_plot=hide_plots)
 
     if filter_source:
         print(' .. filtering the source...')
@@ -286,8 +294,10 @@ def solve_hcurl_source_pbm(
         print('    setting curl_uh_ref = P2(curl_u_ex)')
         curl_uh_ref = P2_phys(curl_u_ex, P2, domain, mappings_list)
         diag_grid.write_sol_ref_values(curl_uh_ref, space='V2')
-
-        title = r'curl $u$ (amplitude) for $\eta = $'+repr(eta)
+        if skip_plot_titles:
+            title = ''
+        else:
+            title = r'curl $u$ (amplitude) for $\eta = $'+repr(eta)
         params_str = 'eta={}_mu={}_nu={}_gamma_h={}_Pf={}'.format(eta, mu, nu, gamma_h, source_proj)
         plot_field(fem_field=curl_uh_ref, Vh=V2h, space_kind='l2', domain=domain, surface_plot=False, title=title, filename=plot_dir+'/'+params_str+'_curl_u_ex.png', 
             plot_type='amplitude', cb_min=None, cb_max=None, hide_plot=hide_plots)
@@ -297,8 +307,10 @@ def solve_hcurl_source_pbm(
         print('    setting div_uh_ref = P0(div_u_ex)')
         div_uh_ref = P0_phys(div_u_ex, P0, domain, mappings_list)
         diag_grid.write_sol_ref_values(div_uh_ref, space='V0')
-
-        title = r'div $u$ (amplitude) for $\eta = $'+repr(eta)
+        if skip_plot_titles:
+            title = ''
+        else:
+            title = r'div $u$ (amplitude) for $\eta = $'+repr(eta)
         params_str = 'eta={}_mu={}_nu={}_gamma_h={}_Pf={}'.format(eta, mu, nu, gamma_h, source_proj)
         plot_field(fem_field=div_uh_ref, Vh=V0h, space_kind='h1', domain=domain, surface_plot=False, title=title, filename=plot_dir+'/'+params_str+'_div_u_ex.png', 
             plot_type='amplitude', cb_min=None, cb_max=None, hide_plot=hide_plots)
@@ -330,14 +342,18 @@ def solve_hcurl_source_pbm(
     print(' -- plots and diagnostics  --')
     if plot_dir:
         print(' .. plotting the FEM solution...')
-        title = r'solution $u_h$ (amplitude) for $\eta = $'+repr(eta)
+        if skip_plot_titles:
+            title = ''
+            title_vf = ''
+        else:
+            title = r'solution $u_h$ (amplitude) for $\eta = $'+repr(eta)
+            title_vf = r'solution $u_h$ for $\eta = $'+repr(eta)
         params_str = 'eta={}_mu={}_nu={}_gamma_h={}_Pf={}'.format(eta, mu, nu, gamma_h, source_proj)
         plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, 
-            filename=plot_dir+'/'+params_str+'_uh.png', 
+            filename=plot_dir+'/'+params_str+'_uh.pdf', 
             plot_type='amplitude', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
-        title = r'solution $u_h$ for $\eta = $'+repr(eta)
-        plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', domain=domain, title=title, 
-            filename=plot_dir+'/'+params_str+'_uh_vf.png', 
+        plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', domain=domain, title=title_vf, 
+            filename=plot_dir+'/'+params_str+'_uh_vf.pdf', 
             plot_type='vector_field', hide_plot=hide_plots)
     if sol_filename:
         print(' .. saving solution coeffs to file {}'.format(sol_filename))

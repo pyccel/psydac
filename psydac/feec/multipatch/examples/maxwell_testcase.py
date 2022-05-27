@@ -10,7 +10,7 @@ t_stamp_full = time_count()
 #
 # test-case and numerical parameters:
 
-homogeneous = False # True # 
+homogeneous = True # False # 
 
 # nc_s = [2,4,8,16]
 # deg_s = [2,3,4,5]
@@ -27,11 +27,12 @@ if homogeneous:
     # ref_case_dir = 'maxwell_hom_eta=50'
     source_type = 'elliptic_J'
     
-    case_dir = 'maxwell_hom'   
-    omega = np.sqrt(170) # source time pulsation
+    # case_dir = 'maxwell_hom'   
+    # omega = np.sqrt(170) # source time pulsation
 
-    # case_dir = 'maxwell_hom_eta=50'
-    # omega = np.sqrt(50) # source time pulsation
+    case_dir = 'maxwell_hom_eta=50'
+    case_dir = 'maxwell_hom_eta=50_PLOT_TEST'
+    omega = np.sqrt(50) # source time pulsation
 
     ref_case_dir = case_dir
     domain_name = 'pretzel_f'
@@ -141,6 +142,7 @@ for nc in nc_s:
             filter_source=filter_source,
             plot_dir=plot_dir,
             hide_plots=True,
+            skip_plot_titles=True,
             cb_min_sol=cb_min_sol, 
             cb_max_sol=cb_max_sol,
             m_load_dir=m_load_dir,
