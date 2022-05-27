@@ -82,11 +82,14 @@ def get_load_dir(method=None, DG_full=False, domain_name=None,nc=None,deg=None,d
     fem_name = get_fem_name(domain_name=domain_name,method=method, nc=nc,deg=deg, DG_full=DG_full)
     return './saved_'+data+'/'+fem_name+'/'
 
-def get_run_dir(domain_name, nc, deg, source_type=None):
-    if source_type is None:
-        return '{}_nc={}_deg={}'.format(domain_name, nc, deg)
-    else:
-        return '{}_{}_nc={}_deg={}'.format(domain_name, source_type, nc, deg)
+def get_run_dir(domain_name, nc, deg, source_type=None, conf_proj=None):
+    rdir = domain_name
+    if source_type:
+        rdir += '_'+source_type
+    if conf_proj:
+        rdir += '_P='+conf_proj
+    rdir += '_nc={}_deg={}'.format(nc, deg)
+    return rdir
 
 def get_plot_dir(case_dir, run_dir):
     return './plots/'+case_dir+'/'+run_dir

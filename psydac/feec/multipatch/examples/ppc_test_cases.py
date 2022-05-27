@@ -21,6 +21,36 @@ comm = MPI.COMM_WORLD
 
 # todo [MCP, 12/02/2022]:  add an 'equation' argument to be able to return 'exact solution'
 
+def get_div_free_pulse(x_0, y_0, domain=None):
+    x,y    = domain.coordinates
+    ds2_0 = (0.02)**2
+    sigma_0 = (x-x_0)**2 + (y-y_0)**2
+    phi_0 = exp(-sigma_0**2/(2*ds2_0))
+    dx_sig_0 = 2*(x-x_0)
+    dy_sig_0 = 2*(y-y_0)
+    dx_phi_0 = - dx_sig_0 * sigma_0 / ds2_0 * phi_0
+    dy_phi_0 = - dy_sig_0 * sigma_0 / ds2_0 * phi_0
+    f_x    =   dy_phi_0
+    f_y    = - dx_phi_0
+    f_vect = Tuple(f_x, f_y)
+
+    return f_vect
+
+def get_curl_free_pulse(x_0, y_0, domain=None):
+    x,y    = domain.coordinates
+    ds2_0 = (0.1)**2
+    sigma_0 = (x-x_0)**2 + (y-y_0)**2
+    phi_0 = exp(-sigma_0**2/(2*ds2_0))
+    dx_sig_0 = 2*(x-x_0)
+    dy_sig_0 = 2*(y-y_0)
+    dx_phi_0 = - dx_sig_0 * sigma_0 / ds2_0 * phi_0
+    dy_phi_0 = - dy_sig_0 * sigma_0 / ds2_0 * phi_0
+    f_x    = -dx_phi_0
+    f_y    = -dy_phi_0
+    f_vect = Tuple(f_x, f_y)
+
+    return f_vect
+
 def get_source_and_sol_for_magnetostatic_pbm(
     source_type=None,
     domain=None, domain_name=None,
