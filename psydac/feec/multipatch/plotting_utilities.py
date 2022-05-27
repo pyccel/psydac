@@ -4,6 +4,7 @@ from mpi4py import MPI
 from sympy  import lambdify
 
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib  import cm, colors
 from mpl_toolkits import mplot3d
@@ -13,6 +14,8 @@ from psydac.linalg.utilities import array_to_stencil
 from psydac.fem.basic        import FemField
 from psydac.utilities.utils  import refine_array_1d
 from psydac.feec.pull_push   import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
+
+matplotlib.rcParams['font.size'] = 15
 
 #==============================================================================
 def is_vector_valued(u):
@@ -272,7 +275,7 @@ def plot_field(
             save_vals = True,
             hide_plot=hide_plot,
             cmap=cmap, 
-            dpi = 400,
+            dpi = 300,
         )
 
     # if is_vector_valued(vh):
@@ -345,9 +348,11 @@ def my_small_plot(
             vmax = cb_max
         cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
         assert n_patches == len(vals[i])
+
         ax = fig.add_subplot(1, n_plots, i+1)
         for k in range(n_patches):
-            ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap) #, extend='both')
+            ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap, zorder=-10) #, extend='both')
+        ax.set_rasterization_zorder(0)
         cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
         if gridlines_x1 is not None:
             ax.plot(*gridlines_x1, color='k')
@@ -357,6 +362,7 @@ def my_small_plot(
             ax.set_ylabel( r'$y$', rotation='horizontal' )
         if n_plots > 1:
             ax.set_title ( titles[i] )
+        ax.set_aspect('equal')
 
     if save_fig:
         print('saving contour plot in file '+save_fig)
@@ -408,6 +414,7 @@ def my_small_streamplot(
         amp_factor=1,
         save_fig=None,
         hide_plot=False,
+        show_xylabel=True,
         dpi='figure',
 ):
     """
@@ -416,7 +423,10 @@ def my_small_streamplot(
     n_patches = len(xx)
     assert n_patches == len(yy)
 
-    fig = plt.figure(figsize=(2.6+4.8, 4.8))
+    # fig = plt.figure(figsize=(2.6+4.8, 4.8))
+    
+    fig, ax = plt.subplots(1,1, figsize=(2.6+4.8, 4.8))
+    
     fig.suptitle(title, fontsize=14)
 
     delta = 0.25
@@ -426,8 +436,14 @@ def my_small_streamplot(
     #print('max_val = {}'.format(max_val))
     vf_amp = amp_factor/max_val
     for k in range(n_patches):
-        plt.quiver(xx[k][::skip, ::skip], yy[k][::skip, ::skip], vals_x[k][::skip, ::skip], vals_y[k][::skip, ::skip],
+        ax.quiver(xx[k][::skip, ::skip], yy[k][::skip, ::skip], vals_x[k][::skip, ::skip], vals_y[k][::skip, ::skip],
                    scale=1/(vf_amp*0.05), width=0.002) # width=) units='width', pivot='mid',
+
+    if show_xylabel:
+        ax.set_xlabel( r'$x$', rotation='horizontal' )
+        ax.set_ylabel( r'$y$', rotation='horizontal' )
+
+    ax.set_aspect('equal')
 
     if save_fig:
         print('saving vector field (stream) plot in file '+save_fig)
