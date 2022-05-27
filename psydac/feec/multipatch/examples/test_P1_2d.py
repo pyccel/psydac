@@ -25,12 +25,12 @@ from psydac.feec.pull_push import pull_2d_hcurl
 from psydac.feec.multipatch.api                         import discretize
 from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
 from psydac.feec.multipatch.operators                   import HodgeOperator, get_K0_and_K0_inv, get_K1_and_K1_inv
-from psydac.feec.multipatch.plotting_utilities          import plot_field #, write_field_to_diag_grid, 
+from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_hcurl, get_div_free_pulse, get_curl_free_pulse
 from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P0_phys, P1_phys, P2_phys, get_Vh_diags_for
-from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
-from psydac.linalg.utilities                            import array_to_stencil
+from psydac.feec.multipatch.utilities                   import time_count
+from psydac.feec.multipatch.utilities                   import get_run_dir, get_plot_dir, get_mat_dir
 from psydac.fem.basic                                   import FemField
 
 def test_P1(
@@ -225,43 +225,62 @@ def test_P1(
 
     t_stamp = time_count(t_stamp)
     
-
     plot_J_source(f0_c)
+    
+    time_count(t_stamp)
     
 
 if __name__ == '__main__':
-    # quick run, to test 
 
-    raise NotImplementedError
+    source_type = 'cf_pulse' # 'pulse' # 'elliptic_J' #
+    source_proj = 'P_geom' #'P_L2' # 
+    filter_source = False # True # 
 
+    nc_s = [8]
+    deg_s = [5]
+    
+    case_dir = 'test_P1_J=' + source_type + '_' + source_proj
+    if filter_source:
+        case_dir += '_filter'
+    else:
+        case_dir += '_nofilter'
+    domain_name = 'pretzel_f'
 
-    t_stamp_full = time_count()
+    conf_proj = 'GSP'
 
-    omega = np.sqrt(170) # source
-    roundoff = 1e4
-    eta = int(-omega**2 * roundoff)/roundoff
+    cb_min_sol = None
+    cb_max_sol = None 
 
-    source_type = 'manu_maxwell'
-    # source_type = 'manu_J'
+    for nc in nc_s:
+        for deg in deg_s:
 
-    domain_name = 'curved_L_shape'
-    nc = 4
-    deg = 2
+            params = {
+                'domain_name': domain_name,
+                'nc': nc,
+                'deg': deg,
+                'source_type': source_type,
+                'source_proj': source_proj,
+                'conf_proj': conf_proj,
+                'filter_source': filter_source, 
+            }
+            # backend_language = 'numba'
+            backend_language='pyccel-gcc'
 
-    run_dir = '{}_{}_nc={}_deg={}/'.format(domain_name, source_type, nc, deg)
-    m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
-    solve_hcurl_source_pbm(
-        nc=nc, deg=deg,
-        eta=eta,
-        nu=0,
-        mu=1, #1,
-        domain_name=domain_name,
-        source_type=source_type,
-        backend_language='pyccel-gcc',
-        plot_source=True,
-        plot_dir='./plots/tests_source_feb_13/'+run_dir,
-        hide_plots=True,
-        m_load_dir=m_load_dir
-    )
+            run_dir = get_run_dir(domain_name, nc, deg, source_type=source_type, conf_proj=conf_proj)
+            plot_dir = get_plot_dir(case_dir, run_dir)
 
-    time_count(t_stamp_full, msg='full program')
+            # to save and load matrices
+            m_load_dir = get_mat_dir(domain_name, nc, deg)
+
+            print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
+            print(' Calling test_P1() with params = {}'.format(params))
+            print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
+
+            test_P1(nc=nc, deg=deg, domain_name=domain_name, backend_language=backend_language, 
+            source_type=source_type, source_proj=source_proj,
+            conf_proj=conf_proj, filter_source=filter_source,
+            plot_dir=plot_dir, hide_plots=True,
+            cb_min_sol=cb_min_sol, cb_max_sol=cb_max_sol,
+            m_load_dir=m_load_dir
+            )
+    
