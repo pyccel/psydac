@@ -27,7 +27,7 @@ from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
 from psydac.feec.multipatch.operators                   import HodgeOperator, get_K0_and_K0_inv, get_K1_and_K1_inv
 from psydac.feec.multipatch.plotting_utilities          import plot_field #, write_field_to_diag_grid, 
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_hcurl, get_div_free_pulse, get_curl_free_pulse
+from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_hcurl, get_div_free_pulse, get_curl_free_pulse, get_Delta_phi_pulse
 from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P0_phys, P1_phys, P2_phys, get_Vh_diags_for
 from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
 from psydac.linalg.utilities                            import array_to_stencil
@@ -39,7 +39,7 @@ def solve_td_maxwell_pbm(
         conf_proj='BSP', gamma_h=10.,     
         project_sol=False, filter_source=True,
         E0_type='zero', E0_proj='P_L2', 
-        plot_source=False, plot_dir=None, hide_plots=True, plot_time_ranges=None, diag_dtau=None,
+        plot_source=False, plot_dir=None, plot_divE=False, hide_plots=True, plot_time_ranges=None, diag_dtau=None,
         cb_min_sol=None, cb_max_sol=None,
         m_load_dir="", th_sol_filename="", sol_ref_filename="",
         ref_nc=None, ref_deg=None,
@@ -233,6 +233,8 @@ def solve_td_maxwell_pbm(
             if tp is None:
                 if source_is_harmonic:
                     tp = max(Nt_pp//10,1)
+                elif source_type == 'Il_pulse':
+                    tp = max(Nt_pp//4,1)
                 else:
                     tp = max(Nt_pp,1)
             if answer:
@@ -240,64 +242,164 @@ def solve_td_maxwell_pbm(
             answer = (tr[0]*period_time <= nt*dt <= tr[1]*period_time and (nt+1)%tp == 0)
         return answer
 
+    debug = False
+
+    # ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- 
+    # source
+
     t_stamp = time_count(t_stamp)
     print()
     print(' -- getting source --')
+    f0_c = None
+    f0_harmonic_c = None
     if source_type == 'zero':
+        pass
 
-        f0_c = np.zeros(V1h.nbasis)
-    
+    elif source_type == 'pulse':
+
+        f0 = get_div_free_pulse(x_0=1.0, y_0=1.0, domain=domain)
+
+    elif source_type == 'cf_pulse':
+
+        f0 = get_curl_free_pulse(x_0=1.0, y_0=1.0, domain=domain)
+
+    elif source_type == 'Il_pulse':  #Issautier-like pulse
+        # source will be 
+        #   J = curl A + cos(om*t) * grad phi
+        # so that 
+        #   dt rho = - div J = - cos(om*t) Delta phi
+        # for instance, with rho(t=0) = 0 this  gives
+        #   rho = - sin(om*t)/om * Delta phi
+        # and Gauss' law reads
+        #  div E = rho = - sin(om*t)/om * Delta phi
+        f0 = get_div_free_pulse(x_0=1.0, y_0=1.0, domain=domain)  # this is curl A
+        f0_harmonic = get_curl_free_pulse(x_0=1.0, y_0=1.0, domain=domain) # this is grad phi
+        assert not source_is_harmonic
+
+        rho0 = get_Delta_phi_pulse(x_0=1.0, y_0=1.0, domain=domain) # this is Delta phi
+        tilde_rho0_c = derham_h.get_dual_dofs(space='V0', f=rho0, backend_language=backend_language, return_format='numpy_array')
+        tilde_rho0_c = cP0_m.transpose() @ tilde_rho0_c
+        rho0_c = dH0_m.dot(tilde_rho0_c)
+
     else:
-        
-        if source_type == 'pulse':
 
-            f0 = get_div_free_pulse(x_0=1.0, y_0=1.0, domain=domain)
+        f0, u_bc, u_ex, curl_u_ex, div_u_ex = get_source_and_solution_hcurl(
+            source_type=source_type, domain=domain, domain_name=domain_name,
+        )
+        assert u_bc is None  # only homogeneous BC's for now
 
-        elif source_type == 'cf_pulse':
+    # f0_c = np.zeros(V1h.nbasis)
 
-            f0 = get_curl_free_pulse(x_0=1.0, y_0=1.0, domain=domain)
+    def source_enveloppe(tau):        
+        return 1
 
-        else:
+    if source_is_harmonic:
+        f0_harmonic = f0
+        f0 = None
+        if E0_type == 'th_sol':
+            # use source enveloppe for smooth transition from 0 to 1
+            def source_enveloppe(tau):        
+                return (special.erf((tau/25)-2)-special.erf(-2))/2
 
-            f0, u_bc, u_ex, curl_u_ex, div_u_ex = get_source_and_solution_hcurl(
-                source_type=source_type, domain=domain, domain_name=domain_name,
-            )
-            assert u_bc is None  # only homogeneous BC's for now
-
-        # f0_c = np.zeros(V1h.nbasis)
-
-        t_stamp = time_count(t_stamp)
-        tilde_f0_c = f0_c = None
-        if source_proj == 'P_geom':
-            print(' .. projecting the source with commuting projection...')
+    t_stamp = time_count(t_stamp)
+    tilde_f0_c = f0_c = None
+    tilde_f0_harmonic_c = f0_harmonic_c = None
+    if source_proj == 'P_geom':
+        print(' .. projecting the source with commuting projection...')
+        if f0 is not None:
             f0_h = P1_phys(f0, P1, domain, mappings_list)
             f0_c = f0_h.coeffs.toarray()
-            tilde_f0_c = H1_m.dot(f0_c)  # not needed here I think
+            tilde_f0_c = H1_m.dot(f0_c)  
+        if f0_harmonic is not None:
+            f0_harmonic_h = P1_phys(f0_harmonic, P1, domain, mappings_list)
+            f0_harmonic_c = f0_harmonic_h.coeffs.toarray()
+            tilde_f0_harmonic_c = H1_m.dot(f0_harmonic_c) 
 
-        elif source_proj == 'P_L2':
-            # helper: save/load coefs
-            sdd_filename = m_load_dir+'/'+source_type+'_dual_dofs.npy'
+    elif source_proj == 'P_L2':
+        # helper: save/load coefs
+        if f0 is not None:
+            if source_type == 'Il_pulse':
+                source_name = 'Il_pulse_f0'
+            else:
+                source_name = source_type
+            sdd_filename = m_load_dir+'/'+source_name+'_dual_dofs.npy'
             if os.path.exists(sdd_filename):
                 print(' .. loading source dual dofs from file {}'.format(sdd_filename))
                 tilde_f0_c = np.load(sdd_filename)
             else:
-                print(' .. projecting the source with L2 projection...')
+                print(' .. projecting the source f0 with L2 projection...')
                 tilde_f0_c = derham_h.get_dual_dofs(space='V1', f=f0, backend_language=backend_language, return_format='numpy_array')
                 print(' .. saving source dual dofs to file {}'.format(sdd_filename))
                 np.save(sdd_filename, tilde_f0_c)
+        if f0_harmonic is not None:
+            if source_type == 'Il_pulse':
+                source_name = 'Il_pulse_f0_harmonic'
+            else:
+                source_name = source_type
+            sdd_filename = m_load_dir+'/'+source_name+'_dual_dofs.npy'
+            if os.path.exists(sdd_filename):
+                print(' .. loading source dual dofs from file {}'.format(sdd_filename))
+                tilde_f0_harmonic_c = np.load(sdd_filename)
+            else:
+                print(' .. projecting the source f0_harmonic with L2 projection...')
+                tilde_f0_harmonic_c = derham_h.get_dual_dofs(space='V1', f=f0_harmonic, backend_language=backend_language, return_format='numpy_array')
+                print(' .. saving source dual dofs to file {}'.format(sdd_filename))
+                np.save(sdd_filename, tilde_f0_harmonic_c)
 
-        else:
-            raise ValueError(source_proj)
+    else:
+        raise ValueError(source_proj)
 
-        t_stamp = time_count(t_stamp)
-        if filter_source:
-            print(' .. filtering the source...')
-            tilde_f0_c = cP1_m.transpose() @ tilde_f0_c
+    t_stamp = time_count(t_stamp)
+    if filter_source:
+        print(' .. filtering the source...')
+        if tilde_f0_c is not None:
+            tilde_f0_c = cP1_m.transpose() @ tilde_f0_c            
+        if tilde_f0_harmonic_c is not None:
+            tilde_f0_harmonic_c = cP1_m.transpose() @ tilde_f0_harmonic_c
 
+    if tilde_f0_c is not None:
         f0_c = dH1_m.dot(tilde_f0_c)
 
-        # else:
-        #     raise NotImplementedError
+        if debug:
+            title = 'f0 part of source'
+            params_str = 'omega={}_gamma_h={}_Pf={}'.format(omega, gamma_h, source_proj)
+            plot_field(numpy_coeffs=f0_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, 
+                filename=plot_dir+'/'+params_str+'_f0.pdf', 
+                plot_type='components', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
+            plot_field(numpy_coeffs=f0_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, 
+                filename=plot_dir+'/'+params_str+'_f0_vf.pdf', 
+                plot_type='vector_field', cb_min=None, cb_max=None, hide_plot=hide_plots)
+            divf0_c = div_m @ f0_c
+            title = 'div f0'
+            plot_field(numpy_coeffs=divf0_c, Vh=V0h, space_kind='h1', domain=domain, surface_plot=False, title=title, 
+                filename=plot_dir+'/'+params_str+'_divf0.pdf', 
+                plot_type='components', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
+
+
+    if tilde_f0_harmonic_c is not None:
+        f0_harmonic_c = dH1_m.dot(tilde_f0_harmonic_c)            
+        
+        if debug:
+            title = 'f0_harmonic part of source'
+            params_str = 'omega={}_gamma_h={}_Pf={}'.format(omega, gamma_h, source_proj)
+            plot_field(numpy_coeffs=f0_harmonic_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, 
+                filename=plot_dir+'/'+params_str+'_f0_harmonic.pdf', 
+                plot_type='components', cb_min=None, cb_max=None, hide_plot=hide_plots)
+            plot_field(numpy_coeffs=f0_harmonic_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, 
+                filename=plot_dir+'/'+params_str+'_f0_harmonic_vf.pdf', 
+                plot_type='vector_field', cb_min=None, cb_max=None, hide_plot=hide_plots)
+            divf0_c = div_m @ f0_harmonic_c
+            title = 'div f0_harmonic'
+            plot_field(numpy_coeffs=divf0_c, Vh=V0h, space_kind='h1', domain=domain, surface_plot=False, title=title, 
+                filename=plot_dir+'/'+params_str+'_divf0_harmonic.pdf', 
+                plot_type='components', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
+
+    # else:
+    #     raise NotImplementedError
+
+    if f0_c is None:
+        f0_c = np.zeros(V1h.nbasis)
+
 
     # if plot_source and plot_dir:
     #     plot_field(numpy_coeffs=f0_c, Vh=V1h, space_kind='hcurl', domain=domain, title='f0_h with P = '+source_proj, filename=plot_dir+'/f0h_'+source_proj+'.png', hide_plot=hide_plots)
@@ -305,14 +407,14 @@ def solve_td_maxwell_pbm(
     
     t_stamp = time_count(t_stamp)
     
-    def plot_J_source(f_c, nt):
+    def plot_J_source_nPlusHalf(f_c, nt):
             print(' .. plotting the source...')
-            title = r'source $J_h$ (amplitude) for $\omega = $'+repr(omega)+r', $t = $'+repr(dt*nt)
+            title = r'source $J^{n+1/2}_h$ (amplitude)'+' for $\omega = {}$, $n = {}$'.format(omega,nt)
             params_str = 'omega={}_gamma_h={}_Pf={}'.format(omega, gamma_h, source_proj)
             plot_field(numpy_coeffs=f_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, 
                 filename=plot_dir+'/'+params_str+'_Jh_nt={}.pdf'.format(nt), 
                 plot_type='amplitude', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
-            title = r'source $J_h$ for $\omega = $'+repr(omega)+r', $t = $'+repr(dt*nt)
+            title = r'source $J^{n+1/2}_h$'+' for $\omega = {}$, $n = {}$'.format(omega,nt)
             plot_field(numpy_coeffs=f_c, Vh=V1h, space_kind='hcurl', domain=domain, title=title, 
                 filename=plot_dir+'/'+params_str+'_Jh_vf_nt={}.pdf'.format(nt), 
                 plot_type='vector_field', vf_skip=1, hide_plot=hide_plots)
@@ -326,12 +428,13 @@ def solve_td_maxwell_pbm(
             if project_sol:
                 # t_stamp = time_count(t_stamp)
                 print(' .. projecting the homogeneous solution on the conforming problem space...')
-                E_c = cP1_m.dot(E_c)
+                Ep_c = cP1_m.dot(E_c)
             else:
+                Ep_c = E_c
                 print(' .. NOT projecting the homogeneous solution on the conforming problem space')
             if plot_omega_normalized_sol:
                 print(' .. plotting the E/omega field...')
-                u_c = (1/omega)*E_c
+                u_c = (1/omega)*Ep_c
                 title = r'$u_h = E_h/\omega$ (amplitude) for $\omega = {:5.4f}$, $t = {:5.4f}$'.format(omega, dt*nt)
                 params_str = 'omega={:5.4f}_gamma_h={}_Pf={}_Nt_pp={}'.format(omega, gamma_h, source_proj, Nt_pp)
             else:
@@ -340,7 +443,7 @@ def solve_td_maxwell_pbm(
                     title = r'$t = {:5.4f}$'.format(dt*nt)
                 else:
                     title = r'$E_h$ (amplitude) at $t = {:5.4f}$'.format(dt*nt)
-                u_c = E_c
+                u_c = Ep_c
                 params_str = 'gamma_h={}_Nt_pp={}'.format(gamma_h, Nt_pp)
             
             plot_field(numpy_coeffs=u_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, 
@@ -348,13 +451,27 @@ def solve_td_maxwell_pbm(
                 plot_type='amplitude', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
 
             if plot_divE:
-                divE_c = div_m @ E_c
-                title = r'div $E_h$ at $t = {:5.4f}$'.format(dt*nt)
                 params_str = 'gamma_h={}_Nt_pp={}'.format(gamma_h, Nt_pp)
+                if source_type == 'Il_pulse':
+                    plot_type = 'components'
+                    rho_c = rho0_c * np.sin(omega*dt*nt)/omega
+                    rho_norm2 = np.dot(rho_c, H0_m.dot(rho_c))
+                    title = r'$\rho_h$ at $t = {:5.4f}, norm = {}$'.format(dt*nt, np.sqrt(rho_norm2))
+                    plot_field(numpy_coeffs=rho_c, Vh=V0h, space_kind='h1', domain=domain, surface_plot=False, title=title, 
+                    filename=plot_dir+'/'+params_str+'_rho_nt={}.pdf'.format(nt),
+                    plot_type=plot_type, cb_min=None, cb_max=None, hide_plot=hide_plots)
+                else:
+                    plot_type = 'amplitude'
+
+                divE_c = div_m @ Ep_c
+                divE_norm2 = np.dot(divE_c, H0_m.dot(divE_c))
+                if project_sol:
+                    title = r'div $P^1_h E_h$ at $t = {:5.4f}, norm = {}$'.format(dt*nt, np.sqrt(divE_norm2))
+                else:
+                    title = r'div $E_h$ at $t = {:5.4f}, norm = {}$'.format(dt*nt, np.sqrt(divE_norm2))
                 plot_field(numpy_coeffs=divE_c, Vh=V0h, space_kind='h1', domain=domain, surface_plot=False, title=title, 
                     filename=plot_dir+'/'+params_str+'_divEh_nt={}.pdf'.format(nt),
-                    plot_type='amplitude', cb_min=None, cb_max=None, hide_plot=hide_plots)
-
+                    plot_type=plot_type, cb_min=None, cb_max=None, hide_plot=hide_plots)
 
         else:
             print(' -- WARNING: unknown plot_dir !!')
@@ -374,7 +491,7 @@ def solve_td_maxwell_pbm(
         else:
             print(' -- WARNING: unknown plot_dir !!')
 
-    def plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start, nt_end):
+    def plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start, nt_end, GaussErr_norm2_diag=None, GaussErrP_norm2_diag=None, fharm_norm2_diag=None, skip_titles=True):
         nt_start = max(nt_start, 0)
         nt_end = min(nt_end, Nt)
         tau_start = nt_start/Nt_pp
@@ -390,7 +507,7 @@ def solve_td_maxwell_pbm(
         # norm || E ||
         fig, ax = plt.subplots()
         ax.plot(td, np.sqrt(E_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
-        if E0_type == 'pulse':
+        if skip_titles:
             title = ''
         else:
             title = r'$||E_h(t)||$'
@@ -404,11 +521,12 @@ def solve_td_maxwell_pbm(
         # energy
         fig, ax = plt.subplots()
         ax.plot(td, .5*(E_norm2_diag[nt_start:nt_end+1]+B_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
-        if E0_type == 'pulse':
+        if skip_titles:
             title = ''
-            ax.set_ylim([0, 5])
         else:
             title = r'$\frac{1}{2} (||E_h(t)||^2+||B_h(t)||^2)$ vs $t/\tau$' 
+        if E0_type == 'pulse':
+            ax.set_ylim([0, 5])
         ax.set_xlabel(t_label, fontsize=16)                    
         ax.set_title(title, fontsize=18)
         fig.tight_layout()
@@ -428,26 +546,75 @@ def solve_td_maxwell_pbm(
         # print(' -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- ') 
         
         ax.plot(td, np.sqrt(divE_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
-        if E0_type == 'pulse':
-            # ax.set_yscale('log')
-            # ax.set_ylim([1e-2, 1e-1])
-            # ax.set_ylim([7.e-9, 1e-8])
-            title = ''
+        if project_sol:
+            diag_fn = plot_dir+'/diag_divPE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
+            title = r'$||div_h P^1_h E_h(t)||$ vs $t/\tau$' 
         else:
+            diag_fn = plot_dir+'/diag_divE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
             title = r'$||div_h E_h(t)||$ vs $t/\tau$' 
+        if skip_titles:
+            title = ''
         ax.set_xlabel(t_label, fontsize=16)  
         ax.set_title(title, fontsize=18)
         fig.tight_layout()
-        diag_fn = plot_dir+'/diag_divE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
         print("saving plot for '"+title+"' in figure '"+diag_fn)
         fig.savefig(diag_fn)
     
+        if fharm_norm2_diag is not None:
+            fig, ax = plt.subplots()            
+            ax.plot(td, np.sqrt(fharm_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
+            diag_fn = plot_dir+'/diag_fharm_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
+            title = r'$||f_{harm}(t)||$ vs $t/\tau$' 
+            if skip_titles:
+                title = ''
+            ax.set_xlabel(t_label, fontsize=16)  
+            ax.set_title(title, fontsize=18)
+            fig.tight_layout()
+            print("saving plot for '"+title+"' in figure '"+diag_fn)
+            fig.savefig(diag_fn)            
+
+        if GaussErr_norm2_diag is not None:
+            fig, ax = plt.subplots()            
+            ax.plot(td, np.sqrt(GaussErr_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
+            diag_fn = plot_dir+'/diag_GaussErr_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
+            title = r'$||(\rho_h - div_h E_h)(t)||$ vs $t/\tau$' 
+            if skip_titles:
+                title = ''
+            ax.set_xlabel(t_label, fontsize=16)  
+            ax.set_title(title, fontsize=18)
+            fig.tight_layout()
+            print("saving plot for '"+title+"' in figure '"+diag_fn)
+            fig.savefig(diag_fn)     
+
+        if GaussErrP_norm2_diag is not None:
+            fig, ax = plt.subplots()            
+            ax.plot(td, np.sqrt(GaussErrP_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
+            diag_fn = plot_dir+'/diag_GaussErrP_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
+            title = r'$||(\rho_h - div_h P_h E_h)(t)||$ vs $t/\tau$' 
+            if skip_titles:
+                title = ''
+            ax.set_xlabel(t_label, fontsize=16)  
+            ax.set_title(title, fontsize=18)
+            fig.tight_layout()
+            print("saving plot for '"+title+"' in figure '"+diag_fn)
+            fig.savefig(diag_fn)     
 
     E_norm2_diag = np.zeros(Nt+1)
     B_norm2_diag = np.zeros(Nt+1)
     divE_norm2_diag = np.zeros(Nt+1)
-    # norm_amps_diag = np.zeros(Nt+1)
     time_diag = np.zeros(Nt+1)
+
+    if source_type == 'Il_pulse':
+        GaussErr_norm2_diag = np.zeros(Nt+1)
+        GaussErrP_norm2_diag = np.zeros(Nt+1)
+        fharm_norm2_diag = np.zeros(Nt+1)
+    else:
+        GaussErr_norm2_diag = None
+        GaussErrP_norm2_diag = None
+        fharm_norm2_diag = None
+
+    # ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- 
+    # initial solution
 
     print(' .. init..')
 
@@ -456,8 +623,6 @@ def solve_td_maxwell_pbm(
     
     # initial E sol
     if E0_type == 'th_sol':
-        def source_enveloppe(tau):        
-            return 1
 
         if os.path.exists(th_sol_filename):
             print(' .. loading time-harmonic solution from file {}'.format(th_sol_filename))
@@ -468,14 +633,9 @@ def solve_td_maxwell_pbm(
             raise ValueError(th_sol_filename)
             
     elif E0_type == 'zero':
-        def source_enveloppe(tau):        
-            return (special.erf((tau/25)-2)-special.erf(-2))/2
         E_c = np.zeros(V1h.nbasis)
 
     elif E0_type == 'pulse':       
-        def source_enveloppe(tau):
-            # no source
-            return 0
 
         E0 = get_div_free_pulse(x_0=1.0, y_0=1.0, domain=domain)
         
@@ -501,20 +661,31 @@ def solve_td_maxwell_pbm(
         raise ValueError(E0_type)        
 
 
+    # ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- 
     # time loop
 
     E_norm2_diag[0] = np.dot(E_c,H1_m.dot(E_c))
     B_norm2_diag[0] = np.dot(B_c,H2_m.dot(B_c))
     # norm_amps_diag[0] = amps_diag[0]/(np.cos(omega*dt*0)+1e-10)
-    divE_c = div_m @ E_c
+    if project_sol:
+        Ep_c = cP1_m.dot(E_c)
+    else:
+        Ep_c = E_c
+    divE_c = div_m @ Ep_c
     divE_norm2_diag[0] = np.dot(divE_c, H0_m.dot(divE_c))
+    
+    if source_type == 'Il_pulse':
+        rho_c = rho0_c * np.sin(omega*dt*0)/omega
+        GaussErr = rho_c - div_m @ E_c
+        GaussErrP = rho0_c - div_m @ (cP1_m.dot(E_c))
+        GaussErr_norm2_diag[0] = np.dot(GaussErr, H0_m.dot(GaussErr))
+        GaussErrP_norm2_diag[0] = np.dot(GaussErrP, H0_m.dot(GaussErrP))
 
-    plot_E_field(E_c, nt=0, project_sol=project_sol, plot_divE=(source_type=='pulse'))        
+
+    plot_E_field(E_c, nt=0, project_sol=project_sol, plot_divE=plot_divE)
     plot_B_field(B_c, nt=0)
-    plot_J_source(f0_c, nt=0)
     
-    
-    f_c = np.zeros(V1h.nbasis)    
+    f_c = np.copy(f0_c)
     for nt in range(Nt):
         print(' .. nt+1 = {}/{}'.format(nt+1, Nt))
 
@@ -522,12 +693,16 @@ def solve_td_maxwell_pbm(
         B_c[:] -= (dt/2) * C_m @ E_c
 
         # ampere: En -> En+1
-        if source_is_harmonic:
-            f_c = f0_c * np.sin(omega*(nt+1/2)*dt) * source_enveloppe(omega*(nt+1/2)*dt)
-        else:
-            f_c = f0_c
+        if f0_harmonic_c is not None:
+            f_harmonic_c = f0_harmonic_c * (np.sin(omega*(nt+1)*dt)-np.sin(omega*(nt)*dt))/(dt*omega) # * source_enveloppe(omega*(nt+1/2)*dt)
+            fharm_norm2_diag[nt+1] = np.dot(f_harmonic_c,H1_m.dot(f_harmonic_c))
+            f_c[:] = f0_c + f_harmonic_c
 
-        E_c[:] += dt * (dC_m @ B_c + f_c)
+        if nt == 0:
+            plot_J_source_nPlusHalf(f_c, nt=0)
+            fharm_norm2_diag[0] = fharm_norm2_diag[1]
+
+        E_c[:] += dt * (dC_m @ B_c - f_c)
         if abs(gamma_h) > 1e-10:
             E_c[:] -= dt * gamma_h * JP_m @ E_c
 
@@ -543,21 +718,49 @@ def solve_td_maxwell_pbm(
         # norm_amps_diag[nt+1] = nad
         time_diag[nt+1] = (nt+1)*dt
         
+        if debug:
+            divCB_c = div_m @ dC_m @ B_c
+            divCB_norm2 = np.dot(divCB_c, H0_m.dot(divCB_c))
+            print('-- [{}]: dt*|| div CB || = {}'.format(nt+1, dt*np.sqrt(divCB_norm2)))
+
+            divf_c = div_m @ f_c
+            divf_norm2 = np.dot(divf_c, H0_m.dot(divf_c))
+            print('-- [{}]: dt*|| div f || = {}'.format(nt+1, dt*np.sqrt(divf_norm2)))
+
+            divE_c = div_m @ E_c
+            divE_norm2 = np.dot(divE_c, H0_m.dot(divE_c))
+            print('-- [{}]: || div E || = {}'.format(nt+1, np.sqrt(divE_norm2)))
+
         # diags: div        
-        divE_c = div_m @ E_c
-        divE_norm2_diag[nt+1] = np.dot(divE_c, H0_m.dot(divE_c))
+        if project_sol:
+            Ep_c = cP1_m.dot(E_c)
+        else:
+            Ep_c = E_c
+        divE_c = div_m @ Ep_c
+        divE_norm2 = np.dot(divE_c, H0_m.dot(divE_c))
+        # print('in diag[{}]: divE_norm = {}'.format(nt+1, np.sqrt(divE_norm2)))
+        divE_norm2_diag[nt+1] = divE_norm2
+
+        if source_type == 'Il_pulse':
+            rho_c = rho0_c * np.sin(omega*dt*(nt+1))/omega
+            GaussErr = rho_c - div_m @ E_c
+            GaussErrP = rho0_c - div_m @ (cP1_m.dot(E_c))
+            GaussErr_norm2_diag[nt+1] = np.dot(GaussErr, H0_m.dot(GaussErr))
+            GaussErrP_norm2_diag[nt+1] = np.dot(GaussErrP, H0_m.dot(GaussErrP))
 
         if is_plotting_time(nt):
-            plot_E_field(E_c, nt=nt+1, project_sol=project_sol, plot_divE=(source_type=='pulse'))
+            plot_E_field(E_c, nt=nt+1, project_sol=project_sol, plot_divE=plot_divE)
             plot_B_field(B_c, nt=nt+1)
-            plot_J_source(f_c, nt=nt+1)
+            plot_J_source_nPlusHalf(f_c, nt=nt)
 
         if (nt+1)%(diag_dtau*Nt_pp) == 0:
             tau_here = nt+1
             
-            plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start=(nt+1)-diag_dtau*Nt_pp, nt_end=(nt+1))   
+            plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start=(nt+1)-diag_dtau*Nt_pp, nt_end=(nt+1), 
+            fharm_norm2_diag=fharm_norm2_diag, GaussErr_norm2_diag=GaussErr_norm2_diag, GaussErrP_norm2_diag=GaussErrP_norm2_diag)   
 
-    plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start=0, nt_end=Nt)
+    plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start=0, nt_end=Nt, 
+    fharm_norm2_diag=fharm_norm2_diag, GaussErr_norm2_diag=GaussErr_norm2_diag, GaussErrP_norm2_diag=GaussErrP_norm2_diag)
 
     # Eh = FemField(V1h, coeffs=array_to_stencil(E_c, V1h.vector_space))
     # t_stamp = time_count(t_stamp)

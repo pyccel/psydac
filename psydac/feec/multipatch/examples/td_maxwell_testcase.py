@@ -13,16 +13,21 @@ t_stamp_full = time_count()
 E0_type = 'zero' # 'pulse' # 'th_sol' # 
 E0_proj = 'P_L2' # 'P_geom' # 
 
-source_type = 'cf_pulse' # 'pulse' # 'elliptic_J' #
-source_proj = 'P_geom' #'P_L2' # 
+# source_type = 'pulse' # 'elliptic_J' # 'cf_pulse' # 
+source_type = 'Il_pulse'    #Issautier-like pulse
+source_proj = 'P_L2' # 'P_geom' #
 source_is_harmonic = False # True # 
-filter_source = False # True # 
+filter_source =  True # False # 
+
+project_sol =  True #  False #
+gamma_h = 0
 
 # nc_s = [2,4,8,16]
 # deg_s = [2,3,4,5]
 
-# nc_s = [16]
+nc_s = [16]
 deg_s = [5]
+deg_s = [3]
 
 # nc_s = [4]
 # deg_s = [2]
@@ -31,9 +36,17 @@ deg_s = [5]
 # deg_s = [3]
 # deg_s = [6]
 
-nc_s = [8]
+# nc_s = [8]
 # # deg_s = [5]
 # deg_s = [3]
+
+
+# Nt_pp = 400 # time steps per time period  # CFL should be decided automatically...
+# Nt_pp = 500 # time steps per time period  # CFL should be decided automatically...
+Nt_pp = None
+cfl = .8
+
+# Nt_pp = 54  # TMP for 20/6
 
 
 
@@ -61,7 +74,10 @@ if source_is_harmonic:
 
 else: 
     
-    case_dir = 'td_maxwell_E0_' + E0_type + '_' + E0_proj + '_may27' 
+    case_dir = 'td_maxwell_E0_' + E0_type + '_' + E0_proj + '_J_' + source_type + '_' + source_proj
+
+    if not project_sol:
+        case_dir += '_E_noproj'
 
     # code will use t_period = (2*pi/omega), relevant for plotting if no source
     omega = 5*2*np.pi 
@@ -73,31 +89,43 @@ else:
 
     elif E0_type == 'zero':
         # assert source_type == 'pulse'
-        case_dir += '_J_'+source_type+'_'+source_proj
+        # case_dir += '_J_'+source_type+'_'+source_proj
         if filter_source:
             case_dir += '_Jfilter'
         else:
             case_dir += '_Jnofilter'
-        nb_t_periods = 16 # final time: T = nb_t_periods * t_period
-        cb_min_sol = None
-        cb_max_sol = None 
+        
+        if source_type == '_Il_pulse':
+            nb_t_periods = 50  #  # final time: T = nb_t_periods * t_period
+            
+            case_dir += '_nb_tau={}'.format(nb_t_periods)+'_GE'
+
+            # Nt_pp = 20
+            cb_min_sol = None
+            cb_max_sol = None
+
+        else:
+            nb_t_periods = 16 # final time: T = nb_t_periods * t_period   # 16 for paper ?
+
+            cb_min_sol = 0
+            cb_max_sol = .3
     
     else:
         raise ValueError
 
-    # Nt_pp = 400 # time steps per time period  # CFL should be decided automatically...
-    # Nt_pp = 500 # time steps per time period  # CFL should be decided automatically...
-    Nt_pp = None
-    cfl = .9
 
-    # Nt_pp = 54  # TMP for 20/6
-
-
-    plot_time_ranges = [
-        [[0,nb_t_periods], None] #Nt_pp//10]
-        # [[95,100], Nt_pp//10]
-        # [[495,500], Nt_pp//5]
-        ]
+    if source_type == 'Il_pulse':
+        plot_time_ranges = [
+            [[nb_t_periods-1,nb_t_periods], None]
+            # [[95,100], Nt_pp//10]
+            # [[495,500], Nt_pp//5]
+            ]
+    else:
+        plot_time_ranges = [
+            [[0,nb_t_periods], None] #Nt_pp//10]
+            # [[95,100], Nt_pp//10]
+            # [[495,500], Nt_pp//5]
+            ]
 
 # plotting ranges:
 #   we give a list of ranges and plotting period: [[t_start, t_end], nt_plot_period]
@@ -124,9 +152,6 @@ domain_name = 'pretzel_f'
 # domain_name = 'annulus_4'
 
 conf_proj = 'GSP'
-
-project_sol =  True # False #
-gamma_h = 0
 
 # ref solution (not used here)
 # ref_nc = 20
@@ -208,6 +233,7 @@ for nc in nc_s:
             source_proj=source_proj,
             backend_language=backend_language,
             plot_source=True,
+            plot_divE=True,
             conf_proj=conf_proj,
             project_sol=project_sol,
             gamma_h=gamma_h,

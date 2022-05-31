@@ -26,7 +26,7 @@ def get_phi_pulse(x_0, y_0, domain=None):
     ds2_0 = (0.02)**2
     sigma_0 = (x-x_0)**2 + (y-y_0)**2
     phi_0 = exp(-sigma_0**2/(2*ds2_0))
-    
+
     return phi_0
 
 def get_div_free_pulse(x_0, y_0, domain=None):
@@ -45,6 +45,7 @@ def get_div_free_pulse(x_0, y_0, domain=None):
     return f_vect
 
 def get_curl_free_pulse(x_0, y_0, domain=None):
+    # return -grad phi_0
     x,y    = domain.coordinates
     ds2_0 = (0.1)**2
     sigma_0 = (x-x_0)**2 + (y-y_0)**2
@@ -53,11 +54,27 @@ def get_curl_free_pulse(x_0, y_0, domain=None):
     dy_sig_0 = 2*(y-y_0)
     dx_phi_0 = - dx_sig_0 * sigma_0 / ds2_0 * phi_0
     dy_phi_0 = - dy_sig_0 * sigma_0 / ds2_0 * phi_0
-    f_x    = 1 #-dx_phi_0
-    f_y    = 0 # -dy_phi_0
+    f_x    = -dx_phi_0
+    f_y    = -dy_phi_0
     f_vect = Tuple(f_x, f_y)
 
     return f_vect
+
+def get_Delta_phi_pulse(x_0, y_0, domain=None):
+    # return -Delta phi_0, with same phi_0 as in get_curl_free_pulse()
+    x,y    = domain.coordinates
+    ds2_0 = (0.1)**2
+    sigma_0 = (x-x_0)**2 + (y-y_0)**2
+    phi_0 = exp(-sigma_0**2/(2*ds2_0))
+    dx_sig_0 = 2*(x-x_0)
+    dy_sig_0 = 2*(y-y_0)
+    dxx_sig_0 = 2
+    dyy_sig_0 = 2
+    dxx_phi_0 = ((dx_sig_0 * sigma_0 / ds2_0)**2 - ((dx_sig_0)**2 + dxx_sig_0 * sigma_0)/ds2_0 ) * phi_0
+    dyy_phi_0 = ((dy_sig_0 * sigma_0 / ds2_0)**2 - ((dy_sig_0)**2 + dyy_sig_0 * sigma_0)/ds2_0 ) * phi_0
+    f    = - dxx_phi_0 - dyy_phi_0
+
+    return f
 
 def get_source_and_sol_for_magnetostatic_pbm(
     source_type=None,
