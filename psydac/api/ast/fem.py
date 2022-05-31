@@ -343,7 +343,8 @@ class AST(object):
             is_bilinear         = True
             tests               = expr.test_functions
             trials              = expr.trial_functions
-            fields              = expr.fields
+            atoms               = terminal_expr.expr.atoms(ScalarFunction, VectorFunction)
+            fields              = tuple(i for i in atoms if i not in tests+trials)
             is_broken           = spaces[1].symbolic_space.is_broken
             quad_order          = get_quad_order(spaces[1])
             tests_degrees       = get_degrees(tests, spaces[0])

@@ -184,7 +184,6 @@ class DiscreteBilinearForm(BasicDiscrete):
                 p,_       = self.get_space_indices_from_target(domain, target.plus )
                 mapping_m = list(domain_h.mappings.values())[m]
                 mapping_p = list(domain_h.mappings.values())[p]
-
                 mapping   = (mapping_m, mapping_p) if mapping_m else None
             else:
                 mapping = list(domain_h.mappings.values())[i]
@@ -253,7 +252,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                     if (trial_target.axis, trial_target.ext) in sp._interfaces:
                         spaces.append(sp._interfaces[trial_target.axis, trial_target.ext])
                 if len(spaces) == len(trial_space.spaces):
+                    sym_space   = trial_space.symbolic_space
                     trial_space = ProductFemSpace(*spaces)
+                    trial_space.symbolic_space = sym_space
             elif (trial_target.axis, trial_target.ext) in trial_space._interfaces:
                 trial_space  = trial_space._interfaces[trial_target.axis, trial_target.ext]
 
@@ -1190,7 +1191,6 @@ class DiscreteSumForm(BasicDiscrete):
             raise TypeError('> Expecting a symbolic BilinearForm, LinearFormn Functional')
 
         self._expr = a
-
         backend = kwargs.pop('backend', None)
         self._backend = backend
 

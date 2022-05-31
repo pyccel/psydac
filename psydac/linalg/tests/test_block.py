@@ -691,7 +691,6 @@ def test_block_diagonal_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
 def test_block_matrix_operator_parallel_dot_backend( n1, n2, p1, p2, P1, P2, reorder ):
     # set seed for reproducibility
 
-
     from mpi4py       import MPI
     from psydac.ddm.cart import CartDecomposition
     import time
@@ -763,6 +762,7 @@ def test_block_matrix_operator_parallel_dot_backend( n1, n2, p1, p2, P1, P2, reo
     # Check data in 1D array
     assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-13, atol=1e-13 )
     assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-13, atol=1e-13 )
+    raise
 #===============================================================================
 # SCRIPT FUNCTIONALITY
 #===============================================================================

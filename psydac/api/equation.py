@@ -42,6 +42,12 @@ def driver_solve(L, **kwargs):
         x, info = bicg  ( M, M.T, rhs, **kwargs )
     elif name == 'lsmr':
         x, info = lsmr  ( M, M.T, rhs, **kwargs )
+    elif name == "direct":
+        from scipy.sparse.linalg import spsolve
+        from psydac.linalg.utilities import array_to_stencil
+        x = spsolve(M.tosparse().tocsr(), rhs.toarray())
+        x = array_to_stencil(x, rhs.space)
+        return x, 0
     else:
         raise NotImplementedError("Solver '{}' is not available".format(name))
     return (x, info) if return_info else x

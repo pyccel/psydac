@@ -14,7 +14,7 @@ from psydac.fem.basic        import FemField
 from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.utilities.utils  import refine_array_1d
 from psydac.feec.pull_push   import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
-
+from sympde.topology.mapping import Mapping as AnalyticalMapping
 #==============================================================================
 def is_vector_valued(u):
     # small utility function, only tested for FemFields in multi-patch spaces of the 2D grad-curl sequence
@@ -58,9 +58,10 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
 
         # computing the pushed-fwd values on the grid
         if space_kind == 'h1':
-            assert not vector_valued
-            # todo (MCP): add 2d_hcurl_vector
-            push_field = lambda eta1, eta2: push_2d_h1(uk_field_0, eta1, eta2)
+            if vector_valued:
+                push_field = lambda eta1, eta2: (push_2d_h1(uk_field_0, eta1, eta2), push_2d_h1(uk_field_1, eta1, eta2))
+            else:
+                push_field = lambda eta1, eta2: push_2d_h1(uk_field_0, eta1, eta2)
         elif space_kind == 'hcurl':
             # todo (MCP): specify 2d_hcurl_scalar in push functions
             push_field = lambda eta1, eta2: push_2d_hcurl(uk_field_0, uk_field_1, eta1, eta2, mapping=mappings_list[k])
@@ -133,7 +134,7 @@ def get_plotting_grid(mappings, N, centered_nodes=False, return_patch_logvols=Fa
         N_cells = N
     # etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
     etas = [[refine_array_1d( bounds, N_cells ) for bounds in zip(grid_min_coords[k], grid_max_coords[k])] for k in range(nb_patches)]
-    mappings_lambda = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
+    mappings_lambda = [lambdify(M.logical_coordinates, M.expressions) if isinstance(M, AnalyticalMapping) else M for d,M in mappings.items()]
 
     pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings_lambda, etas)]
 
@@ -166,7 +167,7 @@ def get_diag_grid(mappings, N):
 def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     # get gridlines for one patch grid
 
-    F = [M.get_callable_mapping() for d,M in mappings.items()]
+    F = [M.get_callable_mapping() if isinstance(M, AnalyticalMapping) else M for d,M in mappings.items()]
 
     if plotted_patch in range(len(mappings)):
         space   = Vh.spaces[plotted_patch]

@@ -1730,6 +1730,7 @@ class StencilInterfaceMatrix(Matrix):
         self._d_start     = s_d
         self._c_start     = s_c
         self._ndim        = len( dims )
+        self._backend     = None
 
         # Number of rows in matrix (along each dimension)
         nrows         = [e-s+1 for s,e in zip(W.starts, W.ends)]
@@ -1850,6 +1851,7 @@ class StencilInterfaceMatrix(Matrix):
         """ Create new StencilInterfaceMatrix Mt, where domain and codomain are swapped
             with respect to original matrix M, and Mt_{ij} = M_{ji}.
         """
+
         # For clarity rename self
         M = self
 
@@ -1858,11 +1860,11 @@ class StencilInterfaceMatrix(Matrix):
 #            M.update_ghost_regions()
 
         # Create new matrix where domain and codomain are swapped
-        Mt = StencilInterfaceMatrix(M.codomain, M.domain, M.c_start, M.d_start, self.dim, flip=self._flip,
-                                    permutation=self._permutation, pads=self._pads, backend=self._backend)
+        Mt = StencilInterfaceMatrix(M.codomain, M.domain, M.c_start, M.d_start, M._c_axis, M._d_axis, M._c_ext, M._d_ext,
+                                    flip=M._flip, pads=M._pads, backend=M._backend)
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
-        self._transpose_func(M._data, Mt._data, **self._transpose_args)
+        M._transpose_func(M._data, Mt._data, **M._transpose_args)
         return Mt
 
     @staticmethod
@@ -1966,7 +1968,10 @@ class StencilInterfaceMatrix(Matrix):
     def copy( self ):
         M = StencilInterfaceMatrix( self._domain, self._codomain,
                                     self._d_start, self._c_start,
-                                    self._dim, self._pads )
+                                    self._d_axis, self._c_axis,
+                                    self._d_ext, self._c_ext,
+                                    flip=self._flip, pads=self._pads,
+                                    backend=self._backend )
         M._data[:] = self._data[:]
         return M
 
@@ -1976,19 +1981,15 @@ class StencilInterfaceMatrix(Matrix):
 
     #...
     def __mul__( self, a ):
-        w = StencilInterfaceMatrix( self._domain, self._codomain,
-                                    self._d_start, self._c_start,
-                                    self._dim, self._pads )
-        w._data = self._data * a
+        w = self.copy()
+        w._data *= a
         w._sync = self._sync
         return w
 
     #...
     def __rmul__( self, a ):
-        w = StencilInterfaceMatrix( self._domain, self._codomain,
-                                    self._d_start, self._c_start,
-                                    self._dim, self._pads )
-        w._data = a * self._data
+        w = self.copy()
+        w._data = a * w._data
         w._sync = self._sync
         return w
 
