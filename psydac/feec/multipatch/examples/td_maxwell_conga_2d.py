@@ -37,12 +37,11 @@ def solve_td_maxwell_pbm(
         nc=4, deg=4, Nt_pp=None, cfl=.8, nb_t_periods=20, omega=20, source_is_harmonic=True,
         domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
         conf_proj='BSP', gamma_h=10.,     
-        project_sol=False, filter_source=True,
+        project_sol=False, filter_source=True, quad_param=1,
         E0_type='zero', E0_proj='P_L2', 
         plot_source=False, plot_dir=None, plot_divE=False, hide_plots=True, plot_time_ranges=None, diag_dtau=None,
         cb_min_sol=None, cb_max_sol=None,
-        m_load_dir="", th_sol_filename="", sol_ref_filename="",
-        ref_nc=None, ref_deg=None,
+        m_load_dir="", th_sol_filename="",
 ):
     """
     solver for the TD Maxwell problem: find E(t) in H(curl), B in L2, such that
@@ -121,7 +120,8 @@ def solve_td_maxwell_pbm(
 
     t_stamp = time_count(t_stamp)
     print(' .. discrete derham sequence...')
-    derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
+    quad_order = [quad_param*(d + 1) for d in degree] # default value is the space's degree ? (see class TensorFemSpace)
+    derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language], quad_order=quad_order)
 
     t_stamp = time_count(t_stamp)
     print(' .. commuting projection operators...')
@@ -221,25 +221,28 @@ def solve_td_maxwell_pbm(
     # A_m = pre_A_m @ cP1_m + gamma_h * JP_m
 
     if Nt_pp is None:
-        assert 0 < cfl <= 1
+        if not( 0 < cfl <= 1):
+            print(' ******  ****** ******  ****** ******  ****** ')
+            print('         WARNING !!!  cfl = {}  '.format(cfl))
+            print(' ******  ****** ******  ****** ******  ****** ')
         Nt_pp, dt = compute_stable_dt(cfl, period_time, C_m, dC_m, V1h.nbasis)
     else:
         dt = period_time/Nt_pp
     Nt = Nt_pp * nb_t_periods
 
     def is_plotting_time(nt):
-        answer = (nt+1==Nt)
+        answer = (nt==Nt)
         for tr, tp in plot_time_ranges:
             if tp is None:
                 if source_is_harmonic:
                     tp = max(Nt_pp//10,1)
                 elif source_type == 'Il_pulse':
-                    tp = max(Nt_pp//4,1)
+                    tp = max(Nt_pp//2,1)
                 else:
                     tp = max(Nt_pp,1)
             if answer:
                 break
-            answer = (tr[0]*period_time <= nt*dt <= tr[1]*period_time and (nt+1)%tp == 0)
+            answer = (tr[0]*period_time <= nt*dt <= tr[1]*period_time and (nt)%tp == 0)
         return answer
 
     debug = False
@@ -322,7 +325,7 @@ def solve_td_maxwell_pbm(
                 source_name = 'Il_pulse_f0'
             else:
                 source_name = source_type
-            sdd_filename = m_load_dir+'/'+source_name+'_dual_dofs.npy'
+            sdd_filename = m_load_dir+'/'+source_name+'_dual_dofs_qp{}.npy'.format(quad_param)
             if os.path.exists(sdd_filename):
                 print(' .. loading source dual dofs from file {}'.format(sdd_filename))
                 tilde_f0_c = np.load(sdd_filename)
@@ -336,7 +339,7 @@ def solve_td_maxwell_pbm(
                 source_name = 'Il_pulse_f0_harmonic'
             else:
                 source_name = source_type
-            sdd_filename = m_load_dir+'/'+source_name+'_dual_dofs.npy'
+            sdd_filename = m_load_dir+'/'+source_name+'_dual_dofs_qp{}.npy'.format(quad_param)
             if os.path.exists(sdd_filename):
                 print(' .. loading source dual dofs from file {}'.format(sdd_filename))
                 tilde_f0_harmonic_c = np.load(sdd_filename)
@@ -491,7 +494,9 @@ def solve_td_maxwell_pbm(
         else:
             print(' -- WARNING: unknown plot_dir !!')
 
-    def plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start, nt_end, GaussErr_norm2_diag=None, GaussErrP_norm2_diag=None, fharm_norm2_diag=None, skip_titles=True):
+    def plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start, nt_end, 
+        GaussErr_norm2_diag=None, GaussErrP_norm2_diag=None, 
+        PE_norm2_diag=None, I_PE_norm2_diag=None, fharm_norm2_diag=None, skip_titles=True):
         nt_start = max(nt_start, 0)
         nt_end = min(nt_end, Nt)
         tau_start = nt_start/Nt_pp
@@ -520,11 +525,16 @@ def solve_td_maxwell_pbm(
 
         # energy
         fig, ax = plt.subplots()
-        ax.plot(td, .5*(E_norm2_diag[nt_start:nt_end+1]+B_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
-        if skip_titles:
+        E_energ = .5*E_norm2_diag[nt_start:nt_end+1]
+        B_energ = .5*B_norm2_diag[nt_start:nt_end+1]
+        ax.plot(td, E_energ, '-', ms=7, mfc='None', c='k', label=r'$\frac{1}{2}||E||^2$') #, zorder=10)
+        ax.plot(td, B_energ, '-', ms=7, mfc='None', c='g', label=r'$\frac{1}{2}||B||^2$') #, zorder=10)
+        ax.plot(td, E_energ+B_energ, '-', ms=7, mfc='None', c='b', label=r'$\frac{1}{2}(||E||^2+||B||^2)$') #, zorder=10)
+        ax.legend(loc='best')
+        if skip_titles:  
             title = ''
         else:
-            title = r'$\frac{1}{2} (||E_h(t)||^2+||B_h(t)||^2)$ vs $t/\tau$' 
+            title = r'energy vs $t$' 
         if E0_type == 'pulse':
             ax.set_ylim([0, 5])
         ax.set_xlabel(t_label, fontsize=16)                    
@@ -560,6 +570,32 @@ def solve_td_maxwell_pbm(
         print("saving plot for '"+title+"' in figure '"+diag_fn)
         fig.savefig(diag_fn)
     
+        if I_PE_norm2_diag is not None:
+            fig, ax = plt.subplots()            
+            ax.plot(td, np.sqrt(I_PE_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
+            diag_fn = plot_dir+'/diag_I_PE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
+            title = r'$||(I-P^1)E_h(t)||$ vs $t/\tau$' 
+            if skip_titles:
+                title = ''
+            ax.set_xlabel(t_label, fontsize=16)  
+            ax.set_title(title, fontsize=18)
+            fig.tight_layout()
+            print("saving plot for '"+title+"' in figure '"+diag_fn)
+            fig.savefig(diag_fn)            
+
+        if PE_norm2_diag is not None:
+            fig, ax = plt.subplots()            
+            ax.plot(td, np.sqrt(PE_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
+            diag_fn = plot_dir+'/diag_PE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
+            title = r'$||(I-P^1)E_h(t)||$ vs $t/\tau$' 
+            if skip_titles:
+                title = ''
+            ax.set_xlabel(t_label, fontsize=16)  
+            ax.set_title(title, fontsize=18)
+            fig.tight_layout()
+            print("saving plot for '"+title+"' in figure '"+diag_fn)
+            fig.savefig(diag_fn)            
+
         if fharm_norm2_diag is not None:
             fig, ax = plt.subplots()            
             ax.plot(td, np.sqrt(fharm_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
@@ -599,11 +635,13 @@ def solve_td_maxwell_pbm(
             print("saving plot for '"+title+"' in figure '"+diag_fn)
             fig.savefig(diag_fn)     
 
+    # diags arrays
     E_norm2_diag = np.zeros(Nt+1)
     B_norm2_diag = np.zeros(Nt+1)
     divE_norm2_diag = np.zeros(Nt+1)
     time_diag = np.zeros(Nt+1)
-
+    PE_norm2_diag = np.zeros(Nt+1)
+    I_PE_norm2_diag = np.zeros(Nt+1)
     if source_type == 'Il_pulse':
         GaussErr_norm2_diag = np.zeros(Nt+1)
         GaussErrP_norm2_diag = np.zeros(Nt+1)
@@ -616,7 +654,7 @@ def solve_td_maxwell_pbm(
     # ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- 
     # initial solution
 
-    print(' .. init..')
+    print(' .. initial solution ..')
 
     # initial B sol
     B_c = np.zeros(V2h.nbasis)
@@ -646,7 +684,7 @@ def solve_td_maxwell_pbm(
         
         elif E0_proj == 'P_L2':
             # helper: save/load coefs
-            E0dd_filename = m_load_dir+'/E0_pulse_dual_dofs.npy'
+            E0dd_filename = m_load_dir+'/E0_pulse_dual_dofs_qp{}.npy'.format(quad_param)
             if os.path.exists(E0dd_filename):
                 print(' .. loading E0 dual dofs from file {}'.format(E0dd_filename))
                 tilde_E0_c = np.load(E0dd_filename)
@@ -663,25 +701,25 @@ def solve_td_maxwell_pbm(
 
     # ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- 
     # time loop
+    def compute_diags(E_c, B_c, nt):
+        time_diag[nt] = (nt)*dt
+        PE_c = cP1_m.dot(E_c)
+        I_PE_c = E_c-PE_c
+        E_norm2_diag[nt] = np.dot(E_c,H1_m.dot(E_c))
+        PE_norm2_diag[nt] = np.dot(PE_c,H1_m.dot(PE_c))
+        I_PE_norm2_diag[nt] = np.dot(I_PE_c,H1_m.dot(I_PE_c))
+        B_norm2_diag[nt] = np.dot(B_c,H2_m.dot(B_c))
+        divE_c = div_m @ E_c
+        divE_norm2_diag[nt] = np.dot(divE_c, H0_m.dot(divE_c))
+        if source_type == 'Il_pulse':
+            rho_c = rho0_c * np.sin(omega*nt*dt)/omega
+            GaussErr = rho_c - divE_c
+            GaussErrP = rho_c - div_m @ PE_c
+            GaussErr_norm2_diag[nt] = np.dot(GaussErr, H0_m.dot(GaussErr))
+            GaussErrP_norm2_diag[nt] = np.dot(GaussErrP, H0_m.dot(GaussErrP))
 
-    E_norm2_diag[0] = np.dot(E_c,H1_m.dot(E_c))
-    B_norm2_diag[0] = np.dot(B_c,H2_m.dot(B_c))
-    # norm_amps_diag[0] = amps_diag[0]/(np.cos(omega*dt*0)+1e-10)
-    if project_sol:
-        Ep_c = cP1_m.dot(E_c)
-    else:
-        Ep_c = E_c
-    divE_c = div_m @ Ep_c
-    divE_norm2_diag[0] = np.dot(divE_c, H0_m.dot(divE_c))
+    compute_diags(E_c, B_c, nt=0)
     
-    if source_type == 'Il_pulse':
-        rho_c = rho0_c * np.sin(omega*dt*0)/omega
-        GaussErr = rho_c - div_m @ E_c
-        GaussErrP = rho0_c - div_m @ (cP1_m.dot(E_c))
-        GaussErr_norm2_diag[0] = np.dot(GaussErr, H0_m.dot(GaussErr))
-        GaussErrP_norm2_diag[0] = np.dot(GaussErrP, H0_m.dot(GaussErrP))
-
-
     plot_E_field(E_c, nt=0, project_sol=project_sol, plot_divE=plot_divE)
     plot_B_field(B_c, nt=0)
     
@@ -709,14 +747,32 @@ def solve_td_maxwell_pbm(
         # 1/2 faraday: Bn+1/2 -> Bn+1
         B_c[:] -= (dt/2) * C_m @ E_c
 
-        # diags: E norm
-        E_norm2_diag[nt+1] = np.dot(E_c,H1_m.dot(E_c))
-        B_norm2_diag[nt+1] = np.dot(B_c,H2_m.dot(B_c))
-        # nad = amps_diag[nt+1]/(np.cos(omega*dt*(nt+1))+1e-10)
-        # if abs(nad) > 100:
-        #     nad = 0
-        # norm_amps_diag[nt+1] = nad
-        time_diag[nt+1] = (nt+1)*dt
+        # diags: 
+        compute_diags(E_c, B_c, nt=nt+1)
+        # PE_c = cP1_m.dot(E_c)
+        # I_PE_c = E_c-PE_c
+        # E_norm2_diag[nt+1] = np.dot(E_c,H1_m.dot(E_c))
+        # PE_norm2_diag[nt+1] = np.dot(PE_c,H1_m.dot(PE_c))
+        # I_PE_norm2_diag[nt+1] = np.dot(I_PE_c,H1_m.dot(I_PE_c))
+        # B_norm2_diag[nt+1] = np.dot(B_c,H2_m.dot(B_c))
+        # time_diag[nt+1] = (nt+1)*dt
+
+        # diags: div        
+        # if project_sol:
+        #     Ep_c = PE_c # = cP1_m.dot(E_c)
+        # else:
+        #     Ep_c = E_c
+        # divE_c = div_m @ Ep_c
+        # divE_norm2 = np.dot(divE_c, H0_m.dot(divE_c))
+        # # print('in diag[{}]: divE_norm = {}'.format(nt+1, np.sqrt(divE_norm2)))
+        # divE_norm2_diag[nt+1] = divE_norm2
+
+        # if source_type == 'Il_pulse':
+        #     rho_c = rho0_c * np.sin(omega*dt*(nt+1))/omega
+        #     GaussErr = rho_c - div_m @ E_c
+        #     GaussErrP = rho_c - div_m @ (cP1_m.dot(E_c))
+        #     GaussErr_norm2_diag[nt+1] = np.dot(GaussErr, H0_m.dot(GaussErr))
+        #     GaussErrP_norm2_diag[nt+1] = np.dot(GaussErrP, H0_m.dot(GaussErrP))
         
         if debug:
             divCB_c = div_m @ dC_m @ B_c
@@ -731,24 +787,7 @@ def solve_td_maxwell_pbm(
             divE_norm2 = np.dot(divE_c, H0_m.dot(divE_c))
             print('-- [{}]: || div E || = {}'.format(nt+1, np.sqrt(divE_norm2)))
 
-        # diags: div        
-        if project_sol:
-            Ep_c = cP1_m.dot(E_c)
-        else:
-            Ep_c = E_c
-        divE_c = div_m @ Ep_c
-        divE_norm2 = np.dot(divE_c, H0_m.dot(divE_c))
-        # print('in diag[{}]: divE_norm = {}'.format(nt+1, np.sqrt(divE_norm2)))
-        divE_norm2_diag[nt+1] = divE_norm2
-
-        if source_type == 'Il_pulse':
-            rho_c = rho0_c * np.sin(omega*dt*(nt+1))/omega
-            GaussErr = rho_c - div_m @ E_c
-            GaussErrP = rho0_c - div_m @ (cP1_m.dot(E_c))
-            GaussErr_norm2_diag[nt+1] = np.dot(GaussErr, H0_m.dot(GaussErr))
-            GaussErrP_norm2_diag[nt+1] = np.dot(GaussErrP, H0_m.dot(GaussErrP))
-
-        if is_plotting_time(nt):
+        if is_plotting_time(nt+1):
             plot_E_field(E_c, nt=nt+1, project_sol=project_sol, plot_divE=plot_divE)
             plot_B_field(B_c, nt=nt+1)
             plot_J_source_nPlusHalf(f_c, nt=nt)
@@ -757,10 +796,12 @@ def solve_td_maxwell_pbm(
             tau_here = nt+1
             
             plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start=(nt+1)-diag_dtau*Nt_pp, nt_end=(nt+1), 
-            fharm_norm2_diag=fharm_norm2_diag, GaussErr_norm2_diag=GaussErr_norm2_diag, GaussErrP_norm2_diag=GaussErrP_norm2_diag)   
+            PE_norm2_diag=PE_norm2_diag, I_PE_norm2_diag=I_PE_norm2_diag,
+            GaussErr_norm2_diag=GaussErr_norm2_diag, GaussErrP_norm2_diag=GaussErrP_norm2_diag)   
 
     plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start=0, nt_end=Nt, 
-    fharm_norm2_diag=fharm_norm2_diag, GaussErr_norm2_diag=GaussErr_norm2_diag, GaussErrP_norm2_diag=GaussErrP_norm2_diag)
+    PE_norm2_diag=PE_norm2_diag, I_PE_norm2_diag=I_PE_norm2_diag, 
+    GaussErr_norm2_diag=GaussErr_norm2_diag, GaussErrP_norm2_diag=GaussErrP_norm2_diag)
 
     # Eh = FemField(V1h, coeffs=array_to_stencil(E_c, V1h.vector_space))
     # t_stamp = time_count(t_stamp)

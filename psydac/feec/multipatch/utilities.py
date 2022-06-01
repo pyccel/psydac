@@ -94,8 +94,11 @@ def get_run_dir(domain_name, nc, deg, source_type=None, conf_proj=None):
 def get_plot_dir(case_dir, run_dir):
     return './plots/'+case_dir+'/'+run_dir
 
-def get_mat_dir(domain_name, nc, deg):
-    return './saved_matrices/matrices_{}_nc={}_deg={}'.format(domain_name, nc, deg)
+def get_mat_dir(domain_name, nc, deg, quad_param=None):
+    mat_dir = './saved_matrices/matrices_{}_nc={}_deg={}'.format(domain_name, nc, deg)
+    if quad_param is not None:
+        mat_dir += '_qp={}'.format(quad_param)
+    return mat_dir
 
 def get_sol_dir(case_dir, domain_name, nc, deg):
     return './saved_solutions/'+case_dir+'/solutions_{}_nc={}_deg={}'.format(domain_name, nc, deg)
