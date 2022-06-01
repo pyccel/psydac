@@ -303,7 +303,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
             g_spaces[interior] = Vh
 
-        interfaces_info = construct_interface_spaces(g_spaces, spaces, cart, interiors, interfaces, comm, quad_order=quad_order)
+        interfaces_info = construct_interface_spaces(g_spaces, cart, interiors, interfaces, comm)
 
     for inter in g_spaces:
         Vh = g_spaces[inter]

@@ -121,26 +121,6 @@ class MultiCartDecomposition:
         self._carts               = carts
 
     @property
-    def npts( self ):
-        return self._npts
-
-    @property
-    def pads( self ):
-        return self._pads
-
-    @property
-    def periods( self ):
-        return self._periods
-
-    @property
-    def shifts( self ):
-        return self._shifts
-
-    @property
-    def num_threads( self ):
-        return self._num_threads
-
-    @property
     def comm( self ):
         return self._comm
 
@@ -200,11 +180,11 @@ class InterfacesCartDecomposition:
 
         assert isinstance(carts, MultiCartDecomposition)
 
-        npts                = carts.npts
-        pads                = carts.pads
-        shifts              = carts.shifts
-        periods             = carts.periods
-        num_threads         = carts.num_threads
+        npts                = [cart.npts for cart in carts.carts]
+        pads                = [cart.pads for cart in carts.carts]
+        shifts              = [cart.shifts for cart in carts.carts]
+        periods             = [cart.periods for cart in carts.carts]
+        num_threads         = carts.carts[0].num_threads
         comm                = carts.comm
         global_group        = comm.group
         local_groups        = carts.local_groups

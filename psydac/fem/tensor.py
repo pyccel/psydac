@@ -1044,21 +1044,22 @@ class TensorFemSpace( FemSpace ):
             v    = self._vector_space._interfaces[a,e]
             cart = v.cart
             if cart:cart = v.cart.reduce_elements(axes, n_elements)
-            tensor_vec.set_interface_space(a, e, tensor_vec.spaces, cart=cart, quad_order=tensor_vec.quad_order)
+            tensor_vec.set_interface_space(a, e, cart=cart)
 
         return tensor_vec
 
-    def set_interface_space(self, axis, ext, spaces, cart=None, quad_order=None):
+    def set_interface_space(self, axis, ext, cart=None):
         axis = int(axis)
         ext  = int(ext)
         assert axis<self.ldim
         assert ext in [-1,1]
-        assert len(spaces) == len(self.spaces)
         if cart is not None:
             assert isinstance(cart, CartDecomposition)
             if cart.is_comm_null:return
 
+        spaces       = self.spaces
         vector_space = self.vector_space
+        quad_order   = self.quad_order
 
         vector_space.set_interface(axis, ext, cart)
         space = TensorFemSpace( *spaces, vector_space=vector_space._interfaces[axis, ext], quad_order=quad_order)
