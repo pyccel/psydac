@@ -9,40 +9,111 @@ t_stamp_full = time_count()
 
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 #
-# test-cases used for the ppc paper:
+# main test-cases and parameters used for the ppc paper:
 
-# test_case = 'pulse_no_source'   # used in paper
-test_case = 'Issautier_like_source'   # used in paper
-# test_case = 'transient_to_harmonic'   # not used in paper
+# test_case = 'E0_pulse_no_source'   # used in paper
+# test_case = 'Issautier_like_source'  # used in paper
+test_case = 'transient_to_harmonic'  # actually, not used in paper
 
 # J_proj_case = 'P_geom'
-J_proj_case = 'P_L2'
-# J_proj_case = 'tilde Pi_1' 
+# J_proj_case = 'P_L2'
+J_proj_case = 'tilde Pi_1' 
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
+nc_s = [8] #16]
+deg_s = [3]
 
-if test_case == 'pulse_no_source':
+# we use a t_period = (2*pi/omega) (sometimes denoted tau)
+# this is relevant for oscillating sources but also for plotting
+omega = 5*2*np.pi 
+nb_t_periods = 10  #  # final time: T = nb_t_periods * t_period
+
+# plotting ranges:
+#   we give a list of ranges and plotting period: [[t_start, t_end], nt_plot_period]
+#   with 
+#       t_start, t_end: in t_periods (tau) units
+#   and 
+#       nt_plots_pp: nb of plots per period
+plot_time_ranges = [
+    [[nb_t_periods-1, nb_t_periods], 4]
+    ]
+
+# nb of time steps per period (if None, will be set from cfl)
+Nt_pp = None
+cfl = .8  
+
+if test_case == 'E0_pulse_no_source':
     E0_type = 'pulse'
     source_type = 'Il_pulse'    # Issautier-like pulse
     source_is_harmonic = False
+    
+    nb_t_periods = 25 # final time: T = nb_t_periods * t_period
+    plot_a_lot = False # True # 
+    if plot_a_lot:
+        plot_time_ranges = [
+            [[0, nb_t_periods], 4]
+        ]
+    else:
+        # plot only a few snapshots
+        plot_time_ranges = [
+            [[0, 2], 2],
+            [[nb_t_periods-2, nb_t_periods], 2],
+        ]
+
+    cb_min_sol = 0
+    cb_max_sol = 5
 
 elif test_case == 'Issautier_like_source':
     E0_type = 'zero'
     source_type = 'Il_pulse'
     source_is_harmonic = False
 
+    nb_t_periods = 100  #  # final time: T = nb_t_periods * t_period
+            
+    cb_min_sol = 0 # None
+    cb_max_sol = .3 # None
+
+    if deg_s == [3] and nb_t_periods==100:
+            
+        plot_time_ranges = [
+            [[9.5,10], 2],
+            [[24.5,25], 2],
+            [[49.5,50], 2],
+            [[99.5,100], 2],
+            ]
+
+            # plot_time_ranges = [
+            #     ]
+            # if nc_s == [8]:
+            #     Nt_pp = 10
+
 elif test_case == 'transient_to_harmonic':
     E0_type = 'th_sol'
     source_type = 'elliptic_J'
     source_is_harmonic = True
 
+    omega = np.sqrt(50) # source time pulsation
+    nb_t_periods = 100 # final time: T = nb_t_periods * (2*pi/omega)
+    # Nt_pp = 100 # time steps per time period  # CFL should be decided automatically...
+
+    plot_time_ranges = [
+        [[nb_t_periods-2,nb_t_periods], 4]
+        ]
+    cb_min_sol = 0
+    cb_max_sol = 1
+
 else:
     raise ValueError(test_case)
 
+# projection used for initial E0 (B0 = 0 in all cases)
 E0_proj = 'P_L2' # 'P_geom' # 
 
+# whether cP1 E_h is plotted instead of E_h:
+project_sol =  True #  False #   
+
+# projection used for the source J
 if J_proj_case == 'P_geom':
     source_proj = 'P_geom'
     filter_source =  False
@@ -57,21 +128,11 @@ elif J_proj_case == 'tilde Pi_1':
 else:
     raise ValueError(J_proj_case)
 
+# multiplicative parameter for the quadrature order of the bilinear/linear forms discretizations:
 quad_param = 4
 
-project_sol =  True #  False #
+# jump dissipation parameter (not used in paper)
 gamma_h = 0
-
-# nc_s = [2,4,8,16]
-# deg_s = [2,3,4,5]
-
-nc_s = [8] #16]
-deg_s = [3]
-
-Nt_pp = None
-cfl = .8
-
-# Nt_pp = 54  # TMP for 20/6
 
 case_dir = 'td_maxwell_' + test_case + '_J_proj=' + J_proj_case + '_qp{}'.format(quad_param)
 if filter_source:
@@ -81,95 +142,14 @@ else:
 if not project_sol:
     case_dir += '_E_noproj'
 
-# plotting ranges:
-#   we give a list of ranges and plotting period: [[t_start, t_end], nt_plot_period]
-#   with 
-#       t_start, t_end: in time periods units
-#   and 
-#       nt_plot_period: nb of time steps between two plots
-
-if source_is_harmonic:
-
-    nb_t_periods = 100 # final time: T = nb_t_periods * (2*pi/omega)
-    Nt_pp = 100 # time steps per time period  # CFL should be decided automatically...
-    omega = np.sqrt(50) # source time pulsation
-
-    cb_min_sol = 0
-    cb_max_sol = 1
-
-    plot_time_ranges = [
-        [[0,nb_t_periods], None] #Nt_pp//10]
-        # [[95,100], Nt_pp//10]
-        # [[495,500], Nt_pp//5]
-        ]
-
-else: 
-    
-    # code will use t_period = (2*pi/omega), relevant for plotting if no source
-    omega = 5*2*np.pi 
-
-    if E0_type == 'pulse':
-        nb_t_periods = 25 # final time: T = nb_t_periods * t_period
-        cb_min_sol = 0
-        cb_max_sol = 8
-
-    elif E0_type == 'zero':
-        # assert source_type == 'pulse'
-        # case_dir += '_J_'+source_type+'_'+source_proj
-        
-        if source_type == 'Il_pulse':
-            nb_t_periods = 100  #  # final time: T = nb_t_periods * t_period
-            
-            cb_min_sol = None
-            cb_max_sol = None
-
-            cb_min_sol = 0
-            cb_max_sol = .3
-
-        else:
-            nb_t_periods = 16 # final time: T = nb_t_periods * t_period   # 16 for paper ?
-
-            cb_min_sol = 0
-            cb_max_sol = .3
-    
-    else:
-        raise ValueError
-
-    if source_type == 'Il_pulse':
-        if deg_s == [3] and nb_t_periods==100:
-            
-            plot_time_ranges = [
-                [[9.5,10], 5],
-                [[24.5,25], 5],
-                [[49.5,50], 5],
-                [[99.5,100], 5],
-                ]
-
-            # plot_time_ranges = [
-            #     ]
-
-            if nc_s == [8]:
-                Nt_pp = 10
-
-        else:
-            plot_time_ranges = [
-                [[nb_t_periods-1,nb_t_periods], None],
-                ]
-
-    else:
-        plot_time_ranges = [
-            [[0,nb_t_periods], None] #Nt_pp//10]
-            # [[95,100], Nt_pp//10]
-            # [[495,500], Nt_pp//5]
-            ]
-
 case_dir += '_nb_tau={}'.format(nb_t_periods)
 
-# diag_dtau: tau period for intermediate diags plotting
+# diag_dtau: tau period for intermediate diags (time curves) plotting
 diag_dtau = max(1,nb_t_periods//10)
 
 domain_name = 'pretzel_f'
 
+# type of conforming projection operators (averaging B-spline or Geometric-splines coefficients)
 conf_proj = 'GSP' # 'BSP' # 
 
 #

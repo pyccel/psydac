@@ -71,7 +71,7 @@ def solve_td_maxwell_pbm(
     final_time = nb_t_periods * period_time
 
     if plot_time_ranges is None:
-        plot_time_ranges = [[0, final_time], 1]
+        plot_time_ranges = [[0, final_time], 2]
 
     if diag_dtau is None:
         diag_dtau = nb_t_periods//10
@@ -97,6 +97,8 @@ def solve_td_maxwell_pbm(
     print(' source_proj = {}'.format(source_proj))
     print(' backend_language = {}'.format(backend_language))
     print('---------------------------------------------------------------------------------------------------------')
+
+    debug = False
 
     print()
     print(' -- building discrete spaces and operators  --')
@@ -231,21 +233,24 @@ def solve_td_maxwell_pbm(
     Nt = Nt_pp * nb_t_periods
 
     def is_plotting_time(nt):
-        answer = (nt==Nt)
-        for tr, tp in plot_time_ranges:
-            if tp is None:
-                if source_is_harmonic:
-                    tp = max(Nt_pp//10,1)
-                elif source_type == 'Il_pulse':
-                    tp = max(Nt_pp//2,1)
-                else:
-                    tp = max(Nt_pp,1)
+        answer = (nt==0) or (nt==Nt)
+        for tau_range, nt_plots_pp in plot_time_ranges:
             if answer:
                 break
-            answer = (tr[0]*period_time <= nt*dt <= tr[1]*period_time and (nt)%tp == 0)
+            tp = max(Nt_pp//nt_plots_pp,1)
+            answer = (tau_range[0]*period_time <= nt*dt <= tau_range[1]*period_time and (nt)%tp == 0)
         return answer
 
-    debug = False
+    print(' ------ ------ ------ ------ ------ ------ ------ ------ ')
+    print(' ------ ------ ------ ------ ------ ------ ------ ------ ')
+    print(' total nb of time steps: Nt = {}, final time: T = {:5.4f}'.format(Nt, final_time))
+    print(' ------ ------ ------ ------ ------ ------ ------ ------ ')
+    print(' plotting times: the solution will be plotted for...')
+    for nt in range(Nt+1):
+        if is_plotting_time(nt):
+            print(' * nt = {}, t = {:5.4f}'.format(nt, dt*nt))
+    print(' ------ ------ ------ ------ ------ ------ ------ ------ ')
+    print(' ------ ------ ------ ------ ------ ------ ------ ------ ')
 
     # ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- 
     # source
@@ -422,11 +427,12 @@ def solve_td_maxwell_pbm(
                 filename=plot_dir+'/'+params_str+'_Jh_vf_nt={}.pdf'.format(nt), 
                 plot_type='vector_field', vf_skip=1, hide_plot=hide_plots)
 
-    def plot_E_field(E_c, nt, project_sol=False, plot_omega_normalized_sol=False, plot_divE=False):
+    def plot_E_field(E_c, nt, project_sol=False, plot_divE=False):
 
         # only E for now
         if plot_dir:
 
+            plot_omega_normalized_sol = source_is_harmonic
             # project the homogeneous solution on the conforming problem space
             if project_sol:
                 # t_stamp = time_count(t_stamp)
@@ -496,18 +502,18 @@ def solve_td_maxwell_pbm(
 
     def plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start, nt_end, 
         GaussErr_norm2_diag=None, GaussErrP_norm2_diag=None, 
-        PE_norm2_diag=None, I_PE_norm2_diag=None, fharm_norm2_diag=None, skip_titles=True):
+        PE_norm2_diag=None, I_PE_norm2_diag=None, J_norm2_diag=None, skip_titles=True):
         nt_start = max(nt_start, 0)
         nt_end = min(nt_end, Nt)
         tau_start = nt_start/Nt_pp
         tau_end = nt_end/Nt_pp
 
-        td = time_diag[nt_start:nt_end+1]
         if source_is_harmonic:
-            td[:] = td[:]/period_time
-            t_label = 't/tau'
+            td = time_diag[nt_start:nt_end+1]/period_time
+            t_label = r'$t/\tau$'
         else: 
-            t_label = 't'
+            td = time_diag[nt_start:nt_end+1]
+            t_label = r'$t$'
 
         # norm || E ||
         fig, ax = plt.subplots()
@@ -515,7 +521,7 @@ def solve_td_maxwell_pbm(
         if skip_titles:
             title = ''
         else:
-            title = r'$||E_h(t)||$'
+            title = r'$||E_h(t)||$ vs '+t_label
         ax.set_xlabel(t_label, fontsize=16)
         ax.set_title(title, fontsize=18)
         fig.tight_layout()
@@ -534,7 +540,7 @@ def solve_td_maxwell_pbm(
         if skip_titles:  
             title = ''
         else:
-            title = r'energy vs $t$' 
+            title = r'energy vs '+t_label
         if E0_type == 'pulse':
             ax.set_ylim([0, 5])
         ax.set_xlabel(t_label, fontsize=16)                    
@@ -546,22 +552,13 @@ def solve_td_maxwell_pbm(
 
         # norm || div E ||
         fig, ax = plt.subplots()
-        # print(' -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- ') 
-        # print('diag_divE:') 
-        # print(' -- ') 
-        # print(td)
-        # print(' -- ')
-        # print(divE_norm2_diag[nt_start:nt_end+1])
-        # print(np.sqrt(divE_norm2_diag[nt_start:nt_end+1]))
-        # print(' -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- ') 
-        
         ax.plot(td, np.sqrt(divE_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
         if project_sol:
             diag_fn = plot_dir+'/diag_divPE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||div_h P^1_h E_h(t)||$ vs $t/\tau$' 
+            title = r'$||div_h P^1_h E_h(t)||$ vs '+t_label
         else:
             diag_fn = plot_dir+'/diag_divE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||div_h E_h(t)||$ vs $t/\tau$' 
+            title = r'$||div_h E_h(t)||$ vs '+t_label 
         if skip_titles:
             title = ''
         ax.set_xlabel(t_label, fontsize=16)  
@@ -574,7 +571,7 @@ def solve_td_maxwell_pbm(
             fig, ax = plt.subplots()            
             ax.plot(td, np.sqrt(I_PE_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
             diag_fn = plot_dir+'/diag_I_PE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||(I-P^1)E_h(t)||$ vs $t/\tau$' 
+            title = r'$||(I-P^1)E_h(t)||$ vs '+t_label
             if skip_titles:
                 title = ''
             ax.set_xlabel(t_label, fontsize=16)  
@@ -587,20 +584,7 @@ def solve_td_maxwell_pbm(
             fig, ax = plt.subplots()            
             ax.plot(td, np.sqrt(PE_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
             diag_fn = plot_dir+'/diag_PE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||(I-P^1)E_h(t)||$ vs $t/\tau$' 
-            if skip_titles:
-                title = ''
-            ax.set_xlabel(t_label, fontsize=16)  
-            ax.set_title(title, fontsize=18)
-            fig.tight_layout()
-            print("saving plot for '"+title+"' in figure '"+diag_fn)
-            fig.savefig(diag_fn)            
-
-        if fharm_norm2_diag is not None:
-            fig, ax = plt.subplots()            
-            ax.plot(td, np.sqrt(fharm_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
-            diag_fn = plot_dir+'/diag_fharm_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||f_{harm}(t)||$ vs $t/\tau$' 
+            title = r'$||(I-P^1)E_h(t)||$ vs '+t_label
             if skip_titles:
                 title = ''
             ax.set_xlabel(t_label, fontsize=16)  
@@ -613,7 +597,7 @@ def solve_td_maxwell_pbm(
             fig, ax = plt.subplots()            
             ax.plot(td, np.sqrt(GaussErr_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
             diag_fn = plot_dir+'/diag_GaussErr_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||(\rho_h - div_h E_h)(t)||$ vs $t/\tau$' 
+            title = r'$||(\rho_h - div_h E_h)(t)||$ vs '+t_label
             if skip_titles:
                 title = ''
             ax.set_xlabel(t_label, fontsize=16)  
@@ -626,7 +610,20 @@ def solve_td_maxwell_pbm(
             fig, ax = plt.subplots()            
             ax.plot(td, np.sqrt(GaussErrP_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
             diag_fn = plot_dir+'/diag_GaussErrP_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||(\rho_h - div_h P_h E_h)(t)||$ vs $t/\tau$' 
+            title = r'$||(\rho_h - div_h P_h E_h)(t)||$ vs '+t_label
+            if skip_titles:
+                title = ''
+            ax.set_xlabel(t_label, fontsize=16)  
+            ax.set_title(title, fontsize=18)
+            fig.tight_layout()
+            print("saving plot for '"+title+"' in figure '"+diag_fn)
+            fig.savefig(diag_fn)     
+        
+        if J_norm2_diag is not None:
+            fig, ax = plt.subplots()            
+            ax.plot(td, np.sqrt(J_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
+            diag_fn = plot_dir+'/diag_J_norm_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
+            title = r'$||J_h(t)||$ vs '+t_label
             if skip_titles:
                 title = ''
             ax.set_xlabel(t_label, fontsize=16)  
@@ -635,6 +632,7 @@ def solve_td_maxwell_pbm(
             print("saving plot for '"+title+"' in figure '"+diag_fn)
             fig.savefig(diag_fn)     
 
+
     # diags arrays
     E_norm2_diag = np.zeros(Nt+1)
     B_norm2_diag = np.zeros(Nt+1)
@@ -642,14 +640,13 @@ def solve_td_maxwell_pbm(
     time_diag = np.zeros(Nt+1)
     PE_norm2_diag = np.zeros(Nt+1)
     I_PE_norm2_diag = np.zeros(Nt+1)
+    J_norm2_diag = np.zeros(Nt+1)
     if source_type == 'Il_pulse':
         GaussErr_norm2_diag = np.zeros(Nt+1)
         GaussErrP_norm2_diag = np.zeros(Nt+1)
-        fharm_norm2_diag = np.zeros(Nt+1)
     else:
         GaussErr_norm2_diag = None
         GaussErrP_norm2_diag = None
-        fharm_norm2_diag = None
 
     # ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- 
     # initial solution
@@ -701,13 +698,14 @@ def solve_td_maxwell_pbm(
 
     # ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- 
     # time loop
-    def compute_diags(E_c, B_c, nt):
+    def compute_diags(E_c, B_c, J_c, nt):
         time_diag[nt] = (nt)*dt
         PE_c = cP1_m.dot(E_c)
         I_PE_c = E_c-PE_c
         E_norm2_diag[nt] = np.dot(E_c,H1_m.dot(E_c))
         PE_norm2_diag[nt] = np.dot(PE_c,H1_m.dot(PE_c))
         I_PE_norm2_diag[nt] = np.dot(I_PE_c,H1_m.dot(I_PE_c))
+        J_norm2_diag[nt] = np.dot(J_c,H1_m.dot(J_c))
         B_norm2_diag[nt] = np.dot(B_c,H2_m.dot(B_c))
         divE_c = div_m @ E_c
         divE_norm2_diag[nt] = np.dot(divE_c, H0_m.dot(divE_c))
@@ -718,8 +716,6 @@ def solve_td_maxwell_pbm(
             GaussErr_norm2_diag[nt] = np.dot(GaussErr, H0_m.dot(GaussErr))
             GaussErrP_norm2_diag[nt] = np.dot(GaussErrP, H0_m.dot(GaussErrP))
 
-    compute_diags(E_c, B_c, nt=0)
-    
     plot_E_field(E_c, nt=0, project_sol=project_sol, plot_divE=plot_divE)
     plot_B_field(B_c, nt=0)
     
@@ -733,12 +729,11 @@ def solve_td_maxwell_pbm(
         # ampere: En -> En+1
         if f0_harmonic_c is not None:
             f_harmonic_c = f0_harmonic_c * (np.sin(omega*(nt+1)*dt)-np.sin(omega*(nt)*dt))/(dt*omega) # * source_enveloppe(omega*(nt+1/2)*dt)
-            fharm_norm2_diag[nt+1] = np.dot(f_harmonic_c,H1_m.dot(f_harmonic_c))
             f_c[:] = f0_c + f_harmonic_c
 
         if nt == 0:
             plot_J_source_nPlusHalf(f_c, nt=0)
-            fharm_norm2_diag[0] = fharm_norm2_diag[1]
+            compute_diags(E_c, B_c, f_c, nt=0)
 
         E_c[:] += dt * (dC_m @ B_c - f_c)
         if abs(gamma_h) > 1e-10:
@@ -748,7 +743,8 @@ def solve_td_maxwell_pbm(
         B_c[:] -= (dt/2) * C_m @ E_c
 
         # diags: 
-        compute_diags(E_c, B_c, nt=nt+1)
+        compute_diags(E_c, B_c, f_c, nt=nt+1)
+        
         # PE_c = cP1_m.dot(E_c)
         # I_PE_c = E_c-PE_c
         # E_norm2_diag[nt+1] = np.dot(E_c,H1_m.dot(E_c))
@@ -796,11 +792,11 @@ def solve_td_maxwell_pbm(
             tau_here = nt+1
             
             plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start=(nt+1)-diag_dtau*Nt_pp, nt_end=(nt+1), 
-            PE_norm2_diag=PE_norm2_diag, I_PE_norm2_diag=I_PE_norm2_diag,
+            PE_norm2_diag=PE_norm2_diag, I_PE_norm2_diag=I_PE_norm2_diag, J_norm2_diag=J_norm2_diag,
             GaussErr_norm2_diag=GaussErr_norm2_diag, GaussErrP_norm2_diag=GaussErrP_norm2_diag)   
 
     plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start=0, nt_end=Nt, 
-    PE_norm2_diag=PE_norm2_diag, I_PE_norm2_diag=I_PE_norm2_diag, 
+    PE_norm2_diag=PE_norm2_diag, I_PE_norm2_diag=I_PE_norm2_diag, J_norm2_diag=J_norm2_diag,
     GaussErr_norm2_diag=GaussErr_norm2_diag, GaussErrP_norm2_diag=GaussErrP_norm2_diag)
 
     # Eh = FemField(V1h, coeffs=array_to_stencil(E_c, V1h.vector_space))
