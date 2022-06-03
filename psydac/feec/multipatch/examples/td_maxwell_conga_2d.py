@@ -261,7 +261,9 @@ def solve_td_maxwell_pbm(
     f0_c = None
     f0_harmonic_c = None
     if source_type == 'zero':
-        pass
+
+        f0 = None
+        f0_harmonic = None
 
     elif source_type == 'pulse':
 

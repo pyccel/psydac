@@ -1,5 +1,3 @@
-from multiprocessing.sharedctypes import Value
-import os
 import numpy as np
 from psydac.feec.multipatch.examples.td_maxwell_conga_2d import solve_td_maxwell_pbm
 from psydac.feec.multipatch.utilities                   import time_count, FEM_sol_fn, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
@@ -46,7 +44,7 @@ cfl = .8
 
 if test_case == 'E0_pulse_no_source':
     E0_type = 'pulse'
-    source_type = 'Il_pulse'    # Issautier-like pulse
+    source_type = 'zero'    # no current
     source_is_harmonic = False
     
     nb_t_periods = 25 # final time: T = nb_t_periods * t_period
