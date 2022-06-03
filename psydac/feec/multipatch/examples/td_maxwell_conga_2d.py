@@ -36,7 +36,7 @@ from psydac.fem.basic                                   import FemField
 def solve_td_maxwell_pbm(
         nc=4, deg=4, Nt_pp=None, cfl=.8, nb_t_periods=20, omega=20, source_is_harmonic=True,
         domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
-        conf_proj='BSP', gamma_h=10.,     
+        conf_proj='BSP', gamma_h=10.,
         project_sol=False, filter_source=True, quad_param=1,
         E0_type='zero', E0_proj='P_L2', 
         plot_source=False, plot_dir=None, plot_divE=False, hide_plots=True, plot_time_ranges=None, diag_dtau=None,
@@ -55,12 +55,118 @@ def solve_td_maxwell_pbm(
       V0h  --grad->  V1h  -—curl-> V2h
                      (Eh)          (Bh)
 
-    :param nc: nb of cells per dimension, in each patch
-    :param deg: coordinate degree in each patch
-    :param gamma_h: jump penalization parameter
-    :param source_proj: approximation operator for the source, possible values are 'P_geom' or 'P_L2'
-    :param source_type: must be implemented in get_source_and_solution()
-    :param m_load_dir: directory for matrix storage
+    Parameters
+    ----------
+    nc : int
+        Number of cells (same along each direction) in every patch.
+
+    deg : int
+        Polynomial degree (same along each direction) in every patch, for the
+        spline space V0 in H1.
+
+    cfl : float
+        Maximum Courant parameter in the simulation domain, used to determine
+        the time step size.
+
+    source_is_harmonic : bool
+        If True, current source is time harmonic with pulsation omega.
+
+    omega : float
+        Pulsation of current source, only relevant if this is harmonic.
+
+    nb_t_periods: float
+        Final simulation time, measured in periods of oscillations of the
+        time-harmonic current source (period = 2 pi / omega).
+
+    Nt_pp : float
+        Minimum number of time steps per period of the current source, used to
+        determine the time step size. Only relevant if the source is harmonic.
+
+    domain_name : str
+        Name of the multipatch geometry used in the simulation, to be chosen
+        among those available in the function `build_multipatch_domain`.
+
+    backend_language : str
+        Name of the backend used for acceleration of the computational kernels,
+        to be chosen among the available keys of the PSYDAC_BACKENDS dict.
+
+    source_proj : str {'P_geom' | 'P_L2'}
+        Name of the approximation operator for the current source: 'P_geom' is
+        a geometric projector (based on inter/histopolation) which yields the
+        primal degrees of freedom; 'P_L2' is an L2 projector which yields the
+        dual degrees of freedom. Change of basis from primal to dual (and vice
+        versa) is obtained through multiplication with the proper Hodge matrix.
+
+    source_type : str
+        Name that identifies the space-time profile of the current source, to be
+        chosen among those available in the function get_source_and_solution().
+
+    conf_proj : str {'BSP' | 'GSP'}
+        Kind of conforming projection operator. Choose 'BSP' for an operator
+        based on the spline coefficients, which has maximum data locality.
+        Choose 'GSP' for an operator based on the geometric degrees of freedom,
+        which requires a change of basis (from B-spline to geometric, and then
+        vice versa) on the patch interfaces.
+
+    gamma_h : float
+        Jump penalization parameter.
+
+    project_sol : bool
+        Whether the solution fields should be projected onto the corresponding
+        conforming spaces before plotting them.
+
+    filter_source : bool
+        If True, the current source will be filtered with the conforming
+        projector operator (or its dual, depending on which basis is used).
+
+    quad_param : int
+        Multiplicative factor for the number of quadrature points; set
+        `quad_param` > 1 if you suspect that the quadrature is not accurate.
+
+    E0_type : str {'zero', 'th_sol', 'pulse'}
+        Initial conditions for the electric field. Choose 'zero' for E0=0,
+        'th_sol' for a field obtained from the time-harmonic Maxwell solver
+        (must use `source_is_harmonic = True` and the same value of `omega`),
+        and 'pulse' for a non-zero field localized in a small region.
+
+    E0_proj : str {'P_geom' | 'P_L2'}
+        Name of the approximation operator for the initial electric field E0
+        (see source_proj for details). Only relevant if E0 is not zero.
+
+    plot_source : bool
+        If True, plot the discrete field that approximates the current source.
+
+    plot_dir : str
+        Path to the directory where the figures will be saved.
+
+    plot_divE : bool
+        If True, compute and plot the (weak) divergence of the electric field.
+
+    hide_plots : bool
+        If True, no windows are opened to show the figures interactively.
+
+    plot_time_ranges : list
+        List of lists, each of which is of the form `[[start, end], n]`, where
+        `[start, end]` is a time interval in units of oscillation periods (for
+        a time harmonic source) and `n` is the number of plots in the interval.
+
+    diag_dtau : float
+        Time elapsed between two successive calculations of scalar diagnostic
+        quantities, in units of oscillation periods (for a time harmonic source).
+
+    cb_min_sol : float
+        Minimum value to be used in colorbars when visualizing the solution.
+
+    cb_max_sol : float
+        Maximum value to be used in colorbars when visualizing the solution.
+
+    m_load_dir : str
+        Path to directory for matrix storage.
+
+    th_sol_filename : str
+        Path to file with time-harmonic solution (to be used in conjuction with
+        `source_is_harmonic = True` and `E0_type = 'th_sol'`).
+
     """
     diags = {}
 
