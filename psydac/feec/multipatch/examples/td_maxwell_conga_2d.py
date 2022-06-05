@@ -33,15 +33,35 @@ from psydac.feec.multipatch.utilities                   import time_count #, exp
 from psydac.linalg.utilities                            import array_to_stencil
 from psydac.fem.basic                                   import FemField
 
-def solve_td_maxwell_pbm(
-        nc=4, deg=4, Nt_pp=None, cfl=.8, nb_t_periods=20, omega=20, source_is_harmonic=True,
-        domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
-        conf_proj='BSP', gamma_h=10.,
-        project_sol=False, filter_source=True, quad_param=1,
-        E0_type='zero', E0_proj='P_L2', 
-        plot_source=False, plot_dir=None, plot_divE=False, hide_plots=True, plot_time_ranges=None, diag_dtau=None,
-        cb_min_sol=None, cb_max_sol=None,
-        m_load_dir="", th_sol_filename="",
+def solve_td_maxwell_pbm(*,
+        nc               = 4,
+        deg              = 4,
+        final_time       = 20,
+        cfl_max          = 0.8,
+        dt_max           = None,
+        domain_name      = 'pretzel_f',
+        backend          = None,
+        source_type      = 'zero',
+        source_omega     = None,
+        source_proj      = 'P_geom',
+        conf_proj        = 'BSP',
+        gamma_h          = 10.,
+        project_sol      = False,
+        filter_source    = True,
+        quad_param       = 1,
+        E0_type          = 'zero',
+        E0_proj          = 'P_L2',
+        hide_plots       = True,
+        plot_dir         = None,
+        plot_time_ranges = None,
+        plot_source      = False,
+        plot_divE        = False,
+        diag_dt          = None,
+#        diag_dtau        = None,
+        cb_min_sol       = None,
+        cb_max_sol       = None,
+        m_load_dir       = "",
+        th_sol_filename  = "",
 ):
     """
     solver for the TD Maxwell problem: find E(t) in H(curl), B in L2, such that
@@ -64,31 +84,39 @@ def solve_td_maxwell_pbm(
         Polynomial degree (same along each direction) in every patch, for the
         spline space V0 in H1.
 
-    cfl : float
+    final_time : float
+        Final simulation time. Given that the speed of light is set to c=1,
+        this can be easily chosen based on the wave transit time in the domain.
+
+    cfl_max : float
         Maximum Courant parameter in the simulation domain, used to determine
         the time step size.
 
-    source_is_harmonic : bool
-        If True, current source is time harmonic with pulsation omega.
-
-    omega : float
-        Pulsation of current source, only relevant if this is harmonic.
-
-    nb_t_periods: float
-        Final simulation time, measured in periods of oscillations of the
-        time-harmonic current source (period = 2 pi / omega).
-
-    Nt_pp : float
-        Minimum number of time steps per period of the current source, used to
-        determine the time step size. Only relevant if the source is harmonic.
+    dt_max : float
+        Maximum time step size, which has to be met together with cfl_max. This
+        additional constraint is useful to resolve a time-dependent source.
 
     domain_name : str
         Name of the multipatch geometry used in the simulation, to be chosen
         among those available in the function `build_multipatch_domain`.
 
-    backend_language : str
+    backend : str
         Name of the backend used for acceleration of the computational kernels,
         to be chosen among the available keys of the PSYDAC_BACKENDS dict.
+
+    source_type : str {'zero' | 'pulse' | 'cf_pulse' | 'Il_pulse'}
+        Name that identifies the space-time profile of the current source, to be
+        chosen among those available in the function get_source_and_solution().
+        Available options:
+            - 'zero'    : no current source
+            - 'pulse'   : div-free current source, time-harmonic
+            - 'cf_pulse': curl-free current source, time-harmonic
+            - 'Il_pulse': Issautier-like pulse, with both a div-free and a
+                          curl-free component, not time-harmonic.
+
+    source_omega : float
+        Pulsation of the time-harmonic component (if any) of a time-dependent
+        current source.
 
     source_proj : str {'P_geom' | 'P_L2'}
         Name of the approximation operator for the current source: 'P_geom' is
@@ -96,10 +124,6 @@ def solve_td_maxwell_pbm(
         primal degrees of freedom; 'P_L2' is an L2 projector which yields the
         dual degrees of freedom. Change of basis from primal to dual (and vice
         versa) is obtained through multiplication with the proper Hodge matrix.
-
-    source_type : str
-        Name that identifies the space-time profile of the current source, to be
-        chosen among those available in the function get_source_and_solution().
 
     conf_proj : str {'BSP' | 'GSP'}
         Kind of conforming projection operator. Choose 'BSP' for an operator
@@ -126,33 +150,32 @@ def solve_td_maxwell_pbm(
     E0_type : str {'zero', 'th_sol', 'pulse'}
         Initial conditions for the electric field. Choose 'zero' for E0=0,
         'th_sol' for a field obtained from the time-harmonic Maxwell solver
-        (must use `source_is_harmonic = True` and the same value of `omega`),
+        (must provide a time-harmonic current source and set `source_omega`),
         and 'pulse' for a non-zero field localized in a small region.
 
     E0_proj : str {'P_geom' | 'P_L2'}
         Name of the approximation operator for the initial electric field E0
         (see source_proj for details). Only relevant if E0 is not zero.
 
-    plot_source : bool
-        If True, plot the discrete field that approximates the current source.
+    hide_plots : bool
+        If True, no windows are opened to show the figures interactively.
 
     plot_dir : str
         Path to the directory where the figures will be saved.
 
+    plot_time_ranges : list
+        List of lists, of the form `[[start, end], dtp]`, where `[start, end]`
+        is a time interval and `dtp` is the time between two successive plots.
+
+    plot_source : bool
+        If True, plot the discrete field that approximates the current source.
+
     plot_divE : bool
         If True, compute and plot the (weak) divergence of the electric field.
 
-    hide_plots : bool
-        If True, no windows are opened to show the figures interactively.
-
-    plot_time_ranges : list
-        List of lists, each of which is of the form `[[start, end], n]`, where
-        `[start, end]` is a time interval in units of oscillation periods (for
-        a time harmonic source) and `n` is the number of plots in the interval.
-
-    diag_dtau : float
+    diag_dt : float
         Time elapsed between two successive calculations of scalar diagnostic
-        quantities, in units of oscillation periods (for a time harmonic source).
+        quantities.
 
     cb_min_sol : float
         Minimum value to be used in colorbars when visualizing the solution.
@@ -171,22 +194,25 @@ def solve_td_maxwell_pbm(
     diags = {}
 
     ncells = [nc, nc]
-    degree = [deg,deg]
+    degree = [deg, deg]
 
-    period_time = 2*np.pi/omega
-    final_time = nb_t_periods * period_time
+    if source_omega is not None:
+        period_time = 2*np.pi / source_omega
+        Nt_pp       = period_time // dt
 
     if plot_time_ranges is None:
-        plot_time_ranges = [[0, final_time], 2]
+        plot_time_ranges = [
+            [[0, final_time], final_time]
+        ]
 
-    if diag_dtau is None:
-        diag_dtau = nb_t_periods//10
+    if diag_dt is None:
+        diag_dt = 0.1
 
-    # if backend_language is None:
+    # if backend is None:
     #     if domain_name in ['pretzel', 'pretzel_f'] and nc > 8:
-    #         backend_language='numba'
+    #         backend = 'numba'
     #     else:
-    #         backend_language='python'
+    #         backend = 'python'
     # print('[note: using '+backend_language+ ' backends in discretize functions]')
     if m_load_dir is not None:
         if not os.path.exists(m_load_dir):
@@ -201,7 +227,8 @@ def solve_td_maxwell_pbm(
     print(' E0_proj = {}'.format(E0_proj))
     print(' source_type = {}'.format(source_type))
     print(' source_proj = {}'.format(source_proj))
-    print(' backend_language = {}'.format(backend_language))
+    print(' backend = {}'.format(backend))
+    # TODO: print other parameters
     print('---------------------------------------------------------------------------------------------------------')
 
     debug = False
@@ -229,7 +256,7 @@ def solve_td_maxwell_pbm(
     t_stamp = time_count(t_stamp)
     print(' .. discrete derham sequence...')
     quad_order = [quad_param*(d + 1) for d in degree] # default value is the space's degree ? (see class TensorFemSpace)
-    derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language], quad_order=quad_order)
+    derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend], quad_order=quad_order)
 
     t_stamp = time_count(t_stamp)
     print(' .. commuting projection operators...')
@@ -257,9 +284,9 @@ def solve_td_maxwell_pbm(
     print(' .. Hodge operators...')
     # multi-patch (broken) linear operators / matrices
     # other option: define as Hodge Operators:
-    H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=0)
-    H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
-    H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=2)
+    H0 = HodgeOperator(V0h, domain_h, backend_language=backend, load_dir=m_load_dir, load_space_index=0)
+    H1 = HodgeOperator(V1h, domain_h, backend_language=backend, load_dir=m_load_dir, load_space_index=1)
+    H2 = HodgeOperator(V2h, domain_h, backend_language=backend, load_dir=m_load_dir, load_space_index=2)
 
     t_stamp = time_count(t_stamp)
     print(' .. Hodge matrix H0_m = M0_m ...')
@@ -282,8 +309,8 @@ def solve_td_maxwell_pbm(
     t_stamp = time_count(t_stamp)
     print(' .. conforming Projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
-    cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
+    cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend, load_dir=m_load_dir)
+    cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend, load_dir=m_load_dir)
     cP0_m = cP0.to_sparse_matrix()
     cP1_m = cP1.to_sparse_matrix()
     if conf_proj == 'GSP':
@@ -328,24 +355,30 @@ def solve_td_maxwell_pbm(
     # pre_A_m = cP1_m.transpose() @ ( eta * H1_m + mu * pre_CC_m - nu * pre_GD_m )  # useful for the boundary condition (if present)
     # A_m = pre_A_m @ cP1_m + gamma_h * JP_m
 
-    if Nt_pp is None:
-        if not( 0 < cfl <= 1):
-            print(' ******  ****** ******  ****** ******  ****** ')
-            print('         WARNING !!!  cfl = {}  '.format(cfl))
-            print(' ******  ****** ******  ****** ******  ****** ')
-        Nt_pp, dt = compute_stable_dt(cfl, period_time, C_m, dC_m, V1h.nbasis)
-    else:
-        dt = period_time/Nt_pp
-    Nt = Nt_pp * nb_t_periods
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Compute stable time step size based on max CFL and max dt
+    dt = compute_stable_dt(C_m=C_m, dC_m=dC_m, cfl_max=cfl_max, dt_max=dt_max)
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def is_plotting_time(nt):
-        answer = (nt==0) or (nt==Nt)
-        for tau_range, nt_plots_pp in plot_time_ranges:
-            if answer:
-                break
-            tp = max(Nt_pp//nt_plots_pp,1)
-            answer = (tau_range[0]*period_time <= nt*dt <= tau_range[1]*period_time and (nt)%tp == 0)
-        return answer
+    print(" Reduce time step to match the simulation final time:")
+    Nt = int(np.ceil(final_time/dt))
+    dt = final_time / Nt
+    print(f"   . Time step size  : dt = {dt}")
+    print(f"   . Nb of time steps: Nt = {Nt}")
+
+    # ...
+    def is_plotting_time(nt, *, dt=dt, Nt=Nt, plot_time_ranges=plot_time_ranges):
+        if nt in [0, Nt]:
+            return True
+        for [start, end], dt_plots in plot_time_ranges:
+            ds = max(dt_plots // dt, 1) # number of time steps between two successive plots
+            if (start <= nt * dt <= end) and (nt % ds == 0):
+                return True
+        return False
+    # ...
+
+    # Number of time step between two successive calculations of the scalar diagnostics
+    diag_nt = max(int(diag_dt // dt), 1)
 
     print(' ------ ------ ------ ------ ------ ------ ------ ------ ')
     print(' ------ ------ ------ ------ ------ ------ ------ ------ ')
@@ -393,7 +426,7 @@ def solve_td_maxwell_pbm(
         assert not source_is_harmonic
 
         rho0 = get_Delta_phi_pulse(x_0=1.0, y_0=1.0, domain=domain) # this is Delta phi
-        tilde_rho0_c = derham_h.get_dual_dofs(space='V0', f=rho0, backend_language=backend_language, return_format='numpy_array')
+        tilde_rho0_c = derham_h.get_dual_dofs(space='V0', f=rho0, backend_language=backend, return_format='numpy_array')
         tilde_rho0_c = cP0_m.transpose() @ tilde_rho0_c
         rho0_c = dH0_m.dot(tilde_rho0_c)
 
@@ -409,7 +442,7 @@ def solve_td_maxwell_pbm(
     def source_enveloppe(tau):        
         return 1
 
-    if source_is_harmonic:
+    if source_omega is not None:
         f0_harmonic = f0
         f0 = None
         if E0_type == 'th_sol':
@@ -444,7 +477,7 @@ def solve_td_maxwell_pbm(
                 tilde_f0_c = np.load(sdd_filename)
             else:
                 print(' .. projecting the source f0 with L2 projection...')
-                tilde_f0_c = derham_h.get_dual_dofs(space='V1', f=f0, backend_language=backend_language, return_format='numpy_array')
+                tilde_f0_c = derham_h.get_dual_dofs(space='V1', f=f0, backend_language=backend, return_format='numpy_array')
                 print(' .. saving source dual dofs to file {}'.format(sdd_filename))
                 np.save(sdd_filename, tilde_f0_c)
         if f0_harmonic is not None:
@@ -458,7 +491,7 @@ def solve_td_maxwell_pbm(
                 tilde_f0_harmonic_c = np.load(sdd_filename)
             else:
                 print(' .. projecting the source f0_harmonic with L2 projection...')
-                tilde_f0_harmonic_c = derham_h.get_dual_dofs(space='V1', f=f0_harmonic, backend_language=backend_language, return_format='numpy_array')
+                tilde_f0_harmonic_c = derham_h.get_dual_dofs(space='V1', f=f0_harmonic, backend_language=backend, return_format='numpy_array')
                 print(' .. saving source dual dofs to file {}'.format(sdd_filename))
                 np.save(sdd_filename, tilde_f0_harmonic_c)
 
@@ -478,7 +511,7 @@ def solve_td_maxwell_pbm(
 
         if debug:
             title = 'f0 part of source'
-            params_str = 'omega={}_gamma_h={}_Pf={}'.format(omega, gamma_h, source_proj)
+            params_str = 'omega={}_gamma_h={}_Pf={}'.format(source_omega, gamma_h, source_proj)
             plot_field(numpy_coeffs=f0_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, 
                 filename=plot_dir+'/'+params_str+'_f0.pdf', 
                 plot_type='components', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
@@ -497,7 +530,7 @@ def solve_td_maxwell_pbm(
         
         if debug:
             title = 'f0_harmonic part of source'
-            params_str = 'omega={}_gamma_h={}_Pf={}'.format(omega, gamma_h, source_proj)
+            params_str = 'omega={}_gamma_h={}_Pf={}'.format(source_omega, gamma_h, source_proj)
             plot_field(numpy_coeffs=f0_harmonic_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, 
                 filename=plot_dir+'/'+params_str+'_f0_harmonic.pdf', 
                 plot_type='components', cb_min=None, cb_max=None, hide_plot=hide_plots)
@@ -525,12 +558,12 @@ def solve_td_maxwell_pbm(
     
     def plot_J_source_nPlusHalf(f_c, nt):
             print(' .. plotting the source...')
-            title = r'source $J^{n+1/2}_h$ (amplitude)'+' for $\omega = {}$, $n = {}$'.format(omega,nt)
-            params_str = 'omega={}_gamma_h={}_Pf={}'.format(omega, gamma_h, source_proj)
+            title = r'source $J^{n+1/2}_h$ (amplitude)'+' for $\omega = {}$, $n = {}$'.format(source_omega, nt)
+            params_str = 'omega={}_gamma_h={}_Pf={}'.format(source_omega, gamma_h, source_proj)
             plot_field(numpy_coeffs=f_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, 
                 filename=plot_dir+'/'+params_str+'_Jh_nt={}.pdf'.format(nt), 
                 plot_type='amplitude', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
-            title = r'source $J^{n+1/2}_h$'+' for $\omega = {}$, $n = {}$'.format(omega,nt)
+            title = r'source $J^{n+1/2}_h$'+' for $\omega = {}$, $n = {}$'.format(source_omega, nt)
             plot_field(numpy_coeffs=f_c, Vh=V1h, space_kind='hcurl', domain=domain, title=title, 
                 filename=plot_dir+'/'+params_str+'_Jh_vf_nt={}.pdf'.format(nt), 
                 plot_type='vector_field', vf_skip=1, hide_plot=hide_plots)
@@ -540,7 +573,7 @@ def solve_td_maxwell_pbm(
         # only E for now
         if plot_dir:
 
-            plot_omega_normalized_sol = source_is_harmonic
+            plot_omega_normalized_sol = (source_omega is not None)
             # project the homogeneous solution on the conforming problem space
             if project_sol:
                 # t_stamp = time_count(t_stamp)
@@ -551,9 +584,9 @@ def solve_td_maxwell_pbm(
                 print(' .. NOT projecting the homogeneous solution on the conforming problem space')
             if plot_omega_normalized_sol:
                 print(' .. plotting the E/omega field...')
-                u_c = (1/omega)*Ep_c
-                title = r'$u_h = E_h/\omega$ (amplitude) for $\omega = {:5.4f}$, $t = {:5.4f}$'.format(omega, dt*nt)
-                params_str = 'omega={:5.4f}_gamma_h={}_Pf={}_Nt_pp={}'.format(omega, gamma_h, source_proj, Nt_pp)
+                u_c = (1/source_omega)*Ep_c
+                title = r'$u_h = E_h/\omega$ (amplitude) for $\omega = {:5.4f}$, $t = {:5.4f}$'.format(source_omega, dt*nt)
+                params_str = 'omega={:5.4f}_gamma_h={}_Pf={}_Nt_pp={}'.format(source_omega, gamma_h, source_proj, Nt_pp)
             else:
                 print(' .. plotting the E field...')                
                 if E0_type == 'pulse':
@@ -561,17 +594,17 @@ def solve_td_maxwell_pbm(
                 else:
                     title = r'$E_h$ (amplitude) at $t = {:5.4f}$'.format(dt*nt)
                 u_c = Ep_c
-                params_str = 'gamma_h={}_Nt_pp={}'.format(gamma_h, Nt_pp)
+                params_str = f'gamma_h={gamma_h}_dt={dt}'
             
             plot_field(numpy_coeffs=u_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, 
                 filename=plot_dir+'/'+params_str+'_Eh_nt={}.pdf'.format(nt),
                 plot_type='amplitude', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
 
             if plot_divE:
-                params_str = 'gamma_h={}_Nt_pp={}'.format(gamma_h, Nt_pp)
+                params_str = f'gamma_h={gamma_h}_dt={dt}'
                 if source_type == 'Il_pulse':
                     plot_type = 'components'
-                    rho_c = rho0_c * np.sin(omega*dt*nt)/omega
+                    rho_c = rho0_c * np.sin(source_omega*dt*nt) / source_omega
                     rho_norm2 = np.dot(rho_c, H0_m.dot(rho_c))
                     title = r'$\rho_h$ at $t = {:5.4f}, norm = {}$'.format(dt*nt, np.sqrt(rho_norm2))
                     plot_field(numpy_coeffs=rho_c, Vh=V0h, space_kind='h1', domain=domain, surface_plot=False, title=title, 
@@ -598,7 +631,7 @@ def solve_td_maxwell_pbm(
         if plot_dir:
 
             print(' .. plotting B field...')
-            params_str = 'gamma_h={}_Nt_pp={}'.format(gamma_h, Nt_pp)
+            params_str = f'gamma_h={gamma_h}_dt={dt}'
 
             title = r'$B_h$ (amplitude) for $t = {:5.4f}$'.format(dt*nt)
             plot_field(numpy_coeffs=B_c, Vh=V2h, space_kind='l2', domain=domain, surface_plot=False, title=title, 
@@ -609,19 +642,14 @@ def solve_td_maxwell_pbm(
             print(' -- WARNING: unknown plot_dir !!')
 
     def plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start, nt_end, 
-        GaussErr_norm2_diag=None, GaussErrP_norm2_diag=None, 
-        PE_norm2_diag=None, I_PE_norm2_diag=None, J_norm2_diag=None, skip_titles=True):
+            GaussErr_norm2_diag=None, GaussErrP_norm2_diag=None,
+            PE_norm2_diag=None, I_PE_norm2_diag=None, J_norm2_diag=None, skip_titles=True):
+
         nt_start = max(nt_start, 0)
         nt_end = min(nt_end, Nt)
-        tau_start = nt_start/Nt_pp
-        tau_end = nt_end/Nt_pp
 
-        if source_is_harmonic:
-            td = time_diag[nt_start:nt_end+1]/period_time
-            t_label = r'$t/\tau$'
-        else: 
-            td = time_diag[nt_start:nt_end+1]
-            t_label = r'$t$'
+        td = time_diag[nt_start:nt_end+1]
+        t_label = r'$t$'
 
         # norm || E ||
         fig, ax = plt.subplots()
@@ -633,8 +661,8 @@ def solve_td_maxwell_pbm(
         ax.set_xlabel(t_label, fontsize=16)
         ax.set_title(title, fontsize=18)
         fig.tight_layout()
-        diag_fn = plot_dir+'/diag_E_norm_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-        print("saving plot for '"+title+"' in figure '"+diag_fn)
+        diag_fn = plot_dir + f'/diag_E_norm_gamma={gamma_h}_dt={dt}_trange=[{dt*nt_start}, {dt*nt_end}].pdf'
+        print(f"saving plot for '{title}' in figure '{diag_fn}")
         fig.savefig(diag_fn)
 
         # energy
@@ -654,92 +682,39 @@ def solve_td_maxwell_pbm(
         ax.set_xlabel(t_label, fontsize=16)                    
         ax.set_title(title, fontsize=18)
         fig.tight_layout()
-        diag_fn = plot_dir+'/diag_energy_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-        print("saving plot for '"+title+"' in figure '"+diag_fn)
+        diag_fn = plot_dir + f'/diag_energy_gamma={gamma_h}_dt={dt}_trange=[{dt*nt_start},{dt*nt_end}].pdf'
+        print(f"saving plot for '{title}' in figure '{diag_fn}")
         fig.savefig(diag_fn)
 
-        # norm || div E ||
-        fig, ax = plt.subplots()
-        ax.plot(td, np.sqrt(divE_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
+        # One curve per plot from now on.
+        # Collect information in a list where each item is of the form [tag, data, title]
+        time_diagnostics = []
+
         if project_sol:
-            diag_fn = plot_dir+'/diag_divPE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||div_h P^1_h E_h(t)||$ vs '+t_label
+            time_diagnostics += [['divPE', divE_norm2_diag, r'$||div_h P^1_h E_h(t)||$ vs '+t_label]]
         else:
-            diag_fn = plot_dir+'/diag_divE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||div_h E_h(t)||$ vs '+t_label 
-        if skip_titles:
-            title = ''
-        ax.set_xlabel(t_label, fontsize=16)  
-        ax.set_title(title, fontsize=18)
-        fig.tight_layout()
-        print("saving plot for '"+title+"' in figure '"+diag_fn)
-        fig.savefig(diag_fn)
-    
-        if I_PE_norm2_diag is not None:
+            time_diagnostics += [['divE', divE_norm2_diag, r'$||div_h E_h(t)||$ vs '+t_label]]
+
+        time_diagnostics += [
+            ['I_PE'     ,      I_PE_norm2_diag, r'$||(I-P^1)E_h(t)||$ vs '+t_label],
+            ['PE'       ,        PE_norm2_diag, r'$||(I-P^1)E_h(t)||$ vs '+t_label],
+            ['GaussErr' ,  GaussErr_norm2_diag, r'$||(\rho_h - div_h E_h)(t)||$ vs '+t_label],
+            ['GaussErrP', GaussErrP_norm2_diag, r'$||(\rho_h - div_h E_h)(t)||$ vs '+t_label],
+            ['J_norm'   ,         J_norm2_diag, r'$||J_h(t)||$ vs '+t_label],
+        ]
+
+        for tag, data, title in time_diagnostics:
+            if data is None:
+                continue
             fig, ax = plt.subplots()            
             ax.plot(td, np.sqrt(I_PE_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
-            diag_fn = plot_dir+'/diag_I_PE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||(I-P^1)E_h(t)||$ vs '+t_label
-            if skip_titles:
-                title = ''
-            ax.set_xlabel(t_label, fontsize=16)  
-            ax.set_title(title, fontsize=18)
+            diag_fn = plot_dir + f'/diag_{tag}_gamma={gamma_h}_dt={dt}_trange=[{dt*nt_start},{dt*nt_end}].pdf'
+            ax.set_xlabel(t_label, fontsize=16)
+            if not skip_titles:
+                ax.set_title(title, fontsize=18)
             fig.tight_layout()
-            print("saving plot for '"+title+"' in figure '"+diag_fn)
+            print(f"saving plot for '{title}' in figure '{diag_fn}")
             fig.savefig(diag_fn)            
-
-        if PE_norm2_diag is not None:
-            fig, ax = plt.subplots()            
-            ax.plot(td, np.sqrt(PE_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
-            diag_fn = plot_dir+'/diag_PE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||(I-P^1)E_h(t)||$ vs '+t_label
-            if skip_titles:
-                title = ''
-            ax.set_xlabel(t_label, fontsize=16)  
-            ax.set_title(title, fontsize=18)
-            fig.tight_layout()
-            print("saving plot for '"+title+"' in figure '"+diag_fn)
-            fig.savefig(diag_fn)            
-
-        if GaussErr_norm2_diag is not None:
-            fig, ax = plt.subplots()            
-            ax.plot(td, np.sqrt(GaussErr_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
-            diag_fn = plot_dir+'/diag_GaussErr_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||(\rho_h - div_h E_h)(t)||$ vs '+t_label
-            if skip_titles:
-                title = ''
-            ax.set_xlabel(t_label, fontsize=16)  
-            ax.set_title(title, fontsize=18)
-            fig.tight_layout()
-            print("saving plot for '"+title+"' in figure '"+diag_fn)
-            fig.savefig(diag_fn)     
-
-        if GaussErrP_norm2_diag is not None:
-            fig, ax = plt.subplots()            
-            ax.plot(td, np.sqrt(GaussErrP_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
-            diag_fn = plot_dir+'/diag_GaussErrP_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||(\rho_h - div_h P_h E_h)(t)||$ vs '+t_label
-            if skip_titles:
-                title = ''
-            ax.set_xlabel(t_label, fontsize=16)  
-            ax.set_title(title, fontsize=18)
-            fig.tight_layout()
-            print("saving plot for '"+title+"' in figure '"+diag_fn)
-            fig.savefig(diag_fn)     
-        
-        if J_norm2_diag is not None:
-            fig, ax = plt.subplots()            
-            ax.plot(td, np.sqrt(J_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
-            diag_fn = plot_dir+'/diag_J_norm_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||J_h(t)||$ vs '+t_label
-            if skip_titles:
-                title = ''
-            ax.set_xlabel(t_label, fontsize=16)  
-            ax.set_title(title, fontsize=18)
-            fig.tight_layout()
-            print("saving plot for '"+title+"' in figure '"+diag_fn)
-            fig.savefig(diag_fn)     
-
 
     # diags arrays
     E_norm2_diag = np.zeros(Nt+1)
@@ -769,7 +744,7 @@ def solve_td_maxwell_pbm(
 
         if os.path.exists(th_sol_filename):
             print(' .. loading time-harmonic solution from file {}'.format(th_sol_filename))
-            E_c = omega * np.load(th_sol_filename)
+            E_c = source_omega * np.load(th_sol_filename)
             assert len(E_c) == V1h.nbasis
         else:
             print(' .. Error: time-harmonic solution file given {}, but not found'.format(th_sol_filename))
@@ -795,7 +770,7 @@ def solve_td_maxwell_pbm(
                 tilde_E0_c = np.load(E0dd_filename)
             else:
                 print(' .. projecting E0 with L2 projection...')
-                tilde_E0_c = derham_h.get_dual_dofs(space='V1', f=E0, backend_language=backend_language, return_format='numpy_array')
+                tilde_E0_c = derham_h.get_dual_dofs(space='V1', f=E0, backend_language=backend, return_format='numpy_array')
                 print(' .. saving E0 dual dofs to file {}'.format(E0dd_filename))
                 np.save(E0dd_filename, tilde_E0_c)
             E_c = dH1_m.dot(tilde_E0_c)
@@ -818,7 +793,7 @@ def solve_td_maxwell_pbm(
         divE_c = div_m @ E_c
         divE_norm2_diag[nt] = np.dot(divE_c, H0_m.dot(divE_c))
         if source_type == 'Il_pulse':
-            rho_c = rho0_c * np.sin(omega*nt*dt)/omega
+            rho_c = rho0_c * np.sin(source_omega*nt*dt)/omega
             GaussErr = rho_c - divE_c
             GaussErrP = rho_c - div_m @ PE_c
             GaussErr_norm2_diag[nt] = np.dot(GaussErr, H0_m.dot(GaussErr))
@@ -836,7 +811,7 @@ def solve_td_maxwell_pbm(
 
         # ampere: En -> En+1
         if f0_harmonic_c is not None:
-            f_harmonic_c = f0_harmonic_c * (np.sin(omega*(nt+1)*dt)-np.sin(omega*(nt)*dt))/(dt*omega) # * source_enveloppe(omega*(nt+1/2)*dt)
+            f_harmonic_c = f0_harmonic_c * (np.sin(source_omega*(nt+1)*dt)-np.sin(source_omega*(nt)*dt))/(dt*source_omega) # * source_enveloppe(omega*(nt+1/2)*dt)
             f_c[:] = f0_c + f_harmonic_c
 
         if nt == 0:
@@ -896,12 +871,10 @@ def solve_td_maxwell_pbm(
             plot_B_field(B_c, nt=nt+1)
             plot_J_source_nPlusHalf(f_c, nt=nt)
 
-        if (nt+1)%(diag_dtau*Nt_pp) == 0:
-            tau_here = nt+1
-            
-            plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start=(nt+1)-diag_dtau*Nt_pp, nt_end=(nt+1), 
+        if (nt+1) % diag_nt == 0:
+            plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start=(nt+1)-diag_nt, nt_end=(nt+1),
             PE_norm2_diag=PE_norm2_diag, I_PE_norm2_diag=I_PE_norm2_diag, J_norm2_diag=J_norm2_diag,
-            GaussErr_norm2_diag=GaussErr_norm2_diag, GaussErrP_norm2_diag=GaussErrP_norm2_diag)   
+            GaussErr_norm2_diag=GaussErr_norm2_diag, GaussErrP_norm2_diag=GaussErrP_norm2_diag)
 
     plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start=0, nt_end=Nt, 
     PE_norm2_diag=PE_norm2_diag, I_PE_norm2_diag=I_PE_norm2_diag, J_norm2_diag=J_norm2_diag,
@@ -955,22 +928,67 @@ def solve_td_maxwell_pbm(
     return diags
 
 
-def compute_stable_dt(cfl, period_time, C_m, dC_m, V1_dim):
+#def compute_stable_dt(cfl_max, dt_max, C_m, dC_m, V1_dim):
+def compute_stable_dt(*, C_m, dC_m, cfl_max, dt_max=None):
+    """
+    Compute a stable time step size based on the maximum CFL parameter in the
+    domain. To this end we estimate the operator norm of
+
+    `dC_m @ C_m: V1h -> V1h`,
+
+    find the largest stable time step compatible with Strang splitting, and
+    rescale it by the provided `cfl_max`. Setting `cfl_max = 1` would run the
+    scheme exactly at its stability limit, which is not safe because of the
+    unavoidable round-off errors. Hence we require `0 < cfl_max < 1`.
+
+    Optionally the user can provide a maximum time step size in order to
+    properly resolve some time scales of interest (e.g. a time-dependent
+    current source).
+
+    Parameters
+    ----------
+    C_m : scipy.sparse.spmatrix
+        Matrix of the Curl operator.
+
+    dC_m : scipy.sparse.spmatrix
+        Matrix of the dual Curl operator.
+
+    cfl_max : float
+        Maximum Courant parameter in the domain, intended as a stability
+        parameter (=1 at the stability limit). Must be `0 < cfl_max < 1`.
+
+    dt_max : float, optional
+        If not None, restrict the computed dt by this value in order to
+        properly resolve time scales of interest. Must be > 0.
+
+    Returns
+    -------
+    dt : float
+        Largest stable dt which satisfies the provided constraints.
+
+    """
 
     print (" .. compute_stable_dt by estimating the operator norm of ")
     print (" ..     dC_m @ C_m: V1h -> V1h ")
-    print (" ..     with dim(V1h) = {}      ...".format(V1_dim))
+    print (" ..     with dim(V1h) = {}      ...".format(C_m.shape[1]))
+
+    if not (0 < cfl_max < 1):
+        print(' ******  ****** ******  ****** ******  ****** ')
+        print('         WARNING !!!  cfl = {}  '.format(cfl))
+        print(' ******  ****** ******  ****** ******  ****** ')
 
     def vect_norm_2 (vv):
         return np.sqrt(np.dot(vv,vv))
+
     t_stamp = time_count()
-    vv = np.random.random(V1_dim)
+    vv = np.random.random(C_m.shape[1])
     norm_vv = vect_norm_2(vv)    
     max_ncfl = 500
     ncfl = 0
     spectral_rho = 1
     conv = False
     CC_m = dC_m @ C_m
+
     while not( conv or ncfl > max_ncfl ):
 
         vv[:] = (1./norm_vv)*vv
@@ -988,18 +1006,18 @@ def compute_stable_dt(cfl, period_time, C_m, dC_m, V1_dim):
     c_dt_max = 2./norm_op    
     
     light_c = 1
-    Nt_pp = int(np.ceil(period_time/(cfl*c_dt_max/light_c)))
-    assert Nt_pp >= 1 
-    dt = period_time / Nt_pp
-    
-    assert light_c*dt <= cfl * c_dt_max
-    
-    print("  Time step dt computed for Maxwell solver:")
-    print("     Since cfl = " + repr(cfl)+",   we set dt = "+repr(dt)+"  --  and Nt_pp = "+repr(Nt_pp))
-    print("     -- note that c*Dt = "+repr(light_c * dt)+", and c_dt_max = "+repr(c_dt_max)+" thus c * dt / c_dt_max = "+repr(light_c*dt/c_dt_max))
-    print("     -- and spectral_radius((c*dt)**2* dC_m @ C_m ) = ",  (light_c * dt * norm_op)**2, " (should be < 4).")
+    dt = cfl_max * c_dt_max / light_c
 
-    return Nt_pp, dt
+    if dt_max is not None:
+        dt = min(dt, dt_max)
+
+    print( "  Time step dt computed for Maxwell solver:")
+    print(f"     Based on cfl_max = {cfl_max} and dt_max = {dt_max}, we set dt = {dt}")
+    print(f"     -- note that c*Dt = {light_c*dt} and c_dt_max = {c_dt_max}, thus c * dt / c_dt_max = {light_c*dt/c_dt_max}")
+    print(f"     -- and spectral_radius((c*dt)**2* dC_m @ C_m ) = {(light_c * dt * norm_op)**2} (should be < 4).")
+
+    return dt
+
 
 if __name__ == '__main__':
     # quick run, to test 
@@ -1007,33 +1025,33 @@ if __name__ == '__main__':
     raise NotImplementedError
 
 
-    t_stamp_full = time_count()
-
-    omega = np.sqrt(170) # source
-    roundoff = 1e4
-    eta = int(-omega**2 * roundoff)/roundoff
-
-    source_type = 'manu_maxwell'
-    # source_type = 'manu_J'
-
-    domain_name = 'curved_L_shape'
-    nc = 4
-    deg = 2
-
-    run_dir = '{}_{}_nc={}_deg={}/'.format(domain_name, source_type, nc, deg)
-    m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
-    solve_hcurl_source_pbm(
-        nc=nc, deg=deg,
-        eta=eta,
-        nu=0,
-        mu=1, #1,
-        domain_name=domain_name,
-        source_type=source_type,
-        backend_language='pyccel-gcc',
-        plot_source=True,
-        plot_dir='./plots/tests_source_feb_13/'+run_dir,
-        hide_plots=True,
-        m_load_dir=m_load_dir
-    )
-
-    time_count(t_stamp_full, msg='full program')
+#    t_stamp_full = time_count()
+#
+#    omega = np.sqrt(170) # source
+#    roundoff = 1e4
+#    eta = int(-omega**2 * roundoff)/roundoff
+#
+#    source_type = 'manu_maxwell'
+#    # source_type = 'manu_J'
+#
+#    domain_name = 'curved_L_shape'
+#    nc = 4
+#    deg = 2
+#
+#    run_dir = '{}_{}_nc={}_deg={}/'.format(domain_name, source_type, nc, deg)
+#    m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
+#    solve_hcurl_source_pbm(
+#        nc=nc, deg=deg,
+#        eta=eta,
+#        nu=0,
+#        mu=1, #1,
+#        domain_name=domain_name,
+#        source_type=source_type,
+#        backend_language='pyccel-gcc',
+#        plot_source=True,
+#        plot_dir='./plots/tests_source_feb_13/'+run_dir,
+#        hide_plots=True,
+#        m_load_dir=m_load_dir
+#    )
+#
+#    time_count(t_stamp_full, msg='full program')
