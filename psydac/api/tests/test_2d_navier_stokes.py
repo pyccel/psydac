@@ -14,7 +14,6 @@ from scipy.sparse.linalg import bicgstab as sp_bicgstab
 from sympde.calculus import grad, dot, inner, div, curl, cross
 from sympde.calculus import Transpose, laplace
 from sympde.calculus import minus, plus
-from sympde.calculus.core import TensorProduct
 from sympde.topology import NormalVector
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
@@ -39,6 +38,13 @@ from psydac.linalg.block       import *
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 from psydac.utilities.utils    import refine_array_1d, animate_field, split_space, split_field
 from psydac.linalg.iterative_solvers import cg, pcg, bicg, lsmr
+
+from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
+from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
+
+import matplotlib.pyplot as plt
+from matplotlib import animation
+from time       import time
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
@@ -250,12 +256,12 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-5, max
     return solutions, p_h, domain, domain_h
 
 #==============================================================================
-def run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, *, boundary, ncells, degree):
+def run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, *, boundary, ncells, degree, multiplicity):
     """
         Navier Stokes solver for the 2d steady-state problem.
     """
     # Maximum number of Newton iterations and convergence tolerance
-    N = 100
+    N = 30
     TOL = 1e-5
 
     # ... abstract model
@@ -277,21 +283,25 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, *, boundary, ncells
     interface = domain.interfaces
 
     jump_pen   = 10**5
-    bd_pen     = 10**2
+    bd_pen     = 1000*(ncells[0]+1)*(degree[0]+1)
+
     expr_I  = lambda u,v: jump_pen*dot(jump(u), jump(v))
 
-
-    a = BilinearForm(((u, p),(v, q)), integral(domain, dot(Transpose(grad(u))*un, v) + dot(Transpose(grad(un))*u, v) + inner(grad(u), grad(v)) - div(u)*q - p*div(v)) 
-                                     +integral(boundary, -dot(Transpose(grad(u))*nn, v) - dot(Transpose(grad(v))*nn, u) + bd_pen*dot(v,u)))
+    grad_s = lambda u:0.5*Transpose(grad(u))+0.5*grad(u)
+    a = BilinearForm(((u, p),(v, q)), integral(domain, dot(Transpose(grad(u))*un, v) + dot(Transpose(grad(un))*u, v) + mu*inner(grad_s(u), grad_s(v)) - div(u)*q - p*div(v)) 
+                                     +integral(boundary,   -mu*inner(grad_s(v),u*Transpose(nn)) - mu*inner(grad_s(u),v*Transpose(nn)) + bd_pen*dot(v,u))
+                                     #+integral(boundary_h, -mu*inner(grad_s(v),u*Transpose(nn)) - mu*inner(grad_s(u),v*Transpose(nn)) + mu*bd_pen*dot(v,u))
+                                     )
 
     l = LinearForm((v,q), integral(domain,  dot(f, v) + dot(Transpose(grad(un))*un, v)) 
-                        + integral(boundary, -dot(Transpose(grad(v))*nn, ue) + bd_pen*dot(v,ue))
-                        + integral(boundary_n, dot(Transpose(grad(ue))*nn, v) - pe*dot(v,nn)) )
+                        + integral(boundary, -mu*inner(grad_s(v),ue*Transpose(nn)) + bd_pen*dot(v,ue))
+                        + integral(boundary_n, mu*inner(0.5*grad(ue),v*Transpose(nn))+mu*inner(0.5*Transpose(grad(ue)),v*Transpose(nn))- pe*dot(v,nn))
+                        )
 
-    expr = integral(interface, expr_I(u,v))
+#    expr = integral(interface, expr_I(u,v) + jump_pen*jump(p)*jump(q))
+#    bc       = EssentialBC(u, ue, boundary)
 
-    bc       = EssentialBC(u, ue, boundary)
-    equation = find((u, p), forall=(v, q), lhs=(a((u, p), (v, q))+expr), rhs=l(v, q))
+    equation = find((u, p), forall=(v, q), lhs=(a((u, p), (v, q))), rhs=l(v, q))
 
     # Define (abstract) norms
     l2norm_u   = Norm(Matrix([u[0]-ue[0],u[1]-ue[1]]), domain, kind='l2')
@@ -301,12 +311,21 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, *, boundary, ncells
     l2norm_dp  = Norm(p     , domain, kind='l2')
 
     # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    domain_h = discretize(domain, ncells=ncells)
+
+    breaks1 = np.linspace(0, 1, ncells[0]+1)
+    breaks2 = np.linspace(0, 1, ncells[1]+1)
+
+    knots1 = make_knots(breaks1, degree=degree[0], multiplicity=multiplicity[0], periodic=False)
+    knots2 = make_knots(breaks2, degree=degree[1], multiplicity=multiplicity[1], periodic=False)
+    print(knots1)
+    print(knots2)
+
+    knots  = [knots1, knots2]
 
     # ... discrete spaces
-    Xh  = discretize(X, domain_h, degree=degree)
-    V1h = discretize(V1, domain_h, degree=degree)
-    V2h = discretize(V2, domain_h, degree=degree)
+    Xh  = discretize(X, domain_h, degree=degree, knots=knots, sequence='TH')
+    V1h, V2h = split_space(Xh)
 
     # ... discretize the equation
     equation_h   = discretize(equation,   domain_h, [Xh, Xh], backend=PSYDAC_BACKEND_GPYCCEL)
@@ -317,8 +336,6 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, *, boundary, ncells
 
     l2norm_du_h = discretize(l2norm_du, domain_h, V1h, backend=PSYDAC_BACKEND_GPYCCEL)
     l2norm_dp_h = discretize(l2norm_dp, domain_h, V2h, backend=PSYDAC_BACKEND_GPYCCEL)
-
-#    x0 = equation_b_h.solve()
 
     # First guess: zero solution
     u_h = FemField(V1h)
@@ -392,9 +409,10 @@ def test_st_navier_stokes_2d():
                 bnd_minus = D2.get_boundary(axis=1, ext=1),
                 bnd_plus  = D3.get_boundary(axis=1, ext=-1))
 
-    boundary = Union(*[D1.get_boundary(axis=1, ext=-1), D3.get_boundary(axis=1, ext=1)])
+    domain = D2
+    boundary = Union(*[D2.get_boundary(axis=0, ext=-1), D2.get_boundary(axis=0, ext=1), D2.get_boundary(axis=1, ext=-1)])
     x, y     = domain.coordinates
-    mu = 1
+    mu = 0.1
     ux = cos(y*pi)
     uy = x*(x-1)
     ue = Matrix([[ux], [uy]])
@@ -408,7 +426,7 @@ def test_st_navier_stokes_2d():
     from sympde.calculus import laplace, grad
     from sympde.expr     import TerminalExpr
 
-    a = TerminalExpr(-mu*laplace(ue), domain)
+    a = TerminalExpr(-mu*div(0.5*grad(ue)+0.5*Transpose(grad(ue))), domain)
     b = TerminalExpr(    grad(ue), domain)
     c = TerminalExpr(    grad(pe), domain)
     f = (a + b.T*ue + c).simplify()
@@ -416,20 +434,61 @@ def test_st_navier_stokes_2d():
     fx = -mu*(ux.diff(x, 2) + ux.diff(y, 2)) + ux*ux.diff(x) + uy*ux.diff(y) + pe.diff(x)
     fy = -mu*(uy.diff(x, 2) - uy.diff(y, 2)) + ux*uy.diff(x) + uy*uy.diff(y) + pe.diff(y)
 
-    assert (f[0]-fx).simplify() == 0
-    assert (f[1]-fy).simplify() == 0
+#    assert (f[0]-fx).simplify() == 0
+#    assert (f[1]-fy).simplify() == 0
 
-    f  = Tuple(fx, fy)
+    f  = Tuple(f[0], f[1])
     # ...
 
-    # Run test
+    l2_error_u, l2_error_p = run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, boundary=boundary, ncells=[2**4,2**4], degree=[3, 3], multiplicity=[2,2])
 
-    l2_error_u, l2_error_p = run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, boundary=boundary, ncells=[2**3,2**3], degree=[2, 2])
-
+    print(l2_error_u, l2_error_p)
     # Check that expected absolute error on velocity and pressure fields
     assert abs(0.007847028803941369 - l2_error_u ) < 1e-7
     assert abs(0.04955682156571245 - l2_error_p  ) < 1e-7
+
 test_st_navier_stokes_2d()
+def test_st_navier_stokes_2d_2():
+    filename = os.path.join(mesh_dir, 'multipatch/plate_with_hole_mp_7.h5')
+    domain   = Domain.from_file(filename)
+    x,y = domain.coordinates
+    # Boundaries
+    patches = domain.interior.args
+    boundary_h = [patches[0].get_boundary(axis=1, ext=-1),
+                  patches[1].get_boundary(axis=1, ext=-1),
+                  patches[1].get_boundary(axis=1, ext=1),
+                  patches[2].get_boundary(axis=1, ext=-1),
+                  patches[3].get_boundary(axis=1, ext=-1),
+                  patches[3].get_boundary(axis=1, ext=1),
+                  patches[4].get_boundary(axis=0, ext=-1),
+                  patches[4].get_boundary(axis=0, ext=1)
+                  ]
+
+    boundary = [patches[0].get_boundary(axis=1, ext=1)]
+    boundary_h = Union(*boundary_h)
+    boundary   = Union(*boundary)
+    ue         = Tuple(6*0.3*y*(0.41-y)/(0.41**2), 0)
+    f          = Tuple(0,0)
+    pe         = 0
+    mu         = 0.01
+    u_h, domain_h = run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, boundary=boundary, boundary_h=boundary_h, filename=filename)
+
+    domains  = domain.logical_domain.interior
+    mappings = list(domain_h.mappings.values())
+
+    etas, xx, yy         = get_plotting_grid({I:M for I,M in zip(domains, mappings)}, N=20)
+    grid_vals_h1         = lambda v: get_grid_vals(v, etas, mappings, space_kind='h1')
+    uh_x_vals, uh_y_vals = grid_vals_h1(u_h)
+    my_small_plot(
+        title=r'approximation of solution $u$',
+        vals=[np.sqrt(uh_x_vals**2+uh_y_vals**2)],
+        titles=[r'$|uh^(x,y)|$'],
+        xx=xx,
+        yy=yy,
+        gridlines_x1=None,
+        gridlines_x2=None,
+    )
+#test_st_navier_stokes_2d_2()
 #------------------------------------------------------------------------------
 def test_navier_stokes_2d():
     Tf       = 1.
@@ -498,11 +557,6 @@ def test_st_navier_stokes_2d_parallel():
 
 ##------------------------------------------------------------------------------
 #if __name__ == '__main__':
-#    import matplotlib.pyplot as plt
-#    from matplotlib import animation
-#    from time       import time
-#    from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
-#    from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
 
 #    Tf       = 1.
 #    dt_h     = 0.05

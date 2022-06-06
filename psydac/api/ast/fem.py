@@ -442,7 +442,8 @@ class AST(object):
 
         if mapping_space:
             f         = (tests+trials+fields)[0]
-            if isinstance(domain, Interface):    
+            f = f.base if isinstance(f, IndexedVectorFunction) else f
+            if isinstance(domain, Interface):
                 f_m = f.duplicate('mapping_'+f.name)
                 f_m = expand([f_m])[0]
                 f_p = f.duplicate('mapping_plus_'+f.name)

@@ -1028,7 +1028,7 @@ class TensorFemSpace( FemSpace ):
         vector_space = self.vector_space
 
         vector_space.set_interface(axis, ext, cart)
-        space = TensorFemSpace( *spaces, vector_space=vector_space._interfaces[axis, ext], quad_order=quad_order)
+        space = TensorFemSpace( *spaces, vector_space=vector_space._interfaces[axis, ext], quad_order=self.quad_order)
         self._interfaces[axis, ext] = space
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):
