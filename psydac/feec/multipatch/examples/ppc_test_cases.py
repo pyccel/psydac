@@ -44,10 +44,14 @@ def get_div_free_pulse(x_0, y_0, domain=None):
 
     return f_vect
 
-def get_curl_free_pulse(x_0, y_0, domain=None):
+def get_curl_free_pulse(x_0, y_0, domain=None, pp=False):
     # return -grad phi_0
     x,y    = domain.coordinates
-    ds2_0 = (0.1)**2
+    if pp:
+        # psi=phi
+        ds2_0 = (0.02)**2
+    else:
+        ds2_0 = (0.1)**2
     sigma_0 = (x-x_0)**2 + (y-y_0)**2
     phi_0 = exp(-sigma_0**2/(2*ds2_0))
     dx_sig_0 = 2*(x-x_0)
@@ -60,10 +64,14 @@ def get_curl_free_pulse(x_0, y_0, domain=None):
 
     return f_vect
 
-def get_Delta_phi_pulse(x_0, y_0, domain=None):
+def get_Delta_phi_pulse(x_0, y_0, domain=None, pp=False):
     # return -Delta phi_0, with same phi_0 as in get_curl_free_pulse()
     x,y    = domain.coordinates
-    ds2_0 = (0.1)**2
+    if pp:
+        # psi=phi
+        ds2_0 = (0.02)**2
+    else:
+        ds2_0 = (0.1)**2
     sigma_0 = (x-x_0)**2 + (y-y_0)**2
     phi_0 = exp(-sigma_0**2/(2*ds2_0))
     dx_sig_0 = 2*(x-x_0)
