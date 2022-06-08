@@ -287,26 +287,10 @@ class StencilVectorSpace( VectorSpace ):
             space = StencilVectorSpace(cart)
             self._interfaces[axis, ext] = space
         elif cart is None:
-            npts          = list(self.npts)
-            pads          = self.pads
-            starts        = [0]*len(npts)
-            ends          = [n-1 for n in npts]
-            shifts        = self.shifts
-            periods       = list(self.periods)
-
-            if self.parent_ends[axis] is not None:
-                diff = self.parent_ends[axis]-self.ends[axis]
-            else:
-                diff = 0
-
-            npts[axis]    = pads[axis]+1-diff
-            periods[axis] = False
-            if ext == 1:
-                starts[axis] = ends[axis]-pads[axis]+diff
-            else:
-                ends[axis] = pads[axis]-diff
-
-            space = StencilVectorSpace(npts=npts, pads=pads, periods=periods, shifts=shifts, starts=starts, ends=ends)
+            space = StencilVectorSpace(npts=self.npts, pads=self.pads, periods=self.periods,
+                                       shifts=self.shifts, starts=self.starts, ends=self.ends)
+            space._parent_starts = self._parent_starts
+            space._parent_ends   = self._parent_ends
             self._interfaces[axis, ext] = space
 
 #===============================================================================
@@ -359,6 +343,19 @@ class StencilVector( Vector ):
                 # serial case
                 Vin    = V._interfaces[axis, ext]
                 slices = [slice(s, e+2*p+1) for s,e,p in zip(Vin.starts, Vin.ends, Vin.pads)]
+                if V.parent_ends[axis] is not None:
+                    diff = V.parent_ends[axis]-V.ends[axis]
+                else:
+                    diff = 0
+
+                if ext == 1:
+                    s = V.ends[axis]-V.pads[axis]+diff
+                    e = V.ends[axis]
+                else:
+                    s = V.starts[axis]
+                    e = V.pads[axis]-diff
+ 
+                slices[axis] = slice(s,e+2*V.pads[axis]+1)
                 data   = self._data[tuple(slices)].copy()
 
             self._interface_data[axis, ext] = data
@@ -687,6 +684,20 @@ class StencilVector( Vector ):
             for axis, ext in self.space._interfaces:
                 V      = self.space._interfaces[axis, ext]
                 slices = [slice(s, e+2*p+1) for s,e,p in zip(V.starts, V.ends, V.pads)]
+
+                if V.parent_ends[axis] is not None:
+                    diff = V.parent_ends[axis]-V.ends[axis]
+                else:
+                    diff = 0
+
+                if ext == 1:
+                    s = V.ends[axis]-V.pads[axis]+diff
+                    e = V.ends[axis]
+                else:
+                    s = V.starts[axis]
+                    e = V.pads[axis]-diff
+
+                slices[axis] = slice(s,e+2*V.pads[axis]+1)
                 self._interface_data[axis, ext][...] = self._data[tuple(slices)]
 
         # Flag ghost regions as up-to-date

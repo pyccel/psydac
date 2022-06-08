@@ -19,7 +19,7 @@ from sympde.topology.mapping import Mapping as AnalyticalMapping
 def is_vector_valued(u):
     # small utility function, only tested for FemFields in multi-patch spaces of the 2D grad-curl sequence
     # todo: a proper interface returning the number of components of a general FemField would be nice
-    return u.fields[0].space.is_product
+    return u.space.is_product
 
 #------------------------------------------------------------------------------
 def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
@@ -30,7 +30,11 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
     :param space_kind: specifies the push-forward for the physical values
     """
     n_patches = len(mappings_list)
-    vector_valued = is_vector_valued(u) if isinstance(u, FemField) else isinstance(u[0],(list, tuple))
+    if n_patches == 1:
+        u = [u]
+
+    vector_valued = is_vector_valued(u[0]) if isinstance(u[0], FemField) else isinstance(u[0],(list, tuple))
+
     if vector_valued:
         # WARNING: here we assume 2D !
         u_vals_components = [n_patches*[None], n_patches*[None]]
@@ -81,6 +85,7 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
                     u_vals_components[0][k][i, j] = push_field(x1i, x2j)
 
     # always return a list, even for scalar-valued functions ?
+
     if not vector_valued:
         return np.array(u_vals_components[0])
     else:

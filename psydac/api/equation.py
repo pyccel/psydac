@@ -45,7 +45,18 @@ def driver_solve(L, **kwargs):
     elif name == "direct":
         from scipy.sparse.linalg import spsolve
         from psydac.linalg.utilities import array_to_stencil
-        x = spsolve(M.tosparse().tocsr(), rhs.toarray())
+        if kwargs.get('x0', None):
+            x0 = kwargs['x0'].toarray()
+            rhs_d = rhs.toarray()
+            M     = M.tosparse().tocsr()
+            rhs_d = rhs_d-M.dot(x0)
+            x = spsolve(M, rhs_d)
+            x = x+x0
+        else:
+            rhs_d = rhs.toarray()
+            M     = M.tosparse().tocsr()
+            x     = spsolve(M, rhs_d)
+
         x = array_to_stencil(x, rhs.space)
         return x, 0
     else:
