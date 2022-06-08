@@ -12,8 +12,8 @@ t_stamp_full = time_count()
 # main test-cases and parameters used for the ppc paper:
 
 # test_case = 'E0_pulse_no_source'   # used in paper
-# test_case = 'Issautier_like_source'  # used in paper
-test_case = 'transient_to_harmonic'  # actually, not used in paper
+test_case = 'Issautier_like_source'  # used in paper
+# test_case = 'transient_to_harmonic'  # actually, not used in paper
 
 # J_proj_case = 'P_geom'
 # J_proj_case = 'P_L2'
@@ -46,7 +46,7 @@ cfl = .8
 
 if test_case == 'E0_pulse_no_source':
     E0_type = 'pulse'
-    source_type = 'Il_pulse'    # Issautier-like pulse
+    source_type = 'zero'    # Issautier-like pulse
     source_is_harmonic = False
     
     nb_t_periods = 25 # final time: T = nb_t_periods * t_period
@@ -67,7 +67,7 @@ if test_case == 'E0_pulse_no_source':
 
 elif test_case == 'Issautier_like_source':
     E0_type = 'zero'
-    source_type = 'Il_pulse'
+    source_type = 'Il_pulse_pp'  # 'Il_pulse' has a coarser rho
     source_is_harmonic = False
 
     nb_t_periods = 100  #  # final time: T = nb_t_periods * t_period
@@ -134,7 +134,7 @@ quad_param = 4
 # jump dissipation parameter (not used in paper)
 gamma_h = 0
 
-case_dir = 'td_maxwell_' + test_case + '_J_proj=' + J_proj_case + '_qp{}'.format(quad_param)
+case_dir = 'TEST_td_maxwell_' + test_case + '_J_proj=' + J_proj_case + '_qp{}'.format(quad_param)
 if filter_source:
     case_dir += '_Jfilter'
 else:

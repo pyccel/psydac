@@ -632,6 +632,11 @@ class ConformingProjection_V1( FemLinearOperator ):
 
                             self._A[i_plus,i_minus][k,k][tuple(indices)] = 1/2*I.direction
 
+                    # self._A[i_plus,i_plus] = ProductLinearOperator(V1h.spaces[i_plus], V1h.spaces[i_plus], *operators) 
+                    # with pi_matrix * self._A_conf[i_plus,i_plus] * pi_star_matrix
+                    # self._A[i_plus,i_minus] = pi_matrix * self._A_nonconf[i_plus,i_plus]
+                    # self._A[i_minus,i_plus] = self._A_nonconf[i_plus,i_plus] * pi_star_matrix
+                    # self._A[i_minus,i_minus] = self._A_nonconf[i_minus,i_minus]
 
             if hom_bc:
                 for bn in domain.boundary:
