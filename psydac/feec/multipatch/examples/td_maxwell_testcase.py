@@ -15,9 +15,9 @@ t_stamp_full = time_count()
 test_case = 'Issautier_like_source'  # used in paper
 # test_case = 'transient_to_harmonic'  # actually, not used in paper
 
-# J_proj_case = 'P_geom'
+J_proj_case = 'P_geom'
 # J_proj_case = 'P_L2'
-J_proj_case = 'tilde Pi_1' 
+# J_proj_case = 'tilde Pi_1' 
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
@@ -72,8 +72,12 @@ elif test_case == 'Issautier_like_source':
 
     nb_t_periods = 100  #  # final time: T = nb_t_periods * t_period
             
-    cb_min_sol = 0 # None
-    cb_max_sol = .3 # None
+    if J_proj_case == 'P_geom':    
+        cb_min_sol = None #
+        cb_max_sol = None #
+    else: 
+        cb_min_sol = 0 # 
+        cb_max_sol = .3 #
 
     if deg_s == [3] and nb_t_periods==100:
             
