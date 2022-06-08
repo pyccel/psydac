@@ -134,7 +134,7 @@ quad_param = 4
 # jump dissipation parameter (not used in paper)
 gamma_h = 0
 
-case_dir = 'TEST_td_maxwell_' + test_case + '_J_proj=' + J_proj_case + '_qp{}'.format(quad_param)
+case_dir = '0_td_maxwell_' + test_case + '_J_proj=' + J_proj_case + '_qp{}'.format(quad_param)
 if filter_source:
     case_dir += '_Jfilter'
 else:

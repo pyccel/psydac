@@ -109,7 +109,7 @@ def solve_td_maxwell_pbm(
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
 
-    # for diagnosttics
+    # for diagnostics
     diag_grid = DiagGrid(mappings=mappings, N_diag=100)
 
     t_stamp = time_count(t_stamp)
@@ -328,10 +328,10 @@ def solve_td_maxwell_pbm(
     elif source_proj == 'P_L2':
         # helper: save/load coefs
         if f0 is not None:
-            if source_type == 'Il_pulse':
-                source_name = 'Il_pulse_f0'
+            if source_type in ['Il_pulse', 'Il_pulse_pp']:
+                source_name = source_type+'_f0'
             else:
-                source_name = source_type
+                source_name = source_type            
             sdd_filename = m_load_dir+'/'+source_name+'_dual_dofs_qp{}.npy'.format(quad_param)
             if os.path.exists(sdd_filename):
                 print(' .. loading source dual dofs from file {}'.format(sdd_filename))
@@ -342,8 +342,8 @@ def solve_td_maxwell_pbm(
                 print(' .. saving source dual dofs to file {}'.format(sdd_filename))
                 np.save(sdd_filename, tilde_f0_c)
         if f0_harmonic is not None:
-            if source_type == 'Il_pulse':
-                source_name = 'Il_pulse_f0_harmonic'
+            if source_type in ['Il_pulse', 'Il_pulse_pp']:
+                source_name = source_type+'_f0_harmonic'
             else:
                 source_name = source_type
             sdd_filename = m_load_dir+'/'+source_name+'_dual_dofs_qp{}.npy'.format(quad_param)
@@ -463,7 +463,7 @@ def solve_td_maxwell_pbm(
 
             if plot_divE:
                 params_str = 'gamma_h={}_Nt_pp={}'.format(gamma_h, Nt_pp)
-                if source_type == 'Il_pulse':
+                if source_type in ['Il_pulse', 'Il_pulse_pp']:
                     plot_type = 'components'
                     rho_c = rho0_c * np.sin(omega*dt*nt)/omega
                     rho_norm2 = np.dot(rho_c, H0_m.dot(rho_c))
