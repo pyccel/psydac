@@ -5,8 +5,8 @@ from scipy.sparse import coo_matrix, bmat
 from sympde.topology      import Square    
 from psydac.fem.vector import ProductFemSpace
 
-from psydac.api.discretization import discretize #  ???
-# from psydac.feec.multipatch.api import discretize
+# from psydac.api.discretization import discretize #  ???
+from psydac.feec.multipatch.api import discretize
 from psydac.api.settings   import PSYDAC_BACKENDS
 
 from sympde.topology  import Derham
@@ -28,7 +28,8 @@ def run_simple_2patch_example(nc=2, deg=2):
 
     domain = A.join(B, name = 'domain',
                 bnd_minus = A.get_boundary(axis=0, ext=1),
-                bnd_plus  = B.get_boundary(axis=0, ext=-1))
+                bnd_plus  = B.get_boundary(axis=0, ext=-1),
+                direction=1)
 
     nc = 2
     ncells_c = {
@@ -82,7 +83,18 @@ def run_simple_2patch_example(nc=2, deg=2):
     V1h_h = ProductFemSpace(V1h_f.spaces[0],V1h_c.spaces[1])  # fine space on patch 0, coarse on patch 1
 
     # matrix of coarse to fine change of basis (for patch 0)
-    c2f_patch0 = construct_projection_operator(domain=V1h_c.spaces[0],codomain=V1h_f.spaces[0])
+    # V1h_c.spaces[0].spaces[0]
+    #         ^^^       ^^^
+    #        patch 0    component 0
+
+    c2f_patch00 = construct_projection_operator(domain=V1h_c.spaces[0].spaces[0], codomain=V1h_f.spaces[0].spaces[0])
+    c2f_patch01 = construct_projection_operator(domain=V1h_c.spaces[0].spaces[1], codomain=V1h_f.spaces[0].spaces[1])
+
+    # print(c2f_patch00.shape)
+    c2f_patch0 = bmat([
+        [c2f_patch00, None],
+        [None, c2f_patch01]
+    ])
 
     f2c_patch0 = c2f_patch0.transpose()
 
@@ -90,15 +102,15 @@ def run_simple_2patch_example(nc=2, deg=2):
     # cP1[0,0] = c2f_patch1,  ...
 
     # numpy:
-    cP1_c_00 = cP1_c[0,0].tosparse()
-    cP1_c_10 = cP1_c[1,0].tosparse()
-    cP1_c_01 = cP1_c[0,1].tosparse()
-    cP1_c_11 = cP1_c[1,1].tosparse()
+    cP1_c_00 = cP1_c.matrix[0,0].tosparse()
+    cP1_c_10 = cP1_c.matrix[1,0].tosparse()
+    cP1_c_01 = cP1_c.matrix[0,1].tosparse()
+    cP1_c_11 = cP1_c.matrix[1,1].tosparse()
 
-    cP1_f_00 = cP1_f[0,0].tosparse()
-    cP1_f_10 = cP1_f[1,0].tosparse()
-    cP1_f_01 = cP1_f[0,1].tosparse()
-    cP1_f_11 = cP1_f[1,1].tosparse()
+    cP1_f_00 = cP1_f.matrix[0,0].tosparse()
+    cP1_f_10 = cP1_f.matrix[1,0].tosparse()
+    cP1_f_01 = cP1_f.matrix[0,1].tosparse()
+    cP1_f_11 = cP1_f.matrix[1,1].tosparse()
 
     # same for diff operators
     # ...
@@ -107,14 +119,14 @@ def run_simple_2patch_example(nc=2, deg=2):
     print(cP1_c_00.shape)
     print(V1h_f.nbasis)
 
-    exit(   )
-
-    cP1_m = np.block([
+    cP1_m = bmat([
         [c2f_patch0 * cP1_c_00 * f2c_patch0, c2f_patch0 * cP1_c_01],
         [             cP1_c_10 * f2c_patch0,              cP1_c_11]
     ])
 
+    print(cP1_m.shape)
 
+    
 
 def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
 #    assert len(coarse_grid)*2-2 == len(fine_grid)-1
