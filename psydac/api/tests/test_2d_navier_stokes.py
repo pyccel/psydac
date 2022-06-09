@@ -130,17 +130,17 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-5, max
     bc         = [EssentialBC(un, ue, boundary), EssentialBC(un, 0, boundary_h)]
 
     # Reynolds number
-    Re = 1e1
+    mu = 0.1
 
     jump   = lambda u: minus(u)-plus(u)
 
-    Fl     = lambda u,p: Re**-1*inner(grad(u), grad(v)) - div(u)*q - p*div(v) + 1e-10*p*q
+    Fl     = lambda u,p: mu*inner(grad(u), grad(v)) - div(u)*q - p*div(v) + 1e-10*p*q
     F      = lambda u,p: dot(Transpose(grad(u))*u,v) + Fl(u,p)
     
     l = LinearForm((v, q), int_0(dot(u,v)-dot(u0,v) + dt/2 * (F(u,p) + F(u0,p0)) ))
-    a = linearize(l, (u,p), trials=(du, dp))
+#    a = linearize(l, (u,p), trials=(du, dp))
 
-    flux_expr = int_1(expr_I(du, v))
+
     equation  = find((du, dp), forall=(v, q), lhs=(a((du, dp), (v, q))+flux_expr), rhs=l(v, q), bc=bc)
 
     # Use the stokes equation to compute the initial solution
@@ -256,7 +256,7 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-5, max
     return solutions, p_h, domain, domain_h
 
 #==============================================================================
-def run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, *, boundary, boundary_h, boundary_n, ncells, degree, multiplicity):
+def run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, *, boundary, boundary_h, boundary_n, ncells, degree, multiplicity, filename):
     """
         Navier Stokes solver for the 2d steady-state problem.
     """
@@ -279,19 +279,21 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, *, boundary, bounda
 
     interface = domain.interfaces
 
-    jump_pen   = 5*(degree[0]+1)
-    bd_pen     = 5*(degree[0]+1)
+#    jump_pen   = 5*(degree[0]+1)
+#    bd_pen     = 5*(degree[0]+1)
 
-    jump_pen   = 10**5
+    bd_pen   = 10**5
+    jump_pen = 10**5
 
     grad_s = lambda u:0.5*Transpose(grad(u))+0.5*grad(u)
     a = BilinearForm(((u, p),(v, q)), integral(domain, dot(Transpose(grad(u))*un, v) + dot(Transpose(grad(un))*u, v) + mu*inner(grad_s(u), grad_s(v)) - div(u)*q - p*div(v)) 
                                      +integral(boundary,   -mu*inner(grad_s(v),u*Transpose(nn)) - mu*inner(grad_s(u),v*Transpose(nn)) + bd_pen*mu*inner(u*Transpose(nn),v*Transpose(nn)))
+                                     +integral(boundary_h, -mu*inner(grad_s(v),u*Transpose(nn)) - mu*inner(grad_s(u),v*Transpose(nn)) + bd_pen*mu*inner(u*Transpose(nn),v*Transpose(nn)))
                                      )
 
     l = LinearForm((v,q), integral(domain,  dot(f, v) + dot(Transpose(grad(un))*un, v)) 
                         + integral(boundary, -mu*inner(grad_s(v),ue*Transpose(nn)) + bd_pen*mu*inner(ue*Transpose(nn),v*Transpose(nn)))
-                        + integral(boundary_n, inner(grad(0.5*mu*ue),v*Transpose(nn))+inner(Transpose(grad(0.5*mu*ue)),v*Transpose(nn))- pe*dot(v,nn))
+#                        + integral(boundary_n, inner(grad(0.5*mu*ue),v*Transpose(nn))+inner(Transpose(grad(0.5*mu*ue)),v*Transpose(nn))- pe*dot(v,nn))
                         )
 
     jump  = lambda u: -plus(u)*Transpose(nn)+minus(u)*Transpose(nn)
@@ -308,7 +310,7 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, *, boundary, bounda
     l2norm_dp  = Norm(p     , domain, kind='l2')
 
     # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, ncells=ncells, comm=comm)
+
 
 #    min_coords = domain.logical_domain.min_coords
 #    max_coords = domain.logical_domain.max_coords
@@ -320,13 +322,21 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, *, boundary, bounda
 
 #    knots  = [knots1, knots2]
 
-    # ... discrete spaces
-    Xh   = discretize(X, domain_h, degree=degree)
-    V1h  = discretize(V1, domain_h, degree=degree)
-    V2h  = discretize(V2, domain_h, degree=degree)
+    if filename is None:
+        domain_h = discretize(domain, ncells=ncells, comm=comm)
+        # ... discrete spaces
+        Xh   = discretize(X, domain_h, degree=degree)
+        V1h  = discretize(V1, domain_h, degree=degree)
+        V2h  = discretize(V2, domain_h, degree=degree)
 
-
+    else:
+        domain_h = discretize(domain, filename=filename, comm=comm)
+        # ... discrete spaces
+        Xh   = discretize(X, domain_h)
+        V1h  = discretize(V1, domain_h)
+        V2h  = discretize(V2, domain_h)
     # ... discretize the equation
+
     equation_h   = discretize(equation, domain_h, [Xh, Xh], backend=PSYDAC_BACKEND_GPYCCEL)
 
     # Discretize norms
@@ -379,7 +389,7 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, *, boundary, bounda
     l2_error_u = l2norm_u_h.assemble(u=u_h)
     l2_error_p = l2norm_p_h.assemble(p=p_h)
 
-    return l2_error_u, l2_error_p, u_h
+    return l2_error_u, l2_error_p, u_h, domain_h
 
 ###############################################################################
 #            SERIAL TESTS
@@ -408,13 +418,12 @@ def test_st_navier_stokes_2d():
                 bnd_minus = D2.get_boundary(axis=1, ext=1),
                 bnd_plus  = D3.get_boundary(axis=1, ext=-1))
 
-
     boundary_h = None
-    boundary   = Union(*[D1.get_boundary(axis=1, ext=-1), D3.get_boundary(axis=1, ext=1)])
+    boundary   = domain.boundary
     boundary_n = domain.boundary.complement(boundary)
 
     x, y     = domain.coordinates
-    mu = 1
+    mu = 0.007
     ux = cos(y*pi)
     uy = x*(x-1)
     ue = Matrix([[ux], [uy]])
@@ -433,7 +442,7 @@ def test_st_navier_stokes_2d():
     c = TerminalExpr(    grad(pe), domain)
     f = (a + b.T*ue + c).simplify()
 
-    l2_error_u, l2_error_p, u_h = run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, boundary=boundary, boundary_h=boundary_h, boundary_n=boundary_n,
+    l2_error_u, l2_error_p, u_h, domain_h = run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, boundary=boundary, boundary_h=boundary_h, boundary_n=boundary_n,
                                                                     ncells=[2**4,2**4], degree=[2, 2], multiplicity=[1,1])
 
     print(l2_error_u, l2_error_p)
@@ -456,7 +465,7 @@ def test_st_navier_stokes_2d():
     assert abs(0.007847028803941369 - l2_error_u ) < 1e-7
     assert abs(0.04955682156571245 - l2_error_p  ) < 1e-7
 
-test_st_navier_stokes_2d()
+
 def test_st_navier_stokes_2d_2():
     filename = os.path.join(mesh_dir, 'multipatch/plate_with_hole_mp_7.h5')
     domain   = Domain.from_file(filename)
@@ -470,17 +479,19 @@ def test_st_navier_stokes_2d_2():
                   patches[3].get_boundary(axis=1, ext=-1),
                   patches[3].get_boundary(axis=1, ext=1),
                   patches[4].get_boundary(axis=0, ext=-1),
-                  patches[4].get_boundary(axis=0, ext=1)
+                  patches[4].get_boundary(axis=0, ext=1),
                   ]
 
     boundary = [patches[0].get_boundary(axis=1, ext=1)]
     boundary_h = Union(*boundary_h)
-    boundary   = Union(*boundary)
-    ue         = Tuple(6*0.3*y*(0.41-y)/(0.41**2), 0)
+    boundary   = boundary[0]
+    boundary_n = patches[4].get_boundary(axis=1, ext=1)
+    ue         = Matrix((4*0.3*y*(0.41-y)/(0.41**2), 0))
     f          = Tuple(0,0)
     pe         = 0
-    mu         = 0.01
-    u_h, domain_h = run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, boundary=boundary, boundary_h=boundary_h, filename=filename)
+    mu         = 0.001
+    _, _, u_h, domain_h = run_steady_state_navier_stokes_2d(domain, f, ue, pe, mu, boundary=boundary, boundary_h=boundary_h, boundary_n=boundary_n, 
+                                                      ncells=None, degree=None, multiplicity=None,filename=filename)
 
     domains  = domain.logical_domain.interior
     mappings = list(domain_h.mappings.values())
@@ -497,7 +508,7 @@ def test_st_navier_stokes_2d_2():
         gridlines_x1=None,
         gridlines_x2=None,
     )
-#test_st_navier_stokes_2d_2()
+test_st_navier_stokes_2d_2()
 #------------------------------------------------------------------------------
 def test_navier_stokes_2d():
     Tf       = 1.
