@@ -25,6 +25,4 @@ psydac/core/*.so
 psydac/core/*.lock
 __*pyccel__
 .env
-psydac/feec/multipatch/examples/G.png
-psydac/feec/multipatch/examples/PG.png
-psydac/feec/multipatch/examples/vals.npz
+*run_plots*

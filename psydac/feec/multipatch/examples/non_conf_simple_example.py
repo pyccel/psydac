@@ -1,4 +1,5 @@
-from typing import Mapping
+import os
+# from typing import Mapping
 import numpy as np
 
 from scipy.sparse import coo_matrix, bmat
@@ -21,6 +22,11 @@ from psydac.fem.basic                                   import FemField
 
 def run_simple_2patch_example(nc=2, deg=2):
 
+    plot_dir = 'run_plots_nc={}_deg={}'.format(nc,deg)
+
+    if plot_dir is not None and not os.path.exists(plot_dir):
+        os.makedirs(plot_dir)
+
     ncells = [nc, nc]
     degree = [deg,deg]
 
@@ -39,12 +45,11 @@ def run_simple_2patch_example(nc=2, deg=2):
                 bnd_plus  = B.get_boundary(axis=0, ext=-1),
                 direction=1)
     
-    nc = 2
+    # nc = 2
     ncells_c = {
         'M1(A)':[nc, nc],
         'M2(B)':[nc, nc],
     }
-
     ncells_f = {
         'M1(A)':[2*nc, 2*nc],
         'M2(B)':[2*nc, 2*nc],
@@ -68,8 +73,8 @@ def run_simple_2patch_example(nc=2, deg=2):
     t_stamp = time_count(t_stamp)
     print(' .. discrete domain...')
     # domain_h = discretize(domain, ncells=ncells_h)   # Vh space
-    domain_hc = discretize(domain, ncells=[nc,nc])  # coarse Vh space
-    # domain_hc = discretize(domain, ncells=ncells)  # coarse Vh space
+    # domain_hc = discretize(domain, ncells=[nc,nc])  # coarse Vh space
+    domain_hc = discretize(domain, ncells=ncells_c)  # coarse Vh space
     domain_hf = discretize(domain, ncells=ncells_f)  # fine Vh space
 
     t_stamp = time_count(t_stamp)
@@ -78,13 +83,17 @@ def run_simple_2patch_example(nc=2, deg=2):
     derham_hc = discretize(derham, domain_hc, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
     derham_hf = discretize(derham, domain_hf, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
 
-    # t_stamp = time_count(t_stamp)
+    t_stamp = time_count(t_stamp)
+    print(' .. conforming projection operators...')
     # print(' .. commuting projection operators...')
     # nquads = [4*(d + 1) for d in degree]
     # P0, P1, P2 = derham_h.projectors(nquads=nquads)
 
     cP1_c = derham_hc.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language)
     cP1_f = derham_hf.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language)
+
+    t_stamp = time_count(t_stamp)
+    print(' .. spaces...')
 
     V1h_c = derham_hc.V1
     V1h_f = derham_hf.V1
@@ -108,10 +117,13 @@ def run_simple_2patch_example(nc=2, deg=2):
     product = cf2_t @ c2f_patch0 
     print(cf2_t.shape)
     print(product.shape)
-    inv_prod = sp_inv(product)
+    inv_prod = sp_inv(product.tocsc())
     f2c_patch0 = inv_prod @ cf2_t
 
-    
+    E0 = c2f_patch0
+    E0_star = f2c_patch0
+
+
     # f2c_patch0 = c2f_patch0.transpose()
 
 
@@ -137,13 +149,24 @@ def run_simple_2patch_example(nc=2, deg=2):
     print(V1h_f.nbasis)
 
     cP1_m = bmat([
-        [c2f_patch0 * cP1_c_00 * f2c_patch0, c2f_patch0 * cP1_c_01],
-        [             cP1_c_10 * f2c_patch0,              cP1_c_11]
+        [c2f_patch0 @ cP1_c_00 @ f2c_patch0, c2f_patch0 @ cP1_c_01],
+        [             cP1_c_10 @ f2c_patch0,              cP1_c_11]
     ])
+
+    # cP1_m = bmat([
+    #     [             cP1_f_00 ,                 cP1_f_01 @ E0],
+    #     # [            E0.T @ cP1_f_10 ,    E0.T @ cP1_f_11 @ E0]
+    #     [            E0.T @ cP1_f_10 ,    cP1_c_11]
+    # ])
+
+    # cP1_m = bmat([
+    #     [             cP1_f_00 ,                 cP1_f_01 @ E0],
+    #     [            E0.T @ cP1_f_10 ,    E0.T @ cP1_f_11 @ E0]
+    # ])
 
     print(cP1_m.shape)
 
-    G_sol_log = [[lambda xi1, xi2, ii=i : ii for d in [0,1]] for i in range(len(domain))]   
+    G_sol_log = [[lambda xi1, xi2, ii=i : ii+xi1+xi2**2 for d in [0,1]] for i in range(len(domain))]   
 
     P0c, P1c, P2c = derham_hc.projectors()
     P0f, P1f, P2f = derham_hf.projectors()
@@ -151,6 +174,33 @@ def run_simple_2patch_example(nc=2, deg=2):
     G1c   = P1c(G_sol_log)
     G1f   = P1f(G_sol_log)
     
+    ## test c2f matrix
+
+    G1c_patch0_coeffs = G1c.coeffs[0].toarray()
+    G1c_patch1_coeffs = G1c.coeffs[1].toarray()
+
+    # plot G_0 and G_1
+    
+    G1c_coeffs = np.block([G1c_patch0_coeffs,G1c_patch1_coeffs])
+    plot_field(numpy_coeffs=G1c_coeffs, Vh=V1h_c, space_kind='hcurl',             
+            plot_type='components',
+            domain=domain, title='Gc', cmap='viridis',
+            filename=plot_dir+'/Gc.png')
+
+    # plot EG_0 and G_1
+
+    EG1_patch0_coeffs = E0 @ G1c_patch0_coeffs
+
+    G1h_coeffs = np.block([EG1_patch0_coeffs,G1c_patch1_coeffs])
+    
+    plot_field(numpy_coeffs=G1h_coeffs, Vh=V1h_h, space_kind='hcurl',             
+            plot_type='components',
+            domain=domain, title='EGc', cmap='viridis',
+            filename=plot_dir+'/EGc.png')
+
+
+    ## apply conforming P on hybrid space
+
     G1f_patch0_coeffs = G1f.coeffs[0].toarray()
     G1c_patch1_coeffs = G1c.coeffs[1].toarray()
 
@@ -162,14 +212,24 @@ def run_simple_2patch_example(nc=2, deg=2):
     G1h = FemField(V1h_h, coeffs=array_to_stencil(G1h_coeffs, V1h_h.vector_space))
     
     plot_field(numpy_coeffs=G1h_coeffs, Vh=V1h_h, space_kind='hcurl',             
-            domain=domain, title='G', #cmap='viridis',
-            filename='G.png')
+            plot_type='components',
+            domain=domain, title='G', cmap='viridis',
+            filename=plot_dir+'/G.png')
 
     G1h_conf_coeffs = cP1_m @ G1h_coeffs
 
     plot_field(numpy_coeffs=G1h_conf_coeffs, Vh=V1h_h, space_kind='hcurl',             
-            domain=domain, title='PG', #cmap='viridis',
-            filename='PG.png')
+            plot_type='components',
+            domain=domain, title='PG', cmap='viridis',
+            filename=plot_dir+'/PG.png')
+
+    PG1f = cP1_f(G1f)
+
+    plot_field(fem_field=PG1f, Vh=V1h_f, space_kind='hcurl',             
+            plot_type='components',
+            domain=domain, title='PGf', cmap='viridis',
+            filename=plot_dir+'/PGf.png')
+
 
 
     # G1c  = Pconf_1(G1)  # should be curl-conforming
@@ -193,9 +253,14 @@ def construct_projection_operator(domain, codomain):
             Ts = knots_to_insert(c.breaks, d.breaks)
             P  = matrix_multi_stages(Ts, c.nbasis , c.degree, c.knots)
             ops.append(P.T)
+            raise NotImplementedError
+
         elif d.ncells<c.ncells:
             Ts = knots_to_insert(d.breaks, c.breaks)
             P  = matrix_multi_stages(Ts, d.nbasis , d.degree, d.knots)
+            if d.basis == 'M':
+                assert c.basis == 'M'
+                P = np.diag(1/c._scaling_array) @ P @ np.diag(d._scaling_array)
             ops.append(P)
         else:
             P   = np.eye(d.nbasis) #IdentityStencilMatrix(StencilVectorSpace([d.nbasis], [d.degree], [d.periodic]))
@@ -207,4 +272,4 @@ def construct_projection_operator(domain, codomain):
 
 if __name__ == '__main__':
     
-    run_simple_2patch_example(nc=2, deg=2)
+    run_simple_2patch_example(nc=14, deg=2)
