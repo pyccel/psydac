@@ -11,19 +11,23 @@ t_stamp_full = time_count()
 #
 # main test-cases and parameters used for the ppc paper:
 
-# test_case = 'E0_pulse_no_source'   # used in paper
-test_case = 'Issautier_like_source'  # used in paper
+test_case = 'E0_pulse_no_source'   # used in paper
+# test_case = 'Issautier_like_source'  # used in paper
 # test_case = 'transient_to_harmonic'  # actually, not used in paper
 
-J_proj_case = 'P_geom'
+# J_proj_case = 'P_geom'
 # J_proj_case = 'P_L2'
-# J_proj_case = 'tilde Pi_1' 
+J_proj_case = 'tilde Pi_1' 
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
 nc_s = [8] #16]
 deg_s = [3]
+
+# nc_s = [20]
+# deg_s = [6]
+
 
 # we use a t_period = (2*pi/omega) (sometimes denoted tau)
 # this is relevant for oscillating sources but also for plotting
@@ -49,11 +53,11 @@ if test_case == 'E0_pulse_no_source':
     source_type = 'zero'    # Issautier-like pulse
     source_is_harmonic = False
     
-    nb_t_periods = 25 # final time: T = nb_t_periods * t_period
-    plot_a_lot = False # True # 
+    nb_t_periods = 16 # 25 # final time: T = nb_t_periods * t_period
+    plot_a_lot = True # False # 
     if plot_a_lot:
         plot_time_ranges = [
-            [[0, nb_t_periods], 4]
+            [[0, nb_t_periods], 1]
         ]
     else:
         # plot only a few snapshots
@@ -63,7 +67,7 @@ if test_case == 'E0_pulse_no_source':
         ]
 
     cb_min_sol = 0
-    cb_max_sol = 5
+    cb_max_sol = 8 #5
 
 elif test_case == 'Issautier_like_source':
     E0_type = 'zero'
@@ -138,7 +142,7 @@ quad_param = 4
 # jump dissipation parameter (not used in paper)
 gamma_h = 0
 
-case_dir = '0_td_maxwell_' + test_case + '_J_proj=' + J_proj_case + '_qp{}'.format(quad_param)
+case_dir = '00_td_maxwell_' + test_case + '_J_proj=' + J_proj_case + '_qp{}'.format(quad_param)
 if filter_source:
     case_dir += '_Jfilter'
 else:

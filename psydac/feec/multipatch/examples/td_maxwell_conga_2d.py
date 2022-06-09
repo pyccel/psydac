@@ -227,9 +227,10 @@ def solve_td_maxwell_pbm(
             print(' ******  ****** ******  ****** ******  ****** ')
             print('         WARNING !!!  cfl = {}  '.format(cfl))
             print(' ******  ****** ******  ****** ******  ****** ')
-        Nt_pp, dt = compute_stable_dt(cfl, period_time, C_m, dC_m, V1h.nbasis)
+        Nt_pp, dt, norm_curlh = compute_stable_dt(cfl, period_time, C_m, dC_m, V1h.nbasis)
     else:
         dt = period_time/Nt_pp
+        norm_curlh = None
     Nt = Nt_pp * nb_t_periods
 
     def is_plotting_time(nt):
@@ -555,12 +556,12 @@ def solve_td_maxwell_pbm(
         # norm || div E ||
         fig, ax = plt.subplots()
         ax.plot(td, np.sqrt(divE_norm2_diag[nt_start:nt_end+1]), '-', ms=7, mfc='None', mec='k') #, label='||E||', zorder=10)
-        if project_sol:
-            diag_fn = plot_dir+'/diag_divPE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||div_h P^1_h E_h(t)||$ vs '+t_label
-        else:
-            diag_fn = plot_dir+'/diag_divE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
-            title = r'$||div_h E_h(t)||$ vs '+t_label 
+        # if project_sol:
+        #     diag_fn = plot_dir+'/diag_divPE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
+        #     title = r'$||div_h P^1_h E_h(t)||$ vs '+t_label
+        # else:
+        diag_fn = plot_dir+'/diag_divE_gamma={}_Nt_pp={}_tau_range=[{},{}].pdf'.format(gamma_h, Nt_pp, tau_start, tau_end)
+        title = r'$||div_h E_h(t)||$ vs '+t_label 
         if skip_titles:
             title = ''
         ax.set_xlabel(t_label, fontsize=16)  
@@ -721,6 +722,20 @@ def solve_td_maxwell_pbm(
     plot_E_field(E_c, nt=0, project_sol=project_sol, plot_divE=plot_divE)
     plot_B_field(B_c, nt=0)
     
+    # pseudo-energy H0:
+    B_c_1half = B_c - (dt/2) * C_m @ E_c
+    pseudo_energy = .5*(
+        np.dot(E_c,H1_m.dot(E_c)) + np.dot(B_c_1half, H2_m.dot(B_c_1half))
+        + dt*np.dot(C_m @ E_c, H2_m.dot(B_c_1half))
+        )
+    lower_bound_H = pseudo_energy/(1+dt*norm_curlh/2)
+    upper_bound_H = pseudo_energy/(1-dt*norm_curlh/2)
+    print(' ** lower_bound_H = {} **'.format(lower_bound_H))
+    print(' .. pseudo_energy = {} ..'.format(pseudo_energy))
+    print(' ** upper_bound_H = {} **'.format(upper_bound_H))
+    diags['lower_bound_H'] = lower_bound_H
+    diags['upper_bound_H'] = upper_bound_H
+
     f_c = np.copy(f0_c)
     for nt in range(Nt):
         print(' .. nt+1 = {}/{}'.format(nt+1, Nt))
@@ -728,7 +743,7 @@ def solve_td_maxwell_pbm(
         # 1/2 faraday: Bn -> Bn+1/2
         B_c[:] -= (dt/2) * C_m @ E_c
 
-        # ampere: En -> En+1
+        # ampere: En -> En+1        
         if f0_harmonic_c is not None:
             f_harmonic_c = f0_harmonic_c * (np.sin(omega*(nt+1)*dt)-np.sin(omega*(nt)*dt))/(dt*omega) # * source_enveloppe(omega*(nt+1/2)*dt)
             f_c[:] = f0_c + f_harmonic_c
@@ -893,7 +908,7 @@ def compute_stable_dt(cfl, period_time, C_m, dC_m, V1_dim):
     print("     -- note that c*Dt = "+repr(light_c * dt)+", and c_dt_max = "+repr(c_dt_max)+" thus c * dt / c_dt_max = "+repr(light_c*dt/c_dt_max))
     print("     -- and spectral_radius((c*dt)**2* dC_m @ C_m ) = ",  (light_c * dt * norm_op)**2, " (should be < 4).")
 
-    return Nt_pp, dt
+    return Nt_pp, dt, norm_op
 
 if __name__ == '__main__':
     # quick run, to test 
