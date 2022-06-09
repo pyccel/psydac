@@ -57,8 +57,8 @@ def driver_solve(L, **kwargs):
             M     = M.tosparse().tocsr()
             x     = spsolve(M, rhs_d)
 
-        x = array_to_stencil(x, rhs.space)
-        return x, 0
+        x    = array_to_stencil(x, rhs.space)
+        info = 0
     else:
         raise NotImplementedError("Solver '{}' is not available".format(name))
     return (x, info) if return_info else x
