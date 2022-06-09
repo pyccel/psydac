@@ -1,17 +1,21 @@
+from typing import Mapping
 import numpy as np
 
 from scipy.sparse import coo_matrix, bmat
+from scipy.sparse.linalg import inv as sp_inv
 
 from sympde.topology      import Square    
+from sympde.topology      import IdentityMapping
 from psydac.fem.vector import ProductFemSpace
 
 # from psydac.api.discretization import discretize #  ???
 from psydac.feec.multipatch.api import discretize
 from psydac.api.settings   import PSYDAC_BACKENDS
-
+from psydac.feec.multipatch.plotting_utilities          import plot_field
 from sympde.topology  import Derham
 
 from psydac.feec.multipatch.utilities                   import time_count
+from psydac.linalg.block import BlockVector
 from psydac.linalg.utilities                            import array_to_stencil
 from psydac.fem.basic                                   import FemField
 
@@ -25,25 +29,29 @@ def run_simple_2patch_example(nc=2, deg=2):
 
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
+    M1 = IdentityMapping('M1', dim=2)
+    M2 = IdentityMapping('M2', dim=2)
+    A = M1(A)
+    B = M2(B)
 
     domain = A.join(B, name = 'domain',
                 bnd_minus = A.get_boundary(axis=0, ext=1),
                 bnd_plus  = B.get_boundary(axis=0, ext=-1),
                 direction=1)
-
+    
     nc = 2
     ncells_c = {
-        'A':[nc, nc],
-        'B':[nc, nc],
+        'M1(A)':[nc, nc],
+        'M2(B)':[nc, nc],
     }
 
     ncells_f = {
-        'A':[2*nc, 2*nc],
-        'B':[2*nc, 2*nc],
+        'M1(A)':[2*nc, 2*nc],
+        'M2(B)':[2*nc, 2*nc],
     }
     ncells_h = {
-        'A':[2*nc, 2*nc],
-        'B':[nc, nc],
+        'M1(A)':[2*nc, 2*nc],
+        'M2(B)':[nc, nc],
     }
 
     # mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
@@ -96,7 +104,16 @@ def run_simple_2patch_example(nc=2, deg=2):
         [None, c2f_patch01]
     ])
 
-    f2c_patch0 = c2f_patch0.transpose()
+    cf2_t = c2f_patch0.transpose()
+    product = cf2_t @ c2f_patch0 
+    print(cf2_t.shape)
+    print(product.shape)
+    inv_prod = sp_inv(product)
+    f2c_patch0 = inv_prod @ cf2_t
+
+    
+    # f2c_patch0 = c2f_patch0.transpose()
+
 
     # cP1 = BlockMatrix(domain=V1h_h.vector_space, self.codomain=V1h_h.vector_space)
     # cP1[0,0] = c2f_patch1,  ...
@@ -126,7 +143,39 @@ def run_simple_2patch_example(nc=2, deg=2):
 
     print(cP1_m.shape)
 
+    G_sol_log = [[lambda xi1, xi2, ii=i : ii for d in [0,1]] for i in range(len(domain))]   
+
+    P0c, P1c, P2c = derham_hc.projectors()
+    P0f, P1f, P2f = derham_hf.projectors()
+
+    G1c   = P1c(G_sol_log)
+    G1f   = P1f(G_sol_log)
     
+    G1f_patch0_coeffs = G1f.coeffs[0].toarray()
+    G1c_patch1_coeffs = G1c.coeffs[1].toarray()
+
+    print('G1f_patch0_coeffs', G1f_patch0_coeffs)
+    print('------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ')
+    print('G1c_patch1_coeffs', G1c_patch1_coeffs)
+    
+    G1h_coeffs = np.block([G1f_patch0_coeffs,G1c_patch1_coeffs])
+    G1h = FemField(V1h_h, coeffs=array_to_stencil(G1h_coeffs, V1h_h.vector_space))
+    
+    plot_field(numpy_coeffs=G1h_coeffs, Vh=V1h_h, space_kind='hcurl',             
+            domain=domain, title='G', #cmap='viridis',
+            filename='G.png')
+
+    G1h_conf_coeffs = cP1_m @ G1h_coeffs
+
+    plot_field(numpy_coeffs=G1h_conf_coeffs, Vh=V1h_h, space_kind='hcurl',             
+            domain=domain, title='PG', #cmap='viridis',
+            filename='PG.png')
+
+
+    # G1c  = Pconf_1(G1)  # should be curl-conforming
+
+
+
 
 def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
 #    assert len(coarse_grid)*2-2 == len(fine_grid)-1

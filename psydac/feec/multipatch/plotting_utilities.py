@@ -233,7 +233,7 @@ def plot_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, 
         save_fig=filename,
         save_vals = True,
         hide_plot=hide_plot,
-        cmap='hsv',
+        cmap='viridis',
         dpi = 400,
     )
 
