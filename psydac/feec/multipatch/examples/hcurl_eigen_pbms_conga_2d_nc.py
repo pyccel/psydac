@@ -26,7 +26,7 @@ from sympde.topology      import Square
 from sympde.topology      import IdentityMapping
 from psydac.fem.vector import ProductFemSpace
 
-from non_conf_simple_example import knots_to_insert, construct_projection_operator
+from non_conf_example_coarse_confP import knots_to_insert, construct_projection_operator
 
 
 def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='python', mu=1, nu=1, gamma_h=10,
@@ -142,6 +142,7 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     diags['ndofs_V1'] = V1h.nbasis
     diags['ndofs_V2'] = V2h.nbasis
 
+    t_stamp = time_count(t_stamp)
     print('building the discrete operators:')
     print('commuting projection operators...')
     nquads = [4*(d + 1) for d in degree]
@@ -150,6 +151,7 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     I1 = IdLinearOperator(V1h)
     I1_m = I1.to_sparse_matrix()
 
+    t_stamp = time_count(t_stamp)
     print('Hodge operators...')
     # multi-patch (broken) linear operators / matrices
     H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=0)
@@ -162,6 +164,7 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     dH1_m = H1.get_dual_sparse_matrix()     # = inverse mass matrix of V1
     H2_m  = H2.to_sparse_matrix()           # = mass matrix of V2
 
+    t_stamp = time_count(t_stamp)
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
 
@@ -219,46 +222,74 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
         cP0_m = cP0.to_sparse_matrix()
         cP1_m = cP1.to_sparse_matrix()
 
+    t_stamp = time_count(t_stamp)
     print('broken differential operators...')
     bD0, bD1 = derham_h.broken_derivatives_as_operators
     bD0_m = bD0.to_sparse_matrix()
     bD1_m = bD1.to_sparse_matrix()
 
+    t_stamp = time_count(t_stamp)
+    print('converting some matrices to csr format...')
+    if cP0_m is not None:
+        cP0_m = cP0_m.tocsr()
+    H1_m = H1_m.tocsr()
+    H2_m = H2_m.tocsr()
+    cP1_m = cP1_m.tocsr()
+    bD1_m = bD1_m.tocsr()    
+
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
+
+    print('computing the full operator matrix...')
+    A_m = np.zeros_like(H1_m) 
 
     # Conga (projection-based) stiffness matrices
     if mu != 0:
         # curl curl:
+        t_stamp = time_count(t_stamp)
+        print('mu = {}'.format(mu))
         print('curl-curl stiffness matrix...')
+        
         pre_CC_m = bD1_m.transpose() @ H2_m @ bD1_m
         CC_m = cP1_m.transpose() @ pre_CC_m @ cP1_m  # Conga stiffness matrix
-    else:
-        CC_m = np.zeros_like(H1_m)
+        A_m += mu * CC_m 
 
     # grad div:
     if nu != 0:
+        dH0_m = dH0_m.tocsr()
+        bD0_m = bD0_m.tocsr()    
+
+        t_stamp = time_count(t_stamp)
+        print('nu = {}'.format(nu))
         print('grad-div stiffness matrix...')
         pre_GD_m = - H1_m @ bD0_m @ cP0_m @ dH0_m @ cP0_m.transpose() @ bD0_m.transpose() @ H1_m
         GD_m = cP1_m.transpose() @ pre_GD_m @ cP1_m  # Conga stiffness matrix
-    else:
-        GD_m = np.zeros_like(H1_m)
+        A_m -= nu * GD_m
 
-    # jump penalization in V1h:
-    jump_penal_m = I1_m - cP1_m
-    JP_m = jump_penal_m.transpose() @ H1_m @ jump_penal_m
-
-    print('computing the full operator matrix...')
-    print('mu = {}'.format(mu))
-    print('nu = {}'.format(nu))
-    A_m = mu * CC_m - nu * GD_m + gamma_h * JP_m
+    # jump stabilization in V1h:
+    if gamma_h != 0 or generalized_pbm:
+        t_stamp = time_count(t_stamp)
+        print('jump stabilization matrix...')
+        jump_stab_m = I1_m - cP1_m
+        JS_m = jump_stab_m.transpose() @ H1_m @ jump_stab_m
+        
+    if gamma_h != 0:
+        print('gamma_h = {}'.format(gamma_h))
+        print('adding jump stabilization to operator matrix...')
+        A_m += gamma_h * JS_m
 
     if generalized_pbm:
-        B_m = cP1_m.transpose() @ H1_m @ cP1_m + JP_m
+        print('adding jump stabilization to RHS of generalized eigenproblem...')
+        B_m = cP1_m.transpose() @ H1_m @ cP1_m + JS_m
     else:
         B_m = H1_m
+
+    t_stamp = time_count(t_stamp)
+    print('solving matrix eigenproblem...')
     all_eigenvalues, all_eigenvectors_transp = get_eigenvalues(nb_eigs_solve, sigma, A_m, B_m)
 
+    t_stamp = time_count(t_stamp)
+    print('sorting out eigenvalues...')
     zero_eigenvalues = []
     if skip_eigs_threshold is not None:
         eigenvalues = []
@@ -279,7 +310,9 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     
     for k, val in enumerate(zero_eigenvalues):
         diags['skipped eigenvalue_{}'.format(k)] = val
-    
+
+    t_stamp = time_count(t_stamp)
+    print('plotting the eigenmodes...')        
     nb_eigs = len(eigenvalues)
     for i in range(min(nb_eigs_plot, nb_eigs)):
 
@@ -330,6 +363,7 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
             fl_eh_c = lambda_i * dH1_m @ cP1_m.transpose() @ H1_m @ Peh_c
             plot_field(numpy_coeffs=fl_eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='filtered lambda_i * e_{}'.format(i),
                         filename=plot_dir+'/'+params_str+'_fl_e_{}.png'.format(i), hide_plot=hide_plots)
+    t_stamp = time_count(t_stamp)
 
     if ref_sigmas is not None:
         errors = []

@@ -23,7 +23,7 @@ domain_name = '2patch_conf' # '2patch_nc' # 'curved_L_shape' # 'pretzel_f' #
 # nc_s = [8]
 # deg_s = [4]
 
-nc_s = [32]
+nc_s = [16]
 deg_s = [3]
 # nc_s = [20]
 # nc_s = [20]
@@ -88,7 +88,7 @@ elif domain_name in ['pretzel_f']:
         nb_eigs_solve = 10 
         nb_eigs_plot = 5 
 
-elif domain_name == '2patch_nc':
+elif domain_name in ['2patch_nc', '2patch_conf']:
     assert operator == 'curl-curl'
 
     ref_sigmas = [
