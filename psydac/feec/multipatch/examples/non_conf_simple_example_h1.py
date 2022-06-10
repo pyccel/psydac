@@ -89,150 +89,134 @@ def run_simple_2patch_example(nc=2, deg=2):
     # nquads = [4*(d + 1) for d in degree]
     # P0, P1, P2 = derham_h.projectors(nquads=nquads)
 
-    cP1_c = derham_hc.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language)
-    cP1_f = derham_hf.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language)
+    cP0_c = derham_hc.conforming_projection(space='V0', hom_bc=False, backend_language=backend_language)
+    cP0_f = derham_hf.conforming_projection(space='V0', hom_bc=False, backend_language=backend_language)
 
     t_stamp = time_count(t_stamp)
     print(' .. spaces...')
 
-    V1h_c = derham_hc.V1
-    V1h_f = derham_hf.V1
-    V1h_h = ProductFemSpace(V1h_f.spaces[0],V1h_c.spaces[1])  # fine space on patch 0, coarse on patch 1
+    V0h_c = derham_hc.V0
+    V0h_f = derham_hf.V0
+    V0h_h = ProductFemSpace(V0h_f.spaces[0],V0h_c.spaces[1])  # fine space on patch 0, coarse on patch 1
 
-    # matrix of coarse to fine change of basis (for patch 0)
-    # V1h_c.spaces[0].spaces[0]
-    #         ^^^       ^^^
-    #        patch 0    component 0
+    c2f_patch1 = construct_projection_operator(domain=V0h_c.spaces[1], codomain=V0h_f.spaces[1])
 
-    c2f_patch00 = construct_projection_operator(domain=V1h_c.spaces[0].spaces[0], codomain=V1h_f.spaces[0].spaces[0])
-    c2f_patch01 = construct_projection_operator(domain=V1h_c.spaces[0].spaces[1], codomain=V1h_f.spaces[0].spaces[1])
+    cf2_t = c2f_patch1.transpose()
+    product = cf2_t @ c2f_patch1
 
-    # print(c2f_patch00.shape)
-    c2f_patch0 = bmat([
-        [c2f_patch00, None],
-        [None, c2f_patch01]
-    ])
-
-    cf2_t = c2f_patch0.transpose()
-    product = cf2_t @ c2f_patch0 
-    print(cf2_t.shape)
-    print(product.shape)
     inv_prod = sp_inv(product.tocsc())
-    f2c_patch0 = inv_prod @ cf2_t
+    f2c_patch1 = inv_prod @ cf2_t
 
-    E0 = c2f_patch0
-    E0_star = f2c_patch0
-
+    E1 = c2f_patch1
+    E1_star = f2c_patch1
 
     # f2c_patch0 = c2f_patch0.transpose()
 
 
-    # cP1 = BlockMatrix(domain=V1h_h.vector_space, self.codomain=V1h_h.vector_space)
-    # cP1[0,0] = c2f_patch1,  ...
+    # cP0 = BlockMatrix(domain=V0h_h.vector_space, self.codomain=V0h_h.vector_space)
+    # cP0[0,0] = c2f_patch1,  ...
 
     # numpy:
-    cP1_c_00 = cP1_c.matrix[0,0].tosparse()
-    cP1_c_10 = cP1_c.matrix[1,0].tosparse()
-    cP1_c_01 = cP1_c.matrix[0,1].tosparse()
-    cP1_c_11 = cP1_c.matrix[1,1].tosparse()
+    cP0_c_00 = cP0_c.matrix[0,0].tosparse()
+    cP0_c_10 = cP0_c.matrix[1,0].tosparse()
+    cP0_c_01 = cP0_c.matrix[0,1].tosparse()
+    cP0_c_11 = cP0_c.matrix[1,1].tosparse()
 
-    cP1_f_00 = cP1_f.matrix[0,0].tosparse()
-    cP1_f_10 = cP1_f.matrix[1,0].tosparse()
-    cP1_f_01 = cP1_f.matrix[0,1].tosparse()
-    cP1_f_11 = cP1_f.matrix[1,1].tosparse()
+    cP0_f_00 = cP0_f.matrix[0,0].tosparse()
+    cP0_f_10 = cP0_f.matrix[1,0].tosparse()
+    cP0_f_01 = cP0_f.matrix[0,1].tosparse()
+    cP0_f_11 = cP0_f.matrix[1,1].tosparse()
 
     # same for diff operators
     # ...
 
-    print(c2f_patch0.shape)
-    print(cP1_c_00.shape)
-    print(V1h_f.nbasis)
+    print(E1.shape)
+    print(cP0_c_00.shape)
+    print(V0h_f.nbasis)
 
-    cP1_m = bmat([
-        [c2f_patch0 @ cP1_c_00 @ f2c_patch0, c2f_patch0 @ cP1_c_01],
-        [             cP1_c_10 @ f2c_patch0,              cP1_c_11]
+    cP0_m = bmat([
+        [E1 @ cP0_c_00 @ E1_star,      E1 @ cP0_c_01],
+        [     cP0_c_10 @ E1_star,           cP0_c_11]
     ])
 
-    # cP1_m = bmat([
-    #     [             cP1_f_00 ,                 cP1_f_01 @ E0],
-    #     # [            E0.T @ cP1_f_10 ,    E0.T @ cP1_f_11 @ E0]
-    #     [            E0.T @ cP1_f_10 ,    cP1_c_11]
-    # ])
+    cP0_m = bmat([
+         [       cP0_f_00 ,        cP0_f_01 @ E1],
+#         [E1.T @ cP0_f_10 , E1.T @ cP0_f_11 @ E1]
+         [E1.T @ cP0_f_10 ,        cP0_c_11]
+#         [E1_star @ cP0_f_10 , cP0_c_11]
+     ])
 
-    # cP1_m = bmat([
-    #     [             cP1_f_00 ,                 cP1_f_01 @ E0],
-    #     [            E0.T @ cP1_f_10 ,    E0.T @ cP1_f_11 @ E0]
-    # ])
+#    cP0_m = bmat([
+#         [       cP0_f_00 ,           cP0_f_01 @ E1],
+#         [E1.T @ cP0_f_10 ,    E1.T @ cP0_f_11 @ E1]
+#     ])
 
-    print(cP1_m.shape)
+    print(cP0_m.shape)
 
-    G_sol_log = [[lambda xi1, xi2, ii=i : ii+xi1+xi2**2 for d in [0,1]] for i in range(len(domain))]   
+    G_sol_log = [lambda xi1, xi2, ii=i : ii+xi1+xi2**2 for i in range(len(domain))]   
 
     P0c, P1c, P2c = derham_hc.projectors()
     P0f, P1f, P2f = derham_hf.projectors()
 
-    G1c   = P1c(G_sol_log)
-    G1f   = P1f(G_sol_log)
+    G0c   = P0c(G_sol_log)
+    G0f   = P0f(G_sol_log)
     
     ## test c2f matrix
 
-    G1c_patch0_coeffs = G1c.coeffs[0].toarray()
-    G1c_patch1_coeffs = G1c.coeffs[1].toarray()
-
     # plot G_0 and G_1
-    
-    G1c_coeffs = np.block([G1c_patch0_coeffs,G1c_patch1_coeffs])
-    plot_field(numpy_coeffs=G1c_coeffs, Vh=V1h_c, space_kind='hcurl',             
-            plot_type='components',
+    plot_field(numpy_coeffs=G0c.coeffs.toarray(), Vh=V0h_c, space_kind='h1',
             domain=domain, title='Gc', cmap='viridis',
             filename=plot_dir+'/Gc.png')
 
     # plot EG_0 and G_1
+    G0c_patch0_coeffs = G0c.coeffs[0].toarray()
+    G0c_patch1_coeffs = G0c.coeffs[1].toarray()
 
-    EG1_patch0_coeffs = E0 @ G1c_patch0_coeffs
+#    EG0_patch1_coeffs = E1 @ G0c_patch0_coeffs
 
-    G1h_coeffs = np.block([EG1_patch0_coeffs,G1c_patch1_coeffs])
-    
-    plot_field(numpy_coeffs=G1h_coeffs, Vh=V1h_h, space_kind='hcurl',             
-            plot_type='components',
-            domain=domain, title='EGc', cmap='viridis',
-            filename=plot_dir+'/EGc.png')
+#    G0h_coeffs = np.block([EG0_patch1_coeffs, G0c_patch1_coeffs])
+#    
+#    plot_field(numpy_coeffs=G0h_coeffs, Vh=V0h_h, space_kind='h1',
+#            domain=domain, title='EGc', cmap='viridis',
+#            filename=plot_dir+'/EGc.png')
 
 
     ## apply conforming P on hybrid space
 
-    G1f_patch0_coeffs = G1f.coeffs[0].toarray()
-    G1c_patch1_coeffs = G1c.coeffs[1].toarray()
+    G0f_patch0_coeffs = G0f.coeffs[0].toarray()
+    G0c_patch1_coeffs = G0c.coeffs[1].toarray()
 
-    print('G1f_patch0_coeffs', G1f_patch0_coeffs)
+    print('G0f_patch0_coeffs', G0f_patch0_coeffs)
     print('------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ')
-    print('G1c_patch1_coeffs', G1c_patch1_coeffs)
+    print('G0c_patch1_coeffs', G0c_patch1_coeffs)
+
+    G0h_coeffs = np.block([G0f_patch0_coeffs,G0c_patch1_coeffs])
+    G0h = FemField(V0h_h, coeffs=array_to_stencil(G0h_coeffs, V0h_h.vector_space))
     
-    G1h_coeffs = np.block([G1f_patch0_coeffs,G1c_patch1_coeffs])
-    G1h = FemField(V1h_h, coeffs=array_to_stencil(G1h_coeffs, V1h_h.vector_space))
-    
-    plot_field(numpy_coeffs=G1h_coeffs, Vh=V1h_h, space_kind='hcurl',             
-            plot_type='components',
+    plot_field(numpy_coeffs=G0h_coeffs, Vh=V0h_h, space_kind='h1',
             domain=domain, title='G', cmap='viridis',
             filename=plot_dir+'/G.png')
 
-    G1h_conf_coeffs = cP1_m @ G1h_coeffs
+    PG0h_coeffs = cP0_m @ G0h_coeffs
+    PG0h        = FemField(V0h_h, coeffs=array_to_stencil(PG0h_coeffs, V0h_h.vector_space))
+    plot_field(fem_field=PG0h, Vh=V0h_h, space_kind='h1',
+            domain=domain, title='PGh', cmap='viridis',
+            filename=plot_dir+'/PGh.png')
 
-    plot_field(numpy_coeffs=G1h_conf_coeffs, Vh=V1h_h, space_kind='hcurl',             
-            plot_type='components',
-            domain=domain, title='PG', cmap='viridis',
-            filename=plot_dir+'/PG.png')
 
-    PG1f = cP1_f(G1f)
+    PG0c = cP0_c(G0c)
 
-    plot_field(fem_field=PG1f, Vh=V1h_f, space_kind='hcurl',             
-            plot_type='components',
+    plot_field(fem_field=PG0c, Vh=V0h_c, space_kind='h1',
+            domain=domain, title='PGc', cmap='viridis',
+            filename=plot_dir+'/PGc.png')
+
+    PG0f = cP0_f(G0f)
+
+    plot_field(fem_field=PG0f, Vh=V0h_f, space_kind='h1',
             domain=domain, title='PGf', cmap='viridis',
             filename=plot_dir+'/PGf.png')
 
-
-
-    # G1c  = Pconf_1(G1)  # should be curl-conforming
+    # G0c  = Pconf_1(G0)  # should be curl-conforming
 
 
 
@@ -246,6 +230,7 @@ def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
 
 def construct_projection_operator(domain, codomain):
     from psydac.core.interface import matrix_multi_stages
+    from scipy.sparse          import csr_matrix
 
     ops = []
     for d,c in zip(domain.spaces, codomain.spaces):
@@ -267,7 +252,7 @@ def construct_projection_operator(domain, codomain):
             ops.append(P.toarray())
 
     # return KroneckerDenseMatrix(domain.vector_space, codomain.vector_space, *ops)
-    return np.kron(*ops)
+    return csr_matrix(np.kron(*ops))
 
 
 if __name__ == '__main__':

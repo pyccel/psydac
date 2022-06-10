@@ -234,6 +234,7 @@ def plot_field(
                 amp_factor=2,
                 save_fig=filename,
                 hide_plot=hide_plot,
+                cmap=cmap,
                 dpi = 200,
             )
 
