@@ -5,6 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 
+from scipy.sparse import coo_matrix, bmat
+from scipy.sparse.linalg import inv as sp_inv
+
 from scipy.sparse.linalg import spilu, lgmres
 from scipy.sparse.linalg import LinearOperator, eigsh, minres
 from scipy.linalg        import norm
@@ -18,6 +21,13 @@ from psydac.feec.multipatch.operators                   import HodgeOperator
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.utilities                   import time_count
+
+from sympde.topology      import Square    
+from sympde.topology      import IdentityMapping
+from psydac.fem.vector import ProductFemSpace
+
+from non_conf_simple_example import knots_to_insert, construct_projection_operator
+
 
 def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='python', mu=1, nu=1, gamma_h=10,
                           generalized_pbm=False, sigma=None, ref_sigmas=[], nb_eigs_solve=4, nb_eigs_plot=4, skip_eigs_threshold=None,
@@ -65,14 +75,62 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     print('---------------------------------------------------------------------------------------------------------')
 
     print('building symbolic and discrete domain...')
-    domain = build_multipatch_domain(domain_name=domain_name)
+    
+    if domain_name in ['2patch_nc', '2patch_conf']:
+
+        A = Square('A',bounds1=(0, np.pi/2), bounds2=(0, np.pi))
+        B = Square('B',bounds1=(np.pi/2, np.pi), bounds2=(0, np.pi))
+        M1 = IdentityMapping('M1', dim=2)
+        M2 = IdentityMapping('M2', dim=2)
+        A = M1(A)
+        B = M2(B)
+
+        domain = A.join(B, name = 'domain',
+                    bnd_minus = A.get_boundary(axis=0, ext=1),
+                    bnd_plus  = B.get_boundary(axis=0, ext=-1),
+                    direction=1)
+
+    else:
+        domain = build_multipatch_domain(domain_name=domain_name)
+
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
-    domain_h = discretize(domain, ncells=ncells)
 
     print('building symbolic and discrete derham sequences...')
+    
+    t_stamp = time_count()
+    print(' .. derham sequence...')
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-    derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
+
+    if domain_name == '2patch_nc':
+        ncells_c = {
+            'M1(A)':[nc, nc],
+            'M2(B)':[nc, nc],
+        }
+        ncells_f = {
+            'M1(A)':[2*nc, 2*nc],
+            'M2(B)':[2*nc, 2*nc],
+        }
+        ncells_h = {
+            'M1(A)':[2*nc, 2*nc],
+            'M2(B)':[nc, nc],
+        }
+
+        t_stamp = time_count(t_stamp)
+        print(' .. discrete domain...')
+        domain_h = discretize(domain, ncells=ncells_h)   # Vh space
+        domain_hc = discretize(domain, ncells=ncells_c)  # coarse Vh space
+        domain_hf = discretize(domain, ncells=ncells_f)  # fine Vh space
+
+        t_stamp = time_count(t_stamp)
+        print(' .. discrete derham sequence...')
+        derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
+        derham_hc = discretize(derham, domain_hc, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
+        derham_hf = discretize(derham, domain_hf, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
+
+    else:
+        domain_h = discretize(domain, ncells=ncells)
+        derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
 
     V0h = derham_h.V0
     V1h = derham_h.V1
@@ -106,10 +164,60 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
 
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
-    cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
-    cP0_m = cP0.to_sparse_matrix()
-    cP1_m = cP1.to_sparse_matrix()
+
+    if domain_name == '2patch_nc':
+
+        V1h_c = derham_hc.V1
+        V1h_f = derham_hf.V1
+
+        cP1_c = derham_hc.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language)
+        cP1_f = derham_hf.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language)
+
+        c2f_patch00 = construct_projection_operator(domain=V1h_c.spaces[0].spaces[0], codomain=V1h_f.spaces[0].spaces[0])
+        c2f_patch01 = construct_projection_operator(domain=V1h_c.spaces[0].spaces[1], codomain=V1h_f.spaces[0].spaces[1])
+
+        # print(c2f_patch00.shape)
+        c2f_patch0 = bmat([
+            [c2f_patch00, None],
+            [None, c2f_patch01]
+        ])
+
+        cf2_t = c2f_patch0.transpose()
+        product = cf2_t @ c2f_patch0 
+        print(cf2_t.shape)
+        print(product.shape)
+        inv_prod = sp_inv(product.tocsc())
+        f2c_patch0 = inv_prod @ cf2_t
+
+        E0 = c2f_patch0
+        E0_star = f2c_patch0
+
+        # numpy:
+        cP1_c_00 = cP1_c.matrix[0,0].tosparse()
+        cP1_c_10 = cP1_c.matrix[1,0].tosparse()
+        cP1_c_01 = cP1_c.matrix[0,1].tosparse()
+        cP1_c_11 = cP1_c.matrix[1,1].tosparse()
+
+        cP1_f_00 = cP1_f.matrix[0,0].tosparse()
+        cP1_f_10 = cP1_f.matrix[1,0].tosparse()
+        cP1_f_01 = cP1_f.matrix[0,1].tosparse()
+        cP1_f_11 = cP1_f.matrix[1,1].tosparse()
+
+        print(c2f_patch0.shape)
+        print(cP1_c_00.shape)
+        print(V1h_f.nbasis)
+
+        cP1_m = bmat([
+            [c2f_patch0 @ cP1_c_00 @ f2c_patch0, c2f_patch0 @ cP1_c_01],
+            [             cP1_c_10 @ f2c_patch0,              cP1_c_11]
+        ])
+        cP0_m = None
+
+    else:
+        cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
+        cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
+        cP0_m = cP0.to_sparse_matrix()
+        cP1_m = cP1.to_sparse_matrix()
 
     print('broken differential operators...')
     bD0, bD1 = derham_h.broken_derivatives_as_operators
@@ -186,6 +294,11 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
         params_str = 'gamma_h={}_gen={}'.format(gamma_h, generalized_pbm)
         plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='e_{}, lambda_{}={}'.format(i,i,lambda_i),
                     filename=plot_dir+'/'+params_str+'_e_{}.png'.format(i), hide_plot=hide_plots)
+
+        plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='e_{}, lambda_{}={}'.format(i,i,lambda_i), 
+                    filename=plot_dir+'/'+params_str+'_e_{}_comps.png'.format(i),
+                    plot_type='components', hide_plot=hide_plots)
+
         # also plot the projected eigenmode:
         Peh_c = cP1_m.dot(eh_c)
         plot_field(numpy_coeffs=Peh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='P e_{}, lambda_{}={}'.format(i,i,lambda_i),
@@ -194,7 +307,9 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
         plot_field(numpy_coeffs=Peh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='P e_{}, lambda_{}={}'.format(i,i,lambda_i), 
                     filename=plot_dir+'/'+params_str+'_Pe_{}_vf.png'.format(i),
                     plot_type='vector_field', hide_plot=hide_plots)
-        
+
+
+
         plot_checks = False
         if plot_checks:
             # check: plot jump

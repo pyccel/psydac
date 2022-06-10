@@ -4,6 +4,7 @@ from mpi4py import MPI
 from sympy  import lambdify
 
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib  import cm, colors
 from mpl_toolkits import mplot3d
@@ -11,9 +12,10 @@ from collections import OrderedDict
 
 from psydac.linalg.utilities import array_to_stencil
 from psydac.fem.basic        import FemField
-from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.utilities.utils  import refine_array_1d
 from psydac.feec.pull_push   import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
+
+matplotlib.rcParams['font.size'] = 15
 
 #==============================================================================
 def is_vector_valued(u):
@@ -81,9 +83,9 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
 
     # always return a list, even for scalar-valued functions ?
     if not vector_valued:
-        return np.array(u_vals_components[0])
+        return u_vals_components[0]
     else:
-        return [np.array(a) for a in u_vals_components]
+        return u_vals_components
 
 #------------------------------------------------------------------------------
 def get_grid_quad_weights(etas, patch_logvols, mappings_list):  #_obj):
@@ -102,9 +104,11 @@ def get_grid_quad_weights(etas, patch_logvols, mappings_list):  #_obj):
         N1 = eta_1.shape[1]
 
         log_weight = patch_logvols[k]/(N0*N1)
+        Fk = mappings_list[k].get_callable_mapping()
         for i, x1i in enumerate(eta_1[:, 0]):
             for j, x2j in enumerate(eta_2[0, :]):
-                quad_weights[k][i, j] = push_2d_l2(one_field, x1i, x2j, mapping=mappings_list[k]) * log_weight
+                det_Fk_ij = Fk.metric_det(x1i, x2j)**0.5
+                quad_weights[k][i, j] = det_Fk_ij * log_weight
 
     return quad_weights
 
@@ -169,12 +173,8 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     F = [M.get_callable_mapping() for d,M in mappings.items()]
 
     if plotted_patch in range(len(mappings)):
-        space   = Vh.spaces[plotted_patch]
-        if isinstance(space, (VectorFemSpace, ProductFemSpace)):
-            space = space.spaces[0]
-
-        grid_x1 = space.breaks[0]
-        grid_x2 = space.breaks[1]
+        grid_x1 = Vh.spaces[plotted_patch].breaks[0]
+        grid_x2 = Vh.spaces[plotted_patch].breaks[1]
 
         x1 = refine_array_1d(grid_x1, N)
         x2 = refine_array_1d(grid_x2, N)
@@ -191,6 +191,7 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
 
     return gridlines_x1, gridlines_x2
 
+#------------------------------------------------------------------------------
 def plot_field(
     fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, domain=None, surface_plot=False, cb_min=None, cb_max=None,
     plot_type='amplitude', cmap='hsv', space_kind=None, title=None, filename='dummy_plot.png', subtitles=None, N_vis=20, vf_skip=2, hide_plot=True):
@@ -272,7 +273,7 @@ def plot_field(
             cb_min=cb_min,
             cb_max=cb_max,
             save_fig=filename,
-            save_vals = False,
+            save_vals = True,
             hide_plot=hide_plot,
             cmap=cmap, 
             dpi = 300,
@@ -332,7 +333,6 @@ def my_small_plot(
     assert n_patches == len(yy)
 
     if save_vals:
-        # save as 'vals.npz'
         np.savez('vals', xx=xx, yy=yy, vals=vals)
         
     fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
