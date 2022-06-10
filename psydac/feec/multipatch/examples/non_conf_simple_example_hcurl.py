@@ -153,12 +153,12 @@ def run_simple_2patch_example(nc=2, deg=2):
         [     cP1_c_10 @ E1_star,      cP1_c_11]
     ])
 
-    cP1_m = bmat([
-         [           cP1_f_00 ,        cP1_f_01 @ E1],
-#         [E1.T    @ cP1_f_10 , E1.T @ cP1_f_11 @ E1]
-         [E1.T    @ cP1_f_10 , cP1_c_11]
-#         [E1_star @ cP1_f_10 , cP1_c_11]
-     ])
+#    cP1_m = bmat([
+#         [           cP1_f_00 ,        cP1_f_01 @ E1],
+##         [E1.T    @ cP1_f_10 , E1.T @ cP1_f_11 @ E1]
+#         [E1.T    @ cP1_f_10 , cP1_c_11]
+##         [E1_star @ cP1_f_10 , cP1_c_11]
+#     ])
 
 #    cP1_m = bmat([
 #         [       cP1_f_00 ,        cP1_f_01 @ E1],
