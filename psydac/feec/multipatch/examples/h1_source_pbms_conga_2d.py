@@ -33,7 +33,7 @@ from psydac.fem.basic        import FemField
 def solve_h1_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_L2', source_type='manu_poisson',
         eta=-10., mu=1., gamma_h=10.,
-        project_sol=False, filter_source=True,
+        project_sol=False,
         plot_source=False, plot_dir=None, hide_plots=True,
         m_load_dir="", sol_filename="", sol_ref_filename="",
         ref_nc=None, ref_deg=None,
@@ -207,20 +207,20 @@ def solve_h1_source_pbm(
         f_c = f_h.coeffs.toarray()
         tilde_f_c = H0_m.dot(f_c)
 
-    elif source_proj == 'P_L2':
-        print(' .. projecting the source with L2 projection...')
+    elif source_proj in ['P_L2', 'tilde_Pi']:
+        print(' .. projecting the source with '+source_proj+' projection...')
         tilde_f_c = derham_h.get_dual_dofs(space='V0', f=f_scal, backend_language=backend_language, return_format='numpy_array')
-        if plot_source:
-            f_c = dH0_m.dot(tilde_f_c)
+        if source_proj == 'tilde_Pi':
+            print(' .. filtering the discrete source with P0.T ...')
+            tilde_f_c = cP0_m.transpose() @ tilde_f_c
+            
     else:
         raise ValueError(source_proj)
 
     if plot_source:
-        plot_field(numpy_coeffs=f_c, Vh=V0h, space_kind='h1', domain=domain, title='f_h with P = '+source_proj, filename=plot_dir+'/fh_'+source_proj+'.png', hide_plot=hide_plots)
-
-    if filter_source:
-        print(' .. filtering the source...')
-        tilde_f_c = cP0_m.transpose() @ tilde_f_c
+        if f_c is None:
+            f_c = dH0_m.dot(tilde_f_c)
+        plot_field(numpy_coeffs=f_c, Vh=V0h, space_kind='h1', domain=domain, title='f_h with P = '+source_proj, filename=plot_dir+'/fh_'+source_proj+'.pdf', hide_plot=hide_plots)
 
     ubc_c = lift_u_bc(u_bc)
     if ubc_c is not None:
@@ -270,7 +270,7 @@ def solve_h1_source_pbm(
         print(' .. plotting the FEM solution...')
         title = r'solution $\phi_h$ (amplitude)'
         params_str = 'eta={}_mu={}_gamma_h={}'.format(eta, mu, gamma_h)
-        plot_field(numpy_coeffs=uh_c, Vh=V0h, space_kind='h1', domain=domain, title=title, filename=plot_dir+'/'+params_str+'_phi_h.png', hide_plot=hide_plots)
+        plot_field(numpy_coeffs=uh_c, Vh=V0h, space_kind='h1', domain=domain, title=title, filename=plot_dir+'/'+params_str+'_phi_h.pdf', hide_plot=hide_plots)
     if sol_filename:
         print(' .. saving solution coeffs to file {}'.format(sol_filename))
         np.save(sol_filename, uh_c)

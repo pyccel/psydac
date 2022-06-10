@@ -272,7 +272,7 @@ def plot_field(
             cb_min=cb_min,
             cb_max=cb_max,
             save_fig=filename,
-            save_vals = True,
+            save_vals = False,
             hide_plot=hide_plot,
             cmap=cmap, 
             dpi = 300,

@@ -6,36 +6,37 @@ from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_fi
 
 t_stamp_full = time_count()
 
+
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 #
-# test-case and numerical parameters:
+# main test-cases and parameters used for the ppc paper:
 
-homogeneous = True # False # 
+test_case = 'poisson_hom'   # used in paper
+# test_case = 'poisson_inhom'   # used in paper
 
-# nc_s = [2,4,8,16]
-nc_s = [20]
-deg_s = [2,3,4,5]
+#
+# ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
-# nc = 16 
-# deg = 4
+domain_name = 'pretzel_f'
+source_proj = 'tilde_Pi'
 
-if homogeneous:
-    case_dir = 'poisson_hom'
+if test_case == 'poisson_hom':
+    homogeneous = True
     source_type = 'manu_poisson_elliptic'
-    domain_name = 'pretzel_f'
-    
-    # domain_name = 'curved_L_shape'
-else:
-    case_dir = 'poisson_inhom'
-    source_type = 'manu_poisson_sincos' # 'manu_poisson_2'
-    domain_name = 'pretzel_f'
-    # domain_name = 'curved_L_shape'
-    # raise NotImplementedError
+    nc_s = [4,8,16]
+    deg_s = [3]
 
-source_proj = 'P_L2'
+elif test_case == 'poisson_inhom':
+    homogeneous = False
+    source_type = 'manu_poisson_sincos'
+    nc_s = [2,4,8,16]
+    deg_s = [2,3,4,5]
+
+# source_proj = 'P_L2'
+# filter_source = True # False # 
+
 # source_proj='P_geom' # geom proj (interpolation) of source: quicker but not standard
 
-filter_source = True # False # 
 project_sol = False # True # 
 gamma_h = 10
 
@@ -45,6 +46,8 @@ ref_deg = 2
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+
+case_dir = test_case + '_source_proj=' + source_proj # + '_qp{}'.format(quad_param)
 
 common_diag_filename = './'+case_dir+'_diags.txt'
 
@@ -59,7 +62,6 @@ for nc in nc_s:
             'source_type': source_type,
             'source_proj': source_proj, 
             'project_sol': project_sol,
-            'filter_source': filter_source,
             'ref_nc': ref_nc,
             'ref_deg': ref_deg,
         }

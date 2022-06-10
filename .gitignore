@@ -28,3 +28,4 @@ __*pyccel__
 saved_matrices*
 plots*
 run_plots*
+saved_solutions/*
