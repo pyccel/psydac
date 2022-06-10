@@ -26,3 +26,5 @@ psydac/core/*.lock
 __*pyccel__
 .env
 *run_plots*
+matrices_curved_L_shape_*
+plots*
