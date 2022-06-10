@@ -272,7 +272,7 @@ def plot_field(
             cb_min=cb_min,
             cb_max=cb_max,
             save_fig=filename,
-            save_vals = True,
+            save_vals = False,
             hide_plot=hide_plot,
             cmap=cmap, 
             dpi = 300,
@@ -332,6 +332,7 @@ def my_small_plot(
     assert n_patches == len(yy)
 
     if save_vals:
+        # saving as vals.npz
         np.savez('vals', xx=xx, yy=yy, vals=vals)
         
     fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
