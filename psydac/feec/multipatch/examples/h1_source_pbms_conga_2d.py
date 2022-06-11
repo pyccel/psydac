@@ -65,7 +65,7 @@ def solve_h1_source_pbm(
     :param nc: nb of cells per dimension, in each patch
     :param deg: coordinate degree in each patch
     :param gamma_h: jump penalization (stabilization) parameter
-    :param source_proj: approximation operator for the source, possible values are
+    :param source_proj: approximation operator (in V0h) for the source, possible values are
          - 'P_geom':    primal commuting projection based on geometric dofs
          - 'P_L2':      L2 projection on the broken space
          - 'tilde_Pi':  dual commuting projection, an L2 projection filtered by the adjoint conforming projection)

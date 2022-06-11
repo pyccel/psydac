@@ -8,71 +8,91 @@ t_stamp_full = time_count()
 
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 #
-# test-case and numerical parameters:
+# main test-cases used for the ppc paper:
 
-homogeneous = True # False # 
+# test_case = 'maxwell_hom_eta=50'   # used in paper
+# test_case = 'maxwell_hom_eta=170'   # used in paper
+test_case = 'maxwell_inhom'   # used in paper
 
-# nc_s = [2,4,8,16]
-# deg_s = [2,3,4,5]
+compute_ref_sol = False  # (not needed for inhomogeneous test-case, as exact solution is known)
 
-# nc_s = [20]
-# deg_s = [6]
+#
+# ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+
+
+# numerical parameters:
+domain_name = 'pretzel_f'
+
+source_proj = 'tilde_Pi'
+# other values are: 
+#   source_proj = 'P_L2'    # L2 projection in broken space
+#   source_proj = 'P_geom'  # geometric projection (primal commuting proj)
+
+
+if compute_ref_sol:
+    nc_s = [20]
+    deg_s = [6]
+    save_sol = True
+
+else:
+    nc_s = [4,8,16]
+    deg_s = [3] #[2,3,4,5]
+    save_sol = False
 
 # nc_s = [4]
 # deg_s = [2]
-nc_s = [8]
-deg_s = [4]
+# nc_s = [8]
+# deg_s = [4]
 
-if homogeneous:
-    # ref_case_dir = 'maxwell_hom_eta=50'
+if test_case == 'maxwell_hom_eta=50':
+    homogeneous = True
     source_type = 'elliptic_J'
-    
-    # case_dir = 'maxwell_hom'   
-    # omega = np.sqrt(170) # source time pulsation
-
-    case_dir = 'maxwell_hom_eta=50'
-    case_dir = 'maxwell_hom_eta=50_PLOT_TEST'
     omega = np.sqrt(50) # source time pulsation
 
-    ref_case_dir = case_dir
-    domain_name = 'pretzel_f'
     cb_min_sol = 0
     cb_max_sol = 1
-    
-else:
-    ref_case_dir = 'maxwell_inhom'
-    case_dir = 'maxwell_inhom'
-    # case_dir = 'maxwell_inhom_NFJ_PU_gs'
-    # case_dir = 'maxwell_inhom_FJ_PU_gs'
 
+    # ref solution (no exact solution)
+    ref_nc = 20
+    ref_deg = 6
+
+elif test_case == 'maxwell_hom_eta=170':
+    homogeneous = True
+    source_type = 'elliptic_J'
+    omega = np.sqrt(170) # source time pulsation
+
+    cb_min_sol = 0
+    cb_max_sol = 1
+
+    # ref solution (no exact solution)
+    ref_nc = 20
+    ref_deg = 6
+
+    
+elif test_case == 'maxwell_inhom':
+
+    homogeneous = False # 
     source_type = 'manu_maxwell_inhom'
     omega = np.pi 
 
-    # case_dir = 'maxwell_inhom_bigomega'
-    # omega = np.sqrt(170)    
-
-    domain_name = 'pretzel_f'
-    # domain_name = 'curved_L_shape'
     cb_min_sol = 0
     cb_max_sol = 1
+
+    # dummy ref solution (there is an exact solution)
+    ref_nc = 2
+    ref_deg = 2
+
+else:
+    raise ValueError(test_case)
+
+case_dir = test_case
+ref_case_dir = case_dir
 
 roundoff = 1e4
 eta = int(-omega**2 * roundoff)/roundoff
 
-
-# domain_name = 'annulus_4'
-source_proj='P_L2'
-# source_proj='P_geom'
-
-filter_source = True # False # 
-project_sol = False # True # 
+project_sol = False # True #   (use conf proj of solution for visualization)
 gamma_h = 10
-
-# ref solution (if no exact solution)
-# ref_nc = 20
-# ref_deg = 6
-ref_nc = 2
-ref_deg = 2
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
@@ -89,7 +109,6 @@ for nc in nc_s:
             'homogeneous': homogeneous,
             'source_type': source_type,
             'source_proj': source_proj,
-            'filter_source': filter_source, 
             'project_sol': project_sol,
             'omega': omega,
             'gamma_h': gamma_h,
@@ -106,10 +125,13 @@ for nc in nc_s:
         # to save and load matrices
         m_load_dir = get_mat_dir(domain_name, nc, deg)
         # to save the FEM sol
-        sol_dir = get_sol_dir(case_dir, domain_name, nc, deg)
-        sol_filename = sol_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
-        if not os.path.exists(sol_dir):
-            os.makedirs(sol_dir)
+        if save_sol:
+            sol_dir = get_sol_dir(case_dir, domain_name, nc, deg)
+            sol_filename = sol_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
+            if not os.path.exists(sol_dir):
+                os.makedirs(sol_dir)
+        else:
+            sol_filename = ''
         # to load the ref FEM sol
         sol_ref_dir = get_sol_dir(ref_case_dir, domain_name, ref_nc, ref_deg)
         sol_ref_filename = sol_ref_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
@@ -139,7 +161,6 @@ for nc in nc_s:
             plot_source=True,
             project_sol=project_sol,
             gamma_h=gamma_h,
-            filter_source=filter_source,
             plot_dir=plot_dir,
             hide_plots=True,
             skip_plot_titles=True,

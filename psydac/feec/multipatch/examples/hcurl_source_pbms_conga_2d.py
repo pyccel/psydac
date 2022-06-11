@@ -33,7 +33,7 @@ from psydac.fem.basic                                   import FemField
 def solve_hcurl_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
         eta=-10., mu=1., nu=1., gamma_h=10.,     
-        project_sol=False, filter_source=True,
+        project_sol=False,
         plot_source=False, plot_dir=None, hide_plots=True, skip_plot_titles=False,
         cb_min_sol=None, cb_max_sol=None,
         m_load_dir="", sol_filename="", sol_ref_filename="",
@@ -68,7 +68,10 @@ def solve_hcurl_source_pbm(
     :param nc: nb of cells per dimension, in each patch
     :param deg: coordinate degree in each patch
     :param gamma_h: jump penalization parameter
-    :param source_proj: approximation operator for the source, possible values are 'P_geom' or 'P_L2'
+    :param source_proj: approximation operator (in V1h) for the source, possible values are
+         - 'P_geom':    primal commuting projection based on geometric dofs
+         - 'P_L2':      L2 projection on the broken space
+         - 'tilde_Pi':  dual commuting projection, an L2 projection filtered by the adjoint conforming projection)
     :param source_type: must be implemented in get_source_and_solution()
     :param m_load_dir: directory for matrix storage
     """
@@ -238,17 +241,18 @@ def solve_hcurl_source_pbm(
     tilde_f_c = f_c = None
     if source_proj == 'P_geom':
         # f_h = P1-geometric (commuting) projection of f_vect
-        print(' .. projecting the source with commuting projection...')
+        print(' .. projecting the source with primal (geometric) commuting projection...')
         f_h = P1_phys(f_vect, P1, domain, mappings_list)
         f_c = f_h.coeffs.toarray()
         tilde_f_c = H1_m.dot(f_c)
 
-    elif source_proj == 'P_L2':
-        # f_h = L2 projection of f_vect
-        print(' .. projecting the source with L2 projection...')
+    elif source_proj in ['P_L2', 'tilde_Pi']:
+        # f_h = L2 projection of f_vect, with filtering if tilde_Pi
+        print(' .. projecting the source with '+source_proj+' projection...')
         tilde_f_c = derham_h.get_dual_dofs(space='V1', f=f_vect, backend_language=backend_language, return_format='numpy_array')
-        if plot_source:
-            f_c = dH1_m.dot(tilde_f_c)
+        if source_proj == 'tilde_Pi':
+            print(' .. filtering the discrete source with P0.T ...')
+            tilde_f_c = cP1_m.transpose() @ tilde_f_c
     else:
         raise ValueError(source_proj)
 
@@ -259,14 +263,12 @@ def solve_hcurl_source_pbm(
         else:
             title = 'f_h with P = '+source_proj
             title_vf = 'f_h with P = '+source_proj
+        if f_c is None:
+            f_c = dH1_m.dot(tilde_f_c)
         plot_field(numpy_coeffs=f_c, Vh=V1h, space_kind='hcurl', domain=domain, 
-            title=title, filename=plot_dir+'/fh_'+source_proj+'.png', hide_plot=hide_plots)
+            title=title, filename=plot_dir+'/fh_'+source_proj+'.pdf', hide_plot=hide_plots)
         plot_field(numpy_coeffs=f_c, Vh=V1h, plot_type='vector_field', space_kind='hcurl', domain=domain, 
-            title=title_vf, filename=plot_dir+'/fh_'+source_proj+'_vf.png', hide_plot=hide_plots)
-
-    if filter_source:
-        print(' .. filtering the source...')
-        tilde_f_c = cP1_m.transpose() @ tilde_f_c
+            title=title_vf, filename=plot_dir+'/fh_'+source_proj+'_vf.pdf', hide_plot=hide_plots)
 
     ubc_c = lift_u_bc(u_bc)
     if ubc_c is not None:

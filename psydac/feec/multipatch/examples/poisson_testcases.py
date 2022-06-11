@@ -9,7 +9,7 @@ t_stamp_full = time_count()
 
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 #
-# main test-cases and parameters used for the ppc paper:
+# main test-cases used for the ppc paper:
 
 # test_case = 'poisson_hom'   # used in paper
 test_case = 'poisson_inhom'   # used in paper
@@ -53,7 +53,7 @@ ref_deg = 2
 
 case_dir = test_case + '_source_proj=' + source_proj # + '_qp{}'.format(quad_param)
 
-common_diag_filename = './diags/'+case_dir+'_diags.txt'
+common_diag_filename = './'+case_dir+'_diags.txt'
 
 for nc in nc_s:
     for deg in deg_s:

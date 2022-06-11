@@ -25,7 +25,9 @@ psydac/core/*.so
 psydac/core/*.lock
 __*pyccel__
 .env
-saved_matrices*
+
 plots*
 run_plots*
-saved_solutions/*
+saved_solutions*
+saved_matrices*
+
