@@ -11,14 +11,17 @@ t_stamp_full = time_count()
 #
 # main test-cases and parameters used for the ppc paper:
 
-test_case = 'poisson_hom'   # used in paper
-# test_case = 'poisson_inhom'   # used in paper
+# test_case = 'poisson_hom'   # used in paper
+test_case = 'poisson_inhom'   # used in paper
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
 domain_name = 'pretzel_f'
 source_proj = 'tilde_Pi'
+# other values are: 
+#   source_proj = 'P_L2'    # L2 projection in broken space
+#   source_proj = 'P_geom'  # geometric projection (primal commuting proj)
 
 if test_case == 'poisson_hom':
     homogeneous = True
@@ -29,15 +32,16 @@ if test_case == 'poisson_hom':
 elif test_case == 'poisson_inhom':
     homogeneous = False
     source_type = 'manu_poisson_sincos'
+    # for a solution profile:
+    # nc_s = [16]
+    # deg_s = [3]
+
+    # for the convergence curves:
     nc_s = [2,4,8,16]
     deg_s = [2,3,4,5]
 
-# source_proj = 'P_L2'
-# filter_source = True # False # 
-
-# source_proj='P_geom' # geom proj (interpolation) of source: quicker but not standard
-
-project_sol = False # True # 
+skip_titles = True  # in the plots
+project_sol = False # True #   (use conf proj of solution for visualization)
 gamma_h = 10
 
 # ref solution (if no exact solution)
@@ -49,7 +53,7 @@ ref_deg = 2
 
 case_dir = test_case + '_source_proj=' + source_proj # + '_qp{}'.format(quad_param)
 
-common_diag_filename = './'+case_dir+'_diags.txt'
+common_diag_filename = './diags/'+case_dir+'_diags.txt'
 
 for nc in nc_s:
     for deg in deg_s:
@@ -109,6 +113,7 @@ for nc in nc_s:
             project_sol=project_sol,
             plot_dir=plot_dir,
             hide_plots=True,
+            skip_titles=skip_titles,
             m_load_dir=m_load_dir,
             sol_filename=sol_filename,
             sol_ref_filename=sol_ref_filename,

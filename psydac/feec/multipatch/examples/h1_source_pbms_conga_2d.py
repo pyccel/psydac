@@ -34,7 +34,7 @@ def solve_h1_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_L2', source_type='manu_poisson',
         eta=-10., mu=1., gamma_h=10.,
         project_sol=False,
-        plot_source=False, plot_dir=None, hide_plots=True,
+        plot_source=False, plot_dir=None, hide_plots=True, skip_titles=False,
         m_load_dir="", sol_filename="", sol_ref_filename="",
         ref_nc=None, ref_deg=None,
 ):
@@ -64,20 +64,16 @@ def solve_h1_source_pbm(
 
     :param nc: nb of cells per dimension, in each patch
     :param deg: coordinate degree in each patch
-    :param gamma_h: jump penalization parameter
-    :param source_proj: approximation operator for the source, possible values are 'P_geom' or 'P_L2'
+    :param gamma_h: jump penalization (stabilization) parameter
+    :param source_proj: approximation operator for the source, possible values are
+         - 'P_geom':    primal commuting projection based on geometric dofs
+         - 'P_L2':      L2 projection on the broken space
+         - 'tilde_Pi':  dual commuting projection, an L2 projection filtered by the adjoint conforming projection)
     :param source_type: must be implemented in get_source_and_solution()
     """
     diags = {}
     ncells = [nc, nc]
     degree = [deg,deg]
-
-    # if backend_language is None:
-    #     if domain_name in ['pretzel', 'pretzel_f'] and nc > 8:
-    #         backend_language='numba'
-    #     else:
-    #         backend_language='python'
-    # print('[note: using '+backend_language+ ' backends in discretize functions]')
 
     print('---------------------------------------------------------------------------------------------------------')
     print('Starting solve_h1_source_pbm function with: ')
@@ -220,7 +216,12 @@ def solve_h1_source_pbm(
     if plot_source:
         if f_c is None:
             f_c = dH0_m.dot(tilde_f_c)
-        plot_field(numpy_coeffs=f_c, Vh=V0h, space_kind='h1', domain=domain, title='f_h with P = '+source_proj, filename=plot_dir+'/fh_'+source_proj+'.pdf', hide_plot=hide_plots)
+        title = 'f_h with P = ' + source_proj
+        if skip_titles:
+            title = ''
+        plot_field(numpy_coeffs=f_c, Vh=V0h, space_kind='h1', domain=domain, title=title, 
+            plot_type='components',
+            filename=plot_dir+'/fh_'+source_proj+'.pdf', hide_plot=hide_plots)
 
     ubc_c = lift_u_bc(u_bc)
     if ubc_c is not None:
@@ -268,9 +269,12 @@ def solve_h1_source_pbm(
     print(' -- plots and diagnostics  --')
     if plot_dir:
         print(' .. plotting the FEM solution...')
-        title = r'solution $\phi_h$ (amplitude)'
+        title = r'solution $\phi_h$' # (amplitude)'
         params_str = 'eta={}_mu={}_gamma_h={}'.format(eta, mu, gamma_h)
-        plot_field(numpy_coeffs=uh_c, Vh=V0h, space_kind='h1', domain=domain, title=title, filename=plot_dir+'/'+params_str+'_phi_h.pdf', hide_plot=hide_plots)
+        if skip_titles:
+            title = ''
+        plot_field(numpy_coeffs=uh_c, Vh=V0h, space_kind='h1', plot_type='components',
+            domain=domain, title=title, filename=plot_dir+'/'+params_str+'_phi_h.pdf', hide_plot=hide_plots)
     if sol_filename:
         print(' .. saving solution coeffs to file {}'.format(sol_filename))
         np.save(sol_filename, uh_c)
