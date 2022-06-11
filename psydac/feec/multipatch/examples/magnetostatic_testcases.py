@@ -8,11 +8,16 @@ from psydac.feec.multipatch.utilities                   import time_count, FEM_s
 from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_file
 t_stamp_full = time_count()
 
+
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 #
-# test-case and numerical parameters:
+# main test-cases used for the ppc paper:
 
-bc_type =  'pseudo-vacuum' # 'metallic' # 
+# test_case = 'magnetostatic_metal'   # used in paper
+test_case = 'magnetostatic_vacuum'   # used in paper
+
+#
+# ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
 source_type = 'dipole_J'
 source_proj = 'P_L2_wcurl_J'
@@ -31,20 +36,21 @@ deg_s = [3]  ##
 # nc_s = [20]
 # deg_s = [6]
 
-if bc_type == 'metallic':
-    case_dir = 'magnetostatic_metal'
+if test_case == 'magnetostatic_metal':
+    bc_type = 'metallic'
     cb_min_sol = 0
     cb_max_sol = 0.08
 
-elif bc_type == 'pseudo-vacuum':
-    case_dir = 'magnetostatic_vacuum'
+elif test_case == 'magnetostatic_vacuum':
+    bc_type = 'pseudo-vacuum'
     cb_min_sol = 0
     cb_max_sol = 0.1
 
 else:
-    raise ValueError(bc_type)
+    raise ValueError(test_case)
     # domain_name = 'curved_L_shape'
 
+case_dir = test_case
 ref_case_dir = case_dir
 
 # ref solution (if no exact solution)
