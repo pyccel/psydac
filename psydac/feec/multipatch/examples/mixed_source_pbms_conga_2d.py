@@ -39,7 +39,7 @@ def solve_magnetostatic_pbm(
         dim_harmonic_space=0,
         project_solution=False,
         plot_source=False, plot_dir=None, hide_plots=True,
-        cb_min_sol=None, cb_max_sol=None,
+        cb_min_sol=None, cb_max_sol=None, u_cf_levels=50, skip_plot_titles=False,
         m_load_dir="", sol_filename="", sol_ref_filename="",
         ref_nc=None, ref_deg=None,
 ):
@@ -93,6 +93,7 @@ def solve_magnetostatic_pbm(
     :param gamma1_h: jump penalization parameter in V1h
     :param source_proj: approximation operator for the source, possible values are 'P_geom' or 'P_L2'
     :param source_type: must be implemented as a test-case
+    :param u_cf_levels: nb of contourf levels for u
     :param bc_type: 'metallic' or 'pseudo-vacuum' -- see details in multi-patch paper
     :param m_load_dir: directory for matrix storage
     """
@@ -221,7 +222,10 @@ def solve_magnetostatic_pbm(
 
     if not hom_bc:
         # very small regularization to avoid constant p=1 in the kernel
-        reg_S0_m = 1e-16 * M0_m + gamma0_h * S0_m
+        # reg_S0_m = 1e-16 * M0_m + gamma0_h * S0_m
+        print('LARGE EPS = 1')
+        eps = 1
+        reg_S0_m = eps * M0_m + gamma0_h * S0_m
     else:
         reg_S0_m = gamma0_h * S0_m
 
@@ -316,13 +320,22 @@ def solve_magnetostatic_pbm(
                    filename=plot_dir+'/f0h_'+source_proj+'.png', hide_plot=hide_plots)
         if f1_c is None:
             f1_c = dH1_m.dot(tilde_f1_c)
-        plot_field(numpy_coeffs=f1_c, Vh=V1h, space_kind='hcurl', plot_type='vector_field', domain=domain, title='f1_h with P = '+source_proj,
-                   filename=plot_dir+'/f1h_'+source_proj+'.png', hide_plot=hide_plots)
+        if skip_plot_titles:
+            title = ''
+        else:
+            title = 'f1_h with P = '+source_proj
+        plot_field(numpy_coeffs=f1_c, Vh=V1h, space_kind='hcurl', plot_type='vector_field', domain=domain, title=title,
+                   filename=plot_dir+'/f1h_'+source_proj+'.pdf', hide_plot=hide_plots)
         if source_proj == 'P_L2_wcurl_J':
             if j2_c is None:
                 j2_c = dH2_m.dot(tilde_j2_c)
-            plot_field(numpy_coeffs=j2_c, cmap='viridis', plot_type='components', Vh=V2h, space_kind='l2', domain=domain, title='jh in V2h',
-                       filename=plot_dir+'/j2h.png', hide_plot=hide_plots)
+            if skip_plot_titles:
+                title = ''
+            else:
+                title = 'jh in V2h'
+            plot_field(numpy_coeffs=j2_c, cmap='viridis', plot_type='components', Vh=V2h, space_kind='l2', domain=domain, 
+                       title=title,
+                       filename=plot_dir+'/j2h.pdf', hide_plot=hide_plots)
 
     print(" .. building block RHS")
     if dim_harmonic_space > 0:
@@ -386,13 +399,19 @@ def solve_magnetostatic_pbm(
         title = r'solution $h_h$ (amplitude)'
         plot_field(numpy_coeffs=hh_c, Vh=V1h, space_kind='hcurl', plot_type='amplitude',
                 domain=domain, title=title, filename=plot_dir+'/'+params_str+'_hh.png', hide_plot=hide_plots)
-        title = r'solution {} (amplitude)'.format(u_name)
+        if skip_plot_titles:
+            title = ''
+        else:
+            title = r'solution {} (amplitude)'.format(u_name)
         plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='amplitude',
-                cb_min=cb_min_sol, cb_max=cb_max_sol,
-                domain=domain, title=title, filename=plot_dir+'/'+params_str+'_uh.png', hide_plot=hide_plots)
-        title = r'solution {} (vector field)'.format(u_name)
+                cb_min=cb_min_sol, cb_max=cb_max_sol, cf_levels=u_cf_levels,
+                domain=domain, title=title, filename=plot_dir+'/'+params_str+'_uh.pdf', hide_plot=hide_plots)
+        if skip_plot_titles:
+            title = ''
+        else:
+            title = r'solution {} (vector field)'.format(u_name)
         plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='vector_field',
-                domain=domain, title=title, filename=plot_dir+'/'+params_str+'_uh_vf.png', hide_plot=hide_plots)
+                domain=domain, title=title, filename=plot_dir+'/'+params_str+'_uh_vf.pdf', hide_plot=hide_plots)
         title = r'solution {} (components)'.format(u_name)
         plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='components',
                 domain=domain, title=title, filename=plot_dir+'/'+params_str+'_uh_xy.png', hide_plot=hide_plots)

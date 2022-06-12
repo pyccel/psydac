@@ -40,6 +40,7 @@ def solve_td_maxwell_pbm(
         project_sol=False, filter_source=True, quad_param=1,
         E0_type='zero', E0_proj='P_L2', 
         plot_source=False, plot_dir=None, plot_divE=False, hide_plots=True, plot_time_ranges=None, diag_dtau=None,
+        skip_plot_titles=False,
         cb_min_sol=None, cb_max_sol=None,
         m_load_dir="", th_sol_filename="",
 ):
@@ -457,7 +458,8 @@ def solve_td_maxwell_pbm(
                     title = r'$E_h$ (amplitude) at $t = {:5.4f}$'.format(dt*nt)
                 u_c = Ep_c
                 params_str = 'gamma_h={}_Nt_pp={}'.format(gamma_h, Nt_pp)
-            
+            if skip_plot_titles:
+                title = ''
             plot_field(numpy_coeffs=u_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, title=title, 
                 filename=plot_dir+'/'+params_str+'_Eh_nt={}.pdf'.format(nt),
                 plot_type='amplitude', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)

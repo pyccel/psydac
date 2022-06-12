@@ -16,8 +16,8 @@ test_case = 'E0_pulse_no_source'   # used in paper
 # test_case = 'transient_to_harmonic'  # actually, not used in paper
 
 # J_proj_case = 'P_geom'
-# J_proj_case = 'P_L2'
-J_proj_case = 'tilde Pi_1' 
+J_proj_case = 'P_L2'
+# J_proj_case = 'tilde Pi_1' 
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
@@ -67,7 +67,7 @@ if test_case == 'E0_pulse_no_source':
         ]
 
     cb_min_sol = 0
-    cb_max_sol = 8 #5
+    cb_max_sol = 5  # 8 #
 
 elif test_case == 'Issautier_like_source':
     E0_type = 'zero'
@@ -235,6 +235,7 @@ for nc in nc_s:
             plot_time_ranges=plot_time_ranges,
             diag_dtau=diag_dtau,
             hide_plots=True,
+            skip_plot_titles=True,
             cb_min_sol=cb_min_sol, 
             cb_max_sol=cb_max_sol,
             m_load_dir=m_load_dir,

@@ -16,6 +16,8 @@ t_stamp_full = time_count()
 # test_case = 'magnetostatic_metal'   # used in paper
 test_case = 'magnetostatic_vacuum'   # used in paper
 
+compute_ref_sol = True # False #  #(exact solution is not known)
+
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
@@ -26,15 +28,23 @@ assert source_proj in ['P_geom', 'P_L2', 'P_L2_wcurl_J']
 domain_name = 'pretzel_f'
 dim_harmonic_space = 3
 
-# nc_s = [2,4,8,16]
-# deg_s = [2,3,4,5]
+if compute_ref_sol:
+    nc_s = [20]
+    deg_s = [6]
+    save_sol = True
+    # dummy ref solution
+    ref_nc = 2
+    ref_deg = 2
+    u_cf_levels = 100
 
-# nc_s = [2,8]
-nc_s = [16]   ## 
-deg_s = [3]  ##
-
-# nc_s = [20]
-# deg_s = [6]
+else:
+    nc_s = [2,4,8] # ,16]
+    deg_s = [3] #[2,3,4,5]
+    save_sol = False
+    # ref solution
+    ref_nc = 20
+    ref_deg = 6
+    u_cf_levels = 75
 
 if test_case == 'magnetostatic_metal':
     bc_type = 'metallic'
@@ -52,12 +62,6 @@ else:
 
 case_dir = test_case
 ref_case_dir = case_dir
-
-# ref solution (if no exact solution)
-ref_nc = 20
-ref_deg = 6
-# ref_nc = 2
-# ref_deg = 2
 
 
 #
@@ -89,11 +93,13 @@ for nc in nc_s:
         # to save and load matrices
         m_load_dir = get_mat_dir(domain_name, nc, deg)
         # to save the FEM sol and diags
-        sol_dir = get_sol_dir(case_dir, domain_name, nc, deg)
-        sol_filename = sol_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
-        if not os.path.exists(sol_dir):
-            os.makedirs(sol_dir)
-
+        if save_sol:
+            sol_dir = get_sol_dir(case_dir, domain_name, nc, deg)
+            sol_filename = sol_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
+            if not os.path.exists(sol_dir):
+                os.makedirs(sol_dir)
+        else:
+            sol_filename = ''
         # to load the ref FEM sol
         sol_ref_dir = get_sol_dir(ref_case_dir, domain_name, ref_nc, ref_deg)
         sol_ref_filename = sol_ref_dir+'/'+FEM_sol_fn(source_type=source_type, source_proj=source_proj)
@@ -119,6 +125,8 @@ for nc in nc_s:
             hide_plots=True,
             cb_min_sol=cb_min_sol,
             cb_max_sol=cb_max_sol,
+            u_cf_levels=u_cf_levels,
+            skip_plot_titles=True,
             m_load_dir=m_load_dir,
             sol_filename=sol_filename,
             sol_ref_filename=sol_ref_filename,

@@ -194,7 +194,8 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
 #------------------------------------------------------------------------------
 def plot_field(
     fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, domain=None, surface_plot=False, cb_min=None, cb_max=None,
-    plot_type='amplitude', cmap='hsv', space_kind=None, title=None, filename='dummy_plot.png', subtitles=None, N_vis=20, vf_skip=2, hide_plot=True):
+    cf_levels=50, plot_type='amplitude', cmap='hsv', space_kind=None, title=None, filename='dummy_plot.png', subtitles=None, 
+    N_vis=20, vf_skip=2, hide_plot=True):
     """
     plot a discrete field (given as a FemField or by its coeffs in numpy or stencil format) on the given domain
 
@@ -202,6 +203,7 @@ def plot_field(
     :param space_kind: type of the push-forward defining the physical Fem Space
     :param subtitles: in case one would like to have several subplots # todo: then v should be given as a list of fields...
     :param N_vis: nb of visualization points per patch (per dimension)
+    :param cf_levels: nb of levels for the contourf plots
     """
     if not space_kind in ['h1', 'hcurl', 'l2']:
         raise ValueError('invalid value for space_kind = {}'.format(space_kind))
@@ -271,6 +273,7 @@ def plot_field(
             surface_plot=surface_plot,
             cb_min=cb_min,
             cb_max=cb_max,
+            levels=cf_levels,
             save_fig=filename,
             save_vals = False,
             hide_plot=hide_plot,
@@ -309,6 +312,7 @@ def my_small_plot(
         cmap='viridis',
         cb_min=None,
         cb_max=None,
+        levels=100,
         save_fig=None,
         save_vals = False,
         hide_plot=False,
@@ -351,7 +355,8 @@ def my_small_plot(
 
         ax = fig.add_subplot(1, n_plots, i+1)
         for k in range(n_patches):
-            ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap, zorder=-10) #, extend='both')
+            # ax.contourf(xx[k], yy[k], vals[i][k], levels, vmin=vmin, vmax=vmax, norm=cnorm, cmap=cmap, zorder=-10) #, extend='both')
+            ax.contourf(xx[k], yy[k], vals[i][k], levels, norm=cnorm, cmap=cmap, zorder=-10) #, extend='both')
         ax.set_rasterization_zorder(0)
         cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
         if gridlines_x1 is not None:
