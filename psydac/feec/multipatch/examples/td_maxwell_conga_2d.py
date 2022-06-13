@@ -730,13 +730,14 @@ def solve_td_maxwell_pbm(
         np.dot(E_c,H1_m.dot(E_c)) + np.dot(B_c_1half, H2_m.dot(B_c_1half))
         + dt*np.dot(C_m @ E_c, H2_m.dot(B_c_1half))
         )
-    lower_bound_H = pseudo_energy/(1+dt*norm_curlh/2)
-    upper_bound_H = pseudo_energy/(1-dt*norm_curlh/2)
-    print(' ** lower_bound_H = {} **'.format(lower_bound_H))
-    print(' .. pseudo_energy = {} ..'.format(pseudo_energy))
-    print(' ** upper_bound_H = {} **'.format(upper_bound_H))
-    diags['lower_bound_H'] = lower_bound_H
-    diags['upper_bound_H'] = upper_bound_H
+    if norm_curlh is not None:
+        lower_bound_H = pseudo_energy/(1+dt*norm_curlh/2)
+        upper_bound_H = pseudo_energy/(1-dt*norm_curlh/2)
+        print(' ** lower_bound_H = {} **'.format(lower_bound_H))
+        print(' .. pseudo_energy = {} ..'.format(pseudo_energy))
+        print(' ** upper_bound_H = {} **'.format(upper_bound_H))
+        diags['lower_bound_H'] = lower_bound_H
+        diags['upper_bound_H'] = upper_bound_H
 
     f_c = np.copy(f0_c)
     for nt in range(Nt):

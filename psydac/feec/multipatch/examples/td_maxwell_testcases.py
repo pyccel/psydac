@@ -11,13 +11,13 @@ t_stamp_full = time_count()
 #
 # main test-cases and parameters used for the ppc paper:
 
-test_case = 'E0_pulse_no_source'   # used in paper
-# test_case = 'Issautier_like_source'  # used in paper
+# test_case = 'E0_pulse_no_source'   # used in paper
+test_case = 'Issautier_like_source'  # used in paper
 # test_case = 'transient_to_harmonic'  # actually, not used in paper
 
 # J_proj_case = 'P_geom'
-J_proj_case = 'P_L2'
-# J_proj_case = 'tilde Pi_1' 
+# J_proj_case = 'P_L2'
+J_proj_case = 'tilde_Pi' 
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
@@ -28,6 +28,10 @@ deg_s = [3]
 # nc_s = [20]
 # deg_s = [6]
 
+domain_name = 'pretzel_f'
+
+# type of conforming projection operators (averaging B-spline or Geometric-splines coefficients)
+conf_proj = 'GSP' # 'BSP' # 
 
 # we use a t_period = (2*pi/omega) (sometimes denoted tau)
 # this is relevant for oscillating sources but also for plotting
@@ -66,8 +70,14 @@ if test_case == 'E0_pulse_no_source':
             [[nb_t_periods-2, nb_t_periods], 2],
         ]
 
+    if domain_name == 'pretzel_f':
+        if nc_s == [20] and deg_s == [6]:
+            Nt_pp = 54  # 54 is stable for cfl = 0.8 but sometimes the solver gets 53
+        if nc_s == [8] and deg_s == [3]:
+            Nt_pp = 10
+
     cb_min_sol = 0
-    cb_max_sol = 5  # 8 #
+    cb_max_sol = 8 # 5  #
 
 elif test_case == 'Issautier_like_source':
     E0_type = 'zero'
@@ -129,7 +139,7 @@ elif J_proj_case == 'P_L2':
     source_proj = 'P_L2' 
     filter_source = False
 
-elif J_proj_case == 'tilde Pi_1':
+elif J_proj_case == 'tilde_Pi':
     source_proj = 'P_L2' 
     filter_source =  True 
 
@@ -142,11 +152,7 @@ quad_param = 4
 # jump dissipation parameter (not used in paper)
 gamma_h = 0
 
-case_dir = '00_td_maxwell_' + test_case + '_J_proj=' + J_proj_case + '_qp{}'.format(quad_param)
-if filter_source:
-    case_dir += '_Jfilter'
-else:
-    case_dir += '_Jnofilter'
+case_dir = 'td_maxwell_' + test_case + '_J_proj=' + J_proj_case + '_qp{}'.format(quad_param)
 if not project_sol:
     case_dir += '_E_noproj'
 
@@ -154,11 +160,6 @@ case_dir += '_nb_tau={}'.format(nb_t_periods)
 
 # diag_dtau: tau period for intermediate diags (time curves) plotting
 diag_dtau = max(1,nb_t_periods//10)
-
-domain_name = 'pretzel_f'
-
-# type of conforming projection operators (averaging B-spline or Geometric-splines coefficients)
-conf_proj = 'GSP' # 'BSP' # 
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
