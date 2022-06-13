@@ -23,7 +23,7 @@ from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.utilities                   import time_count
 
 from sympde.topology      import Square    
-from sympde.topology      import IdentityMapping
+from sympde.topology      import IdentityMapping, PolarMapping
 from psydac.fem.vector import ProductFemSpace
 
 from non_conf_example_coarse_confP import knots_to_insert, construct_projection_operator
@@ -76,12 +76,18 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
 
     print('building symbolic and discrete domain...')
     
-    if domain_name in ['2patch_nc', '2patch_conf']:
+    if domain_name in ['2patch_nc', '2patch_nc_mapped', '2patch_conf', '2patch_conf_mapped']:
 
-        A = Square('A',bounds1=(0, np.pi/2), bounds2=(0, np.pi))
-        B = Square('B',bounds1=(np.pi/2, np.pi), bounds2=(0, np.pi))
-        M1 = IdentityMapping('M1', dim=2)
-        M2 = IdentityMapping('M2', dim=2)
+        if domain_name in ['2patch_nc_mapped', '2patch_conf_mapped']:
+            A = Square('A',bounds1=(0.5, 1), bounds2=(0,       np.pi/2))
+            B = Square('B',bounds1=(0.5, 1), bounds2=(np.pi/2, np.pi)  )
+            M1 = PolarMapping('M1',2, c1= 0, c2= 0, rmin = 0., rmax=1.)
+            M2 = PolarMapping('M2',2, c1= 0, c2= 0, rmin = 0., rmax=1.)
+        else:
+            A = Square('A',bounds1=(0, np.pi/2), bounds2=(0, np.pi))
+            B = Square('B',bounds1=(np.pi/2, np.pi), bounds2=(0, np.pi))
+            M1 = IdentityMapping('M1', dim=2)
+            M2 = IdentityMapping('M2', dim=2)
         A = M1(A)
         B = M2(B)
 
@@ -102,7 +108,7 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     print(' .. derham sequence...')
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
 
-    if domain_name == '2patch_nc':
+    if domain_name in ['2patch_nc', '2patch_nc_mapped']:
         ncells_c = {
             'M1(A)':[nc, nc],
             'M2(B)':[nc, nc],
