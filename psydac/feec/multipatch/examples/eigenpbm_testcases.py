@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 import os
 import numpy as np
 from psydac.feec.multipatch.examples.hcurl_eigen_pbms_conga_2d import hcurl_solve_eigen_pbm
@@ -6,30 +7,77 @@ from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_fi
 
 t_stamp_full = time_count()
 
+
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 #
-# test-case and numerical parameters:
+# main test-cases used for the ppc paper:
 
-operator = 'curl-curl' # 'grad-div' # 
-domain_name = 'pretzel_f' # 'curved_L_shape' # 
+# test_case = 'cc_eigenpbm_pretzel'   # used in paper
+test_case = 'cc_eigenpbm_L_shape'   # used in paper
 
-nc_s = [2,4,8,16]
-deg_s = [2,3,4,5]
+#
+# ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+# numerical parameters:
 
-# nc_s = [8]
-# deg_s = [4]
+# nc_s = [2,4,8,16]
+# deg_s = [2,3,4,5]
 
-# nc_s = [4]
-# deg_s = [2]
+# to plot the eigenmodes on the curved L-shaped domain
+nc_s = [56]
+deg_s = [6]
+
+# to plot the eigenmodes on the pretzel domain
 # nc_s = [20]
-nc_s = [20]
-deg_s = [5]
+# deg_s = [6]
 
-# nc_s = [4,8,16,20]
+# nc_s = [16]
 # deg_s = [3]
 
+
+operator = 'curl-curl' # 'grad-div' # 
 gamma_h = 0
 generalized_pbm = True  # solves generalized eigenvalue problem with:  B(v,w) = <Pv,Pw> + <(I-P)v,(I-P)w> in rhs
+
+if test_case == 'cc_eigenpbm_pretzel':
+
+    domain_name = 'pretzel_f' 
+
+    # ref sigmas computed with nc=20 and deg=6 and gamma = 0 (and generalized ev-pbm)
+    ref_sigmas = [
+        0.1795339843,
+        0.1992261261,
+        0.6992717244, 
+        0.8709410438, 
+        1.1945106937, 
+        1.2546992683,
+    ]
+
+    sigma = .8    # we look for eigenvalues close to that value
+    nb_eigs_solve = 10 
+    nb_eigs_plot = 5 
+    
+elif test_case == 'cc_eigenpbm_L_shape':    
+    
+    domain_name = 'curved_L_shape'
+
+    # ref eigenvalues from Monique Dauge benchmark page
+    ref_sigmas = [
+        0.181857115231E+01,
+        0.349057623279E+01,
+        0.100656015004E+02,
+        0.101118862307E+02,
+        0.124355372484E+02,
+        ]
+    sigma = 10    # we look for eigenvalues close to that value
+    nb_eigs_solve = 10 
+    nb_eigs_plot = 5 
+
+else:
+
+    raise ValueError(test_case)
+
+# small eigenvalues will be treated as zero
+skip_eigs_threshold = 1e-7
 
 if operator == 'curl-curl':
     nu=0
@@ -40,49 +88,11 @@ elif operator == 'grad-div':
 else:
     raise ValueError(operator)
 
-case_dir = 'eigenpbm_'+operator
+case_dir = test_case
 ref_case_dir = case_dir
 
 cb_min_sol = None
 cb_max_sol = None
-
-ref_sigmas = [
-]
-sigma = 8
-nb_eigs_solve = 8
-nb_eigs_plot = 5 
-skip_eigs_threshold = 1e-7
-
-if domain_name == 'curved_L_shape':    
-    if operator == 'curl-curl':
-        # ref eigenvalues from Monique Dauge benchmark page
-        ref_sigmas = [
-            0.181857115231E+01,
-            0.349057623279E+01,
-            0.100656015004E+02,
-            0.101118862307E+02,
-            0.124355372484E+02,
-            ]
-        sigma = 10
-        nb_eigs_solve = 10 
-        nb_eigs_plot = 5 
-
-elif domain_name in ['pretzel_f']:
-    if operator == 'curl-curl':
-        # ref sigmas computed with nc=20 and deg=6 and gamma = 0 (and generalized ev-pbm)
-        ref_sigmas = [
-            0.1795339843,
-            0.1992261261,
-            0.6992717244, 
-            0.8709410438, 
-            1.1945106937, 
-            1.2546992683,
-        ]
-
-        sigma = .8
-        # sigma = .6
-        nb_eigs_solve = 10 
-        nb_eigs_plot = 5 
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
@@ -149,32 +159,9 @@ for nc in nc_s:
             backend_language=backend_language,
             plot_dir=plot_dir,
             hide_plots=True,
+            skip_plot_titles=True,
             m_load_dir=m_load_dir,
         )
-
-        # diags = solve_hcurl_source_pbm(
-        #     nc=nc, deg=deg,
-        #     eta=eta,
-        #     nu=0,
-        #     mu=1,
-        #     domain_name=domain_name,
-        #     source_type=source_type,
-        #     source_proj=source_proj,
-        #     backend_language=backend_language,
-        #     plot_source=True,
-        #     project_sol=project_sol,
-        #     gamma_h=gamma_h,
-        #     filter_source=filter_source,
-        #     plot_dir=plot_dir,
-        #     hide_plots=True,
-        #     cb_min_sol=cb_min_sol, 
-        #     cb_max_sol=cb_max_sol,
-        #     m_load_dir=m_load_dir,
-        #     sol_filename=sol_filename,
-        #     sol_ref_filename=sol_ref_filename,
-        #     ref_nc=ref_nc,
-        #     ref_deg=ref_deg,    
-        # )
 
         #
         # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
