@@ -6,7 +6,7 @@ import numpy as np
 from scipy.sparse import bmat, lil_matrix
 
 from psydac.linalg.basic import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
-from psydac.ddm.cart     import InterfaceCartDataExchanger
+from psydac.ddm.cart     import InterfaceCartDataExchanger, InterfaceCartDecomposition
 
 __all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix', 'BlockDiagonalSolver']
 
@@ -148,44 +148,47 @@ class BlockVector( Vector ):
         self._data_exchangers = {}
         self._interface_buf   = {}
 
+        if not V.parallel:return
+
         # Prepare the data exchangers for the interface data
-        if V.parallel:
-            for i,j in V._interfaces:
-                axis_i,axis_j = V._interfaces[i,j][0]
-                ext_i,ext_j   = V._interfaces[i,j][1]
+        for i,j in V._interfaces:
+            axis_i,axis_j = V._interfaces[i,j][0]
+            ext_i,ext_j   = V._interfaces[i,j][1]
 
-                Vi = V.spaces[i]
-                Vj = V.spaces[j]
-                self._data_exchangers[i,j] = []
+            Vi = V.spaces[i]
+            Vj = V.spaces[j]
+            self._data_exchangers[i,j] = []
 
-                if isinstance(Vi, BlockVectorSpace) and isinstance(Vj, BlockVectorSpace):
-                    # case of a system of equations
-                    for k,(Vik,Vjk) in enumerate(zip(Vi.spaces, Vj.spaces)):
-                        cart_i = Vik.cart
-                        cart_j = Vjk.cart
+            if isinstance(Vi, BlockVectorSpace) and isinstance(Vj, BlockVectorSpace):
+                # case of a system of equations
+                for k,(Vik,Vjk) in enumerate(zip(Vi.spaces, Vj.spaces)):
+                    cart_i = Vik.cart
+                    cart_j = Vjk.cart
 
-                        if cart_i.is_comm_null and cart_j.is_comm_null:continue
-                        if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
-                        if not (axis_i, ext_i) in Vik._interfaces:continue
-                        cart_ij = Vik._interfaces[axis_i, ext_i].cart
-                        self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
-
-                elif  not isinstance(Vi, BlockVectorSpace) and not isinstance(Vj, BlockVectorSpace):
-                    # case of scalar equations
-                    cart_i = Vi.cart
-                    cart_j = Vj.cart
                     if cart_i.is_comm_null and cart_j.is_comm_null:continue
                     if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
-                    if not (axis_i, ext_i) in Vi._interfaces:continue
-
-                    cart_ij = Vi._interfaces[axis_i, ext_i].cart
+                    if not (axis_i, ext_i) in Vik._interfaces:continue
+                    cart_ij = Vik._interfaces[axis_i, ext_i].cart
+                    assert isinstance(cart_ij, InterfaceCartDecomposition)
                     self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
-                else:
-                    raise NotImplementedError("This case is not treated")
 
-            for i,j in V._interfaces:
-                if len(self._data_exchangers.get((i,j), [])) == 0:
-                    self._data_exchangers.pop((i,j), None)
+            elif  not isinstance(Vi, BlockVectorSpace) and not isinstance(Vj, BlockVectorSpace):
+                # case of scalar equations
+                cart_i = Vi.cart
+                cart_j = Vj.cart
+                if cart_i.is_comm_null and cart_j.is_comm_null:continue
+                if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
+                if not (axis_i, ext_i) in Vi._interfaces:continue
+
+                cart_ij = Vi._interfaces[axis_i, ext_i].cart
+                assert isinstance(cart_ij, InterfaceCartDecomposition)
+                self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
+            else:
+                raise NotImplementedError("This case is not treated")
+
+        for i,j in V._interfaces:
+            if len(self._data_exchangers.get((i,j), [])) == 0:
+                self._data_exchangers.pop((i,j), None)
 
     #--------------------------------------
     # Abstract interface
@@ -599,7 +602,7 @@ class BlockLinearOperator( LinearOperator ):
         """
         blocks = {ij: operation(Bij) for ij, Bij in self._blocks.items()}
         return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
-    
+
     def tomatrix(self):
         """
         Returns a BlockMatrix with the same blocks as this BlockLinearOperator.
@@ -860,6 +863,76 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         petsccart = cart.topetsc()
 
         return petsccart.petsc.Mat().createNest(blocks, comm=cart.comm)
+
+    def update_ghost_regions(self):
+        blocks = self._blocks.copy()
+        if not self.codomain.parallel:
+            return blocks
+
+        from mpi4py import MPI
+        from psydac.linalg.stencil import StencilInterfaceMatrix
+
+        V = self.codomain
+        for i,j in V._interfaces:
+
+            axis_i,axis_j = V._interfaces[i,j][0]
+            ext_i,ext_j   = V._interfaces[i,j][1]
+
+            Vi = V.spaces[i]
+            Vj = V.spaces[j]
+
+            # case of scalar equations
+            cart_i = Vi.cart
+            cart_j = Vj.cart
+            if cart_i.is_comm_null and cart_j.is_comm_null:continue
+            if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
+            if not (axis_i, ext_i) in Vi._interfaces:continue
+            cart_ij = Vi._interfaces[axis_i, ext_i].cart
+            assert isinstance(cart_ij, InterfaceCartDecomposition)
+            block_ij = self[i,j] is not None
+            block_ji = self[j,i] is not None
+
+            if not cart_i.is_comm_null:
+                if cart_ij.intercomm.rank == 0:
+                    root = MPI.ROOT
+                else:
+                    root = MPI.PROC_NULL
+            else:
+                root = 0
+
+            block_ij = cart_ij.intercomm.bcast(block_ij, root= root) or block_ij
+
+            if block_ij:
+                if not cart_i.is_comm_null:
+                    block_ij = self[i,j]
+                    cart_ij.intercomm.bcast((block_ij.d_start, block_ij.c_start, block_ij.flip, block_ij.pads), root= root)
+                else:
+                    (s_d, s_c, flip, pads) = cart_ij.intercomm.bcast(None, root=root)
+                    block_ij = StencilInterfaceMatrix(Vj, Vi._interfaces[axis_i, ext_i], s_d, s_c, axis_j, axis_i, ext_j, ext_i, flip=flip)
+
+                data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = tuple(2*p+1 for p in block_ij.pads))
+                data_exchanger.update_ghost_regions(array_minus=block_ij._data)
+
+            if not cart_j.is_comm_null:
+                if cart_ij.intercomm.rank == 0:
+                    root = MPI.ROOT
+                else:
+                    root = MPI.PROC_NULL
+            else:
+                root = 0
+
+            block_ji =  cart_ij.intercomm.bcast(block_ji, root= root) or block_ji
+            if block_ji:
+                if not cart_j.is_comm_null:
+                    block_ji = self[j,i]
+                    cart_ij.intercomm.bcast((block_ji.d_start, block_ji.c_start, block_ji.flip, block_ji.pads), root= root)
+                else:
+                    (s_d, s_c, flip, pads) = cart_ij.intercomm.bcast(None, root=root)
+                    block_ji = StencilInterfaceMatrix(Vi, Vj._interfaces[axis_j, ext_j], s_d, s_c, axis_i, axis_j, ext_i, ext_j, flip=flip)
+
+                data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = tuple(2*p+1 for p in block_ji.pads))
+                data_exchanger.update_ghost_regions(array_plus=block_ji._data)
+
 
     def set_backend(self, backend):
         if isinstance(self.domain, BlockVectorSpace) and isinstance(self.domain.spaces[0], BlockVectorSpace):
