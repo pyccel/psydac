@@ -662,7 +662,7 @@ def elevate_knots(knots, degree, periodic, multiplicity=1, tol=1e-15, out=None):
         else:
             shape = 2*(degree + 2)
             if len(knots) - 2 * (degree + 1) > 0:
-                uniques = np.ascontiguousarray(np.diff(knots[degree + 1:-degree - 1]) > tol).nonzero()
+                uniques = (np.diff(knots[degree + 1:-degree - 1]) > tol).nonzero()
                 shape += multiplicity * (1 + uniques[0].shape[0])
             out = np.zeros(shape, dtype=float)
     else:
@@ -671,7 +671,7 @@ def elevate_knots(knots, degree, periodic, multiplicity=1, tol=1e-15, out=None):
         else:
             shape = 2*(degree + 2)
             if len(knots) - 2 * (degree + 1) > 0:
-                uniques = np.ascontiguousarray(np.diff(knots[degree + 1:-degree - 1]) > tol).nonzero()
+                uniques = (np.diff(knots[degree + 1:-degree - 1]) > tol).nonzero()
                 shape += multiplicity * (1 + uniques[0].shape[0])
             assert out.shape == shape and out.dtype == np.dtype('float')
 
