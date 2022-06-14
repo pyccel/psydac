@@ -15,7 +15,7 @@ t_stamp_full = time_count()
 
 operator = 'curl-curl' # 'grad-div' # 
 # domain_name = '2patch_conf' # '2patch_nc' # 'curved_L_shape' # 'pretzel_f' # 
-domain_name = '2patch_nc_mapped' #'2patch_conf_mapped' # '2patch_nc' # 'curved_L_shape' # 'pretzel_f' # 
+domain_name = '2patch_conf_mapped' # '2patch_nc_mapped' #'2patch_conf_mapped' # '2patch_nc' # 'curved_L_shape' # 'pretzel_f' # 
 
 # nc_s = [2,4,8,16]
 # deg_s = [2,3,4,5]

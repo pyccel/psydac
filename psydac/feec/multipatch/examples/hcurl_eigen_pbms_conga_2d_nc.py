@@ -83,18 +83,26 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
             B = Square('B',bounds1=(0.5, 1), bounds2=(np.pi/2, np.pi)  )
             M1 = PolarMapping('M1',2, c1= 0, c2= 0, rmin = 0., rmax=1.)
             M2 = PolarMapping('M2',2, c1= 0, c2= 0, rmin = 0., rmax=1.)
+            A = M1(A)
+            B = M2(B)
+
+            domain = A.join(B, name = 'domain',
+                        bnd_minus = A.get_boundary(axis=0, ext=1),
+                        bnd_plus  = B.get_boundary(axis=0, ext=-1),
+                        direction=1)
+
         else:
             A = Square('A',bounds1=(0, np.pi/2), bounds2=(0, np.pi))
             B = Square('B',bounds1=(np.pi/2, np.pi), bounds2=(0, np.pi))
             M1 = IdentityMapping('M1', dim=2)
             M2 = IdentityMapping('M2', dim=2)
-        A = M1(A)
-        B = M2(B)
+            A = M1(A)
+            B = M2(B)
 
-        domain = A.join(B, name = 'domain',
-                    bnd_minus = A.get_boundary(axis=0, ext=1),
-                    bnd_plus  = B.get_boundary(axis=0, ext=-1),
-                    direction=1)
+            domain = A.join(B, name = 'domain',
+                        bnd_minus = A.get_boundary(axis=1, ext=1),
+                        bnd_plus  = B.get_boundary(axis=1, ext=-1),
+                        direction=1)                    
 
     else:
         domain = build_multipatch_domain(domain_name=domain_name)
@@ -174,7 +182,7 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
 
-    if domain_name == '2patch_nc':
+    if domain_name in ['2patch_nc', '2patch_nc_mapped']:
 
         V1h_c = derham_hc.V1
         V1h_f = derham_hf.V1
