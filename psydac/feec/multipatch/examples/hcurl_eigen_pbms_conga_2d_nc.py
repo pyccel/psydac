@@ -100,8 +100,8 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
             B = M2(B)
 
             domain = A.join(B, name = 'domain',
-                        bnd_minus = A.get_boundary(axis=1, ext=1),
-                        bnd_plus  = B.get_boundary(axis=1, ext=-1),
+                        bnd_minus = A.get_boundary(axis=0, ext=1),
+                        bnd_plus  = B.get_boundary(axis=0, ext=-1),
                         direction=1)                    
 
     else:
@@ -122,11 +122,11 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
             'M2(B)':[nc, nc],
         }
         ncells_f = {
-            'M1(A)':[2*nc, 2*nc],
-            'M2(B)':[2*nc, 2*nc],
+            'M1(A)':[nc, 2*nc],
+            'M2(B)':[nc, 2*nc],
         }
         ncells_h = {
-            'M1(A)':[2*nc, 2*nc],
+            'M1(A)':[nc, 2*nc],
             'M2(B)':[nc, nc],
         }
 

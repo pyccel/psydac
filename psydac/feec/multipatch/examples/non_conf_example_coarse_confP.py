@@ -264,7 +264,8 @@ def construct_projection_operator(domain, codomain):
             ops.append(P)
         else:
             P   = np.eye(d.nbasis) #IdentityStencilMatrix(StencilVectorSpace([d.nbasis], [d.degree], [d.periodic]))
-            ops.append(P.toarray())
+            ops.append(P)
+            # ops.append(P.toarray())
 
     # return KroneckerDenseMatrix(domain.vector_space, codomain.vector_space, *ops)
     return np.kron(*ops)
