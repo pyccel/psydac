@@ -694,8 +694,8 @@ def test_elevate_knots(knots, degree, periodic, multiplicity):
 @pytest.mark.parametrize('quad_order', (2, 3, 4, 5))
 def test_quadrature_grid(breaks, quad_order):
     quad_x, quad_w = gauss_legendre(quad_order)
-    expected = quadrature_grid_true(breaks, quad_x, quad_w)
-    out = quadrature_grid(breaks, quad_x, quad_w)
+    expected = quadrature_grid_true(breaks, quad_x[::-1], quad_w[::-1])
+    out = quadrature_grid(breaks, quad_x[::-1], quad_w[::-1])
 
     assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
