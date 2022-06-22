@@ -186,8 +186,9 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
         x2 = refine_array_1d(grid_x2, N)
 
         x1, x2 = np.meshgrid(x1, x2, indexing='ij')
-        x, y = F[plotted_patch](x1, x2)
-
+        xy = [[F[plotted_patch](x1[i1,i2], x2[i1,i2]) for i2 in range(x1.shape[1])] for i1 in range(x1.shape[0])]
+        x = np.array([[xy[i1][i2][0] for i2 in range(x1.shape[1])] for i1 in range(x1.shape[0])])
+        y = np.array([[xy[i1][i2][1] for i2 in range(x1.shape[1])] for i1 in range(x1.shape[0])])
         gridlines_x1 = (x[:, ::N],   y[:, ::N]  )
         gridlines_x2 = (x[::N, :].T, y[::N, :].T)
         # gridlines = (gridlines_x1, gridlines_x2)
@@ -257,6 +258,13 @@ def my_small_plot(
         dpi='figure',
         show_xylabel=True,
 ):
+    import matplotlib as mpl
+#    mpl.rcParams['text.usetex'] = True
+#    mpl.rcParams['text.latex.preamble'] = [r'\usepackage{amsmath}'] #for \text command
+#    mpl.rcParams.update({'font.size': 16})
+#    mpl.rc('xtick', labelsize=16) 
+#    mpl.rc('ytick', labelsize=16)
+
     # titles is discarded if only one plot
     # cmap = 'jet' is nice too, but not so uniform. 'plasma' or 'magma' are uniform also.
     # cmap = 'hsv' is good for singular fields, for its rapid color change
@@ -273,19 +281,20 @@ def my_small_plot(
 
     if save_vals:
         np.savez('vals', xx=xx, yy=yy, vals=vals)
-        
-    fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
-    fig.suptitle(title, fontsize=14)
+
+    fig = plt.figure(figsize=(10.6, 4.))
+#    fig.suptitle(title, fontsize=14)
 
     for i in range(n_plots):
-        vmin = np.min(vals[i])
-        vmax = np.max(vals[i])
+        vmin = 0
+        vmax = 2.2
         cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
         assert n_patches == len(vals[i])
         ax = fig.add_subplot(1, n_plots, i+1)
         for k in range(n_patches):
-            ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap) #, extend='both')
-        cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
+            ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap, zorder=-10) #, extend='both')
+        ax.set_rasterization_zorder(0)
+        cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  shrink=0.50, fraction=0.040, pad=0.05)
 
         if gridlines_x1 is not None and gridlines_x2 is not None:
             if isinstance(gridlines_x1[0], (list,tuple)):
@@ -298,11 +307,20 @@ def my_small_plot(
                 ax.plot(*gridlines_x1, color='k')
                 ax.plot(*gridlines_x2, color='k')
 
+#        start, end = ax.get_xlim()
+#        ax.xaxis.set_ticks(np.arange(start, end+1, 1))
+
+#        start, end = ax.get_ylim()
+#        ax.yaxis.set_ticks(np.arange(start, end+1, 1))
+
         if show_xylabel:
-            ax.set_xlabel( r'$x$', rotation='horizontal' )
-            ax.set_ylabel( r'$y$', rotation='horizontal' )
-        if n_plots > 1:
-            ax.set_title ( titles[i] )
+            ax.set_xlabel( r'$x$', rotation='horizontal')
+            ax.set_ylabel( r'$y$', rotation='horizontal')
+        ax.set_aspect('equal')
+#        if n_plots > 1:
+        ax.set_title ( title)
+
+#    plt.subplots_adjust(wspace=0.35)
 
     if save_fig:
         print('saving contour plot in file '+save_fig)

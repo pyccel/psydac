@@ -1754,6 +1754,8 @@ class Parser(object):
 
         names = 'test{}_p1:{}'.format(target, dim+1)
         target = variables(names, dtype='int')
+        if expr.index is not None:
+            return target[expr.index]
         self.insert_variables(*target)
         return target
     # ....................................................

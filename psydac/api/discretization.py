@@ -242,26 +242,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
             interfaces = [interfaces] if isinstance(interfaces, Interface) else list(interfaces.args)
 
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
-        # from a discrete geoemtry
-        mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
-        breaks    = [m.space.breaks for m in mappings]
-
-        ncells = kwargs.pop('ncells', None)
-        spaces = [None]*len(interiors)
-        for i,interior in enumerate(interiors):
-            min_coords = interior.min_coords
-            max_coords = interior.max_coords
-            grids = breaks[i]
-            degree_i = degree if degree is not None else domain_h.mappings[interior.logical_domain.name].space.degree
-
-            # Create 1D finite element spaces and precompute quadrature data
-            spaces[i] = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree_i, grids, periodic)]
-            spaces[i] = TensorFemSpace(*spaces[i], quad_order=quad_order)
-
-        g_spaces  = dict(zip(interiors, spaces))
-        spaces    = [S.spaces for S in spaces]
-
-
         if not( comm is None ) and ldim == 1:
             raise NotImplementedError('must create a TensorFemSpace in 1d')
 
@@ -273,6 +253,28 @@ def discretize_space(V, domain_h, *args, **kwargs):
                 carts = cart.carts
         else:
             cart = None
+
+        # from a discrete geoemtry
+        mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
+        breaks    = [m.space.breaks for m in mappings]
+
+        ncells = kwargs.pop('ncells', None)
+        spaces = [None]*len(interiors)
+        for i,interior in enumerate(interiors):
+            min_coords = interior.min_coords
+            max_coords = interior.max_coords
+            grids = breaks[i]
+            degree_i = degree if degree is not None else domain_h.mappings[interior.logical_domain.name].space.degree
+            # Create 1D finite element spaces and precompute quadrature data
+            spaces[i] = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree_i, grids, periodic)]
+            if comm is not None:
+                spaces[i] = TensorFemSpace(*spaces[i], cart=carts[i], quad_order=quad_order)
+            else:
+                spaces[i] = TensorFemSpace(*spaces[i], quad_order=quad_order)
+
+        g_spaces  = dict(zip(interiors, spaces))
+        spaces    = [S.spaces for S in spaces]
+
         interfaces_info = construct_interface_spaces(g_spaces, spaces, cart, interiors, interfaces, comm, quad_order=quad_order)
     else:
 

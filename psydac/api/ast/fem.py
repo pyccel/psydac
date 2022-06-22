@@ -71,6 +71,11 @@ from psydac.linalg.block      import BlockVectorSpace
 from psydac.fem.vector        import ProductFemSpace
 
 #==============================================================================
+def toInteger(a):
+    if isinstance(a,(int, np.int64)):
+        return Integer(int(a))
+    return a
+#==============================================================================
 def convert(dtype):
     """
     This function returns the index of a Function Space in a 3D DeRham sequence
@@ -935,11 +940,12 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                                      for v in d_tests]
 
 
-        get_d = lambda f:d_fields[f]['degrees'] if f in d_fields else d_fields[f.base]['degrees']
+        get_d = lambda f:d_fields[f].get('degrees', [lengths_fields[f].set_index(ii) for ii in range(dim)]) if f in d_fields else\
+                         d_fields[f.base].get('degrees',[lengths_fields[f].set_index(ii) for ii in range(dim)])
         for i in range(dim):
             parallel_body += [Allocate(d_fields[f]['local'].set_index(i),
                               (global_thread_l.set_index(i),
-                              Integer(get_d(f)[i]+1),
+                              toInteger(get_d(f)[i]+1),
                               Integer(nderiv+1),
                               Integer(quad_order[i]))) for f in d_fields]
 
