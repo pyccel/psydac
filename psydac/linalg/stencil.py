@@ -192,7 +192,7 @@ class StencilVectorSpace( VectorSpace ):
 #        else:
 #            return False
 
-    def reduce_elements(self, axes, n_elements):
+    def reduce_elements(self, axes, n_elements, shifts):
         """ Compute the reduced space.
 
         Parameters
@@ -210,7 +210,6 @@ class StencilVectorSpace( VectorSpace ):
         """
         assert not self.parallel
         npts   = [n-ne for n,ne in zip(self.npts, n_elements)]
-        shifts = [max(1,m-1) for m in self.shifts]
         v = StencilVectorSpace(npts=npts, pads=self.pads, periods=self.periods, shifts=shifts)
         v._parent_starts = self.starts
         v._parent_ends   = self.ends
@@ -324,9 +323,9 @@ class StencilVector( Vector ):
             elif V.parallel:
                 # case where each patch belongs to the same mpi rank
                 Vin          = V._interfaces[axis, ext]
-                slices       = [slice(s, e+2*p+1) for s,e,p in zip(Vin.starts, Vin.ends, Vin.pads)]
+                slices       = [slice(s, e+2*m*p+1) for s,e,m,p in zip(Vin.starts, Vin.ends, Vin.shifts, Vin.pads)]
                 if V.parent_ends[axis] is not None:
-                    diff = V.parent_ends[axis]-V.ends[axis]
+                    diff = min(1,V.parent_ends[axis]-V.ends[axis])
                 else:
                     diff = 0
 
@@ -337,14 +336,14 @@ class StencilVector( Vector ):
                     s = V.starts[axis]
                     e = V.pads[axis]-diff
 
-                slices[axis] = slice(s,e+2*V.pads[axis]+1)
+                slices[axis] = slice(s,e+2*Vin.shifts[axis]*Vin.pads[axis]+1)
                 data         = self._data[tuple(slices)].copy()
             else:
                 # serial case
                 Vin    = V._interfaces[axis, ext]
-                slices = [slice(s, e+2*p+1) for s,e,p in zip(Vin.starts, Vin.ends, Vin.pads)]
+                slices = [slice(s, e+2*m*p+1) for s,e,p,m in zip(Vin.starts, Vin.ends, Vin.shifts, Vin.pads)]
                 if V.parent_ends[axis] is not None:
-                    diff = V.parent_ends[axis]-V.ends[axis]
+                    diff = min(1,V.parent_ends[axis]-V.ends[axis])
                 else:
                     diff = 0
 
@@ -355,7 +354,7 @@ class StencilVector( Vector ):
                     s = V.starts[axis]
                     e = V.pads[axis]-diff
  
-                slices[axis] = slice(s,e+2*V.pads[axis]+1)
+                slices[axis] = slice(s,e+2*Vin.shifts[axis]*Vin.pads[axis]+1)
                 data   = self._data[tuple(slices)].copy()
 
             self._interface_data[axis, ext] = data
@@ -664,10 +663,10 @@ class StencilVector( Vector ):
                 V      = self.space._interfaces[axis, ext]
                 if isinstance(V.cart, InterfaceCartDecomposition):
                     continue
-                slices = [slice(s, e+2*p+1) for s,e,p in zip(V.starts, V.ends, V.pads)]
+                slices = [slice(s, e+2*m*p+1) for s,e,m,p in zip(V.starts, V.ends, V.shifts, V.pads)]
 
                 if V.parent_ends[axis] is not None:
-                    diff = V.parent_ends[axis]-V.ends[axis]
+                    diff = min(1,V.parent_ends[axis]-V.ends[axis])
                 else:
                     diff = 0
 
@@ -678,15 +677,15 @@ class StencilVector( Vector ):
                     s = V.starts[axis]
                     e = V.pads[axis]-diff
 
-                slices[axis] = slice(s,e+2*V.pads[axis]+1)
+                slices[axis] = slice(s,e+2*V.shifts[axis]*V.pads[axis]+1)
                 self._interface_data[axis, ext][...] = self._data[tuple(slices)]
         elif not self.space.parallel:
             for axis, ext in self.space._interfaces:
                 V      = self.space._interfaces[axis, ext]
-                slices = [slice(s, e+2*p+1) for s,e,p in zip(V.starts, V.ends, V.pads)]
+                slices = [slice(s, e+2*m*p+1) for s,e,m,p in zip(V.starts, V.ends, V.shifts, V.pads)]
 
                 if V.parent_ends[axis] is not None:
-                    diff = V.parent_ends[axis]-V.ends[axis]
+                    diff = min(1,V.parent_ends[axis]-V.ends[axis])
                 else:
                     diff = 0
 
@@ -697,7 +696,7 @@ class StencilVector( Vector ):
                     s = V.starts[axis]
                     e = V.pads[axis]-diff
 
-                slices[axis] = slice(s,e+2*V.pads[axis]+1)
+                slices[axis] = slice(s,e+2*V.shifts[axis]*V.pads[axis]+1)
                 self._interface_data[axis, ext][...] = self._data[tuple(slices)]
 
         # Flag ghost regions as up-to-date
@@ -1201,6 +1200,20 @@ class StencilMatrix( Matrix ):
     def T(self):
         return self.transpose()
 
+    def diagonal(self):
+        cm    = self.codomain.shifts
+        dm    = self.domain.shifts
+        ss    = self.codomain.starts
+        pp    = [compute_diag_len(p,mj,mi)-(p+1) for p,mi,mj in zip(self._pads, cm, dm)]
+        nrows = tuple(e-s+1 for s,e in zip(self.codomain.starts, self.codomain.ends))
+        diag  = np.zeros(nrows)
+        for xx in np.ndindex(*nrows):
+            ii = [m*p + x for x,m,p in zip(xx, self.domain.shifts, self.domain.pads)]
+            jj = [p+x+s-((x+s)//mi)*mj for (x,mi,mj,p,s) in zip(xx,cm,dm,pp,ss)]
+            ii_jj = tuple(ii+jj)
+            diag[xx] = self._data[ii_jj]
+        return diag
+
     # ...
     def topetsc( self ):
         """ Convert to petsc data structure.
@@ -1351,9 +1364,8 @@ class StencilMatrix( Matrix ):
             ll = index[nd:]  # l=p+k
 
             ii = [s+x for s,x in zip(ss,xx)]
-            di = [i//m for i,m in zip(ii,cm)]
 
-            jj = [(i*m+l-p)%n for (i,m,l,n,p) in zip(di,dm,ll,nc,pp)]
+            jj = [((i//mi)*mj+l-p)%n for (i,mi,mj,l,n,p) in zip(ii,cm,dm,ll,nc,pp)]
 
             I = ravel_multi_index( ii, dims=nr,  order=order )
             J = ravel_multi_index( jj, dims=nc,  order=order )
@@ -1724,11 +1736,12 @@ class StencilInterfaceMatrix(Matrix):
             for p,vp in zip(pads, V.pads):
                 assert p<=vp
 
-        self._pads        = pads or tuple(V.pads)
-        dims              = [e-s+2*p+1 for s,e,p in zip(W.starts, W.ends, W.pads)]
-        dims[c_axis]      = 3*W.pads[c_axis] + 1
-        diags             = [2*p+1 for p in self._pads]
-        self._data        = np.zeros( dims+diags, dtype=W.dtype )
+        self._pads     = pads or tuple(V.pads)
+        dims           = list(W.shape)
+        dims[c_axis]   = W.pads[c_axis] + 1 + 2*W.shifts[c_axis]*W.pads[c_axis]
+        diags          = [compute_diag_len(p, md, mc) for p,md,mc in zip(self._pads, V.shifts, W.shifts)]
+        self._data     = np.zeros( dims+diags, dtype=W.dtype )
+
         self._flip        = tuple([1]*len(dims) if flip is None else flip)
         self._permutation = list(range(len(dims)))
         self._permutation[d_axis], self._permutation[c_axis] = self._permutation[c_axis], self._permutation[d_axis]
@@ -1743,18 +1756,24 @@ class StencilInterfaceMatrix(Matrix):
         self._ndim        = len( dims )
         self._backend     = None
 
+        # Prepare the arguments for the dot product method
+        nd  = [(ej-sj+2*gp*mj-mj*p-gp)//mj*mi+1 for sj,ej,mj,mi,p,gp in zip(V.starts, V.ends, V.shifts, W.shifts, self._pads, V.pads)]
+        nc  = [ei-si+1 for si,ei,mj,p in zip(W.starts, W.ends, V.shifts, self._pads)]
+
         # Number of rows in matrix (along each dimension)
-        nrows         = [e-s+1 for s,e in zip(W.starts, W.ends)]
-        nrows[c_axis] = self._pads[c_axis] + 1
-        nrows_extra   = [0 if (nci<=ndi or eci<nci-1) else nci-ndi for eci,nci,ndi in zip(W.ends, W.npts, V.npts)]
+        nrows         = [min(ni,nj) for ni,nj  in zip(nc, nd)]
+        nrows_extra   = [max(0,ni-nj) for ni,nj in zip(nc, nd)]
         nrows_extra[c_axis] = max(W.npts[c_axis]-V.npts[c_axis],0)
-        nrows         = [n-e for n,e in zip(nrows, nrows_extra)]
+        nrows[c_axis] = self._pads[c_axis] + 1 - nrows_extra[c_axis]
 
         args                 = {}
+        args['starts']       = tuple(V.starts)
         args['nrows']        = tuple(nrows)
         args['nrows_extra']  = tuple(nrows_extra)
         args['gpads']        = tuple(V.pads)
         args['pads']         = tuple(self._pads)
+        args['dm']           = tuple(V.shifts)
+        args['cm']           = tuple(W.shifts)
         args['c_axis']       = c_axis
         args['d_start']      = self._d_start
         args['c_start']      = self._c_start
@@ -1816,17 +1835,21 @@ class StencilInterfaceMatrix(Matrix):
 
     # ...
     @staticmethod
-    def _dot(mat, v, out, nrows, nrows_extra, gpads, pads, c_axis, d_start, c_start, flip, permutation):
+    def _dot(mat, v, out, starts, nrows, nrows_extra, gpads, pads, dm, cm, c_axis, d_start, c_start, flip, permutation):
+
         # Index for k=i-j
         nrows      = list(nrows)
         ndim       = len(v.shape)
         kk         = [slice(None)]*ndim
         diff       = [xp-p for xp,p in zip(gpads, pads)]
 
-        nn         = v.shape
+        ndiags, _ = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
+        bb        = [p*m+p+1-n-s%m for p,m,n,s in zip(gpads, dm, ndiags, starts)]
+
+        nn        = v.shape
         for xx in np.ndindex( *nrows ):
-            ii    = [ p+x for p,x in zip(gpads,xx) ]
-            jj    = [ slice(d+x,d+x+2*p+1) for x,p,d in zip(xx,pads,diff) ]
+            ii    = [ mi*pi + x for mi,pi,x in zip(cm, gpads, xx) ]
+            jj    = tuple( slice(b-d+(x+s%mj)//mi*mj,b-d+(x+s%mj)//mi*mj+n) for x,mi,mj,b,s,n,d in zip(xx,cm,dm,bb,starts,ndiags,diff) )
             jj    = [flip_axis(i,n) if f==-1 else i for i,f,n in zip(jj,flip,nn)]
             jj    = tuple(jj[i] for i in permutation)
             ii_kk = tuple( ii + kk )
@@ -1845,16 +1868,16 @@ class StencilInterfaceMatrix(Matrix):
                     xx = list(xx)
                     xx.insert(d, nrows[d]+n)
 
-                    ii     = [x+xp for x,xp in zip(xx, gpads)]
+                    ii     = [mi*pi + x for mi,pi,x in zip(cm, gpads, xx)]
                     ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
-                    jj     = [ slice(x+d, x+d+2*p+1-e) for x,p,d,e in zip(xx, pads, diff, ee) ]
+                    jj     = tuple( slice(b-d+(x+s%mj)//mi*mj, b-d+(x+s%mj)//mi*mj+n-e) for x,mi,mj,d,e,b,s,n in zip(xx, cm, dm, diff, ee, bb, starts, ndiags) )
                     jj     = [flip_axis(i,n) if f==-1 else i for i,f,n in zip(jj, flip, nn)]
                     jj     = tuple(jj[i] for i in permutation)
-                    ndiags = [2*p + 1-e for p,e in zip(pads,ee)]
-                    kk     = [slice(None,diag) for diag in ndiags]
-                    ii_kk  = tuple( list(ii) + kk )
+                    kk     = [slice(None,n-e) for n,e in zip(ndiags, ee)]
+                    ii_kk  = tuple( ii + kk )
                     ii[c_axis] += c_start
                     out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
+
             new_nrows[d] += er
 
     # ...
@@ -1879,7 +1902,7 @@ class StencilInterfaceMatrix(Matrix):
         return Mt
 
     @staticmethod
-    def _transpose( M, Mt, d_start, c_start, dim, nrows, ncols, gpads, pads, ndiags, ndiagsT, si, sk, sl):
+    def _transpose( M, Mt, nrows, ncols, gpads, pads, dm, cm, ndiags, ndiagsT, si, sk, sl):
 
         # NOTE:
         #  . Array M  index by [i1, i2, ..., k1, k2, ...]
@@ -1889,19 +1912,19 @@ class StencilInterfaceMatrix(Matrix):
         #Mt[j,i-j+p]
 
         diff       = [gp-p for gp,p in zip(gpads, pads)]
-        shfit_pads = [0]*len(diff)
 
         for xx in np.ndindex( *nrows ):
-            jj = [p + x for p,x in zip(gpads, xx) ]
+            jj = tuple(m*p + x for m,p,x in zip(dm, gpads, xx) )
             for ll in np.ndindex( *ndiags ):
+                ii = tuple( s + mi*(x//mj) + l + d for mj,mi,x,l,d,s in zip(dm,cm, xx, ll, diff, si))
+                kk = tuple( s + x%mj-mj*(l//mi) for mj,mi,l,x,s in zip(dm, cm, ll, xx, sk))
+                ll = tuple(l+s for l,s in zip(ll, sl))
 
-                ii = [ s + x + l + d for x,l,d,s in zip(xx, ll, diff, si)]
-                kk = tuple( s-l for l,s in zip(ll, sk))
-                ll = [l+s for l,s in zip(ll, sl)]
-                if all(k<n  and k>-1 for k,n in zip(kk, ndiagsT)) and\
+                if all(k<n  and k>-1 for k,n in zip(kk,ndiagsT)) and\
                    all(l<n for l,n in zip(ll, ndiags)) and\
                    all(i<n for i,n in zip(ii, ncols)):
                     Mt[(*jj, *ll)] = M[(*ii, *kk)]
+
 
     def _prepare_transpose_args(self):
 
@@ -1914,35 +1937,45 @@ class StencilInterfaceMatrix(Matrix):
         eed   = V._interfaces[self._d_axis, self._d_ext].ends
         pads  = self._pads
         gpads = V.pads
+        dm    = V.shifts
+        cm    = W.shifts
         dim   = self._c_axis
 
         # Number of rows in the transposed matrix (along each dimension)
         nrows       = [e-s+1 for s,e in zip(ssd, eed)]
-        ncols       = [e-s+2*p+1 for s,e,p in zip(ssc, eec, gpads)]
+        ncols       = [e-s+2*m*p+1 for s,e,m,p in zip(ssc, eec, cm, gpads)]
 
-        pp              = pads
-        ndiags, starts  = list(zip(*[compute_diag_len(p,1,1, return_padding=True) for p in pp]))
-        ndiagsT, _      = list(zip(*[compute_diag_len(p,1,1, return_padding=True) for p in pp]))
+        pp = pads
+        ndiags, starts = list(zip(*[compute_diag_len(p,mi,mj, return_padding=True) for p,mi,mj in zip(pp,cm,dm)]))
+        ndiagsT, _     = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pp,cm,dm)]))
 
         diff   = [gp-p for gp,p in zip(gpads, pp)]
 
-        nrows[dim]  = gpads[dim] + 1
-        ncols[dim]  = 3*pads[dim] + 1
-        ndiags      = list(ndiags)
-        ndiags[dim] = 2*pads[dim] + 1
+        sl   = [(s if mi>mj else 0) + (s%mi+mi//mj if mi<mj else 0)+(s if mi==mj else 0)\
+                 for s,p,mi,mj in zip(starts,pp,cm,dm)]
 
-        sl   = starts
-        si   = [0]*len(starts)
-        sk   = [n-1 for n in ndiagsT]
+        si   = [(mi*p-mi*(int(np.ceil((p+1)/mj))-1) if mi>mj else 0)+\
+                 (mi*p-mi*(p//mi)+ d*(mi-1) if mi<mj else 0)+\
+                 (mj*p-mj*(p//mi)+ d*(mi-1) if mi==mj else 0)\
+                  for mi,mj,p,d in zip(cm, dm, pp, diff)]
+
+        sk   = [n-1\
+                 + (-(p%mj) if mi>mj else 0)\
+                 + (-p+mj*(p//mi) if mi<mj  else 0)\
+                 + (-p+mj*(p//mi) if mi==mj else 0)\
+                 for mi,mj,n,p in zip(cm, dm, ndiagsT, pp)]
+
+
+        nrows[dim]  = pads[dim] + 1
+        ncols[dim]  = pads[dim] + 2*cm[dim]*pads[dim] + 1
 
         args = {}
-        args['d_start'] = self.d_start
-        args['c_start'] = self.c_start
-        args['dim']     = self._c_axis
         args['nrows']   = tuple(nrows)
         args['ncols']   = tuple(ncols)
         args['gpads']   = tuple(gpads)
         args['pads']    = tuple(pads)
+        args['dm']      = tuple(dm)
+        args['cm']      = tuple(cm)
         args['ndiags']  = tuple(ndiags)
         args['ndiagsT'] = tuple(ndiagsT)
         args['si']      = tuple(si)
@@ -2135,6 +2168,8 @@ class StencilInterfaceMatrix(Matrix):
         permutation = self._permutation
         c_start     = self.c_start
         d_start     = self.d_start
+        dm          = self._domain.shifts
+        cm          = self._codomain.shifts
 
         ravel_multi_index = np.ravel_multi_index
 
@@ -2143,7 +2178,8 @@ class StencilInterfaceMatrix(Matrix):
         cols = []
         data = []
         # Range of data owned by local process (no ghost regions)
-        local = tuple( [slice(p,-p) for p in pp] + [slice(None)] * nd )
+        local = tuple( [slice(m*p,-m*p) for m,p in zip(cm, pp)] + [slice(None)] * nd )
+        pp = [compute_diag_len(p,mj,mi)-(p+1) for p,mi,mj in zip(self._pads, cm, dm)]
 
         for (index,value) in np.ndenumerate( self._data[local] ):
             if value:
@@ -2153,7 +2189,9 @@ class StencilInterfaceMatrix(Matrix):
                 ll = index[nd:]  # l=p+k
 
                 ii = [s+x for s,x in zip(ss,xx)]
-                jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nc,self.pads)]
+                di = [i//m for i,m in zip(ii,cm)]
+
+                jj = [(i*m+l-p)%n for (i,m,l,n,p) in zip(di,dm,ll,nc,pp)]
 
                 ii[dim] += c_start
                 jj[dim] += d_start

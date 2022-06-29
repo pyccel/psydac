@@ -1,5 +1,6 @@
 # -*- coding: UTF-8 -*-
 
+import os
 import pytest
 import numpy as np
 from mpi4py import MPI
@@ -10,7 +11,7 @@ from sympde.calculus      import minus, plus
 from sympde.topology      import VectorFunctionSpace
 from sympde.topology      import elements_of
 from sympde.topology      import NormalVector
-from sympde.topology      import Square
+from sympde.topology      import Square, Domain
 from sympde.topology      import IdentityMapping, PolarMapping
 from sympde.expr.expr     import LinearForm, BilinearForm
 from sympde.expr.expr     import integral
@@ -25,8 +26,21 @@ from psydac.api.settings             import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.pull_push           import pull_2d_hcurl
 from psydac.linalg.utilities         import array_to_stencil
 
+# ... get the mesh directory
+try:
+    mesh_dir = os.environ['PSYDAC_MESH_DIR']
+
+except:
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    base_dir = os.path.join(base_dir, '..', '..', '..')
+    mesh_dir = os.path.join(base_dir, 'mesh')
+
 #==============================================================================
-def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, comm=None):
+def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=None, k=None, kappa=None, comm=None):
+
+    if filename is None:
+        assert ncells is not None
+        assert degree is not None
 
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
@@ -42,7 +56,7 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
     I        = domain.interfaces
     boundary = domain.boundary
 
-    kappa   = 10*ncells[0]
+    kappa   = 100
     k       = 1
 
     jump = lambda w:plus(w)-minus(w)
@@ -71,13 +85,17 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
     # 2. Discretization
     #+++++++++++++++++++++++++++++++
 
-    domain_h = discretize(domain, ncells=ncells, comm=comm)
-    Vh       = discretize(V, domain_h, degree=degree, basis='M')
+    if filename is None:
+        domain_h = discretize(domain, ncells=ncells, comm=comm)
+        Vh       = discretize(V, domain_h, degree=degree)
+    else:
+        domain_h = discretize(domain, filename=filename, comm=comm)
+        Vh       = discretize(V, domain_h)
 
     equation_h = discretize(equation, domain_h, [Vh, Vh])
     l2norm_h   = discretize(l2norm, domain_h, Vh)
 
-    equation_h.set_solver('pcg', pc='jacobi', tol=1e-8)
+    equation_h.set_solver('pcg',pc='jacobi' ,tol=1e-8)
 
     uh = equation_h.solve()
 
@@ -136,6 +154,27 @@ def test_maxwell_2d_2_patch_dirichlet_1():
     expected_l2_error = 1.5941322657006822
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
+
+#------------------------------------------------------------------------------
+def test_maxwell_2d_2_patch_dirichlet_2():
+
+    filename = os.path.join(mesh_dir, 'multipatch/square_repeated_knots.h5')
+    domain   = Domain.from_file(filename)
+    x,y      = domain.coordinates
+
+    omega = 1.5
+    alpha = -omega**2
+    Eex   = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+    f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                  alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+
+    l2_error, Eh      = run_maxwell_2d(Eex, f, alpha, domain, filename=filename)
+
+    expected_l2_error = 0.00024103192798735168
+
+    assert ( abs(l2_error - expected_l2_error) < 1e-7)
+
+test_maxwell_2d_2_patch_dirichlet_2()
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================

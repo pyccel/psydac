@@ -4,14 +4,17 @@ import os
 from sympy import Tuple, Matrix
 from sympy import pi, sin
 
-from sympde.calculus import grad, dot, inner
-from sympde.topology import VectorFunctionSpace
+from sympde.calculus import grad, dot, inner, Transpose
+from sympde.topology import VectorFunctionSpace, ScalarFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import Domain
 from sympde.topology import Union
 from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm
 from sympde.expr     import find, EssentialBC
+
+from sympde.calculus import minus, plus
+from sympde.topology import NormalVector
 
 from psydac.api.discretization import discretize
 
@@ -38,15 +41,27 @@ def run_vector_poisson_2d_dir(filename, solution, f):
     v = element_of(V, name='v')
     u = element_of(V, name='u')
 
+    nn = NormalVector("nn")
+
+    I = domain.interfaces
+
+    kappa  = 10**3
+
+    avr    = lambda u:0.5*plus(u)+0.5*minus(u)
+    jump   = lambda u: minus(u)-plus(u)
+
+    expr_I = - dot(Transpose(grad(avr(u)))*nn, jump(v)) - dot(Transpose(grad(avr(v)))*nn, jump(u)) + kappa*dot(jump(u), jump(v))
+
     int_0 = lambda expr: integral(domain , expr)
+    int_1 = lambda expr: integral(I , expr)
 
     expr = inner(grad(v), grad(u))
-    a = BilinearForm((v,u), int_0(expr))
+    a = BilinearForm((v,u), int_0(expr) + int_1(expr_I))
 
     expr = dot(f, v)
     l = LinearForm(v, int_0(expr))
 
-    error  = Matrix([u[0]-solution[0], u[1]-solution[1]])
+    error  = Matrix([0, u[1]-solution[1]])
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
 
@@ -98,8 +113,8 @@ def test_api_vector_poisson_2d_dir_identity():
 
     l2_error, h1_error = run_vector_poisson_2d_dir(filename, solution, f)
 
-    expected_l2_error =  0.0003084212905795541
-    expected_h1_error =  0.01841811034325851
+    expected_l2_error = 0.0009731068806008872
+    expected_h1_error = 0.035369172937881305
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)

@@ -192,6 +192,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             test_space   = self.spaces[1]
             mapping      = list(domain_h.mappings.values())[0]
 
+
         self._mapping = mapping
 
         is_rational_mapping = False
@@ -445,9 +446,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         if len(self.grid)>1:
             quads  = [*quads, *self.grid[1].points]
 
-        pads                      = self.test_basis.space.vector_space.pads
-        global_mats               = self.allocate_matrices(backend)
-        self._global_matrices     = [M._data for M in global_mats]
+        pads                  = self.test_basis.space.vector_space.pads
+        global_mats           = self.allocate_matrices(backend)
+        self._global_matrices = [M._data for M in global_mats]
 
         if self.mapping:
             if len(self.grid) == 1:

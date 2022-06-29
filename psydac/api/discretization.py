@@ -257,6 +257,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
         # from a discrete geoemtry
         mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
         breaks    = [m.space.breaks for m in mappings]
+        multiplicity = [m.space.multiplicity for m in mappings]
 
         ncells = kwargs.pop('ncells', None)
         spaces = [None]*len(interiors)
@@ -264,9 +265,10 @@ def discretize_space(V, domain_h, *args, **kwargs):
             min_coords = interior.min_coords
             max_coords = interior.max_coords
             grids = breaks[i]
+
             degree_i = degree if degree is not None else domain_h.mappings[interior.logical_domain.name].space.degree
             # Create 1D finite element spaces and precompute quadrature data
-            spaces[i] = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree_i, grids, periodic)]
+            spaces[i] = [SplineSpace( p, grid=grid , periodic=P, multiplicity=m, parent_multiplicity=m) for p,grid,P,m in zip(degree_i, grids, periodic, multiplicity[i])]
             if comm is not None:
                 spaces[i] = TensorFemSpace(*spaces[i], cart=carts[i], quad_order=quad_order)
             else:

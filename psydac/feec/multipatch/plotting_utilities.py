@@ -286,14 +286,14 @@ def my_small_plot(
 #    fig.suptitle(title, fontsize=14)
 
     for i in range(n_plots):
-        vmin = 0
-        vmax = 2.2
+        vmin = vals[i].min()
+        vmax = vals[i].max()
         cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
         assert n_patches == len(vals[i])
         ax = fig.add_subplot(1, n_plots, i+1)
         for k in range(n_patches):
-            ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap, zorder=-10) #, extend='both')
-        ax.set_rasterization_zorder(0)
+            ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap) #, extend='both')
+
         cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  shrink=0.50, fraction=0.040, pad=0.05)
 
         if gridlines_x1 is not None and gridlines_x2 is not None:

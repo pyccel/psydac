@@ -275,10 +275,9 @@ def jacobi(A, b):
 
     V = b.space
     i = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
-    ii = i + (0,) * V.ndim
 
     x = b.copy()
-    x[i] /= A[ii]
+    x[i] /= A.diagonal()
     x.update_ghost_regions()
 
     return x

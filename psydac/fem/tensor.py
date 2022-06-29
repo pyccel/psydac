@@ -999,18 +999,19 @@ class TensorFemSpace( FemSpace ):
 
         # create new Tensor Vector
         n_elements = [s1.nbasis-s2.nbasis for s1,s2 in zip(self.spaces, spaces)]
+        multiplicity = [s.multiplicity for s in spaces]
         if v.cart:
-            red_cart = v.cart.reduce_elements(axes, n_elements)
+            red_cart = v.cart.reduce_elements(axes, n_elements, multiplicity)
             tensor_vec = TensorFemSpace(*spaces, cart=red_cart, quad_order=self._quad_order)
         else:
-            v = v.reduce_elements(axes, n_elements)
+            v = v.reduce_elements(axes, n_elements, multiplicity)
             tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order, vector_space=v)
 
         tensor_vec._interpolation_ready = False
         for a,e in self._interfaces:
             v    = self._vector_space._interfaces[a,e]
             cart = v.cart
-            if cart:cart = v.cart.reduce_elements(axes, n_elements)
+            if cart:cart = v.cart.reduce_elements(axes, n_elements, multiplicity)
             tensor_vec.set_interface_space(a, e, tensor_vec.spaces, cart=cart, quad_order=tensor_vec.quad_order)
 
         return tensor_vec
