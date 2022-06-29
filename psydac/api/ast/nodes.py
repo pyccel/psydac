@@ -481,7 +481,6 @@ class EvalMapping(BaseNode):
         mapping_atoms  = components.arguments
         basis          = q_basis
         target         = basis.target
-
         multiplicity   = tuple(mapping_space.vector_space.shifts) if mapping_space else ()
         pads           = tuple(mapping_space.vector_space.pads) if mapping_space else ()
         

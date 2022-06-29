@@ -127,7 +127,6 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
 
     # ... discretize the equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Xh, Xh])
-    print()
 
     # ... solve linear system using scipy.sparse.linalg or psydac
     if scipy:

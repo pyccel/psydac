@@ -11,7 +11,7 @@ from sympde.calculus      import grad, dot
 from sympde.calculus      import minus, plus
 from sympde.topology      import ScalarFunctionSpace
 from sympde.topology      import elements_of
-from sympde.topology      import NormalVector
+from sympde.topology      import NormalVector, Union
 from sympde.topology      import Square, Domain
 from sympde.topology      import IdentityMapping, PolarMapping, AffineMapping
 from sympde.expr.expr     import LinearForm, BilinearForm
@@ -51,8 +51,9 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
     error  = u - solution
 
     I = domain.interfaces
+    boundary = domain.boundary
 
-    kappa  = 10**3
+    kappa  = 10**2
 
    # expr_I =(
    #         - dot(grad(plus(u)),nn)*minus(v)  + dot(grad(minus(v)),nn)*plus(u) - kappa*plus(u)*minus(v)
@@ -65,12 +66,13 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
             - 0.5*dot(grad(minus(v)),nn)*minus(u) - 0.5*dot(grad(minus(u)),nn)*minus(v) + kappa*minus(u)*minus(v)\
             + 0.5*dot(grad(plus(v)),nn)*plus(u)   + 0.5*dot(grad(plus(u)),nn)*plus(v)   + kappa*plus(u)*plus(v)
 
+    expr_b = -dot(grad(u),nn)*v -dot(grad(v),nn)*u + kappa*u*v
     expr   = dot(grad(u),grad(v))
 
-    a = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I))
-    l = LinearForm(v, integral(domain, f*v))
+    a = BilinearForm((u,v),  integral(domain, expr)+ integral(I, expr_I) + integral(boundary, expr_b))
+    l = LinearForm(v, integral(domain, f*v)+ integral(boundary, -dot(grad(v),nn)*solution + kappa*solution*v))
 
-    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
 
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
@@ -80,10 +82,10 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
     #+++++++++++++++++++++++++++++++
 
     if filename is None:
-        domain_h = discretize(domain, ncells=ncells, comm=comm)
+        domain_h = discretize(domain, ncells=ncells)
         Vh       = discretize(V, domain_h, degree=degree)
     else:
-        domain_h = discretize(domain, filename=filename, comm=comm)
+        domain_h = discretize(domain, filename=filename)
         Vh       = discretize(V, domain_h)
 
     equation_h = discretize(equation, domain_h, [Vh, Vh])
@@ -224,6 +226,25 @@ def test_poisson_2d_2_patches_dirichlet_4():
 
 #------------------------------------------------------------------------------
 def test_poisson_2d_2_patches_dirichlet_5():
+
+    filename = os.path.join(mesh_dir, 'multipatch/square_repeated_knots.h5')
+    domain   = Domain.from_file(filename)
+
+    x,y = domain.coordinates
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename)
+
+    expected_l2_error = 1.4183170929964257e-05
+    expected_h1_error = 0.0007872409652715088
+
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+
+test_poisson_2d_2_patches_dirichlet_5()
+#------------------------------------------------------------------------------
+def test_poisson_2d_2_patches_dirichlet_6():
 
     filename = os.path.join(mesh_dir, 'multipatch/magnet.h5')
     domain   = Domain.from_file(filename)

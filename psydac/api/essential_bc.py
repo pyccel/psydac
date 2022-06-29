@@ -23,7 +23,7 @@ def apply_essential_bc(a, *bcs, **kwargs):
     elif isinstance(a, BlockVector):
         for bc in bcs:
             check_boundary_type(bc)
-            apply_essential_bc_BlockVector(a, bc)
+            apply_essential_bc_BlockVector(a, bc, is_broken=kwargs.pop('is_broken', True))
 
     elif isinstance(a, BlockMatrix):
         for bc in bcs:
@@ -118,50 +118,53 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
         pass
 
 #==============================================================================
-def apply_essential_bc_BlockMatrix(a, bc, identity=False):
+def apply_essential_bc_BlockMatrix(a, bc, *, identity=True, is_broken=True):
     """ Apply homogeneous dirichlet boundary conditions in nD """
 
     assert isinstance(a, BlockMatrix)
     keys = list(a._blocks.keys())
 
-    if bc.index_component is not None:
+    is_broken = bc.variable.space.is_broken and is_broken
+    if bc.index_component and not is_broken:
         for i_loc in bc.index_component:
             i = bc.position + i_loc
             js = [ij[1] for ij in keys if ij[0] == i]
             for j in js:
                 apply_essential_bc(a[i, j], bc, identity=(identity and i==j))
 
-    elif bc.position is not None and not bc.variable.space.is_broken:
+    elif bc.position is not None and not is_broken:
         i = bc.position
         js = [ij[1] for ij in keys if ij[0] == i]
         for j in js:
             apply_essential_bc(a[i, j], bc, identity=(identity and i==j))
-    else:
-        var = bc.variable
-        space = var.space
-        if space.is_broken:
-            domains = space.domain.interior.args
-            bd = bc.boundary.domain
-            i  = domains.index(bd)
-            js = [ij[1] for ij in keys if ij[0] == i]
-            for j in js:
-                apply_essential_bc(a[i, j], bc, identity=(identity and i==j))
+    elif is_broken:
+        space = bc.variable.space
+        domains = space.domain.interior.args
+        assert len(a.blocks) == len(domains)
+        bd = bc.boundary.domain
+        i  = domains.index(bd)
+        js = [ij[1] for ij in keys if ij[0] == i]
+        for j in js:
+            apply_essential_bc(a[i, j], bc, identity=(identity and i==j), is_broken=False)
 
 #==============================================================================
-def apply_essential_bc_BlockVector(a, bc):
+def apply_essential_bc_BlockVector(a, bc, *, is_broken=True):
     """ Apply homogeneous dirichlet boundary conditions in nD """
 
     assert isinstance(a, BlockVector)
 
-    if bc.index_component:
+    is_broken = bc.variable.space.is_broken and is_broken
+    if bc.index_component and not is_broken:
         for i_loc in bc.index_component:
             i = bc.position + i_loc
             apply_essential_bc(a[i], bc)
-    else:
-        var = bc.variable
-        space = var.space
-        if space.is_broken:
-            domains = space.domain.interior.args
-            bd = bc.boundary.domain
-            i  = domains.index(bd)
-            apply_essential_bc(a[i], bc)
+    elif bc.position is not None and not is_broken:
+        i = bc.position
+        apply_essential_bc(a[i], bc)
+    elif is_broken:
+        space = bc.variable.space
+        domains = space.domain.interior.args
+        bd = bc.boundary.domain
+        assert len(a.blocks) == len(domains)
+        i  = domains.index(bd)
+        apply_essential_bc(a[i], bc, is_broken=False)

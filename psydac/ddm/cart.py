@@ -1872,7 +1872,7 @@ class InterfaceCartDataExchanger:
         MPI.Request.Waitall(req)
 
     @staticmethod
-    def _create_buffer_types( cart, dtype , coeff_shape=()):
+    def _create_buffer_types( cart, dtype , *, coeff_shape=()):
 
         assert isinstance( cart, InterfaceCartDecomposition )
 

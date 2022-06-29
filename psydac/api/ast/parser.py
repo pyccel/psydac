@@ -556,14 +556,17 @@ class Parser(object):
         stmts      = {}
         pads       = self._visit_Pads(expr.pads)
 
+        if isinstance(self._target, Interface):
+            raise NotImplementedError("field evaluation in an interface is not available")
+
         for l_coeff,g_coeff in zip(l_coeffs, g_coeffs):
             basis        = g_coeff.test
             index        = ex_tests.index(basis)
             basis        = basis if basis in tests else basis.base
             degrees      = self._visit_LengthDofTest(LengthDofTest(basis))
             spans        = flatten(self._visit_Span(Span(basis))[basis])
-            rhs_starts   = [spans[i]-degrees[i] + pads[index,0][i] for i in range(dim)]
-            rhs_ends     = [spans[i]+pads[index,0][i]+1          for i in range(dim)]
+            rhs_starts   = [pads[index,0][i] + spans[i]-degrees[i] for i in range(dim)]
+            rhs_ends     = [pads[index,0][i] + spans[i]+1          for i in range(dim)]
             rhs_slices   = [Slice(s, e) for s,e in zip(rhs_starts, rhs_ends)]
             l_coeff      = self._visit(l_coeff, **kwargs)
             g_coeff      = self._visit(g_coeff, **kwargs)
@@ -574,17 +577,17 @@ class Parser(object):
     def _visit_EvalMapping(self, expr, **kwargs):
         if self._mapping.is_analytical:
             return EmptyNode()
-        values  = expr.values
-        coeffs  = expr.coeffs
-        l_coeffs = expr.local_coeffs
-        stmts   = []
-        dim = self._dim
-        test = coeffs[0].test
-        lhs_slices = [Slice(None,None)]*dim
+        values       = expr.values
+        coeffs       = expr.coeffs
+        l_coeffs     = expr.local_coeffs
+        stmts        = []
+        dim          = self._dim
+        test         = coeffs[0].test
+        lhs_slices   = [Slice(None,None)]*dim
         multiplicity = expr.multiplicity
         pads         = expr.pads
-        is_trial = expr.trial
-        mapping  = expr.mapping
+        is_trial     = expr.trial
+        mapping      = expr.mapping
         for coeff, l_coeff in zip(coeffs, l_coeffs):
             spans   = flatten(self._visit_Span(Span(test))[test])
             degrees = self._visit_LengthDofTest(LengthDofTest(test))
@@ -594,12 +597,12 @@ class Parser(object):
             rhs_ends   = [multiplicity[i]*pads[i] + spans[i]+1          for i in range(dim)]
             if isinstance(self._target, Interface) and is_trial and mapping.is_plus :
                 axis             = self._target.plus.axis
-                rhs_starts[axis] = pads[axis]
-                rhs_ends[axis]   = pads[axis] + degrees[axis] + 1
+                rhs_starts[axis] = multiplicity[axis]*pads[axis]
+                rhs_ends[axis]   = multiplicity[axis]*pads[axis] + degrees[axis] + 1
             elif isinstance(self._target, Interface) and is_trial and mapping.is_minus :
                 axis             = self._target.minus.axis
-                rhs_starts[axis] = pads[axis]
-                rhs_ends[axis]   = pads[axis] + degrees[axis] + 1
+                rhs_starts[axis] = multiplicity[axis]*pads[axis]
+                rhs_ends[axis]   = multiplicity[axis]*pads[axis] + degrees[axis] + 1
 
             rhs_slices = [Slice(s, e) for s,e in zip(rhs_starts, rhs_ends)]
             stmt       = self._visit_Assign(Assign(l_coeff[lhs_slices], coeff[rhs_slices]), **kwargs)
@@ -1126,8 +1129,8 @@ class Parser(object):
                 lhs_ends   = [spans[i]+m[i]*pads[i]+1          for i in range(dim)]
                 if isinstance(self._target, Interface):
                     axis = self._target.axis
-                    lhs_starts[axis] = pads[axis]
-                    lhs_ends[axis]   = pads[axis] + degrees[axis] + 1
+                    lhs_starts[axis] = m[axis]*pads[axis]
+                    lhs_ends[axis]   = m[axis]*pads[axis] + degrees[axis] + 1
 
                 for k2 in range(lhs.shape[1]):
                     if expr.expr[k1,k2]:
@@ -1754,6 +1757,8 @@ class Parser(object):
 
         names = 'test{}_p1:{}'.format(target, dim+1)
         target = variables(names, dtype='int')
+        if expr.index is not None:
+            return target[expr.index]
         self.insert_variables(*target)
         return target
     # ....................................................

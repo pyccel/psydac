@@ -14,12 +14,12 @@ from psydac.fem.basic        import FemField
 from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.utilities.utils  import refine_array_1d
 from psydac.feec.pull_push   import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
-
+from sympde.topology.mapping import Mapping as AnalyticalMapping
 #==============================================================================
 def is_vector_valued(u):
     # small utility function, only tested for FemFields in multi-patch spaces of the 2D grad-curl sequence
     # todo: a proper interface returning the number of components of a general FemField would be nice
-    return u.fields[0].space.is_product
+    return u.space.is_product
 
 #------------------------------------------------------------------------------
 def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
@@ -30,7 +30,11 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
     :param space_kind: specifies the push-forward for the physical values
     """
     n_patches = len(mappings_list)
-    vector_valued = is_vector_valued(u) if isinstance(u, FemField) else isinstance(u[0],(list, tuple))
+    if n_patches == 1:
+        u = [u]
+
+    vector_valued = is_vector_valued(u[0]) if isinstance(u[0], FemField) else isinstance(u[0],(list, tuple))
+
     if vector_valued:
         # WARNING: here we assume 2D !
         u_vals_components = [n_patches*[None], n_patches*[None]]
@@ -58,9 +62,10 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
 
         # computing the pushed-fwd values on the grid
         if space_kind == 'h1':
-            assert not vector_valued
-            # todo (MCP): add 2d_hcurl_vector
-            push_field = lambda eta1, eta2: push_2d_h1(uk_field_0, eta1, eta2)
+            if vector_valued:
+                push_field = lambda eta1, eta2: (push_2d_h1(uk_field_0, eta1, eta2), push_2d_h1(uk_field_1, eta1, eta2))
+            else:
+                push_field = lambda eta1, eta2: push_2d_h1(uk_field_0, eta1, eta2)
         elif space_kind == 'hcurl':
             # todo (MCP): specify 2d_hcurl_scalar in push functions
             push_field = lambda eta1, eta2: push_2d_hcurl(uk_field_0, uk_field_1, eta1, eta2, mapping=mappings_list[k])
@@ -80,6 +85,7 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
                     u_vals_components[0][k][i, j] = push_field(x1i, x2j)
 
     # always return a list, even for scalar-valued functions ?
+
     if not vector_valued:
         return np.array(u_vals_components[0])
     else:
@@ -133,7 +139,7 @@ def get_plotting_grid(mappings, N, centered_nodes=False, return_patch_logvols=Fa
         N_cells = N
     # etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
     etas = [[refine_array_1d( bounds, N_cells ) for bounds in zip(grid_min_coords[k], grid_max_coords[k])] for k in range(nb_patches)]
-    mappings_lambda = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
+    mappings_lambda = [lambdify(M.logical_coordinates, M.expressions) if isinstance(M, AnalyticalMapping) else M for d,M in mappings.items()]
 
     pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings_lambda, etas)]
 
@@ -166,7 +172,7 @@ def get_diag_grid(mappings, N):
 def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     # get gridlines for one patch grid
 
-    F = [M.get_callable_mapping() for d,M in mappings.items()]
+    F = [M.get_callable_mapping() if isinstance(M, AnalyticalMapping) else M for d,M in mappings.items()]
 
     if plotted_patch in range(len(mappings)):
         space   = Vh.spaces[plotted_patch]
@@ -180,8 +186,9 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
         x2 = refine_array_1d(grid_x2, N)
 
         x1, x2 = np.meshgrid(x1, x2, indexing='ij')
-        x, y = F[plotted_patch](x1, x2)
-
+        xy = [[F[plotted_patch](x1[i1,i2], x2[i1,i2]) for i2 in range(x1.shape[1])] for i1 in range(x1.shape[0])]
+        x = np.array([[xy[i1][i2][0] for i2 in range(x1.shape[1])] for i1 in range(x1.shape[0])])
+        y = np.array([[xy[i1][i2][1] for i2 in range(x1.shape[1])] for i1 in range(x1.shape[0])])
         gridlines_x1 = (x[:, ::N],   y[:, ::N]  )
         gridlines_x2 = (x[::N, :].T, y[::N, :].T)
         # gridlines = (gridlines_x1, gridlines_x2)
@@ -251,6 +258,13 @@ def my_small_plot(
         dpi='figure',
         show_xylabel=True,
 ):
+    import matplotlib as mpl
+#    mpl.rcParams['text.usetex'] = True
+#    mpl.rcParams['text.latex.preamble'] = [r'\usepackage{amsmath}'] #for \text command
+#    mpl.rcParams.update({'font.size': 16})
+#    mpl.rc('xtick', labelsize=16) 
+#    mpl.rc('ytick', labelsize=16)
+
     # titles is discarded if only one plot
     # cmap = 'jet' is nice too, but not so uniform. 'plasma' or 'magma' are uniform also.
     # cmap = 'hsv' is good for singular fields, for its rapid color change
@@ -267,19 +281,20 @@ def my_small_plot(
 
     if save_vals:
         np.savez('vals', xx=xx, yy=yy, vals=vals)
-        
-    fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
-    fig.suptitle(title, fontsize=14)
+
+    fig = plt.figure(figsize=(10.6, 4.))
+#    fig.suptitle(title, fontsize=14)
 
     for i in range(n_plots):
-        vmin = np.min(vals[i])
-        vmax = np.max(vals[i])
+        vmin = vals[i].min()
+        vmax = vals[i].max()
         cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
         assert n_patches == len(vals[i])
         ax = fig.add_subplot(1, n_plots, i+1)
         for k in range(n_patches):
             ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap) #, extend='both')
-        cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
+
+        cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  shrink=0.50, fraction=0.040, pad=0.05)
 
         if gridlines_x1 is not None and gridlines_x2 is not None:
             if isinstance(gridlines_x1[0], (list,tuple)):
@@ -292,11 +307,20 @@ def my_small_plot(
                 ax.plot(*gridlines_x1, color='k')
                 ax.plot(*gridlines_x2, color='k')
 
+#        start, end = ax.get_xlim()
+#        ax.xaxis.set_ticks(np.arange(start, end+1, 1))
+
+#        start, end = ax.get_ylim()
+#        ax.yaxis.set_ticks(np.arange(start, end+1, 1))
+
         if show_xylabel:
-            ax.set_xlabel( r'$x$', rotation='horizontal' )
-            ax.set_ylabel( r'$y$', rotation='horizontal' )
-        if n_plots > 1:
-            ax.set_title ( titles[i] )
+            ax.set_xlabel( r'$x$', rotation='horizontal')
+            ax.set_ylabel( r'$y$', rotation='horizontal')
+        ax.set_aspect('equal')
+#        if n_plots > 1:
+        ax.set_title ( title)
+
+#    plt.subplots_adjust(wspace=0.35)
 
     if save_fig:
         print('saving contour plot in file '+save_fig)

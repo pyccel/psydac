@@ -214,7 +214,7 @@ class Geometry( object ):
             if comm is None:
                 tensor_space = TensorFemSpace( *spaces[i_patch] )
             else:
-                tensor_space = TensorFemSpace( *spaces[i_patch], cart=carts[i_patch] )
+                tensor_space = TensorFemSpace( *spaces[i_patch], cart=carts[i_patch])
 
             g_spaces[interiors[i_patch]] = tensor_space
 
