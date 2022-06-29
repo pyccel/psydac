@@ -70,7 +70,7 @@ def create_interfaces_cart(cart, interfaces_info=None):
 
     return interfaces_cart
 
-def construct_interface_spaces(g_spaces, spaces, cart, interiors, interfaces, comm, quad_order=None):
+def construct_interface_spaces(g_spaces, cart, interiors, interfaces, comm):
     interfaces_info = {}
     if not interfaces:return {}
     if comm is not None:
@@ -99,7 +99,7 @@ def construct_interface_spaces(g_spaces, spaces, cart, interiors, interfaces, co
             else:
                 continue
 
-        g_spaces[e.minus.domain].set_interface_space(e.minus.axis, e.minus.ext, spaces[i], cart=cart_minus, quad_order=quad_order)
-        g_spaces[e.plus.domain ].set_interface_space(e.plus.axis , e.plus.ext , spaces[j], cart=cart_plus, quad_order=quad_order)
+        g_spaces[e.minus.domain].set_interface_space(e.minus.axis, e.minus.ext, cart=cart_minus)
+        g_spaces[e.plus.domain ].set_interface_space(e.plus.axis , e.plus.ext , cart=cart_plus)
 
     return interfaces_info

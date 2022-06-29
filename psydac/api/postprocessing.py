@@ -2,17 +2,28 @@
 #
 # Copyright 2019 Yaman Güçlü
 
-from operator import mod
 import numpy as np
-import pyevtk
-from sympy import N
 import yaml
 import re
 import h5py as h5
 
+from sympde.topology.mapping import Mapping
+from sympde.topology.analytical_mapping import IdentityMapping
+from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace
+from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
+
+from pyevtk.hl import unstructuredGridToVTK
+from pyevtk.vtk import VtkHexahedron, VtkQuad
+
+from psydac.api.discretization import discretize
 from psydac.cad.geometry import Geometry
+from psydac.mapping.discrete import SplineMapping
+from psydac.core.bsplines import cell_index
+from psydac.feec.pushforward import Pushforward
 from psydac.utilities.utils import refine_array_1d
 from psydac.fem.basic import FemSpace, FemField
+from psydac.utilities.vtk import writeParallelVTKUnstructuredGrid
+from psydac.core.bsplines import elevate_knots
 
 
 #===============================================================================
@@ -109,7 +120,7 @@ class OutputManager:
 
     Attributes
     ----------
-    _spaces_info : dict
+    _space_info : dict
         Information about the spaces in a human readable format.
         It is written to ``filename_space`` in yaml.
     _spaces : List
@@ -133,16 +144,16 @@ class OutputManager:
     """
 
     space_types_to_str = {
-        'H1SpaceType()': 'h1',
-        'HcurlSpaceType()': 'hcurl',
-        'HdivSpaceType()': 'hdiv',
-        'L2SpaceType()': 'l2',
-        'UndefinedSpaceType()': 'undefined',
+        H1SpaceType(): 'h1',
+        HcurlSpaceType(): 'hcurl',
+        HdivSpaceType(): 'hdiv',
+        L2SpaceType(): 'l2',
+        UndefinedSpaceType(): 'undefined',
     }
 
-    def __init__(self, filename_space, filename_fields):
+    def __init__(self, filename_space, filename_fields, comm=None, mode='w'):
 
-        self._spaces_info = {}
+        self._space_info = {}
         self._spaces = []
 
         if filename_space[-4:] != ".yml" and filename_space[-4:] != ".yaml":
@@ -155,7 +166,18 @@ class OutputManager:
         self._next_snapshot_number = 0
         self.is_static = None
         self._current_hdf5_group = None
-        self._static_names =[]
+        self._static_names = []
+
+        self._space_names = []
+
+        self._mode=mode
+
+        self.comm = comm
+        self.fields_file = None
+    
+    def close(self):
+        if not self.fields_file is None:
+            self.fields_file.close()
 
     @property
     def current_hdf5_group(self):
@@ -163,28 +185,30 @@ class OutputManager:
 
     @property
     def space_info(self):
-        return self._spaces_info
+        return self._space_info
 
     @property
     def spaces(self):
-        return dict([(name, space) for name, space in zip(self._spaces[1::2], self._spaces[0::2])])
+        return dict([(name, space) for name, space in zip(self._spaces[1::3], self._spaces[0::3])])
 
     def set_static(self):
         """Sets the export to static mode
 
         """
-        if self.is_static:
-            return self
+        if not self.is_static:
+            
+            self.is_static = True
+            if self.fields_file is None:
+                kwargs = {}
+                if self.comm is not None and self.comm.size > 1:
+                    kwargs.update(driver='mpio', comm=self.comm)
+                self.fields_file = h5.File(self.filename_fields, mode=self._mode, **kwargs)
 
-        self.is_static = True
-
-        file_fields = h5.File(self.filename_fields, 'a')
-
-        if 'static' not in file_fields.keys():
-            static_group = file_fields.create_group('static')
-            self._current_hdf5_group = static_group
-        else:
-            self._current_hdf5_group = file_fields['static']
+            if 'static' not in self.fields_file.keys():
+                static_group = self.fields_file.create_group('static')
+                self._current_hdf5_group = static_group
+            else:
+                self._current_hdf5_group = self.fields_file['static']
 
     def add_snapshot(self, t, ts):
         """Adds a snapshot to the fields' HDF5 file
@@ -197,17 +221,22 @@ class OutputManager:
         ts : int
             Time step of the snapshot
         """
+ 
         self.is_static = False
 
-        file_fields = h5.File(self.filename_fields, 'a')
+        if self.fields_file is None:
+            kwargs = {}
+            if self.comm is not None and self.comm.size > 1:
+                kwargs.update(driver='mpio', comm=self.comm)
+            self.fields_file = h5.File(self.filename_fields, mode=self._mode, **kwargs)
 
         i = self._next_snapshot_number
         try:
-            snapshot = file_fields.create_group(f'snapshot_{i:0>4}')
+            snapshot = self.fields_file.create_group(f'snapshot_{i:0>4}')
         except ValueError:
             regexp = re.compile(r'snapshot_(?P<id>\d+)')
-            i = max([int(regexp.search(k).group('id')) for k in file_fields.keys() if regexp.search(k) is not None]) + 1
-            snapshot = file_fields.create_group(f'snapshot_{i:0>4}')
+            i = max([int(regexp.search(k).group('id')) for k in self.fields_file.keys() if regexp.search(k) is not None]) + 1
+            snapshot = self.fields_file.create_group(f'snapshot_{i:0>4}')
         snapshot.attrs.create('t', data=t, dtype=float)
         snapshot.attrs.create('ts', data=ts, dtype=int)
 
@@ -224,12 +253,32 @@ class OutputManager:
 
         """
         assert all(isinstance(femspace, FemSpace) for femspace in femspaces.values())
-        for name, femspace in femspaces.items():
 
-            if femspace.is_product:
-                self._add_vector_space(femspace, name=name)
-            else:
-                self._add_scalar_space(femspace, name=name)
+        for name, femspace in femspaces.items():
+            assert name not in self._space_names
+            try:
+                patches = femspace.symbolic_space.domain.interior.as_tuple()
+                for i in range(len(patches)):
+                    if self.comm is None or self.comm.rank == 0: 
+                        if femspace.spaces[i].is_product:
+                            self._add_vector_space(femspace.spaces[i], name=name, patch_name=patches[i].name)
+                        else:
+                            self._add_scalar_space(femspace.spaces[i], name=name, patch_name=patches[i].name)
+                    self._spaces.append(femspace.spaces[i])
+                    self._spaces.append(name)
+                    self._spaces.append(patches[i].name)
+
+            except AttributeError:
+                if self.comm is None or self.comm.rank == 0: 
+                    if femspace.is_product:
+                        self._add_vector_space(femspace, name=name, patch_name=femspace.symbolic_space.domain.name)
+                    else:
+                        self._add_scalar_space(femspace, name=name, patch_name=femspace.symbolic_space.domain.name)
+                self._spaces.append(femspace)
+                self._spaces.append(name)
+                self._spaces.append(femspace.symbolic_space.domain.name)
+        
+            self._space_names.append(name)
 
     def _add_scalar_space(self, scalar_space, name=None, dim=None, patch_name=None, kind=None):
         """Adds a scalar space to the scope of this instance of OutputManager
@@ -240,8 +289,7 @@ class OutputManager:
             Scalar space to add to the scope.
 
         name : str or None, optional
-            Name under which to save the space. Will be generated
-            by looking at the related symbolic space if not given
+            Name under which to save the space.
 
         dim : int or None, optional
             Physical dimension of the related symbolic space.
@@ -258,18 +306,17 @@ class OutputManager:
         new_space : dict
             Formatted space info.
         """
-        spaces_info = self._spaces_info
+        spaces_info = self._space_info
+        
+        scalar_space_name = name
+        patch = patch_name
 
         if dim is None:
             symbolic_space = scalar_space.symbolic_space
-            scalar_space_name = name
             pdim = symbolic_space.domain.dim
-            patch = symbolic_space.domain.name
             kind = symbolic_space.kind
         else:
-            scalar_space_name = name
             pdim = dim
-            patch = patch_name
             kind = kind
 
         ldim = scalar_space.ldim
@@ -279,21 +326,25 @@ class OutputManager:
         degree = [scalar_space.spaces[i].degree for i in range(ldim)]
         basis = [scalar_space.spaces[i].basis for i in range(ldim)]
         knots = [scalar_space.spaces[i].knots.tolist() for i in range(ldim)]
-
+        multiplicity = [int(m) for m in scalar_space.multiplicity]
+        
         new_space = {'name': scalar_space_name,
                      'ldim': ldim,
-                     'kind': self.space_types_to_str[str(kind)],
+                     'kind': self.space_types_to_str[kind],
                      'dtype': dtype,
                      'rational': False,
                      'periodic': periodic,
                      'degree': degree,
+                     'multiplicity': multiplicity,
                      'basis': basis,
                      'knots': knots
                      }
         if spaces_info == {}:
-            spaces_info = {'ndim': pdim,
+            spaces_info = {
+                           'ndim': pdim,
                            'fields': self.filename_fields,
                            'patches': [{'name': patch,
+                                        'breakpoints': [scalar_space.breaks[i].tolist() for i in range(ldim)],
                                         'scalar_spaces': [new_space]
                                         }]
                            }
@@ -311,15 +362,15 @@ class OutputManager:
 
                 spaces_info['patches'][patch_index]['scalar_spaces'].append(new_space)
             else:
-                spaces_info['patches'].append({'name': patch, 'scalar_spaces': [new_space]})
-        self._spaces.append(scalar_space)
-        self._spaces.append(name)
+                spaces_info['patches'].append({'name': patch, 
+                                               'breakpoints': [scalar_space.breaks[i].tolist() for i in range(ldim)], 
+                                               'scalar_spaces': [new_space]})
 
-        self._spaces_info = spaces_info
+        self._space_info = spaces_info
 
         return new_space
 
-    def _add_vector_space(self, vector_space, name=None):
+    def _add_vector_space(self, vector_space, name=None, patch_name=None):
         """Adds a vector space to the scope of this instance of OutputManager.
 
         Parameters
@@ -330,7 +381,7 @@ class OutputManager:
 
         symbolic_space = vector_space.symbolic_space
         dim = symbolic_space.domain.dim
-        patch_name = symbolic_space.domain.name
+        patch_name = patch_name
         kind = symbolic_space.kind
 
         scalar_spaces_info = []
@@ -339,13 +390,13 @@ class OutputManager:
                                                    name=name + f'[{i}]',
                                                    dim=dim,
                                                    patch_name=patch_name,
-                                                   kind='UndefinedSpaceType()')
+                                                   kind=UndefinedSpaceType())
             scalar_spaces_info.append(sc_space_info)
 
-        spaces_info = self._spaces_info
+        spaces_info = self._space_info
 
         new_vector_space = {'name': name,
-                            'kind': self.space_types_to_str[str(kind)],
+                            'kind': self.space_types_to_str[kind],
                             'components': scalar_spaces_info,
                             }
 
@@ -357,9 +408,7 @@ class OutputManager:
         except KeyError:
             spaces_info['patches'][patch_index].update({'vector_spaces': [new_vector_space]})
 
-        self._spaces_info = spaces_info
-        self._spaces.append(vector_space)
-        self._spaces.append(name)
+        self._space_info = spaces_info
 
     def export_fields(self, **fields):
         """
@@ -385,18 +434,7 @@ class OutputManager:
         else:
             assert all(not field_name in self._static_names for field_name in fields.keys())
 
-        # For now, I assume that if something is mpi parallel everything is
-        space_test = list(fields.values())[0].space
-        if space_test.is_product:
-            comm = space_test.spaces[0].vector_space.cart.comm if space_test.vector_space.parallel else None
-        else:
-            comm = space_test.vector_space.cart.comm if space_test.vector_space.parallel else None
-
-        # Open HDF5 file (in parallel mode if MPI communicator size > 1)
-        kwargs = {}
-        if comm is not None and comm.size > 1:
-            kwargs.update(driver='mpio', comm=comm)
-        fh5 = h5.File(self.filename_fields, mode='a', **kwargs)
+        fh5 = self.fields_file
 
         if 'spaces' not in fh5.attrs.keys():
             fh5.attrs.create('spaces', self.filename_space)
@@ -405,42 +443,71 @@ class OutputManager:
 
         # Add field coefficients as named datasets
         for name_field, field in fields.items():
+            multipatch = hasattr(field.space.symbolic_space.domain.interior, 'as_tuple')
+            
+            if multipatch:
+                for f in field.fields:
+                    i = self._spaces.index(f.space)
 
-            i = self._spaces.index(field.space)
+                    name_space = self._spaces[i+1]
+                    name_patch = self._spaces[i+2]
 
-            name_space = self._spaces[i+1]
-            patch = field.space.symbolic_space.domain.name
+                    if f.space.is_product:  # Vector field case
+                        for i, field_coeff in enumerate(f.coeffs):
+                            name_field_i = name_field + f'[{i}]'
+                            name_space_i = name_space + f'[{i}]'
 
-            if field.space.is_product:  # Vector field case
-                for i, field_coeff in enumerate(field.coeffs):
-                    name_field_i = name_field + f'[{i}]'
-                    name_space_i = name_space + f'[{i}]'
+                            Vi = f.space.vector_space.spaces[i]
+                            index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
-                    Vi = field.space.vector_space.spaces[i]
-                    index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
+                            space_group = saving_group.create_group(f'{name_patch}/{name_space_i}')
+                            space_group.attrs.create('parent_space', data=name_space)
 
-                    space_group = saving_group.create_group(f'{patch}/{name_space_i}')
-                    space_group.attrs.create('parent_space', data=name_space)
-
-                    dset = saving_group.create_dataset(f'{patch}/{name_space_i}/{name_field_i}',
-                                                       shape=Vi.npts, dtype=Vi.dtype)
-                    dset.attrs.create('parent_field', data=name_field)
-                    dset[index] = field_coeff[index]
+                            dset = space_group.create_dataset(f'{name_field_i}',
+                                                            shape=Vi.npts, dtype=Vi.dtype)
+                            dset.attrs.create('parent_field', data=name_field)
+                            dset[index] = field_coeff[index]
+                    else:
+                        V = f.space.vector_space
+                        index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+                        dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
+                        dset[index] = f.coeffs[index]
             else:
-                V = field.space.vector_space
-                index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
-                dset = saving_group.create_dataset(f'{patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
-                dset[index] = field.coeffs[index]
+                i = self._spaces.index(field.space)
 
-        # Close HDF5 file
-        fh5.close()
+                name_space = self._spaces[i+1]
+                name_patch = self._spaces[i+2]
+
+                if field.space.is_product:  # Vector field case
+                    for i, field_coeff in enumerate(field.coeffs):
+                        name_field_i = name_field + f'[{i}]'
+                        name_space_i = name_space + f'[{i}]'
+
+                        Vi = field.space.vector_space.spaces[i]
+                        index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
+                        
+
+                        space_group = saving_group.create_group(f'{name_patch}/{name_space_i}')
+                        space_group.attrs.create('parent_space', data=name_space)
+
+                        dset = space_group.create_dataset(f'{name_field_i}',
+                                                        shape=Vi.npts, dtype=Vi.dtype)
+                        dset.attrs.create('parent_field', data=name_field)
+                        dset[index] = field_coeff[index]
+                else:
+                    V = field.space.vector_space
+                    index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+                    dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
+                    dset[index] = field.coeffs[index]
+
 
     def export_space_info(self):
         """Export the space info to Yaml
 
         """
-        with open(self.filename_space, 'w') as f:
-            yaml.dump(data=self._spaces_info, stream=f, default_flow_style=None, sort_keys=False)
+        if self.comm is None or self.comm.Get_rank() == 0:
+            with open(self.filename_space, 'w') as f:
+                yaml.dump(data=self._space_info, stream=f, default_flow_style=None, sort_keys=False)
 
 
 class PostProcessManager:
@@ -496,32 +563,33 @@ class PostProcessManager:
         List of all the snapshots
     """
 
-    def __init__(self, geometry_file=None, domain=None, space_file=None, fields_file=None, ncells=None):
+    def __init__(self, geometry_file=None, domain=None, space_file=None, fields_file=None, comm=None):
         if geometry_file is None and domain is None:
             raise ValueError('Domain or geometry file needed')
         if geometry_file is not None and domain is not None:
             raise ValueError("Can't provide both geometry_file and domain")
-        if geometry_file is None:
-            assert ncells is not None
 
-        self.geometry_file = geometry_file
+        self.geometry_filename = geometry_file
         self._domain = domain
         self._domain_h = None
 
-        self.space_file = space_file
-        self.fields_file = fields_file
+        self.space_filename = space_file
+        self.fields_filename = fields_file
 
-        self._ncells = ncells
         self._spaces = {}
         self._static_fields = {}
         self._snapshot_fields = {}
+        
+        self._last_loaded_fields = None
 
         self._loaded_t = None
         self._loaded_ts = None
         self._snapshot_list = None
 
+        self.comm = comm
+        self.fields_file = None
+
         self._reconstruct_spaces()
-        self.get_snapshot_list()
 
     @property
     def spaces(self):
@@ -530,98 +598,164 @@ class PostProcessManager:
     @property
     def domain(self):
         return self._domain
-
+    
+    @property
+    def fields(self):
+        fields = {}
+        fields.update(self._snapshot_fields)
+        fields.update(self._static_fields)
+        return fields
+    
     def read_space_info(self):
-        """Read ``self.space_file``.
+        """Read ``self.space_filename ``.
 
         Returns
         -------
         dict
             Informations about the spaces.
         """
-        return yaml.load(open(self.space_file), Loader=yaml.SafeLoader)
+        return yaml.load(open(self.space_filename), Loader=yaml.SafeLoader)
 
     def _reconstruct_spaces(self):
         """Reconstructs all of the spaces from reading the files.
 
         """
-        from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace
-        from psydac.api.discretization import discretize
+        space_info = self.read_space_info()
 
-        if self.geometry_file is not None:
-            domain = Domain.from_file(self.geometry_file)
-            domain_h = discretize(domain, filename=self.geometry_file)
+        if self.geometry_filename  is not None:
+            domain = Domain.from_file(self.geometry_filename)
+            domain_h = discretize(domain, filename=self.geometry_filename, comm=self.comm)
         else:
             domain = self._domain
-            domain_h = discretize(domain, ncells=self._ncells)
+            # Use the fact that it only works in single patch
+            assert space_info['patches'][0]['name'] == domain.name
+            breaks = space_info['patches'][0]['breakpoints']
+            ncells = len(breaks) - 1
+            domain_h = discretize(domain, ncells=ncells, comm=self.comm)
 
         self._domain = domain
         self._domain_h = domain_h
-        
-        space_info = self.read_space_info()
 
         pdim = space_info['ndim']
 
         assert pdim == domain.dim
-        assert space_info['fields'] == self.fields_file
+        assert space_info['fields'] == self.fields_filename 
+        convert_deg_dict = _augment_space_degree_dict(domain_h.ldim)
+
+        # No Multipatch Support for now
+        assert len(domain_h.mappings) == 1
+        assert not hasattr(domain.interior, 'as_tuple')
 
         # -------------------------------------------------
         # Space reconstruction
         # -------------------------------------------------
         for patch in space_info['patches']:
-            if patch['name'] == domain.name:
+            breaks = patch['breakpoints']
+            try:
                 scalar_spaces = patch['scalar_spaces']
+            except KeyError:
+                scalar_spaces = {}
+            try:
                 vector_spaces = patch['vector_spaces']
+            except KeyError:
+                vector_spaces = {}
+            already_used_names = []
 
-                already_used_names = []
+            if patch['name'] != domain.name:
+                raise ValueError("Multipatch not supported yet")
+            
+            for v_sp in vector_spaces:
+                components = v_sp['components']
+                temp_v_sp = VectorFunctionSpace(name=v_sp['name'], domain=domain, kind=v_sp['kind'])
 
-                for v_sp in vector_spaces:
-                    components = v_sp['components']
-                    temp_v_sp = VectorFunctionSpace(name=v_sp['name'], domain=domain, kind=v_sp['kind'])
+                basis = []
+                for sc_sp in components:
+                    already_used_names.append(sc_sp['name'])
+                    basis += sc_sp['basis']
 
-                    basis = []
-                    for sc_sp in components:
-                        already_used_names.append(sc_sp['name'])
-                        basis += sc_sp['basis']
+                basis = list(set(basis))
+                if len(basis) != 1:
+                    basis = 'M'
+                else:
+                    basis = basis[0]
 
-                    basis = list(set(basis))
+                degree = [sc_sp['degree'] for sc_sp in components]
+                multiplicity = [sc_sp['multiplicity'] for sc_sp in components]
+                
+                new_degree, new_mul = convert_deg_dict[v_sp['kind']](degree, multiplicity)
+                
+                knots = [[np.asarray(sc_sp['knots'][i]) for i in range(sc_sp['ldim'])] for sc_sp in components][0]
+                periodic = components[0]['periodic']
+
+                for i in range(components[0]['ldim']):
+                    if new_degree[i] != degree[0][i]:
+                        for j in range(new_degree[i] - degree[0][i]):
+                            knots[i] = elevate_knots(knots[i], degree[0][i], periodic=periodic[i])
+
+                temp_kwargs_discretization = {
+                    'degree':[int(new_degree[i]) for i in range(components[0]['ldim'])],
+                    'knots': knots,
+                    'basis': basis,
+                    'periodic':periodic,
+                    'comm': self.comm
+                }
+                self._spaces[v_sp['name']] = discretize(temp_v_sp, domain_h, **temp_kwargs_discretization)
+                
+                for b in range(len(breaks)):
+                    assert np.allclose(self._spaces[v_sp['name']].spaces[0].breaks[b], breaks[b]) 
+
+            for sc_sp in scalar_spaces:
+                if sc_sp['name'] not in already_used_names:
+                    temp_sc_sp = ScalarFunctionSpace(sc_sp['name'], domain, kind=sc_sp['kind'])
+
+                    basis = list(set(sc_sp['basis']))
                     if len(basis) != 1:
-                        raise NotImplementedError("Discretize doesn't support two different bases")
+                        basis = 'M'
+                    else:
+                        basis = basis[0]
 
+                    multiplicity = sc_sp['multiplicity']
+                    degree = sc_sp['degree']
+
+                    new_degree, new_mul = convert_deg_dict[sc_sp['kind']](degree, multiplicity)
+                    
+                    knots = [np.asarray(sc_sp['knots'][i]) for i in range(sc_sp['ldim'])]
+                    periodic = sc_sp['periodic']
+
+                    for i in range(sc_sp['ldim']):
+                        if new_degree[i] != degree[i]:
+                            for j in range(new_degree[i] - degree[i]):
+                                knots[i] = elevate_knots(knots[i], degree[i], periodic=periodic[i])                                    
+                    
                     temp_kwargs_discretization = {
-                        'degree': [sc_sp['degree'] for sc_sp in components],
-                        'knots': [sc_sp['knots'] for sc_sp in components],
-                        'basis': basis[0],
-                        'periodic': [sc_sp['periodic'] for sc_sp in components]
+                        'degree': [int(new_degree[i]) for i in range(sc_sp['ldim'])],
+                        'knots': knots,
+                        'basis': basis,
+                        'periodic': periodic,
+                        'comm': self.comm,
                     }
 
-                    self._spaces[v_sp['name']] = discretize(temp_v_sp, domain_h, **temp_kwargs_discretization)
+                    self._spaces[sc_sp['name']] = discretize(temp_sc_sp, domain_h, **temp_kwargs_discretization)
 
-                for sc_sp in scalar_spaces:
-                    if sc_sp['name'] not in already_used_names:
-                        temp_sc_sp = ScalarFunctionSpace(sc_sp['name'], domain, kind=sc_sp['kind'])
-
-                        basis = list(set(sc_sp['basis']))
-                        if len(basis) != 1:
-                            raise NotImplementedError("Discretize doesn't support two different bases")
-
-                        temp_kwargs_discretization = {
-                            'degree': sc_sp['degree'],
-                            'knots': sc_sp['knots'],
-                            'basis': basis[0],
-                            'periodic': sc_sp['periodic'],
-                        }
-
-                        self._spaces[sc_sp['name']] = discretize(temp_sc_sp, domain_h, **temp_kwargs_discretization)
+                    for b in range(len(breaks)):
+                        assert np.allclose(self._spaces[sc_sp['name']].breaks[b], breaks[b])
 
     def get_snapshot_list(self):
-        fh5 = h5.File(self.fields_file, mode='r')
+        kwargs = {}
+        if self.comm is not None and self.comm.size > 1:
+            kwargs.update(driver='mpio', comm=self.comm)
+        fh5 = h5.File(self.fields_filename, mode='r', **kwargs)
         self._snapshot_list = []
         for k in fh5.keys():
             if k != 'static':
                 self._snapshot_list.append(int(k[-4:]))
-        fh5.close()
+        self.fields_file = fh5
 
+    def close(self):
+        if not self.fields_file is None:
+            self.fields_file.close()
+            self.fields_file = None
+        
     def load_static(self, *fields):
         """Reads static fields from file.
         
@@ -630,59 +764,55 @@ class PostProcessManager:
         *fields : tuple of str
             Names of the fields to load
         """
-        # kwargs = {}
-        # if comm is not None and comm.size > 1:
-        #     kwargs.update(driver='mpio', comm=comm)
-        # fh5 = h5.File(self.filename_fields, mode='a', **kwargs)
-        fh5 = h5.File(self.fields_file, 'r')
+        if self._snapshot_list is None:
+            self.get_snapshot_list()
+        fh5 = self.fields_file
 
         static_group = fh5['static']
         temp_space_to_field = {}
         for patch in static_group.keys():
             patch_group = static_group[patch]
+            
+            for space_name in patch_group.keys():
+                space_group = patch_group[space_name]
 
-            if patch == self._domain.name:
-                for space_name in patch_group.keys():
-                    space_group = patch_group[space_name]
+                if 'parent_space' in space_group.attrs.keys():  # VectorSpace/Field case
+                    relevant_space_name = space_group.attrs['parent_space']
 
-                    if 'parent_space' in space_group.attrs.keys():  # VectorSpace/Field case
-                        relevant_space_name = space_group.attrs['parent_space']
+                    for field_dset_key in space_group.keys():
+                        field_dset = space_group[field_dset_key]
+                        relevant_field_name = field_dset.attrs['parent_field']
 
-                        for field_dset_key in space_group.keys():
-                            field_dset = space_group[field_dset_key]
-                            relevant_field_name = field_dset.attrs['parent_field']
+                        if relevant_field_name in fields:
 
-                            if relevant_field_name in fields:
+                            coeff = field_dset
 
-                                coeff = field_dset
-
-                                # Exceptions to take care of when the dicts are empty
+                            # Exceptions to take care of when the dicts are empty
+                            try:
+                                temp_space_to_field[relevant_space_name][relevant_field_name].append(coeff)
+                            except KeyError:
                                 try:
-                                    temp_space_to_field[relevant_space_name][relevant_field_name].append(coeff)
+                                    temp_space_to_field[relevant_space_name][relevant_field_name] = [coeff]
                                 except KeyError:
                                     try:
-                                        temp_space_to_field[relevant_space_name][relevant_field_name] = [coeff]
+                                        temp_space_to_field[relevant_space_name] = {relevant_field_name:
+                                                                                        [coeff]
+                                                                                        }
                                     except KeyError:
-                                        try:
-                                            temp_space_to_field[relevant_space_name] = {relevant_field_name:
-                                                                                            [coeff]
-                                                                                            }
-                                        except KeyError:
-                                            temp_space_to_field = {relevant_space_name:
-                                                                {relevant_field_name: [coeff]}
-                                                                    }
+                                        temp_space_to_field = {relevant_space_name:
+                                                            {relevant_field_name: [coeff]}
+                                                                }
 
-                    else:  # Scalar case
-                            V = self._spaces[space_name].vector_space
-                            index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
-                            for field_dset_name in space_group.keys():
-                                if field_dset_name in fields:
-                                    new_field = FemField(self._spaces[space_name])
-                                    new_field.coeffs[index] = space_group[field_dset_name][index]
-
-                                    self._static_fields[field_dset_name] = new_field
-
-        
+                else:  # Scalar case
+                    V = self._spaces[space_name].vector_space
+                    index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+                    for field_dset_name in space_group.keys():
+                        if field_dset_name in fields:
+                            new_field = FemField(self._spaces[space_name])
+                            new_field.coeffs[index] = space_group[field_dset_name][index]
+                            new_field.coeffs.update_ghost_regions()
+                            self._static_fields[field_dset_name] = new_field
+ 
         for space_name, field_dict in temp_space_to_field.items():
             
             for field_name, list_coeffs in field_dict.items():
@@ -694,10 +824,11 @@ class PostProcessManager:
                     index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
                     new_field.coeffs[i][index] = coeff[index]
-
+                new_field.coeffs.update_ghost_regions()
                 self._static_fields[field_name] = new_field
 
-        fh5.close()
+        self._last_loaded_fields = self._static_fields
+
 
     def load_snapshot(self, n, *fields):
         """Reads a particular snapshot from file
@@ -709,11 +840,9 @@ class PostProcessManager:
         *fields : tuple of str
             Names of the fields to load
         """
-        # kwargs = {}
-        # if comm is not None and comm.size > 1:
-        #     kwargs.update(driver='mpio', comm=comm)
-        # fh5 = h5.File(self.filename_fields, mode='a', **kwargs)
-        fh5 = h5.File(self.fields_file, 'r')
+        if self._snapshot_list is None:
+            self.get_snapshot_list()
+        fh5 = self.fields_file
 
         snapshot_group = fh5[f'snapshot_{n:0>4}']
         temp_space_to_field = {}
@@ -755,22 +884,27 @@ class PostProcessManager:
                             index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
                             for field_dset_name in space_group.keys():
                                 if field_dset_name in fields:
+                                    # Try to reuse memory
                                     try:
                                         self._snapshot_fields[field_dset_name].coeffs[index] = space_group[field_dset_name][index]
+                                        
+                                        self._snapshot_fields[field_dset_name].coeffs.update_ghost_regions()
                                     except KeyError:
                                         new_field = FemField(self._spaces[space_name])
                                         new_field.coeffs[index] = space_group[field_dset_name][index]
-
+                                        new_field.coeffs.update_ghost_regions()
                                         self._snapshot_fields[field_dset_name] = new_field
 
         for space_name, field_dict in temp_space_to_field.items():
             for field_name, list_coeffs in field_dict.items():
+                # Try to reuse memory
                 try:
                     for i, coeff in enumerate(list_coeffs):
                         Vi = self._spaces[space_name].vector_space.spaces[i]
                         index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
-
                         self._snapshot_fields[field_name].coeffs[i][index] = coeff[index]
+                        # Ghost regions are not in sync anymore
+                        self._snapshot_fields[field_name].coeffs.update_ghost_regions()
                 except KeyError:
                     new_field = FemField(self._spaces[space_name])
 
@@ -779,17 +913,31 @@ class PostProcessManager:
                         index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
                         new_field.coeffs[i][index] = coeff[index]
+                    new_field.coeffs.update_ghost_regions()
                     self._snapshot_fields[field_name] = new_field
 
         self._loaded_t = snapshot_group.attrs['t']
         self._loaded_ts = snapshot_group.attrs['ts']
-        fh5.close()
 
         for key in list(self._snapshot_fields.keys()):
             if key not in fields:
                 del self._snapshot_fields[key]
 
-    def export_to_vtk(self, filename_pattern, grid, npts_per_cell=None, snapshots='none', lz=4, fields=None, debug=False):
+        self._last_loaded_fields = self._snapshot_fields
+
+    def export_to_vtk(self, 
+                      filename_pattern, 
+                      grid,
+                      *,
+                      npts_per_cell=None, 
+                      snapshots='none', 
+                      lz=4, 
+                      logical_grid=False, 
+                      fields=None, 
+                      additional_physical_functions=None,
+                      additional_logical_functions=None,
+                      number_by_rank=True,
+                      debug=False):
         """Exports some fields to vtk. 
 
         Parameters
@@ -814,98 +962,214 @@ class PostProcessManager:
             Only used if ``snapshot`` is not ``'none'``. 
 
         fields : dict
-            Dictionary with the fields to export as keys and the name under which to export them as values
+            Dictionary with the fields to export as values and the name under which to export them as keys
         
+        additional_physical_functions : dict
+            Dictionary of callable functions. Those functions will be called on (x_mesh, y_mesh, z_mesh)
+
+        additional_logical_functions : dict
+            Dictionary of callable functions. Those functions will be called on the grid.
+        
+        number_by_rank : bool, default=True
+            Adds a cellData attribute that represents the rank of the process that created the file. 
+
         debug : bool, default=False
             If true, returns ``(mesh, pointData_list)`` where ``mesh`` is ``(x_mesh, y_mesh,  z_mesh)``
             and ``pointData_list`` is the list of all the pointData dictionaries.
 
         Notes
         -----
-        This function only supports regular tensor grid.
+        This function only supports regular and irregular tensor grid.
         """
         # =================================================
         # Common to everything
         # =================================================
-        # Get Mapping
+        
+        # Get Mappings
         mappings = self._domain_h.mappings
-
+        # Do not support Multipatch domains.
         if len(mappings.values()) != 1:
             raise NotImplementedError("Multipatch not supported yet")
 
+        ldim = self._domain_h.ldim
+        # Singular mapping
         mapping = list(mappings.values())[0]
+        if mapping is None:
+            try: 
+                mapping = self._domain.mapping
+            except:
+                mapping = IdentityMapping('F', len(grid))
 
-        ldim = mapping.ldim
+        if isinstance(mapping, SplineMapping):
+            local_domain = mapping.space.local_domain
+            global_domain = ((0,) * ldim, tuple(nc_i - 1 for nc_i in mapping.space.ncells))
+            space_0 = mapping.space
 
-        if isinstance(npts_per_cell, int):
-            npts_per_cell = (npts_per_cell,) * ldim
+        elif isinstance(mapping, Mapping):
+            assert self._spaces is not {}
+            space_0 = list(self._spaces.values())[0]
+            try:
+                local_domain = space_0.local_domain
+                global_domain = ((0,) * ldim, tuple(nc_i - 1 for nc_i in space_0.ncells))
+            except AttributeError:
+                space_0 = space_0.spaces[0]
+                local_domain = space_0.local_domain
+                global_domain = ((0,) * ldim, tuple(nc_i - 1 for nc_i in space_0.ncells))
 
-        # Only regular tensor product grid is supported for now
+
+
+        # Check the grid argument
+        assert len(grid) == ldim
         grid_test = [np.asarray(grid[i]) for i in range(ldim)]
-        assert grid_test[0].ndim == 1 and npts_per_cell is not None
         assert all(grid_test[i].ndim == grid_test[i+1].ndim for i in range(len(grid) - 1))
-        assert all(grid_test[i].size % npts_per_cell[i] == 0 for i in range(ldim))
+        
+        if grid_test[0].ndim == 1 and npts_per_cell is not None:
+            # Account for only an int being given
+            if isinstance(npts_per_cell, int):
+                npts_per_cell = (npts_per_cell,) * ldim
 
-        # Coordinates of the mesh, C Contiguous arrays
-        x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell)
+            # Check that the grid is regular
+            assert all(grid_test[i].size % npts_per_cell[i] == 0 for i in range(ldim))
+
+            grid_local = []
+            for i in range(len(grid_test)):
+                grid_local.append(grid_test[i][local_domain[0][i] * npts_per_cell[i]:
+                                                (local_domain[1][i] + 1) * npts_per_cell[i]])
+                
+            cell_indexes = None
+
+        elif grid_test[0].ndim == 1 and npts_per_cell is None:
+            cell_indexes = [cell_index(space_0.breaks[i], grid_test[i]) for i in range(ldim)]
+
+            grid_local = []
+            for i in range(ldim):
+                i_start = np.searchsorted(cell_indexes[i], local_domain[0][i], side='left')
+                i_end = np.searchsorted(cell_indexes[i], local_domain[1][i], side='right')
+                grid_local.append(grid_test[i][i_start:i_end])
+
+        elif grid_test[0].ndim == ldim:
+            raise NotImplementedError("Unstructured grids are not supported yet")
+        else:
+            raise ValueError("Wrong input for the grid parameters")
+
+
+        self._pushforward = Pushforward(mapping, grid, npts_per_cell=npts_per_cell, local_domain=local_domain,
+                                        global_domain=global_domain, grid_local=grid_local)
+
+        mesh_grids = np.meshgrid(*grid_local, indexing = 'ij')
+
+        cellData = None
+        cellData_info = None    
+
+        if isinstance(mapping, SplineMapping):
+            x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell, overlap=0)
+        elif isinstance(mapping, Mapping):
+            call_map = mapping.get_callable_mapping()
+            if ldim == 2:
+                x_mesh, y_mesh = call_map(*mesh_grids)
+                x_mesh = x_mesh[..., None]
+                y_mesh = y_mesh[..., None]
+                z_mesh = np.zeros_like(x_mesh)
+            elif ldim == 3:
+                x_mesh, y_mesh, z_mesh = call_map(*mesh_grids)
+        conn, offsets, celltypes, cell_shape = self._compute_unstructured_mesh_info(local_domain, 
+                                                                                    npts_per_cell=npts_per_cell, 
+                                                                                    cell_indexes=cell_indexes)
+
+        # Check if launched in parallel
+        if self.comm is not None and self.comm.size >1:
+            # shortcut
+            rank = self.comm.Get_rank()
+            size = self.comm.Get_size()
+
+            if number_by_rank:
+                if ldim == 2:
+                    cellData = {'MPI_RANK': np.full(tuple(cell_shape) + (1,), rank, dtype='i')}
+                elif ldim == 3:
+                    cellData = {'MPI_RANK': np.full(tuple(cell_shape), rank, dtype='i')}
+                cellData_info = {'MPI_RANK': (cellData['MPI_RANK'].dtype, 1)}
+            # Filenames
+            filename_static = filename_pattern + f'.{rank}.' + 'static'
+            filename_time_dependent = filename_pattern + f'.{rank}'
+
+        else:
+            # Naming
+            filename_static = filename_pattern + ".static"
+            filename_time_dependent = filename_pattern
 
         if debug:
-            debug_result = ((x_mesh, y_mesh, z_mesh), [])
+            debug_result = ((x_mesh, y_mesh, z_mesh, conn, offsets, celltypes),[])
 
-        if ldim == 2:
-            slice_3d = (slice(0, None, 1), slice(0, None, 1), None)
-        elif ldim == 3:
-            slice_3d = (slice(0, None, 1), slice(0, None, 1), slice(0, None, 1))
-        else:
-            raise NotImplementedError("1D case not Implemented yet")
+        if fields is None:
+            fields={}
+        
+        if additional_physical_functions is None:
+            additional_physical_functions = {}
+        
+        if additional_logical_functions is None:
+            additional_logical_functions = {}
 
         # ============================
         # Static
         # ============================
         if snapshots in ['all', 'none']:
             if self._static_fields == {}:
-                self.load_static( *fields.keys())
-            pointData_static = {}
-            smart_eval_dict = {}
+                self.load_static(*fields.values())
+            
+            if self.comm is not None and self.comm.rank == 0:
+                general_pointData_static_info = {}
 
-            for f_name, field in self._static_fields.items():
-                if f_name in fields.keys():
-                    try:
-                        smart_eval_dict[field.space][0].append(field)
-                        smart_eval_dict[field.space][1].append(fields[f_name])
-                    except KeyError:
-                        smart_eval_dict[field.space] = ([field], [fields[f_name]])
+            pointData_static = self._export_to_vtk_helper(x_mesh.shape, fields=fields)
+           
+            if logical_grid:
+                for i in range(ldim):
+                    pointData_static[f'x_{i}'] = np.reshape(mesh_grids[i], x_mesh.shape)
+            
+            for name, f in additional_logical_functions.items():
+                data = f(*mesh_grids)
+                if isinstance(data, tuple):
+                    reshaped_tuple = tuple(np.reshape(data[i], x_mesh.shape) for i in range(3))
+                    pointData_static[name] = reshaped_tuple
+                else:
+                    pointData_static[name] = np.reshape(data, x_mesh.shape) 
 
-            for space, (field_list_to_eval, name_list) in smart_eval_dict.items():
-                pushed_fields = space.pushforward_fields(grid,
-                                                            *field_list_to_eval,
-                                                            mapping=mapping,
-                                                            npts_per_cell=npts_per_cell)
-
-                if not isinstance(pushed_fields[0], list):
-                    pushed_fields = [[pushed_fields[i]] for i in range(len(pushed_fields))]
-
-                for i in range(len(name_list)):
-                    if len(pushed_fields[i]) == 1:
-                        # Means that this is a Scalar space.
-                        pointData_static[name_list[i]] = pushed_fields[i][0][slice_3d]
-                    else:
-                        # Means that this is a vector/product space and that we need to turn the
-                        # result into a 3-tuple (x_component, y_component, z_component)
-                        tuple_fields = tuple(pushed_fields[i][j][slice_3d] for j in range(ldim)) \
-                                                + (3-ldim) * (np.zeros_like(pushed_fields[i][0])[slice_3d],)
-                        pointData_static[name_list[i]] = tuple_fields
-
-            # Export static fields to VTK
+            if ldim == 2:
+                for name, f in additional_physical_functions.items():
+                    pointData_static[name] = f(x_mesh, y_mesh)
+            elif ldim == 3:
+                for name, f in additional_physical_functions.items():
+                    pointData_static[name] = f(x_mesh, y_mesh, z_mesh)
+            
             if debug:
                 debug_result[1].append(pointData_static)
-            pyevtk.hl.gridToVTK(f'{filename_pattern}_static', x_mesh, y_mesh, z_mesh,
-                                pointData=pointData_static)
+            
+            if self.comm is not None and self.comm.rank == 0:
+                for name, field in pointData_static.items():
+                    if isinstance(field, tuple):
+                        general_pointData_static_info[name] = (field[0].dtype, 3)
+                    else:
+                        general_pointData_static_info[name] = (field.dtype, 1)
+            
+            # Export static fields to VTK
+            unstructuredGridToVTK(filename_static, x_mesh, y_mesh, z_mesh,
+                                  connectivity=conn,
+                                  offsets=offsets,
+                                  cell_types=celltypes,
+                                  pointData=pointData_static,
+                                  cellData=cellData)
+
+            if self.comm is not None and self.comm.Get_size() > 1 and self.comm.Get_rank() == 0:
+                writeParallelVTKUnstructuredGrid(filename_pattern + "_static", coordsdtype=x_mesh.dtype,
+                                                 sources=[filename_pattern + f".{r}"+'.static.vtu' for r in range(size)],
+                                                 ghostlevel=0,
+                                                 pointData=general_pointData_static_info,
+                                                 cellData=cellData_info)
 
         # =================================================
         # Time Dependent part
         # =================================================
         # get which snapshots to go through
+       
         if snapshots == 'all':
             snapshots = self._snapshot_list
         if isinstance(snapshots, int):
@@ -913,71 +1177,307 @@ class PostProcessManager:
 
         if snapshots == 'none':
             snapshots = []
-
-        smart_eval_dict = {}
-        for i, snapshot in enumerate(snapshots):
-            self.load_snapshot(snapshot,*fields.keys())
-
-            for f_name, field in self._snapshot_fields.items():
-                if f_name in fields.keys():
-                    try:
-                        smart_eval_dict[field.space][0].append(field)
-                        smart_eval_dict[field.space][1].append(fields[f_name])
-                        smart_eval_dict[field.space][2].append(i)
-                    except KeyError:
-                        smart_eval_dict[field.space] = ([field], [fields[f_name]], [i])
-
-        pointData_full = {}
-
-        for space, (field_list_to_eval, name_list, time_list) in smart_eval_dict.items():
-            pushed_fields = space.pushforward_fields(grid,
-                                                     *field_list_to_eval,
-                                                     mapping=mapping,
-                                                     npts_per_cell=npts_per_cell)
-
-            if not isinstance(pushed_fields[0], list):
-                # This is space-dependent, so we only need to check for the first index.
-                pushed_fields = [[pushed_fields[i]] for i in range(len(pushed_fields))]
-
-
-            previous_time = time_list[0]
-            pointData_time = {}
-            for i in range(len(name_list)):
-
-                # Check if we are in the same snapshot as before, if yes do nothing,
-                # if not, we save the current pointData under the appropriate timestamp
-                current_time = time_list[i]
-
-                if current_time != previous_time:
-
-                    try:
-                        pointData_full[previous_time].update(pointData_time.copy())
-                    except KeyError:
-                        pointData_full[previous_time] = pointData_time.copy()
-
-                    previous_time = current_time
-
-                # Format the results
-                if len(pushed_fields[i]) == 1:
-                    pointData_time[name_list[i]] = pushed_fields[i][0][slice_3d]
-                else:
-                    # Means that this is a vector/product space and we need to turn the
-                    # result into a 3-tuple (x_component, y_component, z_component)
-                    tuple_fields = tuple(pushed_fields[i][j][slice_3d] for j in range(ldim)) \
-                                   + (3 - ldim) * (np.zeros_like(pushed_fields[i][0])[slice_3d],)
-                    pointData_time[name_list[i]] = tuple_fields
-
-            # Save at the end of the loop
-            try:
-                pointData_full[time_list[len(name_list) - 1]].update(pointData_time.copy())
-            except KeyError:
-                pointData_full[time_list[len(name_list) - 1]] = pointData_time.copy()
-
-        for i, pointData_full_i in enumerate(pointData_full.values()):
-            if debug:
-                debug_result[1].append(pointData_full_i)
-            pyevtk.hl.gridToVTK(filename_pattern + '_{0:0{1}d}'.format(i, lz),
-                                x_mesh, y_mesh, z_mesh, pointData=pointData_full_i)
         
+        for i, snapshot in enumerate(snapshots):
+            self.load_snapshot(snapshot, *fields.values())
+            pointData_i = self._export_to_vtk_helper(x_mesh.shape, fields=fields)
+
+            if logical_grid:
+                for k in range(ldim):
+                    pointData_i[f'x_{k}'] = mesh_grids[k]
+            
+            for name, f in additional_logical_functions.items():
+                data = f(*mesh_grids)
+                if isinstance(data, tuple):
+                    reshaped_tuple = tuple(np.reshape(data[i], x_mesh.shape))
+                    pointData_i[name] = reshaped_tuple
+                else:
+                    pointData_i[name] = np.reshape(data, x_mesh.shape) 
+                
+            if ldim == 2:
+                for name, f  in additional_physical_functions.items():
+                    pointData_i[name] = f(x_mesh, y_mesh)
+            elif ldim == 3:
+                for name, f  in additional_physical_functions.items():
+                    pointData_i[name] = f(x_mesh, y_mesh, z_mesh)
+
+            if debug:
+                debug_result[1].append(pointData_i)
+            
+            if self.comm is not None and self.comm.Get_size() > 1 and self.comm.Get_rank() == 0:
+    
+                general_pointData_time_info = {}
+                for name, data in pointData_i.items():
+                    if isinstance(data, tuple):
+                        general_pointData_time_info[name] = (data[0].dtype, 3)
+                    else:
+                        general_pointData_time_info[name] = (data.dtype, 1)
+                
+                writeParallelVTKUnstructuredGrid(filename_pattern + '.{0:0{1}d}'.format(i, lz),
+                                    coordsdtype= x_mesh.dtype,
+                                    sources=[filename_pattern + f'.{r}' + '.{0:0{1}d}'.format(i, lz) + '.vtu' for r in range(size)],
+                                    ghostlevel=0,
+                                    pointData=general_pointData_time_info,
+                                    cellData=cellData_info)
+
+            unstructuredGridToVTK(filename_time_dependent + '.{0:0{1}d}'.format(i, lz),
+                                  x_mesh, y_mesh, z_mesh,
+                                  connectivity=conn,
+                                  offsets=offsets,
+                                  cell_types=celltypes,
+                                  pointData=pointData_i,
+                                  cellData=cellData)
+    
         if debug:
             return debug_result
+
+    def _export_to_vtk_helper(self, shape, fields=None):
+        """
+        Helper function to make the proper function easier to read.
+        The correct fields are supposed to be already loaded. 
+
+        Parameters
+        ----------
+
+        shape : tuple
+            Shape of the mesh
+        
+        fields : dict, optional
+            
+        """
+        fields_relevant = {}
+        for vtk_name, f_name in fields.items():
+            if f_name in self._last_loaded_fields.keys():
+                fields_relevant[vtk_name] = self._last_loaded_fields[f_name]
+        pointData_int = self._pushforward(fields=fields_relevant)
+        pointData = {}
+        if self._domain_h.ldim == 2:
+            for (name, field) in pointData_int:
+                if isinstance(field, tuple):
+                    pointData[name] = (np.reshape(field[0], shape), np.reshape(field[1], shape), np.zeros(shape))
+                else:
+                    pointData[name] = np.reshape(field, shape)
+        else:
+            for (name, field) in pointData_int:
+                pointData[name] = field
+
+        return pointData
+
+    def _compute_unstructured_mesh_info(self, mapping_local_domain, npts_per_cell=None, cell_indexes=None):
+        """
+        Computes the connection, offset and celltypes arrays for exportation
+        as VTK unstructured grid.
+
+        Parameters
+        ----------
+
+        mapping_local_domain : tuple of tuple
+
+        npts_per_cell : tuple of ints or ints, optional
+
+        cell_indexes : tuple of arrays, optional
+
+        Return 
+        ------
+        connectivity : ndarray
+            1D array containing the connectivity between points
+        offsets : ndarray 
+            1D array containing the index of the last vertex of each cell
+        celltypes : ndarray
+            1D array containing the type ID of each cell
+        cellshape : tuple
+            Number of cell in each direction.
+        """
+        starts, ends = mapping_local_domain
+        ldim = len(starts)
+
+        if npts_per_cell is not None:
+            n_elem = tuple(ends[i] + 1 - starts[i] for i in range(ldim))
+            cellshape = np.array(n_elem) * (np.array(npts_per_cell)) - 1
+            total_number_cells_vtk = np.prod(cellshape)
+            celltypes = np.zeros(total_number_cells_vtk, dtype='i')
+            offsets = np.arange(1, total_number_cells_vtk + 1, dtype='i') * (2 ** ldim)
+            connectivity = np.zeros(total_number_cells_vtk * 2 ** ldim, dtype='i')
+            if ldim == 2: 
+                celltypes[:] = VtkQuad.tid
+                cellID = 0
+                for i in range(n_elem[0] * npts_per_cell[0] - 1):
+                    for j  in range(n_elem[1] * npts_per_cell[1] - 1):
+                        row_top = i 
+                        col_left = j
+
+                        # VTK uses Fortran ordering
+                        topleft = col_left * npts_per_cell[0] * n_elem[0] + row_top
+                        topright = topleft + 1
+                        botleft = topleft + n_elem[0] * npts_per_cell[0] # next column
+                        botright = botleft + 1
+
+                        connectivity[4 * cellID: 4 * cellID + 4] = [topleft, topright, botright, botleft]
+
+                        cellID += 1
+    
+            elif ldim == 3:
+                celltypes[:] = VtkHexahedron.tid
+                cellID = 0
+                n_rows = n_elem[0] * npts_per_cell[0]
+                n_cols = n_elem[1] * npts_per_cell[1]
+                n_layers = n_elem[2] * npts_per_cell[2]
+                for i in range(n_rows - 1):
+                    for j in range(n_cols - 1):
+                        for k in range(n_layers - 1):
+
+                            row_top = i
+                            col_left = j 
+                            layer_front = k
+                            
+                            # VTK uses Fortran ordering
+                            top_left_front = row_top + col_left * n_rows + layer_front * n_cols * n_rows
+                            top_left_back = top_left_front + 1
+                            top_right_front = top_left_front + n_rows # next column
+                            top_right_back = top_right_front + 1
+
+                            bot_left_front = top_left_front + n_rows * n_cols # next layer
+                            bot_left_back = bot_left_front + 1
+                            bot_right_front = bot_left_front + n_rows # next column
+                            bot_right_back = bot_right_front + 1
+
+                            connectivity[8 * cellID: 8 * cellID + 8] = [
+                                top_left_front, top_right_front, bot_right_front, bot_left_front,
+                                top_left_back, top_right_back, bot_right_back, bot_left_back
+                            ]
+
+                            cellID += 1
+        
+        elif cell_indexes is not None:
+            i_starts = [np.searchsorted(cell_indexes[i], starts[i], side='left') for i in range(ldim)]
+            i_ends = [np.searchsorted(cell_indexes[i], ends[i], side='right') for i in range(ldim)]
+            n_points = tuple(i_ends[i] - i_starts[i] for i in range(ldim))
+
+            cellshape = np.array([n_points[i] - 1 for i in range(ldim)])
+            total_number_cells_vtk = np.prod(cellshape)
+            celltypes = np.zeros(total_number_cells_vtk, dtype='i')
+            offsets = np.arange(1, total_number_cells_vtk + 1, dtype='i') * (2 ** ldim)
+            connectivity = np.zeros(total_number_cells_vtk * 2 ** ldim, dtype='i')
+            if ldim == 2:
+                cellID = 0
+                celltypes[:] = VtkQuad.tid
+                for i in range(i_ends[0] - 1 - i_starts[0]):
+                    for j in range(i_ends[1] - 1 - i_starts[1]):
+
+                        row_top = i
+                        col_left = j
+
+                        # VTK uses Fortran ordering
+                        topleft = row_top + col_left * n_points[0]
+                        topright = topleft + 1
+                        botleft = topleft + n_points[0]
+                        botright = botleft +1
+
+                        connectivity[4 * cellID: 4 * cellID + 4] = [topleft, topright, botright, botleft]
+                        cellID += 1
+
+            elif ldim == 3:
+                cellID = 0
+                celltypes[:] = VtkHexahedron.tid
+                n_rows = n_points[0]
+                n_cols = n_points[1]
+                n_layers = n_points[2]
+                for i in range(i_ends[0] - 1 - i_starts[0]):
+                    for j in range(i_ends[1] - 1 - i_starts[1]):
+                        for k in range(i_ends[2] - 1 - i_starts[2]):
+                            row_top = i
+                            col_left = j
+                            layer_front = k
+
+                            # VTK uses Fortran ordering
+                            top_left_front = row_top + col_left * n_rows + layer_front * n_cols * n_rows
+                            top_left_back = top_left_front + 1
+                            top_right_front = top_left_front + n_rows # next column
+                            top_right_back = top_right_front + 1
+
+                            bot_left_front = top_left_front + n_rows * n_cols # next layer
+                            bot_left_back = bot_left_front + 1
+                            bot_right_front = bot_left_front + n_rows # next column
+                            bot_right_back = bot_right_front + 1
+
+
+                            connectivity[8 * cellID: 8 * cellID + 8] = [
+                                top_left_front, top_right_front, bot_right_front, bot_left_front,
+                                top_left_back, top_right_back, bot_right_back, bot_left_back
+                            ]
+
+                            cellID += 1
+
+        else:
+            raise NotImplementedError("Not Supported Yet")
+
+        return connectivity, offsets, celltypes, cellshape
+
+
+def _augment_space_degree_dict(ldim, sequence='DR'):
+    """
+    With the 'DR' sequence in 3D, all multiplicies are [r1, r2, r3] and we have
+     'H1'   : degree = [p1, p2, p3]
+     'Hcurl': degree = [[p1-1, p2, p3], [p1, p2-1, p3], [p1, p2, p3-1]]
+     'Hdiv' : degree = [[p1, p2-1, p3-1], [p1-1, p2, p3-1], [p1-1, p2-1, p3]]
+     'L2'   : degree = [p1-1, p2-1, p3-1]
+
+    With the 'TH' sequence in 2D we have:
+     'H1' : degree = [[p1, p2], [p1, p2]], multiplicity = [[r1, r2], [r1, r2]]
+     'L2' : degree = [p1-1, p2-1], multiplicity = [r1-1, r2-1]
+
+    With the 'RT' sequence in 2D we have:
+    'H1' : degree = [[p1, p2-1], [p1-1, p2]], multiplicity = [[r1,r2], [r1,r2]]
+    'L2' : degree = [p1-1, p2-1], multiplicity = [r1, r2]
+
+    With the 'N' sequence in 2D we have:
+    'H1' : degree = [[p1, p2], [p1, p2]], multiplicity = [[r1,r2+1], [r1+1,r2]]
+    'L2' : degree = [p1-1, p2-1], multiplicity = [r1, r2]
+    """
+    assert ldim in [2, 3]
+    
+    if sequence == 'DR':
+        def f_h1(degree, multiplicity):
+            if isinstance(degree[0], (list, tuple, np.ndarray)):
+                return degree[0], multiplicity
+            else:
+                return degree, multiplicity
+    
+        def f_l2(degree, multiplicity):
+            if isinstance(degree[0], (list, tuple, np.ndarray)):
+                return np.asarray(degree[0]) + 1, multiplicity
+            else:
+                return np.asarray(degree) + 1, multiplicity
+
+        if ldim == 2:
+            def f_hdiv(degree, multiplicity):
+                degree = np.asarray(degree[0])
+                degree += np.array([0, 1])
+                return degree, multiplicity
+
+            def f_hcurl(degree, multiplicity):
+                degree = np.asarray(degree[0])
+                degree += np.array([1, 0])
+                return degree, multiplicity
+
+        else:
+            def f_hdiv(degree, multiplicity):
+                degree = np.asarray(degree[0])
+                degree += np.array([0, 1, 1])
+                return degree, multiplicity
+
+            def f_hcurl(degree, multiplicity):
+                degree = np.asarray(degree[0])
+                degree += np.array([1, 0, 0])
+                return degree, multiplicity 
+
+        kind_dict = {
+            'h1': f_h1,
+            'hcurl': f_hcurl,
+            'hdiv': f_hdiv,
+            'l2': f_l2,
+            'undefined': f_h1, 
+        }
+        return kind_dict
+    else:
+        raise NotImplementedError("Only DR sequence is implemented")

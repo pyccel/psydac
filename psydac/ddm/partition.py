@@ -122,7 +122,7 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
 
         # If general decomposition yields blocks too small, raise error
         if too_small:
-            raise ValueError("Cannot compute dimensions with given input values!")
+            raise ValueError("Cannot compute dimensions with the minimum acceptable block sizes {}".format(tuple(min_blocksizes)))
 
     return dims, blocksizes
 

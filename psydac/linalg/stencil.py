@@ -10,7 +10,7 @@ from scipy.sparse import coo_matrix
 from mpi4py import MPI
 
 from psydac.linalg.basic   import VectorSpace, Vector, Matrix
-from psydac.ddm.cart       import find_mpi_type, CartDecomposition, InterfaceCartDecomposition, CartDataExchanger
+from psydac.ddm.cart       import find_mpi_type, CartDecomposition, InterfaceCartDecomposition, CartDataExchanger, InterfaceCartDataExchanger
 
 __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix']
 
@@ -123,7 +123,7 @@ class StencilVectorSpace( VectorSpace ):
         self._dtype      = dtype
         self._mpi_type   = find_mpi_type(dtype)
         self._starts     = (0,)*self._ndim
-        self._ends       = (0,)*self._ndim
+        self._ends       = (-1,)*self._ndim
         self._shape      = (0,)*self._ndim
         self._interfaces = {}
 
@@ -1889,10 +1889,6 @@ class StencilInterfaceMatrix(Matrix):
         # For clarity rename self
         M = self
 
-        # If necessary, update ghost regions of original matrix M
-#        if not M.ghost_regions_in_sync:
-#            M.update_ghost_regions()
-
         # Create new matrix where domain and codomain are swapped
         Mt = StencilInterfaceMatrix(M.codomain, M.domain, M.c_start, M.d_start, M._c_axis, M._d_axis, M._c_ext, M._d_ext,
                                     flip=M._flip, pads=M._pads, backend=M._backend)
@@ -2077,6 +2073,11 @@ class StencilInterfaceMatrix(Matrix):
 
     # ...
     @property
+    def flip( self ):
+        return self._flip
+
+    # ...
+    @property
     def pads( self ):
         return self._pads
 
@@ -2100,29 +2101,8 @@ class StencilInterfaceMatrix(Matrix):
         return self._data.max()
 
     # ...
-    def update_ghost_regions( self, *, direction=None ):
-        """
-        Update ghost regions before performing non-local access to matrix
-        elements (e.g. in matrix transposition).
-
-        Parameters
-        ----------
-        direction : int
-            Single direction along which to operate (if not specified, all of them).
-
-        """
-        ndim     = self._codomain.ndim
-        parallel = self._codomain.parallel
-
-        if self._codomain.parallel:
-            # PARALLEL CASE: fill in ghost regions with data from neighbors
-            self._synchronizer.update_ghost_regions( self._data, direction=direction )
-        else:
-            # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
-            self._update_ghost_regions_serial( direction )
-
-        # Flag ghost regions as up-to-date
-        self._sync = True
+    def backend( self ):
+        return self._backend
 
     #--------------------------------------
     # Private methods

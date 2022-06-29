@@ -220,7 +220,7 @@ class Geometry( object ):
 
         # ... construct interface spaces
         if n_patches>1:
-            interfaces_info = construct_interface_spaces(g_spaces, spaces, self._cart, interiors, interfaces, comm)
+            interfaces_info = construct_interface_spaces(g_spaces, self._cart, interiors, interfaces, comm)
         else:
             interfaces_info = {}
 
