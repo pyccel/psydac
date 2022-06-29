@@ -98,28 +98,27 @@ def run_vector_poisson_2d_dir(filename, solution, f):
     return l2_error, h1_error
 
 #==============================================================================
-def test_api_vector_poisson_2d_dir_identity():
-    filename = os.path.join(mesh_dir, 'multipatch/square.h5')
+#def test_api_vector_poisson_2d_dir_identity():
+#    filename = os.path.join(mesh_dir, 'multipatch/square.h5')
 
-    from sympy.abc import x,y
+#    from sympy.abc import x,y
 
-    u1 = sin(pi*x)*sin(pi*y)
-    u2 = sin(pi*x)*sin(pi*y)
-    solution = Tuple(u1, u2)
+#    u1 = sin(pi*x)*sin(pi*y)
+#    u2 = sin(pi*x)*sin(pi*y)
+#    solution = Tuple(u1, u2)
 
-    f1 = 2*pi**2*sin(pi*x)*sin(pi*y)
-    f2 = 2*pi**2*sin(pi*x)*sin(pi*y)
-    f = Tuple(f1, f2)
+#    f1 = 2*pi**2*sin(pi*x)*sin(pi*y)
+#    f2 = 2*pi**2*sin(pi*x)*sin(pi*y)
+#    f = Tuple(f1, f2)
 
-    l2_error, h1_error = run_vector_poisson_2d_dir(filename, solution, f)
+#    l2_error, h1_error = run_vector_poisson_2d_dir(filename, solution, f)
 
-    expected_l2_error = 0.0009731068806008872
-    expected_h1_error = 0.035369172937881305
+#    expected_l2_error = 0.0009731068806008872
+#    expected_h1_error = 0.035369172937881305
 
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+#    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+#    assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
-test_api_vector_poisson_2d_dir_identity()
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================
