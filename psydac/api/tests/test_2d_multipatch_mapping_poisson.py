@@ -30,6 +30,7 @@ except:
     base_dir = os.path.dirname(os.path.realpath(__file__))
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
+
 #==============================================================================
 def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None, comm=None):
 
@@ -53,7 +54,7 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
     I = domain.interfaces
     boundary = domain.boundary
 
-    kappa  = 10**2
+    kappa  = 10**3
 
    # expr_I =(
    #         - dot(grad(plus(u)),nn)*minus(v)  + dot(grad(minus(v)),nn)*plus(u) - kappa*plus(u)*minus(v)
@@ -149,8 +150,8 @@ def test_poisson_2d_2_patches_dirichlet_1():
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    expected_l2_error = 0.017626479960982044
-    expected_h1_error = 0.245058938982964
+    expected_l2_error = 0.017629857755018467
+    expected_h1_error = 0.23758971834463205
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
@@ -184,8 +185,8 @@ def test_poisson_2d_2_patches_dirichlet_2():
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    expected_l2_error = 0.0019323697521791872
-    expected_h1_error = 0.026714232827734725
+    expected_l2_error = 0.0019402242901236006
+    expected_h1_error = 0.024759527393621895
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
@@ -200,8 +201,8 @@ def test_poisson_2d_2_patches_dirichlet_3():
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    expected_l2_error = 0.009791660112045008
-    expected_h1_error = 0.10671109405333927
+    expected_l2_error = 0.009824734742537082
+    expected_h1_error = 0.10615177751279731
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
@@ -218,8 +219,8 @@ def test_poisson_2d_2_patches_dirichlet_4():
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename)
 
-    expected_l2_error = 0.0009731068806008872
-    expected_h1_error = 0.035369172937881305
+    expected_l2_error = 0.0009564642390937873
+    expected_h1_error = 0.03537252217007516
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
@@ -236,8 +237,8 @@ def test_poisson_2d_2_patches_dirichlet_5():
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename)
 
-    expected_l2_error = 1.4183170929964257e-05
-    expected_h1_error = 0.0007872409652715088
+    expected_l2_error = 1.429395234681141e-05
+    expected_h1_error = 0.0007612676504978289
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
@@ -255,8 +256,8 @@ def test_poisson_2d_2_patches_dirichlet_6():
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename)
 
-    expected_l2_error = 0.0005125346842747406
-    expected_h1_error = 0.011177444549081917
+    expected_l2_error = 0.0005134739232637597
+    expected_h1_error = 0.011045374959672699
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
@@ -289,8 +290,8 @@ def test_poisson_2d_2_patches_dirichlet_parallel_0():
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2],
                                         comm=MPI.COMM_WORLD)
 
-    expected_l2_error = 0.017626479960982044
-    expected_h1_error = 0.245058938982964
+    expected_l2_error = 0.017629857755018467
+    expected_h1_error = 0.23758971834463205
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
@@ -308,8 +309,8 @@ def test_poisson_2d_4_patches_dirichlet_parallel_0():
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename, comm=MPI.COMM_WORLD)
 
-    expected_l2_error = 0.0005125346842747406
-    expected_h1_error = 0.011177444549081917
+    expected_l2_error = 0.0005134739232637597
+    expected_h1_error = 0.011045374959672699
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
