@@ -33,52 +33,72 @@ class Pushforward:
         1: 'eval_fields_regular_tensor_grid',
         2: 'NotImplementedError'
     }
-    def __init__(self, mapping, grid, npts_per_cell=None, local_domain=None, global_domain=None, grid_local=None):
-        # Get ldim
-        ldim = mapping.ldim
-        self.is_identity = isinstance(mapping, IdentityMapping)
+    def __init__(
+        self, 
+        grid,
+        mapping=None, 
+        npts_per_cell=None,
+        cell_indexes=None,
+        grid_type=None,
+        local_domain=None,
+        global_domain=None,
+        grid_local=None,
+        skip_grid_check=False
+        ):
+
+        self.is_identity = mapping is None
+        if self.is_identity:
+            ldim = len(grid)
+        else:
+            ldim = mapping.ldim
 
         self.ldim = ldim
         self.jac_temp = None
         self.inv_jac_temp = None
         self.jac_det_temp = None
 
-        # Process grid argument
-        # Check consistency
-        assert len(grid) == ldim
-        grid_as_arrays = [np.array(grid[i]) for i in range(ldim)]
-        assert all(grid_as_arrays[i].ndim == grid_as_arrays[i + 1].ndim for i in range(ldim - 1))
-        
-        self.npts_per_cell = None
-        self.cell_indexes = None
-        # 3 cases
-        # 1: irregular tensor grid
-        if grid_as_arrays[0].ndim == 1 and npts_per_cell is None:
-            self.grid_type = 0
-            self.grid = grid_as_arrays
+        if skip_grid_check:
+            # Process grid argument
+            # Check consistency
+            assert len(grid) == ldim
+            grid_as_arrays = [np.array(grid[i]) for i in range(ldim)]
+            assert all(grid_as_arrays[i].ndim == grid_as_arrays[i + 1].ndim for i in range(ldim - 1))
+            
+            self.npts_per_cell = None
+            self.cell_indexes = None
+            # 3 cases
+            # 1: irregular tensor grid
+            if grid_as_arrays[0].ndim == 1 and npts_per_cell is None:
+                self.grid_type = 0
+                self.grid = grid_as_arrays
 
-        # 2: regular tensor grid
-        elif grid_as_arrays[0].ndim == 1 and npts_per_cell is not None:
-            if isinstance(npts_per_cell, int):
-                npts_per_cell = (npts_per_cell,) * ldim
-            assert len(npts_per_cell) == ldim
-            for i in range(ldim):
-                grid_as_arrays[i] = np.reshape(grid_as_arrays[i], (len(grid_as_arrays[i])//npts_per_cell[i], npts_per_cell[i]))
-            self.grid_type = 1
-            self.grid = grid_as_arrays
-            self.npts_per_cell = npts_per_cell
-        
-        # 3: irregular grid
-        elif grid_as_arrays[0].ndim == ldim:
-            self.grid_type = 2
-            self.grid = grid_as_arrays
+            # 2: regular tensor grid
+            elif grid_as_arrays[0].ndim == 1 and npts_per_cell is not None:
+                if isinstance(npts_per_cell, int):
+                    npts_per_cell = (npts_per_cell,) * ldim
+                assert len(npts_per_cell) == ldim
+                for i in range(ldim):
+                    grid_as_arrays[i] = np.reshape(grid_as_arrays[i], (len(grid_as_arrays[i])//npts_per_cell[i], npts_per_cell[i]))
+                self.grid_type = 1
+                self.grid = grid_as_arrays
+                self.npts_per_cell = npts_per_cell
+            
+            # 3: irregular grid
+            elif grid_as_arrays[0].ndim == ldim:
+                self.grid_type = 2
+                self.grid = grid_as_arrays
 
+            else:
+                raise ValueError("Grid argument is not understood")
         else:
-            raise ValueError("Grid argument is not understood")
+            self.grid=grid
+            self.npts_per_cell = npts_per_cell
+            self.cell_indexes = cell_indexes
+            self.grid_type=grid_type
+            grid_local=grid_local
+
         if isinstance(mapping, Mapping):
             meshgrids = np.meshgrid(*grid_local, indexing='ij', sparse=True)
-
-        if isinstance(mapping, Mapping):
             assert mapping.is_analytical
             # No support for non analytical mappings for now
             mapping_call = mapping.get_callable_mapping()
@@ -97,23 +117,20 @@ class Pushforward:
                                                   )
             self.local_domain = local_domain
             self.global_domain = global_domain
-        
+
         elif isinstance(mapping, SplineMapping):
-            
-            if self.grid_type == 1:
-                self.jacobian = lambda : mapping.jac_mat_regular_tensor_grid(grid_as_arrays)
-                self.jacobian_inv = lambda : mapping.inv_jac_mat_regular_tensor_grid(grid_as_arrays)
-                self.jacobian_det = lambda : mapping.jac_det_regular_tensor_grid(grid_as_arrays)
-            elif self.grid_type == 0:
-                self.jacobian = lambda : mapping.jac_mat_irregular_tensor_grid(grid_as_arrays)
-                self.jacobian_inv = lambda : mapping.inv_jac_mat_irregular_tensor_grid(grid_as_arrays)
-                self.jacobian_det = lambda : mapping.jac_det_irregular_tensor_grid(grid_as_arrays)
-            else:
+            self.jacobian = lambda : mapping.jac_mat_regular_tensor_grid(grid_as_arrays)
+            self.jacobian_inv = lambda : mapping.inv_jac_mat_regular_tensor_grid(grid_as_arrays)
+            self.jacobian_det = lambda : mapping.jac_det_regular_tensor_grid(grid_as_arrays)
+
+            if self.grid_type == 2:
                 raise NotImplementedError("Unstructured grids aren't supported yet")
-            
+
             self.local_domain = mapping.space.local_domain
             self.global_domain = ((0,) * ldim, tuple(nc_i - 1 for nc_i in mapping.space.ncells))
-        
+        else:
+            assert self.is_identity
+
         self._eval_func = self._eval_functions[self.grid_type]
     
     def __call__(self, fields):
