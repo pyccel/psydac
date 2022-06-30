@@ -119,7 +119,7 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
         pass
 
 #==============================================================================
-def apply_essential_bc_BlockMatrix(a, bc, *, identity=True, is_broken=True):
+def apply_essential_bc_BlockMatrix(a, bc, *, identity=False, is_broken=True):
     """ Apply homogeneous dirichlet boundary conditions in nD """
 
     assert isinstance(a, BlockMatrix)
