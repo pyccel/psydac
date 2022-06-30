@@ -56,7 +56,7 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
     I        = domain.interfaces
     boundary = domain.boundary
 
-    kappa   = 100
+    kappa   = 10*ncells[0] if ncells else 100
     k       = 1
 
     jump = lambda w:plus(w)-minus(w)
@@ -174,7 +174,7 @@ def test_maxwell_2d_2_patch_dirichlet_2():
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
 
-test_maxwell_2d_2_patch_dirichlet_2()
+#test_maxwell_2d_2_patch_dirichlet_2()
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================

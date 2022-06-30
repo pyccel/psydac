@@ -242,7 +242,7 @@ def test_poisson_2d_2_patches_dirichlet_5():
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
-test_poisson_2d_2_patches_dirichlet_5()
+
 #------------------------------------------------------------------------------
 def test_poisson_2d_2_patches_dirichlet_6():
 

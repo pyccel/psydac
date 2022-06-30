@@ -11,6 +11,7 @@ __all__ = ('apply_essential_bc',)
 def apply_essential_bc(a, *bcs, **kwargs):
 
     if isinstance(a, (StencilVector, StencilMatrix, StencilInterfaceMatrix)):
+        kwargs.pop('is_broken', None)
         for bc in bcs:
             check_boundary_type(bc)
             apply_essential_bc_stencil(a,
