@@ -21,6 +21,7 @@ from sympde.expr.equation import find, EssentialBC
 
 from psydac.api.discretization     import discretize
 from psydac.api.tests.build_domain import build_pretzel
+from psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
 
 # ... get the mesh directory
 try:
@@ -32,7 +33,7 @@ except:
     mesh_dir = os.path.join(base_dir, 'mesh')
 
 #==============================================================================
-def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None, comm=None):
+def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None, comm=None, backend=None):
 
     if filename is None:
         assert ncells is not None
@@ -89,15 +90,17 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
         domain_h = discretize(domain, filename=filename)
         Vh       = discretize(V, domain_h)
 
-    equation_h = discretize(equation, domain_h, [Vh, Vh])
-    l2norm_h = discretize(l2norm, domain_h, Vh)
-    h1norm_h = discretize(h1norm, domain_h, Vh)
+    equation_h = discretize(equation, domain_h, [Vh, Vh], backend=backend)
+
+    l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
+    h1norm_h = discretize(h1norm, domain_h, Vh, backend=backend)
 
     uh = equation_h.solve()
 
     l2_error = l2norm_h.assemble(u=uh)
     h1_error = h1norm_h.assemble(u=uh)
 
+    print( l2_error, h1_error)
     return l2_error, h1_error, uh
 
 #------------------------------------------------------------------------------
@@ -226,7 +229,8 @@ def test_poisson_2d_2_patches_dirichlet_4():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_2_patches_dirichlet_5():
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL])
+def test_poisson_2d_2_patches_dirichlet_5(backend):
 
     filename = os.path.join(mesh_dir, 'multipatch/square_repeated_knots.h5')
     domain   = Domain.from_file(filename)
@@ -235,14 +239,13 @@ def test_poisson_2d_2_patches_dirichlet_5():
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
 
-    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename)
+    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename, backend=backend)
 
     expected_l2_error = 1.429395234681141e-05
     expected_h1_error = 0.0007612676504978289
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
-
 
 #------------------------------------------------------------------------------
 def test_poisson_2d_2_patches_dirichlet_6():
@@ -315,6 +318,25 @@ def test_poisson_2d_4_patches_dirichlet_parallel_0():
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
+#------------------------------------------------------------------------------
+@pytest.mark.parallel
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL])
+def test_poisson_2d_2_patches_dirichlet_parallel_1(backend):
+
+    filename = os.path.join(mesh_dir, 'multipatch/square_repeated_knots.h5')
+    domain   = Domain.from_file(filename)
+
+    x,y = domain.coordinates
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename, backend=backend)
+
+    expected_l2_error = 1.429395234681141e-05
+    expected_h1_error = 0.0007612676504978289
+
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================

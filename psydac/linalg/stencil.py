@@ -2256,34 +2256,30 @@ class StencilInterfaceMatrix(Matrix):
             transpose = InterfaceTransposeOperator(self._ndim, backend=frozenset(backend.items()))
             self._transpose_func = transpose.func
 
-            d_start = self._transpose_args.pop('d_start')
-            c_start = self._transpose_args.pop('c_start')
-            dim     = self._transpose_args.pop('dim')
             nrows   = self._transpose_args.pop('nrows')
             ncols   = self._transpose_args.pop('ncols')
             gpads   = self._transpose_args.pop('gpads')
             pads    = self._transpose_args.pop('pads')
+            dm      = self._transpose_args.pop('dm')
+            cm      = self._transpose_args.pop('cm')
             ndiags  = self._transpose_args.pop('ndiags')
             ndiagsT = self._transpose_args.pop('ndiagsT')
             si      = self._transpose_args.pop('si')
             sk      = self._transpose_args.pop('sk')
             sl      = self._transpose_args.pop('sl')
 
-            args = dict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads )
-                          ,('nd{i}', ndiags),('ndT{i}', ndiagsT),('si{i}', si),
+            args = dict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads ),
+                          ('dm{i}', dm),('cm{i}', cm), ('nd{i}', ndiags),('ndT{i}', ndiagsT),('si{i}', si),
                           ('sk{i}', sk),('sl{i}', sl)])
 
             self._transpose_args            = {}
-            self._transpose_args['d_start'] =  np.int64(d_start)
-            self._transpose_args['c_start'] =  np.int64(c_start)
-            self._transpose_args['dim']     =  np.int64(dim)
-
             for arg_name, arg_val in args.items():
                 for i in range(len(nrows)):
                     self._transpose_args[arg_name.format(i=i+1)] =  np.int64(arg_val[i])
 
             if self.domain.parallel:
                 comm = self.domain._interfaces[self._d_axis, self._d_ext].cart.local_comm
+
                 if self.domain == self.codomain:
                     # In this case nrows_extra[i] == 0 for all i
                     dot = LinearOperatorDot(self._ndim,
@@ -2294,19 +2290,23 @@ class StencilInterfaceMatrix(Matrix):
                                     nrows_extra=(self._args['nrows_extra'],),
                                     gpads=(self._args['gpads'],),
                                     pads=(self._args['pads'],),
-                                    dm = ((1,)*self._ndim,),
-                                    cm = ((1,)*self._ndim,),
+                                    dm = (self._args['dm'],),
+                                    cm = (self._args['cm'],),
                                     interface=True,
                                     flip_axis=self._flip,
                                     interface_axis=self._c_axis,
                                     d_start=(self._d_start,),
                                     c_start=(self._c_start,))
 
-                    nrows       = self._args.pop('nrows')
+                    starts = self._args.pop('starts')
+                    nrows  = self._args.pop('nrows')
 
                     self._args = {}
                     for i in range(len(nrows)):
-                        self._args['n00_{i}'.format(i=i+1)] =  np.int64(nrows[i])
+                        self._args['s00_{i}'.format(i=i+1)] = np.int64(starts[i])
+
+                    for i in range(len(nrows)):
+                        self._args['n00_{i}'.format(i=i+1)] = np.int64(nrows[i])
 
                 else:
                     dot = LinearOperatorDot(self._ndim,
@@ -2316,18 +2316,23 @@ class StencilInterfaceMatrix(Matrix):
                                             backend=frozenset(backend.items()),
                                             gpads=(self._args['gpads'],),
                                             pads=(self._args['pads'],),
-                                            dm = ((1,)*self._ndim,),
-                                            cm = ((1,)*self._ndim,),
+                                            dm = (self._args['dm'],),
+                                            cm = (self._args['cm'],),
                                             interface=True,
                                             flip_axis=self._flip,
                                             interface_axis=self._c_axis,
                                             d_start=(self._d_start,),
                                             c_start=(self._c_start,))
 
+                    starts      = self._args.pop('starts')
                     nrows       = self._args.pop('nrows')
                     nrows_extra = self._args.pop('nrows_extra')
 
                     self._args = {}
+
+                    for i in range(len(nrows)):
+                        self._args['s00_{i}'.format(i=i+1)] = np.int64(starts[i])
+
                     for i in range(len(nrows)):
                         self._args['n00_{i}'.format(i=i+1)] =  np.int64(nrows[i])
 
@@ -2340,12 +2345,13 @@ class StencilInterfaceMatrix(Matrix):
                                         keys = ((0,0),),
                                         comm = None,
                                         backend=frozenset(backend.items()),
+                                        starts = (tuple(self._args['starts']),),
                                         nrows=(self._args['nrows'],),
                                         nrows_extra=(self._args['nrows_extra'],),
                                         gpads=(self._args['gpads'],),
                                         pads=(self._args['pads'],),
-                                        dm = ((1,)*self._ndim,),
-                                        cm = ((1,)*self._ndim,),
+                                        dm = (self._args['dm'],),
+                                        cm = (self._args['cm'],),
                                         interface=True,
                                         flip_axis=self._flip,
                                         interface_axis=self._c_axis,
