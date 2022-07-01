@@ -43,16 +43,16 @@ def create_cart(spaces, comm, reverse_axis=None, nprocs=None):
 
     return cart
 
-def get_minus_starts_ends(plus_starts, plus_ends, minus_npts, plus_npts, minus_axis, plus_axis, minus_ext, plus_ext, minus_pads, plus_pads, diff):
-    starts = [max(0,s-p) for s,p in zip(plus_starts, minus_pads)]
-    ends   = [min(n,e+p) for e,n,p in zip(plus_ends, minus_npts, minus_pads)]
+def get_minus_starts_ends(plus_starts, plus_ends, minus_npts, plus_npts, minus_axis, plus_axis, minus_ext, plus_ext, minus_pads, plus_pads, minus_shifts, plus_shifts, diff):
+    starts = [max(0,s-m*p) for s,m,p in zip(plus_starts, minus_shifts, minus_pads)]
+    ends   = [min(n,e+m*p) for e,n,m,p in zip(plus_ends, minus_npts, minus_shifts, minus_pads)]
     starts[minus_axis] = 0 if minus_ext == -1 else ends[minus_axis]-minus_pads[minus_axis]
     ends[minus_axis]   = ends[minus_axis] if minus_ext == 1 else minus_pads[minus_axis]
     return starts, ends
 
-def get_plus_starts_ends(minus_starts, minus_ends, minus_npts, plus_npts, minus_axis, plus_axis, minus_ext, plus_ext, minus_pads, plus_pads, diff):
-    starts = [max(0,s-p) for s,p in zip(minus_starts, plus_pads)]
-    ends   = [min(n,e+p) for e,n,p in zip(minus_ends, plus_npts, plus_pads)]
+def get_plus_starts_ends(minus_starts, minus_ends, minus_npts, plus_npts, minus_axis, plus_axis, minus_ext, plus_ext, minus_pads, plus_pads, minus_shifts, plus_shifts, diff):
+    starts = [max(0,s-m*p) for s,m,p in zip(minus_starts, plus_shifts, plus_pads)]
+    ends   = [min(n,e+m*p) for e,n,m,p in zip(minus_ends, plus_npts, plus_shifts, plus_pads)]
     starts[plus_axis] = 0 if plus_ext == -1 else ends[plus_axis]-plus_pads[plus_axis]
     ends[plus_axis]   = ends[plus_axis] if plus_ext == 1 else plus_pads[plus_axis]
     return starts, ends

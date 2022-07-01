@@ -1732,14 +1732,16 @@ class StencilInterfaceMatrix(Matrix):
         assert isinstance( W, StencilVectorSpace )
         assert W.pads == V.pads
 
+        Vin = V._interfaces[d_axis, d_ext]
+
         if pads is not None:
-            for p,vp in zip(pads, V.pads):
+            for p,vp in zip(pads, Vin.pads):
                 assert p<=vp
 
-        self._pads     = pads or tuple(V.pads)
+        self._pads     = pads or tuple(Vin.pads)
         dims           = list(W.shape)
         dims[c_axis]   = W.pads[c_axis] + 1 + 2*W.shifts[c_axis]*W.pads[c_axis]
-        diags          = [compute_diag_len(p, md, mc) for p,md,mc in zip(self._pads, V.shifts, W.shifts)]
+        diags          = [compute_diag_len(p, md, mc) for p,md,mc in zip(self._pads, Vin.shifts, W.shifts)]
         self._data     = np.zeros( dims+diags, dtype=W.dtype )
 
         self._flip        = tuple([1]*len(dims) if flip is None else flip)
@@ -1757,22 +1759,22 @@ class StencilInterfaceMatrix(Matrix):
         self._backend     = None
 
         # Prepare the arguments for the dot product method
-        nd  = [(ej-sj+2*gp*mj-mj*p-gp)//mj*mi+1 for sj,ej,mj,mi,p,gp in zip(V.starts, V.ends, V.shifts, W.shifts, self._pads, V.pads)]
-        nc  = [ei-si+1 for si,ei,mj,p in zip(W.starts, W.ends, V.shifts, self._pads)]
+        nd  = [(ej-sj+2*gp*mj-mj*p-gp)//mj*mi+1 for sj,ej,mj,mi,p,gp in zip(Vin.starts, Vin.ends, Vin.shifts, W.shifts, self._pads, Vin.pads)]
+        nc  = [ei-si+1 for si,ei,mj,p in zip(W.starts, W.ends, Vin.shifts, self._pads)]
 
         # Number of rows in matrix (along each dimension)
         nrows         = [min(ni,nj) for ni,nj  in zip(nc, nd)]
         nrows_extra   = [max(0,ni-nj) for ni,nj in zip(nc, nd)]
-        nrows_extra[c_axis] = max(W.npts[c_axis]-V.npts[c_axis],0)
+        nrows_extra[c_axis] = max(W.npts[c_axis]-Vin.npts[c_axis],0) if Vin.npts[c_axis] == Vin.ends[c_axis]+1 else 0
         nrows[c_axis] = self._pads[c_axis] + 1 - nrows_extra[c_axis]
 
         args                 = {}
-        args['starts']       = tuple(V.starts)
+        args['starts']       = tuple(Vin.starts)
         args['nrows']        = tuple(nrows)
         args['nrows_extra']  = tuple(nrows_extra)
-        args['gpads']        = tuple(V.pads)
+        args['gpads']        = tuple(Vin.pads)
         args['pads']         = tuple(self._pads)
-        args['dm']           = tuple(V.shifts)
+        args['dm']           = tuple(Vin.shifts)
         args['cm']           = tuple(W.shifts)
         args['c_axis']       = c_axis
         args['d_start']      = self._d_start
@@ -1856,6 +1858,7 @@ class StencilInterfaceMatrix(Matrix):
 
             ii[c_axis] += c_start
             out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
+
 
         new_nrows = nrows.copy()
         for d,er in enumerate(nrows_extra):

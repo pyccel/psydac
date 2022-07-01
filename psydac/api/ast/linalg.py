@@ -300,7 +300,7 @@ class LinearOperatorDot(SplBasic):
 
         body = gbody
 
-        if not interface and isinstance(starts[0][0], Variable):
+        if isinstance(starts[0][0], Variable):
             func_args    = func_args    + tuple(flatten(starts))
             firstprivate = firstprivate + tuple(flatten(starts))
 

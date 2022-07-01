@@ -1031,8 +1031,9 @@ class TensorFemSpace( FemSpace ):
             spaces[axis] = reduced_space
 
         # create new Tensor Vector
-        n_elements = [s1.nbasis-s2.nbasis for s1,s2 in zip(self.spaces, spaces)]
+        n_elements   = [s1.nbasis-s2.nbasis for s1,s2 in zip(self.spaces, spaces)]
         multiplicity = [s.multiplicity for s in spaces]
+
         if v.cart:
             red_cart = v.cart.reduce_elements(axes, n_elements, multiplicity)
             tensor_vec = TensorFemSpace(*spaces, cart=red_cart, quad_order=self._quad_order)
@@ -1046,7 +1047,6 @@ class TensorFemSpace( FemSpace ):
             cart = v.cart
             if cart:cart = v.cart.reduce_elements(axes, n_elements, multiplicity)
             tensor_vec.set_interface_space(a, e, cart=cart)
-
 
         return tensor_vec
 

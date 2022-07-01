@@ -957,8 +957,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         interface   = isinstance(self._blocks[keys[0]], StencilInterfaceMatrix)
         if interface:
             interface_axis  = self._blocks[keys[0]]._c_axis
-            d_ext   = self._blocks[keys[0]]._d_ext
-            d_axis   = self._blocks[keys[0]]._d_axis
+            d_ext           = self._blocks[keys[0]]._d_ext
+            d_axis          = self._blocks[keys[0]]._d_axis
             flip_axis       = self._blocks[keys[0]]._flip
             permutation     = self._blocks[keys[0]]._permutation
 
@@ -992,24 +992,14 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             si      = self._blocks[key]._transpose_args.pop('si')
             sk      = self._blocks[key]._transpose_args.pop('sk')
             sl      = self._blocks[key]._transpose_args.pop('sl')
+            dm      = self._blocks[key]._transpose_args.pop('dm')
+            cm      = self._blocks[key]._transpose_args.pop('cm')
 
-            if interface:
-                args = dict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads )
-                          ,('nd{i}', ndiags),('ndT{i}', ndiagsT),('si{i}', si),
-                          ('sk{i}', sk),('sl{i}', sl)])
+            args = dict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads ),
+                            ('dm{i}', dm),('cm{i}', cm),('nd{i}', ndiags),
+                            ('ndT{i}', ndiagsT),('si{i}', si),('sk{i}', sk),('sl{i}', sl)])
 
-                self._blocks[key]._transpose_args            = {}
-                self._blocks[key]._transpose_args['d_start'] =  np.int64(d_starts[k])
-                self._blocks[key]._transpose_args['c_start'] =  np.int64(c_starts[k])
-                self._blocks[key]._transpose_args['dim']     =  np.int64(interface_axis)
-            else:
-                dm      = self._blocks[key]._transpose_args.pop('dm')
-                cm      = self._blocks[key]._transpose_args.pop('cm')
-                args = dict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads ),
-                                ('dm{i}', dm),('cm{i}', cm),('nd{i}', ndiags),
-                                ('ndT{i}', ndiagsT),('si{i}', si),('sk{i}', sk),('sl{i}', sl)])
-                self._blocks[key]._transpose_args = {}
-
+            self._blocks[key]._transpose_args = {}
             for arg_name, arg_val in args.items():
                 for i in range(len(nrows)):
                     self._blocks[key]._transpose_args[arg_name.format(i=i+1)] = np.int64(arg_val[i]) if isinstance(arg_val[i], int) else arg_val[i]
@@ -1026,14 +1016,9 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             nrows_extra.append(self._blocks[key]._dotargs_null['nrows_extra'])
             gpads.append(self._blocks[key]._dotargs_null['gpads'])
             pads.append(self._blocks[key]._dotargs_null['pads'])
-            if interface:
-                cm.append((1,)*ndim)
-                dm.append((1,)*ndim)
-                starts.append(None)
-            else:
-                starts.append(self._blocks[key]._dotargs_null['starts'])
-                cm.append(self._blocks[key]._dotargs_null['cm'])
-                dm.append(self._blocks[key]._dotargs_null['dm'])
+            starts.append(self._blocks[key]._dotargs_null['starts'])
+            cm.append(self._blocks[key]._dotargs_null['cm'])
+            dm.append(self._blocks[key]._dotargs_null['dm'])
 
         if self.domain.parallel:
             comm = self.codomain.spaces[0].cart.comm if isinstance(self.codomain, BlockVectorSpace) else self.codomain.cart.comm
@@ -1056,12 +1041,11 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                                 c_start=c_starts)
 
                 self._args = {}
-                if not interface:
-                    for k,key in enumerate(keys):
-                        key_str = ''.join(str(i) for i in key)
-                        starts_k = starts[k]
-                        for i in range(len(starts_k)):
-                            self._args['s{}_{}'.format(key_str, i+1)] = np.int64(starts_k[i])
+                for k,key in enumerate(keys):
+                    key_str = ''.join(str(i) for i in key)
+                    starts_k = starts[k]
+                    for i in range(len(starts_k)):
+                        self._args['s{}_{}'.format(key_str, i+1)] = np.int64(starts_k[i])
 
                 for k,key in enumerate(keys):
                     key_str = ''.join(str(i) for i in key)
@@ -1086,12 +1070,12 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                                         c_start=c_starts)
 
                 self._args = {}
-                if not interface:
-                    for k,key in enumerate(keys):
-                        key_str       = ''.join(str(i) for i in key)
-                        starts_k      = starts[k]
-                        for i in range(len(starts_k)):
-                            self._args['s{}_{}'.format(key_str, i+1)] = np.int64(starts_k[i])
+
+                for k,key in enumerate(keys):
+                    key_str       = ''.join(str(i) for i in key)
+                    starts_k      = starts[k]
+                    for i in range(len(starts_k)):
+                        self._args['s{}_{}'.format(key_str, i+1)] = np.int64(starts_k[i])
 
                 for k,key in enumerate(keys):
                     key_str       = ''.join(str(i) for i in key)

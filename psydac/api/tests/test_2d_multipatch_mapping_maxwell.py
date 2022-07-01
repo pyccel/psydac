@@ -92,8 +92,8 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
         domain_h = discretize(domain, filename=filename, comm=comm)
         Vh       = discretize(V, domain_h)
 
-    equation_h = discretize(equation, domain_h, [Vh, Vh])
-    l2norm_h   = discretize(l2norm, domain_h, Vh)
+    equation_h = discretize(equation, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL)
+    l2norm_h   = discretize(l2norm, domain_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL)
 
     equation_h.set_solver('pcg',pc='jacobi' ,tol=1e-8)
 
@@ -174,7 +174,6 @@ def test_maxwell_2d_2_patch_dirichlet_2():
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
 
-#test_maxwell_2d_2_patch_dirichlet_2()
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================
