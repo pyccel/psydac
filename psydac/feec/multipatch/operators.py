@@ -9,6 +9,7 @@ import numpy as np
 from scipy.sparse import save_npz, load_npz
 from scipy.sparse import kron, block_diag
 from scipy.sparse.linalg import inv
+from scipy.sparse          import csr_matrix
 
 from sympde.topology  import Boundary, Interface, Union
 from sympde.topology  import element_of, elements_of
@@ -24,6 +25,7 @@ from psydac.core.bsplines         import collocation_matrix, histopolation_matri
 from psydac.api.discretization       import discretize
 from psydac.api.essential_bc         import apply_essential_bc_stencil
 from psydac.api.settings             import PSYDAC_BACKENDS
+from psydac.linalg.kron              import KroneckerDenseMatrix
 from psydac.linalg.block             import BlockVectorSpace, BlockVector, BlockMatrix
 from psydac.linalg.stencil           import StencilVector, StencilMatrix, StencilInterfaceMatrix
 from psydac.linalg.iterative_solvers import cg, pcg
@@ -459,7 +461,7 @@ class ConformingProjection_V0( FemLinearOperator):
                         if i==j and rhs:rhs[i][tuple(index[:2])] = 0.
 
 #===============================================================================
-class ConformingProjection_V1( FemLinearOperator ):
+class ConformingProjection_V1_old( FemLinearOperator ):
     """
     Conforming projection from global broken V1 space to conforming V1 global space
 
@@ -654,6 +656,289 @@ class ConformingProjection_V1( FemLinearOperator ):
         for j in range(len(domain)):
             if self._A[i,j] is None:continue
             apply_essential_bc_stencil(self._A[i,j][1-axis,1-axis], axis=axis, ext=ext, order=0)
+
+
+def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
+#    assert len(coarse_grid)*2-2 == len(fine_grid)-1
+    intersection = coarse_grid[(np.abs(fine_grid[:,None] - coarse_grid) < tol).any(0)]
+    assert abs(intersection-coarse_grid).max()<tol
+    T = fine_grid[~(np.abs(coarse_grid[:,None] - fine_grid) < tol).any(0)]
+    return T
+
+def create_boundary_space(space, axis):
+
+
+def construct_extension_operator_1D(domain, codomain):
+    """
+    
+    compute the matrix of the extension operator on the interface space (1D space if global space is 2D)
+    
+    domain:     tensor fem space on the interface (coarse grid)
+    codomain:   tensor fem space on the interface (fine grid)
+    axis:       axis of the interface in the patch
+    """
+    from psydac.core.interface import matrix_multi_stages
+    
+    ops = []
+    for d,c in zip(domain.spaces, codomain.spaces):
+
+        assert d.ncells < c.ncells
+
+        # if d.ncells>c.ncells:
+        #     Ts = knots_to_insert(c.breaks, d.breaks)
+        #     P  = matrix_multi_stages(Ts, c.nbasis , c.degree, c.knots)
+        #     ops.append(P.T)
+        #     print( "this function should only be used to compute an extension operator")
+        #     raise NotImplementedError
+
+        Ts = knots_to_insert(d.breaks, c.breaks)
+        P  = matrix_multi_stages(Ts, d.nbasis , d.degree, d.knots)
+        if d.basis == 'M':
+            assert c.basis == 'M'
+            P = np.diag(1/c._scaling_array) @ P @ np.diag(d._scaling_array)
+        ops.append(P)
+
+        # else:
+        #     P   = np.eye(d.nbasis) #IdentityStencilMatrix(StencilVectorSpace([d.nbasis], [d.degree], [d.periodic]))
+        #     ops.append(P)
+        #     # ops.append(P.toarray())
+
+    # return KroneckerDenseMatrix(domain.vector_space, codomain.vector_space, *ops)
+    return csr_matrix(np.kron(*ops)) # kronecker of 1 term...
+
+
+#===============================================================================
+class ConformingProjection_V1( FemLinearOperator ):
+    """
+    Conforming projection from global broken V1 space to conforming V1 global space
+
+    proj.dot(v) returns the conforming projection of v, computed by solving linear system
+
+    Parameters
+    ----------
+    V1h: <FemSpace>
+     The discrete space
+
+    domain_h: <Geometry>
+     The discrete domain of the projector
+
+    hom_bc : <bool>
+     Apply homogenous boundary conditions if True
+
+    backend_language: <str>
+     The backend used to accelerate the code
+
+    storage_fn:
+     filename to store/load the operator sparse matrix
+    """
+    # todo (MCP, 16.03.2021):
+    #   - avoid discretizing a bilinear form
+    #   - allow case without interfaces (single or multipatch)
+    def __init__(self, V1h, domain_h, hom_bc=False, backend_language='python', storage_fn=None):
+
+        FemLinearOperator.__init__(self, fem_domain=V1h)
+
+        V1             = V1h.symbolic_space
+        domain         = V1.domain
+        self.symbolic_domain  = domain
+
+        if storage_fn and os.path.exists(storage_fn):
+            print("[ConformingProjection_V1] loading operator sparse matrix from "+storage_fn)
+            self._sparse_matrix = load_npz(storage_fn)
+
+        else:
+            # assemble the operator matrix
+            # u, v = elements_of(V1, names='u, v')
+            # expr   = dot(u,v)
+            # #
+            # Interfaces      = domain.interfaces  # note: interfaces does not include the boundary
+            # expr_I = dot( plus(u)-minus(u) , plus(v)-minus(v) )   # this penalization is for an H1-conforming space
+
+            # a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
+            # ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS[backend_language])
+            # #
+            # # # self._A = ah.assemble()
+            # self._A = ah.forms[0]._matrix
+            # # C1 = V1h.vector_space
+            # # self._A = BlockMatrix(C1, C1)
+
+            # for b1 in self._A.blocks:
+            #     for b2 in b1:
+            #         if b2 is None:continue
+            #         for b3 in b2.blocks:
+            #             for A in b3:
+            #                 if A is None:continue
+            #                 A[:,:,:,:] = 0
+
+            # spaces = self._A.domain.spaces
+
+            self._A = BlockMatrix(domain=V1h.vector_space, codomain=V1h.vector_space)
+            indices = [slice(None,None)]*domain.dim + [0]*domain.dim
+            for i, space in enumerate(V1h.vector_space.spaces):
+                self._A[i,i] = BlockMatrix(domain=space, codomain=space)
+                self._A[i,i][0,0] = StencilMatrix(domain=space.spaces[0], codomain=space.spaces[0])
+                self._A[i,i][1,1] = StencilMatrix(domain=space.spaces[1], codomain=space.spaces[1])
+                self._A[i,i][0,0][tuple(indices)]  = 1
+                self._A[i,i][1,1][tuple(indices)]  = 1
+
+            if isinstance(Interfaces, Interface):
+                Interfaces = (Interfaces, )
+
+            # for i in range(len(self._A.blocks)):
+            #     self._A[i,i][0,0][tuple(indices)]  = 1
+            #     self._A[i,i][1,1][tuple(indices)]  = 1
+
+            if Interfaces is not None:
+
+                for I in Interfaces:
+
+                    i_fine = get_patch_index_from_face(domain, I.minus)
+                    i_coarse  = get_patch_index_from_face(domain, I.plus )
+                    fine_axis = I.minus.axis
+                    coarse_axis = I.plus.axis
+
+                    if V1h.vector_space.spaces[i_fine].ncells < V1h.vector_space.spaces[i_coarse].ncells:
+                        i_fine, i_coarse = i_coarse, i_fine
+                        fine_axis = I.plus.axis
+                        coarse_axis = I.minus.axis
+
+                    space_fine = V1h.vector_space.spaces[i_fine]
+                    space_coarse = V1h.vector_space.spaces[i_coarse]
+
+                    self._A[i_fine,i_coarse] = BlockMatrix(domain=space_coarse, codomain=space_fine)
+                    self._A[i_coarse,i_fine] = BlockMatrix(domain=space_fine, codomain=space_coarse)
+        
+                    # interface spaces      # this only works in 2D !!!
+                    coarse_component = 1-coarse_axis   # direction of the components on interface
+                    fine_component = 1-fine_axis
+                    coarse_space = create_boundary_space(space_coarse.spaces[coarse_component])
+                    fine_space = create_boundary_space(space_fine.spaces[fine_component])
+                    
+                    E_1D = construct_extension_operator_1D(domain=coarse_space, codomain=fine_space) 
+                    product = (E_1D.T) @ E_1D
+                    R_1D = inv(product.tocsc()) @ E_1D.T
+
+                    temp_I_coarse_fine = StencilInterfaceMatrix(domain=space_fine.spaces[fine_component], codomain=coarse_space.spaces[coarse_component])
+                    
+                    self._A[i_coarse,i_fine][coarse_component,fine_component] = temp_I_coarse_fine @ R_1D
+                    
+                    # todo: continue from here 
+
+                    
+
+                    indices = [slice(None,None)]*domain.dim + [0]*domain.dim
+
+                    sp1    = space_coarse
+                    sp2    = space_fine
+
+                    s11 = sp1.spaces[0].starts[I.axis]
+                    e11 = sp1.spaces[0].ends[I.axis]
+                    s12 = sp1.spaces[1].starts[I.axis]
+                    e12 = sp1.spaces[1].ends[I.axis]    
+
+                    s21 = sp2.spaces[0].starts[I.axis]
+                    e21 = sp2.spaces[0].ends[I.axis]
+                    s22 = sp2.spaces[1].starts[I.axis]
+                    e22 = sp2.spaces[1].ends[I.axis]
+
+                    d11     = V1h.spaces[i_minus].spaces[0].degree[I.axis]
+                    d12     = V1h.spaces[i_minus].spaces[1].degree[I.axis]
+
+                    d21     = V1h.spaces[i_plus].spaces[0].degree[I.axis]
+                    d22     = V1h.spaces[i_plus].spaces[1].degree[I.axis]
+
+                    s_minus = [s11, s12]
+                    e_minus = [e11, e12]
+
+                    s_plus = [s21, s22]
+                    e_plus = [e21, e22]
+
+                    d_minus = [d11, d12]
+                    d_plus  = [d21, d22]
+
+                    minus_ext = I.minus.ext
+                    plus_ext = I.plus.ext
+
+                    axis = I.axis
+                    for k in range(domain.dim):
+                        if k == I.axis:continue
+
+                        if minus_ext == 1:
+                            indices[axis] = e_minus[k]
+                        else:
+                            indices[axis] = s_minus[k]
+                        self._A[i_minus,i_minus][k,k][tuple(indices)] = 1/2
+
+                        if plus_ext == 1:
+                            indices[axis] = e_plus[k]
+                        else:
+                            indices[axis] = s_plus[k]
+
+                        self._A[i_plus,i_plus][k,k][tuple(indices)] = 1/2
+
+                        if plus_ext == minus_ext:
+                            if minus_ext == 1:
+                                indices[axis] = d_minus[k]
+                            else:
+                                indices[axis] = s_minus[k]
+
+                            self._A[i_minus,i_plus][k,k][tuple(indices)] = 1/2*I.direction
+
+                            if plus_ext == 1:
+                                indices[axis] = d_plus[k]
+                            else:
+                                indices[axis] = s_plus[k]
+
+                            self._A[i_plus,i_minus][k,k][tuple(indices)] = 1/2*I.direction
+
+                        else:
+                            if minus_ext == 1:
+                                indices[axis] = d_minus[k]
+                            else:
+                                indices[axis] = s_minus[k]
+
+                            if plus_ext == 1:
+                                indices[domain.dim + axis] = d_plus[k]
+                            else:
+                                indices[domain.dim + axis] = -d_plus[k]
+
+                            self._A[i_minus,i_plus][k,k][tuple(indices)] = 1/2*I.direction
+
+                            if plus_ext == 1:
+                                indices[axis] = d_plus[k]
+                            else:
+                                indices[axis] = s_plus[k]
+
+                            if minus_ext == 1:
+                                indices[domain.dim + axis] = d_minus[k]
+                            else:
+                                indices[domain.dim + axis] = -d_minus[k]
+
+                            self._A[i_plus,i_minus][k,k][tuple(indices)] = 1/2*I.direction
+
+
+            if hom_bc:
+                for bn in domain.boundary:
+                    self.set_homogenous_bc(bn)
+
+            self._matrix = self._A
+            self._sparse_matrix = self._matrix.tosparse()
+
+            if storage_fn:
+                print("[ConformingProjection_V1] storing operator sparse matrix in "+storage_fn)
+                save_npz(storage_fn, self._sparse_matrix)
+
+    def set_homogenous_bc(self, boundary):
+        domain = self.symbolic_domain
+        Vh = self.fem_domain
+
+        i = get_patch_index_from_face(domain, boundary)
+        axis = boundary.axis
+        ext  = boundary.ext
+        for j in range(len(domain)):
+            if self._A[i,j] is None:continue
+            apply_essential_bc_stencil(self._A[i,j][1-axis,1-axis], axis=axis, ext=ext, order=0)
+
 
 
 #===============================================================================
