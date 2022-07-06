@@ -715,6 +715,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
             mat._backend = self._backend
         return mat
+
     # ...
     def __mul__(self, a):
         blocks = {ij: Bij * a for ij, Bij in self._blocks.items()}
@@ -725,6 +726,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
             mat._backend = self._backend
         return mat
+
     # ...
     def __rmul__(self, a):
         blocks = {ij: a * Bij for ij, Bij in self._blocks.items()}
@@ -735,6 +737,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
             mat._backend = self._backend
         return mat
+
     # ...
     def __add__(self, M):
         assert isinstance(M, BlockMatrix)
@@ -756,6 +759,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
             mat._backend = self._backend
         return mat
+
     # ...
     def __sub__(self, M):
         assert isinstance(M, BlockMatrix)
@@ -841,7 +845,9 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
     # ...
     def transpose(self):
-        blocks = {(j, i): b.transpose() for (i, j), b in self._blocks.items()}
+        blocks, blocks_T = self.compute_interface_matrices_transpose()
+        blocks = {(j, i): b.transpose() for (i, j), b in blocks.items()}
+        blocks.update(blocks_T)
         mat = BlockMatrix(self.codomain, self.domain, blocks=blocks)
         mat.set_backend(self._backend)
         return mat
@@ -864,10 +870,11 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
         return petsccart.petsc.Mat().createNest(blocks, comm=cart.comm)
 
-    def update_ghost_regions(self):
+    def compute_interface_matrices_transpose(self):
         blocks = self._blocks.copy()
+        blocks_T = {}
         if not self.codomain.parallel:
-            return blocks
+            return blocks, blocks_T
 
         from mpi4py import MPI
         from psydac.linalg.stencil import StencilInterfaceMatrix
@@ -889,8 +896,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             if not (axis_i, ext_i) in Vi._interfaces:continue
             cart_ij = Vi._interfaces[axis_i, ext_i].cart
             assert isinstance(cart_ij, InterfaceCartDecomposition)
-            block_ij = self[i,j] is not None
-            block_ji = self[j,i] is not None
+
 
             if not cart_i.is_comm_null:
                 if cart_ij.intercomm.rank == 0:
@@ -900,18 +906,24 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             else:
                 root = 0
 
+            block_ij = self[i,j] is not None
             block_ij = cart_ij.intercomm.bcast(block_ij, root= root) or block_ij
 
             if block_ij:
                 if not cart_i.is_comm_null:
-                    block_ij = self[i,j]
-                    cart_ij.intercomm.bcast((block_ij.d_start, block_ij.c_start, block_ij.flip, block_ij.pads), root= root)
+                    block_ij = blocks.pop((i,j))
+                    info = (block_ij.d_start, block_ij.c_start, block_ij.flip, block_ij.pads)
+                    cart_ij.intercomm.bcast(info, root= root)
                 else:
-                    (s_d, s_c, flip, pads) = cart_ij.intercomm.bcast(None, root=root)
-                    block_ij = StencilInterfaceMatrix(Vj, Vi._interfaces[axis_i, ext_i], s_d, s_c, axis_j, axis_i, ext_j, ext_i, flip=flip)
+                    info = cart_ij.intercomm.bcast(None, root=root)
+                    block_ij = StencilInterfaceMatrix(Vj, Vi._interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
+                    block_ji = StencilInterfaceMatrix(Vi, Vj, info[1], info[0], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
 
-                data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = tuple(2*p+1 for p in block_ij.pads))
+                data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ij._data.shape[block_ij._ndim:])
                 data_exchanger.update_ghost_regions(array_minus=block_ij._data)
+
+                if cart_i.is_comm_null:
+                    blocks_T[j,i] = block_ij.transpose(Mt=block_ji)
 
             if not cart_j.is_comm_null:
                 if cart_ij.intercomm.rank == 0:
@@ -921,18 +933,25 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             else:
                 root = 0
 
+            block_ji = self[j,i] is not None
             block_ji =  cart_ij.intercomm.bcast(block_ji, root= root) or block_ji
             if block_ji:
                 if not cart_j.is_comm_null:
-                    block_ji = self[j,i]
+                    block_ji = blocks.pop((j,i))
+                    info = (block_ji.d_start, block_ji.c_start, block_ji.flip, block_ji.pads)
                     cart_ij.intercomm.bcast((block_ji.d_start, block_ji.c_start, block_ji.flip, block_ji.pads), root= root)
                 else:
-                    (s_d, s_c, flip, pads) = cart_ij.intercomm.bcast(None, root=root)
-                    block_ji = StencilInterfaceMatrix(Vi, Vj._interfaces[axis_j, ext_j], s_d, s_c, axis_i, axis_j, ext_i, ext_j, flip=flip)
+                    info = cart_ij.intercomm.bcast(None, root=root)
+                    block_ji = StencilInterfaceMatrix(Vi, Vj._interfaces[axis_j, ext_j], info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
+                    block_ij = StencilInterfaceMatrix(Vj, Vi, info[1], info[0], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
 
-                data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = tuple(2*p+1 for p in block_ji.pads))
+                data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ji._data.shape[block_ji._ndim:])
                 data_exchanger.update_ghost_regions(array_plus=block_ji._data)
 
+                if cart_j.is_comm_null:
+                    blocks_T[i,j] = block_ji.transpose(Mt=block_ij)
+
+        return blocks, blocks_T
 
     def set_backend(self, backend):
         if isinstance(self.domain, BlockVectorSpace) and isinstance(self.domain.spaces[0], BlockVectorSpace):

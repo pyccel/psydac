@@ -1884,7 +1884,7 @@ class StencilInterfaceMatrix(Matrix):
             new_nrows[d] += er
 
     # ...
-    def transpose( self ):
+    def transpose( self , Mt=None):
         """ Create new StencilInterfaceMatrix Mt, where domain and codomain are swapped
             with respect to original matrix M, and Mt_{ij} = M_{ji}.
         """
@@ -1892,9 +1892,10 @@ class StencilInterfaceMatrix(Matrix):
         # For clarity rename self
         M = self
 
-        # Create new matrix where domain and codomain are swapped
-        Mt = StencilInterfaceMatrix(M.codomain, M.domain, M.c_start, M.d_start, M._c_axis, M._d_axis, M._c_ext, M._d_ext,
-                                    flip=M._flip, pads=M._pads, backend=M._backend)
+        if Mt is None:
+            # Create new matrix where domain and codomain are swapped
+            Mt = StencilInterfaceMatrix(M.codomain, M.domain, M.c_start, M.d_start, M._c_axis, M._d_axis, M._c_ext, M._d_ext,
+                                        flip=M._flip, pads=M._pads, backend=M._backend)
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
         M._transpose_func(M._data, Mt._data, **M._transpose_args)
