@@ -196,7 +196,7 @@ def interface_transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]',
 
                             i1 = si1 + cm1*(x1//dm1) + l1 + d1
                             i2 = si2 + cm2*(x2//dm2) + l2 + d2
-                            i2 = si3 + cm3*(x3//dm3) + l3 + d3
+                            i3 = si3 + cm3*(x3//dm3) + l3 + d3
 
                             k1 = sk1 + x1%dm1 - dm1*(l1//cm1)
                             k2 = sk2 + x2%dm2-dm2*(l2//cm2)

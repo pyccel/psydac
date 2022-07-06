@@ -52,7 +52,7 @@ def set_interfaces(domain, interfaces):
 
 #==============================================================================
 
-def run_poisson_2d(solution, f, domain, ncells, degree, comm=None, backend=None):
+def run_poisson_3d_multi_patch(solution, f, domain, ncells, degree, comm=None, backend=None):
 
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
@@ -201,7 +201,7 @@ if __name__ == '__main__':
     degree = vars(args)['degree']
 
     comm = MPI.COMM_WORLD
-    u_h, info, timing, l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=ne, degree=degree, comm=comm, backend=PSYDAC_BACKEND_GPYCCEL)
+    u_h, info, timing, l2_error, h1_error = run_poisson_3d_multi_patch(solution, f, domain, ncells=ne, degree=degree, comm=comm, backend=PSYDAC_BACKEND_GPYCCEL)
 
     if comm.rank == 0:
         print("number of mpi procs             :: ", comm.size)
