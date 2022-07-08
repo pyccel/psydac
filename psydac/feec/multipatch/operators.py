@@ -665,7 +665,7 @@ def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
     T = fine_grid[~(np.abs(coarse_grid[:,None] - fine_grid) < tol).any(0)]
     return T
 
-def create_boundary_space(space, axis):
+#def create_boundary_space(space, axis):
 
 
 def construct_extension_operator_1D(domain, codomain):
@@ -705,7 +705,6 @@ def construct_extension_operator_1D(domain, codomain):
 
     # return KroneckerDenseMatrix(domain.vector_space, codomain.vector_space, *ops)
     return csr_matrix(np.kron(*ops)) # kronecker of 1 term...
-
 
 #===============================================================================
 class ConformingProjection_V1( FemLinearOperator ):
