@@ -888,68 +888,188 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             Vi = V.spaces[i]
             Vj = V.spaces[j]
 
-            # case of scalar equations
-            cart_i = Vi.cart
-            cart_j = Vj.cart
-            if cart_i.is_comm_null and cart_j.is_comm_null:continue
-            if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
-            if not (axis_i, ext_i) in Vi._interfaces:continue
-            cart_ij = Vi._interfaces[axis_i, ext_i].cart
-            assert isinstance(cart_ij, InterfaceCartDecomposition)
+            if isinstance(Vi, BlockVectorSpace) and isinstance(Vj, BlockVectorSpace):
+                # case of a system of equations
+                block_ij_exists = False
+                blocks_T[j,i] = BlockMatrix(Vi, Vj)
+                block_ij = blocks.get((i,j))._blocks.copy() if self[i,j] else None
+                for k1,Vik1 in enumerate(Vi.spaces):
+                    for k2,Vjk2 in enumerate(Vj.spaces):
+                        cart_i = Vik1.cart
+                        cart_j = Vjk2.cart
+
+                        if cart_i.is_comm_null and cart_j.is_comm_null:break
+                        if not cart_i.is_comm_null and not cart_j.is_comm_null:break
+                        if not (axis_i, ext_i) in Vik1._interfaces:break
+                        cart_ij = Vik1._interfaces[axis_i, ext_i].cart
+                        assert isinstance(cart_ij, InterfaceCartDecomposition)
+
+                        if not cart_i.is_comm_null:
+                            if cart_ij.intercomm.rank == 0:
+                                root = MPI.ROOT
+                            else:
+                                root = MPI.PROC_NULL
+                        else:
+                            root = 0
+
+                        if not block_ij_exists:
+                            block_ij_exists = self[i,j] is not None
+                            block_ij_exists = cart_ij.intercomm.bcast(block_ij_exists, root= root) or block_ij_exists
+
+                        if not block_ij_exists:break
+                        blocks.pop((i,j), None)
+                        block_ij_k1k2 = block_ij is not None and (k1,k2) in block_ij is not None
+                        block_ij_k1k2 = cart_ij.intercomm.bcast(block_ij_k1k2, root= root) or block_ij_k1k2
+
+                        if block_ij_k1k2:
+                            if not cart_i.is_comm_null:
+                                block_ij_k1k2 = block_ij.pop((k1,k2))
+                                info = (block_ij_k1k2.d_start, block_ij_k1k2.c_start, block_ij_k1k2.flip, block_ij_k1k2.pads)
+                                cart_ij.intercomm.bcast(info, root= root)
+                            else:
+                                info = cart_ij.intercomm.bcast(None, root=root)
+                                block_ij_k1k2 = StencilInterfaceMatrix(Vjk2, Vik1._interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
+                                block_ji_k2k1 = StencilInterfaceMatrix(Vik1, Vjk2, info[1], info[0], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
+
+                            data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ij_k1k2._data.shape[block_ij_k1k2._ndim:])
+                            data_exchanger.update_ghost_regions(array_minus=block_ij_k1k2._data)
+
+                            if cart_i.is_comm_null:
+                                blocks_T[j,i][k2,k1] = block_ij_k1k2.transpose(Mt=block_ji_k2k1)
+                    else:
+                        continue
+                    break
+
+                if (j,i) in blocks_T and len(blocks_T[j,i]._blocks) == 0:
+                    blocks_T.pop((j,i))
+                if (i,j) in blocks and len(blocks[i,j]._blocks) == 0:
+                    blocks.pop((i,j))
+
+                block_ji_exists = False
+                blocks_T[i,j] = BlockMatrix(Vj, Vi)
+                block_ji = blocks.get((j,i))._blocks.copy() if self[j,i] else None
+                for k1,Vik1 in enumerate(Vi.spaces):
+                    for k2,Vjk2 in enumerate(Vj.spaces):
+                        cart_i = Vik1.cart
+                        cart_j = Vjk2.cart
+
+                        if cart_i.is_comm_null and cart_j.is_comm_null:break
+                        if not cart_i.is_comm_null and not cart_j.is_comm_null:break
+                        if not (axis_i, ext_i) in Vik1._interfaces:break
+                        interface_cart_i = Vik1._interfaces[axis_i, ext_i].cart
+                        interface_cart_j = Vjk2._interfaces[axis_j, ext_j].cart
+                        assert isinstance(interface_cart_i, InterfaceCartDecomposition)
+                        assert isinstance(interface_cart_j, InterfaceCartDecomposition)
+
+                        if not cart_j.is_comm_null:
+                            if interface_cart_i.intercomm.rank == 0:
+                                root = MPI.ROOT
+                            else:
+                                root = MPI.PROC_NULL
+                        else:
+                            root = 0
+
+                        if not block_ji_exists:
+                            block_ji_exists = self[j,i] is not None
+                            block_ji_exists = interface_cart_i.intercomm.bcast(block_ji_exists, root= root) or block_ji_exists
+
+                        if not block_ji_exists:break
+                        blocks.pop((j,i), None)
+
+                        block_ji_k2k1 = block_ji is not None and (k2,k1) in block_ji is not None
+                        block_ji_k2k1 = interface_cart_i.intercomm.bcast(block_ji_k2k1, root= root) or block_ji_k2k1
+
+                        if block_ji_k2k1:
+                            if not cart_j.is_comm_null:
+                                block_ji_k2k1 = block_ji.pop((k2,k1))
+                                info = (block_ji_k2k1.d_start, block_ji_k2k1.c_start, block_ji_k2k1.flip, block_ji_k2k1.pads)
+                                interface_cart_i.intercomm.bcast(info, root= root)
+                            else:
+                                info = interface_cart_i.intercomm.bcast(None, root=root)
+                                block_ji_k2k1 = StencilInterfaceMatrix(Vik1, Vjk2._interfaces[axis_j, ext_j], info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
+                                block_ij_k1k2 = StencilInterfaceMatrix(Vjk2, Vik1, info[1], info[0], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
+
+                            interface_cart_i.comm.Barrier()
+                            data_exchanger = InterfaceCartDataExchanger(interface_cart_j, self.dtype, coeff_shape = block_ji_k2k1._data.shape[block_ji_k2k1._ndim:])
+
+                            data_exchanger.update_ghost_regions(array_plus=block_ji_k2k1._data)
+
+                            if cart_j.is_comm_null:
+                                blocks_T[i,j][k1,k2] = block_ji_k2k1.transpose(Mt=block_ij_k1k2)
+
+                    else:
+                        continue
+                    break
 
 
-            if not cart_i.is_comm_null:
-                if cart_ij.intercomm.rank == 0:
-                    root = MPI.ROOT
-                else:
-                    root = MPI.PROC_NULL
-            else:
-                root = 0
+                if (i,j) in blocks_T and len(blocks_T[i,j]._blocks) == 0:
+                    blocks_T.pop((i,j))
+                if (j,i) in blocks and len(blocks[j,i]._blocks) == 0:
+                    blocks.pop((j,i))
 
-            block_ij = self[i,j] is not None
-            block_ij = cart_ij.intercomm.bcast(block_ij, root= root) or block_ij
+            elif not isinstance(Vi, BlockVectorSpace) and not isinstance(Vj, BlockVectorSpace):
 
-            if block_ij:
+                # case of scalar equations
+                cart_i = Vi.cart
+                cart_j = Vj.cart
+                if cart_i.is_comm_null and cart_j.is_comm_null:continue
+                if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
+                if not (axis_i, ext_i) in Vi._interfaces:continue
+                cart_ij = Vi._interfaces[axis_i, ext_i].cart
+                assert isinstance(cart_ij, InterfaceCartDecomposition)
+
                 if not cart_i.is_comm_null:
-                    block_ij = blocks.pop((i,j))
-                    info = (block_ij.d_start, block_ij.c_start, block_ij.flip, block_ij.pads)
-                    cart_ij.intercomm.bcast(info, root= root)
+                    if cart_ij.intercomm.rank == 0:
+                        root = MPI.ROOT
+                    else:
+                        root = MPI.PROC_NULL
                 else:
-                    info = cart_ij.intercomm.bcast(None, root=root)
-                    block_ij = StencilInterfaceMatrix(Vj, Vi._interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
-                    block_ji = StencilInterfaceMatrix(Vi, Vj, info[1], info[0], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
+                    root = 0
 
-                data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ij._data.shape[block_ij._ndim:])
-                data_exchanger.update_ghost_regions(array_minus=block_ij._data)
+                block_ij_exists = self[i,j] is not None
+                block_ij_exists = cart_ij.intercomm.bcast(block_ij_exists, root= root) or block_ij_exists
 
-                if cart_i.is_comm_null:
-                    blocks_T[j,i] = block_ij.transpose(Mt=block_ji)
+                if block_ij_exists:
+                    if not cart_i.is_comm_null:
+                        block_ij = blocks.pop((i,j))
+                        info = (block_ij.d_start, block_ij.c_start, block_ij.flip, block_ij.pads)
+                        cart_ij.intercomm.bcast(info, root= root)
+                    else:
+                        info = cart_ij.intercomm.bcast(None, root=root)
+                        block_ij = StencilInterfaceMatrix(Vj, Vi._interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
+                        block_ji = StencilInterfaceMatrix(Vi, Vj, info[1], info[0], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
 
-            if not cart_j.is_comm_null:
-                if cart_ij.intercomm.rank == 0:
-                    root = MPI.ROOT
-                else:
-                    root = MPI.PROC_NULL
-            else:
-                root = 0
+                    data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ij._data.shape[block_ij._ndim:])
+                    data_exchanger.update_ghost_regions(array_minus=block_ij._data)
 
-            block_ji = self[j,i] is not None
-            block_ji =  cart_ij.intercomm.bcast(block_ji, root= root) or block_ji
-            if block_ji:
+                    if cart_i.is_comm_null:
+                        blocks_T[j,i] = block_ij.transpose(Mt=block_ji)
+
                 if not cart_j.is_comm_null:
-                    block_ji = blocks.pop((j,i))
-                    info = (block_ji.d_start, block_ji.c_start, block_ji.flip, block_ji.pads)
-                    cart_ij.intercomm.bcast((block_ji.d_start, block_ji.c_start, block_ji.flip, block_ji.pads), root= root)
+                    if cart_ij.intercomm.rank == 0:
+                        root = MPI.ROOT
+                    else:
+                        root = MPI.PROC_NULL
                 else:
-                    info = cart_ij.intercomm.bcast(None, root=root)
-                    block_ji = StencilInterfaceMatrix(Vi, Vj._interfaces[axis_j, ext_j], info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
-                    block_ij = StencilInterfaceMatrix(Vj, Vi, info[1], info[0], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
+                    root = 0
 
-                data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ji._data.shape[block_ji._ndim:])
-                data_exchanger.update_ghost_regions(array_plus=block_ji._data)
+                block_ji_exists = self[j,i] is not None
+                block_ji_exists =  cart_ij.intercomm.bcast(block_ji_exists, root= root) or block_ji_exists
+                if block_ji_exists:
+                    if not cart_j.is_comm_null:
+                        block_ji = blocks.pop((j,i))
+                        info = (block_ji.d_start, block_ji.c_start, block_ji.flip, block_ji.pads)
+                        cart_ij.intercomm.bcast((block_ji.d_start, block_ji.c_start, block_ji.flip, block_ji.pads), root= root)
+                    else:
+                        info = cart_ij.intercomm.bcast(None, root=root)
+                        block_ji = StencilInterfaceMatrix(Vi, Vj._interfaces[axis_j, ext_j], info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
+                        block_ij = StencilInterfaceMatrix(Vj, Vi, info[1], info[0], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
 
-                if cart_j.is_comm_null:
-                    blocks_T[i,j] = block_ji.transpose(Mt=block_ij)
+                    data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ji._data.shape[block_ji._ndim:])
+                    data_exchanger.update_ghost_regions(array_plus=block_ji._data)
+
+                    if cart_j.is_comm_null:
+                        blocks_T[i,j] = block_ji.transpose(Mt=block_ij)
 
         return blocks, blocks_T
 

@@ -106,7 +106,6 @@ class StencilVectorSpace( VectorSpace ):
 
         # Global dimensions of vector space
         self._npts   = tuple( npts )
-
         self._interfaces = {}
     # ...
     def _init_parallel( self, cart, dtype=float ):
@@ -125,6 +124,9 @@ class StencilVectorSpace( VectorSpace ):
         self._starts     = (0,)*self._ndim
         self._ends       = (-1,)*self._ndim
         self._shape      = (0,)*self._ndim
+
+        self._parent_starts = (None,)*self._ndim
+        self._parent_ends   = (None,)*self._ndim
         self._interfaces = {}
 
         if cart.is_comm_null:
@@ -172,25 +174,6 @@ class StencilVectorSpace( VectorSpace ):
 
         """
         return StencilVector( self )
-
-# NOTE [YG, 09.03.2021]: the equality comparison "==" is removed because we
-# prefer using the identity comparison "is" as far as possible.
-#    # ...
-#    def __eq__(self, V):
-#
-#        if self.parallel and V.parallel:
-#            cond = self._dtype == V._dtype
-#            cond = cond and self._cart ==  V._cart
-#            return cond
-#
-#        elif not self.parallel and not V.parallel:
-#            cond = self.npts == V.npts
-#            cond = cond and self.pads == V.pads
-#            cond = cond and self.periods == V.periods
-#            cond = cond and self.dtype == V.dtype
-#            return cond
-#        else:
-#            return False
 
     def reduce_elements(self, axes, n_elements, shifts):
         """ Compute the reduced space.
@@ -1740,7 +1723,13 @@ class StencilInterfaceMatrix(Matrix):
 
         self._pads     = pads or tuple(Vin.pads)
         dims           = list(W.shape)
-        dims[c_axis]   = W.pads[c_axis] + 1 + 2*W.shifts[c_axis]*W.pads[c_axis]
+
+        if W.parent_ends[c_axis] is not None:
+            diff = min(1,W.parent_ends[c_axis]-W.ends[c_axis])
+        else:
+            diff = 0
+
+        dims[c_axis]   = W.pads[c_axis] + 1-diff + 2*W.shifts[c_axis]*W.pads[c_axis]
         diags          = [compute_diag_len(p, md, mc) for p,md,mc in zip(self._pads, Vin.shifts, W.shifts)]
         self._data     = np.zeros( dims+diags, dtype=W.dtype )
 
@@ -1766,7 +1755,7 @@ class StencilInterfaceMatrix(Matrix):
         nrows         = [min(ni,nj) for ni,nj  in zip(nc, nd)]
         nrows_extra   = [max(0,ni-nj) for ni,nj in zip(nc, nd)]
         nrows_extra[c_axis] = max(W.npts[c_axis]-Vin.npts[c_axis],0) if Vin.npts[c_axis] == Vin.ends[c_axis]+1 else 0
-        nrows[c_axis] = self._pads[c_axis] + 1 - nrows_extra[c_axis]
+        nrows[c_axis] = self._pads[c_axis] + 1-diff - nrows_extra[c_axis]
 
         args                 = {}
         args['starts']       = tuple(Vin.starts)
@@ -1847,8 +1836,8 @@ class StencilInterfaceMatrix(Matrix):
 
         ndiags, _ = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
         bb        = [p*m+p+1-n-s%m for p,m,n,s in zip(gpads, dm, ndiags, starts)]
-
         nn        = v.shape
+
         for xx in np.ndindex( *nrows ):
             ii    = [ mi*pi + x for mi,pi,x in zip(cm, gpads, xx) ]
             jj    = tuple( slice(b-d+(x+s%mj)//mi*mj,b-d+(x+s%mj)//mi*mj+n) for x,mi,mj,b,s,n,d in zip(xx,cm,dm,bb,starts,ndiags,diff) )
@@ -1925,7 +1914,6 @@ class StencilInterfaceMatrix(Matrix):
                    all(i<n for i,n in zip(ii, ncols)):
                     Mt[(*jj, *ll)] = M[(*ii, *kk)]
 
-
     def _prepare_transpose_args(self):
 
         #prepare the arguments for the transpose method
@@ -1943,7 +1931,7 @@ class StencilInterfaceMatrix(Matrix):
 
         # Number of rows in the transposed matrix (along each dimension)
         nrows       = [e-s+1 for s,e in zip(ssd, eed)]
-        ncols       = [e-s+2*m*p+1 for s,e,m,p in zip(ssc, eec, cm, gpads)]
+        ncols       = [e-s+1+2*m*p for s,e,m,p in zip(ssc, eec, cm, gpads)]
 
         pp = pads
         ndiags, starts = list(zip(*[compute_diag_len(p,mi,mj, return_padding=True) for p,mi,mj in zip(pp,cm,dm)]))
@@ -1966,8 +1954,18 @@ class StencilInterfaceMatrix(Matrix):
                  for mi,mj,n,p in zip(cm, dm, ndiagsT, pp)]
 
 
-        nrows[dim]  = pads[dim] + 1
-        ncols[dim]  = pads[dim] + 2*cm[dim]*pads[dim] + 1
+        if V.parent_ends[dim] is not None:
+            diff_r = min(1,V.parent_ends[dim]-V.ends[dim])
+        else:
+            diff_r = 0
+
+        if W.parent_ends[dim] is not None:
+            diff_c = min(1,W.parent_ends[dim]-W.ends[dim])
+        else:
+            diff_c = 0
+
+        nrows[dim]  = pads[dim] + 1 - diff_r
+        ncols[dim]  = pads[dim] + 1 - diff_c + 2*cm[dim]*pads[dim]
 
         args = {}
         args['nrows']   = tuple(nrows)

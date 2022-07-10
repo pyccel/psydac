@@ -1885,13 +1885,13 @@ class InterfaceCartDataExchanger:
                 send_buf = (array_plus, 1, st)
                 send_req.append(intercomm.Isend( send_buf, rank ))
 
-        for i,(st,rank) in enumerate(zip(self._recv_types, self._source_ranks)):
+        for i,(rt,rank) in enumerate(zip(self._recv_types, self._source_ranks)):
 
             if cart._local_rank_minus is not None and array_plus is not None:
-                recv_buf = (array_plus, 1, st)
+                recv_buf = (array_plus, 1, rt)
                 recv_req.append(intercomm.Irecv( recv_buf, rank ))
             elif cart._local_rank_plus is not None and array_minus is not None:
-                recv_buf = (array_minus, 1, st)
+                recv_buf = (array_minus, 1, rt)
                 recv_req.append(intercomm.Irecv( recv_buf, rank ))
 
         return send_req + recv_req

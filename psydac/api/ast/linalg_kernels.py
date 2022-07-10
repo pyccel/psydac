@@ -106,7 +106,7 @@ def interface_transpose_1d( M:'float[:,:]', Mt:'float[:,:]', n1:"int64",
                             nd1:"int64", ndT1:"int64", si1:"int64",
                             sk1:"int64", sl1:"int64"):
 
-    #$ omp parallel default(private) shared(Mt,M) firstprivate( d_start, c_start, dim, n1,nc1,gp1,p1,dm1,cm1,&
+    #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,nc1,gp1,p1,dm1,cm1,&
     #$ nd1,ndT1,si1,sk1,sl1)
 
     d1 = gp1-p1
@@ -133,7 +133,7 @@ def interface_transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:"int64",
                             sk1:"int64", sk2:"int64", sl1:"int64", sl2:"int64"):
 
 
-    #$ omp parallel default(private) shared(Mt,M) firstprivate( d_start, c_start, dim, n1,n2,nc1,nc2,gp1,gp2,p1,p2,dm1,dm2,&
+    #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,n2,nc1,nc2,gp1,gp2,p1,p2,dm1,dm2,&
     #$ cm1,cm2,nd1,nd2,ndT1,ndT2,si1,si2,sk1,sk2,sl1,sl2)
     d1 = gp1-p1
     d2 = gp2-p2
