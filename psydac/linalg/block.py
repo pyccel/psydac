@@ -21,7 +21,7 @@ class BlockVectorSpace( VectorSpace ):
         A list of Vector Spaces.
 
     """
-    def __new__(cls, *spaces, connectivity={}):
+    def __new__(cls, *spaces, connectivity=None):
 
         # Check that all input arguments are vector spaces
         if not all(isinstance(Vi, VectorSpace) for Vi in spaces):
@@ -49,6 +49,7 @@ class BlockVectorSpace( VectorSpace ):
         else:
             self._dtype = tuple(s.dtype for s in spaces)
 
+        connectivity       = connectivity if connectivity is not None else {}
         self._connectivity = connectivity
     #--------------------------------------
     # Abstract interface
