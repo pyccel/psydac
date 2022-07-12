@@ -2,6 +2,8 @@
 #
 # Copyright 2019 Yaman Güçlü
 
+import os
+import mpi4py
 import numpy as np
 from requests import patch
 import yaml
@@ -18,6 +20,7 @@ from pyevtk.vtk import VtkHexahedron, VtkQuad
 
 from psydac.api.discretization import discretize
 from psydac.cad.geometry import Geometry
+from psydac.fem.tensor import TensorFemSpace
 from psydac.mapping.discrete import SplineMapping
 from psydac.core.bsplines import cell_index
 from psydac.feec.pushforward import Pushforward
@@ -207,6 +210,8 @@ class OutputManager:
         self.fields_file = None
     
     def close(self):
+        if not os.path.exists(self.filename_space):
+            self.export_space_info()
         if not self.fields_file is None:
             self.fields_file.close()
 
@@ -925,21 +930,20 @@ class PostProcessManager:
         if not self.geometry_filename is None:
             domain = Domain.from_file(self.geometry_filename)
             domain_h = discretize(domain, filename=self.geometry_filename, comm=self.comm)
-            
-            if not domain_h.mappings is None:
-                self._mappings.update(domain_h.mappings)
+
+            spl_maps = domain_h.mappings if domain_h.mappings is not None else {}
+
             if isinstance(domain.interior, InteriorDomain):
-                if not domain.mapping is None:
-                    self._mappings[domain.name] = domain.mapping
+                self._mappings[domain.name] = spl_maps.get(domain.logical_domain.name, domain.mapping)
             else:
                 if isinstance(domain.mapping, MultiPatchMapping):
-                    for interior in domain.interior.as_tuple():
-                        self._mappings[interior.name] = domain.mapping.mappings[interior.logical_domain]
+                    for interior in domain.interior.as_tuple():       
+                        self._mappings[interior.name] = spl_maps.get(interior.logical_domain.name, \
+                                                                     domain.mapping.mappings[interior.logical_domain])
                 else:
                     for interior in domain.interior.as_tuple():
-                        if not self._mappings.get(interior.name, None) is None:
-                            self._mappings[interior.name] = interior.mapping
-
+                        self._mappings[interior.name] = spl_maps.get(interior.logical_domain.name, \
+                                                                     interior.mapping)
         else:
             domain = self._domain
             if isinstance(domain.interior, InteriorDomain):
@@ -1053,6 +1057,10 @@ class PostProcessManager:
             self._static_fields, 
             fields
         )
+        for v in self._static_fields.values():
+            if not v.coeffs.ghost_regions_in_sync:
+                v.coeffs.update_ghost_regions()
+
         self._last_loaded_fields = self._static_fields
 
     def load_snapshot(self, n, *fields):
@@ -1081,7 +1089,8 @@ class PostProcessManager:
         self._loaded_ts = snapshot_group.attrs['ts']
 
         for v in self._snapshot_fields.values():
-            v.coeffs.update_ghost_regions()
+            if not v.coeffs.ghost_regions_in_sync:
+                v.coeffs.update_ghost_regions()
 
         self._snapshot_fields = {k: v for k, v in self._snapshot_fields.items() if k in keys_loaded}
 
@@ -1259,6 +1268,10 @@ class PostProcessManager:
         if self._mpi_dd is None:
             number_by_rank_simu = False 
         
+        # Check if multipatch
+        if len(self._mappings) <=1:
+            number_by_patch = False
+
         # Check fields
         if fields is None:
             fields = ()
@@ -1315,7 +1328,7 @@ class PostProcessManager:
                     celldata_info, pointdata_info = self._compute_parallel_info(cell_data, point_data)
                     # Write .PVTU file
                     writeParallelVTKUnstructuredGrid(
-                        path=filename[:-2], # Remove ".0"
+                        path=filename[:-2] + '.static', # Remove ".0"
                         coordsdtype=mesh_info[0][0].dtype,
                         sources=[filename[:-1]+f'{r}.static.vtu' for r in range(size)],
                         ghostlevel=0,
@@ -1380,7 +1393,7 @@ class PostProcessManager:
                     celldata_info, pointdata_info = self._compute_parallel_info(cell_data, point_data)
                     # Write .PVTU file
                     writeParallelVTKUnstructuredGrid(
-                        path=filename[:-2], # Remove ".0"
+                        path=filename[:-2] + '.{0:0{1}d}'.format(i, lz), # Remove ".0"
                         coordsdtype=mesh_info[0][0].dtype,
                         sources=[filename[:-1]+f'{r}' + '.{0:0{1}d}.vtu'.format(i, lz) for r in range(size)],
                         ghostlevel=0,
@@ -1470,7 +1483,7 @@ class PostProcessManager:
                 i_name: {} for i_name in self._domain.interior_names
             }
 
-        for i_patch, (interior_name, space_dict) in enumerate(interior_to_dict_fields.items()):
+        for (interior_name, i_patch), space_dict in interior_to_dict_fields.items():
             mapping = self._mappings[interior_name]
             assert isinstance(mapping, (Mapping, SplineMapping)) or mapping is None
 
@@ -1616,36 +1629,45 @@ class PostProcessManager:
         interior_to_fields = {}
         for f_name, f in self._last_loaded_fields.items():
             space_f = f.space
+
             interior_index_dict = self._interior_space_index[space_f]
 
-            for interior, i in interior_index_dict.items():
+            for patch_index, (interior, i) in enumerate(interior_index_dict.items()):
                 if i != -1:
+                    # Checks for empty spaces
+                    if isinstance(space_f.spaces[i], TensorFemSpace):
+                        if space_f.spaces[i].vector_space.cart.comm == mpi4py.MPI.COMM_NULL:
+                            # TODO use space_f.spaces[i].vector_space.cart.is_comm_null
+                            continue
+                    else:
+                        if space_f.spaces[i].spaces[0].vector_space.cart.comm == mpi4py.MPI.COMM_NULL:
+                            continue
+                    
                     try:
-                        interior_to_fields[interior][space_f.spaces[i]][0].append(f_name)
-                        interior_to_fields[interior][space_f.spaces[i]][1].append(f.fields[i])
+                        interior_to_fields[interior, patch_index][space_f.spaces[i]][0].append(f_name)
+                        interior_to_fields[interior, patch_index][space_f.spaces[i]][1].append(f.fields[i])
                     except KeyError:
                         try:
-                            interior_to_fields[interior][space_f.spaces[i]] = ([f_name], [f.fields[i]])
+                            interior_to_fields[interior, patch_index][space_f.spaces[i]] = ([f_name], [f.fields[i]])
                         except KeyError:
-                            interior_to_fields[interior] = {space_f.spaces[i]: ([f_name], [f.fields[i]])}
+                            interior_to_fields[interior, patch_index] = {space_f.spaces[i]: ([f_name], [f.fields[i]])}
                 else:
                     try:
-                        interior_to_fields[interior][space_f][0].append(f_name) 
-                        interior_to_fields[interior][space_f][1].append(f)
+                        interior_to_fields[interior, patch_index][space_f][0].append(f_name) 
+                        interior_to_fields[interior, patch_index][space_f][1].append(f)
                     except KeyError:
                         try:
-                            interior_to_fields[interior][space_f] = ([f_name], [f])
+                            interior_to_fields[interior, patch_index][space_f] = ([f_name], [f])
                         except KeyError:
-                            interior_to_fields[interior] = {space_f: ([f_name], [f])}
+                            interior_to_fields[interior, patch_index] = {space_f: ([f_name], [f])}
         try:
-            subdomain = self._domain.get_subdomain(tuple(interior_to_fields.keys()))
+            subdomain = self._domain.get_subdomain(tuple(i_name for i_name, _ in interior_to_fields))
         except IndexError:
             subdomain = None
         except TypeError:
             subdomain = None
         except UnboundLocalError:
             subdomain = None
-
         return subdomain, interior_to_fields
 
     def _compute_single_patch(
@@ -1728,7 +1750,8 @@ class PostProcessManager:
 
         if needs_mesh:
             partial_mesh_info = self._get_mesh(
-                mapping, 
+                mapping,
+                grid, 
                 grid_local, 
                 local_domain, 
                 npts_per_cell=npts_per_cell,
@@ -1786,6 +1809,7 @@ class PostProcessManager:
                 local_domain = space.spaces[0].local_domain
                 global_domain = ((0,) * ldim, tuple(nc_i - 1 for nc_i in list(space.spaces[0].ncells)))
                 breaks = space.spaces[0].breaks
+
         # Option 3 : discretize a ScalarSpace on the patch
         else:
             temp_domain = self._domain.get_subdomain(interior_name)
@@ -1799,7 +1823,7 @@ class PostProcessManager:
 
         return local_domain, global_domain, breaks
 
-    def _get_mesh(self, mapping, grid_local, local_domain, npts_per_cell=None, cell_indexes=None):
+    def _get_mesh(self, mapping, grid, grid_local, local_domain, npts_per_cell=None, cell_indexes=None):
         """
         Return the mesh and its informations.
 
@@ -1807,7 +1831,7 @@ class PostProcessManager:
         ----------
         """
         if isinstance(mapping, SplineMapping):
-            mesh = mapping.build_mesh(grid_local, npts_per_cell=npts_per_cell)
+            mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell)
         else:
             if grid_local[0].ndim == 1:
                 mesh = np.meshgrid(*grid_local, indexing='ij')
@@ -1816,6 +1840,8 @@ class PostProcessManager:
             if isinstance(mapping, Mapping):
                 c_m = mapping.get_callable_mapping()
                 mesh = c_m(*mesh)
+            else:
+                raise TypeError(f'mapping need to be SymPDE Mapping or Psydac SplineMapping and not {type(mapping)}')
         conn, off, typ, _ = self._compute_unstructured_mesh_info(
             local_domain, 
             npts_per_cell=npts_per_cell,
