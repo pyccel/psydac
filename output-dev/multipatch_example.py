@@ -3,17 +3,20 @@ import numpy as np
 from mpi4py import MPI
 
 from sympde.topology import Square, ScalarFunctionSpace, VectorFunctionSpace
-from sympy import degree
+from sympy import E, degree
 
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 from psydac.api.discretization import discretize
+from psydac.api.tests.build_domain import build_pretzel
+from psydac.feec.multipatch.plotting_utilities import get_grid_vals, get_plotting_grid
+from psydac.feec.pushforward import Pushforward
 from psydac.fem.basic import FemField
 from psydac.utilities.utils import refine_array_1d
 
 
 
-# comm = MPI.COMM_WORLD
+comm = MPI.COMM_WORLD
 
 
 import pytest      
@@ -54,6 +57,8 @@ from sympde.expr               import find, EssentialBC
 from psydac.api.discretization import discretize
 from psydac.fem.basic          import FemField
 from psydac.utilities.utils    import refine_array_1d
+from psydac.api.tests.build_domain             import build_pretzel
+
 
 from mpi4py import MPI
 #==============================================================================
@@ -96,9 +101,9 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
     # 2. Discretization
     #+++++++++++++++++++++++++++++++
     domain_h = discretize(domain, ncells=ncells, comm=comm)
-    Vh       = discretize(V, domain_h, degree=degree)
+    Vh       = discretize(V, domain_h, degree=degree, comm=comm)
 
-    equation_h = discretize(equation, domain_h, [Vh, Vh])
+    equation_h = discretize(equation, domain_h, [Vh, Vh], comm=comm)
 
     l2norm_h = discretize(l2norm, domain_h, Vh)
     h1norm_h = discretize(h1norm, domain_h, Vh)
@@ -171,9 +176,9 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
     equation_h = discretize(equation, domain_h, [Vh, Vh])
     l2norm_h   = discretize(l2norm, domain_h, Vh)
 
-    equation_h.set_solver('pcg', pc='jacobi', tol=1e-8)
+    equation_h.set_solver('pcg', pc='jacobi', tol=1e-8, info=True, verbose=True)
 
-    uh = equation_h.solve()
+    uh, info = equation_h.solve()
 
     l2_error = l2norm_h.assemble(F=uh)
 
@@ -182,17 +187,16 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
 
 def poisson():
 
-    from psydac.api.tests.build_domain             import build_pretzel
 
     domain    = build_pretzel()
     x,y       = domain.coordinates
     solution  = x**2 + y**2
     f         = -4
 
-    ne     = [2**2,2**2]
+    ne     = [2**4,2**4]
     degree = [2,2]
 
-    u_h, info, timing, l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=ne, degree=degree)
+    u_h, info, timing, l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=ne, degree=degree, comm=comm)
 
     # ...
     print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne[0], ne2=ne[1]) )
@@ -204,27 +208,23 @@ def poisson():
     print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
     print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
     
-    Om = OutputManager('poisson_multipatch.yml', 'poisson_multipatch.h5', None, 'w')
+    Om = OutputManager('poisson_multipatch.yml', 'poisson_multipatch.h5', comm, 'w')
 
     Om.add_spaces(V=u_h.space)
     Om.set_static()
     Om.export_fields(u=u_h)
-
     Om.export_space_info()
-
     Om.close()
 
-    Pm = PostProcessManager(domain=domain, space_file='poisson_multipatch.yml', fields_file='poisson_multipatch.h5', comm=None)
-    N = 3
-    Pm.export_to_vtk('poisson_multipatch', grid=None, npts_per_cell=N, fields={'u_man': 'u'},
+def poisson_export():
+    domain=build_pretzel()
+    Pm = PostProcessManager(domain=domain, space_file='poisson_multipatch.yml', fields_file='poisson_multipatch.h5', comm=comm)
+    N = 5
+    Pm.export_to_vtk('poisson_multipatch', grid=None, npts_per_cell=N, fields=('u',) , snapshots='all',
                      additional_physical_functions={'u_e': lambda X, Y: X ** 2 + Y ** 2})
 
 
 def maxwell():
-
-    from psydac.api.tests.build_domain import build_pretzel
-    from sympy                         import lambdify
-
     domain    = build_pretzel()
     x,y       = domain.coordinates
 
@@ -235,23 +235,25 @@ def maxwell():
                   alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
     l2_error, Eh = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2,2])
+    print( '> L2 error      ::', l2_error )
 
-    Om = OutputManager('maxwell_multipatch.yml', 'maxwell_multipatch.h5')
+    Om = OutputManager('maxwell_multipatch.yml', 'maxwell_multipatch.h5', comm)
     Om.add_spaces(V=Eh.space)
     Om.set_static()
-    Om.export_fields(u=Eh)
+    Om.export_fields(Eh=Eh)
     Om.export_space_info()
-    
-    Pm = PostProcessManager(domain=domain, space_file='maxwell_multipatch.yml', fields_file='maxwell_multipatch.h5')
 
-    Eex_x   = lambdify(domain.coordinates, Eex[0])
-    Eex_y   = lambdify(domain.coordinates, Eex[1])
-    N = 3
-    Pm.export_to_vtk('maxwell_multipatch', grid=None, npts_per_cell=N, fields={'u': 'u'},
-                     additional_physical_functions={'u_ex': lambda X, Y: (Eex_x(X, Y), Eex_y(X, Y))})
 
+def maxwell_export():
+    domain=build_pretzel() 
+    Pm = PostProcessManager(domain=domain, space_file='maxwell_multipatch.yml', fields_file='maxwell_multipatch.h5', comm=comm)
+    N = 5
+    Pm.export_to_vtk('maxwell_multipatch', grid=None, npts_per_cell=N, fields='Eh',
+                     additional_physical_functions={'E_ex': lambda X, Y: (np.sin(np.pi*Y), np.sin(np.pi*X) * np.cos(np.pi*Y))})
 
 
 if __name__ == '__main__':
     # poisson()
-    maxwell()
+    # poisson_export()
+    # maxwell()
+    maxwell_export()
