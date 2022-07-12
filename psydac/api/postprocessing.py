@@ -3,6 +3,7 @@
 # Copyright 2019 Yaman Güçlü
 
 import numpy as np
+from requests import patch
 import yaml
 import re
 import h5py as h5
@@ -120,6 +121,11 @@ class OutputManager:
     
     comm : mpi4py.MPI.Intracomm or None, optional
         Communicator
+    
+    save_mpi_rank : bool
+        If True, then the MPI rank are saved alongside the domain.
+        i.e. for each patch, there will be an attribute which maps the MPI rank
+        to which part of the domain it holds (cell indices).
 
     mode : str in {'r', 'r+', 'w', 'w-', 'x', 'a'}, default='w'
         Opening mode of the HDF5 file.
@@ -171,7 +177,7 @@ class OutputManager:
         UndefinedSpaceType(): 'undefined',
     }
 
-    def __init__(self, filename_space, filename_fields, comm=None, mode='w'):
+    def __init__(self, filename_space, filename_fields, comm=None, mode='w', save_mpi_rank=True):
 
         self._space_info = {}
         self._spaces = []
@@ -190,9 +196,14 @@ class OutputManager:
 
         self._space_names = []
 
-        self._mode=mode
+        self._mode = mode
 
         self.comm = comm
+        if self.comm is not None and self.comm.size > 1:
+            self._save_mpi_rank = save_mpi_rank
+        else:
+            self._save_mpi_rank = False
+
         self.fields_file = None
     
     def close(self):
@@ -390,7 +401,7 @@ class OutputManager:
                 spaces_info['patches'][patch_index]['scalar_spaces'].append(new_space)
             else:
                 spaces_info['patches'].append({'name': patch, 
-                                               'breakpoints': [scalar_space.breaks[i].tolist() for i in range(ldim)], 
+                                               'breakpoints': [scalar_space.breaks[i].tolist() for i in range(ldim)],
                                                'scalar_spaces': [new_space]})
 
         self._space_info = spaces_info
@@ -460,11 +471,20 @@ class OutputManager:
             self._static_names.extend(fields.keys())
         else:
             assert all(not field_name in self._static_names for field_name in fields.keys())
+        
+        assert len(fields) > 0
 
         fh5 = self.fields_file
 
-        if 'spaces' not in fh5.attrs.keys():
+        if self._save_mpi_rank:
+            if not 'mpi_dd' in fh5.keys():
+                mpi_dd_gp = fh5.create_group('mpi_dd')
+            else:
+                mpi_dd_gp = fh5['mpi_dd']
+
+        if not 'spaces' in fh5.attrs.keys():
             fh5.attrs.create('spaces', self.filename_space)
+
 
         saving_group = self._current_hdf5_group
 
@@ -478,6 +498,23 @@ class OutputManager:
 
                     name_space = self._spaces[i+1]
                     name_patch = self._spaces[i+2]
+
+                    if self._save_mpi_rank:
+                        if not name_patch in mpi_dd_gp.keys():
+                            rank = self.comm.Get_rank()
+                            size = self.comm.Get_size()
+
+
+                            if f.space.is_product:
+                                sp = f.space.spaces[0]
+                            else:
+                                sp = f.space
+                            try:
+                                local_domain = np.array(sp.local_domain)
+                            except AttributeError: #empty space
+                                local_domain = np.array((0,) * sp.ldim, (-1,) * sp.ldim)
+                            mpi_dd_gp.create_dataset(f'{name_patch}', shape=(size, *local_domain.shape))
+                            mpi_dd_gp[name_patch][rank] = local_domain 
 
                     if f.space.is_product:  # Vector field case
                         for i, field_coeff in enumerate(f.coeffs):
@@ -493,7 +530,6 @@ class OutputManager:
                                 space_group = saving_group.create_group(f'{name_patch}/{name_space_i}')
                                 space_group.attrs.create('parent_space', data=name_space)
 
-
                             dset = space_group.create_dataset(f'{name_field_i}',
                                                             shape=Vi.npts, dtype=Vi.dtype)
                             dset.attrs.create('parent_field', data=name_field)
@@ -508,6 +544,22 @@ class OutputManager:
 
                 name_space = self._spaces[i+1]
                 name_patch = self._spaces[i+2]
+
+                if self._save_mpi_rank:
+                    if not name_patch in mpi_dd_gp.keys():
+                        rank = self.comm.Get_rank()
+                        size = self.comm.Get_size()
+
+                        if f.space.is_product:
+                            sp = f.space.spaces[0]
+                        else:
+                            sp = f.space
+                        try:
+                            local_domain = np.array(sp.local_domain)
+                        except AttributeError: #empty space
+                            local_domain = np.array((0,) * sp.ldim, (-1,) * sp.ldim)
+                        mpi_dd_gp.create_dataset(f'{name_patch}', shape=(size, *local_domain.shape))
+                        mpi_dd_gp[name_patch][rank] = local_domain
 
                 if field.space.is_product:  # Vector field case
                     for i, field_coeff in enumerate(field.coeffs):
@@ -645,9 +697,11 @@ class PostProcessManager:
 
         self._pushforwards = {} # One psydac.feec.PUSHFORWARD per Patch
 
-        self._reconstruct_spaces()
+        
 
+        self._reconstruct_spaces()
         self.get_snapshot_list()
+        self._mpi_dd = self.get_mpi_dd()
 
     @property
     def spaces(self):
@@ -961,11 +1015,18 @@ class PostProcessManager:
         fh5 = h5.File(self.fields_filename, mode='r', **kwargs)
         self._snapshot_list = []
         for k in fh5.keys():
-            if k != 'static':
+            if k != 'static' and k!= 'mpi_dd':
                 self._snapshot_list.append(int(k[-4:]))
-            else:
+            elif k == 'static':
                 self._has_static = True
         self.fields_file = fh5
+
+    def _get_mpi_dd(self):
+        fh5 = self.fields_file
+        if 'mpi_dd' in fh5.keys():
+            return {k: v for k, v in fh5['mpi_dd'].items()}
+        else:
+            return None
 
     def close(self):
         if not self.fields_file is None:
@@ -1119,7 +1180,8 @@ class PostProcessManager:
                       fields=None,
                       additional_logical_functions=None,
                       additional_physical_functions=None,
-                      number_by_rank=True,
+                      number_by_rank_simu=True,
+                      number_by_rank_visu=True,
                       number_by_patch=True,
                       debug=False,
                       ):
@@ -1189,9 +1251,13 @@ class PostProcessManager:
             if size > 1:
                 filename = filename + f'.{rank}'
             else:
-                number_by_rank = False
+                number_by_rank_visu = False
         else:
-            number_by_rank = False
+            number_by_rank_visu = False
+        
+        # Check if simu was parallel
+        if self._mpi_dd is None:
+            number_by_rank_simu = False 
         
         # Check fields
         if fields is None:
@@ -1228,9 +1294,10 @@ class PostProcessManager:
                         fields=fields,
                         additional_logical_functions=additional_logical_functions,
                         additional_physical_functions=additional_physical_functions,
-                        number_by_patch=number_by_patch
+                        number_by_patch=number_by_patch,
+                        number_by_rank_simu=number_by_rank_simu,
                 )
-                if number_by_rank:
+                if number_by_rank_visu:
                     cell_data['MPI_RANK'] = np.full_like(mesh_info[1][1], rank)
 
                 # Write .VTU file
@@ -1293,8 +1360,9 @@ class PostProcessManager:
                         additional_logical_functions=additional_logical_functions,
                         additional_physical_functions=additional_physical_functions,
                         number_by_patch=number_by_patch,
+                        number_by_rank_simu=number_by_rank_simu,
                 )
-                if number_by_rank:
+                if number_by_rank_visu:
                     cell_data['MPI_RANK'] = np.full_like(mesh_info[1][1], rank)
 
                 # Write .VTU file
@@ -1357,7 +1425,8 @@ class PostProcessManager:
         fields=None,
         additional_logical_functions=None,
         additional_physical_functions=None,
-        number_by_patch=True):
+        number_by_patch=True,
+        number_by_rank_simu=True):
         """
         Helper function to avoid code repetition.
         This function evaluates and pushforward fields
