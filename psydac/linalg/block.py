@@ -880,7 +880,10 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         from mpi4py import MPI
         from psydac.linalg.stencil import StencilInterfaceMatrix
 
-        V = self.codomain
+        if not isinstance(self.codomain, BlockVectorSpace):
+            return blocks, blocks_T
+
+        V = self.codomain 
         for i,j in V._connectivity:
 
             axis_i,axis_j = V._interfaces[i,j][0]
