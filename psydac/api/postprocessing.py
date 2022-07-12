@@ -111,23 +111,31 @@ class OutputManager:
     Parameters
     ----------
     filename_space : str or Path-like
-         Name/path of the file in which to save the space information.
-         The path is relative to the current working directory.
+        Name/path of the file in which to save the space information.
+        The path is relative to the current working directory.
 
     filename_fields : str or Path-like
-         Name/path of the file in which to save the fields.
-         The path is relative to the current working directory.
+        Name/path of the file in which to save the fields.
+        The path is relative to the current working directory.
+    
+    comm : mpi4py.MPI.Intracomm or None, optional
+        Communicator
+
+    mode : str in {'r', 'r+', 'w', 'w-', 'x', 'a'}, default='w'
+        Opening mode of the HDF5 file.
 
     Attributes
     ----------
     _space_info : dict
         Information about the spaces in a human readable format.
         It is written to ``filename_space`` in yaml.
+
     _spaces : List
         List of the spaces that were added to an instance of OutputManager.
 
     filename_space : str or Path-like
         Name of the file in which to save the space information.
+
     filename_fields : str or Path-like
         Name of the file in which to save the fields.
 
@@ -141,9 +149,21 @@ class OutputManager:
         Group where the fields will be saved in the next ``export_fields``.
     
     _static_names : list
+        List of the names of the statically saved fields.
+    
+    _space_types_to_str : dict
+
+    _spaces_names : list
+        List of the names of the saved spaces.
+
+    _comm : mpi4py.MPI.Intracomm or None
+
+    _mode : str in {'r', 'r+', 'w', 'w-', 'x', 'a'}
+
+    _fields_file : h5py.File
     """
 
-    space_types_to_str = {
+    _space_types_to_str = {
         H1SpaceType(): 'h1',
         HcurlSpaceType(): 'hcurl',
         HdivSpaceType(): 'hdiv',
@@ -192,8 +212,8 @@ class OutputManager:
         return dict([(name, space) for name, space in zip(self._spaces[1::3], self._spaces[0::3])])
 
     def set_static(self):
-        """Sets the export to static mode
-
+        """
+        Sets the export to static mode
         """
         if not self.is_static:
             
@@ -211,7 +231,8 @@ class OutputManager:
                 self._current_hdf5_group = self.fields_file['static']
 
     def add_snapshot(self, t, ts):
-        """Adds a snapshot to the fields' HDF5 file
+        """
+        Adds a snapshot to the fields' HDF5 file
         and set the export mode to time dependent.
 
         Parameters
@@ -244,13 +265,17 @@ class OutputManager:
         self._current_hdf5_group = snapshot
 
     def add_spaces(self, **femspaces):
-        """Add femspaces to the scope of this instance of OutputManager
+        """
+        Add spaces to the scope.
 
         Parameters
         ----------
-        femspaces:  psydac.fem.basic.FemSpace dict
-            Femspaces to add in the scope of this OutputManager instance.
-
+        femspaces: dict
+            Named femspaces
+        
+        Note
+        ----
+        Femspaces are added to ``self._space_info``.
         """
         assert all(isinstance(femspace, FemSpace) for femspace in femspaces.values())
 
@@ -281,7 +306,8 @@ class OutputManager:
             self._space_names.append(name)
 
     def _add_scalar_space(self, scalar_space, name=None, dim=None, patch_name=None, kind=None):
-        """Adds a scalar space to the scope of this instance of OutputManager
+        """
+        Adds a scalar space to the scope.
 
         Parameters
         ----------
@@ -330,7 +356,7 @@ class OutputManager:
         
         new_space = {'name': scalar_space_name,
                      'ldim': ldim,
-                     'kind': self.space_types_to_str[kind],
+                     'kind': self._space_types_to_str[kind],
                      'dtype': dtype,
                      'rational': False,
                      'periodic': periodic,
@@ -372,8 +398,8 @@ class OutputManager:
         return new_space
 
     def _add_vector_space(self, vector_space, name=None, patch_name=None):
-        """Adds a vector space to the scope of this instance of OutputManager.
-
+        """
+        Adds a vector space to the scope.
         Parameters
         ----------
         vector_space: psydac.fem.vector.VectorFemSpace or psydac.fem.vector.ProductFemSpace
@@ -397,7 +423,7 @@ class OutputManager:
         spaces_info = self._space_info
 
         new_vector_space = {'name': name,
-                            'kind': self.space_types_to_str[kind],
+                            'kind': self._space_types_to_str[kind],
                             'components': scalar_spaces_info,
                             }
 
@@ -461,8 +487,12 @@ class OutputManager:
                             Vi = f.space.vector_space.spaces[i]
                             index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
-                            space_group = saving_group.create_group(f'{name_patch}/{name_space_i}')
-                            space_group.attrs.create('parent_space', data=name_space)
+                            try:
+                                space_group = saving_group[f'{name_patch}/{name_space_i}']
+                            except KeyError:
+                                space_group = saving_group.create_group(f'{name_patch}/{name_space_i}')
+                                space_group.attrs.create('parent_space', data=name_space)
+
 
                             dset = space_group.create_dataset(f'{name_field_i}',
                                                             shape=Vi.npts, dtype=Vi.dtype)
@@ -487,9 +517,11 @@ class OutputManager:
                         Vi = field.space.vector_space.spaces[i]
                         index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
                         
-
-                        space_group = saving_group.create_group(f'{name_patch}/{name_space_i}')
-                        space_group.attrs.create('parent_space', data=name_space)
+                        try:
+                            space_group = saving_group[f'{name_patch}/{name_space_i}']
+                        except KeyError:
+                            space_group = saving_group.create_group(f'{name_patch}/{name_space_i}')
+                            space_group.attrs.create('parent_space', data=name_space)
 
                         dset = space_group.create_dataset(f'{name_field_i}',
                                                         shape=Vi.npts, dtype=Vi.dtype)
@@ -503,8 +535,8 @@ class OutputManager:
 
 
     def export_space_info(self):
-        """Export the space info to Yaml
-
+        """
+        Export the space info to Yaml.
         """
         if self.comm is None or self.comm.Get_rank() == 0:
             with open(self.filename_space, 'w') as f:
@@ -512,30 +544,35 @@ class OutputManager:
 
 
 class PostProcessManager:
-    """A class to read saved information of a previous simulation
+    """
+    A class to read saved information of a previous simulation
     and start post-processing from there.
 
     Parameters
     ----------
     geometry_file : str or Path-like
         Relative path to the geometry file.
+
     domain : sympde.topology.basic.Domain
         Symbolic domain, provided alongside ``ncells`` in place of ``geometry_file``.
 
     space_file : str or Path-like
         Relative path to the file containing the space information.
+
     fields_file : str or Path-like
         Relative path to the file containing the space information.
 
-    ncells : list of ints
-        Number of cells in the domain, provided alongside ``domain`` in place of ``geometry_file``.
+    comm : mpi4py.MPI.Intracomm or None, optional
+        Communicator
 
     Attributes
     ----------
     geometry_file : str or Path-like
         Relative path to the geometry file
+
     space_file : str or Path-like
         Relative path to the file containing the space information
+
     fields_file : str or Path-like
         Relative path to the file containing the space information
 
@@ -544,7 +581,8 @@ class PostProcessManager:
 
     _domain : sympde.topology.basic.Domain
         Symbolic domain
-    _domain_h : psydac.
+
+    _domain_h : psydac.cad.Geometry
         Discretized domain
 
     _ncells : list of ints
@@ -552,6 +590,7 @@ class PostProcessManager:
 
     _static_fields : dict
         Named static fields
+
     _snapshot_fields : dict
         Named time dependent fields belonging to the same snapshot
 
@@ -582,6 +621,8 @@ class PostProcessManager:
         self._spaces = {}
         self._static_fields = {}
         self._snapshot_fields = {}
+
+        self._has_static = False
         
         self._last_loaded_fields = None
 
@@ -605,6 +646,8 @@ class PostProcessManager:
         self._pushforwards = {} # One psydac.feec.PUSHFORWARD per Patch
 
         self._reconstruct_spaces()
+
+        self.get_snapshot_list()
 
     @property
     def spaces(self):
@@ -673,10 +716,8 @@ class PostProcessManager:
             already_used_names = []
 
             if patch['name'] == domain.name: # Means single patch and thus conforming mesh
-                assert len(space_info['patches'] == 1) # Sanity Check
-                self._multipatch = False
-            else:
-                self._multipatch = True
+                assert len(space_info['patches']) == 1 # Sanity Check
+
             try:
                 temp_ldim = domain.get_subdomain(patch['name']).mapping._ldim
             except AttributeError:
@@ -849,7 +890,7 @@ class PostProcessManager:
             domain = self._domain
             if isinstance(domain.interior, InteriorDomain):
                 if not domain.mapping is None:
-                    self._mappings[domain.logical_domain.name] = domain.mapping
+                    self._mappings[domain.name] = domain.mapping
             else:
                 if isinstance(domain.mapping, MultiPatchMapping):
                     for interior in domain.interior.as_tuple():
@@ -922,6 +963,8 @@ class PostProcessManager:
         for k in fh5.keys():
             if k != 'static':
                 self._snapshot_list.append(int(k[-4:]))
+            else:
+                self._has_static = True
         self.fields_file = fh5
 
     def close(self):
@@ -939,6 +982,7 @@ class PostProcessManager:
         """
         if self._snapshot_list is None:
             self.get_snapshot_list()
+
         fh5 = self.fields_file
 
         static_group = fh5['static']
@@ -966,7 +1010,7 @@ class PostProcessManager:
 
         snapshot_group = fh5[f'snapshot_{n:0>4}']
 
-        self._import_fields_helper(
+        keys_loaded = self._import_fields_helper(
             snapshot_group, 
             self._snapshot_fields, 
             fields
@@ -975,9 +1019,10 @@ class PostProcessManager:
         self._loaded_t = snapshot_group.attrs['t']
         self._loaded_ts = snapshot_group.attrs['ts']
 
-        self._snapshot_fields = {k: self._snapshot_fields[k] for k in fields}
         for v in self._snapshot_fields.values():
-            v.update_ghost_regions()
+            v.coeffs.update_ghost_regions()
+
+        self._snapshot_fields = {k: v for k, v in self._snapshot_fields.items() if k in keys_loaded}
 
         self._last_loaded_fields = self._snapshot_fields
 
@@ -986,6 +1031,7 @@ class PostProcessManager:
         Helper function that parse through an hdf5 group
         to load the fields whose name appears in ``keys``
         """
+        keys_loaded = []
         for patch_name, patch_group in hdf5_group.items():
             temp_space_to_field = {}
             for space_name, space_group in patch_group.items():
@@ -993,6 +1039,7 @@ class PostProcessManager:
                 if 'parent_space' not in space_group.attrs.keys(): # Scalar case
                     for field_dset_name, field_dset in space_group.items():
                         if field_dset_name in keys:
+                            keys_loaded.append(field_dset_name)
                             self._load_fields_helper(
                                 patch_name,
                                 space_name,
@@ -1009,6 +1056,7 @@ class PostProcessManager:
                         relevant_field_name = field_dset.attrs['parent_field']
 
                         if relevant_field_name in keys:
+                            keys_loaded.append(relevant_field_name)
                             coeff = field_dset
 
                             # Exceptions to take care of when the dicts are empty
@@ -1030,6 +1078,7 @@ class PostProcessManager:
                         list_coeff,
                         container
                     )
+        return keys_loaded
 
     def _load_fields_helper(self, patch_name, space_name, field_name, coeff, container):
         """
@@ -1089,7 +1138,7 @@ class PostProcessManager:
             number of evaluation points in each cell.
             If an integer is given, then assume that it is the same in every direction.
 
-        snapshot : list of int or 'all' or 'none', default='none'
+        snapshots : list of int or 'all' or 'none', default='none'
             If a list is given, it will export every snapshot present in the list.
             If 'none', only the static fields will be exported.
             Finally, if 'all', will export every time step and the static part.
@@ -1098,8 +1147,8 @@ class PostProcessManager:
             Number of leading zeros in the time indexing of the files. 
             Only used if ``snapshot`` is not ``'none'``. 
 
-        fields : dict
-            Dictionary with the fields to export as values and the name under which to export them as keys
+        fields : tuple
+            Names of the fields to export.
         
         additional_physical_functions : dict
             Dictionary of callable functions. Those functions will be called on (x_mesh, y_mesh, z_mesh)
@@ -1117,6 +1166,9 @@ class PostProcessManager:
         Notes
         -----
         This function only supports regular and irregular tensor grid.
+        L2 and Hdiv push-forward algorithms use the metric determinant and
+        not the jacobian determinant. For this reason, sign descrepancies can
+        happen when comparing against algorithms which use the latter.
         """
         # Immediatly fail if grid and npts_per_cell are None
         if grid is None and npts_per_cell is None:
@@ -1143,8 +1195,9 @@ class PostProcessManager:
         
         # Check fields
         if fields is None:
-            fields = {}
-
+            fields = ()
+        if isinstance(fields, str):
+            fields = (fields,)
         # Check additional_logical_functions
         if additional_logical_functions is None:
             additional_logical_functions = {}
@@ -1153,54 +1206,65 @@ class PostProcessManager:
         if additional_physical_functions is None:
             additional_physical_functions = {}
 
+        # Delete temporary values
+        self._last_mesh_info = None
+        self._last_subdomain = None
+        self._pushforwards = {}
+
         # Initialize debug mode
         if debug:
-            debug_result = {'mesh_info' : [], 'pointData': [], 'cellData': []}
+            debug_result = {'mesh_info' : [], 'pointData': [], 'cellData': [], 'Exception': []}
         # -----------------------------------------------
         # Static 
         # -----------------------------------------------
-        if snapshots in ['all', 'none']:
-            # Load fields
-            self.load_static(*fields.values())
-            # Compute everything
-            mesh_info, cell_data, point_data = self._export_to_vtk_helper(
-                      grid=grid,
-                      npts_per_cell=npts_per_cell,
-                      fields=fields,
-                      additional_logical_functions=additional_logical_functions,
-                      additional_physical_functions=additional_physical_functions,
-                      number_by_patch=number_by_patch
-            )
-            if number_by_rank:
-                cell_data['MPI_RANK'] = np.full_like(mesh_info[1][1], rank)
-
-            # Write .VTU file
-            unstructuredGridToVTK(filename+'.static', 
-                                  *mesh_info[0], 
-                                  connectivity=mesh_info[1][0],
-                                  offsets=mesh_info[1][1],
-                                  cell_types=mesh_info[1][2],
-                                  cellData=cell_data,
-                                  pointData=point_data)
-            
-            # If parallel, Rank 0 writes the .PVTU file
-            if self.comm is not None and size > 1 and rank == 0:
-                # Get the dtypes and number of components
-                celldata_info, pointdata_info = self._compute_parallel_info(cell_data, point_data)
-                # Write .PVTU file
-                writeParallelVTKUnstructuredGrid(
-                    path=filename[:-2], # Remove ".0"
-                    coordsdtype=mesh_info[0][0].dtype,
-                    sources=[filename[:-1]+f'{r}.static.vtu' for r in range(size)],
-                    ghostlevel=0,
-                    cellData=celldata_info,
-                    pointData=pointdata_info
+        try:
+            if (snapshots == 'all' and self._has_static) or snapshots == 'none':
+                # Load fields
+                self.load_static(*fields)
+                # Compute everything
+                mesh_info, cell_data, point_data = self._export_to_vtk_helper(
+                        grid=grid,
+                        npts_per_cell=npts_per_cell,
+                        fields=fields,
+                        additional_logical_functions=additional_logical_functions,
+                        additional_physical_functions=additional_physical_functions,
+                        number_by_patch=number_by_patch
                 )
-            # Save results for debug mode
+                if number_by_rank:
+                    cell_data['MPI_RANK'] = np.full_like(mesh_info[1][1], rank)
+
+                # Write .VTU file
+                unstructuredGridToVTK(filename+'.static', 
+                                    *mesh_info[0], 
+                                    connectivity=mesh_info[1][0],
+                                    offsets=mesh_info[1][1],
+                                    cell_types=mesh_info[1][2],
+                                    cellData=cell_data,
+                                    pointData=point_data)
+                
+                # If parallel, Rank 0 writes the .PVTU file
+                if self.comm is not None and size > 1 and rank == 0:
+                    # Get the dtypes and number of components
+                    celldata_info, pointdata_info = self._compute_parallel_info(cell_data, point_data)
+                    # Write .PVTU file
+                    writeParallelVTKUnstructuredGrid(
+                        path=filename[:-2], # Remove ".0"
+                        coordsdtype=mesh_info[0][0].dtype,
+                        sources=[filename[:-1]+f'{r}.static.vtu' for r in range(size)],
+                        ghostlevel=0,
+                        cellData=celldata_info,
+                        pointData=pointdata_info
+                    )
+                # Save results for debug mode
+                if debug:
+                    debug_result['mesh_info'].append(mesh_info)
+                    debug_result['pointData'].append(point_data)
+                    debug_result['cellData'].append(cell_data)
+        except Exception as e_static:
             if debug:
-                debug_result['mesh_info'].append(mesh_info)
-                debug_result['pointData'].append(point_data)
-                debug_result['cellData'].append(cell_data)
+                debug_result['Exception'].append(e_static)
+            else:
+                raise e_static
 
         # -----------------------------------------------
         # Time dependent
@@ -1217,56 +1281,73 @@ class PostProcessManager:
             assert all(s in self._snapshot_list for s in snapshots)
         # Iterate on the snapshots to avoid memory consumption
         for i, snapshot in enumerate(snapshots):
+            try:
             # Load fields
-            self.load_snapshot(snapshot, *fields.values())
-            
-            # Compute everything
-            mesh_info, cell_data, point_data = self._export_to_vtk_helper(
-                      grid=grid,
-                      npts_per_cell=npts_per_cell,
-                      fields=fields,
-                      additional_logical_functions=additional_logical_functions,
-                      additional_physical_function=additional_physical_functions,
-                      number_by_patch=number_by_patch,
-            )
-            if number_by_rank:
-                cell_data['MPI_RANK'] = np.full_like(mesh_info[1][1], rank)
-
-            # Write .VTU file
-            unstructuredGridToVTK(filename + '.{0:0{1}d}'.format(i, lz), 
-                                  *mesh_info[0], 
-                                  connectivity=mesh_info[1][0],
-                                  offsets=mesh_info[1][1],
-                                  cell_types=mesh_info[1][2],
-                                  cellData=cell_data,
-                                  pointData=point_data)
-
-            # If parallel, Rank 0 writes the .PVTU file
-            if self.comm is not None and size > 1 and rank == 0:
-                # Get dtypes and number of components
-                celldata_info, pointdata_info = self._compute_parallel_info(cell_data, point_data)
-                # Write .PVTU file
-                writeParallelVTKUnstructuredGrid(
-                    path=filename[:-2], # Remove ".0"
-                    coordsdtype=mesh_info[0][0].dtype,
-                    sources=[filename[:-1]+f'{r}' + '.{0:0{1}d}.vtu'.format(i, lz) for r in range(size)],
-                    ghostlevel=0,
-                    cellData=celldata_info,
-                    pointData=pointdata_info
+                self.load_snapshot(snapshot, *fields)
+                
+                # Compute everything
+                mesh_info, cell_data, point_data = self._export_to_vtk_helper(
+                        grid=grid,
+                        npts_per_cell=npts_per_cell,
+                        fields=fields,
+                        additional_logical_functions=additional_logical_functions,
+                        additional_physical_functions=additional_physical_functions,
+                        number_by_patch=number_by_patch,
                 )
+                if number_by_rank:
+                    cell_data['MPI_RANK'] = np.full_like(mesh_info[1][1], rank)
 
-            # Save results for debug mode
-            if debug:
-                debug_result['mesh_info'].append(mesh_info)
-                debug_result['pointData'].append(point_data)
-                debug_result['cellData'].append(cell_data)
+                # Write .VTU file
+                unstructuredGridToVTK(filename + '.{0:0{1}d}'.format(i, lz), 
+                                    *mesh_info[0], 
+                                    connectivity=mesh_info[1][0],
+                                    offsets=mesh_info[1][1],
+                                    cell_types=mesh_info[1][2],
+                                    cellData=cell_data,
+                                    pointData=point_data)
+
+                # If parallel, Rank 0 writes the .PVTU file
+                if self.comm is not None and size > 1 and rank == 0:
+                    # Get dtypes and number of components
+                    celldata_info, pointdata_info = self._compute_parallel_info(cell_data, point_data)
+                    # Write .PVTU file
+                    writeParallelVTKUnstructuredGrid(
+                        path=filename[:-2], # Remove ".0"
+                        coordsdtype=mesh_info[0][0].dtype,
+                        sources=[filename[:-1]+f'{r}' + '.{0:0{1}d}.vtu'.format(i, lz) for r in range(size)],
+                        ghostlevel=0,
+                        cellData=celldata_info,
+                        pointData=pointdata_info
+                    )
+
+                # Save results for debug mode
+                if debug:
+                    debug_result['mesh_info'].append(mesh_info)
+                    debug_result['pointData'].append(point_data)
+                    debug_result['cellData'].append(cell_data)
+            except Exception as e_i:
+                if debug:
+                    debug_result['Exception'].append((snapshot, e_i))
+                else:
+                    raise e_i
 
         # Delete temporary values
         self._last_mesh_info = None
         self._last_subdomain = None
         self._pushforwards = {}
+
         # Return debug results
         if debug:
+            list_exception = debug_result.get('Exception', [])
+            for exception in list_exception:
+                if isinstance(exception, tuple):
+                    print(
+                        f"Failure on snapshot {exception[0]}: {exception[1].args}"
+                    )
+                else:
+                    print(
+                        f"Failure on static: {exception.args}"
+                    )
             return debug_result
 
     def _export_to_vtk_helper(
@@ -1294,7 +1375,7 @@ class PostProcessManager:
         point_data = {}
 
         # Not all fields are present in the currently loaded fields
-        fields = {k: v for k, v in fields.items() if v in self._last_loaded_fields.keys()}
+        fields_relevant = tuple(k for k in fields if k in self._last_loaded_fields.keys())
 
         # Mesh
         needs_mesh = True
@@ -1315,7 +1396,7 @@ class PostProcessManager:
                 cell_data.update(number_by_patch)
                 number_by_patch = False
         # No fields -> only build the mesh
-        if interior_to_dict_fields == {}:
+        if fields == ():
             interior_to_dict_fields = {
                 i_name: {} for i_name in self._domain.interior_names
             }
@@ -1346,39 +1427,39 @@ class PostProcessManager:
                 full_types = np.concatenate([full_types, i_typ])
 
                 offset += i_mesh[0].size
-            
+
             # Fields
-            for name_visu, name_intra in fields.items():
+            for name_intra in fields_relevant:
                 i_data = i_point_data.get(name_intra, None)
                 if isinstance(i_data, tuple):
                     try:
-                        assert isinstance(point_data[name_visu], list)
+                        assert isinstance(point_data[name_intra], list)
                         for i_dir in range(len(i_data)):
-                            point_data[name_visu][i_dir] = np.concatenate([point_data[name_visu][i_dir], 
+                            point_data[name_intra][i_dir] = np.concatenate([point_data[name_intra][i_dir], 
                                                                         np.ravel(i_data[i_dir], 'F')])
                     except KeyError:
-                        point_data[name_visu] = [np.ravel(i_data_i, 'F') for i_data_i in i_data]
+                        point_data[name_intra] = [np.ravel(i_data_i, 'F') for i_data_i in i_data]
                     except AssertionError: # Wrongfully assumed scalar in previous patches
-                        point_data[name_visu] = [np.concatenate(point_data[name_visu], np.ravel(i_data_i)) for i_data_i in i_data]
+                        point_data[name_intra] = [np.concatenate(point_data[name_intra], np.ravel(i_data_i)) for i_data_i in i_data]
                 elif isinstance(i_data, np.ndarray):
                     try:
-                        point_data[name_visu] = np.concatenate([point_data[name_visu], np.ravel(i_data, 'F')])
+                        point_data[name_intra] = np.concatenate([point_data[name_intra], np.ravel(i_data, 'F')])
                     except KeyError:
-                        point_data[name_visu] = np.ravel(i_data, 'F')
+                        point_data[name_intra] = np.ravel(i_data, 'F')
             
                 else: # Not all of the fields are present in all patches
                     ref = list(i_point_data.values())[0]
                     if isinstance(ref, tuple):
                         ref = ref[0]
                     try:
-                        if isinstance(point_data[name_visu], list):
-                            for i_dir in range(len(point_data[name_visu])):
-                                point_data[name_visu][i_dir] = np.concatenate([point_data[name_visu][i_dir],
+                        if isinstance(point_data[name_intra], list):
+                            for i_dir in range(len(point_data[name_intra])):
+                                point_data[name_intra][i_dir] = np.concatenate([point_data[name_intra][i_dir],
                                                                                np.full(np.prod(ref.shape), np.nan)])
                         else:
-                            point_data[name_visu] = np.concatenate([point_data[name_visu], np.full(np.prod(ref.shape), np.nan)])
+                            point_data[name_intra] = np.concatenate([point_data[name_intra], np.full(np.prod(ref.shape), np.nan)])
                     except KeyError:
-                        point_data[name_visu] = np.full(np.prod(ref.shape, np.nan))
+                        point_data[name_intra] = np.full(np.prod(ref.shape, np.nan))
 
             # Logical functions
             for name in additional_logical_functions.keys():
@@ -1406,7 +1487,6 @@ class PostProcessManager:
         # physical functions
         for name, lambda_f in additional_physical_functions.items():
             f_result = lambda_f(*mesh_info[0])
-            print(name)
             if isinstance(f_result, np.ndarray):
                 point_data[name] = np.ravel(f_result, 'F')
             elif isinstance(f_result, tuple):
@@ -1535,6 +1615,9 @@ class PostProcessManager:
             grid_local= [grid[i][
                 local_domain[0][i] * npts_per_cell[i]:(local_domain[1][i] + 1) * npts_per_cell[i]]
                         for i in range(ldim)]
+            grid_as_arrays = [np.reshape(grid[i], (len(grid[i])//npts_per_cell[i], npts_per_cell[i])) 
+                        for i in range(ldim)]
+
             cell_indexes = None
             grid_type = 1
         
@@ -1547,7 +1630,8 @@ class PostProcessManager:
                 grid_type = 1
                 # Check that the grid is regular
                 assert all(grid_as_arrays[i].size % npts_per_cell[i] == 0 for i in range(ldim))
-
+                grid_as_arrays = [np.reshape(grid[i], (len(grid[i])//npts_per_cell[i], npts_per_cell[i])) 
+                        for i in range(ldim)]
                 grid_local = []
                 for i in range(len(grid_as_arrays)):
                     grid_local.append(grid_as_arrays[i][local_domain[0][i] * npts_per_cell[i]:
@@ -1589,7 +1673,7 @@ class PostProcessManager:
         pushforward = self._pushforwards.get(interior_name, None)
         if pushforward is None and space_dict != {}:
             pushforward = Pushforward(
-                grid, 
+                grid_as_arrays, 
                 mapping=mapping, 
                 npts_per_cell=npts_per_cell,
                 cell_indexes=cell_indexes,
@@ -1609,7 +1693,6 @@ class PostProcessManager:
         for name, lambda_f in additional_logical_functions.items():
             f_result = lambda_f(*grid_local)
             point_data[name] = f_result
-
         return partial_mesh_info, point_data
 
     def _get_local_info(self, interior_name, mapping, space_dict):
@@ -1650,6 +1733,9 @@ class PostProcessManager:
     def _get_mesh(self, mapping, grid_local, local_domain, npts_per_cell=None, cell_indexes=None):
         """
         Return the mesh and its informations.
+
+        Parameters
+        ----------
         """
         if isinstance(mapping, SplineMapping):
             mesh = mapping.build_mesh(grid_local, npts_per_cell=npts_per_cell)
@@ -1678,8 +1764,10 @@ class PostProcessManager:
         ----------
 
         mapping_local_domain : tuple of tuple
+            local_domain of the mapping
 
         npts_per_cell : tuple of ints or ints, optional
+            Number of points per cell
 
         cell_indexes : tuple of arrays, optional
 
