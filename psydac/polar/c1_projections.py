@@ -65,7 +65,6 @@ class C1Projector:
 
             SQRT3     = np.sqrt(3.0)
             ONE_THIRD = 1.0/3.0
-
             (x0,y0)   = (x[0,0],y[0,0])
 
             # Define equilateral triangle enclosing first row of control points

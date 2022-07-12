@@ -214,4 +214,3 @@ def build_pretzel(domain_name='pretzel', r_min=None, r_max=None):
     domain = set_interfaces(domain, interfaces)
     return domain
 
-

@@ -464,4 +464,3 @@ if __name__ == '__main__':
     anim = animate_field(solutions, domain, mapping, res=(150,150), progress=True)
     anim.save('animated_fields_{}_{}.mp4'.format(str(Tf).replace('.','_'), str(dt_h).replace('.','_')), writer=animation.FFMpegWriter(fps=60))
 
-

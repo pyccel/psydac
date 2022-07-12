@@ -123,6 +123,7 @@ class SplineMapping:
         for i,field in enumerate( fields ):
             idx_from = tuple(list(idx_to)+[i])
             field.coeffs[idx_to] = control_points[idx_from]
+            field.coeffs.update_ghost_regions()
 
         # Create SplineMapping object
         return cls( *fields )

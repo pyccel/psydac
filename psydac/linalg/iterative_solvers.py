@@ -241,6 +241,7 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 def jacobi(A, b):
     """
     Jacobi preconditioner.
+    In case A is None we return a zero vector of the same dimensions as b
     ----------
     A : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockMatrix
         Left-hand-side matrix A of linear system.
@@ -257,10 +258,11 @@ def jacobi(A, b):
     from psydac.linalg.block   import BlockMatrix, BlockVector
     from psydac.linalg.stencil import StencilMatrix, StencilVector
 
-    # Sanity checks
+    # In case A is None we return a zero vector
     if A is None:
         return b.copy()*0.
 
+    # Sanity checks
     assert isinstance(A, (StencilMatrix, BlockMatrix))
     assert isinstance(b, (StencilVector, BlockVector))
     assert A.codomain == A.domain
