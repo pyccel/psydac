@@ -114,6 +114,6 @@ def construct_interface_spaces(g_spaces, cart, interiors, connectivity):
 
         ((axis_minus, axis_plus), (ext_minus , ext_plus)) = connectivity[i, j]
 
-        g_spaces[interiors[i]].set_interface_space(axis_minus, ext_minus, cart=cart_minus)
-        g_spaces[interiors[j]].set_interface_space(axis_plus , ext_plus , cart=cart_plus)
+        g_spaces[interiors[i]].create_interface_space(axis_minus, ext_minus, cart=cart_minus)
+        g_spaces[interiors[j]].create_interface_space(axis_plus , ext_plus , cart=cart_plus)
 

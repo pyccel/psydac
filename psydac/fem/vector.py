@@ -350,7 +350,7 @@ class ProductFemSpace( FemSpace ):
     Product of FEM space
     """
 
-    def __new__(cls, *spaces, connectivity=None):
+    def __new__(cls, *spaces, connectivity={}):
 
         if len(spaces) == 1:
             return spaces[0]
@@ -387,7 +387,7 @@ class ProductFemSpace( FemSpace ):
 
         self._vector_space    = BlockVectorSpace(*[V.vector_space for V in self.spaces], connectivity=connectivity)
         self._symbolic_space  = None
-        self._connectivity      = connectivity
+        self._connectivity    = connectivity.copy()
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------

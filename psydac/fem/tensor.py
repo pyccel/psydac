@@ -91,8 +91,7 @@ class TensorFemSpace( FemSpace ):
         self._symbolic_space = None
         self._interfaces     = {}
 
-        if self._vector_space.parallel and self._vector_space.cart.is_comm_null:
-            return
+        if self._vector_space.parallel and self._vector_space.cart.is_comm_null:return
 
         # Compute extended 1D quadrature grids (local to process) along each direction
         self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q, parent_start=ps, parent_end=pe)
@@ -1046,11 +1045,11 @@ class TensorFemSpace( FemSpace ):
             v    = self._vector_space._interfaces[a,e]
             cart = v.cart
             if cart:cart = v.cart.reduce_elements(axes, n_elements, multiplicity)
-            tensor_vec.set_interface_space(a, e, cart=cart)
+            tensor_vec.create_interface_space(a, e, cart=cart)
 
         return tensor_vec
 
-    def set_interface_space(self, axis, ext, cart=None):
+    def create_interface_space(self, axis, ext, cart=None):
         axis = int(axis)
         ext  = int(ext)
         assert axis<self.ldim

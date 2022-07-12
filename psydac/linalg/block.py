@@ -21,7 +21,7 @@ class BlockVectorSpace( VectorSpace ):
         A list of Vector Spaces.
 
     """
-    def __new__(cls, *spaces, connectivity=None):
+    def __new__(cls, *spaces, connectivity={}):
 
         # Check that all input arguments are vector spaces
         if not all(isinstance(Vi, VectorSpace) for Vi in spaces):

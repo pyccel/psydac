@@ -111,41 +111,39 @@ class StencilVectorSpace( VectorSpace ):
     def _init_parallel( self, cart, dtype=float ):
 
         assert isinstance( cart, CartDecomposition )
-        # Global attributes
+
+        # Sequential attributes
         self._parallel   = True
-        self._cart       = cart
         self._ndim       = cart._ndims
         self._npts       = cart.npts
         self._pads       = cart.pads
         self._periods    = cart.periods
         self._shifts     = cart.shifts
         self._dtype      = dtype
-        self._mpi_type   = find_mpi_type(dtype)
         self._starts     = (0,)*self._ndim
         self._ends       = (-1,)*self._ndim
         self._shape      = (0,)*self._ndim
-
         self._parent_starts = (None,)*self._ndim
         self._parent_ends   = (None,)*self._ndim
-        self._interfaces = {}
-
-        if cart.is_comm_null:
-            return
-
-        # Local attributes
-        self._starts        = cart.starts
-        self._ends          = cart.ends
-        self._parent_starts = cart.parent_starts
-        self._parent_ends   = cart.parent_ends
+        self._interfaces    = {}
 
         # Parallel attributes
-        if not isinstance(cart, InterfaceCartDecomposition):
-            self._synchronizer = CartDataExchanger(cart, dtype )
+        if not cart.is_comm_null:
+            self._cart          = cart
+            self._mpi_type      = find_mpi_type(dtype)
+            self._starts        = cart.starts
+            self._ends          = cart.ends
+            self._parent_starts = cart.parent_starts
+            self._parent_ends   = cart.parent_ends
 
-        if isinstance(cart, InterfaceCartDecomposition):
-            self._shape = cart.get_communication_infos(cart.axis)['gbuf_recv_shape'][0]
+            if isinstance(cart, InterfaceCartDecomposition):
+                self._shape = cart.get_communication_infos(cart.axis)['gbuf_recv_shape'][0]
+            else:
+                self._synchronizer = CartDataExchanger(cart, dtype )
+                self._shape = cart.shape
         else:
-            self._shape = cart.shape
+            self._cart     = cart
+            self._mpi_type = find_mpi_type(dtype)
 
     #--------------------------------------
     # Abstract interface

@@ -257,7 +257,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                     trial_space = ProductFemSpace(*spaces)
                     trial_space.symbolic_space = sym_space
             elif (trial_target.axis, trial_target.ext) in trial_space._interfaces:
-                trial_space  = trial_space._interfaces[trial_target.axis, trial_target.ext]
+                sym_space   = trial_space.symbolic_space
+                trial_space = trial_space._interfaces[trial_target.axis, trial_target.ext]
+                trial_space.symbolic_space = sym_space
 
             self._test_ext  = test_target.ext
             self._trial_ext = trial_target.ext
