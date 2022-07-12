@@ -886,8 +886,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         V = self.codomain 
         for i,j in V._connectivity:
 
-            axis_i,axis_j = V._interfaces[i,j][0]
-            ext_i,ext_j   = V._interfaces[i,j][1]
+            axis_i,axis_j = V._connectivity[i,j][0]
+            ext_i,ext_j   = V._connectivity[i,j][1]
 
             Vi = V.spaces[i]
             Vj = V.spaces[j]

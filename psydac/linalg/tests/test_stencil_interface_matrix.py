@@ -47,7 +47,7 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
     P = [[False, False] for i in range(N)]
 
     axis       = 0
-    interfaces = {(0,1):((axis,axis),(1,-1))}
+    connectivity = {(0,1):((axis,axis),(1,-1))}
 
     comm = MPI.COMM_WORLD
     cart = MultiCartDecomposition(
@@ -57,9 +57,9 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
         reorder    = False,
         comm    = comm)
 
-    interface_carts = InterfacesCartDecomposition(cart, interfaces)
+    interface_carts = InterfacesCartDecomposition(cart, connectivity)
 
-    for i,j in interfaces:
+    for i,j in connectivity:
         if (i,j) in interface_carts.carts and not interface_carts.carts[i,j].is_comm_null:
             interface_carts.carts[i,j].set_communication_info(get_minus_starts_ends, get_plus_starts_ends)
 
@@ -67,7 +67,7 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
     Vs  = [StencilVectorSpace( ci ) for ci in cart.carts]
 
     # Create the interface spaces
-    for i,j in interfaces:
+    for i,j in connectivity:
 
         if not cart.carts[i].is_comm_null and not cart.carts[j].is_comm_null:
             cart_minus = cart.carts[i]
@@ -84,8 +84,7 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
         # set interface space for the plus space
         Vs[j].set_interface(0, -1, cart_plus)
 
-    V   = BlockVectorSpace(*Vs)
-    V._interfaces.update(interfaces)
+    V   = BlockVectorSpace(*Vs, connectivity=connectivity)
 
     # ...
     # Fill in vector with some values, then update ghost regions
