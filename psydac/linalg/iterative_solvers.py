@@ -242,6 +242,8 @@ def jacobi(A, b):
     """
     Jacobi preconditioner.
     In case A is None we return a zero vector of the same dimensions as b
+
+    Parameters
     ----------
     A : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockMatrix
         Left-hand-side matrix A of linear system.
@@ -260,7 +262,7 @@ def jacobi(A, b):
 
     # In case A is None we return a zero vector
     if A is None:
-        return b.copy()*0.
+        return b.space.zeros()
 
     # Sanity checks
     assert isinstance(A, (StencilMatrix, BlockMatrix))
