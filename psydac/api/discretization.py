@@ -13,15 +13,14 @@ from sympde.expr     import Functional as sym_Functional
 from sympde.expr     import Equation as sym_Equation
 from sympde.expr     import Norm as sym_Norm
 from sympde.expr     import TerminalExpr
-from sympde.topology import Domain, Interface
-from sympde.topology import Line, Square, Cube
+
 from sympde.topology import BasicFunctionSpace
 from sympde.topology import VectorFunctionSpace
 from sympde.topology import ProductSpace
+from sympde.topology import Domain
 from sympde.topology import Derham
 from sympde.topology import LogicalExpr
 from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.topology.basic import Union
 
 from gelato.expr import GltExpr as sym_GltExpr
 
@@ -36,7 +35,7 @@ from psydac.api.equation     import DiscreteEquation
 from psydac.api.utilities    import flatten
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
-from psydac.fem.utilities    import create_cart, construct_interface_spaces
+from psydac.fem.utilities    import create_cart, construct_connectivity, construct_interface_spaces
 from psydac.fem.vector       import ProductFemSpace
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
@@ -232,22 +231,19 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
     g_spaces   = {}
     domain     = domain_h.domain
-    interfaces = domain.interfaces if domain.interfaces else []
 
     if len(domain)==1:
         interiors  = [domain.interior]
     else:
         interiors  = list(domain.interior.args)
-        if interfaces:
-            interfaces = [interfaces] if isinstance(interfaces, Interface) else list(interfaces.args)
 
+    connectivity = construct_connectivity(domain)
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
         # from a discrete geoemtry
         mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
         spaces    = [m.space for m in mappings]
         g_spaces  = dict(zip(interiors, spaces))
         spaces    = [S.spaces for S in spaces]
-        interfaces_info = domain_h._interfaces
 
         if not( comm is None ) and ldim == 1:
             raise NotImplementedError('must create a TensorFemSpace in 1d')
@@ -303,7 +299,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
             g_spaces[interior] = Vh
 
-        interfaces_info = construct_interface_spaces(g_spaces, cart, interiors, interfaces, comm)
+        construct_interface_spaces(g_spaces, cart, interiors, connectivity)
 
     for inter in g_spaces:
         Vh = g_spaces[inter]
@@ -316,15 +312,11 @@ def discretize_space(V, domain_h, *args, **kwargs):
             Vh = reduce_space_degrees(V, Vh, basis=basis, sequence=sequence)
 
         Vh.symbolic_space = V
-        for axis,ext in Vh._interfaces:
-            Vh._interfaces[axis, ext].symbolic_space = V
+        g_spaces[inter]   = Vh
 
-        g_spaces[inter]    = Vh
+    Vh = ProductFemSpace(*g_spaces.values(), connectivity=connectivity)
 
-    Vh = ProductFemSpace(*g_spaces.values())
-
-    Vh.symbolic_space      = V
-    Vh._interfaces.update(interfaces_info)
+    Vh.symbolic_space = V
 
     return Vh
 

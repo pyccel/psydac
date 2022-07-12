@@ -21,7 +21,7 @@ class BlockVectorSpace( VectorSpace ):
         A list of Vector Spaces.
 
     """
-    def __new__(cls, *spaces):
+    def __new__(cls, *spaces, connectivity=None):
 
         # Check that all input arguments are vector spaces
         if not all(isinstance(Vi, VectorSpace) for Vi in spaces):
@@ -39,7 +39,7 @@ class BlockVectorSpace( VectorSpace ):
         return VectorSpace.__new__(cls)
 
     # ...
-    def __init__(self,  *spaces):
+    def __init__(self,  *spaces, connectivity=None):
 
         # Store spaces in a Tuple, because they will not be changed
         self._spaces = tuple(spaces)
@@ -49,7 +49,7 @@ class BlockVectorSpace( VectorSpace ):
         else:
             self._dtype = tuple(s.dtype for s in spaces)
 
-        self._interfaces = {}
+        self._connectivity = connectivity
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -151,9 +151,9 @@ class BlockVector( Vector ):
         if not V.parallel:return
 
         # Prepare the data exchangers for the interface data
-        for i,j in V._interfaces:
-            axis_i,axis_j = V._interfaces[i,j][0]
-            ext_i,ext_j   = V._interfaces[i,j][1]
+        for i,j in V._connectivity:
+            axis_i,axis_j = V._connectivity[i,j][0]
+            ext_i,ext_j   = V._connectivity[i,j][1]
 
             Vi = V.spaces[i]
             Vj = V.spaces[j]
@@ -325,10 +325,10 @@ class BlockVector( Vector ):
     def _collect_interface_buf( self ):
         V = self.space
         if not V.parallel:return
-        for i,j in V._interfaces:
+        for i,j in V._connectivity:
             if not (i,j) in self._data_exchangers:continue
-            axis_i,axis_j = V._interfaces[i,j][0]
-            ext_i,ext_j   = V._interfaces[i,j][1]
+            axis_i,axis_j = V._connectivity[i,j][0]
+            ext_i,ext_j   = V._connectivity[i,j][1]
             Vi = V.spaces[i]
             Vj = V.spaces[j]
             self._interface_buf[i,j]   = []

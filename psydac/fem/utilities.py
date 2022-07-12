@@ -1,8 +1,10 @@
 # -*- coding: UTF-8 -*-
 import os
 
+from sympde.topology import Interface
+
 from psydac.ddm.cart import CartDecomposition, MultiCartDecomposition, InterfacesCartDecomposition
-    
+
 def create_cart(spaces, comm, reverse_axis=None, nprocs=None):
 
     num_threads     = int(os.environ.get('OMP_NUM_THREADS',1))
@@ -57,35 +59,46 @@ def get_plus_starts_ends(minus_starts, minus_ends, minus_npts, plus_npts, minus_
     ends[plus_axis]   = ends[plus_axis] if plus_ext == 1 else plus_pads[plus_axis]
     return starts, ends
 
-def create_interfaces_cart(cart, interfaces_info=None):
+def create_interfaces_cart(cart, connectivity=None):
     interfaces_cart = None
-    if interfaces_info:
-        interfaces_info = interfaces_info.copy()
-        interfaces_cart = InterfacesCartDecomposition(cart, interfaces_info)
-        for i,j in interfaces_info:
-            axes   = interfaces_info[i,j][0]
-            exts   = interfaces_info[i,j][1]
+    if connectivity:
+        connectivity = connectivity.copy()
+        interfaces_cart = InterfacesCartDecomposition(cart, connectivity)
+        for i,j in connectivity:
+            axes   = connectivity[i,j][0]
+            exts   = connectivity[i,j][1]
             if (i,j) in interfaces_cart.carts and not interfaces_cart.carts[i,j].is_comm_null:
                 interfaces_cart.carts[i,j].set_communication_info(get_minus_starts_ends, get_plus_starts_ends)
 
     return interfaces_cart
 
-def construct_interface_spaces(g_spaces, cart, interiors, interfaces, comm):
-    interfaces_info = {}
-    if not interfaces:return {}
-    if comm is not None:
-        for e in interfaces:
-            i = interiors.index(e.minus.domain)
-            j = interiors.index(e.plus.domain)
-            interfaces_info[i, j] = ((e.minus.axis, e.plus.axis),(e.minus.ext, e.plus.ext))
+def construct_connectivity(domain):
 
-        interfaces_cart = create_interfaces_cart(cart, interfaces_info=interfaces_info)
-        if interfaces_cart:
-            interfaces_cart = interfaces_cart.carts
+    interfaces = domain.interfaces if domain.interfaces else []
+    if len(domain)==1:
+        interiors  = [domain.interior]
+    else:
+        interiors  = list(domain.interior.args)
+        if interfaces:
+            interfaces = [interfaces] if isinstance(interfaces, Interface) else list(interfaces.args)
 
+    connectivity = {}
     for e in interfaces:
         i = interiors.index(e.minus.domain)
         j = interiors.index(e.plus.domain)
+        connectivity[i, j] = ((e.minus.axis, e.plus.axis),(e.minus.ext, e.plus.ext))
+
+    return connectivity
+
+def construct_interface_spaces(g_spaces, cart, interiors, connectivity):
+    if not connectivity:return
+    comm = cart.comm if cart is not None else None
+    if comm is not None:
+        interfaces_cart = create_interfaces_cart(cart, connectivity=connectivity)
+        if interfaces_cart:
+            interfaces_cart = interfaces_cart.carts
+
+    for i,j in connectivity:
         if comm is None:
             cart_minus = None
             cart_plus  = None
@@ -99,7 +112,8 @@ def construct_interface_spaces(g_spaces, cart, interiors, interfaces, comm):
             else:
                 continue
 
-        g_spaces[e.minus.domain].set_interface_space(e.minus.axis, e.minus.ext, cart=cart_minus)
-        g_spaces[e.plus.domain ].set_interface_space(e.plus.axis , e.plus.ext , cart=cart_plus)
+        ((axis_minus, axis_plus), (ext_minus , ext_plus)) = connectivity[i, j]
 
-    return interfaces_info
+        g_spaces[interiors[i]].set_interface_space(axis_minus, ext_minus, cart=cart_minus)
+        g_spaces[interiors[j]].set_interface_space(axis_plus , ext_plus , cart=cart_plus)
+

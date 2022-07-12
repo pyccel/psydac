@@ -20,7 +20,7 @@ from mpi4py import MPI
 
 from psydac.fem.splines        import SplineSpace
 from psydac.fem.tensor         import TensorFemSpace
-from psydac.fem.utilities      import create_cart, construct_interface_spaces
+from psydac.fem.utilities      import create_cart, construct_connectivity, construct_interface_spaces
 from psydac.mapping.discrete   import SplineMapping, NurbsMapping
 from psydac.linalg.block       import BlockVectorSpace, BlockVector
 
@@ -61,7 +61,6 @@ class Geometry( object ):
             self._pdim     = domain.dim # TODO must be given => only dim is  defined for a Domain
             self._mappings = mappings
             self._cart     = None
-            self._interfaces = {}
 
         else:
             raise ValueError('Wrong input')
@@ -147,15 +146,13 @@ class Geometry( object ):
         # ...
 
         # read the topological domain
-        domain     = Domain.from_file(filename)
-        interfaces = domain.interfaces if domain.interfaces else []
+        domain       = Domain.from_file(filename)
+        connectivity = construct_connectivity(domain)
 
         if len(domain)==1:
             interiors  = [domain.interior]
         else:
             interiors  = list(domain.interior.args)
-            if interfaces:
-                interfaces = [interfaces] if isinstance(interfaces, Interface) else list(interfaces.args)
 
         if not(comm is None):
             kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
@@ -220,9 +217,7 @@ class Geometry( object ):
 
         # ... construct interface spaces
         if n_patches>1:
-            interfaces_info = construct_interface_spaces(g_spaces, self._cart, interiors, interfaces, comm)
-        else:
-            interfaces_info = {}
+            construct_interface_spaces(g_spaces, self._cart, interiors, connectivity)
 
         for i_patch in range( n_patches ):
 
@@ -253,10 +248,8 @@ class Geometry( object ):
             spaces   = [[coeffs_ij.space for coeffs_ij in coeffs_i] for coeffs_i in coeffs]
             spaces   = [BlockVectorSpace(*space) for space in spaces]
             w_spaces = [sp.spaces[0] for sp in spaces]
-            space    = BlockVectorSpace(*spaces)
-            w_space  = BlockVectorSpace(*w_spaces)
-            space._interfaces = interfaces_info
-            w_space._interfaces = interfaces_info
+            space    = BlockVectorSpace(*spaces, connectivity=connectivity)
+            w_space  = BlockVectorSpace(*w_spaces, connectivity=connectivity)
             v  = BlockVector(space)
             w  = BlockVector(w_space)
             mapping_list = list(mappings.values())
@@ -291,7 +284,6 @@ class Geometry( object ):
         self._pdim       = pdim
         self._mappings   = mappings
         self._domain     = domain
-        self._interfaces = interfaces_info
         # ...
 
     def export( self, filename ):
