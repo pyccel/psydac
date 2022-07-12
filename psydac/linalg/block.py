@@ -187,7 +187,7 @@ class BlockVector( Vector ):
             else:
                 raise NotImplementedError("This case is not treated")
 
-        for i,j in V._interfaces:
+        for i,j in V._connectivity:
             if len(self._data_exchangers.get((i,j), [])) == 0:
                 self._data_exchangers.pop((i,j), None)
 
@@ -881,7 +881,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         from psydac.linalg.stencil import StencilInterfaceMatrix
 
         V = self.codomain
-        for i,j in V._interfaces:
+        for i,j in V._connectivity:
 
             axis_i,axis_j = V._interfaces[i,j][0]
             ext_i,ext_j   = V._interfaces[i,j][1]
