@@ -12,6 +12,10 @@ from psydac.core.kernels import (pushforward_2d_l2, pushforward_3d_l2,
                                  pushforward_2d_hdiv, pushforward_3d_hdiv,
                                  pushforward_2d_hcurl, pushforward_3d_hcurl)
 
+# L2 and Hdiv push-forward algorithms use the metric determinant and
+# not the jacobian determinant. For this reason, sign descrepancies can
+# happen when comparing against algorithms which use the latter.
+
 class Pushforward:
     """
     Class used to help push-forwarding several fields using the 
@@ -27,6 +31,12 @@ class Pushforward:
     
     npts_per_cell : tuple of int or int, optional
         Number of points per cell 
+    
+    Notes
+    -----
+    L2 and Hdiv push-forward algorithms use the metric determinant and
+    not the jacobian determinant. For this reason, sign descrepancies can
+    happen when comparing against algorithms which use the latter.
     """
     _eval_functions = {
         0: 'eval_fields_irregular_tensor_grid',
@@ -46,7 +56,7 @@ class Pushforward:
         skip_grid_check=False
         ):
 
-        self.is_identity = mapping is None
+        self.is_identity = mapping is None or isinstance(mapping, IdentityMapping)
         if self.is_identity:
             ldim = len(grid)
         else:
@@ -57,7 +67,7 @@ class Pushforward:
         self.inv_jac_temp = None
         self.jac_det_temp = None
 
-        if skip_grid_check:
+        if not skip_grid_check:
             # Process grid argument
             # Check consistency
             assert len(grid) == ldim
@@ -104,15 +114,15 @@ class Pushforward:
             mapping_call = mapping.get_callable_mapping()
             self.jacobian = lambda : np.ascontiguousarray(
                                                   np.moveaxis(
-                                                      mapping_call.jacobian(*meshgrids), [0, 1], [-1, -2]
+                                                      mapping_call.jacobian(*meshgrids), [0, 1], [-2, -1]
                                                   )
                                               )
             self.jacobian_inv = lambda : np.ascontiguousarray(
                                                       np.moveaxis(
-                                                          mapping_call.jacobian_inv(*meshgrids), [0, 1], [-1, -2]
+                                                          mapping_call.jacobian_inv(*meshgrids), [0, 1], [-2, -1]
                                                       )
                                                   )
-            self.jacobian_det = lambda : np.ascontiguousarray(
+            self.metric_det = lambda : np.ascontiguousarray(
                                                       np.sqrt(mapping_call.metric_det(*meshgrids))
                                                   )
             self.local_domain = local_domain
@@ -121,7 +131,7 @@ class Pushforward:
         elif isinstance(mapping, SplineMapping):
             self.jacobian = lambda : mapping.jac_mat_regular_tensor_grid(grid_as_arrays)
             self.jacobian_inv = lambda : mapping.inv_jac_mat_regular_tensor_grid(grid_as_arrays)
-            self.jacobian_det = lambda : mapping.jac_det_regular_tensor_grid(grid_as_arrays)
+            self.metric_det = lambda : abs(mapping.jac_det_regular_tensor_grid(grid_as_arrays))
 
             if self.grid_type == 2:
                 raise NotImplementedError("Unstructured grids aren't supported yet")
@@ -130,6 +140,8 @@ class Pushforward:
             self.global_domain = ((0,) * ldim, tuple(nc_i - 1 for nc_i in mapping.space.ncells))
         else:
             assert self.is_identity
+            self.local_domain = local_domain
+            self.global_domain = global_domain
 
         self._eval_func = self._eval_functions[self.grid_type]
     
@@ -247,7 +259,7 @@ class Pushforward:
         fields_eval = getattr(space, self._eval_func)(self.grid, *field_list, overlap=overlap)
         
         if self.jac_det_temp is None:
-            self.jac_det_temp = self.jacobian_det()
+            self.jac_det_temp = self.metric_det()
         
         if isinstance(space, (VectorFemSpace, ProductFemSpace)):
 
@@ -289,14 +301,16 @@ class Pushforward:
         
         if self.jac_temp is None:
             self.jac_temp = self.jacobian()
+        if self.jac_det_temp is None:
+            self.jac_det_temp = self.metric_det()
         
         fields_eval = np.ascontiguousarray(np.stack([fields_eval[i][(*index_trim[i], Ellipsis)] for i in range(self.ldim)], axis=0))
 
         pushed_fields = np.zeros((fields_eval.shape[-1], *fields_eval.shape[:-1]))
         if self.ldim == 2:
-            pushforward_2d_hdiv(fields_eval, self.jac_temp, pushed_fields)
+            pushforward_2d_hdiv(fields_eval, self.jac_temp, self.jac_det_temp, pushed_fields)
         if self.ldim == 3:
-            pushforward_3d_hdiv(fields_eval, self.jac_temp, pushed_fields)
+            pushforward_3d_hdiv(fields_eval, self.jac_temp, self.jac_det_temp, pushed_fields)
         
         return [tuple(np.ascontiguousarray(pushed_fields[j, i]) for i in range(self.ldim)) for j in range(len(field_list))]
 
@@ -311,12 +325,9 @@ class Pushforward:
         fields_list : list of FemFields        
         """
         overlap, index_trim = self._index_trimming_helper(space)           
-
         fields_eval = getattr(space, self._eval_func)(self.grid, *field_list, overlap=overlap)
-
         if self.inv_jac_temp is None:
             self.inv_jac_temp = self.jacobian_inv()
-
         fields_eval = np.ascontiguousarray(np.stack([fields_eval[i][(*index_trim[i], Ellipsis)] for i in range(self.ldim)], axis=0))
         pushed_fields = np.zeros((fields_eval.shape[-1], *fields_eval.shape[:-1]))
 
