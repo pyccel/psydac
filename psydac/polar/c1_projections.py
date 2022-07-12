@@ -60,8 +60,8 @@ class C1Projector:
 
             # Exclude ghost regions for calculations
 
-            x = x_ext[:, 0:e2-s2+1]
-            y = y_ext[:, 0:e2-s2+1]
+            x = x_ext[:, p2:-p2]
+            y = y_ext[:, p2:-p2]
 
             SQRT3     = np.sqrt(3.0)
             ONE_THIRD = 1.0/3.0
