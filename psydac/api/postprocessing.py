@@ -3,12 +3,13 @@
 # Copyright 2019 Yaman Güçlü
 
 import os
+from tracemalloc import start
 import mpi4py
 import numpy as np
-from requests import patch
 import yaml
 import re
 import h5py as h5
+import itertools as it
 
 from sympde.topology.mapping import Mapping
 from sympde.topology.analytical_mapping import IdentityMapping
@@ -518,7 +519,7 @@ class OutputManager:
                                 local_domain = np.array(sp.local_domain)
                             except AttributeError: #empty space
                                 local_domain = np.array((0,) * sp.ldim, (-1,) * sp.ldim)
-                            mpi_dd_gp.create_dataset(f'{name_patch}', shape=(size, *local_domain.shape))
+                            mpi_dd_gp.create_dataset(f'{name_patch}', shape=(size, *local_domain.shape), dtype='i')
                             mpi_dd_gp[name_patch][rank] = local_domain 
 
                     if f.space.is_product:  # Vector field case
@@ -555,15 +556,15 @@ class OutputManager:
                         rank = self.comm.Get_rank()
                         size = self.comm.Get_size()
 
-                        if f.space.is_product:
-                            sp = f.space.spaces[0]
+                        if field.space.is_product:
+                            sp = field.space.spaces[0]
                         else:
-                            sp = f.space
+                            sp = field.space
                         try:
                             local_domain = np.array(sp.local_domain)
                         except AttributeError: #empty space
                             local_domain = np.array((0,) * sp.ldim, (-1,) * sp.ldim)
-                        mpi_dd_gp.create_dataset(f'{name_patch}', shape=(size, *local_domain.shape))
+                        mpi_dd_gp.create_dataset(f'{name_patch}', shape=(size, *local_domain.shape), dtype='i')
                         mpi_dd_gp[name_patch][rank] = local_domain
 
                 if field.space.is_product:  # Vector field case
@@ -706,7 +707,7 @@ class PostProcessManager:
 
         self._reconstruct_spaces()
         self.get_snapshot_list()
-        self._mpi_dd = self.get_mpi_dd()
+        self._mpi_dd = None
 
     @property
     def spaces(self):
@@ -912,19 +913,25 @@ class PostProcessManager:
                 # Check breakpoints
                 if not is_vector and len(subdomain_names) > 1:
                     for interior_name in subdomain_names:
-                        assert all(np.allclose(space_h.spaces[i].breaks, interior_names_to_breaks[interior_name]) 
-                                    for i in range(len(subdomain_names)) 
+                        assert all(np.allclose(space_h.spaces[i].breaks[j], interior_names_to_breaks[interior_name][j]) 
+                                    for i in range(len(subdomain_names)) for j in range(temp_ldim)
                                     if space_h.symbolic_space.domain.interior.as_tuple()[i].name == interior_name)
                 elif not is_vector:
-                    assert np.allclose(space_h.breaks, interior_names_to_breaks[subdomain_names[0]])
+                    assert all(
+                        np.allclose(space_h.breaks[i], interior_names_to_breaks[subdomain_names[0]][i])
+                        for i in range(temp_ldim)
+                    )
 
                 elif len(subdomain_names) > 1:
                     for interior_name in subdomain_names:
-                        assert all(np.allclose(space_h.spaces[i].spaces[0].breaks, interior_names_to_breaks[interior_name]) 
-                                    for i in range(len(subdomain_names)) 
+                        assert all(np.allclose(space_h.spaces[i].spaces[0].breaks[j], interior_names_to_breaks[interior_name][j]) 
+                                    for i in range(len(subdomain_names)) for j in range(temp_ldim) 
                                     if space_h.symbolic_space.domain.interior.as_tuple()[i].name == interior_name)
                 else:
-                    assert np.allclose(space_h.spaces[0].breaks, interior_names_to_breaks[subdomain_names[0]])
+                    assert all(
+                        np.allclose(space_h.spaces[0].breaks[i], interior_names_to_breaks[subdomain_names[0]][i])
+                        for i in range(temp_ldim)
+                    )
 
     def _process_domain(self):
         if not self.geometry_filename is None:
@@ -947,8 +954,7 @@ class PostProcessManager:
         else:
             domain = self._domain
             if isinstance(domain.interior, InteriorDomain):
-                if not domain.mapping is None:
-                    self._mappings[domain.name] = domain.mapping
+                self._mappings[domain.name] = domain.mapping
             else:
                 if isinstance(domain.mapping, MultiPatchMapping):
                     for interior in domain.interior.as_tuple():
@@ -1024,13 +1030,6 @@ class PostProcessManager:
             elif k == 'static':
                 self._has_static = True
         self.fields_file = fh5
-
-    def _get_mpi_dd(self):
-        fh5 = self.fields_file
-        if 'mpi_dd' in fh5.keys():
-            return {k: v for k, v in fh5['mpi_dd'].items()}
-        else:
-            return None
 
     def close(self):
         if not self.fields_file is None:
@@ -1265,7 +1264,7 @@ class PostProcessManager:
             number_by_rank_visu = False
         
         # Check if simu was parallel
-        if self._mpi_dd is None:
+        if not 'mpi_dd' in self.fields_file.keys():
             number_by_rank_simu = False 
         
         # Check if multipatch
@@ -1311,7 +1310,7 @@ class PostProcessManager:
                         number_by_rank_simu=number_by_rank_simu,
                 )
                 if number_by_rank_visu:
-                    cell_data['MPI_RANK'] = np.full_like(mesh_info[1][1], rank)
+                    cell_data['MPI_RANK_VISU'] = np.full_like(mesh_info[1][1], rank)
 
                 # Write .VTU file
                 unstructuredGridToVTK(filename+'.static', 
@@ -1376,7 +1375,7 @@ class PostProcessManager:
                         number_by_rank_simu=number_by_rank_simu,
                 )
                 if number_by_rank_visu:
-                    cell_data['MPI_RANK'] = np.full_like(mesh_info[1][1], rank)
+                    cell_data['MPI_RANK_VISU'] = np.full_like(mesh_info[1][1], rank)
 
                 # Write .VTU file
                 unstructuredGridToVTK(filename + '.{0:0{1}d}'.format(i, lz), 
@@ -1468,26 +1467,33 @@ class PostProcessManager:
         offset = 0
 
         patch_numbers = np.array([], dtype='i')
+
+        mpi_rank_simu_array = np.array([], dtype='i')
+
         # Get smallest subdomain that contains all fields
         subdomain, interior_to_dict_fields = self._smallest_subdomain()
         if subdomain is self._last_subdomain and not self._last_mesh_info is None:
             
-            mesh_info, number_by_patch = self._last_mesh_info 
+            mesh_info, numbered_by_patch, mpi_rank_simu = self._last_mesh_info 
             needs_mesh = False         
             if number_by_patch:
-                cell_data.update(number_by_patch)
+                cell_data.update(numbered_by_patch)
                 number_by_patch = False
+            if number_by_rank_simu:
+                cell_data.update(mpi_rank_simu)
+                number_by_rank_simu = False
+
         # No fields -> only build the mesh
         if fields == ():
             interior_to_dict_fields = {
-                i_name: {} for i_name in self._domain.interior_names
+                (i_name, i): {} for i, i_name in enumerate(self._domain.interior_names)
             }
 
         for (interior_name, i_patch), space_dict in interior_to_dict_fields.items():
             mapping = self._mappings[interior_name]
             assert isinstance(mapping, (Mapping, SplineMapping)) or mapping is None
 
-            i_mesh_info, i_point_data = self._compute_single_patch(
+            i_mesh_info, i_point_data, i_mpi_dd = self._compute_single_patch(
                 interior_name=interior_name,
                 mapping=mapping,
                 space_dict=space_dict,
@@ -1495,6 +1501,7 @@ class PostProcessManager:
                 npts_per_cell=npts_per_cell[interior_name],
                 additional_logical_functions=additional_logical_functions,
                 needs_mesh=needs_mesh,
+                number_by_rank_simu=number_by_rank_simu,
             )
 
             if needs_mesh:
@@ -1503,6 +1510,7 @@ class PostProcessManager:
                     full_mesh[i] = np.concatenate([full_mesh[i], np.ravel(i_mesh[i], 'F')])
                 
                 patch_numbers = np.concatenate([patch_numbers, np.full_like(i_off, i_patch)])
+                mpi_rank_simu_array = np.concatenate([mpi_rank_simu_array, i_mpi_dd])
                     
                 full_offsets = np.concatenate([full_offsets,  i_off + full_connectivity.size])
                 full_connectivity = np.concatenate([full_connectivity, i_con + offset])
@@ -1559,6 +1567,10 @@ class PostProcessManager:
                                                            np.ravel(i_data, 'F')])
                     except KeyError:
                         point_data[name] = np.ravel(i_data, 'F')
+
+
+        if number_by_rank_simu:
+            cell_data['MPI_RANK_SIMU'] = mpi_rank_simu_array
 
         if number_by_patch:
             cell_data['patch'] = patch_numbers
@@ -1679,6 +1691,7 @@ class PostProcessManager:
         npts_per_cell=None,
         additional_logical_functions=None,
         needs_mesh=True,
+        number_by_rank_simu=True
         ):
         """
         Evaluates and pushes forward all relevant quantities
@@ -1691,7 +1704,7 @@ class PostProcessManager:
         # npts_per_cell
         if isinstance(npts_per_cell, int):
             npts_per_cell = [npts_per_cell] * ldim
-        
+
         # grid
         if grid is None:
             if npts_per_cell is None:
@@ -1717,23 +1730,24 @@ class PostProcessManager:
             assert all(grid_as_arrays[i].ndim == grid_as_arrays[i+1].ndim for i in range(len(grid) - 1))
             
             # Regular tensor grid
-            if grid_as_arrays[0].ndim == 1 and npts_per_cell is not None:
+            if grid_as_arrays[0].ndim == 1 and npts_per_cell is not None and \
+                all(len(grid[i]) == npts_per_cell[i] * (len(breaks[i]) - 1) for i in range(len(breaks))):
                 grid_type = 1
-                # Check that the grid is regular
-                assert all(grid_as_arrays[i].size % npts_per_cell[i] == 0 for i in range(ldim))
-                grid_as_arrays = [np.reshape(grid[i], (len(grid[i])//npts_per_cell[i], npts_per_cell[i])) 
+                
+                grid_as_arrays = [np.reshape(grid[i], (len(breaks[i]) - 1, npts_per_cell[i])) 
                         for i in range(ldim)]
+
                 grid_local = []
                 for i in range(len(grid_as_arrays)):
-                    grid_local.append(grid_as_arrays[i][local_domain[0][i] * npts_per_cell[i]:
-                                                    (local_domain[1][i] + 1) * npts_per_cell[i]])
+                    grid_local.append(grid[i][local_domain[0][i] * npts_per_cell[i]:
+                                              (local_domain[1][i] + 1) * npts_per_cell[i]])
                 cell_indexes = None
 
             # Irregular tensor grid
-            elif grid_as_arrays[0].ndim == 1 and npts_per_cell is None:
+            elif grid_as_arrays[0].ndim == 1:
                 grid_type = 0
                 cell_indexes = [cell_index(breaks[i], grid_as_arrays[i]) for i in range(ldim)]
-
+                npts_per_cell = None
                 grid_local = []
                 for i in range(len(grid)):
                     i_start = np.searchsorted(cell_indexes[i], local_domain[0][i], side='left')
@@ -1755,10 +1769,15 @@ class PostProcessManager:
                 grid_local, 
                 local_domain, 
                 npts_per_cell=npts_per_cell,
-                cell_indexes=cell_indexes
+                cell_indexes=cell_indexes,
+                number_by_rank_simu=number_by_rank_simu,
+                patch_name=interior_name
             )
+            i_mpi_dd = partial_mesh_info[-1]
+            partial_mesh_info = partial_mesh_info[:-1]
         else:
             partial_mesh_info = None
+            i_mpi_dd = None
 
         point_data = {}
 
@@ -1785,7 +1804,8 @@ class PostProcessManager:
         for name, lambda_f in additional_logical_functions.items():
             f_result = lambda_f(*grid_local)
             point_data[name] = f_result
-        return partial_mesh_info, point_data
+
+        return partial_mesh_info, point_data, i_mpi_dd
 
     def _get_local_info(self, interior_name, mapping, space_dict):
         """
@@ -1816,14 +1836,16 @@ class PostProcessManager:
             temp_sc_space = ScalarFunctionSpace('Space', temp_domain, 'h1')
             temp_domain_h = discretize(temp_domain, ncells=self._ncells[interior_name], comm=self.comm)
             # Degree doesn't matter because there aren't any other spaces
-            space = discretize(temp_sc_space, temp_domain_h, degree=[2, 2], comm=self.comm)
+            space = discretize(temp_sc_space, temp_domain_h, degree=[2] * ldim, comm=self.comm)
             local_domain = space.local_domain
             global_domain = ((0,) * ldim, tuple(nc_i - 1 for nc_i in list(space.ncells)))
             breaks = space.breaks
 
         return local_domain, global_domain, breaks
 
-    def _get_mesh(self, mapping, grid, grid_local, local_domain, npts_per_cell=None, cell_indexes=None):
+    def _get_mesh(self, mapping, grid, grid_local, local_domain, 
+                  npts_per_cell=None, cell_indexes=None, number_by_rank_simu=True,
+                  patch_name=None):
         """
         Return the mesh and its informations.
 
@@ -1840,17 +1862,22 @@ class PostProcessManager:
             if isinstance(mapping, Mapping):
                 c_m = mapping.get_callable_mapping()
                 mesh = c_m(*mesh)
+            elif mapping is None:
+                pass
             else:
                 raise TypeError(f'mapping need to be SymPDE Mapping or Psydac SplineMapping and not {type(mapping)}')
-        conn, off, typ, _ = self._compute_unstructured_mesh_info(
+        conn, off, typ, i_mpi_dd = self._compute_unstructured_mesh_info(
             local_domain, 
             npts_per_cell=npts_per_cell,
-            cell_indexes=cell_indexes
+            cell_indexes=cell_indexes,
+            patch_name=patch_name,
+            need_mpi_rank_simu=number_by_rank_simu,
         )
 
-        return mesh, conn, off, typ
+        return mesh, conn, off, typ, i_mpi_dd
 
-    def _compute_unstructured_mesh_info(self, mapping_local_domain, npts_per_cell=None, cell_indexes=None):
+    def _compute_unstructured_mesh_info(self, mapping_local_domain, npts_per_cell=None, cell_indexes=None,
+        patch_name=None, need_mpi_rank_simu=True):
         """
         Computes the connection, offset and celltypes arrays for exportation
         as VTK unstructured grid.
@@ -1879,129 +1906,228 @@ class PostProcessManager:
         """
         starts, ends = mapping_local_domain
         ldim = len(starts)
-
+        # Get 
+        if need_mpi_rank_simu:
+            domain_decomp = self._get_domain_decomp_simu(patch_name, mapping_local_domain)
+        else:
+            domain_decomp = [{}] * ldim
         if npts_per_cell is not None:
             n_elem = tuple(ends[i] + 1 - starts[i] for i in range(ldim))
-            cellshape = np.array(n_elem) * (np.array(npts_per_cell)) - 1
+            cellshape = np.array(n_elem) * (np.array(npts_per_cell) - 1)
             total_number_cells_vtk = np.prod(cellshape)
             celltypes = np.zeros(total_number_cells_vtk, dtype='i')
             offsets = np.arange(1, total_number_cells_vtk + 1, dtype='i') * (2 ** ldim)
             connectivity = np.zeros(total_number_cells_vtk * 2 ** ldim, dtype='i')
+            
+            mpi_dd = np.zeros(total_number_cells_vtk, dtype='i')
+
             if ldim == 2: 
                 celltypes[:] = VtkQuad.tid
                 cellID = 0
-                for i in range(n_elem[0] * npts_per_cell[0] - 1):
-                    for j  in range(n_elem[1] * npts_per_cell[1] - 1):
-                        row_top = i 
-                        col_left = j
+                for i in range(n_elem[0]):
+                    set_0 = domain_decomp[0].get(starts[0] + i, {0})
+                    for j  in range(n_elem[1]):
+                        set_1 = domain_decomp[1].get(starts[1] + j, {0})
+                        (value,) = set_0.intersection(set_1)
+                        for i_i in range(npts_per_cell[0] - 1):
+                            for j_j in range(npts_per_cell[1] - 1):
+                                row_top = i * npts_per_cell[0] + i_i
+                                col_left = j * npts_per_cell[1] + j_j
 
-                        # VTK uses Fortran ordering
-                        topleft = col_left * npts_per_cell[0] * n_elem[0] + row_top
-                        topright = topleft + 1
-                        botleft = topleft + n_elem[0] * npts_per_cell[0] # next column
-                        botright = botleft + 1
+                                # VTK uses Fortran ordering
+                                topleft = col_left * npts_per_cell[0] * n_elem[0] + row_top
+                                topright = topleft + 1
+                                botleft = topleft + n_elem[0] * npts_per_cell[0] # next column
+                                botright = botleft + 1
 
-                        connectivity[4 * cellID: 4 * cellID + 4] = [topleft, topright, botright, botleft]
+                                connectivity[4 * cellID: 4 * cellID + 4] = [topleft, topright, botright, botleft]
+                                
+                                mpi_dd[cellID] = value
+                                cellID += 1
+                                
 
-                        cellID += 1
     
             elif ldim == 3:
                 celltypes[:] = VtkHexahedron.tid
                 cellID = 0
                 n_rows = n_elem[0] * npts_per_cell[0]
                 n_cols = n_elem[1] * npts_per_cell[1]
-                n_layers = n_elem[2] * npts_per_cell[2]
-                for i in range(n_rows - 1):
-                    for j in range(n_cols - 1):
-                        for k in range(n_layers - 1):
+                for i in range(n_elem[0]):
+                    set_0 = domain_decomp[0].get(starts[0] + i, {0})
+                    for j in range(n_elem[1]):
+                        set_1 = domain_decomp[1].get(starts[1] + j, {0})
+                        for k in range(n_elem[2]):
+                            set_2 = domain_decomp[2].get(starts[2] + k, {0})
+                            (value,) = set_0.intersection(set_1, set_2)
 
-                            row_top = i
-                            col_left = j 
-                            layer_front = k
-                            
-                            # VTK uses Fortran ordering
-                            top_left_front = row_top + col_left * n_rows + layer_front * n_cols * n_rows
-                            top_left_back = top_left_front + 1
-                            top_right_front = top_left_front + n_rows # next column
-                            top_right_back = top_right_front + 1
+                            for i_i in range(npts_per_cell[0] - 1):
+                                for j_j in range(npts_per_cell[1] - 1):
+                                    for k_k in range(npts_per_cell[2] - 1):
 
-                            bot_left_front = top_left_front + n_rows * n_cols # next layer
-                            bot_left_back = bot_left_front + 1
-                            bot_right_front = bot_left_front + n_rows # next column
-                            bot_right_back = bot_right_front + 1
+                                        row_top = i * npts_per_cell[0] + i_i
+                                        col_left = j * npts_per_cell[1] + j_j
+                                        layer_front = k * npts_per_cell[2] + k_k
+                                        
+                                        # VTK uses Fortran ordering
+                                        top_left_front = row_top + col_left * n_rows + layer_front * n_cols * n_rows
+                                        top_left_back = top_left_front + 1
+                                        top_right_front = top_left_front + n_rows # next column
+                                        top_right_back = top_right_front + 1
 
-                            connectivity[8 * cellID: 8 * cellID + 8] = [
-                                top_left_front, top_right_front, bot_right_front, bot_left_front,
-                                top_left_back, top_right_back, bot_right_back, bot_left_back
-                            ]
+                                        bot_left_front = top_left_front + n_rows * n_cols # next layer
+                                        bot_left_back = bot_left_front + 1
+                                        bot_right_front = bot_left_front + n_rows # next column
+                                        bot_right_back = bot_right_front + 1
 
-                            cellID += 1
-        
+                                        connectivity[8 * cellID: 8 * cellID + 8] = [
+                                            top_left_front, top_right_front, bot_right_front, bot_left_front,
+                                            top_left_back, top_right_back, bot_right_back, bot_left_back
+                                        ]
+                                        mpi_dd[cellID] = value
+                                        cellID += 1
+                    
         elif cell_indexes is not None:
             i_starts = [np.searchsorted(cell_indexes[i], starts[i], side='left') for i in range(ldim)]
             i_ends = [np.searchsorted(cell_indexes[i], ends[i], side='right') for i in range(ldim)]
             n_points = tuple(i_ends[i] - i_starts[i] for i in range(ldim))
 
-            cellshape = np.array([n_points[i] - 1 for i in range(ldim)])
+            cellshape = np.array([n_points[i] - (ends[i] - starts[i]) for i in range(ldim)])
             total_number_cells_vtk = np.prod(cellshape)
             celltypes = np.zeros(total_number_cells_vtk, dtype='i')
             offsets = np.arange(1, total_number_cells_vtk + 1, dtype='i') * (2 ** ldim)
             connectivity = np.zeros(total_number_cells_vtk * 2 ** ldim, dtype='i')
+
+            mpi_dd = np.zeros(total_number_cells_vtk)
             if ldim == 2:
                 cellID = 0
                 celltypes[:] = VtkQuad.tid
                 for i in range(i_ends[0] - 1 - i_starts[0]):
-                    for j in range(i_ends[1] - 1 - i_starts[1]):
 
-                        row_top = i
-                        col_left = j
+                    # Check that this point and the next are part of the same element
+                    if cell_indexes[0][i_starts[0] + i] == cell_indexes[0][i_starts[0] + i + 1]:
 
-                        # VTK uses Fortran ordering
-                        topleft = row_top + col_left * n_points[0]
-                        topright = topleft + 1
-                        botleft = topleft + n_points[0]
-                        botright = botleft +1
+                        # Get possible rank in direction 0
+                        set_0 = domain_decomp[0].get(cell_indexes[0][i_starts[0] + i], {0})
 
-                        connectivity[4 * cellID: 4 * cellID + 4] = [topleft, topright, botright, botleft]
-                        cellID += 1
+                        for j in range(i_ends[1] - 1 - i_starts[1]):
+
+                            # Check that this point and the next are part of the same element
+                            if cell_indexes[1][i_starts[1] + j] == cell_indexes[1][i_starts[1] + j + 1]:
+
+                                # Get possible ranks in direction 1
+                                set_1 = domain_decomp[1].get(cell_indexes[1][i_starts[1] + j], {0})
+
+                                value, = set_0.intersection(set_1)
+                                row_top = i
+                                col_left = j
+
+                                # VTK uses Fortran ordering
+                                topleft = row_top + col_left * n_points[0]
+                                topright = topleft + 1
+                                botleft = topleft + n_points[0]
+                                botright = botleft +1
+
+                                connectivity[4 * cellID: 4 * cellID + 4] = [topleft, topright, botright, botleft]
+                                
+                                mpi_dd[cellID] = value
+
+                                cellID += 1
 
             elif ldim == 3:
                 cellID = 0
                 celltypes[:] = VtkHexahedron.tid
                 n_rows = n_points[0]
                 n_cols = n_points[1]
-                n_layers = n_points[2]
                 for i in range(i_ends[0] - 1 - i_starts[0]):
-                    for j in range(i_ends[1] - 1 - i_starts[1]):
-                        for k in range(i_ends[2] - 1 - i_starts[2]):
-                            row_top = i
-                            col_left = j
-                            layer_front = k
 
-                            # VTK uses Fortran ordering
-                            top_left_front = row_top + col_left * n_rows + layer_front * n_cols * n_rows
-                            top_left_back = top_left_front + 1
-                            top_right_front = top_left_front + n_rows # next column
-                            top_right_back = top_right_front + 1
+                    # Check that this point and the next are part of the same element
+                    if cell_indexes[0][i_starts[0] + i] == cell_indexes[0][i_starts[0] + i + 1]:
 
-                            bot_left_front = top_left_front + n_rows * n_cols # next layer
-                            bot_left_back = bot_left_front + 1
-                            bot_right_front = bot_left_front + n_rows # next column
-                            bot_right_back = bot_right_front + 1
+                        # Get possible rank in direction 0
+                        set_0 = domain_decomp[0].get(cell_indexes[0][i_starts[0] + i], {0})
+
+                        for j in range(i_ends[1] - 1 - i_starts[1]):
+
+                            # Check that this point and the next are part of the same element
+                            if cell_indexes[1][i_starts[1] + j] == cell_indexes[1][i_starts[1] + j + 1]:
+
+                                # Get possible ranks in direction 1
+                                set_1 = domain_decomp[1].get(cell_indexes[1][i_starts[1] + j], {0})
+
+                                for k in range(i_ends[2] - 1 - i_starts[2]):
+
+                                    # Check that this point and the next are part of the same element
+                                    if cell_indexes[2][i_starts[2] + k] == cell_indexes[2][i_starts[2] + k + 1]:
+
+                                        # Get possible ranks in direction 2
+                                        set_2 = domain_decomp[2].get(cell_indexes[2][i_starts[2] + k], {0})
+
+                                        value, = set_0.intersection(set_1, set_2)
+
+                                        row_top = i
+                                        col_left = j
+                                        layer_front = k
+
+                                        # VTK uses Fortran ordering
+                                        top_left_front = row_top + col_left * n_rows + layer_front * n_cols * n_rows
+                                        top_left_back = top_left_front + 1
+                                        top_right_front = top_left_front + n_rows # next column
+                                        top_right_back = top_right_front + 1
+
+                                        bot_left_front = top_left_front + n_rows * n_cols # next layer
+                                        bot_left_back = bot_left_front + 1
+                                        bot_right_front = bot_left_front + n_rows # next column
+                                        bot_right_back = bot_right_front + 1
 
 
-                            connectivity[8 * cellID: 8 * cellID + 8] = [
-                                top_left_front, top_right_front, bot_right_front, bot_left_front,
-                                top_left_back, top_right_back, bot_right_back, bot_left_back
-                            ]
+                                        connectivity[8 * cellID: 8 * cellID + 8] = [
+                                            top_left_front, top_right_front, bot_right_front, bot_left_front,
+                                            top_left_back, top_right_back, bot_right_back, bot_left_back
+                                        ]
 
-                            cellID += 1
+                                        mpi_dd[cellID] = value
+
+                                        cellID += 1
+
 
         else:
             raise NotImplementedError("Not Supported Yet")
+        return connectivity, offsets, celltypes, mpi_dd
 
-        return connectivity, offsets, celltypes, cellshape
 
+    def _get_domain_decomp_simu(self, patch_name, local_domain):
+        """
+        Get the MPI DDM of the simulation for a specific patch and reduced 
+        to a local_domain.
+        """
+        fh5 = self.fields_file
+        if 'mpi_dd' in fh5.keys():
+            full_ddm = fh5['mpi_dd'][patch_name]
+            # full_ddm is an array of shape (simu_size, 2, ldim)
+            # We are going to turn it into ldim dictionnaries
+            # For each of those dictionnaries dict_i
+            # the keys will be numbers for the start of the local_domain
+            # in direction i to the end of the local_domain in the same direction.
+            # the values will be the set of all mpi ranks whose local domain
+            # contained with the key-th cell in direction i.
+            # The idea is that if given a position as a tuple of 
+            # ldim cell numbers, the only MPI rank which had this cell
+            # is dict_list[0][n_cell_0].intersection(*tuple(dict_list[i][n_cell_i] i>0))
+
+            dict_list = []
+            starts = local_domain[0]
+            ends = local_domain[1]
+            for i in range(len(starts)):
+                dict_i = {}
+                for n_cell_i in range(starts[i], ends[i] + 1):
+                    dict_i[n_cell_i] = {
+                        mpi_rank for mpi_rank in range(full_ddm.shape[0]) 
+                        if n_cell_i >= full_ddm[mpi_rank, 0, i] and n_cell_i <= full_ddm[mpi_rank, 1, i]
+                    }
+                dict_list.append(dict_i)
+            return dict_list
+        else:
+            return None
 
 def _augment_space_degree_dict(ldim, sequence='DR'):
     """
