@@ -156,7 +156,7 @@ def construct_extension_operator_1D(domain, codomain):
 
     return csr_matrix(P) # kronecker of 1 term...
 
-def construct_V1_conforming_projection(V1h, domain_h, hom_bc=False, storage_fn=None):
+def construct_V1_conforming_projection(V1h, domain_h, hom_bc=True, storage_fn=None):
     dim_tot      = V1h.nbasis
     domain       = V1h.symbolic_space.domain
     ndim         = 2
@@ -273,7 +273,24 @@ def construct_V1_conforming_projection(V1h, domain_h, hom_bc=False, storage_fn=N
                 multi_index_j[d_fine] = j if direction == 1 else fine_space_1d.nbasis-j-1
                 jg           = l2g.get_index(k_fine, d_fine, multi_index_j)
                 Proj[ig, jg] = 0.5*R_1D[i, j]*direction
+        
+        if hom_bc:
+            
+            for bn in domain.boundary:
+                k = get_patch_index_from_face(domain, bn)
+                space_k = V1h.spaces[k]
+                axis = bn.axis
+                d    = 1-axis
+                ext  = bn.ext
+                space_k_1d = space_k.spaces[d].spaces[d] # t
+                multi_index_i = [None]*ndim
+                multi_index_i[axis] = 0 if ext == -1 else space_k.spaces[d].spaces[axis].nbasis-1
 
+                for i in range(space_k_1d.nbasis):
+                    multi_index_i[d] = i
+                    ig = l2g.get_index(k, d, multi_index_i)
+                    Proj[ig, ig] = 0
+                
     return Proj
 
 if __name__ == '__main__':
