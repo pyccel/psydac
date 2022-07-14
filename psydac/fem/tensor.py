@@ -1050,6 +1050,20 @@ class TensorFemSpace( FemSpace ):
         return tensor_vec
 
     def create_interface_space(self, axis, ext, cart=None):
+        """ Create a new interface fem space along a given axis and extremity.
+
+        Parameters
+        ----------
+         axis : int
+          The axis of the new Interface space.
+
+         ext: int
+          The extremity of the new Interface space.
+          the values must be 1 or -1.
+
+         cart: CartDecomposition
+          The cart of the new space, needed in the parallel case.
+        """
         axis = int(axis)
         ext  = int(ext)
         assert axis<self.ldim
