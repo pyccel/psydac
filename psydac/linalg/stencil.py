@@ -55,7 +55,7 @@ class StencilVectorSpace( VectorSpace ):
     Vector space for n-dimensional stencil format. Two different initializations
     are possible:
 
-    - serial  : StencilVectorSpace( npts, pads, periods, dtype=float )
+    - serial  : StencilVectorSpace( npts, pads, periods, shifts=None, starts=None, ends=None, dtype=float )
     - parallel: StencilVectorSpace( cart, dtype=float )
 
     Parameters
@@ -65,10 +65,19 @@ class StencilVectorSpace( VectorSpace ):
         (= global dimensions of vector space).
 
     pads : tuple-like (int)
-        Padding p along each direction (number of diagonals is 2*p+1).
+        Padding p along each direction needed for the ghost regions.
 
     periods : tuple-like (bool)
         Periodicity along each direction.
+
+    shifts : tuple-like (int)
+        shift m of the coefficients in each direction.
+
+    starts : tuple-like (int)
+        Index of the first coefficient local to the space in each direction.
+
+    ends : tuple-like (int)
+        Index of the last coefficient local to the space in each direction.
 
     dtype : type
         Type of scalar entries.
