@@ -113,6 +113,7 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
 
     # Convergence information
     info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am ) }
+
     return x, info
 # ...
 

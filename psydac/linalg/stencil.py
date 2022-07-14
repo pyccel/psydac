@@ -282,12 +282,16 @@ class StencilVectorSpace( VectorSpace ):
         assert int(ext) in [-1,1]
 
         if cart is not None and not cart.is_comm_null:
-            # We create the interface space in the parallel case using the new cart
+            # Create the interface space in the parallel case using the new cart
             assert isinstance(cart, CartDecomposition)
+
+
             if isinstance(cart, InterfaceCartDecomposition):
+                # Case where the patches that share the interface are owned by different intra-communicators
                 space = StencilVectorSpace(cart)
                 self._interfaces[axis, ext] = space
             else:
+                # Case where the patches that share the interface are owned by the same intra-communicator
                 if self.parent_ends[axis] is not None:
                     diff = min(1,self.parent_ends[axis]-self.ends[axis])
                 else:
@@ -310,7 +314,7 @@ class StencilVectorSpace( VectorSpace ):
                 space = StencilVectorSpace(cart)
                 self._interfaces[axis, ext] = space
         elif cart is None:
-            # We create the interface space in the sequential case
+            # Create the interface space in the sequential case
             starts = list(self.starts)
             ends   = list(self.ends)
             parent_starts = list(self._parent_starts)
