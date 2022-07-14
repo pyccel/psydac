@@ -174,6 +174,45 @@ def test_maxwell_2d_2_patch_dirichlet_2():
 
     assert abs(l2_error - expected_l2_error) < 1e-7
 
+
+###############################################################################
+#            PARALLEL TESTS
+###############################################################################
+
+#==============================================================================
+@pytest.mark.parallel
+def test_maxwell_2d_2_patch_dirichlet_parallel_0():
+
+    bounds1   = (0.5, 1.)
+    bounds2_A = (0, np.pi/2)
+    bounds2_B = (np.pi/2, np.pi)
+
+    A = Square('A',bounds1=bounds1, bounds2=bounds2_A)
+    B = Square('B',bounds1=bounds1, bounds2=bounds2_B)
+
+    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+
+    D1     = mapping_1(A)
+    D2     = mapping_2(B)
+
+    domain = D1.join(D2, name = 'domain',
+                bnd_minus = D1.get_boundary(axis=1, ext=1),
+                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
+
+    x,y    = domain.coordinates
+
+    omega = 1.5
+    alpha = -omega**2
+    Eex   = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+    f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                  alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+
+    l2_error, Eh      = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], comm=MPI.COMM_WORLD)
+
+    expected_l2_error = 0.012077019124862177
+
+    assert abs(l2_error - expected_l2_error) < 1e-7
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================

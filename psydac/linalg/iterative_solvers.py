@@ -113,7 +113,6 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
 
     # Convergence information
     info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am ) }
-
     return x, info
 # ...
 
@@ -205,6 +204,7 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         template = "| {:7d} | {:19.2e} |"
         print( template.format(1, sqrt(nrmr_sqr)))
 
+    k = 1
     # Iterate to convergence
     for k in range(2, maxiter+1):
 

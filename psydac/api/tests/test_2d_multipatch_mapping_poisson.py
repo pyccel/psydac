@@ -84,10 +84,10 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
     #+++++++++++++++++++++++++++++++
 
     if filename is None:
-        domain_h = discretize(domain, ncells=ncells)
+        domain_h = discretize(domain, ncells=ncells, comm=comm)
         Vh       = discretize(V, domain_h, degree=degree)
     else:
-        domain_h = discretize(domain, filename=filename)
+        domain_h = discretize(domain, filename=filename, comm=comm)
         Vh       = discretize(V, domain_h)
 
     equation_h = discretize(equation, domain_h, [Vh, Vh], backend=backend)
@@ -100,7 +100,6 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
     l2_error = l2norm_h.assemble(u=uh)
     h1_error = h1norm_h.assemble(u=uh)
 
-    print( l2_error, h1_error)
     return l2_error, h1_error, uh
 
 #------------------------------------------------------------------------------

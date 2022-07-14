@@ -140,7 +140,7 @@ class StencilVectorSpace( VectorSpace ):
                 self._shape = cart.get_communication_infos(cart.axis)['gbuf_recv_shape'][0]
             else:
                 self._synchronizer = CartDataExchanger(cart, dtype )
-                self._shape = cart.shape
+                self._shape        = cart.shape
         else:
             self._cart     = cart
             self._mpi_type = find_mpi_type(dtype)
@@ -183,6 +183,9 @@ class StencilVectorSpace( VectorSpace ):
 
         n_elements: tuple_like (int)
             Number of elements to substract from the space.
+
+        shifts: tuple_like (int)
+            shifts in each direction
 
         Returns
         -------
@@ -261,16 +264,76 @@ class StencilVectorSpace( VectorSpace ):
         return self._ndim
 
     def set_interface(self, axis, ext, cart=None):
+        """ Set the interface space along a given axis and extremity.
+
+        Parameters
+        ----------
+         axis : int
+          The axis of the new Interface space.
+
+         ext: int
+          The extremity of the new Interface space.
+          the values must be 1 or -1.
+
+         cart: CartDecomposition
+          The cart of the new space, needed in the parallel case.
+        """
+
+        assert int(ext) in [-1,1]
 
         if cart is not None and not cart.is_comm_null:
+            # We create the interface space in the parallel case using the new cart
             assert isinstance(cart, CartDecomposition)
-            space = StencilVectorSpace(cart)
-            self._interfaces[axis, ext] = space
+            if isinstance(cart, InterfaceCartDecomposition):
+                space = StencilVectorSpace(cart)
+                self._interfaces[axis, ext] = space
+            else:
+                if self.parent_ends[axis] is not None:
+                    diff = min(1,self.parent_ends[axis]-self.ends[axis])
+                else:
+                    diff = 0
+
+                starts = list(cart._starts)
+                ends   = list(cart._ends)
+                parent_starts = list(cart._parent_starts)
+                parent_ends   = list(cart._parent_ends)
+                if ext == 1:
+                    starts[axis] = self.ends[axis]-self.pads[axis]+diff
+                    if parent_starts[axis] is not None:
+                        parent_starts[axis] = parent_ends[axis]-self.pads[axis]
+                else:
+                    ends[axis] = self.pads[axis]-diff
+                    if parent_ends[axis] is not None:
+                        parent_ends[axis] = V.pads[axis]
+
+                cart = cart.change_starts_ends(starts, ends, parent_starts, parent_ends)
+                space = StencilVectorSpace(cart)
+                self._interfaces[axis, ext] = space
         elif cart is None:
+            # We create the interface space in the sequential case
+            starts = list(self.starts)
+            ends   = list(self.ends)
+            parent_starts = list(self._parent_starts)
+            parent_ends   = list(self._parent_ends)
+
+            if parent_ends[axis] is not None:
+                diff = min(1,parent_ends[axis]-ends[axis])
+            else:
+                diff = 0
+
+            if ext == 1:
+                starts[axis] = ends[axis]-self.pads[axis]+diff
+                if parent_starts[axis] is not None:
+                    parent_starts[axis] = parent_ends[axis]-self.pads[axis]
+            else:
+                ends[axis]   = self.pads[axis]-diff
+                if parent_ends[axis] is not None:
+                    parent_ends[axis] = self.pads[axis]
+
             space = StencilVectorSpace(npts=self.npts, pads=self.pads, periods=self.periods,
-                                       shifts=self.shifts, starts=self.starts, ends=self.ends)
-            space._parent_starts = self._parent_starts
-            space._parent_ends   = self._parent_ends
+                                       shifts=self.shifts, starts=starts, ends=ends)
+            space._parent_starts = parent_starts
+            space._parent_ends   = parent_ends
             self._interfaces[axis, ext] = space
 
 #===============================================================================
@@ -303,39 +366,13 @@ class StencilVector( Vector ):
                 data  = np.zeros( V._interfaces[axis, ext].shape, dtype=V.dtype )
             elif V.parallel:
                 # case where each patch belongs to the same mpi rank
-                Vin          = V._interfaces[axis, ext]
-                slices       = [slice(s, e+2*m*p+1) for s,e,m,p in zip(Vin.starts, Vin.ends, Vin.shifts, Vin.pads)]
-                if V.parent_ends[axis] is not None:
-                    diff = min(1,V.parent_ends[axis]-V.ends[axis])
-                else:
-                    diff = 0
-
-                if ext == 1:
-                    s = V.ends[axis]-V.pads[axis]+diff
-                    e = V.ends[axis]
-                else:
-                    s = V.starts[axis]
-                    e = V.pads[axis]-diff
-
-                slices[axis] = slice(s,e+2*Vin.shifts[axis]*Vin.pads[axis]+1)
-                data         = self._data[tuple(slices)].copy()
+                Vin    = V._interfaces[axis, ext]
+                slices = [slice(s, e+2*m*p+1) for s,e,m,p in zip(Vin.starts, Vin.ends, Vin.shifts, Vin.pads)]
+                data   = self._data[tuple(slices)].copy()
             else:
                 # serial case
                 Vin    = V._interfaces[axis, ext]
                 slices = [slice(s, e+2*m*p+1) for s,e,p,m in zip(Vin.starts, Vin.ends, Vin.shifts, Vin.pads)]
-                if V.parent_ends[axis] is not None:
-                    diff = min(1,V.parent_ends[axis]-V.ends[axis])
-                else:
-                    diff = 0
-
-                if ext == 1:
-                    s = V.ends[axis]-V.pads[axis]+diff
-                    e = V.ends[axis]
-                else:
-                    s = V.starts[axis]
-                    e = V.pads[axis]-diff
- 
-                slices[axis] = slice(s,e+2*Vin.shifts[axis]*Vin.pads[axis]+1)
                 data   = self._data[tuple(slices)].copy()
 
             self._interface_data[axis, ext] = data
@@ -631,6 +668,7 @@ class StencilVector( Vector ):
 
         """
 
+        # Update interior ghost regions
         if self.space.parallel:
             if not self.space.cart.is_comm_null:
                 # PARALLEL CASE: fill in ghost regions with data from neighbors
@@ -639,45 +677,17 @@ class StencilVector( Vector ):
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._update_ghost_regions_serial( direction )
 
+        # Update interface ghost regions
         if self.space.parallel:
             for axis, ext in self.space._interfaces:
                 V      = self.space._interfaces[axis, ext]
-                if isinstance(V.cart, InterfaceCartDecomposition):
-                    continue
+                if isinstance(V.cart, InterfaceCartDecomposition):continue
                 slices = [slice(s, e+2*m*p+1) for s,e,m,p in zip(V.starts, V.ends, V.shifts, V.pads)]
-
-                if V.parent_ends[axis] is not None:
-                    diff = min(1,V.parent_ends[axis]-V.ends[axis])
-                else:
-                    diff = 0
-
-                if ext == 1:
-                    s = V.ends[axis]-V.pads[axis]+diff
-                    e = V.ends[axis]
-                else:
-                    s = V.starts[axis]
-                    e = V.pads[axis]-diff
-
-                slices[axis] = slice(s,e+2*V.shifts[axis]*V.pads[axis]+1)
                 self._interface_data[axis, ext][...] = self._data[tuple(slices)]
-        elif not self.space.parallel:
+        else:
             for axis, ext in self.space._interfaces:
                 V      = self.space._interfaces[axis, ext]
                 slices = [slice(s, e+2*m*p+1) for s,e,m,p in zip(V.starts, V.ends, V.shifts, V.pads)]
-
-                if V.parent_ends[axis] is not None:
-                    diff = min(1,V.parent_ends[axis]-V.ends[axis])
-                else:
-                    diff = 0
-
-                if ext == 1:
-                    s = V.ends[axis]-V.pads[axis]+diff
-                    e = V.ends[axis]
-                else:
-                    s = V.starts[axis]
-                    e = V.pads[axis]-diff
-
-                slices[axis] = slice(s,e+2*V.shifts[axis]*V.pads[axis]+1)
                 self._interface_data[axis, ext][...] = self._data[tuple(slices)]
 
         # Flag ghost regions as up-to-date
@@ -1752,8 +1762,8 @@ class StencilInterfaceMatrix(Matrix):
         # Number of rows in matrix (along each dimension)
         nrows         = [min(ni,nj) for ni,nj  in zip(nc, nd)]
         nrows_extra   = [max(0,ni-nj) for ni,nj in zip(nc, nd)]
-        nrows_extra[c_axis] = max(W.npts[c_axis]-Vin.npts[c_axis],0) if Vin.npts[c_axis] == Vin.ends[c_axis]+1 else 0
-        nrows[c_axis] = self._pads[c_axis] + 1-diff - nrows_extra[c_axis]
+        nrows_extra[c_axis] = max(W.npts[c_axis]-Vin.npts[c_axis], 0)
+        nrows[c_axis] = self._pads[c_axis] + 1-diff-nrows_extra[c_axis]
 
         args                 = {}
         args['starts']       = tuple(Vin.starts)

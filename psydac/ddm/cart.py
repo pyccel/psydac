@@ -544,14 +544,6 @@ class CartDecomposition():
     def subcomm( self ):
         return self._subcomm
 
-
-# NOTE [YG, 09.03.2021]: the equality comparison "==" is removed because we
-# prefer using the identity comparison "is" as far as possible.
-#    def __eq__( self, a):
-#        a = (a.npts, a.pads, a.periods, a.comm)
-#        b = (self.npts, self.pads, self.periods, self.comm)
-#        return a == b
-
     #---------------------------------------------------------------------------
     def topetsc( self ):
         """ Convert the cart to a petsc cart.
@@ -767,6 +759,44 @@ class CartDecomposition():
         # Store arrays with all the starts and ends along each direction
         cart._global_starts = global_starts
         cart._global_ends   = global_ends
+
+        return cart
+
+    #---------------------------------------------------------------------------
+    def change_starts_ends( self, starts, ends, parent_starts,  parent_ends):
+        cart = CartDecomposition(self._npts, self._pads, self._periods, self._reorder,
+                                comm=self.comm, global_comm=self._global_comm,
+                                shifts=self.shifts, reverse_axis=self.reverse_axis)
+
+        assert self.comm.size == 1
+        cart._global_starts = tuple(s for s in self._global_starts)
+        cart._global_ends   = tuple(e for e in self._global_ends)
+
+        # Start/end values of global indices (without ghost regions)
+        cart._starts = tuple(starts)
+        cart._ends   = tuple(ends)
+
+        # List of 1D global indices (without ghost regions)
+        cart._grids = tuple( range(s,e+1) for s,e in zip( cart._starts, cart._ends ) )
+
+        # Compute shape of local arrays in topology (with ghost regions)
+        cart._shape = tuple( e-s+1+2*m*p for s,e,p,m in zip( cart._starts, cart._ends, cart._pads, cart._shifts ) )
+
+        # Extended grids with ghost regions
+        cart._extended_grids = tuple( range(s-m*p,e+m*p+1) for s,e,p,m in zip( cart._starts, cart._ends, cart._pads, cart._shifts ) )
+
+        # N-dimensional global indices with ghost regions
+        cart._extended_indices = product( *cart._extended_grids )
+
+        # Compute/store information for communicating with neighbors
+        cart._shift_info = {}
+        for dimension in range( cart._ndims ):
+            for disp in [-1,1]:
+                cart._shift_info[ dimension, disp ] = \
+                        cart._compute_shift_info( dimension, disp )
+
+        cart._parent_starts = parent_starts
+        cart._parent_ends   = parent_ends
 
         return cart
 
@@ -1532,7 +1562,7 @@ class InterfaceCartDecomposition(CartDecomposition):
             starts_minus = [self._global_starts_minus[d][c] for d,c in enumerate(coords)]
             ends_minus   = [self._global_ends_minus[d][c] for d,c in enumerate(coords)]
             starts_extended_minus = [s-m*p for s,m,p in zip(starts_minus, shifts_minus, pads_minus)]
-            ends_extended_minus = [min(n, e+m*p) for e,m,p,n in zip(ends_minus, shifts_minus, pads_minus, npts_minus)]
+            ends_extended_minus = [min(n-1,e+m*p) for e,m,p,n in zip(ends_minus, shifts_minus, pads_minus, npts_minus)]
             buf_shape   = [e-s+1+2*m*p for s,e,m,p in zip(starts_minus, ends_minus, shifts_minus, pads_minus)]
             dest_ranks       = []
             buf_send_shape   = []
@@ -1546,7 +1576,7 @@ class InterfaceCartDecomposition(CartDecomposition):
                                                          ext_minus, ext_plus, pads_minus, pads_plus, shifts_minus, shifts_plus, diff)
                 starts_inter = [max(s1,s2) for s1,s2 in zip(starts_minus, starts_m)]
                 ends_inter   = [min(e1,e2) for e1,e2 in zip(ends_minus, ends_m)]
-                if any(s>=e if i!=axis else False for i,(s,e) in enumerate(zip(starts_inter, ends_inter))):
+                if any(s>e if i!=axis else False for i,(s,e) in enumerate(zip(starts_inter, ends_inter))):
                     continue
 
                 starts_inter[axis] = starts_minus[axis] if ext_minus == -1 else ends_minus[axis]-pads_minus[axis]+diff
@@ -1570,7 +1600,7 @@ class InterfaceCartDecomposition(CartDecomposition):
 
                 starts_inter = [max(s1,s2) for s1,s2 in zip(starts_extended_minus, starts)]
                 ends_inter   = [min(e1,e2) for e1,e2 in zip(ends_extended_minus, ends)]
-                if any(s>=e if i!=axis else False for i,(s,e) in enumerate(zip(starts_inter, ends_inter))):
+                if any(s>e if i!=axis else False for i,(s,e) in enumerate(zip(starts_inter, ends_inter))):
                     continue
 
                 starts_extended_minus[axis] = 0
@@ -1588,7 +1618,7 @@ class InterfaceCartDecomposition(CartDecomposition):
             starts_plus = [self._global_starts_plus[d][c] for d,c in enumerate(coords)]
             ends_plus   = [self._global_ends_plus[d][c] for d,c in enumerate(coords)]
             starts_extended_plus = [s-m*p for s,m,p in zip(starts_plus, shifts_plus, pads_plus)]
-            ends_extended_plus = [min(n, e+m*p) for e,m,p,n in zip(ends_plus, shifts_plus, pads_plus, npts_plus)]
+            ends_extended_plus = [min(n-1, e+m*p) for e,m,p,n in zip(ends_plus, shifts_plus, pads_plus, npts_plus)]
             buf_shape   = [e-s+1+2*m*p for s,e,m,p in zip(starts_plus, ends_plus, shifts_plus, pads_plus)]
             dest_ranks       = []
             buf_send_shape   = []
@@ -1603,7 +1633,7 @@ class InterfaceCartDecomposition(CartDecomposition):
                                                          ext_minus, ext_plus, pads_minus, pads_plus, shifts_minus, shifts_plus, diff)
                 starts_inter = [max(s1,s2) for s1,s2 in zip(starts_plus, starts_p)]
                 ends_inter   = [min(e1,e2) for e1,e2 in zip(ends_plus, ends_p)]
-                if any(s>=e if i!=axis else False for i,(s,e) in enumerate(zip(starts_inter, ends_inter))):
+                if any(s>e if i!=axis else False for i,(s,e) in enumerate(zip(starts_inter, ends_inter))):
                     continue
 
                 starts_inter[axis] = starts_plus[axis] if ext_plus == -1 else ends_plus[axis]-pads_plus[axis]+diff
@@ -1628,7 +1658,7 @@ class InterfaceCartDecomposition(CartDecomposition):
 
                 starts_inter = [max(s1,s2) for s1,s2 in zip(starts_extended_plus, starts)]
                 ends_inter   = [min(e1,e2) for e1,e2 in zip(ends_extended_plus, ends)]
-                if any(s>=e if i!=axis else False for i,(s,e) in enumerate(zip(starts_inter, ends_inter))):
+                if any(s>e if i!=axis else False for i,(s,e) in enumerate(zip(starts_inter, ends_inter))):
                     continue
 
                 starts_extended_plus[axis] = 0
@@ -1654,6 +1684,7 @@ class InterfaceCartDecomposition(CartDecomposition):
                 }
 
         return info
+
 #===============================================================================
 class CartDataExchanger:
     """
@@ -1912,8 +1943,7 @@ class InterfaceCartDataExchanger:
         coeff_start = [0] * len( coeff_shape )
 
         send_types  = [None]*len(info['dest_ranks'])
-        axis = cart.axis
-
+        axis        = cart.axis
         for i in range(len(info['dest_ranks'])):
 
             gbuf_shape  = list(info['gbuf_send_shape'][i])  + coeff_shape
