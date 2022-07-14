@@ -1086,7 +1086,6 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
         if backend is None:return
         if backend is self._backend:return
-        self._backend=backend
 
         from psydac.api.ast.linalg import LinearOperatorDot, TransposeOperator, InterfaceTransposeOperator
         from psydac.linalg.stencil import StencilInterfaceMatrix
@@ -1172,7 +1171,6 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                                 keys=keys,
                                 comm=comm,
                                 backend=frozenset(backend.items()),
-                                nrows_extra = tuple(nrows_extra),
                                 gpads=tuple(gpads),
                                 pads=tuple(pads),
                                 dm=tuple(dm),
@@ -1195,6 +1193,13 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                     nrows_k  = nrows[k]
                     for i in range(len(nrows_k)):
                         self._args['n{}_{}'.format(key_str, i+1)] = np.int64(nrows_k[i])
+
+
+                for k,key in enumerate(keys):
+                    key_str       = ''.join(str(i) for i in key)
+                    nrows_extra_k = nrows_extra[k]
+                    for i in range(len(nrows_extra_k)):
+                        self._args['ne{}_{}'.format(key_str, i+1)] = np.int64(nrows_extra_k[i])
 
             else:
                 dot = LinearOperatorDot(ndim,
@@ -1266,7 +1271,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                 outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else out._data
                 dot(*blocks, *vs, *outs, **args)
 
-        self._func = func
+        self._func    = func
+        self._backend = backend
 
 #===============================================================================
 class BlockDiagonalSolver( LinearSolver ):
