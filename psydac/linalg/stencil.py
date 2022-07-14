@@ -317,7 +317,7 @@ class StencilVectorSpace( VectorSpace ):
                 else:
                     ends[axis] = self.pads[axis]-diff
                     if parent_ends[axis] is not None:
-                        parent_ends[axis] = V.pads[axis]
+                        parent_ends[axis] = self.pads[axis]
 
                 cart = cart.change_starts_ends(starts, ends, parent_starts, parent_ends)
                 space = StencilVectorSpace(cart)
