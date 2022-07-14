@@ -6,19 +6,20 @@ from sympde.topology import Interface
 from psydac.ddm.cart import CartDecomposition, MultiCartDecomposition, InterfacesCartDecomposition
 
 def construct_connectivity(domain):
-    """ Compute the connectivity of the multipatch domain.
+    """ 
+    Compute the connectivity of the multipatch domain.
 
-        Parameters
-        ----------
-        domain : Sympde.topology.Domain
-            The multipatch domain.
+    Parameters
+    ----------
+    domain : Sympde.topology.Domain
+        The multipatch domain.
 
-        Returns
-        -------
-        connectivity : dict
-           The connectivity of the multipatch domain.
+    Returns
+    -------
+    connectivity : dict
+       The connectivity of the multipatch domain.
 
-        """
+    """
     interfaces = domain.interfaces if domain.interfaces else []
     if len(domain)==1:
         interiors  = [domain.interior]
@@ -132,7 +133,7 @@ def create_cart(spaces, comm, reverse_axis=None, nprocs=None):
 
 #------------------------------------------------------------------------------
 def create_interfaces_cart(cart, connectivity=None):
-  """
+    """
     Decompose the interface coefficients using the domain decomposition of each patch.
     For each interface we contruct an inter-communicator that groups the coefficients of the interface from each side.
 
@@ -164,7 +165,8 @@ def create_interfaces_cart(cart, connectivity=None):
 
 #------------------------------------------------------------------------------
 def construct_interface_spaces(g_spaces, cart, interiors, connectivity):
-    """ Create the fem spaces for each interface in the domain given by the connectivity.
+    """ 
+    Create the fem spaces for each interface in the domain given by the connectivity.
 
     Parameters
     ----------
