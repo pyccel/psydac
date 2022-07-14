@@ -1,7 +1,5 @@
 import glob
-import itertools
 import os
-from attr import has
 import pytest
 
 import numpy as np
@@ -15,7 +13,6 @@ from psydac.api.discretization import discretize
 from psydac.api.tests.build_domain import build_pretzel
 from psydac.fem.basic import FemField
 from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import VectorFemSpace, ProductFemSpace
 from psydac.utilities.utils import refine_array_1d
 from psydac.feec.pull_push import (push_2d_hcurl,
                                    push_2d_h1,
@@ -109,7 +106,7 @@ def test_add_spaces():
         Om.add_spaces(Ah=Ah)
 
     expected_spaces_info = {'ndim': 2,
-                            'fields': 'file.h5',
+                            'fields': 'test_add_spaces_single_patch.h5',
                             'patches': [{'name': 'D',
                                          'breakpoints': [
                                              [0., 0.2, 0.4, 0.6000000000000001, 0.8, 1.],
@@ -416,7 +413,7 @@ def test_reconstruct_DerhamSequence_topological_domain(domain, seq):
         )
 
     Om2 = OutputManager(
-        'test_reconstruct_DerhamSequence_topological_domain.yml',
+        'test_reconstruct_DerhamSequence_topological_domain_2.yml',
         'test_reconstruct_DerhamSequence_topological_domain.h5'
     )
 
@@ -562,7 +559,6 @@ def test_reconstruct_multipatch():
     Om2.add_spaces(**Pm.spaces)
 
     os.remove('spaces_multipatch.yml')
-    os.remove('fields_multipatch.h5')
 
     space_info_1 = Om.space_info
     space_info_2 = Om2.space_info
@@ -618,11 +614,13 @@ def test_incorrect_arg_export_to_vtk():
     with pytest.raises(ValueError): # needs npts_per_cell or grid
         Pm.export_to_vtk('_', grid=None, npts_per_cell=None)
     with pytest.raises(ValueError): # snapshot = 'none' but no static fields
-        Pm.export_to_vtk('_', grid=None, npts_per_cell=2, fields='f', snapshots='none')
+        Pm.export_to_vtk('_', grid=None, npts_per_cell=2, snapshots='none', fields='f')
     with pytest.warns(UserWarning): # snapshot = 'all' but no static fields
         Pm.export_to_vtk('_', grid=None, npts_per_cell=2, snapshots='all', fields='f')
-    with pytest.warns(UserWarning):
+    with pytest.warns(UserWarning): # snapshot = 'all' but no time dependent field
         Pm.export_to_vtk('_', grid=None, npts_per_cell=2, snapshots='all', fields='u')
+    with pytest.raises(ValueError): # empty grid
+        Pm.export_to_vtk('_', grid=[[],[]], npts_per_cell=None, snapshots='none', fields='u')
 
     os.remove('_.static.vtu')
     os.remove("test_incorrect_arg_export_to_vtk.yml")
@@ -701,8 +699,6 @@ def test_parallel_export_discrete_domain(geometry, kind, space, interactive=Fals
             grid2 = [refine_array_1d(space_h.breaks[i], 1, False) for i in range(dim)]
         else:
             grid2 = [refine_array_1d(space_h.spaces[0].breaks[i], 1, False) for i in range(dim)]
-
-    grid3 = [[0.1, 0.9]] * dim
 
     npts_per_cell = [2] * dim
 
