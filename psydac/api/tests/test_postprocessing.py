@@ -10,7 +10,6 @@ from sympde.topology import Square, Cube, ScalarFunctionSpace, VectorFunctionSpa
 from sympde.topology.analytical_mapping import IdentityMapping, AffineMapping, PolarMapping
 
 from psydac.api.discretization import discretize
-from psydac.api.tests.build_domain import build_pretzel
 from psydac.fem.basic import FemField
 from psydac.fem.tensor import TensorFemSpace
 from psydac.utilities.utils import refine_array_1d
@@ -636,7 +635,7 @@ def test_incorrect_arg_export_to_vtk():
                                     # Arguments to be added when Said's PR is merged
 @pytest.mark.parametrize('kind', ['h1', 'l2', 'hdiv', 'hcurl'])
 @pytest.mark.parametrize('space', [ScalarFunctionSpace, VectorFunctionSpace])
-def test_parallel_export_discrete_domain(geometry, kind, space, interactive=False):
+def test_parallel_export_discrete_domain(geometry, kind, space):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
@@ -729,7 +728,7 @@ def test_parallel_export_discrete_domain(geometry, kind, space, interactive=Fals
     )
 
     Pm.comm.Barrier()
-    if rank == 0 and not interactive:
+    if rank == 0:
         for f in glob.glob("test_export*grid*.*vtu"):
             os.remove(f)
         os.remove("test_parallel_export_discrete_domain.yml")
@@ -767,7 +766,7 @@ def test_parallel_export_topological_domain(domain, mapping, kind, space):
     symbolic_space = space('V', domain, kind=kind)
 
     degree = [2, 3, 4][:dim]
-    domain_h = discretize(domain, ncells=[5] * dim, comm=comm)
+    domain_h = discretize(domain, ncells=[6] * dim, comm=comm)
     space_h = discretize(symbolic_space, domain_h, degree=degree)
 
     field = FemField(space_h)

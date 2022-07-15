@@ -765,7 +765,6 @@ class PostProcessManager:
         self._mpi_dd = None
 
         self._available_patches = self._get_available_patches()
-
     @property
     def spaces(self):
         return self._spaces
@@ -1465,6 +1464,7 @@ class PostProcessManager:
                 else:
                     raise ValueError(f"No static fields were found in {fields}")
             else:
+                print(self._last_loaded_fields, self._available_patches)
                 # Compute everything
                 mesh_info, cell_data, point_data = self._export_to_vtk_helper(
                         grid=grid,
