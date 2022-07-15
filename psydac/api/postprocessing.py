@@ -2721,10 +2721,10 @@ class PostProcessManager:
                                                           bot_left_back]],
                                                          dtype='i')
 
-                                                    offsets = np.concatenate([offsets, [connectivity.size]], dtype='i')
-                                                    celltypes = np.concatenate([celltypes, [VtkHexahedron.tid]], dtype='i') # VTK HexType ID
+                                                    offsets = np.concatenate((offsets, [connectivity.size]), dtype='i')
+                                                    celltypes = np.concatenate((celltypes, [VtkHexahedron.tid]), dtype='i') # VTK HexType ID
 
-                                                    mpi_dd = np.concatenate([mpi_dd, [value]], dtype='i')
+                                                    mpi_dd = np.concatenate((mpi_dd, [value]), dtype='i')
 
             else:
                 #Usual case
