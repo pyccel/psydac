@@ -35,28 +35,26 @@ def test_build_mesh_reg(geometry_file, npts_per_cell):
 
     domain = Domain.from_file(filename)
     domainh = discretize(domain, filename=filename)
-
     for mapping in domainh.mappings.values():
         space = mapping.space
 
         grid = [refine_array_1d(space.breaks[i], npts_per_cell - 1, remove_duplicates=False) for i in range(mapping.ldim)]
 
-        x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell)
 
         if mapping.ldim == 2:
+            x_mesh, y_mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell)
 
             eta1, eta2 = grid
 
             pcoords = np.array([[mapping(e1, e2) for e2 in eta2] for e1 in eta1])
 
-            x_mesh_l = pcoords[..., 0:1]
-            y_mesh_l = pcoords[..., 1:2]
-            z_mesh_l = np.zeros_like(x_mesh_l)
+            x_mesh_l = pcoords[..., 0]
+            y_mesh_l = pcoords[..., 1]
 
         elif mapping.ldim == 3:
 
             eta1, eta2, eta3 = grid
-
+            x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell)
             pcoords = np.array([[[mapping(e1, e2, e3) for e3 in eta3] for e2 in eta2] for e1 in eta1])
 
             x_mesh_l = pcoords[..., 0]
@@ -66,11 +64,13 @@ def test_build_mesh_reg(geometry_file, npts_per_cell):
         else:
             assert False
 
-        assert x_mesh.flags['C_CONTIGUOUS'] and y_mesh.flags['C_CONTIGUOUS'] and z_mesh.flags['C_CONTIGUOUS']
+        assert x_mesh.flags['C_CONTIGUOUS'] and y_mesh.flags['C_CONTIGUOUS']
 
         assert np.allclose(x_mesh, x_mesh_l, atol=ATOL, rtol=RTOL)
         assert np.allclose(y_mesh, y_mesh_l, atol=ATOL, rtol=RTOL)
-        assert np.allclose(z_mesh, z_mesh_l, atol=ATOL, rtol=RTOL)
+        if mapping.ldim == 3:
+            assert  z_mesh.flags['C_CONTIGUOUS']
+            assert np.allclose(z_mesh, z_mesh_l, atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize('geometry_file', ['collela_3d.h5', 'collela_2d.h5', 'bent_pipe.h5'])
@@ -86,19 +86,19 @@ def test_build_mesh_i(geometry_file, npts_i):
 
         grid = [np.linspace(space.breaks[i][0], space.breaks[i][-1], npts_i) for i in range(mapping.ldim)]
 
-        x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid)
 
         if mapping.ldim == 2:
+            x_mesh, y_mesh = mapping.build_mesh(grid)
 
             eta1, eta2 = grid
 
             pcoords = np.array([[mapping(e1, e2) for e2 in eta2] for e1 in eta1])
 
-            x_mesh_l = pcoords[..., 0:1]
-            y_mesh_l = pcoords[..., 1:2]
-            z_mesh_l = np.zeros_like(x_mesh_l)
+            x_mesh_l = pcoords[..., 0]
+            y_mesh_l = pcoords[..., 1]
 
         elif mapping.ldim == 3:
+            x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid)
 
             eta1, eta2, eta3 = grid
 
@@ -111,11 +111,14 @@ def test_build_mesh_i(geometry_file, npts_i):
         else:
             assert False
 
-        assert x_mesh.flags['C_CONTIGUOUS'] and y_mesh.flags['C_CONTIGUOUS'] and z_mesh.flags['C_CONTIGUOUS']
+        assert x_mesh.flags['C_CONTIGUOUS'] and y_mesh.flags['C_CONTIGUOUS']
 
         assert np.allclose(x_mesh, x_mesh_l, atol=ATOL, rtol=RTOL)
         assert np.allclose(y_mesh, y_mesh_l, atol=ATOL, rtol=RTOL)
-        assert np.allclose(z_mesh, z_mesh_l, atol=ATOL, rtol=RTOL)
+        if mapping.ldim == 3:
+            assert  z_mesh.flags['C_CONTIGUOUS']
+            assert np.allclose(z_mesh, z_mesh_l, atol=ATOL, rtol=RTOL)
+
 
 @pytest.mark.parallel
 @pytest.mark.parametrize('geometry',  ['collela_3d.h5', 'collela_2d.h5', 'bent_pipe.h5'])
@@ -171,7 +174,7 @@ def test_parallel_jacobians_regular(geometry, npts_per_cell):
         mapping = list(domainh.mappings.values())[0]
 
         space = mapping.space
-        
+
         jacobian_matrix = mapping.jac_mat_grid(grid_reg, npts_per_cell=npts_per_cell)
         inv_jacobian_matrix = mapping.inv_jac_mat_grid(grid_reg, npts_per_cell=npts_per_cell)
         jacobian_determinants = mapping.jac_det_grid(grid_reg, npts_per_cell=npts_per_cell)
@@ -212,14 +215,14 @@ def test_parallel_jacobians_irregular(geometry, npts_irregular):
     jacobian_matrix_p = mapping.jac_mat_grid(grid_i)
     inv_jacobian_matrix_p = mapping.inv_jac_mat_grid(grid_i)
     jacobian_determinants_p = mapping.jac_det_grid(grid_i)
-    
+
     cell_indexes = [cell_index(space.breaks[i], grid_i[i]) for i in range(space.ldim)]
-    
+
     starts, ends = space.local_domain
 
-    actual_starts = tuple(np.searchsorted(cell_indexes[i], starts[i], side='left') 
+    actual_starts = tuple(np.searchsorted(cell_indexes[i], starts[i], side='left')
                           for i in range(space.ldim))
-    actual_ends = tuple(np.searchsorted(cell_indexes[i], ends[i], side='right') 
+    actual_ends = tuple(np.searchsorted(cell_indexes[i], ends[i], side='right')
                          for i in range(space.ldim))
 
     index = tuple(slice(s, e, 1) for s,e in zip(actual_starts, actual_ends))
@@ -245,7 +248,7 @@ def test_parallel_jacobians_irregular(geometry, npts_irregular):
         mapping = list(domainh.mappings.values())[0]
 
         space = mapping.space
-        
+
         jacobian_matrix = mapping.jac_mat_grid(grid_i)
         inv_jacobian_matrix = mapping.inv_jac_mat_grid(grid_i)
         jacobian_determinants = mapping.jac_det_grid(grid_i)
@@ -284,7 +287,7 @@ def test_nurbs_circle():
     T = TensorFemSpace(*spaces)
     mapping = NurbsMapping.from_control_points_weights(T, control_points=control[..., :2], weights=w)
 
-    x1_pts = np.linspace(0, 1, 10) 
+    x1_pts = np.linspace(0, 1, 10)
     x2_pts = np.linspace(0, 1, 10)
 
     for x2 in x2_pts:
@@ -292,7 +295,7 @@ def test_nurbs_circle():
             x_p, y_p = mapping(x1, x2)
             x_i, y_i, z_i = disk(x1, x2)
 
-            assert np.allclose((x_p, y_p), (x_i, y_i), atol=ATOL, rtol=RTOL) 
+            assert np.allclose((x_p, y_p), (x_i, y_i), atol=ATOL, rtol=RTOL)
 
             J_p = mapping.jac_mat(x1, x2)
             J_i = disk.gradient(u=x1, v=x2)
