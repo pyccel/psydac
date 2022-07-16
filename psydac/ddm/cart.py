@@ -34,74 +34,43 @@ def find_mpi_type( dtype ):
 
     return mpi_type
 
-#====================================================================================
-class MultiCartDecomposition:
-    """
-    This buids the cartition decomposition of multiple grids.
-    In each grid we compute a multi-dimensional cartesian topology using MPI sub-communicators.
+class MultiPatchDomainDecomposition:
+    def __init__(self, ncells, periods, comm=None, num_threads=None):
 
-    Parameters
-    ----------
-    npts : list or tuple
-        Number of coefficients in the global grid along each dimension for each patch.
-
-    pads : list or tuple
-        Padding along each grid dimension for each patch.
-
-    periods : list or tuple of bool
-        Periodicity (True|False) along each grid dimension for each patch.
-
-    reorder : bool
-        Whether individual ranks can be changed in the new Cartesian communicator.
-
-    comm : mpi4py.MPI.Comm
-        MPI communicator that will be used to create the sub-communicators for each grid.
-        (optional: default is MPI_COMM_WORLD).
-
-    shifts: list or tuple
-        Shifts along each grid dimension for each patch.
-        It takes values bigger or equal to one, it represents the multiplicity of each knot.
-
-    num_threads: int
-       Number of threads for each MPI rank.
-    """
-    def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD, shifts=None, num_threads=None ):
-
-        # Check input arguments
         # TODO: check that arguments are identical across all processes
-        assert len( npts ) == len( pads ) == len( periods )
-        assert all(all( n >=1 for n in npts_k ) for npts_k in npts)
-        assert isinstance( comm, MPI.Comm )
-
-        shifts      = tuple(shifts) if shifts else [(1,)*len(npts[0]) for n in npts]
+        assert len( ncells ) == len( periods )
+        if comm is not None:assert isinstance( comm, MPI.Comm )
         num_threads = num_threads if num_threads else 1
 
         # Store input arguments
-        self._npts         = tuple( npts    )
-        self._pads         = tuple( pads    )
+        self._ncells       = tuple( ncells    )
         self._periods      = tuple( periods )
-        self._shifts       = tuple( shifts  )
         self._num_threads  = num_threads
         self._comm         = comm
 
         # ...
-        self._ncarts = len( npts )
+        self._npatches = len( ncells )
 
         # ...
-        size           = comm.Get_size()
-        rank           = comm.Get_rank()
-        sizes, rank_ranges = partition_procs_per_patch(self._npts, size)
+        if comm is None:
+            size  = 1
+            rank  = 0
+        else:
+            size  = comm.Get_size()
+            rank  = comm.Get_rank()
+
+        sizes, rank_ranges = partition_procs_per_patch(self._ncells, size)
 
         self._rank   = rank
         self._size   = size
-        self._sizes  = sizes
-        self._rank_ranges = rank_ranges
+        self._sizes  = tuple( sizes )
+        self._rank_ranges = tuple( rank_ranges )
 
         global_group = comm.group
         owned_groups = []
 
-        local_groups        = [None]*self._ncarts
-        local_communicators = [MPI.COMM_NULL]*self._ncarts
+        local_groups        = [None]*self._npatches
+        local_communicators = [MPI.COMM_NULL]*self._npatches
 
         for i,r in enumerate(rank_ranges):
             if rank>=r[0] and rank<=r[1]:
@@ -110,23 +79,128 @@ class MultiCartDecomposition:
                 owned_groups.append(i)
 
         try:
-            carts = [CartDecomposition(n, p, P, reorder, comm=sub_comm, global_comm=comm, shifts=s, num_threads=num_threads)\
-                    for n,p,P,sub_comm,s in zip(npts, pads, periods, local_communicators, shifts)]
-        except:
-            comm.Abort(1)
+            domains = [DomainDecomposition(nc, P, comm=sub_comm, global_comm=comm, num_threads=num_threads)\
+                    for nc,P,sub_comm in zip(ncells, periods, local_communicators)]
+        except Exception as E:
+            if comm is None:
+                raise E
+            else:
+                comm.Abort(1)
 
-        self._local_groups        = local_groups
-        self._local_communicators = local_communicators
-        self._owned_groups        = owned_groups
-        self._carts               = carts
+        self._local_groups        = tuple(local_groups)
+        self._local_communicators = tuple(local_communicators)
+        self._owned_groups        = tuple(owned_groups)
+        self._domains             = tuple(domains)
+
+    def size( self ):
+        return self._size
+
+    def rank( self ):
+        return self._rank
+
+    def sizes( self ):
+        return self._sizes
+
+    def rank_ranges( self ):
+        return self._rank_ranges
+
+    def local_groups( self ):
+        return self._local_groups
+
+    def local_communicators( self ):
+        return self._local_communicators
+
+    def owned_groups( self ):
+        return self._owned_groups
+
+    def domains( self ):
+        return self._domains
+
+class DomainDecomposition:
+    def __init__(self, ncells, periods, comm=None, global_comm=None, num_threads=None):
+
+        # Check input arguments
+        # TODO: check that arguments are identical across all processes
+        assert len( ncells ) == len( periods )
+        assert all( n >=1 for n in ncells )
+        assert all( isinstance( period, bool ) for period in periods )
+        if not comm is None:assert isinstance( comm, MPI.Comm )
+
+        self._ncells       = tuple ( ncells )
+        self._periods      = tuple ( periods )
+        self._comm         = comm
+        self._global_comm  = comm if global_comm is None else global_comm
+        self._num_threads  = num_threads if num_threads else 1
+
+        if self.is_comm_null:return
+
+        # ...
+        if comm is None:
+            self._size = 1
+            self._rank = 0
+        else:
+            self._size = comm.Get_size()
+            self._rank = comm.Get_rank()
+
+        self._ndims         = len(ncells)
+        nprocs, block_shape = compute_dims( self._size, self._ncells )
+
+        self._nprocs = nprocs
+
+        if comm is None:
+            # compute the coords for all processes
+            self._global_coords = np.array([np.unravel_index(rank, nprocs) for rank in range(self._size)])
+            self._coords        = self._global_coords[self._rank]
+            self._comm_cart     = comm
+        else:
+            # Create a MPI cart
+            self._comm_cart = comm.Create_cart(
+                dims    = self._nprocs,
+                periods = self._periods,
+                reorder = False,
+            )
+
+            # Know my coordinates in the topology
+            self._rank_in_topo = self._comm_cart.Get_rank()
+            self._coords       = self._comm_cart.Get_coords( rank=self._rank_in_topo )
+
+
+        # Store arrays with all the starts and ends along each direction for every thread
+        self._global_element_starts = [None]*self._ndims
+        self._global_element_ends   = [None]*self._ndims
+        for axis in range( self._ndims ):
+            n = ncells[axis]
+            d = nprocs[axis]
+            self._global_element_starts[axis] = np.array( [( c   *n)//d   for c in range( d )] )
+            self._global_element_ends  [axis] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
+
+
+        # Start/end values of global indices (without ghost regions)
+        self._starts = tuple( self._global_element_starts[axis][c] for axis,c in zip(range(self._ndims), self._coords) )
+        self._ends   = tuple( self._global_element_ends  [axis][c] for axis,c in zip(range(self._ndims), self._coords) )
+
+        self._local_ncells = tuple(e-s+1 for s,e in zip(self._starts, self._ends))
+
+        # Create (N-1)-dimensional communicators within the Cartesian topology
+        self._subcomm = [None]*self._ndims
+        for i in range(self._ndims):
+            remain_dims     = [i==j for j in range( self._ndims )]
+            self._subcomm[i] = self._comm_cart.Sub( remain_dims )
+
+    #---------------------------------------------------------------------------
+    # Global properties (same for each process)
+    #---------------------------------------------------------------------------
+    @property
+    def ndim( self ):
+        return self._ndims
 
     @property
-    def comm( self ):
-        return self._comm
+    def ncells( self ):
+        return self._npts
 
     @property
-    def ncarts( self ):
-        return self._ncarts
+    def periods( self ):
+        return self._periods
 
     @property
     def size( self ):
@@ -137,28 +211,64 @@ class MultiCartDecomposition:
         return self._rank
 
     @property
-    def sizes( self ):
-        return self._sizes
+    def num_threads( self ):
+        return self._num_threads
 
     @property
-    def rank_ranges( self ):
-        return self._rank_ranges
+    def comm( self ):
+        return self._comm
 
     @property
-    def local_groups( self ):
-        return self._local_groups
+    def comm_cart( self ):
+        return self._comm_cart
 
     @property
-    def local_communicators( self ):
-        return self._local_communicators
+    def global_comm( self ):
+        return self._global_comm
 
     @property
-    def owned_groups( self ):
-        return self._owned_groups
+    def nprocs( self ):
+        return self._nprocs
 
     @property
-    def carts( self ):
-        return self._carts
+    def global_element_starts( self ):
+        return self._global_element_starts
+
+    @property
+    def global_element_ends( self ):
+        return self._global_element_ends
+
+    @property
+    def is_comm_null( self ):
+        return self.comm == MPI.COMM_NULL
+
+    #---------------------------------------------------------------------------
+    # Local properties
+    #---------------------------------------------------------------------------
+    @property
+    def starts( self ):
+        return self._starts
+
+    @property
+    def ends( self ):
+        return self._ends
+
+    @property
+    def coords( self ):
+        return self._coords
+
+    @property
+    def subcomm( self ):
+        return self._subcomm
+
+    @property
+    def local_ncells( self ):
+        return self._local_ncells
+
+    #---------------------------------------------------------------------------
+    def coords_exist( self, coords ):
+
+        return all( P or (0 <= c < d) for P,c,d in zip( self._periods, coords, self._dims ) )
 
 #==================================================================================
 class InterfacesCartDecomposition:
@@ -305,109 +415,45 @@ class CartDecomposition():
        Number of threads for each MPI rank.
 
     """
-    def __init__( self, npts, pads, periods, reorder, comm=None, global_comm=None, shifts=None, nprocs=None, reverse_axis=None, num_threads=None ):
+    def __init__( self, domain_h, npts, global_starts, global_ends, pads, shifts ):
 
         # Check input arguments
         # TODO: check that arguments are identical across all processes
-        assert len( npts ) == len( pads ) == len( periods )
-        assert all( n >=1 for n in npts )
+        assert len( npts ) == len( global_starts ) == len( global_ends ) == len( pads ) == len(shifts)
+        assert all( n >=1 for n in npts   )
+        assert all( all(n >=0) for n in global_starts )
+        assert all( all(n >=0) for n in global_ends )
         assert all( p >=0 for p in pads )
-        assert all( isinstance( period, bool ) for period in periods )
-        assert isinstance( reorder, bool )
-        assert isinstance( comm, MPI.Comm )
 
-        shifts      = tuple(shifts) if shifts else (1,)*len(npts)
-        num_threads = num_threads if num_threads else 1
         # Store input arguments
-        self._npts         = tuple( npts    )
-        self._pads         = tuple( pads    )
-        self._periods      = tuple( periods )
-        self._shifts       = shifts
-        self._num_threads  = num_threads
-        self._reorder      = reorder
-        self._comm         = comm
-        self._local_comm   = comm
-        self._global_comm  = comm if global_comm is None else global_comm
-        self._reverse_axis = reverse_axis
-        # ...
-        self._ndims = len( npts )
-        # ...
+        self._npts          = tuple( npts    )
+        self._global_starts = tuple( global_starts  )
+        self._global_ends   = tuple( global_ends    )
+        self._pads          = tuple( pads    )
+        self._shifts        = tuple( shifts  )
+        self._periods       = domain_h.periods
+        self._ndims         = len( npts )
+        self._comm          = domain_h.comm
+        self._comm_cart     = domain_h.comm_cart
+        self._local_comm    = domain_h.comm
+        self._global_comm   = domain_h.global_comm
+        self._num_threads   = domain_h.num_threads
 
-        if comm == MPI.COMM_NULL:
+
+        if self._comm == MPI.COMM_NULL:
             return
 
-        self._size = comm.Get_size()
-        self._rank = comm.Get_rank()
+        self._size = domain_h.size
+        self._rank = domain_h.rank
+        self._nprocs = domain_h.nprocs
         # ...
-
-        # ...
-        # Know the number of processes along each direction
-#        self._dims = MPI.Compute_dims( self._size, self._ndims )
-
-        reduced_npts = [(n-p-1)//m if m>1 else n if not P else n for n,m,p,P in zip(npts, shifts, pads, periods)]
-
-        if nprocs is None:
-            nprocs, block_shape = compute_dims( self._size, reduced_npts, [p+1 for p in pads] )
-        else:
-            assert len(nprocs) == len(npts)
-
-        assert np.product(nprocs) == self._size
-
-        self._dims = nprocs
-        # ...
-
-        # ...
-        # Create a 2D MPI cart
-        self._comm_cart = comm.Create_cart(
-            dims    = self._dims,
-            periods = self._periods,
-            reorder = self._reorder
-        )
 
         # Know my coordinates in the topology
-        self._rank_in_topo  = self._comm_cart.Get_rank()
-        self._coords        = self._comm_cart.Get_coords( rank=self._rank_in_topo )
-        self._ranks_in_topo = np.array(comm.group.Translate_ranks(self._comm_cart.group, list(range(self._comm_cart.size)), comm.group))
-
-        if reverse_axis is not None:
-            self._coords[reverse_axis] = self._dims[reverse_axis] - self._coords[reverse_axis] - 1
-
-        # Store arrays with all the reduced starts and reduced ends along each direction
-        self._reduced_global_starts = [None]*self._ndims
-        self._reduced_global_ends   = [None]*self._ndims
-        for axis in range( self._ndims ):
-            n = reduced_npts[axis]
-            d = nprocs[axis]
-            p = pads[axis]
-            m = shifts[axis]
-            self._reduced_global_starts[axis] = np.array( [( c   *n)//d   for c in range( d )] )
-            self._reduced_global_ends  [axis] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
-            if m>1:self._reduced_global_ends  [axis][-1] += p+1
-
-        # Store arrays with all the starts and ends along each direction
-        self._global_starts = [None]*self._ndims
-        self._global_ends   = [None]*self._ndims
-
-        for axis in range( self._ndims ):
-            n = npts[axis]
-            d = nprocs[axis]
-            p = pads[axis]
-            m = shifts[axis]
-            r_starts = self._reduced_global_starts[axis]
-            r_ends   = self._reduced_global_ends  [axis]
-
-            global_starts = [0]
-            for c in range(1,d):
-                global_starts.append(global_starts[c-1] + (r_ends[c-1]-r_starts[c-1]+1)*m)
-
-            global_ends = [global_starts[c+1]-1 for c in range( d-1 )] + [n-1]
-
-            self._global_starts[axis] = np.array( global_starts )
-            self._global_ends  [axis] = np.array( global_ends )
+        self._coords        = domain_h.coords
 
         # Start/end values of global indices (without ghost regions)
-        self._starts = tuple( self.global_starts[axis][c] for axis,c in zip(range(self._ndims), self._coords) )
-        self._ends   = tuple( self.global_ends  [axis][c] for axis,c in zip(range(self._ndims), self._coords) )
+        self._starts = tuple( self._global_starts[axis][c] for axis,c in zip(range(self._ndims), self._coords) )
+        self._ends   = tuple( self._global_ends  [axis][c] for axis,c in zip(range(self._ndims), self._coords) )
 
         # List of 1D global indices (without ghost regions)
         self._grids = tuple( range(s,e+1) for s,e in zip( self._starts, self._ends ) )
@@ -415,14 +461,17 @@ class CartDecomposition():
         # Compute shape of local arrays in topology (with ghost regions)
         self._shape = tuple( e-s+1+2*m*p for s,e,p,m in zip( self._starts, self._ends, self._pads, shifts ) )
 
-        # Extended grids with ghost regions
-        self._extended_grids = tuple( range(s-m*p,e+m*p+1) for s,e,p,m in zip( self._starts, self._ends, self._pads, shifts ) )
+#        # Extended grids with ghost regions
+#        self._extended_grids = tuple( range(s-m*p,e+m*p+1) for s,e,p,m in zip( self._starts, self._ends, self._pads, shifts ) )
+
+        self._petsccart     = None
+        self._parent_starts = tuple([None]*self._ndims)
+        self._parent_ends   = tuple([None]*self._ndims)
+
+        if self._comm is None:return
 
         # Create (N-1)-dimensional communicators within the Cartesian topology
-        self._subcomm = [None]*self._ndims
-        for i in range(self._ndims):
-            remain_dims     = [i==j for j in range( self._ndims )]
-            self._subcomm[i] = self._comm_cart.Sub( remain_dims )
+        self._subcomm = domain_h.subcomm
 
         # Compute/store information for communicating with neighbors
         self._shift_info = {}
@@ -431,9 +480,6 @@ class CartDecomposition():
                 self._shift_info[ axis, disp ] = \
                         self._compute_shift_info( axis, disp )
 
-        self._petsccart     = None
-        self._parent_starts = tuple([None]*self._ndims)
-        self._parent_ends   = tuple([None]*self._ndims)
     #---------------------------------------------------------------------------
     # Global properties (same for each process)
     #---------------------------------------------------------------------------
@@ -458,16 +504,16 @@ class CartDecomposition():
         return self._shifts
 
     @property
-    def num_threads( self ):
-        return self._num_threads
-
-    @property
     def reorder( self ):
         return self._reorder
 
     @property
     def comm( self ):
         return self._comm
+
+    @property
+    def comm_cart( self ):
+        return self._comm_cart
 
     @property
     def local_comm( self ):
@@ -478,12 +524,8 @@ class CartDecomposition():
         return self._global_comm
 
     @property
-    def comm_cart( self ):
-        return self._comm_cart
-
-    @property
     def nprocs( self ):
-        return self._dims
+        return self._nprocs
 
     @property
     def reverse_axis(self):
@@ -508,6 +550,14 @@ class CartDecomposition():
     @property
     def is_comm_null( self ):
         return self.comm == MPI.COMM_NULL
+
+    @property
+    def is_parallel( self ):
+        return self._comm is not None
+
+    @property
+    def num_threads( self ):
+        return self._num_threads
 
     #---------------------------------------------------------------------------
     # Local properties
@@ -535,10 +585,6 @@ class CartDecomposition():
     @property
     def shape( self ):
         return self._shape
-
-    @property
-    def ranks_in_topo( self ):
-        return self._ranks_in_topo
 
     @property
     def subcomm( self ):
@@ -806,12 +852,12 @@ class CartDecomposition():
         assert( 0 <= direction < self._ndims )
         assert( isinstance( disp, int ) )
 
-        reorder = self.reverse_axis == direction
+#        reorder = self.reverse_axis == direction
         # Process ranks for data shifting with MPI_SENDRECV
         (rank_source, rank_dest) = self.comm_cart.Shift( direction, disp )
 
-        if reorder:
-            (rank_source, rank_dest) = (rank_dest, rank_source)
+#        if reorder:
+#            (rank_source, rank_dest) = (rank_dest, rank_source)
 
         # Mesh info info along given direction
         s = self._starts[direction]
@@ -824,21 +870,30 @@ class CartDecomposition():
         buf_shape[direction] = m*p
 
         # Start location of send/recv subarrays
-        send_starts = np.zeros( self._ndims, dtype=int )
-        recv_starts = np.zeros( self._ndims, dtype=int )
+        send_starts          = np.zeros( self._ndims, dtype=int )
+        recv_starts          = np.zeros( self._ndims, dtype=int )
+        send_assembly_starts = np.zeros( self._ndims, dtype=int )
+        recv_assembly_starts = np.zeros( self._ndims, dtype=int )
+
         if disp > 0:
-            recv_starts[direction] = 0
-            send_starts[direction] = e-s+1
+            recv_starts[direction]          = 0
+            send_starts[direction]          = e-s+1
+            recv_assembly_starts[direction] = m*p-p
+            send_assembly_starts[direction] = e-s+1+m*p
         elif disp < 0:
-            recv_starts[direction] = e-s+1+m*p
-            send_starts[direction] = m*p
+            recv_starts[direction]          = e-s+1+m*p
+            send_starts[direction]          = m*p
+            recv_assembly_starts[direction] = e-s+1+m*p
+            send_assembly_starts[direction] = m*p-p
 
         # Store all information into dictionary
-        info = {'rank_dest'  : rank_dest,
-                'rank_source': rank_source,
-                'buf_shape'  : tuple(  buf_shape  ),
-                'send_starts': tuple( send_starts ),
-                'recv_starts': tuple( recv_starts )}
+        info = {'rank_dest'           : rank_dest,
+                'rank_source'         : rank_source,
+                'buf_shape'           : tuple(  buf_shape  ),
+                'send_starts'         : tuple( send_starts ),
+                'recv_starts'         : tuple( recv_starts ),
+                'send_assembly_starts': tuple( send_assembly_starts ),
+                'recv_assembly_starts': tuple( recv_assembly_starts )}
         return info
 
 #===============================================================================
@@ -1710,7 +1765,7 @@ class CartDataExchanger:
         (optional: by default, we assume scalar coefficients).
 
     """
-    def __init__( self, cart, dtype, *, coeff_shape=() ):
+    def __init__( self, cart, dtype, *, coeff_shape=(),  assembly=False ):
 
         self._send_types, self._recv_types = self._create_buffer_types(
                 cart, dtype, coeff_shape=coeff_shape )
@@ -1718,6 +1773,9 @@ class CartDataExchanger:
         self._cart = cart
         self._comm = cart.comm_cart
 
+        if assembly:
+            self._assembly_send_types, self._assembly_recv_types = self._create_assembly_buffer_types(
+                cart, dtype, coeff_shape=coeff_shape )
     #---------------------------------------------------------------------------
     # Public interface
     #---------------------------------------------------------------------------
@@ -1727,6 +1785,14 @@ class CartDataExchanger:
     # ...
     def get_recv_type( self, direction, disp ):
         return self._recv_types[direction, disp]
+
+    # ...
+    def get_assembly_send_type( self, direction, disp ):
+        return self._assembly_send_types[direction, disp]
+
+    # ...
+    def get_assembly_recv_type( self, direction, disp ):
+        return self._assembly_recv_types[direction, disp]
 
     # ...
     def update_ghost_regions( self, array, *, direction=None ):
@@ -1784,6 +1850,68 @@ class CartDataExchanger:
 
         # Wait for end of data exchange (MPI_WAITALL)
         MPI.Request.Waitall( requests )
+
+    # ...
+    def update_assembly_ghost_regions( self, array ):
+        """
+        Update ghost regions after the assembly algorithm in a numpy array with dimensions compatible with
+        CartDecomposition (and coeff_shape) provided at initialization.
+        Parameters
+        ----------
+        array : numpy.ndarray
+            Multidimensional array corresponding to local subdomain in
+            decomposed tensor grid, including padding.
+        """
+
+        assert isinstance( array, np.ndarray )
+
+
+        # Shortcuts
+        cart = self._cart
+        comm = self._comm
+        ndim = cart.ndim
+
+
+        # Choose non-negative invertible function tag(disp) >= 0
+        # NOTES:
+        #   . different values of disp must return different tags!
+        #   . tag at receiver must match message tag at sender
+        tag = lambda disp: 42+disp
+
+        # Requests' handles
+
+        disps = [1 if P else -1 for P in cart.periods]
+        for direction in range( ndim ):
+            # Start receiving data (MPI_IRECV)
+            disp     = disps[direction]
+            info     = cart.get_shift_info( direction, disp )
+            recv_typ = self.get_assembly_recv_type ( direction, disp )
+            recv_buf = (array, 1, recv_typ)
+            recv_req = comm.Irecv( recv_buf, info['rank_source'], tag(disp) )
+
+            # Start sending data (MPI_ISEND)
+            info     = cart.get_shift_info( direction, disp )
+            send_typ = self.get_assembly_send_type ( direction, disp )
+            send_buf = (array, 1, send_typ)
+            send_req = comm.Isend( send_buf, info['rank_dest'], tag(disp) )
+
+            # Wait for end of data exchange (MPI_WAITALL)
+            MPI.Request.Waitall( [recv_req, send_req] )
+
+            if disp == 1:
+                info = cart.get_shift_info( direction, disp )
+                pads = [0]*ndim
+                pads[direction] = cart._pads[direction]
+                idx_from = tuple(slice(s,s+b) for s,b in zip(info['recv_starts'],info['buf_shape']))
+                idx_to   = tuple(slice(s+p,s+b+p) for s,b,p in zip(info['recv_starts'],info['buf_shape'],pads))
+                array[idx_to] += array[idx_from]
+            else:
+                info = cart.get_shift_info( direction, disp )
+                pads = [0]*ndim
+                pads[direction] = cart._pads[direction]
+                idx_from = tuple(slice(s,s+b) for s,b in zip(info['recv_starts'],info['buf_shape']))
+                idx_to   = tuple(slice(s-p,s+b-p) for s,b,p in zip(info['recv_starts'],info['buf_shape'],pads))
+                array[idx_to] += array[idx_from]
 
 
     #---------------------------------------------------------------------------
@@ -1864,6 +1992,73 @@ class CartDataExchanger:
 
         return send_types, recv_types
 
+    # ...
+    @staticmethod
+    def _create_assembly_buffer_types( cart, dtype, *, coeff_shape=() ):
+        """
+        Create MPI subarray datatypes for updating the ghost regions (padding)
+        of a multi-dimensional array distributed according to the given Cartesian
+        decomposition of a tensor-product grid of coefficients.
+        MPI requires a subarray datatype for accessing non-contiguous slices of
+        a multi-dimensional array; this is a typical situation when updating the
+        ghost regions.
+        Each coefficient in the decomposed grid may have multiple components,
+        contiguous in memory.
+        Parameters
+        ----------
+        cart : psydac.ddm.CartDecomposition
+            Object that contains all information about the Cartesian decomposition
+            of a tensor-product grid of coefficients.
+        dtype : [type | str | numpy.dtype | mpi4py.MPI.Datatype]
+            Datatype of single coefficient (if scalar) or of each of its
+            components (if vector).
+        coeff_shape : [tuple(int) | list(int)]
+            Shape of a single coefficient, if this is multidimensional
+            (optional: by default, we assume scalar coefficients).
+        Returns
+        -------
+        send_types : dict
+            Dictionary of MPI subarray datatypes for SEND BUFFERS, accessed
+            through the integer pair (direction, displacement) as key;
+            'direction' takes values from 0 to ndim, 'disp' is -1 or +1.
+        recv_types : dict
+            Dictionary of MPI subarray datatypes for RECEIVE BUFFERS, accessed
+            through the integer pair (direction, displacement) as key;
+            'direction' takes values from 0 to ndim, 'disp' is -1 or +1.
+        """
+        assert isinstance( cart, CartDecomposition )
+
+        mpi_type = find_mpi_type( dtype )
+
+        # Possibly, each coefficient could have multiple components
+        coeff_shape = list( coeff_shape )
+        coeff_start = [0] * len( coeff_shape )
+
+        data_shape = list( cart.shape ) + coeff_shape
+        send_types = {}
+        recv_types = {}
+
+        for direction in range( cart.ndim ):
+            for disp in [-1, 1]:
+                info = cart.get_shift_info( direction, disp )
+
+                buf_shape   = list( info[ 'buf_shape' ] ) + coeff_shape
+                send_starts = list( info['send_assembly_starts'] ) + coeff_start
+                recv_starts = list( info['recv_assembly_starts'] ) + coeff_start
+
+                send_types[direction,disp] = mpi_type.Create_subarray(
+                    sizes    = data_shape ,
+                    subsizes =  buf_shape ,
+                    starts   = send_starts,
+                ).Commit()
+
+                recv_types[direction,disp] = mpi_type.Create_subarray(
+                    sizes    = data_shape ,
+                    subsizes =  buf_shape ,
+                    starts   = recv_starts,
+                ).Commit()
+
+        return send_types, recv_types
 #===============================================================================
 class InterfaceCartDataExchanger:
     """

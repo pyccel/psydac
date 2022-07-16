@@ -218,7 +218,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
     degree              = kwargs.pop('degree', None)
     comm                = domain_h.comm
     ldim                = V.ldim
-    periodic            = kwargs.pop('periodic', [False]*ldim)
     basis               = kwargs.pop('basis', 'B')
     knots               = kwargs.pop('knots', None)
     quad_order          = kwargs.pop('quad_order', None)
@@ -256,19 +255,29 @@ def discretize_space(V, domain_h, *args, **kwargs):
                 carts = cart.carts
     else:
 
-        assert(isinstance( degree, (list, tuple) ))
-        assert( len(degree) == ldim )
-        assert(hasattr(domain_h, 'ncells'))
+        if isinstance( degree, (list, tuple) ):
+            degree = {I.name:degree for I in interiors}
+        else:
+            assert isinstance(degree, (list, tuple))
 
         if isinstance(knots, (list, tuple)):
             assert len(interiors) == 1
             knots = {interiors[0].name:knots}
 
         spaces = [None]*len(interiors)
+        if len(interiors) == 1:
+            ddms = [domain_h.ddm]
+        else:
+            ddms = domain_h.ddm.domains
+
         for i,interior in enumerate(interiors):
-            ncells     = domain_h.ncells
+            ncells     = domain_h.ncells[interior.name]
+            periodic   = domain_h.periodic[interior.name]
+            degree_i   = degree[interior.name]
             min_coords = interior.min_coords
             max_coords = interior.max_coords
+
+            assert len(ncells) == len(periodic) == len(degree_i) == len(min_coords) == len(max_coords)
 
             if knots is None:
                 # Create uniform grid
@@ -276,30 +285,22 @@ def discretize_space(V, domain_h, *args, **kwargs):
                          for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
                 # Create 1D finite element spaces and precompute quadrature data
-                spaces[i] = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
+                spaces[i] = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree_i, grids, periodic)]
             else:
                  # Create 1D finite element spaces and precompute quadrature data
-                spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree, knots[interior.name], periodic)]
+                spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]
 
-        if comm is not None:
-            cart = create_cart(spaces, comm)
-
-            if len(interiors) == 1:
-                carts = [cart]
-            else:
-                carts = cart.carts
-        else:
-            cart = None
+        carts = create_cart(ddms, spaces)
 
         for i,interior in enumerate(interiors):
             if comm is not None:
-                Vh = TensorFemSpace( *spaces[i], cart=carts[i], quad_order=quad_order)
+                Vh = TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], quad_order=quad_order)
             else:
-                Vh = TensorFemSpace( *spaces[i], quad_order=quad_order)
+                Vh = TensorFemSpace( ddms[i], *spaces[i], quad_order=quad_order)
 
             g_spaces[interior] = Vh
 
-        construct_interface_spaces(g_spaces, cart, interiors, connectivity)
+        construct_interface_spaces(g_spaces, carts, interiors, connectivity)
 
     for inter in g_spaces:
         Vh = g_spaces[inter]
@@ -337,7 +338,7 @@ def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
         return Geometry(filename=filename, comm=comm)
 
     elif ncells:
-        return Geometry.from_topological_domain(domain, ncells, comm)
+        return Geometry.from_topological_domain(domain, ncells, comm=comm)
 
 #==============================================================================
 def discretize(a, *args, **kwargs):

@@ -23,6 +23,7 @@ from psydac.fem.tensor         import TensorFemSpace
 from psydac.fem.utilities      import create_cart, construct_connectivity, construct_interface_spaces
 from psydac.mapping.discrete   import SplineMapping, NurbsMapping
 from psydac.linalg.block       import BlockVectorSpace, BlockVector
+from psydac.ddm.cart           import DomainDecomposition, MultiPatchDomainDecomposition
 
 from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, Mapping
 from sympde.topology.basic import Union
@@ -37,7 +38,7 @@ class Geometry( object ):
     #--------------------------------------------------------------------------
     # Option [1]: from a (domain, mappings) or a file
     #--------------------------------------------------------------------------
-    def __init__( self, domain=None, mappings=None,
+    def __init__( self, domain=None, ncells=None, periodic=None, mappings=None,
                   filename=None, comm=None ):
 
         # ... read the geometry if the filename is given
@@ -45,9 +46,11 @@ class Geometry( object ):
             self.read(filename, comm=comm)
 
         elif not( domain is None ):
-            assert( isinstance( domain, Domain ) )
-            assert( not( mappings is None ))
+            assert isinstance( domain, Domain ) 
+            assert isinstance( ncells, dict)
             assert isinstance( mappings, dict)
+            if periodic is not None:
+                assert isinstance( periodic, dict)
 
             # ... check sanity
             interior_names = sorted(domain.interior_names)
@@ -56,11 +59,24 @@ class Geometry( object ):
             assert( interior_names == mappings_keys )
             # ...
 
+            if periodic is None:
+                periodic = {patch:[False]*len(ncells_i) for patch,ncells_i in ncells.items}
+
             self._domain   = domain
             self._ldim     = domain.dim
             self._pdim     = domain.dim # TODO must be given => only dim is  defined for a Domain
+            self._ncells   = ncells
+            self._periodic = periodic
             self._mappings = mappings
             self._cart     = None
+            self._is_parallel = comm is not None
+
+            if len(domain) == 1:
+                self._ddm = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm)
+            else:
+                ncells    = [ncells[itr.name] for itr in domain.interior]
+                periodic  = [periodic[itr.name] for itr in domain.interior]
+                self._ddm = MultiPatchDomainDecomposition(ncells, periodic, comm=comm)
 
         else:
             raise ValueError('Wrong input')
@@ -93,7 +109,7 @@ class Geometry( object ):
     # Option [3]: discrete topological line/square/cube
     #--------------------------------------------------------------------------
     @classmethod
-    def from_topological_domain(cls, domain, ncells, comm=None):
+    def from_topological_domain(cls, domain, ncells, *, periodic=None, comm=None):
         interior = domain.interior
         if not isinstance(interior, Union):
             interior = [interior]
@@ -105,8 +121,16 @@ class Geometry( object ):
                 raise TypeError(msg)
 
         mappings = {itr.name: None for itr in interior}
-        geo = Geometry(domain=domain, mappings=mappings, comm=comm)
-        geo.ncells = ncells
+        if isinstance(ncells, (list, tuple)):
+            ncells = {itr.name:ncells for itr in interior}
+
+        if periodic is None:
+            periodic = [False]*domain.dim
+
+        if isinstance(periodic, (list, tuple)):
+            periodic = {itr.name:periodic for itr in interior}
+
+        geo = Geometry(domain=domain, mappings=mappings, ncells=ncells, periodic=periodic, comm=comm)
 
         return geo
 
@@ -120,6 +144,14 @@ class Geometry( object ):
         return self._pdim
 
     @property
+    def ncells(self):
+        return self._ncells
+
+    @property
+    def periodic(self):
+        return self._periodic
+
+    @property
     def comm(self):
         return self._comm
 
@@ -128,8 +160,12 @@ class Geometry( object ):
         return self._domain
 
     @property
-    def cart(self):
-        return self._cart
+    def ddm(self):
+        return self._ddm
+
+    @property
+    def is_parallel(self):
+        return self._is_parallel
 
     @property
     def mappings(self):
@@ -195,6 +231,8 @@ class Geometry( object ):
 
                 spaces[i_patch] = space_i
 
+        ncells = [[sp.ncells for sp in tspace] for tspace in spaces]
+        periods = [[sp.periodic for sp in tspace] for tspace in spaces]
         assert all(spaces)
         self._cart = None
         if comm is not None:
@@ -202,8 +240,10 @@ class Geometry( object ):
             self._cart = cart
             if n_patches == 1:
                 carts = [cart]
+                ddm   = DomainDecomposition(ncells[0], periods[0], comm=comm)
             else:
                 carts = cart.carts
+                ddm   = MultiPatchDomainDecomposition(ncells, periods, comm=comm)
 
         g_spaces = {}
         for i_patch in range( n_patches ):
@@ -284,6 +324,7 @@ class Geometry( object ):
         self._pdim       = pdim
         self._mappings   = mappings
         self._domain     = domain
+        self._ddm        = ddm
         # ...
 
     def export( self, filename ):

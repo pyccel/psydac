@@ -19,7 +19,7 @@ from psydac.fem.basic      import FemSpace, FemField
 from psydac.fem.splines    import SplineSpace
 from psydac.fem.grid       import FemAssemblyGrid
 from psydac.fem.utilities  import create_cart
-from psydac.ddm.cart       import CartDecomposition
+from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
 
 from psydac.core.bsplines  import (find_span,
                                    basis_funs,
@@ -51,8 +51,9 @@ class TensorFemSpace( FemSpace ):
 
     """
 
-    def __init__( self, *args, **kwargs ):
+    def __init__( self, domain_h, *args, **kwargs ):
         """."""
+        assert isinstance(domain_h, DomainDecomposition)
         assert all( isinstance( s, SplineSpace ) for s in args )
         self._spaces = tuple(args)
 
@@ -63,23 +64,14 @@ class TensorFemSpace( FemSpace ):
         periods      = [V.periodic for V in self.spaces]
         basis        = [V.basis    for V in self.spaces]
 
-        if 'comm' in kwargs and not( kwargs['comm'] is None ):
-            # parallel case
-            comm         = kwargs['comm']
-            nprocs       = kwargs.pop('nprocs', None)
-            reverse_axis = kwargs.pop('reverse_axis', None)
-            cart         = create_cart([self._spaces], comm, reverse_axis=reverse_axis, nprocs=nprocs)
-
-            self._vector_space = StencilVectorSpace(cart)
-
-        elif 'cart' in kwargs and not (kwargs['cart'] is None):
+        if 'cart' in kwargs and not (kwargs['cart'] is None):
 
             cart = kwargs['cart']
             self._vector_space = StencilVectorSpace(cart)
 
         else:
-            # serial case
-            self._vector_space = kwargs.pop('vector_space', StencilVectorSpace(npts, pads, periods, shifts=multiplicity))
+            cart               = create_cart([domain_h], [self._spaces])
+            self._vector_space = StencilVectorSpace(cart)
 
         # Shortcut
         v = self._vector_space
@@ -94,14 +86,12 @@ class TensorFemSpace( FemSpace ):
         if self._vector_space.parallel and self._vector_space.cart.is_comm_null:return
 
         # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q, parent_start=ps, parent_end=pe)
-                                  for V,s,e,ps,pe,q in zip( self.spaces, v.starts, v.ends,
-                                                        v.parent_starts, v.parent_ends,
-                                                        self._quad_order ) )
+        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q)
+                                  for V,s,e,q in zip( self.spaces, domain_h.starts, domain_h.ends, self._quad_order ) )
 
         # Determine portion of logical domain local to process
-        self._element_starts = tuple( g.indices[g.local_element_start] for g in self.quad_grids )
-        self._element_ends   = tuple( g.indices[g.local_element_end  ] for g in self.quad_grids )
+        self._element_starts = domain_h.starts
+        self._element_ends   = domain_h.ends
 
         # Compute limits of eta_0, eta_1, eta_2, etc... in subdomain local to process
         self._eta_limits = tuple( (space.breaks[s], space.breaks[e+1])
@@ -110,30 +100,9 @@ class TensorFemSpace( FemSpace ):
         # Store flag: object NOT YET prepared for interpolation
         self._interpolation_ready = False
         # Compute the local domains for every process
-        if v.parallel:
-            cart = v.cart
-            ndims = cart._ndims
-            self._global_element_starts = [None]*ndims
-            self._global_element_ends   = [None]*ndims
-            for dimension in range( ndims ):
-                periodic = periods[dimension]
-                p = pads[dimension]
-                de = degree[dimension]
-                d = cart._dims[dimension]
-                starts = cart.reduced_global_starts[dimension]
-                ends   = cart.reduced_global_ends  [dimension]
 
-                if periodic:
-                    element_starts = starts
-                    element_ends   = ends
-                else:
-                    element_starts = np.array( [starts[d]-p+1 for d in range(d)] )
-                    element_ends   = np.array( [ends[d]-p+1   for d in range(d)] )
-                    element_starts[0] = 0
-                    element_ends [-1] = ends[-1] - de
-
-                self._global_element_starts[dimension] = element_starts
-                self._global_element_ends  [dimension] = element_ends
+        self._global_element_starts = domain_h.global_element_starts
+        self._global_element_ends   = domain_h.global_element_ends
         # ...
 
     #--------------------------------------------------------------------------

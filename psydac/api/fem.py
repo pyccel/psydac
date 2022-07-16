@@ -280,8 +280,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         ends   = vector_space.ends
         npts   = vector_space.npts
 
-        self._element_loop_starts = tuple(np.int64(i!=0)   for i in starts)
-        self._element_loop_ends   = tuple(np.int64(i+1!=n) for i,n in zip(ends, npts))
+#        self._element_loop_starts = tuple(np.int64(i!=0)   for i in starts)
+#        self._element_loop_ends   = tuple(np.int64(i+1!=n) for i,n in zip(ends, npts))
 
         kwargs['num_threads'] = self._num_threads
         kwargs['comm']        = None
@@ -411,12 +411,13 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             args = self._args
 
-        args = args + self._element_loop_starts + self._element_loop_ends
+#        args = args + self._element_loop_starts + self._element_loop_ends
 
         if reset:
             reset_arrays(*self.global_matrices)
 
         self._func(*args, *self._threads_args)
+        self._matrix.update_assembly_ghost_regions()
         return self._matrix
 
     def get_space_indices_from_target(self, domain, target):
@@ -853,6 +854,7 @@ class DiscreteLinearForm(BasicDiscrete):
             reset_arrays(*self.global_matrices)
 
         self._func(*args, *self._threads_args)
+        self._vector.update_assembly_ghost_regions()
         return self._vector
 
     def get_space_indices_from_target(self, domain, target):

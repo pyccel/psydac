@@ -134,7 +134,7 @@ class SplineSpace( FemSpace ):
         self._histopolation_grid   = unroll_edges(self.domain, self.ext_greville)
 
         # Create space of spline coefficients
-        self._vector_space = StencilVectorSpace([nbasis], [self._pads], [periodic])
+#        self._vector_space = StencilVectorSpace([nbasis], [self._pads], [periodic])
 
         # Store flag: object NOT YET prepared for interpolation / histopolation
         self._interpolation_ready = False

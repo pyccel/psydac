@@ -86,73 +86,35 @@ class StencilVectorSpace( VectorSpace ):
         Tensor-product grid decomposition according to MPI Cartesian topology.
 
     """
-    def __init__( self, *args, **kwargs ):
-
-        if len(args) == 1 or ('cart' in kwargs):
-            self._init_parallel( *args, **kwargs )
-        else:
-            self._init_serial  ( *args, **kwargs )
-
-    # ...
-    def _init_serial( self, npts, pads, periods, shifts=None, starts=None, ends=None, dtype=float ):
-
-        if shifts is None:shifts = tuple(1 for _ in pads)
-
-        assert len(npts) == len(pads) == len(periods) == len(shifts)
-        self._parallel = False
-
-        # Sequential attributes
-        self._starts        = tuple( 0   for n in npts ) if starts is None else tuple(starts)
-        self._ends          = tuple( n-1 for n in npts ) if ends   is None else tuple(ends)
-        self._pads          = tuple( pads )
-        self._periods       = tuple( periods )
-        self._shifts        = tuple( shifts )
-        self._dtype         = dtype
-        self._ndim          = len( npts )
-        self._shape         = tuple(e-s+1+2*m*p for s,e,m,p in zip(self._starts, self._ends, shifts, pads))
-        self._parent_starts = tuple([None]*self._ndim)
-        self._parent_ends   = tuple([None]*self._ndim)
-
-        # Global dimensions of vector space
-        self._npts   = tuple( npts )
-        self._interfaces = {}
-    # ...
-    def _init_parallel( self, cart, dtype=float ):
+    def __init__( self, cart, dtype=float ):
 
         assert isinstance( cart, CartDecomposition )
 
         # Sequential attributes
-        self._parallel   = True
+        self._parallel   = cart.is_parallel
+        self._cart       = cart
         self._ndim       = cart._ndims
         self._npts       = cart.npts
         self._pads       = cart.pads
         self._periods    = cart.periods
         self._shifts     = cart.shifts
         self._dtype      = dtype
-        self._starts     = (0,)*self._ndim
-        self._ends       = (-1,)*self._ndim
-        self._shape      = (0,)*self._ndim
-        self._parent_starts = (None,)*self._ndim
-        self._parent_ends   = (None,)*self._ndim
+        self._starts     = cart.starts
+        self._ends       = cart.ends
+        self._shape      = cart.shape
+        self._parent_starts = cart.parent_starts
+        self._parent_ends   = cart.parent_ends
+        self._mpi_type      = find_mpi_type(dtype)
         self._interfaces    = {}
 
         # Parallel attributes
-        if not cart.is_comm_null:
-            self._cart          = cart
+        if cart.is_parallel and not cart.is_comm_null:
             self._mpi_type      = find_mpi_type(dtype)
-            self._starts        = cart.starts
-            self._ends          = cart.ends
-            self._parent_starts = cart.parent_starts
-            self._parent_ends   = cart.parent_ends
-
             if isinstance(cart, InterfaceCartDecomposition):
                 self._shape = cart.get_communication_infos(cart.axis)['gbuf_recv_shape'][0]
             else:
-                self._synchronizer = CartDataExchanger(cart, dtype )
-                self._shape        = cart.shape
-        else:
-            self._cart     = cart
-            self._mpi_type = find_mpi_type(dtype)
+                self._synchronizer = CartDataExchanger( cart, dtype , assembly=True)
+                self._shape         = cart.shape
 
     #--------------------------------------
     # Abstract interface
@@ -743,6 +705,42 @@ class StencilVector( Vector ):
             idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
             self._data[idx_ghost] = 0
 
+    # ...
+    def update_assembly_ghost_regions( self ):
+        """
+        Update ghost regions after performing the assembly algorithm.
+        Parameters
+        ----------
+        direction : int
+            Single direction along which to operate (if not specified, all of them).
+        """
+        if self.space.parallel:
+            # PARALLEL CASE: fill in ghost regions with data from neighbors
+            self.space._synchronizer.update_assembly_ghost_regions( self._data )
+        else:
+            # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
+            self._update_assembly_ghost_regions_serial()
+
+    # ...
+    def _update_assembly_ghost_regions_serial( self ):
+
+        ndim = self._space.ndim
+        for direction in range(ndim):
+
+            periodic = self._space.periods[direction]
+            p        = self._space.pads   [direction]
+            m        = self._space.shifts[direction]
+            r        = self._space.reduced[direction]
+
+            if periodic:
+                idx_front = [slice(None)]*direction
+                idx_back  = [slice(None)]*(ndim-direction-1)
+
+                # Copy data from left to right
+                idx_to   = tuple( idx_front + [slice( m*p, m*p+p)] + idx_back )
+                idx_from = tuple( idx_front + [ slice(-m*p,-m*p+p) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back )
+                self._data[idx_to] += self._data[idx_from]
+
     #--------------------------------------
     # Private methods
     #--------------------------------------
@@ -809,7 +807,8 @@ class StencilMatrix( Matrix ):
             self._synchronizer = CartDataExchanger(
                 cart        = W.cart,
                 dtype       = W.dtype,
-                coeff_shape = diags
+                coeff_shape = diags,
+                assembly    = True
             )
 
         # Flag ghost regions as not up-to-date (conservative choice)
@@ -1198,6 +1197,40 @@ class StencilMatrix( Matrix ):
 
         # Flag ghost regions as up-to-date
         self._sync = True
+
+    # ...
+    def update_assembly_ghost_regions( self ):
+        """
+        Update ghost regions after the assembly algorithm.
+        """
+        ndim     = self._codomain.ndim
+        parallel = self._codomain.parallel
+
+        if self._codomain.parallel:
+            # PARALLEL CASE: fill in ghost regions with data from neighbors
+            self._synchronizer.update_assembly_ghost_regions( self._data )
+        else:
+            # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
+            self._update_assembly_ghost_regions_serial()
+
+    # ...
+    def _update_assembly_ghost_regions_serial( self ):
+
+        ndim     = self._codomain.ndim
+        for direction in range(ndim):
+
+            periodic = self._codomain.periods[direction]
+            p        = self._codomain.pads   [direction]
+            m        = self._codomain.shifts[direction]
+
+            if periodic:
+                idx_front = [slice(None)]*direction
+                idx_back  = [slice(None)]*(ndim-direction-1)
+
+                # Copy data from left to right
+                idx_to   = tuple( idx_front + [slice( m*p, m*p+p)] + idx_back )
+                idx_from = tuple( idx_front + [ slice(-m*p,-m*p+p) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back )
+                self._data[idx_to] += self._data[idx_from]
 
     # ...
     @property
@@ -2265,6 +2298,10 @@ class StencilInterfaceMatrix(Matrix):
             # Set right ghost region to zero
             idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
             self._data[idx_ghost] = 0
+
+    # ...
+    def update_assembly_ghost_regions( self ):
+        pass
 
     def set_backend(self, backend):
         from psydac.api.ast.linalg import LinearOperatorDot, InterfaceTransposeOperator

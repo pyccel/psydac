@@ -371,6 +371,11 @@ class BlockVector( Vector ):
                 self._interface_buf[i,j].append(tuple(buf))
 
     # ...
+    def update_assembly_ghost_regions( self ):
+        for vi in self.blocks:
+            vi.update_assembly_ghost_regions()
+
+    # ...
     @property
     def n_blocks( self ):
         return len( self._blocks )
@@ -384,6 +389,7 @@ class BlockVector( Vector ):
     def toarray( self, order='C' ):
         return np.concatenate( [bi.toarray(order=order) for bi in self._blocks] )
 
+    # ...
     def toarray_local( self, order='C' ):
         """ Convert to petsc Nest vector.
         """
@@ -391,6 +397,7 @@ class BlockVector( Vector ):
         blocks    = [v.toarray_local(order=order) for v in self._blocks]
         return np.block([blocks])[0]
 
+    # ...
     def topetsc( self ):
         """ Convert to petsc Nest vector.
         """
@@ -547,6 +554,11 @@ class BlockLinearOperator( LinearOperator ):
     def update_ghost_regions( self ):
         for Lij in self._blocks.values():
             Lij.update_ghost_regions()
+
+    # ...
+    def update_assembly_ghost_regions( self ):
+        for Lij in self._blocks.values():
+            Lij.update_assembly_ghost_regions()
 
     # ...
     def remove_spurious_entries( self ):
