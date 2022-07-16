@@ -765,7 +765,7 @@ def test_parallel_export_topological_domain(domain, mapping, kind, space):
 
     symbolic_space = space('V', domain, kind=kind)
 
-    degree = [2, 3, 4][:dim]
+    degree = [2, 2, 2][:dim]
     domain_h = discretize(domain, ncells=[6] * dim, comm=comm)
     space_h = discretize(symbolic_space, domain_h, degree=degree)
 
