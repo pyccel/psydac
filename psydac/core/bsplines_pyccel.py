@@ -28,7 +28,7 @@ def find_span_p(knots: 'float[:]', degree: int, x: float):
         -------
     span : int
         Knot span index.
-    
+
     References
     ----------
     .. [1] L. Piegl and W. Tiller. The NURBS Book, 2nd ed.,
@@ -155,7 +155,7 @@ def basis_funs_array_p(knots: 'float[:]', degree: int, x: 'float[:]', span: 'int
     out : array
         The result will be inserted into this array.
         It should be of the appropriate shape and dtype.
-    
+
     References
     ----------
     .. [1] L. Piegl and W. Tiller. The NURBS Book, 2nd ed.,
@@ -1015,7 +1015,7 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:
     Computes in which cells a given sorted array of locations belong.
 
     Locations close to a interior breakpoint will be assumed to be
-    present twice in the grid, once of for each cell. Boundary breakpoints are 
+    present twice in the grid, once of for each cell. Boundary breakpoints are
     snapped to the interior of the domain.
 
     Parameters
@@ -1023,24 +1023,24 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:
     breaks : array_like
         Coordinates of breakpoints (= cell edges); given in increasing order and
         with no duplicates.
-    
+
     i_grid : ndarray
         1D array of locations.
-     
+
     tol : float
-        If the distance between a given point in ``i_grid`` and 
-        a breakpoint is less than ``tol`` then it is considered 
+        If the distance between a given point in ``i_grid`` and
+        a breakpoint is less than ``tol`` then it is considered
         to be the breakpoint.
-    
+
     out : array
         The result will be inserted into this array.
         It should be of the appropriate shape and dtype.
-    
+
     Returns
     -------
     status : int
         0 if everything worked as intended, 1 if not.
-    
+
     """
     nx = len(i_grid)
 
@@ -1063,7 +1063,7 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:
             else:
                 low = i_cell
             i_cell = (low + high)//2
-        
+
         # Check were we landed with the binary search
         # Case 1: x is the left breakpoint
         if abs(x - breaks[i_cell]) < tol:
@@ -1074,13 +1074,16 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:
             else:
                 out[current_index] = i_cell - 1
                 current_index +=1
+                # Check if x is the last point
+                if current_index == nx:
+                    break
                 # Check if the next point is also the left breakpoint
-                # if yes put it in the next cell and move up one more point 
+                # if yes put it in the next cell and move up one more point
                 # in i_grid
                 if abs(i_grid[current_index] - breaks[i_cell]) < tol:
                     out[current_index] = i_cell
                     current_index += 1
-                    
+
         # Case 2: x is the right breakpoint
         elif abs(x - breaks[i_cell + 1]) < tol:
             # Check if x is the right boundary
@@ -1090,8 +1093,11 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:
             else:
                 out[current_index] = i_cell
                 current_index += 1
+                # Check if x is the last point
+                if current_index == nx:
+                    break
                 # Check if the next point is also the right breakpoint
-                # if yes put it in the next cell and move up one more point 
+                # if yes put it in the next cell and move up one more point
                 # in i_grid
                 if abs(i_grid[current_index] - breaks[i_cell + 1]) < tol:
                     out[current_index] = i_cell + 1
@@ -1102,9 +1108,9 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:
             current_index += 1
     return 0
 
-        
-def basis_ders_on_irregular_grid_p(knots: 'float[:]', degree: int, 
-                                   i_grid: 'float[:]', cell_index: 'int[:]', 
+
+def basis_ders_on_irregular_grid_p(knots: 'float[:]', degree: int,
+                                   i_grid: 'float[:]', cell_index: 'int[:]',
                                    nders: int, normalization: bool,
                                    out: 'float[:,:,:]'):
     """
@@ -1121,9 +1127,9 @@ def basis_ders_on_irregular_grid_p(knots: 'float[:]', degree: int,
         Polynomial degree of B-splines.
 
     i_grid : ndarray
-        1D array of all of the points on which to evaluate the 
+        1D array of all of the points on which to evaluate the
         basis functions. The points do not need to be sorted
-    
+
     cell_index : ndarray
         1D array of the same shape as ``i_grid``.
         ``cell_index[i]`` is the index of the cell in which
@@ -1157,11 +1163,11 @@ def basis_ders_on_irregular_grid_p(knots: 'float[:]', degree: int,
 
     temp_spans = np.zeros(len(knots), dtype=int)
     actual_index = elements_spans_p(knots, degree, temp_spans)
-    spans = temp_spans[:actual_index]    
+    spans = temp_spans[:actual_index]
 
     for ie in range(nx):
         xx = i_grid[ie]
-        span = spans[cell_index[ie]]        
+        span = spans[cell_index[ie]]
         basis_funs_all_ders_p(knots, degree, xx, span, nders, False, ders)
         if normalization:
             ders *= scaling[span - degree:span + 1]

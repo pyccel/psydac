@@ -152,12 +152,8 @@ class SplineMapping:
 
         Returns
         -------
-        x_mesh: 3D array of floats
-            X component of the mesh
-        y_mesh: 3D array of floats
-            Y component of the mesh
-        z_mesh: 3D array of floats
-            Z component of the mesh
+        mesh: tuple
+            ldim ldim-D arrays. One for each component.
 
         See Also
         --------
@@ -165,18 +161,7 @@ class SplineMapping:
         """
 
         mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell, overlap=overlap)
-        if self.ldim == 2:
-            x_mesh = mesh[0][:, :, None]
-            y_mesh = mesh[1][:, :, None]
-            z_mesh = np.zeros_like(x_mesh)
-        elif self.ldim == 3:
-            x_mesh = mesh[0]
-            y_mesh = mesh[1]
-            z_mesh = mesh[2]
-        else:
-            raise NotImplementedError("1D case not implemented")
-
-        return x_mesh, y_mesh, z_mesh
+        return mesh
 
     # ...
     def jac_mat( self, *eta):
@@ -897,40 +882,25 @@ class NurbsMapping( SplineMapping ):
         ----------
         grid : List of ndarray
             Each array in the list should correspond to a logical coordinate.
-        
+
         npts_per_cell : int, tuple of int or None, optional
 
         overlap : int
             How much to overlap. Only used in the distributed context.
-            
+
         Returns
         -------
-        x_mesh: 3D array of floats
-            X component of the mesh
-        y_mesh: 3D array of floats
-            Y component of the mesh
-        z_mesh: 3D array of floats
-            Z component of the mesh
+        mesh: tuple
+            ldim ldim-D arrays. One for each component.
 
         See Also
         --------
         psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
         """
         mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell, weights=self._weights_field, overlap=overlap)
-        if self.ldim == 2:
-            x_mesh = mesh[0][:, :, None]
-            y_mesh = mesh[1][:, :, None]
-            z_mesh = np.zeros_like(x_mesh)
-        elif self.ldim == 3:
-            x_mesh = mesh[0]
-            y_mesh = mesh[1]
-            z_mesh = mesh[2]
-        else:
-            raise NotImplementedError("1D case not implemented")
+        return mesh
 
-        return x_mesh, y_mesh, z_mesh
-    
-    # ... 
+    # ...
     def jac_mat(self, *eta):
         map_W = self._weights_field
         w = map_W(*eta)
