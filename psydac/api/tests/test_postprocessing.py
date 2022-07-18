@@ -1,32 +1,92 @@
-import pytest
-import os
 import glob
+import os
+import pytest
+
 import numpy as np
 
-from sympde.topology import Square, Cube, ScalarFunctionSpace, VectorFunctionSpace, Domain, Derham
-from sympde.topology.analytical_mapping import IdentityMapping, AffineMapping
+from mpi4py import MPI
+
+from sympde.topology import Square, Cube, ScalarFunctionSpace, VectorFunctionSpace, Domain, Derham, Union
+from sympde.topology.analytical_mapping import IdentityMapping, AffineMapping, PolarMapping
 
 from psydac.api.discretization import discretize
 from psydac.fem.basic import FemField
-from psydac.api.postprocessing import OutputManager, PostProcessManager
+from psydac.fem.tensor import TensorFemSpace
 from psydac.utilities.utils import refine_array_1d
+from psydac.feec.pull_push import (push_2d_hcurl,
+                                   push_2d_h1,
+                                   push_2d_hdiv,
+                                   push_2d_l2,
+                                   push_3d_h1,
+                                   push_3d_hcurl,
+                                   push_3d_hdiv,
+                                   push_3d_l2)
 
+from psydac.api.postprocessing import OutputManager, PostProcessManager
+
+# Get mesh_directory
 try:
     mesh_dir = os.environ['PSYDAC_MESH_DIR']
-
 except KeyError:
     base_dir = os.path.dirname(os.path.realpath(__file__))
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
 
-try:
-    from mpi4py import MPI
-    comm = MPI.COMM_WORLD
-except ImportError:
-    comm = None
+# Tolerances for float equality
+ATOL=1e-15
+RTOL=1e-15
 
-def test_OutputManager():
+# Old push-forward functions
+push_function_dict = {
+    'h1': {2: push_2d_h1, 3: push_3d_h1},
+    'hcurl': {2: push_2d_hcurl, 3: push_3d_hcurl},
+    'hdiv': {2: push_2d_hdiv, 3: push_3d_hdiv},
+    'l2': {2: push_2d_l2, 3: push_3d_l2},
+}
 
+
+def build_2_mapped_squares():
+    A = Square('A',bounds1=(-0.5, 1.), bounds2=(0, np.pi/2))
+    B = Square('B',bounds1=(-0.5, 1.), bounds2=(np.pi/2, np.pi))
+
+    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0.1, rmax=1.)
+    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0.1, rmax=1.)
+
+    D1     = mapping_1(A)
+    D2     = mapping_2(B)
+
+    domain = D1.join(D2, name = 'domain',
+                bnd_minus = D1.get_boundary(axis=1, ext=1),
+                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
+    return domain
+
+
+def build_2_squares():
+    A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
+    B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
+
+    domain = A.join(B, 'domain',
+                    bnd_minus=A.get_boundary(1, 1),
+                    bnd_plus=B.get_boundary(1, -1))
+    return domain
+
+
+def build_2_cubes():
+    A = Cube('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2), bounds3=(0, 1))
+    B = Cube('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi), bounds3=(0, 1))
+
+    domain = A.join(B, 'domain',
+                    bnd_minus=A.get_boundary(1, 1),
+                    bnd_plus=B.get_boundary(1, -1))
+
+    return domain
+
+
+###############################################################################
+#                            Output Manager tests                             #
+###############################################################################
+@pytest.mark.serial
+def test_add_spaces():
     domain = Square('D')
     A = ScalarFunctionSpace('A', domain, kind='H1')
     B = VectorFunctionSpace('B', domain, kind=None)
@@ -36,27 +96,16 @@ def test_OutputManager():
     Ah = discretize(A, domain_h, degree=[3, 3])
     Bh = discretize(B, domain_h, degree=[2, 2])
 
-    uh = FemField(Ah)
-    vh = FemField(Bh)
+    Om = OutputManager('test_add_spaces_single_patch.yml',
+                       'test_add_spaces_single_patch.h5')
 
-    Om = OutputManager('file.yml', 'file.h5')
     Om.add_spaces(Ah=Ah, Bh=Bh)
 
-    Om.set_static()
-    Om.export_fields(uh_static=uh)
-    Om.export_fields(vh_static=vh)
-
-    Om.add_snapshot(t=0., ts=0)
-    Om.export_fields(uh=uh, vh=vh)
-
-    Om.add_snapshot(t=1., ts=1)
-    Om.export_fields(uh=uh)
-    Om.export_fields(vh=vh)
-
     with pytest.raises(AssertionError):
-        Om.export_fields(uh_static=uh)
+        Om.add_spaces(Ah=Ah)
+
     expected_spaces_info = {'ndim': 2,
-                            'fields': 'file.h5',
+                            'fields': 'test_add_spaces_single_patch.h5',
                             'patches': [{'name': 'D',
                                          'breakpoints': [
                                              [0., 0.2, 0.4, 0.6000000000000001, 0.8, 1.],
@@ -150,14 +199,134 @@ def test_OutputManager():
                                                             }]
                                          }]
                             }
-    Om.export_space_info()
     assert Om._space_info == expected_spaces_info
-    
-    # Remove files
-    os.remove('file.h5')
-    os.remove('file.yml')
+
+    Om.export_space_info()
+
+    # Remove file
+    os.remove('test_add_spaces_single_patch.yml')
+
+@pytest.mark.serial
+def test_export_fields_serial():
+    domain = Square('D')
+    A = ScalarFunctionSpace('A', domain, kind='H1')
+    B = VectorFunctionSpace('B', domain, kind=None)
+
+    domain_h = discretize(domain, ncells=[5, 5])
+
+    Ah = discretize(A, domain_h, degree=[3, 3])
+    Bh = discretize(B, domain_h, degree=[2, 2])
+
+    Om = OutputManager('test_export_fields_serial.yml', 'test_export_fields_serial.h5')
+    Om.add_spaces(Ah=Ah, Bh=Bh)
+
+    uh = FemField(Ah)
+    vh = FemField(Bh)
+
+    with pytest.raises(ValueError):
+        Om.export_fields(uh=uh, vh=vh)
+
+    Om.set_static()
+    Om.export_fields(uh=uh)
+    Om.export_fields(vh=vh)
+
+    Om.add_snapshot(0., 0)
+    with pytest.raises(AssertionError):
+        Om.export_fields(uh=uh, vh=vh)
+
+    Om.export_fields(vh_00=vh, uh_0=uh)
+
+    with pytest.raises(ValueError):
+        Om.export_fields(vh_00=vh)
+
+    Om.export_fields(vh_01=vh)
+
+    Om.add_snapshot(1., 1)
+    Om.add_snapshot(2., 2)
+    Om.export_fields(vh_00=vh, vh_01=vh)
+
+    Om.close()
+
+    import h5py as h5
+    fh5 = h5.File('test_export_fields_serial.h5', mode='r')
+
+    # General check
+    assert fh5.attrs['spaces'] == 'test_export_fields_serial.yml'
+    assert set(fh5.keys()) == {'static', 'snapshot_0000', 'snapshot_0001', 'snapshot_0002'}
+    assert all(set(fh5[k].keys()) == {'D'} for k in {'static', 'snapshot_0000', 'snapshot_0002'})
+
+    # static check
+    assert set(fh5['static']['D'].keys()) == {'Ah', 'Bh[0]', 'Bh[1]'}
+    assert set(fh5['static']['D']['Ah']) == {'uh'}
+    assert set(fh5['static']['D']['Bh[0]']) == {'vh[0]'}
+    assert set(fh5['static']['D']['Bh[1]']) == {'vh[1]'}
+    assert fh5['static']['D']['Bh[0]'].attrs['parent_space'] == 'Bh'
+    assert fh5['static']['D']['Bh[1]'].attrs['parent_space'] == 'Bh'
+    assert fh5['static']['D']['Bh[0]']['vh[0]'].attrs['parent_field'] == 'vh'
+    assert fh5['static']['D']['Bh[1]']['vh[1]'].attrs['parent_field'] == 'vh'
+
+    # Snapshot checks
+    for i in range(3):
+        assert fh5[f'snapshot_000{i}'].attrs['t'] == float(i)
+        assert fh5[f'snapshot_000{i}'].attrs['ts'] == i
+
+    assert set(fh5['snapshot_0001'].keys()) == set()
+
+    assert set(fh5['snapshot_0000']['D'].keys()) == {'Ah', 'Bh[0]', 'Bh[1]'}
+    assert set(fh5['snapshot_0000']['D']['Ah'].keys()) == {'uh_0'}
+    assert set(fh5['snapshot_0000']['D']['Bh[0]']) == {'vh_00[0]', 'vh_01[0]'}
+    assert set(fh5['snapshot_0000']['D']['Bh[1]']) == {'vh_00[1]', 'vh_01[1]'}
+
+    assert set(fh5['snapshot_0002']['D'].keys()) == {'Bh[0]', 'Bh[1]'}
+    assert set(fh5['snapshot_0002']['D']['Bh[0]'].keys()) == {'vh_00[0]', 'vh_01[0]'}
+    assert set(fh5['snapshot_0002']['D']['Bh[1]'].keys()) == {'vh_00[1]', 'vh_01[1]'}
+
+    os.remove('test_export_fields_serial.yml')
+    os.remove('test_export_fields_serial.h5')
+
+@pytest.mark.parallel
+def test_export_fields_parallel():
+    comm = MPI.COMM_WORLD
+    domain = Square('D')
+    A = ScalarFunctionSpace('A', domain, kind='H1')
+
+    domain_h = discretize(domain, ncells=[5, 5], comm=comm)
+
+    Ah = discretize(A, domain_h, degree=[3, 3])
+
+    Om = OutputManager(
+        'test_export_fields_parallel.yml',
+        'test_export_fields_parallel.h5',
+        comm=comm,
+        save_mpi_rank=True)
+
+    Om.add_spaces(Ah=Ah)
+
+    uh = FemField(Ah)
+
+    Om.set_static()
+    Om.export_fields(uh=uh)
+    Om.close()
+
+    comm.Barrier()
+    rank = comm.Get_rank()
+    if rank  == 0:
+        import h5py as h5
+        fh5 = h5.File('test_export_fields_parallel.h5', mode='r',)
+
+        assert 'mpi_dd' in fh5.keys()
+        assert 'D' in fh5['mpi_dd'].keys()
+        # Shape should be (size, 2, ldim) here ldim is 2 (Square())
+        assert fh5['mpi_dd']['D'].shape == (comm.Get_size(), 2, 2)
+        fh5.close()
+        os.remove('test_export_fields_parallel.yml')
+        os.remove('test_export_fields_parallel.h5')
 
 
+###############################################################################
+#                 Output Manager and PostProcess Manager tests                #
+###############################################################################
+@pytest.mark.serial
 @pytest.mark.parametrize('domain', [Square(), Cube()])
 def test_reconstruct_spaces_topological_domain(domain):
     dim = domain.dim
@@ -188,41 +357,64 @@ def test_reconstruct_spaces_topological_domain(domain):
     Vhhdiv = discretize(Vhdiv, domain_h, degree=degrees[rints[4]])
     Vhhcurl = discretize(Vhcurl, domain_h, degree=degrees[rints[5]])
 
-    Om1 = OutputManager("space.yml", "t.h5")
+    Om1 = OutputManager(
+        "test_reconstruct_spaces_topological_domain.yml",
+        "test_reconstruct_spaces_topological_domain.h5"
+    )
+
     Om1.add_spaces(Vector_h1=Vvhh1, Vector_l2=Vvhl2, Vector_hdiv=Vhhdiv, Vector_hcurl=Vhhcurl)
     Om1.add_spaces(Scalar_h1=Vhh1, Scalar_l2=Vhl2)
-    
+
     space_info_1 = Om1.space_info
 
     Om1.export_space_info()
+    with pytest.warns(UserWarning):
+        Pm = PostProcessManager(
+            domain=domain,
+            space_file="test_reconstruct_spaces_topological_domain.yml",
+            fields_file="test_reconstruct_spaces_topological_domain.h5"
+        )
 
-    Pm = PostProcessManager(domain=domain, space_file="space.yml", fields_file="t.h5")
-
-    Om2 = OutputManager("space_2.yml", "t.h5")
+    Om2 = OutputManager(
+        "test_reconstruct_spaces_topological_domain_2.yml",
+        "test_reconstruct_spaces_topological_domain.h5"
+    )
     Om2.add_spaces(**Pm.spaces)
 
     space_info_2 = Om2.space_info
     Om2.export_space_info()
 
     assert space_info_1 == space_info_2
-    os.remove("space.yml")
-    os.remove("space_2.yml")
+    os.remove("test_reconstruct_spaces_topological_domain.yml")
+    os.remove("test_reconstruct_spaces_topological_domain_2.yml")
 
 
+@pytest.mark.serial
 @pytest.mark.parametrize('domain, seq', [(Square(), ['h1', 'hdiv', 'l2']), (Square(), ['h1', 'hcurl', 'l2']), (Cube(), None)])
-def test_reconstruct_DeRhamSequence_topological_domain(domain, seq):
-    deRham = Derham(domain, sequence=seq)
+def test_reconstruct_DerhamSequence_topological_domain(domain, seq):
+    derham = Derham(domain, sequence=seq)
 
     domain_h  = discretize(domain, ncells=[5]*domain.dim)
-    derham_h = discretize(deRham, domain_h, degree=[2]*domain.dim)
+    derham_h = discretize(derham, domain_h, degree=[2]*domain.dim)
 
-    Om = OutputManager('space_derham.yml', 'f.h5')
+    Om = OutputManager(
+        'test_reconstruct_DerhamSequence_topological_domain.yml',
+        'test_reconstruct_DerhamSequence_topological_domain.h5'
+    )
+
     Om.add_spaces(**dict(((Vh.symbolic_space.name, Vh) for Vh in derham_h.spaces)))
     Om.export_space_info()
+    with pytest.warns(UserWarning):
+        Pm = PostProcessManager(
+            domain=domain,
+            space_file='test_reconstruct_DerhamSequence_topological_domain.yml',
+            fields_file='test_reconstruct_DerhamSequence_topological_domain.h5'
+        )
 
-    Pm = PostProcessManager(domain=domain, space_file='space_derham.yml', fields_file='f.h5')
-
-    Om2 = OutputManager('space_derham_2.yml', 'f.h5')
+    Om2 = OutputManager(
+        'test_reconstruct_DerhamSequence_topological_domain_2.yml',
+        'test_reconstruct_DerhamSequence_topological_domain.h5'
+    )
 
     Om2.add_spaces(**Pm.spaces)
     Om2.export_space_info()
@@ -248,32 +440,44 @@ def test_reconstruct_DeRhamSequence_topological_domain(domain, seq):
                     else:
                         assert value1 == value2
 
-    os.remove('space_derham_2.yml')
-    os.remove('space_derham.yml')
+    os.remove('test_reconstruct_DerhamSequence_topological_domain_2.yml')
+    os.remove('test_reconstruct_DerhamSequence_topological_domain.yml')
 
 
+@pytest.mark.serial
 @pytest.mark.parametrize('geometry, seq', [('identity_2d.h5', ['h1', 'hdiv', 'l2']),
                                            ('identity_2d.h5', ['h1', 'hcurl', 'l2']),
                                            ('identity_3d.h5', None),
-                                           ('bent_pipe.h5', ['h1', 'hdiv', 'l2']),
-                                           ('bent_pipe.h5', ['h1', 'hcurl', 'l2'])])
-def test_reconstruct_DeRhamSequence_discrete_domain(geometry, seq):
-    
+                                           ('pipe.h5', ['h1', 'hdiv', 'l2']),
+                                           ('pipe.h5', ['h1', 'hcurl', 'l2'])])
+def test_reconstruct_DerhamSequence_discrete_domain(geometry, seq):
+
     geometry_file = os.path.join(mesh_dir, geometry)
     domain = Domain.from_file(geometry_file)
 
-    deRham = Derham(domain, sequence=seq)
+    derham = Derham(domain, sequence=seq)
 
     domain_h  = discretize(domain, filename=geometry_file)
-    derham_h = discretize(deRham, domain_h, degree=[2]*domain.dim)
+    derham_h = discretize(derham, domain_h, degree=[2]*domain.dim)
 
-    Om = OutputManager('space_derham.yml', 'f.h5')
+    Om = OutputManager(
+        'test_reconstruct_DerhamSequence_discrete_domain.yml',
+        'test_reconstruct_DerhamSequence_discrete_domain.h5'
+    )
     Om.add_spaces(**dict(((Vh.symbolic_space.name, Vh) for Vh in derham_h.spaces)))
     Om.export_space_info()
 
-    Pm = PostProcessManager(domain=domain, space_file='space_derham.yml', fields_file='f.h5')
+    with pytest.warns(UserWarning):
+        Pm = PostProcessManager(
+            geometry_file=geometry_file,
+            space_file='test_reconstruct_DerhamSequence_discrete_domain.yml',
+            fields_file='test_reconstruct_DerhamSequence_discrete_domain.h5'
+        )
 
-    Om2 = OutputManager('space_derham_2.yml', 'f.h5')
+    Om2 = OutputManager(
+        'test_reconstruct_DerhamSequence_discrete_domain_2.yml',
+        'test_reconstruct_DerhamSequence_discrete_domain.h5'
+    )
 
     Om2.add_spaces(**Pm.spaces)
     Om2.export_space_info()
@@ -299,129 +503,11 @@ def test_reconstruct_DeRhamSequence_discrete_domain(geometry, seq):
                     else:
                         assert value1 == value2
 
-    os.remove('space_derham_2.yml')
-    os.remove('space_derham.yml')
+    os.remove('test_reconstruct_DerhamSequence_discrete_domain_2.yml')
+    os.remove('test_reconstruct_DerhamSequence_discrete_domain.yml')
 
 
-
-@pytest.mark.parametrize('geometry', ['identity_2d.h5', 'identity_3d.h5','bent_pipe.h5'])
-def test_PostProcessManager(geometry):
-    # =================================================================
-    # Part 1: Running a simulation
-    # =================================================================
-    geometry_file = os.path.join(mesh_dir, geometry)
-    domain = Domain.from_file(geometry_file)
-
-    V1 = ScalarFunctionSpace('V1', domain, kind='l2')
-    V2 = VectorFunctionSpace('V2', domain, kind='hcurl')
-    V3 = VectorFunctionSpace('V3', domain, kind='hdiv')
-
-    domainh = discretize(domain, filename=geometry_file)
-
-    V1h = discretize(V1, domainh, degree=[4, 3])
-    V2h = discretize(V2, domainh, degree=[[3, 2], [2, 3]])
-    V3h = discretize(V3, domainh, degree=[[1, 1], [1, 1]])
-
-    uh = FemField(V1h)
-    vh = FemField(V2h)
-    wh = FemField(V3h)
-
-    npts_per_cell = 2
-
-    grid = [refine_array_1d(V1h.breaks[i], 1, remove_duplicates=False) for i in range(domainh.ldim)]
-
-    # Output Manager Initialization
-    output = OutputManager('space_example.yml', 'fields_example.h5')
-    output.add_spaces(V1h=V1h, V2h=V2h, V3=V3h)
-    output.set_static()
-    output.export_fields(w=wh)
-
-    uh_grids = []
-    vh_grids = []
-
-    for i in range(15):
-        uh.coeffs[:] = np.random.random(size=uh.coeffs[:].shape)
-
-        vh.coeffs[0][:] = np.random.random(size=vh.coeffs[0][:].shape)
-        vh.coeffs[1][:] = np.random.random(size=vh.coeffs[1][:].shape)
-
-        # Export to HDF5
-        output.add_snapshot(t=float(i), ts=i)
-        output.export_fields(u=uh, v=vh)
-
-        # Saving for comparisons
-        uh_grid = V1h.eval_fields(grid, uh, npts_per_cell=npts_per_cell)
-        vh_grid =  V2h.eval_fields(grid, vh, npts_per_cell=npts_per_cell)
-        vh_grid_x, vh_grid_y = vh_grid[0][0], vh_grid[0][1]
-        uh_grids.append(uh_grid)
-        vh_grids.append((vh_grid_x, vh_grid_y))
-
-    output.export_space_info()
-    # End of the "simulation"
-
-    # =================================================================================
-    # Part 2: Post Processing
-    # =================================================================================
-
-    post = PostProcessManager(geometry_file=geometry_file,
-                              space_file='space_example.yml',
-                              fields_file='fields_example.h5')
-
-
-    V1h_new = post.spaces['V1h']
-    V2h_new = post.spaces['V2h']
-
-    for i in range(len(uh_grids)):
-        post.load_snapshot(i, 'u', 'v')
-        snapshot = post._snapshot_fields
-
-        u_new = snapshot['u']
-        v_new = snapshot['v']
-
-        uh_grid_new = V1h_new.eval_fields(grid, u_new, npts_per_cell=npts_per_cell)
-        vh_grid_new = V2h_new.eval_fields(grid, v_new, npts_per_cell=npts_per_cell)
-        vh_grid_x_new, vh_grid_y_new = vh_grid_new[0][0], vh_grid_new[0][1]
-
-        assert np.allclose(uh_grid_new, uh_grids[i])
-        assert np.allclose(vh_grid_x_new, vh_grids[i][0])
-        assert np.allclose(vh_grid_y_new, vh_grids[i][1])
-
-    mesh_and_infos, static_fields = post.export_to_vtk('example_None', 
-                                             grid, 
-                                             npts_per_cell=npts_per_cell, 
-                                             snapshots='none', 
-                                             fields={'field1': 'u', 'field2': 'v', 'field3': 'w'}, 
-                                             debug=True)
-    assert list(static_fields[0].keys()) == ['field3']
-
-    mesh_and_infos, all_fields = post.export_to_vtk('example_all', 
-                                          grid, 
-                                          npts_per_cell=npts_per_cell, 
-                                          snapshots='all', 
-                                          fields={'field1': 'u', 'field2': 'v', 'field3': 'w'},
-                                          debug=True)
-    
-    assert list(all_fields[0].keys()) == ['field3']
-    assert all(list(all_fields[i + 1].keys()) == ['field1', 'field2'] for i in range(len(post._snapshot_list)))
-
-    mesh, snapshot_fields = post.export_to_vtk('example_list', 
-                                               grid, 
-                                               npts_per_cell=npts_per_cell, 
-                                               snapshots=[9, 5, 6, 3], 
-                                               fields={'field1': 'u', 'field2': 'v', 'field3': 'w'},
-                                               debug=True)
-
-    assert all(list(snapshot_fields[i].keys()) == ['field1', 'field2'] for i in range(4))
-
-    # Clear files
-    for f in glob.glob("example*.vtu"): #VTK files
-        os.remove(f)
-    os.remove('space_example.yml')
-    os.remove('fields_example.h5')
-
-
-@pytest.mark.parallel
-def test_multipatch_parallel_export(interactive=False):
+def test_reconstruct_multipatch():
     bounds1   = (0.5, 1.)
     bounds2_A = (0, np.pi/2)
     bounds2_B = (np.pi/2, np.pi)
@@ -439,11 +525,11 @@ def test_multipatch_parallel_export(interactive=False):
     Vv = VectorFunctionSpace('Vv', domain)
     Vva = VectorFunctionSpace('Vva', A)
 
-    Om = OutputManager('spaces_multipatch.yml', 'fields_multipatch.h5', comm=comm)
+    Om = OutputManager('spaces_multipatch.yml', 'fields_multipatch.h5')
 
-    domain_h = discretize(domain, ncells = [15, 15], comm=comm)
-    Ah = discretize(A, ncells = [5, 5], comm=comm)
-    Bh = discretize(B, ncells = [5, 5])
+    domain_h = discretize(domain, ncells = [15, 15])
+    Ah = discretize(A, ncells = [15, 15])
+    Bh = discretize(B, ncells = [15, 15])
 
     Vh = discretize(V, domain_h, degree=[3, 3])
     Vah = discretize(Va, Ah, degree=[3, 3])
@@ -452,40 +538,105 @@ def test_multipatch_parallel_export(interactive=False):
     Vvh = discretize(Vv, domain_h, degree=[3,3])
     Vvah = discretize(Vva, Ah, degree=[3,3])
 
-    uh = FemField(Vh)
-    uah = FemField(Vah)
-    ubh = FemField(Vbh)
-
-    uvh = FemField(Vvh)
-    uvah = FemField(Vvah)
-
     Om.add_spaces(V=Vh)
     Om.add_spaces(Va=Vah)
     Om.add_spaces(Vb=Vbh)
     Om.add_spaces(Vv=Vvh)
     Om.add_spaces(Vva=Vvah)
 
+    Om.export_space_info()
+
+    with pytest.warns(UserWarning):
+        Pm = PostProcessManager(
+            domain=domain,
+            space_file='spaces_multipatch.yml',
+            fields_file='fields_multipatch.h5'
+        )
+
+    Om2 = OutputManager('__.yml', '__.h5')
+
+    Om2.add_spaces(**Pm.spaces)
+
+    os.remove('spaces_multipatch.yml')
+
+    space_info_1 = Om.space_info
+    space_info_2 = Om2.space_info
+
+    patches_1 = space_info_1['patches']
+    patches_2 = space_info_2['patches']
+
+    for patch1 in patches_1:
+        for patch2 in patches_2:
+            if patch1['name'] == patch2['name']:
+                for key in patch1.keys():
+                    value1 = patch1[key]
+                    value2 = patch2[key]
+                    assert isinstance(value1, type(value2))
+                    if 'space' in key:
+                        for space1 in value1:
+                            for space2 in value2:
+                                if space2['name'] == space1['name']:
+                                    for key_space in space1.keys():
+                                        assert space1[key_space] == space2[key_space]
+                    else:
+                        assert value1 == value2
+
+@pytest.mark.serial
+def test_incorrect_arg_export_to_vtk():
+    domain = Square()
+    space = ScalarFunctionSpace('V', domain)
+
+    domain_h = discretize(domain, ncells=[4, 4])
+    space_h = discretize(space, domain_h, degree=[2, 2])
+
+    u = FemField(space_h)
+
+    Om = OutputManager(
+        "test_incorrect_arg_export_to_vtk.yml",
+        "test_incorrect_arg_export_to_vtk.h5"
+    )
+
+    Om.add_spaces(V=space_h)
     Om.set_static()
-    
-    Om.export_fields(field_A=uah, field_B=ubh,
-                     field_V=uh, uvh=uvh, uvah=uvah)
-    Om.add_snapshot(0., 0)
-    Om.export_fields(fA=uah, f_B=ubh,
-                     f_V=uh, uvh_0=uvh, uvah_0=uvah)
+    Om.export_fields(u=u)
+    Om.add_snapshot(t=0., ts=0)
+    Om.export_fields(v=u)
     Om.export_space_info()
     Om.close()
 
-    comm.Barrier()
-    if comm.Get_rank() == 0 and not interactive:
-        os.remove('spaces_multipatch.yml')
-        os.remove('fields_multipatch.h5')
+    Pm = PostProcessManager(
+        domain=domain,
+        space_file="test_incorrect_arg_export_to_vtk.yml",
+        fields_file="test_incorrect_arg_export_to_vtk.h5",
+    )
+
+    with pytest.raises(ValueError): # needs npts_per_cell or grid
+        Pm.export_to_vtk('_', grid=None, npts_per_cell=None)
+    with pytest.raises(ValueError): # snapshot = 'none' but no static fields
+        Pm.export_to_vtk('_', grid=None, npts_per_cell=2, snapshots='none', fields='f')
+    with pytest.warns(UserWarning): # snapshot = 'all' but no static fields
+        Pm.export_to_vtk('_', grid=None, npts_per_cell=2, snapshots='all', fields='f')
+    with pytest.warns(UserWarning): # snapshot = 'all' but no time dependent field
+        Pm.export_to_vtk('_', grid=None, npts_per_cell=2, snapshots='all', fields='u')
+    with pytest.raises(ValueError): # empty grid
+        Pm.export_to_vtk('_', grid=[[],[]], npts_per_cell=None, snapshots='none', fields='u')
+
+    os.remove('_.static.vtu')
+    os.remove("test_incorrect_arg_export_to_vtk.yml")
+    os.remove("test_incorrect_arg_export_to_vtk.h5")
 
 
 @pytest.mark.parallel
-@pytest.mark.parametrize('geometry', ['identity_2d.h5','identity_3d.h5','bent_pipe.h5'])
+@pytest.mark.parametrize('geometry', ['identity_2d.h5',
+                                      'identity_3d.h5',])
+                                    #   'pipe.h5',]) # Doesn't work, see issue
+                                    #   'multipatch/magnet.h5',
+                                    #   'multipatch/plate_with_hole_mp_7'])
+                                    # Arguments to be added when Said's PR is merged
 @pytest.mark.parametrize('kind', ['h1', 'l2', 'hdiv', 'hcurl'])
 @pytest.mark.parametrize('space', [ScalarFunctionSpace, VectorFunctionSpace])
-def test_parallel_export_discrete_domain(geometry, kind, space, interactive=False):
+def test_parallel_export_discrete_domain(geometry, kind, space):
+    comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     filename = os.path.join(mesh_dir, geometry)
@@ -497,145 +648,206 @@ def test_parallel_export_discrete_domain(geometry, kind, space, interactive=Fals
 
     symbolic_space = space('V', domain, kind=kind)
 
-    degree = [2, 3, 4][:dim]
+    degree = list(domain_h.mappings.values())[0].space.degree
     space_h = discretize(symbolic_space, domain_h, degree=degree)
 
     field = FemField(space_h)
 
-    Om = OutputManager("space_export_discrete.yml", "fields_export_discrete.h5", comm=comm)
+    Om = OutputManager(
+        "test_parallel_export_discrete_domain.yml",
+        "test_parallel_export_discrete_domain.h5",
+        comm=comm,
+        save_mpi_rank=True,
+    )
 
     Om.add_spaces(space_h=space_h)
-     
+
     Om.set_static()
-    Om.export_fields(field_static=field)
+    Om.export_fields(field_s=field)
     Om.add_snapshot(t=0., ts=0)
     Om.export_fields(field_t=field)
-    
+
     Om.export_space_info()
     Om.close()
-    
-    Pm = PostProcessManager(geometry_file=filename, space_file="space_export_discrete.yml", fields_file="fields_export_discrete.h5", comm=comm)
-    try:
-        grid = [refine_array_1d(space_h.breaks[i], 1, False) for i in range(space_h.ldim)]
-    except AttributeError:
-        grid = [refine_array_1d(space_h.spaces[0].breaks[i], 1, False) for i in range(space_h.ldim)]
+
+    Pm = PostProcessManager(
+        geometry_file=filename,
+        space_file="test_parallel_export_discrete_domain.yml",
+        fields_file="test_parallel_export_discrete_domain.h5",
+        comm=comm
+    )
+
+    grid1 = None
+    if 'multipatch' in filename:
+        if isinstance(space_h.spaces[0], TensorFemSpace):
+            grid2 = {
+                i_name: [refine_array_1d(bks[i], 1, False) for i in range(dim)]
+                    for i_name, bks in zip(
+                    domain.interior_names, [space_j.breaks for space_j in space_h.spaces]
+                )
+            }
+        else:
+            grid2 = {
+                i_name: [refine_array_1d(bks[i], 1, False) for i in range(dim)]
+                    for i_name, bks in zip(
+                    domain.interior_names, [space_j.spaces[0].breaks for space_j in space_h.spaces]
+                )
+            }
+    else:
+        if isinstance(space_h, TensorFemSpace):
+            grid2 = [refine_array_1d(space_h.breaks[i], 1, False) for i in range(dim)]
+        else:
+            grid2 = [refine_array_1d(space_h.spaces[0].breaks[i], 1, False) for i in range(dim)]
 
     npts_per_cell = [2] * dim
 
+    # Test grid1
+    Pm.export_to_vtk(
+        "test_export_None_grid",
+        grid=grid1,
+        npts_per_cell=npts_per_cell,
+        snapshots='all',
+        fields=('field_s', 'field_t'),
+    )
 
-    (x_mesh, y_mesh, z_mesh, conn, offsets, celltypes), \
-    pointDatas = Pm.export_to_vtk("test_export_discrete_r", grid, npts_per_cell=npts_per_cell,
-                                  snapshots='all', fields={'f1': 'field_static', 'f2': 'field_t'},
-                                  debug=True)
-    
-    for pointData in pointDatas:
-        for field_data in pointData.values():
-            try:
-                assert field_data.shape == x_mesh.shape
-            except AttributeError:
-                assert field_data[0].shape == x_mesh.shape
+    # Test grid2
+    Pm.export_to_vtk(
+        "test_export_regular_grid",
+        grid=grid2,
+        npts_per_cell=npts_per_cell,
+        snapshots='all',
+        fields=('field_s', 'field_t'),
+    )
 
-    (x_mesh, y_mesh, z_mesh, conn, offsets, celltypes), \
-    pointDatas = Pm.export_to_vtk("test_export_discrete_i", grid, npts_per_cell=None,
-                                  snapshots='all', fields={'f1': 'field_static', 'f2': 'field_t'},
-                                  debug=True)
-
-    for pointData in pointDatas:
-        for field_data in pointData.values():
-            try:
-                assert field_data.shape == x_mesh.shape
-            except AttributeError:
-                assert field_data[0].shape == x_mesh.shape
+    Pm.export_to_vtk(
+        "test_export_irregular_grid_1",
+        grid=grid2,
+        npts_per_cell=None,
+        snapshots='all',
+        fields=('field_s', 'field_t'),
+    )
 
     Pm.comm.Barrier()
-    if rank == 0 and not interactive:
-        for f in glob.glob("test_export_discrete*.*vtu"):
+    if rank == 0:
+        for f in glob.glob("test_export*grid*.*vtu"):
             os.remove(f)
-        os.remove("space_export_discrete.yml")
-        os.remove("fields_export_discrete.h5")
+        os.remove("test_parallel_export_discrete_domain.yml")
+        os.remove("test_parallel_export_discrete_domain.h5")
 
 
 @pytest.mark.parallel
-@pytest.mark.parametrize('domain', [Square(), Cube()])
+@pytest.mark.parametrize('domain', [
+    Square(),
+    Cube(),
+    build_2_cubes(),
+    build_2_mapped_squares(),
+    build_2_squares()
+])
 @pytest.mark.parametrize('mapping', [IdentityMapping, AffineMapping])
 @pytest.mark.parametrize('kind', ['h1', 'l2', 'hdiv', 'hcurl'])
 @pytest.mark.parametrize('space', [ScalarFunctionSpace, VectorFunctionSpace])
-def test_parallel_export_topological_domain(domain, mapping, kind, space, interactive=False):
+def test_parallel_export_topological_domain(domain, mapping, kind, space):
+    comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     dim = domain.dim
-
     dim_params_dict = {
-        2: {'c1': 0, 'c2': 0, 
-            'a11': 1, 'a12': 3, 
+        2: {'c1': 0, 'c2': 0,
+            'a11': 1, 'a12': 3,
             'a21': 3, 'a22': 1},
         3: {'c1': 0, 'c2': 1, 'c3': 0,
             'a11': 1, 'a12': 0, 'a13': 2,
             'a21': 0, 'a22': 1, 'a23': 0,
             'a31': 2, 'a32': 0, 'a33': 1}
     }
-    F = mapping('F', dim, **dim_params_dict[dim])
-    domain = F(domain)
+    if not isinstance(domain.interior, Union):
+        F = mapping('F', dim, **dim_params_dict[dim])
+        domain = F(domain)
 
     symbolic_space = space('V', domain, kind=kind)
 
-    degree = [2, 3, 4][:dim]
-    domain_h = discretize(domain, ncells=[10] * dim, comm=comm)
+    degree = [2, 2, 2][:dim]
+    domain_h = discretize(domain, ncells=[6] * dim, comm=comm)
+
     space_h = discretize(symbolic_space, domain_h, degree=degree)
 
     field = FemField(space_h)
 
-    Om = OutputManager("space_export_topo.yml", "fields_export_topo.h5", comm=comm)
+    Om = OutputManager(
+        "test_parallel_export_topological_domain.yml",
+        "test_parallel_export_topological_domain.h5",
+        comm=comm,
+    )
 
     Om.add_spaces(space_h=space_h)
-     
+
     Om.set_static()
-    Om.export_fields(field_static=field)
+    Om.export_fields(field_s=field)
     Om.add_snapshot(t=0., ts=0)
     Om.export_fields(field_t=field)
-    
+
     Om.export_space_info()
     Om.close()
-    
-    Pm = PostProcessManager(domain=domain, space_file="space_export_topo.yml", fields_file="fields_export_topo.h5", comm=comm)
-    try:
-        grid = [refine_array_1d(space_h.breaks[i], 1, False) for i in range(space_h.ldim)]
-    except AttributeError:
-        grid = [refine_array_1d(space_h.spaces[0].breaks[i], 1, False) for i in range(space_h.ldim)]
+
+    Pm = PostProcessManager(
+        domain=domain,
+        space_file="test_parallel_export_topological_domain.yml",
+        fields_file="test_parallel_export_topological_domain.h5",
+        comm=comm,
+    )
+
+    grid1 = None
+    if isinstance(domain.interior, Union):
+        if isinstance(space_h.spaces[0], TensorFemSpace):
+            grid2 = {
+                i_name: [refine_array_1d(bks[i], 1, False) for i in range(dim)]
+                    for i_name, bks in zip(
+                    domain.interior_names, [space_j.breaks for space_j in space_h.spaces]
+                )
+            }
+        else:
+            grid2 = {
+                i_name: [refine_array_1d(bks[i], 1, False) for i in range(dim)]
+                    for i_name, bks in zip(
+                    domain.interior_names, [space_j.spaces[0].breaks for space_j in space_h.spaces]
+                )
+            }
+    else:
+        if isinstance(space_h, TensorFemSpace):
+            grid2 = [refine_array_1d(space_h.breaks[i], 1, False) for i in range(dim)]
+        else:
+            grid2 = [refine_array_1d(space_h.spaces[0].breaks[i], 1, False) for i in range(dim)]
 
     npts_per_cell = [2] * dim
-    (x_mesh, y_mesh, z_mesh, conn, offsets, celltypes), \
-    pointDatas = Pm.export_to_vtk("test_export_topo_r", grid, npts_per_cell=npts_per_cell,
-                                 snapshots='all', fields={'f1': 'field_static', 'f2': 'field_t'}, debug=True)
-    for pointData in pointDatas:
-        for field_data in pointData.values():
-            try:
-                assert field_data.shape == x_mesh.shape
-            except AttributeError:
-                assert field_data[0].shape == x_mesh.shape
-    
-    (x_mesh, y_mesh, z_mesh, conn, offsets, celltypes), \
-    pointDatas = Pm.export_to_vtk("test_export_topo_i", grid, npts_per_cell=None,
-                                 snapshots='all', fields={'f1': 'field_static', 'f2': 'field_t'},
-                                 debug=True)
+    # Test grid1
+    Pm.export_to_vtk(
+        "test_export_None_grid",
+        grid=grid1,
+        npts_per_cell=npts_per_cell,
+        snapshots='all',
+        fields=('field_s', 'field_t'),
+    )
 
-    for pointData in pointDatas:
-        for field_data in pointData.values():
-            try:
-                assert field_data.shape == x_mesh.shape
-            except AttributeError:
-                assert field_data[0].shape == x_mesh.shape
+    # Test grid2
+    Pm.export_to_vtk(
+        "test_export_regular_grid",
+        grid=grid2,
+        npts_per_cell=npts_per_cell,
+        snapshots='all',
+        fields=('field_s', 'field_t'),
+    )
 
-    Pm.comm.Barrier()
-    if rank == 0 and not interactive:
-        for f in glob.glob("test_export_topo*.*vtu"):
+    Pm.export_to_vtk(
+        "test_export_irregular_grid_1",
+        grid=grid2,
+        npts_per_cell=None,
+        snapshots='all',
+        fields=('field_s', 'field_t'),
+    )
+
+    Pm.fields_file.close()
+
+    if rank == 0:
+        for f in glob.glob("test_export*grid*.*vtu"):
             os.remove(f)
-        os.remove("space_export_topo.yml")
-        os.remove("fields_export_topo.h5")
-
-
-if __name__ == "__main__":
-    import sys
-    # Meant to showcase examples 
-    test_multipatch_parallel_export(True)
-    test_parallel_export_discrete_domain('bent_pipe.h5', 'h1', ScalarFunctionSpace, True)
-    test_parallel_export_topological_domain(Square(), AffineMapping, 'h1', ScalarFunctionSpace, True)
+        os.remove("test_parallel_export_topological_domain.yml")
+        os.remove("test_parallel_export_topological_domain.h5")
