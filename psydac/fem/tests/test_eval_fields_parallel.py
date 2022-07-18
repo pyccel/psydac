@@ -22,7 +22,7 @@ except:
 RTOL = 1e-15
 ATOL = 1e-15
 
-from mpi4py import MPI 
+from mpi4py import MPI
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
@@ -46,7 +46,7 @@ def test_eval_fields_regular(geometry, npts_per_cell):
     npts_per_cell = [npts_per_cell] * space.ldim
 
     # This calls eval_fields
-    x_mesh_part, y_mesh_part, z_mesh_part = mapping.build_mesh(grid_reg, npts_per_cell)
+    mesh_part = mapping.build_mesh(grid_reg, npts_per_cell)
 
     starts, ends = space.local_domain
 
@@ -55,18 +55,16 @@ def test_eval_fields_regular(geometry, npts_per_cell):
 
     index = tuple(slice(s, e, 1) for s,e in zip(actual_starts, actual_ends))
 
-    shape = tuple(len(grid_reg[i]) for i in range(space.ldim)) + (1,) * (3 - space.ldim)
+    shape = tuple(len(grid_reg[i]) for i in range(space.ldim))
 
     # Saving in an hdf5 file to compare on root
     fh5 = h5.File(f'result_parallel.h5', mode='w', driver='mpio', comm=comm)
 
-    fh5.create_dataset('x_mesh', shape=shape, dtype=float)
-    fh5.create_dataset('y_mesh', shape=shape, dtype=float)
-    fh5.create_dataset('z_mesh', shape=shape, dtype=float)
+    for i, dset_name in enumerate(['x_mesh', 'y_mesh', 'z_mesh'][:space.ldim]):
+        fh5.create_dataset(dset_name, shape=shape, dtype=float)
 
-    fh5['x_mesh'][index] = x_mesh_part
-    fh5['y_mesh'][index] = y_mesh_part
-    fh5['z_mesh'][index] = z_mesh_part
+        fh5[dset_name][index] = mesh_part[i]
+
     fh5.close()
 
     # Check
@@ -75,18 +73,15 @@ def test_eval_fields_regular(geometry, npts_per_cell):
         mapping = list(domainh.mappings.values())[0]
 
         space = mapping.space
-        
-        x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid_reg, npts_per_cell)
+
+        mesh = mapping.build_mesh(grid_reg, npts_per_cell)
 
         fh5 = h5.File(f'result_parallel.h5', mode='r')
 
-        x_mesh_par = fh5['x_mesh'][...]
-        y_mesh_par = fh5['y_mesh'][...]
-        z_mesh_par = fh5['z_mesh'][...]
+        for i, dset_name in enumerate(['x_mesh', 'y_mesh', 'z_mesh'][:space.ldim]):
+            dset = fh5[dset_name][...]
 
-        assert np.allclose(x_mesh_par, x_mesh, atol=ATOL, rtol=RTOL)
-        assert np.allclose(y_mesh_par, y_mesh, atol=ATOL, rtol=RTOL)
-        assert np.allclose(z_mesh_par, z_mesh, atol=ATOL, rtol=RTOL)
+            assert np.allclose(dset, mesh[i], atol=ATOL, rtol=RTOL)
 
         fh5.close()
         os.remove('result_parallel.h5')
@@ -108,32 +103,29 @@ def test_eval_fields_irregular(geometry, npts_irregular):
     grid_i = [np.linspace(space.breaks[i][0], space.breaks[i][-1], npts_irregular, True) for i in range(space.ldim)]
 
     # This calls eval_fields
-    x_mesh_i_part, y_mesh_i_part, z_mesh_i_part = mapping.build_mesh(grid_i) 
+    mesh_part = mapping.build_mesh(grid_i)
 
-    
     cell_indexes = [cell_index(space.breaks[i], grid_i[i]) for i in range(space.ldim)]
-    
+
     starts, ends = space.local_domain
 
-    actual_starts = tuple(np.searchsorted(cell_indexes[i], starts[i], side='left') 
-                          for i in range(space.ldim)) + (0,) * (3 - space.ldim)
-    actual_ends = tuple(np.searchsorted(cell_indexes[i], ends[i], side='right') 
-                         for i in range(space.ldim)) + (1,) * (3 - space.ldim)
+    actual_starts = tuple(np.searchsorted(cell_indexes[i], starts[i], side='left')
+                          for i in range(space.ldim))
+    actual_ends = tuple(np.searchsorted(cell_indexes[i], ends[i], side='right')
+                         for i in range(space.ldim))
 
     index = tuple(slice(s, e, 1) for s,e in zip(actual_starts, actual_ends))
 
-    shape = tuple(len(grid_i[i]) for i in range(space.ldim)) + (1,) * (3 - space.ldim)
+    shape = tuple(len(grid_i[i]) for i in range(space.ldim))
 
     # Saving in an hdf5 file to compare on root
     fh5 = h5.File(f'result_parallel_i.h5', mode='w', driver='mpio', comm=comm)
 
-    fh5.create_dataset('x_mesh', shape=shape, dtype=float)
-    fh5.create_dataset('y_mesh', shape=shape, dtype=float)
-    fh5.create_dataset('z_mesh', shape=shape, dtype=float)
+    for i, dset_name in enumerate(['x_mesh', 'y_mesh', 'z_mesh'][:space.ldim]):
+        fh5.create_dataset(dset_name, shape=shape, dtype=float)
 
-    fh5['x_mesh'][index] = x_mesh_i_part
-    fh5['y_mesh'][index] = y_mesh_i_part
-    fh5['z_mesh'][index] = z_mesh_i_part
+        fh5[dset_name][index] = mesh_part[i]
+
     fh5.close()
 
     # Check
@@ -143,17 +135,14 @@ def test_eval_fields_irregular(geometry, npts_irregular):
 
         space = mapping.space
 
-        x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid_i)
+        mesh = mapping.build_mesh(grid_i)
 
         fh5 = h5.File(f'result_parallel_i.h5', mode='r')
-    
-        x_mesh_par = fh5['x_mesh'][...]
-        y_mesh_par = fh5['y_mesh'][...]
-        z_mesh_par = fh5['z_mesh'][...]
 
-        assert np.allclose(x_mesh_par, x_mesh, atol=ATOL, rtol=RTOL)
-        assert np.allclose(y_mesh_par, y_mesh, atol=ATOL, rtol=RTOL)
-        assert np.allclose(z_mesh_par, z_mesh, atol=ATOL, rtol=RTOL)
+        for i, dset_name in enumerate(['x_mesh', 'y_mesh', 'z_mesh'][:space.ldim]):
+            dset = fh5[dset_name][...]
+
+            assert np.allclose(dset, mesh[i], atol=ATOL, rtol=RTOL)
 
         fh5.close()
         os.remove('result_parallel_i.h5')

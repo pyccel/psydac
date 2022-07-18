@@ -15,10 +15,8 @@ def writeParallelVTKUnstructuredGrid(
     ----------
     path : str
         name of the file without extension.
-    coordsData : tuple
-        2-tuple (shape, dtype) where shape is the
-        shape of the coordinates of the full mesh
-        and dtype is the dtype of the coordinates.
+    coordsdtype : np.dtype
+        dtype of the coordinates.
     starts : list
         list of 3-tuple representing where each source file starts
         in each dimension

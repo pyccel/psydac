@@ -12,7 +12,7 @@ from psydac.core.bsplines import cell_index, basis_ders_on_irregular_grid, break
 from psydac.core.kernels import (eval_fields_2d_no_weights, eval_fields_3d_no_weights,
                                  eval_fields_2d_irregular_no_weights, eval_fields_3d_irregular_no_weights,
                                  eval_fields_2d_weighted, eval_fields_3d_weighted,
-                                 eval_fields_2d_irregular_weighted, eval_fields_3d_irregular_weighted, 
+                                 eval_fields_2d_irregular_weighted, eval_fields_3d_irregular_weighted,
                                  eval_jacobians_2d, eval_jacobians_3d,
                                  eval_jacobians_irregular_2d, eval_jacobians_irregular_3d,
                                  eval_jacobians_2d_weights, eval_jacobians_3d_weights,
@@ -28,7 +28,7 @@ from psydac.core.kernels import (eval_fields_2d_no_weights, eval_fields_3d_no_we
                                  pushforward_2d_l2, pushforward_3d_l2,
                                  pushforward_2d_hdiv, pushforward_3d_hdiv,
                                  pushforward_2d_hcurl, pushforward_3d_hcurl)
-        
+
 
 
 # Get mesh directory
@@ -62,13 +62,13 @@ def test_regular_jacobians(geometry, npts_per_cell):
     ncells = tuple(len(space_h.breaks[i]) - 1 for i in range(ldim))
     regular_grid = [np.concatenate(
                     [np.random.random(size=npts_per_cell) * (
-                                                             space_h.breaks[i][j + 1] 
+                                                             space_h.breaks[i][j + 1]
                                                              - space_h.breaks[i][j]
-                                                            ) 
+                                                            )
                                                              + space_h.breaks[i][j]
                      for j in range(ncells[i])
                     ]
-                    ) 
+                    )
                     for i in range(ldim)]
 
     # Direct API
@@ -84,11 +84,11 @@ def test_regular_jacobians(geometry, npts_per_cell):
     # Mapping related quantities through kernel functions
     degree = space_h.degree
     knots = [space_h.spaces[i].knots for i in range(ldim)]
- 
-    global_basis = [basis_ders_on_quad_grid(knots[i], 
-                                            degree[i], 
+
+    global_basis = [basis_ders_on_quad_grid(knots[i],
+                                            degree[i],
                                             np.reshape(regular_grid[i], (ncells[i], npts_per_cell)),
-                                            1, 
+                                            1,
                                             space_h.spaces[i].basis) for i in range(ldim)
                     ]
     v = space_h.vector_space
@@ -223,17 +223,17 @@ def test_irregular_jacobians(geometry, npts):
     degree = space_h.degree
     knots = [space_h.spaces[i].knots for i in range(ldim)]
     cell_indexes =[cell_index(space_h.breaks[i], irregular_grid[i]) for i in range(ldim)]
-    global_basis = [basis_ders_on_irregular_grid(knots[i], 
+    global_basis = [basis_ders_on_irregular_grid(knots[i],
                                                  degree[i],
                                                  irregular_grid[i],
                                                  cell_indexes[i],
-                                                 1, 
+                                                 1,
                                                  space_h.spaces[i].basis) for i in range(ldim)
                     ]
     v = space_h.vector_space
     global_spans = [elements_spans(knots[i], degree[i]) - v.starts[i] + v.shifts[i] * v.pads[i] for i in range(ldim)]
 
-    npts = (npts,) * ldim 
+    npts = (npts,) * ldim
 
     shape_grid = npts
     jac_mats = np.zeros(shape_grid + (ldim, ldim))
@@ -332,7 +332,7 @@ def test_irregular_jacobians(geometry, npts):
             assert np.allclose(np.linalg.det(jac_mats[i, j, k]), jac_dets[i, j, k], atol=ATOL, rtol=RTOL)
 
 
-@pytest.mark.parametrize("knots, ldim, degree", 
+@pytest.mark.parametrize("knots, ldim, degree",
     [([np.sort(np.concatenate((np.zeros(3), np.random.random(9), np.ones(3)))) for i in range(2)], 2, [2] * 2),
      ([np.sort(np.concatenate((np.zeros(4), np.random.random(9), np.ones(4)))) for i in range(2)], 2, [3] * 2),
      ([np.sort(np.concatenate((np.zeros(3), np.random.random(9), np.ones(3)))) for i in range(3)], 3, [2] * 3),
@@ -342,27 +342,27 @@ def test_irregular_jacobians(geometry, npts):
      ([np.array([0.0] * 3 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 3)] * 3, 3, [2] * 3),
      ([np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4)] * 3, 3, [3] * 3),
      ([np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4),
-       np.array([0.0] * 3 + [1.0] * 3)], 
-      2, 
+       np.array([0.0] * 3 + [1.0] * 3)],
+      2,
       [3, 2]),
      ([np.array([0.0] * 3 + [1.0] * 3),
-       np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4)], 
-      2, 
+       np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4)],
+      2,
       [2, 3]),
      ([np.array([0.0] * 3 + [1.0] * 3),
        np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4),
        np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4)],
-      3, 
+      3,
       [2, 3, 3]),
      ([np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4),
        np.array([0.0] * 3 + [1.0] * 3),
        np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4)],
-      3, 
+      3,
       [3, 2, 3]),
      ([np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4),
        np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4),
        np.array([0.0] * 3 + [1.0] * 3)],
-      3, 
+      3,
       [3, 3, 2]),
     ]
 )
@@ -388,13 +388,13 @@ def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
 
     regular_grid = [np.concatenate(
                     [np.random.random(size=npts_per_cell) * (
-                                                             space_h.breaks[i][j + 1] 
+                                                             space_h.breaks[i][j + 1]
                                                              - space_h.breaks[i][j]
-                                                            ) 
+                                                            )
                                                              + space_h.breaks[i][j]
                      for j in range(ncells[i])
                     ]
-                    ) 
+                    )
                     for i in range(ldim)]
 
     # Direct eval
@@ -421,11 +421,11 @@ def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
                                 for e3 in regular_grid[2]]
                                 for e2 in regular_grid[1]]
                                 for e1 in regular_grid[0]])
-    
-    global_basis = [basis_ders_on_quad_grid(knots[i], 
-                                            degree[i], 
+
+    global_basis = [basis_ders_on_quad_grid(knots[i],
+                                            degree[i],
                                             np.reshape(regular_grid[i], (ncells[i], npts_per_cell)),
-                                            0, 
+                                            0,
                                             space_h.spaces[i].basis) for i in range(ldim)
                     ]
     v = space_h.vector_space
@@ -442,25 +442,25 @@ def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
         # No weights
         eval_fields_2d_no_weights(*ncells, *degree, *n_eval_points, *global_basis,
                                   *global_spans, global_arr_field, out_field)
-        
+
         # Weighted
         eval_fields_2d_weighted(*ncells, *degree, *n_eval_points, *global_basis,
                                 *global_spans, global_arr_field, global_arr_w, out_field_w)
-    
+
     if ldim == 3:
         # No weights
         eval_fields_3d_no_weights(*ncells, *degree, *n_eval_points, *global_basis,
                                   *global_spans, global_arr_field, out_field)
-        
+
         # Weighted
         eval_fields_3d_weighted(*ncells, *degree, *n_eval_points, *global_basis,
                                 *global_spans, global_arr_field, global_arr_w, out_field_w)
-    
+
     assert np.allclose(out_field, f_direct, atol=ATOL, rtol=RTOL)
     assert np.allclose(out_field_w, f_direct_w, atol=ATOL, rtol=RTOL)
 
 
-@pytest.mark.parametrize("knots, ldim, degree", 
+@pytest.mark.parametrize("knots, ldim, degree",
     [([np.sort(np.concatenate((np.zeros(3), np.random.random(9), np.ones(3)))) for i in range(2)], 2, [2] * 2),
      ([np.sort(np.concatenate((np.zeros(4), np.random.random(9), np.ones(4)))) for i in range(2)], 2, [3] * 2),
      ([np.sort(np.concatenate((np.zeros(3), np.random.random(9), np.ones(3)))) for i in range(3)], 3, [2] * 3),
@@ -470,27 +470,27 @@ def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
      ([np.array([0.0] * 3 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 3)] * 3, 3, [2] * 3),
      ([np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4)] * 3, 3, [3] * 3),
      ([np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4),
-       np.array([0.0] * 3 + [1.0] * 3)], 
-      2, 
+       np.array([0.0] * 3 + [1.0] * 3)],
+      2,
       [3, 2]),
      ([np.array([0.0] * 3 + [1.0] * 3),
-       np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4)], 
-      2, 
+       np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4)],
+      2,
       [2, 3]),
      ([np.array([0.0] * 3 + [1.0] * 3),
        np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4),
        np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4)],
-      3, 
+      3,
       [2, 3, 3]),
      ([np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4),
        np.array([0.0] * 3 + [1.0] * 3),
        np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4)],
-      3, 
+      3,
       [3, 2, 3]),
      ([np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4),
        np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4),
        np.array([0.0] * 3 + [1.0] * 3)],
-      3, 
+      3,
       [3, 3, 2]),
     ]
 )
@@ -515,7 +515,7 @@ def test_irregular_evaluations(knots, ldim, degree, npts):
     weight.coeffs._data[:] = np.random.random(weight.coeffs._data.shape)
 
     irregular_grid = [np.random.random(npts) for i in range(ldim)]
-    
+
     for i in range(ldim):
         j_left = np.random.randint(low=0, high=len(irregular_grid[i]))
         j_right = np.random.randint(low=0, high=len(irregular_grid[i]))
@@ -532,7 +532,7 @@ def test_irregular_evaluations(knots, ldim, degree, npts):
             irregular_grid[i][j_interior:j_interior+2] = space_h.breaks[i][j_bk]
         except ValueError:
             pass
-    
+
     # Direct eval
     if ldim == 2:
         # No weights
@@ -557,13 +557,13 @@ def test_irregular_evaluations(knots, ldim, degree, npts):
                                 for e3 in irregular_grid[2]]
                                 for e2 in irregular_grid[1]]
                                 for e1 in irregular_grid[0]])
-    
+
     cell_indexes = [cell_index(space_h.breaks[i], irregular_grid[i]) for i in range(ldim)]
-    global_basis = [basis_ders_on_irregular_grid(knots[i], 
-                                                 degree[i], 
-                                                 irregular_grid[i], 
-                                                 cell_indexes[i], 
-                                                 0, 
+    global_basis = [basis_ders_on_irregular_grid(knots[i],
+                                                 degree[i],
+                                                 irregular_grid[i],
+                                                 cell_indexes[i],
+                                                 0,
                                                  space_h.spaces[i].basis) for i in range(ldim)
                     ]
     v = space_h.vector_space
@@ -581,23 +581,23 @@ def test_irregular_evaluations(knots, ldim, degree, npts):
         # No weights
         eval_fields_2d_irregular_no_weights(*npts,*degree, *cell_indexes, *global_basis,
                                             *global_spans, global_arr_field, out_field)
-        
+
         # Weighted
         eval_fields_2d_irregular_weighted(*npts, *degree, *cell_indexes, *global_basis,
                                           *global_spans, global_arr_field, global_arr_w, out_field_w)
-    
+
     if ldim == 3:
         # No weights
         eval_fields_3d_irregular_no_weights(*npts, *degree, *cell_indexes, *global_basis,
                                             *global_spans, global_arr_field, out_field)
-        
+
         # Weighted
         eval_fields_3d_irregular_weighted(*npts, *degree, *cell_indexes, *global_basis,
                                           *global_spans, global_arr_field, global_arr_w, out_field_w)
-    
+
     assert np.allclose(out_field, f_direct, atol=ATOL, rtol=RTOL)
     assert np.allclose(out_field_w, f_direct_w, atol=ATOL, rtol=RTOL)
-            
+
 
 @pytest.mark.parametrize('jac_det, ldim, field_to_push', [(np.ones((5, 5)), 2, np.ones((5, 5, 1))),
                                                           (np.ones((5, 5, 5)), 3, np.ones((5, 5, 5, 1))),
@@ -617,13 +617,14 @@ def test_pushforwards_l2(ldim, jac_det, field_to_push):
 @pytest.mark.parametrize('ldim', (2, 3))
 def test_pushforwards_hdiv(ldim):
     jacobians = np.full((5,) * ldim + (ldim, ldim), np.eye(ldim))
+    metric_dets = np.full((5,) * ldim, 1)
     field_to_push = np.random.rand(ldim, *((5, ) * ldim), 1)
     expected = np.moveaxis(field_to_push,-1, 0)
     out = np.zeros(expected.shape)
     if ldim == 2:
-        pushforward_2d_hdiv(field_to_push, jacobians, out)
+        pushforward_2d_hdiv(field_to_push, jacobians, metric_dets, out)
     if ldim == 3:
-        pushforward_3d_hdiv(field_to_push, jacobians, out)
+        pushforward_3d_hdiv(field_to_push, jacobians, metric_dets, out)
 
     assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
