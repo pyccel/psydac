@@ -92,7 +92,7 @@ class Pushforward:
         self.ldim = ldim
         self.jac_temp = None
         self.inv_jac_temp = None
-        self.jac_det_temp = None
+        self.sqrt_metric_det_temp = None
 
         self.grid=grid
         self.npts_per_cell = npts_per_cell
