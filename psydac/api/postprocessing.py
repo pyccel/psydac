@@ -170,7 +170,7 @@ class OutputManager:
     _fields_file : h5py.File
 
     _spaces_types_to_str : dict
-        Dictionnary from Sympde space Datatypes
+        Dictionary from Sympde space Datatypes
         to their string equivalent.
     """
 
@@ -1042,7 +1042,7 @@ class PostProcessManager:
         interior_dict=None,
         space_name_dict=None):
         """
-        Take cares of adequately filling the dictionnaries to avoid code repetition
+        Take cares of adequately filling the dictionaries to avoid code repetition
         in self._reconstruct_spaces.
         """
         # Check if the discretization kwargs were already retrieved
@@ -1069,7 +1069,7 @@ class PostProcessManager:
                 interior_dict[new_patches_where_present] = {space_name: (is_vector, kind, _kwarg)}
 
         except KeyError:
-            # This is the first patch where we encouter this space so we need to fill the dictionnaries
+            # This is the first patch where we encouter this space so we need to fill the dictionaries
             space_name_dict[space_name] = (patch_name,)
             # (False for scalar, kind, kwargs for discretization)
             knots = discrete_kwarg['knots']
@@ -1851,8 +1851,8 @@ class PostProcessManager:
             Aforementioned smallest subdomain
 
         interior_to_fields : dict
-            Dictionnary with an entry for each patch,
-            that entry being a dictionnary which maps
+            Dictionary with an entry for each patch,
+            that entry being a dictionary which maps
             femspaces to the list of loaded fields that belong
             to them for faster evaluation.
         """
@@ -2837,8 +2837,8 @@ class PostProcessManager:
         if 'mpi_dd' in fh5.keys():
             full_ddm = fh5['mpi_dd'][patch_name]
             # full_ddm is an array of shape (simu_size, 2, ldim)
-            # We are going to turn it into ldim dictionnaries
-            # For each of those dictionnaries dict_i
+            # We are going to turn it into ldim dictionaries
+            # For each of those dictionaries dict_i
             # the keys will be numbers for the start of the local_domain
             # in direction i to the end of the local_domain in the same direction.
             # the values will be the set of all mpi ranks whose local domain

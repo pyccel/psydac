@@ -4309,7 +4309,7 @@ def eval_jacobians_inv_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2:
 # --------------------------------------------------------------------------
 # 1: L2 Push-forward
 # --------------------------------------------------------------------------
-def pushforward_2d_l2(fields_to_push: 'float[:,:,:]', met_dets: 'float[:,:]', pushed_fields: 'float[:,:,:]'):
+def pushforward_2d_l2(fields_to_push: 'float[:,:,:]', sqrt_met_dets: 'float[:,:]', pushed_fields: 'float[:,:,:]'):
     """
     Parameters
     ----------
@@ -4320,17 +4320,17 @@ def pushforward_2d_l2(fields_to_push: 'float[:,:,:]', met_dets: 'float[:,:]', pu
         * n_x2 is the number of points in direction 2 of the implicit grid.
         * n_f is the number of fields to push-forward in the L2 space.
 
-    met_dets: ndarray
-        Metric determinant of the mapping
+    sqrt_met_dets: ndarray
+        Square root of the metric determinant of the mapping
 
     pushed_fields: ndarray
         Push forwarded fields
     """
     for i_f in range(pushed_fields.shape[2]):
-        pushed_fields[:, :, i_f] = fields_to_push[:, :, i_f] / met_dets[:, :]
+        pushed_fields[:, :, i_f] = fields_to_push[:, :, i_f] / sqrt_met_dets[:, :]
 
 
-def pushforward_3d_l2(fields_to_push: 'float[:,:,:,:]', met_dets: 'float[:,:,:]', pushed_fields: 'float[:,:,:,:]'):
+def pushforward_3d_l2(fields_to_push: 'float[:,:,:,:]', sqrt_met_dets: 'float[:,:,:]', pushed_fields: 'float[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -4342,14 +4342,14 @@ def pushforward_3d_l2(fields_to_push: 'float[:,:,:,:]', met_dets: 'float[:,:,:]'
         * n_x3 is the number of points in direction 3 of the implicit grid.
         * n_f is the number of fields to push-forward in the L2 space.
 
-    met_dets: ndarray
-        Metric determinant of the Mapping
+    sqrt_met_dets: ndarray
+        Square root of the metric determinant of the mapping
 
     pushed_fields: ndarray
         Push forwarded fields
     """
     for i_f in range(pushed_fields.shape[3]):
-        pushed_fields[:, :, :, i_f] = fields_to_push[:, :, :, i_f] / met_dets[:, :, :]
+        pushed_fields[:, :, :, i_f] = fields_to_push[:, :, :, i_f] / sqrt_met_dets[:, :, :]
 
 
 # --------------------------------------------------------------------------
@@ -4423,7 +4423,7 @@ def pushforward_3d_hcurl(fields_to_push: 'float[:,:,:,:,:]', inv_jac_mats: 'floa
 # --------------------------------------------------------------------------
 # 1: Hdiv Push-forward
 # --------------------------------------------------------------------------
-def pushforward_2d_hdiv(fields_to_push: 'float[:,:,:,:]', jac_mats: 'float[:,:,:,:]', met_dets: 'float[:, :]', pushed_fields: 'float[:,:,:,:]'):
+def pushforward_2d_hdiv(fields_to_push: 'float[:,:,:,:]', jac_mats: 'float[:,:,:,:]', sqrt_met_dets: 'float[:, :]', pushed_fields: 'float[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -4438,8 +4438,8 @@ def pushforward_2d_hdiv(fields_to_push: 'float[:,:,:,:]', jac_mats: 'float[:,:,:
     jac_mats: ndarray
         Jacobian matrix of the mapping
 
-    met_dets: ndarray
-        Metric determinant of the mapping
+    sqrt_met_dets: ndarray
+        Square root of the metric determinant of the mapping
 
     pushed_fields: ndarray
         Push forwarded fields
@@ -4447,14 +4447,14 @@ def pushforward_2d_hdiv(fields_to_push: 'float[:,:,:,:]', jac_mats: 'float[:,:,:
     for i_f in range(pushed_fields.shape[0]):
 
         pushed_fields[i_f, 0, :, :] = (+ jac_mats[:, :, 0, 0] * fields_to_push[0, :, :, i_f]
-                                       + jac_mats[:, :, 0, 1] * fields_to_push[1, :, :, i_f]) / met_dets[:, :]
+                                       + jac_mats[:, :, 0, 1] * fields_to_push[1, :, :, i_f]) / sqrt_met_dets[:, :]
 
         pushed_fields[i_f, 1, :, :] = (+ jac_mats[:, :, 1, 0] * fields_to_push[0, :, :, i_f]
-                                       + jac_mats[:, :, 1, 1] * fields_to_push[1, :, :, i_f]) / met_dets[:, :]
+                                       + jac_mats[:, :, 1, 1] * fields_to_push[1, :, :, i_f]) / sqrt_met_dets[:, :]
 
 
 def pushforward_3d_hdiv(fields_to_push: 'float[:,:,:,:,:]', jac_mats: 'float[:,:,:,:,:]',
-                        met_dets: 'float[:, :, :]', pushed_fields: 'float[:,:,:,:,:]'):
+                        sqrt_met_dets: 'float[:, :, :]', pushed_fields: 'float[:,:,:,:,:]'):
     """
     Parameters
     ----------
@@ -4470,8 +4470,8 @@ def pushforward_3d_hdiv(fields_to_push: 'float[:,:,:,:,:]', jac_mats: 'float[:,:
     jac_mats: ndarray
         Jacobian matrix of the mapping
 
-    met_dets: ndarray
-        Metric determinant of the mapping
+    sqrt_met_dets: ndarray
+        Square root of the metric determinant of the mapping
 
     pushed_fields: ndarray
         Push forwarded fields
@@ -4484,12 +4484,12 @@ def pushforward_3d_hdiv(fields_to_push: 'float[:,:,:,:,:]', jac_mats: 'float[:,:
 
         pushed_fields[i_f, 0, :, :, :] = (+ jac_mats[:, :, :, 0, 0] * x
                                           + jac_mats[:, :, :, 0, 1] * y
-                                          + jac_mats[:, :, :, 0, 2] * z) / met_dets[:, :, :]
+                                          + jac_mats[:, :, :, 0, 2] * z) / sqrt_met_dets[:, :, :]
 
         pushed_fields[i_f, 1, :, :, :] = (+ jac_mats[:, :, :, 1, 0] * x
                                           + jac_mats[:, :, :, 1, 1] * y
-                                          + jac_mats[:, :, :, 1, 2] * z) / met_dets[:, :, :]
+                                          + jac_mats[:, :, :, 1, 2] * z) / sqrt_met_dets[:, :, :]
 
         pushed_fields[i_f, 2 ,:, :, :] = (+ jac_mats[:, :, :, 2, 0] * x
                                           + jac_mats[:, :, :, 2, 1] * y
-                                          + jac_mats[:, :, :, 2, 2] * z) / met_dets[:, :, :]
+                                          + jac_mats[:, :, :, 2, 2] * z) / sqrt_met_dets[:, :, :]
