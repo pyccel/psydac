@@ -2473,7 +2473,7 @@ class PostProcessManager:
 
                             value, = set_0.intersection(set_1)
 
-                            mpi_dd = np.concatenate([mpi_dd, [value]], dtype='i')
+                            mpi_dd = np.concatenate([mpi_dd, [value]])
 
                 # 3D
                 elif ldim == 3:
@@ -2491,7 +2491,7 @@ class PostProcessManager:
 
                                 value, = set_0.intersection(set_1, set_2)
 
-                                mpi_dd = np.concatenate([mpi_dd, [value]], dtype='i')
+                                mpi_dd = np.concatenate([mpi_dd, [value]])
 
             # Not all elements that have points have cells
             elif any(any(v == 0 for v in number_of_cells_per_element[i]) for i in range(ldim)):
@@ -2524,11 +2524,11 @@ class PostProcessManager:
                                 # VTK uses Fortran ordering
                                 point = i_actual + j_actual * n_rows
 
-                                connectivity = np.concatenate([connectivity, [point]], dtype='i')
-                                offsets = np.concatenate([offsets, [connectivity.size]], dtype='i')
-                                celltypes = np.concatenate([celltypes, [VtkVertex.tid]], dtype='i') # VTK Vertex Type ID
+                                connectivity = np.concatenate([connectivity, [point]])
+                                offsets = np.concatenate([offsets, [connectivity.size]])
+                                celltypes = np.concatenate([celltypes, [VtkVertex.tid]]) # VTK Vertex Type ID
 
-                                mpi_dd = np.concatenate([mpi_dd, [value]], dtype='i')
+                                mpi_dd = np.concatenate([mpi_dd, [value]])
 
                     else:
                         for j_elem, n_cells_j_elem in enumerate(number_of_cells_per_element[1]):
@@ -2550,11 +2550,11 @@ class PostProcessManager:
                                     # VTK uses Fortran ordering
                                     point = i_actual + j_actual * n_rows
 
-                                    connectivity = np.concatenate([connectivity, [point]], dtype='i')
-                                    offsets = np.concatenate([offsets, [connectivity.size]], dtype='i')
-                                    celltypes = np.concatenate([celltypes, [VtkVertex.tid]], dtype='i') # VTK Vertex Type ID
+                                    connectivity = np.concatenate([connectivity, [point]])
+                                    offsets = np.concatenate([offsets, [connectivity.size]])
+                                    celltypes = np.concatenate([celltypes, [VtkVertex.tid]]) # VTK Vertex Type ID
 
-                                    mpi_dd = np.concatenate([mpi_dd, [value]], dtype='i')
+                                    mpi_dd = np.concatenate([mpi_dd, [value]])
 
 
                             else:
@@ -2573,11 +2573,11 @@ class PostProcessManager:
                                         botleft = topleft + n_points[0]
                                         botright = botleft +1
 
-                                        connectivity = np.concatenate([connectivity, [topleft, topright, botright, botleft]], dtype='i')
+                                        connectivity = np.concatenate([connectivity, [topleft, topright, botright, botleft]])
 
-                                        offsets = np.concatenate([offsets, [connectivity.size]], dtype='i')
-                                        celltypes = np.concatenate([celltypes, [VtkQuad.tid]], dtype='i') # VTK Quad Type ID
-                                        mpi_dd = np.concatenate([mpi_dd, [value]], dtype='i')
+                                        offsets = np.concatenate([offsets, [connectivity.size]])
+                                        celltypes = np.concatenate([celltypes, [VtkQuad.tid]]) # VTK Quad Type ID
+                                        mpi_dd = np.concatenate([mpi_dd, [value]])
 
                 if ldim == 3:
 
@@ -2613,11 +2613,11 @@ class PostProcessManager:
                                         # VTK uses Fortran ordering
                                         point = i_actual + j_actual * n_rows + k_actual * n_rows * n_cols
 
-                                        connectivity = np.concatenate([connectivity, [point]], dtype='i')
-                                        offsets = np.concatenate([offsets, [connectivity.size]], dtype='i')
-                                        celltypes = np.concatenate([celltypes, [VtkVertex.tid]], dtype='i') # VTK Vertex Type ID
+                                        connectivity = np.concatenate([connectivity, [point]])
+                                        offsets = np.concatenate([offsets, [connectivity.size]])
+                                        celltypes = np.concatenate([celltypes, [VtkVertex.tid]]) # VTK Vertex Type ID
 
-                                        mpi_dd = np.concatenate([mpi_dd, [value]], dtype='i')
+                                        mpi_dd = np.concatenate([mpi_dd, [value]])
 
                     else:
                         for j_elem, n_cells_j_elem in enumerate(number_of_cells_per_element[1]):
@@ -2648,11 +2648,11 @@ class PostProcessManager:
                                             point = i_actual + j_actual * n_rows + k_actual * n_rows * n_cols
 
 
-                                            connectivity = np.concatenate([connectivity, [point]], dtype='i')
-                                            offsets = np.concatenate([offsets, [connectivity.size]], dtype='i')
-                                            celltypes = np.concatenate([celltypes, [VtkVertex.tid]], dtype='i') # VTK Vertex Type ID
+                                            connectivity = np.concatenate([connectivity, [point]])
+                                            offsets = np.concatenate([offsets, [connectivity.size]])
+                                            celltypes = np.concatenate([celltypes, [VtkVertex.tid]]) # VTK Vertex Type ID
 
-                                            mpi_dd = np.concatenate([mpi_dd, [value]], dtype='i')
+                                            mpi_dd = np.concatenate([mpi_dd, [value]])
 
                             else:
 
@@ -2678,11 +2678,11 @@ class PostProcessManager:
                                                 # VTK uses Fortran ordering
                                                 point = i_actual + j_actual * n_rows + k_actual * n_rows * n_cols
 
-                                                connectivity = np.concatenate([connectivity, [point]], dtype='i')
-                                                offsets = np.concatenate([offsets, [connectivity.size]], dtype='i')
-                                                celltypes = np.concatenate([celltypes, [VtkVertex.tid]], dtype='i') # VTK Vertex Type ID
+                                                connectivity = np.concatenate([connectivity, [point]])
+                                                offsets = np.concatenate([offsets, [connectivity.size]])
+                                                celltypes = np.concatenate([celltypes, [VtkVertex.tid]]) # VTK Vertex Type ID
 
-                                                mpi_dd = np.concatenate([mpi_dd, [value]], dtype='i')
+                                                mpi_dd = np.concatenate([mpi_dd, [value]])
 
                                     else:
                                         # This Fem element has at least one cell
@@ -2719,12 +2719,12 @@ class PostProcessManager:
                                                           top_right_back,
                                                           bot_right_back,
                                                           bot_left_back]],
-                                                         dtype='i')
+                                                         )
 
-                                                    offsets = np.concatenate((offsets, [connectivity.size]), dtype='i')
-                                                    celltypes = np.concatenate((celltypes, [VtkHexahedron.tid]), dtype='i') # VTK HexType ID
+                                                    offsets = np.concatenate((offsets, [connectivity.size]))
+                                                    celltypes = np.concatenate((celltypes, [VtkHexahedron.tid])) # VTK HexType ID
 
-                                                    mpi_dd = np.concatenate((mpi_dd, [value]), dtype='i')
+                                                    mpi_dd = np.concatenate((mpi_dd, [value]))
 
             else:
                 #Usual case
