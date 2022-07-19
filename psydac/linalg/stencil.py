@@ -86,7 +86,9 @@ class StencilVectorSpace( VectorSpace ):
         Tensor-product grid decomposition according to MPI Cartesian topology.
 
     """
+
     def __init__( self, cart, dtype=float ):
+
 
         assert isinstance( cart, CartDecomposition )
 
@@ -105,6 +107,9 @@ class StencilVectorSpace( VectorSpace ):
         self._parent_starts = cart.parent_starts
         self._parent_ends   = cart.parent_ends
         self._mpi_type      = find_mpi_type(dtype)
+
+        # The dictionary follows the structure {(axis, ext): StencilVectorSpace()}
+        # where axis and ext represent the boundary shared by two patches
         self._interfaces    = {}
 
         # Parallel attributes
