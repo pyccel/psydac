@@ -119,13 +119,13 @@ def create_cart(domain_h, spaces):
             global_starts = [np.array([0] + [spans[s-1]+1 for s in starts[1:]]) for starts,spans in zip(domain_h[i].global_element_starts, global_spans)]
             global_ends   = [np.array([spans[e] for e in ends]) for ends,spans in zip(domain_h[i].global_element_ends, global_spans)]
 
-            if domain_h.is_parallel:
+            if domain_h[i].is_parallel:
                 for s,e,V in zip(global_starts, global_ends, spaces[i]):
                     if not all(e-s+1>=V.degree+1):
                         MPI.Abort(1)
             else:
-                for s,e,p in zip(global_starts, global_ends, V.degree):
-                    assert all(e-s+1>=p+1)
+                for s,e,V in zip(global_starts, global_ends, spaces[i]):
+                    assert all(e-s+1>=V.degree+1)
 
             carts.append(CartDecomposition(
                             domain_h      = domain_h[i],
@@ -134,7 +134,7 @@ def create_cart(domain_h, spaces):
                             global_ends   = global_ends,
                             pads          = pads,
                             shifts        = multiplicity))
-            carts = tuple(carts)
+        carts = tuple(carts)
 
     return carts
 
@@ -166,12 +166,12 @@ def create_interfaces_cart(domain_h, carts, connectivity=None):
             axes   = connectivity[i,j][0]
             exts   = connectivity[i,j][1]
             if (i,j) in interfaces_cart.carts and not interfaces_cart.carts[i,j].is_comm_null:
-                interfaces_cart.carts[i,j].set_communication_info(get_minus_starts_ends, get_plus_starts_ends)
+                interfaces_cart.carts[i,j].set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
 
     return interfaces_cart
 
 #------------------------------------------------------------------------------
-def construct_interface_spaces(g_spaces, cart, interiors, connectivity):
+def construct_interface_spaces(domain_h, g_spaces, carts, interiors, connectivity):
     """ 
     Create the fem spaces for each interface in the domain given by the connectivity.
 
@@ -190,20 +190,20 @@ def construct_interface_spaces(g_spaces, cart, interiors, connectivity):
        The connectivity of the multipatch domain.
     """
     if not connectivity:return
-    comm = cart.comm if cart is not None else None
+    comm = domain_h.comm
     if comm is not None:
-        interfaces_cart = create_interfaces_cart(cart, connectivity=connectivity)
+        interfaces_cart = create_interfaces_cart(domain_h, carts, connectivity=connectivity)
         if interfaces_cart:
             interfaces_cart = interfaces_cart.carts
 
     for i,j in connectivity:
         if comm is None:
-            cart_minus = None
-            cart_plus  = None
+            cart_minus = carts[i]
+            cart_plus  = carts[j]
         else:
-            if not cart.carts[i].is_comm_null and not cart.carts[j].is_comm_null:
-                cart_minus = cart.carts[i]
-                cart_plus  = cart.carts[j]
+            if not carts[i].is_comm_null and not carts[j].is_comm_null:
+                cart_minus = carts[i]
+                cart_plus  = carts[j]
             elif (i,j) in interfaces_cart:
                 cart_minus = interfaces_cart[i,j]
                 cart_plus  = interfaces_cart[i,j]

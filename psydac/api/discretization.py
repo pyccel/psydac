@@ -300,7 +300,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
             g_spaces[interior] = Vh
 
-        construct_interface_spaces(g_spaces, carts, interiors, connectivity)
+        construct_interface_spaces(domain_h.ddm, g_spaces, carts, interiors, connectivity)
 
     for inter in g_spaces:
         Vh = g_spaces[inter]

@@ -639,8 +639,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     pads       = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     g_quad     = [GlobalTensorQuadratureGrid(False)]
     l_quad     = [LocalTensorQuadratureGrid(False)]
-    b0s        = variables(('b01, b02, b03'), dtype='int')[:dim]
-    e0s        = variables(('e01, e02, e03'), dtype='int')[:dim]
+#    b0s        = variables(('b01, b02, b03'), dtype='int')[:dim]
+#    e0s        = variables(('e01, e02, e03'), dtype='int')[:dim]
 
     if isinstance(domain, Interface):
         g_quad.append(PlusGlobalTensorQuadratureGrid(False))
@@ -767,8 +767,10 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
             es             = dict()
             for v in sub_tests:
                 v_str = str(SymbolicExpr(v))
-                bs[v] = variables(('b_{v}_1, b_{v}_2, b_{v}_3'.format(v=v_str)), dtype='int')[:dim] if is_parallel else [S.Zero]*dim
-                es[v] = variables(('e_{v}_1, e_{v}_2, e_{v}_3'.format(v=v_str)), dtype='int')[:dim] if is_parallel else [S.Zero]*dim
+#                bs[v] = variables(('b_{v}_1, b_{v}_2, b_{v}_3'.format(v=v_str)), dtype='int')[:dim] if is_parallel else [S.Zero]*dim
+#                es[v] = variables(('e_{v}_1, e_{v}_2, e_{v}_3'.format(v=v_str)), dtype='int')[:dim] if is_parallel else [S.Zero]*dim
+                bs[v] = [S.Zero]*dim
+                es[v] = [S.Zero]*dim
 
             if all(a==1 for a in m_tests[sub_tests[0]]+m_trials[sub_trials[0]]):
                 stmts = []
@@ -807,11 +809,16 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                 if is_parallel:
                     ln         = Tuple(*[d-1 for d in tests_degree[sub_tests[0]]])
                     thr_s      = Tuple(*[ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i))) for i in range(dim)]) if add_openmp else Tuple(*[0]*dim)
-                    start_expr =  TensorMax(TensorMul(TensorAdd(TensorMul(TensorAdd(thr_s,ind_element), Tuple(*[-1]*dim)), ln), Tuple(*b0s)),Tuple(*[S.Zero]*dim))
+                    start_expr =  TensorMax(TensorMul(TensorAdd(TensorMul(TensorAdd(thr_s,ind_element),
+                                  Tuple(*[-1]*dim)), ln), Tuple(*[S.Zero]*dim)),Tuple(*[S.Zero]*dim))
+
                     start_expr = TensorAssignExpr(Tuple(*bs[sub_tests[0]]), start_expr)
-                    end_expr   = TensorMax(TensorMul(TensorAdd(TensorMul(Tuple(*[-1]*dim), el_length), TensorAdd(TensorAdd(thr_s,ind_element), Tuple(*tests_degree[sub_tests[0]]))), Tuple(*e0s)), Tuple(*[S.Zero]*dim))
+                    end_expr   = TensorMax(TensorMul(TensorAdd(TensorMul(Tuple(*[-1]*dim), el_length),
+                                           TensorAdd(TensorAdd(thr_s,ind_element),
+                                           Tuple(*tests_degree[sub_tests[0]]))), Tuple(*[S.Zero]*dim)), Tuple(*[S.Zero]*dim))
+
                     end_expr   = TensorAssignExpr(Tuple(*es[sub_tests[0]]), end_expr)
-                    g_stmts_texpr += [start_expr, end_expr]
+#                    g_stmts_texpr += [start_expr, end_expr]
 
             else:
                 l_stmts = []
@@ -1077,8 +1084,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     if constants:
         args['constants'] = constants
 
-    args['starts'] = b0s
-    args['ends']   = e0s
+#    args['starts'] = b0s
+#    args['ends']   = e0s
 
     allocations = []
     if add_openmp:
@@ -1116,7 +1123,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         if fields:
             shared = shared + (*args['f_span'], *args['f_coeffs'], *args['field_basis'])
 
-        firstprivate = (*args['tests_degrees'].values(), *args['trials_degrees'].values(), *lengths, *pads, *b0s, *e0s, thread_id.length)
+        firstprivate = (*args['tests_degrees'].values(), *args['trials_degrees'].values(), *lengths, *pads, thread_id.length)
         if mapping_space:
             firstprivate = firstprivate + (*args['mapping_degrees'], )
         if fields:

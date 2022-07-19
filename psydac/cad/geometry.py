@@ -231,7 +231,7 @@ class Geometry( object ):
 
                 spaces[i_patch] = space_i
 
-        ncells = [[sp.ncells for sp in tspace] for tspace in spaces]
+        ncells  = [[sp.ncells for sp in tspace] for tspace in spaces]
         periods = [[sp.periodic for sp in tspace] for tspace in spaces]
         assert all(spaces)
         self._cart = None

@@ -55,6 +55,7 @@ class TensorFemSpace( FemSpace ):
         """."""
         assert isinstance(domain_h, DomainDecomposition)
         assert all( isinstance( s, SplineSpace ) for s in args )
+        self._domain = domain_h
         self._spaces = tuple(args)
 
         npts         = [V.nbasis   for V in self.spaces]
@@ -64,14 +65,15 @@ class TensorFemSpace( FemSpace ):
         periods      = [V.periodic for V in self.spaces]
         basis        = [V.basis    for V in self.spaces]
 
-        if 'cart' in kwargs and not (kwargs['cart'] is None):
+        if kwargs.get('cart', None):
 
             cart = kwargs['cart']
             self._vector_space = StencilVectorSpace(cart)
-
+        elif kwargs.get('vector_space', None):
+            self._vector_space = kwargs['vector_space']
         else:
             cart               = create_cart([domain_h], [self._spaces])
-            self._vector_space = StencilVectorSpace(cart)
+            self._vector_space = StencilVectorSpace(cart[0])
 
         # Shortcut
         v = self._vector_space
@@ -85,13 +87,16 @@ class TensorFemSpace( FemSpace ):
 
         if self._vector_space.parallel and self._vector_space.cart.is_comm_null:return
 
+        starts = self._vector_space.cart.domain_h.starts
+        ends   = self._vector_space.cart.domain_h.ends
+
         # Compute extended 1D quadrature grids (local to process) along each direction
         self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q)
-                                  for V,s,e,q in zip( self.spaces, domain_h.starts, domain_h.ends, self._quad_order ) )
+                                  for V,s,e,q in zip( self.spaces, starts, ends, self._quad_order ) )
 
         # Determine portion of logical domain local to process
-        self._element_starts = domain_h.starts
-        self._element_ends   = domain_h.ends
+        self._element_starts = starts
+        self._element_ends   = ends
 
         # Compute limits of eta_0, eta_1, eta_2, etc... in subdomain local to process
         self._eta_limits = tuple( (space.breaks[s], space.breaks[e+1])
@@ -100,10 +105,10 @@ class TensorFemSpace( FemSpace ):
         # Store flag: object NOT YET prepared for interpolation
         self._interpolation_ready = False
         # Compute the local domains for every process
+        # ...
 
         self._global_element_starts = domain_h.global_element_starts
         self._global_element_ends   = domain_h.global_element_ends
-        # ...
 
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
@@ -1004,10 +1009,10 @@ class TensorFemSpace( FemSpace ):
 
         if v.cart:
             red_cart = v.cart.reduce_elements(axes, n_elements, multiplicity)
-            tensor_vec = TensorFemSpace(*spaces, cart=red_cart, quad_order=self._quad_order)
+            tensor_vec = TensorFemSpace(self._domain, *spaces, cart=red_cart, quad_order=self._quad_order)
         else:
             v = v.reduce_elements(axes, n_elements, multiplicity)
-            tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order, vector_space=v)
+            tensor_vec = TensorFemSpace(self._domain, *spaces, quad_order=self._quad_order, vector_space=v)
 
         tensor_vec._interpolation_ready = False
         for a,e in self._interfaces:
@@ -1046,7 +1051,7 @@ class TensorFemSpace( FemSpace ):
         quad_order   = self.quad_order
 
         vector_space.set_interface(axis, ext, cart)
-        space = TensorFemSpace( *spaces, vector_space=vector_space._interfaces[axis, ext], quad_order=self.quad_order)
+        space = TensorFemSpace( self._domain, *spaces, vector_space=vector_space._interfaces[axis, ext], quad_order=self.quad_order)
         self._interfaces[axis, ext] = space
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):

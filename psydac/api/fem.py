@@ -301,11 +301,11 @@ class DiscreteBilinearForm(BasicDiscrete):
             #...
             # If process does not own the boundary or interface, do not assemble anything
             if test_ext == -1:
-                if self._element_loop_starts[axis]:
+                if starts[axis] != 0:
                     self._func = do_nothing
 
             elif test_ext == 1:
-                if self._element_loop_ends[axis]:
+                if ends[axis] != npts[axis]-1:
                     self._func = do_nothing
 
             if self._func == do_nothing and isinstance(target, Interface):
@@ -417,7 +417,8 @@ class DiscreteBilinearForm(BasicDiscrete):
             reset_arrays(*self.global_matrices)
 
         self._func(*args, *self._threads_args)
-        self._matrix.update_assembly_ghost_regions()
+        if self._matrix:
+            self._matrix.update_assembly_ghost_regions()
         return self._matrix
 
     def get_space_indices_from_target(self, domain, target):
@@ -605,10 +606,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                         axis   = target.axis
                         ext_d  = self._trial_ext
                         ext_c  = self._test_ext
-                        test_spans  = self.test_basis.spans
-                        trial_spans = self.trial_basis.spans
-                        s_d = trial_spans[k2][axis][0] - trial_degree[k2][axis]
-                        s_c = test_spans[k1][axis][0]  - test_degree[k1][axis]
+                        test_n  = self.test_basis.space.spaces[k1].spaces[axis].nbasis
+                        test_s  = self.test_basis.space.spaces[k1].vector_space.starts[axis]
+                        trial_n = self.trial_basis.space.spaces[k2].spaces[axis].nbasis
+                        cart    = self.trial_basis.space.spaces[k2].vector_space.cart
+                        trial_s = cart.global_starts[axis][cart._coords[axis]]
+
+                        s_d = trial_n-trial_s - trial_degree[k2][axis]-1 if ext_d == 1 else 0
+                        s_c = test_n-trial_s  - test_degree[k1][axis] -1 if ext_c == 1 else 0
                         direction = target.direction
                         direction = 1 if direction is None else direction
                         flip = [direction]*domain.dim
@@ -638,10 +643,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                     axis   = target.axis
                     ext_d  = self._trial_ext
                     ext_c  = self._test_ext
-                    test_spans  = self.test_basis.spans
-                    trial_spans = self.trial_basis.spans
-                    s_d = trial_spans[0][axis][0] - trial_degree[axis]
-                    s_c = test_spans[0][axis][0]  - test_degree[axis]
+                    test_n  = self.test_basis.space.spaces[axis].nbasis
+                    test_s  = self.test_basis.space.vector_space.starts[axis]
+                    trial_n = self.trial_basis.space.spaces[axis].nbasis
+                    cart    = self.trial_basis.space.vector_space.cart
+                    trial_s = cart.global_starts[axis][cart._coords[axis]]
+
+                    s_d = trial_n-trial_s - trial_degree[axis]-1 if ext_d == 1 else 0
+                    s_c = test_n-trial_s  - test_degree[axis] -1 if ext_c == 1 else 0
                     direction = target.direction
                     direction = 1 if direction is None else direction
                     flip = [direction]*domain.dim
