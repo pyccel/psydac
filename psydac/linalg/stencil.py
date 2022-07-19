@@ -109,6 +109,8 @@ class StencilVectorSpace( VectorSpace ):
         self._shifts        = tuple( shifts )
         self._dtype         = dtype
         self._ndim          = len( npts )
+
+        # The shape of the allocated numpy array
         self._shape         = tuple(e-s+1+2*m*p for s,e,m,p in zip(self._starts, self._ends, shifts, pads))
         self._parent_starts = tuple([None]*self._ndim)
         self._parent_ends   = tuple([None]*self._ndim)

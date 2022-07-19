@@ -5,4 +5,4 @@ from psydac.fem import context
 from psydac.fem import splines
 from psydac.fem import tensor
 from psydac.fem import vector
-from psydac.fem import utilities
+from psydac.fem import partitioning
