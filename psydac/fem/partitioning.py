@@ -1,9 +1,12 @@
 # -*- coding: UTF-8 -*-
 import os
+import numpy as np
 
+from mpi4py import MPI
 from sympde.topology import Interface
 
-from psydac.ddm.cart import CartDecomposition, MultiCartDecomposition, InterfacesCartDecomposition
+from psydac.ddm.cart       import CartDecomposition, InterfacesCartDecomposition
+from psydac.core.bsplines  import elements_spans
 
 def construct_connectivity(domain):
     """ 
@@ -63,7 +66,7 @@ def get_plus_starts_ends(minus_starts, minus_ends, minus_npts, plus_npts, minus_
     return starts, ends
 
 #------------------------------------------------------------------------------
-def create_cart(spaces, comm, reverse_axis=None, nprocs=None):
+def create_cart(domain_h, spaces):
     """
     Compute the cartesian decomposition of the coefficient space.
     Two different cases are possible:
@@ -78,61 +81,65 @@ def create_cart(spaces, comm, reverse_axis=None, nprocs=None):
     spaces : list of list of 1D global Spline spaces
      The 1D global spline spaces that will be distributed.
 
-    comm: mpi4py.MPI.Comm
-     The intra communicator used for the decomposition.
-
-    reverse_axis: int
-       Reverse the ownership of the processes along the specified axis.
-
-    nprocs: list or tuple of int
-       MPI decomposition along each dimension.
-
     Returns
     -------
     cart : <CartDecomposition|MultiCartDecomposition>
         Cartesian decomposition of the coefficient space.
 
     """
-    num_threads     = int(os.environ.get('OMP_NUM_THREADS',1))
 
     if len(spaces) == 1:
-        spaces = spaces[0]
+        spaces       = spaces[0]
+        domain_h     = domain_h[0]
         npts         = [V.nbasis   for V in spaces]
         pads         = [V._pads    for V in spaces]
-        degree       = [V.degree   for V in spaces]
         multiplicity = [V.multiplicity for V in spaces]
-        periods      = [V.periodic for V in spaces]
 
-        cart = CartDecomposition(
-            npts         = npts,
-            pads         = pads,
-            periods      = periods,
-            reorder      = True,
-            comm         = comm,
-            shifts       = multiplicity,
-            nprocs       = nprocs,
-            reverse_axis = reverse_axis,
-            num_threads  = num_threads)
+        global_spans  = [elements_spans( V.knots, V.degree ) for V in spaces]
+        global_starts = [np.array([0] + [spans[s-1]+1 for s in starts[1:]]) for starts,spans in zip(domain_h.global_element_starts, global_spans)]
+        global_ends   = [np.array([spans[e] for e in ends]) for ends,spans in zip(domain_h.global_element_ends, global_spans)]
+        for s,e,V in zip(global_starts, global_ends, spaces):
+            assert all(e-s+1>=V.degree+1)
+
+        carts = [CartDecomposition(
+                domain_h      = domain_h,
+                npts          = npts,
+                global_starts = global_starts,
+                global_ends   = global_ends,
+                pads          = pads,
+                shifts        = multiplicity)]
     else:
-        npts         = [[V.nbasis   for V in space_i] for space_i in spaces]
-        pads         = [[V._pads    for V in space_i] for space_i in spaces]
-        degree       = [[V.degree   for V in space_i] for space_i in spaces]
-        multiplicity = [[V.multiplicity for V in space_i] for space_i in spaces]
-        periods      = [[V.periodic for V in space_i] for space_i in spaces]
+        carts = []
+        for i in range(len(spaces)):
+            npts         = [V.nbasis   for V in spaces[i]]
+            pads         = [V._pads    for V in spaces[i]]
+            multiplicity = [V.multiplicity for V in spaces[i]]
 
-        cart = MultiCartDecomposition(
-            npts         = npts,
-            pads         = pads,
-            periods      = periods,
-            reorder      = True,
-            comm         = comm,
-            shifts       = multiplicity,
-            num_threads  = num_threads)
+            global_spans  = [elements_spans( V.knots, V.degree ) for V in spaces[i]]
+            global_starts = [np.array([0] + [spans[s-1]+1 for s in starts[1:]]) for starts,spans in zip(domain_h[i].global_element_starts, global_spans)]
+            global_ends   = [np.array([spans[e] for e in ends]) for ends,spans in zip(domain_h[i].global_element_ends, global_spans)]
 
-    return cart
+            if domain_h[i].is_parallel:
+                for s,e,V in zip(global_starts, global_ends, spaces[i]):
+                    if not all(e-s+1>=V.degree+1):
+                        MPI.Abort(1)
+            else:
+                for s,e,V in zip(global_starts, global_ends, spaces[i]):
+                    assert all(e-s+1>=V.degree+1)
+
+            carts.append(CartDecomposition(
+                            domain_h      = domain_h[i],
+                            npts          = npts,
+                            global_starts = global_starts,
+                            global_ends   = global_ends,
+                            pads          = pads,
+                            shifts        = multiplicity))
+        carts = tuple(carts)
+
+    return carts
 
 #------------------------------------------------------------------------------
-def create_interfaces_cart(cart, connectivity=None):
+def create_interfaces_cart(domain_h, carts, connectivity=None):
     """
     Decompose the interface coefficients using the domain decomposition of each patch.
     For each interface we contruct an inter-communicator that groups the coefficients of the interface from each side.
@@ -154,17 +161,17 @@ def create_interfaces_cart(cart, connectivity=None):
     interfaces_cart = None
     if connectivity:
         connectivity = connectivity.copy()
-        interfaces_cart = InterfacesCartDecomposition(cart, connectivity)
+        interfaces_cart = InterfacesCartDecomposition(domain_h, carts, connectivity)
         for i,j in connectivity:
             axes   = connectivity[i,j][0]
             exts   = connectivity[i,j][1]
             if (i,j) in interfaces_cart.carts and not interfaces_cart.carts[i,j].is_comm_null:
-                interfaces_cart.carts[i,j].set_communication_info(get_minus_starts_ends, get_plus_starts_ends)
+                interfaces_cart.carts[i,j].set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
 
     return interfaces_cart
 
 #------------------------------------------------------------------------------
-def construct_interface_spaces(g_spaces, cart, interiors, connectivity):
+def construct_interface_spaces(domain_h, g_spaces, carts, interiors, connectivity):
     """ 
     Create the fem spaces for each interface in the domain given by the connectivity.
 
@@ -183,20 +190,20 @@ def construct_interface_spaces(g_spaces, cart, interiors, connectivity):
        The connectivity of the multipatch domain.
     """
     if not connectivity:return
-    comm = cart.comm if cart is not None else None
+    comm = domain_h.comm
     if comm is not None:
-        interfaces_cart = create_interfaces_cart(cart, connectivity=connectivity)
+        interfaces_cart = create_interfaces_cart(domain_h, carts, connectivity=connectivity)
         if interfaces_cart:
             interfaces_cart = interfaces_cart.carts
 
     for i,j in connectivity:
         if comm is None:
-            cart_minus = None
-            cart_plus  = None
+            cart_minus = carts[i]
+            cart_plus  = carts[j]
         else:
-            if not cart.carts[i].is_comm_null and not cart.carts[j].is_comm_null:
-                cart_minus = cart.carts[i]
-                cart_plus  = cart.carts[j]
+            if not carts[i].is_comm_null and not carts[j].is_comm_null:
+                cart_minus = carts[i]
+                cart_plus  = carts[j]
             elif (i,j) in interfaces_cart:
                 cart_minus = interfaces_cart[i,j]
                 cart_plus  = interfaces_cart[i,j]
