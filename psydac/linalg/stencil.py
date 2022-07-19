@@ -115,6 +115,9 @@ class StencilVectorSpace( VectorSpace ):
 
         # Global dimensions of vector space
         self._npts   = tuple( npts )
+
+        # The dictionary follows the structure {(axis, ext): StencilVectorSpace()}
+        # where axis and ext represent the boundary shared by two patches
         self._interfaces = {}
     # ...
     def _init_parallel( self, cart, dtype=float ):
