@@ -2071,8 +2071,13 @@ class PostProcessManager:
             for i, field_name in enumerate(field_names):
                 point_data[field_name] = list_pushed_fields[i]
 
+        if grid_local[0].ndim == 1:
+            log_mesh_grids = np.meshgrid(*grid_local, indexing='ij')
+        else:
+            log_mesh_grids = grid_local
+
         for name, lambda_f in additional_logical_functions.items():
-            f_result = lambda_f(*grid_local)
+            f_result = lambda_f(*log_mesh_grids)
             point_data[name] = f_result
 
         return partial_mesh_info, point_data, i_mpi_dd
