@@ -379,21 +379,7 @@ class StencilVector( Vector ):
 
         # allocate data for the boundary that shares an interface
         for axis, ext in V._interfaces:
-            if V.parallel and isinstance(V._interfaces[axis, ext].cart, InterfaceCartDecomposition):
-                # case where each patche belongs to a diffrent mpi rank
-                data  = np.zeros( V._interfaces[axis, ext].shape, dtype=V.dtype )
-            elif V.parallel:
-                # case where each patch belongs to the same mpi rank
-                Vin    = V._interfaces[axis, ext]
-                slices = [slice(s, e+2*m*p+1) for s,e,m,p in zip(Vin.starts, Vin.ends, Vin.shifts, Vin.pads)]
-                data   = self._data[tuple(slices)].copy()
-            else:
-                # serial case
-                Vin    = V._interfaces[axis, ext]
-                slices = [slice(s, e+2*m*p+1) for s,e,p,m in zip(Vin.starts, Vin.ends, Vin.shifts, Vin.pads)]
-                data   = self._data[tuple(slices)].copy()
-
-            self._interface_data[axis, ext] = data
+            self._interface_data[axis, ext] = np.zeros( V._interfaces[axis, ext].shape, dtype=V.dtype )
 
         # TODO: distinguish between different directions
         self._sync  = False
