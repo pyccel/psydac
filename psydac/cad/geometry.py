@@ -20,7 +20,7 @@ from mpi4py import MPI
 
 from psydac.fem.splines        import SplineSpace
 from psydac.fem.tensor         import TensorFemSpace
-from psydac.fem.utilities      import create_cart, construct_connectivity, construct_interface_spaces
+from psydac.fem.partitioning   import create_cart, construct_connectivity, construct_interface_spaces
 from psydac.mapping.discrete   import SplineMapping, NurbsMapping
 from psydac.linalg.block       import BlockVectorSpace, BlockVector
 from psydac.ddm.cart           import DomainDecomposition, MultiPatchDomainDecomposition
