@@ -215,8 +215,7 @@ class OutputManager:
         """
         Exports the space information and close the fields_file.
         """
-        if not os.path.exists(self.filename_space):
-            self.export_space_info()
+        self.export_space_info()
         if not self.fields_file is None:
             self.fields_file.close()
 
@@ -1301,7 +1300,6 @@ class PostProcessManager:
         else:
             space = space
             field = field
-
         if isinstance(coeff, list): # Means vector field
             for i in range(len(coeff)):
                 V = space.spaces[i].vector_space
