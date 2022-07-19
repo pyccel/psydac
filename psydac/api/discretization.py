@@ -35,7 +35,7 @@ from psydac.api.equation     import DiscreteEquation
 from psydac.api.utilities    import flatten
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
-from psydac.fem.utilities    import create_cart, construct_connectivity, construct_interface_spaces
+from psydac.fem.partitioning import create_cart, construct_connectivity, construct_interface_spaces
 from psydac.fem.vector       import ProductFemSpace
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping

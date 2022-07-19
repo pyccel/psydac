@@ -13,13 +13,13 @@ import os
 
 from sympde.topology.space import BasicFunctionSpace
 
-from psydac.linalg.stencil import StencilVectorSpace
-from psydac.linalg.kron    import kronecker_solve
-from psydac.fem.basic      import FemSpace, FemField
-from psydac.fem.splines    import SplineSpace
-from psydac.fem.grid       import FemAssemblyGrid
-from psydac.fem.utilities  import create_cart
-from psydac.ddm.cart       import CartDecomposition
+from psydac.linalg.stencil   import StencilVectorSpace
+from psydac.linalg.kron      import kronecker_solve
+from psydac.fem.basic        import FemSpace, FemField
+from psydac.fem.splines      import SplineSpace
+from psydac.fem.grid         import FemAssemblyGrid
+from psydac.fem.partitioning import create_cart
+from psydac.ddm.cart         import CartDecomposition
 
 from psydac.core.bsplines  import (find_span,
                                    basis_funs,
