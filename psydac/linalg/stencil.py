@@ -89,7 +89,6 @@ class StencilVectorSpace( VectorSpace ):
 
     def __init__( self, cart, dtype=float ):
 
-
         assert isinstance( cart, CartDecomposition )
 
         # Sequential attributes
@@ -103,6 +102,8 @@ class StencilVectorSpace( VectorSpace ):
         self._dtype      = dtype
         self._starts     = cart.starts
         self._ends       = cart.ends
+
+        # The shape of the allocated numpy array
         self._shape      = cart.shape
         self._parent_starts = cart.parent_starts
         self._parent_ends   = cart.parent_ends

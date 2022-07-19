@@ -332,6 +332,8 @@ class BlockVector( Vector ):
             ext_i,ext_j   = V._connectivity[i,j][1]
             Vi = V.spaces[i]
             Vj = V.spaces[j]
+
+            # The process that owns the patch i will use block i to send data and receive in block j
             self._interface_buf[i,j]   = []
             if isinstance(Vi, BlockVectorSpace) and isinstance(Vj, BlockVectorSpace):
                 # case of a system of equations
