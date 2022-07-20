@@ -120,7 +120,19 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
 
 #==============================================================================
 def apply_essential_bc_BlockMatrix(a, bc, *, identity=False, is_broken=True):
-    """ Apply homogeneous dirichlet boundary conditions in nD """
+    """ Apply homogeneous dirichlet boundary conditions in nD.
+
+    Parameters
+    ----------
+    a : BlockMatrix
+        The BlockMatrix that will be modified.
+ 
+    bc: Sympde.expr.equation.BasicBoundaryCondition
+        The boundary condition type that will be applied to a.
+
+    is_broken: bool
+        Set to True if we are in a multipatch setting and False otherwise.
+    """
 
     assert isinstance(a, BlockMatrix)
     keys = list(a._blocks.keys())
@@ -150,7 +162,19 @@ def apply_essential_bc_BlockMatrix(a, bc, *, identity=False, is_broken=True):
 
 #==============================================================================
 def apply_essential_bc_BlockVector(a, bc, *, is_broken=True):
-    """ Apply homogeneous dirichlet boundary conditions in nD """
+    """ Apply homogeneous dirichlet boundary conditions in nD.
+
+    Parameters
+    ----------
+    a : BlockVector
+        The BlockVector that will be modified.
+ 
+    bc: Sympde.expr.equation.BasicBoundaryCondition
+        The boundary condition type that will be applied to a.
+
+    is_broken: bool
+        Set to True if we are in a multipatch setting and False otherwise. 
+    """
 
     assert isinstance(a, BlockVector)
 

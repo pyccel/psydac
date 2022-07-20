@@ -503,7 +503,7 @@ class Parser(object):
 
         inits = []
         for k,i in self.shapes.items():
-            if not k in self.variables:continue
+            if not k in self.variables: continue
             var = self.variables[k]
             if var in arguments or var.name in self.allocated:
                 continue

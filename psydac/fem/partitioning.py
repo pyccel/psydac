@@ -17,7 +17,9 @@ def construct_connectivity(domain):
     Returns
     -------
     connectivity : dict
-       The connectivity of the multipatch domain.
+        Connectivity between the patches.
+        It takes the form of {(i, j):((axis_i, axis_j),(ext_i, ext_j))} for each item of the dictionary,
+        where i,j represent the patch indices
 
     """
     interfaces = domain.interfaces if domain.interfaces else []
@@ -135,7 +137,7 @@ def create_cart(spaces, comm, reverse_axis=None, nprocs=None):
 def create_interfaces_cart(cart, connectivity=None):
     """
     Decompose the interface coefficients using the domain decomposition of each patch.
-    For each interface we contruct an inter-communicator that groups the coefficients of the interface from each side.
+    For each interface we construct an inter-communicator that groups the coefficients of the interface from each side.
 
     Parameters
     ----------

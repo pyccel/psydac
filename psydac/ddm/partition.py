@@ -8,7 +8,7 @@ __all__ = ['compute_dims', 'partition_procs_per_patch']
 #==============================================================================
 def partition_procs_per_patch(npts, size):
     """
-    Compute the number of processes in each patch.
+    Compute the number of processes in each patch and assign to it an ascending range of processes.
     The processes are distributed porportionally to the patch grid size.
 
     Parameters
@@ -24,8 +24,10 @@ def partition_procs_per_patch(npts, size):
     sizes : list of int
         Number of processes in each patch.
 
-    ranges:
-        Range of process for each patch.
+    ranges: list of list of int
+        The assigned ascending range of processes for each patch, 
+        the range is represented by a list of ints of size 2 [k1,k2],
+        such that k1<=k2.
 
     """
     npts       = [np.product(nc) for nc in npts]

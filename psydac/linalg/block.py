@@ -49,7 +49,7 @@ class BlockVectorSpace( VectorSpace ):
         else:
             self._dtype = tuple(s.dtype for s in spaces)
 
-        connectivity       = connectivity if connectivity is not None else {}
+        connectivity       = connectivity or {}
         self._connectivity = connectivity
     #--------------------------------------
     # Abstract interface
@@ -109,9 +109,12 @@ class BlockVectorSpace( VectorSpace ):
     def n_blocks( self ):
         return len( self._spaces )
 
+    @property
+    def connectivity( self ):
+        return self._connectivity
+
     def __getitem__( self, key ):
         return self._spaces[key]
-
 #===============================================================================
 class BlockVector( Vector ):
     """
@@ -149,7 +152,7 @@ class BlockVector( Vector ):
         self._data_exchangers = {}
         self._interface_buf   = {}
 
-        if not V.parallel:return
+        if not V.parallel: return
 
         # Prepare the data exchangers for the interface data
         for i,j in V._connectivity:
@@ -166,9 +169,9 @@ class BlockVector( Vector ):
                     cart_i = Vik.cart
                     cart_j = Vjk.cart
 
-                    if cart_i.is_comm_null and cart_j.is_comm_null:continue
-                    if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
-                    if not (axis_i, ext_i) in Vik._interfaces:continue
+                    if cart_i.is_comm_null and cart_j.is_comm_null: continue
+                    if not cart_i.is_comm_null and not cart_j.is_comm_null: continue
+                    if not (axis_i, ext_i) in Vik._interfaces: continue
                     cart_ij = Vik._interfaces[axis_i, ext_i].cart
                     assert isinstance(cart_ij, InterfaceCartDecomposition)
                     self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
@@ -177,9 +180,9 @@ class BlockVector( Vector ):
                 # case of scalar equations
                 cart_i = Vi.cart
                 cart_j = Vj.cart
-                if cart_i.is_comm_null and cart_j.is_comm_null:continue
-                if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
-                if not (axis_i, ext_i) in Vi._interfaces:continue
+                if cart_i.is_comm_null and cart_j.is_comm_null: continue
+                if not cart_i.is_comm_null and not cart_j.is_comm_null: continue
+                if not (axis_i, ext_i) in Vi._interfaces: continue
 
                 cart_ij = Vi._interfaces[axis_i, ext_i].cart
                 assert isinstance(cart_ij, InterfaceCartDecomposition)

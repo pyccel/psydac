@@ -2,7 +2,7 @@
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
 #         nderiv has not been changed. shall we add quad_order too?
-import os
+
 from sympy import Expr as sym_Expr
 import numpy as np
 
@@ -256,9 +256,9 @@ def discretize_space(V, domain_h, *args, **kwargs):
                 carts = cart.carts
     else:
 
-        assert(isinstance( degree, (list, tuple) ))
-        assert( len(degree) == ldim )
-        assert(hasattr(domain_h, 'ncells'))
+        assert isinstance( degree, (list, tuple) )
+        assert  len(degree) == ldim
+        assert hasattr(domain_h, 'ncells')
 
         if isinstance(knots, (list, tuple)):
             assert len(interiors) == 1
@@ -344,7 +344,7 @@ def discretize(a, *args, **kwargs):
 
     if isinstance(a, (sym_BasicForm, sym_GltExpr, sym_Expr)):
         domain_h = args[0]
-        assert( isinstance(domain_h, Geometry) )
+        assert isinstance(domain_h, Geometry)
         domain  = domain_h.domain
         mapping = domain_h.domain.mapping
         kwargs['mapping'] = mapping
