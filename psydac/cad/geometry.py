@@ -213,6 +213,8 @@ class Geometry( object ):
 
         # ... read patchs
         mappings = {}
+        ncells   = {}
+        periodic = {}
         spaces   = [None]*n_patches
         for i_patch in range( n_patches ):
 
@@ -223,41 +225,33 @@ class Geometry( object ):
             patch = h5[mapping_id]
             if dtype in ['SplineMapping', 'NurbsMapping']:
 
-                degree   = [int (p) for p in patch.attrs['degree'  ]]
-                periodic = [bool(b) for b in patch.attrs['periodic']]
-                knots    = [patch['knots_{}'.format(d)][:] for d in range( ldim )]
-                space_i  = [SplineSpace( degree=p, knots=k, periodic=b )
-                            for p,k,b in zip( degree, knots, periodic )]
+                degree     = [int (p) for p in patch.attrs['degree'  ]]
+                periodic_i = [bool(b) for b in patch.attrs['periodic']]
+                knots      = [patch['knots_{}'.format(d)][:] for d in range( ldim )]
+                space_i    = [SplineSpace( degree=p, knots=k, periodic=P )
+                            for p,k,P in zip( degree, knots, periodic_i )]
 
                 spaces[i_patch] = space_i
 
-        ncells  = [[sp.ncells for sp in tspace] for tspace in spaces]
-        periods = [[sp.periodic for sp in tspace] for tspace in spaces]
-        assert all(spaces)
+                ncells  [interiors[i_patch].name] = [sp.ncells for sp in space_i]
+                periodic[interiors[i_patch].name] = periodic_i
+
+        print(ncells)
         self._cart = None
-        if comm is not None:
-            cart = create_cart(spaces, comm)
-            self._cart = cart
-            if n_patches == 1:
-                carts = [cart]
-                ddm   = DomainDecomposition(ncells[0], periods[0], comm=comm)
-            else:
-                carts = cart.carts
-                ddm   = MultiPatchDomainDecomposition(ncells, periods, comm=comm)
+        if n_patches == 1:
+            self._ddm = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm)
+            ddms      = [self._ddm]
+        else:
+            ncells    = [ncells[itr.name] for itr in interiors]
+            periodic  = [periodic[itr.name] for itr in interiors]
+            self._ddm = MultiPatchDomainDecomposition(ncells, periodic, comm=comm)
+            ddms      = self._ddm.domains
 
-        g_spaces = {}
-        for i_patch in range( n_patches ):
-
-            if comm is None:
-                tensor_space = TensorFemSpace( *spaces[i_patch] )
-            else:
-                tensor_space = TensorFemSpace( *spaces[i_patch], cart=carts[i_patch])
-
-            g_spaces[interiors[i_patch]] = tensor_space
+        carts    = create_cart(ddms, spaces)
+        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i]) for i,inter in enumerate(interiors)}
 
         # ... construct interface spaces
-        if n_patches>1:
-            construct_interface_spaces(g_spaces, self._cart, interiors, connectivity)
+        construct_interface_spaces(self._ddm, g_spaces, carts, interiors, connectivity)
 
         for i_patch in range( n_patches ):
 
@@ -320,11 +314,14 @@ class Geometry( object ):
         # ...
 
         # ...
-        self._ldim       = ldim
-        self._pdim       = pdim
-        self._mappings   = mappings
-        self._domain     = domain
-        self._ddm        = ddm
+        self._ldim        = ldim
+        self._pdim        = pdim
+        self._mappings    = mappings
+        self._domain      = domain
+        self._comm        = comm
+        self._ncells      = ncells
+        self._periodic    = periodic
+        self._is_parallel = comm is not None
         # ...
 
     def export( self, filename ):

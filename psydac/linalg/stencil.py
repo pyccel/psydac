@@ -687,7 +687,7 @@ class StencilVector( Vector ):
         direction : int
             Single direction along which to operate (if not specified, all of them).
         """
-        if self.space.parallel:
+        if self.space.parallel and not self.space.cart.is_comm_null:
             # PARALLEL CASE: fill in ghost regions with data from neighbors
             self.space._synchronizer.update_assembly_ghost_regions( self._data )
         else:
@@ -1767,7 +1767,9 @@ class StencilInterfaceMatrix(Matrix):
                 cart        = W.cart,
                 dtype       = W.dtype,
                 coeff_shape = diags,
-                assembly    = True
+                assembly    = True,
+                axis        = c_axis,
+                shape       = self._data.shape
             )
 
         self._flip        = tuple([1]*len(dims) if flip is None else flip)
@@ -2292,7 +2294,7 @@ class StencilInterfaceMatrix(Matrix):
 
         if self._codomain.parallel:
             # PARALLEL CASE: fill in ghost regions with data from neighbors
-            self._synchronizer.update_assembly_ghost_regions( self._data, axis=self._c_axis )
+            self._synchronizer.update_assembly_ghost_regions( self._data )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._update_assembly_ghost_regions_serial()

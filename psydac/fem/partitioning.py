@@ -95,7 +95,7 @@ def create_cart(domain_h, spaces):
         pads         = [V._pads    for V in spaces]
         multiplicity = [V.multiplicity for V in spaces]
 
-        global_spans  = [elements_spans( V.knots, V.degree ) for V in spaces]
+        global_spans  = [elements_spans( V.knots, V.degree )-V.degree*V.periodic for V in spaces]
         global_starts = [np.array([0] + [spans[s-1]+1 for s in starts[1:]]) for starts,spans in zip(domain_h.global_element_starts, global_spans)]
         global_ends   = [np.array([spans[e] for e in ends]) for ends,spans in zip(domain_h.global_element_ends, global_spans)]
         for s,e,V in zip(global_starts, global_ends, spaces):

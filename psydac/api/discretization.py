@@ -247,12 +247,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
         if not( comm is None ) and ldim == 1:
             raise NotImplementedError('must create a TensorFemSpace in 1d')
 
-        if comm is not None:
-            cart = domain_h.cart
-            if len(interiors) == 1:
-                carts = [cart]
-            else:
-                carts = cart.carts
     else:
 
         if isinstance( degree, (list, tuple) ):
@@ -290,16 +284,10 @@ def discretize_space(V, domain_h, *args, **kwargs):
                  # Create 1D finite element spaces and precompute quadrature data
                 spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]
 
-        carts = create_cart(ddms, spaces)
+        carts    = create_cart(ddms, spaces)
+        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], quad_order=quad_order) for i,inter in enumerate(interiors)}
 
-        for i,interior in enumerate(interiors):
-            if comm is not None:
-                Vh = TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], quad_order=quad_order)
-            else:
-                Vh = TensorFemSpace( ddms[i], *spaces[i], quad_order=quad_order)
-
-            g_spaces[interior] = Vh
-
+        # ... construct interface spaces
         construct_interface_spaces(domain_h.ddm, g_spaces, carts, interiors, connectivity)
 
     for inter in g_spaces:

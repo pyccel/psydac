@@ -216,6 +216,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         if vector_space.parallel and vector_space.cart.num_threads>1:
             self._num_threads = vector_space.cart.num_threads
 
+        self._update_ghost_regions = kwargs.get('update_ghost_regions', True)
+
         if vector_space.parallel and vector_space.cart.is_comm_null:
             self._free_args = ()
             self._func      = do_nothing
@@ -224,6 +226,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             self._element_loop_ends   = ()
             self._global_matrices     = ()
             self._threads_args        = ()
+            self._update_ghost_regions = False
             return
 
         # ...
@@ -417,7 +420,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             reset_arrays(*self.global_matrices)
 
         self._func(*args, *self._threads_args)
-        if self._matrix:
+        if self._matrix and self._update_ghost_regions:
             self._matrix.update_assembly_ghost_regions()
         return self._matrix
 
@@ -740,12 +743,15 @@ class DiscreteLinearForm(BasicDiscrete):
         if vector_space.parallel and vector_space.cart.num_threads>1:
             self._num_threads = vector_space.cart._num_threads
 
+        self._update_ghost_regions = kwargs.get('update_ghost_regions', True)
+
         if vector_space.parallel and (vector_space.cart.is_comm_null or isinstance(vector_space.cart, InterfaceCartDecomposition)):
             self._free_args = ()
             self._func      = do_nothing
             self._args      = ()
             self._threads_args     = ()
             self._global_matrices  = ()
+            self._update_ghost_regions = False
             return
 
         is_rational_mapping = False
@@ -863,7 +869,8 @@ class DiscreteLinearForm(BasicDiscrete):
             reset_arrays(*self.global_matrices)
 
         self._func(*args, *self._threads_args)
-        self._vector.update_assembly_ghost_regions()
+        if self._vector and self._update_ghost_regions:
+            self._vector.update_assembly_ghost_regions()
         return self._vector
 
     def get_space_indices_from_target(self, domain, target):
@@ -1122,14 +1129,13 @@ class DiscreteFunctional(BasicDiscrete):
         return i
 
     def construct_arguments(self):
-        sk          = self.grid.local_element_start
-        ek          = self.grid.local_element_end
-        points      = [p[s:e+1] for s,e,p in zip(sk,ek,self.grid.points)]
-        weights     = [w[s:e+1] for s,e,w in zip(sk,ek,self.grid.weights)]
-        n_elements  = [e-s+1 for s,e in zip(sk,ek)]
-        tests_basis = [[bs[s:e+1] for s,e,bs in zip(sk,ek,basis)] for basis in self.test_basis.basis]
-        spans       = [[sp[s:e+1] for s,e,sp in zip(sk,ek,spans)] for spans in self.test_basis.spans]
 
+        n_elements  = [e-s+1 for s,e in zip(self.grid.local_element_start,self.grid.local_element_end)]
+
+        points        = self.grid.points
+        weights       = self.grid.weights
+        tests_basis   = self.test_basis.basis
+        spans         = self.test_basis.spans
         tests_degrees = self.space.degree
 
         tests_basis, tests_degrees, spans = collect_spaces(self.space.symbolic_space, tests_basis, tests_degrees, spans)
@@ -1149,8 +1155,7 @@ class DiscreteFunctional(BasicDiscrete):
             space      = self.mapping._fields[0].space
             map_degree = space.degree
             map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
-            map_span   = [span[q.local_element_start:q.local_element_end+1] for q,span in zip(space.quad_grids, map_span)]
-            map_basis  = [q.basis[q.local_element_start:q.local_element_end+1] for q in space.quad_grids]
+            map_basis  = [q.basis for q in space.quad_grids]
 
             if self.is_rational_mapping:
                 mapping = [*mapping, self.mapping._weights_field._coeffs._data]
@@ -1221,10 +1226,12 @@ class DiscreteSumForm(BasicDiscrete):
         for e in kernel_expr:
             kwargs['target'] = e.target
             if isinstance(a, sym_BilinearForm):
+                kwargs['update_ghost_regions'] = False
                 ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
                 kwargs['matrix'] = ah._matrix
 
             elif isinstance(a, sym_LinearForm):
+                kwargs['update_ghost_regions'] = False
                 ah = DiscreteLinearForm(a, e, *args, backend=backend, **kwargs)
                 kwargs['vector'] = ah._vector
 
@@ -1266,6 +1273,7 @@ class DiscreteSumForm(BasicDiscrete):
                 reset_arrays(*[i for M in self.forms for i in M.global_matrices])
             for form in self.forms:
                 M = form.assemble(reset=False, **kwargs)
+            M.update_assembly_ghost_regions()
         else:
             M = [form.assemble(**kwargs) for form in self.forms]
             M = np.sum(M)

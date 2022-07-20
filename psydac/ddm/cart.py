@@ -1019,9 +1019,9 @@ class InterfaceCartDecomposition(CartDecomposition):
             self._global_ends           = self._global_ends_minus
 
             # Start/end values of global indices (without ghost regions)
-            coords       = self._coords_from_rank_minus[self._local_rank_minus]
-            self._starts = tuple( self._global_starts[d][c] for d,c in enumerate(coords) )
-            self._ends   = tuple( self._global_ends  [d][c] for d,c in enumerate(coords) )
+            self._coords = self._coords_from_rank_minus[self._local_rank_minus]
+            self._starts = tuple( self._global_starts[d][c] for d,c in enumerate(self._coords) )
+            self._ends   = tuple( self._global_ends  [d][c] for d,c in enumerate(self._coords) )
             self._domain_h = domain_h_minus
 
         if self._local_rank_plus is not None:
@@ -1036,9 +1036,9 @@ class InterfaceCartDecomposition(CartDecomposition):
             self._global_ends           = self._global_ends_plus
 
             # Start/end values of global indices (without ghost regions)
-            coords       = self._coords_from_rank_plus[self._local_rank_plus]
-            self._starts = tuple( self._global_starts[d][c] for d,c in enumerate(coords) )
-            self._ends   = tuple( self._global_ends  [d][c] for d,c in enumerate(coords) )
+            self._coords = self._coords_from_rank_plus[self._local_rank_plus]
+            self._starts = tuple( self._global_starts[d][c] for d,c in enumerate(self._coords) )
+            self._ends   = tuple( self._global_ends  [d][c] for d,c in enumerate(self._coords) )
             self._domain_h = domain_h_plus
         # List of 1D global indices (without ghost regions)
         self._grids = tuple( range(s,e+1) for s,e in zip( self._starts, self._ends ) )
@@ -1520,17 +1520,18 @@ class CartDataExchanger:
         (optional: by default, we assume scalar coefficients).
 
     """
-    def __init__( self, cart, dtype, *, coeff_shape=(),  assembly=False ):
+    def __init__( self, cart, dtype, *, coeff_shape=(),  assembly=False, axis=None, shape=None ):
 
         self._send_types, self._recv_types = self._create_buffer_types(
                 cart, dtype, coeff_shape=coeff_shape )
 
         self._cart = cart
         self._comm = cart.comm_cart
+        self._axis = axis
 
         if assembly:
             self._assembly_send_types, self._assembly_recv_types = self._create_assembly_buffer_types(
-                cart, dtype, coeff_shape=coeff_shape)
+                cart, dtype, coeff_shape=coeff_shape, axis=axis, shape=shape)
     #---------------------------------------------------------------------------
     # Public interface
     #---------------------------------------------------------------------------
@@ -1607,7 +1608,7 @@ class CartDataExchanger:
         MPI.Request.Waitall( requests )
 
     # ...
-    def update_assembly_ghost_regions( self, array, axis=None ):
+    def update_assembly_ghost_regions( self, array ):
         """
         Update ghost regions after the assembly algorithm in a numpy array with dimensions compatible with
         CartDecomposition (and coeff_shape) provided at initialization.
@@ -1622,12 +1623,10 @@ class CartDataExchanger:
 
 
         # Shortcuts
-        cart = self._cart
-        comm = self._comm
-        ndim = cart.ndim
-
-        if axis is not None:
-            comm = cart.subcomm[axis]
+        cart  = self._cart
+        comm  = self._comm
+        gcomm = comm
+        ndim  = cart.ndim
 
         # Choose non-negative invertible function tag(disp) >= 0
         # NOTES:
@@ -1639,19 +1638,30 @@ class CartDataExchanger:
 
         disps = [1 if P else -1 for P in cart.periods]
         for direction in range( ndim ):
-            if direction == axis:continue
+            if direction == self._axis:continue
+            if self._axis is not None: comm = cart.subcomm[direction]
+
             # Start receiving data (MPI_IRECV)
-            disp     = disps[direction]
-            info     = cart.get_shift_info( direction, disp )
-            recv_typ = self.get_assembly_recv_type ( direction, disp )
+            disp        = disps[direction]
+            info        = cart.get_shift_info( direction, disp )
+            recv_typ    = self.get_assembly_recv_type ( direction, disp )
+            rank_source = info['rank_source']
+
+            if self._axis is not None:
+                rank_source = comm.group.Translate_ranks(gcomm.group, np.array([rank_source]), comm.group)[0]
+            
             recv_buf = (array, 1, recv_typ)
-            recv_req = comm.Irecv( recv_buf, info['rank_source'], tag(disp) )
+            recv_req = comm.Irecv( recv_buf, rank_source, tag(disp) )
 
             # Start sending data (MPI_ISEND)
-            info     = cart.get_shift_info( direction, disp )
             send_typ = self.get_assembly_send_type ( direction, disp )
+            rank_dest = info['rank_dest']
+
+            if self._axis is not None:
+                rank_dest = comm.group.Translate_ranks(gcomm.group, np.array([rank_dest]), comm.group)[0]
+
             send_buf = (array, 1, send_typ)
-            send_req = comm.Isend( send_buf, info['rank_dest'], tag(disp) )
+            send_req = comm.Isend( send_buf, rank_dest, tag(disp) )
 
             # Wait for end of data exchange (MPI_WAITALL)
             MPI.Request.Waitall( [recv_req, send_req] )
@@ -1752,7 +1762,7 @@ class CartDataExchanger:
 
     # ...
     @staticmethod
-    def _create_assembly_buffer_types( cart, dtype, *, coeff_shape=(), axis=None ):
+    def _create_assembly_buffer_types( cart, dtype, *, coeff_shape=(), axis=None, shape=None ):
         """
         Create MPI subarray datatypes for updating the ghost regions (padding)
         of a multi-dimensional array distributed according to the given Cartesian
@@ -1796,6 +1806,9 @@ class CartDataExchanger:
         send_types = {}
         recv_types = {}
 
+        if axis is not None:
+            data_shape[axis] = shape[axis]
+
         for direction in range( cart.ndim ):
             for disp in [-1, 1]:
                 info = cart.get_shift_info( direction, disp )
@@ -1803,6 +1816,11 @@ class CartDataExchanger:
                 buf_shape   = list( info[ 'buf_shape' ] ) + coeff_shape
                 send_starts = list( info['send_assembly_starts'] ) + coeff_start
                 recv_starts = list( info['recv_assembly_starts'] ) + coeff_start
+                if direction == axis:continue
+                if axis is not None:
+                    buf_shape[axis]   = shape[axis]
+                    send_starts[axis] = 0
+                    recv_starts[axis] = 0
 
                 send_types[direction,disp] = mpi_type.Create_subarray(
                     sizes    = data_shape ,
@@ -1845,8 +1863,8 @@ class InterfaceCartDataExchanger:
         self._dtype         = dtype
         self._send_types    = send_types
         self._recv_types    = recv_types
-        self._dest_ranks    = cart.get_communication_infos( cart.axis )['dest_ranks']
-        self._source_ranks  = cart.get_communication_infos( cart.axis )['source_ranks']
+        self._dest_ranks    = cart.get_interface_communication_infos( cart.axis )['dest_ranks']
+        self._source_ranks  = cart.get_interface_communication_infos( cart.axis )['source_ranks']
 
     # ...
     def update_ghost_regions( self, array_minus=None, array_plus=None ):
@@ -1889,7 +1907,7 @@ class InterfaceCartDataExchanger:
         assert isinstance( cart, InterfaceCartDecomposition )
 
         mpi_type = find_mpi_type( dtype )
-        info     = cart.get_communication_infos( cart.axis )
+        info     = cart.get_interface_communication_infos( cart.axis )
 
         # Possibly, each coefficient could have multiple components
         coeff_shape = list( coeff_shape )
