@@ -99,7 +99,7 @@ def create_cart(domain_h, spaces):
         global_starts = [np.array([0] + [spans[s-1]+1 for s in starts[1:]]) for starts,spans in zip(domain_h.global_element_starts, global_spans)]
         global_ends   = [np.array([spans[e] for e in ends]) for ends,spans in zip(domain_h.global_element_ends, global_spans)]
         for s,e,V in zip(global_starts, global_ends, spaces):
-            assert all(e-s+1>=V.degree+1)
+            assert all(e-s+1>=V.degree*(1-V.periodic)+1)
 
         carts = [CartDecomposition(
                 domain_h      = domain_h,
@@ -114,18 +114,12 @@ def create_cart(domain_h, spaces):
             npts         = [V.nbasis   for V in spaces[i]]
             pads         = [V._pads    for V in spaces[i]]
             multiplicity = [V.multiplicity for V in spaces[i]]
-
-            global_spans  = [elements_spans( V.knots, V.degree ) for V in spaces[i]]
+            global_spans  = [elements_spans( V.knots, V.degree )-V.degree*V.periodic for V in spaces[i]]
             global_starts = [np.array([0] + [spans[s-1]+1 for s in starts[1:]]) for starts,spans in zip(domain_h[i].global_element_starts, global_spans)]
             global_ends   = [np.array([spans[e] for e in ends]) for ends,spans in zip(domain_h[i].global_element_ends, global_spans)]
 
-            if domain_h[i].is_parallel:
-                for s,e,V in zip(global_starts, global_ends, spaces[i]):
-                    if not all(e-s+1>=V.degree+1):
-                        MPI.Abort(1)
-            else:
-                for s,e,V in zip(global_starts, global_ends, spaces[i]):
-                    assert all(e-s+1>=V.degree+1)
+            for s,e,V in zip(global_starts, global_ends, spaces[i]):
+                assert all(e-s+1>=V.degree*(1-V.periodic)+1)
 
             carts.append(CartDecomposition(
                             domain_h      = domain_h[i],

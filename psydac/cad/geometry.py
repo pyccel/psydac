@@ -236,7 +236,6 @@ class Geometry( object ):
                 ncells  [interiors[i_patch].name] = [sp.ncells for sp in space_i]
                 periodic[interiors[i_patch].name] = periodic_i
 
-        print(ncells)
         self._cart = None
         if n_patches == 1:
             self._ddm = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm)
