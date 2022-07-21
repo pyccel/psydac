@@ -290,6 +290,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
         # ... construct interface spaces
         construct_interface_spaces(domain_h.ddm, g_spaces, carts, interiors, connectivity)
 
+    new_g_spaces = {}
     for inter in g_spaces:
         Vh = g_spaces[inter]
         if isinstance(V, ProductSpace):
@@ -301,9 +302,67 @@ def discretize_space(V, domain_h, *args, **kwargs):
             Vh = reduce_space_degrees(V, Vh, basis=basis, sequence=sequence)
 
         Vh.symbolic_space = V
-        g_spaces[inter]   = Vh
+        new_g_spaces[inter]   = Vh
 
-    Vh = ProductFemSpace(*g_spaces.values(), connectivity=connectivity)
+    for i,j in connectivity:
+        axes = connectivity[i,j][0]
+        exts = connectivity[i,j][1]
+        patch_i = interiors[i]
+        patch_j = interiors[i]
+        space_i = g_spaces[patch_i]._interfaces[axes[0], exts[0]]
+        space_j = g_spaces[patch_j]._interfaces[axes[1], exts[1]]
+        cart_i  = g_spaces[patch_i]._interfaces[axes[0], exts[0]].cart
+        cart_j  = g_spaces[patch_j]._interfaces[axes[1], exts[1]].cart
+
+
+        ((axis_i, axis_j), (ext_i , ext_j)) = connectivity[i, j]
+
+        if isinstance(cart_i, InterfaceCartDecomposition):
+            assert cart_i is cart_j
+            if isinstance(new_g_spaces[patch_i], ProductFemSpace):
+                for Vi,Vj in zip(new_g_spaces[patch_i].spaces, new_g_spaces[patch_j].spaces):
+                    npts_i = [Vik.npts for Vik in Vi.spaces]
+                    npts_j = [Vik.npts for Vik in Vj.spaces]
+                    global_starts_i = Vi.cart.global_starts
+                    global_starts_j = Vj.cart.global_starts
+                    global_ends_i   = Vi.cart.global_ends
+                    global_ends_j   = Vj.cart.global_ends
+                    shifts_i        = Vi.cart.shifts
+                    shifts_j        = Vj.cart.shifts
+                    cart_ij         = cart_i.reduce_npts([npts_i, npts_j],
+                                                         [global_starts_i, global_starts_j],
+                                                         [global_ends_i, global_ends_j],
+                                                         [shifts_i, shifts_j])
+                    Vi.create_interface_space(axis_i, ext_i, cart=cart_ij)
+                    Vj.create_interface_space(axis_j, ext_j, cart=cart_ij)
+            else:
+                Vi = new_g_spaces[patch_i]
+                Vj = new_g_spaces[patch_j]
+                npts_i = [Vik.npts for Vik in Vi.spaces]
+                npts_j = [Vik.npts for Vik in Vj.spaces]
+                global_starts_i = Vi.cart.global_starts
+                global_starts_j = Vj.cart.global_starts
+                global_ends_i   = Vi.cart.global_ends
+                global_ends_j   = Vj.cart.global_ends
+                shifts_i        = Vi.cart.shifts
+                shifts_j        = Vj.cart.shifts
+                cart_ij         = cart_i.reduce_npts([npts_i, npts_j],
+                                                     [global_starts_i, global_starts_j],
+                                                     [global_ends_i, global_ends_j],
+                                                     [shifts_i, shifts_j])
+                Vi.create_interface_space(axis_i, ext_i, cart=cart_ij)
+                Vj.create_interface_space(axis_j, ext_j, cart=cart_ij)
+
+        else:
+            if isinstance(new_g_spaces[patch_i], ProductFemSpace):
+                for Vi,Vj in zip(new_g_spaces[patch_i].spaces, new_g_spaces[patch_j].spaces):
+                    Vi.create_interface_space(axis_i, ext_i, cart=Vi.cart)
+                    Vj.create_interface_space(axis_j , ext_j , cart=Vj.cart)
+            else:
+                    new_g_spaces[patch_i].create_interface_space(axis_i, ext_i, cart=Vi.cart)
+                    new_g_spaces[patch_j].create_interface_space(axis_j , ext_j , cart=Vj.cart)
+
+    Vh = ProductFemSpace(*new_g_spaces.values(), connectivity=connectivity)
 
     Vh.symbolic_space = V
 

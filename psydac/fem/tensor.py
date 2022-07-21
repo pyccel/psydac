@@ -1004,26 +1004,21 @@ class TensorFemSpace( FemSpace ):
             spaces[axis] = reduced_space
 
         # create new Tensor Vector
-        n_elements   = [s1.nbasis-s2.nbasis for s1,s2 in zip(self.spaces, spaces)]
+        npts         = [s.nbasis for s in spaces]
         multiplicity = [s.multiplicity for s in spaces]
 
-        if v.cart:
-            red_cart = v.cart.reduce_elements(axes, n_elements, multiplicity)
-            tensor_vec = TensorFemSpace(self._domain, *spaces, cart=red_cart, quad_order=self._quad_order)
-        else:
-            v = v.reduce_elements(axes, n_elements, multiplicity)
-            tensor_vec = TensorFemSpace(self._domain, *spaces, quad_order=self._quad_order, vector_space=v)
+
+        global_spans  = [elements_spans( V.knots, V.degree )-V.degree*V.periodic for V in spaces]
+        global_starts = [np.array([0] + [spans[s-1]+1 for s in starts[1:]]) for starts,spans in zip(v.cart.domain_h.global_element_starts, global_spans)]
+        global_ends   = [np.array([spans[e] for e in ends]) for ends,spans in zip(v.cart.domain_h.global_element_ends, global_spans)]
+
+        red_cart   = v.cart.reduce_npts(axes, npts, global_starts, global_ends, shifts=multiplicity)
+        tensor_vec = TensorFemSpace(self._domain, *spaces, cart=red_cart, quad_order=self._quad_order)
 
         tensor_vec._interpolation_ready = False
-        for a,e in self._interfaces:
-            v    = self._vector_space._interfaces[a,e]
-            cart = v.cart
-            if cart:cart = v.cart.reduce_elements(axes, n_elements, multiplicity)
-            tensor_vec.create_interface_space(a, e, cart=cart)
-
         return tensor_vec
 
-    def create_interface_space(self, axis, ext, cart=None):
+    def create_interface_space(self, axis, ext, cart):
         """ Create a new interface fem space along a given axis and extremity.
 
         Parameters
@@ -1037,14 +1032,12 @@ class TensorFemSpace( FemSpace ):
 
          cart: CartDecomposition
           The cart of the new space, needed in the parallel case.
+
         """
         axis = int(axis)
         ext  = int(ext)
         assert axis<self.ldim
         assert ext in [-1,1]
-        if cart is not None:
-            assert isinstance(cart, CartDecomposition)
-            if cart.is_comm_null:return
 
         spaces       = self.spaces
         vector_space = self.vector_space

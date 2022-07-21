@@ -126,6 +126,7 @@ class Geometry( object ):
 
         if periodic is None:
             periodic = [False]*domain.dim
+            print(periodic, domain.dim)
 
         if isinstance(periodic, (list, tuple)):
             periodic = {itr.name:periodic for itr in interior}

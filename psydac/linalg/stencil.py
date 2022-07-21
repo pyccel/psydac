@@ -104,7 +104,7 @@ class StencilVectorSpace( VectorSpace ):
         self._ends       = cart.ends
 
         # The shape of the allocated numpy array
-        self._shape      = cart.shape
+        self._shape         = cart.shape
         self._parent_starts = cart.parent_starts
         self._parent_ends   = cart.parent_ends
         self._mpi_type      = find_mpi_type(dtype)
@@ -120,7 +120,6 @@ class StencilVectorSpace( VectorSpace ):
                 self._shape = cart.get_interface_communication_infos(cart.axis)['gbuf_recv_shape'][0]
             else:
                 self._synchronizer = CartDataExchanger( cart, dtype , assembly=True)
-                self._shape         = cart.shape
 
     #--------------------------------------
     # Abstract interface
@@ -150,31 +149,6 @@ class StencilVectorSpace( VectorSpace ):
         """
         return StencilVector( self )
 
-    def reduce_elements(self, axes, n_elements, shifts):
-        """ Compute the reduced space.
-
-        Parameters
-        ----------
-        axes: tuple_like (int)
-            Reduced directions.
-
-        n_elements: tuple_like (int)
-            Number of elements to substract from the space.
-
-        shifts: tuple_like (int)
-            shifts in each direction
-
-        Returns
-        -------
-        v: StencilVectorSpace
-            The reduced space.
-        """
-        assert not self.parallel
-        npts   = [n-ne for n,ne in zip(self.npts, n_elements)]
-        v = StencilVectorSpace(npts=npts, pads=self.pads, periods=self.periods, shifts=shifts)
-        v._parent_starts = self.starts
-        v._parent_ends   = self.ends
-        return v
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
@@ -314,7 +288,7 @@ class StencilVector( Vector ):
 
         # allocate data for the boundary that shares an interface
         for axis, ext in V._interfaces:
-            if V.parallel and isinstance(V._interfaces[axis, ext].cart, InterfaceCartDecomposition):
+            if isinstance(V._interfaces[axis, ext].cart, InterfaceCartDecomposition):
                 # case where each patche belongs to a diffrent mpi rank
                 data  = np.zeros( V._interfaces[axis, ext].shape, dtype=V.dtype )
             else:
