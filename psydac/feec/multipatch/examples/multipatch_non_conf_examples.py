@@ -27,7 +27,8 @@ from scipy.linalg        import norm
 from psydac.linalg.utilities import array_to_stencil
 from psydac.fem.basic        import FemField
 
-from psydac.feec.multipatch.examples.non_conf_domains_examples import create_square_domain, construct_V1_conforming_projection
+from psydac.feec.multipatch.examples.non_conf_domains_examples import create_square_domain
+from psydac.feec.multipatch.multipatch_non_conf_scipy import construct_V1_conforming_projection
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 

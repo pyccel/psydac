@@ -17,7 +17,6 @@ from psydac.api.settings              import PSYDAC_BACKENDS
 from psydac.fem.splines               import SplineSpace
 
 from psydac.feec.multipatch.multipatch_domain_utilities import union, set_interfaces, build_multipatch_domain
-from psydac.feec.multipatch.multipatch_non_conf_scipy import construct_V1_conforming_projection
 
 def create_square_domain(ncells, interval_x, interval_y, mapping='identity'):
 
