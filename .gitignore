@@ -25,9 +25,6 @@ psydac/core/*.so
 psydac/core/*.lock
 __*pyccel__
 .env
-*run_plots*
-matrices_curved_L_shape_*
-plots*
-saved_matrices*
-eigenpbm_curl-curl_diags.txt
-saved_solutions*
+
+# pytest directories
+__test__/

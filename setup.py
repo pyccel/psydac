@@ -56,8 +56,8 @@ install_requires = [
     'pyevtk',
 
     # Our packages from PyPi
-    'sympde>=0.13',
-    'pyccel>=0.10.1',
+    'sympde==0.15.1',
+    'pyccel>=1.5.1',
     'gelato==0.11',
 
     # Alternative backend to Pyccel is Numba
