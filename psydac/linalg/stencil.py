@@ -1768,7 +1768,7 @@ class StencilInterfaceMatrix(Matrix):
         nrows         = [min(ni,nj) for ni,nj  in zip(nc, nd)]
         nrows_extra   = [max(0,ni-nj) for ni,nj in zip(nc, nd)]
         nrows_extra[c_axis] = max(W.npts[c_axis]-Vin.npts[c_axis], 0)
-        nrows[c_axis] = self._pads[c_axis] + 1-diff-nrows_extra[c_axis]
+        nrows[c_axis] = W.pads[c_axis] + 1-diff-nrows_extra[c_axis]
 
         args                 = {}
         args['starts']       = tuple(Vin.starts)
@@ -1850,7 +1850,6 @@ class StencilInterfaceMatrix(Matrix):
         ndiags, _ = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
         bb        = [p*m+p+1-n-s%m for p,m,n,s in zip(gpads, dm, ndiags, starts)]
         nn        = v.shape
-
         for xx in np.ndindex( *nrows ):
             ii    = [ mi*pi + x for mi,pi,x in zip(cm, gpads, xx) ]
             jj    = tuple( slice(b-d+(x+s%mj)//mi*mj,b-d+(x+s%mj)//mi*mj+n) for x,mi,mj,b,s,n,d in zip(xx,cm,dm,bb,starts,ndiags,diff) )
