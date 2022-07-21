@@ -270,5 +270,5 @@ def construct_reduced_interface_spaces(spaces, reduced_spaces, interiors, connec
                     Vi.create_interface_space(axis_i, ext_i, cart=Vi.vector_space.cart)
                     Vj.create_interface_space(axis_j , ext_j , cart=Vj.vector_space.cart)
             else:
-                    reduced_spaces[patch_i].create_interface_space(axis_i, ext_i, cart=Vi.vector_space.cart)
-                    reduced_spaces[patch_j].create_interface_space(axis_j , ext_j , cart=Vj.vector_space.cart)
+                reduced_spaces[patch_i].create_interface_space(axis_i, ext_i, cart=reduced_spaces[patch_i].vector_space.cart)
+                reduced_spaces[patch_j].create_interface_space(axis_j , ext_j , cart=reduced_spaces[patch_j].vector_space.cart)

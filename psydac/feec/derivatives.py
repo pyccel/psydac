@@ -11,6 +11,7 @@ from psydac.fem.tensor      import TensorFemSpace
 from psydac.linalg.identity import IdentityStencilMatrix, IdentityMatrix
 from psydac.fem.basic       import FemField
 from psydac.linalg.basic    import Matrix
+from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
 
 __all__ = (
     'DirectionalDerivativeOperator',
@@ -193,12 +194,16 @@ class DirectionalDerivativeOperator(Matrix):
         # build derivative stencil matrix (don't care for transposition here)
         # hence, use spaceV and spaceW instead of domain, codomain
         periodic_d = self._spaceV.periods[self._diffdir]
+        nc  = self._spaceV.cart.domain_h.ncells[self._diffdir]
         p_d = self._spaceV.pads[self._diffdir]
         n_d = self._spaceV.npts[self._diffdir]
         m_d = self._spaceW.npts[self._diffdir]
 
-        V1_d = StencilVectorSpace([n_d], [p_d], [periodic_d])
-        V2_d = StencilVectorSpace([m_d], [p_d], [periodic_d])
+        domain_1d = DomainDecomposition([nc], [periodic_d])
+        cart1_1d  = CartDecomposition( domain_1d, [n_d], [np.array([0])], [np.array([n_d-1])], [p_d], [1] )
+        cart2_1d  = CartDecomposition( domain_1d, [m_d], [np.array([0])], [np.array([m_d-1])], [p_d], [1] )
+        V1_d = StencilVectorSpace(cart1_1d)
+        V2_d = StencilVectorSpace(cart2_1d)
         M  = StencilMatrix(V1_d, V2_d)
 
         # handle sign already here for now...
@@ -212,10 +217,13 @@ class DirectionalDerivativeOperator(Matrix):
 
         # identity matrices
         def make_id(i):
+            nc  = self._spaceV.cart.domain_h.ncells[i]
             n_i = self._domain.npts[i]
             p_i = self._domain.pads[i]
             periodic_i = self._domain.periods[i]
-            return IdentityStencilMatrix(StencilVectorSpace([n_i], [p_i], [periodic_i]))
+            domain_1d  = DomainDecomposition([nc], [periodic_i])
+            cart       = CartDecomposition( domain_1d, [n_i], [np.array([0])], [np.array([n_i-1])], [p_i], [1] )
+            return IdentityStencilMatrix(StencilVectorSpace(cart))
 
         # combine to Kronecker matrix
         mats = [M if i == self._diffdir else make_id(i) for i in range(self._domain.ndim)]

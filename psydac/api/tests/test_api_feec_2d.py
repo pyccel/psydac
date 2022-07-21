@@ -280,8 +280,8 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     #--------------------------------------------------------------------------
 
     # Discrete physical domain and discrete DeRham sequence
-    domain_h = discretize(domain, ncells=[ncells, ncells], comm=MPI.COMM_WORLD)
-    derham_h = discretize(derham, domain_h, degree=[degree, degree], periodic=[periodic, periodic])
+    domain_h = discretize(domain, ncells=[ncells, ncells], periodic=[periodic, periodic], comm=MPI.COMM_WORLD)
+    derham_h = discretize(derham, domain_h, degree=[degree, degree])
 
     # Discrete bilinear forms
     a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
