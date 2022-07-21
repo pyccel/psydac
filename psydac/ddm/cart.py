@@ -920,6 +920,8 @@ class InterfaceCartDecomposition(CartDecomposition):
         ranks_in_topo_minus, ranks_in_topo_plus = ranks_in_topo
 
         self._ndims         = len( npts_minus )
+        self._domain_h_minus = domain_h_minus
+        self._domain_h_plus  = domain_h_plus
         self._npts_minus    = npts_minus
         self._npts_plus     = npts_plus
         self._global_starts_minus = global_starts_minus
@@ -1079,6 +1081,14 @@ class InterfaceCartDecomposition(CartDecomposition):
     @property
     def ndims( self ):
         return self._ndims
+
+    @property
+    def domain_h_minus( self ):
+        return self._domain_h_minus
+
+    @property
+    def domain_h_plus( self ):
+        return self._domain_h_plus
 
     @property
     def npts_minus( self ):
@@ -1289,6 +1299,9 @@ class InterfaceCartDecomposition(CartDecomposition):
                                           local_communicators, root_ranks, requests, reduce_elements=True)
         cart._parent_starts = self.starts
         cart._parent_ends   = self.ends
+        cart._parent_npts_minus = self.npts_minus
+        cart._parent_npts_plus = self.npts_plus
+
         return cart
 
     def set_interface_communication_infos( self, get_minus_starts_ends, get_plus_starts_ends ):

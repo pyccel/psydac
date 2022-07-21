@@ -5,8 +5,9 @@ import numpy as np
 from mpi4py import MPI
 from sympde.topology import Interface
 
-from psydac.ddm.cart       import CartDecomposition, InterfacesCartDecomposition
+from psydac.ddm.cart       import CartDecomposition, InterfacesCartDecomposition, InterfaceCartDecomposition
 from psydac.core.bsplines  import elements_spans
+from psydac.fem.vector     import ProductFemSpace
 
 def construct_connectivity(domain):
     """ 
@@ -209,3 +210,65 @@ def construct_interface_spaces(domain_h, g_spaces, carts, interiors, connectivit
         g_spaces[interiors[i]].create_interface_space(axis_minus, ext_minus, cart=cart_minus)
         g_spaces[interiors[j]].create_interface_space(axis_plus , ext_plus , cart=cart_plus)
 
+def construct_reduced_interface_spaces(spaces, reduced_spaces, interiors, connectivity):
+    for i,j in connectivity:
+        axes = connectivity[i,j][0]
+        exts = connectivity[i,j][1]
+        patch_i = interiors[i]
+        patch_j = interiors[j]
+        space_i = spaces[patch_i]._interfaces.get((axes[0], exts[0]), None)
+        space_j = spaces[patch_j]._interfaces.get((axes[1], exts[1]), None)
+
+        if space_i is None or space_j is None: continue
+
+        cart_i  = space_i.vector_space.cart
+        cart_j  = space_j.vector_space.cart
+
+        ((axis_i, axis_j), (ext_i , ext_j)) = connectivity[i, j]
+
+        if isinstance(cart_i, InterfaceCartDecomposition):
+            assert cart_i is cart_j
+            if isinstance(reduced_spaces[patch_i], ProductFemSpace):
+                for Vi,Vj in zip(reduced_spaces[patch_i].spaces, reduced_spaces[patch_j].spaces):
+                    npts_i = [Vik.nbasis for Vik in Vi.spaces]
+                    npts_j = [Vik.nbasis for Vik in Vj.spaces]
+                    global_starts_i = Vi.vector_space.cart.global_starts
+                    global_starts_j = Vj.vector_space.cart.global_starts
+                    global_ends_i   = Vi.vector_space.cart.global_ends
+                    global_ends_j   = Vj.vector_space.cart.global_ends
+                    shifts_i        = Vi.vector_space.cart.shifts
+                    shifts_j        = Vj.vector_space.cart.shifts
+                    cart_ij         = cart_i.reduce_npts([npts_i, npts_j],
+                                                         [global_starts_i, global_starts_j],
+                                                         [global_ends_i, global_ends_j],
+                                                         [shifts_i, shifts_j])
+                    cart_ij.set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
+                    Vi.create_interface_space(axis_i, ext_i, cart=cart_ij)
+                    Vj.create_interface_space(axis_j, ext_j, cart=cart_ij)
+            else:
+                Vi = reduced_spaces[patch_i]
+                Vj = reduced_spaces[patch_j]
+                npts_i = [Vik.nbasis for Vik in Vi.spaces]
+                npts_j = [Vik.nbasis for Vik in Vj.spaces]
+                global_starts_i = Vi.vector_space.cart.global_starts
+                global_starts_j = Vj.vector_space.cart.global_starts
+                global_ends_i   = Vi.vector_space.cart.global_ends
+                global_ends_j   = Vj.vector_space.cart.global_ends
+                shifts_i        = Vi.vector_space.cart.shifts
+                shifts_j        = Vj.vector_space.cart.shifts
+                cart_ij         = cart_i.reduce_npts([npts_i, npts_j],
+                                                     [global_starts_i, global_starts_j],
+                                                     [global_ends_i, global_ends_j],
+                                                     [shifts_i, shifts_j])
+                cart_ij.set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
+                Vi.create_interface_space(axis_i, ext_i, cart=cart_ij)
+                Vj.create_interface_space(axis_j, ext_j, cart=cart_ij)
+
+        else:
+            if isinstance(reduced_spaces[patch_i], ProductFemSpace):
+                for Vi,Vj in zip(reduced_spaces[patch_i].spaces, reduced_spaces[patch_j].spaces):
+                    Vi.create_interface_space(axis_i, ext_i, cart=Vi.vector_space.cart)
+                    Vj.create_interface_space(axis_j , ext_j , cart=Vj.vector_space.cart)
+            else:
+                    reduced_spaces[patch_i].create_interface_space(axis_i, ext_i, cart=Vi.vector_space.cart)
+                    reduced_spaces[patch_j].create_interface_space(axis_j , ext_j , cart=Vj.vector_space.cart)

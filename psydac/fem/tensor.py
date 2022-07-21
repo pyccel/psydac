@@ -1038,7 +1038,7 @@ class TensorFemSpace( FemSpace ):
         ext  = int(ext)
         assert axis<self.ldim
         assert ext in [-1,1]
-
+        if cart.is_comm_null: return
         spaces       = self.spaces
         vector_space = self.vector_space
         quad_order   = self.quad_order
