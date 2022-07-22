@@ -938,8 +938,9 @@ class PostProcessManager:
             ncells_dict = {interior_name: interior_names_to_ncells[interior_name] for interior_name in subdomain_names}
             # No need for a a dict until PR about non-conforming meshes is merged
             # Check for conformity
-            ncells =  list(ncells_dict.values())[0]
-            assert all(ncells_patch == ncells for ncells_patch in ncells_dict.values())
+            ncells =  ncells_dict#list(ncells_dict.values())[0]
+            #try non conforming
+            #assert all(ncells_patch == ncells for ncells_patch in ncells_dict.values())
 
             subdomain = domain.get_subdomain(subdomain_names)
             if subdomain is domain:
@@ -981,16 +982,16 @@ class PostProcessManager:
                         for i in range(temp_ldim)
                     )
 
-                elif len(subdomain_names) > 1:
-                    for interior_name in subdomain_names:
-                        assert all(np.allclose(space_h.spaces[i].spaces[0].breaks[j], interior_names_to_breaks[interior_name][j])
-                                    for i in range(len(subdomain_names)) for j in range(temp_ldim)
-                                    if space_h.symbolic_space.domain.interior.as_tuple()[i].name == interior_name)
-                else:
-                    assert all(
-                        np.allclose(space_h.spaces[0].breaks[i], interior_names_to_breaks[subdomain_names[0]][i])
-                        for i in range(temp_ldim)
-                    )
+                #elif len(subdomain_names) > 1:
+                #    for interior_name in subdomain_names:
+                        #assert all(np.allclose(space_h.spaces[i].spaces[0].breaks[j], interior_names_to_breaks[interior_name][j])
+                        #            for i in range(len(subdomain_names)) for j in range(temp_ldim)
+                        #            if space_h.symbolic_space.domain.interior.as_tuple()[i].name == interior_name)
+                #else:
+                #    assert all(
+                #        np.allclose(space_h.spaces[0].breaks[i], interior_names_to_breaks[subdomain_names[0]][i])
+                #        for i in range(temp_ldim)
+                #    )
 
     def _process_domain(self):
         """
@@ -1474,6 +1475,7 @@ class PostProcessManager:
                         number_by_patch=number_by_patch,
                         number_by_rank_simu=number_by_rank_simu,
                 )
+                #print(mesh_info)
                 if number_by_rank_visu:
                     cell_data['MPI_RANK_VISU'] = np.full_like(mesh_info[1][1], rank)
 
@@ -1864,14 +1866,15 @@ class PostProcessManager:
             for interior, patch_index in self._available_patches:
                 i = interior_index_dict[interior]
                 if i != -1:
-                    # Checks for empty spaces
-                    if isinstance(space_f.spaces[i], TensorFemSpace):
-                        if space_f.spaces[i].vector_space.cart.comm == mpi4py.MPI.COMM_NULL:
-                            # TODO use space_f.spaces[i].vector_space.cart.is_comm_null
-                            continue
-                    else:
-                        if space_f.spaces[i].spaces[0].vector_space.cart.comm == mpi4py.MPI.COMM_NULL:
-                            continue
+                    if self.comm is not None:
+                        # Checks for empty spaces
+                        if isinstance(space_f.spaces[i], TensorFemSpace):
+                            if space_f.spaces[i].vector_space.cart.comm == mpi4py.MPI.COMM_NULL:
+                                # TODO use space_f.spaces[i].vector_space.cart.is_comm_null
+                                continue
+                        else:
+                            if space_f.spaces[i].spaces[0].vector_space.cart.comm == mpi4py.MPI.COMM_NULL:
+                                continue
 
                     try:
                         interior_to_fields[interior, patch_index][space_f.spaces[i]][0].append(f_name)

@@ -226,21 +226,23 @@ def hcurl_solve_eigen_pbm_multipatch_nc(ncells=[[2,2], [2,2]], degree=[3,3], dom
     OM = OutputManager('spaces.yml', 'fields.h5')
 
     i = 0
-    OM.add_spaces(V1=V1h)
-
+    
+    nb_eigs = len(eigenvalues)
+    #for i in range(min(nb_eigs_plot, nb_eigs)):
     emode_i = np.real(eigenvectors[i])
     norm_emode_i = np.dot(emode_i,H1_m.dot(emode_i))
     eh_c = emode_i/norm_emode_i 
     stencil_coeffs = array_to_stencil(eh_c, V1h.vector_space)
     vh = FemField(V1h, coeffs=stencil_coeffs)
-    OM.set_static()
-    OM.export_fields(e_0 = vh)
+
+    #OM.set_static()
+    OM.add_spaces(V1h=V1h)
+    OM.add_snapshot(t=0. , ts=i) 
+    OM.export_fields(vh = vh)
     OM.export_space_info()
-    
+
     PM = PostProcessManager(domain=domain, space_file='spaces.yml', fields_file='fields.h5' )
-    
-    
-    PM.export_to_vtk("e_0",grid=None, npts_per_cell=[4]*2,snapshots='none',fields=('e_0') )
+    PM.export_to_vtk("eigenmodes",grid=None, npts_per_cell=[4]*2,snapshots='all', fields='vh' )
     
     
     nb_eigs = len(eigenvalues)
@@ -256,43 +258,21 @@ def hcurl_solve_eigen_pbm_multipatch_nc(ncells=[[2,2], [2,2]], degree=[3,3], dom
         eh_c = emode_i/norm_emode_i  # numpy coeffs of the normalized eigenmode
         params_str = 'gamma_h={}_gen={}'.format(gamma_h, generalized_pbm)
         #params_str = 'ndof={}'.format(V1h.nbasis)
-        plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='e_{}, lambda_{}={}'.format(i,i,lambda_i),
-                    filename=plot_dir+'/'+params_str+'_e_{}.png'.format(i), hide_plot=hide_plots)
+        #plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='e_{}, lambda_{}={}'.format(i,i,lambda_i),
+        #            filename=plot_dir+'/'+params_str+'_e_{}.png'.format(i), hide_plot=hide_plots)
 
-        plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='e_{}, lambda_{}={}'.format(i,i,lambda_i), 
-                    filename=plot_dir+'/'+params_str+'_e_{}_comps.png'.format(i),
-                    plot_type='components', hide_plot=hide_plots)
+        #plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='e_{}, lambda_{}={}'.format(i,i,lambda_i), 
+        #            filename=plot_dir+'/'+params_str+'_e_{}_comps.png'.format(i),
+        #            plot_type='components', hide_plot=hide_plots)
 
         # also plot the projected eigenmode:
-        Peh_c = cP1_m.dot(eh_c)
-        plot_field(numpy_coeffs=Peh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='P e_{}, lambda_{}={}'.format(i,i,lambda_i),
-                    filename=plot_dir+'/'+params_str+'_Pe_{}.png'.format(i), hide_plot=hide_plots)
+        #Peh_c = cP1_m.dot(eh_c)
+        #plot_field(numpy_coeffs=Peh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='P e_{}, lambda_{}={}'.format(i,i,lambda_i),
+        #            filename=plot_dir+'/'+params_str+'_Pe_{}.png'.format(i), hide_plot=hide_plots)
         # same, as vector field:
-        plot_field(numpy_coeffs=Peh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='P e_{}, lambda_{}={}'.format(i,i,lambda_i), 
-                    filename=plot_dir+'/'+params_str+'_Pe_{}_vf.png'.format(i),
-                    plot_type='vector_field', hide_plot=hide_plots)
-
-
-        plot_checks = False
-        if plot_checks:
-            # check: plot jump
-            plot_field(numpy_coeffs=eh_c-Peh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='(I-P) e_{}, lambda_{}={}'.format(i,i,lambda_i),
-                        filename=plot_dir+'/'+params_str+'_Jump_e_{}.png'.format(i), hide_plot=hide_plots)
-
-            # check: curl e_i
-            Ceh_c = bD1_m @ cP1_m.dot(eh_c)
-            plot_field(numpy_coeffs=Ceh_c, Vh=V2h, space_kind='l2', domain=domain, title='C e_{}, lambda_{}={}'.format(i,i,lambda_i),
-                        filename=plot_dir+'/'+params_str+'_Ce_{}.png'.format(i), hide_plot=hide_plots)
-
-            # check: curl curl e_i
-            CCeh_c = dH1_m @ cP1_m.transpose() @ bD1_m.transpose() @ H2_m @ Ceh_c
-            plot_field(numpy_coeffs=CCeh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='CC e_{}'.format(i),
-                        filename=plot_dir+'/'+params_str+'_CCe_{}.png'.format(i), hide_plot=hide_plots)
-
-            # check: filtered lambda_i * e_i (should be = curl curl e_i)
-            fl_eh_c = lambda_i * dH1_m @ cP1_m.transpose() @ H1_m @ Peh_c
-            plot_field(numpy_coeffs=fl_eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='filtered lambda_i * e_{}'.format(i),
-                        filename=plot_dir+'/'+params_str+'_fl_e_{}.png'.format(i), hide_plot=hide_plots)
+        #plot_field(numpy_coeffs=Peh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='P e_{}, lambda_{}={}'.format(i,i,lambda_i), 
+        #            filename=plot_dir+'/'+params_str+'_Pe_{}_vf.png'.format(i),
+        #            plot_type='vector_field', hide_plot=hide_plots)
     t_stamp = time_count(t_stamp)
 
     if ref_sigmas is not None:

@@ -8,7 +8,6 @@ from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_fi
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
-
 t_stamp_full = time_count()
 
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
@@ -46,7 +45,7 @@ degree = [3,3] # shared across all patches
 #                    [4,     8,   8, 4],
 #                    [2,     4,   4, 2]])
 # 8x8 = 64 patches
-#ncells = np.array([[None, None, None, None, 2, 2, 2, 2],
+#ncells = np.array([[None, None, None, None, 2, 2, 2,1 2],
 #                    [None, None, None, None, 2, 2, 2, 2],
 #                    [None, None, None, None, 2, 2, 2, 2],
 #                    [None, None, None, None, 4, 4, 2, 2],
@@ -59,13 +58,13 @@ degree = [3,3] # shared across all patches
 domain_name = 'curved_L_shape' 
 domain=[[1, 3],[0, np.pi/4]] # interval in x- and y-direction
 
-ncells = np.array([[2, 2],
-                    [2,   2]])
+#ncells = np.array([[None, 2],
+#                    [2,   2]])
 
-#ncells = np.array([[None, None, 4, 2],
-#                   [None, None, 8, 4],
-#                   [ 4,    8,   8, 4],
-#                   [ 2,    4,   4, 2]])
+ncells = np.array([[None, None, 4, 2],
+                   [None, None, 8, 4],
+                   [ 4,    8,   16, 8],
+                   [ 2,    4,   8, 4]])
 
 #ncells = np.array([[None, None, None, 4, 2, 2],
 #                    [None, None, None,  8, 4, 2],
