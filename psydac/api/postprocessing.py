@@ -215,8 +215,7 @@ class OutputManager:
         """
         Exports the space information and close the fields_file.
         """
-        if not os.path.exists(self.filename_space):
-            self.export_space_info()
+        self.export_space_info()
         if not self.fields_file is None:
             self.fields_file.close()
 
@@ -722,8 +721,15 @@ class PostProcessManager:
         self._domain = domain
         self._domain_h = None
 
-        self.space_filename = space_file
-        self.fields_filename = fields_file
+        if not space_file.split('.')[-1] in ['yml', 'yaml']:
+            self.space_filename = space_file + '.yml'
+        else:
+            self.space_filename = space_file
+
+        if fields_file.split('.')[-1] != 'h5':
+            self.fields_filename = fields_file + '.h5'
+        else:
+            self.fields_filename = fields_file
 
         self._spaces = {}
         self._static_fields = {}
@@ -1301,7 +1307,6 @@ class PostProcessManager:
         else:
             space = space
             field = field
-
         if isinstance(coeff, list): # Means vector field
             for i in range(len(coeff)):
                 V = space.spaces[i].vector_space
@@ -1864,14 +1869,15 @@ class PostProcessManager:
             for interior, patch_index in self._available_patches:
                 i = interior_index_dict[interior]
                 if i != -1:
-                    # Checks for empty spaces
-                    if isinstance(space_f.spaces[i], TensorFemSpace):
-                        if space_f.spaces[i].vector_space.cart.comm == mpi4py.MPI.COMM_NULL:
-                            # TODO use space_f.spaces[i].vector_space.cart.is_comm_null
-                            continue
-                    else:
-                        if space_f.spaces[i].spaces[0].vector_space.cart.comm == mpi4py.MPI.COMM_NULL:
-                            continue
+                    if not self.comm is None: # No empty spaces in serial
+                        # Checks for empty spaces
+                        if isinstance(space_f.spaces[i], TensorFemSpace):
+                            if space_f.spaces[i].vector_space.cart.comm == mpi4py.MPI.COMM_NULL:
+                                # TODO use space_f.spaces[i].vector_space.cart.is_comm_null
+                                continue
+                        else:
+                            if space_f.spaces[i].spaces[0].vector_space.cart.comm == mpi4py.MPI.COMM_NULL:
+                                continue
 
                     try:
                         interior_to_fields[interior, patch_index][space_f.spaces[i]][0].append(f_name)
@@ -2073,8 +2079,13 @@ class PostProcessManager:
             for i, field_name in enumerate(field_names):
                 point_data[field_name] = list_pushed_fields[i]
 
+        if grid_local[0].ndim == 1:
+            log_mesh_grids = np.meshgrid(*grid_local, indexing='ij')
+        else:
+            log_mesh_grids = grid_local
+
         for name, lambda_f in additional_logical_functions.items():
-            f_result = lambda_f(*grid_local)
+            f_result = lambda_f(*log_mesh_grids)
             point_data[name] = f_result
 
         return partial_mesh_info, point_data, i_mpi_dd
