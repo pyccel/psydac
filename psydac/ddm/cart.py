@@ -37,7 +37,6 @@ def find_mpi_type( dtype ):
 class MultiPatchDomainDecomposition:
     def __init__(self, ncells, periods, comm=None, num_threads=None):
 
-        # TODO: check that arguments are identical across all processes
         assert len( ncells ) == len( periods )
         if comm is not None:assert isinstance( comm, MPI.Comm )
         num_threads = num_threads if num_threads else 1
@@ -176,11 +175,16 @@ class DomainDecomposition:
         # Store arrays with all the starts and ends along each direction for every process
         self._global_element_starts = [None]*self._ndims
         self._global_element_ends   = [None]*self._ndims
+        global_shapes               = [None]*self._ndims
         for axis in range( self._ndims ):
             n = ncells[axis]
             d = nprocs[axis]
-            self._global_element_starts[axis] = np.array( [( c   *n)//d   for c in range( d )] )
-            self._global_element_ends  [axis] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
+            s = n//d
+            global_shapes[axis] = np.array([s]*d)
+            global_shapes[axis][:n%d] += 1
+
+            self._global_element_ends  [axis] = np.cumsum(global_shapes[axis])-1
+            self._global_element_starts[axis] = np.array( [0] + [e+1 for e in self._global_element_ends[axis][:-1]] )
 
         if self.is_comm_null:return
 
@@ -831,6 +835,10 @@ class CartDecomposition():
         send_assembly_starts = np.zeros( self._ndims, dtype=int )
         recv_assembly_starts = np.zeros( self._ndims, dtype=int )
 
+        if self._global_ends[direction][-1] == 8:
+            diff = 1
+        else:
+            diff = 0
         if disp > 0:
             recv_starts[direction]          = 0
             send_starts[direction]          = e-s+1
@@ -1713,13 +1721,12 @@ class CartDataExchanger:
 
         # Requests' handles
 
-        disps = [1 if P else -1 for P in cart.periods]
         for direction in range( ndim ):
             if direction == self._axis:continue
             if self._axis is not None: comm = cart.subcomm[direction]
 
             # Start receiving data (MPI_IRECV)
-            disp        = disps[direction]
+            disp        = 1
             info        = cart.get_shift_info( direction, disp )
             recv_typ    = self.get_assembly_recv_type ( direction, disp )
             rank_source = info['rank_source']

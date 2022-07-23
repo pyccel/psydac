@@ -1007,10 +1007,18 @@ class TensorFemSpace( FemSpace ):
         npts         = [s.nbasis for s in spaces]
         multiplicity = [s.multiplicity for s in spaces]
 
+        ndims         = len(npts)
+        global_starts = [None]*ndims
+        global_ends   = [None]*ndims
 
-        global_spans  = [elements_spans( V.knots, V.degree )-V.degree*V.periodic for V in spaces]
-        global_starts = [np.array([0] + [spans[s-1]+1 for s in starts[1:]]) for starts,spans in zip(v.cart.domain_h.global_element_starts, global_spans)]
-        global_ends   = [np.array([spans[e] for e in ends]) for ends,spans in zip(v.cart.domain_h.global_element_ends, global_spans)]
+        for axis in range(ndims):
+            es = v.cart.domain_h.global_element_starts[axis]
+            ee = v.cart.domain_h.global_element_ends  [axis]
+            m  = multiplicity[axis]
+
+            global_ends  [axis]     = m*(ee+1)-1
+            global_ends  [axis][-1] = npts[axis]-1
+            global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
 
         red_cart   = v.cart.reduce_npts(axes, npts, global_starts, global_ends, shifts=multiplicity)
         tensor_vec = TensorFemSpace(self._domain, *spaces, cart=red_cart, quad_order=self._quad_order)

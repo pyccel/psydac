@@ -661,6 +661,7 @@ class StencilVector( Vector ):
         direction : int
             Single direction along which to operate (if not specified, all of them).
         """
+
         if self.space.parallel and not self.space.cart.is_comm_null:
             # PARALLEL CASE: fill in ghost regions with data from neighbors
             self.space._synchronizer.update_assembly_ghost_regions( self._data )
@@ -668,6 +669,17 @@ class StencilVector( Vector ):
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._update_assembly_ghost_regions_serial()
 
+        ndim     = self._space.ndim
+        for direction in range(ndim):
+            idx_front = [slice(None)]*direction
+            idx_back  = [slice(None)]*(ndim-direction-1)
+
+            p        = self._space.pads   [direction]
+            m        = self._space.shifts[direction]
+            idx_from = tuple( idx_front + [ slice(-m*p,None) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back )
+            self._data[idx_from] = 0.
+            idx_from = tuple( idx_front + [ slice(0,m*p)] + idx_back )
+            self._data[idx_from] = 0.
     # ...
     def _update_assembly_ghost_regions_serial( self ):
 
@@ -1158,6 +1170,18 @@ class StencilMatrix( Matrix ):
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._update_assembly_ghost_regions_serial()
+
+        ndim = self._codomain.ndim
+        for direction in range(ndim):
+            idx_front = [slice(None)]*direction
+            idx_back  = [slice(None)]*(ndim-direction-1)
+
+            p        = self._codomain.pads   [direction]
+            m        = self._codomain.shifts[direction]
+            idx_from = tuple( idx_front + [ slice(-m*p,None) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back )
+            self._data[idx_from] = 0.
+            idx_from = tuple( idx_front + [ slice(0,m*p)] + idx_back )
+            self._data[idx_from] = 0.
 
     # ...
     def _update_assembly_ghost_regions_serial( self ):
