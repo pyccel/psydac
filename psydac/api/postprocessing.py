@@ -187,8 +187,8 @@ class OutputManager:
         self._space_info = {}
         self._spaces = []
 
-        if filename_space[-4:] != ".yml" and filename_space[-4:] != ".yaml":
-            filename_space += ".yml"
+        if not filename_space.split('.')[-1] in ['yml', 'yaml']:
+            filename_space += ".yaml"
         self.filename_space = filename_space
 
         if filename_fields[-3:] != ".h5":
@@ -722,7 +722,7 @@ class PostProcessManager:
         self._domain_h = None
 
         if not space_file.split('.')[-1] in ['yml', 'yaml']:
-            self.space_filename = space_file + '.yml'
+            self.space_filename = space_file + '.yaml'
         else:
             self.space_filename = space_file
 
