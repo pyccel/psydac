@@ -1384,55 +1384,51 @@ class BlockScalarLocalBasis(ScalarNode):
     @property
     def expr(self):
         return self._expr
+#========================================================================================
+class SpanArray(ArrayNode):
+    """
+     This represents the global span array
+    """
+
+    def __new__(cls, target, index=None):
+        if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
+            raise TypeError('Expecting a scalar/vector test function')
+
+        return Basic.__new__(cls, target, index)
+
+    @property
+    def target(self):
+        return self._args[0]
+
+    @property
+    def index(self):
+        return self._args[1]
+
+    def set_index(self, index):
+        return type(self)(self.target, index)
+
 #==============================================================================
-class GlobalSpan(ArrayNode):
+class GlobalSpanArray(SpanArray):
     """
      This represents the global span array
     """
     _rank = 1
     _positions = {index_element: 0}
 
-    def __new__(cls, target, index=None):
-        if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
-            raise TypeError('Expecting a scalar/vector test function')
-
-        return Basic.__new__(cls, target, index)
-
-    @property
-    def target(self):
-        return self._args[0]
-
-    @property
-    def index(self):
-        return self._args[1]
-
-    def set_index(self, index):
-        return GlobalSpan(self.target, index)
-
 #==============================================================================
-class LocalSpan(ArrayNode):
+class LocalSpanArray(SpanArray):
     """
      This represents the local span array
     """
+
     _rank = 1
     _positions = {index_element: 0}
-
-    def __new__(cls, target, index=None):
-        if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
-            raise TypeError('Expecting a scalar/vector test function')
-
-        return Basic.__new__(cls, target, index)
-
-    @property
-    def target(self):
-        return self._args[0]
-
-    @property
-    def index(self):
-        return self._args[1]
-
-    def set_index(self, index):
-        return LocalSpan(self.target, index)
+#==============================================================================
+class GlobalThreadSpanArray(SpanArray):
+    """
+     This represents the global span array of each thread
+    """
+    _rank = 1
 #==============================================================================
 class GlobalThreadStarts(ArrayNode):
     """
@@ -1517,26 +1513,7 @@ class LocalThreadEnds(ArrayNode):
 
     def set_index(self, index):
         return LocalThreadEnds(index)
-#==============================================================================
-class GlobalThreadSpan(ArrayNode):
-    """
-     This represents the span of each thread
-    """
-    _rank = 1
-    def __new__(cls, target, index=None):
-        # TODO check target
-        return Basic.__new__(cls, target, index)
 
-    @property
-    def target(self):
-        return self._args[0]
-
-    @property
-    def index(self):
-        return self._args[1]
-
-    def set_index(self, index):
-        return GlobalThreadSpan(self.target, index)
 #==============================================================================
 class Span(ScalarNode):
     """
@@ -2224,7 +2201,7 @@ def construct_itergener(a, index):
         generator = TensorGenerator(a, index)
         element   = TensorBasis(a.target)
 
-    elif isinstance(a, (LocalSpan,GlobalSpan)):
+    elif isinstance(a, (LocalSpanArray,GlobalSpanArray)):
         generator = TensorGenerator(a, index)
         element   = Span(a.target)
 
