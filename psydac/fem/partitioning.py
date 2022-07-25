@@ -158,8 +158,6 @@ def create_interfaces_cart(cart, connectivity=None):
         connectivity = connectivity.copy()
         interfaces_cart = InterfacesCartDecomposition(cart, connectivity)
         for i,j in connectivity:
-            axes   = connectivity[i,j][0]
-            exts   = connectivity[i,j][1]
             if (i,j) in interfaces_cart.carts and not interfaces_cart.carts[i,j].is_comm_null:
                 interfaces_cart.carts[i,j].set_communication_info(get_minus_starts_ends, get_plus_starts_ends)
 
