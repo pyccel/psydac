@@ -2,7 +2,6 @@
 #
 # Copyright 2019 Yaman Güçlü
 
-import os
 import mpi4py
 import numpy as np
 import yaml
