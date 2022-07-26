@@ -220,68 +220,37 @@ def hcurl_solve_eigen_pbm_multipatch_nc(ncells=[[2,2], [2,2]], degree=[3,3], dom
 
     t_stamp = time_count(t_stamp)
     print('plotting the eigenmodes...')     
-    cb_min=-5 
-    cb_max=5
 
-    OM = OutputManager('spaces.yml', 'fields.h5')
+   # OM = OutputManager('spaces.yml', 'fields.h5')
+   # OM.add_spaces(V1h=V1h)
 
-    i = 0
-    
-    nb_eigs = len(eigenvalues)
-    #for i in range(min(nb_eigs_plot, nb_eigs)):
-    emode_i = np.real(eigenvectors[i])
-    norm_emode_i = np.dot(emode_i,H1_m.dot(emode_i))
-    eh_c = emode_i/norm_emode_i 
-    stencil_coeffs = array_to_stencil(eh_c, V1h.vector_space)
-    vh = FemField(V1h, coeffs=stencil_coeffs)
-
-    #OM.set_static()
-    OM.add_spaces(V1h=V1h)
-    OM.add_snapshot(t=0. , ts=i) 
-    OM.export_fields(vh = vh)
-    OM.export_space_info()
-
-    PM = PostProcessManager(domain=domain, space_file='spaces.yml', fields_file='fields.h5' )
-    PM.export_to_vtk("eigenmodes",grid=None, npts_per_cell=[4]*2,snapshots='all', fields='vh' )
-    
-    
     nb_eigs = len(eigenvalues)
     for i in range(min(nb_eigs_plot, nb_eigs)):
-
+        OM = OutputManager(plot_dir+'/spaces.yml', plot_dir+'/fields.h5')
+        OM.add_spaces(V1h=V1h)
         print('looking at emode i = {}... '.format(i))
         lambda_i  = eigenvalues[i]
-        # emode_i = np.real(eigenvectors[:,i])
         emode_i = np.real(eigenvectors[i])
         norm_emode_i = np.dot(emode_i,H1_m.dot(emode_i))
-        print('norm of computed eigenmode: ', norm_emode_i)
+        eh_c = emode_i/norm_emode_i 
+        stencil_coeffs = array_to_stencil(eh_c, V1h.vector_space)
+        vh = FemField(V1h, coeffs=stencil_coeffs)
+        OM.set_static()
+        #OM.add_snapshot(t=i , ts=0) 
+        OM.export_fields(vh = vh)
+
+        #print('norm of computed eigenmode: ', norm_emode_i)
         # plot the broken eigenmode:
-        eh_c = emode_i/norm_emode_i  # numpy coeffs of the normalized eigenmode
-        params_str = 'gamma_h={}_gen={}'.format(gamma_h, generalized_pbm)
-        #params_str = 'ndof={}'.format(V1h.nbasis)
-        #plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='e_{}, lambda_{}={}'.format(i,i,lambda_i),
-        #            filename=plot_dir+'/'+params_str+'_e_{}.png'.format(i), hide_plot=hide_plots)
+        OM.export_space_info()
+        OM.close()
 
-        #plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='e_{}, lambda_{}={}'.format(i,i,lambda_i), 
-        #            filename=plot_dir+'/'+params_str+'_e_{}_comps.png'.format(i),
-        #            plot_type='components', hide_plot=hide_plots)
+        PM = PostProcessManager(domain=domain, space_file=plot_dir+'/spaces.yml', fields_file=plot_dir+'/fields.h5' )
+        PM.export_to_vtk(plot_dir+"/eigen_{}".format(i),grid=None, npts_per_cell=[6]*2,snapshots='all', fields='vh' )
+        PM.close()
 
-        # also plot the projected eigenmode:
-        #Peh_c = cP1_m.dot(eh_c)
-        #plot_field(numpy_coeffs=Peh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='P e_{}, lambda_{}={}'.format(i,i,lambda_i),
-        #            filename=plot_dir+'/'+params_str+'_Pe_{}.png'.format(i), hide_plot=hide_plots)
-        # same, as vector field:
-        #plot_field(numpy_coeffs=Peh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='P e_{}, lambda_{}={}'.format(i,i,lambda_i), 
-        #            filename=plot_dir+'/'+params_str+'_Pe_{}_vf.png'.format(i),
-        #            plot_type='vector_field', hide_plot=hide_plots)
-    t_stamp = time_count(t_stamp)
+        t_stamp = time_count(t_stamp)
 
-    if ref_sigmas is not None:
-        errors = []
-        n_errs = min(len(ref_sigmas), len(eigenvalues))
-        for k in range(n_errs):
-            diags['error_{}'.format(k)] = abs(eigenvalues[k]-ref_sigmas[k])
-
-    return diags
+    return diags, eigenvalues
 
 
 def get_eigenvalues(nb_eigs, sigma, A_m, M_m):

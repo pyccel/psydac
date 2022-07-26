@@ -83,3 +83,21 @@ def create_square_domain(ncells, interval_x, interval_y, mapping='identity'):
     domain = set_interfaces(domain, interfaces)
 
     return domain
+
+def get_L_shape_ncells(patches, n0):
+    ncells = np.zeros((patches, patches), dtype = object)
+
+    pm = int(patches/2)
+    assert patches/2 == pm
+
+    for i in range(pm):
+        for j in range(pm):
+            ncells[i,j] = None
+
+    for i in range(pm, patches):
+        for j in range(patches):
+            exp = 1+patches - (abs(i-pm)+abs(j-pm))
+            ncells[i,j] = n0**exp
+            ncells[j,i] = n0**exp
+
+    return ncells

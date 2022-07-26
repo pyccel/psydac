@@ -193,7 +193,7 @@ print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
 #   - we look for nb_eigs_solve eigenvalues close to sigma (skip zero eigenvalues if skip_zero_eigs==True)
 #   - we plot nb_eigs_plot eigenvectors
 
-diags = hcurl_solve_eigen_pbm_multipatch_nc(
+diags, eigenvalues = hcurl_solve_eigen_pbm_multipatch_nc(
     ncells=ncells, degree=degree,
     gamma_h=gamma_h,
     generalized_pbm=generalized_pbm,
@@ -211,6 +211,11 @@ diags = hcurl_solve_eigen_pbm_multipatch_nc(
     m_load_dir=m_load_dir,
 )
 
+if ref_sigmas is not None:
+        errors = []
+        n_errs = min(len(ref_sigmas), len(eigenvalues))
+        for k in range(n_errs):
+            diags['error_{}'.format(k)] = abs(eigenvalues[k]-ref_sigmas[k])
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 

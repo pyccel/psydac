@@ -205,12 +205,12 @@ def construct_V1_conforming_projection(V1h, domain_h, hom_bc=None, storage_fn=No
         space_fine   = V1h.spaces[k_fine]
         space_coarse = V1h.spaces[k_coarse]
         
-        print("coarse = \n", space_coarse.spaces[d_coarse])
-        print("coarse 2 = \n", space_coarse.spaces[d_coarse].spaces[d_coarse])
+        #print("coarse = \n", space_coarse.spaces[d_coarse])
+        #print("coarse 2 = \n", space_coarse.spaces[d_coarse].spaces[d_coarse])
         coarse_space_1d = space_coarse.spaces[d_coarse].spaces[d_coarse] # todo: merge with first test above
         
-        print("fine = \n", space_fine.spaces[d_fine])
-        print("fine 2 = \n", space_fine.spaces[d_fine].spaces[d_fine])
+        #print("fine = \n", space_fine.spaces[d_fine])
+        #print("fine 2 = \n", space_fine.spaces[d_fine].spaces[d_fine])
 
         fine_space_1d   = space_fine.spaces[d_fine].spaces[d_fine]
         grid = np.linspace(fine_space_1d.breaks[0], fine_space_1d.breaks[-1], coarse_space_1d.ncells+1)
