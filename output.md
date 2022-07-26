@@ -142,11 +142,11 @@ Typically the `PostProcessManager` class is used in a separate post-processing s
 3.  The name of the HDF5 file that contains the coefficients of all the FEM fields
 
 In order to export the fields to a VTK file, the user needs to call the method `export_to_vtk(base_name, grid, npts_per_cell, snapshots, fields)`, where:
-1. `base_name` is the base name for the VTK output files.
-2. `grid` is either a user specified evaluation grid or `None`.
-3. `npts_per_cell` specifies the refinement in the case of a uniform grid.
-4. `snapshots` specifies which time snapshots should be extracted from the HDF5 file (`none` in the case of static fields)
-5. `fields` is a tuple  of `h5_field_name`.
+1.  `base_name` is the base name for the VTK output files.
+2.  `grid` is either a user specified evaluation grid or `None`.
+3.  `npts_per_cell` specifies the refinement in the case of a uniform grid.
+4.  `snapshots` specifies which time snapshots should be extracted from the HDF5 file (`none` in the case of static fields)
+5.  `fields` is a tuple  of `h5_field_name`.
 
 Here is a usage example:
 
@@ -161,7 +161,7 @@ post.export_to_vtk('filename_vtk', grid=grid, npts_per_cell=npts_per_cell, snaps
 ## Further Examples
 Further examples are present in the following files:
 
-* `examples/poisson_3d_target_torus.py`
-* `examples/sample_multipatch_parallel.py`
-* `examples/notebooks/Poisson_non_periodic.ipynb`
-* `psydac/api/tests/test_postprocessing.py`
+*  `examples/poisson_3d_target_torus.py`
+*  `examples/sample_multipatch_parallel.py`
+*  `examples/notebooks/Poisson_non_periodic.ipynb`
+*  `psydac/api/tests/test_postprocessing.py`
