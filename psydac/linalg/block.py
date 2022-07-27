@@ -156,8 +156,8 @@ class BlockVector( Vector ):
 
         # Prepare the data exchangers for the interface data
         for i,j in V._connectivity:
-            axis_i,axis_j = V._connectivity[i,j][0]
-            ext_i,ext_j   = V._connectivity[i,j][1]
+            axis_i,ext_i = V._connectivity[i,j][0]
+            axis_j,ext_j = V._connectivity[i,j][1]
 
             Vi = V.spaces[i]
             Vj = V.spaces[j]
@@ -331,8 +331,8 @@ class BlockVector( Vector ):
         if not V.parallel:return
         for i,j in V._connectivity:
             if not (i,j) in self._data_exchangers:continue
-            axis_i,axis_j = V._connectivity[i,j][0]
-            ext_i,ext_j   = V._connectivity[i,j][1]
+            axis_i,ext_i = V._connectivity[i,j][0]
+            axis_j,ext_j = V._connectivity[i,j][1]
             Vi = V.spaces[i]
             Vj = V.spaces[j]
 
@@ -891,8 +891,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         V = self.codomain 
         for i,j in V._connectivity:
 
-            axis_i,axis_j = V._connectivity[i,j][0]
-            ext_i,ext_j   = V._connectivity[i,j][1]
+            axis_i,ext_i = V._connectivity[i,j][0]
+            axis_j,ext_j = V._connectivity[i,j][1]
 
             Vi = V.spaces[i]
             Vj = V.spaces[j]

@@ -18,7 +18,7 @@ def construct_connectivity(domain):
     -------
     connectivity : dict
         Connectivity between the patches.
-        It takes the form of {(i, j):((axis_i, axis_j),(ext_i, ext_j))} for each item of the dictionary,
+        It takes the form of {(i, j):((axis_i, ext_i),(axis_j, ext_j))} for each item of the dictionary,
         where i,j represent the patch indices
 
     """
@@ -34,7 +34,7 @@ def construct_connectivity(domain):
     for e in interfaces:
         i = interiors.index(e.minus.domain)
         j = interiors.index(e.plus.domain)
-        connectivity[i, j] = ((e.minus.axis, e.plus.axis),(e.minus.ext, e.plus.ext))
+        connectivity[i, j] = ((e.minus.axis, e.minus.ext),(e.plus.axis, e.plus.ext))
 
     return connectivity
 
@@ -203,7 +203,7 @@ def construct_interface_spaces(g_spaces, cart, interiors, connectivity):
             else:
                 continue
 
-        ((axis_minus, axis_plus), (ext_minus , ext_plus)) = connectivity[i, j]
+        ((axis_minus, ext_minus), (axis_plus , ext_plus)) = connectivity[i, j]
 
         g_spaces[interiors[i]].create_interface_space(axis_minus, ext_minus, cart=cart_minus)
         g_spaces[interiors[j]].create_interface_space(axis_plus , ext_plus , cart=cart_plus)

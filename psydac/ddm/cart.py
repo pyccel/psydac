@@ -219,8 +219,8 @@ class InterfacesCartDecomposition:
             req = []
             ranks_in_topo_i = None
             ranks_in_topo_j = None
-            axes   = interfaces[i,j][0]
-            exts   = interfaces[i,j][1]
+            axis_i, ext_i   = interfaces[i,j][0]
+            axis_j, ext_j   = interfaces[i,j][1]
             if interfaces_comm[i,j] != MPI.COMM_NULL:
                 ranks_in_topo_i = carts.carts[i].ranks_in_topo if i in owned_groups else np.full(local_groups[i].size, -1)
                 ranks_in_topo_j = carts.carts[j].ranks_in_topo if j in owned_groups else np.full(local_groups[j].size, -1)
@@ -238,7 +238,7 @@ class InterfacesCartDecomposition:
                                                                    periods=[periods[i], periods[j]],
                                                                    comm=interfaces_comm[i,j],
                                                                    shifts=[shifts[i], shifts[j]],
-                                                                   axes=axes, exts=exts,
+                                                                   axes=[axis_i, axis_j], exts=[ext_i, ext_j],
                                                                    ranks_in_topo=[ranks_in_topo_i, ranks_in_topo_j],
                                                                    local_groups=[local_groups[i], local_groups[j]],
                                                                    local_communicators=[local_communicators[i], local_communicators[j]],
