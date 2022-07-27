@@ -729,7 +729,7 @@ class PostProcessManager:
         else:
             self.space_filename = space_file
 
-        if not os.path.splitext(fields_file)[-1] != 'h5':
+        if os.path.splitext(fields_file)[-1] != 'h5':
             self.fields_filename = fields_file + '.h5'
         else:
             self.fields_filename = fields_file
@@ -1159,9 +1159,6 @@ class PostProcessManager:
             self._static_fields,
             fields
         )
-        for v in self._static_fields.values():
-            if not v.coeffs.ghost_regions_in_sync:
-                v.coeffs.update_ghost_regions()
 
         self._last_loaded_fields = self._static_fields
 
@@ -1316,7 +1313,7 @@ class PostProcessManager:
             V = space.vector_space
             index_coeff = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
             field.coeffs[index_coeff] = coeff[index_coeff]
-            field.coeffs.update_ghotst_regions()
+            field.coeffs.update_ghost_regions()
 
     def export_to_vtk(self,
                       filename,
