@@ -6,12 +6,12 @@
 
 ## Table of contents
 
--  [Requirements](#requirements)
--  [Installing the library](#installing-the-library)
--  [Uninstall](#uninstall)
--  [Running tests](#running-tests)
--  [Speeding up Psydac's core](#speeding-up-psydacs-core)
--  [User Documentation](#user-documentation)
+-   [Requirements](#requirements)
+-   [Installing the library](#installing-the-library)
+-   [Uninstall](#uninstall)
+-   [Running tests](#running-tests)
+-   [Speeding up Psydac's core](#speeding-up-psydacs-core)
+-   [User Documentation](#user-documentation)
 
 ## Requirements
 -----
@@ -76,9 +76,9 @@ pyccel bsplines_pyccel.py --language fortran
 
 ## User documentation
 
--  [Output formats](./output.md)
--  [Notebook examples](./examples/notebooks/)
--  [Other examples](./examples/)
+-   [Output formats](./output.md)
+-   [Notebook examples](./examples/notebooks/)
+-   [Other examples](./examples/)
 
 ## Mesh Generation
 -----
