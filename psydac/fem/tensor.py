@@ -1003,24 +1003,15 @@ class TensorFemSpace( FemSpace ):
             )
             spaces[axis] = reduced_space
 
-        # create new Tensor Vector
         npts         = [s.nbasis for s in spaces]
         multiplicity = [s.multiplicity for s in spaces]
 
-        ndims         = len(npts)
-        global_starts = [None]*ndims
-        global_ends   = [None]*ndims
+        global_starts, global_ends = partition_coefficients(v.cart.domain_h, spaces)
 
-        for axis in range(ndims):
-            es = v.cart.domain_h.global_element_starts[axis]
-            ee = v.cart.domain_h.global_element_ends  [axis]
-            m  = multiplicity[axis]
-
-            global_ends  [axis]     = m*(ee+1)-1
-            global_ends  [axis][-1] = npts[axis]-1
-            global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
-
+        # create new CartDecomposition
         red_cart   = v.cart.reduce_npts(axes, npts, global_starts, global_ends, shifts=multiplicity)
+
+        # create new TensorFemSpace
         tensor_vec = TensorFemSpace(self._domain, *spaces, cart=red_cart, quad_order=self._quad_order)
 
         tensor_vec._interpolation_ready = False

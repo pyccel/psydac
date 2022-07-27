@@ -9,6 +9,29 @@ from psydac.ddm.cart       import CartDecomposition, InterfacesCartDecomposition
 from psydac.core.bsplines  import elements_spans
 from psydac.fem.vector     import ProductFemSpace
 
+def partition_coefficients(domain_h, spaces):
+
+    npts         = [V.nbasis   for V in spaces]
+    multiplicity = [V.multiplicity for V in spaces]
+
+    ndims         = len(npts)
+    global_starts = [None]*ndims
+    global_ends   = [None]*ndims
+
+    for axis in range(ndims):
+        es = domain_h.global_element_starts[axis]
+        ee = domain_h.global_element_ends  [axis]
+        m  = multiplicity[axis]
+
+        global_ends  [axis]     = m*(ee+1)-1
+        global_ends  [axis][-1] = npts[axis]-1
+        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+
+    for s,e,V in zip(global_starts, global_ends, spaces):
+        assert all(e-s+1>=V.degree*(1-V.periodic)+1)
+
+    return global_starts, global_ends
+
 def construct_connectivity(domain):
     """ 
     Compute the connectivity of the multipatch domain.
@@ -96,21 +119,7 @@ def create_cart(domain_h, spaces):
         pads         = [V._pads    for V in spaces]
         multiplicity = [V.multiplicity for V in spaces]
 
-        ndims         = len(npts)
-        global_starts = [None]*ndims
-        global_ends   = [None]*ndims
-
-        for axis in range(ndims):
-            es = domain_h.global_element_starts[axis]
-            ee = domain_h.global_element_ends  [axis]
-            m  = multiplicity[axis]
-
-            global_ends  [axis]     = m*(ee+1)-1
-            global_ends  [axis][-1] = npts[axis]-1
-            global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
-
-        for s,e,V in zip(global_starts, global_ends, spaces):
-            assert all(e-s+1>=V.degree*(1-V.periodic)+1)
+        global_starts, global_ends = partition_coefficients(domain_h, spaces)
 
         carts = [CartDecomposition(
                 domain_h      = domain_h,
@@ -126,21 +135,7 @@ def create_cart(domain_h, spaces):
             pads         = [V._pads    for V in spaces[i]]
             multiplicity = [V.multiplicity for V in spaces[i]]
 
-            ndims         = len(npts)
-            global_starts = [None]*ndims
-            global_ends   = [None]*ndims
-
-            for axis in range(ndims):
-                es = domain_h[i].global_element_starts[axis]
-                ee = domain_h[i].global_element_ends  [axis]
-                m  = multiplicity[axis]
-
-                global_ends  [axis]     = m*(ee+1)-1
-                global_ends  [axis][-1] = npts[axis]-1
-                global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
-
-            for s,e,V in zip(global_starts, global_ends, spaces[i]):
-                assert all(e-s+1>=V.degree*(1-V.periodic)+1)
+            global_starts, global_ends = partition_coefficients(domain_h[i], spaces[i])
 
             carts.append(CartDecomposition(
                             domain_h      = domain_h[i],
