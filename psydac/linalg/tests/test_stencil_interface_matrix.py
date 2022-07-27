@@ -47,7 +47,7 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
     P = [[False, False] for i in range(N)]
 
     axis       = 0
-    connectivity = {(0,1):((axis,axis),(1,-1))}
+    connectivity = {(0,1):((axis,1),(axis,-1))}
 
     comm = MPI.COMM_WORLD
     cart = MultiCartDecomposition(
