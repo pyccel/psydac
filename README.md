@@ -4,6 +4,15 @@
 
 **PSYDAC** is a Python 3 Library for isogeometric analysis.
 
+## Table of contents
+
+-  [Requirements](#requirements)
+-  [Installing the library](#installing-the-library)
+-  [Uninstall](#uninstall)
+-  [Running tests](#running-tests)
+-  [Speeding up Psydac's core](#speeding-up-psydacs-core)
+-  [User Documentation](#user-documentation)
+
 ## Requirements
 -----
 
@@ -35,7 +44,7 @@
     ```bash
     python3 -m pip install .
     ```
-   
+
 *   **Development mode**:
     ```bash
     python3 -m pip install --user -e .
@@ -65,11 +74,17 @@ pyccel kernels.py --language fortran
 pyccel bsplines_pyccel.py --language fortran
 ```
 
+## User documentation
+
+-  [Output formats](./output.md)
+-  [Notebook examples](./examples/notebooks/)
+-  [Other examples](./examples/)
+
 ## Mesh Generation
 -----
 After installation, a command `psydac-mesh` will be available.
 
-### Example of usage  
-```bash 
+### Example of usage
+```bash
 psydac-mesh -n='16,16' -d='3,3' square mesh.h5
 ```
