@@ -1,4 +1,4 @@
-# Psydac's ouputs
+# Psydac's outputs
 ## Structure
 Psydac has a class meant to take care of outputing simulation results. This class, named `OuputManager` is located in `psydac/api/postprocessing.py`.
 It writes `FemSpace` related information in the Yaml syntax. The file looks like this:
