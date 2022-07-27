@@ -192,7 +192,7 @@ class OutputManager:
         else:
             self.filename_space = filename_space
 
-        if os.path.splitext(filename_space)[-1] != ".h5":
+        if os.path.splitext(filename_fields)[-1] != ".h5":
             self.filename_fields = filename_fields + ".h5"
         else:
             self.filename_fields = filename_fields
@@ -729,7 +729,7 @@ class PostProcessManager:
         else:
             self.space_filename = space_file
 
-        if os.path.splitext(fields_file)[-1] != 'h5':
+        if os.path.splitext(fields_file)[-1] != '.h5':
             self.fields_filename = fields_file + '.h5'
         else:
             self.fields_filename = fields_file
