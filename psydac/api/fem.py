@@ -485,9 +485,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                 points     = [g.points for g in self.grid]
                 weights    = [self.mapping.weights_field.coeffs._data] if self.is_rational_mapping else []
             elif len(self.grid) == 2:
+                target   = self.kernel_expr.target
                 assert isinstance(target, Interface)
                 mappings = list(self.mapping)
-                target   = self.kernel_expr.target
                 i,j = self.get_space_indices_from_target(self.domain, target)
                 m,_ = self.get_space_indices_from_target(self.domain, target.minus)
                 p,_ = self.get_space_indices_from_target(self.domain, target.plus)
