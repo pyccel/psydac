@@ -80,13 +80,13 @@ class LinearOperatorDot(SplBasic):
     Parameters
     ----------
     ndim : int
-        Number of dimensions
+        Number of dimensions.
 
     block_shape: tuple of ints
-        The number of blocks along the rows and columns
+        The number of blocks along the rows and columns.
 
-    comm_id: int
-        The communicator address
+    comm: MPI.Comm
+        MPI inter communicator.
     """
     def __new__(cls, ndim, block_shape, comm=None, **kwargs):
         if comm is not None:

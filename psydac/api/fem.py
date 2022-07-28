@@ -1033,7 +1033,7 @@ class DiscreteLinearForm(BasicDiscrete):
                     global_mats[0] = StencilVector(test_space)
                     self._vector   = global_mats[0]
 
-        self._global_matrices = [M._data for M in global_mats]
+        self._global_matrices = [M._data for M in global_mats.values()]
 
 #==============================================================================
 class DiscreteFunctional(BasicDiscrete):
