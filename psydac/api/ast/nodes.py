@@ -1384,7 +1384,8 @@ class BlockScalarLocalBasis(ScalarNode):
     @property
     def expr(self):
         return self._expr
-#========================================================================================
+
+#==============================================================================
 class SpanArray(ArrayNode):
     """
      This represents the global span array

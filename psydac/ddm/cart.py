@@ -37,7 +37,7 @@ def find_mpi_type( dtype ):
 #====================================================================================
 class MultiCartDecomposition:
     """
-    This buids the cartition decomposition of multiple grids.
+    This buids the cartesian decomposition of multiple grids.
     In each grid we compute a multi-dimensional cartesian topology using MPI sub-communicators.
 
     Parameters
@@ -65,16 +65,20 @@ class MultiCartDecomposition:
     num_threads: int
        Number of threads for each MPI rank.
     """
-    def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD, shifts=None, num_threads=None ):
+    def __init__( self, npts, pads, periods, reorder, comm=None, shifts=None, num_threads=None ):
 
         # Check input arguments
         # TODO: check that arguments are identical across all processes
         assert len( npts ) == len( pads ) == len( periods )
         assert all(all( n >=1 for n in npts_k ) for npts_k in npts)
-        assert isinstance( comm, MPI.Comm )
 
         shifts      = tuple(shifts) if shifts else [(1,)*len(npts[0]) for n in npts]
         num_threads = num_threads if num_threads else 1
+
+        if comm is None:
+            comm = MPI.COMM_WORLD.Dup()
+
+        assert isinstance( comm, MPI.Comm )
 
         # Store input arguments
         self._npts         = tuple( npts    )
@@ -169,7 +173,7 @@ class InterfacesCartDecomposition:
     ----------
 
     carts: MultiCartDecomposition
-        The cartition decomposition of multiple grids.
+        The cartesian decomposition of multiple grids.
 
     interfaces: dict
         The connectivity of the grids.
@@ -471,38 +475,47 @@ class CartDecomposition():
 
     @property
     def local_comm( self ):
+        """ The intra subcommunicator used by this class."""
         return self._local_comm
 
     @property
     def global_comm( self ):
+        """ The intra-communicator passed by the user, usualy it's MPI.COMM_WORLD."""
         return self._global_comm
 
     @property
     def comm_cart( self ):
+        """ Intra-communicator with a Cartesian topology."""
         return self._comm_cart
 
     @property
     def nprocs( self ):
+        """ Number of processes in each dimension."""
         return self._dims
 
     @property
     def reverse_axis(self):
+        """ The axis of the reversed Cartesian topology."""
         return self._reverse_axis
 
     @property
     def global_starts( self ):
+        """ The starts of all the processes in the cartesian decomposition."""
         return self._global_starts
 
     @property
     def global_ends( self ):
+        """ The ends of all the processes in the cartesian decomposition."""
         return self._global_ends
 
     @property
     def reduced_global_starts( self ):
+        """ The starts of all the processes in the cartesian decomposition with the shift=1 ."""
         return self._reduced_global_starts
 
     @property
     def reduced_global_ends( self ):
+        """ The ends of all the processes in the cartesian decomposition with the shift=1 ."""
         return self._reduced_global_ends
 
     @property
@@ -764,6 +777,7 @@ class CartDecomposition():
 
     #---------------------------------------------------------------------------
     def change_starts_ends( self, starts, ends, parent_starts,  parent_ends):
+        """ Create a cart that is defined on a sub domain of the current cart."""
         cart = CartDecomposition(self._npts, self._pads, self._periods, self._reorder,
                                 comm=self.comm, global_comm=self._global_comm,
                                 shifts=self.shifts, reverse_axis=self.reverse_axis)
@@ -844,8 +858,8 @@ class CartDecomposition():
 #===============================================================================
 class InterfaceCartDecomposition(CartDecomposition):
     """
-    The Cartesian decomposition of an interface constucted from the Cartesian decomposition of the patches that shares an interface.
-    This is built using a new inter-communicator between the cartition grids.
+    The Cartesian decomposition of an interface constructed from the Cartesian decomposition of the patches that share an interface.
+    This is built using a new inter-communicator between the cartesian grids.
 
     Parameters
     ----------
@@ -1124,110 +1138,142 @@ class InterfaceCartDecomposition(CartDecomposition):
     #---------------------------------------------------------------------------
     @property
     def ndims( self ):
+        """Number of dimension."""
         return self._ndims
 
     @property
     def npts_minus( self ):
+        """Number of points in the minus side of an interface."""
         return self._npts_minus
 
     @property
     def npts_plus( self ):
+        """Number of points in the plus side of an interface."""
         return self._npts_plus
 
     @property
     def pads_minus( self ):
+        """ padding in the minus side of an interface."""
         return self._pads_minus
 
     @property
     def pads_plus( self ):
+        """ padding in the plus side of an interface."""
         return self._pads_plus
 
     @property
     def periods_minus( self ):
+        """ Periodicity in the minus side of an interface."""
         return self._periods_minus
 
     @property
     def periods_plus( self ):
+        """ Periodicity in the plus side of an interface."""
         return self._periods_plus
 
     @property
     def shifts_minus( self ):
+        """ The shift values in the minus side of an interface."""
         return self._shifts_minus
 
     @property
     def shifts_plus( self ):
+        """ The shift values in the plus side of an interface."""
         return self._shifts_plus
 
     @property
     def ext_minus( self ):
+        """ the extremity  of the boundary on the minus side of an interface."""
         return self._ext_minus
 
     @property
     def ext_plus( self ):
+        """ the extremity of the boundary on the plus side of an interface."""
         return self._ext_plus
 
     @property
     def root_rank_minus( self ):
+        """ The root rank of the communicator defined in the minus patch."""
         return self._root_rank_minus
 
     @property
     def root_rank_plus( self ):
+        """ The root rank of the communicator defined in the plus patch."""
         return self._root_rank_plus
 
     @property
     def ranks_in_topo_minus( self ):
+        """ the ranks in the cartesian topology of defined on the minus patch."""
         return self._ranks_in_topo_minus
 
     @property
+    def ranks_in_topo_plus( self ):
+        """ the ranks in the cartesian topology of defined on the plus patch."""
+        return self._ranks_in_topo_plus
+
+    @property
     def coords_from_rank_minus( self ):
+        """ Array that maps the ranks of minus patch to their coordinates in the cartesian decomposition."""
         return self._coords_from_rank_minus
 
     @property
     def coords_from_rank_plus( self ):
+        """ Array that maps the ranks of plus patch to their coordinates in the cartesian decomposition."""
         return self._coords_from_rank_plus
 
     @property
     def boundary_ranks_minus( self ):
+        """ Array that contains the ranks defined on the boundary of the minus side of the interface."""
         return self._boundary_ranks_minus
 
     @property
     def boundary_ranks_plus( self ):
+        """ Array that contains the ranks defined on the boundary of the plus side of the interface."""
         return self._boundary_ranks_plus
 
     @property
     def reduced_global_starts_minus( self ):
+        """ The starts of all the processes in the cartesian decomposition of the minus patch with the shift=1"""
         return self._reduced_global_starts_minus
 
     @property
     def reduced_global_starts_plus( self ):
+        """ The starts of all the processes in the cartesian decomposition of the plus patch with the shift=1"""
         return self._reduced_global_starts_plus
 
     @property
     def reduced_global_ends_minus( self ):
+        """ The ends of all the processes in the cartesian decomposition of the minus patch with the shift=1"""
         return self._reduced_global_ends_minus
 
     @property
     def reduced_global_ends_plus( self ):
+        """ The ends of all the processes in the cartesian decomposition of the plus patch with the shift=1"""
         return self._reduced_global_ends_plus
 
     @property
     def global_starts_minus( self ):
+        """ The starts of all the processes in the cartesian decomposition defined on the minus patch."""
         return self._global_starts_minus
 
     @property
     def global_starts_plus( self ):
+        """ The starts of all the processes in the cartesian decomposition defined on the plus patch."""
         return self._global_starts_plus
 
     @property
     def global_ends_minus( self ):
+        """ The ends of all the processes in the cartesian decomposition defined on the minus patch."""
         return self._global_ends_minus
 
     @property
     def global_ends_plus( self ):
+        """ The ends of all the processes in the cartesian decomposition defined on the plus patch."""
         return self._global_ends_plus
 
     @property
     def axis( self ):
+        """ The axis of the interface."""
         return self._axis
 
     @property
@@ -1262,35 +1308,40 @@ class InterfaceCartDecomposition(CartDecomposition):
         return self._parent_ends
 
     @property
-    def ranks_in_topo_plus( self ):
-        return self._ranks_in_topo_plus
-
-    @property
     def local_group_minus( self ):
+        """ The MPI Group of the ranks defined in the minus patch"""
         return self._local_group_minus
 
     @property
     def local_group_plus( self ):
+        """ The MPI Group of the ranks defined in the plus patch"""
         return self._local_group_plus
 
     @property
     def local_comm_minus( self ):
+        """ The MPI intra-communicator defined in the minus patch"""
         return self._local_comm_minus
 
     @property
     def local_comm_plus( self ):
+        """ The MPI intra-communicator defined in the plus patch"""
         return self._local_comm_plus
 
     @property
     def local_comm( self ):
+        """ The communicator owned by the process it can be local_comm_minus or local_comm_plus."""
         return self._local_comm
 
     @property
     def local_rank_minus( self ):
+        """ The rank of the process defined on minus side of the interface,
+        the rank is undefined in the case where the process is defined in the plus side of the interface."""
         return self._local_rank_minus
 
     @property
     def local_rank_plus( self ):
+        """ The rank of the process defined on plus side of the interface,
+        the rank is undefined in the case where the process is defined in the minus side of the interface."""
         return self._local_rank_plus
 
     #---------------------------------------------------------------------------

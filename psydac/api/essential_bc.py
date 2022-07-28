@@ -22,9 +22,10 @@ def apply_essential_bc(a, *bcs, **kwargs):
             )
 
     elif isinstance(a, BlockVector):
+        is_broken=kwargs.pop('is_broken', True)
         for bc in bcs:
             check_boundary_type(bc)
-            apply_essential_bc_BlockVector(a, bc, is_broken=kwargs.pop('is_broken', True))
+            apply_essential_bc_BlockVector(a, bc, is_broken=is_broken)
 
     elif isinstance(a, BlockMatrix):
         for bc in bcs:
@@ -77,7 +78,7 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
     elif isinstance(a, StencilInterfaceMatrix):
         V = a.codomain
         n = V.ndim * 2
-        if axis == a._c_axis:
+        if axis == a.codomain_axis:
             return
     else:
         raise TypeError('Cannot apply essential BC to object {} of type {}'\
@@ -137,7 +138,7 @@ def apply_essential_bc_BlockMatrix(a, bc, *, identity=False, is_broken=True):
     """
 
     assert isinstance(a, BlockMatrix)
-    keys = list(a._blocks.keys())
+    keys = a.nonzero_block_indices
 
     is_broken = bc.variable.space.is_broken and is_broken
     if bc.index_component and not is_broken:

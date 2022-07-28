@@ -1756,16 +1756,16 @@ class StencilInterfaceMatrix(Matrix):
         self._flip        = tuple([1]*len(dims) if flip is None else flip)
         self._permutation = list(range(len(dims)))
         self._permutation[d_axis], self._permutation[c_axis] = self._permutation[c_axis], self._permutation[d_axis]
-        self._domain      = V
-        self._codomain    = W
-        self._d_axis      = d_axis
-        self._c_axis      = c_axis
-        self._d_ext       = d_ext
-        self._c_ext       = c_ext
-        self._d_start     = s_d
-        self._c_start     = s_c
-        self._ndim        = len( dims )
-        self._backend     = None
+        self._domain         = V
+        self._codomain       = W
+        self._domain_axis    = d_axis
+        self._codomain_axis  = c_axis
+        self._domain_ext     = d_ext
+        self._codomain_ext   = c_ext
+        self._domain_start   = s_d
+        self._codomain_start = s_c
+        self._ndim           = len( dims )
+        self._backend        = None
 
         # Prepare the arguments for the dot product method
         nd  = [(ej-sj+2*gp*mj-mj*p-gp)//mj*mi+1 for sj,ej,mj,mi,p,gp in zip(Vin.starts, Vin.ends, Vin.shifts, W.shifts, self._pads, Vin.pads)]
@@ -1786,8 +1786,8 @@ class StencilInterfaceMatrix(Matrix):
         args['dm']           = tuple(Vin.shifts)
         args['cm']           = tuple(W.shifts)
         args['c_axis']       = c_axis
-        args['d_start']      = self._d_start
-        args['c_start']      = self._c_start
+        args['d_start']      = self._domain_start
+        args['c_start']      = self._codomain_start
         args['flip']         = self._flip
         args['permutation']  = self._permutation
 
@@ -1839,7 +1839,7 @@ class StencilInterfaceMatrix(Matrix):
         else:
             out = StencilVector( self.codomain )
 
-        self._func(self._data, v._interface_data[self._d_axis, self._d_ext], out._data, **self._args)
+        self._func(self._data, v._interface_data[self._domain_axis, self._domain_ext], out._data, **self._args)
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
         return out
@@ -1903,8 +1903,8 @@ class StencilInterfaceMatrix(Matrix):
 
         if Mt is None:
             # Create new matrix where domain and codomain are swapped
-            Mt = StencilInterfaceMatrix(M.codomain, M.domain, M.c_start, M.d_start, M._c_axis, M._d_axis, M._c_ext, M._d_ext,
-                                        flip=M._flip, pads=M._pads, backend=M._backend)
+            Mt = StencilInterfaceMatrix(M.codomain, M.domain, M.codomain_start, M.domain_start, M.codomain_axis, M.domain_axis, M.codomain_ext, M.domain_ext,
+                                        flip=M.flip, pads=M.pads, backend=M.backend)
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
         M._transpose_func(M._data, Mt._data, **M._transpose_args)
@@ -1941,13 +1941,13 @@ class StencilInterfaceMatrix(Matrix):
         W     = self.codomain
         ssc   = W.starts
         eec   = W.ends
-        ssd   = V.interfaces[self._d_axis, self._d_ext].starts
-        eed   = V.interfaces[self._d_axis, self._d_ext].ends
+        ssd   = V.interfaces[self._domain_axis, self._domain_ext].starts
+        eed   = V.interfaces[self._domain_axis, self._domain_ext].ends
         pads  = self._pads
         gpads = V.pads
         dm    = V.shifts
         cm    = W.shifts
-        dim   = self._c_axis
+        dim   = self._codomain_axis
 
         # Number of rows in the transposed matrix (along each dimension)
         nrows       = [e-s+1 for s,e in zip(ssd, eed)]
@@ -2079,24 +2079,50 @@ class StencilInterfaceMatrix(Matrix):
     # Other properties/methods
     #--------------------------------------
 
+    # ...
+    @property
+    def domain_axis( self ):
+        return self._domain_axis
+
+    # ...
+    @property
+    def codomain_axis( self ):
+        return self._codomain_axis
+
+    # ...
+    @property
+    def domain_ext( self ):
+        return self._domain_ext
+
+    # ...
+    @property
+    def codomain_ext( self ):
+        return self._codomain_ext
+
+    # ...
+    @property
+    def domain_start( self ):
+        return self._domain_start
+
+    # ...
+    @property
+    def codomain_start( self ):
+        return self._codomain_start
+
+    # ...
     @property
     def dim( self ):
         return self._dim
 
     # ...
     @property
-    def d_start( self ):
-        return self._d_start
-
-    # ...
-    @property
-    def c_start( self ):
-        return self._c_start
-
-    # ...
-    @property
     def flip( self ):
         return self._flip
+
+    # ...
+    @property
+    def permutation( self ):
+        return self._permutation
 
     # ...
     @property
@@ -2166,12 +2192,12 @@ class StencilInterfaceMatrix(Matrix):
         nd  = len(pp)
         dim = self._c_axis
 
-        flip        = self._flip
-        permutation = self._permutation
-        c_start     = self.c_start
-        d_start     = self.d_start
-        dm          = self._domain.shifts
-        cm          = self._codomain.shifts
+        flip        = self.flip
+        permutation = self.permutation
+        c_start     = self.codomain_start
+        d_start     = self.domain_start
+        dm          = self.domain.shifts
+        cm          = self.codomain.shifts
 
         ravel_multi_index = np.ravel_multi_index
 
@@ -2316,9 +2342,9 @@ class StencilInterfaceMatrix(Matrix):
                                     cm = (self._args['cm'],),
                                     interface=True,
                                     flip_axis=self._flip,
-                                    interface_axis=self._c_axis,
-                                    d_start=(self._d_start,),
-                                    c_start=(self._c_start,))
+                                    interface_axis=self._codomain_axis,
+                                    d_start=(self._domain_start,),
+                                    c_start=(self._codomain_start,))
 
                     starts = self._args.pop('starts')
                     nrows  = self._args.pop('nrows')
@@ -2342,9 +2368,9 @@ class StencilInterfaceMatrix(Matrix):
                                             cm = (self._args['cm'],),
                                             interface=True,
                                             flip_axis=self._flip,
-                                            interface_axis=self._c_axis,
-                                            d_start=(self._d_start,),
-                                            c_start=(self._c_start,))
+                                            interface_axis=self._codomain_axis,
+                                            d_start=(self._domain_start,),
+                                            c_start=(self._codomain_start,))
 
                     starts      = self._args.pop('starts')
                     nrows       = self._args.pop('nrows')
@@ -2376,9 +2402,9 @@ class StencilInterfaceMatrix(Matrix):
                                         cm = (self._args['cm'],),
                                         interface=True,
                                         flip_axis=self._flip,
-                                        interface_axis=self._c_axis,
-                                        d_start=(self._d_start,),
-                                        c_start=(self._c_start,))
+                                        interface_axis=self._codomain_axis,
+                                        d_start=(self._domain_start,),
+                                        c_start=(self._codomain_start,))
 
                 self._args = {}
 

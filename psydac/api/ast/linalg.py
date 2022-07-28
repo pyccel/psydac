@@ -86,7 +86,7 @@ class LinearOperatorDot(SplBasic):
         The number of blocks along the rows and columns.
 
     comm: MPI.Comm
-        MPI inter communicator.
+        MPI intra-communicator.
     """
     def __new__(cls, ndim, block_shape, comm=None, **kwargs):
         if comm is not None:

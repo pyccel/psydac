@@ -3,6 +3,8 @@
 # Copyright 2018 Jalal Lakhlili, Yaman Güçlü
 
 import numpy as np
+
+from types import MappingProxyType
 from scipy.sparse import bmat, lil_matrix
 
 from psydac.linalg.basic import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
@@ -51,6 +53,7 @@ class BlockVectorSpace( VectorSpace ):
 
         connectivity       = connectivity or {}
         self._connectivity = connectivity
+        self._connectivity_readonly = MappingProxyType(self._connectivity)
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -111,10 +114,7 @@ class BlockVectorSpace( VectorSpace ):
 
     @property
     def connectivity( self ):
-        return self._connectivity
-
-    def get_connectivity( self, i, j ):
-        return self._connectivity[i,j]
+        return self._connectivity_readonly
 
     def __getitem__( self, key ):
         return self._spaces[key]
@@ -160,7 +160,7 @@ class BlockVector( Vector ):
 
         # Prepare the data exchangers for the interface data
         for i,j in V.connectivity:
-            ((axis_i,ext_i),(axis_j,ext_j)) = V.get_connectivity(i,j)
+            ((axis_i,ext_i),(axis_j,ext_j)) = V.connectivity[i,j]
 
             Vi = V.spaces[i]
             Vj = V.spaces[j]
@@ -334,7 +334,7 @@ class BlockVector( Vector ):
         if not V.parallel:return
         for i,j in V.connectivity:
             if not (i,j) in self._data_exchangers:continue
-            ((axis_i,ext_i), (axis_j,ext_j)) = V.get_connectivity(i,j)
+            ((axis_i,ext_i), (axis_j,ext_j)) = V.connectivity[i,j]
 
             Vi = V.spaces[i]
             Vj = V.spaces[j]
@@ -550,6 +550,14 @@ class BlockLinearOperator( LinearOperator ):
     @property
     def n_block_cols( self ):
         return self._ncols
+
+    @property
+    def nonzero_block_indices(self):
+        """
+        Tuple of (i, j) pairs which identify the non-zero blocks:
+        i is the row index, j is the column index.
+        """
+        return tuple(self._block)
 
     # ...
     def update_ghost_regions( self ):
@@ -894,7 +902,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         V = self.codomain 
         for i,j in V.connectivity:
 
-            ((axis_i,ext_i), (axis_j,ext_j)) = V.get_connectivity(i,j)
+            ((axis_i,ext_i), (axis_j,ext_j)) = V.connectivity[i,j]
 
             Vi = V.spaces[i]
             Vj = V.spaces[j]
