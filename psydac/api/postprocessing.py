@@ -187,13 +187,16 @@ class OutputManager:
         self._space_info = {}
         self._spaces = []
 
-        if filename_space[-4:] != ".yml" and filename_space[-4:] != ".yaml":
-            filename_space += ".yml"
-        self.filename_space = filename_space
+        if not os.path.splitext(filename_space)[-1] in ['.yml', '.yaml']:
+            self.filename_space = filename_space + ".yaml"
+        else:
+            self.filename_space = filename_space
 
-        if filename_fields[-3:] != ".h5":
-            filename_fields += ".h5"
-        self.filename_fields = filename_fields
+        if os.path.splitext(filename_fields)[-1] != ".h5":
+            self.filename_fields = filename_fields + ".h5"
+        else:
+            self.filename_fields = filename_fields
+
         self._next_snapshot_number = 0
         self.is_static = None
         self._current_hdf5_group = None
@@ -721,12 +724,12 @@ class PostProcessManager:
         self._domain = domain
         self._domain_h = None
 
-        if not space_file.split('.')[-1] in ['yml', 'yaml']:
-            self.space_filename = space_file + '.yml'
+        if not os.path.splitext(space_file)[-1] in ['.yml', '.yaml']:
+            self.space_filename = space_file + '.yaml'
         else:
             self.space_filename = space_file
 
-        if fields_file.split('.')[-1] != 'h5':
+        if os.path.splitext(fields_file)[-1] != '.h5':
             self.fields_filename = fields_file + '.h5'
         else:
             self.fields_filename = fields_file
@@ -1156,9 +1159,6 @@ class PostProcessManager:
             self._static_fields,
             fields
         )
-        for v in self._static_fields.values():
-            if not v.coeffs.ghost_regions_in_sync:
-                v.coeffs.update_ghost_regions()
 
         self._last_loaded_fields = self._static_fields
 
@@ -1192,10 +1192,6 @@ class PostProcessManager:
 
         self._loaded_t = snapshot_group.attrs['t']
         self._loaded_ts = snapshot_group.attrs['ts']
-
-        for v in self._snapshot_fields.values():
-            if not v.coeffs.ghost_regions_in_sync:
-                v.coeffs.update_ghost_regions()
 
         self._snapshot_fields = {k: v for k, v in self._snapshot_fields.items() if k in keys_loaded}
 
@@ -1312,10 +1308,12 @@ class PostProcessManager:
                 V = space.spaces[i].vector_space
                 index_coeff = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
                 field.coeffs[i][index_coeff] = coeff[i][index_coeff]
+                field.coeffs[i].update_ghost_regions()
         else:
             V = space.vector_space
             index_coeff = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
             field.coeffs[index_coeff] = coeff[index_coeff]
+            field.coeffs.update_ghost_regions()
 
     def export_to_vtk(self,
                       filename,
@@ -1330,6 +1328,7 @@ class PostProcessManager:
                       number_by_rank_simu=True,
                       number_by_rank_visu=True,
                       number_by_patch=True,
+                      verbose=False,
                       ):
         """
         Exports some fields to vtk.
@@ -1377,6 +1376,9 @@ class PostProcessManager:
         number_by_patch : bool, default=True
             Adds a cellData attribute that represents the patches each cell belongs to.
 
+        verbose : bool, default=False
+            If true, prints snapshot progress.
+
         Notes
         -----
         This function only supports regular and irregular tensor grid.
@@ -1421,6 +1423,7 @@ class PostProcessManager:
             size = self.comm.Get_size()
             # Get ranked filename
             if size > 1:
+                filename_same_dir = filename.split('/')[-1]
                 filename = filename + f'.{rank}'
             else:
                 number_by_rank_visu = False
@@ -1469,6 +1472,8 @@ class PostProcessManager:
                 else:
                     raise ValueError(f"No static fields were found in {fields}")
             else:
+                if verbose and (self.comm is None or self.comm.Get_rank() == 0):
+                    print("Exporting static fields")
                 # Compute everything
                 mesh_info, cell_data, point_data = self._export_to_vtk_helper(
                         grid=grid,
@@ -1499,7 +1504,7 @@ class PostProcessManager:
                     writeParallelVTKUnstructuredGrid(
                         path=filename[:-2] + '.static', # Remove ".0"
                         coordsdtype=mesh_info[0][0].dtype,
-                        sources=[filename[:-1]+f'{r}.static.vtu' for r in range(size)],
+                        sources=[filename_same_dir + f'.{r}.static.vtu' for r in range(size)],
                         ghostlevel=0,
                         cellData=celldata_info,
                         pointData=pointdata_info
@@ -1549,7 +1554,8 @@ class PostProcessManager:
                     f"None of the fields in {fields} were found in snapshot {snapshot}, no files will be written"
                 )
                 continue
-
+            if verbose and (self.comm is None or self.comm.Get_rank() == 0):
+                print(f"Exporting snapshot: {snapshot} ({i +1}/{len(snapshots)})")
             # Compute everything
             mesh_info, cell_data, point_data = self._export_to_vtk_helper(
                     grid=grid,
@@ -1581,7 +1587,7 @@ class PostProcessManager:
                 writeParallelVTKUnstructuredGrid(
                     path=filename[:-2] + '.{0:0{1}d}'.format(i, lz), # Remove ".0"
                     coordsdtype=mesh_info[0][0].dtype,
-                    sources=[filename[:-1]+f'{r}' + '.{0:0{1}d}.vtu'.format(i, lz) for r in range(size)],
+                    sources=[filename_same_dir + f'.{r}' + '.{0:0{1}d}.vtu'.format(i, lz) for r in range(size)],
                     ghostlevel=0,
                     cellData=celldata_info,
                     pointData=pointdata_info
