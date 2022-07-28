@@ -557,7 +557,7 @@ class BlockLinearOperator( LinearOperator ):
         Tuple of (i, j) pairs which identify the non-zero blocks:
         i is the row index, j is the column index.
         """
-        return tuple(self._block)
+        return tuple(self._blocks)
 
     # ...
     def update_ghost_regions( self ):
@@ -1106,7 +1106,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         from psydac.linalg.stencil import StencilInterfaceMatrix
 
         block_shape = (self.n_block_rows, self.n_block_cols)
-        keys        = tuple(self._blocks.keys())
+        keys        = self.nonzero_block_indices
         ndim        = self._blocks[keys[0]]._ndim
         c_starts    = []
         d_starts    = []
