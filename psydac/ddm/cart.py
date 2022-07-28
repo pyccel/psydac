@@ -318,7 +318,7 @@ class InterfacesCartDecomposition:
     Parameters
     ----------
 
-    carts: MultiCartDecomposition
+    carts: list of CartDecomposition
         The cartesian decomposition of multiple grids.
 
     interfaces: dict

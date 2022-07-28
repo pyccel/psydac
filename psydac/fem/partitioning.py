@@ -176,7 +176,7 @@ def create_interfaces_cart(domain_h, carts, connectivity=None):
     interfaces_cart = None
     if connectivity:
         connectivity = connectivity.copy()
-        interfaces_cart = InterfacesCartDecomposition(cart, connectivity)
+        interfaces_cart = InterfacesCartDecomposition(carts, connectivity)
         for i,j in connectivity:
             if (i,j) in interfaces_cart.carts and not interfaces_cart.carts[i,j].is_comm_null:
                 interfaces_cart.carts[i,j].set_communication_info(get_minus_starts_ends, get_plus_starts_ends)

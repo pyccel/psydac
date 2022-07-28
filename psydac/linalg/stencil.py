@@ -1795,14 +1795,14 @@ class StencilInterfaceMatrix(Matrix):
         self._flip        = tuple([1]*len(dims) if flip is None else flip)
         self._permutation = list(range(len(dims)))
         self._permutation[d_axis], self._permutation[c_axis] = self._permutation[c_axis], self._permutation[d_axis]
-        self._domain      = V
-        self._codomain    = W
-        self._d_axis      = d_axis
-        self._c_axis      = c_axis
-        self._d_ext       = d_ext
-        self._c_ext       = c_ext
-        self._d_start     = s_d
-        self._c_start     = s_c
+        self._domain         = V
+        self._codomain       = W
+        self._domain_axis    = d_axis
+        self._codomain_axis  = c_axis
+        self._domain_ext     = d_ext
+        self._codomain_ext   = c_ext
+        self._domain_start   = s_d
+        self._codomain_start = s_c
         self._ndim        = len( dims )
         self._backend     = None
 
@@ -2361,7 +2361,7 @@ class StencilInterfaceMatrix(Matrix):
 
         ndim     = self._codomain.ndim
         for direction in range(ndim):
-            if direction == self._c_axis:continue
+            if direction == self._codomain_axis:continue
             periodic = self._codomain.periods[direction]
             p        = self._codomain.pads   [direction]
             m        = self._codomain.shifts[direction]
