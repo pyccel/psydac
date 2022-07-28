@@ -767,6 +767,7 @@ def test_parallel_export_topological_domain(domain, mapping, kind, space):
 
     degree = [2, 2, 2][:dim]
     domain_h = discretize(domain, ncells=[6] * dim, comm=comm)
+
     space_h = discretize(symbolic_space, domain_h, degree=degree)
 
     field = FemField(space_h)

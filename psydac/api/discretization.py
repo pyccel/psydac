@@ -13,15 +13,14 @@ from sympde.expr     import Functional as sym_Functional
 from sympde.expr     import Equation as sym_Equation
 from sympde.expr     import Norm as sym_Norm
 from sympde.expr     import TerminalExpr
-from sympde.topology import Domain, Interface
-from sympde.topology import Line, Square, Cube
+
 from sympde.topology import BasicFunctionSpace
 from sympde.topology import VectorFunctionSpace
 from sympde.topology import ProductSpace
+from sympde.topology import Domain
 from sympde.topology import Derham
 from sympde.topology import LogicalExpr
 from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.topology.basic import Union
 
 from gelato.expr import GltExpr as sym_GltExpr
 
@@ -36,6 +35,7 @@ from psydac.api.equation     import DiscreteEquation
 from psydac.api.utilities    import flatten
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
+from psydac.fem.partitioning import create_cart, construct_connectivity, construct_interface_spaces
 from psydac.fem.vector       import ProductFemSpace
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
@@ -187,6 +187,7 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
 
     return Wh
 
+
 #==============================================================================
 # TODO knots
 def discretize_space(V, domain_h, *args, **kwargs):
@@ -209,8 +210,8 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
     """
 
-#    we have two two cases, the case where we have a geometry file,
-#    and the case where we have either an analytical mapping or without the mapping.
+#    we have two cases, the case where we have a geometry file,
+#    and the case where we have either an analytical mapping or without a mapping.
 #    We build the dictionary g_spaces for each interior domain, where it conatians the interiors as keys and the spaces as values,
 #    we then create the compatible spaces if needed with the suitable basis functions.
 
@@ -228,44 +229,46 @@ def discretize_space(V, domain_h, *args, **kwargs):
     if sequence in ['TH', 'N', 'RT']:
         assert isinstance(V, ProductSpace) and len(V.spaces) == 2
 
-    g_spaces = {}
+    g_spaces   = {}
+    domain     = domain_h.domain
+
+    if len(domain)==1:
+        interiors  = [domain.interior]
+    else:
+        interiors  = list(domain.interior.args)
+
+    connectivity = construct_connectivity(domain)
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
         # from a discrete geoemtry
-        if len(domain_h.mappings.values()) > 1:
-            raise NotImplementedError('Multipatch not yet available')
-
-        interiors = [domain_h.domain.interior]
         mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
         spaces    = [m.space for m in mappings]
         g_spaces  = dict(zip(interiors, spaces))
+        spaces    = [S.spaces for S in spaces]
 
         if not( comm is None ) and ldim == 1:
             raise NotImplementedError('must create a TensorFemSpace in 1d')
 
-    elif not( degree is None ):
-
-        assert(hasattr(domain_h, 'ncells'))
-        interiors = domain_h.domain.interior
-        if isinstance(interiors, Union):
-            interiors = interiors.args
-            interfaces = domain_h.domain.interfaces
-
-            if isinstance(interfaces, Interface):
-                interfaces = [interfaces]
-            elif isinstance(interfaces, Union):
-                interfaces = interfaces.args
+        if comm is not None:
+            cart = domain_h.cart
+            if len(interiors) == 1:
+                carts = [cart]
             else:
-                interfaces = []
-        else:
-            interiors = [interiors]
+                carts = cart.carts
+    else:
 
+        assert isinstance( degree, (list, tuple) )
+        assert  len(degree) == ldim
+        assert hasattr(domain_h, 'ncells')
+
+        if isinstance(knots, (list, tuple)):
+            assert len(interiors) == 1
+            knots = {interiors[0].name:knots}
+
+        spaces = [None]*len(interiors)
         for i,interior in enumerate(interiors):
             ncells     = domain_h.ncells
             min_coords = interior.min_coords
             max_coords = interior.max_coords
-
-            assert(isinstance( degree, (list, tuple) ))
-            assert( len(degree) == ldim )
 
             if knots is None:
                 # Create uniform grid
@@ -273,40 +276,30 @@ def discretize_space(V, domain_h, *args, **kwargs):
                          for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
                 # Create 1D finite element spaces and precompute quadrature data
-                spaces = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
+                spaces[i] = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
             else:
                  # Create 1D finite element spaces and precompute quadrature data
-                if isinstance(knots, (list, tuple)):
-                    assert len(interiors) == 1
-                    knots = {interior.name:knots}
-                spaces = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree, knots[interior.name], periodic)]
+                spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree, knots[interior.name], periodic)]
 
-            Vh     = None
-            if i>0:
-                for e in interfaces:
-                    plus = e.plus.domain
-                    minus = e.minus.domain
-                    if plus == interior:
-                        index = interiors.index(minus)
-                    elif minus == interior:
-                        index = interiors.index(plus)
-                    else:
-                        continue
-                    if index<i:
-                        nprocs = None
-                        if comm is not None:
-                            nprocs = g_spaces[interiors[index]].vector_space.cart.nprocs
-                        Vh = TensorFemSpace( *spaces, comm=comm, quad_order=quad_order, nprocs=nprocs, reverse_axis=e.axis)
-                        break
-                else:
-                    Vh = TensorFemSpace( *spaces, comm=comm, quad_order=quad_order)
+        if comm is not None:
+            cart = create_cart(spaces, comm)
+
+            if len(interiors) == 1:
+                carts = [cart]
             else:
-                Vh = TensorFemSpace( *spaces, comm=comm, quad_order=quad_order)
+                carts = cart.carts
+        else:
+            cart = None
 
-            if Vh is None:
-                raise ValueError('Unable to discretize the space')
+        for i,interior in enumerate(interiors):
+            if comm is not None:
+                Vh = TensorFemSpace( *spaces[i], cart=carts[i], quad_order=quad_order)
+            else:
+                Vh = TensorFemSpace( *spaces[i], quad_order=quad_order)
 
             g_spaces[interior] = Vh
+
+        construct_interface_spaces(g_spaces, cart, interiors, connectivity)
 
     for inter in g_spaces:
         Vh = g_spaces[inter]
@@ -319,16 +312,20 @@ def discretize_space(V, domain_h, *args, **kwargs):
             Vh = reduce_space_degrees(V, Vh, basis=basis, sequence=sequence)
 
         Vh.symbolic_space = V
-        g_spaces[inter]    = Vh
+        g_spaces[inter]   = Vh
 
-    Vh = ProductFemSpace(*g_spaces.values())
+    Vh = ProductFemSpace(*g_spaces.values(), connectivity=connectivity)
 
-    Vh.symbolic_space      = V
+    Vh.symbolic_space = V
 
     return Vh
 
 #==============================================================================
 def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
+
+    if comm is not None:
+        # Create a copy of the communicator
+        comm = comm.Dup()
 
     if not (filename or ncells):
         raise ValueError("Must provide either 'filename' or 'ncells'")
@@ -347,7 +344,7 @@ def discretize(a, *args, **kwargs):
 
     if isinstance(a, (sym_BasicForm, sym_GltExpr, sym_Expr)):
         domain_h = args[0]
-        assert( isinstance(domain_h, Geometry) )
+        assert isinstance(domain_h, Geometry)
         domain  = domain_h.domain
         mapping = domain_h.domain.mapping
         kwargs['mapping'] = mapping

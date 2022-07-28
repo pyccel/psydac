@@ -20,15 +20,15 @@ from sympde.topology.space       import IndexedVectorFunction
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_logical_partial_derivatives
 from sympde.topology.mapping     import InterfaceMapping
-from sympde.calculus.core        import is_zero
+from sympde.calculus.core        import is_zero, PlusInterfaceOperator
 
 from psydac.pyccel.ast.core import _atomic, Assign, Import, AugAssign, Return
-from psydac.pyccel.ast.core import Comment, Continue
+from psydac.pyccel.ast.core import Comment, Continue, Slice
 
 from .nodes import GlobalTensorQuadratureGrid, PlusGlobalTensorQuadratureGrid
 from .nodes import LocalTensorQuadratureGrid, PlusLocalTensorQuadratureGrid
-from .nodes import GlobalTensorQuadratureTestBasis
-from .nodes import GlobalTensorQuadratureTrialBasis
+from .nodes import GlobalTensorQuadratureTestBasis, LocalTensorQuadratureTestBasis
+from .nodes import GlobalTensorQuadratureTrialBasis, LocalTensorQuadratureTrialBasis
 from .nodes import LengthElement, LengthQuadrature
 from .nodes import LengthDofTrial, LengthDofTest
 from .nodes import LengthOuterDofTest, LengthInnerDofTest
@@ -39,7 +39,7 @@ from .nodes import BlockStencilVectorLocalBasis, StencilVectorLocalBasis
 from .nodes import BlockStencilVectorGlobalBasis
 from .nodes import GlobalElementBasis
 from .nodes import LocalElementBasis
-from .nodes import GlobalSpan, GlobalThreadSpan, Span
+from .nodes import GlobalSpanArray, LocalSpanArray, GlobalThreadSpanArray, Span
 from .nodes import CoefficientBasis
 from .nodes import MatrixLocalBasis, MatrixGlobalBasis
 from .nodes import MatrixRankFromCoords, MatrixCoordsFromRank
@@ -70,6 +70,11 @@ from psydac.api.utilities     import flatten
 from psydac.linalg.block      import BlockVectorSpace
 from psydac.fem.vector        import ProductFemSpace
 
+#==============================================================================
+def toInteger(a):
+    if isinstance(a,(int, np.int64)):
+        return Integer(int(a))
+    return a
 #==============================================================================
 def convert(dtype):
     """
@@ -307,10 +312,8 @@ class AST(object):
         tests_degrees       = ()
         trials_degrees      = ()
         fields_degrees      = ()
-
         # ...
         domain        = terminal_expr.target
-        terminal_expr = terminal_expr.expr
         dim           = domain.dim
         constants     = expr.constants
         mask          = None
@@ -320,6 +323,15 @@ class AST(object):
 
         elif isinstance(domain, Interface):
             mask = Mask(domain.axis, None)
+            is_trial = {}
+            if isinstance(terminal_expr.trial, PlusInterfaceOperator):
+                is_trial[domain.plus] = True
+                is_trial[domain.minus] = False
+            else:
+                is_trial[domain.plus] = False
+                is_trial[domain.minus] = True
+
+            kwargs["is_trial"] = is_trial
 
         if isinstance(expr, LinearForm):
 
@@ -336,14 +348,15 @@ class AST(object):
             is_bilinear         = True
             tests               = expr.test_functions
             trials              = expr.trial_functions
-            fields              = expr.fields
-            is_broken           = spaces[0].symbolic_space.is_broken
-            quad_order          = get_quad_order(spaces[0])
+            atoms               = terminal_expr.expr.atoms(ScalarFunction, VectorFunction)
+            fields              = tuple(i for i in atoms if i not in tests+trials)
+            is_broken           = spaces[1].symbolic_space.is_broken
+            quad_order          = get_quad_order(spaces[1])
             tests_degrees       = get_degrees(tests, spaces[0])
             trials_degrees      = get_degrees(trials, spaces[1])
             multiplicity_tests  = get_multiplicity(tests, spaces[1].vector_space)
             multiplicity_trials = get_multiplicity(trials, spaces[0].vector_space)
-            is_parallel         = spaces[0].vector_space.parallel
+            is_parallel         = spaces[1].vector_space.parallel
             spaces              = [V.symbolic_space for V in spaces]
 
         elif isinstance(expr, Functional):
@@ -367,6 +380,7 @@ class AST(object):
         atoms_types = (ScalarFunction, VectorFunction, IndexedVectorFunction)
 
         nderiv = 1
+        terminal_expr = terminal_expr.expr
         if isinstance(terminal_expr, (ImmutableDenseMatrix, Matrix)):
             n_rows, n_cols    = terminal_expr.shape
             atomic_expr_field = {f:[] for f in fields}
@@ -402,37 +416,64 @@ class AST(object):
 
             terminal_expr     = Matrix([[terminal_expr]])
 
-        d_tests  = {v: {'global': GlobalTensorQuadratureTestBasis (v), 
-                        'span': GlobalSpan(v),
+        d_tests  = {v: {'global': GlobalTensorQuadratureTestBasis(v),
+                        'local' : LocalTensorQuadratureTestBasis(v),
+                        'span': GlobalSpanArray(v),
+                        'local_span': LocalSpanArray(v),
                         'multiplicity':multiplicity_tests[i],
                         'degrees': tests_degrees[i],
-                        'thread_span':GlobalThreadSpan(v)} for i,v in enumerate(tests) }
+                        'thread_span':GlobalThreadSpanArray(v)} for i,v in enumerate(tests) }
 
-        d_trials = {u: {'global': GlobalTensorQuadratureTrialBasis(u), 
-                        'span': GlobalSpan(u),
+        d_trials = {u: {'global': GlobalTensorQuadratureTrialBasis(u),
+                        'local' : LocalTensorQuadratureTrialBasis(u),
+                        'span': GlobalSpanArray(u),
+                        'local_span': LocalSpanArray(u),
                         'multiplicity':multiplicity_trials[i],
                         'degrees':trials_degrees[i]} for i,u in enumerate(trials)}
 
         if isinstance(expr, Functional):
-            d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f), 
-                            'span': GlobalSpan(f),
+            d_fields = {f: {'global': GlobalTensorQuadratureTestBasis(f),
+                            'local' : LocalTensorQuadratureTestBasis(f),
+                            'span': GlobalSpanArray(f),
+                            'local_span': LocalSpanArray(f),
                             'multiplicity':multiplicity_fields[i],
                             'degrees':fields_degrees[i]} for i,f in enumerate(fields)}
 
         else:
-            d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f), 
-                            'span': GlobalSpan(f)} for i,f in enumerate(fields)}
+            d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f),
+                            'local' : LocalTensorQuadratureTestBasis(f),
+                            'span': GlobalSpanArray(f),
+                            'local_span': LocalSpanArray(f)} for i,f in enumerate(fields)}
 
         if mapping_space:
             f         = (tests+trials+fields)[0]
-            f         = f.duplicate('mapping_'+f.name)
-            f         = expand([f])[0]
-            mapping_degrees      = get_degrees([f], mapping_space)
-            multiplicity_mapping = get_multiplicity([f], mapping_space.vector_space)
-            d_mapping = {f: {'global': GlobalTensorQuadratureTestBasis (f),
-                             'span': GlobalSpan(f),
-                             'multiplicity':multiplicity_mapping[0],
-                             'degrees': mapping_degrees[0]}}
+            f = f.base if isinstance(f, IndexedVectorFunction) else f
+            if isinstance(domain, Interface):
+                f_m = f.duplicate('mapping_'+f.name)
+                f_m = expand([f_m])[0]
+                f_p = f.duplicate('mapping_plus_'+f.name)
+                f_p = expand([f_p])[0]
+                f   = (f_m, f_p)
+                mapping_degrees_m  = get_degrees([f_m], mapping_space[0])
+                mapping_degrees_p  = get_degrees([f_p], mapping_space[1])
+                multiplicity_mapping_m = get_multiplicity([f_m], mapping_space[0].vector_space)
+                multiplicity_mapping_p = get_multiplicity([f_p], mapping_space[1].vector_space)
+                mapping_degrees = (mapping_degrees_m, mapping_degrees_p)
+                multiplicity_mapping = (multiplicity_mapping_m, multiplicity_mapping_p)
+            else:
+                f  = f.duplicate('mapping_'+f.name)
+                f  = expand([f])[0]
+                f  = (f,)
+                mapping_degrees      = (get_degrees(f, mapping_space),)
+                multiplicity_mapping = (get_multiplicity(f, mapping_space.vector_space),)
+
+            d_mapping = {fi: {'global': GlobalTensorQuadratureTestBasis (fi),
+                              'local' : LocalTensorQuadratureTestBasis(fi),
+                             'span': GlobalSpanArray(fi),
+                             'local_span': LocalSpanArray(fi),
+                             'multiplicity':multiplicity_mapping_i[0],
+                             'degrees': mapping_degrees_i[0]}
+                             for fi,mapping_degrees_i,multiplicity_mapping_i in zip(f,mapping_degrees,multiplicity_mapping) }
         else:
            d_mapping = {}
 
@@ -600,6 +641,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     l_quad     = [LocalTensorQuadratureGrid(False)]
     b0s        = variables(('b01, b02, b03'), dtype='int')[:dim]
     e0s        = variables(('e01, e02, e03'), dtype='int')[:dim]
+
     if isinstance(domain, Interface):
         g_quad.append(PlusGlobalTensorQuadratureGrid(False))
         l_quad.append(PlusLocalTensorQuadratureGrid(False))
@@ -612,10 +654,17 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     quad_order    = kwargs.pop('quad_order', None)
     thread_span   =  dict((u,d_tests[u]['thread_span']) for u in tests)
     # ...........................................................................................
-    g_span              = dict((u,d_tests[u]['span']) for u in tests)
-    f_span              = dict((f,d_fields[f]['span']) for f in fields)
+    if add_openmp:
+        span  = 'local_span'
+        basis = 'local'
+    else:
+        span  = 'span'
+        basis = 'global'
+
+    g_span              = dict((u,d_tests[u][span]) for u in tests)
+    f_span              = dict((f,d_fields[f][span]) for f in fields)
     if mapping_space:
-        m_span   = dict((f,d_mapping[f]['span']) for f in d_mapping)
+        m_span   = dict((f,d_mapping[f][span]) for f in d_mapping)
     else:
         m_span = {}
 
@@ -638,7 +687,11 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     lengths         = [el_length, quad_length]
 
     # ...........................................................................................
-    geo        = GeometryExpressions(mapping, nderiv)
+    if isinstance(domain, Interface):
+        geos = [GeometryExpressions(mapping.minus, nderiv), GeometryExpressions(mapping.plus, nderiv)]
+    else:
+        geos = [GeometryExpressions(mapping, nderiv)]
+
     g_coeffs   = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
     l_mats     = BlockStencilMatrixLocalBasis(trials, tests, terminal_expr, dim, tag)
     g_mats     = BlockStencilMatrixGlobalBasis(trials, tests, pads, m_tests, terminal_expr, l_mats.tag)
@@ -657,11 +710,18 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     #ind_element   = index_element.set_range(start=g_starts,stop=g_ends) if add_openmp else index_element.set_range(stop=el_length)
     ind_element   = index_element.set_range(start=l_starts,stop=l_ends) if add_openmp else index_element.set_range(stop=el_length)
     l_ind_element = local_index_element.set_range(stop=TensorInteger(2))
-    if mapping_space:
-        ind_dof_test  = index_dof_test.set_range(stop=Tuple(*[d+1 for d in list(d_mapping.values())[0]['degrees']]))
+    if mapping_space and isinstance(domain, Interface):
+        is_trial = (kwargs["is_trial"][domain.minus], kwargs["is_trial"][domain.plus])
+        mappings = (mapping.minus, mapping.plus)
+        ind_dof_tests  = [index_dof_test.set_range(stop=Tuple(*[d+1 for d in d_mapping[f]['degrees']])) for f in d_mapping]
         # ...........................................................................................
-        eval_mapping = EvalMapping(ind_quad, ind_dof_test, list(d_mapping.values())[0]['global'],
-                        mapping, geo, mapping_space, nderiv, mask, is_rational_mapping)
+        eval_mappings = [EvalMapping(ind_quad, ind_dof_tests[i], d_mapping[fi][basis],
+                        mappings[i], geos[i], mapping_space[i], nderiv, mask, is_rational_mapping[i], trial=is_trial[i]) for i,fi in enumerate(d_mapping)]
+    elif mapping_space:
+        ind_dof_tests  = [index_dof_test.set_range(stop=Tuple(*[d+1 for d in d_mapping[f]['degrees']])) for f in d_mapping]
+        # ...........................................................................................
+        eval_mappings = [EvalMapping(ind_quad, ind_dof_tests[i], d_mapping[fi][basis],
+                        mapping, geos[i], mapping_space, nderiv, mask, is_rational_mapping) for i,fi in enumerate(d_mapping)]
 
     eval_fields = []
     for f in fields:
@@ -669,13 +729,13 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
         l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
         ind_dof_test = index_dof_test.set_range(stop=lengths_fields[f]+1)
-        eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], 
+        eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f][basis],
                                  coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
         eval_fields += [eval_field]
 
     g_stmts = []
     if mapping_space:
-        g_stmts.append(eval_mapping)
+        g_stmts = g_stmts + eval_mappings
 
     g_stmts += [*eval_fields]
     g_stmts_texpr = []
@@ -697,8 +757,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
             if is_zero(sub_terminal_expr):
                 continue
 
-            q_basis_tests  = dict((v,d_tests[v]['global'])         for v in sub_tests)
-            q_basis_trials = dict((u,d_trials[u]['global'])        for u in sub_trials)
+            q_basis_tests  = dict((v,d_tests[v][basis])         for v in sub_tests)
+            q_basis_trials = dict((u,d_trials[u][basis])        for u in sub_trials)
             m_tests        = dict((v,d_tests[v]['multiplicity'])   for v in sub_tests)
             m_trials       = dict((u,d_trials[u]['multiplicity'])  for u in sub_trials)
             tests_degree   = dict((v,d_tests[v]['degrees'])        for v in sub_tests)
@@ -724,7 +784,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                 # fields (and their derivatives) at a single quadrature point
                 stmts += flatten([eval_field.inits for eval_field in eval_fields])
          
-                loop  = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
+                loop  = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), *geos), ind_quad, stmts=stmts, mask=mask)
                 loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_scalars), loop)
 
                 # ... loop over trials
@@ -745,11 +805,12 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                 g_stmts += [stmts]
 
                 if is_parallel:
-                    ln = Tuple(*[d-1 for d in tests_degree[sub_tests[0]]])
-                    start_expr =  TensorMax(TensorMul(TensorAdd(TensorMul(ind_element, Tuple(*[-1]*dim)), ln), Tuple(*b0s)),Tuple(*[S.Zero]*dim))
+                    ln         = Tuple(*[d-1 for d in tests_degree[sub_tests[0]]])
+                    thr_s      = Tuple(*[ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i))) for i in range(dim)]) if add_openmp else Tuple(*[0]*dim)
+                    start_expr =  TensorMax(TensorMul(TensorAdd(TensorMul(TensorAdd(thr_s,ind_element), Tuple(*[-1]*dim)), ln), Tuple(*b0s)),Tuple(*[S.Zero]*dim))
                     start_expr = TensorAssignExpr(Tuple(*bs[sub_tests[0]]), start_expr)
-                    end_expr = TensorMax(TensorMul(TensorAdd(TensorMul(Tuple(*[-1]*dim), el_length), TensorAdd(ind_element, Tuple(*tests_degree[sub_tests[0]]))), Tuple(*e0s)), Tuple(*[S.Zero]*dim))
-                    end_expr = TensorAssignExpr(Tuple(*es[sub_tests[0]]), end_expr)
+                    end_expr   = TensorMax(TensorMul(TensorAdd(TensorMul(Tuple(*[-1]*dim), el_length), TensorAdd(TensorAdd(thr_s,ind_element), Tuple(*tests_degree[sub_tests[0]]))), Tuple(*e0s)), Tuple(*[S.Zero]*dim))
+                    end_expr   = TensorAssignExpr(Tuple(*es[sub_tests[0]]), end_expr)
                     g_stmts_texpr += [start_expr, end_expr]
 
             else:
@@ -777,7 +838,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                                                               tests_multiplicity=m_tests, trials_multiplicity=m_trials)
 
                     l_sub_scalars =  BlockScalarLocalBasis(trials = sub_trials, tests=sub_tests, expr=sub_terminal_expr, tag=l_mats.tag)
-                    loop  = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
+                    loop  = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), *geos), ind_quad, stmts=stmts, mask=mask)
                     loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_scalars), loop)
 
                     # ... loop over trials
@@ -814,19 +875,138 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
         for i in range(dim):
             lhs   = local_thread_s.set_index(i)
-            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
-            rhs  = Array(Tuple(thr_s, AddNode(thr_s, IntDivNode(global_thread_l.set_index(i), Integer(2)))))
+            #thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            rhs  = Array(Tuple(0, IntDivNode(global_thread_l.set_index(i), Integer(2))))
             parallel_body += [Assign(lhs, rhs)]
 
         for i in range(dim):
             lhs = local_thread_e.set_index(i)
             thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
             thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
-            rhs = Array(Tuple(AddNode(thr_s, IntDivNode(global_thread_l.set_index(i), Integer(2))), AddNode(thr_e,Integer(1))))
+            rhs = Array(Tuple(IntDivNode(global_thread_l.set_index(i), Integer(2)), global_thread_l.set_index(i)))
             parallel_body += [Assign(lhs, rhs)]
 
+        get_d = lambda v:d_tests[v]['degrees'] if v in d_tests else d_tests[v.base]['degrees']
+        for i in range(dim):
+            parallel_body += [Allocate(d_tests[v]['local'].set_index(i),
+                              (global_thread_l.set_index(i),
+                              Integer(get_d(v)[i]+1),
+                              Integer(nderiv+1),
+                              Integer(quad_order[i]))) for v in d_tests]
 
-#        for i in range(dim):
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+            args1  = tuple([Slice(None,None)]*4)
+            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
+                      Slice(None,None),
+                      Slice(None,Integer(nderiv+1)),
+                      Slice(None,None))
+
+            parallel_body += [Assign(ProductGenerator(d_tests[v]['local'].set_index(i), Tuple(args1)),
+                                     ProductGenerator(d_tests[v]['global'].set_index(i),Tuple(args2)))
+                                     for v in d_tests]
+
+        get_d = lambda u:d_trials[u]['degrees'] if u in d_trials else d_trials[u.base]['degrees']
+        for i in range(dim):
+            parallel_body += [Allocate(d_trials[u]['local'].set_index(i),
+                              (global_thread_l.set_index(i),
+                              Integer(get_d(u)[i]+1),
+                              Integer(nderiv+1),
+                              Integer(quad_order[i]))) for u in d_trials]
+
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+            args1  = tuple([Slice(None,None)]*4)
+            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
+                      Slice(None,None),
+                      Slice(None,Integer(nderiv+1)),
+                      Slice(None,None))
+
+            parallel_body += [Assign(ProductGenerator(d_trials[u]['local'].set_index(i), Tuple(args1)),
+                                     ProductGenerator(d_trials[u]['global'].set_index(i),Tuple(args2)))
+                                     for u in d_trials]
+
+        for i in range(dim):
+            parallel_body += [Allocate(d_tests[v]['local_span'].set_index(i),
+                              (global_thread_l.set_index(i),)) for v in d_tests]
+
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+            args1  = (Slice(None,None),)
+            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),)
+
+            parallel_body += [Assign(ProductGenerator(d_tests[v]['local_span'].set_index(i), Tuple(args1)),
+                                     ProductGenerator(d_tests[v]['span'].set_index(i),Tuple(args2)))
+                                     for v in d_tests]
+
+
+        get_d = lambda f:d_fields[f].get('degrees', [lengths_fields[f].set_index(ii) for ii in range(dim)]) if f in d_fields else\
+                         d_fields[f.base].get('degrees',[lengths_fields[f].set_index(ii) for ii in range(dim)])
+        for i in range(dim):
+            parallel_body += [Allocate(d_fields[f]['local'].set_index(i),
+                              (global_thread_l.set_index(i),
+                              toInteger(get_d(f)[i]+1),
+                              Integer(nderiv+1),
+                              Integer(quad_order[i]))) for f in d_fields]
+
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+            args1  = tuple([Slice(None,None)]*4)
+            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
+                      Slice(None,None),
+                      Slice(None,Integer(nderiv+1)),
+                      Slice(None,None))
+
+            parallel_body += [Assign(ProductGenerator(d_fields[f]['local'].set_index(i), Tuple(args1)),
+                                     ProductGenerator(d_fields[f]['global'].set_index(i),Tuple(args2)))
+                                     for f in d_fields]
+
+        for i in range(dim):
+            parallel_body += [Allocate(d_fields[f]['local_span'].set_index(i),
+                              (global_thread_l.set_index(i),)) for f in d_fields]
+
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+            args1  = (Slice(None,None),)
+            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),)
+
+            parallel_body += [Assign(ProductGenerator(d_fields[f]['local_span'].set_index(i), Tuple(args1)),
+                                     ProductGenerator(d_fields[f]['span'].set_index(i),Tuple(args2)))
+                                     for f in d_fields]
+        if mapping_space:
+            get_d = lambda f:d_mapping[f]['degrees'] if f in d_mapping else d_mapping[f.base]['degrees']
+            for i in range(dim):
+                parallel_body += [Allocate(d_mapping[f]['local'].set_index(i),
+                                  (global_thread_l.set_index(i),
+                                  Integer(get_d(f)[i]+1),
+                                  Integer(nderiv+1),
+                                  Integer(quad_order[i]))) for f in d_mapping]
+
+                thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+                thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+                args1  = tuple([Slice(None,None)]*4)
+                args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
+                          Slice(None,None),
+                          Slice(None,Integer(nderiv+1)),
+                          Slice(None,None))
+
+                parallel_body += [Assign(ProductGenerator(d_mapping[f]['local'].set_index(i), Tuple(args1)),
+                                         ProductGenerator(d_mapping[f]['global'].set_index(i),Tuple(args2)))
+                                         for f in d_mapping]
+
+            for i in range(dim):
+                parallel_body += [Allocate(d_mapping[f]['local_span'].set_index(i),
+                                  (global_thread_l.set_index(i),)) for f in d_mapping]
+
+                thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+                thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+                args1  = (Slice(None,None),)
+                args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),)
+
+                parallel_body += [Assign(ProductGenerator(d_mapping[f]['local_span'].set_index(i), Tuple(args1)),
+                                         ProductGenerator(d_mapping[f]['span'].set_index(i),Tuple(args2)))
+                                         for f in d_mapping]
+    #        for i in range(dim):
 #            parallel_body += [Assign(neighbour_threads.set_index(i), ProductGenerator(rank_from_coords, 
 #                     Tuple(tuple(AddNode(thread_coords.set_index(j), Integer(i==j)) for j in range(dim)))))]
 
@@ -864,7 +1044,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     args['tests_basis']  = tuple(d_tests[v]['global'] for v in tests)
     args['trial_basis']  = tuple(d_trials[u]['global'] for u in trials)
 
-    args['spans'] = g_span.values()
+    args['spans'] = tuple(d_tests[v]['span'] for v in tests)
     args['quads'] = g_quad
 
     args['tests_degrees']  = lengths_tests
@@ -880,13 +1060,13 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     args['mats']  = [g_mats]
 
     if mapping_space:
-        args['mapping'] = eval_mapping.coeffs
-        args['mapping_degrees'] = LengthDofTest(list(d_mapping.keys())[0])
-        args['mapping_basis'] = list(d_mapping.values())[0]['global']
-        args['mapping_spans'] = list(d_mapping.values())[0]['span']
+        args['mapping'] = flatten([eval_mapping.coeffs for eval_mapping in eval_mappings])
+        args['mapping_degrees'] = [LengthDofTest(f) for f in d_mapping]
+        args['mapping_basis'] = flatten([d_mapping[f]['global'] for f in d_mapping])
+        args['mapping_spans'] = flatten([d_mapping[f]['span'] for f in d_mapping])
 
     if fields:
-        args['f_span']         = f_span.values()
+        args['f_span']         =  tuple(d_fields[f]['span'] for f in fields)
         args['f_coeffs']       = flatten(list(g_coeffs.values()))
         args['field_basis']    = tuple(d_fields[f]['global'] for f in fields)
         args['fields_degrees'] = lengths_fields.values()
@@ -932,13 +1112,13 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         shared = (*thread_span.values(), coords_from_rank, rank_from_coords, global_thread_s, global_thread_e,
                   *args['tests_basis'], *args['trial_basis'], *args['spans'], *args['quads'], g_mats)
         if mapping_space:
-            shared = shared + (*eval_mapping.coeffs,  list(d_mapping.values())[0]['global'], list(d_mapping.values())[0]['span'])
+            shared = shared + (*args['mapping'],  *args['mapping_basis'], *args['mapping_spans'])
         if fields:
-            shared = shared + (*f_span.values(), *args['f_coeffs'], *args['field_basis'])
+            shared = shared + (*args['f_span'], *args['f_coeffs'], *args['field_basis'])
 
         firstprivate = (*args['tests_degrees'].values(), *args['trials_degrees'].values(), *lengths, *pads, *b0s, *e0s, thread_id.length)
         if mapping_space:
-            firstprivate = firstprivate + (args['mapping_degrees'], )
+            firstprivate = firstprivate + (*args['mapping_degrees'], )
         if fields:
             firstprivate = firstprivate + ( *args['fields_degrees'], *args['f_pads'])
         if constants:
@@ -1212,9 +1392,9 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     if mapping_space:
         args['mapping'] = eval_mapping.coeffs
-        args['mapping_degrees'] = LengthDofTest(list(d_mapping.keys())[0])
-        args['mapping_basis'] = list(d_mapping.values())[0]['global']
-        args['mapping_spans'] = list(d_mapping.values())[0]['span']
+        args['mapping_degrees'] = [LengthDofTest(list(d_mapping.keys())[0])]
+        args['mapping_basis'] = [list(d_mapping.values())[0]['global']]
+        args['mapping_spans'] = [list(d_mapping.values())[0]['span']]
 
     if fields:
         args['f_span']         = f_span.values()
@@ -1261,7 +1441,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         firstprivate = (*args['tests_degrees'].values(), *lengths, *pads, thread_id.length)
 
         if mapping_space:
-            firstprivate = firstprivate + (args['mapping_degrees'], )
+            firstprivate = firstprivate + (*args['mapping_degrees'], )
         if fields:
             firstprivate = firstprivate + ( *args['fields_degrees'], *args['f_pads'])
         if constants:
@@ -1341,6 +1521,8 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
 
     """
 
+    backend   = kwargs.pop('backend', None)
+    is_pyccel = backend['name'] == 'pyccel' if backend else False
     pads   = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     g_quad = [GlobalTensorQuadratureGrid()]
     l_quad = [LocalTensorQuadratureGrid()]
@@ -1349,6 +1531,8 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     coeffs   = [CoefficientBasis(i) for i in expand(fields)]
     l_coeffs = [MatrixLocalBasis(i) for i in expand(fields)]
     g_coeffs = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
+
+    add_openmp = is_pyccel and backend['openmp'] and num_threads>1
 
     geo      = GeometryExpressions(mapping, nderiv)
 
@@ -1417,9 +1601,9 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
 
     if mapping_space:
         args['mapping']         = eval_mapping.coeffs
-        args['mapping_degrees'] = LengthDofTest(list(d_mapping.keys())[0])
-        args['mapping_basis']   = list(d_mapping.values())[0]['global']
-        args['mapping_spans']   = list(d_mapping.values())[0]['span']
+        args['mapping_degrees'] = [LengthDofTest(list(d_mapping.keys())[0])]
+        args['mapping_basis']   = [list(d_mapping.values())[0]['global']]
+        args['mapping_spans']   = [list(d_mapping.values())[0]['span']]
 
     args['f_coeffs'] = flatten(list(g_coeffs.values()))
     fields           = tuple(f.base if isinstance(f, IndexedVectorFunction) else f for f in fields)
@@ -1428,7 +1612,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     if constants:
         args['constants'] = constants
 
-    if num_threads>1:
+    if add_openmp:
         shared = (*args['tests_basis'], *args['spans'], *args['quads'], *args['f_coeffs'], g_vec)
         if mapping_space:
             shared = shared + (*eval_mapping.coeffs,  list(d_mapping.values())[0]['global'], list(d_mapping.values())[0]['span'])
@@ -1436,7 +1620,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         firstprivate = (*args['tests_degrees'].values(), *lengths, *args['global_pads'])
 
         if mapping_space:
-            firstprivate = firstprivate + (args['mapping_degrees'], )
+            firstprivate = firstprivate + (*args['mapping_degrees'], )
         if constants:
             firstprivate = firstprivate + (*constants,)
  

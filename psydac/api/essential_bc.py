@@ -11,6 +11,7 @@ __all__ = ('apply_essential_bc',)
 def apply_essential_bc(a, *bcs, **kwargs):
 
     if isinstance(a, (StencilVector, StencilMatrix, StencilInterfaceMatrix)):
+        kwargs.pop('is_broken', None)
         for bc in bcs:
             check_boundary_type(bc)
             apply_essential_bc_stencil(a,
@@ -21,9 +22,10 @@ def apply_essential_bc(a, *bcs, **kwargs):
             )
 
     elif isinstance(a, BlockVector):
+        is_broken=kwargs.pop('is_broken', True)
         for bc in bcs:
             check_boundary_type(bc)
-            apply_essential_bc_BlockVector(a, bc)
+            apply_essential_bc_BlockVector(a, bc, is_broken=is_broken)
 
     elif isinstance(a, BlockMatrix):
         for bc in bcs:
@@ -76,11 +78,14 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
     elif isinstance(a, StencilInterfaceMatrix):
         V = a.codomain
         n = V.ndim * 2
-        if axis == a._dim:
+        if axis == a.codomain_axis:
             return
     else:
         raise TypeError('Cannot apply essential BC to object {} of type {}'\
                 .format(a, type(a)))
+
+    if V.parallel and V.cart.is_comm_null:
+        return
 
     if axis not in range(V.ndim):
         raise ValueError('Cannot apply essential BC along axis x{} in {}D'\
@@ -115,50 +120,81 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
         pass
 
 #==============================================================================
-def apply_essential_bc_BlockMatrix(a, bc, identity=False):
-    """ Apply homogeneous dirichlet boundary conditions in nD """
+def apply_essential_bc_BlockMatrix(a, bc, *, identity=False, is_broken=True):
+    """ Apply homogeneous dirichlet boundary conditions in nD.
+        is_broken is used to identify if we are in a multipatch setting, where we assume
+        that the domain and codomain of each block of the BlockMatrix corresponds to a single patch.
+
+    Parameters
+    ----------
+    a : BlockMatrix
+        The BlockMatrix that will be modified.
+ 
+    bc: Sympde.expr.equation.BasicBoundaryCondition
+        The boundary condition type that will be applied to a.
+
+    is_broken: bool
+        Set to True if we are in a multipatch setting and False otherwise.
+    """
 
     assert isinstance(a, BlockMatrix)
-    keys = list(a._blocks.keys())
+    keys = a.nonzero_block_indices
 
-    if bc.index_component is not None:
+    is_broken = bc.variable.space.is_broken and is_broken
+    if bc.index_component and not is_broken:
         for i_loc in bc.index_component:
             i = bc.position + i_loc
             js = [ij[1] for ij in keys if ij[0] == i]
             for j in js:
                 apply_essential_bc(a[i, j], bc, identity=(identity and i==j))
 
-    elif bc.position is not None and not bc.variable.space.is_broken:
+    elif bc.position is not None and not is_broken:
         i = bc.position
         js = [ij[1] for ij in keys if ij[0] == i]
         for j in js:
             apply_essential_bc(a[i, j], bc, identity=(identity and i==j))
-    else:
-        var = bc.variable
-        space = var.space
-        if space.is_broken:
-            domains = space.domain.interior.args
-            bd = bc.boundary.domain
-            i  = domains.index(bd)
-            js = [ij[1] for ij in keys if ij[0] == i]
-            for j in js:
-                apply_essential_bc(a[i, j], bc, identity=(identity and i==j))
+    elif is_broken:
+        space = bc.variable.space
+        domains = space.domain.interior.args
+        assert len(a.blocks) == len(domains)
+        bd = bc.boundary.domain
+        i  = domains.index(bd)
+        js = [ij[1] for ij in keys if ij[0] == i]
+        for j in js:
+            apply_essential_bc(a[i, j], bc, identity=(identity and i==j), is_broken=False)
 
 #==============================================================================
-def apply_essential_bc_BlockVector(a, bc):
-    """ Apply homogeneous dirichlet boundary conditions in nD """
+def apply_essential_bc_BlockVector(a, bc, *, is_broken=True):
+    """ Apply homogeneous dirichlet boundary conditions in nD.
+        is_broken is used to identify if we are in a multipatch setting, where we assume
+        each block of the BlockVector corresponds to a different patch.
+
+    Parameters
+    ----------
+    a : BlockVector
+        The BlockVector that will be modified.
+ 
+    bc: Sympde.expr.equation.BasicBoundaryCondition
+        The boundary condition type that will be applied to a.
+
+    is_broken: bool
+        Set to True if we are in a multipatch setting and False otherwise. 
+    """
 
     assert isinstance(a, BlockVector)
 
-    if bc.index_component:
+    is_broken = bc.variable.space.is_broken and is_broken
+    if bc.index_component and not is_broken:
         for i_loc in bc.index_component:
             i = bc.position + i_loc
             apply_essential_bc(a[i], bc)
-    else:
-        var = bc.variable
-        space = var.space
-        if space.is_broken:
-            domains = space.domain.interior.args
-            bd = bc.boundary.domain
-            i  = domains.index(bd)
-            apply_essential_bc(a[i], bc)
+    elif bc.position is not None and not is_broken:
+        i = bc.position
+        apply_essential_bc(a[i], bc)
+    elif is_broken:
+        space = bc.variable.space
+        domains = space.domain.interior.args
+        bd = bc.boundary.domain
+        assert len(a.blocks) == len(domains)
+        i  = domains.index(bd)
+        apply_essential_bc(a[i], bc, is_broken=False)

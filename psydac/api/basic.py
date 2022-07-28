@@ -8,6 +8,7 @@
 import sys
 import os
 import importlib
+import numpy as np
 from mpi4py import MPI
 
 from psydac.api.ast.fem         import AST
@@ -35,8 +36,8 @@ class BasicCodeGen:
         comm      = kwargs.pop('comm', None)
         root      = kwargs.pop('root', None)
 
-        # ...
-        if not( comm is None):
+        # ...
+        if not( comm is None) and comm.size>1:
             if root is None:
                 root = 0
 
@@ -59,10 +60,9 @@ class BasicCodeGen:
                 func_name  = None
                 free_args  = None
 
-            comm.Barrier()
-            tag = comm.bcast( tag, root=root )
-            max_nderiv = comm.bcast( max_nderiv, root=root )
+            tag        = comm.bcast(tag, root=root )
             func_name  = comm.bcast(func_name, root=root)
+            max_nderiv = comm.bcast(max_nderiv, root=root )
             free_args  = comm.bcast(free_args, root=root)
             #user_functions = comm.bcast( user_functions, root=root )
         else:
@@ -73,7 +73,7 @@ class BasicCodeGen:
             arguments = ast.expr.arguments.copy()
             free_args = arguments.pop('fields', ()) +  arguments.pop('constants', ())
             free_args = tuple(str(i) for i in free_args)
-        # ...
+
         user_functions = None
         self._expr = expr
         self._tag = tag
@@ -92,7 +92,7 @@ class BasicCodeGen:
         self._dependencies_fname   = '{}.py'.format(self._dependencies_modname)
         # ...
 
-        # ... when using user defined functions, there must be passed as
+        # ... when using user defined functions, there must be passed as
         #     arguments of discretize. here we create a dictionary where the key
         #     is the function name, and the value is a valid implementation.
         # if user_functions:
@@ -104,8 +104,7 @@ class BasicCodeGen:
         if ast:
             self._save_code(self._generate_code(), backend=self.backend['name'])
 
-        if comm is not None: comm.Barrier()
-
+        if comm is not None and comm.size>1: comm.Barrier()
         # compile code
         self._compile(namespace)
 
@@ -251,11 +250,10 @@ class BasicDiscrete(BasicCodeGen):
     def __init__(self, expr, kernel_expr, **kwargs):
 
         kwargs['kernel_expr'] = kernel_expr
-
         BasicCodeGen.__init__(self, expr, **kwargs)
-        # ...
+        # ...
         self._kernel_expr = kernel_expr
-        # ...
+        # ...
 
     @property
     def kernel_expr(self):
@@ -289,4 +287,5 @@ class BasicDiscrete(BasicCodeGen):
 
         return AST(expr, kernel_expr, discrete_space, mapping_space=mapping_space, tag=tag, quad_order=quad_order,
                     mapping=mapping, is_rational_mapping=is_rational_mapping, backend=backend, num_threads=num_threads)
+
 

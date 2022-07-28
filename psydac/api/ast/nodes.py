@@ -10,7 +10,7 @@ from sympy.core.singleton     import Singleton
 from sympy.core.containers    import Tuple
 from sympy.core.compatibility import with_metaclass
 
-from sympde.topology import elements_of
+from sympde.topology import element_of
 from sympde.topology import ScalarFunction, VectorFunction
 from sympde.topology import VectorFunctionSpace
 from sympde.topology import IndexedVectorFunction
@@ -21,6 +21,7 @@ from sympde.topology import get_atom_logical_derivatives
 
 from psydac.pyccel.ast.core import AugAssign, Assign
 from psydac.pyccel.ast.core import _atomic
+from psydac.api.utilities   import flatten
 
 #==============================================================================
 # TODO move it
@@ -476,7 +477,7 @@ class EvalMapping(BaseNode):
         is_rational: bool,optional
             True if the mapping is rational
     """
-    def __new__(cls, quads, indices_basis, q_basis, mapping, components, mapping_space, nderiv, mask=None, is_rational=None):
+    def __new__(cls, quads, indices_basis, q_basis, mapping, components, mapping_space, nderiv, mask=None, is_rational=None, trial=None):
         mapping_atoms  = components.arguments
         basis          = q_basis
         target         = basis.target
@@ -487,7 +488,12 @@ class EvalMapping(BaseNode):
             space          = target.base.space
         else:
             space      = target.space
-        weight,        = elements_of(space, names='weight')
+
+        if mapping.is_plus:
+            weight = element_of(space, name='weight_plus')
+        else:
+            weight = element_of(space, name='weight')
+
         if isinstance(target, VectorFunction):
             target = target[0]
 
@@ -547,6 +553,8 @@ class EvalMapping(BaseNode):
         loop   = Loop((), quads, stmts=[loop, *rationalization], mask=mask)
 
         obj    = Basic.__new__(cls, loop, l_coeffs, g_coeffs, values, multiplicity, pads)
+        obj._mapping = mapping
+        obj._trial   = trial
         return obj
 
     @property
@@ -572,6 +580,15 @@ class EvalMapping(BaseNode):
     @property
     def pads(self):
         return self._args[5]
+
+    @property
+    def mapping(self):
+        return self._mapping
+
+    @property
+    def trial(self):
+        return self._trial
+
 #==============================================================================
 class IteratorBase(BaseNode):
     """
@@ -816,14 +833,18 @@ class GlobalTensorQuadratureBasis(ArrayNode):
     _positions = {index_quad: 3, index_deriv: 2, index_dof: 1, index_element: 0}
     _free_indices = [index_element, index_quad, index_dof]
 
-    def __new__(cls, target):
+    def __new__(cls, target, index=None):
         if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
             raise TypeError('Expecting a scalar/vector test function')
-        return Basic.__new__(cls, target)
+        return Basic.__new__(cls, target, index)
 
     @property
     def target(self):
         return self._args[0]
+
+    @property
+    def index(self):
+        return self._args[1]
 
     @property
     def unique_scalar_space(self):
@@ -839,22 +860,28 @@ class GlobalTensorQuadratureBasis(ArrayNode):
     def is_scalar(self):
         return isinstance(self.target, (ScalarFunction, IndexedVectorFunction))
 
+    def set_index(self, index):
+        return type(self)(self.target, index)
 #==============================================================================
 class LocalTensorQuadratureBasis(ArrayNode):
     """
     """
-    _rank = 3
-    _positions = {index_quad: 2, index_deriv: 1, index_dof: 0}
-    _free_indices = [index_dof]
+    _rank = 4
+    _positions = {index_quad: 3, index_deriv: 2, index_dof: 1, index_element: 0}
+    _free_indices = [index_element, index_quad, index_dof]
 
-    def __new__(cls, target):
+    def __new__(cls, target, index=None):
         if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
             raise TypeError('Expecting a scalar/vector test function')
-        return Basic.__new__(cls, target)
+        return Basic.__new__(cls, target, index)
 
     @property
     def target(self):
         return self._args[0]
+
+    @property
+    def index(self):
+        return self._args[1]
 
     @property
     def unique_scalar_space(self):
@@ -869,6 +896,9 @@ class LocalTensorQuadratureBasis(ArrayNode):
     @property
     def is_scalar(self):
         return isinstance(self.target, (ScalarFunction, IndexedVectorFunction))
+
+    def set_index(self, index):
+        return type(self)(self.target, index)
 #==============================================================================
 class TensorQuadratureBasis(ArrayNode):
     """
@@ -924,8 +954,8 @@ class GlobalTensorQuadratureTestBasis(GlobalTensorQuadratureBasis):
 
 #==============================================================================
 class LocalTensorQuadratureTestBasis(LocalTensorQuadratureBasis):
-    _positions = {index_quad: 2, index_deriv: 1, index_dof_test: 0}
-    _free_indices = [index_dof_test]
+    _positions = {index_quad: 3, index_deriv: 2, index_dof_test: 1, index_element: 0}
+    _free_indices = [index_element, index_quad, index_dof_test]
 
 #==============================================================================
 class TensorQuadratureTestBasis(TensorQuadratureBasis):
@@ -942,8 +972,8 @@ class GlobalTensorQuadratureTrialBasis(GlobalTensorQuadratureBasis):
 
 #==============================================================================
 class LocalTensorQuadratureTrialBasis(LocalTensorQuadratureBasis):
-    _positions = {index_quad: 2, index_deriv: 1, index_dof_trial: 0}
-    _free_indices = [index_dof_trial]
+    _positions = {index_quad: 3, index_deriv: 2, index_dof_trial: 1, index_element: 0}
+    _free_indices = [index_element, index_quad, index_dof_trial]
 
 #==============================================================================
 class TensorQuadratureTrialBasis(TensorQuadratureBasis):
@@ -1354,13 +1384,12 @@ class BlockScalarLocalBasis(ScalarNode):
     @property
     def expr(self):
         return self._expr
+
 #==============================================================================
-class GlobalSpan(ArrayNode):
+class SpanArray(ArrayNode):
     """
      This represents the global span array
     """
-    _rank = 1
-    _positions = {index_element: 0}
 
     def __new__(cls, target, index=None):
         if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
@@ -1377,8 +1406,30 @@ class GlobalSpan(ArrayNode):
         return self._args[1]
 
     def set_index(self, index):
-        return GlobalSpan(self.target, index)
+        return type(self)(self.target, index)
 
+#==============================================================================
+class GlobalSpanArray(SpanArray):
+    """
+     This represents the global span array
+    """
+    _rank = 1
+    _positions = {index_element: 0}
+
+#==============================================================================
+class LocalSpanArray(SpanArray):
+    """
+     This represents the local span array
+    """
+
+    _rank = 1
+    _positions = {index_element: 0}
+#==============================================================================
+class GlobalThreadSpanArray(SpanArray):
+    """
+     This represents the global span array of each thread
+    """
+    _rank = 1
 #==============================================================================
 class GlobalThreadStarts(ArrayNode):
     """
@@ -1463,26 +1514,7 @@ class LocalThreadEnds(ArrayNode):
 
     def set_index(self, index):
         return LocalThreadEnds(index)
-#==============================================================================
-class GlobalThreadSpan(ArrayNode):
-    """
-     This represents the span of each thread
-    """
-    _rank = 1
-    def __new__(cls, target, index=None):
-        # TODO check target
-        return Basic.__new__(cls, target, index)
 
-    @property
-    def target(self):
-        return self._args[0]
-
-    @property
-    def index(self):
-        return self._args[1]
-
-    def set_index(self, index):
-        return GlobalThreadSpan(self.target, index)
 #==============================================================================
 class Span(ScalarNode):
     """
@@ -1882,13 +1914,7 @@ class Loop(BaseNode):
         others = [i for i in iterable if not isinstance(i, GeometryExpressions)]
         geos   = [i.expressions for i in iterable if isinstance(i, GeometryExpressions)]
 
-        if len(geos) == 1:
-            geos = list(geos[0])
-
-        elif len(geos) > 1:
-            raise NotImplementedError('TODO')
-
-        iterable = others + geos
+        iterable = others + flatten(geos)
         iterable = Tuple(*iterable)
         # ...
 
@@ -2160,11 +2186,11 @@ def construct_itergener(a, index):
         generator = TensorGenerator(a, index)
         element   = TensorQuadrature(a.weights)
 
-    elif isinstance(a, GlobalTensorQuadratureTrialBasis):
+    elif isinstance(a, (LocalTensorQuadratureTrialBasis, GlobalTensorQuadratureTrialBasis)):
         generator = TensorGenerator(a, index)
         element   = TensorTrialBasis(a.target)
 
-    elif isinstance(a, GlobalTensorQuadratureTestBasis):
+    elif isinstance(a, (LocalTensorQuadratureTestBasis, GlobalTensorQuadratureTestBasis)):
         generator = TensorGenerator(a, index)
         element   = TensorTestBasis(a.target)
 
@@ -2176,7 +2202,7 @@ def construct_itergener(a, index):
         generator = TensorGenerator(a, index)
         element   = TensorBasis(a.target)
 
-    elif isinstance(a, GlobalSpan):
+    elif isinstance(a, (LocalSpanArray,GlobalSpanArray)):
         generator = TensorGenerator(a, index)
         element   = Span(a.target)
 
@@ -2205,16 +2231,10 @@ def construct_itergener(a, index):
     elif isinstance(element, TensorQuadrature):
         iterator = TensorIterator(element)
 
-    elif isinstance(element, LocalTensorQuadratureTrialBasis):
-        iterator = TensorIterator(element)
-
     elif isinstance(element, TensorQuadratureTrialBasis):
         iterator = TensorIterator(element)
 
     elif isinstance(element, TensorTrialBasis):
-        iterator = TensorIterator(element)
-
-    elif isinstance(element, LocalTensorQuadratureTestBasis):
         iterator = TensorIterator(element)
 
     elif isinstance(element, TensorQuadratureTestBasis):

@@ -79,8 +79,8 @@ def test_SplineInterpolation1D_cosine( ncells, degree, periodic ):
 
 #===============================================================================
 @pytest.mark.parallel
-@pytest.mark.parametrize( "nc1", [5,10,23] )
-@pytest.mark.parametrize( "nc2", [5,10,23] )
+@pytest.mark.parametrize( "nc1", [7,10,23] )
+@pytest.mark.parametrize( "nc2", [7,10,23] )
 @pytest.mark.parametrize( "deg1", range(1,5) )
 @pytest.mark.parametrize( "deg2", range(1,5) )
 

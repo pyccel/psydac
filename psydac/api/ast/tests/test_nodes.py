@@ -36,7 +36,7 @@ from psydac.api.ast.nodes import GlobalTensorQuadratureTrialBasis
 from psydac.api.ast.nodes import LocalTensorQuadratureTrialBasis
 from psydac.api.ast.nodes import TensorQuadratureTrialBasis
 from psydac.api.ast.nodes import TensorTrialBasis
-from psydac.api.ast.nodes import GlobalSpan
+from psydac.api.ast.nodes import GlobalSpanArray
 from psydac.api.ast.nodes import Span
 from psydac.api.ast.nodes import BasisAtom
 from psydac.api.ast.nodes import PhysicalBasisValue
@@ -92,7 +92,7 @@ l_basis_v = LocalTensorQuadratureTestBasis(v)
 a_basis_v = TensorQuadratureTestBasis(v)
 basis_v   = TensorTestBasis(v)
 
-g_span  = GlobalSpan(u)
+g_span  = GlobalSpanArray(u)
 span    = Span(u)
 
 coeff   = CoefficientBasis(u)

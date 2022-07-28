@@ -127,7 +127,6 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
 
     # ... discretize the equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Xh, Xh])
-    print()
 
     # ... solve linear system using scipy.sparse.linalg or psydac
     if scipy:
@@ -282,7 +281,9 @@ def test_poisson_mixed_form_2d_dir_1():
     u  = x1*(1-x1)*x2*(1-x2)
 
     l2_error = run_poisson_mixed_form_2d_dir(f0, u, ncells=[2**3, 2**3], degree=[2, 2])
-    assert l2_error-0.00030070020628128664<1e-13
+
+    expected_l2_error = 0.00030070020628128664
+    assert abs(l2_error-expected_l2_error)<1e-13
 
 #------------------------------------------------------------------------------
 @pytest.mark.parametrize('scipy', (True, False))
@@ -378,7 +379,10 @@ def test_maxwell_time_harmonic_2d_dir_1():
                      alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
     l2_error = run_maxwell_time_harmonic_2d_dir(uex, f, alpha, ncells=[2**3,2**3], degree=[2,2])
-    assert abs(l2_error-0.0029394893438220502)<1e-13
+
+    expected_l2_error = 0.0029394893438220502
+
+    assert abs(l2_error-expected_l2_error)<1e-13
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE

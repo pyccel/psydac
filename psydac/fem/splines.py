@@ -94,7 +94,7 @@ class SplineSpace( FemSpace ):
         indices = np.where(np.diff(knots[degree+1:-degree-1])>1e-15)[0]
 
         if len(indices)>0:
-            multiplicity = np.diff(indices).max()
+            multiplicity = np.diff(indices).max(initial=1)
         else:
             multiplicity = max(1,len(knots[degree+1:-degree-1]))
 

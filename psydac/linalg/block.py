@@ -3,9 +3,12 @@
 # Copyright 2018 Jalal Lakhlili, Yaman Güçlü
 
 import numpy as np
+
+from types import MappingProxyType
 from scipy.sparse import bmat, lil_matrix
 
 from psydac.linalg.basic import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
+from psydac.ddm.cart     import InterfaceCartDataExchanger, InterfaceCartDecomposition
 
 __all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix', 'BlockDiagonalSolver']
 
@@ -20,7 +23,7 @@ class BlockVectorSpace( VectorSpace ):
         A list of Vector Spaces.
 
     """
-    def __new__(cls, *spaces):
+    def __new__(cls, *spaces, connectivity=None):
 
         # Check that all input arguments are vector spaces
         if not all(isinstance(Vi, VectorSpace) for Vi in spaces):
@@ -38,7 +41,7 @@ class BlockVectorSpace( VectorSpace ):
         return VectorSpace.__new__(cls)
 
     # ...
-    def __init__(self,  *spaces):
+    def __init__(self,  *spaces, connectivity=None):
 
         # Store spaces in a Tuple, because they will not be changed
         self._spaces = tuple(spaces)
@@ -48,6 +51,9 @@ class BlockVectorSpace( VectorSpace ):
         else:
             self._dtype = tuple(s.dtype for s in spaces)
 
+        connectivity       = connectivity or {}
+        self._connectivity = connectivity
+        self._connectivity_readonly = MappingProxyType(self._connectivity)
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -106,6 +112,10 @@ class BlockVectorSpace( VectorSpace ):
     def n_blocks( self ):
         return len( self._spaces )
 
+    @property
+    def connectivity( self ):
+        return self._connectivity_readonly
+
     def __getitem__( self, key ):
         return self._spaces[key]
 
@@ -143,6 +153,50 @@ class BlockVector( Vector ):
         # TODO: distinguish between different directions
         self._sync  = False
 
+        self._data_exchangers = {}
+        self._interface_buf   = {}
+
+        if not V.parallel: return
+
+        # Prepare the data exchangers for the interface data
+        for i,j in V.connectivity:
+            ((axis_i,ext_i),(axis_j,ext_j)) = V.connectivity[i,j]
+
+            Vi = V.spaces[i]
+            Vj = V.spaces[j]
+            self._data_exchangers[i,j] = []
+
+            if isinstance(Vi, BlockVectorSpace) and isinstance(Vj, BlockVectorSpace):
+                # case of a system of equations
+                for k,(Vik,Vjk) in enumerate(zip(Vi.spaces, Vj.spaces)):
+                    cart_i = Vik.cart
+                    cart_j = Vjk.cart
+
+                    if cart_i.is_comm_null and cart_j.is_comm_null: continue
+                    if not cart_i.is_comm_null and not cart_j.is_comm_null: continue
+                    if not (axis_i, ext_i) in Vik.interfaces: continue
+                    cart_ij = Vik.interfaces[axis_i, ext_i].cart
+                    assert isinstance(cart_ij, InterfaceCartDecomposition)
+                    self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
+
+            elif  not isinstance(Vi, BlockVectorSpace) and not isinstance(Vj, BlockVectorSpace):
+                # case of scalar equations
+                cart_i = Vi.cart
+                cart_j = Vj.cart
+                if cart_i.is_comm_null and cart_j.is_comm_null: continue
+                if not cart_i.is_comm_null and not cart_j.is_comm_null: continue
+                if not (axis_i, ext_i) in Vi.interfaces: continue
+
+                cart_ij = Vi.interfaces[axis_i, ext_i].cart
+                assert isinstance(cart_ij, InterfaceCartDecomposition)
+                self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
+            else:
+                raise NotImplementedError("This case is not treated")
+
+        for i,j in V.connectivity:
+            if len(self._data_exchangers.get((i,j), [])) == 0:
+                self._data_exchangers.pop((i,j), None)
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -160,31 +214,30 @@ class BlockVector( Vector ):
 
         assert isinstance( v, BlockVector )
         assert v._space is self._space
-
         return sum( b1.dot( b2 ) for b1,b2 in zip( self._blocks, v._blocks ) )
 
     #...
     def copy( self ):
         w = BlockVector( self._space, [b.copy() for b in self._blocks] )
-        w._sync    = self._sync
+        w._sync = self._sync
         return w
 
     #...
     def __neg__( self ):
         w = BlockVector( self._space, [-b for b in self._blocks] )
-        w._sync    = self._sync
+        w._sync = self._sync
         return w
 
     #...
     def __mul__( self, a ):
         w = BlockVector( self._space, [b*a for b in self._blocks] )
-        w._sync    = self._sync
+        w._sync = self._sync
         return w
 
     #...
     def __rmul__( self, a ):
         w = BlockVector( self._space, [a*b for b in self._blocks] )
-        w._sync    = self._sync
+        w._sync = self._sync
         return w
 
     #...
@@ -253,12 +306,77 @@ class BlockVector( Vector ):
 
     # ...
     def update_ghost_regions( self, *, direction=None ):
+        self.start_update_interface_ghost_regions()
         for vi in self.blocks:
-            if not vi.ghost_regions_in_sync:
-                vi.update_ghost_regions(direction=direction)
+            vi.update_ghost_regions(direction=direction)
+        self.end_update_interface_ghost_regions()
 
         # Flag ghost regions as up-to-date
         self._sync = True
+
+    def start_update_interface_ghost_regions( self ):
+        self._collect_interface_buf()
+        req = {}
+        for (i,j) in self._data_exchangers:
+            req[i,j] = [data_ex.start_update_ghost_regions(*bufs) for bufs,data_ex in zip(self._interface_buf[i,j], self._data_exchangers[i,j])]
+
+        self._req = req
+
+    def end_update_interface_ghost_regions( self ):
+
+        for (i,j) in self._data_exchangers:
+            for data_ex,bufs,req_ij in zip(self._data_exchangers[i,j], self._interface_buf[i,j], self._req[i,j]):
+                data_ex.end_update_ghost_regions(req_ij)
+
+    def _collect_interface_buf( self ):
+        V = self.space
+        if not V.parallel:return
+        for i,j in V.connectivity:
+            if not (i,j) in self._data_exchangers:continue
+            ((axis_i,ext_i), (axis_j,ext_j)) = V.connectivity[i,j]
+
+            Vi = V.spaces[i]
+            Vj = V.spaces[j]
+
+            # The process that owns the patch i will use block i to send data and receive in block j
+            self._interface_buf[i,j]   = []
+            if isinstance(Vi, BlockVectorSpace) and isinstance(Vj, BlockVectorSpace):
+                # case of a system of equations
+                for k,(Vik,Vjk) in enumerate(zip(Vi.spaces, Vj.spaces)):
+
+                    cart_i = Vik.cart
+                    cart_j = Vjk.cart
+
+                    buf = [None]*2
+                    if cart_i.is_comm_null:
+                        buf[0] = self._blocks[i]._blocks[k]._interface_data[axis_i, ext_i]
+                    else:
+                        buf[0] = self._blocks[i]._blocks[k]._data
+
+                    if cart_j.is_comm_null:
+                        buf[1] = self._blocks[j]._blocks[k]._interface_data[axis_j, ext_j]
+                    else:
+                        buf[1] = self._blocks[j]._blocks[k]._data
+
+                    self._interface_buf[i,j].append(tuple(buf))
+            elif  not isinstance(Vi, BlockVectorSpace) and not isinstance(Vj, BlockVectorSpace):
+                # case of scalar equations
+                cart_i = Vi.cart
+                cart_j = Vj.cart
+
+                buf = [None]*2
+                if cart_i.is_comm_null:
+                    buf[0] = self._blocks[i]._interface_data[axis_i, ext_i]
+                else:
+                    buf[0] = self._blocks[i]._data
+
+                if cart_j.is_comm_null:
+                    buf[1] = self._blocks[j]._interface_data[axis_j, ext_j]
+                else:
+                    buf[1] = self._blocks[j]._data
+
+                self._interface_buf[i,j].append(tuple(buf))
+
     # ...
     @property
     def n_blocks( self ):
@@ -346,6 +464,12 @@ class BlockLinearOperator( LinearOperator ):
             else:
                 raise ValueError( "Blocks can only be given as dict or 2D list/tuple." )
 
+        self._args = {}
+        self._blocks_as_args = self._blocks
+        self._args['n_rows'] = self._nrows
+        self._args['n_cols'] = self._ncols
+        self._func           = self._dot
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -383,19 +507,27 @@ class BlockLinearOperator( LinearOperator ):
         else:
             out = self.codomain.zeros()
 
-        v.update_ghost_regions()
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
 
-        if self.n_block_rows == 1:
-            for (_, j), L0j in self._blocks.items():
+        self._func(self._blocks_as_args, v, out, **self._args)
+
+        out.ghost_regions_in_sync = False
+        return out
+
+    #...
+    @staticmethod
+    def _dot(blocks, v, out, n_rows, n_cols):
+
+        if n_rows == 1:
+            for (_, j), L0j in blocks.items():
                 out += L0j.dot(v[j])
-        elif self.n_block_cols == 1:
-            for (i, _), Li0 in self._blocks.items():
+        elif n_cols == 1:
+            for (i, _), Li0 in blocks.items():
                 out[i] += Li0.dot(v)
         else:
-            for (i, j), Lij in self._blocks.items():
+            for (i, j), Lij in blocks.items():
                 out[i] += Lij.dot(v[j])
-
-        return out
 
     #--------------------------------------
     # Other properties/methods
@@ -417,6 +549,14 @@ class BlockLinearOperator( LinearOperator ):
     @property
     def n_block_cols( self ):
         return self._ncols
+
+    @property
+    def nonzero_block_indices(self):
+        """
+        Tuple of (i, j) pairs which identify the non-zero blocks:
+        i is the row index, j is the column index.
+        """
+        return tuple(self._blocks)
 
     # ...
     def update_ghost_regions( self ):
@@ -478,7 +618,7 @@ class BlockLinearOperator( LinearOperator ):
         """
         blocks = {ij: operation(Bij) for ij, Bij in self._blocks.items()}
         return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
-    
+
     def tomatrix(self):
         """
         Returns a BlockMatrix with the same blocks as this BlockLinearOperator.
@@ -522,12 +662,20 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             is the Matrix Mij (if None, we assume all entries are zeros)
 
     """
+
+    def __init__( self, V1, V2, blocks=None ):
+        super(BlockMatrix, self).__init__(V1, V2, blocks=blocks)
+        self._backend = None
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
     def toarray( self, **kwargs ):
         """ Convert to Numpy 2D array. """
         return self.tosparse(**kwargs).toarray()
+
+    def backend( self ):
+        return self._backend
 
     # ...
     def tosparse( self, **kwargs ):
@@ -565,22 +713,46 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     # ...
     def copy(self):
         blocks = {ij: Bij.copy() for ij, Bij in self._blocks.items()}
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        mat = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        if self._backend is not None:
+            mat._func = self._func
+            mat._args = self._args
+            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+            mat._backend = self._backend
+        return mat
 
     # ...
     def __neg__(self):
         blocks = {ij: -Bij for ij, Bij in self._blocks.items()}
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        mat    = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        if self._backend is not None:
+            mat._func = self._func
+            mat._args = self._args
+            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+            mat._backend = self._backend
+        return mat
 
     # ...
     def __mul__(self, a):
         blocks = {ij: Bij * a for ij, Bij in self._blocks.items()}
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        mat = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        if self._backend is not None:
+            mat._func = self._func
+            mat._args = self._args
+            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+            mat._backend = self._backend
+        return mat
 
     # ...
     def __rmul__(self, a):
         blocks = {ij: a * Bij for ij, Bij in self._blocks.items()}
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        mat = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        if self._backend is not None:
+            mat._func = self._func
+            mat._args = self._args
+            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+            mat._backend = self._backend
+        return mat
 
     # ...
     def __add__(self, M):
@@ -594,7 +766,15 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             if   Bij is None: blocks[ij] = Mij.copy()
             elif Mij is None: blocks[ij] = Bij.copy()
             else            : blocks[ij] = Bij + Mij
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        mat = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        if len(mat._blocks) != len(self._blocks):
+            mat.set_backend(self._backend)
+        elif self._backend is not None:
+            mat._func = self._func
+            mat._args = self._args
+            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+            mat._backend = self._backend
+        return mat
 
     # ...
     def __sub__(self, M):
@@ -608,7 +788,15 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             if   Bij is None: blocks[ij] = -Mij
             elif Mij is None: blocks[ij] =  Bij.copy()
             else            : blocks[ij] =  Bij - Mij
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        mat = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        if len(mat._blocks) != len(self._blocks):
+            mat.set_backend(self._backend)
+        elif self._backend is not None:
+            mat._func = self._func
+            mat._args = self._args
+            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+            mat._backend = self._backend
+        return mat
 
     # ...
     def __imul__(self, a):
@@ -673,8 +861,12 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
     # ...
     def transpose(self):
-        blocks = {(j, i): b.transpose() for (i, j), b in self._blocks.items()}
-        return BlockMatrix(self.codomain, self.domain, blocks=blocks)
+        blocks, blocks_T = self.compute_interface_matrices_transpose()
+        blocks = {(j, i): b.transpose() for (i, j), b in blocks.items()}
+        blocks.update(blocks_T)
+        mat = BlockMatrix(self.codomain, self.domain, blocks=blocks)
+        mat.set_backend(self._backend)
+        return mat
 
     # ...
     def topetsc( self ):
@@ -693,6 +885,408 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         petsccart = cart.topetsc()
 
         return petsccart.petsc.Mat().createNest(blocks, comm=cart.comm)
+
+    def compute_interface_matrices_transpose(self):
+        blocks = self._blocks.copy()
+        blocks_T = {}
+        if not self.codomain.parallel:
+            return blocks, blocks_T
+
+        from mpi4py import MPI
+        from psydac.linalg.stencil import StencilInterfaceMatrix
+
+        if not isinstance(self.codomain, BlockVectorSpace):
+            return blocks, blocks_T
+
+        V = self.codomain 
+        for i,j in V.connectivity:
+
+            ((axis_i,ext_i), (axis_j,ext_j)) = V.connectivity[i,j]
+
+            Vi = V.spaces[i]
+            Vj = V.spaces[j]
+
+            if isinstance(Vi, BlockVectorSpace) and isinstance(Vj, BlockVectorSpace):
+                # case of a system of equations
+                block_ij_exists = False
+                blocks_T[j,i] = BlockMatrix(Vi, Vj)
+                block_ij = blocks.get((i,j))._blocks.copy() if self[i,j] else None
+                for k1,Vik1 in enumerate(Vi.spaces):
+                    for k2,Vjk2 in enumerate(Vj.spaces):
+                        cart_i = Vik1.cart
+                        cart_j = Vjk2.cart
+
+                        if cart_i.is_comm_null and cart_j.is_comm_null:break
+                        if not cart_i.is_comm_null and not cart_j.is_comm_null:break
+                        if not (axis_i, ext_i) in Vik1.interfaces:break
+                        cart_ij = Vik1.interfaces[axis_i, ext_i].cart
+                        assert isinstance(cart_ij, InterfaceCartDecomposition)
+
+                        if not cart_i.is_comm_null:
+                            if cart_ij.intercomm.rank == 0:
+                                root = MPI.ROOT
+                            else:
+                                root = MPI.PROC_NULL
+                        else:
+                            root = 0
+
+                        if not block_ij_exists:
+                            block_ij_exists = self[i,j] is not None
+                            block_ij_exists = cart_ij.intercomm.bcast(block_ij_exists, root= root) or block_ij_exists
+
+                        if not block_ij_exists:break
+                        blocks.pop((i,j), None)
+                        block_ij_k1k2 = block_ij is not None and (k1,k2) in block_ij is not None
+                        block_ij_k1k2 = cart_ij.intercomm.bcast(block_ij_k1k2, root= root) or block_ij_k1k2
+
+                        if block_ij_k1k2:
+                            if not cart_i.is_comm_null:
+                                block_ij_k1k2 = block_ij.pop((k1,k2))
+                                info = (block_ij_k1k2.domain_start, block_ij_k1k2.codomain_start, block_ij_k1k2.flip, block_ij_k1k2.pads)
+                                cart_ij.intercomm.bcast(info, root= root)
+                            else:
+                                info = cart_ij.intercomm.bcast(None, root=root)
+                                block_ij_k1k2 = StencilInterfaceMatrix(Vjk2, Vik1.interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
+                                block_ji_k2k1 = StencilInterfaceMatrix(Vik1, Vjk2, info[1], info[0], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
+
+                            data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ij_k1k2._data.shape[block_ij_k1k2._ndim:])
+                            data_exchanger.update_ghost_regions(array_minus=block_ij_k1k2._data)
+
+                            if cart_i.is_comm_null:
+                                blocks_T[j,i][k2,k1] = block_ij_k1k2.transpose(Mt=block_ji_k2k1)
+                    else:
+                        continue
+                    break
+
+                if (j,i) in blocks_T and len(blocks_T[j,i]._blocks) == 0:
+                    blocks_T.pop((j,i))
+                if (i,j) in blocks and len(blocks[i,j]._blocks) == 0:
+                    blocks.pop((i,j))
+
+                block_ji_exists = False
+                blocks_T[i,j] = BlockMatrix(Vj, Vi)
+                block_ji = blocks.get((j,i))._blocks.copy() if self[j,i] else None
+                for k1,Vik1 in enumerate(Vi.spaces):
+                    for k2,Vjk2 in enumerate(Vj.spaces):
+                        cart_i = Vik1.cart
+                        cart_j = Vjk2.cart
+
+                        if cart_i.is_comm_null and cart_j.is_comm_null:break
+                        if not cart_i.is_comm_null and not cart_j.is_comm_null:break
+                        if not (axis_i, ext_i) in Vik1.interfaces:break
+                        interface_cart_i = Vik1.interfaces[axis_i, ext_i].cart
+                        interface_cart_j = Vjk2.interfaces[axis_j, ext_j].cart
+                        assert isinstance(interface_cart_i, InterfaceCartDecomposition)
+                        assert isinstance(interface_cart_j, InterfaceCartDecomposition)
+
+                        if not cart_j.is_comm_null:
+                            if interface_cart_i.intercomm.rank == 0:
+                                root = MPI.ROOT
+                            else:
+                                root = MPI.PROC_NULL
+                        else:
+                            root = 0
+
+                        if not block_ji_exists:
+                            block_ji_exists = self[j,i] is not None
+                            block_ji_exists = interface_cart_i.intercomm.bcast(block_ji_exists, root= root) or block_ji_exists
+
+                        if not block_ji_exists:break
+                        blocks.pop((j,i), None)
+
+                        block_ji_k2k1 = block_ji is not None and (k2,k1) in block_ji is not None
+                        block_ji_k2k1 = interface_cart_i.intercomm.bcast(block_ji_k2k1, root= root) or block_ji_k2k1
+
+                        if block_ji_k2k1:
+                            if not cart_j.is_comm_null:
+                                block_ji_k2k1 = block_ji.pop((k2,k1))
+                                info = (block_ji_k2k1.domain_start, block_ji_k2k1.codomain_start, block_ji_k2k1.flip, block_ji_k2k1.pads)
+                                interface_cart_i.intercomm.bcast(info, root= root)
+                            else:
+                                info = interface_cart_i.intercomm.bcast(None, root=root)
+                                block_ji_k2k1 = StencilInterfaceMatrix(Vik1, Vjk2.interfaces[axis_j, ext_j], info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
+                                block_ij_k1k2 = StencilInterfaceMatrix(Vjk2, Vik1, info[1], info[0], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
+
+                            interface_cart_i.comm.Barrier()
+                            data_exchanger = InterfaceCartDataExchanger(interface_cart_j, self.dtype, coeff_shape = block_ji_k2k1._data.shape[block_ji_k2k1._ndim:])
+
+                            data_exchanger.update_ghost_regions(array_plus=block_ji_k2k1._data)
+
+                            if cart_j.is_comm_null:
+                                blocks_T[i,j][k1,k2] = block_ji_k2k1.transpose(Mt=block_ij_k1k2)
+
+                    else:
+                        continue
+                    break
+
+
+                if (i,j) in blocks_T and len(blocks_T[i,j]._blocks) == 0:
+                    blocks_T.pop((i,j))
+                if (j,i) in blocks and len(blocks[j,i]._blocks) == 0:
+                    blocks.pop((j,i))
+
+            elif not isinstance(Vi, BlockVectorSpace) and not isinstance(Vj, BlockVectorSpace):
+
+                # case of scalar equations
+                cart_i = Vi.cart
+                cart_j = Vj.cart
+                if cart_i.is_comm_null and cart_j.is_comm_null:continue
+                if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
+                if not (axis_i, ext_i) in Vi.interfaces:continue
+                cart_ij = Vi.interfaces[axis_i, ext_i].cart
+                assert isinstance(cart_ij, InterfaceCartDecomposition)
+
+                if not cart_i.is_comm_null:
+                    if cart_ij.intercomm.rank == 0:
+                        root = MPI.ROOT
+                    else:
+                        root = MPI.PROC_NULL
+                else:
+                    root = 0
+
+                block_ij_exists = self[i,j] is not None
+                block_ij_exists = cart_ij.intercomm.bcast(block_ij_exists, root= root) or block_ij_exists
+
+                if block_ij_exists:
+                    if not cart_i.is_comm_null:
+                        block_ij = blocks.pop((i,j))
+                        info = (block_ij.domain_start, block_ij.codomain_start, block_ij.flip, block_ij.pads)
+                        cart_ij.intercomm.bcast(info, root= root)
+                    else:
+                        info = cart_ij.intercomm.bcast(None, root=root)
+                        block_ij = StencilInterfaceMatrix(Vj, Vi.interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
+                        block_ji = StencilInterfaceMatrix(Vi, Vj, info[1], info[0], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
+
+                    data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ij._data.shape[block_ij._ndim:])
+                    data_exchanger.update_ghost_regions(array_minus=block_ij._data)
+
+                    if cart_i.is_comm_null:
+                        blocks_T[j,i] = block_ij.transpose(Mt=block_ji)
+
+                if not cart_j.is_comm_null:
+                    if cart_ij.intercomm.rank == 0:
+                        root = MPI.ROOT
+                    else:
+                        root = MPI.PROC_NULL
+                else:
+                    root = 0
+
+                block_ji_exists = self[j,i] is not None
+                block_ji_exists =  cart_ij.intercomm.bcast(block_ji_exists, root= root) or block_ji_exists
+                if block_ji_exists:
+                    if not cart_j.is_comm_null:
+                        block_ji = blocks.pop((j,i))
+                        info = (block_ji.domain_start, block_ji.codomain_start, block_ji.flip, block_ji.pads)
+                        cart_ij.intercomm.bcast((block_ji.domain_start, block_ji.codomain_start, block_ji.flip, block_ji.pads), root= root)
+                    else:
+                        info = cart_ij.intercomm.bcast(None, root=root)
+                        block_ji = StencilInterfaceMatrix(Vi, Vj.interfaces[axis_j, ext_j], info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
+                        block_ij = StencilInterfaceMatrix(Vj, Vi, info[1], info[0], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
+
+                    data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ji._data.shape[block_ji._ndim:])
+                    data_exchanger.update_ghost_regions(array_plus=block_ji._data)
+
+                    if cart_j.is_comm_null:
+                        blocks_T[i,j] = block_ji.transpose(Mt=block_ij)
+
+        return blocks, blocks_T
+
+    def set_backend(self, backend):
+        if isinstance(self.domain, BlockVectorSpace) and isinstance(self.domain.spaces[0], BlockVectorSpace):
+            return
+
+        if isinstance(self.codomain, BlockVectorSpace) and isinstance(self.codomain.spaces[0], BlockVectorSpace):
+            return
+
+        if backend is None:return
+        if backend is self._backend:return
+
+        from psydac.api.ast.linalg import LinearOperatorDot, TransposeOperator, InterfaceTransposeOperator
+        from psydac.linalg.stencil import StencilInterfaceMatrix
+
+        block_shape = (self.n_block_rows, self.n_block_cols)
+        keys        = self.nonzero_block_indices
+        ndim        = self._blocks[keys[0]]._ndim
+        c_starts    = []
+        d_starts    = []
+
+        interface   = isinstance(self._blocks[keys[0]], StencilInterfaceMatrix)
+        if interface:
+            interface_axis  = self._blocks[keys[0]]._codomain_axis
+            d_ext           = self._blocks[keys[0]]._domain_ext
+            d_axis          = self._blocks[keys[0]]._domain_axis
+            flip_axis       = self._blocks[keys[0]]._flip
+            permutation     = self._blocks[keys[0]]._permutation
+
+            for key in keys:
+                c_starts.append(self._blocks[key]._codomain_start)
+                d_starts.append(self._blocks[key]._domain_start)
+
+            c_starts = tuple(c_starts)
+            d_starts = tuple(d_starts)
+        else:
+            interface_axis = None
+            flip_axis      = (1,)*ndim
+            permutation    = None
+            c_starts       = None
+            d_starts       = None
+
+        if interface:
+            transpose = InterfaceTransposeOperator(ndim, backend=frozenset(backend.items()))
+        else:
+            transpose = TransposeOperator(ndim, backend=frozenset(backend.items()))
+
+        for k,key in enumerate(keys):
+            self._blocks[key]._transpose_func = transpose.func
+            self._blocks[key]._transpose_args  = self._blocks[key]._transpose_args_null.copy()
+            nrows   = self._blocks[key]._transpose_args.pop('nrows')
+            ncols   = self._blocks[key]._transpose_args.pop('ncols')
+            gpads   = self._blocks[key]._transpose_args.pop('gpads')
+            pads    = self._blocks[key]._transpose_args.pop('pads')
+            ndiags  = self._blocks[key]._transpose_args.pop('ndiags')
+            ndiagsT = self._blocks[key]._transpose_args.pop('ndiagsT')
+            si      = self._blocks[key]._transpose_args.pop('si')
+            sk      = self._blocks[key]._transpose_args.pop('sk')
+            sl      = self._blocks[key]._transpose_args.pop('sl')
+            dm      = self._blocks[key]._transpose_args.pop('dm')
+            cm      = self._blocks[key]._transpose_args.pop('cm')
+
+            args = dict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads ),
+                            ('dm{i}', dm),('cm{i}', cm),('nd{i}', ndiags),
+                            ('ndT{i}', ndiagsT),('si{i}', si),('sk{i}', sk),('sl{i}', sl)])
+
+            self._blocks[key]._transpose_args = {}
+            for arg_name, arg_val in args.items():
+                for i in range(len(nrows)):
+                    self._blocks[key]._transpose_args[arg_name.format(i=i+1)] = np.int64(arg_val[i]) if isinstance(arg_val[i], int) else arg_val[i]
+
+        starts      = []
+        nrows       = []
+        nrows_extra = []
+        gpads       = []
+        pads        = []
+        dm          = []
+        cm          = []
+        for key in keys:
+            nrows.append(self._blocks[key]._dotargs_null['nrows'])
+            nrows_extra.append(self._blocks[key]._dotargs_null['nrows_extra'])
+            gpads.append(self._blocks[key]._dotargs_null['gpads'])
+            pads.append(self._blocks[key]._dotargs_null['pads'])
+            starts.append(self._blocks[key]._dotargs_null['starts'])
+            cm.append(self._blocks[key]._dotargs_null['cm'])
+            dm.append(self._blocks[key]._dotargs_null['dm'])
+
+        if self.domain.parallel:
+            comm = self.codomain.spaces[0].cart.comm if isinstance(self.codomain, BlockVectorSpace) else self.codomain.cart.comm
+            if self.domain == self.codomain:
+                # In this case nrows_extra[i] == 0 for all i
+                dot = LinearOperatorDot(ndim,
+                                block_shape=block_shape,
+                                keys=keys,
+                                comm=comm,
+                                backend=frozenset(backend.items()),
+                                gpads=tuple(gpads),
+                                pads=tuple(pads),
+                                dm=tuple(dm),
+                                cm=tuple(cm),
+                                interface=interface,
+                                flip_axis=flip_axis,
+                                interface_axis=interface_axis,
+                                d_start=d_starts,
+                                c_start=c_starts)
+
+                self._args = {}
+                for k,key in enumerate(keys):
+                    key_str = ''.join(str(i) for i in key)
+                    starts_k = starts[k]
+                    for i in range(len(starts_k)):
+                        self._args['s{}_{}'.format(key_str, i+1)] = np.int64(starts_k[i])
+
+                for k,key in enumerate(keys):
+                    key_str = ''.join(str(i) for i in key)
+                    nrows_k  = nrows[k]
+                    for i in range(len(nrows_k)):
+                        self._args['n{}_{}'.format(key_str, i+1)] = np.int64(nrows_k[i])
+
+
+                for k,key in enumerate(keys):
+                    key_str       = ''.join(str(i) for i in key)
+                    nrows_extra_k = nrows_extra[k]
+                    for i in range(len(nrows_extra_k)):
+                        self._args['ne{}_{}'.format(key_str, i+1)] = np.int64(nrows_extra_k[i])
+
+            else:
+                dot = LinearOperatorDot(ndim,
+                                        block_shape=block_shape,
+                                        keys=keys,
+                                        comm=comm,
+                                        backend=frozenset(backend.items()),
+                                        gpads=tuple(gpads),
+                                        pads=tuple(pads),
+                                        dm=tuple(dm),
+                                        cm=tuple(cm),
+                                        interface=interface,
+                                        flip_axis=flip_axis,
+                                        interface_axis=interface_axis,
+                                        d_start=d_starts,
+                                        c_start=c_starts)
+
+                self._args = {}
+
+                for k,key in enumerate(keys):
+                    key_str       = ''.join(str(i) for i in key)
+                    starts_k      = starts[k]
+                    for i in range(len(starts_k)):
+                        self._args['s{}_{}'.format(key_str, i+1)] = np.int64(starts_k[i])
+
+                for k,key in enumerate(keys):
+                    key_str       = ''.join(str(i) for i in key)
+                    nrows_k       = nrows[k]
+                    for i in range(len(nrows_k)):
+                        self._args['n{}_{}'.format(key_str, i+1)] = np.int64(nrows_k[i])
+
+                for k,key in enumerate(keys):
+                    key_str       = ''.join(str(i) for i in key)
+                    nrows_extra_k = nrows_extra[k]
+                    for i in range(len(nrows_extra_k)):
+                        self._args['ne{}_{}'.format(key_str, i+1)] = np.int64(nrows_extra_k[i])
+
+        else:
+            dot = LinearOperatorDot(ndim,
+                                    block_shape=block_shape,
+                                    keys=keys,
+                                    comm=None,
+                                    backend=frozenset(backend.items()),
+                                    starts=tuple(starts),
+                                    nrows=tuple(nrows),
+                                    nrows_extra=tuple(nrows_extra),
+                                    gpads=tuple(gpads),
+                                    pads=tuple(pads),
+                                    dm=tuple(dm),
+                                    cm=tuple(cm),
+                                    interface=interface,
+                                    flip_axis=flip_axis,
+                                    interface_axis=interface_axis,
+                                    d_start=d_starts,
+                                    c_start=c_starts)
+            self._args = {}
+
+        self._blocks_as_args = [self._blocks[key]._data for key in keys]
+        dot = dot.func
+
+        if interface:
+            def func(blocks, v, out, **args):
+                    vs   = [vi._interface_data[d_axis, d_ext] for vi in v.blocks] if isinstance(v, BlockVector) else v._data
+                    outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else out._data
+                    dot(*blocks, *vs, *outs, **args)
+        else:
+            def func(blocks, v, out, **args):
+                vs   = [vi._data for vi in v.blocks] if isinstance(v, BlockVector) else v._data
+                outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else out._data
+                dot(*blocks, *vs, *outs, **args)
+
+        self._func    = func
+        self._backend = backend
 
 #===============================================================================
 class BlockDiagonalSolver( LinearSolver ):

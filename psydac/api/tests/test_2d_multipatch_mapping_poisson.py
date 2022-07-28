@@ -1,16 +1,18 @@
 # -*- coding: UTF-8 -*-
 
-from mpi4py import MPI
+import os
 import pytest
 import numpy as np
+
+from mpi4py import MPI
 from sympy  import pi, sin
 
 from sympde.calculus      import grad, dot
 from sympde.calculus      import minus, plus
 from sympde.topology      import ScalarFunctionSpace
 from sympde.topology      import elements_of
-from sympde.topology      import NormalVector
-from sympde.topology      import Square
+from sympde.topology      import NormalVector, Union
+from sympde.topology      import Square, Domain
 from sympde.topology      import IdentityMapping, PolarMapping, AffineMapping
 from sympde.expr.expr     import LinearForm, BilinearForm
 from sympde.expr.expr     import integral
@@ -19,9 +21,23 @@ from sympde.expr.equation import find, EssentialBC
 
 from psydac.api.discretization     import discretize
 from psydac.api.tests.build_domain import build_pretzel
+from psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
+
+# ... get the mesh directory
+try:
+    mesh_dir = os.environ['PSYDAC_MESH_DIR']
+
+except:
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    base_dir = os.path.join(base_dir, '..', '..', '..')
+    mesh_dir = os.path.join(base_dir, 'mesh')
 
 #==============================================================================
-def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
+def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None, comm=None, backend=None):
+
+    if filename is None:
+        assert ncells is not None
+        assert degree is not None
 
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
@@ -37,6 +53,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
     error  = u - solution
 
     I = domain.interfaces
+    boundary = domain.boundary
 
     kappa  = 10**3
 
@@ -51,12 +68,13 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
             - 0.5*dot(grad(minus(v)),nn)*minus(u) - 0.5*dot(grad(minus(u)),nn)*minus(v) + kappa*minus(u)*minus(v)\
             + 0.5*dot(grad(plus(v)),nn)*plus(u)   + 0.5*dot(grad(plus(u)),nn)*plus(v)   + kappa*plus(u)*plus(v)
 
+    expr_b = -dot(grad(u),nn)*v -dot(grad(v),nn)*u + kappa*u*v
     expr   = dot(grad(u),grad(v))
 
-    a = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I))
-    l = LinearForm(v, integral(domain, f*v))
+    a = BilinearForm((u,v),  integral(domain, expr)+ integral(I, expr_I) + integral(boundary, expr_b))
+    l = LinearForm(v, integral(domain, f*v)+ integral(boundary, -dot(grad(v),nn)*solution + kappa*solution*v))
 
-    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
 
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
@@ -65,12 +83,17 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
     # 2. Discretization
     #+++++++++++++++++++++++++++++++
 
-    domain_h = discretize(domain, ncells=ncells, comm=comm)
-    Vh       = discretize(V, domain_h, degree=degree)
+    if filename is None:
+        domain_h = discretize(domain, ncells=ncells, comm=comm)
+        Vh       = discretize(V, domain_h, degree=degree)
+    else:
+        domain_h = discretize(domain, filename=filename, comm=comm)
+        Vh       = discretize(V, domain_h)
 
-    equation_h = discretize(equation, domain_h, [Vh, Vh])
-    l2norm_h = discretize(l2norm, domain_h, Vh)
-    h1norm_h = discretize(h1norm, domain_h, Vh)
+    equation_h = discretize(equation, domain_h, [Vh, Vh], backend=backend)
+
+    l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
+    h1norm_h = discretize(h1norm, domain_h, Vh, backend=backend)
 
     uh = equation_h.solve()
 
@@ -80,7 +103,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
     return l2_error, h1_error, uh
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_2_patch_dirichlet_0():
+def test_poisson_2d_2_patches_dirichlet_0():
 
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
@@ -108,7 +131,7 @@ def test_poisson_2d_2_patch_dirichlet_0():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_2_patch_dirichlet_1():
+def test_poisson_2d_2_patches_dirichlet_1():
 
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
@@ -129,14 +152,14 @@ def test_poisson_2d_2_patch_dirichlet_1():
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    expected_l2_error = 0.017626479960982044
-    expected_h1_error = 0.245058938982964
+    expected_l2_error = 0.017629857755018467
+    expected_h1_error = 0.23758971834463205
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_2_patch_dirichlet_2():
+def test_poisson_2d_2_patches_dirichlet_2():
 
     mapping_1 = IdentityMapping('M1', 2)
     mapping_2 = PolarMapping   ('M2', 2, c1 = 0., c2 = 0.5, rmin = 0., rmax=1.)
@@ -164,14 +187,14 @@ def test_poisson_2d_2_patch_dirichlet_2():
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    expected_l2_error = 0.0019323697521791872
-    expected_h1_error = 0.026714232827734725
+    expected_l2_error = 0.0019402242901236006
+    expected_h1_error = 0.024759527393621895
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_2_patch_dirichlet_3():
+def test_poisson_2d_2_patches_dirichlet_3():
 
     domain    = build_pretzel()
     x,y       = domain.coordinates
@@ -180,10 +203,65 @@ def test_poisson_2d_2_patch_dirichlet_3():
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    expected_l2_error = 0.009791660112045008
-    expected_h1_error = 0.10671109405333927
+    expected_l2_error = 0.009824734742537082
+    expected_h1_error = 0.10615177751279731
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_2_patches_dirichlet_4():
+
+    filename = os.path.join(mesh_dir, 'multipatch/square.h5')
+    domain   = Domain.from_file(filename)
+
+    x,y = domain.coordinates
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename)
+
+    expected_l2_error = 0.0009564642390937873
+    expected_h1_error = 0.03537252217007516
+
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+
+#------------------------------------------------------------------------------
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL])
+def test_poisson_2d_2_patches_dirichlet_5(backend):
+
+    filename = os.path.join(mesh_dir, 'multipatch/square_repeated_knots.h5')
+    domain   = Domain.from_file(filename)
+
+    x,y = domain.coordinates
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename, backend=backend)
+
+    expected_l2_error = 1.429395234681141e-05
+    expected_h1_error = 0.0007612676504978289
+
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_2_patches_dirichlet_6():
+
+    filename = os.path.join(mesh_dir, 'multipatch/magnet.h5')
+    domain   = Domain.from_file(filename)
+
+    x,y       = domain.coordinates
+    solution  = x**2 + y**2
+    f         = -4
+
+    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename)
+
+    expected_l2_error = 0.0005134739232637597
+    expected_h1_error = 0.011045374959672699
+
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 ###############################################################################
@@ -192,7 +270,7 @@ def test_poisson_2d_2_patch_dirichlet_3():
 
 #==============================================================================
 @pytest.mark.parallel
-def test_poisson_2d_2_patch_dirichlet_parallel_0():
+def test_poisson_2d_2_patches_dirichlet_parallel_0():
 
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
@@ -214,12 +292,50 @@ def test_poisson_2d_2_patch_dirichlet_parallel_0():
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2],
                                         comm=MPI.COMM_WORLD)
 
-    expected_l2_error = 0.017626479960982044
-    expected_h1_error = 0.245058938982964
+    expected_l2_error = 0.017629857755018467
+    expected_h1_error = 0.23758971834463205
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
+#------------------------------------------------------------------------------
+@pytest.mark.parallel
+def test_poisson_2d_4_patches_dirichlet_parallel_0():
+
+    filename = os.path.join(mesh_dir, 'multipatch/magnet.h5')
+    domain   = Domain.from_file(filename)
+
+    x,y       = domain.coordinates
+    solution  = x**2 + y**2
+    f         = -4
+
+    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename, comm=MPI.COMM_WORLD)
+
+    expected_l2_error = 0.0005134739232637597
+    expected_h1_error = 0.011045374959672699
+
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+
+#------------------------------------------------------------------------------
+@pytest.mark.parallel
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL])
+def test_poisson_2d_2_patches_dirichlet_parallel_1(backend):
+
+    filename = os.path.join(mesh_dir, 'multipatch/square_repeated_knots.h5')
+    domain   = Domain.from_file(filename)
+
+    x,y = domain.coordinates
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, filename=filename, backend=backend)
+
+    expected_l2_error = 1.429395234681141e-05
+    expected_h1_error = 0.0007612676504978289
+
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================
