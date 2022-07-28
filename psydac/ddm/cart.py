@@ -1193,22 +1193,22 @@ class InterfaceCartDecomposition(CartDecomposition):
 
     @property
     def root_rank_minus( self ):
-        """ The root rank of the communicator defined in the minus patch."""
+        """ The root rank of the intra-communicator defined in the minus patch."""
         return self._root_rank_minus
 
     @property
     def root_rank_plus( self ):
-        """ The root rank of the communicator defined in the plus patch."""
+        """ The root rank of the intra-communicator defined in the plus patch."""
         return self._root_rank_plus
 
     @property
     def ranks_in_topo_minus( self ):
-        """ the ranks in the cartesian topology of defined on the minus patch."""
+        """ the ranks in the cartesian topology defined on the minus patch."""
         return self._ranks_in_topo_minus
 
     @property
     def ranks_in_topo_plus( self ):
-        """ the ranks in the cartesian topology of defined on the plus patch."""
+        """ the ranks in the cartesian topology defined on the plus patch."""
         return self._ranks_in_topo_plus
 
     @property
@@ -1319,17 +1319,17 @@ class InterfaceCartDecomposition(CartDecomposition):
 
     @property
     def local_comm_minus( self ):
-        """ The MPI intra-communicator defined in the minus patch"""
+        """ The MPI intra-subcommunicator defined in the minus patch"""
         return self._local_comm_minus
 
     @property
     def local_comm_plus( self ):
-        """ The MPI intra-communicator defined in the plus patch"""
+        """ The MPI intra-subcommunicator defined in the plus patch"""
         return self._local_comm_plus
 
     @property
     def local_comm( self ):
-        """ The communicator owned by the process it can be local_comm_minus or local_comm_plus."""
+        """ The sub-communicator to which the process belongs, it can be local_comm_minus or local_comm_plus."""
         return self._local_comm
 
     @property
