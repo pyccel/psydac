@@ -312,6 +312,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 if self._element_loop_ends[axis]:
                     self._func = do_nothing
 
+            # In case of target==Interface, we only use the mpi ranks that are on the interface to assemble the BilinearForm
             if self._func == do_nothing and isinstance(target, Interface):
                 self._free_args = ()
                 self._args      = ()
