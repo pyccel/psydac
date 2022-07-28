@@ -826,6 +826,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         self.allocate_matrices()
 
+        backend      = kwargs.pop('backend', None)
         with_openmp  = (backend['name'] == 'pyccel' and backend['openmp']) if backend else False
         self._args , self._threads_args = self.construct_arguments(with_openmp=with_openmp)
 
