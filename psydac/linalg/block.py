@@ -219,25 +219,25 @@ class BlockVector( Vector ):
     #...
     def copy( self ):
         w = BlockVector( self._space, [b.copy() for b in self._blocks] )
-        w._sync = False
+        w._sync = self._sync
         return w
 
     #...
     def __neg__( self ):
         w = BlockVector( self._space, [-b for b in self._blocks] )
-        w._sync = False
+        w._sync = self._sync
         return w
 
     #...
     def __mul__( self, a ):
         w = BlockVector( self._space, [b*a for b in self._blocks] )
-        w._sync = False
+        w._sync = self._sync
         return w
 
     #...
     def __rmul__( self, a ):
         w = BlockVector( self._space, [a*b for b in self._blocks] )
-        w._sync    = False
+        w._sync = self._sync
         return w
 
     #...
@@ -245,7 +245,7 @@ class BlockVector( Vector ):
         assert isinstance( v, BlockVector )
         assert v._space is self._space
         w = BlockVector( self._space, [b1+b2 for b1,b2 in zip( self._blocks, v._blocks )] )
-        w._sync = False
+        w._sync = self._sync and v._sync
         return w
 
     #...
@@ -253,14 +253,13 @@ class BlockVector( Vector ):
         assert isinstance( v, BlockVector )
         assert v._space is self._space
         w = BlockVector( self._space, [b1-b2 for b1,b2 in zip( self._blocks, v._blocks )] )
-        w._sync = False
+        w._sync = self._sync and v._sync
         return w
 
     #...
     def __imul__( self, a ):
         for b in self._blocks:
             b *= a
-        self._sync = False
         return self
 
     #...
@@ -269,7 +268,7 @@ class BlockVector( Vector ):
         assert v._space is self._space
         for b1,b2 in zip( self._blocks, v._blocks ):
             b1 += b2
-        self._sync = False
+        self._sync = self._sync and v._sync
         return self
 
     #...
@@ -278,7 +277,7 @@ class BlockVector( Vector ):
         assert v._space is self._space
         for b1,b2 in zip( self._blocks, v._blocks ):
             b1 -= b2
-        self._sync = False
+        self._sync = self._sync and v._sync
         return self
 
     #--------------------------------------
@@ -943,7 +942,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                         if block_ij_k1k2:
                             if not cart_i.is_comm_null:
                                 block_ij_k1k2 = block_ij.pop((k1,k2))
-                                info = (block_ij_k1k2.d_start, block_ij_k1k2.c_start, block_ij_k1k2.flip, block_ij_k1k2.pads)
+                                info = (block_ij_k1k2.domain_start, block_ij_k1k2.codomain_start, block_ij_k1k2.flip, block_ij_k1k2.pads)
                                 cart_ij.intercomm.bcast(info, root= root)
                             else:
                                 info = cart_ij.intercomm.bcast(None, root=root)
@@ -1001,7 +1000,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                         if block_ji_k2k1:
                             if not cart_j.is_comm_null:
                                 block_ji_k2k1 = block_ji.pop((k2,k1))
-                                info = (block_ji_k2k1.d_start, block_ji_k2k1.c_start, block_ji_k2k1.flip, block_ji_k2k1.pads)
+                                info = (block_ji_k2k1.domain_start, block_ji_k2k1.codomain_start, block_ji_k2k1.flip, block_ji_k2k1.pads)
                                 interface_cart_i.intercomm.bcast(info, root= root)
                             else:
                                 info = interface_cart_i.intercomm.bcast(None, root=root)
@@ -1051,7 +1050,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                 if block_ij_exists:
                     if not cart_i.is_comm_null:
                         block_ij = blocks.pop((i,j))
-                        info = (block_ij.d_start, block_ij.c_start, block_ij.flip, block_ij.pads)
+                        info = (block_ij.domain_start, block_ij.codomain_start, block_ij.flip, block_ij.pads)
                         cart_ij.intercomm.bcast(info, root= root)
                     else:
                         info = cart_ij.intercomm.bcast(None, root=root)
@@ -1077,8 +1076,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                 if block_ji_exists:
                     if not cart_j.is_comm_null:
                         block_ji = blocks.pop((j,i))
-                        info = (block_ji.d_start, block_ji.c_start, block_ji.flip, block_ji.pads)
-                        cart_ij.intercomm.bcast((block_ji.d_start, block_ji.c_start, block_ji.flip, block_ji.pads), root= root)
+                        info = (block_ji.domain_start, block_ji.codomain_start, block_ji.flip, block_ji.pads)
+                        cart_ij.intercomm.bcast((block_ji.domain_start, block_ji.codomain_start, block_ji.flip, block_ji.pads), root= root)
                     else:
                         info = cart_ij.intercomm.bcast(None, root=root)
                         block_ji = StencilInterfaceMatrix(Vi, Vj.interfaces[axis_j, ext_j], info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])

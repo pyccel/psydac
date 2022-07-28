@@ -430,6 +430,8 @@ class StencilVector( Vector ):
     def copy( self ):
         w = StencilVector( self._space )
         w._data[:] = self._data[:]
+        for axis, ext in self._space.interfaces:
+            w._interface_data[axis, ext][:] = self._interface_data[axis, ext][:]
         w._sync    = self._sync
         return w
 
@@ -437,20 +439,26 @@ class StencilVector( Vector ):
     def __neg__( self ):
         w = StencilVector( self._space )
         w._data[:] = -self._data[:]
+        for axis, ext in self._space.interfaces:
+            w._interface_data[axis, ext][:] = -self._interface_data[axis, ext][:]
         w._sync    =  self._sync
         return w
 
     #...
     def __mul__( self, a ):
         w = StencilVector( self._space )
-        w._data = self._data * a
+        w._data[:] = self._data * a
+        for axis, ext in self._space.interfaces:
+            w._interface_data[axis, ext][:] = self._interface_data[axis, ext]*a
         w._sync = self._sync
         return w
 
     #...
     def __rmul__( self, a ):
         w = StencilVector( self._space )
-        w._data = a * self._data
+        w._data[:] = a * self._data
+        for axis, ext in self._space.interfaces:
+            w._interface_data[axis, ext][:] = a * self._interface_data[axis, ext]
         w._sync = self._sync
         return w
 
@@ -459,7 +467,9 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
         w = StencilVector( self._space )
-        w._data = self._data  +  v._data
+        w._data[:] = self._data  +  v._data
+        for axis, ext in self._space.interfaces:
+            w._interface_data[axis, ext][:] = self._interface_data[axis, ext] + v._interface_data[axis, ext]
         w._sync = self._sync and v._sync
         return w
 
@@ -469,12 +479,16 @@ class StencilVector( Vector ):
         assert v._space is self._space
         w = StencilVector( self._space )
         w._data = self._data  -  v._data
+        for axis, ext in self._space.interfaces:
+            w._interface_data[axis, ext][:] = self._interface_data[axis, ext] - v._interface_data[axis, ext]
         w._sync = self._sync and v._sync
         return w
 
     #...
     def __imul__( self, a ):
         self._data *= a
+        for axis, ext in self._space.interfaces:
+            self._interface_data[axis, ext] *= a
         return self
 
     #...
@@ -482,6 +496,8 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
         self._data += v._data
+        for axis, ext in self._space.interfaces:
+            self._interface_data[axis, ext] += v._interface_data[axis, ext]
         self._sync  = v._sync and self._sync
         return self
 
@@ -490,6 +506,8 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
         self._data -= v._data
+        for axis, ext in self._space.interfaces:
+            self._interface_data[axis, ext] -= v._interface_data[axis, ext]
         self._sync  = v._sync and self._sync
         return self
 
@@ -2029,9 +2047,9 @@ class StencilInterfaceMatrix(Matrix):
     #...
     def copy( self ):
         M = StencilInterfaceMatrix( self._domain, self._codomain,
-                                    self._d_start, self._codomain_start,
-                                    self._d_axis, self._codomain_axis,
-                                    self._d_ext, self._codomain_ext,
+                                    self._domain_start, self._codomain_start,
+                                    self._domain_axis, self._codomain_axis,
+                                    self._domain_ext, self._codomain_ext,
                                     flip=self._flip, pads=self._pads,
                                     backend=self._backend )
         M._data[:] = self._data[:]
@@ -2149,6 +2167,7 @@ class StencilInterfaceMatrix(Matrix):
         return self._data.max()
 
     # ...
+    @property
     def backend( self ):
         return self._backend
 
@@ -2326,7 +2345,7 @@ class StencilInterfaceMatrix(Matrix):
                     self._transpose_args[arg_name.format(i=i+1)] =  np.int64(arg_val[i])
 
             if self.domain.parallel:
-                comm = self.domain.interfaces[self._d_axis, self._d_ext].cart.local_comm
+                comm = self.domain.interfaces[self._domain_axis, self._domain_ext].cart.local_comm
 
                 if self.domain == self.codomain:
                     # In this case nrows_extra[i] == 0 for all i
