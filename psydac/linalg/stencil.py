@@ -277,6 +277,13 @@ class StencilVectorSpace( VectorSpace ):
     def ndim( self ):
         return self._ndim
 
+    @property
+    def interfaces( self ):
+        return self._interfaces
+ 
+    def get_interface(self, axis, ext):
+        return self._interfaces[axis, ext]
+
     def set_interface(self, axis, ext, cart=None):
         """ Set the interface space along a given axis and extremity.
 
@@ -378,8 +385,8 @@ class StencilVector( Vector ):
         self._interface_data = {}
 
         # allocate data for the boundary that shares an interface
-        for axis, ext in V._interfaces:
-            self._interface_data[axis, ext] = np.zeros( V._interfaces[axis, ext].shape, dtype=V.dtype )
+        for axis, ext in V.interfaces:
+            self._interface_data[axis, ext] = np.zeros( V.get_interface(axis, ext).shape, dtype=V.dtype )
 
         # TODO: distinguish between different directions
         self._sync  = False
@@ -683,14 +690,14 @@ class StencilVector( Vector ):
 
         # Update interface ghost regions
         if self.space.parallel:
-            for axis, ext in self.space._interfaces:
-                V      = self.space._interfaces[axis, ext]
+            for axis, ext in self.space.interfaces:
+                V      = self.space.get_interface(axis, ext)
                 if isinstance(V.cart, InterfaceCartDecomposition):continue
                 slices = [slice(s, e+2*m*p+1) for s,e,m,p in zip(V.starts, V.ends, V.shifts, V.pads)]
                 self._interface_data[axis, ext][...] = self._data[tuple(slices)]
         else:
-            for axis, ext in self.space._interfaces:
-                V      = self.space._interfaces[axis, ext]
+            for axis, ext in self.space.interfaces:
+                V      = self.space.get_interface(axis, ext)
                 slices = [slice(s, e+2*m*p+1) for s,e,m,p in zip(V.starts, V.ends, V.shifts, V.pads)]
                 self._interface_data[axis, ext][...] = self._data[tuple(slices)]
 
@@ -1727,7 +1734,7 @@ class StencilInterfaceMatrix(Matrix):
         assert isinstance( W, StencilVectorSpace )
         assert W.pads == V.pads
 
-        Vin = V._interfaces[d_axis, d_ext]
+        Vin = V.get_interface(d_axis, d_ext)
 
         if pads is not None:
             for p,vp in zip(pads, Vin.pads):
@@ -1933,8 +1940,8 @@ class StencilInterfaceMatrix(Matrix):
         W     = self.codomain
         ssc   = W.starts
         eec   = W.ends
-        ssd   = V._interfaces[self._d_axis, self._d_ext].starts
-        eed   = V._interfaces[self._d_axis, self._d_ext].ends
+        ssd   = V.get_interface(self._d_axis, self._d_ext).starts
+        eed   = V.get_interface(self._d_axis, self._d_ext).ends
         pads  = self._pads
         gpads = V.pads
         dm    = V.shifts
@@ -2292,7 +2299,7 @@ class StencilInterfaceMatrix(Matrix):
                     self._transpose_args[arg_name.format(i=i+1)] =  np.int64(arg_val[i])
 
             if self.domain.parallel:
-                comm = self.domain._interfaces[self._d_axis, self._d_ext].cart.local_comm
+                comm = self.domain.get_interface(self._d_axis, self._d_ext).cart.local_comm
 
                 if self.domain == self.codomain:
                     # In this case nrows_extra[i] == 0 for all i

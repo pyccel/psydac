@@ -166,6 +166,9 @@ class TensorFemSpace( FemSpace ):
     def symbolic_space( self ):
         return self._symbolic_space
 
+    def get_interface(self, axis, ext):
+        return self._interfaces[axis, ext]
+
     @symbolic_space.setter
     def symbolic_space( self, symbolic_space ):
         assert isinstance(symbolic_space, BasicFunctionSpace)
@@ -1041,8 +1044,8 @@ class TensorFemSpace( FemSpace ):
             tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order, vector_space=v)
 
         tensor_vec._interpolation_ready = False
-        for a,e in self._interfaces:
-            v    = self._vector_space._interfaces[a,e]
+        for a,e in self.interfaces:
+            v    = self._vector_space.get_interface(a,e)
             cart = v.cart
             if cart:cart = v.cart.reduce_elements(axes, n_elements, multiplicity)
             tensor_vec.create_interface_space(a, e, cart=cart)
@@ -1077,7 +1080,7 @@ class TensorFemSpace( FemSpace ):
         quad_order   = self.quad_order
 
         vector_space.set_interface(axis, ext, cart)
-        space = TensorFemSpace( *spaces, vector_space=vector_space._interfaces[axis, ext], quad_order=self.quad_order)
+        space = TensorFemSpace( *spaces, vector_space=vector_space.get_interface(axis, ext), quad_order=self.quad_order)
         self._interfaces[axis, ext] = space
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):
