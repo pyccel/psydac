@@ -1203,12 +1203,12 @@ class InterfaceCartDecomposition(CartDecomposition):
 
     @property
     def ranks_in_topo_minus( self ):
-        """ the ranks in the cartesian topology defined on the minus patch."""
+        """Array that maps the ranks in the intra-communicator on the minus patch to their rank in the corresponding Cartesian topology."""
         return self._ranks_in_topo_minus
 
     @property
     def ranks_in_topo_plus( self ):
-        """ the ranks in the cartesian topology defined on the plus patch."""
+        """Array that maps the ranks in the intra-communicator on the plus patch to their rank in the corresponding Cartesian topology."""
         return self._ranks_in_topo_plus
 
     @property
