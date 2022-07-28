@@ -1113,15 +1113,15 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
         interface   = isinstance(self._blocks[keys[0]], StencilInterfaceMatrix)
         if interface:
-            interface_axis  = self._blocks[keys[0]]._c_axis
-            d_ext           = self._blocks[keys[0]]._d_ext
-            d_axis          = self._blocks[keys[0]]._d_axis
+            interface_axis  = self._blocks[keys[0]]._codomain_axis
+            d_ext           = self._blocks[keys[0]]._domain_ext
+            d_axis          = self._blocks[keys[0]]._domain_axis
             flip_axis       = self._blocks[keys[0]]._flip
             permutation     = self._blocks[keys[0]]._permutation
 
             for key in keys:
-                c_starts.append(self._blocks[key]._c_start)
-                d_starts.append(self._blocks[key]._d_start)
+                c_starts.append(self._blocks[key]._codomain_start)
+                d_starts.append(self._blocks[key]._domain_start)
 
             c_starts = tuple(c_starts)
             d_starts = tuple(d_starts)

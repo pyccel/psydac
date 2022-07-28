@@ -2029,9 +2029,9 @@ class StencilInterfaceMatrix(Matrix):
     #...
     def copy( self ):
         M = StencilInterfaceMatrix( self._domain, self._codomain,
-                                    self._d_start, self._c_start,
-                                    self._d_axis, self._c_axis,
-                                    self._d_ext, self._c_ext,
+                                    self._d_start, self._codomain_start,
+                                    self._d_axis, self._codomain_axis,
+                                    self._d_ext, self._codomain_ext,
                                     flip=self._flip, pads=self._pads,
                                     backend=self._backend )
         M._data[:] = self._data[:]
@@ -2190,7 +2190,7 @@ class StencilInterfaceMatrix(Matrix):
         ss  = self.codomain.starts
         pp  = self.codomain.pads
         nd  = len(pp)
-        dim = self._c_axis
+        dim = self._codomain_axis
 
         flip        = self.flip
         permutation = self.permutation
