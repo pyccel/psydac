@@ -777,7 +777,10 @@ class CartDecomposition():
 
     #---------------------------------------------------------------------------
     def change_starts_ends( self, starts, ends, parent_starts,  parent_ends):
-        """ Create a cart that is defined on a sub domain of the current cart."""
+        """ Create a slice of the cart based on the new starts and ends.
+        WARNING! this function should be used carefully,
+        as it might generate errors if it was not used properly in the communication process.
+        """
         cart = CartDecomposition(self._npts, self._pads, self._periods, self._reorder,
                                 comm=self.comm, global_comm=self._global_comm,
                                 shifts=self.shifts, reverse_axis=self.reverse_axis)
