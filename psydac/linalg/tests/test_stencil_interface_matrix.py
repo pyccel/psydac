@@ -47,7 +47,8 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
     P = [[False, False] for i in range(N)]
 
     axis       = 0
-    connectivity = {(0,1):((axis,axis),(1,-1))}
+
+    connectivity = {(0,1):((axis,1),(axis,-1))}
 
     comm = MPI.COMM_WORLD
     cart = MultiCartDecomposition(
@@ -122,7 +123,7 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
     # Fill in stencil interface matrix if the process is on the boundary
     if not cart.carts[0].is_comm_null and (not cart.carts[1].is_comm_null or not interface_carts.carts[0,1].is_comm_null):
         s_d = 0
-        s_c = n[0][axis]-p[0][axis]-1-Vs[0]._interfaces[axis, 1].starts[axis]
+        s_c = n[0][axis]-p[0][axis]-1-Vs[0].starts[axis]
         A01 = StencilInterfaceMatrix(Vs[1], Vs[0], s_d, s_c, d_axis=axis, c_axis=axis, d_ext=-1, c_ext=1)
 
         s1,s2 = cart.carts[0].starts
@@ -135,7 +136,7 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
         A[0,1] = A01
 
     if not cart.carts[1].is_comm_null and (not cart.carts[0].is_comm_null or not interface_carts.carts[0,1].is_comm_null):
-        s_d = n[0][axis]-p[0][axis]-1-Vs[0]._interfaces[axis, 1].starts[axis]
+        s_d = n[0][axis]-p[0][axis]-1-Vs[0].starts[axis]
         s_c = 0
         A10 = StencilInterfaceMatrix(Vs[0], Vs[1], s_d, s_c, d_axis=axis, c_axis=axis, d_ext=1, c_ext=-1)
 

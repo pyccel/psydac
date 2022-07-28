@@ -73,7 +73,22 @@ def toInteger(a):
 #==============================================================================
 
 class LinearOperatorDot(SplBasic):
+    """ Generate the Matrix Vector Product function for a BlockMatrix,StencilMatrix or StencilInterfaceMatrix.
+        In case of a BlockMatrix we give the number of blocks along the rows and columns specified with the block_shape.
+        In case of StencilMatrix or StencilInterfaceMatrix the block_shape = (1,1).
 
+
+    Parameters
+    ----------
+    ndim : int
+        Number of dimensions.
+
+    block_shape: tuple of ints
+        The number of blocks along the rows and columns.
+
+    comm: MPI.Comm
+        MPI intra-communicator.
+    """
     def __new__(cls, ndim, block_shape, comm=None, **kwargs):
         if comm is not None:
             assert isinstance(comm, MPI.Comm)

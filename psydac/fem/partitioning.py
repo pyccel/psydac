@@ -32,6 +32,7 @@ def partition_coefficients(domain_h, spaces):
 
     return global_starts, global_ends
 
+
 def construct_connectivity(domain):
     """ 
     Compute the connectivity of the multipatch domain.
@@ -44,7 +45,9 @@ def construct_connectivity(domain):
     Returns
     -------
     connectivity : dict
-       The connectivity of the multipatch domain.
+        Connectivity between the patches.
+        It takes the form of {(i, j):((axis_i, ext_i),(axis_j, ext_j))} for each item of the dictionary,
+        where i,j represent the patch indices
 
     """
     interfaces = domain.interfaces if domain.interfaces else []
@@ -59,7 +62,7 @@ def construct_connectivity(domain):
     for e in interfaces:
         i = interiors.index(e.minus.domain)
         j = interiors.index(e.plus.domain)
-        connectivity[i, j] = ((e.minus.axis, e.plus.axis),(e.minus.ext, e.plus.ext))
+        connectivity[i, j] = ((e.minus.axis, e.minus.ext),(e.plus.axis, e.plus.ext))
 
     return connectivity
 
@@ -102,6 +105,8 @@ def create_cart(domain_h, spaces):
 
     Parameters
     ----------
+    domain_h : DomainDecomposition
+
     spaces : list of list of 1D global Spline spaces
      The 1D global spline spaces that will be distributed.
 
@@ -171,12 +176,10 @@ def create_interfaces_cart(domain_h, carts, connectivity=None):
     interfaces_cart = None
     if connectivity:
         connectivity = connectivity.copy()
-        interfaces_cart = InterfacesCartDecomposition(domain_h, carts, connectivity)
+        interfaces_cart = InterfacesCartDecomposition(cart, connectivity)
         for i,j in connectivity:
-            axes   = connectivity[i,j][0]
-            exts   = connectivity[i,j][1]
             if (i,j) in interfaces_cart.carts and not interfaces_cart.carts[i,j].is_comm_null:
-                interfaces_cart.carts[i,j].set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
+                interfaces_cart.carts[i,j].set_communication_info(get_minus_starts_ends, get_plus_starts_ends)
 
     return interfaces_cart
 
@@ -187,6 +190,8 @@ def construct_interface_spaces(domain_h, g_spaces, carts, interiors, connectivit
 
     Parameters
     ----------
+    domain_h : DomainDecomposition
+
     g_spaces : dict
      dictionary that contains the tensor-fem space for each patch.
 
@@ -203,6 +208,7 @@ def construct_interface_spaces(domain_h, g_spaces, carts, interiors, connectivit
     comm = domain_h.comm
     if comm is not None:
         interfaces_cart = create_interfaces_cart(domain_h, carts, connectivity=connectivity)
+
         if interfaces_cart:
             interfaces_cart = interfaces_cart.carts
 
@@ -220,7 +226,7 @@ def construct_interface_spaces(domain_h, g_spaces, carts, interiors, connectivit
             else:
                 continue
 
-        ((axis_minus, axis_plus), (ext_minus , ext_plus)) = connectivity[i, j]
+        ((axis_minus, ext_minus), (axis_plus , ext_plus)) = connectivity[i, j]
 
         g_spaces[interiors[i]].create_interface_space(axis_minus, ext_minus, cart=cart_minus)
         g_spaces[interiors[j]].create_interface_space(axis_plus , ext_plus , cart=cart_plus)

@@ -388,7 +388,8 @@ def test_block_2d_array_to_stencil_2( n1, n2, p1, p2, P1, P2 ):
 def test_block_matrix_operator_dot_backend( n1, n2, p1, p2, P1, P2 ):
 
     # Create vector space, stencil matrix, and stencil vector
-    V = StencilVectorSpace( npts = [n1,n2], pads = [p1,p2], periods = [P1,P2])
+
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2])
 
     M1 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
     M2 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)

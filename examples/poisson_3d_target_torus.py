@@ -69,7 +69,7 @@ def run_model(ncells, degree, comm=None, is_logical=False):
     from sympde.calculus import laplace, dot, grad
     from sympde.topology import ScalarFunctionSpace, element_of, LogicalExpr, Union
     from sympde.expr     import BilinearForm, LinearForm, Norm
-    from sympde.expr     import EssentialBC, find 
+    from sympde.expr     import EssentialBC, find
     from sympde.expr     import integral
 
     from psydac.api.discretization import discretize
@@ -123,10 +123,10 @@ def run_model(ncells, degree, comm=None, is_logical=False):
 
         u = a_log.trial_functions[0]
         v = a_log.test_functions[0]
-        
+
         V = u.space
         l_log =   LinearForm(v , integral(Omega_logical, f_logical * v * mapping.det_jacobian))
-    
+
     if is_logical:
         bc = EssentialBC(u, 0, Union(Omega_logical.get_boundary(axis=0, ext=1), Omega_logical.get_boundary(axis=0, ext=-1)))
     else:
@@ -142,7 +142,7 @@ def run_model(ncells, degree, comm=None, is_logical=False):
     if is_logical:
         v2 = element_of(V, name='v2')
         l2norm_u_e = Norm(u_e_logical - v2, Omega_logical, kind='l2')
-        
+
         l2norm_e = Norm(u - u_e_logical, Omega_logical, kind='l2')
 
     else:
@@ -151,7 +151,7 @@ def run_model(ncells, degree, comm=None, is_logical=False):
 
         l2norm_e = Norm(u - u_e, Omega, kind='l2')
 
-    
+
     print("Start discretization", flush=True)
     # Create computational domain from topological domain
     Omega_h = discretize(Omega, ncells=ncells, comm=comm)
@@ -184,10 +184,10 @@ def run_model(ncells, degree, comm=None, is_logical=False):
     u_h, info = equation_h.solve()
     if not info['success']:
         print(info, flush=True)
-    
+
     # Compute error norms from solution field
     vh = FemField(Vh)
-    
+
     l2_norm_ue = l2norm_u_e_h.assemble(v2=vh)
     l2_norm_e  = l2norm_e_h.assemble(u=u_h)
 
@@ -210,7 +210,7 @@ def save_model(ncells, degree, is_logical, namespace, comm):
 
 
 # =============================================================================
-def export_model(ncells, degree, is_logical, comm, npts_per_cell=2):
+def export_model(ncells, degree, is_logical, comm, npts_per_cell):
     # Recreate domain
     r_in  = 0.05
     r_out = 0.2
@@ -220,18 +220,20 @@ def export_model(ncells, degree, is_logical, comm, npts_per_cell=2):
 
     p1, p2, p3 = degree
     ne1, ne2, ne3 = ncells
-    Pm = PostProcessManager(domain=Omega, 
-                            space_file=f'spaces_{ne1}_{ne2}_{ne3}_{p1}_{p2}_{p3}_{is_logical}.yml', 
+    Pm = PostProcessManager(domain=Omega,
+                            space_file=f'spaces_{ne1}_{ne2}_{ne3}_{p1}_{p2}_{p3}_{is_logical}.yml',
                             fields_file=f'fields_{ne1}_{ne2}_{ne3}_{p1}_{p2}_{p3}_{is_logical}.h5',
                             comm=comm)
-    if npts_per_cell <= 1:
+    if isinstance(npts_per_cell, int):
+        npts_per_cell = [npts_per_cell] * 3
+    if any( n <= 1 for n in npts_per_cell):
         warning.warn('Refinement must be at least 2\nSetting refinement to 2')
-        npts_per_cell = 2 
-    grid = [refine_array_1d(Pm.spaces['V'].breaks[i], n=npts_per_cell - 1, remove_duplicates=False) for i in range(3)]
-    npts_per_cell = [npts_per_cell] * 3
+        npts_per_cell = [max(n, 2) for n in npts_per_cell]
 
-    u_e_logical = lambda x,y,z: (0.05 - x) * (0.2 - x) * np.sin(y) * np.cos(z) 
-    u_e_physical = lambda x,y,z: np.sin(np.pi * x) * np.sin(np.pi * y) * np.cos(np.pi * z) 
+    grid = [refine_array_1d(Pm.spaces['V'].breaks[i], n=npts_per_cell[i] - 1, remove_duplicates=False) for i in range(3)]
+
+    u_e_logical = lambda x,y,z: (0.05 - x) * (0.2 - x) * np.sin(y) * np.cos(z)
+    u_e_physical = lambda x,y,z: np.sin(np.pi * x) * np.sin(np.pi * y) * np.cos(np.pi * z)
 
     phy_f = {}
     log_f = {}
@@ -242,13 +244,12 @@ def export_model(ncells, degree, is_logical, comm, npts_per_cell=2):
         phy_f['u_e_phy'] = u_e_physical
 
 
-    Pm.export_to_vtk(f'poisson_3d_target_torus_{ne1}_{ne2}_{ne3}_{p1}_{p2}_{p3}_{npts_per_cell}_{is_logical}', 
-                     grid=grid, 
-                     npts_per_cell=npts_per_cell, 
-                     snapshots='none', 
-                     logical_grid=True, 
-                     fields={'u':'u'}, 
-                     additional_physical_functions=phy_f, 
+    Pm.export_to_vtk(f'poisson_3d_target_torus_{ne1}_{ne2}_{ne3}_{p1}_{p2}_{p3}_{npts_per_cell}_{is_logical}',
+                     grid=grid,
+                     npts_per_cell=npts_per_cell,
+                     snapshots='none',
+                     fields='u',
+                     additional_physical_functions=phy_f,
                      additional_logical_functions=log_f)
 
 
@@ -275,7 +276,7 @@ def parse_input_arguments():
     parser.add_argument( '-n',
         type    = int,
         nargs   = 3,
-        default = [20, 20, 20],
+        default = [10, 10, 10],
         metavar = ('N1', 'N2', 'N3'),
         dest    = 'ncells',
         help    = 'Number of grid cells (elements) along each dimension'
@@ -303,11 +304,10 @@ def parse_input_arguments():
         action='store',
         default=2,
         type=int,
-        nargs=1,
         metavar='R',
         dest='refinement',
         help='Refinement of the exported model')
-    
+
     parser.add_argument('-m',
         action='store_true',
         dest='run_m',
@@ -318,7 +318,7 @@ def parse_input_arguments():
 #==============================================================================
 def main(degree, ncells, is_logical, plots, refinement, run_m):
 
-    try: 
+    try:
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
         rank = comm.rank
@@ -333,15 +333,13 @@ def main(degree, ncells, is_logical, plots, refinement, run_m):
             print('L2 Norm error = {}'.format(namespace['l2_norm_ue']))
             print('L2 Norm exact solution = {}'.format(namespace['l2_norm_e']))
             print(flush=True)
-    
+
         save_model(ncells, degree, is_logical, namespace, comm)
 
     if plots:
         export_model(ncells, degree, is_logical, comm, refinement)
     if comm:
         comm.Barrier()
-
-    return namespace
 
 #==============================================================================
 if __name__ == '__main__':

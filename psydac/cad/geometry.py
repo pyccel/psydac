@@ -25,6 +25,7 @@ from psydac.mapping.discrete   import SplineMapping, NurbsMapping
 from psydac.linalg.block       import BlockVectorSpace, BlockVector
 from psydac.ddm.cart           import DomainDecomposition, MultiPatchDomainDecomposition
 
+
 from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, Mapping
 from sympde.topology.basic import Union
 
@@ -77,6 +78,7 @@ class Geometry( object ):
                 ncells    = [ncells[itr.name] for itr in domain.interior]
                 periodic  = [periodic[itr.name] for itr in domain.interior]
                 self._ddm = MultiPatchDomainDecomposition(ncells, periodic, comm=comm)
+
 
         else:
             raise ValueError('Wrong input')
@@ -252,6 +254,7 @@ class Geometry( object ):
         # ... construct interface spaces
         construct_interface_spaces(self._ddm, g_spaces, carts, interiors, connectivity)
 
+
         for i_patch in range( n_patches ):
 
             item  = yml['patches'][i_patch]
@@ -261,7 +264,6 @@ class Geometry( object ):
             patch = h5[mapping_id]
             space_i = spaces[i_patch]
             if dtype in ['SplineMapping', 'NurbsMapping']:
-
                 tensor_space = g_spaces[interiors[i_patch]]
 
                 if dtype == 'SplineMapping':

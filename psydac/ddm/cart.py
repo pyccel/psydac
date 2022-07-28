@@ -308,7 +308,6 @@ class DomainDecomposition:
 
     #---------------------------------------------------------------------------
     def coords_exist( self, coords ):
-
         return all( P or (0 <= c < d) for P,c,d in zip( self._periods, coords, self._dims ) )
 
 #==================================================================================
@@ -320,7 +319,7 @@ class InterfacesCartDecomposition:
     ----------
 
     carts: MultiCartDecomposition
-        The cartition decomposition of multiple grids.
+        The cartesian decomposition of multiple grids.
 
     interfaces: dict
         The connectivity of the grids.
@@ -373,11 +372,11 @@ class InterfacesCartDecomposition:
             req = []
             ranks_in_topo_i = None
             ranks_in_topo_j = None
-            axes   = interfaces[i,j][0]
-            exts   = interfaces[i,j][1]
+            axis_i, ext_i   = interfaces[i,j][0]
+            axis_j, ext_j   = interfaces[i,j][1]
             if interfaces_comm[i,j] != MPI.COMM_NULL:
-                ranks_in_topo_i = domain_h.domains[i].ranks_in_topo if i in owned_groups else np.full(local_groups[i].size, -1)
-                ranks_in_topo_j = domain_h.domains[j].ranks_in_topo if j in owned_groups else np.full(local_groups[j].size, -1)
+                ranks_in_topo_i = carts.carts[i].ranks_in_topo if i in owned_groups else np.full(local_groups[i].size, -1)
+                ranks_in_topo_j = carts.carts[j].ranks_in_topo if j in owned_groups else np.full(local_groups[j].size, -1)
 
                 if interfaces_comm[i,j].rank == interfaces_root_ranks[i,j][0]:
                     req.append(interfaces_comm[i,j].Isend((ranks_in_topo_i, ranks_in_topo_i.size, dtype), interfaces_root_ranks[i,j][1], tag=tag(i,j,1)))
@@ -551,7 +550,18 @@ class CartDecomposition():
         return self._comm
 
     @property
+    def local_comm( self ):
+        """ The intra subcommunicator used by this class."""
+        return self._local_comm
+
+    @property
+    def global_comm( self ):
+        """ The intra-communicator passed by the user, usualy it's MPI.COMM_WORLD."""
+        return self._global_comm
+
+    @property
     def comm_cart( self ):
+        """ Intra-communicator with a Cartesian topology."""
         return self._comm_cart
 
     @property
@@ -564,18 +574,22 @@ class CartDecomposition():
 
     @property
     def nprocs( self ):
+        """ Number of processes in each dimension."""
         return self._nprocs
 
     @property
     def reverse_axis(self):
+        """ The axis of the reversed Cartesian topology."""
         return self._reverse_axis
 
     @property
     def global_starts( self ):
+        """ The starts of all the processes in the cartesian decomposition."""
         return self._global_starts
 
     @property
     def global_ends( self ):
+        """ The ends of all the processes in the cartesian decomposition."""
         return self._global_ends
 
     @property
@@ -593,6 +607,10 @@ class CartDecomposition():
     @property
     def domain_h( self ):
         return self._domain_h
+
+    @property
+    def is_comm_null( self ):
+        return self.comm == MPI.COMM_NULL
 
     #---------------------------------------------------------------------------
     # Local properties
@@ -620,6 +638,10 @@ class CartDecomposition():
     @property
     def shape( self ):
         return self._shape
+
+    @property
+    def ranks_in_topo( self ):
+        return self._ranks_in_topo
 
     @property
     def subcomm( self ):
@@ -868,6 +890,8 @@ class InterfaceCartDecomposition(CartDecomposition):
 
     Parameters
     ----------
+    domain_h: DomainDecomposition
+
     npts : list
         Number of coefficients in the global grid along each dimension for the patches that shares the interface.
 
@@ -1088,118 +1112,132 @@ class InterfaceCartDecomposition(CartDecomposition):
     #---------------------------------------------------------------------------
     @property
     def ndims( self ):
+        """Number of dimensions."""
         return self._ndims
 
     @property
     def domain_h_minus( self ):
+        """ The DomainDecomposition of the minus patch."""
         return self._domain_h_minus
 
     @property
     def domain_h_plus( self ):
+        """ The DomainDecomposition of the plus patch."""
         return self._domain_h_plus
 
     @property
     def npts_minus( self ):
+        """Number of points in the minus side of an interface."""
         return self._npts_minus
 
     @property
     def npts_plus( self ):
+        """Number of points in the plus side of an interface."""
         return self._npts_plus
 
     @property
     def pads_minus( self ):
+        """ padding in the minus side of an interface."""
         return self._pads_minus
 
     @property
     def pads_plus( self ):
+        """ padding in the plus side of an interface."""
         return self._pads_plus
 
     @property
     def periods_minus( self ):
+        """ Periodicity in the minus side of an interface."""
         return self._periods_minus
 
     @property
     def periods_plus( self ):
+        """ Periodicity in the plus side of an interface."""
         return self._periods_plus
 
     @property
     def shifts_minus( self ):
+        """ The shift values in the minus side of an interface."""
         return self._shifts_minus
 
     @property
     def shifts_plus( self ):
+        """ The shift values in the plus side of an interface."""
         return self._shifts_plus
 
     @property
     def ext_minus( self ):
+        """ the extremity  of the boundary on the minus side of an interface."""
         return self._ext_minus
 
     @property
     def ext_plus( self ):
+        """ the extremity of the boundary on the plus side of an interface."""
         return self._ext_plus
 
     @property
     def root_rank_minus( self ):
+        """ The root rank of the intra-communicator defined in the minus patch."""
         return self._root_rank_minus
 
     @property
     def root_rank_plus( self ):
+        """ The root rank of the intra-communicator defined in the plus patch."""
         return self._root_rank_plus
 
     @property
     def ranks_in_topo_minus( self ):
+        """Array that maps the ranks in the intra-communicator on the minus patch to their rank in the corresponding Cartesian topology."""
         return self._ranks_in_topo_minus
 
     @property
+    def ranks_in_topo_plus( self ):
+        """Array that maps the ranks in the intra-communicator on the plus patch to their rank in the corresponding Cartesian topology."""
+        return self._ranks_in_topo_plus
+
+    @property
     def coords_from_rank_minus( self ):
+        """ Array that maps the ranks of minus patch to their coordinates in the cartesian decomposition."""
         return self._coords_from_rank_minus
 
     @property
     def coords_from_rank_plus( self ):
+        """ Array that maps the ranks of plus patch to their coordinates in the cartesian decomposition."""
         return self._coords_from_rank_plus
 
     @property
     def boundary_ranks_minus( self ):
+        """ Array that contains the ranks defined on the boundary of the minus side of the interface."""
         return self._boundary_ranks_minus
 
     @property
     def boundary_ranks_plus( self ):
+        """ Array that contains the ranks defined on the boundary of the plus side of the interface."""
         return self._boundary_ranks_plus
 
     @property
-    def reduced_global_starts_minus( self ):
-        return self._reduced_global_starts_minus
-
-    @property
-    def reduced_global_starts_plus( self ):
-        return self._reduced_global_starts_plus
-
-    @property
-    def reduced_global_ends_minus( self ):
-        return self._reduced_global_ends_minus
-
-    @property
-    def reduced_global_ends_plus( self ):
-        return self._reduced_global_ends_plus
-
-    @property
     def global_starts_minus( self ):
+        """ The starts of all the processes in the cartesian decomposition defined on the minus patch."""
         return self._global_starts_minus
 
     @property
     def global_starts_plus( self ):
+        """ The starts of all the processes in the cartesian decomposition defined on the plus patch."""
         return self._global_starts_plus
 
     @property
     def global_ends_minus( self ):
+        """ The ends of all the processes in the cartesian decomposition defined on the minus patch."""
         return self._global_ends_minus
 
     @property
     def global_ends_plus( self ):
+        """ The ends of all the processes in the cartesian decomposition defined on the plus patch."""
         return self._global_ends_plus
 
     @property
     def axis( self ):
+        """ The axis of the interface."""
         return self._axis
 
     @property
@@ -1234,35 +1272,40 @@ class InterfaceCartDecomposition(CartDecomposition):
         return self._parent_ends
 
     @property
-    def ranks_in_topo_plus( self ):
-        return self._ranks_in_topo_plus
-
-    @property
     def local_group_minus( self ):
+        """ The MPI Group of the ranks defined in the minus patch"""
         return self._local_group_minus
 
     @property
     def local_group_plus( self ):
+        """ The MPI Group of the ranks defined in the plus patch"""
         return self._local_group_plus
 
     @property
     def local_comm_minus( self ):
+        """ The MPI intra-subcommunicator defined in the minus patch"""
         return self._local_comm_minus
 
     @property
     def local_comm_plus( self ):
+        """ The MPI intra-subcommunicator defined in the plus patch"""
         return self._local_comm_plus
 
     @property
     def local_comm( self ):
+        """ The sub-communicator to which the process belongs, it can be local_comm_minus or local_comm_plus."""
         return self._local_comm
 
     @property
     def local_rank_minus( self ):
+        """ The rank of the process defined on minus side of the interface,
+        the rank is undefined in the case where the process is defined in the plus side of the interface."""
         return self._local_rank_minus
 
     @property
     def local_rank_plus( self ):
+        """ The rank of the process defined on plus side of the interface,
+        the rank is undefined in the case where the process is defined in the minus side of the interface."""
         return self._local_rank_plus
 
     #---------------------------------------------------------------------------
@@ -1565,19 +1608,100 @@ class InterfaceCartDecomposition(CartDecomposition):
                 gbuf_recv_shape.append(buf_shape)
                 gbuf_recv_starts.append([si-s for si,s in zip(starts_inter, starts_extended_plus)])
 
-
         # Store all information into dictionary
         info = {'dest_ranks'       : tuple( dest_ranks ),
                 'buf_send_shape'   : tuple( buf_send_shape ),
                 'gbuf_send_shape'  : tuple( gbuf_send_shape  ),
                 'gbuf_send_starts' : tuple( gbuf_send_starts ),
-
                 'source_ranks'     : tuple( source_ranks ),
                 'buf_recv_shape'   : tuple( buf_recv_shape),
                 'gbuf_recv_shape'  : tuple( gbuf_recv_shape ),
                 'gbuf_recv_starts' : tuple( gbuf_recv_starts )
                 }
 
+        return info
+
+    #---------------------------------------------------------------------------
+    def change_starts_ends( self, starts, ends, parent_starts,  parent_ends):
+        """ Create a slice of the cart based on the new starts and ends.
+        WARNING! this function should be used carefully,
+        as it might generate errors if it was not used properly in the communication process.
+        """
+        cart = CartDecomposition(self._npts, self._pads, self._periods, self._reorder,
+                                comm=self.comm, global_comm=self._global_comm,
+                                shifts=self.shifts, reverse_axis=self.reverse_axis)
+
+        assert self.comm.size == 1
+        cart._global_starts = tuple(s for s in self._global_starts)
+        cart._global_ends   = tuple(e for e in self._global_ends)
+
+        # Start/end values of global indices (without ghost regions)
+        cart._starts = tuple(starts)
+        cart._ends   = tuple(ends)
+
+        # List of 1D global indices (without ghost regions)
+        cart._grids = tuple( range(s,e+1) for s,e in zip( cart._starts, cart._ends ) )
+
+        # Compute shape of local arrays in topology (with ghost regions)
+        cart._shape = tuple( e-s+1+2*m*p for s,e,p,m in zip( cart._starts, cart._ends, cart._pads, cart._shifts ) )
+
+        # Extended grids with ghost regions
+        cart._extended_grids = tuple( range(s-m*p,e+m*p+1) for s,e,p,m in zip( cart._starts, cart._ends, cart._pads, cart._shifts ) )
+
+        # N-dimensional global indices with ghost regions
+        cart._extended_indices = product( *cart._extended_grids )
+
+        # Compute/store information for communicating with neighbors
+        cart._shift_info = {}
+        for dimension in range( cart._ndims ):
+            for disp in [-1,1]:
+                cart._shift_info[ dimension, disp ] = \
+                        cart._compute_shift_info( dimension, disp )
+
+        cart._parent_starts = parent_starts
+        cart._parent_ends   = parent_ends
+
+        return cart
+
+    #---------------------------------------------------------------------------
+    def _compute_shift_info( self, direction, disp ):
+
+        assert( 0 <= direction < self._ndims )
+        assert( isinstance( disp, int ) )
+
+        reorder = self.reverse_axis == direction
+        # Process ranks for data shifting with MPI_SENDRECV
+        (rank_source, rank_dest) = self.comm_cart.Shift( direction, disp )
+
+        if reorder:
+            (rank_source, rank_dest) = (rank_dest, rank_source)
+
+        # Mesh info info along given direction
+        s = self._starts[direction]
+        e = self._ends  [direction]
+        p = self._pads  [direction]
+        m = self._shifts[direction]
+
+        # Shape of send/recv subarrays
+        buf_shape = np.array( self._shape )
+        buf_shape[direction] = m*p
+
+        # Start location of send/recv subarrays
+        send_starts = np.zeros( self._ndims, dtype=int )
+        recv_starts = np.zeros( self._ndims, dtype=int )
+        if disp > 0:
+            recv_starts[direction] = 0
+            send_starts[direction] = e-s+1
+        elif disp < 0:
+            recv_starts[direction] = e-s+1+m*p
+            send_starts[direction] = m*p
+
+        # Store all information into dictionary
+        info = {'rank_dest'  : rank_dest,
+                'rank_source': rank_source,
+                'buf_shape'  : tuple(  buf_shape  ),
+                'send_starts': tuple( send_starts ),
+                'recv_starts': tuple( recv_starts )}
         return info
 
 #===============================================================================
@@ -1919,6 +2043,7 @@ class CartDataExchanger:
                 ).Commit()
 
         return send_types, recv_types
+
 #===============================================================================
 class InterfaceCartDataExchanger:
     """
@@ -1949,6 +2074,7 @@ class InterfaceCartDataExchanger:
         self._recv_types    = recv_types
         self._dest_ranks    = cart.get_interface_communication_infos( cart.axis )['dest_ranks']
         self._source_ranks  = cart.get_interface_communication_infos( cart.axis )['source_ranks']
+
 
     # ...
     def update_ghost_regions( self, array_minus=None, array_plus=None ):
@@ -1991,7 +2117,7 @@ class InterfaceCartDataExchanger:
         assert isinstance( cart, InterfaceCartDecomposition )
 
         mpi_type = find_mpi_type( dtype )
-        info     = cart.get_interface_communication_infos( cart.axis )
+        info     = cart.get_communication_infos( cart.axis )
 
         # Possibly, each coefficient could have multiple components
         coeff_shape = list( coeff_shape )

@@ -503,7 +503,7 @@ class Parser(object):
 
         inits = []
         for k,i in self.shapes.items():
-            if not k in self.variables:continue
+            if not k in self.variables: continue
             var = self.variables[k]
             if var in arguments or var.name in self.allocated:
                 continue
@@ -728,7 +728,7 @@ class Parser(object):
         return dict([(0,targets)])
 
     # ....................................................
-    def _visit_GlobalThreadSpan(self, expr, **kwargs):
+    def _visit_GlobalThreadSpanArray(self, expr, **kwargs):
         dim    = self.dim
         rank   = expr.rank
         target = SymbolicExpr(expr.target)
@@ -915,7 +915,7 @@ class Parser(object):
         return arrays
 
     # ....................................................
-    def _visit_GlobalSpan(self, expr, **kwargs):
+    def _visit_GlobalSpanArray(self, expr, **kwargs):
         dim    = self.dim
         rank   = expr.rank
         target = expr.target
@@ -933,7 +933,7 @@ class Parser(object):
         return target
 
     # ....................................................
-    def _visit_LocalSpan(self, expr, **kwargs):
+    def _visit_LocalSpanArray(self, expr, **kwargs):
         dim    = self.dim
         rank   = expr.rank
         target = expr.target

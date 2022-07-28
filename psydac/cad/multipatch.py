@@ -22,7 +22,7 @@ def set_interfaces(domain, interfaces):
 def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict, comm=None ):
 
     """
-    Export a single-patch igakit NURBS object to a Psydac geometry file in HDF5 format
+    Create the multipatch geometry file using one Igakit NURBS for each patch with the connectivity between the patches.
 
     Parameters
     ----------
@@ -31,7 +31,7 @@ def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict,
         Name of output geometry file, e.g. 'geo.h5'
 
     nurbs   : list of igakit.nurbs.NURBS
-        Igakit geometry nurbs object
+        Igakit NURBS objects, one for each patch
 
     connectivity : dict
         Connectivity between the patches.

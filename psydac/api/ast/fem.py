@@ -39,7 +39,7 @@ from .nodes import BlockStencilVectorLocalBasis, StencilVectorLocalBasis
 from .nodes import BlockStencilVectorGlobalBasis
 from .nodes import GlobalElementBasis
 from .nodes import LocalElementBasis
-from .nodes import GlobalSpan, LocalSpan, GlobalThreadSpan, Span
+from .nodes import GlobalSpanArray, LocalSpanArray, GlobalThreadSpanArray, Span
 from .nodes import CoefficientBasis
 from .nodes import MatrixLocalBasis, MatrixGlobalBasis
 from .nodes import MatrixRankFromCoords, MatrixCoordsFromRank
@@ -418,32 +418,33 @@ class AST(object):
 
         d_tests  = {v: {'global': GlobalTensorQuadratureTestBasis(v),
                         'local' : LocalTensorQuadratureTestBasis(v),
-                        'span': GlobalSpan(v),
-                        'local_span': LocalSpan(v),
+                        'span': GlobalSpanArray(v),
+                        'local_span': LocalSpanArray(v),
                         'multiplicity':multiplicity_tests[i],
                         'degrees': tests_degrees[i],
-                        'thread_span':GlobalThreadSpan(v)} for i,v in enumerate(tests) }
+                        'thread_span':GlobalThreadSpanArray(v)} for i,v in enumerate(tests) }
 
         d_trials = {u: {'global': GlobalTensorQuadratureTrialBasis(u),
                         'local' : LocalTensorQuadratureTrialBasis(u),
-                        'span': GlobalSpan(u),
-                        'local_span': LocalSpan(u),
+                        'span': GlobalSpanArray(u),
+                        'local_span': LocalSpanArray(u),
                         'multiplicity':multiplicity_trials[i],
                         'degrees':trials_degrees[i]} for i,u in enumerate(trials)}
 
         if isinstance(expr, Functional):
             d_fields = {f: {'global': GlobalTensorQuadratureTestBasis(f),
                             'local' : LocalTensorQuadratureTestBasis(f),
-                            'span': GlobalSpan(f),
-                            'local_span': LocalSpan(f),
+                            'span': GlobalSpanArray(f),
+                            'local_span': LocalSpanArray(f),
                             'multiplicity':multiplicity_fields[i],
                             'degrees':fields_degrees[i]} for i,f in enumerate(fields)}
 
         else:
             d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f),
                             'local' : LocalTensorQuadratureTestBasis(f),
-                            'span': GlobalSpan(f),
-                            'local_span': LocalSpan(f)} for i,f in enumerate(fields)}
+
+                            'span': GlobalSpanArray(f),
+                            'local_span': LocalSpanArray(f)} for i,f in enumerate(fields)}
 
         if mapping_space:
             f         = (tests+trials+fields)[0]
@@ -469,11 +470,11 @@ class AST(object):
 
             d_mapping = {fi: {'global': GlobalTensorQuadratureTestBasis (fi),
                               'local' : LocalTensorQuadratureTestBasis(fi),
-                             'span': GlobalSpan(fi),
-                             'local_span': LocalSpan(fi),
-                             'multiplicity':multiplicity_mapping_i[0],
-                             'degrees': mapping_degrees_i[0]}
-                             for fi,mapping_degrees_i,multiplicity_mapping_i in zip(f,mapping_degrees,multiplicity_mapping) }
+                              'span': GlobalSpanArray(fi),
+                              'local_span': LocalSpanArray(fi),
+                              'multiplicity':multiplicity_mapping_i[0],
+                              'degrees': mapping_degrees_i[0]}
+                              for fi,mapping_degrees_i,multiplicity_mapping_i in zip(f,mapping_degrees,multiplicity_mapping) }
         else:
            d_mapping = {}
 
@@ -639,8 +640,6 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     pads       = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     g_quad     = [GlobalTensorQuadratureGrid(False)]
     l_quad     = [LocalTensorQuadratureGrid(False)]
-#    b0s        = variables(('b01, b02, b03'), dtype='int')[:dim]
-#    e0s        = variables(('e01, e02, e03'), dtype='int')[:dim]
 
     if isinstance(domain, Interface):
         g_quad.append(PlusGlobalTensorQuadratureGrid(False))

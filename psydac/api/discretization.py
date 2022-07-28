@@ -264,6 +264,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
         else:
             ddms = domain_h.ddm.domains
 
+        spaces = [None]*len(interiors)
         for i,interior in enumerate(interiors):
             ncells     = domain_h.ncells[interior.name]
             periodic   = domain_h.periodic[interior.name]
@@ -307,13 +308,16 @@ def discretize_space(V, domain_h, *args, **kwargs):
     construct_reduced_interface_spaces(g_spaces, new_g_spaces, interiors, connectivity)
 
     Vh = ProductFemSpace(*new_g_spaces.values(), connectivity=connectivity)
-
     Vh.symbolic_space = V
 
     return Vh
 
 #==============================================================================
 def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm=None):
+
+    if comm is not None:
+        # Create a copy of the communicator
+        comm = comm.Dup()
 
     if comm is not None:
         # Create a copy of the communicator
@@ -336,7 +340,7 @@ def discretize(a, *args, **kwargs):
 
     if isinstance(a, (sym_BasicForm, sym_GltExpr, sym_Expr)):
         domain_h = args[0]
-        assert( isinstance(domain_h, Geometry) )
+        assert isinstance(domain_h, Geometry)
         domain  = domain_h.domain
         mapping = domain_h.domain.mapping
         kwargs['mapping'] = mapping

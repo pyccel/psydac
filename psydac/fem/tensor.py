@@ -11,6 +11,8 @@ import itertools
 import h5py
 import os
 
+from types import MappingProxyType
+
 from sympde.topology.space import BasicFunctionSpace
 
 from psydac.linalg.stencil   import StencilVectorSpace
@@ -66,7 +68,6 @@ class TensorFemSpace( FemSpace ):
         basis        = [V.basis    for V in self.spaces]
 
         if kwargs.get('cart', None):
-
             cart = kwargs['cart']
             self._vector_space = StencilVectorSpace(cart)
         elif kwargs.get('vector_space', None):
@@ -84,6 +85,8 @@ class TensorFemSpace( FemSpace ):
 
         self._symbolic_space = None
         self._interfaces     = {}
+        self._interfaces_readonly = MappingProxyType(self._interfaces)
+
 
         if self._vector_space.parallel and self._vector_space.cart.is_comm_null:return
 
@@ -105,8 +108,8 @@ class TensorFemSpace( FemSpace ):
         # Store flag: object NOT YET prepared for interpolation
         self._interpolation_ready = False
         # Compute the local domains for every process
-        # ...
 
+        # ...
         self._global_element_starts = domain_h.global_element_starts
         self._global_element_ends   = domain_h.global_element_ends
 
@@ -138,7 +141,11 @@ class TensorFemSpace( FemSpace ):
 
     @property
     def symbolic_space( self ):
-        return self._symbolic_space
+        return self._symbolic_space 
+
+    @property
+    def interfaces( self ):
+        return self._interfaces_readonly
 
     @symbolic_space.setter
     def symbolic_space( self, symbolic_space ):
@@ -1014,7 +1021,14 @@ class TensorFemSpace( FemSpace ):
         # create new TensorFemSpace
         tensor_vec = TensorFemSpace(self._domain, *spaces, cart=red_cart, quad_order=self._quad_order)
 
+
         tensor_vec._interpolation_ready = False
+        for a,e in self.interfaces:
+            v    = self._vector_space.interfaces[a,e]
+            cart = v.cart
+            if cart:cart = v.cart.reduce_elements(axes, n_elements, multiplicity)
+            tensor_vec.create_interface_space(a, e, cart=cart)
+
         return tensor_vec
 
     def create_interface_space(self, axis, ext, cart):
@@ -1031,19 +1045,19 @@ class TensorFemSpace( FemSpace ):
 
          cart: CartDecomposition
           The cart of the new space, needed in the parallel case.
-
         """
         axis = int(axis)
         ext  = int(ext)
         assert axis<self.ldim
         assert ext in [-1,1]
+
         if cart.is_comm_null: return
         spaces       = self.spaces
         vector_space = self.vector_space
         quad_order   = self.quad_order
 
         vector_space.set_interface(axis, ext, cart)
-        space = TensorFemSpace( self._domain, *spaces, vector_space=vector_space._interfaces[axis, ext], quad_order=self.quad_order)
+        space = TensorFemSpace( self._domain, *spaces, vector_space=vector_space.interfaces[axis, ext], quad_order=self.quad_order)
         self._interfaces[axis, ext] = space
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):

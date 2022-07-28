@@ -104,7 +104,7 @@ class BasicCodeGen:
         if ast:
             self._save_code(self._generate_code(), backend=self.backend['name'])
 
-        if comm is not None and comm.size>1:comm.Barrier()
+        if comm is not None and comm.size>1: comm.Barrier()
         # compile code
         self._compile(namespace)
 

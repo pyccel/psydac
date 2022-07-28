@@ -218,6 +218,8 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         self._update_ghost_regions = kwargs.get('update_ghost_regions', True)
 
+        # In case of multiple patches, if the communicator is MPI_COMM_NULL, we do not generate the assembly code
+        # because the patch is not owned by the MPI rank.
         if vector_space.parallel and vector_space.cart.is_comm_null:
             self._free_args = ()
             self._func      = do_nothing
@@ -253,15 +255,17 @@ class DiscreteBilinearForm(BasicDiscrete):
             if isinstance(trial_space, ProductFemSpace):
                 spaces = []
                 for sp in trial_space.spaces:
-                    if (trial_target.axis, trial_target.ext) in sp._interfaces:
-                        spaces.append(sp._interfaces[trial_target.axis, trial_target.ext])
+                    if (trial_target.axis, trial_target.ext) in sp.interfaces:
+                        spaces.append(sp.interfaces[trial_target.axis, trial_target.ext])
+
                 if len(spaces) == len(trial_space.spaces):
                     sym_space   = trial_space.symbolic_space
                     trial_space = ProductFemSpace(*spaces)
                     trial_space.symbolic_space = sym_space
-            elif (trial_target.axis, trial_target.ext) in trial_space._interfaces:
+
+            elif (trial_target.axis, trial_target.ext) in trial_space.interfaces:
                 sym_space   = trial_space.symbolic_space
-                trial_space = trial_space._interfaces[trial_target.axis, trial_target.ext]
+                trial_space = trial_space.interfaces[trial_target.axis, trial_target.ext]
                 trial_space.symbolic_space = sym_space
 
             self._test_ext  = test_target.ext
@@ -297,6 +301,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         if backend is None:
             backend = assembly_backend
 
+        # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
+        # self._func, self._free_args, self._max_nderiv and self._backend
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, backend=backend, **kwargs)
 
         #...
@@ -311,6 +317,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 if ends[axis] != npts[axis]-1:
                     self._func = do_nothing
 
+            # In case of target==Interface, we only use the mpi ranks that are on the interface to assemble the BilinearForm
             if self._func == do_nothing and isinstance(target, Interface):
                 self._free_args = ()
                 self._args      = ()
@@ -343,8 +350,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=test_grid, ext=test_ext)
         self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=trial_grid, ext=trial_ext)
 
+        self.allocate_matrices(op_backend)
         with_openmp  = (backend['name'] == 'pyccel' and backend['openmp']) if backend else False
-        self._args , self._threads_args = self.construct_arguments(backend=op_backend, with_openmp=with_openmp)
+        self._args , self._threads_args = self.construct_arguments(with_openmp=with_openmp)
 
     @property
     def domain(self):
@@ -445,18 +453,35 @@ class DiscreteBilinearForm(BasicDiscrete):
                 j = i
         return i,j
 
-    def construct_arguments(self, backend=None, with_openmp=False):
+    def construct_arguments(self, with_openmp=False):
+        """
+        Collect the arguments used in the assembly method.
 
+        Parameters
+        ----------
+        with_openmp : bool
+         If set to True we collect some extra arguments used in the assembly method
+
+        Returns
+        -------
+        
+        args: tuple
+         The arguments passed to the assembly method.
+
+        threads_args: tuple
+          Extra arguments used in the assembly method in case with_openmp=True.
+
+        """
         test_basis, test_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
         trial_basis, trial_degrees, pads      = construct_trial_space_arguments(self.trial_basis)
         n_elements, quads, quad_degrees       = construct_quad_grids_arguments(self.grid[0], use_weights=False)
         if len(self.grid)>1:
             quads  = [*quads, *self.grid[1].points]
 
-        pads                  = self.test_basis.space.vector_space.pads
-        global_mats           = self.allocate_matrices(backend)
-        self._global_matrices = [M._data for M in global_mats]
+        pads = self.test_basis.space.vector_space.pads
 
+        # When self._target is an Interface domain len(self._grid) == 2
+        # where grid contains the QuadratureGrid of both sides of the interface
         if self.mapping:
             if len(self.grid) == 1:
                 map_coeffs = [[e._coeffs._data for e in self.mapping._fields]]
@@ -467,9 +492,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                 points     = [g.points for g in self.grid]
                 weights    = [self.mapping.weights_field.coeffs._data] if self.is_rational_mapping else []
             elif len(self.grid) == 2:
-                mappings = list(self.mapping)
                 target   = self.kernel_expr.target
                 assert isinstance(target, Interface)
+                mappings = list(self.mapping)
                 i,j = self.get_space_indices_from_target(self.domain, target)
                 m,_ = self.get_space_indices_from_target(self.domain, target.minus)
                 p,_ = self.get_space_indices_from_target(self.domain, target.plus)
@@ -481,7 +506,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                 if m == j:
                     axis = target.minus.axis
                     ext  = target.minus.ext
-                    spaces[0] = spaces[0]._interfaces[axis, ext]
+
+                    spaces[0]     = spaces[0].interfaces[axis, ext]
                     map_coeffs[0] = [coeff._interface_data[axis, ext] for coeff in map_coeffs[0]]
                     map_coeffs[1] = [coeff._data for coeff in map_coeffs[1]]
                     if weights_m:
@@ -491,7 +517,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                 elif p == j:
                     axis = target.plus.axis
                     ext  = target.plus.ext
-                    spaces[1] = spaces[1]._interfaces[axis, ext]
+
+                    spaces[1]     = spaces[1].interfaces[axis, ext]
                     map_coeffs[0] = [coeff._data for coeff in map_coeffs[0]]
                     map_coeffs[1] = [coeff._interface_data[axis, ext] for coeff in map_coeffs[1]]
                     if weights_m:
@@ -550,7 +577,17 @@ class DiscreteBilinearForm(BasicDiscrete):
         return args, threads_args
 
     def allocate_matrices(self, backend=None):
+        """
+        Allocate the global matrices used in the assmebly method.
+        In this method we allocate only the matrices that are computed in the self._target domain,
+        we also avoid double allocation if we have many DiscreteLinearForm that are defined on the same self._target domain.
 
+        Parameters
+        ----------
+        backend : dict
+         The backend used to accelerate the computing kernels.
+
+        """
         global_mats     = {}
 
         expr            = self.kernel_expr.expr
@@ -617,6 +654,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
                         s_d = trial_n-trial_s - trial_degree[k2][axis]-1 if ext_d == 1 else 0
                         s_c = test_n-trial_s  - test_degree[k1][axis] -1 if ext_c == 1 else 0
+
                         direction = target.direction
                         direction = 1 if direction is None else direction
                         flip = [direction]*domain.dim
@@ -654,6 +692,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
                     s_d = trial_n-trial_s - trial_degree[axis]-1 if ext_d == 1 else 0
                     s_c = test_n-trial_s  - test_degree[axis] -1 if ext_c == 1 else 0
+
                     direction = target.direction
                     direction = 1 if direction is None else direction
                     flip = [direction]*domain.dim
@@ -691,7 +730,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         elif backend is not None:
             self._matrix.set_backend(backend)
 
-        return  global_mats.values()
+        self._global_matrices = [M._data for M in global_mats.values()]
 
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
@@ -745,6 +784,8 @@ class DiscreteLinearForm(BasicDiscrete):
 
         self._update_ghost_regions = kwargs.get('update_ghost_regions', True)
 
+        # In case of multiple patches, if the communicator is MPI_COMM_NULL or the cart is an Interface cart,
+        # we do not generate the assembly code, because the patch is not owned by the MPI rank.
         if vector_space.parallel and (vector_space.cart.is_comm_null or isinstance(vector_space.cart, InterfaceCartDecomposition)):
             self._free_args = ()
             self._func      = do_nothing
@@ -774,6 +815,8 @@ class DiscreteLinearForm(BasicDiscrete):
         if vector_space.parallel:
             kwargs['comm'] = vector_space.cart.comm
 
+        # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
+        # self._func, self._free_args, self._max_nderiv and self._backend
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
         if not isinstance(target, Boundary):
@@ -803,7 +846,11 @@ class DiscreteLinearForm(BasicDiscrete):
         self._grid       = grid
         self._test_basis = BasisValues( test_space, nderiv = self.max_nderiv, grid=grid, ext=ext)
 
-        self._args , self._threads_args = self.construct_arguments(backend=kwargs.pop('backend', None))
+        self.allocate_matrices()
+
+        backend      = kwargs.pop('backend', None)
+        with_openmp  = (backend['name'] == 'pyccel' and backend['openmp']) if backend else False
+        self._args , self._threads_args = self.construct_arguments(with_openmp=with_openmp)
 
     @property
     def domain(self):
@@ -889,15 +936,29 @@ class DiscreteLinearForm(BasicDiscrete):
             i = domains.index(target)
         return i
 
-    def construct_arguments(self, backend=None):
+    def construct_arguments(self, with_openmp=False):
+        """
+        Collect the arguments used in the assembly method.
 
+        Parameters
+        ----------
+        with_openmp : bool
+         If set to True we collect some extra arguments used in the assembly method
+
+        Returns
+        -------
+        
+        args: tuple
+         The arguments passed to the assembly method.
+
+        threads_args: tuple
+          Extra arguments used in the assembly method in case with_openmp=True.
+
+        """
         tests_basis, tests_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
         n_elements, quads, quads_degree         = construct_quad_grids_arguments(self.grid, use_weights=False)
 
         global_pads   = self.space.vector_space.pads
-
-        global_mats = self.allocate_matrices()
-        self._global_matrices   = [M._data for M in global_mats]
 
         if self.mapping:
             mapping    = [e._coeffs._data for e in self.mapping._fields]
@@ -930,7 +991,6 @@ class DiscreteLinearForm(BasicDiscrete):
 
         args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping, *self._global_matrices)
 
-        with_openmp  = (backend['name'] == 'pyccel' and backend['openmp']) if backend else False
         with_openmp  = with_openmp and self._num_threads>1
 
         threads_args = ()
@@ -944,7 +1004,11 @@ class DiscreteLinearForm(BasicDiscrete):
         return args, threads_args
 
     def allocate_matrices(self):
-
+        """
+        Allocate the global matrices used in the assmebly method.
+        In this method we allocate only the matrices that are computed in the self._target domain,
+        we also avoid double allocation if we have many DiscreteLinearForm that are defined on the same self._target domain.
+        """
         global_mats   = {}
 
         test_space  = self.test_basis.space.vector_space
@@ -995,8 +1059,7 @@ class DiscreteLinearForm(BasicDiscrete):
                     global_mats[0] = StencilVector(test_space)
                     self._vector   = global_mats[0]
 
-        self._global_mats = list(global_mats.values())
-        return global_mats.values()
+        self._global_matrices = [M._data for M in global_mats.values()]
 
 #==============================================================================
 class DiscreteFunctional(BasicDiscrete):
@@ -1047,6 +1110,8 @@ class DiscreteFunctional(BasicDiscrete):
         if vector_space.parallel and vector_space.cart.num_threads>1:
             num_threads = vector_space.cart._num_threads
 
+        # In case of multiple patches, if the communicator is MPI_COMM_NULL, we do not generate the assembly code
+        # because the patch is not owned by the MPI rank.
         if vector_space.parallel and vector_space.cart.is_comm_null:
             self._free_args = ()
             self._func      = do_nothing
@@ -1084,6 +1149,9 @@ class DiscreteFunctional(BasicDiscrete):
 
         kwargs['num_threads'] = num_threads
 
+
+        # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
+        # self._func, self._free_args, self._max_nderiv and self._backend
         BasicDiscrete.__init__(self, expr, kernel_expr,  quad_order=quad_order, **kwargs)
 
         self._comm       = domain_h.comm
@@ -1129,6 +1197,14 @@ class DiscreteFunctional(BasicDiscrete):
         return i
 
     def construct_arguments(self):
+        """
+        Collect the arguments used in the assembly method.
+
+        Returns
+        -------
+        args: tuple
+         The arguments passed to the assembly method.
+        """
 
         n_elements  = [e-s+1 for s,e in zip(self.grid.local_element_start,self.grid.local_element_end)]
 

@@ -3,6 +3,8 @@
 # Copyright 2018 Jalal Lakhlili, Yaman Güçlü
 
 import numpy as np
+
+from types import MappingProxyType
 from scipy.sparse import bmat, lil_matrix
 
 from psydac.linalg.basic import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
@@ -49,8 +51,8 @@ class BlockVectorSpace( VectorSpace ):
         else:
             self._dtype = tuple(s.dtype for s in spaces)
 
-        connectivity       = connectivity if connectivity is not None else {}
-        self._connectivity = connectivity
+        self._connectivity = connectivity or {}
+        self._connectivity_readonly = MappingProxyType(self._connectivity)
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -109,6 +111,10 @@ class BlockVectorSpace( VectorSpace ):
     def n_blocks( self ):
         return len( self._spaces )
 
+    @property
+    def connectivity( self ):
+        return self._connectivity_readonly
+
     def __getitem__( self, key ):
         return self._spaces[key]
 
@@ -149,12 +155,11 @@ class BlockVector( Vector ):
         self._data_exchangers = {}
         self._interface_buf   = {}
 
-        if not V.parallel:return
+        if not V.parallel: return
 
         # Prepare the data exchangers for the interface data
-        for i,j in V._connectivity:
-            axis_i,axis_j = V._connectivity[i,j][0]
-            ext_i,ext_j   = V._connectivity[i,j][1]
+        for i,j in V.connectivity:
+            ((axis_i,ext_i),(axis_j,ext_j)) = V.connectivity[i,j]
 
             Vi = V.spaces[i]
             Vj = V.spaces[j]
@@ -166,10 +171,10 @@ class BlockVector( Vector ):
                     cart_i = Vik.cart
                     cart_j = Vjk.cart
 
-                    if cart_i.is_comm_null and cart_j.is_comm_null:continue
-                    if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
-                    if not (axis_i, ext_i) in Vik._interfaces:continue
-                    cart_ij = Vik._interfaces[axis_i, ext_i].cart
+                    if cart_i.is_comm_null and cart_j.is_comm_null: continue
+                    if not cart_i.is_comm_null and not cart_j.is_comm_null: continue
+                    if not (axis_i, ext_i) in Vik.interfaces: continue
+                    cart_ij = Vik.interfaces[axis_i, ext_i].cart
                     assert isinstance(cart_ij, InterfaceCartDecomposition)
                     self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
 
@@ -177,17 +182,18 @@ class BlockVector( Vector ):
                 # case of scalar equations
                 cart_i = Vi.cart
                 cart_j = Vj.cart
-                if cart_i.is_comm_null and cart_j.is_comm_null:continue
-                if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
-                if not (axis_i, ext_i) in Vi._interfaces:continue
+                if cart_i.is_comm_null and cart_j.is_comm_null: continue
+                if not cart_i.is_comm_null and not cart_j.is_comm_null: continue
+                if not (axis_i, ext_i) in Vi.interfaces: continue
 
-                cart_ij = Vi._interfaces[axis_i, ext_i].cart
+                cart_ij = Vi.interfaces[axis_i, ext_i].cart
                 assert isinstance(cart_ij, InterfaceCartDecomposition)
                 self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
             else:
                 raise NotImplementedError("This case is not treated")
 
-        for i,j in V._connectivity:
+
+        for i,j in V.connectivity:
             if len(self._data_exchangers.get((i,j), [])) == 0:
                 self._data_exchangers.pop((i,j), None)
 
@@ -213,25 +219,25 @@ class BlockVector( Vector ):
     #...
     def copy( self ):
         w = BlockVector( self._space, [b.copy() for b in self._blocks] )
-        w._sync = False
+        w._sync = self._sync
         return w
 
     #...
     def __neg__( self ):
         w = BlockVector( self._space, [-b for b in self._blocks] )
-        w._sync = False
+        w._sync = self._sync
         return w
 
     #...
     def __mul__( self, a ):
         w = BlockVector( self._space, [b*a for b in self._blocks] )
-        w._sync = False
+        w._sync = self._sync
         return w
 
     #...
     def __rmul__( self, a ):
         w = BlockVector( self._space, [a*b for b in self._blocks] )
-        w._sync    = False
+        w._sync = self._sync
         return w
 
     #...
@@ -326,10 +332,10 @@ class BlockVector( Vector ):
     def _collect_interface_buf( self ):
         V = self.space
         if not V.parallel:return
-        for i,j in V._connectivity:
+        for i,j in V.connectivity:
             if not (i,j) in self._data_exchangers:continue
-            axis_i,axis_j = V._connectivity[i,j][0]
-            ext_i,ext_j   = V._connectivity[i,j][1]
+            ((axis_i,ext_i), (axis_j,ext_j)) = V.connectivity[i,j]
+
             Vi = V.spaces[i]
             Vj = V.spaces[j]
 
@@ -551,6 +557,14 @@ class BlockLinearOperator( LinearOperator ):
     @property
     def n_block_cols( self ):
         return self._ncols
+
+    @property
+    def nonzero_block_indices(self):
+        """
+        Tuple of (i, j) pairs which identify the non-zero blocks:
+        i is the row index, j is the column index.
+        """
+        return tuple(self._blocks)
 
     # ...
     def update_ghost_regions( self ):
@@ -898,10 +912,9 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             return blocks, blocks_T
 
         V = self.codomain 
-        for i,j in V._connectivity:
 
-            axis_i,axis_j = V._connectivity[i,j][0]
-            ext_i,ext_j   = V._connectivity[i,j][1]
+        for i,j in V.connectivity:
+            ((axis_i,ext_i), (axis_j,ext_j)) = V.connectivity[i,j]
 
             Vi = V.spaces[i]
             Vj = V.spaces[j]
@@ -918,8 +931,9 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
                         if cart_i.is_comm_null and cart_j.is_comm_null:break
                         if not cart_i.is_comm_null and not cart_j.is_comm_null:break
-                        if not (axis_i, ext_i) in Vik1._interfaces:break
-                        cart_ij = Vik1._interfaces[axis_i, ext_i].cart
+
+                        if not (axis_i, ext_i) in Vik1.interfaces: break
+                        cart_ij = Vik1.interfaces[axis_i, ext_i].cart
                         assert isinstance(cart_ij, InterfaceCartDecomposition)
 
                         if not cart_i.is_comm_null:
@@ -942,11 +956,12 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                         if block_ij_k1k2:
                             if not cart_i.is_comm_null:
                                 block_ij_k1k2 = block_ij.pop((k1,k2))
-                                info = (block_ij_k1k2.d_start, block_ij_k1k2.c_start, block_ij_k1k2.flip, block_ij_k1k2.pads)
+
+                                info = (block_ij_k1k2.domain_start, block_ij_k1k2.codomain_start, block_ij_k1k2.flip, block_ij_k1k2.pads)
                                 cart_ij.intercomm.bcast(info, root= root)
                             else:
                                 info = cart_ij.intercomm.bcast(None, root=root)
-                                block_ij_k1k2 = StencilInterfaceMatrix(Vjk2, Vik1._interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
+                                block_ij_k1k2 = StencilInterfaceMatrix(Vjk2, Vik1.interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
                                 block_ji_k2k1 = StencilInterfaceMatrix(Vik1, Vjk2, info[1], info[0], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
 
                             data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ij_k1k2._data.shape[block_ij_k1k2._ndim:])
@@ -973,9 +988,10 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
                         if cart_i.is_comm_null and cart_j.is_comm_null:break
                         if not cart_i.is_comm_null and not cart_j.is_comm_null:break
-                        if not (axis_i, ext_i) in Vik1._interfaces:break
-                        interface_cart_i = Vik1._interfaces[axis_i, ext_i].cart
-                        interface_cart_j = Vjk2._interfaces[axis_j, ext_j].cart
+
+                        if not (axis_i, ext_i) in Vik1.interfaces: break
+                        interface_cart_i = Vik1.interfaces[axis_i, ext_i].cart
+                        interface_cart_j = Vjk2.interfaces[axis_j, ext_j].cart
                         assert isinstance(interface_cart_i, InterfaceCartDecomposition)
                         assert isinstance(interface_cart_j, InterfaceCartDecomposition)
 
@@ -1000,11 +1016,12 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                         if block_ji_k2k1:
                             if not cart_j.is_comm_null:
                                 block_ji_k2k1 = block_ji.pop((k2,k1))
-                                info = (block_ji_k2k1.d_start, block_ji_k2k1.c_start, block_ji_k2k1.flip, block_ji_k2k1.pads)
+
+                                info = (block_ji_k2k1.domain_start, block_ji_k2k1.codomain_start, block_ji_k2k1.flip, block_ji_k2k1.pads)
                                 interface_cart_i.intercomm.bcast(info, root= root)
                             else:
                                 info = interface_cart_i.intercomm.bcast(None, root=root)
-                                block_ji_k2k1 = StencilInterfaceMatrix(Vik1, Vjk2._interfaces[axis_j, ext_j], info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
+                                block_ji_k2k1 = StencilInterfaceMatrix(Vik1, Vjk2.interfaces[axis_j, ext_j], info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
                                 block_ij_k1k2 = StencilInterfaceMatrix(Vjk2, Vik1, info[1], info[0], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
 
                             interface_cart_i.comm.Barrier()
@@ -1032,8 +1049,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                 cart_j = Vj.cart
                 if cart_i.is_comm_null and cart_j.is_comm_null:continue
                 if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
-                if not (axis_i, ext_i) in Vi._interfaces:continue
-                cart_ij = Vi._interfaces[axis_i, ext_i].cart
+                if not (axis_i, ext_i) in Vi.interfaces: continue
+                cart_ij = Vi.interfaces[axis_i, ext_i].cart
                 assert isinstance(cart_ij, InterfaceCartDecomposition)
 
                 if not cart_i.is_comm_null:
@@ -1050,11 +1067,11 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                 if block_ij_exists:
                     if not cart_i.is_comm_null:
                         block_ij = blocks.pop((i,j))
-                        info = (block_ij.d_start, block_ij.c_start, block_ij.flip, block_ij.pads)
+                        info = (block_ij.domain_start, block_ij.codomain_start, block_ij.flip, block_ij.pads)
                         cart_ij.intercomm.bcast(info, root= root)
                     else:
                         info = cart_ij.intercomm.bcast(None, root=root)
-                        block_ij = StencilInterfaceMatrix(Vj, Vi._interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
+                        block_ij = StencilInterfaceMatrix(Vj, Vi.interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
                         block_ji = StencilInterfaceMatrix(Vi, Vj, info[1], info[0], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
 
                     data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ij._data.shape[block_ij._ndim:])
@@ -1076,11 +1093,11 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                 if block_ji_exists:
                     if not cart_j.is_comm_null:
                         block_ji = blocks.pop((j,i))
-                        info = (block_ji.d_start, block_ji.c_start, block_ji.flip, block_ji.pads)
-                        cart_ij.intercomm.bcast((block_ji.d_start, block_ji.c_start, block_ji.flip, block_ji.pads), root= root)
+                        info = (block_ji.domain_start, block_ji.codomain_start, block_ji.flip, block_ji.pads)
+                        cart_ij.intercomm.bcast((block_ji.domain_start, block_ji.codomain_start, block_ji.flip, block_ji.pads), root= root)
                     else:
                         info = cart_ij.intercomm.bcast(None, root=root)
-                        block_ji = StencilInterfaceMatrix(Vi, Vj._interfaces[axis_j, ext_j], info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
+                        block_ji = StencilInterfaceMatrix(Vi, Vj.interfaces[axis_j, ext_j], info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
                         block_ij = StencilInterfaceMatrix(Vj, Vi, info[1], info[0], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
 
                     data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ji._data.shape[block_ji._ndim:])
@@ -1105,22 +1122,23 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         from psydac.linalg.stencil import StencilInterfaceMatrix
 
         block_shape = (self.n_block_rows, self.n_block_cols)
-        keys        = tuple(self._blocks.keys())
+
+        keys        = self.nonzero_block_indices
         ndim        = self._blocks[keys[0]]._ndim
         c_starts    = []
         d_starts    = []
 
         interface   = isinstance(self._blocks[keys[0]], StencilInterfaceMatrix)
         if interface:
-            interface_axis  = self._blocks[keys[0]]._c_axis
-            d_ext           = self._blocks[keys[0]]._d_ext
-            d_axis          = self._blocks[keys[0]]._d_axis
+            interface_axis  = self._blocks[keys[0]]._codomain_axis
+            d_ext           = self._blocks[keys[0]]._domain_ext
+            d_axis          = self._blocks[keys[0]]._domain_axis
             flip_axis       = self._blocks[keys[0]]._flip
             permutation     = self._blocks[keys[0]]._permutation
 
             for key in keys:
-                c_starts.append(self._blocks[key]._c_start)
-                d_starts.append(self._blocks[key]._d_start)
+                c_starts.append(self._blocks[key]._codomain_start)
+                d_starts.append(self._blocks[key]._domain_start)
 
             c_starts = tuple(c_starts)
             d_starts = tuple(d_starts)
