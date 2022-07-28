@@ -253,14 +253,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                 spaces = []
                 for sp in trial_space.spaces:
                     if (trial_target.axis, trial_target.ext) in sp.interfaces:
-                        spaces.append(sp.get_interface(trial_target.axis, trial_target.ext))
+                        spaces.append(sp.interfaces[trial_target.axis, trial_target.ext])
                 if len(spaces) == len(trial_space.spaces):
                     sym_space   = trial_space.symbolic_space
                     trial_space = ProductFemSpace(*spaces)
                     trial_space.symbolic_space = sym_space
             elif (trial_target.axis, trial_target.ext) in trial_space.interfaces:
                 sym_space   = trial_space.symbolic_space
-                trial_space = trial_space.get_interface(trial_target.axis, trial_target.ext)
+                trial_space = trial_space.interfaces[trial_target.axis, trial_target.ext]
                 trial_space.symbolic_space = sym_space
 
             self._test_ext  = test_target.ext
@@ -499,7 +499,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 if m == j:
                     axis = target.minus.axis
                     ext  = target.minus.ext
-                    spaces[0] = spaces[0].get_interface(axis, ext)
+                    spaces[0] = spaces[0].interfaces[axis, ext]
                     map_coeffs[0] = [coeff._interface_data[axis, ext] for coeff in map_coeffs[0]]
                     map_coeffs[1] = [coeff._data for coeff in map_coeffs[1]]
                     if weights_m:
@@ -509,7 +509,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 elif p == j:
                     axis = target.plus.axis
                     ext  = target.plus.ext
-                    spaces[1] = spaces[1].get_interface(axis, ext)
+                    spaces[1] = spaces[1].interfaces[axis, ext]
                     map_coeffs[0] = [coeff._data for coeff in map_coeffs[0]]
                     map_coeffs[1] = [coeff._interface_data[axis, ext] for coeff in map_coeffs[1]]
                     if weights_m:

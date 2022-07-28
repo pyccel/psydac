@@ -6,8 +6,11 @@ import os
 import warnings
 
 import numpy as np
+
+from types        import MappingProxyType
 from scipy.sparse import coo_matrix
-from mpi4py import MPI
+from mpi4py       import MPI
+
 
 from psydac.linalg.basic   import VectorSpace, Vector, Matrix
 from psydac.ddm.cart       import find_mpi_type, CartDecomposition, InterfaceCartDecomposition, CartDataExchanger, InterfaceCartDataExchanger
@@ -121,6 +124,7 @@ class StencilVectorSpace( VectorSpace ):
         # The dictionary follows the structure {(axis, ext): StencilVectorSpace()}
         # where axis and ext represent the boundary shared by two patches
         self._interfaces = {}
+        self._interfaces_readonly = MappingProxyType(self._interfaces)
     # ...
     def _init_parallel( self, cart, dtype=float ):
 
@@ -140,7 +144,7 @@ class StencilVectorSpace( VectorSpace ):
         self._parent_starts = (None,)*self._ndim
         self._parent_ends   = (None,)*self._ndim
         self._interfaces    = {}
-
+        self._interfaces_readonly = MappingProxyType(self._interfaces)
         # Parallel attributes
         if not cart.is_comm_null:
             self._cart          = cart
@@ -279,10 +283,7 @@ class StencilVectorSpace( VectorSpace ):
 
     @property
     def interfaces( self ):
-        return self._interfaces
- 
-    def get_interface(self, axis, ext):
-        return self._interfaces[axis, ext]
+        return self._interfaces_readonly
 
     def set_interface(self, axis, ext, cart=None):
         """ Set the interface space along a given axis and extremity.
@@ -386,7 +387,7 @@ class StencilVector( Vector ):
 
         # allocate data for the boundary that shares an interface
         for axis, ext in V.interfaces:
-            self._interface_data[axis, ext] = np.zeros( V.get_interface(axis, ext).shape, dtype=V.dtype )
+            self._interface_data[axis, ext] = np.zeros( V.interfaces[axis, ext].shape, dtype=V.dtype )
 
         # TODO: distinguish between different directions
         self._sync  = False
@@ -691,13 +692,13 @@ class StencilVector( Vector ):
         # Update interface ghost regions
         if self.space.parallel:
             for axis, ext in self.space.interfaces:
-                V      = self.space.get_interface(axis, ext)
+                V      = self.space.interfaces[axis, ext]
                 if isinstance(V.cart, InterfaceCartDecomposition):continue
                 slices = [slice(s, e+2*m*p+1) for s,e,m,p in zip(V.starts, V.ends, V.shifts, V.pads)]
                 self._interface_data[axis, ext][...] = self._data[tuple(slices)]
         else:
             for axis, ext in self.space.interfaces:
-                V      = self.space.get_interface(axis, ext)
+                V      = self.space.interfaces[axis, ext]
                 slices = [slice(s, e+2*m*p+1) for s,e,m,p in zip(V.starts, V.ends, V.shifts, V.pads)]
                 self._interface_data[axis, ext][...] = self._data[tuple(slices)]
 
@@ -1734,7 +1735,7 @@ class StencilInterfaceMatrix(Matrix):
         assert isinstance( W, StencilVectorSpace )
         assert W.pads == V.pads
 
-        Vin = V.get_interface(d_axis, d_ext)
+        Vin = V.interfaces[d_axis, d_ext]
 
         if pads is not None:
             for p,vp in zip(pads, Vin.pads):
@@ -1940,8 +1941,8 @@ class StencilInterfaceMatrix(Matrix):
         W     = self.codomain
         ssc   = W.starts
         eec   = W.ends
-        ssd   = V.get_interface(self._d_axis, self._d_ext).starts
-        eed   = V.get_interface(self._d_axis, self._d_ext).ends
+        ssd   = V.interfaces[self._d_axis, self._d_ext].starts
+        eed   = V.interfaces[self._d_axis, self._d_ext].ends
         pads  = self._pads
         gpads = V.pads
         dm    = V.shifts
@@ -2299,7 +2300,7 @@ class StencilInterfaceMatrix(Matrix):
                     self._transpose_args[arg_name.format(i=i+1)] =  np.int64(arg_val[i])
 
             if self.domain.parallel:
-                comm = self.domain.get_interface(self._d_axis, self._d_ext).cart.local_comm
+                comm = self.domain.interfaces[self._d_axis, self._d_ext].cart.local_comm
 
                 if self.domain == self.codomain:
                     # In this case nrows_extra[i] == 0 for all i

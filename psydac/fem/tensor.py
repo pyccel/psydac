@@ -11,6 +11,8 @@ import itertools
 import h5py
 import os
 
+from types import MappingProxyType
+
 from sympde.topology.space import BasicFunctionSpace
 
 from psydac.linalg.stencil   import StencilVectorSpace
@@ -90,6 +92,7 @@ class TensorFemSpace( FemSpace ):
 
         self._symbolic_space = None
         self._interfaces     = {}
+        self._interfaces_readonly = MappingProxyType(self._interfaces)
 
         if self._vector_space.parallel and self._vector_space.cart.is_comm_null:return
 
@@ -164,10 +167,11 @@ class TensorFemSpace( FemSpace ):
 
     @property
     def symbolic_space( self ):
-        return self._symbolic_space
+        return self._symbolic_space 
 
-    def get_interface(self, axis, ext):
-        return self._interfaces[axis, ext]
+    @property
+    def interfaces( self ):
+        return self._interfaces_readonly
 
     @symbolic_space.setter
     def symbolic_space( self, symbolic_space ):
@@ -1045,7 +1049,7 @@ class TensorFemSpace( FemSpace ):
 
         tensor_vec._interpolation_ready = False
         for a,e in self.interfaces:
-            v    = self._vector_space.get_interface(a,e)
+            v    = self._vector_space.interfaces[a,e]
             cart = v.cart
             if cart:cart = v.cart.reduce_elements(axes, n_elements, multiplicity)
             tensor_vec.create_interface_space(a, e, cart=cart)
@@ -1080,7 +1084,7 @@ class TensorFemSpace( FemSpace ):
         quad_order   = self.quad_order
 
         vector_space.set_interface(axis, ext, cart)
-        space = TensorFemSpace( *spaces, vector_space=vector_space.get_interface(axis, ext), quad_order=self.quad_order)
+        space = TensorFemSpace( *spaces, vector_space=vector_space.interfaces[axis, ext], quad_order=self.quad_order)
         self._interfaces[axis, ext] = space
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):

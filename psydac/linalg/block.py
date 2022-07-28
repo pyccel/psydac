@@ -175,7 +175,7 @@ class BlockVector( Vector ):
                     if cart_i.is_comm_null and cart_j.is_comm_null: continue
                     if not cart_i.is_comm_null and not cart_j.is_comm_null: continue
                     if not (axis_i, ext_i) in Vik.interfaces: continue
-                    cart_ij = Vik.get_interface(axis_i, ext_i).cart
+                    cart_ij = Vik.interfaces[axis_i, ext_i].cart
                     assert isinstance(cart_ij, InterfaceCartDecomposition)
                     self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
 
@@ -187,7 +187,7 @@ class BlockVector( Vector ):
                 if not cart_i.is_comm_null and not cart_j.is_comm_null: continue
                 if not (axis_i, ext_i) in Vi.interfaces: continue
 
-                cart_ij = Vi.get_interface(axis_i, ext_i).cart
+                cart_ij = Vi.interfaces[axis_i, ext_i].cart
                 assert isinstance(cart_ij, InterfaceCartDecomposition)
                 self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
             else:
@@ -912,7 +912,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                         if cart_i.is_comm_null and cart_j.is_comm_null:break
                         if not cart_i.is_comm_null and not cart_j.is_comm_null:break
                         if not (axis_i, ext_i) in Vik1.interfaces:break
-                        cart_ij = Vik1.get_interface(axis_i, ext_i).cart
+                        cart_ij = Vik1.interfaces[axis_i, ext_i].cart
                         assert isinstance(cart_ij, InterfaceCartDecomposition)
 
                         if not cart_i.is_comm_null:
@@ -939,7 +939,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                                 cart_ij.intercomm.bcast(info, root= root)
                             else:
                                 info = cart_ij.intercomm.bcast(None, root=root)
-                                block_ij_k1k2 = StencilInterfaceMatrix(Vjk2, Vik1.get_interface(axis_i, ext_i), info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
+                                block_ij_k1k2 = StencilInterfaceMatrix(Vjk2, Vik1.interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
                                 block_ji_k2k1 = StencilInterfaceMatrix(Vik1, Vjk2, info[1], info[0], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
 
                             data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ij_k1k2._data.shape[block_ij_k1k2._ndim:])
@@ -967,8 +967,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                         if cart_i.is_comm_null and cart_j.is_comm_null:break
                         if not cart_i.is_comm_null and not cart_j.is_comm_null:break
                         if not (axis_i, ext_i) in Vik1.interfaces:break
-                        interface_cart_i = Vik1.get_interface(axis_i, ext_i).cart
-                        interface_cart_j = Vjk2.get_interface(axis_j, ext_j).cart
+                        interface_cart_i = Vik1.interfaces[axis_i, ext_i].cart
+                        interface_cart_j = Vjk2.interfaces[axis_j, ext_j].cart
                         assert isinstance(interface_cart_i, InterfaceCartDecomposition)
                         assert isinstance(interface_cart_j, InterfaceCartDecomposition)
 
@@ -997,7 +997,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                                 interface_cart_i.intercomm.bcast(info, root= root)
                             else:
                                 info = interface_cart_i.intercomm.bcast(None, root=root)
-                                block_ji_k2k1 = StencilInterfaceMatrix(Vik1, Vjk2.get_interface(axis_j, ext_j), info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
+                                block_ji_k2k1 = StencilInterfaceMatrix(Vik1, Vjk2.interfaces[axis_j, ext_j], info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
                                 block_ij_k1k2 = StencilInterfaceMatrix(Vjk2, Vik1, info[1], info[0], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
 
                             interface_cart_i.comm.Barrier()
@@ -1026,7 +1026,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                 if cart_i.is_comm_null and cart_j.is_comm_null:continue
                 if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
                 if not (axis_i, ext_i) in Vi.interfaces:continue
-                cart_ij = Vi.get_interface(axis_i, ext_i).cart
+                cart_ij = Vi.interfaces[axis_i, ext_i].cart
                 assert isinstance(cart_ij, InterfaceCartDecomposition)
 
                 if not cart_i.is_comm_null:
@@ -1047,7 +1047,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                         cart_ij.intercomm.bcast(info, root= root)
                     else:
                         info = cart_ij.intercomm.bcast(None, root=root)
-                        block_ij = StencilInterfaceMatrix(Vj, Vi.get_interface(axis_i, ext_i), info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
+                        block_ij = StencilInterfaceMatrix(Vj, Vi.interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
                         block_ji = StencilInterfaceMatrix(Vi, Vj, info[1], info[0], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
 
                     data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ij._data.shape[block_ij._ndim:])
@@ -1073,7 +1073,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                         cart_ij.intercomm.bcast((block_ji.d_start, block_ji.c_start, block_ji.flip, block_ji.pads), root= root)
                     else:
                         info = cart_ij.intercomm.bcast(None, root=root)
-                        block_ji = StencilInterfaceMatrix(Vi, Vj.get_interface(axis_j, ext_j), info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
+                        block_ji = StencilInterfaceMatrix(Vi, Vj.interfaces[axis_j, ext_j], info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
                         block_ij = StencilInterfaceMatrix(Vj, Vi, info[1], info[0], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
 
                     data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ji._data.shape[block_ji._ndim:])
