@@ -446,7 +446,24 @@ class DiscreteBilinearForm(BasicDiscrete):
         return i,j
 
     def construct_arguments(self, with_openmp=False):
+        """
+        Collect the arguments used in the assembly method.
 
+        Parameters
+        ----------
+        with_openmp : bool
+         If set to True we collect some extra arguments used in the assembly method
+
+        Returns
+        -------
+        
+        args: tuple
+         The arguments passed to the assembly method.
+
+        threads_args: tuple
+          Extra arguments used in the assembly method in case with_openmp=True.
+
+        """
         test_basis, test_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
         trial_basis, trial_degrees, pads      = construct_trial_space_arguments(self.trial_basis)
         n_elements, quads, quad_degrees       = construct_quad_grids_arguments(self.grid[0], use_weights=False)
@@ -550,7 +567,17 @@ class DiscreteBilinearForm(BasicDiscrete):
         return args, threads_args
 
     def allocate_matrices(self, backend=None):
+        """
+        Allocate the global matrices used in the assmebly method.
+        In this method we allocate only the matrices that are computed in the self._target domain,
+        we also avoid double allocation if we have many DiscreteLinearForm that are defined on the same self._target domain.
 
+        Parameters
+        ----------
+        backend : dict
+         The backend used to accelerate the computing kernels.
+
+        """
         global_mats     = {}
 
         expr            = self.kernel_expr.expr
@@ -796,7 +823,7 @@ class DiscreteLinearForm(BasicDiscrete):
         self._grid       = grid
         self._test_basis = BasisValues( test_space, nderiv = self.max_nderiv, grid=grid, ext=ext)
 
-        self.allocate_matrices(backend=kwargs.pop('backend', None))
+        self.allocate_matrices()
 
         with_openmp  = (backend['name'] == 'pyccel' and backend['openmp']) if backend else False
         self._args , self._threads_args = self.construct_arguments(with_openmp=with_openmp)
@@ -884,7 +911,24 @@ class DiscreteLinearForm(BasicDiscrete):
         return i
 
     def construct_arguments(self, with_openmp=False):
+        """
+        Collect the arguments used in the assembly method.
 
+        Parameters
+        ----------
+        with_openmp : bool
+         If set to True we collect some extra arguments used in the assembly method
+
+        Returns
+        -------
+        
+        args: tuple
+         The arguments passed to the assembly method.
+
+        threads_args: tuple
+          Extra arguments used in the assembly method in case with_openmp=True.
+
+        """
         tests_basis, tests_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
         n_elements, quads, quads_degree         = construct_quad_grids_arguments(self.grid, use_weights=False)
 
@@ -934,7 +978,11 @@ class DiscreteLinearForm(BasicDiscrete):
         return args, threads_args
 
     def allocate_matrices(self):
-
+        """
+        Allocate the global matrices used in the assmebly method.
+        In this method we allocate only the matrices that are computed in the self._target domain,
+        we also avoid double allocation if we have many DiscreteLinearForm that are defined on the same self._target domain.
+        """
         global_mats   = {}
 
         test_space  = self.test_basis.space.vector_space
@@ -1122,6 +1170,14 @@ class DiscreteFunctional(BasicDiscrete):
         return i
 
     def construct_arguments(self):
+        """
+        Collect the arguments used in the assembly method.
+
+        Returns
+        -------
+        args: tuple
+         The arguments passed to the assembly method.
+        """
         sk          = self.grid.local_element_start
         ek          = self.grid.local_element_end
         points      = [p[s:e+1] for s,e,p in zip(sk,ek,self.grid.points)]
