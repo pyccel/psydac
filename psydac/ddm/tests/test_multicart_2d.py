@@ -117,11 +117,11 @@ def run_carts_2d():
     for i,j in connectivity:
         if not interfaces_cart.carts[i,j].is_comm_null:
             if carts[i].is_comm_null:
-                shape = interfaces_cart.carts[i,j].get_communication_infos(interfaces_cart.carts[i,j]._axis)['gbuf_recv_shape'][0]
+                shape = interfaces_cart.carts[i,j].get_interface_communication_infos(interfaces_cart.carts[i,j]._axis)['gbuf_recv_shape'][0]
                 us[i] = np.zeros(shape, dtype=dtype)
 
             if carts[j].is_comm_null:
-                shape = interfaces_cart.carts[i,j].get_communication_infos(interfaces_cart.carts[i,j]._axis)['gbuf_recv_shape'][0]
+                shape = interfaces_cart.carts[i,j].get_interface_communication_infos(interfaces_cart.carts[i,j]._axis)['gbuf_recv_shape'][0]
                 us[j] = np.zeros(shape, dtype=dtype)
 
             syn_interface[i,j] = InterfaceCartDataExchanger(interfaces_cart.carts[i,j], dtype)

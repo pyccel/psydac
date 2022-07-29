@@ -22,6 +22,7 @@ from psydac.core.bsplines         import (
         )
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.utilities.utils import unroll_edges
+from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
 
 __all__ = ['SplineSpace']
 
@@ -134,7 +135,9 @@ class SplineSpace( FemSpace ):
         self._histopolation_grid   = unroll_edges(self.domain, self.ext_greville)
 
         # Create space of spline coefficients
-#        self._vector_space = StencilVectorSpace([nbasis], [self._pads], [periodic])
+        domain_h = DomainDecomposition([self._ncells], [periodic])
+        cart     = CartDecomposition(domain_h, [nbasis], [np.array([0])],[np.array([nbasis-1])], [self._pads], [multiplicity])
+        self._vector_space = StencilVectorSpace( cart )
 
         # Store flag: object NOT YET prepared for interpolation / histopolation
         self._interpolation_ready = False
