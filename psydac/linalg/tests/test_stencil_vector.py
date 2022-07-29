@@ -9,14 +9,15 @@ from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
 #===============================================================================
 def compute_global_starts_ends(domain_h, npts):
-    global_starts = [None]*2
-    global_ends   = [None]*2
+    ndims         = len(npts)
+    global_starts = [None]*ndims
+    global_ends   = [None]*ndims
 
-    for axis in range(2):
+    for axis in range(ndims):
         es = domain_h.global_element_starts[axis]
         ee = domain_h.global_element_ends  [axis]
 
-        global_ends  [axis]     = ee
+        global_ends  [axis]     = ee.copy()
         global_ends  [axis][-1] = npts[axis]-1
         global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
 

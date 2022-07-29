@@ -4,13 +4,30 @@ import pytest
 import time
 import numpy as np
 from mpi4py                     import MPI
-from psydac.ddm.cart               import CartDecomposition
+from psydac.ddm.cart               import DomainDecomposition, CartDecomposition
 from scipy.sparse               import csc_matrix, dia_matrix, kron
 from scipy.sparse.linalg        import splu
 from psydac.linalg.stencil         import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.kron            import KroneckerLinearSolver
 from psydac.linalg.direct_solvers  import SparseSolver, BandedSolver
 
+#===============================================================================
+def compute_global_starts_ends(domain_h, npts):
+    ndims         = len(npts)
+    global_starts = [None]*ndims
+    global_ends   = [None]*ndims
+
+    for axis in range(ndims):
+        es = domain_h.global_element_starts[axis]
+        ee = domain_h.global_element_ends  [axis]
+
+        global_ends  [axis]     = ee.copy()
+        global_ends  [axis][-1] = npts[axis]-1
+        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+
+    return global_starts, global_ends
+
+#===============================================================================
 # ... solve AX==Y on the conventional way, where A=\bigotimes_i A_i
 def kron_solve_seq_ref(Y, A, transposed):
 
@@ -29,6 +46,7 @@ def kron_solve_seq_ref(Y, A, transposed):
     return X.reshape(Y.shape)
 # ...
 
+#===============================================================================
 # ... convert a 1D stencil matrix to band matrix
 def to_bnd(A):
 
@@ -45,6 +63,7 @@ def to_bnd(A):
     return A_bnd, la, ua
 # ...
 
+#===============================================================================
 def matrix_to_bandsolver(A):
     A.remove_spurious_entries()
     A_bnd, la, ua = to_bnd(A)
@@ -65,6 +84,7 @@ def random_matrix(seed, space):
 
     return A
 
+#===============================================================================
 def random_vectordata(seed, npts):
     # for now, take vectors like this (as in the other tests)
     return np.fromfunction(lambda *point: sum([10**i*d+seed for i,d in enumerate(point)]), npts)
@@ -79,18 +99,19 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, transposed=Fal
         print(f'[{rank}] Test start', flush=True)
 
     # vector spaces
-    if comm is None:
-        V = StencilVectorSpace(npts, pads, periods)
-    else:
-        cart = CartDecomposition(
-            npts    = npts,
-            pads    = pads,
-            periods = periods,
-            reorder = True,
-            comm    = comm
-        )
-        V = StencilVectorSpace(cart)
-    Vs = [StencilVectorSpace([n], [p], [P]) for n,p,P in zip(npts, pads, periods)]
+    comm = MPI.COMM_WORLD
+    D = DomainDecomposition(npts, periods=periods, comm=comm)
+
+    # Partition the points
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=pads, shifts=[1]*len(pads))
+
+    V = StencilVectorSpace(cart)
+
+    Ds    = [DomainDecomposition([n], periods=[P]) for n,P in zip(npts, periods)]
+    carts = [CartDecomposition(Di, [n],  *compute_global_starts_ends(Di, [n]), pads=[p], shifts=[1]) for Di,n,p in zip(Ds, npts, pads)]
+    Vs = [StencilVectorSpace(carti) for carti in carts]
     localslice = tuple([slice(s, e+1) for s, e in zip(V.starts, V.ends)])
 
     if verbose:
@@ -135,8 +156,8 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, transposed=Fal
     # compare for equality
     assert np.allclose( X[localslice], X_glob[localslice], rtol=1e-8, atol=1e-8 )
 
+#===============================================================================
 # tests of the direct solvers
-
 @pytest.mark.parametrize( 'seed', [0,2,10] )
 @pytest.mark.parametrize( 'n', [8, 16, 17, 64] )
 @pytest.mark.parametrize( 'p', [1, 3] )
@@ -145,8 +166,12 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, transposed=Fal
 @pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
 @pytest.mark.parametrize( 'transposed', [True, False] )
 def test_direct_solvers(seed, n, p, P, nrhs, direct_solver, transposed):
+
+    D    = DomainDecomposition([n], periods=[P])
+    cart = CartDecomposition(D, [n],  *compute_global_starts_ends(D, [n]), pads=[p], shifts=[1])
+
     # space (V)
-    V = StencilVectorSpace([n], [p], [P])
+    V = StencilVectorSpace( cart )
 
     # bulid matrices (A)
     A = random_matrix(seed+1, V)
@@ -186,8 +211,8 @@ def test_direct_solvers(seed, n, p, P, nrhs, direct_solver, transposed):
 
 # right now, the maximum tested number for MPI_COMM_WORLD.size is 4; some test sizes failed with size 8 for now.
 
+#===============================================================================
 # tests without MPI
-
 @pytest.mark.parametrize( 'seed', [0, 2] )
 @pytest.mark.parametrize( 'params', [([8], [2], [False]), ([8,9], [2,3], [False,True])] )
 @pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )

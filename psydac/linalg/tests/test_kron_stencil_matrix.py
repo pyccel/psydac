@@ -4,11 +4,25 @@ import pytest
 import numpy as np
 from scipy.sparse import kron
 
+from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
 from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.stencil import StencilMatrix
 from psydac.linalg.kron    import KroneckerStencilMatrix
+#===============================================================================
+def compute_global_starts_ends(domain_h, npts):
+    ndims         = len(npts)
+    global_starts = [None]*ndims
+    global_ends   = [None]*ndims
 
+    for axis in range(ndims):
+        ee = domain_h.global_element_ends  [axis]
+
+        global_ends  [axis]     = ee.copy()
+        global_ends  [axis][-1] = npts[axis]-1
+        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+
+    return tuple(global_starts), tuple(global_ends)
 #==============================================================================
 @pytest.mark.parametrize('npts', [(5, 7, 8)])
 @pytest.mark.parametrize('pads', [(2, 3, 5)])
@@ -21,14 +35,36 @@ def test_KroneckerStencilMatrix(npts, pads, periodic):
     p1, p2, p3 = pads
     P1, P2, P3 = periodic
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1, n3-1], periods=[P1,P2,P3])
+
+    # Partition the points
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2,p3], shifts=[1,1,1])
+
     # 3D vector space and element
-    W = StencilVectorSpace([n1, n2, n3], [p1, p2, p3], [P1, P2, P3])
+    W = StencilVectorSpace( cart )
     w = StencilVector(W)
 
     # 1D vector space
-    V1 = StencilVectorSpace([n1], [p1], [P1])
-    V2 = StencilVectorSpace([n2], [p2], [P2])
-    V3 = StencilVectorSpace([n3], [p3], [P3])
+
+    D1 = DomainDecomposition([n1-1], periods=[P1])
+    D2 = DomainDecomposition([n2-1], periods=[P2])
+    D3 = DomainDecomposition([n3-1], periods=[P3])
+
+    # Partition the points
+    global_starts1, global_ends1 = compute_global_starts_ends(D1, [n1])
+    global_starts2, global_ends2 = compute_global_starts_ends(D2, [n2])
+    global_starts3, global_ends3 = compute_global_starts_ends(D3, [n3])
+
+    cart1 = CartDecomposition(D1, [n1], global_starts1, global_ends1, pads=[p1], shifts=[1])
+    cart2 = CartDecomposition(D2, [n2], global_starts2, global_ends2, pads=[p2], shifts=[1])
+    cart3 = CartDecomposition(D3, [n3], global_starts3, global_ends3, pads=[p3], shifts=[1])
+
+    V1 = StencilVectorSpace( cart1 )
+    V2 = StencilVectorSpace( cart2 )
+    V3 = StencilVectorSpace( cart3 )
 
     # 1D stencil matrices
     M1 = StencilMatrix(V1, V1)

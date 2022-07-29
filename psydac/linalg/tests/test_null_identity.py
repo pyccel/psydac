@@ -2,11 +2,28 @@ import pytest
 
 import numpy as np
 
+from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 
 from psydac.linalg.identity import IdentityLinearOperator, IdentityMatrix, IdentityStencilMatrix
 from psydac.linalg.null import NullLinearOperator, NullMatrix, NullStencilMatrix
 
+#===============================================================================
+def compute_global_starts_ends(domain_h, npts):
+    ndims         = len(npts)
+    global_starts = [None]*ndims
+    global_ends   = [None]*ndims
+
+    for axis in range(ndims):
+        ee = domain_h.global_element_ends  [axis]
+
+        global_ends  [axis]     = ee.copy()
+        global_ends  [axis][-1] = npts[axis]-1
+        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+
+    return tuple(global_starts), tuple(global_ends)
+
+#===============================================================================
 @pytest.mark.parametrize( 'seed', [0, 1, 2] )
 def test_null_identity(seed):
     np.random.seed(seed)
@@ -15,12 +32,30 @@ def test_null_identity(seed):
     vnpts = [100, 97]
     vpads = [10, 7]
     vperiodic = [True,False]
-    V = StencilVectorSpace(vnpts, vpads, vperiodic)
+
+    # Create domain decomposition
+    D = DomainDecomposition(vnpts, periods=vperiodic)
+
+    # Partition the points
+    global_starts, global_ends = compute_global_starts_ends(D, vnpts)
+
+    vcart = CartDecomposition(D, vnpts, global_starts, global_ends, pads=vpads, shifts=[1,1])
+
+    V = StencilVectorSpace( vcart )
 
     wnpts = [120, 39]
     wpads = [10, 7] # take the same pads for the StencilMatrix constructor to be happy
     wperiodic = [True, False]
-    W = StencilVectorSpace(wnpts, wpads, wperiodic)
+
+    # Create domain decomposition
+    D = DomainDecomposition(wnpts, periods=wperiodic)
+
+    # Partition the points
+    global_starts, global_ends = compute_global_starts_ends(D, wnpts)
+
+    wcart = CartDecomposition(D, wnpts, global_starts, global_ends, pads=wpads, shifts=[1,1])
+
+    W = StencilVectorSpace( wcart )
 
     v = V.zeros()
     outv = V.zeros()
