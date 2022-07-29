@@ -233,19 +233,17 @@ def construct_interface_spaces(domain_h, g_spaces, carts, interiors, connectivit
 
 def construct_reduced_interface_spaces(spaces, reduced_spaces, interiors, connectivity):
     for i,j in connectivity:
-        axes = connectivity[i,j][0]
-        exts = connectivity[i,j][1]
+        ((axis_i, ext_i), (axis_j , ext_j)) = connectivity[i, j]
+
         patch_i = interiors[i]
         patch_j = interiors[j]
-        space_i = spaces[patch_i]._interfaces.get((axes[0], exts[0]), None)
-        space_j = spaces[patch_j]._interfaces.get((axes[1], exts[1]), None)
+        space_i = spaces[patch_i].interfaces.get((axis_i, ext_i), None)
+        space_j = spaces[patch_j].interfaces.get((axis_j, ext_j), None)
 
         if space_i is None or space_j is None: continue
 
         cart_i  = space_i.vector_space.cart
         cart_j  = space_j.vector_space.cart
-
-        ((axis_i, axis_j), (ext_i , ext_j)) = connectivity[i, j]
 
         if isinstance(cart_i, InterfaceCartDecomposition):
             assert cart_i is cart_j

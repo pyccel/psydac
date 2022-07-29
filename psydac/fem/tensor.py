@@ -20,7 +20,7 @@ from psydac.linalg.kron      import kronecker_solve
 from psydac.fem.basic        import FemSpace, FemField
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.grid         import FemAssemblyGrid
-from psydac.fem.partitioning import create_cart
+from psydac.fem.partitioning import create_cart, partition_coefficients
 from psydac.ddm.cart         import DomainDecomposition, CartDecomposition
 
 from psydac.core.bsplines  import (find_span,
@@ -1021,14 +1021,7 @@ class TensorFemSpace( FemSpace ):
         # create new TensorFemSpace
         tensor_vec = TensorFemSpace(self._domain, *spaces, cart=red_cart, quad_order=self._quad_order)
 
-
         tensor_vec._interpolation_ready = False
-        for a,e in self.interfaces:
-            v    = self._vector_space.interfaces[a,e]
-            cart = v.cart
-            if cart:cart = v.cart.reduce_elements(axes, n_elements, multiplicity)
-            tensor_vec.create_interface_space(a, e, cart=cart)
-
         return tensor_vec
 
     def create_interface_space(self, axis, ext, cart):
