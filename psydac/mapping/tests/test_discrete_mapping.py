@@ -14,7 +14,7 @@ from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.splines import SplineSpace
 from psydac.mapping.discrete import NurbsMapping
 from psydac.utilities.utils import refine_array_1d
-
+from psydac.ddm.cart        import DomainDecomposition
 
 try:
     mesh_dir = os.environ['PSYDAC_MESH_DIR']
@@ -284,7 +284,12 @@ def test_nurbs_circle():
 
     # Psydac
     spaces = [SplineSpace(degree, knot) for degree, knot in zip(d, k)]
-    T = TensorFemSpace(*spaces)
+
+    ncells = [len(space.breaks)-1 for space in spaces]
+    periods = [space.periodic for space in spaces]
+
+    domain_h = DomainDecomposition(ncells=ncells, periods=periods, comm=None)
+    T = TensorFemSpace(domain_h, *spaces)
     mapping = NurbsMapping.from_control_points_weights(T, control_points=control[..., :2], weights=w)
 
     x1_pts = np.linspace(0, 1, 10)
