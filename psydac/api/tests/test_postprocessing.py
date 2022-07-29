@@ -628,11 +628,10 @@ def test_incorrect_arg_export_to_vtk():
 
 @pytest.mark.parallel
 @pytest.mark.parametrize('geometry', ['identity_2d.h5',
-                                      'identity_3d.h5',])
-                                    #   'pipe.h5',]) # Doesn't work, see issue
-                                    #   'multipatch/magnet.h5',
-                                    #   'multipatch/plate_with_hole_mp_7'])
-                                    # Arguments to be added when Said's PR is merged
+                                      'identity_3d.h5',
+                                    #   'pipe.h5',]) # Doesn't work, see issue #229
+                                      'multipatch/magnet.h5',
+                                      'multipatch/plate_with_hole_mp_7.h5'])
 @pytest.mark.parametrize('kind', ['h1', 'l2', 'hdiv', 'hcurl'])
 @pytest.mark.parametrize('space', [ScalarFunctionSpace, VectorFunctionSpace])
 def test_parallel_export_discrete_domain(geometry, kind, space):

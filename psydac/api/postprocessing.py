@@ -391,7 +391,7 @@ class OutputManager:
         if spaces_info == {}:
             spaces_info = {
                            'ndim': pdim,
-                           'fields': self.filename_fields,
+                           'fields': os.path.basename(self.filename_fields), # Only the basename to avoid issues
                            'patches': [{'name': patch,
                                         'breakpoints': [scalar_space.breaks[i].tolist() for i in range(ldim)],
                                         'scalar_spaces': [new_space]
@@ -495,7 +495,7 @@ class OutputManager:
                 mpi_dd_gp = fh5['mpi_dd']
 
         if not 'spaces' in fh5.attrs.keys():
-            fh5.attrs.create('spaces', self.filename_space)
+            fh5.attrs.create('spaces', os.path.basename(self.filename_space)) # Use basename to avoid issues
 
 
         saving_group = self._current_hdf5_group
@@ -816,7 +816,7 @@ class PostProcessManager:
         pdim = space_info['ndim']
 
         assert pdim == domain.dim
-        assert space_info['fields'] == self.fields_filename
+        assert space_info['fields'] == os.path.basename(self.fields_filename) # Use basename to compare
 
         # -------------------------------------------------
         # Space reconstruction
@@ -1423,7 +1423,7 @@ class PostProcessManager:
             size = self.comm.Get_size()
             # Get ranked filename
             if size > 1:
-                filename_same_dir = filename.split('/')[-1]
+                filename_same_dir = os.path.basename(filename)
                 filename = filename + f'.{rank}'
             else:
                 number_by_rank_visu = False
