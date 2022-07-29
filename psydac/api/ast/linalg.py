@@ -73,10 +73,10 @@ def toInteger(a):
 #==============================================================================
 
 class LinearOperatorDot(SplBasic):
-    """ Generate the Matrix Vector Product function for a BlockMatrix,StencilMatrix or StencilInterfaceMatrix.
-        In case of a BlockMatrix we give the number of blocks along the rows and columns specified with the block_shape.
-        In case of StencilMatrix or StencilInterfaceMatrix the block_shape = (1,1).
-
+    """
+    Generate the Matrix Vector Product function for a BlockMatrix,StencilMatrix or StencilInterfaceMatrix.
+    In case of a BlockMatrix we give the number of blocks along the rows and columns specified with the block_shape.
+    In case of StencilMatrix or StencilInterfaceMatrix the block_shape = (1,1).
 
     Parameters
     ----------
