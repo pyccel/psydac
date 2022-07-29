@@ -375,8 +375,8 @@ class InterfacesCartDecomposition:
             axis_i, ext_i   = interfaces[i,j][0]
             axis_j, ext_j   = interfaces[i,j][1]
             if interfaces_comm[i,j] != MPI.COMM_NULL:
-                ranks_in_topo_i = carts.carts[i].ranks_in_topo if i in owned_groups else np.full(local_groups[i].size, -1)
-                ranks_in_topo_j = carts.carts[j].ranks_in_topo if j in owned_groups else np.full(local_groups[j].size, -1)
+                ranks_in_topo_i = domain_h.domains[i].ranks_in_topo if i in owned_groups else np.full(local_groups[i].size, -1)
+                ranks_in_topo_j = domain_h.domains[j].ranks_in_topo if j in owned_groups else np.full(local_groups[j].size, -1)
 
                 if interfaces_comm[i,j].rank == interfaces_root_ranks[i,j][0]:
                     req.append(interfaces_comm[i,j].Isend((ranks_in_topo_i, ranks_in_topo_i.size, dtype), interfaces_root_ranks[i,j][1], tag=tag(i,j,1)))
@@ -393,7 +393,7 @@ class InterfacesCartDecomposition:
                                                                    pads=[pads[i], pads[j]],
                                                                    shifts=[shifts[i], shifts[j]],
                                                                    comm=interfaces_comm[i,j],
-                                                                   axes=axes, exts=exts,
+                                                                   axes=[axis_i, axis_j], exts=[ext_i, ext_j],
                                                                    ranks_in_topo=[ranks_in_topo_i, ranks_in_topo_j],
                                                                    local_groups=[local_groups[i], local_groups[j]],
                                                                    local_communicators=[local_communicators[i], local_communicators[j]],
@@ -565,14 +565,6 @@ class CartDecomposition():
         return self._comm_cart
 
     @property
-    def local_comm( self ):
-        return self._local_comm
-
-    @property
-    def global_comm( self ):
-        return self._global_comm
-
-    @property
     def nprocs( self ):
         """ Number of processes in each dimension."""
         return self._nprocs
@@ -607,10 +599,6 @@ class CartDecomposition():
     @property
     def domain_h( self ):
         return self._domain_h
-
-    @property
-    def is_comm_null( self ):
-        return self.comm == MPI.COMM_NULL
 
     #---------------------------------------------------------------------------
     # Local properties
@@ -763,13 +751,10 @@ class CartDecomposition():
         return cart
 
     #---------------------------------------------------------------------------
-    def reduce_npts( self, axes, npts, global_starts, global_ends, shifts):
+    def reduce_npts( self, npts, global_starts, global_ends, shifts):
         """ Compute the cart of the reduced space.
         Parameters
         ----------
-        axes: tuple_like (int)
-            The directions to be Reduced.
-
         npts : list or tuple of int
             Number of coefficients in the global grid along each dimension.
 
@@ -789,11 +774,6 @@ class CartDecomposition():
             The reduced cart.
         """
 
-        if isinstance(axes, int):
-            axes = [axes]
-
-        for axis in axes:assert(axis<self._ndims)
-
         cart = CartDecomposition(self.domain_h, npts, global_starts, global_ends, self.pads, shifts)
         cart._parent_starts = self.starts
         cart._parent_ends   = self.ends
@@ -801,6 +781,10 @@ class CartDecomposition():
 
     #---------------------------------------------------------------------------
     def change_starts_ends( self, starts, ends, parent_starts,  parent_ends):
+        """ Create a slice of the cart based on the new starts and ends.
+        WARNING! this function should be used carefully,
+        as it might generate errors if it was not used properly in the communication process.
+        """
         cart = CartDecomposition(self._domain_h, self._npts, self._global_starts, self._global_ends, self._pads, self._shifts)
 
         assert self.comm is None or self.comm.size == 1
@@ -1621,89 +1605,6 @@ class InterfaceCartDecomposition(CartDecomposition):
 
         return info
 
-    #---------------------------------------------------------------------------
-    def change_starts_ends( self, starts, ends, parent_starts,  parent_ends):
-        """ Create a slice of the cart based on the new starts and ends.
-        WARNING! this function should be used carefully,
-        as it might generate errors if it was not used properly in the communication process.
-        """
-        cart = CartDecomposition(self._npts, self._pads, self._periods, self._reorder,
-                                comm=self.comm, global_comm=self._global_comm,
-                                shifts=self.shifts, reverse_axis=self.reverse_axis)
-
-        assert self.comm.size == 1
-        cart._global_starts = tuple(s for s in self._global_starts)
-        cart._global_ends   = tuple(e for e in self._global_ends)
-
-        # Start/end values of global indices (without ghost regions)
-        cart._starts = tuple(starts)
-        cart._ends   = tuple(ends)
-
-        # List of 1D global indices (without ghost regions)
-        cart._grids = tuple( range(s,e+1) for s,e in zip( cart._starts, cart._ends ) )
-
-        # Compute shape of local arrays in topology (with ghost regions)
-        cart._shape = tuple( e-s+1+2*m*p for s,e,p,m in zip( cart._starts, cart._ends, cart._pads, cart._shifts ) )
-
-        # Extended grids with ghost regions
-        cart._extended_grids = tuple( range(s-m*p,e+m*p+1) for s,e,p,m in zip( cart._starts, cart._ends, cart._pads, cart._shifts ) )
-
-        # N-dimensional global indices with ghost regions
-        cart._extended_indices = product( *cart._extended_grids )
-
-        # Compute/store information for communicating with neighbors
-        cart._shift_info = {}
-        for dimension in range( cart._ndims ):
-            for disp in [-1,1]:
-                cart._shift_info[ dimension, disp ] = \
-                        cart._compute_shift_info( dimension, disp )
-
-        cart._parent_starts = parent_starts
-        cart._parent_ends   = parent_ends
-
-        return cart
-
-    #---------------------------------------------------------------------------
-    def _compute_shift_info( self, direction, disp ):
-
-        assert( 0 <= direction < self._ndims )
-        assert( isinstance( disp, int ) )
-
-        reorder = self.reverse_axis == direction
-        # Process ranks for data shifting with MPI_SENDRECV
-        (rank_source, rank_dest) = self.comm_cart.Shift( direction, disp )
-
-        if reorder:
-            (rank_source, rank_dest) = (rank_dest, rank_source)
-
-        # Mesh info info along given direction
-        s = self._starts[direction]
-        e = self._ends  [direction]
-        p = self._pads  [direction]
-        m = self._shifts[direction]
-
-        # Shape of send/recv subarrays
-        buf_shape = np.array( self._shape )
-        buf_shape[direction] = m*p
-
-        # Start location of send/recv subarrays
-        send_starts = np.zeros( self._ndims, dtype=int )
-        recv_starts = np.zeros( self._ndims, dtype=int )
-        if disp > 0:
-            recv_starts[direction] = 0
-            send_starts[direction] = e-s+1
-        elif disp < 0:
-            recv_starts[direction] = e-s+1+m*p
-            send_starts[direction] = m*p
-
-        # Store all information into dictionary
-        info = {'rank_dest'  : rank_dest,
-                'rank_source': rank_source,
-                'buf_shape'  : tuple(  buf_shape  ),
-                'send_starts': tuple( send_starts ),
-                'recv_starts': tuple( recv_starts )}
-        return info
-
 #===============================================================================
 class CartDataExchanger:
     """
@@ -1846,7 +1747,7 @@ class CartDataExchanger:
         # Requests' handles
 
         for direction in range( ndim ):
-            if direction == self._axis:continue
+            if direction == self._axis: continue
             if self._axis is not None: comm = cart.subcomm[direction]
 
             # Start receiving data (MPI_IRECV)

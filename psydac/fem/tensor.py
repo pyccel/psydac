@@ -1016,7 +1016,7 @@ class TensorFemSpace( FemSpace ):
         global_starts, global_ends = partition_coefficients(v.cart.domain_h, spaces)
 
         # create new CartDecomposition
-        red_cart   = v.cart.reduce_npts(axes, npts, global_starts, global_ends, shifts=multiplicity)
+        red_cart   = v.cart.reduce_npts(npts, global_starts, global_ends, shifts=multiplicity)
 
         # create new TensorFemSpace
         tensor_vec = TensorFemSpace(self._domain, *spaces, cart=red_cart, quad_order=self._quad_order)
