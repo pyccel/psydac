@@ -8,6 +8,20 @@ from psydac.linalg.utilities import array_to_stencil
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
 #===============================================================================
+def compute_global_starts_ends(domain_h, npts):
+    global_starts = [None]*2
+    global_ends   = [None]*2
+
+    for axis in range(2):
+        es = domain_h.global_element_starts[axis]
+        ee = domain_h.global_element_ends  [axis]
+
+        global_ends  [axis]     = ee
+        global_ends  [axis][-1] = npts[axis]-1
+        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+
+    return global_starts, global_ends
+#===============================================================================
 # SERIAL TESTS
 #===============================================================================
 @pytest.mark.parametrize( 'n1', [1,7] )
@@ -17,19 +31,10 @@ from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
 def test_stencil_vector_2d_serial_init( n1, n2, p1, p2, P1=True, P2=False ):
 
-    D = DomainDecomposition([n1,n1], periods=[P1,P2])
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
-    npts          =[n1,n2]
-    global_starts = [None]*2
-    global_ends   = [None]*2
-
-    for axis in range(2):
-        es = D.global_element_starts[axis]
-        ee = D.global_element_ends  [axis]
-
-        global_ends  [axis]     = ee
-        global_ends  [axis][-1] = npts[axis]-1
-        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
 
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
     V = StencilVectorSpace( C )
@@ -48,19 +53,10 @@ def test_stencil_vector_2d_serial_init( n1, n2, p1, p2, P1=True, P2=False ):
 
 def test_stencil_vector_2d_serial_copy( n1, n2, p1, p2, P1=True, P2=False ):
 
-    D = DomainDecomposition([n1,n1], periods=[P1,P2])
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
-    npts          =[n1,n2]
-    global_starts = [None]*2
-    global_ends   = [None]*2
-
-    for axis in range(2):
-        es = D.global_element_starts[axis]
-        ee = D.global_element_ends  [axis]
-
-        global_ends  [axis]     = ee
-        global_ends  [axis][-1] = npts[axis]-1
-        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
 
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -86,19 +82,10 @@ def test_stencil_vector_2d_serial_copy( n1, n2, p1, p2, P1=True, P2=False ):
 
 def test_stencil_vector_2d_basic_ops( n1, n2, p1, p2, P1=True, P2=False ):
 
-    D = DomainDecomposition([n1,n1], periods=[P1,P2])
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
-    npts          =[n1,n2]
-    global_starts = [None]*2
-    global_ends   = [None]*2
-
-    for axis in range(2):
-        es = D.global_element_starts[axis]
-        ee = D.global_element_ends  [axis]
-
-        global_ends  [axis]     = ee
-        global_ends  [axis][-1] = npts[axis]-1
-        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
 
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -137,19 +124,10 @@ def test_stencil_vector_2d_basic_ops( n1, n2, p1, p2, P1=True, P2=False ):
 
 def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2, P1=True, P2=False ):
 
-    D = DomainDecomposition([n1,n1], periods=[P1,P2])
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
-    npts          =[n1,n2]
-    global_starts = [None]*2
-    global_ends   = [None]*2
-
-    for axis in range(2):
-        es = D.global_element_starts[axis]
-        ee = D.global_element_ends  [axis]
-
-        global_ends  [axis]     = ee
-        global_ends  [axis][-1] = npts[axis]-1
-        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
 
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -179,19 +157,10 @@ def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2, P1=True, P2=False ):
 
 def test_stencil_vector_2d_serial_math( n1, n2, p1, p2, P1=True, P2=False ):
 
-    D = DomainDecomposition([n1,n1], periods=[P1,P2])
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
-    npts          =[n1,n2]
-    global_starts = [None]*2
-    global_ends   = [None]*2
-
-    for axis in range(2):
-        es = D.global_element_starts[axis]
-        ee = D.global_element_ends  [axis]
-
-        global_ends  [axis]     = ee
-        global_ends  [axis][-1] = npts[axis]-1
-        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
 
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -232,19 +201,10 @@ def test_stencil_vector_2d_serial_math( n1, n2, p1, p2, P1=True, P2=False ):
 
 def test_stencil_vector_2d_serial_dot( n1, n2, p1, p2, P1=True, P2=False ):
 
-    D = DomainDecomposition([n1,n1], periods=[P1,P2])
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
-    npts          =[n1,n2]
-    global_starts = [None]*2
-    global_ends   = [None]*2
-
-    for axis in range(2):
-        es = D.global_element_starts[axis]
-        ee = D.global_element_ends  [axis]
-
-        global_ends  [axis]     = ee
-        global_ends  [axis][-1] = npts[axis]-1
-        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
 
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -275,19 +235,10 @@ def test_stencil_vector_2d_serial_dot( n1, n2, p1, p2, P1=True, P2=False ):
 
 def test_stencil_2d_array_to_stencil( n1, n2, p1, p2, P1, P2 ):
 
-    D = DomainDecomposition([n1,n1], periods=[P1,P2])
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
-    npts          =[n1,n2]
-    global_starts = [None]*2
-    global_ends   = [None]*2
-
-    for axis in range(2):
-        es = D.global_element_starts[axis]
-        ee = D.global_element_ends  [axis]
-
-        global_ends  [axis]     = ee
-        global_ends  [axis][-1] = npts[axis]-1
-        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
 
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -317,19 +268,10 @@ def test_stencil_vector_2d_parallel_init( n1, n2, p1, p2, P1=True, P2=False ):
     from mpi4py       import MPI
 
     comm = MPI.COMM_WORLD
-    D = DomainDecomposition([n1,n1], periods=[P1,P2], comm=comm)
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
 
-    npts          =[n1,n2]
-    global_starts = [None]*2
-    global_ends   = [None]*2
-
-    for axis in range(2):
-        es = D.global_element_starts[axis]
-        ee = D.global_element_ends  [axis]
-
-        global_ends  [axis]     = ee
-        global_ends  [axis][-1] = npts[axis]-1
-        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -355,19 +297,10 @@ def test_stencil_vector_2d_parallel_toarray( n1, n2, p1, p2, P1, P2 ):
     from mpi4py       import MPI
 
     comm = MPI.COMM_WORLD
-    D = DomainDecomposition([n1,n1], periods=[P1,P2], comm=comm)
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
 
-    npts          =[n1,n2]
-    global_starts = [None]*2
-    global_ends   = [None]*2
-
-    for axis in range(2):
-        es = D.global_element_starts[axis]
-        ee = D.global_element_ends  [axis]
-
-        global_ends  [axis]     = ee
-        global_ends  [axis][-1] = npts[axis]-1
-        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -425,19 +358,10 @@ def test_stencil_vector_2d_parallel_dot( n1, n2, p1, p2, P1, P2 ):
     from mpi4py       import MPI
 
     comm = MPI.COMM_WORLD
-    D = DomainDecomposition([n1,n1], periods=[P1,P2], comm=comm)
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
 
-    npts          =[n1,n2]
-    global_starts = [None]*2
-    global_ends   = [None]*2
-
-    for axis in range(2):
-        es = D.global_element_starts[axis]
-        ee = D.global_element_ends  [axis]
-
-        global_ends  [axis]     = ee
-        global_ends  [axis][-1] = npts[axis]-1
-        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
