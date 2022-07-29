@@ -2019,7 +2019,7 @@ class InterfaceCartDataExchanger:
         assert isinstance( cart, InterfaceCartDecomposition )
 
         mpi_type = find_mpi_type( dtype )
-        info     = cart.get_communication_infos( cart.axis )
+        info     = cart.get_interface_communication_infos( cart.axis )
 
         # Possibly, each coefficient could have multiple components
         coeff_shape = list( coeff_shape )

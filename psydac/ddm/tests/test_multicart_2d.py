@@ -101,7 +101,7 @@ def run_carts_2d():
 
     for i,j in connectivity:
         if (i,j) in interfaces_cart.carts and not interfaces_cart.carts[i,j].is_comm_null:
-            interfaces_cart.carts[i,j].set_communication_info(get_minus_starts_ends, get_plus_starts_ends)
+            interfaces_cart.carts[i,j].set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
 
     val = lambda k,i1,i2: k*n[k][0]*n[k][1]+i1*n[k][0]+i2 if (0<=i1<n[k][0] and 0<=i2<n[k][1]) else 0
     for i,ci in enumerate(carts):

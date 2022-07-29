@@ -237,14 +237,14 @@ class StencilVectorSpace( VectorSpace ):
           the values must be 1 or -1.
 
          cart: CartDecomposition
-          The cart of the new space, needed in the parallel case.
+          The cart of the new space.
         """
 
         assert int(ext) in [-1,1]
 
         # Create the interface space in the parallel case using the new cart
         assert isinstance(cart, CartDecomposition)
-
+        if cart.is_comm_null: return
         if isinstance(cart, InterfaceCartDecomposition):
             # Case where the patches that share the interface are owned by different intra-communicators
             space = StencilVectorSpace(cart)
@@ -1780,7 +1780,7 @@ class StencilInterfaceMatrix(Matrix):
         self._data     = np.zeros( dims+diags, dtype=W.dtype )
 
         # Parallel attributes
-        if W.parallel:
+        if W.parallel and not isinstance(W.cart, InterfaceCartDecomposition):
             if W.cart.is_comm_null:return
             # Create data exchanger for ghost regions
             self._synchronizer = CartDataExchanger(
