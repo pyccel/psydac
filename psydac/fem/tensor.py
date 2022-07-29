@@ -60,13 +60,6 @@ class TensorFemSpace( FemSpace ):
         self._domain = domain_h
         self._spaces = tuple(args)
 
-        npts         = [V.nbasis   for V in self.spaces]
-        pads         = [V._pads    for V in self.spaces]
-        degree       = [V.degree   for V in self.spaces]
-        multiplicity = [V.multiplicity for V in self.spaces]
-        periods      = [V.periodic for V in self.spaces]
-        basis        = [V.basis    for V in self.spaces]
-
         if kwargs.get('cart', None):
             cart = kwargs['cart']
             self._vector_space = StencilVectorSpace(cart)
@@ -86,7 +79,6 @@ class TensorFemSpace( FemSpace ):
         self._symbolic_space = None
         self._interfaces     = {}
         self._interfaces_readonly = MappingProxyType(self._interfaces)
-
 
         if self._vector_space.parallel and self._vector_space.cart.is_comm_null:return
 
@@ -125,6 +117,10 @@ class TensorFemSpace( FemSpace ):
     @property
     def periodic(self):
         return [V.periodic for V in self.spaces]
+
+    @property
+    def domain(self):
+        return self._domain
 
     @property
     def mapping(self):

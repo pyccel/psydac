@@ -8,7 +8,7 @@ from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.basic        import FemField
 from psydac.mapping.discrete import SplineMapping, NurbsMapping
-
+from psydac.ddm.cart         import DomainDecomposition
 #==============================================================================
 def random_string( n ):
     chars    = string.ascii_uppercase + string.ascii_lowercase + string.digits
@@ -55,8 +55,9 @@ def elevate(mapping, axis, times):
     assert( isinstance(times, int) )
     assert( isinstance(axis, int) )
 
-    space = mapping.space
-    pdim  = mapping.pdim
+    space    = mapping.space
+    domain_h = space.domain
+    pdim     = mapping.pdim
 
     knots  = [V.knots             for V in space.spaces]
     degree = [V.degree            for V in space.spaces]
@@ -77,7 +78,7 @@ def elevate(mapping, axis, times):
     nrb = nrb.clone().elevate(axis, times)
 
     spaces = [SplineSpace(degree=p, knots=u) for p,u in zip( nrb.degree, nrb.knots )]
-    space  = TensorFemSpace( *spaces )
+    space  = TensorFemSpace( domain_h, *spaces )
     fields = [FemField( space ) for d in range( pdim )]
 
     # Get spline coefficients for each coordinate X_i
@@ -128,6 +129,7 @@ def refine(mapping, axis, values):
     assert( isinstance(axis, int) )
 
     space = mapping.space
+    domain_h = space.domain
     pdim  = mapping.pdim
 
     knots  = [V.knots             for V in space.spaces]
@@ -149,7 +151,12 @@ def refine(mapping, axis, values):
     nrb = nrb.clone().refine(axis, values)
 
     spaces = [SplineSpace(degree=p, knots=u) for p,u in zip( nrb.degree, nrb.knots )]
-    space  = TensorFemSpace( *spaces )
+
+    ncells = list(domain_h.ncells)
+    ncells[axis] += len(values)
+    domain_h      = DomainDecomposition(ncells, domain_h.periods, comm=domain_h.comm)
+
+    space  = TensorFemSpace( domain_h, *spaces )
     fields = [FemField( space ) for d in range( pdim )]
 
     # Get spline coefficients for each coordinate X_i

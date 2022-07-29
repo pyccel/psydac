@@ -61,7 +61,7 @@ class Geometry( object ):
             # ...
 
             if periodic is None:
-                periodic = {patch:[False]*len(ncells_i) for patch,ncells_i in ncells.items}
+                periodic = {patch:[False]*len(ncells_i) for patch,ncells_i in ncells.items()}
 
             self._domain   = domain
             self._ldim     = domain.dim
@@ -98,14 +98,18 @@ class Geometry( object ):
         if mapping.ldim == 2:
             domain = Square(name='Omega')
             mappings = {'Omega': mapping}
+            ncells   = {'Omega':mapping.space.domain.ncells}
+            periodic = {'Omega':mapping.space.domain.periods}
 
-            return Geometry(domain=domain, mappings=mappings, comm=comm)
+            return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
         elif mapping.ldim == 3:
             domain = Cube(name='Omega')
             mappings = {'Omega': mapping}
+            ncells   = {'Omega':mapping.space.domain.ncells}
+            periodic = {'Omega':mapping.space.domain.periods}
 
-            return Geometry(domain=domain, mappings=mappings, comm=comm)
+            return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
     #--------------------------------------------------------------------------
     # Option [3]: discrete topological line/square/cube
@@ -253,7 +257,6 @@ class Geometry( object ):
 
         # ... construct interface spaces
         construct_interface_spaces(self._ddm, g_spaces, carts, interiors, connectivity)
-
 
         for i_patch in range( n_patches ):
 
