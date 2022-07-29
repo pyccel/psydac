@@ -975,7 +975,7 @@ def test_stencil_matrix_2d_serial_transpose_9( n1, n2, p1, p2, P1, P2 ):
     npts = [n1-1,n2-1]
     global_starts, global_ends = compute_global_starts_ends(D, npts)
 
-    cart = CartDecomposition(D, npts1, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
 
     # Create vector space and stencil matrix

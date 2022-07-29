@@ -17,12 +17,15 @@ def test_pcg(n, p):
     from psydac.linalg.iterative_solvers import pcg, jacobi
     from psydac.linalg.stencil import StencilVectorSpace, StencilMatrix, StencilVector
     from psydac.linalg.basic import LinearSolver
+    from psydac.ddm.cart     import DomainDecomposition, CartDecomposition
     #---------------------------------------------------------------------------
     # PARAMETERS
     #---------------------------------------------------------------------------
 
+    domain_h = DomainDecomposition([n-p], [False])
+    cart     = CartDecomposition(domain_h, [n], [np.array([0])],[np.array([n-1])], [p], [1])
     # ... Vector Spaces
-    V = StencilVectorSpace([n], [p], [False])
+    V = StencilVectorSpace( cart )
     e = V.ends[0]
     s = V.starts[0]
 
