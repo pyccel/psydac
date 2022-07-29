@@ -161,6 +161,9 @@ def create_interfaces_cart(domain_h, carts, connectivity=None):
 
     Parameters
     ----------
+
+    domain_h: MultiPatchDomainDecomposition
+
     cart: <CartDecomposition|MultiCartDecomposition>
         Cartesian decomposition of the coefficient space.
 

@@ -317,6 +317,7 @@ class InterfacesCartDecomposition:
 
     Parameters
     ----------
+    domain_h: MultiPatchDomainDecomposition
 
     carts: list of CartDecomposition
         The cartesian decomposition of multiple grids.
