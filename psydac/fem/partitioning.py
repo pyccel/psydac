@@ -9,7 +9,7 @@ from psydac.ddm.cart       import CartDecomposition, InterfacesCartDecomposition
 from psydac.core.bsplines  import elements_spans
 from psydac.fem.vector     import ProductFemSpace
 
-def partition_coefficients(domain_h, spaces):
+def partition_coefficients(domain_h, spaces, min_blocks=None):
 
     npts         = [V.nbasis   for V in spaces]
     multiplicity = [V.multiplicity for V in spaces]
@@ -27,8 +27,13 @@ def partition_coefficients(domain_h, spaces):
         global_ends  [axis][-1] = npts[axis]-1
         global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
 
-    for s,e,V in zip(global_starts, global_ends, spaces):
-        assert all(e-s+1>=V.degree*(1-V.periodic)+1)
+    if min_blocks is None:
+        min_blocks = [None]*ndims
+    for s,e,V,mb in zip(global_starts, global_ends, spaces, min_blocks):
+        if mb is None:
+            assert all(e-s+1>=V.degree*(1-V.periodic))
+        else:
+            assert all(e-s+1>=mb)
 
     return global_starts, global_ends
 
@@ -140,7 +145,7 @@ def create_cart(domain_h, spaces):
             pads         = [V._pads    for V in spaces[i]]
             multiplicity = [V.multiplicity for V in spaces[i]]
 
-            global_starts, global_ends = partition_coefficients(domain_h[i], spaces[i])
+            global_starts, global_ends = partition_coefficients(domain_h[i], spaces[i], min_blocks=[p+1 for p in pads])
 
             carts.append(CartDecomposition(
                             domain_h      = domain_h[i],
