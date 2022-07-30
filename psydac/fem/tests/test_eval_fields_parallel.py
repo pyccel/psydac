@@ -28,7 +28,7 @@ rank = comm.Get_rank()
 
 
 @pytest.mark.parallel
-@pytest.mark.parametrize('geometry', ('identity_2d.h5', 'collela_2d.h5', 'bent_pipe.h5'))
+@pytest.mark.parametrize('geometry', ('identity_2d.h5', 'identity_3d.h5', 'collela_2d.h5', 'collela_3d.h5', 'bent_pipe.h5'))
 @pytest.mark.parametrize('npts_per_cell', [2, 3, 4, 6])
 def test_eval_fields_regular(geometry, npts_per_cell):
     filename = os.path.join(mesh_dir, geometry)
@@ -88,7 +88,7 @@ def test_eval_fields_regular(geometry, npts_per_cell):
 
 
 @pytest.mark.parallel
-@pytest.mark.parametrize('geometry', ('identity_2d.h5', 'collela_2d.h5', 'bent_pipe.h5'))
+@pytest.mark.parametrize('geometry', ('identity_2d.h5', 'identity_3d.h5', 'collela_2d.h5', 'collela_3d.h5', 'bent_pipe.h5'))
 @pytest.mark.parametrize('npts_irregular', [2, 5, 10, 25])
 def test_eval_fields_irregular(geometry, npts_irregular):
     filename = os.path.join(mesh_dir, geometry)
