@@ -121,7 +121,7 @@ def test_build_mesh_i(geometry_file, npts_i):
 
 
 @pytest.mark.parallel
-@pytest.mark.parametrize('geometry',  ['collela_2d.h5', 'bent_pipe.h5'])
+@pytest.mark.parametrize('geometry',  ['collela_3d.h5', 'collela_2d.h5', 'bent_pipe.h5'])
 @pytest.mark.parametrize('npts_per_cell', [2, 3, 4, 6])
 def test_parallel_jacobians_regular(geometry, npts_per_cell):
     from mpi4py import MPI
@@ -194,7 +194,7 @@ def test_parallel_jacobians_regular(geometry, npts_per_cell):
 
 
 @pytest.mark.parallel
-@pytest.mark.parametrize('geometry',  ['collela_2d.h5', 'bent_pipe.h5'])
+@pytest.mark.parametrize('geometry',  ['collela_3d.h5', 'collela_2d.h5', 'bent_pipe.h5'])
 @pytest.mark.parametrize('npts_irregular', [2, 5, 10, 25])
 def test_parallel_jacobians_irregular(geometry, npts_irregular):
     from mpi4py import MPI
