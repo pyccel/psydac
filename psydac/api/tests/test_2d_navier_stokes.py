@@ -390,48 +390,48 @@ def test_navier_stokes_2d():
 ###############################################################################
 #            PARALLEL TESTS
 ###############################################################################
-@pytest.mark.parallel
-def test_st_navier_stokes_2d_parallel():
+#@pytest.mark.parallel
+#def test_st_navier_stokes_2d_parallel():
 
-    # ... Exact solution
-    domain = Square()
-    x, y   = domain.coordinates
+#    # ... Exact solution
+#    domain = Square()
+#    x, y   = domain.coordinates
 
-    mu = 1
-    ux = cos(y*pi)
-    uy = x*(x-1)
-    ue = Matrix([[ux], [uy]])
-    pe = sin(pi*y)
-    # ...
+#    mu = 1
+#    ux = cos(y*pi)
+#    uy = x*(x-1)
+#    ue = Matrix([[ux], [uy]])
+#    pe = sin(pi*y)
+#    # ...
 
-    # Verify that div(u) = 0
-    assert (ux.diff(x) + uy.diff(y)).simplify() == 0
+#    # Verify that div(u) = 0
+#    assert (ux.diff(x) + uy.diff(y)).simplify() == 0
 
-    # ... Compute right-hand side
-    from sympde.calculus import laplace, grad
-    from sympde.expr     import TerminalExpr
+#    # ... Compute right-hand side
+#    from sympde.calculus import laplace, grad
+#    from sympde.expr     import TerminalExpr
 
-    a = TerminalExpr(-mu*laplace(ue), domain)
-    b = TerminalExpr(    grad(ue), domain)
-    c = TerminalExpr(    grad(pe), domain)
-    f = (a + b.T*ue + c).simplify()
+#    a = TerminalExpr(-mu*laplace(ue), domain)
+#    b = TerminalExpr(    grad(ue), domain)
+#    c = TerminalExpr(    grad(pe), domain)
+#    f = (a + b.T*ue + c).simplify()
 
-    fx = -mu*(ux.diff(x, 2) + ux.diff(y, 2)) + ux*ux.diff(x) + uy*ux.diff(y) + pe.diff(x)
-    fy = -mu*(uy.diff(x, 2) - uy.diff(y, 2)) + ux*uy.diff(x) + uy*uy.diff(y) + pe.diff(y)
+#    fx = -mu*(ux.diff(x, 2) + ux.diff(y, 2)) + ux*ux.diff(x) + uy*ux.diff(y) + pe.diff(x)
+#    fy = -mu*(uy.diff(x, 2) - uy.diff(y, 2)) + ux*uy.diff(x) + uy*uy.diff(y) + pe.diff(y)
 
-    assert (f[0]-fx).simplify() == 0
-    assert (f[1]-fy).simplify() == 0
+#    assert (f[0]-fx).simplify() == 0
+#    assert (f[1]-fy).simplify() == 0
 
-    f  = Tuple(fx, fy)
-    # ...
+#    f  = Tuple(fx, fy)
+#    # ...
 
-    # Run test
+#    # Run test
 
-    l2_error_u, l2_error_p = run_steady_state_navier_stokes_2d(domain, f, ue, pe, ncells=[2**3,2**3], degree=[2, 2], multiplicity=[2,2])
+#    l2_error_u, l2_error_p = run_steady_state_navier_stokes_2d(domain, f, ue, pe, ncells=[2**3,2**3], degree=[2, 2], multiplicity=[2,2])
 
-    # Check that expected absolute error on velocity and pressure fields
-    assert abs(0.00020452836013053793 - l2_error_u ) < 1e-7
-    assert abs(0.004127752838826402 - l2_error_p  ) < 1e-7
+#    # Check that expected absolute error on velocity and pressure fields
+#    assert abs(0.00020452836013053793 - l2_error_u ) < 1e-7
+#    assert abs(0.004127752838826402 - l2_error_p  ) < 1e-7
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
