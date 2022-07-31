@@ -138,8 +138,7 @@ def construct_quad_grids_arguments(grid, use_weights=True):
 def reset_arrays(*args):
     for a in args: a[:] = 0.
 
-def do_nothing(*args):
-    return 0
+def do_nothing(*args): return 0
 
 #==============================================================================
 class DiscreteBilinearForm(BasicDiscrete):
@@ -430,6 +429,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._func(*args, *self._threads_args)
         if self._matrix and self._update_ghost_regions:
             self._matrix.update_assembly_ghost_regions()
+
+        self._matrix.ghost_regions_in_sync = False
         return self._matrix
 
     def get_space_indices_from_target(self, domain, target):
@@ -918,6 +919,8 @@ class DiscreteLinearForm(BasicDiscrete):
         self._func(*args, *self._threads_args)
         if self._vector and self._update_ghost_regions:
             self._vector.update_assembly_ghost_regions()
+
+        self._vector.ghost_regions_in_sync = False
         return self._vector
 
     def get_space_indices_from_target(self, domain, target):
@@ -1299,17 +1302,20 @@ class DiscreteSumForm(BasicDiscrete):
         forms = []
         free_args = []
         self._kernel_expr = kernel_expr
+        operator = None
         for e in kernel_expr:
             kwargs['target'] = e.target
             if isinstance(a, sym_BilinearForm):
                 kwargs['update_ghost_regions'] = False
                 ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
                 kwargs['matrix'] = ah._matrix
+                operator = ah._matrix
 
             elif isinstance(a, sym_LinearForm):
                 kwargs['update_ghost_regions'] = False
                 ah = DiscreteLinearForm(a, e, *args, backend=backend, **kwargs)
                 kwargs['vector'] = ah._vector
+                operator = ah._vector
 
             elif isinstance(a, sym_Functional):
                 ah = DiscreteFunctional(a, e, *args, backend=backend, **kwargs)
@@ -1327,6 +1333,7 @@ class DiscreteSumForm(BasicDiscrete):
                 kwargs['matrix'].set_backend(backend)
 
         self._forms         = forms
+        self._operator      = operator
         self._free_args     = tuple(set(free_args))
         self._is_functional = isinstance(a, sym_Functional)
         # ...
@@ -1347,6 +1354,7 @@ class DiscreteSumForm(BasicDiscrete):
         if not self.is_functional:
             if reset :
                 reset_arrays(*[i for M in self.forms for i in M.global_matrices])
+
             for form in self.forms:
                 M = form.assemble(reset=False, **kwargs)
             M.update_assembly_ghost_regions()

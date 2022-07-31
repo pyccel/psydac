@@ -304,6 +304,8 @@ class BlockVector( Vector ):
     def ghost_regions_in_sync( self, value ):
         assert isinstance( value, bool )
         self._sync = value
+        for vi in self.blocks:
+            vi.ghost_regions_in_sync = value
 
     # ...
     def update_ghost_regions( self, *, direction=None ):
@@ -477,6 +479,7 @@ class BlockLinearOperator( LinearOperator ):
         self._args['n_rows'] = self._nrows
         self._args['n_cols'] = self._ncols
         self._func           = self._dot
+        self._sync           = False
 
     #--------------------------------------
     # Abstract interface
@@ -580,6 +583,17 @@ class BlockLinearOperator( LinearOperator ):
     def remove_spurious_entries( self ):
         for Lij in self._blocks.values():
             Lij.remove_spurious_entries()
+
+    @property
+    def ghost_regions_in_sync(self):
+        return self._sync
+
+    @ghost_regions_in_sync.setter
+    def ghost_regions_in_sync( self, value ):
+        assert isinstance( value, bool )
+        self._sync = value
+        for Lij in self._blocks.values():
+            Lij.ghost_regions_in_sync = value
 
     # ...
     def __getitem__( self, key ):

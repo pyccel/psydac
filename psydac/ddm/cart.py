@@ -842,20 +842,16 @@ class CartDecomposition():
         send_assembly_starts = np.zeros( self._ndims, dtype=int )
         recv_assembly_starts = np.zeros( self._ndims, dtype=int )
 
-        if self._global_ends[direction][-1] == 8:
-            diff = 1
-        else:
-            diff = 0
         if disp > 0:
             recv_starts[direction]          = 0
             send_starts[direction]          = e-s+1
-            recv_assembly_starts[direction] = m*p-p
+            recv_assembly_starts[direction] = 0
             send_assembly_starts[direction] = e-s+1+m*p
         elif disp < 0:
             recv_starts[direction]          = e-s+1+m*p
             send_starts[direction]          = m*p
             recv_assembly_starts[direction] = e-s+1+m*p
-            send_assembly_starts[direction] = m*p-p
+            send_assembly_starts[direction] = 0
 
         # Store all information into dictionary
         info = {'rank_dest'           : rank_dest,
@@ -1779,14 +1775,14 @@ class CartDataExchanger:
             if disp == 1:
                 info = cart.get_shift_info( direction, disp )
                 pads = [0]*ndim
-                pads[direction] = cart._pads[direction]
+                pads[direction] = cart._pads[direction]*cart._shifts[direction]
                 idx_from = tuple(slice(s,s+b) for s,b in zip(info['recv_starts'],info['buf_shape']))
                 idx_to   = tuple(slice(s+p,s+b+p) for s,b,p in zip(info['recv_starts'],info['buf_shape'],pads))
                 array[idx_to] += array[idx_from]
             else:
                 info = cart.get_shift_info( direction, disp )
                 pads = [0]*ndim
-                pads[direction] = cart._pads[direction]
+                pads[direction] = cart._pads[direction]*cart._shifts[direction]
                 idx_from = tuple(slice(s,s+b) for s,b in zip(info['recv_starts'],info['buf_shape']))
                 idx_to   = tuple(slice(s-p,s+b-p) for s,b,p in zip(info['recv_starts'],info['buf_shape'],pads))
                 array[idx_to] += array[idx_from]
