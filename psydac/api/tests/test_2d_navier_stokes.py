@@ -379,7 +379,6 @@ def test_st_navier_stokes_2d():
     assert abs(0.00020452836013053793 - l2_error_u ) < 1e-7
     assert abs(0.004127752838826402 - l2_error_p  ) < 1e-7
 
-test_st_navier_stokes_2d()
 #------------------------------------------------------------------------------
 def test_navier_stokes_2d():
     Tf       = 1.
