@@ -430,7 +430,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         if self._matrix and self._update_ghost_regions:
             self._matrix.update_assembly_ghost_regions()
 
-        self._matrix.ghost_regions_in_sync = False
+        if self._matrix: self._matrix.ghost_regions_in_sync = False
         return self._matrix
 
     def get_space_indices_from_target(self, domain, target):
@@ -920,7 +920,7 @@ class DiscreteLinearForm(BasicDiscrete):
         if self._vector and self._update_ghost_regions:
             self._vector.update_assembly_ghost_regions()
 
-        self._vector.ghost_regions_in_sync = False
+        if self._vector: self._vector.ghost_regions_in_sync = False
         return self._vector
 
     def get_space_indices_from_target(self, domain, target):
@@ -1356,9 +1356,10 @@ class DiscreteSumForm(BasicDiscrete):
                 reset_arrays(*[i for M in self.forms for i in M.global_matrices])
 
             for form in self.forms:
-                M = form.assemble(reset=False, **kwargs)
-            M.update_assembly_ghost_regions()
+                form.assemble(reset=False, **kwargs)
+            self._operator.update_assembly_ghost_regions()
+            return self._operator
         else:
             M = [form.assemble(**kwargs) for form in self.forms]
             M = np.sum(M)
-        return M
+            return M
