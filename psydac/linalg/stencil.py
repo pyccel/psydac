@@ -779,6 +779,7 @@ class StencilMatrix( Matrix ):
         self._ndim     = len( dims )
         self._backend  = backend
         self._is_T     = False
+        self._diag_indices = None
 
         # Parallel attributes
         if W.parallel:
@@ -1230,18 +1231,26 @@ class StencilMatrix( Matrix ):
         return self.transpose()
 
     def diagonal(self):
-        cm    = self.codomain.shifts
-        dm    = self.domain.shifts
-        ss    = self.codomain.starts
-        pp    = [compute_diag_len(p,mj,mi)-(p+1) for p,mi,mj in zip(self._pads, cm, dm)]
-        nrows = tuple(e-s+1 for s,e in zip(self.codomain.starts, self.codomain.ends))
-        diag  = np.zeros(nrows)
-        for xx in np.ndindex(*nrows):
-            ii = [m*p + x for x,m,p in zip(xx, self.domain.shifts, self.domain.pads)]
-            jj = [p+x+s-((x+s)//mi)*mj for (x,mi,mj,p,s) in zip(xx,cm,dm,pp,ss)]
-            ii_jj = tuple(ii+jj)
-            diag[xx] = self._data[ii_jj]
-        return diag
+        if self._diag_indices is None:
+            cm    = self.codomain.shifts
+            dm    = self.domain.shifts
+            ss    = self.codomain.starts
+            pp    = [compute_diag_len(p,mj,mi)-(p+1) for p,mi,mj in zip(self._pads, cm, dm)]
+            nrows = tuple(e-s+1 for s,e in zip(self.codomain.starts, self.codomain.ends))
+            indices = [np.zeros(np.product(nrows), dtype=int) for _ in range(2*len(nrows))]
+            l = 0
+            for xx in np.ndindex(*nrows):
+                ii = [m*p+x for m,p,x in zip(self.domain.shifts, self.domain.pads, xx)]
+                jj = [p+x+s-((x+s)//mi)*mj for (x,mi,mj,p,s) in zip(xx,cm,dm,pp,ss)]
+                for k in range(len(nrows)):
+                    indices[k][l] = ii[k]
+                    indices[k+len(nrows)][l] = jj[k]
+                l += 1
+            self._diag_indices = tuple(indices)
+        else:
+            nrows   = tuple(e-s+1 for s,e in zip(self.codomain.starts, self.codomain.ends))
+
+        return self._data[self._diag_indices].reshape(nrows)
 
     # ...
     def topetsc( self ):
