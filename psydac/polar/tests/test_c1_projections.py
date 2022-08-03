@@ -50,10 +50,10 @@ def test_c1_projections( degrees, ncells, verbose=False ):
     V1 = SplineSpace( p1, grid=grid_1, periodic=period_1 )
     V2 = SplineSpace( p2, grid=grid_2, periodic=period_2 )
 
-    domain_h = DomainDecomposition(ncells, periods=[period_1, period_2], comm=MPI.COMM_WORLD)
+    domain_decomposition = DomainDecomposition(ncells, periods=[period_1, period_2], comm=MPI.COMM_WORLD)
 
     # 2D tensor-product space
-    V = TensorFemSpace( domain_h, V1, V2 )
+    V = TensorFemSpace( domain_decomposition, V1, V2 )
 
     # Spline mapping
     map_discrete = SplineMapping.from_mapping( V, map_analytic )

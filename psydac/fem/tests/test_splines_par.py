@@ -23,8 +23,8 @@ def test_2d_1():
     V1 = SplineSpace(p_1, grid=grid_1)
     V2 = SplineSpace(p_2, grid=grid_2)
 
-    domain_h = DomainDecomposition([V1.ncells, V2.ncells], [False, False], comm=comm)
-    V = TensorFemSpace(domain_h, V1, V2)
+    domain_decomposition = DomainDecomposition([V1.ncells, V2.ncells], [False, False], comm=comm)
+    V = TensorFemSpace(domain_decomposition, V1, V2)
 
     if rank == 0:
         print(V.vector_space.cart.nprocs)

@@ -21,7 +21,7 @@ from psydac.fem.basic        import FemSpace, FemField
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.grid         import FemAssemblyGrid
 from psydac.fem.partitioning import create_cart, partition_coefficients
-from psydac.ddm.cart         import DomainDecomposition, CartDecomposition
+from psydac.ddm.cart         import DomainDecomposition
 
 from psydac.core.bsplines  import (find_span,
                                    basis_funs,
@@ -53,11 +53,11 @@ class TensorFemSpace( FemSpace ):
 
     """
 
-    def __init__( self, domain_h, *args, **kwargs ):
+    def __init__( self, domain_decomposition, *args, **kwargs ):
         """."""
-        assert isinstance(domain_h, DomainDecomposition)
+        assert isinstance(domain_decomposition, DomainDecomposition)
         assert all( isinstance( s, SplineSpace ) for s in args )
-        self._domain = domain_h
+        self._domain_decomposition = domain_decomposition
         self._spaces = tuple(args)
 
         if kwargs.get('cart', None):
@@ -66,7 +66,7 @@ class TensorFemSpace( FemSpace ):
         elif kwargs.get('vector_space', None):
             self._vector_space = kwargs['vector_space']
         else:
-            cart               = create_cart([domain_h], [self._spaces])
+            cart               = create_cart([domain_decomposition], [self._spaces])
             self._vector_space = StencilVectorSpace(cart[0])
 
         # Shortcut
@@ -82,8 +82,8 @@ class TensorFemSpace( FemSpace ):
 
         if self._vector_space.parallel and self._vector_space.cart.is_comm_null:return
 
-        starts = self._vector_space.cart.domain_h.starts
-        ends   = self._vector_space.cart.domain_h.ends
+        starts = self._vector_space.cart.domain_decomposition.starts
+        ends   = self._vector_space.cart.domain_decomposition.ends
 
         # Compute extended 1D quadrature grids (local to process) along each direction
         self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q)
@@ -102,8 +102,8 @@ class TensorFemSpace( FemSpace ):
         # Compute the local domains for every process
 
         # ...
-        self._global_element_starts = domain_h.global_element_starts
-        self._global_element_ends   = domain_h.global_element_ends
+        self._global_element_starts = domain_decomposition.global_element_starts
+        self._global_element_ends   = domain_decomposition.global_element_ends
 
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
@@ -119,8 +119,8 @@ class TensorFemSpace( FemSpace ):
         return [V.periodic for V in self.spaces]
 
     @property
-    def domain(self):
-        return self._domain
+    def domain_decomposition(self):
+        return self._domain_decomposition
 
     @property
     def mapping(self):
@@ -1009,7 +1009,7 @@ class TensorFemSpace( FemSpace ):
         npts         = [s.nbasis for s in spaces]
         multiplicity = [s.multiplicity for s in spaces]
 
-        global_starts, global_ends = partition_coefficients(v.cart.domain_h, spaces)
+        global_starts, global_ends = partition_coefficients(v.cart.domain_decomposition, spaces)
 
         # create new CartDecomposition
         red_cart   = v.cart.reduce_npts(npts, global_starts, global_ends, shifts=multiplicity)

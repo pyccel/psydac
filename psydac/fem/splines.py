@@ -135,8 +135,8 @@ class SplineSpace( FemSpace ):
         self._histopolation_grid   = unroll_edges(self.domain, self.ext_greville)
 
         # Create space of spline coefficients
-        domain_h = DomainDecomposition([self._ncells], [periodic])
-        cart     = CartDecomposition(domain_h, [nbasis], [np.array([0])],[np.array([nbasis-1])], [self._pads], [multiplicity])
+        domain_decomposition = DomainDecomposition([self._ncells], [periodic])
+        cart     = CartDecomposition(domain_decomposition, [nbasis], [np.array([0])],[np.array([nbasis-1])], [self._pads], [multiplicity])
         self._vector_space = StencilVectorSpace( cart )
 
         # Store flag: object NOT YET prepared for interpolation / histopolation

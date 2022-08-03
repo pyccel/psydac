@@ -20,11 +20,11 @@ def test_H1_projector_1d(domain, ncells, degree, periodic):
     breaks = np.linspace(*domain, num=ncells+1)
     knots  = make_knots(breaks, degree, periodic)
 
-    domain_h = DomainDecomposition([ncells], [periodic])
+    domain_decomposition = DomainDecomposition([ncells], [periodic])
 
     # H1 space (0-forms)
     N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
-    V0 = TensorFemSpace(domain_h, N)
+    V0 = TensorFemSpace(domain_decomposition, N)
 
     # Projector onto H1 space (1D interpolation)
     P0 = Projector_H1(V0)
@@ -57,11 +57,11 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads):
     breaks = np.linspace(*domain, num=ncells+1)
     knots  = make_knots(breaks, degree, periodic)
 
-    domain_h = DomainDecomposition([ncells], [periodic])
+    domain_decomposition = DomainDecomposition([ncells], [periodic])
 
     # H1 space (0-forms)
     N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
-    V0 = TensorFemSpace(domain_h, N)
+    V0 = TensorFemSpace(domain_decomposition, N)
 
     # L2 space (1-forms)
     V1 = V0.reduce_degree(axes=[0], basis='M')

@@ -29,9 +29,9 @@ def run_directional_derivative_operator(comm, domain, ncells, degree, periodic, 
     Ns = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
                                   for d, g, p in zip(degree, breaks, periodic)]
 
-    domain_h = DomainDecomposition(ncells, periodic, comm=comm)
+    domain_decomposition = DomainDecomposition(ncells, periodic, comm=comm)
     # original space
-    V0 = TensorFemSpace(domain_h, *Ns)
+    V0 = TensorFemSpace(domain_decomposition, *Ns)
 
     # reduced space
     V1 = V0.reduce_degree(axes=[direction], basis='M')
@@ -136,9 +136,9 @@ def test_directional_derivative_operator_invalid_wrongsized1():
     Ns = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
                                   for d, g, p in zip(degree, breaks, periodic)]
 
-    domain_h = DomainDecomposition(ncells, periodic)
+    domain_decomposition = DomainDecomposition(ncells, periodic)
     # original space
-    V0 = TensorFemSpace(domain_h, *Ns)
+    V0 = TensorFemSpace(domain_decomposition, *Ns)
 
     # reduced space
     V1 = V0.reduce_degree(axes=[1], basis='M')
@@ -162,12 +162,12 @@ def test_directional_derivative_operator_invalid_wrongspace2():
     Ms = [SplineSpace(degree=d-1, grid=g, periodic=p, basis='B') \
                                   for d, g, p in zip(degree, breaks, periodic)]
 
-    domain_h = DomainDecomposition(ncells, periodic)
+    domain_decomposition = DomainDecomposition(ncells, periodic)
     # original space
-    V0 = TensorFemSpace(domain_h, *Ns)
+    V0 = TensorFemSpace(domain_decomposition, *Ns)
 
     # reduced space
-    V1 = TensorFemSpace(domain_h, *Ms)
+    V1 = TensorFemSpace(domain_decomposition, *Ms)
 
     with pytest.raises(AssertionError):
         _ = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative)
@@ -186,9 +186,9 @@ def test_directional_derivative_operator_transposition_correctness():
     Ns = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
                                   for d, g, p in zip(degree, breaks, periodic)]
 
-    domain_h = DomainDecomposition(ncells, periodic)
+    domain_decomposition = DomainDecomposition(ncells, periodic)
     # original space
-    V0 = TensorFemSpace(domain_h, *Ns)
+    V0 = TensorFemSpace(domain_decomposition, *Ns)
 
     # reduced space
     V1 = V0.reduce_degree(axes=[0], basis='M')
@@ -228,10 +228,10 @@ def test_directional_derivative_operator_interface():
     Ns = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
                                   for d, g, p in zip(degree, breaks, periodic)]
 
-    domain_h = DomainDecomposition(ncells, periodic)
+    domain_decomposition = DomainDecomposition(ncells, periodic)
 
     # original space
-    V0 = TensorFemSpace(domain_h, *Ns)
+    V0 = TensorFemSpace(domain_decomposition, *Ns)
 
     # reduced space
     V1 = V0.reduce_degree(axes=[0], basis='M')
@@ -352,8 +352,8 @@ def test_Derivative_1D(domain, ncells, degree, periodic, seed):
     # H1 space (0-forms)
     N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
 
-    domain_h = DomainDecomposition([ncells], [periodic])
-    V0 = TensorFemSpace(domain_h, N)
+    domain_decomposition = DomainDecomposition([ncells], [periodic])
+    V0 = TensorFemSpace(domain_decomposition, N)
 
     # L2 space (1-forms)
     V1 = V0.reduce_degree(axes=[0], basis='M')
@@ -400,8 +400,8 @@ def test_Gradient_2D(domain, ncells, degree, periodic, seed):
     Nx, Ny = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
                                   for d, g, p in zip(degree, breaks, periodic)]
 
-    domain_h = DomainDecomposition(ncells, periodic)
-    V0 = TensorFemSpace(domain_h, Nx, Ny)
+    domain_decomposition = DomainDecomposition(ncells, periodic)
+    V0 = TensorFemSpace(domain_decomposition, Nx, Ny)
 
     # H-curl space (1-forms)
     DxNy = V0.reduce_degree(axes=[0], basis='M')
@@ -461,8 +461,8 @@ def test_Gradient_3D(domain, ncells, degree, periodic, seed):
     Nx, Ny, Nz = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
                                   for d, g, p in zip(degree, breaks, periodic)]
 
-    domain_h = DomainDecomposition(ncells, periodic)
-    V0 = TensorFemSpace(domain_h, Nx, Ny, Nz)
+    domain_decomposition = DomainDecomposition(ncells, periodic)
+    V0 = TensorFemSpace(domain_decomposition, Nx, Ny, Nz)
 
     # H-curl space (1-forms)
     DxNyNz = V0.reduce_degree(axes=[0], basis='M')
@@ -521,8 +521,8 @@ def test_ScalarCurl_2D(domain, ncells, degree, periodic, seed):
     Nx, Ny = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
                                   for d, g, p in zip(degree, breaks, periodic)]
 
-    domain_h = DomainDecomposition(ncells, periodic)
-    V0 = TensorFemSpace(domain_h, Nx, Ny)
+    domain_decomposition = DomainDecomposition(ncells, periodic)
+    V0 = TensorFemSpace(domain_decomposition, Nx, Ny)
 
     # H-curl space (1-forms)
     DxNy = V0.reduce_degree(axes=[0], basis='M')
@@ -594,8 +594,8 @@ def test_VectorCurl_2D(domain, ncells, degree, periodic, seed):
     Nx, Ny = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
                                   for d, g, p in zip(degree, breaks, periodic)]
 
-    domain_h = DomainDecomposition(ncells, periodic)
-    V0 = TensorFemSpace(domain_h, Nx, Ny)
+    domain_decomposition = DomainDecomposition(ncells, periodic)
+    V0 = TensorFemSpace(domain_decomposition, Nx, Ny)
 
     # Hdiv space (1-forms)
     NxDy = V0.reduce_degree(axes=[1], basis='M')
@@ -659,8 +659,8 @@ def test_Curl_3D(domain, ncells, degree, periodic, seed):
     Nx, Ny, Nz = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
                                   for d, g, p in zip(degree, breaks, periodic)]
 
-    domain_h = DomainDecomposition(ncells, periodic)
-    V0 = TensorFemSpace(domain_h, Nx, Ny, Nz)
+    domain_decomposition = DomainDecomposition(ncells, periodic)
+    V0 = TensorFemSpace(domain_decomposition, Nx, Ny, Nz)
 
     # H-curl space (1-forms)
     DxNyNz = V0.reduce_degree(axes=[0], basis='M')
@@ -745,8 +745,8 @@ def test_Divergence_2D(domain, ncells, degree, periodic, seed):
     Nx, Ny = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
                                   for d, g, p in zip(degree, breaks, periodic)]
 
-    domain_h = DomainDecomposition(ncells, periodic)
-    V0 = TensorFemSpace(domain_h, Nx, Ny)
+    domain_decomposition = DomainDecomposition(ncells, periodic)
+    V0 = TensorFemSpace(domain_decomposition, Nx, Ny)
 
     # H-div space (1-forms)
     NxDy = V0.reduce_degree(axes=[1], basis='M')
@@ -819,8 +819,8 @@ def test_Divergence_3D(domain, ncells, degree, periodic, seed):
     Nx, Ny, Nz = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
                                   for d, g, p in zip(degree, breaks, periodic)]
 
-    domain_h = DomainDecomposition(ncells, periodic)
-    V0 = TensorFemSpace(domain_h, Nx, Ny, Nz)
+    domain_decomposition = DomainDecomposition(ncells, periodic)
+    V0 = TensorFemSpace(domain_decomposition, Nx, Ny, Nz)
 
     # H-div space (2-forms)
     NxDyDz = V0.reduce_degree(axes=[1, 2], basis='M')

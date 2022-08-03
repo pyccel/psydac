@@ -22,8 +22,8 @@ def test_pcg(n, p):
     # PARAMETERS
     #---------------------------------------------------------------------------
 
-    domain_h = DomainDecomposition([n-p], [False])
-    cart     = CartDecomposition(domain_h, [n], [np.array([0])],[np.array([n-1])], [p], [1])
+    domain_decomposition = DomainDecomposition([n-p], [False])
+    cart     = CartDecomposition(domain_decomposition, [n], [np.array([0])],[np.array([n-1])], [p], [1])
     # ... Vector Spaces
     V = StencilVectorSpace( cart )
     e = V.ends[0]

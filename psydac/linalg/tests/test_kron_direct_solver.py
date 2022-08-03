@@ -12,14 +12,14 @@ from psydac.linalg.kron            import KroneckerLinearSolver
 from psydac.linalg.direct_solvers  import SparseSolver, BandedSolver
 
 #===============================================================================
-def compute_global_starts_ends(domain_h, npts):
+def compute_global_starts_ends(domain_decomposition, npts):
     ndims         = len(npts)
     global_starts = [None]*ndims
     global_ends   = [None]*ndims
 
     for axis in range(ndims):
-        es = domain_h.global_element_starts[axis]
-        ee = domain_h.global_element_ends  [axis]
+        es = domain_decomposition.global_element_starts[axis]
+        ee = domain_decomposition.global_element_ends  [axis]
 
         global_ends  [axis]     = ee.copy()
         global_ends  [axis][-1] = npts[axis]-1

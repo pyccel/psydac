@@ -114,9 +114,9 @@ def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2 ):
     space1 = SplineSpace( degree=deg1, grid=grid1, periodic=periodic1 )
     space2 = SplineSpace( degree=deg2, grid=grid2, periodic=periodic2 )
 
-    domain_h = DomainDecomposition([nc1, nc2], [periodic1, periodic2], comm=mpi_comm)
+    domain_decomposition = DomainDecomposition([nc1, nc2], [periodic1, periodic2], comm=mpi_comm)
     # Tensor-product 2D spline space, distributed, and field
-    tensor_space = TensorFemSpace( domain_h, space1, space2 )
+    tensor_space = TensorFemSpace( domain_decomposition, space1, space2 )
     tensor_field = FemField( tensor_space )
 
     # Coordinates of Greville points (global)

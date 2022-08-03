@@ -34,8 +34,8 @@ def test_build_mesh_reg(geometry_file, npts_per_cell):
     filename = os.path.join(mesh_dir, geometry_file)
 
     domain = Domain.from_file(filename)
-    domainh = discretize(domain, filename=filename)
-    for mapping in domainh.mappings.values():
+    domain_h = discretize(domain, filename=filename)
+    for mapping in domain_h.mappings.values():
         space = mapping.space
 
         grid = [refine_array_1d(space.breaks[i], npts_per_cell - 1, remove_duplicates=False) for i in range(mapping.ldim)]
@@ -79,9 +79,9 @@ def test_build_mesh_i(geometry_file, npts_i):
     filename = os.path.join(mesh_dir, geometry_file)
 
     domain = Domain.from_file(filename)
-    domainh = discretize(domain, filename=filename)
+    domain_h = discretize(domain, filename=filename)
 
-    for mapping in domainh.mappings.values():
+    for mapping in domain_h.mappings.values():
         space = mapping.space
 
         grid = [np.linspace(space.breaks[i][0], space.breaks[i][-1], npts_i) for i in range(mapping.ldim)]
@@ -131,9 +131,9 @@ def test_parallel_jacobians_regular(geometry, npts_per_cell):
     filename = os.path.join(mesh_dir, geometry)
 
     domain = Domain.from_file(filename=filename)
-    domainh = discretize(domain, filename=filename, comm=comm)
+    domain_h = discretize(domain, filename=filename, comm=comm)
 
-    mapping = list(domainh.mappings.values())[0]
+    mapping = list(domain_h.mappings.values())[0]
 
     space = mapping.space
 
@@ -170,8 +170,8 @@ def test_parallel_jacobians_regular(geometry, npts_per_cell):
 
     # Check
     if rank == 0:
-        domainh = discretize(domain, filename=filename, comm=None)
-        mapping = list(domainh.mappings.values())[0]
+        domain_h = discretize(domain, filename=filename, comm=None)
+        mapping = list(domain_h.mappings.values())[0]
 
         space = mapping.space
 
@@ -204,9 +204,9 @@ def test_parallel_jacobians_irregular(geometry, npts_irregular):
     filename = os.path.join(mesh_dir, geometry)
 
     domain = Domain.from_file(filename=filename)
-    domainh = discretize(domain, filename=filename, comm=comm)
+    domain_h = discretize(domain, filename=filename, comm=comm)
 
-    mapping = list(domainh.mappings.values())[0]
+    mapping = list(domain_h.mappings.values())[0]
 
     space = mapping.space
     # Irregular tensor grid
@@ -244,8 +244,8 @@ def test_parallel_jacobians_irregular(geometry, npts_irregular):
 
     # Check
     if rank == 0:
-        domainh = discretize(domain, filename=filename, comm=None)
-        mapping = list(domainh.mappings.values())[0]
+        domain_h = discretize(domain, filename=filename, comm=None)
+        mapping = list(domain_h.mappings.values())[0]
 
         space = mapping.space
 
@@ -288,8 +288,8 @@ def test_nurbs_circle():
     ncells = [len(space.breaks)-1 for space in spaces]
     periods = [space.periodic for space in spaces]
 
-    domain_h = DomainDecomposition(ncells=ncells, periods=periods, comm=None)
-    T = TensorFemSpace(domain_h, *spaces)
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=periods, comm=None)
+    T = TensorFemSpace(domain_decomposition, *spaces)
     mapping = NurbsMapping.from_control_points_weights(T, control_points=control[..., :2], weights=w)
 
     x1_pts = np.linspace(0, 1, 10)

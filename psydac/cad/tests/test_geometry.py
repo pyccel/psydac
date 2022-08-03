@@ -63,9 +63,9 @@ def test_geometry_2d_2():
     spaces = [SplineSpace( knots=k, degree=p ) for k,p in zip(knots, degrees)]
 
     ncells   = [len(space.breaks)-1 for space in spaces]
-    domain_h = DomainDecomposition(ncells=ncells, periods=[False]*2, comm=None)
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=[False]*2, comm=None)
 
-    space = TensorFemSpace( domain_h, *spaces )
+    space = TensorFemSpace( domain_decomposition, *spaces )
 
     mapping = NurbsMapping.from_control_points_weights( space, points, weights )
 
@@ -111,9 +111,9 @@ def test_geometry_2d_3():
     # Create tensor spline space, distributed
     spaces = [SplineSpace( knots=k, degree=p ) for k,p in zip(knots, degrees)]
     ncells   = [len(space.breaks)-1 for space in spaces]
-    domain_h = DomainDecomposition(ncells=ncells, periods=[False]*2, comm=None)
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=[False]*2, comm=None)
 
-    space = TensorFemSpace( domain_h, *spaces )
+    space = TensorFemSpace( domain_decomposition, *spaces )
 
     mapping = NurbsMapping.from_control_points_weights( space, points, weights )
 
@@ -145,9 +145,9 @@ def test_geometry_2d_4():
     # Create tensor spline space, distributed
     spaces = [SplineSpace( knots=k, degree=p ) for k,p in zip(knots, degrees)]
     ncells   = [len(space.breaks)-1 for space in spaces]
-    domain_h = DomainDecomposition(ncells=ncells, periods=[False]*2, comm=None)
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=[False]*2, comm=None)
 
-    space = TensorFemSpace( domain_h, *spaces )
+    space = TensorFemSpace( domain_decomposition, *spaces )
 
     mapping = NurbsMapping.from_control_points_weights( space, points, weights )
 

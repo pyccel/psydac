@@ -34,10 +34,10 @@ def run_cart_1d( verbose=False ):
     size = comm.Get_size()
     rank = comm.Get_rank()
 
-    domain_h = DomainDecomposition(ncells=[nc1], periods=[period1], comm=comm)
+    domain_decomposition = DomainDecomposition(ncells=[nc1], periods=[period1], comm=comm)
 
-    es = domain_h.global_element_starts[0]
-    ee = domain_h.global_element_ends  [0]
+    es = domain_decomposition.global_element_starts[0]
+    ee = domain_decomposition.global_element_ends  [0]
 
     global_ends        = [ee]
     global_ends[0][-1] = n1-1
@@ -45,7 +45,7 @@ def run_cart_1d( verbose=False ):
 
     # Decomposition of Cartesian domain
     cart = CartDecomposition(
-            domain_h      = domain_h,
+            domain_decomposition = domain_decomposition,
             npts          = [n1],
             global_starts = global_starts,
             global_ends   = global_ends,

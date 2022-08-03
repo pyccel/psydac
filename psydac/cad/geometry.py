@@ -31,6 +31,33 @@ from sympde.topology.basic import Union
 
 #==============================================================================
 class Geometry( object ):
+    """
+    Distributed discrete geometry that works for single and multiple patches.
+    The Geometry object can be created in two ways:
+    - case 1 : through a geometry file whos name can be given to the constructor
+    - case 2 : provide the ncells, the periodicity and the mapping objects of each patch.
+
+    Parameters
+    ----------
+    domain : Sympde.topology.Domain
+        The symbolic domain to be discretized.
+
+    ncells : list | tuple | dict
+        The number of cells of the discretized topological domain in each direction.
+
+    periodic : list | tuple | dict
+        The periodicity of the topological domain in each direction.
+
+    mappings : dict
+        The Mapping of each patch.
+
+    filename: str
+       The path to the geometry file.
+
+    comm: MPI.Comm
+        MPI intra-communicator.
+  
+    """
     _ldim     = None
     _pdim     = None
     _patches  = []

@@ -95,12 +95,12 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
         nc1, nc2 = ncells
 
         # Create the domain decomposition
-        domain_h = DomainDecomposition(ncells=[nc1,nc2], periods=[period1,period2], comm=comm)
+        domain_decomposition = DomainDecomposition(ncells=[nc1,nc2], periods=[period1,period2], comm=comm)
 
         # Create tensor spline space, distributed
         V1    = SplineSpace( grid=np.linspace( *lims1, num=nc1+1 ), degree=p1, periodic=period1 )
         V2    = SplineSpace( grid=np.linspace( *lims2, num=nc2+1 ), degree=p2, periodic=period2 )
-        space = TensorFemSpace( domain_h, V1, V2 )
+        space = TensorFemSpace( domain_decomposition, V1, V2 )
 
         # Create spline mapping by interpolating analytical one
         map_discrete = SplineMapping.from_mapping( space, map_analytic )
@@ -132,13 +132,13 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
         nc1, nc2, nc3 = ncells
 
         # Create the domain decomposition
-        domain_h = DomainDecomposition(ncells=[nc1,nc2,nc3], periods=[period1,period2,period3], comm=comm)
+        domain_decomposition = DomainDecomposition(ncells=[nc1,nc2,nc3], periods=[period1,period2,period3], comm=comm)
 
         # Create tensor spline space, distributed
         V1    = SplineSpace( grid=np.linspace( *lims1, num=nc1+1 ), degree=p1, periodic=period1 )
         V2    = SplineSpace( grid=np.linspace( *lims2, num=nc2+1 ), degree=p2, periodic=period2 )
         V3    = SplineSpace( grid=np.linspace( *lims3, num=nc3+1 ), degree=p3, periodic=period3 )
-        space = TensorFemSpace( domain_h, V1, V2, V3 )
+        space = TensorFemSpace( domain_decomposition, V1, V2, V3 )
 
         # Create spline mapping by interpolating analytical one
         map_discrete = SplineMapping.from_mapping( space, map_analytic )

@@ -7,14 +7,14 @@ from psydac.linalg.fft import *
 from psydac.ddm.cart               import DomainDecomposition, CartDecomposition
 from psydac.linalg.stencil import StencilVector
 #===============================================================================
-def compute_global_starts_ends(domain_h, npts):
+def compute_global_starts_ends(domain_decomposition, npts):
     ndims         = len(npts)
     global_starts = [None]*ndims
     global_ends   = [None]*ndims
 
     for axis in range(ndims):
-        es = domain_h.global_element_starts[axis]
-        ee = domain_h.global_element_ends  [axis]
+        es = domain_decomposition.global_element_starts[axis]
+        ee = domain_decomposition.global_element_ends  [axis]
 
         global_ends  [axis]     = ee.copy()
         global_ends  [axis][-1] = npts[axis]-1

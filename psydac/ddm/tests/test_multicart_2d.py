@@ -66,7 +66,7 @@ def run_carts_2d():
     # Parallel info
     comm = MPI.COMM_WORLD
 
-    domain_h =  MultiPatchDomainDecomposition(nc, P, comm=comm)
+    domain_decomposition =  MultiPatchDomainDecomposition(nc, P, comm=comm)
 
     # Number of elements
     n = [[ncij + pij*(1-periodij) for ncij,pij,periodij in zip(nci,pi,periodi)] for nci,pi,periodi in zip(nc,p,P)]
@@ -76,15 +76,15 @@ def run_carts_2d():
         global_starts = [None]*2
         global_ends   = [None]*2
         for axis in range(2):
-            es = domain_h.domains[i].global_element_starts[axis]
-            ee = domain_h.domains[i].global_element_ends  [axis]
+            es = domain_decomposition.domains[i].global_element_starts[axis]
+            ee = domain_decomposition.domains[i].global_element_ends  [axis]
 
             global_ends  [axis]     = (ee+1)-1
             global_ends  [axis][-1] = n[i][axis]-1
             global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
 
         carts.append(CartDecomposition(
-                        domain_h      = domain_h.domains[i],
+                        domain_decomposition      = domain_decomposition.domains[i],
                         npts          = n[i],
                         global_starts = global_starts,
                         global_ends   = global_ends,
@@ -92,7 +92,7 @@ def run_carts_2d():
                         shifts        = [1,1]))
     carts = tuple(carts)
 
-    interfaces_cart = InterfacesCartDecomposition(domain_h, carts, connectivity)
+    interfaces_cart = InterfacesCartDecomposition(domain_decomposition, carts, connectivity)
 
     us         = [None]*len(carts)
     syn        = [None]*len(carts)

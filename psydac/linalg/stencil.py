@@ -92,7 +92,7 @@ class StencilVectorSpace( VectorSpace ):
 
     def __init__( self, cart, dtype=float ):
 
-        assert isinstance( cart, CartDecomposition )
+        assert isinstance( cart, (CartDecomposition, InterfaceCartDecomposition) )
 
         # Sequential attributes
         self._parallel   = cart.is_parallel
@@ -243,7 +243,7 @@ class StencilVectorSpace( VectorSpace ):
         assert int(ext) in [-1,1]
 
         # Create the interface space in the parallel case using the new cart
-        assert isinstance(cart, CartDecomposition)
+        assert isinstance(cart, (CartDecomposition, InterfaceCartDecomposition))
         if cart.is_comm_null: return
         if isinstance(cart, InterfaceCartDecomposition):
             # Case where the patches that share the interface are owned by different intra-communicators

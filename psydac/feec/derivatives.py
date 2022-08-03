@@ -194,7 +194,7 @@ class DirectionalDerivativeOperator(Matrix):
         # build derivative stencil matrix (don't care for transposition here)
         # hence, use spaceV and spaceW instead of domain, codomain
         periodic_d = self._spaceV.periods[self._diffdir]
-        nc  = self._spaceV.cart.domain_h.ncells[self._diffdir]
+        nc  = self._spaceV.cart.domain_decomposition.ncells[self._diffdir]
         p_d = self._spaceV.pads[self._diffdir]
         n_d = self._spaceV.npts[self._diffdir]
         m_d = self._spaceW.npts[self._diffdir]
@@ -217,7 +217,7 @@ class DirectionalDerivativeOperator(Matrix):
 
         # identity matrices
         def make_id(i):
-            nc  = self._spaceV.cart.domain_h.ncells[i]
+            nc  = self._spaceV.cart.domain_decomposition.ncells[i]
             n_i = self._domain.npts[i]
             p_i = self._domain.pads[i]
             periodic_i = self._domain.periods[i]

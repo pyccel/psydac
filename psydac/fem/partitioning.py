@@ -9,8 +9,31 @@ from psydac.ddm.cart       import CartDecomposition, InterfacesCartDecomposition
 from psydac.core.bsplines  import elements_spans
 from psydac.fem.vector     import ProductFemSpace
 
-def partition_coefficients(domain_h, spaces, min_blocks=None):
+def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
+    """ Partition the coefficients starting from the grid decomposition.
 
+    Parameters
+    ----------
+
+    domain_decomposition: DomainDecomposition
+      The distributed topological domain.
+
+    spaces: list of SplineSpace
+      The 1d spline spaces that construct the tensor fem space.
+
+    min_blocks: list of int
+      The minimum number of coefficients owned by a process.
+
+    Returns
+    -------
+
+    global_starts: list of list of int
+        The starts of the coefficients for every process along each direction.
+
+    global_ends: list of list of int
+        The ends of the coefficients for every process along each direction.
+
+    """
     npts         = [V.nbasis   for V in spaces]
     multiplicity = [V.multiplicity for V in spaces]
 
@@ -19,8 +42,8 @@ def partition_coefficients(domain_h, spaces, min_blocks=None):
     global_ends   = [None]*ndims
 
     for axis in range(ndims):
-        es = domain_h.global_element_starts[axis]
-        ee = domain_h.global_element_ends  [axis]
+        es = domain_decomposition.global_element_starts[axis]
+        ee = domain_decomposition.global_element_ends  [axis]
         m  = multiplicity[axis]
 
         global_ends  [axis]     = m*(ee+1)-1
@@ -98,7 +121,7 @@ def get_plus_starts_ends(minus_starts, minus_ends, minus_npts, plus_npts, minus_
     return starts, ends
 
 #------------------------------------------------------------------------------
-def create_cart(domain_h, spaces):
+def create_cart(domain_decomposition, spaces):
     """
     Compute the cartesian decomposition of the coefficient space.
     Two different cases are possible:
@@ -110,7 +133,7 @@ def create_cart(domain_h, spaces):
 
     Parameters
     ----------
-    domain_h : DomainDecomposition
+    domain_decomposition : DomainDecomposition
 
     spaces : list of list of 1D global Spline spaces
      The 1D global spline spaces that will be distributed.
@@ -124,15 +147,15 @@ def create_cart(domain_h, spaces):
 
     if len(spaces) == 1:
         spaces       = spaces[0]
-        domain_h     = domain_h[0]
+        domain_decomposition     = domain_decomposition[0]
         npts         = [V.nbasis   for V in spaces]
         pads         = [V._pads    for V in spaces]
         multiplicity = [V.multiplicity for V in spaces]
 
-        global_starts, global_ends = partition_coefficients(domain_h, spaces)
+        global_starts, global_ends = partition_coefficients(domain_decomposition, spaces)
 
         carts = [CartDecomposition(
-                domain_h      = domain_h,
+                domain_decomposition      = domain_decomposition,
                 npts          = npts,
                 global_starts = global_starts,
                 global_ends   = global_ends,
@@ -145,10 +168,10 @@ def create_cart(domain_h, spaces):
             pads         = [V._pads    for V in spaces[i]]
             multiplicity = [V.multiplicity for V in spaces[i]]
 
-            global_starts, global_ends = partition_coefficients(domain_h[i], spaces[i], min_blocks=[p+1 for p in pads])
+            global_starts, global_ends = partition_coefficients(domain_decomposition[i], spaces[i], min_blocks=[p+1 for p in pads])
 
             carts.append(CartDecomposition(
-                            domain_h      = domain_h[i],
+                            domain_decomposition      = domain_decomposition[i],
                             npts          = npts,
                             global_starts = global_starts,
                             global_ends   = global_ends,
@@ -159,7 +182,7 @@ def create_cart(domain_h, spaces):
     return carts
 
 #------------------------------------------------------------------------------
-def create_interfaces_cart(domain_h, carts, connectivity=None):
+def create_interfaces_cart(domain_decomposition, carts, connectivity=None):
     """
     Decompose the interface coefficients using the domain decomposition of each patch.
     For each interface we contruct an inter-communicator that groups the coefficients of the interface from each side.
@@ -167,7 +190,7 @@ def create_interfaces_cart(domain_h, carts, connectivity=None):
     Parameters
     ----------
 
-    domain_h: MultiPatchDomainDecomposition
+    domain_decomposition: MultiPatchDomainDecomposition
 
     cart: <CartDecomposition|MultiCartDecomposition>
         Cartesian decomposition of the coefficient space.
@@ -184,7 +207,7 @@ def create_interfaces_cart(domain_h, carts, connectivity=None):
     interfaces_cart = None
     if connectivity:
         connectivity = connectivity.copy()
-        interfaces_cart = InterfacesCartDecomposition(domain_h, carts, connectivity)
+        interfaces_cart = InterfacesCartDecomposition(domain_decomposition, carts, connectivity)
         for i,j in connectivity:
             if (i,j) in interfaces_cart.carts and not interfaces_cart.carts[i,j].is_comm_null:
                 interfaces_cart.carts[i,j].set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
@@ -192,13 +215,13 @@ def create_interfaces_cart(domain_h, carts, connectivity=None):
     return interfaces_cart
 
 #------------------------------------------------------------------------------
-def construct_interface_spaces(domain_h, g_spaces, carts, interiors, connectivity):
+def construct_interface_spaces(domain_decomposition, g_spaces, carts, interiors, connectivity):
     """ 
     Create the fem spaces for each interface in the domain given by the connectivity.
 
     Parameters
     ----------
-    domain_h : DomainDecomposition
+    domain_decomposition : DomainDecomposition
 
     g_spaces : dict
      dictionary that contains the tensor-fem space for each patch.
@@ -213,9 +236,9 @@ def construct_interface_spaces(domain_h, g_spaces, carts, interiors, connectivit
        The connectivity of the multipatch domain.
     """
     if not connectivity:return
-    comm = domain_h.comm
+    comm = domain_decomposition.comm
     if comm is not None:
-        interfaces_cart = create_interfaces_cart(domain_h, carts, connectivity=connectivity)
+        interfaces_cart = create_interfaces_cart(domain_decomposition, carts, connectivity=connectivity)
 
         if interfaces_cart:
             interfaces_cart = interfaces_cart.carts

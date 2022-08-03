@@ -8,13 +8,13 @@ from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatr
 from psydac.api.settings   import *
 
 #===============================================================================
-def compute_global_starts_ends(domain_h, npts):
+def compute_global_starts_ends(domain_decomposition, npts):
     ndims         = len(npts)
     global_starts = [None]*ndims
     global_ends   = [None]*ndims
 
     for axis in range(ndims):
-        ee = domain_h.global_element_ends  [axis]
+        ee = domain_decomposition.global_element_ends  [axis]
 
         global_ends  [axis]     = ee.copy()
         global_ends  [axis][-1] = npts[axis]-1
@@ -76,7 +76,7 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
     comm = MPI.COMM_WORLD
     # Parallel info
 
-    domain_h =  MultiPatchDomainDecomposition(nc, P, comm=comm)
+    domain_decomposition =  MultiPatchDomainDecomposition(nc, P, comm=comm)
 
     # Number of elements
     n = [[n1,n2] for i in range(N)]
@@ -89,15 +89,15 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
         global_starts = [None]*2
         global_ends   = [None]*2
         for j in range(2):
-            es = domain_h.domains[i].global_element_starts[j]
-            ee = domain_h.domains[i].global_element_ends  [j]
+            es = domain_decomposition.domains[i].global_element_starts[j]
+            ee = domain_decomposition.domains[i].global_element_ends  [j]
 
             global_ends  [j]     = ee.copy()
             global_ends  [j][-1] = n[i][j]-1
             global_starts[j]     = np.array([0] + (global_ends[j][:-1]+1).tolist())
 
         carts.append(CartDecomposition(
-                        domain_h      = domain_h.domains[i],
+                        domain_decomposition      = domain_decomposition.domains[i],
                         npts          = n[i],
                         global_starts = global_starts,
                         global_ends   = global_ends,
@@ -105,7 +105,7 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
                         shifts        = [1,1]))
     carts = tuple(carts)
 
-    interface_carts = InterfacesCartDecomposition(domain_h, carts, connectivity)
+    interface_carts = InterfacesCartDecomposition(domain_decomposition, carts, connectivity)
 
 
     for i,j in connectivity:

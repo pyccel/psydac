@@ -9,13 +9,13 @@ from psydac.api.settings   import *
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
 #===============================================================================
-def compute_global_starts_ends(domain_h, npts):
+def compute_global_starts_ends(domain_decomposition, npts):
     ndims         = len(npts)
     global_starts = [None]*ndims
     global_ends   = [None]*ndims
 
     for axis in range(ndims):
-        ee = domain_h.global_element_ends  [axis]
+        ee = domain_decomposition.global_element_ends  [axis]
 
         global_ends  [axis]     = ee.copy()
         global_ends  [axis][-1] = npts[axis]-1

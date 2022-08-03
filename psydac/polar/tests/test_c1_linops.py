@@ -26,14 +26,14 @@ def test_c1_linops( n0, npts, pads, verbose=False ):
 
     # Spaces
     U = DenseVectorSpace( n0 )
-    domain_h = DomainDecomposition(ncells=[nc1, nc2], periods=[P1,P2], comm=None)
+    domain_decomposition = DomainDecomposition(ncells=[nc1, nc2], periods=[P1,P2], comm=None)
 
     npts          = [n1-2,n2]
     global_starts = [None]*2
     global_ends   = [None]*2
     for axis in range(2):
-        es = domain_h.global_element_starts[axis]
-        ee = domain_h.global_element_ends  [axis]
+        es = domain_decomposition.global_element_starts[axis]
+        ee = domain_decomposition.global_element_ends  [axis]
 
         global_ends  [axis]     = (ee+1)-1
         global_ends  [axis][-1] = npts[axis]-1
@@ -41,7 +41,7 @@ def test_c1_linops( n0, npts, pads, verbose=False ):
 
     # Decomposition of Cartesian domain
     cart = CartDecomposition(
-            domain_h      = domain_h,
+            domain_decomposition      = domain_decomposition,
             npts          = [n1-2,n2],
             global_starts = global_starts,
             global_ends   = global_ends,

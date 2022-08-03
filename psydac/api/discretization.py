@@ -190,7 +190,7 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
 
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, *args, **kwargs):
+def discretize_space(V, domain_h, degree=None, knots=None, quad_order=None, basis='B', sequence='DR'):
     """
     This function creates the discretized space starting from the symbolic space.
 
@@ -202,6 +202,40 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
     domain_h   : <Geometry>
         the discretized domain
+
+    degree : list | dict
+        The degree of the h1 space in each direction.
+
+    knots: list | dict
+        The knots sequence of the h1 space in each direction.
+
+    quad_order: list
+        The number of quadrature points in each direction.
+
+    basis: str
+        The type of basis function can be 'b' for b-splines or 'M' for M-splines.
+
+    sequence: str
+        The sequence used to reduce the space. The available choices are:
+          'DR': for the de Rham sequence, as described in [1],
+          'TH': for Taylor-Hood elements, as described in [2].
+        Not implemented yet:
+          'N' : for Nedelec elements, as described in [2],
+          'RT': for Raviart-Thomas elements, as described in [2].
+
+    For more details see:
+
+      [1] : A. Buffa, J. Rivas, G. Sangalli, and R.G. Vazquez. Isogeometric
+      Discrete Differential Forms in Three Dimensions. SIAM J. Numer. Anal.,
+      49:818-844, 2011. DOI:10.1137/100786708. (Section 4.1)
+
+      [2] : A. Buffa, C. de Falco, and G. Sangalli. IsoGeometric Analysis:
+      Stable elements for the 2D Stokes equation. Int. J. Numer. Meth. Fluids,
+      65:1407-1422, 2011. DOI:10.1002/fld.2337. (Section 3)
+
+      [3] : A. Bressan, and G. Sangalli. Isogeometric discretizations of the
+      Stokes problem: stability analysis by the macroelement technique. IMA J.
+      Numer. Anal., 33(2):629-651, 2013. DOI:10.1093/imanum/drr056.
 
     Returns
     -------
@@ -215,13 +249,8 @@ def discretize_space(V, domain_h, *args, **kwargs):
 #    We build the dictionary g_spaces for each interior domain, where it conatians the interiors as keys and the spaces as values,
 #    we then create the compatible spaces if needed with the suitable basis functions.
 
-    degree              = kwargs.pop('degree', None)
     comm                = domain_h.comm
     ldim                = V.ldim
-    basis               = kwargs.pop('basis', 'B')
-    knots               = kwargs.pop('knots', None)
-    quad_order          = kwargs.pop('quad_order', None)
-    sequence            = kwargs.pop('sequence', 'DR')
     is_rational_mapping = False
 
     assert sequence in ['DR', 'TH', 'N', 'RT']
@@ -258,7 +287,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
             assert len(interiors) == 1
             knots = {interiors[0].name:knots}
 
-        spaces = [None]*len(interiors)
         if len(interiors) == 1:
             ddms = [domain_h.ddm]
         else:
@@ -319,10 +347,6 @@ def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm
         # Create a copy of the communicator
         comm = comm.Dup()
 
-    if comm is not None:
-        # Create a copy of the communicator
-        comm = comm.Dup()
-
     if not (filename or ncells):
         raise ValueError("Must provide either 'filename' or 'ncells'")
 
@@ -343,7 +367,7 @@ def discretize(a, *args, **kwargs):
         assert isinstance(domain_h, Geometry)
         domain  = domain_h.domain
         mapping = domain_h.domain.mapping
-        kwargs['mapping'] = mapping
+        kwargs['symbolic_mapping'] = mapping
 
     if isinstance(a, sym_BasicForm):
         if isinstance(a, sym_Norm):

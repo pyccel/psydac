@@ -15,13 +15,13 @@ from psydac.api.settings          import PSYDAC_BACKEND_GPYCCEL
 from psydac.ddm.cart              import DomainDecomposition, CartDecomposition
 
 #===============================================================================
-def compute_global_starts_ends(domain_h, npts):
+def compute_global_starts_ends(domain_decomposition, npts):
     global_starts = [None]*2
     global_ends   = [None]*2
 
     for axis in range(2):
-        es = domain_h.global_element_starts[axis]
-        ee = domain_h.global_element_ends  [axis]
+        es = domain_decomposition.global_element_starts[axis]
+        ee = domain_decomposition.global_element_ends  [axis]
 
         global_ends  [axis]     = ee.copy()
         global_ends  [axis][-1] = npts[axis]-1

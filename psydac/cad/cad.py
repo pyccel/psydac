@@ -55,9 +55,9 @@ def elevate(mapping, axis, times):
     assert( isinstance(times, int) )
     assert( isinstance(axis, int) )
 
-    space    = mapping.space
-    domain_h = space.domain
-    pdim     = mapping.pdim
+    space                = mapping.space
+    domain_decomposition = space.domain
+    pdim                 = mapping.pdim
 
     knots  = [V.knots             for V in space.spaces]
     degree = [V.degree            for V in space.spaces]
@@ -78,7 +78,7 @@ def elevate(mapping, axis, times):
     nrb = nrb.clone().elevate(axis, times)
 
     spaces = [SplineSpace(degree=p, knots=u) for p,u in zip( nrb.degree, nrb.knots )]
-    space  = TensorFemSpace( domain_h, *spaces )
+    space  = TensorFemSpace( domain_decomposition, *spaces )
     fields = [FemField( space ) for d in range( pdim )]
 
     # Get spline coefficients for each coordinate X_i
@@ -128,9 +128,9 @@ def refine(mapping, axis, values):
     assert( isinstance(values, (list, tuple)) )
     assert( isinstance(axis, int) )
 
-    space = mapping.space
-    domain_h = space.domain
-    pdim  = mapping.pdim
+    space                = mapping.space
+    domain_decomposition = space.domain
+    pdim                 = mapping.pdim
 
     knots  = [V.knots             for V in space.spaces]
     degree = [V.degree            for V in space.spaces]
@@ -152,11 +152,11 @@ def refine(mapping, axis, values):
 
     spaces = [SplineSpace(degree=p, knots=u) for p,u in zip( nrb.degree, nrb.knots )]
 
-    ncells = list(domain_h.ncells)
+    ncells = list(domain_decomposition.ncells)
     ncells[axis] += len(values)
-    domain_h      = DomainDecomposition(ncells, domain_h.periods, comm=domain_h.comm)
+    domain_decomposition = DomainDecomposition(ncells, domain_decomposition.periods, comm=domain_decomposition.comm)
 
-    space  = TensorFemSpace( domain_h, *spaces )
+    space  = TensorFemSpace( domain_decomposition, *spaces )
     fields = [FemField( space ) for d in range( pdim )]
 
     # Get spline coefficients for each coordinate X_i

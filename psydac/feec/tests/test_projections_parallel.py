@@ -55,8 +55,8 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
             opV = lambda V0: V0.reduce_degree(axes=[0,1,2], basis='M')
             opP = Projector_L2
 
-    domain_h_p = DomainDecomposition(ncells, periodic, comm=MPI.COMM_WORLD)
-    domain_h_s = DomainDecomposition(ncells, periodic)
+    domain_decomposition_p = DomainDecomposition(ncells, periodic, comm=MPI.COMM_WORLD)
+    domain_decomposition_s = DomainDecomposition(ncells, periodic)
     # build basic SplineSpaces
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
 
@@ -64,8 +64,8 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
                                   for d, g, p in zip(degree, breaks, periodic)]
     
     # build TensorFemSpaces in serial and parallel
-    V0p = TensorFemSpace(domain_h_p, *Ns)
-    V0s = TensorFemSpace(domain_h_s, *Ns)
+    V0p = TensorFemSpace(domain_decomposition_p, *Ns)
+    V0s = TensorFemSpace(domain_decomposition_s, *Ns)
 
     # build reduced spaces in serial and parallel
     Vp = opV(V0p)
