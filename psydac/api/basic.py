@@ -61,7 +61,7 @@ class BasicCodeGen:
         The backend used to accelerate the computing kernels.
 
     """
-    def __init__(self, expr, folder=None,  comm=None, root=None, discrete_space=None,
+    def __init__(self, expr, *, folder=None, comm=None, root=None, discrete_space=None,
                        kernel_expr=None, quad_order=None, is_rational_mapping=None, mapping=None,
                        mapping_space=None, num_threads=None, backend=None):
 
@@ -287,7 +287,7 @@ class BasicDiscrete(BasicCodeGen):
     kwargs is used to pass user defined functions for the moment.
     """
 
-    def __init__(self, expr, kernel_expr, folder=None, comm=None, root=None, discrete_space=None,
+    def __init__(self, expr, kernel_expr, *, folder=None, comm=None, root=None, discrete_space=None,
                        quad_order=None, is_rational_mapping=None, mapping=None,
                        mapping_space=None, num_threads=None, backend=None):
 

@@ -182,7 +182,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         The symbolic mapping of the bi-linear form domain.
 
     """
-    def __init__(self, expr, kernel_expr, domain_h, spaces, matrix=None, update_ghost_regions=True,
+    def __init__(self, expr, kernel_expr, domain_h, spaces, *, matrix=None, update_ghost_regions=True,
                        quad_order=None, backend=None, linalg_backend=None, assembly_backend=None,
                        symbolic_mapping=None):
 
@@ -797,7 +797,7 @@ class DiscreteLinearForm(BasicDiscrete):
         The symbolic mapping of the bi-linear form domain.
 
     """
-    def __init__(self, expr, kernel_expr, domain_h, space, vector=None,
+    def __init__(self, expr, kernel_expr, domain_h, space, *, vector=None,
                        update_ghost_regions=True, quad_order=None, backend=None,
                        symbolic_mapping=None):
 
@@ -1159,7 +1159,7 @@ class DiscreteFunctional(BasicDiscrete):
         The symbolic mapping of the bi-linear form domain.
 
     """
-    def __init__(self, expr, kernel_expr, domain_h, space, quad_order=None,
+    def __init__(self, expr, kernel_expr, domain_h, space, *, quad_order=None,
                        backend=None, symbolic_mapping=None):
 
         if not isinstance(expr, sym_Functional):

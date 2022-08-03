@@ -65,7 +65,7 @@ def run_poisson_mixed_form_2d_dir(f0, sol, ncells, degree):
     Xh  = discretize(X , domain_h, degree=degree)
 
     # ... dsicretize the equation using Dirichlet bc
-    ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
+    ah = discretize(equation, domain_h, [Xh, Xh])
     # ...
     # ... discretize norms
     l2norm_F_h = discretize(l2norm_F, domain_h, V2h)
