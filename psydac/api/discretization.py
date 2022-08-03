@@ -49,13 +49,13 @@ def discretize_derham(derham, domain_h, *args, **kwargs):
     mapping  = derham.spaces[0].domain.mapping
 
     bases  = ['B'] + ldim * ['M']
-    spaces = [discretize_space(V, domain_h, *args, basis=basis, **kwargs) \
+    spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \
             for V, basis in zip(derham.spaces, bases)]
 
     return DiscreteDerham(mapping, *spaces)
 
 #==============================================================================
-def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
+def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
     """
     This function takes a tensor FEM space Vh and reduces some degrees in order
     to obtain a tensor FEM space Wh that matches the symbolic space V in a
@@ -190,7 +190,7 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
 
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, degree=None, knots=None, quad_order=None, basis='B', sequence='DR'):
+def discretize_space(V, domain_h, *, degree=None, knots=None, quad_order=None, basis='B', sequence='DR'):
     """
     This function creates the discretized space starting from the symbolic space.
 
