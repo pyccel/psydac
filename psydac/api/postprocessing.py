@@ -950,14 +950,17 @@ class PostProcessManager:
             ncells =  list(ncells_dict.values())[0]
             assert all(ncells_patch == ncells for ncells_patch in ncells_dict.values())
 
-            subdomain = domain.get_subdomain(subdomain_names)
+            subdomain    = domain.get_subdomain(subdomain_names)
+            space_name_0 = list(space_dict.keys())[0]
+            periodic     = space_dict[space_name_0][2].get('periodic', None)
             if subdomain is domain:
                 if domain_h is None:
-                    domain_h = discretize(domain, ncells=ncells, comm=self.comm)
+                    periodic = .get('periodic', None)
+                    domain_h = discretize(domain, ncells=ncells, comm=self.comm, periodic=periodic)
                     self._domain_h = domain_h
                 subdomain_h = domain_h
             else:
-                subdomain_h = discretize(subdomain, ncells=ncells, comm=self.comm)
+                subdomain_h = discretize(subdomain, ncells=ncells, comm=self.comm, periodic=periodic)
 
             for space_name, (is_vector, kind, discrete_kwargs) in space_dict.items():
                 if is_vector:
@@ -968,6 +971,7 @@ class PostProcessManager:
                 # Until PR #213 is merged knots as to be set to None
                 discrete_kwargs['knots'] = None if len(discrete_kwargs['knots']) !=1 else discrete_kwargs['knots'][subdomain.name]
 
+                discrete_kwargs.pop('periodic', None)
                 space_h = discretize(temp_symbolic_space, subdomain_h, **discrete_kwargs)
                 self._spaces[space_name] = space_h
 
