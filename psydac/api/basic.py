@@ -80,7 +80,7 @@ class BasicCodeGen:
 
             if comm.rank == root:
                 tag = random_string( 8 )
-                ast = self._create_ast( expr, tag, comm=comm, discrete_space=discrete_space,
+                ast = self._create_ast( expr=expr, tag=tag, comm=comm, discrete_space=discrete_space,
                            kernel_expr=kernel_expr, quad_order=quad_order, is_rational_mapping=is_rational_mapping,
                            mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend )
 
@@ -104,7 +104,7 @@ class BasicCodeGen:
             #user_functions = comm.bcast( user_functions, root=root )
         else:
             tag = random_string( 8 )
-            ast = self._create_ast( expr, tag, discrete_space=discrete_space,
+            ast = self._create_ast( expr=expr, tag=tag, discrete_space=discrete_space,
                        kernel_expr=kernel_expr, quad_order=quad_order, is_rational_mapping=is_rational_mapping,
                        mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend )
 
@@ -318,9 +318,19 @@ class BasicDiscrete(BasicCodeGen):
     def max_nderiv(self):
         return self._max_nderiv
 
-    def _create_ast(self, expr, tag, discrete_space=None, kernel_expr=None,
-                          quad_order=None, is_rational_mapping=None, mapping=None,
-                          mapping_space=None, num_threads=None, backend=None):
+    def _create_ast(self, **kwargs):
+
+        expr           = kwargs.pop(expr)
+        kernel_expr    = kwargs.pop(kernel_expr)
+        discrete_space = kwargs.pop(discrete_space)
+
+        mapping_space  = kwargs.pop(mapping_space, None)
+        tag            = kwargs.pop(tag, None)
+        quad_order     = kwargs.pop(quad_order, None)
+        mapping        = kwargs.pop(mapping, None)
+        num_threads    = kwargs.pop(num_threads, None)
+        backend        = kwargs.pop(backend, None)
+        is_rational_mapping = kwargs.pop(is_rational_mapping, None)
 
         return AST(expr, kernel_expr, discrete_space, mapping_space=mapping_space,
                    tag=tag, quad_order=quad_order, mapping=mapping, is_rational_mapping=is_rational_mapping,
