@@ -75,8 +75,8 @@ class DiscreteExpr(BasicCodeGen):
     # TODO add comm and treate parallel case
     def _create_ast(self, **kwargs):
 
-        expr                = kwargs.pop(expr)
-        tag                 = kwargs.pop(tag)
+        expr                = kwargs.pop('expr')
+        tag                 = kwargs.pop('tag')
         mapping             = kwargs.pop('mapping', None)
         backend             = kwargs.pop('backend', PSYDAC_BACKEND_PYTHON)
         is_rational_mapping = kwargs.pop('is_rational_mapping', None)

@@ -320,17 +320,17 @@ class BasicDiscrete(BasicCodeGen):
 
     def _create_ast(self, **kwargs):
 
-        expr           = kwargs.pop(expr)
-        kernel_expr    = kwargs.pop(kernel_expr)
-        discrete_space = kwargs.pop(discrete_space)
+        expr           = kwargs.pop('expr')
+        kernel_expr    = kwargs.pop('kernel_expr')
+        discrete_space = kwargs.pop('discrete_space')
 
-        mapping_space  = kwargs.pop(mapping_space, None)
-        tag            = kwargs.pop(tag, None)
-        quad_order     = kwargs.pop(quad_order, None)
-        mapping        = kwargs.pop(mapping, None)
-        num_threads    = kwargs.pop(num_threads, None)
-        backend        = kwargs.pop(backend, None)
-        is_rational_mapping = kwargs.pop(is_rational_mapping, None)
+        mapping_space  = kwargs.pop('mapping_space', None)
+        tag            = kwargs.pop('tag', None)
+        quad_order     = kwargs.pop('quad_order', None)
+        mapping        = kwargs.pop('mapping', None)
+        num_threads    = kwargs.pop('num_threads', None)
+        backend        = kwargs.pop('backend', None)
+        is_rational_mapping = kwargs.pop('is_rational_mapping', None)
 
         return AST(expr, kernel_expr, discrete_space, mapping_space=mapping_space,
                    tag=tag, quad_order=quad_order, mapping=mapping, is_rational_mapping=is_rational_mapping,
