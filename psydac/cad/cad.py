@@ -56,7 +56,7 @@ def elevate(mapping, axis, times):
     assert( isinstance(axis, int) )
 
     space                = mapping.space
-    domain_decomposition = space.domain
+    domain_decomposition = space.domain_decomposition
     pdim                 = mapping.pdim
 
     knots  = [V.knots             for V in space.spaces]
@@ -129,7 +129,7 @@ def refine(mapping, axis, values):
     assert( isinstance(axis, int) )
 
     space                = mapping.space
-    domain_decomposition = space.domain
+    domain_decomposition = space.domain_decomposition
     pdim                 = mapping.pdim
 
     knots  = [V.knots             for V in space.spaces]
