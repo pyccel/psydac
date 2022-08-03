@@ -955,7 +955,6 @@ class PostProcessManager:
             periodic     = space_dict[space_name_0][2].get('periodic', None)
             if subdomain is domain:
                 if domain_h is None:
-                    periodic = .get('periodic', None)
                     domain_h = discretize(domain, ncells=ncells, comm=self.comm, periodic=periodic)
                     self._domain_h = domain_h
                 subdomain_h = domain_h
