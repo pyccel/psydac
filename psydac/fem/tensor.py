@@ -1015,7 +1015,7 @@ class TensorFemSpace( FemSpace ):
         red_cart   = v.cart.reduce_npts(npts, global_starts, global_ends, shifts=multiplicity)
 
         # create new TensorFemSpace
-        tensor_vec = TensorFemSpace(self._domain, *spaces, cart=red_cart, quad_order=self._quad_order)
+        tensor_vec = TensorFemSpace(self._domain_decomposition, *spaces, cart=red_cart, quad_order=self._quad_order)
 
         tensor_vec._interpolation_ready = False
         return tensor_vec
@@ -1046,7 +1046,7 @@ class TensorFemSpace( FemSpace ):
         quad_order   = self.quad_order
 
         vector_space.set_interface(axis, ext, cart)
-        space = TensorFemSpace( self._domain, *spaces, vector_space=vector_space.interfaces[axis, ext], quad_order=self.quad_order)
+        space = TensorFemSpace( self._domain_decomposition, *spaces, vector_space=vector_space.interfaces[axis, ext], quad_order=self.quad_order)
         self._interfaces[axis, ext] = space
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):
