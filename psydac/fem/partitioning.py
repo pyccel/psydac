@@ -140,8 +140,8 @@ def create_cart(domain_decomposition, spaces):
 
     Returns
     -------
-    cart : <CartDecomposition|MultiCartDecomposition>
-        Cartesian decomposition of the coefficient space.
+    cart : tuple of CartDecomposition
+        Cartesian decompositions of the coefficient spaces.
 
     """
 
@@ -288,10 +288,7 @@ def construct_reduced_interface_spaces(spaces, reduced_spaces, interiors, connec
                     global_ends_j   = Vj.vector_space.cart.global_ends
                     shifts_i        = Vi.vector_space.cart.shifts
                     shifts_j        = Vj.vector_space.cart.shifts
-                    cart_ij         = cart_i.reduce_npts([npts_i, npts_j],
-                                                         [global_starts_i, global_starts_j],
-                                                         [global_ends_i, global_ends_j],
-                                                         [shifts_i, shifts_j])
+                    cart_ij         = cart_i.reduce_npts(Vi.vector_space.cart, Vj.vector_space.cart)
                     cart_ij.set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
                     Vi.create_interface_space(axis_i, ext_i, cart=cart_ij)
                     Vj.create_interface_space(axis_j, ext_j, cart=cart_ij)
@@ -300,16 +297,7 @@ def construct_reduced_interface_spaces(spaces, reduced_spaces, interiors, connec
                 Vj = reduced_spaces[patch_j]
                 npts_i = [Vik.nbasis for Vik in Vi.spaces]
                 npts_j = [Vik.nbasis for Vik in Vj.spaces]
-                global_starts_i = Vi.vector_space.cart.global_starts
-                global_starts_j = Vj.vector_space.cart.global_starts
-                global_ends_i   = Vi.vector_space.cart.global_ends
-                global_ends_j   = Vj.vector_space.cart.global_ends
-                shifts_i        = Vi.vector_space.cart.shifts
-                shifts_j        = Vj.vector_space.cart.shifts
-                cart_ij         = cart_i.reduce_npts([npts_i, npts_j],
-                                                     [global_starts_i, global_starts_j],
-                                                     [global_ends_i, global_ends_j],
-                                                     [shifts_i, shifts_j])
+                cart_ij         = cart_i.reduce_npts(Vi.vector_space.cart, Vj.vector_space.cart)
                 cart_ij.set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
                 Vi.create_interface_space(axis_i, ext_i, cart=cart_ij)
                 Vj.create_interface_space(axis_j, ext_j, cart=cart_ij)

@@ -379,12 +379,7 @@ class InterfacesCartDecomposition:
         assert isinstance(domain_decomposition, MultiPatchDomainDecomposition)
         assert isinstance(carts, (list, tuple))
 
-        npts                = [cart.npts for cart in carts]
-        pads                = [cart.pads for cart in carts]
-        shifts              = [cart.shifts for cart in carts]
         periods             = [cart.periods for cart in carts]
-        global_starts       = [cart.global_starts for cart in carts]
-        global_ends         = [cart.global_ends for cart in carts]
         num_threads         = domain_decomposition.num_threads
         comm                = domain_decomposition.comm
         global_group        = comm.group
@@ -434,12 +429,7 @@ class InterfacesCartDecomposition:
                     req.append(interfaces_comm[i,j].Isend((ranks_in_topo_j, ranks_in_topo_j.size, dtype), interfaces_root_ranks[i,j][0], tag=tag(i,j,-1)))
                     req.append(interfaces_comm[i,j].Irecv((ranks_in_topo_i, ranks_in_topo_i.size, dtype), interfaces_root_ranks[i,j][0], tag=tag(i,j,1)))
 
-                interfaces_carts[i,j] = InterfaceCartDecomposition(domain_decomposition=[domain_decomposition.domains[i],domain_decomposition.domains[j]],
-                                                                   npts=[npts[i], npts[j]],
-                                                                   global_starts=[global_starts[i], global_starts[j]],
-                                                                   global_ends=[global_ends[i], global_ends[j]],
-                                                                   pads=[pads[i], pads[j]],
-                                                                   shifts=[shifts[i], shifts[j]],
+                interfaces_carts[i,j] = InterfaceCartDecomposition(carts[i], carts[j],
                                                                    comm=interfaces_comm[i,j],
                                                                    axes=[axis_i, axis_j], exts=[ext_i, ext_j],
                                                                    ranks_in_topo=[ranks_in_topo_i, ranks_in_topo_j],
@@ -918,23 +908,15 @@ class InterfaceCartDecomposition:
 
     Parameters
     ----------
-    domain_decomposition: DomainDecomposition
 
-    npts : list
-        Number of coefficients in the global grid along each dimension for the patches that shares the interface.
+    cart_minus: CartDecomposition
+        The cartesian decomposition of the minus patch.
 
-    pads : list
-        Padding along each grid dimension for the patches that shares the interface.
-
-    periods : list or tuple of bool
-        Periodicity (True|False) along each grid dimension for the patches that shares the interface.
+    cart_plus: CartDecomposition
+        The cartesian decomposition of the plus patch.
 
     comm : mpi4py.MPI.Comm
         MPI communicator that will be used to spawn the cart decomposition
-
-    shifts: list or tuple of int
-        Shifts along each grid dimension.
-        It takes values bigger or equal to one, it represents the multiplicity of each knot.
 
     axes: list of ints
         The axes of the patches that constucts the interface.
@@ -958,16 +940,24 @@ class InterfaceCartDecomposition:
         the requests of the communications between the cartesian topologies that constucts the interface.
 
     """
-    def __init__(self, domain_decomposition, npts, global_starts, global_ends, pads, shifts, comm, axes, exts, ranks_in_topo, local_groups, local_communicators, root_ranks, requests, reduce_elements=False):
+    def __init__(self, cart_minus, cart_plus, comm, axes, exts, ranks_in_topo, local_groups, local_communicators, root_ranks, requests, reduce_elements=False):
 
-        domain_decomposition_minus, domain_decomposition_plus = domain_decomposition
-        global_starts_minus, global_starts_plus = global_starts
-        global_ends_minus, global_ends_plus     = global_ends
+        domain_decomposition_minus = cart_minus.domain_decomposition
+        domain_decomposition_plus  = cart_plus.domain_decomposition
+        global_starts_minus        = cart_minus.global_starts
+        global_starts_plus         = cart_plus.global_starts
+        global_ends_minus          = cart_minus.global_ends
+        global_ends_plus           = cart_plus.global_ends
 
-        npts_minus, npts_plus       = npts
-        pads_minus, pads_plus       = pads
-        shifts_minus, shifts_plus   = shifts
-        periods_minus, periods_plus = domain_decomposition_minus.periods, domain_decomposition_plus.periods
+        npts_minus   = cart_minus.npts
+        npts_plus    = cart_plus.npts
+        pads_minus   = cart_minus.pads
+        pads_plus    = cart_plus.pads
+        shifts_minus = cart_minus.shifts
+        shifts_plus  = cart_plus.shifts
+
+        periods_minus = domain_decomposition_minus.periods
+        periods_plus  = domain_decomposition_plus.periods
         axis_minus, axis_plus       = axes
         ext_minus, ext_plus         = exts
         size_minus, size_plus       = len(ranks_in_topo[0]), len(ranks_in_topo[1])
@@ -979,6 +969,8 @@ class InterfaceCartDecomposition:
         local_comm_minus, local_comm_plus       = local_communicators
         ranks_in_topo_minus, ranks_in_topo_plus = ranks_in_topo
 
+        self._cart_minus    = cart_minus
+        self._cart_plus     = cart_plus
         self._ndims         = len( npts_minus )
         self._domain_decomposition_minus = domain_decomposition_minus
         self._domain_decomposition_plus  = domain_decomposition_plus
@@ -1337,7 +1329,7 @@ class InterfaceCartDecomposition:
         return self._local_rank_plus
 
     #---------------------------------------------------------------------------
-    def reduce_npts( self, npts, global_starts, global_ends, shifts):
+    def reduce_npts( self, cart_minus, cart_plus):
         """ Compute the cart of the reduced space.
 
         Parameters
@@ -1362,8 +1354,6 @@ class InterfaceCartDecomposition:
             The reduced cart.
         """
 
-        domain_decomposition = [self.domain_decomposition_minus, self.domain_decomposition_plus]
-        pads     = [self.pads_minus, self.pads_plus]
         comm     = self.comm
         axes     = [self.axis, self.axis]
         exts     = [self.ext_minus, self.ext_plus]
@@ -1374,7 +1364,7 @@ class InterfaceCartDecomposition:
         requests     = []
         num_threads  = self.num_threads
 
-        cart = InterfaceCartDecomposition(domain_decomposition, npts, global_starts, global_ends, pads, shifts, comm, axes, exts, ranks_in_topo, local_groups,
+        cart = InterfaceCartDecomposition(cart_minus, cart_plus, comm, axes, exts, ranks_in_topo, local_groups,
                                           local_communicators, root_ranks, requests, reduce_elements=True)
         cart._parent_starts = self.starts
         cart._parent_ends   = self.ends
