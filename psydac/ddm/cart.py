@@ -185,9 +185,7 @@ class DomainDecomposition:
         The number of processes assigned to the domain.
         This information is needed when comm is None (sequential case) or comm == MPI.COMM_NULL (MPI rank does not own the domain),
         to be able to calculate global_element_starts and global_element_ends.
-        
-        
-       
+
     """
 
     def __init__(self, ncells, periods, comm=None, global_comm=None, num_threads=None, size=None):
@@ -929,19 +927,19 @@ class InterfaceCartDecomposition:
         The extremities of the patches that share the interface.
 
     ranks_in_topo:
-        The ranks of the processes that shares the interface. 
+        The ranks of the processes that share the interface. 
 
     local_groups: list of MPI.Group
-        The groups that constucts the patches that shares the interface.
+        The groups that constucts the patches that share the interface.
 
     local_communicators: list of intra-communicators
-        The communicators of the patches that shares the interface.
+        The communicators of the patches that share the interface.
 
     root_ranks: list of ints
         The root ranks in the global communicator of the patches.
 
     requests: list of MPI.Request
-        the requests of the communications between the cartesian topologies that constucts the interface.
+        the requests of the communications between the cartesian topologies that share the interface.
 
     """
     def __init__(self, cart_minus, cart_plus, comm, axes, exts, ranks_in_topo, local_groups, local_communicators, root_ranks, requests, reduce_elements=False):
