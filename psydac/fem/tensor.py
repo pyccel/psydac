@@ -53,18 +53,17 @@ class TensorFemSpace( FemSpace ):
 
     """
 
-    def __init__( self, domain_decomposition, *args, **kwargs ):
+    def __init__( self, domain_decomposition, *spaces, vector_space=None, cart=None, quad_order=None ):
         """."""
         assert isinstance(domain_decomposition, DomainDecomposition)
-        assert all( isinstance( s, SplineSpace ) for s in args )
+        assert all( isinstance( s, SplineSpace ) for s in spaces )
         self._domain_decomposition = domain_decomposition
-        self._spaces = tuple(args)
+        self._spaces = tuple(spaces)
 
-        if kwargs.get('cart', None):
-            cart = kwargs['cart']
+        if cart is not None:
             self._vector_space = StencilVectorSpace(cart)
-        elif kwargs.get('vector_space', None):
-            self._vector_space = kwargs['vector_space']
+        elif vector_space is not None:
+            self._vector_space = vector_space
         else:
             cart               = create_cart([domain_decomposition], [self._spaces])
             self._vector_space = StencilVectorSpace(cart[0])
@@ -72,9 +71,10 @@ class TensorFemSpace( FemSpace ):
         # Shortcut
         v = self._vector_space
 
-        self._quad_order = kwargs.pop('quad_order', None)
-        if self._quad_order is None:
+        if quad_order is None:
             self._quad_order = [sp.degree for sp in self.spaces]
+        else:
+            self._quad_order = quad_order
 
         self._symbolic_space = None
         self._interfaces     = {}
