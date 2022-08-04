@@ -125,16 +125,16 @@ class Geometry( object ):
         if mapping.ldim == 2:
             domain = Square(name='Omega')
             mappings = {'Omega': mapping}
-            ncells   = {'Omega':mapping.space.domain.ncells}
-            periodic = {'Omega':mapping.space.domain.periods}
+            ncells   = {'Omega':mapping.space.domain_decomposition.ncells}
+            periodic = {'Omega':mapping.space.domain_decomposition.periods}
 
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
         elif mapping.ldim == 3:
             domain = Cube(name='Omega')
             mappings = {'Omega': mapping}
-            ncells   = {'Omega':mapping.space.domain.ncells}
-            periodic = {'Omega':mapping.space.domain.periods}
+            ncells   = {'Omega':mapping.space.domain_decomposition.ncells}
+            periodic = {'Omega':mapping.space.domain_decomposition.periods}
 
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
