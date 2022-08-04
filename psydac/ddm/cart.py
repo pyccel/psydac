@@ -923,10 +923,10 @@ class InterfaceCartDecomposition:
         MPI communicator that will be used to spawn the cart decomposition
 
     axes: list of ints
-        The axes of the patches that constuct the interface.
+        The axes of the patches that share the interface.
 
     exts: list of ints
-        The extremities of the patches that constuct the interface.
+        The extremities of the patches that share the interface.
 
     ranks_in_topo:
         The ranks of the processes that shares the interface. 
