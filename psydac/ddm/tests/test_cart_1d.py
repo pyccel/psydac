@@ -23,7 +23,7 @@ def run_cart_1d( verbose=False ):
     # Periodicity
     period1 = True
 
-    # Number of elements
+    # Number of Points
     n1 = nc1 + p1*(1-period1)
     #---------------------------------------------------------------------------
     # DOMAIN DECOMPOSITION

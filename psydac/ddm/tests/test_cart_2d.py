@@ -25,7 +25,7 @@ def run_cart_2d( verbose=False , nprocs=None, reverse_axis=None):
     period1 = True
     period2 = False
 
-    # Number of elements
+    # Number of Points
     n1 = nc1 + p1*(1-period1)
     n2 = nc2 + p2*(1-period2)
     #---------------------------------------------------------------------------

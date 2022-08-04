@@ -29,7 +29,7 @@ def run_cart_3d( verbose=False ):
     period2 = False
     period3 = True
 
-    # Number of elements
+    # Number of Points
     n1 = nc1 + p1*(1-period1)
     n2 = nc2 + p2*(1-period2)
     n3 = nc3 + p3*(1-period3)

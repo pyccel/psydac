@@ -68,7 +68,7 @@ def run_carts_2d():
 
     domain_decomposition =  MultiPatchDomainDecomposition(nc, P, comm=comm)
 
-    # Number of elements
+    # Number of Points
     n = [[ncij + pij*(1-periodij) for ncij,pij,periodij in zip(nci,pi,periodi)] for nci,pi,periodi in zip(nc,p,P)]
 
     carts = []
