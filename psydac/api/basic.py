@@ -31,7 +31,7 @@ class BasicCodeGen:
         The output folder where we generate the code.
 
     comm: MPI.Comm
-        The mpi communicator used in the paralle case.
+        The mpi communicator used in the parallel case.
 
     root: int
         The process that is responsible of generating the code.

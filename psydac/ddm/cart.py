@@ -37,7 +37,7 @@ def find_mpi_type( dtype ):
 class MultiPatchDomainDecomposition:
     """
     Cartesian decomposition of multiple N-Cube grids.
-    This is built on top of an MPI communicator decomposes into smaller disjoint intra-communicators
+    This is built on top of an MPI communicator decomposed into smaller disjoint intra-communicators
     assigned to each N-Cube grid to construct a multi-dimensional
     Cartesian topology.
 
@@ -47,7 +47,7 @@ class MultiPatchDomainDecomposition:
       The number of cells in each direction for each grid.
 
     periods: list of bool
-      The periodcity of the domain in each direction for each grid.
+      The periodicity of the domain in each direction for each grid.
 
     comm : MPI.Comm
         MPI communicator that will be used to spawn the grids.
@@ -182,7 +182,11 @@ class DomainDecomposition:
         Number of threads used by one MPI rank.
 
     size: int
-        the size the communicator comm (=1 if comm is None).
+        The number of process assigned to the domain.
+        This information is needed when comm is None (sequential case) or comm == MPI.COMM_NULL (MPI rank does not own the domain),
+        to be able to calculate global_element_starts and global_element_ends.
+        
+        
        
     """
 
@@ -903,8 +907,8 @@ class CartDecomposition():
 #===============================================================================
 class InterfaceCartDecomposition:
     """
-    The Cartesian decomposition of an interface constucted from the Cartesian decomposition of the patches that shares an interface.
-    This is built using a new inter-communicator between the cartition grids.
+    The Cartesian decomposition of an interface constructed from the Cartesian decomposition of the patches that shares an interface.
+    This is built using a new inter-communicator between the cartesian grids.
 
     Parameters
     ----------
@@ -919,10 +923,10 @@ class InterfaceCartDecomposition:
         MPI communicator that will be used to spawn the cart decomposition
 
     axes: list of ints
-        The axes of the patches that constucts the interface.
+        The axes of the patches that constuct the interface.
 
     exts: list of ints
-        The extremities of the patches that constucts the interface.
+        The extremities of the patches that constuct the interface.
 
     ranks_in_topo:
         The ranks of the processes that shares the interface. 
