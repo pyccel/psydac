@@ -771,6 +771,14 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                 bs[v] = [S.Zero]*dim
                 es[v] = [S.Zero]*dim
 
+#                bs and es contain the starts and the ends of the test function loops.
+#                This was an optimization when we had the ghost elements and it is not needed after removing them.
+#                They are not deleted because we can still use them when the communications take more time than the calculations,
+#                In that case, we can disable the communications and put back the ghost elements.
+#                Usualy, the communications take more time than the calculations when the degrees are small like 1 or 2,
+#                and/or the number of processes is really big which makes the elements owned by a process really small and the calculations really fast.
+#                This optimization can be added after improving the communications.
+
             if all(a==1 for a in m_tests[sub_tests[0]]+m_trials[sub_trials[0]]):
                 stmts = []
                 for v in sub_tests+sub_trials:
