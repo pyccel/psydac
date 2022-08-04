@@ -901,7 +901,7 @@ class CartDecomposition():
         return info
 
 #===============================================================================
-class InterfaceCartDecomposition(CartDecomposition):
+class InterfaceCartDecomposition:
     """
     The Cartesian decomposition of an interface constucted from the Cartesian decomposition of the patches that shares an interface.
     This is built using a new inter-communicator between the cartition grids.
@@ -1261,6 +1261,34 @@ class InterfaceCartDecomposition(CartDecomposition):
         return self._axis
 
     @property
+    def npts( self ):
+        return self._npts
+
+    @property
+    def pads( self ):
+        return self._pads
+
+    @property
+    def periods( self ):
+        return self._periods
+
+    @property
+    def shifts( self ):
+        return self._shifts
+
+    @property
+    def global_starts( self ):
+        return self._global_starts
+
+    @property
+    def global_ends( self ):
+        return self._global_ends
+
+    @property
+    def domain_decomposition( self ):
+        return self._domain_decomposition
+
+    @property
     def comm( self ):
         return self._comm
 
@@ -1275,6 +1303,10 @@ class InterfaceCartDecomposition(CartDecomposition):
     @property
     def is_parallel( self ):
         return self._comm is not None
+
+    @property
+    def num_threads( self ):
+        return self._num_threads
     #---------------------------------------------------------------------------
     # Local properties
     #---------------------------------------------------------------------------
@@ -1285,6 +1317,14 @@ class InterfaceCartDecomposition(CartDecomposition):
     @property
     def ends( self ):
         return self._ends
+
+    @property
+    def coords( self ):
+        return self._coords
+
+    @property
+    def shape( self ):
+        return self._shape
 
     @property
     def parent_starts( self ):
