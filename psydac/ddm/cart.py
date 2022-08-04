@@ -1272,6 +1272,9 @@ class InterfaceCartDecomposition:
     def is_comm_null( self ):
         return self._intercomm == MPI.COMM_NULL
 
+    @property
+    def is_parallel( self ):
+        return self._comm is not None
     #---------------------------------------------------------------------------
     # Local properties
     #---------------------------------------------------------------------------
