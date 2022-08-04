@@ -182,7 +182,7 @@ class DomainDecomposition:
         Number of threads used by one MPI rank.
 
     size: int
-        The number of process assigned to the domain.
+        The number of processes assigned to the domain.
         This information is needed when comm is None (sequential case) or comm == MPI.COMM_NULL (MPI rank does not own the domain),
         to be able to calculate global_element_starts and global_element_ends.
         
