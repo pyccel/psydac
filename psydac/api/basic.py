@@ -59,6 +59,7 @@ class BasicCodeGen:
  
     backend: dict
         The backend used to accelerate the computing kernels.
+        The content of the dictionary can be found in psydac/api/settings.py.
 
     """
     def __init__(self, expr, *, folder=None, comm=None, root=None, discrete_space=None,
