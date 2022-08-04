@@ -901,7 +901,7 @@ class CartDecomposition():
         return info
 
 #===============================================================================
-class InterfaceCartDecomposition:
+class InterfaceCartDecomposition(CartDecomposition):
     """
     The Cartesian decomposition of an interface constucted from the Cartesian decomposition of the patches that shares an interface.
     This is built using a new inter-communicator between the cartition grids.
