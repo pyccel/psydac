@@ -505,8 +505,8 @@ class CartDecomposition():
         # TODO: check that arguments are identical across all processes
         assert len( npts ) == len( global_starts ) == len( global_ends ) == len( pads ) == len(shifts)
         assert all( n >=1 for n in npts   )
-        assert all( all(n >=0) for n in global_starts )
-        assert all( all(n >=0) for n in global_ends )
+        assert all( all([ni >= 0 for ni in n]) for n in global_starts )
+        assert all( all([ni >= 0 for ni in n]) for n in global_ends )
         assert all( p >=0 for p in pads )
 
         # Store input arguments
