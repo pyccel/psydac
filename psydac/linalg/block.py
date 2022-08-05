@@ -192,7 +192,6 @@ class BlockVector( Vector ):
             else:
                 raise NotImplementedError("This case is not treated")
 
-
         for i,j in V.connectivity:
             if len(self._data_exchangers.get((i,j), [])) == 0:
                 self._data_exchangers.pop((i,j), None)
@@ -260,7 +259,6 @@ class BlockVector( Vector ):
     def __imul__( self, a ):
         for b in self._blocks:
             b *= a
-
         return self
 
     #...
