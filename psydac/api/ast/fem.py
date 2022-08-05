@@ -442,7 +442,6 @@ class AST(object):
         else:
             d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f),
                             'local' : LocalTensorQuadratureTestBasis(f),
-
                             'span': GlobalSpanArray(f),
                             'local_span': LocalSpanArray(f)} for i,f in enumerate(fields)}
 

@@ -943,7 +943,6 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
                         if cart_i.is_comm_null and cart_j.is_comm_null:break
                         if not cart_i.is_comm_null and not cart_j.is_comm_null:break
-
                         if not (axis_i, ext_i) in Vik1.interfaces: break
                         cart_ij = Vik1.interfaces[axis_i, ext_i].cart
                         assert isinstance(cart_ij, InterfaceCartDecomposition)
@@ -968,7 +967,6 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                         if block_ij_k1k2:
                             if not cart_i.is_comm_null:
                                 block_ij_k1k2 = block_ij.pop((k1,k2))
-
                                 info = (block_ij_k1k2.domain_start, block_ij_k1k2.codomain_start, block_ij_k1k2.flip, block_ij_k1k2.pads)
                                 cart_ij.intercomm.bcast(info, root= root)
                             else:
@@ -1000,7 +998,6 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
                         if cart_i.is_comm_null and cart_j.is_comm_null:break
                         if not cart_i.is_comm_null and not cart_j.is_comm_null:break
-
                         if not (axis_i, ext_i) in Vik1.interfaces: break
                         interface_cart_i = Vik1.interfaces[axis_i, ext_i].cart
                         interface_cart_j = Vjk2.interfaces[axis_j, ext_j].cart
@@ -1028,7 +1025,6 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                         if block_ji_k2k1:
                             if not cart_j.is_comm_null:
                                 block_ji_k2k1 = block_ji.pop((k2,k1))
-
                                 info = (block_ji_k2k1.domain_start, block_ji_k2k1.codomain_start, block_ji_k2k1.flip, block_ji_k2k1.pads)
                                 interface_cart_i.intercomm.bcast(info, root= root)
                             else:
