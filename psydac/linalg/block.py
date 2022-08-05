@@ -245,7 +245,7 @@ class BlockVector( Vector ):
         assert isinstance( v, BlockVector )
         assert v._space is self._space
         w = BlockVector( self._space, [b1+b2 for b1,b2 in zip( self._blocks, v._blocks )] )
-        w._sync = False
+        w._sync = self._sync and v._sync
         return w
 
     #...
@@ -253,14 +253,14 @@ class BlockVector( Vector ):
         assert isinstance( v, BlockVector )
         assert v._space is self._space
         w = BlockVector( self._space, [b1-b2 for b1,b2 in zip( self._blocks, v._blocks )] )
-        w._sync = False
+        w._sync = self._sync and v._sync
         return w
 
     #...
     def __imul__( self, a ):
         for b in self._blocks:
             b *= a
-        self._sync = False
+        w._sync = self._sync and v._sync
         return self
 
     #...
@@ -269,7 +269,7 @@ class BlockVector( Vector ):
         assert v._space is self._space
         for b1,b2 in zip( self._blocks, v._blocks ):
             b1 += b2
-        self._sync = False
+        w._sync = self._sync and v._sync
         return self
 
     #...
@@ -278,7 +278,7 @@ class BlockVector( Vector ):
         assert v._space is self._space
         for b1,b2 in zip( self._blocks, v._blocks ):
             b1 -= b2
-        self._sync = False
+        w._sync = self._sync and v._sync
         return self
 
     #--------------------------------------
@@ -381,9 +381,9 @@ class BlockVector( Vector ):
                 self._interface_buf[i,j].append(tuple(buf))
 
     # ...
-    def update_assembly_ghost_regions( self ):
+    def exchange_assembly_data( self ):
         for vi in self.blocks:
-            vi.update_assembly_ghost_regions()
+            vi.exchange_assembly_data()
 
     # ...
     @property
@@ -575,9 +575,9 @@ class BlockLinearOperator( LinearOperator ):
             Lij.update_ghost_regions()
 
     # ...
-    def update_assembly_ghost_regions( self ):
+    def exchange_assembly_data( self ):
         for Lij in self._blocks.values():
-            Lij.update_assembly_ghost_regions()
+            Lij.exchange_assembly_data()
 
     # ...
     def remove_spurious_entries( self ):

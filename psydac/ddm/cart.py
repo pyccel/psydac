@@ -1806,7 +1806,7 @@ class CartDataExchanger:
         MPI.Request.Waitall( requests )
 
     # ...
-    def update_assembly_ghost_regions( self, array ):
+    def exchange_assembly_data( self, array ):
         """
         Update ghost regions after the assembly algorithm in a numpy array with dimensions compatible with
         CartDecomposition (and coeff_shape) provided at initialization.

@@ -675,21 +675,17 @@ class StencilVector( Vector ):
             self._data[idx_ghost] = 0
 
     # ...
-    def update_assembly_ghost_regions( self ):
+    def exchange_assembly_data( self ):
         """
-        Update ghost regions after performing the assembly algorithm.
-        Parameters
-        ----------
-        direction : int
-            Single direction along which to operate (if not specified, all of them).
+        Exchange assembly data.
         """
 
         if self.space.parallel and not self.space.cart.is_comm_null:
             # PARALLEL CASE: fill in ghost regions with data from neighbors
-            self.space._synchronizer.update_assembly_ghost_regions( self._data )
+            self.space._synchronizer.exchange_assembly_data( self._data )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
-            self._update_assembly_ghost_regions_serial()
+            self._exchange_assembly_data_serial()
 
         ndim     = self._space.ndim
         for direction in range(ndim):
@@ -703,7 +699,7 @@ class StencilVector( Vector ):
             idx_from = tuple( idx_front + [ slice(0,m*p)] + idx_back )
             self._data[idx_from] = 0.
     # ...
-    def _update_assembly_ghost_regions_serial( self ):
+    def _exchange_assembly_data_serial( self ):
 
         ndim = self._space.ndim
         for direction in range(ndim):
@@ -1180,19 +1176,19 @@ class StencilMatrix( Matrix ):
         self._sync = True
 
     # ...
-    def update_assembly_ghost_regions( self ):
+    def exchange_assembly_data( self ):
         """
-        Update ghost regions after the assembly algorithm.
+        Exchange assembly data.
         """
         ndim     = self._codomain.ndim
         parallel = self._codomain.parallel
 
         if self._codomain.parallel:
             # PARALLEL CASE: fill in ghost regions with data from neighbors
-            self._synchronizer.update_assembly_ghost_regions( self._data )
+            self._synchronizer.exchange_assembly_data( self._data )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
-            self._update_assembly_ghost_regions_serial()
+            self._exchange_assembly_data_serial()
 
         ndim = self._codomain.ndim
         for direction in range(ndim):
@@ -1207,7 +1203,7 @@ class StencilMatrix( Matrix ):
             self._data[idx_from] = 0.
 
     # ...
-    def _update_assembly_ghost_regions_serial( self ):
+    def _exchange_assembly_data_serial( self ):
 
         ndim     = self._codomain.ndim
         for direction in range(ndim):
@@ -2346,22 +2342,22 @@ class StencilInterfaceMatrix(Matrix):
             self._data[idx_ghost] = 0
 
     # ...
-    def update_assembly_ghost_regions( self ):
+    def exchange_assembly_data( self ):
         """
-        Update ghost regions after the assembly algorithm.
+        Exchange assembly data.
         """
         ndim     = self._codomain.ndim
         parallel = self._codomain.parallel
 
         if self._codomain.parallel:
             # PARALLEL CASE: fill in ghost regions with data from neighbors
-            self._synchronizer.update_assembly_ghost_regions( self._data )
+            self._synchronizer.exchange_assembly_data( self._data )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
-            self._update_assembly_ghost_regions_serial()
+            self._exchange_assembly_data_serial()
 
     # ...
-    def _update_assembly_ghost_regions_serial( self ):
+    def _exchange_assembly_data_serial( self ):
 
         ndim     = self._codomain.ndim
         for direction in range(ndim):
