@@ -260,7 +260,7 @@ class BlockVector( Vector ):
     def __imul__( self, a ):
         for b in self._blocks:
             b *= a
-        w._sync = self._sync and v._sync
+
         return self
 
     #...
@@ -269,7 +269,7 @@ class BlockVector( Vector ):
         assert v._space is self._space
         for b1,b2 in zip( self._blocks, v._blocks ):
             b1 += b2
-        w._sync = self._sync and v._sync
+        self._sync = self._sync and v._sync
         return self
 
     #...
@@ -278,7 +278,7 @@ class BlockVector( Vector ):
         assert v._space is self._space
         for b1,b2 in zip( self._blocks, v._blocks ):
             b1 -= b2
-        w._sync = self._sync and v._sync
+        self._sync = self._sync and v._sync
         return self
 
     #--------------------------------------
