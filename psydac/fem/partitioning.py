@@ -193,8 +193,8 @@ def create_interfaces_cart(domain_decomposition, carts, connectivity=None):
 
     domain_decomposition: MultiPatchDomainDecomposition
 
-    cart: <CartDecomposition|MultiCartDecomposition>
-        Cartesian decomposition of the coefficient space.
+    carts: list of CartDecomposition
+        Cartesian decomposition of the coefficient space for each patch.
 
     connectivity: dict
        The connectivity of the multipatch domain.
