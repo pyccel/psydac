@@ -280,7 +280,8 @@ class DenseVector( Vector ):
     # ...
     @ghost_regions_in_sync.setter
     def ghost_regions_in_sync( self, value ):
-        self._sync = True
+        pass
+
 #==============================================================================
 class DenseMatrix( Matrix ):
 

@@ -143,7 +143,7 @@ def do_nothing(*args): return 0
 #==============================================================================
 class DiscreteBilinearForm(BasicDiscrete):
     """ Class that represents the concept of a discrete bi-linear form.
-        This class allocate the matrix and generates the matrix assembly method.
+        This class allocates the matrix and generates the matrix assembly method.
 
     Parameters
     ----------
@@ -162,6 +162,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     matrix: Matrix
         The matrix that we assemble into it.
+        If not provided, it will create a new Matrix of the appropriate space.
 
     update_ghost_regions: bool
         Accumulate the contributions of the neighbouring processes.
@@ -171,15 +172,18 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     backend: dict
         The backend used to accelerate the computing kernels.
+        The backend dictionaries are defined in the file psydac/api/settings.py
 
     assembly_backend: dict
         The backend used to accelerate the assembly method.
+        The backend dictionaries are defined in the file psydac/api/settings.py
 
     linalg_backend: dict
         The backend used to accelerate the computing kernels of the linear operator.
+        The backend dictionaries are defined in the file psydac/api/settings.py
 
     symbolic_mapping: Sympde.topology.Mapping
-        The symbolic mapping of the bi-linear form domain.
+        The symbolic mapping which defines the physical domain of the bi-linear form.
 
     """
     def __init__(self, expr, kernel_expr, domain_h, spaces, *, matrix=None, update_ghost_regions=True,
@@ -764,13 +768,13 @@ class DiscreteBilinearForm(BasicDiscrete):
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
     """ Class that represents the concept of a discrete linear form.
-        This class allocate the vector and generates the vector assembly method.
+        This class allocates the vector and generates the vector assembly method.
 
     Parameters
     ----------
 
     expr : sympde.expr.expr.LinearForm
-        The symbolic bi-linear form.
+        The symbolic linear form.
 
     kernel_expr : sympde.expr.evaluation.KernelExpression
         The atomic representation of the linear form.
@@ -779,10 +783,11 @@ class DiscreteLinearForm(BasicDiscrete):
         The discretized domain
 
     space : FemSpace
-        The discrete spaces.
+        The discrete space.
 
     vector : Vector
         The vector that we assemble into it.
+        If not provided, it will create a new Vector of the appropriate space.
 
     update_ghost_regions : bool
         Accumulate the contributions of the neighbouring processes.
@@ -792,9 +797,10 @@ class DiscreteLinearForm(BasicDiscrete):
 
     backend : dict
         The backend used to accelerate the computing kernels.
+        The backend dictionaries are defined in the file psydac/api/settings.py
 
     symbolic_mapping : Sympde.topology.Mapping
-        The symbolic mapping of the bi-linear form domain.
+        The symbolic mapping which defines the physical domain of the linear form.
 
     """
     def __init__(self, expr, kernel_expr, domain_h, space, *, vector=None,
@@ -1144,7 +1150,7 @@ class DiscreteFunctional(BasicDiscrete):
         The discretized domain
 
     space : FemSpace
-        The discrete spaces.
+        The discrete space.
 
     update_ghost_regions : bool
         Accumulate the contributions of the neighbouring processes.
@@ -1154,9 +1160,10 @@ class DiscreteFunctional(BasicDiscrete):
 
     backend : dict
         The backend used to accelerate the computing kernels.
+        The backend dictionaries are defined in the file psydac/api/settings.py
 
     symbolic_mapping : Sympde.topology.Mapping
-        The symbolic mapping of the bi-linear form domain.
+        The symbolic mapping which defines the physical domain of the functional form.
 
     """
     def __init__(self, expr, kernel_expr, domain_h, space, *, quad_order=None,

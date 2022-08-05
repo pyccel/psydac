@@ -200,8 +200,8 @@ class DirectionalDerivativeOperator(Matrix):
         m_d = self._spaceW.npts[self._diffdir]
 
         domain_1d = DomainDecomposition([nc], [periodic_d])
-        cart1_1d  = CartDecomposition( domain_1d, [n_d], [np.array([0])], [np.array([n_d-1])], [p_d], [1] )
-        cart2_1d  = CartDecomposition( domain_1d, [m_d], [np.array([0])], [np.array([m_d-1])], [p_d], [1] )
+        cart1_1d  = CartDecomposition( domain_1d, [n_d], [[0]], [[n_d-1]], [p_d], [1] )
+        cart2_1d  = CartDecomposition( domain_1d, [m_d], [[0]], [[m_d-1]], [p_d], [1] )
         V1_d = StencilVectorSpace(cart1_1d)
         V2_d = StencilVectorSpace(cart2_1d)
         M  = StencilMatrix(V1_d, V2_d)
@@ -222,7 +222,7 @@ class DirectionalDerivativeOperator(Matrix):
             p_i = self._domain.pads[i]
             periodic_i = self._domain.periods[i]
             domain_1d  = DomainDecomposition([nc], [periodic_i])
-            cart       = CartDecomposition( domain_1d, [n_i], [np.array([0])], [np.array([n_i-1])], [p_i], [1] )
+            cart       = CartDecomposition( domain_1d, [n_i], [[0]], [[n_i-1]], [p_i], [1] )
             return IdentityStencilMatrix(StencilVectorSpace(cart))
 
         # combine to Kronecker matrix

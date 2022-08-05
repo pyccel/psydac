@@ -133,7 +133,7 @@ def create_cart(domain_decomposition, spaces):
 
     Parameters
     ----------
-    domain_decomposition : DomainDecomposition
+    domain_decomposition : DomainDecomposition|tuple of DomainDecomposition
 
     spaces : list of list of 1D global Spline spaces
      The 1D global spline spaces that will be distributed.
@@ -141,7 +141,8 @@ def create_cart(domain_decomposition, spaces):
     Returns
     -------
     cart : tuple of CartDecomposition
-        Cartesian decompositions of the coefficient spaces.
+        Cartesian decomposition of the coefficient space for each patch in the domain.
+        
 
     """
 
@@ -185,7 +186,7 @@ def create_cart(domain_decomposition, spaces):
 def create_interfaces_cart(domain_decomposition, carts, connectivity=None):
     """
     Decompose the interface coefficients using the domain decomposition of each patch.
-    For each interface we contruct an inter-communicator that groups the coefficients of the interface from each side.
+    For each interface we construct an inter-communicator that groups the coefficients of the interface from each side.
 
     Parameters
     ----------
@@ -263,6 +264,25 @@ def construct_interface_spaces(domain_decomposition, g_spaces, carts, interiors,
         g_spaces[interiors[j]].create_interface_space(axis_plus , ext_plus , cart=cart_plus)
 
 def construct_reduced_interface_spaces(spaces, reduced_spaces, interiors, connectivity):
+    """
+    Create the reduced spaces for the interface coefficients.
+
+    Parameters
+    ----------
+
+    spaces: dict
+        The tensor FEM spaces that we want to reduce for each patch.
+
+    reduced_spaces: dict
+        The reduced coefficient space for each patch.
+
+    interiors: list of Sympde.topology.Domain
+        The patches that construct the multipatch domain.
+        
+    connectivity: dict
+       The connectivity of the multipatch domain.
+
+    """
     for i,j in connectivity:
         ((axis_i, ext_i), (axis_j , ext_j)) = connectivity[i, j]
 

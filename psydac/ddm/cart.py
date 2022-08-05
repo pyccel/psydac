@@ -179,16 +179,18 @@ class DomainDecomposition:
     periods: list of bool
       The periodcity of the domain in each direction.
 
-    comm : MPI.Comm
+    comm : MPI.Comm|None
         MPI communicator that will be used to spawn a new Cartesian communicator.
+        In the serial case comm == None.
 
-    global_comm : MPI.Comm
+    global_comm : MPI.Comm|None
         MPI global communicator that contains all the processes owned by comm.
+        In the serial case comm == None.
 
-    num_threads: int
+    num_threads: int|None
         Number of threads used by one MPI rank.
 
-    size: int
+    size: int|None
         The number of processes assigned to the domain.
         This information is needed when comm is None (sequential case) or comm == MPI.COMM_NULL (MPI rank does not own the domain),
         to be able to calculate global_element_starts and global_element_ends.
@@ -510,8 +512,8 @@ class CartDecomposition():
         # Store input arguments
         self._domain_decomposition = domain_decomposition
         self._npts          = tuple( npts    )
-        self._global_starts = tuple( global_starts  )
-        self._global_ends   = tuple( global_ends    )
+        self._global_starts = tuple( [ np.asarray(gs) for gs in global_starts]  )
+        self._global_ends   = tuple( [ np.asarray(ge) for ge in global_ends]    )
         self._pads          = tuple( pads    )
         self._shifts        = tuple( shifts  )
         self._periods       = domain_decomposition.periods
