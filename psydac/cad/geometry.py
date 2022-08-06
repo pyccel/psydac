@@ -23,12 +23,41 @@ from psydac.fem.tensor         import TensorFemSpace
 from psydac.fem.partitioning   import create_cart, construct_connectivity, construct_interface_spaces
 from psydac.mapping.discrete   import SplineMapping, NurbsMapping
 from psydac.linalg.block       import BlockVectorSpace, BlockVector
+from psydac.ddm.cart           import DomainDecomposition, MultiPatchDomainDecomposition
+
 
 from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, Mapping
 from sympde.topology.basic import Union
 
 #==============================================================================
 class Geometry( object ):
+    """
+    Distributed discrete geometry that works for single and multiple patches.
+    The Geometry object can be created in two ways:
+    - case 1 : through a geometry file whos name can be given to the constructor
+    - case 2 : provide the ncells, the periodicity and the mapping objects of each patch.
+
+    Parameters
+    ----------
+    domain : Sympde.topology.Domain
+        The symbolic domain to be discretized.
+
+    ncells : list | tuple | dict
+        The number of cells of the discretized topological domain in each direction.
+
+    periodic : list | tuple | dict
+        The periodicity of the topological domain in each direction.
+
+    mappings : dict
+        The Mapping of each patch.
+
+    filename: str
+       The path to the geometry file.
+
+    comm: MPI.Comm
+        MPI intra-communicator.
+  
+    """
     _ldim     = None
     _pdim     = None
     _patches  = []
@@ -37,7 +66,7 @@ class Geometry( object ):
     #--------------------------------------------------------------------------
     # Option [1]: from a (domain, mappings) or a file
     #--------------------------------------------------------------------------
-    def __init__( self, domain=None, mappings=None,
+    def __init__( self, domain=None, ncells=None, periodic=None, mappings=None,
                   filename=None, comm=None ):
 
         # ... read the geometry if the filename is given
@@ -45,9 +74,11 @@ class Geometry( object ):
             self.read(filename, comm=comm)
 
         elif not( domain is None ):
-            assert( isinstance( domain, Domain ) )
-            assert( not( mappings is None ))
+            assert isinstance( domain, Domain ) 
+            assert isinstance( ncells, dict)
             assert isinstance( mappings, dict)
+            if periodic is not None:
+                assert isinstance( periodic, dict)
 
             # ... check sanity
             interior_names = sorted(domain.interior_names)
@@ -56,11 +87,25 @@ class Geometry( object ):
             assert( interior_names == mappings_keys )
             # ...
 
+            if periodic is None:
+                periodic = {patch:[False]*len(ncells_i) for patch,ncells_i in ncells.items()}
+
             self._domain   = domain
             self._ldim     = domain.dim
             self._pdim     = domain.dim # TODO must be given => only dim is  defined for a Domain
+            self._ncells   = ncells
+            self._periodic = periodic
             self._mappings = mappings
             self._cart     = None
+            self._is_parallel = comm is not None
+
+            if len(domain) == 1:
+                self._ddm = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm)
+            else:
+                ncells    = [ncells[itr.name] for itr in domain.interior]
+                periodic  = [periodic[itr.name] for itr in domain.interior]
+                self._ddm = MultiPatchDomainDecomposition(ncells, periodic, comm=comm)
+
 
         else:
             raise ValueError('Wrong input')
@@ -80,20 +125,24 @@ class Geometry( object ):
         if mapping.ldim == 2:
             domain = Square(name='Omega')
             mappings = {'Omega': mapping}
+            ncells   = {'Omega':mapping.space.domain_decomposition.ncells}
+            periodic = {'Omega':mapping.space.domain_decomposition.periods}
 
-            return Geometry(domain=domain, mappings=mappings, comm=comm)
+            return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
         elif mapping.ldim == 3:
             domain = Cube(name='Omega')
             mappings = {'Omega': mapping}
+            ncells   = {'Omega':mapping.space.domain_decomposition.ncells}
+            periodic = {'Omega':mapping.space.domain_decomposition.periods}
 
-            return Geometry(domain=domain, mappings=mappings, comm=comm)
+            return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
     #--------------------------------------------------------------------------
     # Option [3]: discrete topological line/square/cube
     #--------------------------------------------------------------------------
     @classmethod
-    def from_topological_domain(cls, domain, ncells, comm=None):
+    def from_topological_domain(cls, domain, ncells, *, periodic=None, comm=None):
         interior = domain.interior
         if not isinstance(interior, Union):
             interior = [interior]
@@ -105,8 +154,16 @@ class Geometry( object ):
                 raise TypeError(msg)
 
         mappings = {itr.name: None for itr in interior}
-        geo = Geometry(domain=domain, mappings=mappings, comm=comm)
-        geo.ncells = ncells
+        if isinstance(ncells, (list, tuple)):
+            ncells = {itr.name:ncells for itr in interior}
+
+        if periodic is None:
+            periodic = [False]*domain.dim
+
+        if isinstance(periodic, (list, tuple)):
+            periodic = {itr.name:periodic for itr in interior}
+
+        geo = Geometry(domain=domain, mappings=mappings, ncells=ncells, periodic=periodic, comm=comm)
 
         return geo
 
@@ -120,6 +177,14 @@ class Geometry( object ):
         return self._pdim
 
     @property
+    def ncells(self):
+        return self._ncells
+
+    @property
+    def periodic(self):
+        return self._periodic
+
+    @property
     def comm(self):
         return self._comm
 
@@ -128,8 +193,12 @@ class Geometry( object ):
         return self._domain
 
     @property
-    def cart(self):
-        return self._cart
+    def ddm(self):
+        return self._ddm
+
+    @property
+    def is_parallel(self):
+        return self._is_parallel
 
     @property
     def mappings(self):
@@ -177,6 +246,8 @@ class Geometry( object ):
 
         # ... read patchs
         mappings = {}
+        ncells   = {}
+        periodic = {}
         spaces   = [None]*n_patches
         for i_patch in range( n_patches ):
 
@@ -187,37 +258,32 @@ class Geometry( object ):
             patch = h5[mapping_id]
             if dtype in ['SplineMapping', 'NurbsMapping']:
 
-                degree   = [int (p) for p in patch.attrs['degree'  ]]
-                periodic = [bool(b) for b in patch.attrs['periodic']]
-                knots    = [patch['knots_{}'.format(d)][:] for d in range( ldim )]
-                space_i  = [SplineSpace( degree=p, knots=k, periodic=b )
-                            for p,k,b in zip( degree, knots, periodic )]
+                degree     = [int (p) for p in patch.attrs['degree'  ]]
+                periodic_i = [bool(b) for b in patch.attrs['periodic']]
+                knots      = [patch['knots_{}'.format(d)][:] for d in range( ldim )]
+                space_i    = [SplineSpace( degree=p, knots=k, periodic=P )
+                            for p,k,P in zip( degree, knots, periodic_i )]
 
                 spaces[i_patch] = space_i
 
-        assert all(spaces)
+                ncells  [interiors[i_patch].name] = [sp.ncells for sp in space_i]
+                periodic[interiors[i_patch].name] = periodic_i
+
         self._cart = None
-        if comm is not None:
-            cart = create_cart(spaces, comm)
-            self._cart = cart
-            if n_patches == 1:
-                carts = [cart]
-            else:
-                carts = cart.carts
+        if n_patches == 1:
+            self._ddm = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm)
+            ddms      = [self._ddm]
+        else:
+            ncells    = [ncells[itr.name] for itr in interiors]
+            periodic  = [periodic[itr.name] for itr in interiors]
+            self._ddm = MultiPatchDomainDecomposition(ncells, periodic, comm=comm)
+            ddms      = self._ddm.domains
 
-        g_spaces = {}
-        for i_patch in range( n_patches ):
-
-            if comm is None:
-                tensor_space = TensorFemSpace( *spaces[i_patch] )
-            else:
-                tensor_space = TensorFemSpace( *spaces[i_patch], cart=carts[i_patch])
-
-            g_spaces[interiors[i_patch]] = tensor_space
+        carts    = create_cart(ddms, spaces)
+        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i]) for i,inter in enumerate(interiors)}
 
         # ... construct interface spaces
-        if n_patches>1:
-            construct_interface_spaces(g_spaces, self._cart, interiors, connectivity)
+        construct_interface_spaces(self._ddm, g_spaces, carts, interiors, connectivity)
 
         for i_patch in range( n_patches ):
 
@@ -228,7 +294,6 @@ class Geometry( object ):
             patch = h5[mapping_id]
             space_i = spaces[i_patch]
             if dtype in ['SplineMapping', 'NurbsMapping']:
-
                 tensor_space = g_spaces[interiors[i_patch]]
 
                 if dtype == 'SplineMapping':
@@ -280,10 +345,14 @@ class Geometry( object ):
         # ...
 
         # ...
-        self._ldim       = ldim
-        self._pdim       = pdim
-        self._mappings   = mappings
-        self._domain     = domain
+        self._ldim        = ldim
+        self._pdim        = pdim
+        self._mappings    = mappings
+        self._domain      = domain
+        self._comm        = comm
+        self._ncells      = ncells
+        self._periodic    = periodic
+        self._is_parallel = comm is not None
         # ...
 
     def export( self, filename ):

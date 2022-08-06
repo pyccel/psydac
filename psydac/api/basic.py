@@ -22,20 +22,55 @@ __all__ = ('BasicCodeGen', 'BasicDiscrete')
 #==============================================================================
 # TODO have it as abstract class
 class BasicCodeGen:
-    """ Basic class for any discrete concept that needs code generation """
+    """ Basic class for any discrete concept that needs code generation.
 
-    def __init__(self, expr, **kwargs):
+    Parameters
+    ----------
+
+    folder: str
+        The output folder where we generate the code.
+
+    comm: MPI.Comm
+        The mpi communicator used in the parallel case.
+
+    root: int
+        The process that is responsible of generating the code.
+
+    discrete_space: FemSpace | list of FemSpace
+        The discrete fem spaces.
+
+    kernel_expr : sympde.expr.evaluation.KernelExpression
+        The atomic representation of the bi-linear form.
+
+    quad_order: list of tuple
+        The number of quadrature points used in the assembly method.
+
+    is_rational_mapping : bool
+        takes the value of True if the mapping is rational.
+
+    mapping: Sympde.topology.Mapping
+        The symbolic mapping of the bi-linear form domain.
+
+    mapping_space: FemSpace
+       The discete space of the mapping.
+
+    num_threads: int
+       Number of threads used in the computing kernels.
+ 
+    backend: dict
+        The backend used to accelerate the computing kernels.
+        The content of the dictionary can be found in psydac/api/settings.py.
+
+    """
+    def __init__(self, expr, *, folder=None, comm=None, root=None, discrete_space=None,
+                       kernel_expr=None, quad_order=None, is_rational_mapping=None, mapping=None,
+                       mapping_space=None, num_threads=None, backend=None):
 
         # Get default backend from environment, or use 'python'.
         default_backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))\
                        or PSYDAC_BACKENDS['python']
 
-        namespace = kwargs.pop('namespace', globals())
-        backend   = kwargs.pop('backend', None) or default_backend
-        folder    = kwargs.pop('folder', None)
-        comm      = kwargs.pop('comm', None)
-        root      = kwargs.pop('root', None)
-
+        backend   = backend or default_backend
         # ...
         if not( comm is None) and comm.size>1:
             if root is None:
@@ -46,7 +81,10 @@ class BasicCodeGen:
 
             if comm.rank == root:
                 tag = random_string( 8 )
-                ast = self._create_ast( expr, tag, comm=comm, backend=backend, **kwargs )
+                ast = self._create_ast( expr=expr, tag=tag, comm=comm, discrete_space=discrete_space,
+                           kernel_expr=kernel_expr, quad_order=quad_order, is_rational_mapping=is_rational_mapping,
+                           mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend )
+
                 max_nderiv = ast.nderiv
                 func_name = ast.expr.name
                 arguments = ast.expr.arguments.copy()
@@ -67,7 +105,10 @@ class BasicCodeGen:
             #user_functions = comm.bcast( user_functions, root=root )
         else:
             tag = random_string( 8 )
-            ast = self._create_ast( expr, tag, backend=backend, **kwargs )
+            ast = self._create_ast( expr=expr, tag=tag, discrete_space=discrete_space,
+                       kernel_expr=kernel_expr, quad_order=quad_order, is_rational_mapping=is_rational_mapping,
+                       mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend )
+
             max_nderiv = ast.nderiv
             func_name = ast.expr.name
             arguments = ast.expr.arguments.copy()
@@ -106,7 +147,7 @@ class BasicCodeGen:
 
         if comm is not None and comm.size>1: comm.Barrier()
         # compile code
-        self._compile(namespace)
+        self._compile()
 
     @property
     def expr(self):
@@ -204,10 +245,10 @@ class BasicCodeGen:
         # ...
         write_code(self._dependencies_fname, code, folder = self.folder)
 
-    def _compile_pythran(self, namespace, mod):
+    def _compile_pythran(self, mod):
         raise NotImplementedError('Pythran is not available')
 
-    def _compile_pyccel(self, namespace, mod, verbose=False):
+    def _compile_pyccel(self, mod, verbose=False):
 
         # ... convert python to fortran using pyccel
         compiler       = self.backend['compiler']
@@ -227,7 +268,7 @@ class BasicCodeGen:
 
         return fmod
 
-    def _compile(self, namespace):
+    def _compile(self):
 
         module_name = self.dependencies_modname
         sys.path.append(self.folder)
@@ -235,9 +276,9 @@ class BasicCodeGen:
         sys.path.remove(self.folder)
 
         if self.backend['name'] == 'pyccel':
-            package = self._compile_pyccel(namespace, package)
+            package = self._compile_pyccel(package)
         elif self.backend['name'] == 'pythran':
-            package = self._compile_pythran(namespace, package)
+            package = self._compile_pythran(package)
 
         self._func = getattr(package, self._func_name)
 
@@ -247,10 +288,13 @@ class BasicDiscrete(BasicCodeGen):
     kwargs is used to pass user defined functions for the moment.
     """
 
-    def __init__(self, expr, kernel_expr, **kwargs):
+    def __init__(self, expr, kernel_expr, *, folder=None, comm=None, root=None, discrete_space=None,
+                       quad_order=None, is_rational_mapping=None, mapping=None,
+                       mapping_space=None, num_threads=None, backend=None):
 
-        kwargs['kernel_expr'] = kernel_expr
-        BasicCodeGen.__init__(self, expr, **kwargs)
+        BasicCodeGen.__init__(self, expr, folder=folder, comm=comm, root=root, discrete_space=discrete_space,
+                       kernel_expr=kernel_expr, quad_order=quad_order, is_rational_mapping=is_rational_mapping,
+                       mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend)
         # ...
         self._kernel_expr = kernel_expr
         # ...
@@ -275,17 +319,22 @@ class BasicDiscrete(BasicCodeGen):
     def max_nderiv(self):
         return self._max_nderiv
 
-    def _create_ast(self, expr,tag, **kwargs):
-        discrete_space      = kwargs.pop('discrete_space', None)
-        kernel_expr         = kwargs['kernel_expr']
-        quad_order          = kwargs.pop('quad_order', None)
-        is_rational_mapping = kwargs.pop('is_rational_mapping', None)
-        mapping             = kwargs.pop('mapping', None)
-        mapping_space       = kwargs.pop('mapping_space', None)
-        num_threads         = kwargs.pop('num_threads', 1)
-        backend             = kwargs.pop('backend', None)
+    def _create_ast(self, **kwargs):
 
-        return AST(expr, kernel_expr, discrete_space, mapping_space=mapping_space, tag=tag, quad_order=quad_order,
-                    mapping=mapping, is_rational_mapping=is_rational_mapping, backend=backend, num_threads=num_threads)
+        expr           = kwargs.pop('expr')
+        kernel_expr    = kwargs.pop('kernel_expr')
+        discrete_space = kwargs.pop('discrete_space')
+
+        mapping_space  = kwargs.pop('mapping_space', None)
+        tag            = kwargs.pop('tag', None)
+        quad_order     = kwargs.pop('quad_order', None)
+        mapping        = kwargs.pop('mapping', None)
+        num_threads    = kwargs.pop('num_threads', None)
+        backend        = kwargs.pop('backend', None)
+        is_rational_mapping = kwargs.pop('is_rational_mapping', None)
+
+        return AST(expr, kernel_expr, discrete_space, mapping_space=mapping_space,
+                   tag=tag, quad_order=quad_order, mapping=mapping, is_rational_mapping=is_rational_mapping,
+                   backend=backend, num_threads=num_threads)
 
 

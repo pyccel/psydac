@@ -10,12 +10,11 @@ from psydac.core.bsplines import make_knots
 from psydac.fem.basic     import FemField
 from psydac.fem.splines   import SplineSpace
 from psydac.fem.tensor    import TensorFemSpace
+from psydac.ddm.cart      import DomainDecomposition
 
 from psydac.fem.tests.utilities              import horner, random_grid
 from psydac.fem.tests.splines_error_bounds   import spline_1d_error_bound
-from psydac.fem.tests.analytical_profiles_1d import (AnalyticalProfile1D_Cos,
-                                                  AnalyticalProfile1D_Poly)
-
+from psydac.fem.tests.analytical_profiles_1d import (AnalyticalProfile1D_Cos, AnalyticalProfile1D_Poly)
 #===============================================================================
 @pytest.mark.serial
 @pytest.mark.parametrize( "ncells", [1,5,10,23] )
@@ -115,8 +114,9 @@ def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2 ):
     space1 = SplineSpace( degree=deg1, grid=grid1, periodic=periodic1 )
     space2 = SplineSpace( degree=deg2, grid=grid2, periodic=periodic2 )
 
+    domain_decomposition = DomainDecomposition([nc1, nc2], [periodic1, periodic2], comm=mpi_comm)
     # Tensor-product 2D spline space, distributed, and field
-    tensor_space = TensorFemSpace( space1, space2, comm=mpi_comm )
+    tensor_space = TensorFemSpace( domain_decomposition, space1, space2 )
     tensor_field = FemField( tensor_space )
 
     # Coordinates of Greville points (global)

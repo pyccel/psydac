@@ -514,7 +514,6 @@ def test_api_poisson_3d_dir_collela():
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
-
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================

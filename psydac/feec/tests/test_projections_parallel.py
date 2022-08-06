@@ -10,6 +10,7 @@ from psydac.fem.splines            import SplineSpace
 from psydac.fem.tensor             import TensorFemSpace
 from psydac.fem.vector             import ProductFemSpace
 from psydac.feec.global_projectors import Projector_H1, Projector_L2, Projector_Hcurl, Projector_Hdiv
+from psydac.ddm.cart               import DomainDecomposition
 
 def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
     # find the appropriate reduced space (without invoking the code generation machinery)
@@ -53,7 +54,9 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
         else:
             opV = lambda V0: V0.reduce_degree(axes=[0,1,2], basis='M')
             opP = Projector_L2
-    
+
+    domain_decomposition_p = DomainDecomposition(ncells, periodic, comm=MPI.COMM_WORLD)
+    domain_decomposition_s = DomainDecomposition(ncells, periodic)
     # build basic SplineSpaces
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
 
@@ -61,8 +64,8 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
                                   for d, g, p in zip(degree, breaks, periodic)]
     
     # build TensorFemSpaces in serial and parallel
-    V0p = TensorFemSpace(*Ns, comm=MPI.COMM_WORLD)
-    V0s = TensorFemSpace(*Ns)
+    V0p = TensorFemSpace(domain_decomposition_p, *Ns)
+    V0s = TensorFemSpace(domain_decomposition_s, *Ns)
 
     # build reduced spaces in serial and parallel
     Vp = opV(V0p)

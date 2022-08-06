@@ -8,7 +8,14 @@ from mpi4py    import MPI
 from psydac.ddm.partition import compute_dims, partition_procs_per_patch
 
 
-__all__ = ['find_mpi_type', 'CartDecomposition', 'CartDataExchanger']
+__all__ = ['find_mpi_type',
+           'MultiPatchDomainDecomposition',
+           'DomainDecomposition',
+           'InterfacesCartDecomposition',
+           'CartDecomposition',
+           'InterfaceCartDecomposition',
+           'CartDataExchanger',
+           'InterfaceCartDataExchanger']
 
 #===============================================================================
 def find_mpi_type( dtype ):
@@ -34,103 +41,89 @@ def find_mpi_type( dtype ):
 
     return mpi_type
 
-#====================================================================================
-class MultiCartDecomposition:
+class MultiPatchDomainDecomposition:
     """
-    This buids the cartesian decomposition of multiple grids.
-    In each grid we compute a multi-dimensional cartesian topology using MPI sub-communicators.
+    Cartesian decomposition of multiple N-Cube grids.
+    This is built on top of an MPI communicator decomposed into smaller disjoint intra-communicators
+    assigned to each N-Cube grid to construct a multi-dimensional
+    Cartesian topology.
 
     Parameters
     ----------
-    npts : list or tuple
-        Number of coefficients in the global grid along each dimension for each patch.
+    ncells : list of list of int
+      The number of cells in each direction for each grid.
 
-    pads : list or tuple
-        Padding along each grid dimension for each patch.
+    periods: list of bool
+      The periodicity of the domain in each direction for each grid.
 
-    periods : list or tuple of bool
-        Periodicity (True|False) along each grid dimension for each patch.
-
-    reorder : bool
-        Whether individual ranks can be changed in the new Cartesian communicator.
-
-    comm : mpi4py.MPI.Comm
-        MPI communicator that will be used to create the sub-communicators for each grid.
-        (optional: default is MPI_COMM_WORLD).
-
-    shifts: list or tuple
-        Shifts along each grid dimension for each patch.
-        It takes values bigger or equal to one, it represents the multiplicity of each knot.
+    comm : MPI.Comm
+        MPI communicator that will be used to spawn the grids.
 
     num_threads: int
-       Number of threads for each MPI rank.
+        Number of threads used by one MPI rank.
     """
-    def __init__( self, npts, pads, periods, reorder, comm=None, shifts=None, num_threads=None ):
+    def __init__(self, ncells, periods, comm=None, num_threads=None):
 
-        # Check input arguments
-        # TODO: check that arguments are identical across all processes
-        assert len( npts ) == len( pads ) == len( periods )
-        assert all(all( n >=1 for n in npts_k ) for npts_k in npts)
-
-        shifts      = tuple(shifts) if shifts else [(1,)*len(npts[0]) for n in npts]
+        assert len( ncells ) == len( periods )
+        if comm is not None:assert isinstance( comm, MPI.Comm )
         num_threads = num_threads if num_threads else 1
 
-        if comm is None:
-            comm = MPI.COMM_WORLD.Dup()
-
-        assert isinstance( comm, MPI.Comm )
-
         # Store input arguments
-        self._npts         = tuple( npts    )
-        self._pads         = tuple( pads    )
+        self._ncells       = tuple( ncells    )
         self._periods      = tuple( periods )
-        self._shifts       = tuple( shifts  )
         self._num_threads  = num_threads
         self._comm         = comm
 
         # ...
-        self._ncarts = len( npts )
+        self._npatches = len( ncells )
 
         # ...
-        size           = comm.Get_size()
-        rank           = comm.Get_rank()
-        sizes, rank_ranges = partition_procs_per_patch(self._npts, size)
+        if comm is None:
+            size  = 1
+            rank  = 0
+        else:
+            size  = comm.Get_size()
+            rank  = comm.Get_rank()
+
+        sizes, rank_ranges = partition_procs_per_patch(self._ncells, size)
 
         self._rank   = rank
         self._size   = size
-        self._sizes  = sizes
-        self._rank_ranges = rank_ranges
+        self._sizes  = tuple( sizes )
+        self._rank_ranges = tuple( rank_ranges )
 
-        global_group = comm.group
+
+        global_group = comm.group if comm is not None else None
         owned_groups = []
 
-        local_groups        = [None]*self._ncarts
-        local_communicators = [MPI.COMM_NULL]*self._ncarts
+        local_groups        = [None]*self._npatches
+        local_communicators = [None]*self._npatches
 
         for i,r in enumerate(rank_ranges):
             if rank>=r[0] and rank<=r[1]:
-                local_groups[i]        = global_group.Range_incl([[r[0], r[1], 1]])
-                local_communicators[i] = comm.Create_group(local_groups[i], i)
+                if comm is not None:
+                    local_groups[i]        = global_group.Range_incl([[r[0], r[1], 1]])
+                    local_communicators[i] = comm.Create_group(local_groups[i], i)
                 owned_groups.append(i)
+            else:
+                local_communicators[i] = MPI.COMM_NULL
 
-        try:
-            carts = [CartDecomposition(n, p, P, reorder, comm=sub_comm, global_comm=comm, shifts=s, num_threads=num_threads)\
-                    for n,p,P,sub_comm,s in zip(npts, pads, periods, local_communicators, shifts)]
-        except:
-            comm.Abort(1)
+        domains = [DomainDecomposition(nc, P, comm=subcomm, global_comm=comm, num_threads=num_threads, size=size)\
+                for nc,P,subcomm, size in zip(ncells, periods, local_communicators, sizes)]
 
-        self._local_groups        = local_groups
-        self._local_communicators = local_communicators
-        self._owned_groups        = owned_groups
-        self._carts               = carts
 
-    @property
-    def comm( self ):
-        return self._comm
+        self._local_groups        = tuple(local_groups)
+        self._local_communicators = tuple(local_communicators)
+        self._owned_groups        = tuple(owned_groups)
+        self._domains             = tuple(domains)
 
     @property
-    def ncarts( self ):
-        return self._ncarts
+    def ncells( self ):
+        return self._npts
+
+    @property
+    def periods( self ):
+        return self._periods
 
     @property
     def size( self ):
@@ -161,8 +154,219 @@ class MultiCartDecomposition:
         return self._owned_groups
 
     @property
-    def carts( self ):
-        return self._carts
+    def domains( self ):
+        return self._domains
+
+    @property
+    def num_threads( self ):
+        return self._num_threads
+
+    @property
+    def comm( self ):
+        return self._comm
+
+class DomainDecomposition:
+    """
+    Cartesian decomposition of an N-Cube grid.
+    This is built on top of an MPI communicator with multi-dimensional
+    Cartesian topology.
+
+    Parameters
+    ----------
+    ncells : list of int
+      The number of cells in each direction.
+
+    periods: list of bool
+      The periodcity of the domain in each direction.
+
+    comm : MPI.Comm|None
+        MPI communicator that will be used to spawn a new Cartesian communicator.
+        In the serial case comm == None.
+
+    global_comm : MPI.Comm|None
+        MPI global communicator that contains all the processes owned by comm.
+        In the serial case comm == None.
+
+    num_threads: int|None
+        Number of threads used by one MPI rank.
+
+    size: int|None
+        The number of processes assigned to the domain.
+        This information is needed when comm is None (sequential case) or comm == MPI.COMM_NULL (MPI rank does not own the domain),
+        to be able to calculate global_element_starts and global_element_ends.
+
+    """
+
+    def __init__(self, ncells, periods, comm=None, global_comm=None, num_threads=None, size=None):
+
+        # Check input arguments
+        # TODO: check that arguments are identical across all processes
+        assert len( ncells ) == len( periods )
+        assert all( n >=1 for n in ncells )
+        assert all( isinstance( period, bool ) for period in periods )
+        if comm is not None: assert isinstance( comm, MPI.Comm )
+
+        self._ncells       = tuple ( ncells )
+        self._periods      = tuple ( periods )
+        self._comm         = comm
+        self._global_comm  = comm if global_comm is None else global_comm
+        self._comm_cart    = comm
+        self._num_threads  = num_threads if num_threads else 1
+
+        # ...
+        if comm is None:
+            self._size = 1
+            self._rank = 0
+        elif self.is_comm_null:
+            assert size is not None
+            self._size = size
+            self._rank = -1
+        else:
+            self._size = comm.Get_size()
+            self._rank = comm.Get_rank()
+
+        self._ndims         = len(ncells)
+        nprocs, block_shape = compute_dims( self._size, self._ncells )
+
+        self._nprocs = nprocs
+
+        # Store arrays with all the starts and ends along each direction for every process
+        self._global_element_starts = [None]*self._ndims
+        self._global_element_ends   = [None]*self._ndims
+        global_shapes               = [None]*self._ndims
+        for axis in range( self._ndims ):
+            n = ncells[axis]
+            d = nprocs[axis]
+            s = n//d
+            global_shapes[axis] = np.array([s]*d)
+            global_shapes[axis][:n%d] += 1
+
+            self._global_element_ends  [axis] = np.cumsum(global_shapes[axis])-1
+            self._global_element_starts[axis] = np.array( [0] + [e+1 for e in self._global_element_ends[axis][:-1]] )
+
+        if self.is_comm_null:return
+
+        if comm is None:
+            # compute the coords for all processes
+            self._global_coords = np.array([np.unravel_index(rank, nprocs) for rank in range(self._size)])
+            self._coords        = self._global_coords[self._rank]
+            self._rank_in_topo  = 0
+            self._ranks_in_topo = np.array([0])
+        else:
+            # Create a MPI cart
+            self._comm_cart = comm.Create_cart(
+                dims    = self._nprocs,
+                periods = self._periods,
+                reorder = False,
+            )
+
+            # Know my coordinates in the topology
+            self._rank_in_topo = self._comm_cart.Get_rank()
+            self._coords       = self._comm_cart.Get_coords( rank=self._rank_in_topo )
+            self._ranks_in_topo = np.array(comm.group.Translate_ranks(self._comm_cart.group, list(range(self._comm_cart.size)), comm.group))
+
+        # Start/end values of global indices (without ghost regions)
+        self._starts = tuple( self._global_element_starts[axis][c] for axis,c in zip(range(self._ndims), self._coords) )
+        self._ends   = tuple( self._global_element_ends  [axis][c] for axis,c in zip(range(self._ndims), self._coords) )
+
+        self._local_ncells = tuple(e-s+1 for s,e in zip(self._starts, self._ends))
+
+        if comm is None:return
+
+        # Create (N-1)-dimensional communicators within the Cartesian topology
+        self._subcomm = [None]*self._ndims
+        for i in range(self._ndims):
+            remain_dims     = [i==j for j in range( self._ndims )]
+            self._subcomm[i] = self._comm_cart.Sub( remain_dims )
+
+    #---------------------------------------------------------------------------
+    # Global properties (same for each process)
+    #---------------------------------------------------------------------------
+    @property
+    def ndim( self ):
+        return self._ndims
+
+    @property
+    def ncells( self ):
+        return self._ncells
+
+    @property
+    def periods( self ):
+        return self._periods
+
+    @property
+    def size( self ):
+        return self._size
+
+    @property
+    def rank( self ):
+        return self._rank
+
+    @property
+    def num_threads( self ):
+        return self._num_threads
+
+    @property
+    def comm( self ):
+        return self._comm
+
+    @property
+    def comm_cart( self ):
+        return self._comm_cart
+
+    @property
+    def global_comm( self ):
+        return self._global_comm
+
+    @property
+    def nprocs( self ):
+        return self._nprocs
+
+    @property
+    def global_element_starts( self ):
+        return self._global_element_starts
+
+    @property
+    def global_element_ends( self ):
+        return self._global_element_ends
+
+    @property
+    def is_comm_null( self ):
+        return self.comm == MPI.COMM_NULL
+
+    @property
+    def is_parallel( self ):
+        return self._comm is not None
+
+    @property
+    def ranks_in_topo( self ):
+        return self._ranks_in_topo
+    #---------------------------------------------------------------------------
+    # Local properties
+    #---------------------------------------------------------------------------
+    @property
+    def starts( self ):
+        return self._starts
+
+    @property
+    def ends( self ):
+        return self._ends
+
+    @property
+    def coords( self ):
+        return self._coords
+
+    @property
+    def subcomm( self ):
+        return self._subcomm
+
+    @property
+    def local_ncells( self ):
+        return self._local_ncells
+
+    #---------------------------------------------------------------------------
+    def coords_exist( self, coords ):
+        return all( P or (0 <= c < d) for P,c,d in zip( self._periods, coords, self._dims ) )
 
 #==================================================================================
 class InterfacesCartDecomposition:
@@ -171,8 +375,9 @@ class InterfacesCartDecomposition:
 
     Parameters
     ----------
+    domain_decomposition: MultiPatchDomainDecomposition
 
-    carts: MultiCartDecomposition
+    carts: list of CartDecomposition
         The cartesian decomposition of multiple grids.
 
     interfaces: dict
@@ -180,21 +385,19 @@ class InterfacesCartDecomposition:
         It contains the grids that share an interface along with their axes and extremities.
 
     """
-    def __init__(self, carts, interfaces):
+    def __init__(self, domain_decomposition, carts, interfaces):
 
-        assert isinstance(carts, MultiCartDecomposition)
+        assert isinstance(domain_decomposition, MultiPatchDomainDecomposition)
+        assert isinstance(carts, (list, tuple))
 
-        npts                = [cart.npts for cart in carts.carts]
-        pads                = [cart.pads for cart in carts.carts]
-        shifts              = [cart.shifts for cart in carts.carts]
-        periods             = [cart.periods for cart in carts.carts]
-        num_threads         = carts.carts[0].num_threads
-        comm                = carts.comm
+        periods             = [cart.periods for cart in carts]
+        num_threads         = domain_decomposition.num_threads
+        comm                = domain_decomposition.comm
         global_group        = comm.group
-        local_groups        = carts.local_groups
-        rank_ranges         = carts.rank_ranges
-        local_communicators = carts.local_communicators
-        owned_groups        = carts.owned_groups
+        local_groups        = list(domain_decomposition.local_groups)
+        rank_ranges         = domain_decomposition.rank_ranges
+        local_communicators = domain_decomposition.local_communicators
+        owned_groups        = domain_decomposition.owned_groups
 
         interfaces_groups     = {}
         interfaces_comm       = {}
@@ -226,8 +429,8 @@ class InterfacesCartDecomposition:
             axis_i, ext_i   = interfaces[i,j][0]
             axis_j, ext_j   = interfaces[i,j][1]
             if interfaces_comm[i,j] != MPI.COMM_NULL:
-                ranks_in_topo_i = carts.carts[i].ranks_in_topo if i in owned_groups else np.full(local_groups[i].size, -1)
-                ranks_in_topo_j = carts.carts[j].ranks_in_topo if j in owned_groups else np.full(local_groups[j].size, -1)
+                ranks_in_topo_i = domain_decomposition.domains[i].ranks_in_topo if i in owned_groups else np.full(local_groups[i].size, -1)
+                ranks_in_topo_j = domain_decomposition.domains[j].ranks_in_topo if j in owned_groups else np.full(local_groups[j].size, -1)
 
                 if interfaces_comm[i,j].rank == interfaces_root_ranks[i,j][0]:
                     req.append(interfaces_comm[i,j].Isend((ranks_in_topo_i, ranks_in_topo_i.size, dtype), interfaces_root_ranks[i,j][1], tag=tag(i,j,1)))
@@ -237,18 +440,14 @@ class InterfacesCartDecomposition:
                     req.append(interfaces_comm[i,j].Isend((ranks_in_topo_j, ranks_in_topo_j.size, dtype), interfaces_root_ranks[i,j][0], tag=tag(i,j,-1)))
                     req.append(interfaces_comm[i,j].Irecv((ranks_in_topo_i, ranks_in_topo_i.size, dtype), interfaces_root_ranks[i,j][0], tag=tag(i,j,1)))
 
-                interfaces_carts[i,j] = InterfaceCartDecomposition(npts=[npts[i], npts[j]],
-                                                                   pads=[pads[i], pads[j]],
-                                                                   periods=[periods[i], periods[j]],
+                interfaces_carts[i,j] = InterfaceCartDecomposition(carts[i], carts[j],
                                                                    comm=interfaces_comm[i,j],
-                                                                   shifts=[shifts[i], shifts[j]],
                                                                    axes=[axis_i, axis_j], exts=[ext_i, ext_j],
                                                                    ranks_in_topo=[ranks_in_topo_i, ranks_in_topo_j],
                                                                    local_groups=[local_groups[i], local_groups[j]],
                                                                    local_communicators=[local_communicators[i], local_communicators[j]],
                                                                    root_ranks=interfaces_root_ranks[i,j],
-                                                                   requests=req,
-                                                                   num_threads=num_threads)
+                                                                   requests=req)
 
 
         self._interfaces_groups = interfaces_groups
@@ -276,8 +475,18 @@ class CartDecomposition():
 
     Parameters
     ----------
+
+    domain_decomposition : DomainDecomposition
+        The Domain partition.
+
     npts : list or tuple of int
         Number of coefficients in the global grid along each dimension.
+
+    global_starts: list of list of int
+        The starts of the global points for every process along each direction.
+
+    global_ends: list of list of int
+        The ends of the global points for every process along each direction.
 
     pads : list or tuple of int
         Padding along each grid dimension.
@@ -285,133 +494,55 @@ class CartDecomposition():
         of the local domain to permit non-local operations with compact support;
         this concept extends to multiple dimensions through a tensor product.
 
-    periods : list or tuple of bool
-        Periodicity (True|False) along each grid dimension.
-
-    reorder : bool
-        Whether individual ranks can be changed in the new Cartesian communicator.
-
-    comm : mpi4py.MPI.Comm
-        MPI communicator that will be used to spawn a new Cartesian communicator
-        (optional: default is MPI_COMM_WORLD).
-
     shifts: list or tuple of int
         Shifts along each grid dimension.
         It takes values bigger or equal to one, it represents the multiplicity of each knot.
 
-    nprocs: list or tuple of int
-       MPI decomposition along each dimension.
-
-    reverse_axis: int
-       Reverse the ownership of the processes along the specified axis.
-
-    num_threads: int
-       Number of threads for each MPI rank.
-
     """
-    def __init__( self, npts, pads, periods, reorder, comm=None, global_comm=None, shifts=None, nprocs=None, reverse_axis=None, num_threads=None ):
+    def __init__( self, domain_decomposition, npts, global_starts, global_ends, pads, shifts ):
 
         # Check input arguments
         # TODO: check that arguments are identical across all processes
-        assert len( npts ) == len( pads ) == len( periods )
-        assert all( n >=1 for n in npts )
+        assert len( npts ) == len( global_starts ) == len( global_ends ) == len( pads ) == len(shifts)
+        assert all( n >=1 for n in npts   )
+        assert min(min(gs) for gs in global_starts) >= 0
+        assert min(min(ge) for ge in global_ends  ) >= 0
         assert all( p >=0 for p in pads )
-        assert all( isinstance( period, bool ) for period in periods )
-        assert isinstance( reorder, bool )
-        assert isinstance( comm, MPI.Comm )
 
-        shifts      = tuple(shifts) if shifts else (1,)*len(npts)
-        num_threads = num_threads if num_threads else 1
         # Store input arguments
-        self._npts         = tuple( npts    )
-        self._pads         = tuple( pads    )
-        self._periods      = tuple( periods )
-        self._shifts       = shifts
-        self._num_threads  = num_threads
-        self._reorder      = reorder
-        self._comm         = comm
-        self._local_comm   = comm
-        self._global_comm  = comm if global_comm is None else global_comm
-        self._reverse_axis = reverse_axis
-        # ...
-        self._ndims = len( npts )
-        # ...
+        self._domain_decomposition = domain_decomposition
+        self._npts          = tuple( npts    )
+        self._global_starts = tuple( [ np.asarray(gs) for gs in global_starts]  )
+        self._global_ends   = tuple( [ np.asarray(ge) for ge in global_ends]    )
+        self._pads          = tuple( pads    )
+        self._shifts        = tuple( shifts  )
+        self._periods       = domain_decomposition.periods
+        self._ndims         = len( npts )
+        self._comm          = domain_decomposition.comm
+        self._comm_cart     = domain_decomposition.comm_cart
+        self._local_comm    = domain_decomposition.comm
+        self._global_comm   = domain_decomposition.global_comm
+        self._num_threads   = domain_decomposition.num_threads
+        self._starts        = (0,)*self._ndims
+        self._ends          = (-1,)*self._ndims
+        self._shape         = (0,)*self._ndims
+        self._parent_starts = (None,)*self._ndims
+        self._parent_ends   = (None,)*self._ndims
 
-        if comm == MPI.COMM_NULL:
+        if self._comm == MPI.COMM_NULL:
             return
 
-        self._size = comm.Get_size()
-        self._rank = comm.Get_rank()
+        self._size = domain_decomposition.size
+        self._rank = domain_decomposition.rank
+        self._nprocs = domain_decomposition.nprocs
         # ...
-
-        # ...
-        # Know the number of processes along each direction
-#        self._dims = MPI.Compute_dims( self._size, self._ndims )
-
-        reduced_npts = [(n-p-1)//m if m>1 else n if not P else n for n,m,p,P in zip(npts, shifts, pads, periods)]
-
-        if nprocs is None:
-            nprocs, block_shape = compute_dims( self._size, reduced_npts, [p+1 for p in pads] )
-        else:
-            assert len(nprocs) == len(npts)
-
-        assert np.product(nprocs) == self._size
-
-        self._dims = nprocs
-        # ...
-
-        # ...
-        # Create a 2D MPI cart
-        self._comm_cart = comm.Create_cart(
-            dims    = self._dims,
-            periods = self._periods,
-            reorder = self._reorder
-        )
 
         # Know my coordinates in the topology
-        self._rank_in_topo  = self._comm_cart.Get_rank()
-        self._coords        = self._comm_cart.Get_coords( rank=self._rank_in_topo )
-        self._ranks_in_topo = np.array(comm.group.Translate_ranks(self._comm_cart.group, list(range(self._comm_cart.size)), comm.group))
-
-        if reverse_axis is not None:
-            self._coords[reverse_axis] = self._dims[reverse_axis] - self._coords[reverse_axis] - 1
-
-        # Store arrays with all the reduced starts and reduced ends along each direction
-        self._reduced_global_starts = [None]*self._ndims
-        self._reduced_global_ends   = [None]*self._ndims
-        for axis in range( self._ndims ):
-            n = reduced_npts[axis]
-            d = nprocs[axis]
-            p = pads[axis]
-            m = shifts[axis]
-            self._reduced_global_starts[axis] = np.array( [( c   *n)//d   for c in range( d )] )
-            self._reduced_global_ends  [axis] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
-            if m>1:self._reduced_global_ends  [axis][-1] += p+1
-
-        # Store arrays with all the starts and ends along each direction
-        self._global_starts = [None]*self._ndims
-        self._global_ends   = [None]*self._ndims
-
-        for axis in range( self._ndims ):
-            n = npts[axis]
-            d = nprocs[axis]
-            p = pads[axis]
-            m = shifts[axis]
-            r_starts = self._reduced_global_starts[axis]
-            r_ends   = self._reduced_global_ends  [axis]
-
-            global_starts = [0]
-            for c in range(1,d):
-                global_starts.append(global_starts[c-1] + (r_ends[c-1]-r_starts[c-1]+1)*m)
-
-            global_ends = [global_starts[c+1]-1 for c in range( d-1 )] + [n-1]
-
-            self._global_starts[axis] = np.array( global_starts )
-            self._global_ends  [axis] = np.array( global_ends )
+        self._coords = domain_decomposition.coords
 
         # Start/end values of global indices (without ghost regions)
-        self._starts = tuple( self.global_starts[axis][c] for axis,c in zip(range(self._ndims), self._coords) )
-        self._ends   = tuple( self.global_ends  [axis][c] for axis,c in zip(range(self._ndims), self._coords) )
+        self._starts = tuple( self._global_starts[axis][c] for axis,c in zip(range(self._ndims), self._coords) )
+        self._ends   = tuple( self._global_ends  [axis][c] for axis,c in zip(range(self._ndims), self._coords) )
 
         # List of 1D global indices (without ghost regions)
         self._grids = tuple( range(s,e+1) for s,e in zip( self._starts, self._ends ) )
@@ -419,14 +550,15 @@ class CartDecomposition():
         # Compute shape of local arrays in topology (with ghost regions)
         self._shape = tuple( e-s+1+2*m*p for s,e,p,m in zip( self._starts, self._ends, self._pads, shifts ) )
 
-        # Extended grids with ghost regions
-        self._extended_grids = tuple( range(s-m*p,e+m*p+1) for s,e,p,m in zip( self._starts, self._ends, self._pads, shifts ) )
+#        # Extended grids with ghost regions
+#        self._extended_grids = tuple( range(s-m*p,e+m*p+1) for s,e,p,m in zip( self._starts, self._ends, self._pads, shifts ) )
+
+        self._petsccart     = None
+
+        if self._comm is None:return
 
         # Create (N-1)-dimensional communicators within the Cartesian topology
-        self._subcomm = [None]*self._ndims
-        for i in range(self._ndims):
-            remain_dims     = [i==j for j in range( self._ndims )]
-            self._subcomm[i] = self._comm_cart.Sub( remain_dims )
+        self._subcomm = domain_decomposition.subcomm
 
         # Compute/store information for communicating with neighbors
         self._shift_info = {}
@@ -435,9 +567,6 @@ class CartDecomposition():
                 self._shift_info[ axis, disp ] = \
                         self._compute_shift_info( axis, disp )
 
-        self._petsccart     = None
-        self._parent_starts = tuple([None]*self._ndims)
-        self._parent_ends   = tuple([None]*self._ndims)
     #---------------------------------------------------------------------------
     # Global properties (same for each process)
     #---------------------------------------------------------------------------
@@ -460,10 +589,6 @@ class CartDecomposition():
     @property
     def shifts( self ):
         return self._shifts
-
-    @property
-    def num_threads( self ):
-        return self._num_threads
 
     @property
     def reorder( self ):
@@ -491,7 +616,7 @@ class CartDecomposition():
     @property
     def nprocs( self ):
         """ Number of processes in each dimension."""
-        return self._dims
+        return self._nprocs
 
     @property
     def reverse_axis(self):
@@ -509,18 +634,20 @@ class CartDecomposition():
         return self._global_ends
 
     @property
-    def reduced_global_starts( self ):
-        """ The starts of all the processes in the cartesian decomposition with the shift=1 ."""
-        return self._reduced_global_starts
-
-    @property
-    def reduced_global_ends( self ):
-        """ The ends of all the processes in the cartesian decomposition with the shift=1 ."""
-        return self._reduced_global_ends
-
-    @property
     def is_comm_null( self ):
         return self.comm == MPI.COMM_NULL
+
+    @property
+    def is_parallel( self ):
+        return self._comm is not None
+
+    @property
+    def num_threads( self ):
+        return self._num_threads
+
+    @property
+    def domain_decomposition( self ):
+        return self._domain_decomposition
 
     #---------------------------------------------------------------------------
     # Local properties
@@ -535,7 +662,7 @@ class CartDecomposition():
 
     @property
     def parent_starts( self ):
-        return self._starts
+        return self._parent_starts
 
     @property
     def parent_ends( self ):
@@ -614,109 +741,6 @@ class CartDecomposition():
         return coords_from_rank, rank_from_coords, thread_global_starts, thread_global_ends, self._num_threads
 
     #---------------------------------------------------------------------------
-    def reduce_elements( self, axes, n_elements, shifts):
-        """ Compute the cart of the reduced space.
-
-        Parameters
-        ----------
-        axes: tuple_like (int)
-            The directions to be Reduced.
-
-        n_elements: tuple_like (int)
-            Number of elements to substract from the space.
-
-        Returns
-        -------
-        v: CartDecomposition
-            The reduced cart.
-        """
-
-        if isinstance(axes, int):
-            axes = [axes]
-
-        for axis in axes:assert(axis<self._ndims)
-
-        cart = CartDecomposition(self._npts, self._pads, self._periods, self._reorder, comm=self.comm, global_comm=self._global_comm, shifts=self.shifts, reverse_axis=self.reverse_axis)
-
-        # set pads and npts
-        cart._npts   = tuple(n - ne for n,ne in zip(cart.npts, n_elements))
-        cart._shifts = [m for m in shifts]
-
-        if cart.is_comm_null:
-            return cart
-
-        cart._dims      = self._dims
-        cart._comm_cart = self._comm_cart
-        cart._coords    = self._coords
-
-        coords          = cart.coords
-        nprocs          = cart.nprocs
-
-        # Store arrays with all the starts and ends along each direction
-        cart._global_starts = [None]*self._ndims
-        cart._global_ends   = [None]*self._ndims
-        for axis in range( self._ndims ):
-            n = cart._npts[axis]
-            d = nprocs[axis]
-            m = cart._shifts[axis]
-            r_starts = cart._reduced_global_starts[axis]
-            r_ends   = cart._reduced_global_ends  [axis]
-
-            global_starts = [0]
-            for c in range(1,d):
-                global_starts.append(global_starts[c-1] + (r_ends[c-1]-r_starts[c-1]+1)*m)
-
-            global_ends = [global_starts[c+1]-1 for c in range( d-1 )] + [n-1]
-
-            cart._global_starts[axis] = np.array( global_starts )
-            cart._global_ends  [axis] = np.array( global_ends )
-
-        # Start/end values of global indices (without ghost regions)
-        cart._starts = tuple( cart.global_starts[axis][c] for axis,c in zip(range(self._ndims), self._coords) )
-        cart._ends   = tuple( cart.global_ends  [axis][c] for axis,c in zip(range(self._ndims), self._coords) )
-
-        # List of 1D global indices (without ghost regions)
-        cart._grids = tuple( range(s,e+1) for s,e in zip( cart._starts, cart._ends ) )
-
-        # Compute shape of local arrays in topology (with ghost regions)
-        cart._shape = tuple( e-s+1+2*m*p for s,e,p,m in zip( cart._starts, cart._ends, cart._pads, cart._shifts ) )
-
-        # Extended grids with ghost regions
-        cart._extended_grids = tuple( range(s-m*p,e+m*p+1) for s,e,p,m in zip( cart._starts, cart._ends, cart._pads, cart._shifts ) )
-
-        # N-dimensional global indices with ghost regions
-        cart._extended_indices = product( *cart._extended_grids )
-
-        # Create (N-1)-dimensional communicators within the cartsian topology
-        cart._subcomm = [None]*cart._ndims
-        for i in range(cart._ndims):
-            remain_dims      = [i==j for j in range( cart._ndims )]
-            cart._subcomm[i] = cart._comm_cart.Sub( remain_dims )
-
-        # Compute/store information for communicating with neighbors
-        cart._shift_info = {}
-        for axis in range( cart._ndims ):
-            for disp in [-1,1]:
-                cart._shift_info[ axis, disp ] = \
-                        cart._compute_shift_info( axis, disp )
-
-        # Store arrays with all the reduced starts and reduced ends along each direction
-        cart._reduced_global_starts = [None]*self._ndims
-        cart._reduced_global_ends   = [None]*self._ndims
-        for axis in range( self._ndims ):
-            cart._reduced_global_starts[axis] = self._reduced_global_starts[axis].copy()
-            cart._reduced_global_ends  [axis] = self._reduced_global_ends  [axis].copy()
-
-            # adjust only the end of the last interval
-            if not cart.periods[axis]:
-                n = cart._npts[axis]
-                cart._reduced_global_ends[axis][-1] = n-1
-
-        cart._parent_starts = self.starts
-        cart._parent_ends   = self.ends
-        return cart
-
-    #---------------------------------------------------------------------------
     def reduce_grid(self, global_starts, global_ends):
         """ 
         Returns a new CartDecomposition object with a coarser grid from the original one
@@ -776,18 +800,43 @@ class CartDecomposition():
         return cart
 
     #---------------------------------------------------------------------------
+    def reduce_npts( self, npts, global_starts, global_ends, shifts):
+        """ Compute the cart of the reduced space.
+        Parameters
+        ----------
+        npts : list or tuple of int
+            Number of coefficients in the global grid along each dimension.
+
+        global_starts: list of list of int
+            The starts of the global points for every process along each direction.
+
+        global_ends: list of list of int
+            The ends of the global points for every process along each direction.
+
+        shifts: list or tuple of int
+            Shifts along each grid dimension.
+            It takes values bigger or equal to one, it represents the multiplicity of each knot.
+
+        Returns
+        -------
+        v: CartDecomposition
+            The reduced cart.
+        """
+
+        cart = CartDecomposition(self.domain_decomposition, npts, global_starts, global_ends, self.pads, shifts)
+        cart._parent_starts = self.starts
+        cart._parent_ends   = self.ends
+        return cart
+
+    #---------------------------------------------------------------------------
     def change_starts_ends( self, starts, ends, parent_starts,  parent_ends):
         """ Create a slice of the cart based on the new starts and ends.
         WARNING! this function should be used carefully,
         as it might generate errors if it was not used properly in the communication process.
         """
-        cart = CartDecomposition(self._npts, self._pads, self._periods, self._reorder,
-                                comm=self.comm, global_comm=self._global_comm,
-                                shifts=self.shifts, reverse_axis=self.reverse_axis)
+        cart = CartDecomposition(self._domain_decomposition, self._npts, self._global_starts, self._global_ends, self._pads, self._shifts)
 
-        assert self.comm.size == 1
-        cart._global_starts = tuple(s for s in self._global_starts)
-        cart._global_ends   = tuple(e for e in self._global_ends)
+        assert self.comm is None or self.comm.size == 1
 
         # Start/end values of global indices (without ghost regions)
         cart._starts = tuple(starts)
@@ -799,21 +848,16 @@ class CartDecomposition():
         # Compute shape of local arrays in topology (with ghost regions)
         cart._shape = tuple( e-s+1+2*m*p for s,e,p,m in zip( cart._starts, cart._ends, cart._pads, cart._shifts ) )
 
-        # Extended grids with ghost regions
-        cart._extended_grids = tuple( range(s-m*p,e+m*p+1) for s,e,p,m in zip( cart._starts, cart._ends, cart._pads, cart._shifts ) )
+        cart._parent_starts = parent_starts
+        cart._parent_ends   = parent_ends
 
-        # N-dimensional global indices with ghost regions
-        cart._extended_indices = product( *cart._extended_grids )
-
+        if self._comm is None:return cart
         # Compute/store information for communicating with neighbors
         cart._shift_info = {}
         for dimension in range( cart._ndims ):
             for disp in [-1,1]:
                 cart._shift_info[ dimension, disp ] = \
                         cart._compute_shift_info( dimension, disp )
-
-        cart._parent_starts = parent_starts
-        cart._parent_ends   = parent_ends
 
         return cart
 
@@ -823,12 +867,12 @@ class CartDecomposition():
         assert( 0 <= direction < self._ndims )
         assert( isinstance( disp, int ) )
 
-        reorder = self.reverse_axis == direction
+#        reorder = self.reverse_axis == direction
         # Process ranks for data shifting with MPI_SENDRECV
         (rank_source, rank_dest) = self.comm_cart.Shift( direction, disp )
 
-        if reorder:
-            (rank_source, rank_dest) = (rank_dest, rank_source)
+#        if reorder:
+#            (rank_source, rank_dest) = (rank_dest, rank_source)
 
         # Mesh info info along given direction
         s = self._starts[direction]
@@ -841,92 +885,112 @@ class CartDecomposition():
         buf_shape[direction] = m*p
 
         # Start location of send/recv subarrays
-        send_starts = np.zeros( self._ndims, dtype=int )
-        recv_starts = np.zeros( self._ndims, dtype=int )
+        send_starts          = np.zeros( self._ndims, dtype=int )
+        recv_starts          = np.zeros( self._ndims, dtype=int )
+        send_assembly_starts = np.zeros( self._ndims, dtype=int )
+        recv_assembly_starts = np.zeros( self._ndims, dtype=int )
+
         if disp > 0:
-            recv_starts[direction] = 0
-            send_starts[direction] = e-s+1
+            recv_starts[direction]          = 0
+            send_starts[direction]          = e-s+1
+            recv_assembly_starts[direction] = 0
+            send_assembly_starts[direction] = e-s+1+m*p
         elif disp < 0:
-            recv_starts[direction] = e-s+1+m*p
-            send_starts[direction] = m*p
+            recv_starts[direction]          = e-s+1+m*p
+            send_starts[direction]          = m*p
+            recv_assembly_starts[direction] = e-s+1+m*p
+            send_assembly_starts[direction] = 0
 
         # Store all information into dictionary
-        info = {'rank_dest'  : rank_dest,
-                'rank_source': rank_source,
-                'buf_shape'  : tuple(  buf_shape  ),
-                'send_starts': tuple( send_starts ),
-                'recv_starts': tuple( recv_starts )}
+        info = {'rank_dest'           : rank_dest,
+                'rank_source'         : rank_source,
+                'buf_shape'           : tuple(  buf_shape  ),
+                'send_starts'         : tuple( send_starts ),
+                'recv_starts'         : tuple( recv_starts ),
+                'send_assembly_starts': tuple( send_assembly_starts ),
+                'recv_assembly_starts': tuple( recv_assembly_starts )}
         return info
 
 #===============================================================================
-class InterfaceCartDecomposition(CartDecomposition):
+class InterfaceCartDecomposition:
     """
-    The Cartesian decomposition of an interface constructed from the Cartesian decomposition of the patches that share an interface.
+    The Cartesian decomposition of an interface constructed from the Cartesian decomposition of the patches that shares an interface.
     This is built using a new inter-communicator between the cartesian grids.
 
     Parameters
     ----------
-    npts : list
-        Number of coefficients in the global grid along each dimension for the patches that shares the interface.
 
-    pads : list
-        Padding along each grid dimension for the patches that shares the interface.
+    cart_minus: CartDecomposition
+        The cartesian decomposition of the minus patch.
 
-    periods : list or tuple of bool
-        Periodicity (True|False) along each grid dimension for the patches that shares the interface.
+    cart_plus: CartDecomposition
+        The cartesian decomposition of the plus patch.
 
     comm : mpi4py.MPI.Comm
         MPI communicator that will be used to spawn the cart decomposition
 
-    shifts: list or tuple of int
-        Shifts along each grid dimension.
-        It takes values bigger or equal to one, it represents the multiplicity of each knot.
-
     axes: list of ints
-        The axes of the patches that constucts the interface.
+        The axes of the patches that share the interface.
 
     exts: list of ints
-        The extremities of the patches that constucts the interface.
+        The extremities of the patches that share the interface.
 
     ranks_in_topo:
-        The ranks of the processes that shares the interface. 
+        The ranks of the processes that share the interface. 
 
     local_groups: list of MPI.Group
-        The groups that constucts the patches that shares the interface.
+        The groups that constucts the patches that share the interface.
 
     local_communicators: list of intra-communicators
-        The communicators of the patches that shares the interface.
+        The communicators of the patches that share the interface.
 
     root_ranks: list of ints
         The root ranks in the global communicator of the patches.
 
     requests: list of MPI.Request
-        the requests of the communications between the cartesian topologies that constucts the interface.
-
-    num_threads: int
-       Number of threads for each MPI rank.
+        the requests of the communications between the cartesian topologies that share the interface.
 
     """
-    def __init__(self, npts, pads, periods, comm, shifts, axes, exts, ranks_in_topo, local_groups, local_communicators, root_ranks, requests, num_threads, reduce_elements=False):
+    def __init__(self, cart_minus, cart_plus, comm, axes, exts, ranks_in_topo, local_groups, local_communicators, root_ranks, requests, reduce_elements=False):
 
-        npts_minus, npts_plus       = npts
-        pads_minus, pads_plus       = pads
-        periods_minus, periods_plus = periods
-        shifts_minus, shifts_plus   = shifts
+        domain_decomposition_minus = cart_minus.domain_decomposition
+        domain_decomposition_plus  = cart_plus.domain_decomposition
+        global_starts_minus        = cart_minus.global_starts
+        global_starts_plus         = cart_plus.global_starts
+        global_ends_minus          = cart_minus.global_ends
+        global_ends_plus           = cart_plus.global_ends
+
+        npts_minus   = cart_minus.npts
+        npts_plus    = cart_plus.npts
+        pads_minus   = cart_minus.pads
+        pads_plus    = cart_plus.pads
+        shifts_minus = cart_minus.shifts
+        shifts_plus  = cart_plus.shifts
+
+        periods_minus = domain_decomposition_minus.periods
+        periods_plus  = domain_decomposition_plus.periods
         axis_minus, axis_plus       = axes
         ext_minus, ext_plus         = exts
         size_minus, size_plus       = len(ranks_in_topo[0]), len(ranks_in_topo[1])
 
         assert axis_minus == axis_plus
-        num_threads = num_threads if num_threads else 1
+        num_threads = domain_decomposition_minus.num_threads
 
         root_rank_minus, root_rank_plus         = root_ranks
         local_comm_minus, local_comm_plus       = local_communicators
         ranks_in_topo_minus, ranks_in_topo_plus = ranks_in_topo
 
+        self._cart_minus    = cart_minus
+        self._cart_plus     = cart_plus
         self._ndims         = len( npts_minus )
+        self._domain_decomposition_minus = domain_decomposition_minus
+        self._domain_decomposition_plus  = domain_decomposition_plus
         self._npts_minus    = npts_minus
         self._npts_plus     = npts_plus
+        self._global_starts_minus = global_starts_minus
+        self._global_starts_plus  = global_starts_plus
+        self._global_ends_minus = global_ends_minus
+        self._global_ends_plus = global_ends_plus
         self._pads_minus    = pads_minus
         self._pads_plus     = pads_plus
         self._periods_minus = periods_minus
@@ -936,6 +1000,7 @@ class InterfaceCartDecomposition(CartDecomposition):
         self._axis          = axis_minus
         self._ext_minus     = ext_minus
         self._ext_plus      = ext_plus
+        self._shape         = (0,)*self._ndims
         self._comm          = comm
         self._local_comm_minus = local_comm_minus
         self._local_comm_plus  = local_comm_plus
@@ -959,11 +1024,8 @@ class InterfaceCartDecomposition(CartDecomposition):
         if local_comm_plus != MPI.COMM_NULL:
             self._local_rank_plus = local_comm_plus.rank
 
-        reduced_npts_minus = [(n-p-1)//m if m>1 else n if not P else n for n,m,p,P in zip(npts_minus, shifts_minus, pads_minus, periods_minus)]
-        reduced_npts_plus  = [(n-p-1)//m if m>1 else n if not P else n for n,m,p,P in zip(npts_plus, shifts_plus, pads_plus, periods_plus)]
-
-        nprocs_minus, block_shape_minus = compute_dims( size_minus, reduced_npts_minus, pads_minus )
-        nprocs_plus, block_shape_plus   = compute_dims( size_plus, reduced_npts_plus, pads_plus )
+        nprocs_minus, block_shape = compute_dims( size_minus, domain_decomposition_minus.ncells )
+        nprocs_plus, block_shape = compute_dims( size_plus, domain_decomposition_plus.ncells )
 
         self._nprocs_minus = nprocs_minus
         self._nprocs_plus  = nprocs_plus
@@ -1029,63 +1091,6 @@ class InterfaceCartDecomposition(CartDecomposition):
 
 #        high = self._local_rank_plus is not None
 #        self._intercomm = self._intercomm.Merge(high=high)
-        # Store arrays with all the reduced starts and reduced ends along each direction
-        self._reduced_global_starts_minus = [None]*self._ndims
-        self._reduced_global_ends_minus   = [None]*self._ndims
-        self._reduced_global_starts_plus  = [None]*self._ndims
-        self._reduced_global_ends_plus    = [None]*self._ndims
-        for axis in range( self._ndims ):
-            ni = reduced_npts_minus[axis]
-            di = nprocs_minus[axis]
-            pi = pads_minus[axis]
-            mi = shifts_minus[axis]
-            nj = reduced_npts_plus[axis]
-            dj = nprocs_plus[axis]
-            pj = pads_plus[axis]
-            mj = shifts_plus[axis]
-
-            self._reduced_global_starts_minus[axis] = np.array( [( ci   *ni)//di   for ci in range( di )] )
-            self._reduced_global_ends_minus  [axis] = np.array( [((ci+1)*ni)//di-1 for ci in range( di )] )
-            self._reduced_global_starts_plus[axis] = np.array( [( cj   *nj)//dj   for cj in range( dj )] )
-            self._reduced_global_ends_plus  [axis] = np.array( [((cj+1)*nj)//dj-1 for cj in range( dj )] )
-            if mi>1:self._reduced_global_ends_minus [axis][-1] += pi+1
-            if mj>1:self._reduced_global_ends_plus [axis][-1] += pj+1
-
-        # Store arrays with all the starts and ends along each direction
-        self._global_starts_minus = [None]*self._ndims
-        self._global_ends_minus   = [None]*self._ndims
-        self._global_starts_plus  = [None]*self._ndims
-        self._global_ends_plus    = [None]*self._ndims
-
-        for axis in range( self._ndims ):
-            ni = npts_minus[axis]
-            di = nprocs_minus[axis]
-            pi = pads_minus[axis]
-            mi = shifts_minus[axis]
-            r_starts_minus = self._reduced_global_starts_minus[axis]
-            r_ends_minus   = self._reduced_global_ends_minus  [axis]
-            nj = npts_plus[axis]
-            dj = nprocs_plus[axis]
-            pj = pads_plus[axis]
-            mj = shifts_plus[axis]
-            r_starts_plus = self._reduced_global_starts_plus[axis]
-            r_ends_plus   = self._reduced_global_ends_plus  [axis]
-
-            global_starts_minus = [0]
-            for ci in range(1,di):
-                global_starts_minus.append(global_starts_minus[ci-1] + (r_ends_minus[ci-1]-r_starts_minus[ci-1]+1)*mi)
-
-            global_starts_plus = [0]
-            for cj in range(1,dj):
-                global_starts_plus.append(global_starts_plus[cj-1] + (r_ends_plus[cj-1]-r_starts_plus[cj-1]+1)*mj)
-
-            global_ends_minus   = [global_starts_minus[ci+1]-1 for ci in range( di-1 )] + [ni-1]
-            global_ends_plus   = [global_starts_plus[cj+1]-1 for cj in range( dj-1 )] + [nj-1]
-
-            self._global_starts_minus[axis] = np.array( global_starts_minus )
-            self._global_ends_minus  [axis] = np.array( global_ends_minus )
-            self._global_starts_plus[axis] = np.array( global_starts_plus )
-            self._global_ends_plus  [axis] = np.array( global_ends_plus )
 
         if self._local_rank_minus is not None:
             # Store input arguments
@@ -1095,15 +1100,14 @@ class InterfaceCartDecomposition(CartDecomposition):
             self._shifts  = tuple( shifts_minus  )
             self._dims    = nprocs_minus
 
-            self._reduced_global_starts = self._reduced_global_starts_minus
-            self._reduced_global_ends   = self._reduced_global_ends_minus
             self._global_starts         = self._global_starts_minus
             self._global_ends           = self._global_ends_minus
 
             # Start/end values of global indices (without ghost regions)
-            coords       = self._coords_from_rank_minus[self._local_rank_minus]
-            self._starts = tuple( self._global_starts[d][c] for d,c in enumerate(coords) )
-            self._ends   = tuple( self._global_ends  [d][c] for d,c in enumerate(coords) )
+            self._coords = self._coords_from_rank_minus[self._local_rank_minus]
+            self._starts = tuple( self._global_starts[d][c] for d,c in enumerate(self._coords) )
+            self._ends   = tuple( self._global_ends  [d][c] for d,c in enumerate(self._coords) )
+            self._domain_decomposition = domain_decomposition_minus
 
         if self._local_rank_plus is not None:
             # Store input arguments
@@ -1113,16 +1117,14 @@ class InterfaceCartDecomposition(CartDecomposition):
             self._shifts  = tuple( shifts_plus  )
             self._dims    = nprocs_plus
 
-            self._reduced_global_starts = self._reduced_global_starts_plus
-            self._reduced_global_ends   = self._reduced_global_ends_plus
             self._global_starts         = self._global_starts_plus
             self._global_ends           = self._global_ends_plus
 
             # Start/end values of global indices (without ghost regions)
-            coords       = self._coords_from_rank_plus[self._local_rank_plus]
-            self._starts = tuple( self._global_starts[d][c] for d,c in enumerate(coords) )
-            self._ends   = tuple( self._global_ends  [d][c] for d,c in enumerate(coords) )
-
+            self._coords = self._coords_from_rank_plus[self._local_rank_plus]
+            self._starts = tuple( self._global_starts[d][c] for d,c in enumerate(self._coords) )
+            self._ends   = tuple( self._global_ends  [d][c] for d,c in enumerate(self._coords) )
+            self._domain_decomposition = domain_decomposition_plus
         # List of 1D global indices (without ghost regions)
         self._grids = tuple( range(s,e+1) for s,e in zip( self._starts, self._ends ) )
 
@@ -1134,15 +1136,25 @@ class InterfaceCartDecomposition(CartDecomposition):
         self._get_minus_starts_ends = None
         self._get_plus_starts_ends  = None
 
-        self._communication_infos = {}
+        self._interface_communication_infos = {}
 
     #---------------------------------------------------------------------------
     # Global properties (same for each process)
     #---------------------------------------------------------------------------
     @property
     def ndims( self ):
-        """Number of dimension."""
+        """Number of dimensions."""
         return self._ndims
+
+    @property
+    def domain_decomposition_minus( self ):
+        """ The DomainDecomposition of the minus patch."""
+        return self._domain_decomposition_minus
+
+    @property
+    def domain_decomposition_plus( self ):
+        """ The DomainDecomposition of the plus patch."""
+        return self._domain_decomposition_plus
 
     @property
     def npts_minus( self ):
@@ -1235,26 +1247,6 @@ class InterfaceCartDecomposition(CartDecomposition):
         return self._boundary_ranks_plus
 
     @property
-    def reduced_global_starts_minus( self ):
-        """ The starts of all the processes in the cartesian decomposition of the minus patch with the shift=1"""
-        return self._reduced_global_starts_minus
-
-    @property
-    def reduced_global_starts_plus( self ):
-        """ The starts of all the processes in the cartesian decomposition of the plus patch with the shift=1"""
-        return self._reduced_global_starts_plus
-
-    @property
-    def reduced_global_ends_minus( self ):
-        """ The ends of all the processes in the cartesian decomposition of the minus patch with the shift=1"""
-        return self._reduced_global_ends_minus
-
-    @property
-    def reduced_global_ends_plus( self ):
-        """ The ends of all the processes in the cartesian decomposition of the plus patch with the shift=1"""
-        return self._reduced_global_ends_plus
-
-    @property
     def global_starts_minus( self ):
         """ The starts of all the processes in the cartesian decomposition defined on the minus patch."""
         return self._global_starts_minus
@@ -1280,6 +1272,34 @@ class InterfaceCartDecomposition(CartDecomposition):
         return self._axis
 
     @property
+    def npts( self ):
+        return self._npts
+
+    @property
+    def pads( self ):
+        return self._pads
+
+    @property
+    def periods( self ):
+        return self._periods
+
+    @property
+    def shifts( self ):
+        return self._shifts
+
+    @property
+    def global_starts( self ):
+        return self._global_starts
+
+    @property
+    def global_ends( self ):
+        return self._global_ends
+
+    @property
+    def domain_decomposition( self ):
+        return self._domain_decomposition
+
+    @property
     def comm( self ):
         return self._comm
 
@@ -1291,6 +1311,13 @@ class InterfaceCartDecomposition(CartDecomposition):
     def is_comm_null( self ):
         return self._intercomm == MPI.COMM_NULL
 
+    @property
+    def is_parallel( self ):
+        return self._comm is not None
+
+    @property
+    def num_threads( self ):
+        return self._num_threads
     #---------------------------------------------------------------------------
     # Local properties
     #---------------------------------------------------------------------------
@@ -1301,6 +1328,14 @@ class InterfaceCartDecomposition(CartDecomposition):
     @property
     def ends( self ):
         return self._ends
+
+    @property
+    def coords( self ):
+        return self._coords
+
+    @property
+    def shape( self ):
+        return self._shape
 
     @property
     def parent_starts( self ):
@@ -1348,18 +1383,34 @@ class InterfaceCartDecomposition(CartDecomposition):
         return self._local_rank_plus
 
     #---------------------------------------------------------------------------
-    def reduce_elements( self, axes, n_elements, shifts):
+    def reduce_npts( self, cart_minus, cart_plus):
+        """ Compute the cart of the reduced space.
 
-        if isinstance(axes, int):
-            axes = [axes]
+        Parameters
+        ----------
 
-        npts    = [self.npts_minus, self.npts_plus]
-        pads    = [self.pads_minus, self.pads_plus]
-        periods = [self.periods_minus, self.periods_plus]
-        comm    = self.comm
-        p_shifts  = [self.shifts_minus, self.shifts_plus]
-        axes    = [self.axis, self.axis]
-        exts    = [self.ext_minus, self.ext_plus]
+        npts : list or tuple of int
+            Number of coefficients in the global grid along each dimension.
+
+        global_starts: list of list of int
+            The starts of the global points for every process along each direction.
+
+        global_ends: list of list of int
+            The ends of the global points for every process along each direction.
+
+        shifts: list or tuple of int
+            Shifts along each grid dimension.
+            It takes values bigger or equal to one, it represents the multiplicity of each knot.
+
+        Returns
+        -------
+        v: CartDecomposition
+            The reduced cart.
+        """
+
+        comm     = self.comm
+        axes     = [self.axis, self.axis]
+        exts     = [self.ext_minus, self.ext_plus]
         ranks_in_topo       = [self.ranks_in_topo_minus, self.ranks_in_topo_plus]
         local_groups        = [self.local_group_minus, self.local_group_plus]
         local_communicators = [self.local_comm_minus, self.local_comm_plus]
@@ -1367,118 +1418,23 @@ class InterfaceCartDecomposition(CartDecomposition):
         requests     = []
         num_threads  = self.num_threads
 
-        cart = InterfaceCartDecomposition(npts, pads, periods, comm,
-                                         p_shifts, axes, exts,
-                                         ranks_in_topo, local_groups,
-                                         local_communicators,
-                                         root_ranks, requests, num_threads, reduce_elements=True)
-
-        cart._npts_minus = tuple(n - ne for n,ne in zip(cart.npts_minus, n_elements))
-        cart._npts_plus  = tuple(n - ne for n,ne in zip(cart.npts_plus, n_elements))
-
-        cart._shifts_minus = [m for m in shifts]
-        cart._shifts_plus  = [m for m in shifts]
-
-        assert all(axis<cart._ndims for axis in axes)
-
-        if cart.is_comm_null:
-            return cart
-
-        # Store arrays with all the starts and ends along each direction
-        cart._global_starts_minus = [None]*self._ndims
-        cart._global_ends_minus   = [None]*self._ndims
-        cart._global_starts_plus  = [None]*self._ndims
-        cart._global_ends_plus    = [None]*self._ndims
-
-        for axis in range( self._ndims ):
-            ni = cart._npts_minus[axis]
-            di = cart._nprocs_minus[axis]
-            pi = cart._pads_minus[axis]
-            mi = cart._shifts_minus[axis]
-            r_starts_minus = cart._reduced_global_starts_minus[axis]
-            r_ends_minus   = cart._reduced_global_ends_minus  [axis]
-            nj = cart._npts_plus[axis]
-            dj = cart._nprocs_plus[axis]
-            pj = cart._pads_plus[axis]
-            mj = cart._shifts_plus[axis]
-            r_starts_plus = cart._reduced_global_starts_plus[axis]
-            r_ends_plus   = cart._reduced_global_ends_plus  [axis]
-
-            global_starts_minus = [0]
-            for ci in range(1,di):
-                global_starts_minus.append(global_starts_minus[ci-1] + (r_ends_minus[ci-1]-r_starts_minus[ci-1]+1)*mi)
-
-            global_starts_plus = [0]
-            for cj in range(1,dj):
-                global_starts_plus.append(global_starts_plus[cj-1] + (r_ends_plus[cj-1]-r_starts_plus[cj-1]+1)*mj)
-
-            global_ends_minus   = [global_starts_minus[ci+1]-1 for ci in range( di-1 )] + [ni-1]
-            global_ends_plus   = [global_starts_plus[cj+1]-1 for cj in range( dj-1 )] + [nj-1]
-
-            cart._global_starts_minus[axis] = np.array( global_starts_minus )
-            cart._global_ends_minus  [axis] = np.array( global_ends_minus )
-            cart._global_starts_plus[axis] = np.array( global_starts_plus )
-            cart._global_ends_plus  [axis] = np.array( global_ends_plus )
-
-        if self._local_rank_minus is not None:
-            # Store input arguments
-            cart._npts    = tuple( cart.npts_minus    )
-            cart._pads    = tuple( cart.pads_minus    )
-            cart._periods = tuple( cart.periods_minus )
-            cart._shifts  = tuple( cart.shifts_minus  )
-            cart._dims    = cart._nprocs_minus
-
-            cart._reduced_global_starts = cart._reduced_global_starts_minus
-            cart._reduced_global_ends   = cart._reduced_global_ends_minus
-            cart._global_starts         = cart._global_starts_minus
-            cart._global_ends           = cart._global_ends_minus
-
-            # Start/end values of global indices (without ghost regions)
-            coords       = cart._coords_from_rank_minus[cart._local_rank_minus]
-            cart._starts = tuple( cart._global_starts[d][c] for d,c in enumerate(coords) )
-            cart._ends   = tuple( cart._global_ends  [d][c] for d,c in enumerate(coords) )
-
-        if self._local_rank_plus is not None:
-            # Store input arguments
-            cart._npts    = tuple( cart.npts_plus    )
-            cart._pads    = tuple( cart.pads_plus    )
-            cart._periods = tuple( cart.periods_plus )
-            cart._shifts  = tuple( cart.shifts_plus  )
-            cart._dims    = cart._nprocs_plus
-
-            cart._reduced_global_starts = cart._reduced_global_starts_plus
-            cart._reduced_global_ends   = cart._reduced_global_ends_plus
-            cart._global_starts         = cart._global_starts_plus
-            cart._global_ends           = cart._global_ends_plus
-
-            # Start/end values of global indices (without ghost regions)
-            coords       = cart._coords_from_rank_plus[cart._local_rank_plus]
-            cart._starts = tuple( cart._global_starts[d][c] for d,c in enumerate(coords) )
-            cart._ends   = tuple( cart._global_ends  [d][c] for d,c in enumerate(coords) )
-
-        # List of 1D global indices (without ghost regions)
-        cart._grids = tuple( range(s,e+1) for s,e in zip( cart._starts, cart._ends ) )
-
+        cart = InterfaceCartDecomposition(cart_minus, cart_plus, comm, axes, exts, ranks_in_topo, local_groups,
+                                          local_communicators, root_ranks, requests, reduce_elements=True)
         cart._parent_starts = self.starts
         cart._parent_ends   = self.ends
-        cart._parent_npts_minus = tuple(npts[0])
-        cart._parent_npts_plus  = tuple(npts[1])
-
-        cart._communication_infos = {}
-        cart._get_minus_starts_ends = self._get_minus_starts_ends
-        cart._get_plus_starts_ends  = self._get_plus_starts_ends
-        cart._communication_infos[cart._axis] = cart._compute_communication_infos_p2p(cart._axis)
+        cart._parent_npts_minus = self.npts_minus
+        cart._parent_npts_plus = self.npts_plus
 
         return cart
 
-    def set_communication_info( self, get_minus_starts_ends, get_plus_starts_ends ):
-        self._communication_infos[self._axis] = self._compute_communication_infos_p2p(self._axis, get_minus_starts_ends, get_plus_starts_ends)
+    def set_interface_communication_infos( self, get_minus_starts_ends, get_plus_starts_ends ):
+        self._interface_communication_infos[self._axis] = self._compute_interface_communication_infos_p2p(self._axis, get_minus_starts_ends, get_plus_starts_ends)
 
-    def get_communication_infos( self, axis ):
-        return self._communication_infos[ axis ]
+    def get_interface_communication_infos( self, axis ):
+        return self._interface_communication_infos[ axis ]
 
     #---------------------------------------------------------------------------
-    def _compute_communication_infos( self, axis ):
+    def _compute_interface_communication_infos( self, axis ):
 
         if self._intercomm == MPI.COMM_NULL:
             return
@@ -1582,7 +1538,7 @@ class InterfaceCartDecomposition(CartDecomposition):
 
         return info
     #---------------------------------------------------------------------------
-    def _compute_communication_infos_p2p( self, axis , get_minus_starts_ends=None, get_plus_starts_ends=None):
+    def _compute_interface_communication_infos_p2p( self, axis , get_minus_starts_ends=None, get_plus_starts_ends=None):
 
         if self._intercomm == MPI.COMM_NULL:
             return
@@ -1724,13 +1680,11 @@ class InterfaceCartDecomposition(CartDecomposition):
                 gbuf_recv_shape.append(buf_shape)
                 gbuf_recv_starts.append([si-s for si,s in zip(starts_inter, starts_extended_plus)])
 
-
         # Store all information into dictionary
         info = {'dest_ranks'       : tuple( dest_ranks ),
                 'buf_send_shape'   : tuple( buf_send_shape ),
                 'gbuf_send_shape'  : tuple( gbuf_send_shape  ),
                 'gbuf_send_starts' : tuple( gbuf_send_starts ),
-
                 'source_ranks'     : tuple( source_ranks ),
                 'buf_recv_shape'   : tuple( buf_recv_shape),
                 'gbuf_recv_shape'  : tuple( gbuf_recv_shape ),
@@ -1764,14 +1718,18 @@ class CartDataExchanger:
         (optional: by default, we assume scalar coefficients).
 
     """
-    def __init__( self, cart, dtype, *, coeff_shape=() ):
+    def __init__( self, cart, dtype, *, coeff_shape=(),  assembly=False, axis=None, shape=None ):
 
         self._send_types, self._recv_types = self._create_buffer_types(
                 cart, dtype, coeff_shape=coeff_shape )
 
         self._cart = cart
         self._comm = cart.comm_cart
+        self._axis = axis
 
+        if assembly:
+            self._assembly_send_types, self._assembly_recv_types = self._create_assembly_buffer_types(
+                cart, dtype, coeff_shape=coeff_shape, axis=axis, shape=shape)
     #---------------------------------------------------------------------------
     # Public interface
     #---------------------------------------------------------------------------
@@ -1781,6 +1739,14 @@ class CartDataExchanger:
     # ...
     def get_recv_type( self, direction, disp ):
         return self._recv_types[direction, disp]
+
+    # ...
+    def get_assembly_send_type( self, direction, disp ):
+        return self._assembly_send_types[direction, disp]
+
+    # ...
+    def get_assembly_recv_type( self, direction, disp ):
+        return self._assembly_recv_types[direction, disp]
 
     # ...
     def update_ghost_regions( self, array, *, direction=None ):
@@ -1838,6 +1804,79 @@ class CartDataExchanger:
 
         # Wait for end of data exchange (MPI_WAITALL)
         MPI.Request.Waitall( requests )
+
+    # ...
+    def exchange_assembly_data( self, array ):
+        """
+        Update ghost regions after the assembly algorithm in a numpy array with dimensions compatible with
+        CartDecomposition (and coeff_shape) provided at initialization.
+        Parameters
+        ----------
+        array : numpy.ndarray
+            Multidimensional array corresponding to local subdomain in
+            decomposed tensor grid, including padding.
+        """
+
+        assert isinstance( array, np.ndarray )
+
+
+        # Shortcuts
+        cart  = self._cart
+        comm  = self._comm
+        gcomm = comm
+        ndim  = cart.ndim
+
+        # Choose non-negative invertible function tag(disp) >= 0
+        # NOTES:
+        #   . different values of disp must return different tags!
+        #   . tag at receiver must match message tag at sender
+        tag = lambda disp: 42+disp
+
+        # Requests' handles
+
+        for direction in range( ndim ):
+            if direction == self._axis: continue
+            if self._axis is not None: comm = cart.subcomm[direction]
+
+            # Start receiving data (MPI_IRECV)
+            disp        = 1
+            info        = cart.get_shift_info( direction, disp )
+            recv_typ    = self.get_assembly_recv_type ( direction, disp )
+            rank_source = info['rank_source']
+
+            if self._axis is not None:
+                rank_source = comm.group.Translate_ranks(gcomm.group, np.array([rank_source]), comm.group)[0]
+            
+            recv_buf = (array, 1, recv_typ)
+            recv_req = comm.Irecv( recv_buf, rank_source, tag(disp) )
+
+            # Start sending data (MPI_ISEND)
+            send_typ = self.get_assembly_send_type ( direction, disp )
+            rank_dest = info['rank_dest']
+
+            if self._axis is not None:
+                rank_dest = comm.group.Translate_ranks(gcomm.group, np.array([rank_dest]), comm.group)[0]
+
+            send_buf = (array, 1, send_typ)
+            send_req = comm.Isend( send_buf, rank_dest, tag(disp) )
+
+            # Wait for end of data exchange (MPI_WAITALL)
+            MPI.Request.Waitall( [recv_req, send_req] )
+
+            if disp == 1:
+                info = cart.get_shift_info( direction, disp )
+                pads = [0]*ndim
+                pads[direction] = cart._pads[direction]*cart._shifts[direction]
+                idx_from = tuple(slice(s,s+b) for s,b in zip(info['recv_starts'],info['buf_shape']))
+                idx_to   = tuple(slice(s+p,s+b+p) for s,b,p in zip(info['recv_starts'],info['buf_shape'],pads))
+                array[idx_to] += array[idx_from]
+            else:
+                info = cart.get_shift_info( direction, disp )
+                pads = [0]*ndim
+                pads[direction] = cart._pads[direction]*cart._shifts[direction]
+                idx_from = tuple(slice(s,s+b) for s,b in zip(info['recv_starts'],info['buf_shape']))
+                idx_to   = tuple(slice(s-p,s+b-p) for s,b,p in zip(info['recv_starts'],info['buf_shape'],pads))
+                array[idx_to] += array[idx_from]
 
 
     #---------------------------------------------------------------------------
@@ -1918,6 +1957,82 @@ class CartDataExchanger:
 
         return send_types, recv_types
 
+    # ...
+    @staticmethod
+    def _create_assembly_buffer_types( cart, dtype, *, coeff_shape=(), axis=None, shape=None ):
+        """
+        Create MPI subarray datatypes for updating the ghost regions (padding)
+        of a multi-dimensional array distributed according to the given Cartesian
+        decomposition of a tensor-product grid of coefficients.
+        MPI requires a subarray datatype for accessing non-contiguous slices of
+        a multi-dimensional array; this is a typical situation when updating the
+        ghost regions.
+        Each coefficient in the decomposed grid may have multiple components,
+        contiguous in memory.
+        Parameters
+        ----------
+        cart : psydac.ddm.CartDecomposition
+            Object that contains all information about the Cartesian decomposition
+            of a tensor-product grid of coefficients.
+        dtype : [type | str | numpy.dtype | mpi4py.MPI.Datatype]
+            Datatype of single coefficient (if scalar) or of each of its
+            components (if vector).
+        coeff_shape : [tuple(int) | list(int)]
+            Shape of a single coefficient, if this is multidimensional
+            (optional: by default, we assume scalar coefficients).
+        Returns
+        -------
+        send_types : dict
+            Dictionary of MPI subarray datatypes for SEND BUFFERS, accessed
+            through the integer pair (direction, displacement) as key;
+            'direction' takes values from 0 to ndim, 'disp' is -1 or +1.
+        recv_types : dict
+            Dictionary of MPI subarray datatypes for RECEIVE BUFFERS, accessed
+            through the integer pair (direction, displacement) as key;
+            'direction' takes values from 0 to ndim, 'disp' is -1 or +1.
+        """
+        assert isinstance( cart, CartDecomposition )
+
+        mpi_type = find_mpi_type( dtype )
+
+        # Possibly, each coefficient could have multiple components
+        coeff_shape = list( coeff_shape )
+        coeff_start = [0] * len( coeff_shape )
+
+        data_shape = list( cart.shape ) + coeff_shape
+        send_types = {}
+        recv_types = {}
+
+        if axis is not None:
+            data_shape[axis] = shape[axis]
+
+        for direction in range( cart.ndim ):
+            for disp in [-1, 1]:
+                info = cart.get_shift_info( direction, disp )
+
+                buf_shape   = list( info[ 'buf_shape' ] ) + coeff_shape
+                send_starts = list( info['send_assembly_starts'] ) + coeff_start
+                recv_starts = list( info['recv_assembly_starts'] ) + coeff_start
+                if direction == axis:continue
+                if axis is not None:
+                    buf_shape[axis]   = shape[axis]
+                    send_starts[axis] = 0
+                    recv_starts[axis] = 0
+
+                send_types[direction,disp] = mpi_type.Create_subarray(
+                    sizes    = data_shape ,
+                    subsizes =  buf_shape ,
+                    starts   = send_starts,
+                ).Commit()
+
+                recv_types[direction,disp] = mpi_type.Create_subarray(
+                    sizes    = data_shape ,
+                    subsizes =  buf_shape ,
+                    starts   = recv_starts,
+                ).Commit()
+
+        return send_types, recv_types
+
 #===============================================================================
 class InterfaceCartDataExchanger:
     """
@@ -1946,8 +2061,9 @@ class InterfaceCartDataExchanger:
         self._dtype         = dtype
         self._send_types    = send_types
         self._recv_types    = recv_types
-        self._dest_ranks    = cart.get_communication_infos( cart.axis )['dest_ranks']
-        self._source_ranks  = cart.get_communication_infos( cart.axis )['source_ranks']
+        self._dest_ranks    = cart.get_interface_communication_infos( cart.axis )['dest_ranks']
+        self._source_ranks  = cart.get_interface_communication_infos( cart.axis )['source_ranks']
+
 
     # ...
     def update_ghost_regions( self, array_minus=None, array_plus=None ):
@@ -1990,7 +2106,7 @@ class InterfaceCartDataExchanger:
         assert isinstance( cart, InterfaceCartDecomposition )
 
         mpi_type = find_mpi_type( dtype )
-        info     = cart.get_communication_infos( cart.axis )
+        info     = cart.get_interface_communication_infos( cart.axis )
 
         # Possibly, each coefficient could have multiple components
         coeff_shape = list( coeff_shape )

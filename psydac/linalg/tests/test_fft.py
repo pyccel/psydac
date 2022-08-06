@@ -1,13 +1,27 @@
-from psydac.linalg.fft import *
-from psydac.ddm.cart               import CartDecomposition
-from psydac.linalg.stencil import StencilVector
-
+import pytest
 import scipy.fft as scifft
 import numpy as np
-from mpi4py                     import MPI
+from mpi4py import MPI
 
-import pytest
+from psydac.linalg.fft import *
+from psydac.ddm.cart               import DomainDecomposition, CartDecomposition
+from psydac.linalg.stencil import StencilVector
+#===============================================================================
+def compute_global_starts_ends(domain_decomposition, npts):
+    ndims         = len(npts)
+    global_starts = [None]*ndims
+    global_ends   = [None]*ndims
 
+    for axis in range(ndims):
+        es = domain_decomposition.global_element_starts[axis]
+        ee = domain_decomposition.global_element_ends  [axis]
+
+        global_ends  [axis]     = ee.copy()
+        global_ends  [axis][-1] = npts[axis]-1
+        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+
+    return global_starts, global_ends
+#===============================================================================
 def decode_fft_type(ffttype):
     if ffttype == 'fft':
         return (complex, DistributedFFT, scifft.fftn)
@@ -37,18 +51,16 @@ def method_test(seed, comm, config, dtype, classtype, comparison, verbose=False)
     if verbose:
         print(f'[{rank}] Test start', flush=True)
 
+    comm = MPI.COMM_WORLD
+    D = DomainDecomposition(npts, periods=periods, comm=comm)
+
+    # Partition the points
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=pads, shifts=[1]*len(pads))
+
     # vector spaces
-    if comm is None:
-        V = StencilVectorSpace(npts, pads, periods, dtype=dtype)
-    else:
-        cart = CartDecomposition(
-            npts    = npts,
-            pads    = pads,
-            periods = periods,
-            reorder = True,
-            comm    = comm
-        )
-        V = StencilVectorSpace(cart, dtype=dtype)
+    V = StencilVectorSpace(cart, dtype=dtype)
     localslice = tuple([slice(s, e+1) for s, e in zip(V.starts, V.ends)])
 
     if verbose:

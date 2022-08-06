@@ -51,8 +51,7 @@ class BlockVectorSpace( VectorSpace ):
         else:
             self._dtype = tuple(s.dtype for s in spaces)
 
-        connectivity       = connectivity or {}
-        self._connectivity = connectivity
+        self._connectivity = connectivity or {}
         self._connectivity_readonly = MappingProxyType(self._connectivity)
     #--------------------------------------
     # Abstract interface
@@ -303,6 +302,8 @@ class BlockVector( Vector ):
     def ghost_regions_in_sync( self, value ):
         assert isinstance( value, bool )
         self._sync = value
+        for vi in self.blocks:
+            vi.ghost_regions_in_sync = value
 
     # ...
     def update_ghost_regions( self, *, direction=None ):
@@ -378,6 +379,11 @@ class BlockVector( Vector ):
                 self._interface_buf[i,j].append(tuple(buf))
 
     # ...
+    def exchange_assembly_data( self ):
+        for vi in self.blocks:
+            vi.exchange_assembly_data()
+
+    # ...
     @property
     def n_blocks( self ):
         return len( self._blocks )
@@ -391,6 +397,7 @@ class BlockVector( Vector ):
     def toarray( self, order='C' ):
         return np.concatenate( [bi.toarray(order=order) for bi in self._blocks] )
 
+    # ...
     def toarray_local( self, order='C' ):
         """ Convert to petsc Nest vector.
         """
@@ -398,6 +405,7 @@ class BlockVector( Vector ):
         blocks    = [v.toarray_local(order=order) for v in self._blocks]
         return np.block([blocks])[0]
 
+    # ...
     def topetsc( self ):
         """ Convert to petsc Nest vector.
         """
@@ -469,6 +477,7 @@ class BlockLinearOperator( LinearOperator ):
         self._args['n_rows'] = self._nrows
         self._args['n_cols'] = self._ncols
         self._func           = self._dot
+        self._sync           = False
 
     #--------------------------------------
     # Abstract interface
@@ -564,9 +573,25 @@ class BlockLinearOperator( LinearOperator ):
             Lij.update_ghost_regions()
 
     # ...
+    def exchange_assembly_data( self ):
+        for Lij in self._blocks.values():
+            Lij.exchange_assembly_data()
+
+    # ...
     def remove_spurious_entries( self ):
         for Lij in self._blocks.values():
             Lij.remove_spurious_entries()
+
+    @property
+    def ghost_regions_in_sync(self):
+        return self._sync
+
+    @ghost_regions_in_sync.setter
+    def ghost_regions_in_sync( self, value ):
+        assert isinstance( value, bool )
+        self._sync = value
+        for Lij in self._blocks.values():
+            Lij.ghost_regions_in_sync = value
 
     # ...
     def __getitem__( self, key ):
@@ -899,8 +924,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             return blocks, blocks_T
 
         V = self.codomain 
-        for i,j in V.connectivity:
 
+        for i,j in V.connectivity:
             ((axis_i,ext_i), (axis_j,ext_j)) = V.connectivity[i,j]
 
             Vi = V.spaces[i]
@@ -918,7 +943,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
                         if cart_i.is_comm_null and cart_j.is_comm_null:break
                         if not cart_i.is_comm_null and not cart_j.is_comm_null:break
-                        if not (axis_i, ext_i) in Vik1.interfaces:break
+                        if not (axis_i, ext_i) in Vik1.interfaces: break
                         cart_ij = Vik1.interfaces[axis_i, ext_i].cart
                         assert isinstance(cart_ij, InterfaceCartDecomposition)
 
@@ -973,7 +998,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
                         if cart_i.is_comm_null and cart_j.is_comm_null:break
                         if not cart_i.is_comm_null and not cart_j.is_comm_null:break
-                        if not (axis_i, ext_i) in Vik1.interfaces:break
+                        if not (axis_i, ext_i) in Vik1.interfaces: break
                         interface_cart_i = Vik1.interfaces[axis_i, ext_i].cart
                         interface_cart_j = Vjk2.interfaces[axis_j, ext_j].cart
                         assert isinstance(interface_cart_i, InterfaceCartDecomposition)
@@ -1032,7 +1057,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                 cart_j = Vj.cart
                 if cart_i.is_comm_null and cart_j.is_comm_null:continue
                 if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
-                if not (axis_i, ext_i) in Vi.interfaces:continue
+                if not (axis_i, ext_i) in Vi.interfaces: continue
                 cart_ij = Vi.interfaces[axis_i, ext_i].cart
                 assert isinstance(cart_ij, InterfaceCartDecomposition)
 
@@ -1105,6 +1130,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         from psydac.linalg.stencil import StencilInterfaceMatrix
 
         block_shape = (self.n_block_rows, self.n_block_cols)
+
         keys        = self.nonzero_block_indices
         ndim        = self._blocks[keys[0]]._ndim
         c_starts    = []

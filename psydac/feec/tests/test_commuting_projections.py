@@ -8,6 +8,7 @@ from psydac.core.bsplines    import make_knots
 from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
 from psydac.feec.derivatives import ScalarCurl_2D, VectorCurl_2D, Curl_3D
 from psydac.feec.derivatives import Divergence_2D, Divergence_3D
+from psydac.ddm.cart         import DomainDecomposition
 
 from mpi4py import MPI
 import numpy as np
@@ -42,7 +43,10 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc):
     knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
-    H1     = TensorFemSpace(*Vs, comm=MPI.COMM_WORLD)
+
+    domain_decomposition = DomainDecomposition(Nel, bc, comm=MPI.COMM_WORLD)
+    
+    H1     = TensorFemSpace(domain_decomposition, *Vs)
 
     spaces = [H1.reduce_degree(axes=[0], basis='M'),
               H1.reduce_degree(axes=[1], basis='M'),
@@ -111,7 +115,9 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc):
     knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
-    H1     = TensorFemSpace(*Vs, comm=MPI.COMM_WORLD)
+
+    domain_decomposition = DomainDecomposition(Nel, bc)
+    H1       = TensorFemSpace(domain_decomposition, *Vs)
 
     spaces = [H1.reduce_degree(axes=[0], basis='M'),
               H1.reduce_degree(axes=[1], basis='M'),
@@ -176,7 +182,9 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc):
     knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
-    H1     = TensorFemSpace(*Vs, comm=MPI.COMM_WORLD)
+
+    domain_decomposition = DomainDecomposition(Nel, bc, comm=MPI.COMM_WORLD)
+    H1       = TensorFemSpace(domain_decomposition, *Vs)
 
     spaces = [H1.reduce_degree(axes=[1,2], basis='M'),
               H1.reduce_degree(axes=[0,2], basis='M'),
@@ -232,7 +240,9 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc):
     knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
-    H1     = TensorFemSpace(*Vs, comm=MPI.COMM_WORLD)
+
+    domain_decomposition = DomainDecomposition(Nel, bc, comm=MPI.COMM_WORLD)
+    H1       = TensorFemSpace(domain_decomposition, *Vs)
 
     spaces = [H1.reduce_degree(axes=[0], basis='M'),
               H1.reduce_degree(axes=[1], basis='M')]
@@ -284,7 +294,9 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc):
     knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
-    H1     = TensorFemSpace(*Vs, comm=MPI.COMM_WORLD)
+
+    domain_decomposition = DomainDecomposition(Nel, bc, comm=MPI.COMM_WORLD)
+    H1       = TensorFemSpace(domain_decomposition, *Vs)
 
     spaces = [H1.reduce_degree(axes=[1], basis='M'),
               H1.reduce_degree(axes=[0], basis='M')]
@@ -340,7 +352,9 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc):
     knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
-    H1     = TensorFemSpace(*Vs, comm=MPI.COMM_WORLD)
+
+    domain_decomposition = DomainDecomposition(Nel, bc, comm=MPI.COMM_WORLD)
+    H1       = TensorFemSpace(domain_decomposition, *Vs)
 
     spaces = [H1.reduce_degree(axes=[1], basis='M'),
               H1.reduce_degree(axes=[0], basis='M')]
@@ -399,7 +413,9 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc):
     knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
-    H1     = TensorFemSpace(*Vs, comm=MPI.COMM_WORLD)
+
+    domain_decomposition = DomainDecomposition(Nel, bc, comm=MPI.COMM_WORLD)
+    H1       = TensorFemSpace(domain_decomposition, *Vs)
 
     spaces = [H1.reduce_degree(axes=[0], basis='M'),
               H1.reduce_degree(axes=[1], basis='M')]
@@ -453,8 +469,10 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc):
     knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
-    H1     = TensorFemSpace(*Vs, comm=MPI.COMM_WORLD)
-    L2     = H1.reduce_degree(axes=[0], basis='M')
+
+    domain_decomposition = DomainDecomposition(Nel, bc, comm=MPI.COMM_WORLD)
+    H1       = TensorFemSpace(domain_decomposition, *Vs)
+    L2       = H1.reduce_degree(axes=[0], basis='M')
 
     # create an instance of the H1 projector class
     P0 = Projector_H1(H1)

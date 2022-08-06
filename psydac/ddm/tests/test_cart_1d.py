@@ -1,5 +1,6 @@
 # Contents of test_cart_1d.py
 
+import numpy as np
 #===============================================================================
 # TEST CartDecomposition and CartDataExchanger in 1D
 #===============================================================================
@@ -7,14 +8,14 @@ def run_cart_1d( verbose=False ):
 
     import numpy as np
     from mpi4py       import MPI
-    from psydac.ddm.cart import CartDecomposition, CartDataExchanger
+    from psydac.ddm.cart import DomainDecomposition, CartDecomposition, CartDataExchanger
 
     #---------------------------------------------------------------------------
     # INPUT PARAMETERS
     #---------------------------------------------------------------------------
 
-    # Number of elements
-    n1 = 135
+    # Number of cells
+    nc1 = 135
 
     # Padding ('thickness' of ghost region)
     p1 = 3
@@ -22,6 +23,8 @@ def run_cart_1d( verbose=False ):
     # Periodicity
     period1 = True
 
+    # Number of Points
+    n1 = nc1 + p1*(1-period1)
     #---------------------------------------------------------------------------
     # DOMAIN DECOMPOSITION
     #---------------------------------------------------------------------------
@@ -31,13 +34,23 @@ def run_cart_1d( verbose=False ):
     size = comm.Get_size()
     rank = comm.Get_rank()
 
+    domain_decomposition = DomainDecomposition(ncells=[nc1], periods=[period1], comm=comm)
+
+    es = domain_decomposition.global_element_starts[0]
+    ee = domain_decomposition.global_element_ends  [0]
+
+    global_ends        = [ee]
+    global_ends[0][-1] = n1-1
+    global_starts      = [np.array([0] + (global_ends[0][:-1]+1).tolist())]
+
     # Decomposition of Cartesian domain
     cart = CartDecomposition(
-        npts    = [n1+1],
-        pads    = [p1],
-        periods = [period1],
-        reorder = False,
-        comm    = comm
+            domain_decomposition = domain_decomposition,
+            npts          = [n1],
+            global_starts = global_starts,
+            global_ends   = global_ends,
+            pads          = [p1],
+            shifts        = [1],
     )
 
     # Local 1D array (extended domain)
@@ -77,9 +90,8 @@ def run_cart_1d( verbose=False ):
     #---------------------------------------------------------------------------
     # CHECK RESULTS
     #---------------------------------------------------------------------------
-
     # Verify that ghost cells contain correct data (note periodic domain!)
-    success = all( u[:] == [i1%(n1+1) for i1 in range(s1-p1,e1+p1+1)] )
+    success = all( u[:] == [i1%n1 for i1 in range(s1-p1,e1+p1+1)] )
 
     # MASTER only: collect information from all processes
     success_global = comm.reduce( success, op=MPI.LAND, root=0 )

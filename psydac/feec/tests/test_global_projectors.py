@@ -7,6 +7,7 @@ from psydac.fem.splines            import SplineSpace
 from psydac.fem.tensor             import TensorFemSpace
 from psydac.fem.vector             import ProductFemSpace
 from psydac.feec.global_projectors import Projector_H1, Projector_L2
+from psydac.ddm.cart               import DomainDecomposition
 
 #==============================================================================
 @pytest.mark.parametrize('domain', [(0, 2*np.pi)])
@@ -19,9 +20,11 @@ def test_H1_projector_1d(domain, ncells, degree, periodic):
     breaks = np.linspace(*domain, num=ncells+1)
     knots  = make_knots(breaks, degree, periodic)
 
+    domain_decomposition = DomainDecomposition([ncells], [periodic])
+
     # H1 space (0-forms)
     N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
-    V0 = TensorFemSpace(N)
+    V0 = TensorFemSpace(domain_decomposition, N)
 
     # Projector onto H1 space (1D interpolation)
     P0 = Projector_H1(V0)
@@ -54,9 +57,11 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads):
     breaks = np.linspace(*domain, num=ncells+1)
     knots  = make_knots(breaks, degree, periodic)
 
+    domain_decomposition = DomainDecomposition([ncells], [periodic])
+
     # H1 space (0-forms)
     N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
-    V0 = TensorFemSpace(N)
+    V0 = TensorFemSpace(domain_decomposition, N)
 
     # L2 space (1-forms)
     V1 = V0.reduce_degree(axes=[0], basis='M')
