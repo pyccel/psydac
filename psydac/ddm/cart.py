@@ -366,7 +366,7 @@ class DomainDecomposition:
 
     #---------------------------------------------------------------------------
     def coords_exist( self, coords ):
-        return all( P or (0 <= c < d) for P,c,d in zip( self._periods, coords, self._dims ) )
+        return all( P or (0 <= c < d) for P,c,d in zip( self._periods, coords, self._nprocs ) )
 
 #==================================================================================
 class InterfacesCartDecomposition:
@@ -704,12 +704,17 @@ class CartDecomposition():
     #---------------------------------------------------------------------------
     def coords_exist( self, coords ):
 
-        return all( P or (0 <= c < d) for P,c,d in zip( self._periods, coords, self._dims ) )
+        return all( P or (0 <= c < d) for P,c,d in zip( self._periods, coords, self._nprocs ) )
 
     #---------------------------------------------------------------------------
     def get_shift_info( self, direction, disp ):
 
         return self._shift_info[ direction, disp ]
+
+    #---------------------------------------------------------------------------
+    def get_shift_info_non_blocking( self, shift ):
+
+        return self._shift_info_non_blocking[ shift ]
 
     #---------------------------------------------------------------------------
     def get_shared_memory_subdivision( self, shape ):
@@ -934,7 +939,7 @@ class CartDecomposition():
         else:
             rank_dest = MPI.PROC_NULL
 
-        if len([i for i in shift if i==0]) == 2:
+        if len([i for i in shift if i==0]) == 2 and rank_dest != MPI.PROC_NULL:
             direction = [i for i,s in enumerate(shift) if s != 0][0]
             comm = self._subcomm[direction]
             local_dest_rank = comm.group.Translate_ranks(self._comm_cart.group, np.array([rank_dest]), comm.group)[0]
@@ -947,7 +952,7 @@ class CartDecomposition():
         else:
             rank_source = MPI.PROC_NULL
 
-        if len([i for i in shift if i==0]) == 2:
+        if len([i for i in shift if i==0]) == 2 and rank_source != MPI.PROC_NULL:
             direction = [i for i,s in enumerate(shift) if s != 0][0]
             comm = self._subcomm[direction]
             local_source_rank = comm.group.Translate_ranks(self._comm_cart.group, np.array([rank_source]), comm.group)[0]
@@ -983,15 +988,15 @@ class CartDecomposition():
         tag = sum( (h%3)*(3**n) for h,n in zip(shift, range(self._ndims)) )
 
         # Store all information into dictionary
-        info = {'rank_dest'  : rank_dest,
-                'rank_source': rank_source,
-                'local_dest_rank' : local_dest_rank,
+        info = {'rank_dest'         : rank_dest,
+                'rank_source'       : rank_source,
+                'local_dest_rank'   : local_dest_rank,
                 'local_source_rank' : local_source_rank,
-                'comm'             : comm,
-                'tag'        : tag,
-                'buf_shape'  : tuple(  buf_shape  ),
-                'send_starts': tuple( send_starts ),
-                'recv_starts': tuple( recv_starts )}
+                'comm'              : comm,
+                'tag'               : tag,
+                'buf_shape'         : tuple(  buf_shape  ),
+                'send_starts'       : tuple( send_starts ),
+                'recv_starts'       : tuple( recv_starts )}
 
         # return dictionary
         return info
@@ -1802,17 +1807,19 @@ class CartDataExchanger:
         (optional: by default, we assume scalar coefficients).
 
     """
-    def __init__( self, cart, dtype, *, coeff_shape=(),  assembly=False, axis=None, shape=None, non_blocking=False, buf=None ):
+    def __init__( self, cart, dtype, *, coeff_shape=(),  assembly=False, axis=None, shape=None, non_blocking=False ):
 
         if non_blocking:
             self._send_types, self._recv_types = self._create_buffer_types_non_blocking(
                     cart, dtype, coeff_shape=coeff_shape )
-
-            assert buf is not None
-            self._requests = self._prepare_communications(buf)
+            self.update_ghost_regions = self._update_ghost_regions_non_blocking
+            self._is_blocking = False
         else:
             self._send_types, self._recv_types = self._create_buffer_types(
                     cart, dtype, coeff_shape=coeff_shape )
+
+            self.update_ghost_regions = self._update_ghost_regions
+            self._is_blocking = True
 
         self._cart = cart
         self._comm = cart.comm_cart
@@ -1832,11 +1839,11 @@ class CartDataExchanger:
         return self._recv_types[direction, disp]
 
     # ...
-    def get_send_type( self, shift ):
+    def get_send_type_non_blocking( self, shift ):
         return self._send_types[shift]
 
     # ...
-    def get_recv_type( self, shift ):
+    def get_recv_type_non_blocking( self, shift ):
         return self._recv_types[shift]
 
     # ...
@@ -1848,7 +1855,38 @@ class CartDataExchanger:
         return self._assembly_recv_types[direction, disp]
 
     # ...
-    def update_ghost_regions( self, array, *, direction=None ):
+    def prepare_communications(self, buf):
+        if self._is_blocking is True: return
+        assert buf is not None
+        self._requests = self._prepare_communications(buf)
+
+    # ...
+    def _prepare_communications(self, u):
+
+        # Requests' handles
+        requests = []
+        cart = self._cart
+        for shift in product( [-1,0,1], repeat=cart._ndims ):
+            if all(s==0 for s in shift):
+                continue
+
+            info     = cart.get_shift_info_non_blocking( shift )
+            comm     = info['comm']
+
+            recv_typ = self.get_recv_type_non_blocking( shift )
+            recv_buf = (u, 1, recv_typ)
+            recv_req = comm.Recv_init( recv_buf, info['local_source_rank'], info['tag'] )
+            requests.append( recv_req )
+
+            send_typ = self.get_send_type_non_blocking( shift )
+            send_buf = (u, 1, send_typ)
+            send_req = comm.Send_init( send_buf, info['local_dest_rank'], info['tag'] )
+            requests.append( send_req )
+
+        return tuple(requests)
+
+    # ...
+    def _update_ghost_regions( self, array, *, direction=None ):
         """
         Update ghost regions in a numpy array with dimensions compatible with
         CartDecomposition (and coeff_shape) provided at initialization.
@@ -1903,6 +1941,11 @@ class CartDataExchanger:
 
         # Wait for end of data exchange (MPI_WAITALL)
         MPI.Request.Waitall( requests )
+
+
+    def _update_ghost_regions_non_blocking(self, *args, **kwargs):
+        MPI.Prequest.Startall( requests )
+        MPI.Request.Waitall  ( requests )
 
     # ...
     def exchange_assembly_data( self, array ):
@@ -2109,26 +2152,32 @@ class CartDataExchanger:
 
         send_types = {}
         recv_types = {}
-        for shift in product( [-1,0,1], repeat=3 ):
-            if shift == (0,0,0):
+        for shift in product( [-1,0,1], repeat=cart._ndims ):
+            if all(s == 0 for s in shift):
                 continue
-            info = mesh.get_shift_info_non_blocking( shift )
+            info = cart.get_shift_info_non_blocking( shift )
 
             buf_shape   = list( info[ 'buf_shape' ] ) + coeff_shape
             send_starts = list( info['send_starts'] ) + coeff_start
             recv_starts = list( info['recv_starts'] ) + coeff_start
 
-            send_types[shift] = mpi_type.Create_subarray(
-                sizes    = u.shape,
-                subsizes = buf_shape,
-                starts   = send_starts,
-            ).Commit()
+            if info['rank_dest']>=0:
+                send_types[shift] = mpi_type.Create_subarray(
+                    sizes    = data_shape,
+                    subsizes = buf_shape,
+                    starts   = send_starts,
+                ).Commit()
+            else:
+                send_types[shift] = MPI.DATATYPE_NULL
 
-            recv_types[shift] = mpi_type.Create_subarray(
-                sizes    = u.shape,
-                subsizes = buf_shape,
-                starts   = recv_starts,
-            ).Commit()
+            if info['rank_source']>=0:
+                recv_types[shift] = mpi_type.Create_subarray(
+                    sizes    = data_shape,
+                    subsizes = buf_shape,
+                    starts   = recv_starts,
+                ).Commit()
+            else:
+                recv_types[shift] = MPI.DATATYPE_NULL
 
         return send_types, recv_types
 
