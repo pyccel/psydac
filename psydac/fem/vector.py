@@ -10,6 +10,7 @@ from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.block   import BlockVectorSpace
 from psydac.fem.basic      import FemSpace, FemField
+from psydac.fem.tensor     import TensorFemSpace
 
 from psydac.core.kernels import (pushforward_2d_hdiv,
                                  pushforward_3d_hdiv,
@@ -48,11 +49,15 @@ class VectorFemSpace( FemSpace ):
         # ...
 
         self._symbolic_space   = None
-        self._vector_space     = None
+        self._vector_space     = BlockVectorSpace(*[V.vector_space for V in self.spaces])
 
-        # TODO serial case
-        # TODO parallel case
+        self._refined_space    = {}
 
+        if isinstance(spaces[0], TensorFemSpace):
+            self._refined_space[tuple(self._ncells)] = self
+            for key in self.spaces[0]._refined_space:
+                if key == tuple(self._ncells):continue
+                self._refined_space[key] = VectorFemSpace(*[V._refined_space[key] for V in self.spaces])
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
@@ -370,19 +375,6 @@ class ProductFemSpace( FemSpace ):
         assert len(np.unique(ldims)) == 1
 
         self._ldim = ldims[0]
-        # ...
-
-        # ... make sure that all spaces have the same number of cells
-        ncells = [V.ncells for V in self.spaces]
-
-        if self.ldim == 1:
-            assert len(np.unique(ncells)) == 1
-        else:
-            ns = np.asarray(ncells[0])
-            for ms in ncells[1:]:
-                assert np.allclose(ns, np.asarray(ms))
-
-        self._ncells = ncells[0]
         # ...
 
         connectivity          = connectivity if connectivity is not None else {}

@@ -1021,13 +1021,13 @@ class TensorFemSpace( FemSpace ):
         tensor_vec._interpolation_ready = False
 
        for key in self._refined_space:
-            if key == tuple(self.ncells):continue
+            if key == tuple(self.ncells): continue
             tensor_vec._refined_space[key] = self._refined_space[key].reduce_degree(axes, multiplicity, basis)
         return tensor_vec
 
     # ...
     def add_refined_space(self, ncells):
-        if tuple(ncells) in self._refined_space:return
+        if tuple(ncells) in self._refined_space: return
         spaces = [s.refine(n) for s,n in zip(self.spaces, ncells)]
         npts   = [s.nbasis for s in spaces]
         v      = self.vector_space.refine(npts)
