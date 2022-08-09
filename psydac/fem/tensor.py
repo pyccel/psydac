@@ -77,6 +77,7 @@ class TensorFemSpace( FemSpace ):
             self._quad_order = quad_order
 
         self._symbolic_space = None
+        self._refined_space  = {}
         self._interfaces     = {}
         self._interfaces_readonly = MappingProxyType(self._interfaces)
 
@@ -1018,8 +1019,22 @@ class TensorFemSpace( FemSpace ):
         tensor_vec = TensorFemSpace(self._domain_decomposition, *spaces, cart=red_cart, quad_order=self._quad_order)
 
         tensor_vec._interpolation_ready = False
+
+       for key in self._refined_space:
+            if key == tuple(self.ncells):continue
+            tensor_vec._refined_space[key] = self._refined_space[key].reduce_degree(axes, multiplicity, basis)
         return tensor_vec
 
+    # ...
+    def add_refined_space(self, ncells):
+        if tuple(ncells) in self._refined_space:return
+        spaces = [s.refine(n) for s,n in zip(self.spaces, ncells)]
+        npts   = [s.nbasis for s in spaces]
+        v      = self.vector_space.refine(npts)
+        FS     = TensorFemSpace(*spaces, quad_order=self.quad_order, vector_space=v)
+        self._refined_space[tuple(ncells)]= FS
+
+    # ...
     def create_interface_space(self, axis, ext, cart):
         """ Create a new interface fem space along a given axis and extremity.
 

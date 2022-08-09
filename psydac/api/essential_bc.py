@@ -21,6 +21,18 @@ def apply_essential_bc(a, *bcs, **kwargs):
                 **kwargs
             )
 
+   elif isinstance(a, ProductLinearOperator):
+        apply_essential_bc(a.operators[0], *bcs, **kwargs)
+
+    elif isinstance(a, KroneckerDenseMatrix):
+        for bc in bcs:
+            check_boundary_type(bc)
+            apply_essential_bc_kronnecker_dense_matrix(a,
+                axis  = bc.boundary.axis,
+                ext   = bc.boundary.ext,
+                order = bc.order,
+                **kwargs
+            )
     elif isinstance(a, BlockVector):
         is_broken=kwargs.pop('is_broken', True)
         for bc in bcs:
@@ -42,6 +54,16 @@ def check_boundary_type(bc):
         raise TypeError('Essential boundary condition must be of type '\
                 'EssentialBC from sympde.expr.equation, got {} instead'\
                 .format(type(bc)))
+
+#==============================================================================
+def apply_essential_bc_kronnecker_dense_matrix(a, *, axis, ext, order, identity=False):
+    mats = a.mats
+    p = a.codomain.pads[axis]
+
+    if ext == 1:
+        mats[axis][-p-1] = 0.
+    elif ext == -1:
+        mats[axis][p] = 0.
 
 #==============================================================================
 def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):

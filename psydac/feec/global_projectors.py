@@ -11,14 +11,14 @@ from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
 
 from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import ProductFemSpace
+from psydac.fem.vector import VectorFemSpace
 
 from abc import ABCMeta, abstractmethod
 
 #==============================================================================
 class GlobalProjector(metaclass=ABCMeta):
     """
-    A global projector to some TensorFemSpace or ProductFemSpace object.
+    A global projector to some TensorFemSpace or VectorFemSpace object.
     It is constructed over a tensor-product grid in the
     logical domain. The vertices of this grid are obtained as the tensor
     product of the 1D splines' Greville points along each direction.
@@ -32,14 +32,14 @@ class GlobalProjector(metaclass=ABCMeta):
 
     Parameters
     ----------
-    space : ProductFemSpace | TensorFemSpace
+    space : VectorFemSpace | TensorFemSpace
         Some finite element space, codomain of the projection
         operator. The exact structure where to use histopolation and where interpolation
         has to be given by a subclass of the GlobalProjector class.
-        As of now, it is implicitly assumed for a ProductFemSpace, that for each direction
+        As of now, it is implicitly assumed for a VectorFemSpace, that for each direction
         that all spaces with interpolation are the same, and all spaces with histopolation are the same
-        (i.e. yield the same quadrature/interpolation points etc.); so use with care on an arbitrary ProductFemSpace.
-        It is right now only intended to be used with ProductFemSpaces or TensorFemSpaces from DeRham complex objects.
+        (i.e. yield the same quadrature/interpolation points etc.); so use with care on an arbitrary VectorFemSpace.
+        It is right now only intended to be used with VectorFemSpaces or TensorFemSpaces from DeRham complex objects.
 
     nquads : list(int) | tuple(int)
         Number of quadrature points along each direction, to be used in Gauss
@@ -54,7 +54,7 @@ class GlobalProjector(metaclass=ABCMeta):
         if isinstance(space, TensorFemSpace):
             tensorspaces = [space]
             rhsblocks = [self._rhs]
-        elif isinstance(space, ProductFemSpace):
+        elif isinstance(space, VectorFemSpace):
             tensorspaces = space.spaces
             rhsblocks = self._rhs.blocks
         else:
@@ -190,7 +190,7 @@ class GlobalProjector(metaclass=ABCMeta):
     def blockcount(self):
         """
         The number of blocks. In case that self.space is a TensorFemSpace, this is 1,
-        otherwise it denotes the number of blocks in the ProductFemSpace.
+        otherwise it denotes the number of blocks in the VectorFemSpace.
         """
         return self._blockcount
     
@@ -369,7 +369,7 @@ class Projector_Hcurl(GlobalProjector):
 
     Parameters
     ----------
-    Hcurl : ProductFemSpace
+    Hcurl : VectorFemSpace
         H(curl)-conforming finite element space, codomain of the projection
         operator.
 
@@ -445,7 +445,7 @@ class Projector_Hdiv(GlobalProjector):
 
     Parameters
     ----------
-    Hdiv : ProductFemSpace
+    Hdiv : VectorFemSpace
         H(div)-conforming finite element space, codomain of the projection
         operator.
 

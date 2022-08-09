@@ -368,6 +368,8 @@ class DomainDecomposition:
     def coords_exist( self, coords ):
         return all( P or (0 <= c < d) for P,c,d in zip( self._periods, coords, self._dims ) )
 
+    def refine(self, ncells):
+        return  DomainDecomposition(ncells, self.periods, comm=self.comm, global_comm=self.global_comm, num_threads=self.num_threads, size=self.size)
 #==================================================================================
 class InterfacesCartDecomposition:
     """

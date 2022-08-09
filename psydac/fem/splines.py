@@ -466,6 +466,13 @@ class SplineSpace( FemSpace ):
         c[0:n] = self._histopolator.solve( values )
         c.update_ghost_regions()
 
+    def refine(self, ncells):
+        if ncells == len(self.breaks)-1:
+            return self
+        grid = np.linspace(self.breaks[0], self.breaks[-1], ncells+1)
+        return SplineSpace(self.degree, grid=grid, multiplicity=self.multiplicity, parent_multiplicity=self.parent_multiplicity,
+                            periodic=self.periodic, dirichlet=self.dirichlet, basis=self.basis, pads=self.pads)
+
     # ...
     def __str__(self):
         """Pretty printing"""
