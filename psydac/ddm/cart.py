@@ -1944,8 +1944,8 @@ class CartDataExchanger:
 
 
     def _update_ghost_regions_non_blocking(self, *args, **kwargs):
-        MPI.Prequest.Startall( requests )
-        MPI.Request.Waitall  ( requests )
+        MPI.Prequest.Startall( self._requests )
+        MPI.Request.Waitall  ( self._requests )
 
     # ...
     def exchange_assembly_data( self, array ):
