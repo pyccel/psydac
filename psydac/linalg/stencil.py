@@ -124,7 +124,7 @@ class StencilVectorSpace( VectorSpace ):
             if isinstance(cart, InterfaceCartDecomposition):
                 self._shape = cart.get_interface_communication_infos(cart.axis)['gbuf_recv_shape'][0]
             else:
-                self._synchronizer = CartDataExchanger( cart, dtype , assembly=True, non_blocking=True)
+                self._synchronizer = CartDataExchanger( cart, dtype , assembly=True, non_blocking=False)
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
