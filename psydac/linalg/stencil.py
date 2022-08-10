@@ -393,7 +393,7 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
         w = StencilVector( self._space )
-        w._data = self._data  -  v._data
+        w._data[:] = self._data  -  v._data
         for axis, ext in self._space.interfaces:
             w._interface_data[axis, ext][:] = self._interface_data[axis, ext] - v._interface_data[axis, ext]
         w._sync = self._sync and v._sync

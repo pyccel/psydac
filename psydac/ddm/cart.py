@@ -963,22 +963,22 @@ class CartDecomposition():
         buf_shape   = []
         send_starts = []
         recv_starts = []
-        for s,e,p,h in zip( self._starts, self._ends, self._pads, shift ):
+        for s,e,m,p,h in zip( self._starts, self._ends, self._shifts, self._pads, shift ):
 
             if h == 0:
                 buf_length = e-s+1
-                recv_start = p
-                send_start = p
+                recv_start = m*p
+                send_start = m*p
 
             elif h == 1:
-                buf_length = p
+                buf_length = m*p
                 recv_start = 0
                 send_start = e-s+1
 
             elif h == -1:
-                buf_length = p
-                recv_start = e-s+1+p
-                send_start = p
+                buf_length = m*p
+                recv_start = e-s+1+m*p
+                send_start = m*p
 
             buf_shape  .append( buf_length )
             send_starts.append( send_start )
