@@ -123,7 +123,8 @@ class StencilVectorSpace( VectorSpace ):
             self._mpi_type      = find_mpi_type(dtype)
             if isinstance(cart, InterfaceCartDecomposition):
                 self._shape = cart.get_interface_communication_infos(cart.axis)['gbuf_recv_shape'][0]
-
+            else:
+                self._synchronizer = CartDataExchanger( cart, dtype , assembly=True)
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -301,8 +302,7 @@ class StencilVector( Vector ):
 
         #prepare communications
         if V.cart.is_parallel:
-            self._synchronizer = CartDataExchanger( V.cart, V.dtype , assembly=True, non_blocking=True)
-            self._synchronizer.prepare_communications(self._data)
+            self._requests = V._synchronizer.prepare_communications(self._data)
 
         # TODO: distinguish between different directions
         self._sync  = False
@@ -617,7 +617,7 @@ class StencilVector( Vector ):
         if self.space.parallel:
             if not self.space.cart.is_comm_null:
                 # PARALLEL CASE: fill in ghost regions with data from neighbors
-                self._synchronizer.update_ghost_regions( self._data, direction=direction )
+                self.space._synchronizer.update_ghost_regions( self._data, direction=direction, requests=self._requests )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._update_ghost_regions_serial( direction )
@@ -685,7 +685,7 @@ class StencilVector( Vector ):
 
         if self.space.parallel and not self.space.cart.is_comm_null:
             # PARALLEL CASE: fill in ghost regions with data from neighbors
-            self._synchronizer.exchange_assembly_data( self._data )
+            self.space._synchronizer.exchange_assembly_data( self._data )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._exchange_assembly_data_serial()

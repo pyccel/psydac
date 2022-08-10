@@ -560,20 +560,11 @@ class CartDecomposition():
         # Create (N-1)-dimensional communicators within the Cartesian topology
         self._subcomm = domain_decomposition.subcomm
 
-        # Compute/store information for communicating with neighbors
+        # dict to store information for communicating with neighbors
         self._shift_info = {}
-        for axis in range( self._ndims ):
-            for disp in [-1,1]:
-                self._shift_info[ axis, disp ] = \
-                        self._compute_shift_info( axis, disp )
 
-        # Compute/store information for communicating with neighbors
+#        # dict to store information for communicating with neighbors using non blocking communications
         self._shift_info_non_blocking = {}
-        zero_shift = tuple( [0]*self._ndims )
-        for shift in product( [-1,0,1], repeat=self._ndims ):
-            if shift == zero_shift:
-                continue
-            self._shift_info_non_blocking[shift] = self._compute_shift_info_non_blocking( shift )
 
     #---------------------------------------------------------------------------
     # Global properties (same for each process)
@@ -709,10 +700,23 @@ class CartDecomposition():
     #---------------------------------------------------------------------------
     def get_shift_info( self, direction, disp ):
 
+        if len(self._shift_info) == 0:
+            for axis in range( self._ndims ):
+                for d in [-1,1]:
+                    self._shift_info[ axis, d ] = \
+                            self._compute_shift_info( axis, d )
+
         return self._shift_info[ direction, disp ]
 
     #---------------------------------------------------------------------------
     def get_shift_info_non_blocking( self, shift ):
+
+        if len(self._shift_info_non_blocking) == 0:
+            zero_shift = tuple( [0]*self._ndims )
+            for sh in product( [-1,0,1], repeat=self._ndims ):
+                if sh == zero_shift:
+                    continue
+                self._shift_info_non_blocking[sh] = self._compute_shift_info_non_blocking( sh )
 
         return self._shift_info_non_blocking[ shift ]
 
@@ -1858,7 +1862,7 @@ class CartDataExchanger:
     def prepare_communications(self, buf):
         if self._is_blocking is True: return
         assert buf is not None
-        self._requests = self._prepare_communications(buf)
+        return self._prepare_communications(buf)
 
     # ...
     def _prepare_communications(self, u):
@@ -1886,7 +1890,7 @@ class CartDataExchanger:
         return tuple(requests)
 
     # ...
-    def _update_ghost_regions( self, array, *, direction=None ):
+    def _update_ghost_regions( self, array, *, direction=None, requests=None ):
         """
         Update ghost regions in a numpy array with dimensions compatible with
         CartDecomposition (and coeff_shape) provided at initialization.
@@ -1943,9 +1947,9 @@ class CartDataExchanger:
         MPI.Request.Waitall( requests )
 
 
-    def _update_ghost_regions_non_blocking(self, *args, **kwargs):
-        MPI.Prequest.Startall( self._requests )
-        MPI.Request.Waitall  ( self._requests )
+    def _update_ghost_regions_non_blocking(self, array, *, direction=None, requests=None):
+        MPI.Prequest.Startall( requests )
+        MPI.Request.Waitall  ( requests )
 
     # ...
     def exchange_assembly_data( self, array ):
