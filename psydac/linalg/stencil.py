@@ -301,7 +301,7 @@ class StencilVector( Vector ):
             self._interface_data[axis, ext] = np.zeros( V.interfaces[axis, ext].shape, dtype=V.dtype )
 
         #prepare communications
-        if V.cart.is_parallel:
+        if V.cart.is_parallel and not cart.is_comm_null and isinstance(V.cart, CartDecomposition):
             self._requests = V._synchronizer.prepare_communications(self._data)
 
         # TODO: distinguish between different directions
