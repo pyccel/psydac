@@ -124,7 +124,7 @@ class StencilVectorSpace( VectorSpace ):
             if isinstance(cart, InterfaceCartDecomposition):
                 self._shape = cart.get_interface_communication_infos(cart.axis)['gbuf_recv_shape'][0]
             else:
-                self._synchronizer = CartDataExchanger( cart, dtype , assembly=True, non_blocking=False)
+                self._synchronizer = CartDataExchanger( cart, dtype , assembly=True, non_blocking=True)
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -859,7 +859,6 @@ class StencilMatrix( Matrix ):
         if not v.ghost_regions_in_sync:
             v.update_ghost_regions()
 
-        if self.codomain.parallel and self.codomain.cart.is_comm_null:return
         self._func(self._data, v._data, out._data, **self._args)
 
         # IMPORTANT: flag that ghost regions are not up-to-date

@@ -963,6 +963,7 @@ class CartDecomposition():
         else:
             local_source_rank = rank_source
             comm = self._comm_cart
+
         # Compute information for exchanging ghost cell data
         buf_shape   = []
         send_starts = []
@@ -1875,17 +1876,19 @@ class CartDataExchanger:
                 continue
 
             info     = cart.get_shift_info_non_blocking( shift )
-            comm     = info['comm']
+            comm     = cart._comm_cart
 
             recv_typ = self.get_recv_type_non_blocking( shift )
-            recv_buf = (u, 1, recv_typ)
-            recv_req = comm.Recv_init( recv_buf, info['local_source_rank'], info['tag'] )
-            requests.append( recv_req )
+            if recv_typ != MPI.DATATYPE_NULL:
+                recv_buf = (u, 1, recv_typ)
+                recv_req = comm.Recv_init( recv_buf, info['rank_source'], info['tag'] )
+                requests.append( recv_req )
 
             send_typ = self.get_send_type_non_blocking( shift )
-            send_buf = (u, 1, send_typ)
-            send_req = comm.Send_init( send_buf, info['local_dest_rank'], info['tag'] )
-            requests.append( send_req )
+            if send_typ != MPI.DATATYPE_NULL:
+                send_buf = (u, 1, send_typ)
+                send_req = comm.Send_init( send_buf, info['rank_dest'], info['tag'] )
+                requests.append( send_req )
 
         return tuple(requests)
 
@@ -1949,7 +1952,7 @@ class CartDataExchanger:
 
     def _update_ghost_regions_non_blocking(self, array, *, direction=None, requests=None):
         MPI.Prequest.Startall( requests )
-        MPI.Request.Waitall  ( requests )
+        MPI.Prequest.Waitall  ( requests )
 
     # ...
     def exchange_assembly_data( self, array ):
