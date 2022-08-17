@@ -106,6 +106,7 @@ class TensorFemSpace( FemSpace ):
         self._global_element_starts = domain_decomposition.global_element_starts
         self._global_element_ends   = domain_decomposition.global_element_ends
 
+        self._refined_space[tuple(self.ncells)] = self
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
@@ -1020,7 +1021,7 @@ class TensorFemSpace( FemSpace ):
 
         tensor_vec._interpolation_ready = False
 
-       for key in self._refined_space:
+        for key in self._refined_space:
             if key == tuple(self.ncells): continue
             tensor_vec._refined_space[key] = self._refined_space[key].reduce_degree(axes, multiplicity, basis)
         return tensor_vec
@@ -1030,8 +1031,28 @@ class TensorFemSpace( FemSpace ):
         if tuple(ncells) in self._refined_space: return
         spaces = [s.refine(n) for s,n in zip(self.spaces, ncells)]
         npts   = [s.nbasis for s in spaces]
-        v      = self.vector_space.refine(npts)
-        FS     = TensorFemSpace(*spaces, quad_order=self.quad_order, vector_space=v)
+        domain = self.domain_decomposition
+        new_global_starts = []
+        new_global_ends   = []
+        for i in range(domain.ndim):
+            gs = domain.global_element_starts[i]
+            ge = domain.global_element_ends  [i]
+            new_global_starts.append([])
+            new_global_ends  .append([])
+            for s,e in zip(gs, ge):
+                bs = self.spaces[i].breaks[s]
+                be = self.spaces[i].breaks[e+1]
+                s  = spaces[i].breaks.tolist().index(bs)
+                e  = spaces[i].breaks.tolist().index(be)
+                new_global_starts[-1].append(s)
+                new_global_ends  [-1].append(e-1)
+
+            new_global_starts[-1] = np.array(new_global_starts[-1])
+            new_global_ends  [-1] = np.array(new_global_ends  [-1])
+
+        domain = domain.refine(ncells, new_global_starts, new_global_ends)
+
+        FS     = TensorFemSpace(domain, *spaces, quad_order=self.quad_order)
         self._refined_space[tuple(ncells)]= FS
 
     # ...
@@ -1055,7 +1076,7 @@ class TensorFemSpace( FemSpace ):
         assert axis<self.ldim
         assert ext in [-1,1]
 
-        if cart.is_comm_null: return
+        if cart.is_comm_null or self._interfaces.get((axis, ext), None): return
         spaces       = self.spaces
         vector_space = self.vector_space
         quad_order   = self.quad_order

@@ -21,6 +21,7 @@ from psydac.api.basic        import random_string
 from psydac.api.grid         import QuadratureGrid, BasisValues
 from psydac.api.utilities    import flatten
 from psydac.linalg.stencil   import StencilVector, StencilMatrix, StencilInterfaceMatrix
+from psydac.linalg.stencil   import ProductLinearOperator
 from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockMatrix
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
@@ -290,10 +291,6 @@ class DiscreteBilinearForm(BasicDiscrete):
             # integral(v_plus  * u_minus)
             # the other cases, integral(v_minus * u_minus) and integral(v_plus * u_plus)
             # are converted to boundary integrals by Sympde
-
-            ncells       = tuple(max(i,j) for i,j in zip(test_space.ncells, trial_space.ncells))
-            test_space   = test_space._refined_space[ncells]
-            trial_space  = trial_space._refined_space[ncells]
             axis         = target.axis
             test         = self.kernel_expr.test
             trial        = self.kernel_expr.trial
@@ -301,22 +298,24 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_target = target.plus if isinstance(trial, PlusInterfaceOperator) else target.minus
             test_ext     = test_target.ext
             trial_ext    = trial_target.ext
-            if isinstance(trial_space, ProductFemSpace):
+            ncells       = tuple(max(i,j) for i,j in zip(test_space.ncells, trial_space.ncells))
+            if isinstance(trial_space, VectorFemSpace):
                 spaces = []
                 for sp in trial_space.spaces:
                     if (trial_target.axis, trial_target.ext) in sp.interfaces:
-                        spaces.append(sp.interfaces[trial_target.axis, trial_target.ext])
+                        spaces.append(sp._refined_space[ncells].interfaces[trial_target.axis, trial_target.ext])
 
                 if len(spaces) == len(trial_space.spaces):
                     sym_space   = trial_space.symbolic_space
-                    trial_space = ProductFemSpace(*spaces)
+                    trial_space = VectorFemSpace(*spaces)
                     trial_space.symbolic_space = sym_space
 
             elif (trial_target.axis, trial_target.ext) in trial_space.interfaces:
                 sym_space   = trial_space.symbolic_space
-                trial_space = trial_space.interfaces[trial_target.axis, trial_target.ext]
+                trial_space = trial_space._refined_space[ncells].interfaces[trial_target.axis, trial_target.ext]
                 trial_space.symbolic_space = sym_space
 
+            test_space   = test_space._refined_space[ncells]
             self._test_ext  = test_target.ext
             self._trial_ext = trial_target.ext
 
@@ -645,13 +644,6 @@ class DiscreteBilinearForm(BasicDiscrete):
         is_broken       = len(domain)>1
         is_conformal    = True
 
-        if is_broken:
-            i,j = self.get_space_indices_from_target(domain, target )
-            trial_fem_space  = self.spaces[0].spaces[j]
-            test_fem_space   = self.spaces[1].spaces[i]
-            ncells = tuple(max(i,j) for i,j in zip(test_fem_space.ncells, trial_fem_space.ncells))
-            is_conformal = tuple(test_fem_space.ncells) == ncells and tuple(trial_fem_space.ncells) == ncells
-
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
             if not isinstance(test_degree[0],(list, tuple, np.ndarray)):
                 test_degree = [test_degree]
@@ -670,6 +662,15 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         if self._matrix is None and (is_broken or isinstance( expr, (ImmutableDenseMatrix, Matrix))):
             self._matrix = BlockMatrix(trial_space, test_space)
+
+        if is_broken:
+            i,j = self.get_space_indices_from_target(domain, target )
+            test_fem_space   = self.spaces[1].spaces[i]
+            trial_fem_space  = self.spaces[0].spaces[j]
+            test_space  = test_space.spaces[i]
+            trial_space = trial_space.spaces[j]
+            ncells = tuple(max(i,j) for i,j in zip(test_fem_space.ncells, trial_fem_space.ncells))
+            is_conformal = tuple(test_fem_space.ncells) == ncells and tuple(trial_fem_space.ncells) == ncells
 
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # case of system of equations
 
@@ -768,19 +769,21 @@ class DiscreteBilinearForm(BasicDiscrete):
                     direction = 1 if direction is None else direction
                     flip = [direction]*domain.dim
                     flip[axis] = 1
+
                     if self._func != do_nothing:
-                        mat = StencilInterfaceMatrix(trial_space, test_space, 
-                                                                  s_d, s_c,
-                                                                  axis, axis,
-                                                                  ext_d, ext_c,
-                                                                  flip=flip)
+                        mat = StencilInterfaceMatrix(trial_fem_space._refined_space[ncells].vector_space,
+                        test_fem_space._refined_space[ncells].vector_space, 
+                          s_d, s_c,
+                          axis, axis,
+                          ext_d, ext_c,
+                          flip=flip)
                         if not is_conformal:
                             if all(trn>=tn for trn,tn in zip(trial_fem_space.ncells, test_fem_space.ncells)):
                                 P   = construct_projection_operator(test_fem_space._refined_space[ncells], test_fem_space)
-                                mat = ProductLinearOperator(trial_fem_space.vector_space, test_fem_space.vector_space, P, mat)
+                                mat = ProductLinearOperator(trial_space, test_space, P, mat)
                             else:
                                 P   = construct_projection_operator(trial_fem_space, trial_fem_space._refined_space[ncells])
-                                mat = ProductLinearOperator(trial_fem_space.vector_space, test_fem_space.vector_space, mat, P)
+                                mat = ProductLinearOperator(trial_space, test_space, mat, P)
                         global_mats[i,j] = mat
                 else:
                     global_mats[i,j] = StencilMatrix(trial_space, test_space, pads=tuple(pads))

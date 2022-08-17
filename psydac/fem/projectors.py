@@ -24,8 +24,7 @@ def construct_projection_operator(domain, codomain):
             P  = matrix_multi_stages(Ts, d.nbasis , d.degree, d.knots)
             ops.append(P)
         else:
-            P   = IdentityStencilMatrix(StencilVectorSpace([d.nbasis], [d.degree], [d.periodic]))
-            ops.append(P.toarray())
+            raise NotImplementedError("TODO")
 
     return KroneckerDenseMatrix(domain.vector_space, codomain.vector_space, *ops)
 

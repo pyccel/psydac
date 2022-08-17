@@ -316,7 +316,6 @@ def test_poisson_2d_4_patch_dirichlet_0():
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
-test_poisson_2d_4_patch_dirichlet_0()
 ###############################################################################
 #            PARALLEL TESTS
 ###############################################################################

@@ -263,6 +263,25 @@ def construct_interface_spaces(domain_decomposition, g_spaces, carts, interiors,
         g_spaces[interiors[i]].create_interface_space(axis_minus, ext_minus, cart=cart_minus)
         g_spaces[interiors[j]].create_interface_space(axis_plus , ext_plus , cart=cart_plus)
 
+        max_ncells = tuple(max(ni,nj) for ni,nj in zip(g_spaces[interiors[i]].ncells,g_spaces[interiors[j]].ncells))
+        cart_minus = g_spaces[interiors[i]]._refined_space[tuple(max_ncells)].vector_space.cart
+        cart_plus = g_spaces[interiors[j]]._refined_space[tuple(max_ncells)].vector_space.cart
+        if isinstance(cart_minus, InterfaceCartDecomposition):
+            cart = InterfaceCartDecomposition(cart_minus.cart_minus, cart_plus.cart_plus,
+                                              cart_minus._comm, [axis_minus, axis_plus], [ext_minus, ext_plus],
+                                              [cart_minus.ranks_in_topo_minus, cart_plus.ranks_in_topo_plus],
+                                              [cart_minus._local_group_minus, cart_plus._local_group_plus],
+                                              [cart_minus._local_comm_minus, cart_plus._local_comm_plus],
+                                              [cart_minus._root_rank_minus, cart_plus._root_rank_plus],
+                                              [], reduce_elements=True)
+
+            cart_minus = cart
+            cart_plus  = cart
+
+        g_spaces[interiors[i]]._refined_space[max_ncells].create_interface_space(axis_minus, ext_minus, cart=cart_minus)
+        g_spaces[interiors[j]]._refined_space[max_ncells].create_interface_space(axis_plus , ext_plus , cart=cart_plus)
+
+#------------------------------------------------------------------------------
 def construct_reduced_interface_spaces(spaces, reduced_spaces, interiors, connectivity):
     """
     Create the reduced spaces for the interface coefficients.

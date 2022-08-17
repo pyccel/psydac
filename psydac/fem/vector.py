@@ -10,7 +10,6 @@ from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.block   import BlockVectorSpace
 from psydac.fem.basic      import FemSpace, FemField
-from psydac.fem.tensor     import TensorFemSpace
 
 from psydac.core.kernels import (pushforward_2d_hdiv,
                                  pushforward_3d_hdiv,
@@ -53,6 +52,7 @@ class VectorFemSpace( FemSpace ):
 
         self._refined_space    = {}
 
+        from psydac.fem.tensor     import TensorFemSpace
         if isinstance(spaces[0], TensorFemSpace):
             self._refined_space[tuple(self._ncells)] = self
             for key in self.spaces[0]._refined_space:

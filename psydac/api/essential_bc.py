@@ -21,7 +21,7 @@ def apply_essential_bc(a, *bcs, **kwargs):
                 **kwargs
             )
 
-   elif isinstance(a, ProductLinearOperator):
+    elif isinstance(a, ProductLinearOperator):
         apply_essential_bc(a.operators[0], *bcs, **kwargs)
 
     elif isinstance(a, KroneckerDenseMatrix):

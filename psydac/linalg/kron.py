@@ -375,6 +375,8 @@ class KroneckerDenseMatrix( Matrix ):
     def T(self):
         return self.transpose()
 
+    def exchange_assembly_data( self ):
+        pass
 #==============================================================================
 class KroneckerLinearSolver( LinearSolver ):
     """

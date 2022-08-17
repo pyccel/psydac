@@ -316,14 +316,16 @@ def discretize_space(V, domain_h, *, degree=None, knots=None, quad_order=None, b
         carts    = create_cart(ddms, spaces)
         g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], quad_order=quad_order) for i,inter in enumerate(interiors)}
 
+        for i,j in connectivity:
+            ((axis_i, ext_i), (axis_j , ext_j)) = connectivity[i, j]
+            minus = interiors[i]
+            plus  = interiors[j]
+            max_ncells = [max(ni,nj) for ni,nj in zip(domain_h.ncells[minus.name],domain_h.ncells[plus.name])]
+            g_spaces[minus].add_refined_space(ncells=max_ncells)
+            g_spaces[plus].add_refined_space(ncells=max_ncells)
+
         # ... construct interface spaces
         construct_interface_spaces(domain_h.ddm, g_spaces, carts, interiors, connectivity)
-
-    for e in interfaces:
-        plus, minus = e.plus.domain, e.minus.domain
-        max_ncells = [max(i,j) for i,j in zip(ncells[plus.name],ncells[minus.name])]
-        g_spaces[minus].add_refined_space(ncells=max_ncells)
-        g_spaces[plus].add_refined_space(ncells=max_ncells)
 
     new_g_spaces = {}
     for inter in g_spaces:

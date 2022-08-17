@@ -2599,6 +2599,9 @@ class ProductLinearOperator( Matrix ):
     def T(self):
         return self.tranpose()
 
+    def exchange_assembly_data( self ):
+        for op in self._operators:
+            op.exchange_assembly_data()
 #===============================================================================
 from psydac.api.settings   import PSYDAC_BACKENDS
 del VectorSpace, Vector

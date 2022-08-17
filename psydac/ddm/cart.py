@@ -368,8 +368,26 @@ class DomainDecomposition:
     def coords_exist( self, coords ):
         return all( P or (0 <= c < d) for P,c,d in zip( self._periods, coords, self._dims ) )
 
-    def refine(self, ncells):
-        return  DomainDecomposition(ncells, self.periods, comm=self.comm, global_comm=self.global_comm, num_threads=self.num_threads, size=self.size)
+    def refine(self, ncells, global_element_starts, global_element_ends):
+        domain = DomainDecomposition(self.ncells, self.periods, comm=self.comm, global_comm=self.global_comm, num_threads=self.num_threads, size=self.size)
+
+        # Check input arguments
+        assert len( ncells ) == len( self.ncells )
+
+        domain._ncells       = tuple ( ncells )
+
+        # Store arrays with all the starts and ends along each direction for every process
+        domain._global_element_starts = tuple(global_element_starts)
+        domain._global_element_ends   = tuple(global_element_ends)
+        if self.is_comm_null:return
+
+        # Start/end values of global indices (without ghost regions)
+        domain._starts = tuple( domain._global_element_starts[axis][c] for axis,c in zip(range(self._ndims), self._coords) )
+        domain._ends   = tuple( domain._global_element_ends  [axis][c] for axis,c in zip(range(self._ndims), self._coords) )
+
+        domain._local_ncells = tuple(e-s+1 for s,e in zip(self._starts, self._ends))
+        return domain
+
 #==================================================================================
 class InterfacesCartDecomposition:
     """
