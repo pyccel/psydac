@@ -52,12 +52,10 @@ class VectorFemSpace( FemSpace ):
 
         self._refined_space    = {}
 
-        from psydac.fem.tensor     import TensorFemSpace
-        if isinstance(spaces[0], TensorFemSpace):
-            self._refined_space[tuple(self._ncells)] = self
-            for key in self.spaces[0]._refined_space:
-                if key == tuple(self._ncells):continue
-                self._refined_space[key] = VectorFemSpace(*[V._refined_space[key] for V in self.spaces])
+        self._refined_space[tuple(self._ncells)] = self
+        for key in self.spaces[0]._refined_space:
+            if key == tuple(self._ncells):continue
+            self._refined_space[key] = VectorFemSpace(*[V._refined_space[key] for V in self.spaces])
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------

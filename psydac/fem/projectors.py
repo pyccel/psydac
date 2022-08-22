@@ -18,13 +18,23 @@ def construct_projection_operator(domain, codomain):
         if d.ncells>c.ncells:
             Ts = knots_to_insert(c.breaks, d.breaks)
             P  = matrix_multi_stages(Ts, c.nbasis , c.degree, c.knots)
+
+            if d.basis == 'M':
+                assert c.basis == 'M'
+                P = np.diag(1/d._scaling_array) @ P @ np.diag(c._scaling_array)
+
             ops.append(P.T)
         elif d.ncells<c.ncells:
             Ts = knots_to_insert(d.breaks, c.breaks)
             P  = matrix_multi_stages(Ts, d.nbasis , d.degree, d.knots)
+
+            if d.basis == 'M':
+                assert c.basis == 'M'
+                P = np.diag(1/c._scaling_array) @ P @ np.diag(d._scaling_array)
+
             ops.append(P)
         else:
-            raise NotImplementedError("TODO")
+            ops.append(np.eye(d.nbasis))
 
     return KroneckerDenseMatrix(domain.vector_space, codomain.vector_space, *ops)
 

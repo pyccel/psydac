@@ -139,7 +139,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
                 raise NotImplementedError('TODO')
         else:
             raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
-        Wh = ProductFemSpace(*spaces)
+        Wh = VectorFemSpace(*spaces)
 
     elif isinstance(V.kind, HdivSpaceType):
         if sequence == 'DR':
@@ -339,7 +339,6 @@ def discretize_space(V, domain_h, *, degree=None, knots=None, quad_order=None, b
             Vh = reduce_space_degrees(V, Vh, basis=basis, sequence=sequence)
 
         Vh.symbolic_space = V
-
         for key in Vh._refined_space:
             Vh._refined_space[key].symbolic_space = V
 

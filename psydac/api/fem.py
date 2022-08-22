@@ -676,7 +676,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
             if is_broken: #multi patch
                 if not self._matrix[i,j]:
-                    mat = BlockMatrix(trial_space, test_space)
+                    mat = BlockMatrix(trial_fem_space._refined_space[ncells].vector_space, test_fem_space._refined_space[ncells].vector_space)
                     if not is_conformal and not i==j:
                         if all(trn>=tn for trn,tn in zip(trial_fem_space.ncells, test_fem_space.ncells)):
                             Ps  = [construct_projection_operator(ts._refined_space[ncells], ts) for ts in test_fem_space.spaces]
@@ -685,12 +685,12 @@ class DiscreteBilinearForm(BasicDiscrete):
                             for ni,Pi in enumerate(Ps):
                                 P[ni,ni] = Pi
 
-                            mat = ProductLinearOperator(trial_fem_space.vector_space, test_fem_space.vector_space, P, mat)
+                            mat = ProductLinearOperator(trial_space, test_space, P, mat)
                         else:
                             Ps  = [construct_projection_operator(trs, trs._refined_space[ncells]) for trs in trial_fem_space.spaces]
                             P   = BlockMatrix(trial_fem_space.vector_space, trial_fem_space._refined_space[ncells].vector_space)
                             for ni,Pi in enumerate(Ps):P[ni,ni] = Pi
-                            mat = ProductLinearOperator(trial_fem_space.vector_space, test_fem_space.vector_space, mat, P)
+                            mat = ProductLinearOperator(trial_space, test_space, mat, P)
 
                     self._matrix[i,j] = mat
                 matrix = self._matrix[i,j]
@@ -703,8 +703,16 @@ class DiscreteBilinearForm(BasicDiscrete):
                     if expr[k1,k2].is_zero:
                         continue
 
-                    ts_space = test_space.spaces[k1] if isinstance(test_space, BlockVectorSpace) else test_space
-                    tr_space = trial_space.spaces[k2] if isinstance(trial_space, BlockVectorSpace) else trial_space
+                    if isinstance(test_fem_space, VectorFemSpace):
+                        ts_space = test_fem_space._refined_space[ncells].vector_space.spaces[k1]
+                    else:
+                        ts_space = test_fem_space._refined_space[ncells].vector_space
+
+                    if isinstance(trial_fem_space, VectorFemSpace):
+                        tr_space = trial_fem_space._refined_space[ncells].vector_space.spaces[k2]
+                    else:
+                        tr_space = trial_fem_space._refined_space[ncells].vector_space
+
                     if is_conformal and matrix[k1,k2]:
                         global_mats[k1,k2] = matrix[k1,k2]
                     elif not i == j: # assembling in an interface (type(target) == Interface)
@@ -732,9 +740,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                                                                         pads=tuple(pads[k1,k2]), 
                                                                         flip=flip)
                     else:
-                        global_mats[k1,k2] = StencilMatrix(tr_space,
-                                                           ts_space,
-                                                           pads = tuple(pads[k1,k2]))
+                        global_mats[k1,k2] = StencilMatrix(tr_space, ts_space, pads = tuple(pads[k1,k2]))
 
                     if is_conformal:
                         matrix[k1,k2] = global_mats[k1,k2]
@@ -742,11 +748,6 @@ class DiscreteBilinearForm(BasicDiscrete):
                         matrix.operators[-1][k1,k2] = global_mats[k1,k2]
                     else:
                         matrix.operators[0][k1,k2] = global_mats[k1,k2]
-
-                    matrix[k1,k2]        = global_mats[k1,k2]
-                    md                   = matrix[k1,k2].domain.shifts
-                    mc                   = matrix[k1,k2].codomain.shifts
-                    diag                 = compute_diag_len(pads[k1,k2], md, mc)
 
         else: # case of scalar equation
             if is_broken: # multi-patch
