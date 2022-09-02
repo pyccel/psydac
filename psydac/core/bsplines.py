@@ -947,3 +947,110 @@ def basis_ders_on_irregular_grid(knots, degree, i_grid, cell_index, nders, norma
         assert out.shape == (nx, degree + 1, nders + 1) and out.dtype == np.dtype('float')
     basis_ders_on_irregular_grid_p(knots, degree, i_grid, cell_index, nders, normalization == 'M', out)
     return out
+
+#==============================================================================
+def _refinement_matrix_one_stage(t, p, knots):
+    """
+    computes the refinement matrix corresponding to the insertion of a given knot
+    """
+
+    # ...
+    def alpha_function(i, k, t, n, p, knots):
+        if i <= k-p:
+            alpha = 1.
+
+        elif (k-p < i) and (i <= k):
+            alpha = (t-knots[i]) / (knots[i+p] - knots[i])
+
+        else:
+            alpha = 0.
+
+        return alpha
+    # ...
+
+    n = len(knots) - p - 1
+
+    mat = np.zeros((n+1,n))
+
+    left = find_span( knots, p, t )
+
+    # ...
+    j = 0
+    alpha = alpha_function(j, left, t, n, p, knots)
+    mat[j,j] = alpha
+
+    for j in range(1, n):
+        alpha = alpha_function(j, left, t, n, p, knots)
+        mat[j,j]   = alpha
+        mat[j,j-1] = 1.0 - alpha
+
+    j = n
+    alpha = alpha_function(j, left, t, n, p, knots)
+    mat[j,j-1] = 1.0 - alpha
+    # ...
+
+    # ...
+    new = np.zeros(n+1+p+1)
+
+    new[:left+1] = knots[:left+1]
+    new[left+1] = t
+    new[left+2:] = knots[left+1:]
+    # ...
+
+    return mat, new
+
+#==============================================================================
+def hrefinement_matrix(ts, p, knots):
+    """
+    computes the refinement matrix corresponding to the insertion of a given list of knots
+
+    Parameters
+    ----------
+    ts: np.array
+        array containing the knots to be inserted
+
+    p: int
+        spline degree
+
+    knots : array_like
+        Knots sequence.
+
+    Returns
+    -------
+    mat : np.array[:,:]
+        h-refinement matrix
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from psydac.core.bsplines import make_knots
+    >>> from psydac.core.bsplines import hrefinement_matrix
+    >>> grid = np.linspace(0.,1.,5)
+    >>> degree = 2
+    >>> knots = make_knots(grid, degree, periodic=False)
+    >>> ts    = np.array([0.1, 0.2, 0.4, 0.5, 0.7, 0.8])
+    >>> hrefinement_matrix(ts, p, knots)
+    array([[1.  , 0.  , 0.  , 0.  , 0.  , 0.  ],
+           [0.6 , 0.4 , 0.  , 0.  , 0.  , 0.  ],
+           [0.12, 0.72, 0.16, 0.  , 0.  , 0.  ],
+           [0.  , 0.6 , 0.4 , 0.  , 0.  , 0.  ],
+           [0.  , 0.2 , 0.8 , 0.  , 0.  , 0.  ],
+           [0.  , 0.  , 0.7 , 0.3 , 0.  , 0.  ],
+           [0.  , 0.  , 0.5 , 0.5 , 0.  , 0.  ],
+           [0.  , 0.  , 0.1 , 0.9 , 0.  , 0.  ],
+           [0.  , 0.  , 0.  , 0.6 , 0.4 , 0.  ],
+           [0.  , 0.  , 0.  , 0.4 , 0.6 , 0.  ],
+           [0.  , 0.  , 0.  , 0.  , 0.8 , 0.2 ],
+           [0.  , 0.  , 0.  , 0.  , 0.  , 1.  ]])
+    """
+
+    m = len(ts)
+    n = len(knots) - p - 1
+    out = np.eye(n)
+
+    for i in range(m):
+        t = ts[i]
+        mat, knots = _refinement_matrix_one_stage(t, p, knots)
+        out = np.matmul(mat, out)
+
+    return out

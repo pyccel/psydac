@@ -4,7 +4,7 @@
 import numpy as np
 from mpi4py import MPI
 from sympde.topology.analytical_mapping import IdentityMapping
-from sympde.topology.analytical_mapping import PolarMapping, TargetMapping, CzarnyMapping, CollelaMapping2D
+from sympde.topology.analytical_mapping import PolarMapping, TargetMapping, CzarnyMapping, CollelaMapping2D, SphericalMapping
 from sympde.topology.mapping            import Mapping
 
 from psydac.fem.splines                 import SplineSpace
@@ -125,6 +125,14 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
             period2 = False
             period3 = False
 
+        elif mapping == 'quarter_annulus':
+            map_analytic = SphericalMapping( 'M', dim=dim )
+            lims1   = (1, 4)
+            lims2   = (0, np.pi)
+            lims3   = (0, np.pi/2)
+            period1 = False
+            period2 = False
+            period3 = False
         else:
             raise ValueError("Required 3D mapping not available")
 

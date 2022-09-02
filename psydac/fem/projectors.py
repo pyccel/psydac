@@ -1,7 +1,7 @@
 import numpy as np
 
 from psydac.linalg.kron     import KroneckerDenseMatrix
-from psydac.core.interface  import matrix_multi_stages
+from psydac.core.bsplines   import hrefinement_matrix
 from psydac.linalg.identity import IdentityStencilMatrix
 from psydac.linalg.stencil  import StencilVectorSpace
 
@@ -17,7 +17,7 @@ def construct_projection_operator(domain, codomain):
     for d,c in zip(domain.spaces, codomain.spaces):
         if d.ncells>c.ncells:
             Ts = knots_to_insert(c.breaks, d.breaks)
-            P  = matrix_multi_stages(Ts, c.nbasis , c.degree, c.knots)
+            P  = hrefinement_matrix(Ts, c.degree, c.knots)
 
             if d.basis == 'M':
                 assert c.basis == 'M'
@@ -26,7 +26,7 @@ def construct_projection_operator(domain, codomain):
             ops.append(P.T)
         elif d.ncells<c.ncells:
             Ts = knots_to_insert(d.breaks, c.breaks)
-            P  = matrix_multi_stages(Ts, d.nbasis , d.degree, d.knots)
+            P  = hrefinement_matrix(Ts , d.degree, d.knots)
 
             if d.basis == 'M':
                 assert c.basis == 'M'

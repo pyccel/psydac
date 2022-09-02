@@ -81,7 +81,7 @@ class Geometry( object ):
                 assert isinstance( periodic, dict)
 
             # ... check sanity
-            interior_names = sorted(domain.interior_names)
+            interior_names = sorted(domain.interior_names) if domain.logical_domain is None else sorted(domain.logical_domain.interior_names)
             mappings_keys  = sorted(list(mappings.keys()))
 
             assert( interior_names == mappings_keys )
@@ -123,18 +123,20 @@ class Geometry( object ):
             raise NotImplementedError('')
 
         if mapping.ldim == 2:
-            domain = Square(name='Omega')
+            M      = Mapping('mapping_0',dim=2)
+            domain = M(Square(name='Omega'))
             mappings = {'Omega': mapping}
-            ncells   = {'Omega':mapping.space.domain_decomposition.ncells}
-            periodic = {'Omega':mapping.space.domain_decomposition.periods}
+            ncells   = {domain.name:mapping.space.domain_decomposition.ncells}
+            periodic = {domain.name:mapping.space.domain_decomposition.periods}
 
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
         elif mapping.ldim == 3:
-            domain = Cube(name='Omega')
+            M      = Mapping('mapping_0',dim=3)
+            domain = M(Cube(name='Omega'))
             mappings = {'Omega': mapping}
-            ncells   = {'Omega':mapping.space.domain_decomposition.ncells}
-            periodic = {'Omega':mapping.space.domain_decomposition.periods}
+            ncells   = {domain.name:mapping.space.domain_decomposition.ncells}
+            periodic = {domain.name:mapping.space.domain_decomposition.periods}
 
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
@@ -153,7 +155,7 @@ class Geometry( object ):
                       " got {} instead.".format(type(itr))
                 raise TypeError(msg)
 
-        mappings = {itr.name: None for itr in interior}
+        mappings = {itr.logical_domain.name if itr.logical_domain else itr.name: None for itr in interior}
         if isinstance(ncells, (list, tuple)):
             ncells = {itr.name:ncells for itr in interior}
 
