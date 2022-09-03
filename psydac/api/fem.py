@@ -640,6 +640,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         trial_degree    = np.array(self.trial_basis.space.degree)
         test_space      = self.spaces[1].vector_space
         trial_space     = self.spaces[0].vector_space
+        test_fem_space   = self.spaces[1]
+        trial_fem_space  = self.spaces[0]
         domain          = self.domain
         is_broken       = len(domain)>1
         is_conformal    = True
@@ -671,6 +673,9 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_space = trial_space.spaces[j]
             ncells = tuple(max(i,j) for i,j in zip(test_fem_space.ncells, trial_fem_space.ncells))
             is_conformal = tuple(test_fem_space.ncells) == ncells and tuple(trial_fem_space.ncells) == ncells
+
+        else:
+            ncells = tuple(max(i,j) for i,j in zip(test_fem_space.ncells, trial_fem_space.ncells))
 
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # case of system of equations
 
