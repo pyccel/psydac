@@ -1,7 +1,7 @@
 # coding: utf-8
 from sympde.expr.equation  import EssentialBC
 
-from psydac.linalg.stencil import StencilVector, StencilMatrix
+from psydac.linalg.stencil import StencilVector, StencilMatrix, ProductLinearOperator
 from psydac.linalg.stencil import StencilInterfaceMatrix
 from psydac.linalg.block   import BlockVector, BlockMatrix
 

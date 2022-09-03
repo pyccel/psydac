@@ -276,12 +276,6 @@ class StencilVectorSpace( VectorSpace ):
 
             self._interfaces[axis, ext] = space
 
-    def refine(self, npts):
-        if self.parallel:
-            return self.cart.refine(npts)
-
-        v = StencilVectorSpace(npts=npts, pads=self.pads, periods=self.periods, shifts=self.shifts)
-        return v
 #===============================================================================
 class StencilVector( Vector ):
     """
