@@ -4,6 +4,7 @@ from sympde.expr.equation  import EssentialBC
 from psydac.linalg.stencil import StencilVector, StencilMatrix, ProductLinearOperator
 from psydac.linalg.stencil import StencilInterfaceMatrix
 from psydac.linalg.block   import BlockVector, BlockMatrix
+from psydac.linalg.kron    import KroneckerDenseMatrix
 
 __all__ = ('apply_essential_bc',)
 
