@@ -3,6 +3,8 @@
 # TODO: - have a block version for VectorSpace when all component spaces are the same
 import numpy as np
 
+from functools import reduce
+
 from sympde.topology.space import BasicFunctionSpace
 from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
@@ -25,7 +27,10 @@ class VectorFemSpace( FemSpace ):
 
     def __init__( self, *spaces ):
         """."""
-        self._spaces = spaces
+        new_spaces = [sp.spaces if isinstance(sp, VectorFemSpace) else [sp] for sp in spaces]
+        new_spaces = tuple(sp2 for sp1 in new_spaces for sp2 in sp1)
+
+        self._spaces = new_spaces
 
         # ... make sure that all spaces have the same parametric dimension
         ldims = [V.ldim for V in self.spaces]
@@ -47,9 +52,11 @@ class VectorFemSpace( FemSpace ):
         self._ncells = ncells[0]
         # ...
 
-        self._symbolic_space   = None
-        self._vector_space     = BlockVectorSpace(*[V.vector_space for V in self.spaces])
+        self._symbolic_space = None
+        if all(s.symbolic_space for s in spaces):
+            self._symbolic_space = reduce(lambda x,y:x.symbolic_space*y.symbolic_space, spaces)
 
+        self._vector_space     = BlockVectorSpace(*[V.vector_space for V in self.spaces])
         self._refined_space    = {}
 
         self._refined_space[tuple(self._ncells)] = self
@@ -212,7 +219,7 @@ class VectorFemSpace( FemSpace ):
                 result.append(self._spaces[i].eval_fields_regular_tensor_grid(grid,
                                                                               *fields_i,
                                                                               overlap=overlap[i]))
-        
+
         return result
 
     # ...
@@ -250,7 +257,7 @@ class VectorFemSpace( FemSpace ):
             # Necessary if vector coeffs is distributed across processes
             if not f.coeffs.ghost_regions_in_sync:
                 f.coeffs.update_ghost_regions()
-                
+
         result = []
         if isinstance(overlap, int):
             overlap = [overlap] * self.ldim
@@ -269,7 +276,7 @@ class VectorFemSpace( FemSpace ):
                 result.append(self._spaces[i].eval_fields_irregular_tensor_grid(grid,
                                                                                 *fields_i,
                                                                                 overlap=overlap[i]))
-        
+
         return result
 
     # ...
