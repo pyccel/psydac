@@ -88,6 +88,7 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
         template = "| {:7d} | {:19.2e} |"
         print( template.format( 1, sqrt( am ) ) )
 
+    m = 1
     # Iterate to convergence
     for m in range( 2, maxiter+1 ):
 
@@ -204,6 +205,7 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         template = "| {:7d} | {:19.2e} |"
         print( template.format(1, sqrt(nrmr_sqr)))
 
+    k = 1
     # Iterate to convergence
     for k in range(2, maxiter+1):
 
@@ -240,6 +242,9 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 def jacobi(A, b):
     """
     Jacobi preconditioner.
+    In case A is None we return a zero vector of the same dimensions as b
+
+    Parameters
     ----------
     A : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockMatrix
         Left-hand-side matrix A of linear system.
@@ -256,6 +261,10 @@ def jacobi(A, b):
     from psydac.linalg.block   import BlockMatrix, BlockVector
     from psydac.linalg.stencil import StencilMatrix, StencilVector
 
+    # In case A is None we return a zero vector
+    if A is None:
+        return b.space.zeros()
+
     # Sanity checks
     assert isinstance(A, (StencilMatrix, BlockMatrix))
     assert isinstance(b, (StencilVector, BlockVector))
@@ -271,10 +280,9 @@ def jacobi(A, b):
 
     V = b.space
     i = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
-    ii = i + (0,) * V.ndim
 
     x = b.copy()
-    x[i] /= A[ii]
+    x[i] /= A.diagonal()
     x.update_ghost_regions()
 
     return x

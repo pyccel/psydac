@@ -277,6 +277,11 @@ class DenseVector( Vector ):
     def ghost_regions_in_sync(self):
         return True
 
+    # ...
+    @ghost_regions_in_sync.setter
+    def ghost_regions_in_sync( self, value ):
+        pass
+
 #==============================================================================
 class DenseMatrix( Matrix ):
 

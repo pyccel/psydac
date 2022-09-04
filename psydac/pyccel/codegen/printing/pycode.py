@@ -220,7 +220,11 @@ class PythonCodePrinter(SympyPythonCodePrinter):
         return 'min({})'.format(args)
 
     def _print_Slice(self, expr):
-        return str(expr)
+        start = self._print(expr.start) if expr.start else ''
+        end  = self._print(expr.end)  if expr.end  else ''
+        return '{start}:{end}'.format(
+                start = start,
+                end  = end)
 
     def _print_Nil(self, expr):
         return 'None'

@@ -15,13 +15,16 @@ from psydac.mapping.discrete_gallery import discrete_mapping
 from psydac.fem.splines              import SplineSpace
 from psydac.fem.tensor               import TensorFemSpace
 from psydac.utilities.utils          import refine_array_1d
+from psydac.ddm.cart                 import DomainDecomposition
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
 #==============================================================================
 def test_geometry_2d_1():
 
+    ncells = [1,1]
+    degree = [2,2]
     # create an identity mapping
-    mapping = discrete_mapping('identity', ncells=[1,1], degree=[2,2])
+    mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
 
     # create a topological domain
     domain = Square(name='Omega')
@@ -29,8 +32,11 @@ def test_geometry_2d_1():
     # associate the mapping to the topological domain
     mappings = {'Omega': mapping}
 
+    # Define ncells as a dict
+    ncells = {'Omega':ncells}
+
     # create a geometry from a topological domain and the dict of mappings
-    geo = Geometry(domain=domain, mappings=mappings)
+    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings)
 
     # export the geometry
     geo.export('geo.h5')
@@ -55,7 +61,11 @@ def test_geometry_2d_2():
 
     # Create tensor spline space, distributed
     spaces = [SplineSpace( knots=k, degree=p ) for k,p in zip(knots, degrees)]
-    space = TensorFemSpace( *spaces, comm=None )
+
+    ncells   = [len(space.breaks)-1 for space in spaces]
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=[False]*2, comm=None)
+
+    space = TensorFemSpace( domain_decomposition, *spaces )
 
     mapping = NurbsMapping.from_control_points_weights( space, points, weights )
 
@@ -68,8 +78,13 @@ def test_geometry_2d_2():
     # associate the mapping to the topological domain
     mappings = {'Omega': mapping}
 
+    # Define ncells as a dict
+    ncells = {'Omega':[len(space.breaks)-1 for space in mapping.space.spaces]}
+
+    periodic = {'Omega':[space.periodic for space in mapping.space.spaces]}
+
     # create a geometry from a topological domain and the dict of mappings
-    geo = Geometry(domain=domain, mappings=mappings)
+    geo = Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings)
 
     # export the geometry
     geo.export('quart_circle.h5')
@@ -95,7 +110,10 @@ def test_geometry_2d_3():
 
     # Create tensor spline space, distributed
     spaces = [SplineSpace( knots=k, degree=p ) for k,p in zip(knots, degrees)]
-    space = TensorFemSpace( *spaces, comm=None )
+    ncells   = [len(space.breaks)-1 for space in spaces]
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=[False]*2, comm=None)
+
+    space = TensorFemSpace( domain_decomposition, *spaces )
 
     mapping = NurbsMapping.from_control_points_weights( space, points, weights )
 
@@ -126,7 +144,10 @@ def test_geometry_2d_4():
 
     # Create tensor spline space, distributed
     spaces = [SplineSpace( knots=k, degree=p ) for k,p in zip(knots, degrees)]
-    space = TensorFemSpace( *spaces, comm=None )
+    ncells   = [len(space.breaks)-1 for space in spaces]
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=[False]*2, comm=None)
+
+    space = TensorFemSpace( domain_decomposition, *spaces )
 
     mapping = NurbsMapping.from_control_points_weights( space, points, weights )
 
@@ -199,6 +220,7 @@ def test_export_nurbs_to_hdf5(ncells, degree):
 
     assert np.allclose(pcoords1[..., :domain.dim], pcoords2, 1e-15, 1e-15)
 
+#==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
 def test_import_geopdes_to_nurbs(ncells, degree):

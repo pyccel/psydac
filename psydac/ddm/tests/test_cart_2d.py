@@ -7,15 +7,15 @@ def run_cart_2d( verbose=False , nprocs=None, reverse_axis=None):
 
     import numpy as np
     from mpi4py       import MPI
-    from psydac.ddm.cart import CartDecomposition, CartDataExchanger
+    from psydac.ddm.cart import DomainDecomposition, CartDecomposition, CartDataExchanger
 
     #---------------------------------------------------------------------------
     # INPUT PARAMETERS
     #---------------------------------------------------------------------------
 
-    # Number of elements
-    n1 = 135
-    n2 = 77
+    # Number of cells
+    nc1 = 135
+    nc2 = 77
 
     # Padding ('thickness' of ghost region)
     p1 = 3
@@ -25,6 +25,9 @@ def run_cart_2d( verbose=False , nprocs=None, reverse_axis=None):
     period1 = True
     period2 = False
 
+    # Number of Points
+    n1 = nc1 + p1*(1-period1)
+    n2 = nc2 + p2*(1-period2)
     #---------------------------------------------------------------------------
     # DOMAIN DECOMPOSITION
     #---------------------------------------------------------------------------
@@ -34,15 +37,27 @@ def run_cart_2d( verbose=False , nprocs=None, reverse_axis=None):
     size = comm.Get_size()
     rank = comm.Get_rank()
 
+    domain_decomposition = DomainDecomposition(ncells=[nc1,nc2], periods=[period1,period2], comm=comm)
+    
+    npts          = [n1,n2]
+    global_starts = [None]*2
+    global_ends   = [None]*2
+    for axis in range(2):
+        es = domain_decomposition.global_element_starts[axis]
+        ee = domain_decomposition.global_element_ends  [axis]
+
+        global_ends  [axis]     = (ee+1)-1
+        global_ends  [axis][-1] = npts[axis]-1
+        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+
     # Decomposition of Cartesian domain
     cart = CartDecomposition(
-        npts    = [n1+1,n2+1],
-        pads    = [p1,p2],
-        periods = [period1, period2],
-        reorder = False,
-        comm    = comm,
-        nprocs  = nprocs,
-        reverse_axis = reverse_axis
+            domain_decomposition      = domain_decomposition,
+            npts          = [n1,n2],
+            global_starts = global_starts,
+            global_ends   = global_ends,
+            pads          = [p1,p2],
+            shifts        = [1,1],
     )
 
     # Local 2D array with 2D vector data (extended domain)
@@ -84,7 +99,7 @@ def run_cart_2d( verbose=False , nprocs=None, reverse_axis=None):
     #---------------------------------------------------------------------------
 
     # Verify that ghost cells contain correct data (note periodic domain!)
-    val = lambda i1,i2: (i1%(n1+1),i2) if 0<=i2<=n2 else (0,0)
+    val = lambda i1,i2: (i1%n1,i2) if 0<=i2<n2 else (0,0)
     uex = [[val(i1,i2) for i2 in range(s2-p2,e2+p2+1)] for i1 in range(s1-p1,e1+p1+1)]
 
     success = (u == uex).all()

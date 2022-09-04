@@ -12,11 +12,11 @@ from psydac.mapping.discrete            import SplineMapping
 from psydac.linalg.stencil              import StencilVector, StencilMatrix
 from psydac.fem.splines                 import SplineSpace
 from psydac.fem.tensor                  import TensorFemSpace
-
+from psydac.ddm.cart                    import DomainDecomposition
 
 #==============================================================================
 @pytest.mark.parametrize( 'degrees', [(2,2),(2,3),(3,2),(3,3)] )
-@pytest.mark.parametrize( 'ncells' , [(4,5),(6,6),(11,14)] )
+@pytest.mark.parametrize( 'ncells' , [(9,11),(10,12),(12,14)] )
 
 def test_c1_projections( degrees, ncells, verbose=False ):
 
@@ -50,8 +50,10 @@ def test_c1_projections( degrees, ncells, verbose=False ):
     V1 = SplineSpace( p1, grid=grid_1, periodic=period_1 )
     V2 = SplineSpace( p2, grid=grid_2, periodic=period_2 )
 
+    domain_decomposition = DomainDecomposition(ncells, periods=[period_1, period_2], comm=MPI.COMM_WORLD)
+
     # 2D tensor-product space
-    V = TensorFemSpace( V1, V2, comm=MPI.COMM_WORLD )
+    V = TensorFemSpace( domain_decomposition, V1, V2 )
 
     # Spline mapping
     map_discrete = SplineMapping.from_mapping( V, map_analytic )
@@ -85,7 +87,7 @@ def test_c1_projections( degrees, ncells, verbose=False ):
                 for k2 in range(1,p2):
                     j1 = (i1+k1)%n1
                     j2 = (i2+k2)%n2
-                    eps = perturbation[i1,i2,k1,k2]
+                    eps = perturbation[i1-s1,i2-s2,k1,k2]
                     A[i1,i2, k1, k2] += eps
                     A[j1,j2,-k1,-k2] += eps
 

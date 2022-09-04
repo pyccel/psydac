@@ -174,10 +174,6 @@ class BasisValues():
 
         spans = []
         basis = []
-        if grid:
-            indices = grid.indices
-        else:
-            indices = [None]*len(V[0].spaces)
 
         weights = grid.weights
         for si,Vi in zip(starts,V):
@@ -185,24 +181,9 @@ class BasisValues():
             spans_i     = []
             basis_i     = []
 
-            for sij,g,w,p,vij,ind in zip(si, quad_grids, weights, Vi.vector_space.pads, Vi.spaces, indices):
+            for sij,g,w,p,vij in zip(si, quad_grids, weights, Vi.vector_space.pads, Vi.spaces):
                 sp = g.spans-sij
                 bs = g.basis
-                if not trial and vij.periodic and vij.degree <= p:
-                    bs                 = bs.copy()
-                    sp                 = sp.copy()
-                    bs[0:p-vij.degree] = 0.
-                    sp[0:p-vij.degree] = sp[p-vij.degree]
-                elif ind is not None:
-                    for e in np.setdiff1d(ind, g.indices):
-                        if e<g.indices[0]:
-                            bs  = np.concatenate((np.zeros_like(bs[0:1]), bs))
-                            sp = np.concatenate((sp[0:1], sp))
-                        elif e>g.indices[-1]:
-                            bs  = np.concatenate((bs,np.zeros_like(bs[-1:])))
-                            sp = np.concatenate((sp,sp[-1:]))
-                        else:
-                            raise ValueError("Could not contsruct the basis functions")
 
                 if not trial:
                     bs  = bs.copy()

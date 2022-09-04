@@ -59,8 +59,9 @@ class C1Projector:
             y_ext = mapping.control_points[0:2,:,1]
 
             # Exclude ghost regions for calculations
-            x = x_ext[:, s2:e2+1]
-            y = y_ext[:, s2:e2+1]
+
+            x = x_ext[:, p2:-p2]
+            y = y_ext[:, p2:-p2]
 
             SQRT3     = np.sqrt(3.0)
             ONE_THIRD = 1.0/3.0

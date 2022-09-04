@@ -11,6 +11,7 @@ from collections import OrderedDict
 
 from psydac.linalg.utilities import array_to_stencil
 from psydac.fem.basic        import FemField
+from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.utilities.utils  import refine_array_1d
 from psydac.feec.pull_push   import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
 
@@ -80,9 +81,9 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
 
     # always return a list, even for scalar-valued functions ?
     if not vector_valued:
-        return u_vals_components[0]
+        return np.array(u_vals_components[0])
     else:
-        return u_vals_components
+        return [np.array(a) for a in u_vals_components]
 
 #------------------------------------------------------------------------------
 def get_grid_quad_weights(etas, patch_logvols, mappings_list):  #_obj):
@@ -168,8 +169,12 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     F = [M.get_callable_mapping() for d,M in mappings.items()]
 
     if plotted_patch in range(len(mappings)):
-        grid_x1 = Vh.spaces[plotted_patch].breaks[0]
-        grid_x2 = Vh.spaces[plotted_patch].breaks[1]
+        space   = Vh.spaces[plotted_patch]
+        if isinstance(space, (VectorFemSpace, ProductFemSpace)):
+            space = space.spaces[0]
+
+        grid_x1 = space.breaks[0]
+        grid_x2 = space.breaks[1]
 
         x1 = refine_array_1d(grid_x1, N)
         x2 = refine_array_1d(grid_x2, N)
@@ -275,9 +280,18 @@ def my_small_plot(
         for k in range(n_patches):
             ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap) #, extend='both')
         cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
-        if gridlines_x1 is not None:
-            ax.plot(*gridlines_x1, color='k')
-            ax.plot(*gridlines_x2, color='k')
+
+        if gridlines_x1 is not None and gridlines_x2 is not None:
+            if isinstance(gridlines_x1[0], (list,tuple)):
+                for x1,x2 in zip(gridlines_x1,gridlines_x2):
+                    if x1 is None or x2 is None:continue
+                    kwargs = {'lw': 0.5}
+                    ax.plot(*x1, color='k', **kwargs)
+                    ax.plot(*x2, color='k', **kwargs)
+            else:
+                ax.plot(*gridlines_x1, color='k')
+                ax.plot(*gridlines_x2, color='k')
+
         if show_xylabel:
             ax.set_xlabel( r'$x$', rotation='horizontal' )
             ax.set_ylabel( r'$y$', rotation='horizontal' )
@@ -354,4 +368,5 @@ def my_small_streamplot(
 
     if not hide_plot:
         plt.show()
+
 

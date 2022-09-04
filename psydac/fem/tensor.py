@@ -11,24 +11,36 @@ import itertools
 import h5py
 import os
 
-from sympde.topology.space import BasicFunctionSpace
-from sympde.topology.datatype import H1SpaceType, L2SpaceType
+from types import MappingProxyType
 
-from psydac.linalg.stencil import StencilVectorSpace
-from psydac.linalg.kron    import kronecker_solve
-from psydac.fem.basic      import FemSpace, FemField
-from psydac.fem.splines    import SplineSpace
-from psydac.fem.grid       import FemAssemblyGrid
-from psydac.ddm.cart       import CartDecomposition
+from sympde.topology.space import BasicFunctionSpace
+
+from psydac.linalg.stencil   import StencilVectorSpace
+from psydac.linalg.kron      import kronecker_solve
+from psydac.fem.basic        import FemSpace, FemField
+from psydac.fem.splines      import SplineSpace
+from psydac.fem.grid         import FemAssemblyGrid
+from psydac.fem.partitioning import create_cart, partition_coefficients
+from psydac.ddm.cart         import DomainDecomposition
+
 from psydac.core.bsplines  import (find_span,
                                    basis_funs,
                                    basis_funs_1st_der,
                                    basis_ders_on_quad_grid,
-                                   elements_spans)
+                                   elements_spans,
+                                   cell_index,
+                                   basis_ders_on_irregular_grid)
+
 from psydac.core.kernels import (eval_fields_2d_no_weights,
+                                 eval_fields_2d_irregular_no_weights,
                                  eval_fields_2d_weighted,
+                                 eval_fields_2d_irregular_weighted,
                                  eval_fields_3d_no_weights,
-                                 eval_fields_3d_weighted)
+                                 eval_fields_3d_irregular_no_weights,
+                                 eval_fields_3d_weighted,
+                                 eval_fields_3d_irregular_weighted)
+
+
 #===============================================================================
 class TensorFemSpace( FemSpace ):
     """
@@ -41,64 +53,45 @@ class TensorFemSpace( FemSpace ):
 
     """
 
-    def __init__( self, *args, **kwargs ):
+    def __init__( self, domain_decomposition, *spaces, vector_space=None, cart=None, quad_order=None ):
         """."""
-        assert all( isinstance( s, SplineSpace ) for s in args )
-        self._spaces = tuple(args)
+        assert isinstance(domain_decomposition, DomainDecomposition)
+        assert all( isinstance( s, SplineSpace ) for s in spaces )
+        self._domain_decomposition = domain_decomposition
+        self._spaces = tuple(spaces)
 
-        npts         = [V.nbasis   for V in self.spaces]
-        pads         = [V._pads    for V in self.spaces]
-        degree       = [V.degree   for V in self.spaces]
-        multiplicity = [V.multiplicity for V in self.spaces]
-        periods      = [V.periodic for V in self.spaces]
-        basis        = [V.basis    for V in self.spaces]
-
-        if 'comm' in kwargs and not( kwargs['comm'] is None ):
-            # parallel case
-            comm         = kwargs['comm']
-            nprocs       = kwargs.pop('nprocs', None)
-            reverse_axis = kwargs.pop('reverse_axis', None)
-            num_threads  = int(os.environ.get('OMP_NUM_THREADS',1))
-            assert isinstance(comm, MPI.Comm)
-            cart = CartDecomposition(
-                npts         = npts,
-                pads         = pads,
-                periods      = periods,
-                shifts       = multiplicity,
-                reorder      = True,
-                comm         = comm,
-                nprocs       = nprocs,
-                reverse_axis = reverse_axis,
-                num_threads  = num_threads
-            )
-
+        if cart is not None:
             self._vector_space = StencilVectorSpace(cart)
-            
-        elif 'cart' in kwargs and not (kwargs['cart'] is None):
-
-            cart = kwargs['cart']
-            self._vector_space = StencilVectorSpace(cart)
-
+        elif vector_space is not None:
+            self._vector_space = vector_space
         else:
-            # serial case
-            self._vector_space = kwargs.pop('vector_space', StencilVectorSpace(npts, pads, periods, shifts=multiplicity))
+            cart               = create_cart([domain_decomposition], [self._spaces])
+            self._vector_space = StencilVectorSpace(cart[0])
 
         # Shortcut
         v = self._vector_space
 
-        self._quad_order = kwargs.pop('quad_order', None)
-        if self._quad_order is None:
+        if quad_order is None:
             self._quad_order = [sp.degree for sp in self.spaces]
+        else:
+            self._quad_order = quad_order
+
+        self._symbolic_space = None
+        self._interfaces     = {}
+        self._interfaces_readonly = MappingProxyType(self._interfaces)
+
+        if self._vector_space.parallel and self._vector_space.cart.is_comm_null:return
+
+        starts = self._vector_space.cart.domain_decomposition.starts
+        ends   = self._vector_space.cart.domain_decomposition.ends
 
         # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q, parent_start=ps, parent_end=pe)
-                                  for V,s,e,ps,pe,q in zip( self.spaces, v.starts, v.ends,
-                                                        v.parent_starts, v.parent_ends,
-                                                        self._quad_order ) )
+        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q)
+                                  for V,s,e,q in zip( self.spaces, starts, ends, self._quad_order ) )
 
         # Determine portion of logical domain local to process
-        self._element_starts = tuple( g.indices[g.local_element_start] for g in self.quad_grids )
-        self._element_ends   = tuple( g.indices[g.local_element_end  ] for g in self.quad_grids )
+        self._element_starts = starts
+        self._element_ends   = ends
 
         # Compute limits of eta_0, eta_1, eta_2, etc... in subdomain local to process
         self._eta_limits = tuple( (space.breaks[s], space.breaks[e+1])
@@ -107,32 +100,10 @@ class TensorFemSpace( FemSpace ):
         # Store flag: object NOT YET prepared for interpolation
         self._interpolation_ready = False
         # Compute the local domains for every process
-        if v.parallel:
-            ndims = cart._ndims
-            self._global_element_starts = [None]*ndims
-            self._global_element_ends   = [None]*ndims
-            for dimension in range( ndims ):
-                periodic = periods[dimension]
-                p = pads[dimension]
-                de = degree[dimension]
-                d = cart._dims[dimension]
-                starts = cart.reduced_global_starts[dimension]
-                ends   = cart.reduced_global_ends  [dimension]
 
-                if periodic:
-                    element_starts = starts
-                    element_ends   = ends
-                else:
-                    element_starts = np.array( [starts[d]-p+1 for d in range(d)] )
-                    element_ends   = np.array( [ends[d]-p+1   for d in range(d)] )
-                    element_starts[0] = 0
-                    element_ends [-1] = ends[-1] - de
-
-                self._global_element_starts[dimension] = element_starts
-                self._global_element_ends  [dimension] = element_ends
-
-        self._symbolic_space      = None
         # ...
+        self._global_element_starts = domain_decomposition.global_element_starts
+        self._global_element_ends   = domain_decomposition.global_element_ends
 
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
@@ -146,6 +117,10 @@ class TensorFemSpace( FemSpace ):
     @property
     def periodic(self):
         return [V.periodic for V in self.spaces]
+
+    @property
+    def domain_decomposition(self):
+        return self._domain_decomposition
 
     @property
     def mapping(self):
@@ -162,7 +137,11 @@ class TensorFemSpace( FemSpace ):
 
     @property
     def symbolic_space( self ):
-        return self._symbolic_space
+        return self._symbolic_space 
+
+    @property
+    def interfaces( self ):
+        return self._interfaces_readonly
 
     @symbolic_space.setter
     def symbolic_space( self, symbolic_space ):
@@ -214,7 +193,6 @@ class TensorFemSpace( FemSpace ):
 
             bases.append( basis )
             index.append( slice( loc_span-degree, loc_span+1 ) )
-
         # Get contiguous copy of the spline coefficients required for evaluation
         index  = tuple( index )
         coeffs = field.coeffs[index].copy()
@@ -244,7 +222,7 @@ class TensorFemSpace( FemSpace ):
         return res
 
     # ...
-    def preprocess_regular_tensor_grid(self, grid, der=0):
+    def preprocess_regular_tensor_grid(self, grid, der=0, overlap=0):
         """Returns all the quantities needed to evaluate fields on a regular tensor-grid.
 
         Parameters
@@ -258,6 +236,69 @@ class TensorFemSpace( FemSpace ):
         der : int, default=0
             Number of derivatives of the basis functions to pre-compute.
 
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+
+        Returns
+        -------
+        degree : tuple of int
+            Degree in each direction
+        global_basis : List of ndarray
+            List of 4D arrays, one per direction, containing the values of the p+1 non-vanishing
+            basis functions (and their derivatives) at each grid point.
+            The array for direction xi has shape (ne_xi, der + 1, p+1,  nv_xi).
+
+        global_spans : List of ndarray
+            List of 1D arrays, one per direction, containing the index of the last non-vanishing
+            basis function in each cell. The array for direction xi has shape (ne_xi,).
+        
+        local_shape : List of tuple
+            Shape of what is local to this instance. 
+        """
+        # Check the grid
+        assert len(grid) == self.ldim
+
+        # Get the local domain
+        v = self.vector_space
+        starts, ends = self.local_domain
+
+        # Add the overlap if we are in parallel
+        if v.parallel:
+            starts = tuple(s - overlap if s!=0 else s for s in starts)
+            ends = tuple(e + overlap for e in ends)
+
+        # Compute the basis functions and spans.
+        local_shape = [] 
+        global_basis = []
+        global_spans = []
+        for i in range(self.ldim):
+            # We only care about the local grid
+            grid_local = grid[i][slice(starts[i], ends[i] + 1)]
+
+            # Compute basis functions and spans
+            global_basis_i = basis_ders_on_quad_grid(self.knots[i], self.degree[i], grid_local, der, self.spaces[i].basis, offset=starts[i])
+            global_spans_i = elements_spans(self.knots[i], self.degree[i])[slice(starts[i], ends[i] + 1)] - v.starts[i] + v.shifts[i] * v.pads[i]
+
+            local_shape.append(grid_local.shape)
+            global_basis.append(global_basis_i)
+            global_spans.append(global_spans_i)
+        return self.degree, global_basis, global_spans, local_shape
+
+    #...
+    def preprocess_irregular_tensor_grid(self, grid, der=0, overlap=0):
+        """Returns all the quantities needed to evaluate fields on a regular tensor-grid.
+
+        Parameters
+        ----------
+        grid : List of ndarray
+            List of 1D arrays representing each direction of the grid.
+
+        der : int, default=0
+            Number of derivatives of the basis functions to pre-compute.
+
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+
         Returns
         -------
         pads : tuple of int
@@ -267,28 +308,64 @@ class TensorFemSpace( FemSpace ):
         global_basis : List of ndarray
             List of 4D arrays, one per direction, containing the values of the p+1 non-vanishing
             basis functions (and their derivatives) at each grid point.
-            The array for direction xi has shape (ne_xi, nv_xi, der + 1, p+1).
+            The array for direction xi has shape (n_xi, p+1, der + 1).
 
         global_spans : List of ndarray
             List of 1D arrays, one per direction, containing the index of the last non-vanishing
-            basis function in each cell. The array for direction xi has shape (ne_xi,).
+            basis function in each cell. The array for direction xi has shape (n_xi,).
+        
+        cell_indexes : list of ndarray
+            List of 1D arrays, one per direction, containing the index of the cell in which
+            the corresponding point in grid is.
+        
+        local_shape : List of tuple
+            Shape of what is local to this instance. 
         """
-
+        # Check the grid
         assert len(grid) == self.ldim
 
+        # Get the local domain
+        v = self.vector_space
+        starts, ends = self.local_domain
+
+        # Add the overlap if we are in parallel
+        if v.parallel:
+            starts = tuple(s - overlap if s!=0 else s for s in starts)
+            ends = tuple(e + overlap for e in ends)
+
+        # Compute the basis functions and spans and cell indexes.
         global_basis = []
         global_spans = []
+        cell_indexes = []
+        local_shape = []
         for i in range(self.ldim):
-            global_basis_i = basis_ders_on_quad_grid(self.knots[i], self.degree[i], grid[i], der, self.spaces[i].basis)
-            global_spans_i = elements_spans(self.knots[i], self.degree[i])
+            # Check the that the grid is sorted.
+            grid_i = grid[i]
+            assert all(grid_i[j] <= grid_i[j + 1] for j in range(len(grid_i) - 1))
 
+            # Get the cell indexes
+            cell_index_i = cell_index(self.breaks[i], grid_i)
+            min_idx = np.searchsorted(cell_index_i, starts[i], side='left')
+            max_idx = np.searchsorted(cell_index_i, ends[i], side='right')
+            # We only care about the local cells.
+            cell_index_i = cell_index_i[min_idx:max_idx]
+            grid_local_i = grid_i[min_idx:max_idx]
+
+            # basis functions and spans
+            global_basis_i = basis_ders_on_irregular_grid(self.knots[i], self.degree[i], grid_local_i, cell_index_i, der, self.spaces[i].basis)
+            global_spans_i = elements_spans(self.knots[i], self.degree[i])[slice(starts[i], ends[i] + 1)] - v.starts[i] + v.shifts[i] * v.pads[i]
+
+            local_shape.append(len(grid_local_i))
             global_basis.append(global_basis_i)
             global_spans.append(global_spans_i)
+            
+            # starts[i] is cell 0 of the local domain 
+            cell_indexes.append(cell_index_i  - starts[i])
 
-        return self.pads, self.degree, global_basis, global_spans
+        return self.degree, global_basis, global_spans, cell_indexes, local_shape
 
     # ...
-    def eval_fields(self, grid, *fields, weights=None, npts_per_cell=None):
+    def eval_fields(self, grid, *fields, weights=None, npts_per_cell=None, overlap=0):
         """Evaluate one or several fields at the given location(s) grid.
 
         Parameters
@@ -306,6 +383,9 @@ class TensorFemSpace( FemSpace ):
             number of evaluation points in each cell.
             If an integer is given, then assume that it is the same in every direction.
 
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+
         Returns
         -------
         List of ndarray of floats
@@ -313,10 +393,17 @@ class TensorFemSpace( FemSpace ):
         """
 
         assert all(f.space is self for f in fields)
+        for f in fields:
+            # Necessary if vector coeffs is distributed across processes
+            if not f.coeffs.ghost_regions_in_sync:
+                f.coeffs.update_ghost_regions()
+        
         if weights is not None:
             assert weights.space is self
             assert all(f.coeffs.space is weights.coeffs.space for f in fields)
-
+            if not weights.coeffs.ghost_regions_in_sync:
+                weights.coeffs.update_ghost_regions()
+        
         assert len(grid) == self.ldim
         grid = [np.asarray(grid[i]) for i in range(self.ldim)]
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
@@ -328,15 +415,12 @@ class TensorFemSpace( FemSpace ):
                 return [self.eval_field(f, *grid, weights=weights.coeffs) for f in fields]
             else:
                 return [self.eval_field(f, *grid) for f in fields]
+
         # Case 2. 1D array of coordinates and no npts_per_cell is given
         # -> grid is tensor-product, but npts_per_cell is not the same in each cell
         elif grid[0].ndim == 1 and npts_per_cell is None:
-            raise NotImplementedError("Having a different number of evaluation"
-                                      "points in the cells belonging to the same "
-                                      "logical dimension is not supported yet. "
-                                      "If you did use valid inputs, you need to provide"
-                                      "the number of evaluation points per cell in each direction"
-                                      "via the npts_per_cell keyword")
+            out_fields = self.eval_fields_irregular_tensor_grid(grid, *fields, weights=weights, overlap=overlap)
+            return [np.ascontiguousarray(out_fields[..., i]) for i in range(len(fields))]
 
         # Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer
         # -> grid is tensor-product, and each cell has the same number of evaluation points
@@ -346,8 +430,8 @@ class TensorFemSpace( FemSpace ):
             for i in range(self.ldim):
                 ncells_i = len(self.breaks[i]) - 1
                 grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
-            out_fields = self.eval_fields_regular_tensor_grid(grid, *fields, weights=weights)
-            # return a "list"
+            out_fields = self.eval_fields_regular_tensor_grid(grid, *fields, weights=weights, overlap=overlap)
+            # return a list
             return [np.ascontiguousarray(out_fields[..., i]) for i in range(len(fields))]
 
         # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
@@ -364,7 +448,7 @@ class TensorFemSpace( FemSpace ):
                              "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
 
     # ...
-    def eval_fields_regular_tensor_grid(self, grid, *fields, weights=None):
+    def eval_fields_regular_tensor_grid(self, grid, *fields, weights=None, overlap=0):
         """Evaluate fields on a regular tensor grid
 
         Parameters
@@ -381,16 +465,18 @@ class TensorFemSpace( FemSpace ):
         weights : psydac.fem.basic.FemField or None, optional
             Weights to apply to our fields.
 
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+
         Returns
         -------
         List of ndarray of float
             Values of the fields on the regular tensor grid
         """
-        ncells = [grid[i].shape[0] for i in range(self.ldim)]
-        n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
-
-        pads, degree, global_basis, global_spans = self.preprocess_regular_tensor_grid(grid)
-        out_fields = np.zeros((*(tuple(grid[i].size for i in range(self.ldim))), len(fields)))
+        degree, global_basis, global_spans, local_shape = self.preprocess_regular_tensor_grid(grid, der=0, overlap=overlap)
+        ncells = [local_shape[i][0] for i in range(self.ldim)]
+        n_eval_points = [local_shape[i][1] for i in range(self.ldim)]
+        out_fields = np.zeros((*(tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim))), len(fields)))
 
         glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)))
 
@@ -399,14 +485,14 @@ class TensorFemSpace( FemSpace ):
 
         if self.ldim == 2:
             if weights is None:
-                eval_fields_2d_no_weights(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1],
+                eval_fields_2d_no_weights(ncells[0], ncells[1], degree[0], degree[1],
                                           n_eval_points[0], n_eval_points[1], global_basis[0], global_basis[1],
                                           global_spans[0], global_spans[1], glob_arr_coeffs, out_fields)
             else:
 
                 global_weight_coeff = weights.coeffs._data
 
-                eval_fields_2d_weighted(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1],
+                eval_fields_2d_weighted(ncells[0], ncells[1], degree[0], degree[1],
                                         n_eval_points[0], n_eval_points[1], global_basis[0], global_basis[1],
                                         global_spans[0], global_spans[1], glob_arr_coeffs, global_weight_coeff,
                                         out_fields)
@@ -414,7 +500,7 @@ class TensorFemSpace( FemSpace ):
         elif self.ldim == 3:
             if weights is None:
 
-                eval_fields_3d_no_weights(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0],
+                eval_fields_3d_no_weights(ncells[0], ncells[1], ncells[2], degree[0],
                                           degree[1], degree[2], n_eval_points[0], n_eval_points[1],
                                           n_eval_points[2], global_basis[0], global_basis[1], global_basis[2],
                                           global_spans[0], global_spans[1], global_spans[2], glob_arr_coeffs,
@@ -423,11 +509,75 @@ class TensorFemSpace( FemSpace ):
             else:
                 global_weight_coeff = weights.coeffs._data
 
-                eval_fields_3d_weighted(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0],
+                eval_fields_3d_weighted(ncells[0], ncells[1], ncells[2], degree[0],
                                         degree[1], degree[2], n_eval_points[0], n_eval_points[1], n_eval_points[2],
                                         global_basis[0], global_basis[1], global_basis[2], global_spans[0],
                                         global_spans[1], global_spans[2], glob_arr_coeffs, global_weight_coeff,
                                         out_fields)
+        else:
+            raise NotImplementedError("1D not Implemented")
+
+        return out_fields
+
+# ...
+    def eval_fields_irregular_tensor_grid(self, grid, *fields, weights=None, overlap=0):
+        """Evaluate fields on a regular tensor grid
+
+        Parameters
+        ----------
+        grid : List of ndarray
+            List of 2D arrays representing each direction of the grid.
+            Each of these arrays should have shape (ne_xi, nv_xi) where ne is the
+            number of cells in the domain in the direction xi and nv_xi is the number of
+            evaluation points in the same direction.
+
+        *fields : tuple of psydac.fem.basic.FemField
+            Fields to evaluate on `grid`.
+
+        weights : psydac.fem.basic.FemField or None, optional
+            Weights to apply to our fields.
+
+        overlap : int
+            How much to overlap. Only used in the distributed context.
+
+        Returns
+        -------
+        List of ndarray of float
+            Values of the fields on the regular tensor grid
+        """
+        degree, global_basis, global_spans, cell_indexes, local_shape = \
+            self.preprocess_irregular_tensor_grid(grid, overlap=overlap)
+        out_fields = np.zeros(tuple(local_shape) + (len(fields),))
+
+        glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)))
+
+        npoints = local_shape
+
+        for i in range(len(fields)):
+            glob_arr_coeffs[..., i] = fields[i].coeffs._data
+
+        if self.ldim == 2:
+            if weights is None:
+                eval_fields_2d_irregular_no_weights(*npoints, *degree, *cell_indexes, *global_basis,
+                                                    *global_spans, glob_arr_coeffs, out_fields)
+            else:
+
+                global_weight_coeff = weights.coeffs._data
+
+                eval_fields_2d_irregular_weighted(*npoints, *degree, *cell_indexes, *global_basis,
+                                                  *global_spans, glob_arr_coeffs, global_weight_coeff, out_fields)
+
+        elif self.ldim == 3:
+            if weights is None:
+
+                eval_fields_3d_irregular_no_weights(*npoints, *degree, *cell_indexes, *global_basis,
+                                                    *global_spans, glob_arr_coeffs, out_fields)
+
+            else:
+                global_weight_coeff = weights.coeffs._data
+
+                eval_fields_3d_irregular_weighted(*npoints, *degree, *cell_indexes, *global_basis,
+                                                  *global_spans, glob_arr_coeffs, global_weight_coeff, out_fields)
         else:
             raise NotImplementedError("1D not Implemented")
 
@@ -478,6 +628,8 @@ class TensorFemSpace( FemSpace ):
         # Get contiguous copy of the spline coefficients required for evaluation
         index  = tuple( index )
         coeffs = field.coeffs[index].copy()
+        if weights:
+            coeffs *=  weights[index]
 
         # Evaluate each component of the gradient using algorithm described in "Option 1" above
         grad = []
@@ -532,153 +684,6 @@ class TensorFemSpace( FemSpace ):
 
         return c
 
-    # ...
-    def pushforward_fields(self, grid, *fields, mapping=None, npts_per_cell=None):
-        """ Push forward fields on a given grid and a given mapping
-
-        Parameters
-        ----------
-        grid : List of ndarray of int
-            Grid on which to evaluate the fields
-
-        *fields : tuple of psydac.fem.basic.FemField
-            Fields to evaluate
-
-        mapping: psydac.mapping.SplineMapping
-            Mapping on which to push-forward
-
-        npts_per_cell: int or tuple of int or None, optional
-            number of evaluation points in each cell.
-            If an integer is given, then assume that it is the same in every direction.
-
-        Returns
-        -------
-        List of ndarray
-            push-forwarded fields
-        """
-
-        # Check that a mapping is given
-        if mapping is None:
-            raise ValueError("A mapping is needed to push-forward")
-
-        # Check that the fields belong to our space
-        assert all(f.space is self for f in fields)
-
-        # Check the grid argument
-        assert len(grid) == self.ldim
-        grid = [np.asarray(grid[i]) for i in range(self.ldim)]
-        assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
-
-        # --------------------------
-        # Case 1. Scalar coordinates
-        if (grid[0].size == 1) or grid[0].ndim == 0:
-
-            return [self.pushforward_field(f, *grid, mapping=mapping) for f in fields]
-
-        # Case 2. 1D array of coordinates and no npts_per_cell is given
-        # -> grid is tensor-product, but npts_per_cell is not the same in each cell
-        elif grid[0].ndim == 1 and npts_per_cell is None:
-            raise NotImplementedError("Having a different number of evaluation"
-                                      "points in the cells belonging to the same "
-                                      "logical dimension is not supported yet. "
-                                      "If you did use valid inputs, you need to provide"
-                                      "the number of evaluation points per cell in each direction"
-                                      "via the npts_per_cell keyword")
-
-        # Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer
-        # -> grid is tensor-product, and each cell has the same number of evaluation points
-        elif grid[0].ndim == 1 and npts_per_cell is not None:
-            if isinstance(npts_per_cell, int):
-                npts_per_cell = (npts_per_cell,) * self.ldim
-
-            for i in range(self.ldim):
-                ncells_i = len(self.breaks[i]) - 1
-                grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
-            pushed_fields = self.pushforward_fields_regular_tensor_grid(grid, *fields, mapping=mapping)
-            # return a list of C-contiguous arrays, one for each field.
-            return [np.ascontiguousarray(pushed_fields[..., i]) for i in range(len(fields))]
-
-        # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
-        # -> unstructured grid
-        elif grid[0].ndim == self.ldim and npts_per_cell is None:
-            raise NotImplementedError("Unstructured grids are not supported yet.")
-
-        # Case 5. Nonsensical input
-        else:
-            raise ValueError("This combination of argument isn't understood. The 4 cases understood are :\n"
-                             "Case 1. Scalar coordinates\n"
-                             "Case 2. 1D array of coordinates and no npts_per_cell is given\n"
-                             "Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer\n"
-                             "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
-
-    # ...
-    def pushforward_field(self, field, *eta, mapping=None, parent_kind=None):
-        assert field.space is self
-        assert len(eta) == self.ldim
-        if parent_kind is None:
-            kind = self._symbolic_space.kind
-        else:
-            kind = parent_kind
-        value = self.eval_field(field, *eta)
-        if kind is H1SpaceType():
-            return value
-        elif kind is L2SpaceType():
-            det = mapping.jac_det(*eta)
-            return value / det
-
-    # ...
-    def pushforward_fields_regular_tensor_grid(self, grid, *fields, mapping=None, parent_kind=None):
-        """Push-forwards fields on a regular tensor grid using a given a mapping.
-
-        Parameters
-        ----------
-        grid : List of ndarray
-            List of 2D arrays representing each direction of the grid.
-            Each of these arrays should have shape (ne_xi, nv_xi) where ne_xi is the
-            number of cells in the domain in the direction xi and nv_xi is the number of
-            evaluation points in the same direction.
-
-        fields: List of psydac.fem.basic.FemField
-
-        mapping: psydac.mapping.SplineMapping
-            Mapping on which to push-forward
-
-        kind: str, optional
-            Shortcut to determine the kind of the space.
-            Meant to be used only when this is called
-            inside of a Vector/ProductFemSpace because
-            the TensorFemSpace doesn't have a kind.
-
-        Returns
-        -------
-        ndarray
-            Push-forwarded fields
-        """
-        from psydac.core.kernels import pushforward_2d_l2, pushforward_3d_l2
-
-        if parent_kind is None:
-            kind = self._symbolic_space.kind
-        else:
-            kind = parent_kind
-
-        out_fields = self.eval_fields_regular_tensor_grid(grid, *fields)
-
-        if kind is H1SpaceType():
-            return out_fields
-
-        if kind is L2SpaceType():
-            pushed_fields = np.zeros_like(out_fields)
-            dets = mapping.jac_det_regular_tensor_grid(grid)
-
-            if self.ldim == 2:
-                pushforward_2d_l2(out_fields, dets, pushed_fields)
-            if self.ldim == 3:
-                pushforward_3d_l2(out_fields, dets, pushed_fields)
-        else:
-            raise ValueError(f"Spaces of kind {kind} are not understood")
-
-        return pushed_fields
-        
     #--------------------------------------------------------------------------
     # Other properties and methods
     #--------------------------------------------------------------------------
@@ -1001,18 +1006,48 @@ class TensorFemSpace( FemSpace ):
             )
             spaces[axis] = reduced_space
 
-        # create new Tensor Vector
-        n_elements = [s1.nbasis-s2.nbasis for s1,s2 in zip(self.spaces, spaces)]
-        if v.cart:
-            red_cart = v.cart.reduce_elements(axes, n_elements)
-            tensor_vec = TensorFemSpace(*spaces, cart=red_cart, quad_order=self._quad_order)
-        else:
-            v = v.reduce_elements(axes, n_elements)
-            tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order, vector_space=v)
-        
+        npts         = [s.nbasis for s in spaces]
+        multiplicity = [s.multiplicity for s in spaces]
+
+        global_starts, global_ends = partition_coefficients(v.cart.domain_decomposition, spaces)
+
+        # create new CartDecomposition
+        red_cart   = v.cart.reduce_npts(npts, global_starts, global_ends, shifts=multiplicity)
+
+        # create new TensorFemSpace
+        tensor_vec = TensorFemSpace(self._domain_decomposition, *spaces, cart=red_cart, quad_order=self._quad_order)
+
         tensor_vec._interpolation_ready = False
         return tensor_vec
 
+    def create_interface_space(self, axis, ext, cart):
+        """ Create a new interface fem space along a given axis and extremity.
+
+        Parameters
+        ----------
+         axis : int
+          The axis of the new Interface space.
+
+         ext: int
+          The extremity of the new Interface space.
+          the values must be 1 or -1.
+
+         cart: CartDecomposition
+          The cart of the new space, needed in the parallel case.
+        """
+        axis = int(axis)
+        ext  = int(ext)
+        assert axis<self.ldim
+        assert ext in [-1,1]
+
+        if cart.is_comm_null: return
+        spaces       = self.spaces
+        vector_space = self.vector_space
+        quad_order   = self.quad_order
+
+        vector_space.set_interface(axis, ext, cart)
+        space = TensorFemSpace( self._domain_decomposition, *spaces, vector_space=vector_space.interfaces[axis, ext], quad_order=self.quad_order)
+        self._interfaces[axis, ext] = space
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):
 

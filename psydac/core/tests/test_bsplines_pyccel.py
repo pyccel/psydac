@@ -474,6 +474,11 @@ def basis_integrals_true(knots, degree):
 ###############################################################################
 # Tests
 ###############################################################################
+# Tolerance for testing float equality
+RTOL = 1e-15
+ATOL = 1e-15
+
+
 @pytest.mark.parametrize(('knots', 'degree'),
                          [(np.sort(np.random.random(15)), 2),
                           (np.sort(np.random.random(15)), 3),
@@ -490,7 +495,7 @@ def test_find_span(knots, degree, x):
     expected = find_span_true(knots, degree, x)
     out = find_span(knots, degree, x)
 
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize(('knots', 'degree'),
@@ -510,7 +515,7 @@ def test_basis_funs(knots, degree, x):
     expected = basis_funs_true(knots, degree, x, span)
     out = basis_funs(knots, degree, x, span)
 
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize(('knots', 'degree'),
@@ -530,7 +535,7 @@ def test_basis_funs_1st_der(knots, degree, x):
     expected = basis_funs_1st_der_true(knots, degree, x, span)
     out = basis_funs_1st_der(knots, degree, x, span)
 
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize(('knots', 'degree'),
@@ -552,7 +557,7 @@ def test_basis_funs_all_ders(knots, degree, x, n, normalization):
     expected = basis_funs_all_ders_true(knots, degree, x, span, n, normalization)
     out = basis_funs_all_ders(knots, degree, x, span, n, normalization)
 
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize(('knots', 'degree'),
@@ -573,7 +578,7 @@ def test_collocation_matrix(knots, degree, periodic, normalization, xgrid):
     expected = collocation_matrix_true(knots, degree, periodic, normalization, xgrid)
     out = collocation_matrix(knots, degree, periodic, normalization, xgrid)
 
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize(('knots', 'degree'),
@@ -594,7 +599,7 @@ def test_histopolation_matrix(knots, degree, periodic, normalization, xgrid):
     xgrid = np.sort(np.unique(xgrid))
     expected = histopolation_matrix_true(knots, degree, periodic, normalization, xgrid)
     out = histopolation_matrix(knots, degree, periodic, normalization, xgrid)
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize(('knots', 'degree'),
@@ -612,7 +617,7 @@ def test_breakpoints(knots, degree):
     expected = breakpoints_true(knots, degree)
     out = breakpoints(knots, degree)
 
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
 @pytest.mark.parametrize(('knots', 'degree'),
                          [(np.sort(np.random.random(15)), 2),
@@ -630,7 +635,7 @@ def test_greville(knots, degree, periodic):
     expected = greville_true(knots, degree, periodic)
     out = greville(knots, degree, periodic)
 
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize(('knots', 'degree'),
@@ -648,7 +653,7 @@ def test_elements_spans(knots, degree):
     expected = elements_spans_true(knots, degree)
     out = elements_spans(knots, degree)
 
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
 @pytest.mark.parametrize('breaks', (np.linspace(0, 1, 10, endpoint=False),
                                     np.sort(np.random.random(15))))
@@ -661,7 +666,7 @@ def test_make_knots(breaks, degree, periodic, multiplicity):
     expected = make_knots_true(breaks, degree, periodic, multiplicity)
     out = make_knots(breaks, degree, periodic, multiplicity)
     print(out, expected)
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize(('knots', 'degree'),
@@ -681,7 +686,7 @@ def test_elevate_knots(knots, degree, periodic, multiplicity):
     expected = elevate_knots_true(knots, degree, periodic, multiplicity)
     out = elevate_knots(knots, degree, periodic, multiplicity)
 
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize('breaks', (np.linspace(0, 1, 10, endpoint=False),
@@ -689,10 +694,10 @@ def test_elevate_knots(knots, degree, periodic, multiplicity):
 @pytest.mark.parametrize('quad_order', (2, 3, 4, 5))
 def test_quadrature_grid(breaks, quad_order):
     quad_x, quad_w = gauss_legendre(quad_order)
-    expected = quadrature_grid_true(breaks, quad_x, quad_w)
-    out = quadrature_grid(breaks, quad_x, quad_w)
+    expected = quadrature_grid_true(breaks, quad_x[::-1], quad_w[::-1])
+    out = quadrature_grid(breaks, quad_x[::-1], quad_w[::-1])
 
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize(('knots', 'degree'),
@@ -717,7 +722,7 @@ def test_basis_ders_on_quad_grid(knots, degree, n, normalization, quad_order):
     expected = basis_ders_on_quad_grid_true(knots, degree, quad_grid, n, normalization)
     out = basis_ders_on_quad_grid(knots, degree, quad_grid, n, normalization)
 
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize(('knots', 'degree'),
@@ -735,4 +740,4 @@ def test_basis_integrals(knots, degree):
     expected = basis_integrals_true(knots, degree)
     out = basis_integrals(knots, degree)
 
-    assert np.allclose(expected, out)
+    assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)

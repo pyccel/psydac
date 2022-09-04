@@ -52,7 +52,7 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
     V2h = discretize(V2, domain_h, degree=degree)
     Xh  = discretize(X , domain_h, degree=degree)
     # ... dsicretize the equation using Dirichlet bc
-    ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
+    ah = discretize(equation, domain_h, [Xh, Xh])
 
     # ... discretize norms
     l2norm_F_h = discretize(l2norm_F, domain_h, V2h)
