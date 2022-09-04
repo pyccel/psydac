@@ -379,7 +379,7 @@ class DomainDecomposition:
         # Store arrays with all the starts and ends along each direction for every process
         domain._global_element_starts = tuple(global_element_starts)
         domain._global_element_ends   = tuple(global_element_ends)
-        if self.is_comm_null:return
+        if self.is_comm_null:return domain
 
         # Start/end values of global indices (without ghost regions)
         domain._starts = tuple( domain._global_element_starts[axis][c] for axis,c in zip(range(self._ndims), self._coords) )
