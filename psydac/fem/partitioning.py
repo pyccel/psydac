@@ -332,7 +332,7 @@ def construct_reduced_interface_spaces(spaces, reduced_spaces, interiors, connec
                     Vi.create_interface_space(axis_i, ext_i, cart=cart_ij)
                     Vj.create_interface_space(axis_j, ext_j, cart=cart_ij)
 
-                    cart = InterfaceCartDecomposition(cart_ij.cart_minus, cart_ij.cart_plus,
+                    cart = InterfaceCartDecomposition(cart_ij._cart_minus, cart_ij._cart_plus,
                                                       cart_ij._comm, [axis_i, axis_j], [ext_i, ext_j],
                                                       [cart_ij.ranks_in_topo_minus, cart_ij.ranks_in_topo_plus],
                                                       [cart_ij._local_group_minus, cart_ij._local_group_plus],
@@ -353,7 +353,7 @@ def construct_reduced_interface_spaces(spaces, reduced_spaces, interiors, connec
                 Vi.create_interface_space(axis_i, ext_i, cart=cart_ij)
                 Vj.create_interface_space(axis_j, ext_j, cart=cart_ij)
 
-                cart = InterfaceCartDecomposition(cart_ij.cart_minus, cart_ij.cart_plus,
+                cart = InterfaceCartDecomposition(cart_ij._cart_minus, cart_ij._cart_plus,
                                                   cart_ij._comm, [axis_i, axis_j], [ext_i, ext_j],
                                                   [cart_ij.ranks_in_topo_minus, cart_ij.ranks_in_topo_plus],
                                                   [cart_ij._local_group_minus, cart_ij._local_group_plus],
