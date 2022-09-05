@@ -1022,8 +1022,10 @@ class TensorFemSpace( FemSpace ):
         tensor_vec._interpolation_ready = False
 
         for key in self._refined_space:
-            if key == tuple(self.ncells): continue
-            tensor_vec._refined_space[key] = self._refined_space[key].reduce_degree(axes, multiplicity, basis)
+            if key == tuple(self.ncells):
+                tensor_vec._refined_space[key] = tensor_vec
+            else:
+                tensor_vec._refined_space[key] = self._refined_space[key].reduce_degree(axes, multiplicity, basis)
         return tensor_vec
 
     # ...
