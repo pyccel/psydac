@@ -276,13 +276,21 @@ class Geometry( object ):
             self._ddm = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm)
             ddms      = [self._ddm]
         else:
-            ncells    = [ncells[itr.name] for itr in interiors]
+            ncells_    = [ncells[itr.name] for itr in interiors]
             periodic  = [periodic[itr.name] for itr in interiors]
-            self._ddm = MultiPatchDomainDecomposition(ncells, periodic, comm=comm)
+            self._ddm = MultiPatchDomainDecomposition(ncells_, periodic, comm=comm)
             ddms      = self._ddm.domains
 
         carts    = create_cart(ddms, spaces)
         g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i]) for i,inter in enumerate(interiors)}
+
+        for i,j in connectivity:
+            ((axis_i, ext_i), (axis_j , ext_j)) = connectivity[i, j]
+            minus = interiors[i]
+            plus  = interiors[j]
+            max_ncells = [max(ni,nj) for ni,nj in zip(ncells[minus.name],ncells[plus.name])]
+            g_spaces[minus].add_refined_space(ncells=max_ncells)
+            g_spaces[plus].add_refined_space(ncells=max_ncells)
 
         # ... construct interface spaces
         construct_interface_spaces(self._ddm, g_spaces, carts, interiors, connectivity)
