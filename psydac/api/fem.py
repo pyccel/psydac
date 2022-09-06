@@ -778,11 +778,11 @@ class DiscreteBilinearForm(BasicDiscrete):
 
                     if self._func != do_nothing:
                         mat = StencilInterfaceMatrix(trial_fem_space._refined_space[ncells].vector_space,
-                        test_fem_space._refined_space[ncells].vector_space, 
-                          s_d, s_c,
-                          axis, axis,
-                          ext_d, ext_c,
-                          flip=flip)
+                                                     test_fem_space._refined_space[ncells].vector_space,
+                                                     s_d, s_c,
+                                                     axis, axis,
+                                                     ext_d, ext_c,
+                                                     flip=flip)
                         if not is_conformal:
                             if all(trn>=tn for trn,tn in zip(trial_fem_space.ncells, test_fem_space.ncells)):
                                 P   = construct_projection_operator(test_fem_space._refined_space[ncells], test_fem_space)

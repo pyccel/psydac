@@ -1031,6 +1031,10 @@ class TensorFemSpace( FemSpace ):
     # ...
     def add_refined_space(self, ncells):
         if tuple(ncells) in self._refined_space: return
+        if tuple(ncells) == tuple(self.ncells):
+            self._refined_space[tuple(ncells)]= self
+            return
+
         spaces = [s.refine(n) for s,n in zip(self.spaces, ncells)]
         npts   = [s.nbasis for s in spaces]
         domain = self.domain_decomposition
