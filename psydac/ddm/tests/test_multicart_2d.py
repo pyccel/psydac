@@ -37,7 +37,9 @@ def get_plus_starts_ends(minus_starts, minus_ends, minus_npts, plus_npts, minus_
 def run_carts_2d():
     import numpy as np
     from mpi4py          import MPI
-    from psydac.ddm.cart import MultiPatchDomainDecomposition, CartDecomposition, InterfacesCartDecomposition, CartDataExchanger, InterfaceCartDataExchanger
+    from psydac.ddm.cart import MultiPatchDomainDecomposition, CartDecomposition, InterfacesCartDecomposition
+    from psydac.ddm.blocking_data_exchanger  import BlockingCartDataExachanger
+    from psydac.ddm.interface_data_exchanger import InterfaceCartDataExchanger
 
     #---------------------------------------------------------------------------
     # INPUT PARAMETERS
@@ -111,7 +113,7 @@ def run_carts_2d():
             m1,m2 = ci.shifts
             us[i] = np.zeros( ci.shape, dtype=dtype )
             us[i][m1*p1:-m1*p1,m2*p2:-m2*p2] = [[val(i,i1,i2)for i2 in range(s2,e2+1)] for i1 in range(s1,e1+1)]
-            synchronizer = CartDataExchanger( ci, us[i].dtype)
+            synchronizer = BlockingCartDataExachanger( ci, us[i].dtype)
             syn[i] = synchronizer
 
     for i,j in connectivity:
@@ -128,11 +130,14 @@ def run_carts_2d():
 
     for minus,plus in connectivity:
         if not interfaces_cart.carts[minus,plus].is_comm_null:
-            syn_interface[minus,plus].update_ghost_regions(us[minus], us[plus])
+            req = syn_interface[minus,plus].start_update_ghost_regions(us[minus], us[plus])
+            syn_interface[minus,plus].end_update_ghost_regions(req=req)
 
     for i,ci in enumerate(carts):
         if not ci.is_comm_null:
-            syn[i].update_ghost_regions( us[i] )
+            # Update ghost regions
+            syn[i].start_update_ghost_regions( array=us[i] )
+            syn[i].end_update_ghost_regions()
 
     for i,ci in enumerate(carts):
         if not ci.is_comm_null:

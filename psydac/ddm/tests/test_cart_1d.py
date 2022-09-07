@@ -8,7 +8,8 @@ def run_cart_1d( verbose=False ):
 
     import numpy as np
     from mpi4py       import MPI
-    from psydac.ddm.cart import DomainDecomposition, CartDecomposition, CartDataExchanger
+    from psydac.ddm.cart import DomainDecomposition, CartDecomposition
+    from psydac.ddm.blocking_data_exchanger import BlockingCartDataExachanger
 
     #---------------------------------------------------------------------------
     # INPUT PARAMETERS
@@ -61,7 +62,7 @@ def run_cart_1d( verbose=False ):
     e1, = cart.ends
 
     # Create object in charge of exchanging data between subdomains
-    synchronizer = CartDataExchanger( cart, u.dtype )
+    synchronizer = BlockingCartDataExachanger( cart, u.dtype )
 
     # Print some info
     if verbose:
@@ -85,7 +86,8 @@ def run_cart_1d( verbose=False ):
     u[p1:-p1] = [i1 for i1 in range(s1,e1+1)]
 
     # Update ghost regions
-    synchronizer.update_ghost_regions( u )
+    synchronizer.start_update_ghost_regions( array=u )
+    synchronizer.end_update_ghost_regions()
 
     #---------------------------------------------------------------------------
     # CHECK RESULTS

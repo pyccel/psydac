@@ -13,7 +13,8 @@ from mpi4py       import MPI
 
 
 from psydac.linalg.basic   import VectorSpace, Vector, Matrix
-from psydac.ddm.cart       import find_mpi_type, CartDecomposition, InterfaceCartDecomposition, CartDataExchanger, InterfaceCartDataExchanger
+from psydac.ddm.cart       import find_mpi_type, CartDecomposition, InterfaceCartDecomposition
+from psydac.ddm.utilities  import get_data_exchanger
 
 __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix']
 
@@ -124,7 +125,7 @@ class StencilVectorSpace( VectorSpace ):
             if isinstance(cart, InterfaceCartDecomposition):
                 self._shape = cart.get_interface_communication_infos(cart.axis)['gbuf_recv_shape'][0]
             else:
-                self._synchronizer = CartDataExchanger( cart, dtype , assembly=True, non_blocking=True)
+                self._synchronizer = get_data_exchanger( cart, dtype , assembly=True, non_blocking=True)
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -617,7 +618,8 @@ class StencilVector( Vector ):
         if self.space.parallel:
             if not self.space.cart.is_comm_null:
                 # PARALLEL CASE: fill in ghost regions with data from neighbors
-                self.space._synchronizer.update_ghost_regions( self._data, direction=direction, requests=self._requests )
+                self.space._synchronizer.start_update_ghost_regions( array=self._data, direction=direction, requests=self._requests )
+                self.space._synchronizer.end_update_ghost_regions( array=self._data, direction=direction, requests=self._requests )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._update_ghost_regions_serial( direction )
@@ -784,7 +786,7 @@ class StencilMatrix( Matrix ):
         if W.parallel:
             if W.cart.is_comm_null:return
             # Create data exchanger for ghost regions
-            self._synchronizer = CartDataExchanger(
+            self._synchronizer = get_data_exchanger(
                 cart        = W.cart,
                 dtype       = W.dtype,
                 coeff_shape = diags,
@@ -1169,7 +1171,8 @@ class StencilMatrix( Matrix ):
         if parallel:
             if not self._codomain.cart.is_comm_null:
                 # PARALLEL CASE: fill in ghost regions with data from neighbors
-                self._synchronizer.update_ghost_regions( self._data, direction=direction )
+                self._synchronizer.start_update_ghost_regions( self._data, direction=direction )
+                self._synchronizer.end_update_ghost_regions( self._data, direction=direction )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._update_ghost_regions_serial( direction )
@@ -1790,7 +1793,7 @@ class StencilInterfaceMatrix(Matrix):
         if W.parallel and not isinstance(W.cart, InterfaceCartDecomposition):
             if W.cart.is_comm_null:return
             # Create data exchanger for ghost regions
-            self._synchronizer = CartDataExchanger(
+            self._synchronizer = get_data_exchanger(
                 cart        = W.cart,
                 dtype       = W.dtype,
                 coeff_shape = diags,
