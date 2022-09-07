@@ -67,5 +67,5 @@ class CartDataExchanger:
     # ...
     @staticmethod
     @abstractmethod
-    def _create_assembly_buffer_types( *args, **kwargs )
+    def _create_assembly_buffer_types( *args, **kwargs ):
         pass
