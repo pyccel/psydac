@@ -27,14 +27,6 @@ class CartDataExchanger:
     #---------------------------------------------------------------------------
     # Public interface
     #---------------------------------------------------------------------------
-    @abstractmethod
-    def get_assembly_send_type( self, *args ):
-        pass
-
-    # ...
-    @abstractmethod
-    def get_assembly_recv_type( self, *args ):
-        pass
 
     @abstractmethod
     def prepare_communications(self, u):
@@ -56,16 +48,3 @@ class CartDataExchanger:
     def end_exchange_assembly_data( self, array, requests ):
         pass
 
-    #---------------------------------------------------------------------------
-    # Private methods
-    #---------------------------------------------------------------------------
-    @staticmethod
-    @abstractmethods
-    def _create_buffer_types( *args, **kwargs ):
-        pass
-
-    # ...
-    @staticmethod
-    @abstractmethod
-    def _create_assembly_buffer_types( *args, **kwargs ):
-        pass
