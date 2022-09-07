@@ -6,9 +6,9 @@ from mpi4py import MPI
 
 from .basic import CartDataExchanger
 
-__all__ = ['NonBlockingCartDataExachanger']
+__all__ = ['NonBlockingCartDataExchanger']
 
-class NonBlockingCartDataExachanger(CartDataExchanger):
+class NonBlockingCartDataExchanger(CartDataExchanger):
     """
     Type that takes care of updating the ghost regions (padding) of a
     multi-dimensional array distributed according to the given Cartesian
@@ -95,14 +95,14 @@ class NonBlockingCartDataExachanger(CartDataExchanger):
 
         return tuple(requests)
 
-    def start_update_ghost_regions(self, **kwargs ):
-        MPI.Prequest.Startall( kwargs.pop('requests') )
+    def start_update_ghost_regions(self, array, requests ):
+        MPI.Prequest.Startall( requests )
 
-    def end_update_ghost_regions(self, **kwargs):
-        MPI.Prequest.Waitall  ( kwargs.pop('requests') )
+    def end_update_ghost_regions(self, array, requests):
+        MPI.Prequest.Waitall  ( requests )
 
     # ...
-    def exchange_assembly_data( self, array ):
+    def start_exchange_assembly_data( self, array ):
         """
         Update ghost regions after the assembly algorithm in a numpy array with dimensions compatible with
         CartDecomposition (and coeff_shape) provided at initialization.
@@ -174,6 +174,8 @@ class NonBlockingCartDataExachanger(CartDataExchanger):
                 idx_to   = tuple(slice(s-p,s+b-p) for s,b,p in zip(info['recv_starts'],info['buf_shape'],pads))
                 array[idx_to] += array[idx_from]
 
+    def end_exchange_assembly_data( self, array ):
+        pass
 
     #---------------------------------------------------------------------------
     # Private methods

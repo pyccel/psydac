@@ -1,8 +1,8 @@
 # coding: utf-8
 
 from .cart                       import CartDecomposition, InterfaceCartDecomposition
-from .blocking_data_exchanger    import BlockingCartDataExachanger
-from .nonblocking_data_exchanger import NonBlockingCartDataExachanger
+from .blocking_data_exchanger    import BlockingCartDataExchanger
+from .nonblocking_data_exchanger import NonBlockingCartDataExchanger
 from .interface_data_exchanger   import InterfaceCartDataExchanger
 
 __all__ = ['get_data_exchanger']
@@ -14,10 +14,10 @@ def get_data_exchanger(cart, dtype, *, coeff_shape=(),  assembly=False, axis=Non
 
     elif isinstance(cart, CartDecomposition):
         if blocking:
-            return BlockingCartDataExachanger(cart, dtype, coeff_shape=coeff_shape, assembly=assembly, axis=axis, shape=shape)
+            return BlockingCartDataExchanger(cart, dtype, coeff_shape=coeff_shape, assembly=assembly, axis=axis, shape=shape)
 
         else:
-            return NonBlockingCartDataExachanger(cart, dtype, coeff_shape=coeff_shape, assembly=assembly, axis=axis, shape=shape)
+            return NonBlockingCartDataExchanger(cart, dtype, coeff_shape=coeff_shape, assembly=assembly, axis=axis, shape=shape)
     else:
         raise TypeError('cart can only be of type CartDecomposition or InterfaceCartDecomposition')
         

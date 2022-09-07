@@ -296,6 +296,7 @@ class StencilVector( Vector ):
         self._dot_send_data  = np.zeros((1,), dtype=V.dtype)
         self._dot_recv_data  = np.zeros((1,), dtype=V.dtype)
         self._interface_data = {}
+        self._requests       = None
 
         # allocate data for the boundary that shares an interface
         for axis, ext in V.interfaces:
@@ -602,7 +603,7 @@ class StencilVector( Vector ):
 
     # ...
     # TODO: maybe change name to 'exchange'
-    def update_ghost_regions( self, *, direction=None):
+    def update_ghost_regions( self ):
         """
         Update ghost regions before performing non-local access to vector
         elements (e.g. in matrix-vector product).
@@ -618,11 +619,11 @@ class StencilVector( Vector ):
         if self.space.parallel:
             if not self.space.cart.is_comm_null:
                 # PARALLEL CASE: fill in ghost regions with data from neighbors
-                self.space._synchronizer.start_update_ghost_regions( array=self._data, direction=direction, requests=self._requests )
-                self.space._synchronizer.end_update_ghost_regions( array=self._data, direction=direction, requests=self._requests )
+                self.space._synchronizer.start_update_ghost_regions( array=self._data, requests=self._requests )
+                self.space._synchronizer.end_update_ghost_regions( array=self._data, requests=self._requests )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
-            self._update_ghost_regions_serial( direction )
+            self._update_ghost_regions_serial()
 
         # Update interface ghost regions
         if self.space.parallel:
@@ -643,41 +644,35 @@ class StencilVector( Vector ):
         self._sync = True
 
     # ...
-    def _update_ghost_regions_serial( self, direction=None ):
+    def _update_ghost_regions_serial( self ):
 
-        if direction is None:
-            for d in range( self._space.ndim ):
-                self._update_ghost_regions_serial( d )
-            return
+        ndim = self._space.ndim
+        for direction in range( ndim ):
+            periodic = self._space.periods[direction]
+            p        = self._space.pads   [direction]*self._space.shifts[direction]
 
-        ndim     = self._space.ndim
-        periodic = self._space.periods[direction]
-        p        = self._space.pads   [direction]*self._space.shifts[direction]
+            idx_front = [slice(None)]*direction
+            idx_back  = [slice(None)]*(ndim-direction-1)
 
-        idx_front = [slice(None)]*direction
-        idx_back  = [slice(None)]*(ndim-direction-1)
+            if periodic:
+                # Copy data from left to right
+                idx_from = tuple( idx_front + [slice( p, 2*p)] + idx_back )
+                idx_to   = tuple( idx_front + [slice(-p,None)] + idx_back )
+                self._data[idx_to] = self._data[idx_from]
 
-        if periodic:
+                # Copy data from right to left
+                idx_from = tuple( idx_front + [slice(-2*p,-p)] + idx_back )
+                idx_to   = tuple( idx_front + [slice(None, p)] + idx_back )
+                self._data[idx_to] = self._data[idx_from]
 
-            # Copy data from left to right
-            idx_from = tuple( idx_front + [slice( p, 2*p)] + idx_back )
-            idx_to   = tuple( idx_front + [slice(-p,None)] + idx_back )
-            self._data[idx_to] = self._data[idx_from]
+            else:
+                # Set left ghost region to zero
+                idx_ghost = tuple( idx_front + [slice(None, p)] + idx_back )
+                self._data[idx_ghost] = 0
 
-            # Copy data from right to left
-            idx_from = tuple( idx_front + [slice(-2*p,-p)] + idx_back )
-            idx_to   = tuple( idx_front + [slice(None, p)] + idx_back )
-            self._data[idx_to] = self._data[idx_from]
-
-        else:
-
-            # Set left ghost region to zero
-            idx_ghost = tuple( idx_front + [slice(None, p)] + idx_back )
-            self._data[idx_ghost] = 0
-
-            # Set right ghost region to zero
-            idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
-            self._data[idx_ghost] = 0
+                # Set right ghost region to zero
+                idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
+                self._data[idx_ghost] = 0
 
     # ...
     def exchange_assembly_data( self ):
@@ -687,7 +682,8 @@ class StencilVector( Vector ):
 
         if self.space.parallel and not self.space.cart.is_comm_null:
             # PARALLEL CASE: fill in ghost regions with data from neighbors
-            self.space._synchronizer.exchange_assembly_data( self._data )
+            self.space._synchronizer.start_exchange_assembly_data( self._data )
+            self.space._synchronizer.end_exchange_assembly_data( self._data )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._exchange_assembly_data_serial()
@@ -781,6 +777,7 @@ class StencilMatrix( Matrix ):
         self._backend  = backend
         self._is_T     = False
         self._diag_indices = None
+        self._requests = None
 
         # Parallel attributes
         if W.parallel:
@@ -1154,16 +1151,10 @@ class StencilMatrix( Matrix ):
                     self[index] = 0
 
     # ...
-    def update_ghost_regions( self, *, direction=None ):
+    def update_ghost_regions( self ):
         """
         Update ghost regions before performing non-local access to matrix
         elements (e.g. in matrix transposition).
-
-        Parameters
-        ----------
-        direction : int
-            Single direction along which to operate (if not specified, all of them).
-
         """
         ndim     = self._codomain.ndim
         parallel = self._codomain.parallel
@@ -1171,11 +1162,11 @@ class StencilMatrix( Matrix ):
         if parallel:
             if not self._codomain.cart.is_comm_null:
                 # PARALLEL CASE: fill in ghost regions with data from neighbors
-                self._synchronizer.start_update_ghost_regions( array=self._data, direction=direction )
-                self._synchronizer.end_update_ghost_regions( array=self._data, direction=direction )
+                self._synchronizer.start_update_ghost_regions( array=self._data, requests=self._requests )
+                self._synchronizer.end_update_ghost_regions( array=self._data , requests=self._requests)
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
-            self._update_ghost_regions_serial( direction )
+            self._update_ghost_regions_serial()
 
         # Flag ghost regions as up-to-date
         self._sync = True
@@ -1522,41 +1513,38 @@ class StencilMatrix( Matrix ):
         self._sync = value
 
     # ...
-    def _update_ghost_regions_serial( self, direction: int ):
-
-        if direction is None:
-            for d in range( self._codomain.ndim ):
-                self._update_ghost_regions_serial( d )
-            return
+    def _update_ghost_regions_serial( self ):
 
         ndim     = self._codomain.ndim
-        periodic = self._codomain.periods[direction]
-        p        = self._codomain.pads   [direction]
+        for direction in range( self._codomain.ndim ):
 
-        idx_front = [slice(None)]*direction
-        idx_back  = [slice(None)]*(ndim-direction-1 + ndim)
+            periodic = self._codomain.periods[direction]
+            p        = self._codomain.pads   [direction]
 
-        if periodic:
+            idx_front = [slice(None)]*direction
+            idx_back  = [slice(None)]*(ndim-direction-1 + ndim)
 
-            # Copy data from left to right
-            idx_from = tuple( idx_front + [slice( p, 2*p)] + idx_back )
-            idx_to   = tuple( idx_front + [slice(-p,None)] + idx_back )
-            self._data[idx_to] = self._data[idx_from]
+            if periodic:
 
-            # Copy data from right to left
-            idx_from = tuple( idx_front + [slice(-2*p,-p)] + idx_back )
-            idx_to   = tuple( idx_front + [slice(None, p)] + idx_back )
-            self._data[idx_to] = self._data[idx_from]
+                # Copy data from left to right
+                idx_from = tuple( idx_front + [slice( p, 2*p)] + idx_back )
+                idx_to   = tuple( idx_front + [slice(-p,None)] + idx_back )
+                self._data[idx_to] = self._data[idx_from]
 
-        else:
+                # Copy data from right to left
+                idx_from = tuple( idx_front + [slice(-2*p,-p)] + idx_back )
+                idx_to   = tuple( idx_front + [slice(None, p)] + idx_back )
+                self._data[idx_to] = self._data[idx_from]
 
-            # Set left ghost region to zero
-            idx_ghost = tuple( idx_front + [slice(None, p)] + idx_back )
-            self._data[idx_ghost] = 0
+            else:
 
-            # Set right ghost region to zero
-            idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
-            self._data[idx_ghost] = 0
+                # Set left ghost region to zero
+                idx_ghost = tuple( idx_front + [slice(None, p)] + idx_back )
+                self._data[idx_ghost] = 0
+
+                # Set right ghost region to zero
+                idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
+                self._data[idx_ghost] = 0
 
     # ...
     def _prepare_transpose_args(self):

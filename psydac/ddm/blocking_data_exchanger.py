@@ -5,9 +5,9 @@ from mpi4py import MPI
 
 from .basic import CartDataExchanger
 
-__all__ = ['BlockingCartDataExachanger']
+__all__ = ['BlockingCartDataExchanger']
 
-class BlockingCartDataExachanger(CartDataExchanger):
+class BlockingCartDataExchanger(CartDataExchanger):
     """
     Type that takes care of updating the ghost regions (padding) of a
     multi-dimensional array distributed according to the given Cartesian
@@ -75,7 +75,7 @@ class BlockingCartDataExachanger(CartDataExchanger):
         pass
 
     # ...
-    def start_update_ghost_regions( self, **kwargs ):
+    def start_update_ghost_regions( self, array, requests ):
         """
         Update ghost regions in a numpy array with dimensions compatible with
         CartDecomposition (and coeff_shape) provided at initialization.
@@ -93,15 +93,8 @@ class BlockingCartDataExachanger(CartDataExchanger):
         """
 
         array     = kwargs.pop('array')
-        direction = kwargs.pop('direction', None)
-
-        if direction is None:
-            for d in range( self._cart.ndim ):
-                self.update_ghost_regions( array=array, direction=d )
-            return
 
         assert isinstance( array, np.ndarray )
-        assert isinstance( direction, int )
 
         # Shortcuts
         cart = self._cart
@@ -113,33 +106,34 @@ class BlockingCartDataExachanger(CartDataExchanger):
         #   . tag at receiver must match message tag at sender
         tag = lambda disp: 42+disp
 
-        # Requests' handles
-        requests = []
+        for direction in range( self._cart.ndim ):
+            # Requests' handles
+            requests = []
 
-        # Start receiving data (MPI_IRECV)
-        for disp in [-1,1]:
-            info     = cart.get_shift_info( direction, disp )
-            recv_typ = self.get_recv_type ( direction, disp )
-            recv_buf = (array, 1, recv_typ)
-            recv_req = comm.Irecv( recv_buf, info['rank_source'], tag(disp) )
-            requests.append( recv_req )
+            # Start receiving data (MPI_IRECV)
+            for disp in [-1,1]:
+                info     = cart.get_shift_info( direction, disp )
+                recv_typ = self.get_recv_type ( direction, disp )
+                recv_buf = (array, 1, recv_typ)
+                recv_req = comm.Irecv( recv_buf, info['rank_source'], tag(disp) )
+                requests.append( recv_req )
 
-        # Start sending data (MPI_ISEND)
-        for disp in [-1,1]:
-            info     = cart.get_shift_info( direction, disp )
-            send_typ = self.get_send_type ( direction, disp )
-            send_buf = (array, 1, send_typ)
-            send_req = comm.Isend( send_buf, info['rank_dest'], tag(disp) )
-            requests.append( send_req )
+            # Start sending data (MPI_ISEND)
+            for disp in [-1,1]:
+                info     = cart.get_shift_info( direction, disp )
+                send_typ = self.get_send_type ( direction, disp )
+                send_buf = (array, 1, send_typ)
+                send_req = comm.Isend( send_buf, info['rank_dest'], tag(disp) )
+                requests.append( send_req )
 
-        # Wait for end of data exchange (MPI_WAITALL)
-        MPI.Request.Waitall( requests )
+            # Wait for end of data exchange (MPI_WAITALL)
+            MPI.Request.Waitall( requests )
 
-    def end_update_ghost_regions(self,  **kwargs ):
+    def end_update_ghost_regions(self,  array, requests ):
         pass
 
     # ...
-    def exchange_assembly_data( self, array ):
+    def start_exchange_assembly_data( self, array ):
         """
         Update ghost regions after the assembly algorithm in a numpy array with dimensions compatible with
         CartDecomposition (and coeff_shape) provided at initialization.
@@ -211,6 +205,8 @@ class BlockingCartDataExachanger(CartDataExchanger):
                 idx_to   = tuple(slice(s-p,s+b-p) for s,b,p in zip(info['recv_starts'],info['buf_shape'],pads))
                 array[idx_to] += array[idx_from]
 
+    def end_exchange_assembly_data( self, array ):
+        pass
 
     #---------------------------------------------------------------------------
     # Private methods
