@@ -125,7 +125,7 @@ class StencilVectorSpace( VectorSpace ):
             if isinstance(cart, InterfaceCartDecomposition):
                 self._shape = cart.get_interface_communication_infos(cart.axis)['gbuf_recv_shape'][0]
             else:
-                self._synchronizer = get_data_exchanger( cart, dtype , assembly=True, non_blocking=True)
+                self._synchronizer = get_data_exchanger( cart, dtype , assembly=True, blocking=False)
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -1171,8 +1171,8 @@ class StencilMatrix( Matrix ):
         if parallel:
             if not self._codomain.cart.is_comm_null:
                 # PARALLEL CASE: fill in ghost regions with data from neighbors
-                self._synchronizer.start_update_ghost_regions( self._data, direction=direction )
-                self._synchronizer.end_update_ghost_regions( self._data, direction=direction )
+                self._synchronizer.start_update_ghost_regions( array=self._data, direction=direction )
+                self._synchronizer.end_update_ghost_regions( array=self._data, direction=direction )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._update_ghost_regions_serial( direction )

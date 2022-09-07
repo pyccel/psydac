@@ -96,7 +96,6 @@ class NonBlockingCartDataExachanger(CartDataExchanger):
         return tuple(requests)
 
     def start_update_ghost_regions(self, **kwargs ):
-        requ
         MPI.Prequest.Startall( kwargs.pop('requests') )
 
     def end_update_ghost_regions(self, **kwargs):
