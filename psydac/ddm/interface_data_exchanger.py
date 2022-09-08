@@ -2,6 +2,8 @@
 
 from mpi4py import MPI
 
+from .cart import InterfaceCartDecomposition
+
 class InterfaceCartDataExchanger:
     """
     This takes care of updating the ghost regions between two sides of an interface for a
