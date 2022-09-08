@@ -1181,7 +1181,8 @@ class StencilMatrix( Matrix ):
 
         if self._codomain.parallel:
             # PARALLEL CASE: fill in ghost regions with data from neighbors
-            self._synchronizer.exchange_assembly_data( self._data )
+            self._synchronizer.start_exchange_assembly_data( self._data )
+            self._synchronizer.end_exchange_assembly_data( self._data )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._exchange_assembly_data_serial()
@@ -2344,7 +2345,8 @@ class StencilInterfaceMatrix(Matrix):
 
         if self._codomain.parallel:
             # PARALLEL CASE: fill in ghost regions with data from neighbors
-            self._synchronizer.exchange_assembly_data( self._data )
+            self._synchronizer.start_exchange_assembly_data( self._data )
+            self._synchronizer.end_exchange_assembly_data( self._data )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._exchange_assembly_data_serial()

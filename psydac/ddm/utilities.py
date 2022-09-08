@@ -7,7 +7,7 @@ from .interface_data_exchanger   import InterfaceCartDataExchanger
 
 __all__ = ['get_data_exchanger']
 
-def get_data_exchanger(cart, dtype, *, coeff_shape=(),  assembly=False, axis=None, shape=None, blocking=False):
+def get_data_exchanger(cart, dtype, *, coeff_shape=(),  assembly=False, axis=None, shape=None, blocking=True):
 
     if isinstance(cart, InterfaceCartDecomposition):
         return InterfaceCartDataExchanger(cart, dtype, coeff_shape=coeff_shape)

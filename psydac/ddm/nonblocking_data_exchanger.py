@@ -4,6 +4,7 @@ import numpy as np
 from itertools import product
 from mpi4py import MPI
 
+from .cart import CartDecomposition, find_mpi_type
 from .basic import CartDataExchanger
 
 __all__ = ['NonBlockingCartDataExchanger']
@@ -81,13 +82,13 @@ class NonBlockingCartDataExchanger(CartDataExchanger):
             info     = cart.get_shift_info_non_blocking( shift )
             comm     = cart._comm_cart
 
-            recv_typ = self.get_recv_type_non_blocking( shift )
+            recv_typ = self.get_recv_type( shift )
             if recv_typ != MPI.DATATYPE_NULL:
                 recv_buf = (u, 1, recv_typ)
                 recv_req = comm.Recv_init( recv_buf, info['rank_source'], info['tag'] )
                 requests.append( recv_req )
 
-            send_typ = self.get_send_type_non_blocking( shift )
+            send_typ = self.get_send_type( shift )
             if send_typ != MPI.DATATYPE_NULL:
                 send_buf = (u, 1, send_typ)
                 send_req = comm.Send_init( send_buf, info['rank_dest'], info['tag'] )
