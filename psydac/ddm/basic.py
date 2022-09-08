@@ -33,11 +33,11 @@ class CartDataExchanger:
         pass
 
     @abstractmethod
-    def start_update_ghost_regions(self, **kwargs):
+    def start_update_ghost_regions(self, array, requests):
         pass
 
     @abstractmethod
-    def end_update_ghost_regions(self, **kwargs):
+    def end_update_ghost_regions(self, array, requests):
         pass
 
     @abstractmethod
@@ -45,6 +45,6 @@ class CartDataExchanger:
         pass
 
     @abstractmethod
-    def end_exchange_assembly_data( self, array, requests ):
+    def end_exchange_assembly_data( self, array ):
         pass
 
