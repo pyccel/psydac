@@ -8,7 +8,7 @@ def run_cart_2d( verbose=False , nprocs=None, reverse_axis=None):
     import numpy as np
     from mpi4py       import MPI
     from psydac.ddm.cart import DomainDecomposition, CartDecomposition
-    from psydac.ddm.blocking_data_exchanger import BlockingCartDataExachanger
+    from psydac.ddm.blocking_data_exchanger import BlockingCartDataExchanger
 
     #---------------------------------------------------------------------------
     # INPUT PARAMETERS

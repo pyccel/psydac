@@ -38,7 +38,7 @@ def run_carts_2d():
     import numpy as np
     from mpi4py          import MPI
     from psydac.ddm.cart import MultiPatchDomainDecomposition, CartDecomposition, InterfacesCartDecomposition
-    from psydac.ddm.blocking_data_exchanger  import BlockingCartDataExachanger
+    from psydac.ddm.blocking_data_exchanger  import BlockingCartDataExchanger
     from psydac.ddm.interface_data_exchanger import InterfaceCartDataExchanger
 
     #---------------------------------------------------------------------------
