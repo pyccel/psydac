@@ -113,7 +113,7 @@ def run_carts_2d():
             m1,m2 = ci.shifts
             us[i] = np.zeros( ci.shape, dtype=dtype )
             us[i][m1*p1:-m1*p1,m2*p2:-m2*p2] = [[val(i,i1,i2)for i2 in range(s2,e2+1)] for i1 in range(s1,e1+1)]
-            synchronizer = BlockingCartDataExachanger( ci, us[i].dtype)
+            synchronizer = BlockingCartDataExchanger( ci, us[i].dtype)
             syn[i] = synchronizer
 
     for i,j in connectivity:

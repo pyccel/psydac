@@ -70,7 +70,7 @@ def run_cart_2d( verbose=False , nprocs=None, reverse_axis=None):
     e1,e2 = cart.ends
 
     # Create object in charge of exchanging data between subdomains
-    synchronizer = BlockingCartDataExachanger( cart, u.dtype, coeff_shape=[2] )
+    synchronizer = BlockingCartDataExchanger( cart, u.dtype, coeff_shape=[2] )
 
     # Print some info
     if rank == 0:

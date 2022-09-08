@@ -62,7 +62,7 @@ def run_cart_1d( verbose=False ):
     e1, = cart.ends
 
     # Create object in charge of exchanging data between subdomains
-    synchronizer = BlockingCartDataExachanger( cart, u.dtype )
+    synchronizer = BlockingCartDataExchanger( cart, u.dtype )
 
     # Print some info
     if verbose:

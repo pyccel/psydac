@@ -75,7 +75,7 @@ def run_cart_3d( verbose=False ):
     e1,e2,e3 = cart.ends
 
     # Create object in charge of exchanging data between subdomains
-    synchronizer = BlockingCartDataExachanger( cart, u.dtype, coeff_shape=[3] )
+    synchronizer = BlockingCartDataExchanger( cart, u.dtype, coeff_shape=[3] )
 
     # Print some info
     if rank == 0:
