@@ -619,8 +619,8 @@ class StencilVector( Vector ):
         if self.space.parallel:
             if not self.space.cart.is_comm_null:
                 # PARALLEL CASE: fill in ghost regions with data from neighbors
-                self.space._synchronizer.start_update_ghost_regions( array=self._data, requests=self._requests )
-                self.space._synchronizer.end_update_ghost_regions( array=self._data, requests=self._requests )
+                self.space._synchronizer.start_update_ghost_regions( self._data, self._requests )
+                self.space._synchronizer.end_update_ghost_regions( self._data, self._requests )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._update_ghost_regions_serial()
@@ -1162,8 +1162,8 @@ class StencilMatrix( Matrix ):
         if parallel:
             if not self._codomain.cart.is_comm_null:
                 # PARALLEL CASE: fill in ghost regions with data from neighbors
-                self._synchronizer.start_update_ghost_regions( array=self._data, requests=self._requests )
-                self._synchronizer.end_update_ghost_regions( array=self._data , requests=self._requests)
+                self._synchronizer.start_update_ghost_regions( self._data, self._requests )
+                self._synchronizer.end_update_ghost_regions( self._data , self._requests)
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._update_ghost_regions_serial()
