@@ -307,12 +307,12 @@ class BlockVector( Vector ):
             vi.ghost_regions_in_sync = value
 
     # ...
-    def update_ghost_regions( self, *, direction=None ):
+    def update_ghost_regions( self ):
 
         req = self.start_update_interface_ghost_regions()
 
         for vi in self.blocks:
-            vi.update_ghost_regions(direction=direction)
+            vi.update_ghost_regions()
 
         self.end_update_interface_ghost_regions(req)
 

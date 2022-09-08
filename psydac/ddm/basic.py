@@ -37,11 +37,11 @@ class CartDataExchanger:
         pass
 
     @abstractmethod
-    def start_update_ghost_regions(self, array, requests):
+    def start_update_ghost_regions( self, array, requests ):
         pass
 
     @abstractmethod
-    def end_update_ghost_regions(self, array, requests):
+    def end_update_ghost_regions( self, array, requests ):
         pass
 
     @abstractmethod
