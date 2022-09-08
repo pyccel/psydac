@@ -93,8 +93,8 @@ def run_cart_2d( verbose=False , nprocs=None, reverse_axis=None):
     u[p1:-p1,p2:-p2,:] = [[(i1,i2) for i2 in range(s2,e2+1)] for i1 in range(s1,e1+1)]
 
     # Update ghost regions
-    synchronizer.start_update_ghost_regions( array=u )
-    synchronizer.end_update_ghost_regions()
+    synchronizer.start_update_ghost_regions(  u, None )
+    synchronizer.end_update_ghost_regions( u, None )
 
     #---------------------------------------------------------------------------
     # CHECK RESULTS

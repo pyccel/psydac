@@ -101,8 +101,8 @@ def run_cart_3d( verbose=False ):
                                               for i1 in range(s1,e1+1)]
 
     # Update ghost regions
-    synchronizer.start_update_ghost_regions( array=u )
-    synchronizer.end_update_ghost_regions()
+    synchronizer.start_update_ghost_regions( u, None )
+    synchronizer.end_update_ghost_regions( u, None )
 
     #---------------------------------------------------------------------------
     # CHECK RESULTS

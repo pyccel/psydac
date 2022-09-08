@@ -136,8 +136,8 @@ def run_carts_2d():
     for i,ci in enumerate(carts):
         if not ci.is_comm_null:
             # Update ghost regions
-            syn[i].start_update_ghost_regions( array=us[i] )
-            syn[i].end_update_ghost_regions()
+            syn[i].start_update_ghost_regions( us[i], None )
+            syn[i].end_update_ghost_regions( us[i], None )
 
     for i,ci in enumerate(carts):
         if not ci.is_comm_null:
