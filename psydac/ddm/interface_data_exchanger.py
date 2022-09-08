@@ -2,7 +2,7 @@
 
 from mpi4py import MPI
 
-from .cart import InterfaceCartDecomposition
+from .cart import InterfaceCartDecomposition, find_mpi_type
 
 class InterfaceCartDataExchanger:
     """
