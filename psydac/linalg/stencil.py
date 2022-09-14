@@ -346,36 +346,36 @@ class StencilVector( Vector ):
     #...
     def copy( self ):
         w = StencilVector( self._space )
-        w._data[:] = self._data[:]
+        np.copyto(w._data, self._data, casting='no')
         for axis, ext in self._space.interfaces:
-            w._interface_data[axis, ext][:] = self._interface_data[axis, ext][:]
+            np.copyto(w._interface_data[axis, ext], self._interface_data[axis, ext], casting='no')
         w._sync    = self._sync
         return w
 
     #...
     def __neg__( self ):
         w = StencilVector( self._space )
-        w._data[:] = -self._data[:]
+        np.negative(self._data, out=w._data)
         for axis, ext in self._space.interfaces:
-            w._interface_data[axis, ext][:] = -self._interface_data[axis, ext][:]
+            np.negative(self._interface_data[axis, ext], out=w._interface_data[axis, ext])
         w._sync    =  self._sync
         return w
 
     #...
     def __mul__( self, a ):
         w = StencilVector( self._space )
-        w._data[:] = self._data * a
+        np.multiply(self._data, a, out=w._data)
         for axis, ext in self._space.interfaces:
-            w._interface_data[axis, ext][:] = self._interface_data[axis, ext]*a
+            np.multiply(self._interface_data[axis, ext], a, out =w._interface_data[axis, ext])
         w._sync = self._sync
         return w
 
     #...
     def __rmul__( self, a ):
         w = StencilVector( self._space )
-        w._data[:] = a * self._data
+        np.multiply(a, self._data, out=w._data)
         for axis, ext in self._space.interfaces:
-            w._interface_data[axis, ext][:] = a * self._interface_data[axis, ext]
+            np.multiply(a,  self._interface_data[axis, ext], out=w._interface_data[axis, ext])
         w._sync = self._sync
         return w
 
@@ -384,9 +384,9 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
         w = StencilVector( self._space )
-        w._data[:] = self._data  +  v._data
+        np.add(self._data, v._data, out=w._data)
         for axis, ext in self._space.interfaces:
-            w._interface_data[axis, ext][:] = self._interface_data[axis, ext] + v._interface_data[axis, ext]
+            np.add(self._interface_data[axis, ext],  v._interface_data[axis, ext], out=w._interface_data[axis, ext])
         w._sync = self._sync and v._sync
         return w
 
@@ -395,9 +395,9 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
         w = StencilVector( self._space )
-        w._data[:] = self._data  -  v._data
+        np.subtract(self._data, v._data, out=w._data)
         for axis, ext in self._space.interfaces:
-            w._interface_data[axis, ext][:] = self._interface_data[axis, ext] - v._interface_data[axis, ext]
+            np.subtract(self._interface_data[axis, ext],  v._interface_data[axis, ext], out=w._interface_data[axis, ext])
         w._sync = self._sync and v._sync
         return w
 
