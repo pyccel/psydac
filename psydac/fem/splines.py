@@ -82,7 +82,11 @@ class SplineSpace( FemSpace ):
 
         if multiplicity is None:multiplicity = 1
                 
-        if parent_multiplicity is None:parent_multiplicity = 1
+        if parent_multiplicity is None:
+            if multiplicity is not None:
+                parent_multiplicity = multiplicity
+            else:
+                parent_multiplicity = 1
 
         assert parent_multiplicity >= multiplicity
 

@@ -5,7 +5,7 @@ from math                  import sqrt
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from psydac.linalg.block   import BlockVector, BlockVectorSpace
 
-__all__ = ['array_to_stencil', '_sym_ortho']
+__all__ = ['array_to_stencil', 'petsc_to_stencil', '_sym_ortho']
 
 def array_to_stencil(x, Xh):
     """ converts a numpy array to StencilVector or BlockVector format"""
@@ -47,10 +47,76 @@ def array_to_stencil(x, Xh):
     u.update_ghost_regions()
     return u
 
-def petsc_to_stencil(x, Xh):
+def petsc_to_stencil(vec, Xh):
     """ converts a numpy array to StencilVector or BlockVector format"""
-    x = x.array
-    u = array_to_stencil(x, Xh)
+
+    if isinstance(Xh, BlockVectorSpace):
+        u = BlockVector(Xh)
+        if isinstance(Xh.spaces[0], BlockVectorSpace):
+
+            comm = u[0][0].space.cart.global_comm
+            dtype = u[0][0].space.dtype
+            sendcounts = np.array(comm.allgather(len(vec.array)))
+            recvbuf = np.empty(sum(sendcounts), dtype=dtype)
+
+            comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
+
+            inds = 0
+            for d in range(len(Xh.spaces)):
+                starts = [np.array(V.starts) for V in Xh.spaces[d].spaces]
+                ends   = [np.array(V.ends)   for V in Xh.spaces[d].spaces]
+
+                for i in range(len(starts)):
+                    idx = tuple( slice(m*p,-m*p) for m,p in zip(u.space.spaces[d].spaces[i].pads, u.space.spaces[d].spaces[i].shifts) )
+                    shape = tuple(ends[i]-starts[i]+1)
+                    npts  = Xh.spaces[d].spaces[i].npts
+                    indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts[i], xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
+                    vals = recvbuf[indices+inds]
+                    u[d][i]._data[idx] = vals.reshape(shape)
+                    inds += np.product(npts)
+
+        else:
+            comm = u[0].space.cart.global_comm
+            dtype = u[0].space.dtype
+            sendcounts = np.array(comm.allgather(len(vec.array)))
+            recvbuf = np.empty(sum(sendcounts), dtype=dtype)
+
+            comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
+                
+            inds = 0
+            starts = [np.array(V.starts) for V in Xh.spaces]
+            ends   = [np.array(V.ends)   for V in Xh.spaces]
+            for i in range(len(starts)):
+                idx = tuple( slice(m*p,-m*p) for m,p in zip(u.space.spaces[i].pads, u.space.spaces[i].shifts) )
+                shape = tuple(ends[i]-starts[i]+1)
+                npts  = Xh.spaces[i].npts
+                indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts[i], xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
+                vals = recvbuf[indices+inds]
+                u[i]._data[idx] = vals.reshape(shape)
+                inds += np.product(npts)
+
+    elif isinstance(Xh, StencilVectorSpace):
+        comm       = u.space.cart.global_comm
+        dtype      = u.space.dtype
+        sendcounts = np.array(comm.allgather(len(vec.array)))
+        recvbuf    = np.empty(sum(sendcounts), dtype=dtype)
+
+        comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
+
+        u =  StencilVector(Xh)
+        starts = np.array(Xh.starts)
+        ends   = np.array(Xh.ends)
+        shape  = tuple(ends-starts+1)
+        npts   = Xh.npts
+        indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts, xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
+        idx = tuple( slice(m*p,-m*p) for m,p in zip(u.space.pads, u.space.shifts) )
+        vals = recvbuf[indices]
+        u._data[idx] = vals.reshape(shape)
+
+    else:
+        raise ValueError('Xh must be a StencilVectorSpace or a BlockVectorSpace')
+
+    u.update_ghost_regions()
     return u
 
 def _sym_ortho(a, b):

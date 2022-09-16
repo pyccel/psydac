@@ -190,7 +190,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, *, degree=None, knots=None, quad_order=None, basis='B', sequence='DR'):
+def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, quad_order=None, basis='B', sequence='DR'):
     """
     This function creates the discretized space starting from the symbolic space.
 
@@ -283,6 +283,11 @@ def discretize_space(V, domain_h, *, degree=None, knots=None, quad_order=None, b
         else:
             assert isinstance(degree, (list, tuple))
 
+        if isinstance( multiplicity, (list, tuple) ):
+            multiplicity = {I.name:multiplicity for I in interiors}
+        else:
+            assert isinstance(multiplicity, (list, tuple))
+
         if isinstance(knots, (list, tuple)):
             assert len(interiors) == 1
             knots = {interiors[0].name:knots}
@@ -297,10 +302,11 @@ def discretize_space(V, domain_h, *, degree=None, knots=None, quad_order=None, b
             ncells     = domain_h.ncells[interior.name]
             periodic   = domain_h.periodic[interior.name]
             degree_i   = degree[interior.name]
+            multiplicity_i = multiplicity[interior.name]
             min_coords = interior.min_coords
             max_coords = interior.max_coords
 
-            assert len(ncells) == len(periodic) == len(degree_i) == len(min_coords) == len(max_coords)
+            assert len(ncells) == len(periodic) == len(degree_i)  == len(multiplicity_i) == len(min_coords) == len(max_coords)
 
             if knots is None:
                 # Create uniform grid
@@ -308,7 +314,7 @@ def discretize_space(V, domain_h, *, degree=None, knots=None, quad_order=None, b
                          for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
                 # Create 1D finite element spaces and precompute quadrature data
-                spaces[i] = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree_i, grids, periodic)]
+                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
             else:
                  # Create 1D finite element spaces and precompute quadrature data
                 spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]
