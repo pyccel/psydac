@@ -281,12 +281,14 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
         if isinstance( degree, (list, tuple) ):
             degree = {I.name:degree for I in interiors}
         else:
-            assert isinstance(degree, (list, tuple))
+            assert isinstance(degree, dict)
 
         if isinstance( multiplicity, (list, tuple) ):
             multiplicity = {I.name:multiplicity for I in interiors}
+        elif multiplicity is None:
+            multiplicity = {I.name:(1,)*len(degree[I.name]) for I in interiors}
         else:
-            assert isinstance(multiplicity, (list, tuple))
+            assert isinstance(multiplicity, dict)
 
         if isinstance(knots, (list, tuple)):
             assert len(interiors) == 1
