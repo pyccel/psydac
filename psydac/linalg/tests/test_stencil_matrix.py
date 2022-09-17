@@ -1372,7 +1372,7 @@ def test_stencil_matrix_2d_parallel_dot( n1, n2, p1, p2, P1, P2 ):
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition
-    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
     # Partition the points
     npts = [n1,n2]
@@ -1514,7 +1514,7 @@ def test_stencil_matrix_2d_parallel_sync( n1, n2, p1, p2, P1, P2):
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition
-    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
     # Partition the points
     npts = [n1,n2]
@@ -1797,7 +1797,7 @@ def test_stencil_matrix_2d_parallel_backend_dot( n1, n2, p1, p2, P1, P2, backend
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition
-    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
     # Partition the points
     npts = [n1,n2]
