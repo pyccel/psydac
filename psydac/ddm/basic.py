@@ -1,9 +1,9 @@
 # coding: utf-8
 
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 
 #===============================================================================
-class CartDataExchanger:
+class CartDataExchanger(ABC):
     """
     Type that takes care of updating the ghost regions (padding) of a
     multi-dimensional array distributed according to the given Cartesian
