@@ -52,11 +52,12 @@ def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
 
     if min_blocks is None:
         min_blocks = [None]*ndims
+
     for s,e,V,mb in zip(global_starts, global_ends, spaces, min_blocks):
         if mb is None:
-            assert all(e-s+1>=V.degree*(1-V.periodic)+V.periodic)
+            assert all(e-s+1>=V.degree)
         else:
-            assert all(e-s+1>=mb*(1-V.periodic)+V.periodic)
+            assert all(e-s+1>=mb*(1-V.periodic)+V.degree*V.periodic)
 
     return global_starts, global_ends
 
