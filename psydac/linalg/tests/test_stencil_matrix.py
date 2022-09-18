@@ -1313,7 +1313,7 @@ def test_stencil_matrix_1d_parallel_dot( n1, p1, P1 ):
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition
-    D = DomainDecomposition([n1-1], periods=[P1])
+    D = DomainDecomposition([n1-1], periods=[P1], comm=comm)
 
     # Partition the points
     npts = [n1]
