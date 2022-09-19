@@ -215,7 +215,7 @@ def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree):
 
     from mpi4py   import MPI
     from petsc4py import PETSc
-    from psydac.linalg.utilities import petsc_to_stencil
+    from psydac.linalg.utilities import petsc_to_psydac
 
     comm = MPI.COMM_WORLD
 
@@ -303,7 +303,7 @@ def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree):
         print('Solution with petsc4py: success = {}'.format(ksp.converged))
 
 
-    x = petsc_to_stencil(x, Xh.vector_space)
+    x = petsc_to_psydac(x, Xh.vector_space)
     # Numerical solution: velocity field
     # TODO: allow this: uh = FemField(V1h, coeffs=x[0:2]) or similar
     uh = FemField(V1h)
@@ -520,45 +520,51 @@ def test_maxwell_time_harmonic_2d_dir_1():
 
     assert abs(l2_error-expected_l2_error)<1e-13
 
-##------------------------------------------------------------------------------
-#def test_stokes_2d_dir_non_homogeneous_petsc():
 
-#    # ... Exact solution
-#    domain = Square()
-#    x, y   = domain.coordinates
+###############################################################################
+#            PARALLEL TESTS
+###############################################################################
 
-#    ux =  sin(pi * x) * cos(pi * y)
-#    uy = -cos(pi * x) * sin(pi * y)
-#    ue = Tuple(ux, uy)
-#    pe = cos(2*pi * (x + y)) * sin(2*pi * (x - y))
-#    # ...
+@pytest.mark.parallel
+@pytest.mark.petsc
+def test_stokes_2d_dir_non_homogeneous_petsc():
 
-#    # Verify that div(u) = 0
-#    assert (ux.diff(x) + uy.diff(y)).simplify() == 0
+    # ... Exact solution
+    domain = Square()
+    x, y   = domain.coordinates
 
-#    # ... Compute right-hand side
-#    from sympde.calculus import laplace, grad
-#    from sympde.expr import TerminalExpr
+    ux =  sin(pi * x) * cos(pi * y)
+    uy = -cos(pi * x) * sin(pi * y)
+    ue = Tuple(ux, uy)
+    pe = cos(2*pi * (x + y)) * sin(2*pi * (x - y))
+    # ...
 
-#    kwargs = dict(dim=2, logical=True)
-#    a = TerminalExpr(-laplace(ue), domain)
-#    b = TerminalExpr(    grad(pe), domain)
-#    f = (a.T + b).simplify()
+    # Verify that div(u) = 0
+    assert (ux.diff(x) + uy.diff(y)).simplify() == 0
 
-#    fx = -ux.diff(x, 2) - ux.diff(y, 2) + pe.diff(x)
-#    fy = -uy.diff(x, 2) - uy.diff(y, 2) + pe.diff(y)
-#    f  = Tuple(fx, fy)
-#    # ...
+    # ... Compute right-hand side
+    from sympde.calculus import laplace, grad
+    from sympde.expr import TerminalExpr
 
-#    # Run test
-#    namespace = run_stokes_2d_dir_petsc(domain, f, ue, pe,
-#            homogeneous=False, ncells=[10, 10], degree=[3, 3])
+    kwargs = dict(dim=2, logical=True)
+    a = TerminalExpr(-laplace(ue), domain)
+    b = TerminalExpr(    grad(pe), domain)
+    f = (a.T + b).simplify()
 
-#    # Check that expected absolute error on velocity and pressure fields
-#    # is obtained with at least 7 digits of accuracy
-#    print(namespace['l2_error_u'], namespace['l2_error_p'])
-#    assert abs(1 - namespace['l2_error_u'] / 8.658427958128542e-06) < 1e-7
-#    assert abs(1 - namespace['l2_error_p'] / 0.007600728271522273 ) < 1e-7
+    fx = -ux.diff(x, 2) - ux.diff(y, 2) + pe.diff(x)
+    fy = -uy.diff(x, 2) - uy.diff(y, 2) + pe.diff(y)
+    f  = Tuple(fx, fy)
+    # ...
+
+    # Run test
+    namespace = run_stokes_2d_dir_petsc(domain, f, ue, pe,
+            homogeneous=False, ncells=[10, 10], degree=[3, 3])
+
+    # Check that expected absolute error on velocity and pressure fields
+    # is obtained with at least 7 digits of accuracy
+
+    assert abs(1 - namespace['l2_error_u'] / 8.658427958128542e-06) < 1e-7
+    assert abs(1 - namespace['l2_error_p'] / 0.007600728271522273 ) < 1e-7
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE

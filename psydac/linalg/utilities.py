@@ -5,7 +5,7 @@ from math                  import sqrt
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from psydac.linalg.block   import BlockVector, BlockVectorSpace
 
-__all__ = ['array_to_stencil', 'petsc_to_stencil', '_sym_ortho']
+__all__ = ['array_to_stencil', 'petsc_to_psydac', '_sym_ortho']
 
 def array_to_stencil(x, Xh):
     """ converts a numpy array to StencilVector or BlockVector format"""
@@ -47,8 +47,8 @@ def array_to_stencil(x, Xh):
     u.update_ghost_regions()
     return u
 
-def petsc_to_stencil(vec, Xh):
-    """ converts a numpy array to StencilVector or BlockVector format"""
+def petsc_to_psydac(vec, Xh):
+    """ converts a petsc Vec object to a StencilVector or a BlockVector format"""
 
     if isinstance(Xh, BlockVectorSpace):
         u = BlockVector(Xh)
