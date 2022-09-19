@@ -169,7 +169,16 @@ class DirectionalDerivativeOperator(Matrix):
 
         # setup, space checks
         assert v.space is self._domain
-        assert v.ghost_regions_in_sync
+
+        # Check if the ghost regions are up to date
+        if not v.ghost_regions_in_sync:
+            # In 1D case we do not impose for the ghost regions to be updated.
+            # Contrary to higher dimensions where we assume that this object is contained in a BlockMatrix,
+            # so the ghost regions in all directions must be updated before entering this method.
+            if self._spaceW.ndim == 1:
+                v.update_ghost_regions()
+            else:
+                raise ValueError("Ghost regions not updated")
 
         if out is None:
             out = self._codomain.zeros()

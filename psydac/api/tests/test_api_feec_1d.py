@@ -31,9 +31,7 @@ def step_ampere_1d(dt, e, b, M0, M1, D0, D0_T, *, pc=None, tol=1e-7, verbose=Fal
         from psydac.linalg.iterative_solvers import cg as isolve
 
   # b += 0
-    y = M1.dot(b)
-    y.update_ghost_regions()
-    e += dt * isolve(M0, D0_T.dot(y), **options)[0]
+    e += dt * isolve(M0, D0_T.dot(M1.dot(b)), **options)[0]
 
 #==============================================================================
 # VISUALIZATION

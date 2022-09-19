@@ -724,7 +724,7 @@ class CartDecomposition():
         assert len(shape) == self._ndims
 
         try:
-            nthreads , block_shape = compute_dims( self._num_threads, shape , [2*p for p in self._pads])
+            nthreads , block_shape = compute_dims( self._num_threads, shape , min_blocksizes=[2*p for p in self._pads], try_uniform=True)
         except ValueError:
             print("Cannot compute dimensions with given input values!")
             self.comm.Abort(1)
