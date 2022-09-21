@@ -297,23 +297,34 @@ class BlockingCartDataExchanger(CartDataExchanger):
         ghost regions.
         Each coefficient in the decomposed grid may have multiple components,
         contiguous in memory.
+
         Parameters
         ----------
         cart : psydac.ddm.CartDecomposition
             Object that contains all information about the Cartesian decomposition
             of a tensor-product grid of coefficients.
+
         dtype : [type | str | numpy.dtype | mpi4py.MPI.Datatype]
             Datatype of single coefficient (if scalar) or of each of its
             components (if vector).
+
         coeff_shape : [tuple(int) | list(int)]
             Shape of a single coefficient, if this is multidimensional
             (optional: by default, we assume scalar coefficients).
+
+        axis: int,optional
+           The axis of which we don't update the ghost regions.
+
+        shape:
+            the shape of data when axis is not None
+        
         Returns
         -------
         send_types : dict
             Dictionary of MPI subarray datatypes for SEND BUFFERS, accessed
             through the integer pair (direction, displacement) as key;
             'direction' takes values from 0 to ndim, 'disp' is -1 or +1.
+
         recv_types : dict
             Dictionary of MPI subarray datatypes for RECEIVE BUFFERS, accessed
             through the integer pair (direction, displacement) as key;

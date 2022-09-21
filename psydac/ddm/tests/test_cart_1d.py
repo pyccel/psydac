@@ -8,7 +8,7 @@ from psydac.ddm.nonblocking_data_exchanger import NonBlockingCartDataExchanger
 #===============================================================================
 # TEST CartDecomposition and CartDataExchanger in 1D
 #===============================================================================
-def run_cart_1d( data_exchanger, verbose=False ):
+def run_cart_1d( data_exchanger_type, verbose=False ):
 
     import numpy as np
     from mpi4py       import MPI
@@ -65,7 +65,7 @@ def run_cart_1d( data_exchanger, verbose=False ):
     e1, = cart.ends
 
     # Create object in charge of exchanging data between subdomains
-    synchronizer = data_exchanger( cart, u.dtype )
+    synchronizer = data_exchanger_type( cart, u.dtype )
 
     # Print some info
     if verbose:
@@ -110,11 +110,11 @@ def run_cart_1d( data_exchanger, verbose=False ):
 #===============================================================================
 import pytest
 
-@pytest.mark.parametrize( 'data_exchanger', [BlockingCartDataExchanger, NonBlockingCartDataExchanger] )
+@pytest.mark.parametrize( 'data_exchanger_type', [BlockingCartDataExchanger, NonBlockingCartDataExchanger] )
 @pytest.mark.parallel
-def test_cart_1d( data_exchanger ):
+def test_cart_1d( data_exchanger_type ):
 
-    namespace = run_cart_1d( data_exchanger )
+    namespace = run_cart_1d( data_exchanger_type )
 
     assert namespace['success']
 

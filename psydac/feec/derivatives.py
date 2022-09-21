@@ -402,7 +402,6 @@ class DiffOperator:
         assert isinstance(u, FemField)
         assert u.space == self.domain
 
-        u.coeffs.update_ghost_regions()
         coeffs = self.matrix.dot(u.coeffs)
 
         return FemField(self.codomain, coeffs=coeffs)
