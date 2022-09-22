@@ -105,12 +105,8 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
                         shifts        = [1,1]))
     carts = tuple(carts)
 
-    interface_carts = InterfacesCartDecomposition(domain_decomposition, carts, connectivity)
-
-
-    for i,j in connectivity:
-        if (i,j) in interface_carts.carts and not interface_carts.carts[i,j].is_comm_null:
-            interface_carts.carts[i,j].set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
+    communication_info = (get_minus_starts_ends, get_plus_starts_ends)
+    interface_carts = InterfacesCartDecomposition(domain_decomposition, carts, connectivity, communication_info=communication_info)
 
    # Create vector spaces
     Vs  = [StencilVectorSpace( ci ) for ci in carts]
