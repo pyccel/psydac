@@ -449,7 +449,7 @@ class InterfacesCartDecomposition:
                                                                    local_communicators=[local_communicators[i], local_communicators[j]],
                                                                    root_ranks=interfaces_root_ranks[i,j],
                                                                    requests=req)
-                if not interfaces_cart.carts[i,j].is_comm_null:
+                if not interfaces_cart[i,j].is_comm_null:
                     interfaces_carts[i,j].set_interface_communication_infos(*communication_info)
 
         self._interfaces_groups = interfaces_groups
