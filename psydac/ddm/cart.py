@@ -382,8 +382,11 @@ class InterfacesCartDecomposition:
         The connectivity of the grids.
         It contains the grids that share an interface along with their axes and extremities.
 
+    communication_info: tuple
+        tuple of two functions that determines the communication info between two patches.
+
     """
-    def __init__(self, domain_decomposition, carts, interfaces):
+    def __init__(self, domain_decomposition, carts, interfaces, communication_info):
 
         assert isinstance(domain_decomposition, MultiPatchDomainDecomposition)
         assert isinstance(carts, (list, tuple))
@@ -447,6 +450,7 @@ class InterfacesCartDecomposition:
                                                                    root_ranks=interfaces_root_ranks[i,j],
                                                                    requests=req)
 
+                interfaces_carts[i,j].set_interface_communication_infos(*communication_info)
 
         self._interfaces_groups = interfaces_groups
         self._interfaces_comm   = interfaces_comm

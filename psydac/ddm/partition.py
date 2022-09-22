@@ -85,6 +85,9 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None, try_uniform=
     min_blocksizes : list of int
         Minimum acceptable size of a block along each dimension. 
 
+    try_uniform: bool
+        try to decompose the array uniformly.
+
     Returns
     -------
     dims : list of int

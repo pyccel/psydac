@@ -77,21 +77,6 @@ class BlockingCartDataExchanger(CartDataExchanger):
 
     # ...
     def start_update_ghost_regions( self, array, requests ):
-        """
-        Update ghost regions in a numpy array with dimensions compatible with
-        CartDecomposition (and coeff_shape) provided at initialization.
-
-        Parameters
-        ----------
-        array : numpy.ndarray
-            Multidimensional array corresponding to local subdomain in
-            decomposed tensor grid, including padding.
-
-        direction : int
-            Index of dimension over which ghost regions should be updated
-            (optional: by default all ghost regions are updated).
-
-        """
 
         assert isinstance( array, np.ndarray )
 
@@ -133,18 +118,8 @@ class BlockingCartDataExchanger(CartDataExchanger):
 
     # ...
     def start_exchange_assembly_data( self, array ):
-        """
-        Update ghost regions after the assembly algorithm in a numpy array with dimensions compatible with
-        CartDecomposition (and coeff_shape) provided at initialization.
-        Parameters
-        ----------
-        array : numpy.ndarray
-            Multidimensional array corresponding to local subdomain in
-            decomposed tensor grid, including padding.
-        """
 
         assert isinstance( array, np.ndarray )
-
 
         # Shortcuts
         cart  = self._cart

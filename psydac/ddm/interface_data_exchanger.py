@@ -4,6 +4,8 @@ from mpi4py import MPI
 
 from .cart import InterfaceCartDecomposition, find_mpi_type
 
+__all__ = ['InterfaceCartDataExchanger']
+
 class InterfaceCartDataExchanger:
     """
     This takes care of updating the ghost regions between two sides of an interface for a
@@ -19,6 +21,10 @@ class InterfaceCartDataExchanger:
     dtype : [type | str | numpy.dtype | mpi4py.MPI.Datatype]
         Datatype of single coefficient (if scalar) or of each of its
         components (if vector).
+
+    coeff_shape : [tuple(int) | list(int)]
+        Shape of a single coefficient, if this is multi-dimensional
+        (optional: by default, we assume scalar coefficients).
 
     """
     def __init__(self, cart, dtype, *, coeff_shape=()):

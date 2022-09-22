@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 
+__all__ = ['CartDataExchanger']
 #===============================================================================
 class CartDataExchanger(ABC):
     """
@@ -38,7 +39,20 @@ class CartDataExchanger(ABC):
 
     @abstractmethod
     def start_update_ghost_regions( self, array, requests ):
-        pass
+        """
+        Update ghost regions in a numpy array with dimensions compatible with
+        CartDecomposition (and coeff_shape) provided at initialization.
+
+        Parameters
+        ----------
+        array : numpy.ndarray
+            Multidimensional array corresponding to local subdomain in
+            decomposed tensor grid, including padding.
+
+        requests : tuple|None
+            The requests of the communications.
+
+        """
 
     @abstractmethod
     def end_update_ghost_regions( self, array, requests ):
@@ -46,7 +60,15 @@ class CartDataExchanger(ABC):
 
     @abstractmethod
     def start_exchange_assembly_data( self, array ):
-        pass
+        """
+        Update ghost regions after the assembly algorithm in a numpy array with dimensions compatible with
+        CartDecomposition (and coeff_shape) provided at initialization.
+        Parameters
+        ----------
+        array : numpy.ndarray
+            Multidimensional array corresponding to local subdomain in
+            decomposed tensor grid, including padding.
+        """
 
     @abstractmethod
     def end_exchange_assembly_data( self, array ):
