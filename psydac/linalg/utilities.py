@@ -5,9 +5,9 @@ from math                  import sqrt
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from psydac.linalg.block   import BlockVector, BlockVectorSpace
 
-__all__ = ['array_to_stencil', 'petsc_to_psydac', '_sym_ortho']
+__all__ = ['array_to_psydac', 'petsc_to_psydac', '_sym_ortho']
 
-def array_to_stencil(x, Xh):
+def array_to_psydac(x, Xh):
     """ converts a numpy array to StencilVector or BlockVector format"""
 
     if isinstance(Xh, BlockVectorSpace):
@@ -48,17 +48,20 @@ def array_to_stencil(x, Xh):
     return u
 
 def petsc_to_psydac(vec, Xh):
-    """ converts a petsc Vec object to a StencilVector or a BlockVector format"""
+    """ converts a petsc Vec object to a StencilVector or a BlockVector format.
+        We gather the petsc global vector in all the processes and extract the chunck owned by the Psydac Vector.
+    """
 
     if isinstance(Xh, BlockVectorSpace):
         u = BlockVector(Xh)
         if isinstance(Xh.spaces[0], BlockVectorSpace):
 
-            comm = u[0][0].space.cart.global_comm
-            dtype = u[0][0].space.dtype
+            comm       = u[0][0].space.cart.global_comm
+            dtype      = u[0][0].space.dtype
             sendcounts = np.array(comm.allgather(len(vec.array)))
-            recvbuf = np.empty(sum(sendcounts), dtype=dtype)
+            recvbuf    = np.empty(sum(sendcounts), dtype=dtype)
 
+            # gather the global array in all the procs
             comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
 
             inds = 0
@@ -70,19 +73,21 @@ def petsc_to_psydac(vec, Xh):
                     idx = tuple( slice(m*p,-m*p) for m,p in zip(u.space.spaces[d].spaces[i].pads, u.space.spaces[d].spaces[i].shifts) )
                     shape = tuple(ends[i]-starts[i]+1)
                     npts  = Xh.spaces[d].spaces[i].npts
+                    # compute the global indices of the coefficents owned by the process using starts and ends
                     indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts[i], xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
                     vals = recvbuf[indices+inds]
                     u[d][i]._data[idx] = vals.reshape(shape)
                     inds += np.product(npts)
 
         else:
-            comm = u[0].space.cart.global_comm
-            dtype = u[0].space.dtype
+            comm       = u[0].space.cart.global_comm
+            dtype      = u[0].space.dtype
             sendcounts = np.array(comm.allgather(len(vec.array)))
-            recvbuf = np.empty(sum(sendcounts), dtype=dtype)
+            recvbuf    = np.empty(sum(sendcounts), dtype=dtype)
 
+            # gather the global array in all the procs
             comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
-                
+
             inds = 0
             starts = [np.array(V.starts) for V in Xh.spaces]
             ends   = [np.array(V.ends)   for V in Xh.spaces]
@@ -90,20 +95,24 @@ def petsc_to_psydac(vec, Xh):
                 idx = tuple( slice(m*p,-m*p) for m,p in zip(u.space.spaces[i].pads, u.space.spaces[i].shifts) )
                 shape = tuple(ends[i]-starts[i]+1)
                 npts  = Xh.spaces[i].npts
+                # compute the global indices of the coefficents owned by the process using starts and ends
                 indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts[i], xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
                 vals = recvbuf[indices+inds]
                 u[i]._data[idx] = vals.reshape(shape)
                 inds += np.product(npts)
 
     elif isinstance(Xh, StencilVectorSpace):
+
+        u          = StencilVector(Xh)
         comm       = u.space.cart.global_comm
         dtype      = u.space.dtype
         sendcounts = np.array(comm.allgather(len(vec.array)))
         recvbuf    = np.empty(sum(sendcounts), dtype=dtype)
 
+        # gather the global array in all the procs
         comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
 
-        u =  StencilVector(Xh)
+        # compute the global indices of the coefficents owned by the process using starts and ends
         starts = np.array(Xh.starts)
         ends   = np.array(Xh.ends)
         shape  = tuple(ends-starts+1)

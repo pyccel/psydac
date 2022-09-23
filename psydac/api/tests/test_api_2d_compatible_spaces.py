@@ -23,7 +23,7 @@ from sympde.expr import find, EssentialBC
 from psydac.fem.basic          import FemField
 from psydac.fem.vector         import ProductFemSpace
 from psydac.api.discretization import discretize
-from psydac.linalg.utilities   import array_to_stencil
+from psydac.linalg.utilities   import array_to_psydac
 from psydac.linalg.iterative_solvers import pcg, bicg
 
 #==============================================================================
@@ -77,7 +77,7 @@ def run_poisson_mixed_form_2d_dir(f0, sol, ncells, degree):
     rhs = ah.linear_system.rhs.toarray()
 
     x   = spsolve(M, rhs)
-    x   = array_to_stencil(x, Xh.vector_space)
+    x   = array_to_psydac(x, Xh.vector_space)
     
     # ...
     Fh = FemField( V2h )
@@ -159,7 +159,7 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
             print('Solution with scipy.sparse: success = {}'.format(info == 0))
 
         # Convert to stencil format
-        x = array_to_stencil(x, Xh.vector_space)
+        x = array_to_psydac(x, Xh.vector_space)
 
     else:
         equation_h.set_solver('cg', info=True)

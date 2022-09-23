@@ -6,18 +6,22 @@ from scipy.sparse import coo_matrix, bmat
 
 from mpi4py import MPI
 
-def get_npts( space ):
+def flatten_vec( vec ):
+    """ Return the flattened 1D array values and indices corresponding to the given vector.
 
-    if isinstance(space, StencilVectorSpace):
-        npts = np.product(space.npts)
-    elif isinstance(space, BlockVectorSpace):
-        npts = sum([get_npts(s) for s in space.spaces])
-    else:
-        raise TypeError("Expected StencilVectorSpace or BlockVectorSpace, found instead {}".format(type(space)))
+    Parameters
+    ----------
+    vec : <Vector>
+      Psydac Vector to be flattened
 
-    return npts
+    Returns
+    -------
+    array : numpy.ndarray
+        A copy of the data array collapsed into one dimension.
 
-def vec_tocoo( vec ):
+    indices: numpy.ndarray
+        The global indices the data array collapsed into one dimension.
+    """
 
     if isinstance(vec, StencilVector):
         npts = vec.space.npts
@@ -30,41 +34,67 @@ def vec_tocoo( vec ):
                     (data,(indices,indices)),
                     shape = [np.prod(npts),np.prod(npts)],
                     dtype = vec.space.dtype)
+
     elif isinstance(vec, BlockVector):
         vecs = [vec_tocoo(b) for b in vec.blocks]
         blocks = [[None]*len(vecs) for v in vecs]
         for i,v in enumerate(vecs):
             blocks[i][i] = v
-        return bmat(blocks,format='coo')
+        vec = bmat(blocks,format='coo')
+
     else:
         raise TypeError("Expected StencilVector or BlockVector, found instead {}".format(type(vec)))
-    return vec
+
+    array   = vec.data
+    indices = vec.row
+    return array, indices
 
 def vec_topetsc( vec ):
-    """ Convert to petsc data structure.
+    """ Convert Psydac Vector to PETSc data structure.
+
+    Parameters
+    ----------
+    vec : <Vector>
+      Distributed Psydac vector.
+
+    Returns
+    -------
+    gvec : PETSc.Vec
+        Distributed PETSc vector.
+
     """
 
     from petsc4py import PETSc
     comm = vec.space.spaces[0].cart.global_comm if isinstance(vec, BlockVector) else vec.space.cart.global_comm
-    globalsize = get_npts(vec.space)
-    vec = vec_tocoo(vec)
+    globalsize = vec.space.dimension
+    indices, data = flatten_vec(vec)
     gvec  = PETSc.Vec().create(comm=comm)
     gvec.setSizes(globalsize)
     gvec.setFromOptions()
-    gvec.setValues(vec.row, vec.data)
+    gvec.setValues(indices, data)
     gvec.assemble()
     return gvec
 
 def mat_topetsc( mat ):
-    """ Convert to petsc data structure.
+    """ Convert Psydac Matrix to PETSc data structure.
+
+    Parameters
+    ----------
+    vec : <Matrix>
+      Distributed Psydac Matrix.
+
+    Returns
+    -------
+    gmat : PETSc.Mat
+        Distributed PETSc matrix.
     """
 
     from petsc4py import PETSc
 
     comm = mat.domain.spaces[0].cart.global_comm if isinstance(mat, BlockMatrix) else mat.domain.cart.global_comm
     mat_coo = mat.tosparse()
-    ncols = get_npts(mat.domain)
-    nrows = get_npts(mat.codomain)
+    ncols = mat.domain.dimension
+    nrows = mat.codomain.dimension
     gmat  = PETSc.Mat().create(comm=comm)
     gmat.setSizes((nrows, ncols))
     gmat.setType("mpiaij")

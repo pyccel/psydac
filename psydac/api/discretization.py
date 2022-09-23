@@ -206,6 +206,9 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     degree : list | dict
         The degree of the h1 space in each direction.
 
+    multiplicity: list | dict
+        The multiplicity of knots for the h1 space in each direction.
+
     knots: list | dict
         The knots sequence of the h1 space in each direction.
 

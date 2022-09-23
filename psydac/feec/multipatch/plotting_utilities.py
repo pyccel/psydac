@@ -9,7 +9,7 @@ from matplotlib  import cm, colors
 from mpl_toolkits import mplot3d
 from collections import OrderedDict
 
-from psydac.linalg.utilities import array_to_stencil
+from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic        import FemField
 from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.utilities.utils  import refine_array_1d
@@ -207,7 +207,7 @@ def plot_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, 
     if vh is None:
         if numpy_coeffs is not None:
             assert stencil_coeffs is None
-            stencil_coeffs = array_to_stencil(numpy_coeffs, Vh.vector_space)
+            stencil_coeffs = array_to_psydac(numpy_coeffs, Vh.vector_space)
         vh = FemField(Vh, coeffs=stencil_coeffs)
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
