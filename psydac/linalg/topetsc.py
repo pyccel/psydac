@@ -16,11 +16,12 @@ def flatten_vec( vec ):
 
     Returns
     -------
+    indices: numpy.ndarray
+        The global indices the data array collapsed into one dimension.
+
     array : numpy.ndarray
         A copy of the data array collapsed into one dimension.
 
-    indices: numpy.ndarray
-        The global indices the data array collapsed into one dimension.
     """
 
     if isinstance(vec, StencilVector):
