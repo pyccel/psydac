@@ -411,13 +411,10 @@ class BlockVector( Vector ):
 
     # ...
     def topetsc( self ):
-        """ Convert to petsc Nest vector.
+        """ Convert to petsc data structure.
         """
-
-        blocks    = [v.topetsc() for v in self._blocks]
-        cart      = self._space.spaces[0].cart
-        petsccart = cart.topetsc()
-        vec       = petsccart.petsc.Vec().createNest(blocks, comm=cart.comm)
+        from psydac.linalg.topetsc import vec_topetsc
+        vec = vec_topetsc( self )
         return vec
 
 #===============================================================================
@@ -899,21 +896,11 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
     # ...
     def topetsc( self ):
-        """ Convert to petsc Nest Matrix.
+        """ Convert to petsc data structure.
         """
-        # Convert all blocks to petsc format
-        blocks = [[None for j in range( self.n_block_cols )] for i in range( self.n_block_rows )]
-        for (i,j), Mij in self._blocks.items():
-            blocks[i][j] = Mij.topetsc()
-
-        if self.n_block_cols == 1:
-            cart = self.domain.cart
-        else:
-            cart = self.domain.spaces[0].cart
-
-        petsccart = cart.topetsc()
-
-        return petsccart.petsc.Mat().createNest(blocks, comm=cart.comm)
+        from psydac.linalg.topetsc import mat_topetsc
+        mat = mat_topetsc( self )
+        return mat
 
     def compute_interface_matrices_transpose(self):
         blocks = self._blocks.copy()

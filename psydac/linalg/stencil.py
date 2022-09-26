@@ -562,23 +562,10 @@ class StencilVector( Vector ):
     def topetsc( self ):
         """ Convert to petsc data structure.
         """
+        from psydac.linalg.topetsc import vec_topetsc
+        vec = vec_topetsc( self )
+        return vec
 
-        space = self.space
-        assert space.parallel
-        cart      = space.cart
-        petsccart = cart.topetsc()
-        petsc     = petsccart.petsc
-        lgmap     = petsccart.l2g_mapping
-
-        size  = (petsccart.local_size, None)
-        gvec  = petsc.Vec().createMPI(size, comm=cart.comm)
-        gvec.setLGMap(lgmap)
-        gvec.setUp()
-
-        idx = tuple( slice(m*p,-m*p) for m,p in zip(self.pads, self.space.shifts) )
-        gvec.setArray(self._data[idx])
-
-        return gvec
     # ...
     def __getitem__(self, key):
         index = self._getindex( key )
@@ -1249,35 +1236,9 @@ class StencilMatrix( Matrix ):
     def topetsc( self ):
         """ Convert to petsc data structure.
         """
-
-        dspace = self.domain
-        cspace = self.codomain
-        assert cspace.parallel and dspace.parallel
-
-        ccart      = cspace.cart
-        cpetsccart = ccart.topetsc()
-        clgmap     = cpetsccart.l2g_mapping
-
-        dcart      = dspace.cart
-        dpetsccart = dcart.topetsc()
-        dlgmap     = dpetsccart.l2g_mapping
-
-        petsc      = dpetsccart.petsc
-
-        r_size  = (cpetsccart.local_size, None)
-        c_size  = (dpetsccart.local_size, None)
-
-        gmat = petsc.Mat().create(comm=dcart.comm)
-        gmat.setSizes((r_size, c_size))
-        gmat.setType('mpiaij')
-        gmat.setLGMap(clgmap, dlgmap)
-        gmat.setUp()
-
-        mat_csr = self.tocoo_local().tocsr()
-
-        gmat.setValuesLocalCSR(mat_csr.indptr,mat_csr.indices,mat_csr.data)
-        gmat.assemble()
-        return gmat
+        from psydac.linalg.topetsc import mat_topetsc
+        mat = mat_topetsc( self )
+        return mat
 
     #--------------------------------------
     # Private methods
