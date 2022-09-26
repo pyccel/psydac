@@ -32,14 +32,19 @@ def flatten_vec( vec ):
         data = vec._data[idx].flatten()
         vec = coo_matrix(
                     (data,(indices,indices)),
-                    shape = [np.prod(npts),np.prod(npts)],
+                    shape = [vec.space.dimension,vec.space.dimension],
                     dtype = vec.space.dtype)
 
     elif isinstance(vec, BlockVector):
-        vecs = [vec_tocoo(b) for b in vec.blocks]
+        vecs = [flatten_vec(b) for b in vec.blocks]
+        vecs = [coo_matrix((v[1],(v[0],v[0])),
+                shape=[vs.space.dimension,vs.space.dimension],
+                dtype=vs.space.dtype) for v,vs in zip(vecs, vec.blocks)]
+
         blocks = [[None]*len(vecs) for v in vecs]
         for i,v in enumerate(vecs):
             blocks[i][i] = v
+
         vec = bmat(blocks,format='coo')
 
     else:
@@ -47,7 +52,7 @@ def flatten_vec( vec ):
 
     array   = vec.data
     indices = vec.row
-    return array, indices
+    return indices, array
 
 def vec_topetsc( vec ):
     """ Convert Psydac Vector to PETSc data structure.

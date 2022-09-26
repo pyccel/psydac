@@ -49,7 +49,7 @@ def array_to_psydac(x, Xh):
 
 def petsc_to_psydac(vec, Xh):
     """ converts a petsc Vec object to a StencilVector or a BlockVector format.
-        We gather the petsc global vector in all the processes and extract the chunck owned by the Psydac Vector.
+        We gather the petsc global vector in all the processes and extract the chunk owned by the Psydac Vector.
     """
 
     if isinstance(Xh, BlockVectorSpace):
