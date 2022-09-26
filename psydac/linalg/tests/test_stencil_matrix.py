@@ -315,7 +315,7 @@ def test_stencil_matrix_2d_serial_dot_2( n1, n2, p1, p2, P1, P2 ):
     y2a_exact = np.dot( M2a, x2a )
 
     # Check data in 1D array
-    print(y2a-y2a_exact)
+
     assert np.allclose( y1a, y1a_exact, rtol=1e-13, atol=1e-13 )
     assert np.allclose( y2a, y2a_exact, rtol=1e-13, atol=1e-13 )
 
@@ -1368,7 +1368,7 @@ def test_stencil_matrix_1d_parallel_dot( n1, p1, P1 ):
 
 def test_stencil_matrix_2d_parallel_dot( n1, n2, p1, p2, P1, P2 ):
 
-    from mpi4py       import MPI
+    from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition
