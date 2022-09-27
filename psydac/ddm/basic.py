@@ -61,8 +61,10 @@ class CartDataExchanger(ABC):
     @abstractmethod
     def start_exchange_assembly_data( self, array ):
         """
-        Update ghost regions after the assembly algorithm in a numpy array with dimensions compatible with
-        CartDecomposition (and coeff_shape) provided at initialization.
+        Update ghost regions after the assembly algorithm in a numpy array
+        with dimensions compatible with CartDecomposition (and coeff_shape)
+        provided at initialization.
+
         Parameters
         ----------
         array : numpy.ndarray
