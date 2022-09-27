@@ -11,9 +11,9 @@ from psydac.ddm.partition import compute_dims, partition_procs_per_patch
 __all__ = ['find_mpi_type',
            'MultiPatchDomainDecomposition',
            'DomainDecomposition',
-           'InterfacesCartDecomposition',
            'CartDecomposition',
-           'InterfaceCartDecomposition']
+           'InterfaceCartDecomposition',
+           'create_interfaces_cart']
 
 #===============================================================================
 def find_mpi_type( dtype ):
@@ -367,108 +367,6 @@ class DomainDecomposition:
         return all( P or (0 <= c < d) for P,c,d in zip( self._periods, coords, self._nprocs ) )
 
 #==================================================================================
-class InterfacesCartDecomposition:
-    """
-    This Connects the Cartesian grids when they share an interface.
-
-    Parameters
-    ----------
-    domain_decomposition: MultiPatchDomainDecomposition
-
-    carts: list of CartDecomposition
-        The cartesian decomposition of multiple grids.
-
-    interfaces: dict
-        The connectivity of the grids.
-        It contains the grids that share an interface along with their axes and extremities.
-
-    communication_info: tuple
-        tuple of two functions that determines the communication info between two patches.
-
-    """
-    def __init__(self, domain_decomposition, carts, interfaces, communication_info):
-
-        assert isinstance(domain_decomposition, MultiPatchDomainDecomposition)
-        assert isinstance(carts, (list, tuple))
-
-        periods             = [cart.periods for cart in carts]
-        num_threads         = domain_decomposition.num_threads
-        comm                = domain_decomposition.comm
-        global_group        = comm.group
-        local_groups        = list(domain_decomposition.local_groups)
-        rank_ranges         = domain_decomposition.rank_ranges
-        local_communicators = domain_decomposition.local_communicators
-        owned_groups        = domain_decomposition.owned_groups
-
-        interfaces_groups     = {}
-        interfaces_comm       = {}
-        interfaces_root_ranks = {}
-        interfaces_carts      = {}
-
-        for i,j in interfaces:
-            interfaces_comm[i,j] = MPI.COMM_NULL
-
-            if i in owned_groups or j in owned_groups:
-                if not local_groups[i]:
-                    local_groups[i] = global_group.Range_incl([[rank_ranges[i][0], rank_ranges[i][1], 1]])
-                if not local_groups[j]:
-                    local_groups[j] = global_group.Range_incl([[rank_ranges[j][0], rank_ranges[j][1], 1]])
-
-                interfaces_groups[i,j] = local_groups[i].Union(local_groups[i], local_groups[j])
-                interfaces_comm  [i,j] = comm.Create_group(interfaces_groups[i,j])
-                root_rank_i            = interfaces_groups[i,j].Translate_ranks(local_groups[i], [0], interfaces_groups[i,j])[0]
-                root_rank_j            = interfaces_groups[i,j].Translate_ranks(local_groups[j], [0], interfaces_groups[i,j])[0]
-                interfaces_root_ranks[i,j] = [root_rank_i, root_rank_j]
-
-        tag   = lambda i,j,disp: (2+disp)*(i+j)
-        dtype = find_mpi_type('int64')
-
-        for i,j in interfaces:
-            req = []
-            ranks_in_topo_i = None
-            ranks_in_topo_j = None
-            axis_i, ext_i   = interfaces[i,j][0]
-            axis_j, ext_j   = interfaces[i,j][1]
-            if interfaces_comm[i,j] != MPI.COMM_NULL:
-                ranks_in_topo_i = domain_decomposition.domains[i].ranks_in_topo if i in owned_groups else np.full(local_groups[i].size, -1)
-                ranks_in_topo_j = domain_decomposition.domains[j].ranks_in_topo if j in owned_groups else np.full(local_groups[j].size, -1)
-
-                if interfaces_comm[i,j].rank == interfaces_root_ranks[i,j][0]:
-                    req.append(interfaces_comm[i,j].Isend((ranks_in_topo_i, ranks_in_topo_i.size, dtype), interfaces_root_ranks[i,j][1], tag=tag(i,j,1)))
-                    req.append(interfaces_comm[i,j].Irecv((ranks_in_topo_j, ranks_in_topo_j.size, dtype), interfaces_root_ranks[i,j][1], tag=tag(i,j,-1)))
-
-                if interfaces_comm[i,j].rank == interfaces_root_ranks[i,j][1]:
-                    req.append(interfaces_comm[i,j].Isend((ranks_in_topo_j, ranks_in_topo_j.size, dtype), interfaces_root_ranks[i,j][0], tag=tag(i,j,-1)))
-                    req.append(interfaces_comm[i,j].Irecv((ranks_in_topo_i, ranks_in_topo_i.size, dtype), interfaces_root_ranks[i,j][0], tag=tag(i,j,1)))
-
-                interfaces_carts[i,j] = InterfaceCartDecomposition(carts[i], carts[j],
-                                                                   comm=interfaces_comm[i,j],
-                                                                   axes=[axis_i, axis_j], exts=[ext_i, ext_j],
-                                                                   ranks_in_topo=[ranks_in_topo_i, ranks_in_topo_j],
-                                                                   local_groups=[local_groups[i], local_groups[j]],
-                                                                   local_communicators=[local_communicators[i], local_communicators[j]],
-                                                                   root_ranks=interfaces_root_ranks[i,j],
-                                                                   requests=req)
-                if not interfaces_carts[i,j].is_comm_null:
-                    interfaces_carts[i,j].set_interface_communication_infos(*communication_info)
-
-        self._interfaces_groups = interfaces_groups
-        self._interfaces_comm   = interfaces_comm
-        self._carts             = interfaces_carts
-
-    @property
-    def carts( self ):
-        return self._carts
-
-    @property
-    def interfaces_comm( self ):
-        return self._interfaces_comm
-
-    @property
-    def interfaces_groups( self ):
-        return self._interfaces_groups
-
-#===============================================================================
 class CartDecomposition():
     """
     Cartesian decomposition of a tensor-product grid of spline coefficients.
@@ -1007,6 +905,7 @@ class CartDecomposition():
 
         # return dictionary
         return info
+
 #===============================================================================
 class InterfaceCartDecomposition:
     """
@@ -1789,3 +1688,90 @@ class InterfaceCartDecomposition:
 
         return info
 
+#===============================================================================
+def create_interfaces_cart(self, domain_decomposition, carts, interfaces, communication_info):
+
+    """
+    This Connects the Cartesian grids when they share an interface.
+
+    Parameters
+    ----------
+    domain_decomposition: MultiPatchDomainDecomposition
+
+    carts: list of CartDecomposition
+        The cartesian decomposition of multiple grids.
+
+    interfaces: dict
+        The connectivity of the grids.
+        It contains the grids that share an interface along with their axes and extremities.
+
+    communication_info: tuple
+        tuple of two functions that determines the communication info between two patches.
+
+    """
+    assert isinstance(domain_decomposition, MultiPatchDomainDecomposition)
+    assert isinstance(carts, (list, tuple))
+
+    periods             = [cart.periods for cart in carts]
+    num_threads         = domain_decomposition.num_threads
+    comm                = domain_decomposition.comm
+    global_group        = comm.group
+    local_groups        = list(domain_decomposition.local_groups)
+    rank_ranges         = domain_decomposition.rank_ranges
+    local_communicators = domain_decomposition.local_communicators
+    owned_groups        = domain_decomposition.owned_groups
+
+    interfaces_groups     = {}
+    interfaces_comm       = {}
+    interfaces_root_ranks = {}
+    interfaces_carts      = {}
+
+    for i,j in interfaces:
+        interfaces_comm[i,j] = MPI.COMM_NULL
+
+        if i in owned_groups or j in owned_groups:
+            if not local_groups[i]:
+                local_groups[i] = global_group.Range_incl([[rank_ranges[i][0], rank_ranges[i][1], 1]])
+            if not local_groups[j]:
+                local_groups[j] = global_group.Range_incl([[rank_ranges[j][0], rank_ranges[j][1], 1]])
+
+            interfaces_groups[i,j] = local_groups[i].Union(local_groups[i], local_groups[j])
+            interfaces_comm  [i,j] = comm.Create_group(interfaces_groups[i,j])
+            root_rank_i            = interfaces_groups[i,j].Translate_ranks(local_groups[i], [0], interfaces_groups[i,j])[0]
+            root_rank_j            = interfaces_groups[i,j].Translate_ranks(local_groups[j], [0], interfaces_groups[i,j])[0]
+            interfaces_root_ranks[i,j] = [root_rank_i, root_rank_j]
+
+    tag   = lambda i,j,disp: (2+disp)*(i+j)
+    dtype = find_mpi_type('int64')
+
+    for i,j in interfaces:
+        req = []
+        ranks_in_topo_i = None
+        ranks_in_topo_j = None
+        axis_i, ext_i   = interfaces[i,j][0]
+        axis_j, ext_j   = interfaces[i,j][1]
+        if interfaces_comm[i,j] != MPI.COMM_NULL:
+            ranks_in_topo_i = domain_decomposition.domains[i].ranks_in_topo if i in owned_groups else np.full(local_groups[i].size, -1)
+            ranks_in_topo_j = domain_decomposition.domains[j].ranks_in_topo if j in owned_groups else np.full(local_groups[j].size, -1)
+
+            if interfaces_comm[i,j].rank == interfaces_root_ranks[i,j][0]:
+                req.append(interfaces_comm[i,j].Isend((ranks_in_topo_i, ranks_in_topo_i.size, dtype), interfaces_root_ranks[i,j][1], tag=tag(i,j,1)))
+                req.append(interfaces_comm[i,j].Irecv((ranks_in_topo_j, ranks_in_topo_j.size, dtype), interfaces_root_ranks[i,j][1], tag=tag(i,j,-1)))
+
+            if interfaces_comm[i,j].rank == interfaces_root_ranks[i,j][1]:
+                req.append(interfaces_comm[i,j].Isend((ranks_in_topo_j, ranks_in_topo_j.size, dtype), interfaces_root_ranks[i,j][0], tag=tag(i,j,-1)))
+                req.append(interfaces_comm[i,j].Irecv((ranks_in_topo_i, ranks_in_topo_i.size, dtype), interfaces_root_ranks[i,j][0], tag=tag(i,j,1)))
+
+            interfaces_carts[i,j] = InterfaceCartDecomposition(carts[i], carts[j],
+                                                               comm=interfaces_comm[i,j],
+                                                               axes=[axis_i, axis_j], exts=[ext_i, ext_j],
+                                                               ranks_in_topo=[ranks_in_topo_i, ranks_in_topo_j],
+                                                               local_groups=[local_groups[i], local_groups[j]],
+                                                               local_communicators=[local_communicators[i], local_communicators[j]],
+                                                               root_ranks=interfaces_root_ranks[i,j],
+                                                               requests=req)
+            if not interfaces_carts[i,j].is_comm_null:
+                interfaces_carts[i,j].set_interface_communication_infos(*communication_info)
+
+
+    return interfaces_carts

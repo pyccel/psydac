@@ -5,7 +5,7 @@ import numpy as np
 from mpi4py import MPI
 from sympde.topology import Interface
 
-from psydac.ddm.cart       import CartDecomposition, InterfacesCartDecomposition, InterfaceCartDecomposition
+from psydac.ddm.cart       import CartDecomposition, InterfaceCartDecomposition, create_interfaces_cart as create_interfaces_cart_ddm
 from psydac.core.bsplines  import elements_spans
 from psydac.fem.vector     import ProductFemSpace
 
@@ -202,15 +202,15 @@ def create_interfaces_cart(domain_decomposition, carts, connectivity=None):
 
     Returns
     -------
-    interfaces_cart : InterfacesCartDecomposition
-      The cartesian decomposition of the coefficient spaces of the interfaces.
+    interfaces_cart : dict
+      dictionary that contains The cartesian decomposition of the coefficient spaces of the interfaces.
 
     """
     interfaces_cart = None
     if connectivity:
         connectivity = connectivity.copy()
         communication_info = (get_minus_starts_ends, get_plus_starts_ends)
-        interfaces_cart = InterfacesCartDecomposition(domain_decomposition, carts, connectivity, communication_info=communication_info)
+        interfaces_cart = create_interfaces_cart_ddm(domain_decomposition, carts, connectivity, communication_info=communication_info)
 
     return interfaces_cart
 
