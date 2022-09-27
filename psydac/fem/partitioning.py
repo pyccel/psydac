@@ -57,7 +57,7 @@ def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
         if V.periodic or mb is None:
             assert all(e-s+1>=V.degree)
         else:
-            assert all(e-s+1>=mb*(1-V.periodic))
+            assert all(e-s+1>=mb)
 
     return global_starts, global_ends
 
