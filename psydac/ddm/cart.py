@@ -1689,10 +1689,10 @@ class InterfaceCartDecomposition:
         return info
 
 #===============================================================================
-def create_interfaces_cart(self, domain_decomposition, carts, interfaces, communication_info):
+def create_interfaces_cart(domain_decomposition, carts, interfaces, communication_info):
 
     """
-    This Connects the Cartesian grids when they share an interface.
+     This function Connects the Cartesian grids when they share an interface.
 
     Parameters
     ----------
