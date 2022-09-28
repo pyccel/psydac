@@ -240,9 +240,6 @@ def construct_interface_spaces(domain_decomposition, g_spaces, carts, interiors,
     if comm is not None:
         interfaces_cart = create_interfaces_cart(domain_decomposition, carts, connectivity=connectivity)
 
-        if interfaces_cart:
-            interfaces_cart = interfaces_cart.carts
-
     for i,j in connectivity:
         if comm is None:
             cart_minus = carts[i]
