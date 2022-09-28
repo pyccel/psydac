@@ -37,7 +37,7 @@ def get_plus_starts_ends(minus_starts, minus_ends, minus_npts, plus_npts, minus_
 def run_carts_2d():
     import numpy as np
     from mpi4py          import MPI
-    from psydac.ddm.cart import MultiPatchDomainDecomposition, CartDecomposition, InterfacesCartDecomposition
+    from psydac.ddm.cart import MultiPatchDomainDecomposition, CartDecomposition, create_interfaces_cart
     from psydac.ddm.blocking_data_exchanger  import BlockingCartDataExchanger
     from psydac.ddm.interface_data_exchanger import InterfaceCartDataExchanger
 
@@ -95,7 +95,7 @@ def run_carts_2d():
     carts = tuple(carts)
 
     communication_info = (get_minus_starts_ends, get_plus_starts_ends)
-    interfaces_cart = InterfacesCartDecomposition(domain_decomposition, carts, connectivity, communication_info=communication_info)
+    interfaces_cart = create_interfaces_cart(domain_decomposition, carts, connectivity, communication_info=communication_info)
 
     us         = [None]*len(carts)
     syn        = [None]*len(carts)
@@ -114,19 +114,19 @@ def run_carts_2d():
             syn[i] = synchronizer
 
     for i,j in connectivity:
-        if not interfaces_cart.carts[i,j].is_comm_null:
+        if not interfaces_cart[i,j].is_comm_null:
             if carts[i].is_comm_null:
-                shape = interfaces_cart.carts[i,j].get_interface_communication_infos(interfaces_cart.carts[i,j]._axis)['gbuf_recv_shape'][0]
+                shape = interfaces_cart[i,j].get_interface_communication_infos(interfaces_cart[i,j]._axis)['gbuf_recv_shape'][0]
                 us[i] = np.zeros(shape, dtype=dtype)
 
             if carts[j].is_comm_null:
-                shape = interfaces_cart.carts[i,j].get_interface_communication_infos(interfaces_cart.carts[i,j]._axis)['gbuf_recv_shape'][0]
+                shape = interfaces_cart[i,j].get_interface_communication_infos(interfaces_cart[i,j]._axis)['gbuf_recv_shape'][0]
                 us[j] = np.zeros(shape, dtype=dtype)
 
-            syn_interface[i,j] = InterfaceCartDataExchanger(interfaces_cart.carts[i,j], dtype)
+            syn_interface[i,j] = InterfaceCartDataExchanger(interfaces_cart[i,j], dtype)
 
     for minus,plus in connectivity:
-        if not interfaces_cart.carts[minus,plus].is_comm_null:
+        if not interfaces_cart[minus,plus].is_comm_null:
             req = syn_interface[minus,plus].start_update_ghost_regions(us[minus], us[plus])
             syn_interface[minus,plus].end_update_ghost_regions(req=req)
 

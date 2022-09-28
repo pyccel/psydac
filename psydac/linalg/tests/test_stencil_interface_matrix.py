@@ -59,7 +59,7 @@ def get_plus_starts_ends(minus_starts, minus_ends, minus_npts, plus_npts, minus_
 def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
 
     from mpi4py              import MPI
-    from psydac.ddm.cart     import MultiPatchDomainDecomposition, CartDecomposition, InterfacesCartDecomposition
+    from psydac.ddm.cart     import MultiPatchDomainDecomposition, CartDecomposition, create_interfaces_cart
     from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
 
     # Number of patches
@@ -106,7 +106,7 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
     carts = tuple(carts)
 
     communication_info = (get_minus_starts_ends, get_plus_starts_ends)
-    interface_carts = InterfacesCartDecomposition(domain_decomposition, carts, connectivity, communication_info=communication_info)
+    interface_carts = create_interfaces_cart(domain_decomposition, carts, connectivity, communication_info=communication_info)
 
    # Create vector spaces
     Vs  = [StencilVectorSpace( ci ) for ci in carts]
@@ -117,9 +117,9 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
         if not carts[i].is_comm_null and not carts[j].is_comm_null:
             cart_minus = carts[i]
             cart_plus  = carts[j]
-        elif (i,j) in interface_carts.carts:
-            cart_minus = interface_carts.carts[i,j]
-            cart_plus  = interface_carts.carts[i,j]
+        elif (i,j) in interface_carts:
+            cart_minus = interface_carts[i,j]
+            cart_plus  = interface_carts[i,j]
         else:
             continue
 
@@ -168,7 +168,7 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
         A[i,i] = Aii
 
     # Fill in stencil interface matrix if the process is on the boundary
-    if not carts[0].is_comm_null and (not carts[1].is_comm_null or not interface_carts.carts[0,1].is_comm_null):
+    if not carts[0].is_comm_null and (not carts[1].is_comm_null or not interface_carts[0,1].is_comm_null):
         s_d = 0
         s_c = n[0][axis]-p[0][axis]-1-Vs[0].starts[axis]
         A01 = StencilInterfaceMatrix(Vs[1], Vs[0], s_d, s_c, d_axis=axis, c_axis=axis, d_ext=-1, c_ext=1)
@@ -182,7 +182,7 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
 
         A[0,1] = A01
 
-    if not carts[1].is_comm_null and (not carts[0].is_comm_null or not interface_carts.carts[0,1].is_comm_null):
+    if not carts[1].is_comm_null and (not carts[0].is_comm_null or not interface_carts[0,1].is_comm_null):
         s_d = n[0][axis]-p[0][axis]-1-Vs[0].starts[axis]
         s_c = 0
         A10 = StencilInterfaceMatrix(Vs[0], Vs[1], s_d, s_c, d_axis=axis, c_axis=axis, d_ext=1, c_ext=-1)
