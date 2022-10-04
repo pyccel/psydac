@@ -1,13 +1,16 @@
 # File test_cart_2d.py
 
+from psydac.ddm.blocking_data_exchanger    import BlockingCartDataExchanger
+from psydac.ddm.nonblocking_data_exchanger import NonBlockingCartDataExchanger
+
 #===============================================================================
 # TEST CartDecomposition and CartDataExchanger in 2D
 #===============================================================================
-def run_cart_2d( verbose=False , nprocs=None, reverse_axis=None):
+def run_cart_2d( data_exchanger_type, verbose=False , nprocs=None, reverse_axis=None):
 
     import numpy as np
     from mpi4py       import MPI
-    from psydac.ddm.cart import DomainDecomposition, CartDecomposition, CartDataExchanger
+    from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
     #---------------------------------------------------------------------------
     # INPUT PARAMETERS
@@ -69,7 +72,7 @@ def run_cart_2d( verbose=False , nprocs=None, reverse_axis=None):
     e1,e2 = cart.ends
 
     # Create object in charge of exchanging data between subdomains
-    synchronizer = CartDataExchanger( cart, u.dtype, coeff_shape=[2] )
+    synchronizer = data_exchanger_type( cart, u.dtype, coeff_shape=[2] )
 
     # Print some info
     if rank == 0:
@@ -91,8 +94,12 @@ def run_cart_2d( verbose=False , nprocs=None, reverse_axis=None):
     # Fill in true domain with u[i1_loc,i2_loc,:]=[i1_glob,i2_glob]
     u[p1:-p1,p2:-p2,:] = [[(i1,i2) for i2 in range(s2,e2+1)] for i1 in range(s1,e1+1)]
 
+
+    request = synchronizer.prepare_communications(u)
+
     # Update ghost regions
-    synchronizer.update_ghost_regions( u )
+    synchronizer.start_update_ghost_regions(  u, request )
+    synchronizer.end_update_ghost_regions( u, request )
 
     #---------------------------------------------------------------------------
     # CHECK RESULTS
@@ -114,24 +121,25 @@ def run_cart_2d( verbose=False , nprocs=None, reverse_axis=None):
 #===============================================================================
 import pytest
 
+@pytest.mark.parametrize( 'data_exchanger_type', [BlockingCartDataExchanger, NonBlockingCartDataExchanger] )
 @pytest.mark.parallel
-def test_cart_2d():
+def test_cart_2d(data_exchanger_type):
 
-    namespace = run_cart_2d()
+    namespace = run_cart_2d(data_exchanger_type)
 
     assert namespace['success']
 
 @pytest.mark.parallel
 def test_cart_2d_reverse_axis_0():
 
-    namespace = run_cart_2d(reverse_axis=0)
+    namespace = run_cart_2d(BlockingCartDataExchanger, reverse_axis=0)
 
     assert namespace['success']
 
 @pytest.mark.parallel
 def test_cart_2d_reverse_axis_1():
 
-    namespace = run_cart_2d(reverse_axis=1)
+    namespace = run_cart_2d(BlockingCartDataExchanger, reverse_axis=1)
 
     assert namespace['success']
 
@@ -140,7 +148,7 @@ def test_cart_2d_reverse_axis_1():
 #===============================================================================
 if __name__=='__main__':
 
-    locals().update( run_cart_2d( verbose=True ) )
+    locals().update( run_cart_2d( BlockingCartDataExchanger, verbose=True ) )
 
     # Print error messages (if any) in orderly fashion
     for k in range(size):

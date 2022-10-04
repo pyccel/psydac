@@ -7,8 +7,9 @@ import numpy as np
 from types import MappingProxyType
 from scipy.sparse import bmat, lil_matrix
 
-from psydac.linalg.basic import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
-from psydac.ddm.cart     import InterfaceCartDataExchanger, InterfaceCartDecomposition
+from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
+from psydac.ddm.cart      import InterfaceCartDecomposition
+from psydac.ddm.utilities import get_data_exchanger
 
 __all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix', 'BlockDiagonalSolver']
 
@@ -176,7 +177,7 @@ class BlockVector( Vector ):
                     if not (axis_i, ext_i) in Vik.interfaces: continue
                     cart_ij = Vik.interfaces[axis_i, ext_i].cart
                     assert isinstance(cart_ij, InterfaceCartDecomposition)
-                    self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
+                    self._data_exchangers[i,j].append(get_data_exchanger(cart_ij, self.dtype))
 
             elif  not isinstance(Vi, BlockVectorSpace) and not isinstance(Vj, BlockVectorSpace):
                 # case of scalar equations
@@ -188,7 +189,7 @@ class BlockVector( Vector ):
 
                 cart_ij = Vi.interfaces[axis_i, ext_i].cart
                 assert isinstance(cart_ij, InterfaceCartDecomposition)
-                self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
+                self._data_exchangers[i,j].append(get_data_exchanger(cart_ij, self.dtype))
             else:
                 raise NotImplementedError("This case is not treated")
 
@@ -306,11 +307,14 @@ class BlockVector( Vector ):
             vi.ghost_regions_in_sync = value
 
     # ...
-    def update_ghost_regions( self, *, direction=None ):
-        self.start_update_interface_ghost_regions()
+    def update_ghost_regions( self ):
+
+        req = self.start_update_interface_ghost_regions()
+
         for vi in self.blocks:
-            vi.update_ghost_regions(direction=direction)
-        self.end_update_interface_ghost_regions()
+            vi.update_ghost_regions()
+
+        self.end_update_interface_ghost_regions(req)
 
         # Flag ghost regions as up-to-date
         self._sync = True
@@ -321,12 +325,12 @@ class BlockVector( Vector ):
         for (i,j) in self._data_exchangers:
             req[i,j] = [data_ex.start_update_ghost_regions(*bufs) for bufs,data_ex in zip(self._interface_buf[i,j], self._data_exchangers[i,j])]
 
-        self._req = req
+        return req
 
-    def end_update_interface_ghost_regions( self ):
+    def end_update_interface_ghost_regions( self, req ):
 
         for (i,j) in self._data_exchangers:
-            for data_ex,bufs,req_ij in zip(self._data_exchangers[i,j], self._interface_buf[i,j], self._req[i,j]):
+            for data_ex,bufs,req_ij in zip(self._data_exchangers[i,j], self._interface_buf[i,j], req[i,j]):
                 data_ex.end_update_ghost_regions(req_ij)
 
     def _collect_interface_buf( self ):
@@ -961,7 +965,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                                 block_ij_k1k2 = StencilInterfaceMatrix(Vjk2, Vik1.interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
                                 block_ji_k2k1 = StencilInterfaceMatrix(Vik1, Vjk2, info[1], info[0], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
 
-                            data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ij_k1k2._data.shape[block_ij_k1k2._ndim:])
+                            data_exchanger = get_data_exchanger(cart_ij, self.dtype, coeff_shape = block_ij_k1k2._data.shape[block_ij_k1k2._ndim:])
                             data_exchanger.update_ghost_regions(array_minus=block_ij_k1k2._data)
 
                             if cart_i.is_comm_null:
@@ -1020,7 +1024,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                                 block_ij_k1k2 = StencilInterfaceMatrix(Vjk2, Vik1, info[1], info[0], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
 
                             interface_cart_i.comm.Barrier()
-                            data_exchanger = InterfaceCartDataExchanger(interface_cart_j, self.dtype, coeff_shape = block_ji_k2k1._data.shape[block_ji_k2k1._ndim:])
+                            data_exchanger = get_data_exchanger(interface_cart_j, self.dtype, coeff_shape = block_ji_k2k1._data.shape[block_ji_k2k1._ndim:])
 
                             data_exchanger.update_ghost_regions(array_plus=block_ji_k2k1._data)
 
@@ -1069,7 +1073,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                         block_ij = StencilInterfaceMatrix(Vj, Vi.interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
                         block_ji = StencilInterfaceMatrix(Vi, Vj, info[1], info[0], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
 
-                    data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ij._data.shape[block_ij._ndim:])
+                    data_exchanger = get_data_exchanger(cart_ij, self.dtype, coeff_shape = block_ij._data.shape[block_ij._ndim:])
                     data_exchanger.update_ghost_regions(array_minus=block_ij._data)
 
                     if cart_i.is_comm_null:
@@ -1095,7 +1099,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                         block_ji = StencilInterfaceMatrix(Vi, Vj.interfaces[axis_j, ext_j], info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
                         block_ij = StencilInterfaceMatrix(Vj, Vi, info[1], info[0], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
 
-                    data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ji._data.shape[block_ji._ndim:])
+                    data_exchanger = get_data_exchanger(cart_ij, self.dtype, coeff_shape = block_ji._data.shape[block_ji._ndim:])
                     data_exchanger.update_ghost_regions(array_plus=block_ji._data)
 
                     if cart_j.is_comm_null:
