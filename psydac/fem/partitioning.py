@@ -5,7 +5,7 @@ import numpy as np
 from mpi4py import MPI
 from sympde.topology import Interface
 
-from psydac.ddm.cart       import CartDecomposition, InterfaceCartDecomposition, create_interfaces_cart as create_interfaces_cart_ddm
+from psydac.ddm.cart       import CartDecomposition, InterfaceCartDecomposition, create_interfaces_cart
 from psydac.core.bsplines  import elements_spans
 from psydac.fem.vector     import ProductFemSpace
 
@@ -184,37 +184,6 @@ def create_cart(domain_decomposition, spaces):
     return carts
 
 #------------------------------------------------------------------------------
-def create_interfaces_cart(domain_decomposition, carts, connectivity=None):
-    """
-    Decompose the interface coefficients using the domain decomposition of each patch.
-    For each interface we construct an inter-communicator that groups the coefficients of the interface from each side.
-
-    Parameters
-    ----------
-
-    domain_decomposition: MultiPatchDomainDecomposition
-
-    carts: list of CartDecomposition
-        Cartesian decomposition of the coefficient space for each patch.
-
-    connectivity: dict
-       The connectivity of the multipatch domain.
-
-    Returns
-    -------
-    interfaces_cart : dict
-      dictionary that contains The cartesian decomposition of the coefficient spaces of the interfaces.
-
-    """
-    interfaces_cart = None
-    if connectivity:
-        connectivity = connectivity.copy()
-        communication_info = (get_minus_starts_ends, get_plus_starts_ends)
-        interfaces_cart = create_interfaces_cart_ddm(domain_decomposition, carts, connectivity, communication_info=communication_info)
-
-    return interfaces_cart
-
-#------------------------------------------------------------------------------
 def construct_interface_spaces(domain_decomposition, g_spaces, carts, interiors, connectivity):
     """ 
     Create the fem spaces for each interface in the domain given by the connectivity.
@@ -237,8 +206,11 @@ def construct_interface_spaces(domain_decomposition, g_spaces, carts, interiors,
     """
     if not connectivity:return
     comm = domain_decomposition.comm
+    interfaces_cart = None
     if comm is not None:
-        interfaces_cart = create_interfaces_cart(domain_decomposition, carts, connectivity=connectivity)
+        if connectivity:
+            communication_info = (get_minus_starts_ends, get_plus_starts_ends)
+            interfaces_cart = create_interfaces_cart(domain_decomposition, carts, connectivity.copy(), communication_info=communication_info)
 
     for i,j in connectivity:
         if comm is None:
