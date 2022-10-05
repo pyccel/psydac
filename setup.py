@@ -56,7 +56,7 @@ install_requires = [
     'pyevtk',
 
     # Our packages from PyPi
-    'sympde==0.15.2',
+    'sympde @ git+https://github.com/pyccel/sympde@fix-psydac-issue-189',
     'pyccel>=1.5.1',
     'gelato==0.11',
 
