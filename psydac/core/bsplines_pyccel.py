@@ -440,7 +440,7 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
                 for j in range(degree + 1):
                     actual_j = (spans[i] - degree + j) % nb
                     out[i, actual_j] = basis[i, j] * scaling[spans[i] - degree + j]
-
+                    
         else:
             scaling = 1.0 / integrals
             for i in range(nx):
@@ -707,8 +707,12 @@ def greville_p(knots: 'float[:]', degree: int, periodic: bool, out:'float[:]'):
     n = len(T)-2*p-1 if periodic else len(T)-p-1
 
     # Compute greville abscissas as average of p consecutive knot values
-    for i in range(1, 1+n):
-        out[i - 1] = sum(T[i:i + p]) / p
+    if p == 0:
+        for i in range(n):
+            out[i] = sum(T[i:i + 2]) / 2
+    else:
+        for i in range(1, 1+n):
+            out[i - 1] = sum(T[i:i + p]) / p
 
     # Domain boundaries
     a = T[p]
