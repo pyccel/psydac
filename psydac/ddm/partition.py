@@ -66,7 +66,7 @@ def partition_procs_per_patch(npts, size):
     return sizes, ranges
 
 #==============================================================================
-def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
+def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None, try_uniform=False ):
     """
     With the aim of distributing a multi-dimensional array on a Cartesian
     topology, compute the number of processes along each dimension.
@@ -84,6 +84,9 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
 
     min_blocksizes : list of int
         Minimum acceptable size of a block along each dimension. 
+
+    try_uniform: bool
+        try to decompose the array uniformly.
 
     Returns
     -------
@@ -107,7 +110,7 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
     uniform = (np.prod( gridsizes ) % nnodes == 0)
 
     # Compute dimensions of MPI Cartesian topology with most appropriate algorithm
-    if uniform:
+    if try_uniform and uniform:
         dims, blocksizes = compute_dims_uniform( nnodes, gridsizes )
     else:
         dims, blocksizes = compute_dims_general( nnodes, gridsizes )

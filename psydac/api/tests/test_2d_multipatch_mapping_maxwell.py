@@ -24,7 +24,6 @@ from psydac.fem.basic                import FemField
 from psydac.linalg.iterative_solvers import *
 from psydac.api.settings             import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.pull_push           import pull_2d_hcurl
-from psydac.linalg.utilities         import array_to_stencil
 
 # ... get the mesh directory
 try:

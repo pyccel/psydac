@@ -9,7 +9,7 @@ from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.block          import BlockVectorSpace, BlockVector
 from psydac.linalg.block          import BlockLinearOperator, BlockDiagonalSolver, BlockMatrix
-from psydac.linalg.utilities      import array_to_stencil
+from psydac.linalg.utilities      import array_to_psydac
 from psydac.linalg.kron           import KroneckerLinearSolver
 from psydac.api.settings          import PSYDAC_BACKEND_GPYCCEL
 from psydac.ddm.cart              import DomainDecomposition, CartDecomposition
@@ -358,7 +358,7 @@ def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 
-def test_block_2d_array_to_stencil_1( n1, n2, p1, p2, P1, P2 ):
+def test_block_2d_array_to_psydac_1( n1, n2, p1, p2, P1, P2 ):
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
@@ -386,7 +386,7 @@ def test_block_2d_array_to_stencil_1( n1, n2, p1, p2, P1, P2 ):
     x.update_ghost_regions()
 
     xa = x.toarray()
-    v  = array_to_stencil(xa, W)
+    v  = array_to_psydac(xa, W)
 
     assert np.allclose( xa , v.toarray() )
 
@@ -398,7 +398,7 @@ def test_block_2d_array_to_stencil_1( n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 
-def test_block_2d_array_to_stencil_2( n1, n2, p1, p2, P1, P2 ):
+def test_block_2d_array_to_psydac_2( n1, n2, p1, p2, P1, P2 ):
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
@@ -429,7 +429,7 @@ def test_block_2d_array_to_stencil_2( n1, n2, p1, p2, P1, P2 ):
     x.update_ghost_regions()
 
     xa = x.toarray()
-    v  = array_to_stencil(xa, W)
+    v  = array_to_psydac(xa, W)
 
     assert np.allclose( xa , v.toarray() )
 

@@ -74,19 +74,17 @@ class SplineSpace( FemSpace ):
         if (knots is None) and (grid is None):
             raise ValueError('Either knots or grid must be provided.')
 
+        if (knots is not None) and (multiplicity is not None):
+            raise ValueError( 'Cannot provide both knots and multiplicity.' )
+
         if (multiplicity is not None) and multiplicity<1:
             raise ValueError('multiplicity should be >=1')
 
         if (parent_multiplicity is not None) and parent_multiplicity<1:
             raise ValueError('parent_multiplicity should be >=1')
 
-        if multiplicity is None:multiplicity = 1
-                
-        if parent_multiplicity is None:parent_multiplicity = 1
-
-        assert parent_multiplicity >= multiplicity
-
         if knots is None:
+            if multiplicity is None:multiplicity = 1
             knots = make_knots( grid, degree, periodic, multiplicity )
 
         if grid is None:
@@ -98,6 +96,11 @@ class SplineSpace( FemSpace ):
             multiplicity = np.diff(indices).max(initial=1)
         else:
             multiplicity = max(1,len(knots[degree+1:-degree-1]))
+
+        if parent_multiplicity is None:
+            parent_multiplicity = multiplicity
+
+        assert parent_multiplicity >= multiplicity
 
         # TODO: verify that user-provided knots make sense in periodic case
 

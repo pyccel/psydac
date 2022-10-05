@@ -169,7 +169,10 @@ class DirectionalDerivativeOperator(Matrix):
 
         # setup, space checks
         assert v.space is self._domain
-        v.update_ghost_regions(direction=self._diffdir)
+
+        # Check if the ghost regions are up to date
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
 
         if out is None:
             out = self._codomain.zeros()

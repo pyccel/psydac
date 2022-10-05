@@ -2,7 +2,6 @@
 
 import numpy as np
 
-from psydac.linalg.utilities      import array_to_stencil
 from psydac.linalg.kron           import KroneckerLinearSolver
 from psydac.linalg.stencil        import StencilVector
 from psydac.linalg.block          import BlockDiagonalSolver, BlockVector

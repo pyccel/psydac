@@ -30,7 +30,7 @@ from psydac.fem.basic          import FemField
 from psydac.fem.vector         import VectorFemSpace
 from psydac.core.bsplines      import make_knots
 from psydac.api.discretization import discretize
-from psydac.linalg.utilities   import array_to_stencil
+from psydac.linalg.utilities   import array_to_psydac
 from psydac.linalg.stencil     import *
 from psydac.linalg.block       import *
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
@@ -68,7 +68,7 @@ def get_boundaries(*args):
 #------------------------------------------------------------------------------
 def scipy_solver(M, b):
     x  = spsolve(M.tosparse().tocsr(), b.toarray())
-    x  = array_to_stencil(x, b.space)
+    x  = array_to_psydac(x, b.space)
     return x,0
 
 #------------------------------------------------------------------------------

@@ -5,7 +5,7 @@ import numpy as np
 from mpi4py import MPI
 from sympde.topology import Interface
 
-from psydac.ddm.cart       import CartDecomposition, InterfacesCartDecomposition, InterfaceCartDecomposition
+from psydac.ddm.cart       import CartDecomposition, InterfaceCartDecomposition, create_interfaces_cart
 from psydac.core.bsplines  import elements_spans
 from psydac.fem.vector     import ProductFemSpace, VectorFemSpace
 
@@ -52,11 +52,12 @@ def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
 
     if min_blocks is None:
         min_blocks = [None]*ndims
+
     for s,e,V,mb in zip(global_starts, global_ends, spaces, min_blocks):
-        if mb is None:
-            assert all(e-s+1>=V.degree*(1-V.periodic)+V.periodic)
+        if V.periodic or mb is None:
+            assert all(e-s+1>=V.degree)
         else:
-            assert all(e-s+1>=mb*(1-V.periodic)+V.periodic)
+            assert all(e-s+1>=mb)
 
     return global_starts, global_ends
 
@@ -183,39 +184,6 @@ def create_cart(domain_decomposition, spaces):
     return carts
 
 #------------------------------------------------------------------------------
-def create_interfaces_cart(domain_decomposition, carts, connectivity=None):
-    """
-    Decompose the interface coefficients using the domain decomposition of each patch.
-    For each interface we construct an inter-communicator that groups the coefficients of the interface from each side.
-
-    Parameters
-    ----------
-
-    domain_decomposition: MultiPatchDomainDecomposition
-
-    carts: list of CartDecomposition
-        Cartesian decomposition of the coefficient space for each patch.
-
-    connectivity: dict
-       The connectivity of the multipatch domain.
-
-    Returns
-    -------
-    interfaces_cart : InterfacesCartDecomposition
-      The cartesian decomposition of the coefficient spaces of the interfaces.
-
-    """
-    interfaces_cart = None
-    if connectivity:
-        connectivity = connectivity.copy()
-        interfaces_cart = InterfacesCartDecomposition(domain_decomposition, carts, connectivity)
-        for i,j in connectivity:
-            if (i,j) in interfaces_cart.carts and not interfaces_cart.carts[i,j].is_comm_null:
-                interfaces_cart.carts[i,j].set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
-
-    return interfaces_cart
-
-#------------------------------------------------------------------------------
 def construct_interface_spaces(domain_decomposition, g_spaces, carts, interiors, connectivity):
     """ 
     Create the fem spaces for each interface in the domain given by the connectivity.
@@ -238,11 +206,11 @@ def construct_interface_spaces(domain_decomposition, g_spaces, carts, interiors,
     """
     if not connectivity:return
     comm = domain_decomposition.comm
+    interfaces_cart = None
     if comm is not None:
-        interfaces_cart = create_interfaces_cart(domain_decomposition, carts, connectivity=connectivity)
-
-        if interfaces_cart:
-            interfaces_cart = interfaces_cart.carts
+        if connectivity:
+            communication_info = (get_minus_starts_ends, get_plus_starts_ends)
+            interfaces_cart = create_interfaces_cart(domain_decomposition, carts, connectivity.copy(), communication_info=communication_info)
 
     for i,j in connectivity:
         if comm is None:
