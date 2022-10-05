@@ -1,5 +1,7 @@
 # coding: utf-8
 
+from sympde.topology.callable_mapping import BasicCallableMapping
+
 __all__ = (
     #
     # Pull-back operators
@@ -33,143 +35,135 @@ __all__ = (
 #==============================================================================
 # 1D PULL-BACKS
 #==============================================================================
-def pull_1d_h1(func_ini, mapping):
+def pull_1d_h1(f, F):
 
-    mapping = mapping.get_callable_mapping()
-    f1,     = mapping._func_eval
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 1
 
-    def fun(xi1):
-        x = f1(xi1)
+    def f_logical(eta1):
+        x, = F(eta1)
+        return f(x)
 
-        value = func_ini(x)
-        return value
-
-    return fun
+    return f_logical
 
 #==============================================================================
-def pull_1d_l2(func_ini, mapping):
+def pull_1d_l2(f, F):
 
-    mapping    = mapping.get_callable_mapping()
-    f1,        = mapping._func_eval
-    metric_det = mapping._metric_det
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 1
 
-    def fun(xi1):
-        x = f1(xi1)
+    def f_logical(eta1):
+        x, = F(eta1)
 
-        det_value = metric_det(xi1)**0.5
-        value     = func_ini(x)
+        det_value = F.metric_det(eta1)**0.5
+        value     = f(x)
         return det_value*value
 
-    return fun
+    return f_logical
 
 #==============================================================================
 # 2D PULL-BACKS
 #==============================================================================
-def pull_2d_h1(func_ini, mapping):
+def pull_2d_h1(f, F):
 
-    mapping = mapping.get_callable_mapping()
-    f1,f2   = mapping._func_eval
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 2
 
-    def fun(xi1, xi2):
-        x = f1(xi1, xi2)
-        y = f2(xi1, xi2)
+    def f_logical(eta1, eta2):
+        x, y = F(eta1, eta2)
+        return f(x, y)
 
-        value = func_ini(x, y)
-        return value
-
-    return fun
+    return f_logical
 
 #==============================================================================
-def pull_2d_hcurl(funcs_ini, mapping):
+def pull_2d_hcurl(f, F):
 
-    mapping  = mapping.get_callable_mapping()
-    f1,f2    = mapping._func_eval
-    jacobian = mapping._jacobian
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 2
 
-    def fun1(xi1, xi2):
-        x = f1(xi1, xi2)
-        y = f2(xi1, xi2)
+    # Assume that f is a list/tuple of callable functions
+    f1, f2 = f
 
-        a1_phys = funcs_ini[0](x, y)
-        a2_phys = funcs_ini[1](x, y)
+    def f1_logical(eta1, eta2):
+        x, y = F(eta1, eta2)
 
-        J_T_value = jacobian(xi1, xi2).T
-        value_1 = J_T_value[0,0]*a1_phys + J_T_value[0,1]*a2_phys
+        a1_phys = f1(x, y)
+        a2_phys = f2(x, y)
+
+        J_T_value = F.jacobian(eta1, eta2).T
+        value_1   = J_T_value[0, 0] * a1_phys + J_T_value[0, 1] * a2_phys
         return value_1
 
-    def fun2(xi1, xi2):
-        x = f1(xi1, xi2)
-        y = f2(xi1, xi2)
+    def f2_logical(eta1, eta2):
+        x, y = F(eta1, eta2)
 
-        a1_phys = funcs_ini[0](x, y)
-        a2_phys = funcs_ini[1](x, y)
+        a1_phys = f1(x, y)
+        a2_phys = f2(x, y)
 
-        J_T_value = jacobian(xi1, xi2).T
-
-        value_2 = J_T_value[1,0]*a1_phys + J_T_value[1,1]*a2_phys
+        J_T_value = F.jacobian(eta1, eta2).T
+        value_2   = J_T_value[1, 0] * a1_phys + J_T_value[1, 1] * a2_phys
 
         return value_2
 
-    return fun1, fun2
+    return f1_logical, f2_logical
 
 #==============================================================================
-def pull_2d_hdiv(funcs_ini, mapping):
+def pull_2d_hdiv(f, F):
 
-    mapping    = mapping.get_callable_mapping()
-    f1,f2      = mapping._func_eval
-    J_inv      = mapping._jacobian_inv
-    metric_det = mapping._metric_det
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 2
 
-    def fun1(xi1, xi2):
-        x = f1(xi1, xi2)
-        y = f2(xi1, xi2)
+    # Assume that f is a list/tuple of callable functions
+    f1, f2 = f
 
-        a1_phys = funcs_ini[0](x, y)
-        a2_phys = funcs_ini[1](x, y)
+    def f1_logical(eta1, eta2):
+        x, y = F(eta1, eta2)
 
-        J_inv_value = J_inv(xi1, xi2)
-        det_value   = metric_det(xi1, xi2)**0.5
+        a1_phys = f1(x, y)
+        a2_phys = f2(x, y)
 
-        value_1 = J_inv_value[0,0]*a1_phys + J_inv_value[0,1]*a2_phys
+        J_inv_value = F.jacobian_inv(eta1, eta2)
+        det_value   = F.metric_det(eta1, eta2)**0.5
+        value_1     = J_inv_value[0, 0] * a1_phys + J_inv_value[0, 1] * a2_phys
 
-        return det_value*value_1
+        return det_value * value_1
 
-    def fun2(xi1, xi2):
-        x = f1(xi1, xi2)
-        y = f2(xi1, xi2)
+    def f2_logical(eta1, eta2):
+        x, y = F(eta1, eta2)
 
-        a1_phys = funcs_ini[0](x, y)
-        a2_phys = funcs_ini[1](x, y)
+        a1_phys = f1(x, y)
+        a2_phys = f2(x, y)
 
-        J_inv_value = J_inv(xi1, xi2)
-        det_value   = metric_det(xi1, xi2)**0.5
+        J_inv_value = F.jacobian_inv(eta1, eta2)
+        det_value   = F.metric_det(eta1, eta2)**0.5
+        value_2     = J_inv_value[1, 0] * a1_phys + J_inv_value[1, 1] * a2_phys
 
-        value_2 = J_inv_value[1,0]*a1_phys + J_inv_value[1,1]*a2_phys
+        return det_value * value_2
 
-        return det_value*value_2
-
-    return fun1, fun2
+    return f1_logical, f2_logical
 
 #==============================================================================
-def pull_2d_l2(func_ini, mapping):
+def pull_2d_l2(f, F):
 
-    mapping    = mapping.get_callable_mapping()
-    f1,f2      = mapping._func_eval
-    metric_det = mapping._metric_det
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 2
 
-    def fun(xi1, xi2):
-        x = f1(xi1, xi2)
-        y = f2(xi1, xi2)
+    def f_logical(eta1, eta2):
+        x, y = F(eta1, eta2)
 
-        det_value = metric_det(xi1, xi2)**0.5
-        value     = func_ini(x, y)
-        return det_value*value
+        det_value = F.metric_det(eta1, eta2)**0.5
+        value     = f(x, y)
+        return det_value * value
 
-    return fun
+    return f_logical
 
 #==============================================================================
 # 3D PULL-BACKS
 #==============================================================================
+
+# TODO [YG 05.10.2022]:
+# Remove? But it makes sense to return a vector-valued function...
+
 def pull_3d_v(funcs_ini, mapping):
 
     mapping  = mapping.get_callable_mapping()
@@ -194,147 +188,125 @@ def pull_3d_v(funcs_ini, mapping):
     return fun
 
 #==============================================================================
-def pull_3d_h1(func_ini, mapping):
+def pull_3d_h1(f, F):
 
-    mapping  = mapping.get_callable_mapping()
-    f1,f2,f3 = mapping._func_eval
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 3
 
-    def fun(xi1, xi2, xi3):
-        x = f1(xi1, xi2, xi3)
-        y = f2(xi1, xi2, xi3)
-        z = f3(xi1, xi2, xi3)
+    def f_logical(eta1, eta2, eta3):
+        x, y, z = F(eta1, eta2, eta3)
+        return f(x, y, z)
 
-        value = func_ini(x, y, z)
-        return value
-
-    return fun
+    return f_logical
 
 #==============================================================================
-def pull_3d_hcurl(funcs_ini, mapping):
+def pull_3d_hcurl(f, F):
 
-    mapping  = mapping.get_callable_mapping()
-    f1,f2,f3 = mapping._func_eval
-    jacobian = mapping._jacobian
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 3
 
-    def fun1(xi1, xi2, xi3):
-        x = f1(xi1, xi2, xi3)
-        y = f2(xi1, xi2, xi3)
-        z = f3(xi1, xi2, xi3)
+    # Assume that f is a list/tuple of callable functions
+    f1, f2, f3 = f
 
-        a1_phys = funcs_ini[0](x, y, z)
-        a2_phys = funcs_ini[1](x, y, z)
-        a3_phys = funcs_ini[2](x, y, z)
+    def f1_logical(eta1, eta2, eta3):
+        x, y, z = F(eta1, eta2, eta3)
+        
+        a1_phys = f1(x, y, z)
+        a2_phys = f2(x, y, z)
+        a3_phys = f3(x, y, z)
 
-        J_T_value = jacobian(xi1, xi2, xi3).T
-        value_1 = J_T_value[0,0]*a1_phys + J_T_value[0,1]*a2_phys + J_T_value[0,2]*a3_phys
+        J_T_value = F.jacobian(eta1, eta2, eta3).T
+        value_1   = J_T_value[0, 0] * a1_phys + J_T_value[0, 1] * a2_phys + J_T_value[0, 2] * a3_phys
         return value_1
 
-    def fun2(xi1, xi2, xi3):
-        x = f1(xi1, xi2, xi3)
-        y = f2(xi1, xi2, xi3)
-        z = f3(xi1, xi2, xi3)
+    def f2_logical(eta1, eta2, eta3):
+        x, y, z = F(eta1, eta2, eta3)
+        
+        a1_phys = f1(x, y, z)
+        a2_phys = f2(x, y, z)
+        a3_phys = f3(x, y, z)
 
-        a1_phys = funcs_ini[0](x, y, z)
-        a2_phys = funcs_ini[1](x, y, z)
-        a3_phys = funcs_ini[2](x, y, z)
-
-        J_T_value = jacobian(xi1, xi2, xi3).T
-
-        value_2 = J_T_value[1,0]*a1_phys + J_T_value[1,1]*a2_phys + J_T_value[1,2]*a3_phys
-
+        J_T_value = F.jacobian(eta1, eta2, eta3).T
+        value_2   = J_T_value[1, 0] * a1_phys + J_T_value[1, 1] * a2_phys + J_T_value[1, 2] * a3_phys
         return value_2
 
-    def fun3(xi1, xi2, xi3):
-        x = f1(xi1, xi2, xi3)
-        y = f2(xi1, xi2, xi3)
-        z = f3(xi1, xi2, xi3)
+    def f3_logical(eta1, eta2, eta3):
+        x, y, z = F(eta1, eta2, eta3)
+        
+        a1_phys = f1(x, y, z)
+        a2_phys = f2(x, y, z)
+        a3_phys = f3(x, y, z)
 
-        a1_phys = funcs_ini[0](x, y, z)
-        a2_phys = funcs_ini[1](x, y, z)
-        a3_phys = funcs_ini[2](x, y, z)
-
-        J_T_value = jacobian(xi1, xi2, xi3).T
-
-        value_3 = J_T_value[2,0]*a1_phys + J_T_value[2,1]*a2_phys + J_T_value[2,2]*a3_phys
+        J_T_value = F.jacobian(eta1, eta2, eta3).T
+        value_3   = J_T_value[2, 0] * a1_phys + J_T_value[2, 1] * a2_phys + J_T_value[2, 2] * a3_phys
         return value_3
 
-    return fun1, fun2, fun3
+    return f1_logical, f2_logical, f3_logical
 
 #==============================================================================
-def pull_3d_hdiv(funcs_ini, mapping):
+def pull_3d_hdiv(f, F):
 
-    mapping    = mapping.get_callable_mapping()
-    f1,f2,f3   = mapping._func_eval
-    J_inv      = mapping._jacobian_inv
-    metric_det = mapping._metric_det
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 3
 
-    def fun1(xi1, xi2, xi3):
-        x = f1(xi1, xi2, xi3)
-        y = f2(xi1, xi2, xi3)
-        z = f3(xi1, xi2, xi3)
+    # Assume that f is a list/tuple of callable functions
+    f1, f2, f3 = f
 
-        a1_phys = funcs_ini[0](x, y, z)
-        a2_phys = funcs_ini[1](x, y, z)
-        a3_phys = funcs_ini[2](x, y, z)
+    def f1_logical(eta1, eta2, eta3):
+        x, y, z = F(eta1, eta2, eta3)
+        
+        a1_phys = f1(x, y, z)
+        a2_phys = f2(x, y, z)
+        a3_phys = f3(x, y, z)
 
-        J_inv_value = J_inv(xi1, xi2, xi3)
-        det_value   = metric_det(xi1, xi2, xi3)**0.5
+        J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
+        det_value   = F.metric_det(eta1, eta2, eta3)**0.5
+        value_1     = J_inv_value[0, 0] * a1_phys + J_inv_value[0, 1] * a2_phys + J_inv_value[0, 2] * a3_phys
 
-        value_1 = J_inv_value[0,0]*a1_phys + J_inv_value[0,1]*a2_phys + J_inv_value[0,2]*a3_phys
+        return det_value * value_1
 
-        return det_value*value_1
+    def f2_logical(eta1, eta2, eta3):
+        x, y, z = F(eta1, eta2, eta3)
+        
+        a1_phys = f1(x, y, z)
+        a2_phys = f2(x, y, z)
+        a3_phys = f3(x, y, z)
 
-    def fun2(xi1, xi2, xi3):
-        x = f1(xi1, xi2, xi3)
-        y = f2(xi1, xi2, xi3)
-        z = f3(xi1, xi2, xi3)
+        J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
+        det_value   = F.metric_det(eta1, eta2, eta3)**0.5
+        value_2     = J_inv_value[1, 0] * a1_phys + J_inv_value[1, 1] * a2_phys + J_inv_value[1, 2] * a3_phys
 
-        a1_phys = funcs_ini[0](x, y, z)
-        a2_phys = funcs_ini[1](x, y, z)
-        a3_phys = funcs_ini[2](x, y, z)
+        return det_value * value_2
 
-        J_inv_value = J_inv(xi1, xi2, xi3)
-        det_value   = metric_det(xi1, xi2, xi3)**0.5
+    def f3_logical(eta1, eta2, eta3):
+        x, y, z = F(eta1, eta2, eta3)
+        
+        a1_phys = f1(x, y, z)
+        a2_phys = f2(x, y, z)
+        a3_phys = f3(x, y, z)
 
-        value_2 = J_inv_value[1,0]*a1_phys + J_inv_value[1,1]*a2_phys + J_inv_value[1,2]*a3_phys
+        J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
+        det_value   = F.metric_det(eta1, eta2, eta3)**0.5
+        value_3     = J_inv_value[2, 0] * a1_phys + J_inv_value[2, 1] * a2_phys + J_inv_value[2, 2] * a3_phys
 
-        return det_value*value_2
+        return det_value * value_3
 
-    def fun3(xi1, xi2, xi3):
-        x = f1(xi1, xi2, xi3)
-        y = f2(xi1, xi2, xi3)
-        z = f3(xi1, xi2, xi3)
-
-        a1_phys = funcs_ini[0](x, y, z)
-        a2_phys = funcs_ini[1](x, y, z)
-        a3_phys = funcs_ini[2](x, y, z)
-
-        J_inv_value = J_inv(xi1, xi2, xi3)
-        det_value   = metric_det(xi1, xi2, xi3)**0.5
-
-        value_3 = J_inv_value[2,0]*a1_phys + J_inv_value[2,1]*a2_phys + J_inv_value[2,2]*a3_phys
-
-        return det_value*value_3
-
-    return fun1, fun2, fun3
+    return f1_logical, f2_logical, f3_logical
 
 #==============================================================================
-def pull_3d_l2(func_ini, mapping):
+def pull_3d_l2(f, F):
 
-    mapping    = mapping.get_callable_mapping()
-    f1,f2,f3   = mapping._func_eval
-    metric_det = mapping._metric_det
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 3
 
-    def fun(xi1, xi2, xi3):
-        x = f1(xi1, xi2, xi3)
-        y = f2(xi1, xi2, xi3)
-        z = f3(xi1, xi2, xi3)
+    def f_logical(eta1, eta2, eta3):
+        x, y, z = F(eta1, eta2, eta3)
 
-        det_value = metric_det(xi1, xi2, xi3)**0.5
-        value     = func_ini(x, y, z)
+        det_value = F.metric_det(eta1, eta2, eta3)**0.5
+        value     = f(x, y, z)
         return det_value*value
 
-    return fun
+    return f_logical
 
 #==============================================================================
 # PUSH-FORWARD operators:
