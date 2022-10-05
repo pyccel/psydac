@@ -318,126 +318,159 @@ def pull_3d_l2(f, F):
 #==============================================================================
 # 1D PUSH-FORWARD
 #==============================================================================
-def push_1d_h1(func, xi1):
-    return func(xi1)
+def push_1d_h1(f, eta):
+    return f(eta)
 
-def push_1d_l2(func, xi1, mapping):
+def push_1d_l2(f, eta, F):
 
-    mapping    = mapping.get_callable_mapping()
-    metric_det = mapping._metric_det
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 1
 
-    det_value = metric_det(xi1)**0.5
-    value     = func(xi1)
-    return value/det_value
+    det_value = F.metric_det(eta)**0.5
+    value     = f(eta)
+
+    return f(eta) / det_value
 
 #==============================================================================
 # 2D PUSH-FORWARDS
 #==============================================================================
-def push_2d_h1(func, xi1, xi2):
-    return func(xi1, xi2)
+#def push_2d_h1(f, eta):
+def push_2d_h1(f, eta1, eta2):
+    eta = eta1, eta2
+    return f(*eta)
 
-def push_2d_hcurl(a1, a2, xi1, xi2, mapping):
+#def push_2d_hcurl(f, eta, F):
+def push_2d_hcurl(f1, f2, eta1, eta2, F):
 
-    F = mapping.get_callable_mapping()
-    J_inv_value = F.jacobian_inv(xi1, xi2)
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 2
 
-    a1_value = a1(xi1, xi2)
-    a2_value = a2(xi1, xi2)
+#    f1, f2 = f
+    eta = eta1, eta2
 
-    value1 = J_inv_value[0, 0] * a1_value + J_inv_value[1, 0] * a2_value
-    value2 = J_inv_value[0, 1] * a1_value + J_inv_value[1, 1] * a2_value
+    J_inv_value = F.jacobian_inv(*eta)
 
-    return value1, value2
+    f1_value = f1(*eta)
+    f2_value = f2(*eta)
 
-#==============================================================================
-def push_2d_hdiv(a1, a2, xi1, xi2, mapping):
-
-    mapping    = mapping.get_callable_mapping()
-    J          = mapping._jacobian
-    metric_det = mapping._metric_det
-
-    J_value    = J(xi1, xi2)
-    det_value  = metric_det(xi1, xi2)**0.5
-
-    value1 = ( J_value[0,0]*a1(xi1, xi2) +
-               J_value[0,1]*a2(xi1, xi2)) / det_value
-
-    value2 = ( J_value[1,0]*a1(xi1, xi2) +
-               J_value[1,1]*a2(xi1, xi2)) / det_value
+    value1 = J_inv_value[0, 0] * f1_value + J_inv_value[1, 0] * f2_value
+    value2 = J_inv_value[0, 1] * f1_value + J_inv_value[1, 1] * f2_value
 
     return value1, value2
 
 #==============================================================================
-def push_2d_l2(func, xi1, xi2, mapping):
+#def push_2d_hdiv(f, eta, F):
+def push_2d_hdiv(f1, f2, eta1, eta2, F):
 
-    F = mapping.get_callable_mapping()
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 2
 
-    #    det_value = F.metric_det(xi1, xi2)**0.5
+#    f1, f2 = f
+    eta = eta1, eta2
+
+    J_value   = F.jacobian(*eta)
+    det_value = F.metric_det(*eta)**0.5
+
+    value1 = (J_value[0, 0] * f1(*eta) +
+              J_value[0, 1] * f2(*eta)) / det_value
+
+    value2 = (J_value[1, 0] * f1(*eta) +
+              J_value[1, 1] * f2(*eta)) / det_value
+
+    return value1, value2
+
+#==============================================================================
+#def push_2d_l2(f, eta, F):
+def push_2d_l2(f, eta1, eta2, F):
+
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 2
+
+    eta = eta1, eta2
+
+    #    det_value = F.metric_det(eta1, eta2)**0.5
     # MCP correction: use the determinant of the mapping Jacobian
-    J         = F._jacobian
-    J_value   = J(xi1, xi2)
-    det_value = J_value[0,0]*J_value[1,1]-J_value[1,0]*J_value[0,1]
-    value     = func(xi1, xi2)
+    J_value   = F.jacobian(*eta)
+    det_value = J_value[0, 0] * J_value[1, 1] - J_value[1, 0] * J_value[0, 1]
 
-    return value / det_value
+    return f(*eta) / det_value
 
 #==============================================================================
 # 3D PUSH-FORWARDS
 #==============================================================================
-def push_3d_h1(func, xi1, xi2, xi3):
-    return func(xi1, xi2, xi3)
+#def push_3d_h1(f, eta):
+def push_3d_h1(f, eta1, eta2, eta3):
+    eta = eta1, eta2, eta3
+    return f(*eta)
 
-def push_3d_hcurl(a1, a2, a3, xi1, xi2, xi3, mapping):
+#def push_3d_hcurl(f, eta, F):
+def push_3d_hcurl(f1, f2, f3, eta1, eta2, eta3, F):
 
-    mapping    = mapping.get_callable_mapping()
-    J_inv      = mapping._jacobian_inv
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 3
 
-    J_inv_value = J_inv(xi1, xi2, xi3)
+#    f1, f2, f3 = f
+    eta = eta1, eta2, eta3
 
-    value1 = (J_inv_value[0,0]*a1(xi1, xi2, xi3) +
-              J_inv_value[1,0]*a2(xi1, xi2, xi3) +
-              J_inv_value[2,0]*a3(xi1, xi2, xi3) )
+    f1_value = f1(*eta)
+    f2_value = f2(*eta)
+    f3_value = f3(*eta)
 
-    value2 = (J_inv_value[0,1]*a1(xi1, xi2, xi3) +
-              J_inv_value[1,1]*a2(xi1, xi2, xi3) +
-              J_inv_value[2,1]*a3(xi1, xi2, xi3) )
+    J_inv_value = F.jacobian_inv(*eta)
 
-    value3 = (J_inv_value[0,2]*a1(xi1, xi2, xi3) +
-              J_inv_value[1,2]*a2(xi1, xi2, xi3) +
-              J_inv_value[2,2]*a3(xi1, xi2, xi3) )
+    value1 = (J_inv_value[0, 0] * f1_value +
+              J_inv_value[1, 0] * f2_value +
+              J_inv_value[2, 0] * f3_value )
 
-    return value1, value2, value3
+    value2 = (J_inv_value[0, 1] * f1_value +
+              J_inv_value[1, 1] * f2_value +
+              J_inv_value[2, 1] * f3_value )
 
-#==============================================================================
-def push_3d_hdiv(a1, a2, a3, xi1, xi2, xi3, mapping):
-
-    mapping    = mapping.get_callable_mapping()
-    J          = mapping._jacobian
-    metric_det = mapping._metric_det
-
-    J_value    = J(xi1, xi2, xi3)
-    det_value  = metric_det(xi1, xi2, xi3)**0.5
-
-    value1 = ( J_value[0,0]*a1(xi1, xi2, xi3) +
-               J_value[0,1]*a2(xi1, xi2, xi3) +
-               J_value[0,2]*a3(xi1, xi2, xi3) ) / det_value
-
-    value2 = ( J_value[1,0]*a1(xi1, xi2, xi3) +
-               J_value[1,1]*a2(xi1, xi2, xi3) +
-               J_value[1,2]*a3(xi1, xi2, xi3) ) / det_value
-
-    value3 = ( J_value[2,0]*a1(xi1, xi2, xi3) +
-               J_value[2,1]*a2(xi1, xi2, xi3) +
-               J_value[2,2]*a3(xi1, xi2, xi3) ) / det_value
+    value3 = (J_inv_value[0, 2] * f1_value +
+              J_inv_value[1, 2] * f2_value +
+              J_inv_value[2, 2] * f3_value )
 
     return value1, value2, value3
 
 #==============================================================================
-def push_3d_l2(func, xi1, xi2, xi3, mapping):
+#def push_3d_hdiv(f, eta, F):
+def push_3d_hdiv(f1, f2, f3, eta1, eta2, eta3, F):
 
-    mapping    = mapping.get_callable_mapping()
-    metric_det = mapping._metric_det
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 3
 
-    det_value = metric_det(xi1, xi2, xi3)**0.5
-    value     = func(xi1, xi2, xi3)
-    return value/det_value
+#    f1, f2, f3 = f
+    eta = eta1, eta2, eta3
+
+    f1_value  = f1(*eta)
+    f2_value  = f2(*eta)
+    f3_value  = f3(*eta)
+    J_value   = F.jacobian(*eta)
+    det_value = F.metric_det(*eta)**0.5
+
+    value1 = ( J_value[0, 0] * f1_value +
+               J_value[0, 1] * f2_value +
+               J_value[0, 2] * f3_value ) / det_value
+
+    value2 = ( J_value[1, 0] * f1_value +
+               J_value[1, 1] * f2_value +
+               J_value[1, 2] * f3_value ) / det_value
+
+    value3 = ( J_value[2, 0] * f1_value +
+               J_value[2, 1] * f2_value +
+               J_value[2, 2] * f3_value ) / det_value
+
+    return value1, value2, value3
+
+#==============================================================================
+#def push_3d_l2(f, eta, F):
+def push_3d_l2(f, eta1, eta2, eta3, F):
+
+    assert isinstance(F, BasicCallableMapping)
+    assert F.ldim == 3
+
+    eta = eta1, eta2, eta3
+
+    det_value = F.metric_det(*eta)**0.5
+
+    return f(*eta) / det_value
