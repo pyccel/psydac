@@ -162,7 +162,10 @@ class FemAssemblyGrid:
             local_element_start = self._spans.searchsorted( degree + start )
             local_element_end   = self._spans.searchsorted( degree + end   )
         else:
-            if end+1 >= degree:
+            if degree == 0:
+                local_element_start = self._spans.searchsorted( degree if start == 0   else 1 + start)
+                local_element_end   = self._spans.searchsorted( end )
+            elif end+1 >= degree:
                 local_element_start = self._spans.searchsorted( degree if start == 0   else 1 + start)
                 local_element_end   = self._spans.searchsorted( end if end   == n-1 else 1 + end )
             else:
