@@ -404,9 +404,9 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
             for j, x2j in enumerate(x2[0, :]):
 
                 Ex_values[i, j], Ey_values[i, j] = \
-                        push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, mapping)
+                        push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, F)
 
-                Bz_values[i, j] = push_2d_l2(B, x1i, x2j, mapping)
+                Bz_values[i, j] = push_2d_l2(B, x1i, x2j, F)
 
         # Electric field, x component
         fig2 = plot_field_and_error(r'E^x', x, y, Ex_values, Ex_ex(0, x, y), *gridlines)
@@ -484,9 +484,9 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
                 for j, x2j in enumerate(x2[0, :]):
 
                     Ex_values[i, j], Ey_values[i, j] = \
-                            push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, mapping)
+                            push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, F)
 
-                    Bz_values[i, j] = push_2d_l2(B, x1i, x2j, mapping)
+                    Bz_values[i, j] = push_2d_l2(B, x1i, x2j, F)
             # ...
 
             # Update plot
@@ -530,9 +530,9 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
             for j, x2j in enumerate(x2[0, :]):
 
                 Ex_values[i, j], Ey_values[i, j] = \
-                        push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, mapping)
+                        push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, F)
 
-                Bz_values[i, j] = push_2d_l2(B, x1i, x2j, mapping)
+                Bz_values[i, j] = push_2d_l2(B, x1i, x2j, F)
         # ...
 
         # Error at final time
@@ -546,9 +546,9 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
     # compute L2 error as well
     F = mapping.get_callable_mapping()
-    errx = lambda x1, x2: (push_2d_hcurl(E.fields[0], E.fields[1], x1, x2, mapping)[0] - Ex_ex(t, *F(x1, x2)))**2 * np.sqrt(F.metric_det(x1,x2))
-    erry = lambda x1, x2: (push_2d_hcurl(E.fields[0], E.fields[1], x1, x2, mapping)[1] - Ey_ex(t, *F(x1, x2)))**2 * np.sqrt(F.metric_det(x1,x2))
-    errz = lambda x1, x2: (push_2d_l2(B, x1, x2, mapping) - Bz_ex(t, *F(x1, x2)))**2 * np.sqrt(F.metric_det(x1,x2))
+    errx = lambda x1, x2: (push_2d_hcurl(E.fields[0], E.fields[1], x1, x2, F)[0] - Ex_ex(t, *F(x1, x2)))**2 * np.sqrt(F.metric_det(x1,x2))
+    erry = lambda x1, x2: (push_2d_hcurl(E.fields[0], E.fields[1], x1, x2, F)[1] - Ey_ex(t, *F(x1, x2)))**2 * np.sqrt(F.metric_det(x1,x2))
+    errz = lambda x1, x2: (push_2d_l2(B, x1, x2, F) - Bz_ex(t, *F(x1, x2)))**2 * np.sqrt(F.metric_det(x1,x2))
     error_l2_Ex = np.sqrt(derham_h.V1.spaces[0].integral(errx))
     error_l2_Ey = np.sqrt(derham_h.V1.spaces[1].integral(erry))
     error_l2_Bz = np.sqrt(derham_h.V0.integral(errz))
