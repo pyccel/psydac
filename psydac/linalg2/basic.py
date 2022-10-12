@@ -128,7 +128,8 @@ class LinearOperator( metaclass=ABCMeta ):
     """
     @property
     def shape( self ):
-        return (self.domain.dimension, self.codomain.dimension)
+        return (self.codomain.dimension, self.domain.dimension)
+    # makes more sense in this order?
 
     #-------------------------------------
     # Deferred methods
@@ -150,6 +151,10 @@ class LinearOperator( metaclass=ABCMeta ):
 
     @abstractmethod
     def dot( self, v, out=None ):
+        pass
+
+    @abstractmethod
+    def __add__( self, B ):
         pass
 
     #-------------------------------------
