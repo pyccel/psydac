@@ -345,6 +345,7 @@ def push_2d_hcurl(f1, f2, eta1, eta2, F):
     assert isinstance(F, BasicCallableMapping)
     assert F.ldim == 2
 
+#    # Assume that f is a list/tuple of callable functions
 #    f1, f2 = f
     eta = eta1, eta2
 
@@ -365,6 +366,7 @@ def push_2d_hdiv(f1, f2, eta1, eta2, F):
     assert isinstance(F, BasicCallableMapping)
     assert F.ldim == 2
 
+#    # Assume that f is a list/tuple of callable functions
 #    f1, f2 = f
     eta = eta1, eta2
 
@@ -409,6 +411,7 @@ def push_3d_hcurl(f1, f2, f3, eta1, eta2, eta3, F):
     assert isinstance(F, BasicCallableMapping)
     assert F.ldim == 3
 
+#    # Assume that f is a list/tuple of callable functions
 #    f1, f2, f3 = f
     eta = eta1, eta2, eta3
 
@@ -439,6 +442,7 @@ def push_3d_hdiv(f1, f2, f3, eta1, eta2, eta3, F):
     assert isinstance(F, BasicCallableMapping)
     assert F.ldim == 3
 
+#    # Assume that f is a list/tuple of callable functions
 #    f1, f2, f3 = f
     eta = eta1, eta2, eta3
 

@@ -1,3 +1,5 @@
+from sympde.topology.mapping import Mapping
+
 from psydac.api.basic              import BasicDiscrete
 from psydac.feec.derivatives       import Derivative_1D, Gradient_2D, Gradient_3D
 from psydac.feec.derivatives       import ScalarCurl_2D, VectorCurl_2D, Curl_3D
@@ -15,6 +17,8 @@ class DiscreteDerham(BasicDiscrete):
     """ Represent the discrete De Rham sequence.
     """
     def __init__(self, mapping, *spaces):
+
+        assert (mapping is None) or isinstance(mapping, Mapping)
 
         dim           = len(spaces) - 1
         self._dim     = dim
