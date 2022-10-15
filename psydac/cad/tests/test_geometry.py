@@ -31,10 +31,10 @@ def test_geometry_2d_1():
     domain = F(Square(name='Omega'))
 
     # associate the mapping to the topological domain
-    mappings = {'Omega': mapping}
+    mappings = {domain.name: mapping}
 
     # Define ncells as a dict
-    ncells = {'Omega':ncells}
+    ncells = {domain.name:ncells}
 
     # create a geometry from a topological domain and the dict of mappings
     geo = Geometry(domain=domain, ncells=ncells, mappings=mappings)
@@ -78,12 +78,12 @@ def test_geometry_2d_2():
     domain = F(Square(name='Omega'))
 
     # associate the mapping to the topological domain
-    mappings = {'Omega': mapping}
+    mappings = {domain.name: mapping}
 
     # Define ncells as a dict
-    ncells = {'Omega':[len(space.breaks)-1 for space in mapping.space.spaces]}
+    ncells = {domain.name:[len(space.breaks)-1 for space in mapping.space.spaces]}
 
-    periodic = {'Omega':[space.periodic for space in mapping.space.spaces]}
+    periodic = {domain.name:[space.periodic for space in mapping.space.spaces]}
 
     # create a geometry from a topological domain and the dict of mappings
     geo = Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings)
