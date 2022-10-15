@@ -81,10 +81,10 @@ class Geometry( object ):
                 assert isinstance( periodic, dict)
 
             # ... check sanity
-            interior_names = sorted(domain.interior_names)
+            interior_names = domain.interior_names if domain.logical_domain is None else domain.logical_domain.interior_names
             mappings_keys  = sorted(list(mappings.keys()))
 
-            assert( interior_names == mappings_keys )
+            assert( sorted(interior_names) == mappings_keys )
             # ...
 
             if periodic is None:
@@ -100,10 +100,10 @@ class Geometry( object ):
             self._is_parallel = comm is not None
 
             if len(domain) == 1:
-                self._ddm = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm)
+                self._ddm = DomainDecomposition(ncells[interior_names[0]], periodic[interior_names[0]], comm=comm)
             else:
-                ncells    = [ncells[itr.name] for itr in domain.interior]
-                periodic  = [periodic[itr.name] for itr in domain.interior]
+                ncells    = [ncells[itr] for itr in interior_names]
+                periodic  = [periodic[itr] for itr in interior_names]
                 self._ddm = MultiPatchDomainDecomposition(ncells, periodic, comm=comm)
 
 
@@ -123,7 +123,8 @@ class Geometry( object ):
             raise NotImplementedError('')
 
         if mapping.ldim == 2:
-            domain = Square(name='Omega')
+            M      = Mapping('mapping_0',dim=2)
+            domain = M(Square(name='Omega'))
             mappings = {'Omega': mapping}
             ncells   = {'Omega':mapping.space.domain_decomposition.ncells}
             periodic = {'Omega':mapping.space.domain_decomposition.periods}
@@ -131,7 +132,8 @@ class Geometry( object ):
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
         elif mapping.ldim == 3:
-            domain = Cube(name='Omega')
+            M      = Mapping('mapping_0',dim=3)
+            domain = M(Cube(name='Omega'))
             mappings = {'Omega': mapping}
             ncells   = {'Omega':mapping.space.domain_decomposition.ncells}
             periodic = {'Omega':mapping.space.domain_decomposition.periods}
