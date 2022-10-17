@@ -46,6 +46,10 @@ class NdarrayVector( Vector ):
             raise ValueError(data)
 
     @property
+    def copy( self ):
+        return NdarrayVector(self._space, self._data)
+
+    @property
     def data( self ):
         return self._data
 

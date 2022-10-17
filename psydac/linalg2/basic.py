@@ -77,9 +77,9 @@ class Vector( metaclass=ABCMeta ):
     # def toarray( self, **kwargs ):
     #     """ Convert to Numpy 1D array. """
 
-    # @abstractmethod
-    # def copy( self ):
-    #     pass
+    @abstractmethod
+    def copy( self ):
+        pass
 
     @abstractmethod
     def __neg__( self ):
@@ -174,6 +174,9 @@ class LinearOperator( metaclass=ABCMeta ):
     def __matmul__( self, B ):
         return CompLinearOperator(B.domain, self._codomain, self, B)
 
+    def __pow__( self, n ):
+        return PowLinearOperator(self._domain, self._codomain, self, n)
+
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
@@ -194,7 +197,7 @@ class SumLinearOperator( LinearOperator ):
             return super().__new__(cls)
     
     def __init__( self, domain, codomain, *args ):
-        
+
         assert isinstance(domain, VectorSpace)
         assert isinstance(codomain, VectorSpace)
         for a in args:
@@ -250,8 +253,6 @@ class CompLinearOperator( LinearOperator ):
         assert args[0].codomain == codomain
         assert args[-1].domain == domain
 
-        #length = len(args)
-        #for i in range(length-1):
         for i in range(len(args)-1):
             assert args[i].domain == args[i+1].codomain
 
@@ -262,12 +263,9 @@ class CompLinearOperator( LinearOperator ):
             else:
                 multiplicants = (*multiplicants, a)
 
-        length = len(multiplicants) # new!
         self._domain = domain
         self._codomain = codomain
         self._multiplicants = multiplicants
-        #self._matrix = None
-        #self._length = length
 
     @property
     def domain( self ):
@@ -295,8 +293,8 @@ class CompLinearOperator( LinearOperator ):
 
 #===============================================================================
 class ScalLinearOperator( LinearOperator ):
-
     def __init__( self, domain, codomain, c, A ):
+
         assert np.isscalar(c)
         assert isinstance(A, LinearOperator)
         assert domain == A.domain
@@ -338,6 +336,64 @@ class ScalLinearOperator( LinearOperator ):
         assert isinstance(v, Vector)
         assert v.space == self._domain        
         return self._operator.dot(v) * self._scalar
+
+#===============================================================================
+class PowLinearOperator( LinearOperator ):
+    def __new__( cls, domain, codomain, A, n ):
+
+        assert isinstance(n, int)
+        assert n >= 0
+
+        assert isinstance(A, LinearOperator)       
+        assert A.domain == domain
+        assert A.codomain == codomain
+        assert domain == codomain
+
+        if n == 0:
+            return IdOperator(domain, codomain)
+        elif n == 1:
+            return A
+        else:
+            return super().__new__(cls)
+    
+    def __init__( self, domain, codomain, A, n ):
+
+        if isinstance(A, PowLinearOperator):
+            self._operator = A.operator
+            self._factorial = A.factorial*n
+        else:
+            self._operator = A
+            self._factorial = n
+        self._domain = domain
+        self._codomain = codomain
+
+    @property
+    def domain( self ):
+        return self._domain
+
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    @property
+    def dtype( self ):
+        return None
+
+    @property
+    def operator( self ):
+        return self._operator
+
+    @property
+    def factorial( self ):
+        return self._factorial
+
+    def dot( self, v ):
+        assert isinstance(v, Vector)
+        assert v.space == self._domain
+        out = v.copy
+        for i in range(self._factorial):
+            out = self._operator.dot(out)
+        return out
 
 #===============================================================================
 class ZeroOperator( LinearOperator ):

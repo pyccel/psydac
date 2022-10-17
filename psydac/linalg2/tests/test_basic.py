@@ -26,6 +26,7 @@ if __name__ == "__main__":
 
     print('3. Creating LOs from V->W without matrix representation:')
     Z = ZeroOperator(domain=V, codomain=W)
+    Z2 = ZeroOperator(domain=V, codomain=V)
     I1 = IdOperator(V,V)
     I2 = IdOperator(W,W)
     print('Sucessfully created three LOs without matrix representation, namely two IdOperator and one ZeroOperator.')
@@ -63,3 +64,26 @@ if __name__ == "__main__":
     print(y2.data)
     print(y2._data==np.array([20,20,44],dtype=float))
     print()
+
+    print('6. Testing PowLinearOperator:')
+    P1 = F ** 2
+    P2 = F ** 1
+    P3 = F ** 0
+    P4 = I1 ** 2
+    P5 = I1 ** 1
+    P6 = I1 ** 0
+    P7 = Z2 ** 2
+    P8 = Z2 ** 1
+    P9 = Z2 ** 0
+    print('Successfully created PowLinearOperators using factorials 0, 1 and 2 of a matrix represented LO as well as an IdLO and a ZeroLO')
+    print('Checking for right implementation:')
+    print()
+    print(P1.dot(v).data == -v.data)
+    print(P2.dot(v).data == np.array([1, -1], dtype=float))
+    print(P3.dot(v).data == v.data)
+    print(P4.dot(v).data == v.data)
+    print(P5.dot(v).data == v.data)
+    print(P6.dot(v).data == v.data)
+    print(P7.dot(v).data == V.zeros().data)
+    print(P8.dot(v).data == V.zeros().data)
+    print(P9.dot(v).data == np.ones(2, dtype=float))
