@@ -3,9 +3,9 @@
 # Copyright 2018 Yaman Güçlü, Jalal Lakhlili
 
 from abc   import ABCMeta, abstractmethod
-from numpy import ndarray
+import numpy as np
 
-__all__ = ['VectorSpace', 'Vector', 'LinearOperator']
+__all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'SumLinearOperator', 'CompLinearOperator', 'ScalLinearOperator', 'ZeroOperator', 'IdOperator', ]
 
 #===============================================================================
 class VectorSpace( metaclass=ABCMeta ):
@@ -64,6 +64,11 @@ class Vector( metaclass=ABCMeta ):
     def dtype( self ):
         pass
 
+    @property
+    @abstractmethod
+    def data( self ):
+        pass
+
     @abstractmethod
     def dot( self, v ):
         pass
@@ -76,9 +81,9 @@ class Vector( metaclass=ABCMeta ):
     # def copy( self ):
     #     pass
 
-    # @abstractmethod
-    # def __neg__( self ):
-    #     pass
+    @abstractmethod
+    def __neg__( self ):
+        pass
 
     @abstractmethod
     def __mul__( self, a ):
@@ -92,21 +97,21 @@ class Vector( metaclass=ABCMeta ):
     def __add__( self, v ):
         pass
 
-    # @abstractmethod
-    # def __sub__( self, v ):
-    #     pass
+    @abstractmethod
+    def __sub__( self, v ):
+        pass
 
-    # @abstractmethod
-    # def __imul__( self, a ):
-    #     pass
+    @abstractmethod
+    def __imul__( self, a ):
+        pass
 
-    # @abstractmethod
-    # def __iadd__( self, v ):
-    #     pass
+    @abstractmethod
+    def __iadd__( self, v ):
+        pass
 
-    # @abstractmethod
-    # def __isub__( self, v ):
-    #     pass
+    @abstractmethod
+    def __isub__( self, v ):
+        pass
 
     #-------------------------------------
     # Methods with default implementation
@@ -118,7 +123,6 @@ class Vector( metaclass=ABCMeta ):
         self *= 1.0 / a
         return self
 
-
 #===============================================================================
 class LinearOperator( metaclass=ABCMeta ):
     """
@@ -129,7 +133,6 @@ class LinearOperator( metaclass=ABCMeta ):
     @property
     def shape( self ):
         return (self.codomain.dimension, self.domain.dimension)
-    # makes more sense in this order?
 
     #-------------------------------------
     # Deferred methods
@@ -153,9 +156,23 @@ class LinearOperator( metaclass=ABCMeta ):
     def dot( self, v, out=None ):
         pass
 
-    @abstractmethod
     def __add__( self, B ):
-        pass
+        return SumLinearOperator(self._domain, self._codomain, self, B)
+
+    def __mul__( self, c ):
+        assert np.isscalar(c)
+        if c==0:
+            return ZeroOperator(self._domain, self._codomain)
+        elif c == 1:
+            return self
+        else:
+            return ScalLinearOperator(self._domain, self._codomain, c, self)
+
+    def __rmul__( self, c ):
+        return self * c
+
+    def __matmul__( self, B ):
+        return CompLinearOperator(B.domain, self._codomain, self, B)
 
     #-------------------------------------
     # Methods with default implementation
@@ -167,3 +184,212 @@ class LinearOperator( metaclass=ABCMeta ):
         assert isinstance(out.space, self.codomain)
         out += self.dot(v)
 
+#===============================================================================
+class SumLinearOperator( LinearOperator ):
+    def __new__( cls, domain, codomain, *args ):
+
+        if len(args) == 0:
+            return ZeroOperator(domain,codomain)
+        else:
+            return super().__new__(cls)
+    
+    def __init__( self, domain, codomain, *args ):
+        
+        assert isinstance(domain, VectorSpace)
+        assert isinstance(codomain, VectorSpace)
+        for a in args:
+            assert isinstance(a, LinearOperator)
+            assert a.domain == domain
+            assert a.codomain == codomain
+
+        addends = ()
+        for a in args:
+            if isinstance(a, SumLinearOperator):
+                addends = (*addends, *a.addends)
+            else:
+                addends = (*addends, a)
+
+        self._domain = domain
+        self._codomain = codomain
+        self._addends = addends
+    
+    @property
+    def domain( self ):
+        return self._domain
+
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    @property
+    def addends( self ):
+        return self._addends
+
+    @property
+    def dtype( self ):
+        return None
+
+    def dot( self, v ):
+        assert isinstance(v, Vector)
+        assert v.space == self._domain
+
+        out = self._codomain.zeros()
+        for a in self._addends:
+            out += a.dot(v)
+        return out
+
+#===============================================================================
+class CompLinearOperator( LinearOperator ):
+    def __init__( self, domain, codomain, *args ):
+
+        assert isinstance(domain, VectorSpace)
+        assert isinstance(codomain, VectorSpace)
+        
+        for a in args:
+            assert isinstance(a, LinearOperator)
+        assert args[0].codomain == codomain
+        assert args[-1].domain == domain
+
+        #length = len(args)
+        #for i in range(length-1):
+        for i in range(len(args)-1):
+            assert args[i].domain == args[i+1].codomain
+
+        multiplicants = ()
+        for a in args:
+            if isinstance(a, CompLinearOperator):
+                multiplicants = (*multiplicants, *a.multiplicants)
+            else:
+                multiplicants = (*multiplicants, a)
+
+        length = len(multiplicants) # new!
+        self._domain = domain
+        self._codomain = codomain
+        self._multiplicants = multiplicants
+        #self._matrix = None
+        #self._length = length
+
+    @property
+    def domain( self ):
+        return self._domain
+
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    @property
+    def multiplicants( self ):
+        return self._multiplicants
+
+    @property
+    def dtype( self ):
+        return None
+
+    def dot( self, v ):
+        assert isinstance(v,Vector)
+        assert v.space == self._domain
+        out = self._multiplicants[-1].dot(v)
+        for i in range(1,len(self._multiplicants)):
+            out = self._multiplicants[-1-i].dot(out)
+        return out
+
+#===============================================================================
+class ScalLinearOperator( LinearOperator ):
+
+    def __init__( self, domain, codomain, c, A ):
+        assert np.isscalar(c)
+        assert isinstance(A, LinearOperator)
+        assert domain == A.domain
+        assert codomain == A.codomain
+
+        if isinstance(A,ScalLinearOperator):
+            scalar = A.scalar*c
+            operator = A.operator
+        else:
+            scalar = c
+            operator = A
+
+        self._operator = operator
+        self._scalar = scalar
+        self._domain = domain
+        self._codomain = codomain
+
+    @property
+    def domain( self ):
+        return self._domain
+
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    @property
+    def scalar( self ):
+        return self._scalar
+
+    @property
+    def operator( self ):
+        return self._operator
+
+    @property
+    def dtype( self ):
+        return None
+
+    def dot( self, v ):
+        assert isinstance(v, Vector)
+        assert v.space == self._domain        
+        return self._operator.dot(v) * self._scalar
+
+#===============================================================================
+class ZeroOperator( LinearOperator ):
+    def __init__(self, domain=None, codomain=None ):
+
+        assert isinstance(domain, VectorSpace)
+        assert isinstance(codomain, VectorSpace)
+
+        self._domain = domain
+        self._codomain = codomain
+
+    @property
+    def domain( self ):
+        return self._domain
+
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    @property
+    def dtype( self ):
+        return None
+
+    def dot( self, v ):
+        assert isinstance(v, Vector)
+        assert v.space == self._domain
+        return self._codomain.zeros()
+
+#===============================================================================
+class IdOperator( LinearOperator ):
+    def __init__(self, domain=None, codomain=None ):
+
+        assert isinstance(domain, VectorSpace)
+        assert isinstance(codomain, VectorSpace)
+        assert domain == codomain
+
+        self._domain = domain
+        self._codomain = domain
+
+    @property
+    def domain( self ):
+        return self._domain
+
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    @property
+    def dtype( self ):
+        return None
+
+    def dot( self, v ):
+        assert isinstance(v, Vector)
+        assert v.space == self._domain
+        return v

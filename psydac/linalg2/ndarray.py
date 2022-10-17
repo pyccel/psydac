@@ -1,7 +1,4 @@
-from abc   import ABCMeta, abstractmethod
-
 import numpy as np
-from numpy import ndarray
 
 from psydac.linalg2.basic import VectorSpace, Vector, LinearOperator
 
@@ -12,6 +9,7 @@ class NdarrayVectorSpace( VectorSpace ):
     space of real ndarrays, dtype only allowing float right now
     """
     def __init__( self, dim, dtype=float ):
+        assert np.isscalar(dim)
         self._dim = dim
         self._dtype = dtype
 
@@ -33,6 +31,7 @@ class NdarrayVectorSpace( VectorSpace ):
 class NdarrayVector( Vector ):
     def __init__( self, space, data=None ):
         
+        assert isinstance(space, NdarrayVectorSpace)
         self._space = space        
 
         if data is None:
@@ -47,30 +46,57 @@ class NdarrayVector( Vector ):
             raise ValueError(data)
 
     @property
+    def data( self ):
+        return self._data
+
+    @property
     def space( self ):
         return self._space
 
     @property
     def dtype( self ):
-        return self._dtype
+        return self.space.dtype
 
     def dot( self, v ):
         assert isinstance(v, NdarrayVector), f"v is not a NdarrayVector"
         assert self.space is v.space, f"v and self dont belong to the same space"
-        return np.dot(self._data, v._data)
+        return np.dot(self._data, v.data)
 
     def __mul__( self, a ):
         assert np.isscalar(a), f"a is not a scalar"
         return NdarrayVector(space=self._space, data=np.multiply(self._data,a))
 
     def __rmul__( self, a ):
-        assert np.isscalar(a), f"a is not a scalar"
-        return NdarrayVector(space=self._space, data=np.multiply(self._data,a))
+        return self * a
+
+    def __imul__( self, a ):
+        self = self * a
+        return self    
 
     def __add__( self, v ):
         assert isinstance(v, NdarrayVector), f"v is not NdarrayVector"
         assert self.space is v.space, f"v space is not self space"
-        return NdarrayVector(space=self._space, data=self._data+v._data)
+        return NdarrayVector(space = self._space, data = self._data + v.data)
+
+    def __iadd__( self, v ):
+        assert isinstance(v, NdarrayVector), f"v is not NdarrayVector"
+        assert self.space is v.space, f"v space is not self space"
+        self._data += v.data
+        return self
+
+    def __neg__( self ):
+        return self * (-1)
+
+    def __sub__(self, v ):
+        assert isinstance(v, NdarrayVector)
+        assert self.space is v.space
+        return NdarrayVector(space = self._space, data = self._data - v.data)
+
+    def __isub__(self, v ):
+        assert isinstance(v, NdarrayVector)
+        assert self.space is v.space
+        self._data -= v.data
+        return self
 
 
 class NdarrayLinearOperator( LinearOperator ):
@@ -85,8 +111,7 @@ class NdarrayLinearOperator( LinearOperator ):
         else:
             self._codomain = domain
         if matrix is not None:
-            assert np.shape(matrix)[1] == self._domain.dimension
-            assert np.shape(matrix)[0] == self._codomain.dimension
+            assert np.shape(matrix) == (self._codomain.dimension, self._domain.dimension)
             self._matrix = matrix
             self._dtype = matrix.dtype
         else:
@@ -104,11 +129,15 @@ class NdarrayLinearOperator( LinearOperator ):
         return self._codomain
 
     @property
+    def matrix( self ):
+        return self._matrix
+
+    @property
     def dtype( self ):
         if self._matrix is not None:
             return self._dtype
         else:
-            raise NotImplementedError('Class does not provide a dtype method without a matrix')
+            raise NotImplementedError('Class does not provide a dtype method without a matrix')    
 
     def dot( self, v ):
         assert isinstance(v, NdarrayVector)
@@ -117,45 +146,3 @@ class NdarrayLinearOperator( LinearOperator ):
             return NdarrayVector(space=self._codomain, data=np.dot(self._matrix,v._data))
         else:
             raise NotImplementedError('Class does not provide a dot() method without a matrix')
-
-    def __add__( self, B ):
-        from psydac.linalg2.expr import SumLinearOperator
-        return SumLinearOperator(self,B)
-
-    def __matmul__( self, B ):
-        from psydac.linalg2.expr import ConvLinearOperator
-        return ConvLinearOperator(self,B)
-
-    def __mul__( self, c ):
-        from psydac.linalg2.expr import ZeroOperator, ScalLinearOperator
-        assert np.isscalar(c)
-        if c==0:
-            return ZeroOperator(domain=self._domain, codomain=self._codomain)
-        elif c == 1:
-            return self
-        else:
-            return ScalLinearOperator(c, self)
-
-    def __rmul__( self, c ):
-        from psydac.linalg2.expr import ZeroOperator, ScalLinearOperator
-        assert np.isscalar(c)
-        if c==0:
-            return ZeroOperator(domain=self._domain, codomain=self._codomain)
-        elif c == 1:
-            return self
-        else:
-            return ScalLinearOperator(c, self)
-
-    #-------------------------------------
-    # Methods with default implementation
-    #-------------------------------------
-    def idot( self, v, out ):
-        assert isinstance(v, NdarrayVector)
-        assert v.space == self._domain
-        if out is not None:
-            assert isinstance(out, NdarrayVector)
-            assert out.space == self._codomain
-            out += self.dot(v)
-            return out
-        else:
-            return self.dot(v)
