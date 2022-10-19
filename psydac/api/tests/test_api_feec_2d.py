@@ -192,16 +192,22 @@ def update_plot(fig, t, x, y, field_h, field_ex):
 #==============================================================================
 # SIMULATION
 #==============================================================================
-def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
+def run_maxwell_2d_TE(*, use_spline_mapping,
+        eps, ncells, degree, periodic,
+        Cp, nsteps, tend,
         splitting_order, plot_interval, diagnostics_interval, tol, verbose):
+
+    import os
 
     import numpy as np
     import matplotlib.pyplot as plt
     from mpi4py          import MPI
     from scipy.integrate import dblquad
 
+    from sympde.topology import Domain
     from sympde.topology import Square
     from sympde.topology import Mapping
+    from sympde.topology import CallableMapping
 #    from sympde.topology import CollelaMapping2D
     from sympde.topology import Derham
     from sympde.topology import elements_of
@@ -214,6 +220,7 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
     from psydac.feec.pull_push     import push_2d_hcurl, push_2d_l2
     from psydac.utilities.utils    import refine_array_1d
+    from psydac.mapping.discrete   import SplineMapping, NurbsMapping
 
     #--------------------------------------------------------------------------
     # Problem setup
@@ -243,20 +250,33 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Analytical objects: SymPDE
     #--------------------------------------------------------------------------
 
-    # Logical domain is unit square [0, 1] x [0, 1]
-    logical_domain = Square('Omega')
+    if use_spline_mapping:
 
-    # Mapping and physical domain
-    class CollelaMapping2D(Mapping):
+        try:
+            mesh_dir = os.environ['PSYDAC_MESH_DIR']
+        except KeyError:
+            base_dir = os.path.dirname(os.path.realpath(__file__))
+            mesh_dir = os.path.join(base_dir, '..', '..', '..', 'mesh')
 
-        _ldim = 2
-        _pdim = 2
-        _expressions = {'x': 'a * (x1 + eps / (2*pi) * sin(2*pi*x1) * sin(2*pi*x2))',
-                        'y': 'b * (x2 + eps / (2*pi) * sin(2*pi*x1) * sin(2*pi*x2))'}
+        filename = os.path.join(mesh_dir, 'collela_2d.h5')
+        domain   = Domain.from_file(filename)
+        mapping  = domain.mapping
 
-#    mapping = CollelaMapping2D('M', k1=1, k2=1, eps=eps)
-    mapping = CollelaMapping2D('M', a=a, b=b, eps=eps)
-    domain  = mapping(logical_domain)
+    else:
+        # Logical domain is unit square [0, 1] x [0, 1]
+        logical_domain = Square('Omega')
+
+        # Mapping and physical domain
+        class CollelaMapping2D(Mapping):
+
+            _ldim = 2
+            _pdim = 2
+            _expressions = {'x': 'a * (x1 + eps / (2*pi) * sin(2*pi*x1) * sin(2*pi*x2))',
+                            'y': 'b * (x2 + eps / (2*pi) * sin(2*pi*x1) * sin(2*pi*x2))'}
+
+    #    mapping = CollelaMapping2D('M', k1=1, k2=1, eps=eps)
+        mapping = CollelaMapping2D('M', a=a, b=b, eps=eps)
+        domain  = mapping(logical_domain)
 
     # DeRham sequence
     derham = Derham(domain, sequence=['h1', 'hcurl', 'l2'])
@@ -279,9 +299,30 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Discrete objects: Psydac
     #--------------------------------------------------------------------------
 
-    # Discrete physical domain and discrete DeRham sequence
-    domain_h = discretize(domain, ncells=[ncells, ncells], periodic=[periodic, periodic], comm=MPI.COMM_WORLD)
-    derham_h = discretize(derham, domain_h, degree=[degree, degree])
+    if use_spline_mapping:
+        domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD)
+        derham_h = discretize(derham, domain_h)
+
+        periodic_list = mapping.get_callable_mapping().space.periodic
+        degree_list   = mapping.get_callable_mapping().space.degree
+
+        # Determine if periodic boundary conditions should be used
+        if all(periodic_list):
+            periodic = True
+        elif not any(periodic_list):
+            periodic = False
+        else:
+            raise ValueError('Cannot handle periodicity along one direction only')
+
+        # Enforce same degree along x1 and x2
+        degree = degree_list[0]
+        if degree != degree_list[1]:
+            raise ValueError('Cannot handle different degrees in the two directions')
+
+    else:
+        # Discrete physical domain and discrete DeRham sequence
+        domain_h = discretize(domain, ncells=[ncells, ncells], periodic=[periodic, periodic], comm=MPI.COMM_WORLD)
+        derham_h = discretize(derham, domain_h, degree=[degree, degree])
 
     # Discrete bilinear forms
     a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
@@ -310,7 +351,13 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     grid_x1 = derham_h.V0.breaks[0]
     grid_x2 = derham_h.V0.breaks[1]
 
-    grid_x, grid_y = F(*np.meshgrid(grid_x1, grid_x2, indexing='ij'))
+    # TODO: fix for spline mapping
+    if isinstance(F, (SplineMapping, NurbsMapping)):
+        grid_x, grid_y = F.build_mesh([grid_x1, grid_x2])
+    elif isinstance(F, CallableMapping):
+        grid_x, grid_y = F(*np.meshgrid(grid_x1, grid_x2, indexing='ij'))
+    else:
+        raise TypeError(F)
 
     #--------------------------------------------------------------------------
     # Time integration setup
@@ -367,11 +414,15 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
     # Very fine grids for evaluation of solution
     N = 5
-    x1 = refine_array_1d(grid_x1, N)
-    x2 = refine_array_1d(grid_x2, N)
+    x1_a = refine_array_1d(grid_x1, N)
+    x2_a = refine_array_1d(grid_x2, N)
 
-    x1, x2 = np.meshgrid(x1, x2, indexing='ij')
-    x, y = F(x1, x2)
+    x1, x2 = np.meshgrid(x1_a, x2_a, indexing='ij')
+
+    if use_spline_mapping:
+        x, y = F.build_mesh([x1_a, x2_a])
+    else:
+        x, y = F(x1, x2)
 
     gridlines_x1 = (x[:, ::N],   y[:, ::N]  )
     gridlines_x2 = (x[::N, :].T, y[::N, :].T)
@@ -386,7 +437,12 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
         # Plot physical grid and mapping's metric determinant
         fig1, ax1 = plt.subplots(1, 1, figsize=(8, 6))
-        im = ax1.contourf(x, y, np.sqrt(F.metric_det(x1, x2)))
+
+        if use_spline_mapping:
+            im = ax1.contourf(x, y, F.jac_det_grid([x1_a, x2_a]))
+        else:
+            im = ax1.contourf(x, y, np.sqrt(F.metric_det(x1, x2)))
+
         add_colorbar(im, ax1, label=r'Metric determinant $\sqrt{g}$ of mapping $F$')
         ax1.plot(*gridlines_x1, color='k')
         ax1.plot(*gridlines_x2, color='k')
@@ -662,6 +718,41 @@ def test_maxwell_2d_dirichlet():
     assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
     assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
 
+
+def test_maxwell_2d_dirichlet_spline_mapping():
+
+    namespace = run_maxwell_2d_TE(
+        use_spline_mapping = True,
+        eps      = None,
+        ncells   = None,
+        degree   = None,
+        periodic = None,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        verbose = False
+    )
+
+    TOL = 1e-6
+    ref = dict(error_Ex = 0.11197875072599534,
+               error_Ey = 0.11197875071916191,
+               error_Bz = 0.09616100464412525)
+
+    print()
+    print(namespace['error_Ex'])
+    print(namespace['error_Ey'])
+    print(namespace['error_Bz'])
+    print()
+
+    assert abs(namespace['error_Ex'] - ref['error_Ex']) / ref['error_Ex'] <= TOL
+    assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
+    assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
+
+
 @pytest.mark.parallel
 def test_maxwell_2d_periodic_par():
 
@@ -728,46 +819,56 @@ if __name__ == '__main__':
         description = "Solve 2D Maxwell's equations in rectangular cavity with spline FEEC method."
     )
 
-    parser.add_argument('ncells',
-        type = int,
-        help = 'Number of cells in domain'
+    parser.add_argument('-s', '--spline',
+        action = 'store_true',
+        dest = 'use_spline_mapping',
+        help = 'Use spline mapping from geometry file "collela_2d.h5"'
     )
 
-    parser.add_argument('degree',
-        type = int,
-        help = 'Polynomial spline degree'
+    # ...
+    disc_group = parser.add_argument_group('Discretization and geometry parameters (ignored for spline mapping)')
+    disc_group.add_argument('-n',
+        type    = int,
+        default = 10,
+        dest    = 'ncells',
+        help    = 'Number of cells in domain '
     )
-
-    parser.add_argument( '-P', '--periodic',
+    disc_group.add_argument('-d',
+        type    = int,
+        default = 3,
+        dest    = 'degree',
+        help    = 'Polynomial spline degree'
+    )
+    disc_group.add_argument( '-P', '--periodic',
         action  = 'store_true',
         help    = 'Use periodic boundary conditions'
     )
-
-    parser.add_argument('-o', '--splitting_order',
-        type    = int,
-        default = 2,
-        choices = [2, 4, 6],
-        help    = 'Order of accuracy of operator splitting'
-    )
-
-    parser.add_argument( '-e',
+    disc_group.add_argument( '-e',
         type    = float,
         default = 0.25,
         dest    = 'eps',
         metavar = 'EPS',
         help    = 'Deformation level (0 <= EPS < 1)'
     )
+    # ...
 
-    parser.add_argument( '-c',
+    # ...
+    time_group = parser.add_argument_group('Time integration options')
+    time_group.add_argument('-o',
+        type    = int,
+        default = 2,
+        dest    = 'splitting_order',
+        choices = [2, 4, 6],
+        help    = 'Order of accuracy of operator splitting'
+    )
+    time_group.add_argument( '-c',
         type    = float,
         default = 0.5,
         dest    = 'Cp',
         metavar = 'Cp',
         help    = 'Courant parameter on uniform grid'
     )
-
-    # ...
-    time_opts = parser.add_mutually_exclusive_group()
+    time_opts = time_group.add_mutually_exclusive_group()
     time_opts.add_argument( '-t',
         type    = int,
         default = 1,
@@ -783,32 +884,37 @@ if __name__ == '__main__':
     )
     # ...
 
-    parser.add_argument( '-p',
+    # ...
+    out_group = parser.add_argument_group('Output options')
+    out_group.add_argument( '-p',
         type    = int,
         default = 4,
         metavar = 'I',
         dest    = 'plot_interval',
         help    = 'No. of time steps between successive plots of solution, if I=0 no plots are made'
     )
-
-    parser.add_argument( '-d',
+    out_group.add_argument( '-D',
         type    = int,
         default = 1,
         metavar = 'I',
         dest    = 'diagnostics_interval',
         help    = 'No. of time steps between successive calculations of scalar diagnostics, if I=0 no diagnostics are computed'
     )
+    # ...
 
-    parser.add_argument( '--tol',
+    # ...
+    solver_group = parser.add_argument_group('Iterative solver')
+    solver_group.add_argument( '--tol',
         type    = float,
         default = 1e-7,
         help    = 'Tolerance for iterative solver (L2-norm of residual)'
     )
 
-    parser.add_argument( '-v', '--verbose',
+    solver_group.add_argument( '-v', '--verbose',
         action  = 'store_true',
         help    = 'Print convergence information of iterative solver'
     )
+    # ...
 
     # Read input arguments
     args = parser.parse_args()
