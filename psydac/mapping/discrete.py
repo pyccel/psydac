@@ -140,6 +140,10 @@ class SplineMapping(BasicCallableMapping):
         return np.array([map_Xd.gradient(*eta) for map_Xd in self._fields])
 
     # ...
+    def jacobian_inv(self, *eta):
+        return np.linalg.inv(self.jacobian(*eta))
+
+    # ...
     def metric(self, *eta):
         J = self.jacobian(*eta)
         return np.dot(J.T, J)
