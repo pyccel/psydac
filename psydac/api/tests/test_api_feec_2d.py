@@ -668,6 +668,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 def test_maxwell_2d_periodic():
 
     namespace = run_maxwell_2d_TE(
+        use_spline_mapping = False,
         eps      = 0.5,
         ncells   = 12,
         degree   = 3,
@@ -695,6 +696,7 @@ def test_maxwell_2d_periodic():
 def test_maxwell_2d_dirichlet():
 
     namespace = run_maxwell_2d_TE(
+        use_spline_mapping = False,
         eps      = 0.5,
         ncells   = 10,
         degree   = 5,
@@ -742,12 +744,6 @@ def test_maxwell_2d_dirichlet_spline_mapping():
                error_Ey = 0.11197875071916191,
                error_Bz = 0.09616100464412525)
 
-    print()
-    print(namespace['error_Ex'])
-    print(namespace['error_Ey'])
-    print(namespace['error_Bz'])
-    print()
-
     assert abs(namespace['error_Ex'] - ref['error_Ex']) / ref['error_Ex'] <= TOL
     assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
     assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
@@ -757,6 +753,7 @@ def test_maxwell_2d_dirichlet_spline_mapping():
 def test_maxwell_2d_periodic_par():
 
     namespace = run_maxwell_2d_TE(
+        use_spline_mapping = False,
         eps      = 0.5,
         ncells   = 12,
         degree   = 3,
@@ -784,6 +781,7 @@ def test_maxwell_2d_periodic_par():
 def test_maxwell_2d_dirichlet_par():
 
     namespace = run_maxwell_2d_TE(
+        use_spline_mapping = False,
         eps      = 0.5,
         ncells   = 10,
         degree   = 5,
