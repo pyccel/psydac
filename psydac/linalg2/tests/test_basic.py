@@ -1,7 +1,8 @@
 import numpy as np
 
+from psydac.linalg2.direct_solvers import BandedSolver
 from psydac.linalg2.ndarray import NdarrayVectorSpace, NdarrayVector, NdarrayLinearOperator
-from psydac.linalg2.basic import ZeroOperator, IdOperator
+from psydac.linalg2.basic import ZeroOperator, IdentityOperator
 
 #===============================================================================
 if __name__ == "__main__":
@@ -19,6 +20,8 @@ if __name__ == "__main__":
     print('2. Creating LOs from V->W with matrix representation:')
     a = np.array([[1,0],[0,1],[1,1]], dtype=float)
     b = np.array([[0,2],[2,0],[3,3]], dtype=float)
+    sh = np.array([[1,1],[2,0],[0,1]], dtype=float)
+    Sh = NdarrayLinearOperator(domain=V, codomain=W, matrix=sh)
     A = NdarrayLinearOperator(domain=V, codomain=W, matrix=a)
     B = NdarrayLinearOperator(domain=V, codomain=W, matrix=b)
     print('Successfully created LOs A and B, matrix.dimesion = (3,2).')
@@ -27,9 +30,11 @@ if __name__ == "__main__":
     print('3. Creating LOs from V->W without matrix representation:')
     Z = ZeroOperator(domain=V, codomain=W)
     Z2 = ZeroOperator(domain=V, codomain=V)
-    I1 = IdOperator(V,V)
-    I2 = IdOperator(W,W)
-    print('Sucessfully created three LOs without matrix representation, namely two IdOperator and one ZeroOperator.')
+    I1 = IdentityOperator(V,V)
+    I2 = IdentityOperator(W,W)
+    bmat = np.array([[0,1,1], [1,1,1], [0,0,0], [0,0,0]])
+    S = BandedSolver(W, 1, 0, bmat)
+    print('Sucessfully created five LOs without matrix representation, namely two IdentityOperators, two ZeroOperators and one LinearSolver.')
     print()
 
     print('4. Creating compositions of LOs from V->W:')
@@ -43,26 +48,48 @@ if __name__ == "__main__":
     F = NdarrayLinearOperator(domain=V, codomain=V, matrix=f)
     G = C @ D @ I1
     H = I2 @ E @ I1 @ F
-    print('Convolution LOs G and H have been successfully created, both including identity operators without matrix representation')
+    LS = S @ Sh
+    print('Convolution LOs G, H and LS have been successfully created, G and H including identity operators without matrix representation and LS a LinearSolver composition')
     print()
 
     print('5. Testing both creation of ~arbitrary~ combinations of the given operators A,B,Z,I1,I2,G,H as well as')
     print('the evaluation of such operator at v=(1,1):')
+
     print()
     T1 = 2*(A + Z + G + Z + H + B)
     print('5.1 Successfully created operator T1 = 2*(A + Z + G + Z + H + B)')
     v = NdarrayVector(space=V, data=np.ones(2,dtype=float))
     print('    Successfully created vector (1,1) of space V')
     y1 = T1.dot(v)
+
+    print()
+    ops = T1.operator.addends
+    classes = [ops[i].__class__.__name__ for i in range(len(ops))]
+    print(classes)
+    print()
+
     print('    Successfully evaluated T1.dot(v) if [ True True True]')
-    print(y1._data==np.array([10,10,22],dtype=float))
+    print(y1.data==np.array([10,10,22],dtype=float))
     print()
     T2 = 1*(T1 + 0*T1) + 2*0.5*I2 @ T1 + Z @ (I1 @ I1 + I1)  
     print('5.2 Successfully created operator T2 = 1*(T1 + 0*T1) + 2*0.5*Id2 @ T1 + Z1 @ (Id1 @ Id1 + Id1)')
     y2 = T2.dot(v)
+
+    print()
+    ops = T2.addends
+    classes = [ops[i].__class__.__name__ for i in range(len(ops))]
+    print(classes)
+    print(ops[0].scalar)
+    print(ops[0].operator.__class__.__name__)
+    print([ops[0].operator.addends[i].__class__.__name__ for i in range(len(ops[0].operator.addends))])
+    print(ops[1].scalar)
+    print(ops[1].operator.__class__.__name__)
+    print([ops[1].operator.addends[i].__class__.__name__ for i in range(len(ops[1].operator.addends))])
+    print()
+
     print('    Successfully evaluated T2.dot(v) if [ True True True]')
     print(y2.data)
-    print(y2._data==np.array([20,20,44],dtype=float))
+    print(y2.data==np.array([20,20,44],dtype=float))
     print()
 
     print('6. Testing PowLinearOperator:')
@@ -87,3 +114,14 @@ if __name__ == "__main__":
     print(P7.dot(v).data == V.zeros().data)
     print(P8.dot(v).data == V.zeros().data)
     print(P9.dot(v).data == np.ones(2, dtype=float))
+    print()
+
+    print('Testing the implementation of LinearSolvers:')
+    T3 = 2*(A + Z + G + Z + LS + H + B)
+    y3 = T3.dot(v)
+    print(y3.data == np.array([12,12,24],dtype=float))
+
+    #bmat = np.array([[0,1,1], [1,1,1], [0,0,0], [0,0,0]])
+    #S = BandedSolver(1,0,bmat)
+    #rhs = np.array([2, 2, 1])
+    #print(S.solve(rhs))

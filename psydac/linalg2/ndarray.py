@@ -1,6 +1,6 @@
 import numpy as np
 
-from psydac.linalg2.basic import VectorSpace, Vector, LinearOperator
+from psydac.linalg2.basic import VectorSpace, Vector, LinearOperator, ZeroOperator
 
 __all__ = ("NdarrayVectorSpace", "NdarrayVector", "NdarrayLinearOperator",)
 
@@ -10,6 +10,7 @@ class NdarrayVectorSpace( VectorSpace ):
     """
     def __init__( self, dim, dtype=float ):
         assert np.isscalar(dim)
+        assert dim >= 1
         self._dim = dim
         self._dtype = dtype
 
@@ -23,9 +24,6 @@ class NdarrayVectorSpace( VectorSpace ):
 
     def zeros( self ):
         return NdarrayVector(space=self)
-
-    def ones( self ):
-        return NdarrayVector(space=self, data=np.ones(self._dim, dtype=self._dtype))
 
 
 class NdarrayVector( Vector ):
@@ -46,10 +44,6 @@ class NdarrayVector( Vector ):
             raise ValueError(data)
 
     @property
-    def copy( self ):
-        return NdarrayVector(self._space, self._data)
-
-    @property
     def data( self ):
         return self._data
 
@@ -60,6 +54,10 @@ class NdarrayVector( Vector ):
     @property
     def dtype( self ):
         return self.space.dtype
+
+    def copy( self ):
+        """ Returns a copy of self. """
+        return NdarrayVector(self._space, self._data)
 
     def dot( self, v ):
         assert isinstance(v, NdarrayVector), f"v is not a NdarrayVector"
@@ -104,10 +102,26 @@ class NdarrayVector( Vector ):
 
 
 class NdarrayLinearOperator( LinearOperator ):
-    def __init__( self, domain=None, codomain=None, matrix=None ):
+    def __new__( cls, domain=None, codomain=None, matrix=None ):
 
         assert domain
-        assert isinstance(domain,NdarrayVectorSpace)
+        assert isinstance(domain, NdarrayVectorSpace)
+        if matrix is not None:
+            if codomain:
+                assert isinstance(codomain, NdarrayVectorSpace)
+                assert np.shape(matrix) == (codomain.dimension, domain.dimension)
+                if (matrix == np.zeros((codomain.dimension, domain.dimension))).all():
+                    return ZeroOperator(domain=domain, codomain=codomain)
+            else:
+                assert np.shape(matrix) == (domain.dimension, domain.dimension)
+                if (matrix == np.zeros((domain.dimension, domain.dimension))).all():
+                    return ZeroOperator(domain=domain, codomain=domain)
+        return super().__new__(cls)
+
+    def __init__( self, domain=None, codomain=None, matrix=None ):
+
+        #assert domain
+        #assert isinstance(domain,NdarrayVectorSpace)
         self._domain = domain
         if codomain:
             assert isinstance(codomain,NdarrayVectorSpace)
@@ -115,7 +129,7 @@ class NdarrayLinearOperator( LinearOperator ):
         else:
             self._codomain = domain
         if matrix is not None:
-            assert np.shape(matrix) == (self._codomain.dimension, self._domain.dimension)
+            #assert np.shape(matrix) == (self._codomain.dimension, self._domain.dimension)
             self._matrix = matrix
             self._dtype = matrix.dtype
         else:
@@ -150,3 +164,12 @@ class NdarrayLinearOperator( LinearOperator ):
             return NdarrayVector(space=self._codomain, data=np.dot(self._matrix,v._data))
         else:
             raise NotImplementedError('Class does not provide a dot() method without a matrix')
+
+    def __add__( self, B ):
+        assert isinstance(B, LinearOperator)
+        if isinstance(B, NdarrayLinearOperator):
+            assert self._domain == B.domain
+            assert self._codomain == B.codomain
+            return NdarrayLinearOperator(domain=self._domain, codomain=self._codomain, matrix=self._matrix+B.matrix)
+        else:
+            return super().__add__(B)
