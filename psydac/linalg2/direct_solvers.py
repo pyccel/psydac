@@ -2,14 +2,12 @@
 # Copyright 2018 Jalal Lakhlili, Yaman Güçlü
 
 from abc                 import abstractmethod
-from numpy               import ndarray
 from scipy.linalg.lapack import dgbtrf, dgbtrs
 from scipy.sparse        import spmatrix
 from scipy.sparse.linalg import splu
 
-from psydac.linalg2.basic import VectorSpace
 from psydac.linalg2.basic import LinearSolver
-from psydac.linalg2.ndarray import NdarrayVector
+from psydac.linalg2.ndarray import NdarrayVector, NdarrayVectorSpace
 
 __all__ = ['DirectSolver', 'BandedSolver', 'SparseSolver']
 
@@ -47,10 +45,6 @@ class DirectSolver( LinearSolver ):
     def solve( self, rhs, out=None, transposed=False ):
         pass
 
-    #@abstractmethod
-    #def dot( self, rhs, out=None, transposed=False):
-    #    pass
-
 #===============================================================================
 class BandedSolver ( DirectSolver ):
     """
@@ -78,7 +72,7 @@ class BandedSolver ( DirectSolver ):
 
         self._sinfo = None
 
-        assert isinstance(space, VectorSpace)
+        assert isinstance(space, NdarrayVectorSpace)
         self._domain = space
         self._codomain = space
         self._space = space
@@ -129,7 +123,12 @@ class BandedSolver ( DirectSolver ):
         transposed : bool
             If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
         """
+        assert isinstance(rhs, NdarrayVector)
         rhs = rhs.data
+        if out is not None:
+            assert isinstance(out, NdarrayVector)
+            out = out.data
+
         assert rhs.T.shape[0] == self._bmat.shape[1]
 
         if out is None:
@@ -151,9 +150,6 @@ class BandedSolver ( DirectSolver ):
         out = NdarrayVector(self._space, data=out)
         return out
 
-    #def dot( self, rhs, out=None, transposed=False):
-    #    return self.solve(rhs, out, transposed)
-
 #===============================================================================
 class SparseSolver ( DirectSolver ):
     """
@@ -165,11 +161,14 @@ class SparseSolver ( DirectSolver ):
         Generic sparse matrix.
 
     """
-    def __init__( self, spmat ):
+    def __init__( self, space, spmat ):
 
         assert isinstance( spmat, spmatrix )
+        assert isinstance(space, NdarrayVectorSpace)
 
-        self._space = ndarray
+        self._space = space
+        self._domain = space
+        self._codomain = space
         self._splu  = splu( spmat.tocsc() )
 
     #--------------------------------------
@@ -181,11 +180,15 @@ class SparseSolver ( DirectSolver ):
 
     @property
     def domain( self ):
-        return self._space
+        return self._domain
 
     @property
     def codomain( self ):
-        return self._space
+        return self._codomain
+
+    @property
+    def dtype( self ):
+        return None
 
     #...
     def solve( self, rhs, out=None, transposed=False ):
@@ -206,7 +209,12 @@ class SparseSolver ( DirectSolver ):
         transposed : bool
             If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
         """
-        
+        assert isinstance(rhs, NdarrayVector)
+        rhs = rhs.data
+        if out is not None:
+            assert isinstance(out, NdarrayVector)
+            out = out.data        
+
         assert rhs.T.shape[0] == self._splu.shape[1]
 
         if out is None:
@@ -218,7 +226,7 @@ class SparseSolver ( DirectSolver ):
 
             # currently no in-place solve exposed
             out[:] = self._splu.solve( rhs.T, trans='T' if transposed else 'N' ).T
-
+        out = NdarrayVector(self._space, data=out)
         return out
 
     def dot( self, rhs, out=None, transposed=False):

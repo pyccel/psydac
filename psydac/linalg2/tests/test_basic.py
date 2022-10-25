@@ -1,6 +1,7 @@
 import numpy as np
+from scipy.sparse        import coo_matrix
 
-from psydac.linalg2.direct_solvers import BandedSolver
+from psydac.linalg2.direct_solvers import BandedSolver, SparseSolver
 from psydac.linalg2.ndarray import NdarrayVectorSpace, NdarrayVector, NdarrayLinearOperator
 from psydac.linalg2.basic import ZeroOperator, IdentityOperator
 
@@ -34,7 +35,12 @@ if __name__ == "__main__":
     I2 = IdentityOperator(W,W)
     bmat = np.array([[0,1,1], [1,1,1], [0,0,0], [0,0,0]])
     S = BandedSolver(W, 1, 0, bmat)
-    print('Sucessfully created five LOs without matrix representation, namely two IdentityOperators, two ZeroOperators and one LinearSolver.')
+    v = [1, 1, 1]
+    i = [0, 1, 2]
+    j = [0, 1, 2]
+    spmat = coo_matrix((v, (i,j)), shape=(3,3))
+    S2 = SparseSolver(W, spmat)
+    print('Sucessfully created six LOs without matrix representation, namely two IdentityOperators, two ZeroOperators and two LinearSolvers.')
     print()
 
     print('4. Creating compositions of LOs from V->W:')
@@ -49,7 +55,9 @@ if __name__ == "__main__":
     G = C @ D @ I1
     H = I2 @ E @ I1 @ F
     LS = S @ Sh
-    print('Convolution LOs G, H and LS have been successfully created, G and H including identity operators without matrix representation and LS a LinearSolver composition')
+    LS2 = S2 @ Sh
+
+    print('Convolution LOs G, H, LS and LS2 have been successfully created, G and H including identity operators without matrix representation and LS and LS2 as LinearSolver compositions')
     print()
 
     print('5. Testing both creation of ~arbitrary~ combinations of the given operators A,B,Z,I1,I2,G,H as well as')
@@ -117,11 +125,6 @@ if __name__ == "__main__":
     print()
 
     print('Testing the implementation of LinearSolvers:')
-    T3 = 2*(A + Z + G + Z + LS + H + B)
+    T3 = 2*(A + Z + G + Z + LS + 0.5*LS2 + H + B)
     y3 = T3.dot(v)
-    print(y3.data == np.array([12,12,24],dtype=float))
-
-    #bmat = np.array([[0,1,1], [1,1,1], [0,0,0], [0,0,0]])
-    #S = BandedSolver(1,0,bmat)
-    #rhs = np.array([2, 2, 1])
-    #print(S.solve(rhs))
+    print(y3.data == np.array([14,14,25],dtype=float))
