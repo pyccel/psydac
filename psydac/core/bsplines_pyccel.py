@@ -198,6 +198,11 @@ def basis_funs_1st_der_p(knots: 'float[:]', degree: int, x: float, span: int, ou
     ----------
     .. [2] SELALIB, Semi-Lagrangian Library. http://selalib.gforge.inria.fr
     """
+    # For degree 0, the first derivative is constant zero
+    if degree == 0:
+        out[:] = 0
+        return
+
     # Compute nonzero basis functions and knot differences for splines
     # up to degree deg-1
     values = np.zeros(degree)
