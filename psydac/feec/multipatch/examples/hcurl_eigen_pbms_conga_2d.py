@@ -20,7 +20,9 @@ from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.utilities                   import time_count
 
 def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='python', mu=1, nu=1, gamma_h=10,
-                          generalized_pbm=False, sigma=None, ref_sigmas=[], nb_eigs_solve=4, nb_eigs_plot=4, skip_eigs_threshold=None,
+                          generalized_pbm=False, sigma=None, ref_sigmas=[], nb_eigs_solve=4, 
+                          nb_eigs_plot=4, skip_eigs_threshold=None, skip_plot_titles=False,
+                          plot_components=False,
                           plot_dir=None, hide_plots=True, m_load_dir="",):
     """
     solver for the eigenvalue problem: find lambda in R and u in H0(curl), such that
@@ -184,8 +186,19 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
         # plot the broken eigenmode:
         eh_c = emode_i/norm_emode_i  # numpy coeffs of the normalized eigenmode
         params_str = 'gamma_h={}_gen={}'.format(gamma_h, generalized_pbm)
-        plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='e_{}, lambda_{}={}'.format(i,i,lambda_i),
-                    filename=plot_dir+'/'+params_str+'_e_{}.png'.format(i), hide_plot=hide_plots)
+        if skip_plot_titles:
+            title = ''
+        else:
+            title = 'e_{}, lambda_{}={}'.format(i,i,lambda_i)
+        plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title=title,
+                    filename=plot_dir+'/'+params_str+'_e_{}.pdf'.format(i), hide_plot=hide_plots)
+
+        if plot_components:
+            title = 'e_{}, lambda_{}={}'.format(i,i,lambda_i)
+            plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title=title, 
+                        plot_type='components', cmap='jet', #cb_min=-.5, cb_max=.5,
+                        filename=plot_dir+'/'+params_str+'_e_{}_xy.pdf'.format(i), hide_plot=hide_plots)
+
         # also plot the projected eigenmode:
         Peh_c = cP1_m.dot(eh_c)
         plot_field(numpy_coeffs=Peh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='P e_{}, lambda_{}={}'.format(i,i,lambda_i),

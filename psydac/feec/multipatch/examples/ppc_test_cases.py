@@ -16,18 +16,90 @@ from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.plotting_utilities          import get_plotting_grid, my_small_plot, my_small_streamplot
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 
-from psydac.feec.multipatch.utilities import sol_ref_fn, error_fn, get_method_name, get_fem_name, get_load_dir
-
 comm = MPI.COMM_WORLD
 
 
 # todo [MCP, 12/02/2022]:  add an 'equation' argument to be able to return 'exact solution'
+
+def get_phi_pulse(x_0, y_0, domain=None):
+    x,y    = domain.coordinates
+    ds2_0 = (0.02)**2
+    sigma_0 = (x-x_0)**2 + (y-y_0)**2
+    phi_0 = exp(-sigma_0**2/(2*ds2_0))
+
+    return phi_0
+
+def get_div_free_pulse(x_0, y_0, domain=None):
+    x,y    = domain.coordinates
+    ds2_0 = (0.02)**2
+    sigma_0 = (x-x_0)**2 + (y-y_0)**2
+    phi_0 = exp(-sigma_0**2/(2*ds2_0))
+    dx_sig_0 = 2*(x-x_0)
+    dy_sig_0 = 2*(y-y_0)
+    dx_phi_0 = - dx_sig_0 * sigma_0 / ds2_0 * phi_0
+    dy_phi_0 = - dy_sig_0 * sigma_0 / ds2_0 * phi_0
+    f_x    =   dy_phi_0
+    f_y    = - dx_phi_0
+    f_vect = Tuple(f_x, f_y)
+
+    return f_vect
+
+def get_curl_free_pulse(x_0, y_0, domain=None, pp=False):
+    # return -grad phi_0
+    x,y    = domain.coordinates
+    if pp:
+        # psi=phi
+        ds2_0 = (0.02)**2
+    else:
+        ds2_0 = (0.1)**2
+    sigma_0 = (x-x_0)**2 + (y-y_0)**2
+    phi_0 = exp(-sigma_0**2/(2*ds2_0))
+    dx_sig_0 = 2*(x-x_0)
+    dy_sig_0 = 2*(y-y_0)
+    dx_phi_0 = - dx_sig_0 * sigma_0 / ds2_0 * phi_0
+    dy_phi_0 = - dy_sig_0 * sigma_0 / ds2_0 * phi_0
+    f_x    = -dx_phi_0
+    f_y    = -dy_phi_0
+    f_vect = Tuple(f_x, f_y)
+
+    return f_vect
+
+def get_Delta_phi_pulse(x_0, y_0, domain=None, pp=False):
+    # return -Delta phi_0, with same phi_0 as in get_curl_free_pulse()
+    x,y    = domain.coordinates
+    if pp:
+        # psi=phi
+        ds2_0 = (0.02)**2
+    else:
+        ds2_0 = (0.1)**2
+    sigma_0 = (x-x_0)**2 + (y-y_0)**2
+    phi_0 = exp(-sigma_0**2/(2*ds2_0))
+    dx_sig_0 = 2*(x-x_0)
+    dy_sig_0 = 2*(y-y_0)
+    dxx_sig_0 = 2
+    dyy_sig_0 = 2
+    dxx_phi_0 = ((dx_sig_0 * sigma_0 / ds2_0)**2 - ((dx_sig_0)**2 + dxx_sig_0 * sigma_0)/ds2_0 ) * phi_0
+    dyy_phi_0 = ((dy_sig_0 * sigma_0 / ds2_0)**2 - ((dy_sig_0)**2 + dyy_sig_0 * sigma_0)/ds2_0 ) * phi_0
+    f    = - dxx_phi_0 - dyy_phi_0
+
+    return f
 
 def get_source_and_sol_for_magnetostatic_pbm(
     source_type=None,
     domain=None, domain_name=None,
     refsol_params=None
 ):
+    """
+    provide source, and exact solutions when available, for:
+    
+    Find u=B in H(curl) such that
+    
+        div B = 0
+        curl B = j
+
+    written as a mixed problem, see solve_magnetostatic_pbm()
+    """
+    u_ex = None  # exact solution
     x,y    = domain.coordinates
     if source_type == 'dipole_J':
         # we compute two possible source terms:
@@ -62,22 +134,170 @@ def get_source_and_sol_for_magnetostatic_pbm(
     else:
         raise ValueError(source_type)
 
-    # ref solution in V1h:
-    uh_ref = get_sol_ref_V1h(source_type, domain, domain_name, refsol_params)
+    return f_scal, f_vect, j_scal, u_ex
 
-    return f_scal, f_vect, j_scal, uh_ref
+    
+def get_source_and_solution_hcurl(
+    source_type=None, eta=0, mu=0, nu=0,
+    domain=None, domain_name=None):
+    """
+    provide source, and exact solutions when available, for:
+    
+    Find u in H(curl) such that
+    
+      A u = f             on \Omega
+      n x u = n x u_bc    on \partial \Omega
+
+    with
+
+      A u := eta * u  +  mu * curl curl u  -  nu * grad div u
+    
+    see solve_hcurl_source_pbm()
+    """
+
+    # exact solutions (if available)
+    u_ex = None
+    curl_u_ex = None
+    div_u_ex = None
+
+    # bc solution: describe the bc on boundary. Inside domain, values should not matter. Homogeneous bc will be used if None
+    u_bc = None
+
+    # source terms
+    f_vect = None
+    
+    # auxiliary term (for more diagnostics)
+    grad_phi = None
+    phi = None
+
+    x,y    = domain.coordinates
+
+    if source_type == 'manu_maxwell_inhom':
+        # used for Maxwell equation with manufactured solution
+        f_vect  = Tuple(eta*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                        eta*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+        if nu == 0:
+            u_ex  = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+            curl_u_ex = pi*(cos(pi*x)*cos(pi*y) - cos(pi*y))
+            div_u_ex = -pi*sin(pi*x)*sin(pi*y)
+        else:
+            raise NotImplementedError
+        u_bc = u_ex
+
+    elif source_type == 'elliptic_J':
+        # no manufactured solution for Maxwell pbm
+        x0 = 1.5
+        y0 = 1.5
+        s  = (x-x0) - (y-y0)
+        t  = (x-x0) + (y-y0)
+        a = (1/1.9)**2
+        b = (1/1.2)**2
+        sigma2 = 0.0121
+        tau = a*s**2 + b*t**2 - 1
+        phi = exp(-tau**2/(2*sigma2))
+        dx_tau = 2*( a*s + b*t)
+        dy_tau = 2*(-a*s + b*t)
+
+        f_x =   dy_tau * phi
+        f_y = - dx_tau * phi
+        f_vect = Tuple(f_x, f_y)
+
+    else:
+        raise ValueError(source_type)
+
+    # u_ex = Tuple(0, 1)  # DEBUG
+    return f_vect, u_bc, u_ex, curl_u_ex, div_u_ex #, phi, grad_phi
+
+def get_source_and_solution_h1(source_type=None, eta=0, mu=0,
+                            domain=None, domain_name=None):
+    """
+    provide source, and exact solutions when available, for:
+    
+    Find u in H^1, such that
+
+      A u = f             on \Omega
+        u = u_bc          on \partial \Omega
+
+    with
+
+      A u := eta * u  -  mu * div grad u
+    
+    see solve_h1_source_pbm()
+    """
+
+    # exact solutions (if available)
+    u_ex = None
+
+    # bc solution: describe the bc on boundary. Inside domain, values should not matter. Homogeneous bc will be used if None
+    u_bc = None
+
+    # source terms
+    f_scal = None
+
+    # auxiliary term (for more diagnostics)
+    grad_phi = None
+    phi = None
+
+    x,y    = domain.coordinates
+
+    if source_type in ['manu_poisson_elliptic']:
+        x0 = 1.5
+        y0 = 1.5
+        s  = (x-x0) - (y-y0)
+        t  = (x-x0) + (y-y0)
+        a = (1/1.9)**2
+        b = (1/1.2)**2
+        sigma2 = 0.0121
+        tau = a*s**2 + b*t**2 - 1
+        phi = exp(-tau**2/(2*sigma2))
+        dx_tau = 2*( a*s + b*t)
+        dy_tau = 2*(-a*s + b*t)
+        dxx_tau = 2*(a + b)
+        dyy_tau = 2*(a + b)
+
+        dx_phi = (-tau*dx_tau/sigma2)*phi
+        dy_phi = (-tau*dy_tau/sigma2)*phi
+        grad_phi = Tuple(dx_phi, dy_phi)
+
+        f_scal = -( (tau*dx_tau/sigma2)**2 - (tau*dxx_tau + dx_tau**2)/sigma2
+                   +(tau*dy_tau/sigma2)**2 - (tau*dyy_tau + dy_tau**2)/sigma2 )*phi
+
+        # exact solution of  -p'' = f  with hom. bc's on pretzel domain
+        if mu == 1 and eta == 0:
+            u_ex = phi
+        else:
+            print('WARNING (54375385643): exact solution not available in this case!') 
+
+        if not domain_name in ['pretzel', 'pretzel_f']:
+            # we may have non-hom bc's            
+            u_bc = u_ex
+
+    elif source_type == 'manu_poisson_2':
+        f_scal = -4
+        if mu == 1 and eta == 0:
+            u_ex = x**2+y**2
+        else:
+            raise NotImplementedError
+        u_bc   = u_ex
+
+    elif source_type == 'manu_poisson_sincos':
+        u_ex    = sin(pi*x)*cos(pi*y)
+        f_scal  = (eta + 2*mu*pi**2) * u_ex
+        u_bc = u_ex
+
+    else:
+        raise ValueError(source_type)
+
+    return f_scal, u_bc, u_ex
 
 
-def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
+
+def get_source_and_solution_OBSOLETE(source_type=None, eta=0, mu=0, nu=0,
                             domain=None, domain_name=None,
                             refsol_params=None):
     """
-    compute source and reference solution (exact, or reference values) when possible, depending on the source_type
+    OBSOLETE: kept for some test-cases
     """
-
-    # ref solution (values on diag grid)
-    ph_ref = None
-    uh_ref = None
 
     # exact solutions (if available)
     u_ex = None
@@ -119,7 +339,7 @@ def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
 
     elif source_type == 'manutor_poisson':
         # todo: remove if not used ?
-        # same as manu_poisson, with arbitrary value for tor
+        # same as manu_poisson_ellip, with arbitrary value for tor
         x0 = 1.5
         y0 = 1.5
         s  = (x-x0) - (y-y0)
@@ -173,6 +393,9 @@ def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
 
         # exact solution of  -p'' = f  with hom. bc's on pretzel domain
         p_ex = phi
+
+        if source_type == 'manu_poisson' and mu == 1 and eta == 0:
+            u_ex = phi
 
         if not domain_name in ['pretzel', 'pretzel_f']:
             print("WARNING (87656547) -- I'm not sure we have an exact solution -- check the bc's on the domain "+domain_name)
@@ -325,40 +548,6 @@ def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
     else:
         raise ValueError(source_type)
 
-    if u_ex is None:
-        uh_ref = get_sol_ref_V1h(source_type, domain, domain_name, refsol_params)
-
-    return f_scal, f_vect, u_bc, ph_ref, uh_ref, p_ex, u_ex, phi, grad_phi
+    return f_scal, f_vect, u_bc, p_ex, u_ex, phi, grad_phi
 
 
-def get_sol_ref_V1h( source_type=None, domain=None, domain_name=None, refsol_params=None ):
-    """
-    get a reference solution as a V1h FemField
-    """
-    uh_ref = None
-    if refsol_params is not None:
-        N_diag, method_ref, source_proj_ref = refsol_params
-        u_ref_filename = ( get_load_dir(method=method_ref, domain_name=domain_name,nc=None,deg=None,data='solutions')
-                         + sol_ref_fn(source_type, N_diag, source_proj=source_proj_ref) )
-        print("no exact solution for this test-case, looking for ref solution values in file {}...".format(u_ref_filename))
-        if os.path.isfile(u_ref_filename):
-            print("-- file found")
-            with open(u_ref_filename, 'rb') as file:
-                ncells_degree = np.load(file)
-                ncells   = [int(i) for i in ncells_degree['ncells_degree'][0]]
-                degree   = [int(i) for i in ncells_degree['ncells_degree'][1]]
-
-            derham   = Derham(domain, ["H1", "Hcurl", "L2"])
-            domain_h = discretize(domain, ncells=ncells, comm=comm)
-            V1h      = discretize(derham.V1, domain_h, degree=degree, basis='M')
-            uh_ref   = FemField(V1h)
-            for i,Vi in enumerate(V1h.spaces):
-                for j,Vij in enumerate(Vi.spaces):
-                    filename = u_ref_filename+'_%d_%d'%(i,j)
-                    uij = Vij.import_fields(filename, 'phi')
-                    uh_ref.fields[i].fields[j].coeffs._data = uij[0].coeffs._data
-
-        else:
-            print("-- no file, skipping it")
-
-    return uh_ref
