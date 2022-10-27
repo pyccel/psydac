@@ -2552,6 +2552,10 @@ class ProductLinearOperator( Matrix ):
     def exchange_assembly_data( self ):
         for op in self._operators:
             op.exchange_assembly_data()
+
+    def set_backend(self, backend):
+        for op in self._operators:
+            op.set_backend(backend)
 #===============================================================================
 from psydac.api.settings   import PSYDAC_BACKENDS
 del VectorSpace, Vector

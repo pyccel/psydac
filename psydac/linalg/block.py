@@ -1118,7 +1118,10 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         if backend is self._backend:return
 
         from psydac.api.ast.linalg import LinearOperatorDot, TransposeOperator, InterfaceTransposeOperator
-        from psydac.linalg.stencil import StencilInterfaceMatrix
+        from psydac.linalg.stencil import StencilInterfaceMatrix, StencilMatrix
+
+        if not all(isinstance(b, (StencilMatrix, StencilInterfaceMatrix)) for b in self._blocks.values()):
+            return
 
         block_shape = (self.n_block_rows, self.n_block_cols)
 
