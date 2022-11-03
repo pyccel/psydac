@@ -1,9 +1,11 @@
 import numpy as np
 from scipy.sparse        import coo_matrix
 
+from psydac.linalg2.block import BlockMatrix, BlockVector, BlockVectorSpace
 from psydac.linalg2.direct_solvers import BandedSolver, SparseSolver
 from psydac.linalg2.ndarray import NdarrayVectorSpace, NdarrayVector, NdarrayLinearOperator
 from psydac.linalg2.basic import ZeroOperator, IdentityOperator
+from psydac.linalg2.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 
 #===============================================================================
 if __name__ == "__main__":
@@ -57,7 +59,7 @@ if __name__ == "__main__":
     LS = S @ Sh
     LS2 = S2 @ Sh
 
-    print('Convolution LOs G, H, LS and LS2 have been successfully created, G and H including identity operators without matrix representation and LS and LS2 as LinearSolver compositions')
+    print('Composition LOs G, H, LS and LS2 have been successfully created, G and H including identity operators without matrix representation and LS and LS2 as LinearSolver compositions')
     print()
 
     print('5. Testing both creation of ~arbitrary~ combinations of the given operators A,B,Z,I1,I2,G,H as well as')
@@ -125,6 +127,109 @@ if __name__ == "__main__":
     print()
 
     print('Testing the implementation of LinearSolvers:')
+    print()
+    
     T3 = 2*(A + Z + G + Z + LS + 0.5*LS2 + H + B)
+
+    ops = T3.operator.addends
+    classes = [ops[i].__class__.__name__ for i in range(len(ops))]
+    print(classes)
+
     y3 = T3.dot(v)
+
+    ops = T3.operator.addends
+    classes = [ops[i].__class__.__name__ for i in range(len(ops))]
+    print(classes)
+
+    print()
     print(y3.data == np.array([14,14,25],dtype=float))
+
+    T4 = 1*(T3 + 0*T3) + 2*0.5*I2 @ T3 + Z @ (I1 @ I1 + I1)  
+    y4 = T4.dot(v)
+    print(y4.data==np.array([28,28,50],dtype=float))
+
+    ############################################
+    print()
+    print('InverseLinearOperator tests:')
+    print()
+    print('Creating the cg inverse P_inv of the 2x2 NdarrayLinearOperator P = [[1, 2], [3, 4]]')
+    print('Passing kwargs = {"x0": x0, "verbose": False}, x0 an NdarrayVector [10, 10]')
+    mat = np.array([[1, 2], [3, 4]], dtype=float)
+    P = NdarrayLinearOperator(domain=V, codomain=V, matrix=mat)
+    x0_vec = np.array([10, 10], dtype=float)
+    x0 = NdarrayVector(space=V, data=x0_vec)
+    Pinv = P.inverse('cg', **{"verbose": False, "x0": x0})
+    print('Success')
+    print()
+
+    print('Creating a r.h.s. NdarrayVector b = [1, 1] and calling P_inv.dot(b)')
+    print('Expected result: x = [-1, 1]')
+    b_vec = np.array([1, 1], dtype=float)
+    b = NdarrayVector(space=V, data=b_vec)
+    x, info = Pinv.dot(b)
+    print(info)
+    print("x = ", x.data)
+    print('Success')
+    print()
+
+    print('Creating the pcg inverse M_inv of the 4x4 StencilMatrix M =')
+    print('[1, 0, 2, 0]')
+    print('[0, 1, 0, 2]')
+    print('[3, 0, 1, 0]')
+    print('[0, 3, 0, 1]')
+    print('Passing kwargs = {"pc": "jacobi", "x0": x0, "verbose": False}, x0 a StencilVector [0, 0, 0, 0]')
+
+    n1=2
+    n2=2
+    p1=1
+    p2=1
+    P1=False
+    P2=False
+    nonzero_values = dict()
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            nonzero_values[k1,k2] = ((k1%3)+1)*((k2+1)%2)
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    M = StencilMatrix( V, V )
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            M[:,:,k1,k2] = nonzero_values[k1,k2]
+    M.remove_spurious_entries()
+
+    x0 = StencilVector(V)
+
+    M_inv = M.inverse('pcg', **{"pc": 'jacobi', "x0": x0, "verbose": False})
+    print('Success')
+    print()
+
+    print('Creating a r.h.s. StencilVector b = [1, 1, 1, 1] and calling M_inv.dot(b)')
+    print('Expected result: x = [0.2, 0.2, 0.4, 0.4]')
+    b = StencilVector(V)
+    b[0] = 1
+    b[1] = 1    
+    x, info = M_inv.dot(b)
+    print(info)
+    print("x = ", x.toarray())
+    print('Success')
+    print()
+
+    print('Creating a BlockMatrix M_block = ')
+    print('[M, None]')
+    print('[None, M]')
+    print('a BlockVector b_block = [b, b] as well as x0_block = [x0, x0]')
+    print('Expected result: x = [0.2, 0.2, 0.4, 0.4, 0.2, 0.2, 0.4, 0.4]')
+    X = BlockVectorSpace(V, V)
+    b_block = BlockVector(X, (b, b))
+    x0_block = BlockVector(X, (x0, x0))
+    M_block = BlockMatrix(X, X, ((M, None), (None, M)))
+
+    M_block_inv = M_block.inverse('pcg', **{"pc": 'jacobi', "x0": x0_block, "verbose": False})
+    x_block, info = M_block_inv.dot(b_block)
+    print(info)
+    print("x_block = ", x_block.toarray())
+    print()
+
+    print('Testing basic transpose implementation:')
+    ET = E.T # [[1,-1],[0,-2],[3,0]] -> [[1, 0, 3], [-1, -2, 0]]
+    vt = NdarrayVector(W, data=np.ones(3, dtype=float))
+    print(ET.dot(vt).data == np.array([4, -3], dtype=float))

@@ -11,7 +11,6 @@ from psydac.linalg2.ndarray import NdarrayVector, NdarrayVectorSpace
 
 __all__ = ['DirectSolver', 'BandedSolver', 'SparseSolver']
 
-#===============================================================================
 class DirectSolver( LinearSolver ):
     """
     Abstract class for direct linear solvers.
@@ -52,6 +51,10 @@ class BandedSolver ( DirectSolver ):
 
     Parameters
     ----------
+
+    space : VectorSpace
+        Space of x and b.
+
     u : integer
         Number of non-zero upper diagonal.
 
@@ -228,6 +231,3 @@ class SparseSolver ( DirectSolver ):
             out[:] = self._splu.solve( rhs.T, trans='T' if transposed else 'N' ).T
         out = NdarrayVector(self._space, data=out)
         return out
-
-    def dot( self, rhs, out=None, transposed=False):
-        return self.solve(rhs, out, transposed)
