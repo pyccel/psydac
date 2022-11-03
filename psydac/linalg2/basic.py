@@ -227,12 +227,14 @@ class InverseLinearOperator( LinearOperator ):
     vector space V.
 
     """
-    def inverse( param, operator, **kwargs ):
+    @staticmethod
+    def inverse(param, operator, **kwargs):
         if param == 'cg':
             return ConjugateGradient(operator, **kwargs)
         elif param == 'pcg':
             return PConjugateGradient(operator, **kwargs)
 
+    @staticmethod
     def jacobi(A, b):
         """
         Jacobi preconditioner.
@@ -275,6 +277,7 @@ class InverseLinearOperator( LinearOperator ):
 
         return x
 
+    @staticmethod
     def weighted_jacobi(A, b, x0=None, omega= 2./3, tol=1e-10, maxiter=100, verbose=False):
         """
         Weighted Jacobi iterative preconditioner.
