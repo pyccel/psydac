@@ -172,12 +172,12 @@ if __name__ == "__main__":
     print('Success')
     print()
 
-    print('Creating the pcg inverse M_inv of the 4x4 StencilMatrix M =')
+    print('Creating the pcg (jacobi and weighted_jacobi) inverse M_inv and M_inv2 of the 4x4 StencilMatrix M =')
     print('[1, 0, 2, 0]')
     print('[0, 1, 0, 2]')
     print('[3, 0, 1, 0]')
     print('[0, 3, 0, 1]')
-    print('Passing kwargs = {"pc": "jacobi", "x0": x0, "verbose": False}, x0 a StencilVector [0, 0, 0, 0]')
+    print('Passing kwargs = {"pc": "jacobi"/"weighted_jacobi", "x0": x0, "verbose": False}, x0 a StencilVector [0, 0, 0, 0]')
 
     n1=2
     n2=2
@@ -199,17 +199,23 @@ if __name__ == "__main__":
     x0 = StencilVector(V)
 
     M_inv = M.inverse('pcg', **{"pc": 'jacobi', "x0": x0, "verbose": False})
+    M_inv2 = M.inverse('pcg', **{"pc": 'weighted_jacobi', "x0": x0, "verbose": False})
     print('Success')
     print()
 
-    print('Creating a r.h.s. StencilVector b = [1, 1, 1, 1] and calling M_inv.dot(b)')
+    print('Creating a r.h.s. StencilVector b = [1, 1, 1, 1] and calling M_inv.dot(b) and M_inv2.dot(b)')
     print('Expected result: x = [0.2, 0.2, 0.4, 0.4]')
     b = StencilVector(V)
     b[0] = 1
     b[1] = 1    
     x, info = M_inv.dot(b)
+    x2, info2 = M_inv2.dot(b)
+    print('jacobi output:')
     print(info)
     print("x = ", x.toarray())
+    print('weighted_jacobi output:')
+    print(info2)
+    print("x2 = ", x2.toarray())
     print('Success')
     print()
 
