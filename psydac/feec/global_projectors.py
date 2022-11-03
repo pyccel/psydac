@@ -9,6 +9,7 @@ from psydac.linalg.block          import BlockDiagonalSolver, BlockVector, Block
 from psydac.core.bsplines         import quadrature_grid
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
+from psydac.feec                  import dof_kernels
 
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
@@ -133,7 +134,7 @@ class GlobalProjector(metaclass=ABCMeta):
                 n = tensorspaces[i].vector_space.npts[j]
                 periodic = tensorspaces[i].vector_space.periods[j]
 
-                V_serial = StencilVectorSpace([n], [p], [periodic])
+                V_serial = StencilVectorSpace([n], [p], [periodic], starts=[s], ends=[e])
                 M = StencilMatrix(V_serial, V_serial)
 
                 if cell == 'I':
@@ -146,11 +147,21 @@ class GlobalProjector(metaclass=ABCMeta):
                     local_x = local_intp_x[:, np.newaxis]
                     local_w = np.ones_like(local_x)
                     solvercells += [V._interpolator]
-
+                    
                     # make 1D collocation matrix in stencil format
-                    for ii in range(V.imat.shape[0]):
-                        for jj in range(2*p + 1):
-                            M._data[p + ii, jj] = V.imat[ii, (ii - p + jj)%V.imat.shape[1]]
+                    row_indices, col_indices = np.nonzero(V.imat)
+                    
+                    for row_i, col_i in zip(row_indices, col_indices):
+                        
+                        # only consider row indices on process
+                        if row_i in range(V_serial.starts[0], V_serial.ends[0] + 1):
+                            row_i_loc = row_i - s
+                            
+                            M._data[row_i_loc + p, (col_i + p - row_i)%V.imat.shape[1]] = V.imat[row_i, col_i]
+                    
+                    # check if stencil matrix was built correctly
+                    assert np.allclose(M.toarray()[s:e + 1], V.imat[s:e + 1])
+                    
                     matrixcells += [M.copy()]
                 elif cell == 'H':
                     # histopolation case
@@ -161,11 +172,21 @@ class GlobalProjector(metaclass=ABCMeta):
                         quad_w[j] = global_quad_w[s:e+1]
                     local_x, local_w = quad_x[j], quad_w[j]
                     solvercells += [V._histopolator]
-
+                    
                     # make 1D collocation matrix in stencil format
-                    for ii in range(V.hmat.shape[0]):
-                        for jj in range(2*p + 1):
-                            M._data[p + ii, jj] = V.hmat[ii, (ii - p + jj)%V.hmat.shape[1]]
+                    row_indices, col_indices = np.nonzero(V.hmat)
+                    
+                    for row_i, col_i in zip(row_indices, col_indices):
+                        
+                        # only consider row indices on process
+                        if row_i in range(V_serial.starts[0], V_serial.ends[0] + 1):
+                            row_i_loc = row_i - s
+                            
+                            M._data[row_i_loc + p, (col_i + p - row_i)%V.hmat.shape[1]] = V.hmat[row_i, col_i]
+                    
+                    # check if stencil matrix was built correctly
+                    assert np.allclose(M.toarray()[s:e + 1], V.hmat[s:e + 1])
+                    
                     matrixcells += [M.copy()]
                 else:
                     raise NotImplementedError('Invalid entry in structure array.')
@@ -305,7 +326,7 @@ class GlobalProjector(metaclass=ABCMeta):
         """
         pass
     
-    def __call__(self, fun):
+    def __call__(self, fun, dofs_only=False):
         """
         Project vector function onto the given finite element
         space by the instance of this class. This happens in the logical domain $\hat{\Omega}$.
@@ -318,6 +339,10 @@ class GlobalProjector(metaclass=ABCMeta):
             point in the logical domain.
 
             $fun_i : \hat{\Omega} \mapsto \mathbb{R}$ with i = 1, ..., N.
+            
+        dofs_only : bool
+            Whether to just compute and return the DOFs 
+            (i.e. no inversion of the inter-/histopolation matrix needed to get the FEM coefficiens)
 
         Returns
         -------
@@ -326,17 +351,21 @@ class GlobalProjector(metaclass=ABCMeta):
             finite element space). This is also a real-valued scalar/vector function
             in the logical domain.
         """
-        # build the rhs
+        # build the rhs (degrees of freedom - DOFs)
         if self._blockcount > 1 or isinstance(fun, list) or isinstance(fun, tuple):
             # (we also support 1-tuples as argument for scalar spaces)
             assert self._blockcount == len(fun)
             self._func(*fun)
         else:
             self._func(fun)
+            
+        if dofs_only:
+            return self._rhs.copy()
+        else:
+            # solver for FEM coefficients
+            coeffs = self._solver.solve(self._rhs)
 
-        coeffs = self._solver.solve(self._rhs)
-
-        return FemField(self._space, coeffs=coeffs)
+            return FemField(self._space, coeffs=coeffs)
 
 #==============================================================================
 class Projector_H1(GlobalProjector):
@@ -365,7 +394,7 @@ class Projector_H1(GlobalProjector):
             raise ValueError('H1 projector of dimension {} not available'.format(dim)) 
 
     #--------------------------------------------------------------------------
-    def __call__(self, fun):
+    def __call__(self, fun, dofs_only=False):
         r"""
         Project scalar function onto the H1-conforming finite element space.
         This happens in the logical domain $\hat{\Omega}$.
@@ -386,7 +415,7 @@ class Projector_H1(GlobalProjector):
             element space). This is also a real-valued scalar function in the
             logical domain.
         """
-        return super().__call__(fun)
+        return super().__call__(fun, dofs_only)
 
 #==============================================================================
 class Projector_Hcurl(GlobalProjector):
@@ -437,7 +466,7 @@ class Projector_Hcurl(GlobalProjector):
             raise NotImplementedError('The Hcurl projector is only available in 2D or 3D.')
 
     #--------------------------------------------------------------------------
-    def __call__(self, fun):
+    def __call__(self, fun, dofs_only=False):
         r"""
         Project vector function onto the H(curl)-conforming finite element
         space. This happens in the logical domain $\hat{\Omega}$.
@@ -459,7 +488,7 @@ class Projector_Hcurl(GlobalProjector):
             finite element space). This is also a real-valued vector function
             in the logical domain.
         """
-        return super().__call__(fun)
+        return super().__call__(fun, dofs_only)
 
 #==============================================================================
 class Projector_Hdiv(GlobalProjector):
@@ -513,7 +542,7 @@ class Projector_Hdiv(GlobalProjector):
             raise NotImplementedError('The Hdiv projector is only available in 2D or 3D.')
 
     #--------------------------------------------------------------------------
-    def __call__(self, fun):
+    def __call__(self, fun, dofs_only=False):
         r"""
         Project vector function onto the H(div)-conforming finite element
         space. This happens in the logical domain $\hat{\Omega}$.
@@ -536,7 +565,7 @@ class Projector_Hdiv(GlobalProjector):
             finite element space). This is also a real-valued vector function
             in the logical domain.
         """
-        return super().__call__(fun)
+        return super().__call__(fun, dofs_only)
 
 #==============================================================================
 class Projector_L2(GlobalProjector):
@@ -574,7 +603,7 @@ class Projector_L2(GlobalProjector):
             raise ValueError('L2 projector of dimension {} not available'.format(dim))
 
     #--------------------------------------------------------------------------
-    def __call__(self, fun):
+    def __call__(self, fun, dofs_only=False):
         r"""
         Project scalar function onto the L2-conforming finite element space.
         This happens in the logical domain $\hat{\Omega}$.
@@ -596,128 +625,239 @@ class Projector_L2(GlobalProjector):
             element space). This is also a real-valued scalar function in the
             logical domain.
         """
-        return super().__call__(fun)
+        return super().__call__(fun, dofs_only)
+    
+#==============================================================================
+class Projector_H1vec(GlobalProjector):
+    """
+    Projector from H1^3 = H1 x H1 x H1 to a conforming finite element space, i.e.
+    a finite dimensional subspace of H1^3, constructed with tensor-product
+    B-splines in 2 or 3 dimensions.
+
+    This is a global projector constructed over a tensor-product grid in the
+    logical domain. The vertices of this grid are obtained as the tensor
+    product of the 1D splines' Greville points along each direction.
+
+    Parameters
+    ----------
+    H1vec : ProductFemSpace
+        H1 x H1 x H1-conforming finite element space, codomain of the projection
+        operator.
+    """
+    def _structure(self, dim):
+        if dim == 3:
+            return [
+                ['I', 'I', 'I'],
+                ['I', 'I', 'I'],
+                ['I', 'I', 'I']
+            ]
+        elif dim == 2:
+            return [
+                ['I', 'I'],
+                ['I', 'I']
+            ]
+        else:
+            raise NotImplementedError('The H1vec projector is only available in 2D or 3D.')
+    
+    def _function(self, dim):
+        if dim == 3: return evaluate_dofs_3d_vec
+        elif dim == 2: return evaluate_dofs_2d_vec
+        else:
+            raise NotImplementedError('The H1vec projector is only available in 3D.')
+
+    #--------------------------------------------------------------------------
+    def __call__(self, fun, dofs_only=False):
+        r"""
+        Project vector function onto the H1 x H1 x H1-conforming finite element
+        space. This happens in the logical domain $\hat{\Omega}$.
+
+        Parameters
+        ----------
+        fun : list/tuple of callables
+            Scalar components of the real-valued vector function to be
+            projected, with arguments the coordinates (x_1, ..., x_N) of a
+            point in the logical domain. These correspond to the coefficients
+            of a vector-field.
+
+            $fun_i : \hat{\Omega} \mapsto \mathbb{R}$ with i = 1, ..., N.
+
+        Returns
+        -------
+        field : FemField
+            Field obtained by projection (element of the H1^3-conforming
+            finite element space). This is also a real-valued vector function
+            in the logical domain.
+        """
+        return super().__call__(fun, dofs_only)
 
 #==============================================================================
 # 1D DEGREES OF FREEDOM
 #==============================================================================
 
-def evaluate_dofs_1d_0form(intp_x1, F, f):
-    (n1,) = F.shape
-
-    for i1 in range(n1):
-        F[i1] = f(intp_x1[i1])
+def evaluate_dofs_1d_0form(
+        intp_x1,     # interpolation points
+        F,           # array of degrees of freedom (intent out)
+        f,           # input scalar function (callable)
+        ):
+    
+    # evaluate input functions at interpolation points
+    E1, = np.meshgrid(intp_x1, indexing='ij')
+    f_pts = f(E1)
+    
+    F_temp = np.zeros_like(F, order='C')
+    
+    dof_kernels.evaluate_dofs_1d_0form(F_temp, f_pts)
+    
+    F[:] = F_temp
         
 #------------------------------------------------------------------------------
 def evaluate_dofs_1d_1form(
-        quad_x1, # quadrature points
-        quad_w1, # quadrature weights
-        F,       # array of degrees of freedom (intent out)
-        f        # input scalar function (callable)
+        quad_x1,       # quadrature points
+        quad_w1,       # quadrature weights
+        F,             # array of degrees of freedom (intent out)
+        f,             # input scalar function (callable)
         ):
 
-    k1 = quad_x1.shape[1]
-
-    n1, = F.shape
-    for i1 in range(n1):
-        F[i1] = 0.0
-        for g1 in range(k1):
-            F[i1] += quad_w1[i1, g1] * f(quad_x1[i1, g1])
+    # evaluate input functions at quadrature points
+    E1, = np.meshgrid(quad_x1.flatten(), indexing='ij')
+    f_pts = f(E1)
+    
+    # call kernel
+    F_temp = np.zeros_like(F, order='C')
+    
+    dof_kernels.evaluate_dofs_1d_1form(quad_w1, F_temp, f_pts)
+    
+    F[:] = F_temp
 
 #==============================================================================
 # 2D DEGREES OF FREEDOM
 #==============================================================================
 
-def evaluate_dofs_2d_0form(intp_x1, intp_x2, F, f):
-    n1, n2 = F.shape
-
-    for i1 in range(n1):
-        for i2 in range(n2):
-            F[i1, i2] = f(intp_x1[i1], intp_x2[i2])
+def evaluate_dofs_2d_0form(
+        intp_x1, intp_x2,     # interpolation points
+        F,                    # array of degrees of freedom (intent out)
+        f,                    # input scalar function (callable)
+        ):
+    
+    # evaluate input functions at interpolation points
+    E1, E2 = np.meshgrid(intp_x1, intp_x2, indexing='ij')
+    f_pts = f(E1, E2)
+    
+    F_temp = np.zeros_like(F, order='C')
+    
+    dof_kernels.evaluate_dofs_2d_0form(F_temp, f_pts)
+    
+    F[:, :] = F_temp
 
 #------------------------------------------------------------------------------
 def evaluate_dofs_2d_1form_hcurl(
-        intp_x1, intp_x2, # interpolation points
-        quad_x1, quad_x2, # quadrature points
-        quad_w1, quad_w2, # quadrature weights
-        F1, F2,           # arrays of degrees of freedom (intent out)
-        f1, f2            # input scalar functions (callable)
+        intp_x1, intp_x2,      # interpolation points
+        quad_x1, quad_x2,      # quadrature points
+        quad_w1, quad_w2,      # quadrature weights
+        F1, F2,                # arrays of degrees of freedom (intent out)
+        f1, f2,                # input scalar functions (callable)
         ):
 
-    k1 = quad_x1.shape[1]
-    k2 = quad_x2.shape[1]
-
-    n1, n2 = F1.shape
-    for i1 in range(n1):
-        for i2 in range(n2):
-            F1[i1, i2] = 0.0
-            for g1 in range(k1):
-                F1[i1, i2] += quad_w1[i1, g1] * f1(quad_x1[i1, g1], intp_x2[i2])
-
-    n1, n2 = F2.shape
-    for i1 in range(n1):
-        for i2 in range(n2):
-            F2[i1, i2] = 0.0
-            for g2 in range(k2):
-                F2[i1, i2] += quad_w2[i2, g2] * f2(intp_x1[i1], quad_x2[i2, g2])
+    # evaluate input functions at quadrature/interpolation points
+    E1, E2 = np.meshgrid(quad_x1.flatten(), intp_x2, indexing='ij')
+    f1_pts = f1(E1, E2)
+    
+    E1, E2 = np.meshgrid(intp_x1, quad_x2.flatten(), indexing='ij')
+    f2_pts = f2(E1, E2)
+    
+    # call kernel
+    F1_temp = np.zeros_like(F1, order='C')
+    F2_temp = np.zeros_like(F2, order='C')
+    
+    dof_kernels.evaluate_dofs_2d_1form_hcurl(quad_w1, quad_w2, F1_temp, F2_temp, f1_pts, f2_pts)
+    
+    F1[:, :] = F1_temp
+    F2[:, :] = F2_temp
 
 #------------------------------------------------------------------------------
 def evaluate_dofs_2d_1form_hdiv(
-        intp_x1, intp_x2, # interpolation points
-        quad_x1, quad_x2, # quadrature points
-        quad_w1, quad_w2, # quadrature weights
-        F1, F2,           # arrays of degrees of freedom (intent out)
-        f1, f2            # input scalar functions (callable)
+        intp_x1, intp_x2,       # interpolation points
+        quad_x1, quad_x2,       # quadrature points
+        quad_w1, quad_w2,       # quadrature weights
+        F1, F2,                 # arrays of degrees of freedom (intent out)
+        f1, f2,                 # input scalar functions (callable)
         ):
 
-    k1 = quad_x1.shape[1]
-    k2 = quad_x2.shape[1]
-
-    n1, n2 = F1.shape
-    for i1 in range(n1):
-        for i2 in range(n2):
-            F1[i1, i2] = 0.0
-            for g2 in range(k2):
-                F1[i1, i2] += quad_w2[i2, g2] * f1(intp_x1[i1], quad_x2[i2, g2])
-
-    n1, n2 = F2.shape
-    for i1 in range(n1):
-        for i2 in range(n2):
-            F2[i1, i2] = 0.0
-            for g1 in range(k1):
-                F2[i1, i2] += quad_w1[i1, g1] * f2(quad_x1[i1, g1], intp_x2[i2])
+    # evaluate input functions at quadrature/interpolation points
+    E1, E2 = np.meshgrid(intp_x1, quad_x2.flatten(), indexing='ij')
+    f1_pts = f1(E1, E2)
+    
+    E1, E2 = np.meshgrid(quad_x1.flatten(), intp_x2, indexing='ij')
+    f2_pts = f2(E1, E2)
+    
+    # call kernel
+    F1_temp = np.zeros_like(F1, order='C')
+    F2_temp = np.zeros_like(F2, order='C')
+    
+    dof_kernels.evaluate_dofs_2d_1form_hdiv(quad_w1, quad_w2, F1_temp, F2_temp, f1_pts, f2_pts)
+    
+    F1[:, :, :] = F1_temp
+    F2[:, :, :] = F2_temp
 
 #------------------------------------------------------------------------------
 def evaluate_dofs_2d_2form(
-        quad_x1, quad_x2, # quadrature points
-        quad_w1, quad_w2, # quadrature weights
-        F,                # array of degrees of freedom (intent out)
-        f,                # input scalar function (callable)
+        quad_x1, quad_x2,       # quadrature points
+        quad_w1, quad_w2,       # quadrature weights
+        F,                      # array of degrees of freedom (intent out)
+        f,                      # input scalar function (callable)
         ):
 
-    k1 = quad_x1.shape[1]
-    k2 = quad_x2.shape[1]
+    # evaluate input functions at quadrature points
+    E1, E2 = np.meshgrid(quad_x1.flatten(), quad_x2.flatten(), indexing='ij')
+    f_pts = f(E1, E2)
+    
+    # call kernel
+    F_temp = np.zeros_like(F, order='C')
+    
+    dof_kernels.evaluate_dofs_2d_2form(quad_w1, quad_w2, F_temp, f_pts)
+    
+    F[:, :] = F_temp
 
-    n1, n2 = F.shape
-    for i1 in range(n1):
-        for i2 in range(n2):
-            F[i1, i2] = 0.0
-            for g1 in range(k1):
-                for g2 in range(k2):
-                    F[i1, i2] += quad_w1[i1, g1] * quad_w2[i2, g2] * \
-                            f(quad_x1[i1, g1], quad_x2[i2, g2])
-
+#------------------------------------------------------------------------------    
+def evaluate_dofs_2d_vec(
+        intp_x1, intp_x2,      # interpolation points
+        F1, F2,                # array of degrees of freedom (intent out)
+        f1, f2,                # input scalar function (callable)
+        ):
+    
+    # evaluate input functions at interpolation points
+    E1, E2 = np.meshgrid(intp_x1, intp_x2, indexing='ij')
+    f1_pts = f1(E1, E2)
+    f2_pts = f2(E1, E2)
+    
+    # call kernel
+    F1_temp = np.zeros_like(F1, order='C')
+    F2_temp = np.zeros_like(F2, order='C')
+    
+    dof_kernels.evaluate_dofs_2d_vec(F1_temp, F2_temp, f1_pts, f2_pts)
+    
+    F1[:, :, :] = F1_temp
+    F2[:, :, :] = F2_temp
+    
 #==============================================================================
 # 3D DEGREES OF FREEDOM
 #==============================================================================
 
-def evaluate_dofs_3d_0form(intp_x1, intp_x2, intp_x3, F, f):
-    n1, n2, n3 = F.shape
-
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for i3 in range(n3):
-                F[i1, i2, i3] = f(intp_x1[i1], intp_x2[i2], intp_x3[i3])
+def evaluate_dofs_3d_0form(
+        intp_x1, intp_x2, intp_x3, # interpolation points
+        F,                         # array of degrees of freedom (intent out)
+        f,                         # input scalar function (callable)
+        ):
+    
+    # evaluate input functions at interpolation points
+    E1, E2, E3 = np.meshgrid(intp_x1, intp_x2, intp_x3, indexing='ij')
+    f_pts = f(E1, E2, E3)
+    
+    F_temp = np.zeros_like(F, order='C')
+    
+    dof_kernels.evaluate_dofs_3d_0form(F_temp, f_pts)
+    
+    F[:, :, :] = F_temp
 
 #------------------------------------------------------------------------------
 def evaluate_dofs_3d_1form(
@@ -728,36 +868,26 @@ def evaluate_dofs_3d_1form(
         f1, f2, f3                 # input scalar functions (callable)
         ):
 
-    k1 = quad_x1.shape[1]
-    k2 = quad_x2.shape[1]
-    k3 = quad_x3.shape[1]
-
-    n1, n2, n3 = F1.shape
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for i3 in range(n3):
-                F1[i1, i2, i3] = 0.0
-                for g1 in range(k1):
-                    F1[i1, i2, i3] += quad_w1[i1, g1] * \
-                            f1(quad_x1[i1, g1], intp_x2[i2], intp_x3[i3])
-
-    n1, n2, n3 = F2.shape
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for i3 in range(n3):
-                F2[i1, i2, i3] = 0.0
-                for g2 in range(k2):
-                    F2[i1, i2, i3] += quad_w2[i2, g2] * \
-                            f2(intp_x1[i1], quad_x2[i2, g2], intp_x3[i3])
-
-    n1, n2, n3 = F3.shape
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for i3 in range(n3):
-                F3[i1, i2, i3] = 0.0
-                for g3 in range(k3):
-                    F3[i1, i2, i3] += quad_w3[i3, g3] * \
-                            f3(intp_x1[i1], intp_x2[i2], quad_x3[i3, g3])
+    # evaluate input functions at quadrature/interpolation points
+    E1, E2, E3 = np.meshgrid(quad_x1.flatten(), intp_x2, intp_x3, indexing='ij')
+    f1_pts = f1(E1, E2, E3)
+    
+    E1, E2, E3 = np.meshgrid(intp_x1, quad_x2.flatten(), intp_x3, indexing='ij')
+    f2_pts = f2(E1, E2, E3)
+    
+    E1, E2, E3 = np.meshgrid(intp_x1, intp_x2, quad_x3.flatten(), indexing='ij')
+    f3_pts = f3(E1, E2, E3)
+    
+    # call kernel
+    F1_temp = np.zeros_like(F1, order='C')
+    F2_temp = np.zeros_like(F2, order='C')
+    F3_temp = np.zeros_like(F3, order='C')
+    
+    dof_kernels.evaluate_dofs_3d_1form(quad_w1, quad_w2, quad_w3, F1_temp, F2_temp, F3_temp, f1_pts, f2_pts, f3_pts)
+    
+    F1[:, :, :] = F1_temp
+    F2[:, :, :] = F2_temp
+    F3[:, :, :] = F3_temp
 
 #------------------------------------------------------------------------------
 def evaluate_dofs_3d_2form(
@@ -768,39 +898,26 @@ def evaluate_dofs_3d_2form(
         f1, f2, f3                 # input scalar functions (callable)
         ):
 
-    k1 = quad_x1.shape[1]
-    k2 = quad_x2.shape[1]
-    k3 = quad_x3.shape[1]
-
-    n1, n2, n3 = F1.shape
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for i3 in range(n3):
-                F1[i1, i2, i3] = 0.0
-                for g2 in range(k2):
-                    for g3 in range(k3):
-                        F1[i1, i2, i3] += quad_w2[i2, g2] * quad_w3[i3, g3] * \
-                            f1(intp_x1[i1], quad_x2[i2, g2], quad_x3[i3, g3])
-
-    n1, n2, n3 = F2.shape
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for i3 in range(n3):
-                F2[i1, i2, i3] = 0.0
-                for g1 in range(k1):
-                    for g3 in range(k3):
-                        F2[i1, i2, i3] += quad_w1[i1, g1] * quad_w3[i3, g3] * \
-                            f2(quad_x1[i1, g1], intp_x2[i2], quad_x3[i3, g3])
-
-    n1, n2, n3 = F3.shape
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for i3 in range(n3):
-                F3[i1, i2, i3] = 0.0
-                for g1 in range(k1):
-                    for g2 in range(k2):
-                        F3[i1, i2, i3] += quad_w1[i1, g1] * quad_w2[i2, g2] * \
-                            f3(quad_x1[i1, g1], quad_x2[i2, g2], intp_x3[i3])
+    # evaluate input functions at quadrature/interpolation points
+    E1, E2, E3 = np.meshgrid(intp_x1, quad_x2.flatten(), quad_x3.flatten(), indexing='ij')
+    f1_pts = f1(E1, E2, E3)
+    
+    E1, E2, E3 = np.meshgrid(quad_x1.flatten(), intp_x2, quad_x3.flatten(), indexing='ij')
+    f2_pts = f2(E1, E2, E3)
+    
+    E1, E2, E3 = np.meshgrid(quad_x1.flatten(), quad_x2.flatten(), intp_x3, indexing='ij')
+    f3_pts = f3(E1, E2, E3)
+    
+    # call kernel
+    F1_temp = np.zeros_like(F1, order='C')
+    F2_temp = np.zeros_like(F2, order='C')
+    F3_temp = np.zeros_like(F3, order='C')
+    
+    dof_kernels.evaluate_dofs_3d_2form(quad_w1, quad_w2, quad_w3, F1_temp, F2_temp, F3_temp, f1_pts, f2_pts, f3_pts)
+    
+    F1[:, :, :] = F1_temp
+    F2[:, :, :] = F2_temp
+    F3[:, :, :] = F3_temp
 
 #------------------------------------------------------------------------------
 def evaluate_dofs_3d_3form(
@@ -810,18 +927,37 @@ def evaluate_dofs_3d_3form(
         f,                         # input scalar function (callable)
         ):
 
-    k1 = quad_x1.shape[1]
-    k2 = quad_x2.shape[1]
-    k3 = quad_x3.shape[1]
+    # evaluate input functions at quadrature points
+    E1, E2, E3 = np.meshgrid(quad_x1.flatten(), quad_x2.flatten(), quad_x3.flatten(), indexing='ij')
+    f_pts = f(E1, E2, E3)
+    
+    # call kernel
+    F_temp = np.zeros_like(F, order='C')
+    
+    dof_kernels.evaluate_dofs_3d_3form(quad_w1, quad_w2, quad_w3, F_temp, f_pts)
+    
+    F[:, :, :] = F_temp
 
-    n1, n2, n3 = F.shape
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for i3 in range(n3):
-                F[i1, i2, i3] = 0.0
-                for g1 in range(k1):
-                    for g2 in range(k2):
-                        for g3 in range(k3):
-                            F[i1, i2, i3] += \
-                                    quad_w1[i1, g1] * quad_w2[i2, g2] * quad_w3[i3, g3] * \
-                                    f(quad_x1[i1, g1], quad_x2[i2, g2], quad_x3[i3, g3])
+#------------------------------------------------------------------------------
+def evaluate_dofs_3d_vec(
+        intp_x1, intp_x2, intp_x3, # interpolation points
+        F1, F2, F3,                # array of degrees of freedom (intent out)
+        f1, f2, f3,                # input scalar function (callable)
+        ):
+    
+    # evaluate input functions at interpolation points
+    E1, E2, E3 = np.meshgrid(intp_x1, intp_x2, intp_x3, indexing='ij')
+    f1_pts = f1(E1, E2, E3)
+    f2_pts = f2(E1, E2, E3)
+    f3_pts = f3(E1, E2, E3)
+    
+    # call kernel
+    F1_temp = np.zeros_like(F1, order='C')
+    F2_temp = np.zeros_like(F2, order='C')
+    F3_temp = np.zeros_like(F3, order='C')
+    
+    dof_kernels.evaluate_dofs_3d_vec(F1_temp, F2_temp, F3_temp, f1_pts, f2_pts, f3_pts)
+    
+    F1[:, :, :] = F1_temp
+    F2[:, :, :] = F2_temp
+    F3[:, :, :] = F3_temp
