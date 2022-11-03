@@ -198,8 +198,8 @@ if __name__ == "__main__":
 
     x0 = StencilVector(V)
 
-    M_inv = M.inverse('pcg', **{"pc": 'jacobi', "x0": x0, "verbose": False})
-    M_inv2 = M.inverse('pcg', **{"pc": 'weighted_jacobi', "x0": x0, "verbose": False})
+    M_inv = M.inverse('pcg', pc='jacobi', x0=x0, verbose=False)
+    M_inv2 = M.inverse('pcg', pc='weighted_jacobi', x0=x0, verbose=False)
     print('Success')
     print()
 
@@ -229,7 +229,7 @@ if __name__ == "__main__":
     x0_block = BlockVector(X, (x0, x0))
     M_block = BlockMatrix(X, X, ((M, None), (None, M)))
 
-    M_block_inv = M_block.inverse('pcg', **{"pc": 'jacobi', "x0": x0_block, "verbose": False})
+    M_block_inv = M_block.inverse('pcg', pc='jacobi', x0=x0_block, verbose=False)
     x_block, info = M_block_inv.dot(b_block)
     print(info)
     print("x_block = ", x_block.toarray())
