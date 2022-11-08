@@ -4,13 +4,12 @@
 
 from abc import ABCMeta, abstractmethod
 import numpy as np
-from math import sqrt
+#from math import sqrt
 
 __all__ = ['VectorSpace', 'Vector', 'LinearOperator', 
 'SumLinearOperator', 'ComposedLinearOperator', 'ScaledLinearOperator', 'PowerLinearOperator', 'ZeroOperator', 'IdentityOperator', 
 'InverseLinearOperator', 'LinearSolver', 
-'Matrix', 
-'ConjugateGradient', 'PConjugateGradient']
+'Matrix']
 
 #===============================================================================
 class VectorSpace( metaclass=ABCMeta ):
@@ -157,8 +156,8 @@ class LinearOperator( metaclass=ABCMeta ):
     def transpose( self ):
         raise NotImplementedError()
 
-    def inverse( self, param, **kwargs ):
-        return InverseLinearOperator.inverse(param, self, **kwargs)
+    def inverse( self, solver, **kwargs ):
+        return InverseLinearOperator(self, solver=solver, **kwargs)
 
     @abstractmethod
     def dot( self, v, out=None ):
@@ -227,12 +226,33 @@ class InverseLinearOperator( LinearOperator ):
     vector space V.
 
     """
-    @staticmethod
-    def inverse(param, operator, **kwargs):
-        if param == 'cg':
-            return ConjugateGradient(operator, **kwargs)
-        elif param == 'pcg':
-            return PConjugateGradient(operator, **kwargs)
+    def __new__(cls, linop, solver=None, **kwargs):
+        
+        #cls._check_options(options)
+
+        if solver is not None:
+            if solver == 'cg':
+                from psydac.linalg2.iterative_solvers import ConjugateGradient
+                obj = ConjugateGradient(linop, solver=None, **kwargs)
+            elif solver == 'pcg':
+                from psydac.linalg2.iterative_solvers import PConjugateGradient
+                obj = PConjugateGradient(linop, solver=None, **kwargs)
+            elif solver != 'loop':
+                raise ValueError(f"Required solver '{solver}' not understood.")
+
+            return obj
+        else:
+            return super().__new__(cls)
+
+    def getoptions( self ):
+        for key, value in self.options.items():
+            print(key, ": ", value)
+
+    def setoptions( self, **kwargs ):
+        # check feasibility of kwargs
+        for key, value in kwargs.items():
+            setattr(self, '_'+key, value)
+        self._update_options()
 
     @staticmethod
     def jacobi(A, b):
@@ -312,7 +332,7 @@ class InverseLinearOperator( LinearOperator ):
 
         """
         from math import sqrt
-        from psydac.linalg.stencil import StencilVector
+        #from psydac.linalg2.stencil import StencilVector
 
         n = A.shape[0]
 
@@ -373,306 +393,6 @@ class InverseLinearOperator( LinearOperator ):
         info = {'niter': k, 'success': nrmr < tol_sqr, 'res_norm': sqrt(nrmr) }
 
         return x
-
-#===============================================================================
-class ConjugateGradient( InverseLinearOperator ):
-    """
-    
-
-    """
-    def __init__( self, operator, verbose, x0 ):
-
-        assert isinstance(operator, LinearOperator)
-        assert operator.domain == operator.codomain
-        self._operator = operator
-        self._domain = operator.codomain
-        self._codomain = operator.domain
-        self._space = operator.domain
-        self._verbose = verbose
-        self._x0 = x0
-
-    @property
-    def space( self ):
-        return self._space
-
-    @property
-    def domain( self ):
-        return self._domain
-
-    @property
-    def codomain( self ):
-        return self._codomain
-
-    @property
-    def dtype( self ):
-        return None
-
-    def solve(self, b, x0=None, tol=1e-6, maxiter=1000, verbose=False):
-        """
-        Conjugate gradient algorithm for solving linear system Ax=b.
-        Implementation from [1], page 137.
-
-        Parameters
-        ----------
-        A = self._operator : psydac.linalg.basic.LinearOperator
-            Left-hand-side matrix A of linear system; individual entries A[i,j]
-            can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
-            function (i.e. matrix-vector product A*p).
-
-        b : psydac.linalg.basic.Vector
-            Right-hand-side vector of linear system. Individual entries b[i] need
-            not be accessed, but b has 'shape' attribute and provides 'copy()' and
-            'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
-            scalar multiplication and sum operations are available.
-
-        x0 : psydac.linalg.basic.Vector
-            First guess of solution for iterative solver (optional).
-
-        tol : float
-            Absolute tolerance for L2-norm of residual r = A*x - b.
-
-        maxiter: int
-            Maximum number of iterations.
-
-        verbose : bool
-            If True, L2-norm of residual r is printed at each iteration.
-
-        Results
-        -------
-        x : psydac.linalg.basic.Vector
-            Converged solution.
-
-        info : dict
-            Dictionary containing convergence information:
-            - 'niter'    = (int) number of iterations
-            - 'success'  = (boolean) whether convergence criteria have been met
-            - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
-
-        References
-        ----------
-        [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
-
-        """
-        A = self._operator
-        n = A.shape[0]
-
-        assert( A.shape == (n,n) )
-        assert( b.shape == (n, ) )
-
-        # First guess of solution
-        if x0 is None:
-            x  = b.copy()
-            x *= 0.0
-        else:
-            assert( x0.shape == (n,) )
-            x = x0.copy()
-
-        # First values
-        v  = A.dot(x)
-        r  = b - v
-        am = r.dot( r )
-        p  = r.copy()
-
-        tol_sqr = tol**2
-
-        if verbose:
-            print( "CG solver:" )
-            print( "+---------+---------------------+")
-            print( "+ Iter. # | L2-norm of residual |")
-            print( "+---------+---------------------+")
-            template = "| {:7d} | {:19.2e} |"
-            print( template.format( 1, sqrt( am ) ) )
-
-        # Iterate to convergence
-        for m in range( 2, maxiter+1 ):
-
-            if am < tol_sqr:
-                m -= 1
-                break
-
-            v   = A.dot(p, out=v)
-            l   = am / v.dot( p )
-            x  += l*p
-            r  -= l*v
-            am1 = r.dot( r )
-            p  *= (am1/am)
-            p  += r
-            am  = am1
-
-            if verbose:
-                print( template.format( m, sqrt( am ) ) )
-
-        if verbose:
-            print( "+---------+---------------------+")
-
-        # Convergence information
-        info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am ) }
-
-        return x, info
-
-    def dot(self, b):
-        return self.solve(b, x0=self._x0, verbose=self._verbose)
-
-#===============================================================================
-class PConjugateGradient( InverseLinearOperator ):
-    """
-    
-
-    """
-    def __init__( self, operator, pc, x0, verbose ):
-
-        assert isinstance(operator, LinearOperator)
-        assert operator.domain == operator.codomain
-        self._operator = operator
-        self._domain = operator.codomain
-        self._codomain = operator.domain
-        self._space = operator.domain
-        self._verbose = verbose
-        self._x0 = x0
-        self._pc = pc
-
-    @property
-    def space( self ):
-        return self._space
-
-    @property
-    def domain( self ):
-        return self._domain
-
-    @property
-    def codomain( self ):
-        return self._codomain
-
-    @property
-    def dtype( self ):
-        return None
-
-    def solve(self, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
-        """
-        Preconditioned Conjugate Gradient (PCG) solves the symetric positive definte
-        system Ax = b. It assumes that pc(r) returns the solution to Ps = r,
-        where P is positive definite.
-
-        Parameters
-        ----------
-        A : psydac.linalg.stencil.StencilMatrix
-            Left-hand-side matrix A of linear system
-
-        b : psydac.linalg.stencil.StencilVector
-            Right-hand-side vector of linear system.
-
-        pc: NoneType | str | psydac.linalg.basic.LinearSolver | Callable
-            Preconditioner for A, it should approximate the inverse of A.
-            Can either be:
-            * None, i.e. not pre-conditioning (this calls the standard `cg` method)
-            * The strings 'jacobi' or 'weighted_jacobi'. (rather obsolete, supply a callable instead, if possible)
-            * A LinearSolver object (in which case the out parameter is used)
-            * A callable with two parameters (A, r), where A is the LinearOperator from above, and r is the residual.
-
-        x0 : psydac.linalg.basic.Vector
-            First guess of solution for iterative solver (optional).
-
-        tol : float
-            Absolute tolerance for L2-norm of residual r = A*x - b.
-
-        maxiter: int
-            Maximum number of iterations.
-
-        verbose : bool
-            If True, L2-norm of residual r is printed at each iteration.
-
-        Returns
-        -------
-        x : psydac.linalg.basic.Vector
-            Converged solution.
-
-        """
-        from math import sqrt
-
-        A = self._operator
-        n = A.shape[0]
-
-        assert( A.shape == (n,n) )
-        assert( b.shape == (n, ) )
-
-        # First guess of solution
-        if x0 is None:
-            x  = b.copy()
-            x *= 0.0
-        else:
-            assert( x0.shape == (n,) )
-            x = x0.copy()
-
-        # Preconditioner
-        if pc is None:
-            # for now, call the cg method here
-            return ConjugateGradient(A).solve(b, x0=x0, tol=tol, maxiter=maxiter, verbose=verbose)
-        # new for now, has to be removed again
-        elif pc == 'jacobi':
-            psolve = lambda r: InverseLinearOperator.jacobi(A, r)
-        elif pc == 'weighted_jacobi':
-            psolve = lambda r: InverseLinearOperator.weighted_jacobi(A, r) # allows for further specification not callable like this!
-        elif isinstance(pc, str):
-            pcfun = getattr(InverseLinearOperator, str)
-            #pcfun = globals()[pc]
-            psolve = lambda r: pcfun(A, r)
-        elif isinstance(pc, LinearSolver):
-            s = b.space.zeros()
-            psolve = lambda r: pc.solve(r, out=s)
-        elif hasattr(pc, '__call__'):
-            psolve = lambda r: pc(A, r)
-
-        # First values
-        v = A.dot(x)
-        r = b - v
-        nrmr_sqr = r.dot(r)
-
-        s  = psolve(r)
-        am = s.dot(r)
-        p  = s.copy()
-
-        tol_sqr = tol**2
-
-        if verbose:
-            print( "Pre-conditioned CG solver:" )
-            print( "+---------+---------------------+")
-            print( "+ Iter. # | L2-norm of residual |")
-            print( "+---------+---------------------+")
-            template = "| {:7d} | {:19.2e} |"
-            print( template.format(1, sqrt(nrmr_sqr)))
-
-        # Iterate to convergence
-        for k in range(2, maxiter+1):
-
-            if nrmr_sqr < tol_sqr:
-                k -= 1
-                break
-
-            v  = A.dot(p, out=v)
-            l  = am / v.dot(p)
-            x += l*p
-            r -= l*v
-
-            nrmr_sqr = r.dot(r)
-            s = psolve(r)
-
-            am1 = s.dot(r)
-            p  *= (am1/am)
-            p  += s
-            am  = am1
-
-            if verbose:
-                print( template.format(k, sqrt(nrmr_sqr)))
-
-        if verbose:
-            print( "+---------+---------------------+")
-
-        # Convergence information
-        info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr) }
-        return x, info
-
-    def dot(self, b):
-        return self.solve(b, pc = self._pc, x0=self._x0, verbose=self._verbose)
 
 #===============================================================================
 class LinearSolver( LinearOperator ):

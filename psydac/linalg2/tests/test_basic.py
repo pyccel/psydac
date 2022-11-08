@@ -4,7 +4,7 @@ from scipy.sparse        import coo_matrix
 from psydac.linalg2.block import BlockMatrix, BlockVector, BlockVectorSpace
 from psydac.linalg2.direct_solvers import BandedSolver, SparseSolver
 from psydac.linalg2.ndarray import NdarrayVectorSpace, NdarrayVector, NdarrayLinearOperator
-from psydac.linalg2.basic import ZeroOperator, IdentityOperator
+from psydac.linalg2.basic import InverseLinearOperator, ZeroOperator, IdentityOperator
 from psydac.linalg2.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 
 #===============================================================================
@@ -158,7 +158,10 @@ if __name__ == "__main__":
     P = NdarrayLinearOperator(domain=V, codomain=V, matrix=mat)
     x0_vec = np.array([10, 10], dtype=float)
     x0 = NdarrayVector(space=V, data=x0_vec)
-    Pinv = P.inverse('cg', **{"verbose": False, "x0": x0})
+    Pinv = P.inverse('cg', verbose = False, x0 = x0)
+    Pinv.getoptions()
+    Pinv.setoptions(verbose=True)
+    Pinv.getoptions()
     print('Success')
     print()
 
@@ -172,7 +175,7 @@ if __name__ == "__main__":
     print('Success')
     print()
 
-    print('Creating the pcg (jacobi and weighted_jacobi) inverse M_inv and M_inv2 of the 4x4 StencilMatrix M =')
+    print('Creating the pcg (jacobi and NOT RIGHT NOW weighted_jacobi) inverse M_inv and M_inv2 of the 4x4 StencilMatrix M =')
     print('[1, 0, 2, 0]')
     print('[0, 1, 0, 2]')
     print('[3, 0, 1, 0]')
@@ -209,14 +212,14 @@ if __name__ == "__main__":
     b[0] = 1
     b[1] = 1    
     x, info = M_inv.dot(b)
-    x2, info2 = M_inv2.dot(b)
+    #x2, info2 = M_inv2.dot(b)
     print('jacobi output:')
     print(info)
     print("x = ", x.toarray())
-    print('weighted_jacobi output:')
-    print(info2)
-    print("x2 = ", x2.toarray())
-    print('Success')
+    #print('weighted_jacobi output:')
+    #print(info2)
+    #print("x2 = ", x2.toarray())
+    print('Success (w/o weighted jacobi)')
     print()
 
     print('Creating a BlockMatrix M_block = ')
