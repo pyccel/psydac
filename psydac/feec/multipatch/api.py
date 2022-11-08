@@ -16,8 +16,11 @@ from psydac.api.discretization        import discretize_space
 from psydac.api.discretization        import DiscreteDerham
 from psydac.feec.multipatch.operators import BrokenGradient_2D
 from psydac.feec.multipatch.operators import BrokenScalarCurl_2D
+from psydac.feec.multipatch.operators import BrokenVectorCurl_2D
+from psydac.feec.multipatch.operators import BrokenDivergence_2D
 from psydac.feec.multipatch.operators import Multipatch_Projector_H1
 from psydac.feec.multipatch.operators import Multipatch_Projector_Hcurl
+from psydac.feec.multipatch.operators import Multipatch_Projector_Hdiv
 from psydac.feec.multipatch.operators import Multipatch_Projector_L2
 from psydac.feec.multipatch.operators import ConformingProjection_V0
 from psydac.feec.multipatch.operators import ConformingProjection_V1
@@ -77,7 +80,10 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 
             elif tuple(sequence) == ('h1', 'hdiv', 'l2'):
                 self._sequence = tuple(sequence)
-                raise NotImplementedError('2D sequence with H-div not available yet')
+                self._broken_diff_ops = (
+                    BrokenVectorCurl_2D(self.V0, self.V1),
+                    BrokenDivergence_2D(self.V1, self.V2),  # None,
+                )
 
             else:
                 raise ValueError('2D sequence not understood')
@@ -146,8 +152,7 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
             if self.sequence[1] == 'hcurl':
                 P1 = Multipatch_Projector_Hcurl(self.V1, nquads=nquads)
             else:
-                P1 = None # TODO: Multipatch_Projector_Hdiv(self.V1, nquads=nquads)
-                raise NotImplementedError('2D sequence with H-div not available yet')
+                P1 = Multipatch_Projector_Hdiv(self.V1, nquads=nquads)
 
             P2 = Multipatch_Projector_L2(self.V2, nquads=nquads)
             return P0, P1, P2

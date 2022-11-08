@@ -200,7 +200,7 @@ def plot_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, 
     :param space_kind: type of the push-forward defining the physical Fem Space
     :param subtitles: in case one would like to have several subplots # todo: then v should be given as a list of fields...
     """
-    if not space_kind in ['h1', 'hcurl', 'l2']:
+    if not space_kind in ['h1', 'hcurl', 'hdiv', 'l2']:
         raise ValueError('invalid value for space_kind = {}'.format(space_kind))
 
     vh = fem_field
@@ -218,10 +218,11 @@ def plot_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, 
     vh_vals = grid_vals(vh)
     if is_vector_valued(vh):
         # then vh_vals[d] contains the values of the d-component of vh (as a patch-indexed list)
-        vh_abs_vals = [np.sqrt(abs(v[0])**2 + abs(v[1])**2) for v in zip(vh_vals[0],vh_vals[1])]
+        #vh_abs_vals = [np.sqrt(abs(v[0])**2 + abs(v[1])**2) for v in zip(vh_vals[0],vh_vals[1])]
+        vh_abs_vals = [v[0] for v in zip(vh_vals[0],vh_vals[1])]
     else:
         # then vh_vals just contains the values of vh (as a patch-indexed list)
-        vh_abs_vals = np.abs(vh_vals)
+        vh_abs_vals = np.array(vh_vals)
 
     my_small_plot(
         title=title,
@@ -333,6 +334,54 @@ def my_small_plot(
             plt.savefig(save_fig_surf, bbox_inches='tight', dpi=dpi)
         else:
             plt.show()
+
+#------------------------------------------------------------------------------
+def plot_stream_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, domain=None, space_kind=None, title=None, filename='dummy_plot.png', subtitles=None, hide_plot=True):
+    """
+    plot a discrete field (given as a FemField or by its coeffs in numpy or stencil format) on the given domain
+
+    :param Vh: Fem space needed if v is given by its coeffs
+    :param space_kind: type of the push-forward defining the physical Fem Space
+    :param subtitles: in case one would like to have several subplots # todo: then v should be given as a list of fields...
+    """
+    if not space_kind in ['h1', 'hcurl', 'hdiv', 'l2']:
+        raise ValueError('invalid value for space_kind = {}'.format(space_kind))
+
+    vh = fem_field
+    if vh is None:
+        if numpy_coeffs is not None:
+            assert stencil_coeffs is None
+            stencil_coeffs = array_to_stencil(numpy_coeffs, Vh.vector_space)
+        vh = FemField(Vh, coeffs=stencil_coeffs)
+
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    mappings_list = list(mappings.values())
+    etas, xx, yy    = get_plotting_grid(mappings, N=20)
+    grid_vals = lambda v: get_grid_vals(v, etas, mappings_list, space_kind=space_kind)
+
+    vh_vals = grid_vals(vh)
+    if is_vector_valued(vh):
+        # then vh_vals[d] contains the values of the d-component of vh (as a patch-indexed list)
+        #vh_abs_vals = [np.sqrt(abs(v[0])**2 + abs(v[1])**2) for v in zip(vh_vals[0],vh_vals[1])]
+        vals_x = [v[0] for v in zip(vh_vals[0],vh_vals[1])]
+        vals_y = [v[1] for v in zip(vh_vals[0],vh_vals[1])]
+
+
+    else:
+        # then vh_vals just contains the values of vh (as a patch-indexed list)
+        #vh_abs_vals = np.abs(vh_vals)
+        vh_abs_vals = vh_vals
+
+    my_small_streamplot(
+        title=title,
+        vals_x=vals_x,
+        vals_y=vals_y,
+        xx=xx,
+        yy=yy,
+        save_fig=filename,
+        hide_plot=hide_plot,
+        dpi = 400,
+    )
 
 #------------------------------------------------------------------------------
 def my_small_streamplot(

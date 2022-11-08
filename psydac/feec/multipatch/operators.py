@@ -30,8 +30,8 @@ from psydac.linalg.iterative_solvers import cg, pcg
 from psydac.fem.basic                import FemField
 
 
-from psydac.feec.global_projectors               import Projector_H1, Projector_Hcurl, Projector_L2
-from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_2D
+from psydac.feec.global_projectors               import Projector_H1, Projector_Hcurl, Projector_Hdiv, Projector_L2
+from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_2D, VectorCurl_2D, Divergence_2D
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
 def get_patch_index_from_face(domain, face):
@@ -491,6 +491,8 @@ class ConformingProjection_V1( FemLinearOperator ):
         V1             = V1h.symbolic_space
         domain         = V1.domain
         self.symbolic_domain  = domain
+        if (V1.name !='Hdiv' and V1.name !='Hcurl'):
+            raise NotImplementedError('The P1 projector is not available for the space {}'.format(V1.name))
 
         if storage_fn and os.path.exists(storage_fn):
             print("[ConformingProjection_V1] loading operator sparse matrix from "+storage_fn)
@@ -576,7 +578,7 @@ class ConformingProjection_V1( FemLinearOperator ):
 
                     axis = I.axis
                     for k in range(domain.dim):
-                        if k == I.axis:continue
+                        if ((k != I.axis and V1.name=="Hdiv") or (k == I.axis and V1.name == "Hcurl")):continue
 
                         if minus_ext == 1:
                             indices[axis] = e_minus[k]
@@ -713,6 +715,10 @@ def get_K1_and_K1_inv(V1h, uniform_patches=False):
         print(' [[WARNING -- hack in get_K1_and_K1_inv: using copies of 1st-patch matrices in every patch ]] ')
 
     V1 = V1h.symbolic_space   # V1h is ProductFemSpace
+
+    if (V1.name !='Hdiv' and V1.name !='Hcurl'):
+        raise NotImplementedError('The change of basis matrices are not available for the space {}'.format(V1.name))
+
     domain = V1.domain
     K1_blocks = []
     K1_inv_blocks = []
@@ -729,7 +735,7 @@ def get_K1_and_K1_inv(V1h, uniform_patches=False):
                 K1_kc_factors = [None,None]
                 for d in [0,1]:    # dim of variable
                     V1_kcd = V1_kc.spaces[d]   # 1d fem space for comp c alond dim d (SplineSpace)
-                    if c == d:
+                    if (c != d and V1.name=="Hdiv") or (c != d and V1.name=="Hcurl"):
                         K1_kc_factors[d] = histopolation_matrix(
                             knots    = V1_kcd.knots,
                             degree   = V1_kcd.degree,
@@ -1024,7 +1030,65 @@ class BrokenTransposedScalarCurl_2D( FemLinearOperator ):
     def transpose(self):
         return BrokenScalarCurl_2D(V1h=self.fem_codomain, V2h=self.fem_domain)
 
+#==============================================================================
+class BrokenVectorCurl_2D(FemLinearOperator):
+    def __init__(self, V0h, V1h):
 
+        FemLinearOperator.__init__(self, fem_domain=V0h, fem_codomain=V1h)
+
+        D0s = [VectorCurl_2D(V0, V1) for V0, V1 in zip(V0h.spaces, V1h.spaces)]
+
+        self._matrix = BlockMatrix(self.domain, self.codomain, \
+                blocks={(i, i): D0i._matrix for i, D0i in enumerate(D0s)})
+
+    def transpose(self):
+        return BrokenTransposedVectorCurl_2D(V0h=self.fem_domain, V1h=self.fem_codomain)
+
+
+#==============================================================================
+class BrokenTransposedVectorCurl_2D( FemLinearOperator ):
+
+    def __init__( self, V0h, V1h):
+
+        FemLinearOperator.__init__(self, fem_domain=V1h, fem_codomain=V0h)
+
+        D0s = [VectorCurl_2D(V0, V1) for V0, V1 in zip(V0h.spaces, V1h.spaces)]
+
+        self._matrix = BlockMatrix(self.domain, self.codomain, \
+                blocks={(i, i): D0i._matrix.T for i, D0i in enumerate(D0s)})
+
+    def transpose(self):
+        return BrokenVectorCurl_2D(V0h=self.fem_codomain, V1h=self.fem_domain)
+
+#==============================================================================
+class BrokenDivergence_2D(FemLinearOperator):
+    def __init__(self, V1h, V2h):
+
+        FemLinearOperator.__init__(self, fem_domain=V1h, fem_codomain=V2h)
+
+        D1s = [Divergence_2D(V1, V2) for V1, V2 in zip(V1h.spaces, V2h.spaces)]
+
+        self._matrix = BlockMatrix(self.domain, self.codomain, \
+                blocks={(i, i): D1i._matrix for i, D1i in enumerate(D1s)})
+
+    def transpose(self):
+        return BrokenTransposedDivergence_2D(V1h=self.fem_domain, V2h=self.fem_codomain)
+
+
+#==============================================================================
+class BrokenTransposedDivergence_2D( FemLinearOperator ):
+
+    def __init__( self, V1h, V2h):
+
+        FemLinearOperator.__init__(self, fem_domain=V2h, fem_codomain=V1h)
+
+        D1s = [Divergence_2D(V1, V2) for V1, V2 in zip(V1h.spaces, V2h.spaces)]
+
+        self._matrix = BlockMatrix(self.domain, self.codomain, \
+                blocks={(i, i): D1i._matrix.T for i, D1i in enumerate(D1s)})
+
+    def transpose(self):
+        return BrokenDivergence_2D(V1h=self.fem_codomain, V2h=self.fem_domain)
 
 #==============================================================================
 from sympy import Tuple
@@ -1087,6 +1151,27 @@ class Multipatch_Projector_Hcurl:
 
         return FemField(self._V1h, coeffs = E1_coeffs)
 
+#==============================================================================
+class Multipatch_Projector_Hdiv:
+
+    """
+    to apply the Hdiv projection (2D) on every patch
+    """
+    def __init__(self, V1h, nquads=None):
+
+        self._P1s = [Projector_Hdiv(V, nquads=nquads) for V in V1h.spaces]
+        self._V1h  = V1h   # multipatch Fem Space
+
+    def __call__(self, funs_log):
+        """
+        project a list of functions given in the logical domain
+        """
+        E1s = [P(fun) for P, fun, in zip(self._P1s, funs_log)]
+
+        E1_coeffs = BlockVector(self._V1h.vector_space, \
+                blocks = [E1j.coeffs for E1j in E1s])
+
+        return FemField(self._V1h, coeffs = E1_coeffs)
 #==============================================================================
 class Multipatch_Projector_L2:
 
