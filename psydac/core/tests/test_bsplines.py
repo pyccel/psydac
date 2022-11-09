@@ -24,7 +24,7 @@ from psydac.fem.tests.utilities import random_grid
 #==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
 @pytest.mark.parametrize( 'nc', (10, 18, 33) )
-@pytest.mark.parametrize( 'p' , (1,2,3,7,10) )
+@pytest.mark.parametrize( 'p' , (0,1,2,3,7,10) )
 
 def test_find_span( lims, nc, p, eps=1e-12 ):
 
@@ -39,7 +39,7 @@ def test_find_span( lims, nc, p, eps=1e-12 ):
 #==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
 @pytest.mark.parametrize( 'nc', (10, 18, 33) )
-@pytest.mark.parametrize( 'p' , (1,2,3,7,10) )
+@pytest.mark.parametrize( 'p' , (0,1,2,3,7,10) )
 
 def test_basis_funs( lims, nc, p, tol=1e-14 ):
 
@@ -57,7 +57,7 @@ def test_basis_funs( lims, nc, p, tol=1e-14 ):
 #==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
 @pytest.mark.parametrize( 'nc', (10, 18, 33) )
-@pytest.mark.parametrize( 'p' , (1,2,3,7,10) )
+@pytest.mark.parametrize( 'p' , (0,1,2,3,7,10) )
 
 def test_basis_funs_1st_der( lims, nc, p, tol=1e-14 ):
 
@@ -74,7 +74,7 @@ def test_basis_funs_1st_der( lims, nc, p, tol=1e-14 ):
 #==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
 @pytest.mark.parametrize( 'nc', (10, 18, 33) )
-@pytest.mark.parametrize( 'p' , (1,2,3,7,10) )
+@pytest.mark.parametrize( 'p' , (0,1,2,3,7,10) )
 
 def test_basis_funs_all_ders( lims, nc, p, tol=1e-14 ):
 
@@ -112,7 +112,7 @@ def test_basis_funs_all_ders( lims, nc, p, tol=1e-14 ):
 #==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
 @pytest.mark.parametrize( 'nc', (10, 18, 33) )
-@pytest.mark.parametrize( 'p' , (1,2,3,7,8) )
+@pytest.mark.parametrize( 'p' , (0,1,2,3,7,8) )
 @pytest.mark.parametrize( 'periodic' , (True, False) )
 
 # TODO: improve checks
@@ -133,7 +133,7 @@ def test_collocation_matrix(lims, nc, p, periodic, tol=1e-13):
 #==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
 @pytest.mark.parametrize( 'nc', (10, 18, 33) )
-@pytest.mark.parametrize( 'p' , (1,2,3,4,5,6) )
+@pytest.mark.parametrize( 'p' , (0,1,2,3,4,5,6) )
 @pytest.mark.parametrize( 'periodic' , (True, False) )
 
 # TODO: improve checks

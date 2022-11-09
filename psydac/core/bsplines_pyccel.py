@@ -198,6 +198,11 @@ def basis_funs_1st_der_p(knots: 'float[:]', degree: int, x: float, span: int, ou
     ----------
     .. [2] SELALIB, Semi-Lagrangian Library. http://selalib.gforge.inria.fr
     """
+    # For degree 0, the first derivative is constant zero
+    if degree == 0:
+        out[:] = 0
+        return
+
     # Compute nonzero basis functions and knot differences for splines
     # up to degree deg-1
     values = np.zeros(degree)
@@ -440,7 +445,7 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
                 for j in range(degree + 1):
                     actual_j = (spans[i] - degree + j) % nb
                     out[i, actual_j] = basis[i, j] * scaling[spans[i] - degree + j]
-
+                    
         else:
             scaling = 1.0 / integrals
             for i in range(nx):
@@ -707,8 +712,12 @@ def greville_p(knots: 'float[:]', degree: int, periodic: bool, out:'float[:]'):
     n = len(T)-2*p-1 if periodic else len(T)-p-1
 
     # Compute greville abscissas as average of p consecutive knot values
-    for i in range(1, 1+n):
-        out[i - 1] = sum(T[i:i + p]) / p
+    if p == 0:
+        for i in range(n):
+            out[i] = sum(T[i:i + 2]) / 2
+    else:
+        for i in range(1, 1+n):
+            out[i - 1] = sum(T[i:i + p]) / p
 
     # Domain boundaries
     a = T[p]
