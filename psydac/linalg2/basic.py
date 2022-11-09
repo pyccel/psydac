@@ -237,12 +237,43 @@ class InverseLinearOperator( LinearOperator ):
             elif solver == 'pcg':
                 from psydac.linalg2.iterative_solvers import PConjugateGradient
                 obj = PConjugateGradient(linop, solver=None, **kwargs)
-            elif solver != 'loop':
+            elif solver == 'bicg':
+                from psydac.linalg2.iterative_solvers import BiConjugateGradient
+                obj = BiConjugateGradient(linop, solver=None, **kwargs)
+            else:
                 raise ValueError(f"Required solver '{solver}' not understood.")
 
             return obj
         else:
             return super().__new__(cls)
+
+    @property
+    def space( self ):
+        return self._space
+
+    @property
+    def domain( self ):
+        return self._domain
+
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    @property
+    def dtype( self ):
+        return None
+
+    @property
+    def linop( self ):
+        return self._linop
+
+    @property
+    def options( self ):
+        return self._options
+
+    @abstractmethod
+    def _update_options(self):
+        pass
 
     def getoptions( self ):
         for key, value in self.options.items():
