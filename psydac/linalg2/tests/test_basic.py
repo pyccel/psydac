@@ -2,7 +2,7 @@ import numpy as np
 from scipy.sparse        import coo_matrix
 
 from psydac.linalg2.block import BlockMatrix, BlockVector, BlockVectorSpace
-from psydac.linalg2.direct_solvers import BandedSolver, SparseSolver
+#from psydac.linalg2.direct_solvers import BandedSolver, SparseSolver
 from psydac.linalg2.ndarray import NdarrayVectorSpace, NdarrayVector, NdarrayLinearOperator
 from psydac.linalg2.basic import InverseLinearOperator, ZeroOperator, IdentityOperator
 from psydac.linalg2.stencil import StencilVectorSpace, StencilVector, StencilMatrix
@@ -36,14 +36,14 @@ if __name__ == "__main__":
     I1 = IdentityOperator(V,V)
     I2 = IdentityOperator(W,W)
     bmat = np.array([[0,1,1], [1,1,1], [0,0,0], [0,0,0]])
-    S = BandedSolver(W, 1, 0, bmat)
-    v = [1, 1, 1]
-    i = [0, 1, 2]
-    j = [0, 1, 2]
-    spmat = coo_matrix((v, (i,j)), shape=(3,3))
-    S2 = SparseSolver(W, spmat)
-    print('Sucessfully created six LOs without matrix representation, namely two IdentityOperators, two ZeroOperators and two LinearSolvers.')
-    print()
+#    S = BandedSolver(W, 1, 0, bmat)
+#    v = [1, 1, 1]
+#    i = [0, 1, 2]
+#    j = [0, 1, 2]
+#    spmat = coo_matrix((v, (i,j)), shape=(3,3))
+#    S2 = SparseSolver(W, spmat)
+#    print('Sucessfully created six LOs without matrix representation, namely two IdentityOperators, two ZeroOperators and two LinearSolvers.')
+#    print()
 
     print('4. Creating compositions of LOs from V->W:')
     c = np.array([[1],[0],[1]], dtype=float)
@@ -56,8 +56,8 @@ if __name__ == "__main__":
     F = NdarrayLinearOperator(domain=V, codomain=V, matrix=f)
     G = C @ D @ I1
     H = I2 @ E @ I1 @ F
-    LS = S @ Sh
-    LS2 = S2 @ Sh
+#    LS = S @ Sh
+#    LS2 = S2 @ Sh
 
     print('Composition LOs G, H, LS and LS2 have been successfully created, G and H including identity operators without matrix representation and LS and LS2 as LinearSolver compositions')
     print()
@@ -129,7 +129,8 @@ if __name__ == "__main__":
     print('Testing the implementation of LinearSolvers:')
     print()
     
-    T3 = 2*(A + Z + G + Z + LS + 0.5*LS2 + H + B)
+#    T3 = 2*(A + Z + G + Z + LS + 0.5*LS2 + H + B)
+    T3 = 2*(A + Z + G + Z + H + B)
 
     ops = T3.operator.addends
     classes = [ops[i].__class__.__name__ for i in range(len(ops))]
