@@ -149,24 +149,16 @@ class LinearOperator( metaclass=ABCMeta ):
     def T( self ):
         return self.transpose()
 
-    def transpose( self ):
-        raise NotImplementedError()
-
-    def inverse( self, solver, **kwargs ):
-        return InverseLinearOperator(self, solver=solver, **kwargs)
-
     @abstractmethod
     def dot( self, v, out=None ):
         """ abstract method - Evaluates self at v, an element of Vector """
         pass
 
-    def __add__( self, B ):
-        """ Creates an object of class :ref:`SumLinearOperator <sumlinearoperator>` unless B is a :ref:`ZeroOperator <zerooperator>` in which case self is returned. """
-        assert isinstance(B, LinearOperator)
-        if isinstance(B, ZeroOperator):
-            return self
-        else:
-            return SumLinearOperator(self._domain, self._codomain, self, B)
+    #-------------------------------------
+    # Magic methods
+    #-------------------------------------
+    def __neg__(self):
+        return ScaledLinearOperator(self._domain, self._codomain, self, -1.0)
 
     def __mul__( self, c ):
         """
@@ -197,13 +189,34 @@ class LinearOperator( metaclass=ABCMeta ):
         else:
             return ComposedLinearOperator(B.domain, self._codomain, self, B)
 
-    def __pow__( self, n ):
+    def __add__( self, B ):
+        """ Creates an object of class :ref:`SumLinearOperator <sumlinearoperator>` unless B is a :ref:`ZeroOperator <zerooperator>` in which case self is returned. """
+        assert isinstance(B, LinearOperator)
+        if isinstance(B, ZeroOperator):
+            return self
+        else:
+            return SumLinearOperator(self._domain, self._codomain, self, B)
+
+    def __sub__(self, m):
+        assert isinstance(m, LinearOperator)
+        if isinstance(m, ZeroOperator):
+            return self
+        else:
+            return SumLinearOperator(self._domain, self._codomain, self, -m)
+
+    def __pow__(self, n):
         """ Creates an object of class :ref:`PowerLinearOperator <powerlinearoperator>`. """
         return PowerLinearOperator(self._domain, self._codomain, self, n)
 
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
+    def transpose( self ):
+        raise NotImplementedError()
+
+    def inverse( self, solver, **kwargs ):
+        return InverseLinearOperator(self, solver=solver, **kwargs)
+
     def idot( self, v, out ):
         """
         Overwrites the vector out, element of codomain, by adding self evaluated at v.
