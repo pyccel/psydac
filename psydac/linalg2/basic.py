@@ -28,10 +28,6 @@ class VectorSpace( metaclass=ABCMeta ):
     def dtype( self ):
         """ The data type of the space elements. """
 
-    @property
-    def T( self ):
-        return self.transpose()
-
     @abstractmethod
     def zeros( self ):
         """ abstract method - Get a copy of the null element of the vector space V. """
