@@ -273,7 +273,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
                 # Create uniform grid
                 grids = [np.linspace(xmin, xmax, num=ne + 1)
                          for xmin, xmax, ne in zip(min_coords, max_coords, ncells_i)]
-
                 # Create 1D finite element spaces and precompute quadrature data
                 spaces = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
             else:

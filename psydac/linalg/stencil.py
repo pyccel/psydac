@@ -671,8 +671,9 @@ class StencilMatrix( Matrix ):
         Codomain of the new linear operator.
 
     """
-    def __init__( self, V, W, pads=None , backend=None):
-
+    def __init__( self, domain, codomain, pads=None , backend=None):
+        V = domain
+        W = codomain
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W, StencilVectorSpace )
         assert W.pads == V.pads

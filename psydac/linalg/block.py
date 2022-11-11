@@ -316,8 +316,9 @@ class BlockLinearOperator( LinearOperator ):
             is the LinearOperator Lij (if None, we assume null operator)
 
     """
-    def __init__( self, V1, V2, blocks=None ):
-
+    def __init__( self, domain, codomain, blocks=None ):
+        V1 = domain
+        V2 = codomain
         assert isinstance( V1, VectorSpace )
         assert isinstance( V2, VectorSpace )
 

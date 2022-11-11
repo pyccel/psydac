@@ -66,6 +66,11 @@ def get_fem_name(method=None, k=None, DG_full=False, conf_proj=None, domain_name
         fn += '_inhom'
     return fn
 
+def FEM_sol_fn(source_type=None, source_proj=None):
+    """ Get the filename for FEM solution coeffs in numpy array format """
+    fn = 'sol_'+source_name(source_type, source_proj)+'.npy'
+    return fn
+    
 def get_load_dir(method=None, DG_full=False, domain_name=None,nc=None,deg=None,data='matrices'):
     """ get load directory name based on the fem name"""
     assert data in ['matrices','solutions','rhs']

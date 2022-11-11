@@ -707,7 +707,7 @@ def construct_extension_operator_1D(domain, codomain):
     return csr_matrix(np.kron(*ops)) # kronecker of 1 term...
 
 #===============================================================================
-class ConformingProjection_V1( FemLinearOperator ):
+class ConformingProjection_V1_new( FemLinearOperator ):
     """
     Conforming projection from global broken V1 space to conforming V1 global space
 
@@ -780,14 +780,15 @@ class ConformingProjection_V1( FemLinearOperator ):
                 self._A[i,i][0,0][tuple(indices)]  = 1
                 self._A[i,i][1,1][tuple(indices)]  = 1
 
+            Interfaces      = domain.interfaces
             if isinstance(Interfaces, Interface):
-                Interfaces = (Interfaces, )
-
+                    Interfaces = (Interfaces, )
             # for i in range(len(self._A.blocks)):
             #     self._A[i,i][0,0][tuple(indices)]  = 1
             #     self._A[i,i][1,1][tuple(indices)]  = 1
 
             if Interfaces is not None:
+                
 
                 for I in Interfaces:
 
@@ -915,6 +916,201 @@ class ConformingProjection_V1( FemLinearOperator ):
 
                             self._A[i_plus,i_minus][k,k][tuple(indices)] = 1/2*I.direction
 
+
+            if hom_bc:
+                for bn in domain.boundary:
+                    self.set_homogenous_bc(bn)
+
+            self._matrix = self._A
+            self._sparse_matrix = self._matrix.tosparse()
+
+            if storage_fn:
+                print("[ConformingProjection_V1] storing operator sparse matrix in "+storage_fn)
+                save_npz(storage_fn, self._sparse_matrix)
+
+    def set_homogenous_bc(self, boundary):
+        domain = self.symbolic_domain
+        Vh = self.fem_domain
+
+        i = get_patch_index_from_face(domain, boundary)
+        axis = boundary.axis
+        ext  = boundary.ext
+        for j in range(len(domain)):
+            if self._A[i,j] is None:continue
+            apply_essential_bc_stencil(self._A[i,j][1-axis,1-axis], axis=axis, ext=ext, order=0)
+
+class ConformingProjection_V1( FemLinearOperator ):
+    """
+    Conforming projection from global broken V1 space to conforming V1 global space
+    proj.dot(v) returns the conforming projection of v, computed by solving linear system
+    Parameters
+    ----------
+    V1h: <FemSpace>
+     The discrete space
+    domain_h: <Geometry>
+     The discrete domain of the projector
+    hom_bc : <bool>
+     Apply homogenous boundary conditions if True
+    backend_language: <str>
+     The backend used to accelerate the code
+    storage_fn:
+     filename to store/load the operator sparse matrix
+    """
+    # todo (MCP, 16.03.2021):
+    #   - avoid discretizing a bilinear form
+    #   - allow case without interfaces (single or multipatch)
+    def __init__(self, V1h, domain_h, hom_bc=False, backend_language='python', storage_fn=None):
+
+        FemLinearOperator.__init__(self, fem_domain=V1h)
+
+        V1             = V1h.symbolic_space
+        domain         = V1.domain
+        self.symbolic_domain  = domain
+
+        if storage_fn and os.path.exists(storage_fn):
+            print("[ConformingProjection_V1] loading operator sparse matrix from "+storage_fn)
+            self._sparse_matrix = load_npz(storage_fn)
+
+        else:
+            # assemble the operator matrix
+            u, v = elements_of(V1, names='u, v')
+            expr   = dot(u,v)
+            #
+            Interfaces      = domain.interfaces  # note: interfaces does not include the boundary
+            expr_I = dot( plus(u)-minus(u) , plus(v)-minus(v) )   # this penalization is for an H1-conforming space
+
+            a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
+            # print('[[ forcing python backend for ConformingProjection_V1]] ')
+            # backend_language = 'python'
+            ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS[backend_language])
+            #
+            # # self._A = ah.assemble()
+            self._A = ah.forms[0]._matrix
+            # C1 = V1h.vector_space
+            # self._A = BlockMatrix(C1, C1)
+
+            for b1 in self._A.blocks:
+                for b2 in b1:
+                    if b2 is None:continue
+                    for b3 in b2.blocks:
+                        for A in b3:
+                            if A is None:continue
+                            A[:,:,:,:] = 0
+
+            spaces = self._A.domain.spaces
+
+            if isinstance(Interfaces, Interface):
+                Interfaces = (Interfaces, )
+
+            indices = [slice(None,None)]*domain.dim + [0]*domain.dim
+
+            for i in range(len(self._A.blocks)):
+                self._A[i,i][0,0][tuple(indices)]  = 1
+                self._A[i,i][1,1][tuple(indices)]  = 1
+
+            # empty list if no interfaces ?
+            if Interfaces is not None:
+
+                for I in Interfaces:
+
+                    i_minus = get_patch_index_from_face(domain, I.minus)
+                    i_plus  = get_patch_index_from_face(domain, I.plus )
+
+                    indices = [slice(None,None)]*domain.dim + [0]*domain.dim
+
+                    sp1    = spaces[i_minus]
+                    sp2    = spaces[i_plus]
+
+                    s11 = sp1.spaces[0].starts[I.axis]
+                    e11 = sp1.spaces[0].ends[I.axis]
+                    s12 = sp1.spaces[1].starts[I.axis]
+                    e12 = sp1.spaces[1].ends[I.axis]
+
+                    s21 = sp2.spaces[0].starts[I.axis]
+                    e21 = sp2.spaces[0].ends[I.axis]
+                    s22 = sp2.spaces[1].starts[I.axis]
+                    e22 = sp2.spaces[1].ends[I.axis]
+
+                    d11     = V1h.spaces[i_minus].spaces[0].degree[I.axis]
+                    d12     = V1h.spaces[i_minus].spaces[1].degree[I.axis]
+
+                    d21     = V1h.spaces[i_plus].spaces[0].degree[I.axis]
+                    d22     = V1h.spaces[i_plus].spaces[1].degree[I.axis]
+
+                    s_minus = [s11, s12]
+                    e_minus = [e11, e12]
+
+                    s_plus = [s21, s22]
+                    e_plus = [e21, e22]
+
+                    d_minus = [d11, d12]
+                    d_plus  = [d21, d22]
+
+                    minus_ext = I.minus.ext
+                    plus_ext = I.plus.ext
+
+                    axis = I.axis
+                    for k in range(domain.dim):
+                        if k == I.axis:continue
+
+                        if minus_ext == 1:
+                            indices[axis] = e_minus[k]
+                        else:
+                            indices[axis] = s_minus[k]
+                        self._A[i_minus,i_minus][k,k][tuple(indices)] = 1/2
+
+                        if plus_ext == 1:
+                            indices[axis] = e_plus[k]
+                        else:
+                            indices[axis] = s_plus[k]
+
+                        self._A[i_plus,i_plus][k,k][tuple(indices)] = 1/2
+
+                        if plus_ext == minus_ext:
+                            if minus_ext == 1:
+                                indices[axis] = d_minus[k]
+                            else:
+                                indices[axis] = s_minus[k]
+
+                            self._A[i_minus,i_plus][k,k][tuple(indices)] = 1/2*I.direction
+
+                            if plus_ext == 1:
+                                indices[axis] = d_plus[k]
+                            else:
+                                indices[axis] = s_plus[k]
+
+                            self._A[i_plus,i_minus][k,k][tuple(indices)] = 1/2*I.direction
+
+                        else:
+                            if minus_ext == 1:
+                                indices[axis] = d_minus[k]
+                            else:
+                                indices[axis] = s_minus[k]
+
+                            if plus_ext == 1:
+                                indices[domain.dim + axis] = d_plus[k]
+                            else:
+                                indices[domain.dim + axis] = -d_plus[k]
+
+                            self._A[i_minus,i_plus][k,k][tuple(indices)] = 1/2*I.direction
+
+                            if plus_ext == 1:
+                                indices[axis] = d_plus[k]
+                            else:
+                                indices[axis] = s_plus[k]
+
+                            if minus_ext == 1:
+                                indices[domain.dim + axis] = d_minus[k]
+                            else:
+                                indices[domain.dim + axis] = -d_minus[k]
+
+                            self._A[i_plus,i_minus][k,k][tuple(indices)] = 1/2*I.direction
+
+                    # self._A[i_plus,i_plus] = ProductLinearOperator(V1h.spaces[i_plus], V1h.spaces[i_plus], *operators) 
+                    # with pi_matrix * self._A_conf[i_plus,i_plus] * pi_star_matrix
+                    # self._A[i_plus,i_minus] = pi_matrix * self._A_nonconf[i_plus,i_plus]
+                    # self._A[i_minus,i_plus] = self._A_nonconf[i_plus,i_plus] * pi_star_matrix
+                    # self._A[i_minus,i_minus] = self._A_nonconf[i_minus,i_minus]
 
             if hom_bc:
                 for bn in domain.boundary:

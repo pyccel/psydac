@@ -59,14 +59,14 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
                 uk_field_0 = u[k]
 
         # computing the pushed-fwd values on the grid
-        if space_kind == 'h1':
+        if space_kind == 'h1' or space_kind == 'V0':
             assert not vector_valued
             # todo (MCP): add 2d_hcurl_vector
             push_field = lambda eta1, eta2: push_2d_h1(uk_field_0, eta1, eta2)
-        elif space_kind == 'hcurl':
+        elif space_kind == 'hcurl' or space_kind == 'V1':
             # todo (MCP): specify 2d_hcurl_scalar in push functions
             push_field = lambda eta1, eta2: push_2d_hcurl(uk_field_0, uk_field_1, eta1, eta2, mapping=mappings_list[k])
-        elif space_kind == 'hdiv':
+        elif space_kind == 'hdiv' or space_kind == 'V2':
             push_field = lambda eta1, eta2: push_2d_hdiv(uk_field_0, uk_field_1, eta1, eta2, mapping=mappings_list[k])
         elif space_kind == 'l2':
             assert not vector_valued
@@ -173,8 +173,8 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     F = [M.get_callable_mapping() for d,M in mappings.items()]
 
     if plotted_patch in range(len(mappings)):
-        grid_x1 = Vh.spaces[plotted_patch].breaks[0]
-        grid_x2 = Vh.spaces[plotted_patch].breaks[1]
+        grid_x1 = Vh.spaces[plotted_patch].spaces[0].breaks[0]
+        grid_x2 = Vh.spaces[plotted_patch].spaces[0].breaks[1]
 
         x1 = refine_array_1d(grid_x1, N)
         x2 = refine_array_1d(grid_x2, N)

@@ -348,9 +348,7 @@ def construct_V0_conforming_projection(V0h, domain_h, hom_bc=None, storage_fn=No
 
             for i in range(space_k_1d.nbasis):
                 multi_index_i[d] = i
-                print(multi_index_i)
                 ig = l2g.get_index(k, d, multi_index_i)
-                print(ig)
                 Proj[:,ig] = 0
 
     return Proj
@@ -375,7 +373,7 @@ def construct_V1_conforming_projection(V1h, domain_h, hom_bc=None, storage_fn=No
     Interfaces = domain.interfaces
     if isinstance(Interfaces, Interface):
         Interfaces = (Interfaces, )
-
+    print(Interfaces)
     for I in Interfaces:
         axis = I.axis
         direction = I.direction

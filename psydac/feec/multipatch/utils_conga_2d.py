@@ -82,10 +82,11 @@ class DiagGrid():
 
     def create_ref_fem_spaces(self, domain=None, ref_nc=None, ref_deg=None):
         print('[DiagGrid] Discretizing the ref FEM space...')
-        ncells = [ref_nc, ref_nc]
         degree = [ref_deg, ref_deg]
         derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-        domain_h = discretize(domain, ncells=ncells)
+        ref_nc = {patch.name: [ref_nc, ref_nc] for patch in domain.interior}
+
+        domain_h = discretize(domain, ncells=ref_nc)
         derham_h = discretize(derham, domain_h, degree=degree) #, backend=PSYDAC_BACKENDS[backend_language])
         self.V0h = derham_h.V0
         self.V1h = derham_h.V1
