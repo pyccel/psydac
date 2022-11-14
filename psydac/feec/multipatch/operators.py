@@ -209,6 +209,7 @@ def allocate_interface_matrix(corners, test_space, trial_space):
      The interface matrix shared by two patches
     """
     bi, bj = list(zip(*corners))
+    print(bi)
     permutation = np.arange(bi[0].domain.dim)
 
     flips = []
@@ -237,9 +238,9 @@ def allocate_interface_matrix(corners, test_space, trial_space):
     cs    = list(zip(*[i.coordinates for i in bi]))
     axis  = [all(i[0]==j for j in i) for i in cs].index(True)
     ext   = 1 if cs[axis][0]==1 else -1
-    s     = test_space.quad_grids[axis].spans[-1 if ext==1 else 0] - test_space.degree[axis]
-
-    mat  = StencilInterfaceMatrix(trial_space.vector_space, test_space.vector_space, s, s, axis, flip=flips[0], permutation=list(permutation))
+    s_test     = test_space.quad_grids[axis].spans[-1 if ext==1 else 0] - test_space.degree[axis]
+    s_trial    = trial_space.quad_grids[axis].spans[-1 if ext==1 else 0] - trial_space.degree[axis]
+    mat  = StencilInterfaceMatrix(trial_space.vector_space, test_space.vector_space, s_trial, s_test, axis, axis, ext, ext, flip=flips[0])
     return mat
 
 #===============================================================================
@@ -410,7 +411,7 @@ class ConformingProjection_V0( FemLinearOperator):
                         if self._A[i,j] is None:
                             self._A[i,j] = allocate_interface_matrix(corner_blocks[i,j], V0h.spaces[i], V0h.spaces[j])
 
-                        if i!=j and self._A[i,j]:axis=self._A[i,j]._dim
+                        if i!=j and self._A[i,j]:axis=self._A[i,j].domain_axis
                         index = get_row_col_index(b1, b2, interface, axis, V0h.spaces[i], V0h.spaces[j])
                         self._A[i,j][tuple(index)] = 1/len(c)
 
@@ -648,13 +649,18 @@ class ConformingProjection_V1( FemLinearOperator ):
     def set_homogenous_bc(self, boundary):
         domain = self.symbolic_domain
         Vh = self.fem_domain
+        V = Vh.symbolic_space
+
 
         i = get_patch_index_from_face(domain, boundary)
         axis = boundary.axis
         ext  = boundary.ext
         for j in range(len(domain)):
             if self._A[i,j] is None:continue
-            apply_essential_bc_stencil(self._A[i,j][1-axis,1-axis], axis=axis, ext=ext, order=0)
+            if V.name == "Hcurl":
+                apply_essential_bc_stencil(self._A[i,j][1-axis,1-axis], axis=axis, ext=ext, order=0)
+            elif V.name == "Hdiv":
+                apply_essential_bc_stencil(self._A[i,j][axis,axis], axis=axis, ext=ext, order=0)
 
 
 #===============================================================================

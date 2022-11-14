@@ -2158,11 +2158,6 @@ class StencilInterfaceMatrix(Matrix):
 
     # ...
     @property
-    def dim( self ):
-        return self._dim
-
-    # ...
-    @property
     def flip( self ):
         return self._flip
 

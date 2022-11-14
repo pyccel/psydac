@@ -322,6 +322,11 @@ def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
 
         f_vect = Tuple(f_x, f_y)
 
+    elif source_type == 'test_Laplacian_sin':
+        u_ex    = Tuple(sin(x), sin(y))
+        f_vect  = Tuple(2*sin(x), 2*sin(y))
+        u_bc = u_ex
+
     else:
         raise ValueError(source_type)
 
