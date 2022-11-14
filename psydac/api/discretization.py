@@ -271,7 +271,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     connectivity = construct_connectivity(domain)
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
         # from a discrete geoemtry
-        mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
+        mappings  = [domain_h.mappings[inter.name] for inter in interiors]
         spaces    = [m.space for m in mappings]
         g_spaces  = dict(zip(interiors, spaces))
         spaces    = [S.spaces for S in spaces]
@@ -418,7 +418,7 @@ def discretize(a, *args, **kwargs):
 
     elif isinstance(a, sym_GltExpr):
         return DiscreteGltExpr(a, *args, **kwargs)
-        
+
     elif isinstance(a, sym_Expr):
         return DiscreteExpr(a, *args, **kwargs)
 

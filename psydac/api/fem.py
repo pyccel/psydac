@@ -429,6 +429,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
             for key in self._free_args:
                 v = kwargs[key]
+
                 if len(self.domain)>1 and isinstance(v, FemField) and v.space.is_product:
                     i,j = self.get_space_indices_from_target(self.domain, self.target)
                     assert i==j
@@ -448,7 +449,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 else:
                     consts += (v, )
 
-            args = (*self.args, *consts, *basis, *spans, *degrees, *pads, *coeffs)
+            args = (*self.args, *basis, *spans, *degrees, *pads, *coeffs, *consts)
 
         else:
             args = self._args
@@ -976,7 +977,7 @@ class DiscreteLinearForm(BasicDiscrete):
                 else:
                     consts += (v, )
 
-            args = (*self.args, *consts, *basis, *spans, *degrees, *pads, *coeffs)
+            args = (*self.args, *basis, *spans, *degrees, *pads, *coeffs, *consts)
 
         else:
             args = self._args

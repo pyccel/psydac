@@ -486,13 +486,13 @@ class Parser(object):
         args = [tuple(arg.values())[0] if isinstance(arg, dict) else arg for arg in args]
         arguments = flatten(args) + mats
 
-        if constants:
-            arguments += [self._visit(i, **kwargs) for i in constants]
-
         if f_args:
             f_args     = [self._visit(i, **kwargs) for i in f_args]
             f_args     = [tuple(arg.values())[0] if isinstance(arg, dict) else arg for arg in f_args]
             arguments += flatten(f_args)
+
+        if constants:
+            arguments += [self._visit(i, **kwargs) for i in constants]
 
         arguments += starts + ends
 
