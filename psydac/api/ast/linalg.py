@@ -106,7 +106,7 @@ class LinearOperatorDot(SplBasic):
 
         # Generate random tag, unique for all processes in MPI communicator
         tag = random_string(8)
-        parallel = not kwargs.get('interface', False)
+        parallel = True
         if comm is not None and comm.size>1 and parallel:
             tag = comm.bcast(tag, root=0)
 
@@ -465,7 +465,7 @@ class TransposeOperator(SplBasic):
 
         # Generate random tag, unique for all processes in MPI communicator
         tag = random_string(8)
-        parallel = not kwargs.get('interface', False)
+        parallel = True
         if comm is not None and comm.size>1 and parallel:
             tag = comm.bcast(tag , root=0 )
 
