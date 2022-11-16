@@ -656,6 +656,10 @@ class DiscreteBilinearForm(BasicDiscrete):
             i,j = self.get_space_indices_from_target(domain, target )
             test_space  = test_space.spaces[i]
             trial_space = trial_space.spaces[j]
+        else :
+            i=0
+            j=0
+            #else so initialisation causing bug on line 682 
 
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # case of system of equations
 
