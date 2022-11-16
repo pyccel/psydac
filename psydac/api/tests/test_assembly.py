@@ -3,7 +3,7 @@ from sympy import pi, sin, cos, tan, atan, atan2
 from sympy import exp, sinh, cosh, tanh, atanh
 
 from sympde.topology import Line, Square
-from sympde.topology import ScalarFunctionSpace
+from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import element_of
 from sympde.core     import Constant
 from sympde.expr     import BilinearForm
@@ -139,7 +139,33 @@ def test_math_imports(backend):
     print("PASSED")
 
 #==============================================================================
+def test_non_symmetric_BilinearForm(backend):
+
+    kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
+
+    domain = Square()
+    V1 = ScalarFunctionSpace('V1', domain)
+    V2 = VectorFunctionSpace('V2', domain)
+
+    u = element_of(V2, name='u')
+    v = element_of(V1, name='v')
+
+    a = BilinearForm((u, v), integral(domain, u[0] * v))
+
+    ncells = (5, 5)
+    degree = (3, 3)
+    domain_h = discretize(domain, ncells=ncells)
+    Vh1 = discretize(V1, domain_h, degree=degree)
+    Vh2 = discretize(V2, domain_h, degree=degree)
+    ah = discretize(a, domain_h, [Vh2, Vh1], **kwargs)
+
+    A = ah.assemble()
+
+    print("PASSED")
+
+#==============================================================================
 if __name__ == '__main__':
     test_field_and_constant(None)
     test_multiple_fields(None)
     test_math_imports(None)
+    test_non_symmetric_BilinearForm(None)
