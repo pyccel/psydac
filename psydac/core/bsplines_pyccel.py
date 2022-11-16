@@ -440,12 +440,12 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
         integrals = np.zeros(knots.shape[0] - degree - 1)
         basis_integrals_p(knots, degree, integrals)
         scaling = 1.0 / integrals
-
         if periodic:
             for i in range(nx):
                 for j in range(degree + 1):
                     actual_j = (spans[i] - degree + j) % nb
                     out[i, actual_j] = basis[i, j] * scaling[spans[i] - degree + j]
+
         else:
             scaling = 1.0 / integrals
             for i in range(nx):
