@@ -7,7 +7,7 @@ from scipy.sparse import bmat, lil_matrix
 
 from psydac.linalg.basic import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
 
-__all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix', 'BlockDiagonalSolver']
+__all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockDiagonalSolver']
 
 #===============================================================================
 class BlockVectorSpace( VectorSpace ):
@@ -291,7 +291,7 @@ class BlockVector( Vector ):
         return vec
 
 #===============================================================================
-class BlockLinearOperator( LinearOperator ):
+class BlockLinearOperator( Matrix ):
     """
     Linear operator that can be written as blocks of other Linear Operators.
     Either the domain or the codomain of this operator, or both, should be of
@@ -364,6 +364,54 @@ class BlockLinearOperator( LinearOperator ):
         return self.domain.dtype
 
     # ...
+    @property
+    def T(self):
+        return self.transpose()
+
+    # toarray, tosparse and copy as required by Matrix
+    def toarray( self, **kwargs ):
+        """ Convert to Numpy 2D array. """
+        return self.tosparse(**kwargs).toarray()
+
+    # ...
+    def tosparse( self, **kwargs ):
+        """ Convert to any Scipy sparse matrix format. """
+        # Shortcuts
+
+        nrows = self.n_block_rows
+        ncols = self.n_block_cols
+
+        # Utility functions: get domain of blocks on column j, get codomain of blocks on row i
+        block_domain   = (lambda j: self.domain  [j]) if ncols > 1 else (lambda j: self.domain)
+        block_codomain = (lambda i: self.codomain[i]) if nrows > 1 else (lambda i: self.codomain)
+
+        # Convert all blocks to Scipy sparse format
+        blocks_sparse = [[None for j in range(ncols)] for i in range(nrows)]
+        for i in range(nrows):
+            for j in range(ncols):
+                if (i, j) in self._blocks:
+                    blocks_sparse[i][j] = self._blocks[i, j].tosparse(**kwargs)
+                else:
+                    m = block_codomain(i).dimension
+                    n = block_domain  (j).dimension
+                    blocks_sparse[i][j] = lil_matrix((m, n))
+
+        # Create sparse matrix from sparse blocks
+        M = bmat( blocks_sparse )
+        M.eliminate_zeros()
+
+        # Sanity check
+        assert M.shape[0] == self.codomain.dimension
+        assert M.shape[1] == self.  domain.dimension
+
+        return M
+
+    # ...
+    def copy(self):
+        blocks = {ij: Bij.copy() for ij, Bij in self._blocks.items()}
+        return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+
+    # ...
     def dot( self, v, out=None ):
 
         if self.n_block_cols == 1:
@@ -428,6 +476,25 @@ class BlockLinearOperator( LinearOperator ):
         for Lij in self._blocks.values():
             Lij.remove_spurious_entries()
 
+    # topetsc copied from BlockMatrix
+    # ...
+    def topetsc( self ):
+        """ Convert to petsc Nest Matrix.
+        """
+        # Convert all blocks to petsc format
+        blocks = [[None for j in range( self.n_block_cols )] for i in range( self.n_block_rows )]
+        for (i,j), Mij in self._blocks.items():
+            blocks[i][j] = Mij.topetsc()
+
+        if self.n_block_cols == 1:
+            cart = self.domain.cart
+        else:
+            cart = self.domain.spaces[0].cart
+
+        petsccart = cart.topetsc()
+
+        return petsccart.petsc.Mat().createNest(blocks, comm=cart.comm)
+
     # ...
     def __getitem__( self, key ):
 
@@ -479,48 +546,265 @@ class BlockLinearOperator( LinearOperator ):
         blocks = {ij: operation(Bij) for ij, Bij in self._blocks.items()}
         return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
     
-    def tomatrix(self):
-        """
-        Returns a BlockMatrix with the same blocks as this BlockLinearOperator.
-        Does only work, if all blocks are matrices (i.e. type Matrix) as well.
-        """
-        return BlockMatrix(self.domain, self.codomain, blocks=self._blocks)
+    #def tomatrix(self):
+    #    """
+    #    Returns a BlockMatrix with the same blocks as this BlockLinearOperator.
+    #    Does only work, if all blocks are matrices (i.e. type Matrix) as well.
+    #    """
+    #    ### used to say "return BlockMatrix" - must update method for it to work, but is useful
+    #    return Matrix(self.domain, self.codomain, blocks=self._blocks)
 
     # ...
     def transpose(self):
         blocks = {(j, i): b.transpose() for (i, j), b in self._blocks.items()}
         return BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
 
+    # magic methods imported from BlockMatrix
     # ...
-    @property
-    def T(self):
-        return self.transpose()
+    def __neg__(self):
+        blocks = {ij: -Bij for ij, Bij in self._blocks.items()}
+        return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+
+    # ...
+    def __mul__(self, a):
+        blocks = {ij: Bij * a for ij, Bij in self._blocks.items()}
+        return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+
+    # ...
+    def __rmul__(self, a):
+        blocks = {ij: a * Bij for ij, Bij in self._blocks.items()}
+        return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+
+    # ...
+    def __add__(self, M):
+        if isinstance(M, BlockLinearOperator):
+            #assert isinstance(M, BlockLinearOperator)
+            assert M.  domain is self.  domain
+            assert M.codomain is self.codomain
+            blocks  = {}
+            for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
+                Bij = self[ij]
+                Mij = M[ij]
+                if   Bij is None: blocks[ij] = Mij.copy()
+                elif Mij is None: blocks[ij] = Bij.copy()
+                else            : blocks[ij] = Bij + Mij
+            return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+        else:
+            return LinearOperator.__add__(self, M)
+
+    # ...
+    def __sub__(self, M):
+        assert isinstance(M, BlockLinearOperator)
+        assert M.  domain is self.  domain
+        assert M.codomain is self.codomain
+        blocks  = {}
+        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
+            Bij = self[ij]
+            Mij = M[ij]
+            if   Bij is None: blocks[ij] = -Mij
+            elif Mij is None: blocks[ij] =  Bij.copy()
+            else            : blocks[ij] =  Bij - Mij
+        return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+
+    # ...
+    def __imul__(self, a):
+        for Bij in self._blocks.values():
+            Bij *= a
+        return self
+
+    # ...
+    def __iadd__(self, M):
+        assert isinstance(M, BlockLinearOperator)
+        assert M.  domain is self.  domain
+        assert M.codomain is self.codomain
+
+        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
+
+            Mij = M[ij]
+            if Mij is None:
+                continue
+
+            Bij = self[ij]
+            if Bij is None:
+                self[ij] = Mij.copy()
+            else:
+                Bij += Mij
+
+        return self
+
+    # ...
+    def __isub__(self, M):
+        assert isinstance(M, BlockLinearOperator)
+        assert M.  domain is self.  domain
+        assert M.codomain is self.codomain
+
+        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
+
+            Mij = M[ij]
+            if Mij is None:
+                continue
+
+            Bij = self[ij]
+            if Bij is None:
+                self[ij] = -Mij
+            else:
+                Bij -= Mij
+
+        return self 
 
 #===============================================================================
+class BlockDiagonalSolver( LinearSolver ):
+    """
+    A LinearSolver that can be written as blocks of other LinearSolvers,
+    i.e. it can be seen as a solver for linear equations with block-diagonal matrices.
+
+    The space of this solver has to be of the type BlockVectorSpace.
+
+    Parameters
+    ----------
+    V : psydac.linalg.block.BlockVectorSpace
+        Space of the new blocked linear solver.
+
+    blocks : dict | list | tuple
+        LinearSolver objects (optional).
+
+        a) 'blocks' can be dictionary with
+            . key   = integer i >= 0
+            . value = corresponding LinearSolver Lii
+
+        b) 'blocks' can be list of LinearSolvers (or tuple of these) where blocks[i]
+            is the LinearSolver Lii (if None, we assume null operator)
+
+    """
+    def __init__( self, V, blocks=None ):
+
+        assert isinstance( V, BlockVectorSpace )
+
+        self._space   = V
+        self._nblocks = V.n_blocks
+
+        # Store blocks in list (hence, they can be manually changed later)
+        self._blocks   = [None] * self._nblocks
+
+        if blocks:
+
+            if isinstance( blocks, dict ):
+                for i, L in blocks.items():
+                    self[i] = L
+
+            elif isinstance( blocks, (list, tuple) ):
+                for i, L in enumerate( blocks ):
+                    self[i] = L
+
+            else:
+                raise ValueError( "Blocks can only be given as dict or 1D list/tuple." )
+
+    #--------------------------------------
+    # Abstract interface
+    #--------------------------------------
+    @property
+    def space( self ):
+        """
+        The space this BlockDiagonalSolver works on.
+        """
+        return self._space
+
+    # ...
+    def solve( self, rhs, out=None, transposed=False ):
+        """
+        Solves the linear system for the given right-hand side rhs.
+        An out vector can be supplied, otherwise a new vector will be allocated.
+
+        This operation supports in-place operations, given that the underlying solvers
+        do as well.
+
+        Parameters
+        ----------
+        rhs : BlockVector
+            The input right-hand side.
+        
+        out : BlockVector | NoneType
+            The output vector, or None.
+        
+        transposed : Bool
+            If true, and supported by the underlying solvers,
+            rhs is solved against the transposed right-hand sides.
+        
+        Returns
+        -------
+        out : BlockVector
+            Either `out`, if given as input parameter, or a newly-allocated vector.
+            In all cases, it holds the result of the computation.
+        """
+        assert isinstance(rhs, BlockVector)
+        assert rhs.space is self.space
+        if out is None:
+            out = self.space.zeros()
+        
+        assert isinstance(out, BlockVector)
+        assert out.space is self.space
+
+        rhs.update_ghost_regions()
+
+        for i, L in enumerate(self._blocks):
+            if L is None:
+                raise NotImplementedError('All solvers have to be defined.')
+            L.solve(rhs[i], out=out[i], transposed=transposed)
+
+        return out
+
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
+    @property
+    def blocks( self ):
+        """ Immutable 1D view (tuple) of the linear solvers,
+            including the empty blocks as 'None' objects.
+        """
+        return tuple(self._blocks)
+    # ...
+    @property
+    def n_blocks( self ):
+        """
+        The number of blocks in the matrix.
+        """
+        return self._nblocks
+
+    # ...
+    def __getitem__( self, key ):
+        assert 0 <= key < self._nblocks
+
+        return self._blocks.get( key, None )
+
+    # ...
+    def __setitem__( self, key, value ):
+        assert 0 <= key < self._nblocks
+
+        assert isinstance( value, LinearSolver )
+
+        # Check domain of rhs
+        assert value.space is self.space[key]
+
+        self._blocks[key] = value
+
 class BlockMatrix( BlockLinearOperator, Matrix ):
     """
     Linear operator that can be written as blocks of other Linear Operators,
     with the additional capability to be converted to a 2D Numpy array
     or to a Scipy sparse matrix.
-
     Parameters
     ----------
     V1 : psydac.linalg.block.BlockVectorSpace
         Domain of the new linear operator.
-
     V2 : psydac.linalg.block.BlockVectorSpace
         Codomain of the new linear operator.
-
     blocks : dict | (list of lists) | (tuple of tuples)
         Matrix objects (optional).
-
         a) 'blocks' can be dictionary with
             . key   = tuple (i, j), where i and j are two integers >= 0
             . value = corresponding Matrix Mij
-
         b) 'blocks' can be list of lists (or tuple of tuples) where blocks[i][j]
             is the Matrix Mij (if None, we assume all entries are zeros)
-
     """
     #--------------------------------------
     # Abstract interface
@@ -693,138 +977,3 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         petsccart = cart.topetsc()
 
         return petsccart.petsc.Mat().createNest(blocks, comm=cart.comm)
-
-#===============================================================================
-class BlockDiagonalSolver( LinearSolver ):
-    """
-    A LinearSolver that can be written as blocks of other LinearSolvers,
-    i.e. it can be seen as a solver for linear equations with block-diagonal matrices.
-
-    The space of this solver has to be of the type BlockVectorSpace.
-
-    Parameters
-    ----------
-    V : psydac.linalg.block.BlockVectorSpace
-        Space of the new blocked linear solver.
-
-    blocks : dict | list | tuple
-        LinearSolver objects (optional).
-
-        a) 'blocks' can be dictionary with
-            . key   = integer i >= 0
-            . value = corresponding LinearSolver Lii
-
-        b) 'blocks' can be list of LinearSolvers (or tuple of these) where blocks[i]
-            is the LinearSolver Lii (if None, we assume null operator)
-
-    """
-    def __init__( self, V, blocks=None ):
-
-        assert isinstance( V, BlockVectorSpace )
-
-        self._space   = V
-        self._nblocks = V.n_blocks
-
-        # Store blocks in list (hence, they can be manually changed later)
-        self._blocks   = [None] * self._nblocks
-
-        if blocks:
-
-            if isinstance( blocks, dict ):
-                for i, L in blocks.items():
-                    self[i] = L
-
-            elif isinstance( blocks, (list, tuple) ):
-                for i, L in enumerate( blocks ):
-                    self[i] = L
-
-            else:
-                raise ValueError( "Blocks can only be given as dict or 1D list/tuple." )
-
-    #--------------------------------------
-    # Abstract interface
-    #--------------------------------------
-    @property
-    def space( self ):
-        """
-        The space this BlockDiagonalSolver works on.
-        """
-        return self._space
-
-    # ...
-    def solve( self, rhs, out=None, transposed=False ):
-        """
-        Solves the linear system for the given right-hand side rhs.
-        An out vector can be supplied, otherwise a new vector will be allocated.
-
-        This operation supports in-place operations, given that the underlying solvers
-        do as well.
-
-        Parameters
-        ----------
-        rhs : BlockVector
-            The input right-hand side.
-        
-        out : BlockVector | NoneType
-            The output vector, or None.
-        
-        transposed : Bool
-            If true, and supported by the underlying solvers,
-            rhs is solved against the transposed right-hand sides.
-        
-        Returns
-        -------
-        out : BlockVector
-            Either `out`, if given as input parameter, or a newly-allocated vector.
-            In all cases, it holds the result of the computation.
-        """
-        assert isinstance(rhs, BlockVector)
-        assert rhs.space is self.space
-        if out is None:
-            out = self.space.zeros()
-        
-        assert isinstance(out, BlockVector)
-        assert out.space is self.space
-
-        rhs.update_ghost_regions()
-
-        for i, L in enumerate(self._blocks):
-            if L is None:
-                raise NotImplementedError('All solvers have to be defined.')
-            L.solve(rhs[i], out=out[i], transposed=transposed)
-
-        return out
-
-    #--------------------------------------
-    # Other properties/methods
-    #--------------------------------------
-    @property
-    def blocks( self ):
-        """ Immutable 1D view (tuple) of the linear solvers,
-            including the empty blocks as 'None' objects.
-        """
-        return tuple(self._blocks)
-    # ...
-    @property
-    def n_blocks( self ):
-        """
-        The number of blocks in the matrix.
-        """
-        return self._nblocks
-
-    # ...
-    def __getitem__( self, key ):
-        assert 0 <= key < self._nblocks
-
-        return self._blocks.get( key, None )
-
-    # ...
-    def __setitem__( self, key, value ):
-        assert 0 <= key < self._nblocks
-
-        assert isinstance( value, LinearSolver )
-
-        # Check domain of rhs
-        assert value.space is self.space[key]
-
-        self._blocks[key] = value

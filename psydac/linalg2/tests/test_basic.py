@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.sparse        import coo_matrix
 
-from psydac.linalg.block import BlockMatrix, BlockVector, BlockVectorSpace
+from psydac.linalg.block import BlockVector, BlockVectorSpace, BlockLinearOperator
 #from psydac.linalg2.direct_solvers import BandedSolver, SparseSolver
 from psydac.linalg2.ndarray import NdarrayVectorSpace, NdarrayVector, NdarrayLinearOperator
 from psydac.linalg.basic import ZeroOperator, IdentityOperator
@@ -269,7 +269,7 @@ if __name__ == "__main__":
     X = BlockVectorSpace(V, V)
     b_block = BlockVector(X, (b, b))
     x0_block = BlockVector(X, (x0, x0))
-    M_block = BlockMatrix(X, X, ((M, None), (None, M)))
+    M_block = BlockLinearOperator(X, X, ((M, None), (None, M)))
 
     M_block_inv = M_block.inverse('pcg', pc='jacobi', x0=x0_block, verbose=True)
     print('Setting verbose=False')

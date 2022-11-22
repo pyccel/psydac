@@ -309,6 +309,9 @@ class ZeroOperator( LinearOperator ):
     def dtype( self ):
         return None
 
+    def copy( self ):
+        return ZeroOperator(self._domain, self._codomain)
+
     def transpose( self ):
         return ZeroOperator(domain=self._codomain, codomain=self._domain)
 
@@ -367,6 +370,9 @@ class IdentityOperator( LinearOperator ):
     @property
     def dtype( self ):
         return None
+
+    def copy( self ):
+        return IdentityOperator(self._domain, self._codomain)
 
     def transpose( self ):
         """ Could return self, but by convention returns new object. """
@@ -735,18 +741,18 @@ class InverseLinearOperator( LinearOperator ):
             Preconditioner solution
 
         """
-        from psydac.linalg.block   import BlockMatrix, BlockVector
+        from psydac.linalg.block   import BlockLinearOperator, BlockVector
         from psydac.linalg.stencil import StencilMatrix, StencilVector
 
         # Sanity checks
-        assert isinstance(A, (StencilMatrix, BlockMatrix))
+        assert isinstance(A, (StencilMatrix, BlockLinearOperator))
         assert isinstance(b, (StencilVector, BlockVector))
         assert A.codomain == A.domain
         assert A.codomain == b.space
 
         #-------------------------------------------------------------
         # Handle the case of a block linear system
-        if isinstance(A, BlockMatrix):
+        if isinstance(A, BlockLinearOperator):
             x = [InverseLinearOperator.jacobi(A[i, i], bi) for i, bi in enumerate(b.blocks)]
             return BlockVector(b.space, blocks=x)
         #-------------------------------------------------------------
