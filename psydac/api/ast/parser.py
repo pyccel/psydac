@@ -732,7 +732,7 @@ class Parser(object):
         dim    = self.dim
         rank   = expr.rank
         target = SymbolicExpr(expr.target)
-        name   = 'thread_spans_{}'.format(target)
+        name   = 'thread_spans_{}_'.format(target)
         targets = variables('{}1:{}'.format(name, dim+1), dtype='int', rank=1, cls=IndexedVariable)
         if expr.index is not None:
             return targets[expr.index]
