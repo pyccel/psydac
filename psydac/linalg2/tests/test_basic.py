@@ -1,11 +1,11 @@
 import numpy as np
 from scipy.sparse        import coo_matrix
 
-from psydac.linalg2.block import BlockMatrix, BlockVector, BlockVectorSpace
+from psydac.linalg.block import BlockMatrix, BlockVector, BlockVectorSpace
 #from psydac.linalg2.direct_solvers import BandedSolver, SparseSolver
 from psydac.linalg2.ndarray import NdarrayVectorSpace, NdarrayVector, NdarrayLinearOperator
-from psydac.linalg2.basic import InverseLinearOperator, ZeroOperator, IdentityOperator
-from psydac.linalg2.stencil import StencilVectorSpace, StencilVector, StencilMatrix
+from psydac.linalg.basic import ZeroOperator, IdentityOperator
+from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 
 #===============================================================================
 if __name__ == "__main__":
@@ -231,6 +231,8 @@ if __name__ == "__main__":
         for k2 in range(-p2,p2+1):
             M[:,:,k1,k2] = nonzero_values[k1,k2]
     M.remove_spurious_entries()
+    print('M looks like:')
+    print(M.toarray())
 
     x0 = StencilVector(V)
 

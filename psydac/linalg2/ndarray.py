@@ -1,6 +1,6 @@
 import numpy as np
 
-from psydac.linalg2.basic import VectorSpace, Vector, LinearOperator, ZeroOperator
+from psydac.linalg.basic import VectorSpace, Vector, LinearOperator, ZeroOperator
 
 __all__ = ("NdarrayVectorSpace", "NdarrayVector", "NdarrayLinearOperator",)
 

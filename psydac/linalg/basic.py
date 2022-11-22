@@ -5,8 +5,10 @@
 
 from abc   import ABC, abstractmethod
 from numpy import ndarray
+import numpy as np # only because of assert np.isscalar 
 
-__all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'LinearSolver', 'Matrix']
+__all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'ZeroOperator', 'IdentityOperator', 'ScaledLinearOperator',
+           'SumLinearOperator', 'ComposedLinearOperator', 'PowerLinearOperator', 'InverseLinearOperator', 'Matrix', 'LinearSolver']
 
 #===============================================================================
 class VectorSpace(ABC):
@@ -733,8 +735,8 @@ class InverseLinearOperator( LinearOperator ):
             Preconditioner solution
 
         """
-        from psydac.linalg2.block   import BlockMatrix, BlockVector
-        from psydac.linalg2.stencil import StencilMatrix, StencilVector
+        from psydac.linalg.block   import BlockMatrix, BlockVector
+        from psydac.linalg.stencil import StencilMatrix, StencilVector
 
         # Sanity checks
         assert isinstance(A, (StencilMatrix, BlockMatrix))

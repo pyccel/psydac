@@ -5,7 +5,7 @@ This module provides iterative solvers and precondionners.
 """
 from math import sqrt
 
-from psydac.linalg2.basic     import LinearOperator, InverseLinearOperator
+from psydac.linalg.basic     import LinearOperator, InverseLinearOperator
 
 
 __all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient']
@@ -126,10 +126,25 @@ class ConjugateGradient( InverseLinearOperator ):
             l   = am / v.dot( p )
             x  += l*p
             r  -= l*v
+            #if m<10:
+            #    print(r.toarray())
             am1 = r.dot( r )
             p  *= (am1/am)
             p  += r
+            #if m<10:
+            #    print(r.toarray())
+            #    print()
             am  = am1
+            #if m<10:
+            #    print(l)
+            #    print(am1)
+            #    print(am)
+            #    print("vectors")
+            #    print(v.toarray())                
+            #    print(p.toarray())                
+            #    print(x.toarray())
+            #    print(r.toarray())
+            #    print()
 
             if verbose:
                 print( template.format( m, sqrt( am ) ) )
