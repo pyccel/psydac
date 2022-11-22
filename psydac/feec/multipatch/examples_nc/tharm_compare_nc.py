@@ -267,6 +267,8 @@ def solve_hcurl_source_pbm(
     else:
         raise ValueError(source_proj)
 
+
+
     if plot_source:
         if True:
             title = ''
@@ -309,6 +311,9 @@ def solve_hcurl_source_pbm(
         uh_c += ubc_c
     
     uh = FemField(V1h, coeffs=array_to_stencil(uh_c, V1h.vector_space))
+    f_c = dH1_m.dot(tilde_f_c)
+    jh = FemField(V1h, coeffs=array_to_stencil(f_c, V1h.vector_space))
+
     t_stamp = time_count(t_stamp)
 
     print()
@@ -333,11 +338,14 @@ def solve_hcurl_source_pbm(
         OM.add_spaces(V1h=V1h)
         OM.set_static()
         OM.export_fields(vh = uh)
+        OM.export_fields(jh = jh)
         OM.export_space_info()
         OM.close()
 
         PM = PostProcessManager(domain=domain, space_file=plot_dir+'/spaces.yml', fields_file=plot_dir+'/fields.h5' )
         PM.export_to_vtk(plot_dir+"/sol",grid=None, npts_per_cell=[6]*2,snapshots='all', fields='vh' )
+        PM.export_to_vtk(plot_dir+"/source",grid=None, npts_per_cell=[6]*2,snapshots='all', fields='jh' )
+
         PM.close()
 
     time_count(t_stamp)
