@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import os
 import itertools
 import numpy as np
 from itertools import product
