@@ -20,6 +20,7 @@ class ConjugateGradient( InverseLinearOperator ):
 
         assert isinstance(linop, LinearOperator)
         assert linop.domain == linop.codomain
+        self._solver = 'cg' # test, required for transpose
         self._linop = linop
         self._domain = linop.codomain
         self._codomain = linop.domain
@@ -28,10 +29,10 @@ class ConjugateGradient( InverseLinearOperator ):
         self._tol = tol
         self._maxiter = maxiter
         self._verbose = verbose
-        self._options = {"_x0":self._x0, "_tol":self._tol, "_maxiter": self._maxiter, "_verbose": self._verbose}
+        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def _update_options( self ):
-        self._options = {"_x0":self._x0, "_tol":self._tol, "_maxiter": self._maxiter, "_verbose": self._verbose}
+        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def solve(self, b):
         """
@@ -170,6 +171,7 @@ class PConjugateGradient( InverseLinearOperator ):
 
         assert isinstance(linop, LinearOperator)
         assert linop.domain == linop.codomain
+        self._solver = 'pcg' # test, required for transpose
         self._linop = linop
         self._domain = linop.codomain
         self._codomain = linop.domain
@@ -179,10 +181,10 @@ class PConjugateGradient( InverseLinearOperator ):
         self._tol = tol
         self._maxiter = maxiter
         self._verbose = verbose
-        self._options = {"_pc": self._pc, "_x0": self._x0, "_tol": self._tol, "_maxiter": self._maxiter, "_verbose": self._verbose}
+        self._options = {"pc": self._pc, "x0": self._x0, "tol": self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def _update_options( self ):
-        self._options = {"_x0":self._x0, "_tol":self._tol, "_maxiter": self._maxiter, "_verbose": self._verbose}
+        self._options = {"pc": self._pc, "x0": self._x0, "tol": self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def solve(self, b):
         """
@@ -326,6 +328,7 @@ class BiConjugateGradient( InverseLinearOperator ):
 
         assert isinstance(linop, LinearOperator)
         assert linop.domain == linop.codomain
+        self._solver = 'bicg' # test, required for transpose
         self._linop = linop
         self._domain = linop.codomain
         self._codomain = linop.domain
@@ -334,10 +337,10 @@ class BiConjugateGradient( InverseLinearOperator ):
         self._tol = tol
         self._maxiter = maxiter
         self._verbose = verbose
-        self._options = {"_x0":self._x0, "_tol":self._tol, "_maxiter": self._maxiter, "_verbose": self._verbose}
+        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def _update_options( self ):
-        self._options = {"_x0":self._x0, "_tol":self._tol, "_maxiter": self._maxiter, "_verbose": self._verbose}
+        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def solve(self, b):
         """

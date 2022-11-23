@@ -1,62 +1,24 @@
 import pytest
 import numpy as np
-#from scipy.sparse        import coo_matrix
 
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
-#from psydac.linalg2.direct_solvers import BandedSolver, SparseSolver
-#from psydac.linalg2.ndarray import NdarrayVectorSpace, NdarrayVector, NdarrayLinearOperator
-from psydac.linalg.basic import ZeroOperator, IdentityOperator, ComposedLinearOperator, SumLinearOperator, PowerLinearOperator, InverseLinearOperator
+from psydac.linalg.basic import ZeroOperator, IdentityOperator, ComposedLinearOperator, SumLinearOperator, PowerLinearOperator, InverseLinearOperator, ScaledLinearOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
+from psydac.linalg2.iterative_solvers import BiConjugateGradient
 #===============================================================================
 
-#def get_StencilVectorSpace(n1, n2, p1, p2, P1, P2):
-#    return StencilVectorSpace( [n1, n2], [p1, p2], [P1, P2] )
-#V = StencilVectorSpace( [2,2], [1,1], [False, False])
+n1array = [2, 7]
+n2array = [2, 3]
+p1array = [1, 3]
+p2array = [1, 3]
 
 #===============================================================================
 # SERIAL TESTS
 #===============================================================================
-#@pytest.mark.parametrize( 'n1', [2] )
-#@pytest.mark.parametrize( 'n2', [2] )
-#@pytest.mark.parametrize( 'p1', [1] )
-#@pytest.mark.parametrize( 'p2', [1] )
-
-#def test_vectorspace_init(n1, n2, p1, p2, P1=False, P2=False):
-
-#    V = get_StencilVectorSpace(n1,n2,p1,p2,P1,P2)
-
-#    assert isinstance(V, VectorSpace)
-
-#===============================================================================
-#@pytest.mark.parametrize( 'n1', [2] )
-#@pytest.mark.parametrize( 'n2', [2] )
-#@pytest.mark.parametrize( 'p1', [1] )
-#@pytest.mark.parametrize( 'p2', [1] )
-
-#def test_linearoperator_init(n1, n2, p1, p2, P1=False, P2=False):
-
-#    V = get_StencilVectorSpace(n1,n2,p1,p2,P1,P2)
-    
-#    Z = ZeroOperator(V,V)
-
-#    nonzero_values = dict()
-#    for k1 in range(-p1,p1+1):
-#        for k2 in range(-p2,p2+1):
-#            nonzero_values[k1,k2] = ((k1%3)+1)*((k2+1)%2)
-#    M = StencilMatrix( V, V )
-#    for k1 in range(-p1,p1+1):
-#        for k2 in range(-p2,p2+1):
-#            M[:,:,k1,k2] = nonzero_values[k1,k2]
-#    M.remove_spurious_entries()
-
-#    assert isinstance(Z, LinearOperator)
-#    assert isinstance(M, LinearOperator)
-
-#===============================================================================
-@pytest.mark.parametrize( 'n1', [2, 7])
-@pytest.mark.parametrize( 'n2', [2, 3])
-@pytest.mark.parametrize( 'p1', [1, 3])
-@pytest.mark.parametrize( 'p2', [1, 3])
+@pytest.mark.parametrize( 'n1', n1array)
+@pytest.mark.parametrize( 'n2', n2array)
+@pytest.mark.parametrize( 'p1', p1array)
+@pytest.mark.parametrize( 'p2', p2array)
 
 def test_square_stencil_basic_operations(n1, n2, p1, p2, P1=False, P2=False):
 
@@ -78,21 +40,7 @@ def test_square_stencil_basic_operations(n1, n2, p1, p2, P1=False, P2=False):
     nonzero_values1 = dict()
     for k1 in range(-p1,p1+1):
         for k2 in range(-p2,p2+1):
-            if k1 == 0:
-                if k2 < 0:
-                    nonzero_values1[k1,k2] = 0
-                else:
-                    nonzero_values1[k1,k2] = 1 + k1*n2 + k2
-            elif k1 < 0:
-                nonzero_values1[k1,k2] = 0
-            else:
-                nonzero_values1[k1,k2] = 1 + k1*n2 + k2  
-
-    nonzero_values1 = dict()
-    for k1 in range(-p1,p1+1):
-        for k2 in range(-p2,p2+1):
             nonzero_values1[k1,k2] = 1 + k1*n2 + k2
-    #print(nonzero_values1)
     for k1 in range(-p1,p1+1):
         for k2 in range(-p2,p2+1):
             if k1==0:
@@ -122,9 +70,6 @@ def test_square_stencil_basic_operations(n1, n2, p1, p2, P1=False, P2=False):
             SM2[:,:,k1,k2] = nonzero_values2[k1,k2]
     SM2.remove_spurious_entries()
     SM2a = SM2.toarray()
-    #print(n1, n2, p1, p2)
-    #print(SM1a)
-    #print(SM2a)
 
     # Construct exact matrices by hand
     A1 = np.zeros( SM1.shape )
@@ -163,12 +108,18 @@ def test_square_stencil_basic_operations(n1, n2, p1, p2, P1=False, P2=False):
     assert SM1+Z == SM1
     assert Z+SM1 == SM1
 
-    # Adding StencilMatrices returns a StencilMatrix
-    assert isinstance(SM1 + SM2, StencilMatrix)
+    # Substracting a ZeroOperator and substracting from a ZeroOperator work as intended
+    assert SM1-Z == SM1
+    assert np.all((Z-SM1).toarray() == (-SM1).toarray()) # replaces assert Z-SM1 == -SM1
 
-    # Multiplying a StencilMatrix returns a StencilMatrix
+    # Adding and Substracting StencilMatrices returns a StencilMatrix
+    assert isinstance(SM1 + SM2, StencilMatrix)
+    assert isinstance(SM1 - SM2, StencilMatrix)
+
+    # Multiplying and Dividing a StencilMatrix by a scalar returns a StencilMatrix
     assert isinstance(np.pi*SM1, StencilMatrix)
     assert isinstance(SM1*np.pi, StencilMatrix)
+    assert isinstance(SM1/np.pi, StencilMatrix)
 
     # Composing StencilMatrices works
     assert isinstance(SM1@SM2, ComposedLinearOperator)
@@ -226,15 +177,22 @@ def test_square_stencil_basic_operations(n1, n2, p1, p2, P1=False, P2=False):
     err = sum(errors)
     assert err < tol**2
 
-    # Adding StencilMatrices and other LOs returns a SumLinearOperator object
+    # Transposing the inverse of a StencilMatrix works
+    T = SM1_inv4.T
+    assert isinstance(T, BiConjugateGradient)
+    assert np.all(T.linop.toarray() == SM1.T.toarray()) # not a good test as SM1 is symmetric 
+
+    # Adding and Substracting StencilMatrices and other LOs returns a SumLinearOperator object
     assert isinstance(SM1 + I, SumLinearOperator)
     assert isinstance(I + SM1, SumLinearOperator)
+    assert isinstance(SM1 - I, SumLinearOperator)
+    assert isinstance(I - SM1, SumLinearOperator)
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [2, 7])
-@pytest.mark.parametrize( 'n2', [2, 3])
-@pytest.mark.parametrize( 'p1', [1, 3])
-@pytest.mark.parametrize( 'p2', [1, 3])
+@pytest.mark.parametrize( 'n1', n1array)
+@pytest.mark.parametrize( 'n2', n2array)
+@pytest.mark.parametrize( 'p1', p1array)
+@pytest.mark.parametrize( 'p2', p2array)
 
 def test_square_block_basic_operations(n1, n2, p1, p2, P1=False, P2=False):
 
@@ -258,19 +216,6 @@ def test_square_block_basic_operations(n1, n2, p1, p2, P1=False, P2=False):
         for j in range(n2):
             v[i,j] = 1
     vb = BlockVector(Vb, (v, v))
-
-    #nonzero_values1 = dict()
-    #for k1 in range(-p1,p1+1):
-    #    for k2 in range(-p2,p2+1):
-    #        if k1 == 0:
-    #            if k2 < 0:
-    #                nonzero_values1[k1,k2] = 0
-    #            else:
-    #                nonzero_values1[k1,k2] = 1 + k1*n2 + k2
-    #        elif k1 < 0:
-    #            nonzero_values1[k1,k2] = 0
-    #        else:
-    #            nonzero_values1[k1,k2] = 1 + k1*n2 + k2  
 
     nonzero_values1 = dict()
     for k1 in range(-p1,p1+1):
@@ -419,6 +364,103 @@ def test_square_block_basic_operations(n1, n2, p1, p2, P1=False, P2=False):
     # Adding StencilMatrices and other LOs returns a SumLinearOperator object
     assert isinstance(BM1 + BI, SumLinearOperator)
     assert isinstance(BI + BM1, SumLinearOperator)
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', n1array)
+@pytest.mark.parametrize( 'n2', n2array)
+@pytest.mark.parametrize( 'p1', p1array)
+@pytest.mark.parametrize( 'p2', p2array)
+
+def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
+
+    # testing __imul__ although not explicitly implemented (in the LinearOperator class)
+
+    V = StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+
+    v = StencilVector(V)
+    v_array = np.zeros(n1*n2)
+
+    for i in range(n1):
+        for j in range(n2):
+            v[i,j] = i+1
+            v_array[i*n2+j] = i+1
+    
+    I1 = IdentityOperator(V,V)
+    I2 = IdentityOperator(V,V)
+    I3 = IdentityOperator(V,V)
+
+    I1 *= 0
+    I2 *= 1
+    I3 *= 3
+    v3 = I3.dot(v)
+
+    assert np.all(v.toarray() == v_array)
+    assert isinstance(I1, ZeroOperator)
+    assert isinstance(I2, IdentityOperator)
+    assert isinstance(I3, ScaledLinearOperator)
+    assert np.all(v3.toarray() == np.dot(v_array, 3))
+
+    # testing __iadd__ and __isub__ although not explicitly implemented (in the LinearOperator class)
+
+    nonzero_values1 = dict()
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            nonzero_values1[k1,k2] = 1 + k1*n2 + k2
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            if k1==0:
+                if k2<0:
+                    nonzero_values1[k1,k2] = nonzero_values1[-k1,-k2]
+            elif k1<0:
+                nonzero_values1[k1,k2] = nonzero_values1[-k1,-k2]
+
+    S = StencilMatrix(V,V)
+    #T = StencilMatrix(V,V)
+    Z1 = ZeroOperator(V,V)
+    Z2 = ZeroOperator(V,V)
+    Z3 = Z1.copy()
+
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            S[:,:,k1,k2] = nonzero_values1[k1,k2]
+            #T[:,:,k1,k2] = nonzero_values1[k1,k2]
+    S.remove_spurious_entries()
+    T = S.copy() # also testing whether copy does what it supposed to
+    Sa = S.toarray()
+
+    Z1 += S
+    S += Z2 # now equiv. to S = LinearOperator.__add__(S, Z2) = S + Z2 = S
+
+    assert isinstance(Z1, StencilMatrix)
+    assert isinstance(S, StencilMatrix)
+
+    S += Z1
+
+    w = S.dot(v)
+
+    assert isinstance(S, StencilMatrix)
+    assert np.all(w.toarray() == np.dot(np.dot(2, Sa), v_array))
+
+    Z3 -= T # should be -T = -Sa if ZeroOperator.copy() works
+    T -= Z2 # should still be T = Sa
+    T -= S+3*Z3 # should be Sa - 2*Sa -(-3*Sa) = 2*Sa if StencilMatrix.copy() works
+
+    w2 = T.dot(v)
+
+    assert isinstance(Z3, StencilMatrix)
+    assert isinstance(T, StencilMatrix)
+    assert np.all(w2.toarray() == np.dot(np.dot(2, Sa), v_array))
+    
+#===============================================================================
+@pytest.mark.parametrize( 'n1', n1array)
+@pytest.mark.parametrize( 'n2', n2array)
+@pytest.mark.parametrize( 'p1', p1array)
+@pytest.mark.parametrize( 'p2', p2array)
+
+def hitest_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
+    pass
+
+# also test inverse-inverse interaction (inverse transpose inverse transpose)
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY

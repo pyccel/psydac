@@ -139,39 +139,6 @@ class Vector(ABC):
         return self
 
 #===============================================================================
-#class LinearOperator(ABC):
-#    """
-#    Linear operator acting between two (normed) vector spaces V (domain)
-#    and W (codomain).
-#
-#    """
-#    @property
-#    def shape( self ):
-#        return (self.domain.dimension, self.codomain.dimension)
-#
-#    #-------------------------------------
-#    # Deferred methods
-#    #-------------------------------------
-#    @property
-#    @abstractmethod
-#    def domain( self ):
-#        pass
-#
-#    @property
-#    @abstractmethod
-#    def codomain( self ):
-#        pass
-#
-#    @property
-#    @abstractmethod
-#    def dtype( self ):
-#        pass
-#
-#    @abstractmethod
-#    def dot( self, v, out=None ):
-#        pass
-
-#===============================================================================
 class LinearOperator(ABC):
     """
     Linear operator acting between two (normed) vector spaces V (domain)
@@ -216,7 +183,7 @@ class LinearOperator(ABC):
     # Magic methods
     #-------------------------------------
     def __neg__(self):
-        return ScaledLinearOperator(self._domain, self._codomain, self, -1.0)
+        return ScaledLinearOperator(self._domain, self._codomain, -1.0, self)
 
     def __mul__( self, c ):
         """
@@ -320,31 +287,40 @@ class ZeroOperator( LinearOperator ):
         assert v.space == self._domain
         return self._codomain.zeros()
 
+    def __neg__( self ):
+        return self
+
     def __add__( self, B ):
         assert isinstance(B, LinearOperator)
         assert self._domain == B.domain
         assert self._codomain == B.codomain
         return B
 
-    def __radd__( self, A ):
-        return self + A
+    def __sub__( self, B ):
+        assert isinstance(B, LinearOperator)
+        assert self._domain == B.domain
+        assert self._codomain == B.codomain
+        return -B
+
+    #def __radd__( self, A ):
+    #    return self + A
 
     def __mul__( self, c ):
         assert np.isscalar(c)
         return self
 
-    def __rmul__( self, c ):
-        return self * c
+    #def __rmul__( self, c ):
+    #    return self * c
 
     def __matmul__( self, B ):
         assert isinstance(B, LinearOperator)
         assert self._domain == B.codomain
         return ZeroOperator(domain=B.domain, codomain=self._codomain)
 
-    def __rmatmul__( self, A ):
-        assert isinstance(A, LinearOperator)
-        assert self._codomain == A.domain
-        return ZeroOperator(domain=self._domain, codomain=A.codomain)
+    #def __rmatmul__( self, A ):
+    #    assert isinstance(A, LinearOperator)
+    #    assert self._codomain == A.domain
+    #    return ZeroOperator(domain=self._domain, codomain=A.codomain)
 
 #===============================================================================
 class IdentityOperator( LinearOperator ):
@@ -376,7 +352,10 @@ class IdentityOperator( LinearOperator ):
 
     def transpose( self ):
         """ Could return self, but by convention returns new object. """
-        return IdentityOperator(domain=self._domain)
+        return IdentityOperator(self._domain, self._codomain)
+
+    def inverse(self, solver, **kwargs):
+        return self
 
     def dot( self, v ):
         assert isinstance(v, Vector)
@@ -388,10 +367,10 @@ class IdentityOperator( LinearOperator ):
         assert self._domain == B.codomain
         return B
 
-    def __rmatmul__( self, A ):
-        assert isinstance(A, LinearOperator)
-        assert self._codomain == A.domain
-        return A
+    #def __rmatmul__( self, A ):
+    #    assert isinstance(A, LinearOperator)
+    #    assert self._codomain == A.domain
+    #    return A
 
 #===============================================================================
 class ScaledLinearOperator(LinearOperator):
@@ -439,6 +418,13 @@ class ScaledLinearOperator(LinearOperator):
 
     def transpose(self):
         return ScaledLinearOperator(domain=self._codomain, codomain=self._domain, c=self._scalar, A=self._operator.T)
+
+    def __neg__(self):
+        # A; B = -A; B *= 3 might change the scalar of A, similar thing could happen when transposing a ScaledLinearOperator!
+        return ScaledLinearOperator(domain=self._domain, codomain=self._codomain, c=-1*self._scalar, A=self._operator)
+
+    def inverse(self, solver, **kwargs):
+        return ScaledLinearOperator(domain=self._domain, codomain=self._codomain, c=1/self._scalar, A=InverseLinearOperator(self._operator, solver=solver, **kwargs))
 
     def dot(self, v):
         assert isinstance(v, Vector)
@@ -508,6 +494,12 @@ class SumLinearOperator( LinearOperator ):
         for a in self._addends:
             t_addends = (*t_addends, a.T)
         return SumLinearOperator(domain=self._codomain, codomain=self._domain, *t_addends)
+
+    #def __neg__( self ):
+    #    n_addends = ()
+    #    for a in self._addends:
+    #        n_addends = (*n_addends, -a)
+    #    return SumLinearOperator(domain=self._domain, codomain=self._codomain, *n_addends)
 
     def simplifiy( self, addends ):
         class_list = [addends[i].__class__.__name__ for i in range(len(addends))]
@@ -723,6 +715,12 @@ class InverseLinearOperator( LinearOperator ):
         for key, value in kwargs.items():
             setattr(self, '_'+key, value)
         self._update_options()
+
+    def transpose(self):
+        return InverseLinearOperator(linop=self._linop.T, solver=self._solver, **self._options)
+
+    def inverse(self, solver, **kwargs):
+        return self._linop
 
     @staticmethod
     def jacobi(A, b):

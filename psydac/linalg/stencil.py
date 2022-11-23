@@ -960,21 +960,24 @@ class StencilMatrix( Matrix ):
 
     #...
     def __sub__(self, m):
-        assert isinstance(m, StencilMatrix)
-        assert m._domain   is self._domain
-        assert m._codomain is self._codomain
-        assert m._pads     == self._pads
+        if isinstance(m, StencilMatrix):
+            #assert isinstance(m, StencilMatrix)
+            assert m._domain   is self._domain
+            assert m._codomain is self._codomain
+            assert m._pads     == self._pads
 
-        if m._backend is not self._backend:
-            msg = 'Subtracting two matrices with different backends is ambiguous - defaulting to backend of the matrix we subtract from'
-            warnings.warn(msg, category=RuntimeWarning)
+            if m._backend is not self._backend:
+                msg = 'Subtracting two matrices with different backends is ambiguous - defaulting to backend of the matrix we subtract from'
+                warnings.warn(msg, category=RuntimeWarning)
 
-        w = StencilMatrix(self._domain, self._codomain, self._pads, self._backend)
-        w._data = self._data  -  m._data
-        w._func = self._func
-        w._args = self._args
-        w._sync = self._sync and m._sync
-        return w
+            w = StencilMatrix(self._domain, self._codomain, self._pads, self._backend)
+            w._data = self._data  -  m._data
+            w._func = self._func
+            w._args = self._args
+            w._sync = self._sync and m._sync
+            return w
+        else:
+            return LinearOperator.__sub__(self, m)
 
     #...
     def __imul__(self, a):
@@ -983,23 +986,29 @@ class StencilMatrix( Matrix ):
 
     #...
     def __iadd__(self, m):
-        assert isinstance(m, StencilMatrix)
-        assert m._domain   is self._domain
-        assert m._codomain is self._codomain
-        assert m._pads     == self._pads
-        self._data += m._data
-        self._sync  = m._sync and self._sync
-        return self
+        if isinstance(m, StencilMatrix):
+            #assert isinstance(m, StencilMatrix)
+            assert m._domain   is self._domain
+            assert m._codomain is self._codomain
+            assert m._pads     == self._pads
+            self._data += m._data
+            self._sync  = m._sync and self._sync
+            return self
+        else:
+            return LinearOperator.__add__(self, m)
 
     #...
     def __isub__(self, m):
-        assert isinstance(m, StencilMatrix)
-        assert m._domain   is self._domain
-        assert m._codomain is self._codomain
-        assert m._pads     == self._pads
-        self._data -= m._data
-        self._sync  = m._sync and self._sync
-        return self
+        if isinstance(m, StencilMatrix):
+            #assert isinstance(m, StencilMatrix)
+            assert m._domain   is self._domain
+            assert m._codomain is self._codomain
+            assert m._pads     == self._pads
+            self._data -= m._data
+            self._sync  = m._sync and self._sync
+            return self
+        else:
+            return LinearOperator.__sub__(self, m)
 
     #...
     def __abs__( self ):
