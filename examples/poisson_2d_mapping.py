@@ -10,6 +10,7 @@ from sympde.topology.callable_mapping   import CallableMapping
 from sympde.topology.analytical_mapping import IdentityMapping, PolarMapping
 from sympde.topology.analytical_mapping import TargetMapping, CzarnyMapping
 
+from psydac.ddm.cart                   import DomainDecomposition
 from psydac.linalg.stencil             import StencilVector, StencilMatrix
 from psydac.linalg.iterative_solvers   import cg
 from psydac.fem.splines                import SplineSpace
@@ -574,12 +575,15 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     grid_1 = np.linspace( *model.domain[0], num=ne1+1 )
     grid_2 = np.linspace( *model.domain[1], num=ne2+1 )
 
+    # Decompose 2D domain across MPI processes
+    dd = DomainDecomposition(ncells, model.periodic, comm=mpi_comm)
+
     # Create 1D finite element spaces
     V1 = SplineSpace( p1, grid=grid_1, periodic=per1 )
     V2 = SplineSpace( p2, grid=grid_2, periodic=per2 )
 
     # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2, comm=mpi_comm )
+    V = TensorFemSpace(dd, V1, V2)
 
     s1, s2 = V.vector_space.starts
     e1, e2 = V.vector_space.ends
@@ -623,8 +627,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     map_analytic = model.mapping
 
     if use_spline_mapping:
-        map_discrete = SplineMapping.from_mapping( V, map_analytic.symbolic_mapping )
-        map_discrete.jacobian = map_discrete.jac_mat  # needed after changes in mapping classes
+        map_discrete = SplineMapping.from_mapping(V, map_analytic)
         # Write discrete geometry to HDF5 file
         t0 = time()
         geometry = Geometry.from_discrete_mapping(map_discrete, comm=mpi_comm)
@@ -758,7 +761,8 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
             V = map_discrete.space
             mapping = map_discrete
         else:
-            V = TensorFemSpace( V1, V2, comm=MPI.COMM_SELF )
+            dd = DomainDecomposition(ncells, model.periodic, comm=MPI.COMM_SELF)
+            V = TensorFemSpace(dd, V1, V2)
 
         # Import solution vector into new serial field
         phi, = V.import_fields( 'fields.h5', 'phi' )
