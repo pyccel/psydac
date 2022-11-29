@@ -240,7 +240,10 @@ class LinearOperator(ABC):
         raise NotImplementedError()
 
     def inverse( self, solver, **kwargs ):
-        return InverseLinearOperator(self, solver=solver, **kwargs)
+        if isinstance(self, InverseLinearOperator):
+            return self.linop
+        else:
+            return InverseLinearOperator(self, solver=solver, **kwargs)
 
     def idot( self, v, out ):
         """
@@ -256,7 +259,7 @@ class LinearOperator(ABC):
 #===============================================================================
 class ZeroOperator( LinearOperator ):
 
-    def __init__(self, domain, codomain ):
+    def __init__(self, domain, codomain):
 
         assert isinstance(domain, VectorSpace)
         assert isinstance(codomain, VectorSpace)
@@ -265,38 +268,42 @@ class ZeroOperator( LinearOperator ):
         self._codomain = codomain
 
     @property
-    def domain( self ):
+    def domain(self):
         return self._domain
 
     @property
-    def codomain( self ):
+    def codomain(self):
         return self._codomain
 
     @property
-    def dtype( self ):
+    def dtype(self):
         return None
 
-    def copy( self ):
+    def copy(self):
         return ZeroOperator(self._domain, self._codomain)
 
-    def transpose( self ):
+    # new, dtype might cause problems, also: tosparse missing
+    def toarray(self):
+        return np.zeros(self.shape, dtype=self.dtype) 
+
+    def transpose(self):
         return ZeroOperator(domain=self._codomain, codomain=self._domain)
 
-    def dot( self, v ):
+    def dot(self, v):
         assert isinstance(v, Vector)
         assert v.space == self._domain
         return self._codomain.zeros()
 
-    def __neg__( self ):
+    def __neg__(self):
         return self
 
-    def __add__( self, B ):
+    def __add__(self, B):
         assert isinstance(B, LinearOperator)
         assert self._domain == B.domain
         assert self._codomain == B.codomain
         return B
 
-    def __sub__( self, B ):
+    def __sub__(self, B):
         assert isinstance(B, LinearOperator)
         assert self._domain == B.domain
         assert self._codomain == B.codomain
@@ -305,14 +312,14 @@ class ZeroOperator( LinearOperator ):
     #def __radd__( self, A ):
     #    return self + A
 
-    def __mul__( self, c ):
+    def __mul__(self, c):
         assert np.isscalar(c)
         return self
 
     #def __rmul__( self, c ):
     #    return self * c
 
-    def __matmul__( self, B ):
+    def __matmul__(self, B):
         assert isinstance(B, LinearOperator)
         assert self._domain == B.codomain
         return ZeroOperator(domain=B.domain, codomain=self._codomain)

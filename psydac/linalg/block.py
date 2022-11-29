@@ -594,17 +594,20 @@ class BlockLinearOperator( Matrix ):
 
     # ...
     def __sub__(self, M):
-        assert isinstance(M, BlockLinearOperator)
-        assert M.  domain is self.  domain
-        assert M.codomain is self.codomain
-        blocks  = {}
-        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
-            Bij = self[ij]
-            Mij = M[ij]
-            if   Bij is None: blocks[ij] = -Mij
-            elif Mij is None: blocks[ij] =  Bij.copy()
-            else            : blocks[ij] =  Bij - Mij
-        return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+        if isinstance(M, BlockLinearOperator):
+            #assert isinstance(M, BlockLinearOperator)
+            assert M.  domain is self.  domain
+            assert M.codomain is self.codomain
+            blocks  = {}
+            for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
+                Bij = self[ij]
+                Mij = M[ij]
+                if   Bij is None: blocks[ij] = -Mij
+                elif Mij is None: blocks[ij] =  Bij.copy()
+                else            : blocks[ij] =  Bij - Mij
+            return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+        else:
+            return LinearOperator.__sub__(self, M)
 
     # ...
     def __imul__(self, a):
@@ -614,43 +617,49 @@ class BlockLinearOperator( Matrix ):
 
     # ...
     def __iadd__(self, M):
-        assert isinstance(M, BlockLinearOperator)
-        assert M.  domain is self.  domain
-        assert M.codomain is self.codomain
+        if isinstance(M, BlockLinearOperator):
+            #assert isinstance(M, BlockLinearOperator)
+            assert M.  domain is self.  domain
+            assert M.codomain is self.codomain
 
-        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
+            for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
 
-            Mij = M[ij]
-            if Mij is None:
-                continue
+                Mij = M[ij]
+                if Mij is None:
+                    continue
 
-            Bij = self[ij]
-            if Bij is None:
-                self[ij] = Mij.copy()
-            else:
-                Bij += Mij
+                Bij = self[ij]
+                if Bij is None:
+                    self[ij] = Mij.copy()
+                else:
+                    Bij += Mij
 
-        return self
+            return self
+        else:
+            return LinearOperator.__add__(self, M)
 
     # ...
     def __isub__(self, M):
-        assert isinstance(M, BlockLinearOperator)
-        assert M.  domain is self.  domain
-        assert M.codomain is self.codomain
+        if isinstance(M, BlockLinearOperator):
+            #assert isinstance(M, BlockLinearOperator)
+            assert M.  domain is self.  domain
+            assert M.codomain is self.codomain
 
-        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
+            for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
 
-            Mij = M[ij]
-            if Mij is None:
-                continue
+                Mij = M[ij]
+                if Mij is None:
+                    continue
 
-            Bij = self[ij]
-            if Bij is None:
-                self[ij] = -Mij
-            else:
-                Bij -= Mij
+                Bij = self[ij]
+                if Bij is None:
+                    self[ij] = -Mij
+                else:
+                    Bij -= Mij
 
-        return self 
+            return self 
+        else:
+            return LinearOperator.__sub__(self, M)
 
 #===============================================================================
 class BlockDiagonalSolver( LinearSolver ):
@@ -787,6 +796,7 @@ class BlockDiagonalSolver( LinearSolver ):
 
         self._blocks[key] = value
 
+# not in use anymore!
 class BlockMatrix( BlockLinearOperator, Matrix ):
     """
     Linear operator that can be written as blocks of other Linear Operators,
