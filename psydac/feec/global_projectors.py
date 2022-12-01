@@ -208,11 +208,14 @@ class GlobalProjector(metaclass=ABCMeta):
             dataslice = tuple(slice(p, -p) for p in tensorspaces[i].vector_space.pads)
             dofs[i] = rhsblocks[i]._data[dataslice]
 
-        # build final Inter-/Histopolation matrices (distributed)
+        # build final Inter-/Histopolation matrix (distributed)
         if isinstance(self.space, TensorFemSpace):
-            self._imat_stencil = matrixblocks[0]
+            self._imat_kronecker = matrixblocks[0]
         else:
-            self._imat_stencil = BlockMatrix(self.space.vector_space, self.space.vector_space, blocks=[[matrixblocks[0], None, None], [None, matrixblocks[1], None], [None, None, matrixblocks[2]]])
+            self._imat_kronecker = BlockMatrix(self.space.vector_space, self.space.vector_space, 
+                                               blocks=[[matrixblocks[0], None, None], 
+                                                       [None, matrixblocks[1], None], 
+                                                       [None, None, matrixblocks[2]]])
         
         # finish arguments and create a lambda
         args = (*intp_x, *quad_x, *quad_w, *dofs)
@@ -277,11 +280,11 @@ class GlobalProjector(metaclass=ABCMeta):
         return self._solver
 
     @property
-    def imat_stencil(self):
+    def imat_kronecker(self):
         """
         Inter-/Histopolation matrix in distributed format.
         """
-        return self._imat_stencil
+        return self._imat_kronecker
     
     @abstractmethod
     def _structure(self, dim):
@@ -700,7 +703,9 @@ def evaluate_dofs_1d_0form(
         f,           # input scalar function (callable)
         ):
     
-    # evaluate input functions at interpolation points
+    # evaluate input functions at interpolation points (make sure that points are in [0, 1])
+    assert np.all(np.logical_and(intp_x1 >= 0., intp_x1 <= 1.))
+    
     E1, = np.meshgrid(intp_x1, indexing='ij')
     f_pts = f(E1)
     
@@ -718,8 +723,8 @@ def evaluate_dofs_1d_1form(
         f,             # input scalar function (callable)
         ):
 
-    # evaluate input functions at quadrature points
-    E1, = np.meshgrid(quad_x1.flatten(), indexing='ij')
+    # evaluate input functions at quadrature points (make sure that points are in [0, 1])
+    E1, = np.meshgrid(quad_x1.flatten()%1., indexing='ij')
     f_pts = f(E1)
     
     # call kernel
@@ -739,7 +744,10 @@ def evaluate_dofs_2d_0form(
         f,                    # input scalar function (callable)
         ):
     
-    # evaluate input functions at interpolation points
+    # evaluate input functions at interpolation points (make sure that points are in [0, 1])
+    assert np.all(np.logical_and(intp_x1 >= 0., intp_x1 <= 1.))
+    assert np.all(np.logical_and(intp_x2 >= 0., intp_x2 <= 1.))
+    
     E1, E2 = np.meshgrid(intp_x1, intp_x2, indexing='ij')
     f_pts = f(E1, E2)
     
@@ -758,11 +766,14 @@ def evaluate_dofs_2d_1form_hcurl(
         f1, f2,                # input scalar functions (callable)
         ):
 
-    # evaluate input functions at quadrature/interpolation points
-    E1, E2 = np.meshgrid(quad_x1.flatten(), intp_x2, indexing='ij')
+    # evaluate input functions at quadrature/interpolation points (make sure that points are in [0, 1])
+    assert np.all(np.logical_and(intp_x1 >= 0., intp_x1 <= 1.))
+    assert np.all(np.logical_and(intp_x2 >= 0., intp_x2 <= 1.))
+    
+    E1, E2 = np.meshgrid(quad_x1.flatten()%1., intp_x2, indexing='ij')
     f1_pts = f1(E1, E2)
     
-    E1, E2 = np.meshgrid(intp_x1, quad_x2.flatten(), indexing='ij')
+    E1, E2 = np.meshgrid(intp_x1, quad_x2.flatten()%1., indexing='ij')
     f2_pts = f2(E1, E2)
     
     # call kernel
@@ -783,11 +794,14 @@ def evaluate_dofs_2d_1form_hdiv(
         f1, f2,                 # input scalar functions (callable)
         ):
 
-    # evaluate input functions at quadrature/interpolation points
-    E1, E2 = np.meshgrid(intp_x1, quad_x2.flatten(), indexing='ij')
+    # evaluate input functions at quadrature/interpolation points (make sure that points are in [0, 1])
+    assert np.all(np.logical_and(intp_x1 >= 0., intp_x1 <= 1.))
+    assert np.all(np.logical_and(intp_x2 >= 0., intp_x2 <= 1.))
+    
+    E1, E2 = np.meshgrid(intp_x1, quad_x2.flatten()%1., indexing='ij')
     f1_pts = f1(E1, E2)
     
-    E1, E2 = np.meshgrid(quad_x1.flatten(), intp_x2, indexing='ij')
+    E1, E2 = np.meshgrid(quad_x1.flatten()%1., intp_x2, indexing='ij')
     f2_pts = f2(E1, E2)
     
     # call kernel
@@ -807,8 +821,8 @@ def evaluate_dofs_2d_2form(
         f,                      # input scalar function (callable)
         ):
 
-    # evaluate input functions at quadrature points
-    E1, E2 = np.meshgrid(quad_x1.flatten(), quad_x2.flatten(), indexing='ij')
+    # evaluate input functions at quadrature points (make sure that points are in [0, 1])
+    E1, E2 = np.meshgrid(quad_x1.flatten()%1., quad_x2.flatten()%1., indexing='ij')
     f_pts = f(E1, E2)
     
     # call kernel
@@ -825,7 +839,10 @@ def evaluate_dofs_2d_vec(
         f1, f2,                # input scalar function (callable)
         ):
     
-    # evaluate input functions at interpolation points
+    # evaluate input functions at interpolation points (make sure that points are in [0, 1])
+    assert np.all(np.logical_and(intp_x1 >= 0., intp_x1 <= 1.))
+    assert np.all(np.logical_and(intp_x2 >= 0., intp_x2 <= 1.))
+    
     E1, E2 = np.meshgrid(intp_x1, intp_x2, indexing='ij')
     f1_pts = f1(E1, E2)
     f2_pts = f2(E1, E2)
@@ -849,7 +866,11 @@ def evaluate_dofs_3d_0form(
         f,                         # input scalar function (callable)
         ):
     
-    # evaluate input functions at interpolation points
+    # evaluate input functions at interpolation points (make sure that points are in [0, 1])
+    assert np.all(np.logical_and(intp_x1 >= 0., intp_x1 <= 1.))
+    assert np.all(np.logical_and(intp_x2 >= 0., intp_x2 <= 1.))
+    assert np.all(np.logical_and(intp_x3 >= 0., intp_x3 <= 1.))
+    
     E1, E2, E3 = np.meshgrid(intp_x1, intp_x2, intp_x3, indexing='ij')
     f_pts = f(E1, E2, E3)
     
@@ -868,14 +889,18 @@ def evaluate_dofs_3d_1form(
         f1, f2, f3                 # input scalar functions (callable)
         ):
 
-    # evaluate input functions at quadrature/interpolation points
-    E1, E2, E3 = np.meshgrid(quad_x1.flatten(), intp_x2, intp_x3, indexing='ij')
+    # evaluate input functions at quadrature/interpolation points (make sure that points are in [0, 1])
+    assert np.all(np.logical_and(intp_x1 >= 0., intp_x1 <= 1.))
+    assert np.all(np.logical_and(intp_x2 >= 0., intp_x2 <= 1.))
+    assert np.all(np.logical_and(intp_x3 >= 0., intp_x3 <= 1.))
+    
+    E1, E2, E3 = np.meshgrid(quad_x1.flatten()%1., intp_x2, intp_x3, indexing='ij')
     f1_pts = f1(E1, E2, E3)
     
-    E1, E2, E3 = np.meshgrid(intp_x1, quad_x2.flatten(), intp_x3, indexing='ij')
+    E1, E2, E3 = np.meshgrid(intp_x1, quad_x2.flatten()%1., intp_x3, indexing='ij')
     f2_pts = f2(E1, E2, E3)
     
-    E1, E2, E3 = np.meshgrid(intp_x1, intp_x2, quad_x3.flatten(), indexing='ij')
+    E1, E2, E3 = np.meshgrid(intp_x1, intp_x2, quad_x3.flatten()%1., indexing='ij')
     f3_pts = f3(E1, E2, E3)
     
     # call kernel
@@ -898,14 +923,18 @@ def evaluate_dofs_3d_2form(
         f1, f2, f3                 # input scalar functions (callable)
         ):
 
-    # evaluate input functions at quadrature/interpolation points
-    E1, E2, E3 = np.meshgrid(intp_x1, quad_x2.flatten(), quad_x3.flatten(), indexing='ij')
+    # evaluate input functions at quadrature/interpolation points (make sure that points are in [0, 1])
+    assert np.all(np.logical_and(intp_x1 >= 0., intp_x1 <= 1.))
+    assert np.all(np.logical_and(intp_x2 >= 0., intp_x2 <= 1.))
+    assert np.all(np.logical_and(intp_x3 >= 0., intp_x3 <= 1.))
+    
+    E1, E2, E3 = np.meshgrid(intp_x1, quad_x2.flatten()%1., quad_x3.flatten()%1., indexing='ij')
     f1_pts = f1(E1, E2, E3)
     
-    E1, E2, E3 = np.meshgrid(quad_x1.flatten(), intp_x2, quad_x3.flatten(), indexing='ij')
+    E1, E2, E3 = np.meshgrid(quad_x1.flatten()%1., intp_x2, quad_x3.flatten()%1., indexing='ij')
     f2_pts = f2(E1, E2, E3)
     
-    E1, E2, E3 = np.meshgrid(quad_x1.flatten(), quad_x2.flatten(), intp_x3, indexing='ij')
+    E1, E2, E3 = np.meshgrid(quad_x1.flatten()%1., quad_x2.flatten()%1., intp_x3, indexing='ij')
     f3_pts = f3(E1, E2, E3)
     
     # call kernel
@@ -927,8 +956,8 @@ def evaluate_dofs_3d_3form(
         f,                         # input scalar function (callable)
         ):
 
-    # evaluate input functions at quadrature points
-    E1, E2, E3 = np.meshgrid(quad_x1.flatten(), quad_x2.flatten(), quad_x3.flatten(), indexing='ij')
+    # evaluate input functions at quadrature points (make sure that points are in [0, 1])
+    E1, E2, E3 = np.meshgrid(quad_x1.flatten()%1., quad_x2.flatten()%1., quad_x3.flatten()%1., indexing='ij')
     f_pts = f(E1, E2, E3)
     
     # call kernel
@@ -945,7 +974,11 @@ def evaluate_dofs_3d_vec(
         f1, f2, f3,                # input scalar function (callable)
         ):
     
-    # evaluate input functions at interpolation points
+    # evaluate input functions at interpolation points (make sure that points are in [0, 1])
+    assert np.all(np.logical_and(intp_x1 >= 0., intp_x1 <= 1.))
+    assert np.all(np.logical_and(intp_x2 >= 0., intp_x2 <= 1.))
+    assert np.all(np.logical_and(intp_x3 >= 0., intp_x3 <= 1.))
+    
     E1, E2, E3 = np.meshgrid(intp_x1, intp_x2, intp_x3, indexing='ij')
     f1_pts = f1(E1, E2, E3)
     f2_pts = f2(E1, E2, E3)
