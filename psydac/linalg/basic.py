@@ -71,6 +71,12 @@ class Vector(ABC):
     def dtype(self):
         return self.space.dtype
 
+    #def __del__(self):
+    #    print(f"Delete object {repr(self)}")
+
+    def __init__(self):
+        print(f"Create object")
+
     def dot(self, other):
         """
         Evaluate the scalar product with another vector of the same space.
@@ -289,10 +295,16 @@ class ZeroOperator( LinearOperator ):
     def transpose(self):
         return ZeroOperator(domain=self._codomain, codomain=self._domain)
 
-    def dot(self, v):
+    def dot(self, v, out=None):
         assert isinstance(v, Vector)
         assert v.space == self._domain
-        return self._codomain.zeros()
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self._codomain
+            out *= 0
+        else:
+            out = self._codomain.zeros()
+        return out
 
     def __neg__(self):
         return self
@@ -364,10 +376,14 @@ class IdentityOperator( LinearOperator ):
     def inverse(self, solver, **kwargs):
         return self
 
-    def dot( self, v ):
+    def dot(self, v, out=None):
         assert isinstance(v, Vector)
         assert v.space == self._domain
-        return v
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self._codomain
+        out = v
+        return out
 
     def __matmul__( self, B ):
         assert isinstance(B, LinearOperator)
@@ -433,10 +449,13 @@ class ScaledLinearOperator(LinearOperator):
     def inverse(self, solver, **kwargs):
         return ScaledLinearOperator(domain=self._domain, codomain=self._codomain, c=1/self._scalar, A=InverseLinearOperator(self._operator, solver=solver, **kwargs))
 
-    def dot(self, v):
+    def dot(self, v, out=None):
         assert isinstance(v, Vector)
         assert v.space == self._domain
-        return self._operator.dot(v) * self._scalar
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self._codomain
+        return self._operator.dot(v, out=out) * self._scalar
 
 #===============================================================================
 class SumLinearOperator( LinearOperator ):
@@ -523,10 +542,13 @@ class SumLinearOperator( LinearOperator ):
                 out += A
         return out
 
-    def dot( self, v, simplified = False ):
+    def dot( self, v, out=None, simplified = False ):
         """ Evaluates SumLinearOperator object at a vector v element of domain. """
         assert isinstance(v, Vector)
         assert v.space == self._domain
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self._codomain
 
         if simplified == False:
             self._addends = self.simplifiy(self._addends).addends
@@ -555,15 +577,56 @@ class ComposedLinearOperator( LinearOperator ):
             assert args[i].domain == args[i+1].codomain
 
         multiplicants = ()
-        for a in args:
+        tmp_vectors = []
+        for a in args[:-1]:
             if isinstance(a, ComposedLinearOperator):
                 multiplicants = (*multiplicants, *a.multiplicants)
+                tmp_vectors.extend(a.tmp_vectors)
+                tmp_vectors.append(a.domain.zeros())
             else:
                 multiplicants = (*multiplicants, a)
+                tmp_vectors.append(a.domain.zeros())
+
+        last = args[-1]
+        if isinstance(last, ComposedLinearOperator):
+            multiplicants = (*multiplicants, *last.multiplicants)
+            tmp_vectors.extend(last.tmp_vectors[:-1])
+        else:
+            multiplicants = (*multiplicants, last)
+
+        #for i, a in enumerate(args):
+        #    if i+1 != len(args):
+        #        if isinstance(a, ComposedLinearOperator):
+        #            multiplicants = (*multiplicants, *a.multiplicants)
+        #            tmp_vectors.extend(a.tmp_vectors)
+        #            tmp_vectors.append(a.multiplicants[-1].domain.zeros())
+        #        else:
+        #            multiplicants = (*multiplicants, a)
+        #            tmp_vectors.append(a.domain.zeros())
+        #    else:
+        #        if isinstance(a, ComposedLinearOperator):
+        #            multiplicants = (*multiplicants, *a.multiplicants)
+        #            tmp_vectors.extend(a.tmp_vectors[:-1])
+        #        else:
+        #            multiplicants = (*multiplicants, a)
+
+        #tmp_vectors = []
+        #for a in multiplicants[:-1]:
+        #    tv = a.domain.zeros()
+        #    print(repr(tv))
+        #    tmp_vectors.append(tv)
 
         self._domain = domain
         self._codomain = codomain
         self._multiplicants = multiplicants
+        self._tmp_vectors = tuple(tmp_vectors)
+
+    #def __del__(self):
+    #    print(f"Delete object {repr(self)}")
+
+    @property
+    def tmp_vectors(self):
+        return self._tmp_vectors
 
     @property
     def domain( self ):
@@ -587,13 +650,31 @@ class ComposedLinearOperator( LinearOperator ):
             t_multiplicants = (a.T, *t_multiplicants)
         return ComposedLinearOperator(domain=self._codomain, codomain=self._domain, *t_multiplicants)
 
-    def dot( self, v ):
-        assert isinstance(v,Vector)
+    #def dot2(self, v, out=None):
+    #    assert isinstance(v, Vector)
+    #    assert v.space == self._domain
+    #    out = self._multiplicants[-1].dot(v)
+    #    for i in range(1, len(self._multiplicants)):
+    #        out = self._multiplicants[-1-i].dot(out)
+    #    return out
+
+    def dot(self, v, out=None):
+        assert isinstance(v, Vector)
         assert v.space == self._domain
-        out = self._multiplicants[-1].dot(v)
-        for i in range(1,len(self._multiplicants)):
-            out = self._multiplicants[-1-i].dot(out)
-        return out
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self._codomain
+
+        x = v
+        for i in range(len(self._tmp_vectors)):
+            y = self._tmp_vectors[-1-i]
+            A = self._multiplicants[-1-i]
+            A.dot(x, out=y)
+            x = y
+
+        A = self._multiplicants[0]
+        return A.dot(x, out=out)
+        
 
 #===============================================================================
 class PowerLinearOperator( LinearOperator ):
@@ -649,12 +730,18 @@ class PowerLinearOperator( LinearOperator ):
     def transpose( self ):
         return PowerLinearOperator(domain=self._codomain, codomain=self._domain, A=self._operator.T, n=self._factorial)
 
-    def dot( self, v ):
+    def dot( self, v, out=None ):
         assert isinstance(v, Vector)
         assert v.space == self._domain
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self._codomain
+        #out = self._operator.dot(v) * self._scalar
+        #return out
         out = v.copy()
         for i in range(self._factorial):
-            out = self._operator.dot(out)
+            #out = self._operator.dot(out)
+            self._operator.dot(out, out=out)
         return out
 
 #===============================================================================
@@ -670,13 +757,13 @@ class InverseLinearOperator( LinearOperator ):
 
         if solver is not None:
             if solver == 'cg':
-                from psydac.linalg2.iterative_solvers import ConjugateGradient
+                from psydac.linalg.solvers import ConjugateGradient
                 obj = ConjugateGradient(linop, solver=None, **kwargs)
             elif solver == 'pcg':
-                from psydac.linalg2.iterative_solvers import PConjugateGradient
+                from psydac.linalg.solvers import PConjugateGradient
                 obj = PConjugateGradient(linop, solver=None, **kwargs)
             elif solver == 'bicg':
-                from psydac.linalg2.iterative_solvers import BiConjugateGradient
+                from psydac.linalg.solvers import BiConjugateGradient
                 obj = BiConjugateGradient(linop, solver=None, **kwargs)
             else:
                 raise ValueError(f"Required solver '{solver}' not understood.")
@@ -734,7 +821,7 @@ class InverseLinearOperator( LinearOperator ):
         """
         Jacobi preconditioner.
         ----------
-        A : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockMatrix
+        A : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator
             Left-hand-side matrix A of linear system.
 
         b : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector

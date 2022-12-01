@@ -21,7 +21,7 @@ from psydac.api.basic        import random_string
 from psydac.api.grid         import QuadratureGrid, BasisValues
 from psydac.api.utilities    import flatten
 from psydac.linalg.stencil   import StencilVector, StencilMatrix, StencilInterfaceMatrix
-from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockMatrix
+from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 from psydac.fem.vector       import ProductFemSpace
@@ -461,7 +461,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             pads = test_degree
 
         if self._matrix is None and (is_broken or isinstance( expr, (ImmutableDenseMatrix, Matrix))):
-            self._matrix = BlockMatrix(self.spaces[0].vector_space,
+            self._matrix = BlockLinearOperator(self.spaces[0].vector_space,
                                        self.spaces[1].vector_space)
 
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # case of system of equations
@@ -469,7 +469,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             if is_broken: #multi patch
                 i,j = self.get_space_indices_from_target(domain, target )
                 if not self._matrix[i,j]:
-                    self._matrix[i,j] = BlockMatrix(trial_space, test_space)
+                    self._matrix[i,j] = BlockLinearOperator(trial_space, test_space)
                 matrix = self._matrix[i,j]
             else: # single patch
                 matrix = self._matrix

@@ -3,7 +3,7 @@ import numpy as np
 
 from psydac.polar.dense    import DenseVectorSpace, DenseVector, DenseMatrix
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.linalg.block   import BlockVectorSpace, BlockVector, BlockMatrix
+from psydac.linalg.block   import BlockVectorSpace, BlockVector, BlockLinearOperator
 
 from psydac.polar.c1_linops import LinearOperator_StencilToDense
 from psydac.polar.c1_linops import LinearOperator_DenseToStencil
@@ -46,7 +46,7 @@ def test_c1_linops( n0, npts, pads, verbose=False ):
     D[s1:e1+1, s2:e2+1, :, :] = np.random.random( (e1-s1+1, e2-s2+1, 2*p1+1, 2*p2+1) )
     D.remove_spurious_entries()
 
-    M  = BlockMatrix( W, W, blocks=[[A,B],[C,D]] )
+    M  = BlockLinearOperator( W, W, blocks=[[A,B],[C,D]] )
 
     # Vectors
     u = DenseVector( U, np.arange( n0, dtype=float ) )

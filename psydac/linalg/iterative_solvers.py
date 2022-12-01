@@ -241,7 +241,7 @@ def jacobi(A, b):
     """
     Jacobi preconditioner.
     ----------
-    A : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockMatrix
+    A : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator
         Left-hand-side matrix A of linear system.
 
     b : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector
@@ -253,18 +253,18 @@ def jacobi(A, b):
         Preconditioner solution
 
     """
-    from psydac.linalg.block   import BlockMatrix, BlockVector
+    from psydac.linalg.block   import BlockLinearOperator, BlockVector
     from psydac.linalg.stencil import StencilMatrix, StencilVector
 
     # Sanity checks
-    assert isinstance(A, (StencilMatrix, BlockMatrix))
+    assert isinstance(A, (StencilMatrix, BlockLinearOperator))
     assert isinstance(b, (StencilVector, BlockVector))
     assert A.codomain == A.domain
     assert A.codomain == b.space
 
     #-------------------------------------------------------------
     # Handle the case of a block linear system
-    if isinstance(A, BlockMatrix):
+    if isinstance(A, BlockLinearOperator):
         x = [jacobi(A[i, i], bi) for i, bi in enumerate(b.blocks)]
         return BlockVector(b.space, blocks=x)
     #-------------------------------------------------------------

@@ -3,7 +3,7 @@ from sympde.expr.equation  import EssentialBC
 
 from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.stencil import StencilInterfaceMatrix
-from psydac.linalg.block   import BlockVector, BlockMatrix
+from psydac.linalg.block   import BlockVector, BlockLinearOperator
 
 __all__ = ('apply_essential_bc',)
 
@@ -25,10 +25,10 @@ def apply_essential_bc(a, *bcs, **kwargs):
             check_boundary_type(bc)
             apply_essential_bc_BlockVector(a, bc)
 
-    elif isinstance(a, BlockMatrix):
+    elif isinstance(a, BlockLinearOperator):
         for bc in bcs:
             check_boundary_type(bc)
-            apply_essential_bc_BlockMatrix(a, bc, **kwargs)
+            apply_essential_bc_BlockLinearOperator(a, bc, **kwargs)
 
     else:
         raise TypeError('Cannot apply essential BCs to object of type {}'\
@@ -115,10 +115,10 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
         pass
 
 #==============================================================================
-def apply_essential_bc_BlockMatrix(a, bc, identity=False):
+def apply_essential_bc_BlockLinearOperator(a, bc, identity=False):
     """ Apply homogeneous dirichlet boundary conditions in nD """
 
-    assert isinstance(a, BlockMatrix)
+    assert isinstance(a, BlockLinearOperator)
     keys = list(a._blocks.keys())
 
     if bc.index_component is not None:

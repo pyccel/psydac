@@ -724,7 +724,7 @@ class ArrayNode(BaseNode, AtomicExpr):
 class MatrixNode(ArrayNode):
     pass
 
-class BlockMatrixNode(MatrixNode):
+class BlockLinearOperatorNode(MatrixNode):
     pass
 
 #==============================================================================
@@ -1118,7 +1118,7 @@ class GlobalElementBasis(MatrixNode):
     tag  = random_string( 6 )
 
 #==============================================================================
-class BlockStencilMatrixLocalBasis(BlockMatrixNode):
+class BlockStencilMatrixLocalBasis(BlockLinearOperatorNode):
     """
     used to describe local dof over an element as a block stencil matrix
     """
@@ -1171,7 +1171,7 @@ class BlockStencilMatrixLocalBasis(BlockMatrixNode):
         return cond
 
 #==============================================================================
-class BlockStencilMatrixGlobalBasis(BlockMatrixNode):
+class BlockStencilMatrixGlobalBasis(BlockLinearOperatorNode):
     """
     used to describe local dof over an element as a block stencil matrix
     """
@@ -1217,7 +1217,7 @@ class BlockStencilMatrixGlobalBasis(BlockMatrixNode):
         return cond
 
 #==============================================================================
-class BlockStencilVectorLocalBasis(BlockMatrixNode):
+class BlockStencilVectorLocalBasis(BlockLinearOperatorNode):
     """
     used to describe local dof over an element as a block stencil matrix
     """
@@ -1258,7 +1258,7 @@ class BlockStencilVectorLocalBasis(BlockMatrixNode):
         return cond
 
 #==============================================================================
-class BlockStencilVectorGlobalBasis(BlockMatrixNode):
+class BlockStencilVectorGlobalBasis(BlockLinearOperatorNode):
     """
     used to describe local dof over an element as a block stencil matrix
     """

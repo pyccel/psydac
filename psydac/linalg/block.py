@@ -476,7 +476,7 @@ class BlockLinearOperator( Matrix ):
         for Lij in self._blocks.values():
             Lij.remove_spurious_entries()
 
-    # topetsc copied from BlockMatrix
+    # topetsc copied from BlockLinearOperator
     # ...
     def topetsc( self ):
         """ Convert to petsc Nest Matrix.
@@ -548,10 +548,10 @@ class BlockLinearOperator( Matrix ):
     
     #def tomatrix(self):
     #    """
-    #    Returns a BlockMatrix with the same blocks as this BlockLinearOperator.
+    #    Returns a BlockLinearOperator with the same blocks as this BlockLinearOperator.
     #    Does only work, if all blocks are matrices (i.e. type Matrix) as well.
     #    """
-    #    ### used to say "return BlockMatrix" - must update method for it to work, but is useful
+    #    ### used to say "return BlockLinearOperator" - must update method for it to work, but is useful
     #    return Matrix(self.domain, self.codomain, blocks=self._blocks)
 
     # ...
@@ -559,7 +559,7 @@ class BlockLinearOperator( Matrix ):
         blocks = {(j, i): b.transpose() for (i, j), b in self._blocks.items()}
         return BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
 
-    # magic methods imported from BlockMatrix
+    # magic methods imported from BlockLinearOperator
     # ...
     def __neg__(self):
         blocks = {ij: -Bij for ij, Bij in self._blocks.items()}
@@ -795,195 +795,3 @@ class BlockDiagonalSolver( LinearSolver ):
         assert value.space is self.space[key]
 
         self._blocks[key] = value
-
-# not in use anymore!
-class BlockMatrix( BlockLinearOperator, Matrix ):
-    """
-    Linear operator that can be written as blocks of other Linear Operators,
-    with the additional capability to be converted to a 2D Numpy array
-    or to a Scipy sparse matrix.
-    Parameters
-    ----------
-    V1 : psydac.linalg.block.BlockVectorSpace
-        Domain of the new linear operator.
-    V2 : psydac.linalg.block.BlockVectorSpace
-        Codomain of the new linear operator.
-    blocks : dict | (list of lists) | (tuple of tuples)
-        Matrix objects (optional).
-        a) 'blocks' can be dictionary with
-            . key   = tuple (i, j), where i and j are two integers >= 0
-            . value = corresponding Matrix Mij
-        b) 'blocks' can be list of lists (or tuple of tuples) where blocks[i][j]
-            is the Matrix Mij (if None, we assume all entries are zeros)
-    """
-    #--------------------------------------
-    # Abstract interface
-    #--------------------------------------
-    def toarray( self, **kwargs ):
-        """ Convert to Numpy 2D array. """
-        return self.tosparse(**kwargs).toarray()
-
-    # ...
-    def tosparse( self, **kwargs ):
-        """ Convert to any Scipy sparse matrix format. """
-        # Shortcuts
-
-        nrows = self.n_block_rows
-        ncols = self.n_block_cols
-
-        # Utility functions: get domain of blocks on column j, get codomain of blocks on row i
-        block_domain   = (lambda j: self.domain  [j]) if ncols > 1 else (lambda j: self.domain)
-        block_codomain = (lambda i: self.codomain[i]) if nrows > 1 else (lambda i: self.codomain)
-
-        # Convert all blocks to Scipy sparse format
-        blocks_sparse = [[None for j in range(ncols)] for i in range(nrows)]
-        for i in range(nrows):
-            for j in range(ncols):
-                if (i, j) in self._blocks:
-                    blocks_sparse[i][j] = self._blocks[i, j].tosparse(**kwargs)
-                else:
-                    m = block_codomain(i).dimension
-                    n = block_domain  (j).dimension
-                    blocks_sparse[i][j] = lil_matrix((m, n))
-
-        # Create sparse matrix from sparse blocks
-        M = bmat( blocks_sparse )
-        M.eliminate_zeros()
-
-        # Sanity check
-        assert M.shape[0] == self.codomain.dimension
-        assert M.shape[1] == self.  domain.dimension
-
-        return M
-
-    # ...
-    def copy(self):
-        blocks = {ij: Bij.copy() for ij, Bij in self._blocks.items()}
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
-
-    # ...
-    def __neg__(self):
-        blocks = {ij: -Bij for ij, Bij in self._blocks.items()}
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
-
-    # ...
-    def __mul__(self, a):
-        blocks = {ij: Bij * a for ij, Bij in self._blocks.items()}
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
-
-    # ...
-    def __rmul__(self, a):
-        blocks = {ij: a * Bij for ij, Bij in self._blocks.items()}
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
-
-    # ...
-    def __add__(self, M):
-        assert isinstance(M, BlockMatrix)
-        assert M.  domain is self.  domain
-        assert M.codomain is self.codomain
-        blocks  = {}
-        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
-            Bij = self[ij]
-            Mij = M[ij]
-            if   Bij is None: blocks[ij] = Mij.copy()
-            elif Mij is None: blocks[ij] = Bij.copy()
-            else            : blocks[ij] = Bij + Mij
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
-
-    # ...
-    def __sub__(self, M):
-        assert isinstance(M, BlockMatrix)
-        assert M.  domain is self.  domain
-        assert M.codomain is self.codomain
-        blocks  = {}
-        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
-            Bij = self[ij]
-            Mij = M[ij]
-            if   Bij is None: blocks[ij] = -Mij
-            elif Mij is None: blocks[ij] =  Bij.copy()
-            else            : blocks[ij] =  Bij - Mij
-        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
-
-    # ...
-    def __imul__(self, a):
-        for Bij in self._blocks.values():
-            Bij *= a
-        return self
-
-    # ...
-    def __iadd__(self, M):
-        assert isinstance(M, BlockMatrix)
-        assert M.  domain is self.  domain
-        assert M.codomain is self.codomain
-
-        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
-
-            Mij = M[ij]
-            if Mij is None:
-                continue
-
-            Bij = self[ij]
-            if Bij is None:
-                self[ij] = Mij.copy()
-            else:
-                Bij += Mij
-
-        return self
-
-    # ...
-    def __isub__(self, M):
-        assert isinstance(M, BlockMatrix)
-        assert M.  domain is self.  domain
-        assert M.codomain is self.codomain
-
-        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
-
-            Mij = M[ij]
-            if Mij is None:
-                continue
-
-            Bij = self[ij]
-            if Bij is None:
-                self[ij] = -Mij
-            else:
-                Bij -= Mij
-
-        return self
-    #--------------------------------------
-    # Other properties/methods
-    #--------------------------------------
-    def __setitem__( self, key, value ):
-
-        i,j = key
-
-        if value is None:
-            pass
-
-        elif not isinstance( value, Matrix ):
-            msg = "Block ({},{}) must be 'Matrix' from module 'psydac.linalg.basic'.".format( i,j )
-            raise TypeError( msg )
-
-        BlockLinearOperator.__setitem__( self, key, value )
-
-    # ...
-    def transpose(self):
-        blocks = {(j, i): b.transpose() for (i, j), b in self._blocks.items()}
-        return BlockMatrix(self.codomain, self.domain, blocks=blocks)
-
-    # ...
-    def topetsc( self ):
-        """ Convert to petsc Nest Matrix.
-        """
-        # Convert all blocks to petsc format
-        blocks = [[None for j in range( self.n_block_cols )] for i in range( self.n_block_rows )]
-        for (i,j), Mij in self._blocks.items():
-            blocks[i][j] = Mij.topetsc()
-
-        if self.n_block_cols == 1:
-            cart = self.domain.cart
-        else:
-            cart = self.domain.spaces[0].cart
-
-        petsccart = cart.topetsc()
-
-        return petsccart.petsc.Mat().createNest(blocks, comm=cart.comm)
