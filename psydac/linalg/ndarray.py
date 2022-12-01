@@ -69,7 +69,7 @@ class NdarrayVector( Vector ):
         """ Returns a copy of self. """
         return NdarrayVector(self._space, np.copy(self._data))
 
-    def toarray( self ):
+    def toarray( self, **kwargs ):
         return self._data
 
     def dot( self, v ):

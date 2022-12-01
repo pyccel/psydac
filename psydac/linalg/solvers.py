@@ -5,7 +5,7 @@ This module provides iterative solvers and precondionners.
 """
 from math import sqrt
 
-from psydac.linalg.basic     import LinearOperator, InverseLinearOperator
+from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator
 
 
 __all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient']
@@ -34,7 +34,7 @@ class ConjugateGradient( InverseLinearOperator ):
     def _update_options( self ):
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
-    def solve(self, b):
+    def solve(self, b, out=None):
         """
         Conjugate gradient algorithm for solving linear system Ax=b.
         Implementation from [1], page 137.
@@ -93,12 +93,30 @@ class ConjugateGradient( InverseLinearOperator ):
         assert( b.shape == (n, ) )
 
         # First guess of solution
-        if x0 is None:
-            x  = b.copy()
-            x *= 0.0
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self._domain
+            out *= 0
+            if x0 is None:
+                x  = out
+            else:
+                assert( x0.shape == (n,) )
+                out += x0
+                x = out
         else:
-            assert( x0.shape == (n,) )
-            x = x0.copy()
+            if x0 is None:
+                x  = b.copy()
+                x *= 0.0
+            else:
+                assert( x0.shape == (n,) )
+                x = x0.copy()
+
+        #if x0 is None:
+        #    x  = b.copy()
+        #    x *= 0.0
+        #else:
+        #    assert( x0.shape == (n,) )
+        #    x = x0.copy()
 
         # First values
         v  = A.dot(x)
@@ -158,8 +176,8 @@ class ConjugateGradient( InverseLinearOperator ):
 
         return x, info
 
-    def dot(self, b):
-        return self.solve(b)
+    def dot(self, b, out=None):
+        return self.solve(b, out=out)
 
 #===============================================================================
 class PConjugateGradient( InverseLinearOperator ):
@@ -186,7 +204,7 @@ class PConjugateGradient( InverseLinearOperator ):
     def _update_options( self ):
         self._options = {"pc": self._pc, "x0": self._x0, "tol": self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
-    def solve(self, b):
+    def solve(self, b, out=None):
         """
         Preconditioned Conjugate Gradient (PCG) solves the symetric positive definte
         system Ax = b. It assumes that pc(r) returns the solution to Ps = r,
@@ -239,12 +257,31 @@ class PConjugateGradient( InverseLinearOperator ):
         assert( b.shape == (n, ) )
 
         # First guess of solution
-        if x0 is None:
-            x  = b.copy()
-            x *= 0.0
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self._domain
+            out *= 0
+            if x0 is None:
+                x  = out
+            else:
+                assert( x0.shape == (n,) )
+                out += x0
+                x = out
         else:
-            assert( x0.shape == (n,) )
-            x = x0.copy()
+            if x0 is None:
+                x  = b.copy()
+                x *= 0.0
+            else:
+                assert( x0.shape == (n,) )
+                x = x0.copy()
+
+        
+        #if x0 is None:
+        #    x  = b.copy()
+        #    x *= 0.0
+        #else:
+        #    assert( x0.shape == (n,) )
+        #    x = x0.copy()
 
         # Preconditioner
         assert pc is not None
@@ -315,8 +352,8 @@ class PConjugateGradient( InverseLinearOperator ):
         info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr) }
         return x, info
 
-    def dot(self, b):
-        return self.solve(b)
+    def dot(self, b, out=None):
+        return self.solve(b, out=out)
 
 #===============================================================================
 class BiConjugateGradient( InverseLinearOperator ):
@@ -342,7 +379,7 @@ class BiConjugateGradient( InverseLinearOperator ):
     def _update_options( self ):
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
-    def solve(self, b):
+    def solve(self, b, out=None):
         """
         Biconjugate gradient (BCG) algorithm for solving linear system Ax=b.
         Implementation from [1], page 175.
@@ -408,11 +445,29 @@ class BiConjugateGradient( InverseLinearOperator ):
         assert b .shape == (n,)
 
         # First guess of solution
-        if x0 is None:
-            x = 0.0 * b.copy()
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self._domain
+            out *= 0
+            if x0 is None:
+                x  = out
+            else:
+                assert( x0.shape == (n,) )
+                out += x0
+                x = out
         else:
-            assert x0.shape == (n,)
-            x = x0.copy()
+            if x0 is None:
+                x  = b.copy()
+                x *= 0.0
+            else:
+                assert( x0.shape == (n,) )
+                x = x0.copy()
+
+        #if x0 is None:
+        #    x = 0.0 * b.copy()
+        #else:
+        #    assert x0.shape == (n,)
+        #    x = x0.copy()
 
         # First values
         r  = b - A.dot( x )
@@ -494,5 +549,5 @@ class BiConjugateGradient( InverseLinearOperator ):
 
         return x, info
 
-    def dot(self, b):
-        return self.solve(b)
+    def dot(self, b, out=None):
+        return self.solve(b, out=out)
