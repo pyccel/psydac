@@ -7,20 +7,19 @@ from math import sqrt
 
 from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator
 
-
 __all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient']
 
 #===============================================================================
-class ConjugateGradient( InverseLinearOperator ):
+class ConjugateGradient(InverseLinearOperator):
     """
     
 
     """
-    def __init__( self, linop, *, solver=None, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
+    def __init__(self, linop, *, solver=None, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
         assert isinstance(linop, LinearOperator)
         assert linop.domain == linop.codomain
-        self._solver = 'cg' # test, required for transpose
+        self._solver = 'cg'
         self._linop = linop
         self._domain = linop.codomain
         self._codomain = linop.domain
@@ -31,7 +30,7 @@ class ConjugateGradient( InverseLinearOperator ):
         self._verbose = verbose
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
-    def _update_options( self ):
+    def _update_options(self):
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def solve(self, b, out=None):
@@ -111,13 +110,6 @@ class ConjugateGradient( InverseLinearOperator ):
                 assert( x0.shape == (n,) )
                 x = x0.copy()
 
-        #if x0 is None:
-        #    x  = b.copy()
-        #    x *= 0.0
-        #else:
-        #    assert( x0.shape == (n,) )
-        #    x = x0.copy()
-
         # First values
         v  = A.dot(x)
         r  = b - v
@@ -145,25 +137,10 @@ class ConjugateGradient( InverseLinearOperator ):
             l   = am / v.dot( p )
             x  += l*p
             r  -= l*v
-            #if m<10:
-            #    print(r.toarray())
             am1 = r.dot( r )
             p  *= (am1/am)
             p  += r
-            #if m<10:
-            #    print(r.toarray())
-            #    print()
             am  = am1
-            #if m<10:
-            #    print(l)
-            #    print(am1)
-            #    print(am)
-            #    print("vectors")
-            #    print(v.toarray())                
-            #    print(p.toarray())                
-            #    print(x.toarray())
-            #    print(r.toarray())
-            #    print()
 
             if verbose:
                 print( template.format( m, sqrt( am ) ) )
@@ -180,16 +157,16 @@ class ConjugateGradient( InverseLinearOperator ):
         return self.solve(b, out=out)
 
 #===============================================================================
-class PConjugateGradient( InverseLinearOperator ):
+class PConjugateGradient(InverseLinearOperator):
     """
     
 
     """
-    def __init__( self, linop, *, solver=None, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
+    def __init__(self, linop, *, solver=None, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
         assert isinstance(linop, LinearOperator)
         assert linop.domain == linop.codomain
-        self._solver = 'pcg' # test, required for transpose
+        self._solver = 'pcg'
         self._linop = linop
         self._domain = linop.codomain
         self._codomain = linop.domain
@@ -275,14 +252,6 @@ class PConjugateGradient( InverseLinearOperator ):
                 assert( x0.shape == (n,) )
                 x = x0.copy()
 
-        
-        #if x0 is None:
-        #    x  = b.copy()
-        #    x *= 0.0
-        #else:
-        #    assert( x0.shape == (n,) )
-        #    x = x0.copy()
-
         # Preconditioner
         assert pc is not None
         if pc == 'jacobi':
@@ -306,9 +275,6 @@ class PConjugateGradient( InverseLinearOperator ):
 
         s  = psolve(r)
         am = s.dot(r)
-        #print("s: ",s.toarray())
-        #print("r: ",r.toarray())
-        #print("s.dot(r): ", am)
         p  = s.copy()
 
         tol_sqr = tol**2
@@ -337,7 +303,6 @@ class PConjugateGradient( InverseLinearOperator ):
             s = psolve(r)
 
             am1 = s.dot(r)
-            #print(am)
             p  *= (am1/am)
             p  += s
             am  = am1
@@ -356,16 +321,16 @@ class PConjugateGradient( InverseLinearOperator ):
         return self.solve(b, out=out)
 
 #===============================================================================
-class BiConjugateGradient( InverseLinearOperator ):
+class BiConjugateGradient(InverseLinearOperator):
     """
     
 
     """
-    def __init__( self, linop, *, solver=None, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
+    def __init__(self, linop, *, solver=None, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
         assert isinstance(linop, LinearOperator)
         assert linop.domain == linop.codomain
-        self._solver = 'bicg' # test, required for transpose
+        self._solver = 'bicg'
         self._linop = linop
         self._domain = linop.codomain
         self._codomain = linop.domain
@@ -462,12 +427,6 @@ class BiConjugateGradient( InverseLinearOperator ):
             else:
                 assert( x0.shape == (n,) )
                 x = x0.copy()
-
-        #if x0 is None:
-        #    x = 0.0 * b.copy()
-        #else:
-        #    assert x0.shape == (n,)
-        #    x = x0.copy()
 
         # First values
         r  = b - A.dot( x )

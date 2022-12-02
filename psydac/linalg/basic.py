@@ -4,8 +4,7 @@
 # Copyright 2022 Yaman Güçlü, Said Hadjout, Julian Owezarek
 
 from abc   import ABC, abstractmethod
-from numpy import ndarray
-import numpy as np # only because of assert np.isscalar 
+import numpy as np
 
 __all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'ZeroOperator', 'IdentityOperator', 'ScaledLinearOperator',
            'SumLinearOperator', 'ComposedLinearOperator', 'PowerLinearOperator', 'InverseLinearOperator', 'Matrix', 'LinearSolver']
@@ -191,7 +190,7 @@ class LinearOperator(ABC):
     def __neg__(self):
         return ScaledLinearOperator(self._domain, self._codomain, -1.0, self)
 
-    def __mul__( self, c ):
+    def __mul__(self, c):
         """
         Scales a linear operator by c by creating an object of class :ref:`ScaledLinearOperator <scaledlinearoperator>`,
         unless c = 0 or c = 1, in which case either a :ref:`ZeroOperator <zerooperator>` or self is returned.
@@ -205,22 +204,25 @@ class LinearOperator(ABC):
         else:
             return ScaledLinearOperator(self._domain, self._codomain, c, self)
 
-    def __rmul__( self, c ):
+    def __rmul__(self, c):
         """ Calles :ref:`__mul__ <mul>` instead. """
         return self * c
 
-    def __matmul__( self, B ):
+    def __matmul__(self, B):
         """ Creates an object of class :ref:`ComposedLinearOperator <composedlinearoperator>`. """
-        assert isinstance(B, LinearOperator)
-        assert self._domain == B.codomain
-        if isinstance(B, ZeroOperator):
-            return ZeroOperator(B.domain, self._codomain)
-        elif isinstance(B, IdentityOperator):
-            return self
+        assert isinstance(B, (LinearOperator, Vector))
+        if isinstance(B, LinearOperator):
+            assert self._domain == B.codomain
+            if isinstance(B, ZeroOperator):
+                return ZeroOperator(B.domain, self._codomain)
+            elif isinstance(B, IdentityOperator):
+                return self
+            else:
+                return ComposedLinearOperator(B.domain, self._codomain, self, B)
         else:
-            return ComposedLinearOperator(B.domain, self._codomain, self, B)
+            return self.dot(B)
 
-    def __add__( self, B ):
+    def __add__(self, B):
         """ Creates an object of class :ref:`SumLinearOperator <sumlinearoperator>` unless B is a :ref:`ZeroOperator <zerooperator>` in which case self is returned. """
         assert isinstance(B, LinearOperator)
         if isinstance(B, ZeroOperator):
@@ -242,16 +244,16 @@ class LinearOperator(ABC):
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
-    def transpose( self ):
+    def transpose(self):
         raise NotImplementedError()
 
-    def inverse( self, solver, **kwargs ):
+    def inverse(self, solver, **kwargs):
         if isinstance(self, InverseLinearOperator):
             return self.linop
         else:
             return InverseLinearOperator(self, solver=solver, **kwargs)
 
-    def idot( self, v, out ):
+    def idot(self, v, out):
         """
         Overwrites the vector out, element of codomain, by adding self evaluated at v.
 
@@ -263,7 +265,7 @@ class LinearOperator(ABC):
         out += self.dot(v)
 
 #===============================================================================
-class ZeroOperator( LinearOperator ):
+class ZeroOperator(LinearOperator):
 
     def __init__(self, domain, codomain):
 
@@ -321,30 +323,22 @@ class ZeroOperator( LinearOperator ):
         assert self._codomain == B.codomain
         return -B
 
-    #def __radd__( self, A ):
-    #    return self + A
-
     def __mul__(self, c):
         assert np.isscalar(c)
         return self
 
-    #def __rmul__( self, c ):
-    #    return self * c
-
     def __matmul__(self, B):
-        assert isinstance(B, LinearOperator)
-        assert self._domain == B.codomain
-        return ZeroOperator(domain=B.domain, codomain=self._codomain)
-
-    #def __rmatmul__( self, A ):
-    #    assert isinstance(A, LinearOperator)
-    #    assert self._codomain == A.domain
-    #    return ZeroOperator(domain=self._domain, codomain=A.codomain)
+        assert isinstance(B, (LinearOperator, Vector))
+        if isinstance(B, LinearOperator):
+            assert self._domain == B.codomain
+            return ZeroOperator(domain=B.domain, codomain=self._codomain)
+        else:
+            return self.dot(B)
 
 #===============================================================================
-class IdentityOperator( LinearOperator ):
+class IdentityOperator(LinearOperator):
 
-    def __init__(self, domain, codomain=None ):
+    def __init__(self, domain, codomain=None):
 
         assert isinstance(domain, VectorSpace)
         if codomain:
@@ -355,21 +349,21 @@ class IdentityOperator( LinearOperator ):
         self._codomain = domain
 
     @property
-    def domain( self ):
+    def domain(self):
         return self._domain
 
     @property
-    def codomain( self ):
+    def codomain(self):
         return self._codomain
 
     @property
-    def dtype( self ):
+    def dtype(self):
         return None
 
-    def copy( self ):
+    def copy(self):
         return IdentityOperator(self._domain, self._codomain)
 
-    def transpose( self ):
+    def transpose(self):
         """ Could return self, but by convention returns new object. """
         return IdentityOperator(self._domain, self._codomain)
 
@@ -385,15 +379,13 @@ class IdentityOperator( LinearOperator ):
         out = v
         return out
 
-    def __matmul__( self, B ):
-        assert isinstance(B, LinearOperator)
-        assert self._domain == B.codomain
-        return B
-
-    #def __rmatmul__( self, A ):
-    #    assert isinstance(A, LinearOperator)
-    #    assert self._codomain == A.domain
-    #    return A
+    def __matmul__(self, B):
+        assert isinstance(B, (LinearOperator, Vector))
+        if isinstance(B, LinearOperator):
+            assert self._domain == B.codomain
+            return B
+        else:
+            return self.dot(B)
 
 #===============================================================================
 class ScaledLinearOperator(LinearOperator):
@@ -443,7 +435,6 @@ class ScaledLinearOperator(LinearOperator):
         return ScaledLinearOperator(domain=self._codomain, codomain=self._domain, c=self._scalar, A=self._operator.T)
 
     def __neg__(self):
-        # A; B = -A; B *= 3 might change the scalar of A, similar thing could happen when transposing a ScaledLinearOperator!
         return ScaledLinearOperator(domain=self._domain, codomain=self._codomain, c=-1*self._scalar, A=self._operator)
 
     def inverse(self, solver, **kwargs):
@@ -458,12 +449,12 @@ class ScaledLinearOperator(LinearOperator):
         return self._operator.dot(v, out=out) * self._scalar
 
 #===============================================================================
-class SumLinearOperator( LinearOperator ):
+class SumLinearOperator(LinearOperator):
     """
     A sum of linear operatos acting between the same (normed) vector spaces V (domain) and W (codomain).
 
     """
-    def __new__( cls, domain, codomain, *args ):
+    def __new__(cls, domain, codomain, *args):
 
         if len(args) == 0:
             return ZeroOperator(domain,codomain)
@@ -472,7 +463,7 @@ class SumLinearOperator( LinearOperator ):
         else:
             return super().__new__(cls)
 
-    def __init__( self, domain, codomain, *args ):
+    def __init__(self, domain, codomain, *args):
 
         assert isinstance(domain, VectorSpace)
         assert isinstance(codomain, VectorSpace)
@@ -488,61 +479,81 @@ class SumLinearOperator( LinearOperator ):
             else:
                 addends = (*addends, a)
 
+        addends = SumLinearOperator.simplifiy(addends)
+
         self._domain = domain
         self._codomain = codomain
         self._addends = addends
 
     @property
-    def domain( self ):
+    def domain(self):
         """ The domain of the linear operator, element of class ``VectorSpace``. """
         return self._domain
 
     @property
-    def codomain( self ):
+    def codomain(self):
         """ The codomain of the linear operator, element of class ``VectorSpace``. """
         return self._codomain
 
     @property
-    def addends( self ):
+    def addends(self):
         """ A tuple containing the addends of the linear operator, elements of class ``LinearOperator``. """
         return self._addends
 
     @property
-    def dtype( self ):
+    def dtype(self):
         """
         todo
 
         """
         return None
 
-    def transpose( self ):
+    def transpose(self):
         t_addends = ()
         for a in self._addends:
             t_addends = (*t_addends, a.T)
         return SumLinearOperator(domain=self._codomain, codomain=self._domain, *t_addends)
 
-    #def __neg__( self ):
-    #    n_addends = ()
-    #    for a in self._addends:
-    #        n_addends = (*n_addends, -a)
-    #    return SumLinearOperator(domain=self._domain, codomain=self._codomain, *n_addends)
-
-    def simplifiy( self, addends ):
+    @staticmethod
+    def simplifiy(addends):
         class_list = [addends[i].__class__.__name__ for i in range(len(addends))]
         unique_list = list(set(class_list))
-        out = ZeroOperator(domain=self._domain, codomain=self._codomain)
+        if len(unique_list) == 1:
+            return addends
+        #out = ZeroOperator(domain=addends[0]._domain, codomain=addends[0]._codomain)
+        out = ()
         for i, j in enumerate(unique_list): #better?: for i in range(len(unique_list)):
             indices = [k for k, l in enumerate(class_list) if class_list[k] == unique_list[i]] #for k in range(len(class_list))
             if len(indices) == 1:
-                out += addends[indices[0]]
+                #out += addends[indices[0]]
+                out = (*out, addends[indices[0]])
             else:
                 A = addends[indices[0]] # might change addends[indices[0]]? try .copy / .copy() or implement ...
                 for n in range(len(indices)-1):
                     A += addends[indices[n+1]]
-                out += A
+                #out += A
+                if isinstance(A, SumLinearOperator):
+                    out = (*out, *A.addends)
+                else:
+                    out = (*out, A)
         return out
 
-    def dot( self, v, out=None, simplified = False ):
+    #def simplifiy(self, addends):
+    #    class_list = [addends[i].__class__.__name__ for i in range(len(addends))]
+    #    unique_list = list(set(class_list))
+    #    out = ZeroOperator(domain=self._domain, codomain=self._codomain)
+    #    for i, j in enumerate(unique_list): #better?: for i in range(len(unique_list)):
+    #        indices = [k for k, l in enumerate(class_list) if class_list[k] == unique_list[i]] #for k in range(len(class_list))
+    #        if len(indices) == 1:
+    #            out += addends[indices[0]]
+    #        else:
+    #            A = addends[indices[0]] # might change addends[indices[0]]? try .copy / .copy() or implement ...
+    #            for n in range(len(indices)-1):
+    #                A += addends[indices[n+1]]
+    #            out += A
+    #    return out
+
+    def dot(self, v, out=None):#, simplified = False):
         """ Evaluates SumLinearOperator object at a vector v element of domain. """
         assert isinstance(v, Vector)
         assert v.space == self._domain
@@ -550,10 +561,10 @@ class SumLinearOperator( LinearOperator ):
             assert isinstance(out, Vector)
             assert out.space == self._codomain
 
-        if simplified == False:
-            self._addends = self.simplifiy(self._addends).addends
-        elif simplified != True:
-            raise ValueError('simplified expects True or False.')
+        #if simplified == False:
+        #    self._addends = self.simplifiy(self._addends).addends
+        #elif simplified != True:
+        #    raise ValueError('simplified expects True or False.')
 
         out = self._codomain.zeros()
         for a in self._addends:
@@ -561,9 +572,9 @@ class SumLinearOperator( LinearOperator ):
         return out
 
 #===============================================================================
-class ComposedLinearOperator( LinearOperator ):
+class ComposedLinearOperator(LinearOperator):
 
-    def __init__( self, domain, codomain, *args ):
+    def __init__(self, domain, codomain, *args):
 
         assert isinstance(domain, VectorSpace)
         assert isinstance(codomain, VectorSpace)
@@ -594,69 +605,36 @@ class ComposedLinearOperator( LinearOperator ):
         else:
             multiplicants = (*multiplicants, last)
 
-        #for i, a in enumerate(args):
-        #    if i+1 != len(args):
-        #        if isinstance(a, ComposedLinearOperator):
-        #            multiplicants = (*multiplicants, *a.multiplicants)
-        #            tmp_vectors.extend(a.tmp_vectors)
-        #            tmp_vectors.append(a.multiplicants[-1].domain.zeros())
-        #        else:
-        #            multiplicants = (*multiplicants, a)
-        #            tmp_vectors.append(a.domain.zeros())
-        #    else:
-        #        if isinstance(a, ComposedLinearOperator):
-        #            multiplicants = (*multiplicants, *a.multiplicants)
-        #            tmp_vectors.extend(a.tmp_vectors[:-1])
-        #        else:
-        #            multiplicants = (*multiplicants, a)
-
-        #tmp_vectors = []
-        #for a in multiplicants[:-1]:
-        #    tv = a.domain.zeros()
-        #    print(repr(tv))
-        #    tmp_vectors.append(tv)
-
         self._domain = domain
         self._codomain = codomain
         self._multiplicants = multiplicants
         self._tmp_vectors = tuple(tmp_vectors)
-
-    #def __del__(self):
-    #    print(f"Delete object {repr(self)}")
 
     @property
     def tmp_vectors(self):
         return self._tmp_vectors
 
     @property
-    def domain( self ):
+    def domain(self):
         return self._domain
 
     @property
-    def codomain( self ):
+    def codomain(self):
         return self._codomain
 
     @property
-    def multiplicants( self ):
+    def multiplicants(self):
         return self._multiplicants
 
     @property
-    def dtype( self ):
+    def dtype(self):
         return None
 
-    def transpose( self ):
+    def transpose(self):
         t_multiplicants = ()
         for a in self._multiplicants:
             t_multiplicants = (a.T, *t_multiplicants)
         return ComposedLinearOperator(domain=self._codomain, codomain=self._domain, *t_multiplicants)
-
-    #def dot2(self, v, out=None):
-    #    assert isinstance(v, Vector)
-    #    assert v.space == self._domain
-    #    out = self._multiplicants[-1].dot(v)
-    #    for i in range(1, len(self._multiplicants)):
-    #        out = self._multiplicants[-1-i].dot(out)
-    #    return out
 
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
@@ -677,9 +655,9 @@ class ComposedLinearOperator( LinearOperator ):
         
 
 #===============================================================================
-class PowerLinearOperator( LinearOperator ):
+class PowerLinearOperator(LinearOperator):
 
-    def __new__( cls, domain, codomain, A, n ):
+    def __new__(cls, domain, codomain, A, n):
 
         assert isinstance(n, int)
         assert n >= 0
@@ -696,7 +674,7 @@ class PowerLinearOperator( LinearOperator ):
         else:
             return super().__new__(cls)
 
-    def __init__( self, domain, codomain, A, n ):
+    def __init__(self, domain, codomain, A, n):
 
         if isinstance(A, PowerLinearOperator):
             self._operator = A.operator
@@ -708,44 +686,41 @@ class PowerLinearOperator( LinearOperator ):
         self._codomain = codomain
 
     @property
-    def domain( self ):
+    def domain(self):
         return self._domain
 
     @property
-    def codomain( self ):
+    def codomain(self):
         return self._codomain
 
     @property
-    def dtype( self ):
+    def dtype(self):
         return None
 
     @property
-    def operator( self ):
+    def operator(self):
         return self._operator
 
     @property
-    def factorial( self ):
+    def factorial(self):
         return self._factorial
 
-    def transpose( self ):
+    def transpose(self):
         return PowerLinearOperator(domain=self._codomain, codomain=self._domain, A=self._operator.T, n=self._factorial)
 
-    def dot( self, v, out=None ):
+    def dot(self, v, out=None):
         assert isinstance(v, Vector)
         assert v.space == self._domain
         if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self._codomain
-        #out = self._operator.dot(v) * self._scalar
-        #return out
         out = v.copy()
         for i in range(self._factorial):
-            #out = self._operator.dot(out)
             self._operator.dot(out, out=out)
         return out
 
 #===============================================================================
-class InverseLinearOperator( LinearOperator ):
+class InverseLinearOperator(LinearOperator):
     """
     Iterative solver for square linear system Ax=b, where x and b belong to (normed)
     vector space V.
@@ -773,38 +748,38 @@ class InverseLinearOperator( LinearOperator ):
             return super().__new__(cls)
 
     @property
-    def space( self ):
+    def space(self):
         return self._space
 
     @property
-    def domain( self ):
+    def domain(self):
         return self._domain
 
     @property
-    def codomain( self ):
+    def codomain(self):
         return self._codomain
 
     @property
-    def dtype( self ):
+    def dtype(self):
         return None
 
     @property
-    def linop( self ):
+    def linop(self):
         return self._linop
 
     @property
-    def options( self ):
+    def options(self):
         return self._options
 
     @abstractmethod
     def _update_options(self):
         pass
 
-    def getoptions( self ):
+    def getoptions(self):
         for key, value in self.options.items():
             print(key, ": ", value)
 
-    def setoptions( self, **kwargs ):
+    def setoptions(self, **kwargs):
         # check feasibility of kwargs
         for key, value in kwargs.items():
             setattr(self, '_'+key, value)
@@ -894,7 +869,6 @@ class InverseLinearOperator( LinearOperator ):
 
         """
         from math import sqrt
-        #from psydac.linalg2.stencil import StencilVector
 
         n = A.shape[0]
 
@@ -967,11 +941,11 @@ class Matrix(LinearOperator):
     #-------------------------------------
 
     @abstractmethod
-    def toarray( self, **kwargs ):
+    def toarray(self, **kwargs):
         """ Convert to Numpy 2D array. """
 
     @abstractmethod
-    def tosparse( self, **kwargs ):
+    def tosparse(self, **kwargs):
         """ Convert to any Scipy sparse matrix format. """
 
     @abstractmethod
@@ -1030,7 +1004,7 @@ class LinearSolver(ABC):
 
     """
     @property
-    def shape( self ):
+    def shape(self):
         return (self.space.dimension, self.space.dimension)
 
     #-------------------------------------
@@ -1038,12 +1012,12 @@ class LinearSolver(ABC):
     #-------------------------------------
     @property
     @abstractmethod
-    def space( self ):
+    def space(self):
         pass
 
     @abstractmethod
-    def solve( self, rhs, out=None, transposed=False ):
+    def solve(self, rhs, out=None, transposed=False):
         pass
 
 #===============================================================================
-del ABC, abstractmethod, ndarray
+del ABC, abstractmethod
