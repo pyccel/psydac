@@ -202,10 +202,10 @@ class BasisValues():
                 local_span = find_span(space.knots, space.degree, points[0, 0])
                 boundary_basis = basis_funs_all_ders(space.knots, space.degree,
                                                      points[0, 0], local_span, nderiv, space.basis)
-                if grid.ext is not None:
-                    self._basis[i][axis] = np.transpose(boundary_basis)[None, :, :, None]
-                    index = 0 if grid.ext == -1 else -1
-                    self._spans[i][axis] = np.array([self._spans[i][axis][index]])
+
+                self._basis[i][axis] = np.transpose(boundary_basis)[None, :, :, None].copy()
+                index = 0 if grid.ext == -1 else -1
+                self._spans[i][axis] = np.array([self._spans[i][axis][index]])
 
     @property
     def basis(self):
