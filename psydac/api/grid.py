@@ -150,9 +150,6 @@ class BasisValues():
     grid : QuadratureGrid, optional
         needed for the basis values on the boundary to indicate the boundary over an axis.
 
-    ext : int, optional
-        needed for the basis values on the boundary to indicate the boundary over an axis.
-
     Attributes
     ----------
     basis : list
@@ -161,7 +158,7 @@ class BasisValues():
         The spans of the basis functions.
 
     """
-    def __init__( self, V, nderiv , trial=False, grid=None, ext=None):
+    def __init__( self, V, nderiv , trial=False, grid=None):
 
         self._space = V
         assert grid is not None
@@ -206,11 +203,9 @@ class BasisValues():
                 boundary_basis = basis_funs_all_ders(space.knots, space.degree,
                                                      points[0, 0], local_span, nderiv, space.basis)
 
-                self._basis[i][axis] = self._basis[i][axis].copy()
-                self._basis[i][axis][0, :, 0:nderiv+1, 0] = np.transpose(boundary_basis)
-                if ext == 1:
-                    self._spans[i][axis]    = self._spans[i][axis].copy()
-                    self._spans[i][axis][0] = self._spans[i][axis][-1]
+                self._basis[i][axis] = np.transpose(boundary_basis)[None, :, :, None].copy()
+                index = 0 if grid.ext == -1 else -1
+                self._spans[i][axis] = np.array([self._spans[i][axis][index]])
 
     @property
     def basis(self):
