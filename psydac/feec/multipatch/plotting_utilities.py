@@ -219,7 +219,7 @@ def plot_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, 
     if is_vector_valued(vh):
         # then vh_vals[d] contains the values of the d-component of vh (as a patch-indexed list)
         #vh_abs_vals = [np.sqrt(abs(v[0])**2 + abs(v[1])**2) for v in zip(vh_vals[0],vh_vals[1])]
-        vh_abs_vals = [v[0] for v in zip(vh_vals[0],vh_vals[1])]
+        vh_abs_vals = [np.sqrt(v[0]**2+v[1]**2) for v in zip(vh_vals[0],vh_vals[1])]
     else:
         # then vh_vals just contains the values of vh (as a patch-indexed list)
         vh_abs_vals = np.array(vh_vals)
