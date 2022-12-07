@@ -1018,6 +1018,3 @@ class LinearSolver(ABC):
     @abstractmethod
     def solve(self, rhs, out=None, transposed=False):
         pass
-
-#===============================================================================
-del ABC, abstractmethod
