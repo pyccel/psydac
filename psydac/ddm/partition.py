@@ -3,10 +3,70 @@ import numpy.ma as ma
 
 from sympy.ntheory import factorint
 
-__all__ = ['compute_dims']
+__all__ = ['compute_dims', 'partition_procs_per_patch']
 
 #==============================================================================
-def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
+def partition_procs_per_patch(npts, size):
+    """
+    Compute the number of processes in each patch and assign to it an ascending range of processes.
+    The processes are distributed porportionally to the patch grid size.
+
+    Parameters
+    ----------
+    npts : list
+        Number of points along each dimension for each patch.
+
+    size : int
+        Number of processes.
+
+    Returns
+    -------
+    sizes : list of int
+        Number of processes in each patch.
+
+    ranges: list of list of int
+        The assigned ascending range of processes for each patch, 
+        the range is represented by a list of ints of size 2 [k1,k2],
+        such that k1<=k2.
+
+    """
+    npts       = [np.product(nc) for nc in npts]
+    percentage = [nc/sum(npts) for nc in npts]
+    sizes      = np.array([int(p*size) for p in percentage])
+    diff       = [p*size-s for s,p in zip(sizes, percentage)]
+    indices    = np.argsort(diff)[::-1]
+    rm         = size-sum(sizes)
+
+    sizes[indices[:rm]] +=1
+    assert sum(sizes) == size
+
+    #...
+    start  = 0
+    ranges = []
+    for s in sizes:
+        ranges.append([start, start+s-1])
+        start += s
+
+    assert start == size
+
+    ranges = np.array(ranges)
+    ranks  = [i[0] for i in ranges[indices[:rm]]]
+
+    if len(ranks) == 0:
+        if any(s==0 for s in sizes):
+            raise ValueError("Cannot compute sizes with given input values!")
+
+    k = 0
+    for i,s in enumerate(sizes):
+        if s>0:continue
+        sizes[i]  = 1
+        ranges[i] = [ranks[k], ranks[k]]
+        k         = (k+1)%size
+
+    return sizes, ranges
+
+#==============================================================================
+def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None, try_uniform=False ):
     """
     With the aim of distributing a multi-dimensional array on a Cartesian
     topology, compute the number of processes along each dimension.
@@ -24,6 +84,9 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
 
     min_blocksizes : list of int
         Minimum acceptable size of a block along each dimension. 
+
+    try_uniform: bool
+        try to decompose the array uniformly.
 
     Returns
     -------
@@ -47,7 +110,7 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
     uniform = (np.prod( gridsizes ) % nnodes == 0)
 
     # Compute dimensions of MPI Cartesian topology with most appropriate algorithm
-    if uniform:
+    if try_uniform and uniform:
         dims, blocksizes = compute_dims_uniform( nnodes, gridsizes )
     else:
         dims, blocksizes = compute_dims_general( nnodes, gridsizes )
@@ -64,7 +127,7 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
 
         # If general decomposition yields blocks too small, raise error
         if too_small:
-            raise ValueError("Cannot compute dimensions with given input values!")
+            raise ValueError("Cannot compute dimensions with the minimum acceptable block sizes {}".format(tuple(min_blocksizes)))
 
     return dims, blocksizes
 

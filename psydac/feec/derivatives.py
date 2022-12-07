@@ -11,6 +11,7 @@ from psydac.fem.tensor      import TensorFemSpace
 from psydac.linalg.identity import IdentityStencilMatrix, IdentityMatrix
 from psydac.fem.basic       import FemField
 from psydac.linalg.basic    import Matrix
+from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
 
 __all__ = (
     'DirectionalDerivativeOperator',
@@ -168,7 +169,10 @@ class DirectionalDerivativeOperator(Matrix):
 
         # setup, space checks
         assert v.space is self._domain
-        v.update_ghost_regions(direction=self._diffdir)
+
+        # Check if the ghost regions are up to date
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
 
         if out is None:
             out = self._codomain.zeros()
@@ -193,12 +197,16 @@ class DirectionalDerivativeOperator(Matrix):
         # build derivative stencil matrix (don't care for transposition here)
         # hence, use spaceV and spaceW instead of domain, codomain
         periodic_d = self._spaceV.periods[self._diffdir]
+        nc  = self._spaceV.cart.domain_decomposition.ncells[self._diffdir]
         p_d = self._spaceV.pads[self._diffdir]
         n_d = self._spaceV.npts[self._diffdir]
         m_d = self._spaceW.npts[self._diffdir]
 
-        V1_d = StencilVectorSpace([n_d], [p_d], [periodic_d])
-        V2_d = StencilVectorSpace([m_d], [p_d], [periodic_d])
+        domain_1d = DomainDecomposition([nc], [periodic_d])
+        cart1_1d  = CartDecomposition( domain_1d, [n_d], [[0]], [[n_d-1]], [p_d], [1] )
+        cart2_1d  = CartDecomposition( domain_1d, [m_d], [[0]], [[m_d-1]], [p_d], [1] )
+        V1_d = StencilVectorSpace(cart1_1d)
+        V2_d = StencilVectorSpace(cart2_1d)
         M  = StencilMatrix(V1_d, V2_d)
 
         # handle sign already here for now...
@@ -212,10 +220,13 @@ class DirectionalDerivativeOperator(Matrix):
 
         # identity matrices
         def make_id(i):
+            nc  = self._spaceV.cart.domain_decomposition.ncells[i]
             n_i = self._domain.npts[i]
             p_i = self._domain.pads[i]
             periodic_i = self._domain.periods[i]
-            return IdentityStencilMatrix(StencilVectorSpace([n_i], [p_i], [periodic_i]))
+            domain_1d  = DomainDecomposition([nc], [periodic_i])
+            cart       = CartDecomposition( domain_1d, [n_i], [[0]], [[n_i-1]], [p_i], [1] )
+            return IdentityStencilMatrix(StencilVectorSpace(cart))
 
         # combine to Kronecker matrix
         mats = [M if i == self._diffdir else make_id(i) for i in range(self._domain.ndim)]

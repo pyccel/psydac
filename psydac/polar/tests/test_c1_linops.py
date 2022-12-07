@@ -4,6 +4,7 @@ import numpy as np
 from psydac.polar.dense    import DenseVectorSpace, DenseVector, DenseMatrix
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.block   import BlockVectorSpace, BlockVector, BlockLinearOperator
+from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
 
 from psydac.polar.c1_linops import LinearOperator_StencilToDense
 from psydac.polar.c1_linops import LinearOperator_DenseToStencil
@@ -20,10 +21,36 @@ def test_c1_linops( n0, npts, pads, verbose=False ):
 
     n1, n2 = npts
     p1, p2 = pads
+    P1,P2  = False, True
+    nc1, nc2 = n1-p1*(1-P1), n2-p2*(1-P2) 
 
     # Spaces
     U = DenseVectorSpace( n0 )
-    V = StencilVectorSpace( npts=(n1-2,n2), pads=(p1,p2), periods=(False, True), dtype=float )
+    domain_decomposition = DomainDecomposition(ncells=[nc1, nc2], periods=[P1,P2], comm=None)
+
+    npts          = [n1-2,n2]
+    global_starts = [None]*2
+    global_ends   = [None]*2
+    for axis in range(2):
+        es = domain_decomposition.global_element_starts[axis]
+        ee = domain_decomposition.global_element_ends  [axis]
+
+        global_ends  [axis]     = (ee+1)-1
+        global_ends  [axis][-1] = npts[axis]-1
+        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+
+    # Decomposition of Cartesian domain
+    cart = CartDecomposition(
+            domain_decomposition      = domain_decomposition,
+            npts          = [n1-2,n2],
+            global_starts = global_starts,
+            global_ends   = global_ends,
+            pads          = [p1,p2],
+            shifts        = [1,1],
+    )
+
+
+    V = StencilVectorSpace( cart=cart, dtype=float )
     W = BlockVectorSpace( U, V )
 
     s1, s2 = V.starts

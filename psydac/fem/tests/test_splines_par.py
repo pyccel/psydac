@@ -6,12 +6,12 @@ from psydac.fem.basic   import FemField
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import VectorFemSpace
+from psydac.ddm.cart    import DomainDecomposition
 
 from numpy  import linspace
 from mpi4py import MPI
 
-@pytest.mark.parametrize( 'reverse_axis', [None, 0, 1] )
-def test_2d_1(reverse_axis):
+def test_2d_1():
 
     p_1 = 2
     p_2 = 2
@@ -22,7 +22,9 @@ def test_2d_1(reverse_axis):
 
     V1 = SplineSpace(p_1, grid=grid_1)
     V2 = SplineSpace(p_2, grid=grid_2)
-    V = TensorFemSpace(V1, V2, comm=comm, reverse_axis=reverse_axis)
+
+    domain_decomposition = DomainDecomposition([V1.ncells, V2.ncells], [False, False], comm=comm)
+    V = TensorFemSpace(domain_decomposition, V1, V2)
 
     if rank == 0:
         print(V.vector_space.cart.nprocs)

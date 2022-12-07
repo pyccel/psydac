@@ -11,14 +11,18 @@ import itertools
 import h5py
 import os
 
+from types import MappingProxyType
+
 from sympde.topology.space import BasicFunctionSpace
 
-from psydac.linalg.stencil import StencilVectorSpace
-from psydac.linalg.kron    import kronecker_solve
-from psydac.fem.basic      import FemSpace, FemField
-from psydac.fem.splines    import SplineSpace
-from psydac.fem.grid       import FemAssemblyGrid
-from psydac.ddm.cart       import CartDecomposition
+from psydac.linalg.stencil   import StencilVectorSpace
+from psydac.linalg.kron      import kronecker_solve
+from psydac.fem.basic        import FemSpace, FemField
+from psydac.fem.splines      import SplineSpace
+from psydac.fem.grid         import FemAssemblyGrid
+from psydac.fem.partitioning import create_cart, partition_coefficients
+from psydac.ddm.cart         import DomainDecomposition
+
 from psydac.core.bsplines  import (find_span,
                                    basis_funs,
                                    basis_funs_1st_der,
@@ -26,8 +30,8 @@ from psydac.core.bsplines  import (find_span,
                                    elements_spans,
                                    cell_index,
                                    basis_ders_on_irregular_grid)
-from psydac.core.kernels import (eval_fields_2d_irregular_weighted, 
-                                 eval_fields_2d_no_weights,
+
+from psydac.core.kernels import (eval_fields_2d_no_weights,
                                  eval_fields_2d_irregular_no_weights,
                                  eval_fields_2d_weighted,
                                  eval_fields_2d_irregular_weighted,
@@ -49,64 +53,45 @@ class TensorFemSpace( FemSpace ):
 
     """
 
-    def __init__( self, *args, **kwargs ):
+    def __init__( self, domain_decomposition, *spaces, vector_space=None, cart=None, quad_order=None ):
         """."""
-        assert all( isinstance( s, SplineSpace ) for s in args )
-        self._spaces = tuple(args)
+        assert isinstance(domain_decomposition, DomainDecomposition)
+        assert all( isinstance( s, SplineSpace ) for s in spaces )
+        self._domain_decomposition = domain_decomposition
+        self._spaces = tuple(spaces)
 
-        npts         = [V.nbasis   for V in self.spaces]
-        pads         = [V._pads    for V in self.spaces]
-        degree       = [V.degree   for V in self.spaces]
-        multiplicity = [V.multiplicity for V in self.spaces]
-        periods      = [V.periodic for V in self.spaces]
-        basis        = [V.basis    for V in self.spaces]
-
-        if 'comm' in kwargs and not( kwargs['comm'] is None ):
-            # parallel case
-            comm         = kwargs['comm']
-            nprocs       = kwargs.pop('nprocs', None)
-            reverse_axis = kwargs.pop('reverse_axis', None)
-            num_threads  = int(os.environ.get('OMP_NUM_THREADS',1))
-            assert isinstance(comm, MPI.Comm)
-            cart = CartDecomposition(
-                npts         = npts,
-                pads         = pads,
-                periods      = periods,
-                shifts       = multiplicity,
-                reorder      = True,
-                comm         = comm,
-                nprocs       = nprocs,
-                reverse_axis = reverse_axis,
-                num_threads  = num_threads
-            )
-
+        if cart is not None:
             self._vector_space = StencilVectorSpace(cart)
-            
-        elif 'cart' in kwargs and not (kwargs['cart'] is None):
-
-            cart = kwargs['cart']
-            self._vector_space = StencilVectorSpace(cart)
-
+        elif vector_space is not None:
+            self._vector_space = vector_space
         else:
-            # serial case
-            self._vector_space = kwargs.pop('vector_space', StencilVectorSpace(npts, pads, periods, shifts=multiplicity))
+            cart               = create_cart([domain_decomposition], [self._spaces])
+            self._vector_space = StencilVectorSpace(cart[0])
 
         # Shortcut
         v = self._vector_space
 
-        self._quad_order = kwargs.pop('quad_order', None)
-        if self._quad_order is None:
+        if quad_order is None:
             self._quad_order = [sp.degree for sp in self.spaces]
+        else:
+            self._quad_order = quad_order
+
+        self._symbolic_space = None
+        self._interfaces     = {}
+        self._interfaces_readonly = MappingProxyType(self._interfaces)
+
+        if self._vector_space.parallel and self._vector_space.cart.is_comm_null:return
+
+        starts = self._vector_space.cart.domain_decomposition.starts
+        ends   = self._vector_space.cart.domain_decomposition.ends
 
         # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q, parent_start=ps, parent_end=pe)
-                                  for V,s,e,ps,pe,q in zip( self.spaces, v.starts, v.ends,
-                                                        v.parent_starts, v.parent_ends,
-                                                        self._quad_order ) )
+        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q)
+                                  for V,s,e,q in zip( self.spaces, starts, ends, self._quad_order ) )
 
         # Determine portion of logical domain local to process
-        self._element_starts = tuple( g.indices[g.local_element_start] for g in self.quad_grids )
-        self._element_ends   = tuple( g.indices[g.local_element_end  ] for g in self.quad_grids )
+        self._element_starts = starts
+        self._element_ends   = ends
 
         # Compute limits of eta_0, eta_1, eta_2, etc... in subdomain local to process
         self._eta_limits = tuple( (space.breaks[s], space.breaks[e+1])
@@ -115,32 +100,10 @@ class TensorFemSpace( FemSpace ):
         # Store flag: object NOT YET prepared for interpolation
         self._interpolation_ready = False
         # Compute the local domains for every process
-        if v.parallel:
-            ndims = cart._ndims
-            self._global_element_starts = [None]*ndims
-            self._global_element_ends   = [None]*ndims
-            for dimension in range( ndims ):
-                periodic = periods[dimension]
-                p = pads[dimension]
-                de = degree[dimension]
-                d = cart._dims[dimension]
-                starts = cart.reduced_global_starts[dimension]
-                ends   = cart.reduced_global_ends  [dimension]
 
-                if periodic:
-                    element_starts = starts
-                    element_ends   = ends
-                else:
-                    element_starts = np.array( [starts[d]-p+1 for d in range(d)] )
-                    element_ends   = np.array( [ends[d]-p+1   for d in range(d)] )
-                    element_starts[0] = 0
-                    element_ends [-1] = ends[-1] - de
-
-                self._global_element_starts[dimension] = element_starts
-                self._global_element_ends  [dimension] = element_ends
-
-        self._symbolic_space      = None
         # ...
+        self._global_element_starts = domain_decomposition.global_element_starts
+        self._global_element_ends   = domain_decomposition.global_element_ends
 
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
@@ -154,6 +117,10 @@ class TensorFemSpace( FemSpace ):
     @property
     def periodic(self):
         return [V.periodic for V in self.spaces]
+
+    @property
+    def domain_decomposition(self):
+        return self._domain_decomposition
 
     @property
     def mapping(self):
@@ -170,7 +137,11 @@ class TensorFemSpace( FemSpace ):
 
     @property
     def symbolic_space( self ):
-        return self._symbolic_space
+        return self._symbolic_space 
+
+    @property
+    def interfaces( self ):
+        return self._interfaces_readonly
 
     @symbolic_space.setter
     def symbolic_space( self, symbolic_space ):
@@ -1035,18 +1006,48 @@ class TensorFemSpace( FemSpace ):
             )
             spaces[axis] = reduced_space
 
-        # create new Tensor Vector
-        n_elements = [s1.nbasis-s2.nbasis for s1,s2 in zip(self.spaces, spaces)]
-        if v.cart:
-            red_cart = v.cart.reduce_elements(axes, n_elements)
-            tensor_vec = TensorFemSpace(*spaces, cart=red_cart, quad_order=self._quad_order)
-        else:
-            v = v.reduce_elements(axes, n_elements)
-            tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order, vector_space=v)
-        
+        npts         = [s.nbasis for s in spaces]
+        multiplicity = [s.multiplicity for s in spaces]
+
+        global_starts, global_ends = partition_coefficients(v.cart.domain_decomposition, spaces)
+
+        # create new CartDecomposition
+        red_cart   = v.cart.reduce_npts(npts, global_starts, global_ends, shifts=multiplicity)
+
+        # create new TensorFemSpace
+        tensor_vec = TensorFemSpace(self._domain_decomposition, *spaces, cart=red_cart, quad_order=self._quad_order)
+
         tensor_vec._interpolation_ready = False
         return tensor_vec
 
+    def create_interface_space(self, axis, ext, cart):
+        """ Create a new interface fem space along a given axis and extremity.
+
+        Parameters
+        ----------
+         axis : int
+          The axis of the new Interface space.
+
+         ext: int
+          The extremity of the new Interface space.
+          the values must be 1 or -1.
+
+         cart: CartDecomposition
+          The cart of the new space, needed in the parallel case.
+        """
+        axis = int(axis)
+        ext  = int(ext)
+        assert axis<self.ldim
+        assert ext in [-1,1]
+
+        if cart.is_comm_null: return
+        spaces       = self.spaces
+        vector_space = self.vector_space
+        quad_order   = self.quad_order
+
+        vector_space.set_interface(axis, ext, cart)
+        space = TensorFemSpace( self._domain_decomposition, *spaces, vector_space=vector_space.interfaces[axis, ext], quad_order=self.quad_order)
+        self._interfaces[axis, ext] = space
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):
 

@@ -4,6 +4,7 @@ from psydac.fem.basic   import FemField
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import ProductFemSpace
+from psydac.ddm.cart    import DomainDecomposition
 
 from numpy import linspace
 
@@ -18,14 +19,15 @@ def test_product_space_2d():
     V1 = SplineSpace(p-1, grid=grid_1)
     V2 = SplineSpace(p, grid=grid_2)
 
-    Vx = TensorFemSpace(V1, V2)
+    domain_decomposition = DomainDecomposition([V1.ncells, V2.ncells], [False, False])
+    Vx = TensorFemSpace(domain_decomposition, V1, V2)
     # ...
 
     # ... second component
     V1 = SplineSpace(p, grid=grid_1)
     V2 = SplineSpace(p-1, grid=grid_2)
 
-    Vy = TensorFemSpace(V1, V2)
+    Vy = TensorFemSpace(domain_decomposition, V1, V2)
     # ...
 
     V = ProductFemSpace(Vx, Vy)
@@ -44,7 +46,9 @@ def test_product_space_3d():
     V2 = SplineSpace(p, grid=grid_2)
     V3 = SplineSpace(p, grid=grid_3)
 
-    Vx = TensorFemSpace(V1, V2, V3)
+    domain_decomposition = DomainDecomposition([V1.ncells, V2.ncells, V3.ncells], [False, False, False])
+
+    Vx = TensorFemSpace(domain_decomposition, V1, V2, V3)
     # ...
 
     # ... second component
@@ -52,7 +56,7 @@ def test_product_space_3d():
     V2 = SplineSpace(p-1, grid=grid_2)
     V3 = SplineSpace(p, grid=grid_3)
 
-    Vy = TensorFemSpace(V1, V2, V3)
+    Vy = TensorFemSpace(domain_decomposition, V1, V2, V3)
     # ...
 
     # ... third component
@@ -60,7 +64,7 @@ def test_product_space_3d():
     V2 = SplineSpace(p, grid=grid_2)
     V3 = SplineSpace(p-1, grid=grid_3)
 
-    Vz = TensorFemSpace(V1, V2, V3)
+    Vz = TensorFemSpace(domain_decomposition, V1, V2, V3)
     # ...
 
     V = ProductFemSpace(Vx, Vy, Vz)

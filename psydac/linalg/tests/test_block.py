@@ -8,9 +8,26 @@ from random import random, seed
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.block          import BlockVectorSpace, BlockVector
-from psydac.linalg.block          import BlockLinearOperator, BlockDiagonalSolver, BlockLinearOperator
-from psydac.linalg.utilities      import array_to_stencil
+from psydac.linalg.block          import BlockLinearOperator, BlockDiagonalSolver
+from psydac.linalg.utilities      import array_to_psydac
 from psydac.linalg.kron           import KroneckerLinearSolver
+from psydac.api.settings          import PSYDAC_BACKEND_GPYCCEL
+from psydac.ddm.cart              import DomainDecomposition, CartDecomposition
+
+#===============================================================================
+def compute_global_starts_ends(domain_decomposition, npts):
+    global_starts = [None]*2
+    global_ends   = [None]*2
+
+    for axis in range(2):
+        es = domain_decomposition.global_element_starts[axis]
+        ee = domain_decomposition.global_element_ends  [axis]
+
+        global_ends  [axis]     = ee.copy()
+        global_ends  [axis][-1] = npts[axis]-1
+        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+
+    return global_starts, global_ends
 
 #===============================================================================
 # SERIAL TESTS
@@ -26,8 +43,16 @@ def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
     # Create vector spaces, stencil matrices, and stencil vectors
-    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    V = StencilVectorSpace( cart )
     M1 = StencilMatrix( V, V )
     M2 = StencilMatrix( V, V )
     M3 = StencilMatrix( V, V )
@@ -109,8 +134,16 @@ def test_block_diagonal_solver_serial_dot( n1, n2, p1, p2, P1, P2  ):
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
     # Create vector spaces, stencil matrices, and stencil vectors
-    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    V = StencilVectorSpace( cart )
 
     # Fill in stencil matrices based on diagonal index
     m11 = np.zeros((n1, n1))
@@ -240,8 +273,16 @@ def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
     # Create vector spaces, stencil matrices, and stencil vectors
-    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    V = StencilVectorSpace( cart )
     M1 = StencilMatrix( V, V )
     M2 = StencilMatrix( V, V )
     M3 = StencilMatrix( V, V )
@@ -317,13 +358,21 @@ def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 
-def test_block_2d_array_to_stencil_1( n1, n2, p1, p2, P1, P2 ):
+def test_block_2d_array_to_psydac_1( n1, n2, p1, p2, P1, P2 ):
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
     # Create vector spaces, and stencil vectors
-    V1 = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
-    V2 = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    V1 = StencilVectorSpace( cart )
+    V2 = StencilVectorSpace( cart )
 
     W = BlockVectorSpace(V1, V2)
 
@@ -337,7 +386,7 @@ def test_block_2d_array_to_stencil_1( n1, n2, p1, p2, P1, P2 ):
     x.update_ghost_regions()
 
     xa = x.toarray()
-    v  = array_to_stencil(xa, W)
+    v  = array_to_psydac(xa, W)
 
     assert np.allclose( xa , v.toarray() )
 
@@ -349,13 +398,21 @@ def test_block_2d_array_to_stencil_1( n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 
-def test_block_2d_array_to_stencil_2( n1, n2, p1, p2, P1, P2 ):
+def test_block_2d_array_to_psydac_2( n1, n2, p1, p2, P1, P2 ):
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
     # Create vector spaces, and stencil vectors
-    V1 = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
-    V2 = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    V1 = StencilVectorSpace( cart )
+    V2 = StencilVectorSpace( cart )
 
     W = BlockVectorSpace(V1, V2)
     W = BlockVectorSpace(W, W)
@@ -372,9 +429,88 @@ def test_block_2d_array_to_stencil_2( n1, n2, p1, p2, P1, P2 ):
     x.update_ghost_regions()
 
     xa = x.toarray()
-    v  = array_to_stencil(xa, W)
+    v  = array_to_psydac(xa, W)
 
     assert np.allclose( xa , v.toarray() )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [8,16] )
+@pytest.mark.parametrize( 'n2', [8,32] )
+@pytest.mark.parametrize( 'p1', [1,3] )
+@pytest.mark.parametrize( 'p2', [1,2] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+
+def test_block_matrix_operator_dot_backend( n1, n2, p1, p2, P1, P2 ):
+
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    # Create vector space, stencil matrix, and stencil vector
+    V = StencilVectorSpace( cart )
+
+    M1 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
+    M2 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
+    M3 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
+    M4 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
+    x1 = StencilVector( V )
+    x2 = StencilVector( V )
+
+    s1,s2 = V.starts
+    e1,e2 = V.ends
+
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            M1[:,:,k1,k2] = k1+k2+10.
+            M2[:,:,k1,k2] = 2.*k1+k2
+            M3[:,:,k1,k2] = 5*k1+k2
+            M4[:,:,k1,k2] = 10*k1+k2
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+    M3.remove_spurious_entries()
+    M4.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(s1,e1+1):
+        for i2 in range(s2,e2+1):
+            x1[i1,i2] = 2.0*random() + 1.0
+            x2[i1,i2] = 5.0*random() - 1.0
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
+
+    # Create and Fill Block objects
+    W = BlockVectorSpace(V, V)
+    L = BlockMatrix( W, W )
+    L[0,0] = M1
+    L[0,1] = M2
+    L[1,0] = M3
+    L[1,1] = M4
+
+    L.set_backend(PSYDAC_BACKEND_GPYCCEL)
+
+    X = BlockVector(W)
+    X[0] = x1
+    X[1] = x2
+
+    # Compute Block-vector product
+    Y = L.dot(X)
+
+    # Compute matrix-vector products for each block
+    y1 = M1.dot(x1) + M2.dot(x2)
+    y2 = M3.dot(x1) + M4.dot(x2)
+
+    # Check data in 1D array
+    assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-13, atol=1e-13 )
+    assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-13, atol=1e-13 )
+
 #===============================================================================
 # PARALLEL TESTS
 #===============================================================================
@@ -392,16 +528,15 @@ def test_block_linear_operator_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
     seed(n1*n2*p1*p2)
 
     from mpi4py       import MPI
-    from psydac.ddm.cart import CartDecomposition
 
     comm = MPI.COMM_WORLD
-    cart = CartDecomposition(
-        npts    = [n1,n2],
-        pads    = [p1,p2],
-        periods = [P1,P2],
-        reorder = reorder,
-        comm    = comm
-    )
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     # Create vector space, stencil matrix, and stencil vector
     V = StencilVectorSpace( cart )
@@ -474,16 +609,14 @@ def test_block_diagonal_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
     seed(n1*n2*p1*p2)
 
     from mpi4py       import MPI
-    from psydac.ddm.cart import CartDecomposition
-
     comm = MPI.COMM_WORLD
-    cart = CartDecomposition(
-        npts    = [n1,n2],
-        pads    = [p1,p2],
-        periods = [P1,P2],
-        reorder = reorder,
-        comm    = comm
-    )
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     # Create vector spaces, stencil matrices, and stencil vectors
     V = StencilVectorSpace( cart )
@@ -606,6 +739,88 @@ def test_block_diagonal_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
 
     assert np.allclose( Yt.blocks[0].toarray(), y1t.toarray(), rtol=1e-14, atol=1e-14 )
     assert np.allclose( Yt.blocks[1].toarray(), y2t.toarray(), rtol=1e-14, atol=1e-14 )
+
+@pytest.mark.parametrize( 'n1', [8,16] )
+@pytest.mark.parametrize( 'n2', [8,32] )
+@pytest.mark.parametrize( 'p1', [1,3] )
+@pytest.mark.parametrize( 'p2', [1,2] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'reorder', [True, False] )
+@pytest.mark.parallel
+
+def test_block_matrix_operator_parallel_dot_backend( n1, n2, p1, p2, P1, P2, reorder ):
+    # set seed for reproducibility
+
+    from mpi4py       import MPI
+
+    comm = MPI.COMM_WORLD
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    # Create vector space, stencil matrix, and stencil vector
+    V = StencilVectorSpace( cart )
+    M1 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
+    M2 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
+    M3 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
+    M4 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
+    x1 = StencilVector( V )
+    x2 = StencilVector( V )
+
+    s1,s2 = V.starts
+    e1,e2 = V.ends
+
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            M1[:,:,k1,k2] = k1+k2+10.
+            M2[:,:,k1,k2] = 2.*k1+k2
+            M3[:,:,k1,k2] = 5*k1+k2
+            M4[:,:,k1,k2] = 10*k1+k2
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+    M3.remove_spurious_entries()
+    M4.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(s1,e1+1):
+        for i2 in range(s2,e2+1):
+            x1[i1,i2] = 2.0*random() + 1.0
+            x2[i1,i2] = 5.0*random() - 1.0
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
+
+    # Create and Fill Block objects
+    W = BlockVectorSpace(V, V)
+    L = BlockMatrix( W, W )
+    L[0,0] = M1
+    L[0,1] = M2
+    L[1,0] = M3
+    L[1,1] = M4
+
+    L.set_backend(PSYDAC_BACKEND_GPYCCEL)
+
+    X = BlockVector(W)
+    X[0] = x1
+    X[1] = x2
+
+    # Compute Block-vector product
+    Y = L.dot(X)
+
+    # Compute matrix-vector products for each block
+    y1 = M1.dot(x1) + M2.dot(x2)
+    y2 = M3.dot(x1) + M4.dot(x2)
+
+    # Check data in 1D array
+    assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-13, atol=1e-13 )
+    assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-13, atol=1e-13 )
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY

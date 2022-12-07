@@ -22,6 +22,7 @@ from psydac.core.bsplines         import (
         )
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.utilities.utils import unroll_edges
+from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
 
 __all__ = ['SplineSpace']
 
@@ -73,19 +74,17 @@ class SplineSpace( FemSpace ):
         if (knots is None) and (grid is None):
             raise ValueError('Either knots or grid must be provided.')
 
+        if (knots is not None) and (multiplicity is not None):
+            raise ValueError( 'Cannot provide both knots and multiplicity.' )
+
         if (multiplicity is not None) and multiplicity<1:
             raise ValueError('multiplicity should be >=1')
 
         if (parent_multiplicity is not None) and parent_multiplicity<1:
             raise ValueError('parent_multiplicity should be >=1')
 
-        if multiplicity is None:multiplicity = 1
-                
-        if parent_multiplicity is None:parent_multiplicity = 1
-
-        assert parent_multiplicity >= multiplicity
-
         if knots is None:
+            if multiplicity is None:multiplicity = 1
             knots = make_knots( grid, degree, periodic, multiplicity )
 
         if grid is None:
@@ -94,9 +93,14 @@ class SplineSpace( FemSpace ):
         indices = np.where(np.diff(knots[degree+1:-degree-1])>1e-15)[0]
 
         if len(indices)>0:
-            multiplicity = np.diff(indices).max()
+            multiplicity = np.diff(indices).max(initial=1)
         else:
             multiplicity = max(1,len(knots[degree+1:-degree-1]))
+
+        if parent_multiplicity is None:
+            parent_multiplicity = multiplicity
+
+        assert parent_multiplicity >= multiplicity
 
         # TODO: verify that user-provided knots make sense in periodic case
 
@@ -134,7 +138,9 @@ class SplineSpace( FemSpace ):
         self._histopolation_grid   = unroll_edges(self.domain, self.ext_greville)
 
         # Create space of spline coefficients
-        self._vector_space = StencilVectorSpace([nbasis], [self._pads], [periodic])
+        domain_decomposition = DomainDecomposition([self._ncells], [periodic])
+        cart     = CartDecomposition(domain_decomposition, [nbasis], [np.array([0])],[np.array([nbasis-1])], [self._pads], [multiplicity])
+        self._vector_space = StencilVectorSpace( cart )
 
         # Store flag: object NOT YET prepared for interpolation / histopolation
         self._interpolation_ready = False

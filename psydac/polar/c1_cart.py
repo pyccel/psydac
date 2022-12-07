@@ -34,12 +34,15 @@ class C1_Cart( CartDecomposition ):
         assert cart.periods[radial_dim] == False
 
         # Initialize in standard way
-        super().__init__( cart.npts, cart.pads, cart.periods, cart.reorder, cart.comm )
+        super().__init__( cart.domain_decomposition, cart.npts, cart.global_starts, cart.global_ends, cart.pads, cart.shifts )
 
         # Reduce start/end index (and number of points) in radial dimension by 2
         self._starts = tuple( (max(0,s-2) if d==radial_dim else s) for (d,s) in enumerate( self.starts ) )
         self._ends   = tuple( (      e-2  if d==radial_dim else e) for (d,e) in enumerate( self.ends   ) )
         self._npts   = tuple( (      n-2  if d==radial_dim else n) for (d,n) in enumerate( self.npts   ) )
+
+        self._global_starts = list(self._global_starts)
+        self._global_ends   = list(self._global_ends)
 
         self._global_starts[radial_dim] -= 2
         self._global_ends  [radial_dim] -= 2
