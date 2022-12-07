@@ -351,7 +351,7 @@ def plot_stream_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh
     if vh is None:
         if numpy_coeffs is not None:
             assert stencil_coeffs is None
-            stencil_coeffs = array_to_stencil(numpy_coeffs, Vh.vector_space)
+            stencil_coeffs = array_to_psydac(numpy_coeffs, Vh.vector_space)
         vh = FemField(Vh, coeffs=stencil_coeffs)
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
