@@ -658,7 +658,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         else :
             i=0
             j=0
-            #else no initialisation for line 682 which might cause problem when test_space != trial_space
+            #else so initialisation causing bug on line 682 
 
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # case of system of equations
 

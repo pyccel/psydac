@@ -26,7 +26,7 @@ from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution
 from psydac.feec.multipatch.utilities                   import time_count
-from psydac.linalg.utilities                            import array_to_stencil
+from psydac.linalg.utilities                            import array_to_psydac
 from psydac.fem.basic                                   import FemField
 
 def solve_hcurl_source_pbm(
@@ -300,7 +300,7 @@ def solve_hcurl_source_pbm(
         u         = element_of(V1h.symbolic_space, name='u')
         l2norm    = Norm(Matrix([u[0] - u_ex[0],u[1] - u_ex[1]]), domain, kind='l2')
         l2norm_h  = discretize(l2norm, domain_h, V1h)
-        uh_c      = array_to_stencil(uh_c, V1h.vector_space)
+        uh_c      = array_to_psydac(uh_c, V1h.vector_space)
         l2_error  = l2norm_h.assemble(u=FemField(V1h, coeffs=uh_c))
         return l2_error
 

@@ -37,7 +37,9 @@ def get_plus_starts_ends(minus_starts, minus_ends, minus_npts, plus_npts, minus_
 def run_carts_2d():
     import numpy as np
     from mpi4py          import MPI
-    from psydac.ddm.cart import MultiPatchDomainDecomposition, CartDecomposition, InterfacesCartDecomposition, CartDataExchanger, InterfaceCartDataExchanger
+    from psydac.ddm.cart import MultiPatchDomainDecomposition, CartDecomposition, create_interfaces_cart
+    from psydac.ddm.blocking_data_exchanger  import BlockingCartDataExchanger
+    from psydac.ddm.interface_data_exchanger import InterfaceCartDataExchanger
 
     #---------------------------------------------------------------------------
     # INPUT PARAMETERS
@@ -92,16 +94,13 @@ def run_carts_2d():
                         shifts        = [1,1]))
     carts = tuple(carts)
 
-    interfaces_cart = InterfacesCartDecomposition(domain_decomposition, carts, connectivity)
+    communication_info = (get_minus_starts_ends, get_plus_starts_ends)
+    interfaces_cart = create_interfaces_cart(domain_decomposition, carts, connectivity, communication_info=communication_info)
 
     us         = [None]*len(carts)
     syn        = [None]*len(carts)
     syn_interface = {}
     dtype         = int
-
-    for i,j in connectivity:
-        if (i,j) in interfaces_cart.carts and not interfaces_cart.carts[i,j].is_comm_null:
-            interfaces_cart.carts[i,j].set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
 
     val = lambda k,i1,i2: k*n[k][0]*n[k][1]+i1*n[k][0]+i2 if (0<=i1<n[k][0] and 0<=i2<n[k][1]) else 0
     for i,ci in enumerate(carts):
@@ -111,28 +110,31 @@ def run_carts_2d():
             m1,m2 = ci.shifts
             us[i] = np.zeros( ci.shape, dtype=dtype )
             us[i][m1*p1:-m1*p1,m2*p2:-m2*p2] = [[val(i,i1,i2)for i2 in range(s2,e2+1)] for i1 in range(s1,e1+1)]
-            synchronizer = CartDataExchanger( ci, us[i].dtype)
+            synchronizer = BlockingCartDataExchanger( ci, us[i].dtype)
             syn[i] = synchronizer
 
     for i,j in connectivity:
-        if not interfaces_cart.carts[i,j].is_comm_null:
+        if not interfaces_cart[i,j].is_comm_null:
             if carts[i].is_comm_null:
-                shape = interfaces_cart.carts[i,j].get_interface_communication_infos(interfaces_cart.carts[i,j]._axis)['gbuf_recv_shape'][0]
+                shape = interfaces_cart[i,j].get_interface_communication_infos(interfaces_cart[i,j]._axis)['gbuf_recv_shape'][0]
                 us[i] = np.zeros(shape, dtype=dtype)
 
             if carts[j].is_comm_null:
-                shape = interfaces_cart.carts[i,j].get_interface_communication_infos(interfaces_cart.carts[i,j]._axis)['gbuf_recv_shape'][0]
+                shape = interfaces_cart[i,j].get_interface_communication_infos(interfaces_cart[i,j]._axis)['gbuf_recv_shape'][0]
                 us[j] = np.zeros(shape, dtype=dtype)
 
-            syn_interface[i,j] = InterfaceCartDataExchanger(interfaces_cart.carts[i,j], dtype)
+            syn_interface[i,j] = InterfaceCartDataExchanger(interfaces_cart[i,j], dtype)
 
     for minus,plus in connectivity:
-        if not interfaces_cart.carts[minus,plus].is_comm_null:
-            syn_interface[minus,plus].update_ghost_regions(us[minus], us[plus])
+        if not interfaces_cart[minus,plus].is_comm_null:
+            req = syn_interface[minus,plus].start_update_ghost_regions(us[minus], us[plus])
+            syn_interface[minus,plus].end_update_ghost_regions(req=req)
 
     for i,ci in enumerate(carts):
         if not ci.is_comm_null:
-            syn[i].update_ghost_regions( us[i] )
+            # Update ghost regions
+            syn[i].start_update_ghost_regions( us[i], None )
+            syn[i].end_update_ghost_regions( us[i], None )
 
     for i,ci in enumerate(carts):
         if not ci.is_comm_null:

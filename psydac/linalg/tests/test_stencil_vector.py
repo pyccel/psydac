@@ -3,9 +3,9 @@
 import pytest
 import numpy as np
 
-from psydac.linalg.stencil import StencilVectorSpace, StencilVector
-from psydac.linalg.utilities import array_to_stencil
-from psydac.ddm.cart import DomainDecomposition, CartDecomposition
+from psydac.linalg.stencil   import StencilVectorSpace, StencilVector
+from psydac.linalg.utilities import array_to_psydac
+from psydac.ddm.cart         import DomainDecomposition, CartDecomposition
 
 #===============================================================================
 def compute_global_starts_ends(domain_decomposition, npts):
@@ -234,7 +234,7 @@ def test_stencil_vector_2d_serial_dot( n1, n2, p1, p2, P1=True, P2=False ):
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 
-def test_stencil_2d_array_to_stencil( n1, n2, p1, p2, P1, P2 ):
+def test_stencil_2d_array_to_psydac( n1, n2, p1, p2, P1, P2 ):
 
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
@@ -251,7 +251,7 @@ def test_stencil_2d_array_to_stencil( n1, n2, p1, p2, P1, P2 ):
             x[i1,i2] = 10*i1 + i2
 
     xa = x.toarray()
-    v  = array_to_stencil(xa, V)
+    v  = array_to_psydac(xa, V)
 
     assert np.allclose( xa , v.toarray() )
 

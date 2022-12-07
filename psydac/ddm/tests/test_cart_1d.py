@@ -1,14 +1,18 @@
 # Contents of test_cart_1d.py
 
 import numpy as np
+
+from psydac.ddm.blocking_data_exchanger    import BlockingCartDataExchanger
+from psydac.ddm.nonblocking_data_exchanger import NonBlockingCartDataExchanger
+
 #===============================================================================
 # TEST CartDecomposition and CartDataExchanger in 1D
 #===============================================================================
-def run_cart_1d( verbose=False ):
+def run_cart_1d( data_exchanger_type, verbose=False ):
 
     import numpy as np
     from mpi4py       import MPI
-    from psydac.ddm.cart import DomainDecomposition, CartDecomposition, CartDataExchanger
+    from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
     #---------------------------------------------------------------------------
     # INPUT PARAMETERS
@@ -61,7 +65,7 @@ def run_cart_1d( verbose=False ):
     e1, = cart.ends
 
     # Create object in charge of exchanging data between subdomains
-    synchronizer = CartDataExchanger( cart, u.dtype )
+    synchronizer = data_exchanger_type( cart, u.dtype )
 
     # Print some info
     if verbose:
@@ -84,8 +88,11 @@ def run_cart_1d( verbose=False ):
     # Fill in true domain with u[i1_loc]=i1_glob
     u[p1:-p1] = [i1 for i1 in range(s1,e1+1)]
 
+    request = synchronizer.prepare_communications(u)
+
     # Update ghost regions
-    synchronizer.update_ghost_regions( u )
+    synchronizer.start_update_ghost_regions(  u, request )
+    synchronizer.end_update_ghost_regions(  u, request )
 
     #---------------------------------------------------------------------------
     # CHECK RESULTS
@@ -103,10 +110,11 @@ def run_cart_1d( verbose=False ):
 #===============================================================================
 import pytest
 
+@pytest.mark.parametrize( 'data_exchanger_type', [BlockingCartDataExchanger, NonBlockingCartDataExchanger] )
 @pytest.mark.parallel
-def test_cart_1d():
+def test_cart_1d( data_exchanger_type ):
 
-    namespace = run_cart_1d()
+    namespace = run_cart_1d( data_exchanger_type )
 
     assert namespace['success']
 
@@ -115,7 +123,7 @@ def test_cart_1d():
 #===============================================================================
 if __name__=='__main__':
 
-    locals().update( run_cart_1d( verbose=True ) )
+    locals().update( run_cart_1d( BlockingCartDataExchanger, verbose=True ) )
 
     # Print error messages (if any) in orderly fashion
     for k in range(size):

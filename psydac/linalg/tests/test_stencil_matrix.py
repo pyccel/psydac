@@ -9,7 +9,7 @@ from psydac.api.settings   import *
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
 #===============================================================================
-def compute_global_starts_ends(domain_decomposition, npts):
+def compute_global_starts_ends(domain_decomposition, npts, pads):
     ndims         = len(npts)
     global_starts = [None]*ndims
     global_ends   = [None]*ndims
@@ -20,6 +20,9 @@ def compute_global_starts_ends(domain_decomposition, npts):
         global_ends  [axis]     = ee.copy()
         global_ends  [axis][-1] = npts[axis]-1
         global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+
+    for s,e,p in zip(global_starts, global_ends, pads):
+        assert all(e-s+1>=p)
 
     return tuple(global_starts), tuple(global_ends)
 #===============================================================================
@@ -35,7 +38,7 @@ def test_stencil_matrix_2d_serial_init( n1, n2, p1, p2, P1=True, P2=False ):
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
     npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -56,7 +59,7 @@ def test_stencil_matrix_2d_basic_ops( n1, n2, p1, p2, P1=True, P2=False ):
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
     npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -109,7 +112,7 @@ def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2, P1=False, P2=True ):
 
     # Partition the points
     npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -157,7 +160,7 @@ def test_stencil_matrix_1d_serial_dot( n1, p1, P1 ):
 
     # Partition the points
     npts = [n1]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[1])
 
@@ -210,7 +213,7 @@ def test_stencil_matrix_2d_serial_dot_1( n1, n2, p1, p2, P1, P2 ):
 
     # Partition the points
     npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -262,10 +265,10 @@ def test_stencil_matrix_2d_serial_dot_2( n1, n2, p1, p2, P1, P2 ):
 
     # Partition the points
     npts1 = [n1,n2]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1)
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
 
     npts2 = [n1-1,n2-1]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2)
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
 
     cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
     cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
@@ -315,7 +318,7 @@ def test_stencil_matrix_2d_serial_dot_2( n1, n2, p1, p2, P1, P2 ):
     y2a_exact = np.dot( M2a, x2a )
 
     # Check data in 1D array
-    print(y2a-y2a_exact)
+
     assert np.allclose( y1a, y1a_exact, rtol=1e-13, atol=1e-13 )
     assert np.allclose( y2a, y2a_exact, rtol=1e-13, atol=1e-13 )
 
@@ -334,10 +337,10 @@ def test_stencil_matrix_2d_serial_dot_3( n1, n2, p1, p2, P1, P2 ):
 
     # Partition the points
     npts1 = [n1,n2-1]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1)
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
 
     npts2 = [n1-1,n2-1]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2)
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
 
     cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
     cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
@@ -406,10 +409,10 @@ def test_stencil_matrix_2d_serial_dot_4( n1, n2, p1, p2, P1, P2 ):
 
     # Partition the points
     npts1 = [n1-1,n2]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1)
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
 
     npts2 = [n1-1,n2-1]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2)
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
 
     cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
     cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
@@ -477,10 +480,10 @@ def test_stencil_matrix_2d_serial_dot_5( n1, n2, p1, p2, P1, P2 ):
 
     # Partition the points
     npts1 = [n1-1,n2]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1)
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
 
     npts2 = [n1-1,n2-1]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2)
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
 
     cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
     cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
@@ -548,7 +551,7 @@ def test_stencil_matrix_2d_serial_dot_6( n1, n2, p1, p2, P1, P2 ):
 
     # Partition the points
     npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -597,7 +600,7 @@ def test_stencil_matrix_1d_serial_transpose( n1, p1, P1 ):
 
     # Partition the points
     npts = [n1]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[1])
 
@@ -635,7 +638,7 @@ def test_stencil_matrix_2d_serial_transpose_1( n1, n2, p1, p2, P1, P2 ):
 
     # Partition the points
     npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -674,10 +677,10 @@ def test_stencil_matrix_2d_serial_transpose_2( n1, n2, p1, p2, P1, P2 ):
 
     # Partition the points
     npts1 = [n1,n2]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1)
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
 
     npts2 = [n1-1,n2-1]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2)
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
 
     cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
     cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
@@ -718,10 +721,10 @@ def test_stencil_matrix_2d_serial_transpose_3( n1, n2, p1, p2, P1, P2 ):
 
     # Partition the points
     npts1 = [n1,n2]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1)
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
 
     npts2 = [n1-1,n2]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2)
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
 
     cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
     cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
@@ -762,10 +765,10 @@ def test_stencil_matrix_2d_serial_transpose_4( n1, n2, p1, p2, P1, P2 ):
 
     # Partition the points
     npts1 = [n1,n2]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1)
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
 
     npts2 = [n1,n2-1]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2)
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
 
     cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
     cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
@@ -807,10 +810,10 @@ def test_stencil_matrix_2d_serial_transpose_5( n1, n2, p1, p2, P1, P2 ):
 
     # Partition the points
     npts1 = [n1,n2-1]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1)
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
 
     npts2 = [n1,n2-1]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2)
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
 
     cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
     cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
@@ -851,10 +854,10 @@ def test_stencil_matrix_2d_serial_transpose_6( n1, n2, p1, p2, P1, P2 ):
 
     # Partition the points
     npts1 = [n1-1,n2-1]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1)
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
 
     npts2 = [n1,n2-1]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2)
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
 
     cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
     cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
@@ -894,7 +897,7 @@ def test_stencil_matrix_2d_serial_transpose_7( n1, n2, p1, p2, P1, P2 ):
 
     # Partition the points
     npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -933,7 +936,7 @@ def test_stencil_matrix_2d_serial_transpose_8( n1, n2, p1, p2, P1, P2 ):
 
     # Partition the points
     npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -973,7 +976,7 @@ def test_stencil_matrix_2d_serial_transpose_9( n1, n2, p1, p2, P1, P2 ):
 
     # Partition the points
     npts = [n1-1,n2-1]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -1017,10 +1020,10 @@ def test_stencil_matrix_3d_serial_transpose_1( n1, n2, n3, p1, p2, p3, P1, P2, P
 
     # Partition the points
     npts1 = [n1-1,n2-1, n3-1]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1)
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
 
     npts2 = [n1,n2-1, n3-1]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2)
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
 
     cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2,p3], shifts=[1,1,1])
     cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2,p3], shifts=[1,1,1])
@@ -1065,10 +1068,10 @@ def test_stencil_matrix_2d_serial_backend_dot_1( n1, n2, p1, p2, P1, P2 , backen
 
     # Partition the points
     npts1 = [n1-1,n2]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1)
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
 
     npts2 = [n1-1,n2-1]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2)
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
 
     cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
     cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
@@ -1137,7 +1140,7 @@ def test_stencil_matrix_2d_serial_backend_dot_2( n1, n2, p1, p2, P1, P2 , backen
 
     # Partition the points
     npts = [n1-1,n2-1]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -1196,10 +1199,10 @@ def test_stencil_matrix_2d_serial_backend_dot_4( n1, n2, p1, p2, P1, P2, backend
 
     # Partition the points
     npts1 = [n1-1,n2]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1)
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
 
     npts2 = [n1-1,n2-1]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2)
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
 
     cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
     cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
@@ -1269,7 +1272,7 @@ def test_stencil_matrix_2d_serial_backend_switch( n1, n2, p1, p2, P1, P2 , backe
 
     # Partition the points
     npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -1317,7 +1320,7 @@ def test_stencil_matrix_1d_parallel_dot( n1, p1, P1 ):
 
     # Partition the points
     npts = [n1]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[1])
 
@@ -1358,7 +1361,7 @@ def test_stencil_matrix_1d_parallel_dot( n1, p1, P1 ):
     assert np.allclose( ya, ya_exact, rtol=1e-14, atol=1e-14 )
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [ 8,21] )
+@pytest.mark.parametrize( 'n1', [8,21] )
 @pytest.mark.parametrize( 'n2', [13,32] )
 @pytest.mark.parametrize( 'p1', [1,3] )
 @pytest.mark.parametrize( 'p2', [1,2] )
@@ -1368,15 +1371,15 @@ def test_stencil_matrix_1d_parallel_dot( n1, p1, P1 ):
 
 def test_stencil_matrix_2d_parallel_dot( n1, n2, p1, p2, P1, P2 ):
 
-    from mpi4py       import MPI
+    from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition
-    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
 
     # Partition the points
     npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -1432,11 +1435,11 @@ def test_stencil_matrix_1d_parallel_sync( n1, p1, P1):
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition
-    D = DomainDecomposition([n1], periods=[P1])
+    D = DomainDecomposition([n1], periods=[P1], comm=comm)
 
     # Partition the points
     npts = [n1]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[1])
 
@@ -1514,11 +1517,11 @@ def test_stencil_matrix_2d_parallel_sync( n1, n2, p1, p2, P1, P2):
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition
-    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
 
     # Partition the points
     npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -1626,11 +1629,11 @@ def test_stencil_matrix_1d_parallel_transpose( n1, p1, P1 ):
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition
-    D = DomainDecomposition([n1-1], periods=[P1])
+    D = DomainDecomposition([n1-1], periods=[P1], comm=comm)
 
     # Partition the points
     npts = [n1]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[1])
 
@@ -1660,7 +1663,7 @@ def test_stencil_matrix_1d_parallel_transpose( n1, p1, P1 ):
     assert np.array_equal( Ta, Ta_exact )
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [ 8, 21] )
+@pytest.mark.parametrize( 'n1', [8, 21] )
 @pytest.mark.parametrize( 'n2', [13, 32] )
 @pytest.mark.parametrize( 'p1', [1, 3] )
 @pytest.mark.parametrize( 'p2', [1, 2] )
@@ -1675,11 +1678,11 @@ def test_stencil_matrix_2d_parallel_transpose( n1, n2, p1, p2, P1, P2 ):
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition
-    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
 
     # Partition the points
     npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
@@ -1736,11 +1739,11 @@ def test_stencil_matrix_1d_parallel_backend_dot( n1, p1, P1 , backend):
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition
-    D = DomainDecomposition([n1-1], periods=[P1])
+    D = DomainDecomposition([n1-1], periods=[P1], comm=comm)
 
     # Partition the points
     npts = [n1]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[1])
 
@@ -1781,7 +1784,7 @@ def test_stencil_matrix_1d_parallel_backend_dot( n1, p1, P1 , backend):
     assert np.allclose( ya, ya_exact, rtol=1e-14, atol=1e-14 )
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [ 8,21] )
+@pytest.mark.parametrize( 'n1', [8,21] )
 @pytest.mark.parametrize( 'n2', [13,32] )
 @pytest.mark.parametrize( 'p1', [1,3] )
 @pytest.mark.parametrize( 'p2', [1,2] )
@@ -1797,11 +1800,11 @@ def test_stencil_matrix_2d_parallel_backend_dot( n1, n2, p1, p2, P1, P2, backend
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition
-    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
 
     # Partition the points
     npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
