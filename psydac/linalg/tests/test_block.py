@@ -488,7 +488,7 @@ def test_block_matrix_operator_dot_backend( n1, n2, p1, p2, P1, P2 ):
 
     # Create and Fill Block objects
     W = BlockVectorSpace(V, V)
-    L = BlockMatrix( W, W )
+    L = BlockLinearOperator( W, W )
     L[0,0] = M1
     L[0,1] = M2
     L[1,0] = M3
@@ -799,7 +799,7 @@ def test_block_matrix_operator_parallel_dot_backend( n1, n2, p1, p2, P1, P2, reo
 
     # Create and Fill Block objects
     W = BlockVectorSpace(V, V)
-    L = BlockMatrix( W, W )
+    L = BlockLinearOperator( W, W )
     L[0,0] = M1
     L[0,1] = M2
     L[1,0] = M3

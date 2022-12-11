@@ -125,12 +125,12 @@ def apply_essential_bc_BlockLinearOperator(a, bc, *, identity=False, is_broken=T
     """
     Apply homogeneous dirichlet boundary conditions in nD.
     is_broken is used to identify if we are in a multipatch setting, where we assume
-    that the domain and codomain of each block of the BlockMatrix corresponds to a single patch.
+    that the domain and codomain of each block of the BlockLinearOperator corresponds to a single patch.
 
     Parameters
     ----------
-    a : BlockMatrix
-        The BlockMatrix that will be modified.
+    a : BlockLinearOperator
+        The BlockLinearOperator that will be modified.
  
     bc: Sympde.expr.equation.BasicBoundaryCondition
         The boundary condition type that will be applied to a.

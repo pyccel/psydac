@@ -627,7 +627,7 @@ class BlockLinearOperator( Matrix ):
         for Lij in self._blocks.values():
             Lij.remove_spurious_entries()
 
-    # topetsc copied from BlockMatrix
+    # topetsc copied from BlockLinearOperator
     # ...
     #def topetsc( self ):
     #    """ Convert to petsc Nest Matrix.

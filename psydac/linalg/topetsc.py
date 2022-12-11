@@ -1,6 +1,6 @@
 import numpy as np
 
-from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
+from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from scipy.sparse import coo_matrix, bmat
 
@@ -97,7 +97,7 @@ def mat_topetsc( mat ):
 
     from petsc4py import PETSc
 
-    comm = mat.domain.spaces[0].cart.global_comm if isinstance(mat, BlockMatrix) else mat.domain.cart.global_comm
+    comm = mat.domain.spaces[0].cart.global_comm if isinstance(mat, BlockLinearOperator) else mat.domain.cart.global_comm
     mat_coo = mat.tosparse()
     ncols = mat.domain.dimension
     nrows = mat.codomain.dimension
