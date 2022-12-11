@@ -151,7 +151,7 @@ class ConjugateGradient(InverseLinearOperator):
         # Convergence information
         info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am ) }
 
-        return x, info
+        return x#, info
 
     def dot(self, b, out=None):
         return self.solve(b, out=out)
@@ -315,7 +315,7 @@ class PConjugateGradient(InverseLinearOperator):
 
         # Convergence information
         info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr) }
-        return x, info
+        return x#, info
 
     def dot(self, b, out=None):
         return self.solve(b, out=out)
@@ -506,7 +506,7 @@ class BiConjugateGradient(InverseLinearOperator):
         # Convergence information
         info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt( res_sqr ) }
 
-        return x, info
+        return x#, info
 
     def dot(self, b, out=None):
         return self.solve(b, out=out)
