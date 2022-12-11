@@ -512,7 +512,7 @@ class SumLinearOperator(LinearOperator):
         t_addends = ()
         for a in self._addends:
             t_addends = (*t_addends, a.T)
-        return SumLinearOperator(domain=self._codomain, codomain=self._domain, *t_addends)
+        return SumLinearOperator(self._codomain, self._domain, *t_addends)
 
     @staticmethod
     def simplifiy(addends):
@@ -528,14 +528,24 @@ class SumLinearOperator(LinearOperator):
                 #out += addends[indices[0]]
                 out = (*out, addends[indices[0]])
             else:
-                A = addends[indices[0]] # might change addends[indices[0]]? try .copy / .copy() or implement ...
-                for n in range(len(indices)-1):
-                    A += addends[indices[n+1]]
+                #dom = addends[0].domain
+                #cod = addends[0].codomain
+                #B = ZeroOperator(dom, cod)
+                #A = addends[indices[0]] # might change addends[indices[0]]? try .copy / .copy() or implement ...
+                #A = B + addends[indices[0]]
+                #B = A #new
+
+                A = addends[indices[0]] + addends[indices[1]]
+
+                for n in range(len(indices)-2):
+                    A += addends[indices[n+2]]
+                    #B += addends[indices[n+1]] #new
                 #out += A
                 if isinstance(A, SumLinearOperator):
                     out = (*out, *A.addends)
                 else:
                     out = (*out, A)
+                    #out = (*out, B) #new
         return out
 
     #def simplifiy(self, addends):
@@ -634,7 +644,12 @@ class ComposedLinearOperator(LinearOperator):
         t_multiplicants = ()
         for a in self._multiplicants:
             t_multiplicants = (a.T, *t_multiplicants)
-        return ComposedLinearOperator(domain=self._codomain, codomain=self._domain, *t_multiplicants)
+        new_dom = self._codomain
+        new_cod = self._domain
+        assert isinstance(new_dom, VectorSpace)
+        assert isinstance(new_cod, VectorSpace)
+        print(*t_multiplicants)
+        return ComposedLinearOperator(self._codomain, self._domain, *t_multiplicants)
 
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
@@ -716,7 +731,8 @@ class PowerLinearOperator(LinearOperator):
             assert out.space == self._codomain
         out = v.copy()
         for i in range(self._factorial):
-            self._operator.dot(out, out=out)
+            #self._operator.dot(out, out=out)
+            out = self._operator.dot(out)
         return out
 
 #===============================================================================
