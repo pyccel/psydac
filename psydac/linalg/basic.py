@@ -658,15 +658,29 @@ class ComposedLinearOperator(LinearOperator):
             assert isinstance(out, Vector)
             assert out.space == self._codomain
 
-        x = v
+        ### 11.12.22, .dot(..., out=y) does not work as intended
+        #x = v
+        #for i in range(len(self._tmp_vectors)):
+        #    y = self._tmp_vectors[-1-i]
+        #    A = self._multiplicants[-1-i]
+        #    A.dot(x, out=y)
+        #    x = y
+
+        #A = self._multiplicants[0]
+        #return A.dot(x, out=out)
+        ### Update to version that does not make use of out:
+        x = v.copy()
         for i in range(len(self._tmp_vectors)):
             y = self._tmp_vectors[-1-i]
             A = self._multiplicants[-1-i]
-            A.dot(x, out=y)
+            y = A.dot(x)
             x = y
+            #A.dot(x, out=y)
+            #x = y
 
         A = self._multiplicants[0]
-        return A.dot(x, out=out)
+        out = A.dot(x)
+        return out
         
 
 #===============================================================================

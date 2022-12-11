@@ -481,6 +481,10 @@ class BlockLinearOperator( Matrix ):
         self._sync           = False
         self._backend = None
 
+    # 11.12.22: as several tests require BlockLO to have a tomatrix attribute
+    def tomatrix(self):
+        return self
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -767,47 +771,53 @@ class BlockLinearOperator( Matrix ):
 
     # ...
     def __add__(self, M):
-        assert isinstance(M, BlockLinearOperator)
-        assert M.  domain is self.domain
-        assert M.codomain is self.codomain
-        blocks  = {}
-        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
-            Bij = self[ij]
-            Mij = M[ij]
-            if   Bij is None: blocks[ij] = Mij.copy()
-            elif Mij is None: blocks[ij] = Bij.copy()
-            else            : blocks[ij] = Bij + Mij
-        mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
-        if len(mat._blocks) != len(self._blocks):
-            mat.set_backend(self._backend)
-        elif self._backend is not None:
-            mat._func = self._func
-            mat._args = self._args
-            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
-            mat._backend = self._backend
-        return mat
+        if isinstance(M, BlockLinearOperator):
+            #assert isinstance(M, BlockLinearOperator)
+            assert M.  domain is self.domain
+            assert M.codomain is self.codomain
+            blocks  = {}
+            for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
+                Bij = self[ij]
+                Mij = M[ij]
+                if   Bij is None: blocks[ij] = Mij.copy()
+                elif Mij is None: blocks[ij] = Bij.copy()
+                else            : blocks[ij] = Bij + Mij
+            mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+            if len(mat._blocks) != len(self._blocks):
+                mat.set_backend(self._backend)
+            elif self._backend is not None:
+                mat._func = self._func
+                mat._args = self._args
+                mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+                mat._backend = self._backend
+            return mat
+        else:
+            return LinearOperator.__add__(self, M)
 
     # ...
     def __sub__(self, M):
-        assert isinstance(M, BlockLinearOperator)
-        assert M.  domain is self.  domain
-        assert M.codomain is self.codomain
-        blocks  = {}
-        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
-            Bij = self[ij]
-            Mij = M[ij]
-            if   Bij is None: blocks[ij] = -Mij
-            elif Mij is None: blocks[ij] =  Bij.copy()
-            else            : blocks[ij] =  Bij - Mij
-        mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
-        if len(mat._blocks) != len(self._blocks):
-            mat.set_backend(self._backend)
-        elif self._backend is not None:
-            mat._func = self._func
-            mat._args = self._args
-            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
-            mat._backend = self._backend
-        return mat
+        if isinstance(M, BlockLinearOperator):
+            #assert isinstance(M, BlockLinearOperator)
+            assert M.  domain is self.  domain
+            assert M.codomain is self.codomain
+            blocks  = {}
+            for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
+                Bij = self[ij]
+                Mij = M[ij]
+                if   Bij is None: blocks[ij] = -Mij
+                elif Mij is None: blocks[ij] =  Bij.copy()
+                else            : blocks[ij] =  Bij - Mij
+            mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+            if len(mat._blocks) != len(self._blocks):
+                mat.set_backend(self._backend)
+            elif self._backend is not None:
+                mat._func = self._func
+                mat._args = self._args
+                mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+                mat._backend = self._backend
+            return mat
+        else:
+            return LinearOperator.__sub__(self, M)
 
     # ...
     def __imul__(self, a):

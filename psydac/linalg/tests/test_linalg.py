@@ -5,7 +5,10 @@ from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpa
 from psydac.linalg.basic import ZeroOperator, IdentityOperator, ComposedLinearOperator, SumLinearOperator, PowerLinearOperator, InverseLinearOperator, ScaledLinearOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.solvers import BiConjugateGradient, ConjugateGradient, PConjugateGradient
+from psydac.ddm.cart         import DomainDecomposition, CartDecomposition
 #===============================================================================
+
+# 11.12.22: Check for redundancy(?) in pytests 1,2 and 4, document 1,2
 
 n1array = [2, 7]
 n2array = [2, 3]
@@ -21,6 +24,21 @@ def l2_norm_diff(x,y):
     vec = [(x[i]-y[i])**2 for i in range(l)]
     norm = np.sqrt(sum(vec))
     return norm
+
+def compute_global_starts_ends(domain_decomposition, npts):
+    ndims         = len(npts)
+    global_starts = [None]*ndims
+    global_ends   = [None]*ndims
+
+    for axis in range(ndims):
+        es = domain_decomposition.global_element_starts[axis]
+        ee = domain_decomposition.global_element_ends  [axis]
+
+        global_ends  [axis]     = ee.copy()
+        global_ends  [axis][-1] = npts[axis]-1
+        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+
+    return global_starts, global_ends
 
 #===============================================================================
 # SERIAL TESTS
@@ -41,7 +59,21 @@ def hitest_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     ###
 
     # Initiate StencilVectorSpace
-    V = StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+
+    ### Post huge merge @11.12.22
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    V = StencilVectorSpace( C )
+    ###
+
+    ### Pre huge merge @11.12.22
+    #V = StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    ###
     
     # Initiate Linear Operators
     Z = ZeroOperator(V, V)
@@ -272,7 +304,21 @@ def hitest_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     # 3. Test special cases
 
     # Initiate StencilVectorSpace
-    V = StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+
+    ### Post huge merge @11.12.22
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    V = StencilVectorSpace( C )
+    ###
+
+    ### Pre huge merge @11.12.22
+    #V = StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    ###
        
     # Initiate Linear Operators
     Z = ZeroOperator(V, V)    
@@ -421,21 +467,6 @@ def hitest_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
 
     #################################
     
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
     # Inverting StencilMatrices works
     tol = 1e-6
     M = S.toarray()
@@ -485,7 +516,22 @@ def hitest_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
 
     # testing __imul__ although not explicitly implemented (in the LinearOperator class)
 
-    V = StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    # Initiate StencilVectorSpace
+
+    ### Post huge merge @11.12.22
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    V = StencilVectorSpace( C )
+    ###
+
+    ### Pre huge merge @11.12.22
+    #V = StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    ###
 
     v = StencilVector(V)
     v_array = np.zeros(n1*n2)
@@ -571,9 +617,31 @@ def hitest_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
         #Initiate BlockLO: B (VxW -> VxW) and a BlockVector u element of VxW
     # 2. For both B and S, check whether all possible combinations of the transpose and the inverse behave as expected
 
-    # Initiate VectorSpaces
-    V = StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
-    W = StencilVectorSpace([n1+2, n2], [p1, p2+1], [P1, P2])
+    # Initiate StencilVectorSpace
+
+    ### Post huge merge @11.12.22
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    V = StencilVectorSpace( C )
+    D = DomainDecomposition([n1+2,n2], periods=[P1,P2])
+
+    npts = [n1+2,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2+1], shifts=[1,1])
+
+    W = StencilVectorSpace( C )
+    ###
+
+    ### Pre huge merge @11.12.22
+    #V = StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    #W = StencilVectorSpace([n1+2, n2], [p1, p2+1], [P1, P2])
+    ###
     
     # Initiate positive definite StencilMatrices for which the cg inverse works (necessary for certain tests)
     S = StencilMatrix(V,V)
@@ -683,12 +751,38 @@ def hitest_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
 #@pytest.mark.parametrize( 'p1', p1array)
 #@pytest.mark.parametrize( 'p2', p2array)
 
-def hitest_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
+# 'cg' inverse requires a positive definite matrix.
+# I did not yet come up with a way to create positive definite matrices for arbitrary n1, n2, p1, p2, P1, P2
+# Thus until changed: Only one test with a simple 4x4 positive definite matrix
 
-    # 1. Initiate square LOs: S (V->V, StencilMatrix), S1 (W->W, StencilMatrix)
-        #Initiate BlockLO: B (VxW -> VxW) and a BlockVector u element of VxW
-    # 2. For both B and S, check whether all possible combinations of the transpose and the inverse behave as expected
+def test_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
 
+    # 1. Initiate StencilVectorSpace V, pos. def. Stencil Matrix S and StencilVector v = (1,1,1,1)
+    #    Initiate a BlockVectorSpace U = VxV, a BlockLO B = [[V, None], [None, V]] and a BlockVector u = (v,v)
+    #    as well as 2 "uncompatible" LOs: Z = ZeroO(U,U), I = IdentityO(V,V)
+    #    Further create the conjugate gradient InverseLOs of S and B, S_ILO and B_ILO
+    # 2.1 PowerLO test 
+    #       Test B**(0,1,2), B_ILO**(0,1,2), Z**(0,1,2)
+    #            S**(0,1,2), S_ILO**(0,1,2), I**(0,1,2)
+    # 2.2 SumLO test
+    #       Test B + B_ILO + B + B_ILO
+    #            S + S_ILO + S + S_ILO
+    # 2.3 CompositionLO test
+    #       Test B @ (-B) = -B**2
+    #            S @ (-S) = -S**2
+    # 2.4 Huge Composition
+    #       H1 = S_ILO . T, testing inverse transpose interaction
+    #       H2 = (S_ILO) ⁻¹, testing inverse inverse interaction
+    #       H3 = (2 * S_ILO) @ (S**2), testing composition of container classes
+    #       H4 = 2 * ( S¹ @ S⁰ ), testing power 1 and 0, composition with Identity, scaling of container class
+    #       H5 = ZV @ I, ZV a ZeroO(V,V), testing composition with a ZeroO
+    #       H = H1 @ ( H2 + H3 - H4 + H5 ) . T, testing all together
+
+    ###
+    ### 1.
+    ###
+
+    # See comment above method regarding this explicit definition
     n1 = 2
     n2 = 2
     p1 = 1
@@ -706,84 +800,42 @@ def hitest_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
     nonzero_values[1, -1] = 0
     nonzero_values[1, 0] = 0
     nonzero_values[1, 1] = 0
-    #for k1 in range(-p1,p1+1):
-    #    for k2 in range(-p2,p2+1):
-    #        nonzero_values[k1,k2] = 1 + k1*n2 + k2
-    #for k1 in range(-p1,p1+1):
-    #    for k2 in range(-p2,p2+1):
-    #        if k1==0:
-    #            if k2<0:
-    #                nonzero_values[k1,k2] = nonzero_values[-k1,-k2]
-    #        elif k1<0:
-    #            nonzero_values[k1,k2] = nonzero_values[-k1,-k2]
 
-    # Initiate VectorSpaces
-    V = StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
-    #W = StencilVectorSpace([n1+2, n2], [p1, p2+1], [P1, P2])
+    # Initiate StencilVectorSpace V
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+    V = StencilVectorSpace( C )
     
     # Initiate positive definite StencilMatrices for which the cg inverse works (necessary for certain tests)
     S = StencilMatrix(V,V)
-    #S1 = StencilMatrix(W,W)
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            S[:,:,k1,k2] = nonzero_values[k1,k2]
+    S.remove_spurious_entries()
 
     # Initiate StencilVectors 
     v = StencilVector(V)
     for i in range(n1):
         for j in range(n2):
             v[i,j] = 1   
-    #w = StencilVector(W)
-    #for i in range(n1+2):
-    #    for j in range(n2):
-    #        w[i,j] = 1   
     
-    # Fill the matrices S and S1 (both dense, pos. def.)
-    #nonzero_values = dict()
-    #for k1 in range(-p1,p1+1):
-    #    for k2 in range(-p2,p2+1):
-    #        nonzero_values[k1,k2] = 1 + k1*n2 + k2
-    #for k1 in range(-p1,p1+1):
-    #    for k2 in range(-p2,p2+1):
-    #        if k1==0:
-    #            if k2<0:
-    #                nonzero_values[k1,k2] = nonzero_values[-k1,-k2]
-    #        elif k1<0:
-    #            nonzero_values[k1,k2] = nonzero_values[-k1,-k2]
-    
-    #nonzero_values1 = dict()
-    #for k1 in range(-p1,p1+1):
-    #    for k2 in range(-p2-1,p2+2):
-    #        nonzero_values1[k1,k2] = 1 + k1*n2 + k2
-    #for k1 in range(-p1,p1+1):
-    #    for k2 in range(-p2-1,p2+2):
-    #        if k1==0:
-    #            if k2<0:
-    #                nonzero_values1[k1,k2] = nonzero_values1[-k1,-k2]
-    #        elif k1<0:
-    #            nonzero_values1[k1,k2] = nonzero_values1[-k1,-k2]
-
-    for k1 in range(-p1,p1+1):
-        for k2 in range(-p2,p2+1):
-            S[:,:,k1,k2] = nonzero_values[k1,k2]
-    S.remove_spurious_entries()
-
-    #for k1 in range(-p1,p1+1):
-    #    for k2 in range(-p2-1,p2+2):
-    #        S1[:,:,k1,k2] = nonzero_values1[k1,k2]
-    #S1.remove_spurious_entries()
-
     # Initiate a BlockVectorSpace, a BlockLO and a BlockVector
-    U = BlockVectorSpace(V, V)#W)
-    B = BlockLinearOperator(U, U, ((S, None), (None, S)))#S1)))
+    U = BlockVectorSpace(V, V)
+    B = BlockLinearOperator(U, U, ((S, None), (None, S)))
     Z = ZeroOperator(U, U)
     I = IdentityOperator(V, V)
-    u = BlockVector(U, (v,v))#w))
-
+    u = BlockVector(U, (v,v))
     tol = 1e-6
     S_ILO = S.inverse('cg', tol=tol)
     B_ILO = B.inverse('cg', tol=tol)
 
-    ### PowerLO tests
-    # tests using (S, v), (S_ILO, v), (I, v) and (B, u), (B_ILO, u), (Z, u)
+    ###
+    ### 2.
+    ###
 
+    ### 2.1 PowerLO test
     Bmat = B.toarray()
     is_pos_def(Bmat)
     uarr = u.toarray()
@@ -821,7 +873,6 @@ def hitest_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
     assert np.all(varr == s0)
     assert np.all(np.dot(Smat, varr) == s1)
     assert np.all(np.dot(Smat, np.dot(Smat, varr)) == s2)
-    #assert np.all(np.array([9, 9, 9, 9], dtype=float) == s2)
 
     si0 = ((S_ILO**0)@v).toarray()
     si1 = ((S_ILO**1)@v).toarray()
@@ -840,60 +891,33 @@ def hitest_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
     assert np.all(varr == i1)
     assert np.all(varr == i2)
 
-    ### SumLO tests
-    # tests using (S, v), (S_ILO, v) and (B, u), (B_ILO, u)
-    assert np.all(B.toarray() == Bmat)
+    ### 2.2 SumLO tests
     Sum1 = B + B_ILO + B + B_ILO
-    assert np.all(B.toarray() == Bmat)
     Sum2 = S + S_ILO + S + S_ILO
     sum1 = (Sum1@u).toarray()
     sum2 = (Sum2@v).toarray()
     Sum1_mat = 2*Bmat + 2*B_inv_mat
     Sum2_mat = 2*Smat + 2*S_inv_mat
-
     assert l2_norm_diff(sum1, np.dot(Sum1_mat, uarr)) < 2*tol
     assert l2_norm_diff(sum2, np.dot(Sum2_mat, varr)) < 2*tol
 
-    ### CompLO tests
+    ### 2.3 CompLO tests
     C1 = B@(-B)
     C2 = S@(-S)
     c1 = (C1@u).toarray()
     c2 = (C2@v).toarray()
-
     assert np.all(-c1 == b2)
     assert np.all(-c2 == s2)
 
-    ### Huge composition
-
+    ### 2.4 Huge composition
     ZV = ZeroOperator(V, V)
-
-    H1 = S.inverse('cg', tol=tol).T
-    assert l2_norm_diff((H1@v).toarray(), si1) < tol
-    H2 = S.inverse('cg', tol=tol).inverse('bicg', tol=tol)
-    assert np.all((H2@v).toarray() == s1)
-    H31 = S**2
-    assert np.all((H31@v).toarray() == np.array([9,9,9,9], dtype=float))
-    H32 = 2*(S.inverse('cg', tol=tol))
-
-    assert np.all((S.inverse('cg', tol=tol)@v).toarray() == np.linalg.inv(S.toarray())*varr)
-
-    assert np.all(varr == np.array([1,1,1,1], dtype=float))
-    assert np.all( np.array([ [2,1,0,0], [1,2,0,0], [0,0,2,1], [0,0,1,2] ], dtype=float) == S.toarray())
-    assert np.all((H32@v).toarray() == 2*np.linalg.inv(S.toarray())*varr)
-    H3 = (2*(S.inverse('cg', tol=tol))) @ (S**2)
-    
-    assert np.all(np.array([3, 3, 3, 3], dtype=float) == s1)
-    assert l2_norm_diff((H3@v).toarray(), 2*s1) < 2*tol
+    H1 = S_ILO.T
+    H2 = S_ILO.inverse('bicg', tol=tol)
+    H3 = (2*S_ILO) @ (S**2)
     H4 = 2*( (S**1) @ (S**0) )
-    assert np.all((H4@v).toarray() == 2*s1)
     H5 = ZV @ I
-    assert np.all((H5@v).toarray() == H5.codomain.zeros().toarray())
-
-    assert isinstance(H3._codomain, StencilVectorSpace)
-    assert isinstance(H3.T, ComposedLinearOperator)
     H = H1 @ ( H2 + H3 - H4 + H5 ).T
-    #assert l2_norm_diff((H@v).toarray(), v.toarray()) < 10*tol
-
+    assert l2_norm_diff((H@v).toarray(), v.toarray()) < 10*tol
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY

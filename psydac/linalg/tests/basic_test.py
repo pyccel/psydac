@@ -8,9 +8,25 @@ from psydac.linalg.block import BlockVector, BlockVectorSpace, BlockLinearOperat
 from psydac.linalg.ndarray import NdarrayVectorSpace, NdarrayVector, NdarrayLinearOperator
 from psydac.linalg.basic import ZeroOperator, IdentityOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
+from psydac.ddm.cart         import DomainDecomposition, CartDecomposition
 
 #===============================================================================
 if __name__ == "__main__":
+
+    def compute_global_starts_ends(domain_decomposition, npts):
+        ndims         = len(npts)
+        global_starts = [None]*ndims
+        global_ends   = [None]*ndims
+
+        for axis in range(ndims):
+            es = domain_decomposition.global_element_starts[axis]
+            ee = domain_decomposition.global_element_ends  [axis]
+
+            global_ends  [axis]     = ee.copy()
+            global_ends  [axis][-1] = npts[axis]-1
+            global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+
+        return global_starts, global_ends
     
     print('Implementation Test:')
     print()
@@ -186,10 +202,10 @@ if __name__ == "__main__":
     #print('Creating a r.h.s. NdarrayVector b = [1, 1, 1, 1] and calling P_cg.dot(b)')
     b_vec = np.array([1, 1, 1, 1], dtype=float)
     b = NdarrayVector(space=S, data=b_vec)
-    x, info = P_cg.dot(b)
+    x = P_cg.dot(b)
     print('cg NdarrayLinearOperator results:')
     print('Expected: x = [0.2, 0.2, 0.4, 0.4]')
-    print(info)
+    #print(info)
     print("x = ", x.data)
     #print('Success')
     print()
@@ -207,10 +223,10 @@ if __name__ == "__main__":
     P_bicg = P.inverse('bicg', x0=x0, verbose=True)
     #print('Setting verbose=False')
     #P_bicg.setoptions(verbose=False)
-    x, info = P_bicg.dot(b)
+    x = P_bicg.dot(b)#, info
     print('bicg NdarrayLinearOperator results:')
     print('Expected: x = [0.2, 0.2, 0.4, 0.4]')
-    print(info)
+    #print(info)
     print("x = ", x.data)
     print()
 
@@ -231,7 +247,14 @@ if __name__ == "__main__":
     for k1 in range(-p1,p1+1):
         for k2 in range(-p2,p2+1):
             nonzero_values[k1,k2] = ((k1%3)+1)*((k2+1)%2)
-    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+    V = StencilVectorSpace( C )
+    #V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+
     M = StencilMatrix( V, V )
     for k1 in range(-p1,p1+1):
         for k2 in range(-p2,p2+1):
@@ -255,10 +278,10 @@ if __name__ == "__main__":
     b = StencilVector(V)
     b[0] = 1
     b[1] = 1    
-    x, info = M_inv.dot(b)
+    x = M_inv.dot(b)#, info
     #x2, info2 = M_inv2.dot(b)
     #print('jacobi output:')
-    print(info)
+    #print(info)
     print("x = ", x.toarray())
     #print('weighted_jacobi output:')
     #print(info2)
@@ -280,10 +303,10 @@ if __name__ == "__main__":
     M_block_inv = M_block.inverse('pcg', pc='jacobi', x0=x0_block, verbose=True)
     print('Setting verbose=False')
     M_block_inv.setoptions(verbose=False)
-    x_block, info = M_block_inv.dot(b_block)
+    x_block = M_block_inv.dot(b_block)#, info
     print('pcg jacobi BlockLinearOperator results:')
     print('Expected: x = [0.2, 0.2, 0.4, 0.4, 0.2, 0.2, 0.4, 0.4]')
-    print(info)
+    #print(info)
     print("x_block = ", x_block.toarray())
     print()
 
