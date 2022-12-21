@@ -34,6 +34,12 @@ class NullLinearOperator(LinearOperator):
     def dtype( self ):
         return self.domain.dtype
 
+    def toarray(self):
+        raise NotImplementedError('toarray() is not defined for this outdated class.')
+
+    def tosparse(self):
+        raise NotImplementedError('tosparse() is not defined for this outdated class.')
+
     def dot( self, v, out=None ):
         """
         Returns a zero vector. If out is not None, then out is zeroed and returned (otherwise, a new vector is created).
