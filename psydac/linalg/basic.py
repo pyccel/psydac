@@ -248,10 +248,27 @@ class LinearOperator(ABC):
         raise NotImplementedError()
 
     def inverse(self, solver, **kwargs):
+        # Check solver input
+        solvers = ('cg', 'pcg', 'bicg')
+        if not any([solver == solvers[i] for i in range(len(solvers))]):
+            raise ValueError(f"Required solver '{solver}' not understood.")
+
+        # Inverse of Inverse case
+        # probably not needed as taken care of in InverseLO class
         if isinstance(self, InverseLinearOperator):
             return self.linop
-        else:
-            return InverseLinearOperator(self, solver=solver, **kwargs)
+
+        # Instantiate object of correct solver class
+        if solver == 'cg':
+            from psydac.linalg.solvers import ConjugateGradient
+            obj = ConjugateGradient(self, **kwargs)
+        elif solver == 'pcg':
+            from psydac.linalg.solvers import PConjugateGradient
+            obj = PConjugateGradient(self, **kwargs)
+        elif solver == 'bicg':
+            from psydac.linalg.solvers import BiConjugateGradient
+            obj = BiConjugateGradient(self, **kwargs)
+        return obj
 
     def idot(self, v, out):
         """
@@ -267,10 +284,33 @@ class LinearOperator(ABC):
 #===============================================================================
 class ZeroOperator(LinearOperator):
 
-    def __init__(self, domain, codomain):
+    def __new__(cls, domain, codomain=None):
 
         assert isinstance(domain, VectorSpace)
         assert isinstance(codomain, VectorSpace)
+
+        from psydac.linalg.block import BlockVectorSpace, BlockLinearOperator
+        if isinstance(domain, BlockVectorSpace) or isinstance(codomain, BlockVectorSpace):
+            if isinstance(domain, BlockVectorSpace):
+                domain_spaces = domain.spaces
+            else:
+                domain_spaces = (domain,)
+            if isinstance(codomain, BlockVectorSpace):
+                codomain_spaces = codomain.spaces
+            else:
+                codomain_spaces = (codomain,)
+            blocks = {}
+            for i, D in enumerate(domain_spaces):
+                for j, C in enumerate(codomain_spaces):
+                    blocks[j,i] = ZeroOperator(D,C)
+            return BlockLinearOperator(domain, codomain, blocks)
+        else:
+            return super().__new__(cls)
+    
+    def __init__(self, domain, codomain):
+
+        #assert isinstance(domain, VectorSpace)
+        #assert isinstance(codomain, VectorSpace)
 
         self._domain = domain
         self._codomain = codomain
@@ -290,9 +330,13 @@ class ZeroOperator(LinearOperator):
     def copy(self):
         return ZeroOperator(self._domain, self._codomain)
 
-    # new, dtype might cause problems, also: tosparse missing
+    # new, dtype might cause problems
     def toarray(self):
         return np.zeros(self.shape, dtype=self.dtype) 
+
+    def tosparse(self):
+        from scipy.sparse import csr_matrix
+        return csr_matrix(self.shape, dtype = self.dtype)
 
     def transpose(self):
         return ZeroOperator(domain=self._codomain, codomain=self._domain)
@@ -338,12 +382,30 @@ class ZeroOperator(LinearOperator):
 #===============================================================================
 class IdentityOperator(LinearOperator):
 
-    def __init__(self, domain, codomain=None):
+    def __new__(cls, domain, codomain=None):
 
         assert isinstance(domain, VectorSpace)
         if codomain:
             assert isinstance(codomain, VectorSpace)
             assert domain == codomain
+
+        from psydac.linalg.block import BlockVectorSpace, BlockLinearOperator
+        if isinstance(domain, BlockVectorSpace):
+            spaces = domain.spaces
+            blocks = {}
+            for i, V in enumerate(spaces):
+                blocks[i,i] = IdentityOperator(V)
+            return BlockLinearOperator(domain, domain, blocks)
+        else:
+            return super().__new__(cls)
+
+    
+    def __init__(self, domain, codomain=None):
+
+        #assert isinstance(domain, VectorSpace)
+        #if codomain:
+        #    assert isinstance(codomain, VectorSpace)
+        #    assert domain == codomain
 
         self._domain = domain
         self._codomain = domain
@@ -363,6 +425,14 @@ class IdentityOperator(LinearOperator):
     def copy(self):
         return IdentityOperator(self._domain, self._codomain)
 
+    # new, dtype might cause problems
+    def toarray(self):
+        return np.diag(np.ones(self._domain.dimension , dtype=self.dtype)) 
+
+    def tosparse(self):
+        from scipy.sparse import identity
+        return identity(self._domain.dimension, dtype = self.dtype, format = "csr")
+
     def transpose(self):
         """ Could return self, but by convention returns new object. """
         return IdentityOperator(self._domain, self._codomain)
@@ -376,8 +446,12 @@ class IdentityOperator(LinearOperator):
         if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self._codomain
-        out = v
-        return out
+            # out change
+            out *= 0
+            out += v
+            return out
+        else:
+            return v
 
     def __matmul__(self, B):
         assert isinstance(B, (LinearOperator, Vector))
@@ -446,7 +520,13 @@ class ScaledLinearOperator(LinearOperator):
         if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self._codomain
-        return self._operator.dot(v, out=out) * self._scalar
+            # out change
+            self._operator.dot(v, out = out)
+            out *= self._scalar
+            return out
+        else:
+            return self._operator.dot(v, out=out) * self._scalar
+        #return self._operator.dot(v, out=out) * self._scalar
 
 #===============================================================================
 class SumLinearOperator(LinearOperator):
@@ -570,16 +650,26 @@ class SumLinearOperator(LinearOperator):
         if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self._codomain
+            out *= 0
+            for a in self._addends:
+                a.idot(v, out)
+            return out
+        else:
+            out = self._codomain.zeros()
+            for a in self._addends:
+                #out += a.dot(v)
+                a.idot(v, out=out)
+            return out
 
         #if simplified == False:
         #    self._addends = self.simplifiy(self._addends).addends
         #elif simplified != True:
         #    raise ValueError('simplified expects True or False.')
 
-        out = self._codomain.zeros()
-        for a in self._addends:
-            a.idot(v, out)
-        return out
+        #out = self._codomain.zeros()
+        #for a in self._addends:
+        #    a.idot(v, out)
+        #return out
 
 #===============================================================================
 class ComposedLinearOperator(LinearOperator):
@@ -673,13 +763,18 @@ class ComposedLinearOperator(LinearOperator):
         for i in range(len(self._tmp_vectors)):
             y = self._tmp_vectors[-1-i]
             A = self._multiplicants[-1-i]
-            y = A.dot(x)
-            x = y
-            #A.dot(x, out=y)
+            #y = A.dot(x)
             #x = y
+            A.dot(x, out=y)
+            x = y
 
         A = self._multiplicants[0]
-        out = A.dot(x)
+        if out is not None:
+            A.dot(x, out=out)
+        else:
+            out = A.dot(x)
+        #A.dot(x, out=out)
+        #out = A.dot(x)
         return out
         
 
@@ -743,10 +838,20 @@ class PowerLinearOperator(LinearOperator):
         if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self._codomain
-        out = v.copy()
-        for i in range(self._factorial):
-            #self._operator.dot(out, out=out)
-            out = self._operator.dot(out)
+            for i in range(self._factorial):
+                self._operator.dot(v, out=out)
+                v = out.copy()
+            
+            # not at all optimal solution, should only work for now
+            #out *= 0
+            #out += v
+            #for i in range(self._factorial):
+            #    out = self._operator.dot(out)
+            #return out
+        else:
+            out = v.copy()
+            for i in range(self._factorial):
+                out = self._operator.dot(out)
         return out
 
 #===============================================================================
@@ -756,26 +861,45 @@ class InverseLinearOperator(LinearOperator):
     vector space V.
 
     """
-    def __new__(cls, linop, solver=None, **kwargs):
+    #def __new__(cls, linop, solver=None, **kwargs):
 
-        #cls._check_options(options)
+    #    #cls._check_options(options)
 
-        if solver is not None:
-            if solver == 'cg':
-                from psydac.linalg.solvers import ConjugateGradient
-                obj = ConjugateGradient(linop, solver=None, **kwargs)
-            elif solver == 'pcg':
-                from psydac.linalg.solvers import PConjugateGradient
-                obj = PConjugateGradient(linop, solver=None, **kwargs)
-            elif solver == 'bicg':
-                from psydac.linalg.solvers import BiConjugateGradient
-                obj = BiConjugateGradient(linop, solver=None, **kwargs)
-            else:
-                raise ValueError(f"Required solver '{solver}' not understood.")
+    #    assert solver is not None
 
-            return obj
-        else:
-            return super().__new__(cls)
+    #    if any( [solver == ('cg', 'pcg', 'bicg')[i] for i in range(len(('cg', 'pcg', 'bicg')))] ):
+    #        if solver == 'cg':
+    #            from psydac.linalg.solvers import ConjugateGradient
+    #            obj = ConjugateGradient(linop, solver='prevent_loop', **kwargs)
+    #        elif solver == 'pcg':
+    #            from psydac.linalg.solvers import PConjugateGradient
+    #            obj = PConjugateGradient(linop, solver='prevent_loop', **kwargs)
+    #        elif solver == 'bicg':
+    #            from psydac.linalg.solvers import BiConjugateGradient
+    #            obj = BiConjugateGradient(linop, solver='prevent_loop', **kwargs)
+    #        #else:
+    #        #    raise ValueError(f"Required solver '{solver}' not understood.")
+    #        return obj
+    #    elif solver == 'prevent_loop':
+    #        return super().__new__(cls)
+    #    else:
+    #        raise ValueError(f"Required solver '{solver}' not understood.")
+
+        #if solver is not None:
+        #    if solver == 'cg':
+        #        from psydac.linalg.solvers import ConjugateGradient
+        #        obj = ConjugateGradient(linop, solver=None, **kwargs)
+        #    elif solver == 'pcg':
+        #        from psydac.linalg.solvers import PConjugateGradient
+        #        obj = PConjugateGradient(linop, solver=None, **kwargs)
+        #    elif solver == 'bicg':
+        #        from psydac.linalg.solvers import BiConjugateGradient
+        #        obj = BiConjugateGradient(linop, solver=None, **kwargs)
+        #    else:
+        #        raise ValueError(f"Required solver '{solver}' not understood.")
+        #    return obj
+        #else:
+        #    return super().__new__(cls)
 
     @property
     def space(self):
@@ -810,13 +934,21 @@ class InverseLinearOperator(LinearOperator):
             print(key, ": ", value)
 
     def setoptions(self, **kwargs):
-        # check feasibility of kwargs
+        self._check_options(**kwargs)
         for key, value in kwargs.items():
             setattr(self, '_'+key, value)
         self._update_options()
 
+    @abstractmethod
+    def _check_options(self, **kwargs):
+        pass
+
     def transpose(self):
-        return InverseLinearOperator(linop=self._linop.T, solver=self._solver, **self._options)
+        At = self._linop.T
+        solver = self._solver
+        kwargs = self._options
+        return At.inverse(solver, **kwargs)
+        #return InverseLinearOperator(linop=self._linop.T, solver=self._solver, **self._options)
 
     def inverse(self, solver, **kwargs):
         return self._linop

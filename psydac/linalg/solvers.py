@@ -15,7 +15,7 @@ class ConjugateGradient(InverseLinearOperator):
     
 
     """
-    def __init__(self, linop, *, solver=None, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, linop, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
         assert isinstance(linop, LinearOperator)
         assert linop.domain == linop.codomain
@@ -29,6 +29,30 @@ class ConjugateGradient(InverseLinearOperator):
         self._maxiter = maxiter
         self._verbose = verbose
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+        self._check_options(**self._options)
+
+    def _check_options(self, **kwargs):
+        keys = ('x0', 'tol', 'maxiter', 'verbose')
+        for key, value in kwargs.items():
+            idx = [key == keys[i] for i in range(len(keys))]
+            assert any(idx), "key not supported, check options"
+            true_idx = idx.index(True)
+            if true_idx == 0:
+                if value is not None:
+                    assert isinstance(value, Vector), "x0 must be a Vector or None"
+                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
+            elif true_idx == 1:
+                assert value is not None, "tol may not be None"
+                # don't know if that one works -want to check if value is a number
+                assert value*0 == 0, "tol must be a real number"
+                assert value > 0, "tol must be positive"
+            elif true_idx == 2:
+                assert value is not None, "maxiter may not be None"
+                assert isinstance(value, int), "maxiter must be an int"
+                assert value > 0, "maxiter must be positive"
+            elif true_idx == 3:
+                assert value is not None, "verbose may not be None"
+                assert isinstance(value, bool), "verbose must be a bool"
 
     def _update_options(self):
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
@@ -162,7 +186,7 @@ class PConjugateGradient(InverseLinearOperator):
     
 
     """
-    def __init__(self, linop, *, solver=None, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, linop, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
         assert isinstance(linop, LinearOperator)
         assert linop.domain == linop.codomain
@@ -177,6 +201,33 @@ class PConjugateGradient(InverseLinearOperator):
         self._maxiter = maxiter
         self._verbose = verbose
         self._options = {"pc": self._pc, "x0": self._x0, "tol": self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+        self._check_options(**self._options)
+
+    def _check_options(self, **kwargs):
+        keys = ('pc', 'x0', 'tol', 'maxiter', 'verbose')
+        for key, value in kwargs.items():
+            idx = [key == keys[i] for i in range(len(keys))]
+            assert any(idx), "key not supported, check options"
+            true_idx = idx.index(True)
+            if true_idx == 0:
+                assert value is not None, "pc may not be None"
+                assert value == 'jacobi' or value == 'weighted_jacobi', "unsupported preconditioner"
+            elif true_idx == 1:
+                if value is not None:
+                    assert isinstance(value, Vector), "x0 must be a Vector or None"
+                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
+            elif true_idx == 2:
+                assert value is not None, "tol may not be None"
+                # don't know if that one works -want to check if value is a number
+                assert value*0 == 0, "tol must be a real number"
+                assert value > 0, "tol must be positive"
+            elif true_idx == 3:
+                assert value is not None, "maxiter may not be None"
+                assert isinstance(value, int), "maxiter must be an int"
+                assert value > 0, "maxiter must be positive"
+            elif true_idx == 4:
+                assert value is not None, "verbose may not be None"
+                assert isinstance(value, bool), "verbose must be a bool"
 
     def _update_options( self ):
         self._options = {"pc": self._pc, "x0": self._x0, "tol": self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
@@ -326,7 +377,7 @@ class BiConjugateGradient(InverseLinearOperator):
     
 
     """
-    def __init__(self, linop, *, solver=None, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, linop, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
         assert isinstance(linop, LinearOperator)
         assert linop.domain == linop.codomain
@@ -340,6 +391,30 @@ class BiConjugateGradient(InverseLinearOperator):
         self._maxiter = maxiter
         self._verbose = verbose
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+        self._check_options(**self._options)
+
+    def _check_options(self, **kwargs):
+        keys = ('x0', 'tol', 'maxiter', 'verbose')
+        for key, value in kwargs.items():
+            idx = [key == keys[i] for i in range(len(keys))]
+            assert any(idx), "key not supported, check options"
+            true_idx = idx.index(True)
+            if true_idx == 0:
+                if value is not None:
+                    assert isinstance(value, Vector), "x0 must be a Vector or None"
+                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
+            elif true_idx == 1:
+                assert value is not None, "tol may not be None"
+                # don't know if that one works -want to check if value is a number
+                assert value*0 == 0, "tol must be a real number"
+                assert value > 0, "tol must be positive"
+            elif true_idx == 2:
+                assert value is not None, "maxiter may not be None"
+                assert isinstance(value, int), "maxiter must be an int"
+                assert value > 0, "maxiter must be positive"
+            elif true_idx == 3:
+                assert value is not None, "verbose may not be None"
+                assert isinstance(value, bool), "verbose must be a bool"
 
     def _update_options( self ):
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}

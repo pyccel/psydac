@@ -48,7 +48,7 @@ def compute_global_starts_ends(domain_decomposition, npts):
 @pytest.mark.parametrize( 'p1', p1array)
 @pytest.mark.parametrize( 'p2', p2array)
 
-def hitest_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
+def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
 
     # 1. Initiate square LOs S,S1 (StencilMatrix), I (IdentityOperator), Z (ZeroOperator) and a Stencilvector v
     # 2. Test general basic operations
@@ -296,7 +296,7 @@ def hitest_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
 @pytest.mark.parametrize( 'p1', p1array)
 @pytest.mark.parametrize( 'p2', p2array)
 
-def hitest_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
+def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
 
     # 1. Initiate square LOs S,S1 (StencilMatrix), Z (ZeroOperator) and a Stencilvector v
     #    Initiate square LOs B,B1 (BlockLO), BZ (ZeroOperator), BI (IdentityOperator) and a BlockVector vb
@@ -406,10 +406,12 @@ def hitest_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(B - B1, BlockLinearOperator)
 
     # Adding and Substracting BlockLOs and other LOs returns a SumLinearOperator object
-    assert isinstance(B + BI, SumLinearOperator)
-    assert isinstance(BI + B, SumLinearOperator)
-    assert isinstance(B - BI, SumLinearOperator)
-    assert isinstance(BI - B, SumLinearOperator)
+    # Update 21.12.: ZeroLOs and IdentityLOs from and/or to BlockVectorSpaces are now BlockLOs
+    # thus the sums/differences below should be BlockLOs again
+    assert isinstance(B + BI, BlockLinearOperator)
+    assert isinstance(BI + B, BlockLinearOperator)
+    assert isinstance(B - BI, BlockLinearOperator)
+    assert isinstance(BI - B, BlockLinearOperator)
 
     # Negating a BlockLO works as intended
     assert isinstance(-B, BlockLinearOperator)
@@ -422,7 +424,7 @@ def hitest_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(B*np.pi, BlockLinearOperator)
     assert isinstance(B/np.pi, BlockLinearOperator)
 
-    # Composing StencilMatrices works
+    # Composing BlockLOs works
     assert isinstance(B@B1, ComposedLinearOperator)
 
     # Raising a BlockLO to a power works
@@ -442,28 +444,58 @@ def hitest_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     ## ___Addition and Substraction with ZeroOperators___
 
     # Adding a ZeroOperator does not change the BlockLO
-    assert B+BZ == B
-    assert BZ+B == B
+    # Update 21.12.: ZeroLOs and IdentityLOs from and/or to BlockVectorSpaces are now BlockLOs
+    # thus while B+BZ = B is still true, B+BZ is a new object now.
+    BBZ = B+BZ
+    BZB = BZ+B
+    for i in range(2):
+        for j in range(2):
+            if isinstance(BBZ.blocks[i][j], ZeroOperator):
+                assert isinstance(B.blocks[i][j], ZeroOperator) or B.blocks[i][j] == None
+            else:
+                BBZ.blocks[i][j] == B.blocks[i][j]
+            if isinstance(BZB.blocks[i][j], ZeroOperator):
+                assert isinstance(B.blocks[i][j], ZeroOperator) or B.blocks[i][j] == None
+            else:
+                BZB.blocks[i][j] == B.blocks[i][j]
+    #assert BBZ.blocks == B.blocks
+    #assert BZ+B == B
 
     # Substracting a ZeroOperator and substracting from a ZeroOperator work as intended
-    assert B-BZ == B
+    BmBZ = B-BZ
+    for i in range(2):
+        for j in range(2):
+            if isinstance(BmBZ.blocks[i][j], ZeroOperator):
+                assert isinstance(B.blocks[i][j], ZeroOperator) or B.blocks[i][j] == None
+            else:
+                BmBZ.blocks[i][j] == B.blocks[i][j]
+    #assert B-BZ == B
     assert np.all((BZ-B).toarray() == (-B).toarray()) # replaces assert BZ-B == -B
 
     ## ___Composing with Zero- and IdentityOperators___ 
 
     # Composing a BlockLO with a ZeroOperator returns a ZeroOperator
-    assert isinstance(B@BZ, ZeroOperator)
-    assert isinstance(BZ@B, ZeroOperator)
+    # Update 21.12.: ZeroLOs and IdentityLOs from and/or to BlockVectorSpaces are now BlockLOs
+    # thus B@BZ is now a ComposedLO.
+    assert isinstance(B@BZ, ComposedLinearOperator)
+    assert isinstance(BZ@B, ComposedLinearOperator)
 
     # Composing a BlockLO with the IdentityOperator does not change the object
-    assert B@BI == B
-    assert BI@B == B
+    # due to the 21.12. change not valid anymore
+    #assert B@BI == B
+    #assert BI@B == B
+    # but: 
+    assert np.all(((B@BI)@vb).toarray() == (B@vb).toarray())
+    assert np.all(((BI@B)@vb).toarray() == (B@vb).toarray())
 
     ## ___Raising to the power of 0 and 1___
 
     # Raising a BlockLO to the power of 1 or 0 does not change the object / returns an IdentityOperator
+    # 21.12. change: B**0 a BlockLO with IdentityLOs at the diagonal
     assert B**1 == B
-    assert isinstance(B**0, IdentityOperator)
+    #assert isinstance(B**0, IdentityOperator)
+    assert isinstance(B**0, BlockLinearOperator)
+    assert np.all(((B**0)@vb).toarray() == vb.toarray())
 
     #################################
     
@@ -512,7 +544,7 @@ def hitest_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
 @pytest.mark.parametrize( 'p1', p1array)
 @pytest.mark.parametrize( 'p2', p2array)
 
-def hitest_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
+def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
 
     # testing __imul__ although not explicitly implemented (in the LinearOperator class)
 
@@ -611,7 +643,7 @@ def hitest_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
 @pytest.mark.parametrize( 'p1', p1array)
 @pytest.mark.parametrize( 'p2', p2array)
 
-def hitest_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
+def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
 
     # 1. Initiate square LOs: S (V->V, StencilMatrix), S1 (W->W, StencilMatrix)
         #Initiate BlockLO: B (VxW -> VxW) and a BlockVector u element of VxW

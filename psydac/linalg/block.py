@@ -481,9 +481,9 @@ class BlockLinearOperator( Matrix ):
         self._sync           = False
         self._backend = None
 
-    # 11.12.22: as several tests require BlockLO to have a tomatrix attribute
-    def tomatrix(self):
-        return self
+    ## 11.12.22: as several tests require BlockLO to have a tomatrix attribute
+    #def tomatrix(self):
+    #    return self
 
     #--------------------------------------
     # Abstract interface
