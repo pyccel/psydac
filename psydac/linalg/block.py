@@ -717,11 +717,6 @@ class BlockLinearOperator( Matrix ):
     #    blocks = {(j, i): b.transpose() for (i, j), b in self._blocks.items()}
     #    return BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
 
-    # ...
-    @property
-    def T(self):
-        return self.transpose()
-
     def backend( self ):
         return self._backend
 

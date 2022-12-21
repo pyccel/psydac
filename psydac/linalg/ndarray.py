@@ -184,6 +184,13 @@ class NdarrayLinearOperator( LinearOperator ):
         else:
             raise NotImplementedError('Class does not provide a dtype method without a matrix')
 
+    def toarray(self):
+        return self._matrix
+
+    def tosparse(self):
+        from scipy.sparse import csr_matrix
+        return csr_matrix(self._matrix)
+
     def transpose( self ):
         if self._matrix is not None:
             return NdarrayLinearOperator(domain=self._codomain, codomain=self._domain, matrix=self._matrix.transpose())

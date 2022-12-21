@@ -453,11 +453,11 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
             if isinstance(BBZ.blocks[i][j], ZeroOperator):
                 assert isinstance(B.blocks[i][j], ZeroOperator) or B.blocks[i][j] == None
             else:
-                BBZ.blocks[i][j] == B.blocks[i][j]
+                assert BBZ.blocks[i][j] == B.blocks[i][j]
             if isinstance(BZB.blocks[i][j], ZeroOperator):
                 assert isinstance(B.blocks[i][j], ZeroOperator) or B.blocks[i][j] == None
             else:
-                BZB.blocks[i][j] == B.blocks[i][j]
+                assert BZB.blocks[i][j] == B.blocks[i][j]
     #assert BBZ.blocks == B.blocks
     #assert BZ+B == B
 
@@ -468,7 +468,7 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
             if isinstance(BmBZ.blocks[i][j], ZeroOperator):
                 assert isinstance(B.blocks[i][j], ZeroOperator) or B.blocks[i][j] == None
             else:
-                BmBZ.blocks[i][j] == B.blocks[i][j]
+                assert BmBZ.blocks[i][j] == B.blocks[i][j]
     #assert B-BZ == B
     assert np.all((BZ-B).toarray() == (-B).toarray()) # replaces assert BZ-B == -B
 

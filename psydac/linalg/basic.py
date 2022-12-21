@@ -70,9 +70,6 @@ class Vector(ABC):
     def dtype(self):
         return self.space.dtype
 
-    #def __del__(self):
-    #    print(f"Delete object {repr(self)}")
-
     def __init__(self):
         print(f"Create object")
 
@@ -180,6 +177,14 @@ class LinearOperator(ABC):
         return self.transpose()
 
     @abstractmethod
+    def tosparse(self):
+        pass
+
+    @abstractmethod
+    def toarray(self):
+        pass
+
+    @abstractmethod
     def dot(self, v, out=None):
         """ Apply linear operator to Vector v. Result is written to Vector out, if provided."""
         pass
@@ -255,8 +260,8 @@ class LinearOperator(ABC):
 
         # Inverse of Inverse case
         # probably not needed as taken care of in InverseLO class
-        if isinstance(self, InverseLinearOperator):
-            return self.linop
+        #if isinstance(self, InverseLinearOperator):
+        #    return self.linop
 
         # Instantiate object of correct solver class
         if solver == 'cg':
@@ -309,9 +314,6 @@ class ZeroOperator(LinearOperator):
     
     def __init__(self, domain, codomain):
 
-        #assert isinstance(domain, VectorSpace)
-        #assert isinstance(codomain, VectorSpace)
-
         self._domain = domain
         self._codomain = codomain
 
@@ -330,13 +332,12 @@ class ZeroOperator(LinearOperator):
     def copy(self):
         return ZeroOperator(self._domain, self._codomain)
 
-    # new, dtype might cause problems
     def toarray(self):
         return np.zeros(self.shape, dtype=self.dtype) 
 
     def tosparse(self):
         from scipy.sparse import csr_matrix
-        return csr_matrix(self.shape, dtype = self.dtype)
+        return csr_matrix(self.shape, dtype=self.dtype)
 
     def transpose(self):
         return ZeroOperator(domain=self._codomain, codomain=self._domain)
@@ -402,11 +403,6 @@ class IdentityOperator(LinearOperator):
     
     def __init__(self, domain, codomain=None):
 
-        #assert isinstance(domain, VectorSpace)
-        #if codomain:
-        #    assert isinstance(codomain, VectorSpace)
-        #    assert domain == codomain
-
         self._domain = domain
         self._codomain = domain
 
@@ -425,13 +421,12 @@ class IdentityOperator(LinearOperator):
     def copy(self):
         return IdentityOperator(self._domain, self._codomain)
 
-    # new, dtype might cause problems
     def toarray(self):
         return np.diag(np.ones(self._domain.dimension , dtype=self.dtype)) 
 
     def tosparse(self):
         from scipy.sparse import identity
-        return identity(self._domain.dimension, dtype = self.dtype, format = "csr")
+        return identity(self._domain.dimension, dtype=self.dtype, format="csr")
 
     def transpose(self):
         """ Could return self, but by convention returns new object. """
@@ -446,7 +441,6 @@ class IdentityOperator(LinearOperator):
         if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self._codomain
-            # out change
             out *= 0
             out += v
             return out
@@ -505,6 +499,13 @@ class ScaledLinearOperator(LinearOperator):
     def dtype(self):
         return None
 
+    def toarray(self):
+        return self._scalar*self._operator.toarray() 
+
+    def tosparse(self):
+        from scipy.sparse import csr_matrix
+        return self._scalar*csr_matrix(self._operator.toarray())
+
     def transpose(self):
         return ScaledLinearOperator(domain=self._codomain, codomain=self._domain, c=self._scalar, A=self._operator.T)
 
@@ -512,7 +513,7 @@ class ScaledLinearOperator(LinearOperator):
         return ScaledLinearOperator(domain=self._domain, codomain=self._codomain, c=-1*self._scalar, A=self._operator)
 
     def inverse(self, solver, **kwargs):
-        return ScaledLinearOperator(domain=self._domain, codomain=self._codomain, c=1/self._scalar, A=InverseLinearOperator(self._operator, solver=solver, **kwargs))
+        return ScaledLinearOperator(domain=self._codomain, codomain=self._domain, c=1/self._scalar, A=self._operator.inverse(solver, **kwargs))
 
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
@@ -520,13 +521,11 @@ class ScaledLinearOperator(LinearOperator):
         if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self._codomain
-            # out change
             self._operator.dot(v, out = out)
             out *= self._scalar
             return out
         else:
             return self._operator.dot(v, out=out) * self._scalar
-        #return self._operator.dot(v, out=out) * self._scalar
 
 #===============================================================================
 class SumLinearOperator(LinearOperator):
@@ -588,6 +587,19 @@ class SumLinearOperator(LinearOperator):
         """
         return None
 
+    def toarray(self):
+        out = np.zeros(self.shape, dtype=self.dtype)
+        for a in self._addends:
+            out += a.toarray()
+        return out
+
+    def tosparse(self):
+        from scipy.sparse import csr_matrix
+        out = csr_matrix(self.shape, dtype=self.dtype)
+        for a in self._addends:
+            out += a.tosparse()
+        return out
+
     def transpose(self):
         t_addends = ()
         for a in self._addends:
@@ -600,50 +612,22 @@ class SumLinearOperator(LinearOperator):
         unique_list = list(set(class_list))
         if len(unique_list) == 1:
             return addends
-        #out = ZeroOperator(domain=addends[0]._domain, codomain=addends[0]._codomain)
         out = ()
-        for i, j in enumerate(unique_list): #better?: for i in range(len(unique_list)):
-            indices = [k for k, l in enumerate(class_list) if class_list[k] == unique_list[i]] #for k in range(len(class_list))
+        for j in unique_list:
+            indices = [k for k, l in enumerate(class_list) if l == j]
             if len(indices) == 1:
-                #out += addends[indices[0]]
                 out = (*out, addends[indices[0]])
             else:
-                #dom = addends[0].domain
-                #cod = addends[0].codomain
-                #B = ZeroOperator(dom, cod)
-                #A = addends[indices[0]] # might change addends[indices[0]]? try .copy / .copy() or implement ...
-                #A = B + addends[indices[0]]
-                #B = A #new
-
                 A = addends[indices[0]] + addends[indices[1]]
-
                 for n in range(len(indices)-2):
                     A += addends[indices[n+2]]
-                    #B += addends[indices[n+1]] #new
-                #out += A
                 if isinstance(A, SumLinearOperator):
                     out = (*out, *A.addends)
                 else:
                     out = (*out, A)
-                    #out = (*out, B) #new
         return out
 
-    #def simplifiy(self, addends):
-    #    class_list = [addends[i].__class__.__name__ for i in range(len(addends))]
-    #    unique_list = list(set(class_list))
-    #    out = ZeroOperator(domain=self._domain, codomain=self._codomain)
-    #    for i, j in enumerate(unique_list): #better?: for i in range(len(unique_list)):
-    #        indices = [k for k, l in enumerate(class_list) if class_list[k] == unique_list[i]] #for k in range(len(class_list))
-    #        if len(indices) == 1:
-    #            out += addends[indices[0]]
-    #        else:
-    #            A = addends[indices[0]] # might change addends[indices[0]]? try .copy / .copy() or implement ...
-    #            for n in range(len(indices)-1):
-    #                A += addends[indices[n+1]]
-    #            out += A
-    #    return out
-
-    def dot(self, v, out=None):#, simplified = False):
+    def dot(self, v, out=None):
         """ Evaluates SumLinearOperator object at a vector v element of domain. """
         assert isinstance(v, Vector)
         assert v.space == self._domain
@@ -657,19 +641,8 @@ class SumLinearOperator(LinearOperator):
         else:
             out = self._codomain.zeros()
             for a in self._addends:
-                #out += a.dot(v)
                 a.idot(v, out=out)
             return out
-
-        #if simplified == False:
-        #    self._addends = self.simplifiy(self._addends).addends
-        #elif simplified != True:
-        #    raise ValueError('simplified expects True or False.')
-
-        #out = self._codomain.zeros()
-        #for a in self._addends:
-        #    a.idot(v, out)
-        #return out
 
 #===============================================================================
 class ComposedLinearOperator(LinearOperator):
@@ -730,6 +703,12 @@ class ComposedLinearOperator(LinearOperator):
     def dtype(self):
         return None
 
+    def toarray(self):
+        raise NotImplementedError('toarray() is not defined for ComposedLinearOperators.')
+
+    def tosparse(self):
+        raise NotImplementedError('tosparse() is not defined for ComposedLinearOperators.')
+
     def transpose(self):
         t_multiplicants = ()
         for a in self._multiplicants:
@@ -748,23 +727,10 @@ class ComposedLinearOperator(LinearOperator):
             assert isinstance(out, Vector)
             assert out.space == self._codomain
 
-        ### 11.12.22, .dot(..., out=y) does not work as intended
-        #x = v
-        #for i in range(len(self._tmp_vectors)):
-        #    y = self._tmp_vectors[-1-i]
-        #    A = self._multiplicants[-1-i]
-        #    A.dot(x, out=y)
-        #    x = y
-
-        #A = self._multiplicants[0]
-        #return A.dot(x, out=out)
-        ### Update to version that does not make use of out:
         x = v.copy()
         for i in range(len(self._tmp_vectors)):
             y = self._tmp_vectors[-1-i]
             A = self._multiplicants[-1-i]
-            #y = A.dot(x)
-            #x = y
             A.dot(x, out=y)
             x = y
 
@@ -773,10 +739,7 @@ class ComposedLinearOperator(LinearOperator):
             A.dot(x, out=out)
         else:
             out = A.dot(x)
-        #A.dot(x, out=out)
-        #out = A.dot(x)
         return out
-        
 
 #===============================================================================
 class PowerLinearOperator(LinearOperator):
@@ -829,6 +792,12 @@ class PowerLinearOperator(LinearOperator):
     def factorial(self):
         return self._factorial
 
+    def toarray(self):
+        raise NotImplementedError('toarray() is not defined for PowerLinearOperators.')
+
+    def tosparse(self):
+        raise NotImplementedError('tosparse() is not defined for PowerLinearOperators.')
+
     def transpose(self):
         return PowerLinearOperator(domain=self._codomain, codomain=self._domain, A=self._operator.T, n=self._factorial)
 
@@ -841,13 +810,6 @@ class PowerLinearOperator(LinearOperator):
             for i in range(self._factorial):
                 self._operator.dot(v, out=out)
                 v = out.copy()
-            
-            # not at all optimal solution, should only work for now
-            #out *= 0
-            #out += v
-            #for i in range(self._factorial):
-            #    out = self._operator.dot(out)
-            #return out
         else:
             out = v.copy()
             for i in range(self._factorial):
@@ -861,45 +823,6 @@ class InverseLinearOperator(LinearOperator):
     vector space V.
 
     """
-    #def __new__(cls, linop, solver=None, **kwargs):
-
-    #    #cls._check_options(options)
-
-    #    assert solver is not None
-
-    #    if any( [solver == ('cg', 'pcg', 'bicg')[i] for i in range(len(('cg', 'pcg', 'bicg')))] ):
-    #        if solver == 'cg':
-    #            from psydac.linalg.solvers import ConjugateGradient
-    #            obj = ConjugateGradient(linop, solver='prevent_loop', **kwargs)
-    #        elif solver == 'pcg':
-    #            from psydac.linalg.solvers import PConjugateGradient
-    #            obj = PConjugateGradient(linop, solver='prevent_loop', **kwargs)
-    #        elif solver == 'bicg':
-    #            from psydac.linalg.solvers import BiConjugateGradient
-    #            obj = BiConjugateGradient(linop, solver='prevent_loop', **kwargs)
-    #        #else:
-    #        #    raise ValueError(f"Required solver '{solver}' not understood.")
-    #        return obj
-    #    elif solver == 'prevent_loop':
-    #        return super().__new__(cls)
-    #    else:
-    #        raise ValueError(f"Required solver '{solver}' not understood.")
-
-        #if solver is not None:
-        #    if solver == 'cg':
-        #        from psydac.linalg.solvers import ConjugateGradient
-        #        obj = ConjugateGradient(linop, solver=None, **kwargs)
-        #    elif solver == 'pcg':
-        #        from psydac.linalg.solvers import PConjugateGradient
-        #        obj = PConjugateGradient(linop, solver=None, **kwargs)
-        #    elif solver == 'bicg':
-        #        from psydac.linalg.solvers import BiConjugateGradient
-        #        obj = BiConjugateGradient(linop, solver=None, **kwargs)
-        #    else:
-        #        raise ValueError(f"Required solver '{solver}' not understood.")
-        #    return obj
-        #else:
-        #    return super().__new__(cls)
 
     @property
     def space(self):
@@ -925,6 +848,12 @@ class InverseLinearOperator(LinearOperator):
     def options(self):
         return self._options
 
+    def toarray(self):
+        raise NotImplementedError('toarray() is not defined for InverseLinearOperators.')
+
+    def tosparse(self):
+        raise NotImplementedError('tosparse() is not defined for InverseLinearOperators.')
+
     @abstractmethod
     def _update_options(self):
         pass
@@ -948,7 +877,6 @@ class InverseLinearOperator(LinearOperator):
         solver = self._solver
         kwargs = self._options
         return At.inverse(solver, **kwargs)
-        #return InverseLinearOperator(linop=self._linop.T, solver=self._solver, **self._options)
 
     def inverse(self, solver, **kwargs):
         return self._linop
