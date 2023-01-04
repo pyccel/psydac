@@ -249,8 +249,8 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
 #    we have two cases, the case where we have a geometry file,
 #    and the case where we have either an analytical mapping or without a mapping.
-#    We build the dictionary g_spaces for each interior domain, where it conatians the interiors as keys and the spaces as values,
-#    we then create the compatible spaces if needed with the suitable basis functions.
+#    We build the dictionary g_spaces for each interior domain, so that the interiors are the keys and the spaces are the values.
+#    Then we create the compatible spaces if needed with the suitable basis functions.
 
     comm                = domain_h.comm
     ldim                = V.ldim
