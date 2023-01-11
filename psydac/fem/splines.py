@@ -63,7 +63,7 @@ class SplineSpace( FemSpace ):
 
     """
     def __init__( self, degree, knots=None, grid=None, multiplicity=None, parent_multiplicity=None,
-                  periodic=False, dirichlet=(False, False), basis='B', pads=None ):
+                  periodic=False, dirichlet=(False, False), truncation=None, basis='B', pads=None ):
 
         if basis not in ['B', 'M']:
             raise ValueError(" only options for basis functions are B or M ")
@@ -85,10 +85,11 @@ class SplineSpace( FemSpace ):
 
         if knots is None:
             if multiplicity is None:multiplicity = 1
-            knots = make_knots( grid, degree, periodic, multiplicity )
+            knots = make_knots( grid, degree, periodic, multiplicity, truncation )
 
         if grid is None:
             grid = breakpoints(knots, degree)
+            #grid = np.linspace(0, 1, num=len(knots[degree+1:-degree-1]) + 1)
 
         indices = np.where(np.diff(knots[degree+1:-degree-1])>1e-15)[0]
 
@@ -111,6 +112,7 @@ class SplineSpace( FemSpace ):
             defect = 0
             if dirichlet[0]: defect += 1
             if dirichlet[1]: defect += 1
+            if truncation: defect += 1
             nbasis = len(knots) - degree - 1 - defect
 
         # Coefficients to convert B-splines to M-splines (if needed)
@@ -124,14 +126,15 @@ class SplineSpace( FemSpace ):
         self._pads          = pads or degree
         self._knots         = knots
         self._periodic      = periodic
+        self._truncation    = truncation
         self._multiplicity  = multiplicity
         self._dirichlet     = dirichlet
         self._basis         = basis
         self._nbasis        = nbasis
         self._breaks        = grid
         self._ncells        = len(grid) - 1
-        self._greville      = greville(knots, degree, periodic)
-        self._ext_greville  = greville(elevate_knots(knots, degree, periodic), degree+1, periodic)
+        self._greville      = greville(knots, degree, periodic, truncation)
+        self._ext_greville  = greville(elevate_knots(knots, degree, periodic), degree+1, periodic, truncation)
         self._scaling_array = scaling_array
 
         self._parent_multiplicity  = parent_multiplicity

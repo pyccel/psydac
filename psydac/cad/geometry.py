@@ -66,7 +66,7 @@ class Geometry( object ):
     #--------------------------------------------------------------------------
     # Option [1]: from a (domain, mappings) or a file
     #--------------------------------------------------------------------------
-    def __init__( self, domain=None, ncells=None, periodic=None, mappings=None,
+    def __init__( self, domain=None, ncells=None, periodic=None, truncation=None, mappings=None,
                   filename=None, comm=None ):
 
         # ... read the geometry if the filename is given
@@ -95,6 +95,7 @@ class Geometry( object ):
             self._pdim     = domain.dim # TODO must be given => only dim is  defined for a Domain
             self._ncells   = ncells
             self._periodic = periodic
+            self._truncation = truncation
             self._mappings = mappings
             self._cart     = None
             self._is_parallel = comm is not None

@@ -688,7 +688,7 @@ def breakpoints_p(knots: 'float[:]', degree: int, out: 'float[:]', tol: float = 
 
 
 # =============================================================================
-def greville_p(knots: 'float[:]', degree: int, periodic: bool, out:'float[:]'):
+def greville_p(knots: 'float[:]', degree: int, periodic: bool, truncation: int, out:'float[:]'):
     """
     Compute coordinates of all Greville points.
 
@@ -709,7 +709,13 @@ def greville_p(knots: 'float[:]', degree: int, periodic: bool, out:'float[:]'):
     """
     T = knots
     p = degree
-    n = len(T)-2*p-1 if periodic else len(T)-p-1
+    #n = len(T)-2*p-1 if periodic else len(T)-p-1
+    if periodic: 
+        n = len(T)-2*p-1
+    elif truncation == 0:
+        n = len(T)-p-1
+    else:
+        n = len(T)-p-2
 
     # Compute greville abscissas as average of p consecutive knot values
     if p == 0:
@@ -784,7 +790,7 @@ def elements_spans_p(knots: 'float[:]', degree: int, out: 'int[:]'):
 
 
 # =============================================================================
-def make_knots_p(breaks: 'float[:]', degree: int, periodic: bool, out: 'float[:]', multiplicity: int = 1):
+def make_knots_p(breaks: 'float[:]', degree: int, periodic: bool, out: 'float[:]', multiplicity: int = 1, truncation: int = 0):
     """
     Create spline knots from breakpoints, with appropriate boundary conditions.
     Let p be spline degree. If domain is periodic, knot sequence is extended
@@ -812,6 +818,7 @@ def make_knots_p(breaks: 'float[:]', degree: int, periodic: bool, out: 'float[:]
         It should be of the appropriate shape and dtype.
     """
     ncells = len(breaks) - 1
+
     for i in range(1, ncells):
         out[degree + 1  + (i - 1) * multiplicity:degree + 1 + i * multiplicity] = breaks[i]
 
@@ -824,9 +831,21 @@ def make_knots_p(breaks: 'float[:]', degree: int, periodic: bool, out: 'float[:]
         out[:degree] = breaks[ncells - degree:ncells] - period
         out[len(out) - degree:] = breaks[1:degree + 1] + period
     else:
-        out[0:degree + 1] = breaks[0]
-        out[len(out) - degree - 1:] = breaks[-1]
+        if truncation == 0:
+            out[0:degree + 1] = breaks[0]
+            out[len(out) - degree - 1:] = breaks[-1]
 
+        elif truncation == 1: #truncation on the right
+            period = breaks[-1]-breaks[0]
+            out[0:degree + 1] = breaks[0]
+            out[len(out) - degree:] = breaks[1:degree + 1] + period
+
+        elif truncation == -1:
+            period = breaks[-1]-breaks[0]
+            out[:degree] = breaks[ncells - degree:ncells] - period
+            out[len(out) - degree - 1:] = breaks[-1]       
+
+            
 
 # =============================================================================
 def elevate_knots_p(knots: 'float[:]', degree: int, periodic: bool, out: 'float[:]',
