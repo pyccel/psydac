@@ -425,8 +425,30 @@ class Parser(object):
         cmt          = [Comment(txt.rstrip().rstrip('&'))]
         endcmt       = [Comment('#$ omp end parallel')]
         return CodeBlock(cmt + body + endcmt)
+
     # ....................................................
     def _visit_DefNode(self, expr, **kwargs):
+        """ Convert the DefNode object to a FunctionDef and sort its arguments in the following order:
+            - 1D tests basis functions
+            - 1D trial basis functions (if present)
+            - 1D mapping basis functions (if present)
+            - Span of tests basis functions
+            - Span of mapping basis functions (if present)
+            - 1D quadrature points and weights
+            - Degrees of tests basis functions
+            - Degrees of trial basis functions (if present)
+            - Degrees of mapping basis functions (if present)
+            - Quadrature degrees in each dimension
+            - Length of ghost regions for global matrices/vectors (if present)
+            - Coefficient of mapping (if present)
+            - Global matrices/vectors
+            - 1D basis function of field space (if present)
+            - Span of field basis functions (if present)
+            - Degrees of field basis functions (if present)
+            - Length of ghost regions for field vectors (if present)
+            - Coefficient of field (if present)
+            - Constants (if present)
+            """
 
         args   = expr.arguments.copy()
         f_args = ()
@@ -472,7 +494,10 @@ class Parser(object):
             f_args     = (*f_basis, *f_span, *f_degrees, *f_pads, *f_coeffs)
 
 
-        args = [*tests_basis, *trial_basis, *map_basis, *g_span, *map_span, *g_quad, *lengths_tests.values(), *lengths_trials.values(), *map_degrees, *lengths, *g_pads, *map_coeffs]
+        args = [*tests_basis, *trial_basis, *map_basis,\
+                *g_span, *map_span, *g_quad,\
+                *lengths_tests.values(), *lengths_trials.values(),\
+                *map_degrees, *lengths, *g_pads, *map_coeffs]
 
         if mats:
             exprs     = [mat.expr for mat in mats]
