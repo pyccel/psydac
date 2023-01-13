@@ -84,7 +84,6 @@ class Geometry( object ):
             interior_names = sorted(domain.interior_names)
             mappings_keys  = sorted(list(mappings.keys()))
 
-            assert( interior_names == mappings_keys )
             # ...
 
             if periodic is None:
