@@ -6,7 +6,7 @@
 
 def stencil2coo_1d_C(A:'float64[:,:]', data:'float64[:]', rows:'int64[:]', cols:'int64[:]', nrl1:'int64', ncl1:'int64',
                      s1:'int64', nr1:'int64', nc1:'int64', dm1:'int64', cm1:'int64', p1:'int64', dp1:'int64'):
-    ind = 0
+    nnz = 0
     pp1 = cm1*p1
     for i1 in range(nrl1):
         I = s1+i1
@@ -14,15 +14,15 @@ def stencil2coo_1d_C(A:'float64[:,:]', data:'float64[:]', rows:'int64[:]', cols:
             value = A[i1+pp1,j1]
             if abs(value)<1e-15:continue
             J = ((I//cm1)*dm1+j1-dp1)%nc1
-            rows[ind] = I
-            cols[ind] = J
-            data[ind] = value
+            rows[nnz] = I
+            cols[nnz] = J
+            data[nnz] = value
             nnz += 1
 
     return nnz
 
 def stencil2coo_1d_F(A:'float64[:,:]', data:'float64[:]', rows:'int64[:]', cols:'int64[:]', nrl1:'int64', ncl1:'int64', s1:'int64', nr1:'int64', nc1:'int64', dm1:'int64', cm1:'int64', p1:'int64', dp1:'int64'):
-    ind = 0
+    nnz = 0
     pp1 = cm1*p1
     for i1 in range(nrl1):
         I = s1+i1
@@ -30,12 +30,12 @@ def stencil2coo_1d_F(A:'float64[:,:]', data:'float64[:]', rows:'int64[:]', cols:
             value = A[i1+pp1,j1]
             if abs(value)<1e-15:continue
             J = ((I//cm1)*dm1+j1-dp1)%nc1
-            rows[ind] = I
-            cols[ind] = J
-            data[ind] = value
-            ind += 1
+            rows[nnz] = I
+            cols[nnz] = J
+            data[nnz] = value
+            nnz += 1
 
-    return ind
+    return nnz
 
 def stencil2coo_2d_C(A:'float64[:,:,:,:]', data:'float64[:]', rows:'int64[:]', cols:'int64[:]',
                      nrl1:'int64', nrl2:'int64', ncl1:'int64', ncl2:'int64',
@@ -43,7 +43,7 @@ def stencil2coo_2d_C(A:'float64[:,:,:,:]', data:'float64[:]', rows:'int64[:]', c
                      nc1:'int64', nc2:'int64', dm1:'int64', dm2:'int64',
                      cm1:'int64', cm2:'int64', p1:'int64', p2:'int64',
                      dp1:'int64', dp2:'int64'):
-    ind = 0
+    nnz = 0
     pp1 = cm1*p1
     pp2 = cm2*p2
     for i1 in range(nrl1):
@@ -60,11 +60,11 @@ def stencil2coo_2d_C(A:'float64[:,:,:,:]', data:'float64[:]', rows:'int64[:]', c
 
                     J   = jj1*nc2 + jj2
 
-                    rows[ind] = I
-                    cols[ind] = J
-                    data[ind] = value
-                    ind += 1
-    return ind
+                    rows[nnz] = I
+                    cols[nnz] = J
+                    data[nnz] = value
+                    nnz += 1
+    return nnz
 
 def stencil2coo_2d_F(A:'float64[:,:,:,:]', data:'float64[:]', rows:'int64[:]', cols:'int64[:]',
                      nrl1:'int64', nrl2:'int64', ncl1:'int64', ncl2:'int64',
@@ -72,7 +72,7 @@ def stencil2coo_2d_F(A:'float64[:,:,:,:]', data:'float64[:]', rows:'int64[:]', c
                      nc1:'int64', nc2:'int64', dm1:'int64', dm2:'int64',
                      cm1:'int64', cm2:'int64', p1:'int64', p2:'int64',
                      dp1:'int64', dp2:'int64'):
-    ind = 0
+    nnz = 0
     pp1 = cm1*p1
     pp2 = cm2*p2
     for i1 in range(nrl1):
@@ -89,11 +89,11 @@ def stencil2coo_2d_F(A:'float64[:,:,:,:]', data:'float64[:]', rows:'int64[:]', c
 
                     J   = jj2*nc1 + jj1
 
-                    rows[ind] = I
-                    cols[ind] = J
-                    data[ind] = value
-                    ind += 1
-    return ind
+                    rows[nnz] = I
+                    cols[nnz] = J
+                    data[nnz] = value
+                    nnz += 1
+    return nnz
 
 def stencil2coo_3d_C(A:'float64[:,:,:,:,:,:]', data:'float64[:]', rows:'int64[:]', cols:'int64[:]',
                      nrl1:'int64', nrl2:'int64', nrl3:'int64', ncl1:'int64', ncl2:'int64', ncl3:'int64',
@@ -101,7 +101,7 @@ def stencil2coo_3d_C(A:'float64[:,:,:,:,:,:]', data:'float64[:]', rows:'int64[:]
                      nc1:'int64', nc2:'int64', nc3:'int64', dm1:'int64', dm2:'int64', dm3:'int64',
                      cm1:'int64', cm2:'int64', cm3:'int64', p1:'int64', p2:'int64', p3:'int64',
                      dp1:'int64', dp2:'int64', dp3:'int64'):
-    ind = 0
+    nnz = 0
     pp1 = cm1*p1
     pp2 = cm2*p2
     pp3 = cm3*p3
@@ -123,12 +123,12 @@ def stencil2coo_3d_C(A:'float64[:,:,:,:,:,:]', data:'float64[:]', rows:'int64[:]
 
                             J   = jj1*nc2*nc3 + jj2*nc3 + jj3
 
-                            rows[ind] = I
-                            cols[ind] = J
-                            data[ind] = value
-                            ind += 1
+                            rows[nnz] = I
+                            cols[nnz] = J
+                            data[nnz] = value
+                            nnz += 1
 
-    return ind
+    return nnz
 
 def stencil2coo_3d_F(A:'float64[:,:,:,:,:,:]', data:'float64[:]', rows:'int64[:]', cols:'int64[:]',
                      nrl1:'int64', nrl2:'int64', nrl3:'int64', ncl1:'int64', ncl2:'int64', ncl3:'int64',
@@ -136,7 +136,7 @@ def stencil2coo_3d_F(A:'float64[:,:,:,:,:,:]', data:'float64[:]', rows:'int64[:]
                      nc1:'int64', nc2:'int64', nc3:'int64', dm1:'int64', dm2:'int64', dm3:'int64',
                      cm1:'int64', cm2:'int64', cm3:'int64', p1:'int64', p2:'int64', p3:'int64',
                      dp1:'int64', dp2:'int64', dp3:'int64'):
-    ind = 0
+    nnz = 0
     pp1 = cm1*p1
     pp2 = cm2*p2
     pp3 = cm3*p3
@@ -158,8 +158,8 @@ def stencil2coo_3d_F(A:'float64[:,:,:,:,:,:]', data:'float64[:]', rows:'int64[:]
 
                             J   = jj3*nc1*nc2 + jj2*nc1 + jj1
 
-                            rows[ind] = I
-                            cols[ind] = J
-                            data[ind] = value
-                            ind += 1
-    return ind
+                            rows[nnz] = I
+                            cols[nnz] = J
+                            data[nnz] = value
+                            nnz += 1
+    return nnz
