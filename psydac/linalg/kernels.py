@@ -2,6 +2,8 @@
 
 #__all__ = ['stencil2coo_1d_C','stencil2coo_1d_F','stencil2coo_2d_C','stencil2coo_2d_F', 'stencil2coo_3d_C', 'stencil2coo_3d_F']
 
+#TODO avoid using The expensive modulo operator % in the non periodic case to make the methods faster
+
 def stencil2coo_1d_C(A:'float64[:,:]', data:'float64[:]', rows:'int64[:]', cols:'int64[:]', nrl1:'int64', ncl1:'int64',
                      s1:'int64', nr1:'int64', nc1:'int64', dm1:'int64', cm1:'int64', p1:'int64', dp1:'int64'):
     ind = 0
@@ -15,9 +17,9 @@ def stencil2coo_1d_C(A:'float64[:,:]', data:'float64[:]', rows:'int64[:]', cols:
             rows[ind] = I
             cols[ind] = J
             data[ind] = value
-            ind += 1
+            nnz += 1
 
-    return ind
+    return nnz
 
 def stencil2coo_1d_F(A:'float64[:,:]', data:'float64[:]', rows:'int64[:]', cols:'int64[:]', nrl1:'int64', ncl1:'int64', s1:'int64', nr1:'int64', nc1:'int64', dm1:'int64', cm1:'int64', p1:'int64', dp1:'int64'):
     ind = 0
