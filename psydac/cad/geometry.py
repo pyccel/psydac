@@ -99,7 +99,8 @@ class Geometry( object ):
             self._is_parallel = comm is not None
 
             if len(domain) == 1:
-                self._ddm = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm)
+                name = domain.name
+                self._ddm = DomainDecomposition(ncells[name], periodic[name], comm=comm)
             else:
                 ncells    = [ncells[itr.name] for itr in domain.interior]
                 periodic  = [periodic[itr.name] for itr in domain.interior]
@@ -125,9 +126,9 @@ class Geometry( object ):
             mapp   = Mapping('mapping_0', dim=2)
             domain = mapp(Square(name='Omega'))
 
-            mappings = {'Omega': mapping}
-            ncells   = {'Omega':mapping.space.domain_decomposition.ncells}
-            periodic = {'Omega':mapping.space.domain_decomposition.periods}
+            mappings = {domain.name: mapping}
+            ncells   = {domain.name:mapping.space.domain_decomposition.ncells}
+            periodic = {domain.name:mapping.space.domain_decomposition.periods}
 
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
