@@ -123,7 +123,9 @@ class Geometry( object ):
             raise NotImplementedError('')
 
         if mapping.ldim == 2:
-            domain = Square(name='Omega')
+            mapp   = Mapping('mapping_0', dim=2)
+            domain = mapp(Square(name='Omega'))
+
             mappings = {'Omega': mapping}
             ncells   = {'Omega':mapping.space.domain_decomposition.ncells}
             periodic = {'Omega':mapping.space.domain_decomposition.periods}
@@ -131,10 +133,11 @@ class Geometry( object ):
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
         elif mapping.ldim == 3:
-            domain = Cube(name='Omega')
-            mappings = {'Omega': mapping}
-            ncells   = {'Omega':mapping.space.domain_decomposition.ncells}
-            periodic = {'Omega':mapping.space.domain_decomposition.periods}
+            mapp   = Mapping('mapping_0', dim=2)
+            domain = mapp(Cube(name='Omega'))
+            mappings = {domain.name: mapping}
+            ncells   = {domain.name:mapping.space.domain_decomposition.ncells}
+            periodic = {domain.name:mapping.space.domain_decomposition.periods}
 
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
