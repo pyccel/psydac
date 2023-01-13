@@ -445,7 +445,7 @@ class IdentityOperator(LinearOperator):
             out += v
             return out
         else:
-            return v
+            return v.copy()
 
     def __matmul__(self, B):
         assert isinstance(B, (LinearOperator, Vector))
@@ -525,7 +525,9 @@ class ScaledLinearOperator(LinearOperator):
             out *= self._scalar
             return out
         else:
-            return self._operator.dot(v, out=out) * self._scalar
+            out = self._operator.dot(v)
+            out *= self._scalar
+            return out
 
 #===============================================================================
 class SumLinearOperator(LinearOperator):
