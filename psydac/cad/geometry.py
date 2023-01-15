@@ -133,7 +133,7 @@ class Geometry( object ):
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
         elif mapping.ldim == 3:
-            mapp   = Mapping('mapping_0', dim=2)
+            mapp   = Mapping('mapping_0', dim=3)
             domain = mapp(Cube(name='Omega'))
             mappings = {domain.name: mapping}
             ncells   = {domain.name:mapping.space.domain_decomposition.ncells}
