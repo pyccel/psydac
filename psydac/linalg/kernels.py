@@ -12,7 +12,7 @@ def stencil2coo_1d_C(A:'float64[:,:]', data:'float64[:]', rows:'int64[:]', cols:
         I = s1+i1
         for j1 in range(ncl1):
             value = A[i1+pp1,j1]
-            if abs(value)<1e-15:continue
+            if abs(value) == 0.0:continue
             J = ((I//cm1)*dm1+j1-dp1)%nc1
             rows[nnz] = I
             cols[nnz] = J
@@ -28,7 +28,7 @@ def stencil2coo_1d_F(A:'float64[:,:]', data:'float64[:]', rows:'int64[:]', cols:
         I = s1+i1
         for j1 in range(ncl1):
             value = A[i1+pp1,j1]
-            if abs(value)<1e-15:continue
+            if abs(value) == 0.0:continue
             J = ((I//cm1)*dm1+j1-dp1)%nc1
             rows[nnz] = I
             cols[nnz] = J
@@ -54,7 +54,7 @@ def stencil2coo_2d_C(A:'float64[:,:,:,:]', data:'float64[:]', rows:'int64[:]', c
             for j1 in range(ncl1):
                 for j2 in range(ncl2):
                     value = A[i1+pp1,i2+pp2,j1,j2]
-                    if abs(value)<1e-15:continue
+                    if abs(value) == 0.0:continue
                     jj1 = ((ii1//cm1)*dm1+j1-dp1)%nc1
                     jj2 = ((ii2//cm2)*dm2+j2-dp2)%nc2
 
@@ -83,7 +83,7 @@ def stencil2coo_2d_F(A:'float64[:,:,:,:]', data:'float64[:]', rows:'int64[:]', c
             for j1 in range(ncl1):
                 for j2 in range(ncl2):
                     value = A[i1+pp1,i2+pp2,j1,j2]
-                    if abs(value)<1e-15:continue
+                    if abs(value) == 0.0:continue
                     jj1 = ((ii1//cm1)*dm1+j1-dp1)%nc1
                     jj2 = ((ii2//cm2)*dm2+j2-dp2)%nc2
 
@@ -116,7 +116,7 @@ def stencil2coo_3d_C(A:'float64[:,:,:,:,:,:]', data:'float64[:]', rows:'int64[:]
                     for j2 in range(ncl2):
                         for j3 in range(ncl3):
                             value = A[i1+pp1,i2+pp2,i3+pp3,j1,j2,j3]
-                            if abs(value)<1e-15:continue
+                            if abs(value) == 0.0:continue
                             jj1 = ((ii1//cm1)*dm1+j1-dp1)%nc1
                             jj2 = ((ii2//cm2)*dm2+j2-dp2)%nc2
                             jj3 = ((ii3//cm3)*dm3+j3-dp3)%nc3
@@ -151,7 +151,7 @@ def stencil2coo_3d_F(A:'float64[:,:,:,:,:,:]', data:'float64[:]', rows:'int64[:]
                     for j2 in range(ncl2):
                         for j3 in range(ncl3):
                             value = A[i1+pp1,i2+pp2,i3+pp3,j1,j2,j3]
-                            if abs(value)<1e-15:continue
+                            if abs(value) == 0.0:continue
                             jj1 = ((ii1//cm1)*dm1+j1-dp1)%nc1
                             jj2 = ((ii2//cm2)*dm2+j2-dp2)%nc2
                             jj3 = ((ii3//cm3)*dm3+j3-dp3)%nc3
