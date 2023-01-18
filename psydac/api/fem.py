@@ -389,8 +389,8 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_grid  = QuadratureGrid( trial_space)
             self._grid  = (test_grid,)
         #...
-        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=test_grid, ext=test_ext)
-        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=trial_grid, ext=trial_ext)
+        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=test_grid)
+        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=trial_grid)
 
         self.allocate_matrices(linalg_backend)
         with_openmp  = (assembly_backend['name'] == 'pyccel' and assembly_backend['openmp']) if assembly_backend else False
@@ -440,6 +440,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
             for key in self._free_args:
                 v = kwargs[key]
+
                 if len(self.domain)>1 and isinstance(v, FemField) and v.space.is_product:
                     i,j = self.get_space_indices_from_target(self.domain, self.target)
                     assert i==j
@@ -459,7 +460,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 else:
                     consts += (v, )
 
-            args = (*self.args, *consts, *basis, *spans, *degrees, *pads, *coeffs)
+            args = (*self.args, *basis, *spans, *degrees, *pads, *coeffs, *consts)
 
         else:
             args = self._args
@@ -676,6 +677,9 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         else:
             ncells = tuple(max(i,j) for i,j in zip(test_fem_space.ncells, trial_fem_space.ncells))
+            i=0
+            j=0
+            #else so initialisation causing bug on line 682 
 
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # case of system of equations
 
@@ -962,7 +966,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         grid             = QuadratureGrid( test_space, axis=axis, ext=ext )
         self._grid       = grid
-        self._test_basis = BasisValues( test_space, nderiv = self.max_nderiv, grid=grid, ext=ext)
+        self._test_basis = BasisValues( test_space, nderiv = self.max_nderiv, grid=grid)
 
         self.allocate_matrices()
 
@@ -1024,7 +1028,7 @@ class DiscreteLinearForm(BasicDiscrete):
                 else:
                     consts += (v, )
 
-            args = (*self.args, *consts, *basis, *spans, *degrees, *pads, *coeffs)
+            args = (*self.args, *basis, *spans, *degrees, *pads, *coeffs, *consts)
 
         else:
             args = self._args
@@ -1305,7 +1309,7 @@ class DiscreteFunctional(BasicDiscrete):
         self._comm       = domain_h.comm
         grid             = QuadratureGrid( self.space,  axis=axis, ext=ext)
         self._grid       = grid
-        self._test_basis = BasisValues( self.space, nderiv = self.max_nderiv, trial=True, grid=grid, ext=ext)
+        self._test_basis = BasisValues( self.space, nderiv = self.max_nderiv, trial=True, grid=grid)
 
         self._args = self.construct_arguments()
 

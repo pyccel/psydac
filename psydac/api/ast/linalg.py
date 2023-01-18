@@ -235,6 +235,7 @@ class LinearOperatorDot(SplBasic):
                     body = [For(i,j, body)]
 
                 body.insert(0,Assign(v, 0.0))
+                print(diag_keys, it, key)
                 if diag_keys:
                     body.append(Assign(v3,v))
                 else:
@@ -248,7 +249,7 @@ class LinearOperatorDot(SplBasic):
                     body = [For(i,j, body)]
 
                 if openmp:
-                    pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
+                    pragma = "#$omp for schedule(static) collapse({}) nowait".format(str(ndim))
                     body   = [Comment(pragma)] + body
 
                 nrowscopy_k = list(nrows_k).copy()
@@ -303,7 +304,7 @@ class LinearOperatorDot(SplBasic):
                         for_body = [For(i,j, for_body)]
 
                     if openmp:
-                        pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
+                        pragma = "#$omp for schedule(static) collapse({}) nowait".format(str(ndim))
                         for_body = [Comment(pragma)] + for_body
 
                     body += for_body
@@ -352,7 +353,7 @@ class LinearOperatorDot(SplBasic):
         # ...
         if folder is None:
             basedir = os.getcwd()
-            folder = PSYDAC_DEFAULT_FOLDER
+            folder = PSYDAC_DEFAULT_FOLDER['name']
             folder = os.path.join( basedir, folder )
 
             # ... add __init__ to all directories to be able to
@@ -427,7 +428,6 @@ class LinearOperatorDot(SplBasic):
                        bcast        = True,
                        folder       = _PYCCEL_FOLDER,
                        verbose      = verbose)
-
         return fmod
 
 #==============================================================================
@@ -498,7 +498,7 @@ class TransposeOperator(SplBasic):
         # ...
         if folder is None:
             basedir = os.getcwd()
-            folder = PSYDAC_DEFAULT_FOLDER
+            folder = PSYDAC_DEFAULT_FOLDER['name']
             folder = os.path.join( basedir, folder )
 
             # ... add __init__ to all directories to be able to

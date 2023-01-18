@@ -352,8 +352,8 @@ class AST(object):
             fields              = tuple(i for i in atoms if i not in tests+trials)
             is_broken           = spaces[1].symbolic_space.is_broken
             quad_order          = get_quad_order(spaces[1])
-            tests_degrees       = get_degrees(tests, spaces[0])
-            trials_degrees      = get_degrees(trials, spaces[1])
+            tests_degrees       = get_degrees(tests, spaces[1])
+            trials_degrees      = get_degrees(trials, spaces[0])
             multiplicity_tests  = get_multiplicity(tests, spaces[1].vector_space)
             multiplicity_trials = get_multiplicity(trials, spaces[0].vector_space)
             is_parallel         = spaces[1].vector_space.parallel
