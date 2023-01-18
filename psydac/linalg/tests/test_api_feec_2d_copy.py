@@ -4,6 +4,18 @@
 import pytest
 
 #==============================================================================
+# TIME STEPPING METHOD
+#==============================================================================
+
+#    Faraday
+#    Exactly integrate the semi-discrete Faraday equation over one time-step:
+#    b_new = b - ∆t D1 e
+
+#    Amperè
+#    Exactly integrate the semi-discrete Amperè equation over one time-step:
+#    e_new = e - ∆t (M1^{-1} D1^T M2) b
+
+#==============================================================================
 # ANALYTICAL SOLUTION
 #==============================================================================
 class CavitySolution:
@@ -262,7 +274,6 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     M2 = a2_h.assemble()
 
     # Differential operators
-    #D0, D1 = derham_h.derivatives_as_operators
     D0, D1 = derham_h.derivatives_as_matrices
 
     # Discretize and assemble penalization matrix
@@ -271,7 +282,7 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
         M1_bc   = a1_bc_h.assemble()
 
     # Transpose of derivative matrix
-    #D1_T = D1.T
+    D1_T = D1.T
 
     # Projectors
     P0, P1, P2 = derham_h.projectors(nquads=[degree+2, degree+2])
@@ -429,10 +440,11 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
     if periodic:
         M1_inv = M1.inverse('cg', **kwargs)
+        step_ampere_2d = dt*(M1_inv@(D1_T)@M2)
     else:
-        M1_inv = (M1+M1_bc).inverse('pcg', pc='jacobi', **kwargs)
+        M1_M1_bc_inv = (M1+M1_bc).inverse('pcg', pc='jacobi', **kwargs)
+        step_ampere_2d = dt*(M1_M1_bc_inv@(D1_T)@M2)
 
-    step_ampere_2d = dt*(M1_inv@(D1.T)@M2)
     half_step_faraday_2d = (dt/2)*D1
 
     # Time loop
