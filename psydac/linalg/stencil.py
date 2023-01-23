@@ -284,9 +284,9 @@ class StencilVector( Vector ):
         Space to which the new vector belongs.
 
     """
-    def __init__( self, V ):
+    def __init__(self, V):
 
-        assert isinstance( V, StencilVectorSpace )
+        assert isinstance(V, StencilVectorSpace)
 
         self._space          = V
         self._sizes          = V.shape
@@ -308,20 +308,22 @@ class StencilVector( Vector ):
         # TODO: distinguish between different directions
         self._sync  = False
 
+        print(f"The object {repr(self)} was created.")
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
     @property
-    def space( self ):
+    def space(self):
         return self._space
 
     #...
     @property
-    def dtype( self ):
+    def dtype(self):
         return self.space.dtype
 
     #...
-    def dot( self, v ):
+    def dot(self, v):
 
         assert isinstance( v, StencilVector )
         assert v._space is self._space
@@ -343,8 +345,8 @@ class StencilVector( Vector ):
         return np.dot(v1[index].flat, v2[index].flat)
 
     #...
-    def copy( self ):
-        w = StencilVector( self._space )
+    def copy(self, out=None):
+        w = out or StencilVector( self._space )
         np.copyto(w._data, self._data, casting='no')
         for axis, ext in self._space.interfaces:
             np.copyto(w._interface_data[axis, ext], self._interface_data[axis, ext], casting='no')
@@ -352,7 +354,7 @@ class StencilVector( Vector ):
         return w
 
     #...
-    def __neg__( self ):
+    def __neg__(self):
         w = StencilVector( self._space )
         np.negative(self._data, out=w._data)
         for axis, ext in self._space.interfaces:
@@ -361,7 +363,7 @@ class StencilVector( Vector ):
         return w
 
     #...
-    def __mul__( self, a ):
+    def __mul__(self, a):
         w = StencilVector( self._space )
         np.multiply(self._data, a, out=w._data)
         for axis, ext in self._space.interfaces:
@@ -370,7 +372,7 @@ class StencilVector( Vector ):
         return w
 
     #...
-    def __rmul__( self, a ):
+    def __rmul__(self, a):
         w = StencilVector( self._space )
         np.multiply(a, self._data, out=w._data)
         for axis, ext in self._space.interfaces:
@@ -379,7 +381,7 @@ class StencilVector( Vector ):
         return w
 
     #...
-    def __add__( self, v ):
+    def __add__(self, v):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
         w = StencilVector( self._space )
@@ -390,7 +392,7 @@ class StencilVector( Vector ):
         return w
 
     #...
-    def __sub__( self, v ):
+    def __sub__(self, v):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
         w = StencilVector( self._space )
@@ -401,14 +403,14 @@ class StencilVector( Vector ):
         return w
 
     #...
-    def __imul__( self, a ):
+    def __imul__(self, a):
         self._data *= a
         for axis, ext in self._space.interfaces:
             self._interface_data[axis, ext] *= a
         return self
 
     #...
-    def __iadd__( self, v ):
+    def __iadd__(self, v):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
         self._data += v._data
@@ -418,7 +420,7 @@ class StencilVector( Vector ):
         return self
 
     #...
-    def __isub__( self, v ):
+    def __isub__(self, v):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
         self._data -= v._data
@@ -455,7 +457,7 @@ class StencilVector( Vector ):
         return txt
 
     # ...
-    def toarray( self, *, order='C', with_pads=False ):
+    def toarray(self, *, order='C', with_pads=False):
         """
         Return a numpy 1D array corresponding to the given StencilVector,
         with or without pads.
@@ -487,14 +489,14 @@ class StencilVector( Vector ):
         return self.toarray_local(order=order)
 
     # ...
-    def toarray_local( self , *, order='C'):
+    def toarray_local(self , *, order='C'):
         """ return the local array without the padding"""
 
         idx = tuple( slice(m*p,-m*p) for p,m in zip(self.pads, self.space.shifts) )
         return self._data[idx].flatten( order=order)
 
     # ...
-    def _toarray_parallel_no_pads( self, order='C' ):
+    def _toarray_parallel_no_pads(self, order='C'):
         a         = np.zeros( self.space.npts )
         idx_from  = tuple( slice(m*p,-m*p) for p,m in zip(self.pads, self.space.shifts) )
         idx_to    = tuple( slice(s,e+1) for s,e in zip(self.starts,self.ends) )
@@ -502,7 +504,7 @@ class StencilVector( Vector ):
         return a.flatten( order=order)
 
     # ...
-    def _toarray_parallel_with_pads( self, order='C' ):
+    def _toarray_parallel_with_pads(self, order='C'):
 
         pads = [m*p for m,p in zip(self.space.shifts, self.pads)]
         # Step 0: create extended n-dimensional array with zero values
@@ -558,7 +560,7 @@ class StencilVector( Vector ):
         # Step 4: return flattened array
         return out.flatten( order=order)
 
-    def topetsc( self ):
+    def topetsc(self):
         """ Convert to petsc data structure.
         """
         from psydac.linalg.topetsc import vec_topetsc
@@ -567,29 +569,29 @@ class StencilVector( Vector ):
 
     # ...
     def __getitem__(self, key):
-        index = self._getindex( key )
+        index = self._getindex(key)
         return self._data[index]
 
     # ...
     def __setitem__(self, key, value):
-        index = self._getindex( key )
+        index = self._getindex(key)
         self._data[index] = value
 
     # ...
     @property
-    def ghost_regions_in_sync( self ):
+    def ghost_regions_in_sync(self):
         return self._sync
 
     # ...
     # NOTE: this property must be set collectively
     @ghost_regions_in_sync.setter
-    def ghost_regions_in_sync( self, value ):
-        assert isinstance( value, bool )
+    def ghost_regions_in_sync(self, value):
+        assert isinstance(value, bool)
         self._sync = value
 
     # ...
     # TODO: maybe change name to 'exchange'
-    def update_ghost_regions( self ):
+    def update_ghost_regions(self):
         """
         Update ghost regions before performing non-local access to vector
         elements (e.g. in matrix-vector product).
@@ -630,10 +632,10 @@ class StencilVector( Vector ):
         self._sync = True
 
     # ...
-    def _update_ghost_regions_serial( self ):
+    def _update_ghost_regions_serial(self):
 
         ndim = self._space.ndim
-        for direction in range( ndim ):
+        for direction in range(ndim):
             periodic = self._space.periods[direction]
             p        = self._space.pads   [direction]*self._space.shifts[direction]
 
@@ -661,7 +663,7 @@ class StencilVector( Vector ):
                 self._data[idx_ghost] = 0
 
     # ...
-    def exchange_assembly_data( self ):
+    def exchange_assembly_data(self):
         """
         Exchange assembly data.
         """
@@ -686,7 +688,7 @@ class StencilVector( Vector ):
             idx_from = tuple( idx_front + [ slice(0,m*p)] + idx_back )
             self._data[idx_from] = 0.
     # ...
-    def _exchange_assembly_data_serial( self ):
+    def _exchange_assembly_data_serial(self):
 
         ndim = self._space.ndim
         for direction in range(ndim):
@@ -707,7 +709,7 @@ class StencilVector( Vector ):
     #--------------------------------------
     # Private methods
     #--------------------------------------
-    def _getindex( self, key ):
+    def _getindex(self, key):
 
         # TODO: check if we should ignore padding elements
 

@@ -70,9 +70,6 @@ class Vector(ABC):
     def dtype(self):
         return self.space.dtype
 
-    def __init__(self):
-        print(f"Create object")
-
     def dot(self, other):
         """
         Evaluate the scalar product with another vector of the same space.
@@ -95,7 +92,7 @@ class Vector(ABC):
         """ Convert to Numpy 1D array. """
 
     @abstractmethod
-    def copy(self):
+    def copy(self, out=None):
         pass
 
     @abstractmethod
@@ -277,7 +274,8 @@ class LinearOperator(ABC):
 
     def idot(self, v, out):
         """
-        Overwrites the vector out, element of codomain, by adding self evaluated at v.
+        Implements out += self @ v with a temporary.
+        Subclasses should provide a implementation without a temporary.
 
         """
         assert isinstance(v, Vector)
@@ -729,7 +727,7 @@ class ComposedLinearOperator(LinearOperator):
             assert isinstance(out, Vector)
             assert out.space == self._codomain
 
-        x = v.copy()
+        x = v
         for i in range(len(self._tmp_vectors)):
             y = self._tmp_vectors[-1-i]
             A = self._multiplicants[-1-i]
@@ -884,7 +882,7 @@ class InverseLinearOperator(LinearOperator):
         return self._linop
 
     @staticmethod
-    def jacobi(A, b):
+    def jacobi(A, b):#, out=None):
         """
         Jacobi preconditioner.
         ----------
@@ -919,6 +917,17 @@ class InverseLinearOperator(LinearOperator):
         V = b.space
         i = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
         ii = i + (0,) * V.ndim
+
+        #if out is not None:
+        #    b.copy(out=out)
+        #    out[i] /= A[ii]
+        #    out.update_ghost_regions()
+        #else:
+        #    out = b.copy()
+        #    out[i] /= A[ii]
+        #    out.update_ghost_regions()
+
+        #return out
 
         x = b.copy()
         x[i] /= A[ii]

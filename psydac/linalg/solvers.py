@@ -30,6 +30,8 @@ class ConjugateGradient(InverseLinearOperator):
         self._verbose = verbose
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
         self._check_options(**self._options)
+        self._tmps = {"v":linop.domain.zeros(), "r":linop.codomain.zeros(), "p":linop.codomain.zeros(), 
+                      "lp":linop.codomain.zeros(), "lv":linop.domain.zeros()}
 
     def _check_options(self, **kwargs):
         keys = ('x0', 'tol', 'maxiter', 'verbose')
@@ -121,7 +123,7 @@ class ConjugateGradient(InverseLinearOperator):
             assert out.space == self._domain
             out *= 0
             if x0 is None:
-                x  = out
+                x = out
             else:
                 assert( x0.shape == (n,) )
                 out += x0
@@ -134,11 +136,20 @@ class ConjugateGradient(InverseLinearOperator):
                 assert( x0.shape == (n,) )
                 x = x0.copy()
 
+        # Extract local storage
+        v = self._tmps["v"]
+        r = self._tmps["r"]
+        p = self._tmps["p"]
+        # Not strictly needed by the conjugate gradient, but necessary to avoid temporaries
+        lp = self._tmps["lp"]
+        lv = self._tmps["lv"]
+
         # First values
-        v  = A.dot(x)
-        r  = b - v
+        A.dot(x, out=v) # v = neccessary?
+        b.copy(out=r)
+        r -= v
         am = r.dot( r )
-        p  = r.copy()
+        r.copy(out=p)
 
         tol_sqr = tol**2
 
@@ -159,8 +170,12 @@ class ConjugateGradient(InverseLinearOperator):
 
             v   = A.dot(p, out=v)
             l   = am / v.dot( p )
-            x  += l*p
-            r  -= l*v
+            p.copy(out=lp)
+            lp *= l
+            x  += lp # this was x += l*p
+            v.copy(out=lv)
+            lv *= l
+            r  -= lv # this was r -= l*v
             am1 = r.dot( r )
             p  *= (am1/am)
             p  += r
@@ -202,6 +217,8 @@ class PConjugateGradient(InverseLinearOperator):
         self._verbose = verbose
         self._options = {"pc": self._pc, "x0": self._x0, "tol": self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
         self._check_options(**self._options)
+        self._tmps = {"v":linop.domain.zeros(), "r":linop.codomain.zeros(), "p":linop.codomain.zeros(), 
+                      "s":linop.codomain.zeros(), "lp":linop.codomain.zeros(), "lv":linop.domain.zeros()}
 
     def _check_options(self, **kwargs):
         keys = ('pc', 'x0', 'tol', 'maxiter', 'verbose')
@@ -306,7 +323,7 @@ class PConjugateGradient(InverseLinearOperator):
         # Preconditioner
         assert pc is not None
         if pc == 'jacobi':
-            psolve = lambda r: InverseLinearOperator.jacobi(A, r)
+            psolve = lambda r: InverseLinearOperator.jacobi(A, r)#, out=out)
         elif pc == 'weighted_jacobi':
             psolve = lambda r: InverseLinearOperator.weighted_jacobi(A, r) # allows for further specification not callable like this!
         #elif isinstance(pc, str):
@@ -319,14 +336,25 @@ class PConjugateGradient(InverseLinearOperator):
         #elif hasattr(pc, '__call__'):
         #    psolve = lambda r: pc(A, r)
 
+        # Extract local storage
+        v = self._tmps["v"]
+        r = self._tmps["r"]
+        p = self._tmps["p"]
+        s = self._tmps["s"]
+        # Not strictly needed by the conjugate gradient, but necessary to avoid temporaries
+        lp = self._tmps["lp"]
+        lv = self._tmps["lv"]
+
         # First values
-        v = A.dot(x)
-        r = b - v
+        A.dot(x, out=v)
+        b.copy(out=r)
+        r -= v
         nrmr_sqr = r.dot(r)
 
         s  = psolve(r)
+        #psolve(r, out=s)
         am = s.dot(r)
-        p  = s.copy()
+        s.copy(out=p)
 
         tol_sqr = tol**2
 
@@ -347,10 +375,15 @@ class PConjugateGradient(InverseLinearOperator):
 
             v  = A.dot(p, out=v)
             l  = am / v.dot(p)
-            x += l*p
-            r -= l*v
+            p.copy(out=lp)
+            lp *= l
+            x  += lp # this was x += l*p
+            v.copy(out=lv)
+            lv *= l
+            r  -= lv # this was r -= l*v
 
             nrmr_sqr = r.dot(r)
+            #psolve(r, out=s)
             s = psolve(r)
 
             am1 = s.dot(r)

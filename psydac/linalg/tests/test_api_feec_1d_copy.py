@@ -3,17 +3,17 @@
 
 import pytest
 
-#==============================================================================
-# TIME STEPPING METHOD
-#==============================================================================
+"""
+    TIME STEPPING METHOD
 
-#    Faraday
-#    Exactly integrate the semi-discrete Faraday equation over one time-step:
-#    b_new = b - ∆t D0 e
+    Faraday
+    Exactly integrate the semi-discrete Faraday equation over one time-step:
+    b_new = b - ∆t D0 e
 
-#    Amperè
-#    Exactly integrate the semi-discrete Amperè equation over one time-step:
-#    e_new = e + ∆t (M0^{-1} D0^T M1) b
+    Amperè
+    Exactly integrate the semi-discrete Amperè equation over one time-step:
+    e_new = e + ∆t (M0^{-1} D0^T M1) b
+"""
 
 #==============================================================================
 # VISUALIZATION
@@ -203,21 +203,34 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Scalar diagnostics setup
     #--------------------------------------------------------------------------
 
-    # Energy of exact solution
-    def exact_energies(t, E_ex, B_ex):
-        """ Compute electric & magnetic energies of exact solution.
-        """
-        We = 0.5 * quad(lambda x: E_ex(t, x)**2, xmin, xmax)[0]
-        Wb = 0.5 * quad(lambda x: B_ex(t, x)**2, xmin, xmax)[0]
-        return (We, Wb)
+    class Diagnostics:
 
-    # Energy of numerical solution
-    def discrete_energies(e, b):
-        """ Compute electric & magnetic energies of numerical solution.
-        """
-        We = 0.5 * M0.dot(e).dot(e)
-        Wb = 0.5 * M1.dot(b).dot(b)
-        return (We, Wb)
+        def __init__(self, E_ex, B_ex, M0, M1):
+            self._E_ex = E_ex
+            self._B_ex = B_ex
+            self._M0 = M0
+            self._M1 = M1
+            self._tmp0 = None
+            self._tmp1 = None
+
+        # Energy of exact solution
+        def exact_energies(self, t):
+            """ Compute electric & magnetic energies of exact solution.
+            """
+            We = 0.5 * quad(lambda x: self._E_ex(t, x)**2, xmin, xmax)[0]
+            Wb = 0.5 * quad(lambda x: self._B_ex(t, x)**2, xmin, xmax)[0]
+            return (We, Wb)
+
+        # Energy of numerical solution
+        def discrete_energies(self, e, b):
+            """ Compute electric & magnetic energies of numerical solution.
+            """
+            # Why does one need "self._tmp0 = "?
+            self._tmp0 = self._M0.dot(e, out=self._tmp0)
+            self._tmp1 = self._M1.dot(b, out=self._tmp1)
+            We = 0.5 * self._tmp0.dot(e)
+            Wb = 0.5 * self._tmp1.dot(b)
+            return (We, Wb)
 
     # Scalar diagnostics:
     diagnostics_ex  = {'time': [], 'electric_energy': [], 'magnetic_energy': []}
@@ -278,14 +291,16 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Prepare diagnostics
     if diagnostics_interval:
 
+        diag = Diagnostics(E_ex, B_ex, M0, M1)
+
         # Exact energy at t=0
-        We_ex, Wb_ex = exact_energies(t, E_ex, B_ex)
+        We_ex, Wb_ex = diag.exact_energies(t)
         diagnostics_ex['time'].append(t)
         diagnostics_ex['electric_energy'].append(We_ex)
         diagnostics_ex['magnetic_energy'].append(Wb_ex)
 
         # Discrete energy at t=0
-        We_num, Wb_num = discrete_energies(e, b)
+        We_num, Wb_num = diag.discrete_energies(e, b)
         diagnostics_num['time'].append(t)
         diagnostics_num['electric_energy'].append(We_num)
         diagnostics_num['magnetic_energy'].append(Wb_num)
@@ -307,12 +322,10 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
     if periodic:
         M0_inv = M0.inverse('cg', **kwargs)
-        half_step_faraday_1d = (dt/2) * D0
         step_ampere_1d = dt * ( M0_inv @ D0_T @ M1 )
 
     elif bc_mode == 'strong':
         M0_dir_inv = M0_dir.inverse('cg', **kwargs)
-        half_step_faraday_1d = (dt/2) * D0
         step_ampere_1d = dt * ( M0_dir_inv @ D0_T_dir @ M1 )
 
     elif bc_mode == 'penalization':
@@ -321,15 +334,22 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
     half_step_faraday_1d = (dt/2) * D0
 
+    de = derham_h.V0.vector_space.zeros()
+    db = derham_h.V1.vector_space.zeros()
+
     # Time loop
     for i in range(nsteps):
 
         # TODO: allow for high-order splitting
 
         # Strang splitting, 2nd order
-        b -= half_step_faraday_1d @ e
-        e += step_ampere_1d @ b
-        b -= half_step_faraday_1d @ e
+        b -= half_step_faraday_1d.dot(e, out=db)
+        e +=       step_ampere_1d.dot(b, out=de)
+        b -= half_step_faraday_1d.dot(e, out=db)
+        
+        #b -= half_step_faraday_1d @ e
+        #e +=       step_ampere_1d @ b
+        #b -= half_step_faraday_1d @ e
 
         t += dt
 
@@ -348,13 +368,13 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         if diagnostics_interval and i % diagnostics_interval == 0:
 
             # Update exact diagnostics
-            We_ex, Wb_ex = exact_energies(t, E_ex, B_ex)
+            We_ex, Wb_ex = diag.exact_energies(t)
             diagnostics_ex['time'].append(t)
             diagnostics_ex['electric_energy'].append(We_ex)
             diagnostics_ex['magnetic_energy'].append(Wb_ex)
 
             # Update numerical diagnostics
-            We_num, Wb_num = discrete_energies(e, b)
+            We_num, Wb_num = diag.discrete_energies(e, b)
             diagnostics_num['time'].append(t)
             diagnostics_num['electric_energy'].append(We_num)
             diagnostics_num['magnetic_energy'].append(Wb_num)

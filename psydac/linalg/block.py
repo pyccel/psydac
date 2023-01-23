@@ -211,14 +211,15 @@ class BlockVector( Vector ):
 
     #...
     def dot( self, v ):
-
         assert isinstance( v, BlockVector )
         assert v._space is self._space
         return sum( b1.dot( b2 ) for b1,b2 in zip( self._blocks, v._blocks ) )
 
     #...
-    def copy( self ):
-        w = BlockVector( self._space, [b.copy() for b in self._blocks] )
+    def copy( self, out=None ):
+        w = out or BlockVector( self._space )#, [b.copy() for b in self._blocks] )
+        for n, b in enumerate(self._blocks):
+            b.copy(out=w[n])
         w._sync = self._sync
         return w
 
