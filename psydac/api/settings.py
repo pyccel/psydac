@@ -7,7 +7,7 @@ pyccel_legacy  = pyccel_version < (1, 3, 0)
 # ...
 
 
-PSYDAC_DEFAULT_FOLDER = '__psydac__'
+PSYDAC_DEFAULT_FOLDER = {'name':'__psydac__'}
 
 # ... defining PSYDAC backends
 PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python', 'openmp':False}

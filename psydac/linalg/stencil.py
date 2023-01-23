@@ -14,6 +14,7 @@ from mpi4py       import MPI
 from psydac.linalg.basic   import VectorSpace, Vector, Matrix, LinearOperator
 from psydac.ddm.cart       import find_mpi_type, CartDecomposition, InterfaceCartDecomposition
 from psydac.ddm.utilities  import get_data_exchanger
+from .kernels              import *
 
 __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix']
 
@@ -1350,43 +1351,34 @@ class StencilMatrix( Matrix ):
         dm    = self._domain.shifts
         cm    = self._codomain.shifts
 
-        ravel_multi_index = np.ravel_multi_index
+        pp = [np.int64(compute_diag_len(p,mj,mi)-(p+1)) for p,mi,mj in zip(self._pads, cm, dm)]
 
-        # COO storage
-        rows = []
-        cols = []
-        data = []
-
-        pp = [compute_diag_len(p,mj,mi)-(p+1) for p,mi,mj in zip(self._pads, cm, dm)]
         # Range of data owned by local process (no ghost regions)
         local = tuple( [slice(mi*p,-mi*p) for p,mi in zip(cpads, cm)] + [slice(None)] * nd )
+        size  = self._data[local].size
 
-        for (index,value) in np.ndenumerate( self._data[local] ):
+        # COO storage
+        rows = np.zeros(size, dtype='int64')
+        cols = np.zeros(size, dtype='int64')
+        data = np.zeros(size, dtype=self.dtype)
+        nrl = [np.int64(e-s+1) for s,e in zip(self.codomain.starts, self.codomain.ends)]
+        ncl = [np.int64(i) for i in self._data.shape[nd:]]
+        ss = [np.int64(i) for i in ss]
+        nr = [np.int64(i) for i in nr]
+        nc = [np.int64(i) for i in nc]
+        dm = [np.int64(i) for i in dm]
+        cm = [np.int64(i) for i in cm]
+        cpads = [np.int64(i) for i in cpads]
+        pp = [np.int64(i) for i in pp]
 
-            # index = [i1-s1, i2-s2, ..., p1+j1-i1, p2+j2-i2, ...]
+        func        = 'stencil2coo_{dim}d_{order}'.format(dim=nd, order=order)
+        stencil2coo = eval(func)
 
-            xx = index[:nd]  # x=i-s
-            ll = index[nd:]  # l=p+k
-
-            ii = [s+x for s,x in zip(ss,xx)]
-
-            jj = [((i//mi)*mj+l-p)%n for (i,mi,mj,l,n,p) in zip(ii,cm,dm,ll,nc,pp)]
-
-            I = ravel_multi_index( ii, dims=nr,  order=order )
-            J = ravel_multi_index( jj, dims=nc,  order=order )
-
-            rows.append( I )
-            cols.append( J )
-            data.append( value )
-
+        ind = stencil2coo(self._data, data, rows, cols, *nrl, *ncl, *ss, *nr, *nc, *dm, *cm, *cpads, *pp)
         M = coo_matrix(
-                (data,(rows,cols)),
+                (data[:ind],(rows[:ind],cols[:ind])),
                 shape = [np.prod(nr),np.prod(nc)],
-                dtype = self._domain.dtype
-        )
-
-        M.eliminate_zeros()
-
+                dtype = self.dtype)
         return M
 
     #...
