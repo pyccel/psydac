@@ -652,7 +652,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     quad_order    = kwargs.pop('quad_order', None)
     thread_span   =  dict((u,d_tests[u]['thread_span']) for u in tests)
     # ...........................................................................................
-    if add_openmp:
+    if add_openmp and False:
         span  = 'local_span'
         basis = 'local'
     else:
@@ -881,6 +881,24 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         parallel_body += [Assign(thread_id, Function("omp_get_thread_num")())]
         parallel_body += [VectorAssign(thread_coords, Tuple(*[ProductGenerator(coords_from_rank, Tuple((thread_id, i))) for i in range(dim)]))]
 
+#        for i in range(dim):
+#            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+#            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+#            parallel_body += [Assign(global_thread_l.set_index(i), AddNode(AddNode(thr_e, Integer(1)), MulNode(Integer(-1),thr_s)))]
+
+#        for i in range(dim):
+#            lhs   = local_thread_s.set_index(i)
+#            #thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+#            rhs  = Array(Tuple(0, IntDivNode(global_thread_l.set_index(i), Integer(2))))
+#            parallel_body += [Assign(lhs, rhs)]
+
+#        for i in range(dim):
+#            lhs = local_thread_e.set_index(i)
+#            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+#            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+#            rhs = Array(Tuple(IntDivNode(global_thread_l.set_index(i), Integer(2)), global_thread_l.set_index(i)))
+#            parallel_body += [Assign(lhs, rhs)]
+
         for i in range(dim):
             thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
             thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
@@ -888,137 +906,137 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
         for i in range(dim):
             lhs   = local_thread_s.set_index(i)
-            #thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
-            rhs  = Array(Tuple(0, IntDivNode(global_thread_l.set_index(i), Integer(2))))
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            rhs  = Array(Tuple(thr_s, AddNode(thr_s,IntDivNode(global_thread_l.set_index(i), Integer(2)))))
             parallel_body += [Assign(lhs, rhs)]
 
         for i in range(dim):
             lhs = local_thread_e.set_index(i)
             thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
             thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
-            rhs = Array(Tuple(IntDivNode(global_thread_l.set_index(i), Integer(2)), global_thread_l.set_index(i)))
+            rhs = Array(Tuple(AddNode(thr_s,IntDivNode(global_thread_l.set_index(i), Integer(2))), thr_e))
             parallel_body += [Assign(lhs, rhs)]
 
-        get_d = lambda v:d_tests[v]['degrees'] if v in d_tests else d_tests[v.base]['degrees']
-        for i in range(dim):
-            parallel_body += [Allocate(d_tests[v]['local'].set_index(i),
-                              (global_thread_l.set_index(i),
-                              Integer(get_d(v)[i]+1),
-                              Integer(nderiv+1),
-                              Integer(quad_order[i]))) for v in d_tests]
+#        get_d = lambda v:d_tests[v]['degrees'] if v in d_tests else d_tests[v.base]['degrees']
+#        for i in range(dim):
+#            parallel_body += [Allocate(d_tests[v]['local'].set_index(i),
+#                              (global_thread_l.set_index(i),
+#                              Integer(get_d(v)[i]+1),
+#                              Integer(nderiv+1),
+#                              Integer(quad_order[i]))) for v in d_tests]
 
-            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
-            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
-            args1  = tuple([Slice(None,None)]*4)
-            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
-                      Slice(None,None),
-                      Slice(None,Integer(nderiv+1)),
-                      Slice(None,None))
+#            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+#            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+#            args1  = tuple([Slice(None,None)]*4)
+#            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
+#                      Slice(None,None),
+#                      Slice(None,Integer(nderiv+1)),
+#                      Slice(None,None))
 
-            parallel_body += [Assign(ProductGenerator(d_tests[v]['local'].set_index(i), Tuple(args1)),
-                                     ProductGenerator(d_tests[v]['global'].set_index(i),Tuple(args2)))
-                                     for v in d_tests]
+#            parallel_body += [Assign(ProductGenerator(d_tests[v]['local'].set_index(i), Tuple(args1)),
+#                                     ProductGenerator(d_tests[v]['global'].set_index(i),Tuple(args2)))
+#                                     for v in d_tests]
 
-        get_d = lambda u:d_trials[u]['degrees'] if u in d_trials else d_trials[u.base]['degrees']
-        for i in range(dim):
-            parallel_body += [Allocate(d_trials[u]['local'].set_index(i),
-                              (global_thread_l.set_index(i),
-                              Integer(get_d(u)[i]+1),
-                              Integer(nderiv+1),
-                              Integer(quad_order[i]))) for u in d_trials]
+#        get_d = lambda u:d_trials[u]['degrees'] if u in d_trials else d_trials[u.base]['degrees']
+#        for i in range(dim):
+#            parallel_body += [Allocate(d_trials[u]['local'].set_index(i),
+#                              (global_thread_l.set_index(i),
+#                              Integer(get_d(u)[i]+1),
+#                              Integer(nderiv+1),
+#                              Integer(quad_order[i]))) for u in d_trials]
 
-            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
-            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
-            args1  = tuple([Slice(None,None)]*4)
-            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
-                      Slice(None,None),
-                      Slice(None,Integer(nderiv+1)),
-                      Slice(None,None))
+#            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+#            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+#            args1  = tuple([Slice(None,None)]*4)
+#            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
+#                      Slice(None,None),
+#                      Slice(None,Integer(nderiv+1)),
+#                      Slice(None,None))
 
-            parallel_body += [Assign(ProductGenerator(d_trials[u]['local'].set_index(i), Tuple(args1)),
-                                     ProductGenerator(d_trials[u]['global'].set_index(i),Tuple(args2)))
-                                     for u in d_trials]
+#            parallel_body += [Assign(ProductGenerator(d_trials[u]['local'].set_index(i), Tuple(args1)),
+#                                     ProductGenerator(d_trials[u]['global'].set_index(i),Tuple(args2)))
+#                                     for u in d_trials]
 
-        for i in range(dim):
-            parallel_body += [Allocate(d_tests[v]['local_span'].set_index(i),
-                              (global_thread_l.set_index(i),)) for v in d_tests]
+#        for i in range(dim):
+#            parallel_body += [Allocate(d_tests[v]['local_span'].set_index(i),
+#                              (global_thread_l.set_index(i),)) for v in d_tests]
 
-            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
-            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
-            args1  = (Slice(None,None),)
-            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),)
+#            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+#            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+#            args1  = (Slice(None,None),)
+#            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),)
 
-            parallel_body += [Assign(ProductGenerator(d_tests[v]['local_span'].set_index(i), Tuple(args1)),
-                                     ProductGenerator(d_tests[v]['span'].set_index(i),Tuple(args2)))
-                                     for v in d_tests]
+#            parallel_body += [Assign(ProductGenerator(d_tests[v]['local_span'].set_index(i), Tuple(args1)),
+#                                     ProductGenerator(d_tests[v]['span'].set_index(i),Tuple(args2)))
+#                                     for v in d_tests]
 
 
-        get_d = lambda f:d_fields[f].get('degrees', [lengths_fields[f].set_index(ii) for ii in range(dim)]) if f in d_fields else\
-                         d_fields[f.base].get('degrees',[lengths_fields[f].set_index(ii) for ii in range(dim)])
-        for i in range(dim):
-            parallel_body += [Allocate(d_fields[f]['local'].set_index(i),
-                              (global_thread_l.set_index(i),
-                              toInteger(get_d(f)[i]+1),
-                              Integer(nderiv+1),
-                              Integer(quad_order[i]))) for f in d_fields]
+#        get_d = lambda f:d_fields[f].get('degrees', [lengths_fields[f].set_index(ii) for ii in range(dim)]) if f in d_fields else\
+#                         d_fields[f.base].get('degrees',[lengths_fields[f].set_index(ii) for ii in range(dim)])
+#        for i in range(dim):
+#            parallel_body += [Allocate(d_fields[f]['local'].set_index(i),
+#                              (global_thread_l.set_index(i),
+#                              toInteger(get_d(f)[i]+1),
+#                              Integer(nderiv+1),
+#                              Integer(quad_order[i]))) for f in d_fields]
 
-            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
-            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
-            args1  = tuple([Slice(None,None)]*4)
-            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
-                      Slice(None,None),
-                      Slice(None,Integer(nderiv+1)),
-                      Slice(None,None))
+#            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+#            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+#            args1  = tuple([Slice(None,None)]*4)
+#            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
+#                      Slice(None,None),
+#                      Slice(None,Integer(nderiv+1)),
+#                      Slice(None,None))
 
-            parallel_body += [Assign(ProductGenerator(d_fields[f]['local'].set_index(i), Tuple(args1)),
-                                     ProductGenerator(d_fields[f]['global'].set_index(i),Tuple(args2)))
-                                     for f in d_fields]
+#            parallel_body += [Assign(ProductGenerator(d_fields[f]['local'].set_index(i), Tuple(args1)),
+#                                     ProductGenerator(d_fields[f]['global'].set_index(i),Tuple(args2)))
+#                                     for f in d_fields]
 
-        for i in range(dim):
-            parallel_body += [Allocate(d_fields[f]['local_span'].set_index(i),
-                              (global_thread_l.set_index(i),)) for f in d_fields]
+#        for i in range(dim):
+#            parallel_body += [Allocate(d_fields[f]['local_span'].set_index(i),
+#                              (global_thread_l.set_index(i),)) for f in d_fields]
 
-            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
-            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
-            args1  = (Slice(None,None),)
-            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),)
+#            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+#            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+#            args1  = (Slice(None,None),)
+#            args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),)
 
-            parallel_body += [Assign(ProductGenerator(d_fields[f]['local_span'].set_index(i), Tuple(args1)),
-                                     ProductGenerator(d_fields[f]['span'].set_index(i),Tuple(args2)))
-                                     for f in d_fields]
-        if mapping_space:
-            get_d = lambda f:d_mapping[f]['degrees'] if f in d_mapping else d_mapping[f.base]['degrees']
-            for i in range(dim):
-                parallel_body += [Allocate(d_mapping[f]['local'].set_index(i),
-                                  (global_thread_l.set_index(i),
-                                  Integer(get_d(f)[i]+1),
-                                  Integer(nderiv+1),
-                                  Integer(quad_order[i]))) for f in d_mapping]
+#            parallel_body += [Assign(ProductGenerator(d_fields[f]['local_span'].set_index(i), Tuple(args1)),
+#                                     ProductGenerator(d_fields[f]['span'].set_index(i),Tuple(args2)))
+#                                     for f in d_fields]
+#        if mapping_space:
+#            get_d = lambda f:d_mapping[f]['degrees'] if f in d_mapping else d_mapping[f.base]['degrees']
+#            for i in range(dim):
+#                parallel_body += [Allocate(d_mapping[f]['local'].set_index(i),
+#                                  (global_thread_l.set_index(i),
+#                                  Integer(get_d(f)[i]+1),
+#                                  Integer(nderiv+1),
+#                                  Integer(quad_order[i]))) for f in d_mapping]
 
-                thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
-                thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
-                args1  = tuple([Slice(None,None)]*4)
-                args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
-                          Slice(None,None),
-                          Slice(None,Integer(nderiv+1)),
-                          Slice(None,None))
+#                thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+#                thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+#                args1  = tuple([Slice(None,None)]*4)
+#                args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),
+#                          Slice(None,None),
+#                          Slice(None,Integer(nderiv+1)),
+#                          Slice(None,None))
 
-                parallel_body += [Assign(ProductGenerator(d_mapping[f]['local'].set_index(i), Tuple(args1)),
-                                         ProductGenerator(d_mapping[f]['global'].set_index(i),Tuple(args2)))
-                                         for f in d_mapping]
+#                parallel_body += [Assign(ProductGenerator(d_mapping[f]['local'].set_index(i), Tuple(args1)),
+#                                         ProductGenerator(d_mapping[f]['global'].set_index(i),Tuple(args2)))
+#                                         for f in d_mapping]
 
-            for i in range(dim):
-                parallel_body += [Allocate(d_mapping[f]['local_span'].set_index(i),
-                                  (global_thread_l.set_index(i),)) for f in d_mapping]
+#            for i in range(dim):
+#                parallel_body += [Allocate(d_mapping[f]['local_span'].set_index(i),
+#                                  (global_thread_l.set_index(i),)) for f in d_mapping]
 
-                thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
-                thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
-                args1  = (Slice(None,None),)
-                args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),)
+#                thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+#                thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+#                args1  = (Slice(None,None),)
+#                args2  = (Slice(thr_s, AddNode(thr_e, Integer(1))),)
 
-                parallel_body += [Assign(ProductGenerator(d_mapping[f]['local_span'].set_index(i), Tuple(args1)),
-                                         ProductGenerator(d_mapping[f]['span'].set_index(i),Tuple(args2)))
-                                         for f in d_mapping]
+#                parallel_body += [Assign(ProductGenerator(d_mapping[f]['local_span'].set_index(i), Tuple(args1)),
+#                                         ProductGenerator(d_mapping[f]['span'].set_index(i),Tuple(args2)))
+#                                         for f in d_mapping]
     #        for i in range(dim):
 #            parallel_body += [Assign(neighbour_threads.set_index(i), ProductGenerator(rank_from_coords, 
 #                     Tuple(tuple(AddNode(thread_coords.set_index(j), Integer(i==j)) for j in range(dim)))))]
