@@ -323,7 +323,7 @@ class PConjugateGradient(InverseLinearOperator):
         # Preconditioner
         assert pc is not None
         if pc == 'jacobi':
-            psolve = lambda r: InverseLinearOperator.jacobi(A, r)#, out=out)
+            psolve = lambda r, out: InverseLinearOperator.jacobi(A, r, out)#, out=out)
         elif pc == 'weighted_jacobi':
             psolve = lambda r: InverseLinearOperator.weighted_jacobi(A, r) # allows for further specification not callable like this!
         #elif isinstance(pc, str):
@@ -351,10 +351,17 @@ class PConjugateGradient(InverseLinearOperator):
         r -= v
         nrmr_sqr = r.dot(r)
 
-        s  = psolve(r)
-        #psolve(r, out=s)
+        #print(1)
+        #s  = psolve(r)
+        #print(2)
+        # new
+        #test = psolve(r, out=None)
+        #print(f"test: {test.toarray()}")
+        # new
+        s = psolve(r, out=s)
         am = s.dot(r)
         s.copy(out=p)
+        #print(f"s: {s.toarray()}")
 
         tol_sqr = tol**2
 
@@ -374,6 +381,8 @@ class PConjugateGradient(InverseLinearOperator):
                 break
 
             v  = A.dot(p, out=v)
+            #print(f"v: {v.toarray()}")
+            #print(f"p: {p.toarray()}")
             l  = am / v.dot(p)
             p.copy(out=lp)
             lp *= l
@@ -383,8 +392,10 @@ class PConjugateGradient(InverseLinearOperator):
             r  -= lv # this was r -= l*v
 
             nrmr_sqr = r.dot(r)
-            #psolve(r, out=s)
-            s = psolve(r)
+            s = psolve(r, out=s)
+            #print(3)
+            #s = psolve(r)
+            #print(4)
 
             am1 = s.dot(r)
             p  *= (am1/am)

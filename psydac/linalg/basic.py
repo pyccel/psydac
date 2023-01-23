@@ -881,8 +881,8 @@ class InverseLinearOperator(LinearOperator):
     def inverse(self, solver, **kwargs):
         return self._linop
 
-    @staticmethod
-    def jacobi(A, b):#, out=None):
+    #@staticmethod
+    def jacobi(A, b, out=None):
         """
         Jacobi preconditioner.
         ----------
@@ -910,7 +910,15 @@ class InverseLinearOperator(LinearOperator):
         #-------------------------------------------------------------
         # Handle the case of a block linear system
         if isinstance(A, BlockLinearOperator):
+            # Extract local storage
+            #print(1)
+            #for i, bi in enumerate(b.blocks):
+            #    out[i] = self.jacobi(A[i, i], bi)
+
+            print(1)
             x = [InverseLinearOperator.jacobi(A[i, i], bi) for i, bi in enumerate(b.blocks)]
+            print(2)
+            #return out
             return BlockVector(b.space, blocks=x)
         #-------------------------------------------------------------
 
@@ -918,22 +926,22 @@ class InverseLinearOperator(LinearOperator):
         i = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
         ii = i + (0,) * V.ndim
 
-        #if out is not None:
-        #    b.copy(out=out)
-        #    out[i] /= A[ii]
-        #    out.update_ghost_regions()
-        #else:
-        #    out = b.copy()
-        #    out[i] /= A[ii]
-        #    out.update_ghost_regions()
+        if out is not None:
+            b.copy(out=out)
+            out[i] /= A[ii]
+            out.update_ghost_regions()
+        else:
+            out = b.copy()
+            out[i] /= A[ii]
+            out.update_ghost_regions()
 
-        #return out
+        return out
 
-        x = b.copy()
-        x[i] /= A[ii]
-        x.update_ghost_regions()
+        #x = b.copy()
+        #x[i] /= A[ii]
+        #x.update_ghost_regions()
 
-        return x
+        #return x
 
     @staticmethod
     def weighted_jacobi(A, b, x0=None, omega= 2./3, tol=1e-10, maxiter=100, verbose=False):
