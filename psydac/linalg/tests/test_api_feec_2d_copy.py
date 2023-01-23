@@ -323,37 +323,33 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Scalar diagnostics setup
     #--------------------------------------------------------------------------
 
-    #class Diagnostics:
+    class Diagnostics:
 
-    #    def __init__(self, E_ex, B_ex, M1, M2):
-    #        self._E_ex = E_ex
-    #        self._B_ex = B_ex
-    #        self._M1 = M1
-    #        self._M2 = M2
-    #        self._tmp1 = None
-    #        self._tmp2 = None
+        def __init__(self, E_ex, B_ex, M1, M2):
+            self._E_ex = E_ex
+            self._B_ex = B_ex
+            self._M1 = M1
+            self._M2 = M2
+            self._tmp1 = None
+            self._tmp2 = None
 
-    # Energy of exact solution
-    def exact_energies(t):#self, t):
-        """ Compute electric & magnetic energies of exact solution.
-        """
-        #We = self._E_ex(t)
-        #Wb = self._B_ex(t)
-        We = exact_solution.energy['We'](t)
-        Wb = exact_solution.energy['Wb'](t)
-        return (We, Wb)
+        # Energy of exact solution
+        def exact_energies(self, t):
+            """ Compute electric & magnetic energies of exact solution.
+            """
+            We = self._E_ex(t)
+            Wb = self._B_ex(t)
+            return (We, Wb)
 
-    # Energy of numerical solution
-    def discrete_energies(e, b):#self, e, b):
-        """ Compute electric & magnetic energies of numerical solution.
-        """
-        #self._tmp1 = self._M1.dot(e, out=self._tmp1)
-        #self._tmp2 = self._M2.dot(b, out=self._tmp2)
-        #We = 0.5 * self._tmp1.dot(e)
-        #Wb = 0.5 * self._tmp2.dot(b)
-        We = 0.5 * M1.dot(e).dot(e)
-        Wb = 0.5 * M2.dot(b).dot(b)
-        return (We, Wb)
+        # Energy of numerical solution
+        def discrete_energies(self, e, b):
+            """ Compute electric & magnetic energies of numerical solution.
+            """
+            self._tmp1 = self._M1.dot(e, out=self._tmp1)
+            self._tmp2 = self._M2.dot(b, out=self._tmp2)
+            We = 0.5 * self._tmp1.dot(e)
+            Wb = 0.5 * self._tmp2.dot(b)
+            return (We, Wb)
 
     # Scalar diagnostics:
     diagnostics_ex  = {'time': [], 'electric_energy': [], 'magnetic_energy': []}
@@ -424,18 +420,16 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Prepare diagnostics
     if diagnostics_interval:
 
-        #diag = Diagnostics(exact_solution.energy['We'], exact_solution.energy['Wb'], M1, M2)
+        diag = Diagnostics(exact_solution.energy['We'], exact_solution.energy['Wb'], M1, M2)
 
         # Exact energy at t=0
-        #We_ex, Wb_ex = diag.exact_energies(t)
-        We_ex, Wb_ex = exact_energies(t)
+        We_ex, Wb_ex = diag.exact_energies(t)
         diagnostics_ex['time'].append(t)
         diagnostics_ex['electric_energy'].append(We_ex)
         diagnostics_ex['magnetic_energy'].append(Wb_ex)
 
         # Discrete energy at t=0
-        #We_num, Wb_num = diag.discrete_energies(e, b)
-        We_num, Wb_num = discrete_energies(e, b)
+        We_num, Wb_num = diag.discrete_energies(e, b)
         diagnostics_num['time'].append(t)
         diagnostics_num['electric_energy'].append(We_num)
         diagnostics_num['magnetic_energy'].append(Wb_num)
@@ -473,14 +467,16 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
     # Time loop
     for ts in range(1, nsteps+1):
-
         # TODO: allow for high-order splitting
 
         # Strang splitting, 2nd order
-        
+        #print("Pre Faraday Step 1")
         b -= half_step_faraday_2d.dot(e, out=db)
+        #print("Pre Ampere Step")
         e +=       step_ampere_2d.dot(b, out=de)
+        #print("Pre Faraday Step 2")
         b -= half_step_faraday_2d.dot(e, out=db)
+        #print("Post Faraday Step 2")
 
         #b -= half_step_faraday_2d @ e
         #e +=       step_ampere_2d @ b
@@ -518,15 +514,13 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
         if diagnostics_interval and ts % diagnostics_interval == 0:
 
             # Update exact diagnostics
-            #We_ex, Wb_ex = diag.exact_energies(t)
-            We_ex, Wb_ex = exact_energies(t)
+            We_ex, Wb_ex = diag.exact_energies(t)
             diagnostics_ex['time'].append(t)
             diagnostics_ex['electric_energy'].append(We_ex)
             diagnostics_ex['magnetic_energy'].append(Wb_ex)
 
             # Update numerical diagnostics
-            #We_num, Wb_num = diag.discrete_energies(e, b)
-            We_num, Wb_num = discrete_energies(e, b)
+            We_num, Wb_num = diag.discrete_energies(e, b)
             diagnostics_num['time'].append(t)
             diagnostics_num['electric_energy'].append(We_num)
             diagnostics_num['magnetic_energy'].append(Wb_num)

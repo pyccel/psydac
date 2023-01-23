@@ -145,7 +145,9 @@ class ConjugateGradient(InverseLinearOperator):
         lv = self._tmps["lv"]
 
         # First values
+        #print("Temps due to BLO.dot 1")
         A.dot(x, out=v) # v = neccessary?
+        #print("end")
         b.copy(out=r)
         r -= v
         am = r.dot( r )
@@ -163,12 +165,12 @@ class ConjugateGradient(InverseLinearOperator):
 
         # Iterate to convergence
         for m in range( 2, maxiter+1 ):
-
             if am < tol_sqr:
                 m -= 1
                 break
-
-            v   = A.dot(p, out=v)
+            #print("Temps due to BLO.dot 2")
+            A.dot(p, out=v)
+            #print("end")
             l   = am / v.dot( p )
             p.copy(out=lp)
             lp *= l
@@ -180,7 +182,6 @@ class ConjugateGradient(InverseLinearOperator):
             p  *= (am1/am)
             p  += r
             am  = am1
-
             if verbose:
                 print( template.format( m, sqrt( am ) ) )
 
@@ -323,7 +324,7 @@ class PConjugateGradient(InverseLinearOperator):
         # Preconditioner
         assert pc is not None
         if pc == 'jacobi':
-            psolve = lambda r, out: InverseLinearOperator.jacobi(A, r, out)#, out=out)
+            psolve = lambda r, out: InverseLinearOperator.jacobi(A, r, out)
         elif pc == 'weighted_jacobi':
             psolve = lambda r: InverseLinearOperator.weighted_jacobi(A, r) # allows for further specification not callable like this!
         #elif isinstance(pc, str):
@@ -351,17 +352,9 @@ class PConjugateGradient(InverseLinearOperator):
         r -= v
         nrmr_sqr = r.dot(r)
 
-        #print(1)
-        #s  = psolve(r)
-        #print(2)
-        # new
-        #test = psolve(r, out=None)
-        #print(f"test: {test.toarray()}")
-        # new
-        s = psolve(r, out=s)
+        s = psolve(r, out=s) # Can I avoid "s = "?
         am = s.dot(r)
         s.copy(out=p)
-        #print(f"s: {s.toarray()}")
 
         tol_sqr = tol**2
 
@@ -381,8 +374,6 @@ class PConjugateGradient(InverseLinearOperator):
                 break
 
             v  = A.dot(p, out=v)
-            #print(f"v: {v.toarray()}")
-            #print(f"p: {p.toarray()}")
             l  = am / v.dot(p)
             p.copy(out=lp)
             lp *= l
@@ -392,10 +383,7 @@ class PConjugateGradient(InverseLinearOperator):
             r  -= lv # this was r -= l*v
 
             nrmr_sqr = r.dot(r)
-            s = psolve(r, out=s)
-            #print(3)
-            #s = psolve(r)
-            #print(4)
+            s = psolve(r, out=s) # Can I avoid "s = "?
 
             am1 = s.dot(r)
             p  *= (am1/am)

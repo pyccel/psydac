@@ -881,7 +881,7 @@ class InverseLinearOperator(LinearOperator):
     def inverse(self, solver, **kwargs):
         return self._linop
 
-    #@staticmethod
+    @staticmethod
     def jacobi(A, b, out=None):
         """
         Jacobi preconditioner.
@@ -910,15 +910,12 @@ class InverseLinearOperator(LinearOperator):
         #-------------------------------------------------------------
         # Handle the case of a block linear system
         if isinstance(A, BlockLinearOperator):
-            # Extract local storage
-            #print(1)
-            #for i, bi in enumerate(b.blocks):
-            #    out[i] = self.jacobi(A[i, i], bi)
-
-            print(1)
-            x = [InverseLinearOperator.jacobi(A[i, i], bi) for i, bi in enumerate(b.blocks)]
-            print(2)
-            #return out
+            #print("Temps due to ?")
+            if out is not None:
+                x = [InverseLinearOperator.jacobi(A[i, i], bi, out=out[i]) for i, bi in enumerate(b.blocks)]
+            else:
+                x = [InverseLinearOperator.jacobi(A[i, i], bi) for i, bi in enumerate(b.blocks)]
+            #print("end")
             return BlockVector(b.space, blocks=x)
         #-------------------------------------------------------------
 
