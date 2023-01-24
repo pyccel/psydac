@@ -470,13 +470,9 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
         # TODO: allow for high-order splitting
 
         # Strang splitting, 2nd order
-        #print("Pre Faraday Step 1")
         b -= half_step_faraday_2d.dot(e, out=db)
-        #print("Pre Ampere Step")
         e +=       step_ampere_2d.dot(b, out=de)
-        #print("Pre Faraday Step 2")
         b -= half_step_faraday_2d.dot(e, out=db)
-        #print("Post Faraday Step 2")
 
         #b -= half_step_faraday_2d @ e
         #e +=       step_ampere_2d @ b

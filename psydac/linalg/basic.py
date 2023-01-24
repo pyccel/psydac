@@ -910,13 +910,14 @@ class InverseLinearOperator(LinearOperator):
         #-------------------------------------------------------------
         # Handle the case of a block linear system
         if isinstance(A, BlockLinearOperator):
-            #print("Temps due to ?")
             if out is not None:
-                x = [InverseLinearOperator.jacobi(A[i, i], bi, out=out[i]) for i, bi in enumerate(b.blocks)]
+                for i, bi in enumerate(b.blocks):
+                    InverseLinearOperator.jacobi(A[i,i], bi, out=out[i])
+                return out
             else:
                 x = [InverseLinearOperator.jacobi(A[i, i], bi) for i, bi in enumerate(b.blocks)]
-            #print("end")
-            return BlockVector(b.space, blocks=x)
+                y = BlockVector(b.space, blocks=x)
+                return y
         #-------------------------------------------------------------
 
         V = b.space
@@ -931,14 +932,7 @@ class InverseLinearOperator(LinearOperator):
             out = b.copy()
             out[i] /= A[ii]
             out.update_ghost_regions()
-
-        return out
-
-        #x = b.copy()
-        #x[i] /= A[ii]
-        #x.update_ghost_regions()
-
-        #return x
+            return out
 
     @staticmethod
     def weighted_jacobi(A, b, x0=None, omega= 2./3, tol=1e-10, maxiter=100, verbose=False):

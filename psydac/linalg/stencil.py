@@ -309,8 +309,6 @@ class StencilVector( Vector ):
         # TODO: distinguish between different directions
         self._sync  = False
 
-        print(f"The object {repr(self)} was created.")
-
     #--------------------------------------
     # Abstract interface
     #--------------------------------------

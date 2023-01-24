@@ -145,9 +145,7 @@ class ConjugateGradient(InverseLinearOperator):
         lv = self._tmps["lv"]
 
         # First values
-        #print("Temps due to BLO.dot 1")
-        A.dot(x, out=v) # v = neccessary?
-        #print("end")
+        A.dot(x, out=v)
         b.copy(out=r)
         r -= v
         am = r.dot( r )
@@ -168,9 +166,7 @@ class ConjugateGradient(InverseLinearOperator):
             if am < tol_sqr:
                 m -= 1
                 break
-            #print("Temps due to BLO.dot 2")
             A.dot(p, out=v)
-            #print("end")
             l   = am / v.dot( p )
             p.copy(out=lp)
             lp *= l
@@ -351,8 +347,7 @@ class PConjugateGradient(InverseLinearOperator):
         b.copy(out=r)
         r -= v
         nrmr_sqr = r.dot(r)
-
-        s = psolve(r, out=s) # Can I avoid "s = "?
+        psolve(r, out=s)
         am = s.dot(r)
         s.copy(out=p)
 
@@ -383,7 +378,7 @@ class PConjugateGradient(InverseLinearOperator):
             r  -= lv # this was r -= l*v
 
             nrmr_sqr = r.dot(r)
-            s = psolve(r, out=s) # Can I avoid "s = "?
+            psolve(r, out=s)
 
             am1 = s.dot(r)
             p  *= (am1/am)
