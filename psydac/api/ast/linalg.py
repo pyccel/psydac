@@ -235,7 +235,6 @@ class LinearOperatorDot(SplBasic):
                     body = [For(i,j, body)]
 
                 body.insert(0,Assign(v, 0.0))
-                print(diag_keys, it, key)
                 if diag_keys:
                     body.append(Assign(v3,v))
                 else:
