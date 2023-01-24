@@ -209,7 +209,6 @@ def allocate_interface_matrix(corners, test_space, trial_space):
      The interface matrix shared by two patches
     """
     bi, bj = list(zip(*corners))
-    print(bi)
     permutation = np.arange(bi[0].domain.dim)
 
     flips = []
