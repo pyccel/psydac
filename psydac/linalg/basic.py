@@ -251,7 +251,7 @@ class LinearOperator(ABC):
 
     def inverse(self, solver, **kwargs):
         # Check solver input
-        solvers = ('cg', 'pcg', 'bicg', 'minres')
+        solvers = ('cg', 'pcg', 'bicg', 'minres', 'lsmr')
         if not any([solver == solvers[i] for i in range(len(solvers))]):
             raise ValueError(f"Required solver '{solver}' not understood.")
 
@@ -268,6 +268,9 @@ class LinearOperator(ABC):
         elif solver == 'minres':
             from psydac.linalg.solvers import MinimumResidual
             obj = MinimumResidual(self, **kwargs)
+        elif solver == 'lsmr':
+            from psydac.linalg.solvers import LSMR
+            obj = LSMR(self, **kwargs)
         return obj
 
     def idot(self, v, out):
@@ -851,6 +854,9 @@ class InverseLinearOperator(LinearOperator):
 
     def tosparse(self):
         raise NotImplementedError('tosparse() is not defined for InverseLinearOperators.')
+
+    def get_info(self):
+        return self._info
 
     @abstractmethod
     def _update_options(self):

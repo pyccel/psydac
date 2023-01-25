@@ -65,7 +65,7 @@ class NdarrayVector( Vector ):
         """ Returns the dtype attribute of the NdarrayVectorSpace self belongs to. """
         return self.space.dtype
 
-    def copy( self ):
+    def copy( self, out=None ):
         """ Returns a copy of self. """
         return NdarrayVector(self._space, np.copy(self._data))
 
