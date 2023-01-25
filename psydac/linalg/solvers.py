@@ -30,8 +30,8 @@ class ConjugateGradient(InverseLinearOperator):
         self._verbose = verbose
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
         self._check_options(**self._options)
-        self._tmps = {"v":linop.domain.zeros(), "r":linop.codomain.zeros(), "p":linop.codomain.zeros(), 
-                      "lp":linop.codomain.zeros(), "lv":linop.domain.zeros()}
+        self._tmps = {"v":linop.domain.zeros(), "r":linop.domain.zeros(), "p":linop.domain.zeros(), 
+                      "lp":linop.domain.zeros(), "lv":linop.domain.zeros()}
 
     def _check_options(self, **kwargs):
         keys = ('x0', 'tol', 'maxiter', 'verbose')
@@ -214,7 +214,7 @@ class PConjugateGradient(InverseLinearOperator):
         self._verbose = verbose
         self._options = {"pc": self._pc, "x0": self._x0, "tol": self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
         self._check_options(**self._options)
-        self._tmps = {"v":linop.domain.zeros(), "r":linop.codomain.zeros(), "p":linop.codomain.zeros(), 
+        self._tmps = {"v":linop.domain.zeros(), "r":linop.domain.zeros(), "p":linop.codomain.zeros(), 
                       "s":linop.codomain.zeros(), "lp":linop.codomain.zeros(), "lv":linop.domain.zeros()}
 
     def _check_options(self, **kwargs):
@@ -419,6 +419,8 @@ class BiConjugateGradient(InverseLinearOperator):
         self._verbose = verbose
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
         self._check_options(**self._options)
+        self._tmps = {"v":linop.domain.zeros(), "r":linop.domain.zeros(), "p":linop.domain.zeros(), 
+                      "vs":linop.domain.zeros(), "rs":linop.domain.zeros(), "ps":linop.domain.zeros()}
 
     def _check_options(self, **kwargs):
         keys = ('x0', 'tol', 'maxiter', 'verbose')
@@ -530,14 +532,24 @@ class BiConjugateGradient(InverseLinearOperator):
                 assert( x0.shape == (n,) )
                 x = x0.copy()
 
-        # First values
-        r  = b - A.dot( x )
-        p  = r.copy()
-        v  = 0.0 * b.copy()
+        # Extract local storage
+        v = self._tmps["v"]
+        r = self._tmps["r"]
+        p = self._tmps["p"]
+        vs = self._tmps["vs"]
+        rs = self._tmps["rs"]
+        ps = self._tmps["ps"]
 
-        rs = r.copy()
-        ps = p.copy()
-        vs = 0.0 * b.copy()
+        # First values
+        A.dot(x, out=v)
+        b.copy(out=r)
+        r -= v
+        r.copy(out=p)
+        v *= 0
+
+        r.copy(out=rs)
+        p.copy(out=ps)
+        v.copy(out=vs)
 
         res_sqr = r.dot(r)
         tol_sqr = tol**2
@@ -559,8 +571,10 @@ class BiConjugateGradient(InverseLinearOperator):
             #-----------------------
             # MATRIX-VECTOR PRODUCTS
             #-----------------------
-            v  = A.dot(p , out=v) # overwriting v, then saving in v. Necessary?
-            vs = At.dot(ps, out=vs) # same story
+            A.dot(p, out=v)
+            At.dot(ps, out=vs)
+            #v  = A.dot(p , out=v) # overwriting v, then saving in v. Necessary?
+            #vs = At.dot(ps, out=vs) # same story
             #-----------------------
 
             # c := (r, rs)
