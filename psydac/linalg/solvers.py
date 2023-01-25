@@ -4,10 +4,11 @@ This module provides iterative solvers and precondionners.
 
 """
 from math import sqrt
+import numpy as np
 
 from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator
 
-__all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient']
+__all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'MinimumResidual']
 
 #===============================================================================
 class ConjugateGradient(InverseLinearOperator):
@@ -622,6 +623,302 @@ class BiConjugateGradient(InverseLinearOperator):
         # Convergence information
         info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt( res_sqr ) }
 
+        return x#, info
+
+    def dot(self, b, out=None):
+        return self.solve(b, out=out)
+
+#===============================================================================
+class MinimumResidual(InverseLinearOperator):
+    """
+    
+
+    """
+    def __init__(self, linop, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+
+        assert isinstance(linop, LinearOperator)
+        assert linop.domain == linop.codomain
+        self._solver = 'minres'
+        self._linop = linop
+        self._domain = linop.codomain
+        self._codomain = linop.domain
+        self._space = linop.domain
+        self._x0 = x0
+        self._tol = tol
+        self._maxiter = maxiter
+        self._verbose = verbose
+        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+        self._check_options(**self._options)
+        self._tmps = {"rs":linop.domain.zeros(), "y":linop.domain.zeros(), "w":linop.domain.zeros(), 
+                      "w2":linop.domain.zeros(), "res1":linop.domain.zeros(), "res2":linop.domain.zeros()}
+
+    def _check_options(self, **kwargs):
+        keys = ('x0', 'tol', 'maxiter', 'verbose')
+        for key, value in kwargs.items():
+            idx = [key == keys[i] for i in range(len(keys))]
+            assert any(idx), "key not supported, check options"
+            true_idx = idx.index(True)
+            if true_idx == 0:
+                if value is not None:
+                    assert isinstance(value, Vector), "x0 must be a Vector or None"
+                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
+            elif true_idx == 1:
+                assert value is not None, "tol may not be None"
+                # don't know if that one works -want to check if value is a number
+                assert value*0 == 0, "tol must be a real number"
+                assert value > 0, "tol must be positive"
+            elif true_idx == 2:
+                assert value is not None, "maxiter may not be None"
+                assert isinstance(value, int), "maxiter must be an int"
+                assert value > 0, "maxiter must be positive"
+            elif true_idx == 3:
+                assert value is not None, "verbose may not be None"
+                assert isinstance(value, bool), "verbose must be a bool"
+
+    def _update_options(self):
+        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+
+    def solve(self, b, out=None):
+        """
+        Use MINimum RESidual iteration to solve Ax=b
+        MINRES minimizes norm(A*x - b) for a real symmetric matrix A.  Unlike
+        the Conjugate Gradient method, A can be indefinite or singular.
+        Parameters
+        ----------
+        A : psydac.linalg.basic.LinearOperator
+            Left-hand-side matrix A of linear system; individual entries A[i,j]
+            can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
+            function (i.e. matrix-vector product A*p).
+        b : psydac.linalg.basic.Vector
+            Right-hand-side vector of linear system. Individual entries b[i] need
+            not be accessed, but b has 'shape' attribute and provides 'copy()' and
+            'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
+            scalar multiplication and sum operations are available.
+        x0 : psydac.linalg.basic.Vector
+            First guess of solution for iterative solver (optional).
+        tol : float
+            Absolute tolerance for 2-norm of residual r = A*x - b.
+        maxiter: int
+            Maximum number of iterations.
+        verbose : bool
+            If True, 2-norm of residual r is printed at each iteration.
+        Results
+        -------
+        x : psydac.linalg.basic.Vector
+            Numerical solution of linear system.
+        info : dict
+            Dictionary containing convergence information:
+            - 'niter'    = (int) number of iterations
+            - 'success'  = (boolean) whether convergence criteria have been met
+            - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+        Notes
+        -----
+        This is an adaptation of the MINRES Solver in Scipy, where the method is modified to accept Psydac data structures,
+        https://github.com/scipy/scipy/blob/v1.7.1/scipy/sparse/linalg/isolve/minres.py
+        References
+        ----------
+        Solution of sparse indefinite systems of linear equations,
+            C. C. Paige and M. A. Saunders (1975),
+            SIAM J. Numer. Anal. 12(4), pp. 617-629.
+            https://web.stanford.edu/group/SOL/software/minres/
+        """
+
+        A = self._linop
+        n = A.shape[0]
+        x0 = self._x0
+        tol = self._tol
+        maxiter = self._maxiter
+        verbose = self._verbose
+
+        # Extract local storage
+        rs = self._tmps["rs"]
+        y = self._tmps["y"]
+        w = self._tmps["w"]
+        w2 = self._tmps["w2"]
+        res1 = self._tmps["res1"]
+        res2 = self._tmps["res2"]
+
+        assert A .shape == (n, n)
+        assert b .shape == (n,)
+
+        # First guess of solution
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self._domain
+            out *= 0
+            if x0 is None:
+                x  = out
+            else:
+                assert( x0.shape == (n,) )
+                out += x0
+                x = out
+        else:
+            if x0 is None:
+                x  = b.copy()
+                x *= 0.0
+            else:
+                assert( x0.shape == (n,) )
+                x = x0.copy()
+
+        istop = 0
+        itn   = 0
+        Anorm = 0
+        Acond = 0
+        rnorm = 0
+        ynorm = 0
+
+        eps = np.finfo(b.dtype).eps
+
+        A.dot(x, out=rs)
+        b.copy(out=res1)
+        res1 -= rs
+        #res1 = b - A.dot(x)
+        res1.copy(out=y)
+        #y  = res1
+
+        beta = sqrt(res1.dot(res1))
+
+        # Initialize other quantities
+        oldb    = 0
+        dbar    = 0
+        epsln   = 0
+        qrnorm  = beta
+        phibar  = beta
+        rhs1    = beta
+        rhs2    = 0
+        tnorm2  = 0
+        gmax    = 0
+        gmin    = np.finfo(b.dtype).max
+        cs      = -1
+        sn      = 0
+        b.copy(out=w)
+        w *= 0
+        b.copy(out=w2)
+        w2 *= 0
+        #w       = 0.0 * b.copy()
+        #w2      = 0.0 * b.copy()
+        res1.copy(out=res2)
+        #res2    = res1
+
+        if verbose:
+            print( "MINRES solver:" )
+            print( "+---------+---------------------+")
+            print( "+ Iter. # | L2-norm of residual |")
+            print( "+---------+---------------------+")
+            template = "| {:7d} | {:19.2e} |"
+
+
+        for itn in range(1, maxiter + 1 ):
+
+            s = 1.0/beta
+            v = s*y
+            A.dot(v, out=y)
+            #y = A.dot(v)
+
+            if itn >= 2:y = y - (beta/oldb)*res1 # <--- pot. source of tmp
+
+            alfa = v.dot(y)
+            res2.copy(out=res1)
+            #res1 = res2
+            res2 *= alfa/beta
+            y -= res2
+            y.copy(out=res2)
+            #y    = y - (alfa/beta)*res2
+            #res2 = y
+            oldb = beta
+            beta = sqrt(y.dot(y))
+            tnorm2 += alfa**2 + oldb**2 + beta**2
+
+            # Apply previous rotation Qk-1 to get
+            #   [deltak epslnk+1] = [cs  sn][dbark    0   ]
+            #   [gbar k dbar k+1]   [sn -cs][alfak betak+1].
+
+            oldeps = epsln
+            delta  = cs * dbar + sn * alfa      # delta1 = 0         deltak
+            gbar   = sn * dbar - cs * alfa      # gbar 1 = alfa1     gbar k
+            epsln  = sn * beta                  # epsln2 = 0         epslnk+1
+            dbar   = - cs * beta                # dbar 2 = beta2     dbar k+1
+            root   = sqrt(gbar**2 + dbar**2)
+            Arnorm = phibar * root
+
+            # Compute the next plane rotation Qk
+
+            gamma  = sqrt(gbar**2 + beta**2)  # gammak
+            gamma  = max(gamma, eps)
+            cs     = gbar / gamma                # ck
+            sn     = beta / gamma                # sk
+            phi    = cs * phibar                 # phik
+            phibar = sn * phibar                 # phibark+1
+
+            # Update  x.
+
+            denom = 1.0/gamma
+            w1    = w2
+            w2    = w
+            w     = (v - oldeps*w1 - delta*w2) * denom
+
+            w *= phi
+            x += w
+            #x     = x + phi*w
+
+            # Go round again.
+
+            gmax = max(gmax, gamma)
+            gmin = min(gmin, gamma)
+            z    = rhs1 / gamma
+            rhs1 = rhs2 - delta*z
+            rhs2 = - epsln*z
+
+            # Estimate various norms and test for convergence.
+
+            Anorm = sqrt(tnorm2)
+            ynorm = sqrt(x.dot(x))
+            epsa  = Anorm * eps
+            epsx  = Anorm * ynorm * eps
+            epsr  = Anorm * ynorm * tol
+            diag  = gbar
+
+            if diag == 0:diag = epsa
+
+            rnorm  = phibar
+            if ynorm == 0 or Anorm == 0:test1 = inf
+    #        else:test1 = rnorm / (Anorm*ynorm)  # ||r||  / (||A|| ||x||)
+            else:test1 = rnorm                   # ||r||
+
+            if Anorm == 0:test2 = inf
+            else:test2 = root / Anorm           # ||Ar|| / (||A|| ||r||)
+
+            # Estimate  cond(A).
+            # In this version we look at the diagonals of  R  in the
+            # factorization of the lower Hessenberg matrix,  Q * H = R,
+            # where H is the tridiagonal matrix from Lanczos with one
+            # extra row, beta(k+1) e_k^T.
+
+            Acond = gmax/gmin
+
+            if verbose:
+                print( template.format(itn, rnorm ))
+
+            # See if any of the stopping criteria are satisfied.
+            if istop == 0:
+                t1 = 1 + test1      # These tests work if tol < eps
+                t2 = 1 + test2
+                if t2 <= 1:istop = 2
+                if t1 <= 1:istop = 1
+
+                if Acond >= 0.1/eps:istop = 4
+
+                if test2 <= tol:istop = 2
+                if test1 <= tol:istop = 1
+
+            if istop != 0:
+                break
+
+        if verbose:
+            print( "+---------+---------------------+")
+
+        # Convergence information
+        #info = {'niter': itn, 'success': rnorm<tol, 'res_norm': rnorm }
         return x#, info
 
     def dot(self, b, out=None):

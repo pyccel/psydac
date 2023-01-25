@@ -251,14 +251,9 @@ class LinearOperator(ABC):
 
     def inverse(self, solver, **kwargs):
         # Check solver input
-        solvers = ('cg', 'pcg', 'bicg')
+        solvers = ('cg', 'pcg', 'bicg', 'minres')
         if not any([solver == solvers[i] for i in range(len(solvers))]):
             raise ValueError(f"Required solver '{solver}' not understood.")
-
-        # Inverse of Inverse case
-        # probably not needed as taken care of in InverseLO class
-        #if isinstance(self, InverseLinearOperator):
-        #    return self.linop
 
         # Instantiate object of correct solver class
         if solver == 'cg':
@@ -270,6 +265,9 @@ class LinearOperator(ABC):
         elif solver == 'bicg':
             from psydac.linalg.solvers import BiConjugateGradient
             obj = BiConjugateGradient(self, **kwargs)
+        elif solver == 'minres':
+            from psydac.linalg.solvers import MinimumResidual
+            obj = MinimumResidual(self, **kwargs)
         return obj
 
     def idot(self, v, out):
