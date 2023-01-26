@@ -472,7 +472,7 @@ def breakpoints(knots, degree, tol=1e-15, out=None):
     return out[:i_final]
 
 #==============================================================================
-def greville(knots, degree, periodic, out=None):
+def greville(knots, degree, periodic, truncation=None, out=None):
     """
     Compute coordinates of all Greville points.
 
@@ -499,9 +499,17 @@ def greville(knots, degree, periodic, out=None):
     """
     knots = np.ascontiguousarray(knots, dtype=float)
     if out is None:
-        n = len(knots) - 2 * degree - 1 if periodic else len(knots) - degree - 1
+        if periodic:
+            n = len(knots) - 2 * degree - 1
+        elif truncation is None:
+            n = len(knots) - degree - 1
+            truncation = 0
+        else:
+            n = len(knots) - 2 * degree + 1
+        #n = len(knots) - 2 * degree - 1 if periodic else len(knots) - degree - 1
         out = np.zeros(n)
-    greville_p(knots, degree, periodic, out)
+    greville_p(knots, degree, periodic, truncation, out)
+    print('\n greville, periodic = ', periodic, '\n', out)
     return out
 
 #===============================================================================
@@ -557,7 +565,7 @@ def elements_spans(knots, degree, out=None):
     return out[:i_final]
 
 #===============================================================================
-def make_knots(breaks, degree, periodic, multiplicity=1, out=None):
+def make_knots(breaks, degree, periodic, multiplicity=1, truncation=None, out=None):
     """
     Create spline knots from breakpoints, with appropriate boundary conditions.
     Let p be spline degree. If domain is periodic, knot sequence is extended
@@ -605,13 +613,20 @@ def make_knots(breaks, degree, periodic, multiplicity=1, out=None):
     if periodic:
         assert len(breaks) > degree
 
+    if not (truncation is None):
+        #assert all( truncation_pts > breaks[0] ) and all( truncation_pts > breaks[-1] )
+        #truncation_index = int(len(breaks) / 2) #binary search?
+        assert truncation == 1 or truncation == -1 # truncation at the right or left side of the domain
+    else:
+        truncation = 0 # no truncation
+
     breaks = np.ascontiguousarray(breaks, dtype=float)
     if out is None:
         out = np.zeros(multiplicity * len(breaks[1:-1]) + 2 + 2 * degree)
     else:
         assert out.shape == (multiplicity * len(breaks[1:-1]) + 2 + 2 * degree,) \
             and out.dtype == np.dtype('float')
-    make_knots_p(breaks, degree, periodic, out, multiplicity)
+    make_knots_p(breaks, degree, periodic, out, multiplicity, truncation)
 
     return out
 

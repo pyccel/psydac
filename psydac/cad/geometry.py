@@ -66,7 +66,7 @@ class Geometry( object ):
     #--------------------------------------------------------------------------
     # Option [1]: from a (domain, mappings) or a file
     #--------------------------------------------------------------------------
-    def __init__( self, domain=None, ncells=None, periodic=None, mappings=None,
+    def __init__( self, domain=None, ncells=None, periodic=None, truncation=None, mappings=None,
                   filename=None, comm=None ):
 
         # ... read the geometry if the filename is given
@@ -84,6 +84,7 @@ class Geometry( object ):
             interior_names = sorted(domain.interior_names)
             mappings_keys  = sorted(list(mappings.keys()))
 
+            assert( interior_names == mappings_keys )
             # ...
 
             if periodic is None:
@@ -94,13 +95,13 @@ class Geometry( object ):
             self._pdim     = domain.dim # TODO must be given => only dim is  defined for a Domain
             self._ncells   = ncells
             self._periodic = periodic
+            self._truncation = truncation
             self._mappings = mappings
             self._cart     = None
             self._is_parallel = comm is not None
 
             if len(domain) == 1:
-                name = domain.name
-                self._ddm = DomainDecomposition(ncells[name], periodic[name], comm=comm)
+                self._ddm = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm)
             else:
                 ncells    = [ncells[itr.name] for itr in domain.interior]
                 periodic  = [periodic[itr.name] for itr in domain.interior]
@@ -123,21 +124,18 @@ class Geometry( object ):
             raise NotImplementedError('')
 
         if mapping.ldim == 2:
-            mapp   = Mapping('mapping_0', dim=2)
-            domain = mapp(Square(name='Omega'))
-
-            mappings = {domain.name: mapping}
-            ncells   = {domain.name:mapping.space.domain_decomposition.ncells}
-            periodic = {domain.name:mapping.space.domain_decomposition.periods}
+            domain = Square(name='Omega')
+            mappings = {'Omega': mapping}
+            ncells   = {'Omega':mapping.space.domain_decomposition.ncells}
+            periodic = {'Omega':mapping.space.domain_decomposition.periods}
 
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
         elif mapping.ldim == 3:
-            mapp   = Mapping('mapping_0', dim=3)
-            domain = mapp(Cube(name='Omega'))
-            mappings = {domain.name: mapping}
-            ncells   = {domain.name:mapping.space.domain_decomposition.ncells}
-            periodic = {domain.name:mapping.space.domain_decomposition.periods}
+            domain = Cube(name='Omega')
+            mappings = {'Omega': mapping}
+            ncells   = {'Omega':mapping.space.domain_decomposition.ncells}
+            periodic = {'Omega':mapping.space.domain_decomposition.periods}
 
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 

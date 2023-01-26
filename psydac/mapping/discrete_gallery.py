@@ -15,9 +15,9 @@ from psydac.ddm.cart                    import DomainDecomposition
 
 class Collela3D( Mapping ):
 
-    _expressions = {'x':'2.*(x1 + 0.1*sin(2.*pi*x1)*sin(2.*pi*x2)) - 1.',
-                    'y':'2.*(x2 + 0.1*sin(2.*pi*x1)*sin(2.*pi*x2)) - 1.',
-                    'z':'2.*x3  - 1.'}
+    expressions = {'x':'2.*(x1 + 0.1**sin(2.*pi*x1)*sin(2.*pi*x2)) - 1.',
+                   'y':'2.*(x2 + 0.1**sin(2.*pi*x1)*sin(2.*pi*x2)) - 1.',
+                   'z':'2.*x3  - 1.'}
 
 #==============================================================================
 def discrete_mapping(mapping, ncells, degree, **kwargs):

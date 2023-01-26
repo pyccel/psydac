@@ -68,7 +68,7 @@ def l2_boundary_projection(equation):
     test_dict = dict(zip(u, v))
 
     # Compute product of (u, v) using dot product for vector quantities
-    product  = lambda f, g: (f * g if g.atoms(ScalarFunction) else dot(f, g))
+    product  = lambda f, g: (f * g if isinstance(g, ScalarFunction) else dot(f, g))
 
     # Construct variational formulation that performs L2 projection
     # of boundary conditions onto the correct space

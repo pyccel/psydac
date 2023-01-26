@@ -249,8 +249,8 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
 #    we have two cases, the case where we have a geometry file,
 #    and the case where we have either an analytical mapping or without a mapping.
-#    We build the dictionary g_spaces for each interior domain, where it conatians the interiors as keys and the spaces as values,
-#    we then create the compatible spaces if needed with the suitable basis functions.
+#    We build the dictionary g_spaces for each interior domain, so that the interiors are the keys and the spaces are the values.
+#    Then we create the compatible spaces if needed with the suitable basis functions.
 
     comm                = domain_h.comm
     ldim                = V.ldim
@@ -271,11 +271,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     connectivity = construct_connectivity(domain)
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
         # from a discrete geoemtry
-        if interiors[0].name in domain_h.mappings:
-            mappings  = [domain_h.mappings[inter.name] for inter in interiors]
-        else:
-            mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
-
+        mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
         spaces    = [m.space for m in mappings]
         g_spaces  = dict(zip(interiors, spaces))
         spaces    = [S.spaces for S in spaces]
@@ -310,6 +306,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
         for i,interior in enumerate(interiors):
             ncells     = domain_h.ncells[interior.name]
             periodic   = domain_h.periodic[interior.name]
+            truncation = domain_h.truncation[interior.name]
             degree_i   = degree[interior.name]
             multiplicity_i = multiplicity[interior.name]
             min_coords = interior.min_coords
@@ -323,7 +320,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
                          for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
                 # Create 1D finite element spaces and precompute quadrature data
-                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
+                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P, truncation=tr) for p,m,grid,P,tr in zip(degree_i, multiplicity_i,grids, periodic, truncation)]
             else:
                  # Create 1D finite element spaces and precompute quadrature data
                 spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]
@@ -356,7 +353,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     return Vh
 
 #==============================================================================
-def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm=None):
+def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, truncantion=None, comm=None):
 
     if comm is not None:
         # Create a copy of the communicator
@@ -372,7 +369,7 @@ def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm
         return Geometry(filename=filename, comm=comm)
 
     elif ncells:
-        return Geometry.from_topological_domain(domain, ncells, periodic=periodic, comm=comm)
+        return Geometry.from_topological_domain(domain, ncells, periodic=periodic, truncation=truncation, comm=comm)
 
 #==============================================================================
 def discretize(a, *args, **kwargs):
@@ -422,7 +419,7 @@ def discretize(a, *args, **kwargs):
 
     elif isinstance(a, sym_GltExpr):
         return DiscreteGltExpr(a, *args, **kwargs)
-
+        
     elif isinstance(a, sym_Expr):
         return DiscreteExpr(a, *args, **kwargs)
 

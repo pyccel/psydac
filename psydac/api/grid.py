@@ -180,7 +180,7 @@ class BasisValues():
 
             for sij,g,w,p,vij in zip(si, quad_grids, weights, Vi.vector_space.pads, Vi.spaces):
                 sp = g.spans-sij
-                bs = g.basis[:,:,:nderiv+1,:].copy()
+                bs = g.basis
 
                 if not trial:
                     bs  = bs.copy()

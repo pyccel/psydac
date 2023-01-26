@@ -1,6 +1,5 @@
 # coding: utf-8
 
-import os
 import itertools
 import numpy as np
 from itertools import product
@@ -65,7 +64,7 @@ class MultiPatchDomainDecomposition:
 
         assert len( ncells ) == len( periods )
         if comm is not None:assert isinstance( comm, MPI.Comm )
-        num_threads = num_threads if num_threads else int(os.environ.get('OMP_NUM_THREADS', 1))
+        num_threads = num_threads if num_threads else 1
 
         # Store input arguments
         self._ncells       = tuple( ncells    )
@@ -210,7 +209,7 @@ class DomainDecomposition:
         self._comm         = comm
         self._global_comm  = comm if global_comm is None else global_comm
         self._comm_cart    = comm
-        self._num_threads  = num_threads if num_threads else int(os.environ.get('OMP_NUM_THREADS', 1))
+        self._num_threads  = num_threads if num_threads else 1
 
         # ...
         if comm is None:
