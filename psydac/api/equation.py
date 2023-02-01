@@ -449,6 +449,7 @@ else:
 
         #--------------------------------------------------------------------------
         def solve(self, **kwargs):
+
             self.assemble(**kwargs)
 
             # Free arguments of current equation
@@ -494,7 +495,7 @@ else:
 
             solver = settings.pop('solver')
 
-            M_inv = M.inverse(solver, **kwargs)
+            M_inv = M.inverse(solver, **settings)
             if inf == True:
                 X = M_inv @ rhs
                 uh = FemField(self.trial_space, coeffs=X)
