@@ -488,14 +488,20 @@ else:
             M = L.lhs
             rhs = L.rhs
 
+            solver = settings.get('solver')
+            solver_settings = settings.copy()
+            solver_settings.pop('solver')
+
             if 'info' in settings:
-                inf = settings.pop('info')
+                inf = settings.get('info')
+                solver_settings.pop('info')
+                #inf = settings.pop('info')
             else:
                 inf = False
 
-            solver = settings.pop('solver')
+            #solver = settings.pop('solver')
 
-            M_inv = M.inverse(solver, **settings)
+            M_inv = M.inverse(solver, **solver_settings)
             if inf == True:
                 X = M_inv @ rhs
                 uh = FemField(self.trial_space, coeffs=X)
