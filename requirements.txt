@@ -4,3 +4,6 @@ numpy >=1.16,<1.22
 Cython>=0.25
 numba
 mpi4py
+
+# Needed to build h5py with --no-build-isolation flag
+pkgconfig
