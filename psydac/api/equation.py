@@ -5,6 +5,7 @@ from sympde.topology import ProductSpace
 from sympde.topology import element_of
 from sympde.calculus import dot
 from sympde.expr     import integral
+from sympde.expr     import Integral
 from sympde.expr     import find
 from sympde.expr     import Equation
 

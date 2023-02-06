@@ -870,6 +870,10 @@ class InverseLinearOperator(LinearOperator):
         from psydac.linalg.block   import BlockLinearOperator, BlockVector
         from psydac.linalg.stencil import StencilMatrix, StencilVector
 
+        # In case A is None we return a zero vector
+        if A is None:
+            return b.space.zeros()
+
         # Sanity checks
         assert isinstance(A, (StencilMatrix, BlockLinearOperator))
         assert isinstance(b, (StencilVector, BlockVector))
