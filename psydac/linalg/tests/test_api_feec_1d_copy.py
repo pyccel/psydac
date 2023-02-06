@@ -1,6 +1,7 @@
 # coding: utf-8
 # Copyright 2020 Yaman Güçlü
 
+from psydac.linalg.solvers import inverse
 import pytest
 
 """
@@ -321,15 +322,15 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     kwargs = {'verbose': verbose, 'tol': tol}
 
     if periodic:
-        M0_inv = M0.inverse('cg', **kwargs)
+        M0_inv = inverse(M0, 'cg', **kwargs)
         step_ampere_1d = dt * ( M0_inv @ D0_T @ M1 )
 
     elif bc_mode == 'strong':
-        M0_dir_inv = M0_dir.inverse('cg', **kwargs)
+        M0_dir_inv = inverse(M0_dir, 'cg', **kwargs)
         step_ampere_1d = dt * ( M0_dir_inv @ D0_T_dir @ M1 )
 
     elif bc_mode == 'penalization':
-        M0_M0_bc_inv = (M0+M0_bc).inverse('pcg', pc='jacobi', **kwargs)
+        M0_M0_bc_inv = inverse(M0+M0_bc, 'pcg', pc='jacobi', **kwargs)
         step_ampere_1d = dt * ( M0_M0_bc_inv @ D0_T @ M1 )
 
     half_step_faraday_1d = (dt/2) * D0

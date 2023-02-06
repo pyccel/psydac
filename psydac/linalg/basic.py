@@ -249,30 +249,6 @@ class LinearOperator(ABC):
     def transpose(self):
         raise NotImplementedError()
 
-    def inverse(self, solver, **kwargs):
-        # Check solver input
-        solvers = ('cg', 'pcg', 'bicg', 'minres', 'lsmr')
-        if not any([solver == solvers[i] for i in range(len(solvers))]):
-            raise ValueError(f"Required solver '{solver}' not understood.")
-
-        # Instantiate object of correct solver class
-        if solver == 'cg':
-            from psydac.linalg.solvers import ConjugateGradient
-            obj = ConjugateGradient(self, **kwargs)
-        elif solver == 'pcg':
-            from psydac.linalg.solvers import PConjugateGradient
-            obj = PConjugateGradient(self, **kwargs)
-        elif solver == 'bicg':
-            from psydac.linalg.solvers import BiConjugateGradient
-            obj = BiConjugateGradient(self, **kwargs)
-        elif solver == 'minres':
-            from psydac.linalg.solvers import MinimumResidual
-            obj = MinimumResidual(self, **kwargs)
-        elif solver == 'lsmr':
-            from psydac.linalg.solvers import LSMR
-            obj = LSMR(self, **kwargs)
-        return obj
-
     def idot(self, v, out):
         """
         Implements out += self @ v with a temporary.
@@ -431,9 +407,6 @@ class IdentityOperator(LinearOperator):
         """ Could return self, but by convention returns new object. """
         return IdentityOperator(self._domain, self._codomain)
 
-    def inverse(self, solver, **kwargs):
-        return self
-
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
         assert v.space == self._domain
@@ -510,9 +483,6 @@ class ScaledLinearOperator(LinearOperator):
 
     def __neg__(self):
         return ScaledLinearOperator(domain=self._domain, codomain=self._codomain, c=-1*self._scalar, A=self._operator)
-
-    def inverse(self, solver, **kwargs):
-        return ScaledLinearOperator(domain=self._codomain, codomain=self._domain, c=1/self._scalar, A=self._operator.inverse(solver, **kwargs))
 
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
@@ -876,14 +846,9 @@ class InverseLinearOperator(LinearOperator):
     def _check_options(self, **kwargs):
         pass
 
+    @abstractmethod
     def transpose(self):
-        At = self._linop.T
-        solver = self._solver
-        kwargs = self._options
-        return At.inverse(solver, **kwargs)
-
-    def inverse(self, solver, **kwargs):
-        return self._linop
+        pass
 
     @staticmethod
     def jacobi(A, b, out=None):
@@ -926,15 +891,14 @@ class InverseLinearOperator(LinearOperator):
 
         V = b.space
         i = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
-        ii = i + (0,) * V.ndim
 
         if out is not None:
             b.copy(out=out)
-            out[i] /= A[ii]
+            out[i] /= A.diagonal()
             out.update_ghost_regions()
         else:
             out = b.copy()
-            out[i] /= A[ii]
+            out[i] /= A.diagonal()
             out.update_ghost_regions()
             return out
 

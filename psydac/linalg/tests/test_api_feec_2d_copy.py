@@ -1,6 +1,7 @@
 # coding: utf-8
 # Copyright 2021 Yaman Güçlü
 
+from psydac.linalg.solvers import inverse
 import pytest
 
 """
@@ -453,10 +454,10 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     kwargs = {'verbose': verbose, 'tol': tol}
 
     if periodic:
-        M1_inv = M1.inverse('cg', **kwargs)
+        M1_inv = inverse(M1, 'cg', **kwargs)
         step_ampere_2d = dt * (M1_inv @ D1_T @ M2)
     else:
-        M1_M1_bc_inv = (M1 + M1_bc).inverse('pcg', pc='jacobi', **kwargs)
+        M1_M1_bc_inv = inverse(M1 + M1_bc, 'pcg', pc='jacobi', **kwargs)
         step_ampere_2d = dt * (M1_M1_bc_inv @ D1_T @ M2)
 
     half_step_faraday_2d = (dt/2) * D1

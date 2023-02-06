@@ -6,10 +6,39 @@ This module provides iterative solvers and precondionners.
 from math import sqrt
 import numpy as np
 
-from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator
+from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator, IdentityOperator, ScaledLinearOperator
 from psydac.linalg.utilities import _sym_ortho
 
 __all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'MinimumResidual', 'LSMR']
+
+
+
+def inverse(A, solver, **kwargs):
+    # Check solver input
+    solvers = ('cg', 'pcg', 'bicg', 'minres', 'lsmr')
+    if not any([solver == solvers[i] for i in range(len(solvers))]):
+        raise ValueError(f"Required solver '{solver}' not understood.")
+
+    assert isinstance(A, LinearOperator)
+    if isinstance(A, IdentityOperator):
+        return A
+    elif isinstance(A, ScaledLinearOperator):
+        return ScaledLinearOperator(domain=A.codomain, codomain=A.domain, c=1/A.scalar, A=inverse(A, solver, **kwargs))
+    elif isinstance(A, InverseLinearOperator):
+        return A.linop
+
+    # Instantiate object of correct solver class
+    if solver == 'cg':
+        obj = ConjugateGradient(A, **kwargs)
+    elif solver == 'pcg':
+        obj = PConjugateGradient(A, **kwargs)
+    elif solver == 'bicg':
+        obj = BiConjugateGradient(A, **kwargs)
+    elif solver == 'minres':
+        obj = MinimumResidual(A, **kwargs)
+    elif solver == 'lsmr':
+        obj = LSMR(A, **kwargs)
+    return obj
 
 #===============================================================================
 class ConjugateGradient(InverseLinearOperator):
@@ -61,6 +90,12 @@ class ConjugateGradient(InverseLinearOperator):
 
     def _update_options(self):
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+
+    def transpose(self):
+        At = self._linop.T
+        solver = self._solver
+        options = self._options
+        return inverse(At, solver, **options)
 
     def solve(self, b, out=None):
         """
@@ -250,6 +285,12 @@ class PConjugateGradient(InverseLinearOperator):
 
     def _update_options( self ):
         self._options = {"pc": self._pc, "x0": self._x0, "tol": self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+
+    def transpose(self):
+        At = self._linop.T
+        solver = self._solver
+        options = self._options
+        return inverse(At, solver, **options)
 
     def solve(self, b, out=None):
         """
@@ -455,6 +496,12 @@ class BiConjugateGradient(InverseLinearOperator):
 
     def _update_options( self ):
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+
+    def transpose(self):
+        At = self._linop.T
+        solver = self._solver
+        options = self._options
+        return inverse(At, solver, **options)
 
     def solve(self, b, out=None):
         """
@@ -686,6 +733,12 @@ class MinimumResidual(InverseLinearOperator):
 
     def _update_options(self):
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+
+    def transpose(self):
+        At = self._linop.T
+        solver = self._solver
+        options = self._options
+        return inverse(At, solver, **options)
 
     def solve(self, b, out=None):
         """
@@ -993,6 +1046,12 @@ class LSMR(InverseLinearOperator):
     def _update_options(self):
         self._options = {"x0":self._x0, "tol":self._tol, "atol":self._atol, 
                          "btol":self._btol, "maxiter": self._maxiter, "conlim":self._conlim, "verbose": self._verbose}
+
+    def transpose(self):
+        At = self._linop.T
+        solver = self._solver
+        options = self._options
+        return inverse(At, solver, **options)
 
     def solve(self, b, out=None):
         """Iterative solver for least-squares problems.

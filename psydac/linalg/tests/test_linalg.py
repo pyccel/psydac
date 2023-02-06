@@ -4,7 +4,7 @@ import numpy as np
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.basic import ZeroOperator, IdentityOperator, ComposedLinearOperator, SumLinearOperator, PowerLinearOperator, InverseLinearOperator, ScaledLinearOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.linalg.solvers import BiConjugateGradient, ConjugateGradient, PConjugateGradient
+from psydac.linalg.solvers import BiConjugateGradient, ConjugateGradient, PConjugateGradient, inverse
 from psydac.ddm.cart         import DomainDecomposition, CartDecomposition
 #===============================================================================
 
@@ -254,7 +254,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     realsol = np.dot(Mi,v.toarray())
 
     ### Conjugate Gradient test
-    S_inv1 = S.inverse('cg', tol=tol)
+    S_inv1 = inverse(S, 'cg', tol=tol)
     assert isinstance(S_inv1, ConjugateGradient)
     sol = S_inv1.dot(v).toarray()
     errors = [(sol[i]-realsol[i])**2 for i in range(len(realsol))]
@@ -262,7 +262,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert err < tol**2
 
     ### Preconditioned Conjugate Gradient test, pc = 'jacobi'
-    S_inv2 = S.inverse('pcg', pc='jacobi', tol=tol)
+    S_inv2 = inverse(S, 'pcg', pc='jacobi', tol=tol)
     assert isinstance(S_inv2, PConjugateGradient)
     sol = S_inv2.dot(v).toarray()
     errors = [(sol[i]-realsol[i])**2 for i in range(len(realsol))]
@@ -270,7 +270,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert err < tol**2
     
     # weighted jacobi doesn't work yet
-    S_inv3 = S.inverse('pcg', pc='weighted_jacobi', tol=tol)
+    S_inv3 = inverse(S, 'pcg', pc='weighted_jacobi', tol=tol)
     assert isinstance(S_inv3, PConjugateGradient)
     #sol = S_inv3.dot(v)[0].toarray()
     #errors = [(sol[i]-realsol[i])**2 for i in range(len(realsol))]
@@ -278,7 +278,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     #assert err < tol**2
 
     ### Biconjugate Gradient test
-    S_inv4 = S.inverse('bicg', tol=tol)
+    S_inv4 = inverse(S, 'bicg', tol=tol)
     assert isinstance(S_inv4, BiConjugateGradient)
     sol = S_inv4.dot(v).toarray()
     errors = [(sol[i]-realsol[i])**2 for i in range(len(realsol))]
@@ -507,7 +507,7 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     realBsol = np.append(realsol, realsol)
 
     ### Conjugate Gradient test
-    B_inv1 = B.inverse('cg', tol=tol)
+    B_inv1 = inverse(B, 'cg', tol=tol)
     assert isinstance(B_inv1, InverseLinearOperator)
     sol = B_inv1.dot(vb).toarray()
     errors = [(sol[i]-realBsol[i])**2 for i in range(len(realBsol))]
@@ -515,7 +515,7 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert err < tol**2
 
     ### Preconditioned Conjugate Gradient test, pc = 'jacobi'
-    B_inv2 = B.inverse('pcg', pc='jacobi', tol=tol)
+    B_inv2 = inverse(B, 'pcg', pc='jacobi', tol=tol)
     assert isinstance(B_inv2, InverseLinearOperator)
     sol = B_inv2.dot(vb).toarray()
     errors = [(sol[i]-realBsol[i])**2 for i in range(len(realBsol))]
@@ -523,7 +523,7 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert err < tol**2
     
     # weighted jacobi doesn't work yet
-    B_inv3 = B.inverse('pcg', pc='weighted_jacobi', tol=tol)
+    B_inv3 = inverse(B, 'pcg', pc='weighted_jacobi', tol=tol)
     assert isinstance(B_inv3, InverseLinearOperator)
     #sol = S_inv3.dot(v)[0].toarray()
     #errors = [(sol[i]-realsol[i])**2 for i in range(len(realsol))]
@@ -531,7 +531,7 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     #assert err < tol**2
 
     ### Biconjugate Gradient test
-    B_inv4 = B.inverse('bicg', tol=tol)
+    B_inv4 = inverse(B, 'bicg', tol=tol)
     assert isinstance(B_inv4, InverseLinearOperator)
     sol = B_inv4.dot(vb).toarray()
     errors = [(sol[i]-realBsol[i])**2 for i in range(len(realBsol))]
@@ -735,23 +735,23 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     ###
 
     tol = 1e-5
-    C = B.inverse('cg', tol=tol)
+    C = inverse(B, 'cg', tol=tol)
 
     # -1,T & T,-1 -> equal
     assert isinstance(C.T, ConjugateGradient)
-    assert isinstance(B.T.inverse('cg', tol=tol), ConjugateGradient)
-    assert np.sqrt(sum(((C.T.dot(u) - B.T.inverse('cg', tol=tol).dot(u)).toarray())**2)) < 2*tol
+    assert isinstance(inverse(B.T, 'cg', tol=tol), ConjugateGradient)
+    assert np.sqrt(sum(((C.T.dot(u) - inverse(B.T, 'cg', tol=tol).dot(u)).toarray())**2)) < 2*tol
     # -1,T,T -> equal -1
     assert np.sqrt(sum(((C.T.T.dot(u) - C.dot(u)).toarray())**2)) < 2*tol
     # -1,T,-1 -> equal T
-    assert isinstance(C.T.inverse('bicg'), BlockLinearOperator)
-    assert np.all(C.T.inverse('bicg').dot(u).toarray() == B.T.dot(u).toarray())
+    assert isinstance(inverse(C.T, 'bicg'), BlockLinearOperator)
+    assert np.all(inverse(C.T, 'bicg').dot(u).toarray() == B.T.dot(u).toarray())
     # T,-1,-1 -> equal T
-    assert isinstance(B.T.inverse('cg', tol=tol).inverse('pcg', pc='jacobi'), BlockLinearOperator)
-    assert np.all(B.T.inverse('cg', tol=tol).inverse('pcg', pc='jacobi').dot(u).toarray() == B.T.dot(u).toarray())
+    assert isinstance(inverse(inverse(B.T, 'cg', tol=tol), 'pcg', pc='jacobi'), BlockLinearOperator)
+    assert np.all(inverse(inverse(B.T, 'cg', tol=tol), 'pcg', pc='jacobi').dot(u).toarray() == B.T.dot(u).toarray())
     # T,-1,T -> equal -1
-    assert isinstance(B.T.inverse('cg', tol=tol).T, ConjugateGradient)
-    assert np.sqrt(sum(((B.T.inverse('cg', tol=tol).dot(u) - C.dot(u)).toarray())**2)) < tol
+    assert isinstance(inverse(B.T, 'cg', tol=tol).T, ConjugateGradient)
+    assert np.sqrt(sum(((inverse(B.T, 'cg', tol=tol).dot(u) - C.dot(u)).toarray())**2)) < tol
 
     ###
     ### StencilMatrix Transpose - Inverse Tests
@@ -759,23 +759,23 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     ###
 
     tol = 1e-5
-    C = S.inverse('cg', tol=tol)
+    C = inverse(S, 'cg', tol=tol)
 
     # -1,T & T,-1 -> equal
     assert isinstance(C.T, ConjugateGradient)
-    assert isinstance(S.T.inverse('cg', tol=tol), ConjugateGradient)
-    assert np.sqrt(sum(((C.T.dot(v) - S.T.inverse('cg', tol=tol).dot(v)).toarray())**2)) < 2*tol
+    assert isinstance(inverse(S.T, 'cg', tol=tol), ConjugateGradient)
+    assert np.sqrt(sum(((C.T.dot(v) - inverse(S.T, 'cg', tol=tol).dot(v)).toarray())**2)) < 2*tol
     # -1,T,T -> equal -1
     assert np.sqrt(sum(((C.T.T.dot(v) - C.dot(v)).toarray())**2)) < 2*tol
     # -1,T,-1 -> equal T
-    assert isinstance(C.T.inverse('bicg'), StencilMatrix)
-    assert np.all(C.T.inverse('bicg').dot(v).toarray() == S.T.dot(v).toarray())
+    assert isinstance(inverse(C.T, 'bicg'), StencilMatrix)
+    assert np.all(inverse(C.T, 'bicg').dot(v).toarray() == S.T.dot(v).toarray())
     # T,-1,-1 -> equal T
-    assert isinstance(S.T.inverse('cg', tol=tol).inverse('pcg', pc='jacobi'), StencilMatrix)
-    assert np.all(S.T.inverse('cg', tol=tol).inverse('pcg', pc='jacobi').dot(v).toarray() == S.T.dot(v).toarray())
+    assert isinstance(inverse(inverse(S.T, 'cg', tol=tol), 'pcg', pc='jacobi'), StencilMatrix)
+    assert np.all(inverse(inverse(S.T, 'cg', tol=tol), 'pcg', pc='jacobi').dot(v).toarray() == S.T.dot(v).toarray())
     # T,-1,T -> equal -1
-    assert isinstance(S.T.inverse('cg', tol=tol).T, ConjugateGradient)
-    assert np.sqrt(sum(((S.T.inverse('cg', tol=tol).dot(v) - C.dot(v)).toarray())**2)) < tol
+    assert isinstance(inverse(S.T, 'cg', tol=tol).T, ConjugateGradient)
+    assert np.sqrt(sum(((inverse(S.T, 'cg', tol=tol).dot(v) - C.dot(v)).toarray())**2)) < tol
 
 #===============================================================================
 #@pytest.mark.parametrize( 'n1', n1array)
@@ -860,8 +860,8 @@ def test_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
     I = IdentityOperator(V, V)
     u = BlockVector(U, (v,v))
     tol = 1e-6
-    S_ILO = S.inverse('cg', tol=tol)
-    B_ILO = B.inverse('cg', tol=tol)
+    S_ILO = inverse(S, 'cg', tol=tol)
+    B_ILO = inverse(B, 'cg', tol=tol)
 
     ###
     ### 2.
@@ -944,7 +944,7 @@ def test_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
     ### 2.4 Huge composition
     ZV = ZeroOperator(V, V)
     H1 = S_ILO.T
-    H2 = S_ILO.inverse('bicg', tol=tol)
+    H2 = inverse(S_ILO, 'bicg', tol=tol)
     H3 = (2*S_ILO) @ (S**2)
     H4 = 2*( (S**1) @ (S**0) )
     H5 = ZV @ I
