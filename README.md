@@ -7,7 +7,7 @@
 ## Table of contents
 
 -   [Requirements](#requirements)
--   [Python setup and dependencies](#python-setup-and-dependencies)
+-   [Python setup and project download](#python-setup-and-project-download)
 -   [Installing the library](#installing-the-library)
 -   [Uninstall](#uninstall)
 -   [Running tests](#running-tests)
@@ -58,7 +58,7 @@ brew install hdf5-mpi
 Please see the [instructions for the pyccel library](https://github.com/pyccel/pyccel#Requirements) for further details.
 
 
-## Python setup and dependencies
+## Python setup and project download
 
 We recommend creating a clean Python virtual environment using [venv](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment):
 ```sh
@@ -82,25 +82,26 @@ git clone git@github.com:pyccel/psydac.git
 ```
 The latter command requires a GitHub account.
 
-At this point please take note of the **installation point** of your parallel HDF5 library, which can be found with
-```sh
-h5pcc -showconfig -echo || true
-```
-The absolute path to this folder should be stored in the `HDF5_DIR` environment variable for use in the next step.
-```sh
-export HDF5_DIR=/path/to/parallel/hdf5
-```
+
+## Installing the library
 
 Psydac depends on several Python packages, which should be installed in the newly created virtual environment.
 These dependencies can be installed from the cloned directory `<ROOT-PATH>/psydac` using
 ```sh
-export CC="mpicc" HDF5_MPI="ON"
+export CC="mpicc"
+export HDF5_MPI="ON"
+export HDF5_DIR=/path/to/parallel/hdf5
+
 python3 -m pip install --upgrade pip
 python3 -m pip install -r requirements.txt
 python3 -m pip install -r requirements_extra.txt --no-build-isolation
 ```
+where the `HDF5_DIR` environment variable should store the absolute path to the **installation point** of your parallel HDF5 library, which can be found with
+```sh
+h5pcc -showconfig
+```
 
-## Installing the library
+At this point the Psydac library may be installed in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the Psydac directory. The latter mode allows one to effect the behavior of Psydac by modifying the source files.
 
 *   **Standard mode**:
     ```bash
@@ -109,7 +110,7 @@ python3 -m pip install -r requirements_extra.txt --no-build-isolation
 
 *   **Development mode**:
     ```bash
-    python3 -m pip install --user -e .
+    python3 -m pip install --editable .
     ```
 
 ## Uninstall
