@@ -1,4 +1,3 @@
-"""
 import pytest
 
 import numpy as np
@@ -104,4 +103,3 @@ def test_null_identity(seed):
     testall(nullselfop, testnullself, run1)
     testall(nullselfop, testnullself, run2v)
     testall(nullselfop, testnullself, run2i)
-"""

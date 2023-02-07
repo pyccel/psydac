@@ -1,4 +1,3 @@
-"""
 # coding: utf-8
 #
 from psydac.linalg.basic   import LinearOperator, Matrix, Vector, VectorSpace
@@ -42,8 +41,7 @@ class NullLinearOperator(LinearOperator):
         raise NotImplementedError('tosparse() is not defined for this outdated class.')
 
     def dot( self, v, out=None ):
-"""
-"""
+        """
         Returns a zero vector. If out is not None, then out is zeroed and returned (otherwise, a new vector is created).
 
         Parameters
@@ -57,8 +55,7 @@ class NullLinearOperator(LinearOperator):
         Returns
         -------
         Described above.
-"""
-"""
+        """
         # no need to care for v
 
         if out is not None:
@@ -121,8 +118,7 @@ class NullStencilMatrix( StencilMatrix ):
     #-------------------------------------
 
     def dot( self, v, out=None ):
-"""
-"""
+        """
         Returns a zero vector. If out is not None, then out is zeroed and returned (otherwise, a new vector is created).
 
         Parameters
@@ -136,8 +132,7 @@ class NullStencilMatrix( StencilMatrix ):
         Returns
         -------
         Described above.
-"""
-"""
+        """
         # no need to care for v
 
         if out is not None:
@@ -146,4 +141,3 @@ class NullStencilMatrix( StencilMatrix ):
             return out
             
         return self.codomain.zeros()
-"""

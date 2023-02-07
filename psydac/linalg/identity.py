@@ -1,4 +1,3 @@
-"""
 # coding: utf-8
 #
 from psydac.linalg.basic   import LinearOperator, Matrix, Vector, VectorSpace
@@ -40,8 +39,7 @@ class IdentityLinearOperator(LinearOperator):
 
     # ...
     def dot( self, v, out=None ):
-"""
-"""
+        """
         Returns the input vector. If out is None or v is the same vector object as out (`v is out`), v is returned (no copy).
         In all other cases, v is copied to out, and out is returned.
 
@@ -56,8 +54,7 @@ class IdentityLinearOperator(LinearOperator):
         Returns
         -------
         Described above.
-"""
-"""
+        """
         assert isinstance( v, Vector )
         assert v.space is self.domain
 
@@ -128,8 +125,7 @@ class IdentityStencilMatrix( StencilMatrix ):
     #-------------------------------------
 
     def dot( self, v, out=None ):
-"""
-"""
+        """
         Returns the input vector. If out is None, or v is the same vector object as out (`v is out`), v is returned (no copy).
         In all other cases, v is copied to out, and out is returned.
 
@@ -144,8 +140,7 @@ class IdentityStencilMatrix( StencilMatrix ):
         Returns
         -------
         Described above.
-"""
-"""
+        """
         assert isinstance( v, Vector )
         assert v.space is self.domain
         
@@ -157,5 +152,3 @@ class IdentityStencilMatrix( StencilMatrix ):
             return out
 
         return v
-
-"""
