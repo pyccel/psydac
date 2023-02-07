@@ -1,20 +1,27 @@
 # coding: utf-8
 # Copyright 2021 Yaman Güçlü
 
-from psydac.linalg.solvers import inverse
+"""
+    2D time-dependent Maxwell simulation using FEEC and time splitting with
+    two operators. These integrate exactly one of the two equations,
+    respectively, over a given amount of time ∆t:
+
+    1. Faraday:
+
+        b_new = b - ∆t D1 e
+
+    2. Amperè-Maxwell:
+
+        e_new = e + ∆t (M1^{-1} D1^T M2) b
+
+    Given a 2D de Rham sequence H1-H(curl)-L2 with coefficient spaces
+    (C0, C1, C2), the vectors e and e_new belong to C1, while the vectors b
+    and b_new belong to C2. D1 is the "scalar curl" matrix that maps from C1
+    to C2, while M1 and M2 are the mass matrices of the spaces C1 and C2,
+    respectively.
+"""
+
 import pytest
-
-"""
-    TIME STEPPING METHOD
-
-    Faraday
-    Exactly integrate the semi-discrete Faraday equation over one time-step:
-    b_new = b - ∆t D1 e
-
-    Amperè
-    Exactly integrate the semi-discrete Amperè equation over one time-step:
-    e_new = e - ∆t (M1^{-1} D1^T M2) b
-"""
 
 #==============================================================================
 # ANALYTICAL SOLUTION
@@ -196,6 +203,7 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     from psydac.api.discretization import discretize
     from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
     from psydac.feec.pull_push     import push_2d_hcurl, push_2d_l2
+    from psydac.linalg.solvers     import inverse
     from psydac.utilities.utils    import refine_array_1d
 
     #--------------------------------------------------------------------------
