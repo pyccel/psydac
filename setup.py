@@ -69,7 +69,7 @@ install_requires = [
     # python3 -m pip install requirements.txt
     # python3 -m pip install .
     'mpi4py',
-    'h5py',
+    #'h5py',
 
     # When pyccel is run in parallel with MPI, it uses tblib to pickle
     # tracebacks, which allows mpi4py to broadcast exceptions
