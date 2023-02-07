@@ -90,7 +90,8 @@ jobs:
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             export HDF5_DIR=$((h5pcc -showconfig -echo || true) | grep "Installation point:" | cut -d ":" -f2 | tr -d " ")
           fi
-          python -m pip install wheel Cython>=0.25 "numpy>=1.16,<1.22" pkgconfig mpi4py>=3.0.0
+          python -m pip install -v wheel Cython>=0.25 "numpy>=1.16,<1.22" pkgconfig mpi4py>=3.0.0
+          python -m pip list
           python -m pip install --no-build-isolation -r requirements.txt
           python -m pip install --no-build-isolation -r requirements_extra.txt
           python -m pip list
