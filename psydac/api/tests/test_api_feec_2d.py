@@ -1,37 +1,27 @@
 # coding: utf-8
 # Copyright 2021 Yaman Güçlü
 
+"""
+    2D time-dependent Maxwell simulation using FEEC and time splitting with
+    two operators. These integrate exactly one of the two equations,
+    respectively, over a given amount of time ∆t:
+
+    1. Faraday:
+
+        b_new = b - ∆t D1 e
+
+    2. Amperè-Maxwell:
+
+        e_new = e + ∆t (M1^{-1} D1^T M2) b
+
+    Given a 2D de Rham sequence H1-H(curl)-L2 with coefficient spaces
+    (C0, C1, C2), the vectors e and e_new belong to C1, while the vectors b
+    and b_new belong to C2. D1 is the "scalar curl" matrix that maps from C1
+    to C2, while M1 and M2 are the mass matrices of the spaces C1 and C2,
+    respectively.
+"""
+
 import pytest
-
-#==============================================================================
-# TIME STEPPING METHOD
-#==============================================================================
-def step_faraday_2d(dt, e, b, M1, M2, D1, D1_T, **kwargs):
-    """
-    Exactly integrate the semi-discrete Faraday equation over one time-step:
-
-    b_new = b - ∆t D1 e
-
-    """
-    b -= dt * D1.dot(e)
-  # e += 0
-
-def step_ampere_2d(dt, e, b, M1, M2, D1, D1_T, *, pc=None, tol=1e-7, verbose=False):
-    """
-    Exactly integrate the semi-discrete Amperè equation over one time-step:
-
-    e_new = e - ∆t (M1^{-1} D1^T M2) b
-
-    """
-    options = dict(tol=tol, verbose=verbose)
-    if pc:
-        from psydac.linalg.iterative_solvers import pcg as isolve
-        options['pc'] = pc
-    else:
-        from psydac.linalg.iterative_solvers import cg as isolve
-
-  # b += 0
-    e += dt * isolve(M1, D1_T.dot(M2.dot(b)), **options)[0]
 
 #==============================================================================
 # ANALYTICAL SOLUTION
@@ -213,6 +203,7 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     from psydac.api.discretization import discretize
     from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
     from psydac.feec.pull_push     import push_2d_hcurl, push_2d_l2
+    from psydac.linalg.solvers     import inverse
     from psydac.utilities.utils    import refine_array_1d
 
     #--------------------------------------------------------------------------
@@ -341,21 +332,33 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Scalar diagnostics setup
     #--------------------------------------------------------------------------
 
-    # Energy of exact solution
-    def exact_energies(t):
-        """ Compute electric & magnetic energies of exact solution.
-        """
-        We = exact_solution.energy['We'](t)
-        Wb = exact_solution.energy['Wb'](t)
-        return (We, Wb)
+    class Diagnostics:
 
-    # Energy of numerical solution
-    def discrete_energies(e, b):
-        """ Compute electric & magnetic energies of numerical solution.
-        """
-        We = 0.5 * M1.dot(e).dot(e)
-        Wb = 0.5 * M2.dot(b).dot(b)
-        return (We, Wb)
+        def __init__(self, E_ex, B_ex, M1, M2):
+            self._E_ex = E_ex
+            self._B_ex = B_ex
+            self._M1 = M1
+            self._M2 = M2
+            self._tmp1 = None
+            self._tmp2 = None
+
+        # Energy of exact solution
+        def exact_energies(self, t):
+            """ Compute electric & magnetic energies of exact solution.
+            """
+            We = self._E_ex(t)
+            Wb = self._B_ex(t)
+            return (We, Wb)
+
+        # Energy of numerical solution
+        def discrete_energies(self, e, b):
+            """ Compute electric & magnetic energies of numerical solution.
+            """
+            self._tmp1 = self._M1.dot(e, out=self._tmp1)
+            self._tmp2 = self._M2.dot(b, out=self._tmp2)
+            We = 0.5 * self._tmp1.dot(e)
+            Wb = 0.5 * self._tmp2.dot(b)
+            return (We, Wb)
 
     # Scalar diagnostics:
     diagnostics_ex  = {'time': [], 'electric_energy': [], 'magnetic_energy': []}
@@ -426,14 +429,16 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Prepare diagnostics
     if diagnostics_interval:
 
+        diag = Diagnostics(exact_solution.energy['We'], exact_solution.energy['Wb'], M1, M2)
+
         # Exact energy at t=0
-        We_ex, Wb_ex = exact_energies(t)
+        We_ex, Wb_ex = diag.exact_energies(t)
         diagnostics_ex['time'].append(t)
         diagnostics_ex['electric_energy'].append(We_ex)
         diagnostics_ex['magnetic_energy'].append(Wb_ex)
 
         # Discrete energy at t=0
-        We_num, Wb_num = discrete_energies(e, b)
+        We_num, Wb_num = diag.discrete_energies(e, b)
         diagnostics_num['time'].append(t)
         diagnostics_num['electric_energy'].append(We_num)
         diagnostics_num['magnetic_energy'].append(Wb_num)
@@ -457,21 +462,36 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     kwargs = {'verbose': verbose, 'tol': tol}
 
     if periodic:
-        args = (e, b, M1, M2, D1, D1_T)
+        M1_inv = inverse(M1, 'cg', **kwargs)
+        step_ampere_2d = dt * (M1_inv @ D1_T @ M2)
     else:
-        args = (e, b, M1 + M1_bc, M2, D1, D1_T)
-        kwargs['pc'] = 'jacobi'
-    # ...
+        M1_M1_bc_inv = inverse(M1 + M1_bc, 'pcg', pc='jacobi', **kwargs)
+        step_ampere_2d = dt * (M1_M1_bc_inv @ D1_T @ M2)
+
+    half_step_faraday_2d = (dt/2) * D1
+    #minus_half_step_faraday_2d = (-dt/2) * D1
+
+    de = derham_h.V1.vector_space.zeros()
+    db = derham_h.V2.vector_space.zeros()
 
     # Time loop
     for ts in range(1, nsteps+1):
-
         # TODO: allow for high-order splitting
 
         # Strang splitting, 2nd order
-        step_faraday_2d(0.5*dt, *args, **kwargs)
-        step_ampere_2d (    dt, *args, **kwargs)
-        step_faraday_2d(0.5*dt, *args, **kwargs)
+        b -= half_step_faraday_2d.dot(e, out=db)
+        e +=       step_ampere_2d.dot(b, out=de)
+        b -= half_step_faraday_2d.dot(e, out=db)
+
+        #b -= half_step_faraday_2d @ e
+        #e +=       step_ampere_2d @ b
+        #b -= half_step_faraday_2d @ e
+
+        # potential future PR: use "@" but internally vector.__iadd__() calls .idot()
+
+        #minus_half_step_faraday_2d.idot(e, out = b)
+        #step_ampere_2d.idot(b, out = e)
+        #minus_half_step_faraday_2d.idot(e, out = b)
 
         t += dt
 
@@ -499,13 +519,13 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
         if diagnostics_interval and ts % diagnostics_interval == 0:
 
             # Update exact diagnostics
-            We_ex, Wb_ex = exact_energies(t)
+            We_ex, Wb_ex = diag.exact_energies(t)
             diagnostics_ex['time'].append(t)
             diagnostics_ex['electric_energy'].append(We_ex)
             diagnostics_ex['magnetic_energy'].append(Wb_ex)
 
             # Update numerical diagnostics
-            We_num, Wb_num = discrete_energies(e, b)
+            We_num, Wb_num = diag.discrete_energies(e, b)
             diagnostics_num['time'].append(t)
             diagnostics_num['electric_energy'].append(We_num)
             diagnostics_num['magnetic_energy'].append(Wb_num)

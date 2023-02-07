@@ -18,6 +18,7 @@ from psydac.feec.pull_push     import push_3d_hcurl, push_3d_hdiv
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
 from psydac.linalg.utilities   import array_to_psydac
 from psydac.linalg.iterative_solvers import cg
+from psydac.linalg.solvers     import inverse
 
 from mpi4py import MPI
 
@@ -52,25 +53,25 @@ def splitting_integrator_scipy(e0, b0, M1, M2, CURL, dt, niter):
 
 def splitting_integrator_stencil(e0, b0, M1, M2, CURL, dt, niter):
 
-    CURL_T = CURL.transpose()
-    def M1CM2_dot(b):
-        y1 = M2.dot(b)
-        y2 = CURL_T.dot(y1)
-        return cg(M1, y2, tol=1e-12)[0]
+    step_M1CM2 = dt * ( inverse(M1, 'cg', tol=1e-12) @ CURL.T @ M2 )
+    step_curl = dt * CURL
 
     e_history = [e0]
     b_history = [b0]
 
+    de = e0.copy()
+    db = b0.copy()
+
     for  ts in range(niter):
 
-        b = b_history[ts]
-        e = e_history[ts]
+        b = b_history[ts].copy() # ! copy(out=...) seems to not work here. Investigate.
+        e = e_history[ts].copy()
 
-        b_new = b - dt * CURL.dot(e)
-        e_new = e + dt * M1CM2_dot(b_new)
+        b -= step_curl.dot(e, out=db)
+        e += step_M1CM2.dot(b, out=de)
 
-        b_history.append(b_new)
-        e_history.append(e_new)
+        b_history.append(b)
+        e_history.append(e)
     return e_history, b_history
 
 def evaluation_all_times(fields, x, y, z):
