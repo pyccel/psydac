@@ -86,7 +86,7 @@ jobs:
 
       - name: Install h5py dependencies
         run: |
-          python -m pip install Cython>=0.25 "numpy>=1.16,<1.22" mpi4py>=3.0.0
+          python -m pip install pkgconfig Cython>=0.25 "numpy>=1.16,<1.22" mpi4py>=3.0.0
           python -m pip list
 
       - name: Determine directory of parallel HDF5 library
