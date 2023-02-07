@@ -95,6 +95,10 @@ jobs:
           python -m pip install --no-build-isolation -r requirements_extra.txt
           python -m pip list
 
+      - name: Check h5py installation
+        run: |
+            python3 -c "from h5py import File; print(File)"
+
       - name: Install project
         run: |
           python -m pip install .
