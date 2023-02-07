@@ -8,7 +8,8 @@ from psydac.linalg.kron     import KroneckerStencilMatrix
 from psydac.linalg.block    import BlockVector, BlockLinearOperator
 from psydac.fem.vector      import ProductFemSpace
 from psydac.fem.tensor      import TensorFemSpace
-from psydac.linalg.identity import IdentityStencilMatrix, IdentityMatrix
+#from psydac.linalg.identity import IdentityStencilMatrix, IdentityMatrix
+from psydac.linalg.basic    import IdentityOperator
 from psydac.fem.basic       import FemField
 from psydac.linalg.basic    import Matrix
 from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
@@ -226,7 +227,8 @@ class DirectionalDerivativeOperator(Matrix):
             periodic_i = self._domain.periods[i]
             domain_1d  = DomainDecomposition([nc], [periodic_i])
             cart       = CartDecomposition( domain_1d, [n_i], [[0]], [[n_i-1]], [p_i], [1] )
-            return IdentityStencilMatrix(StencilVectorSpace(cart))
+            return IdentityOperator(StencilVectorSpace(cart))
+            #return IdentityStencilMatrix(StencilVectorSpace(cart))
 
         # combine to Kronecker matrix
         mats = [M if i == self._diffdir else make_id(i) for i in range(self._domain.ndim)]
@@ -365,7 +367,7 @@ class DirectionalDerivativeOperator(Matrix):
     # (except with an explicit neutral element, if there was one)
 
     def __imul__(self, a):
-        if isinstance(a, IdentityMatrix): return
+        if isinstance(a, IdentityOperator): return
         if a == 1: return
         raise NotImplementedError("Not supported for this class.")
 
