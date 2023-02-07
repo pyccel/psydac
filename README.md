@@ -18,11 +18,11 @@
 
 Psydac requires a certain number of components to be installed on the machine:
 
-- Fortran and C compilers with OpenMP support
-- OpenMP library
-- BLAS and LAPACK libraries
-- MPI library
-- HDF5 library with MPI support
+  - Fortran and C compilers with OpenMP support
+  - OpenMP library
+  - BLAS and LAPACK libraries
+  - MPI library
+  - HDF5 library with MPI support
 
 The installations instructions depend on the operating system and on the packaging manager used.
 
@@ -57,7 +57,6 @@ brew install hdf5-mpi
 
 Please see the [instructions for the pyccel library](https://github.com/pyccel/pyccel#Requirements) for further details.
 
-
 ## Python setup and project download
 
 We recommend creating a clean Python virtual environment using [venv](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment):
@@ -81,7 +80,6 @@ or
 git clone git@github.com:pyccel/psydac.git
 ```
 The latter command requires a GitHub account.
-
 
 ## Installing the library
 
