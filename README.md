@@ -7,6 +7,7 @@
 ## Table of contents
 
 -   [Requirements](#requirements)
+-   [Python setup and dependencies](#python-setup-and-dependencies)
 -   [Installing the library](#installing-the-library)
 -   [Uninstall](#uninstall)
 -   [Running tests](#running-tests)
@@ -16,26 +17,90 @@
 ## Requirements
 -----
 
-*   **Python3**:
-    ```bash
-    sudo apt-get install python3 python3-dev
-    ```
+Psydac requires a certain number of components to be installed on the machine:
 
-*   **pip3**:
-    ```bash
-    sudo apt-get install python3-pip
-    ```
+- Fortran and C compilers with OpenMP support
+- OpenMP library
+- BLAS and LAPACK libraries
+- MPI library
+- HDF5 library with MPI support
 
-*   All *non-Python* dependencies can be installed by following the [instructions for the pyccel library](https://github.com/pyccel/pyccel#Requirements)
+The installations instructions depend on the operating system and on the packaging manager used.
 
-*   All *Python* dependencies can be installed using:
-    ```bash
-    export CC="mpicc"
-    export HDF5_MPI="ON"
-    export HDF5_DIR=/path/to/hdf5/openmpi
-    python3 -m pip install -r requirements.txt
-    python3 -m pip install -r requirements_extra.txt --no-build-isolation
-     ```
+### Linux Debian-Ubuntu-Mint
+
+To install all requirements on a Linux Ubuntu operating system, just use APT, the Advanced Packaging Tool:
+```sh
+sudo apt update
+sudo apt install python3 python3-dev python3-pip
+sudo apt install gcc gfortran
+sudo apt install libblas-dev liblapack-dev
+sudo apt install libopenmpi-dev openmpi-bin
+sudo apt install libomp-dev libomp5
+sudo apt install libhdf5-openmpi-dev
+```
+
+### macOS
+
+To install all the requirements on a macOS operating system we recommend using [Homebrew](https://brew.sh/):
+
+```eh
+brew update
+brew install gcc
+brew install openblas
+brew install lapack
+brew install open-mpi
+brew install libomp
+brew install hdf5-mpi
+```
+
+### Other operating systems
+
+Please see the [instructions for the pyccel library](https://github.com/pyccel/pyccel#Requirements) for further details.
+
+
+## Python setup and dependencies
+-----
+
+We recommend creating a clean Python virtual environment using [venv](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment):
+```sh
+python3 -m venv <ENV-PATH>
+```
+where `<ENV-PATH>` is the location to create the virtual environment.
+(A new directory will be created at the required location.)
+
+In order to activate the environment from a new terminal session just run the command
+```sh
+source <ENV-PATH>/bin/activate
+```
+
+One can clone the Psydac repository at any location `<ROOT-PATH>` in the filesystem which does not require administrator privileges, using either
+```sh
+git clone https://github.com/pyccel/psydac.git
+```
+or
+```sh
+git clone git@github.com:pyccel/psydac.git
+```
+The latter command requires a GitHub account.
+
+At this point please take note of the **installation point** of your parallel HDF5 library, which can be found with
+```sh
+h5pcc -showconfig -echo || true
+```
+The absolute path to this folder should be stored in the `HDF5_DIR` environment variable for use in the next step.
+```sh
+export HDF5_DIR=/path/to/parallel/hdf5
+```
+
+Psydac depends on several Python packages, which should be installed in the newly created virtual environment.
+These dependencies can be installed from the cloned directory `<ROOT-PATH>/psydac` using
+```sh
+export CC="mpicc" HDF5_MPI="ON"
+python3 -m pip install --upgrade pip
+python3 -m pip install -r requirements.txt
+python3 -m pip install -r requirements_extra.txt --no-build-isolation
+```
 
 ## Installing the library
 -----
