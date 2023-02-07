@@ -66,10 +66,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
 
-      - name: Upgrade setuptools
-        run: |
-          python -m pip install --upgrade setuptools!=67.2.0
-
 #      - name: Get pip cache dir
 #        id: pip-cache-dir
 #        run: |
@@ -84,15 +80,6 @@ jobs:
 #          restore-keys: |
 #            ${{ matrix.os }}-${{ matrix.python-version }}-pip-
 
-      - name: Install wheel
-        run: |
-          python -m pip install wheel
-
-      - name: Install h5py dependencies
-        run: |
-          python -m pip install pkgconfig Cython>=0.25 "numpy>=1.16,<1.22" mpi4py>=3.0.0
-          python -m pip list
-
       - name: Determine directory of parallel HDF5 library
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
@@ -102,20 +89,11 @@ jobs:
           fi
           echo $HDF5_DIR
 
-      - name: Install h5py library in parallel mode
-        run: |
-          export CC="mpicc" HDF5_MPI="ON"
-          python -m pip install --no-build-isolation h5py --no-binary h5py
-          python -m pip list
-
-      - name: Check h5py installation
-        run: |
-          python3 -c "from h5py import File; print(File)"
-
       - name: Install Python dependencies
         run: |
-          python -m pip install --no-build-isolation -r requirements.txt
-          python -m pip install --no-build-isolation -r requirements_extra.txt
+          export CC="mpicc" HDF5_MPI="ON"
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements_extra.txt --no-build-isolation
           python -m pip list
 
 #      - name: Install Python dependencies

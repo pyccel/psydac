@@ -1,15 +1,8 @@
-# h5py must be built from source using MPI compiler
-# and linked to parallel HDF5 library. To do so set
-#
-# CC="mpicc"
-# HDF5_MPI="ON"
-# HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
-#
-setuptools
 wheel
+setuptools >=61,!=67.2.0
 numpy >=1.16,<1.22
 Cython>=0.25
-numba
-mpi4py
-h5py
---no-binary h5py
+mpi4py>=3.0.0
+
+# Required to build h5py from source
+pkgconfig
