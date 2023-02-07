@@ -15,7 +15,6 @@
 -   [User Documentation](#user-documentation)
 
 ## Requirements
------
 
 Psydac requires a certain number of components to be installed on the machine:
 
@@ -60,7 +59,6 @@ Please see the [instructions for the pyccel library](https://github.com/pyccel/p
 
 
 ## Python setup and dependencies
------
 
 We recommend creating a clean Python virtual environment using [venv](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment):
 ```sh
@@ -103,7 +101,6 @@ python3 -m pip install -r requirements_extra.txt --no-build-isolation
 ```
 
 ## Installing the library
------
 
 *   **Standard mode**:
     ```bash
@@ -116,14 +113,14 @@ python3 -m pip install -r requirements_extra.txt --no-build-isolation
     ```
 
 ## Uninstall
------
+
 *   **Whichever the install mode**:
     ```bash
     python3 -m pip uninstall psydac
     ```
 
 ## Running tests
------
+
 ```bash
 export PSYDAC_MESH_DIR=/path/to/psydac/mesh/
 python3 -m pytest --pyargs psydac -m "not parallel"
@@ -131,7 +128,7 @@ python3 /path/to/psydac/mpi_tester.py --pyargs psydac -m "parallel"
 ```
 
 ## Speeding up **Psydac**'s core
------
+
 Some of the low-level functions in psydac are written in python in a way that can be accelerated by pyccel. Currently, all of those are in `psydac/core/kernels.py`, `psydac/core/bsplines_pyccel.py` and `psydac/linalg/kernels.py`.
 ```bash
 cd path/to/psydac/core
@@ -149,10 +146,11 @@ pyccel kernels.py --language fortran
 -   [Other examples](./examples/)
 
 ## Mesh Generation
------
+
 After installation, a command `psydac-mesh` will be available.
 
 ### Example of usage
+
 ```bash
 psydac-mesh -n='16,16' -d='3,3' square mesh.h5
 ```
