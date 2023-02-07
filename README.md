@@ -18,11 +18,11 @@
 
 Psydac requires a certain number of components to be installed on the machine:
 
-  - Fortran and C compilers with OpenMP support
-  - OpenMP library
-  - BLAS and LAPACK libraries
-  - MPI library
-  - HDF5 library with MPI support
+-   Fortran and C compilers with OpenMP support
+-   OpenMP library
+-   BLAS and LAPACK libraries
+-   MPI library
+-   HDF5 library with MPI support
 
 The installations instructions depend on the operating system and on the packaging manager used.
 
