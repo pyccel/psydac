@@ -104,6 +104,7 @@ jobs:
 
       - name: Install h5py library in parallel mode
         run: |
+          export CC="mpicc" HDF5_MPI="ON"
           python -m pip install --no-build-isolation h5py --no-binary h5py
           python -m pip list
 
