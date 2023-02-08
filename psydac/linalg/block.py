@@ -7,8 +7,9 @@ import numpy as np
 from types import MappingProxyType
 from scipy.sparse import bmat, lil_matrix
 
-from psydac.linalg.basic import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
-from psydac.ddm.cart     import InterfaceCartDataExchanger, InterfaceCartDecomposition
+from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
+from psydac.ddm.cart      import InterfaceCartDecomposition
+from psydac.ddm.utilities import get_data_exchanger
 
 __all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix', 'BlockDiagonalSolver']
 
@@ -51,8 +52,7 @@ class BlockVectorSpace( VectorSpace ):
         else:
             self._dtype = tuple(s.dtype for s in spaces)
 
-        connectivity       = connectivity or {}
-        self._connectivity = connectivity
+        self._connectivity = connectivity or {}
         self._connectivity_readonly = MappingProxyType(self._connectivity)
     #--------------------------------------
     # Abstract interface
@@ -177,7 +177,7 @@ class BlockVector( Vector ):
                     if not (axis_i, ext_i) in Vik.interfaces: continue
                     cart_ij = Vik.interfaces[axis_i, ext_i].cart
                     assert isinstance(cart_ij, InterfaceCartDecomposition)
-                    self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
+                    self._data_exchangers[i,j].append(get_data_exchanger(cart_ij, self.dtype))
 
             elif  not isinstance(Vi, BlockVectorSpace) and not isinstance(Vj, BlockVectorSpace):
                 # case of scalar equations
@@ -189,7 +189,7 @@ class BlockVector( Vector ):
 
                 cart_ij = Vi.interfaces[axis_i, ext_i].cart
                 assert isinstance(cart_ij, InterfaceCartDecomposition)
-                self._data_exchangers[i,j].append(InterfaceCartDataExchanger(cart_ij, self.dtype))
+                self._data_exchangers[i,j].append(get_data_exchanger(cart_ij, self.dtype))
             else:
                 raise NotImplementedError("This case is not treated")
 
@@ -303,13 +303,18 @@ class BlockVector( Vector ):
     def ghost_regions_in_sync( self, value ):
         assert isinstance( value, bool )
         self._sync = value
+        for vi in self.blocks:
+            vi.ghost_regions_in_sync = value
 
     # ...
-    def update_ghost_regions( self, *, direction=None ):
-        self.start_update_interface_ghost_regions()
+    def update_ghost_regions( self ):
+
+        req = self.start_update_interface_ghost_regions()
+
         for vi in self.blocks:
-            vi.update_ghost_regions(direction=direction)
-        self.end_update_interface_ghost_regions()
+            vi.update_ghost_regions()
+
+        self.end_update_interface_ghost_regions(req)
 
         # Flag ghost regions as up-to-date
         self._sync = True
@@ -320,12 +325,12 @@ class BlockVector( Vector ):
         for (i,j) in self._data_exchangers:
             req[i,j] = [data_ex.start_update_ghost_regions(*bufs) for bufs,data_ex in zip(self._interface_buf[i,j], self._data_exchangers[i,j])]
 
-        self._req = req
+        return req
 
-    def end_update_interface_ghost_regions( self ):
+    def end_update_interface_ghost_regions( self, req ):
 
         for (i,j) in self._data_exchangers:
-            for data_ex,bufs,req_ij in zip(self._data_exchangers[i,j], self._interface_buf[i,j], self._req[i,j]):
+            for data_ex,bufs,req_ij in zip(self._data_exchangers[i,j], self._interface_buf[i,j], req[i,j]):
                 data_ex.end_update_ghost_regions(req_ij)
 
     def _collect_interface_buf( self ):
@@ -378,6 +383,11 @@ class BlockVector( Vector ):
                 self._interface_buf[i,j].append(tuple(buf))
 
     # ...
+    def exchange_assembly_data( self ):
+        for vi in self.blocks:
+            vi.exchange_assembly_data()
+
+    # ...
     @property
     def n_blocks( self ):
         return len( self._blocks )
@@ -391,6 +401,7 @@ class BlockVector( Vector ):
     def toarray( self, order='C' ):
         return np.concatenate( [bi.toarray(order=order) for bi in self._blocks] )
 
+    # ...
     def toarray_local( self, order='C' ):
         """ Convert to petsc Nest vector.
         """
@@ -398,14 +409,12 @@ class BlockVector( Vector ):
         blocks    = [v.toarray_local(order=order) for v in self._blocks]
         return np.block([blocks])[0]
 
+    # ...
     def topetsc( self ):
-        """ Convert to petsc Nest vector.
+        """ Convert to petsc data structure.
         """
-
-        blocks    = [v.topetsc() for v in self._blocks]
-        cart      = self._space.spaces[0].cart
-        petsccart = cart.topetsc()
-        vec       = petsccart.petsc.Vec().createNest(blocks, comm=cart.comm)
+        from psydac.linalg.topetsc import vec_topetsc
+        vec = vec_topetsc( self )
         return vec
 
 #===============================================================================
@@ -469,6 +478,7 @@ class BlockLinearOperator( LinearOperator ):
         self._args['n_rows'] = self._nrows
         self._args['n_cols'] = self._ncols
         self._func           = self._dot
+        self._sync           = False
 
     #--------------------------------------
     # Abstract interface
@@ -564,9 +574,25 @@ class BlockLinearOperator( LinearOperator ):
             Lij.update_ghost_regions()
 
     # ...
+    def exchange_assembly_data( self ):
+        for Lij in self._blocks.values():
+            Lij.exchange_assembly_data()
+
+    # ...
     def remove_spurious_entries( self ):
         for Lij in self._blocks.values():
             Lij.remove_spurious_entries()
+
+    @property
+    def ghost_regions_in_sync(self):
+        return self._sync
+
+    @ghost_regions_in_sync.setter
+    def ghost_regions_in_sync( self, value ):
+        assert isinstance( value, bool )
+        self._sync = value
+        for Lij in self._blocks.values():
+            Lij.ghost_regions_in_sync = value
 
     # ...
     def __getitem__( self, key ):
@@ -870,21 +896,11 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
     # ...
     def topetsc( self ):
-        """ Convert to petsc Nest Matrix.
+        """ Convert to petsc data structure.
         """
-        # Convert all blocks to petsc format
-        blocks = [[None for j in range( self.n_block_cols )] for i in range( self.n_block_rows )]
-        for (i,j), Mij in self._blocks.items():
-            blocks[i][j] = Mij.topetsc()
-
-        if self.n_block_cols == 1:
-            cart = self.domain.cart
-        else:
-            cart = self.domain.spaces[0].cart
-
-        petsccart = cart.topetsc()
-
-        return petsccart.petsc.Mat().createNest(blocks, comm=cart.comm)
+        from psydac.linalg.topetsc import mat_topetsc
+        mat = mat_topetsc( self )
+        return mat
 
     def compute_interface_matrices_transpose(self):
         blocks = self._blocks.copy()
@@ -899,8 +915,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             return blocks, blocks_T
 
         V = self.codomain 
-        for i,j in V.connectivity:
 
+        for i,j in V.connectivity:
             ((axis_i,ext_i), (axis_j,ext_j)) = V.connectivity[i,j]
 
             Vi = V.spaces[i]
@@ -918,7 +934,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
                         if cart_i.is_comm_null and cart_j.is_comm_null:break
                         if not cart_i.is_comm_null and not cart_j.is_comm_null:break
-                        if not (axis_i, ext_i) in Vik1.interfaces:break
+                        if not (axis_i, ext_i) in Vik1.interfaces: break
                         cart_ij = Vik1.interfaces[axis_i, ext_i].cart
                         assert isinstance(cart_ij, InterfaceCartDecomposition)
 
@@ -949,7 +965,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                                 block_ij_k1k2 = StencilInterfaceMatrix(Vjk2, Vik1.interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
                                 block_ji_k2k1 = StencilInterfaceMatrix(Vik1, Vjk2, info[1], info[0], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
 
-                            data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ij_k1k2._data.shape[block_ij_k1k2._ndim:])
+                            data_exchanger = get_data_exchanger(cart_ij, self.dtype, coeff_shape = block_ij_k1k2._data.shape[block_ij_k1k2._ndim:])
                             data_exchanger.update_ghost_regions(array_minus=block_ij_k1k2._data)
 
                             if cart_i.is_comm_null:
@@ -973,7 +989,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
                         if cart_i.is_comm_null and cart_j.is_comm_null:break
                         if not cart_i.is_comm_null and not cart_j.is_comm_null:break
-                        if not (axis_i, ext_i) in Vik1.interfaces:break
+                        if not (axis_i, ext_i) in Vik1.interfaces: break
                         interface_cart_i = Vik1.interfaces[axis_i, ext_i].cart
                         interface_cart_j = Vjk2.interfaces[axis_j, ext_j].cart
                         assert isinstance(interface_cart_i, InterfaceCartDecomposition)
@@ -1008,7 +1024,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                                 block_ij_k1k2 = StencilInterfaceMatrix(Vjk2, Vik1, info[1], info[0], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
 
                             interface_cart_i.comm.Barrier()
-                            data_exchanger = InterfaceCartDataExchanger(interface_cart_j, self.dtype, coeff_shape = block_ji_k2k1._data.shape[block_ji_k2k1._ndim:])
+                            data_exchanger = get_data_exchanger(interface_cart_j, self.dtype, coeff_shape = block_ji_k2k1._data.shape[block_ji_k2k1._ndim:])
 
                             data_exchanger.update_ghost_regions(array_plus=block_ji_k2k1._data)
 
@@ -1032,7 +1048,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                 cart_j = Vj.cart
                 if cart_i.is_comm_null and cart_j.is_comm_null:continue
                 if not cart_i.is_comm_null and not cart_j.is_comm_null:continue
-                if not (axis_i, ext_i) in Vi.interfaces:continue
+                if not (axis_i, ext_i) in Vi.interfaces: continue
                 cart_ij = Vi.interfaces[axis_i, ext_i].cart
                 assert isinstance(cart_ij, InterfaceCartDecomposition)
 
@@ -1057,7 +1073,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                         block_ij = StencilInterfaceMatrix(Vj, Vi.interfaces[axis_i, ext_i], info[0], info[1], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
                         block_ji = StencilInterfaceMatrix(Vi, Vj, info[1], info[0], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
 
-                    data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ij._data.shape[block_ij._ndim:])
+                    data_exchanger = get_data_exchanger(cart_ij, self.dtype, coeff_shape = block_ij._data.shape[block_ij._ndim:])
                     data_exchanger.update_ghost_regions(array_minus=block_ij._data)
 
                     if cart_i.is_comm_null:
@@ -1083,7 +1099,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                         block_ji = StencilInterfaceMatrix(Vi, Vj.interfaces[axis_j, ext_j], info[0], info[1], axis_i, axis_j, ext_i, ext_j, flip=info[2], pads=info[3])
                         block_ij = StencilInterfaceMatrix(Vj, Vi, info[1], info[0], axis_j, axis_i, ext_j, ext_i, flip=info[2], pads=info[3])
 
-                    data_exchanger = InterfaceCartDataExchanger(cart_ij, self.dtype, coeff_shape = block_ji._data.shape[block_ji._ndim:])
+                    data_exchanger = get_data_exchanger(cart_ij, self.dtype, coeff_shape = block_ji._data.shape[block_ji._ndim:])
                     data_exchanger.update_ghost_regions(array_plus=block_ji._data)
 
                     if cart_j.is_comm_null:
@@ -1105,6 +1121,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         from psydac.linalg.stencil import StencilInterfaceMatrix
 
         block_shape = (self.n_block_rows, self.n_block_cols)
+
         keys        = self.nonzero_block_indices
         ndim        = self._blocks[keys[0]]._ndim
         c_starts    = []
@@ -1177,7 +1194,10 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             dm.append(self._blocks[key]._dotargs_null['dm'])
 
         if self.domain.parallel:
-            comm = self.codomain.spaces[0].cart.comm if isinstance(self.codomain, BlockVectorSpace) else self.codomain.cart.comm
+            if interface:
+                comm = self.domain.spaces[0].interfaces[d_axis, d_ext].cart.local_comm if isinstance(self.domain, BlockVectorSpace) else self.domain.interfaces[d_axis, d_ext].cart.local_comm 
+            else:
+                comm = self.codomain.spaces[0].cart.comm if isinstance(self.codomain, BlockVectorSpace) else self.codomain.cart.comm
             if self.domain == self.codomain:
                 # In this case nrows_extra[i] == 0 for all i
                 dot = LinearOperatorDot(ndim,

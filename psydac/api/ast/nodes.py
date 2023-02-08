@@ -1421,7 +1421,6 @@ class LocalSpanArray(SpanArray):
     """
      This represents the local span array
     """
-
     _rank = 1
     _positions = {index_element: 0}
 #==============================================================================

@@ -597,7 +597,7 @@ def make_knots(breaks, degree, periodic, multiplicity=1, out=None):
     # Consistency checks
     assert len(breaks) > 1
     assert all( np.diff(breaks) > 0 )
-    #assert degree > 0
+    assert degree >= 0
     assert 1 <= multiplicity and multiplicity <= degree + 1
     # Cast potential numpy.int64 into python native int
     multiplicity = int(multiplicity)

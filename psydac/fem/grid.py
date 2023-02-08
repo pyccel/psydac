@@ -31,10 +31,10 @@ class FemAssemblyGrid:
         1D finite element space.
 
     start : int
-        Index of first 1D basis local to process.
+        Index of first element local to process.
 
     end : int
-        Index of last 1D basis local to process.
+        Index of last element local to process.
 
     quad_order : int
         Polynomial order for which mass matrix is exact, assuming identity map
@@ -44,23 +44,14 @@ class FemAssemblyGrid:
         Number of basis functions' derivatives to be precomputed at the Gauss
         points (default: 1).
 
-    parent_start: int
-        Index of first 1D parent basis local to process.
-
-    parent_end: int
-        Index of last 1D parent basis local to process.
     """
-    def __init__( self, space, start, end, *, quad_order=None, nderiv=1, parent_start=None, parent_end=None):
+    def __init__( self, space, start, end, *, quad_order=None, nderiv=1):
 
         T            = space.knots           # knots sequence
         degree       = space.degree          # spline degree
         n            = space.nbasis          # total number of control points
         grid         = space.breaks          # breakpoints
-        nc           = space.ncells          # number of cells in domain (nc=len(grid)-1)
         k            = quad_order or degree  # polynomial order for which the mass matrix is exact
-        pad          = space.pads            # padding
-        multiplicity = space.multiplicity    # multiplicity of the knots
-
 
         # Gauss-legendre quadrature rule
         u, w = gauss_legendre( k )
@@ -74,108 +65,38 @@ class FemAssemblyGrid:
         #-------------------------------------------
 
         # Lists of quadrature coordinates and weights on each element
-        glob_points, glob_weights = quadrature_grid( grid, u, w )
+        global_points, global_weights = quadrature_grid( grid, u, w )
 
         # List of basis function values on each element
-        glob_basis = basis_ders_on_quad_grid( T, degree, glob_points, nderiv, space.basis )
+        global_basis = basis_ders_on_quad_grid( T, degree, global_points, nderiv, space.basis )
 
         # List of spans on each element
         # (Span is global index of last non-vanishing basis function)
 
-        glob_spans = elements_spans( T, degree )
+        global_spans = elements_spans( T, degree )
 
-        #-------------------------------------------
-        # LOCAL GRID, EXTENDED (WITH GHOST REGIONS)
-        #-------------------------------------------
-
-        # Lists of local quadrature points and weights, basis functions values
-        spans   = []
-        basis   = []
-        points  = []
-        weights = []
-        indices = []
-        ne      = 0
-
-        # Current start/end represent the parent start/end when the space is a reduction
-        # from a parent space, otherwise we use the provided start/end.
- 
-        if pad==degree:
-            current_glob_spans  = glob_spans
-            current_start = start
-            current_end   = end
-        elif pad-degree == 1:
-            multiplicity  = space.parent_multiplicity
-            elevated_T    = elevate_knots(T, degree, space.periodic, multiplicity=multiplicity)
-            current_start = parent_start or start
-            current_end   = parent_end   or end
-            current_glob_spans  = elements_spans( elevated_T, pad )
-        else:
-            raise NotImplementedError('TODO')
-
-        # a) Periodic case only, left-most process in 1D domain
-        if space.periodic:
-            for k in range( nc ):
-                gk = current_glob_spans[k]
-                if start <= gk-n and gk-n-pad <= end:
-                    spans  .append( glob_spans[k]-n )
-                    basis  .append( glob_basis  [k] )
-                    points .append( glob_points [k] )
-                    weights.append( glob_weights[k] )
-                    indices.append( k )
-                    ne += 1
-
-        m = multiplicity if multiplicity>1 else 0
-
-        # b) All cases
-        for k in range( nc ):
-            gk = current_glob_spans[k]
-            gs = glob_spans  [k]
-            if current_start-m <= gk and gk-pad <= current_end:
-                if m>0 and pad-degree==1 and start>gs:continue
-                spans  .append( glob_spans  [k] )
-                basis  .append( glob_basis  [k] )
-                points .append( glob_points [k] )
-                weights.append( glob_weights[k] )
-                indices.append( k )
-                ne += 1
-
+        grid    = grid[start:end+2]
+        spans   = global_spans  [start:end+1].copy()
+        basis   = global_basis  [start:end+1].copy()
+        points  = global_points [start:end+1].copy()
+        weights = global_weights[start:end+1].copy()
         #-------------------------------------------
         # DATA STORAGE IN OBJECT
         #-------------------------------------------
         # Quadrature data on extended distributed domain
-        self._num_elements = ne
+        self._num_elements = len(grid)-1
         self._num_quad_pts = len( u )
-        self._spans        = np.array( spans   )
-        self._basis        = np.array( basis   )
-        self._points       = np.array( points  )
-        self._weights      = np.array( weights )
-        self._indices      = np.array( indices )
+        self._spans        = spans
+        self._basis        = basis
+        self._points       = points
+        self._weights      = weights
+        self._indices      = tuple(range(start, end+1))
         self._quad_rule_x  = u
         self._quad_rule_w  = w
 
-        #-------------------------------------------
-        # LOCAL GRID, PROPER (WITHOUT GHOST REGIONS)
-        #-------------------------------------------
-
-        # Local indices of first/last elements in proper domain
-        if space.periodic:
-            local_element_start = self._spans.searchsorted( degree + start )
-            local_element_end   = self._spans.searchsorted( degree + end   )
-        else:
-            if degree == 0:
-                local_element_start = self._spans.searchsorted( degree if start == 0   else 1 + start)
-                local_element_end   = self._spans.searchsorted( end )
-            elif end+1 >= degree:
-                local_element_start = self._spans.searchsorted( degree if start == 0   else 1 + start)
-                local_element_end   = self._spans.searchsorted( end if end   == n-1 else 1 + end )
-            else:
-                # in this edge case: no local elements for now
-                local_element_start = 1
-                local_element_end = 0
-
         # Local index of start/end elements of domain partitioning
-        self._local_element_start = local_element_start
-        self._local_element_end   = local_element_end
+        self._local_element_start = 0
+        self._local_element_end   = self._num_elements - 1
 
     # ...
     @property

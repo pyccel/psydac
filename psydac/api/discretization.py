@@ -2,7 +2,7 @@
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
 #         nderiv has not been changed. shall we add quad_order too?
-
+import os
 from sympy import Expr as sym_Expr
 import numpy as np
 
@@ -35,7 +35,7 @@ from psydac.api.equation     import DiscreteEquation
 from psydac.api.utilities    import flatten
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
-from psydac.fem.partitioning import create_cart, construct_connectivity, construct_interface_spaces
+from psydac.fem.partitioning import create_cart, construct_connectivity, construct_interface_spaces, construct_reduced_interface_spaces
 from psydac.fem.vector       import ProductFemSpace
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
@@ -49,13 +49,13 @@ def discretize_derham(derham, domain_h, *args, **kwargs):
     mapping  = derham.spaces[0].domain.mapping
 
     bases  = ['B'] + ldim * ['M']
-    spaces = [discretize_space(V, domain_h, *args, basis=basis, **kwargs) \
+    spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \
             for V, basis in zip(derham.spaces, bases)]
 
     return DiscreteDerham(mapping, *spaces)
 
 #==============================================================================
-def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
+def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
     """
     This function takes a tensor FEM space Vh and reduces some degrees in order
     to obtain a tensor FEM space Wh that matches the symbolic space V in a
@@ -190,7 +190,7 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
 
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, *args, **kwargs):
+def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, quad_order=None, basis='B', sequence='DR'):
     """
     This function creates the discretized space starting from the symbolic space.
 
@@ -202,6 +202,43 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
     domain_h   : <Geometry>
         the discretized domain
+
+    degree : list | dict
+        The degree of the h1 space in each direction.
+
+    multiplicity: list | dict
+        The multiplicity of knots for the h1 space in each direction.
+
+    knots: list | dict
+        The knots sequence of the h1 space in each direction.
+
+    quad_order: list
+        The number of quadrature points in each direction.
+
+    basis: str
+        The type of basis function can be 'b' for b-splines or 'M' for M-splines.
+
+    sequence: str
+        The sequence used to reduce the space. The available choices are:
+          'DR': for the de Rham sequence, as described in [1],
+          'TH': for Taylor-Hood elements, as described in [2].
+        Not implemented yet:
+          'N' : for Nedelec elements, as described in [2],
+          'RT': for Raviart-Thomas elements, as described in [2].
+
+    For more details see:
+
+      [1] : A. Buffa, J. Rivas, G. Sangalli, and R.G. Vazquez. Isogeometric
+      Discrete Differential Forms in Three Dimensions. SIAM J. Numer. Anal.,
+      49:818-844, 2011. DOI:10.1137/100786708. (Section 4.1)
+
+      [2] : A. Buffa, C. de Falco, and G. Sangalli. IsoGeometric Analysis:
+      Stable elements for the 2D Stokes equation. Int. J. Numer. Meth. Fluids,
+      65:1407-1422, 2011. DOI:10.1002/fld.2337. (Section 3)
+
+      [3] : A. Bressan, and G. Sangalli. Isogeometric discretizations of the
+      Stokes problem: stability analysis by the macroelement technique. IMA J.
+      Numer. Anal., 33(2):629-651, 2013. DOI:10.1093/imanum/drr056.
 
     Returns
     -------
@@ -215,14 +252,8 @@ def discretize_space(V, domain_h, *args, **kwargs):
 #    We build the dictionary g_spaces for each interior domain, where it conatians the interiors as keys and the spaces as values,
 #    we then create the compatible spaces if needed with the suitable basis functions.
 
-    degree              = kwargs.pop('degree', None)
     comm                = domain_h.comm
     ldim                = V.ldim
-    periodic            = kwargs.pop('periodic', [False]*ldim)
-    basis               = kwargs.pop('basis', 'B')
-    knots               = kwargs.pop('knots', None)
-    quad_order          = kwargs.pop('quad_order', None)
-    sequence            = kwargs.pop('sequence', 'DR')
     is_rational_mapping = False
 
     assert sequence in ['DR', 'TH', 'N', 'RT']
@@ -240,7 +271,11 @@ def discretize_space(V, domain_h, *args, **kwargs):
     connectivity = construct_connectivity(domain)
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
         # from a discrete geoemtry
-        mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
+        if interiors[0].name in domain_h.mappings:
+            mappings  = [domain_h.mappings[inter.name] for inter in interiors]
+        else:
+            mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
+
         spaces    = [m.space for m in mappings]
         g_spaces  = dict(zip(interiors, spaces))
         spaces    = [S.spaces for S in spaces]
@@ -248,27 +283,39 @@ def discretize_space(V, domain_h, *args, **kwargs):
         if not( comm is None ) and ldim == 1:
             raise NotImplementedError('must create a TensorFemSpace in 1d')
 
-        if comm is not None:
-            cart = domain_h.cart
-            if len(interiors) == 1:
-                carts = [cart]
-            else:
-                carts = cart.carts
     else:
 
-        assert isinstance( degree, (list, tuple) )
-        assert  len(degree) == ldim
-        assert hasattr(domain_h, 'ncells')
+        if isinstance( degree, (list, tuple) ):
+            degree = {I.name:degree for I in interiors}
+        else:
+            assert isinstance(degree, dict)
+
+        if isinstance( multiplicity, (list, tuple) ):
+            multiplicity = {I.name:multiplicity for I in interiors}
+        elif multiplicity is None:
+            multiplicity = {I.name:(1,)*len(degree[I.name]) for I in interiors}
+        else:
+            assert isinstance(multiplicity, dict)
 
         if isinstance(knots, (list, tuple)):
             assert len(interiors) == 1
             knots = {interiors[0].name:knots}
 
+        if len(interiors) == 1:
+            ddms = [domain_h.ddm]
+        else:
+            ddms = domain_h.ddm.domains
+
         spaces = [None]*len(interiors)
         for i,interior in enumerate(interiors):
-            ncells     = domain_h.ncells
+            ncells     = domain_h.ncells[interior.name]
+            periodic   = domain_h.periodic[interior.name]
+            degree_i   = degree[interior.name]
+            multiplicity_i = multiplicity[interior.name]
             min_coords = interior.min_coords
             max_coords = interior.max_coords
+
+            assert len(ncells) == len(periodic) == len(degree_i)  == len(multiplicity_i) == len(min_coords) == len(max_coords)
 
             if knots is None:
                 # Create uniform grid
@@ -276,31 +323,18 @@ def discretize_space(V, domain_h, *args, **kwargs):
                          for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
                 # Create 1D finite element spaces and precompute quadrature data
-                spaces[i] = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
+                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
             else:
                  # Create 1D finite element spaces and precompute quadrature data
-                spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree, knots[interior.name], periodic)]
+                spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]
 
-        if comm is not None:
-            cart = create_cart(spaces, comm)
+        carts    = create_cart(ddms, spaces)
+        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], quad_order=quad_order) for i,inter in enumerate(interiors)}
 
-            if len(interiors) == 1:
-                carts = [cart]
-            else:
-                carts = cart.carts
-        else:
-            cart = None
+        # ... construct interface spaces
+        construct_interface_spaces(domain_h.ddm, g_spaces, carts, interiors, connectivity)
 
-        for i,interior in enumerate(interiors):
-            if comm is not None:
-                Vh = TensorFemSpace( *spaces[i], cart=carts[i], quad_order=quad_order)
-            else:
-                Vh = TensorFemSpace( *spaces[i], quad_order=quad_order)
-
-            g_spaces[interior] = Vh
-
-        construct_interface_spaces(g_spaces, cart, interiors, connectivity)
-
+    new_g_spaces = {}
     for inter in g_spaces:
         Vh = g_spaces[inter]
         if isinstance(V, ProductSpace):
@@ -312,16 +346,17 @@ def discretize_space(V, domain_h, *args, **kwargs):
             Vh = reduce_space_degrees(V, Vh, basis=basis, sequence=sequence)
 
         Vh.symbolic_space = V
-        g_spaces[inter]   = Vh
+        new_g_spaces[inter]   = Vh
 
-    Vh = ProductFemSpace(*g_spaces.values(), connectivity=connectivity)
+    construct_reduced_interface_spaces(g_spaces, new_g_spaces, interiors, connectivity)
 
+    Vh = ProductFemSpace(*new_g_spaces.values(), connectivity=connectivity)
     Vh.symbolic_space = V
 
     return Vh
 
 #==============================================================================
-def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
+def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm=None):
 
     if comm is not None:
         # Create a copy of the communicator
@@ -337,7 +372,7 @@ def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
         return Geometry(filename=filename, comm=comm)
 
     elif ncells:
-        return Geometry.from_topological_domain(domain, ncells, comm)
+        return Geometry.from_topological_domain(domain, ncells, periodic=periodic, comm=comm)
 
 #==============================================================================
 def discretize(a, *args, **kwargs):
@@ -347,7 +382,7 @@ def discretize(a, *args, **kwargs):
         assert isinstance(domain_h, Geometry)
         domain  = domain_h.domain
         mapping = domain_h.domain.mapping
-        kwargs['mapping'] = mapping
+        kwargs['symbolic_mapping'] = mapping
 
     if isinstance(a, sym_BasicForm):
         if isinstance(a, sym_Norm):
@@ -387,7 +422,7 @@ def discretize(a, *args, **kwargs):
 
     elif isinstance(a, sym_GltExpr):
         return DiscreteGltExpr(a, *args, **kwargs)
-        
+
     elif isinstance(a, sym_Expr):
         return DiscreteExpr(a, *args, **kwargs)
 

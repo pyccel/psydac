@@ -10,13 +10,14 @@ from sympde.topology.mapping            import Mapping
 from psydac.fem.splines                 import SplineSpace
 from psydac.fem.tensor                  import TensorFemSpace
 from psydac.mapping.discrete            import SplineMapping
+from psydac.ddm.cart                    import DomainDecomposition
 
 
 class Collela3D( Mapping ):
 
-    expressions = {'x':'2.*(x1 + 0.1**sin(2.*pi*x1)*sin(2.*pi*x2)) - 1.',
-                   'y':'2.*(x2 + 0.1**sin(2.*pi*x1)*sin(2.*pi*x2)) - 1.',
-                   'z':'2.*x3  - 1.'}
+    _expressions = {'x':'2.*(x1 + 0.1*sin(2.*pi*x1)*sin(2.*pi*x2)) - 1.',
+                    'y':'2.*(x2 + 0.1*sin(2.*pi*x1)*sin(2.*pi*x2)) - 1.',
+                    'z':'2.*x3  - 1.'}
 
 #==============================================================================
 def discrete_mapping(mapping, ncells, degree, **kwargs):
@@ -93,10 +94,13 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
         p1 , p2  = degree
         nc1, nc2 = ncells
 
+        # Create the domain decomposition
+        domain_decomposition = DomainDecomposition(ncells=[nc1,nc2], periods=[period1,period2], comm=comm)
+
         # Create tensor spline space, distributed
         V1    = SplineSpace( grid=np.linspace( *lims1, num=nc1+1 ), degree=p1, periodic=period1 )
         V2    = SplineSpace( grid=np.linspace( *lims2, num=nc2+1 ), degree=p2, periodic=period2 )
-        space = TensorFemSpace( V1, V2, comm=comm )
+        space = TensorFemSpace( domain_decomposition, V1, V2 )
 
         # Create spline mapping by interpolating analytical one
         map_discrete = SplineMapping.from_mapping( space, map_analytic )
@@ -127,11 +131,14 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
         p1 , p2 , p3  = degree
         nc1, nc2, nc3 = ncells
 
+        # Create the domain decomposition
+        domain_decomposition = DomainDecomposition(ncells=[nc1,nc2,nc3], periods=[period1,period2,period3], comm=comm)
+
         # Create tensor spline space, distributed
         V1    = SplineSpace( grid=np.linspace( *lims1, num=nc1+1 ), degree=p1, periodic=period1 )
         V2    = SplineSpace( grid=np.linspace( *lims2, num=nc2+1 ), degree=p2, periodic=period2 )
         V3    = SplineSpace( grid=np.linspace( *lims3, num=nc3+1 ), degree=p3, periodic=period3 )
-        space = TensorFemSpace( V1, V2, V3, comm=comm )
+        space = TensorFemSpace( domain_decomposition, V1, V2, V3 )
 
         # Create spline mapping by interpolating analytical one
         map_discrete = SplineMapping.from_mapping( space, map_analytic )

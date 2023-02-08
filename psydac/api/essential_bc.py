@@ -78,6 +78,7 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
     elif isinstance(a, StencilInterfaceMatrix):
         V = a.codomain
         n = V.ndim * 2
+
         if axis == a.codomain_axis:
             return
     else:
@@ -121,9 +122,10 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
 
 #==============================================================================
 def apply_essential_bc_BlockMatrix(a, bc, *, identity=False, is_broken=True):
-    """ Apply homogeneous dirichlet boundary conditions in nD.
-        is_broken is used to identify if we are in a multipatch setting, where we assume
-        that the domain and codomain of each block of the BlockMatrix corresponds to a single patch.
+    """
+    Apply homogeneous dirichlet boundary conditions in nD.
+    is_broken is used to identify if we are in a multipatch setting, where we assume
+    that the domain and codomain of each block of the BlockMatrix corresponds to a single patch.
 
     Parameters
     ----------

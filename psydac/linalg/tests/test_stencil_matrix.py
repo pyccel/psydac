@@ -6,7 +6,25 @@ from random import random
 
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.api.settings   import *
+from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
+#===============================================================================
+def compute_global_starts_ends(domain_decomposition, npts, pads):
+    ndims         = len(npts)
+    global_starts = [None]*ndims
+    global_ends   = [None]*ndims
+
+    for axis in range(ndims):
+        ee = domain_decomposition.global_element_ends  [axis]
+
+        global_ends  [axis]     = ee.copy()
+        global_ends  [axis][-1] = npts[axis]-1
+        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+
+    for s,e,p in zip(global_starts, global_ends, pads):
+        assert all(e-s+1>=p)
+
+    return tuple(global_starts), tuple(global_ends)
 #===============================================================================
 # SERIAL TESTS
 #===============================================================================
@@ -17,7 +35,14 @@ from psydac.api.settings   import *
 
 def test_stencil_matrix_2d_serial_init( n1, n2, p1, p2, P1=True, P2=False ):
 
-    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P1] )
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    V = StencilVectorSpace( cart )
     M = StencilMatrix( V, V )
 
     assert M._data.shape == (n1+2*p1, n2+2*p2, 1+2*p1, 1+2*p2)
@@ -31,7 +56,14 @@ def test_stencil_matrix_2d_serial_init( n1, n2, p1, p2, P1=True, P2=False ):
 
 def test_stencil_matrix_2d_basic_ops( n1, n2, p1, p2, P1=True, P2=False ):
 
-    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P1] )
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    V = StencilVectorSpace( cart )
     M = StencilMatrix( V, V )
 
     # take random data, but determinize it
@@ -75,8 +107,17 @@ def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2, P1=False, P2=True ):
         for k2 in range(-p2,p2+1):
             nonzero_values[k1,k2] = 10*k1 + k2
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space and stencil matrix
-    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    V = StencilVectorSpace( cart )
     M = StencilMatrix( V, V )
 
     # Fill in stencil matrix values
@@ -114,8 +155,17 @@ def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2, P1=False, P2=True ):
 
 def test_stencil_matrix_1d_serial_dot( n1, p1, P1 ):
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1], periods=[P1])
+
+    # Partition the points
+    npts = [n1]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[1])
+
     # Create vector space, stencil matrix, and stencil vector
-    V = StencilVectorSpace( [n1,], [p1,], [P1,] )
+    V = StencilVectorSpace( cart )
     M = StencilMatrix( V, V )
     x = StencilVector( V )
 
@@ -158,8 +208,17 @@ def test_stencil_matrix_1d_serial_dot( n1, p1, P1 ):
 
 def test_stencil_matrix_2d_serial_dot_1( n1, n2, p1, p2, P1, P2 ):
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space, stencil matrix, and stencil vector
-    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    V = StencilVectorSpace( cart )
     M = StencilMatrix( V, V )
     x = StencilVector( V )
 
@@ -201,9 +260,23 @@ def test_stencil_matrix_2d_serial_dot_1( n1, n2, p1, p2, P1, P2 ):
 
 def test_stencil_matrix_2d_serial_dot_2( n1, n2, p1, p2, P1, P2 ):
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts1 = [n1,n2]
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
+
+    npts2 = [n1-1,n2-1]
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
+
+    cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
+    cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space, stencil matrix, and stencil vector
-    V1 = StencilVectorSpace( [n1,n2], [p1, p2], [P1,P2] )
-    V2 = StencilVectorSpace( [n1-1,n2-1], [p1, p2], [P1,P2] )
+    V1 = StencilVectorSpace( cart1 )
+    V2 = StencilVectorSpace( cart2 )
+
     M1 = StencilMatrix( V1, V2 ,pads=(p1,p2))
     M2 = StencilMatrix( V2, V1 ,pads=(p1,p2))
     x1 = StencilVector( V1 )
@@ -245,7 +318,7 @@ def test_stencil_matrix_2d_serial_dot_2( n1, n2, p1, p2, P1, P2 ):
     y2a_exact = np.dot( M2a, x2a )
 
     # Check data in 1D array
-    print(y2a-y2a_exact)
+
     assert np.allclose( y1a, y1a_exact, rtol=1e-13, atol=1e-13 )
     assert np.allclose( y2a, y2a_exact, rtol=1e-13, atol=1e-13 )
 
@@ -259,9 +332,22 @@ def test_stencil_matrix_2d_serial_dot_2( n1, n2, p1, p2, P1, P2 ):
 
 def test_stencil_matrix_2d_serial_dot_3( n1, n2, p1, p2, P1, P2 ):
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts1 = [n1,n2-1]
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
+
+    npts2 = [n1-1,n2-1]
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
+
+    cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
+    cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space, stencil matrix, and stencil vector
-    V1 = StencilVectorSpace( [n1,n2-1], [p1, p2], [P1,P2] )
-    V2 = StencilVectorSpace( [n1-1,n2-1], [p1, p2], [P1,P2] )
+    V1 = StencilVectorSpace( cart1 )
+    V2 = StencilVectorSpace( cart2 )
     M1 = StencilMatrix( V1, V2 ,pads=(p1,p2-1))
     M2 = StencilMatrix( V2, V1 ,pads=(p1,p2-1))
     x1 = StencilVector( V1 )
@@ -318,9 +404,22 @@ def test_stencil_matrix_2d_serial_dot_3( n1, n2, p1, p2, P1, P2 ):
 
 def test_stencil_matrix_2d_serial_dot_4( n1, n2, p1, p2, P1, P2 ):
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts1 = [n1-1,n2]
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
+
+    npts2 = [n1-1,n2-1]
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
+
+    cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
+    cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space, stencil matrix, and stencil vector
-    V1 = StencilVectorSpace( [n1-1,n2  ], [p1, p2], [P1,P2] )
-    V2 = StencilVectorSpace( [n1-1,n2-1], [p1, p2], [P1,P2] )
+    V1 = StencilVectorSpace( cart1 )
+    V2 = StencilVectorSpace( cart2 )
     M1 = StencilMatrix( V1, V2, pads=(p1-1,p2))
     M2 = StencilMatrix( V2, V1, pads=(p1-1,p2))
     x1 = StencilVector( V1 )
@@ -376,9 +475,22 @@ def test_stencil_matrix_2d_serial_dot_4( n1, n2, p1, p2, P1, P2 ):
 
 def test_stencil_matrix_2d_serial_dot_5( n1, n2, p1, p2, P1, P2 ):
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts1 = [n1-1,n2]
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
+
+    npts2 = [n1-1,n2-1]
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
+
+    cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
+    cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space, stencil matrix, and stencil vector
-    V1 = StencilVectorSpace( [n1-1,n2], [p1, p2], [P1,P2] )
-    V2 = StencilVectorSpace( [n1-1,n2-1], [p1, p2], [P1,P2] )
+    V1 = StencilVectorSpace( cart1 )
+    V2 = StencilVectorSpace( cart2 )
     M1 = StencilMatrix( V1, V2 ,pads=(p1,p2))
     M2 = StencilMatrix( V2, V1 ,pads=(p1,p2))
     x1 = StencilVector( V1 )
@@ -434,8 +546,17 @@ def test_stencil_matrix_2d_serial_dot_5( n1, n2, p1, p2, P1, P2 ):
 
 def test_stencil_matrix_2d_serial_dot_6( n1, n2, p1, p2, P1, P2 ):
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space, stencil matrix, and stencil vector
-    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    V = StencilVectorSpace( cart )
     M = StencilMatrix( V, V , pads=(p1-1, p2-1))
     x = StencilVector( V )
 
@@ -474,8 +595,17 @@ def test_stencil_matrix_2d_serial_dot_6( n1, n2, p1, p2, P1, P2 ):
 
 def test_stencil_matrix_1d_serial_transpose( n1, p1, P1 ):
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1], periods=[P1])
+
+    # Partition the points
+    npts = [n1]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[1])
+
     # Create vector space and stencil matrix
-    V = StencilVectorSpace( [n1], [p1], [P1] )
+    V = StencilVectorSpace( cart )
     M = StencilMatrix( V, V )
 
     # Fill in matrix values with random numbers between 0 and 1
@@ -503,8 +633,17 @@ def test_stencil_matrix_1d_serial_transpose( n1, p1, P1 ):
 
 def test_stencil_matrix_2d_serial_transpose_1( n1, n2, p1, p2, P1, P2 ):
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space and stencil matrix
-    V = StencilVectorSpace( [n1, n2], [p1, p2], [P1, P2] )
+    V = StencilVectorSpace( cart )
     M = StencilMatrix( V, V )
 
     # Fill in matrix values with random numbers between 0 and 1
@@ -533,9 +672,22 @@ def test_stencil_matrix_2d_serial_transpose_1( n1, n2, p1, p2, P1, P2 ):
 def test_stencil_matrix_2d_serial_transpose_2( n1, n2, p1, p2, P1, P2 ):
     # This should only work with non periodic boundaries
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts1 = [n1,n2]
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
+
+    npts2 = [n1-1,n2-1]
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
+
+    cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
+    cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space and stencil matrix
-    V1 = StencilVectorSpace( [n1, n2], [p1, p2], [P1, P2] )
-    V2 = StencilVectorSpace( [n1-1, n2-1], [p1, p2], [P1, P2] )
+    V1 = StencilVectorSpace( cart1 )
+    V2 = StencilVectorSpace( cart2 )
     M  = StencilMatrix(V1, V2, pads=(p1,p2))
 
     # Fill in matrix values with random numbers between 0 and 1
@@ -564,9 +716,22 @@ def test_stencil_matrix_2d_serial_transpose_2( n1, n2, p1, p2, P1, P2 ):
 def test_stencil_matrix_2d_serial_transpose_3( n1, n2, p1, p2, P1, P2 ):
     # This should only work with non periodic boundaries
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts1 = [n1,n2]
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
+
+    npts2 = [n1-1,n2]
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
+
+    cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
+    cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space and stencil matrix
-    V1 = StencilVectorSpace( [n1, n2], [p1, p2], [P1, P2] )
-    V2 = StencilVectorSpace( [n1-1, n2], [p1, p2], [P1, P2] )
+    V1 = StencilVectorSpace( cart1 )
+    V2 = StencilVectorSpace( cart2 )
     M  = StencilMatrix(V1, V2, pads=(p1,p2))
 
     # Fill in matrix values with random numbers between 0 and 1
@@ -595,9 +760,23 @@ def test_stencil_matrix_2d_serial_transpose_3( n1, n2, p1, p2, P1, P2 ):
 def test_stencil_matrix_2d_serial_transpose_4( n1, n2, p1, p2, P1, P2 ):
     # This should only work with non periodic boundaries
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts1 = [n1,n2]
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
+
+    npts2 = [n1,n2-1]
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
+
+    cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
+    cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
+
+
     # Create vector space and stencil matrix
-    V1 = StencilVectorSpace( [n1, n2], [p1, p2], [P1, P2] )
-    V2 = StencilVectorSpace( [n1, n2-1], [p1, p2], [P1, P2] )
+    V1 = StencilVectorSpace( cart1 )
+    V2 = StencilVectorSpace( cart2 )
     M  = StencilMatrix(V1, V2, pads=(p1,p2))
 
     # Fill in matrix values with random numbers between 0 and 1
@@ -626,9 +805,22 @@ def test_stencil_matrix_2d_serial_transpose_4( n1, n2, p1, p2, P1, P2 ):
 def test_stencil_matrix_2d_serial_transpose_5( n1, n2, p1, p2, P1, P2 ):
     # This should only work with non periodic boundaries
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts1 = [n1,n2-1]
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
+
+    npts2 = [n1,n2-1]
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
+
+    cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
+    cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space and stencil matrix
-    V1 = StencilVectorSpace( [n1, n2-1], [p1, p2], [P1, P2] )
-    V2 = StencilVectorSpace( [n1, n2-1], [p1, p2], [P1, P2] )
+    V1 = StencilVectorSpace( cart1 )
+    V2 = StencilVectorSpace( cart2 )
     M  = StencilMatrix(V1, V2, pads=(p1, p2-1))
 
     # Fill in matrix values with random numbers between 0 and 1
@@ -657,9 +849,22 @@ def test_stencil_matrix_2d_serial_transpose_5( n1, n2, p1, p2, P1, P2 ):
 def test_stencil_matrix_2d_serial_transpose_6( n1, n2, p1, p2, P1, P2 ):
     # This should only work with non periodic boundaries
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts1 = [n1-1,n2-1]
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
+
+    npts2 = [n1,n2-1]
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
+
+    cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
+    cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space and stencil matrix
-    V1 = StencilVectorSpace( [n1-1, n2-1], [p1, p2], [P1, P2] )
-    V2 = StencilVectorSpace( [n1, n2-1], [p1, p2], [P1, P2] )
+    V1 = StencilVectorSpace( cart1 )
+    V2 = StencilVectorSpace( cart2 )
     M  = StencilMatrix(V1, V2, pads=(p1, p2-1))
 
     # Fill in matrix values with random numbers between 0 and 1
@@ -687,9 +892,18 @@ def test_stencil_matrix_2d_serial_transpose_6( n1, n2, p1, p2, P1, P2 ):
 
 def test_stencil_matrix_2d_serial_transpose_7( n1, n2, p1, p2, P1, P2 ):
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space and stencil matrix
-    V1 = StencilVectorSpace( [n1, n2], [p1, p2], [P1, P2] )
-    V2 = StencilVectorSpace( [n1, n2], [p1, p2], [P1, P2] )
+    V1 = StencilVectorSpace( cart )
+    V2 = StencilVectorSpace( cart )
     M  = StencilMatrix(V1, V2, pads=(p1, p2-1))
 
     # Fill in matrix values with random numbers between 0 and 1
@@ -717,9 +931,18 @@ def test_stencil_matrix_2d_serial_transpose_7( n1, n2, p1, p2, P1, P2 ):
 
 def test_stencil_matrix_2d_serial_transpose_8( n1, n2, p1, p2, P1, P2 ):
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space and stencil matrix
-    V1 = StencilVectorSpace( [n1, n2], [p1, p2], [P1, P2] )
-    V2 = StencilVectorSpace( [n1, n2], [p1, p2], [P1, P2] )
+    V1 = StencilVectorSpace( cart )
+    V2 = StencilVectorSpace( cart )
     M  = StencilMatrix(V1, V2, pads=(p1-1, p2-1))
 
     # Fill in matrix values with random numbers between 0 and 1
@@ -748,9 +971,19 @@ def test_stencil_matrix_2d_serial_transpose_8( n1, n2, p1, p2, P1, P2 ):
 def test_stencil_matrix_2d_serial_transpose_9( n1, n2, p1, p2, P1, P2 ):
     # This should only work with non periodic boundaries
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1-1,n2-1]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+
     # Create vector space and stencil matrix
-    V1 = StencilVectorSpace( [n1-1, n2-1], [p1, p2], [P1, P2] )
-    V2 = StencilVectorSpace( [n1-1, n2-1], [p1, p2], [P1, P2] )
+    V1 = StencilVectorSpace( cart )
+    V2 = StencilVectorSpace( cart )
     M  = StencilMatrix(V1, V2)
 
     # Fill in matrix values with random numbers between 0 and 1
@@ -782,9 +1015,22 @@ def test_stencil_matrix_2d_serial_transpose_9( n1, n2, p1, p2, P1, P2 ):
 def test_stencil_matrix_3d_serial_transpose_1( n1, n2, n3, p1, p2, p3, P1, P2, P3 ):
     # This should only work with non periodic boundaries
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1, n3-1], periods=[P1,P2,P3])
+
+    # Partition the points
+    npts1 = [n1-1,n2-1, n3-1]
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
+
+    npts2 = [n1,n2-1, n3-1]
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
+
+    cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2,p3], shifts=[1,1,1])
+    cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2,p3], shifts=[1,1,1])
+
     # Create vector space and stencil matrix
-    V1 = StencilVectorSpace( [n1-1, n2-1, n3-1], [p1, p2, p3], [P1, P2, P3] )
-    V2 = StencilVectorSpace( [n1, n2-1, n3-1], [p1, p2, p3], [P1, P2, P3] )
+    V1 = StencilVectorSpace( cart1 )
+    V2 = StencilVectorSpace( cart2 )
     M  = StencilMatrix(V1, V2, pads=(p1, p2-1, p3-1))
 
     # Fill in matrix values with random numbers between 0 and 1
@@ -817,9 +1063,22 @@ def test_stencil_matrix_3d_serial_transpose_1( n1, n2, n3, p1, p2, p3, P1, P2, P
 
 def test_stencil_matrix_2d_serial_backend_dot_1( n1, n2, p1, p2, P1, P2 , backend):
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts1 = [n1-1,n2]
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
+
+    npts2 = [n1-1,n2-1]
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
+
+    cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
+    cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space, stencil matrix, and stencil vector
-    V1 = StencilVectorSpace( [n1-1,n2], [p1, p2], [P1,P2] )
-    V2 = StencilVectorSpace( [n1-1,n2-1], [p1, p2], [P1,P2] )
+    V1 = StencilVectorSpace( cart1 )
+    V2 = StencilVectorSpace( cart2 )
     M1 = StencilMatrix( V1, V2 ,pads=(p1,p2), backend=backend)
     M2 = StencilMatrix( V2, V1 ,pads=(p1,p2), backend=backend)
     x1 = StencilVector( V1 )
@@ -876,8 +1135,17 @@ def test_stencil_matrix_2d_serial_backend_dot_1( n1, n2, p1, p2, P1, P2 , backen
 
 def test_stencil_matrix_2d_serial_backend_dot_2( n1, n2, p1, p2, P1, P2 , backend):
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1-1,n2-1]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space, stencil matrix, and stencil vector
-    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    V = StencilVectorSpace( cart )
     M = StencilMatrix( V, V , pads=(p1-1, p2-1), backend=backend)
     x = StencilVector( V )
 
@@ -926,9 +1194,22 @@ def test_stencil_matrix_2d_serial_backend_dot_2( n1, n2, p1, p2, P1, P2 , backen
 
 def test_stencil_matrix_2d_serial_backend_dot_4( n1, n2, p1, p2, P1, P2, backend):
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts1 = [n1-1,n2]
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1,p2])
+
+    npts2 = [n1-1,n2-1]
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1,p2])
+
+    cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1,p2], shifts=[1,1])
+    cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space, stencil matrix, and stencil vector
-    V1 = StencilVectorSpace( [n1-1,n2  ], [p1, p2], [P1,P2] )
-    V2 = StencilVectorSpace( [n1-1,n2-1], [p1, p2], [P1,P2] )
+    V1 = StencilVectorSpace( cart1 )
+    V2 = StencilVectorSpace( cart2 )
     M1 = StencilMatrix( V1, V2, pads=(p1-1,p2), backend=backend)
     M2 = StencilMatrix( V2, V1, pads=(p1-1,p2), backend=backend)
     x1 = StencilVector( V1 )
@@ -986,8 +1267,17 @@ def test_stencil_matrix_2d_serial_backend_dot_4( n1, n2, p1, p2, P1, P2, backend
 
 def test_stencil_matrix_2d_serial_backend_switch( n1, n2, p1, p2, P1, P2 , backend, backend2):
 
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1,n2-1], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
     # Create vector space, stencil matrix, and stencil vector
-    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    V = StencilVectorSpace( cart )
     M = StencilMatrix( V, V , pads=(p1-1, p2-1), backend=backend)
     x = StencilVector( V )
 
@@ -1018,24 +1308,21 @@ def test_stencil_matrix_2d_serial_backend_switch( n1, n2, p1, p2, P1, P2 , backe
 @pytest.mark.parametrize( 'n1', [20,67] )
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'reorder', [True, False] )
-@pytest.mark.parametrize( 'reverse_axis', [None, 0] )
 @pytest.mark.parallel
 
-def test_stencil_matrix_1d_parallel_dot( n1, p1, P1, reorder, reverse_axis ):
+def test_stencil_matrix_1d_parallel_dot( n1, p1, P1 ):
 
-    from mpi4py       import MPI
-    from psydac.ddm.cart import CartDecomposition
+    from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
-    cart = CartDecomposition(
-        npts    = [n1,],
-        pads    = [p1,],
-        periods = [P1,],
-        reorder = reorder,
-        comm    = comm,
-        reverse_axis=reverse_axis
-    )
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1], periods=[P1], comm=comm)
+
+    # Partition the points
+    npts = [n1]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[1])
 
     V = StencilVectorSpace( cart )
     M = StencilMatrix( V, V )
@@ -1074,30 +1361,27 @@ def test_stencil_matrix_1d_parallel_dot( n1, p1, P1, reorder, reverse_axis ):
     assert np.allclose( ya, ya_exact, rtol=1e-14, atol=1e-14 )
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [ 8,21] )
+@pytest.mark.parametrize( 'n1', [8,21] )
 @pytest.mark.parametrize( 'n2', [13,32] )
 @pytest.mark.parametrize( 'p1', [1,3] )
 @pytest.mark.parametrize( 'p2', [1,2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
-@pytest.mark.parametrize( 'reorder', [True, False] )
-@pytest.mark.parametrize( 'reverse_axis', [None, 0, 1] )
 @pytest.mark.parallel
 
-def test_stencil_matrix_2d_parallel_dot( n1, n2, p1, p2, P1, P2, reorder , reverse_axis):
+def test_stencil_matrix_2d_parallel_dot( n1, n2, p1, p2, P1, P2 ):
 
-    from mpi4py       import MPI
-    from psydac.ddm.cart import CartDecomposition
+    from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
-    cart = CartDecomposition(
-        npts    = [n1,n2],
-        pads    = [p1,p2],
-        periods = [P1,P2],
-        reorder = reorder,
-        comm    = comm,
-        reverse_axis = reverse_axis
-    )
+    # Create domain decomposition
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     # Create vector space, stencil matrix, and stencil vector
     V = StencilVectorSpace( cart )
@@ -1142,24 +1426,22 @@ def test_stencil_matrix_2d_parallel_dot( n1, n2, p1, p2, P1, P2, reorder , rever
 @pytest.mark.parametrize( 'n1', [20,67] )
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'reorder', [True, False] )
-@pytest.mark.parametrize( 'reverse_axis', [None, 0] )
 @pytest.mark.parallel
 
-def test_stencil_matrix_1d_parallel_sync( n1, p1, P1, reorder, reverse_axis):
+def test_stencil_matrix_1d_parallel_sync( n1, p1, P1):
 
     from mpi4py       import MPI
     from psydac.ddm.cart import CartDecomposition
 
     comm = MPI.COMM_WORLD
-    cart = CartDecomposition(
-        npts    = [n1,],
-        pads    = [p1,],
-        periods = [P1,],
-        reorder = reorder,
-        comm    = comm,
-        reverse_axis=reverse_axis
-    )
+    # Create domain decomposition
+    D = DomainDecomposition([n1], periods=[P1], comm=comm)
+
+    # Partition the points
+    npts = [n1]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[1])
 
     V = StencilVectorSpace( cart, dtype=int )
     M = StencilMatrix( V, V )
@@ -1226,24 +1508,22 @@ def test_stencil_matrix_1d_parallel_sync( n1, p1, P1, reorder, reverse_axis):
 @pytest.mark.parametrize( 'p2', [1,2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
-@pytest.mark.parametrize( 'reorder', [True, False] )
-@pytest.mark.parametrize( 'reverse_axis', [None, 0, 1] )
 @pytest.mark.parallel
 
-def test_stencil_matrix_2d_parallel_sync( n1, n2, p1, p2, P1, P2, reorder ,reverse_axis):
+def test_stencil_matrix_2d_parallel_sync( n1, n2, p1, p2, P1, P2):
 
     from mpi4py       import MPI
     from psydac.ddm.cart import CartDecomposition
 
     comm = MPI.COMM_WORLD
-    cart = CartDecomposition(
-        npts    = [n1, n2],
-        pads    = [p1, p2],
-        periods = [P1, P2],
-        reorder = reorder,
-        comm    = comm,
-        reverse_axis=reverse_axis
-    )
+    # Create domain decomposition
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     V = StencilVectorSpace( cart, dtype=int )
     M = StencilMatrix( V, V )
@@ -1340,22 +1620,22 @@ def test_stencil_matrix_2d_parallel_sync( n1, n2, p1, p2, P1, P2, reorder ,rever
 @pytest.mark.parametrize( 'n1', [20, 67] )
 @pytest.mark.parametrize( 'p1', [1, 2, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'reorder', [True, False] )
 @pytest.mark.parallel
 
-def test_stencil_matrix_1d_parallel_transpose( n1, p1, P1, reorder ):
+def test_stencil_matrix_1d_parallel_transpose( n1, p1, P1 ):
 
     from mpi4py       import MPI
     from psydac.ddm.cart import CartDecomposition
 
     comm = MPI.COMM_WORLD
-    cart = CartDecomposition(
-        npts    = [n1,],
-        pads    = [p1,],
-        periods = [P1,],
-        reorder = reorder,
-        comm    = comm
-    )
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1], periods=[P1], comm=comm)
+
+    # Partition the points
+    npts = [n1]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[1])
 
     # Create vector space and stencil matrix
     V = StencilVectorSpace( cart )
@@ -1383,28 +1663,28 @@ def test_stencil_matrix_1d_parallel_transpose( n1, p1, P1, reorder ):
     assert np.array_equal( Ta, Ta_exact )
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [ 8, 21] )
+@pytest.mark.parametrize( 'n1', [8, 21] )
 @pytest.mark.parametrize( 'n2', [13, 32] )
 @pytest.mark.parametrize( 'p1', [1, 3] )
 @pytest.mark.parametrize( 'p2', [1, 2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
-@pytest.mark.parametrize( 'reorder', [True, False] )
 @pytest.mark.parallel
 
-def test_stencil_matrix_2d_parallel_transpose( n1, n2, p1, p2, P1, P2, reorder ):
+def test_stencil_matrix_2d_parallel_transpose( n1, n2, p1, p2, P1, P2 ):
 
     from mpi4py       import MPI
     from psydac.ddm.cart import CartDecomposition
 
     comm = MPI.COMM_WORLD
-    cart = CartDecomposition(
-        npts    = [n1, n2],
-        pads    = [p1, p2],
-        periods = [P1, P2],
-        reorder = reorder,
-        comm    = comm
-    )
+    # Create domain decomposition
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     # Create vector space and stencil matrix
     V = StencilVectorSpace( cart )
@@ -1449,25 +1729,23 @@ def test_stencil_matrix_2d_parallel_transpose( n1, n2, p1, p2, P1, P2, reorder )
 @pytest.mark.parametrize( 'n1', [20,67] )
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'reorder', [True, False] )
-@pytest.mark.parametrize( 'reverse_axis', [None, 0] )
 @pytest.mark.parametrize( 'backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL] )
 @pytest.mark.parallel
 
-def test_stencil_matrix_1d_parallel_backend_dot( n1, p1, P1, reorder, reverse_axis , backend):
+def test_stencil_matrix_1d_parallel_backend_dot( n1, p1, P1 , backend):
 
     from mpi4py       import MPI
     from psydac.ddm.cart import CartDecomposition
 
     comm = MPI.COMM_WORLD
-    cart = CartDecomposition(
-        npts    = [n1,],
-        pads    = [p1,],
-        periods = [P1,],
-        reorder = reorder,
-        comm    = comm,
-        reverse_axis=reverse_axis
-    )
+    # Create domain decomposition
+    D = DomainDecomposition([n1-1], periods=[P1], comm=comm)
+
+    # Partition the points
+    npts = [n1]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[1])
 
     V = StencilVectorSpace( cart )
     M = StencilMatrix( V, V , backend=backend)
@@ -1506,31 +1784,29 @@ def test_stencil_matrix_1d_parallel_backend_dot( n1, p1, P1, reorder, reverse_ax
     assert np.allclose( ya, ya_exact, rtol=1e-14, atol=1e-14 )
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [ 8,21] )
+@pytest.mark.parametrize( 'n1', [8,21] )
 @pytest.mark.parametrize( 'n2', [13,32] )
 @pytest.mark.parametrize( 'p1', [1,3] )
 @pytest.mark.parametrize( 'p2', [1,2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
-@pytest.mark.parametrize( 'reorder', [True, False] )
-@pytest.mark.parametrize( 'reverse_axis', [None, 0, 1] )
-@pytest.mark.parametrize( 'backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL] )
+@pytest.mark.parametrize( 'backend', [None, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL] )
 @pytest.mark.parallel
 
-def test_stencil_matrix_2d_parallel_backend_dot( n1, n2, p1, p2, P1, P2, reorder , reverse_axis, backend):
+def test_stencil_matrix_2d_parallel_backend_dot( n1, n2, p1, p2, P1, P2, backend):
 
     from mpi4py       import MPI
     from psydac.ddm.cart import CartDecomposition
 
     comm = MPI.COMM_WORLD
-    cart = CartDecomposition(
-        npts    = [n1,n2],
-        pads    = [p1,p2],
-        periods = [P1,P2],
-        reorder = reorder,
-        comm    = comm,
-        reverse_axis = reverse_axis
-    )
+    # Create domain decomposition
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1,p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     # Create vector space, stencil matrix, and stencil vector
     V = StencilVectorSpace( cart )

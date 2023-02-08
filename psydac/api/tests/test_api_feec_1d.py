@@ -31,7 +31,7 @@ def step_ampere_1d(dt, e, b, M0, M1, D0, D0_T, *, pc=None, tol=1e-7, verbose=Fal
         from psydac.linalg.iterative_solvers import cg as isolve
 
   # b += 0
-    e += dt * isolve(M0, D0_T.dot((M1.dot(b))), **options)[0]
+    e += dt * isolve(M0, D0_T.dot(M1.dot(b)), **options)[0]
 
 #==============================================================================
 # VISUALIZATION
@@ -141,8 +141,8 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     #--------------------------------------------------------------------------
 
     # Discrete physical domain and discrete DeRham sequence
-    domain_h = discretize(domain, ncells=[ncells], comm=MPI.COMM_WORLD)
-    derham_h = discretize(derham, domain_h, degree=[degree], periodic=[periodic])
+    domain_h = discretize(domain, ncells=[ncells], periodic=[periodic], comm=MPI.COMM_WORLD)
+    derham_h = discretize(derham, domain_h, degree=[degree])
 
     # Discrete bilinear forms
     a0_h = discretize(a0, domain_h, (derham_h.V0, derham_h.V0), backend=PSYDAC_BACKEND_PYTHON)

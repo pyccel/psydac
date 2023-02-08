@@ -82,21 +82,6 @@ install_requires = [
 dependency_links = []
 # ...
 
-
-# ... bspline extension (TODO: remove Fortran files from library)
-bsp_ext = Extension(name    = 'psydac.core.bsp',
-                        sources = ['psydac/core/external/bspline.F90',
-                                   'psydac/core/external/pppack.F90',
-                                   'psydac/core/bsp_ext.F90',
-                                   'psydac/core/bsp.F90',
-                                   'psydac/core/bsp.pyf',
-                                   ],
-                        f2py_options = ['--quiet'],)
-
-
-ext_modules  = [bsp_ext]
-# ...
-
 # ...
 entry_points = {'console_scripts': ['psydac-mesh = psydac.cmd.mesh:main']}
 # ...
@@ -104,7 +89,6 @@ entry_points = {'console_scripts': ['psydac-mesh = psydac.cmd.mesh:main']}
 # ...
 def setup_package():
     setup(packages=packages,
-          ext_modules=ext_modules,
           python_requires='>=3.7',
           install_requires=install_requires,
           include_package_data=True,

@@ -73,9 +73,10 @@ def toInteger(a):
 #==============================================================================
 
 class LinearOperatorDot(SplBasic):
-    """ Generate the Matrix Vector Product function for a BlockMatrix,StencilMatrix or StencilInterfaceMatrix.
-        In case of a BlockMatrix we give the number of blocks along the rows and columns specified with the block_shape.
-        In case of StencilMatrix or StencilInterfaceMatrix the block_shape = (1,1).
+    """
+    Generate the Matrix Vector Product function for a BlockMatrix,StencilMatrix or StencilInterfaceMatrix.
+    In case of a BlockMatrix we give the number of blocks along the rows and columns specified with the block_shape.
+    In case of StencilMatrix or StencilInterfaceMatrix the block_shape = (1,1).
 
     Parameters
     ----------
@@ -99,6 +100,7 @@ class LinearOperatorDot(SplBasic):
     @classmethod
     @lru_cache(maxsize=32)
     def __hashable_new__(cls, ndim, block_shape, comm_id=None, **kwargs):
+
         # If integer communicator is provided, convert it to mpi4py object
         comm = None if comm_id is None else MPI.COMM_WORLD.f2py(comm_id)
 
@@ -246,7 +248,7 @@ class LinearOperatorDot(SplBasic):
                     body = [For(i,j, body)]
 
                 if openmp:
-                    pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
+                    pragma = "#$omp for schedule(static) collapse({}) nowait".format(str(ndim))
                     body   = [Comment(pragma)] + body
 
                 nrowscopy_k = list(nrows_k).copy()
@@ -301,7 +303,7 @@ class LinearOperatorDot(SplBasic):
                         for_body = [For(i,j, for_body)]
 
                     if openmp:
-                        pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
+                        pragma = "#$omp for schedule(static) collapse({}) nowait".format(str(ndim))
                         for_body = [Comment(pragma)] + for_body
 
                     body += for_body
@@ -350,7 +352,7 @@ class LinearOperatorDot(SplBasic):
         # ...
         if folder is None:
             basedir = os.getcwd()
-            folder = PSYDAC_DEFAULT_FOLDER
+            folder = PSYDAC_DEFAULT_FOLDER['name']
             folder = os.path.join( basedir, folder )
 
             # ... add __init__ to all directories to be able to
@@ -425,7 +427,6 @@ class LinearOperatorDot(SplBasic):
                        bcast        = True,
                        folder       = _PYCCEL_FOLDER,
                        verbose      = verbose)
-
         return fmod
 
 #==============================================================================
@@ -496,7 +497,7 @@ class TransposeOperator(SplBasic):
         # ...
         if folder is None:
             basedir = os.getcwd()
-            folder = PSYDAC_DEFAULT_FOLDER
+            folder = PSYDAC_DEFAULT_FOLDER['name']
             folder = os.path.join( basedir, folder )
 
             # ... add __init__ to all directories to be able to

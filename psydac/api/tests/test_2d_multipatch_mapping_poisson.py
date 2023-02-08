@@ -150,10 +150,10 @@ def test_poisson_2d_2_patches_dirichlet_1():
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
 
-    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
+    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**3,2**3], degree=[2,2])
 
-    expected_l2_error = 0.017629857755018467
-    expected_h1_error = 0.23758971834463205
+    expected_l2_error = 0.0010196321182729799
+    expected_h1_error = 0.03754732062999426
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
@@ -289,11 +289,11 @@ def test_poisson_2d_2_patches_dirichlet_parallel_0():
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
 
-    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2],
+    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**3,2**3], degree=[2,2],
                                         comm=MPI.COMM_WORLD)
 
-    expected_l2_error = 0.017629857755018467
-    expected_h1_error = 0.23758971834463205
+    expected_l2_error = 0.0010196321182729799
+    expected_h1_error = 0.03754732062999426
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )

@@ -93,7 +93,7 @@ def l2_boundary_projection(equation):
     test_dict = dict(zip(u, v))
 
     # Compute product of (u, v) using dot product for vector quantities
-    product  = lambda f, g: (f * g if isinstance(g, ScalarFunction) else dot(f, g))
+    product  = lambda f, g: (f * g if g.atoms(ScalarFunction) else dot(f, g))
 
     # Construct variational formulation that performs L2 projection
     # of boundary conditions onto the correct space
@@ -128,34 +128,10 @@ class DiscreteEquation(BasicDiscrete):
         test_space  = trial_test[1]
         # ...
 
-        # ...
-        boundaries_lhs = expr.lhs.atoms(Integral)
-        boundaries_lhs = [a.domain for a in boundaries_lhs if a.is_boundary_integral]
-
-        boundaries_rhs = expr.rhs.atoms(Integral)
-        boundaries_rhs = [a.domain for a in boundaries_rhs if a.is_boundary_integral]
+        self._lhs = discretize(expr.lhs, domain, trial_test, **kwargs)
         # ...
 
-        # ...
-
-        kwargs['boundary'] = []
-        if boundaries_lhs:
-            kwargs['boundary'] = boundaries_lhs
-
-        newargs = list(args)
-        newargs[1] = trial_test
-
-        self._lhs = discretize(expr.lhs, *newargs, **kwargs)
-        # ...
-
-        # ...
-        kwargs['boundary'] = []
-        if boundaries_rhs:
-            kwargs['boundary'] = boundaries_rhs
-        
-        newargs = list(args)
-        newargs[1] = test_space
-        self._rhs = discretize(expr.rhs, *newargs, **kwargs)
+        self._rhs = discretize(expr.rhs, domain, test_space, **kwargs)
         # ...
 
         # ...

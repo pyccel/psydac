@@ -56,7 +56,7 @@ def test_partition_3d():
 
     # ...
     # Uniform partition, yields small block size along 3rd dimension
-    dims, blocksizes = compute_dims( mpi_size, npts )    
+    dims, blocksizes = compute_dims( mpi_size, npts, try_uniform=True )    
 
     assert tuple( dims ) == (2, 2, 25)
     assert tuple( blocksizes ) == (32, 64, 2)
