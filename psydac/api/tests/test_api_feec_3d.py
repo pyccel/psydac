@@ -1,5 +1,9 @@
 # -*- coding: UTF-8 -*-
 
+from mpi4py import MPI
+import pytest
+import numpy as np
+
 from sympde.topology import Mapping
 from sympde.calculus import grad, dot
 from sympde.calculus import laplace
@@ -20,21 +24,18 @@ from psydac.linalg.utilities   import array_to_psydac
 from psydac.linalg.iterative_solvers import cg
 from psydac.linalg.solvers     import inverse
 
-from mpi4py import MPI
-
-import pytest
-import numpy as np
-import scipy as sc
-
 #===============================================================================
 def splitting_integrator_scipy(e0, b0, M1, M2, CURL, dt, niter):
 
-    CURL_T = CURL.T
-    M1_solver = sc.sparse.linalg.splu(M1)
-    def M1CM2_dot(b):
-        y1 = M2.dot(b)
-        y2 = CURL_T.dot(y1)
-        return M1_solver.solve(y2)
+    from scipy.sparse.linalg import splu
+    from scipy.sparse.linalg import LinearOperator   as spLinOp
+    from scipy.sparse.linalg import aslinearoperator as asLinOp
+
+    M1_lu  = splu(M1)
+    M1_inv = spLinOp(shape=M1.shape, dtype=M1.dtype, matvec=M1_lu.solve)
+
+    step_ampere  = dt * (M1_inv @ asLinOp(CURL.T @ M2))
+    step_faraday = dt * CURL
 
     e_history = [e0]
     b_history = [b0]
@@ -44,17 +45,19 @@ def splitting_integrator_scipy(e0, b0, M1, M2, CURL, dt, niter):
         b = b_history[ts]
         e = e_history[ts]
 
-        b_new = b - dt * CURL.dot(e)
-        e_new = e + dt * M1CM2_dot(b_new)
+        b_new = b - step_faraday.dot(e)
+        e_new = e + step_ampere .dot(b_new)
 
         b_history.append(b_new)
         e_history.append(e_new)
+
     return e_history, b_history
+
 
 def splitting_integrator_stencil(e0, b0, M1, M2, CURL, dt, niter):
 
-    step_M1CM2 = dt * ( inverse(M1, 'cg', tol=1e-12) @ CURL.T @ M2 )
-    step_curl = dt * CURL
+    step_ampere  = dt * ( inverse(M1, 'cg', tol=1e-12) @ CURL.T @ M2 )
+    step_faraday = dt * CURL
 
     e_history = [e0]
     b_history = [b0]
@@ -64,15 +67,17 @@ def splitting_integrator_stencil(e0, b0, M1, M2, CURL, dt, niter):
 
     for  ts in range(niter):
 
-        b = b_history[ts].copy() # ! copy(out=...) seems to not work here. Investigate.
+        b = b_history[ts].copy()
         e = e_history[ts].copy()
 
-        b -= step_curl.dot(e, out=db)
-        e += step_M1CM2.dot(b, out=de)
+        b -= step_faraday.dot(e, out=db)
+        e += step_ampere .dot(b, out=de)
 
         b_history.append(b)
         e_history.append(e)
+
     return e_history, b_history
+
 
 def evaluation_all_times(fields, x, y, z):
     ak_value = np.empty(len(fields), dtype = 'float')
