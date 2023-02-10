@@ -10,6 +10,8 @@ from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
 from psydac.feec                  import dof_kernels
 
+from psydac.ddm.cart import DomainDecomposition, CartDecomposition
+
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
 
@@ -132,8 +134,12 @@ class GlobalProjector(metaclass=ABCMeta):
                 p = tensorspaces[i].vector_space.pads[j]
                 n = tensorspaces[i].vector_space.npts[j]
                 periodic = tensorspaces[i].vector_space.periods[j]
+                ncells = tensorspaces[i].ncells[j]
 
-                V_serial = StencilVectorSpace([n], [p], [periodic], starts=[s], ends=[e])
+                domain_decomp = DomainDecomposition([ncells], [periodic])
+                cart_decomp = CartDecomposition(domain_decomp, [n], [[s]], [[e]], [p], [1])
+                V_serial = StencilVectorSpace(cart_decomp)
+                
                 M = StencilMatrix(V_serial, V_serial)
 
                 if cell == 'I':

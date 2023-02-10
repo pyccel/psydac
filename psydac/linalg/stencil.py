@@ -428,6 +428,11 @@ class StencilVector( Vector ):
             self._interface_data[axis, ext] -= v._interface_data[axis, ext]
         self._sync  = v._sync and self._sync
         return self
+    
+    def __del__(self):
+        if self._requests:
+            for request in self._requests:
+                request.Free()
 
     #--------------------------------------
     # Other properties/methods
