@@ -309,6 +309,12 @@ class StencilVector( Vector ):
         # TODO: distinguish between different directions
         self._sync  = False
 
+    def __del__(self):
+        # Release memory of persistent MPI communication channels
+        if self._requests:
+            for request in self._requests:
+                request.Free()
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
