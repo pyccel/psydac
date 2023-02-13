@@ -25,12 +25,15 @@ def compute_global_starts_ends(domain_decomposition, npts):
 #===============================================================================
 # SERIAL TESTS
 #===============================================================================
+
+
+@pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [1,7] )
 @pytest.mark.parametrize( 'n2', [1,5] )
 @pytest.mark.parametrize( 'p1', [1,2] )
 @pytest.mark.parametrize( 'p2', [1,2] )
 
-def test_stencil_vector_2d_serial_init( n1, n2, p1, p2, P1=True, P2=False ):
+def test_stencil_vector_2d_serial_init( dtype, n1, n2, p1, p2, P1=True, P2=False ):
 
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
@@ -38,14 +41,17 @@ def test_stencil_vector_2d_serial_init( n1, n2, p1, p2, P1=True, P2=False ):
     global_starts, global_ends = compute_global_starts_ends(D, npts)
 
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
-    V = StencilVectorSpace( C )
+    V = StencilVectorSpace( C, dtype=dtype )
     x = StencilVector( V )
 
     assert x.space is V
+    assert x.dtype == dtype
     assert x.starts == (0,0)
     assert x.ends   == (n1-1,n2-1)
     assert x._data.shape == (n1+2*p1, n2+2*p2)
+    assert x._data.dtype == dtype
 
+# TODO : Add test on shift, pads, periods,
 #===============================================================================
 @pytest.mark.parametrize( 'n1', [1,7] )
 @pytest.mark.parametrize( 'n2', [1,5] )
@@ -74,6 +80,8 @@ def test_stencil_vector_2d_serial_copy( n1, n2, p1, p2, P1=True, P2=False ):
     assert z.space is V
     assert z._data is not x._data
     assert np.all( z[:,:] == x[:,:] )
+
+    #TODO : np.array_equal(x._data,z._data)
 
 #===============================================================================
 @pytest.mark.parametrize( 'n1', [7,15] )

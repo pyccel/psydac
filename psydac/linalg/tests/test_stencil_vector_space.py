@@ -1,0 +1,1 @@
+#TODO : test properties of StencilVectorSpace and test on both parallel and serial (make the distinction)
