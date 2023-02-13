@@ -367,7 +367,7 @@ class DirectionalDerivativeOperator(Matrix):
     # (except with an explicit neutral element, if there was one)
 
     def __imul__(self, a):
-        if isinstance(a, IdentityOperator): return
+        if isinstance(a, IdentityMatrix): return
         if a == 1: return
         raise NotImplementedError("Not supported for this class.")
 

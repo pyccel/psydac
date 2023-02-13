@@ -233,7 +233,6 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         def discrete_energies(self, e, b):
             """ Compute electric & magnetic energies of numerical solution.
             """
-            # Why does one need "self._tmp0 = "?
             self._tmp0 = self._M0.dot(e, out=self._tmp0)
             self._tmp1 = self._M1.dot(b, out=self._tmp1)
             We = 0.5 * self._tmp0.dot(e)

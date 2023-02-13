@@ -240,11 +240,8 @@ class DiscreteEquation(BasicDiscrete):
         if 'info' in settings:
             inf = settings.get('info')
             solver_settings.pop('info')
-            #inf = settings.pop('info')
         else:
             inf = False
-
-        #solver = settings.pop('solver')
 
         M_inv = inverse(M, solver, **solver_settings)
         if inf == True:
@@ -254,6 +251,5 @@ class DiscreteEquation(BasicDiscrete):
             return uh, info
         else:
             X = M_inv @ rhs
-            #X = pcg(M, rhs, pc='jacobi', tol=1e-8, verbose=True)
             uh = FemField(self.trial_space, coeffs=X)
             return uh

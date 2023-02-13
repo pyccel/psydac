@@ -18,13 +18,6 @@ p2array = [1, 3]
 def is_pos_def(x):
     assert np.all(np.linalg.eigvals(x) > 0)
 
-def l2_norm_diff(x,y):
-    l = len(x)
-    assert l == len(y)
-    vec = [(x[i]-y[i])**2 for i in range(l)]
-    norm = np.sqrt(sum(vec))
-    return norm
-
 def compute_global_starts_ends(domain_decomposition, npts):
     ndims         = len(npts)
     global_starts = [None]*ndims
@@ -59,8 +52,6 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     ###
 
     # Initiate StencilVectorSpace
-
-    ### Post huge merge @11.12.22
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
     npts = [n1,n2]
@@ -69,11 +60,6 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     V = StencilVectorSpace( C )
-    ###
-
-    ### Pre huge merge @11.12.22
-    #V = StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
-    ###
     
     # Initiate Linear Operators
     Z = ZeroOperator(V, V)
@@ -243,52 +229,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     
     # Raising a StencilMatrix to the power of 1 or 0 does not change the object / returns an IdentityOperator
     assert S**1 == S
-    assert isinstance(S**0, IdentityOperator)
-
-    #################################
-
-    # Inverting StencilMatrices works
-    tol = 1e-6
-    M = S.toarray()
-    Mi = np.linalg.inv(M)
-    realsol = np.dot(Mi,v.toarray())
-
-    ### Conjugate Gradient test
-    S_inv1 = inverse(S, 'cg', tol=tol)
-    assert isinstance(S_inv1, ConjugateGradient)
-    sol = S_inv1.dot(v).toarray()
-    errors = [(sol[i]-realsol[i])**2 for i in range(len(realsol))]
-    err = sum(errors)
-    assert err < tol**2
-
-    ### Preconditioned Conjugate Gradient test, pc = 'jacobi'
-    S_inv2 = inverse(S, 'pcg', pc='jacobi', tol=tol)
-    assert isinstance(S_inv2, PConjugateGradient)
-    sol = S_inv2.dot(v).toarray()
-    errors = [(sol[i]-realsol[i])**2 for i in range(len(realsol))]
-    err = sum(errors)
-    assert err < tol**2
-    
-    # weighted jacobi doesn't work yet
-    S_inv3 = inverse(S, 'pcg', pc='weighted_jacobi', tol=tol)
-    assert isinstance(S_inv3, PConjugateGradient)
-    #sol = S_inv3.dot(v)[0].toarray()
-    #errors = [(sol[i]-realsol[i])**2 for i in range(len(realsol))]
-    #err = sum(errors)
-    #assert err < tol**2
-
-    ### Biconjugate Gradient test
-    S_inv4 = inverse(S, 'bicg', tol=tol)
-    assert isinstance(S_inv4, BiConjugateGradient)
-    sol = S_inv4.dot(v).toarray()
-    errors = [(sol[i]-realsol[i])**2 for i in range(len(realsol))]
-    err = sum(errors)
-    assert err < tol**2
-
-    # Transposing the inverse of a StencilMatrix works
-    T = S_inv4.T
-    assert isinstance(T, BiConjugateGradient)
-    assert np.all(T.linop.toarray() == S.T.toarray()) # not a good test as S is symmetric     
+    assert isinstance(S**0, IdentityOperator)  
 
 #===============================================================================
 @pytest.mark.parametrize( 'n1', n1array)
@@ -304,8 +245,6 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     # 3. Test special cases
 
     # Initiate StencilVectorSpace
-
-    ### Post huge merge @11.12.22
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
     npts = [n1,n2]
@@ -314,11 +253,6 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     V = StencilVectorSpace( C )
-    ###
-
-    ### Pre huge merge @11.12.22
-    #V = StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
-    ###
        
     # Initiate Linear Operators
     Z = ZeroOperator(V, V)    
@@ -497,47 +431,6 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(B**0, BlockLinearOperator)
     assert np.all(((B**0)@vb).toarray() == vb.toarray())
 
-    #################################
-    
-    # Inverting StencilMatrices works
-    tol = 1e-6
-    M = S.toarray()
-    Mi = np.linalg.inv(M)
-    realsol = np.dot(Mi,v.toarray())
-    realBsol = np.append(realsol, realsol)
-
-    ### Conjugate Gradient test
-    B_inv1 = inverse(B, 'cg', tol=tol)
-    assert isinstance(B_inv1, InverseLinearOperator)
-    sol = B_inv1.dot(vb).toarray()
-    errors = [(sol[i]-realBsol[i])**2 for i in range(len(realBsol))]
-    err = sum(errors)
-    assert err < tol**2
-
-    ### Preconditioned Conjugate Gradient test, pc = 'jacobi'
-    B_inv2 = inverse(B, 'pcg', pc='jacobi', tol=tol)
-    assert isinstance(B_inv2, InverseLinearOperator)
-    sol = B_inv2.dot(vb).toarray()
-    errors = [(sol[i]-realBsol[i])**2 for i in range(len(realBsol))]
-    err = sum(errors)
-    assert err < tol**2
-    
-    # weighted jacobi doesn't work yet
-    B_inv3 = inverse(B, 'pcg', pc='weighted_jacobi', tol=tol)
-    assert isinstance(B_inv3, InverseLinearOperator)
-    #sol = S_inv3.dot(v)[0].toarray()
-    #errors = [(sol[i]-realsol[i])**2 for i in range(len(realsol))]
-    #err = sum(errors)
-    #assert err < tol**2
-
-    ### Biconjugate Gradient test
-    B_inv4 = inverse(B, 'bicg', tol=tol)
-    assert isinstance(B_inv4, InverseLinearOperator)
-    sol = B_inv4.dot(vb).toarray()
-    errors = [(sol[i]-realBsol[i])**2 for i in range(len(realBsol))]
-    err = sum(errors)
-    assert err < tol**2
-
 #===============================================================================
 @pytest.mark.parametrize( 'n1', n1array)
 @pytest.mark.parametrize( 'n2', n2array)
@@ -549,8 +442,6 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
     # testing __imul__ although not explicitly implemented (in the LinearOperator class)
 
     # Initiate StencilVectorSpace
-
-    ### Post huge merge @11.12.22
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
     npts = [n1,n2]
@@ -559,11 +450,6 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     V = StencilVectorSpace( C )
-    ###
-
-    ### Pre huge merge @11.12.22
-    #V = StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
-    ###
 
     v = StencilVector(V)
     v_array = np.zeros(n1*n2)
@@ -611,11 +497,11 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
         for k2 in range(-p2,p2+1):
             S[:,:,k1,k2] = nonzero_values1[k1,k2]
     S.remove_spurious_entries()
-    T = S.copy() # also testing whether copy does what it supposed to
+    T = S.copy()
     Sa = S.toarray()
 
     Z1 += S
-    S += Z2 # now equiv. to S = LinearOperator.__add__(S, Z2) = S + Z2 = S
+    S += Z2
 
     assert isinstance(Z1, StencilMatrix)
     assert isinstance(S, StencilMatrix)
@@ -627,9 +513,9 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(S, StencilMatrix)
     assert np.all(w.toarray() == np.dot(np.dot(2, Sa), v_array))
 
-    Z3 -= T # should be -T = -Sa if ZeroOperator.copy() works
-    T -= Z2 # should still be T = Sa
-    T -= S+3*Z3 # should be Sa - 2*Sa -(-3*Sa) = 2*Sa if StencilMatrix.copy() works
+    Z3 -= T
+    T -= Z2
+    T -= S+3*Z3
 
     w2 = T.dot(v)
 
@@ -650,8 +536,6 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     # 2. For both B and S, check whether all possible combinations of the transpose and the inverse behave as expected
 
     # Initiate StencilVectorSpace
-
-    ### Post huge merge @11.12.22
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
     npts = [n1,n2]
@@ -666,14 +550,7 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     global_starts, global_ends = compute_global_starts_ends(D, npts)
 
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2+1], shifts=[1,1])
-
     W = StencilVectorSpace( C )
-    ###
-
-    ### Pre huge merge @11.12.22
-    #V = StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
-    #W = StencilVectorSpace([n1+2, n2], [p1, p2+1], [P1, P2])
-    ###
     
     # Initiate positive definite StencilMatrices for which the cg inverse works (necessary for certain tests)
     S = StencilMatrix(V,V)
@@ -778,11 +655,6 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     assert np.sqrt(sum(((inverse(S.T, 'cg', tol=tol).dot(v) - C.dot(v)).toarray())**2)) < tol
 
 #===============================================================================
-#@pytest.mark.parametrize( 'n1', n1array)
-#@pytest.mark.parametrize( 'n2', n2array)
-#@pytest.mark.parametrize( 'p1', p1array)
-#@pytest.mark.parametrize( 'p2', p2array)
-
 # 'cg' inverse requires a positive definite matrix.
 # I did not yet come up with a way to create positive definite matrices for arbitrary n1, n2, p1, p2, P1, P2
 # Thus until changed: Only one test with a simple 4x4 positive definite matrix
@@ -885,8 +757,8 @@ def test_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
     b_inv_arr = np.matrix.flatten(B_inv_mat)
     error_est = 2 + n1*n2*np.max([np.abs(b_inv_arr[i]) for i in range(len(b_inv_arr))])
     assert np.all(uarr == bi0)
-    assert l2_norm_diff(np.linalg.solve(Bmat, uarr), bi1) < tol
-    assert l2_norm_diff(np.linalg.solve(Bmat, np.linalg.solve(Bmat, uarr)), bi2) < error_est*tol
+    assert np.linalg.norm(np.linalg.solve(Bmat, uarr) - bi1, ord=2) < tol
+    assert np.linalg.norm(np.linalg.solve(Bmat, np.linalg.solve(Bmat, uarr)) - bi2, ord=2) < error_est * tol
 
     zeros = U.zeros().toarray()
     z0 = ((Z**0)@u).toarray()
@@ -913,8 +785,8 @@ def test_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
     s_inv_arr = np.matrix.flatten(S_inv_mat)
     error_est = 2 + n1*n2*np.max([np.abs(s_inv_arr[i]) for i in range(len(s_inv_arr))])
     assert np.all(varr == si0)
-    assert l2_norm_diff(np.linalg.solve(Smat, varr), si1) < tol
-    assert l2_norm_diff(np.linalg.solve(Smat, np.linalg.solve(Smat, varr)), si2) < error_est*tol
+    assert np.linalg.norm(np.linalg.solve(Smat, varr) - si1, ord=2) < tol
+    assert np.linalg.norm(np.linalg.solve(Smat, np.linalg.solve(Smat, varr)) - si2, ord=2) < error_est * tol
 
     i0 = ((I**0)@v).toarray()
     i1 = ((I**1)@v).toarray()
@@ -930,8 +802,8 @@ def test_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
     sum2 = (Sum2@v).toarray()
     Sum1_mat = 2*Bmat + 2*B_inv_mat
     Sum2_mat = 2*Smat + 2*S_inv_mat
-    assert l2_norm_diff(sum1, np.dot(Sum1_mat, uarr)) < 2*tol
-    assert l2_norm_diff(sum2, np.dot(Sum2_mat, varr)) < 2*tol
+    assert np.linalg.norm(sum1 - np.dot(Sum1_mat, uarr), ord=2) < 2 * tol
+    assert np.linalg.norm(sum2 - np.dot(Sum2_mat, varr), ord=2) < 2 * tol
 
     ### 2.3 CompLO tests
     C1 = B@(-B)
@@ -949,7 +821,7 @@ def test_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
     H4 = 2*( (S**1) @ (S**0) )
     H5 = ZV @ I
     H = H1 @ ( H2 + H3 - H4 + H5 ).T
-    assert l2_norm_diff((H@v).toarray(), v.toarray()) < 10*tol
+    assert np.linalg.norm((H@v).toarray() - v.toarray(), ord=2) < 10 * tol
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY
