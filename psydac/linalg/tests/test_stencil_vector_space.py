@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from psydac.linalg.stencil import StencilVectorSpace
+from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition, find_mpi_type
 
 
@@ -366,6 +366,7 @@ def test_stencil_vector_space_2D_serial_zeros(dtype, n1, n2, p1=1, p2=1, P1=True
     V = StencilVectorSpace(C, dtype=dtype)
     x = V.zeros()
 
+    assert isinstance(x, StencilVector )
     assert x.space is V
     assert x.dtype == dtype
     assert x.starts == (0, 0)

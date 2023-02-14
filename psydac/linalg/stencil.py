@@ -126,7 +126,7 @@ class StencilVectorSpace( VectorSpace ):
             if isinstance(cart, InterfaceCartDecomposition):
                 self._shape = cart.get_interface_communication_infos(cart.axis)['gbuf_recv_shape'][0]
             else:
-                self._synchronizer = get_data_exchanger( cart, dtype , assembly=True, blocking=False)
+                self._synchronizer = get_data_exchanger( cart, dtype, assembly=True, blocking=False)
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -193,7 +193,7 @@ class StencilVectorSpace( VectorSpace ):
     # ...
     @property
     def parent_starts( self ):
-        return self._starts
+        return self._parent_starts
 
     # ...
     @property
@@ -334,7 +334,6 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
 
-        self._dot_send_data[0] = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
         if self._space.parallel:
             self._dot_send_data[0] = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
             self._space.cart.global_comm.Allreduce((self._dot_send_data, self.space.mpi_type),
@@ -343,6 +342,25 @@ class StencilVector( Vector ):
             return self._dot_recv_data[0]
         else:
             return self._dot(self._data, v._data , self.space.pads, self.space.shifts)
+
+    def vdot( self, v ):
+
+        assert isinstance( v, StencilVector )
+        assert v._space is self._space
+
+        if self._space.parallel:
+            self._dot_send_data[0] = self._dot(self._data.conjugate(), v._data , self.space.pads, self.space.shifts)
+            self._space.cart.global_comm.Allreduce((self._dot_send_data, self.space.mpi_type),
+                                                   (self._dot_recv_data, self.space.mpi_type),
+                                                   op=MPI.SUM )
+            return self._dot_recv_data[0]
+        else:
+            return self._dot(self._data.conjugate(), v._data , self.space.pads, self.space.shifts)
+
+    def conjugate(self):
+        w=self.copy()
+        w._data=self._data.conjugate()
+        return w
 
     #...
     @staticmethod
@@ -503,7 +521,7 @@ class StencilVector( Vector ):
 
     # ...
     def _toarray_parallel_no_pads( self, order='C' ):
-        a         = np.zeros( self.space.npts )
+        a         = np.zeros( self.space.npts, dtype=self.dtype)
         idx_from  = tuple( slice(m*p,-m*p) for p,m in zip(self.pads, self.space.shifts) )
         idx_to    = tuple( slice(s,e+1) for s,e in zip(self.starts,self.ends) )
         a[idx_to] = self._data[idx_from]
@@ -515,7 +533,7 @@ class StencilVector( Vector ):
         pads = [m*p for m,p in zip(self.space.shifts, self.pads)]
         # Step 0: create extended n-dimensional array with zero values
         shape = tuple( n+2*p for n,p in zip( self.space.npts, pads ) )
-        a = np.zeros( shape )
+        a = np.zeros( shape, dtype=self.dtype )
 
         # Step 1: write extended data chunk (local to process) onto array
         idx = tuple( slice(s,e+2*p+1) for s,e,p in
