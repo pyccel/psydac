@@ -14,6 +14,34 @@ __all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'Mi
 
 
 def inverse(A, solver, **kwargs):
+    """
+    A function to create objects of all InverseLinearOperator subclasses.
+    14.02.23: ConjugateGradient, PConjugateGradient, BiConjugateGradient, MinimumResidual, LSMR
+    The ''kwargs given must be compatible with the chosen solver subclass, see
+    :func:~`solvers.ConjugateGradient`
+    :func:~`solvers.PConjugateGradient`
+    :func:~`solvers.BiConjugateGradient`
+    :func:~`solvers.MinimumResidual`
+    :func:~`solvers.LSMR`
+    
+    Parameters
+    ----------
+    A : psydac.linalg.basic.LinearOperator
+        Left-hand-side matrix A of linear system; individual entries A[i,j]
+        can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
+        function (i.e. matrix-vector product A*p).
+
+    solver : str
+        14.02.23: Either 'cg', 'pcg', 'bicg', 'minres' or 'lsmr'
+        Indicating the preferred iterative solver.
+
+    Returns
+    -------
+    obj : psydac.linalg.basic.InverseLinearOperator
+        More specifically: Returns the chosen subclass, for example psydac.linalg.solvers.ConjugateGradient
+        A linear operator acting as the inverse of A.
+
+    """
     # Check solver input
     solvers = ('cg', 'pcg', 'bicg', 'minres', 'lsmr')
     if not any([solver == solvers[i] for i in range(len(solvers))]):
@@ -43,26 +71,53 @@ def inverse(A, solver, **kwargs):
 #===============================================================================
 class ConjugateGradient(InverseLinearOperator):
     """
-    
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+
+    The .dot (and also the .solve) function are based on the 
+    Conjugate gradient algorithm for solving linear system Ax=b.
+    Implementation from [1], page 137.
+
+    Parameters
+    ----------
+    A : psydac.linalg.basic.LinearOperator
+        Left-hand-side matrix A of linear system; individual entries A[i,j]
+        can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
+        function (i.e. matrix-vector product A*p).
+
+    x0 : psydac.linalg.basic.Vector
+        First guess of solution for iterative solver (optional).
+
+    tol : float
+        Absolute tolerance for L2-norm of residual r = A*x - b.
+
+    maxiter: int
+        Maximum number of iterations.
+
+    verbose : bool
+        If True, L2-norm of residual r is printed at each iteration.
+
+    References
+    ----------
+    [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
 
     """
-    def __init__(self, linop, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
-        assert isinstance(linop, LinearOperator)
-        assert linop.domain == linop.codomain
+        assert isinstance(A, LinearOperator)
+        assert A.domain == A.codomain
         self._solver = 'cg'
-        self._linop = linop
-        self._domain = linop.codomain
-        self._codomain = linop.domain
-        self._space = linop.domain
+        self._A = A
+        self._domain = A.codomain
+        self._codomain = A.domain
+        self._space = A.domain
         self._x0 = x0
         self._tol = tol
         self._maxiter = maxiter
         self._verbose = verbose
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
         self._check_options(**self._options)
-        self._tmps = {"v":linop.domain.zeros(), "r":linop.domain.zeros(), "p":linop.domain.zeros(), 
-                      "lp":linop.domain.zeros(), "lv":linop.domain.zeros()}
+        self._tmps = {"v":A.domain.zeros(), "r":A.domain.zeros(), "p":A.domain.zeros(), 
+                      "lp":A.domain.zeros(), "lv":A.domain.zeros()}
         self._info = None
 
     def _check_options(self, **kwargs):
@@ -92,7 +147,7 @@ class ConjugateGradient(InverseLinearOperator):
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def transpose(self):
-        At = self._linop.T
+        At = self._A.T
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
@@ -101,31 +156,18 @@ class ConjugateGradient(InverseLinearOperator):
         """
         Conjugate gradient algorithm for solving linear system Ax=b.
         Implementation from [1], page 137.
+        Info can be accessed using get_info(), see :func:~`basic.InverseLinearOperator.get_info`.
 
         Parameters
         ----------
-        A = self._operator : psydac.linalg.basic.LinearOperator
-            Left-hand-side matrix A of linear system; individual entries A[i,j]
-            can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
-            function (i.e. matrix-vector product A*p).
-
         b : psydac.linalg.basic.Vector
-            Right-hand-side vector of linear system. Individual entries b[i] need
+            Right-hand-side vector of linear system Ax = b. Individual entries b[i] need
             not be accessed, but b has 'shape' attribute and provides 'copy()' and
             'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
             scalar multiplication and sum operations are available.
 
-        x0 : psydac.linalg.basic.Vector
-            First guess of solution for iterative solver (optional).
-
-        tol : float
-            Absolute tolerance for L2-norm of residual r = A*x - b.
-
-        maxiter: int
-            Maximum number of iterations.
-
-        verbose : bool
-            If True, L2-norm of residual r is printed at each iteration.
+        out : psydac.linalg.basic.Vector | NoneType
+            The output vector, or None (optional).
 
         Results
         -------
@@ -144,7 +186,7 @@ class ConjugateGradient(InverseLinearOperator):
 
         """
 
-        A = self._linop
+        A = self._A
         n = A.shape[0]
         x0 = self._x0
         tol = self._tol
@@ -234,18 +276,49 @@ class ConjugateGradient(InverseLinearOperator):
 #===============================================================================
 class PConjugateGradient(InverseLinearOperator):
     """
-    
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+    The .dot (and also the .solve) function are based on a preconditioned conjugate gradient method.
+
+    Preconditioned Conjugate Gradient (PCG) solves the symetric positive definte
+    system Ax = b. It assumes that pc(r) returns the solution to Ps = r,
+    where P is positive definite.
+
+    Parameters
+    ----------
+    A : psydac.linalg.stencil.StencilMatrix
+        Left-hand-side matrix A of linear system
+
+    pc: str
+        Preconditioner for A, it should approximate the inverse of A.
+        Can currently only be:
+        * The strings 'jacobi' or 'weighted_jacobi'. (rather obsolete, supply a callable instead, if possible)(14.02.: test weighted_jacobi)
+        The following should also be possible
+        * None, i.e. not pre-conditioning (this calls the standard `cg` method)
+        * A LinearSolver object (in which case the out parameter is used)
+        * A callable with two parameters (A, r), where A is the LinearOperator from above, and r is the residual.
+
+    x0 : psydac.linalg.basic.Vector
+        First guess of solution for iterative solver (optional).
+
+    tol : float
+        Absolute tolerance for L2-norm of residual r = A*x - b.
+
+    maxiter: int
+        Maximum number of iterations.
+
+    verbose : bool
+        If True, L2-norm of residual r is printed at each iteration.
 
     """
-    def __init__(self, linop, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
-        assert isinstance(linop, LinearOperator)
-        assert linop.domain == linop.codomain
+        assert isinstance(A, LinearOperator)
+        assert A.domain == A.codomain
         self._solver = 'pcg'
-        self._linop = linop
-        self._domain = linop.codomain
-        self._codomain = linop.domain
-        self._space = linop.domain
+        self._A = A
+        self._domain = A.codomain
+        self._codomain = A.domain
+        self._space = A.domain
         self._pc = pc
         self._x0 = x0
         self._tol = tol
@@ -253,8 +326,8 @@ class PConjugateGradient(InverseLinearOperator):
         self._verbose = verbose
         self._options = {"pc": self._pc, "x0": self._x0, "tol": self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
         self._check_options(**self._options)
-        self._tmps = {"v":linop.domain.zeros(), "r":linop.domain.zeros(), "p":linop.codomain.zeros(), 
-                      "s":linop.codomain.zeros(), "lp":linop.codomain.zeros(), "lv":linop.domain.zeros()}
+        self._tmps = {"v":A.domain.zeros(), "r":A.domain.zeros(), "p":A.codomain.zeros(), 
+                      "s":A.codomain.zeros(), "lp":A.codomain.zeros(), "lv":A.domain.zeros()}
         self._info = None
 
     def _check_options(self, **kwargs):
@@ -287,7 +360,7 @@ class PConjugateGradient(InverseLinearOperator):
         self._options = {"pc": self._pc, "x0": self._x0, "tol": self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def transpose(self):
-        At = self._linop.T
+        At = self._A.T
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
@@ -297,43 +370,30 @@ class PConjugateGradient(InverseLinearOperator):
         Preconditioned Conjugate Gradient (PCG) solves the symetric positive definte
         system Ax = b. It assumes that pc(r) returns the solution to Ps = r,
         where P is positive definite.
+        Info can be accessed using get_info(), see :func:~`basic.InverseLinearOperator.get_info`.
 
         Parameters
         ----------
-        A : psydac.linalg.stencil.StencilMatrix
-            Left-hand-side matrix A of linear system
-
         b : psydac.linalg.stencil.StencilVector
             Right-hand-side vector of linear system.
 
-        pc: NoneType | str | psydac.linalg.basic.LinearSolver | Callable
-            Preconditioner for A, it should approximate the inverse of A.
-            Can either be:
-            * None, i.e. not pre-conditioning (this calls the standard `cg` method)
-            * The strings 'jacobi' or 'weighted_jacobi'. (rather obsolete, supply a callable instead, if possible)
-            * A LinearSolver object (in which case the out parameter is used)
-            * A callable with two parameters (A, r), where A is the LinearOperator from above, and r is the residual.
-
-        x0 : psydac.linalg.basic.Vector
-            First guess of solution for iterative solver (optional).
-
-        tol : float
-            Absolute tolerance for L2-norm of residual r = A*x - b.
-
-        maxiter: int
-            Maximum number of iterations.
-
-        verbose : bool
-            If True, L2-norm of residual r is printed at each iteration.
+        out : psydac.linalg.basic.Vector | NoneType
+            The output vector, or None (optional).
 
         Returns
         -------
         x : psydac.linalg.basic.Vector
             Converged solution.
 
+        info : dict
+            Dictionary containing convergence information:
+            - 'niter'    = (int) number of iterations
+            - 'success'  = (boolean) whether convergence criteria have been met
+            - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+
         """
 
-        A = self._linop
+        A = self._A
         n = A.shape[0]
         pc = self._pc
         x0 = self._x0
@@ -449,26 +509,57 @@ class PConjugateGradient(InverseLinearOperator):
 #===============================================================================
 class BiConjugateGradient(InverseLinearOperator):
     """
-    
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+
+    The .dot (and also the .solve) function are based on the 
+    Biconjugate gradient (BCG) algorithm for solving linear system Ax=b.
+    Implementation from [1], page 175.
+
+    Parameters
+    ----------
+    A : psydac.linalg.basic.LinearOperator
+        Left-hand-side matrix A of linear system; individual entries A[i,j]
+        can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
+        function (i.e. matrix-vector product A*p).
+
+    x0 : psydac.linalg.basic.Vector
+        First guess of solution for iterative solver (optional).
+
+    tol : float
+        Absolute tolerance for 2-norm of residual r = A*x - b.
+
+    maxiter: int
+        Maximum number of iterations.
+
+    verbose : bool
+        If True, 2-norm of residual r is printed at each iteration.
+
+    References
+    ----------
+    [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
+
+    TODO
+    ----
+    Add optional preconditioner
 
     """
-    def __init__(self, linop, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
-        assert isinstance(linop, LinearOperator)
-        assert linop.domain == linop.codomain
+        assert isinstance(A, LinearOperator)
+        assert A.domain == A.codomain
         self._solver = 'bicg'
-        self._linop = linop
-        self._domain = linop.codomain
-        self._codomain = linop.domain
-        self._space = linop.domain
+        self._A = A
+        self._domain = A.codomain
+        self._codomain = A.domain
+        self._space = A.domain
         self._x0 = x0
         self._tol = tol
         self._maxiter = maxiter
         self._verbose = verbose
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
         self._check_options(**self._options)
-        self._tmps = {"v":linop.domain.zeros(), "r":linop.domain.zeros(), "p":linop.domain.zeros(), 
-                      "vs":linop.domain.zeros(), "rs":linop.domain.zeros(), "ps":linop.domain.zeros()}
+        self._tmps = {"v":A.domain.zeros(), "r":A.domain.zeros(), "p":A.domain.zeros(), 
+                      "vs":A.domain.zeros(), "rs":A.domain.zeros(), "ps":A.domain.zeros()}
         self._info = None
 
     def _check_options(self, **kwargs):
@@ -498,7 +589,7 @@ class BiConjugateGradient(InverseLinearOperator):
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def transpose(self):
-        At = self._linop.T
+        At = self._A.T
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
@@ -507,34 +598,18 @@ class BiConjugateGradient(InverseLinearOperator):
         """
         Biconjugate gradient (BCG) algorithm for solving linear system Ax=b.
         Implementation from [1], page 175.
+        Info can be accessed using get_info(), see :func:~`basic.InverseLinearOperator.get_info`.
 
         Parameters
         ----------
-        A : psydac.linalg.basic.LinearOperator
-            Left-hand-side matrix A of linear system; individual entries A[i,j]
-            can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
-            function (i.e. matrix-vector product A*p).
-
-        At : psydac.linalg.basic.LinearOperator
-            Matrix transpose of A, with 'shape' attribute and 'dot(p)' function.
-
         b : psydac.linalg.basic.Vector
             Right-hand-side vector of linear system. Individual entries b[i] need
             not be accessed, but b has 'shape' attribute and provides 'copy()' and
             'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
             scalar multiplication and sum operations are available.
 
-        x0 : psydac.linalg.basic.Vector
-            First guess of solution for iterative solver (optional).
-
-        tol : float
-            Absolute tolerance for 2-norm of residual r = A*x - b.
-
-        maxiter: int
-            Maximum number of iterations.
-
-        verbose : bool
-            If True, 2-norm of residual r is printed at each iteration.
+        out : psydac.linalg.basic.Vector | NoneType
+            The output vector, or None (optional).
 
         Results
         -------
@@ -556,7 +631,7 @@ class BiConjugateGradient(InverseLinearOperator):
         Add optional preconditioner
 
         """
-        A = self._linop
+        A = self._A
         At = A.T
         n = A.shape[0]
         x0 = self._x0
@@ -686,26 +761,63 @@ class BiConjugateGradient(InverseLinearOperator):
 #===============================================================================
 class MinimumResidual(InverseLinearOperator):
     """
-    
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+
+    The .dot (and also the .solve) function
+    Use MINimum RESidual iteration to solve Ax=b
+
+    MINRES minimizes norm(A*x - b) for a real symmetric matrix A.  Unlike
+    the Conjugate Gradient method, A can be indefinite or singular.
+
+    Parameters
+    ----------
+    A : psydac.linalg.basic.LinearOperator
+        Left-hand-side matrix A of linear system; individual entries A[i,j]
+        can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
+        function (i.e. matrix-vector product A*p).
+
+    x0 : psydac.linalg.basic.Vector
+        First guess of solution for iterative solver (optional).
+
+    tol : float
+        Absolute tolerance for 2-norm of residual r = A*x - b.
+
+    maxiter: int
+        Maximum number of iterations.
+
+    verbose : bool
+        If True, 2-norm of residual r is printed at each iteration.
+
+    Notes
+    -----
+    This is an adaptation of the MINRES Solver in Scipy, where the method is modified to accept Psydac data structures,
+    https://github.com/scipy/scipy/blob/v1.7.1/scipy/sparse/linalg/isolve/minres.py
+
+    References
+    ----------
+    Solution of sparse indefinite systems of linear equations,
+        C. C. Paige and M. A. Saunders (1975),
+        SIAM J. Numer. Anal. 12(4), pp. 617-629.
+        https://web.stanford.edu/group/SOL/software/minres/
 
     """
-    def __init__(self, linop, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
-        assert isinstance(linop, LinearOperator)
-        assert linop.domain == linop.codomain
+        assert isinstance(A, LinearOperator)
+        assert A.domain == A.codomain
         self._solver = 'minres'
-        self._linop = linop
-        self._domain = linop.codomain
-        self._codomain = linop.domain
-        self._space = linop.domain
+        self._A = A
+        self._domain = A.codomain
+        self._codomain = A.domain
+        self._space = A.domain
         self._x0 = x0
         self._tol = tol
         self._maxiter = maxiter
         self._verbose = verbose
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
         self._check_options(**self._options)
-        self._tmps = {"rs":linop.domain.zeros(), "y":linop.domain.zeros(), "v":linop.domain.zeros(), "w":linop.domain.zeros(), 
-                      "w2":linop.domain.zeros(), "res1":linop.domain.zeros(), "res2":linop.domain.zeros()}
+        self._tmps = {"rs":A.domain.zeros(), "y":A.domain.zeros(), "v":A.domain.zeros(), "w":A.domain.zeros(), 
+                      "w2":A.domain.zeros(), "res1":A.domain.zeros(), "res2":A.domain.zeros()}
         self._info = None
 
     def _check_options(self, **kwargs):
@@ -735,7 +847,7 @@ class MinimumResidual(InverseLinearOperator):
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def transpose(self):
-        At = self._linop.T
+        At = self._A.T
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
@@ -745,25 +857,19 @@ class MinimumResidual(InverseLinearOperator):
         Use MINimum RESidual iteration to solve Ax=b
         MINRES minimizes norm(A*x - b) for a real symmetric matrix A.  Unlike
         the Conjugate Gradient method, A can be indefinite or singular.
+        Info can be accessed using get_info(), see :func:~`basic.InverseLinearOperator.get_info`.
+
         Parameters
         ----------
-        A : psydac.linalg.basic.LinearOperator
-            Left-hand-side matrix A of linear system; individual entries A[i,j]
-            can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
-            function (i.e. matrix-vector product A*p).
         b : psydac.linalg.basic.Vector
             Right-hand-side vector of linear system. Individual entries b[i] need
             not be accessed, but b has 'shape' attribute and provides 'copy()' and
             'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
             scalar multiplication and sum operations are available.
-        x0 : psydac.linalg.basic.Vector
-            First guess of solution for iterative solver (optional).
-        tol : float
-            Absolute tolerance for 2-norm of residual r = A*x - b.
-        maxiter: int
-            Maximum number of iterations.
-        verbose : bool
-            If True, 2-norm of residual r is printed at each iteration.
+
+        out : psydac.linalg.basic.Vector | NoneType
+            The output vector, or None (optional).
+
         Results
         -------
         x : psydac.linalg.basic.Vector
@@ -785,7 +891,7 @@ class MinimumResidual(InverseLinearOperator):
             https://web.stanford.edu/group/SOL/software/minres/
         """
 
-        A = self._linop
+        A = self._A
         n = A.shape[0]
         x0 = self._x0
         tol = self._tol
@@ -988,18 +1094,68 @@ class MinimumResidual(InverseLinearOperator):
         #===============================================================================
 class LSMR(InverseLinearOperator):
     """
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+
+    The .dot (and also the .solve) function are based on the 
+    Iterative solver for least-squares problems.
+    lsmr solves the system of linear equations ``Ax = b``. If the system
+    is inconsistent, it solves the least-squares problem ``min ||b - Ax||_2``.
+    ``A`` is a rectangular matrix of dimension m-by-n, where all cases are
+    allowed: m = n, m > n, or m < n. ``b`` is a vector of length m.
+    The matrix A may be dense or sparse (usually sparse).
+
+    Parameters
+    ----------
+    A : psydac.linalg.basic.LinearOperator
+        Left-hand-side matrix A of linear system; individual entries A[i,j]
+        can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
+        function (i.e. matrix-vector product A*p).
+
+    x0 : psydac.linalg.basic.Vector
+        First guess of solution for iterative solver (optional).
+
+    tol : float
+        Absolute tolerance for 2-norm of residual r = A*x - b.
+
+    atol : float
+        Absolute tolerance for 2-norm of residual r = A*x - b.
+
+    btol : float
+        Relative tolerance for 2-norm of residual r = A*x - b.
+
+    maxiter: int
+        Maximum number of iterations.
+
+    conlim : float
+        lsmr terminates if an estimate of cond(A) exceeds
+        conlim.
+
+    verbose : bool
+        If True, 2-norm of residual r is printed at each iteration.
+
+    Notes
+    -----
+    This is an adaptation of the LSMR Solver in Scipy, where the method is modified to accept Psydac data structures,
+    https://github.com/scipy/scipy/blob/v1.7.1/scipy/sparse/linalg/isolve/lsmr.py
+
+    References
+    ----------
+    .. [1] D. C.-L. Fong and M. A. Saunders,
+           "LSMR: An iterative algorithm for sparse least-squares problems",
+           SIAM J. Sci. Comput., vol. 33, pp. 2950-2971, 2011.
+           :arxiv:`1006.0758`
+    .. [2] LSMR Software, https://web.stanford.edu/group/SOL/software/lsmr/
     
-
     """
-    def __init__(self, linop, *, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim=1e8, verbose=False):
+    def __init__(self, A, *, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim=1e8, verbose=False):
 
-        assert isinstance(linop, LinearOperator)
-        assert linop.domain == linop.codomain
+        assert isinstance(A, LinearOperator)
+        assert A.domain == A.codomain
         self._solver = 'cg'
-        self._linop = linop
-        self._domain = linop.codomain
-        self._codomain = linop.domain
-        self._space = linop.domain
+        self._A = A
+        self._domain = A.codomain
+        self._codomain = A.domain
+        self._space = A.domain
         self._x0 = x0
         self._tol = tol
         self._atol = atol
@@ -1010,8 +1166,8 @@ class LSMR(InverseLinearOperator):
         self._options = {"x0":self._x0, "tol":self._tol, "atol":self._atol, 
                          "btol":self._btol, "maxiter": self._maxiter, "conlim":self._conlim, "verbose": self._verbose}
         self._check_options(**self._options)
-        #self._tmps = {"v":linop.domain.zeros(), "r":linop.domain.zeros(), "p":linop.domain.zeros(), 
-        #              "lp":linop.domain.zeros(), "lv":linop.domain.zeros()}
+        #self._tmps = {"v":A.domain.zeros(), "r":A.domain.zeros(), "p":A.domain.zeros(), 
+        #              "lp":A.domain.zeros(), "lv":A.domain.zeros()}
         self._info = None
 
     def _check_options(self, **kwargs):
@@ -1048,7 +1204,7 @@ class LSMR(InverseLinearOperator):
                          "btol":self._btol, "maxiter": self._maxiter, "conlim":self._conlim, "verbose": self._verbose}
 
     def transpose(self):
-        At = self._linop.T
+        At = self._A.T
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
@@ -1060,44 +1216,18 @@ class LSMR(InverseLinearOperator):
         ``A`` is a rectangular matrix of dimension m-by-n, where all cases are
         allowed: m = n, m > n, or m < n. ``b`` is a vector of length m.
         The matrix A may be dense or sparse (usually sparse).
+        Info can be accessed using get_info(), see :func:~`basic.InverseLinearOperator.get_info`.
 
         Parameters
         ----------
-        A : psydac.linalg.basic.LinearOperator
-            Left-hand-side matrix A of linear system; individual entries A[i,j]
-            can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
-            function (i.e. matrix-vector product A*p).
-
-        At : psydac.linalg.basic.LinearOperator
-            Matrix transpose of A, with 'shape' attribute and 'dot(p)' function.
-
         b : psydac.linalg.basic.Vector
             Right-hand-side vector of linear system. Individual entries b[i] need
             not be accessed, but b has 'shape' attribute and provides 'copy()' and
             'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
             scalar multiplication and sum operations are available.
 
-        x0 : psydac.linalg.basic.Vector
-            First guess of solution for iterative solver (optional).
-
-        tol : float
-            Absolute tolerance for 2-norm of residual r = A*x - b.
-
-        atol : float
-            Absolute tolerance for 2-norm of residual r = A*x - b.
-
-        btol : float
-            Relative tolerance for 2-norm of residual r = A*x - b.
-
-        maxiter: int
-            Maximum number of iterations.
-
-        conlim : float
-            lsmr terminates if an estimate of cond(A) exceeds
-            conlim.
-
-        verbose : bool
-            If True, 2-norm of residual r is printed at each iteration.
+        out : psydac.linalg.basic.Vector | NoneType
+            The output vector, or None (optional).
 
         Results
         -------
@@ -1124,7 +1254,7 @@ class LSMR(InverseLinearOperator):
         .. [2] LSMR Software, https://web.stanford.edu/group/SOL/software/lsmr/
         """
 
-        A = self._linop
+        A = self._A
         At = A.T
         m, n = A.shape
         x0 = self._x0

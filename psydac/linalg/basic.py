@@ -813,7 +813,7 @@ class InverseLinearOperator(LinearOperator):
 
     @property
     def linop(self):
-        return self._linop
+        return self._A
 
     @property
     def options(self):
