@@ -1194,7 +1194,10 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             dm.append(self._blocks[key]._dotargs_null['dm'])
 
         if self.domain.parallel:
-            comm = self.codomain.spaces[0].cart.comm if isinstance(self.codomain, BlockVectorSpace) else self.codomain.cart.comm
+            if interface:
+                comm = self.domain.spaces[0].interfaces[d_axis, d_ext].cart.local_comm if isinstance(self.domain, BlockVectorSpace) else self.domain.interfaces[d_axis, d_ext].cart.local_comm 
+            else:
+                comm = self.codomain.spaces[0].cart.comm if isinstance(self.codomain, BlockVectorSpace) else self.codomain.cart.comm
             if self.domain == self.codomain:
                 # In this case nrows_extra[i] == 0 for all i
                 dot = LinearOperatorDot(ndim,

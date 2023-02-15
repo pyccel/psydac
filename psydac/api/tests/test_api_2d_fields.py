@@ -15,7 +15,7 @@
 #      coordinates (r, theta), but with reversed order: hence x1=theta and x2=r
 
 from mpi4py import MPI
-from sympy import pi, cos, sin, log, exp
+from sympy import pi, cos, sin, log, exp, lambdify
 from sympy.abc import x, y
 import pytest
 import os
@@ -27,14 +27,16 @@ from sympde.topology import element_of
 from sympde.topology import NormalVector
 from sympde.topology import Domain
 from sympde.topology import Union
+from sympde.topology import Square
 from sympde.expr     import linearize
 from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
-from psydac.fem.basic          import FemField
-from psydac.api.discretization import discretize
-from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
+from psydac.fem.basic              import FemField
+from psydac.api.discretization     import discretize
+from psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
+from psydac.feec.global_projectors import Projector_H1
 # ... get the mesh directory
 try:
     mesh_dir = os.environ['PSYDAC_MESH_DIR']
@@ -110,6 +112,72 @@ def run_field_test(filename, f):
     error_2 = abs((A1-A2).toarray()).max()
 
     return error_1, error_2
+
+#------------------------------------------------------------------------------
+def run_boundary_field_test(domain, boundary, f, ncells):
+    V  = ScalarFunctionSpace('V', domain)
+    u  = element_of(V, name='u')
+    v  = element_of(V, name='v')
+    F  = element_of(V, name='F')
+
+    nn = NormalVector('nn')
+    
+    # Bilinear form a: V x V --> R
+    aF = BilinearForm((u, v), integral(boundary, F * u * v))
+    af = BilinearForm((u, v), integral(boundary, f * u * v))
+
+    a_grad_F = BilinearForm((u, v), integral(boundary, dot(grad(F), nn) * u * v))
+    a_grad_f = BilinearForm((u, v), integral(boundary, dot(grad(f), nn) * u * v))
+
+    # Linear form l: V --> R
+    lF   = LinearForm( v, integral(boundary, F*v))
+    lf   = LinearForm( v, integral(boundary, f*v))
+    
+    l_grad_F   = LinearForm( v, integral(boundary, dot(grad(F), nn) * v))
+    l_grad_f   = LinearForm( v, integral(boundary, dot(grad(f), nn) * v))
+
+    domain_h = discretize(domain, ncells=ncells)
+    Vh = discretize(V, domain_h, degree=[3,3])
+
+    x,y = domain.coordinates
+    f_lambda = lambdify([x,y], f, 'math')
+    Pi0 = Projector_H1(Vh) 
+    fh = Pi0(f_lambda)
+    fh.coeffs.update_ghost_regions()
+
+    aF_h = discretize(aF, domain_h, [Vh, Vh])
+    af_h = discretize(af, domain_h, [Vh, Vh])
+    aF_x = aF_h.assemble(F=fh)
+    af_x = af_h.assemble()    
+
+    a_grad_F_h = discretize(a_grad_F, domain_h, [Vh, Vh])
+    a_grad_f_h = discretize(a_grad_f, domain_h, [Vh, Vh])
+    a_grad_F_x = a_grad_F_h.assemble(F=fh)
+    a_grad_f_x = a_grad_f_h.assemble()    
+
+    lF_h = discretize(lF, domain_h,  Vh)
+    lf_h = discretize(lf, domain_h,  Vh)
+    lF_x = lF_h.assemble(F=fh)
+    lf_x = lf_h.assemble()
+
+    l_grad_F_h = discretize(l_grad_F, domain_h,  Vh)
+    l_grad_f_h = discretize(l_grad_f, domain_h,  Vh)
+    l_grad_F_x = l_grad_F_h.assemble(F=fh)
+    l_grad_f_x = l_grad_f_h.assemble()
+
+    error_BilinearForm = (aF_x-af_x).toarray()
+    rel_error_BilinearForm = abs(error_BilinearForm).max() / abs(af_x.toarray()).max()
+
+    error_BilinearForm_grad = (a_grad_F_x-a_grad_f_x).toarray()
+    rel_error_BilinearForm_grad = abs(error_BilinearForm_grad).max() / abs(a_grad_f_x.toarray()).max()
+
+    error_LinearForm = (lF_x-lf_x).toarray()
+    rel_error_LinearForm = abs(error_LinearForm).max() / abs(lf_x.toarray()).max()
+
+    error_LinearForm_grad = (l_grad_F_x-l_grad_f_x).toarray()
+    rel_error_LinearForm_grad = abs(error_LinearForm_grad).max() / abs(l_grad_f_x.toarray()).max()
+
+    return rel_error_BilinearForm, rel_error_BilinearForm_grad, rel_error_LinearForm, rel_error_LinearForm_grad
 
 #------------------------------------------------------------------------------
 def run_non_linear_poisson(filename, comm=None):
@@ -188,6 +256,28 @@ def run_non_linear_poisson(filename, comm=None):
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
+
+TOL = 1e-12
+
+@pytest.mark.parametrize('n1', [10, 31, 42])
+@pytest.mark.parametrize('axis', [0, 1])
+@pytest.mark.parametrize('ext', [-1, 1])
+def test_boundary_field_identity(n1, axis, ext):
+    
+    domain = Square('domain', bounds1=(0., 0.5), bounds2=(0., 1.))
+    boundary = domain.get_boundary(axis=axis, ext=ext)
+
+    x,y = domain.coordinates
+    f = (1+x)**3 + (1+y)**3
+
+    rel_error_BilinearForm, rel_error_BilinearForm_grad, rel_error_LinearForm, rel_error_LinearForm_grad = run_boundary_field_test(domain, boundary, f, [n1,2*n1])
+
+    assert rel_error_BilinearForm < TOL
+    assert rel_error_BilinearForm_grad < TOL
+    assert rel_error_LinearForm < TOL
+    assert rel_error_LinearForm_grad < TOL
+    
+
 def test_field_identity_1():
 
     filename = os.path.join(mesh_dir, 'identity_2d.h5')
@@ -266,4 +356,3 @@ def teardown_module():
 def teardown_function():
     from sympy.core import cache
     cache.clear_cache()
-
