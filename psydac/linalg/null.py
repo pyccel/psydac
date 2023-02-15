@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-from psydac.linalg.basic   import LinearOperator, Matrix, Vector, VectorSpace
+from psydac.linalg.basic   import LinearOperator, Vector, VectorSpace
 from psydac.linalg.stencil import StencilMatrix
 
 from numpy        import zeros as dense_null
@@ -34,6 +34,12 @@ class NullLinearOperator(LinearOperator):
     def dtype( self ):
         return self.domain.dtype
 
+    def toarray(self):
+        raise NotImplementedError('toarray() is not defined for this outdated class.')
+
+    def tosparse(self):
+        raise NotImplementedError('tosparse() is not defined for this outdated class.')
+
     def dot( self, v, out=None ):
         """
         Returns a zero vector. If out is not None, then out is zeroed and returned (otherwise, a new vector is created).
@@ -59,11 +65,20 @@ class NullLinearOperator(LinearOperator):
 
         return self.codomain.zeros()
 
-class NullMatrix( Matrix, NullLinearOperator ):
+class NullMatrix( NullLinearOperator ):
 
     #-------------------------------------
     # Deferred methods
     #-------------------------------------
+    def __truediv__(self, a):
+        """ Divide by scalar. """
+        return self * (1.0 / a)
+
+    def __itruediv__(self, a):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / a
+        return self
+
     def toarray( self ):
         if hasattr(self.codomain, 'dtype'):
             return dense_null(*self.shape, dtype=self.codomain.dtype)
@@ -135,4 +150,3 @@ class NullStencilMatrix( StencilMatrix ):
             return out
             
         return self.codomain.zeros()
-
