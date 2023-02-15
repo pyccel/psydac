@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-from psydac.linalg.basic   import LinearOperator, Matrix, Vector, VectorSpace
+from psydac.linalg.basic   import LinearOperator, Vector, VectorSpace
 from psydac.linalg.stencil import StencilMatrix
 
 from numpy        import eye as dense_id
@@ -67,7 +67,7 @@ class IdentityLinearOperator(LinearOperator):
 
         return v
 
-class IdentityMatrix( Matrix, IdentityLinearOperator ):
+class IdentityMatrix( IdentityLinearOperator ):
 
     #-------------------------------------
     # Deferred methods
@@ -83,6 +83,15 @@ class IdentityMatrix( Matrix, IdentityLinearOperator ):
             return sparse_id(*self.shape, dtype=self.codomain.dtype)
         else:
             return sparse_id(*self.shape)
+
+    def __truediv__(self, a):
+        """ Divide by scalar. """
+        return self * (1.0 / a)
+
+    def __itruediv__(self, a):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / a
+        return self
     
     def copy(self):
         return IdentityMatrix(self.domain)

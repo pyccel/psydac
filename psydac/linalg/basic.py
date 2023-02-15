@@ -7,7 +7,7 @@ from abc   import ABC, abstractmethod
 import numpy as np
 
 __all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'ZeroOperator', 'IdentityOperator', 'ScaledLinearOperator',
-           'SumLinearOperator', 'ComposedLinearOperator', 'PowerLinearOperator', 'InverseLinearOperator', 'Matrix', 'LinearSolver']
+           'SumLinearOperator', 'ComposedLinearOperator', 'PowerLinearOperator', 'InverseLinearOperator', 'LinearSolver']
 
 #===============================================================================
 class VectorSpace(ABC):
@@ -1001,13 +1001,6 @@ class InverseLinearOperator(LinearOperator):
         info = {'niter': k, 'success': nrmr < tol_sqr, 'res_norm': sqrt(nrmr) }
 
         return x
-
-#===============================================================================
-class Matrix(LinearOperator):
-    """
-    Empty - there only to avoid import issues
-
-    """
 
 #===============================================================================
 class LinearSolver(ABC):
