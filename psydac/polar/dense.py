@@ -5,7 +5,7 @@
 import numpy as np
 from scipy.sparse import coo_matrix
 
-from psydac.linalg.basic import VectorSpace, Vector, Matrix
+from psydac.linalg.basic import VectorSpace, Vector, LinearOperator
 
 __all__ = ['DenseVectorSpace', 'DenseVector', 'DenseMatrix']
 
@@ -283,7 +283,7 @@ class DenseVector( Vector ):
         pass
 
 #==============================================================================
-class DenseMatrix( Matrix ):
+class DenseMatrix( LinearOperator ):
 
     def __init__( self, V, W, data ):
 
@@ -315,6 +315,15 @@ class DenseMatrix( Matrix ):
     @property
     def dtype( self ):
         return self.domain.dtype
+
+    def __truediv__(self, a):
+        """ Divide by scalar. """
+        return self * (1.0 / a)
+
+    def __itruediv__(self, a):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / a
+        return self
 
     # ...
     def dot( self, v, out=None ):

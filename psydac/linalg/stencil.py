@@ -11,7 +11,7 @@ from types        import MappingProxyType
 from scipy.sparse import coo_matrix
 from mpi4py       import MPI
 
-from psydac.linalg.basic   import VectorSpace, Vector, Matrix, LinearOperator
+from psydac.linalg.basic   import VectorSpace, Vector, LinearOperator
 from psydac.ddm.cart       import find_mpi_type, CartDecomposition, InterfaceCartDecomposition
 from psydac.ddm.utilities  import get_data_exchanger
 from .kernels              import *
@@ -732,7 +732,7 @@ class StencilVector( Vector ):
         return tuple(index)
 
 #===============================================================================
-class StencilMatrix( Matrix ):
+class StencilMatrix( LinearOperator ):
     """
     Matrix in n-dimensional stencil format.
 
@@ -899,6 +899,15 @@ class StencilMatrix( Matrix ):
                     out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
 
             new_nrows[d] += er
+
+    def __truediv__(self, a):
+        """ Divide by scalar. """
+        return self * (1.0 / a)
+
+    def __itruediv__(self, a):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / a
+        return self
 
     # ...
     def transpose( self ):
@@ -1696,7 +1705,7 @@ def flip_axis(index, n):
     e = n-index.stop-1 if n>index.stop else None
     return slice(s,e,-1)
 
-class StencilInterfaceMatrix(Matrix):
+class StencilInterfaceMatrix(LinearOperator):
     """
     Matrix in n-dimensional stencil format for an interface.
 
@@ -1901,6 +1910,15 @@ class StencilInterfaceMatrix(Matrix):
                     out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
 
             new_nrows[d] += er
+
+    def __truediv__(self, a):
+        """ Divide by scalar. """
+        return self * (1.0 / a)
+
+    def __itruediv__(self, a):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / a
+        return self
 
     # ...
     def transpose( self , Mt=None):
@@ -2462,4 +2480,4 @@ class StencilInterfaceMatrix(Matrix):
             self._func = dot.func
 #===============================================================================
 from psydac.api.settings   import PSYDAC_BACKENDS
-del VectorSpace, Vector, Matrix
+del VectorSpace, Vector

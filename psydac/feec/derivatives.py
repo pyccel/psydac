@@ -11,7 +11,7 @@ from psydac.fem.tensor      import TensorFemSpace
 from psydac.linalg.identity import IdentityStencilMatrix, IdentityMatrix
 #from psydac.linalg.basic    import IdentityOperator
 from psydac.fem.basic       import FemField
-from psydac.linalg.basic    import Matrix
+from psydac.linalg.basic    import LinearOperator
 from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
 
 __all__ = (
@@ -42,7 +42,7 @@ def block_tostencil(M):
     return BlockLinearOperator(M.domain, M.codomain, blocks=blocks)
 
 #====================================================================================================
-class DirectionalDerivativeOperator(Matrix):
+class DirectionalDerivativeOperator(LinearOperator):
     """
     Represents a matrix-free derivative operator in a specific cardinal direction.
     Can be negated and transposed.
@@ -144,6 +144,15 @@ class DirectionalDerivativeOperator(Matrix):
     @property
     def dtype( self ):
         return self.domain.dtype
+
+    def __truediv__(self, a):
+        """ Divide by scalar. """
+        return self * (1.0 / a)
+
+    def __itruediv__(self, a):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / a
+        return self
 
     # ...
     def dot(self, v, out=None):

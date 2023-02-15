@@ -7,7 +7,7 @@ import numpy as np
 from types import MappingProxyType
 from scipy.sparse import bmat, lil_matrix
 
-from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
+from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator, LinearSolver
 from psydac.ddm.cart      import InterfaceCartDecomposition
 from psydac.ddm.utilities import get_data_exchanger
 
@@ -419,7 +419,7 @@ class BlockVector( Vector ):
         return vec
 
 #===============================================================================
-class BlockLinearOperator( Matrix ):
+class BlockLinearOperator( LinearOperator ):
     """
     Linear operator that can be written as blocks of other Linear Operators.
     Either the domain or the codomain of this operator, or both, should be of
@@ -503,6 +503,15 @@ class BlockLinearOperator( Matrix ):
     @property
     def T(self):
         return self.transpose()
+
+    def __truediv__(self, a):
+        """ Divide by scalar. """
+        return self * (1.0 / a)
+
+    def __itruediv__(self, a):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / a
+        return self
 
     # toarray, tosparse and copy as required by Matrix
     def toarray( self, **kwargs ):
@@ -742,7 +751,6 @@ class BlockLinearOperator( Matrix ):
         if not isinstance(M, BlockLinearOperator):
             return LinearOperator.__add__(self, M)
 
-        assert isinstance(M, BlockLinearOperator)
         assert M.  domain is self.domain
         assert M.codomain is self.codomain
         blocks  = {}
@@ -767,7 +775,6 @@ class BlockLinearOperator( Matrix ):
         if not isinstance(M, BlockLinearOperator):
             return LinearOperator.__sub__(self, M)
 
-        assert isinstance(M, BlockLinearOperator)
         assert M.  domain is self.  domain
         assert M.codomain is self.codomain
         blocks  = {}
@@ -798,7 +805,6 @@ class BlockLinearOperator( Matrix ):
         if not isinstance(M, BlockLinearOperator):
             return LinearOperator.__add__(self, M)
 
-        assert isinstance(M, BlockLinearOperator)
         assert M.  domain is self.  domain
         assert M.codomain is self.codomain
 
@@ -821,7 +827,6 @@ class BlockLinearOperator( Matrix ):
         if not isinstance(M, BlockLinearOperator):
             return LinearOperator.__sub__(self, M)
 
-        assert isinstance(M, BlockLinearOperator)
         assert M.  domain is self.  domain
         assert M.codomain is self.codomain
 
@@ -1396,4 +1401,3 @@ class BlockDiagonalSolver( LinearSolver ):
         assert value.space is self.space[key]
 
         self._blocks[key] = value
-        
