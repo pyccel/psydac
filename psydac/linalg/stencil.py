@@ -325,23 +325,22 @@ class StencilVector( Vector ):
     #...
     @property
     def dtype(self):
-        return self.space.dtype
+        return self._space.dtype
 
     #...
     def dot(self, v):
 
-        assert isinstance( v, StencilVector )
+        assert isinstance(v, StencilVector)
         assert v._space is self._space
 
-        self._dot_send_data[0] = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
         if self._space.parallel:
-            self._dot_send_data[0] = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
-            self._space.cart.global_comm.Allreduce((self._dot_send_data, self.space.mpi_type),
-                                                   (self._dot_recv_data, self.space.mpi_type),
+            self._dot_send_data[0] = self._dot(self._data, v._data , self._space.pads, self._space.shifts)
+            self._space.cart.global_comm.Allreduce((self._dot_send_data, self._space.mpi_type),
+                                                   (self._dot_recv_data, self._space.mpi_type),
                                                    op=MPI.SUM )
             return self._dot_recv_data[0]
         else:
-            return self._dot(self._data, v._data , self.space.pads, self.space.shifts)
+            return self._dot(self._data, v._data , self._space.pads, self._space.shifts)
 
     #...
     @staticmethod
@@ -355,7 +354,7 @@ class StencilVector( Vector ):
         np.copyto(w._data, self._data, casting='no')
         for axis, ext in self._space.interfaces:
             np.copyto(w._interface_data[axis, ext], self._interface_data[axis, ext], casting='no')
-        w._sync    = self._sync
+        w._sync = self._sync
         return w
 
     #...
@@ -364,7 +363,7 @@ class StencilVector( Vector ):
         np.negative(self._data, out=w._data)
         for axis, ext in self._space.interfaces:
             np.negative(self._interface_data[axis, ext], out=w._interface_data[axis, ext])
-        w._sync    =  self._sync
+        w._sync = self._sync
         return w
 
     #...
@@ -372,7 +371,7 @@ class StencilVector( Vector ):
         w = StencilVector( self._space )
         np.multiply(self._data, a, out=w._data)
         for axis, ext in self._space.interfaces:
-            np.multiply(self._interface_data[axis, ext], a, out =w._interface_data[axis, ext])
+            np.multiply(self._interface_data[axis, ext], a, out=w._interface_data[axis, ext])
         w._sync = self._sync
         return w
 
@@ -381,7 +380,7 @@ class StencilVector( Vector ):
         w = StencilVector( self._space )
         np.multiply(a, self._data, out=w._data)
         for axis, ext in self._space.interfaces:
-            np.multiply(a,  self._interface_data[axis, ext], out=w._interface_data[axis, ext])
+            np.multiply(a, self._interface_data[axis, ext], out=w._interface_data[axis, ext])
         w._sync = self._sync
         return w
 
@@ -392,7 +391,7 @@ class StencilVector( Vector ):
         w = StencilVector( self._space )
         np.add(self._data, v._data, out=w._data)
         for axis, ext in self._space.interfaces:
-            np.add(self._interface_data[axis, ext],  v._interface_data[axis, ext], out=w._interface_data[axis, ext])
+            np.add(self._interface_data[axis, ext], v._interface_data[axis, ext], out=w._interface_data[axis, ext])
         w._sync = self._sync and v._sync
         return w
 
@@ -403,7 +402,7 @@ class StencilVector( Vector ):
         w = StencilVector( self._space )
         np.subtract(self._data, v._data, out=w._data)
         for axis, ext in self._space.interfaces:
-            np.subtract(self._interface_data[axis, ext],  v._interface_data[axis, ext], out=w._interface_data[axis, ext])
+            np.subtract(self._interface_data[axis, ext], v._interface_data[axis, ext], out=w._interface_data[axis, ext])
         w._sync = self._sync and v._sync
         return w
 
@@ -833,7 +832,7 @@ class StencilMatrix( LinearOperator ):
     # ...
     @property
     def dtype( self ):
-        return self.domain.dtype
+        return self._domain.dtype
 
     # ...
     def dot( self, v, out=None):
