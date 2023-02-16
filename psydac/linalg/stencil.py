@@ -333,7 +333,6 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
 
-        self._dot_send_data[0] = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
         if self._space.parallel:
             self._dot_send_data[0] = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
             self._space.cart.global_comm.Allreduce((self._dot_send_data, self.space.mpi_type),
