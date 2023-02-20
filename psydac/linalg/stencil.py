@@ -270,8 +270,8 @@ class StencilVectorSpace( VectorSpace ):
                 if parent_ends[axis] is not None:
                     parent_ends[axis] = self.pads[axis]
 
-            cart = cart.change_starts_ends(starts, ends, parent_starts, parent_ends)
-            space = StencilVectorSpace(cart)
+            cart = cart.change_starts_ends(tuple(starts), tuple(ends), tuple(parent_starts), tuple(parent_ends))
+            space = StencilVectorSpace(cart, dtype=self.dtype)
 
             self._interfaces[axis, ext] = space
 
@@ -358,8 +358,11 @@ class StencilVector( Vector ):
             return self._dot(self._data.conjugate(), v._data , self.space.pads, self.space.shifts)
 
     def conjugate(self):
-        w=self.copy()
-        w._data=self._data.conjugate()
+        w = StencilVector( self._space )
+        np.copyto(w._data, self._data.conjugate(), casting='no')
+        for axis, ext in self._space.interfaces:
+            np.copyto(w._interface_data[axis, ext], self._interface_data[axis, ext], casting='no')
+        w._sync    = self._sync
         return w
 
     #...
