@@ -5,12 +5,13 @@ import scipy.sparse as spa
 
 from psydac.linalg.stencil  import StencilVector, StencilMatrix, StencilVectorSpace
 from psydac.linalg.kron     import KroneckerStencilMatrix
-from psydac.linalg.block    import BlockVector, BlockMatrix
+from psydac.linalg.block    import BlockVector, BlockLinearOperator
 from psydac.fem.vector      import ProductFemSpace
 from psydac.fem.tensor      import TensorFemSpace
 from psydac.linalg.identity import IdentityStencilMatrix, IdentityMatrix
+#from psydac.linalg.basic    import IdentityOperator
 from psydac.fem.basic       import FemField
-from psydac.linalg.basic    import Matrix
+from psydac.linalg.basic    import LinearOperator
 from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
 
 __all__ = (
@@ -29,8 +30,8 @@ __all__ = (
 #====================================================================================================
 def block_tostencil(M):
     """
-    Convert a BlockMatrix that contains KroneckerStencilMatrix objects
-    to a BlockMatrix that contains StencilMatrix objects
+    Convert a BlockLinearOperator that contains KroneckerStencilMatrix objects
+    to a BlockLinearOperator that contains StencilMatrix objects
     """
     blocks = [list(b) for b in M.blocks]
     for i1,b in enumerate(blocks):
@@ -38,10 +39,10 @@ def block_tostencil(M):
             if mat is None:
                 continue
             blocks[i1][i2] = mat.tostencil()
-    return BlockMatrix(M.domain, M.codomain, blocks=blocks)
+    return BlockLinearOperator(M.domain, M.codomain, blocks=blocks)
 
 #====================================================================================================
-class DirectionalDerivativeOperator(Matrix):
+class DirectionalDerivativeOperator(LinearOperator):
     """
     Represents a matrix-free derivative operator in a specific cardinal direction.
     Can be negated and transposed.
@@ -144,6 +145,15 @@ class DirectionalDerivativeOperator(Matrix):
     def dtype( self ):
         return self.domain.dtype
 
+    def __truediv__(self, a):
+        """ Divide by scalar. """
+        return self * (1.0 / a)
+
+    def __itruediv__(self, a):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / a
+        return self
+
     # ...
     def dot(self, v, out=None):
         """
@@ -226,6 +236,7 @@ class DirectionalDerivativeOperator(Matrix):
             periodic_i = self._domain.periods[i]
             domain_1d  = DomainDecomposition([nc], [periodic_i])
             cart       = CartDecomposition( domain_1d, [n_i], [[0]], [[n_i-1]], [p_i], [1] )
+            #return IdentityOperator(StencilVectorSpace(cart))
             return IdentityStencilMatrix(StencilVectorSpace(cart))
 
         # combine to Kronecker matrix
@@ -459,7 +470,7 @@ class Gradient_2D(DiffOperator):
         # Build Gradient matrix block by block
         blocks = [[DirectionalDerivativeOperator(B_B, M_B, 0)],
                   [DirectionalDerivativeOperator(B_B, B_M, 1)]]
-        matrix = BlockMatrix(H1.vector_space, Hcurl.vector_space, blocks=blocks)
+        matrix = BlockLinearOperator(H1.vector_space, Hcurl.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = H1
@@ -503,7 +514,7 @@ class Gradient_3D(DiffOperator):
         blocks = [[DirectionalDerivativeOperator(B_B_B, M_B_B, 0)],
                   [DirectionalDerivativeOperator(B_B_B, B_M_B, 1)],
                   [DirectionalDerivativeOperator(B_B_B, B_B_M, 2)]]
-        matrix = BlockMatrix(H1.vector_space, Hcurl.vector_space, blocks=blocks)
+        matrix = BlockLinearOperator(H1.vector_space, Hcurl.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = H1
@@ -544,7 +555,7 @@ class ScalarCurl_2D(DiffOperator):
         # Build Curl matrix block by block
         blocks = [[-DirectionalDerivativeOperator(M_B, M_M, 1),
                   DirectionalDerivativeOperator(B_M, M_M, 0)]]
-        matrix = BlockMatrix(Hcurl.vector_space, L2.vector_space, blocks=blocks)
+        matrix = BlockLinearOperator(Hcurl.vector_space, L2.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = Hcurl
@@ -586,7 +597,7 @@ class VectorCurl_2D(DiffOperator):
         # Build Curl matrix block by block
         blocks = [[DirectionalDerivativeOperator(B_B, B_M, 1)],
                   [-DirectionalDerivativeOperator(B_B, M_B, 0)]]
-        matrix = BlockMatrix(H1.vector_space, Hdiv.vector_space, blocks=blocks)
+        matrix = BlockLinearOperator(H1.vector_space, Hdiv.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = H1
@@ -637,7 +648,7 @@ class Curl_3D(DiffOperator):
                   [ D(M_B_B, M_B_M, 2) ,        None,          -D(B_B_M, M_B_M, 0)],
                   [-D(M_B_B, M_M_B, 1) ,  D(B_M_B, M_M_B, 0) ,        None        ]]
 
-        matrix = BlockMatrix(Hcurl.vector_space, Hdiv.vector_space, blocks=blocks)
+        matrix = BlockLinearOperator(Hcurl.vector_space, Hdiv.vector_space, blocks=blocks)
         # ...
 
         # Store data in object
@@ -679,7 +690,7 @@ class Divergence_2D(DiffOperator):
         # Build Divergence matrix block by block
         f = KroneckerStencilMatrix
         blocks = [[DirectionalDerivativeOperator(B_M, M_M, 0), DirectionalDerivativeOperator(M_B, M_M, 1)]]
-        matrix = BlockMatrix(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
+        matrix = BlockLinearOperator(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
 
         # Store data in object
         self._domain   = Hdiv
@@ -723,7 +734,7 @@ class Divergence_3D(DiffOperator):
         blocks = [[DirectionalDerivativeOperator(B_M_M, M_M_M, 0),
                    DirectionalDerivativeOperator(M_B_M, M_M_M, 1),
                    DirectionalDerivativeOperator(M_M_B, M_M_M, 2)]]
-        matrix = BlockMatrix(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
+        matrix = BlockLinearOperator(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
 
         # Store data in object
         self._domain   = Hdiv

@@ -59,6 +59,14 @@ class FemLinearOperator( LinearOperator ):
     def dtype( self ):
         return self.domain.dtype
 
+    def toarray(self):
+        return self._matrix.toarray()
+        #raise NotImplementedError('toarray() is not defined for FEMLinearOperators.')
+
+    def tosparse(self):
+        return self._matrix.tosparse()
+        #raise NotImplementedError('tosparse() is not defined for FEMLinearOperators.')
+
     # ...
     def transpose(self):
         raise NotImplementedError('Class does not provide a transpose() method')

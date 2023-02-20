@@ -8,7 +8,7 @@ from random import random, seed
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.block          import BlockVectorSpace, BlockVector
-from psydac.linalg.block          import BlockLinearOperator, BlockDiagonalSolver, BlockMatrix
+from psydac.linalg.block          import BlockLinearOperator, BlockDiagonalSolver
 from psydac.linalg.utilities      import array_to_psydac
 from psydac.linalg.kron           import KroneckerLinearSolver
 from psydac.api.settings          import PSYDAC_BACKEND_GPYCCEL
@@ -303,17 +303,17 @@ def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
     M4.remove_spurious_entries()
 
     W = BlockVectorSpace(V, V)
-    # Construct a BlockMatrix object containing M1, M2, M3 and M4, using 3 ways
+    # Construct a BlockLinearOperator object containing M1, M2, M3 and M4, using 3 ways
     #     |M1  M2|
     # L = |      |
     #     |M3  M4|
     dict_blocks = {(0,0):M1, (0,1):M2, (1,0):M3, (1,1):M4}
     list_blocks = ((M1,M2),(M3,M4))
 
-    L1 = BlockMatrix( W, W, blocks=dict_blocks )
-    L2 = BlockMatrix( W, W, blocks=list_blocks )
+    L1 = BlockLinearOperator( W, W, blocks=dict_blocks )
+    L2 = BlockLinearOperator( W, W, blocks=list_blocks )
 
-    L3 = BlockMatrix( W, W )
+    L3 = BlockLinearOperator( W, W )
     L3[0,0] = M1
     L3[0,1] = M2
     L3[1,0] = M3
@@ -488,7 +488,7 @@ def test_block_matrix_operator_dot_backend( n1, n2, p1, p2, P1, P2 ):
 
     # Create and Fill Block objects
     W = BlockVectorSpace(V, V)
-    L = BlockMatrix( W, W )
+    L = BlockLinearOperator( W, W )
     L[0,0] = M1
     L[0,1] = M2
     L[1,0] = M3
@@ -799,7 +799,7 @@ def test_block_matrix_operator_parallel_dot_backend( n1, n2, p1, p2, P1, P2, reo
 
     # Create and Fill Block objects
     W = BlockVectorSpace(V, V)
-    L = BlockMatrix( W, W )
+    L = BlockLinearOperator( W, W )
     L[0,0] = M1
     L[0,1] = M2
     L[1,0] = M3

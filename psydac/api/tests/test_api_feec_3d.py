@@ -1,5 +1,9 @@
 # -*- coding: UTF-8 -*-
 
+from mpi4py import MPI
+import pytest
+import numpy as np
+
 from sympde.topology import Mapping
 from sympde.calculus import grad, dot
 from sympde.calculus import laplace
@@ -18,22 +22,20 @@ from psydac.feec.pull_push     import push_3d_hcurl, push_3d_hdiv
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
 from psydac.linalg.utilities   import array_to_psydac
 from psydac.linalg.iterative_solvers import cg
-
-from mpi4py import MPI
-
-import pytest
-import numpy as np
-import scipy as sc
+from psydac.linalg.solvers     import inverse
 
 #===============================================================================
 def splitting_integrator_scipy(e0, b0, M1, M2, CURL, dt, niter):
 
-    CURL_T = CURL.T
-    M1_solver = sc.sparse.linalg.splu(M1)
-    def M1CM2_dot(b):
-        y1 = M2.dot(b)
-        y2 = CURL_T.dot(y1)
-        return M1_solver.solve(y2)
+    from scipy.sparse.linalg import splu
+    from scipy.sparse.linalg import LinearOperator   as spLinOp
+    from scipy.sparse.linalg import aslinearoperator as asLinOp
+
+    M1_lu  = splu(M1)
+    M1_inv = spLinOp(shape=M1.shape, dtype=M1.dtype, matvec=M1_lu.solve)
+
+    step_ampere  = dt * (M1_inv @ asLinOp(CURL.T @ M2))
+    step_faraday = dt * CURL
 
     e_history = [e0]
     b_history = [b0]
@@ -43,35 +45,39 @@ def splitting_integrator_scipy(e0, b0, M1, M2, CURL, dt, niter):
         b = b_history[ts]
         e = e_history[ts]
 
-        b_new = b - dt * CURL.dot(e)
-        e_new = e + dt * M1CM2_dot(b_new)
+        b_new = b - step_faraday.dot(e)
+        e_new = e + step_ampere .dot(b_new)
 
         b_history.append(b_new)
         e_history.append(e_new)
+
     return e_history, b_history
+
 
 def splitting_integrator_stencil(e0, b0, M1, M2, CURL, dt, niter):
 
-    CURL_T = CURL.transpose()
-    def M1CM2_dot(b):
-        y1 = M2.dot(b)
-        y2 = CURL_T.dot(y1)
-        return cg(M1, y2, tol=1e-12)[0]
+    step_ampere  = dt * ( inverse(M1, 'cg', tol=1e-12) @ CURL.T @ M2 )
+    step_faraday = dt * CURL
 
     e_history = [e0]
     b_history = [b0]
 
+    de = e0.copy()
+    db = b0.copy()
+
     for  ts in range(niter):
 
-        b = b_history[ts]
-        e = e_history[ts]
+        b = b_history[ts].copy()
+        e = e_history[ts].copy()
 
-        b_new = b - dt * CURL.dot(e)
-        e_new = e + dt * M1CM2_dot(b_new)
+        b -= step_faraday.dot(e, out=db)
+        e += step_ampere .dot(b, out=de)
 
-        b_history.append(b_new)
-        e_history.append(e_new)
+        b_history.append(b)
+        e_history.append(e)
+
     return e_history, b_history
+
 
 def evaluation_all_times(fields, x, y, z):
     ak_value = np.empty(len(fields), dtype = 'float')
@@ -115,7 +121,7 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
     # Porjectors
     P0, P1, P2, P3  = derham_h.projectors(nquads=[5,5,5])
 
-    CURL = CURL.transform(lambda block: block.tokronstencil().tostencil()).tomatrix().tosparse().tocsr()
+    CURL = CURL.transform(lambda block: block.tokronstencil().tostencil()).tosparse().tocsr()
 
     # initial conditions
     e0_1 = lambda x, y, z: e_ex[0](0, x, y, z)
