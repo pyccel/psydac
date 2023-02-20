@@ -24,7 +24,7 @@ from psydac.core.bsplines         import collocation_matrix, histopolation_matri
 from psydac.api.discretization       import discretize
 from psydac.api.essential_bc         import apply_essential_bc_stencil
 from psydac.api.settings             import PSYDAC_BACKENDS
-from psydac.linalg.block             import BlockVectorSpace, BlockVector, BlockMatrix
+from psydac.linalg.block             import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.linalg.stencil           import StencilVector, StencilMatrix, StencilInterfaceMatrix
 from psydac.linalg.iterative_solvers import cg, pcg
 from psydac.fem.basic                import FemField
@@ -512,7 +512,7 @@ class ConformingProjection_V1( FemLinearOperator ):
             # # self._A = ah.assemble()
             self._A = ah.forms[0]._matrix
             # C1 = V1h.vector_space
-            # self._A = BlockMatrix(C1, C1)
+            # self._A = BlockLinearOperator(C1, C1)
 
             for b1 in self._A.blocks:
                 for b2 in b1:
@@ -970,7 +970,7 @@ class BrokenGradient_2D(FemLinearOperator):
 
         D0s = [Gradient_2D(V0, V1) for V0, V1 in zip(V0h.spaces, V1h.spaces)]
 
-        self._matrix = BlockMatrix(self.domain, self.codomain, \
+        self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D0i._matrix for i, D0i in enumerate(D0s)})
 
     def transpose(self):
@@ -986,7 +986,7 @@ class BrokenTransposedGradient_2D( FemLinearOperator ):
 
         D0s = [Gradient_2D(V0, V1) for V0, V1 in zip(V0h.spaces, V1h.spaces)]
 
-        self._matrix = BlockMatrix(self.domain, self.codomain, \
+        self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D0i._matrix.T for i, D0i in enumerate(D0s)})
 
     def transpose(self):
@@ -1002,7 +1002,7 @@ class BrokenScalarCurl_2D(FemLinearOperator):
 
         D1s = [ScalarCurl_2D(V1, V2) for V1, V2 in zip(V1h.spaces, V2h.spaces)]
 
-        self._matrix = BlockMatrix(self.domain, self.codomain, \
+        self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D1i._matrix for i, D1i in enumerate(D1s)})
 
     def transpose(self):
@@ -1018,7 +1018,7 @@ class BrokenTransposedScalarCurl_2D( FemLinearOperator ):
 
         D1s = [ScalarCurl_2D(V1, V2) for V1, V2 in zip(V1h.spaces, V2h.spaces)]
 
-        self._matrix = BlockMatrix(self.domain, self.codomain, \
+        self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D1i._matrix.T for i, D1i in enumerate(D1s)})
 
     def transpose(self):
