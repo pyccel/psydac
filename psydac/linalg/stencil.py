@@ -192,7 +192,7 @@ class StencilVectorSpace( VectorSpace ):
     # ...
     @property
     def parent_starts( self ):
-        return self._starts
+        return self._parent_starts
 
     # ...
     @property
@@ -269,8 +269,8 @@ class StencilVectorSpace( VectorSpace ):
                 if parent_ends[axis] is not None:
                     parent_ends[axis] = self.pads[axis]
 
-            cart = cart.change_starts_ends(starts, ends, parent_starts, parent_ends)
-            space = StencilVectorSpace(cart)
+            cart = cart.change_starts_ends(tuple(starts), tuple(ends), tuple(parent_starts), tuple(parent_ends))
+            space = StencilVectorSpace(cart, self.dtype)
 
             self._interfaces[axis, ext] = space
 
@@ -347,6 +347,28 @@ class StencilVector( Vector ):
     def _dot(v1, v2, pads, shifts):
         index = tuple( slice(m*p,-m*p) for p,m in zip(pads, shifts))
         return np.dot(v1[index].flat, v2[index].flat)
+
+    def vdot(self, v):
+
+        assert isinstance(v, StencilVector)
+        assert v._space is self._space
+
+        if self._space.parallel:
+            self._dot_send_data[0] = self._dot(self._data.conjugate(), v._data, self.space.pads, self.space.shifts)
+            self._space.cart.global_comm.Allreduce((self._dot_send_data, self.space.mpi_type),
+                                                   (self._dot_recv_data, self.space.mpi_type),
+                                                   op=MPI.SUM)
+            return self._dot_recv_data[0]
+        else:
+            return self._dot(self._data.conjugate(), v._data, self.space.pads, self.space.shifts)
+
+    def conjugate(self):
+        w = StencilVector(self._space)
+        np.copyto(w._data, self._data.conjugate(), casting='no')
+        for axis, ext in self._space.interfaces:
+            np.copyto(w._interface_data[axis, ext], self._interface_data[axis, ext], casting='no')
+        w._sync = self._sync
+        return w
 
     #...
     def copy(self, out=None):
@@ -501,7 +523,7 @@ class StencilVector( Vector ):
 
     # ...
     def _toarray_parallel_no_pads(self, order='C'):
-        a         = np.zeros( self.space.npts )
+        a         = np.zeros( self.space.npts, self.dtype )
         idx_from  = tuple( slice(m*p,-m*p) for p,m in zip(self.pads, self.space.shifts) )
         idx_to    = tuple( slice(s,e+1) for s,e in zip(self.starts,self.ends) )
         a[idx_to] = self._data[idx_from]
@@ -513,7 +535,7 @@ class StencilVector( Vector ):
         pads = [m*p for m,p in zip(self.space.shifts, self.pads)]
         # Step 0: create extended n-dimensional array with zero values
         shape = tuple( n+2*p for n,p in zip( self.space.npts, pads ) )
-        a = np.zeros( shape )
+        a = np.zeros( shape, self.dtype )
 
         # Step 1: write extended data chunk (local to process) onto array
         idx = tuple( slice(s,e+2*p+1) for s,e,p in

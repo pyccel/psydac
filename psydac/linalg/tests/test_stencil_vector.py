@@ -685,7 +685,8 @@ def test_stencil_vector_2d_parallel_toarray(dtype, n1, n2, p1, p2, s1, s2, P1=Tr
     assert xe.shape == (n1, n2)
     assert np.array_equal(xe[index], z[index])
 
-    # TODO: test that ghost regions have been properly copied to 'xe' array
+# TODO: test that ghost regions have been properly copied to 'xe' array
+# TODO :test if with_pads and order is woring to
 
 
 # ===============================================================================
