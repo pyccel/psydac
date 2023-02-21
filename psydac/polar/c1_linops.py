@@ -6,14 +6,14 @@ import numpy as np
 from itertools    import repeat
 from scipy.sparse import coo_matrix
 
-from psydac.linalg.basic   import VectorSpace, Vector, Matrix
+from psydac.linalg.basic   import VectorSpace, Vector, LinearOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.polar .dense   import DenseVectorSpace, DenseVector, DenseMatrix
 
 __all__ = ['LinearOperator_StencilToDense', 'LinearOperator_DenseToStencil']
 
 #==============================================================================
-class LinearOperator_StencilToDense( Matrix ):
+class LinearOperator_StencilToDense( LinearOperator ):
 
     def __init__( self, V, W, data ):
 
@@ -52,6 +52,15 @@ class LinearOperator_StencilToDense( Matrix ):
     @property
     def dtype( self ):
         return self.domain.dtype
+
+    def __truediv__(self, a):
+        """ Divide by scalar. """
+        return self * (1.0 / a)
+
+    def __itruediv__(self, a):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / a
+        return self
 
     # ...
     def dot( self, v, out=None ):
@@ -198,7 +207,7 @@ class LinearOperator_StencilToDense( Matrix ):
         return coo
 
 #==============================================================================
-class LinearOperator_DenseToStencil( Matrix ):
+class LinearOperator_DenseToStencil( LinearOperator ):
 
     def __init__( self, V, W, data ):
 
@@ -237,6 +246,15 @@ class LinearOperator_DenseToStencil( Matrix ):
     @property
     def dtype( self ):
         return self.domain.dtype
+
+    def __truediv__(self, a):
+        """ Divide by scalar. """
+        return self * (1.0 / a)
+
+    def __itruediv__(self, a):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / a
+        return self
 
     # ...
     def dot( self, v, out=None ):

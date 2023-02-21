@@ -21,6 +21,11 @@ class DistributedFFTBase(LinearOperator):
         The function at position i is applied to the i-th tensor direction.
         If only a single callable is given, it is used for all directions.
     """
+    def toarray(self):
+        raise NotImplementedError('toarray() is not defined for DistributedFFTBase.')
+
+    def tosparse(self):
+        raise NotImplementedError('tosparse() is not defined for DistributedFFTBase.')
 
     # Possible additions for the future:
     # * split off the LinearSolver class when used with the space ndarray (as used in the KroneckerLinearSolver),

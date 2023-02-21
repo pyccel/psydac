@@ -172,7 +172,3 @@ class SparseSolver ( DirectSolver ):
             out[:] = self._splu.solve( rhs.T, trans='T' if transposed else 'N' ).T
 
         return out
-
-#===============================================================================
-
-

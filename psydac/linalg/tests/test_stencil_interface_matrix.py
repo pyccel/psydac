@@ -60,7 +60,7 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
 
     from mpi4py              import MPI
     from psydac.ddm.cart     import MultiPatchDomainDecomposition, CartDecomposition, create_interfaces_cart
-    from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
+    from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockLinearOperator
 
     # Number of patches
     N = 2
@@ -147,7 +147,7 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
 
     # ...
     # Fill in the Matrix with some values
-    A   = BlockMatrix( V, V )
+    A   = BlockLinearOperator( V, V )
 
     # Fill-in pattern
     fill_in = lambda i, i1, i2, k1, k2: 10000*i + 1000*i1 + 100*i2 + 10*abs(k1) + abs(k2)
