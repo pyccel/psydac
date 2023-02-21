@@ -30,9 +30,37 @@ def compute_global_starts_ends(domain_decomposition, npts, pads):
 
 # TODO : Add test remove_spurious_entries, update_ghost_regions, exchange-assembly_data, diagonal, topetsc,
 #        ghost_regions_in_sync
+
 # ===============================================================================
 # SERIAL TESTS
 # ===============================================================================
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('n1', [7, 15])
+@pytest.mark.parametrize('p1', [2, 3, 4])
+@pytest.mark.parametrize('s1', [1, 2, 3])
+def test_stencil_matrix_1d_serial_init(dtype, n1, p1, s1, P1=True):
+    # Create domain decomposition
+    D = DomainDecomposition([n1], periods=[P1])
+
+    # Partition the points
+    npts = [n1]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[s1])
+
+    # Create a vector space V and a matrix M from V to V
+    V = StencilVectorSpace(cart, dtype=dtype)
+    M = StencilMatrix(V, V)
+
+    # Check properties of this matrix
+    assert M.domain == V
+    assert M.codomain == V
+    assert M.dtype == dtype
+    assert M.pads == (p1,)
+    assert M.backend == None
+    assert M._data.shape == (n1 + 2 * p1 * s1, 1 + 2 * p1)
+    assert M.shape == (n1 , n1 )
+# ===============================================================================
+
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
 @pytest.mark.parametrize('n2', [8, 12])
@@ -41,16 +69,19 @@ def compute_global_starts_ends(domain_decomposition, npts, pads):
 @pytest.mark.parametrize('s1', [1, 2, 3])
 @pytest.mark.parametrize('s2', [1, 2, 3])
 def test_stencil_matrix_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
+    # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
 
+    # Partition the points
     npts = [n1, n2]
     global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
-
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
 
+    # Create a vector space V and a matrix M from V to V
     V = StencilVectorSpace(cart, dtype=dtype)
     M = StencilMatrix(V, V)
 
+    # Check properties of this matrix
     assert M.domain == V
     assert M.codomain == V
     assert M.dtype == dtype
@@ -58,8 +89,41 @@ def test_stencil_matrix_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P
     assert M.backend == None
     assert M._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, 1 + 2 * p1, 1 + 2 * p2)
     assert M.shape == (n1 * n2, n1 * n2)
+# ===============================================================================
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('n1', [7, 15])
+@pytest.mark.parametrize('n2', [8, 12])
+@pytest.mark.parametrize('n3', [8, 12])
+@pytest.mark.parametrize('p1', [2, 3])
+@pytest.mark.parametrize('p2', [2, 3])
+@pytest.mark.parametrize('p3', [2, 3])
+@pytest.mark.parametrize('s1', [1, 2])
+@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s3', [1, 2])
+def test_stencil_matrix_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=True, P2=False, P3=False):
+    # Create domain decomposition
+    D = DomainDecomposition([n1, n2, n3], periods=[P1, P2, P3])
+
+    # Partition the points
+    npts = [n1, n2, n3]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2, p3])
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2, p3], shifts=[s1, s2, s3])
+
+    # Create a vector space V and a matrix M from V to V
+    V = StencilVectorSpace(cart, dtype=dtype)
+    M = StencilMatrix(V, V)
+
+    # Check properties of this matrix
+    assert M.domain == V
+    assert M.codomain == V
+    assert M.dtype == dtype
+    assert M.pads == (p1, p2, p3)
+    assert M.backend == None
+    assert M._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, n3+2*p3*s3, 1 + 2 * p1, 1 + 2 * p2, 1+2*p3)
+    assert M.shape == (n1 * n2 * n3, n1 * n2 * n3)
 
 # ===============================================================================
+
 @pytest.mark.parametrize('case', [1,2])
 @pytest.mark.parametrize('n1', [7, 15])
 @pytest.mark.parametrize('n2', [8, 12])
@@ -68,13 +132,15 @@ def test_stencil_matrix_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P
 @pytest.mark.parametrize('s1', [1, 2, 3])
 @pytest.mark.parametrize('s2', [1, 2, 3])
 def test_stencil_matrix_2d_serial_dtype_different(case, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
+    # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
 
+    # Partition the points
     npts = [n1, n2]
     global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
-
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
 
+    # Create two vector space with different type of variable and a matrix M from V to V
     if case ==1:
         V1 = StencilVectorSpace(cart, dtype=float)
         V2 = StencilVectorSpace(cart, dtype=complex)
@@ -83,6 +149,7 @@ def test_stencil_matrix_2d_serial_dtype_different(case, n1, n2, p1, p2, s1, s2, 
         V1 = StencilVectorSpace(cart, dtype=complex)
     M = StencilMatrix(V1, V2)
 
+    # Check properties of this matrix
     assert M.domain == V1
     assert M.codomain == V2
     assert M.dtype == V1.dtype
@@ -102,26 +169,30 @@ def test_stencil_matrix_2d_serial_dtype_different(case, n1, n2, p1, p2, s1, s2, 
 @pytest.mark.parametrize('s1', [1, 2, 3])
 @pytest.mark.parametrize('s2', [1, 2, 3])
 def test_stencil_matrix_2d_copy(dtype, n1, n2, p1, p2,s1,s2, P1=True, P2=False):
+    # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
 
+    # Partition the points
     npts = [n1, n2]
     global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
-
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
 
+    # Create a vector space V and a matrix M from V to V
     V = StencilVectorSpace(cart, dtype=dtype)
     M = StencilMatrix(V, V)
 
-    # take random data, but determinize it
+    # Take random data, but determinize it
     np.random.seed(2)
 
     if dtype == complex:
-        M._data[:] = np.random.random(M._data.shape) + 10j * np.random.random(M._data.shape)
+        M._data[:] = (1+2j)*np.random.random(M._data.shape)
     else:
         M._data[:] = np.random.random(M._data.shape)
 
+    # Create a copy of the matrix
     M1 = M.copy()
 
+    # check properties of the copy
     assert M1.domain == V
     assert M1.codomain == V
     assert M1.dtype == dtype
@@ -130,7 +201,6 @@ def test_stencil_matrix_2d_copy(dtype, n1, n2, p1, p2,s1,s2, P1=True, P2=False):
     assert M1._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, 1 + 2 * p1, 1 + 2 * p2)
     assert M1.shape == (n1 * n2, n1 * n2)
     assert np.array_equal(M1._data, M._data)
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
@@ -140,26 +210,27 @@ def test_stencil_matrix_2d_copy(dtype, n1, n2, p1, p2,s1,s2, P1=True, P2=False):
 @pytest.mark.parametrize('s1', [1, 2, 3])
 @pytest.mark.parametrize('s2', [1, 2, 3])
 def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
+    # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
 
+    # Partition the points
     npts = [n1, n2]
     global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
-
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
 
+    # Create a vector space V and a matrix M from V to V
     V = StencilVectorSpace(cart, dtype=dtype)
     M = StencilMatrix(V, V)
 
     # take random data, but determinize it
     np.random.seed(2)
-
     if dtype == complex:
-        M._data[:] = np.random.random(M._data.shape) + 10j * np.random.random(M._data.shape)
+        M._data[:] = (1+2j)*np.random.random(M._data.shape)
     else:
         M._data[:] = np.random.random(M._data.shape)
 
 
-    # we try to go for equality here...
+    # check that the basic properties on the matrix work
     assert (M * 2).dtype == dtype
     assert np.array_equal((M * 2)._data, M._data * 2)
     assert (M / 2).dtype == dtype
@@ -172,6 +243,7 @@ def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
         assert (2j*M).dtype == dtype
         assert np.array_equal((M*2j)._data, M._data*2j)
 
+    # check that the internal properties on the matrix work
     M1 = M.copy()
     M1 *= 2
     M2 = M.copy()
@@ -189,7 +261,6 @@ def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
     assert np.array_equal(M3._data, M._data + M._data)
     assert M4.dtype==dtype
     assert np.array_equal(M4._data, M._data - M._data)
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
@@ -199,44 +270,166 @@ def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
 @pytest.mark.parametrize('s1', [1, 2, 3])
 @pytest.mark.parametrize('s2', [1, 2, 3])
 def test_stencil_matrix_2d_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
+    # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
 
+    # Partition the points
     npts = [n1, n2]
     global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
-
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
 
+    # Create a vector space V and a matrix M from V to V
     V = StencilVectorSpace(cart, dtype=dtype)
     M = StencilMatrix(V, V)
 
     # take random data, but determinize it
     np.random.seed(2)
-
     if dtype == complex:
         M._data[:] = np.random.random(M._data.shape) + 10j * np.random.random(M._data.shape)
     else:
-        M._data[:] = np.random.random(M._data.shape)
+        M._data[:] = -1*np.random.random(M._data.shape)
 
-    M1=abs(M)
-
-
+    # Check that the max function work
     assert M.max()==M._data.max()
-    assert M1.domain == V
-    assert M1.codomain == V
-    assert M1.dtype == dtype
-    assert M1.pads == (p1, p2)
-    assert M1.backend == None
-    assert M1._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, 1 + 2 * p1, 1 + 2 * p2)
-    assert M1.shape == (n1 * n2, n1 * n2)
-    assert np.array_equal(M1._data, abs(M._data))
 
+    # Apply the function at our matrixes
+    M1=abs(M)
+    M2=M.conjugate()
+
+    # Create the array with the exact value
+    M1_exa=abs(M._data)
+    M2_exa=M._data.conjugate()
+
+    # Check proprties for each matrixes
+    for (m, m_exa) in zip([M1, M2],[M1_exa,M2_exa]):
+        assert m.domain == V
+        assert m.codomain == V
+        assert m.dtype == dtype
+        assert m.pads == (p1, p2)
+        assert m.backend == None
+        assert m._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, 1 + 2 * p1, 1 + 2 * p2)
+        assert m.shape == (n1 * n2, n1 * n2)
+        assert np.array_equal(m._data, m_exa)
+# ===============================================================================
+
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('n1', [5, 10])
+@pytest.mark.parametrize('p1', [1, 2, 3])
+@pytest.mark.parametrize('s1', [1, 2, 3])
+@pytest.mark.parametrize('P1', [True, False])
+def test_stencil_matrix_1d_serial_spurious_entries( dtype, n1, p1, s1, P1):
+
+    # Select non-zero values based on diagonal index
+    nonzero_values = dict()
+    for k1 in range(-p1, p1 + 1):
+        nonzero_values[k1] = k1
+
+    # Create domain decomposition
+    D = DomainDecomposition([n1], periods=[P1])
+
+    # Partition the points
+    npts = [n1]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[s1])
+
+    # Create vector space and stencil matrix
+    V = StencilVectorSpace(cart, dtype=dtype)
+    M = StencilMatrix(V, V)
+
+    # Fill in stencil matrix values
+    for k1 in range(-p1, p1 + 1):
+        M[:, k1] = nonzero_values[k1]
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # Extract the data without the ghost region
+    Ma=M._data[p1*s1:-p1*s1,:]
+
+    # Construction of the exact data array by hand
+    A = np.zeros(Ma.shape, dtype=dtype)
+    for k1 in range(-p1, p1 + 1):
+        A[:, k1+p1] = nonzero_values[k1]
+
+    # Remove the periodic part by hand
+    if (not P1) :
+        for k1 in range( 0, p1 ):
+            A[k1, slice(-p1+p1,-k1+p1)] = 0
+        for k1 in range( n1-p1, n1 ):
+            A[k1, slice(n1-k1+p1, p1+p1+1)] = 0
+
+    # Check shape and data in data array
+    assert A.shape == (n1,2*p1+1)
+    assert np.array_equal(Ma, A)
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('s1', [1])
-@pytest.mark.parametrize('P1', [False])
-def test_stencil_matrix_1d_serial_spurious_entries( dtype, p1, s1, P1, n1=15):
+@pytest.mark.parametrize('p2', [1, 2, 3])
+@pytest.mark.parametrize('s1', [1, 3])
+@pytest.mark.parametrize('s2', [1, 6])
+@pytest.mark.parametrize('P1', [True, False])
+@pytest.mark.parametrize('P2', [True, False])
+def test_stencil_matrix_2d_serial_spurious_entries( dtype, p1, p2, s1, s2, P1, P2, n1=15, n2=15):
 
+    # Select non-zero values based on diagonal index
+    nonzero_values = dict()
+    for k1 in range(-p1, p1 + 1):
+        for k2 in range(-p2, p2 + 1):
+            nonzero_values[k1, k2] = 10 * k1 + k2
+
+    # Create domain decomposition
+    D = DomainDecomposition([n1, n2], periods=[P1, P2])
+
+    # Partition the points
+    npts = [n1, n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
+
+    # Create vector space and stencil matrix
+    V = StencilVectorSpace(cart, dtype=dtype)
+    M = StencilMatrix(V, V)
+
+    # Fill in stencil matrix values
+    for k1 in range(-p1, p1 + 1):
+        for k2 in range(-p2, p2 + 1):
+            M[:, :, k1, k2] = nonzero_values[k1, k2]
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # Extract the data without the ghost region
+    Ma=M._data[p1*s1:-p1*s1,p2*s2:-p2*s2,:,:]
+
+    # Construct exact data array by hand
+    A = np.zeros(Ma.shape, dtype=dtype)
+    for k1 in range(-p1, p1 + 1):
+        for k2 in range(-p2, p2 + 1):
+            A[:, :, k1+p1, k2+p2] = nonzero_values[k1, k2]
+
+    # Remove the periodic part in case of non-periodicity
+    if (not P1) :
+        for k1 in range( 0, p1 ):
+            A[k1, :, slice(-p1+p1,-k1+p1),:] = 0
+        for k1 in range( n1-p1, n1 ):
+            A[k1, :, slice(n1-k1+p1, p1+p1+1),:] = 0
+
+    if (not P2):
+        for k2 in range(0, p2):
+            A[:, k2, :, slice(-p2 + p2, -k2 + p2)] = 0
+        for k2 in range(n2 - p2, n2):
+            A[:, k2, :, slice(n2 - k2 + p2, p2 + p2 + 1)] = 0
+
+    # Check shape and data in data array
+    assert A.shape == (n1, n2, 2*p1+1, 2*p2+1)
+    assert np.array_equal(Ma, A)
+
+# ===============================================================================
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('n1', [7, 15])
+@pytest.mark.parametrize('p1', [3])
+@pytest.mark.parametrize('s1', [1])
+@pytest.mark.parametrize('P1', [True, False])
+def test_stencil_matrix_1d_serial_toarray( dtype, n1, p1, s1, P1):
     # Select non-zero values based on diagonal index
     nonzero_values = dict()
     for k1 in range(-p1, p1 + 1):
@@ -261,86 +454,26 @@ def test_stencil_matrix_1d_serial_spurious_entries( dtype, p1, s1, P1, n1=15):
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
-    Ma=M._data
 
-    # Construct exact data array by hand
-    A = np.zeros(Ma.shape, dtype=dtype)
-    for k1 in range(-p1, p1 + 1):
-        A[:, k1+p1] = nonzero_values[k1]
+    # Convert stencil matrix to 2D array
+    Ma = M.toarray()
 
-    if (not P1) :
-        for i1 in range( 1, p1 ):
-                A[i1, slice(-p1,-i1)] = 0
-        for i1 in range( n1-p1, n1 ):
-            A[i1, slice(n1-i1+1, p1)] = 0
-    print(A[:,:]-Ma)
-        # for i2 in range( 0, p2 ):
-        #         A[:,i1,:, slice(-p2,-i2)+p2] = 0
-
-
-    # Check shape and data in data array
+    # Construct exact matrix by hand
+    A = np.zeros(M.shape, dtype=dtype)
+    for i1 in range(n1):
+        for k1 in range(-p1, p1 + 1):
+            j1 = (i1 + k1) % n1
+            i = i1
+            j = j1
+            if (P1 or 0 <= i1 + k1 < n1) :
+                A[i, j] = nonzero_values[k1]
+    print(A)
+    print(Ma)
+    # Check shape and data in 2D array
+    assert Ma.shape == M.shape
     assert np.array_equal(Ma, A)
 
-# TODO : how the index in the data work ?
-# ===============================================================================
-@pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('p2', [1, 2, 3])
-@pytest.mark.parametrize('s1', [1])
-@pytest.mark.parametrize('s2', [1])
-@pytest.mark.parametrize('P1', [False])
-@pytest.mark.parametrize('P2', [True])
-def test_stencil_matrix_2d_serial_spurious_entries( dtype, p1, p2, s1, s2, P1, P2, n1=15, n2=15):
-
-    # Select non-zero values based on diagonal index
-    nonzero_values = dict()
-    for k1 in range(-p1, p1 + 1):
-        for k2 in range(-p2, p2 + 1):
-            nonzero_values[k1, k2] = 10 * k1 + k2
-
-    # Create domain decomposition
-    D = DomainDecomposition([n1, n2], periods=[P1, P2])
-
-    # Partition the points
-    npts = [n1, n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
-
-    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
-
-    # Create vector space and stencil matrix
-    V = StencilVectorSpace(cart, dtype=dtype)
-    M = StencilMatrix(V, V)
-
-    # Fill in stencil matrix values
-    for k1 in range(-p1, p1 + 1):
-        for k2 in range(-p2, p2 + 1):
-            M[:, :, k1, k2] = nonzero_values[k1, k2]
-
-    # If any dimension is not periodic, set corresponding periodic corners to zero
-    M.remove_spurious_entries()
-    Ma=M._data
-
-    # Construct exact data array by hand
-    A = np.zeros(Ma.shape, dtype=dtype)
-    for k1 in range(-p1, p1 + 1):
-        for k2 in range(-p2, p2 + 1):
-            A[:, :, k1+p1, k2+p2] = nonzero_values[k1, k2]
-
-    if (not P1) and P2:
-        for i1 in range( 1, p1 ):
-                A[i1, :, slice(-p1,-i1), :] = 0
-        for i1 in range( n1-p1, n1 ):
-            A[i1, :, slice(n1-i1+1, p1), :] = 0
-    print(A[:,0,:,0])
-    print(Ma[:,0,:,0])
-        # for i2 in range( 0, p2 ):
-        #         A[:,i1,:, slice(-p2,-i2)+p2] = 0
-
-
-    # Check shape and data in data array
-    assert np.array_equal(Ma, A)
-
-# TODO : how the index in the data work ?
+# TODO : understand why it's not working when s>1
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
@@ -424,7 +557,6 @@ def test_stencil_matrix_2d_serial_tosparse( dtype, n1, n2, p1, p2, s1, s2, P1, P
     # Partition the points
     npts = [n1, n2]
     global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
-
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
 
     # Create vector space and stencil matrix
@@ -1013,7 +1145,72 @@ def test_stencil_matrix_2d_serial_dot_6(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     assert np.allclose(ya, ya_exact, rtol=1e-13, atol=1e-13)
 
 # TODO: verify for s>1
+# ===============================================================================
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('n1', [5, 15])
+@pytest.mark.parametrize('n2', [5, 12])
+@pytest.mark.parametrize('p1', [1, 2, 3])
+@pytest.mark.parametrize('p2', [1, 2, 3])
+@pytest.mark.parametrize('s1', [1])
+@pytest.mark.parametrize('s2', [1])
+@pytest.mark.parametrize('P1', [True, False])
+@pytest.mark.parametrize('P2', [True, False])
+# Case where domain and codomain are the same and matrix pads are the same
+def test_stencil_matrix_2d_serial_vdot(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
+    # Create domain decomposition
+    D = DomainDecomposition([n1, n2], periods=[P1, P2])
 
+    # Partition the points
+    npts = [n1, n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
+
+    # Create vector space, stencil matrix, and stencil vector
+    V = StencilVectorSpace(cart, dtype=dtype)
+    M = StencilMatrix(V, V)
+    x = StencilVector(V)
+
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    if dtype==complex:
+        for k1 in range(-p1, p1 + 1):
+            for k2 in range(-p2, p2 + 1):
+                M[:, :, k1, k2] = 10 * k1 + 1j*k2
+    else:
+        for k1 in range(-p1, p1 + 1):
+            for k2 in range(-p2, p2 + 1):
+                M[:, :, k1, k2] = 10 * k1 + k2
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    if dtype==complex:
+        for i1 in range(n1):
+            for i2 in range(n2):
+                x[i1, i2] = 2.0 * random() - 1.0j
+    else:
+        for i1 in range(n1):
+            for i2 in range(n2):
+                x[i1, i2] = 2.0 * random() - 1.0
+    x.update_ghost_regions()
+
+    # Compute matrix-vector product
+    y = M.vdot(x)
+
+    # Convert stencil objects to Numpy arrays
+    Ma = M.toarray()
+    xa = x.toarray()
+    ya = y.toarray()
+
+    # Exact result using Numpy dot product
+    ya_exact = np.dot(Ma.conjugate(), xa)
+
+    # Check data in 1D array
+    assert y.dtype==dtype
+    assert np.allclose(ya, ya_exact, rtol=1e-13, atol=1e-13)
+
+# TODO: verify for s>1
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [4, 10, 32])
@@ -1570,7 +1767,6 @@ def test_stencil_matrix_3d_serial_transpose_1(dtype, n1, n2, n3, p1, p2, p3, s1,
 # BACKENDS TESTS
 # ===============================================================================
 
-#@pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('dtype', [float])
 @pytest.mark.parametrize('n1', [5, 15])
 @pytest.mark.parametrize('n2', [5, 12])
@@ -1865,9 +2061,9 @@ def test_stencil_matrix_1d_parallel_dot(dtype, n1, p1, sh1, P1):
     # Partition the points
     npts = [n1]
     global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
-
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[sh1])
 
+    # Create vector space, a stencil matrix, and a stencil vector
     V = StencilVectorSpace(cart, dtype=dtype)
     M = StencilMatrix(V, V)
     x = StencilVector(V)
@@ -2007,7 +2203,6 @@ def test_stencil_matrix_1d_parallel_sync( n1, p1, sh1, P1):
     # Partition the points
     npts = [n1]
     global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
-
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[sh1])
 
     V = StencilVectorSpace(cart, dtype=int)
@@ -2067,9 +2262,6 @@ def test_stencil_matrix_1d_parallel_sync( n1, p1, sh1, P1):
     #        comm.Barrier()
 
     assert np.array_equal(Ma[i1_min:i1_max, :], Me[i1_min:i1_max, :])
-
-#TODO: comprendre comment ca marche
-
 # ===============================================================================
 @pytest.mark.parametrize('n1', [21, 67])
 @pytest.mark.parametrize('n2', [13, 32])
@@ -2232,8 +2424,6 @@ def test_stencil_matrix_1d_parallel_transpose(dtype, n1, p1, sh1, P1):
     # Check data
     assert M.transpose().dtype
     assert np.array_equal(Ta, Ta_exact)
-
-#TODO: comprendre comment ca marche
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -2442,4 +2632,3 @@ if __name__ == "__main__":
 
     pytest.main(sys.argv)
 
-    # TODO : Add conjugate and vdot as properties and do some tests

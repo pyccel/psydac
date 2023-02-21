@@ -33,14 +33,18 @@ def compute_global_starts_ends(domain_decomposition, npts):
 @pytest.mark.parametrize('P1', [True, False])
 
 def test_stencil_vector_space_1d_serial_init(dtype, n1, p1, s1, P1):
+    # Create domain decomposition
     D = DomainDecomposition([n1], periods=[P1])
 
+    # Partition the points
     npts = [n1]
     global_starts, global_ends = compute_global_starts_ends(D, npts)
 
+    # Create cart and  vector space
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[s1])
     V = StencilVectorSpace(C, dtype=dtype)
 
+    # Test properties of the vector space
     assert V.dimension == n1
     assert V.dtype == dtype
     assert V.mpi_type == find_mpi_type(dtype)
@@ -70,14 +74,18 @@ def test_stencil_vector_space_1d_serial_init(dtype, n1, p1, s1, P1):
 @pytest.mark.parametrize('P2', [True, False])
 
 def test_stencil_vector_space_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
+    # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
 
+    # Partition the points
     npts = [n1, n2]
     global_starts, global_ends = compute_global_starts_ends(D, npts)
 
+    # Create cart and  vector space
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
     V = StencilVectorSpace(C, dtype=dtype)
 
+    # Test properties of the vector space
     assert V.dimension == n1 * n2
     assert V.dtype == dtype
     assert V.mpi_type == find_mpi_type(dtype)
@@ -111,14 +119,18 @@ def test_stencil_vector_space_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1, 
 @pytest.mark.parametrize('P3', [True, False])
 
 def test_stencil_vector_space_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1, P2, P3):
+    # Create domain decomposition
     D = DomainDecomposition([n1,n2,n3], periods=[P1, P2, P3])
 
+    # Partition the points
     npts = [n1,n2, n3]
     global_starts, global_ends = compute_global_starts_ends(D, npts)
 
+    # Create cart and  vector space
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2, p3], shifts=[s1, s2, s3])
     V = StencilVectorSpace(C, dtype=dtype)
 
+    # Test properties of the vector space
     assert V.dimension == n1*n2*n3
     assert V.dtype == dtype
     assert V.mpi_type == find_mpi_type(dtype)
@@ -143,16 +155,22 @@ def test_stencil_vector_space_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, s1, 
 @pytest.mark.parametrize('n3', [2, 5])
 
 def test_stencil_vector_space_3D_serial_parent(dtype, n1, n2, n3, P1=True, P2=False, P3=True):
+    # Create domain decomposition
     D = DomainDecomposition([n1, n2, n3], periods=[P1, P2, P3])
 
+    # Partition the points for our domain and our reduced domain
     npts_red = [1, 1, 1]
     npts = [n1, n2, n3]
     global_starts, global_ends = compute_global_starts_ends(D, npts)
 
+    # Create a cart
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[1, 1, 1], shifts=[1, 1, 1])
+
+    # Create q reduced cart and vector space on it
     Cred=C.reduce_npts(npts_red, global_starts, global_ends, [1, 1, 1])
     V = StencilVectorSpace(Cred, dtype=dtype)
 
+    # Test properties of the vector space
     assert V.dimension == 1
     assert V.dtype == dtype
     assert V.starts == (0, 0, 0)
@@ -170,15 +188,21 @@ def test_stencil_vector_space_3D_serial_parent(dtype, n1, n2, n3, P1=True, P2=Fa
 @pytest.mark.parametrize('s2', [1, 2])
 
 def test_stencil_vector_space_2D_serial_zeros(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
+    # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
 
+    # Partition the points
     npts = [n1, n2]
     global_starts, global_ends = compute_global_starts_ends(D, npts)
 
+    # Create cart and  vector space
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
     V = StencilVectorSpace(C, dtype=dtype)
+
+    # Create a zero vector on this vector space
     x = V.zeros()
 
+    # Test properties of the vector
     assert x.space is V
     assert x.dtype == dtype
     assert x.starts == (0, 0)
@@ -200,19 +224,22 @@ def test_stencil_vector_space_2D_serial_zeros(dtype, n1, n2, p1, p2, s1, s2, P1=
 @pytest.mark.parametrize('ext', [-1, 1])
 
 def test_stencil_vector_space_2D_serial_set_interface(dtype, n1, n2, p1, p2, s1, s2, axis, ext, P1=True, P2=False):
+    # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
 
+    # Partition the points
     npts = [n1, n2]
     global_starts, global_ends = compute_global_starts_ends(D, npts)
 
+    # Create cart and  vector space
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
     V = StencilVectorSpace(C, dtype=dtype)
-    x = V.zeros()
 
+    # Create an interface on this vector space
     V.set_interface(axis, ext, C)
-
     V_inter=V.interfaces[axis, ext]
 
+    # Test the propertiesof this interface
     assert isinstance(V_inter, StencilVectorSpace)
     assert V_inter.dimension == n1 * n2
     assert V_inter.dtype == dtype
@@ -244,10 +271,6 @@ def test_stencil_vector_space_2D_serial_set_interface(dtype, n1, n2, p1, p2, s1,
         else:
             assert V_inter.starts == (0, 0)
             assert V_inter.ends == (n1-1, p2)
-
-
-
-
 # ===============================================================================
 # PARALLEL TESTS
 # ===============================================================================
@@ -264,14 +287,19 @@ def test_stencil_vector_space_1d_parallel_init(dtype, n1, p1, s1, P1):
     from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
+    # Create domain decomposition
     D = DomainDecomposition([n1], periods=[P1], comm=comm)
 
+    # Partition the points
     npts = [n1]
     global_starts, global_ends = compute_global_starts_ends(D, npts)
 
+    # Create cart and  vector space
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[s1])
     V = StencilVectorSpace(C, dtype=dtype)
 
+
+    # Test properties of the vector space
     assert V.dimension == n1
     assert V.dtype == dtype
     assert V.mpi_type == find_mpi_type(dtype)
@@ -306,14 +334,18 @@ def test_stencil_vector_space_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1
     from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
+    # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2], comm=comm)
 
+    # Partition the points
     npts = [n1, n2]
     global_starts, global_ends = compute_global_starts_ends(D, npts)
 
+    # Create cart and  vector space
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
     V = StencilVectorSpace(C, dtype=dtype)
 
+    # Test properties of the vector space
     assert V.dimension == n1 * n2
     assert V.dtype == dtype
     assert V.mpi_type == find_mpi_type(dtype)
@@ -352,14 +384,18 @@ def test_stencil_vector_space_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1
     from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
+    # Create domain decomposition
     D = DomainDecomposition([n1, n2, n3], periods=[P1, P2, P3], comm=comm)
 
+    # Partition the points
     npts = [n1,n2, n3]
     global_starts, global_ends = compute_global_starts_ends(D, npts)
 
+    # Create cart and  vector space
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2, p3], shifts=[s1, s2, s3])
     V = StencilVectorSpace(C, dtype=dtype)
 
+    # Test properties of the vector space
     assert V.dimension == n1*n2*n3
     assert V.dtype == dtype
     assert V.mpi_type == find_mpi_type(dtype)
@@ -389,16 +425,22 @@ def test_stencil_vector_space_3D_parallel_parent(dtype, n1, n2, n3, P1=True, P2=
     from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
+    # Create domain decomposition
     D = DomainDecomposition([n1, n2, n3], periods=[P1, P2, P3], comm=comm)
 
+    # Partition the points for our domain and its reduced version
     npts_red = [1, 1, 1]
     npts = [n1, n2, n3]
     global_starts, global_ends = compute_global_starts_ends(D, npts)
 
+    # Create the cart
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[1, 1, 1], shifts=[1, 1, 1])
+
+    # Create the cart reduced and a vector space
     Cred=C.reduce_npts(npts_red, global_starts, global_ends, [1, 1, 1])
     V = StencilVectorSpace(Cred, dtype=dtype)
 
+    # Test properties of the vector space
     assert V.dimension == 1
     assert V.dtype == dtype
     assert V.starts == (0, 0, 0)
@@ -421,15 +463,21 @@ def test_stencil_vector_space_2D_parallel_zeros(dtype, n1, n2, p1, p2, s1, s2, P
     from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
+    # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2], comm=comm)
 
+    # Partition the points
     npts = [n1, n2]
     global_starts, global_ends = compute_global_starts_ends(D, npts)
 
+    # Create cart and  vector space
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
     V = StencilVectorSpace(C, dtype=dtype)
+
+    #Create a zeros vector
     x = V.zeros()
 
+    # Test properties of the vector
     assert isinstance(x, StencilVector )
     assert x.space is V
     assert x.dtype == dtype
@@ -439,7 +487,6 @@ def test_stencil_vector_space_2D_parallel_zeros(dtype, n1, n2, p1, p2, s1, s2, P
     assert x.pads == (p1, p2)
     assert x._data.dtype == dtype
     assert np.array_equal(x._data, np.zeros((n1+2*p1*s1, n2+2*p2*s2), dtype=dtype))
-
 # ===============================================================================
 
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -457,20 +504,22 @@ def test_stencil_vector_space_2D_parrallel_set_interface(dtype, n1, n2, p1, p2, 
     from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
+    # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2], comm=comm)
 
+    # Partition the points
     npts = [n1, n2]
     global_starts, global_ends = compute_global_starts_ends(D, npts)
 
+    # Create cart and  vector space
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
-
     V = StencilVectorSpace(C, dtype=dtype)
-    x = V.zeros()
 
+    # Create an interface on our vector space
     V.set_interface(axis, ext, C)
-
     V_inter=V.interfaces[axis, ext]
 
+    # Test properties of the interface
     assert isinstance(V_inter, StencilVectorSpace)
     assert V_inter.dimension == n1 * n2
     assert V_inter.dtype == dtype
@@ -505,8 +554,6 @@ def test_stencil_vector_space_2D_parrallel_set_interface(dtype, n1, n2, p1, p2, 
 
     assert V_inter.parent_starts == (None, None)
     assert V_inter.parent_ends == (None, None)
-
-#TODO comment the code
 #===============================================================================
 # SCRIPT FUNCTIONALITY
 #===============================================================================

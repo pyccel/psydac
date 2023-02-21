@@ -329,6 +329,20 @@ class StencilVector( Vector ):
 
     #...
     def dot(self, v):
+        """
+        Return the scalar product between self and v.
+
+        Parameters
+        ----------
+        v : StencilVector
+            Vector of the same space than self needed for the scalar product
+
+        Returns
+        -------
+        null: self._space.dtype
+            Scalar containing scalar product of v and self
+
+        """
 
         assert isinstance(v, StencilVector)
         assert v._space is self._space
@@ -349,7 +363,20 @@ class StencilVector( Vector ):
         return np.dot(v1[index].flat, v2[index].flat)
 
     def vdot(self, v):
+        """
+            Return the sesquilinear product between self and v. The conjugate is applied on self.
 
+            Parameters
+            ----------
+            v : StencilVector
+                Vector of the same space than self needed for the sesquilinear product
+
+            Returns
+            -------
+            null: self._space.dtype
+                Scalar containing sesquilinear product of self and v
+
+        """
         assert isinstance(v, StencilVector)
         assert v._space is self._space
 
@@ -878,6 +905,28 @@ class StencilMatrix( LinearOperator ):
         out.ghost_regions_in_sync = False
         return out
 
+    def vdot( self, v, out=None):
+
+        assert isinstance( v, StencilVector )
+        assert v.space is self.domain
+
+        if out is not None:
+            assert isinstance( out, StencilVector )
+            assert out.space is self.codomain
+        else:
+            out = StencilVector( self.codomain )
+
+        # Necessary if vector space is distributed across processes
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
+
+        self._func(self._data, v._data.conjugate(), out._data, **self._args)
+        out._data = out._data.conjugate()
+
+        # IMPORTANT: flag that ghost regions are not up-to-date
+        out.ghost_regions_in_sync = False
+        return out
+
     # ...
     @staticmethod
     def _dot(mat, x, out, starts, nrows, nrows_extra, gpads, pads, dm, cm):
@@ -920,6 +969,17 @@ class StencilMatrix( LinearOperator ):
                     out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
 
             new_nrows[d] += er
+
+    def conjugate( self, out=None):
+        if out is not None:
+            assert isinstance( out, StencilMatrix )
+            assert out.domain is self.domain
+            assert out.codomain is self.codomain
+
+        else:
+            out = StencilMatrix( self.domain, self.codomain )
+        out._data = self._data.conjugate()
+        return out
 
     def __truediv__(self, a):
         """ Divide by scalar. """
@@ -1153,7 +1213,6 @@ class StencilMatrix( LinearOperator ):
 
         """
         # TODO: access 'self._data' directly for increased efficiency
-        # TODO: add unit tests
 
         ndim  = self._domain.ndim
 
