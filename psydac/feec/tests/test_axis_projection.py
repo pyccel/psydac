@@ -35,40 +35,21 @@ def test_grad_div():
     V1h = derham_h.V1
     V2h = derham_h.V2
 
-    curl, div = derham_h.derivatives_as_matrices
+    _, div = derham_h.derivatives_as_matrices
 
     I1_b = IdentityOperator(V1h.vector_space)
+    I2_b = IdentityOperator(V2h.vector_space)
 
-    a   = element_of(V1h.symbolic_space, name='a')
-    b   = element_of(V1h.symbolic_space, name='b')
+    Op1 = div @I1_b
 
-    expr = Dot(a,b)
+    Op2 = 2*I2_b
 
-    A = BilinearForm((a,b), integral(domain, expr))
-    Ah = discretize(A, domain_h, (V1h,V1h), backend=PSYDAC_BACKENDS['python'])
+    Op = Op2@Op1
 
-    dH1_b = Ah.assemble()
-    H1_b  = inverse(dH1_b, 'cg')
+    uh1 = V1h.vector_space.zeros()
+    uh2 = V2h.vector_space.zeros()
 
-    a   = element_of(V2h.symbolic_space, name='a')
-    b   = element_of(V2h.symbolic_space, name='b')
-
-    expr = a*b
-
-    A = BilinearForm((a,b), integral(domain, expr))
-    Ah = discretize(A, domain_h, (V2h,V2h), backend=PSYDAC_BACKENDS['python'])
-
-    div2 = div @I1_b
-
-    dH2_b = Ah.assemble()
-
-    grad = -H1_b@div.T@dH2_b
-
-    graddiv = grad@div2
-
-    uh = V1h.vector_space.zeros()
-
-    test = graddiv.dot(uh)
+    test = Op.dot(uh1, out=uh2)
 
 if __name__ == '__main__':
     test_axis_projection()
