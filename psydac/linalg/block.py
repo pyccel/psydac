@@ -562,11 +562,11 @@ class BlockLinearOperator( LinearOperator ):
         assert v.space is self.domain
 
         if out is not None:
+            assert out.space is self.codomain
             if self.n_block_rows == 1:
                 assert isinstance(out, Vector)
             else:
                 assert isinstance(out, BlockVector)
-            assert out.space is self.codomain
             out *= 0.0
         else:
             out = self.codomain.zeros()
