@@ -28,7 +28,7 @@ class TransposedPolarMapping(Mapping):
 
 
 def union(domains, name):
-    assert len(domains)>1
+    assert len(domains)>0
     domain = domains[0]
     for p in domains[1:]:
         domain = domain.join(p, name=name)
