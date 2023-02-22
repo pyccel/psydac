@@ -1043,7 +1043,7 @@ class BrokenVectorCurl_2D(FemLinearOperator):
 
         D0s = [VectorCurl_2D(V0, V1) for V0, V1 in zip(V0h.spaces, V1h.spaces)]
 
-        self._matrix = BlockMatrix(self.domain, self.codomain, \
+        self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D0i._matrix for i, D0i in enumerate(D0s)})
 
     def transpose(self):
@@ -1059,7 +1059,7 @@ class BrokenTransposedVectorCurl_2D( FemLinearOperator ):
 
         D0s = [VectorCurl_2D(V0, V1) for V0, V1 in zip(V0h.spaces, V1h.spaces)]
 
-        self._matrix = BlockMatrix(self.domain, self.codomain, \
+        self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D0i._matrix.T for i, D0i in enumerate(D0s)})
 
     def transpose(self):
@@ -1073,7 +1073,7 @@ class BrokenDivergence_2D(FemLinearOperator):
 
         D1s = [Divergence_2D(V1, V2) for V1, V2 in zip(V1h.spaces, V2h.spaces)]
 
-        self._matrix = BlockMatrix(self.domain, self.codomain, \
+        self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D1i._matrix for i, D1i in enumerate(D1s)})
 
     def transpose(self):
@@ -1089,7 +1089,7 @@ class BrokenTransposedDivergence_2D( FemLinearOperator ):
 
         D1s = [Divergence_2D(V1, V2) for V1, V2 in zip(V1h.spaces, V2h.spaces)]
 
-        self._matrix = BlockMatrix(self.domain, self.codomain, \
+        self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D1i._matrix.T for i, D1i in enumerate(D1s)})
 
     def transpose(self):
