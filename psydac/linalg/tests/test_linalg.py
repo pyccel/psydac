@@ -33,6 +33,16 @@ def compute_global_starts_ends(domain_decomposition, npts):
 
     return global_starts, global_ends
 
+def get_StencilVectorSpace(n1, n2, p1, p2, P1, P2):
+    npts = [n1, n2]
+    pads = [p1, p2]
+    periods = [P1, P2]
+    D = DomainDecomposition(npts, periods=periods)
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=pads, shifts=[1,1])
+    V = StencilVectorSpace(C)
+    return V
+
 #===============================================================================
 # SERIAL TESTS
 #===============================================================================
@@ -67,7 +77,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     S = StencilMatrix(V, V)
     S1 = StencilMatrix(V, V)
     # a non-symmetric StencilMatrix for transpose testing
-    S2 = StencilMatrix(V,V)
+    S2 = StencilMatrix(V, V)
 
     # Initiate a StencilVector
     v = StencilVector(V)
@@ -681,6 +691,7 @@ def test_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
     #       H4 = 2 * ( S¹ @ S⁰ ), testing power 1 and 0, composition with Identity, scaling of container class
     #       H5 = ZV @ I, ZV a ZeroO(V,V), testing composition with a ZeroO
     #       H = H1 @ ( H2 + H3 - H4 + H5 ) . T, testing all together
+    # 2.5 CompositionLO test (operators of different spaces)
 
     ###
     ### 1.
@@ -822,6 +833,40 @@ def test_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
     H5 = ZV @ I
     H = H1 @ ( H2 + H3 - H4 + H5 ).T
     assert np.linalg.norm((H@v).toarray() - v.toarray(), ord=2) < 10 * tol
+
+    ### 2.5 CompLO tests (various spaces)
+    # Create LinearOperator Z = A @ A.T @ A, where the domain and codomain of A are of different dimension.
+    # Prior to a fix, operator would not have enough preallocated storage defined.
+
+    v = [2, 1, 1, 1, False, False]
+    V = get_StencilVectorSpace(*v)
+    U1 = BlockVectorSpace(V, V)
+    U2 = BlockVectorSpace(V, V, V)
+
+    x1 = StencilVector(V)
+    x1[0] = 1
+    x1[1] = 1
+    x = BlockVector(U1, (x1, x1))
+
+    A1 = StencilMatrix(V, V)
+    A1[0, 0, 0, 0] = 1
+    A1[1, 0, 0, 0] = 1
+    A = BlockLinearOperator(U1, U2, ((A1, A1), (A1, A1), (A1, A1)))
+    B = A.T
+    C = A
+
+    Z1 = A @ (B @ C)
+    Z2 = (A @ B) @ C
+    Z3 = A @ B @ C
+    y1 = Z1 @ x
+    y2 = Z2 @ x
+    y3 = Z3 @ x
+
+    assert len(Z1.tmp_vectors) == 2
+    assert len(Z2.tmp_vectors) == 2
+    assert len(Z3.tmp_vectors) == 2
+    assert np.all( y1.toarray() == y2.toarray() ) & np.all( y2.toarray() == y3.toarray() )
+    assert np.all( y1.toarray() == np.array([12, 12, 12, 12, 12, 12], dtype=float) )
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY
