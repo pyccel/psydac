@@ -47,9 +47,16 @@ def test_field_and_constant(backend):
     fh = FemField(Vh)
     fh.coeffs[:] = 1
 
+    gh = FemField(Vh)
+    gh.coeffs[:] = 2
+
     # Assembly call should not crash if correct arguments are used
     A = ah.assemble(c=1.0, f=fh)
     b = lh.assemble(f=fh, c=1.0)
+
+    # The results should not be affected by this assemble 
+    C = ah.assemble(c=1.0, f=gh)
+    d = lh.assemble(f=gh, c=1.0)
 
     # Test matrix A
     x = fh.coeffs
@@ -160,6 +167,12 @@ def test_non_symmetric_BilinearForm(backend):
     ah = discretize(a, domain_h, [Vh2, Vh1], **kwargs)
 
     A = ah.assemble()
+    # Test using the dot product of such form
+    x = Vh2.vector_space.zeros()
+    b = A.dot(x)
+
+    y = Vh1.vector_space.zeros()
+    c = A.T.dot(y)
 
     print("PASSED")
 
@@ -168,4 +181,4 @@ if __name__ == '__main__':
     test_field_and_constant(None)
     test_multiple_fields(None)
     test_math_imports(None)
-    test_non_symmetric_BilinearForm(None)
+    test_non_symmetric_BilinearForm('python')

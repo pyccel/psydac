@@ -464,7 +464,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             self._matrix.exchange_assembly_data()
 
         if self._matrix: self._matrix.ghost_regions_in_sync = False
-        return self._matrix
+        return self._matrix.copy()
 
     def get_space_indices_from_target(self, domain, target):
         if domain.mapping:
