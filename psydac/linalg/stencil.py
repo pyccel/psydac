@@ -1797,6 +1797,20 @@ class StencilInterfaceMatrix(LinearOperator):
     s_c : int
           The starting index of the codomain.
 
+    d_axis : int
+          The axis of the Interface of the domain.
+
+    c_axis : int
+          The axis of the Interface of the codomain.
+
+    d_ext : int
+          The extremity of the domain Interface space.
+          the values must be 1 or -1.
+
+    c_ext : int
+          The extremity of the codomain Interface space.
+          the values must be 1 or -1.
+
     dim : int
           The axis of the interface.
 

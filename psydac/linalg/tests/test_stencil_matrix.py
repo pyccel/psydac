@@ -30,6 +30,8 @@ def compute_global_starts_ends(domain_decomposition, npts, pads):
 
 # TODO : Add test remove_spurious_entries, update_ghost_regions, exchange-assembly_data, diagonal, topetsc,
 #        ghost_regions_in_sync
+# TODO : how do we handle if the domain and the codomain have different dtype ?
+# TODO : check if toarray() is working with a shift greater than 1 and idem for all other function that need toaaray
 
 # ===============================================================================
 # SERIAL TESTS
@@ -436,8 +438,8 @@ def test_stencil_matrix_2d_serial_spurious_entries( dtype, p1, p2, s1, s2, P1, P
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
-@pytest.mark.parametrize('p1', [1])
-@pytest.mark.parametrize('s1', [1,2])
+@pytest.mark.parametrize('p1', [1,2])
+@pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('P1', [True, False])
 def test_stencil_matrix_1d_serial_toarray( dtype, n1, p1, s1, P1):
     # Select non-zero values based on diagonal index

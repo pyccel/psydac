@@ -39,9 +39,9 @@ from psydac.api.printing      import pycode
 from psydac.api.settings      import PSYDAC_BACKENDS, PSYDAC_DEFAULT_FOLDER
 from psydac.api.utilities     import mkdir_p, touch_init_file, random_string, write_code
 
-from psydac.api.ast.linalg_kernels import transpose_1d_f,transpose_1d_c, interface_transpose_1d
-from psydac.api.ast.linalg_kernels import transpose_2d_f,transpose_2d_c, interface_transpose_2d
-from psydac.api.ast.linalg_kernels import transpose_3d_f,transpose_3d_c, interface_transpose_3d
+from psydac.api.ast.linalg_kernels import transpose_1d_f,transpose_1d_c, interface_transpose_1d_f, interface_transpose_1d_c
+from psydac.api.ast.linalg_kernels import transpose_2d_f,transpose_2d_c, interface_transpose_2d_f, interface_transpose_2d_c
+from psydac.api.ast.linalg_kernels import transpose_3d_f,transpose_3d_c, interface_transpose_3d_f, interface_transpose_3d_c
 
 #==============================================================================
 def variable_to_sympy(x):
@@ -446,7 +446,7 @@ class LinearOperatorDot(SplBasic):
 #==============================================================================
 class TransposeOperator(SplBasic):
 
-    name_template = 'transpose_{ndim}d_{type}'
+    name_template = 'transpose_{ndim}d_{func_type}'
     function_dict = {'f1' : transpose_1d_f, 'f2' : transpose_2d_f, 'f3' : transpose_3d_f,
                      'c1' : transpose_1d_c, 'c2' : transpose_2d_c, 'c3' : transpose_3d_c}
 
@@ -481,10 +481,10 @@ class TransposeOperator(SplBasic):
         # Determine name based on number of dimensions and type of data
         dtype           =kwargs.pop('dtype',float)
         if dtype==complex:
-            type='c'
+            func_type='c'
         else:
-            type='f'
-        name = cls.name_template.format(ndim=ndim, type=type)
+            func_type='f'
+        name = cls.name_template.format(ndim=ndim, func_type=func_type)
 
         # Create new instance of this class
         obj = SplBasic.__new__(cls, tag, name=name, comm=comm)
@@ -492,8 +492,8 @@ class TransposeOperator(SplBasic):
         # Initialize instance (code generation happens here)
         obj.ndim        = ndim
         backend         = dict(kwargs.pop('backend'))
-        obj._args_dtype = obj.args_dtype_dict[type+str(ndim)]
-        obj._code       = inspect.getsource(obj.function_dict[type+str(ndim)])
+        obj._args_dtype = obj.args_dtype_dict[func_type+str(ndim)]
+        obj._code       = inspect.getsource(obj.function_dict[func_type+str(ndim)])
         obj._folder     = obj._initialize_folder()
         obj._generate_code(backend=backend)
         obj._compile(backend=backend)
@@ -613,15 +613,18 @@ class InterfaceTransposeOperator(TransposeOperator):
     """ This class generates the Matrix transpose code for a StencilInterfaceMatrix.
     """
 
-    name_template = 'interface_transpose_{ndim}d'
-    function_dict = {1 : interface_transpose_1d,
-                     2 : interface_transpose_2d,
-                     3 : interface_transpose_3d}
+    name_template = 'interface_transpose_{ndim}d_{func_type}'
+    function_dict = {'f1' : interface_transpose_1d_f, 'f2' : interface_transpose_2d_f, 'f3' : interface_transpose_1d_f,
+                     'c1' : interface_transpose_1d_c, 'c2' : interface_transpose_2d_c, 'c3' : interface_transpose_3d_c}
 
     # TODO [YG 01.04.2022]: drop support for old Pyccel versions, then remove
-    args_dtype_dict = {1 : [repr('float[:,:]')]*2 + [repr('int64')]*12,
-                       2 : [repr('float[:,:,:,:]')]*2 + [repr('int64')]*21,
-                       3 : [repr('float[:,:,:,:,:,:]')]*2 + [repr('int64')]*30}
+    args_dtype_dict = {'f1' : [repr('float[:,:]')]*2 + [repr('int64')]*12,
+                       'f2' : [repr('float[:,:,:,:]')]*2 + [repr('int64')]*21,
+                       'f3' : [repr('float[:,:,:,:,:,:]')]*2 + [repr('int64')]*30,
+                       'c1': [repr('complex[:,:]')] * 2 + [repr('int64')] * 12,
+                       'c2': [repr('complex[:,:,:,:]')] * 2 + [repr('int64')] * 21,
+                       'c3': [repr('complex[:,:,:,:,:,:]')] * 2 + [repr('int64')] * 30,
+                       }
 
 #==============================================================================
 class VectorDot(SplBasic):
