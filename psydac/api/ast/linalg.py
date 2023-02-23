@@ -39,9 +39,9 @@ from psydac.api.printing      import pycode
 from psydac.api.settings      import PSYDAC_BACKENDS, PSYDAC_DEFAULT_FOLDER
 from psydac.api.utilities     import mkdir_p, touch_init_file, random_string, write_code
 
-from psydac.api.ast.linalg_kernels import transpose_1d, interface_transpose_1d
-from psydac.api.ast.linalg_kernels import transpose_2d, interface_transpose_2d
-from psydac.api.ast.linalg_kernels import transpose_3d, interface_transpose_3d
+from psydac.api.ast.linalg_kernels import transpose_1d_f,transpose_1d_c, interface_transpose_1d
+from psydac.api.ast.linalg_kernels import transpose_2d_f,transpose_2d_c, interface_transpose_2d
+from psydac.api.ast.linalg_kernels import transpose_3d_f,transpose_3d_c, interface_transpose_3d
 
 #==============================================================================
 def variable_to_sympy(x):
@@ -156,9 +156,15 @@ class LinearOperatorDot(SplBasic):
         interface_axis  = kwargs.pop('interface_axis', None)
         d_start         = kwargs.pop('d_start', None)
         c_start         = kwargs.pop('c_start', None)
-        mats            = [variables('mat{}'.format(''.join(str(i) for i in key)),'real', cls=IndexedVariable, rank=2*ndim) for key in keys]
-        xs              = [variables('x{}'.format(i),'real', cls=IndexedVariable, rank=ndim) for i in range(block_shape[1])]
-        outs            = [variables('out{}'.format(i),'real', cls=IndexedVariable, rank=ndim) for i in range(block_shape[0])]
+        dtype           = kwargs.pop('dtype', float)
+        if dtype==complex:
+            mats            = [variables('mat{}'.format(''.join(str(i) for i in key)),'complex', cls=IndexedVariable, rank=2*ndim) for key in keys]
+            xs              = [variables('x{}'.format(i),'complex', cls=IndexedVariable, rank=ndim) for i in range(block_shape[1])]
+            outs            = [variables('out{}'.format(i),'complex', cls=IndexedVariable, rank=ndim) for i in range(block_shape[0])]
+        else:
+            mats            = [variables('mat{}'.format(''.join(str(i) for i in key)),'real', cls=IndexedVariable, rank=2*ndim) for key in keys]
+            xs              = [variables('x{}'.format(i),'real', cls=IndexedVariable, rank=ndim) for i in range(block_shape[1])]
+            outs            = [variables('out{}'.format(i),'real', cls=IndexedVariable, rank=ndim) for i in range(block_shape[0])]
 
         func_args    = (*mats, *xs, *outs)
         shared       = (*mats, *xs, *outs)
@@ -234,7 +240,11 @@ class LinearOperatorDot(SplBasic):
                 for i,j in zip(indices2[::-1], ranges[::-1]):
                     body = [For(i,j, body)]
 
-                body.insert(0,Assign(v, 0.0))
+                if dtype==complex:
+                    body.insert(0,Assign(v, 0.0+0j))
+                else:
+                    body.insert(0,Assign(v, 0.0))
+
                 if diag_keys:
                     body.append(Assign(v3,v))
                 else:
@@ -289,7 +299,11 @@ class LinearOperatorDot(SplBasic):
                     for i,j in zip(indices2[::-1], ranges[::-1]):
                         for_body = [For(i,j, for_body)]
 
-                    for_body.insert(0,Assign(v, 0.0))
+                    if dtype == complex:
+                        for_body.insert(0, Assign(v, 0.0 + 0j))
+                    else:
+                        for_body.insert(0, Assign(v, 0.0))
+
                     if diag_keys:
                         for_body.append(Assign(v3,v))
                     else:
@@ -432,13 +446,18 @@ class LinearOperatorDot(SplBasic):
 #==============================================================================
 class TransposeOperator(SplBasic):
 
-    name_template = 'transpose_{ndim}d'
-    function_dict = {1 : transpose_1d, 2 : transpose_2d, 3 : transpose_3d}
+    name_template = 'transpose_{ndim}d_{type}'
+    function_dict = {'f1' : transpose_1d_f, 'f2' : transpose_2d_f, 'f3' : transpose_3d_f,
+                     'c1' : transpose_1d_c, 'c2' : transpose_2d_c, 'c3' : transpose_3d_c}
 
     # TODO [YG 01.04.2022]: drop support for old Pyccel versions, then remove
-    args_dtype_dict = {1 : [repr('float[:,:]')]*2 + [repr('int64')]*11,
-                       2 : [repr('float[:,:,:,:]')]*2 + [repr('int64')]*22,
-                       3 : [repr('float[:,:,:,:,:,:]')]*2 + [repr('int64')]*33}
+    args_dtype_dict = {'f1' : [repr('float[:,:]')]*2 + [repr('int64')]*11,
+                       'f2' : [repr('float[:,:,:,:]')]*2 + [repr('int64')]*22,
+                       'f3' : [repr('float[:,:,:,:,:,:]')]*2 + [repr('int64')]*33,
+                       'c1': [repr('complex[:,:]')] * 2 + [repr('int64')] * 11,
+                       'c2': [repr('complex[:,:,:,:]')] * 2 + [repr('int64')] * 22,
+                       'c3': [repr('complex[:,:,:,:,:,:]')] * 2 + [repr('int64')] * 33,
+                       }
 
     def __new__(cls, ndim, comm=None, **kwargs):
         if comm is not None:
@@ -459,8 +478,13 @@ class TransposeOperator(SplBasic):
         if comm is not None and comm.size>1:
             tag = comm.bcast(tag , root=0 )
 
-        # Determine name based on number of dimensions
-        name = cls.name_template.format(ndim=ndim)
+        # Determine name based on number of dimensions and type of data
+        dtype           =kwargs.pop('dtype',float)
+        if dtype==complex:
+            type='c'
+        else:
+            type='f'
+        name = cls.name_template.format(ndim=ndim, type=type)
 
         # Create new instance of this class
         obj = SplBasic.__new__(cls, tag, name=name, comm=comm)
@@ -468,8 +492,8 @@ class TransposeOperator(SplBasic):
         # Initialize instance (code generation happens here)
         obj.ndim        = ndim
         backend         = dict(kwargs.pop('backend'))
-        obj._code       = inspect.getsource(obj.function_dict[ndim])
-        obj._args_dtype = obj.args_dtype_dict[ndim]
+        obj._args_dtype = obj.args_dtype_dict[type+str(ndim)]
+        obj._code       = inspect.getsource(obj.function_dict[type+str(ndim)])
         obj._folder     = obj._initialize_folder()
         obj._generate_code(backend=backend)
         obj._compile(backend=backend)

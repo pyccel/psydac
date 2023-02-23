@@ -57,8 +57,8 @@ def test_stencil_vector_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P
     # Test properties of the vector
     assert x.space is V
     assert x.dtype == dtype
-    assert x.starts == (0, 0)
-    assert x.ends == (n1 - 1, n2 - 1)
+    assert x.starts == tuple(global_starts)
+    assert x.ends == tuple(global_ends)
     assert x.pads == (p1, p2)
     assert x._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2)
     assert x._data.dtype == dtype
@@ -88,10 +88,10 @@ def test_stencil_vector_2d_serial_copy(dtype, n1, n2, p1, p2, s1, s2, P1=True, P
 
     # Take random data, but determinize it
     np.random.seed(2)
-    if dtype == float:
-        x._data[:] = np.random.random(x._data.shape)
-    else:
+    if dtype == complex:
         x._data[:] = np.random.random(x._data.shape) + 1j * np.random.random(x._data.shape)
+    else:
+        x._data[:] = np.random.random(x._data.shape)
 
     # Compute the copy
     z = x.copy()
@@ -127,10 +127,10 @@ def test_stencil_vector_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
 
     # take random data, but determinize it
     np.random.seed(2)
-    if dtype == float:
-        M._data[:] = np.random.random(M._data.shape)
-    else:
+    if dtype == complex:
         M._data[:] = np.random.random(M._data.shape) + 1j * np.random.random(M._data.shape)
+    else:
+        M._data[:] = np.random.random(M._data.shape)
 
     # Test classical basic operation
     assert (M * 2).dtype == dtype
@@ -181,21 +181,26 @@ def test_stencil_matrix_2d_serial_toarray(dtype, n1, n2, p1, p2, s1, s2, P1=True
     x = StencilVector(V)
 
     #Fill vector with some data
+    if dtype == complex:
+        f = lambda i1, i2: 10j * i1 + i2
+    else:
+        f = lambda i1, i2: 10 * i1 + i2
+
     for i1 in range(n1):
         for i2 in range(n2):
-            x[i1, i2] = 10 * i1 + i2
+            x[i1, i2] = f(i1,i2)
 
     # Convert StencilVector into array (in serial only order has an impact)
     xc = x.toarray()
     xf = x.toarray(order='F')
 
     # Create our exact arrays
-    zc = np.zeros((n1 * n2))
-    zf = np.zeros((n1 * n2))
+    zc = np.zeros((n1 * n2),dtype=dtype)
+    zf = np.zeros((n1 * n2),dtype=dtype)
     for i1 in range(n1):
         for i2 in range(n2):
-            zc[i1 * n2 + i2] = 10 * i1 + i2
-            zf[i1 + i2 * n1] = 10 * i1 + i2
+            zc[i1 * n2 + i2] = f(i1,i2)
+            zf[i1 + i2 * n1] = f(i1,i2)
 
     # Verify toarray() with and without padding
     for (x, z) in zip([xc, xf], [zc, zf]):
@@ -228,10 +233,10 @@ def test_stencil_vector_2d_serial_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P
 
     # take random data, but determinize it
     np.random.seed(2)
-    if dtype == float:
-        x._data[:] = np.random.random(x._data.shape)
-    else:
+    if dtype == complex:
         x._data[:] = np.random.random(x._data.shape) + 1j * np.random.random(x._data.shape)
+    else:
+        x._data[:] = np.random.random(x._data.shape)
 
     y[:, :] = 42.0
 
@@ -279,79 +284,34 @@ def test_stencil_vector_2d_serial_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2
     x = StencilVector(V)
     y = StencilVector(V)
 
-    # Fill the vectors with data
     if dtype == complex:
-        for i1 in range(n1):
-            for i2 in range(n2):
-                x[i1, i2] = 10j * i1 + i2
-                y[i1, i2] = 10j * i2 - i1
+        f1 = lambda i1, i2: 100j * i1 + i2
+        f2 = lambda i1, i2: 10j* i2 - i1
     else:
-        for i1 in range(n1):
-            for i2 in range(n2):
-                x[i1, i2] = 10 * i1 + i2
-                y[i1, i2] = 10 * i2 - i1
+        f1 = lambda i1, i2: 100 * i1 + i2
+        f2 = lambda i1, i2: 10 * i2 - i1
 
-    # Create scalar product (x,y) and (y,x)
+    # Fill the vectors with data
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x[i1, i2] = f1(i1,i2)
+            y[i1, i2] = f2(i1,i2)
+
+    # Create inner vector product (x,y) and (y,x)
     z1 = x.dot(y)
     z2 = y.dot(x)
 
-    # Exact value by Numpy dot
-    z_exact = np.dot(x.toarray(), y.toarray())
+    # Exact value by Numpy dot and vdot
+    if dtype==complex:
+        z_exact = np.vdot(x.toarray(), y.toarray())
+    else:
+        z_exact = np.dot(x.toarray(), y.toarray())
 
     # Test exact value and symetry of the scalar product
     assert z1.dtype == dtype
     assert z2.dtype == dtype
     assert z1 == z_exact
-    assert z2 == z1
-
-
-# ===============================================================================
-@pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('n1', [1, 7])
-@pytest.mark.parametrize('n2', [1, 5])
-@pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
-@pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
-def test_stencil_vector_2d_serial_vdot(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
-    # Create domain decomposition
-    D = DomainDecomposition([n1, n2], periods=[P1, P2])
-
-    # Partition the points
-    npts = [n1, n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
-    C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
-
-    # Create vector space and stencil vectors
-    V = StencilVectorSpace(C, dtype)
-    x = StencilVector(V)
-    y = StencilVector(V)
-
-    # Fill the vectors with data
-    if dtype == complex:
-        for i1 in range(n1):
-            for i2 in range(n2):
-                x[i1, i2] = 10j * i1 + i2
-                y[i1, i2] = 10j * i2 - i1
-    else:
-        for i1 in range(n1):
-            for i2 in range(n2):
-                x[i1, i2] = 10 * i1 + i2
-                y[i1, i2] = 10 * i2 - i1
-
-    # Create sesquilinear product (x,y) and (y,x)
-    z1 = x.vdot(y)
-    z2 = y.vdot(x)
-
-    # Compute exact value with numpy vdot
-    z_exact = np.vdot(x.toarray(), y.toarray())
-
-    # Test exact value and sesquilinearity of the product
-    assert z1.dtype == dtype
-    assert z2.dtype == dtype
-    assert z1 == z_exact
-    assert z2 == z1.conjugate()
-
+    assert z2 == z_exact.conjugate()
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -376,23 +336,26 @@ def test_stencil_vector_2d_serial_conjugate(dtype, n1, n2, p1, p2, s1, s2, P1=Tr
 
     # Fill the vector with data
     if dtype == complex:
-        for i1 in range(n1):
-            for i2 in range(n2):
-                x[i1, i2] = 10j * i1 + i2
+        f = lambda i1, i2: 10j * i1 + i2
     else:
-        for i1 in range(n1):
-            for i2 in range(n2):
-                x[i1, i2] = 10 * i1 + i2
+        f = lambda i1, i2: 10 * i1 + i2
+
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x[i1, i2] = f(i1,i2)
 
     # Create the conjugate of the vector
-    z = x.conjugate()
+    z1 = x.conjugate()
+    z2 = StencilVector(V)
+    x.conjugate(out=z2)
 
     # Compute exact value with Numpy conjugate
     z_exact = x._data.conjugate()
 
     # Test the exact value
-    assert z.dtype == dtype
-    assert np.array_equal(z._data, z_exact)
+    assert z1.dtype == dtype
+    assert np.array_equal(z1._data, z_exact)
+    assert np.array_equal(z2._data, z_exact)
 
 
 # ===============================================================================
@@ -419,14 +382,14 @@ def test_stencil_vector_2d_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2, P1, P2
     x = StencilVector(V)
 
     # Fill the vector with data
+
     if dtype == complex:
-        for i1 in range(n1):
-            for i2 in range(n2):
-                x[i1, i2] = 10j * i1 + i2
+        f = lambda i1, i2: 10j * i1 + i2
     else:
-        for i1 in range(n1):
-            for i2 in range(n2):
-                x[i1, i2] = 10 * i1 + i2
+        f = lambda i1, i2: 10 * i1 + i2
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x[i1, i2] = f(i1,i2)
 
     # Convert vector to array
     xa = x.toarray()
@@ -470,13 +433,12 @@ def test_stencil_vector_2d_serial_update_ghost_region_interior(dtype, n1, n2, p1
 
     # Fill vector with data
     if dtype == complex:
-        for i1 in range(n1):
-            for i2 in range(n2):
-                x[i1, i2] = 10j * i1
+        f = lambda i1, i2: 10j * i1 + i2
     else:
-        for i1 in range(n1):
-            for i2 in range(n2):
-                x[i1, i2] = 10 * i1
+        f = lambda i1, i2: 10 * i1 + i2
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x[i1, i2] = f(i1,i2)
 
     # Update the vector ghost region if the concerned domain is periodic
     x.update_ghost_regions()
@@ -509,45 +471,7 @@ def test_stencil_vector_2d_serial_update_ghost_region_interior(dtype, n1, n2, p1
         assert np.array_equal(data[:, n2 + p2 * s2:n2 + 2 * p2 * s2],
                               np.zeros((n1 + 2 * p1 * s1, p2 * s2), dtype=dtype))
 
-
 # ===============================================================================
-"""
-@pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('n1', [1, 7])
-@pytest.mark.parametrize('n2', [1, 5])
-@pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
-@pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parametrize('P2', [True, False])
-def test_stencil_2d_array_to_petsc(dtype, n1, n2, p1, p2, P1, P2):
-    D = DomainDecomposition([n1, n2], periods=[P1, P2])
-
-    npts = [n1, n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
-
-    C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[1, 1])
-
-    V = StencilVectorSpace(C, dtype=dtype)
-    x = StencilVector(V)
-
-    if dtype == complex:
-        for i1 in range(n1):
-            for i2 in range(n2):
-                x[i1, i2] = 10j * i1 + i2
-    else:
-        for i1 in range(n1):
-            for i2 in range(n2):
-                x[i1, i2] = 10 * i1 + i2
-
-    xa = x.topetsc()
-    from psydac.linalg.topetsc import vec_topetsc
-    vec = vec_topetsc(x)
-
-    assert xa.dtype == dtype
-    assert xa.shape == (n1, n2)
-    assert xa == vec
-"""
-
 
 # ===============================================================================
 # PARALLEL TESTS
@@ -577,8 +501,8 @@ def test_stencil_vector_1d_parallel_init(dtype, n1, p1, s1, P1=True):
     # Test properties of the vector
     assert x.space is V
     assert x.dtype == dtype
-    assert x.starts == (0, )
-    assert x.ends == (n1 - 1, )
+    assert x.starts == tuple(global_starts)
+    assert x.ends == tuple(global_ends)
     assert x.pads == (p1, )
     assert x._data.shape == (n1 + 2 * p1 * s1, )
     assert x._data.dtype == dtype
@@ -613,8 +537,8 @@ def test_stencil_vector_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1=True,
     # Test properties of the vector
     assert x.space is V
     assert x.dtype == dtype
-    assert x.starts == (0, 0)
-    assert x.ends == (n1 - 1, n2 - 1)
+    assert x.starts == tuple(global_starts)
+    assert x.ends == tuple(global_ends)
     assert x.pads == (p1, p2)
     assert x._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2)
     assert x._data.dtype == dtype
@@ -652,8 +576,8 @@ def test_stencil_vector_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, 
     # Test properties of the vector
     assert x.space is V
     assert x.dtype == dtype
-    assert x.starts == (0, 0, 0)
-    assert x.ends == (n1 - 1, n2 - 1, n3-1)
+    assert x.starts == tuple(global_starts)
+    assert x.ends == tuple(global_ends)
     assert x.pads == (p1, p2, p3)
     assert x._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, n3 + 2 * p3 * s3)
     assert x._data.dtype == dtype
@@ -718,18 +642,15 @@ def test_stencil_vector_2d_parallel_toarray(dtype, n1, n2, p1, p2, s1, s2, P1=Tr
     assert np.array_equal(xa1, za1)
     assert np.array_equal(xa2, za2)
 
-    # # Verify toarray() with padding: internal region should not change
-    # xe = x.toarray(with_pads=True)
-    # xe = xe.reshape(n1, n2)
-    # index = tuple(slice(s, e + 1) for s, e in zip(cart.starts, cart.ends))
-    #
-    # assert xe.dtype == dtype
-    # assert xe.shape == (n1, n2)
-    # assert np.array_equal(xe[index], z[index])
+    # Verify toarray() with padding: internal region should not change
+    xe = x.toarray(with_pads=True)
+    xe = xe.reshape(n1, n2)
+
+    assert xe.dtype == dtype
+    assert xe.shape == (n1, n2)
+    assert np.array_equal(xe, z1)
 
 # TODO: test that ghost regions have been properly copied to 'xe' array
-
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [12, 24])
@@ -756,21 +677,33 @@ def test_stencil_vector_2d_parallel_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, 
     x = StencilVector(V)
     y = StencilVector(V)
 
+    if dtype == complex:
+        f1 = lambda i1, i2: 100j * i1 + i2
+        f2 = lambda i1, i2: 10j * i2 - i1
+    else:
+        f1 = lambda i1, i2: 100 * i1 + i2
+        f2 = lambda i1, i2: 10 * i2 - i1
+
     # Fill the vectors with data
     for i1 in range(V.starts[0], V.ends[0] + 1):
         for i2 in range(V.starts[1], V.ends[1] + 1):
-            x[i1, i2] = 10 * i1 + i2
-            y[i1, i2] = 10 * i2 - i1
+            x[i1, i2] = f1(i1,i2)
+            y[i1, i2] = f2(i1,i2)
 
     # Create scalar product (x,y) and (y,x)
     res1 = x.dot(y)
     res2 = y.dot(x)
 
     # Compute exact value with Numpy dot
-    res_ex = comm.allreduce(np.dot(x.toarray(), y.toarray()))
+    if dtype==complex:
+        res_ex1 = comm.allreduce(np.vdot(x.toarray(), y.toarray()))
+        res_ex2 = comm.allreduce(np.vdot(y.toarray(), x.toarray()))
+    else:
+        res_ex1 = comm.allreduce(np.dot(x.toarray(), y.toarray()))
+        res_ex2 = res_ex1
 
-    assert res1 == res_ex
-    assert res2 == res_ex
+    assert res1 == res_ex1
+    assert res2 == res_ex2
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [12, 24])
@@ -801,70 +734,33 @@ def test_stencil_vector_3d_parallel_dot(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s
     y = StencilVector(V)
 
     # Fill the vectors with data
+    if dtype == complex:
+        f1 = lambda i1, i2, i3: 100 * i1 + i2+ 1j * i3
+        f2 = lambda i1, i2, i3: 10 * i3 - i1- 10j * i2
+    else:
+        f1 = lambda i1, i2, i3: 100 * i1 + i2+ i3
+        f2 = lambda i1, i2, i3: 10 * i3 - i1- i2
+
     for i1 in range(V.starts[0], V.ends[0] + 1):
         for i2 in range(V.starts[1], V.ends[1] + 1):
             for i3 in range(V.starts[2], V.ends[2] + 1):
-                x[i1, i2, i3] = 10 * i1 + i2 + 100*i3
-                y[i1, i2, i3] = 10 * i3 - i1 - 100*i2
+                x[i1, i2, i3] = f1(i1,i2,i3)
+                x[i1, i2, i3] = f2(i1,i2,i3)
 
     # Create scalar product (x,y) and (y,x)
-    res1 = x.dot(y)
-    res2 = y.dot(x)
-
+        res1 = x.dot(y)
+        res2 = y.dot(x)
     # Compute exact value with Numpy dot
-    res_ex = comm.allreduce(np.dot(x.toarray(), y.toarray()))
 
-    assert res1 == res_ex
-    assert res2 == res_ex
+    if dtype == complex:
+        res_ex1 = comm.allreduce(np.vdot(x.toarray(), y.toarray()))
+        res_ex2 = comm.allreduce(np.vdot(y.toarray(), x.toarray()))
+    else:
+        res_ex1 = comm.allreduce(np.dot(x.toarray(), y.toarray()))
+        res_ex2 = res_ex1
 
-
-
-# ===============================================================================
-@pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('n1', [12, 24])
-@pytest.mark.parametrize('n2', [12, 24])
-@pytest.mark.parametrize('p1', [1, 3, 4])
-@pytest.mark.parametrize('p2', [1, 3, 4])
-@pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
-@pytest.mark.parallel
-def test_stencil_vector_2d_parallel_vdot(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
-    from mpi4py import MPI
-
-    comm = MPI.COMM_WORLD
-    # Create domain decomposition
-    D = DomainDecomposition([n1, n2], periods=[P1, P2], comm=comm)
-
-    # Partition the points
-    npts = [n1, n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
-    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
-
-    # Create vector space and stencil vector
-    V = StencilVectorSpace(cart, dtype=dtype)
-    x = StencilVector(V)
-    y = StencilVector(V)
-
-    for i1 in range(V.starts[0], V.ends[0] + 1):
-        for i2 in range(V.starts[1], V.ends[1] + 1):
-            x[i1, i2] = 10 * i1 + i2
-            y[i1, i2] = 10 * i2 - i1
-
-    # Create sesquilinear product (x,y) and (y,x)
-    res1 = x.vdot(y)
-    res2 = y.vdot(x)
-
-    # Compute exact value with Numpy vdot
-    res_ex1 = comm.allreduce(np.vdot(x.toarray(), y.toarray()))
-    res_ex2 = comm.allreduce(np.vdot(y.toarray(), x.toarray()))
-
-    # Test exact value and symetry of the scalar product
-
-    assert res1.dtype==dtype
     assert res1 == res_ex1
     assert res2 == res_ex2
-
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 7])
@@ -931,8 +827,6 @@ def test_stencil_vector_2d_parallel_update_ghost_region_interior(dtype, n1, n2, 
         # Right region with corner
         assert np.array_equal(data[:, n2 + p2 * s2:n2 + 2 * p2 * s2],
                               np.zeros((n1 + 2 * p1 * s1, p2 * s2), dtype=dtype))
-
-
 #===============================================================================
 # SCRIPT FUNCTIONALITY
 #===============================================================================

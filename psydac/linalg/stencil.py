@@ -330,7 +330,11 @@ class StencilVector( Vector ):
     #...
     def dot(self, v):
         """
-        Return the scalar product between self and v.
+        Return the inner vector product between self and v.
+
+        If the values are real, it return the classical scalar product.
+        If the values are complex, it returns the classical sesquilinear product with linearity on the vector v.
+
 
         Parameters
         ----------
@@ -360,42 +364,23 @@ class StencilVector( Vector ):
     @staticmethod
     def _dot(v1, v2, pads, shifts):
         index = tuple( slice(m*p,-m*p) for p,m in zip(pads, shifts))
-        return np.dot(v1[index].flat, v2[index].flat)
+        return np.vdot(v1[index].flat, v2[index].flat)
 
-    def vdot(self, v):
-        """
-            Return the sesquilinear product between self and v. The conjugate is applied on self.
+    def conjugate(self, out=None):
+        if out is not None:
+            assert isinstance(out, StencilVector)
+            assert out.space is self.space
 
-            Parameters
-            ----------
-            v : StencilVector
-                Vector of the same space than self needed for the sesquilinear product
-
-            Returns
-            -------
-            null: self._space.dtype
-                Scalar containing sesquilinear product of self and v
-
-        """
-        assert isinstance(v, StencilVector)
-        assert v._space is self._space
-
-        if self._space.parallel:
-            self._dot_send_data[0] = self._dot(self._data.conjugate(), v._data, self.space.pads, self.space.shifts)
-            self._space.cart.global_comm.Allreduce((self._dot_send_data, self.space.mpi_type),
-                                                   (self._dot_recv_data, self.space.mpi_type),
-                                                   op=MPI.SUM)
-            return self._dot_recv_data[0]
         else:
-            return self._dot(self._data.conjugate(), v._data, self.space.pads, self.space.shifts)
-
-    def conjugate(self):
-        w = StencilVector(self._space)
-        np.copyto(w._data, self._data.conjugate(), casting='no')
+            out = StencilVector(self.space)
+        out._data = self._data.conjugate()
         for axis, ext in self._space.interfaces:
-            np.copyto(w._interface_data[axis, ext], self._interface_data[axis, ext], casting='no')
-        w._sync = self._sync
-        return w
+            np.copyto(out._interface_data[axis, ext], self._interface_data[axis, ext].conjugate(), casting='no')
+        out._sync=self._sync
+        return out
+
+    def conj(self, out=None):
+        return self.conjugate(out=out)
 
     #...
     def copy(self, out=None):
@@ -980,6 +965,9 @@ class StencilMatrix( LinearOperator ):
             out = StencilMatrix( self.domain, self.codomain )
         out._data = self._data.conjugate()
         return out
+
+    def conj( self, out=None):
+        return self.conjugate(out=out)
 
     def __truediv__(self, a):
         """ Divide by scalar. """
@@ -1671,7 +1659,7 @@ class StencilMatrix( LinearOperator ):
             self._func           = self._dot
             self._transpose_func = self._transpose
         else:
-            transpose = TransposeOperator(self._ndim, backend=frozenset(backend.items()))
+            transpose = TransposeOperator(self._ndim, backend=frozenset(backend.items()),dtype=self.dtype)
             self._transpose_func = transpose.func
 
             nrows   = self._transpose_args.pop('nrows')
@@ -1707,7 +1695,8 @@ class StencilMatrix( LinearOperator ):
                                     gpads=(self._args['gpads'],),
                                     pads=(self._args['pads'],),
                                     dm = (self._args['dm'],),
-                                    cm = (self._args['cm'],))
+                                    cm = (self._args['cm'],),
+                                    dtype=self.dtype)
 
                     starts = self._args.pop('starts')
                     nrows  = self._args.pop('nrows')
@@ -1733,7 +1722,8 @@ class StencilMatrix( LinearOperator ):
                                             gpads=(self._args['gpads'],),
                                             pads=(self._args['pads'],),
                                             dm = (self._args['dm'],),
-                                            cm = (self._args['cm'],))
+                                            cm = (self._args['cm'],),
+                                            dtype=self.dtype)
 
                     starts      = self._args.pop('starts')
                     nrows       = self._args.pop('nrows')
@@ -1765,7 +1755,8 @@ class StencilMatrix( LinearOperator ):
                                         gpads=(self._args['gpads'],),
                                         pads=(self._args['pads'],),
                                         dm = (self._args['dm'],),
-                                        cm = (self._args['cm'],))
+                                        cm = (self._args['cm'],),
+                                        dtype=self.dtype)
                 self._args.pop('nrows')
                 self._args.pop('nrows_extra')
                 self._args.pop('gpads')
@@ -1829,7 +1820,7 @@ class StencilInterfaceMatrix(LinearOperator):
         dims           = list(W.shape)
 
         if W.parent_ends[c_axis] is not None:
-            diff = min(1,W.parent_ends[c_axis]-W.ends[c_axis])
+            diff = min(1, W.parent_ends[c_axis]-W.ends[c_axis])
         else:
             diff = 0
 
