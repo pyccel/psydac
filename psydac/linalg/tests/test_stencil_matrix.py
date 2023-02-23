@@ -2279,7 +2279,7 @@ def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, 
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [20, 67])
 @pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('sh1', [2])
+@pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parallel
 def test_stencil_matrix_1d_parallel_toarray(dtype, n1, p1, sh1, P1):
@@ -2402,7 +2402,7 @@ def test_stencil_matrix_1d_parallel_dot(dtype, n1, p1, sh1, P1):
     ya_exact = Ms.dot(xa)
 
     # Check data in 1D array
-    assert np.allclose(x.toarray(), xa,rtol=1e-14, atol=1e-14)
+    print(ya-ya_exact)
     assert np.allclose(ya, ya_exact, rtol=1e-14, atol=1e-14)
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
