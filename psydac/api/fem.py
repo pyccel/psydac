@@ -994,7 +994,7 @@ class DiscreteLinearForm(BasicDiscrete):
             self._vector.exchange_assembly_data()
 
         if self._vector: self._vector.ghost_regions_in_sync = False
-        return self._vector
+        return self._vector.copy()
 
     def get_space_indices_from_target(self, domain, target):
         if domain.mapping:
