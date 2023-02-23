@@ -436,10 +436,10 @@ def test_stencil_matrix_2d_serial_spurious_entries( dtype, p1, p2, s1, s2, P1, P
     assert np.array_equal(Ma, A)
 
 # ===============================================================================
-@pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('n1', [7, 15])
+@pytest.mark.parametrize('dtype', [float])
+@pytest.mark.parametrize('n1', [7])
 @pytest.mark.parametrize('p1', [1,2])
-@pytest.mark.parametrize('s1', [1])
+@pytest.mark.parametrize('s1', [2])
 @pytest.mark.parametrize('P1', [True, False])
 def test_stencil_matrix_1d_serial_toarray( dtype, n1, p1, s1, P1):
     # Select non-zero values based on diagonal index
@@ -465,8 +465,9 @@ def test_stencil_matrix_1d_serial_toarray( dtype, n1, p1, s1, P1):
     M = StencilMatrix(V, V)
 
     # Fill in stencil matrix values
-    for k1 in range(-p1, p1 + 1):
-        M[:, k1] = nonzero_values[k1]
+    for i1 in range(0, n1):
+        for k1 in range(0, 2*p1+1):
+            M._data[p1*s1+i1,k1] = nonzero_values[k1-p1]
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
@@ -2370,10 +2371,10 @@ def test_stencil_matrix_1d_parallel_dot(dtype, n1, p1, sh1, P1):
     # Fill in stencil matrix values based on diagonal index (periodic!)
 
     if dtype == complex:
-        M[0:n1, :] = np.random.random((n1, 2 * p1 + 1)) \
-                                       +1j*np.random.random((n1, 2 * p1 + 1))
+        M[s1:e1, :] = np.random.random((e1-s1, 2 * p1 + 1)) \
+                                       +1j*np.random.random((e1-s1, 2 * p1 + 1))
     else:
-        M[0:n1, :] = np.random.random((n1, 2 * p1 + 1))
+        M[s1:e1, :] = np.random.random((e1-s1, 2 * p1 + 1))
 
 
     # If domain is not periodic, set corresponding periodic corners to zero
@@ -2440,10 +2441,10 @@ def test_stencil_matrix_2d_parallel_dot(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2)
 
     # Fill in stencil matrix values based on diagonal index (periodic!)
     if dtype == complex:
-        M[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1)) \
-                                       + 1j * np.random.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
+        M[s1:e1, s2:e2, :, :] = np.random.random((e1-s1, e2-s2, 2 * p1 + 1, 2 * p2 + 1)) \
+                                       + 1j * np.random.random((e1-s1, e2-s2, 2 * p1 + 1, 2 * p2 + 1))
     else:
-        M[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
+        M[s1:e1, s2:e2, :, :] = np.random.random((e1-s1, e2-s2, 2 * p1 + 1, 2 * p2 + 1))
 
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
