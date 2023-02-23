@@ -2226,7 +2226,7 @@ class StencilInterfaceMatrix(LinearOperator):
     # ...
     @property
     def dim( self ):
-        return self._dim
+        return self._ndim
 
     # ...
     @property
