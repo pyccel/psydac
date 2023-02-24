@@ -639,7 +639,7 @@ def test_stencil_vector_2d_parallel_toarray(dtype, n1, n2, p1, p2, s1, s2, P1=Tr
     za2 = z2.reshape(-1)
 
     assert xa1.dtype == dtype
-    assert xa1.shape == ((V.ends[0] + 1-V.starts[0]) * (V.ends[1] + 1-V.starts[1]),)
+    assert xa1.shape == (n1 * n2,)
     assert np.array_equal(xa1, za1)
     assert np.array_equal(xa2, za2)
 
