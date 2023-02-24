@@ -691,7 +691,6 @@ def test_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
     #       H4 = 2 * ( S¹ @ S⁰ ), testing power 1 and 0, composition with Identity, scaling of container class
     #       H5 = ZV @ I, ZV a ZeroO(V,V), testing composition with a ZeroO
     #       H = H1 @ ( H2 + H3 - H4 + H5 ) . T, testing all together
-    # 2.5 CompositionLO test (operators of different spaces)
 
     ###
     ### 1.
@@ -834,12 +833,20 @@ def test_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
     H = H1 @ ( H2 + H3 - H4 + H5 ).T
     assert np.linalg.norm((H@v).toarray() - v.toarray(), ord=2) < 10 * tol
 
-    ### 2.5 CompLO tests (various spaces)
-    # Create LinearOperator Z = A @ A.T @ A, where the domain and codomain of A are of different dimension.
+#===============================================================================
+
+def test_internal_storage():
+
+    # Create LinearOperator Z = A @ A.T @ A {@ A.T}, where the domain and codomain of A are of different dimension.
     # Prior to a fix, operator would not have enough preallocated storage defined.
 
-    v = [2, 1, 1, 1, False, False]
-    V = get_StencilVectorSpace(*v)
+    n1=2
+    n2=1
+    p1=1
+    p2=1
+    P1=False
+    P2=False
+    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
     U1 = BlockVectorSpace(V, V)
     U2 = BlockVectorSpace(V, V, V)
 
@@ -847,6 +854,7 @@ def test_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
     x1[0] = 1
     x1[1] = 1
     x = BlockVector(U1, (x1, x1))
+    xx = BlockVector(U2, (x1, x1, x1))
 
     A1 = StencilMatrix(V, V)
     A1[0, 0, 0, 0] = 1
@@ -854,19 +862,33 @@ def test_operator_evaluation():#n1, n2, p1, p2, P1=False, P2=False):
     A = BlockLinearOperator(U1, U2, ((A1, A1), (A1, A1), (A1, A1)))
     B = A.T
     C = A
+    D = A.T
 
-    Z1 = A @ (B @ C)
-    Z2 = (A @ B) @ C
-    Z3 = A @ B @ C
-    y1 = Z1 @ x
-    y2 = Z2 @ x
-    y3 = Z3 @ x
+    Z1_1 = A @ (B @ C)
+    Z1_2 = (A @ B) @ C
+    Z1_3 = A @ B @ C
+    y1_1 = Z1_1 @ x
+    y1_2 = Z1_2 @ x
+    y1_3 = Z1_3 @ x
 
-    assert len(Z1.tmp_vectors) == 2
-    assert len(Z2.tmp_vectors) == 2
-    assert len(Z3.tmp_vectors) == 2
-    assert np.all( y1.toarray() == y2.toarray() ) & np.all( y2.toarray() == y3.toarray() )
-    assert np.all( y1.toarray() == np.array([12, 12, 12, 12, 12, 12], dtype=float) )
+    Z2_1 = (A @ B) @ (C @ D)
+    Z2_2 = (A @ B @ C) @ D
+    Z2_3 = A @ (B @ C @ D)
+    Z2_4 = A @ B @ C @ D
+    y2_1 = Z2_1 @ xx
+    y2_2 = Z2_2 @ xx
+    y2_3 = Z2_3 @ xx
+    y2_4 = Z2_4 @ xx
+
+    assert len(Z1_1.tmp_vectors) == 2
+    assert len(Z1_2.tmp_vectors) == 2
+    assert len(Z1_3.tmp_vectors) == 2
+    assert len(Z2_1.tmp_vectors) == 3
+    assert len(Z2_2.tmp_vectors) == 3
+    assert len(Z2_3.tmp_vectors) == 3
+    assert len(Z2_4.tmp_vectors) == 3
+    assert np.all( y1_1.toarray() == y1_2.toarray() ) & np.all( y1_2.toarray() == y1_3.toarray() )
+    assert np.all( y2_1.toarray() == y2_2.toarray() ) & np.all( y2_2.toarray() == y2_3.toarray() ) & np.all( y2_3.toarray() == y2_4.toarray() )
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY
