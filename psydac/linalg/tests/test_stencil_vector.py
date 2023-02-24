@@ -791,12 +791,12 @@ def test_stencil_vector_2d_parallel_update_ghost_region_interior(dtype, n1, n2, 
 
     # Fill vector with data
     if dtype == complex:
-        for i1 in range(n1):
-            for i2 in range(n2):
+        for i1 in range(V.starts[0],V.ends[0]+1):
+            for i2 in range(V.starts[1],V.ends[1]+1):
                 x[i1, i2] = 10j * i1
     else:
-        for i1 in range(n1):
-            for i2 in range(n2):
+        for i1 in range(V.starts[0],V.ends[0]+1):
+            for i2 in range(V.starts[1],V.ends[1]+1):
                 x[i1, i2] = 10 * i1
 
     # Update vector ghost region
