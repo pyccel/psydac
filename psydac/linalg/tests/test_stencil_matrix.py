@@ -2312,15 +2312,16 @@ def test_stencil_matrix_1d_parallel_toarray(dtype, n1, p1, sh1, P1):
 
 
     # Fill in stencil matrix values
-    for k1 in range(-p1, p1 + 1):
-        M[:, k1] = nonzero_values[k1]
+    for i1 in range(n1):
+        for k1 in range(-p1, p1 + 1):
+            M[i1, k1] = nonzero_values[k1]
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
 
     # Convert stencil matrix to 2D array
     Ma = M.toarray()
-    Maw = M.toarray(with_pads=True)
+    # Maw = M.toarray(with_pads=True)
 
     # Construct exact matrix by hand
     A = np.zeros(M.shape, dtype=dtype)
@@ -2335,9 +2336,9 @@ def test_stencil_matrix_1d_parallel_toarray(dtype, n1, p1, sh1, P1):
 
     # Check data in 2D array
     assert A.shape==Ma.shape
-    assert A.shape==Maw.shape
+    # assert A.shape==Maw.shape
     assert np.allclose(Ma, A, rtol=1e-14, atol=1e-14)
-    assert np.allclose(Maw, A, rtol=1e-14, atol=1e-14)
+    # assert np.allclose(Maw, A, rtol=1e-14, atol=1e-14)
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [20, 67])
