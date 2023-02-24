@@ -1,6 +1,6 @@
 #========================================================================================================
 def transpose_1d_f( M:'float[:,:]', Mt:'float[:,:]', n1:"int64", nc1:"int64", gp1:"int64", p1:"int64",
-                  dm1:"int64", cm1:"int64", nd1:"int64", ndT1:"int64", si1:"int64", sk1:"int64", sl1:"int64"):
+                    dm1:"int64", cm1:"int64", nd1:"int64", ndT1:"int64", si1:"int64", sk1:"int64", sl1:"int64"):
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,nc1,gp1,p1,dm1,cm1,&
     #$ nd1,ndT1,si1,sk1,sl1)
@@ -21,7 +21,7 @@ def transpose_1d_f( M:'float[:,:]', Mt:'float[:,:]', n1:"int64", nc1:"int64", gp
     return
 #========================================================================================================
 def transpose_1d_c( M:'complex[:,:]', Mt:'complex[:,:]', n1:"int64", nc1:"int64", gp1:"int64", p1:"int64",
-                  dm1:"int64", cm1:"int64", nd1:"int64", ndT1:"int64", si1:"int64", sk1:"int64", sl1:"int64"):
+                    dm1:"int64", cm1:"int64", nd1:"int64", ndT1:"int64", si1:"int64", sk1:"int64", sl1:"int64"):
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,nc1,gp1,p1,dm1,cm1,&
     #$ nd1,ndT1,si1,sk1,sl1)
@@ -43,9 +43,9 @@ def transpose_1d_c( M:'complex[:,:]', Mt:'complex[:,:]', n1:"int64", nc1:"int64"
 
 #========================================================================================================
 def transpose_2d_f( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:"int64", n2:"int64", nc1:"int64", nc2:"int64",
-                   gp1:"int64", gp2:"int64", p1:"int64", p2:"int64", dm1:"int64", dm2:"int64",
-                   cm1:"int64", cm2:"int64", nd1:"int64", nd2:"int64", ndT1:"int64", ndT2:"int64",
-                   si1:"int64", si2:"int64", sk1:"int64", sk2:"int64", sl1:"int64", sl2:"int64"):
+                    gp1:"int64", gp2:"int64", p1:"int64", p2:"int64", dm1:"int64", dm2:"int64",
+                    cm1:"int64", cm2:"int64", nd1:"int64", nd2:"int64", ndT1:"int64", ndT2:"int64",
+                    si1:"int64", si2:"int64", sk1:"int64", sk2:"int64", sl1:"int64", sl2:"int64"):
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,n2,nc1,nc2,gp1,gp2,p1,p2,dm1,dm2,cm1,&
     #$ cm2,nd1,nd2,ndT1,ndT2,si1,si2,sk1,sk2,sl1,sl2)
@@ -76,9 +76,9 @@ def transpose_2d_f( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:"int64", n2:"int
     return
 # ========================================================================================================
 def transpose_2d_c(M: 'complex[:,:,:,:]', Mt: 'complex[:,:,:,:]', n1: "int64", n2: "int64", nc1: "int64", nc2: "int64",
-                 gp1: "int64", gp2: "int64", p1: "int64", p2: "int64", dm1: "int64", dm2: "int64",
-                 cm1: "int64", cm2: "int64", nd1: "int64", nd2: "int64", ndT1: "int64", ndT2: "int64",
-                 si1: "int64", si2: "int64", sk1: "int64", sk2: "int64", sl1: "int64", sl2: "int64"):
+                   gp1: "int64", gp2: "int64", p1: "int64", p2: "int64", dm1: "int64", dm2: "int64",
+                   cm1: "int64", cm2: "int64", nd1: "int64", nd2: "int64", ndT1: "int64", ndT2: "int64",
+                   si1: "int64", si2: "int64", sk1: "int64", sk2: "int64", sl1: "int64", sl2: "int64"):
     # $ omp parallel default(private) shared(Mt,M) firstprivate( n1,n2,&
     # $ nc1,nc2,gp1,gp2,p1,p2,dm1,dm2,cm1,&
     # $ cm2,nd1,nd2,ndT1,ndT2,si1,si2,sk1,sk2,sl1,sl2)
@@ -110,17 +110,17 @@ def transpose_2d_c(M: 'complex[:,:,:,:]', Mt: 'complex[:,:,:,:]', n1: "int64", n
 
 #========================================================================================================
 def transpose_3d_f(M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]',
-                 n1:"int64", n2:"int64", n3:"int64",
-                 nc1:"int64", nc2:"int64", nc3:"int64",
-                 gp1:"int64", gp2:"int64", gp3:"int64",
-                 p1:"int64", p2:"int64", p3:"int64",
-                 dm1:"int64", dm2:"int64", dm3:"int64",
-                 cm1:"int64", cm2:"int64", cm3:"int64",
-                 nd1:"int64", nd2:"int64", nd3:"int64",
-                 ndT1:"int64", ndT2:"int64", ndT3:"int64",
-                 si1:"int64", si2:"int64", si3:"int64",
-                 sk1:"int64", sk2:"int64", sk3:"int64",
-                 sl1:"int64", sl2:"int64", sl3:"int64"):
+                   n1:"int64", n2:"int64", n3:"int64",
+                   nc1:"int64", nc2:"int64", nc3:"int64",
+                   gp1:"int64", gp2:"int64", gp3:"int64",
+                   p1:"int64", p2:"int64", p3:"int64",
+                   dm1:"int64", dm2:"int64", dm3:"int64",
+                   cm1:"int64", cm2:"int64", cm3:"int64",
+                   nd1:"int64", nd2:"int64", nd3:"int64",
+                   ndT1:"int64", ndT2:"int64", ndT3:"int64",
+                   si1:"int64", si2:"int64", si3:"int64",
+                   sk1:"int64", sk2:"int64", sk3:"int64",
+                   sl1:"int64", sl2:"int64", sl3:"int64"):
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,n2,n3,nc1,nc2,nc3,gp1,gp2,gp3,p1,p2,p3,dm1,dm2,dm3,cm1,&
     #$ cm2,cm3,nd1,nd2,nd3,ndT1,ndT2,ndT3,si1,si2,si3,sk1,sk2,sk3,sl1,sl2,sl3)
@@ -155,17 +155,17 @@ def transpose_3d_f(M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]',
     return
 #========================================================================================================
 def transpose_3d_c(M:'complex[:,:,:,:,:,:]', Mt:'complex[:,:,:,:,:,:]',
-                 n1:"int64", n2:"int64", n3:"int64",
-                 nc1:"int64", nc2:"int64", nc3:"int64",
-                 gp1:"int64", gp2:"int64", gp3:"int64",
-                 p1:"int64", p2:"int64", p3:"int64",
-                 dm1:"int64", dm2:"int64", dm3:"int64",
-                 cm1:"int64", cm2:"int64", cm3:"int64",
-                 nd1:"int64", nd2:"int64", nd3:"int64",
-                 ndT1:"int64", ndT2:"int64", ndT3:"int64",
-                 si1:"int64", si2:"int64", si3:"int64",
-                 sk1:"int64", sk2:"int64", sk3:"int64",
-                 sl1:"int64", sl2:"int64", sl3:"int64"):
+                   n1:"int64", n2:"int64", n3:"int64",
+                   nc1:"int64", nc2:"int64", nc3:"int64",
+                   gp1:"int64", gp2:"int64", gp3:"int64",
+                   p1:"int64", p2:"int64", p3:"int64",
+                   dm1:"int64", dm2:"int64", dm3:"int64",
+                   cm1:"int64", cm2:"int64", cm3:"int64",
+                   nd1:"int64", nd2:"int64", nd3:"int64",
+                   ndT1:"int64", ndT2:"int64", ndT3:"int64",
+                   si1:"int64", si2:"int64", si3:"int64",
+                   sk1:"int64", sk2:"int64", sk3:"int64",
+                   sl1:"int64", sl2:"int64", sl3:"int64"):
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,n2,n3,nc1,nc2,nc3,gp1,gp2,gp3,p1,p2,p3,dm1,dm2,dm3,cm1,&
     #$ cm2,cm3,nd1,nd2,nd3,ndT1,ndT2,ndT3,si1,si2,si3,sk1,sk2,sk3,sl1,sl2,sl3)
@@ -201,9 +201,9 @@ def transpose_3d_c(M:'complex[:,:,:,:,:,:]', Mt:'complex[:,:,:,:,:,:]',
 
 #========================================================================================================
 def interface_transpose_1d_f( M:'float[:,:]', Mt:'float[:,:]', n1:"int64",
-                            nc1:"int64", gp1:"int64", p1:"int64", dm1:"int64", cm1:"int64",
-                            nd1:"int64", ndT1:"int64", si1:"int64",
-                            sk1:"int64", sl1:"int64"):
+                              nc1:"int64", gp1:"int64", p1:"int64", dm1:"int64", cm1:"int64",
+                              nd1:"int64", ndT1:"int64", si1:"int64",
+                              sk1:"int64", sl1:"int64"):
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,nc1,gp1,p1,dm1,cm1,&
     #$ nd1,ndT1,si1,sk1,sl1)
@@ -225,9 +225,9 @@ def interface_transpose_1d_f( M:'float[:,:]', Mt:'float[:,:]', n1:"int64",
 
 #========================================================================================================
 def interface_transpose_1d_c( M:'complex[:,:]', Mt:'complex[:,:]', n1:"int64",
-                            nc1:"int64", gp1:"int64", p1:"int64", dm1:"int64", cm1:"int64",
-                            nd1:"int64", ndT1:"int64", si1:"int64",
-                            sk1:"int64", sl1:"int64"):
+                              nc1:"int64", gp1:"int64", p1:"int64", dm1:"int64", cm1:"int64",
+                              nd1:"int64", ndT1:"int64", si1:"int64",
+                              sk1:"int64", sl1:"int64"):
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,nc1,gp1,p1,dm1,cm1,&
     #$ nd1,ndT1,si1,sk1,sl1)
@@ -249,11 +249,11 @@ def interface_transpose_1d_c( M:'complex[:,:]', Mt:'complex[:,:]', n1:"int64",
 
 #========================================================================================================
 def interface_transpose_2d_f( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:"int64", n2:"int64",
-                            nc1:"int64", nc2:"int64", gp1:"int64", gp2:"int64",
-                            p1:"int64", p2:"int64", dm1:"int64", dm2:"int64",
-                            cm1:"int64", cm2:"int64",nd1:"int64", nd2:"int64",
-                            ndT1:"int64", ndT2:"int64", si1:"int64", si2:"int64",
-                            sk1:"int64", sk2:"int64", sl1:"int64", sl2:"int64"):
+                              nc1:"int64", nc2:"int64", gp1:"int64", gp2:"int64",
+                              p1:"int64", p2:"int64", dm1:"int64", dm2:"int64",
+                              cm1:"int64", cm2:"int64",nd1:"int64", nd2:"int64",
+                              ndT1:"int64", ndT2:"int64", si1:"int64", si2:"int64",
+                              sk1:"int64", sk2:"int64", sl1:"int64", sl2:"int64"):
 
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,n2,nc1,nc2,gp1,gp2,p1,p2,dm1,dm2,&
@@ -285,11 +285,11 @@ def interface_transpose_2d_f( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:"int64
     return
 #========================================================================================================
 def interface_transpose_2d_c( M:'complex[:,:,:,:]', Mt:'complex[:,:,:,:]', n1:"int64", n2:"int64",
-                            nc1:"int64", nc2:"int64", gp1:"int64", gp2:"int64",
-                            p1:"int64", p2:"int64", dm1:"int64", dm2:"int64",
-                            cm1:"int64", cm2:"int64",nd1:"int64", nd2:"int64",
-                            ndT1:"int64", ndT2:"int64", si1:"int64", si2:"int64",
-                            sk1:"int64", sk2:"int64", sl1:"int64", sl2:"int64"):
+                              nc1:"int64", nc2:"int64", gp1:"int64", gp2:"int64",
+                              p1:"int64", p2:"int64", dm1:"int64", dm2:"int64",
+                              cm1:"int64", cm2:"int64",nd1:"int64", nd2:"int64",
+                              ndT1:"int64", ndT2:"int64", si1:"int64", si2:"int64",
+                              sk1:"int64", sk2:"int64", sl1:"int64", sl2:"int64"):
 
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,n2,nc1,nc2,gp1,gp2,p1,p2,dm1,dm2,&
@@ -322,17 +322,17 @@ def interface_transpose_2d_c( M:'complex[:,:,:,:]', Mt:'complex[:,:,:,:]', n1:"i
 
 #========================================================================================================
 def interface_transpose_3d_f( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]',
-                            n1:"int64", n2:"int64", n3:"int64",
-                            nc1:"int64", nc2:"int64", nc3:"int64",
-                            gp1:"int64", gp2:"int64", gp3:"int64",
-                            p1:"int64", p2:"int64", p3:"int64",
-                            dm1:"int64", dm2:"int64", dm3:"int64",
-                            cm1:"int64", cm2:"int64", cm3:"int64",
-                            nd1:"int64", nd2:"int64", nd3:"int64",
-                            ndT1:"int64", ndT2:"int64", ndT3:"int64",
-                            si1:"int64", si2:"int64", si3:"int64",
-                            sk1:"int64", sk2:"int64", sk3:"int64",
-                            sl1:"int64", sl2:"int64", sl3:"int64"):
+                              n1:"int64", n2:"int64", n3:"int64",
+                              nc1:"int64", nc2:"int64", nc3:"int64",
+                              gp1:"int64", gp2:"int64", gp3:"int64",
+                              p1:"int64", p2:"int64", p3:"int64",
+                              dm1:"int64", dm2:"int64", dm3:"int64",
+                              cm1:"int64", cm2:"int64", cm3:"int64",
+                              nd1:"int64", nd2:"int64", nd3:"int64",
+                              ndT1:"int64", ndT2:"int64", ndT3:"int64",
+                              si1:"int64", si2:"int64", si3:"int64",
+                              sk1:"int64", sk2:"int64", sk3:"int64",
+                              sl1:"int64", sl2:"int64", sl3:"int64"):
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate(n1,n2,n3,nc1,nc2,nc3,gp1,gp2,gp3,p1,p2,p3,dm1,dm2,dm3,&
     #$ cm1,cm2,cm3,nd1,nd2,nd3,ndT1,ndT2,ndT3,si1,si2,si3,sk1,sk2,sk3,sl1,sl2,sl3)
@@ -374,17 +374,17 @@ def interface_transpose_3d_f( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]',
 
 #========================================================================================================
 def interface_transpose_3d_c( M:'complex[:,:,:,:,:,:]', Mt:'complex[:,:,:,:,:,:]',
-                            n1:"int64", n2:"int64", n3:"int64",
-                            nc1:"int64", nc2:"int64", nc3:"int64",
-                            gp1:"int64", gp2:"int64", gp3:"int64",
-                            p1:"int64", p2:"int64", p3:"int64",
-                            dm1:"int64", dm2:"int64", dm3:"int64",
-                            cm1:"int64", cm2:"int64", cm3:"int64",
-                            nd1:"int64", nd2:"int64", nd3:"int64",
-                            ndT1:"int64", ndT2:"int64", ndT3:"int64",
-                            si1:"int64", si2:"int64", si3:"int64",
-                            sk1:"int64", sk2:"int64", sk3:"int64",
-                            sl1:"int64", sl2:"int64", sl3:"int64"):
+                              n1:"int64", n2:"int64", n3:"int64",
+                              nc1:"int64", nc2:"int64", nc3:"int64",
+                              gp1:"int64", gp2:"int64", gp3:"int64",
+                              p1:"int64", p2:"int64", p3:"int64",
+                              dm1:"int64", dm2:"int64", dm3:"int64",
+                              cm1:"int64", cm2:"int64", cm3:"int64",
+                              nd1:"int64", nd2:"int64", nd3:"int64",
+                              ndT1:"int64", ndT2:"int64", ndT3:"int64",
+                              si1:"int64", si2:"int64", si3:"int64",
+                              sk1:"int64", sk2:"int64", sk3:"int64",
+                              sl1:"int64", sl2:"int64", sl3:"int64"):
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate(n1,n2,n3,nc1,nc2,nc3,gp1,gp2,gp3,p1,p2,p3,dm1,dm2,dm3,&
     #$ cm1,cm2,cm3,nd1,nd2,nd3,ndT1,ndT2,ndT3,si1,si2,si3,sk1,sk2,sk3,sl1,sl2,sl3)

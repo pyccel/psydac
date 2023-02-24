@@ -501,8 +501,8 @@ def test_stencil_vector_1d_parallel_init(dtype, n1, p1, s1, P1=True):
     # Test properties of the vector
     assert x.space is V
     assert x.dtype == dtype
-    assert x.starts == tuple(global_starts)
-    assert x.ends == tuple(global_ends)
+    assert tuple(x.starts) == tuple(global_starts)
+    assert tuple(x.ends) == tuple(global_ends)
     assert x.pads == (p1, )
     assert x._data.shape == (n1 + 2 * p1 * s1, )
     assert x._data.dtype == dtype
@@ -537,8 +537,8 @@ def test_stencil_vector_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1=True,
     # Test properties of the vector
     assert x.space is V
     assert x.dtype == dtype
-    assert x.starts == tuple(global_starts)
-    assert x.ends == tuple(global_ends)
+    assert tuple(x.starts) == tuple(global_starts)
+    assert tuple(x.ends) == tuple(global_ends)
     assert x.pads == (p1, p2)
     assert x._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2)
     assert x._data.dtype == dtype
@@ -576,8 +576,8 @@ def test_stencil_vector_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, 
     # Test properties of the vector
     assert x.space is V
     assert x.dtype == dtype
-    assert x.starts == tuple(global_starts)
-    assert x.ends == tuple(global_ends)
+    assert tuple(x.starts) == tuple(global_starts)
+    assert tuple(x.ends) == tuple(global_ends)
     assert x.pads == (p1, p2, p3)
     assert x._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, n3 + 2 * p3 * s3)
     assert x._data.dtype == dtype
