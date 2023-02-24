@@ -1255,13 +1255,13 @@ class BlockLinearOperator( LinearOperator ):
 
         if interface:
             def func(blocks, v, out, **args):
-                    vs   = [vi._interface_data[d_axis, d_ext] for vi in v.blocks] if isinstance(v, BlockVector) else v._data
-                    outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else out._data
+                    vs   = [vi._interface_data[d_axis, d_ext] for vi in v.blocks] if isinstance(v, BlockVector) else [v._data]
+                    outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else [out._data]
                     dot(*blocks, *vs, *outs, **args)
         else:
             def func(blocks, v, out, **args):
-                vs   = [vi._data for vi in v.blocks] if isinstance(v, BlockVector) else v._data
-                outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else out._data
+                vs   = [vi._data for vi in v.blocks] if isinstance(v, BlockVector) else [v._data]
+                outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else [out._data]
                 dot(*blocks, *vs, *outs, **args)
 
         self._func    = func

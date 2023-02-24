@@ -4,7 +4,7 @@ import numpy as np
 
 from psydac.linalg.kron           import KroneckerLinearSolver, KroneckerStencilMatrix
 from psydac.linalg.stencil        import StencilVector, StencilMatrix, StencilVectorSpace
-from psydac.linalg.block          import BlockDiagonalSolver, BlockVector, BlockMatrix
+from psydac.linalg.block          import BlockDiagonalSolver, BlockVector, BlockLinearOperator
 from psydac.core.bsplines         import quadrature_grid
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
@@ -217,7 +217,7 @@ class GlobalProjector(metaclass=ABCMeta):
         if isinstance(self.space, TensorFemSpace):
             self._imat_kronecker = matrixblocks[0]
         else:
-            self._imat_kronecker = BlockMatrix(self.space.vector_space, self.space.vector_space, 
+            self._imat_kronecker = BlockLinearOperator(self.space.vector_space, self.space.vector_space, 
                                                blocks=[[matrixblocks[0], None, None], 
                                                        [None, matrixblocks[1], None], 
                                                        [None, None, matrixblocks[2]]])
