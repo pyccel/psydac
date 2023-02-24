@@ -2312,9 +2312,8 @@ def test_stencil_matrix_1d_parallel_toarray(dtype, n1, p1, sh1, P1):
 
 
     # Fill in stencil matrix values
-    for i1 in range(n1):
-        for k1 in range(-p1, p1 + 1):
-            M[i1, k1] = nonzero_values[k1]
+    for k1 in range(-p1, p1 + 1):
+        M[s1:e1, k1] = nonzero_values[k1]
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
@@ -2325,7 +2324,7 @@ def test_stencil_matrix_1d_parallel_toarray(dtype, n1, p1, sh1, P1):
 
     # Construct exact matrix by hand
     A = np.zeros(M.shape, dtype=dtype)
-    for i1 in range(n1):
+    for i1 in range(s1,e1):
         for k1 in range(-p1, p1 + 1):
             j1 = (i1 + k1) % n1
             i = i1
