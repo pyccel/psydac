@@ -887,8 +887,10 @@ def test_internal_storage():
     assert len(Z2_2.tmp_vectors) == 3
     assert len(Z2_3.tmp_vectors) == 3
     assert len(Z2_4.tmp_vectors) == 3
-    assert np.all( y1_1.toarray() == y1_2.toarray() ) & np.all( y1_2.toarray() == y1_3.toarray() )
-    assert np.all( y2_1.toarray() == y2_2.toarray() ) & np.all( y2_2.toarray() == y2_3.toarray() ) & np.all( y2_3.toarray() == y2_4.toarray() )
+a1_1, a1_2, a1_3       = [v.toarray() for v in (y1_1, y1_2, y1_3)]
+a2_1, a2_2, a2_3, a2_4 = [v.toarray() for v in (y2_1, y2_2, y2_3, y2_4)]
+assert np.array_equal(a1_1, a1_2) and np.array_equal(a1_2, a1_3)
+assert np.array_equal(a2_1, a2_2) and np.array_equal(a2_2, a2_3) and np.array_equal(a2_3, a2_4)
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY
