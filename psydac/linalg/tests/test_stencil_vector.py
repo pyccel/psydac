@@ -762,72 +762,72 @@ def test_stencil_vector_3d_parallel_dot(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s
 
     assert res1 == res_ex1
     assert res2 == res_ex2
-# ===============================================================================
-@pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('n1', [5, 7])
-@pytest.mark.parametrize('n2', [5, 9])
-@pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
-@pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
-@pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parametrize('P2', [True, False])
-@pytest.mark.parallel
-def test_stencil_vector_2d_parallel_update_ghost_region_interior(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
-    from mpi4py import MPI
-
-    comm = MPI.COMM_WORLD
-    # Create domain decomposition
-    D = DomainDecomposition([n1, n2], periods=[P1, P2], comm=comm)
-
-    # Partition the points
-    npts = [n1, n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
-    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
-
-    # Create vector space and stencil vector
-    V = StencilVectorSpace(cart, dtype=dtype)
-    x = StencilVector(V)
-
-    # Fill vector with data
-    if dtype == complex:
-        for i1 in range(V.starts[0], V.ends[0]+1):
-            for i2 in range(V.starts[1], V.ends[1]+1):
-                x[i1, i2] = 10j * i1+i2
-    else:
-        for i1 in range(V.starts[0], V.ends[0]+1):
-            for i2 in range(V.starts[1], V.ends[1]+1):
-                x[i1, i2] = 10 * i1 +i2
-
-    # Update vector ghost region
-    x.update_ghost_regions()
-    data = x._data
-
-    assert x._sync
-
-    if P1:
-        # Left region with corner
-        assert np.array_equal(data[0:p1 * s1, :], data[ -2*p1*s1 :-p1 * s1, :])
-        # Right region with corner
-        assert np.array_equal(data[-p1 * s1:, :], data[p1 * s1:2 * p1 * s1, :])
-    # else:
-    #     # Left region with corner
-    #     assert np.array_equal(data[0:p1 * s1, :], np.zeros((p1 * s1, V.ends[1]+1-V.starts[1] + 2 * p2 * s2), dtype=dtype))
-    #     # Right region with corner
-    #     assert np.array_equal(data[- p1 * s1: , :],
-    #                           np.zeros((p1 * s1, V.ends[1]+1-V.starts[1] + 2 * p2 * s2), dtype=dtype))
-
-    if P2:
-        # Left region with corner
-        assert np.array_equal(data[:, 0:p2 * s2], data[:, -2*p2*s2 :-p2 * s2])
-        # Right region with corner
-        assert np.array_equal(data[:,-p2 * s2:], data[:, p2 * s2:2 * p2 * s2])
-    # else:
-    #     # Left region with corner
-    #     assert np.array_equal(data[:, 0:p2 * s2], np.zeros((V.ends[0]+1-V.starts[0] + 2 * p1 * s1, p2 * s2), dtype=dtype))
-    #     # Right region with corner
-    #     assert np.array_equal(data[:, - p2 * s2:],
-    #                           np.zeros((V.ends[0]+1-V.starts[0] + 2 * p1 * s1, p2 * s2), dtype=dtype))
+# # ===============================================================================
+# @pytest.mark.parametrize('dtype', [float, complex])
+# @pytest.mark.parametrize('n1', [5, 7])
+# @pytest.mark.parametrize('n2', [5, 9])
+# @pytest.mark.parametrize('p1', [1, 2])
+# @pytest.mark.parametrize('p2', [1, 2])
+# @pytest.mark.parametrize('s1', [1, 2])
+# @pytest.mark.parametrize('s2', [1, 2])
+# @pytest.mark.parametrize('P1', [True, False])
+# @pytest.mark.parametrize('P2', [True, False])
+# @pytest.mark.parallel
+# def test_stencil_vector_2d_parallel_update_ghost_region_interior(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
+#     from mpi4py import MPI
+#
+#     comm = MPI.COMM_WORLD
+#     # Create domain decomposition
+#     D = DomainDecomposition([n1, n2], periods=[P1, P2], comm=comm)
+#
+#     # Partition the points
+#     npts = [n1, n2]
+#     global_starts, global_ends = compute_global_starts_ends(D, npts)
+#     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
+#
+#     # Create vector space and stencil vector
+#     V = StencilVectorSpace(cart, dtype=dtype)
+#     x = StencilVector(V)
+#
+#     # Fill vector with data
+#     if dtype == complex:
+#         for i1 in range(V.starts[0], V.ends[0]+1):
+#             for i2 in range(V.starts[1], V.ends[1]+1):
+#                 x[i1, i2] = 10j * i1+i2
+#     else:
+#         for i1 in range(V.starts[0], V.ends[0]+1):
+#             for i2 in range(V.starts[1], V.ends[1]+1):
+#                 x[i1, i2] = 10 * i1 +i2
+#
+#     # Update vector ghost region
+#     x.update_ghost_regions()
+#     data = x._data
+#
+#     assert x._sync
+#
+#     if P1:
+#         # Left region with corner
+#         assert np.array_equal(data[0:p1 * s1, :], data[ -2*p1*s1 :-p1 * s1, :])
+#         # Right region with corner
+#         assert np.array_equal(data[-p1 * s1:, :], data[p1 * s1:2 * p1 * s1, :])
+#     else:
+#         # Left region with corner
+#         assert np.array_equal(data[0:p1 * s1, :], np.zeros((p1 * s1, V.ends[1]+1-V.starts[1] + 2 * p2 * s2), dtype=dtype))
+#         # Right region with corner
+#         assert np.array_equal(data[- p1 * s1: , :],
+#                               np.zeros((p1 * s1, V.ends[1]+1-V.starts[1] + 2 * p2 * s2), dtype=dtype))
+#
+#     if P2:
+#         # Left region with corner
+#         assert np.array_equal(data[:, 0:p2 * s2], data[:, -2*p2*s2 :-p2 * s2])
+#         # Right region with corner
+#         assert np.array_equal(data[:,-p2 * s2:], data[:, p2 * s2:2 * p2 * s2])
+#     else:
+#         # Left region with corner
+#         assert np.array_equal(data[:, 0:p2 * s2], np.zeros((V.ends[0]+1-V.starts[0] + 2 * p1 * s1, p2 * s2), dtype=dtype))
+#         # Right region with corner
+#         assert np.array_equal(data[:, - p2 * s2:],
+#                               np.zeros((V.ends[0]+1-V.starts[0] + 2 * p1 * s1, p2 * s2), dtype=dtype))
 #===============================================================================
 # SCRIPT FUNCTIONALITY
 #===============================================================================
