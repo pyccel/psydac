@@ -576,8 +576,8 @@ def test_stencil_vector_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, 
     # Test properties of the vector
     assert x.space is V
     assert x.dtype == dtype
-    assert tuple(x.starts) == tuple(global_starts)
-    assert tuple(x.ends) == tuple(global_ends)
+    assert tuple(x.starts) == tuple(V.starts)
+    assert tuple(x.ends) == tuple(V.ends)
     assert x.pads == (p1, p2, p3)
     assert x._data.shape == (V.ends[0]-V.starts[0]+1 + 2 * p1 * s1, V.ends[1]-V.starts[1]+1 + 2 * p2 * s2,
                              V.ends[2]-V.starts[2]+1 + 2 * p3 * s3)
