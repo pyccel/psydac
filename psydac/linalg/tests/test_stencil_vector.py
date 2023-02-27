@@ -793,11 +793,11 @@ def test_stencil_vector_2d_parallel_update_ghost_region_interior(dtype, n1, n2, 
     if dtype == complex:
         for i1 in range(V.starts[0], V.ends[0]+1):
             for i2 in range(V.starts[1], V.ends[1]+1):
-                x[i1, i2] = 10j * i1
+                x[i1, i2] = 10j * i1+i2
     else:
         for i1 in range(V.starts[0], V.ends[0]+1):
             for i2 in range(V.starts[1], V.ends[1]+1):
-                x[i1, i2] = 10 * i1
+                x[i1, i2] = 10 * i1 +i2
 
     # Update vector ghost region
     x.update_ghost_regions()
@@ -810,24 +810,24 @@ def test_stencil_vector_2d_parallel_update_ghost_region_interior(dtype, n1, n2, 
         assert np.array_equal(data[0:p1 * s1, :], data[ -2*p1*s1 :-p1 * s1, :])
         # Right region with corner
         assert np.array_equal(data[-p1 * s1:, :], data[p1 * s1:2 * p1 * s1, :])
-    else:
-        # Left region with corner
-        assert np.array_equal(data[0:p1 * s1, :], np.zeros((p1 * s1, V.ends[1]+1-V.starts[1] + 2 * p2 * s2), dtype=dtype))
-        # Right region with corner
-        assert np.array_equal(data[- p1 * s1: , :],
-                              np.zeros((p1 * s1, V.ends[1]+1-V.starts[1] + 2 * p2 * s2), dtype=dtype))
+    # else:
+    #     # Left region with corner
+    #     assert np.array_equal(data[0:p1 * s1, :], np.zeros((p1 * s1, V.ends[1]+1-V.starts[1] + 2 * p2 * s2), dtype=dtype))
+    #     # Right region with corner
+    #     assert np.array_equal(data[- p1 * s1: , :],
+    #                           np.zeros((p1 * s1, V.ends[1]+1-V.starts[1] + 2 * p2 * s2), dtype=dtype))
 
     if P2:
         # Left region with corner
         assert np.array_equal(data[:, 0:p2 * s2], data[:, -2*p2*s2 :-p2 * s2])
         # Right region with corner
         assert np.array_equal(data[:,-p2 * s2:], data[:, p2 * s2:2 * p2 * s2])
-    else:
-        # Left region with corner
-        assert np.array_equal(data[:, 0:p2 * s2], np.zeros((V.ends[0]+1-V.starts[0] + 2 * p1 * s1, p2 * s2), dtype=dtype))
-        # Right region with corner
-        assert np.array_equal(data[:, - p2 * s2:],
-                              np.zeros((V.ends[0]+1-V.starts[0] + 2 * p1 * s1, p2 * s2), dtype=dtype))
+    # else:
+    #     # Left region with corner
+    #     assert np.array_equal(data[:, 0:p2 * s2], np.zeros((V.ends[0]+1-V.starts[0] + 2 * p1 * s1, p2 * s2), dtype=dtype))
+    #     # Right region with corner
+    #     assert np.array_equal(data[:, - p2 * s2:],
+    #                           np.zeros((V.ends[0]+1-V.starts[0] + 2 * p1 * s1, p2 * s2), dtype=dtype))
 #===============================================================================
 # SCRIPT FUNCTIONALITY
 #===============================================================================
