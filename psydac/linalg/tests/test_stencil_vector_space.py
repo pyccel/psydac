@@ -443,10 +443,10 @@ def test_stencil_vector_space_3D_parallel_parent(dtype, n1, n2, n3, P1=True, P2=
     # Test properties of the vector space
     assert V.dimension == 1
     assert V.dtype == dtype
-    assert V.starts == C.starts
-    assert V.ends == C.ends
-    assert V.parent_starts == (0, 0, 0)
-    assert V.parent_ends == (V.ends[0]+1-V.starts[0]-1, V.ends[1]+1-V.starts[1]-1, V.ends[2]+1-V.starts[2]-1)
+    assert V.starts == Cred.starts
+    assert V.ends == Cred.ends
+    assert V.parent_starts == Cred.parent_starts
+    assert V.parent_ends == Cred.parent_ends
 # ===============================================================================
 
 @pytest.mark.parametrize('dtype', [float, complex])
