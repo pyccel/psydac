@@ -69,6 +69,7 @@ def nparray_to_stencil(mat, V, n1, n2):
             indices = [[k,i,l,j] for i in range(n2) for j in range(0-i, n2-i)]
             for n, idx in enumerate(indices):
                 S[idx] = loc_mat[n]
+    S.remove_spurious_entries()
     return S
 
 #===============================================================================
@@ -678,7 +679,7 @@ def test_positive_defnite_matrix(n1, n2):
 @pytest.mark.parametrize( 'n1', [2, 3, 5])
 @pytest.mark.parametrize( 'n2', [2, 4, 7])
 
-def test_operator_evaluation(n1, n2):#n1, n2, p1, p2, P1=False, P2=False):
+def test_operator_evaluation(n1, n2):
 
     # 1. Initiate StencilVectorSpace V, pos. def. Stencil Matrix S and StencilVector v = (1,1,1,1)
     #    Initiate a BlockVectorSpace U = VxV, a BlockLO B = [[V, None], [None, V]] and a BlockVector u = (v,v)
@@ -728,7 +729,6 @@ def test_operator_evaluation(n1, n2):#n1, n2, p1, p2, P1=False, P2=False):
     # Initiate positive definite StencilMatrices for which the cg inverse works (necessary for certain tests)
     mat = get_positive_definite_nparray(n1, n2)
     S = nparray_to_stencil(mat, V, n1, n2)
-    S.remove_spurious_entries()
 
     # Initiate StencilVectors 
     v = StencilVector(V)
@@ -838,10 +838,8 @@ def test_operator_evaluation(n1, n2):#n1, n2, p1, p2, P1=False, P2=False):
 
     S_cg = inverse(S, 'cg', tol=tol)
     B_cg = inverse(B, 'cg', tol=tol)
-    S_pcg_j = inverse(S, 'pcg', pc='jacobi', tol=tol)
-    B_pcg_j = inverse(B, 'pcg', pc='jacobi', tol=tol)
-    S_pcg_wj = inverse(S, 'pcg', pc='weighted_jacobi', tol=tol)
-    B_pcg_wj = inverse(B, 'pcg', pc='weighted_jacobi', tol=tol)
+    S_pcg = inverse(S, 'pcg', pc='jacobi', tol=tol)
+    B_pcg = inverse(B, 'pcg', pc='jacobi', tol=tol)
     S_bicg = inverse(S, 'bicg', tol=tol)
     B_bicg = inverse(B, 'bicg', tol=tol)
     S_lsmr = inverse(S, 'lsmr', tol=tol)
@@ -849,21 +847,32 @@ def test_operator_evaluation(n1, n2):#n1, n2, p1, p2, P1=False, P2=False):
     S_mr = inverse(S, 'minres', tol=tol)
     B_mr = inverse(B, 'minres', tol=tol)
 
-    stencil_solution = np.linalg.solve(S.toarray(), v.toarray())
-    block_solution = np.linalg.solve(B.toarray(), u.toarray())
+    xs_cg = S_cg @ v
+    xs_pcg = S_pcg @ v
+    xs_bicg = S_bicg @ v
+    xs_lsmr = S_lsmr @ v
+    xs_mr = S_mr @ v
 
-    assert np.linalg.norm( (S_cg @ v).toarray() - stencil_solution ) < tol
-    assert np.linalg.norm( (B_cg @ u).toarray() - block_solution ) < tol
-    assert np.linalg.norm( (S_pcg_j @ v).toarray() - stencil_solution ) < tol
-    assert np.linalg.norm( (B_pcg_j @ u).toarray() - block_solution ) < tol
-    #assert np.linalg.norm( (S_pcg_wj @ v).toarray() - stencil_solution ) < tol
-    #assert np.linalg.norm( (B_pcg_wj @ u).toarray() - block_solution ) < tol
-    assert np.linalg.norm( (S_bicg @ v).toarray() - stencil_solution ) < tol
-    assert np.linalg.norm( (B_bicg @ u).toarray() - block_solution ) < tol
-    #assert np.linalg.norm( (S_lsmr @ v).toarray() - stencil_solution ) < tol
-    #assert np.linalg.norm( (B_lsmr @ u).toarray() - block_solution ) < tol
-    #assert np.linalg.norm( (S_mr @ v).toarray() - stencil_solution ) < tol
-    #assert np.linalg.norm( (B_mr @ u).toarray() - block_solution ) < tol
+    xb_cg = B_cg @ u
+    xb_pcg = B_pcg @ u
+    xb_bicg = B_bicg @ u
+    xb_lsmr = B_lsmr @ u
+    xb_mr = B_mr @ u
+
+    # Several break-criteria in the LSMR algorithm require different way to determine success
+    # than asserting rnorm < tol, as that is not required. Even though it should?
+
+    assert np.linalg.norm( (S @ xs_cg - v).toarray() ) < tol
+    assert np.linalg.norm( (S @ xs_pcg - v).toarray() ) < tol
+    assert np.linalg.norm( (S @ xs_bicg - v).toarray() ) < tol
+    assert S_lsmr.get_success() == True
+    assert np.linalg.norm( (S @ xs_mr - v).toarray() ) < tol
+
+    assert np.linalg.norm( (B @ xb_cg - u).toarray() ) < tol
+    assert np.linalg.norm( (B @ xb_pcg - u).toarray() ) < tol
+    assert np.linalg.norm( (B @ xb_bicg - u).toarray() ) < tol
+    assert B_lsmr.get_success() == True
+    assert np.linalg.norm( (B @ xb_mr - u).toarray() ) < tol
 
 #===============================================================================
 
@@ -918,6 +927,83 @@ def test_internal_storage():
     assert len(Z2_3.tmp_vectors) == 3
     assert np.all( y1_1.toarray() == y1_2.toarray() ) & np.all( y1_2.toarray() == y1_3.toarray() )
     assert np.all( y2_1.toarray() == y2_2.toarray() ) & np.all( y2_2.toarray() == y2_3.toarray() )
+
+#===============================================================================
+@pytest.mark.parametrize( 'solver', ['cg', 'pcg', 'bicg', 'minres', 'lsmr'])
+
+def test_x0update(solver):
+    n1 = 4
+    n2 = 3
+    p1 = 3
+    p2 = 2
+    P1 = False
+    P2 = False
+    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    mat = get_positive_definite_nparray(n1, n2)
+    is_pos_def(mat)
+    A = nparray_to_stencil(mat, V, n1, n2)
+    b = StencilVector(V)
+    for n in range(n1):
+        b[n, :] = 1.
+    assert np.array_equal(b.toarray(), np.ones(n1*n2, dtype=float))
+
+
+    # Create Inverse
+    tol = 1e-6
+    if solver == 'pcg':
+        A_inv = inverse(A, solver, pc='jacobi', tol=tol)
+    else:
+        A_inv = inverse(A, solver, tol=tol)
+    # Check whether x0update == 'static' by default
+    options = A_inv.options
+    assert options["x0update"] == 'static'
+    # Check whether x0 is None
+    assert options["x0"] is None
+    # Apply inverse and check x0
+    x = A_inv @ b
+    options = A_inv.options
+    assert options["x0"] is None
+    # Change x0, apply A_inv and check for x0
+    A_inv.setoptions(x0 = b)
+    options = A_inv.options
+    assert options["x0"] == b
+    x = A_inv @ b
+    assert options["x0"] == b
+    # Try to change x0update to impossible values
+    false_update_rules = [0, False, 'recycycycyle', -np.pi]
+    for update_rule in false_update_rules:
+        try:
+            A_inv.setoptions(x0update=5)
+        except AssertionError as e: 
+            assert str(e) == "x0update must be either 'static' or 'recycle'"
+    # Change x0update to recycle
+    A_inv.setoptions(x0update='recycle')
+    options = A_inv.options
+    assert options["x0update"] == 'recycle'
+    # Apply inverse and hack for updated x0
+    x = A_inv @ b
+    options = A_inv.options
+    assert np.array_equal(x.toarray(), options["x0"].toarray())
+    # Same procedure but with x0 = None initially
+    A_inv.setoptions(x0=None)
+    options = A_inv.options
+    assert options["x0"] is None
+    x = A_inv @ b
+    options = A_inv.options
+    assert np.array_equal(x.toarray(), options["x0"].toarray())
+    # Again for different b
+    b *= 2
+    x = A_inv @ b
+    options = A_inv.options
+    assert np.array_equal(x.toarray(), options["x0"].toarray())
+    # Back to 'static'
+    b *= 3
+    A_inv.setoptions(x0update='static')
+    y = A_inv @ b
+    options = A_inv.options
+    xarr = x.toarray()
+    assert np.array_equal(xarr, y.toarray()) == False
+    assert np.array_equal(xarr, options["x0"].toarray())
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY
