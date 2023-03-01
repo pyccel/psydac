@@ -9,7 +9,7 @@ import numpy as np
 from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator, IdentityOperator, ScaledLinearOperator
 from psydac.linalg.utilities import _sym_ortho
 
-__all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'MinimumResidual', 'LSMR']
+__all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'MinimumResidual', 'LSMR', 'GMRES']
 
 
 
@@ -66,6 +66,8 @@ def inverse(A, solver, **kwargs):
         obj = MinimumResidual(A, **kwargs)
     elif solver == 'lsmr':
         obj = LSMR(A, **kwargs)
+    elif solver == 'gmres':
+        obj = GMRES(A, **kwargs)
     return obj
 
 #===============================================================================
@@ -1494,6 +1496,272 @@ class LSMR(InverseLinearOperator):
         self._info = {'niter': itn, 'success': istop in [1,2,3], 'res_norm': normr }
         
         return x#, info
+
+    def dot(self, b, out=None):
+        return self.solve(b, out=out)
+
+#===============================================================================
+class GMRES(InverseLinearOperator):
+    """
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+
+    The .dot (and also the .solve) function are based on the 
+    Generalized minimum residual algorithm for solving linear system Ax=b.
+    Implementation from Wikipedia
+
+    Parameters
+    ----------
+    A : psydac.linalg.basic.LinearOperator
+        Left-hand-side matrix A of linear system; individual entries A[i,j]
+        can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
+        function (i.e. matrix-vector product A*p).
+
+    x0 : psydac.linalg.basic.Vector
+        First guess of solution for iterative solver (optional).
+
+    tol : float
+        Absolute tolerance for L2-norm of residual r = A*x - b.
+
+    maxiter: int
+        Maximum number of iterations.
+
+    verbose : bool
+        If True, L2-norm of residual r is printed at each iteration.
+
+    References
+    ----------
+    [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
+
+    """
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+
+        assert isinstance(A, LinearOperator)
+        assert A.domain == A.codomain
+        self._solver = 'gmres'
+        self._A = A
+        self._domain = A.codomain
+        self._codomain = A.domain
+        self._space = A.domain
+        self._x0 = x0
+        self._tol = tol
+        self._maxiter = maxiter
+        self._verbose = verbose
+        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+        self._check_options(**self._options)
+        self._tmps = {"v":A.domain.zeros(), "r":A.domain.zeros(), "p":A.domain.zeros(), 
+                      "lp":A.domain.zeros(), "lv":A.domain.zeros()}
+        self._info = None
+
+    def _check_options(self, **kwargs):
+        keys = ('x0', 'tol', 'maxiter', 'verbose')
+        for key, value in kwargs.items():
+            idx = [key == keys[i] for i in range(len(keys))]
+            assert any(idx), "key not supported, check options"
+            true_idx = idx.index(True)
+            if true_idx == 0:
+                if value is not None:
+                    assert isinstance(value, Vector), "x0 must be a Vector or None"
+                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
+            elif true_idx == 1:
+                assert value is not None, "tol may not be None"
+                # don't know if that one works -want to check if value is a number
+                assert value*0 == 0, "tol must be a real number"
+                assert value > 0, "tol must be positive"
+            elif true_idx == 2:
+                assert value is not None, "maxiter may not be None"
+                assert isinstance(value, int), "maxiter must be an int"
+                assert value > 0, "maxiter must be positive"
+            elif true_idx == 3:
+                assert value is not None, "verbose may not be None"
+                assert isinstance(value, bool), "verbose must be a bool"
+
+    def _update_options(self):
+        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+
+    def transpose(self):
+        At = self._A.T
+        solver = self._solver
+        options = self._options
+        return inverse(At, solver, **options)
+
+    def solve(self, b, out=None):
+        """
+        Generalized minimum residual algorithm for solving linear system Ax=b.
+        Implementation from Wikipedia
+        Info can be accessed using get_info(), see :func:~`basic.InverseLinearOperator.get_info`.
+
+        Parameters
+        ----------
+        b : psydac.linalg.basic.Vector
+            Right-hand-side vector of linear system Ax = b. Individual entries b[i] need
+            not be accessed, but b has 'shape' attribute and provides 'copy()' and
+            'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
+            scalar multiplication and sum operations are available.
+
+        out : psydac.linalg.basic.Vector | NoneType
+            The output vector, or None (optional).
+
+        Results
+        -------
+        x : psydac.linalg.basic.Vector
+            Converged solution.
+
+        info : dict
+            Dictionary containing convergence information:
+            - 'niter'    = (int) number of iterations
+            - 'success'  = (boolean) whether convergence criteria have been met
+            - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+
+        References
+        ----------
+
+        """
+
+        A = self._A
+        n = A.shape[0]
+        x0 = self._x0
+        tol = self._tol
+        maxiter = self._maxiter
+        verbose = self._verbose
+        
+
+        assert( A.shape == (n,n) )
+        assert( b.shape == (n, ) )
+
+        # First guess of solution
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self._domain
+            out *= 0
+            if x0 is None:
+                x = out
+            else:
+                assert( x0.shape == (n,) )
+                out += x0
+                x = out
+        else:
+            if x0 is None:
+                x  = b.copy()
+                x *= 0.0
+            else:
+                assert( x0.shape == (n,) )
+                x = x0.copy()
+        
+        # Extract local storage
+        v = self._tmps["v"]
+        r = self._tmps["r"]
+        p = self._tmps["p"]
+        # Not strictly needed by the conjugate gradient, but necessary to avoid temporaries
+        lp = self._tmps["lp"]
+        lv = self._tmps["lv"]
+        
+
+        # First values
+        r = b - A.dot( x )
+
+        r_norm = r.dot( r ) ** 0.5
+        am = r_norm
+
+        #error = r_norm / b_norm
+
+        sn = np.zeros(maxiter,)
+        cn = np.zeros(maxiter,)
+
+        beta = np.zeros(maxiter + 1,) # is upper Hessenberg matrix
+        beta[0] = r_norm
+
+        H = np.zeros((maxiter + 1, maxiter))
+        Q = np.zeros((r.size, maxiter + 1))
+        Q[:,0] = r / r_norm
+
+        m = 0
+
+        if verbose:
+            print( "GMRES solver:" )
+            print( "+---------+---------------------+")
+            print( "+ Iter. # | L2-norm of residual |")
+            print( "+---------+---------------------+")
+            template = "| {:7d} | {:19.2e} |"
+            print( template.format( 1, sqrt( r ) ) )
+
+        # Iterate to convergence
+
+        for k in range(maxiter):
+            if am < tol:
+                m -= 1
+                break
+
+            # run Arnoldi
+            H[:k+2, k], Q[:, k+1] = self.arnoldi(Q, k)
+
+            # make the last diagonal entry in H equal to 0, so that H becomes upper triangular
+            H[:k+2, k], cn[k], sn[k] = self.apply_givens_rotation(H[:k+2, k], cn, sn, k)
+
+            # update the residual vector
+            beta[k+1] = - sn[k] * beta[k]
+            beta[k] *= cn[k]
+            #error = abs(beta[k+1]) / b_norm
+
+            am = abs(beta[k+1])
+            m += 1
+            if verbose:
+                print( template.format( m, sqrt( am ) ) )
+
+        if verbose:
+            print( "+---------+---------------------+")        
+        # calculate result
+        y = self.solve_triangular(H[:m, :m], beta[:m]) # system of upper triangular matrix
+        x += Q[:, :m] @ y
+
+        # Convergence information
+        #info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am ) }
+        self._info = {'niter': m, 'success': am < tol, 'res_norm': am }
+        
+        return x#, info
+    
+    def solve_triangular(self, T, d):
+        # Assume upper triangular
+        # Backwards substitution
+        n = T.shape[0]
+        y = np.zeros_like(d)
+
+        for k1 in range(n):
+            temp = 0.
+            for k2 in range(1, k1 + 1):
+                temp += T[n - 1 - k1, n - 1 - k1 + k2] * y[n - 1 - k1 + k2]
+            y[n - 1 - k1] = ( d[n - 1 - k1] - temp ) / T[n - 1 - k1, n - 1 - k1]
+
+        return y
+
+            
+
+
+    def arnoldi(self, Q, k):
+        h = np.zeros((k + 2,))
+        q = self._A.dot(Q[:, k]) # Krylov vector
+
+        for i in range(k + 1): # Modified Gram-Schmidt, keeping Hessenberg matrix
+            h[i] = np.dot(q, Q[:, i])
+            q -= h[i] * Q[:, i]
+        
+        h[k+1] = np.linalg.norm(q)
+        q /= h[k+1] # Normalize vector
+        return h, q
+
+    def apply_givens_rotation(self, h, cn, sn, k):
+        # Apply Givens rotation to last column of H
+        for i in range(k):
+            temp = cn[i] * h[i] + sn[i] * h[i+1]
+            h[i+1] = - sn[i] * h[i] + cn[i] * h[i+1]
+            h[i] = temp
+        
+        mod = (h[k]**2 + h[k+1]**2)**0.5
+        cn_k = h[k] / mod
+        sn_k = h[k+1] / mod
+
+        h[k] = cn_k * h[k] + sn_k * h[k+1]
+        h[k+1] = 0. # becomes triangular
+        return h, cn_k, sn_k
 
     def dot(self, b, out=None):
         return self.solve(b, out=out)
