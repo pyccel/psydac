@@ -1172,7 +1172,8 @@ class BlockLinearOperator( LinearOperator ):
                                 flip_axis=flip_axis,
                                 interface_axis=interface_axis,
                                 d_start=d_starts,
-                                c_start=c_starts)
+                                c_start=c_starts,
+                                dtype=self._domain.dtype)
 
                 self._args = {}
                 for k,key in enumerate(keys):
@@ -1208,7 +1209,8 @@ class BlockLinearOperator( LinearOperator ):
                                         flip_axis=flip_axis,
                                         interface_axis=interface_axis,
                                         d_start=d_starts,
-                                        c_start=c_starts)
+                                        c_start=c_starts,
+                                        dtype=self._domain.dtype)
 
                 self._args = {}
 
@@ -1247,7 +1249,8 @@ class BlockLinearOperator( LinearOperator ):
                                     flip_axis=flip_axis,
                                     interface_axis=interface_axis,
                                     d_start=d_starts,
-                                    c_start=c_starts)
+                                    c_start=c_starts,
+                                    dtype=self._domain.dtype)
             self._args = {}
 
         self._blocks_as_args = [self._blocks[key]._data for key in keys]

@@ -16,10 +16,10 @@ from psydac.ddm.cart              import DomainDecomposition, CartDecomposition
 
 #===============================================================================
 def compute_global_starts_ends(domain_decomposition, npts):
-    global_starts = [None]*2
-    global_ends   = [None]*2
+    global_starts = [None]*len(npts)
+    global_ends   = [None]*len(npts)
 
-    for axis in range(2):
+    for axis in range(len(npts)):
         es = domain_decomposition.global_element_starts[axis]
         ee = domain_decomposition.global_element_ends  [axis]
 
@@ -32,14 +32,15 @@ def compute_global_starts_ends(domain_decomposition, npts):
 #===============================================================================
 # SERIAL TESTS
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [8,16] )
-@pytest.mark.parametrize( 'n2', [8,12] )
-@pytest.mark.parametrize( 'p1', [1,2,3] )
-@pytest.mark.parametrize( 'p2', [1,2,3] )
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
+@pytest.mark.parametrize( 'p1', [1, 2, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 
-def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
+def test_block_vector_space_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
@@ -52,22 +53,512 @@ def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     # Create vector spaces, stencil matrices, and stencil vectors
-    V = StencilVectorSpace( cart )
-    M1 = StencilMatrix( V, V )
+    V = StencilVectorSpace( cart, dtype=dtype )
+    M1 = StencilMatrix( V, V)
     M2 = StencilMatrix( V, V )
     M3 = StencilMatrix( V, V )
     x1 = StencilVector( V )
     x2 = StencilVector( V )
 
     # Fill in stencil matrices based on diagonal index
+    if dtype==complex:
+        f=lambda k1,k2: 10j*k1+k2
+    else:
+        f=lambda k1,k2: 10*k1+k2
+
     for k1 in range(-p1,p1+1):
         for k2 in range(-p2,p2+1):
-            M1[:,:,k1,k2] = 10*k1+k2
-            M2[:,:,k1,k2] = 10*k1+k2+2.
-            M3[:,:,k1,k2] = 10*k1+k2+5.
+            M1[:,:,k1,k2] = f(k1,k2)
+            M2[:,:,k1,k2] = f(k1,k2)+2.
+            M3[:,:,k1,k2] = f(k1,k2)+5.
+
     M1.remove_spurious_entries()
     M2.remove_spurious_entries()
     M3.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x1[i1,i2] = 2.0*random() - 1.0
+            x2[i1,i2] = 5.0*random() - 1.0
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
+
+    W = BlockVectorSpace(V, V)
+    assert W.dimension == 2*n1*n2
+    assert W.dtype == dtype
+    assert W.spaces == (V,V)
+    assert W.parallel == False
+    assert W.starts == [(0,0),(0,0)]
+    assert W.ends == [(n1-1,n2-1),(n1-1,n2-1)]
+    assert W.pads == (p1,p2)
+    assert W.n_blocks == 2
+    assert W.connectivity== {}
+#===============================================================================
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
+@pytest.mark.parametrize( 'p1', [1, 2, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2, 3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+
+def test_block_vector_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
+    # set seed for reproducibility
+    seed(n1*n2*p1*p2)
+
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    # Create vector spaces, stencil matrices, and stencil vectors
+    V = StencilVectorSpace( cart, dtype=dtype )
+    x1 = StencilVector( V )
+    x2 = StencilVector( V )
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x1[i1,i2] = 2.0*random() - 1.0
+            x2[i1,i2] = 5.0*random() - 1.0
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
+
+    W = BlockVectorSpace(V, V)
+    x = BlockVector(W, blocks=[x1,x2])
+    assert x.dtype == dtype
+    assert x.space == W
+    assert x.n_blocks == 2
+    assert x.blocks == (x1, x2)
+#===============================================================================
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
+@pytest.mark.parametrize( 'p1', [1, 2, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2, 3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+
+def test_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
+    # set seed for reproducibility
+    seed(n1*n2*p1*p2)
+
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    # Create vector spaces, stencil matrices, and stencil vectors
+    V = StencilVectorSpace( cart, dtype=dtype )
+    M1 = StencilMatrix( V, V)
+    M2 = StencilMatrix( V, V )
+    M3 = StencilMatrix( V, V )
+    x1 = StencilVector( V )
+    x2 = StencilVector( V )
+
+    # Fill in stencil matrices based on diagonal index
+    if dtype==complex:
+        f=lambda k1,k2: 10j*k1+k2
+    else:
+        f=lambda k1,k2: 10*k1+k2
+
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            M1[:,:,k1,k2] = f(k1,k2)
+            M2[:,:,k1,k2] = f(k1,k2)+2.
+            M3[:,:,k1,k2] = f(k1,k2)+5.
+
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+    M3.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x1[i1,i2] = 2.0*random() - 1.0
+            x2[i1,i2] = 5.0*random() - 1.0
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
+
+    W = BlockVectorSpace(V, V)
+    M = BlockLinearOperator(W, W, blocks=[[M1,M2],[M3,None]] )
+
+    assert M.domain == W
+    assert M.codomain == W
+    assert M.dtype == dtype
+    assert M.blocks == ((M1,M2),(M3,None))
+    assert M.n_block_rows == 2
+    assert M.n_block_cols == 2
+    assert M.nonzero_block_indices == ((0,0),(0,1),(1,0))
+    assert M.backend()==None
+#===============================================================================
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
+@pytest.mark.parametrize( 'p1', [1, 2, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2, 3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+def test_block_diagonal_solver_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
+    # set seed for reproducibility
+    seed(n1*n2*p1*p2)
+
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    # Create vector spaces, stencil matrices, and stencil vectors
+    V = StencilVectorSpace( cart, dtype=dtype)
+
+    # Fill in stencil matrices based on diagonal index
+    if dtype==complex:
+        f1=lambda k1,k2: 10j*k1+k2
+    else:
+        f1=lambda k1,k2: 10*k1+k2
+
+    m11 = np.zeros((n1, n1), dtype=dtype)
+    m12 = np.zeros((n2, n2), dtype=dtype)
+    for j in range(n1):
+        for i in range(-p1,p1+1):
+            m11[j, max(0, min(n1-1, j+i))] = f1(j,i)
+    for j in range(n2):
+        for i in range(-p2,p2+1):
+            m12[j, max(0, min(n2-1, j+i))] = f1(j,5*i)+2.
+
+
+    if dtype==complex:
+        f2=lambda k1,k2: 10j*k1**2+k2**3
+    else:
+        f2=lambda k1,k2: 10*k1**2+k2**3
+
+    m21 = np.zeros((n1, n1), dtype=dtype)
+    m22 = np.zeros((n2, n2), dtype=dtype)
+
+    for j in range(n1):
+        for i in range(-p1,p1+1):
+            m21[j, max(0, min(n1-1, j+i))] = f2(j,i)
+    for j in range(n2):
+        for i in range(-p2,p2+1):
+            m22[j, max(0, min(n2-1, j+i))] = f2(j,2*i)+2.
+
+    M11 = SparseSolver( spa.csc_matrix(m11) )
+    M12 = SparseSolver( spa.csc_matrix(m12) )
+    M21 = SparseSolver( spa.csc_matrix(m21) )
+    M22 = SparseSolver( spa.csc_matrix(m22) )
+    M1 = KroneckerLinearSolver(V, [M11,M12])
+    M2 = KroneckerLinearSolver(V, [M21,M22])
+    x1 = StencilVector( V )
+    x2 = StencilVector( V )
+
+    W = BlockVectorSpace(V, V)
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x1[i1,i2] = 2.0*random() - 1.0
+            x2[i1,i2] = 5.0*random() - 1.0
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
+
+    # Construct a BlockVector object containing x1 and x2
+    #     |x1|
+    # X = |  |
+    #     |x2|
+
+    X = BlockVector(W)
+    X[0] = x1
+    X[1] = x2
+
+    # Construct a BlockDiagonalSolver object containing M1, M2 using 3 ways
+    #     |M1  0 |
+    # L = |      |
+    #     |0   M2|
+
+    dict_blocks = {0:M1, 1:M2}
+    list_blocks = [M1, M2]
+
+    L1 = BlockDiagonalSolver( W, blocks=dict_blocks )
+    L2 = BlockDiagonalSolver( W, blocks=list_blocks )
+
+    L3 = BlockDiagonalSolver( W )
+
+    # Test for not allowing undefinedness
+    errresult = False
+    try:
+        L3.solve(X)
+    except NotImplementedError:
+        errresult = True
+    assert errresult
+
+    L3[0] = M1
+    L3[1] = M2
+    assert L3.space == W
+    assert L3.blocks == (M1, M2)
+    assert L3.n_blocks == 2
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
+@pytest.mark.parametrize( 'p1', [1, 2, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2, 3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+def test_block_serial_different_dtype( n1, n2, p1, p2, P1, P2  ):
+    # set seed for reproducibility
+    seed(n1*n2*p1*p2)
+
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    # Create vector spaces, stencil matrices, and stencil vectors
+    V1 = StencilVectorSpace( cart, dtype=float)
+    V2 = StencilVectorSpace( cart, dtype=complex)
+
+    x1 = StencilVector( V1 )
+    x2 = StencilVector( V2 )
+    y1 = StencilVector( V1 )
+    y2 = StencilVector( V2 )
+
+    W = BlockVectorSpace(V1, V2)
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x1[i1,i2] = 2.0*random() - 1.0
+            x2[i1,i2] = 5.0j*random() - 1.0
+            y1[i1,i2] = 2.0*random() - 1.0
+            y2[i1,i2] = 5.0*random() - 1.0j
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
+    y1.update_ghost_regions()
+    y2.update_ghost_regions()
+
+    # Construct a BlockVector object containing x1 and x2
+    #     |x1|
+    # X = |  |
+    #     |x2|
+
+    X = BlockVector(W)
+    X[0] = x1
+    X[1] = x2
+    Y = BlockVector(W)
+    Y[0] = y1
+    Y[1] = y2
+    exact_dot=x1.dot(y1)+x2.dot(y2)
+    assert X.dtype == (float, complex)
+    assert np.allclose(X.dot(Y), exact_dot,  rtol=1e-14, atol=1e-14 )
+
+    M1 = StencilMatrix(V1, V1)
+    M2 = StencilMatrix(V2, V1)
+    M3 = StencilMatrix(V1, V2)
+
+    # Fill in stencil matrices based on diagonal index
+    f = lambda k1, k2: 10 * k1 + k2
+
+    for k1 in range(-p1, p1 + 1):
+        for k2 in range(-p2, p2 + 1):
+            M1[:, :, k1, k2] = f(k1, k2)
+            M2[:, :, k1, k2] = f(k1, k2) + 2.
+            M3[:, :, k1, k2] = f(k1, k2) + 5.
+
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+    M3.remove_spurious_entries()
+    M = BlockLinearOperator(W, W, blocks=[[M1, M2], [M3, None]])
+    Y[0]=M1.dot(x1)+M2.dot(x2)
+    Y[1]=M3.dot(x1)
+    assert M.dtype == (float, complex)
+    assert np.allclose((M.dot(X)).toarray(), Y.toarray(),  rtol=1e-14, atol=1e-14 )
+#===============================================================================
+@pytest.mark.parametrize( 'ndim', [1, 2, 3] )
+@pytest.mark.parametrize( 'p', [1, 2] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'P3', [True, False] )
+def test_block_serial_dimension( ndim, p, P1, P2, P3 ):
+
+    if ndim==1:
+        npts=[12]
+        ps=[p]
+        Ps=[P1]
+        shifts=[1]
+
+    elif ndim==2:
+        npts=[12,15]
+        ps=[p,p]
+        Ps=[P1,P2]
+        shifts=[1,1]
+
+    else:
+        npts=[12,15,9]
+        ps=[p,p,p]
+        Ps=[P1,P2,P3]
+        shifts=[1,1,1]
+
+    # set seed for reproducibility
+    D = DomainDecomposition(npts, periods=Ps)
+
+    # Partition the points
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=ps, shifts=shifts)
+
+    # Create vector spaces, stencil matrices, and stencil vectors
+    V = StencilVectorSpace( cart)
+
+    x1 = StencilVector( V )
+    x2 = StencilVector( V )
+    y1 = StencilVector( V )
+    y2 = StencilVector( V )
+
+    W = BlockVectorSpace(V, V)
+
+
+    # Fill in vector with random values, then update ghost regions
+    if ndim==1:
+        x1[:] = 2.0*np.random.random((npts[0]+2*p))
+        x2[:] = 5.0*np.random.random((npts[0]+2*p))
+        y1[:] = 2.0*np.random.random((npts[0]+2*p))
+        y2[:] = 3.0*np.random.random((npts[0]+2*p))
+    elif ndim==2:
+        x1[:,:] = 2.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
+        x2[:,:] = 5.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
+        y1[:,:] = 2.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
+        y2[:,:] = 3.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
+    else:
+        x1[:,:,:] = 2.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
+        x2[:,:,:] = 5.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
+        y1[:,:,:] = 2.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
+        y2[:,:,:] = 3.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
+
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
+    y1.update_ghost_regions()
+    y2.update_ghost_regions()
+
+    # Construct a BlockVector object containing x1 and x2
+    #     |x1|
+    # X = |  |
+    #     |x2|
+
+    X = BlockVector(W)
+    X[0] = x1
+    X[1] = x2
+
+    Y = BlockVector(W)
+    Y[0] = y1
+    Y[1] = y2
+
+    exact_dot=x1.dot(y1)+x2.dot(y2)
+
+    assert X.dtype == float
+    assert np.allclose(X.dot(Y), exact_dot,  rtol=1e-14, atol=1e-14 )
+
+    M1 = StencilMatrix(V, V)
+    M2 = StencilMatrix(V, V)
+    M3 = StencilMatrix(V, V)
+
+    # Fill in stencil matrices based on diagonal index
+    if ndim==1:
+        f = lambda k1: 10 * k1
+        for k1 in range(-ps[0], ps[0] + 1):
+                M1[:, k1] = f(k1)
+                M2[:, k1] = f(k1) + 2.
+                M3[:, k1] = f(k1) + 5.
+    if ndim==2:
+        f = lambda k1,k2: 10 * k1 + 100*k2
+        for k1 in range(-ps[0], ps[0] + 1):
+            for k2 in range(-ps[1], ps[1] + 1):
+                M1[:, k1] = f(k1,k2)
+                M2[:, k1] = f(k1,k2) + 2.
+                M3[:, k1] = f(k1,k2) + 5.
+    if ndim==3:
+        f = lambda k1, k2, k3: 10 * k1 + 100*k2+1000*k3
+        for k1 in range(-ps[0], ps[0] + 1):
+            for k2 in range(-ps[1], ps[1] + 1):
+                for k3 in range(-ps[1], ps[1] + 1):
+                    M1[:, k1] = f(k1,k2,k3)
+                    M2[:, k1] = f(k1,k2,k3) + 2.
+                    M3[:, k1] = f(k1,k2,k3) + 5.
+
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+    M3.remove_spurious_entries()
+
+    M = BlockLinearOperator(W, W, blocks=[[M1, M2], [M3, None]])
+
+    Y[0]=M1.dot(x1)+M2.dot(x2)
+    Y[1]=M3.dot(x1)
+
+    assert M.dtype == float
+    assert np.allclose((M.dot(X)).toarray(), Y.toarray(),  rtol=1e-14, atol=1e-14 )
+#===============================================================================
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
+@pytest.mark.parametrize( 'p1', [1, 2, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2, 3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+
+def test_block_linear_operator_serial_dot( dtype, n1, n2, p1, p2, P1, P2  ):
+    # set seed for reproducibility
+    seed(n1*n2*p1*p2)
+
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    # Create vector spaces, stencil matrices, and stencil vectors
+    V = StencilVectorSpace( cart, dtype=dtype )
+    M1 = StencilMatrix( V, V)
+    M2 = StencilMatrix( V, V )
+    M3 = StencilMatrix( V, V )
+    x1 = StencilVector( V )
+    x2 = StencilVector( V )
+
+    # Fill in stencil matrices based on diagonal index
+    if dtype==complex:
+        f=lambda k1,k2: 10j*k1+k2
+    else:
+        f=lambda k1,k2: 10*k1+k2
+
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            M1[:,:,k1,k2] = f(k1,k2)
+            M2[:,:,k1,k2] = f(k1,k2)+2.
+            M3[:,:,k1,k2] = f(k1,k2)+5.
+
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+    M3.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x1[i1,i2] = 2.0*random() - 1.0
+            x2[i1,i2] = 5.0*random() - 1.0
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
 
     W = BlockVectorSpace(V, V)
 
@@ -87,13 +578,6 @@ def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
     L3[0,1] = M2
     L3[1,0] = M3
 
-    # Fill in vector with random values, then update ghost regions
-    for i1 in range(n1):
-        for i2 in range(n2):
-            x1[i1,i2] = 2.0*random() - 1.0
-            x2[i1,i2] = 5.0*random() - 1.0
-    x1.update_ghost_regions()
-    x2.update_ghost_regions()
 
     # Construct a BlockVector object containing x1 and x2
     #     |x1|
@@ -122,15 +606,15 @@ def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
 
     assert np.allclose( Y3.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
     assert np.allclose( Y3.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
-
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [8,16] )
-@pytest.mark.parametrize( 'n2', [8,12] )
-@pytest.mark.parametrize( 'p1', [1,2,3] )
-@pytest.mark.parametrize( 'p2', [1,2,3] )
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
+@pytest.mark.parametrize( 'p1', [1, 2, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
-def test_block_diagonal_solver_serial_dot( n1, n2, p1, p2, P1, P2  ):
+def test_block_diagonal_solver_serial_dot( dtype, n1, n2, p1, p2, P1, P2  ):
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
@@ -143,26 +627,36 @@ def test_block_diagonal_solver_serial_dot( n1, n2, p1, p2, P1, P2  ):
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     # Create vector spaces, stencil matrices, and stencil vectors
-    V = StencilVectorSpace( cart )
+    V = StencilVectorSpace( cart, dtype=dtype)
 
     # Fill in stencil matrices based on diagonal index
-    m11 = np.zeros((n1, n1))
-    m12 = np.zeros((n2, n2))
+    if dtype==complex:
+        f1=lambda k1,k2: 10j*k1+k2
+    else:
+        f1=lambda k1,k2: 10*k1+k2
+
+    m11 = np.zeros((n1, n1), dtype=dtype)
+    m12 = np.zeros((n2, n2), dtype=dtype)
     for j in range(n1):
         for i in range(-p1,p1+1):
-            m11[j, max(0, min(n1-1, j+i))] = 10*j+i
+            m11[j, max(0, min(n1-1, j+i))] = f1(j,i)
     for j in range(n2):
         for i in range(-p2,p2+1):
-            m12[j, max(0, min(n2-1, j+i))] = 20*j+5*i+2.
-    
-    m21 = np.zeros((n1, n1))
-    m22 = np.zeros((n2, n2))
+            m12[j, max(0, min(n2-1, j+i))] = f1(j,5*i)+2.
+
+
+    if dtype==complex:
+        f2=lambda k1,k2: 10j*k1**2+k2**3
+    else:
+        f2=lambda k1,k2: 10*k1**2+k2**3
+    m21 = np.zeros((n1, n1), dtype=dtype)
+    m22 = np.zeros((n2, n2), dtype=dtype)
     for j in range(n1):
         for i in range(-p1,p1+1):
-            m21[j, max(0, min(n1-1, j+i))] = 10*j**2+i**3
+            m21[j, max(0, min(n1-1, j+i))] = f2(j,i)
     for j in range(n2):
         for i in range(-p2,p2+1):
-            m22[j, max(0, min(n2-1, j+i))] = 20*j**2+i**3+2.
+            m22[j, max(0, min(n2-1, j+i))] = f2(j,2*i)+2.
     
     M11 = SparseSolver( spa.csc_matrix(m11) )
     M12 = SparseSolver( spa.csc_matrix(m12) )
@@ -262,14 +756,15 @@ def test_block_diagonal_solver_serial_dot( n1, n2, p1, p2, P1, P2  ):
     assert np.allclose( Yt.blocks[1].toarray(), y2t.toarray(), rtol=1e-14, atol=1e-14 )
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [8,16] )
-@pytest.mark.parametrize( 'n2', [8,12] )
-@pytest.mark.parametrize( 'p1', [1,2,3] )
-@pytest.mark.parametrize( 'p2', [1,2,3] )
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
+@pytest.mark.parametrize( 'p1', [1, 2, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 
-def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
+def test_block_linear_operator( dtype, n1, n2, p1, p2, P1, P2  ):
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
@@ -282,7 +777,7 @@ def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     # Create vector spaces, stencil matrices, and stencil vectors
-    V = StencilVectorSpace( cart )
+    V = StencilVectorSpace( cart, dtype=dtype )
     M1 = StencilMatrix( V, V )
     M2 = StencilMatrix( V, V )
     M3 = StencilMatrix( V, V )
@@ -291,12 +786,17 @@ def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
     x2 = StencilVector( V )
 
     # Fill in stencil matrices based on diagonal index
+
+    if dtype==complex:
+        f1=lambda k1,k2: 10j*k1+k2
+    else:
+        f1=lambda k1,k2: 10*k1+k2
     for k1 in range(-p1,p1+1):
         for k2 in range(-p2,p2+1):
-            M1[:,:,k1,k2] = 10*k1+k2+1.
-            M2[:,:,k1,k2] = 10*k1+k2+2.
-            M3[:,:,k1,k2] = 10*k1+k2+5.
-            M4[:,:,k1,k2] = 10*k1+k2+7.
+            M1[:,:,k1,k2] = f1(k1,k2)+1.
+            M2[:,:,k1,k2] = f1(k1,k2)+2.
+            M3[:,:,k1,k2] = f1(k1,k2)+5.
+            M4[:,:,k1,k2] = f1(k1,k2)+7.
     M1.remove_spurious_entries()
     M2.remove_spurious_entries()
     M3.remove_spurious_entries()
@@ -351,14 +851,20 @@ def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
     assert np.allclose( y, yref, rtol=1e-12, atol=1e-12 )
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [8,16] )
-@pytest.mark.parametrize( 'n2', [8,12] )
-@pytest.mark.parametrize( 'p1', [1,2,3] )
-@pytest.mark.parametrize( 'p2', [1,2,3] )
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
+@pytest.mark.parametrize( 'p1', [1, 2, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 
-def test_block_2d_array_to_psydac_1( n1, n2, p1, p2, P1, P2 ):
+def test_block_2d_array_to_psydac_1( dtype, n1, n2, p1, p2, P1, P2 ):
+    #Define a factor for the data
+    if dtype==complex:
+        factor=1j
+    else:
+        factor=1
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
@@ -371,8 +877,8 @@ def test_block_2d_array_to_psydac_1( n1, n2, p1, p2, P1, P2 ):
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     # Create vector spaces, and stencil vectors
-    V1 = StencilVectorSpace( cart )
-    V2 = StencilVectorSpace( cart )
+    V1 = StencilVectorSpace( cart ,dtype=dtype)
+    V2 = StencilVectorSpace( cart ,dtype=dtype)
 
     W = BlockVectorSpace(V1, V2)
 
@@ -381,8 +887,8 @@ def test_block_2d_array_to_psydac_1( n1, n2, p1, p2, P1, P2 ):
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
         for i2 in range(n2):
-            x[0][i1,i2] = 2.0*random() + 1.0
-            x[1][i1,i2] = 5.0*random() - 1.0
+            x[0][i1,i2] = 2.0*factor*random() + 1.0
+            x[1][i1,i2] = 5.0*factor*random() - 1.0
     x.update_ghost_regions()
 
     xa = x.toarray()
@@ -391,14 +897,20 @@ def test_block_2d_array_to_psydac_1( n1, n2, p1, p2, P1, P2 ):
     assert np.allclose( xa , v.toarray() )
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [8,16] )
-@pytest.mark.parametrize( 'n2', [8,12] )
-@pytest.mark.parametrize( 'p1', [1,2,3] )
-@pytest.mark.parametrize( 'p2', [1,2,3] )
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
+@pytest.mark.parametrize( 'p1', [1, 2, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 
-def test_block_2d_array_to_psydac_2( n1, n2, p1, p2, P1, P2 ):
+def test_block_2d_array_to_psydac_2( dtype, n1, n2, p1, p2, P1, P2 ):
+    # Define a factor for the data
+    if dtype == complex:
+        factor = 1j
+    else:
+        factor = 1
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
@@ -411,8 +923,8 @@ def test_block_2d_array_to_psydac_2( n1, n2, p1, p2, P1, P2 ):
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     # Create vector spaces, and stencil vectors
-    V1 = StencilVectorSpace( cart )
-    V2 = StencilVectorSpace( cart )
+    V1 = StencilVectorSpace( cart ,dtype=dtype)
+    V2 = StencilVectorSpace( cart ,dtype=dtype)
 
     W = BlockVectorSpace(V1, V2)
     W = BlockVectorSpace(W, W)
@@ -422,10 +934,10 @@ def test_block_2d_array_to_psydac_2( n1, n2, p1, p2, P1, P2 ):
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
         for i2 in range(n2):
-            x[0][0][i1,i2] = 2.0*random() + 1.0
-            x[0][1][i1,i2] = 5.0*random() - 1.0
-            x[1][0][i1,i2] = 2.0*random() + 1.0
-            x[1][1][i1,i2] = 5.0*random() - 1.0
+            x[0][0][i1,i2] = 2.0*factor*random() + 1.0
+            x[0][1][i1,i2] = 5.0*factor*random() - 1.0
+            x[1][0][i1,i2] = 2.0*factor*random() + 1.0
+            x[1][1][i1,i2] = 5.0*factor*random() - 1.0
     x.update_ghost_regions()
 
     xa = x.toarray()
@@ -434,14 +946,20 @@ def test_block_2d_array_to_psydac_2( n1, n2, p1, p2, P1, P2 ):
     assert np.allclose( xa , v.toarray() )
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [8,16] )
-@pytest.mark.parametrize( 'n2', [8,32] )
-@pytest.mark.parametrize( 'p1', [1,3] )
-@pytest.mark.parametrize( 'p2', [1,2] )
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 32] )
+@pytest.mark.parametrize( 'p1', [1, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 
-def test_block_matrix_operator_dot_backend( n1, n2, p1, p2, P1, P2 ):
+def test_block_matrix_operator_dot_backend( dtype, n1, n2, p1, p2, P1, P2 ):
+    # Define a factor for the data
+    if dtype == complex:
+        factor = 1j
+    else:
+        factor = 1
 
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
@@ -452,7 +970,7 @@ def test_block_matrix_operator_dot_backend( n1, n2, p1, p2, P1, P2 ):
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     # Create vector space, stencil matrix, and stencil vector
-    V = StencilVectorSpace( cart )
+    V = StencilVectorSpace( cart, dtype=dtype )
 
     M1 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
     M2 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
@@ -467,10 +985,10 @@ def test_block_matrix_operator_dot_backend( n1, n2, p1, p2, P1, P2 ):
     # Fill in stencil matrix values based on diagonal index (periodic!)
     for k1 in range(-p1,p1+1):
         for k2 in range(-p2,p2+1):
-            M1[:,:,k1,k2] = k1+k2+10.
-            M2[:,:,k1,k2] = 2.*k1+k2
-            M3[:,:,k1,k2] = 5*k1+k2
-            M4[:,:,k1,k2] = 10*k1+k2
+            M1[:,:,k1,k2] = factor*k1+k2+10.
+            M2[:,:,k1,k2] = factor*2.*k1+k2
+            M3[:,:,k1,k2] = factor*5*k1+k2
+            M4[:,:,k1,k2] = factor*10*k1+k2
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M1.remove_spurious_entries()
@@ -481,8 +999,8 @@ def test_block_matrix_operator_dot_backend( n1, n2, p1, p2, P1, P2 ):
     # Fill in vector with random values, then update ghost regions
     for i1 in range(s1,e1+1):
         for i2 in range(s2,e2+1):
-            x1[i1,i2] = 2.0*random() + 1.0
-            x2[i1,i2] = 5.0*random() - 1.0
+            x1[i1,i2] = 2.0*factor*random() + 1.0
+            x2[i1,i2] = 5.0*factor*random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
@@ -514,16 +1032,23 @@ def test_block_matrix_operator_dot_backend( n1, n2, p1, p2, P1, P2 ):
 #===============================================================================
 # PARALLEL TESTS
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [8,16] )
-@pytest.mark.parametrize( 'n2', [8,32] )
-@pytest.mark.parametrize( 'p1', [1,3] )
-@pytest.mark.parametrize( 'p2', [1,2] )
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 32] )
+@pytest.mark.parametrize( 'p1', [1, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 @pytest.mark.parametrize( 'reorder', [True, False] )
 @pytest.mark.parallel
 
-def test_block_linear_operator_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
+def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2, reorder ):
+    # Define a factor for the data
+    if dtype == complex:
+        factor = 1j
+    else:
+        factor = 1
+
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
@@ -539,7 +1064,7 @@ def test_block_linear_operator_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     # Create vector space, stencil matrix, and stencil vector
-    V = StencilVectorSpace( cart )
+    V = StencilVectorSpace( cart, dtype=dtype )
     M1 = StencilMatrix( V, V )
     M2 = StencilMatrix( V, V )
     M3 = StencilMatrix( V, V )
@@ -553,10 +1078,10 @@ def test_block_linear_operator_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
     # Fill in stencil matrix values based on diagonal index (periodic!)
     for k1 in range(-p1,p1+1):
         for k2 in range(-p2,p2+1):
-            M1[:,:,k1,k2] = k1+k2+10.
-            M2[:,:,k1,k2] = 2.*k1+k2
-            M3[:,:,k1,k2] = 5*k1+k2
-            M4[:,:,k1,k2] = 10*k1+k2
+            M1[:,:,k1,k2] = factor*k1+k2+10.
+            M2[:,:,k1,k2] = factor*2.*k1+k2
+            M3[:,:,k1,k2] = factor*5*k1+k2
+            M4[:,:,k1,k2] = factor*10*k1+k2
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M1.remove_spurious_entries()
@@ -567,8 +1092,8 @@ def test_block_linear_operator_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
     # Fill in vector with random values, then update ghost regions
     for i1 in range(s1,e1+1):
         for i2 in range(s2,e2+1):
-            x1[i1,i2] = 2.0*random() + 1.0
-            x2[i1,i2] = 5.0*random() - 1.0
+            x1[i1,i2] = 2.0*factor*random() + 1.0
+            x2[i1,i2] = 5.0*factor*random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
@@ -596,6 +1121,7 @@ def test_block_linear_operator_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
     assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
 
 #===============================================================================
+@pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8,16] )
 @pytest.mark.parametrize( 'n2', [8,32] )
 @pytest.mark.parametrize( 'p1', [1,3] )
@@ -604,7 +1130,12 @@ def test_block_linear_operator_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
 @pytest.mark.parametrize( 'P2', [True, False] )
 @pytest.mark.parametrize( 'reorder', [True, False] )
 @pytest.mark.parallel
-def test_block_diagonal_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
+def test_block_diagonal_solver_parallel_dot( dtype, n1, n2, p1, p2, P1, P2, reorder  ):
+    # Define a factor for the data
+    if dtype == complex:
+        factor = 1j
+    else:
+        factor = 1
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
@@ -619,29 +1150,29 @@ def test_block_diagonal_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     # Create vector spaces, stencil matrices, and stencil vectors
-    V = StencilVectorSpace( cart )
+    V = StencilVectorSpace( cart, dtype=dtype )
 
     s1,s2 = V.starts
     e1,e2 = V.ends
 
     # Fill in stencil matrices based on diagonal index
-    m11 = np.zeros((n1, n1))
-    m12 = np.zeros((n2, n2))
+    m11 = np.zeros((n1, n1),dtype=dtype)
+    m12 = np.zeros((n2, n2),dtype=dtype)
     for j in range(n1):
         for i in range(-p1,p1+1):
-            m11[j, max(0, min(n1-1, j+i))] = 10*j+i
+            m11[j, max(0, min(n1-1, j+i))] = 10*factor*j+i
     for j in range(n2):
         for i in range(-p2,p2+1):
-            m12[j, max(0, min(n2-1, j+i))] = 20*j+5*i+2.
+            m12[j, max(0, min(n2-1, j+i))] = 20*factor*j+5*i+2.
     
-    m21 = np.zeros((n1, n1))
-    m22 = np.zeros((n2, n2))
+    m21 = np.zeros((n1, n1),dtype=dtype)
+    m22 = np.zeros((n2, n2),dtype=dtype)
     for j in range(n1):
         for i in range(-p1,p1+1):
-            m21[j, max(0, min(n1-1, j+i))] = 10*j**2+i**3
+            m21[j, max(0, min(n1-1, j+i))] = 10*factor*j**2+i**3
     for j in range(n2):
         for i in range(-p2,p2+1):
-            m22[j, max(0, min(n2-1, j+i))] = 20*j**2+i**3+2.
+            m22[j, max(0, min(n2-1, j+i))] = 20*factor*j**2+i**3+2.
     
     M11 = SparseSolver( spa.csc_matrix(m11) )
     M12 = SparseSolver( spa.csc_matrix(m12) )
@@ -657,8 +1188,8 @@ def test_block_diagonal_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
     # Fill in vector with random values, then update ghost regions
     for i1 in range(s1,e1+1):
         for i2 in range(s2,e2+1):
-            x1[i1,i2] = 2.0*random() - 1.0
-            x2[i1,i2] = 5.0*random() - 1.0
+            x1[i1,i2] = 2.0*factor*random() - 1.0
+            x2[i1,i2] = 5.0*factor*random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
@@ -740,6 +1271,7 @@ def test_block_diagonal_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
     assert np.allclose( Yt.blocks[0].toarray(), y1t.toarray(), rtol=1e-14, atol=1e-14 )
     assert np.allclose( Yt.blocks[1].toarray(), y2t.toarray(), rtol=1e-14, atol=1e-14 )
 
+@pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8,16] )
 @pytest.mark.parametrize( 'n2', [8,32] )
 @pytest.mark.parametrize( 'p1', [1,3] )
@@ -749,7 +1281,12 @@ def test_block_diagonal_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
 @pytest.mark.parametrize( 'reorder', [True, False] )
 @pytest.mark.parallel
 
-def test_block_matrix_operator_parallel_dot_backend( n1, n2, p1, p2, P1, P2, reorder ):
+def test_block_matrix_operator_parallel_dot_backend( dtype, n1, n2, p1, p2, P1, P2, reorder ):
+    # Define a factor for the data
+    if dtype == complex:
+        factor = 1j
+    else:
+        factor = 1
     # set seed for reproducibility
 
     from mpi4py       import MPI
@@ -764,7 +1301,7 @@ def test_block_matrix_operator_parallel_dot_backend( n1, n2, p1, p2, P1, P2, reo
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
 
     # Create vector space, stencil matrix, and stencil vector
-    V = StencilVectorSpace( cart )
+    V = StencilVectorSpace( cart, dtype=dtype)
     M1 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
     M2 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
     M3 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
@@ -778,10 +1315,10 @@ def test_block_matrix_operator_parallel_dot_backend( n1, n2, p1, p2, P1, P2, reo
     # Fill in stencil matrix values based on diagonal index (periodic!)
     for k1 in range(-p1,p1+1):
         for k2 in range(-p2,p2+1):
-            M1[:,:,k1,k2] = k1+k2+10.
-            M2[:,:,k1,k2] = 2.*k1+k2
-            M3[:,:,k1,k2] = 5*k1+k2
-            M4[:,:,k1,k2] = 10*k1+k2
+            M1[:,:,k1,k2] = k1*factor+k2+10.
+            M2[:,:,k1,k2] = 2.*factor*k1+k2
+            M3[:,:,k1,k2] = 5*factor*k1+k2
+            M4[:,:,k1,k2] = 10*factor*k1+k2
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M1.remove_spurious_entries()
@@ -792,8 +1329,8 @@ def test_block_matrix_operator_parallel_dot_backend( n1, n2, p1, p2, P1, P2, reo
     # Fill in vector with random values, then update ghost regions
     for i1 in range(s1,e1+1):
         for i2 in range(s2,e2+1):
-            x1[i1,i2] = 2.0*random() + 1.0
-            x2[i1,i2] = 5.0*random() - 1.0
+            x1[i1,i2] = 2.0*factor*random() + 1.0
+            x2[i1,i2] = 5.0*factor*random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
