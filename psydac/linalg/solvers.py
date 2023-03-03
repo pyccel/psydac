@@ -1092,6 +1092,8 @@ class MinimumResidual(InverseLinearOperator):
         return self.solve(b, out=out)
 
         #===============================================================================
+
+#===============================================================================
 class LSMR(InverseLinearOperator):
     """
     A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
