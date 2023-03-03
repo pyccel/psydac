@@ -712,17 +712,6 @@ def test_operator_evaluation(n1, n2):
     P1 = False
     P2 = False
 
-    nonzero_values = dict()
-    nonzero_values[0, -1] = 1
-    nonzero_values[0, 0] = 2
-    nonzero_values[0, 1] = 1
-    nonzero_values[-1, -1] = 0
-    nonzero_values[-1, 0] = 0
-    nonzero_values[-1, 1] = 0
-    nonzero_values[1, -1] = 0
-    nonzero_values[1, 0] = 0
-    nonzero_values[1, 1] = 0
-
     # Initiate StencilVectorSpace V
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
     

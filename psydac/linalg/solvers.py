@@ -845,7 +845,8 @@ class MinimumResidual(InverseLinearOperator):
         self._options = {"x0":self._x0, "x0update":self._x0update, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
         self._check_options(**self._options)
         self._tmps = {"res1":A.codomain.zeros(), "res2":A.codomain.zeros(), "w":A.codomain.zeros(), "w2":A.codomain.zeros(), "yc":A.codomain.zeros(),
-                      "v":A.codomain.zeros()}#, "resc":A.codomain.zeros()}
+                      "v":A.codomain.zeros(), "resc":A.codomain.zeros(), "res2c":A.codomain.zeros(), "ycc":A.codomain.zeros(), "res1c":A.codomain.zeros(),
+                      "wc":A.codomain.zeros(), "w2c":A.codomain.zeros()}
         self._info = None
 
     def _check_options(self, **kwargs):
@@ -929,13 +930,22 @@ class MinimumResidual(InverseLinearOperator):
         verbose = self._verbose
 
         # Extract local storage
-        res1 = self._tmps["res1"]
+
+        # strictly necessary
+        v = self._tmps["v"]
         w = self._tmps["w"]
         w2 = self._tmps["w2"]
-        yc = self._tmps["yc"]
+        res1 = self._tmps["res1"]
         res2 = self._tmps["res2"]
-        v = self._tmps["v"]
-        #resc = self._tmps["resc"]
+
+        # auxiliary to minimzize temps, optimal solution until proven wrong
+        wc = self._tmps["wc"]
+        w2c = self._tmps["w2c"]
+        yc = self._tmps["yc"]
+        ycc = self._tmps["ycc"]
+        resc = self._tmps["resc"]
+        res1c = self._tmps["res1c"]
+        res2c = self._tmps["res2c"]
 
         assert A .shape == (n, n)
         assert b .shape == (n,)
@@ -1015,15 +1025,16 @@ class MinimumResidual(InverseLinearOperator):
             alfa = v.dot(y)
             res1 = res2
             
-            #print(1)
-            #res2.copy(out=resc)
-            #resc *= (alfa/beta)
-            #y -= resc
-            y    = y - (alfa/beta)*res2
-            #print(y.toarray())
-            #print(res2.toarray())
-            #print(2)
-            res2 = y
+            res2.copy(out=resc)
+            resc *= (alfa/beta)
+            y.copy(out=ycc)
+            ycc -= resc
+            y = ycc
+            res1.copy(out=res1c)
+            res1 = res1c
+            y.copy(out=res2c)
+            res2 = res2c
+
             oldb = beta
             beta = sqrt(y.dot(y))
             tnorm2 += alfa**2 + oldb**2 + beta**2
@@ -1057,10 +1068,10 @@ class MinimumResidual(InverseLinearOperator):
 
             w1.copy(out=yc)
             yc *= oldeps
-            #print(4)
-            #w = w2.copy(out=w) # doesn't work
-            w = w2.copy()
-            #print(5)
+            w2.copy(out=w2c)
+            w2.copy(out=wc)
+            w = wc
+            w2 = w2c
             w *= delta
             w += yc
             w -= v
@@ -1217,7 +1228,8 @@ class LSMR(InverseLinearOperator):
         self._check_options(**self._options)
         self._info = None
         self._successful = None
-        self._tmps = {"uh":A.codomain.zeros(), "v":A.domain.zeros(), "vh":A.domain.zeros(), "h":A.domain.zeros(), "hbar":A.domain.zeros()}
+        self._tmps = {"uh":A.codomain.zeros(), "uc":A.codomain.zeros(), "v":A.domain.zeros(), "vh":A.domain.zeros(), 
+                      "h":A.domain.zeros(), "hbar":A.domain.zeros()}
 
     def get_success(self):
         return self._successful
@@ -1328,6 +1340,7 @@ class LSMR(InverseLinearOperator):
         # Not strictly needed by the LSMR, but necessary to avoid temporaries
         uh = self._tmps["uh"]        
         vh = self._tmps["vh"]
+        uc = self._tmps["uc"]
 
         if atol is None:atol = 1e-6
         if btol is None:btol = 1e-6
@@ -1361,9 +1374,9 @@ class LSMR(InverseLinearOperator):
                 beta = sqrt(u.dot(u))
         
         if beta > 0:
-            print("---")
-            u = (1 / beta)*u # why can't i write u *= (1 / beta)? Here's the only remaining unnecessary temporary
-            print("---")
+            u.copy(out = uc)
+            uc *= (1 / beta)
+            u = uc
             At.dot(u, out=v)
             alpha = sqrt(v.dot(v))
         else:
