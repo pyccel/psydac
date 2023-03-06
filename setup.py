@@ -48,7 +48,7 @@ install_requires = [
     # Third-party packages from PyPi
     'numpy>=1.16',
     'scipy>=0.18',
-    'sympy>=1.5',
+    'sympy>=1.5, <1.7',
     'matplotlib',
     'pytest>=4.5',
     'pyyaml>=5.1',
