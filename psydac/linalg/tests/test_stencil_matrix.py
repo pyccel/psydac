@@ -232,16 +232,21 @@ def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
         M._data[:] = np.random.random(M._data.shape)
 
 
-    # check that the basic properties on the matrix work
+    # Check that the basic operation return the correct StencilMatrix
+    assert isinstance(M * 2, StencilMatrix)
     assert (M * 2).dtype == dtype
     assert np.array_equal((M * 2)._data, M._data * 2)
+    assert isinstance(M / 2, StencilMatrix)
     assert (M / 2).dtype == dtype
     assert np.array_equal((M / 2)._data, M._data / 2)
+    assert isinstance(M + M, StencilMatrix)
     assert (M + M).dtype == dtype
     assert np.array_equal((M + M)._data, M._data + M._data)
+    assert isinstance(M - M, StencilMatrix)
     assert (M - M).dtype == dtype
     assert np.array_equal((M - M)._data, M._data - M._data)
 
+    # Check that the basic operation work with complex
     if dtype==complex:
         assert (2j*M).dtype == dtype
         assert np.array_equal((M*2j)._data, M._data*2j)
@@ -256,12 +261,17 @@ def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
     M4 = M.copy()
     M4 -= M
 
+    # Check that the internal basic operation return the correct StencilMatrix
+    assert isinstance(M1, StencilMatrix)
     assert M1.dtype==dtype
     assert np.array_equal(M1._data, M._data * 2)
+    assert isinstance(M2, StencilMatrix)
     assert M2.dtype==dtype
     assert np.array_equal(M2._data, M._data / 2)
+    assert isinstance(M3, StencilMatrix)
     assert M3.dtype==dtype
     assert np.array_equal(M3._data, M._data + M._data)
+    assert isinstance(M4, StencilMatrix)
     assert M4.dtype==dtype
     assert np.array_equal(M4._data, M._data - M._data)
 # ===============================================================================
@@ -303,8 +313,9 @@ def test_stencil_matrix_2d_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False
     M1_exa=abs(M._data)
     M2_exa=M._data.conjugate()
 
-    # Check proprties for each matrixes
+    # Check that the math operation conjugate and abs return the correct StencilMatrix
     for (m, m_exa) in zip([M1, M2],[M1_exa,M2_exa]):
+        assert isinstance(m, StencilMatrix)
         assert m.domain == V
         assert m.codomain == V
         assert m.dtype == dtype
