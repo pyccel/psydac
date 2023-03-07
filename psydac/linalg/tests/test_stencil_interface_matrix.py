@@ -52,18 +52,6 @@ def get_plus_starts_ends(minus_starts, minus_ends, minus_npts, plus_npts, minus_
     ends[plus_axis]   = ends[plus_axis] if plus_ext == 1 else plus_pads[plus_axis]
     return starts, ends
 
-def get_plus_starts_ends(minus_starts, minus_ends, minus_npts, plus_npts, minus_axis, plus_axis,
-                         minus_ext, plus_ext, minus_pads, plus_pads, minus_shifts, plus_shifts,
-                         diff):
-    """
-    Compute the coefficients needed by the plus patch in a given interface.
-    """
-    starts = [max(0, s - m * p) for s, m, p in zip(minus_starts, plus_shifts, plus_pads)]
-    ends = [min(n, e + m * p) for e, n, m, p in zip(minus_ends, plus_npts, plus_shifts, plus_pads)]
-    starts[plus_axis] = 0 if plus_ext == -1 else ends[plus_axis] - plus_pads[plus_axis]
-    ends[plus_axis] = ends[plus_axis] if plus_ext == 1 else plus_pads[plus_axis]
-    return starts, ends
-
 # TODO : Add test about dot, div, transpose, toarray, tosparse, copy, basic operation, max, exchange_assembly_data, set_backend
 # ===============================================================================
 # SERIAL TESTS
