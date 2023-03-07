@@ -3,7 +3,7 @@
 
 from abc                 import abstractmethod
 from numpy               import ndarray
-from scipy.linalg.lapack import dgbtrf, dgbtrs
+from scipy.linalg.lapack import dgbtrf, dgbtrs, zgbtrf, zgbtrs
 from scipy.sparse        import spmatrix
 from scipy.sparse.linalg import splu
 
@@ -53,11 +53,15 @@ class BandedSolver ( DirectSolver ):
         self._l    = l
 
         # ... LU factorization
-        self._bmat, self._ipiv, self._finfo = dgbtrf(bmat, l, u)
+        if bmat.dtype==complex:
+            self._bmat, self._ipiv, self._finfo = zgbtrf(bmat, l, u)
+        else:
+            self._bmat, self._ipiv, self._finfo = dgbtrf(bmat, l, u)
 
         self._sinfo = None
 
         self._space = ndarray
+        self._dtype=bmat.dtype
 
     @property
     def finfo( self ):
@@ -96,7 +100,10 @@ class BandedSolver ( DirectSolver ):
         assert rhs.T.shape[0] == self._bmat.shape[1]
 
         if out is None:
-            preout, self._sinfo = dgbtrs(self._bmat, self._l, self._u, rhs.T, self._ipiv, trans=transposed)
+            if self._dtype == complex:
+                preout, self._sinfo = zgbtrs(self._bmat, self._l, self._u, rhs.T, self._ipiv, trans=transposed)
+            else:
+                preout, self._sinfo = dgbtrs(self._bmat, self._l, self._u, rhs.T, self._ipiv, trans=transposed)
             out = preout.T
 
         else :
@@ -107,10 +114,13 @@ class BandedSolver ( DirectSolver ):
             if rhs is not out:
                 out[:] = rhs
 
-            # TODO: handle non-contiguous views?
-            
+            # TODO: handle non-contiguo_bmatus views?
+
             # we want FORTRAN-contiguous data (default is assumed to be C contiguous)
-            _, self._sinfo = dgbtrs(self._bmat, self._l, self._u, out.T, self._ipiv, overwrite_b=True, trans=transposed)
+            if self._dtype == complex:
+                _, self._sinfo = zgbtrs(self._bmat, self._l, self._u, out.T, self._ipiv, overwrite_b=True, trans=transposed)
+            else:
+                _, self._sinfo = dgbtrs(self._bmat, self._l, self._u, out.T, self._ipiv, overwrite_b=True, trans=transposed)
 
         return out
 
