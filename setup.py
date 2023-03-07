@@ -46,7 +46,6 @@ packages = find_packages()
 install_requires = [
 
     # Third-party packages from PyPi
-    'numpy>=1.16',
     'scipy>=0.18',
     'sympy>=1.5, <1.7',
     'matplotlib',
@@ -54,6 +53,10 @@ install_requires = [
     'pyyaml>=5.1',
     'packaging',
     'pyevtk',
+    'wheel',
+    'setuptools >=61,!=67.2.0',
+    'numpy >=1.16,<1.22',
+    'Cython>=0.25',
 
     # Our packages from PyPi
     'sympde==0.15.2',
@@ -61,14 +64,14 @@ install_requires = [
     'gelato==0.11',
 
     # Alternative backend to Pyccel is Numba
-    'numba',
+    #'numba',
 
     # In addition, we depend on mpi4py and h5py (MPI version).
     # Since h5py must be built from source, we run the commands
     #
     # python3 -m pip install requirements.txt
     # python3 -m pip install .
-    'mpi4py',
+    'mpi4py>=3.0.0',
     'h5py',
 
     # When pyccel is run in parallel with MPI, it uses tblib to pickle
@@ -76,7 +79,7 @@ install_requires = [
     'tblib',
 
     # IGAKIT - not on PyPI
-    'igakit',
+    'igakit @ git+https://github.com/dalcinl/igakit@master',
 ]
 
 dependency_links = []

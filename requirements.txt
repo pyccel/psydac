@@ -4,4 +4,3 @@ numpy >=1.16,<1.22
 Cython>=0.25
 mpi4py>=3.0.0
 h5py
-https://github.com/dalcinl/igakit/archive/refs/heads/master.zip
