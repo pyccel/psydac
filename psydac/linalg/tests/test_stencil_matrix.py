@@ -8,6 +8,10 @@ from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatr
 from psydac.api.settings import *
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
+# backend to activate multi threading
+PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP           = PSYDAC_BACKEND_GPYCCEL.copy()
+PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP['openmp'] = True
+
 
 # ===============================================================================
 def compute_global_starts_ends(domain_decomposition, npts, pads):
@@ -2866,7 +2870,7 @@ def test_stencil_matrix_1d_parallel_backend_dot(dtype, n1, p1, sh1, P1, backend)
 @pytest.mark.parametrize('sh2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
-@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 @pytest.mark.parallel
 def test_stencil_matrix_2d_parallel_backend_dot(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2, backend):
     from mpi4py import MPI
@@ -2931,6 +2935,74 @@ def test_stencil_matrix_2d_parallel_backend_dot(dtype, n1, n2, p1, p2, sh1, sh2,
     assert M.T.backend is M.backend
     assert (M + M).backend is M.backend
     assert (2 * M).backend is M.backend
+# ===============================================================================
+@pytest.mark.parametrize('dtype', [float])
+@pytest.mark.parametrize('n1', [8])
+@pytest.mark.parametrize('n2', [13])
+@pytest.mark.parametrize('p1', [1])
+@pytest.mark.parametrize('p2', [1])
+@pytest.mark.parametrize('sh1', [1])
+@pytest.mark.parametrize('sh2', [1])
+@pytest.mark.parametrize('P1', [True, False])
+@pytest.mark.parametrize('P2', [True, False])
+@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parallel
+def test_stencil_matrix_2d_parallel_backend_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2, backend):
+    from mpi4py import MPI
+    from psydac.ddm.cart import CartDecomposition
+
+    comm = MPI.COMM_WORLD
+    # Create domain decomposition
+    D = DomainDecomposition([n1, n2], periods=[P1, P2], comm=comm)
+
+    # Partition the points
+    npts = [n1, n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[sh1, sh2])
+
+    # Create vector space and stencil matrix
+    V = StencilVectorSpace(cart, dtype=dtype)
+    M = StencilMatrix(V, V, backend=backend)
+
+    s1, s2 = V.starts
+    e1, e2 = V.ends
+
+    # Fill in matrix values with random numbers between 0 and 1
+    if dtype == complex:
+        fill_in = lambda i1, i2: 10j * i1 + i2
+    else:
+        fill_in = lambda i1, i2: 10 * i1 + i2
+
+    for k1 in range(-p1, p1 + 1):
+        for k2 in range(-p2, p2 + 1):
+            M[s1-e1+1, s2-e2+1, k1, k2] = fill_in(k1, k2)
+
+    # If domain is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # TEST: compute transpose, then convert to Scipy sparse format
+    Ts = M.transpose().tosparse()
+
+    # Exact result: convert to Scipy sparse format, then transpose
+    Ts_exact = M.tosparse().transpose()
+
+    # # Exact result: convert to Scipy sparse format including padding, then
+    # # transpose, hence remove entries that do not belong to current process.
+    # Ts_exact = M.tosparse(with_pads=True).transpose()
+    #
+    # # ...
+    # Ts_exact = Ts_exact.tocsr()
+    # for i, j in zip(*Ts_exact.nonzero()):
+    #     i1, i2 = np.unravel_index(i, shape=[n1, n2], order='C')
+    #     if not (s1 <= i1 <= e1 and s2 <= i2 <= e2):
+    #         Ts_exact[i, j] = 0.0
+    # Ts_exact = Ts_exact.tocoo()
+    # Ts_exact.eliminate_zeros()
+    # ...
+
+    # Check data
+    assert abs(Ts - Ts_exact).max() < 1e-14
 
 # ===============================================================================
 # SCRIPT FUNCTIONALITY
