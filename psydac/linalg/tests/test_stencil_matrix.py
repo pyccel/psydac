@@ -2121,7 +2121,6 @@ def test_stencil_matrix_1d_serial_backend_transpose(dtype, n1, p1, s1, P1, backe
 @pytest.mark.parametrize('P2', [False])
 @pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_transpose(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend):
-# def test_stencil_matrix_2d_serial_backend_transpose(dtype=float, n1=5, n2=5, p1=2, p2=2, s1=1, s2=1, P1=False, P2=False, backend=PSYDAC_BACKEND_GPYCCEL):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
 
@@ -2187,7 +2186,6 @@ def test_stencil_matrix_2d_serial_backend_transpose(dtype, n1, n2, p1, p2, s1, s
 @pytest.mark.parametrize('P3', [False])
 @pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_3d_serial_backend_transpose(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1, P2, P3, backend):
-# def test_stencil_matrix_2d_serial_backend_transpose(dtype=float, n1=5, n2=5, p1=2, p2=2, s1=1, s2=1, P1=False, P2=False, backend=PSYDAC_BACKEND_GPYCCEL):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1, n3 - 1], periods=[P1, P2, P3])
 
@@ -2976,7 +2974,7 @@ def test_stencil_matrix_2d_parallel_backend_transpose(dtype, n1, n2, p1, p2, sh1
 
     for k1 in range(-p1, p1 + 1):
         for k2 in range(-p2, p2 + 1):
-            M[s1-e1+1, s2-e2+1, k1, k2] = fill_in(k1, k2)
+            M[s1:e1 + 1, s2:e2 + 1, k1, k2] = fill_in(k1, k2)
 
     # If domain is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
