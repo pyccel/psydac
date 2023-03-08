@@ -236,7 +236,7 @@ class KroneckerStencilMatrix( LinearOperator ):
         return self.transpose()
 
 #==============================================================================
-class KroneckerDenseMatrix( Matrix ):
+class KroneckerDenseMatrix( LinearOperator ):
     """ Kronecker product of 1D dense matrices.
     """
 
