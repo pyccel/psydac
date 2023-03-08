@@ -3,8 +3,8 @@ from sympde.expr.equation  import EssentialBC
 
 from psydac.linalg.stencil import StencilVector, StencilMatrix, ProductLinearOperator
 from psydac.linalg.stencil import StencilInterfaceMatrix
-from psydac.linalg.block   import BlockVector, BlockMatrix
 from psydac.linalg.kron    import KroneckerDenseMatrix
+from psydac.linalg.block   import BlockVector, BlockLinearOperator
 
 __all__ = ('apply_essential_bc',)
 
@@ -40,10 +40,10 @@ def apply_essential_bc(a, *bcs, **kwargs):
             check_boundary_type(bc)
             apply_essential_bc_BlockVector(a, bc, is_broken=is_broken)
 
-    elif isinstance(a, BlockMatrix):
+    elif isinstance(a, BlockLinearOperator):
         for bc in bcs:
             check_boundary_type(bc)
-            apply_essential_bc_BlockMatrix(a, bc, **kwargs)
+            apply_essential_bc_BlockLinearOperator(a, bc, **kwargs)
 
     else:
         raise TypeError('Cannot apply essential BCs to object of type {}'\
@@ -144,16 +144,16 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
         pass
 
 #==============================================================================
-def apply_essential_bc_BlockMatrix(a, bc, *, identity=False, is_broken=True):
+def apply_essential_bc_BlockLinearOperator(a, bc, *, identity=False, is_broken=True):
     """
     Apply homogeneous dirichlet boundary conditions in nD.
     is_broken is used to identify if we are in a multipatch setting, where we assume
-    that the domain and codomain of each block of the BlockMatrix corresponds to a single patch.
+    that the domain and codomain of each block of the BlockLinearOperator corresponds to a single patch.
 
     Parameters
     ----------
-    a : BlockMatrix
-        The BlockMatrix that will be modified.
+    a : BlockLinearOperator
+        The BlockLinearOperator that will be modified.
  
     bc: Sympde.expr.equation.BasicBoundaryCondition
         The boundary condition type that will be applied to a.
@@ -162,7 +162,7 @@ def apply_essential_bc_BlockMatrix(a, bc, *, identity=False, is_broken=True):
         Set to True if we are in a multipatch setting and False otherwise.
     """
 
-    assert isinstance(a, BlockMatrix)
+    assert isinstance(a, BlockLinearOperator)
     keys = a.nonzero_block_indices
 
     is_broken = bc.variable.space.is_broken and is_broken

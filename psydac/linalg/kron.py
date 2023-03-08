@@ -4,7 +4,7 @@ from functools import reduce
 import numpy as np
 from scipy.sparse import kron
 
-from psydac.linalg.basic   import LinearOperator, LinearSolver, Matrix
+from psydac.linalg.basic   import LinearOperator, LinearSolver
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 
 __all__ = ['KroneckerStencilMatrix',
@@ -12,7 +12,7 @@ __all__ = ['KroneckerStencilMatrix',
            'kronecker_solve']
 
 #==============================================================================
-class KroneckerStencilMatrix( Matrix ):
+class KroneckerStencilMatrix( LinearOperator ):
     """ Kronecker product of 1D stencil matrices.
     """
 
@@ -22,7 +22,7 @@ class KroneckerStencilMatrix( Matrix ):
         assert isinstance( W, StencilVectorSpace )
 
         for i,A in enumerate(args):
-            assert isinstance( A, Matrix )
+            assert isinstance( A, LinearOperator )
             assert A.domain.ndim == 1
             assert A.domain.npts[0] == V.npts[i]
 
@@ -57,6 +57,15 @@ class KroneckerStencilMatrix( Matrix ):
     @property
     def mats( self ):
         return self._mats
+
+    def __truediv__(self, a):
+        """ Divide by scalar. """
+        return self * (1.0 / a)
+
+    def __itruediv__(self, a):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / a
+        return self
 
     # ...
     def dot( self, x, out=None ):

@@ -21,8 +21,8 @@ from psydac.api.basic        import random_string
 from psydac.api.grid         import QuadratureGrid, BasisValues
 from psydac.api.utilities    import flatten
 from psydac.linalg.stencil   import StencilVector, StencilMatrix, StencilInterfaceMatrix
-from psydac.linalg.stencil   import ProductLinearOperator
-from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockMatrix
+from psydac.linalg.basic     import ComposedLinearOperator
+from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
@@ -663,8 +663,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             pads = test_degree
 
-        if self._matrix is None and (is_broken or isinstance( expr, (ImmutableDenseMatrix, Matrix))):
-            self._matrix = BlockMatrix(trial_space, test_space)
+        if self._matrix is None and (is_broken or isinstance(expr, (ImmutableDenseMatrix, Matrix))):
+            self._matrix = BlockLinearOperator(trial_space, test_space)
 
         if is_broken:
             i,j = self.get_space_indices_from_target(domain, target )
@@ -679,29 +679,30 @@ class DiscreteBilinearForm(BasicDiscrete):
             ncells = tuple(max(i,j) for i,j in zip(test_fem_space.ncells, trial_fem_space.ncells))
             i=0
             j=0
-            #else so initialisation causing bug on line 682 
+            #else so initialisation causing bug on line 682
 
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # case of system of equations
 
             if is_broken: #multi patch
                 if not self._matrix[i,j]:
-                    mat = BlockMatrix(trial_fem_space._refined_space[ncells].vector_space, test_fem_space._refined_space[ncells].vector_space)
+                    mat = BlockLinearOperator(trial_fem_space._refined_space[ncells].vector_space, test_fem_space._refined_space[ncells].vector_space)
                     if not is_conformal and not i==j:
                         if all(trn>=tn for trn,tn in zip(trial_fem_space.ncells, test_fem_space.ncells)):
                             Ps  = [construct_projection_operator(ts._refined_space[ncells], ts) for ts in test_fem_space.spaces]
-                            P   = BlockMatrix(test_fem_space._refined_space[ncells].vector_space, test_fem_space.vector_space)
+                            P   = BlockLinearOperator(test_fem_space._refined_space[ncells].vector_space, test_fem_space.vector_space)
 
                             for ni,Pi in enumerate(Ps):
                                 P[ni,ni] = Pi
 
-                            mat = ProductLinearOperator(trial_space, test_space, P, mat)
+                            mat = ComposedLinearOperator(trial_space, test_space, P, mat)
                         else:
                             Ps  = [construct_projection_operator(trs, trs._refined_space[ncells]) for trs in trial_fem_space.spaces]
-                            P   = BlockMatrix(trial_fem_space.vector_space, trial_fem_space._refined_space[ncells].vector_space)
+                            P   = BlockLinearOperator(trial_fem_space.vector_space, trial_fem_space._refined_space[ncells].vector_space)
                             for ni,Pi in enumerate(Ps):P[ni,ni] = Pi
-                            mat = ProductLinearOperator(trial_space, test_space, mat, P)
+                            mat = ComposedLinearOperator(trial_space, test_space, mat, P)
 
                     self._matrix[i,j] = mat
+
                 matrix = self._matrix[i,j]
             else: # single patch
                 matrix = self._matrix
