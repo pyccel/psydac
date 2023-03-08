@@ -1,7 +1,8 @@
 # coding: utf-8
 from sympde.expr.equation  import EssentialBC
 
-from psydac.linalg.stencil import StencilVector, StencilMatrix, ProductLinearOperator
+from psydac.linalg.basic   import ComposedLinearOperator
+from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.stencil import StencilInterfaceMatrix
 from psydac.linalg.kron    import KroneckerDenseMatrix
 from psydac.linalg.block   import BlockVector, BlockLinearOperator
@@ -22,8 +23,8 @@ def apply_essential_bc(a, *bcs, **kwargs):
                 **kwargs
             )
 
-    elif isinstance(a, ProductLinearOperator):
-        apply_essential_bc(a.operators[0], *bcs, **kwargs)
+    elif isinstance(a, ComposedLinearOperator):
+        apply_essential_bc(a.multiplicants[0], *bcs, **kwargs)
 
     elif isinstance(a, KroneckerDenseMatrix):
         for bc in bcs:
