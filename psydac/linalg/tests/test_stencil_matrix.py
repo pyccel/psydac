@@ -1758,10 +1758,7 @@ def test_stencil_matrix_2d_serial_transpose_9(dtype, n1, n2, p1, p2, s1, s2, P1,
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('s3', [1])
-@pytest.mark.parametrize('P1', [False])
-@pytest.mark.parametrize('P2', [False])
-@pytest.mark.parametrize('P3', [False])
-def test_stencil_matrix_3d_serial_transpose_1(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1, P2, P3):
+def test_stencil_matrix_3d_serial_transpose_1(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=False, P2=False, P3=False):
     # This should only work with non periodic boundaries
 
     # Create domain decomposition
@@ -2934,7 +2931,7 @@ def test_stencil_matrix_2d_parallel_backend_dot(dtype, n1, n2, p1, p2, sh1, sh2,
     assert (M + M).backend is M.backend
     assert (2 * M).backend is M.backend
 # ===============================================================================
-@pytest.mark.parametrize('dtype', [float])
+@pytest.mark.parametrize('dtype', [float,complex])
 @pytest.mark.parametrize('n1', [8])
 @pytest.mark.parametrize('n2', [13])
 @pytest.mark.parametrize('p1', [1])
@@ -2974,7 +2971,7 @@ def test_stencil_matrix_2d_parallel_backend_transpose(dtype, n1, n2, p1, p2, sh1
 
     for k1 in range(-p1, p1 + 1):
         for k2 in range(-p2, p2 + 1):
-            M[s1:e1 + 1, s2:e2 + 1, k1, k2] = fill_in(k1, k2)
+            M[s1:e1, s2:e2, k1, k2] = fill_in(k1, k2)
 
     # If domain is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
@@ -2982,22 +2979,19 @@ def test_stencil_matrix_2d_parallel_backend_transpose(dtype, n1, n2, p1, p2, sh1
     # TEST: compute transpose, then convert to Scipy sparse format
     Ts = M.transpose().tosparse()
 
-    # Exact result: convert to Scipy sparse format, then transpose
-    Ts_exact = M.tosparse().transpose()
+    # Exact result: convert to Scipy sparse format including padding, then
+    # transpose, hence remove entries that do not belong to current process.
+    Ts_exact = M.tosparse(with_pads=True).transpose()
 
-    # # Exact result: convert to Scipy sparse format including padding, then
-    # # transpose, hence remove entries that do not belong to current process.
-    # Ts_exact = M.tosparse(with_pads=True).transpose()
-    #
-    # # ...
-    # Ts_exact = Ts_exact.tocsr()
-    # for i, j in zip(*Ts_exact.nonzero()):
-    #     i1, i2 = np.unravel_index(i, shape=[n1, n2], order='C')
-    #     if not (s1 <= i1 <= e1 and s2 <= i2 <= e2):
-    #         Ts_exact[i, j] = 0.0
-    # Ts_exact = Ts_exact.tocoo()
-    # Ts_exact.eliminate_zeros()
     # ...
+    Ts_exact = Ts_exact.tocsr()
+    for i, j in zip(*Ts_exact.nonzero()):
+        i1, i2 = np.unravel_index(i, shape=[n1, n2], order='C')
+        if not (s1 <= i1 <= e1 and s2 <= i2 <= e2):
+            Ts_exact[i, j] = 0.0
+    Ts_exact = Ts_exact.tocoo()
+    Ts_exact.eliminate_zeros()
+    ...
 
     # Check data
     assert abs(Ts - Ts_exact).max() < 1e-14

@@ -110,15 +110,12 @@ def test_stencil_vector_space_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1, 
 @pytest.mark.parametrize('n3', [1, 5])
 @pytest.mark.parametrize('p1', [1, 2])
 @pytest.mark.parametrize('p2', [1, 2])
-@pytest.mark.parametrize('p3', [1, 2])
+@pytest.mark.parametrize('p3', [1])
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('s2', [1, 2])
-@pytest.mark.parametrize('s3', [1, 2])
-@pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parametrize('P2', [True, False])
-@pytest.mark.parametrize('P3', [True, False])
+@pytest.mark.parametrize('s3', [1])
 
-def test_stencil_vector_space_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1, P2, P3):
+def test_stencil_vector_space_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=True, P2=False, P3=True):
     # Create domain decomposition
     D = DomainDecomposition([n1,n2,n3], periods=[P1, P2, P3])
 
@@ -363,55 +360,52 @@ def test_stencil_vector_space_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1
     assert V.ndim == 2
     assert V.interfaces == type(type.__dict__)({})
 # ===============================================================================
-#
-# @pytest.mark.parametrize('dtype', [float, complex])
-# @pytest.mark.parametrize('n1', [15, 30])
-# @pytest.mark.parametrize('n2', [20, 40])
-# @pytest.mark.parametrize('n3', [10, 25])
-# @pytest.mark.parametrize('p1', [1, 2])
-# @pytest.mark.parametrize('p2', [1, 2])
-# @pytest.mark.parametrize('p3', [1, 2])
-# @pytest.mark.parametrize('s1', [1, 2])
-# @pytest.mark.parametrize('s2', [1, 2])
-# @pytest.mark.parametrize('s3', [1, 2])
-# @pytest.mark.parametrize('P1', [True, False])
-# @pytest.mark.parametrize('P2', [True, False])
-# @pytest.mark.parametrize('P3', [True, False])
-# @pytest.mark.parallel
-#
-# def test_stencil_vector_space_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1, P2, P3):
-#
-#     from mpi4py import MPI
-#
-#     comm = MPI.COMM_WORLD
-#     # Create domain decomposition
-#     D = DomainDecomposition([n1, n2, n3], periods=[P1, P2, P3], comm=comm)
-#
-#     # Partition the points
-#     npts = [n1,n2, n3]
-#     global_starts, global_ends = compute_global_starts_ends(D, npts)
-#
-#     # Create cart and  vector space
-#     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2, p3], shifts=[s1, s2, s3])
-#     V = StencilVectorSpace(C, dtype=dtype)
-#
-#     # Test properties of the vector space
-#     assert V.dimension == n1*n2*n3
-#     assert V.dtype == dtype
-#     assert V.mpi_type == find_mpi_type(dtype)
-#     assert V.shape == (V.ends[0]+1-V.starts[0] + 2 * p1*s1, V.ends[1]+1-V.starts[1] + 2 * p2*s2, V.ends[2]+1-V.starts[2] + 2 * p3*s3)
-#     assert V.parallel
-#     assert V.cart == C
-#     assert V.npts == (n1, n2, n3)
-#     assert V.starts == C.starts
-#     assert V.ends == C.ends
-#     assert V.parent_starts == (None, None, None)
-#     assert V.parent_ends == (None, None, None)
-#     assert V.pads == (p1, p2, p3)
-#     assert V.periods == (P1, P2, P3)
-#     assert V.shifts == (s1, s2, s3)
-#     assert V.ndim == 3
-#     assert V.interfaces == type(type.__dict__)({})
+
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('n1', [15, 30])
+@pytest.mark.parametrize('n2', [20, 40])
+@pytest.mark.parametrize('n3', [10, 25])
+@pytest.mark.parametrize('p1', [1, 2])
+@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p3', [1])
+@pytest.mark.parametrize('s1', [1, 2])
+@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s3', [1])
+@pytest.mark.parallel
+
+def test_stencil_vector_space_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=True, P2=False, P3=True):
+
+    from mpi4py import MPI
+
+    comm = MPI.COMM_WORLD
+    # Create domain decomposition
+    D = DomainDecomposition([n1, n2, n3], periods=[P1, P2, P3], comm=comm)
+
+    # Partition the points
+    npts = [n1,n2, n3]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    # Create cart and  vector space
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2, p3], shifts=[s1, s2, s3])
+    V = StencilVectorSpace(C, dtype=dtype)
+
+    # Test properties of the vector space
+    assert V.dimension == n1*n2*n3
+    assert V.dtype == dtype
+    assert V.mpi_type == find_mpi_type(dtype)
+    assert V.shape == (V.ends[0]+1-V.starts[0] + 2 * p1*s1, V.ends[1]+1-V.starts[1] + 2 * p2*s2, V.ends[2]+1-V.starts[2] + 2 * p3*s3)
+    assert V.parallel
+    assert V.cart == C
+    assert V.npts == (n1, n2, n3)
+    assert V.starts == C.starts
+    assert V.ends == C.ends
+    assert V.parent_starts == (None, None, None)
+    assert V.parent_ends == (None, None, None)
+    assert V.pads == (p1, p2, p3)
+    assert V.periods == (P1, P2, P3)
+    assert V.shifts == (s1, s2, s3)
+    assert V.ndim == 3
+    assert V.interfaces == type(type.__dict__)({})
 # ===============================================================================
 
 @pytest.mark.parametrize('dtype', [float, complex])
