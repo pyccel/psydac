@@ -44,7 +44,7 @@ def inverse(A, solver, **kwargs):
     """
     # Check solver input
     solvers = ('cg', 'pcg', 'bicg', 'minres', 'lsmr')
-    if not any([solver == solvers[i] for i in range(len(solvers))]):
+    if solver not in solvers:
         raise ValueError(f"Required solver '{solver}' not understood.")
 
     assert isinstance(A, LinearOperator)
