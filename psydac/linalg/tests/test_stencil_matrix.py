@@ -2822,9 +2822,6 @@ def test_stencil_matrix_1d_parallel_backend_dot(dtype, n1, p1, sh1, P1, backend)
     M = StencilMatrix(V, V, backend=backend)
     x = StencilVector(V)
 
-    s1, = V.starts
-    e1, = V.ends
-
     # Fill in stencil matrix values based on diagonal index (periodic!)
     for k1 in range(-p1, p1 + 1):
         M[:, k1] = k1
@@ -2934,8 +2931,8 @@ def test_stencil_matrix_2d_parallel_backend_dot(dtype, n1, n2, p1, p2, sh1, sh2,
 @pytest.mark.parametrize('dtype', [float,complex])
 @pytest.mark.parametrize('n1', [8])
 @pytest.mark.parametrize('n2', [13])
-@pytest.mark.parametrize('p1', [1])
-@pytest.mark.parametrize('p2', [1])
+@pytest.mark.parametrize('p1', [2])
+@pytest.mark.parametrize('p2', [3])
 @pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('sh2', [1])
 @pytest.mark.parametrize('P1', [True, False])
