@@ -165,10 +165,12 @@ def test_non_symmetric_BilinearForm(backend):
 
     print("PASSED")
 
-def test_assembly_no_synchr_args(nc=4, deg=4, backend_language=None):
+def test_assembly_no_synchr_args(backend):
 
-    ncells = [nc, nc]
-    degree = [deg, deg]
+    kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
+
+    ncells = [4, 4]
+    degree = [2, 2]
 
     domain = Square('OmegaLog_', bounds1 = (0.,1.), bounds2 = (0.,1.))
     domain_h = discretize(domain, ncells=ncells, periodic=[True,True])
@@ -189,7 +191,7 @@ def test_assembly_no_synchr_args(nc=4, deg=4, backend_language=None):
     expr = Dot(a,b)
 
     A = BilinearForm((a,b), integral(domain, expr))
-    Ah = discretize(A, domain_h, (V1h,V1h), backend=PSYDAC_BACKENDS[backend_language])
+    Ah = discretize(A, domain_h, (V1h,V1h), **kwargs)
 
     dH1_b = Ah.assemble()
     H1_b  = inverse(dH1_b, 'cg', tol=1e-10)
@@ -200,7 +202,7 @@ def test_assembly_no_synchr_args(nc=4, deg=4, backend_language=None):
     expr = a*b
 
     A = BilinearForm((a,b), integral(domain, expr))
-    Ah = discretize(A, domain_h, (V2h,V2h), backend=PSYDAC_BACKENDS[backend_language])
+    Ah = discretize(A, domain_h, (V2h,V2h), **kwargs)
 
     dH2_b = Ah.assemble()
     H2_b  = inverse(dH2_b, 'cg', tol=1e-10)
@@ -215,11 +217,11 @@ def test_assembly_no_synchr_args(nc=4, deg=4, backend_language=None):
     #L2 proj rho u -> V1
     expr = g*h*rho
     weight_int_prod = BilinearForm((g,h), integral(domain, expr))
-    weight_int_prod_h = discretize(weight_int_prod, domain_h, (V2h,V2h), backend=PSYDAC_BACKENDS[backend_language])
+    weight_int_prod_h = discretize(weight_int_prod, domain_h, (V2h,V2h), **kwargs)
 
     expr = g*rho
     int_prod = LinearForm(g, integral(domain, expr))
-    int_prod_h = discretize(int_prod, domain_h, V2h, backend=PSYDAC_BACKENDS[backend_language])
+    int_prod_h = discretize(int_prod, domain_h, V2h, **kwargs)
 
 
     #initial solution
@@ -229,20 +231,20 @@ def test_assembly_no_synchr_args(nc=4, deg=4, backend_language=None):
 
     expr = Dot(u_init, u)
     l = LinearForm(u, integral(domain, expr))
-    lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
+    lh = discretize(l, domain_h, V1h, **kwargs)
     b  = lh.assemble()
     uh = H1_b.dot(b)
 
     f  = element_of(V2h.symbolic_space, name='f')
     expr = rho_init*f
     lp = LinearForm(f, integral(domain, expr))
-    lph = discretize(lp, domain_h, V2h, backend=PSYDAC_BACKENDS[backend_language])
+    lph = discretize(lp, domain_h, V2h, **kwargs)
     b  = lph.assemble()
     rhoh = H2_b.dot(b)
 
     expr = f
     lp = LinearForm(f, integral(domain, expr))
-    lph = discretize(lp, domain_h, V2h, backend=PSYDAC_BACKENDS[backend_language])
+    lph = discretize(lp, domain_h, V2h, **kwargs)
     b  = lph.assemble()
     const_1 = H2_b.dot(b)
 
