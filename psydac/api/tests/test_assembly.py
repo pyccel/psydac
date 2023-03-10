@@ -1,15 +1,17 @@
 import pytest
 from sympy import pi, sin, cos, tan, atan, atan2
-from sympy import exp, sinh, cosh, tanh, atanh
+from sympy import exp, sinh, cosh, tanh, atanh, Tuple
 
 from sympde.topology import Line, Square
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import element_of
+from sympde.topology import element_of, Derham
 from sympde.core     import Constant
 from sympde.expr     import BilinearForm
 from sympde.expr     import LinearForm
 from sympde.expr     import integral
+from sympde.calculus import Dot
 
+from psydac.linalg.solvers     import inverse
 from psydac.api.discretization import discretize
 from psydac.fem.basic          import FemField
 from psydac.api.settings       import PSYDAC_BACKENDS
@@ -162,6 +164,101 @@ def test_non_symmetric_BilinearForm(backend):
     A = ah.assemble()
 
     print("PASSED")
+
+def test_assembly_no_synchr_args(nc=4, deg=4, backend_language=None):
+
+    ncells = [nc, nc]
+    degree = [deg, deg]
+
+    domain = Square('OmegaLog_', bounds1 = (0.,1.), bounds2 = (0.,1.))
+    domain_h = discretize(domain, ncells=ncells, periodic=[True,True])
+
+    derham  = Derham(domain, ["H1", "Hdiv", "L2"])
+    derham_h = discretize(derham, domain_h, degree=degree)
+
+    # multi-patch (broken) spaces
+    V1h = derham_h.V1
+    V2h = derham_h.V2
+
+    # broken (patch-wise) differential operators
+    bD0_b, bD1_b = derham_h.derivatives_as_matrices
+    
+    a   = element_of(V1h.symbolic_space, name='a')
+    b   = element_of(V1h.symbolic_space, name='b')
+
+    expr = Dot(a,b)
+
+    A = BilinearForm((a,b), integral(domain, expr))
+    Ah = discretize(A, domain_h, (V1h,V1h), backend=PSYDAC_BACKENDS[backend_language])
+
+    dH1_b = Ah.assemble()
+    H1_b  = inverse(dH1_b, 'cg', tol=1e-10)
+
+    a   = element_of(V2h.symbolic_space, name='a')
+    b   = element_of(V2h.symbolic_space, name='b')
+
+    expr = a*b
+
+    A = BilinearForm((a,b), integral(domain, expr))
+    Ah = discretize(A, domain_h, (V2h,V2h), backend=PSYDAC_BACKENDS[backend_language])
+
+    dH2_b = Ah.assemble()
+    H2_b  = inverse(dH2_b, 'cg', tol=1e-10)
+
+    u    = element_of(V1h.symbolic_space, name='u')    
+    rho  = element_of(V2h.symbolic_space, name='rho')
+    f    = element_of(V2h.symbolic_space, name='f')
+    g    = element_of(V2h.symbolic_space, name='g')
+    h    = element_of(V2h.symbolic_space, name='h')
+
+
+    #L2 proj rho u -> V1
+    expr = g*h*rho
+    weight_int_prod = BilinearForm((g,h), integral(domain, expr))
+    weight_int_prod_h = discretize(weight_int_prod, domain_h, (V2h,V2h), backend=PSYDAC_BACKENDS[backend_language])
+
+    expr = g*rho
+    int_prod = LinearForm(g, integral(domain, expr))
+    int_prod_h = discretize(int_prod, domain_h, V2h, backend=PSYDAC_BACKENDS[backend_language])
+
+
+    #initial solution
+    x,y    = domain.coordinates
+    rho_init = 1
+    u_init  = Tuple(cos(2*pi*x) ,sin(2*pi*y))
+
+    expr = Dot(u_init, u)
+    l = LinearForm(u, integral(domain, expr))
+    lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
+    b  = lh.assemble()
+    uh = H1_b.dot(b)
+
+    f  = element_of(V2h.symbolic_space, name='f')
+    expr = rho_init*f
+    lp = LinearForm(f, integral(domain, expr))
+    lph = discretize(lp, domain_h, V2h, backend=PSYDAC_BACKENDS[backend_language])
+    b  = lph.assemble()
+    rhoh = H2_b.dot(b)
+
+    expr = f
+    lp = LinearForm(f, integral(domain, expr))
+    lph = discretize(lp, domain_h, V2h, backend=PSYDAC_BACKENDS[backend_language])
+    b  = lph.assemble()
+    const_1 = H2_b.dot(b)
+
+    div = bD1_b
+
+    rhoh1 = rhoh-div.dot(uh)
+    rhof1  = FemField(V2h, rhoh1)
+    rhoh2 = rhoh-div.dot(uh)
+    rhof2  = FemField(V2h, rhoh2)
+    weight_mass_matrix = weight_int_prod_h.assemble(rho=rhof1)
+    inte_bilin = const_1.dot(weight_mass_matrix.dot(const_1))
+
+    int_prod_rho = int_prod_h.assemble(rho=rhof2)
+    inte_lin = int_prod_rho.dot(const_1)
+    assert( abs(inte_bilin - 1.) < 1.e-9)
+    assert( abs(inte_lin - 1.) < 1.e-9)
 
 #==============================================================================
 if __name__ == '__main__':
