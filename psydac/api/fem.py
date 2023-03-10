@@ -970,6 +970,8 @@ class DiscreteLinearForm(BasicDiscrete):
                     i = self.get_space_indices_from_target(self.domain, self.target)
                     v = v[i]
                 if isinstance(v, FemField):
+                    if not v.coeffs.ghost_regions_in_sync:
+                        v.coeffs.update_ghost_regions()
                     basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, trial=True, grid=self.grid)
                     bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
