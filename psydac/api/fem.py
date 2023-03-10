@@ -791,10 +791,10 @@ class DiscreteBilinearForm(BasicDiscrete):
                         if not is_conformal:
                             if all(trn>=tn for trn,tn in zip(trial_fem_space.ncells, test_fem_space.ncells)):
                                 P   = construct_projection_operator(test_fem_space._refined_space[ncells], test_fem_space)
-                                mat = ProductLinearOperator(trial_space, test_space, P, mat)
+                                mat = ComposedLinearOperator(trial_space, test_space, P, mat)
                             else:
                                 P   = construct_projection_operator(trial_fem_space, trial_fem_space._refined_space[ncells])
-                                mat = ProductLinearOperator(trial_space, test_space, mat, P)
+                                mat = ComposedLinearOperator(trial_space, test_space, mat, P)
                         global_mats[i,j] = mat
                 else:
                     global_mats[i,j] = StencilMatrix(trial_space, test_space, pads=tuple(pads))
