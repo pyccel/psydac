@@ -147,8 +147,8 @@ def extract_stencil_mats(mats):
     for M in mats:
         if isinstance(M, (StencilInterfaceMatrix, StencilMatrix)):
             new_mats.append(M)
-        elif isinstance(M, ProductLinearOperator):
-            new_mats += [i for i in M.operators if isinstance(i, (StencilInterfaceMatrix, StencilMatrix))]
+        elif isinstance(M, ComposedLinearOperator):
+            new_mats += [i for i in M.multiplicants if isinstance(i, (StencilInterfaceMatrix, StencilMatrix))]
     return new_mats
 #==============================================================================
 class DiscreteBilinearForm(BasicDiscrete):
