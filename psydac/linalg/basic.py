@@ -712,6 +712,14 @@ class ComposedLinearOperator(LinearOperator):
             out = A.dot(x)
         return out
 
+    def exchange_assembly_data( self ):
+        for op in self._multiplicants:
+            op.exchange_assembly_data()
+
+    def set_backend(self, backend):
+        for op in self._multiplicants:
+            op.set_backend(backend)
+
 #===============================================================================
 class PowerLinearOperator(LinearOperator):
 
