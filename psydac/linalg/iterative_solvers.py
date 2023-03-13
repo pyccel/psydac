@@ -16,6 +16,7 @@ __all__ = ['cg', 'pcg', 'bicg', 'lsmr', 'minres', 'jacobi', 'weighted_jacobi']
 def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
     """
     Conjugate gradient algorithm for solving linear system Ax=b.
+    It's only working if A is an hermitian and a positive-definite matrix.
     Implementation from [1], page 137.
 
     Parameters
@@ -486,11 +487,11 @@ def bicg(A, At, b, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         vs = At.dot(ps, out=vs)
         #-----------------------
 
-        # c := (r, rs)
-        c = r.dot(rs)
+        # c := (rs, r)
+        c = rs.dot(r)
 
-        # a := (r, rs) / (v, ps)
-        a = c / v.dot(ps)
+        # a := (rs, r) / (ps, v)
+        a = c / ps.dot(v)
 
         #-----------------------
         # SOLUTION UPDATE
@@ -505,22 +506,178 @@ def bicg(A, At, b, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         r -= v
 
         # rs := rs - a*vs
-        vs *= a
+        vs *= a.conj()
         rs -= vs
 
-        # b := (r, rs)_{m+1} / (r, rs)_m
-        b = r.dot(rs) / c
+        # b := (rs, r)_{m+1} / (r, rs)_m
+        b = rs.dot(r) / c
 
         # p := r + b*p
         p *= (b/a)
         p += r
 
         # ps := rs + b*ps
-        ps *= b
+        ps *= b.conj()
         ps += rs
 
         # ||r||_2 := (r, r)
         res_sqr = r.dot( r )
+
+        if verbose:
+            print( template.format(m, sqrt(res_sqr)) )
+
+    if verbose:
+        print( "+---------+---------------------+")
+
+    # Convergence information
+    info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt( res_sqr ) }
+
+    return x, info
+# ...
+def bicgstab(A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    """
+    Biconjugate gradient stabilized method (BCGSTAB) algorithm for solving linear system Ax=b.
+    Implementation from [1], page 175.
+
+    Parameters
+    ----------
+    A : psydac.linalg.basic.LinearOperator
+        Left-hand-side matrix A of linear system; individual entries A[i,j]
+        can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
+        function (i.e. matrix-vector product A*p).
+
+    b : psydac.linalg.basic.Vector
+        Right-hand-side vector of linear system. Individual entries b[i] need
+        not be accessed, but b has 'shape' attribute and provides 'copy()' and
+        'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
+        scalar multiplication and sum operations are available.
+
+    x0 : psydac.linalg.basic.Vector
+        First guess of solution for iterative solver (optional).
+
+    tol : float
+        Absolute tolerance for 2-norm of residual r = A*x - b.
+
+    maxiter: int
+        Maximum number of iterations.
+
+    verbose : bool
+        If True, 2-norm of residual r is printed at each iteration.
+
+    Results
+    -------
+    x : psydac.linalg.basic.Vector
+        Numerical solution of linear system.
+
+    info : dict
+        Dictionary containing convergence information:
+          - 'niter'    = (int) number of iterations
+          - 'success'  = (boolean) whether convergence criteria have been met
+          - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+
+    References
+    ----------
+    [1] H. A. van der Vorst. Bi-CGSTAB: A fast and smoothly converging variant of Bi-CG for the
+    solution of nonsymmetric linear systems. SIAM J. Sci. Stat. Comp., 13(2):631–644, 1992
+
+    TODO
+    ----
+    Add optional preconditioner
+
+    """
+    n = A.shape[0]
+
+    assert A .shape == (n, n)
+    assert b .shape == (n,)
+
+    # First guess of solution
+    if x0 is None:
+        x = 0.0 * b.copy()
+    else:
+        assert x0.shape == (n,)
+        x = x0.copy()
+
+    # First values
+    r  = b - A.dot( x )
+    p  = r.copy()
+    v  = 0.0 * b.copy()
+    vs  = 0.0 * b.copy()
+
+    r0 = r.copy()
+    s = 0.0 * r.copy()
+
+    res_sqr = r.dot(r)
+    tol_sqr = tol**2
+
+    if verbose:
+        print( "BiCG solver:" )
+        print( "+---------+---------------------+")
+        print( "+ Iter. # | L2-norm of residual |")
+        print( "+---------+---------------------+")
+        template = "| {:7d} | {:19.2e} |"
+
+    # Iterate to convergence
+    for m in range(1, maxiter + 1):
+
+        if res_sqr < tol_sqr:
+            m -= 1
+            break
+
+        #-----------------------
+        # MATRIX-VECTOR PRODUCTS
+        #-----------------------
+        v  = A .dot(p , out=v)
+        #-----------------------
+
+        # c := (r0, r)
+        c = r0.dot(r)
+
+        # a := (r0, r) / (r0, v)
+        a = c / (r0.dot(v))
+
+        # s := r - a*v
+        s *= 0
+        v *= a
+        s += r
+        s -= v
+
+        # vs :=  A*s
+        vs = A.dot(s, out=vs)
+
+        # w := (s, A*s) / (A*s, A*s)
+        w = s.dot(vs) / vs.dot(vs)
+
+        #-----------------------
+        # SOLUTION UPDATE
+        #-----------------------
+        # x := x + a*p +w*s
+        p *= a
+        s *= w
+        x += p
+        x += s
+        #-----------------------
+
+        # r := s - w*vs
+        vs *= w
+        s *= 1/w
+        r *= 0
+        r += s
+        r -= vs
+
+        # ||r||_2 := (r, r)
+        res_sqr = r.dot( r )
+
+        if res_sqr<tol_sqr:
+            break
+
+        # b := a / w * (r0, r)_{m+1} / (r0, r)_m
+        b = r0.dot(r)*a / (c * w)
+
+        # p := r + b*p- b*w*v
+        v *= (b*w/a)
+        p *= (b/a)
+        p -= v
+        p += r
 
         if verbose:
             print( template.format(m, sqrt(res_sqr)) )
@@ -596,7 +753,7 @@ def minres(A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
     assert A .shape == (n, n)
     assert b .shape == (n,)
-
+    assert A.dtype ==float
     # First guess of solution
     if x0 is None:
         x = 0.0 * b.copy()

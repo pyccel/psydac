@@ -50,7 +50,7 @@ class BlockVectorSpace( VectorSpace ):
         if all(np.dtype(s.dtype)==np.dtype(spaces[0].dtype) for s in spaces):
             self._dtype  = spaces[0].dtype
         else:
-            self._dtype = tuple(s.dtype for s in spaces)
+            raise NotImplementedError("This case is not treated")
 
         self._connectivity = connectivity or {}
         self._connectivity_readonly = MappingProxyType(self._connectivity)
@@ -503,6 +503,27 @@ class BlockLinearOperator( LinearOperator ):
     @property
     def T(self):
         return self.transpose()
+    @property
+    def conjugate( self, out=None):
+        if out is not None:
+            assert isinstance( out, BlockLinearOperator )
+            assert out.domain is self.domain
+            assert out.codomain is self.codomain
+
+        else:
+            out = BlockLinearOperator( self.domain, self.codomain, self.blocks )
+
+        for (_, _), Lij in out._blocks_as_args.items():
+            Lij.conjugate(out=Lij)
+
+        return out
+    @property
+    def conj( self, out=None):
+        return self.conjugate(out=out)
+
+    @property
+    def H(self):
+        return (self.T).conj()
 
     def __truediv__(self, a):
         """ Divide by scalar. """

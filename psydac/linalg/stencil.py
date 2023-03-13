@@ -788,6 +788,8 @@ class StencilMatrix( LinearOperator ):
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W, StencilVectorSpace )
         assert W.pads == V.pads
+        if not W.dtype==V.dtype:
+            raise NotImplementedError("This case is not treated")
 
         if pads is not None:
             for p,vp in zip(pads, V.pads):
@@ -1304,7 +1306,9 @@ class StencilMatrix( LinearOperator ):
     @property
     def T(self):
         return self.transpose()
-
+    @property
+    def H(self):
+        return (self.conj()).T
     def diagonal(self):
         if self._diag_indices is None:
             cm    = self.codomain.shifts
