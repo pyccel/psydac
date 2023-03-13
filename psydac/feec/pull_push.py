@@ -65,6 +65,38 @@ def pull_1d_l2(func_ini, mapping):
 #==============================================================================
 # 2D PULL-BACKS
 #==============================================================================
+def pull_2d_v(funcs_ini, mapping):
+    #We should check if the metric terms are really the good ones!
+
+    mapping  = mapping.get_callable_mapping()
+    f1,f2 = mapping._func_eval
+    J_inv    = mapping._jacobian_inv
+
+    def fun1(xi1, xi2):
+        x = f1(xi1, xi2)
+        y = f2(xi1, xi2)
+
+        a1_phys = funcs_ini[0](x, y)
+        a2_phys = funcs_ini[1](x, y)
+
+        J_inv_value = J_inv(xi1, xi2)
+        value_1 = J_inv_value[0,0]*a1_phys + J_inv_value[0,1]*a2_phys
+        return value_1
+
+    def fun2(xi1, xi2):
+        x = f1(xi1, xi2)
+        y = f2(xi1, xi2)
+
+        a1_phys = funcs_ini[0](x, y)
+        a2_phys = funcs_ini[1](x, y)
+
+        J_inv_value = J_inv(xi1, xi2)
+        value_2 = J_inv_value[1,0]*a1_phys + J_inv_value[1,1]*a2_phys
+        return value_2
+
+    return fun1, fun2
+
+
 def pull_2d_h1(func_ini, mapping):
 
     mapping = mapping.get_callable_mapping()
@@ -171,12 +203,13 @@ def pull_2d_l2(func_ini, mapping):
 # 3D PULL-BACKS
 #==============================================================================
 def pull_3d_v(funcs_ini, mapping):
+    #We should check if the metric terms are really the good ones!
 
     mapping  = mapping.get_callable_mapping()
     f1,f2,f3 = mapping._func_eval
     J_inv    = mapping._jacobian_inv
 
-    def fun(xi1, xi2, xi3):
+    def fun1(xi1, xi2, xi3):
         x = f1(xi1, xi2, xi3)
         y = f2(xi1, xi2, xi3)
         z = f3(xi1, xi2, xi3)
@@ -187,11 +220,35 @@ def pull_3d_v(funcs_ini, mapping):
 
         J_inv_value = J_inv(xi1, xi2, xi3)
         value_1 = J_inv_value[0,0]*a1_phys + J_inv_value[0,1]*a2_phys + J_inv_value[0,2]*a3_phys
-        value_2 = J_inv_value[1,0]*a1_phys + J_inv_value[1,1]*a2_phys + J_inv_value[1,2]*a3_phys
-        value_3 = J_inv_value[2,0]*a1_phys + J_inv_value[2,1]*a2_phys + J_inv_value[2,2]*a3_phys
-        return value_1, value_2, value_3
+        return value_1
 
-    return fun
+    def fun2(xi1, xi2, xi3):
+        x = f1(xi1, xi2, xi3)
+        y = f2(xi1, xi2, xi3)
+        z = f3(xi1, xi2, xi3)
+
+        a1_phys = funcs_ini[0](x, y, z)
+        a2_phys = funcs_ini[1](x, y, z)
+        a3_phys = funcs_ini[2](x, y, z)
+
+        J_inv_value = J_inv(xi1, xi2, xi3)
+        value_2 = J_inv_value[1,0]*a1_phys + J_inv_value[1,1]*a2_phys + J_inv_value[1,2]*a3_phys
+        return value_2
+
+    def fun3(xi1, xi2, xi3):
+        x = f1(xi1, xi2, xi3)
+        y = f2(xi1, xi2, xi3)
+        z = f3(xi1, xi2, xi3)
+
+        a1_phys = funcs_ini[0](x, y, z)
+        a2_phys = funcs_ini[1](x, y, z)
+        a3_phys = funcs_ini[2](x, y, z)
+
+        J_inv_value = J_inv(xi1, xi2, xi3)
+        value_3 = J_inv_value[2,0]*a1_phys + J_inv_value[2,1]*a2_phys + J_inv_value[2,2]*a3_phys
+        return value_3
+
+    return fun1, fun2, fun3
 
 #==============================================================================
 def pull_3d_h1(func_ini, mapping):

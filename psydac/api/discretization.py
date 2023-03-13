@@ -43,7 +43,7 @@ from psydac.mapping.discrete import NurbsMapping
 __all__ = ('discretize',)
 
 #==============================================================================           
-def discretize_derham(derham, domain_h, *args, **kwargs):
+def discretize_derham(derham, domain_h, get_vec = False, *args, **kwargs):
 
     ldim     = derham.shape
     mapping  = derham.spaces[0].domain.mapping
@@ -52,7 +52,14 @@ def discretize_derham(derham, domain_h, *args, **kwargs):
     spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \
             for V, basis in zip(derham.spaces, bases)]
 
-    return DiscreteDerham(mapping, *spaces)
+    if get_vec:
+        V0h = spaces[0]
+        X   = VectorFunctionSpace('X', domain_h.domain, kind='h1')
+        Xh  = ProductFemSpace(V0h, V0h)
+        Xh.symbolic_space = X
+        spaces.append(Xh)
+
+    return DiscreteDerham(mapping, get_vec, *spaces)
 
 #==============================================================================
 def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
