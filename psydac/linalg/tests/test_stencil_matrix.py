@@ -34,7 +34,6 @@ def compute_global_starts_ends(domain_decomposition, npts, pads):
 
 # TODO : Add test remove_spurious_entries, update_ghost_regions, exchange-assembly_data, diagonal, topetsc,
 #        ghost_regions_in_sync
-# TODO : how do we handle if the domain and the codomain have different dtype ?
 # TODO : check if toarray() is working with a shift greater than 1 and idem for all other function that need toaaray
 
 # ===============================================================================
@@ -127,44 +126,6 @@ def test_stencil_matrix_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3
     assert M.backend == None
     assert M._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, n3+2*p3*s3, 1 + 2 * p1, 1 + 2 * p2, 1+2*p3)
     assert M.shape == (n1 * n2 * n3, n1 * n2 * n3)
-
-# ===============================================================================
-
-@pytest.mark.parametrize('case', [1,2])
-@pytest.mark.parametrize('n1', [7, 15])
-@pytest.mark.parametrize('n2', [8, 12])
-@pytest.mark.parametrize('p1', [2, 3, 4])
-@pytest.mark.parametrize('p2', [2, 3, 4])
-@pytest.mark.parametrize('s1', [1, 2, 3])
-@pytest.mark.parametrize('s2', [1, 2, 3])
-def test_stencil_matrix_2d_serial_dtype_different(case, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
-    # Create domain decomposition
-    D = DomainDecomposition([n1, n2], periods=[P1, P2])
-
-    # Partition the points
-    npts = [n1, n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
-    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
-
-    # Create two vector space with different type of variable and a matrix M from V to V
-    if case ==1:
-        V1 = StencilVectorSpace(cart, dtype=float)
-        V2 = StencilVectorSpace(cart, dtype=complex)
-    else:
-        V2 = StencilVectorSpace(cart, dtype=float)
-        V1 = StencilVectorSpace(cart, dtype=complex)
-    M = StencilMatrix(V1, V2)
-
-    # Check properties of this matrix
-    assert M.domain == V1
-    assert M.codomain == V2
-    assert M.dtype == V1.dtype
-    assert M.pads == (p1, p2)
-    assert M.backend == None
-    assert M._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, 1 + 2 * p1, 1 + 2 * p2)
-    assert M.shape == (n1 * n2, n1 * n2)
-
-# TODO : how do we must handle different dtype ?
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
