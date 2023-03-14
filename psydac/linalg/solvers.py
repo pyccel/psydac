@@ -538,10 +538,6 @@ class BiConjugateGradient(InverseLinearOperator):
     ----------
     [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
 
-    TODO
-    ----
-    Add optional preconditioner
-
     """
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 

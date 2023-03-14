@@ -531,18 +531,22 @@ def test_3D_block_serial_basic_operator( dtype, npts, p, P1, P2, P3 ):
     Y[1]=-x1
 
     Z1=Y+X
+    assert isinstance(Z1,BlockLinearOperator)
     assert np.allclose(Z1.blocks[0]._data, (x1+x2)._data,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(Z1.blocks[1]._data, (x2-x1)._data,  rtol=1e-14, atol=1e-14 )
 
     Z2=Y-X
+    assert isinstance(Z2,BlockLinearOperator)
     assert np.allclose(Z2.blocks[0]._data, (x2-x1)._data,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(Z2.blocks[1]._data, (-x2-x1)._data,  rtol=1e-14, atol=1e-14 )
 
     Z3=3*Y
+    assert isinstance(Z3,BlockLinearOperator)
     assert np.allclose(Z3.blocks[0]._data, 3*(x2)._data,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(Z3.blocks[1]._data, 3*(-x1)._data,  rtol=1e-14, atol=1e-14 )
 
     Z4=Y/4
+    assert isinstance(Z4,BlockLinearOperator)
     assert np.allclose(Z4.blocks[0]._data, (x2)._data/4,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(Z4.blocks[1]._data, (-x1)._data/4,  rtol=1e-14, atol=1e-14 )
 
@@ -598,23 +602,27 @@ def test_3D_block_serial_basic_operator( dtype, npts, p, P1, P2, P3 ):
     A= BlockLinearOperator(W, W, blocks=[[None, M3], [M2, M1]])
 
     A1=A+M
+    assert isinstance(A1,BlockLinearOperator)
     assert np.allclose(A1.blocks[0][0]._data, (M1)._data,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A1.blocks[0][1]._data, (M2+M3)._data,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A1.blocks[1][0]._data, (M3+M2)._data,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A1.blocks[1][1]._data, (M1)._data,  rtol=1e-14, atol=1e-14 )
 
     A2=A-M
+    assert isinstance(A2,BlockLinearOperator)
     assert np.allclose(A2.blocks[0][0]._data, (-M1)._data,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A2.blocks[0][1]._data, (M3-M2)._data,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A2.blocks[1][0]._data, (M2-M3)._data,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A2.blocks[1][1]._data, (M1)._data,  rtol=1e-14, atol=1e-14 )
 
     A3=6*A
+    assert isinstance(A3,BlockLinearOperator)
     assert np.allclose(A3.blocks[0][1]._data, 6*(M3)._data,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A3.blocks[1][0]._data, 6*(M2)._data,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A3.blocks[1][1]._data, 6*(M1)._data,  rtol=1e-14, atol=1e-14 )
 
     A4=A/5
+    assert isinstance(A4,BlockLinearOperator)
     assert np.allclose(A4.blocks[0][1]._data, (M3)._data/5,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A4.blocks[1][0]._data, (M2)._data/5,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A4.blocks[1][1]._data, (M1)._data/5,  rtol=1e-14, atol=1e-14 )

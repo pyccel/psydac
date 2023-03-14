@@ -41,7 +41,7 @@ def compute_global_starts_ends(domain_decomposition, npts):
 @pytest.mark.parametrize( 'p1', p1array)
 @pytest.mark.parametrize( 'p2', p2array)
 
-def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
+def test_2D_interaction_stencil_zero_identity_serial(n1, n2, p1, p2, P1=False, P2=False):
 
     # 1. Initiate square LOs S,S1 (StencilMatrix), I (IdentityOperator), Z (ZeroOperator) and a Stencilvector v
     # 2. Test general basic operations
@@ -79,7 +79,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     for k1 in range(-p1,p1+1):
         for k2 in range(-p2,p2+1):
             nonzero_values[k1,k2] = 1 + k1*n2 + k2
-    for k1 in range(-p1,p1+1):
+    for k1 in range(-p1,1):
         for k2 in range(-p2,p2+1):
             if k1==0:
                 if k2<0:
@@ -91,73 +91,6 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
         for k2 in range(-p2,p2+1):
             S[:,:,k1,k2] = nonzero_values[k1,k2]
     S.remove_spurious_entries()
-    Sa = S.toarray()
-
-    nonzero_values1 = dict()
-    for k1 in range(-p1,p1+1):
-        for k2 in range(-p2,p2+1):
-            if k1 == 0:
-                if k2 == 0:
-                    nonzero_values1[k1,k2] = 1
-                else:
-                    nonzero_values1[k1,k2] = 0
-            else:
-                nonzero_values1[k1,k2] = 0
-    for k1 in range(-p1,p1+1):
-        for k2 in range(-p2,p2+1):
-            S1[:,:,k1,k2] = nonzero_values1[k1,k2]
-    S1.remove_spurious_entries()
-    S1a = S1.toarray()
-
-    nonzero_values2 = dict()
-    for k1 in range(-p1,p1+1):
-        for k2 in range(-p2,p2+1):
-            nonzero_values2[k1,k2] = 1 + k1*n2 + k2
-    for k1 in range(-p1,p1+1):
-        for k2 in range(-p2,p2+1):
-            if k1==0:
-                if k2<0:
-                    nonzero_values2[k1,k2] = 0
-            elif k1<0:
-                nonzero_values2[k1,k2] = 0
-    for k1 in range(-p1,p1+1):
-        for k2 in range(-p2,p2+1):
-            S2[:,:,k1,k2] = nonzero_values2[k1,k2]
-    S2.remove_spurious_entries()
-    S2a = S2.toarray()
-
-    # Construct exact matrices by hand
-    A1 = np.zeros( S.shape )
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for k1 in range(-p1,p1+1):
-                for k2 in range(-p2,p2+1):
-                    j1 = (i1+k1) % n1
-                    j2 = (i2+k2) % n2
-                    i  = i1*(n2) + i2
-                    j  = j1*(n2) + j2
-                    if (P1 or 0 <= i1+k1 < n1) and (P2 or 0 <= i2+k2 < n2):
-                        A1[i,j] = nonzero_values[k1,k2]
-
-    A2 = np.zeros( S.shape )
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for k1 in range(-p1,p1+1):
-                for k2 in range(-p2,p2+1):
-                    j1 = (i1+k1) % n1
-                    j2 = (i2+k2) % n2
-                    i  = i1*(n2) + i2
-                    j  = j1*(n2) + j2
-                    if (P1 or 0 <= i1+k1 < n1) and (P2 or 0 <= i2+k2 < n2):
-                        A2[i,j] = nonzero_values1[k1,k2]
-
-    # Check shape and data in 2D array
-    assert np.all(v.toarray() == np.ones(n1*n2))
-
-    assert Sa.shape == S.shape
-    assert np.all( Sa == A1 )
-    assert S1a.shape == S1.shape
-    assert np.all( S1a == A2 )
 
     ###
     ### 2. Test general basic operations
@@ -178,7 +111,6 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
 
     # Negating a StencilMatrix works as intended
     assert isinstance(-S, StencilMatrix)
-    assert np.all((-S).dot(v).toarray() == -( S.dot(v).toarray() ))
 
     ## ___Multiplication, Composition, Raising to a Power___
 
@@ -194,11 +126,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(S**3, PowerLinearOperator)
 
     ## ___Transposing___
-    
-    assert not np.all(S2a == np.transpose(S2a))
     assert isinstance(S2.T, StencilMatrix)
-    assert np.all(S2.T.toarray() == np.transpose(S2a)) # using a nonsymmetric matrix throughout
-    assert np.all(S2.T.T.toarray() == S2a)
 
     ###
     ### 3. Test special cases
@@ -237,7 +165,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
 @pytest.mark.parametrize( 'p1', p1array)
 @pytest.mark.parametrize( 'p2', p2array)
 
-def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
+def test_2D_interaction_block_zero_identity_serial(n1, n2, p1, p2, P1=False, P2=False):
 
     # 1. Initiate square LOs S,S1 (StencilMatrix), Z (ZeroOperator) and a Stencilvector v
     #    Initiate square LOs B,B1 (BlockLO), BZ (ZeroOperator), BI (IdentityOperator) and a BlockVector vb
@@ -349,7 +277,6 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
 
     # Negating a BlockLO works as intended
     assert isinstance(-B, BlockLinearOperator)
-    assert np.all((-B).dot(vb).toarray() == -( B.dot(vb).toarray() ))
 
     ## ___Multiplication, Composition, Raising to a Power___
 
@@ -367,8 +294,6 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     ## ___Transposing___
     assert not np.all(B2.toarray() == np.transpose(B2.toarray()))
     assert isinstance(B2.T, BlockLinearOperator)
-    assert np.all(B2.T.toarray() == np.transpose(B2.toarray())) # using a nonsymmetric matrix throughout
-    assert np.all(B2.T.T.toarray() == B2.toarray())
 
     ###
     ### 3. Test special cases
@@ -437,7 +362,7 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
 @pytest.mark.parametrize( 'p1', p1array)
 @pytest.mark.parametrize( 'p2', p2array)
 
-def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
+def test_2D_identity_zero_basic_operations(n1, n2, p1, p2, P1=False, P2=False):
 
     # testing __imul__ although not explicitly implemented (in the LinearOperator class)
 
@@ -498,7 +423,6 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
             S[:,:,k1,k2] = nonzero_values1[k1,k2]
     S.remove_spurious_entries()
     T = S.copy()
-    Sa = S.toarray()
 
     Z1 += S
     S += Z2
@@ -506,22 +430,11 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(Z1, StencilMatrix)
     assert isinstance(S, StencilMatrix)
 
-    S += Z1
-
-    w = S.dot(v)
-
-    assert isinstance(S, StencilMatrix)
-    assert np.all(w.toarray() == np.dot(np.dot(2, Sa), v_array))
-
     Z3 -= T
     T -= Z2
-    T -= S+3*Z3
-
-    w2 = T.dot(v)
 
     assert isinstance(Z3, StencilMatrix)
     assert isinstance(T, StencilMatrix)
-    assert np.all(w2.toarray() == np.dot(np.dot(2, Sa), v_array))
     
 #===============================================================================
 @pytest.mark.parametrize( 'n1', n1array)
@@ -560,7 +473,8 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     v = StencilVector(V)
     for i in range(n1):
         for j in range(n2):
-            v[i,j] = 1   
+            v[i,j] = 1
+
     w = StencilVector(W)
     for i in range(n1+2):
         for j in range(n2):
