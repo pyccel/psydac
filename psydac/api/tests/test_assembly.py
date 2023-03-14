@@ -2,12 +2,12 @@ import pytest
 from sympy import pi, sin, cos, tan, atan, atan2
 from sympy import exp, sinh, cosh, tanh, atanh, Tuple
 
+
 from sympde.topology import Line, Square
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import element_of, Derham
 from sympde.core     import Constant
-from sympde.expr     import BilinearForm
-from sympde.expr     import LinearForm
+from sympde.expr     import LinearForm, BilinearForm, Functional
 from sympde.expr     import integral
 
 from psydac.linalg.solvers     import inverse
@@ -202,6 +202,9 @@ def test_assembly_no_synchr_args(backend):
     int_prod = LinearForm(g, integral(domain, expr))
     int_prod_h = discretize(int_prod, domain_h, V1h, **kwargs)
 
+    func  = Functional(rho, domain)
+    func_h = discretize(func, domain_h, V1h, **kwargs)
+
     uh      = array_to_psydac(np.array([i for i in range(nc)]), V0h.vector_space)
     const_1 = array_to_psydac(np.array([1/nc]*nc), V1h.vector_space)
 
@@ -209,19 +212,25 @@ def test_assembly_no_synchr_args(backend):
     rhof1  = FemField(V1h, rhoh1)
     rhoh2 = div.dot(uh)
     rhof2  = FemField(V1h, rhoh2)
+    rhoh3 = div.dot(uh)
+    rhof3  = FemField(V1h, rhoh3)
     weight_mass_matrix = weight_int_prod_h.assemble(rho=rhof1)
     inte_bilin = const_1.dot(weight_mass_matrix.dot(const_1))
 
     int_prod_rho = int_prod_h.assemble(rho=rhof2)
     inte_lin = int_prod_rho.dot(const_1)
+
+    inte_norm = func_h.assemble(rho=rhof3)
+
     assert( abs(inte_bilin) < 1.e-12)    
     assert( abs(inte_lin) < 1.e-12)
+    assert( abs(inte_norm) < 1.e-12)
 
 #==============================================================================
 if __name__ == '__main__':
-    test_field_and_constant(None)
-    test_multiple_fields(None)
-    test_math_imports(None)
-    test_non_symmetric_BilinearForm(None)
+    #test_field_and_constant(None)
+    #test_multiple_fields(None)
+    #test_math_imports(None)
+    #test_non_symmetric_BilinearForm(None)
     test_assembly_no_synchr_args(None)
 
