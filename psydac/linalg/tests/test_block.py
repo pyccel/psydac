@@ -467,7 +467,7 @@ def test_block_serial_dimension( ndim, p, P1, P2, P3 ):
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 @pytest.mark.parametrize( 'P3', [True, False] )
-def test_3D_block_serial_math( dtype, npts, p, P1, P2, P3 ):
+def test_3D_block_serial_basic_operator( dtype, npts, p, P1, P2, P3 ):
 
     # set seed for reproducibility
     D = DomainDecomposition(npts, periods=[P1,P2,P3])
@@ -618,6 +618,99 @@ def test_3D_block_serial_math( dtype, npts, p, P1, P2, P3 ):
     assert np.allclose(A4.blocks[0][1]._data, (M3)._data/5,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A4.blocks[1][0]._data, (M2)._data/5,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A4.blocks[1][1]._data, (M1)._data/5,  rtol=1e-14, atol=1e-14 )
+#===============================================================================
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'npts', [[6, 8]] )
+@pytest.mark.parametrize( 'p', [[1,1], [2,3]] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+def test_2D_block_serial_math( dtype, npts, p, P1, P2 ):
+
+    # set seed for reproducibility
+    D = DomainDecomposition(npts, periods=[P1,P2])
+
+    # Partition the points
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=p, shifts=[1,1])
+
+    # Create vector spaces, stencil matrices, and stencil vectors
+    V = StencilVectorSpace( cart, dtype=dtype)
+
+    x1 = StencilVector( V )
+    x2 = StencilVector( V )
+
+    W = BlockVectorSpace(V, V)
+    if dtype==complex:
+        x1[:,:,:] = 2.0*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1]))+1j*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1]))
+        x2[:,:,:] = 5.0*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1]))+2j*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1]))
+    else:
+        x1[:,:,:] = 2.0*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1]))
+        x2[:,:,:] = 5.0*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1]))
+
+
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
+
+    # Construct a BlockVector object containing x1 and x2
+    #     |x1|
+    # X = |  |
+    #     |x2|
+
+    X = BlockVector(W)
+    X[0] = x1
+    X[1] = x2
+
+    Xc=X.conjugate()
+    assert np.allclose(Xc.blocks[0]._data, (x1)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Xc.blocks[1]._data, (x2)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
+
+    Xc=X.conj
+    assert np.allclose(Xc.blocks[0]._data, (x1.conj())._data,  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Xc.blocks[1]._data, (x2.conj())._data,  rtol=1e-14, atol=1e-14 )
+
+
+    M1 = StencilMatrix(V, V)
+    M2 = StencilMatrix(V, V)
+    M3 = StencilMatrix(V, V)
+
+    if dtype==complex:
+        f = lambda k1, k2: 10 * k1 + 100j*k2
+    else:
+        f = lambda k1, k2: 10 * k1 + 100*k2
+
+    for k1 in range(-p[0], p[0] + 1):
+        for k2 in range(-p[1], p[1] + 1):
+            M1[:, k1] = f(k1,k2)
+            M2[:, k1] = f(k1,k2) + 2.
+            M3[:, k1] = f(k1,k2) + 5.
+
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+    M3.remove_spurious_entries()
+
+    # Construct a BlockLinearOperator object containing M1, M2, M3
+    #     |M1   M2|
+    # M = |       |
+    #     |M3    0|
+
+    M = BlockLinearOperator(W, W, blocks=[[M1, M2], [M3, None]])
+
+    Mc = M.conjugate()
+    assert np.allclose(Mc.blocks[0][0]._data, (M1)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Mc.blocks[0][1]._data, (M2)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Mc.blocks[1][0]._data, (M3)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
+
+    Mc = M.conj
+    assert np.allclose(Mc.blocks[0][0]._data, (M1)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Mc.blocks[0][1]._data, (M2)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Mc.blocks[1][0]._data, (M3)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
+
+    Mc = M.H
+    assert np.allclose(Mc.blocks[0][0]._data, (M1.H)._data,  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Mc.blocks[0][1]._data, (M3.H)._data,  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Mc.blocks[1][0]._data, (M2.H)._data,  rtol=1e-14, atol=1e-14 )
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )

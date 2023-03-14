@@ -379,8 +379,8 @@ class StencilVector( Vector ):
         out._sync=self._sync
         return out
 
-    def conj(self, out=None):
-        return self.conjugate(out=out)
+    def conj(self):
+        return self.conjugate()
 
     #...
     def copy(self, out=None):
@@ -968,8 +968,8 @@ class StencilMatrix( LinearOperator ):
         out._data = self._data.conjugate()
         return out
 
-    def conj( self, out=None):
-        return self.conjugate(out=out)
+    def conj( self):
+        return self.conjugate()
 
     def __truediv__(self, a):
         """ Divide by scalar. """
