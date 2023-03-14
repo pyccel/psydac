@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 from sympy import pi, sin, cos, tan, atan, atan2
 from sympy import exp, sinh, cosh, tanh, atanh, Tuple
 
@@ -14,9 +15,7 @@ from psydac.linalg.solvers     import inverse
 from psydac.api.discretization import discretize
 from psydac.fem.basic          import FemField
 from psydac.api.settings       import PSYDAC_BACKENDS
-from psydac.linalg.utilities          import array_to_psydac
-
-import numpy as np
+from psydac.linalg.utilities   import array_to_psydac
 
 #==============================================================================
 @pytest.fixture(params=[None, 'numba', 'pyccel-gcc'])
@@ -172,14 +171,15 @@ def test_assembly_no_synchr_args(backend):
 
     kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
 
-    nc     = 5
-    ncells = (nc,)
-    degree = (2,)
+    nc       = 5
+    ncells   = (nc,)
+    degree   = (2,)
+    periodic = (True,)
 
-    domain = Line()
-    domain_h = discretize(domain, ncells=ncells, periodic=(True,))
+    domain   = Line()
+    domain_h = discretize(domain, ncells=ncells, periodic=periodic)
 
-    derham  = Derham(domain)
+    derham   = Derham(domain)
     derham_h = discretize(derham, domain_h, degree=degree)
 
     #spaces
@@ -209,7 +209,7 @@ def test_assembly_no_synchr_args(backend):
     const_1 = array_to_psydac(np.array([1/nc]*nc), V1h.vector_space)
 
     rhoh1 = div.dot(uh)
-    rhof1  = FemField(V1h, rhoh1)
+    rhof1 = FemField(V1h, rhoh1)
     rhoh2 = div.dot(uh)
     rhof2  = FemField(V1h, rhoh2)
     rhoh3 = div.dot(uh)
@@ -233,4 +233,3 @@ if __name__ == '__main__':
     #test_math_imports(None)
     #test_non_symmetric_BilinearForm(None)
     test_assembly_no_synchr_args(None)
-
