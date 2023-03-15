@@ -12,6 +12,8 @@ from psydac.fem.basic             import FemField
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
 
+from psydac.utilities.utils import roll_edges
+
 from abc import ABCMeta, abstractmethod
 
 #==============================================================================
@@ -142,6 +144,9 @@ class GlobalProjector(metaclass=ABCMeta):
                     if quad_x[j] is None:
                         u, w = uw[j]
                         global_quad_x, global_quad_w = quadrature_grid(V.histopolation_grid, u, w)
+                        #"roll" back points to the interval to ensure that the quadrature points are
+                        #in the domain. Probably only usefull on periodic cases
+                        roll_edges(V.domain, global_quad_x) 
                         quad_x[j] = global_quad_x[s:e+1]
                         quad_w[j] = global_quad_w[s:e+1]
                     local_x, local_w = quad_x[j], quad_w[j]
