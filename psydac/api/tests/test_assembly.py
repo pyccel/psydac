@@ -1,20 +1,21 @@
 import pytest
+import numpy as np
 from sympy import pi, sin, cos, tan, atan, atan2
 from sympy import exp, sinh, cosh, tanh, atanh, Tuple
+
 
 from sympde.topology import Line, Square
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import element_of, Derham
 from sympde.core     import Constant
-from sympde.expr     import BilinearForm
-from sympde.expr     import LinearForm
+from sympde.expr     import LinearForm, BilinearForm, Functional
 from sympde.expr     import integral
-from sympde.calculus import Dot
 
 from psydac.linalg.solvers     import inverse
 from psydac.api.discretization import discretize
 from psydac.fem.basic          import FemField
 from psydac.api.settings       import PSYDAC_BACKENDS
+from psydac.linalg.utilities   import array_to_psydac
 
 #==============================================================================
 @pytest.fixture(params=[None, 'numba', 'pyccel-gcc'])
@@ -165,102 +166,65 @@ def test_non_symmetric_BilinearForm(backend):
 
     print("PASSED")
 
+#==============================================================================
 def test_assembly_no_synchr_args(backend):
 
     kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
 
-    ncells = [4, 4]
-    degree = [2, 2]
+    nc       = 5
+    ncells   = (nc,)
+    degree   = (2,)
+    periodic = (True,)
 
-    domain = Square('OmegaLog_', bounds1 = (0.,1.), bounds2 = (0.,1.))
-    domain_h = discretize(domain, ncells=ncells, periodic=[True,True])
+    domain   = Line()
+    domain_h = discretize(domain, ncells=ncells, periodic=periodic)
 
-    derham  = Derham(domain, ["H1", "Hdiv", "L2"])
+    derham   = Derham(domain)
     derham_h = discretize(derham, domain_h, degree=degree)
 
-    # multi-patch (broken) spaces
+    #spaces
+    V0h = derham_h.V0
     V1h = derham_h.V1
-    V2h = derham_h.V2
 
-    # broken (patch-wise) differential operators
-    bD0_b, bD1_b = derham_h.derivatives_as_matrices
-    
-    a   = element_of(V1h.symbolic_space, name='a')
-    b   = element_of(V1h.symbolic_space, name='b')
+    #differential operator
+    div, = derham_h.derivatives_as_matrices
 
-    expr = Dot(a,b)
-
-    A = BilinearForm((a,b), integral(domain, expr))
-    Ah = discretize(A, domain_h, (V1h,V1h), **kwargs)
-
-    dH1_b = Ah.assemble()
-    H1_b  = inverse(dH1_b, 'cg', tol=1e-10)
-
-    a   = element_of(V2h.symbolic_space, name='a')
-    b   = element_of(V2h.symbolic_space, name='b')
-
-    expr = a*b
-
-    A = BilinearForm((a,b), integral(domain, expr))
-    Ah = discretize(A, domain_h, (V2h,V2h), **kwargs)
-
-    dH2_b = Ah.assemble()
-    H2_b  = inverse(dH2_b, 'cg', tol=1e-10)
-
-    u    = element_of(V1h.symbolic_space, name='u')    
-    rho  = element_of(V2h.symbolic_space, name='rho')
-    f    = element_of(V2h.symbolic_space, name='f')
-    g    = element_of(V2h.symbolic_space, name='g')
-    h    = element_of(V2h.symbolic_space, name='h')
-
+    rho  = element_of(V1h.symbolic_space, name='rho')
+    g    = element_of(V1h.symbolic_space, name='g')
+    h    = element_of(V1h.symbolic_space, name='h')
 
     #L2 proj rho u -> V1
     expr = g*h*rho
     weight_int_prod = BilinearForm((g,h), integral(domain, expr))
-    weight_int_prod_h = discretize(weight_int_prod, domain_h, (V2h,V2h), **kwargs)
+    weight_int_prod_h = discretize(weight_int_prod, domain_h, (V1h,V1h), **kwargs)
 
     expr = g*rho
     int_prod = LinearForm(g, integral(domain, expr))
-    int_prod_h = discretize(int_prod, domain_h, V2h, **kwargs)
+    int_prod_h = discretize(int_prod, domain_h, V1h, **kwargs)
 
+    func  = Functional(rho, domain)
+    func_h = discretize(func, domain_h, V1h, **kwargs)
 
-    #initial solution
-    x,y    = domain.coordinates
-    rho_init = 1
-    u_init  = Tuple(cos(2*pi*x) ,sin(2*pi*y))
+    uh      = array_to_psydac(np.array([i for i in range(nc)]), V0h.vector_space)
+    const_1 = array_to_psydac(np.array([1/nc]*nc), V1h.vector_space)
 
-    expr = Dot(u_init, u)
-    l = LinearForm(u, integral(domain, expr))
-    lh = discretize(l, domain_h, V1h, **kwargs)
-    b  = lh.assemble()
-    uh = H1_b.dot(b)
-
-    f  = element_of(V2h.symbolic_space, name='f')
-    expr = rho_init*f
-    lp = LinearForm(f, integral(domain, expr))
-    lph = discretize(lp, domain_h, V2h, **kwargs)
-    b  = lph.assemble()
-    rhoh = H2_b.dot(b)
-
-    expr = f
-    lp = LinearForm(f, integral(domain, expr))
-    lph = discretize(lp, domain_h, V2h, **kwargs)
-    b  = lph.assemble()
-    const_1 = H2_b.dot(b)
-
-    div = bD1_b
-
-    rhoh1 = rhoh-div.dot(uh)
-    rhof1  = FemField(V2h, rhoh1)
-    rhoh2 = rhoh-div.dot(uh)
-    rhof2  = FemField(V2h, rhoh2)
+    rhoh1 = div.dot(uh)
+    rhof1 = FemField(V1h, rhoh1)
+    rhoh2 = div.dot(uh)
+    rhof2  = FemField(V1h, rhoh2)
+    rhoh3 = div.dot(uh)
+    rhof3  = FemField(V1h, rhoh3)
     weight_mass_matrix = weight_int_prod_h.assemble(rho=rhof1)
     inte_bilin = const_1.dot(weight_mass_matrix.dot(const_1))
 
     int_prod_rho = int_prod_h.assemble(rho=rhof2)
     inte_lin = int_prod_rho.dot(const_1)
-    assert( abs(inte_bilin - 1.) < 1.e-9)
-    assert( abs(inte_lin - 1.) < 1.e-9)
+
+    inte_norm = func_h.assemble(rho=rhof3)
+
+    assert( abs(inte_bilin) < 1.e-12)    
+    assert( abs(inte_lin) < 1.e-12)
+    assert( abs(inte_norm) < 1.e-12)
 
 #==============================================================================
 if __name__ == '__main__':
@@ -268,3 +232,4 @@ if __name__ == '__main__':
     test_multiple_fields(None)
     test_math_imports(None)
     test_non_symmetric_BilinearForm(None)
+    test_assembly_no_synchr_args(None)
