@@ -10,6 +10,7 @@ from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.linalg.basic import LinearOperator
 from psydac.feec import basis_projection_kernels
 from psydac.utilities.quadratures import gauss_legendre
+from psydac.fem.basic import FemField
 
 
 
@@ -181,9 +182,7 @@ class BasisProjectionOperator(LinearOperator):
         """
         Returns the transposed operator.
         """
-        return BasisProjectionOperator(self._P, self._V, self._fun,
-                                       self._V_extraction_op, self._V_boundary_op,
-                                       not self.transposed, self._polar_shift)
+        return BasisProjectionOperator(self._P, self._V, self._fun, not self.transposed)
 
     @staticmethod
     def assemble_mat(P, V, fun):
@@ -259,7 +258,11 @@ class BasisProjectionOperator(LinearOperator):
 
                 # Evaluate weight function at quadrature points
                 pts = np.meshgrid(*_ptsG, indexing='ij')
-                _fun_q = f(*pts).copy()
+                if isinstance(f, FemField):
+                    assert(isinstance(f.space,TensorFemSpace))
+                    _fun_q = f.space.eval_fields_regular_tensor_grid(pts, f)
+                else : 
+                    _fun_q = f(*pts).copy() #this formulation does not work atm for FemFields
 
                 # Call the kernel if weight function is not zero
                 if np.any(np.abs(_fun_q) > 1e-14):

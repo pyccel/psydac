@@ -688,7 +688,6 @@ class ComposedLinearOperator(LinearOperator):
         new_cod = self._domain
         assert isinstance(new_dom, VectorSpace)
         assert isinstance(new_cod, VectorSpace)
-        print(*t_multiplicants)
         return ComposedLinearOperator(self._codomain, self._domain, *t_multiplicants)
 
     def dot(self, v, out=None):
