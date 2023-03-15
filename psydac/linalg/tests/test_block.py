@@ -531,22 +531,22 @@ def test_3D_block_serial_basic_operator( dtype, npts, p, P1, P2, P3 ):
     Y[1]=-x1
 
     Z1=Y+X
-    assert isinstance(Z1,BlockLinearOperator)
+    assert isinstance(Z1,BlockVector)
     assert np.allclose(Z1.blocks[0]._data, (x1+x2)._data,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(Z1.blocks[1]._data, (x2-x1)._data,  rtol=1e-14, atol=1e-14 )
 
     Z2=Y-X
-    assert isinstance(Z2,BlockLinearOperator)
+    assert isinstance(Z2,BlockVector)
     assert np.allclose(Z2.blocks[0]._data, (x2-x1)._data,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(Z2.blocks[1]._data, (-x2-x1)._data,  rtol=1e-14, atol=1e-14 )
 
     Z3=3*Y
-    assert isinstance(Z3,BlockLinearOperator)
+    assert isinstance(Z3,BlockVector)
     assert np.allclose(Z3.blocks[0]._data, 3*(x2)._data,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(Z3.blocks[1]._data, 3*(-x1)._data,  rtol=1e-14, atol=1e-14 )
 
     Z4=Y/4
-    assert isinstance(Z4,BlockLinearOperator)
+    assert isinstance(Z4,BlockVector)
     assert np.allclose(Z4.blocks[0]._data, (x2)._data/4,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(Z4.blocks[1]._data, (-x1)._data/4,  rtol=1e-14, atol=1e-14 )
 
