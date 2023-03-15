@@ -9,6 +9,8 @@ from psydac.feec.global_projectors import GlobalProjector
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.linalg.basic import LinearOperator
 from psydac.feec import basis_projection_kernels
+from psydac.utilities.quadratures import gauss_legendre
+
 
 
 class BasisProjectionOperator(LinearOperator):
@@ -331,20 +333,6 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
         # make sure that greville points used for interpolation are in [0, 1]
         assert np.all(np.logical_and(greville_loc >= 0., greville_loc <= 1.))
 
-        # k += 1
-        # print(f'\nrank: {self._mpi_comm.Get_rank()} | Direction {k}, space_out attributes:')
-        # # # print('--------------------------------')
-        # print(f'rank: {self._mpi_comm.Get_rank()} | breaks       : {space_out.breaks}')
-        # # # print(f'rank: {self._mpi_comm.Get_rank()} | degree       : {space_out.degree}')
-        # # # print(f'rank: {self._mpi_comm.Get_rank()} | kind         : {space_out.basis}')
-        # # print(f'rank: {self._mpi_comm.Get_rank()} | greville        : {space_out.greville}')
-        # # print(f'rank: {self._mpi_comm.Get_rank()} | greville[s:e+1] : {greville_loc}')
-        # # # print(f'rank: {self._mpi_comm.Get_rank()} | ext_greville : {space_out.ext_greville}')
-        # print(f'rank: {self._mpi_comm.Get_rank()} | histopol_grid : {space_out.histopolation_grid}')
-        # print(f'rank: {self._mpi_comm.Get_rank()} | histopol_loc : {histopol_loc}')
-        # print(f'rank: {self._mpi_comm.Get_rank()} | dim W: {space_out.nbasis}')
-        # # # print(f'rank: {self._mpi_comm.Get_rank()} | project' + V1d[0].basis + V1d[1].basis + V1d[2].basis + ' to ' + W1d[0].basis + W1d[1].basis + W1d[2].basis)
-
         # interpolation
         if space_out.basis == 'B':
             x_grid += [greville_loc]
@@ -357,21 +345,7 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
         # histopolation
         elif space_out.basis == 'M':
 
-            if space_out.degree % 2 == 0:
-                union_breaks = space_out.breaks
-            else:
-                union_breaks = space_out.breaks[:-1]
-
-            # Make union of Greville and break points
-            tmp = set(np.round_(space_out.histopolation_grid, decimals=14)).union(
-                np.round_(union_breaks, decimals=14))
-
-            tmp = list(tmp)
-            tmp.sort()
-            tmp_a = np.array(tmp)
-
-            x_grid += [tmp_a[np.logical_and(tmp_a >= np.min(
-                histopol_loc) - 1e-14, tmp_a <= np.max(histopol_loc) + 1e-14)]]
+            x_grid += [space_out.histopolation_grid]
 
             # determine subinterval index (= 0 or 1):
             subs += [np.zeros(x_grid[-1][:-1].size, dtype=int)]
@@ -388,15 +362,14 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
                 nq = space_in.degree + 1
             else:
                 nq = n_quad[direction]
-
-            pts_loc, wts_loc = np.polynomial.legendre.leggauss(nq)
-
-            x, w = bsp.quadrature_grid(x_grid[-1], pts_loc, wts_loc)
+            
+            pts_loc, wts_loc = gauss_legendre(nq-1)
+            global_quad_x, global_quad_w = bsp.quadrature_grid(x_grid[-1], pts_loc, wts_loc)
+            x = global_quad_x[s:e+1]
+            w = global_quad_w[s:e+1]
 
             pts += [x % 1.]
             wts += [w]
-
-        #print(f'rank: {self._mpi_comm.Get_rank()} | Direction {k}, x_grid       : {x_grid[-1]}')
 
         # Knot span indices and V-basis functions evaluated at W-point sets
         s, b = get_span_and_basis(pts[-1], space_in)
