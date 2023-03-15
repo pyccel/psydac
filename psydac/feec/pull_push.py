@@ -387,11 +387,12 @@ def push_2d_hdiv(a1, a2, xi1, xi2, mapping):
     J_value    = J(xi1, xi2)
     det_value  = metric_det(xi1, xi2)**0.5
 
-    value1 = ( J_value[0,0]*a1(xi1, xi2) +
-               J_value[0,1]*a2(xi1, xi2)) / det_value
+    a1_value = a1(xi1, xi2)
+    a2_value = a2(xi1, xi2)
 
-    value2 = ( J_value[1,0]*a1(xi1, xi2) +
-               J_value[1,1]*a2(xi1, xi2)) / det_value
+    value1 = ( J_value[0,0]* a1_value + J_value[0,1]*a2_value) / det_value
+
+    value2 = ( J_value[1,0]*a1_value + J_value[1,1]*a2_value) / det_value
 
     return value1, value2
 
@@ -422,17 +423,21 @@ def push_3d_hcurl(a1, a2, a3, xi1, xi2, xi3, mapping):
 
     J_inv_value = J_inv(xi1, xi2, xi3)
 
-    value1 = (J_inv_value[0,0]*a1(xi1, xi2, xi3) +
-              J_inv_value[1,0]*a2(xi1, xi2, xi3) +
-              J_inv_value[2,0]*a3(xi1, xi2, xi3) )
+    a1_value=a1(xi1, xi2, xi3)
+    a2_value=a2(xi1, xi2, xi3)
+    a3_value=a3(xi1, xi2, xi3)
 
-    value2 = (J_inv_value[0,1]*a1(xi1, xi2, xi3) +
-              J_inv_value[1,1]*a2(xi1, xi2, xi3) +
-              J_inv_value[2,1]*a3(xi1, xi2, xi3) )
+    value1 = (J_inv_value[0,0]* a1_value +
+              J_inv_value[1,0]* a2_value +
+              J_inv_value[2,0]* a3_value )
 
-    value3 = (J_inv_value[0,2]*a1(xi1, xi2, xi3) +
-              J_inv_value[1,2]*a2(xi1, xi2, xi3) +
-              J_inv_value[2,2]*a3(xi1, xi2, xi3) )
+    value2 = (J_inv_value[0,1]* a1_value +
+              J_inv_value[1,1]* a2_value +
+              J_inv_value[2,1]* a3_value )
+
+    value3 = (J_inv_value[0,2]* a1_value +
+              J_inv_value[1,2]* a2_value +
+              J_inv_value[2,2]* a3_value )
 
     return value1, value2, value3
 
@@ -446,17 +451,21 @@ def push_3d_hdiv(a1, a2, a3, xi1, xi2, xi3, mapping):
     J_value    = J(xi1, xi2, xi3)
     det_value  = metric_det(xi1, xi2, xi3)**0.5
 
-    value1 = ( J_value[0,0]*a1(xi1, xi2, xi3) +
-               J_value[0,1]*a2(xi1, xi2, xi3) +
-               J_value[0,2]*a3(xi1, xi2, xi3) ) / det_value
+    a1_value=a1(xi1, xi2, xi3)
+    a2_value=a2(xi1, xi2, xi3)
+    a3_value=a3(xi1, xi2, xi3)
 
-    value2 = ( J_value[1,0]*a1(xi1, xi2, xi3) +
-               J_value[1,1]*a2(xi1, xi2, xi3) +
-               J_value[1,2]*a3(xi1, xi2, xi3) ) / det_value
+    value1 = ( J_value[0,0]*a1_value +
+               J_value[0,1]*a2_value +
+               J_value[0,2]*a3_value ) / det_value
 
-    value3 = ( J_value[2,0]*a1(xi1, xi2, xi3) +
-               J_value[2,1]*a2(xi1, xi2, xi3) +
-               J_value[2,2]*a3(xi1, xi2, xi3) ) / det_value
+    value2 = ( J_value[1,0]*a1_value +
+               J_value[1,1]*a2_value +
+               J_value[1,2]*a3_value) / det_value
+
+    value3 = ( J_value[2,0]*a1_value +
+               J_value[2,1]*a2_value +
+               J_value[2,2]*a3_value ) / det_value
 
     return value1, value2, value3
 
