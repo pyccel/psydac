@@ -93,6 +93,7 @@ class Vector(ABC):
 
     @abstractmethod
     def copy(self, out=None):
+        """Ensure x.copy(out=x) returns x and not a new object."""
         pass
 
     @abstractmethod

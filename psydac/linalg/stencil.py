@@ -350,6 +350,8 @@ class StencilVector( Vector ):
 
     #...
     def copy(self, out=None):
+        if self is out:
+            return self
         w = out or StencilVector( self._space )
         np.copyto(w._data, self._data, casting='no')
         for axis, ext in self._space.interfaces:

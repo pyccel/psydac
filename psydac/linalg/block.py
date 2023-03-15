@@ -217,6 +217,8 @@ class BlockVector( Vector ):
 
     #...
     def copy( self, out=None ):
+        if self is out:
+            return self
         w = out or BlockVector( self._space )#, [b.copy() for b in self._blocks] )
         for n, b in enumerate(self._blocks):
             b.copy(out=w[n])
@@ -594,6 +596,7 @@ class BlockLinearOperator( LinearOperator ):
         else:
             for (i, j), Lij in blocks.items():
                 out[i] += Lij.dot(v[j], out=inc[i])
+        inc *= 0.0
 
     #--------------------------------------
     # Other properties/methods

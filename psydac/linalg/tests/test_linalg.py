@@ -184,12 +184,12 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
                         A2[i,j] = nonzero_values1[k1,k2]
 
     # Check shape and data in 2D array
-    assert np.all(v.toarray() == np.ones(n1*n2))
+    assert np.array_equal(v.toarray(), np.ones(n1*n2))
 
     assert Sa.shape == S.shape
-    assert np.all( Sa == A1 )
+    assert np.array_equal( Sa, A1 )
     assert S1a.shape == S1.shape
-    assert np.all( S1a == A2 )
+    assert np.array_equal( S1a, A2 )
 
     ###
     ### 2. Test general basic operations
@@ -210,7 +210,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
 
     # Negating a StencilMatrix works as intended
     assert isinstance(-S, StencilMatrix)
-    assert np.all((-S).dot(v).toarray() == -( S.dot(v).toarray() ))
+    assert np.array_equal((-S).dot(v).toarray(), -( S.dot(v).toarray() ))
 
     ## ___Multiplication, Composition, Raising to a Power___
 
@@ -227,10 +227,10 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
 
     ## ___Transposing___
     
-    assert not np.all(S2a == np.transpose(S2a))
+    assert not np.array_equal(S2a, np.transpose(S2a))
     assert isinstance(S2.T, StencilMatrix)
-    assert np.all(S2.T.toarray() == np.transpose(S2a)) # using a nonsymmetric matrix throughout
-    assert np.all(S2.T.T.toarray() == S2a)
+    assert np.array_equal(S2.T.toarray(), np.transpose(S2a)) # using a nonsymmetric matrix throughout
+    assert np.array_equal(S2.T.T.toarray(), S2a)
 
     ###
     ### 3. Test special cases
@@ -245,7 +245,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
 
     # Substracting a ZeroOperator and substracting from a ZeroOperator work as intended
     assert S-Z == S
-    assert np.all((Z-S).toarray() == (-S).toarray())
+    assert np.array_equal((Z-S).toarray(), (-S).toarray())
 
     ## ___Composing with Zero- and IdentityOperators___   
 
@@ -374,7 +374,7 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
 
     # Negating a BlockLO works as intended
     assert isinstance(-B, BlockLinearOperator)
-    assert np.all((-B).dot(vb).toarray() == -( B.dot(vb).toarray() ))
+    assert np.array_equal((-B).dot(vb).toarray(), -( B.dot(vb).toarray() ))
 
     ## ___Multiplication, Composition, Raising to a Power___
 
@@ -390,10 +390,10 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(B**3, PowerLinearOperator)
 
     ## ___Transposing___
-    assert not np.all(B2.toarray() == np.transpose(B2.toarray()))
+    assert not np.array_equal(B2.toarray(), np.transpose(B2.toarray()))
     assert isinstance(B2.T, BlockLinearOperator)
-    assert np.all(B2.T.toarray() == np.transpose(B2.toarray())) # using a nonsymmetric matrix throughout
-    assert np.all(B2.T.T.toarray() == B2.toarray())
+    assert np.array_equal(B2.T.toarray(), np.transpose(B2.toarray())) # using a nonsymmetric matrix throughout
+    assert np.array_equal(B2.T.T.toarray(), B2.toarray())
 
     ###
     ### 3. Test special cases
@@ -429,7 +429,7 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
             else:
                 assert BmBZ.blocks[i][j] == B.blocks[i][j]
     #assert B-BZ == B
-    assert np.all((BZ-B).toarray() == (-B).toarray()) # replaces assert BZ-B == -B
+    assert np.array_equal((BZ-B).toarray(), (-B).toarray()) # replaces assert BZ-B == -B
 
     ## ___Composing with Zero- and IdentityOperators___ 
 
@@ -444,8 +444,8 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     #assert B@BI == B
     #assert BI@B == B
     # but: 
-    assert np.all(((B@BI)@vb).toarray() == (B@vb).toarray())
-    assert np.all(((BI@B)@vb).toarray() == (B@vb).toarray())
+    assert np.array_equal(((B@BI)@vb).toarray(), (B@vb).toarray())
+    assert np.array_equal(((BI@B)@vb).toarray(), (B@vb).toarray())
 
     ## ___Raising to the power of 0 and 1___
 
@@ -454,7 +454,7 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert B**1 == B
     #assert isinstance(B**0, IdentityOperator)
     assert isinstance(B**0, BlockLinearOperator)
-    assert np.all(((B**0)@vb).toarray() == vb.toarray())
+    assert np.array_equal(((B**0)@vb).toarray(), vb.toarray())
 
 #===============================================================================
 @pytest.mark.parametrize( 'n1', n1array)
@@ -486,11 +486,11 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
     I3 *= 3
     v3 = I3.dot(v)
 
-    assert np.all(v.toarray() == v_array)
+    assert np.array_equal(v.toarray(), v_array)
     assert isinstance(I1, ZeroOperator)
     assert isinstance(I2, IdentityOperator)
     assert isinstance(I3, ScaledLinearOperator)
-    assert np.all(v3.toarray() == np.dot(v_array, 3))
+    assert np.array_equal(v3.toarray(), np.dot(v_array, 3))
 
     # testing __iadd__ and __isub__ although not explicitly implemented (in the LinearOperator class)
 
@@ -529,7 +529,7 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
     w = S.dot(v)
 
     assert isinstance(S, StencilMatrix)
-    assert np.all(w.toarray() == np.dot(np.dot(2, Sa), v_array))
+    assert np.array_equal(w.toarray(), np.dot(np.dot(2, Sa), v_array))
 
     Z3 -= T
     T -= Z2
@@ -539,7 +539,7 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
 
     assert isinstance(Z3, StencilMatrix)
     assert isinstance(T, StencilMatrix)
-    assert np.all(w2.toarray() == np.dot(np.dot(2, Sa), v_array))
+    assert np.array_equal(w2.toarray(), np.dot(np.dot(2, Sa), v_array))
     
 #===============================================================================
 @pytest.mark.parametrize( 'n1', n1array)
@@ -627,10 +627,10 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     assert np.sqrt(sum(((C.T.T.dot(u) - C.dot(u)).toarray())**2)) < 2*tol
     # -1,T,-1 -> equal T
     assert isinstance(inverse(C.T, 'bicg'), BlockLinearOperator)
-    assert np.all(inverse(C.T, 'bicg').dot(u).toarray() == B.T.dot(u).toarray())
+    assert np.array_equal(inverse(C.T, 'bicg').dot(u).toarray(), B.T.dot(u).toarray())
     # T,-1,-1 -> equal T
     assert isinstance(inverse(inverse(B.T, 'cg', tol=tol), 'pcg', pc='jacobi'), BlockLinearOperator)
-    assert np.all(inverse(inverse(B.T, 'cg', tol=tol), 'pcg', pc='jacobi').dot(u).toarray() == B.T.dot(u).toarray())
+    assert np.array_equal(inverse(inverse(B.T, 'cg', tol=tol), 'pcg', pc='jacobi').dot(u).toarray(), B.T.dot(u).toarray())
     # T,-1,T -> equal -1
     assert isinstance(inverse(B.T, 'cg', tol=tol).T, ConjugateGradient)
     assert np.sqrt(sum(((inverse(B.T, 'cg', tol=tol).dot(u) - C.dot(u)).toarray())**2)) < tol
@@ -651,10 +651,10 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     assert np.sqrt(sum(((C.T.T.dot(v) - C.dot(v)).toarray())**2)) < 2*tol
     # -1,T,-1 -> equal T
     assert isinstance(inverse(C.T, 'bicg'), StencilMatrix)
-    assert np.all(inverse(C.T, 'bicg').dot(v).toarray() == S.T.dot(v).toarray())
+    assert np.array_equal(inverse(C.T, 'bicg').dot(v).toarray(), S.T.dot(v).toarray())
     # T,-1,-1 -> equal T
     assert isinstance(inverse(inverse(S.T, 'cg', tol=tol), 'pcg', pc='jacobi'), StencilMatrix)
-    assert np.all(inverse(inverse(S.T, 'cg', tol=tol), 'pcg', pc='jacobi').dot(v).toarray() == S.T.dot(v).toarray())
+    assert np.array_equal(inverse(inverse(S.T, 'cg', tol=tol), 'pcg', pc='jacobi').dot(v).toarray(), S.T.dot(v).toarray())
     # T,-1,T -> equal -1
     assert isinstance(inverse(S.T, 'cg', tol=tol).T, ConjugateGradient)
     assert np.sqrt(sum(((inverse(S.T, 'cg', tol=tol).dot(v) - C.dot(v)).toarray())**2)) < tol
@@ -663,7 +663,7 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
 @pytest.mark.parametrize( 'n1', [2, 3, 5])
 @pytest.mark.parametrize( 'n2', [2, 4, 7])
 
-def test_positive_defnite_matrix(n1, n2):
+def test_positive_definite_matrix(n1, n2):
     p1 = n1-1
     p2 = n2-1
     P1 = False
@@ -673,7 +673,7 @@ def test_positive_defnite_matrix(n1, n2):
     S = nparray_to_stencil(mat, V, n1, n2)
 
     is_pos_def(mat)
-    assert np.all(mat == S.toarray())
+    assert np.array_equal(mat, S.toarray())
 
 #===============================================================================
 @pytest.mark.parametrize( 'n1', [2, 3, 5])
@@ -743,85 +743,85 @@ def test_operator_evaluation(n1, n2):
     Bmat = B.toarray()
     is_pos_def(Bmat)
     uarr = u.toarray()
-    b0 = ((B**0)@u).toarray()
-    b1 = ((B**1)@u).toarray()
-    b2 = ((B**2)@u).toarray()
-    assert np.all(uarr == b0)
-    assert np.linalg.norm(np.dot(Bmat, uarr) - b1) < 1e-10
-    assert np.linalg.norm(np.dot(Bmat, np.dot(Bmat, uarr)) - b2) < 1e-10
+    b0 = ( B**0 @ u ).toarray()
+    b1 = ( B**1 @ u ).toarray()
+    b2 = ( B**2 @ u ).toarray()
+    assert np.array_equal(uarr, b0)
+    assert np.linalg.norm( np.dot(Bmat, uarr) - b1 ) < 1e-10
+    assert np.linalg.norm( np.dot(Bmat, np.dot(Bmat, uarr)) - b2 ) < 1e-10
 
-    bi0 = ((B_ILO**0)@u).toarray()
-    bi1 = ((B_ILO**1)@u).toarray()
-    bi2 = ((B_ILO**2)@u).toarray()
+    bi0 = ( B_ILO**0 @ u ).toarray()
+    bi1 = ( B_ILO**1 @ u ).toarray()
+    bi2 = ( B_ILO**2 @ u ).toarray()
     B_inv_mat = np.linalg.inv(Bmat)
     b_inv_arr = np.matrix.flatten(B_inv_mat)
-    error_est = 2 + n1*n2*np.max([np.abs(b_inv_arr[i]) for i in range(len(b_inv_arr))])
-    assert np.all(uarr == bi0)
-    assert np.linalg.norm(np.linalg.solve(Bmat, uarr) - bi1, ord=2) < tol
-    assert np.linalg.norm(np.linalg.solve(Bmat, np.linalg.solve(Bmat, uarr)) - bi2, ord=2) < error_est * tol
+    error_est = 2 + n1 * n2 * np.max( [ np.abs(b_inv_arr[i]) for i in range(len(b_inv_arr)) ] )
+    assert np.array_equal(uarr, bi0)
+    assert np.linalg.norm( np.linalg.solve(Bmat, uarr) - bi1 ) < tol
+    assert np.linalg.norm( np.linalg.solve(Bmat, np.linalg.solve(Bmat, uarr)) - bi2 ) < error_est * tol
 
     zeros = U.zeros().toarray()
-    z0 = ((Z**0)@u).toarray()
-    z1 = ((Z**1)@u).toarray()
-    z2 = ((Z**2)@u).toarray()
-    assert np.all(uarr == z0)
-    assert np.all(zeros == z1)
-    assert np.all(zeros == z2)
+    z0 = ( Z**0 @ u ).toarray()
+    z1 = ( Z**1 @ u ).toarray()
+    z2 = ( Z**2 @ u ).toarray()
+    assert np.array_equal(uarr, z0)
+    assert np.array_equal(zeros, z1)
+    assert np.array_equal(zeros, z2)
 
     Smat = S.toarray()
     is_pos_def(Smat)
     varr = v.toarray()
-    s0 = ((S**0)@v).toarray()
-    s1 = ((S**1)@v).toarray()
-    s2 = ((S**2)@v).toarray()
-    assert np.all(varr == s0)
-    assert np.linalg.norm(np.dot(Smat, varr) - s1) < 1e-10
-    assert np.linalg.norm(np.dot(Smat, np.dot(Smat, varr)) - s2) < 1e-10
+    s0 = ( S**0 @ v ).toarray()
+    s1 = ( S**1 @ v ).toarray()
+    s2 = ( S**2 @ v ).toarray()
+    assert np.array_equal(varr, s0)
+    assert np.linalg.norm( np.dot(Smat, varr) - s1 ) < 1e-10
+    assert np.linalg.norm( np.dot(Smat, np.dot(Smat, varr)) - s2 ) < 1e-10
 
-    si0 = ((S_ILO**0)@v).toarray()
-    si1 = ((S_ILO**1)@v).toarray()
-    si2 = ((S_ILO**2)@v).toarray()
+    si0 = ( S_ILO**0 @ v ).toarray()
+    si1 = ( S_ILO**1 @ v ).toarray()
+    si2 = ( S_ILO**2 @ v ).toarray()
     S_inv_mat = np.linalg.inv(Smat)
     s_inv_arr = np.matrix.flatten(S_inv_mat)
-    error_est = 2 + n1*n2*np.max([np.abs(s_inv_arr[i]) for i in range(len(s_inv_arr))])
-    assert np.all(varr == si0)
-    assert np.linalg.norm(np.linalg.solve(Smat, varr) - si1, ord=2) < tol
-    assert np.linalg.norm(np.linalg.solve(Smat, np.linalg.solve(Smat, varr)) - si2, ord=2) < error_est * tol
+    error_est = 2 + n1 * n2 * np.max( [ np.abs(s_inv_arr[i]) for i in range(len(s_inv_arr)) ] )
+    assert np.array_equal(varr, si0)
+    assert np.linalg.norm( np.linalg.solve(Smat, varr) - si1 ) < tol
+    assert np.linalg.norm( np.linalg.solve(Smat, np.linalg.solve(Smat, varr)) - si2 ) < error_est * tol
 
-    i0 = ((I**0)@v).toarray()
-    i1 = ((I**1)@v).toarray()
-    i2 = ((I**2)@v).toarray()
-    assert np.all(varr == i0)
-    assert np.all(varr == i1)
-    assert np.all(varr == i2)
+    i0 = ( I**0 @ v ).toarray()
+    i1 = ( I**1 @ v ).toarray()
+    i2 = ( I**2 @ v ).toarray()
+    assert np.array_equal(varr, i0)
+    assert np.array_equal(varr, i1)
+    assert np.array_equal(varr, i2)
 
     ### 2.2 SumLO tests
     Sum1 = B + B_ILO + B + B_ILO
     Sum2 = S + S_ILO + S + S_ILO
-    sum1 = (Sum1@u).toarray()
-    sum2 = (Sum2@v).toarray()
-    Sum1_mat = 2*Bmat + 2*B_inv_mat
-    Sum2_mat = 2*Smat + 2*S_inv_mat
-    assert np.linalg.norm(sum1 - np.dot(Sum1_mat, uarr), ord=2) < 2 * tol
-    assert np.linalg.norm(sum2 - np.dot(Sum2_mat, varr), ord=2) < 2 * tol
+    sum1 = ( Sum1 @ u ).toarray()
+    sum2 = ( Sum2 @ v ).toarray()
+    Sum1_mat = 2 * Bmat + 2 * B_inv_mat
+    Sum2_mat = 2 * Smat + 2 * S_inv_mat
+    assert np.linalg.norm( sum1 - np.dot(Sum1_mat, uarr) ) < 2 * tol
+    assert np.linalg.norm( sum2 - np.dot(Sum2_mat, varr) ) < 2 * tol
 
     ### 2.3 CompLO tests
-    C1 = B@(-B)
-    C2 = S@(-S)
-    c1 = (C1@u).toarray()
-    c2 = (C2@v).toarray()
-    assert np.all(-c1 == b2)
-    assert np.all(-c2 == s2)
+    C1 = B @ (-B)
+    C2 = S @ (-S)
+    c1 = ( C1 @ u ).toarray()
+    c2 = ( C2 @ v ).toarray()
+    assert np.array_equal(-c1, b2)
+    assert np.array_equal(-c2, s2)
 
     ### 2.4 Huge composition
     ZV = ZeroOperator(V, V)
     H1 = S_ILO.T
     H2 = inverse(S_ILO, 'bicg', tol=tol)
-    H3 = (2*S_ILO) @ (S**2)
-    H4 = 2*( (S**1) @ (S**0) )
+    H3 = (2 * S_ILO) @ S**2
+    H4 = 2 * (S**1 @ S**0)
     H5 = ZV @ I
     H = H1 @ ( H2 + H3 - H4 + H5 ).T
-    assert np.linalg.norm((H@v).toarray() - v.toarray(), ord=2) < 10 * tol
+    assert np.linalg.norm( (H @ v).toarray() - v.toarray() ) < 10 * tol
 
     ### 2.5 InverseLO test
 
@@ -914,8 +914,8 @@ def test_internal_storage():
     assert len(Z2_1.tmp_vectors) == 3
     assert len(Z2_2.tmp_vectors) == 3
     assert len(Z2_3.tmp_vectors) == 3
-    assert np.all( y1_1.toarray() == y1_2.toarray() ) & np.all( y1_2.toarray() == y1_3.toarray() )
-    assert np.all( y2_1.toarray() == y2_2.toarray() ) & np.all( y2_2.toarray() == y2_3.toarray() )
+    assert np.array_equal( y1_1.toarray(), y1_2.toarray() ) & np.array_equal( y1_2.toarray(), y1_3.toarray() )
+    assert np.array_equal( y2_1.toarray(), y2_2.toarray() ) & np.array_equal( y2_2.toarray(), y2_3.toarray() )
 
 #===============================================================================
 @pytest.mark.parametrize( 'solver', ['cg', 'pcg', 'bicg', 'minres', 'lsmr'])
@@ -943,56 +943,50 @@ def test_x0update(solver):
         A_inv = inverse(A, solver, pc='jacobi', tol=tol)
     else:
         A_inv = inverse(A, solver, tol=tol)
-    # Check whether x0update == 'static' by default
     options = A_inv.options
-    assert options["x0update"] == 'static'
-    # Check whether x0 is None
-    assert options["x0"] is None
+    x0_init = options["x0"]
+    # Check whether x0 is not None
+    assert x0_init is not None
     # Apply inverse and check x0
     x = A_inv @ b
     options = A_inv.options
-    assert options["x0"] is None
+    x0_new1 = options["x0"]
+    assert x0_new1 is x0_init
     # Change x0, apply A_inv and check for x0
     A_inv.setoptions(x0 = b)
     options = A_inv.options
-    assert options["x0"] == b
-    x = A_inv @ b
-    assert options["x0"] == b
-    # Try to change x0update to impossible values
-    false_update_rules = [0, False, 'recycycycyle', -np.pi]
-    for update_rule in false_update_rules:
-        try:
-            A_inv.setoptions(x0update=5)
-        except AssertionError as e: 
-            assert str(e) == "x0update must be either 'static' or 'recycle'"
-    # Change x0update to recycle
-    A_inv.setoptions(x0update='recycle')
-    options = A_inv.options
-    assert options["x0update"] == 'recycle'
-    # Apply inverse and hack for updated x0
+    assert options["x0"] is b
     x = A_inv @ b
     options = A_inv.options
-    assert np.array_equal(x.toarray(), options["x0"].toarray())
-    # Same procedure but with x0 = None initially
-    A_inv.setoptions(x0=None)
+    x0_new2 = options["x0"]
+    assert x0_new2 is b
+    # Apply inverse using out=x0 and check for updated x0
+    x = A_inv.dot(b, out=x0_new2)
     options = A_inv.options
-    assert options["x0"] is None
-    x = A_inv @ b
-    options = A_inv.options
-    assert np.array_equal(x.toarray(), options["x0"].toarray())
-    # Again for different b
-    b *= 2
-    x = A_inv @ b
-    options = A_inv.options
-    assert np.array_equal(x.toarray(), options["x0"].toarray())
-    # Back to 'static'
-    b *= 3
-    A_inv.setoptions(x0update='static')
-    y = A_inv @ b
-    options = A_inv.options
-    xarr = x.toarray()
-    assert np.array_equal(xarr, y.toarray()) == False
-    assert np.array_equal(xarr, options["x0"].toarray())
+    x0_new3 = options["x0"]
+    assert x0_new3 is x
+    
+    #assert np.array_equal(x.toarray(), options["x0"].toarray())
+    ## Same procedure but with x0 = None initially
+    #A_inv.setoptions(x0=None)
+    #options = A_inv.options
+    #assert options["x0"] is None
+    #x = A_inv @ b
+    #options = A_inv.options
+    #assert np.array_equal(x.toarray(), options["x0"].toarray())
+    ## Again for different b
+    #b *= 2
+    #x = A_inv @ b
+    #options = A_inv.options
+    #assert np.array_equal(x.toarray(), options["x0"].toarray())
+    ## Back to 'static'
+    #b *= 3
+    #A_inv.setoptions(x0update='static')
+    #y = A_inv @ b
+    #options = A_inv.options
+    #xarr = x.toarray()
+    #assert np.array_equal(xarr, y.toarray()) == False
+    #assert np.array_equal(xarr, options["x0"].toarray())
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY
