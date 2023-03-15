@@ -23,9 +23,6 @@ psydac/core/bsp-f2py*
 psydac/core/bspmodule.c
 psydac/core/*.so
 psydac/core/*.lock
-psydac/linalg/*.venv
-psydac/linalg/*docs
-psydac/linalg/README.rst
 __*pyccel__
 .env
 
