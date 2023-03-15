@@ -965,28 +965,6 @@ def test_x0update(solver):
     options = A_inv.options
     x0_new3 = options["x0"]
     assert x0_new3 is x
-    
-    #assert np.array_equal(x.toarray(), options["x0"].toarray())
-    ## Same procedure but with x0 = None initially
-    #A_inv.setoptions(x0=None)
-    #options = A_inv.options
-    #assert options["x0"] is None
-    #x = A_inv @ b
-    #options = A_inv.options
-    #assert np.array_equal(x.toarray(), options["x0"].toarray())
-    ## Again for different b
-    #b *= 2
-    #x = A_inv @ b
-    #options = A_inv.options
-    #assert np.array_equal(x.toarray(), options["x0"].toarray())
-    ## Back to 'static'
-    #b *= 3
-    #A_inv.setoptions(x0update='static')
-    #y = A_inv @ b
-    #options = A_inv.options
-    #xarr = x.toarray()
-    #assert np.array_equal(xarr, y.toarray()) == False
-    #assert np.array_equal(xarr, options["x0"].toarray())
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY
