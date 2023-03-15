@@ -1099,8 +1099,8 @@ def test_block_linear_operator_dot_backend( dtype, n1, n2, p1, p2, P1, P2, backe
     # Fill in vector with random values, then update ghost regions
     for i1 in range(s1,e1+1):
         for i2 in range(s2,e2+1):
-            x1[i1,i2] = 2.0*factor*random() + 1.0
-            x2[i1,i2] = 5.0*factor*random() - 1.0
+            x1[i1,i2] = 2.0*factor * i1 + i2
+            x2[i1,i2] = 5.0*factor * i2 - i1
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 

@@ -87,7 +87,7 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
         print( "+ Iter. # | L2-norm of residual |")
         print( "+---------+---------------------+")
         template = "| {:7d} | {:19.2e} |"
-        print( template.format( 1, sqrt( am ) ) )
+        print( template.format( 1, sqrt( am.real ) ) )
 
     m = 1
     # Iterate to convergence
@@ -107,13 +107,13 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
         am  = am1
 
         if verbose:
-            print( template.format( m, sqrt( am ) ) )
+            print( template.format( m, sqrt( am.real ) ) )
 
     if verbose:
         print( "+---------+---------------------+")
 
     # Convergence information
-    info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am ) }
+    info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am.real ) }
 
     return x, info
 # ...
@@ -204,7 +204,7 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         print( "+ Iter. # | L2-norm of residual |")
         print( "+---------+---------------------+")
         template = "| {:7d} | {:19.2e} |"
-        print( template.format(1, sqrt(nrmr_sqr)))
+        print( template.format(1, sqrt(nrmr_sqr.real)))
 
     k = 1
     # Iterate to convergence
@@ -228,13 +228,13 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         am  = am1
 
         if verbose:
-            print( template.format(k, sqrt(nrmr_sqr)))
+            print( template.format(k, sqrt(nrmr_sqr.real)))
 
     if verbose:
         print( "+---------+---------------------+")
 
     # Convergence information
-    info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr) }
+    info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr.real) }
 
     return x, info
 # ...
@@ -376,13 +376,13 @@ def weighted_jacobi(A, b, x0=None, omega= 2./3, tol=1e-10, maxiter=100, verbose=
             break
 
         if verbose:
-            print( template.format(k, sqrt(nrmr)))
+            print( template.format(k, sqrt(nrmr.real)))
 
     if verbose:
         print( "+---------+---------------------+")
 
     # Convergence information
-    info = {'niter': k, 'success': nrmr < tol_sqr, 'res_norm': sqrt(nrmr) }
+    info = {'niter': k, 'success': nrmr < tol_sqr, 'res_norm': sqrt(nrmr.real) }
 
     return x
 # ...
@@ -524,13 +524,13 @@ def bicg(A, At, b, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         res_sqr = r.dot( r )
 
         if verbose:
-            print( template.format(m, sqrt(res_sqr)) )
+            print( template.format(m, sqrt(res_sqr.real)) )
 
     if verbose:
         print( "+---------+---------------------+")
 
     # Convergence information
-    info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt( res_sqr ) }
+    info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt( res_sqr.real ) }
 
     return x, info
 # ...
@@ -987,7 +987,7 @@ def lsmr(A, At, b, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim
         btol = tol
         
     u = b
-    normb = sqrt(b.dot(b))
+    normb = sqrt((b.dot(b)).real)
     if x0 is None:
         if not isinstance(A, np.ndarray):
             x = A.domain.zeros()
@@ -1003,7 +1003,7 @@ def lsmr(A, At, b, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim
     if beta > 0:
         u = (1 / beta) * u
         v = At.dot(u)
-        alpha = sqrt(v.dot(v))
+        alpha = sqrt((v.dot(v)).real)
     else:
         v = x.copy()
         alpha = 0
@@ -1068,13 +1068,13 @@ def lsmr(A, At, b, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim
 
         u *= -alpha
         u += A.dot(v)
-        beta = sqrt(u.dot(u))
+        beta = sqrt((u.dot(u)).real)
 
         if beta > 0:
             u     *= (1 / beta)
             v     *= -beta
             v     += At.dot(u)
-            alpha = sqrt(v.dot(v))
+            alpha = sqrt((v.dot(v)).real)
             if alpha > 0:v *= (1 / alpha)
 
         # At this point, beta = beta_{k+1}, alpha = alpha_{k+1}.
@@ -1149,7 +1149,7 @@ def lsmr(A, At, b, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim
 
         # Compute norms for convergence testing.
         normar = abs(zetabar)
-        normx  = sqrt(x.dot(x))
+        normx  = sqrt((x.dot(x)).real)
 
         # Now use these norms to estimate certain other quantities,
         # some of which will be small near a solution.
