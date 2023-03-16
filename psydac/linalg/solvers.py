@@ -157,7 +157,7 @@ class ConjugateGradient(InverseLinearOperator):
         options = self._options
         return inverse(At, solver, **options)
 
-    def solve(self, b, *, out=None):
+    def solve(self, b, out=None):
         """
         Conjugate gradient algorithm for solving linear system Ax=b.
         Implementation from [1], page 137.
@@ -262,7 +262,7 @@ class ConjugateGradient(InverseLinearOperator):
 
         return x
 
-    def dot(self, b, *, out=None):
+    def dot(self, b, out=None):
         return self.solve(b, out=out)
 
 #===============================================================================
@@ -364,7 +364,7 @@ class PConjugateGradient(InverseLinearOperator):
         options = self._options
         return inverse(At, solver, **options)
 
-    def solve(self, b, *, out=None):
+    def solve(self, b, out=None):
         """
         Preconditioned Conjugate Gradient (PCG) solves the symetric positive definte
         system Ax = b. It assumes that pc(r) returns the solution to Ps = r,
@@ -490,7 +490,7 @@ class PConjugateGradient(InverseLinearOperator):
 
         return x
 
-    def dot(self, b, *, out=None):
+    def dot(self, b, out=None):
         return self.solve(b, out=out)
 
 #===============================================================================
@@ -586,7 +586,7 @@ class BiConjugateGradient(InverseLinearOperator):
         options = self._options
         return inverse(At, solver, **options)
 
-    def solve(self, b, *, out=None):
+    def solve(self, b, out=None):
         """
         Biconjugate gradient (BCG) algorithm for solving linear system Ax=b.
         Implementation from [1], page 175.
@@ -734,7 +734,7 @@ class BiConjugateGradient(InverseLinearOperator):
 
         return x
 
-    def dot(self, b, *, out=None):
+    def dot(self, b, out=None):
         return self.solve(b, out=out)
 
 #===============================================================================
@@ -837,7 +837,7 @@ class MinimumResidual(InverseLinearOperator):
         options = self._options
         return inverse(At, solver, **options)
 
-    def solve(self, b, *, out=None):
+    def solve(self, b, out=None):
         """
         Use MINimum RESidual iteration to solve Ax=b
         MINRES minimizes norm(A*x - b) for a real symmetric matrix A.  Unlike
@@ -1083,7 +1083,7 @@ class MinimumResidual(InverseLinearOperator):
 
         return x
 
-    def dot(self, b, *, out=None):
+    def dot(self, b, out=None):
         return self.solve(b, out=out)
 
 #===============================================================================
@@ -1217,7 +1217,7 @@ class LSMR(InverseLinearOperator):
         options = self._options
         return inverse(At, solver, **options)
 
-    def solve(self, b, *, out=None):
+    def solve(self, b, out=None):
         """Iterative solver for least-squares problems.
         lsmr solves the system of linear equations ``Ax = b``. If the system
         is inconsistent, it solves the least-squares problem ``min ||b - Ax||_2``.
@@ -1510,5 +1510,5 @@ class LSMR(InverseLinearOperator):
 
         return x
 
-    def dot(self, b, *, out=None):
+    def dot(self, b, out=None):
         return self.solve(b, out=out)
