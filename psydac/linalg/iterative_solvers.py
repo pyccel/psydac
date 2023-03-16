@@ -680,13 +680,13 @@ def bicgstab(A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         p += r
 
         if verbose:
-            print( template.format(m, sqrt(res_sqr)) )
+            print( template.format(m, sqrt(res_sqr.real)) )
 
     if verbose:
         print( "+---------+---------------------+")
 
     # Convergence information
-    info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt( res_sqr ) }
+    info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt( res_sqr.real ) }
 
     return x, info
 # ...

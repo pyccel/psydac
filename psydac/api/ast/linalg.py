@@ -157,14 +157,16 @@ class LinearOperatorDot(SplBasic):
         d_start         = kwargs.pop('d_start', None)
         c_start         = kwargs.pop('c_start', None)
         dtype           = kwargs.pop('dtype', float)
+
+        # We adapt the type of data in our dot function
         if dtype==complex:
-            mats            = [variables('mat{}'.format(''.join(str(i) for i in key)),'complex', cls=IndexedVariable, rank=2*ndim) for key in keys]
-            xs              = [variables('x{}'.format(i),'complex', cls=IndexedVariable, rank=ndim) for i in range(block_shape[1])]
-            outs            = [variables('out{}'.format(i),'complex', cls=IndexedVariable, rank=ndim) for i in range(block_shape[0])]
+            dtype_string='complex'
         else:
-            mats            = [variables('mat{}'.format(''.join(str(i) for i in key)),'real', cls=IndexedVariable, rank=2*ndim) for key in keys]
-            xs              = [variables('x{}'.format(i),'real', cls=IndexedVariable, rank=ndim) for i in range(block_shape[1])]
-            outs            = [variables('out{}'.format(i),'real', cls=IndexedVariable, rank=ndim) for i in range(block_shape[0])]
+            dtype_string='real'
+
+        mats            = [variables('mat{}'.format(''.join(str(i) for i in key)),dtype_string, cls=IndexedVariable, rank=2*ndim) for key in keys]
+        xs              = [variables('x{}'.format(i),dtype_string, cls=IndexedVariable, rank=ndim) for i in range(block_shape[1])]
+        outs            = [variables('out{}'.format(i),dtype_string, cls=IndexedVariable, rank=ndim) for i in range(block_shape[0])]
 
         func_args    = (*mats, *xs, *outs)
         shared       = (*mats, *xs, *outs)
@@ -450,6 +452,7 @@ class TransposeOperator(SplBasic):
     function_dict = {1 : transpose_1d, 2 : transpose_2d, 3 : transpose_3d}
 
     # TODO [YG 01.04.2022]: drop support for old Pyccel versions, then remove
+    # The type T is defined in linalg_kernel.py and it is a template of pyccel that accept float or complex value
     args_dtype_dict = {1: [repr('T')]*2 + [repr('int64')]*11,
                        2: [repr('T')]*2 + [repr('int64')]*22,
                        3: [repr('T')]*2 + [repr('int64')]*33
