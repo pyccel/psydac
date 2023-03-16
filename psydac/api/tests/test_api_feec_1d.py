@@ -467,7 +467,11 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Return whole namespace as dictionary
     if verbose:
         return locals()
-    return {'error_E': error_E,'error_B': error_B,'error_l2_E':error_l2_E,'error_l2_B':error_l2_B}
+
+    if MPI.COMM_WORLD.size == 1:
+        return {'error_E': error_E,'error_B': error_B,'error_l2_E':error_l2_E,'error_l2_B':error_l2_B}
+    else:
+        return {'error_l2_E':error_l2_E,'error_l2_B':error_l2_B}
 
 #==============================================================================
 # UNIT TESTS

@@ -625,8 +625,11 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Return whole namespace as dictionary
     if verbose:
         return locals()
-    return {'error_Ex':error_Ex, 'error_Ey':error_Ey,'error_Bz': error_Bz,
-            'error_l2_Ex':error_l2_Ex, 'error_l2_Ey' : error_l2_Ey,'error_l2_Bz': error_l2_Bz }
+    if MPI.COMM_WORLD.size == 1:
+        return {'error_Ex':error_Ex, 'error_Ey':error_Ey,'error_Bz': error_Bz,
+                'error_l2_Ex':error_l2_Ex, 'error_l2_Ey' : error_l2_Ey,'error_l2_Bz': error_l2_Bz }
+    else:
+        return {'error_l2_Ex':error_l2_Ex, 'error_l2_Ey' : error_l2_Ey,'error_l2_Bz': error_l2_Bz }
 
 #==============================================================================
 # UNIT TESTS
