@@ -258,11 +258,12 @@ class BasisProjectionOperator(LinearOperator):
 
                 # Evaluate weight function at quadrature points
                 pts = np.meshgrid(*_ptsG, indexing='ij')
-                if isinstance(f, FemField):
-                    assert(isinstance(f.space,TensorFemSpace))
-                    _fun_q = f.space.eval_fields_regular_tensor_grid(pts, f)
-                else : 
-                    _fun_q = f(*pts).copy() #this formulation does not work atm for FemFields
+                #needs to be improved when passing FemFields, 
+                #a lot of evaluations that are probably not needed
+                #_fun_q = f.space.eval_fields_irregular_tensor_grid(_ptsG, f) could be a solution but failing
+                #if the grid is not order, for example on periodic domains...
+                f = np.vectorize(f)
+                _fun_q = f(*pts).copy() #this formulation does not work atm for FemFields
 
                 # Call the kernel if weight function is not zero
                 if np.any(np.abs(_fun_q) > 1e-14):

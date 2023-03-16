@@ -62,7 +62,7 @@ def test_basis_projector_2d(nc, deg, perio):
     sol_with_op = P2_0fv.dot(f_test.coeffs)
     sol_no_op  = P0(lambda x, y : f_6(x,y)*f_test(x,y))
     assert(np.allclose(sol_with_op.toarray(),sol_no_op.coeffs.toarray(),1e-12))
-
+    
     ### TEST X -> V0 ###
     fun = [[f_4,f_1]]
     f_test  = PX([f_4,f_5])
@@ -169,6 +169,15 @@ def test_basis_projector_2d(nc, deg, perio):
     sol_with_op = PX_Xfv.dot(f_test.coeffs)
     sol_no_op  = PX([lambda x, y : f_1(x,y)*f_test[0](x,y)+f_2(x,y)*f_test[1](x,y),
                      lambda x, y : f_3(x,y)*f_test[0](x,y)+f_4(x,y)*f_test[1](x,y)])
+    assert(np.allclose(sol_with_op.toarray(),sol_no_op.coeffs.toarray(),1e-12))
+
+    ###TEST WITH FemField as parameter###
+    pf = P1([f_4,f_1])
+    fun = [[pf[0],pf[1]]]
+    f_test  = PX([f_4,f_5])
+    PX_0fv = BasisProjectionOperator(P0, Xh, fun)  
+    sol_with_op = PX_0fv.dot(f_test.coeffs)
+    sol_no_op  = P0(lambda x, y : pf[0](x,y)*f_test[0](x,y)+pf[1](x,y)*f_test[1](x,y))
     assert(np.allclose(sol_with_op.toarray(),sol_no_op.coeffs.toarray(),1e-12))
 
 if __name__ == '__main__':
