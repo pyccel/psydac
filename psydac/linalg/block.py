@@ -590,13 +590,15 @@ class BlockLinearOperator( LinearOperator ):
         if n_rows == 1:
             for (_, j), L0j in blocks.items():
                 out += L0j.dot(v[j], out=inc)
+                inc*=0
         elif n_cols == 1:
             for (i, _), Li0 in blocks.items():
                 out[i] += Li0.dot(v, out=inc[i])
+                inc[i]*=0
         else:
             for (i, j), Lij in blocks.items():
                 out[i] += Lij.dot(v[j], out=inc[i])
-        inc *= 0.0
+                inc[i]*=0
 
     #--------------------------------------
     # Other properties/methods
