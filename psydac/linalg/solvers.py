@@ -328,7 +328,7 @@ class PConjugateGradient(InverseLinearOperator):
         self._check_options(**self._options)
         tmps_codomain = {key: A.codomain.zeros() for key in ("p", "s", "lp")}
         tmps_domain = {key: A.domain.zeros() for key in ("v", "r", "lv")}
-        self._tmps = tmps_codomain | tmps_domain
+        self._tmps = {**tmps_codomain, **tmps_domain}
         self._info = None
 
     def _check_options(self, **kwargs):
@@ -1173,7 +1173,7 @@ class LSMR(InverseLinearOperator):
         self._successful = None
         tmps_codomain = {key: A.codomain.zeros() for key in ("uh", "uc")}
         tmps_domain = {key: A.domain.zeros() for key in ("v", "vh", "h", "hbar")}
-        self._tmps = tmps_codomain | tmps_domain
+        self._tmps = {**tmps_codomain, **tmps_domain}
 
     def get_success(self):
         return self._successful
