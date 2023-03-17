@@ -95,7 +95,7 @@ def test_KroneckerStencilMatrix(dtype, npts, pads, periodic):
     # ...
 
     # Fill in vector values
-    w[:, :, :] = 1.0*factor
+    w[:, :, :] = factor
 
     # Create Kronecker matrix 
     M = KroneckerStencilMatrix(W, W, M1, M2, M3)

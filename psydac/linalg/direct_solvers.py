@@ -114,7 +114,7 @@ class BandedSolver ( DirectSolver ):
             if rhs is not out:
                 out[:] = rhs
 
-            # TODO: handle non-contiguo_bmatus views?
+            # TODO: handle non-contiguous views?
 
             # we want FORTRAN-contiguous data (default is assumed to be C contiguous)
             if self._dtype == complex:

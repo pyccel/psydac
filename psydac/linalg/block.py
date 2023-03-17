@@ -306,7 +306,7 @@ class BlockVector( Vector ):
             Lij.conjugate(out=Lij)
 
         return out
-    @property
+
     def conj( self, out=None):
         return self.conjugate(out=out)
 
@@ -533,9 +533,9 @@ class BlockLinearOperator( LinearOperator ):
             Lij.conjugate(out=Lij)
 
         return out
-    @property
-    def conj( self):
-        return self.conjugate()
+
+    def conj( self, out=None):
+        return self.conjugate(out=out)
 
     @property
     def H(self):

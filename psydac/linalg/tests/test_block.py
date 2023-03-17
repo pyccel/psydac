@@ -673,7 +673,7 @@ def test_2D_block_serial_math( dtype, npts, p, P1, P2 ):
     assert np.allclose(Xc.blocks[0]._data, (x1)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
     assert np.allclose(Xc.blocks[1]._data, (x2)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
 
-    Xc=X.conj
+    Xc=X.conj()
     assert np.allclose(Xc.blocks[0]._data, (x1.conj())._data,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(Xc.blocks[1]._data, (x2.conj())._data,  rtol=1e-14, atol=1e-14 )
 
@@ -709,7 +709,7 @@ def test_2D_block_serial_math( dtype, npts, p, P1, P2 ):
     assert np.allclose(Mc.blocks[0][1]._data, (M2)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
     assert np.allclose(Mc.blocks[1][0]._data, (M3)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
 
-    Mc = M.conj
+    Mc = M.conj()
     assert np.allclose(Mc.blocks[0][0]._data, (M1)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
     assert np.allclose(Mc.blocks[0][1]._data, (M2)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
     assert np.allclose(Mc.blocks[1][0]._data, (M3)._data.conjugate(),  rtol=1e-14, atol=1e-14 )

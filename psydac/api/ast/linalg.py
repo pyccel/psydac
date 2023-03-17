@@ -158,7 +158,7 @@ class LinearOperatorDot(SplBasic):
         c_start         = kwargs.pop('c_start', None)
         dtype           = kwargs.pop('dtype', float)
 
-        # We adapt the type of data in our dot function
+        # Adapt the type of data treated in our dot function
         if dtype==complex:
             dtype_string='complex'
         else:
@@ -242,6 +242,7 @@ class LinearOperatorDot(SplBasic):
                 for i,j in zip(indices2[::-1], ranges[::-1]):
                     body = [For(i,j, body)]
 
+                # Adapt data type of the variable v=0
                 if dtype==complex:
                     body.insert(0,Assign(v, 0.0+0j))
                 else:
@@ -301,6 +302,7 @@ class LinearOperatorDot(SplBasic):
                     for i,j in zip(indices2[::-1], ranges[::-1]):
                         for_body = [For(i,j, for_body)]
 
+                    # Adapt data type of the variable v=0
                     if dtype == complex:
                         for_body.insert(0, Assign(v, 0.0 + 0j))
                     else:
@@ -449,10 +451,12 @@ class LinearOperatorDot(SplBasic):
 class TransposeOperator(SplBasic):
 
     name_template = 'transpose_{ndim}d'
-    function_dict = {1 : transpose_1d, 2 : transpose_2d, 3 : transpose_3d}
+    function_dict = {1 : transpose_1d,
+                     2 : transpose_2d,
+                     3 : transpose_3d}
 
     # TODO [YG 01.04.2022]: drop support for old Pyccel versions, then remove
-    # The type T is defined in linalg_kernel.py and it is a template of pyccel that accept float or complex value
+    # T is defined in linalg_kernel.py and it is a template of pyccel that accept float or complex array
     args_dtype_dict = {1: [repr('T')]*2 + [repr('int64')]*11,
                        2: [repr('T')]*2 + [repr('int64')]*22,
                        3: [repr('T')]*2 + [repr('int64')]*33
@@ -477,7 +481,7 @@ class TransposeOperator(SplBasic):
         if comm is not None and comm.size>1:
             tag = comm.bcast(tag , root=0 )
 
-        # Determine name based on number of dimensions and type of data
+        # Determine name based on number of dimensions
         name = cls.name_template.format(ndim=ndim)
 
         # Create new instance of this class
@@ -486,8 +490,8 @@ class TransposeOperator(SplBasic):
         # Initialize instance (code generation happens here)
         obj.ndim        = ndim
         backend         = dict(kwargs.pop('backend'))
-        obj._args_dtype = obj.args_dtype_dict[ndim]
         obj._code       = inspect.getsource(obj.function_dict[ndim])
+        obj._args_dtype = obj.args_dtype_dict[ndim]
         obj._folder     = obj._initialize_folder()
         obj._generate_code(backend=backend)
         obj._compile(backend=backend)
@@ -539,7 +543,7 @@ class TransposeOperator(SplBasic):
 
         if self.comm is None or self.comm.rank == 0:
 
-            dec  = ''
+            dec = ''
             code = self._code
             imports='from pyccel.decorators import template'
             if backend and backend['name'] == 'pyccel':
@@ -549,8 +553,6 @@ class TransposeOperator(SplBasic):
                     # Add @types decorator due the  minimum required Pyccel version 0.10.1
                     imports = imports + ',types'
                     dec     = '@types({})'.format(','.join(self._args_dtype))
-                else:
-                    dec     = ''
             elif backend and backend['name'] == 'numba':
                 imports = imports + '\nfrom numba import njit'
                 dec     = '@njit(fastmath={})'.format(backend['fastmath'])
@@ -606,9 +608,13 @@ class InterfaceTransposeOperator(TransposeOperator):
     """
 
     name_template = 'interface_transpose_{ndim}d'
-    function_dict = {1: interface_transpose_1d, 2: interface_transpose_2d, 3: interface_transpose_3d}
+    function_dict = {1: interface_transpose_1d,
+                     2: interface_transpose_2d,
+                     3: interface_transpose_3d}
 
     # TODO [YG 01.04.2022]: drop support for old Pyccel versions, then remove
+
+    # T is defined in linalg_kernel.py and it is a template of pyccel that accept float or complex array
     args_dtype_dict = {1 : [repr('T')]*2 + [repr('int64')]*12,
                        2 : [repr('T')]*2 + [repr('int64')]*21,
                        3 : [repr('T')]*2 + [repr('int64')]*30

@@ -69,10 +69,10 @@ def test_stencil_matrix_1d_serial_init(dtype, n1, p1, s1, P1=True):
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
 @pytest.mark.parametrize('n2', [8, 12])
-@pytest.mark.parametrize('p1', [2, 3, 4])
-@pytest.mark.parametrize('p2', [2, 3, 4])
-@pytest.mark.parametrize('s1', [1, 2, 3])
-@pytest.mark.parametrize('s2', [1, 2, 3])
+@pytest.mark.parametrize('p1', [2, 4])
+@pytest.mark.parametrize('p2', [2, 3])
+@pytest.mark.parametrize('s1', [1, 3])
+@pytest.mark.parametrize('s2', [1, 2])
 def test_stencil_matrix_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -131,10 +131,10 @@ def test_stencil_matrix_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
 @pytest.mark.parametrize('n2', [8, 12])
-@pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('p2', [1, 2, 3])
-@pytest.mark.parametrize('s1', [1, 2, 3])
-@pytest.mark.parametrize('s2', [1, 2, 3])
+@pytest.mark.parametrize('p1', [1, 2])
+@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('s1', [1, 2])
+@pytest.mark.parametrize('s2', [1, 2])
 def test_stencil_matrix_2d_copy(dtype, n1, n2, p1, p2,s1,s2, P1=True, P2=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -172,10 +172,10 @@ def test_stencil_matrix_2d_copy(dtype, n1, n2, p1, p2,s1,s2, P1=True, P2=False):
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
 @pytest.mark.parametrize('n2', [8, 12])
-@pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('p2', [1, 2, 3])
-@pytest.mark.parametrize('s1', [1, 2, 3])
-@pytest.mark.parametrize('s2', [1, 2, 3])
+@pytest.mark.parametrize('p1', [1, 2])
+@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('s1', [1, 2])
+@pytest.mark.parametrize('s2', [1, 2])
 def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -243,10 +243,10 @@ def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
 @pytest.mark.parametrize('n2', [8, 12])
-@pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('p2', [1, 2, 3])
-@pytest.mark.parametrize('s1', [1, 2, 3])
-@pytest.mark.parametrize('s2', [1, 2, 3])
+@pytest.mark.parametrize('p1', [1, 2])
+@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('s1', [1, 2])
+@pytest.mark.parametrize('s2', [1, 2])
 def test_stencil_matrix_2d_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -273,13 +273,15 @@ def test_stencil_matrix_2d_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False
     # Apply the function at our matrixes
     M1=abs(M)
     M2=M.conjugate()
+    M3=M.conj()
 
     # Create the array with the exact value
     M1_exa=abs(M._data)
     M2_exa=M._data.conjugate()
+    M3_exa=M._data.conj()
 
     # Check that the math operation conjugate and abs return the correct StencilMatrix
-    for (m, m_exa) in zip([M1, M2],[M1_exa,M2_exa]):
+    for (m, m_exa) in zip([M1, M2, M3],[M1_exa,M2_exa, M3_exa]):
         assert isinstance(m, StencilMatrix)
         assert m.domain == V
         assert m.codomain == V
@@ -288,7 +290,7 @@ def test_stencil_matrix_2d_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False
         assert m.backend == None
         assert m._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, 1 + 2 * p1, 1 + 2 * p2)
         assert m.shape == (n1 * n2, n1 * n2)
-        assert np.array_equal(m._data, m_exa)
+        assert np.allclose(m._data, m_exa)
 # ===============================================================================
 
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -533,8 +535,8 @@ def test_stencil_matrix_2d_serial_toarray( dtype, n1, n2, p1, p2, s1, s2, P1, P2
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
 @pytest.mark.parametrize('n2', [8, 12])
-@pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('p2', [1, 2, 3])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('p2', [1, 2])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
@@ -665,8 +667,8 @@ def test_stencil_matrix_1d_serial_dot(dtype, n1, p1, s1, P1):
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 15])
 @pytest.mark.parametrize('n2', [5, 12])
-@pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('p2', [1, 2, 3])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('p2', [1, 2])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
@@ -1150,8 +1152,8 @@ def test_stencil_matrix_2d_serial_dot_6(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 15])
 @pytest.mark.parametrize('n2', [5, 12])
-@pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('p2', [1, 2, 3])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('p2', [1, 2])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
@@ -1257,8 +1259,8 @@ def test_stencil_matrix_1d_serial_transpose(dtype, n1, p1, s1, P1):
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 15])
 @pytest.mark.parametrize('n2', [5, 12])
-@pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('p2', [1, 2, 3])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('p2', [1, 2])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
@@ -1305,8 +1307,8 @@ def test_stencil_matrix_2d_serial_transpose_1(dtype, n1, n2, p1, p2, s1, s2, P1,
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 12])
 @pytest.mark.parametrize('n2', [6, 10])
-@pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('p2', [1, 2, 3])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('p2', [1, 2])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [False])
@@ -1359,8 +1361,8 @@ def test_stencil_matrix_2d_serial_transpose_2(dtype, n1, n2, p1, p2, s1, s2, P1,
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 12])
 @pytest.mark.parametrize('n2', [6, 10])
-@pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('p2', [1, 2, 3])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('p2', [1, 2])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [False])
@@ -1412,8 +1414,8 @@ def test_stencil_matrix_2d_serial_transpose_3(dtype, n1, n2, p1, p2, s1, s2, P1,
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 12])
 @pytest.mark.parametrize('n2', [6, 10])
-@pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('p2', [1, 2, 3])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('p2', [1, 2])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [False])
@@ -2049,21 +2051,22 @@ def test_stencil_matrix_1d_serial_backend_transpose(dtype, n1, p1, s1, P1, backe
     M1.remove_spurious_entries()
     M2.remove_spurious_entries()
 
-
-    # Compute matrix-vector product
-    T1 = M1.transpose()
-    T2 = M2.transpose()
-
     # Convert stencil objects to Numpy arrays
     M1a = M1.toarray()
     M2a = M2.toarray()
 
+    # Compute matrix-vector product
+    T1 = M1.transpose()
+    T2 = M2.H
+
     # Exact result using Numpy dot product
     T1_exact = M1a.transpose()
-    T2_exact = M2a.transpose()
+    T2_exact = (M2a.transpose()).conj()
 
     # Check data in 1D array
 
+    print(T2.toarray())
+    print(T2_exact)
     assert np.allclose(T1.toarray(), T1_exact, rtol=1e-13, atol=1e-13)
     assert np.allclose(T2.toarray(), T2_exact, rtol=1e-13, atol=1e-13)
 

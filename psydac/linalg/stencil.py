@@ -372,15 +372,15 @@ class StencilVector( Vector ):
             assert out.space is self.space
 
         else:
-            out = StencilVector(self.space)
+            out = self.copy()
         out._data = self._data.conjugate()
         for axis, ext in self._space.interfaces:
             np.copyto(out._interface_data[axis, ext], self._interface_data[axis, ext].conjugate(), casting='no')
         out._sync=self._sync
         return out
 
-    def conj(self):
-        return self.conjugate()
+    def conj(self,out=None):
+        return self.conjugate(out=out)
 
     #...
     def copy(self, out=None):
@@ -964,12 +964,12 @@ class StencilMatrix( LinearOperator ):
             assert out.codomain is self.codomain
 
         else:
-            out = StencilMatrix( self.domain, self.codomain )
+            out = self.copy()
         out._data = self._data.conjugate()
         return out
 
-    def conj( self):
-        return self.conjugate()
+    def conj( self, out=None):
+        return self.conjugate(out=out)
 
     def __truediv__(self, a):
         """ Divide by scalar. """
@@ -1308,7 +1308,7 @@ class StencilMatrix( LinearOperator ):
         return self.transpose()
     @property
     def H(self):
-        return (self.conj()).T
+        return (self.conj()).transpose()
     def diagonal(self):
         if self._diag_indices is None:
             cm    = self.codomain.shifts

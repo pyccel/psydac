@@ -1087,8 +1087,6 @@ class MinimumResidual(InverseLinearOperator):
     def dot(self, b, out=None):
         return self.solve(b, out=out)
 
-        #===============================================================================
-
 #===============================================================================
 class LSMR(InverseLinearOperator):
     """
