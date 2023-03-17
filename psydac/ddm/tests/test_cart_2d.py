@@ -113,9 +113,8 @@ def run_cart_2d( data_exchanger_type, verbose=False , nprocs=None, reverse_axis=
 
     # MASTER only: collect information from all processes
     success_global = comm.reduce( success, op=MPI.LAND, root=0 )
-    if verbose:
-        return locals()
-    return(success)
+
+    return locals()
 
 #===============================================================================
 # RUN TEST WITH PYTEST
@@ -126,23 +125,23 @@ import pytest
 @pytest.mark.parallel
 def test_cart_2d(data_exchanger_type):
 
-    success = run_cart_2d(data_exchanger_type)
+    namespace = run_cart_2d(data_exchanger_type)
 
-    assert success
+    assert namespace['success']
 
 @pytest.mark.parallel
 def test_cart_2d_reverse_axis_0():
 
-    success = run_cart_2d(BlockingCartDataExchanger, reverse_axis=0)
+    namespace = run_cart_2d(BlockingCartDataExchanger, reverse_axis=0)
 
-    assert success
+    assert namespace['success']
 
 @pytest.mark.parallel
 def test_cart_2d_reverse_axis_1():
 
-    success = run_cart_2d(BlockingCartDataExchanger, reverse_axis=1)
+    namespace = run_cart_2d(BlockingCartDataExchanger, reverse_axis=1)
 
-    assert success
+    assert namespace['success']
 
 #===============================================================================
 # RUN TEST MANUALLY

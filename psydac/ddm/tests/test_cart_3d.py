@@ -122,9 +122,8 @@ def run_cart_3d( data_exchanger_type, verbose=False ):
 
     # MASTER only: collect information from all processes
     success_global = comm.reduce( success, op=MPI.LAND, root=0 )
-    if verbose:
-        return locals()
-    return success
+
+    return locals()
 
 #===============================================================================
 # RUN TEST WITH PYTEST
@@ -135,9 +134,9 @@ import pytest
 @pytest.mark.parallel
 def test_cart_3d(data_exchanger_type):
 
-    success = run_cart_3d(data_exchanger_type)
+    namespace = run_cart_3d(data_exchanger_type)
 
-    assert success
+    assert namespace['success']
 
 #===============================================================================
 # RUN TEST MANUALLY

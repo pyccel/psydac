@@ -465,13 +465,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         fig3.show()
 
     # Return whole namespace as dictionary
-    if verbose:
-        return locals()
-
-    if MPI.COMM_WORLD.size == 1:
-        return {'error_E': error_E,'error_B': error_B,'error_l2_E':error_l2_E,'error_l2_B':error_l2_B}
-    else:
-        return {'error_l2_E':error_l2_E,'error_l2_B':error_l2_B}
+    return locals()
 
 #==============================================================================
 # UNIT TESTS
@@ -609,8 +603,8 @@ def test_maxwell_1d_dirichlet_strong_par():
                error_l2_B = 1.2635727360749016e-04)
 
     # TODO:  after bug is fixed
-    # assert abs(namespace['error_l2_E'] - ref['error_l2_E']) / ref['error_l2_E'] <= TOL
-    # assert abs(namespace['error_l2_B'] - ref['error_l2_B']) / ref['error_l2_B'] <= TOL
+    #assert abs(namespace['error_l2_E'] - ref['error_l2_E']) / ref['error_l2_E'] <= TOL
+    #assert abs(namespace['error_l2_B'] - ref['error_l2_B']) / ref['error_l2_B'] <= TOL
 
 @pytest.mark.parallel
 def test_maxwell_1d_dirichlet_penalization_par():

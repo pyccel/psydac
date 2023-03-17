@@ -90,7 +90,7 @@ def run_poisson_mixed_form_2d_dir(f0, sol, ncells, degree):
     return l2_error
 
 #==============================================================================
-def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=False, verbose=False):
+def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=False):
 
     # ... abstract model
     V1 = VectorFunctionSpace('V1', domain, kind='H1')
@@ -207,12 +207,11 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
     print('Relative l2_error(u) = {}'.format(l2_error_u / l2_norm_ue))
     print('Relative l2_error(p) = {}'.format(l2_error_p / l2_norm_pe))
     print('Average(p) = {}'.format(p_avg))
-    if verbose:
-        return locals()
-    return {'l2_error_u' :l2_error_u ,'l2_error_p':l2_error_p}
+
+    return locals()
 
 #==============================================================================
-def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree, verbose=False):
+def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree):
 
     from mpi4py   import MPI
     from petsc4py import PETSc
@@ -345,9 +344,8 @@ def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree, v
     print('Relative l2_error(u) = {}'.format(l2_error_u / l2_norm_ue))
     print('Relative l2_error(p) = {}'.format(l2_error_p / l2_norm_pe))
     print('Average(p) = {}'.format(p_avg))
-    if verbose:
-        return locals()
-    return {'l2_error_u':l2_error_u, 'l2_error_p':l2_error_p}
+
+    return locals()
 
 #==============================================================================
 def run_maxwell_time_harmonic_2d_dir(uex, f, alpha, ncells, degree):
