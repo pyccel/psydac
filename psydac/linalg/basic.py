@@ -4,6 +4,7 @@
 # Copyright 2022 Yaman Güçlü, Said Hadjout, Julian Owezarek
 
 from abc   import ABC, abstractmethod
+from scipy.sparse import coo_matrix
 import numpy as np
 
 __all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'ZeroOperator', 'IdentityOperator', 'ScaledLinearOperator',
@@ -678,7 +679,11 @@ class ComposedLinearOperator(LinearOperator):
         raise NotImplementedError('toarray() is not defined for ComposedLinearOperators.')
 
     def tosparse(self):
-        raise NotImplementedError('tosparse() is not defined for ComposedLinearOperators.')
+        mats = [M.tosparse() for M in self._multiplicants]
+        M = mats[0]
+        for Mi in mats[1:]:
+            M = M @ Mi
+        return coo_matrix(M)
 
     def transpose(self):
         t_multiplicants = ()
@@ -688,7 +693,6 @@ class ComposedLinearOperator(LinearOperator):
         new_cod = self._domain
         assert isinstance(new_dom, VectorSpace)
         assert isinstance(new_cod, VectorSpace)
-        print(*t_multiplicants)
         return ComposedLinearOperator(self._codomain, self._domain, *t_multiplicants)
 
     def dot(self, v, out=None):
@@ -702,11 +706,14 @@ class ComposedLinearOperator(LinearOperator):
         for i in range(len(self._tmp_vectors)):
             y = self._tmp_vectors[-1-i]
             A = self._multiplicants[-1-i]
+            x.update_ghost_regions()
             A.dot(x, out=y)
             x = y
 
         A = self._multiplicants[0]
+        x.update_ghost_regions()
         if out is not None:
+
             A.dot(x, out=out)
         else:
             out = A.dot(x)

@@ -3,6 +3,7 @@ from functools import reduce
 
 import numpy as np
 from scipy.sparse import kron
+from scipy.sparse import coo_matrix
 
 from psydac.linalg.basic   import LinearOperator, LinearSolver
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
