@@ -1859,6 +1859,9 @@ class StencilInterfaceMatrix(LinearOperator):
         else:
             out = StencilVector( self.codomain )
 
+        # Necessary if vector space is distributed across processes
+        if not v.ghost_regions_in_sync and not v.space.parallel:
+            v.update_ghost_regions()
         self._func(self._data, v._interface_data[self._domain_axis, self._domain_ext], out._data, **self._args)
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False

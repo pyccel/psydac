@@ -706,12 +706,10 @@ class ComposedLinearOperator(LinearOperator):
         for i in range(len(self._tmp_vectors)):
             y = self._tmp_vectors[-1-i]
             A = self._multiplicants[-1-i]
-            x.update_ghost_regions()
             A.dot(x, out=y)
             x = y
 
         A = self._multiplicants[0]
-        x.update_ghost_regions()
         if out is not None:
 
             A.dot(x, out=out)
