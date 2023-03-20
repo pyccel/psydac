@@ -143,9 +143,8 @@ def test_c1_projections( degrees, ncells, verbose=False ):
 
     if verbose:
         print( "PASSED" )
-
-    return locals()
+        return locals()
 
 #==============================================================================
 if __name__ == "__main__":
-    namespace = test_c1_projections( degrees=(2,2), ncells=(4,5), verbose=True )
+    namespace = test_c1_projections( degrees=(2,2), ncells=(4,5), verbose=False )
