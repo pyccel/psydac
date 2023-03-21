@@ -1,6 +1,7 @@
 from pyccel.decorators import template
+
 #========================================================================================================
-@template(name='T',types=['float[:,:]','complex[:,:]'])
+@template(name='T', types=['float[:,:]', 'complex[:,:]'])
 def transpose_1d( M:'T', Mt:'T', n1:"int64", nc1:"int64", gp1:"int64", p1:"int64",
                   dm1:"int64", cm1:"int64", nd1:"int64", ndT1:"int64", si1:"int64", sk1:"int64", sl1:"int64"):
 
@@ -22,7 +23,7 @@ def transpose_1d( M:'T', Mt:'T', n1:"int64", nc1:"int64", gp1:"int64", p1:"int64
     return
 
 #========================================================================================================
-@template(name='T',types=['float[:,:,:,:]','complex[:,:,:,:]'])
+@template(name='T', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
 def transpose_2d( M:'T', Mt:'T', n1:"int64", n2:"int64", nc1:"int64", nc2:"int64",
                   gp1:"int64", gp2:"int64", p1:"int64", p2:"int64", dm1:"int64", dm2:"int64",
                   cm1:"int64", cm2:"int64", nd1:"int64", nd2:"int64", ndT1:"int64", ndT2:"int64",
@@ -55,7 +56,7 @@ def transpose_2d( M:'T', Mt:'T', n1:"int64", n2:"int64", nc1:"int64", nc2:"int64
     #$omp end parallel
     return
 #========================================================================================================
-@template(name='T',types=['float[:,:,:,:,:,:]','complex[:,:,:,:,:,:]'])
+@template(name='T', types=['float[:,:,:,:,:,:]', 'complex[:,:,:,:,:,:]'])
 def transpose_3d(M:'T', Mt:'T',
                  n1:"int64", n2:"int64", n3:"int64",
                  nc1:"int64", nc2:"int64", nc3:"int64",
@@ -101,7 +102,7 @@ def transpose_3d(M:'T', Mt:'T',
     return
 
 #========================================================================================================
-@template(name='T',types=['float[:,:]','complex[:,:]'])
+@template(name='T', types=['float[:,:]', 'complex[:,:]'])
 def interface_transpose_1d( M:'T', Mt:'T', n1:"int64",
                             nc1:"int64", gp1:"int64", p1:"int64", dm1:"int64", cm1:"int64",
                             nd1:"int64", ndT1:"int64", si1:"int64",
@@ -124,7 +125,7 @@ def interface_transpose_1d( M:'T', Mt:'T', n1:"int64",
     #$omp end parallel
     return
 #========================================================================================================
-@template(name='T',types=['float[:,:,:,:]','complex[:,:,:,:]'])
+@template(name='T', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
 def interface_transpose_2d( M:'T', Mt:'T', n1:"int64", n2:"int64",
                             nc1:"int64", nc2:"int64", gp1:"int64", gp2:"int64",
                             p1:"int64", p2:"int64", dm1:"int64", dm2:"int64",
@@ -160,7 +161,7 @@ def interface_transpose_2d( M:'T', Mt:'T', n1:"int64", n2:"int64",
     #$ omp end parallel
     return
 #========================================================================================================
-@template(name='T',types=['float[:,:,:,:,:,:]','complex[:,:,:,:,:,:]'])
+@template(name='T', types=['float[:,:,:,:,:,:]', 'complex[:,:,:,:,:,:]'])
 def interface_transpose_3d( M:'T', Mt:'T',
                             n1:"int64", n2:"int64", n3:"int64",
                             nc1:"int64", nc2:"int64", nc3:"int64",

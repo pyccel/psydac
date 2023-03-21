@@ -4,7 +4,6 @@ import numpy as np
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition, find_mpi_type
 
-
 # ===============================================================================
 def compute_global_starts_ends(domain_decomposition, npts):
     ndims = len(npts)
@@ -20,7 +19,6 @@ def compute_global_starts_ends(domain_decomposition, npts):
         global_starts[axis] = np.array([0] + (global_ends[axis][:-1] + 1).tolist())
 
     return global_starts, global_ends
-
 
 # ===============================================================================
 # SERIAL TESTS
@@ -164,7 +162,7 @@ def test_stencil_vector_space_3D_serial_parent(dtype, n1, n2, n3, P1=True, P2=Fa
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[1, 1, 1], shifts=[1, 1, 1])
 
     # Create q reduced cart and vector space on it
-    Cred=C.reduce_npts(npts_red, global_starts, global_ends, [1, 1, 1])
+    Cred = C.reduce_npts(npts_red, global_starts, global_ends, [1, 1, 1])
     V = StencilVectorSpace(Cred, dtype=dtype)
 
     # Test properties of the vector space
@@ -430,7 +428,7 @@ def test_stencil_vector_space_2D_parallel_parent(dtype, n1, n2, P1=True, P2=Fals
     C = CartDecomposition(D, npts, global_starts, global_ends, pads=[1, 1], shifts=[1, 1])
 
     # Create the cart reduced and a vector space
-    Cred=C.reduce_npts(npts_red, global_starts, global_ends, [1, 1])
+    Cred = C.reduce_npts(npts_red, global_starts, global_ends, [1, 1])
     V = StencilVectorSpace(Cred, dtype=dtype)
 
     # Test properties of the vector space

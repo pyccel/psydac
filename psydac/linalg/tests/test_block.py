@@ -54,37 +54,8 @@ def test_2D_block_vector_space_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
 
     # Create vector spaces, stencil matrices, and stencil vectors
     V = StencilVectorSpace( cart, dtype=dtype )
-    M1 = StencilMatrix( V, V)
-    M2 = StencilMatrix( V, V )
-    M3 = StencilMatrix( V, V )
-    x1 = StencilVector( V )
-    x2 = StencilVector( V )
-
-    # Fill in stencil matrices based on diagonal index
-    if dtype==complex:
-        f=lambda k1,k2: 10j*k1+k2
-    else:
-        f=lambda k1,k2: 10*k1+k2
-
-    for k1 in range(-p1,p1+1):
-        for k2 in range(-p2,p2+1):
-            M1[:,:,k1,k2] = f(k1,k2)
-            M2[:,:,k1,k2] = f(k1,k2)+2.
-            M3[:,:,k1,k2] = f(k1,k2)+5.
-
-    M1.remove_spurious_entries()
-    M2.remove_spurious_entries()
-    M3.remove_spurious_entries()
-
-    # Fill in vector with random values, then update ghost regions
-    for i1 in range(n1):
-        for i2 in range(n2):
-            x1[i1,i2] = 2.0*random() - 1.0
-            x2[i1,i2] = 5.0*random() - 1.0
-    x1.update_ghost_regions()
-    x2.update_ghost_regions()
-
     W = BlockVectorSpace(V, V)
+
     assert W.dimension == 2*n1*n2
     assert W.dtype == dtype
     assert W.spaces == (V,V)
@@ -119,14 +90,6 @@ def test_2D_block_vector_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     V = StencilVectorSpace( cart, dtype=dtype )
     x1 = StencilVector( V )
     x2 = StencilVector( V )
-
-    # Fill in vector with random values, then update ghost regions
-    for i1 in range(n1):
-        for i2 in range(n2):
-            x1[i1,i2] = 2.0*random() - 1.0
-            x2[i1,i2] = 5.0*random() - 1.0
-    x1.update_ghost_regions()
-    x2.update_ghost_regions()
 
     W = BlockVectorSpace(V, V)
     x = BlockVector(W, blocks=[x1,x2])

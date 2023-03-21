@@ -53,7 +53,7 @@ def to_bnd(A):
     ua   = dmat.offsets.max()
     cmat = dmat.tocsr()
 
-    A_bnd = np.zeros((1+ua+2*la, cmat.shape[1]),A.dtype)
+    A_bnd = np.zeros((1+ua+2*la, cmat.shape[1]), A.dtype)
 
     for i,j in zip(*cmat.nonzero()):
         A_bnd[la+ua+i-j, j] = cmat[i,j]
@@ -73,7 +73,7 @@ def matrix_to_sparse(A):
 def random_matrix(seed, space):
     A = StencilMatrix(space, space)
     p = space.pads[0]
-    dtype=space.dtype
+    dtype = space.dtype
 
     # for now, take matrices like this (as in the other tests)
     if dtype==complex:
@@ -93,7 +93,7 @@ def random_vectordata(seed, npts, dtype):
     else:
         factor=1
     # for now, take vectors like this (as in the other tests)
-    return np.fromfunction(lambda *point: sum([10**i*d+factor*seed for i,d in enumerate(point)]), npts,dtype=dtype)
+    return np.fromfunction(lambda *point: sum([10**i*d+factor*seed for i,d in enumerate(point)]), npts, dtype=dtype)
 
 def compare_solve(seed, comm, npts, pads, periods, direct_solver, dtype=float, transposed=False, verbose=False):
     if comm is None:
@@ -170,7 +170,7 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, dtype=float, t
 @pytest.mark.parametrize( 'p', [1, 3] )
 @pytest.mark.parametrize( 'P', [True, False] )
 @pytest.mark.parametrize( 'nrhs', [1,3] )
-@pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver] )
+@pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
 @pytest.mark.parametrize( 'transposed', [True, False] )
 def test_direct_solvers(dtype, seed, n, p, P, nrhs, direct_solver, transposed):
 
@@ -280,7 +280,7 @@ def test_kron_solver_2d_transposed_ser(seed, n1, n2, p1, p2, P1, P2, direct_solv
 @pytest.mark.parametrize( 'p2', [1, 2] )
 @pytest.mark.parametrize( 'p3', [1, 2] )
 def test_kron_solver_3d_ser(seed, n1, n2, n3, p1, p2, p3, dtype, P1=False, P2=True, P3=False, direct_solver=matrix_to_sparse):
-    compare_solve(seed, MPI.COMM_SELF, [n1,n2,n3], [p1,p2,p3], [P1,P2,P3], direct_solver,dtype=dtype, transposed=False, verbose=False)
+    compare_solve(seed, MPI.COMM_SELF, [n1,n2,n3], [p1,p2,p3], [P1,P2,P3], direct_solver, dtype=dtype, transposed=False, verbose=False)
 #===============================================================================
 
 # higher-dimensional tests
@@ -322,7 +322,7 @@ def test_kron_solver_1d_par(seed, n1, p1, P1, direct_solver, dtype):
 @pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
 @pytest.mark.parallel
 def test_kron_solver_2d_par(seed, n1, n2, p1, p2, P1, P2, direct_solver, dtype):
-    compare_solve(seed, MPI.COMM_WORLD, [n1,n2], [p1,p2], [P1,P2], direct_solver,dtype=dtype, transposed=False, verbose=False)
+    compare_solve(seed, MPI.COMM_WORLD, [n1,n2], [p1,p2], [P1,P2], direct_solver, dtype=dtype, transposed=False, verbose=False)
 #===============================================================================
 
 @pytest.mark.parametrize( 'dtype', [float, complex] )
@@ -335,8 +335,8 @@ def test_kron_solver_2d_par(seed, n1, n2, p1, p2, P1, P2, direct_solver, dtype):
 @pytest.mark.parametrize( 'P2', [True, False] )
 @pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
 @pytest.mark.parallel
-def test_kron_solver_2d_transposed_par(seed, n1, n2, p1, p2, P1, P2, direct_solver,dtype):
-    compare_solve(seed, MPI.COMM_WORLD, [n1,n2], [p1,p2], [P1,P2], direct_solver,dtype=dtype, transposed=True, verbose=False)
+def test_kron_solver_2d_transposed_par(seed, n1, n2, p1, p2, P1, P2, direct_solver, dtype):
+    compare_solve(seed, MPI.COMM_WORLD, [n1,n2], [p1,p2], [P1,P2], direct_solver, dtype=dtype, transposed=True, verbose=False)
 #===============================================================================
 
 @pytest.mark.parametrize( 'dtype', [float, complex] )
@@ -349,7 +349,7 @@ def test_kron_solver_2d_transposed_par(seed, n1, n2, p1, p2, P1, P2, direct_solv
 @pytest.mark.parametrize( 'p3', [1, 2] )
 @pytest.mark.parallel
 def test_kron_solver_3d_par(seed, n1, n2, n3, p1, p2, p3, dtype, P1=False, P2=True, P3=False, direct_solver=matrix_to_sparse):
-    compare_solve(seed, MPI.COMM_WORLD, [n1,n2,n3], [p1,p2,p3], [P1,P2,P3], direct_solver,dtype=dtype, transposed=False, verbose=False)
+    compare_solve(seed, MPI.COMM_WORLD, [n1,n2,n3], [p1,p2,p3], [P1,P2,P3], direct_solver, dtype=dtype, transposed=False, verbose=False)
 #===============================================================================
 
 # higher-dimensional tests
@@ -367,5 +367,5 @@ def test_kron_solver_nd_par(seed, dim, dtype):
 
 if __name__ == '__main__':
     # showcase testcase
-    compare_solve(0, MPI.COMM_WORLD, [4,4,5], [1,2,3], [False,True,False], matrix_to_bandsolver, dtype=[float,complex], transposed=False, verbose=True)
+    compare_solve(0, MPI.COMM_WORLD, [4,4,5], [1,2,3], [False,True,False], matrix_to_bandsolver, dtype=[float, complex], transposed=False, verbose=True)
     #compare_solve(0, MPI.COMM_WORLD, [2]*10, [1]*10, [False]*10, matrix_to_sparse, verbose=True)

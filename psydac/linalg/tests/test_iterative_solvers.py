@@ -1,9 +1,12 @@
+
 import numpy as np
 import pytest
 from psydac.linalg.iterative_solvers import bicg, bicgstab, lsmr, minres, pcg, jacobi, cg
 from psydac.linalg.stencil import StencilVectorSpace, StencilMatrix, StencilVector
 from psydac.linalg.basic import LinearSolver
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
+
+
 def define_data_hermitien(n, p, dtype=float):
     domain_decomposition = DomainDecomposition([n - p], [False])
     cart = CartDecomposition(domain_decomposition, [n], [np.array([0])], [np.array([n - 1])], [p], [1])
@@ -56,15 +59,6 @@ def define_data(n, p, matrix_data, dtype):
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float,complex])
 def test_bicgstab_tridiagonal( n, p, dtype ):
-    """
-    Test generic Biconjugate Gradient algorithm on tridiagonal linear system.
-
-    Parameters
-    ----------
-    n : int
-        Dimension of linear system (number of rows = number of columns).
-
-    """
 
     #---------------------------------------------------------------------------
     # PARAMETERS
@@ -121,20 +115,12 @@ def test_bicgstab_tridiagonal( n, p, dtype ):
     # PYTEST
     #---------------------------------------------------------------------------
     assert err_norm < tol
+
 #===============================================================================
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float,complex])
 def test_bicg_tridiagonal( n, p, dtype ):
-    """
-    Test generic Biconjugate Gradient algorithm on tridiagonal linear system.
-
-    Parameters
-    ----------
-    n : int
-        Dimension of linear system (number of rows = number of columns).
-
-    """
 
     #---------------------------------------------------------------------------
     # PARAMETERS
@@ -191,20 +177,12 @@ def test_bicg_tridiagonal( n, p, dtype ):
     # PYTEST
     #---------------------------------------------------------------------------
     assert err_norm < tol
+
 #===============================================================================
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float, complex])
 def test_lsmr_tridiagonal( n, p, dtype ):
-    """
-    Test generic LSMR algorithm on tridiagonal linear system.
-
-    Parameters
-    ----------
-    n : int
-        Dimension of linear system (number of rows = number of columns).
-
-    """
 
     #---------------------------------------------------------------------------
     # PARAMETERS
@@ -263,19 +241,11 @@ def test_lsmr_tridiagonal( n, p, dtype ):
     # PYTEST
     #---------------------------------------------------------------------------
     assert res_norm < tol
+
 #===============================================================================
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 def test_minres_tridiagonal( n, p ):
-    """
-    Test generic MINRES algorithm on tridiagonal linear system.
-
-    Parameters
-    ----------
-    n : int
-        Dimension of linear system (number of rows = number of columns).
-
-    """
 
     #---------------------------------------------------------------------------
     # PARAMETERS
@@ -331,20 +301,12 @@ def test_minres_tridiagonal( n, p ):
     # PYTEST
     #---------------------------------------------------------------------------
     assert res_norm < tol
+
 # ===============================================================================
 @pytest.mark.parametrize('n', [8, 16])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float, complex])
 def test_pcg_tridiagonal(n, p, dtype):
-    """
-    Test preconditioned Conjugate Gradient algorithm on tridiagonal linear system.
-
-    Parameters
-    ----------
-    n : int
-        Dimension of linear system (number of rows = number of columns).
-
-    """
     # ---------------------------------------------------------------------------
     # PARAMETERS
     # ---------------------------------------------------------------------------
@@ -423,20 +385,12 @@ def test_pcg_tridiagonal(n, p, dtype):
     # ---------------------------------------------------------------------------
     assert err_norm0 < tol and err_norm1 < tol and err_norm2 < tol
     assert info1 == info1b and info1 == info1c
+
 #===============================================================================
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float, complex])
 def test_cg_tridiagonal( n, p, dtype ):
-    """
-    Test generic Conjugate Gradient algorithm on tridiagonal linear system.
-
-    Parameters
-    ----------
-    n : int
-        Dimension of linear system (number of rows = number of columns).
-
-    """
 
     # ---------------------------------------------------------------------------
     # PARAMETERS
@@ -492,6 +446,10 @@ def test_cg_tridiagonal( n, p, dtype ):
     # PYTEST
     #---------------------------------------------------------------------------
     assert err_norm < tol
+
+# ===============================================================================
+# SCRIPT FUNCTIONALITY
+#===============================================================================
 
 if __name__ == "__main__":
     import sys
