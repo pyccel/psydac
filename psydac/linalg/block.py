@@ -297,14 +297,11 @@ class BlockVector( Vector ):
         if out is not None:
             assert isinstance( out, BlockVector )
             assert out.space is self.space
-
         else:
-            out = self.copy()
-
+            out = BlockVector(self.space)
         for Lij in out.blocks:
-            assert isinstance( Lij, StencilVector )
+            assert isinstance( Lij, (StencilVector, BlockVector) )
             Lij.conjugate(out=Lij)
-
         return out
 
     def conj( self, out=None):
