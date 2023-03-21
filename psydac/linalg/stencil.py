@@ -374,8 +374,10 @@ class StencilVector( Vector ):
             out = StencilVector(self.space)
         np.conjugate(self._data, out=out._data, casting='no')
         for axis, ext in self._space.interfaces:
-            np.copyto(out._interface_data[axis, ext], np.conjugate(self._interface_data[axis, ext], out=out._data, casting='no'), casting='no')
-        out._sync=self._sync
+            np.copyto(out._interface_data[axis, ext],
+                      np.conjugate(self._interface_data[axis, ext], out=out._interface_data[axis, ext], casting='no'),
+                      casting='no')
+        out._sync = self._sync
         return out
 
     def conj(self,out=None):
@@ -884,18 +886,14 @@ class StencilMatrix( LinearOperator ):
         # Necessary if vector space is distributed across processes
         if not v.ghost_regions_in_sync:
             v.update_ghost_regions()
-
         self._func(self._data, v._data, out._data, **self._args)
-
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
         return out
 
     def vdot( self, v, out=None):
-
         assert isinstance( v, StencilVector )
         assert v.space is self.domain
-
         if out is not None:
             assert isinstance( out, StencilVector )
             assert out.space is self.codomain
@@ -905,10 +903,8 @@ class StencilMatrix( LinearOperator ):
         # Necessary if vector space is distributed across processes
         if not v.ghost_regions_in_sync:
             v.update_ghost_regions()
-
         # Unless doing A_*x, this function do (A*x_)_
-        np.conjugate(v._data, out=v._data)
-        self._func(self._data, v._data, out._data, **self._args)
+        self._func(self._data, np.conjugate(v._data), out._data, **self._args)
         np.conjugate(out._data, out=out._data)
 
         # IMPORTANT: flag that ghost regions are not up-to-date

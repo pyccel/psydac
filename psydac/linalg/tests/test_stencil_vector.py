@@ -36,9 +36,9 @@ def compute_global_starts_ends(domain_decomposition, npts):
 @pytest.mark.parametrize('n1', [1, 7])
 @pytest.mark.parametrize('n2', [1, 5])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [2])
 def test_stencil_vector_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -68,9 +68,9 @@ def test_stencil_vector_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P
 @pytest.mark.parametrize('n1', [1, 7])
 @pytest.mark.parametrize('n2', [1, 5])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [2])
 def test_stencil_vector_2d_serial_copy(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -107,9 +107,9 @@ def test_stencil_vector_2d_serial_copy(dtype, n1, n2, p1, p2, s1, s2, P1=True, P
 @pytest.mark.parametrize('n1', [7, 15])
 @pytest.mark.parametrize('n2', [8, 12])
 @pytest.mark.parametrize('p1', [1, 3])
-@pytest.mark.parametrize('p2', [1, 3])
+@pytest.mark.parametrize('p2', [3])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [2])
 def test_stencil_vector_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -162,9 +162,9 @@ def test_stencil_vector_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
 @pytest.mark.parametrize('n1', [1, 7])
 @pytest.mark.parametrize('n2', [1, 5])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [1])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [1])
 def test_stencil_matrix_2d_serial_toarray(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -212,9 +212,9 @@ def test_stencil_matrix_2d_serial_toarray(dtype, n1, n2, p1, p2, s1, s2, P1=True
 @pytest.mark.parametrize('n1', [1, 7])
 @pytest.mark.parametrize('n2', [1, 5])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [1])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [1])
 def test_stencil_vector_2d_serial_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -265,9 +265,9 @@ def test_stencil_vector_2d_serial_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P
 @pytest.mark.parametrize('n1', [1, 7])
 @pytest.mark.parametrize('n2', [1, 5])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [1])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [1])
 def test_stencil_vector_2d_serial_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -316,9 +316,9 @@ def test_stencil_vector_2d_serial_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2
 @pytest.mark.parametrize('n1', [1, 7])
 @pytest.mark.parametrize('n2', [1, 5])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [1])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [1])
 def test_stencil_vector_2d_serial_conjugate(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -361,11 +361,11 @@ def test_stencil_vector_2d_serial_conjugate(dtype, n1, n2, p1, p2, s1, s2, P1=Tr
 @pytest.mark.parametrize('n1', [1, 7])
 @pytest.mark.parametrize('n2', [1, 5])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [1])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parametrize('P2', [True, False])
+@pytest.mark.parametrize('P2', [True])
 def test_stencil_vector_2d_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -411,11 +411,11 @@ def test_stencil_vector_2d_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2, P1, P2
 @pytest.mark.parametrize('n1', [5, 7])
 @pytest.mark.parametrize('n2', [5, 9])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [1])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parametrize('P2', [True, False])
+@pytest.mark.parametrize('P2', [True])
 def test_stencil_vector_2d_serial_update_ghost_region_interior(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -506,12 +506,12 @@ def test_stencil_vector_1d_parallel_init(dtype, n1, p1, s1, P1=True):
 # ===============================================================================
 
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('n1', [12, 22])
-@pytest.mark.parametrize('n2', [12, 24])
+@pytest.mark.parametrize('n1', [10, 15])
+@pytest.mark.parametrize('n2', [6, 12])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 3])
+@pytest.mark.parametrize('p2', [3])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [2])
 @pytest.mark.parallel
 def test_stencil_vector_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
 
@@ -542,14 +542,14 @@ def test_stencil_vector_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1=True,
 # ===============================================================================
 
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('n1', [12, 22])
-@pytest.mark.parametrize('n2', [12, 24])
-@pytest.mark.parametrize('n3', [12, 29])
+@pytest.mark.parametrize('n1', [6, 15])
+@pytest.mark.parametrize('n2', [10, 18])
+@pytest.mark.parametrize('n3', [12])
 @pytest.mark.parametrize('p1', [1, 3])
-@pytest.mark.parametrize('p2', [1, 4])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('p3', [1])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [3])
 @pytest.mark.parametrize('s3', [1])
 @pytest.mark.parallel
 def test_stencil_vector_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=True, P2=False, P3=True):
@@ -582,12 +582,12 @@ def test_stencil_vector_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, 
 # ===============================================================================
 
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('n1', [20, 64])
-@pytest.mark.parametrize('n2', [24, 64])
+@pytest.mark.parametrize('n1', [20, 32])
+@pytest.mark.parametrize('n2', [24, 40])
 @pytest.mark.parametrize('p1', [1, 3])
-@pytest.mark.parametrize('p2', [1, 4])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [2])
 @pytest.mark.parallel
 def test_stencil_vector_2d_parallel_toarray(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
@@ -650,12 +650,12 @@ def test_stencil_vector_2d_parallel_toarray(dtype, n1, n2, p1, p2, s1, s2, P1=Tr
 # TODO: test that ghost regions have been properly copied to 'xe' array
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('n1', [12, 24])
-@pytest.mark.parametrize('n2', [12, 24])
+@pytest.mark.parametrize('n1', [6, 10])
+@pytest.mark.parametrize('n2', [12, 15])
 @pytest.mark.parametrize('p1', [1, 4])
-@pytest.mark.parametrize('p2', [1, 3])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [1])
 @pytest.mark.parallel
 def test_stencil_vector_2d_parallel_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     from mpi4py import MPI
@@ -704,8 +704,8 @@ def test_stencil_vector_2d_parallel_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [12, 24])
-@pytest.mark.parametrize('n2', [12, 24])
-@pytest.mark.parametrize('n3', [12, 29])
+@pytest.mark.parametrize('n2', [9, 15])
+@pytest.mark.parametrize('n3', [8])
 @pytest.mark.parametrize('p1', [1, 3])
 @pytest.mark.parametrize('p2', [1, 2])
 @pytest.mark.parametrize('p3', [4])

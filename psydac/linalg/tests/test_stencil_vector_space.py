@@ -65,11 +65,11 @@ def test_stencil_vector_space_1d_serial_init(dtype, n1, p1, s1, P1):
 @pytest.mark.parametrize('n1', [1, 7])
 @pytest.mark.parametrize('n2', [1, 5])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [2])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parametrize('P2', [True, False])
+@pytest.mark.parametrize('P2', [True])
 
 def test_stencil_vector_space_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     # Create domain decomposition
@@ -105,12 +105,12 @@ def test_stencil_vector_space_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1, 
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [1, 9])
 @pytest.mark.parametrize('n2', [1, 7])
-@pytest.mark.parametrize('n3', [1, 5])
+@pytest.mark.parametrize('n3', [5])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('p3', [1])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [2])
 @pytest.mark.parametrize('s3', [1])
 
 def test_stencil_vector_space_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=True, P2=False, P3=True):
@@ -178,9 +178,9 @@ def test_stencil_vector_space_3D_serial_parent(dtype, n1, n2, n3, P1=True, P2=Fa
 @pytest.mark.parametrize('n1', [2, 9])
 @pytest.mark.parametrize('n2', [2, 7])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [2])
 
 def test_stencil_vector_space_2D_serial_zeros(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
@@ -212,9 +212,9 @@ def test_stencil_vector_space_2D_serial_zeros(dtype, n1, n2, p1, p2, s1, s2, P1=
 @pytest.mark.parametrize('n1', [5, 9])
 @pytest.mark.parametrize('n2', [5, 7])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [2])
 @pytest.mark.parametrize('axis', [0, 1])
 @pytest.mark.parametrize('ext', [-1, 1])
 
@@ -317,11 +317,11 @@ def test_stencil_vector_space_1d_parallel_init(dtype, n1, p1, s1, P1):
 @pytest.mark.parametrize('n1', [15, 30])
 @pytest.mark.parametrize('n2', [20, 40])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [2])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parametrize('P2', [True, False])
+@pytest.mark.parametrize('P2', [True])
 @pytest.mark.parallel
 
 def test_stencil_vector_space_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1, P2):

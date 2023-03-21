@@ -162,7 +162,7 @@ class LinearOperatorDot(SplBasic):
         if dtype==complex:
             dtype_string='complex'
         else:
-            dtype_string='float'
+            dtype_string='real'
 
         mats            = [variables('mat{}'.format(''.join(str(i) for i in key)),dtype_string, cls=IndexedVariable, rank=2*ndim) for key in keys]
         xs              = [variables('x{}'.format(i),dtype_string, cls=IndexedVariable, rank=ndim) for i in range(block_shape[1])]

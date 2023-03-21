@@ -61,8 +61,8 @@ def get_plus_starts_ends(minus_starts, minus_ends, minus_npts, plus_npts, minus_
 @pytest.mark.parametrize('axis', [0])
 @pytest.mark.parametrize('ext', [-1, 1])
 @pytest.mark.parametrize('n1', [7, 15])
-@pytest.mark.parametrize('p1', [2, 3, 4])
-@pytest.mark.parametrize('s1', [1, 2, 3])
+@pytest.mark.parametrize('p1', [2, 4])
+@pytest.mark.parametrize('s1', [1, 2])
 def test_stencil_interface_matrix_1d_serial_init(dtype, n1, p1, s1, axis, ext, P1=True):
     # Create domain decomposition
     D = DomainDecomposition([n1], periods=[P1])

@@ -23,6 +23,7 @@ def compute_global_starts_ends(domain_decomposition, npts):
         global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
 
     return tuple(global_starts), tuple(global_ends)
+
 #==============================================================================
 @pytest.mark.parametrize('dtype', [float,complex])
 @pytest.mark.parametrize('npts', [(5, 7, 8)])

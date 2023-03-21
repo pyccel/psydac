@@ -10,7 +10,7 @@ from scipy.sparse import bmat, lil_matrix
 from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator, LinearSolver
 from psydac.ddm.cart      import InterfaceCartDecomposition
 from psydac.ddm.utilities import get_data_exchanger
-from psydac.linalg.stencil import StencilVector
+from psydac.linalg.stencil import StencilVector, StencilMatrix
 
 __all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockDiagonalSolver']
 
@@ -299,11 +299,12 @@ class BlockVector( Vector ):
             assert out.space is self.space
         else:
             out = BlockVector(self.space)
-        for Lij in out.blocks:
+        for (Lij, Lij_out) in zip(self.blocks, out.blocks):
             assert isinstance( Lij, (StencilVector, BlockVector) )
-            Lij.conjugate(out=Lij)
+            assert isinstance( Lij_out, (StencilVector, BlockVector) )
+            Lij.conjugate(out=Lij_out)
+        out._sync = self._sync
         return out
-
     def conj( self, out=None):
         return self.conjugate(out=out)
 
@@ -523,9 +524,12 @@ class BlockLinearOperator( LinearOperator ):
             assert out.domain is self.domain
             assert out.codomain is self.codomain
         else:
-            out = BlockLinearOperator(self.space)
-        for (_, _), Lij in out._blocks_as_args.items():
-            Lij.conjugate(out=Lij)
+            out = BlockLinearOperator(self.domain, self.codomain)
+
+        for (i, j), Lij in self._blocks_as_args.items():
+            assert isinstance( Lij, (StencilMatrix, BlockLinearOperator) )
+            Lij_out = Lij.conjugate()
+            out[i,j] = Lij_out
         return out
 
     def conj( self, out=None):
@@ -534,7 +538,7 @@ class BlockLinearOperator( LinearOperator ):
     @property
     def H(self):
         M = self.T
-        return self.conjugate(M, out=M)
+        return self.conjugate(out=M)
 
     def __truediv__(self, a):
         """ Divide by scalar. """

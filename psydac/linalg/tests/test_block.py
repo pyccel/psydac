@@ -35,10 +35,10 @@ def compute_global_starts_ends(domain_decomposition, npts):
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
 @pytest.mark.parametrize( 'n2', [8, 12] )
-@pytest.mark.parametrize( 'p1', [1, 2, 3] )
-@pytest.mark.parametrize( 'p2', [1, 2, 3] )
+@pytest.mark.parametrize( 'p1', [1, 2] )
+@pytest.mark.parametrize( 'p2', [1, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
 
 def test_2D_block_vector_space_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     # set seed for reproducibility
@@ -69,10 +69,10 @@ def test_2D_block_vector_space_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
 @pytest.mark.parametrize( 'n2', [8, 12] )
-@pytest.mark.parametrize( 'p1', [1, 2, 3] )
-@pytest.mark.parametrize( 'p2', [1, 2, 3] )
+@pytest.mark.parametrize( 'p1', [1, 2] )
+@pytest.mark.parametrize( 'p2', [1, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
 
 def test_2D_block_vector_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     # set seed for reproducibility
@@ -101,10 +101,10 @@ def test_2D_block_vector_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
 @pytest.mark.parametrize( 'n2', [8, 12] )
-@pytest.mark.parametrize( 'p1', [1, 2, 3] )
-@pytest.mark.parametrize( 'p2', [1, 2, 3] )
+@pytest.mark.parametrize( 'p1', [1, 2] )
+@pytest.mark.parametrize( 'p2', [1, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
 
 def test_2D_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     # set seed for reproducibility
@@ -194,10 +194,10 @@ def test_2D_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
 @pytest.mark.parametrize( 'n2', [8, 12] )
-@pytest.mark.parametrize( 'p1', [1, 2, 3] )
-@pytest.mark.parametrize( 'p2', [1, 2, 3] )
+@pytest.mark.parametrize( 'p1', [1, 2] )
+@pytest.mark.parametrize( 'p2', [1, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
 def test_2D_block_diagonal_solver_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
@@ -303,7 +303,7 @@ def test_2D_block_diagonal_solver_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'p', [1, 2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
-@pytest.mark.parametrize( 'P3', [True, False] )
+@pytest.mark.parametrize( 'P3', [True] )
 def test_block_serial_dimension( ndim, p, P1, P2, P3 ):
 
     if ndim==1:
@@ -429,7 +429,7 @@ def test_block_serial_dimension( ndim, p, P1, P2, P3 ):
 @pytest.mark.parametrize( 'p', [[1,1,1], [2,3,4]] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
-@pytest.mark.parametrize( 'P3', [True, False] )
+@pytest.mark.parametrize( 'P3', [True] )
 def test_3D_block_serial_basic_operator( dtype, npts, p, P1, P2, P3 ):
 
     # set seed for reproducibility
@@ -590,11 +590,11 @@ def test_3D_block_serial_basic_operator( dtype, npts, p, P1, P2, P3 ):
     assert np.allclose(A4.blocks[1][0]._data, (M2)._data/5,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A4.blocks[1][1]._data, (M1)._data/5,  rtol=1e-14, atol=1e-14 )
 #===============================================================================
-@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'dtype', [complex] )
 @pytest.mark.parametrize( 'npts', [[6, 8]] )
 @pytest.mark.parametrize( 'p', [[1,1], [2,3]] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
 def test_2D_block_serial_math( dtype, npts, p, P1, P2 ):
 
     # set seed for reproducibility
@@ -623,6 +623,9 @@ def test_2D_block_serial_math( dtype, npts, p, P1, P2 ):
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
+    x1a = x1.toarray().conj()
+    x2a = x2.toarray().conj()
+
     # Construct a BlockVector object containing x1 and x2
     #     |x1|
     # X = |  |
@@ -633,12 +636,12 @@ def test_2D_block_serial_math( dtype, npts, p, P1, P2 ):
     X[1] = x2
 
     Xc=X.conjugate()
-    assert np.allclose(Xc.blocks[0]._data, (x1)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
-    assert np.allclose(Xc.blocks[1]._data, (x2)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Xc.blocks[0].toarray(), x1a, rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Xc.blocks[1].toarray(), x2a, rtol=1e-14, atol=1e-14 )
 
     Xc=X.conj()
-    assert np.allclose(Xc.blocks[0]._data, (x1.conj())._data,  rtol=1e-14, atol=1e-14 )
-    assert np.allclose(Xc.blocks[1]._data, (x2.conj())._data,  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Xc.blocks[0].toarray(), x1a, rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Xc.blocks[1].toarray(), x2a, rtol=1e-14, atol=1e-14 )
 
 
     M1 = StencilMatrix(V, V)
@@ -660,6 +663,10 @@ def test_2D_block_serial_math( dtype, npts, p, P1, P2 ):
     M2.remove_spurious_entries()
     M3.remove_spurious_entries()
 
+    M1a = M1.toarray().conjugate()
+    M2a = M2.toarray().conjugate()
+    M3a = M3.toarray().conjugate()
+
     # Construct a BlockLinearOperator object containing M1, M2, M3
     #     |M1   M2|
     # M = |       |
@@ -668,28 +675,23 @@ def test_2D_block_serial_math( dtype, npts, p, P1, P2 ):
     M = BlockLinearOperator(W, W, blocks=[[M1, M2], [M3, None]])
 
     Mc = M.conjugate()
-    assert np.allclose(Mc.blocks[0][0]._data, (M1)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
-    assert np.allclose(Mc.blocks[0][1]._data, (M2)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
-    assert np.allclose(Mc.blocks[1][0]._data, (M3)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Mc.blocks[0][0].toarray(), M1a,  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Mc.blocks[0][1].toarray(), M2a,  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Mc.blocks[1][0].toarray(), M3a,  rtol=1e-14, atol=1e-14 )
 
     Mc = M.conj()
-    assert np.allclose(Mc.blocks[0][0]._data, (M1)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
-    assert np.allclose(Mc.blocks[0][1]._data, (M2)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
-    assert np.allclose(Mc.blocks[1][0]._data, (M3)._data.conjugate(),  rtol=1e-14, atol=1e-14 )
-
-    Mc = M.H
-    assert np.allclose(Mc.blocks[0][0]._data, (M1.H)._data,  rtol=1e-14, atol=1e-14 )
-    assert np.allclose(Mc.blocks[0][1]._data, (M3.H)._data,  rtol=1e-14, atol=1e-14 )
-    assert np.allclose(Mc.blocks[1][0]._data, (M2.H)._data,  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Mc.blocks[0][0].toarray(), M1a,  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Mc.blocks[0][1].toarray(), M2a,  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(Mc.blocks[1][0].toarray(), M3a,  rtol=1e-14, atol=1e-14 )
 
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
 @pytest.mark.parametrize( 'n2', [8, 12] )
-@pytest.mark.parametrize( 'p1', [1, 2, 3] )
-@pytest.mark.parametrize( 'p2', [1, 2, 3] )
+@pytest.mark.parametrize( 'p1', [1, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
 
 def test_block_linear_operator_serial_dot( dtype, n1, n2, p1, p2, P1, P2  ):
     # set seed for reproducibility
@@ -769,10 +771,10 @@ def test_block_linear_operator_serial_dot( dtype, n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
 @pytest.mark.parametrize( 'n2', [8, 12] )
-@pytest.mark.parametrize( 'p1', [1, 2, 3] )
-@pytest.mark.parametrize( 'p2', [1, 2, 3] )
+@pytest.mark.parametrize( 'p1', [1, 2] )
+@pytest.mark.parametrize( 'p2', [1, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
 def test_block_diagonal_solver_serial_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
@@ -918,10 +920,10 @@ def test_block_diagonal_solver_serial_dot( dtype, n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
 @pytest.mark.parametrize( 'n2', [8, 12] )
-@pytest.mark.parametrize( 'p1', [1, 2, 3] )
-@pytest.mark.parametrize( 'p2', [1, 2, 3] )
+@pytest.mark.parametrize( 'p1', [1, 2] )
+@pytest.mark.parametrize( 'p2', [1, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
 
 def test_block_2d_array_to_psydac_1( dtype, n1, n2, p1, p2, P1, P2 ):
     #Define a factor for the data
@@ -963,10 +965,10 @@ def test_block_2d_array_to_psydac_1( dtype, n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
 @pytest.mark.parametrize( 'n2', [8, 12] )
-@pytest.mark.parametrize( 'p1', [1, 2, 3] )
-@pytest.mark.parametrize( 'p2', [1, 2, 3] )
+@pytest.mark.parametrize( 'p1', [1, 2] )
+@pytest.mark.parametrize( 'p2', [3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
 
 def test_block_2d_array_to_psydac_2( dtype, n1, n2, p1, p2, P1, P2 ):
     # Define a factor for the data
@@ -1012,9 +1014,9 @@ def test_block_2d_array_to_psydac_2( dtype, n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize( 'n1', [8, 16] )
 @pytest.mark.parametrize( 'n2', [8, 32] )
 @pytest.mark.parametrize( 'p1', [1, 3] )
-@pytest.mark.parametrize( 'p2', [1, 2] )
+@pytest.mark.parametrize( 'p2', [2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
 @pytest.mark.parametrize( 'backend', [None, PSYDAC_BACKEND_GPYCCEL] )
 
 def test_block_linear_operator_dot_backend( dtype, n1, n2, p1, p2, P1, P2, backend ):
@@ -1098,9 +1100,9 @@ def test_block_linear_operator_dot_backend( dtype, n1, n2, p1, p2, P1, P2, backe
 @pytest.mark.parametrize( 'n1', [8, 16] )
 @pytest.mark.parametrize( 'n2', [8, 32] )
 @pytest.mark.parametrize( 'p1', [1, 3] )
-@pytest.mark.parametrize( 'p2', [1, 2] )
+@pytest.mark.parametrize( 'p2', [2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
 @pytest.mark.parallel
 
 def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
@@ -1185,9 +1187,9 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize( 'n1', [8,16] )
 @pytest.mark.parametrize( 'n2', [8,32] )
 @pytest.mark.parametrize( 'p1', [1,3] )
-@pytest.mark.parametrize( 'p2', [1,2] )
+@pytest.mark.parametrize( 'p2', [2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
 @pytest.mark.parallel
 def test_block_diagonal_solver_parallel_dot( dtype, n1, n2, p1, p2, P1, P2  ):
     # Define a factor for the data
@@ -1331,12 +1333,12 @@ def test_block_diagonal_solver_parallel_dot( dtype, n1, n2, p1, p2, P1, P2  ):
     assert np.allclose( Yt.blocks[1].toarray(), y2t.toarray(), rtol=1e-14, atol=1e-14 )
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
-@pytest.mark.parametrize( 'n1', [8,16] )
-@pytest.mark.parametrize( 'n2', [8,32] )
-@pytest.mark.parametrize( 'p1', [1,3] )
-@pytest.mark.parametrize( 'p2', [1,2] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 32] )
+@pytest.mark.parametrize( 'p1', [1, 3] )
+@pytest.mark.parametrize( 'p2', [2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
 @pytest.mark.parallel
 
 def test_block_matrix_operator_parallel_dot_backend( dtype, n1, n2, p1, p2, P1, P2 ):

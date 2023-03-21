@@ -74,7 +74,7 @@ class BandedSolver ( DirectSolver ):
         self._sinfo = None
 
         self._space = np.ndarray
-        self._dtype=bmat.dtype
+        self._dtype = bmat.dtype
 
     @property
     def finfo( self ):
@@ -117,7 +117,7 @@ class BandedSolver ( DirectSolver ):
                                                         trans=transposed)
             out = preout.T
 
-        else :
+        else:
             assert out.shape == rhs.shape
             assert out.dtype == rhs.dtype
 
@@ -128,7 +128,7 @@ class BandedSolver ( DirectSolver ):
             # TODO: handle non-contiguous views?
 
             # we want FORTRAN-contiguous data (default is assumed to be C contiguous)
-            _, self._sinfo = self._solver_function(self._bmat, self._l, self._u, rhs.T, self._ipiv,
+            _, self._sinfo = self._solver_function(self._bmat, self._l, self._u, out.T, self._ipiv, overwrite_b=True,
                                                    trans=transposed)
 
         return out

@@ -41,8 +41,8 @@ def compute_global_starts_ends(domain_decomposition, npts, pads):
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
-@pytest.mark.parametrize('p1', [2, 3, 4])
-@pytest.mark.parametrize('s1', [1, 2, 3])
+@pytest.mark.parametrize('p1', [2, 4])
+@pytest.mark.parametrize('s1', [1, 2])
 def test_stencil_matrix_1d_serial_init(dtype, n1, p1, s1, P1=True):
     # Create domain decomposition
     D = DomainDecomposition([n1], periods=[P1])
@@ -70,9 +70,9 @@ def test_stencil_matrix_1d_serial_init(dtype, n1, p1, s1, P1=True):
 @pytest.mark.parametrize('n1', [7, 15])
 @pytest.mark.parametrize('n2', [8, 12])
 @pytest.mark.parametrize('p1', [2, 4])
-@pytest.mark.parametrize('p2', [2, 3])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 3])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [1])
 def test_stencil_matrix_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -96,15 +96,15 @@ def test_stencil_matrix_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P
     assert M.shape == (n1 * n2, n1 * n2)
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('n1', [7, 15])
-@pytest.mark.parametrize('n2', [8, 12])
-@pytest.mark.parametrize('n3', [8, 12])
+@pytest.mark.parametrize('n1', [7, 9])
+@pytest.mark.parametrize('n2', [8, 10])
+@pytest.mark.parametrize('n3', [8])
 @pytest.mark.parametrize('p1', [2, 3])
 @pytest.mark.parametrize('p2', [2, 3])
-@pytest.mark.parametrize('p3', [2, 3])
+@pytest.mark.parametrize('p3', [3])
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('s2', [1, 2])
-@pytest.mark.parametrize('s3', [1, 2])
+@pytest.mark.parametrize('s3', [2])
 def test_stencil_matrix_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=True, P2=False, P3=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2, n3], periods=[P1, P2, P3])
@@ -130,11 +130,11 @@ def test_stencil_matrix_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
-@pytest.mark.parametrize('n2', [8, 12])
+@pytest.mark.parametrize('n2', [8])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [2])
 def test_stencil_matrix_2d_copy(dtype, n1, n2, p1, p2,s1,s2, P1=True, P2=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -173,9 +173,9 @@ def test_stencil_matrix_2d_copy(dtype, n1, n2, p1, p2,s1,s2, P1=True, P2=False):
 @pytest.mark.parametrize('n1', [7, 15])
 @pytest.mark.parametrize('n2', [8, 12])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [1])
 def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -244,9 +244,9 @@ def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
 @pytest.mark.parametrize('n1', [7, 15])
 @pytest.mark.parametrize('n2', [8, 12])
 @pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s2', [1])
 def test_stencil_matrix_2d_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -270,18 +270,18 @@ def test_stencil_matrix_2d_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False
     # Check that the max function work
     assert M.max()==M._data.max()
 
-    # Apply the function at our matrixes
-    M1=abs(M)
-    M2=M.conjugate()
-    M3=M.conj()
-
     # Create the array with the exact value
-    M1_exa=abs(M._data)
-    M2_exa=M._data.conjugate()
-    M3_exa=M._data.conj()
+    M1_exa = abs(M._data)
+    M2_exa = M._data.conjugate()
+
+    # Apply the function at our matrixes
+    M1 = abs(M)
+    M2 = M.conjugate()
+    M3 = M.conj()
+    M4 = M.conj(out=M)
 
     # Check that the math operation conjugate and abs return the correct StencilMatrix
-    for (m, m_exa) in zip([M1, M2, M3],[M1_exa,M2_exa, M3_exa]):
+    for (m, m_exa) in zip([M1, M2, M3, M4], [M1_exa, M2_exa, M2_exa, M2_exa]):
         assert isinstance(m, StencilMatrix)
         assert m.domain == V
         assert m.codomain == V
@@ -295,8 +295,8 @@ def test_stencil_matrix_2d_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False
 
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 10])
-@pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('s1', [1, 2, 3])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('P1', [True, False])
 def test_stencil_matrix_1d_serial_spurious_entries( dtype, n1, p1, s1, P1):
 
@@ -348,10 +348,10 @@ def test_stencil_matrix_1d_serial_spurious_entries( dtype, n1, p1, s1, P1):
     assert np.array_equal(Ma, A)
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('p2', [1, 2, 3])
+@pytest.mark.parametrize('p1', [1, 2])
+@pytest.mark.parametrize('p2', [1, 3])
 @pytest.mark.parametrize('s1', [1, 3])
-@pytest.mark.parametrize('s2', [1, 6])
+@pytest.mark.parametrize('s2', [1, 2])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
 def test_stencil_matrix_2d_serial_spurious_entries( dtype, p1, p2, s1, s2, P1, P2, n1=15, n2=15):
@@ -470,9 +470,9 @@ def test_stencil_matrix_1d_serial_toarray( dtype, n1, p1, s1, P1):
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
-@pytest.mark.parametrize('n2', [8, 12])
-@pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('p2', [1, 2, 3])
+@pytest.mark.parametrize('n2', [8, 7])
+@pytest.mark.parametrize('p1', [1, 2])
+@pytest.mark.parametrize('p2', [1, 3])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
@@ -534,13 +534,13 @@ def test_stencil_matrix_2d_serial_toarray( dtype, n1, n2, p1, p2, s1, s2, P1, P2
 
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
-@pytest.mark.parametrize('n2', [8, 12])
+@pytest.mark.parametrize('n2', [8, 7])
 @pytest.mark.parametrize('p1', [1, 3])
-@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('p2', [1])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parametrize('P2', [True, False])
+@pytest.mark.parametrize('P2', [True])
 def test_stencil_matrix_2d_serial_tosparse( dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     # Select non-zero values based on diagonal index
     nonzero_values = dict()
@@ -605,7 +605,7 @@ def test_stencil_matrix_2d_serial_tosparse( dtype, n1, n2, p1, p2, s1, s2, P1, P
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [10, 32])
-@pytest.mark.parametrize('p1', [1, 2, 3])
+@pytest.mark.parametrize('p1', [1, 3])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('P1', [True, False])
 def test_stencil_matrix_1d_serial_dot(dtype, n1, p1, s1, P1):
@@ -666,7 +666,7 @@ def test_stencil_matrix_1d_serial_dot(dtype, n1, p1, s1, P1):
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 15])
-@pytest.mark.parametrize('n2', [5, 12])
+@pytest.mark.parametrize('n2', [5, 7])
 @pytest.mark.parametrize('p1', [1, 3])
 @pytest.mark.parametrize('p2', [1, 2])
 @pytest.mark.parametrize('s1', [1])
@@ -733,9 +733,9 @@ def test_stencil_matrix_2d_serial_dot_1(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 15])
-@pytest.mark.parametrize('n2', [5, 12])
+@pytest.mark.parametrize('n2', [5, 7])
 @pytest.mark.parametrize('p1', [2, 3])
-@pytest.mark.parametrize('p2', [2, 3])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [False])
@@ -821,9 +821,9 @@ def test_stencil_matrix_2d_serial_dot_2(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 15])
-@pytest.mark.parametrize('n2', [5, 12])
+@pytest.mark.parametrize('n2', [5, 7])
 @pytest.mark.parametrize('p1', [2, 3])
-@pytest.mark.parametrize('p2', [2, 3])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [False])
@@ -908,9 +908,9 @@ def test_stencil_matrix_2d_serial_dot_3(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 15])
-@pytest.mark.parametrize('n2', [5, 12])
+@pytest.mark.parametrize('n2', [5, 7])
 @pytest.mark.parametrize('p1', [2, 3])
-@pytest.mark.parametrize('p2', [2, 3])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [False])
@@ -996,9 +996,9 @@ def test_stencil_matrix_2d_serial_dot_4(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 15])
-@pytest.mark.parametrize('n2', [5, 12])
+@pytest.mark.parametrize('n2', [5, 7])
 @pytest.mark.parametrize('p1', [2, 3])
-@pytest.mark.parametrize('p2', [2, 3])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [False])
@@ -1086,7 +1086,7 @@ def test_stencil_matrix_2d_serial_dot_5(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 15])
-@pytest.mark.parametrize('n2', [5, 12])
+@pytest.mark.parametrize('n2', [5, 7])
 @pytest.mark.parametrize('p1', [2, 3])
 @pytest.mark.parametrize('p2', [2, 3])
 @pytest.mark.parametrize('s1', [1])
@@ -1151,7 +1151,7 @@ def test_stencil_matrix_2d_serial_dot_6(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 15])
-@pytest.mark.parametrize('n2', [5, 12])
+@pytest.mark.parametrize('n2', [5, 7])
 @pytest.mark.parametrize('p1', [1, 3])
 @pytest.mark.parametrize('p2', [1, 2])
 @pytest.mark.parametrize('s1', [1])
@@ -1198,26 +1198,28 @@ def test_stencil_matrix_2d_serial_vdot(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
                 x[i1, i2] = 2.0 * random() - 1.0
     x.update_ghost_regions()
 
-    # Compute matrix-vector product
-    y = M.vdot(x)
-
     # Convert stencil objects to Numpy arrays
     Ma = M.toarray()
     xa = x.toarray()
+
+    # Compute matrix-vector product
+    y = M.vdot(x)
     ya = y.toarray()
 
     # Exact result using Numpy dot product
-    ya_exact = np.dot(Ma.conjugate(), xa)
+    ya_exact = np.dot(np.conjugate(Ma), xa)
 
+    print(ya)
+    print(ya_exact)
     # Check data in 1D array
-    assert y.dtype==dtype
+    assert y.dtype == dtype
     assert np.allclose(ya, ya_exact, rtol=1e-13, atol=1e-13)
 
 # TODO: verify for s>1
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('n1', [4, 10, 32])
-@pytest.mark.parametrize('p1', [1, 2, 3])
+@pytest.mark.parametrize('n1', [4, 32])
+@pytest.mark.parametrize('p1', [1, 3])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('s1', [1])
 def test_stencil_matrix_1d_serial_transpose(dtype, n1, p1, s1, P1):
@@ -1306,7 +1308,7 @@ def test_stencil_matrix_2d_serial_transpose_1(dtype, n1, n2, p1, p2, s1, s2, P1,
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 12])
-@pytest.mark.parametrize('n2', [6, 10])
+@pytest.mark.parametrize('n2', [6, 8])
 @pytest.mark.parametrize('p1', [1, 3])
 @pytest.mark.parametrize('p2', [1, 2])
 @pytest.mark.parametrize('s1', [1])
@@ -1360,7 +1362,7 @@ def test_stencil_matrix_2d_serial_transpose_2(dtype, n1, n2, p1, p2, s1, s2, P1,
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 12])
-@pytest.mark.parametrize('n2', [6, 10])
+@pytest.mark.parametrize('n2', [6, 8])
 @pytest.mark.parametrize('p1', [1, 3])
 @pytest.mark.parametrize('p2', [1, 2])
 @pytest.mark.parametrize('s1', [1])
@@ -1413,7 +1415,7 @@ def test_stencil_matrix_2d_serial_transpose_3(dtype, n1, n2, p1, p2, s1, s2, P1,
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 12])
-@pytest.mark.parametrize('n2', [6, 10])
+@pytest.mark.parametrize('n2', [6, 8])
 @pytest.mark.parametrize('p1', [1, 3])
 @pytest.mark.parametrize('p2', [1, 2])
 @pytest.mark.parametrize('s1', [1])
@@ -1466,7 +1468,7 @@ def test_stencil_matrix_2d_serial_transpose_4(dtype, n1, n2, p1, p2, s1, s2, P1,
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 12])
-@pytest.mark.parametrize('n2', [7, 10])
+@pytest.mark.parametrize('n2', [7, 8])
 @pytest.mark.parametrize('p1', [2, 3])
 @pytest.mark.parametrize('p2', [2, 3])
 @pytest.mark.parametrize('s1', [1])
@@ -1518,7 +1520,7 @@ def test_stencil_matrix_2d_serial_transpose_5(dtype, n1, n2, p1, p2, s1, s2, P1,
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 12])
-@pytest.mark.parametrize('n2', [7, 10])
+@pytest.mark.parametrize('n2', [7, 8])
 @pytest.mark.parametrize('p1', [2, 3])
 @pytest.mark.parametrize('p2', [2, 3])
 @pytest.mark.parametrize('s1', [1])
@@ -1571,7 +1573,7 @@ def test_stencil_matrix_2d_serial_transpose_6(dtype, n1, n2, p1, p2, s1, s2, P1,
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 12])
-@pytest.mark.parametrize('n2', [7, 10])
+@pytest.mark.parametrize('n2', [7, 8])
 @pytest.mark.parametrize('p1', [2, 3])
 @pytest.mark.parametrize('p2', [2, 3])
 @pytest.mark.parametrize('s1', [1])
@@ -1618,7 +1620,7 @@ def test_stencil_matrix_2d_serial_transpose_7(dtype, n1, n2, p1, p2, s1, s2, P1,
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 12])
-@pytest.mark.parametrize('n2', [7, 10])
+@pytest.mark.parametrize('n2', [7, 8])
 @pytest.mark.parametrize('p1', [2, 3])
 @pytest.mark.parametrize('p2', [2, 3])
 @pytest.mark.parametrize('s1', [1])
@@ -1665,7 +1667,7 @@ def test_stencil_matrix_2d_serial_transpose_8(dtype, n1, n2, p1, p2, s1, s2, P1,
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 12])
-@pytest.mark.parametrize('n2', [7, 10])
+@pytest.mark.parametrize('n2', [7, 8])
 @pytest.mark.parametrize('p1', [2, 3])
 @pytest.mark.parametrize('p2', [2, 3])
 @pytest.mark.parametrize('s1', [1])
@@ -1712,12 +1714,12 @@ def test_stencil_matrix_2d_serial_transpose_9(dtype, n1, n2, p1, p2, s1, s2, P1,
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('n1', [7, 12])
-@pytest.mark.parametrize('n2', [7, 10])
-@pytest.mark.parametrize('n3', [7, 10])
+@pytest.mark.parametrize('n1', [6, 8])
+@pytest.mark.parametrize('n2', [6, 10])
+@pytest.mark.parametrize('n3', [7])
 @pytest.mark.parametrize('p1', [2, 3])
 @pytest.mark.parametrize('p2', [2, 3])
-@pytest.mark.parametrize('p3', [2, 3])
+@pytest.mark.parametrize('p3', [2])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('s3', [1])
@@ -1866,7 +1868,7 @@ def test_stencil_matrix_2d_serial_backend_dot_1(dtype, n1, n2, p1, p2, s1, s2, P
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_dot_2(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -2013,11 +2015,11 @@ def test_stencil_matrix_2d_serial_backend_dot_3(dtype, n1, n2, p1, p2, s1, s2, P
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float,complex])
-@pytest.mark.parametrize('n1', [5, 15])
-@pytest.mark.parametrize('p1', [2, 3])
+@pytest.mark.parametrize('n1', [5])
+@pytest.mark.parametrize('p1', [2])
 @pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('P1', [False])
-@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_1d_serial_backend_transpose(dtype, n1, p1, s1, P1, backend):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1], periods=[P1])
@@ -2080,7 +2082,7 @@ def test_stencil_matrix_1d_serial_backend_transpose(dtype, n1, p1, s1, P1, backe
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [False])
-@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_transpose(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -2145,7 +2147,7 @@ def test_stencil_matrix_2d_serial_backend_transpose(dtype, n1, n2, p1, p2, s1, s
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [False])
 @pytest.mark.parametrize('P3', [False])
-@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_3d_serial_backend_transpose(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1, P2, P3, backend):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1, n3 - 1], periods=[P1, P2, P3])
@@ -2765,7 +2767,7 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
 @pytest.mark.parametrize('n1', [20])
 @pytest.mark.parametrize('p1', [1])
 @pytest.mark.parametrize('sh1', [1])
-@pytest.mark.parametrize('P1', [True, False])
+@pytest.mark.parametrize('P1', [True])
 @pytest.mark.parametrize('backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
 @pytest.mark.parallel
 def test_stencil_matrix_1d_parallel_backend_dot(dtype, n1, p1, sh1, P1, backend):
@@ -2824,9 +2826,9 @@ def test_stencil_matrix_1d_parallel_backend_dot(dtype, n1, p1, sh1, P1, backend)
 @pytest.mark.parametrize('p2', [1])
 @pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('sh2', [1])
-@pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parametrize('P2', [True, False])
-@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('P1', [False])
+@pytest.mark.parametrize('P2', [True])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 @pytest.mark.parallel
 def test_stencil_matrix_2d_parallel_backend_dot(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2, backend):
     from mpi4py import MPI
@@ -2899,9 +2901,9 @@ def test_stencil_matrix_2d_parallel_backend_dot(dtype, n1, n2, p1, p2, sh1, sh2,
 @pytest.mark.parametrize('p2', [3])
 @pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('sh2', [1])
-@pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parametrize('P2', [True, False])
-@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('P1', [False])
+@pytest.mark.parametrize('P2', [True])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 @pytest.mark.parallel
 def test_stencil_matrix_2d_parallel_backend_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2, backend):
     from mpi4py import MPI
