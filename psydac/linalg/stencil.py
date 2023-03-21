@@ -330,21 +330,22 @@ class StencilVector( Vector ):
     #...
     def dot(self, v):
         """
-        Return the inner vector product between self and v.
+        Return the inner product between the vectors self and v.
 
-        If the values are real, it return the classical scalar product.
-        If the values are complex, it returns the classical sesquilinear product with linearity on the vector v.
+        If the values are real, compute the classical scalar product.
+        If the values are complex, compute the sesquilinear product with
+        antilinearity on self and linearity on the vector v.
 
 
         Parameters
         ----------
         v : StencilVector
-            Vector of the same space than self needed for the scalar product
+            Vector of the same space as self, second argument of the inner product.
 
         Returns
         -------
-        null: self._space.dtype
-            Scalar containing scalar product of v and self
+        self.dtype
+            Scalar number (real or complex) with the inner product of v and self.
 
         """
 
@@ -355,10 +356,10 @@ class StencilVector( Vector ):
             self._dot_send_data[0] = self._dot(self._data, v._data , self._space.pads, self._space.shifts)
             self._space.cart.global_comm.Allreduce((self._dot_send_data, self._space.mpi_type),
                                                    (self._dot_recv_data, self._space.mpi_type),
-                                                   op=MPI.SUM )
+                                                   op=MPI.SUM)
             return self._dot_recv_data[0]
         else:
-            return self._dot(self._data, v._data , self._space.pads, self._space.shifts)
+            return self._dot(self._data, v._data, self._space.pads, self._space.shifts)
 
     #...
     @staticmethod
