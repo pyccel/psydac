@@ -51,7 +51,7 @@ class BlockVectorSpace( VectorSpace ):
         if all(np.dtype(s.dtype)==np.dtype(spaces[0].dtype) for s in spaces):
             self._dtype  = spaces[0].dtype
         else:
-            raise NotImplementedError("This case is not treated")
+            raise NotImplementedError("The matrices domains don't have the same data type.")
 
         self._connectivity = connectivity or {}
         self._connectivity_readonly = MappingProxyType(self._connectivity)
