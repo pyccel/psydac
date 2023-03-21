@@ -586,76 +586,25 @@ class BlockLinearOperator( LinearOperator ):
     #...
     @staticmethod
     def _dot(blocks, v, out, n_rows, n_cols, inc):
-        # in psydac/api/tests: python3 -m pytest test_2d_multipatch_mapping_poisson.py::test_poisson_2d_2_patches_dirichlet_0 -v
+
         if n_rows == 1:
-            print('This will not be printed.')
             for (_, j), L0j in blocks.items():
                 if L0j.__class__.__name__ == 'StencilInterfaceMatrix':
                     out += L0j.dot(v[j])
                 else:
                     out += L0j.dot(v[j], out=inc)
         elif n_cols == 1:
-            print('This will not be printed.')
             for (i, _), Li0 in blocks.items():
                 if Li0.__class__.__name__ == 'StencilInterfaceMatrix':
                     out[i] += Li0.dot(v[j])
                 else:
                     out[i] += Li0.dot(v, out=inc[i])
         else:
-            # This is the case of interest
             for (i, j), Lij in blocks.items():
-
-                from psydac.linalg.stencil import StencilInterfaceMatrix
-
-                # whether Lij is a StencilInterfaceMatrix
-                if isinstance(Lij, StencilInterfaceMatrix):
-                    SIM = True
+                if Lij.__class__.__name__ == 'StencilInterfaceMatrix':
+                    out[i] += Lij.dot(v[j])
                 else:
-                    SIM = False
-
-                # manually compare out[i] += Lij.dot(v[j]) with out[i] += Lij.dot(v[j], out=inc[i])
-                # out_end and out_end2 should be equal
-                out_end = out[i].copy()
-                out_end += Lij.dot(v[j])
-
-                out[i] += Lij.dot(v[j], out=inc[i])
-                out_end2 = out[i].copy()
-
-                # compute the difference and convert to a np.array, then compute the l2 norm of that vector
-                diff_array = (out_end2 - out_end).toarray()
-                diff_norm = np.linalg.norm(diff_array, ord=2)
-
-                # whether out_end and out_end2 are equal
-                if diff_norm < 1e-14: # == 0.0 might also work, but in the case EQ == False, diff_norm is always huge, so this is sufficient.
-                    EQ = True # out_end and out_end2 are EQual
-                else:
-                    EQ = False # out_end and out_end2 are not EQual
-
-                # EQ == FALSE only in the case where Lij is a StencilInterfaceMatrix
-                if (not SIM) & (not EQ):
-                    print('This will not be printed, the error only occurs in th case of StencilInterfaceMatrices')
-
-                # Lij is not always a StencilInterfaceMatrix
-                if (not SIM):
-                    r = np.random.random()
-                    if r < 0.005: # only 0.5 percent chance
-                        print('Lij is not always a StencilInterfaceMatrix')
-
-                # Only four times does the out parameter work as intended: Apparently the first four times, corresponding to each block
-                if SIM & EQ:
-                    print('Only four times will this occur.')
-                    print(f"{i}, {j}")
-                
-                # every other time it doesn't work
-                if SIM & (not EQ):
-                    r = np.random.random()
-                    if r < 0.005: # only 0.5 percent chance
-                        print(diff_norm)
-
-                #if Lij.__class__.__name__ == 'StencilInterfaceMatrix':
-                #    out[i] += Lij.dot(v[j])
-                #else:
-                #    out[i] += Lij.dot(v[j], out=inc[i])
+                    out[i] += Lij.dot(v[j], out=inc[i])
 
     #--------------------------------------
     # Other properties/methods
