@@ -16,7 +16,7 @@ __all__ = ['cg', 'pcg', 'bicg', 'lsmr', 'minres', 'jacobi', 'weighted_jacobi']
 def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
     """
     Conjugate gradient algorithm for solving linear system Ax=b.
-    It's only working if A is an hermitian and a positive-definite matrix.
+    Only working if A is an hermitian and positive-definite linear operator.
     Implementation from [1], page 137.
 
     Parameters
