@@ -21,7 +21,8 @@ from psydac.core.kernels import (pushforward_2d_hdiv,
 #===============================================================================
 class VectorFemSpace( FemSpace ):
     """
-    FEM space with a vector basis
+    FEM space with a vector basis.
+    It is used to represent a product of spaces from the same space
 
     """
 
@@ -357,7 +358,8 @@ class VectorFemSpace( FemSpace ):
 #===============================================================================
 class ProductFemSpace( FemSpace ):
     """
-    Product of FEM space
+    Product of FEM space.
+    It is used to represent a product of spaces from diffrent patches
     """
 
     def __new__(cls, *spaces, connectivity=None):

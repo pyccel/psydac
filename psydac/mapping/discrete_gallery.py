@@ -125,7 +125,7 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
             period2 = False
             period3 = False
 
-        elif mapping == 'quarter_annulus':
+        elif mapping == 'spherical shell':
             map_analytic = SphericalMapping( 'M', dim=dim )
             lims1   = (1, 4)
             lims2   = (0, np.pi)

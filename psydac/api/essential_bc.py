@@ -29,7 +29,7 @@ def apply_essential_bc(a, *bcs, **kwargs):
     elif isinstance(a, KroneckerDenseMatrix):
         for bc in bcs:
             check_boundary_type(bc)
-            apply_essential_bc_kronnecker_dense_matrix(a,
+            apply_essential_bc_kronecker_dense_matrix(a,
                 axis  = bc.boundary.axis,
                 ext   = bc.boundary.ext,
                 order = bc.order,
@@ -58,7 +58,12 @@ def check_boundary_type(bc):
                 .format(type(bc)))
 
 #==============================================================================
-def apply_essential_bc_kronnecker_dense_matrix(a, *, axis, ext, order, identity=False):
+def apply_essential_bc_kronecker_dense_matrix(a, *, axis, ext, order, identity=False):
+    """ This function applies the homogeneous boundary condition to the Kronecker product matrix objects,
+        If the identity keyword argument is set to True, the boundary diagonal terms are set to 1.
+    """
+    Parameters
+    ----------
     mats = a.mats
     p = a.codomain.pads[axis]
 
@@ -66,6 +71,11 @@ def apply_essential_bc_kronnecker_dense_matrix(a, *, axis, ext, order, identity=
         mats[axis][-p-1] = 0.
     elif ext == -1:
         mats[axis][p] = 0.
+
+    if identity and ext == 1:
+        mats[axis][-p-1][mats[axis].shape[0]-2*p-1] = 1
+    elif identity and ext == -1:
+        mats[axis][p][0] = 1
 
 #==============================================================================
 def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):

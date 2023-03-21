@@ -121,7 +121,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
     Results
     -------
-    Wh : TensorFemSpace, ProductFemSpace
+    Wh : TensorFemSpace, VectorFemSpace
       The reduced space
 
     """
