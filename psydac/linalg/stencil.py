@@ -370,14 +370,13 @@ class StencilVector( Vector ):
         if out is not None:
             assert isinstance(out, StencilVector)
             assert out.space is self.space
+
         else:
-            out = StencilVector(self.space)
-        np.conjugate(self._data, out=out._data, casting='no')
+            out = self.copy()
+        out._data = self._data.conjugate()
         for axis, ext in self._space.interfaces:
-            np.copyto(out._interface_data[axis, ext],
-                      np.conjugate(self._interface_data[axis, ext], out=out._interface_data[axis, ext], casting='no'),
-                      casting='no')
-        out._sync = self._sync
+            np.copyto(out._interface_data[axis, ext], self._interface_data[axis, ext].conjugate(), casting='no')
+        out._sync=self._sync
         return out
 
     def conj(self,out=None):
@@ -886,14 +885,18 @@ class StencilMatrix( LinearOperator ):
         # Necessary if vector space is distributed across processes
         if not v.ghost_regions_in_sync:
             v.update_ghost_regions()
+
         self._func(self._data, v._data, out._data, **self._args)
+
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
         return out
 
     def vdot( self, v, out=None):
+
         assert isinstance( v, StencilVector )
         assert v.space is self.domain
+
         if out is not None:
             assert isinstance( out, StencilVector )
             assert out.space is self.codomain
@@ -903,9 +906,9 @@ class StencilMatrix( LinearOperator ):
         # Necessary if vector space is distributed across processes
         if not v.ghost_regions_in_sync:
             v.update_ghost_regions()
-        # Unless doing A_*x, this function do (A*x_)_
-        self._func(self._data, np.conjugate(v._data), out._data, **self._args)
-        np.conjugate(out._data, out=out._data)
+
+        self._func(self._data, v._data.conjugate(), out._data, **self._args)
+        out._data = out._data.conjugate()
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
@@ -959,9 +962,10 @@ class StencilMatrix( LinearOperator ):
             assert isinstance( out, StencilMatrix )
             assert out.domain is self.domain
             assert out.codomain is self.codomain
+
         else:
-            out = StencilMatrix(self.domain, self.codomain)
-        np.conjugate(self._data, out=out._data, casting='no')
+            out = self.copy()
+        out._data = self._data.conjugate()
         return out
 
     def conj( self, out=None):
@@ -1304,8 +1308,7 @@ class StencilMatrix( LinearOperator ):
         return self.transpose()
     @property
     def H(self):
-        L = self.T
-        return L.conjugate(out=L)
+        return (self.conj()).transpose()
     def diagonal(self):
         if self._diag_indices is None:
             cm    = self.codomain.shifts
@@ -1660,7 +1663,7 @@ class StencilMatrix( LinearOperator ):
             self._func           = self._dot
             self._transpose_func = self._transpose
         else:
-            transpose = TransposeOperator(self._ndim, backend=frozenset(backend.items()))
+            transpose = TransposeOperator(self._ndim, backend=frozenset(backend.items()),dtype=self.dtype)
             self._transpose_func = transpose.func
 
             nrows   = self._transpose_args.pop('nrows')
