@@ -367,20 +367,21 @@ class StencilVector( Vector ):
         index = tuple( slice(m*p,-m*p) for p,m in zip(pads, shifts))
         return np.vdot(v1[index].flat, v2[index].flat)
 
+    #...
     def conjugate(self, out=None):
         if out is not None:
             assert isinstance(out, StencilVector)
             assert out.space is self.space
-
         else:
-            out = self.copy()
-        out._data = self._data.conjugate()
+            out = StencilVector(self.space)
+        np.conjugate(self._data, out=out._data, casting='no')
         for axis, ext in self._space.interfaces:
-            np.copyto(out._interface_data[axis, ext], self._interface_data[axis, ext].conjugate(), casting='no')
-        out._sync=self._sync
+            np.conjugate(self._interface_data[axis, ext], out=out._interface_data[axis, ext], casting='no')
+        out._sync = self._sync
         return out
 
-    def conj(self,out=None):
+    #...
+    def conj(self, out=None):
         return self.conjugate(out=out)
 
     #...
