@@ -522,13 +522,10 @@ class BlockLinearOperator( LinearOperator ):
             assert isinstance( out, BlockLinearOperator )
             assert out.domain is self.domain
             assert out.codomain is self.codomain
-
         else:
-            out = self.copy()
-
+            out = BlockLinearOperator(self.space)
         for (_, _), Lij in out._blocks_as_args.items():
             Lij.conjugate(out=Lij)
-
         return out
 
     def conj( self, out=None):
@@ -536,7 +533,8 @@ class BlockLinearOperator( LinearOperator ):
 
     @property
     def H(self):
-        return (self.conjugate()).T
+        M = self.T
+        return self.conjugate(M, out=M)
 
     def __truediv__(self, a):
         """ Divide by scalar. """

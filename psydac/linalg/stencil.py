@@ -370,12 +370,11 @@ class StencilVector( Vector ):
         if out is not None:
             assert isinstance(out, StencilVector)
             assert out.space is self.space
-
         else:
-            out = self.copy()
-        out._data = self._data.conjugate()
+            out = StencilVector(self.space)
+        np.conjugate(self._data, out=out._data, casting='no')
         for axis, ext in self._space.interfaces:
-            np.copyto(out._interface_data[axis, ext], self._interface_data[axis, ext].conjugate(), casting='no')
+            np.copyto(out._interface_data[axis, ext], np.conjugate(self._interface_data[axis, ext], out=out._data, casting='no'), casting='no')
         out._sync=self._sync
         return out
 
@@ -962,10 +961,9 @@ class StencilMatrix( LinearOperator ):
             assert isinstance( out, StencilMatrix )
             assert out.domain is self.domain
             assert out.codomain is self.codomain
-
         else:
-            out = self.copy()
-        out._data = self._data.conjugate()
+            out = StencilMatrix(self.domain, self.codomain)
+        np.conjugate(self._data, out=out._data, casting='no')
         return out
 
     def conj( self, out=None):
@@ -1308,7 +1306,8 @@ class StencilMatrix( LinearOperator ):
         return self.transpose()
     @property
     def H(self):
-        return (self.conj()).transpose()
+        L = self.T
+        return L.conjugate(out=L)
     def diagonal(self):
         if self._diag_indices is None:
             cm    = self.codomain.shifts
@@ -1663,7 +1662,7 @@ class StencilMatrix( LinearOperator ):
             self._func           = self._dot
             self._transpose_func = self._transpose
         else:
-            transpose = TransposeOperator(self._ndim, backend=frozenset(backend.items()),dtype=self.dtype)
+            transpose = TransposeOperator(self._ndim, backend=frozenset(backend.items()))
             self._transpose_func = transpose.func
 
             nrows   = self._transpose_args.pop('nrows')
