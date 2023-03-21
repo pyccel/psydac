@@ -906,8 +906,10 @@ class StencilMatrix( LinearOperator ):
         if not v.ghost_regions_in_sync:
             v.update_ghost_regions()
 
-        self._func(self._data, v._data.conjugate(), out._data, **self._args)
-        out._data = out._data.conjugate()
+        # Unless doing A_*x, this function do (A*x_)_
+        np.conjugate(v._data, out=v._data)
+        self._func(self._data, v._data, out._data, **self._args)
+        np.conjugate(out._data, out=out._data)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
