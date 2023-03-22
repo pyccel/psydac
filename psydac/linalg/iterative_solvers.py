@@ -753,7 +753,7 @@ def minres(A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
     assert A .shape == (n, n)
     assert b .shape == (n,)
-    assert A.dtype ==float
+    assert A.dtype == float
     # First guess of solution
     if x0 is None:
         x = 0.0 * b.copy()
