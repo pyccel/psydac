@@ -910,7 +910,6 @@ class StencilMatrix( LinearOperator ):
 
         # Unless doing A_*x, this function do (A*x_)_
         self._func(self._data, np.conjugate(v._data), out._data, **self._args)
-        self._func(self._data, v._data.conjugate(), out._data, **self._args)
         np.conjugate(out._data, out=out._data)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
