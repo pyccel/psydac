@@ -253,18 +253,24 @@ class BasisProjectionOperator(LinearOperator):
                     V1d, W1d, _starts_out, _ends_out, nq)
 
                 _ptsG = [pts.flatten() for pts in _ptsG]
-
                 _Vnbases = [space.nbasis for space in V1d]
 
                 # Evaluate weight function at quadrature points
                 pts = np.meshgrid(*_ptsG, indexing='ij')
                 #needs to be improved when passing FemFields, 
                 #a lot of evaluations that are probably not needed
-                #_fun_q = f.space.eval_fields_irregular_tensor_grid(_ptsG, f) could be a solution but failing
-                #if the grid is not order, for example on periodic domains...
-                f = np.vectorize(f)
-                _fun_q = f(*pts).copy() #this formulation does not work atm for FemFields
-
+                if isinstance(f, FemField):
+                    assert(isinstance(f.space,TensorFemSpace))
+                    _fun_q = f.space.eval_fields_irregular_tensor_grid(_ptsG, f) 
+                    _fun_q = np.squeeze(_fun_q) #since we only evaluate one field the result is a 3D
+                    #array with last dim 1, we need to squeeze it in order to use the pyccelized kernels
+                elif isinstance(f, float) or isinstance(f, int):
+                    shape_grid = tuple([len(pts_i) for pts_i in _ptsG])
+                    _fun_q = np.full(shape_grid, f)
+                else : 
+                    f = np.vectorize(f)
+                    _fun_q = f(*pts).copy() #this formulation does not work atm for FemFields
+                
                 # Call the kernel if weight function is not zero
                 if np.any(np.abs(_fun_q) > 1e-14):
 
