@@ -293,7 +293,8 @@ class BlockVector( Vector ):
     def __setitem__( self, key, value ):
         assert value.space == self.space[key]
         self._blocks[key] = value
-    def conjugate( self, out=None):
+
+    def conjugate(self, out=None):
         if out is not None:
             assert isinstance( out, BlockVector )
             assert out.space is self.space
@@ -305,7 +306,8 @@ class BlockVector( Vector ):
             Lij.conjugate(out=Lij_out)
         out._sync = self._sync
         return out
-    def conj( self, out=None):
+
+    def conj(self, out=None):
         return self.conjugate(out=out)
 
     # ...
@@ -518,7 +520,8 @@ class BlockLinearOperator( LinearOperator ):
     @property
     def T(self):
         return self.transpose()
-    def conjugate( self, out=None):
+
+    def conjugate(self, out=None):
         if out is not None:
             assert isinstance( out, BlockLinearOperator )
             assert out.domain is self.domain
@@ -532,7 +535,7 @@ class BlockLinearOperator( LinearOperator ):
             out[i,j] = Lij_out
         return out
 
-    def conj( self, out=None):
+    def conj(self, out=None):
         return self.conjugate(out=out)
 
     @property
