@@ -117,12 +117,8 @@ class ConjugateGradient(InverseLinearOperator):
         self._A = A
         self._domain = domain
         self._codomain = codomain
-        self._x0 = x0
         self._solver = 'cg'
-        self._tol = tol
-        self._maxiter = maxiter
-        self._verbose = verbose
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
         self._tmps = {key: A.domain.zeros() for key in ("v", "r", "p", "lp", "lv")}
         self._info = None
@@ -147,9 +143,6 @@ class ConjugateGradient(InverseLinearOperator):
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def _update_options(self):
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def transpose(self):
         At = self._A.T
@@ -194,10 +187,11 @@ class ConjugateGradient(InverseLinearOperator):
         A = self._A
         domain = self._domain
         codomain = self._codomain
-        x0 = self._x0
-        tol = self._tol
-        maxiter = self._maxiter
-        verbose = self._verbose
+        options = self._options
+        x0 = options["x0"]
+        tol = options["tol"]
+        maxiter = options["maxiter"]
+        verbose = options["verbose"]
         
         assert isinstance(b, Vector)
         assert b.space is domain
@@ -318,13 +312,8 @@ class PConjugateGradient(InverseLinearOperator):
         self._A = A
         self._domain = domain
         self._codomain = codomain
-        self._x0 = x0
         self._solver = 'pcg'
-        self._pc = pc
-        self._tol = tol
-        self._maxiter = maxiter
-        self._verbose = verbose
-        self._options = {"pc": self._pc, "x0": self._x0, "tol": self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+        self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
         tmps_codomain = {key: A.codomain.zeros() for key in ("p", "s", "lp")}
         tmps_domain = {key: A.domain.zeros() for key in ("v", "r", "lv")}
@@ -354,9 +343,6 @@ class PConjugateGradient(InverseLinearOperator):
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def _update_options( self ):
-        self._options = {"pc":self._pc, "x0":self._x0, "tol":self._tol, "maxiter":self._maxiter, "verbose":self._verbose}
 
     def transpose(self):
         At = self._A.T
@@ -395,11 +381,12 @@ class PConjugateGradient(InverseLinearOperator):
         A = self._A
         domain = self._domain
         codomain = self._codomain
-        pc = self._pc
-        x0 = self._x0
-        tol = self._tol
-        maxiter = self._maxiter
-        verbose = self._verbose
+        options = self._options
+        x0 = options["x0"]
+        pc = options["pc"]
+        tol = options["tol"]
+        maxiter = options["maxiter"]
+        verbose = options["verbose"]
 
         assert isinstance(b, Vector)
         assert b.space is domain
@@ -546,12 +533,8 @@ class BiConjugateGradient(InverseLinearOperator):
         self._A = A
         self._domain = domain
         self._codomain = codomain
-        self._x0 = x0
         self._solver = 'bicg'
-        self._tol = tol
-        self._maxiter = maxiter
-        self._verbose = verbose
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
         self._tmps = {key: A.domain.zeros() for key in ("v", "r", "p", "vs", "rs", "ps")}
         self._info = None
@@ -576,9 +559,6 @@ class BiConjugateGradient(InverseLinearOperator):
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def _update_options( self ):
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def transpose(self):
         At = self._A.T
@@ -627,10 +607,11 @@ class BiConjugateGradient(InverseLinearOperator):
         At = A.T
         domain = self._domain
         codomain = self._codomain
-        x0 = self._x0
-        tol = self._tol
-        maxiter = self._maxiter
-        verbose = self._verbose
+        options = self._options
+        x0 = options["x0"]
+        tol = options["tol"]
+        maxiter = options["maxiter"]
+        verbose = options["verbose"]
 
         assert isinstance(b, Vector)
         assert b.space is domain
@@ -796,12 +777,8 @@ class MinimumResidual(InverseLinearOperator):
         self._A = A
         self._domain = domain
         self._codomain = codomain
-        self._x0 = x0
         self._solver = 'minres'
-        self._tol = tol
-        self._maxiter = maxiter
-        self._verbose = verbose
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
         self._tmps = {key: A.codomain.zeros() for key in ("res1", "res2", "w", "w2", "yc",
                       "v", "resc", "res2c", "ycc", "res1c", "wc", "w2c")}
@@ -827,9 +804,6 @@ class MinimumResidual(InverseLinearOperator):
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def _update_options(self):
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def transpose(self):
         At = self._A.T
@@ -879,10 +853,11 @@ class MinimumResidual(InverseLinearOperator):
         A = self._A
         domain = self._domain
         codomain = self._codomain
-        x0 = self._x0
-        tol = self._tol
-        maxiter = self._maxiter
-        verbose = self._verbose
+        options = self._options
+        x0 = options["x0"]
+        tol = options["tol"]
+        maxiter = options["maxiter"]
+        verbose = options["verbose"]
 
         assert isinstance(b, Vector)
         assert b.space is domain
@@ -1158,16 +1133,9 @@ class LSMR(InverseLinearOperator):
         self._A = A
         self._domain = domain
         self._codomain = codomain
-        self._x0 = x0
         self._solver = 'cg'
-        self._tol = tol
-        self._atol = atol
-        self._btol = btol
-        self._maxiter = maxiter
-        self._conlim = conlim
-        self._verbose = verbose
-        self._options = {"x0":self._x0, "tol":self._tol, "atol":self._atol, 
-                         "btol":self._btol, "maxiter": self._maxiter, "conlim":self._conlim, "verbose": self._verbose}
+        self._options = {"x0":x0, "tol":tol, "atol":atol, "btol":btol, 
+                         "maxiter":maxiter, "conlim":conlim, "verbose":verbose}
         self._check_options(**self._options)
         self._info = None
         self._successful = None
@@ -1206,10 +1174,6 @@ class LSMR(InverseLinearOperator):
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def _update_options(self):
-        self._options = {"x0":self._x0, "tol":self._tol, "atol":self._atol, "btol":self._btol, "maxiter": self._maxiter, 
-                         "conlim":self._conlim, "verbose": self._verbose}
 
     def transpose(self):
         At = self._A.T
@@ -1266,13 +1230,14 @@ class LSMR(InverseLinearOperator):
         At = A.T
         domain = self._domain
         codomain = self._codomain
-        x0 = self._x0
-        tol = self._tol
-        atol = self._atol
-        btol = self._btol
-        maxiter = self._maxiter
-        conlim = self._conlim
-        verbose = self._verbose
+        options = self._options
+        x0 = options["x0"]
+        tol = options["tol"]
+        atol = options["atol"]
+        btol = options["btol"]
+        maxiter = options["maxiter"]
+        conlim = options["conlim"]
+        verbose = options["verbose"]
 
         assert isinstance(b, Vector)
         assert b.space is domain

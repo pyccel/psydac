@@ -75,10 +75,10 @@ def nparray_to_stencil(mat, V, n1, n2):
 #===============================================================================
 # SERIAL TESTS
 #===============================================================================
-@pytest.mark.parametrize( 'n1', n1array)
-@pytest.mark.parametrize( 'n2', n2array)
-@pytest.mark.parametrize( 'p1', p1array)
-@pytest.mark.parametrize( 'p2', p2array)
+@pytest.mark.parametrize('n1', n1array)
+@pytest.mark.parametrize('n2', n2array)
+@pytest.mark.parametrize('p1', p1array)
+@pytest.mark.parametrize('p2', p2array)
 
 def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
 
@@ -260,14 +260,14 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     ## ___Raising to the power of 0 and 1___
     
     # Raising a StencilMatrix to the power of 1 or 0 does not change the object / returns an IdentityOperator
-    assert S**1 == S
+    assert S**1 is S
     assert isinstance(S**0, IdentityOperator)  
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', n1array)
-@pytest.mark.parametrize( 'n2', n2array)
-@pytest.mark.parametrize( 'p1', p1array)
-@pytest.mark.parametrize( 'p2', p2array)
+@pytest.mark.parametrize('n1', n1array)
+@pytest.mark.parametrize('n2', n2array)
+@pytest.mark.parametrize('p1', p1array)
+@pytest.mark.parametrize('p2', p2array)
 
 def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
 
@@ -451,16 +451,16 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
 
     # Raising a BlockLO to the power of 1 or 0 does not change the object / returns an IdentityOperator
     # 21.12. change: B**0 a BlockLO with IdentityLOs at the diagonal
-    assert B**1 == B
+    assert B**1 is B
     #assert isinstance(B**0, IdentityOperator)
     assert isinstance(B**0, BlockLinearOperator)
     assert np.array_equal(((B**0)@vb).toarray(), vb.toarray())
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', n1array)
-@pytest.mark.parametrize( 'n2', n2array)
-@pytest.mark.parametrize( 'p1', p1array)
-@pytest.mark.parametrize( 'p2', p2array)
+@pytest.mark.parametrize('n1', n1array)
+@pytest.mark.parametrize('n2', n2array)
+@pytest.mark.parametrize('p1', p1array)
+@pytest.mark.parametrize('p2', p2array)
 
 def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
 
@@ -542,10 +542,10 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
     assert np.array_equal(w2.toarray(), np.dot(np.dot(2, Sa), v_array))
     
 #===============================================================================
-@pytest.mark.parametrize( 'n1', n1array)
-@pytest.mark.parametrize( 'n2', n2array)
-@pytest.mark.parametrize( 'p1', p1array)
-@pytest.mark.parametrize( 'p2', p2array)
+@pytest.mark.parametrize('n1', n1array)
+@pytest.mark.parametrize('n2', n2array)
+@pytest.mark.parametrize('p1', p1array)
+@pytest.mark.parametrize('p2', p2array)
 
 def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
 
@@ -660,8 +660,8 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     assert np.sqrt(sum(((inverse(S.T, 'cg', tol=tol).dot(v) - C.dot(v)).toarray())**2)) < tol
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [2, 3, 5])
-@pytest.mark.parametrize( 'n2', [2, 4, 7])
+@pytest.mark.parametrize('n1', [2, 3, 5])
+@pytest.mark.parametrize('n2', [2, 4, 7])
 
 def test_positive_definite_matrix(n1, n2):
     p1 = n1-1
@@ -676,8 +676,8 @@ def test_positive_definite_matrix(n1, n2):
     assert np.array_equal(mat, S.toarray())
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [2, 3, 5])
-@pytest.mark.parametrize( 'n2', [2, 4, 7])
+@pytest.mark.parametrize('n1', [2, 3, 5])
+@pytest.mark.parametrize('n2', [2, 4, 7])
 
 def test_operator_evaluation(n1, n2):
 
@@ -918,7 +918,7 @@ def test_internal_storage():
     assert np.array_equal( y2_1.toarray(), y2_2.toarray() ) & np.array_equal( y2_2.toarray(), y2_3.toarray() )
 
 #===============================================================================
-@pytest.mark.parametrize( 'solver', ['cg', 'pcg', 'bicg', 'minres', 'lsmr'])
+@pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'minres', 'lsmr'])
 
 def test_x0update(solver):
     n1 = 4
@@ -953,7 +953,7 @@ def test_x0update(solver):
     x0_new1 = options["x0"]
     assert x0_new1 is x0_init
     # Change x0, apply A_inv and check for x0
-    A_inv.setoptions(x0 = b)
+    A_inv.set_options(x0 = b)
     options = A_inv.options
     assert options["x0"] is b
     x = A_inv @ b

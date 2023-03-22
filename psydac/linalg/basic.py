@@ -829,19 +829,12 @@ class InverseLinearOperator(LinearOperator):
     def get_info(self):
         return self._info
 
-    @abstractmethod
-    def _update_options(self):
-        pass
+    def get_options(self):
+        return self._options.copy()
 
-    def getoptions(self):
-        for key, value in self.options.items():
-            print(key, ": ", value)
-
-    def setoptions(self, **kwargs):
+    def set_options(self, **kwargs):
         self._check_options(**kwargs)
-        for key, value in kwargs.items():
-            setattr(self, '_'+key, value)
-        self._update_options()
+        self._options.update(kwargs)
 
     @abstractmethod
     def _check_options(self, **kwargs):
