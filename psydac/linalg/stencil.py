@@ -1605,8 +1605,6 @@ class StencilMatrix( LinearOperator ):
             
         elif precompiled:
             
-            print('Using precompiled matvec and transpose kernels ...')
-            
             from struphy.linear_algebra import stencil_dot_kernels
             from struphy.linear_algebra import stencil_transpose_kernels
             
