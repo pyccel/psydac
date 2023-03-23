@@ -61,9 +61,11 @@ def check_boundary_type(bc):
 def apply_essential_bc_kronecker_dense_matrix(a, *, axis, ext, order, identity=False):
     """ This function applies the homogeneous boundary condition to the Kronecker product matrix objects,
         If the identity keyword argument is set to True, the boundary diagonal terms are set to 1.
-    """
+
     Parameters
     ----------
+    """
+
     mats = a.mats
     p = a.codomain.pads[axis]
 
@@ -73,7 +75,7 @@ def apply_essential_bc_kronecker_dense_matrix(a, *, axis, ext, order, identity=F
         mats[axis][p] = 0.
 
     if identity and ext == 1:
-        mats[axis][-p-1][mats[axis].shape[0]-2*p-1] = 1
+        mats[axis][-p-1,mats[axis].shape[0]-2*p-1] = 1
     elif identity and ext == -1:
         mats[axis][p][0] = 1
 
