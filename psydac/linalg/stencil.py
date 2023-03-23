@@ -2485,4 +2485,4 @@ class StencilInterfaceMatrix(LinearOperator):
 
 #===============================================================================
 from psydac.api.settings   import PSYDAC_BACKENDS
-del VectorSpace, Vector, LinearOperator
+del VectorSpace, Vector
