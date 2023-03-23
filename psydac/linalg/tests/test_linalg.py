@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
-from psydac.linalg.basic import ZeroOperator, IdentityOperator, ComposedLinearOperator, SumLinearOperator, PowerLinearOperator, ScaledLinearOperator
+from psydac.linalg.basic import LinearOperator, ZeroOperator, IdentityOperator, ComposedLinearOperator, SumLinearOperator, PowerLinearOperator, ScaledLinearOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.solvers import ConjugateGradient, inverse
 from psydac.ddm.cart         import DomainDecomposition, CartDecomposition
@@ -13,8 +13,10 @@ n2array = [2, 3]
 p1array = [1, 3]
 p2array = [1, 3]
 
-def is_pos_def(x):
-    assert np.all(np.linalg.eigvals(x) > 0)
+def is_pos_def(A):
+    assert isinstance(A, LinearOperator)
+    A_array = A.toarray()
+    assert np.all(np.linalg.eigvals(A_array) > 0)
 
 def compute_global_starts_ends(domain_decomposition, npts):
     ndims         = len(npts)
@@ -41,35 +43,28 @@ def get_StencilVectorSpace(n1, n2, p1, p2, P1, P2):
     V = StencilVectorSpace(C)
     return V
 
-def get_positive_definite_nparray(n1, n2):
-    np.random.seed(2)
-    mat = np.zeros((n1*n2, n1*n2))
-    for i in range(1, n1):
-        R = np.random.random((n2, n2))
-        for j in range(n1-i):
-            mat[j*n2:(j+1)*n2, (i+j)*n2:(i+j+1)*n2] = R
-    mat += np.transpose(mat)
-    sums = [sum(mat[i, :]) for i in range(n1*n2)]
-    max_sums = [max([sums[i*n2+j] for i in range(n1)]) for j in range(n2)]
-    D = np.random.random((n2, n2))
-    D += np.transpose(D)
-    for i in range(n2):
-        z = [D[i, (i+j)%n2] for j in range(1, n2)]
-        D[i, i] *= (max_sums[i] + sum(z)) / ( D[i, i] * np.random.random(1) )
-    for i in range(n1):
-        mat[i*n2:(i+1)*n2, i*n2:(i+1)*n2] = D
-    mat /= n1*n2 # to avoid exploding determinants
-    return mat
+def get_positive_definite_stencilmatrix(V):
 
-def nparray_to_stencil(mat, V, n1, n2):
+    assert isinstance(V, StencilVectorSpace)
+    [n1, n2] = V._npts
+    [p1, p2] = V._pads
+    [P1, P2] = V._periods
+    assert (P1 == False) and (P2 == False)
+    
     S = StencilMatrix(V, V)
-    for k in range(n1):
-        for l in range(0-k, n1-k):
-            loc_mat = np.reshape(mat[k*n2:(k+1)*n2, (l+k)*n2:(l+k+1)*n2], n2**2)
-            indices = [[k,i,l,j] for i in range(n2) for j in range(0-i, n2-i)]
-            for n, idx in enumerate(indices):
-                S[idx] = loc_mat[n]
+
+    for i in range(0, p1+1):
+        if i != 0:
+            for j in range(-p2, p2+1):
+                S[:, :, i, j] = 2*np.random.random()-1
+        else:
+            for j in range(1, p2+1):
+                S[:, :, i, j] = 2*np.random.random()-1
+    S += S.T
+    S[:, :, 0, 0] = ((n1 * n2) - 1) / np.random.random()
+    S /= S[0, 0, 0, 0]
     S.remove_spurious_entries()
+
     return S
 
 #===============================================================================
@@ -660,26 +655,26 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     assert np.sqrt(sum(((inverse(S.T, 'cg', tol=tol).dot(v) - C.dot(v)).toarray())**2)) < tol
 
 #===============================================================================
-@pytest.mark.parametrize('n1', [2, 3, 5])
-@pytest.mark.parametrize('n2', [2, 4, 7])
+@pytest.mark.parametrize('n1', [3, 5])
+@pytest.mark.parametrize('n2', [4, 7])
+@pytest.mark.parametrize('p1', [2, 6])
+@pytest.mark.parametrize('p2', [3, 9])
 
-def test_positive_definite_matrix(n1, n2):
-    p1 = n1-1
-    p2 = n2-1
+def test_positive_definite_matrix(n1, n2, p1, p2):
     P1 = False
     P2 = False
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-    mat = get_positive_definite_nparray(n1, n2)
-    S = nparray_to_stencil(mat, V, n1, n2)
+    S = get_positive_definite_stencilmatrix(V)
 
-    is_pos_def(mat)
-    assert np.array_equal(mat, S.toarray())
+    is_pos_def(S)
 
 #===============================================================================
-@pytest.mark.parametrize('n1', [2, 3, 5])
-@pytest.mark.parametrize('n2', [2, 4, 7])
+@pytest.mark.parametrize('n1', [3, 5])
+@pytest.mark.parametrize('n2', [4, 7])
+@pytest.mark.parametrize('p1', [2, 6])
+@pytest.mark.parametrize('p2', [3, 9])
 
-def test_operator_evaluation(n1, n2):
+def test_operator_evaluation(n1, n2, p1, p2):
 
     # 1. Initiate StencilVectorSpace V, pos. def. Stencil Matrix S and StencilVector v = (1,1,1,1)
     #    Initiate a BlockVectorSpace U = VxV, a BlockLO B = [[V, None], [None, V]] and a BlockVector u = (v,v)
@@ -707,8 +702,6 @@ def test_operator_evaluation(n1, n2):
     ### 1.
     ###
 
-    p1 = n1-1
-    p2 = n2-1
     P1 = False
     P2 = False
 
@@ -716,8 +709,7 @@ def test_operator_evaluation(n1, n2):
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
     
     # Initiate positive definite StencilMatrices for which the cg inverse works (necessary for certain tests)
-    mat = get_positive_definite_nparray(n1, n2)
-    S = nparray_to_stencil(mat, V, n1, n2)
+    S = get_positive_definite_stencilmatrix(V)
 
     # Initiate StencilVectors 
     v = StencilVector(V)
@@ -741,7 +733,7 @@ def test_operator_evaluation(n1, n2):
 
     ### 2.1 PowerLO test
     Bmat = B.toarray()
-    is_pos_def(Bmat)
+    is_pos_def(B)
     uarr = u.toarray()
     b0 = ( B**0 @ u ).toarray()
     b1 = ( B**1 @ u ).toarray()
@@ -769,7 +761,7 @@ def test_operator_evaluation(n1, n2):
     assert np.array_equal(zeros, z2)
 
     Smat = S.toarray()
-    is_pos_def(Smat)
+    is_pos_def(S)
     varr = v.toarray()
     s0 = ( S**0 @ v ).toarray()
     s1 = ( S**1 @ v ).toarray()
@@ -923,19 +915,17 @@ def test_internal_storage():
 def test_x0update(solver):
     n1 = 4
     n2 = 3
-    p1 = 3
+    p1 = 5
     p2 = 2
     P1 = False
     P2 = False
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-    mat = get_positive_definite_nparray(n1, n2)
-    is_pos_def(mat)
-    A = nparray_to_stencil(mat, V, n1, n2)
+    A = get_positive_definite_stencilmatrix(V)
+    is_pos_def(A)
     b = StencilVector(V)
     for n in range(n1):
         b[n, :] = 1.
     assert np.array_equal(b.toarray(), np.ones(n1*n2, dtype=float))
-
 
     # Create Inverse
     tol = 1e-6
