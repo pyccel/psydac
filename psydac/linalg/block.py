@@ -7,7 +7,7 @@ import numpy as np
 from types import MappingProxyType
 from scipy.sparse import bmat, lil_matrix
 
-from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator, LinearSolver
+from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator, LinearSolver, ZeroOperator
 from psydac.ddm.cart      import InterfaceCartDecomposition
 from psydac.ddm.utilities import get_data_exchanger
 
@@ -507,6 +507,32 @@ class BlockLinearOperator( LinearOperator ):
     @property
     def T(self):
         return self.transpose()
+
+    def __eq__(self, B):
+        """ 
+        Return True if self and B are mathematically the same, else return False.
+        Also returns False if at least one block is not the same object and the entries can't be accessed and compared using toarray().
+         
+        """
+        assert isinstance(B, BlockLinearOperator)
+
+        if self is B:
+            return True
+        
+        nrows = self._nrows
+        ncols = self._ncols
+        if not ((B.n_block_cols == ncols) & (B.n_block_rows == nrows)):
+            return False
+        
+        for i in range(nrows):
+            for j in range(ncols):
+                A_ij = self[i, j]
+                B_ij = B[i, j]
+                if not ( A_ij is B_ij ):
+                    if not (((A_ij is None) or (isinstance(A_ij, ZeroOperator))) & ((B_ij is None) or (isinstance(B_ij, ZeroOperator)))):
+                        if not ( np.array_equal(A_ij.toarray(), B_ij.toarray()) ):
+                            return False
+        return True
 
     def __truediv__(self, a):
         """ Divide by scalar. """
