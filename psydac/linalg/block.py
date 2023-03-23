@@ -586,22 +586,23 @@ class BlockLinearOperator( LinearOperator ):
     #...
     @staticmethod
     def _dot(blocks, v, out, n_rows, n_cols, inc):
+        from psydac.linalg.stencil import StencilInterfaceMatrix
 
         if n_rows == 1:
             for (_, j), L0j in blocks.items():
-                if L0j.__class__.__name__ == 'StencilInterfaceMatrix':
+                if isinstance(L0j, StencilInterfaceMatrix): # L0j.__class__.__name__ == 'StencilInterfaceMatrix':
                     out += L0j.dot(v[j])
                 else:
                     out += L0j.dot(v[j], out=inc)
         elif n_cols == 1:
             for (i, _), Li0 in blocks.items():
-                if Li0.__class__.__name__ == 'StencilInterfaceMatrix':
+                if isinstance(Li0, StencilInterfaceMatrix): #Li0.__class__.__name__ == 'StencilInterfaceMatrix':
                     out[i] += Li0.dot(v[j])
                 else:
                     out[i] += Li0.dot(v, out=inc[i])
         else:
             for (i, j), Lij in blocks.items():
-                if Lij.__class__.__name__ == 'StencilInterfaceMatrix':
+                if isinstance(Lij, StencilInterfaceMatrix): #Lij.__class__.__name__ == 'StencilInterfaceMatrix':
                     out[i] += Lij.dot(v[j])
                 else:
                     out[i] += Lij.dot(v[j], out=inc[i])
@@ -1268,13 +1269,13 @@ class BlockLinearOperator( LinearOperator ):
 
         if interface:
             def func(blocks, v, out, **args):
-                    vs   = [vi._interface_data[d_axis, d_ext] for vi in v.blocks] if isinstance(v, BlockVector) else v._data
-                    outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else out._data
+                    vs   = [vi._interface_data[d_axis, d_ext] for vi in v.blocks] if isinstance(v, BlockVector) else [v._data]
+                    outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else [out._data]
                     dot(*blocks, *vs, *outs, **args)
         else:
             def func(blocks, v, out, **args):
-                vs   = [vi._data for vi in v.blocks] if isinstance(v, BlockVector) else v._data
-                outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else out._data
+                vs   = [vi._data for vi in v.blocks] if isinstance(v, BlockVector) else [v._data]
+                outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else [out._data]
                 dot(*blocks, *vs, *outs, **args)
 
         self._func    = func
