@@ -49,6 +49,30 @@ def test_partition_1d_general( mpi_size ):
         dims, blocksizes = compute_dims( mpi_size, [n1,], [p1,] )
 
 #==============================================================================
+@pytest.mark.parametrize( 'mpi_size', [1,2,5,10] )
+@pytest.mark.parametrize( 'mask', [[True, False], [False, True]] )
+@pytest.mark.parametrize( 'npts', [[64, 64], [58, 64], [64, 31]] )
+
+def test_partition_2d_dims_mask( mpi_size, npts, mask ):
+
+    print(f'\nmpi_size={mpi_size}:')    
+    # General partition: blocks are not all identical but closer to a cube
+    dims, blocksizes = compute_dims( mpi_size, npts, [3,3] )   
+    print(f'general:'.ljust(30), dims, blocksizes) 
+    
+    # Mask dimensions
+    dims, blocksizes = compute_dims( mpi_size, npts, [3,3], dims_mask=mask )   
+    print(f'dims_mask {mask}:'.ljust(30), dims, blocksizes) 
+    
+    # test
+    assert dims[0]*dims[1] == mpi_size
+    for bsize, n, use_dim in zip(blocksizes, npts, mask):
+        if not use_dim:
+            assert bsize == n
+        else:
+            assert bsize == n//mpi_size
+
+#==============================================================================
 def test_partition_3d():
 
     npts = [64,128,50]
@@ -67,3 +91,40 @@ def test_partition_3d():
 
     assert tuple( dims ) == (5, 5, 4)
     assert tuple( blocksizes ) == (12, 25, 12)
+    
+#==============================================================================
+@pytest.mark.parametrize( 'mpi_size', [1,2,5,10] )
+@pytest.mark.parametrize( 'mask', [[True, False, False], 
+                                   [False, True, False], 
+                                   [False, False, True], 
+                                   [True, True, False],
+                                   [True, False, True],
+                                   [False, True, True]] )
+@pytest.mark.parametrize( 'npts', [[32, 64, 128], [62, 59, 41]] )
+
+def test_partition_3d_dims_mask( mpi_size, npts, mask ):
+
+    print(f'\nmpi_size={mpi_size}:')    
+    # General partition: blocks are not all identical but closer to a cube
+    dims, blocksizes = compute_dims( mpi_size, npts, [3,3,3] )   
+    print(f'general:'.ljust(35), dims, blocksizes) 
+    
+    # Mask dimensions
+    dims, blocksizes = compute_dims( mpi_size, npts, [3,3,3], dims_mask=mask )   
+    print(f'dims_mask {mask}:'.ljust(35), dims, blocksizes) 
+    
+    # test
+    assert dims[0]*dims[1]*dims[2] == mpi_size
+    for bsize, n, use_dim in zip(blocksizes, npts, mask):
+        if not use_dim:
+            assert bsize == n
+    
+    
+if __name__ == '__main__':
+    # test_partition_2d_dims_mask(10, [64, 64], [True, False])
+    # test_partition_2d_dims_mask(10, [58, 64], [True, False])
+    
+    test_partition_3d_dims_mask(10, [32, 64, 128], [True, False, True])
+
+
+

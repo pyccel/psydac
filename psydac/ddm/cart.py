@@ -194,9 +194,13 @@ class DomainDecomposition:
         This information is needed when comm is None (sequential case) or comm == MPI.COMM_NULL (MPI rank does not own the domain),
         to be able to calculate global_element_starts and global_element_ends.
 
+    dims_mask: list of bool
+        True if the dimension is to be used in the domain decomposition (=default for each dimension). 
+        If dims_mask[i]=False, the i-th dimension will not be decomposed.
+
     """
 
-    def __init__(self, ncells, periods, comm=None, global_comm=None, num_threads=None, size=None):
+    def __init__(self, ncells, periods, comm=None, global_comm=None, num_threads=None, size=None, dims_mask=None):
 
         # Check input arguments
         # TODO: check that arguments are identical across all processes
@@ -225,7 +229,7 @@ class DomainDecomposition:
             self._rank = comm.Get_rank()
 
         self._ndims         = len(ncells)
-        nprocs, block_shape = compute_dims( self._size, self._ncells )
+        nprocs, block_shape = compute_dims( self._size, self._ncells, dims_mask=dims_mask )
 
         self._nprocs = nprocs
 
