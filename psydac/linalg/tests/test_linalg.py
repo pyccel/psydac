@@ -45,6 +45,7 @@ def get_StencilVectorSpace(n1, n2, p1, p2, P1, P2):
 
 def get_positive_definite_stencilmatrix(V):
 
+    np.random.seed(2)
     assert isinstance(V, StencilVectorSpace)
     [n1, n2] = V._npts
     [p1, p2] = V._pads
@@ -222,10 +223,10 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
 
     ## ___Transposing___
     
-    assert not np.array_equal(S2a, np.transpose(S2a))
+    assert not np.array_equal(S2a, np.transpose(S2a)) # using a nonsymmetric matrix throughout
     assert isinstance(S2.T, StencilMatrix)
-    assert np.array_equal(S2.T.toarray(), np.transpose(S2a)) # using a nonsymmetric matrix throughout
-    assert np.array_equal(S2.T.T.toarray(), S2a)
+    assert np.array_equal(S2.T.toarray(), np.transpose(S2a))
+    assert S2.T.T == S2
 
     ###
     ### 3. Test special cases
@@ -240,7 +241,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
 
     # Substracting a ZeroOperator and substracting from a ZeroOperator work as intended
     assert S-Z == S
-    assert np.array_equal((Z-S).toarray(), (-S).toarray())
+    assert -S == Z-S
 
     ## ___Composing with Zero- and IdentityOperators___   
 
@@ -256,7 +257,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     
     # Raising a StencilMatrix to the power of 1 or 0 does not change the object / returns an IdentityOperator
     assert S**1 is S
-    assert isinstance(S**0, IdentityOperator)  
+    assert isinstance(S**0, IdentityOperator)
 
 #===============================================================================
 @pytest.mark.parametrize('n1', n1array)
@@ -398,33 +399,16 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     ## ___Addition and Substraction with ZeroOperators___
 
     # Adding a ZeroOperator does not change the BlockLO
-    # Update 21.12.: ZeroLOs and IdentityLOs from and/or to BlockVectorSpaces are now BlockLOs
-    # thus while B+BZ = B is still true, B+BZ is a new object now.
     BBZ = B+BZ
     BZB = BZ+B
-    for i in range(2):
-        for j in range(2):
-            if isinstance(BBZ.blocks[i][j], ZeroOperator):
-                assert isinstance(B.blocks[i][j], ZeroOperator) or B.blocks[i][j] == None
-            else:
-                assert BBZ.blocks[i][j] == B.blocks[i][j]
-            if isinstance(BZB.blocks[i][j], ZeroOperator):
-                assert isinstance(B.blocks[i][j], ZeroOperator) or B.blocks[i][j] == None
-            else:
-                assert BZB.blocks[i][j] == B.blocks[i][j]
-    #assert BBZ.blocks == B.blocks
-    #assert BZ+B == B
+    assert BBZ == B
+    assert BZB == B
 
     # Substracting a ZeroOperator and substracting from a ZeroOperator work as intended
     BmBZ = B-BZ
-    for i in range(2):
-        for j in range(2):
-            if isinstance(BmBZ.blocks[i][j], ZeroOperator):
-                assert isinstance(B.blocks[i][j], ZeroOperator) or B.blocks[i][j] == None
-            else:
-                assert BmBZ.blocks[i][j] == B.blocks[i][j]
-    #assert B-BZ == B
-    assert np.array_equal((BZ-B).toarray(), (-B).toarray()) # replaces assert BZ-B == -B
+    BZmB = BZ-B
+    assert BmBZ == B
+    assert BZmB == -B
 
     ## ___Composing with Zero- and IdentityOperators___ 
 
@@ -447,9 +431,8 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     # Raising a BlockLO to the power of 1 or 0 does not change the object / returns an IdentityOperator
     # 21.12. change: B**0 a BlockLO with IdentityLOs at the diagonal
     assert B**1 is B
-    #assert isinstance(B**0, IdentityOperator)
     assert isinstance(B**0, BlockLinearOperator)
-    assert np.array_equal(((B**0)@vb).toarray(), vb.toarray())
+    assert B**0 == BI
 
 #===============================================================================
 @pytest.mark.parametrize('n1', n1array)
@@ -749,8 +732,10 @@ def test_operator_evaluation(n1, n2, p1, p2):
     b_inv_arr = np.matrix.flatten(B_inv_mat)
     error_est = 2 + n1 * n2 * np.max( [ np.abs(b_inv_arr[i]) for i in range(len(b_inv_arr)) ] )
     assert np.array_equal(uarr, bi0)
-    assert np.linalg.norm( np.linalg.solve(Bmat, uarr) - bi1 ) < tol
-    assert np.linalg.norm( np.linalg.solve(Bmat, np.linalg.solve(Bmat, uarr)) - bi2 ) < error_est * tol
+    bi12 = np.linalg.solve(Bmat, uarr)
+    bi22 = np.linalg.solve(Bmat, bi12)
+    assert np.linalg.norm( (Bmat @ bi12) - uarr ) < tol
+    assert np.linalg.norm( (Bmat @ bi22) - bi12 ) < error_est * tol
 
     zeros = U.zeros().toarray()
     z0 = ( Z**0 @ u ).toarray()
@@ -777,8 +762,10 @@ def test_operator_evaluation(n1, n2, p1, p2):
     s_inv_arr = np.matrix.flatten(S_inv_mat)
     error_est = 2 + n1 * n2 * np.max( [ np.abs(s_inv_arr[i]) for i in range(len(s_inv_arr)) ] )
     assert np.array_equal(varr, si0)
-    assert np.linalg.norm( np.linalg.solve(Smat, varr) - si1 ) < tol
-    assert np.linalg.norm( np.linalg.solve(Smat, np.linalg.solve(Smat, varr)) - si2 ) < error_est * tol
+    si12 = np.linalg.solve(Smat, varr)
+    si22 = np.linalg.solve(Smat, si12)
+    assert np.linalg.norm( (Smat @ si12) - varr ) < tol
+    assert np.linalg.norm( (Smat @ si22) - si12 ) < error_est * tol
 
     i0 = ( I**0 @ v ).toarray()
     i1 = ( I**1 @ v ).toarray()
@@ -790,12 +777,12 @@ def test_operator_evaluation(n1, n2, p1, p2):
     ### 2.2 SumLO tests
     Sum1 = B + B_ILO + B + B_ILO
     Sum2 = S + S_ILO + S + S_ILO
-    sum1 = ( Sum1 @ u ).toarray()
-    sum2 = ( Sum2 @ v ).toarray()
-    Sum1_mat = 2 * Bmat + 2 * B_inv_mat
-    Sum2_mat = 2 * Smat + 2 * S_inv_mat
-    assert np.linalg.norm( sum1 - np.dot(Sum1_mat, uarr) ) < 2 * tol
-    assert np.linalg.norm( sum2 - np.dot(Sum2_mat, varr) ) < 2 * tol
+    sum1 = Sum1 @ u
+    sum2 = Sum2 @ v
+    u_approx = B @ (0.5*(sum1 - 2*B@u))
+    v_approx = S @ (0.5*(sum2 - 2*S@v))
+    assert np.linalg.norm( (u_approx - u).toarray() ) < tol
+    assert np.linalg.norm( (v_approx - v).toarray() ) < tol
 
     ### 2.3 CompLO tests
     C1 = B @ (-B)
