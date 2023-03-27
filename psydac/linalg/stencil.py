@@ -901,29 +901,6 @@ class StencilMatrix( LinearOperator ):
 
             new_nrows[d] += er
 
-    def __eq__(self, B):
-        """ 
-        Return True if self and B are mathematically the same, else return False.
-         
-        """
-        assert isinstance(B, StencilMatrix)
-
-        if self is B:
-            return True
-        elif np.array_equal(self.toarray(), B.toarray()):
-            return True
-        else:
-            return False
-
-    def __truediv__(self, a):
-        """ Divide by scalar. """
-        return self * (1.0 / a)
-
-    def __itruediv__(self, a):
-        """ Divide by scalar, in place. """
-        self *= 1.0 / a
-        return self
-
     # ...
     def transpose( self ):
         """ Create new StencilMatrix Mt, where domain and codomain are swapped
@@ -1099,6 +1076,11 @@ class StencilMatrix( LinearOperator ):
         else:
             return LinearOperator.__sub__(self, m)
 
+    # ...
+    def __truediv__(self, a):
+        """ Divide by scalar. """
+        return self * (1.0 / a)
+
     #...
     def __imul__(self, a):
         self._data *= a
@@ -1129,6 +1111,12 @@ class StencilMatrix( LinearOperator ):
             return self
         else:
             return LinearOperator.__sub__(self, m)
+
+    # ...
+    def __itruediv__(self, a):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / a
+        return self
 
     #...
     def __abs__( self ):
