@@ -215,7 +215,7 @@ class DenseVector( Vector ):
 
         return res
 
-    def conjugate(self, out):
+    def conjugate(self, out=None):
         if out is not None:
             assert isinstance(out, DenseVector)
             assert out.space is self.space
