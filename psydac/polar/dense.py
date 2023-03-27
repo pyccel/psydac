@@ -215,6 +215,15 @@ class DenseVector( Vector ):
 
         return res
 
+    def conjugate(self, out):
+        if out is not None:
+            assert isinstance(out, DenseVector)
+            assert out.space is self.space
+        else:
+            out = DenseVector(self.space)
+        np.conjugate(self._data, out=out._data, casting='no')
+        return out
+
     # ...
     def copy( self ):
         return DenseVector( self._space, self._data.copy() )
