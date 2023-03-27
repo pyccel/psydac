@@ -93,6 +93,7 @@ class Vector(ABC):
 
     @abstractmethod
     def copy(self, out=None):
+        """Ensure x.copy(out=x) returns x and not a new object."""
         pass
 
     @abstractmethod
@@ -656,7 +657,7 @@ class ComposedLinearOperator(LinearOperator):
         last = args[-1]
         if isinstance(last, ComposedLinearOperator):
             multiplicants = (*multiplicants, *last.multiplicants)
-            tmp_vectors.extend(last.tmp_vectors[:-1])
+            tmp_vectors.extend(last.tmp_vectors)
         else:
             multiplicants = (*multiplicants, last)
 
@@ -839,19 +840,12 @@ class InverseLinearOperator(LinearOperator):
     def get_info(self):
         return self._info
 
-    @abstractmethod
-    def _update_options(self):
-        pass
+    def get_options(self):
+        return self._options.copy()
 
-    def getoptions(self):
-        for key, value in self.options.items():
-            print(key, ": ", value)
-
-    def setoptions(self, **kwargs):
+    def set_options(self, **kwargs):
         self._check_options(**kwargs)
-        for key, value in kwargs.items():
-            setattr(self, '_'+key, value)
-        self._update_options()
+        self._options.update(kwargs)
 
     @abstractmethod
     def _check_options(self, **kwargs):
@@ -916,102 +910,6 @@ class InverseLinearOperator(LinearOperator):
             out[i] /= A.diagonal()
             out.update_ghost_regions()
             return out
-
-    @staticmethod
-    def weighted_jacobi(A, b, x0=None, omega= 2./3, tol=1e-10, maxiter=100, verbose=False):
-        """
-        Weighted Jacobi iterative preconditioner.
-
-        Parameters
-        ----------
-        A : psydac.linalg.stencil.StencilMatrix
-            Left-hand-side matrix A of linear system.
-
-        b : psydac.linalg.stencil.StencilVector
-            Right-hand-side vector of linear system.
-
-        x0 : psydac.linalg.basic.Vector
-            First guess of solution for iterative solver (optional).
-
-        omega : float
-            The weight parameter (optional). Default value equal to 2/3.
-
-        tol : float
-            Absolute tolerance for L2-norm of residual r = A*x - b.
-
-        maxiter: int
-            Maximum number of iterations.
-
-        verbose : bool
-            If True, L2-norm of residual r is printed at each iteration.
-
-        Returns
-        -------
-        x : psydac.linalg.stencil.StencilVector
-            Converged solution.
-
-        """
-        from math import sqrt
-
-        n = A.shape[0]
-
-        assert(A.shape == (n,n))
-        assert(b.shape == (n, ))
-
-        V  = b.space
-        s = V.starts
-        e = V.ends
-
-        # First guess of solution
-        if x0 is None:
-            x = 0.0 * b.copy()
-        else:
-            assert( x0.shape == (n,) )
-            x = x0.copy()
-
-        dr = 0.0 * b.copy()
-        tol_sqr = tol**2
-
-        if verbose:
-            print( "Weighted Jacobi iterative method:" )
-            print( "+---------+---------------------+")
-            print( "+ Iter. # | L2-norm of residual |")
-            print( "+---------+---------------------+")
-            template = "| {:7d} | {:19.2e} |"
-
-        # Iterate to convergence
-        for k in range(1, maxiter+1):
-            r = b - A.dot(x)
-
-            # TODO build new external method get_diagonal and add 3d case
-            if V.ndim ==1:
-                for i1 in range(s[0], e[0]+1):
-                    dr[i1] = omega*r[i1]/A[i1, 0]
-
-            elif V.ndim ==2:
-                for i1 in range(s[0], e[0]+1):
-                    for i2 in range(s[1], e[1]+1):
-                        dr[i1, i2] = omega*r[i1, i2]/A[i1, i2, 0, 0]
-            # ...
-            dr.update_ghost_regions()
-
-            x  = x + dr
-
-            nrmr = dr.dot(dr)
-            if nrmr < tol_sqr:
-                k -= 1
-                break
-
-            if verbose:
-                print( template.format(k, sqrt(nrmr)))
-
-        if verbose:
-            print( "+---------+---------------------+")
-
-        # Convergence information
-        info = {'niter': k, 'success': nrmr < tol_sqr, 'res_norm': sqrt(nrmr) }
-
-        return x
 
 #===============================================================================
 class LinearSolver(ABC):
