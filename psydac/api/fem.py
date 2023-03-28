@@ -21,7 +21,7 @@ from psydac.api.basic        import random_string
 from psydac.api.grid         import QuadratureGrid, BasisValues
 from psydac.api.utilities    import flatten
 from psydac.linalg.stencil   import StencilVector, StencilMatrix, StencilInterfaceMatrix
-from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockMatrix
+from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 from psydac.fem.vector       import ProductFemSpace
@@ -429,12 +429,15 @@ class DiscreteBilinearForm(BasicDiscrete):
 
             for key in self._free_args:
                 v = kwargs[key]
+
                 if len(self.domain)>1 and isinstance(v, FemField) and v.space.is_product:
                     i,j = self.get_space_indices_from_target(self.domain, self.target)
                     assert i==j
                     v = v[i]
                 if isinstance(v, FemField):
                     assert len(self.grid) == 1
+                    if not v.coeffs.ghost_regions_in_sync:
+                        v.coeffs.update_ghost_regions()
                     basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, trial=True, grid=self.grid[0])
                     bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
@@ -448,7 +451,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 else:
                     consts += (v, )
 
-            args = (*self.args, *consts, *basis, *spans, *degrees, *pads, *coeffs)
+            args = (*self.args, *basis, *spans, *degrees, *pads, *coeffs, *consts)
 
         else:
             args = self._args
@@ -648,23 +651,23 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             pads = test_degree
 
-        if self._matrix is None and (is_broken or isinstance( expr, (ImmutableDenseMatrix, Matrix))):
-            self._matrix = BlockMatrix(trial_space, test_space)
+        if self._matrix is None and (is_broken or isinstance(expr, (ImmutableDenseMatrix, Matrix))):
+            self._matrix = BlockLinearOperator(trial_space, test_space)
 
         if is_broken:
-            i,j = self.get_space_indices_from_target(domain, target )
+            i, j = self.get_space_indices_from_target(domain, target)
             test_space  = test_space.spaces[i]
             trial_space = trial_space.spaces[j]
         else :
             i=0
             j=0
-            #else so initialisation causing bug on line 682 
+            #else so initialisation causing bug on line 682
 
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # case of system of equations
 
             if is_broken: #multi patch
                 if not self._matrix[i,j]:
-                    self._matrix[i,j] = BlockMatrix(trial_space, test_space)
+                    self._matrix[i,j] = BlockLinearOperator(trial_space, test_space)
                 matrix = self._matrix[i,j]
             else: # single patch
                 matrix = self._matrix
@@ -967,6 +970,8 @@ class DiscreteLinearForm(BasicDiscrete):
                     i = self.get_space_indices_from_target(self.domain, self.target)
                     v = v[i]
                 if isinstance(v, FemField):
+                    if not v.coeffs.ghost_regions_in_sync:
+                        v.coeffs.update_ghost_regions()
                     basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, trial=True, grid=self.grid)
                     bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
@@ -980,7 +985,7 @@ class DiscreteLinearForm(BasicDiscrete):
                 else:
                     consts += (v, )
 
-            args = (*self.args, *consts, *basis, *spans, *degrees, *pads, *coeffs)
+            args = (*self.args, *basis, *spans, *degrees, *pads, *coeffs, *consts)
 
         else:
             args = self._args
@@ -1355,6 +1360,8 @@ class DiscreteFunctional(BasicDiscrete):
         for key in self._free_args:
             v = kwargs[key]
             if isinstance(v, FemField):
+                if not v.coeffs.ghost_regions_in_sync:
+                        v.coeffs.update_ghost_regions()
                 if v.space.is_product:
                     coeffs = v.coeffs
                     if self._symbolic_space.is_broken:

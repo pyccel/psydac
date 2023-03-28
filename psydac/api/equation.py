@@ -12,7 +12,7 @@ from sympde.expr     import Equation
 from psydac.api.basic                import BasicDiscrete
 from psydac.api.essential_bc         import apply_essential_bc
 from psydac.fem.basic                import FemField
-from psydac.linalg.iterative_solvers import cg, pcg, bicg, minres, lsmr
+from psydac.linalg.solvers           import inverse
 
 __all__ = ('DiscreteEquation',)
 
@@ -22,31 +22,6 @@ LinearSystem = namedtuple('LinearSystem', ['lhs', 'rhs'])
 #==============================================================================
 _default_solver = {'solver':'cg', 'tol':1e-9, 'maxiter':3000, 'verbose':False}
 
-def driver_solve(L, **kwargs):
-    if not isinstance(L, LinearSystem):
-        raise TypeError('> Expecting a LinearSystem object')
-
-    M = L.lhs
-    rhs = L.rhs
-
-    name        = kwargs.pop('solver')
-    return_info = kwargs.pop('info', False)
-
-    if name == 'cg':
-        x, info = cg    ( M,      rhs, **kwargs )
-    elif name == 'pcg':
-        x, info = pcg   ( M,      rhs, **kwargs )
-    elif name == 'minres':
-        x, info = minres( M,      rhs, **kwargs )
-    elif name == 'bicg':
-        x, info = bicg  ( M, M.T, rhs, **kwargs )
-    elif name == 'lsmr':
-        x, info = lsmr  ( M, M.T, rhs, **kwargs )
-    else:
-        raise NotImplementedError("Solver '{}' is not available".format(name))
-    return (x, info) if return_info else x
-
-#==============================================================================
 def l2_boundary_projection(equation):
     """
     Create an auxiliary equation (weak formulation) that solves for the
@@ -93,7 +68,7 @@ def l2_boundary_projection(equation):
     test_dict = dict(zip(u, v))
 
     # Compute product of (u, v) using dot product for vector quantities
-    product  = lambda f, g: (f * g if isinstance(g, ScalarFunction) else dot(f, g))
+    product  = lambda f, g: (f * g if g.atoms(ScalarFunction) else dot(f, g))
 
     # Construct variational formulation that performs L2 projection
     # of boundary conditions onto the correct space
@@ -138,7 +113,7 @@ class DiscreteEquation(BasicDiscrete):
         # Create boundary equation (None if not needed)
         eqn_bc   = l2_boundary_projection(expr)
         eqn_bc_h = DiscreteEquation(eqn_bc, domain, [trial_space, trial_space], **kwargs) \
-                   if eqn_bc else None
+                if eqn_bc else None
         # ...
 
         self._bc                = bc
@@ -254,12 +229,27 @@ class DiscreteEquation(BasicDiscrete):
             # Use inhomogeneous solution as initial guess to solver
             settings['x0'] = uh.coeffs
         #----------------------------------------------------------------------
-        if settings.get('info', False):
-            X, info = driver_solve(self.linear_system, **settings)
-            uh = FemField(self.trial_space, coeffs=X)
-            return uh, info
+        L = self.linear_system
+        M = L.lhs
+        rhs = L.rhs
 
+        solver = settings.get('solver')
+        solver_settings = settings.copy()
+        solver_settings.pop('solver')
+
+        if 'info' in settings:
+            inf = settings.get('info')
+            solver_settings.pop('info')
         else:
-            X  = driver_solve(self.linear_system, **settings)
+            inf = False
+
+        M_inv = inverse(M, solver, **solver_settings)
+        if inf == True:
+            X = M_inv @ rhs
+            uh = FemField(self.trial_space, coeffs=X)
+            info = M_inv.get_info()
+            return uh, info
+        else:
+            X = M_inv @ rhs
             uh = FemField(self.trial_space, coeffs=X)
             return uh

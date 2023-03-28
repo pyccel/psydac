@@ -57,7 +57,7 @@ def pull_1d_l2(f, F):
 
         det_value = F.metric_det(eta1)**0.5
         value     = f(x)
-        return det_value*value
+        return det_value * value
 
     return f_logical
 
@@ -102,7 +102,6 @@ def pull_2d_hcurl(f, F):
 
         J_T_value = F.jacobian(eta1, eta2).T
         value_2   = J_T_value[1, 0] * a1_phys + J_T_value[1, 1] * a2_phys
-
         return value_2
 
     return f1_logical, f2_logical
@@ -125,7 +124,6 @@ def pull_2d_hdiv(f, F):
         J_inv_value = F.jacobian_inv(eta1, eta2)
         det_value   = F.metric_det(eta1, eta2)**0.5
         value_1     = J_inv_value[0, 0] * a1_phys + J_inv_value[0, 1] * a2_phys
-
         return det_value * value_1
 
     def f2_logical(eta1, eta2):
@@ -137,7 +135,6 @@ def pull_2d_hdiv(f, F):
         J_inv_value = F.jacobian_inv(eta1, eta2)
         det_value   = F.metric_det(eta1, eta2)**0.5
         value_2     = J_inv_value[1, 0] * a1_phys + J_inv_value[1, 1] * a2_phys
-
         return det_value * value_2
 
     return f1_logical, f2_logical
@@ -180,9 +177,10 @@ def pull_3d_v(funcs_ini, mapping):
         a3_phys = funcs_ini[2](x, y, z)
 
         J_inv_value = J_inv(xi1, xi2, xi3)
-        value_1 = J_inv_value[0,0]*a1_phys + J_inv_value[0,1]*a2_phys + J_inv_value[0,2]*a3_phys
-        value_2 = J_inv_value[1,0]*a1_phys + J_inv_value[1,1]*a2_phys + J_inv_value[1,2]*a3_phys
-        value_3 = J_inv_value[2,0]*a1_phys + J_inv_value[2,1]*a2_phys + J_inv_value[2,2]*a3_phys
+        value_1 = J_inv_value[0, 0] * a1_phys + J_inv_value[0, 1] * a2_phys + J_inv_value[0, 2] * a3_phys
+        value_2 = J_inv_value[1, 0] * a1_phys + J_inv_value[1, 1] * a2_phys + J_inv_value[1, 2] * a3_phys
+        value_3 = J_inv_value[2, 0] * a1_phys + J_inv_value[2, 1] * a2_phys + J_inv_value[2, 2] * a3_phys
+
         return value_1, value_2, value_3
 
     return fun
@@ -262,7 +260,6 @@ def pull_3d_hdiv(f, F):
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
         det_value   = F.metric_det(eta1, eta2, eta3)**0.5
         value_1     = J_inv_value[0, 0] * a1_phys + J_inv_value[0, 1] * a2_phys + J_inv_value[0, 2] * a3_phys
-
         return det_value * value_1
 
     def f2_logical(eta1, eta2, eta3):
@@ -275,7 +272,6 @@ def pull_3d_hdiv(f, F):
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
         det_value   = F.metric_det(eta1, eta2, eta3)**0.5
         value_2     = J_inv_value[1, 0] * a1_phys + J_inv_value[1, 1] * a2_phys + J_inv_value[1, 2] * a3_phys
-
         return det_value * value_2
 
     def f3_logical(eta1, eta2, eta3):
@@ -288,7 +284,6 @@ def pull_3d_hdiv(f, F):
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
         det_value   = F.metric_det(eta1, eta2, eta3)**0.5
         value_3     = J_inv_value[2, 0] * a1_phys + J_inv_value[2, 1] * a2_phys + J_inv_value[2, 2] * a3_phys
-
         return det_value * value_3
 
     return f1_logical, f2_logical, f3_logical
@@ -304,7 +299,7 @@ def pull_3d_l2(f, F):
 
         det_value = F.metric_det(eta1, eta2, eta3)**0.5
         value     = f(x, y, z)
-        return det_value*value
+        return det_value * value
 
     return f_logical
 
@@ -326,10 +321,7 @@ def push_1d_l2(f, eta, F):
     assert isinstance(F, BasicCallableMapping)
     assert F.ldim == 1
 
-    det_value = F.metric_det(eta)**0.5
-    value     = f(eta)
-
-    return f(eta) / det_value
+    return f(eta) / F.metric_det(eta)**0.5
 
 #==============================================================================
 # 2D PUSH-FORWARDS
@@ -373,11 +365,11 @@ def push_2d_hdiv(f1, f2, eta1, eta2, F):
     J_value   = F.jacobian(*eta)
     det_value = F.metric_det(*eta)**0.5
 
-    value1 = (J_value[0, 0] * f1(*eta) +
-              J_value[0, 1] * f2(*eta)) / det_value
+    f1_value = f1(*eta)
+    f2_value = f2(*eta)
 
-    value2 = (J_value[1, 0] * f1(*eta) +
-              J_value[1, 1] * f2(*eta)) / det_value
+    value1 = (J_value[0, 0] * f1_value + J_value[0, 1] * f2_value) / det_value
+    value2 = (J_value[1, 0] * f1_value + J_value[1, 1] * f2_value) / det_value
 
     return value1, value2
 

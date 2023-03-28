@@ -142,8 +142,7 @@ def test_c1_projections(degrees, ncells, verbose=False):
 
     if verbose:
         print("PASSED")
-
-    return locals()
+        return locals()
 
 #==============================================================================
 if __name__ == "__main__":

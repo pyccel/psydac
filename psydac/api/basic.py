@@ -208,7 +208,7 @@ class BasicCodeGen:
         # ...
         if folder is None:
             basedir = os.getcwd()
-            folder = PSYDAC_DEFAULT_FOLDER
+            folder = PSYDAC_DEFAULT_FOLDER['name']
             folder = os.path.join( basedir, folder )
 
             # ... add __init__ to all directories to be able to

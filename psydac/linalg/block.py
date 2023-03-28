@@ -7,11 +7,11 @@ import numpy as np
 from types import MappingProxyType
 from scipy.sparse import bmat, lil_matrix
 
-from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
+from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator, LinearSolver, ZeroOperator
 from psydac.ddm.cart      import InterfaceCartDecomposition
 from psydac.ddm.utilities import get_data_exchanger
 
-__all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix', 'BlockDiagonalSolver']
+__all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockDiagonalSolver']
 
 #===============================================================================
 class BlockVectorSpace( VectorSpace ):
@@ -211,14 +211,17 @@ class BlockVector( Vector ):
 
     #...
     def dot( self, v ):
-
         assert isinstance( v, BlockVector )
         assert v._space is self._space
         return sum( b1.dot( b2 ) for b1,b2 in zip( self._blocks, v._blocks ) )
 
     #...
-    def copy( self ):
-        w = BlockVector( self._space, [b.copy() for b in self._blocks] )
+    def copy( self, out=None ):
+        if self is out:
+            return self
+        w = out or BlockVector( self._space )#, [b.copy() for b in self._blocks] )
+        for n, b in enumerate(self._blocks):
+            b.copy(out=w[n])
         w._sync = self._sync
         return w
 
@@ -475,10 +478,13 @@ class BlockLinearOperator( LinearOperator ):
 
         self._args = {}
         self._blocks_as_args = self._blocks
+        self._increment = self._codomain.zeros()
+        self._args['inc'] = self._increment
         self._args['n_rows'] = self._nrows
         self._args['n_cols'] = self._ncols
         self._func           = self._dot
         self._sync           = False
+        self._backend = None
 
     #--------------------------------------
     # Abstract interface
@@ -496,6 +502,87 @@ class BlockLinearOperator( LinearOperator ):
     @property
     def dtype( self ):
         return self.domain.dtype
+
+    # ...
+    @property
+    def T(self):
+        return self.transpose()
+
+# NOTE [YG 27.03.2023]:
+# NOTE as part of PR 279, this method was added to facilitate comparisons in tests,
+# NOTE but then commented out as deemed unnecessary.
+#    def __eq__(self, B):
+#        """
+#        Return True if self and B are mathematically the same, else return False.
+#        Also returns False if at least one block is not the same object and the entries can't be accessed and compared using toarray().
+#
+#        """
+#        assert isinstance(B, BlockLinearOperator)
+#
+#        if self is B:
+#            return True
+#
+#        nrows = self._nrows
+#        ncols = self._ncols
+#        if not ((B.n_block_cols == ncols) & (B.n_block_rows == nrows)):
+#            return False
+#
+#        for i in range(nrows):
+#            for j in range(ncols):
+#                A_ij = self[i, j]
+#                B_ij = B[i, j]
+#                if not ( A_ij is B_ij ):
+#                    if not (((A_ij is None) or (isinstance(A_ij, ZeroOperator))) & ((B_ij is None) or (isinstance(B_ij, ZeroOperator)))):
+#                        if not ( np.array_equal(A_ij.toarray(), B_ij.toarray()) ):
+#                            return False
+#        return True
+
+    def __truediv__(self, a):
+        """ Divide by scalar. """
+        return self * (1.0 / a)
+
+    def __itruediv__(self, a):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / a
+        return self
+
+    # toarray, tosparse and copy as required by Matrix
+    def toarray( self, **kwargs ):
+        """ Convert to Numpy 2D array. """
+        return self.tosparse(**kwargs).toarray()
+
+    # ...
+    def tosparse( self, **kwargs ):
+        """ Convert to any Scipy sparse matrix format. """
+        # Shortcuts
+
+        nrows = self.n_block_rows
+        ncols = self.n_block_cols
+
+        # Utility functions: get domain of blocks on column j, get codomain of blocks on row i
+        block_domain   = (lambda j: self.domain  [j]) if ncols > 1 else (lambda j: self.domain)
+        block_codomain = (lambda i: self.codomain[i]) if nrows > 1 else (lambda i: self.codomain)
+
+        # Convert all blocks to Scipy sparse format
+        blocks_sparse = [[None for j in range(ncols)] for i in range(nrows)]
+        for i in range(nrows):
+            for j in range(ncols):
+                if (i, j) in self._blocks:
+                    blocks_sparse[i][j] = self._blocks[i, j].tosparse(**kwargs)
+                else:
+                    m = block_codomain(i).dimension
+                    n = block_domain  (j).dimension
+                    blocks_sparse[i][j] = lil_matrix((m, n))
+
+        # Create sparse matrix from sparse blocks
+        M = bmat( blocks_sparse )
+        M.eliminate_zeros()
+
+        # Sanity check
+        assert M.shape[0] == self.codomain.dimension
+        assert M.shape[1] == self.  domain.dimension
+
+        return M
 
     # ...
     def dot( self, v, out=None ):
@@ -527,17 +614,27 @@ class BlockLinearOperator( LinearOperator ):
 
     #...
     @staticmethod
-    def _dot(blocks, v, out, n_rows, n_cols):
+    def _dot(blocks, v, out, n_rows, n_cols, inc):
+        from psydac.linalg.stencil import StencilInterfaceMatrix
 
         if n_rows == 1:
             for (_, j), L0j in blocks.items():
-                out += L0j.dot(v[j])
+                if isinstance(L0j, StencilInterfaceMatrix): # L0j.__class__.__name__ == 'StencilInterfaceMatrix':
+                    out += L0j.dot(v[j])
+                else:
+                    out += L0j.dot(v[j], out=inc)
         elif n_cols == 1:
             for (i, _), Li0 in blocks.items():
-                out[i] += Li0.dot(v)
+                if isinstance(Li0, StencilInterfaceMatrix): #Li0.__class__.__name__ == 'StencilInterfaceMatrix':
+                    out[i] += Li0.dot(v[j])
+                else:
+                    out[i] += Li0.dot(v, out=inc[i])
         else:
             for (i, j), Lij in blocks.items():
-                out[i] += Lij.dot(v[j])
+                if isinstance(Lij, StencilInterfaceMatrix): #Lij.__class__.__name__ == 'StencilInterfaceMatrix':
+                    out[i] += Lij.dot(v[j])
+                else:
+                    out[i] += Lij.dot(v[j], out=inc[i])
 
     #--------------------------------------
     # Other properties/methods
@@ -645,101 +742,13 @@ class BlockLinearOperator( LinearOperator ):
         blocks = {ij: operation(Bij) for ij, Bij in self._blocks.items()}
         return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
 
-    def tomatrix(self):
-        """
-        Returns a BlockMatrix with the same blocks as this BlockLinearOperator.
-        Does only work, if all blocks are matrices (i.e. type Matrix) as well.
-        """
-        return BlockMatrix(self.domain, self.codomain, blocks=self._blocks)
-
-    # ...
-    def transpose(self):
-        blocks = {(j, i): b.transpose() for (i, j), b in self._blocks.items()}
-        return BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
-
-    # ...
-    @property
-    def T(self):
-        return self.transpose()
-
-#===============================================================================
-class BlockMatrix( BlockLinearOperator, Matrix ):
-    """
-    Linear operator that can be written as blocks of other Linear Operators,
-    with the additional capability to be converted to a 2D Numpy array
-    or to a Scipy sparse matrix.
-
-    Parameters
-    ----------
-    V1 : psydac.linalg.block.BlockVectorSpace
-        Domain of the new linear operator.
-
-    V2 : psydac.linalg.block.BlockVectorSpace
-        Codomain of the new linear operator.
-
-    blocks : dict | (list of lists) | (tuple of tuples)
-        Matrix objects (optional).
-
-        a) 'blocks' can be dictionary with
-            . key   = tuple (i, j), where i and j are two integers >= 0
-            . value = corresponding Matrix Mij
-
-        b) 'blocks' can be list of lists (or tuple of tuples) where blocks[i][j]
-            is the Matrix Mij (if None, we assume all entries are zeros)
-
-    """
-
-    def __init__( self, V1, V2, blocks=None ):
-        super(BlockMatrix, self).__init__(V1, V2, blocks=blocks)
-        self._backend = None
-
-    #--------------------------------------
-    # Abstract interface
-    #--------------------------------------
-    def toarray( self, **kwargs ):
-        """ Convert to Numpy 2D array. """
-        return self.tosparse(**kwargs).toarray()
-
     def backend( self ):
         return self._backend
 
     # ...
-    def tosparse( self, **kwargs ):
-        """ Convert to any Scipy sparse matrix format. """
-        # Shortcuts
-
-        nrows = self.n_block_rows
-        ncols = self.n_block_cols
-
-        # Utility functions: get domain of blocks on column j, get codomain of blocks on row i
-        block_domain   = (lambda j: self.domain  [j]) if ncols > 1 else (lambda j: self.domain)
-        block_codomain = (lambda i: self.codomain[i]) if nrows > 1 else (lambda i: self.codomain)
-
-        # Convert all blocks to Scipy sparse format
-        blocks_sparse = [[None for j in range(ncols)] for i in range(nrows)]
-        for i in range(nrows):
-            for j in range(ncols):
-                if (i, j) in self._blocks:
-                    blocks_sparse[i][j] = self._blocks[i, j].tosparse(**kwargs)
-                else:
-                    m = block_codomain(i).dimension
-                    n = block_domain  (j).dimension
-                    blocks_sparse[i][j] = lil_matrix((m, n))
-
-        # Create sparse matrix from sparse blocks
-        M = bmat( blocks_sparse )
-        M.eliminate_zeros()
-
-        # Sanity check
-        assert M.shape[0] == self.codomain.dimension
-        assert M.shape[1] == self.  domain.dimension
-
-        return M
-
-    # ...
     def copy(self):
         blocks = {ij: Bij.copy() for ij, Bij in self._blocks.items()}
-        mat = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
         if self._backend is not None:
             mat._func = self._func
             mat._args = self._args
@@ -750,7 +759,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     # ...
     def __neg__(self):
         blocks = {ij: -Bij for ij, Bij in self._blocks.items()}
-        mat    = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        mat    = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
         if self._backend is not None:
             mat._func = self._func
             mat._args = self._args
@@ -761,7 +770,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     # ...
     def __mul__(self, a):
         blocks = {ij: Bij * a for ij, Bij in self._blocks.items()}
-        mat = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
         if self._backend is not None:
             mat._func = self._func
             mat._args = self._args
@@ -772,7 +781,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     # ...
     def __rmul__(self, a):
         blocks = {ij: a * Bij for ij, Bij in self._blocks.items()}
-        mat = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
         if self._backend is not None:
             mat._func = self._func
             mat._args = self._args
@@ -782,8 +791,10 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
     # ...
     def __add__(self, M):
-        assert isinstance(M, BlockMatrix)
-        assert M.  domain is self.  domain
+        if not isinstance(M, BlockLinearOperator):
+            return LinearOperator.__add__(self, M)
+
+        assert M.  domain is self.domain
         assert M.codomain is self.codomain
         blocks  = {}
         for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
@@ -792,7 +803,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             if   Bij is None: blocks[ij] = Mij.copy()
             elif Mij is None: blocks[ij] = Bij.copy()
             else            : blocks[ij] = Bij + Mij
-        mat = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
         if len(mat._blocks) != len(self._blocks):
             mat.set_backend(self._backend)
         elif self._backend is not None:
@@ -804,7 +815,9 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
     # ...
     def __sub__(self, M):
-        assert isinstance(M, BlockMatrix)
+        if not isinstance(M, BlockLinearOperator):
+            return LinearOperator.__sub__(self, M)
+
         assert M.  domain is self.  domain
         assert M.codomain is self.codomain
         blocks  = {}
@@ -814,7 +827,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             if   Bij is None: blocks[ij] = -Mij
             elif Mij is None: blocks[ij] =  Bij.copy()
             else            : blocks[ij] =  Bij - Mij
-        mat = BlockMatrix(self.domain, self.codomain, blocks=blocks)
+        mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
         if len(mat._blocks) != len(self._blocks):
             mat.set_backend(self._backend)
         elif self._backend is not None:
@@ -832,7 +845,9 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
     # ...
     def __iadd__(self, M):
-        assert isinstance(M, BlockMatrix)
+        if not isinstance(M, BlockLinearOperator):
+            return LinearOperator.__add__(self, M)
+
         assert M.  domain is self.  domain
         assert M.codomain is self.codomain
 
@@ -852,7 +867,9 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
     # ...
     def __isub__(self, M):
-        assert isinstance(M, BlockMatrix)
+        if not isinstance(M, BlockLinearOperator):
+            return LinearOperator.__sub__(self, M)
+
         assert M.  domain is self.  domain
         assert M.codomain is self.codomain
 
@@ -869,28 +886,13 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                 Bij -= Mij
 
         return self
-    #--------------------------------------
-    # Other properties/methods
-    #--------------------------------------
-    def __setitem__( self, key, value ):
-
-        i,j = key
-
-        if value is None:
-            pass
-
-        elif not isinstance( value, Matrix ):
-            msg = "Block ({},{}) must be 'Matrix' from module 'psydac.linalg.basic'.".format( i,j )
-            raise TypeError( msg )
-
-        BlockLinearOperator.__setitem__( self, key, value )
-
+            
     # ...
     def transpose(self):
         blocks, blocks_T = self.compute_interface_matrices_transpose()
         blocks = {(j, i): b.transpose() for (i, j), b in blocks.items()}
         blocks.update(blocks_T)
-        mat = BlockMatrix(self.codomain, self.domain, blocks=blocks)
+        mat = BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
         mat.set_backend(self._backend)
         return mat
 
@@ -925,7 +927,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             if isinstance(Vi, BlockVectorSpace) and isinstance(Vj, BlockVectorSpace):
                 # case of a system of equations
                 block_ij_exists = False
-                blocks_T[j,i] = BlockMatrix(Vi, Vj)
+                blocks_T[j,i] = BlockLinearOperator(Vi, Vj)
                 block_ij = blocks.get((i,j))._blocks.copy() if self[i,j] else None
                 for k1,Vik1 in enumerate(Vi.spaces):
                     for k2,Vjk2 in enumerate(Vj.spaces):
@@ -980,7 +982,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
                     blocks.pop((i,j))
 
                 block_ji_exists = False
-                blocks_T[i,j] = BlockMatrix(Vj, Vi)
+                blocks_T[i,j] = BlockLinearOperator(Vj, Vi)
                 block_ji = blocks.get((j,i))._blocks.copy() if self[j,i] else None
                 for k1,Vik1 in enumerate(Vi.spaces):
                     for k2,Vjk2 in enumerate(Vj.spaces):
@@ -1194,7 +1196,10 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             dm.append(self._blocks[key]._dotargs_null['dm'])
 
         if self.domain.parallel:
-            comm = self.codomain.spaces[0].cart.comm if isinstance(self.codomain, BlockVectorSpace) else self.codomain.cart.comm
+            if interface:
+                comm = self.domain.spaces[0].interfaces[d_axis, d_ext].cart.local_comm if isinstance(self.domain, BlockVectorSpace) else self.domain.interfaces[d_axis, d_ext].cart.local_comm 
+            else:
+                comm = self.codomain.spaces[0].cart.comm if isinstance(self.codomain, BlockVectorSpace) else self.codomain.cart.comm
             if self.domain == self.codomain:
                 # In this case nrows_extra[i] == 0 for all i
                 dot = LinearOperatorDot(ndim,
@@ -1293,13 +1298,13 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
         if interface:
             def func(blocks, v, out, **args):
-                    vs   = [vi._interface_data[d_axis, d_ext] for vi in v.blocks] if isinstance(v, BlockVector) else v._data
-                    outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else out._data
+                    vs   = [vi._interface_data[d_axis, d_ext] for vi in v.blocks] if isinstance(v, BlockVector) else [v._data]
+                    outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else [out._data]
                     dot(*blocks, *vs, *outs, **args)
         else:
             def func(blocks, v, out, **args):
-                vs   = [vi._data for vi in v.blocks] if isinstance(v, BlockVector) else v._data
-                outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else out._data
+                vs   = [vi._data for vi in v.blocks] if isinstance(v, BlockVector) else [v._data]
+                outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else [out._data]
                 dot(*blocks, *vs, *outs, **args)
 
         self._func    = func
