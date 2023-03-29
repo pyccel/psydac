@@ -967,7 +967,9 @@ class StencilMatrix( LinearOperator ):
             assert out.domain is self.domain
             assert out.codomain is self.codomain
         else:
-            out = StencilMatrix(self.domain, self.codomain)
+            out = StencilMatrix(self.domain, self.codomain, pads=self.pads)
+            out._func    = self._func
+            out._args    = self._args
         np.conjugate(self._data, out=out._data, casting='no')
         return out
 

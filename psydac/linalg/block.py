@@ -302,6 +302,7 @@ class BlockVector( Vector ):
             assert out.space is self.space
         else:
             out = BlockVector(self.space)
+
         for (Lij, Lij_out) in zip(self.blocks, out.blocks):
             assert isinstance( Lij, (StencilVector, BlockVector) )
             assert isinstance( Lij_out, (StencilVector, BlockVector) )
@@ -533,7 +534,7 @@ class BlockLinearOperator( LinearOperator ):
         else:
             out = BlockLinearOperator(self.domain, self.codomain)
 
-        for (i, j), Lij in self._blocks_as_args.items():
+        for (i, j), Lij in self._blocks.items():
             assert isinstance( Lij, (StencilMatrix, BlockLinearOperator) )
             Lij_out = Lij.conjugate()
             out[i,j] = Lij_out
