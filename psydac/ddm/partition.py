@@ -139,9 +139,11 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None, try_uniform=
 def compute_dims_general( mpi_size, npts, dims_mask=None ):
 
     if dims_mask is None:
-        dims_mask = [True]*len( npts )
+        dims_mask = [True] * len(npts)
     else:
-        assert any(dims_mask), 'dims_mask must contain at least one True value.'
+        assert len(dims_mask) == len(npts), "dims_mask must have one entry for each dimension."
+        assert all(isinstance(m, bool) for m in dims_mask), "dims_mask must only contain True/False values."
+        assert any(dims_mask), "dims_mask must contain at least one True value."
 
     nprocs = [1]*len( npts )
     
