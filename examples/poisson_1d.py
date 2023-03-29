@@ -3,7 +3,7 @@ import numpy as np
 
 from psydac.utilities.quadratures      import gauss_legendre
 from psydac.linalg.stencil             import StencilVector, StencilMatrix
-from psydac.linalg.iterative_solvers   import cg
+from psydac.linalg.solvers             import inverse
 
 #==============================================================================
 class Poisson1D:
@@ -258,7 +258,9 @@ if __name__ == '__main__':
 
     # Solve linear system
     t0 = time()
-    x, info = cg( stiffness, rhs, tol=1e-9, maxiter=1000, verbose=False )
+    stiffness_inv = inverse(stiffness, 'cg', tol=1e-9, maxiter=1000, verbose=False)
+    x = stiffness_inv @ rhs
+    info = stiffness_inv.get_info()
     t1 = time()
     timing['solution'] = t1-t0
 
