@@ -26,7 +26,7 @@ from psydac.api.essential_bc         import apply_essential_bc_stencil
 from psydac.api.settings             import PSYDAC_BACKENDS
 from psydac.linalg.block             import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.linalg.stencil           import StencilVector, StencilMatrix, StencilInterfaceMatrix
-from psydac.linalg.iterative_solvers import cg, pcg
+from psydac.linalg.solvers           import inverse
 from psydac.fem.basic                import FemField
 
 
@@ -1040,7 +1040,8 @@ def ortho_proj_Hcurl(EE, V1h, domain_h, M1, backend_language='python'):
     l = LinearForm(v, integral(V1.domain, dot(v,EE)))
     lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
     b = lh.assemble()
-    sol_coeffs, info = pcg(M1.mat(), b, pc="jacobi", tol=1e-10)
+    M1_inv = inverse(M1.mat(), 'pcg', pc='jacobi', tol=1e-10)
+    sol_coeffs = M1_inv @ b
 
     return FemField(V1h, coeffs=sol_coeffs)
 
