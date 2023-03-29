@@ -54,15 +54,12 @@ def test_partition_1d_general( mpi_size ):
 @pytest.mark.parametrize( 'npts', [[64, 64], [58, 64], [64, 31]] )
 
 def test_partition_2d_dims_mask( mpi_size, npts, mask ):
-
-    print(f'\nmpi_size={mpi_size}:')    
+  
     # General partition: blocks are not all identical but closer to a cube
     dims, blocksizes = compute_dims( mpi_size, npts, [3,3] )   
-    print(f'general:'.ljust(30), dims, blocksizes) 
     
     # Mask dimensions
     dims, blocksizes = compute_dims( mpi_size, npts, [3,3], dims_mask=mask )   
-    print(f'dims_mask {mask}:'.ljust(30), dims, blocksizes) 
     
     # test
     assert dims[0]*dims[1] == mpi_size
@@ -103,15 +100,12 @@ def test_partition_3d():
 @pytest.mark.parametrize( 'npts', [[32, 64, 128], [62, 59, 41]] )
 
 def test_partition_3d_dims_mask( mpi_size, npts, mask ):
-
-    print(f'\nmpi_size={mpi_size}:')    
+   
     # General partition: blocks are not all identical but closer to a cube
     dims, blocksizes = compute_dims( mpi_size, npts, [3,3,3] )   
-    print(f'general:'.ljust(35), dims, blocksizes) 
     
     # Mask dimensions
     dims, blocksizes = compute_dims( mpi_size, npts, [3,3,3], dims_mask=mask )   
-    print(f'dims_mask {mask}:'.ljust(35), dims, blocksizes) 
     
     # test
     assert dims[0]*dims[1]*dims[2] == mpi_size
