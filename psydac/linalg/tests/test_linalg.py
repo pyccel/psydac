@@ -5,13 +5,20 @@ from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpa
 from psydac.linalg.basic import LinearOperator, ZeroOperator, IdentityOperator, ComposedLinearOperator, SumLinearOperator, PowerLinearOperator, ScaledLinearOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.solvers import ConjugateGradient, inverse
-from psydac.ddm.cart         import DomainDecomposition, CartDecomposition
+from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
+
 #===============================================================================
 
 n1array = [2, 7]
 n2array = [2, 3]
 p1array = [1, 3]
 p2array = [1, 3]
+
+def array_equal(a, b):
+    return np.array_equal(a.toarray(), b.toarray())
+
+def sparse_equal(a, b):
+    return (a.tosparse() != b.tosparse()).nnz == 0
 
 def is_pos_def(A):
     assert isinstance(A, LinearOperator)
@@ -180,7 +187,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
                         A2[i,j] = nonzero_values1[k1,k2]
 
     # Check shape and data in 2D array
-    assert np.array_equal(v.toarray(), np.ones(n1*n2))
+    assert np.array_equal(v.toarray(), np.ones(n1 * n2))
 
     assert Sa.shape == S.shape
     assert np.array_equal( Sa, A1 )
@@ -206,27 +213,27 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
 
     # Negating a StencilMatrix works as intended
     assert isinstance(-S, StencilMatrix)
-    assert np.array_equal((-S).dot(v).toarray(), -( S.dot(v).toarray() ))
+    assert array_equal((-S).dot(v), -S.dot(v))
 
     ## ___Multiplication, Composition, Raising to a Power___
 
     # Multiplying and Dividing a StencilMatrix by a scalar returns a StencilMatrix
-    assert isinstance(np.pi*S, StencilMatrix)
-    assert isinstance(S*np.pi, StencilMatrix)
-    assert isinstance(S/np.pi, StencilMatrix)
+    assert isinstance(np.pi * S, StencilMatrix)
+    assert isinstance(S * np.pi, StencilMatrix)
+    assert isinstance(S / np.pi, StencilMatrix)
 
     # Composing StencilMatrices works
-    assert isinstance(S@S1, ComposedLinearOperator)
+    assert isinstance(S @ S1, ComposedLinearOperator)
 
     # Raising a StencilMatrix to a power works
     assert isinstance(S**3, PowerLinearOperator)
 
     ## ___Transposing___
     
-    assert not np.array_equal(S2a, np.transpose(S2a)) # using a nonsymmetric matrix throughout
+    assert not np.array_equal(S2a, S2a.T) # using a nonsymmetric matrix throughout
     assert isinstance(S2.T, StencilMatrix)
-    assert np.array_equal(S2.T.toarray(), np.transpose(S2a))
-    assert S2.T.T == S2
+    assert np.array_equal(S2.T.toarray(), S2a.T)
+    assert np.array_equal(S2.T.T.toarray(), S2a)
 
     ###
     ### 3. Test special cases
@@ -236,22 +243,22 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     ## ___Addition and Substraction with ZeroOperators___
 
     # Adding a ZeroOperator does not change the StencilMatrix
-    assert S+Z == S
-    assert Z+S == S
+    assert (S + Z) is S
+    assert (Z + S) is S
 
     # Substracting a ZeroOperator and substracting from a ZeroOperator work as intended
-    assert S-Z == S
-    assert -S == Z-S
+    assert (S - Z) is S
+    assert array_equal(-S, Z - S)
 
     ## ___Composing with Zero- and IdentityOperators___   
 
     # Composing a StencilMatrix with a ZeroOperator returns a ZeroOperator
-    assert isinstance(S@Z, ZeroOperator)
-    assert isinstance(Z@S, ZeroOperator)
+    assert isinstance(S @ Z, ZeroOperator)
+    assert isinstance(Z @ S, ZeroOperator)
 
     # Composing a StencilMatrix with the IdentityOperator does not change the object
-    assert S@I == S
-    assert I@S == S
+    assert (S @ I) is S
+    assert (I @ S) is S
 
     ## ___Raising to the power of 0 and 1___
     
@@ -342,7 +349,7 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     # Initiate BlockLOs and LOs acting on BlockVectorSpaces
     BZ = ZeroOperator(Vb, Vb)
     BI = IdentityOperator(Vb, Vb)
-    B = BlockLinearOperator(Vb, Vb, ((S, None), (None, S)))
+    B  = BlockLinearOperator(Vb, Vb, ((S, None), (None, S)))
     B1 = BlockLinearOperator(Vb, Vb, ((S1, None), (Z, S1)))
     B2 = BlockLinearOperator(Vb, Vb, ((S2, None), (None, S2)))
 
@@ -370,25 +377,25 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
 
     # Negating a BlockLO works as intended
     assert isinstance(-B, BlockLinearOperator)
-    assert np.array_equal((-B).dot(vb).toarray(), -( B.dot(vb).toarray() ))
+    assert array_equal((-B).dot(vb), -B.dot(vb))
 
     ## ___Multiplication, Composition, Raising to a Power___
 
     # Multiplying and Dividing a BlockLO by a scalar returns a BlockLO
-    assert isinstance(np.pi*B, BlockLinearOperator)
-    assert isinstance(B*np.pi, BlockLinearOperator)
-    assert isinstance(B/np.pi, BlockLinearOperator)
+    assert isinstance(np.pi * B, BlockLinearOperator)
+    assert isinstance(B * np.pi, BlockLinearOperator)
+    assert isinstance(B / np.pi, BlockLinearOperator)
 
     # Composing BlockLOs works
-    assert isinstance(B@B1, ComposedLinearOperator)
+    assert isinstance(B @ B1, ComposedLinearOperator)
 
     # Raising a BlockLO to a power works
     assert isinstance(B**3, PowerLinearOperator)
 
     ## ___Transposing___
-    assert not np.array_equal(B2.toarray(), np.transpose(B2.toarray()))
+    assert not np.array_equal(B2.toarray(), B2.toarray().T) # using a nonsymmetric matrix throughout
     assert isinstance(B2.T, BlockLinearOperator)
-    assert np.array_equal(B2.T.toarray(), np.transpose(B2.toarray())) # using a nonsymmetric matrix throughout
+    assert np.array_equal(B2.T.toarray(), B2.toarray().T)
     assert np.array_equal(B2.T.T.toarray(), B2.toarray())
 
     ###
@@ -399,32 +406,32 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     ## ___Addition and Substraction with ZeroOperators___
 
     # Adding a ZeroOperator does not change the BlockLO
-    BBZ = B+BZ
-    BZB = BZ+B
-    assert BBZ == B
-    assert BZB == B
+    BBZ = B + BZ
+    BZB = BZ + B
+    assert sparse_equal(BBZ, B)
+    assert sparse_equal(BZB, B)
 
     # Substracting a ZeroOperator and substracting from a ZeroOperator work as intended
-    BmBZ = B-BZ
-    BZmB = BZ-B
-    assert BmBZ == B
-    assert BZmB == -B
+    BmBZ = B - BZ
+    BZmB = BZ - B
+    assert sparse_equal(BmBZ,  B)
+    assert sparse_equal(BZmB, -B)
 
     ## ___Composing with Zero- and IdentityOperators___ 
 
     # Composing a BlockLO with a ZeroOperator returns a ZeroOperator
     # Update 21.12.: ZeroLOs and IdentityLOs from and/or to BlockVectorSpaces are now BlockLOs
     # thus B@BZ is now a ComposedLO.
-    assert isinstance(B@BZ, ComposedLinearOperator)
-    assert isinstance(BZ@B, ComposedLinearOperator)
+    assert isinstance(B @ BZ, ComposedLinearOperator)
+    assert isinstance(BZ @ B, ComposedLinearOperator)
 
     # Composing a BlockLO with the IdentityOperator does not change the object
     # due to the 21.12. change not valid anymore
-    #assert B@BI == B
-    #assert BI@B == B
+    #assert B @ BI == B
+    #assert BI @ B == B
     # but: 
-    assert np.array_equal(((B@BI)@vb).toarray(), (B@vb).toarray())
-    assert np.array_equal(((BI@B)@vb).toarray(), (B@vb).toarray())
+    assert array_equal((B @ BI) @ vb, B @ vb)
+    assert array_equal((BI @ B) @ vb, B @ vb)
 
     ## ___Raising to the power of 0 and 1___
 
@@ -432,7 +439,7 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     # 21.12. change: B**0 a BlockLO with IdentityLOs at the diagonal
     assert B**1 is B
     assert isinstance(B**0, BlockLinearOperator)
-    assert B**0 == BI
+    assert sparse_equal(B**0, BI)
 
 #===============================================================================
 @pytest.mark.parametrize('n1', n1array)
