@@ -122,7 +122,7 @@ class ConjugateGradient(InverseLinearOperator):
         self._solver = 'cg'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
-        self._tmps = {key: A.domain.zeros() for key in ("v", "r", "p", "lp", "lv")}
+        self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "lp", "lv")}
         self._info = None
 
     def _check_options(self, **kwargs):
@@ -318,8 +318,8 @@ class PConjugateGradient(InverseLinearOperator):
         self._solver = 'pcg'
         self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
-        tmps_codomain = {key: A.codomain.zeros() for key in ("p", "s", "lp")}
-        tmps_domain = {key: A.domain.zeros() for key in ("v", "r", "lv")}
+        tmps_codomain = {key: codomain.zeros() for key in ("p", "s", "lp")}
+        tmps_domain = {key: domain.zeros() for key in ("v", "r", "lv")}
         self._tmps = {**tmps_codomain, **tmps_domain}
         self._info = None
 
@@ -535,7 +535,7 @@ class BiConjugateGradient(InverseLinearOperator):
         self._solver = 'bicg'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
-        self._tmps = {key: A.domain.zeros() for key in ("v", "r", "p", "vs", "rs", "ps")}
+        self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vs", "rs", "ps")}
         self._info = None
 
     def _check_options(self, **kwargs):
@@ -769,7 +769,7 @@ class BiConjugateGradientStable(InverseLinearOperator):
         self._solver = 'bicgstab'
         self._options = {"x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose}
         self._check_options(**self._options)
-        self._tmps = {key: A.domain.zeros() for key in ("v", "r", "p", "vs", "rs", "ps")}
+        self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vs", "r0", "s")}
         self._info = None
 
     def _check_options(self, **kwargs):
@@ -862,17 +862,21 @@ class BiConjugateGradientStable(InverseLinearOperator):
         r = self._tmps["r"]
         p = self._tmps["p"]
         vs = self._tmps["vs"]
-        rs = self._tmps["rs"]
-        ps = self._tmps["ps"]
+        r0 = self._tmps["r0"]
+        s = self._tmps["s"]
 
         # First values
-        r = b - A.dot(x)
-        p = r.copy()
-        v = 0.0 * b.copy()
-        vs = 0.0 * b.copy()
+        A.dot(x, out=v)
+        b.copy(out=r)
+        r -= v
+        #r = b - A.dot(x)
+        r.copy(out=p)
+        v *= 0.0
+        vs *= 0.0
 
-        r0 = r.copy()
-        s = 0.0 * r.copy()
+        r.copy(out=r0)
+        r.copy(out=s)
+        s *= 0.0
 
         res_sqr = r.dot(r)
         tol_sqr = tol ** 2
@@ -1024,7 +1028,7 @@ class MinimumResidual(InverseLinearOperator):
         self._solver = 'minres'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
-        self._tmps = {key: A.codomain.zeros() for key in ("res1", "res2", "w", "w2", "yc",
+        self._tmps = {key: domain.zeros() for key in ("res1", "res2", "w", "w2", "yc",
                       "v", "resc", "res2c", "ycc", "res1c", "wc", "w2c")}
         self._info = None
 
@@ -1383,8 +1387,8 @@ class LSMR(InverseLinearOperator):
         self._check_options(**self._options)
         self._info = None
         self._successful = None
-        tmps_codomain = {key: A.codomain.zeros() for key in ("uh", "uc")}
-        tmps_domain = {key: A.domain.zeros() for key in ("v", "vh", "h", "hbar")}
+        tmps_codomain = {key: domain.zeros() for key in ("uh", "uc")}
+        tmps_domain = {key: codomain.zeros() for key in ("v", "vh", "h", "hbar")}
         self._tmps = {**tmps_codomain, **tmps_domain}
 
     def get_success(self):
