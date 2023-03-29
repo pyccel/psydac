@@ -59,7 +59,7 @@ def test_partition_2d_dims_mask( mpi_size, npts, mask ):
     dims, blocksizes = compute_dims( mpi_size, npts, [3,3] )   
     
     # Mask dimensions
-    dims, blocksizes = compute_dims( mpi_size, npts, [3,3], dims_mask=mask )   
+    dims, blocksizes = compute_dims( mpi_size, npts, [3,3], mpi_dims_mask=mask )   
     
     # test
     assert dims[0]*dims[1] == mpi_size
@@ -105,7 +105,7 @@ def test_partition_3d_dims_mask( mpi_size, npts, mask ):
     dims, blocksizes = compute_dims( mpi_size, npts, [3,3,3] )   
     
     # Mask dimensions
-    dims, blocksizes = compute_dims( mpi_size, npts, [3,3,3], dims_mask=mask )   
+    dims, blocksizes = compute_dims( mpi_size, npts, [3,3,3], mpi_dims_mask=mask )   
     
     # test
     assert dims[0]*dims[1]*dims[2] == mpi_size
