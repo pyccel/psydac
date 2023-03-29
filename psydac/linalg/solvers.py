@@ -299,7 +299,7 @@ class PConjugateGradient(InverseLinearOperator):
         If True, L2-norm of residual r is printed at each iteration.
 
     """
-    def __init__(self, A, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, *, pc='jacobi', x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
@@ -1471,7 +1471,7 @@ class LSMR(InverseLinearOperator):
         """
 
         A = self._A
-        At = A.T
+        At = A.H
         domain = self._domain
         codomain = self._codomain
         options = self._options
