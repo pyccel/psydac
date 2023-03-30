@@ -64,8 +64,8 @@ def test_stencil_matrix_1d_serial_init(dtype, n1, p1, s1, P1=True):
     assert M.backend == None
     assert M._data.shape == (n1 + 2 * p1 * s1, 1 + 2 * p1)
     assert M.shape == (n1 , n1 )
-# ===============================================================================
 
+# ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
 @pytest.mark.parametrize('n2', [8, 12])
@@ -94,6 +94,7 @@ def test_stencil_matrix_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P
     assert M.backend == None
     assert M._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, 1 + 2 * p1, 1 + 2 * p2)
     assert M.shape == (n1 * n2, n1 * n2)
+
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 9])
@@ -168,6 +169,7 @@ def test_stencil_matrix_2d_copy(dtype, n1, n2, p1, p2,s1,s2, P1=True, P2=False):
     assert M1._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, 1 + 2 * p1, 1 + 2 * p2)
     assert M1.shape == (n1 * n2, n1 * n2)
     assert np.array_equal(M1._data, M._data)
+
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
@@ -239,6 +241,7 @@ def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
     assert isinstance(M4, StencilMatrix)
     assert M4.dtype==dtype
     assert np.array_equal(M4._data, M._data - M._data)
+
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 15])
@@ -291,8 +294,8 @@ def test_stencil_matrix_2d_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False
         assert m._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, 1 + 2 * p1, 1 + 2 * p2)
         assert m.shape == (n1 * n2, n1 * n2)
         assert np.allclose(m._data, m_exa)
-# ===============================================================================
 
+# ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 10])
 @pytest.mark.parametrize('p1', [1, 3])
@@ -346,6 +349,7 @@ def test_stencil_matrix_1d_serial_spurious_entries( dtype, n1, p1, s1, P1):
     # Check shape and data in data array
     assert A.shape == (n1,2*p1+1)
     assert np.array_equal(Ma, A)
+
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('p1', [1, 2])
@@ -729,7 +733,6 @@ def test_stencil_matrix_2d_serial_dot_1(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     assert np.allclose(ya, ya_exact, rtol=1e-13, atol=1e-13)
 
 # TODO: verify for s>1
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 15])
@@ -817,7 +820,6 @@ def test_stencil_matrix_2d_serial_dot_2(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     assert np.allclose(y2a, y2a_exact, rtol=1e-13, atol=1e-13)
 
 # TODO: verify for s>1
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 15])
@@ -992,7 +994,6 @@ def test_stencil_matrix_2d_serial_dot_4(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     assert np.allclose(y2a, y2a_exact, rtol=1e-13, atol=1e-13)
 
 # TODO: verify for s>1
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 15])
@@ -1082,7 +1083,6 @@ def test_stencil_matrix_2d_serial_dot_5(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     assert np.allclose(y2a, y2a_exact, rtol=1e-13, atol=1e-13)
 
 # TODO: verify for s>1
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 15])
@@ -1256,7 +1256,6 @@ def test_stencil_matrix_1d_serial_transpose(dtype, n1, p1, s1, P1):
     assert np.array_equal(Ta, Ta_exact)
 
 # TODO: verify for s>1
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 15])
@@ -1304,7 +1303,6 @@ def test_stencil_matrix_2d_serial_transpose_1(dtype, n1, n2, p1, p2, s1, s2, P1,
     assert abs(Ts - M.T.tosparse()).max() < 1e-14
 
 # TODO: verify for s>1
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 12])
@@ -1358,7 +1356,6 @@ def test_stencil_matrix_2d_serial_transpose_2(dtype, n1, n2, p1, p2, s1, s2, P1,
     assert abs(Ts - Ts_exact).max() < 1e-14
 
 # TODO: verify for s>1
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 12])
@@ -1411,7 +1408,6 @@ def test_stencil_matrix_2d_serial_transpose_3(dtype, n1, n2, p1, p2, s1, s2, P1,
     assert abs(Ts - M.T.tosparse()).max() < 1e-14
 
 # TODO: verify for s>1
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 12])
@@ -1464,7 +1460,6 @@ def test_stencil_matrix_2d_serial_transpose_4(dtype, n1, n2, p1, p2, s1, s2, P1,
     assert abs(Ts - M.T.tosparse()).max() < 1e-14
 
 # TODO: verify for s>1
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 12])
@@ -1516,7 +1511,6 @@ def test_stencil_matrix_2d_serial_transpose_5(dtype, n1, n2, p1, p2, s1, s2, P1,
     assert abs(Ts - Ts_exact).max() < 1e-14
 
 # TODO: verify for s>1
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 12])
@@ -1569,7 +1563,6 @@ def test_stencil_matrix_2d_serial_transpose_6(dtype, n1, n2, p1, p2, s1, s2, P1,
     assert abs(Ts - Ts_exact).max() < 1e-14
 
 # TODO: verify for s>1
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 12])
@@ -1616,7 +1609,6 @@ def test_stencil_matrix_2d_serial_transpose_7(dtype, n1, n2, p1, p2, s1, s2, P1,
     assert abs(Ts - Ts_exact).max() < 1e-14
 
 # TODO: verify for s>1
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 12])
@@ -1663,7 +1655,6 @@ def test_stencil_matrix_2d_serial_transpose_8(dtype, n1, n2, p1, p2, s1, s2, P1,
     assert abs(Ts - Ts_exact).max() < 1e-14
 
 # TODO: verify for s>1
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [7, 12])
@@ -1711,7 +1702,6 @@ def test_stencil_matrix_2d_serial_transpose_9(dtype, n1, n2, p1, p2, s1, s2, P1,
     assert abs(Ts - Ts_exact).max() < 1e-14
 
 # TODO: verify for s>1
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [6, 8])
@@ -1768,11 +1758,9 @@ def test_stencil_matrix_3d_serial_transpose_1(dtype, n1, n2, n3, p1, p2, p3, s1,
     assert abs(Mt - Mt_exact).max() < 1e-14
 
 # TODO: verify for s>1
-
 # ===============================================================================
 # BACKENDS TESTS
 # ===============================================================================
-
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [8])
 @pytest.mark.parametrize('n2', [9])
@@ -2133,6 +2121,7 @@ def test_stencil_matrix_2d_serial_backend_transpose(dtype, n1, n2, p1, p2, s1, s
 
     assert np.allclose(T1.toarray(), T1_exact, rtol=1e-13, atol=1e-13)
     assert np.allclose(T2.toarray(), T2_exact, rtol=1e-13, atol=1e-13)
+
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float,complex])
 @pytest.mark.parametrize('n1', [5])
@@ -2200,8 +2189,7 @@ def test_stencil_matrix_3d_serial_backend_transpose(dtype, n1, n2, n3, p1, p2, p
     assert np.allclose(T2.toarray(), T2_exact, rtol=1e-13, atol=1e-13)
 
 # ===============================================================================
-#@pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('dtype', [float])
+@pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [15])
 @pytest.mark.parametrize('n2', [12])
 @pytest.mark.parametrize('p1', [2])
@@ -2212,7 +2200,6 @@ def test_stencil_matrix_3d_serial_backend_transpose(dtype, n1, n2, n3, p1, p2, p
 @pytest.mark.parametrize('P2', [True])
 @pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
 @pytest.mark.parametrize('backend2', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
-
 def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend, backend2):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -2314,6 +2301,7 @@ def test_stencil_matrix_1d_parallel_toarray(dtype, n1, p1, sh1, P1):
     # assert A.shape==Maw.shape
     assert np.allclose(Ma, A, rtol=1e-14, atol=1e-14)
     # assert np.allclose(Maw, A, rtol=1e-14, atol=1e-14)
+
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [20, 67])
@@ -2380,6 +2368,7 @@ def test_stencil_matrix_1d_parallel_dot(dtype, n1, p1, sh1, P1):
     # Check data in 1D array
     print(ya-ya_exact)
     assert np.allclose(ya, ya_exact, rtol=1e-14, atol=1e-14)
+
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [8, 21])
@@ -2450,6 +2439,7 @@ def test_stencil_matrix_2d_parallel_dot(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2)
 
     # Check data in 1D array
     assert np.allclose(ya, ya_exact, rtol=1e-13, atol=1e-13)
+
 # ===============================================================================
 @pytest.mark.parametrize('n1', [20, 67])
 @pytest.mark.parametrize('p1', [1, 2, 3])
@@ -2525,6 +2515,7 @@ def test_stencil_matrix_1d_parallel_sync( n1, p1, sh1, P1):
 #           print( flush=True )
 #       comm.Barrier()
     assert np.array_equal(Ma[i1_min:i1_max, :], Me[i1_min:i1_max, :])
+
 # ===============================================================================
 @pytest.mark.parametrize('n1', [21, 67])
 @pytest.mark.parametrize('n2', [13, 32])
@@ -2639,7 +2630,6 @@ def test_stencil_matrix_2d_parallel_sync(n1, n2, p1, p2, sh1, sh2, P1, P2):
         for i2 in range(i2_min, i2_max):
             i = i1 * n2 + i2
             assert np.array_equal(Ma[i, :], Me[i, :])
-
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -2757,7 +2747,6 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
 
     # Check data
     assert abs(Ts - Ts_exact).max() < 1e-14
-
 
 # ===============================================================================
 # PARALLEL BACKENDS TESTS
@@ -2892,6 +2881,7 @@ def test_stencil_matrix_2d_parallel_backend_dot(dtype, n1, n2, p1, p2, sh1, sh2,
     assert M.T.backend is M.backend
     assert (M + M).backend is M.backend
     assert (2 * M).backend is M.backend
+
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float,complex])
 @pytest.mark.parametrize('n1', [8])
