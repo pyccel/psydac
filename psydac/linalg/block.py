@@ -310,9 +310,6 @@ class BlockVector( Vector ):
         out._sync = self._sync
         return out
 
-    def conj(self, out=None):
-        return self.conjugate(out=out)
-
     # ...
     @property
     def ghost_regions_in_sync( self ):

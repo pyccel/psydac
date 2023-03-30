@@ -139,6 +139,17 @@ class Vector(ABC):
         The behavior of this function is similar to `numpy.conjugate(self, out=None)`.
         """
 
+    def conj(self, out=None):
+        """Compute the complex conjugate vector.
+
+        If the field is real (i.e. `self.dtype in (np.float32, np.float64)`) this method is equivalent to `copy`.
+        If the field is complex (i.e. `self.dtype in (np.complex64, np.complex128)`) this method returns
+        the complex conjugate of `self`, element-wise.
+
+        The behavior of this function is similar to `numpy.conj(self, out=None)`.
+        """
+        return self.conjugate(out)
+
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------

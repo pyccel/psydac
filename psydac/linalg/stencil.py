@@ -380,9 +380,6 @@ class StencilVector( Vector ):
         out._sync = self._sync
         return out
 
-    def conj(self, out=None):
-        return self.conjugate(out=out)
-
     #...
     def copy(self, out=None):
         if self is out:
