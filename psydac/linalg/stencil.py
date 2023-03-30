@@ -374,9 +374,7 @@ class StencilVector( Vector ):
             out = StencilVector(self.space)
         np.conjugate(self._data, out=out._data, casting='no')
         for axis, ext in self._space.interfaces:
-            np.copyto(out._interface_data[axis, ext],
-                      np.conjugate(self._interface_data[axis, ext], out=out._interface_data, casting='no'),
-                      casting='no')
+            np.conjugate(self._interface_data[axis, ext], out=out._interface_data[axis, ext], casting='no')
         out._sync = self._sync
         return out
 
