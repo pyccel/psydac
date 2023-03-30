@@ -958,9 +958,9 @@ class StencilMatrix( LinearOperator ):
 
             new_nrows[d] += er
             
-    def conjugate( self, out=None):
+    def conjugate(self, out=None):
         if out is not None:
-            assert isinstance( out, StencilMatrix )
+            assert isinstance(out, StencilMatrix)
             assert out.domain is self.domain
             assert out.codomain is self.codomain
         else:
@@ -970,7 +970,7 @@ class StencilMatrix( LinearOperator ):
         np.conjugate(self._data, out=out._data, casting='no')
         return out
 
-    def conj( self, out=None):
+    def conj(self, out=None):
         return self.conjugate(out=out)
 
     def __truediv__(self, a):

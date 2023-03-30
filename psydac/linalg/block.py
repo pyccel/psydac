@@ -299,14 +299,14 @@ class BlockVector( Vector ):
 
     def conjugate(self, out=None):
         if out is not None:
-            assert isinstance( out, BlockVector )
+            assert isinstance(out, BlockVector)
             assert out.space is self.space
         else:
             out = BlockVector(self.space)
 
         for (Lij, Lij_out) in zip(self.blocks, out.blocks):
-            assert isinstance( Lij, Vector )
-            assert isinstance( Lij_out, Vector )
+            assert isinstance(Lij, Vector)
+            assert isinstance(Lij_out, Vector)
             Lij.conjugate(out=Lij_out)
         out._sync = self._sync
         return out
@@ -526,14 +526,14 @@ class BlockLinearOperator( LinearOperator ):
 
     def conjugate(self, out=None):
         if out is not None:
-            assert isinstance( out, BlockLinearOperator )
+            assert isinstance(out, BlockLinearOperator)
             assert out.domain is self.domain
             assert out.codomain is self.codomain
         else:
             out = BlockLinearOperator(self.domain, self.codomain)
 
         for (i, j), Lij in self._blocks.items():
-            assert isinstance( Lij, (StencilMatrix, BlockLinearOperator) )
+            assert isinstance(Lij, (StencilMatrix, BlockLinearOperator))
             Lij_out = Lij.conjugate()
             out[i,j] = Lij_out
         return out
