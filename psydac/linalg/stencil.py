@@ -336,7 +336,6 @@ class StencilVector( Vector ):
         If the values are real, it returns the classical scalar product.
         If the values are complex, it returns the classical sesquilinear product with linearity on the vector v.
 
-
         Parameters
         ----------
         v : StencilVector
@@ -872,6 +871,25 @@ class StencilMatrix( LinearOperator ):
 
     # ...
     def dot( self, v, out=None):
+        """
+        Return the matrix/vector product between self and v.
+        This function optimized this product.
+
+        Parameters
+        ----------
+        v   : StencilVector
+            Vector of the domain of self needed for the Matrix/Vector product
+
+        out : StencilVector
+            Vector of the codomain of self
+
+        Return
+        -------
+        out : StencilVector
+            Vector of the codomain of self, contain the result of the product
+
+        """
+
 
         assert isinstance( v, StencilVector )
         assert v.space is self.domain
