@@ -606,6 +606,7 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
 
     ###
     ### Test whether pre-allocated storage in InverseLinearoperator subclasses belong to the right space.
+    ### Not working so far as algorithms implicitely assume domain == codomain.
     ###
 
     #S2_inv_pcg = inverse(S2, 'pcg', pc='jacobi', tol=1e-9)
