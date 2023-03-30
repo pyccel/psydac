@@ -304,8 +304,8 @@ class BlockVector( Vector ):
             out = BlockVector(self.space)
 
         for (Lij, Lij_out) in zip(self.blocks, out.blocks):
-            assert isinstance( Lij, (StencilVector, BlockVector) )
-            assert isinstance( Lij_out, (StencilVector, BlockVector) )
+            assert isinstance( Lij, Vector )
+            assert isinstance( Lij_out, Vector )
             Lij.conjugate(out=Lij_out)
         out._sync = self._sync
         return out
