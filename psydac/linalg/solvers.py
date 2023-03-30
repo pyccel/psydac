@@ -61,7 +61,7 @@ def inverse(A, solver, **kwargs):
     elif solver == 'bicg':
         obj = BiConjugateGradient(A, **kwargs)
     elif solver == 'bicgstab':
-        obj = BiConjugateGradientStable(A, **kwargs)
+        obj = BiConjugateGradientStablilized(A, **kwargs)
     elif solver == 'minres':
         obj = MinimumResidual(A, **kwargs)
     elif solver == 'lsmr':
