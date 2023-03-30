@@ -9,7 +9,7 @@ import numpy as np
 from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator, IdentityOperator, ScaledLinearOperator
 from psydac.linalg.utilities import _sym_ortho
 
-__all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'MinimumResidual', 'LSMR']
+__all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'BiConjugateGradientStabilized', 'MinimumResidual', 'LSMR']
 
 def inverse(A, solver, **kwargs):
     """
@@ -129,7 +129,7 @@ class ConjugateGradient(InverseLinearOperator):
             if key == 'x0':
                 if value is not None:
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
+                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
                 assert value is not None, "tol may not be None"
                 assert value*0 == 0, "tol must be a real number"
@@ -330,7 +330,7 @@ class PConjugateGradient(InverseLinearOperator):
             elif key == 'x0':
                 if value is not None:
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
+                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
                 assert value is not None, "tol may not be None"
                 assert value*0 == 0, "tol must be a real number"
@@ -543,7 +543,7 @@ class BiConjugateGradient(InverseLinearOperator):
             if key == 'x0':
                 if value is not None:
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
+                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
                 assert value is not None, "tol may not be None"
                 assert value*0 == 0, "tol must be a real number"
@@ -780,7 +780,7 @@ class BiConjugateGradientStablilized(InverseLinearOperator):
             if true_idx == 0:
                 if value is not None:
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
+                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif true_idx == 1:
                 assert value is not None, "tol may not be None"
                 # don't know if that one works -want to check if value is a number
@@ -1038,7 +1038,7 @@ class MinimumResidual(InverseLinearOperator):
             if key == 'x0':
                 if value is not None:
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
+                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
                 assert value is not None, "tol may not be None"
                 assert value*0 == 0, "tol must be a real number"
@@ -1387,8 +1387,8 @@ class LSMR(InverseLinearOperator):
         self._check_options(**self._options)
         self._info = None
         self._successful = None
-        tmps_codomain = {key: domain.zeros() for key in ("uh", "uc")}
-        tmps_domain = {key: codomain.zeros() for key in ("v", "vh", "h", "hbar")}
+        tmps_domain = {key: domain.zeros() for key in ("uh", "uc")}
+        tmps_codomain = {key: codomain.zeros() for key in ("v", "vh", "h", "hbar")}
         self._tmps = {**tmps_codomain, **tmps_domain}
 
     def get_success(self):
@@ -1400,7 +1400,7 @@ class LSMR(InverseLinearOperator):
             if key == 'x0':
                 if value is not None:
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
+                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
                 if value is not None:
                     assert value*0 == 0, "tol must be a real number"

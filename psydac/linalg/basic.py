@@ -893,7 +893,7 @@ class InverseLinearOperator(LinearOperator):
         # Sanity checks
         assert isinstance(A, (StencilMatrix, BlockLinearOperator))
         assert isinstance(b, (StencilVector, BlockVector))
-        assert A.codomain == A.domain
+        assert A.codomain.dimension == A.domain.dimension
         assert A.codomain == b.space
 
         #-------------------------------------------------------------
