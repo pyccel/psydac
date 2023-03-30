@@ -218,7 +218,7 @@ class ConjugateGradient(InverseLinearOperator):
         A.dot(x, out=v)
         b.copy(out=r)
         r -= v
-        am = r.dot( r )
+        am = r.dot(r).real
         r.copy(out=p)
 
         tol_sqr = tol**2
@@ -229,33 +229,33 @@ class ConjugateGradient(InverseLinearOperator):
             print( "+ Iter. # | L2-norm of residual |")
             print( "+---------+---------------------+")
             template = "| {:7d} | {:19.2e} |"
-            print( template.format( 1, sqrt( am.real ) ) )
+            print(template.format(1, sqrt(am)))
 
         # Iterate to convergence
-        for m in range( 2, maxiter+1 ):
+        for m in range(2, maxiter+1):
             if am < tol_sqr:
                 m -= 1
                 break
             A.dot(p, out=v)
-            l   = am / v.dot( p )
+            l   = am / v.dot(p)
             p.copy(out=lp)
             lp *= l
             x  += lp # this was x += l*p
             v.copy(out=lv)
             lv *= l
             r  -= lv # this was r -= l*v
-            am1 = r.dot( r )
+            am1 = r.dot(r).real
             p  *= (am1/am)
             p  += r
             am  = am1
             if verbose:
-                print( template.format( m, sqrt( am.real ) ) )
+                print(template.format(m, sqrt(am)))
 
         if verbose:
             print( "+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am.real ) }
+        self._info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt(am) }
 
         return x
 
@@ -429,13 +429,13 @@ class PConjugateGradient(InverseLinearOperator):
         # First values
         A.dot(x, out=v)
         b.copy(out=r)
-        r -= v
-        nrmr_sqr = r.dot(r)
+        r       -= v
+        nrmr_sqr = r.dot(r).real
         psolve(r, out=s)
-        am = s.dot(r)
+        am       = s.dot(r)
         s.copy(out=p)
 
-        tol_sqr = tol**2
+        tol_sqr  = tol**2
 
         if verbose:
             print( "Pre-conditioned CG solver:" )
@@ -443,7 +443,7 @@ class PConjugateGradient(InverseLinearOperator):
             print( "+ Iter. # | L2-norm of residual |")
             print( "+---------+---------------------+")
             template = "| {:7d} | {:19.2e} |"
-            print( template.format(1, sqrt(nrmr_sqr.real)))
+            print( template.format(1, sqrt(nrmr_sqr)))
 
         # Iterate to convergence
         for k in range(2, maxiter+1):
@@ -461,7 +461,7 @@ class PConjugateGradient(InverseLinearOperator):
             lv *= l
             r  -= lv # this was r -= l*v
 
-            nrmr_sqr = r.dot(r)
+            nrmr_sqr = r.dot(r).real
             psolve(r, out=s)
 
             am1 = s.dot(r)
@@ -470,13 +470,13 @@ class PConjugateGradient(InverseLinearOperator):
             am  = am1
 
             if verbose:
-                print( template.format(k, sqrt(nrmr_sqr.real)))
+                print( template.format(k, sqrt(nrmr_sqr)))
 
         if verbose:
             print( "+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr.real) }
+        self._info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr) }
 
         return x
 
@@ -641,7 +641,7 @@ class BiConjugateGradient(InverseLinearOperator):
         p.copy(out=ps)
         v.copy(out=vs)
 
-        res_sqr = r.dot(r)
+        res_sqr = r.dot(r).real
         tol_sqr = tol**2
 
         if verbose:
@@ -701,16 +701,16 @@ class BiConjugateGradient(InverseLinearOperator):
             ps += rs
 
             # ||r||_2 := (r, r)
-            res_sqr = r.dot( r )
+            res_sqr = r.dot(r).real
 
             if verbose:
-                print( template.format(m, sqrt(res_sqr.real)) )
+                print( template.format(m, sqrt(res_sqr)) )
 
         if verbose:
             print( "+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt( res_sqr.real ) }
+        self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
 
         return x
 
@@ -878,7 +878,7 @@ class BiConjugateGradientStable(InverseLinearOperator):
         r.copy(out=s)
         s *= 0.0
 
-        res_sqr = r.dot(r)
+        res_sqr = r.dot(r).real
         tol_sqr = tol ** 2
 
         if verbose:
@@ -937,7 +937,7 @@ class BiConjugateGradientStable(InverseLinearOperator):
             r -= vs
 
             # ||r||_2 := (r, r)
-            res_sqr = r.dot(r)
+            res_sqr = r.dot(r).real
 
             if res_sqr < tol_sqr:
                 break
@@ -952,13 +952,13 @@ class BiConjugateGradientStable(InverseLinearOperator):
             p += r
 
             if verbose:
-                print(template.format(m, sqrt(res_sqr.real)))
+                print(template.format(m, sqrt(res_sqr)))
 
         if verbose:
             print("+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr.real)}
+        self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
 
         return x
 
