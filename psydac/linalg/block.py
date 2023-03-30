@@ -144,6 +144,7 @@ class BlockVector( Vector ):
         if blocks:
             # Verify that vectors belong to correct spaces and store them
             assert isinstance( blocks, (list, tuple) )
+            assert all( (isinstance(b, Vector)) for b in blocks )
             assert all( (Vi is bi.space) for Vi,bi in zip( V.spaces, blocks ) )
 
             self._blocks = list( blocks )
@@ -295,6 +296,7 @@ class BlockVector( Vector ):
     # ...
     def __setitem__( self, key, value ):
         assert value.space == self.space[key]
+        assert isinstance(value, Vector)
         self._blocks[key] = value
 
     def conjugate(self, out=None):
@@ -305,8 +307,6 @@ class BlockVector( Vector ):
             out = BlockVector(self.space)
 
         for (Lij, Lij_out) in zip(self.blocks, out.blocks):
-            assert isinstance(Lij, Vector)
-            assert isinstance(Lij_out, Vector)
             Lij.conjugate(out=Lij_out)
         out._sync = self._sync
         return out
