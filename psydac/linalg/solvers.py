@@ -719,12 +719,12 @@ class BiConjugateGradient(InverseLinearOperator):
         return self.solve(b, out=out)
 
 #===============================================================================
-class BiConjugateGradientStable(InverseLinearOperator):
+class BiConjugateGradientStablilized(InverseLinearOperator):
     """
     A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
 
     The .dot (and also the .solve) function are based on the
-    Biconjugate gradient (BCG) algorithm for solving linear system Ax=b.
+    Biconjugate gradient Stabilized (BCGSTAB) algorithm for solving linear system Ax=b.
     Implementation from [1], page 175.
 
     Parameters
