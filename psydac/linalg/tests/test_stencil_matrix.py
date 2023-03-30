@@ -2515,16 +2515,15 @@ def test_stencil_matrix_1d_parallel_sync( n1, p1, sh1, P1):
     i1_min = max(0, s1 - p1)
     i1_max = min(e1 + p1 + 1, n1)
 
-    #    for i in range( comm.size ):
-    #        if i == comm.rank:
-    #            print( "RANK {}:".format( i ) )
-    #            print( M._data.shape )
-    #            print( Ma.shape )
-    #            print( Ma )
-    #            print( "PASSED" )
-    #            print( flush=True )
-    #        comm.Barrier()
-
+#   for i in range( comm.size ):
+#       if i == comm.rank:
+#           print( "RANK {}:".format( i ) )
+#           print( M._data.shape )
+#           print( Ma.shape )
+#           print( Ma )
+#           print( "PASSED" )
+#           print( flush=True )
+#       comm.Barrier()
     assert np.array_equal(Ma[i1_min:i1_max, :], Me[i1_min:i1_max, :])
 # ===============================================================================
 @pytest.mark.parametrize('n1', [21, 67])
@@ -2610,24 +2609,24 @@ def test_stencil_matrix_2d_parallel_sync(n1, n2, p1, p2, sh1, sh2, P1, P2):
                     # Fill in matrix element
                     Me[i, j] = fill_in(i1, i2, k1, k2)
 
-    #    #++++++++++++++++++++++++++++++++++++++
-    #    # DEBUG
-    #    #++++++++++++++++++++++++++++++++++++++
-    #    np.set_printoptions( linewidth=200 )
-    #
-    #    if comm.rank == 0:
-    #        print( 'Me' )
-    #        print( Me )
-    #        print( flush=True )
-    #    comm.Barrier()
-    #
-    #    for i in range(comm.size):
-    #        if i == comm.rank:
-    #            print( 'RANK {}'.format( i ) )
-    #            print( Ma )
-    #            print( flush=True )
-    #        comm.Barrier()
-    #    #++++++++++++++++++++++++++++++++++++++
+#       #++++++++++++++++++++++++++++++++++++++
+#       # DEBUG
+#        #++++++++++++++++++++++++++++++++++++++
+#        np.set_printoptions( linewidth=200 )
+#
+#       if comm.rank == 0:
+#           print( 'Me' )
+#           print( Me )
+#           print( flush=True )
+#        comm.Barrier()
+#
+#       for i in range(comm.size):
+#            if i == comm.rank:
+#              print( 'RANK {}'.format( i ) )
+#                print( Ma )
+#                print( flush=True )
+#            comm.Barrier()
+#       #++++++++++++++++++++++++++++++++++++++
 
     # Compare local solution to global, row by row
     i1_min = max(0, s1 - p1)
