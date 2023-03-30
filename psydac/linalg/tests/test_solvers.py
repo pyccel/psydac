@@ -58,7 +58,7 @@ def define_data(n, p, matrix_data, dtype):
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float,complex])
-def test_bicgstab_tridiagonal( n, p, dtype ):
+def test_bicgstab_tridiagonal(n, p, dtype, verbose=False):
 
     #---------------------------------------------------------------------------
     # PARAMETERS
@@ -73,13 +73,13 @@ def test_bicgstab_tridiagonal( n, p, dtype ):
     #---------------------------------------------------------------------------
     # TEST
     #---------------------------------------------------------------------------
-
-    # Title
-    print()
-    print( "="*80 )
-    print( "SERIAL TEST: solve linear system A*x = b using biconjugate gradient" )
-    print( "="*80 )
-    print()
+    if verbose:
+        # Title
+        print()
+        print( "="*80 )
+        print( "SERIAL TEST: solve linear system A*x = b using biconjugate gradient" )
+        print( "="*80 )
+        print()
 
     # Manufacture right-hand-side vector from exact solution
     b = A.dot( xe )
@@ -98,22 +98,21 @@ def test_bicgstab_tridiagonal( n, p, dtype ):
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
     #---------------------------------------------------------------------------
-
-    print()
-    print( 'A  =', A, sep='\n' )
-    print( 'b  =', b )
-    print( 'x  =', x )
-    print( 'xe =', xe )
-    print( 'info =', info )
-    print()
-
-    print( "-"*40 )
-    print( "L2-norm of error in solution = {:.2e}".format( err_norm ) )
-    if err_norm < tol:
-        print( "PASSED" )
-    else:
-        print( "FAIL" )
-    print( "-"*40 )
+    if verbose:
+        print()
+        print( 'A  =', A, sep='\n' )
+        print( 'b  =', b )
+        print( 'x  =', x )
+        print( 'xe =', xe )
+        print( 'info =', info )
+        print()
+        print( "-"*40 )
+        print( "L2-norm of error in solution = {:.2e}".format( err_norm ) )
+        if err_norm < tol:
+            print( "PASSED" )
+        else:
+            print( "FAIL" )
+        print( "-"*40 )
 
     #---------------------------------------------------------------------------
     # PYTEST
@@ -124,7 +123,7 @@ def test_bicgstab_tridiagonal( n, p, dtype ):
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float,complex])
-def test_bicg_tridiagonal( n, p, dtype ):
+def test_bicg_tridiagonal(n, p, dtype, verbose=False):
 
     #---------------------------------------------------------------------------
     # PARAMETERS
@@ -139,13 +138,13 @@ def test_bicg_tridiagonal( n, p, dtype ):
     #---------------------------------------------------------------------------
     # TEST
     #---------------------------------------------------------------------------
-
-    # Title
-    print()
-    print( "="*80 )
-    print( "SERIAL TEST: solve linear system A*x = b using biconjugate gradient" )
-    print( "="*80 )
-    print()
+    if verbose:
+        # Title
+        print()
+        print( "="*80 )
+        print( "SERIAL TEST: solve linear system A*x = b using biconjugate gradient" )
+        print( "="*80 )
+        print()
 
     # Manufacture right-hand-side vector from exact solution
     b = A.dot( xe )
@@ -164,22 +163,21 @@ def test_bicg_tridiagonal( n, p, dtype ):
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
     #---------------------------------------------------------------------------
-
-    print()
-    print( 'A  =', A, sep='\n' )
-    print( 'b  =', b )
-    print( 'x  =', x )
-    print( 'xe =', xe )
-    print( 'info =', info )
-    print()
-
-    print( "-"*40 )
-    print( "L2-norm of error in solution = {:.2e}".format( err_norm ) )
-    if err_norm < tol:
-        print( "PASSED" )
-    else:
-        print( "FAIL" )
-    print( "-"*40 )
+    if verbose:
+        print()
+        print( 'A  =', A, sep='\n' )
+        print( 'b  =', b )
+        print( 'x  =', x )
+        print( 'xe =', xe )
+        print( 'info =', info )
+        print()
+        print( "-"*40 )
+        print( "L2-norm of error in solution = {:.2e}".format( err_norm ) )
+        if err_norm < tol:
+            print( "PASSED" )
+        else:
+            print( "FAIL" )
+        print( "-"*40 )
 
     #---------------------------------------------------------------------------
     # PYTEST
@@ -190,7 +188,7 @@ def test_bicg_tridiagonal( n, p, dtype ):
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float, complex])
-def test_lsmr_tridiagonal( n, p, dtype ):
+def test_lsmr_tridiagonal(n, p, dtype, verbose=False):
 
     #---------------------------------------------------------------------------
     # PARAMETERS
@@ -207,13 +205,13 @@ def test_lsmr_tridiagonal( n, p, dtype ):
     #---------------------------------------------------------------------------
     # TEST
     #---------------------------------------------------------------------------
-
-    # Title
-    print()
-    print( "="*80 )
-    print( "SERIAL TEST: solve linear system A*x = b using lsmr" )
-    print( "="*80 )
-    print()
+    if verbose:
+        # Title
+        print()
+        print( "="*80 )
+        print( "SERIAL TEST: solve linear system A*x = b using lsmr" )
+        print( "="*80 )
+        print()
 
     # Manufacture right-hand-side vector from exact solution
     b = A.dot( xe )
@@ -232,22 +230,22 @@ def test_lsmr_tridiagonal( n, p, dtype ):
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
     #---------------------------------------------------------------------------
+    if verbose:
+        print()
+        print( 'A  =', A, sep='\n' )
+        print( 'b  =', b )
+        print( 'x  =', x )
+        print( 'xe =', xe )
+        print( 'info =', info )
+        print()
 
-    print()
-    print( 'A  =', A, sep='\n' )
-    print( 'b  =', b )
-    print( 'x  =', x )
-    print( 'xe =', xe )
-    print( 'info =', info )
-    print()
-
-    print( "-"*40 )
-    print( "L2-norm of error in solution = {:.2e}".format( res_norm ) )
-    if res_norm < tol:
-        print( "PASSED" )
-    else:
-        print( "FAIL" )
-    print( "-"*40 )
+        print( "-"*40 )
+        print( "L2-norm of error in solution = {:.2e}".format( res_norm ) )
+        if res_norm < tol:
+            print( "PASSED" )
+        else:
+            print( "FAIL" )
+        print( "-"*40 )
 
     #---------------------------------------------------------------------------
     # PYTEST
@@ -257,7 +255,7 @@ def test_lsmr_tridiagonal( n, p, dtype ):
 #===============================================================================
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
-def test_minres_tridiagonal( n, p ):
+def test_minres_tridiagonal(n, p, verbose=False):
 
     #---------------------------------------------------------------------------
     # PARAMETERS
@@ -271,13 +269,13 @@ def test_minres_tridiagonal( n, p ):
     #---------------------------------------------------------------------------
     # TEST
     #---------------------------------------------------------------------------
-
-    # Title
-    print()
-    print( "="*80 )
-    print( "SERIAL TEST: solve linear system A*x = b using minres" )
-    print( "="*80 )
-    print()
+    if verbose:
+        # Title
+        print()
+        print( "="*80 )
+        print( "SERIAL TEST: solve linear system A*x = b using minres" )
+        print( "="*80 )
+        print()
 
     # Manufacture right-hand-side vector from exact solution
     b = A.dot( xe )
@@ -297,22 +295,21 @@ def test_minres_tridiagonal( n, p ):
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
     #---------------------------------------------------------------------------
-
-    print()
-    print( 'A  =', A, sep='\n' )
-    print( 'b  =', b )
-    print( 'x  =', x )
-    print( 'xe =', xe )
-    print( 'info =', info )
-    print()
-
-    print( "-"*40 )
-    print( "L2-norm of error in solution = {:.2e}".format( res_norm ) )
-    if res_norm < tol:
-        print( "PASSED" )
-    else:
-        print( "FAIL" )
-    print( "-"*40 )
+    if verbose:
+        print()
+        print( 'A  =', A, sep='\n' )
+        print( 'b  =', b )
+        print( 'x  =', x )
+        print( 'xe =', xe )
+        print( 'info =', info )
+        print()
+        print( "-"*40 )
+        print( "L2-norm of error in solution = {:.2e}".format( res_norm ) )
+        if res_norm < tol:
+            print( "PASSED" )
+        else:
+            print( "FAIL" )
+        print( "-"*40 )
 
     #---------------------------------------------------------------------------
     # PYTEST
@@ -323,7 +320,7 @@ def test_minres_tridiagonal( n, p ):
 @pytest.mark.parametrize('n', [8, 16])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float, complex])
-def test_pcg_tridiagonal(n, p, dtype):
+def test_pcg_tridiagonal(n, p, dtype, verbose=False):
     # ---------------------------------------------------------------------------
     # PARAMETERS
     # ---------------------------------------------------------------------------
@@ -336,13 +333,13 @@ def test_pcg_tridiagonal(n, p, dtype):
     # ---------------------------------------------------------------------------
     # TEST
     # ---------------------------------------------------------------------------
-
-    # Title
-    print()
-    print("=" * 80)
-    print("SERIAL TEST: solve linear system A*x = b using preconditioned conjugate gradient")
-    print("=" * 80)
-    print()
+    if verbose:
+        # Title
+        print()
+        print("=" * 80)
+        print("SERIAL TEST: solve linear system A*x = b using preconditioned conjugate gradient")
+        print("=" * 80)
+        print()
 
     # Manufacture right-hand-side vector from exact solution
     b = A.dot(xe)
@@ -392,25 +389,25 @@ def test_pcg_tridiagonal(n, p, dtype):
     # ---------------------------------------------------------------------------
     # TERMINAL OUTPUT
     # ---------------------------------------------------------------------------
+    if verbose:
+        print()
+        print('A  =', A.toarray(), sep='\n')
+        print('b  =', b.toarray())
+        print('x1 =', x1.toarray())
+        # print('x2 =', x2.toarray())
+        print('xe =', xe.toarray())
+        print('info1 (Jac)  =', info1)
+        # print('info2 (w-Jac)=', info2)
+        print()
 
-    print()
-    print('A  =', A.toarray(), sep='\n')
-    print('b  =', b.toarray())
-    print('x1 =', x1.toarray())
-    # print('x2 =', x2.toarray())
-    print('xe =', xe.toarray())
-    print('info1 (Jac)  =', info1)
-    # print('info2 (w-Jac)=', info2)
-    print()
-
-    print("-" * 40)
-    print("L2-norm of error in (PCG + Jacobi) solution = {:.2e}".format(err_norm1))
-    # print("L2-norm of error in solution (PCG + weighted Jacobi) solution = {:.2e}".format(err_norm2))
-    if err_norm0 < tol and err_norm1 < tol: #and err_norm2 < tol:
-        print("PASSED")
-    else:
-        print("FAIL")
-    print("-" * 40)
+        print("-" * 40)
+        print("L2-norm of error in (PCG + Jacobi) solution = {:.2e}".format(err_norm1))
+        # print("L2-norm of error in solution (PCG + weighted Jacobi) solution = {:.2e}".format(err_norm2))
+        if err_norm0 < tol and err_norm1 < tol: #and err_norm2 < tol:
+            print("PASSED")
+        else:
+            print("FAIL")
+        print("-" * 40)
 
     # ---------------------------------------------------------------------------
     # PYTEST
@@ -422,7 +419,7 @@ def test_pcg_tridiagonal(n, p, dtype):
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float, complex])
-def test_cg_tridiagonal( n, p, dtype ):
+def test_cg_tridiagonal( n, p, dtype, verbose=False):
 
     # ---------------------------------------------------------------------------
     # PARAMETERS
@@ -436,13 +433,13 @@ def test_cg_tridiagonal( n, p, dtype ):
     #---------------------------------------------------------------------------
     # TEST
     #---------------------------------------------------------------------------
-
-    # Title
-    print()
-    print( "="*80 )
-    print( "SERIAL TEST: solve linear system A*x = b using conjugate gradient" )
-    print( "="*80 )
-    print()
+    if verbose:
+        # Title
+        print()
+        print( "="*80 )
+        print( "SERIAL TEST: solve linear system A*x = b using conjugate gradient" )
+        print( "="*80 )
+        print()
 
     # Manufacture right-hand-side vector from exact solution
     b = A.dot( xe )
@@ -461,22 +458,22 @@ def test_cg_tridiagonal( n, p, dtype ):
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
     #---------------------------------------------------------------------------
+    if verbose:
+        print()
+        print( 'A  =', A, sep='\n' )
+        print( 'b  =', b )
+        print( 'x  =', x )
+        print( 'xe =', xe )
+        print( 'info =', info )
+        print()
 
-    print()
-    print( 'A  =', A, sep='\n' )
-    print( 'b  =', b )
-    print( 'x  =', x )
-    print( 'xe =', xe )
-    print( 'info =', info )
-    print()
-
-    print( "-"*40 )
-    print( "L2-norm of error in solution = {:.2e}".format( err_norm ) )
-    if err_norm < tol:
-        print( "PASSED" )
-    else:
-        print( "FAIL" )
-    print( "-"*40 )
+        print( "-"*40 )
+        print( "L2-norm of error in solution = {:.2e}".format( err_norm ) )
+        if err_norm < tol:
+            print( "PASSED" )
+        else:
+            print( "FAIL" )
+        print( "-"*40 )
 
     #---------------------------------------------------------------------------
     # PYTEST
