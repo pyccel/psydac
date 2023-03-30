@@ -126,6 +126,7 @@ class StencilVectorSpace( VectorSpace ):
                 self._shape = cart.get_interface_communication_infos(cart.axis)['gbuf_recv_shape'][0]
             else:
                 self._synchronizer = get_data_exchanger( cart, dtype , assembly=True, blocking=False)
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -627,6 +628,7 @@ class StencilVector( Vector ):
 
     # ...
     # TODO: maybe change name to 'exchange'
+
     def update_ghost_regions(self):
         """
         Update ghost regions before performing non-local access to vector
@@ -723,6 +725,7 @@ class StencilVector( Vector ):
             self._data[idx_from] = 0.
             idx_from = tuple( idx_front + [ slice(0,m*p)] + idx_back )
             self._data[idx_from] = 0.
+
     # ...
     def _exchange_assembly_data_serial(self):
 
@@ -849,7 +852,6 @@ class StencilMatrix( LinearOperator ):
 
         if backend:
             self.set_backend(backend)
-
 
     #--------------------------------------
     # Abstract interface
@@ -1077,7 +1079,6 @@ class StencilMatrix( LinearOperator ):
     def __setitem__(self, key, value):
         index = self._getindex( key )
         self._data[index] = value
-
 
     #...
     def max( self ):
@@ -1317,10 +1318,12 @@ class StencilMatrix( LinearOperator ):
     @property
     def T(self):
         return self.transpose()
+
     @property
     def H(self):
         L = self.T
         return L.conjugate(out=L)
+
     def diagonal(self):
         if self._diag_indices is None:
             cm    = self.codomain.shifts
@@ -1436,6 +1439,7 @@ class StencilMatrix( LinearOperator ):
         M.eliminate_zeros()
 
         return M
+
     #...
     def _tocoo_no_pads( self , order='C'):
 
@@ -2279,7 +2283,6 @@ class StencilInterfaceMatrix(LinearOperator):
         return self._data.max()
 
     # ...
-
     @property
     def backend( self ):
         return self._backend
@@ -2314,6 +2317,7 @@ class StencilInterfaceMatrix(LinearOperator):
             return slice(start, stop, index.step)
         else:
             return index + shift
+
     #...
     def _tocoo_no_pads( self ):
         # Shortcuts
@@ -2458,7 +2462,6 @@ class StencilInterfaceMatrix(LinearOperator):
                 idx_to   = tuple( idx_front + [slice( m*p, m*p+p)] + idx_back )
                 idx_from = tuple( idx_front + [ slice(-m*p,-m*p+p) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back )
                 self._data[idx_to] += self._data[idx_from]
-
 
     def set_backend(self, backend):
         from psydac.api.ast.linalg import LinearOperatorDot, InterfaceTransposeOperator

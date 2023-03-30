@@ -55,6 +55,7 @@ class BlockVectorSpace( VectorSpace ):
 
         self._connectivity = connectivity or {}
         self._connectivity_readonly = MappingProxyType(self._connectivity)
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -684,6 +685,7 @@ class BlockLinearOperator( LinearOperator ):
         return tuple(
                tuple( self._blocks.get( (i,j), None ) for j in range( self.n_block_cols ) )
                                                       for i in range( self.n_block_rows ) )
+
     # ...
     @property
     def n_block_rows( self ):
