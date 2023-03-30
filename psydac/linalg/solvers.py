@@ -11,8 +11,6 @@ from psydac.linalg.utilities import _sym_ortho
 
 __all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'MinimumResidual', 'LSMR']
 
-
-
 def inverse(A, solver, **kwargs):
     """
     A function to create objects of all InverseLinearOperator subclasses.
@@ -834,6 +832,7 @@ class BiConjugateGradientStablilized(InverseLinearOperator):
         ----------
         [1] H. A. van der Vorst. Bi-CGSTAB: A fast and smoothly converging variant of Bi-CG for the
         solution of nonsymmetric linear systems. SIAM J. Sci. Stat. Comp., 13(2):631–644, 1992
+
         TODO
         ----
         Add optional preconditioner

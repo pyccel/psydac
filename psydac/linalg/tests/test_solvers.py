@@ -7,7 +7,7 @@ from psydac.linalg.basic import LinearSolver
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
 
-def define_data_hermitien(n, p, dtype=float):
+def define_data_hermitian(n, p, dtype=float):
     domain_decomposition = DomainDecomposition([n - p], [False])
     cart = CartDecomposition(domain_decomposition, [n], [np.array([0])], [np.array([n - 1])], [p], [1])
     # ... Vector Spaces
@@ -263,7 +263,7 @@ def test_minres_tridiagonal( n, p ):
     # PARAMETERS
     #---------------------------------------------------------------------------
 
-    V, A, xe = define_data_hermitien(n, p)
+    V, A, xe = define_data_hermitian(n, p)
 
     # Tolerance for success: L2-norm of error in solution
     tol = 1e-12
@@ -328,7 +328,7 @@ def test_pcg_tridiagonal(n, p, dtype):
     # PARAMETERS
     # ---------------------------------------------------------------------------
 
-    V, A, xe = define_data_hermitien(n, p, dtype=dtype)
+    V, A, xe = define_data_hermitian(n, p, dtype=dtype)
 
     # Tolerance for success: L2-norm of error in solution
     tol = 1e-10
@@ -428,7 +428,7 @@ def test_cg_tridiagonal( n, p, dtype ):
     # PARAMETERS
     # ---------------------------------------------------------------------------
 
-    V, A, xe = define_data_hermitien(n, p, dtype=dtype)
+    V, A, xe = define_data_hermitian(n, p, dtype=dtype)
 
     # Tolerance for success: L2-norm of error in solution
     tol = 1e-10
