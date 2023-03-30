@@ -530,6 +530,7 @@ class BiConjugateGradient(InverseLinearOperator):
             x0 = codomain.zeros()
 
         self._A = A
+        self._Ah = A.H
         self._domain = domain
         self._codomain = codomain
         self._solver = 'bicg'
@@ -603,7 +604,7 @@ class BiConjugateGradient(InverseLinearOperator):
 
         """
         A = self._A
-        At = A.H
+        Ah = self._Ah
         domain = self._domain
         codomain = self._codomain
         options = self._options
@@ -662,7 +663,7 @@ class BiConjugateGradient(InverseLinearOperator):
             # MATRIX-VECTOR PRODUCTS
             #-----------------------
             A.dot(p, out=v)
-            At.dot(ps, out=vs)
+            Ah.dot(ps, out=vs)
             #v  = A.dot(p , out=v) # overwriting v, then saving in v. Necessary?
             #vs = At.dot(ps, out=vs) # same story
             #-----------------------
