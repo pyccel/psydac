@@ -907,7 +907,7 @@ class StencilMatrix( LinearOperator ):
         if not v.ghost_regions_in_sync:
             v.update_ghost_regions()
 
-        # Unless doing A_*x, this function do (A*x_)_
+        # Instead of computing A_*x, this function computes (A*x_)_
         self._func(self._data, np.conjugate(v._data), out._data, **self._args)
         np.conjugate(out._data, out=out._data)
 
