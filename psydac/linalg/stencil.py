@@ -35,7 +35,7 @@ def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False)
          Shifts of the codomain along each direction
 
         return_padding : bool
-            Return the new padding if True
+            Returns the new padding if True
     
         Returns
         -------
@@ -331,9 +331,9 @@ class StencilVector( Vector ):
     #...
     def dot(self, v):
         """
-        Return the inner vector product between self and v.
+        Returns the inner vector product between self and v.
 
-        If the values are real, it return the classical scalar product.
+        If the values are real, it returns the classical scalar product.
         If the values are complex, it returns the classical sesquilinear product with linearity on the vector v.
 
 
@@ -527,7 +527,7 @@ class StencilVector( Vector ):
 
     # ...
     def toarray_local(self , *, order='C'):
-        """ return the local array without the padding"""
+        """ returns the local array without the padding"""
 
         idx = tuple( slice(m*p,-m*p) for p,m in zip(self.pads, self.space.shifts) )
         return self._data[idx].flatten( order=order)
