@@ -35,9 +35,9 @@ def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False)
          Shifts of the codomain along each direction
 
         return_padding : bool
-            Returns the new padding if True
+            Return the new padding if True
     
-        Returns
+        Return
         -------
         n : (int)
          Diagonal length of the stencil matrix
@@ -147,7 +147,7 @@ class StencilVectorSpace( VectorSpace ):
         """
         Get a copy of the null element of the StencilVectorSpace V.
 
-        Returns
+        Return
         -------
         null : StencilVector
             A new vector object with all components equal to zero.
@@ -331,7 +331,7 @@ class StencilVector( Vector ):
     #...
     def dot(self, v):
         """
-        Returns the inner vector product between self and v.
+        Return the inner vector product between self and v.
 
         If the values are real, it returns the classical scalar product.
         If the values are complex, it returns the classical sesquilinear product with linearity on the vector v.
@@ -342,7 +342,7 @@ class StencilVector( Vector ):
         v : StencilVector
             Vector of the same space than self needed for the scalar product
 
-        Returns
+        Return
         -------
         null: self._space.dtype
             Scalar containing scalar product of v and self
@@ -507,7 +507,7 @@ class StencilVector( Vector ):
         order: {'C','F'}
              Memory representation of the data ‘C’ for row-major ordering (C-style), ‘F’ column-major ordering (Fortran-style).
 
-        Returns
+        Return
         -------
         array : numpy.ndarray
             A copy of the data array collapsed into one dimension.
@@ -527,7 +527,7 @@ class StencilVector( Vector ):
 
     # ...
     def toarray_local(self , *, order='C'):
-        """ returns the local array without the padding"""
+        """ return the local array without the padding"""
 
         idx = tuple( slice(m*p,-m*p) for p,m in zip(self.pads, self.space.shifts) )
         return self._data[idx].flatten( order=order)
