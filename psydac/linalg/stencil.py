@@ -893,6 +893,24 @@ class StencilMatrix( LinearOperator ):
         return out
 
     def vdot( self, v, out=None):
+        """
+        Return the matrix/vector product between the conjugate of self and v.
+        This function optimized this product.
+
+        Parameters
+        ----------
+        v   : StencilVector
+            Vector of the domain of self needed for the Matrix/Vector product
+
+        out : StencilVector
+            Vector of the codomain of self
+
+        Return
+        -------
+        out : StencilVector
+            Vector of the codomain of self, contain the result of the product
+
+        """
 
         assert isinstance( v, StencilVector )
         assert v.space is self.domain
