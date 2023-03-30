@@ -8,8 +8,8 @@ from psydac.linalg.utilities import array_to_psydac
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
 # TODO : test update ghost region interface
-# TODO: add test exchange_assembly_data
-# TODO : test toeptsc with module ptsc4py
+# TODO : add test exchange_assembly_data
+# TODO : test topetsc with module petsc4py
 
 # ===============================================================================
 def compute_global_starts_ends(domain_decomposition, npts):
@@ -30,8 +30,6 @@ def compute_global_starts_ends(domain_decomposition, npts):
 # ===============================================================================
 # SERIAL TESTS
 # ===============================================================================
-
-
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [1, 7])
 @pytest.mark.parametrize('n2', [1, 5])
@@ -61,7 +59,6 @@ def test_stencil_vector_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P
     assert x._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2)
     assert x._data.dtype == dtype
     assert not x.ghost_regions_in_sync
-
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -100,7 +97,6 @@ def test_stencil_vector_2d_serial_copy(dtype, n1, n2, p1, p2, s1, s2, P1=True, P
     assert z._data is not x._data
     assert z.dtype == dtype
     assert np.array_equal(x._data, z._data)
-
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -156,7 +152,6 @@ def test_stencil_vector_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
         assert m.space is V
         assert np.array_equal(m._data, mex)
 
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [1, 7])
@@ -205,7 +200,6 @@ def test_stencil_matrix_2d_serial_toarray(dtype, n1, n2, p1, p2, s1, s2, P1=True
         assert x.shape == (n1*n2,)
         assert x.dtype == dtype
         assert np.array_equal(xc, zc)
-
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -258,7 +252,6 @@ def test_stencil_vector_2d_serial_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P
         assert r.space is V
         assert r.dtype == dtype
         assert np.array_equal(r.toarray(), rex)
-
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -355,7 +348,6 @@ def test_stencil_vector_2d_serial_conjugate(dtype, n1, n2, p1, p2, s1, s2, P1=Tr
     assert np.array_equal(z1._data, z_exact)
     assert np.array_equal(z2._data, z_exact)
 
-
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [1, 7])
@@ -404,7 +396,6 @@ def test_stencil_vector_2d_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2, P1, P2
     assert v._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2)
     assert v._data.dtype == dtype
     assert np.array_equal(xa, v.toarray())
-
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -503,8 +494,8 @@ def test_stencil_vector_1d_parallel_init(dtype, n1, p1, s1, P1=True):
     assert x._data.shape == (V.ends[0]-V.starts[0]+1 + 2 * p1 * s1, )
     assert x._data.dtype == dtype
     assert not x.ghost_regions_in_sync
-# ===============================================================================
 
+# ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [10, 15])
 @pytest.mark.parametrize('n2', [6, 12])
@@ -539,8 +530,8 @@ def test_stencil_vector_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1=True,
     assert x._data.shape == (V.ends[0]-V.starts[0]+1 + 2 * p1 * s1, V.ends[1]-V.starts[1]+1 + 2 * p2 * s2)
     assert x._data.dtype == dtype
     assert not x.ghost_regions_in_sync
-# ===============================================================================
 
+# ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [6, 15])
 @pytest.mark.parametrize('n2', [10, 18])
@@ -579,8 +570,8 @@ def test_stencil_vector_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, 
                              V.ends[2]-V.starts[2]+1 + 2 * p3 * s3)
     assert x._data.dtype == dtype
     assert not x.ghost_regions_in_sync
-# ===============================================================================
 
+# ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [20, 32])
 @pytest.mark.parametrize('n2', [24, 40])
@@ -701,6 +692,7 @@ def test_stencil_vector_2d_parallel_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, 
 
     assert res1 == res_ex1
     assert res2 == res_ex2
+
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [12, 24])
