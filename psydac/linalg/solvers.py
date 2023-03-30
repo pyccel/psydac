@@ -144,7 +144,7 @@ class ConjugateGradient(InverseLinearOperator):
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def transpose(self):
+    def H_transpose(self):
         At = self._A.H
         solver = self._solver
         options = self._options
@@ -345,7 +345,7 @@ class PConjugateGradient(InverseLinearOperator):
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def transpose(self):
+    def H_transpose(self):
         At = self._A.H
         solver = self._solver
         options = self._options
@@ -558,7 +558,7 @@ class BiConjugateGradient(InverseLinearOperator):
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def transpose(self):
+    def H_transpose(self):
         At = self._A.T
         solver = self._solver
         options = self._options
@@ -797,7 +797,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
     def _update_options( self ):
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
-    def transpose(self):
+    def H_transpose(self):
         At = self._A.H
         solver = self._solver
         options = self._options
@@ -1053,7 +1053,7 @@ class MinimumResidual(InverseLinearOperator):
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def transpose(self):
+    def H_transpose(self):
         At = self._A.T
         solver = self._solver
         options = self._options
@@ -1423,7 +1423,7 @@ class LSMR(InverseLinearOperator):
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def transpose(self):
+    def H_transpose(self):
         At = self._A.H
         solver = self._solver
         options = self._options
