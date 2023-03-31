@@ -37,7 +37,7 @@ def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False)
         return_padding : bool
             Return the new padding if True
     
-        Return
+        Returns
         -------
         n : (int)
          Diagonal length of the stencil matrix
@@ -147,7 +147,7 @@ class StencilVectorSpace( VectorSpace ):
         """
         Get a copy of the null element of the StencilVectorSpace V.
 
-        Return
+        Returns
         -------
         null : StencilVector
             A new vector object with all components equal to zero.
@@ -341,7 +341,7 @@ class StencilVector( Vector ):
         v : StencilVector
             Vector of the same space than self needed for the scalar product
 
-        Return
+        Returns
         -------
         null: self._space.dtype
             Scalar containing scalar product of v and self
@@ -506,7 +506,7 @@ class StencilVector( Vector ):
         order: {'C','F'}
              Memory representation of the data ‘C’ for row-major ordering (C-style), ‘F’ column-major ordering (Fortran-style).
 
-        Return
+        Returns
         -------
         array : numpy.ndarray
             A copy of the data array collapsed into one dimension.
@@ -883,7 +883,7 @@ class StencilMatrix( LinearOperator ):
         out : StencilVector
             Vector of the codomain of self
 
-        Return
+        Returns
         -------
         out : StencilVector
             Vector of the codomain of self, contain the result of the product
@@ -923,7 +923,7 @@ class StencilMatrix( LinearOperator ):
         out : StencilVector
             Vector of the codomain of self
 
-        Return
+        Returns
         -------
         out : StencilVector
             Vector of the codomain of self, contain the result of the product
