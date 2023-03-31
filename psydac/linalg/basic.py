@@ -196,6 +196,11 @@ class LinearOperator(ABC):
     def T(self):
         return self.transpose()
 
+    @property
+    def H(self):
+        L = self.T
+        return L.conjugate(out=L)
+
     @abstractmethod
     def tosparse(self):
         pass

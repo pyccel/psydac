@@ -540,11 +540,6 @@ class BlockLinearOperator( LinearOperator ):
 
     def conj(self, out=None):
         return self.conjugate(out=out)
-
-    @property
-    def H(self):
-        M = self.T
-        return self.conjugate(out=M)
         
 # NOTE [YG 27.03.2023]:
 # NOTE as part of PR 279, this method was added to facilitate comparisons in tests,

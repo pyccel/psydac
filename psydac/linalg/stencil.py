@@ -1355,11 +1355,6 @@ class StencilMatrix( LinearOperator ):
     def T(self):
         return self.transpose()
 
-    @property
-    def H(self):
-        L = self.T
-        return L.conjugate(out=L)
-
     def diagonal(self):
         if self._diag_indices is None:
             cm    = self.codomain.shifts
