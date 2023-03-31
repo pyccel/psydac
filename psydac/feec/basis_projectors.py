@@ -123,7 +123,7 @@ class BasisProjectionOperator(LinearOperator):
         """
         return self._dof_operator
 
-    def dot(self, v, out=None, tol=1e-14, maxiter=1000, verbose=False):
+    def dot(self, v, out=None):
         """
         Applies the basis projection operator to the FE coefficients v.
 
