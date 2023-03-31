@@ -83,17 +83,29 @@ def test_bicgstab_tridiagonal(n, p, dtype, verbose=False):
 
     # Manufacture right-hand-side vector from exact solution
     b = A.dot( xe )
+    bt = (A.T).dot( xe )
+    bh = (A.H).dot( xe )
 
     #Create the solvers
     solv = inverse(A, 'bicgstab', tol=1e-13, verbose=True)
+    solvt = solv.transpose()
+    solvh = solv.H()
 
     # Solve linear system using BiCGSTAB
     x = solv @ b
+    xt = solvt.solve(bt)
+    xh = solvh.dot(bh)
     info = solv.get_info()
 
     # Verify correctness of calculation: L2-norm of error
     err = x-xe
     err_norm = np.linalg.norm( err.toarray() )
+
+    errt = xt-xe
+    errt_norm = np.linalg.norm( errt.toarray() )
+
+    errh = xh-xe
+    errh_norm = np.linalg.norm( errh.toarray() )
 
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
@@ -118,6 +130,8 @@ def test_bicgstab_tridiagonal(n, p, dtype, verbose=False):
     # PYTEST
     #---------------------------------------------------------------------------
     assert err_norm < tol
+    assert errt_norm < tol
+    assert errh_norm < tol
 
 #===============================================================================
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
@@ -147,18 +161,28 @@ def test_bicg_tridiagonal(n, p, dtype, verbose=False):
         print()
 
     # Manufacture right-hand-side vector from exact solution
-    b = A.dot( xe )
+    b  = A.dot( xe )
+    bt = A.T.dot( xe )
+    bh = A.H.dot( xe )
 
     #Create the solvers
-    solv = inverse(A, 'bicg', tol=1e-13, verbose=True)
+    solv  = inverse(A, 'bicg', tol=1e-13, verbose=True)
+    solvt = solv.transpose()
+    solvh = solv.H()
 
     # Solve linear system using BiCG
     x = solv @ b
+    xt = solvt.solve(bt)
+    xh = solvh.dot(bh)
     info = solv.get_info()
 
     # Verify correctness of calculation: L2-norm of error
     err = x-xe
     err_norm = np.linalg.norm( err.toarray() )
+    errt = xt-xe
+    errt_norm = np.linalg.norm( errt.toarray() )
+    errh = xh-xe
+    errh_norm = np.linalg.norm( errh.toarray() )
 
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
@@ -183,6 +207,8 @@ def test_bicg_tridiagonal(n, p, dtype, verbose=False):
     # PYTEST
     #---------------------------------------------------------------------------
     assert err_norm < tol
+    assert errt_norm < tol
+    assert errh_norm < tol
 
 #===============================================================================
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
@@ -214,18 +240,28 @@ def test_lsmr_tridiagonal(n, p, dtype, verbose=False):
         print()
 
     # Manufacture right-hand-side vector from exact solution
-    b = A.dot( xe )
+    b  = A.dot( xe )
+    bt = A.T.dot( xe )
+    bh = A.H.dot( xe )
 
     #Create the solvers
-    solv = inverse(A, 'lsmr', tol=1e-13, verbose=True)
+    solv  = inverse(A, 'lsmr', tol=1e-13, verbose=True)
+    solvt = solv.transpose()
+    solvh = solv.H()
 
     # Solve linear system using lsmr
     x = solv @ b
     info = solv.get_info()
+    xt = solvt.solve(bt)
+    xh = solvh.dot(bh)
 
     # Verify correctness of calculation: L2-norm of error
     res = A.dot(x)-b
     res_norm = np.linalg.norm( res.toarray() )
+    rest = A.T.dot(xt)-bt
+    rest_norm = np.linalg.norm( rest.toarray() )
+    resh = A.H.dot(xh)-bh
+    resh_norm = np.linalg.norm( resh.toarray() )
 
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
@@ -251,6 +287,8 @@ def test_lsmr_tridiagonal(n, p, dtype, verbose=False):
     # PYTEST
     #---------------------------------------------------------------------------
     assert res_norm < tol
+    assert rest_norm < tol
+    assert resh_norm < tol
 
 #===============================================================================
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
@@ -279,18 +317,28 @@ def test_minres_tridiagonal(n, p, verbose=False):
 
     # Manufacture right-hand-side vector from exact solution
     b = A.dot( xe )
+    bt = A.T.dot( xe )
+    bh = A.H.dot( xe )
 
 
     #Create the solvers
-    solv = inverse(A, 'minres', tol=1e-13, verbose=True)
+    solv  = inverse(A, 'minres', tol=1e-13, verbose=True)
+    solvt = solv.transpose()
+    solvh = solv.H()
 
     # Solve linear system using minres
     x = solv @ b
     info = solv.get_info()
+    xt = solvt.solve(bt)
+    xh = solvh.dot(b)
 
     # Verify correctness of calculation: L2-norm of error
     res = A.dot(x)-b
     res_norm = np.linalg.norm( res.toarray() )
+    rest = A.T.dot(xt)-bt
+    rest_norm = np.linalg.norm( rest.toarray() )
+    resh = A.H.dot(x)-bh
+    resh_norm = np.linalg.norm( resh.toarray() )
 
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
@@ -315,6 +363,8 @@ def test_minres_tridiagonal(n, p, verbose=False):
     # PYTEST
     #---------------------------------------------------------------------------
     assert res_norm < tol
+    assert rest_norm < tol
+    assert resh_norm < tol
 
 # ===============================================================================
 @pytest.mark.parametrize('n', [8, 16])
@@ -342,7 +392,9 @@ def test_pcg_tridiagonal(n, p, dtype, verbose=False):
         print()
 
     # Manufacture right-hand-side vector from exact solution
-    b = A.dot(xe)
+    b  = A.dot(xe)
+    bt = A.T.dot(xe)
+    bh = A.H.dot(xe)
 
     # class LocallyOnlyJacobiSolver(LinearSolver):
     #     @property
@@ -358,8 +410,10 @@ def test_pcg_tridiagonal(n, p, dtype, verbose=False):
 
 
     #Create the solvers with different preconditioner
-    solv0 = inverse(A, 'pcg', tol=1e-13, verbose=True)
-    solv1 = inverse(A, 'pcg', tol=1e-13, verbose=True, pc="jacobi")
+    solv0  = inverse(A, 'pcg', tol=1e-13, verbose=True)
+    solv0t = solv0.transpose()
+    solv0h = solv0.H()
+    solv1  = inverse(A, 'pcg', tol=1e-13, verbose=True, pc="jacobi")
     # solv1b = inverse(A, 'pcg', tol=1e-13, verbose=True, pc=jacobi)
     # solv1c = inverse(A, 'pcg', tol=1e-13, verbose=True, pc=LocallyOnlyJacobiSolver())
     # solv2 = inverse(A, 'pcg', tol=1e-13, verbose=True, pc="weighted_jacobi")
@@ -367,6 +421,8 @@ def test_pcg_tridiagonal(n, p, dtype, verbose=False):
     # Solve linear system using PCG with different preconditioner
     x0 = solv0 @ b
     info0 = solv0.get_info()
+    x0t = solv0t.solve(bt)
+    x0h = solv0h.dot(bh)
     x1 = solv1 @ b
     info1 = solv1.get_info()
     # x1b = solv1b @ b
@@ -379,6 +435,10 @@ def test_pcg_tridiagonal(n, p, dtype, verbose=False):
     # Verify correctness of calculation: L2-norm of error
     err0 = x0 - xe
     err_norm0 = np.linalg.norm(err0.toarray())
+    err0t = x0t - xe
+    errt_norm0 = np.linalg.norm(err0t.toarray())
+    err0h = x0h - xe
+    errh_norm0 = np.linalg.norm(err0h.toarray())
 
     err1 = x1 - xe
     err_norm1 = np.linalg.norm(err1.toarray())
@@ -413,6 +473,7 @@ def test_pcg_tridiagonal(n, p, dtype, verbose=False):
     # PYTEST
     # ---------------------------------------------------------------------------
     assert err_norm0 < tol and err_norm1 < tol # and err_norm2 < tol
+    assert errt_norm0 < tol and errh_norm0 < tol
     # assert info1 == info1b and info1 == info1c
 
 #===============================================================================
@@ -443,17 +504,27 @@ def test_cg_tridiagonal( n, p, dtype, verbose=False):
 
     # Manufacture right-hand-side vector from exact solution
     b = A.dot( xe )
+    bt = A.T.dot( xe )
+    bh = A.H.dot( xe )
 
     #Create the solvers
-    solv = inverse(A, 'cg', tol=1e-13, verbose=True)
+    solv  = inverse(A, 'cg', tol=1e-13, verbose=True)
+    solvt = solv.transpose()
+    solvh = solv.H()
 
     # Solve linear system using lsmr
     x = solv @ b
+    xt = solvt.solve(bt)
+    xh = solvh.dot(bh)
     info = solv.get_info()
 
     # Verify correctness of calculation: L2-norm of error
     err = x-xe
     err_norm = np.linalg.norm( err.toarray() )
+    errt = xt-xe
+    errt_norm = np.linalg.norm( errt.toarray() )
+    errh = xh-xe
+    errh_norm = np.linalg.norm( errh.toarray() )
 
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
@@ -479,6 +550,8 @@ def test_cg_tridiagonal( n, p, dtype, verbose=False):
     # PYTEST
     #---------------------------------------------------------------------------
     assert err_norm < tol
+    assert errt_norm < tol
+    assert errh_norm < tol
 
 # ===============================================================================
 # SCRIPT FUNCTIONALITY

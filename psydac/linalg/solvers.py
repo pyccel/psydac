@@ -1411,7 +1411,7 @@ class LSMR(InverseLinearOperator):
         self._A = A
         self._domain = domain
         self._codomain = codomain
-        self._solver = 'cg'
+        self._solver = 'lsmr'
         self._options = {"x0":x0, "tol":tol, "atol":atol, "btol":btol,
                          "maxiter":maxiter, "conlim":conlim, "verbose":verbose}
         self._check_options(**self._options)
