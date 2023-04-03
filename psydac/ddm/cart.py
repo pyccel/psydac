@@ -372,12 +372,16 @@ class DomainDecomposition:
         return all( P or (0 <= c < d) for P,c,d in zip( self._periods, coords, self._nprocs ) )
 
     def refine(self, ncells, global_element_starts, global_element_ends):
-        domain = DomainDecomposition(self.ncells, self.periods, comm=self.comm, global_comm=self.global_comm, num_threads=self.num_threads, size=self.size)
+        """ refine the domain """
 
         # Check input arguments
         assert len( ncells ) == len( self.ncells )
+        assert all(nc>=snc for nc, snc in zip(ncells, self.ncells))
 
-        domain._ncells       = tuple ( ncells )
+        domain         = DomainDecomposition(self.ncells, self.periods, comm=self.comm,
+                                            global_comm=self.global_comm, num_threads=self.num_threads,
+                                            size=self.size)
+        domain._ncells = tuple ( ncells )
 
         # Store arrays with all the starts and ends along each direction for every process
         domain._global_element_starts = tuple(global_element_starts)

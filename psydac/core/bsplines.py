@@ -951,7 +951,26 @@ def basis_ders_on_irregular_grid(knots, degree, i_grid, cell_index, nders, norma
 #==============================================================================
 def _refinement_matrix_one_stage(t, p, knots):
     """
-    computes the refinement matrix corresponding to the insertion of a given knot
+    Computes the refinement matrix corresponding to the insertion of a given knot.
+
+    Parameters
+    ----------
+    t : float
+      knot to be inserted.
+
+    p: int
+        spline degree.
+
+    knots : array_like
+        Knots sequence.
+
+    Returns
+    -------
+    mat : np.array[:,:]
+        h-refinement matrix.
+
+    new_knots : array_like
+        the Knots sequence with the inserted knot.
     """
 
     # ...
@@ -990,14 +1009,14 @@ def _refinement_matrix_one_stage(t, p, knots):
     # ...
 
     # ...
-    new = np.zeros(n+1+p+1)
+    new_knots = np.zeros(n+1+p+1)
 
-    new[:left+1] = knots[:left+1]
-    new[left+1] = t
-    new[left+2:] = knots[left+1:]
+    new_knots[:left+1] = knots[:left+1]
+    new_knots[left+1] = t
+    new_knots[left+2:] = knots[left+1:]
     # ...
 
-    return mat, new
+    return mat, new_knots
 
 #==============================================================================
 def hrefinement_matrix(ts, p, knots):
@@ -1010,7 +1029,7 @@ def hrefinement_matrix(ts, p, knots):
         array containing the knots to be inserted
 
     p: int
-        spline degree
+        spline degree.
 
     knots : array_like
         Knots sequence.

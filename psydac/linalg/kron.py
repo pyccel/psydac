@@ -10,6 +10,7 @@ from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatr
 
 __all__ = ['KroneckerStencilMatrix',
            'KroneckerLinearSolver',
+           'KroneckerDenseMatrix',
            'kronecker_solve']
 
 #==============================================================================

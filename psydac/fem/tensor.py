@@ -1030,9 +1030,12 @@ class TensorFemSpace( FemSpace ):
 
     # ...
     def add_refined_space(self, ncells):
-        if tuple(ncells) in self._refined_space: return
-        if tuple(ncells) == tuple(self.ncells):
-            self._refined_space[tuple(ncells)]= self
+        """ refine the space with new ncells and add it to the dictionary of refined_space"""
+
+        ncells = tuple(ncells)
+        if ncells in self._refined_space: return
+        if ncells == tuple(self.ncells):
+            self._refined_space[ncells]= self
             return
 
         spaces = [s.refine(n) for s,n in zip(self.spaces, ncells)]
@@ -1059,7 +1062,7 @@ class TensorFemSpace( FemSpace ):
         domain = domain.refine(ncells, new_global_starts, new_global_ends)
 
         FS     = TensorFemSpace(domain, *spaces, quad_order=self.quad_order)
-        self._refined_space[tuple(ncells)]= FS
+        self._refined_space[ncells]= FS
 
     # ...
     def create_interface_space(self, axis, ext, cart):

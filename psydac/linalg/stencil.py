@@ -113,8 +113,6 @@ class StencilVectorSpace( VectorSpace ):
         self._parent_ends   = cart.parent_ends
         self._mpi_type      = find_mpi_type(dtype)
 
-        self._refined_space = None
-
         # The dictionary follows the structure {(axis, ext): StencilVectorSpace()}
         # where axis and ext represent the boundary shared by two patches
         self._interfaces    = {}
@@ -1860,12 +1858,14 @@ class StencilInterfaceMatrix(LinearOperator):
         if out is not None:
             assert isinstance( out, StencilVector )
             assert out.space is self.codomain
+            out._data[...] = 0.
         else:
             out = StencilVector( self.codomain )
 
         # Necessary if vector space is distributed across processes
         if not v.ghost_regions_in_sync and not v.space.parallel:
             v.update_ghost_regions()
+
         self._func(self._data, v._interface_data[self._domain_axis, self._domain_ext], out._data, **self._args)
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False

@@ -27,7 +27,8 @@ class VectorFemSpace( FemSpace ):
     """
 
     def __init__( self, *spaces ):
-        """."""
+
+        # all input spaces are flattened into a single list of scalar spaces
         new_spaces = [sp.spaces if isinstance(sp, VectorFemSpace) else [sp] for sp in spaces]
         new_spaces = tuple(sp2 for sp1 in new_spaces for sp2 in sp1)
 

@@ -615,26 +615,16 @@ class BlockLinearOperator( LinearOperator ):
     #...
     @staticmethod
     def _dot(blocks, v, out, n_rows, n_cols, inc):
-        from psydac.linalg.stencil import StencilInterfaceMatrix
 
         if n_rows == 1:
             for (_, j), L0j in blocks.items():
-                if isinstance(L0j, StencilInterfaceMatrix): # L0j.__class__.__name__ == 'StencilInterfaceMatrix':
-                    out += L0j.dot(v[j])
-                else:
-                    out += L0j.dot(v[j], out=inc)
+                out += L0j.dot(v[j], out=inc)
         elif n_cols == 1:
             for (i, _), Li0 in blocks.items():
-                if isinstance(Li0, StencilInterfaceMatrix): #Li0.__class__.__name__ == 'StencilInterfaceMatrix':
-                    out[i] += Li0.dot(v[j])
-                else:
-                    out[i] += Li0.dot(v, out=inc[i])
+                out[i] += Li0.dot(v, out=inc[i])
         else:
             for (i, j), Lij in blocks.items():
-                if isinstance(Lij, StencilInterfaceMatrix): #Lij.__class__.__name__ == 'StencilInterfaceMatrix':
-                    out[i] += Lij.dot(v[j])
-                else:
-                    out[i] += Lij.dot(v[j], out=inc[i])
+                out[i] += Lij.dot(v[j], out=inc[i])
 
     #--------------------------------------
     # Other properties/methods
