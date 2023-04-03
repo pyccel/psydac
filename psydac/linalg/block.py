@@ -7,7 +7,7 @@ import numpy as np
 from types import MappingProxyType
 from scipy.sparse import bmat, lil_matrix
 
-from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator, LinearSolver
+from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator, LinearSolver, ZeroOperator
 from psydac.ddm.cart      import InterfaceCartDecomposition
 from psydac.ddm.utilities import get_data_exchanger
 
@@ -217,6 +217,8 @@ class BlockVector( Vector ):
 
     #...
     def copy( self, out=None ):
+        if self is out:
+            return self
         w = out or BlockVector( self._space )#, [b.copy() for b in self._blocks] )
         for n, b in enumerate(self._blocks):
             b.copy(out=w[n])
@@ -476,6 +478,8 @@ class BlockLinearOperator( LinearOperator ):
 
         self._args = {}
         self._blocks_as_args = self._blocks
+        self._increment = self._codomain.zeros()
+        self._args['inc'] = self._increment
         self._args['n_rows'] = self._nrows
         self._args['n_cols'] = self._ncols
         self._func           = self._dot
@@ -503,6 +507,35 @@ class BlockLinearOperator( LinearOperator ):
     @property
     def T(self):
         return self.transpose()
+
+# NOTE [YG 27.03.2023]:
+# NOTE as part of PR 279, this method was added to facilitate comparisons in tests,
+# NOTE but then commented out as deemed unnecessary.
+#    def __eq__(self, B):
+#        """
+#        Return True if self and B are mathematically the same, else return False.
+#        Also returns False if at least one block is not the same object and the entries can't be accessed and compared using toarray().
+#
+#        """
+#        assert isinstance(B, BlockLinearOperator)
+#
+#        if self is B:
+#            return True
+#
+#        nrows = self._nrows
+#        ncols = self._ncols
+#        if not ((B.n_block_cols == ncols) & (B.n_block_rows == nrows)):
+#            return False
+#
+#        for i in range(nrows):
+#            for j in range(ncols):
+#                A_ij = self[i, j]
+#                B_ij = B[i, j]
+#                if not ( A_ij is B_ij ):
+#                    if not (((A_ij is None) or (isinstance(A_ij, ZeroOperator))) & ((B_ij is None) or (isinstance(B_ij, ZeroOperator)))):
+#                        if not ( np.array_equal(A_ij.toarray(), B_ij.toarray()) ):
+#                            return False
+#        return True
 
     def __truediv__(self, a):
         """ Divide by scalar. """
@@ -581,17 +614,27 @@ class BlockLinearOperator( LinearOperator ):
 
     #...
     @staticmethod
-    def _dot(blocks, v, out, n_rows, n_cols):
+    def _dot(blocks, v, out, n_rows, n_cols, inc):
+        from psydac.linalg.stencil import StencilInterfaceMatrix
 
         if n_rows == 1:
             for (_, j), L0j in blocks.items():
-                out += L0j.dot(v[j])
+                if isinstance(L0j, StencilInterfaceMatrix): # L0j.__class__.__name__ == 'StencilInterfaceMatrix':
+                    out += L0j.dot(v[j])
+                else:
+                    out += L0j.dot(v[j], out=inc)
         elif n_cols == 1:
             for (i, _), Li0 in blocks.items():
-                out[i] += Li0.dot(v)
+                if isinstance(Li0, StencilInterfaceMatrix): #Li0.__class__.__name__ == 'StencilInterfaceMatrix':
+                    out[i] += Li0.dot(v[j])
+                else:
+                    out[i] += Li0.dot(v, out=inc[i])
         else:
             for (i, j), Lij in blocks.items():
-                out[i] += Lij.dot(v[j])
+                if isinstance(Lij, StencilInterfaceMatrix): #Lij.__class__.__name__ == 'StencilInterfaceMatrix':
+                    out[i] += Lij.dot(v[j])
+                else:
+                    out[i] += Lij.dot(v[j], out=inc[i])
 
     #--------------------------------------
     # Other properties/methods
@@ -1258,13 +1301,13 @@ class BlockLinearOperator( LinearOperator ):
 
         if interface:
             def func(blocks, v, out, **args):
-                    vs   = [vi._interface_data[d_axis, d_ext] for vi in v.blocks] if isinstance(v, BlockVector) else v._data
-                    outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else out._data
+                    vs   = [vi._interface_data[d_axis, d_ext] for vi in v.blocks] if isinstance(v, BlockVector) else [v._data]
+                    outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else [out._data]
                     dot(*blocks, *vs, *outs, **args)
         else:
             def func(blocks, v, out, **args):
-                vs   = [vi._data for vi in v.blocks] if isinstance(v, BlockVector) else v._data
-                outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else out._data
+                vs   = [vi._data for vi in v.blocks] if isinstance(v, BlockVector) else [v._data]
+                outs = [outi._data for outi in out.blocks] if isinstance(out, BlockVector) else [out._data]
                 dot(*blocks, *vs, *outs, **args)
 
         self._func    = func

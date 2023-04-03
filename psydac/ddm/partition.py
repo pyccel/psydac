@@ -66,7 +66,7 @@ def partition_procs_per_patch(npts, size):
     return sizes, ranges
 
 #==============================================================================
-def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None, try_uniform=False ):
+def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None, try_uniform=False, mpi_dims_mask=None ):
     """
     With the aim of distributing a multi-dimensional array on a Cartesian
     topology, compute the number of processes along each dimension.
@@ -87,6 +87,10 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None, try_uniform=
 
     try_uniform: bool
         try to decompose the array uniformly.
+        
+    mpi_dims_mask: list of bool
+        True if the dimension is to be used in the domain decomposition (=default for each dimension). 
+        If dim_mask[i]=False, the domain decomposition yields blocksizes[i]=gridsizes[i] along the i-th dimension.
 
     Returns
     -------
@@ -113,7 +117,7 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None, try_uniform=
     if try_uniform and uniform:
         dims, blocksizes = compute_dims_uniform( nnodes, gridsizes )
     else:
-        dims, blocksizes = compute_dims_general( nnodes, gridsizes )
+        dims, blocksizes = compute_dims_general( nnodes, gridsizes, mpi_dims_mask=mpi_dims_mask )
 
     # If a minimum block size is given, verify that condition is met
 
@@ -132,10 +136,23 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None, try_uniform=
     return dims, blocksizes
 
 #==============================================================================
-def compute_dims_general( mpi_size, npts ):
+def compute_dims_general( mpi_size, npts, mpi_dims_mask=None ):
+
+    if mpi_dims_mask is None:
+        mpi_dims_mask = [True] * len(npts)
+    else:
+        assert len(mpi_dims_mask) == len(npts), "mpi_dims_mask must have one entry for each dimension."
+        assert all(isinstance(m, bool) for m in mpi_dims_mask), "mpi_dims_mask must only contain True/False values."
+        assert any(mpi_dims_mask), "mpi_dims_mask must contain at least one True value."
 
     nprocs = [1]*len( npts )
-    shape  = [n for n in npts]
+    
+    shape = []
+    for n, use_dim in zip(npts, mpi_dims_mask):
+        if use_dim:
+            shape += [n]
+        else:
+            shape += [-1]
 
     f = factorint( mpi_size, multiple=True )
     f.sort( reverse=True )
@@ -150,6 +167,10 @@ def compute_dims_general( mpi_size, npts ):
 
         nprocs[i]  *= a
         shape [i] //= a
+        
+    for i, use_dim in enumerate(mpi_dims_mask):
+        if not use_dim:
+            shape[i] = npts[i]
 
     return nprocs, shape
 
