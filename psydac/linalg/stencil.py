@@ -1858,7 +1858,7 @@ class StencilInterfaceMatrix(LinearOperator):
         if out is not None:
             assert isinstance( out, StencilVector )
             assert out.space is self.codomain
-            out._data[...] = 0.
+            out[(slice(None,None),)*v.space.ndim] = 0.
         else:
             out = StencilVector( self.codomain )
 
