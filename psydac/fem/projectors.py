@@ -6,10 +6,15 @@ from psydac.linalg.identity import IdentityStencilMatrix
 from psydac.linalg.stencil  import StencilVectorSpace
 
 def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
+    """ Compute the point difference between the fine grid and coarse grid."""
 #    assert len(coarse_grid)*2-2 == len(fine_grid)-1
-    intersection = coarse_grid[(np.abs(fine_grid[:,None] - coarse_grid) < tol).any(0)]
+    indices1 =  (np.abs(fine_grid  [:,None] - coarse_grid) < tol).any(0)
+    indices2 = ~(np.abs(coarse_grid[:,None] - fine_grid  ) < tol).any(0)
+
+    intersection = coarse_grid[indices1]
+    T            = fine_grid[indices2]
+
     assert abs(intersection-coarse_grid).max()<tol
-    T = fine_grid[~(np.abs(coarse_grid[:,None] - fine_grid) < tol).any(0)]
     return T
 
 def construct_projection_operator(domain, codomain):

@@ -449,7 +449,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     assert len(self.grid) == 1
                     if not v.coeffs.ghost_regions_in_sync:
                         v.coeffs.update_ghost_regions()
-                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, trial=True, grid=self.grid[0])
+                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, trial=True,  grid=self.grid[0])
                     bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
@@ -676,6 +676,9 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_space = trial_space.spaces[j]
             ncells = tuple(max(i,j) for i,j in zip(test_fem_space.ncells, trial_fem_space.ncells))
             is_conformal = tuple(test_fem_space.ncells) == ncells and tuple(trial_fem_space.ncells) == ncells
+            if is_broken and not is_conformal and not i==j:
+                use_restriction = all(trn>=tn for trn,tn in zip(trial_fem_space.ncells, test_fem_space.ncells))
+                use_prolongation = not use_restriction
 
         else:
             ncells = tuple(max(i,j) for i,j in zip(test_fem_space.ncells, trial_fem_space.ncells))
@@ -689,15 +692,15 @@ class DiscreteBilinearForm(BasicDiscrete):
                 if not self._matrix[i,j]:
                     mat = BlockLinearOperator(trial_fem_space._refined_space[ncells].vector_space, test_fem_space._refined_space[ncells].vector_space)
                     if not is_conformal and not i==j:
-                        if all(trn>=tn for trn,tn in zip(trial_fem_space.ncells, test_fem_space.ncells)):
+                        if use_restriction:
                             Ps  = [construct_projection_operator(ts._refined_space[ncells], ts) for ts in test_fem_space.spaces]
                             P   = BlockLinearOperator(test_fem_space._refined_space[ncells].vector_space, test_fem_space.vector_space)
-
                             for ni,Pi in enumerate(Ps):
                                 P[ni,ni] = Pi
 
                             mat = ComposedLinearOperator(trial_space, test_space, P, mat)
-                        else:
+
+                        elif use_prolongation:
                             Ps  = [construct_projection_operator(trs, trs._refined_space[ncells]) for trs in trial_fem_space.spaces]
                             P   = BlockLinearOperator(trial_fem_space.vector_space, trial_fem_space._refined_space[ncells].vector_space)
                             for ni,Pi in enumerate(Ps):P[ni,ni] = Pi
@@ -756,15 +759,16 @@ class DiscreteBilinearForm(BasicDiscrete):
 
                     if is_conformal:
                         matrix[k1,k2] = global_mats[k1,k2]
-                    elif all(trn>=tn for trn,tn in zip(trial_fem_space.ncells, test_fem_space.ncells)):
+                    elif use_restriction:
                         matrix.operators[-1][k1,k2] = global_mats[k1,k2]
-                    else:
+                    elif use_prolongation:
                         matrix.operators[0][k1,k2] = global_mats[k1,k2]
 
         else: # case of scalar equation
             if is_broken: # multi-patch
                 if self._matrix[i,j]:
                     global_mats[i,j] = self._matrix[i,j]
+
                 elif not i == j: # assembling in an interface (type(target) == Interface)
                     axis   = target.axis
                     ext_d  = self._trial_ext
@@ -791,12 +795,13 @@ class DiscreteBilinearForm(BasicDiscrete):
                                                      ext_d, ext_c,
                                                      flip=flip)
                         if not is_conformal:
-                            if all(trn>=tn for trn,tn in zip(trial_fem_space.ncells, test_fem_space.ncells)):
+                            if use_restriction:
                                 P   = construct_projection_operator(test_fem_space._refined_space[ncells], test_fem_space)
                                 mat = ComposedLinearOperator(trial_space, test_space, P, mat)
-                            else:
+                            elif use_prolongation:
                                 P   = construct_projection_operator(trial_fem_space, trial_fem_space._refined_space[ncells])
                                 mat = ComposedLinearOperator(trial_space, test_space, mat, P)
+
                         global_mats[i,j] = mat
                 else:
                     global_mats[i,j] = StencilMatrix(trial_space, test_space, pads=tuple(pads))
@@ -818,7 +823,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         elif backend is not None:
             self._matrix.set_backend(backend)
 
-        self._global_matrices     = [M._data for M in extract_stencil_mats(global_mats.values())]
+        self._global_matrices = [M._data for M in extract_stencil_mats(global_mats.values())]
 
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
