@@ -192,15 +192,6 @@ class LinearOperator(ABC):
     def dtype(self):
         pass
 
-    @property
-    def T(self):
-        return self.transpose()
-
-    @property
-    def H(self):
-        L = self.T
-        return L.conjugate(out=L)
-
     @abstractmethod
     def tosparse(self):
         pass
@@ -274,8 +265,20 @@ class LinearOperator(ABC):
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
-    def transpose(self):
+    def transpose(self, out=None):
         raise NotImplementedError()
+
+    @property
+    def T(self):
+        return self.transpose()
+
+    def conjugate(self, out=None):
+        raise NotImplementedError()
+
+    @property
+    def H(self):
+        L = self.T
+        return L.conjugate(out=L)
 
     def idot(self, v, out):
         """
