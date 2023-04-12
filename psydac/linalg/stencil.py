@@ -788,7 +788,7 @@ class StencilMatrix( LinearOperator ):
         assert isinstance( W, StencilVectorSpace )
         assert W.pads == V.pads
         if not W.dtype==V.dtype:
-            raise NotImplementedError("This case is not treated")
+            raise NotImplementedError("The domain and the codomain should have the same data type.")
 
         if pads is not None:
             for p,vp in zip(pads, V.pads):
