@@ -691,7 +691,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
         t1 = time()
     else:
         t0 = time()
-        S_inv = inverse(Sp, 'cg', tol=1e-7, maxiter=100, verbose=False)
+        S_inv = inverse(S, 'cg', tol=1e-7, maxiter=100, verbose=False)
         x = S_inv @ b
         info = S_inv.get_info()
         t1 = time()
