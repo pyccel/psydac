@@ -89,7 +89,7 @@ def test_bicgstab_tridiagonal(n, p, dtype, verbose=False):
     #Create the solvers
     solv = inverse(A, 'bicgstab', tol=1e-13, verbose=True)
     solvt = solv.transpose()
-    solvh = solv.H()
+    solvh = solv.H
 
     # Solve linear system using BiCGSTAB
     x = solv @ b
@@ -168,7 +168,7 @@ def test_bicg_tridiagonal(n, p, dtype, verbose=False):
     #Create the solvers
     solv  = inverse(A, 'bicg', tol=1e-13, verbose=True)
     solvt = solv.transpose()
-    solvh = solv.H()
+    solvh = solv.H
 
     # Solve linear system using BiCG
     x = solv @ b
@@ -247,7 +247,7 @@ def test_lsmr_tridiagonal(n, p, dtype, verbose=False):
     #Create the solvers
     solv  = inverse(A, 'lsmr', tol=1e-13, verbose=True)
     solvt = solv.transpose()
-    solvh = solv.H()
+    solvh = solv.H
 
     # Solve linear system using lsmr
     x = solv @ b
@@ -324,7 +324,7 @@ def test_minres_tridiagonal(n, p, verbose=False):
     #Create the solvers
     solv  = inverse(A, 'minres', tol=1e-13, verbose=True)
     solvt = solv.transpose()
-    solvh = solv.H()
+    solvh = solv.H
 
     # Solve linear system using minres
     x = solv @ b
@@ -412,7 +412,7 @@ def test_pcg_tridiagonal(n, p, dtype, verbose=False):
     #Create the solvers with different preconditioner
     solv0  = inverse(A, 'pcg', tol=1e-13, verbose=True)
     solv0t = solv0.transpose()
-    solv0h = solv0.H()
+    solv0h = solv0.H
     solv1  = inverse(A, 'pcg', tol=1e-13, verbose=True, pc="jacobi")
     # solv1b = inverse(A, 'pcg', tol=1e-13, verbose=True, pc=jacobi)
     # solv1c = inverse(A, 'pcg', tol=1e-13, verbose=True, pc=LocallyOnlyJacobiSolver())
@@ -510,7 +510,7 @@ def test_cg_tridiagonal( n, p, dtype, verbose=False):
     #Create the solvers
     solv  = inverse(A, 'cg', tol=1e-13, verbose=True)
     solvt = solv.transpose()
-    solvh = solv.H()
+    solvh = solv.H
 
     # Solve linear system using lsmr
     x = solv @ b
