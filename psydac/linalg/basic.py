@@ -266,6 +266,14 @@ class LinearOperator(ABC):
     # Methods with default implementation
     #-------------------------------------
     def transpose(self, conjugate=False, out=None):
+        """
+        Transpose the LinearOperator and return it in out.
+
+        If out is None, create a new LinearOperator.
+
+        If conjugate is True, return the Hermitian transpose.
+        """
+
         raise NotImplementedError()
 
     @property
