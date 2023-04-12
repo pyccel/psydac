@@ -1019,7 +1019,7 @@ class StencilMatrix( LinearOperator ):
         return self
         
     # ...
-    def transpose( self, conjugate=False, out=None ):
+    def transpose(self, conjugate=False):
         """ Create new StencilMatrix Mt, where domain and codomain are swapped
             with respect to original matrix M, and Mt_{ij} = M_{ji}.
         """

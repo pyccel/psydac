@@ -139,6 +139,16 @@ class Vector(ABC):
         The behavior of this function is similar to `numpy.conjugate(self, out=None)`.
         """
 
+    #-------------------------------------
+    # Methods with default implementation
+    #-------------------------------------
+    def __truediv__(self, a):
+        return self * (1.0 / a)
+
+    def __itruediv__(self, a):
+        self *= 1.0 / a
+        return self
+
     def conj(self, out=None):
         """Compute the complex conjugate vector.
 
@@ -149,16 +159,6 @@ class Vector(ABC):
         The behavior of this function is similar to `numpy.conj(self, out=None)`.
         """
         return self.conjugate(out)
-
-    #-------------------------------------
-    # Methods with default implementation
-    #-------------------------------------
-    def __truediv__(self, a):
-        return self * (1.0 / a)
-
-    def __itruediv__(self, a):
-        self *= 1.0 / a
-        return self
 
 #===============================================================================
 class LinearOperator(ABC):
@@ -204,6 +204,17 @@ class LinearOperator(ABC):
     def dot(self, v, out=None):
         """ Apply linear operator to Vector v. Result is written to Vector out, if provided."""
         pass
+
+    @abstractmethod
+    def transpose(self, conjugate=False):
+        """
+        Transpose the LinearOperator and return it in out.
+
+        If out is None, create a new LinearOperator.
+
+        If conjugate is True, return the Hermitian transpose.
+        """
+
 
     #-------------------------------------
     # Magic methods
@@ -265,16 +276,6 @@ class LinearOperator(ABC):
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
-    def transpose(self, conjugate=False, out=None):
-        """
-        Transpose the LinearOperator and return it in out.
-
-        If out is None, create a new LinearOperator.
-
-        If conjugate is True, return the Hermitian transpose.
-        """
-
-        raise NotImplementedError()
 
     @property
     def T(self):
