@@ -320,6 +320,9 @@ class DenseMatrix( LinearOperator ):
     def codomain( self ):
         return self._codomain
 
+    def transpose(self, conjugate=False):
+        return NotImplementedError()
+
     # ...
     @property
     def dtype( self ):

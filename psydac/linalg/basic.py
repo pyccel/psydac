@@ -212,6 +212,7 @@ class LinearOperator(ABC):
 
         If conjugate is True, return the Hermitian transpose.
         """
+        pass
 
     #-------------------------------------
     # Magic methods

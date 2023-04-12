@@ -206,6 +206,9 @@ class LinearOperator_StencilToDense( LinearOperator ):
 
         return coo
 
+    def transpose(self, conjugate=False):
+        return NotImplementedError()
+
 #==============================================================================
 class LinearOperator_DenseToStencil( LinearOperator ):
 
@@ -388,4 +391,7 @@ class LinearOperator_DenseToStencil( LinearOperator ):
         coo.eliminate_zeros()
 
         return coo
+
+    def transpose(self, conjugate=False):
+        return NotImplementedError()
 
