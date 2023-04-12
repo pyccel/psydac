@@ -627,7 +627,6 @@ class StencilVector( Vector ):
 
     # ...
     # TODO: maybe change name to 'exchange'
-
     def update_ghost_regions(self):
         """
         Update ghost regions before performing non-local access to vector
