@@ -208,13 +208,10 @@ class LinearOperator(ABC):
     @abstractmethod
     def transpose(self, conjugate=False):
         """
-        Transpose the LinearOperator and return it in out.
-
-        If out is None, create a new LinearOperator.
+        Transpose the LinearOperator .
 
         If conjugate is True, return the Hermitian transpose.
         """
-
 
     #-------------------------------------
     # Magic methods
