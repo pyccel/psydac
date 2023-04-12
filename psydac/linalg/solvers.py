@@ -144,17 +144,11 @@ class ConjugateGradient(InverseLinearOperator):
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def transpose(self):
-        At = self._A.T
+    def transpose(self, conjugate=False):
+        At = self._A.transpose(conjugate=conjugate)
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
-
-    def H(self):
-        Ah = self._A.H
-        solver = self._solver
-        options = self._options
-        return inverse(Ah, solver, **options)
 
     def solve(self, b, out=None):
         """
@@ -351,17 +345,11 @@ class PConjugateGradient(InverseLinearOperator):
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def transpose(self):
-        At = self._A.T
+    def transpose(self, conjugate=False):
+        At = self._A.transpose(conjugate=conjugate)
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
-
-    def H(self):
-        Ah = self._A.H
-        solver = self._solver
-        options = self._options
-        return inverse(Ah, solver, **options)
 
     def solve(self, b, out=None):
         """
@@ -570,17 +558,11 @@ class BiConjugateGradient(InverseLinearOperator):
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def transpose(self):
-        At = self._A.T
+    def transpose(self, conjugate=False):
+        At = self._A.transpose(conjugate=conjugate)
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
-
-    def H(self):
-        Ah = self._A.H
-        solver = self._solver
-        options = self._options
-        return inverse(Ah, solver, **options)
 
     def solve(self, b, out=None):
         """
@@ -815,17 +797,11 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
     def _update_options( self ):
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
-    def transpose(self):
-        At = self._A.T
+    def transpose(self, conjugate=False):
+        At = self._A.transpose(conjugate=conjugate)
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
-
-    def H(self):
-        Ah = self._A.H
-        solver = self._solver
-        options = self._options
-        return inverse(Ah, solver, **options)
 
     def solve(self, b, out=None):
         """
@@ -1077,17 +1053,11 @@ class MinimumResidual(InverseLinearOperator):
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def transpose(self):
-        At = self._A.T
+    def transpose(self, conjugate=False):
+        At = self._A.transpose(conjugate=conjugate)
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
-
-    def H(self):
-        Ah = self._A.H
-        solver = self._solver
-        options = self._options
-        return inverse(Ah, solver, **options)
 
     def solve(self, b, out=None):
         """
@@ -1453,17 +1423,11 @@ class LSMR(InverseLinearOperator):
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def transpose(self):
-        At = self._A.T
+    def transpose(self, conjugate=False):
+        At = self._A.transpose(conjugate=conjugate)
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
-
-    def H(self):
-        Ah = self._A.H
-        solver = self._solver
-        options = self._options
-        return inverse(Ah, solver, **options)
 
     def solve(self, b, out=None):
         """Iterative solver for least-squares problems.

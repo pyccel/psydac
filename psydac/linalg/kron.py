@@ -227,8 +227,8 @@ class KroneckerStencilMatrix( LinearOperator ):
     def toarray(self):
         return self.tosparse().toarray()
 
-    def transpose(self):
-        mats_tr = [Mi.transpose() for Mi in self.mats]
+    def transpose(self, conjugate=False):
+        mats_tr = [Mi.transpose(conjugate=conjugate) for Mi in self.mats]
         return KroneckerStencilMatrix(self.codomain, self.domain, *mats_tr)
 
     @property

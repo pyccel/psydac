@@ -265,20 +265,16 @@ class LinearOperator(ABC):
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
-    def transpose(self, out=None):
+    def transpose(self, conjugate=False, out=None):
         raise NotImplementedError()
 
     @property
     def T(self):
         return self.transpose()
 
-    def conjugate(self, out=None):
-        raise NotImplementedError()
-
     @property
     def H(self):
-        L = self.T
-        return L.conjugate(out=L)
+        return self.transpose(conjugate=True)
 
     def idot(self, v, out):
         """
@@ -345,7 +341,7 @@ class ZeroOperator(LinearOperator):
         from scipy.sparse import csr_matrix
         return csr_matrix(self.shape, dtype=self.dtype)
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         return ZeroOperator(domain=self._codomain, codomain=self._domain)
 
     def dot(self, v, out=None):
@@ -434,7 +430,7 @@ class IdentityOperator(LinearOperator):
         from scipy.sparse import identity
         return identity(self._domain.dimension, dtype=self.dtype, format="csr")
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         """ Could return self, but by convention returns new object. """
         return IdentityOperator(self._domain, self._codomain)
 
@@ -509,8 +505,8 @@ class ScaledLinearOperator(LinearOperator):
         from scipy.sparse import csr_matrix
         return self._scalar*csr_matrix(self._operator.toarray())
 
-    def transpose(self):
-        return ScaledLinearOperator(domain=self._codomain, codomain=self._domain, c=self._scalar, A=self._operator.T)
+    def transpose(self, conjugate=False):
+        return ScaledLinearOperator(domain=self._codomain, codomain=self._domain, c=self._scalar, A=self._operator.transpose(conjugate=conjugate))
 
     def __neg__(self):
         return ScaledLinearOperator(domain=self._domain, codomain=self._codomain, c=-1*self._scalar, A=self._operator)
@@ -602,10 +598,10 @@ class SumLinearOperator(LinearOperator):
             out += a.tosparse()
         return out
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         t_addends = ()
         for a in self._addends:
-            t_addends = (*t_addends, a.T)
+            t_addends = (*t_addends, a.transpose(conjugate=conjugate))
         return SumLinearOperator(self._codomain, self._domain, *t_addends)
 
     @staticmethod
@@ -711,10 +707,10 @@ class ComposedLinearOperator(LinearOperator):
     def tosparse(self):
         raise NotImplementedError('tosparse() is not defined for ComposedLinearOperators.')
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         t_multiplicants = ()
         for a in self._multiplicants:
-            t_multiplicants = (a.T, *t_multiplicants)
+            t_multiplicants = (a.transpose(conjugate=conjugate), *t_multiplicants)
         new_dom = self._codomain
         new_cod = self._domain
         assert isinstance(new_dom, VectorSpace)
@@ -800,8 +796,8 @@ class PowerLinearOperator(LinearOperator):
     def tosparse(self):
         raise NotImplementedError('tosparse() is not defined for PowerLinearOperators.')
 
-    def transpose(self):
-        return PowerLinearOperator(domain=self._codomain, codomain=self._domain, A=self._operator.T, n=self._factorial)
+    def transpose(self, conjugate=False):
+        return PowerLinearOperator(domain=self._codomain, codomain=self._domain, A=self._operator.transpose(conjugate=conjugate), n=self._factorial)
 
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
@@ -871,7 +867,7 @@ class InverseLinearOperator(LinearOperator):
         pass
 
     @abstractmethod
-    def transpose(self):
+    def transpose(self, conjugate=False):
         pass
 
     @staticmethod

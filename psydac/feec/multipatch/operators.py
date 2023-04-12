@@ -973,7 +973,7 @@ class BrokenGradient_2D(FemLinearOperator):
         self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D0i._matrix for i, D0i in enumerate(D0s)})
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         # todo (MCP): define as the dual differential operator
         return BrokenTransposedGradient_2D(self.fem_domain, self.fem_codomain)
 
@@ -989,7 +989,7 @@ class BrokenTransposedGradient_2D( FemLinearOperator ):
         self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D0i._matrix.T for i, D0i in enumerate(D0s)})
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         # todo (MCP): discard
         return BrokenGradient_2D(self.fem_codomain, self.fem_domain)
 
@@ -1005,7 +1005,7 @@ class BrokenScalarCurl_2D(FemLinearOperator):
         self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D1i._matrix for i, D1i in enumerate(D1s)})
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         return BrokenTransposedScalarCurl_2D(V1h=self.fem_domain, V2h=self.fem_codomain)
 
 
@@ -1021,7 +1021,7 @@ class BrokenTransposedScalarCurl_2D( FemLinearOperator ):
         self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D1i._matrix.T for i, D1i in enumerate(D1s)})
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         return BrokenScalarCurl_2D(V1h=self.fem_codomain, V2h=self.fem_domain)
 
 

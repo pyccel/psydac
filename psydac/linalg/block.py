@@ -922,9 +922,9 @@ class BlockLinearOperator( LinearOperator ):
         return self
             
     # ...
-    def transpose(self):
+    def transpose(self, conjugate=False):
         blocks, blocks_T = self.compute_interface_matrices_transpose()
-        blocks = {(j, i): b.transpose() for (i, j), b in blocks.items()}
+        blocks = {(j, i): b.transpose(conjugate=conjugate) for (i, j), b in blocks.items()}
         blocks.update(blocks_T)
         mat = BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
         mat.set_backend(self._backend)
