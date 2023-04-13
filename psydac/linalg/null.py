@@ -66,7 +66,7 @@ class NullLinearOperator(LinearOperator):
         return self.codomain.zeros()
 
     def transpose(self, conjugate=False):
-        return NotImplementedError()
+        raise NotImplementedError()
 
 class NullMatrix( NullLinearOperator ):
 

@@ -321,7 +321,7 @@ class DenseMatrix( LinearOperator ):
         return self._codomain
 
     def transpose(self, conjugate=False):
-        return NotImplementedError()
+        raise NotImplementedError()
 
     # ...
     @property

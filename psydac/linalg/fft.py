@@ -90,7 +90,7 @@ class DistributedFFTBase(LinearOperator):
         return self._isolver.solve(v, out=out)
 
     def transpose(self, conjugate=False):
-        return NotImplementedError()
+        raise NotImplementedError()
 
 # IMPORTANT NOTE: All of these scifft.fft functions currently trust that overwrite_x=True will yield an in-place fft...
 # (this is not completely given to hold forever, so in case these tests fail in some future version, change this)

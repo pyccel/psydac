@@ -68,7 +68,7 @@ class IdentityLinearOperator(LinearOperator):
         return v
 
     def transpose(self, conjugate=False):
-        return NotImplementedError()
+        raise NotImplementedError()
 
 class IdentityMatrix( IdentityLinearOperator ):
 
