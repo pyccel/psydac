@@ -87,15 +87,6 @@ class IdentityMatrix( IdentityLinearOperator ):
         else:
             return sparse_id(*self.shape)
 
-    def __truediv__(self, a):
-        """ Divide by scalar. """
-        return self * (1.0 / a)
-
-    def __itruediv__(self, a):
-        """ Divide by scalar, in place. """
-        self *= 1.0 / a
-        return self
-    
     def copy(self):
         return IdentityMatrix(self.domain)
 

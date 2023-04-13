@@ -570,15 +570,6 @@ class BlockLinearOperator( LinearOperator ):
 #                            return False
 #        return True
 
-    def __truediv__(self, a):
-        """ Divide by scalar. """
-        return self * (1.0 / a)
-
-    def __itruediv__(self, a):
-        """ Divide by scalar, in place. """
-        self *= 1.0 / a
-        return self
-
     # toarray, tosparse and copy as required by Matrix
     def toarray( self, **kwargs ):
         """ Convert to Numpy 2D array. """

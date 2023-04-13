@@ -214,6 +214,8 @@ class LinearOperator(ABC):
         """
         pass
 
+    # TODO: check if we should add a copy method!!!
+
     #-------------------------------------
     # Magic methods
     #-------------------------------------
@@ -235,7 +237,7 @@ class LinearOperator(ABC):
             return ScaledLinearOperator(self._domain, self._codomain, c, self)
 
     def __rmul__(self, c):
-        """ Calles :ref:`__mul__ <mul>` instead. """
+        """ Calls :ref:`__mul__ <mul>` instead. """
         return self * c
 
     def __matmul__(self, B):
@@ -271,6 +273,15 @@ class LinearOperator(ABC):
         """ Creates an object of class :ref:`PowerLinearOperator <powerlinearoperator>`. """
         return PowerLinearOperator(self._domain, self._codomain, self, n)
 
+    def __truediv__(self, c):
+        """ Divide by scalar. """
+        return self * (1.0 / c)
+
+    def __itruediv__(self, c):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / c
+        return self
+
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
@@ -286,7 +297,7 @@ class LinearOperator(ABC):
     def idot(self, v, out):
         """
         Implements out += self @ v with a temporary.
-        Subclasses should provide a implementation without a temporary.
+        Subclasses should provide an implementation without a temporary.
 
         """
         assert isinstance(v, Vector)

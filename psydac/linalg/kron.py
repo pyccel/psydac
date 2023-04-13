@@ -58,15 +58,6 @@ class KroneckerStencilMatrix( LinearOperator ):
     def mats( self ):
         return self._mats
 
-    def __truediv__(self, a):
-        """ Divide by scalar. """
-        return self * (1.0 / a)
-
-    def __itruediv__(self, a):
-        """ Divide by scalar, in place. """
-        self *= 1.0 / a
-        return self
-
     # ...
     def dot( self, x, out=None ):
 

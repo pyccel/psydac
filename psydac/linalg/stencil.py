@@ -1008,15 +1008,6 @@ class StencilMatrix( LinearOperator ):
     def conj(self, out=None):
         return self.conjugate(out=out)
 
-    def __truediv__(self, a):
-        """ Divide by scalar. """
-        return self * (1.0 / a)
-
-    def __itruediv__(self, a):
-        """ Divide by scalar, in place. """
-        self *= 1.0 / a
-        return self
-        
     # ...
     def transpose(self, conjugate=False):
         """ Create new StencilMatrix Mt, where domain and codomain are swapped
@@ -1229,12 +1220,6 @@ class StencilMatrix( LinearOperator ):
             return self
         else:
             return LinearOperator.__sub__(self, m)
-
-    # ...
-    def __itruediv__(self, a):
-        """ Divide by scalar, in place. """
-        self *= 1.0 / a
-        return self
 
     #...
     def __abs__( self ):
@@ -2048,15 +2033,6 @@ class StencilInterfaceMatrix(LinearOperator):
                     out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
 
             new_nrows[d] += er
-
-    def __truediv__(self, a):
-        """ Divide by scalar. """
-        return self * (1.0 / a)
-
-    def __itruediv__(self, a):
-        """ Divide by scalar, in place. """
-        self *= 1.0 / a
-        return self
 
     # ...
     def transpose( self, conjugate=False, Mt=None):
