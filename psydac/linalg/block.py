@@ -15,7 +15,7 @@ from psydac.linalg.stencil import StencilVector, StencilMatrix
 __all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockDiagonalSolver']
 
 #===============================================================================
-class BlockVectorSpace( VectorSpace ):
+class BlockVectorSpace(VectorSpace):
     """
     Product Vector Space V of two Vector Spaces (V1,V2) or more.
 
@@ -43,7 +43,7 @@ class BlockVectorSpace( VectorSpace ):
         return VectorSpace.__new__(cls)
 
     # ...
-    def __init__(self,  *spaces, connectivity=None):
+    def __init__(self, *spaces, connectivity=None):
 
         # Store spaces in a Tuple, because they will not be changed
         self._spaces = tuple(spaces)
@@ -60,21 +60,21 @@ class BlockVectorSpace( VectorSpace ):
     # Abstract interface
     #--------------------------------------
     @property
-    def dimension( self ):
+    def dimension(self):
         """
         The dimension of a product space V = (V1, V2, ...] is the cardinality
         (i.e. the number of vectors) of a basis of V over its base field.
 
         """
-        return sum( Vi.dimension for Vi in self._spaces )
+        return sum(Vi.dimension for Vi in self._spaces)
 
     # ...
     @property
-    def dtype( self ):
+    def dtype(self):
         return self._dtype
 
     # ...
-    def zeros( self ):
+    def zeros(self):
         """
         Get a copy of the null element of the product space V = [V1, V2, ...]
 
@@ -84,41 +84,41 @@ class BlockVectorSpace( VectorSpace ):
             A new vector object with all components equal to zero.
 
         """
-        return BlockVector( self, [Vi.zeros() for Vi in self._spaces] )
+        return BlockVector(self, [Vi.zeros() for Vi in self._spaces])
 
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
     @property
-    def spaces( self ):
+    def spaces(self):
         return self._spaces
 
     @property
-    def parallel( self ):
+    def parallel(self):
         """ Returns True if the memory is distributed."""
         return self._spaces[0].parallel
 
     @property
-    def starts( self ):
+    def starts(self):
         return [s.starts for s in self._spaces]
 
     @property
-    def ends( self ):
+    def ends(self):
         return [s.ends for s in self._spaces]
 
     @property
-    def pads( self ):
+    def pads(self):
         return self._spaces[0].pads
 
     @property
-    def n_blocks( self ):
-        return len( self._spaces )
+    def n_blocks(self):
+        return len(self._spaces)
 
     @property
-    def connectivity( self ):
+    def connectivity(self):
         return self._connectivity_readonly
 
-    def __getitem__( self, key ):
+    def __getitem__(self, key):
         return self._spaces[key]
 
 #===============================================================================
