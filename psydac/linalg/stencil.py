@@ -993,21 +993,6 @@ class StencilMatrix( LinearOperator ):
 
             new_nrows[d] += er
             
-    def conjugate(self, out=None):
-        if out is not None:
-            assert isinstance(out, StencilMatrix)
-            assert out.domain is self.domain
-            assert out.codomain is self.codomain
-        else:
-            out = StencilMatrix(self.domain, self.codomain, pads=self.pads)
-            out._func    = self._func
-            out._args    = self._args
-        np.conjugate(self._data, out=out._data, casting='no')
-        return out
-
-    def conj(self, out=None):
-        return self.conjugate(out=out)
-
     # ...
     def transpose(self, conjugate=False):
         """ Create new StencilMatrix Mt, where domain and codomain are swapped
@@ -1086,42 +1071,12 @@ class StencilMatrix( LinearOperator ):
         return coo
 
     #--------------------------------------
-    # Other properties/methods
+    # Overridden properties/methods
     #--------------------------------------
+    def __neg__(self):
+        return self.__mul__(-1)
 
     # ...
-    @property
-    def pads( self ):
-        return self._pads
-
-    # ...
-    @property
-    def backend( self ):
-        return self._backend
-
-    # ...
-    def __getitem__(self, key):
-        index = self._getindex( key )
-        return self._data[index]
-
-    # ...
-    def __setitem__(self, key, value):
-        index = self._getindex( key )
-        self._data[index] = value
-
-    #...
-    def max( self ):
-        return self._data.max()
-
-    #...
-    def copy( self ):
-        M = StencilMatrix( self.domain, self.codomain, self._pads, self._backend )
-        M._data[:] = self._data[:]
-        M._func    = self._func
-        M._args    = self._args
-        return M
-
-    #...
     def __mul__( self, a ):
         w = StencilMatrix( self._domain, self._codomain, self._pads, self._backend )
         w._data = self._data * a
@@ -1131,6 +1086,7 @@ class StencilMatrix( LinearOperator ):
         return w
 
     #...
+    # TODO: check if this method is really needed!!
     def __rmul__( self, a ):
         w = StencilMatrix( self._domain, self._codomain, self._pads, self._backend )
         w._data = a * self._data
@@ -1138,10 +1094,6 @@ class StencilMatrix( LinearOperator ):
         w._args = self._args
         w._sync = self._sync
         return w
-
-    # ...
-    def __neg__(self):
-        return self.__mul__(-1)
 
     #...
     def __add__(self, m):
@@ -1185,10 +1137,59 @@ class StencilMatrix( LinearOperator ):
         else:
             return LinearOperator.__sub__(self, m)
 
+    #--------------------------------------
+    # New properties/methods
+    #--------------------------------------
+
+    # TODO: check if this method is really needed!!
+    def conjugate(self, out=None):
+        if out is not None:
+            assert isinstance(out, StencilMatrix)
+            assert out.domain is self.domain
+            assert out.codomain is self.codomain
+        else:
+            out = StencilMatrix(self.domain, self.codomain, pads=self.pads)
+            out._func    = self._func
+            out._args    = self._args
+        np.conjugate(self._data, out=out._data, casting='no')
+        return out
+
     # ...
-    def __truediv__(self, a):
-        """ Divide by scalar. """
-        return self * (1.0 / a)
+    # TODO: check if this method is really needed!!
+    def conj(self, out=None):
+        return self.conjugate(out=out)
+
+    # ...
+    @property
+    def pads( self ):
+        return self._pads
+
+    # ...
+    @property
+    def backend( self ):
+        return self._backend
+
+    # ...
+    def __getitem__(self, key):
+        index = self._getindex( key )
+        return self._data[index]
+
+    # ...
+    def __setitem__(self, key, value):
+        index = self._getindex( key )
+        self._data[index] = value
+
+    #...
+    def max( self ):
+        return self._data.max()
+
+    #...
+    def copy( self ):
+        M = StencilMatrix( self.domain, self.codomain, self._pads, self._backend )
+        M._data[:] = self._data[:]
+        M._func    = self._func
+        M._args    = self._args
+        return M
 
     #...
     def __imul__(self, a):
@@ -1336,11 +1337,6 @@ class StencilMatrix( LinearOperator ):
                 idx_to   = tuple( idx_front + [slice( m*p, m*p+p)] + idx_back )
                 idx_from = tuple( idx_front + [ slice(-m*p,-m*p+p) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back )
                 self._data[idx_to] += self._data[idx_from]
-
-    # ...
-    @property
-    def T(self):
-        return self.transpose()
 
     def diagonal(self):
         if self._diag_indices is None:
