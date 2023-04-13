@@ -25,7 +25,7 @@ from psydac.api.tests.build_domain   import build_pretzel
 from psydac.fem.basic                import FemField
 from psydac.api.settings             import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.pull_push           import pull_2d_hcurl
-from psydac.linalg.utilities         import array_to_stencil
+#from psydac.linalg.utilities         import array_to_stencil
 
 #==============================================================================
 def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, comm=None):

@@ -216,8 +216,16 @@ class DenseVector( Vector ):
         return res
 
     # ...
-    def copy( self ):
-        return DenseVector( self._space, self._data.copy() )
+    def copy(self, out=None):
+        if self is out:
+            return self
+        if out is not None:
+            assert isinstance(out, DenseVector)
+            assert self.space is out.space
+            np.copyto(out._data, self._data, casting='no')
+            return out
+        else:
+            return DenseVector(self._space, self._data.copy())
 
     # ...
     def __neg__( self ):

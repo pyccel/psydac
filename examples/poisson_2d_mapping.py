@@ -18,6 +18,7 @@ from psydac.fem.basic                  import FemField
 from psydac.mapping.discrete           import SplineMapping
 from psydac.utilities.utils            import refine_array_1d
 from psydac.cad.geometry               import Geometry
+from psydac.ddm.cart                   import DomainDecomposition
 
 from psydac.polar.c1_projections       import C1Projector
 
@@ -579,7 +580,10 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     V2 = SplineSpace( p2, grid=grid_2, periodic=per2 )
 
     # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2, comm=mpi_comm )
+    spaces = [V1, V2]
+    ncells = [len(space.breaks)-1 for space in spaces]
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=[per1, per2], comm=mpi_comm)
+    V = TensorFemSpace(domain_decomposition, *spaces)
 
     s1, s2 = V.vector_space.starts
     e1, e2 = V.vector_space.ends
@@ -691,7 +695,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
         t1 = time()
     else:
         t0 = time()
-        S_inv = inverse(Sp, 'cg', tol=1e-7, maxiter=100, verbose=False)
+        S_inv = inverse(S, 'cg', tol=1e-7, maxiter=100, verbose=False)
         x = S_inv @ b
         info = S_inv.get_info()
         t1 = time()
@@ -762,7 +766,8 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
             V = map_discrete.space
             mapping = map_discrete
         else:
-            V = TensorFemSpace( V1, V2, comm=MPI.COMM_SELF )
+            domain_decomposition = DomainDecomposition(ncells=ncells, periods=[per1, per2], comm=MPI.COMM_SELF)
+            V = TensorFemSpace(domain_decomposition, *spaces)
 
         # Import solution vector into new serial field
         phi, = V.import_fields( 'fields.h5', 'phi' )

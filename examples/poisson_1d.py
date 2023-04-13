@@ -4,6 +4,7 @@ import numpy as np
 from psydac.utilities.quadratures      import gauss_legendre
 from psydac.linalg.stencil             import StencilVector, StencilMatrix
 from psydac.linalg.solvers             import inverse
+from psydac.ddm.cart                   import DomainDecomposition
 
 #==============================================================================
 class Poisson1D:
@@ -235,8 +236,10 @@ if __name__ == '__main__':
     grid = np.linspace( *model.domain, num=ne+1 )
 
     # Create finite element space
-    V = SplineSpace( p, grid=grid, periodic=model.periodic )
-    V = TensorFemSpace( V )
+    space = SplineSpace(p, grid=grid, periodic=model.periodic)
+    ncells = [len(space.breaks)-1]
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=[model.periodic], comm=None)
+    V = TensorFemSpace(domain_decomposition, space)
 
     # Build mass and stiffness matrices
     t0 = time()

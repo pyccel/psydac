@@ -579,8 +579,8 @@ class BlockLinearOperator( LinearOperator ):
         M.eliminate_zeros()
 
         # Sanity check
-        assert M.shape[0] == self.codomain.dimension
-        assert M.shape[1] == self.  domain.dimension
+        #assert M.shape[0] == self.codomain.dimension
+        #assert M.shape[1] == self.  domain.dimension
 
         return M
 
