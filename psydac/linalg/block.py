@@ -122,7 +122,7 @@ class BlockVectorSpace(VectorSpace):
         return self._spaces[key]
 
 #===============================================================================
-class BlockVector( Vector ):
+class BlockVector(Vector):
     """
     Block of Vectors, which is an element of a BlockVectorSpace.
 
@@ -135,26 +135,26 @@ class BlockVector( Vector ):
         List of Vector objects, belonging to the correct spaces (optional).
 
     """
-    def __init__( self,  V, blocks=None ):
+    def __init__(self, V, blocks=None):
 
-        assert isinstance( V, BlockVectorSpace )
+        assert isinstance(V, BlockVectorSpace)
         self._space = V
 
         # We store the blocks in a List so that we can change them later.
         if blocks:
             # Verify that vectors belong to correct spaces and store them
-            assert isinstance( blocks, (list, tuple) )
-            assert all( (isinstance(b, Vector)) for b in blocks )
-            assert all( (Vi is bi.space) for Vi,bi in zip( V.spaces, blocks ) )
+            assert isinstance(blocks, (list, tuple))
+            assert all((isinstance(b, Vector)) for b in blocks)
+            assert all((Vi is bi.space) for Vi,bi in zip(V.spaces, blocks))
 
-            self._blocks = list( blocks )
+            self._blocks = list(blocks)
         else:
             # TODO: Each block is a 'zeros' vector of the correct space for now,
             # but in the future we would like 'empty' vectors of the same space.
             self._blocks = [Vi.zeros() for Vi in V.spaces]
 
         # TODO: distinguish between different directions
-        self._sync  = False
+        self._sync = False
 
         self._data_exchangers = {}
         self._interface_buf   = {}
@@ -162,16 +162,16 @@ class BlockVector( Vector ):
         if not V.parallel: return
 
         # Prepare the data exchangers for the interface data
-        for i,j in V.connectivity:
-            ((axis_i,ext_i),(axis_j,ext_j)) = V.connectivity[i,j]
+        for i, j in V.connectivity:
+            ((axis_i, ext_i),(axis_j, ext_j)) = V.connectivity[i, j]
 
             Vi = V.spaces[i]
             Vj = V.spaces[j]
-            self._data_exchangers[i,j] = []
+            self._data_exchangers[i, j] = []
 
             if isinstance(Vi, BlockVectorSpace) and isinstance(Vj, BlockVectorSpace):
                 # case of a system of equations
-                for k,(Vik,Vjk) in enumerate(zip(Vi.spaces, Vj.spaces)):
+                for k, (Vik, Vjk) in enumerate(zip(Vi.spaces, Vj.spaces)):
                     cart_i = Vik.cart
                     cart_j = Vjk.cart
 
@@ -180,7 +180,7 @@ class BlockVector( Vector ):
                     if not (axis_i, ext_i) in Vik.interfaces: continue
                     cart_ij = Vik.interfaces[axis_i, ext_i].cart
                     assert isinstance(cart_ij, InterfaceCartDecomposition)
-                    self._data_exchangers[i,j].append(get_data_exchanger(cart_ij, self.dtype))
+                    self._data_exchangers[i, j].append(get_data_exchanger(cart_ij, self.dtype))
 
             elif  not isinstance(Vi, BlockVectorSpace) and not isinstance(Vj, BlockVectorSpace):
                 # case of scalar equations
@@ -192,96 +192,96 @@ class BlockVector( Vector ):
 
                 cart_ij = Vi.interfaces[axis_i, ext_i].cart
                 assert isinstance(cart_ij, InterfaceCartDecomposition)
-                self._data_exchangers[i,j].append(get_data_exchanger(cart_ij, self.dtype))
+                self._data_exchangers[i, j].append(get_data_exchanger(cart_ij, self.dtype))
             else:
                 raise NotImplementedError("This case is not treated")
 
-        for i,j in V.connectivity:
-            if len(self._data_exchangers.get((i,j), [])) == 0:
-                self._data_exchangers.pop((i,j), None)
+        for i, j in V.connectivity:
+            if len(self._data_exchangers.get((i, j), [])) == 0:
+                self._data_exchangers.pop((i, j), None)
 
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
     @property
-    def space( self ):
+    def space(self):
         return self._space
 
     #...
     @property
-    def dtype( self ):
+    def dtype(self):
         return self.space.dtype
 
     #...
-    def dot( self, v ):
-        assert isinstance( v, BlockVector )
+    def dot(self, v):
+        assert isinstance(v, BlockVector)
         assert v._space is self._space
-        return sum( b1.dot( b2 ) for b1,b2 in zip( self._blocks, v._blocks ) )
+        return sum(b1.dot(b2) for b1, b2 in zip(self._blocks, v._blocks))
 
     #...
-    def copy( self, out=None ):
+    def copy(self, out=None):
         if self is out:
             return self
-        w = out or BlockVector( self._space )#, [b.copy() for b in self._blocks] )
+        w = out or BlockVector(self._space)#, [b.copy() for b in self._blocks])
         for n, b in enumerate(self._blocks):
             b.copy(out=w[n])
         w._sync = self._sync
         return w
 
     #...
-    def __neg__( self ):
-        w = BlockVector( self._space, [-b for b in self._blocks] )
+    def __neg__(self):
+        w = BlockVector(self._space, [-b for b in self._blocks])
         w._sync = self._sync
         return w
 
     #...
-    def __mul__( self, a ):
-        w = BlockVector( self._space, [b*a for b in self._blocks] )
+    def __mul__(self, a):
+        w = BlockVector(self._space, [b * a for b in self._blocks])
         w._sync = self._sync
         return w
 
     #...
-    def __rmul__( self, a ):
-        w = BlockVector( self._space, [a*b for b in self._blocks] )
+    def __rmul__(self, a):
+        w = BlockVector(self._space, [a * b for b in self._blocks])
         w._sync = self._sync
         return w
 
     #...
-    def __add__( self, v ):
-        assert isinstance( v, BlockVector )
+    def __add__(self, v):
+        assert isinstance(v, BlockVector)
         assert v._space is self._space
-        w = BlockVector( self._space, [b1+b2 for b1,b2 in zip( self._blocks, v._blocks )] )
+        w = BlockVector(self._space, [b1 + b2 for b1, b2 in zip(self._blocks, v._blocks)])
         w._sync = self._sync and v._sync
         return w
 
     #...
-    def __sub__( self, v ):
-        assert isinstance( v, BlockVector )
+    def __sub__(self, v):
+        assert isinstance(v, BlockVector)
         assert v._space is self._space
-        w = BlockVector( self._space, [b1-b2 for b1,b2 in zip( self._blocks, v._blocks )] )
+        w = BlockVector(self._space, [b1 - b2 for b1, b2 in zip(self._blocks, v._blocks)])
         w._sync = self._sync and v._sync
         return w
 
     #...
-    def __imul__( self, a ):
+    def __imul__(self, a):
         for b in self._blocks:
             b *= a
         return self
 
     #...
-    def __iadd__( self, v ):
-        assert isinstance( v, BlockVector )
+    def __iadd__(self, v):
+        assert isinstance(v, BlockVector)
         assert v._space is self._space
-        for b1,b2 in zip( self._blocks, v._blocks ):
+        for b1, b2 in zip(self._blocks, v._blocks):
             b1 += b2
         self._sync = self._sync and v._sync
         return self
 
     #...
-    def __isub__( self, v ):
-        assert isinstance( v, BlockVector )
+    def __isub__(self, v):
+        assert isinstance(v, BlockVector)
         assert v._space is self._space
-        for b1,b2 in zip( self._blocks, v._blocks ):
+        for b1, b2 in zip(self._blocks, v._blocks):
             b1 -= b2
         self._sync = self._sync and v._sync
         return self
@@ -290,11 +290,11 @@ class BlockVector( Vector ):
     # Other properties/methods
     #--------------------------------------
 
-    def __getitem__( self, key ):
+    def __getitem__(self, key):
         return self._blocks[key]
 
     # ...
-    def __setitem__( self, key, value ):
+    def __setitem__(self, key, value):
         assert value.space == self.space[key]
         assert isinstance(value, Vector)
         self._blocks[key] = value
@@ -313,20 +313,20 @@ class BlockVector( Vector ):
 
     # ...
     @property
-    def ghost_regions_in_sync( self ):
+    def ghost_regions_in_sync(self):
         return self._sync
 
     # ...
     # NOTE: this property must be set collectively
     @ghost_regions_in_sync.setter
-    def ghost_regions_in_sync( self, value ):
-        assert isinstance( value, bool )
+    def ghost_regions_in_sync(self, value):
+        assert isinstance(value, bool)
         self._sync = value
         for vi in self.blocks:
             vi.ghost_regions_in_sync = value
 
     # ...
-    def update_ghost_regions( self ):
+    def update_ghost_regions(self):
 
         req = self.start_update_interface_ghost_regions()
 
@@ -338,35 +338,36 @@ class BlockVector( Vector ):
         # Flag ghost regions as up-to-date
         self._sync = True
 
-    def start_update_interface_ghost_regions( self ):
+    def start_update_interface_ghost_regions(self):
         self._collect_interface_buf()
         req = {}
-        for (i,j) in self._data_exchangers:
-            req[i,j] = [data_ex.start_update_ghost_regions(*bufs) for bufs,data_ex in zip(self._interface_buf[i,j], self._data_exchangers[i,j])]
+        for (i, j) in self._data_exchangers:
+            req[i, j] = [data_ex.start_update_ghost_regions(*bufs) for bufs, data_ex in zip(self._interface_buf[i, j], self._data_exchangers[i, j])]
 
         return req
 
-    def end_update_interface_ghost_regions( self, req ):
+    def end_update_interface_ghost_regions(self, req):
 
-        for (i,j) in self._data_exchangers:
-            for data_ex,bufs,req_ij in zip(self._data_exchangers[i,j], self._interface_buf[i,j], req[i,j]):
+        for (i, j) in self._data_exchangers:
+            for data_ex, bufs, req_ij in zip(self._data_exchangers[i, j], self._interface_buf[i, j], req[i, j]):
                 data_ex.end_update_ghost_regions(req_ij)
 
-    def _collect_interface_buf( self ):
+    def _collect_interface_buf(self):
         V = self.space
         if not V.parallel:return
-        for i,j in V.connectivity:
-            if not (i,j) in self._data_exchangers:continue
-            ((axis_i,ext_i), (axis_j,ext_j)) = V.connectivity[i,j]
+        for i, j in V.connectivity:
+            if (i, j) not in self._data_exchangers:
+                continue
+            ((axis_i, ext_i), (axis_j, ext_j)) = V.connectivity[i, j]
 
             Vi = V.spaces[i]
             Vj = V.spaces[j]
 
             # The process that owns the patch i will use block i to send data and receive in block j
-            self._interface_buf[i,j]   = []
+            self._interface_buf[i, j] = []
             if isinstance(Vi, BlockVectorSpace) and isinstance(Vj, BlockVectorSpace):
                 # case of a system of equations
-                for k,(Vik,Vjk) in enumerate(zip(Vi.spaces, Vj.spaces)):
+                for k, (Vik, Vjk) in enumerate(zip(Vi.spaces, Vj.spaces)):
 
                     cart_i = Vik.cart
                     cart_j = Vjk.cart
@@ -399,37 +400,37 @@ class BlockVector( Vector ):
                 else:
                     buf[1] = self._blocks[j]._data
 
-                self._interface_buf[i,j].append(tuple(buf))
+                self._interface_buf[i, j].append(tuple(buf))
 
     # ...
-    def exchange_assembly_data( self ):
+    def exchange_assembly_data(self):
         for vi in self.blocks:
             vi.exchange_assembly_data()
 
     # ...
     @property
-    def n_blocks( self ):
-        return len( self._blocks )
+    def n_blocks(self):
+        return len(self._blocks)
 
     # ...
     @property
-    def blocks( self ):
-        return tuple( self._blocks )
+    def blocks(self):
+        return tuple(self._blocks)
 
     # ...
-    def toarray( self, order='C' ):
-        return np.concatenate( [bi.toarray(order=order) for bi in self._blocks] )
+    def toarray(self, order='C'):
+        return np.concatenate([bi.toarray(order=order) for bi in self._blocks])
 
     # ...
-    def toarray_local( self, order='C' ):
+    def toarray_local(self, order='C'):
         """ Convert to petsc Nest vector.
         """
 
-        blocks    = [v.toarray_local(order=order) for v in self._blocks]
+        blocks = [v.toarray_local(order=order) for v in self._blocks]
         return np.block([blocks])[0]
 
     # ...
-    def topetsc( self ):
+    def topetsc(self):
         """ Convert to petsc data structure.
         """
         from psydac.linalg.topetsc import vec_topetsc
