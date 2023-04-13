@@ -437,7 +437,7 @@ class BlockVector( Vector ):
         return vec
 
 #===============================================================================
-class BlockLinearOperator( LinearOperator ):
+class BlockLinearOperator(LinearOperator):
     """
     Linear operator that can be written as blocks of other Linear Operators.
     Either the domain or the codomain of this operator, or both, should be of
@@ -462,10 +462,10 @@ class BlockLinearOperator( LinearOperator ):
             is the LinearOperator Lij (if None, we assume null operator)
 
     """
-    def __init__( self, V1, V2, blocks=None ):
+    def __init__(self, V1, V2, blocks=None):
 
-        assert isinstance( V1, VectorSpace )
-        assert isinstance( V2, VectorSpace )
+        assert isinstance(V1, VectorSpace)
+        assert isinstance(V2, VectorSpace)
 
         if not (isinstance(V1, BlockVectorSpace) or isinstance(V2, BlockVectorSpace)):
             raise TypeError("Either domain or codomain must be of type BlockVectorSpace")
@@ -480,49 +480,44 @@ class BlockLinearOperator( LinearOperator ):
         # Store blocks in dict (hence they can be manually changed later)
         if blocks:
 
-            if isinstance( blocks, dict ):
-                for (i,j), Lij in blocks.items():
-                    self[i,j] = Lij
+            if isinstance(blocks, dict):
+                for (i, j), Lij in blocks.items():
+                    self[i, j] = Lij
 
-            elif isinstance( blocks, (list, tuple) ):
-                blocks = np.array( blocks, dtype=object )
-                for (i,j), Lij in np.ndenumerate( blocks ):
-                    self[i,j] = Lij
+            elif isinstance(blocks, (list, tuple)):
+                blocks = np.array(blocks, dtype=object)
+                for (i, j), Lij in np.ndenumerate(blocks):
+                    self[i, j] = Lij
 
             else:
                 raise ValueError( "Blocks can only be given as dict or 2D list/tuple." )
 
-        self._args = {}
+        self._args           = {}
         self._blocks_as_args = self._blocks
-        self._increment = self._codomain.zeros()
-        self._args['inc'] = self._increment
+        self._increment      = self._codomain.zeros()
+        self._args['inc']    = self._increment
         self._args['n_rows'] = self._nrows
         self._args['n_cols'] = self._ncols
         self._func           = self._dot
         self._sync           = False
-        self._backend = None
+        self._backend        = None
 
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
     @property
-    def domain( self ):
+    def domain(self):
         return self._domain
 
     # ...
     @property
-    def codomain( self ):
+    def codomain(self):
         return self._codomain
 
     # ...
     @property
-    def dtype( self ):
+    def dtype(self):
         return self.domain.dtype
-
-    # ...
-    @property
-    def T(self):
-        return self.transpose()
 
     def conjugate(self, out=None):
         if out is not None:
@@ -570,16 +565,11 @@ class BlockLinearOperator( LinearOperator ):
 #                            return False
 #        return True
 
-    # toarray, tosparse and copy as required by Matrix
-    def toarray( self, **kwargs ):
-        """ Convert to Numpy 2D array. """
-        return self.tosparse(**kwargs).toarray()
-
     # ...
-    def tosparse( self, **kwargs ):
+    def tosparse(self, **kwargs):
         """ Convert to any Scipy sparse matrix format. """
-        # Shortcuts
 
+        # Shortcuts
         nrows = self.n_block_rows
         ncols = self.n_block_cols
 
@@ -609,7 +599,12 @@ class BlockLinearOperator( LinearOperator ):
         return M
 
     # ...
-    def dot( self, v, out=None ):
+    def toarray(self, **kwargs):
+        """ Convert to Numpy 2D array. """
+        return self.tosparse(**kwargs).toarray()
+
+    # ...
+    def dot(self, v, out=None):
 
         if self.n_block_cols == 1:
             assert isinstance(v, Vector)
@@ -660,128 +655,18 @@ class BlockLinearOperator( LinearOperator ):
                 else:
                     out[i] += Lij.dot(v[j], out=inc[i])
 
-    #--------------------------------------
-    # Other properties/methods
-    #--------------------------------------
-    @property
-    def blocks( self ):
-        """ Immutable 2D view (tuple of tuples) of the linear operator,
-            including the empty blocks as 'None' objects.
-        """
-        return tuple(
-               tuple( self._blocks.get( (i,j), None ) for j in range( self.n_block_cols ) )
-                                                      for i in range( self.n_block_rows ) )
-
     # ...
-    @property
-    def n_block_rows( self ):
-        return self._nrows
-
-    # ...
-    @property
-    def n_block_cols( self ):
-        return self._ncols
-
-    @property
-    def nonzero_block_indices(self):
-        """
-        Tuple of (i, j) pairs which identify the non-zero blocks:
-        i is the row index, j is the column index.
-        """
-        return tuple(self._blocks)
-
-    # ...
-    def update_ghost_regions( self ):
-        for Lij in self._blocks.values():
-            Lij.update_ghost_regions()
-
-    # ...
-    def exchange_assembly_data( self ):
-        for Lij in self._blocks.values():
-            Lij.exchange_assembly_data()
-
-    # ...
-    def remove_spurious_entries( self ):
-        for Lij in self._blocks.values():
-            Lij.remove_spurious_entries()
-
-    @property
-    def ghost_regions_in_sync(self):
-        return self._sync
-
-    @ghost_regions_in_sync.setter
-    def ghost_regions_in_sync( self, value ):
-        assert isinstance( value, bool )
-        self._sync = value
-        for Lij in self._blocks.values():
-            Lij.ghost_regions_in_sync = value
-
-    # ...
-    def __getitem__( self, key ):
-
-        assert isinstance( key, tuple )
-        assert len( key ) == 2
-        assert 0 <= key[0] < self.n_block_rows
-        assert 0 <= key[1] < self.n_block_cols
-
-        return self._blocks.get( key, None )
-
-    # ...
-    def __setitem__( self, key, value ):
-
-        assert isinstance( key, tuple )
-        assert len( key ) == 2
-        assert 0 <= key[0] < self.n_block_rows
-        assert 0 <= key[1] < self.n_block_cols
-
-        if value is None:
-            self._blocks.pop( key, None )
-            return
-
-        i,j = key
-        assert isinstance( value, LinearOperator )
-
-        # Check domain of rhs
-        if self.n_block_cols == 1:
-            assert value.domain is self.domain
-        else:
-            assert value.domain is self.domain[j]
-
-        # Check codomain of rhs
-        if self.n_block_rows == 1:
-            assert value.codomain is self.codomain
-        else:
-            assert value.codomain is self.codomain[i]
-
-        self._blocks[i,j] = value
-    
-    def transform(self, operation):
-        """
-        Applies an operation on each block in this BlockLinearOperator.
-
-        Parameters
-        ----------
-        operation : LinearOperator -> LinearOperator
-            The operation which transforms each block.
-        """
-        blocks = {ij: operation(Bij) for ij, Bij in self._blocks.items()}
-        return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
-
-    def backend( self ):
-        return self._backend
-
-    # ...
-    def copy(self):
-        blocks = {ij: Bij.copy() for ij, Bij in self._blocks.items()}
-        mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
-        if self._backend is not None:
-            mat._func = self._func
-            mat._args = self._args
-            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
-            mat._backend = self._backend
+    def transpose(self, conjugate=False):
+        blocks, blocks_T = self.compute_interface_matrices_transpose()
+        blocks = {(j, i): b.transpose(conjugate=conjugate) for (i, j), b in blocks.items()}
+        blocks.update(blocks_T)
+        mat = BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
+        mat.set_backend(self._backend)
         return mat
 
-    # ...
+    #--------------------------------------
+    # Overridden properties/methods
+    #--------------------------------------
     def __neg__(self):
         blocks = {ij: -Bij for ij, Bij in self._blocks.items()}
         mat    = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
@@ -804,6 +689,7 @@ class BlockLinearOperator( LinearOperator ):
         return mat
 
     # ...
+    # TODO: check if this method is really needed!!
     def __rmul__(self, a):
         blocks = {ij: a * Bij for ij, Bij in self._blocks.items()}
         mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
@@ -862,6 +748,127 @@ class BlockLinearOperator( LinearOperator ):
             mat._backend = self._backend
         return mat
 
+    #--------------------------------------
+    # New properties/methods
+    #--------------------------------------
+    @property
+    def blocks(self):
+        """ Immutable 2D view (tuple of tuples) of the linear operator,
+            including the empty blocks as 'None' objects.
+        """
+        return tuple(
+               tuple(self._blocks.get((i, j), None) for j in range(self.n_block_cols))
+                                                    for i in range(self.n_block_rows))
+
+    # ...
+    @property
+    def n_block_rows(self):
+        return self._nrows
+
+    # ...
+    @property
+    def n_block_cols(self):
+        return self._ncols
+
+    @property
+    def nonzero_block_indices(self):
+        """
+        Tuple of (i, j) pairs which identify the non-zero blocks:
+        i is the row index, j is the column index.
+        """
+        return tuple(self._blocks)
+
+    # ...
+    def update_ghost_regions(self):
+        for Lij in self._blocks.values():
+            Lij.update_ghost_regions()
+
+    # ...
+    def exchange_assembly_data(self):
+        for Lij in self._blocks.values():
+            Lij.exchange_assembly_data()
+
+    # ...
+    def remove_spurious_entries(self ):
+        for Lij in self._blocks.values():
+            Lij.remove_spurious_entries()
+
+    @property
+    def ghost_regions_in_sync(self):
+        return self._sync
+
+    @ghost_regions_in_sync.setter
+    def ghost_regions_in_sync( self, value ):
+        assert isinstance( value, bool )
+        self._sync = value
+        for Lij in self._blocks.values():
+            Lij.ghost_regions_in_sync = value
+
+    # ...
+    def __getitem__(self, key):
+
+        assert isinstance( key, tuple )
+        assert len( key ) == 2
+        assert 0 <= key[0] < self.n_block_rows
+        assert 0 <= key[1] < self.n_block_cols
+
+        return self._blocks.get( key, None )
+
+    # ...
+    def __setitem__(self, key, value):
+
+        assert isinstance( key, tuple )
+        assert len( key ) == 2
+        assert 0 <= key[0] < self.n_block_rows
+        assert 0 <= key[1] < self.n_block_cols
+
+        if value is None:
+            self._blocks.pop( key, None )
+            return
+
+        i,j = key
+        assert isinstance( value, LinearOperator )
+
+        # Check domain of rhs
+        if self.n_block_cols == 1:
+            assert value.domain is self.domain
+        else:
+            assert value.domain is self.domain[j]
+
+        # Check codomain of rhs
+        if self.n_block_rows == 1:
+            assert value.codomain is self.codomain
+        else:
+            assert value.codomain is self.codomain[i]
+
+        self._blocks[i,j] = value
+    
+    def transform(self, operation):
+        """
+        Applies an operation on each block in this BlockLinearOperator.
+
+        Parameters
+        ----------
+        operation : LinearOperator -> LinearOperator
+            The operation which transforms each block.
+        """
+        blocks = {ij: operation(Bij) for ij, Bij in self._blocks.items()}
+        return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+
+    def backend(self):
+        return self._backend
+
+    # ...
+    def copy(self):
+        blocks = {ij: Bij.copy() for ij, Bij in self._blocks.items()}
+        mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+        if self._backend is not None:
+            mat._func = self._func
+            mat._args = self._args
+            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+            mat._backend = self._backend
+        return mat
+
     # ...
     def __imul__(self, a):
         for Bij in self._blocks.values():
@@ -913,16 +920,7 @@ class BlockLinearOperator( LinearOperator ):
         return self
             
     # ...
-    def transpose(self, conjugate=False):
-        blocks, blocks_T = self.compute_interface_matrices_transpose()
-        blocks = {(j, i): b.transpose(conjugate=conjugate) for (i, j), b in blocks.items()}
-        blocks.update(blocks_T)
-        mat = BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
-        mat.set_backend(self._backend)
-        return mat
-
-    # ...
-    def topetsc( self ):
+    def topetsc(self):
         """ Convert to petsc data structure.
         """
         from psydac.linalg.topetsc import mat_topetsc
