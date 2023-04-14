@@ -375,10 +375,6 @@ class DenseMatrix( LinearOperator ):
         return DenseMatrix(self.domain, self.codomain, self._data * a)
 
     # ...
-    def __rmul__(self, a):
-        return DenseMatrix(self.domain, self.codomain, a * self._data)
-
-    # ...
     def __add__(self, m):
         assert isinstance(m, DenseMatrix)
         assert self.  domain == m.  domain

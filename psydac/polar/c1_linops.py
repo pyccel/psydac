@@ -140,10 +140,6 @@ class LinearOperator_StencilToDense( LinearOperator ):
         return LinearOperator_StencilToDense(self.domain, self.codomain, self._data * a)
 
     # ...
-    def __rmul__(self, a):
-        return LinearOperator_StencilToDense(self.domain, self.codomain, a * self._data)
-
-    # ...
     def __add__(self, m):
         assert isinstance(m, LinearOperator_StencilToDense)
         assert self.  domain == m.  domain
@@ -325,10 +321,6 @@ class LinearOperator_DenseToStencil( LinearOperator ):
     # ...
     def __mul__(self, a):
         return LinearOperator_DenseToStencil(self.domain, self.codomain, self._data * a)
-
-    # ...
-    def __rmul__(self, a):
-        return LinearOperator_DenseToStencil(self.domain, self.codomain, a * self._data)
 
     # ...
     def __add__(self, m):

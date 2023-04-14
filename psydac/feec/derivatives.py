@@ -363,9 +363,6 @@ class DirectionalDerivativeOperator(LinearOperator):
     def __mul__(self, a):
         return self.tokronstencil() * a
 
-    def __rmul__(self, a):
-        return self.tokronstencil() * a
-
     def __add__(self, m):
         return self.tokronstencil() + m
 

@@ -96,9 +96,6 @@ class IdentityMatrix( IdentityLinearOperator ):
     def __mul__(self, a):
         raise NotImplementedError()
 
-    def __rmul__(self, a):
-        raise NotImplementedError()
-
     def __add__(self, m):
         raise NotImplementedError()
 

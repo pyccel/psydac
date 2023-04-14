@@ -1086,16 +1086,6 @@ class StencilMatrix( LinearOperator ):
         return w
 
     #...
-    # TODO: check if this method is really needed!!
-    def __rmul__( self, a ):
-        w = StencilMatrix( self._domain, self._codomain, self._pads, self._backend )
-        w._data = a * self._data
-        w._func = self._func
-        w._args = self._args
-        w._sync = self._sync
-        return w
-
-    #...
     def __add__(self, m):
         if isinstance(m, StencilMatrix):
             #assert isinstance(m, StencilMatrix)
@@ -2187,13 +2177,6 @@ class StencilInterfaceMatrix(LinearOperator):
     def __mul__( self, a ):
         w = self.copy()
         w._data *= a
-        w._sync = self._sync
-        return w
-
-    #...
-    def __rmul__( self, a ):
-        w = self.copy()
-        w._data = a * w._data
         w._sync = self._sync
         return w
 

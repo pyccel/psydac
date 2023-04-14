@@ -102,10 +102,6 @@ class FemLinearOperator( LinearOperator ):
         return MultLinearOperator(c, self)
 
     # ...
-    def __rmul__(self, c):
-        return MultLinearOperator(c, self)
-
-    # ...
     def __add__(self, C):
         assert isinstance(C, FemLinearOperator)
         return SumLinearOperator(C, self)

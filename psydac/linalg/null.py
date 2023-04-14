@@ -103,9 +103,6 @@ class NullMatrix( NullLinearOperator ):
     def __mul__(self, a):
         return self
 
-    def __rmul__(self, a):
-        return self
-
     def __add__(self, m):
         return m
 
