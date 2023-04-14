@@ -159,9 +159,9 @@ def run_model(ncells, degree, comm=None, is_logical=False):
 
     # Create discrete spline space
     if is_logical:
-        Vh = discretize(V, Omega_log_h, degree=degree, periodic=[False, True, True])
+        Vh = discretize(V, Omega_log_h, degree=degree)
     else:
-        Vh = discretize(V, Omega_h, degree=degree, periodic=[False, False, False])
+        Vh = discretize(V, Omega_h, degree=degree)
     # Discretize equation
     if is_logical:
         equation_h = discretize(equation, Omega_log_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP)
