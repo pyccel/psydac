@@ -36,7 +36,7 @@ class Laplacian:
         self._metric_det = sym.metric_det_expr
 
     # ...
-    def __call__( self, phi ):
+    def __call__(self, phi):
 
         from sympy import sqrt, Matrix
 
@@ -65,7 +65,7 @@ class Poisson2D:
     $(\partial^2_{xx} + \partial^2_{yy}) \phi(x,y) = -\rho(x,y)$
 
     """
-    def __init__( self, domain, periodic, mapping, phi, rho, O_point=False ):
+    def __init__(self, domain, periodic, mapping, phi, rho, O_point=False):
 
         self._domain   = domain
         self._periodic = periodic
@@ -76,7 +76,7 @@ class Poisson2D:
 
     # ...
     @staticmethod
-    def new_square( mx=1, my=1 ):
+    def new_square(mx=1, my=1):
         """
         Solve Poisson's equation on the unit square.
 
@@ -102,7 +102,7 @@ class Poisson2D:
 
     # ...
     @staticmethod
-    def new_annulus( rmin=0.5, rmax=1.0 ):
+    def new_annulus(rmin=0.5, rmax=1.0):
         """
         Solve Poisson's equation on an annulus centered at (x,y)=(0,0),
         with logical coordinates (r,theta):
@@ -231,31 +231,31 @@ class Poisson2D:
 
     # ...
     @property
-    def domain( self ):
+    def domain(self):
         return self._domain
 
     @property
-    def periodic( self ):
+    def periodic(self):
         return self._periodic
 
     @property
-    def mapping( self ):
+    def mapping(self):
         return self._mapping
 
     @property
-    def phi( self ):
+    def phi(self):
         return self._phi
 
     @property
-    def rho( self ):
+    def rho(self):
         return self._rho
 
     @property
-    def O_point( self ):
+    def O_point(self):
         return self._O_point
 
 #==============================================================================
-def kernel( p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s ):
+def kernel(p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s):
     """
     Kernel for computing the mass/stiffness element matrices.
 
@@ -357,7 +357,7 @@ def kernel( p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s ):
                     mat_s[il1, il2, p1+jl1-il1, p2+jl2-il2 ] = v_s
 
 #==============================================================================
-def assemble_matrices( V, mapping, kernel ):
+def assemble_matrices(V, mapping, kernel):
     """
     Assemble mass and stiffness matrices using 2D stencil format.
 
@@ -437,7 +437,7 @@ def assemble_matrices( V, mapping, kernel ):
     return mass, stiffness
 
 #==============================================================================
-def assemble_rhs( V, mapping, f ):
+def assemble_rhs(V, mapping, f):
     """
     Assemble right-hand-side vector.
 
@@ -523,7 +523,7 @@ def assemble_rhs( V, mapping, f ):
 
 ####################################################################################
 
-def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distribute_viz ):
+def main(*, test_case, ncells, degree, use_spline_mapping, c1_correction, distribute_viz):
 
     timing = {}
     timing['assembly'   ] = 0.0
@@ -763,17 +763,17 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
         if use_spline_mapping:
             geometry = Geometry(filename='geo.h5', comm=MPI.COMM_SELF)
             map_discrete = [*geometry.mappings.values()].pop()
-            V = map_discrete.space
+            Vnew = map_discrete.space
             mapping = map_discrete
         else:
             domain_decomposition = DomainDecomposition(ncells=ncells, periods=[per1, per2], comm=MPI.COMM_SELF)
-            V = TensorFemSpace(domain_decomposition, *spaces)
+            Vnew = TensorFemSpace(domain_decomposition, *spaces)
 
         # Import solution vector into new serial field
-        phi, = V.import_fields( 'fields.h5', 'phi' )
+        phi, = Vnew.import_fields( 'fields.h5', 'phi' )
 
     # Compute numerical solution (and error) on refined logical grid
-    [sk1,sk2], [ek1,ek2] = V.local_domain
+    [sk1,sk2], [ek1,ek2] = Vnew.local_domain
 
     eta1 = refine_array_1d( V1.breaks[sk1:ek1+2], N )
     eta2 = refine_array_1d( V2.breaks[sk2:ek2+2], N )
@@ -792,7 +792,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     #  3. numerical error    on mapped domain (analytical or spline)
     fig, axes = plt.subplots( 1, 3, figsize=(12.8, 4.8) )
 
-    def add_colorbar( im, ax ):
+    def add_colorbar(im, ax):
         divider = make_axes_locatable( ax )
         cax = divider.append_axes( "right", size=0.2, pad=0.2 )
         cbar = ax.get_figure().colorbar( im, cax=cax )
@@ -906,10 +906,10 @@ def parse_input_arguments():
 if __name__ == '__main__':
 
     args = parse_input_arguments()
-    namespace = main( **vars( args ) )
+    namespace = main(**vars(args))
 
     import __main__
-    if hasattr( __main__, '__file__' ):
+    if hasattr(__main__, '__file__'):
         try:
            __IPYTHON__
         except NameError:
