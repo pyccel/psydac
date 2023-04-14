@@ -67,6 +67,9 @@ class IdentityLinearOperator(LinearOperator):
 
         return v
 
+    def transpose(self, conjugate=False):
+        raise NotImplementedError()
+
 class IdentityMatrix( IdentityLinearOperator ):
 
     #-------------------------------------
@@ -84,15 +87,6 @@ class IdentityMatrix( IdentityLinearOperator ):
         else:
             return sparse_id(*self.shape)
 
-    def __truediv__(self, a):
-        """ Divide by scalar. """
-        return self * (1.0 / a)
-
-    def __itruediv__(self, a):
-        """ Divide by scalar, in place. """
-        self *= 1.0 / a
-        return self
-    
     def copy(self):
         return IdentityMatrix(self.domain)
 
@@ -100,9 +94,6 @@ class IdentityMatrix( IdentityLinearOperator ):
         raise NotImplementedError()
 
     def __mul__(self, a):
-        raise NotImplementedError()
-
-    def __rmul__(self, a):
         raise NotImplementedError()
 
     def __add__(self, m):

@@ -65,6 +65,9 @@ class NullLinearOperator(LinearOperator):
 
         return self.codomain.zeros()
 
+    def transpose(self, conjugate=False):
+        raise NotImplementedError()
+
 class NullMatrix( NullLinearOperator ):
 
     #-------------------------------------
@@ -98,9 +101,6 @@ class NullMatrix( NullLinearOperator ):
         return self
 
     def __mul__(self, a):
-        return self
-
-    def __rmul__(self, a):
         return self
 
     def __add__(self, m):

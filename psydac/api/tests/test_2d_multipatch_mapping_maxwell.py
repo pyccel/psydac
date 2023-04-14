@@ -21,7 +21,6 @@ from sympde.expr.equation import find, EssentialBC
 from psydac.api.discretization       import discretize
 from psydac.api.tests.build_domain   import build_pretzel
 from psydac.fem.basic                import FemField
-from psydac.linalg.iterative_solvers import *
 from psydac.api.settings             import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.pull_push           import pull_2d_hcurl
 

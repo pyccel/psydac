@@ -10,11 +10,12 @@ from scipy.sparse import bmat, lil_matrix
 from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator, LinearSolver, ZeroOperator
 from psydac.ddm.cart      import InterfaceCartDecomposition
 from psydac.ddm.utilities import get_data_exchanger
+from psydac.linalg.stencil import StencilVector, StencilMatrix
 
 __all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockDiagonalSolver']
 
 #===============================================================================
-class BlockVectorSpace( VectorSpace ):
+class BlockVectorSpace(VectorSpace):
     """
     Product Vector Space V of two Vector Spaces (V1,V2) or more.
 
@@ -42,7 +43,7 @@ class BlockVectorSpace( VectorSpace ):
         return VectorSpace.__new__(cls)
 
     # ...
-    def __init__(self,  *spaces, connectivity=None):
+    def __init__(self, *spaces, connectivity=None):
 
         # Store spaces in a Tuple, because they will not be changed
         self._spaces = tuple(spaces)
@@ -50,29 +51,30 @@ class BlockVectorSpace( VectorSpace ):
         if all(np.dtype(s.dtype)==np.dtype(spaces[0].dtype) for s in spaces):
             self._dtype  = spaces[0].dtype
         else:
-            self._dtype = tuple(s.dtype for s in spaces)
+            raise NotImplementedError("The matrices domains don't have the same data type.")
 
         self._connectivity = connectivity or {}
         self._connectivity_readonly = MappingProxyType(self._connectivity)
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
     @property
-    def dimension( self ):
+    def dimension(self):
         """
         The dimension of a product space V = (V1, V2, ...] is the cardinality
         (i.e. the number of vectors) of a basis of V over its base field.
 
         """
-        return sum( Vi.dimension for Vi in self._spaces )
+        return sum(Vi.dimension for Vi in self._spaces)
 
     # ...
     @property
-    def dtype( self ):
+    def dtype(self):
         return self._dtype
 
     # ...
-    def zeros( self ):
+    def zeros(self):
         """
         Get a copy of the null element of the product space V = [V1, V2, ...]
 
@@ -82,45 +84,45 @@ class BlockVectorSpace( VectorSpace ):
             A new vector object with all components equal to zero.
 
         """
-        return BlockVector( self, [Vi.zeros() for Vi in self._spaces] )
+        return BlockVector(self, [Vi.zeros() for Vi in self._spaces])
 
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
     @property
-    def spaces( self ):
+    def spaces(self):
         return self._spaces
 
     @property
-    def parallel( self ):
+    def parallel(self):
         """ Returns True if the memory is distributed."""
         return self._spaces[0].parallel
 
     @property
-    def starts( self ):
+    def starts(self):
         return [s.starts for s in self._spaces]
 
     @property
-    def ends( self ):
+    def ends(self):
         return [s.ends for s in self._spaces]
 
     @property
-    def pads( self ):
+    def pads(self):
         return self._spaces[0].pads
 
     @property
-    def n_blocks( self ):
-        return len( self._spaces )
+    def n_blocks(self):
+        return len(self._spaces)
 
     @property
-    def connectivity( self ):
+    def connectivity(self):
         return self._connectivity_readonly
 
-    def __getitem__( self, key ):
+    def __getitem__(self, key):
         return self._spaces[key]
 
 #===============================================================================
-class BlockVector( Vector ):
+class BlockVector(Vector):
     """
     Block of Vectors, which is an element of a BlockVectorSpace.
 
@@ -133,25 +135,26 @@ class BlockVector( Vector ):
         List of Vector objects, belonging to the correct spaces (optional).
 
     """
-    def __init__( self,  V, blocks=None ):
+    def __init__(self, V, blocks=None):
 
-        assert isinstance( V, BlockVectorSpace )
+        assert isinstance(V, BlockVectorSpace)
         self._space = V
 
         # We store the blocks in a List so that we can change them later.
         if blocks:
             # Verify that vectors belong to correct spaces and store them
-            assert isinstance( blocks, (list, tuple) )
-            assert all( (Vi is bi.space) for Vi,bi in zip( V.spaces, blocks ) )
+            assert isinstance(blocks, (list, tuple))
+            assert all((isinstance(b, Vector)) for b in blocks)
+            assert all((Vi is bi.space) for Vi,bi in zip(V.spaces, blocks))
 
-            self._blocks = list( blocks )
+            self._blocks = list(blocks)
         else:
             # TODO: Each block is a 'zeros' vector of the correct space for now,
             # but in the future we would like 'empty' vectors of the same space.
             self._blocks = [Vi.zeros() for Vi in V.spaces]
 
         # TODO: distinguish between different directions
-        self._sync  = False
+        self._sync = False
 
         self._data_exchangers = {}
         self._interface_buf   = {}
@@ -159,16 +162,16 @@ class BlockVector( Vector ):
         if not V.parallel: return
 
         # Prepare the data exchangers for the interface data
-        for i,j in V.connectivity:
-            ((axis_i,ext_i),(axis_j,ext_j)) = V.connectivity[i,j]
+        for i, j in V.connectivity:
+            ((axis_i, ext_i),(axis_j, ext_j)) = V.connectivity[i, j]
 
             Vi = V.spaces[i]
             Vj = V.spaces[j]
-            self._data_exchangers[i,j] = []
+            self._data_exchangers[i, j] = []
 
             if isinstance(Vi, BlockVectorSpace) and isinstance(Vj, BlockVectorSpace):
                 # case of a system of equations
-                for k,(Vik,Vjk) in enumerate(zip(Vi.spaces, Vj.spaces)):
+                for k, (Vik, Vjk) in enumerate(zip(Vi.spaces, Vj.spaces)):
                     cart_i = Vik.cart
                     cart_j = Vjk.cart
 
@@ -177,7 +180,7 @@ class BlockVector( Vector ):
                     if not (axis_i, ext_i) in Vik.interfaces: continue
                     cart_ij = Vik.interfaces[axis_i, ext_i].cart
                     assert isinstance(cart_ij, InterfaceCartDecomposition)
-                    self._data_exchangers[i,j].append(get_data_exchanger(cart_ij, self.dtype))
+                    self._data_exchangers[i, j].append(get_data_exchanger(cart_ij, self.dtype))
 
             elif  not isinstance(Vi, BlockVectorSpace) and not isinstance(Vj, BlockVectorSpace):
                 # case of scalar equations
@@ -189,96 +192,90 @@ class BlockVector( Vector ):
 
                 cart_ij = Vi.interfaces[axis_i, ext_i].cart
                 assert isinstance(cart_ij, InterfaceCartDecomposition)
-                self._data_exchangers[i,j].append(get_data_exchanger(cart_ij, self.dtype))
+                self._data_exchangers[i, j].append(get_data_exchanger(cart_ij, self.dtype))
             else:
                 raise NotImplementedError("This case is not treated")
 
-        for i,j in V.connectivity:
-            if len(self._data_exchangers.get((i,j), [])) == 0:
-                self._data_exchangers.pop((i,j), None)
+        for i, j in V.connectivity:
+            if len(self._data_exchangers.get((i, j), [])) == 0:
+                self._data_exchangers.pop((i, j), None)
 
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
     @property
-    def space( self ):
+    def space(self):
         return self._space
 
     #...
     @property
-    def dtype( self ):
+    def dtype(self):
         return self.space.dtype
 
     #...
-    def dot( self, v ):
-        assert isinstance( v, BlockVector )
+    def dot(self, v):
+        assert isinstance(v, BlockVector)
         assert v._space is self._space
-        return sum( b1.dot( b2 ) for b1,b2 in zip( self._blocks, v._blocks ) )
+        return sum(b1.dot(b2) for b1, b2 in zip(self._blocks, v._blocks))
 
     #...
-    def copy( self, out=None ):
+    def copy(self, out=None):
         if self is out:
             return self
-        w = out or BlockVector( self._space )#, [b.copy() for b in self._blocks] )
+        w = out or BlockVector(self._space)#, [b.copy() for b in self._blocks])
         for n, b in enumerate(self._blocks):
             b.copy(out=w[n])
         w._sync = self._sync
         return w
 
     #...
-    def __neg__( self ):
-        w = BlockVector( self._space, [-b for b in self._blocks] )
+    def __neg__(self):
+        w = BlockVector(self._space, [-b for b in self._blocks])
         w._sync = self._sync
         return w
 
     #...
-    def __mul__( self, a ):
-        w = BlockVector( self._space, [b*a for b in self._blocks] )
+    def __mul__(self, a):
+        w = BlockVector(self._space, [b * a for b in self._blocks])
         w._sync = self._sync
         return w
 
     #...
-    def __rmul__( self, a ):
-        w = BlockVector( self._space, [a*b for b in self._blocks] )
-        w._sync = self._sync
-        return w
-
-    #...
-    def __add__( self, v ):
-        assert isinstance( v, BlockVector )
+    def __add__(self, v):
+        assert isinstance(v, BlockVector)
         assert v._space is self._space
-        w = BlockVector( self._space, [b1+b2 for b1,b2 in zip( self._blocks, v._blocks )] )
+        w = BlockVector(self._space, [b1 + b2 for b1, b2 in zip(self._blocks, v._blocks)])
         w._sync = self._sync and v._sync
         return w
 
     #...
-    def __sub__( self, v ):
-        assert isinstance( v, BlockVector )
+    def __sub__(self, v):
+        assert isinstance(v, BlockVector)
         assert v._space is self._space
-        w = BlockVector( self._space, [b1-b2 for b1,b2 in zip( self._blocks, v._blocks )] )
+        w = BlockVector(self._space, [b1 - b2 for b1, b2 in zip(self._blocks, v._blocks)])
         w._sync = self._sync and v._sync
         return w
 
     #...
-    def __imul__( self, a ):
+    def __imul__(self, a):
         for b in self._blocks:
             b *= a
         return self
 
     #...
-    def __iadd__( self, v ):
-        assert isinstance( v, BlockVector )
+    def __iadd__(self, v):
+        assert isinstance(v, BlockVector)
         assert v._space is self._space
-        for b1,b2 in zip( self._blocks, v._blocks ):
+        for b1, b2 in zip(self._blocks, v._blocks):
             b1 += b2
         self._sync = self._sync and v._sync
         return self
 
     #...
-    def __isub__( self, v ):
-        assert isinstance( v, BlockVector )
+    def __isub__(self, v):
+        assert isinstance(v, BlockVector)
         assert v._space is self._space
-        for b1,b2 in zip( self._blocks, v._blocks ):
+        for b1, b2 in zip(self._blocks, v._blocks):
             b1 -= b2
         self._sync = self._sync and v._sync
         return self
@@ -287,30 +284,43 @@ class BlockVector( Vector ):
     # Other properties/methods
     #--------------------------------------
 
-    def __getitem__( self, key ):
+    def __getitem__(self, key):
         return self._blocks[key]
 
     # ...
-    def __setitem__( self, key, value ):
+    def __setitem__(self, key, value):
         assert value.space == self.space[key]
+        assert isinstance(value, Vector)
         self._blocks[key] = value
+
+    def conjugate(self, out=None):
+        if out is not None:
+            assert isinstance(out, BlockVector)
+            assert out.space is self.space
+        else:
+            out = BlockVector(self.space)
+
+        for (Lij, Lij_out) in zip(self.blocks, out.blocks):
+            Lij.conjugate(out=Lij_out)
+        out._sync = self._sync
+        return out
 
     # ...
     @property
-    def ghost_regions_in_sync( self ):
+    def ghost_regions_in_sync(self):
         return self._sync
 
     # ...
     # NOTE: this property must be set collectively
     @ghost_regions_in_sync.setter
-    def ghost_regions_in_sync( self, value ):
-        assert isinstance( value, bool )
+    def ghost_regions_in_sync(self, value):
+        assert isinstance(value, bool)
         self._sync = value
         for vi in self.blocks:
             vi.ghost_regions_in_sync = value
 
     # ...
-    def update_ghost_regions( self ):
+    def update_ghost_regions(self):
 
         req = self.start_update_interface_ghost_regions()
 
@@ -322,35 +332,36 @@ class BlockVector( Vector ):
         # Flag ghost regions as up-to-date
         self._sync = True
 
-    def start_update_interface_ghost_regions( self ):
+    def start_update_interface_ghost_regions(self):
         self._collect_interface_buf()
         req = {}
-        for (i,j) in self._data_exchangers:
-            req[i,j] = [data_ex.start_update_ghost_regions(*bufs) for bufs,data_ex in zip(self._interface_buf[i,j], self._data_exchangers[i,j])]
+        for (i, j) in self._data_exchangers:
+            req[i, j] = [data_ex.start_update_ghost_regions(*bufs) for bufs, data_ex in zip(self._interface_buf[i, j], self._data_exchangers[i, j])]
 
         return req
 
-    def end_update_interface_ghost_regions( self, req ):
+    def end_update_interface_ghost_regions(self, req):
 
-        for (i,j) in self._data_exchangers:
-            for data_ex,bufs,req_ij in zip(self._data_exchangers[i,j], self._interface_buf[i,j], req[i,j]):
+        for (i, j) in self._data_exchangers:
+            for data_ex, bufs, req_ij in zip(self._data_exchangers[i, j], self._interface_buf[i, j], req[i, j]):
                 data_ex.end_update_ghost_regions(req_ij)
 
-    def _collect_interface_buf( self ):
+    def _collect_interface_buf(self):
         V = self.space
         if not V.parallel:return
-        for i,j in V.connectivity:
-            if not (i,j) in self._data_exchangers:continue
-            ((axis_i,ext_i), (axis_j,ext_j)) = V.connectivity[i,j]
+        for i, j in V.connectivity:
+            if (i, j) not in self._data_exchangers:
+                continue
+            ((axis_i, ext_i), (axis_j, ext_j)) = V.connectivity[i, j]
 
             Vi = V.spaces[i]
             Vj = V.spaces[j]
 
             # The process that owns the patch i will use block i to send data and receive in block j
-            self._interface_buf[i,j]   = []
+            self._interface_buf[i, j] = []
             if isinstance(Vi, BlockVectorSpace) and isinstance(Vj, BlockVectorSpace):
                 # case of a system of equations
-                for k,(Vik,Vjk) in enumerate(zip(Vi.spaces, Vj.spaces)):
+                for k, (Vik, Vjk) in enumerate(zip(Vi.spaces, Vj.spaces)):
 
                     cart_i = Vik.cart
                     cart_j = Vjk.cart
@@ -383,37 +394,37 @@ class BlockVector( Vector ):
                 else:
                     buf[1] = self._blocks[j]._data
 
-                self._interface_buf[i,j].append(tuple(buf))
+                self._interface_buf[i, j].append(tuple(buf))
 
     # ...
-    def exchange_assembly_data( self ):
+    def exchange_assembly_data(self):
         for vi in self.blocks:
             vi.exchange_assembly_data()
 
     # ...
     @property
-    def n_blocks( self ):
-        return len( self._blocks )
+    def n_blocks(self):
+        return len(self._blocks)
 
     # ...
     @property
-    def blocks( self ):
-        return tuple( self._blocks )
+    def blocks(self):
+        return tuple(self._blocks)
 
     # ...
-    def toarray( self, order='C' ):
-        return np.concatenate( [bi.toarray(order=order) for bi in self._blocks] )
+    def toarray(self, order='C'):
+        return np.concatenate([bi.toarray(order=order) for bi in self._blocks])
 
     # ...
-    def toarray_local( self, order='C' ):
+    def toarray_local(self, order='C'):
         """ Convert to petsc Nest vector.
         """
 
-        blocks    = [v.toarray_local(order=order) for v in self._blocks]
+        blocks = [v.toarray_local(order=order) for v in self._blocks]
         return np.block([blocks])[0]
 
     # ...
-    def topetsc( self ):
+    def topetsc(self):
         """ Convert to petsc data structure.
         """
         from psydac.linalg.topetsc import vec_topetsc
@@ -421,7 +432,7 @@ class BlockVector( Vector ):
         return vec
 
 #===============================================================================
-class BlockLinearOperator( LinearOperator ):
+class BlockLinearOperator(LinearOperator):
     """
     Linear operator that can be written as blocks of other Linear Operators.
     Either the domain or the codomain of this operator, or both, should be of
@@ -446,10 +457,10 @@ class BlockLinearOperator( LinearOperator ):
             is the LinearOperator Lij (if None, we assume null operator)
 
     """
-    def __init__( self, V1, V2, blocks=None ):
+    def __init__(self, V1, V2, blocks=None):
 
-        assert isinstance( V1, VectorSpace )
-        assert isinstance( V2, VectorSpace )
+        assert isinstance(V1, VectorSpace)
+        assert isinstance(V2, VectorSpace)
 
         if not (isinstance(V1, BlockVectorSpace) or isinstance(V2, BlockVectorSpace)):
             raise TypeError("Either domain or codomain must be of type BlockVectorSpace")
@@ -464,50 +475,62 @@ class BlockLinearOperator( LinearOperator ):
         # Store blocks in dict (hence they can be manually changed later)
         if blocks:
 
-            if isinstance( blocks, dict ):
-                for (i,j), Lij in blocks.items():
-                    self[i,j] = Lij
+            if isinstance(blocks, dict):
+                for (i, j), Lij in blocks.items():
+                    self[i, j] = Lij
 
-            elif isinstance( blocks, (list, tuple) ):
-                blocks = np.array( blocks, dtype=object )
-                for (i,j), Lij in np.ndenumerate( blocks ):
-                    self[i,j] = Lij
+            elif isinstance(blocks, (list, tuple)):
+                blocks = np.array(blocks, dtype=object)
+                for (i, j), Lij in np.ndenumerate(blocks):
+                    self[i, j] = Lij
 
             else:
                 raise ValueError( "Blocks can only be given as dict or 2D list/tuple." )
 
-        self._args = {}
+        self._args           = {}
         self._blocks_as_args = self._blocks
-        self._increment = self._codomain.zeros()
-        self._args['inc'] = self._increment
+        self._increment      = self._codomain.zeros()
+        self._args['inc']    = self._increment
         self._args['n_rows'] = self._nrows
         self._args['n_cols'] = self._ncols
         self._func           = self._dot
         self._sync           = False
-        self._backend = None
+        self._backend        = None
 
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
     @property
-    def domain( self ):
+    def domain(self):
         return self._domain
 
     # ...
     @property
-    def codomain( self ):
+    def codomain(self):
         return self._codomain
 
     # ...
     @property
-    def dtype( self ):
+    def dtype(self):
         return self.domain.dtype
 
-    # ...
-    @property
-    def T(self):
-        return self.transpose()
+    def conjugate(self, out=None):
+        if out is not None:
+            assert isinstance(out, BlockLinearOperator)
+            assert out.domain is self.domain
+            assert out.codomain is self.codomain
+        else:
+            out = BlockLinearOperator(self.domain, self.codomain)
 
+        for (i, j), Lij in self._blocks.items():
+            assert isinstance(Lij, (StencilMatrix, BlockLinearOperator))
+            Lij_out = Lij.conjugate()
+            out[i,j] = Lij_out
+        return out
+
+    def conj(self, out=None):
+        return self.conjugate(out=out)
+        
 # NOTE [YG 27.03.2023]:
 # NOTE as part of PR 279, this method was added to facilitate comparisons in tests,
 # NOTE but then commented out as deemed unnecessary.
@@ -537,25 +560,11 @@ class BlockLinearOperator( LinearOperator ):
 #                            return False
 #        return True
 
-    def __truediv__(self, a):
-        """ Divide by scalar. """
-        return self * (1.0 / a)
-
-    def __itruediv__(self, a):
-        """ Divide by scalar, in place. """
-        self *= 1.0 / a
-        return self
-
-    # toarray, tosparse and copy as required by Matrix
-    def toarray( self, **kwargs ):
-        """ Convert to Numpy 2D array. """
-        return self.tosparse(**kwargs).toarray()
-
     # ...
-    def tosparse( self, **kwargs ):
+    def tosparse(self, **kwargs):
         """ Convert to any Scipy sparse matrix format. """
-        # Shortcuts
 
+        # Shortcuts
         nrows = self.n_block_rows
         ncols = self.n_block_cols
 
@@ -585,7 +594,12 @@ class BlockLinearOperator( LinearOperator ):
         return M
 
     # ...
-    def dot( self, v, out=None ):
+    def toarray(self, **kwargs):
+        """ Convert to Numpy 2D array. """
+        return self.tosparse(**kwargs).toarray()
+
+    # ...
+    def dot(self, v, out=None):
 
         if self.n_block_cols == 1:
             assert isinstance(v, Vector)
@@ -636,127 +650,18 @@ class BlockLinearOperator( LinearOperator ):
                 else:
                     out[i] += Lij.dot(v[j], out=inc[i])
 
-    #--------------------------------------
-    # Other properties/methods
-    #--------------------------------------
-    @property
-    def blocks( self ):
-        """ Immutable 2D view (tuple of tuples) of the linear operator,
-            including the empty blocks as 'None' objects.
-        """
-        return tuple(
-               tuple( self._blocks.get( (i,j), None ) for j in range( self.n_block_cols ) )
-                                                      for i in range( self.n_block_rows ) )
     # ...
-    @property
-    def n_block_rows( self ):
-        return self._nrows
-
-    # ...
-    @property
-    def n_block_cols( self ):
-        return self._ncols
-
-    @property
-    def nonzero_block_indices(self):
-        """
-        Tuple of (i, j) pairs which identify the non-zero blocks:
-        i is the row index, j is the column index.
-        """
-        return tuple(self._blocks)
-
-    # ...
-    def update_ghost_regions( self ):
-        for Lij in self._blocks.values():
-            Lij.update_ghost_regions()
-
-    # ...
-    def exchange_assembly_data( self ):
-        for Lij in self._blocks.values():
-            Lij.exchange_assembly_data()
-
-    # ...
-    def remove_spurious_entries( self ):
-        for Lij in self._blocks.values():
-            Lij.remove_spurious_entries()
-
-    @property
-    def ghost_regions_in_sync(self):
-        return self._sync
-
-    @ghost_regions_in_sync.setter
-    def ghost_regions_in_sync( self, value ):
-        assert isinstance( value, bool )
-        self._sync = value
-        for Lij in self._blocks.values():
-            Lij.ghost_regions_in_sync = value
-
-    # ...
-    def __getitem__( self, key ):
-
-        assert isinstance( key, tuple )
-        assert len( key ) == 2
-        assert 0 <= key[0] < self.n_block_rows
-        assert 0 <= key[1] < self.n_block_cols
-
-        return self._blocks.get( key, None )
-
-    # ...
-    def __setitem__( self, key, value ):
-
-        assert isinstance( key, tuple )
-        assert len( key ) == 2
-        assert 0 <= key[0] < self.n_block_rows
-        assert 0 <= key[1] < self.n_block_cols
-
-        if value is None:
-            self._blocks.pop( key, None )
-            return
-
-        i,j = key
-        assert isinstance( value, LinearOperator )
-
-        # Check domain of rhs
-        if self.n_block_cols == 1:
-            assert value.domain is self.domain
-        else:
-            assert value.domain is self.domain[j]
-
-        # Check codomain of rhs
-        if self.n_block_rows == 1:
-            assert value.codomain is self.codomain
-        else:
-            assert value.codomain is self.codomain[i]
-
-        self._blocks[i,j] = value
-    
-    def transform(self, operation):
-        """
-        Applies an operation on each block in this BlockLinearOperator.
-
-        Parameters
-        ----------
-        operation : LinearOperator -> LinearOperator
-            The operation which transforms each block.
-        """
-        blocks = {ij: operation(Bij) for ij, Bij in self._blocks.items()}
-        return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
-
-    def backend( self ):
-        return self._backend
-
-    # ...
-    def copy(self):
-        blocks = {ij: Bij.copy() for ij, Bij in self._blocks.items()}
-        mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
-        if self._backend is not None:
-            mat._func = self._func
-            mat._args = self._args
-            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
-            mat._backend = self._backend
+    def transpose(self, conjugate=False):
+        blocks, blocks_T = self.compute_interface_matrices_transpose()
+        blocks = {(j, i): b.transpose(conjugate=conjugate) for (i, j), b in blocks.items()}
+        blocks.update(blocks_T)
+        mat = BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
+        mat.set_backend(self._backend)
         return mat
 
-    # ...
+    #--------------------------------------
+    # Overridden properties/methods
+    #--------------------------------------
     def __neg__(self):
         blocks = {ij: -Bij for ij, Bij in self._blocks.items()}
         mat    = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
@@ -770,17 +675,6 @@ class BlockLinearOperator( LinearOperator ):
     # ...
     def __mul__(self, a):
         blocks = {ij: Bij * a for ij, Bij in self._blocks.items()}
-        mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
-        if self._backend is not None:
-            mat._func = self._func
-            mat._args = self._args
-            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
-            mat._backend = self._backend
-        return mat
-
-    # ...
-    def __rmul__(self, a):
-        blocks = {ij: a * Bij for ij, Bij in self._blocks.items()}
         mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
         if self._backend is not None:
             mat._func = self._func
@@ -831,6 +725,127 @@ class BlockLinearOperator( LinearOperator ):
         if len(mat._blocks) != len(self._blocks):
             mat.set_backend(self._backend)
         elif self._backend is not None:
+            mat._func = self._func
+            mat._args = self._args
+            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
+            mat._backend = self._backend
+        return mat
+
+    #--------------------------------------
+    # New properties/methods
+    #--------------------------------------
+    @property
+    def blocks(self):
+        """ Immutable 2D view (tuple of tuples) of the linear operator,
+            including the empty blocks as 'None' objects.
+        """
+        return tuple(
+               tuple(self._blocks.get((i, j), None) for j in range(self.n_block_cols))
+                                                    for i in range(self.n_block_rows))
+
+    # ...
+    @property
+    def n_block_rows(self):
+        return self._nrows
+
+    # ...
+    @property
+    def n_block_cols(self):
+        return self._ncols
+
+    @property
+    def nonzero_block_indices(self):
+        """
+        Tuple of (i, j) pairs which identify the non-zero blocks:
+        i is the row index, j is the column index.
+        """
+        return tuple(self._blocks)
+
+    # ...
+    def update_ghost_regions(self):
+        for Lij in self._blocks.values():
+            Lij.update_ghost_regions()
+
+    # ...
+    def exchange_assembly_data(self):
+        for Lij in self._blocks.values():
+            Lij.exchange_assembly_data()
+
+    # ...
+    def remove_spurious_entries(self ):
+        for Lij in self._blocks.values():
+            Lij.remove_spurious_entries()
+
+    @property
+    def ghost_regions_in_sync(self):
+        return self._sync
+
+    @ghost_regions_in_sync.setter
+    def ghost_regions_in_sync( self, value ):
+        assert isinstance( value, bool )
+        self._sync = value
+        for Lij in self._blocks.values():
+            Lij.ghost_regions_in_sync = value
+
+    # ...
+    def __getitem__(self, key):
+
+        assert isinstance( key, tuple )
+        assert len( key ) == 2
+        assert 0 <= key[0] < self.n_block_rows
+        assert 0 <= key[1] < self.n_block_cols
+
+        return self._blocks.get( key, None )
+
+    # ...
+    def __setitem__(self, key, value):
+
+        assert isinstance( key, tuple )
+        assert len( key ) == 2
+        assert 0 <= key[0] < self.n_block_rows
+        assert 0 <= key[1] < self.n_block_cols
+
+        if value is None:
+            self._blocks.pop( key, None )
+            return
+
+        i,j = key
+        assert isinstance( value, LinearOperator )
+
+        # Check domain of rhs
+        if self.n_block_cols == 1:
+            assert value.domain is self.domain
+        else:
+            assert value.domain is self.domain[j]
+
+        # Check codomain of rhs
+        if self.n_block_rows == 1:
+            assert value.codomain is self.codomain
+        else:
+            assert value.codomain is self.codomain[i]
+
+        self._blocks[i,j] = value
+    
+    def transform(self, operation):
+        """
+        Applies an operation on each block in this BlockLinearOperator.
+
+        Parameters
+        ----------
+        operation : LinearOperator -> LinearOperator
+            The operation which transforms each block.
+        """
+        blocks = {ij: operation(Bij) for ij, Bij in self._blocks.items()}
+        return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+
+    def backend(self):
+        return self._backend
+
+    # ...
+    def copy(self):
+        blocks = {ij: Bij.copy() for ij, Bij in self._blocks.items()}
+        mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+        if self._backend is not None:
             mat._func = self._func
             mat._args = self._args
             mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
@@ -888,16 +903,7 @@ class BlockLinearOperator( LinearOperator ):
         return self
             
     # ...
-    def transpose(self):
-        blocks, blocks_T = self.compute_interface_matrices_transpose()
-        blocks = {(j, i): b.transpose() for (i, j), b in blocks.items()}
-        blocks.update(blocks_T)
-        mat = BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
-        mat.set_backend(self._backend)
-        return mat
-
-    # ...
-    def topetsc( self ):
+    def topetsc(self):
         """ Convert to petsc data structure.
         """
         from psydac.linalg.topetsc import mat_topetsc
@@ -1215,7 +1221,8 @@ class BlockLinearOperator( LinearOperator ):
                                 flip_axis=flip_axis,
                                 interface_axis=interface_axis,
                                 d_start=d_starts,
-                                c_start=c_starts)
+                                c_start=c_starts,
+                                dtype=self._domain.dtype)
 
                 self._args = {}
                 for k,key in enumerate(keys):
@@ -1251,7 +1258,8 @@ class BlockLinearOperator( LinearOperator ):
                                         flip_axis=flip_axis,
                                         interface_axis=interface_axis,
                                         d_start=d_starts,
-                                        c_start=c_starts)
+                                        c_start=c_starts,
+                                        dtype=self._domain.dtype)
 
                 self._args = {}
 
@@ -1290,7 +1298,8 @@ class BlockLinearOperator( LinearOperator ):
                                     flip_axis=flip_axis,
                                     interface_axis=interface_axis,
                                     d_start=d_starts,
-                                    c_start=c_starts)
+                                    c_start=c_starts,
+                                    dtype=self._domain.dtype)
             self._args = {}
 
         self._blocks_as_args = [self._blocks[key]._data for key in keys]

@@ -35,7 +35,7 @@ from psydac.linalg.stencil     import *
 from psydac.linalg.block       import *
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 from psydac.utilities.utils    import refine_array_1d, animate_field, split_space, split_field
-from psydac.linalg.iterative_solvers import cg, pcg, bicg, lsmr
+from psydac.linalg.solvers     import inverse
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
@@ -73,7 +73,10 @@ def scipy_solver(M, b):
 
 #------------------------------------------------------------------------------
 def psydac_solver(M, b):
-    return lsmr(M, M.T, b, maxiter=10000, tol=1e-6)
+    M_inv = inverse(M, 'lsmr', maxiter=10000, tol=1e-6)
+    x = M_inv @ b
+    info = M_inv.get_info()
+    return x, info
 
 #==============================================================================
 def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max_newton_iter=100, scipy=True):
