@@ -215,6 +215,15 @@ class DenseVector( Vector ):
 
         return res
 
+    def conjugate(self, out=None):
+        if out is not None:
+            assert isinstance(out, DenseVector)
+            assert out.space is self.space
+        else:
+            out = DenseVector(self.space)
+        np.conjugate(self._data, out=out._data, casting='no')
+        return out
+
     # ...
     def copy(self, out=None):
         if self is out:
@@ -234,10 +243,6 @@ class DenseVector( Vector ):
     # ...
     def __mul__( self, a ):
         return DenseVector( self._space, self._data * a )
-
-    # ...
-    def __rmul__( self, a ):
-        return DenseVector( self._space, a * self._data )
 
     # ...
     def __add__( self, v ):
@@ -319,6 +324,9 @@ class DenseMatrix( LinearOperator ):
     def codomain( self ):
         return self._codomain
 
+    def transpose(self, conjugate=False):
+        raise NotImplementedError()
+
     # ...
     @property
     def dtype( self ):
@@ -369,10 +377,6 @@ class DenseMatrix( LinearOperator ):
     # ...
     def __mul__(self, a):
         return DenseMatrix(self.domain, self.codomain, self._data * a)
-
-    # ...
-    def __rmul__(self, a):
-        return DenseMatrix(self.domain, self.codomain, a * self._data)
 
     # ...
     def __add__(self, m):

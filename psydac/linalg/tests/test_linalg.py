@@ -540,17 +540,23 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
 
     # Initiate StencilVectorSpace
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    V2 = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
     W = get_StencilVectorSpace(n1+2, n2, p1, p2+1, P1, P2)
     
     # Initiate positive definite StencilMatrices for which the cg inverse works (necessary for certain tests)
-    S = StencilMatrix(V,V)
-    S1 = StencilMatrix(W,W)
+    S = StencilMatrix(V, V)
+    S1 = StencilMatrix(W, W)
+    S2 = StencilMatrix(V, V2)
 
     # Initiate StencilVectors 
     v = StencilVector(V)
     for i in range(n1):
         for j in range(n2):
-            v[i,j] = 1   
+            v[i,j] = 1
+    v2 = StencilVector(V2)
+    for i in range(n1):
+        for j in range(n2):
+            v2[i,j] = 1 
     w = StencilVector(W)
     for i in range(n1+2):
         for j in range(n2):
@@ -584,7 +590,9 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     for k1 in range(-p1,p1+1):
         for k2 in range(-p2,p2+1):
             S[:,:,k1,k2] = nonzero_values[k1,k2]
+            S2[:,:,k1,k2] = nonzero_values[k1,k2]
     S.remove_spurious_entries()
+    S2.remove_spurious_entries()
 
     for k1 in range(-p1,p1+1):
         for k2 in range(-p2-1,p2+2):
@@ -595,6 +603,18 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     U = BlockVectorSpace(V, W)
     B = BlockLinearOperator(U, U, ((S, None), (None, S1)))
     u = BlockVector(U, (v,w))
+
+    ###
+    ### Test whether pre-allocated storage in InverseLinearoperator subclasses belong to the right space.
+    ### Not working so far as algorithms implicitely assume domain == codomain.
+    ###
+
+    #S2_inv_pcg = inverse(S2, 'pcg', pc='jacobi', tol=1e-9)
+    #S2_inv_lsmr = inverse(S2, 'lsmr', tol=1e-9)
+    #x_pcg = S2_inv_pcg @ v2
+    #x_lsmr = S2_inv_lsmr @ v2
+    #assert isinstance(x_pcg, V)
+    #assert isinstance(x_lsmr, V)
 
     ###
     ### BlockLO Transpose - Inverse Tests
