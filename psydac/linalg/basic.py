@@ -473,7 +473,6 @@ class IdentityOperator(LinearOperator):
             return self.dot(B)
 
 #===============================================================================
-# TODO rewrite __mul__ to be more efficient and to not create a new ScaledLinearOperator ??
 class ScaledLinearOperator(LinearOperator):
 
     def __init__(self, domain, codomain, c, A):
