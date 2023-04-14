@@ -408,15 +408,6 @@ class StencilVector( Vector ):
         return w
 
     #...
-    def __rmul__(self, a):
-        w = StencilVector( self._space )
-        np.multiply(a, self._data, out=w._data)
-        for axis, ext in self._space.interfaces:
-            np.multiply(a, self._interface_data[axis, ext], out=w._interface_data[axis, ext])
-        w._sync = self._sync
-        return w
-
-    #...
     def __add__(self, v):
         assert isinstance( v, StencilVector )
         assert v._space is self._space

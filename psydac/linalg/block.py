@@ -241,12 +241,6 @@ class BlockVector(Vector):
         return w
 
     #...
-    def __rmul__(self, a):
-        w = BlockVector(self._space, [a * b for b in self._blocks])
-        w._sync = self._sync
-        return w
-
-    #...
     def __add__(self, v):
         assert isinstance(v, BlockVector)
         assert v._space is self._space

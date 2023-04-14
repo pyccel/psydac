@@ -105,10 +105,6 @@ class Vector(ABC):
         pass
 
     @abstractmethod
-    def __rmul__(self, a):
-        pass
-
-    @abstractmethod
     def __add__(self, v):
         pass
 
@@ -142,6 +138,9 @@ class Vector(ABC):
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
+    def __rmul__(self, a):
+        return self * a
+
     def __truediv__(self, a):
         return self * (1.0 / a)
 

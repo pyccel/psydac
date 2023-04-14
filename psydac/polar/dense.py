@@ -237,10 +237,6 @@ class DenseVector( Vector ):
         return DenseVector( self._space, self._data * a )
 
     # ...
-    def __rmul__( self, a ):
-        return DenseVector( self._space, a * self._data )
-
-    # ...
     def __add__( self, v ):
         assert isinstance( v, DenseVector )
         assert v._space is self._space
