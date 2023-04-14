@@ -690,21 +690,6 @@ class BlockLinearOperator(LinearOperator):
         return mat
 
     # ...
-    def __rmul__(self, a):
-        """
-        The right multiplication must be implemented because if a block is a Kronecker matrices,
-        right and left multiplication are not the same.
-        """
-        blocks = {ij: a * Bij for ij, Bij in self._blocks.items()}
-        mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
-        if self._backend is not None:
-            mat._func = self._func
-            mat._args = self._args
-            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
-            mat._backend = self._backend
-        return mat
-
-    # ...
     def __add__(self, M):
         if not isinstance(M, BlockLinearOperator):
             return LinearOperator.__add__(self, M)

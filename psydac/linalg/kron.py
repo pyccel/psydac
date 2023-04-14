@@ -116,11 +116,6 @@ class KroneckerStencilMatrix( LinearOperator ):
         return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
 
     # ...
-    def __rmul__(self, a):
-        mats = [a * self.mats[0], *(m.copy() for m in self.mats[1:])]
-        return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
-
-    # ...
     def __imul__(self, a):
         self.mats[-1] *= a
         return self
