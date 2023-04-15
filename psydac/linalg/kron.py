@@ -60,15 +60,6 @@ class KroneckerStencilMatrix( LinearOperator ):
     def mats( self ):
         return self._mats
 
-    def __truediv__(self, a):
-        """ Divide by scalar. """
-        return self * (1.0 / a)
-
-    def __itruediv__(self, a):
-        """ Divide by scalar, in place. """
-        self *= 1.0 / a
-        return self
-
     # ...
     def dot( self, x, out=None ):
 
@@ -124,11 +115,6 @@ class KroneckerStencilMatrix( LinearOperator ):
     # ...
     def __mul__(self, a):
         mats = [*(m.copy() for m in self.mats[:-1]), self.mats[-1] * a]
-        return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
-
-    # ...
-    def __rmul__(self, a):
-        mats = [a * self.mats[0], *(m.copy() for m in self.mats[1:])]
         return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
 
     # ...
@@ -229,8 +215,8 @@ class KroneckerStencilMatrix( LinearOperator ):
     def toarray(self):
         return self.tosparse().toarray()
 
-    def transpose(self):
-        mats_tr = [Mi.transpose() for Mi in self.mats]
+    def transpose(self, conjugate=False):
+        mats_tr = [Mi.transpose(conjugate=conjugate) for Mi in self.mats]
         return KroneckerStencilMatrix(self.codomain, self.domain, *mats_tr)
 
     @property

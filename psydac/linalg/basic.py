@@ -106,10 +106,6 @@ class Vector(ABC):
         pass
 
     @abstractmethod
-    def __rmul__(self, a):
-        pass
-
-    @abstractmethod
     def __add__(self, v):
         pass
 
@@ -129,15 +125,40 @@ class Vector(ABC):
     def __isub__(self, v):
         pass
 
+    @abstractmethod
+    def conjugate(self, out=None):
+        """Compute the complex conjugate vector.
+
+        If the field is real (i.e. `self.dtype in (np.float32, np.float64)`) this method is equivalent to `copy`.
+        If the field is complex (i.e. `self.dtype in (np.complex64, np.complex128)`) this method returns
+        the complex conjugate of `self`, element-wise.
+
+        The behavior of this function is similar to `numpy.conjugate(self, out=None)`.
+        """
+
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
+    def __rmul__(self, a):
+        return self * a
+
     def __truediv__(self, a):
         return self * (1.0 / a)
 
     def __itruediv__(self, a):
         self *= 1.0 / a
         return self
+
+    def conj(self, out=None):
+        """Compute the complex conjugate vector.
+
+        If the field is real (i.e. `self.dtype in (np.float32, np.float64)`) this method is equivalent to `copy`.
+        If the field is complex (i.e. `self.dtype in (np.complex64, np.complex128)`) this method returns
+        the complex conjugate of `self`, element-wise.
+
+        The behavior of this function is similar to `numpy.conj(self, out=None)`.
+        """
+        return self.conjugate(out)
 
 #===============================================================================
 class LinearOperator(ABC):
@@ -171,10 +192,6 @@ class LinearOperator(ABC):
     def dtype(self):
         pass
 
-    @property
-    def T(self):
-        return self.transpose()
-
     @abstractmethod
     def tosparse(self):
         pass
@@ -187,6 +204,17 @@ class LinearOperator(ABC):
     def dot(self, v, out=None):
         """ Apply linear operator to Vector v. Result is written to Vector out, if provided."""
         pass
+
+    @abstractmethod
+    def transpose(self, conjugate=False):
+        """
+        Transpose the LinearOperator .
+
+        If conjugate is True, return the Hermitian transpose.
+        """
+        pass
+
+    # TODO: check if we should add a copy method!!!
 
     #-------------------------------------
     # Magic methods
@@ -209,7 +237,7 @@ class LinearOperator(ABC):
             return ScaledLinearOperator(self._domain, self._codomain, c, self)
 
     def __rmul__(self, c):
-        """ Calles :ref:`__mul__ <mul>` instead. """
+        """ Calls :ref:`__mul__ <mul>` instead. """
         return self * c
 
     def __matmul__(self, B):
@@ -245,16 +273,31 @@ class LinearOperator(ABC):
         """ Creates an object of class :ref:`PowerLinearOperator <powerlinearoperator>`. """
         return PowerLinearOperator(self._domain, self._codomain, self, n)
 
+    def __truediv__(self, c):
+        """ Divide by scalar. """
+        return self * (1.0 / c)
+
+    def __itruediv__(self, c):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / c
+        return self
+
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
-    def transpose(self):
-        raise NotImplementedError()
+
+    @property
+    def T(self):
+        return self.transpose()
+
+    @property
+    def H(self):
+        return self.transpose(conjugate=True)
 
     def idot(self, v, out):
         """
         Implements out += self @ v with a temporary.
-        Subclasses should provide a implementation without a temporary.
+        Subclasses should provide an implementation without a temporary.
 
         """
         assert isinstance(v, Vector)
@@ -316,7 +359,7 @@ class ZeroOperator(LinearOperator):
         from scipy.sparse import csr_matrix
         return csr_matrix(self.shape, dtype=self.dtype)
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         return ZeroOperator(domain=self._codomain, codomain=self._domain)
 
     def dot(self, v, out=None):
@@ -405,7 +448,7 @@ class IdentityOperator(LinearOperator):
         from scipy.sparse import identity
         return identity(self._domain.dimension, dtype=self.dtype, format="csr")
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         """ Could return self, but by convention returns new object. """
         return IdentityOperator(self._domain, self._codomain)
 
@@ -480,8 +523,8 @@ class ScaledLinearOperator(LinearOperator):
         from scipy.sparse import csr_matrix
         return self._scalar*csr_matrix(self._operator.toarray())
 
-    def transpose(self):
-        return ScaledLinearOperator(domain=self._codomain, codomain=self._domain, c=self._scalar, A=self._operator.T)
+    def transpose(self, conjugate=False):
+        return ScaledLinearOperator(domain=self._codomain, codomain=self._domain, c=self._scalar, A=self._operator.transpose(conjugate=conjugate))
 
     def __neg__(self):
         return ScaledLinearOperator(domain=self._domain, codomain=self._codomain, c=-1*self._scalar, A=self._operator)
@@ -573,10 +616,10 @@ class SumLinearOperator(LinearOperator):
             out += a.tosparse()
         return out
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         t_addends = ()
         for a in self._addends:
-            t_addends = (*t_addends, a.T)
+            t_addends = (*t_addends, a.transpose(conjugate=conjugate))
         return SumLinearOperator(self._codomain, self._domain, *t_addends)
 
     @staticmethod
@@ -686,10 +729,10 @@ class ComposedLinearOperator(LinearOperator):
             M = M @ Mi
         return coo_matrix(M)
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         t_multiplicants = ()
         for a in self._multiplicants:
-            t_multiplicants = (a.T, *t_multiplicants)
+            t_multiplicants = (a.transpose(conjugate=conjugate), *t_multiplicants)
         new_dom = self._codomain
         new_cod = self._domain
         assert isinstance(new_dom, VectorSpace)
@@ -783,8 +826,8 @@ class PowerLinearOperator(LinearOperator):
     def tosparse(self):
         raise NotImplementedError('tosparse() is not defined for PowerLinearOperators.')
 
-    def transpose(self):
-        return PowerLinearOperator(domain=self._codomain, codomain=self._domain, A=self._operator.T, n=self._factorial)
+    def transpose(self, conjugate=False):
+        return PowerLinearOperator(domain=self._codomain, codomain=self._domain, A=self._operator.transpose(conjugate=conjugate), n=self._factorial)
 
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
@@ -854,7 +897,7 @@ class InverseLinearOperator(LinearOperator):
         pass
 
     @abstractmethod
-    def transpose(self):
+    def transpose(self, conjugate=False):
         pass
 
     @staticmethod
@@ -884,7 +927,7 @@ class InverseLinearOperator(LinearOperator):
         # Sanity checks
         assert isinstance(A, (StencilMatrix, BlockLinearOperator))
         assert isinstance(b, (StencilVector, BlockVector))
-        assert A.codomain == A.domain
+        assert A.codomain.dimension == A.domain.dimension
         assert A.codomain == b.space
 
         #-------------------------------------------------------------

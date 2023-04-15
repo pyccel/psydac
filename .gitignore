@@ -28,3 +28,6 @@ __*pyccel__
 
 # pytest directories
 __test__/
+
+# pycharm directory
+.idea

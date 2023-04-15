@@ -23,17 +23,25 @@ def compute_global_starts_ends(domain_decomposition, npts):
         global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
 
     return tuple(global_starts), tuple(global_ends)
+
 #==============================================================================
+@pytest.mark.parametrize('dtype', [float,complex])
 @pytest.mark.parametrize('npts', [(5, 7, 8)])
 @pytest.mark.parametrize('pads', [(2, 3, 5)])
 @pytest.mark.parametrize('periodic', [(True, False, False)])
 
-def test_KroneckerStencilMatrix(npts, pads, periodic):
+def test_KroneckerStencilMatrix(dtype, npts, pads, periodic):
 
     # Extract input parameters
     n1, n2, n3 = npts
     p1, p2, p3 = pads
     P1, P2, P3 = periodic
+
+    # Define data type with a factor
+    if dtype==complex:
+        factor=1j
+    else:
+        factor=1
 
     # Create domain decomposition
     D = DomainDecomposition([n1-1,n2-1, n3-1], periods=[P1,P2,P3])
@@ -44,7 +52,7 @@ def test_KroneckerStencilMatrix(npts, pads, periodic):
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2,p3], shifts=[1,1,1])
 
     # 3D vector space and element
-    W = StencilVectorSpace( cart )
+    W = StencilVectorSpace( cart, dtype=dtype)
     w = StencilVector(W)
 
     # 1D vector space
@@ -62,9 +70,9 @@ def test_KroneckerStencilMatrix(npts, pads, periodic):
     cart2 = CartDecomposition(D2, [n2], global_starts2, global_ends2, pads=[p2], shifts=[1])
     cart3 = CartDecomposition(D3, [n3], global_starts3, global_ends3, pads=[p3], shifts=[1])
 
-    V1 = StencilVectorSpace( cart1 )
-    V2 = StencilVectorSpace( cart2 )
-    V3 = StencilVectorSpace( cart3 )
+    V1 = StencilVectorSpace( cart1, dtype=dtype )
+    V2 = StencilVectorSpace( cart2, dtype=dtype )
+    V3 = StencilVectorSpace( cart3, dtype=dtype )
 
     # 1D stencil matrices
     M1 = StencilMatrix(V1, V1)
@@ -74,13 +82,13 @@ def test_KroneckerStencilMatrix(npts, pads, periodic):
     # ...
     # Fill in stencil matrix values
     for k1 in range(-p1, p1+1):
-        M1[:, k1] = 10 + k1
+        M1[:, k1] = 10 + k1*factor
 
     for k2 in range(-p2, p2+1):
-        M2[:, k2] = 20 + k2
+        M2[:, k2] = 20 + k2*factor
 
     for k3 in range(-p3, p3+1):
-        M3[:, k3] = 40 + k3
+        M3[:, k3] = 40 + k3*factor
 
     M1.remove_spurious_entries()
     M2.remove_spurious_entries()
@@ -88,7 +96,7 @@ def test_KroneckerStencilMatrix(npts, pads, periodic):
     # ...
 
     # Fill in vector values
-    w[:, :, :] = 1.0
+    w[:, :, :] = factor
 
     # Create Kronecker matrix 
     M = KroneckerStencilMatrix(W, W, M1, M2, M3)

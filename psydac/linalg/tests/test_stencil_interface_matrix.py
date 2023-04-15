@@ -6,9 +6,10 @@ from random import random
 
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix, StencilInterfaceMatrix
 from psydac.api.settings   import *
+from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
 #===============================================================================
-def compute_global_starts_ends(domain_decomposition, npts):
+def compute_global_starts_ends(domain_decomposition, npts, pads):
     ndims         = len(npts)
     global_starts = [None]*ndims
     global_ends   = [None]*ndims
@@ -19,6 +20,9 @@ def compute_global_starts_ends(domain_decomposition, npts):
         global_ends  [axis]     = ee.copy()
         global_ends  [axis][-1] = npts[axis]-1
         global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+
+    for s, e, p in zip(global_starts, global_ends, pads):
+        assert all(e - s + 1 >= p)
 
     return tuple(global_starts), tuple(global_ends)
 
@@ -48,6 +52,170 @@ def get_plus_starts_ends(minus_starts, minus_ends, minus_npts, plus_npts, minus_
     ends[plus_axis]   = ends[plus_axis] if plus_ext == 1 else plus_pads[plus_axis]
     return starts, ends
 
+# TODO : Add test about dot, div, transpose, toarray, tosparse, copy, basic operation, max, exchange_assembly_data, set_backend
+# ===============================================================================
+# SERIAL TESTS
+# ===============================================================================
+
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('axis', [0])
+@pytest.mark.parametrize('ext', [-1, 1])
+@pytest.mark.parametrize('n1', [7, 15])
+@pytest.mark.parametrize('p1', [2, 4])
+@pytest.mark.parametrize('s1', [1, 2])
+def test_stencil_interface_matrix_1d_serial_init(dtype, n1, p1, s1, axis, ext, P1=True):
+    # Create domain decomposition
+    D = DomainDecomposition([n1], periods=[P1])
+
+    # Partition the points
+    npts = [n1]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[s1])
+
+    # Create a vector space V and a matrix M from V to V
+    V = StencilVectorSpace(cart, dtype=dtype)
+    V.set_interface(axis, ext, cart)
+    W = StencilVectorSpace(cart, dtype=dtype)
+    W.set_interface(axis, -ext, cart)
+    M = StencilInterfaceMatrix(V, W, global_starts, global_starts, axis, axis, ext, -ext)
+
+    # Check properties of this matrix
+    assert M.domain == V
+    assert M.codomain == W
+    assert M.dtype == dtype
+    assert M.domain_axis == axis
+    assert M.codomain_axis == axis
+    assert M.domain_ext == ext
+    assert M.codomain_ext == -ext
+    assert M.dim == 1
+    assert M.domain_start == (0,) * M.dim
+    assert M.codomain_start == (0,) * M.dim
+    assert M.flip == (1,) * M.dim
+    assert np.array_equal(M.permutation, [0])
+    assert M.pads == (p1,)
+    assert M.backend == None
+    assert M._data.shape == (p1 + 1 + 2 * p1 * s1, 1 + 2 * p1)
+    assert M.shape == (n1, n1)
+
+# ===============================================================================
+
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('axis1', [0, 1])
+@pytest.mark.parametrize('axis2', [0, 1])
+@pytest.mark.parametrize('ext1', [-1, 1])
+@pytest.mark.parametrize('ext2', [-1, 1])
+@pytest.mark.parametrize('n1', [7, 15])
+@pytest.mark.parametrize('n2', [7, 15])
+@pytest.mark.parametrize('p1', [2, 3])
+@pytest.mark.parametrize('p2', [2, 3])
+@pytest.mark.parametrize('s1', [1, 2])
+@pytest.mark.parametrize('s2', [1, 2])
+def test_stencil_interface_matrix_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, axis1, axis2, ext1, ext2, P1=True,
+                                                 P2=True):
+    # Create domain decomposition
+    D = DomainDecomposition([n1, n2], periods=[P1, P2])
+
+    # Partition the points
+    npts = [n1, n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
+
+    # Create a vector space V and a matrix M from V to V
+    V = StencilVectorSpace(cart, dtype=dtype)
+    V.set_interface(axis1, ext1, cart)
+    W = StencilVectorSpace(cart, dtype=dtype)
+    W.set_interface(axis2, ext2, cart)
+    M = StencilInterfaceMatrix(V, W, global_starts, global_starts, axis1, axis2, ext1, ext2)
+
+    # Check properties of this matrix
+    assert M.domain == V
+    assert M.codomain == W
+    assert M.dtype == dtype
+    assert M.domain_axis == axis1
+    assert M.codomain_axis == axis2
+    assert M.domain_ext == ext1
+    assert M.codomain_ext == ext2
+    assert M.dim == 2
+    assert M.domain_start == (0,) * M.dim
+    assert M.codomain_start == (0,) * M.dim
+    assert M.flip == (1,) * M.dim
+    assert M.pads == (p1, p2)
+    assert M.backend == None
+    if axis2 == 0:
+        assert M._data.shape == (p1 + 1 + 2 * p1 * s1, n2 + 2 * p2 * s2, 1 + 2 * p1, 1 + 2 * p2)
+    elif axis2 == 1:
+        assert M._data.shape == (n1 + 2 * p1 * s1, p2 + 1 + 2 * p2 * s2, 1 + 2 * p1, 1 + 2 * p2)
+    if axis1 == axis2:
+        assert np.array_equal(M.permutation, [0, 1])
+    else:
+        assert np.array_equal(M.permutation, [1, 0])
+    assert M.shape == (n1 * n2, n1 * n2)
+
+# ===============================================================================
+
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('axis1', [0, 1, 2])
+@pytest.mark.parametrize('axis2', [0, 1, 2])
+@pytest.mark.parametrize('ext1', [-1, 1])
+@pytest.mark.parametrize('ext2', [-1, 1])
+@pytest.mark.parametrize('n1', [7, 15])
+@pytest.mark.parametrize('n2', [7, 15])
+@pytest.mark.parametrize('n3', [6])
+@pytest.mark.parametrize('p1', [2, 3])
+@pytest.mark.parametrize('p2', [2, 3])
+@pytest.mark.parametrize('p3', [1])
+@pytest.mark.parametrize('s1', [1, 2])
+@pytest.mark.parametrize('s2', [1, 2])
+@pytest.mark.parametrize('s3', [3])
+def test_stencil_interface_matrix_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, axis1, axis2,
+                                                 ext1, ext2, P1=True, P2=True, P3=False):
+    # Create domain decomposition
+    D = DomainDecomposition([n1, n2, n3], periods=[P1, P2, P3])
+
+    # Partition the points
+    npts = [n1, n2, n3]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2, p3])
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2, p3], shifts=[s1, s2, s3])
+
+    # Create a vector space V and a matrix M from V to V
+    V = StencilVectorSpace(cart, dtype=dtype)
+    V.set_interface(axis1, ext1, cart)
+    W = StencilVectorSpace(cart, dtype=dtype)
+    W.set_interface(axis2, ext2, cart)
+    M = StencilInterfaceMatrix(V, W, global_starts, global_starts, axis1, axis2, ext1, ext2)
+
+    # Check properties of this matrix
+    assert M.domain == V
+    assert M.codomain == W
+    assert M.dtype == dtype
+    assert M.domain_axis == axis1
+    assert M.codomain_axis == axis2
+    assert M.domain_ext == ext1
+    assert M.codomain_ext == ext2
+    assert M.dim == 3
+    assert M.domain_start == (0,) * M.dim
+    assert M.codomain_start == (0,) * M.dim
+    assert M.flip == (1,) * M.dim
+    assert M.pads == (p1, p2, p3)
+    assert M.backend == None
+    if axis2 == 0:
+        assert M._data.shape == (
+        p1 + 1 + 2 * p1 * s1, n2 + 2 * p2 * s2, n3 + 2 * p3 * s3, 1 + 2 * p1, 1 + 2 * p2, 1 + 2 * p3)
+    elif axis2 == 1:
+        assert M._data.shape == (
+        n1 + 2 * p1 * s1, p2 + 1 + 2 * p2 * s2, n3 + 2 * p3 * s3, 1 + 2 * p1, 1 + 2 * p2, 1 + 2 * p3)
+    elif axis2 == 2:
+        assert M._data.shape == (
+        n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, p3 + 1 + 2 * p3 * s3, 1 + 2 * p1, 1 + 2 * p2, 1 + 2 * p3)
+    if axis1 == axis2:
+        assert np.array_equal(M.permutation, [0, 1, 2])
+    else:
+        permutation = [0, 1, 2]
+        permutation[axis1], permutation[axis2] = permutation[axis2], permutation[axis1]
+        assert np.array_equal(M.permutation, permutation)
+    assert M.shape == (n1 * n2 * n3, n1 * n2 * n3)
+#===============================================================================
+# Parallel TESTS
 #===============================================================================
 @pytest.mark.parametrize("n1,n2,p1,p2,expected", [(8,8,1,1, 827301207168.0), 
                                                   (8,8,2,2, 4824719287396.0),

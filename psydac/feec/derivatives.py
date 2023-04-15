@@ -243,7 +243,7 @@ class DirectionalDerivativeOperator(LinearOperator):
         mats = [M if i == self._diffdir else make_id(i) for i in range(self._domain.ndim)]
         return KroneckerStencilMatrix(self._domain, self._codomain, *mats)
     
-    def transpose(self):
+    def transpose(self, conjugate=False):
         """
         Transposes this operator. Creates and returns a new object.
 
@@ -361,9 +361,6 @@ class DirectionalDerivativeOperator(LinearOperator):
     # (i.e. these are not really meant to be used in practice)
 
     def __mul__(self, a):
-        return self.tokronstencil() * a
-
-    def __rmul__(self, a):
         return self.tokronstencil() * a
 
     def __add__(self, m):

@@ -24,7 +24,7 @@ from psydac.fem.basic          import FemField
 from psydac.fem.vector         import ProductFemSpace
 from psydac.api.discretization import discretize
 from psydac.linalg.utilities   import array_to_psydac
-from psydac.linalg.iterative_solvers import pcg, bicg
+from psydac.linalg.solvers     import inverse
 
 #==============================================================================
 def run_poisson_mixed_form_2d_dir(f0, sol, ncells, degree):
@@ -399,7 +399,8 @@ def run_maxwell_time_harmonic_2d_dir(uex, f, alpha, ncells, degree):
     #+++++++++++++++++++++++++++++++
 
     # Solve linear system
-    sol, info  = pcg(M ,b, pc='jacobi', tol=1e-8)
+    M_inv = inverse(M, 'pcg', pc='jacobi', tol=1e-8)
+    sol = M_inv @ b
 
     uh       = FemField( Vh, sol )
     l2_error = l2_norm_h.assemble(F=uh)
