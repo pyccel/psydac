@@ -364,7 +364,7 @@ class KroneckerDenseMatrix( LinearOperator ):
     def toarray(self):
         return reduce(kron, (m[p:-p,p:-p] for m,p in zip(self.mats, self.domain.pads)))
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         mats_tr = [Mi.T for Mi in self.mats]
         return KroneckerDenseMatrix(self.codomain, self.domain, *mats_tr, with_pads=True)
 
