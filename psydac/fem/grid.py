@@ -36,7 +36,7 @@ class FemAssemblyGrid:
     end : int
         Index of last element local to process.
 
-    quad_order : int
+    nquads : int
         Polynomial order for which mass matrix is exact, assuming identity map
         (default: spline degree).
 
@@ -45,13 +45,13 @@ class FemAssemblyGrid:
         points (default: 1).
 
     """
-    def __init__( self, space, start, end, *, quad_order=None, nderiv=1):
+    def __init__( self, space, start, end, *, nquads=None, nderiv=1):
 
         T            = space.knots           # knots sequence
         degree       = space.degree          # spline degree
         n            = space.nbasis          # total number of control points
         grid         = space.breaks          # breakpoints
-        k            = quad_order or degree  # polynomial order for which the mass matrix is exact
+        k            = nquads or degree  # polynomial order for which the mass matrix is exact
 
         # Gauss-legendre quadrature rule
         u, w = gauss_legendre( k )

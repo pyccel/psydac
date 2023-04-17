@@ -53,7 +53,7 @@ class TensorFemSpace( FemSpace ):
 
     """
 
-    def __init__( self, domain_decomposition, *spaces, vector_space=None, cart=None, quad_order=None ):
+    def __init__( self, domain_decomposition, *spaces, vector_space=None, cart=None, nquads=None ):
         """."""
         assert isinstance(domain_decomposition, DomainDecomposition)
         assert all( isinstance( s, SplineSpace ) for s in spaces )
@@ -71,10 +71,10 @@ class TensorFemSpace( FemSpace ):
         # Shortcut
         v = self._vector_space
 
-        if quad_order is None:
-            self._quad_order = [sp.degree for sp in self.spaces]
+        if nquads is None:
+            self._nquads = [sp.degree for sp in self.spaces]
         else:
-            self._quad_order = quad_order
+            self._nquads = nquads
 
         self._symbolic_space = None
         self._interfaces     = {}
@@ -86,8 +86,8 @@ class TensorFemSpace( FemSpace ):
         ends   = self._vector_space.cart.domain_decomposition.ends
 
         # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q)
-                                  for V,s,e,q in zip( self.spaces, starts, ends, self._quad_order ) )
+        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, nquads=q)
+                                  for V,s,e,q in zip( self.spaces, starts, ends, self._nquads ) )
 
         # Determine portion of logical domain local to process
         self._element_starts = starts
@@ -729,8 +729,8 @@ class TensorFemSpace( FemSpace ):
         return self._spaces
     
     @property
-    def quad_order( self ):
-        return self._quad_order
+    def nquads( self ):
+        return self._nquads
 
     @property
     def quad_grids( self ):
@@ -892,7 +892,7 @@ class TensorFemSpace( FemSpace ):
                 global_starts[axis][0] = 0
 
         cart = v._cart.reduce_grid(global_starts, global_ends)
-        V    = TensorFemSpace(*spaces, cart=cart, quad_order=self._quad_order)
+        V    = TensorFemSpace(*spaces, cart=cart, nquads=self._nquads)
         return V
 
     # ...
@@ -1015,7 +1015,7 @@ class TensorFemSpace( FemSpace ):
         red_cart   = v.cart.reduce_npts(npts, global_starts, global_ends, shifts=multiplicity)
 
         # create new TensorFemSpace
-        tensor_vec = TensorFemSpace(self._domain_decomposition, *spaces, cart=red_cart, quad_order=self._quad_order)
+        tensor_vec = TensorFemSpace(self._domain_decomposition, *spaces, cart=red_cart, nquads=self._nquads)
 
         tensor_vec._interpolation_ready = False
         return tensor_vec
@@ -1043,10 +1043,10 @@ class TensorFemSpace( FemSpace ):
         if cart.is_comm_null: return
         spaces       = self.spaces
         vector_space = self.vector_space
-        quad_order   = self.quad_order
+        nquads   = self.nquads
 
         vector_space.set_interface(axis, ext, cart)
-        space = TensorFemSpace( self._domain_decomposition, *spaces, vector_space=vector_space.interfaces[axis, ext], quad_order=self.quad_order)
+        space = TensorFemSpace( self._domain_decomposition, *spaces, vector_space=vector_space.interfaces[axis, ext], nquads=self.nquads)
         self._interfaces[axis, ext] = space
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):
