@@ -238,7 +238,8 @@ if __name__ == '__main__':
     # Create finite element space
     space = SplineSpace(p, grid=grid, periodic=model.periodic)
     ncells = [len(space.breaks)-1]
-    domain_decomposition = DomainDecomposition(ncells=ncells, periods=[model.periodic], comm=None)
+    periods = [model.periodic]
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=periods)
     V = TensorFemSpace(domain_decomposition, space)
 
     # Build mass and stiffness matrices
