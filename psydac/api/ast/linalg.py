@@ -157,16 +157,19 @@ class LinearOperatorDot(SplBasic):
         d_start         = kwargs.pop('d_start', None)
         c_start         = kwargs.pop('c_start', None)
         dtype           = kwargs.pop('dtype', float)
+        is_real    = kwargs.pop('is_real', False)
 
         # Adapt the type of data treated in our dot function
         if dtype==complex:
-            dtype_string='complex'
+            mat_dtype_string = 'real' if is_real else 'complex'
+            dtype_string = 'complex'
         else:
-            dtype_string='real'
+            dtype_string     = 'real'
+            mat_dtype_string = 'real'
 
-        mats            = [variables('mat{}'.format(''.join(str(i) for i in key)),dtype_string, cls=IndexedVariable, rank=2*ndim) for key in keys]
-        xs              = [variables('x{}'.format(i),dtype_string, cls=IndexedVariable, rank=ndim) for i in range(block_shape[1])]
-        outs            = [variables('out{}'.format(i),dtype_string, cls=IndexedVariable, rank=ndim) for i in range(block_shape[0])]
+        mats            = [variables('mat{}'.format(''.join(str(i) for i in key)), mat_dtype_string, cls=IndexedVariable, rank=2*ndim) for key in keys]
+        xs              = [variables('x{}'.format(i), dtype_string, cls=IndexedVariable, rank=ndim) for i in range(block_shape[1])]
+        outs            = [variables('out{}'.format(i), dtype_string, cls=IndexedVariable, rank=ndim) for i in range(block_shape[0])]
 
         func_args    = (*mats, *xs, *outs)
         shared       = (*mats, *xs, *outs)
@@ -189,7 +192,7 @@ class LinearOperatorDot(SplBasic):
                 indices1        = variables('i1:%s'%(ndim+1),  'int')
                 bb              = variables('b1:%s'%(ndim+1),  'int')
                 indices2        = variables('k1:%s'%(ndim+1),  'int')
-                v               = variables('v{}'.format(key_str),dtype_string)
+                v               = variables('v{}'.format(key_str), dtype_string)
                 xshape          = variables('xn1:%s'%(ndim+1),  'int')
 
                 pads_k          = tuple(map(toInteger, pads[k]))

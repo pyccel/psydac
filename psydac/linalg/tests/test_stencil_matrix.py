@@ -1721,10 +1721,10 @@ def test_stencil_matrix_3d_serial_transpose_1(dtype, n1, n2, n3, p1, p2, p3, s1,
 
     # Partition the points
     npts1 = [n1 - 1, n2 - 1, n3 - 1]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1, p2])
+    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1, p2, p3])
 
     npts2 = [n1, n2 - 1, n3 - 1]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1, p2])
+    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1, p2, p3])
 
     cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1, p2, p3], shifts=[s1, s2, s3])
     cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1, p2, p3], shifts=[s1, s2, s3])
@@ -1755,6 +1755,128 @@ def test_stencil_matrix_3d_serial_transpose_1(dtype, n1, n2, n3, p1, p2, p3, s1,
 
     # Check data
     assert abs(Ts - Ts_exact).max() < 1e-14
+    assert abs(Mt - Mt_exact).max() < 1e-14
+
+# TODO: verify for s>1
+# ===============================================================================
+@pytest.mark.parametrize('n1', [5])
+@pytest.mark.parametrize('n2', [6])
+@pytest.mark.parametrize('n3', [7])
+@pytest.mark.parametrize('p1', [1])
+@pytest.mark.parametrize('p2', [3])
+@pytest.mark.parametrize('p3', [2])
+@pytest.mark.parametrize('s1', [1])
+@pytest.mark.parametrize('s2', [1])
+@pytest.mark.parametrize('s3', [1])
+def test_stencil_matrix_3d_serial_is_real( n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=False, P2=False, P3=False):
+    # Create domain decomposition
+    D = DomainDecomposition([n1, n2, n3], periods=[P1, P2, P3])
+
+    # Partition the points
+    npts = [n1, n2, n3]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2, p3])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2, p3], shifts=[s1, s2, s3])
+
+    # Create vector space and stencil matrix
+    V = StencilVectorSpace(cart, dtype=complex)
+    X = StencilVector(V)
+    M1 = StencilMatrix(V, V, pads=(p1, p2, p3), is_real=True)
+    M2 = StencilMatrix(V, V, pads=(p1, p2, p3), is_real=True)
+    M3 = StencilMatrix(V, V, pads=(p1, p2, p3))
+    M4 = StencilMatrix(V, V, pads=(p1, p2, p3))
+
+    # Fill in matrix values with random numbers between 0 and 1
+    M1[0:n1, 0:n2, 0:n3, :, :, :] = np.random.random((n1, n2, n3, 2 * p1 + 1, 2 * p2 + 1, 2 * p3 + 1))
+    M2[0:n1, 0:n2, 0:n3, :, :, :] = np.random.random((n1, n2, n3, 2 * p1 + 1, 2 * p2 + 1, 2 * p3 + 1))
+    M3[0:n1, 0:n2, 0:n3, :, :, :] = np.random.random((n1, n2, n3, 2 * p1 + 1, 2 * p2 + 1, 2 * p3 + 1)) + \
+                                    1j*np.random.random((n1, n2, n3, 2 * p1 + 1, 2 * p2 + 1, 2 * p3 + 1))
+    M4[0:n1, 0:n2, 0:n3, :, :, :] = M1[0:n1, 0:n2, 0:n3, :, :, :]
+
+    X[:, :, :] = 2.0 *np.random.random((n1+2*p1, n2+2*p2, n3+2*p3)) - 1.0j
+
+    # If domain is not periodic, set corresponding periodic corners to zero
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+    M3.remove_spurious_entries()
+    M4.remove_spurious_entries()
+
+    # TEST Basic Operation __add__, __sub__, __mul__ with is_real parameters
+    S1 = M1+M2
+    W1 = M1-M2
+    assert np.array_equal(S1._data, M1._data+M2._data)
+    assert np.array_equal(W1._data, M1._data-M2._data)
+    assert S1._data.dtype==(M1._data+M2._data).dtype
+    assert W1._data.dtype==(M1._data-M2._data).dtype
+    assert S1.is_real
+    assert W1.is_real
+
+    S2 = M1+M3
+    W2 = M1-M3
+    assert np.array_equal(S2._data, M1._data+M3._data)
+    assert np.array_equal(W2._data, M1._data-M3._data)
+    assert S2._data.dtype==(M1._data+M3._data).dtype
+    assert W2._data.dtype==(M1._data-M3._data).dtype
+    assert not S2.is_real
+    assert not W2.is_real
+
+    M=5*M1
+    assert np.array_equal(M._data, M1._data*5)
+    assert M._data.dtype==(M1._data*5).dtype
+    assert M.is_real
+
+    M=5j*M1
+    assert np.array_equal(M._data,M1._data*5j)
+    assert M._data.dtype == (M1._data*5j).dtype
+    assert not M._is_real
+
+    # TEST copy() with is_real parameters
+    M = M1.copy()
+    assert M.is_real == M1.is_real
+    assert M._data.dtype == M1._data.dtype
+    assert np.array_equal(M._data, M1._data)
+
+    # TEST Basic Operation __iadd__, __isub__, __imul__ with is_real parameters
+    M += M2
+    assert M.is_real
+    assert M._data.dtype == (M1._data + M2._data).dtype
+    assert np.array_equal(M._data, M1._data + M2._data)
+
+    M -= M2
+    assert M.is_real
+    assert M._data.dtype == (M1._data).dtype
+    assert np.allclose(M._data, M1._data, rtol=1.e-10, atol=1.e-10)
+
+    M*=5
+    assert M.is_real
+    assert M._data.dtype == (M1._data * 5).dtype
+    assert np.allclose(M._data, M1._data*5, rtol=1.e-10, atol=1.e-10)
+
+    # TEST: compute absolute of a matrix with is_real
+    Ma = abs(-M1)
+    assert Ma.is_real
+    assert Ma._data.dtype == (M1._data).dtype
+    assert np.allclose(Ma._data, Ma._data, rtol=1.e-10, atol=1.e-10)
+
+    Ma = abs(-M3)
+    assert Ma.is_real
+    assert Ma._data.dtype == float
+    assert np.allclose(Ma._data, abs(Ma._data), rtol=1.e-10, atol=1.e-10)
+
+    # TEST: compute dot product with is_real
+    Y1 = M1.dot(X)
+    Y4 = M4.dot(X)
+
+    assert np.allclose(Y1._data, Y4._data, rtol=1.e-10, atol=1.e-10)
+
+    # TEST: compute transpose, then convert to Scipy sparse forma
+    Mt = M1.transpose().tosparse()
+
+    # Exact result: convert to Scipy sparse format, then transpose
+    Ts_exact = M1.tosparse()
+    Mt_exact = Ts_exact.transpose()
+
+    # Check data
     assert abs(Mt - Mt_exact).max() < 1e-14
 
 # TODO: verify for s>1
@@ -2235,6 +2357,59 @@ def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, 
 
     assert M.backend is backend2
     M.dot(x)
+
+# ===============================================================================
+@pytest.mark.parametrize('n1', [5])
+@pytest.mark.parametrize('n2', [6])
+@pytest.mark.parametrize('n3', [7])
+@pytest.mark.parametrize('p1', [1])
+@pytest.mark.parametrize('p2', [3])
+@pytest.mark.parametrize('p3', [2])
+@pytest.mark.parametrize('s1', [1])
+@pytest.mark.parametrize('s2', [1])
+@pytest.mark.parametrize('s3', [1])
+@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+def test_stencil_matrix_3d_serial_backend_is_real( n1, n2, n3, p1, p2, p3, s1, s2, s3, backend, P1=False, P2=False, P3=False):
+    # Create domain decomposition
+    D = DomainDecomposition([n1, n2, n3], periods=[P1, P2, P3])
+
+    # Partition the points
+    npts = [n1, n2, n3]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2, p3])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2, p3], shifts=[s1, s2, s3])
+
+    # Create vector space and stencil matrix
+    V = StencilVectorSpace(cart, dtype=complex)
+    X = StencilVector(V)
+    M1 = StencilMatrix(V, V, pads=(p1, p2, p3), is_real=True, backend=backend)
+    M2 = StencilMatrix(V, V, pads=(p1, p2, p3), backend=backend)
+
+    # Fill in matrix values with random numbers between 0 and 1
+    M1[0:n1, 0:n2, 0:n3, :, :, :] = np.random.random((n1, n2, n3, 2 * p1 + 1, 2 * p2 + 1, 2 * p3 + 1))
+    M2[0:n1, 0:n2, 0:n3, :, :, :] = M1[0:n1, 0:n2, 0:n3, :, :, :]
+
+    X[:, :, :] = 2.0 *np.random.random((n1+2*p1, n2+2*p2, n3+2*p3)) - 1.0j
+
+    # If domain is not periodic, set corresponding periodic corners to zero
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+
+    # TEST: compute dot product with is_real
+    Y1 = M1.dot(X)
+    Y2 = M2.dot(X)
+
+    assert np.allclose(Y1._data, Y2._data, rtol=1.e-10, atol=1.e-10)
+
+    # TEST: compute transpose, then convert to Scipy sparse forma
+    Mt = M1.transpose().tosparse()
+
+    # Exact result: convert to Scipy sparse format, then transpose
+    Ts_exact = M1.tosparse()
+    Mt_exact = Ts_exact.transpose()
+
+    # Check data
+    assert abs(Mt - Mt_exact).max() < 1e-14
 
 # ===============================================================================
 # PARALLEL TESTS
@@ -2749,6 +2924,131 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
     assert abs(Ts - Ts_exact).max() < 1e-14
 
 # ===============================================================================
+@pytest.mark.parametrize('n1', [5])
+@pytest.mark.parametrize('n2', [6])
+@pytest.mark.parametrize('n3', [7])
+@pytest.mark.parametrize('p1', [1])
+@pytest.mark.parametrize('p2', [3])
+@pytest.mark.parametrize('p3', [2])
+@pytest.mark.parametrize('s1', [1])
+@pytest.mark.parametrize('s2', [1])
+@pytest.mark.parametrize('s3', [1])
+def test_stencil_matrix_3d_serial_is_real(n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=False, P2=False, P3=False):
+    from mpi4py import MPI
+    from psydac.ddm.cart import CartDecomposition
+
+    comm = MPI.COMM_WORLD
+    # Create domain decomposition
+    D = DomainDecomposition([n1, n2, n3], periods=[P1, P2, P3], comm=comm)
+
+    # Partition the points
+    npts = [n1, n2, n3]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2, p3])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2, p3], shifts=[s1, s2, s3])
+
+    # Create vector space and stencil matrix
+    V = StencilVectorSpace(cart, dtype=complex)
+    X = StencilVector(V)
+    M1 = StencilMatrix(V, V, pads=(p1, p2, p3), is_real=True)
+    M2 = StencilMatrix(V, V, pads=(p1, p2, p3), is_real=True)
+    M3 = StencilMatrix(V, V, pads=(p1, p2, p3))
+    M4 = StencilMatrix(V, V, pads=(p1, p2, p3))
+
+    # Fill in matrix values with random numbers between 0 and 1
+    M1[0:n1, 0:n2, 0:n3, :, :, :] = np.random.random((n1, n2, n3, 2 * p1 + 1, 2 * p2 + 1, 2 * p3 + 1))
+    M2[0:n1, 0:n2, 0:n3, :, :, :] = np.random.random((n1, n2, n3, 2 * p1 + 1, 2 * p2 + 1, 2 * p3 + 1))
+    M3[0:n1, 0:n2, 0:n3, :, :, :] = np.random.random((n1, n2, n3, 2 * p1 + 1, 2 * p2 + 1, 2 * p3 + 1)) + \
+                                    1j * np.random.random((n1, n2, n3, 2 * p1 + 1, 2 * p2 + 1, 2 * p3 + 1))
+    M4[0:n1, 0:n2, 0:n3, :, :, :] = M1[0:n1, 0:n2, 0:n3, :, :, :]
+
+    X[:, :, :] = 2.0 * np.random.random((n1 + 2 * p1, n2 + 2 * p2, n3 + 2 * p3)) - 1.0j
+
+    # If domain is not periodic, set corresponding periodic corners to zero
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+    M3.remove_spurious_entries()
+    M4.remove_spurious_entries()
+
+    # TEST Basic Operation __add__, __sub__, __mul__ with is_real parameters
+    S1 = M1 + M2
+    W1 = M1 - M2
+    assert np.array_equal(S1._data, M1._data + M2._data)
+    assert np.array_equal(W1._data, M1._data - M2._data)
+    assert S1._data.dtype == (M1._data + M2._data).dtype
+    assert W1._data.dtype == (M1._data - M2._data).dtype
+    assert S1.is_real
+    assert W1.is_real
+
+    S2 = M1 + M3
+    W2 = M1 - M3
+    assert np.array_equal(S2._data, M1._data + M3._data)
+    assert np.array_equal(W2._data, M1._data - M3._data)
+    assert S2._data.dtype == (M1._data + M3._data).dtype
+    assert W2._data.dtype == (M1._data - M3._data).dtype
+    assert not S2.is_real
+    assert not W2.is_real
+
+    M = 5 * M1
+    assert np.array_equal(M._data, M1._data * 5)
+    assert M._data.dtype == (M1._data * 5).dtype
+    assert M.is_real
+
+    M = 5j * M1
+    assert np.array_equal(M._data, M1._data * 5j)
+    assert M._data.dtype == (M1._data * 5j).dtype
+    assert not M._is_real
+
+    # TEST copy() with is_real parameters
+    M = M1.copy()
+    assert M.is_real == M1.is_real
+    assert M._data.dtype == M1._data.dtype
+    assert np.array_equal(M._data, M1._data)
+
+    # TEST Basic Operation __iadd__, __isub__, __imul__ with is_real parameters
+    M += M2
+    assert M.is_real
+    assert M._data.dtype == (M1._data + M2._data).dtype
+    assert np.array_equal(M._data, M1._data + M2._data)
+
+    M -= M2
+    assert M.is_real
+    assert M._data.dtype == (M1._data).dtype
+    assert np.allclose(M._data, M1._data, rtol=1.e-10, atol=1.e-10)
+
+    M *= 5
+    assert M.is_real
+    assert M._data.dtype == (M1._data * 5).dtype
+    assert np.allclose(M._data, M1._data * 5, rtol=1.e-10, atol=1.e-10)
+
+    # TEST: compute absolute of a matrix with is_real
+    Ma = abs(-M1)
+    assert Ma.is_real
+    assert Ma._data.dtype == (M1._data).dtype
+    assert np.allclose(Ma._data, Ma._data, rtol=1.e-10, atol=1.e-10)
+
+    Ma = abs(-M3)
+    assert Ma.is_real
+    assert Ma._data.dtype == float
+    assert np.allclose(Ma._data, abs(Ma._data), rtol=1.e-10, atol=1.e-10)
+
+    # TEST: compute dot product with is_real
+    Y1 = M1.dot(X)
+    Y4 = M4.dot(X)
+
+    assert np.allclose(Y1._data, Y4._data, rtol=1.e-10, atol=1.e-10)
+
+    # TEST: compute transpose, then convert to Scipy sparse forma
+    Mt = M1.transpose().tosparse()
+
+    # Exact result: convert to Scipy sparse format, then transpose
+    Ts_exact = M1.tosparse()
+    Mt_exact = Ts_exact.transpose()
+
+    # Check data
+    assert abs(Mt - Mt_exact).max() < 1e-14
+
+# ===============================================================================
 # PARALLEL BACKENDS TESTS
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -2947,6 +3247,64 @@ def test_stencil_matrix_2d_parallel_backend_transpose(dtype, n1, n2, p1, p2, sh1
 
     # Check data
     assert abs(Ts - Ts_exact).max() < 1e-14
+
+# ===============================================================================
+@pytest.mark.parametrize('n1', [5])
+@pytest.mark.parametrize('n2', [6])
+@pytest.mark.parametrize('n3', [7])
+@pytest.mark.parametrize('p1', [1])
+@pytest.mark.parametrize('p2', [3])
+@pytest.mark.parametrize('p3', [2])
+@pytest.mark.parametrize('s1', [1])
+@pytest.mark.parametrize('s2', [1])
+@pytest.mark.parametrize('s3', [1])
+@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+def test_stencil_matrix_3d_serial_backend_is_real(n1, n2, n3, p1, p2, p3, s1, s2, s3, backend, P1=False, P2=False,
+                                                  P3=False):
+    from mpi4py import MPI
+    from psydac.ddm.cart import CartDecomposition
+
+    comm = MPI.COMM_WORLD
+    # Create domain decomposition
+    D = DomainDecomposition([n1, n2, n3], periods=[P1, P2, P3], comm=comm)
+
+    # Partition the points
+    npts = [n1, n2, n3]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2,p3])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2, p3], shifts=[s1, s2, s3])
+
+    # Create vector space and stencil matrix
+    V = StencilVectorSpace(cart, dtype=complex)
+    X = StencilVector(V)
+    M1 = StencilMatrix(V, V, pads=(p1, p2, p3), is_real=True, backend=backend)
+    M2 = StencilMatrix(V, V, pads=(p1, p2, p3), backend=backend)
+
+    # Fill in matrix values with random numbers between 0 and 1
+    M1[0:n1, 0:n2, 0:n3, :, :, :] = np.random.random((n1, n2, n3, 2 * p1 + 1, 2 * p2 + 1, 2 * p3 + 1))
+    M2[0:n1, 0:n2, 0:n3, :, :, :] = M1[0:n1, 0:n2, 0:n3, :, :, :]
+
+    X[:, :, :] = 2.0 * np.random.random((n1 + 2 * p1, n2 + 2 * p2, n3 + 2 * p3)) - 1.0j
+
+    # If domain is not periodic, set corresponding periodic corners to zero
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+
+    # TEST: compute dot product with is_real
+    Y1 = M1.dot(X)
+    Y2 = M2.dot(X)
+
+    assert np.allclose(Y1._data, Y2._data, rtol=1.e-10, atol=1.e-10)
+
+    # TEST: compute transpose, then convert to Scipy sparse forma
+    Mt = M1.transpose().tosparse()
+
+    # Exact result: convert to Scipy sparse format, then transpose
+    Ts_exact = M1.tosparse()
+    Mt_exact = Ts_exact.transpose()
+
+    # Check data
+    assert abs(Mt - Mt_exact).max() < 1e-14
 
 # ===============================================================================
 # SCRIPT FUNCTIONALITY

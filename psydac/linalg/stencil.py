@@ -773,7 +773,7 @@ class StencilMatrix( LinearOperator ):
         Codomain of the new linear operator.
 
     """
-    def __init__( self, V, W, pads=None , backend=None):
+    def __init__( self, V, W, pads=None , backend=None, is_real=False):
 
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W, StencilVectorSpace )
@@ -788,7 +788,11 @@ class StencilMatrix( LinearOperator ):
         self._pads     = pads or tuple(V.pads)
         dims           = list(W.shape)
         diags          = [compute_diag_len(p, md, mc) for p,md,mc in zip(self._pads, V.shifts, W.shifts)]
-        self._data     = np.zeros( dims+diags, dtype=W.dtype )
+        self._is_real   = is_real and (W.dtype==complex)
+        if is_real:
+            self._data     = np.zeros(dims+diags, dtype=float)
+        else:
+            self._data     = np.zeros(dims+diags, dtype=W.dtype)
         self._domain   = V
         self._codomain = W
         self._ndim     = len( dims )
@@ -858,6 +862,11 @@ class StencilMatrix( LinearOperator ):
     @property
     def dtype( self ):
         return self._domain.dtype
+
+    # ...
+    @property
+    def is_real( self ):
+        return self._is_real
 
     # ...
     def dot( self, v, out=None):
@@ -997,7 +1006,7 @@ class StencilMatrix( LinearOperator ):
             M.update_ghost_regions()
 
         # Create new matrix where domain and codomain are swapped
-        Mt = StencilMatrix(M.codomain, M.domain, pads=self._pads, backend=self._backend)
+        Mt = StencilMatrix(M.codomain, M.domain, pads=self._pads, backend=self._backend, is_real=self._is_real)
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
         if conjugate:
@@ -1069,7 +1078,7 @@ class StencilMatrix( LinearOperator ):
 
     # ...
     def __mul__( self, a ):
-        w = StencilMatrix( self._domain, self._codomain, self._pads, self._backend )
+        w = StencilMatrix( self._domain, self._codomain, self._pads, self._backend, self._is_real and not isinstance(a,complex))
         w._data = self._data * a
         w._func = self._func
         w._args = self._args
@@ -1088,12 +1097,12 @@ class StencilMatrix( LinearOperator ):
                 msg = 'Adding two matrices with different backends is ambiguous - defaulting to backend of first addend'
                 warnings.warn(msg, category=RuntimeWarning)
             
-            w = StencilMatrix(self._domain, self._codomain, self._pads, self._backend)
-            w._data = self._data  +  m._data
-            w._func = self._func
-            w._args = self._args
-            w._sync = self._sync and m._sync
-            return w
+            out = StencilMatrix(self._domain, self._codomain, self._pads, self._backend, self._is_real and m._is_real)
+            out._data = self._data  +  m._data
+            out._func = self._func
+            out._args = self._args
+            out._sync = self._sync and m._sync
+            return out
         else:
             return LinearOperator.__add__(self, m)
 
@@ -1109,12 +1118,12 @@ class StencilMatrix( LinearOperator ):
                 msg = 'Subtracting two matrices with different backends is ambiguous - defaulting to backend of the matrix we subtract from'
                 warnings.warn(msg, category=RuntimeWarning)
 
-            w = StencilMatrix(self._domain, self._codomain, self._pads, self._backend)
-            w._data = self._data  -  m._data
-            w._func = self._func
-            w._args = self._args
-            w._sync = self._sync and m._sync
-            return w
+            out = StencilMatrix(self._domain, self._codomain, self._pads, self._backend, self._is_real and m._is_real)
+            out._data = self._data - m._data
+            out._func = self._func
+            out._args = self._args
+            out._sync = self._sync and m._sync
+            return out
         else:
             return LinearOperator.__sub__(self, m)
 
@@ -1166,7 +1175,7 @@ class StencilMatrix( LinearOperator ):
 
     #...
     def copy( self ):
-        M = StencilMatrix( self.domain, self.codomain, self._pads, self._backend )
+        M = StencilMatrix( self.domain, self.codomain, self._pads, self._backend, self._is_real )
         M._data[:] = self._data[:]
         M._func    = self._func
         M._args    = self._args
@@ -1174,12 +1183,16 @@ class StencilMatrix( LinearOperator ):
 
     #...
     def __imul__(self, a):
+        if self._is_real and isinstance(a, complex):
+            raise NotImplementedError('Cannot do intern operation if StencilMatrix is real valued in complex spaces')
         self._data *= a
         return self
 
     #...
     def __iadd__(self, m):
         if isinstance(m, StencilMatrix):
+            if self._is_real and not m._is_real:
+                raise NotImplementedError('Cannot do intern operation if StencilMatrix is real valued in complex spaces')
             #assert isinstance(m, StencilMatrix)
             assert m._domain   is self._domain
             assert m._codomain is self._codomain
@@ -1193,7 +1206,8 @@ class StencilMatrix( LinearOperator ):
     #...
     def __isub__(self, m):
         if isinstance(m, StencilMatrix):
-            #assert isinstance(m, StencilMatrix)
+            if self._is_real and not m._is_real:
+                raise NotImplementedError('Cannot do intern operation if StencilMatrix is real valued in complex spaces')
             assert m._domain   is self._domain
             assert m._codomain is self._codomain
             assert m._pads     == self._pads
@@ -1205,8 +1219,8 @@ class StencilMatrix( LinearOperator ):
 
     #...
     def __abs__( self ):
-        w = StencilMatrix( self._domain, self._codomain, self._pads, self._backend )
-        w._data = abs(self._data)
+        w = StencilMatrix( self._domain, self._codomain, self._pads, self._backend, True )
+        w._data[:] = abs(self._data[:]).real
         w._func = self._func
         w._args = self._args
         w._sync = self._sync
@@ -1707,11 +1721,12 @@ class StencilMatrix( LinearOperator ):
                                     comm = comm,
                                     backend=frozenset(backend.items()),
                                     nrows_extra = (self._args['nrows_extra'],),
-                                    gpads=(self._args['gpads'],),
+                                    gpads = (self._args['gpads'],),
                                     pads=(self._args['pads'],),
                                     dm = (self._args['dm'],),
                                     cm = (self._args['cm'],),
-                                    dtype=self.dtype)
+                                    dtype = self.dtype,
+                                    is_real = self._is_real)
 
                     starts = self._args.pop('starts')
                     nrows  = self._args.pop('nrows')
@@ -1738,7 +1753,8 @@ class StencilMatrix( LinearOperator ):
                                             pads=(self._args['pads'],),
                                             dm = (self._args['dm'],),
                                             cm = (self._args['cm'],),
-                                            dtype=self.dtype)
+                                            dtype=self.dtype,
+                                            is_real = self._is_real)
 
                     starts      = self._args.pop('starts')
                     nrows       = self._args.pop('nrows')
@@ -1771,7 +1787,8 @@ class StencilMatrix( LinearOperator ):
                                         pads=(self._args['pads'],),
                                         dm = (self._args['dm'],),
                                         cm = (self._args['cm'],),
-                                        dtype=self.dtype)
+                                        dtype=self.dtype,
+                                        is_real = self._is_real)
                 self._args.pop('nrows')
                 self._args.pop('nrows_extra')
                 self._args.pop('gpads')
