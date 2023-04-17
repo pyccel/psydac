@@ -64,6 +64,21 @@ def apply_essential_bc_kronecker_dense_matrix(a, *, axis, ext, order, identity=F
 
     Parameters
     ----------
+    a : KroneckerDenseMatrix
+        The matrix to be modified.
+
+    axis : int
+        Axis of the boundary, i.e. the index of the coordinate which remains constant.
+
+    ext : int
+        Extremity of the boundary, it takes the value of -1 or 1.
+
+    order : int
+        All function derivatives up to `order` are set to zero
+        on the specified boundary. `order >= 0` is required.
+
+    identity : bool
+        If true, the diagonal terms corresponding to boundary coefficients are set to 1.
     """
 
     mats = a.mats
@@ -89,10 +104,10 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
     Parameters
     ----------
     a : StencilVector, StencilMatrix or StencilInterfaceMatrix
-        The Matrix or the Vector that will be modified.
+        The matrix or the Vector to be modified.
 
     axis : int
-        Axis of the boundary.
+        Axis of the boundary, i.e. the index of the coordinate which remains constant.
 
     ext : int
         Extremity of the boundary, it takes the value of -1 or 1.
@@ -102,7 +117,7 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
         on the specified boundary. `order >= 0` is required.
 
     identity : bool
-        If true, the diagonal terms corresponding to boundary coefficients are set to 1.
+        If True, the diagonal terms corresponding to boundary coefficients are set to 1.
     """
 
     if isinstance(a, StencilVector):
@@ -166,7 +181,7 @@ def apply_essential_bc_BlockLinearOperator(a, bc, *, identity=False, is_broken=T
     Parameters
     ----------
     a : BlockLinearOperator
-        The BlockLinearOperator that will be modified.
+        The BlockLinearOperator to be modified.
  
     bc: Sympde.expr.equation.BasicBoundaryCondition
         The boundary condition type that will be applied to a.
@@ -210,7 +225,7 @@ def apply_essential_bc_BlockVector(a, bc, *, is_broken=True):
     Parameters
     ----------
     a : BlockVector
-        The BlockVector that will be modified.
+        The BlockVector to be modified.
  
     bc: Sympde.expr.equation.BasicBoundaryCondition
         The boundary condition type that will be applied to a.
