@@ -12,7 +12,7 @@ from sympde.topology.analytical_mapping import TargetMapping, CzarnyMapping
 
 from psydac.ddm.cart                   import DomainDecomposition
 from psydac.linalg.stencil             import StencilVector, StencilMatrix
-from psydac.linalg.iterative_solvers   import cg
+from psydac.linalg.solvers             import inverse
 from psydac.fem.splines                import SplineSpace
 from psydac.fem.tensor                 import TensorFemSpace
 from psydac.fem.basic                  import FemField
@@ -685,15 +685,17 @@ def main(*, test_case, ncells, degree, use_spline_mapping, c1_correction, distri
         bp[1]  [last, :]       = 0.
 
     # Solve linear system
+    t0 = time()
     if c1_correction:
-        t0 = time()
-        xp, info = cg(Sp, bp, tol=1e-7, maxiter=100, verbose=False)
-        x = proj.convert_to_tensor_basis(xp)
-        t1 = time()
+        Sp_inv = inverse(Sp, 'cg', tol=1e-7, maxiter=100, verbose=False)
+        xp     = Sp_inv @ bp
+        info   = Sp_inv.get_info()
+        x      = proj.convert_to_tensor_basis(xp)
     else:
-        t0 = time()
-        x, info = cg(S, b, tol=1e-7, maxiter=100, verbose=False)
-        t1 = time()
+        S_inv = inverse(S, 'cg', tol=1e-7, maxiter=100, verbose=False)
+        x     = S_inv @ b
+        info  = S_inv.get_info()
+    t1 = time()
     timing['solution'] = t1-t0
 
     # Create potential field

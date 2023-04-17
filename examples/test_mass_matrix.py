@@ -1,8 +1,12 @@
+from psydac.linalg.solvers      import inverse
+
 f1 = lambda s,t: 1.0+s**3
 
 rhs = assemble_rhs( V, mapping, f1 )
 
-sol, info = cg( M, rhs, tol=1e-10, maxiter=100, verbose=True )
+M_inv = inverse(M, 'cg', tol=1e-10, maxiter=100, verbose=True)
+sol = M_inv @ rhs
+info = M_inv.get_info()
 
 f2 = FemField( V, 'f2' )
 f2.coeffs[:] = sol[:]

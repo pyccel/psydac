@@ -356,7 +356,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     return Vh
 
 #==============================================================================
-def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm=None):
+def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm=None, mpi_dims_mask=None):
 
     if comm is not None:
         # Create a copy of the communicator
@@ -372,7 +372,7 @@ def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm
         return Geometry(filename=filename, comm=comm)
 
     elif ncells:
-        return Geometry.from_topological_domain(domain, ncells, periodic=periodic, comm=comm)
+        return Geometry.from_topological_domain(domain, ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
 #==============================================================================
 def discretize(a, *args, **kwargs):

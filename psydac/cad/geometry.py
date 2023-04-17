@@ -56,6 +56,10 @@ class Geometry( object ):
 
     comm: MPI.Comm
         MPI intra-communicator.
+        
+    mpi_dims_mask: list of bool
+        True if the dimension is to be used in the domain decomposition (=default for each dimension). 
+        If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
   
     """
     _ldim     = None
@@ -67,7 +71,7 @@ class Geometry( object ):
     # Option [1]: from a (domain, mappings) or a file
     #--------------------------------------------------------------------------
     def __init__(self, domain=None, ncells=None, periodic=None, mappings=None,
-                 filename=None, comm=None):
+                 filename=None, comm=None, mpi_dims_mask=None):
 
         # ... read the geometry if the filename is given
         if filename is not None:
@@ -102,7 +106,7 @@ class Geometry( object ):
             if len(domain) == 1:
                 #name = domain.name
                 name = interior_names[0]
-                self._ddm = DomainDecomposition(ncells[name], periodic[name], comm=comm)
+                self._ddm = DomainDecomposition(ncells[name], periodic[name], comm=comm, mpi_dims_mask=mpi_dims_mask)
             else:
                 ncells    = [ncells[itr] for itr in interior_names]
                 periodic  = [periodic[itr] for itr in interior_names]
@@ -145,7 +149,7 @@ class Geometry( object ):
     # Option [3]: discrete topological line/square/cube
     #--------------------------------------------------------------------------
     @classmethod
-    def from_topological_domain(cls, domain, ncells, *, periodic=None, comm=None):
+    def from_topological_domain(cls, domain, ncells, *, periodic=None, comm=None, mpi_dims_mask=None):
         interior = domain.interior
         if not isinstance(interior, Union):
             interior = [interior]
@@ -166,7 +170,7 @@ class Geometry( object ):
         if isinstance(periodic, (list, tuple)):
             periodic = {itr.name:periodic for itr in interior}
 
-        geo = Geometry(domain=domain, mappings=mappings, ncells=ncells, periodic=periodic, comm=comm)
+        geo = Geometry(domain=domain, mappings=mappings, ncells=ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
         return geo
 

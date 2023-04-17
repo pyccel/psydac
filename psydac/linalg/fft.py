@@ -89,6 +89,9 @@ class DistributedFFTBase(LinearOperator):
         # just call the KroneckerLinearSolver
         return self._isolver.solve(v, out=out)
 
+    def transpose(self, conjugate=False):
+        raise NotImplementedError()
+
 # IMPORTANT NOTE: All of these scifft.fft functions currently trust that overwrite_x=True will yield an in-place fft...
 # (this is not completely given to hold forever, so in case these tests fail in some future version, change this)
 
@@ -118,6 +121,7 @@ class DistributedFFT(DistributedFFTBase):
 
         super().__init__(space, lambda out: scifft.fft(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm))
+
 
 class DistributedIFFT(DistributedFFTBase):
     """
