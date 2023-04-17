@@ -768,7 +768,8 @@ def main(*, test_case, ncells, degree, use_spline_mapping, c1_correction, distri
             Vnew = map_discrete.space
             mapping = map_discrete
         else:
-            domain_decomposition = DomainDecomposition(ncells=ncells, periods=[per1, per2], comm=MPI.COMM_SELF)
+            comm = MPI.COMM_SELF
+            domain_decomposition = DomainDecomposition(ncells=ncells, periods=periods, comm=comm)
             Vnew = TensorFemSpace(domain_decomposition, *spaces)
 
         # Import solution vector into new serial field
