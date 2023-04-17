@@ -582,7 +582,9 @@ def main(*, test_case, ncells, degree, use_spline_mapping, c1_correction, distri
     # Create 2D tensor product finite element space
     spaces = [V1, V2]
     ncells = [len(space.breaks)-1 for space in spaces]
-    domain_decomposition = DomainDecomposition(ncells=ncells, periods=[per1, per2], comm=mpi_comm)
+    periods = [per1, per2]
+    comm = mpi_comm
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=periods, comm=comm)
     V = TensorFemSpace(domain_decomposition, *spaces)
 
     s1, s2 = V.vector_space.starts
