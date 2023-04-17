@@ -219,10 +219,6 @@ class KroneckerStencilMatrix( LinearOperator ):
         mats_tr = [Mi.transpose(conjugate=conjugate) for Mi in self.mats]
         return KroneckerStencilMatrix(self.codomain, self.domain, *mats_tr)
 
-    @property
-    def T(self):
-        return self.transpose()
-
 #==============================================================================
 class KroneckerDenseMatrix( LinearOperator ):
     """ Kronecker product of 1D dense matrices.
@@ -365,15 +361,13 @@ class KroneckerDenseMatrix( LinearOperator ):
         return reduce(kron, (m[p:-p,p:-p] for m,p in zip(self.mats, self.domain.pads)))
 
     def transpose(self, conjugate=False):
-        mats_tr = [Mi.T for Mi in self.mats]
+        mats = [Mi.conj() for Mi in self.mats] if conjugate else self.mats
+        mats_tr = [Mi.T for Mi in mats]
         return KroneckerDenseMatrix(self.codomain, self.domain, *mats_tr, with_pads=True)
-
-    @property
-    def T(self):
-        return self.transpose()
 
     def exchange_assembly_data( self ):
         pass
+
 #==============================================================================
 class KroneckerLinearSolver( LinearSolver ):
     """
