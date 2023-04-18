@@ -22,7 +22,7 @@ from psydac.core.kernels import (pushforward_2d_hdiv,
 class VectorFemSpace( FemSpace ):
     """
     FEM space with a vector basis.
-    It is used to represent a product of spaces from the same space
+    It is used to represent a product of spaces from the same patch.
 
     """
 
@@ -61,10 +61,10 @@ class VectorFemSpace( FemSpace ):
         self._vector_space     = BlockVectorSpace(*[V.vector_space for V in self.spaces])
         self._refined_space    = {}
 
-        self._refined_space[tuple(self._ncells)] = self
+        self.set_refined_space(self._ncells, self)
         for key in self.spaces[0]._refined_space:
             if key == tuple(self._ncells):continue
-            self._refined_space[key] = VectorFemSpace(*[V._refined_space[key] for V in self.spaces])
+            self.set_refined_space(key, VectorFemSpace(*[V._refined_space[key] for V in self.spaces]))
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
@@ -346,6 +346,12 @@ class VectorFemSpace( FemSpace ):
             return True
 
     # ...
+    def get_refined_space(self, ncells):
+        return self._refined_space[tuple(self.ncells)]
+
+    def set_refined_space(self, ncells, new_space):
+        self._refined_space[tuple(self.ncells)] = new_space
+
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
@@ -360,7 +366,8 @@ class VectorFemSpace( FemSpace ):
 class ProductFemSpace( FemSpace ):
     """
     Product of FEM space.
-    It is used to represent a product of spaces from diffrent patches
+    It is used to represent a product of spaces from different patches.
+
     """
 
     def __new__(cls, *spaces, connectivity=None):

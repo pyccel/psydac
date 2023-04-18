@@ -355,7 +355,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
         Vh.symbolic_space = V
         for key in Vh._refined_space:
-            Vh._refined_space[key].symbolic_space = V
+            Vh.get_refined_space(key).symbolic_space = V
 
         new_g_spaces[inter]   = Vh
 

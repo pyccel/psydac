@@ -20,6 +20,7 @@ from psydac.core.bsplines         import (
         elevate_knots,
         basis_integrals,
         )
+
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.utilities.utils import unroll_edges
 from psydac.ddm.cart        import DomainDecomposition, CartDecomposition

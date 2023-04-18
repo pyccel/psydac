@@ -106,7 +106,7 @@ class TensorFemSpace( FemSpace ):
         self._global_element_starts = domain_decomposition.global_element_starts
         self._global_element_ends   = domain_decomposition.global_element_ends
 
-        self._refined_space[tuple(self.ncells)] = self
+        self.set_refined_space(self.ncells, self)
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
@@ -1023,9 +1023,9 @@ class TensorFemSpace( FemSpace ):
 
         for key in self._refined_space:
             if key == tuple(self.ncells):
-                tensor_vec._refined_space[key] = tensor_vec
+                tensor_vec.set_refined_space(key, tensor_vec)
             else:
-                tensor_vec._refined_space[key] = self._refined_space[key].reduce_degree(axes, multiplicity, basis)
+                tensor_vec.set_refined_space(key, self._refined_space[key].reduce_degree(axes, multiplicity, basis))
         return tensor_vec
 
     # ...
@@ -1035,7 +1035,7 @@ class TensorFemSpace( FemSpace ):
         ncells = tuple(ncells)
         if ncells in self._refined_space: return
         if ncells == tuple(self.ncells):
-            self._refined_space[ncells]= self
+            self.set_refined_space(ncells, self)
             return
 
         spaces = [s.refine(n) for s,n in zip(self.spaces, ncells)]
@@ -1062,7 +1062,7 @@ class TensorFemSpace( FemSpace ):
         domain = domain.refine(ncells, new_global_starts, new_global_ends)
 
         FS     = TensorFemSpace(domain, *spaces, quad_order=self.quad_order)
-        self._refined_space[ncells]= FS
+        self.set_refined_space(ncells, FS)
 
     # ...
     def create_interface_space(self, axis, ext, cart):
@@ -1093,6 +1093,13 @@ class TensorFemSpace( FemSpace ):
         vector_space.set_interface(axis, ext, cart)
         space = TensorFemSpace( self._domain_decomposition, *spaces, vector_space=vector_space.interfaces[axis, ext], quad_order=self.quad_order)
         self._interfaces[axis, ext] = space
+
+    def get_refined_space(self, ncells):
+        return self._refined_space[tuple(self.ncells)]
+
+    def set_refined_space(self, ncells, new_space):
+        self._refined_space[tuple(self.ncells)] = new_space
+
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):
 
