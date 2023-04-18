@@ -56,7 +56,7 @@ install_requires = [
     'pyevtk',
 
     # Our packages from PyPi
-    'sympde @ git+https://github.com/pyccel/sympde@logical_n_physical-coordinates',
+    'sympde==0.16.1',
     'pyccel>=1.7.3',
     'gelato==0.11',
 
