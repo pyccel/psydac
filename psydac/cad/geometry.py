@@ -85,7 +85,7 @@ class Geometry( object ):
                 assert isinstance(periodic, dict)
 
             # ... check sanity
-            interior_names = sorted(domain.interior_names) if domain.logical_domain is None else sorted(domain.logical_domain.interior_names)
+            interior_names = sorted(domain.interior_names)
             mappings_keys  = sorted(list(mappings.keys()))
 
             assert sorted(interior_names) == mappings_keys
@@ -160,7 +160,8 @@ class Geometry( object ):
                       " got {} instead.".format(type(itr))
                 raise TypeError(msg)
 
-        mappings = {itr.logical_domain.name if itr.logical_domain else itr.name: None for itr in interior}
+        mappings = {itr.name:None for itr in interior}
+
         if isinstance(ncells, (list, tuple)):
             ncells = {itr.name:ncells for itr in interior}
 
