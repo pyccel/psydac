@@ -42,13 +42,12 @@ def new_c1_vector_space( V, radial_dim=0, angle_dim=1 ):
     assert V.periods[radial_dim] == False
     assert V.periods[ angle_dim] == True
 
+    c1_cart = C1_Cart( V.cart, radial_dim )
+    S = StencilVectorSpace( cart=c1_cart, dtype=V.dtype )
+
     if V.parallel:
-        c1_cart = C1_Cart( V.cart, radial_dim )
-        S = StencilVectorSpace( cart=c1_cart, dtype=V.dtype )
         D = DenseVectorSpace( 3, cart=V.cart, radial_dim=radial_dim, angle_dim=angle_dim )
     else:
-        c1_npts = [(n-2 if d==radial_dim else n) for (d,n) in enumerate( V.npts )]
-        S = StencilVectorSpace( c1_npts, V.pads, V.periods, V.dtype )
         D = DenseVectorSpace( 3 )
 
     P = BlockVectorSpace( D, S )

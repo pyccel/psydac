@@ -45,8 +45,8 @@ __all__ = ('discretize',)
 #==============================================================================           
 def discretize_derham(derham, domain_h, *args, **kwargs):
 
-    ldim     = derham.shape
-    mapping  = derham.spaces[0].domain.mapping
+    ldim    = derham.shape
+    mapping = domain_h.domain.mapping # NOTE: assuming single-patch domain!
 
     bases  = ['B'] + ldim * ['M']
     spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \

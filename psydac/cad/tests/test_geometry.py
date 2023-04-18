@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 import os
 
-from sympde.topology import Domain, Line, Square, Cube
+from sympde.topology import Domain, Line, Square, Cube, Mapping
 
 from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refine_nurbs
 from psydac.cad.geometry             import import_geopdes_to_nurbs
@@ -27,13 +27,14 @@ def test_geometry_2d_1():
     mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
 
     # create a topological domain
-    domain = Square(name='Omega')
+    F      = Mapping('F', dim=2)
+    domain = F(Square(name='Omega'))
 
     # associate the mapping to the topological domain
-    mappings = {'Omega': mapping}
+    mappings = {domain.name: mapping}
 
     # Define ncells as a dict
-    ncells = {'Omega':ncells}
+    ncells = {domain.name:ncells}
 
     # create a geometry from a topological domain and the dict of mappings
     geo = Geometry(domain=domain, ncells=ncells, mappings=mappings)
@@ -73,15 +74,16 @@ def test_geometry_2d_2():
     mapping = refine( mapping, axis=0, values=[0.3, 0.6, 0.8] )
 
     # create a topological domain
-    domain = Square(name='Omega')
+    F      = Mapping('F', dim=2)
+    domain = F(Square(name='Omega'))
 
     # associate the mapping to the topological domain
-    mappings = {'Omega': mapping}
+    mappings = {domain.name: mapping}
 
     # Define ncells as a dict
-    ncells = {'Omega':[len(space.breaks)-1 for space in mapping.space.spaces]}
+    ncells = {domain.name:[len(space.breaks)-1 for space in mapping.space.spaces]}
 
-    periodic = {'Omega':[space.periodic for space in mapping.space.spaces]}
+    periodic = {domain.name:[space.periodic for space in mapping.space.spaces]}
 
     # create a geometry from a topological domain and the dict of mappings
     geo = Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings)

@@ -302,7 +302,7 @@ def test_nurbs_circle():
 
             assert np.allclose((x_p, y_p), (x_i, y_i), atol=ATOL, rtol=RTOL)
 
-            J_p = mapping.jac_mat(x1, x2)
+            J_p = mapping.jacobian(x1, x2)
             J_i = disk.gradient(u=x1, v=x2)
 
             assert np.allclose(J_i[:2], J_p, atol=ATOL, rtol=RTOL)
