@@ -385,21 +385,16 @@ def discretize(a, *args, **kwargs):
         kwargs['symbolic_mapping'] = mapping
 
     if isinstance(a, sym_BasicForm):
-        # if isinstance(a, sym_Norm):
-        #     kernel_expr = TerminalExpr(a, domain)
-        #     if not mapping is None:
-        #         kernel_expr = tuple(LogicalExpr(i, domain) for i in kernel_expr)
-        # else:
-        #     if not mapping is None:
-        #         a       = LogicalExpr (a, domain)
-        #         domain  = domain.logical_domain
+        if isinstance(a, sym_Norm):
+            kernel_expr = TerminalExpr(a, domain)
+            if not mapping is None:
+                kernel_expr = tuple(LogicalExpr(i, domain) for i in kernel_expr)
+        else:
+            if not mapping is None:
+                a       = LogicalExpr (a, domain)
+                domain  = domain.logical_domain
 
-        #     kernel_expr = TerminalExpr(a, domain)
-        if not mapping is None:
-            a       = LogicalExpr (a, domain)
-            domain  = domain.logical_domain
-
-        kernel_expr = TerminalExpr(a, domain)
+            kernel_expr = TerminalExpr(a, domain)
 
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
