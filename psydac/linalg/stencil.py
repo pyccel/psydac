@@ -864,11 +864,6 @@ class StencilMatrix( LinearOperator ):
         return self._domain.dtype
 
     # ...
-    @property
-    def is_real( self ):
-        return self._is_real
-
-    # ...
     def dot( self, v, out=None):
         """
         Return the matrix/vector product between self and v.
@@ -1148,6 +1143,11 @@ class StencilMatrix( LinearOperator ):
     # TODO: check if this method is really needed!!
     def conj(self, out=None):
         return self.conjugate(out=out)
+
+    # ...
+    @property
+    def is_real( self ):
+        return self._is_real
 
     # ...
     @property
