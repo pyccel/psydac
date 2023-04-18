@@ -70,32 +70,33 @@ class Geometry( object ):
     #--------------------------------------------------------------------------
     # Option [1]: from a (domain, mappings) or a file
     #--------------------------------------------------------------------------
-    def __init__( self, domain=None, ncells=None, periodic=None, mappings=None,
-                  filename=None, comm=None, mpi_dims_mask=None ):
+    def __init__(self, domain=None, ncells=None, periodic=None, mappings=None,
+                 filename=None, comm=None, mpi_dims_mask=None):
 
         # ... read the geometry if the filename is given
-        if not( filename is None ):
+        if filename is not None:
             self.read(filename, comm=comm)
 
-        elif not( domain is None ):
-            assert isinstance( domain, Domain ) 
-            assert isinstance( ncells, dict)
-            assert isinstance( mappings, dict)
+        elif domain is not None:
+            assert isinstance(domain, Domain) 
+            assert isinstance(ncells, dict)
+            assert isinstance(mappings, dict)
             if periodic is not None:
-                assert isinstance( periodic, dict)
+                assert isinstance(periodic, dict)
 
             # ... check sanity
-            interior_names = sorted(domain.interior_names)
+            interior_names = domain.interior_names
             mappings_keys  = sorted(list(mappings.keys()))
 
+            assert sorted(interior_names) == mappings_keys
             # ...
 
             if periodic is None:
-                periodic = {patch:[False]*len(ncells_i) for patch,ncells_i in ncells.items()}
+                periodic = {patch: [False]*len(ncells_i) for patch, ncells_i in ncells.items()}
 
             self._domain   = domain
             self._ldim     = domain.dim
-            self._pdim     = domain.dim # TODO must be given => only dim is  defined for a Domain
+            self._pdim     = domain.dim # TODO must be given => only dim is defined for a Domain
             self._ncells   = ncells
             self._periodic = periodic
             self._mappings = mappings
@@ -103,13 +104,13 @@ class Geometry( object ):
             self._is_parallel = comm is not None
 
             if len(domain) == 1:
-                name = domain.name
+                #name = domain.name
+                name = interior_names[0]
                 self._ddm = DomainDecomposition(ncells[name], periodic[name], comm=comm, mpi_dims_mask=mpi_dims_mask)
             else:
-                ncells    = [ncells[itr.name] for itr in domain.interior]
-                periodic  = [periodic[itr.name] for itr in domain.interior]
+                ncells    = [ncells[itr] for itr in interior_names]
+                periodic  = [periodic[itr] for itr in interior_names]
                 self._ddm = MultiPatchDomainDecomposition(ncells, periodic, comm=comm)
-
 
         else:
             raise ValueError('Wrong input')
@@ -121,29 +122,28 @@ class Geometry( object ):
     # Option [2]: from a discrete mapping
     #--------------------------------------------------------------------------
     @classmethod
-    def from_discrete_mapping( cls, mapping, comm=None ):
+    def from_discrete_mapping(cls, mapping, comm=None):
         """Create a geometry from one discrete mapping."""
-        if mapping.ldim in [1]:
-            raise NotImplementedError('')
 
         if mapping.ldim == 2:
-            mapp   = Mapping('mapping_0', dim=2)
-            domain = mapp(Square(name='Omega'))
-
+            M        = Mapping('mapping_0', dim=2)
+            domain   = M(Square(name='Omega'))
             mappings = {domain.name: mapping}
-            ncells   = {domain.name:mapping.space.domain_decomposition.ncells}
-            periodic = {domain.name:mapping.space.domain_decomposition.periods}
-
+            ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
+            periodic = {domain.name: mapping.space.domain_decomposition.periods}
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
         elif mapping.ldim == 3:
-            mapp   = Mapping('mapping_0', dim=3)
-            domain = mapp(Cube(name='Omega'))
+            M        = Mapping('mapping_0', dim=3)
+            domain   = M(Cube(name='Omega'))
             mappings = {domain.name: mapping}
-            ncells   = {domain.name:mapping.space.domain_decomposition.ncells}
-            periodic = {domain.name:mapping.space.domain_decomposition.periods}
-
+            ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
+            periodic = {domain.name: mapping.space.domain_decomposition.periods}
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
+
+        else:
+            msg = f'Cannot create geometry from spline mapping in {mapping.ldim} dimension(s)'
+            raise NotImplementedError(msg)
 
     #--------------------------------------------------------------------------
     # Option [3]: discrete topological line/square/cube
@@ -350,6 +350,11 @@ class Geometry( object ):
         # ... close the h5 file
         h5.close()
         # ...
+
+        # Add spline callable mappings to domain undefined mappings
+        # NOTE: We assume that interiors and mappings.values() use the same ordering
+        for patch, F in zip(interiors, mappings.values()):
+            patch.mapping.set_callable_mapping(F)
 
         # ...
         self._ldim        = ldim

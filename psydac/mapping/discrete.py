@@ -10,34 +10,36 @@ import random
 import h5py
 import yaml
 
-from sympde.topology.mapping  import Mapping
-from sympde.topology.datatype import H1SpaceType, L2SpaceType, HdivSpaceType, HcurlSpaceType, UndefinedSpaceType
+from sympde.topology.callable_mapping import BasicCallableMapping
+from sympde.topology.datatype import (H1SpaceType, L2SpaceType,
+                                      HdivSpaceType, HcurlSpaceType,
+                                      UndefinedSpaceType)
+
+from psydac.fem.basic    import FemField
+from psydac.fem.tensor   import TensorFemSpace
+from psydac.fem.vector   import ProductFemSpace, VectorFemSpace
 from psydac.core.kernels import (pushforward_2d_l2, pushforward_3d_l2, 
                                  pushforward_2d_hdiv, pushforward_3d_hdiv,
                                  pushforward_2d_hcurl, pushforward_3d_hcurl)
 
-from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.basic  import FemField
-from psydac.fem.vector import ProductFemSpace, VectorFemSpace
-
-__all__ = ['SplineMapping', 'NurbsMapping']
+__all__ = ('SplineMapping', 'NurbsMapping')
 
 #==============================================================================
-def random_string( n ):
+def random_string(n):
     chars    = string.ascii_uppercase + string.ascii_lowercase + string.digits
     selector = random.SystemRandom()
-    return ''.join( selector.choice( chars ) for _ in range( n ) )
+    return ''.join(selector.choice(chars) for _ in range(n))
 
 #==============================================================================
-class SplineMapping:
+class SplineMapping(BasicCallableMapping):
 
-    def __init__( self, *components, name=None ):
+    def __init__(self, *components, name=None):
 
         # Sanity checks
-        assert len( components ) >= 1
-        assert all( isinstance( c, FemField ) for c in components )
-        assert all( isinstance( c.space, TensorFemSpace ) for c in components )
-        assert all( c.space is components[0].space for c in components )
+        assert len(components) >= 1
+        assert all(isinstance(c, FemField) for c in components)
+        assert all(isinstance(c.space, TensorFemSpace) for c in components)
+        assert all(c.space is components[0].space for c in components)
 
         # Store spline space and one field for each coordinate X_i
         self._space  = components[0].space
@@ -45,13 +47,13 @@ class SplineMapping:
 
         # Store number of logical and physical dimensions
         self._ldim = components[0].space.ldim
-        self._pdim = len( components )
+        self._pdim = len(components)
 
         # Create helper object for accessing control points with slicing syntax
         # as if they were stored in a single multi-dimensional array C with
         # indices [i1, ..., i_n, d] where (i1, ..., i_n) are indices of logical
         # coordinates, and d is index of physical component of interest.
-        self._control_points = SplineMapping.ControlPoints( self )
+        self._control_points = SplineMapping.ControlPoints(self)
         self._name           = name
 
     @property
@@ -65,75 +67,102 @@ class SplineMapping:
     # Option [1]: initialize from TensorFemSpace and pre-existing mapping
     #--------------------------------------------------------------------------
     @classmethod
-    def from_mapping( cls, tensor_space, mapping ):
+    def from_mapping(cls, tensor_space, mapping):
 
-        assert isinstance( tensor_space, TensorFemSpace )
-        assert isinstance( mapping, Mapping )
+        assert isinstance(tensor_space, TensorFemSpace)
+        assert isinstance(mapping, BasicCallableMapping)
         assert tensor_space.ldim == mapping.ldim
 
         # Create one separate scalar field for each physical dimension
         # TODO: use one unique field belonging to VectorFemSpace
-        fields = [FemField( tensor_space ) for d in range( mapping.pdim )]
+        fields = [FemField(tensor_space) for d in range(mapping.pdim)]
 
         V = tensor_space.vector_space
-        values = [V.zeros() for d in range( mapping.pdim )]
-        ranges = [range(s,e+1) for s,e in zip( V.starts, V.ends )]
+        values = [V.zeros() for d in range(mapping.pdim)]
+        ranges = [range(s, e+1) for s, e in zip(V.starts, V.ends)]
         grids  = [space.greville for space in tensor_space.spaces]
 
         # Evaluate analytical mapping at Greville points (tensor-product grid)
         # and store vector values in one separate scalar field for each
         # physical dimension
         # TODO: use one unique field belonging to VectorFemSpace
-        callable_mapping = mapping.get_callable_mapping()
-        for index in product( *ranges ):
-            x = [grid[i] for grid,i in zip( grids, index )]
-            u = callable_mapping( *x )
-            for d,ud in enumerate( u ):
+        for index in product(*ranges):
+            x = [grid[i] for grid, i in zip(grids, index)]
+            u = mapping(*x)
+            for d, ud in enumerate(u):
                 values[d][index] = ud
 
         # Compute spline coefficients for each coordinate X_i
-        for pvals, field in zip( values, fields ):
-            tensor_space.compute_interpolant( pvals, field )
+        for pvals, field in zip(values, fields):
+            tensor_space.compute_interpolant(pvals, field)
 
         # Create SplineMapping object
-        return cls( *fields )
+        return cls(*fields)
 
     #--------------------------------------------------------------------------
     # Option [2]: initialize from TensorFemSpace and spline control points
     #--------------------------------------------------------------------------
     @classmethod
-    def from_control_points( cls, tensor_space, control_points ):
+    def from_control_points(cls, tensor_space, control_points):
 
-        assert isinstance( tensor_space, TensorFemSpace )
-        assert isinstance( control_points, (np.ndarray, h5py.Dataset) )
+        assert isinstance(tensor_space, TensorFemSpace)
+        assert isinstance(control_points, (np.ndarray, h5py.Dataset))
 
         assert control_points.ndim       == tensor_space.ldim + 1
-        assert control_points.shape[:-1] == tuple( V.nbasis for V in tensor_space.spaces )
+        assert control_points.shape[:-1] == tuple(V.nbasis for V in tensor_space.spaces)
         assert control_points.shape[ -1] >= tensor_space.ldim
 
         # Create one separate scalar field for each physical dimension
         # TODO: use one unique field belonging to VectorFemSpace
-        fields = [FemField( tensor_space ) for d in range( control_points.shape[-1] )]
+        fields = [FemField(tensor_space) for d in range(control_points.shape[-1])]
 
         # Get spline coefficients for each coordinate X_i
         starts = tensor_space.vector_space.starts
         ends   = tensor_space.vector_space.ends
 
-        idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
-        for i,field in enumerate( fields ):
-            idx_from = tuple(list(idx_to)+[i])
+        idx_to = tuple(slice(s, e+1) for s, e in zip(starts, ends))
+        for i,field in enumerate(fields):
+            idx_from = (*idx_to, i)
             field.coeffs[idx_to] = control_points[idx_from]
             field.coeffs.update_ghost_regions()
 
         # Create SplineMapping object
-        return cls( *fields )
+        return cls(*fields)
 
     #--------------------------------------------------------------------------
     # Abstract interface
     #--------------------------------------------------------------------------
-    def __call__( self, *eta):
-        return [map_Xd( *eta) for map_Xd in self._fields]
+    def __call__(self, *eta):
+        return [map_Xd(*eta) for map_Xd in self._fields]
 
+    # ...
+    def jacobian(self, *eta):
+        return np.array([map_Xd.gradient(*eta) for map_Xd in self._fields])
+
+    # ...
+    def jacobian_inv(self, *eta):
+        return np.linalg.inv(self.jacobian(*eta))
+
+    # ...
+    def metric(self, *eta):
+        J = self.jacobian(*eta)
+        return np.dot(J.T, J)
+
+    # ...
+    def metric_det(self, *eta):
+        return np.linalg.det(self.metric(*eta))
+
+    @property
+    def ldim(self):
+        return self._ldim
+
+    @property
+    def pdim(self):
+        return self._pdim
+
+    #--------------------------------------------------------------------------
+    # Fast evaluation on a grid
+    #--------------------------------------------------------------------------
     def build_mesh(self, grid, npts_per_cell=None, overlap=0):
         """Evaluation of the mapping on the given grid.
 
@@ -162,23 +191,6 @@ class SplineMapping:
 
         mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell, overlap=overlap)
         return mesh
-
-    # ...
-    def jac_mat( self, *eta):
-        return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
-    
-    # ...
-    def jac_det(self, *eta):
-        return np.linalg.det(self.jac_mat(*eta))
-
-    # ...
-    def metric( self, *eta):
-        J = self.jac_mat( *eta )
-        return np.dot( J.T, J )
-
-    # ...
-    def metric_det( self, *eta):
-        return np.linalg.det( self.metric( *eta ) )
 
     # ...
     def jac_mat_grid(self, grid, npts_per_cell=None, overlap=0):
@@ -691,32 +703,26 @@ class SplineMapping:
 
         return jac_dets
 
-    @property
-    def ldim( self ):
-        return self._ldim
-
-    @property
-    def pdim( self ):
-        return self._pdim
-
     #--------------------------------------------------------------------------
     # Other properties/methods
     #--------------------------------------------------------------------------
+    def jacobian_det(self, *eta):
+        return np.linalg.det(self.jac_mat(*eta))
 
     @property
-    def space( self ):
+    def space(self):
         return self._space
 
     @property
-    def fields( self ):
+    def fields(self):
         return self._fields
 
     @property
-    def control_points( self ):
+    def control_points(self):
         return self._control_points
 
     # TODO: move to 'Geometry' class in 'psydac.cad.geometry' module
-    def export( self, filename ):
+    def export(self, filename):
         """
         Export tensor-product spline space and mapping to geometry file in HDF5
         format (single-patch only).
@@ -781,79 +787,79 @@ class SplineMapping:
         """
         # TODO: should not allow access to ghost regions
 
-        def __init__( self, mapping ):
-            assert isinstance( mapping, SplineMapping )
+        def __init__(self, mapping):
+            assert isinstance(mapping, SplineMapping)
             self._mapping = mapping
 
         # ...
         @property
-        def mapping( self ):
+        def mapping(self):
             return self._mapping
 
         # ...
-        def __getitem__( self, key ):
+        def __getitem__(self, key):
 
             m = self._mapping
 
             if key is Ellipsis:
-                key = tuple( slice( None ) for i in range( m.ldim+1 ) )
-            elif isinstance( key, tuple ):
-                assert len( key ) == m.ldim+1
+                key = tuple(slice(None) for i in range(m.ldim + 1))
+            elif isinstance(key, tuple):
+                assert len(key) == m.ldim + 1
             else:
-                raise ValueError( key )
+                raise ValueError(key)
 
             pnt_idx = key[:-1]
             dim_idx = key[-1]
 
-            if isinstance( dim_idx, slice ):
-                dim_idx = range( *dim_idx.indices( m.pdim ) )
-                coeffs = np.array( [m.fields[d].coeffs[pnt_idx] for d in dim_idx] )
-                coords = np.moveaxis( coeffs, 0, -1 )
+            if isinstance(dim_idx, slice):
+                dim_idx = range(*dim_idx.indices(m.pdim))
+                coeffs = np.array([m.fields[d].coeffs[pnt_idx] for d in dim_idx])
+                coords = np.moveaxis(coeffs, 0, -1)
             else:
-                coords = np.array( m.fields[dim_idx].coeffs[pnt_idx] )
+                coords = np.array(m.fields[dim_idx].coeffs[pnt_idx])
 
             return coords
 
 #==============================================================================
-class NurbsMapping( SplineMapping ):
+class NurbsMapping(SplineMapping):
 
-    def __init__( self, *components, name=None ):
+    def __init__(self, *components, name=None):
 
         weights    = components[-1]
         components = components[:-1]
 
-        SplineMapping.__init__( self, *components, name=name )
+        SplineMapping.__init__(self, *components, name=name)
 
-        self._weights = NurbsMapping.Weights( self )
+        self._weights = NurbsMapping.Weights(self)
         self._weights_field = weights
 
     #--------------------------------------------------------------------------
     # Option [2]: initialize from TensorFemSpace and spline control points
     #--------------------------------------------------------------------------
     @classmethod
-    def from_control_points_weights( cls, tensor_space, control_points, weights ):
+    def from_control_points_weights(cls, tensor_space, control_points, weights):
 
-        assert isinstance( tensor_space, TensorFemSpace )
-        assert isinstance( control_points, (np.ndarray, h5py.Dataset) )
-        assert isinstance( weights, (np.ndarray, h5py.Dataset) )
+        assert isinstance(tensor_space, TensorFemSpace)
+        assert isinstance(control_points, (np.ndarray, h5py.Dataset))
+        assert isinstance(weights, (np.ndarray, h5py.Dataset))
 
         assert control_points.ndim       == tensor_space.ldim + 1
-        assert control_points.shape[:-1] == tuple( V.nbasis for V in tensor_space.spaces )
+        assert control_points.shape[:-1] == tuple(V.nbasis for V in tensor_space.spaces)
         assert control_points.shape[ -1] >= tensor_space.ldim
-        assert weights.shape == tuple( V.nbasis for V in tensor_space.spaces )
+        assert weights.shape == tuple(V.nbasis for V in tensor_space.spaces)
 
         # Create one separate scalar field for each physical dimension
         # TODO: use one unique field belonging to VectorFemSpace
-        fields  = [FemField( tensor_space ) for d in range( control_points.shape[-1] )]
-        fields += [FemField( tensor_space )]
+        fields  = [FemField(tensor_space) for d in range(control_points.shape[-1])]
+        fields += [FemField(tensor_space)]
 
         # Get spline coefficients for each coordinate X_i
         # we store w*x where w is the weight and x is the control point
         starts = tensor_space.vector_space.starts
         ends   = tensor_space.vector_space.ends
-        idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
-        for i,field in enumerate( fields[:-1] ):
-            idx_from = tuple(list(idx_to)+[i])
+        idx_to = tuple(slice(s, e+1) for s,e in zip(starts, ends))
+        for i, field in enumerate(fields[:-1]):
+            idx_from = (*idx_to, i)
 #            idw_from = tuple(idx_to)
             field.coeffs[idx_to] = control_points[idx_from] #* weights[idw_from]
 
@@ -862,17 +868,29 @@ class NurbsMapping( SplineMapping ):
         fields[-1].coeffs[idx_to] = weights[idx_from]
 
         # Create SplineMapping object
-        return cls( *fields )
+        return cls(*fields)
 
     #--------------------------------------------------------------------------
     # Abstract interface
     #--------------------------------------------------------------------------
-    def __call__( self, *eta):
+    def __call__(self, *eta):
         map_W = self._weights_field
-        w = map_W( *eta )
-        Xd = [map_Xd( *eta , weights=map_W.coeffs) for map_Xd in self._fields]
-        return np.asarray( Xd ) / w
+        w = map_W(*eta)
+        Xd = [map_Xd(*eta , weights=map_W.coeffs) for map_Xd in self._fields]
+        return np.asarray(Xd) / w
 
+    # ...
+    def jacobian(self, *eta):
+        map_W = self._weights_field
+        w = map_W(*eta)
+        grad_w = np.array(map_W.gradient(*eta))
+        v = np.array([map_Xd(*eta, weights=map_W.coeffs)  for map_Xd in self._fields])
+        grad_v = np.array([map_Xd.gradient(*eta, weights=map_W.coeffs) for map_Xd in self._fields])
+        return grad_v / w - v[:, None] @ grad_w[None, :] / w**2
+
+    #--------------------------------------------------------------------------
+    # Fast evaluation on a grid
+    #--------------------------------------------------------------------------
     def build_mesh(self, grid, npts_per_cell=None, overlap=0):
         """Evaluation of the mapping on the given grid.
 
@@ -897,15 +915,6 @@ class NurbsMapping( SplineMapping ):
         """
         mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell, weights=self._weights_field, overlap=overlap)
         return mesh
-
-    # ...
-    def jac_mat(self, *eta):
-        map_W = self._weights_field
-        w = map_W(*eta)
-        grad_w = np.array(map_W.gradient(*eta))
-        v = np.array([map_Xd(*eta, weights=map_W.coeffs)  for map_Xd in self._fields])
-        grad_v = np.array([map_Xd.gradient(*eta, weights=map_W.coeffs) for map_Xd in self._fields])
-        return grad_v / w - v[:, None] @ grad_w[None, :] / w**2
 
     # ...
     def jac_mat_regular_tensor_grid(self, grid, overlap=0):
@@ -1243,15 +1252,9 @@ class NurbsMapping( SplineMapping ):
 
         return jac_dets
 
-
     #--------------------------------------------------------------------------
     # Other properties/methods
     #--------------------------------------------------------------------------
-
-    @property
-    def control_points( self ):
-        return self._control_points
-
     @property
     def weights_field( self ):
         return self._weights_field
