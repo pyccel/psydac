@@ -746,7 +746,7 @@ class BlockLinearOperator(LinearOperator):
         return self._are_real
 
     @property
-    def dot_are_real(self):
+    def _dot_are_real(self):
         """
         Return the tuple version of are_real needed for the LinearOperatorDot.
         """
@@ -848,10 +848,10 @@ class BlockLinearOperator(LinearOperator):
         self._blocks[i,j] = value
         # If the value is a StencilMatrix, we add its .is_real in ou are.real dictionary
         if isinstance(value, StencilMatrix):
-            self.are_real[i, j] = value.is_real
+            self._are_real[i, j] = value.is_real
         # Else, by default we add False
         else:
-            self.are_real[i, j] = False
+            self._are_real[i, j] = False
     
     def transform(self, operation):
         """
@@ -1250,7 +1250,7 @@ class BlockLinearOperator(LinearOperator):
                                 d_start=d_starts,
                                 c_start=c_starts,
                                 dtype=self._domain.dtype,
-                                are_real=self.dot_are_real)
+                                are_real=self._dot_are_real)
 
                 self._args = {}
                 for k,key in enumerate(keys):
@@ -1288,7 +1288,7 @@ class BlockLinearOperator(LinearOperator):
                                         d_start=d_starts,
                                         c_start=c_starts,
                                         dtype=self._domain.dtype,
-                                        are_real=self.dot_are_real)
+                                        are_real=self._dot_are_real)
 
                 self._args = {}
 
@@ -1329,7 +1329,7 @@ class BlockLinearOperator(LinearOperator):
                                     d_start=d_starts,
                                     c_start=c_starts,
                                     dtype=self._domain.dtype,
-                                    are_real=self.dot_are_real)
+                                    are_real=self._dot_are_real)
             self._args = {}
 
         self._blocks_as_args = [self._blocks[key]._data for key in keys]
