@@ -277,7 +277,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         # ...
         # Prepare animations
         E_values = [E(xi) for xi in x1]
-        B_values = push_1d_l2(lambda x1: np.array([B(xi) for xi in x1]), x1, mapping)
+        B_values = push_1d_l2(lambda x1: np.array([B(xi) for xi in x1]), x1, F)
 
         fig2, ax2 = plt.subplots(1, 2, figsize=(12, 6))
         make_plot(ax2[0], t, E_ex(0, x), E_values, x, [xmin, xmax], label='E')
@@ -364,7 +364,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         if plot_interval and (i % plot_interval == 0 or i == nsteps-1):
 
             E_values = [E(xi) for xi in x1]
-            B_values = push_1d_l2(lambda x1: np.array([B(xi) for xi in x1]), x1, mapping)
+            B_values = push_1d_l2(lambda x1: np.array([B(xi) for xi in x1]), x1, F)
 
             # Update plot
             update_plot(ax2[0], t, E_ex(t, x), E_values)
@@ -400,7 +400,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         # (does not work in parallel right now)
         # Error at final time
         E_values = np.array([E(xi) for xi in x1])
-        B_values = push_1d_l2(lambda x1: np.array([B(xi) for xi in x1]), x1, mapping)
+        B_values = push_1d_l2(lambda x1: np.array([B(xi) for xi in x1]), x1, F)
 
         # for now: no allreduce needed here, since the spline evaluation already does that for us
         error_E = max(abs(E_ex(t, x) - E_values))
@@ -412,7 +412,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # compute L2 error as well
     F = mapping.get_callable_mapping()
     errE = lambda x1: (E(x1) - E_ex(t, *F(x1)))**2 * np.sqrt(F.metric_det(x1))
-    errB = lambda x1: (push_1d_l2(B, x1, mapping) - B_ex(t, *F(x1)))**2 * np.sqrt(F.metric_det(x1))
+    errB = lambda x1: (push_1d_l2(B, x1, F) - B_ex(t, *F(x1)))**2 * np.sqrt(F.metric_det(x1))
     error_l2_E = np.sqrt(derham_h.V1.integral(errE))
     error_l2_B = np.sqrt(derham_h.V0.integral(errB))
     print('L2 norm of error on E(t,x) at final time: {:.2e}'.format(error_l2_E))

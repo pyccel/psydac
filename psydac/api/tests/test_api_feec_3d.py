@@ -88,6 +88,10 @@ def evaluation_all_times(fields, x, y, z):
 #==================================================================================
 def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, periodic, dt, niter):
 
+    #------------------------------------------------------------------------------
+    # Symbolic objects: SymPDE
+    #------------------------------------------------------------------------------
+
     domain  = mapping(logical_domain)
     derham  = Derham(domain)
 
@@ -101,8 +105,12 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
     a2 = BilinearForm((u2, v2), integral(domain, dot(u2, v2)))
     a3 = BilinearForm((u3, v3), integral(domain, u3*v3))
 
-    #==============================================================================
+    # Callable mapping
+    F = mapping.get_callable_mapping()
+
+    #------------------------------------------------------------------------------
     # Discrete objects: Psydac
+    #------------------------------------------------------------------------------
 
     domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=MPI.COMM_WORLD)
     derham_h = discretize(derham, domain_h, degree=degree)
@@ -160,7 +168,7 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
 
     b_values_0 = []
     for zi in z:
-        b_value_phys  = push_3d_hdiv(bx_value_fun, by_value_fun, bz_value_fun, x, y, zi, mapping)
+        b_value_phys  = push_3d_hdiv(bx_value_fun, by_value_fun, bz_value_fun, x, y, zi, F)
         b_values_0.append(b_value_phys[0])
     b_values_0  = np.array(b_values_0)
 
@@ -175,6 +183,10 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
 #==================================================================================
 def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, periodic, dt, niter):
 
+    #------------------------------------------------------------------------------
+    # Symbolic objects: SymPDE
+    #------------------------------------------------------------------------------
+
     domain  = mapping(logical_domain)
     derham  = Derham(domain)
 
@@ -188,8 +200,12 @@ def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, 
     a2 = BilinearForm((u2, v2), integral(domain, dot(u2, v2)))
     a3 = BilinearForm((u3, v3), integral(domain, u3*v3))
 
-    #==============================================================================
+    # Callable mapping
+    F = mapping.get_callable_mapping()
+
+    #------------------------------------------------------------------------------
     # Discrete objects: Psydac
+    #------------------------------------------------------------------------------
 
     domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=MPI.COMM_WORLD)
     derham_h = discretize(derham, domain_h, degree=degree)
@@ -244,7 +260,7 @@ def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, 
 
     b_values_0 = []
     for zi in z:
-        b_value_phys  = push_3d_hdiv(bx_value_fun, by_value_fun, bz_value_fun, x, y, zi, mapping)
+        b_value_phys  = push_3d_hdiv(bx_value_fun, by_value_fun, bz_value_fun, x, y, zi, F)
         b_values_0.append(b_value_phys[0])
     b_values_0  = np.array(b_values_0)
 
@@ -301,6 +317,7 @@ def test_maxwell_3d_1():
     error = run_maxwell_3d_scipy(logical_domain, M, e_ex, b_ex, ncells, degree, periodic, dt, niter)
     assert abs(error - 0.04294761712765949) < 1e-9
 
+#------------------------------------------------------------------------------
 def test_maxwell_3d_2():
     class CollelaMapping3D(Mapping):
 
@@ -339,6 +356,7 @@ def test_maxwell_3d_2():
 
     error = run_maxwell_3d_stencil(logical_domain, M, e_ex, b_ex, ncells, degree, periodic, dt, niter)
     assert abs(error - 0.24586986658559362) < 1e-9
+
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================
