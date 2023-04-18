@@ -53,15 +53,19 @@ class C1_Cart( CartDecomposition ):
         # Recompute shape of local arrays in topology (with ghost regions)
         self._shape = tuple( e-s+1+2*p for s,e,p in zip( self._starts, self._ends, self._pads ) )
  
+        # Store "parent" cart object for later reference
+        self._parent_cart = cart
+
+        # Stop here in the serial case
+        if self._comm is None:
+            return
+
         # Recompute information for communicating with neighbors
         self._shift_info = {}
         for dimension in range( self._ndims ):
             for disp in [-1,1]:
                 self._shift_info[ dimension, disp ] = \
                         self._compute_shift_info( dimension, disp )
-
-        # Store "parent" cart object for later reference
-        self._parent_cart = cart
 
     # ...
     @property
