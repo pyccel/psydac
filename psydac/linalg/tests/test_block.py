@@ -767,6 +767,7 @@ def test_block_linear_operator_serial_dot( dtype, n1, n2, p1, p2, P1, P2  ):
     # Check data in 1D array
     assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
     assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
@@ -916,6 +917,7 @@ def test_block_diagonal_solver_serial_dot( dtype, n1, n2, p1, p2, P1, P2 ):
 
     assert np.allclose( Yt.blocks[0].toarray(), y1t.toarray(), rtol=1e-14, atol=1e-14 )
     assert np.allclose( Yt.blocks[1].toarray(), y2t.toarray(), rtol=1e-14, atol=1e-14 )
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
@@ -961,6 +963,7 @@ def test_block_2d_array_to_psydac_1( dtype, n1, n2, p1, p2, P1, P2 ):
     v  = array_to_psydac(xa, W)
 
     assert np.allclose( xa , v.toarray() )
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
@@ -1009,6 +1012,167 @@ def test_block_2d_array_to_psydac_2( dtype, n1, n2, p1, p2, P1, P2 ):
     v  = array_to_psydac(xa, W)
 
     assert np.allclose( xa , v.toarray() )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [16] )
+@pytest.mark.parametrize( 'n2', [8] )
+@pytest.mark.parametrize( 'p1', [1] )
+@pytest.mark.parametrize( 'p2', [2] )
+@pytest.mark.parametrize( 'P1', [True] )
+@pytest.mark.parametrize( 'P2', [True] )
+
+def test_block_linear_operator_are_real( n1, n2, p1, p2, P1, P2 ):
+
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    # Create vector space, stencil matrix, and stencil vector
+    V = StencilVectorSpace(cart, dtype=complex)
+
+    M1 = StencilMatrix(V, V, is_real=True)
+    M2 = StencilMatrix(V, V)
+    M3 = StencilMatrix(V, V)
+    M4 = StencilMatrix(V, V, is_real=True)
+    x1 = StencilVector(V)
+    x2 = StencilVector(V)
+
+    s1,s2 = V.starts
+    e1,e2 = V.ends
+
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            M1[:,:,k1,k2] = k1+k2+10.
+            M2[:,:,k1,k2] = 2j*k1+k2
+            M3[:,:,k1,k2] = 5j*k1+k2
+            M4[:,:,k1,k2] = 10*k1+k2
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+    M3.remove_spurious_entries()
+    M4.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(s1,e1+1):
+        for i2 in range(s2,e2+1):
+            x1[i1,i2] = 2.0j * i1 + i2
+            x2[i1,i2] = 5.0 * i2 - i1
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
+
+    # Create and Fill Block objects
+    W = BlockVectorSpace(V, V)
+    L1 = BlockLinearOperator( W, W )
+    L1[0,0] = M1
+    L1[0,1] = M2
+    L1[1,0] = M3
+    L1[1,1] = M4
+    L2 = BlockLinearOperator( W, W )
+    L2[0,0] = M4
+    L2[0,1] = M1
+    L2[1,0] = M3
+    L2[1,1] = M2
+    X = BlockVector(W)
+    X[0] = x1
+    X[1] = x2
+
+    # TEST Basic Operation __add__, __sub__, __mul__ with is_real parameters
+    S1 = L1 + L2
+    W1 = L1 - L2
+    assert S1.are_real == {(0, 1) : False, (0, 0) : True, (1, 1) : False, (1, 0) : False}
+    assert W1.are_real == {(0, 1) : False, (0, 0) : True, (1, 1) : False, (1, 0) : False}
+
+    assert np.array_equal(S1[0, 0]._data, L1[0, 0]._data + L2[0, 0]._data)
+    assert np.array_equal(W1[0, 0]._data, L1[0, 0]._data - L2[0, 0]._data)
+    assert S1[0, 0]._data.dtype == (L1[0, 0]._data + L2[0, 0]._data).dtype
+    assert W1[0, 0]._data.dtype == (L1[0, 0]._data - L2[0, 0]._data).dtype
+    assert S1[0, 0].is_real
+    assert W1[0, 0].is_real
+
+    assert np.array_equal(S1[0, 1]._data, L1[0, 1]._data + L2[0, 1]._data)
+    assert np.array_equal(W1[0, 1]._data, L1[0, 1]._data - L2[0, 1]._data)
+    assert S1[0, 1]._data.dtype == (L1[0, 1]._data + L2[0, 1]._data).dtype
+    assert W1[0, 1]._data.dtype == (L1[0, 1]._data - L2[0, 1]._data).dtype
+    assert not S1[0, 1].is_real
+    assert not W1[0, 1].is_real
+
+    assert np.array_equal(S1[1, 0]._data, L1[1, 0]._data + L2[1, 0]._data)
+    assert np.array_equal(W1[1, 0]._data, L1[1, 0]._data - L2[1, 0]._data)
+    assert S1[1, 0]._data.dtype == (L1[1, 0]._data + L2[1, 0]._data).dtype
+    assert W1[1, 0]._data.dtype == (L1[1, 0]._data - L2[1, 0]._data).dtype
+    assert not S1[1, 0].is_real
+    assert not W1[1, 0].is_real
+
+    assert np.array_equal(S1[1, 1]._data, L1[1, 1]._data + L2[1, 1]._data)
+    assert np.array_equal(W1[1, 1]._data, L1[1, 1]._data - L2[1, 1]._data)
+    assert S1[1, 1]._data.dtype == (L1[1, 1]._data + L2[1, 1]._data).dtype
+    assert W1[1, 1]._data.dtype == (L1[1, 1]._data - L2[1, 1]._data).dtype
+    assert not S1[1, 1].is_real
+    assert not W1[1, 1].is_real
+
+    L = 5 * L1
+    assert L.are_real== {(0,1):False, (0,0):True, (1,1):True, (1,0):False}
+
+    assert np.array_equal(L[0,0]._data, L1[0,0]._data * 5)
+    assert L[0,0]._data.dtype == (L1[0,0]._data * 5).dtype
+    assert L[0,0].is_real
+
+    assert np.array_equal(L[1,0]._data, L1[1,0]._data * 5)
+    assert L[1,0]._data.dtype == (L1[1,0]._data * 5).dtype
+    assert not L[1,0].is_real
+
+    L= 5j * L1
+    assert L.are_real== {(0, 1) : False, (0, 0) : False, (1, 1) : False, (1, 0) : False}
+
+    assert np.array_equal(L[0,0]._data, L1[0,0]._data * 5j)
+    assert L[0,0]._data.dtype == (L1[0,0]._data * 5j).dtype
+    assert not L[0,0].is_real
+
+    assert np.array_equal(L[1,0]._data, L1[1,0]._data * 5j)
+    assert L[1,0]._data.dtype == (L1[1,0]._data * 5j).dtype
+    assert not L[1,0].is_real
+
+    # TEST copy() with is_real parameters
+    L = L1.copy()
+    assert L.are_real == L1.are_real
+    assert np.array_equal(L[0,0]._data, L1[0,0]._data)
+    assert np.array_equal(L[1,0]._data, L1[1,0]._data)
+    assert np.array_equal(L[0,1]._data, L1[0,1]._data)
+    assert np.array_equal(L[1,1]._data, L1[1,1]._data)
+
+    # TEST Basic Operation __iadd__, __isub__, __imul__ with is_real parameters
+
+    L1 *= 5
+    assert L.are_real=={(0, 1): False, (0, 0): True, (1, 1): True, (1, 0): False}
+
+    Lr = BlockLinearOperator(W, W, blocks=[[M1, None], [None, M4]])
+    M2[:, :, :, :] = M1[:, :, :, :]
+    M3[:, :, :, :] = M4[:, :, :, :]
+
+    Lc = BlockLinearOperator(W, W, blocks=[[M2, None], [None, M3]])
+
+    # TEST: compute dot product with is_real
+    Yr = Lr.dot(X)
+    Yc = Lc.dot(X)
+
+    assert np.allclose(Yr[0]._data, Yc[0]._data, rtol=1.e-10, atol=1.e-10)
+    assert np.allclose(Yr[1]._data, Yc[1]._data, rtol=1.e-10, atol=1.e-10)
+
+    # TEST: compute transpose, then convert to Scipy sparse forma
+    Lt = L1.transpose()
+
+    # Check data
+    assert abs(Lt[0, 0]._data - (M1.transpose())._data).max() < 1e-14
+    assert abs(Lt[1, 0]._data - (M2.transpose())._data).max() < 1e-14
+    assert abs(Lt[0, 1]._data - (M3.transpose())._data).max() < 1e-14
+    assert abs(Lt[1, 1]._data - (M4.transpose())._data).max() < 1e-14
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
@@ -1093,6 +1257,89 @@ def test_block_linear_operator_dot_backend( dtype, n1, n2, p1, p2, P1, P2, backe
     # Check data in 1D array
     assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-13, atol=1e-13 )
     assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-13, atol=1e-13 )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [16] )
+@pytest.mark.parametrize( 'n2', [8] )
+@pytest.mark.parametrize( 'p1', [1] )
+@pytest.mark.parametrize( 'p2', [2] )
+@pytest.mark.parametrize( 'P1', [True] )
+@pytest.mark.parametrize( 'P2', [True] )
+@pytest.mark.parametrize( 'backend', [PSYDAC_BACKEND_GPYCCEL] )
+
+def test_block_linear_operator_are_real_backend( n1, n2, p1, p2, P1, P2, backend ):
+
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    # Create vector space, stencil matrix, and stencil vector
+    V = StencilVectorSpace(cart, dtype=complex)
+
+    M1 = StencilMatrix(V, V, is_real=True)
+    M2 = StencilMatrix(V, V)
+    M3 = StencilMatrix(V, V)
+    M4 = StencilMatrix(V, V, is_real=True)
+    x1 = StencilVector(V)
+    x2 = StencilVector(V)
+
+    s1,s2 = V.starts
+    e1,e2 = V.ends
+
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    for k1 in range(-p1, p1+1):
+        for k2 in range(-p2, p2+1):
+            M1[:, :, k1, k2] = k1+k2+10.
+            M2[:, :, k1, k2] = k1+k2+10.
+            M3[:, :, k1, k2] = 10*k1+k2
+            M4[:, :, k1, k2] = 10*k1+k2
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+    M3.remove_spurious_entries()
+    M4.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(s1, e1+1):
+        for i2 in range(s2, e2+1):
+            x1[i1, i2] = 2.0j * i1 + i2
+            x2[i1, i2] = 5.0 * i2 - i1
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
+
+    # Create and Fill Block objects
+    W = BlockVectorSpace(V, V)
+    X = BlockVector(W)
+
+    X[0] = x1
+    X[1] = x2
+
+    Lr = BlockLinearOperator(W, W, blocks=[[M1, None], [None, M4]])
+    Lc = BlockLinearOperator(W, W, blocks=[[M2, None], [None, M3]])
+
+    # Set backend in BlockLinearOperator
+    Lr.set_backend(backend=backend)
+    Lc.set_backend(backend=backend)
+
+    # TEST: compute dot product with is_real
+    Yr = Lr.dot(X)
+    Yc = Lc.dot(X)
+
+    assert np.allclose(Yr[0]._data, Yc[0]._data, rtol=1.e-10, atol=1.e-10)
+    assert np.allclose(Yr[1]._data, Yc[1]._data, rtol=1.e-10, atol=1.e-10)
+
+    # TEST: compute transpose, then convert to Scipy sparse forma
+    Lt = Lr.transpose()
+
+    # Check data
+    assert abs(Lt[0, 0]._data - (M1.transpose())._data).max() < 1e-14
+    assert abs(Lt[1, 1]._data - (M4.transpose())._data).max() < 1e-14
+
 #===============================================================================
 # PARALLEL TESTS
 #===============================================================================

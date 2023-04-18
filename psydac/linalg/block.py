@@ -468,13 +468,12 @@ class BlockLinearOperator(LinearOperator):
         self._domain   = V1
         self._codomain = V2
         self._blocks   = {}
+        self._are_real = {}
 
         self._nrows = V2.n_blocks if isinstance(V2, BlockVectorSpace) else 1
         self._ncols = V1.n_blocks if isinstance(V1, BlockVectorSpace) else 1
-
         # Store blocks in dict (hence they can be manually changed later)
         if blocks:
-
             if isinstance(blocks, dict):
                 for (i, j), Lij in blocks.items():
                     self[i, j] = Lij
@@ -512,6 +511,9 @@ class BlockLinearOperator(LinearOperator):
     # ...
     @property
     def dtype(self):
+        """
+        Return the type of the domain (float or complex)
+        """
         return self.domain.dtype
 
     def conjugate(self, out=None):
@@ -734,6 +736,24 @@ class BlockLinearOperator(LinearOperator):
     #--------------------------------------
     # New properties/methods
     #--------------------------------------
+
+    @property
+    def are_real(self):
+        """
+        Return dictionary of is_real for each block in self._blocks.
+        If the block don't have the attribute is_real.
+        """
+        return self._are_real
+
+    @property
+    def dot_are_real(self):
+        """
+        Return the tuple version of are_real needed for the LinearOperatorDot.
+        """
+        return tuple(
+               tuple(self._are_real.get((i, j), False) for j in range(self.n_block_cols))
+                                                    for i in range(self.n_block_rows))
+
     @property
     def blocks(self):
         """ Immutable 2D view (tuple of tuples) of the linear operator,
@@ -807,6 +827,7 @@ class BlockLinearOperator(LinearOperator):
 
         if value is None:
             self._blocks.pop( key, None )
+            self._are_real.pop(key, None)
             return
 
         i,j = key
@@ -825,6 +846,12 @@ class BlockLinearOperator(LinearOperator):
             assert value.codomain is self.codomain[i]
 
         self._blocks[i,j] = value
+        # If the value is a StencilMatrix, we add its .is_real in ou are.real dictionary
+        if isinstance(value, StencilMatrix):
+            self.are_real[i, j] = value.is_real
+        # Else, by default we add False
+        else:
+            self.are_real[i, j] = False
     
     def transform(self, operation):
         """
@@ -1222,7 +1249,8 @@ class BlockLinearOperator(LinearOperator):
                                 interface_axis=interface_axis,
                                 d_start=d_starts,
                                 c_start=c_starts,
-                                dtype=self._domain.dtype)
+                                dtype=self._domain.dtype,
+                                are_real=self.dot_are_real)
 
                 self._args = {}
                 for k,key in enumerate(keys):
@@ -1259,7 +1287,8 @@ class BlockLinearOperator(LinearOperator):
                                         interface_axis=interface_axis,
                                         d_start=d_starts,
                                         c_start=c_starts,
-                                        dtype=self._domain.dtype)
+                                        dtype=self._domain.dtype,
+                                        are_real=self.dot_are_real)
 
                 self._args = {}
 
@@ -1299,7 +1328,8 @@ class BlockLinearOperator(LinearOperator):
                                     interface_axis=interface_axis,
                                     d_start=d_starts,
                                     c_start=c_starts,
-                                    dtype=self._domain.dtype)
+                                    dtype=self._domain.dtype,
+                                    are_real=self.dot_are_real)
             self._args = {}
 
         self._blocks_as_args = [self._blocks[key]._data for key in keys]

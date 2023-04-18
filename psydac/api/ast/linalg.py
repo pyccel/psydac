@@ -158,16 +158,34 @@ class LinearOperatorDot(SplBasic):
         c_start         = kwargs.pop('c_start', None)
         dtype           = kwargs.pop('dtype', float)
         is_real    = kwargs.pop('is_real', False)
+        are_real   = kwargs.pop('are_real', None)
 
         # Adapt the type of data treated in our dot function
-        if dtype==complex:
-            mat_dtype_string = 'real' if is_real else 'complex'
-            dtype_string = 'complex'
-        else:
-            dtype_string     = 'real'
-            mat_dtype_string = 'real'
 
-        mats            = [variables('mat{}'.format(''.join(str(i) for i in key)), mat_dtype_string, cls=IndexedVariable, rank=2*ndim) for key in keys]
+        # If we are in a complex domain
+        if dtype==complex:
+            dtype_string = 'complex'
+
+            # If we only have a single StencilMatrix
+            if are_real is None:
+                mat_dtype_string = 'real' if is_real else 'complex'
+                mats = [variables('mat{}'.format(''.join(str(i) for i in key)), mat_dtype_string, cls=IndexedVariable, rank=2*ndim) for key in keys]
+
+            # If we have a BlockLinearOperator
+            else:
+                mat_dtype_string={}
+                for key in keys:
+                    (i,j)=key
+                    mat_dtype_string[key] = 'real' if are_real[i][j] else 'complex'
+                mats  = [variables('mat{}'.format(''.join(str(i) for i in key)), mat_dtype_string[key], cls=IndexedVariable, rank=2*ndim) for key in keys]
+
+        # If we are in a real domain
+        else:
+            dtype_string = 'real'
+            mat_dtype_string = 'real'
+            mats = [variables('mat{}'.format(''.join(str(i) for i in key)), mat_dtype_string, cls=IndexedVariable, rank=2*ndim) for key in keys]
+
+
         xs              = [variables('x{}'.format(i), dtype_string, cls=IndexedVariable, rank=ndim) for i in range(block_shape[1])]
         outs            = [variables('out{}'.format(i), dtype_string, cls=IndexedVariable, rank=ndim) for i in range(block_shape[0])]
 
