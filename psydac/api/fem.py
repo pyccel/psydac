@@ -131,9 +131,9 @@ def construct_quad_grids_arguments(grid, use_weights=True):
     else:
         quads = flatten(list(zip(points)))
 
-    quads_order   = flatten(grid.nquads)
+    nquads   = flatten(grid.nquads)
     n_elements    = grid.n_elements
-    return n_elements, quads, quads_order
+    return n_elements, quads, nquads
 
 def reset_arrays(*args):
     for a in args: a[:] = 0.
@@ -1036,7 +1036,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         """
         tests_basis, tests_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
-        n_elements, quads, quads_degree         = construct_quad_grids_arguments(self.grid, use_weights=False)
+        n_elements, quads, nquads         = construct_quad_grids_arguments(self.grid, use_weights=False)
 
         global_pads   = self.space.vector_space.pads
 
@@ -1069,7 +1069,7 @@ class DiscreteLinearForm(BasicDiscrete):
             map_span   = []
             map_basis  = []
 
-        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping, *self._global_matrices)
+        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *nquads, *global_pads, *mapping, *self._global_matrices)
 
         with_openmp  = with_openmp and self._num_threads>1
 
@@ -1333,7 +1333,7 @@ class DiscreteFunctional(BasicDiscrete):
         tests_degrees = flatten(tests_degrees)
         spans         = flatten(spans)
         quads         = flatten(list(zip(points, weights)))
-        quads_degree  = flatten(self.grid.nquads)
+        nquads  = flatten(self.grid.nquads)
 
         if self.mapping:
             mapping    = [e._coeffs._data for e in self.mapping._fields]
@@ -1350,7 +1350,7 @@ class DiscreteFunctional(BasicDiscrete):
             map_span   = []
             map_basis  = []
 
-        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping)
+        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *nquads, *global_pads, *mapping)
         args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
 
         return args
