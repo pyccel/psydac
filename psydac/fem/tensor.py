@@ -1043,7 +1043,7 @@ class TensorFemSpace( FemSpace ):
         if cart.is_comm_null: return
         spaces       = self.spaces
         vector_space = self.vector_space
-        nquads   = self.nquads
+        nquads       = self.nquads
 
         vector_space.set_interface(axis, ext, cart)
         space = TensorFemSpace( self._domain_decomposition, *spaces, vector_space=vector_space.interfaces[axis, ext], nquads=self.nquads)

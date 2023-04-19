@@ -339,7 +339,7 @@ class AST(object):
             tests               = expr.test_functions
             fields              = expr.fields
             is_broken           = spaces.symbolic_space.is_broken
-            nquads          = get_nquads(spaces)
+            nquads              = get_nquads(spaces)
             tests_degrees       = get_degrees(tests, spaces)
             multiplicity_tests  = get_multiplicity(tests, spaces.vector_space)
             is_parallel         = spaces.vector_space.parallel
@@ -351,7 +351,7 @@ class AST(object):
             atoms               = terminal_expr.expr.atoms(ScalarFunction, VectorFunction)
             fields              = tuple(i for i in atoms if i not in tests+trials)
             is_broken           = spaces[1].symbolic_space.is_broken
-            nquads          = get_nquads(spaces[1])
+            nquads              = get_nquads(spaces[1])
             tests_degrees       = get_degrees(tests, spaces[1])
             trials_degrees      = get_degrees(trials, spaces[0])
             multiplicity_tests  = get_multiplicity(tests, spaces[1].vector_space)
@@ -363,7 +363,7 @@ class AST(object):
             is_functional       = True
             fields              = tuple(expr.atoms(ScalarFunction, VectorFunction))
             is_broken           = spaces.symbolic_space.is_broken
-            nquads          = get_nquads(spaces)
+            nquads              = get_nquads(spaces)
             fields_degrees      = get_degrees(fields, spaces)
             multiplicity_fields = get_multiplicity(fields, spaces.vector_space)
             is_parallel         = spaces.vector_space.parallel
@@ -375,7 +375,7 @@ class AST(object):
         trials = expand_hdiv_hcurl(trials)
         fields = expand_hdiv_hcurl(fields)
 
-        kwargs['nquads']     = nquads
+        kwargs['nquads']        = nquads
 
         atoms_types = (ScalarFunction, VectorFunction, IndexedVectorFunction)
 
@@ -649,7 +649,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
     add_openmp = is_pyccel and backend['openmp'] and num_threads>1
 
-    nquads    = kwargs.pop('nquads', None)
+    nquads        = kwargs.pop('nquads', None)
     thread_span   =  dict((u,d_tests[u]['thread_span']) for u in tests)
     # ...........................................................................................
     if add_openmp:
@@ -1227,7 +1227,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     rank_from_coords = MatrixRankFromCoords()
     coords_from_rank = MatrixCoordsFromRank()
 
-    nquads    = kwargs.pop('nquads', None)
+    nquads        = kwargs.pop('nquads', None)
     thread_span   =  dict((u,d_tests[u]['thread_span']) for u in tests)
  
     m_tests = dict((v,d_tests[v]['multiplicity'])   for v in tests)

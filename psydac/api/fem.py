@@ -131,7 +131,7 @@ def construct_quad_grids_arguments(grid, use_weights=True):
     else:
         quads = flatten(list(zip(points)))
 
-    nquads   = flatten(grid.nquads)
+    nquads        = flatten(grid.nquads)
     n_elements    = grid.n_elements
     return n_elements, quads, nquads
 
@@ -310,8 +310,8 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         #...
         discrete_space   = (trial_space, test_space)
-        space_nquads = [qo - 1 for qo in get_nquads(test_space)]
-        nquads       = [qo + 1 for qo in (nquads or space_nquads)]
+        space_nquads     = [qo - 1 for qo in get_nquads(test_space)]
+        nquads           = [qo + 1 for qo in (nquads or space_nquads)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
         assert np.array_equal(nquads, get_nquads(test_space))
@@ -1036,7 +1036,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         """
         tests_basis, tests_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
-        n_elements, quads, nquads         = construct_quad_grids_arguments(self.grid, use_weights=False)
+        n_elements, quads, nquads               = construct_quad_grids_arguments(self.grid, use_weights=False)
 
         global_pads   = self.space.vector_space.pads
 
@@ -1333,7 +1333,7 @@ class DiscreteFunctional(BasicDiscrete):
         tests_degrees = flatten(tests_degrees)
         spans         = flatten(spans)
         quads         = flatten(list(zip(points, weights)))
-        nquads  = flatten(self.grid.nquads)
+        nquads        = flatten(self.grid.nquads)
 
         if self.mapping:
             mapping    = [e._coeffs._data for e in self.mapping._fields]

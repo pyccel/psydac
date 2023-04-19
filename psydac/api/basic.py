@@ -327,7 +327,7 @@ class BasicDiscrete(BasicCodeGen):
 
         mapping_space  = kwargs.pop('mapping_space', None)
         tag            = kwargs.pop('tag', None)
-        nquads     = kwargs.pop('nquads', None)
+        nquads         = kwargs.pop('nquads', None)
         mapping        = kwargs.pop('mapping', None)
         num_threads    = kwargs.pop('num_threads', None)
         backend        = kwargs.pop('backend', None)
