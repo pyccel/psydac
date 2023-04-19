@@ -21,9 +21,9 @@ from psydac.core.kernels import (pushforward_2d_hdiv,
 #===============================================================================
 class VectorFemSpace( FemSpace ):
     """
-    FEM space with a vector basis.
-    It is used to represent a product of spaces from the same patch.
-
+    FEM space with a vector basis defined on a single patch
+    this class is used to represent either spaces of vector-valued fem fields,
+    or product spaces involved in systems of equations
     """
 
     def __init__( self, *spaces ):
@@ -84,7 +84,7 @@ class VectorFemSpace( FemSpace ):
 
     @property
     def vector_space(self):
-        """Returns the topological associated vector space."""
+        """Returns the vector space of the coefficients (mapping invariant)."""
         return self._vector_space
 
     @property
@@ -365,9 +365,8 @@ class VectorFemSpace( FemSpace ):
 #===============================================================================
 class ProductFemSpace( FemSpace ):
     """
-    Product of FEM space.
-    It is used to represent a product of spaces from different patches.
-
+    Product of FEM spaces
+    this class is used to represent FEM spaces on a multi-patch domain
     """
 
     def __new__(cls, *spaces, connectivity=None):
@@ -378,7 +377,12 @@ class ProductFemSpace( FemSpace ):
             return FemSpace.__new__(cls)
 
     def __init__( self, *spaces, connectivity=None):
-        """."""
+        """
+        Parameters
+        -----------
+        *spaces : 
+            single-patch FEM spaces                        
+        """
 
         if len(spaces) == 1:
             return
@@ -415,7 +419,7 @@ class ProductFemSpace( FemSpace ):
 
     @property
     def vector_space(self):
-        """Returns the topological associated vector space."""
+        """Returns the vector space of the coefficients (mapping invariant)."""
         return self._vector_space
 
     @property
