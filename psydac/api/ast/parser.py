@@ -1063,8 +1063,9 @@ class Parser(object):
     def _visit_MatrixLocalBasis(self, expr, **kwargs):
         rank   = self._visit(expr.rank)
         target = SymbolicExpr(expr.target)
+        dtype=expr.dtype
         name = 'arr_coeffs_{}'.format(target.name)
-        var  = IndexedVariable(name, dtype='real', rank=rank)
+        var  = IndexedVariable(name, dtype=dtype, rank=rank)
         self.insert_variables(var)
         return var
     # ....................................................
@@ -1072,25 +1073,32 @@ class Parser(object):
     def _visit_MatrixGlobalBasis(self, expr, **kwargs):
         rank   = self._visit(expr.rank)
         target = SymbolicExpr(expr.target)
+        dtype=expr.dtype
         name = 'global_arr_coeffs_{}'.format(target.name)
-        var  = IndexedVariable(name, dtype='real', rank=rank)
+        var  = IndexedVariable(name, dtype=dtype, rank=rank)
         self.insert_variables(var)
         return var
     # ....................................................
     def _visit_Reset(self, expr, **kwargs):
         var = expr.var
         lhs  = self._visit(var, **kwargs)
+        if hasattr(var, 'dtype'):
+            dtype = var.dtype
+        else:
+            dtype = 'real'
+        # Define data type of the 0
+        zero = 0.0j if dtype == 'complex' else 0.0
         if isinstance(var, (LocalElementBasis, GlobalElementBasis)):
-            return Assign(lhs, 0.)
+            return Assign(lhs, zero)
 
         elif isinstance(var, BlockScalarLocalBasis):
             expr = var.expr
-            return tuple(Assign(a, 0.) for a,b in zip(lhs[:], expr[:]) if b)
+            return tuple(Assign(a, zero) for a,b in zip(lhs[:], expr[:]) if b)
 
         expr = var.expr
         rank = lhs[0,0].rank
         args  = [Slice(None, None)]*rank
-        return tuple(Assign(a[args], 0.) for a,b in zip(lhs[:], expr[:]) if b)
+        return tuple(Assign(a[args], zero) for a,b in zip(lhs[:], expr[:]) if b)
 
     # ....................................................
     def _visit_Reduce(self, expr, **kwargs):
@@ -1444,6 +1452,7 @@ class Parser(object):
         tests  = expr._tests
         trials = expr._trials
         tag    = expr.tag
+        dtype = expr.dtype
         tests   = expand(tests)
         trials  = expand(trials)
         targets = Matrix.zeros(len(tests), len(trials))
@@ -1452,7 +1461,7 @@ class Parser(object):
                 if expr.expr[i,j] == 0:
                     targets[i,j] = None
                     continue
-                mat = StencilMatrixLocalBasis(u, v, pads[i,j], tag)
+                mat = StencilMatrixLocalBasis(u=u, v=v, pads=pads[i,j], tag=tag, dtype=dtype)
                 mat = self._visit_StencilMatrixLocalBasis(mat, **kwargs)
                 targets[i,j] = mat
         return targets
@@ -1462,6 +1471,7 @@ class Parser(object):
         tests  = expr._tests
         trials = expr._trials
         tag    = expr.tag
+        dtype = expr.dtype
         tests   = expand(tests)
         trials  = expand(trials)
         targets = Matrix.zeros(len(tests), len(trials))
@@ -1470,7 +1480,7 @@ class Parser(object):
                 if expr.expr[i,j] == 0:
                     targets[i,j] = None
                     continue
-                mat = StencilMatrixGlobalBasis(u, v, pads, tag)
+                mat = StencilMatrixGlobalBasis(u=u, v=v, pads=pads, tag=tag, dtype=dtype)
                 mat = self._visit_StencilMatrixGlobalBasis(mat, **kwargs)
                 targets[i,j] = mat
         return targets
@@ -1479,13 +1489,14 @@ class Parser(object):
         pads   = expr.pads
         tests  = expr._tests
         tag    = expr.tag
+        dtype = expr.dtype
         tests   = expand(tests)
         targets = Matrix.zeros(len(tests), 1)
         for i,v in enumerate(tests):
             if expr.expr[i,0] == 0:
                 targets[i,0] = None
                 continue
-            mat = StencilVectorLocalBasis(v, pads, tag)
+            mat = StencilVectorLocalBasis(v, pads, tag, dtype)
             mat = self._visit_StencilVectorLocalBasis(mat, **kwargs)
             targets[i,0] = mat
         return targets
@@ -1494,13 +1505,14 @@ class Parser(object):
         pads   = expr.pads
         tests  = expr._tests
         tag    = expr.tag
+        dtype  = expr.dtype
         tests   = expand(tests)
         targets = Matrix.zeros(len(tests), 1)
         for i,v in enumerate(tests):
             if expr.expr[i,0] == 0:
                 targets[i,0] = None
                 continue
-            mat = StencilVectorGlobalBasis(v, pads, tag)
+            mat = StencilVectorGlobalBasis(v, pads, tag, dtype)
             mat = self._visit_StencilVectorGlobalBasis(mat, **kwargs)
             targets[i,0] = mat
         return targets
@@ -1508,6 +1520,7 @@ class Parser(object):
     # .............................................................................
     def _visit_BlockScalarLocalBasis(self, expr, **kwargs):
         tag    = expr.tag
+        dtype  = expr.dtype
         tests   = expand(expr._tests)
         trials  = expand(expr._trials) if expr._trials else (None,)
         targets = Matrix.zeros(len(tests), len(trials))
@@ -1516,7 +1529,7 @@ class Parser(object):
                 if expr.expr[i,j] == 0:
                     targets[i,j] = None
                     continue
-                var = ScalarLocalBasis(u, v, tag)
+                var = ScalarLocalBasis(u, v, tag, dtype)
                 var = self._visit_ScalarLocalBasis(var, **kwargs)
                 targets[i,j] = var
         return targets
@@ -1525,10 +1538,11 @@ class Parser(object):
     def _visit_StencilMatrixLocalBasis(self, expr, **kwargs):
         rank = expr.rank
         tag  = expr.tag
+        dtype  = expr.dtype
         name = '_'.join(str(SymbolicExpr(e)) for e in expr.name)
 
         name = 'l_mat_{}_{}'.format(name, tag)
-        var  = IndexedVariable(name, dtype='real', rank=rank)
+        var  = IndexedVariable(name, dtype=dtype, rank=rank)
         self.insert_variables(var)
         return var
 
@@ -1536,9 +1550,10 @@ class Parser(object):
     def _visit_StencilVectorLocalBasis(self, expr, **kwargs):
         rank = expr.rank
         tag  = expr.tag
+        dtype  = expr.dtype
         name = str(SymbolicExpr(expr.name))
         name = 'l_vec_{}_{}'.format(name, tag)
-        var  = IndexedVariable(name, dtype='real', rank=rank) 
+        var  = IndexedVariable(name, dtype=dtype, rank=rank)
         self.insert_variables(var)
         return var
 
@@ -1546,9 +1561,10 @@ class Parser(object):
     def _visit_StencilMatrixGlobalBasis(self, expr, **kwargs):
         rank = expr.rank
         tag  = expr.tag
+        dtype  = expr.dtype
         name = '_'.join(str(SymbolicExpr(e)) for e in expr.name)
         name = 'g_mat_{}_{}'.format(name, tag)
-        var  = IndexedVariable(name, dtype='real', rank=rank)
+        var  = IndexedVariable(name, dtype=dtype, rank=rank)
         self.insert_variables(var)
         return var
 
@@ -1556,34 +1572,38 @@ class Parser(object):
     def _visit_StencilVectorGlobalBasis(self, expr, **kwargs):
         rank = expr.rank
         tag  = expr.tag
+        dtype  = expr.dtype
         name = str(SymbolicExpr(expr.name))
         name = 'g_vec_{}_{}'.format(name, tag)        
-        var  = IndexedVariable(name, dtype='real', rank=rank)
+        var  = IndexedVariable(name, dtype=dtype, rank=rank)
         self.insert_variables(var)
         return var
 
     def _visit_GlobalElementBasis(self, expr, **kwargs):
         tag  = expr.tag
+        dtype  = expr.dtype
         name = 'g_el_{}'.format(tag)
-        var  = variables(name, dtype='real')
+        var  = variables(name, dtype=dtype)
         self.insert_variables(var)
         return var
 
     def _visit_LocalElementBasis(self, expr, **kwargs):
         tag  = expr.tag
+        dtype  = expr.dtype
         name = 'l_el_{}'.format(tag)
-        var  = variables(name, dtype='real') 
+        var  = variables(name, dtype=dtype)
         self.insert_variables(var)
         return var
 
     def _visit_ScalarLocalBasis(self, expr, **kwargs):
         tag  = expr.tag
+        dtype  = expr.dtype
         basis = (expr._test,)
         if expr._trial:
             basis = (expr._test, expr._trial)
         name = '_'.join(str(SymbolicExpr(e)) for e in basis)
         name = 'contribution_{}_{}'.format(name, tag)
-        var  = variables(name, dtype='real') 
+        var  = variables(name, dtype=dtype)
         self.insert_variables(var)
         return var
 

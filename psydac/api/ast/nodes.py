@@ -989,9 +989,9 @@ class MatrixGlobalBasis(MatrixNode):
     """
     _rank = rank_dim
 
-    def __new__(cls, target, test):
+    def __new__(cls, target, test, dtype='real'):
         # TODO check target
-        return Basic.__new__(cls, target, test)
+        return Basic.__new__(cls, target, test, dtype)
 
     @property
     def target(self):
@@ -1000,6 +1000,10 @@ class MatrixGlobalBasis(MatrixNode):
     @property
     def test(self):
         return self._args[1]
+
+    @property
+    def dtype(self):
+        return self._args[2]
 #==============================================================================
 class MatrixLocalBasis(MatrixNode):
     """
@@ -1007,20 +1011,24 @@ class MatrixLocalBasis(MatrixNode):
     """
     _rank = rank_dim
 
-    def __new__(cls, target):
+    def __new__(cls, target, dtype='real'):
         # TODO check target
-        return Basic.__new__(cls, target)
+        return Basic.__new__(cls, target, dtype)
 
     @property
     def target(self):
         return self._args[0]
+
+    @property
+    def dtype(self):
+        return self._args[1]
 
 #==============================================================================
 class StencilMatrixLocalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil matrix
     """
-    def __new__(cls, u, v, pads, tag=None):
+    def __new__(cls, u, v, pads, tag=None, dtype='real'):
 
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
@@ -1029,7 +1037,7 @@ class StencilMatrixLocalBasis(MatrixNode):
         rank = 2*len(pads)
         tag  = tag or random_string( 6 )
         name = (u, v)
-        return Basic.__new__(cls, pads, rank, name, tag)
+        return Basic.__new__(cls, pads, rank, name, tag, dtype)
 
     @property
     def pads(self):
@@ -1046,13 +1054,17 @@ class StencilMatrixLocalBasis(MatrixNode):
     @property
     def tag(self):
         return self._args[3]
+
+    @property
+    def dtype(self):
+        return self._args[4]
 
 #==============================================================================
 class StencilMatrixGlobalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil matrix
     """
-    def __new__(cls, u, v, pads, tag=None):
+    def __new__(cls, u, v, pads, tag=None, dtype='real'):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
@@ -1060,7 +1072,7 @@ class StencilMatrixGlobalBasis(MatrixNode):
         rank = 2*len(pads)
         tag  = tag or random_string( 6 )
         name = (u, v)
-        return Basic.__new__(cls, pads, rank, name, tag)
+        return Basic.__new__(cls, pads, rank, name, tag, dtype)
 
     @property
     def pads(self):
@@ -1077,13 +1089,17 @@ class StencilMatrixGlobalBasis(MatrixNode):
     @property
     def tag(self):
         return self._args[3]
+
+    @property
+    def dtype(self):
+        return self._args[4]
 
 #==============================================================================
 class StencilVectorLocalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil vector
     """
-    def __new__(cls, v, pads, tag=None):
+    def __new__(cls, v, pads, tag=None, dtype='real'):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
@@ -1091,7 +1107,7 @@ class StencilVectorLocalBasis(MatrixNode):
         rank = len(pads)
         tag  = tag or random_string( 6 )
         name = v
-        return Basic.__new__(cls, pads, rank, name, tag)
+        return Basic.__new__(cls, pads, rank, name, tag, dtype)
 
     @property
     def pads(self):
@@ -1108,13 +1124,17 @@ class StencilVectorLocalBasis(MatrixNode):
     @property
     def tag(self):
         return self._args[3]
+
+    @property
+    def dtype(self):
+        return self._args[4]
 
 #==============================================================================
 class StencilVectorGlobalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil vector
     """
-    def __new__(cls, v, pads, tag=None):
+    def __new__(cls, v, pads, tag=None, dtype='real'):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
@@ -1122,7 +1142,7 @@ class StencilVectorGlobalBasis(MatrixNode):
         rank = len(pads)
         tag  = tag or random_string( 6 )
         name = v
-        return Basic.__new__(cls, pads, rank, name, tag)
+        return Basic.__new__(cls, pads, rank, name, tag, dtype)
 
     @property
     def pads(self):
@@ -1139,6 +1159,11 @@ class StencilVectorGlobalBasis(MatrixNode):
     @property
     def tag(self):
         return self._args[3]
+
+    @property
+    def dtype(self):
+        return self._args[4]
+
 
 #==============================================================================
 class LocalElementBasis(MatrixNode):
@@ -1154,14 +1179,14 @@ class BlockStencilMatrixLocalBasis(BlockLinearOperatorNode):
     """
     def __new__(cls, trials, tests, expr, dim, tag=None, outer=None,
                      tests_degree=None, trials_degree=None,
-                     tests_multiplicity=None, trials_multiplicity=None):
+                     tests_multiplicity=None, trials_multiplicity=None, dtype='real'):
 
         pads = Pads(tests, trials, tests_degree, trials_degree,
                     tests_multiplicity, trials_multiplicity)
 
         rank = 2*dim
         tag  = tag or random_string( 6 )
-        obj  = Basic.__new__(cls, pads, rank, trials_multiplicity, tag, expr)
+        obj  = Basic.__new__(cls, pads, rank, trials_multiplicity, tag, expr, dtype)
         obj._trials = trials
         obj._tests  = tests
         obj._outer  = outer
@@ -1188,6 +1213,10 @@ class BlockStencilMatrixLocalBasis(BlockLinearOperatorNode):
         return self._args[4]
 
     @property
+    def dtype(self):
+        return self._args[5]
+
+    @property
     def outer(self):
         return self._outer
 
@@ -1205,14 +1234,14 @@ class BlockStencilMatrixGlobalBasis(BlockLinearOperatorNode):
     """
     used to describe local dof over an element as a block stencil matrix
     """
-    def __new__(cls, trials, tests, pads, multiplicity, expr, tag=None):
+    def __new__(cls, trials, tests, pads, multiplicity, expr, tag=None, dtype='real'):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = 2*len(pads)
         tag  = tag or random_string( 6 )
-        obj  = Basic.__new__(cls, pads, multiplicity, rank, tag, expr)
+        obj  = Basic.__new__(cls, pads, multiplicity, rank, tag, expr, dtype)
         obj._trials = trials
         obj._tests  = tests
         return obj
@@ -1236,6 +1265,10 @@ class BlockStencilMatrixGlobalBasis(BlockLinearOperatorNode):
     @property
     def expr(self):
         return self._args[4]
+
+    @property
+    def dtype(self):
+        return self._args[5]
 
     @property
     def unique_scalar_space(self):
@@ -1251,14 +1284,14 @@ class BlockStencilVectorLocalBasis(BlockLinearOperatorNode):
     """
     used to describe local dof over an element as a block stencil matrix
     """
-    def __new__(cls,tests, pads, expr, tag=None):
+    def __new__(cls,tests, pads, expr, tag=None, dtype='real'):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = len(pads)
         tag  = tag or random_string( 6 )
-        obj  = Basic.__new__(cls, pads, rank, tag, expr)
+        obj  = Basic.__new__(cls, pads, rank, tag, expr, dtype)
         obj._tests  = tests
         return obj
 
@@ -1279,6 +1312,10 @@ class BlockStencilVectorLocalBasis(BlockLinearOperatorNode):
         return self._args[3]
 
     @property
+    def dtype(self):
+        return self._args[4]
+
+    @property
     def unique_scalar_space(self):
         types = (H1SpaceType, L2SpaceType, UndefinedSpaceType)
         spaces = self._tests.space
@@ -1292,14 +1329,14 @@ class BlockStencilVectorGlobalBasis(BlockLinearOperatorNode):
     """
     used to describe local dof over an element as a block stencil matrix
     """
-    def __new__(cls, tests, pads, multiplicity, expr, tag=None):
+    def __new__(cls, tests, pads, multiplicity, expr, tag=None, dtype='real'):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = len(pads)
         tag  = tag or random_string( 6 )
-        obj  = Basic.__new__(cls, pads, multiplicity, rank, tag, expr)
+        obj  = Basic.__new__(cls, pads, multiplicity, rank, tag, expr, dtype)
         obj._tests  = tests
         return obj
 
@@ -1324,6 +1361,10 @@ class BlockStencilVectorGlobalBasis(BlockLinearOperatorNode):
         return self._args[4]
 
     @property
+    def dtype(self):
+        return self._args[5]
+
+    @property
     def unique_scalar_space(self):
         types = (H1SpaceType, L2SpaceType, UndefinedSpaceType)
         spaces = self._tests.space
@@ -1337,9 +1378,9 @@ class ScalarLocalBasis(ScalarNode):
     """
      This is used to describe scalar dof over an element
     """
-    def __new__(cls, u=None, v=None, tag=None):
+    def __new__(cls, u=None, v=None, tag=None, dtype='real'):
         tag  = tag or random_string( 6 )
-        obj  = Basic.__new__(cls, tag)
+        obj  = Basic.__new__(cls, tag, dtype)
         obj._test  = v
         obj._trial = u
         return obj
@@ -1347,6 +1388,10 @@ class ScalarLocalBasis(ScalarNode):
     @property
     def tag(self):
         return self._args[0]
+
+    @property
+    def dtype(self):
+        return self._args[1]
 
     @property
     def trial(self):
@@ -1360,10 +1405,10 @@ class BlockScalarLocalBasis(ScalarNode):
     """
        This is used to describe a block of scalar dofs over an element
     """
-    def __new__(cls, trials=None, tests=None, expr=None, tag=None):
+    def __new__(cls, trials=None, tests=None, expr=None, tag=None, dtype='real'):
 
         tag = tag or random_string( 6 )
-        obj = Basic.__new__(cls, tag)
+        obj = Basic.__new__(cls, tag, dtype)
         obj._tests  = tests
         obj._trials = trials
         obj._expr   = expr
@@ -1372,6 +1417,10 @@ class BlockScalarLocalBasis(ScalarNode):
     @property
     def tag(self):
         return self._args[0]
+
+    @property
+    def dtype(self):
+        return self._args[1]
 
     @property
     def tests(self):
@@ -1652,7 +1701,8 @@ class Reduction(Basic):
     """
     """
     def __new__(cls, op, expr, lhs=None):
-        # TODO add verification on op = '-', '+', '*', '/'
+        if not op in ['-', '+', '*', '/']:
+            raise TypeError("Expecting an operation type in : '-', '+', '*', '/'")
         return Basic.__new__(cls, op, expr, lhs)
 
     @property
@@ -1672,7 +1722,8 @@ class Reduce(Basic):
     """
     """
     def __new__(cls, op, rhs, lhs, loop):
-        # TODO add verification on op = '-', '+', '*', '/'
+        if not op in ['-', '+', '*', '/']:
+            raise TypeError("Expecting an operation type in : '-', '+', '*', '/'")
         if not isinstance(loop, Loop):
             raise TypeError('Expecting a Loop')
 

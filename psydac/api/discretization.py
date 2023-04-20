@@ -328,8 +328,14 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
                  # Create 1D finite element spaces and precompute quadrature data
                 spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]
 
+         # Define data type of our TensorFemSpace
+        dtype = float
+        if hasattr(V, 'codomain_type'):
+            if V.codomain_type == 'complex':
+                dtype = complex
+
         carts    = create_cart(ddms, spaces)
-        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], quad_order=quad_order) for i,inter in enumerate(interiors)}
+        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], quad_order=quad_order, dtype=dtype) for i,inter in enumerate(interiors)}
 
         # ... construct interface spaces
         construct_interface_spaces(domain_h.ddm, g_spaces, carts, interiors, connectivity)

@@ -136,7 +136,8 @@ def construct_quad_grids_arguments(grid, use_weights=True):
     return n_elements, quads, quads_order
 
 def reset_arrays(*args):
-    for a in args: a[:] = 0.
+    for a in args:
+        a[:]= 0.j if a.dtype==complex else 0.
 
 def do_nothing(*args): return 0
 
@@ -614,7 +615,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def allocate_matrices(self, backend=None):
         """
-        Allocate the global matrices used in the assmebly method.
+        Allocate the global matrices used in the assembly method.
         In this method we allocate only the matrices that are computed in the self._target domain,
         we also avoid double allocation if we have many DiscreteLinearForm that are defined on the same self._target domain.
 
@@ -1085,7 +1086,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
     def allocate_matrices(self):
         """
-        Allocate the global matrices used in the assmebly method.
+        Allocate the global matrices used in the assembly method.
         In this method we allocate only the matrices that are computed in the self._target domain,
         we also avoid double allocation if we have many DiscreteLinearForm that are defined on the same self._target domain.
         """
@@ -1394,7 +1395,7 @@ class DiscreteSumForm(BasicDiscrete):
 
     def __init__(self, a, kernel_expr, *args, **kwargs):
         if not isinstance(a, (sym_BilinearForm, sym_LinearForm, sym_Functional)):
-            raise TypeError('> Expecting a symbolic BilinearForm, LinearFormn Functional')
+            raise TypeError('> Expecting a symbolic BilinearForm, LinearForm, Functional')
 
         self._expr = a
         backend = kwargs.pop('backend', None)
