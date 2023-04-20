@@ -22,7 +22,7 @@ from psydac.core.bsplines         import (
         )
 
 from psydac.utilities.quadratures import gauss_legendre
-from psydac.utilities.utils import unroll_edges
+from psydac.utilities.utils import unroll_edges, refine_array_1d
 from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
 
 __all__ = ['SplineSpace']
@@ -470,12 +470,50 @@ class SplineSpace( FemSpace ):
         c[0:n] = self._histopolator.solve( values )
         c.update_ghost_regions()
 
+    # ...
     def refine(self, ncells):
-        if ncells == len(self.breaks)-1:
+        """
+        Create a refined 1D spline space with the given number of cells.
+
+        Parameters
+        ----------
+        ncells : int
+            Number of cells of refined space. Must be multiple of self.ncells.
+
+        Returns
+        -------
+        SplineSpace
+            Refined 1D spline space which contains the original space.
+
+        """
+
+        # Sanity checks
+        if int(ncells) != ncells:
+            msg = f"{ncells} is not an integer"
+        elif ncells < self.ncells:
+            msg = f"{ncells} is smaller than minimum value {self.ncells}"
+        elif ncells % self.ncells != 0:
+            msg = f"{ncells} is not multiple of {self.ncells}"
+        else:
+            msg = None
+
+        if msg:
+            raise ValueError("Wrong number of cells: " + msg)
+
+        if ncells == self.ncells:
             return self
-        grid = np.linspace(self.breaks[0], self.breaks[-1], ncells+1)
-        return SplineSpace(self.degree, grid=grid, multiplicity=self.multiplicity, parent_multiplicity=self.parent_multiplicity,
-                            periodic=self.periodic, dirichlet=self.dirichlet, basis=self.basis, pads=self.pads)
+
+        refinement_factor = ncells % self.ncells
+        grid = refine_array_1d(self.breaks, refinement_factor)
+
+        return SplineSpace(self.degree,
+                           grid=grid,
+                           multiplicity=self.multiplicity,
+                           parent_multiplicity=self.parent_multiplicity,
+                           periodic=self.periodic,
+                           dirichlet=self.dirichlet,
+                           basis=self.basis,
+                           pads=self.pads)
 
     # ...
     def __str__(self):
