@@ -953,6 +953,11 @@ def _refinement_matrix_one_stage(t, p, knots):
     """
     Computes the refinement matrix corresponding to the insertion of a given knot.
 
+    For more details see:
+
+      [1] : Les Piegl , Wayne Tiller, The NURBS Book,
+            https://doi.org/10.1007/978-3-642-97385-7. (Section 5.2)
+
     Parameters
     ----------
     t : float
@@ -1022,6 +1027,11 @@ def _refinement_matrix_one_stage(t, p, knots):
 def hrefinement_matrix(ts, p, knots):
     """
     computes the refinement matrix corresponding to the insertion of a given list of knots
+
+    For more details see:
+
+      [1] : Les Piegl , Wayne Tiller, The NURBS Book,
+            https://doi.org/10.1007/978-3-642-97385-7. (Section 5.2)
 
     Parameters
     ----------

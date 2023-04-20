@@ -23,7 +23,7 @@ class VectorFemSpace( FemSpace ):
     """
     FEM space with a vector basis defined on a single patch
     this class is used to represent either spaces of vector-valued fem fields,
-    or product spaces involved in systems of equations
+    or product spaces involved in systems of equations.
     """
 
     def __init__( self, *spaces ):
@@ -366,7 +366,7 @@ class VectorFemSpace( FemSpace ):
 class ProductFemSpace( FemSpace ):
     """
     Product of FEM spaces
-    this class is used to represent FEM spaces on a multi-patch domain
+    this class is used to represent FEM spaces on a multi-patch domain.
     """
 
     def __new__(cls, *spaces, connectivity=None):

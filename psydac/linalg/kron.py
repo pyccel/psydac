@@ -16,6 +16,18 @@ __all__ = ['KroneckerStencilMatrix',
 #==============================================================================
 class KroneckerStencilMatrix( LinearOperator ):
     """ Kronecker product of 1D stencil matrices.
+
+        Parameters
+        ----------
+        V : StencilVectorSpace
+            The domain.
+
+        W : StencilVectorSpace
+            The codomain.
+     
+        args : list of StencilMatrix
+            The components of kronecker product in each dimension.
+    
     """
 
     def __init__( self,V, W, *args ):
@@ -222,6 +234,18 @@ class KroneckerStencilMatrix( LinearOperator ):
 #==============================================================================
 class KroneckerDenseMatrix( LinearOperator ):
     """ Kronecker product of 1D dense matrices.
+
+        Parameters
+        ----------
+        V : StencilVectorSpace
+            The domain.
+
+        W : StencilVectorSpace
+            The codomain.
+     
+        args : list of ndarray
+            The components of kronecker product in each dimension.
+    
     """
 
     def __init__( self,V, W, *args , with_pads=False):
