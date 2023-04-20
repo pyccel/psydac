@@ -14,29 +14,30 @@ __all__ = ['KroneckerStencilMatrix',
            'kronecker_solve']
 
 #==============================================================================
-class KroneckerStencilMatrix( LinearOperator ):
-    """ Kronecker product of 1D stencil matrices.
+class KroneckerStencilMatrix(LinearOperator):
+    """
+    Kronecker product of 1D stencil matrices.
 
-        Parameters
-        ----------
-        V : StencilVectorSpace
-            The domain.
+    Parameters
+    ----------
+    V : StencilVectorSpace
+        The domain.
 
-        W : StencilVectorSpace
-            The codomain.
-     
-        args : list of StencilMatrix
-            The components of kronecker product in each dimension.
-    
+    W : StencilVectorSpace
+        The codomain.
+
+    args : list of StencilMatrix
+        Factors of the Kronecker product (one for each dimension).
+
     """
 
-    def __init__( self,V, W, *args ):
+    def __init__(self, V, W, *args):
 
-        assert isinstance( V, StencilVectorSpace )
-        assert isinstance( W, StencilVectorSpace )
+        assert isinstance(V, StencilVectorSpace)
+        assert isinstance(W, StencilVectorSpace)
 
         for i,A in enumerate(args):
-            assert isinstance( A, LinearOperator )
+            assert isinstance(A, LinearOperator)
             assert A.domain.ndim == 1
             assert A.domain.npts[0] == V.npts[i]
 
@@ -73,11 +74,11 @@ class KroneckerStencilMatrix( LinearOperator ):
         return self._mats
 
     # ...
-    def dot( self, x, out=None ):
+    def dot(self, x, out=None):
 
         dot = np.dot
 
-        assert isinstance( x, StencilVector )
+        assert isinstance(x, StencilVector)
         assert x.space is self.domain
 
         # Necessary if vector space is periodic or distributed across processes
@@ -85,10 +86,10 @@ class KroneckerStencilMatrix( LinearOperator ):
             x.update_ghost_regions()
 
         if out is not None:
-            assert isinstance( out, StencilVector )
+            assert isinstance(out, StencilVector)
             assert out.space is self.codomain
         else:
-            out = StencilVector( self.codomain )
+            out = StencilVector(self.codomain)
 
         starts = self._codomain.starts
         ends   = self._codomain.ends
@@ -232,30 +233,31 @@ class KroneckerStencilMatrix( LinearOperator ):
         return KroneckerStencilMatrix(self.codomain, self.domain, *mats_tr)
 
 #==============================================================================
-class KroneckerDenseMatrix( LinearOperator ):
-    """ Kronecker product of 1D dense matrices.
+class KroneckerDenseMatrix(LinearOperator):
+    """
+    Kronecker product of 1D dense matrices.
 
-        Parameters
-        ----------
-        V : StencilVectorSpace
-            The domain.
+    Parameters
+    ----------
+    V : StencilVectorSpace
+        The domain.
 
-        W : StencilVectorSpace
-            The codomain.
-     
-        args : list of ndarray
-            The components of kronecker product in each dimension.
-    
+    W : StencilVectorSpace
+        The codomain.
+
+    args : list of ndarray
+        Factors of the Kronecker product (one for each dimension).
+
     """
 
-    def __init__( self,V, W, *args , with_pads=False):
+    def __init__(self, V, W, *args , with_pads=False):
 
-        assert isinstance( V, StencilVectorSpace )
-        assert isinstance( W, StencilVectorSpace )
+        assert isinstance(V, StencilVectorSpace)
+        assert isinstance(W, StencilVectorSpace)
         assert V.pads == W.pads
 
         for i,A in enumerate(args):
-            assert isinstance( A, np.ndarray )
+            assert isinstance(A, np.ndarray)
             if with_pads:
                 assert A.shape[1] == V.npts[i] + 2*V.pads[i]
             else:
@@ -273,35 +275,35 @@ class KroneckerDenseMatrix( LinearOperator ):
     # Abstract interface
     #--------------------------------------
     @property
-    def domain( self ):
+    def domain(self):
         return self._domain
 
     # ...
     @property
-    def codomain( self ):
+    def codomain(self):
         return self._codomain
 
     # ...
     @property
-    def dtype( self ):
+    def dtype(self):
         return self.domain.dtype
 
     # ...
     @property
-    def ndim( self ):
+    def ndim(self):
         return self._ndim
 
     # ...
     @property
-    def mats( self ):
+    def mats(self):
         return self._mats
 
     # ...
-    def dot( self, x, out=None ):
+    def dot(self, x, out=None):
 
         dot = np.dot
 
-        assert isinstance( x, StencilVector )
+        assert isinstance(x, StencilVector)
         assert x.space is self.domain
 
         # Necessary if vector space is periodic or distributed across processes
@@ -309,10 +311,10 @@ class KroneckerDenseMatrix( LinearOperator ):
             x.update_ghost_regions()
 
         if out is not None:
-            assert isinstance( out, StencilVector )
+            assert isinstance(out, StencilVector)
             assert out.space is self.codomain
         else:
-            out = StencilVector( self.codomain )
+            out = StencilVector(self.codomain)
 
         d_starts = self._domain.starts
         d_ends   = self._domain.ends
@@ -323,14 +325,14 @@ class KroneckerDenseMatrix( LinearOperator ):
 
         nrows  = tuple(e-s+1 for s,e in zip(c_starts, c_ends))
         ncols  = tuple(e-s+1+2*p for s,e,p in zip(d_starts, d_ends, pads))
-        kk     = tuple(slice(s,s+nc) for nc,s in zip(ncols, d_starts))
+        kk     = tuple(slice(s, s+nc) for nc,s in zip(ncols, d_starts))
         x_data   = x._data.ravel()
         out_data = out._data
 
         for xx in np.ndindex(*nrows):
             ii     = tuple(x+p for x,p in zip(xx,pads))
             i_mats = [mat[i+s, k] for i,s,k,mat in zip(ii, c_starts, kk, mats)]
-            out_data[ii] = np.dot(x_data,np.outer(*i_mats).ravel())
+            out_data[ii] = np.dot(x_data, np.outer(*i_mats).ravel())
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
@@ -393,7 +395,7 @@ class KroneckerDenseMatrix( LinearOperator ):
         pass
 
 #==============================================================================
-class KroneckerLinearSolver( LinearSolver ):
+class KroneckerLinearSolver(LinearSolver):
     """
     A solver for Ax=b, where A is a Kronecker matrix from arbirary dimension d,
     defined by d solvers. We also need information about the space of b.
@@ -413,12 +415,12 @@ class KroneckerLinearSolver( LinearSolver ):
         The space our vectors to solve live in.
     """
     def __init__(self, V, solvers):
-        assert isinstance( V, StencilVectorSpace )
+        assert isinstance(V, StencilVectorSpace)
         assert hasattr( solvers, '__iter__' )
         for solver in solvers:
-            assert isinstance( solver, LinearSolver  )
+            assert isinstance(solver, LinearSolver)
 
-        assert V.ndim == len( solvers )
+        assert V.ndim == len(solvers)
 
         # general arguments
         self._space = V
@@ -440,7 +442,7 @@ class KroneckerLinearSolver( LinearSolver ):
         # for now: allocate temporary arrays here (can be removed later)
         self._temp1, self._temp2 = self._allocate_temps()
     
-    def _setup_solvers( self ):
+    def _setup_solvers(self):
         """
         Computes the distribution of elements and sets up the solvers
         (which potentially utilize MPI).
@@ -509,7 +511,7 @@ class KroneckerLinearSolver( LinearSolver ):
         for i in range(1, self._ndim):
             self._shapes[i] = self._shapes[i-1][self._perm]
     
-    def _allocate_temps( self ):
+    def _allocate_temps(self):
         """
         Allocates all temporary data needed for the solve operation.
         """
@@ -523,7 +525,7 @@ class KroneckerLinearSolver( LinearSolver ):
         return temp1, temp2
     
     @property
-    def space( self ):
+    def space(self):
         """
         Returns the space associated to this solver (i.e. where the information
         about the cartesian distribution is taken from).
@@ -537,7 +539,7 @@ class KroneckerLinearSolver( LinearSolver ):
         """
         return tuple(self._solvers)
 
-    def solve( self, rhs, out=None, transposed=False ):
+    def solve(self, rhs, out=None, transposed=False):
         """
         Solves Ax=b where A is a Kronecker product matrix (and represented as such),
         and b is a suitable vector.
@@ -875,7 +877,7 @@ class KroneckerLinearSolver( LinearSolver ):
             self._comm.Alltoallv(targetargs, sourceargs)
 
 #==============================================================================
-def kronecker_solve( solvers, rhs, out=None, transposed=False ):
+def kronecker_solve(solvers, rhs, out=None, transposed=False):
     """
     Solve linear system Ax=b with A=kron( A_n, A_{n-1}, ..., A_2, A_1 ), given
     $n$ separate linear solvers $L_n$ for the 1D problems $A_n x_n = b_n$:
@@ -892,18 +894,18 @@ def kronecker_solve( solvers, rhs, out=None, transposed=False ):
 
     """
     # all these feasability checks are again performed in the KroneckerLinearSolver class
-    assert hasattr( solvers, '__iter__' )
+    assert hasattr(solvers, '__iter__')
     for solver in solvers:
-        assert isinstance( solver, LinearSolver  )
+        assert isinstance(solver, LinearSolver)
 
-    assert isinstance( rhs, StencilVector )
-    assert rhs.space.ndim == len( solvers )
+    assert isinstance(rhs, StencilVector)
+    assert rhs.space.ndim == len(solvers)
 
     if out is not None:
-        assert isinstance( out, StencilVector )
+        assert isinstance(out, StencilVector)
         assert out.space is rhs.space
     else:
-        out = StencilVector( rhs.space )
+        out = StencilVector(rhs.space)
 
     kronsolver = KroneckerLinearSolver(rhs.space, solvers)
     return kronsolver.solve(rhs, out=out, transposed=transposed)
