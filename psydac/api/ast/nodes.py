@@ -375,7 +375,7 @@ class EvalField(BaseNode):
         mask    : int,optional
             The fixed direction in case of a boundary integral
     """
-    def __new__(cls, atoms, q_index, l_index, q_basis, coeffs, l_coeffs, g_coeffs, tests, mapping, nderiv, mask=None):
+    def __new__(cls, atoms, q_index, l_index, q_basis, coeffs, l_coeffs, g_coeffs, tests, mapping, nderiv, mask=None, dtype='real'):
 
         stmts_1  = []
         stmts_2  = {}
@@ -398,7 +398,7 @@ class EvalField(BaseNode):
         for coeff, l_coeff in zip(coeffs,l_coeffs):
             for a in logical_atoms[str(coeff.target)]:
                 node    = AtomicNode(a)
-                mat     = MatrixQuadrature(a)
+                mat     = MatrixQuadrature(a, dtype)
                 val     = ProductGenerator(mat, q_index)
                 rhs     = Mul(coeff,node)
                 stmts_1 += [AugAssign(val, '+', rhs)]
@@ -409,7 +409,7 @@ class EvalField(BaseNode):
         body  = Loop( q_basis, q_index, stmts=stmts_1, mask=mask)
         stmts_2 = [*stmts_2.values(), body]
         body  = Loop((), l_index, stmts_2)
-        obj = Basic.__new__(cls, Tuple(*mats), inits, body)
+        obj = Basic.__new__(cls, Tuple(*mats), inits, body, dtype)
         obj._l_coeffs = l_coeffs
         obj._g_coeffs = g_coeffs
         obj._tests    = tests
@@ -427,6 +427,10 @@ class EvalField(BaseNode):
     @property
     def body(self):
         return self._args[2]
+
+    @property
+    def dtype(self):
+        return self._args[3]
 
     @property
     def pads(self):
@@ -805,13 +809,17 @@ class MatrixQuadrature(MatrixNode):
     """
     _rank = rank_dim
 
-    def __new__(cls, target):
+    def __new__(cls, target, dtype='real'):
         # TODO check target
-        return Basic.__new__(cls, target)
+        return Basic.__new__(cls, target, dtype)
 
     @property
     def target(self):
         return self._args[0]
+
+    @property
+    def dtype(self):
+        return self._args[1]
 
 #==============================================================================
 class MatrixRankFromCoords(MatrixNode):
@@ -1168,9 +1176,11 @@ class StencilVectorGlobalBasis(MatrixNode):
 #==============================================================================
 class LocalElementBasis(MatrixNode):
     tag  = random_string( 6 )
+    dtype='real'
 
 class GlobalElementBasis(MatrixNode):
     tag  = random_string( 6 )
+    dtype='real'
 
 #==============================================================================
 class BlockStencilMatrixLocalBasis(BlockLinearOperatorNode):
@@ -1874,10 +1884,10 @@ class GeometryAtom(AtomicNode):
 class GeometryExpr(Basic):
     """
     """
-    def __new__(cls, expr):
+    def __new__(cls, expr, dtype='real'):
         # TODO assert on expr
         atom = GeometryAtom(expr)
-        expr = MatrixQuadrature(expr)
+        expr = MatrixQuadrature(expr, dtype)
 
         return Basic.__new__(cls, atom, expr)
 
@@ -2179,7 +2189,7 @@ def construct_logical_expressions(u, nderiv):
 class GeometryExpressions(Basic):
     """
     """
-    def __new__(cls, M, nderiv):
+    def __new__(cls, M, nderiv, dtype='real'):
         expressions = []
         args        = []
         if not M.is_analytical:
@@ -2202,7 +2212,7 @@ class GeometryExpressions(Basic):
                             atom = op(atom)
                     args.append(atom)
 
-            expressions = [GeometryExpr(i) for i in args]
+            expressions = [GeometryExpr(i, dtype) for i in args]
 
         args        = Tuple(*args)
         expressions = Tuple(*expressions)

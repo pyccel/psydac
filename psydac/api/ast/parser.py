@@ -43,6 +43,7 @@ from .nodes import GlobalTensorQuadratureBasis
 from .nodes import TensorQuadratureBasis
 from .nodes import SplitArray
 from .nodes import Reduction
+from .nodes import Reset
 from .nodes import LogicalValueNode
 from .nodes import TensorIteration
 from .nodes import TensorIterator
@@ -576,7 +577,9 @@ class Parser(object):
         dim        = self._dim
         lhs_slices = [Slice(None,None)]*dim
         mats       = [self._visit(mat, **kwargs) for mat in mats]
-        inits      = {mat:Assign(mat[lhs_slices], 0.) for mat in mats}
+        dtype = expr.dtype
+        zero= 0.j if dtype=='complex' else 0.
+        inits      = {mat:Assign(mat[lhs_slices], zero) for mat in mats}
         body       = self._visit(expr.body, **kwargs)
         stmts      = {}
         pads       = self._visit_Pads(expr.pads)
@@ -806,10 +809,10 @@ class Parser(object):
     # ....................................................
     def _visit_MatrixQuadrature(self, expr, **kwargs):
         rank   = self._visit(expr.rank)
+        dtype = expr.dtype
         target = SymbolicExpr(expr.target)
-
         name = 'arr_{}'.format(target.name)
-        var  =  IndexedVariable(name, dtype='real', rank=rank)
+        var  =  IndexedVariable(name, dtype=dtype, rank=rank)
         self.insert_variables(var)
         return var
     # ....................................................

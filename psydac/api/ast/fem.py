@@ -2236,7 +2236,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
         l_coeffs     = [MatrixLocalBasis(i, dtype)    for i in f_ex]
         ind_dof_test = index_dof_test.set_range(stop=lengths_fields[f]+1)
-        eval_field   = EvalField(atomic_expr[f], ind_quad, ind_dof_test, d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
+        eval_field   = EvalField(atomic_expr[f], ind_quad, ind_dof_test, d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask, dtype=dtype)
         eval_fields  += [eval_field]
 
     #=========================================================begin kernel======================================================
