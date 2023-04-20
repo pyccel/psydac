@@ -1119,7 +1119,7 @@ class BlockLinearOperator(LinearOperator):
         from psydac.linalg.stencil import StencilInterfaceMatrix, StencilMatrix
 
         if not all(isinstance(b, (StencilMatrix, StencilInterfaceMatrix)) for b in self._blocks.values()):
-            for b in self._blocks.values()):
+            for b in self._blocks.values():
                 b.set_backend(backend)
             return
 
