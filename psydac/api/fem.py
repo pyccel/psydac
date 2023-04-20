@@ -27,7 +27,7 @@ from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.fem.basic        import FemField
-from psydac.fem.projectors   import construct_projection_operator
+from psydac.fem.projectors   import knot_insertion_projection_operator
 from psydac.core.bsplines    import find_span, basis_funs_all_ders
 from psydac.ddm.cart         import InterfaceCartDecomposition
 
@@ -693,7 +693,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     mat = BlockLinearOperator(trial_fem_space.get_refined_space(ncells).vector_space, test_fem_space.get_refined_space(ncells).vector_space)
                     if not is_conformal and not i==j:
                         if use_restriction:
-                            Ps  = [construct_projection_operator(ts.get_refined_space(ncells), ts) for ts in test_fem_space.spaces]
+                            Ps  = [knot_insertion_projection_operator(ts.get_refined_space(ncells), ts) for ts in test_fem_space.spaces]
                             P   = BlockLinearOperator(test_fem_space.get_refined_space(ncells).vector_space, test_fem_space.vector_space)
                             for ni,Pi in enumerate(Ps):
                                 P[ni,ni] = Pi
@@ -701,7 +701,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                             mat = ComposedLinearOperator(trial_space, test_space, P, mat)
 
                         elif use_prolongation:
-                            Ps  = [construct_projection_operator(trs, trs.get_refined_space(ncells)) for trs in trial_fem_space.spaces]
+                            Ps  = [knot_insertion_projection_operator(trs, trs.get_refined_space(ncells)) for trs in trial_fem_space.spaces]
                             P   = BlockLinearOperator(trial_fem_space.vector_space, trial_fem_space.get_refined_space(ncells).vector_space)
                             for ni,Pi in enumerate(Ps):P[ni,ni] = Pi
                             mat = ComposedLinearOperator(trial_space, test_space, mat, P)
@@ -796,10 +796,10 @@ class DiscreteBilinearForm(BasicDiscrete):
                                                      flip=flip)
                         if not is_conformal:
                             if use_restriction:
-                                P   = construct_projection_operator(test_fem_space.get_refined_space(ncells), test_fem_space)
+                                P   = knot_insertion_projection_operator(test_fem_space.get_refined_space(ncells), test_fem_space)
                                 mat = ComposedLinearOperator(trial_space, test_space, P, mat)
                             elif use_prolongation:
-                                P   = construct_projection_operator(trial_fem_space, trial_fem_space.get_refined_space(ncells))
+                                P   = knot_insertion_projection_operator(trial_fem_space, trial_fem_space.get_refined_space(ncells))
                                 mat = ComposedLinearOperator(trial_space, test_space, mat, P)
 
                         global_mats[i, j] = mat

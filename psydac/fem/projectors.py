@@ -17,9 +17,9 @@ def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
     assert abs(intersection-coarse_grid).max()<tol
     return T
 
-def construct_projection_operator(domain, codomain):
-    """ Compute the projection operator between from the domain to the codomain.
-        we assume that either domain is a subspace of the codomain or viseversa.
+def knot_insertion_projection_operator(domain, codomain):
+    """ Compute the projection operator based on the knot insertion technique from the domain to the codomain.
+        We assume that either domain is a subspace of the codomain or vice versa.
     """
     ops = []
     for d,c in zip(domain.spaces, codomain.spaces):
