@@ -11,6 +11,7 @@ from psydac.linalg.basic import LinearOperator
 from psydac.feec import basis_projection_kernels
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic import FemField
+from psydac.utilities.utils import roll_edges
 
 
 
@@ -134,15 +135,6 @@ class BasisProjectionOperator(LinearOperator):
 
         out : psydac.linalg.basic.Vector, optional
             If given, the output will be written in-place into this vector.
-
-        tol : float, optional
-            Stop tolerance in iterative solve (only used in polar case).
-
-        maxiter : int, optional
-            Maximum number of iterations in iterative solve (only used in polar case).
-
-        verbose : bool, optional
-            Whether to print some information in each iteration in iterative solve (only used in polar case).
 
         Returns
         -------
@@ -270,7 +262,7 @@ class BasisProjectionOperator(LinearOperator):
                 else : 
                     f = np.vectorize(f)
                     _fun_q = f(*pts).copy() #this formulation does not work atm for FemFields
-                
+
                 # Call the kernel if weight function is not zero
                 if np.any(np.abs(_fun_q) > 1e-14):
 
@@ -331,6 +323,7 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
 
     import psydac.core.bsplines as bsp
 
+
     x_grid, subs, pts, wts, spans, bases = [], [], [], [], [], []
 
     # Loop over direction, prepare point sets and evaluate basis functions
@@ -341,25 +334,24 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
         histopol_loc = space_out.histopolation_grid[s: e + 2].copy()
 
         # make sure that greville points used for interpolation are in [0, 1]
-        assert np.all(np.logical_and(greville_loc >= 0., greville_loc <= 1.))
+        #assert np.all(np.logical_and(greville_loc >= 0., greville_loc <= 1.))
 
         # interpolation
         if space_out.basis == 'B':
-            x_grid += [greville_loc]
+            x_grid = greville_loc
             pts += [greville_loc[:, None]]
             wts += [np.ones(pts[-1].shape, dtype=float)]
-
             # sub-interval index is always 0 for interpolation.
             subs += [np.zeros(pts[-1].shape[0], dtype=int)]
 
         # histopolation
         elif space_out.basis == 'M':
 
-            x_grid += [space_out.histopolation_grid]
+            x_grid = space_out.histopolation_grid
 
             # determine subinterval index (= 0 or 1):
-            subs += [np.zeros(x_grid[-1][:-1].size, dtype=int)]
-            for n, x_h in enumerate(x_grid[-1][:-1]):
+            subs += [np.zeros(x_grid.size, dtype=int)]
+            for n, x_h in enumerate(x_grid):
                 add = 1
                 for x_g in histopol_loc:
                     if abs(x_h - x_g) < 1e-14:
@@ -372,13 +364,16 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
                 nq = space_in.degree + 1
             else:
                 nq = n_quad[direction]
-            
+
             pts_loc, wts_loc = gauss_legendre(nq-1)
-            global_quad_x, global_quad_w = bsp.quadrature_grid(x_grid[-1], pts_loc, wts_loc)
+            pts_loc, wts_loc = pts_loc[::-1], wts_loc[::-1]
+            global_quad_x, global_quad_w = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
+            #"roll" back points to the interval to ensure that the quadrature points are
+            #in the domain. Probably only usefull on periodic cases
+            roll_edges(space_out.domain, global_quad_x) 
             x = global_quad_x[s:e+1]
             w = global_quad_w[s:e+1]
-
-            pts += [x % 1.]
+            pts += [x]
             wts += [w]
 
         # Knot span indices and V-basis functions evaluated at W-point sets
@@ -424,7 +419,7 @@ def get_span_and_basis(pts, space):
     for n in range(pts.shape[0]):
         for nq in range(pts.shape[1]):
             # avoid 1. --> 0. for clamped interpolation
-            x = pts[n, nq] % (1. + 1e-14)
+            x = pts[n, nq] #% (1. + 1e-14)
             span_tmp = bsp.find_span(T, p, x)
             basis[n, nq, :] = bsp.basis_funs_all_ders(
                 T, p, x, span_tmp, 0, normalization=space.basis)

@@ -63,6 +63,7 @@ def roll_edges(domain, points):
     """
     xA, xB = domain
     assert xA < xB
+    points -=xA
     points %=(xB-xA)
     points +=xA
 #===============================================================================
