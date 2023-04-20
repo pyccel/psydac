@@ -18,16 +18,58 @@ def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
     return T
 
 def knot_insertion_projection_operator(domain, codomain):
-    """ Compute the projection operator based on the knot insertion technique from the domain to the codomain.
-        We assume that either domain is a subspace of the codomain or vice versa.
+    """
+    Compute the projection operator based on the knot insertion technique.
 
-        Parameters
-        ----------
-        domain : TensorFemSpace
-            The domain of the projector.
+    Return a linear operator which projects an element of the domain to an
+    element of the codomain. Domain and codomain are scalar spline spaces over
+    a cuboid, built as the tensor product of 1D spline spaces. In particular,
+    domain and codomain have the same multi-degree (p1, p2, ...).
 
-        codomain : TensorFemSpace
-            The codomain of the projector.
+    This function returns a LinearOperator K working at the level of the
+    spline coefficients, which are represented by StencilVector objects.
+
+    Thanks to the tensor-product structure of the spline spaces, the projection
+    operator is the Kronecker product of 1D projection operators K[i] operating
+    between 1D spaces. Each 1D operators is represented by a dense matrix:
+
+        K = K[0] x K[1] x ...
+
+    For each dimension i the 1D grids defined by the breakpoints of the two
+    spaces are assumed to be identical, or one nested into the other. Let nd[i]
+    and nc[i] be the number of cells along dimension i for domain and codomain,
+    respectively. We then have three different cases:
+
+    1. nd[i] == nc[i]:
+       The two 1D grids are assumed identical, and K[i] is the identity matrix.
+
+    2. nd[i] < nc[i]:
+       The 1D grid of the domain is assumed nested into the 1D grid of the
+       codomain, hence the 1D spline space of the domain is a subspace of the
+       1D spline space of the codomain. In this case we build K[i] using the
+       knot insertion algorithm.
+
+    3. nd[i] > nc[i]:
+       The 1D grid of the codomain is assumed nested into the 1D grid of the
+       domain, hence the 1D spline space of the codomain is a subspace of the
+       1D spline space of the domain. In this case we build K[i] as the
+       transpose of the matrix obtained using the knot insertion algorithm from
+       the codomain to the domain.
+
+    Parameters
+    ----------
+    domain : TensorFemSpace
+        Domain of the projection operator.
+
+    codomain : TensorFemSpace
+        Codomain of the projection operator.
+
+    Returns
+    -------
+    KroneckerDenseMatrix
+        Matrix representation of the projection operator. This is a
+        LinearOperator acting on the spline coefficients.
+
     """
     ops = []
     for d,c in zip(domain.spaces, codomain.spaces):
