@@ -503,7 +503,7 @@ class SplineSpace( FemSpace ):
         if ncells == self.ncells:
             return self
 
-        refinement_factor = ncells % self.ncells
+        refinement_factor = ncells // self.ncells
         grid = refine_array_1d(self.breaks, refinement_factor)
 
         return SplineSpace(self.degree,
