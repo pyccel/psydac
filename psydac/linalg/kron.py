@@ -135,19 +135,6 @@ class KroneckerStencilMatrix(LinearOperator):
         self.mats[-1] *= a
         return self
 
-    # ...
-    def __add__(self, m):
-        raise NotImplementedError('Cannot sum Kronecker matrices')
-
-    def __sub__(self, m):
-        raise NotImplementedError('Cannot subtract Kronecker matrices')
-
-    def __iadd__(self, m):
-        raise NotImplementedError('Cannot sum Kronecker matrices')
-
-    def __isub__(self, m):
-        raise NotImplementedError('Cannot subtract Kronecker matrices')
-
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
@@ -362,19 +349,6 @@ class KroneckerDenseMatrix(LinearOperator):
     def __imul__(self, a):
         self.mats[-1] *= a
         return self
-
-    # ...
-    def __add__(self, m):
-        raise NotImplementedError('Cannot sum Kronecker matrices')
-
-    def __sub__(self, m):
-        raise NotImplementedError('Cannot subtract Kronecker matrices')
-
-    def __iadd__(self, m):
-        raise NotImplementedError('Cannot sum Kronecker matrices')
-
-    def __isub__(self, m):
-        raise NotImplementedError('Cannot subtract Kronecker matrices')
 
     #--------------------------------------
     # Other properties/methods
