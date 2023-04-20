@@ -20,6 +20,14 @@ def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
 def knot_insertion_projection_operator(domain, codomain):
     """ Compute the projection operator based on the knot insertion technique from the domain to the codomain.
         We assume that either domain is a subspace of the codomain or vice versa.
+
+        Parameters
+        ----------
+        domain : TensorFemSpace
+            The domain of the projector.
+
+        codomain : TensorFemSpace
+            The codomain of the projector.
     """
     ops = []
     for d,c in zip(domain.spaces, codomain.spaces):
