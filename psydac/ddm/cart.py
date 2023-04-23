@@ -372,7 +372,24 @@ class DomainDecomposition:
         return all( P or (0 <= c < d) for P,c,d in zip( self._periods, coords, self._nprocs ) )
 
     def refine(self, ncells, global_element_starts, global_element_ends):
-        """ refine the domain """
+        """ Create the new Cartesian decomposition of the refined domain.
+
+        Parameters
+        ----------
+        ncells : list or tuple of int
+            Number of cells of refined space.
+
+        global_starts: list of list of int
+            The starts of the coefficients for every process along each direction.
+
+        global_ends: list of list of int
+            The ends of the coefficients for every process along each direction.
+
+        Returns
+        -------
+        domain : CartDecomposition
+            Cartesian decomposition of the refined domain.
+        """
 
         # Check input arguments
         assert len( ncells ) == len( self.ncells )
