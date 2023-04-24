@@ -6,7 +6,7 @@ from mpi4py import MPI
 from sympde.topology.mapping import Mapping
 from sympde.topology.analytical_mapping import (IdentityMapping, PolarMapping,
                                                 TargetMapping, CzarnyMapping,
-                                                CollelaMapping2D)
+                                                CollelaMapping2D, SphericalMapping)
 
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
@@ -91,6 +91,14 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
             limits   = ((0, 1), (0, 1), (0, 1))
             periodic = ( False,  False,  False)
 
+        elif mapping == 'spherical shell':
+            map_analytic = SphericalMapping( 'M', dim=dim )
+            lims1   = (1, 4)
+            lims2   = (0, np.pi)
+            lims3   = (0, np.pi/2)
+            period1 = False
+            period2 = False
+            period3 = False
         else:
             raise ValueError("Required 3D mapping not available")
 

@@ -4,6 +4,7 @@
 # Copyright 2022 Yaman Güçlü, Said Hadjout, Julian Owezarek
 
 from abc   import ABC, abstractmethod
+from scipy.sparse import coo_matrix
 import numpy as np
 
 __all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'ZeroOperator', 'IdentityOperator', 'ScaledLinearOperator',
@@ -722,7 +723,11 @@ class ComposedLinearOperator(LinearOperator):
         raise NotImplementedError('toarray() is not defined for ComposedLinearOperators.')
 
     def tosparse(self):
-        raise NotImplementedError('tosparse() is not defined for ComposedLinearOperators.')
+        mats = [M.tosparse() for M in self._multiplicants]
+        M = mats[0]
+        for Mi in mats[1:]:
+            M = M @ Mi
+        return coo_matrix(M)
 
     def transpose(self, conjugate=False):
         t_multiplicants = ()
@@ -732,7 +737,6 @@ class ComposedLinearOperator(LinearOperator):
         new_cod = self._domain
         assert isinstance(new_dom, VectorSpace)
         assert isinstance(new_cod, VectorSpace)
-        print(*t_multiplicants)
         return ComposedLinearOperator(self._codomain, self._domain, *t_multiplicants)
 
     def dot(self, v, out=None):
@@ -751,10 +755,19 @@ class ComposedLinearOperator(LinearOperator):
 
         A = self._multiplicants[0]
         if out is not None:
+
             A.dot(x, out=out)
         else:
             out = A.dot(x)
         return out
+
+    def exchange_assembly_data( self ):
+        for op in self._multiplicants:
+            op.exchange_assembly_data()
+
+    def set_backend(self, backend):
+        for op in self._multiplicants:
+            op.set_backend(backend)
 
 #===============================================================================
 class PowerLinearOperator(LinearOperator):

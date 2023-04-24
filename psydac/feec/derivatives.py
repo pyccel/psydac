@@ -6,7 +6,7 @@ import scipy.sparse as spa
 from psydac.linalg.stencil  import StencilVector, StencilMatrix, StencilVectorSpace
 from psydac.linalg.kron     import KroneckerStencilMatrix
 from psydac.linalg.block    import BlockVector, BlockLinearOperator
-from psydac.fem.vector      import ProductFemSpace
+from psydac.fem.vector      import ProductFemSpace, VectorFemSpace
 from psydac.fem.tensor      import TensorFemSpace
 from psydac.linalg.basic    import IdentityOperator
 from psydac.fem.basic       import FemField
@@ -411,14 +411,14 @@ class Gradient_2D(DiffOperator):
     H1 : 2D TensorFemSpace
         Domain of gradient operator.
 
-    Hcurl : 2D ProductFemSpace
+    Hcurl : 2D VectorFemSpace
         Codomain of gradient operator.
 
     """
     def __init__(self, H1, Hcurl):
 
         assert isinstance(   H1,  TensorFemSpace); assert    H1.ldim == 2
-        assert isinstance(Hcurl, ProductFemSpace); assert Hcurl.ldim == 2
+        assert isinstance(Hcurl, VectorFemSpace); assert Hcurl.ldim == 2
 
         assert Hcurl.spaces[0].periodic == H1.periodic
         assert Hcurl.spaces[1].periodic == H1.periodic
@@ -452,14 +452,14 @@ class Gradient_3D(DiffOperator):
     H1 : 3D TensorFemSpace
         Domain of gradient operator.
 
-    Hcurl : 3D ProductFemSpace
+    Hcurl : 3D VectorFemSpace
         Codomain of gradient operator.
 
     """
     def __init__(self, H1, Hcurl):
 
         assert isinstance(   H1,  TensorFemSpace); assert    H1.ldim == 3
-        assert isinstance(Hcurl, ProductFemSpace); assert Hcurl.ldim == 3
+        assert isinstance(Hcurl, VectorFemSpace); assert Hcurl.ldim == 3
 
         assert Hcurl.spaces[0].periodic == H1.periodic
         assert Hcurl.spaces[1].periodic == H1.periodic
@@ -493,7 +493,7 @@ class ScalarCurl_2D(DiffOperator):
 
     Parameters
     ----------
-    Hcurl : 2D ProductFemSpace
+    Hcurl : 2D VectorFemSpace
         Domain of 2D scalar curl operator.
 
     L2 : 2D TensorFemSpace
@@ -502,7 +502,7 @@ class ScalarCurl_2D(DiffOperator):
     """
     def __init__(self, Hcurl, L2):
 
-        assert isinstance(Hcurl, ProductFemSpace); assert Hcurl.ldim == 2
+        assert isinstance(Hcurl, VectorFemSpace); assert Hcurl.ldim == 2
         assert isinstance(   L2,  TensorFemSpace); assert    L2.ldim == 2
 
         assert Hcurl.spaces[0].periodic == L2.periodic
@@ -538,14 +538,14 @@ class VectorCurl_2D(DiffOperator):
     H1 : 2D TensorFemSpace
         Domain of 2D vector curl operator.
 
-    Hdiv : 2D ProductFemSpace
+    Hdiv : 2D VectorFemSpace
         Codomain of 2D vector curl operator.
 
     """
     def __init__(self, H1, Hdiv):
 
         assert isinstance(  H1,  TensorFemSpace); assert   H1.ldim == 2
-        assert isinstance(Hdiv, ProductFemSpace); assert Hdiv.ldim == 2
+        assert isinstance(Hdiv, VectorFemSpace); assert Hdiv.ldim == 2
 
         assert Hdiv.spaces[0].periodic == H1.periodic
         assert Hdiv.spaces[1].periodic == H1.periodic
@@ -576,17 +576,17 @@ class Curl_3D(DiffOperator):
 
     Parameters
     ----------
-    Hcurl : 3D ProductFemSpace
+    Hcurl : 3D VectorFemSpace
         Domain of 3D curl operator.
 
-    Hdiv : 3D TensorFemSpace
+    Hdiv : 3D VectorFemSpace
         Codomain of 3D curl operator.
 
     """
     def __init__(self, Hcurl, Hdiv):
 
-        assert isinstance(Hcurl, ProductFemSpace); assert Hcurl.ldim == 3
-        assert isinstance( Hdiv, ProductFemSpace); assert  Hdiv.ldim == 3
+        assert isinstance(Hcurl, VectorFemSpace); assert Hcurl.ldim == 3
+        assert isinstance( Hdiv, VectorFemSpace); assert  Hdiv.ldim == 3
 
         assert Hcurl.spaces[0].periodic == Hdiv.spaces[0].periodic
         assert Hcurl.spaces[1].periodic == Hdiv.spaces[1].periodic
@@ -628,7 +628,7 @@ class Divergence_2D(DiffOperator):
 
     Parameters
     ----------
-    Hdiv : 2D ProductFemSpace
+    Hdiv : 2D VectorFemSpace
         Domain of divergence operator.
 
     L2 : 2D TensorFemSpace
@@ -637,7 +637,7 @@ class Divergence_2D(DiffOperator):
     """
     def __init__(self, Hdiv, L2):
 
-        assert isinstance(Hdiv, ProductFemSpace); assert Hdiv.ldim == 2
+        assert isinstance(Hdiv,  VectorFemSpace); assert Hdiv.ldim == 2
         assert isinstance(  L2,  TensorFemSpace); assert   L2.ldim == 2
 
         assert Hdiv.spaces[0].periodic == L2.periodic
@@ -669,7 +669,7 @@ class Divergence_3D(DiffOperator):
 
     Parameters
     ----------
-    Hdiv : 3D ProductFemSpace
+    Hdiv : 3D VectorFemSpace
         Domain of divergence operator.
 
     L2 : 3D TensorFemSpace
@@ -678,7 +678,7 @@ class Divergence_3D(DiffOperator):
     """
     def __init__(self, Hdiv, L2):
 
-        assert isinstance(Hdiv, ProductFemSpace); assert Hdiv.ldim == 3
+        assert isinstance(Hdiv,  VectorFemSpace); assert Hdiv.ldim == 3
         assert isinstance(  L2,  TensorFemSpace); assert   L2.ldim == 3
 
         assert Hdiv.spaces[0].periodic == L2.periodic
