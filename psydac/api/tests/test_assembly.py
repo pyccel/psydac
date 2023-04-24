@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 from sympy import pi, sin, cos, tan, atan, atan2
 from sympy import exp, sinh, cosh, tanh, atanh, Tuple
+from sympy import I
 
 
 from sympde.topology import Line, Square
@@ -21,9 +22,12 @@ from psydac.linalg.utilities   import array_to_psydac
 @pytest.fixture(params=[None, 'numba', 'pyccel-gcc'])
 def backend(request):
     return request.param
+@pytest.fixture(params=['real','complex'])
+def dtype(request):
+    return request.param
 
 #==============================================================================
-def test_field_and_constant(backend):
+def test_field_and_constant(backend='pyccel-gcc', dtype='complex'):
 
     # If 'backend' is specified, accelerate Python code by passing **kwargs
     # to discretization of bilinear forms, linear forms and functionals.
@@ -31,12 +35,21 @@ def test_field_and_constant(backend):
 
     domain = Square()
     V = ScalarFunctionSpace('V', domain)
+
+    # TODO: remove codomain_type when It is implemented in sympde
+    V.codomain_type = dtype
     u = element_of(V, name='u')
     v = element_of(V, name='v')
     f = element_of(V, name='f')
     c = Constant(name='c')
 
-    g = c * f**2
+    if dtype == 'complex':
+        g = I * c * f**2
+        res = 1.j
+    else:
+        g = c * f**2
+        res = 1
+
     a = BilinearForm((u, v), integral(domain, u * v * g))
     l = LinearForm(v, integral(domain, g * v))
 
@@ -56,15 +69,17 @@ def test_field_and_constant(backend):
 
     # Test matrix A
     x = fh.coeffs
-    assert abs(A.dot(x).dot(x) - 1) < 1e-12
+
+    # TODO: remove conj when it is implemented in assemble
+    assert abs((A.conj()).dot(x).dot(x) - res) < 1e-12
 
     # Test vector b
-    assert abs(b.toarray().sum() - 1) < 1e-12
+    assert abs(b.toarray().sum() - res) < 1e-12
 
     print("PASSED")
 
 #==============================================================================
-def test_multiple_fields(backend):
+def test_multiple_fields(backend, dtype):
 
     # If 'backend' is specified, accelerate Python code by passing **kwargs
     # to discretization of bilinear forms, linear forms and functionals.
@@ -72,13 +87,22 @@ def test_multiple_fields(backend):
 
     domain = Line()
     V = ScalarFunctionSpace('V', domain)
+
+    # TODO: remove codomain_type when It is implemented in sympde
+    V.codomain_type = dtype
     u = element_of(V, name='u')
     v = element_of(V, name='v')
 
     f1 = element_of(V, name='f1')
     f2 = element_of(V, name='f2')
 
-    g = 0.5 * (f1**2 + f2)
+    if dtype == 'complex':
+        g = 0.5j * (f1**2 + f2)
+        res = 1.j
+    else:
+        g = 0.5 * (f1**2 + f2)
+        res = 1
+
     a = BilinearForm((u, v), integral(domain, u * v * g))
     l = LinearForm(v, integral(domain, g * v))
 
@@ -96,12 +120,14 @@ def test_multiple_fields(backend):
     A = ah.assemble(f1=fh, f2=fh)
     b = lh.assemble(f1=fh, f2=fh)
 
-    # Test matrix A
     x = fh.coeffs
-    assert abs(A.dot(x).dot(x) - 1) < 1e-12
+
+    # Test matrix A
+    # TODO: remove conj when it is implemented in assemble
+    assert abs((A.conj()).dot(x).dot(x) - res) < 1e-12
 
     # Test vector b
-    assert abs(b.toarray().sum() - 1) < 1e-12
+    assert abs(b.toarray().sum() - res) < 1e-12
 
     print("PASSED")
 
