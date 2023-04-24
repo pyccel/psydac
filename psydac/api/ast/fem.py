@@ -1303,7 +1303,7 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field,
     else:
         geos = [GeometryExpressions(mapping, nderiv)]
 
-    g_coeffs = {f: [MatrixGlobalBasis(i, i) for i in expand([f])] for f in fields}
+    g_coeffs = {f: [MatrixGlobalBasis(i, i, 'complex') for i in expand([f])] for f in fields}
     l_mats = BlockStencilMatrixLocalBasis(trials=trials, tests=tests, expr=terminal_expr, dim=dim, tag=tag,
                                           dtype='complex')
     g_mats = BlockStencilMatrixGlobalBasis(trials=trials, tests=tests, pads=pads, multiplicity=m_tests,
@@ -1349,11 +1349,11 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field,
     for f in fields:
         f_ex = expand([f])
         coeffs = [CoefficientBasis(i) for i in f_ex]
-        l_coeffs = [MatrixLocalBasis(i) for i in f_ex]
+        l_coeffs = [MatrixLocalBasis(i, 'complex') for i in f_ex]
         ind_dof_test = index_dof_test.set_range(stop=lengths_fields[f] + 1)
         eval_field = EvalField(atoms=atomic_expr_field[f], q_index=ind_quad, l_index=ind_dof_test, q_basis=d_fields[f][basis],
                                coeffs=coeffs, l_coeffs=l_coeffs, g_coeffs=g_coeffs[f], tests=[f], mapping=mapping,
-                               nderiv=nderiv, mask=mask)
+                               nderiv=nderiv, mask=mask, dtype='complex')
         eval_fields += [eval_field]
 
     g_stmts = []
@@ -1874,7 +1874,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     g_quad   = [GlobalTensorQuadratureGrid(False)]
     l_quad   = [LocalTensorQuadratureGrid(False)]
     geo      = GeometryExpressions(mapping, nderiv)
-    g_coeffs = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
+    g_coeffs = {f:[MatrixGlobalBasis(i, i, dtype) for i in expand([f])] for f in fields}
 
     add_openmp = is_pyccel and backend['openmp'] and num_threads>1
 
