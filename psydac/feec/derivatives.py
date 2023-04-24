@@ -258,13 +258,6 @@ class DirectionalDerivativeOperator(LinearOperator):
         """
         return DirectionalDerivativeOperator(self._spaceV, self._spaceW,
                 self._diffdir, negative=self._negative, transposed=not self._transposed)
-
-    @property
-    def T(self):
-        """
-        Short-hand for transposing this operator. Creates and returns a new object.
-        """
-        return self.transpose()
     
     def __neg__(self):
         """
@@ -359,35 +352,6 @@ class DirectionalDerivativeOperator(LinearOperator):
         """
         return DirectionalDerivativeOperator(self._spaceV, self._spaceW,
                 self._diffdir, negative=self._negative, transposed=self._transposed)
-    
-    # other methods from the Matrix abstract class
-    # (mostly delegating work to the KroneckerStencilMatrix)
-    # (i.e. these are not really meant to be used in practice)
-
-    def __mul__(self, a):
-        return self.tokronstencil() * a
-
-    def __add__(self, m):
-        return self.tokronstencil() + m
-
-    def __sub__(self, m):
-        return self.tokronstencil() - m
-
-    # we cannot allow in-place operations
-    # (except with an explicit neutral element, if there was one)
-
-    def __imul__(self, a):
-        if isinstance(a, IdentityOperator): return
-        if a == 1: return
-        raise NotImplementedError("Not supported for this class.")
-
-    def __iadd__(self, m):
-        if m == 0: return
-        raise NotImplementedError("Not supported for this class.")
-
-    def __isub__(self, m):
-        if m == 0: return
-        raise NotImplementedError("Not supported for this class.")
 
 #====================================================================================================
 class DiffOperator:
