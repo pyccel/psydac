@@ -6,7 +6,7 @@ from mpi4py import MPI
 from sympde.topology.mapping import Mapping
 from sympde.topology.analytical_mapping import (IdentityMapping, PolarMapping,
                                                 TargetMapping, CzarnyMapping,
-                                                CollelaMapping2D)
+                                                CollelaMapping2D, SphericalMapping)
 
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
@@ -89,6 +89,11 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
         elif mapping == 'collela':
             map_symbolic = Collela3D('M', dim=dim)
             limits   = ((0, 1), (0, 1), (0, 1))
+            periodic = ( False,  False,  False)
+
+        elif mapping == 'spherical shell':
+            map_analytic = SphericalMapping('M', dim=dim)
+            limits   = ((1, 4), (0, np.pi), (0, np.pi/2))
             periodic = ( False,  False,  False)
 
         else:

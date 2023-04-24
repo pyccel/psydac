@@ -8,7 +8,7 @@ from psydac.core.bsplines          import find_span
 from psydac.core.bsplines          import basis_funs_all_ders
 from psydac.fem.splines            import SplineSpace
 from psydac.fem.tensor             import TensorFemSpace
-from psydac.fem.vector             import ProductFemSpace
+from psydac.fem.vector             import ProductFemSpace, VectorFemSpace
 
 def get_points_weights(spaces, axis, e):
     for s in spaces:
@@ -26,14 +26,14 @@ class QuadratureGrid():
         points              = []
         weights             = []
 
-        if isinstance(V, ProductFemSpace):
+        if isinstance(V, (ProductFemSpace, VectorFemSpace)):
             V1 = V.spaces[0]
             spaces = list(V.spaces)
         else:
             V1 = V
             spaces = [V]
 
-        if trial_space  and not isinstance(trial_space, ProductFemSpace):
+        if trial_space  and not isinstance(trial_space, (ProductFemSpace, VectorFemSpace)):
             spaces.append(trial_space)
         elif isinstance(trial_space, ProductFemSpace):
             spaces = spaces + list(trial_space.spaces)
@@ -162,7 +162,7 @@ class BasisValues():
 
         self._space = V
         assert grid is not None
-        if isinstance(V, ProductFemSpace):
+        if isinstance(V, (ProductFemSpace, VectorFemSpace)):
             starts = V.vector_space.starts
             V      = V.spaces
         else:

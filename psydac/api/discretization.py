@@ -36,7 +36,7 @@ from psydac.api.utilities    import flatten
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.partitioning import create_cart, construct_connectivity, construct_interface_spaces, construct_reduced_interface_spaces
-from psydac.fem.vector       import ProductFemSpace
+from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 
@@ -121,7 +121,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
     Results
     -------
-    Wh : TensorFemSpace, ProductFemSpace
+    Wh : TensorFemSpace, VectorFemSpace
       The reduced space
 
     """
@@ -139,7 +139,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
                 raise NotImplementedError('TODO')
         else:
             raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
-        Wh = ProductFemSpace(*spaces)
+        Wh = VectorFemSpace(*spaces)
 
     elif isinstance(V.kind, HdivSpaceType):
         if sequence == 'DR':
@@ -154,7 +154,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
                 raise NotImplementedError('TODO')
         else:
             raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
-        Wh = ProductFemSpace(*spaces)
+        Wh = VectorFemSpace(*spaces)
 
     elif isinstance(V.kind, L2SpaceType):
         if sequence == 'DR':
@@ -183,7 +183,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
     if isinstance(V, VectorFunctionSpace):
         if isinstance(V.kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
-            Wh = ProductFemSpace(*[Wh]*V.ldim)
+            Wh = VectorFemSpace(*[Wh]*V.ldim)
 
     return Wh
 
@@ -331,6 +331,14 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
         carts    = create_cart(ddms, spaces)
         g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], nquads=nquads) for i,inter in enumerate(interiors)}
 
+        for i,j in connectivity:
+            ((axis_i, ext_i), (axis_j , ext_j)) = connectivity[i, j]
+            minus = interiors[i]
+            plus  = interiors[j]
+            max_ncells = [max(ni,nj) for ni,nj in zip(domain_h.ncells[minus.name],domain_h.ncells[plus.name])]
+            g_spaces[minus].add_refined_space(ncells=max_ncells)
+            g_spaces[plus].add_refined_space(ncells=max_ncells)
+
         # ... construct interface spaces
         construct_interface_spaces(domain_h.ddm, g_spaces, carts, interiors, connectivity)
 
@@ -339,13 +347,16 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
         Vh = g_spaces[inter]
         if isinstance(V, ProductSpace):
             spaces = [reduce_space_degrees(Vi, Vh, basis=basis, sequence=sequence) for Vi in V.spaces]
-            spaces = [Vh.spaces if isinstance(Vh, ProductFemSpace) else Vh for Vh in spaces]
+            spaces = [Vh.spaces if isinstance(Vh, VectorFemSpace) else Vh for Vh in spaces]
             spaces = flatten(spaces)
-            Vh     = ProductFemSpace(*spaces)
+            Vh     = VectorFemSpace(*spaces)
         else:
             Vh = reduce_space_degrees(V, Vh, basis=basis, sequence=sequence)
 
         Vh.symbolic_space = V
+        for key in Vh._refined_space:
+            Vh.get_refined_space(key).symbolic_space = V
+
         new_g_spaces[inter]   = Vh
 
     construct_reduced_interface_spaces(g_spaces, new_g_spaces, interiors, connectivity)
