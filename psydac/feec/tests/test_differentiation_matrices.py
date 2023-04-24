@@ -5,7 +5,7 @@ from psydac.core.bsplines    import make_knots
 from psydac.fem.basic        import FemField
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
-from psydac.fem.vector       import ProductFemSpace
+from psydac.fem.vector       import VectorFemSpace
 
 from psydac.feec.derivatives import DirectionalDerivativeOperator
 from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
@@ -406,7 +406,7 @@ def test_Gradient_2D(domain, ncells, degree, periodic, seed):
     # H-curl space (1-forms)
     DxNy = V0.reduce_degree(axes=[0], basis='M')
     NxDy = V0.reduce_degree(axes=[1], basis='M')
-    V1 = ProductFemSpace(DxNy, NxDy)
+    V1 = VectorFemSpace(DxNy, NxDy)
 
     # Linear operator: 2D gradient
     grad = Gradient_2D(V0, V1)
@@ -468,7 +468,7 @@ def test_Gradient_3D(domain, ncells, degree, periodic, seed):
     DxNyNz = V0.reduce_degree(axes=[0], basis='M')
     NxDyNz = V0.reduce_degree(axes=[1], basis='M')
     NxNyDz = V0.reduce_degree(axes=[2], basis='M')
-    V1 = ProductFemSpace(DxNyNz, NxDyNz, NxNyDz)
+    V1 = VectorFemSpace(DxNyNz, NxDyNz, NxNyDz)
 
     # Linear operator: 3D gradient
     grad = Gradient_3D(V0, V1)
@@ -527,7 +527,7 @@ def test_ScalarCurl_2D(domain, ncells, degree, periodic, seed):
     # H-curl space (1-forms)
     DxNy = V0.reduce_degree(axes=[0], basis='M')
     NxDy = V0.reduce_degree(axes=[1], basis='M')
-    V1 = ProductFemSpace(DxNy, NxDy)
+    V1 = VectorFemSpace(DxNy, NxDy)
 
     # L2 space (2-forms)
     DxDy = V0.reduce_degree(axes=[0, 1], basis='M')
@@ -600,7 +600,7 @@ def test_VectorCurl_2D(domain, ncells, degree, periodic, seed):
     # Hdiv space (1-forms)
     NxDy = V0.reduce_degree(axes=[1], basis='M')
     DxNy = V0.reduce_degree(axes=[0], basis='M')
-    V1 = ProductFemSpace(NxDy, DxNy)
+    V1 = VectorFemSpace(NxDy, DxNy)
 
     # Linear operator: 2D vector curl
     curl = VectorCurl_2D(V0, V1)
@@ -666,13 +666,13 @@ def test_Curl_3D(domain, ncells, degree, periodic, seed):
     DxNyNz = V0.reduce_degree(axes=[0], basis='M')
     NxDyNz = V0.reduce_degree(axes=[1], basis='M')
     NxNyDz = V0.reduce_degree(axes=[2], basis='M')
-    V1 = ProductFemSpace(DxNyNz, NxDyNz, NxNyDz)
+    V1 = VectorFemSpace(DxNyNz, NxDyNz, NxNyDz)
 
     # H-div space (2-forms)
     NxDyDz = V0.reduce_degree(axes=[1, 2], basis='M')
     DxNyDz = V0.reduce_degree(axes=[2, 0], basis='M')
     DxDyNz = V0.reduce_degree(axes=[0, 1], basis='M')
-    V2 = ProductFemSpace(NxDyDz, DxNyDz, DxDyNz)
+    V2 = VectorFemSpace(NxDyDz, DxNyDz, DxDyNz)
 
     # Linear operator: curl
     curl = Curl_3D(V1, V2)
@@ -751,7 +751,7 @@ def test_Divergence_2D(domain, ncells, degree, periodic, seed):
     # H-div space (1-forms)
     NxDy = V0.reduce_degree(axes=[1], basis='M')
     DxNy = V0.reduce_degree(axes=[0], basis='M')
-    V1 = ProductFemSpace(NxDy, DxNy)
+    V1 = VectorFemSpace(NxDy, DxNy)
 
     # L2 space (2-forms)
     V2 = V0.reduce_degree(axes=[0, 1], basis='M')
@@ -826,7 +826,7 @@ def test_Divergence_3D(domain, ncells, degree, periodic, seed):
     NxDyDz = V0.reduce_degree(axes=[1, 2], basis='M')
     DxNyDz = V0.reduce_degree(axes=[2, 0], basis='M')
     DxDyNz = V0.reduce_degree(axes=[0, 1], basis='M')
-    V2 = ProductFemSpace(NxDyDz, DxNyDz, DxDyNz)
+    V2 = VectorFemSpace(NxDyDz, DxNyDz, DxDyNz)
 
     # L2 space (3-forms)
     V3 = V0.reduce_degree(axes=[0, 1, 2], basis='M')
