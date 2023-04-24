@@ -10,6 +10,7 @@ from sympde.expr     import LinearForm
 from sympde.expr     import integral
 from sympde.expr     import find
 from sympde.expr     import EssentialBC
+from sympy     import I
 
 from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
@@ -20,8 +21,12 @@ from psydac.api.settings       import PSYDAC_BACKENDS
 def backend(request):
     return request.param
 
+@pytest.fixture(params=['real', 'complex'])
+def dtype(request):
+    return request.param
+
 #==============================================================================
-def test_field_and_constant(backend):
+def test_field_and_constant(backend='pyccel-gcc', dtype='complex'):
 
     # If 'backend' is specified, accelerate Python code by passing **kwargs
     # to discretization of bilinear forms, linear forms and functionals.
@@ -30,12 +35,21 @@ def test_field_and_constant(backend):
     # Symbolic problem definition with SymPDE
     domain = Square()
     V = ScalarFunctionSpace('V', domain)
+
+    # TODO: remove codomain_type when It is implemented in sympde
+    V.codomain_type = dtype
     u = element_of(V, name='u')
     v = element_of(V, name='v')
     f = element_of(V, name='f')
     c = Constant(name='c')
 
-    g = c * f**2
+    if dtype == 'complex':
+        g = I * c * f**2
+        res = 1.j
+    else:
+        g = c * f**2
+        res = 1
+
     a = BilinearForm((u, v), integral(domain, u * v))
     l = LinearForm(v, integral(domain, g * v))
     bc = EssentialBC(u, g, domain.boundary)
@@ -52,10 +66,9 @@ def test_field_and_constant(backend):
     # Discrete field is set to 1, and constant is set to 3
     fh = FemField(Vh)
     fh.coeffs[:] = 1
-    c_value = 3.0
 
     # Solve call should not crash if correct arguments are used
-    xh = equation_h.solve(c=c_value, f=fh)
+    xh = equation_h.solve(c=1.0, f=fh)
 
     # Verify that solution is equal to c_value
-    assert np.allclose(xh.coeffs.toarray(), c_value, rtol=1e-10, atol=1e-16)
+    assert np.allclose(xh.coeffs.toarray(), res, rtol=1e-10, atol=1e-16)
