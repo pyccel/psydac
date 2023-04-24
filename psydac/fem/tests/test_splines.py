@@ -34,7 +34,9 @@ def test_1d_3():
     grid = linspace(0., 1., 5)
     V1 = SplineSpace(p, grid=grid)
     V2 = SplineSpace(p+1, grid=grid)
-    V = VectorFemSpace(V1, V2)
+
+    domain_decomposition = DomainDecomposition([V1.ncells, V2.ncells], [False, False])
+    V = TensorFemSpace(domain_decomposition, V1, V2)
     print (V)
 
 def test_2d_1():
