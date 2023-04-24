@@ -27,7 +27,7 @@ def dtype(request):
     return request.param
 
 #==============================================================================
-def test_field_and_constant(backend='pyccel-gcc', dtype='complex'):
+def test_field_and_constant(backend, dtype):
 
     # If 'backend' is specified, accelerate Python code by passing **kwargs
     # to discretization of bilinear forms, linear forms and functionals.
