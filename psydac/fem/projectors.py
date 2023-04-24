@@ -2,7 +2,6 @@ import numpy as np
 
 from psydac.linalg.kron     import KroneckerDenseMatrix
 from psydac.core.bsplines   import hrefinement_matrix
-from psydac.linalg.identity import IdentityStencilMatrix
 from psydac.linalg.stencil  import StencilVectorSpace
 
 
