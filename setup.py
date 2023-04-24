@@ -57,7 +57,7 @@ install_requires = [
 
     # Our packages from PyPi
     'sympde @ git+https://github.com/pyccel/sympde@logical_n_physical-coordinates-2',
-    'pyccel>=1.5.1',
+    'pyccel>=1.7.3',
     'gelato==0.11',
 
     # Alternative backend to Pyccel is Numba

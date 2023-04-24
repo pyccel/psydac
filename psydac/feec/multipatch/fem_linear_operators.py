@@ -68,7 +68,7 @@ class FemLinearOperator( LinearOperator ):
         #raise NotImplementedError('tosparse() is not defined for FEMLinearOperators.')
 
     # ...
-    def transpose(self):
+    def transpose(self, conjugate=False):
         raise NotImplementedError('Class does not provide a transpose() method')
 
     # ...
@@ -99,10 +99,6 @@ class FemLinearOperator( LinearOperator ):
 
     # ...
     def __mul__(self, c):
-        return MultLinearOperator(c, self)
-
-    # ...
-    def __rmul__(self, c):
         return MultLinearOperator(c, self)
 
     # ...

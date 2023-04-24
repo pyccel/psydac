@@ -56,6 +56,10 @@ class Geometry( object ):
 
     comm: MPI.Comm
         MPI intra-communicator.
+        
+    mpi_dims_mask: list of bool
+        True if the dimension is to be used in the domain decomposition (=default for each dimension). 
+        If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
   
     """
     _ldim     = None
@@ -67,7 +71,7 @@ class Geometry( object ):
     # Option [1]: from a (domain, mappings) or a file
     #--------------------------------------------------------------------------
     def __init__(self, domain=None, ncells=None, periodic=None, mappings=None,
-                 filename=None, comm=None):
+                 filename=None, comm=None, mpi_dims_mask=None):
 
         # ... read the geometry if the filename is given
         if filename is not None:
@@ -102,7 +106,7 @@ class Geometry( object ):
             if len(domain) == 1:
                 #name = domain.name
                 name = interior_names[0]
-                self._ddm = DomainDecomposition(ncells[name], periodic[name], comm=comm)
+                self._ddm = DomainDecomposition(ncells[name], periodic[name], comm=comm, mpi_dims_mask=mpi_dims_mask)
             else:
                 ncells    = [ncells[itr] for itr in interior_names]
                 periodic  = [periodic[itr] for itr in interior_names]
@@ -145,7 +149,7 @@ class Geometry( object ):
     # Option [3]: discrete topological line/square/cube
     #--------------------------------------------------------------------------
     @classmethod
-    def from_topological_domain(cls, domain, ncells, *, periodic=None, comm=None):
+    def from_topological_domain(cls, domain, ncells, *, periodic=None, comm=None, mpi_dims_mask=None):
         interior = domain.interior
         if not isinstance(interior, Union):
             interior = [interior]
@@ -156,7 +160,8 @@ class Geometry( object ):
                       " got {} instead.".format(type(itr))
                 raise TypeError(msg)
 
-        mappings = {itr.name: None for itr in interior}
+        mappings = {itr.name:None for itr in interior}
+
         if isinstance(ncells, (list, tuple)):
             ncells = {itr.name:ncells for itr in interior}
 
@@ -166,7 +171,7 @@ class Geometry( object ):
         if isinstance(periodic, (list, tuple)):
             periodic = {itr.name:periodic for itr in interior}
 
-        geo = Geometry(domain=domain, mappings=mappings, ncells=ncells, periodic=periodic, comm=comm)
+        geo = Geometry(domain=domain, mappings=mappings, ncells=ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
         return geo
 
@@ -277,13 +282,21 @@ class Geometry( object ):
             self._ddm = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm)
             ddms      = [self._ddm]
         else:
-            ncells    = [ncells[itr.name] for itr in interiors]
+            ncells_    = [ncells[itr.name] for itr in interiors]
             periodic  = [periodic[itr.name] for itr in interiors]
-            self._ddm = MultiPatchDomainDecomposition(ncells, periodic, comm=comm)
+            self._ddm = MultiPatchDomainDecomposition(ncells_, periodic, comm=comm)
             ddms      = self._ddm.domains
 
         carts    = create_cart(ddms, spaces)
         g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i]) for i,inter in enumerate(interiors)}
+
+        for i,j in connectivity:
+            ((axis_i, ext_i), (axis_j , ext_j)) = connectivity[i, j]
+            minus = interiors[i]
+            plus  = interiors[j]
+            max_ncells = [max(ni,nj) for ni,nj in zip(ncells[minus.name],ncells[plus.name])]
+            g_spaces[minus].add_refined_space(ncells=max_ncells)
+            g_spaces[plus].add_refined_space(ncells=max_ncells)
 
         # ... construct interface spaces
         construct_interface_spaces(self._ddm, g_spaces, carts, interiors, connectivity)
