@@ -3,6 +3,8 @@
 # TODO: - have a block version for VectorSpace when all component spaces are the same
 import numpy as np
 
+from functools import reduce
+
 from sympde.topology.space import BasicFunctionSpace
 from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
@@ -19,13 +21,18 @@ from psydac.core.kernels import (pushforward_2d_hdiv,
 #===============================================================================
 class VectorFemSpace( FemSpace ):
     """
-    FEM space with a vector basis
-
+    FEM space with a vector basis defined on a single patch
+    this class is used to represent either spaces of vector-valued fem fields,
+    or product spaces involved in systems of equations.
     """
 
     def __init__( self, *spaces ):
-        """."""
-        self._spaces = spaces
+
+        # all input spaces are flattened into a single list of scalar spaces
+        new_spaces = [sp.spaces if isinstance(sp, VectorFemSpace) else [sp] for sp in spaces]
+        new_spaces = tuple(sp2 for sp1 in new_spaces for sp2 in sp1)
+
+        self._spaces = new_spaces
 
         # ... make sure that all spaces have the same parametric dimension
         ldims = [V.ldim for V in self.spaces]
@@ -47,12 +54,17 @@ class VectorFemSpace( FemSpace ):
         self._ncells = ncells[0]
         # ...
 
-        self._symbolic_space   = None
-        self._vector_space     = None
+        self._symbolic_space = None
+        if all(s.symbolic_space for s in spaces):
+            self._symbolic_space = reduce(lambda x,y:x.symbolic_space*y.symbolic_space, spaces)
 
-        # TODO serial case
-        # TODO parallel case
+        self._vector_space     = BlockVectorSpace(*[V.vector_space for V in self.spaces])
+        self._refined_space    = {}
 
+        self.set_refined_space(self._ncells, self)
+        for key in self.spaces[0]._refined_space:
+            if key == tuple(self._ncells):continue
+            self.set_refined_space(key, VectorFemSpace(*[V._refined_space[key] for V in self.spaces]))
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
@@ -72,7 +84,7 @@ class VectorFemSpace( FemSpace ):
 
     @property
     def vector_space(self):
-        """Returns the topological associated vector space."""
+        """Returns the vector space of the coefficients (mapping invariant)."""
         return self._vector_space
 
     @property
@@ -209,7 +221,7 @@ class VectorFemSpace( FemSpace ):
                 result.append(self._spaces[i].eval_fields_regular_tensor_grid(grid,
                                                                               *fields_i,
                                                                               overlap=overlap[i]))
-        
+
         return result
 
     # ...
@@ -247,7 +259,7 @@ class VectorFemSpace( FemSpace ):
             # Necessary if vector coeffs is distributed across processes
             if not f.coeffs.ghost_regions_in_sync:
                 f.coeffs.update_ghost_regions()
-                
+
         result = []
         if isinstance(overlap, int):
             overlap = [overlap] * self.ldim
@@ -266,7 +278,7 @@ class VectorFemSpace( FemSpace ):
                 result.append(self._spaces[i].eval_fields_irregular_tensor_grid(grid,
                                                                                 *fields_i,
                                                                                 overlap=overlap[i]))
-        
+
         return result
 
     # ...
@@ -334,6 +346,12 @@ class VectorFemSpace( FemSpace ):
             return True
 
     # ...
+    def get_refined_space(self, ncells):
+        return self._refined_space[tuple(self.ncells)]
+
+    def set_refined_space(self, ncells, new_space):
+        self._refined_space[tuple(self.ncells)] = new_space
+
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
@@ -347,7 +365,8 @@ class VectorFemSpace( FemSpace ):
 #===============================================================================
 class ProductFemSpace( FemSpace ):
     """
-    Product of FEM space
+    Product of FEM spaces
+    this class is used to represent FEM spaces on a multi-patch domain.
     """
 
     def __new__(cls, *spaces, connectivity=None):
@@ -358,7 +377,12 @@ class ProductFemSpace( FemSpace ):
             return FemSpace.__new__(cls)
 
     def __init__( self, *spaces, connectivity=None):
-        """."""
+        """
+        Parameters
+        -----------
+        *spaces : 
+            single-patch FEM spaces                        
+        """
 
         if len(spaces) == 1:
             return
@@ -370,19 +394,6 @@ class ProductFemSpace( FemSpace ):
         assert len(np.unique(ldims)) == 1
 
         self._ldim = ldims[0]
-        # ...
-
-        # ... make sure that all spaces have the same number of cells
-        ncells = [V.ncells for V in self.spaces]
-
-        if self.ldim == 1:
-            assert len(np.unique(ncells)) == 1
-        else:
-            ns = np.asarray(ncells[0])
-            for ms in ncells[1:]:
-                assert np.allclose(ns, np.asarray(ms))
-
-        self._ncells = ncells[0]
         # ...
 
         connectivity          = connectivity if connectivity is not None else {}
@@ -408,7 +419,7 @@ class ProductFemSpace( FemSpace ):
 
     @property
     def vector_space(self):
-        """Returns the topological associated vector space."""
+        """Returns the vector space of the coefficients (mapping invariant)."""
         return self._vector_space
 
     @property

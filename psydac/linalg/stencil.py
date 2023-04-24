@@ -1955,8 +1955,13 @@ class StencilInterfaceMatrix(LinearOperator):
         if out is not None:
             assert isinstance( out, StencilVector )
             assert out.space is self.codomain
+            out[(slice(None,None),)*v.space.ndim] = 0.
         else:
             out = StencilVector( self.codomain )
+
+        # Necessary if vector space is distributed across processes
+        if not v.ghost_regions_in_sync and not v.space.parallel:
+            v.update_ghost_regions()
 
         self._func(self._data, v._interface_data[self._domain_axis, self._domain_ext], out._data, **self._args)
         # IMPORTANT: flag that ghost regions are not up-to-date
@@ -2181,7 +2186,7 @@ class StencilInterfaceMatrix(LinearOperator):
 
     #...
     def __imul__(self, a):
-        raise NotImplementedError('TODO: StencilInterfaceMatrix.__imul__')
+        self._data *= a
 
     #...
     def __iadd__(self, m):
@@ -2564,6 +2569,7 @@ class StencilInterfaceMatrix(LinearOperator):
                 self._args = {}
 
             self._func = dot.func
+
 #===============================================================================
 from psydac.api.settings   import PSYDAC_BACKENDS
 del VectorSpace, Vector
