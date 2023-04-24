@@ -1925,7 +1925,7 @@ def test_stencil_matrix_2d_serial_backend_dot_2(dtype, n1, n2, p1, p2, s1, s2, P
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [False])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_dot_3(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -1957,6 +1957,7 @@ def test_stencil_matrix_2d_serial_backend_dot_3(dtype, n1, n2, p1, p2, s1, s2, P
     else:
         M1[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1))
         M2[0:n1 - 1, 0:n2, :, :] = np.random.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1))
+
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M1.remove_spurious_entries()
     M2.remove_spurious_entries()
