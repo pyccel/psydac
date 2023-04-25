@@ -223,6 +223,7 @@ class DefNode(Basic):
 #==============================================================================
 def expand_hdiv_hcurl(args):
     """
+
     This function expands vector functions of type hdiv and hculr into indexed functions
 
     """
@@ -314,26 +315,28 @@ class AST(object):
         trials_degrees      = ()
         fields_degrees      = ()
         # ...
-        domain        = terminal_expr.target
-        dim           = domain.dim
-        constants     = expr.constants
-        mask          = None
+        domain              = terminal_expr.target
+        dim                 = domain.dim
+        constants           = expr.constants
+        mask                = None
 
+        # Define mask for different domain
         if isinstance(domain, Boundary):
             mask = Mask(domain.axis, domain.ext)
 
         elif isinstance(domain, Interface):
-            mask = Mask(domain.axis, None)
+            mask     = Mask(domain.axis, None)
             is_trial = {}
             if isinstance(terminal_expr.trial, PlusInterfaceOperator):
-                is_trial[domain.plus] = True
+                is_trial[domain.plus]  = True
                 is_trial[domain.minus] = False
             else:
-                is_trial[domain.plus] = False
+                is_trial[domain.plus]  = False
                 is_trial[domain.minus] = True
 
             kwargs["is_trial"] = is_trial
 
+        # Define variables for different form
         if isinstance(expr, LinearForm):
             is_linear           = True
             tests               = expr.test_functions
@@ -345,9 +348,10 @@ class AST(object):
             is_parallel         = spaces.vector_space.parallel
             spaces              = spaces.symbolic_space
             if hasattr(spaces, 'codomain_type'):
-                dtype = spaces.codomain_type
+                dtype           = spaces.codomain_type
             else:
-                dtype = 'real'
+                dtype           = 'real'
+
         elif isinstance(expr, BilinearForm):
             is_bilinear         = True
             tests               = expr.test_functions
@@ -363,23 +367,25 @@ class AST(object):
             is_parallel         = spaces[1].vector_space.parallel
             spaces              = [V.symbolic_space for V in spaces]
             if hasattr(spaces[0], 'codomain_type'):
-                dtype = spaces[0].codomain_type
+                dtype           = spaces[0].codomain_type
             else:
-                dtype = 'real'
+                dtype           = 'real'
+
         # elif isinstance(expr, SesquiLinearForm):
-        #     is_sesquilinear = True
-        #     tests = expr.test_functions
-        #     trials = expr.trial_functions
-        #     atoms = terminal_expr.expr.atoms(ScalarFunction, VectorFunction)
-        #     fields = tuple(i for i in atoms if i not in tests + trials)
-        #     is_broken = spaces[1].symbolic_space.is_broken
-        #     quad_order = get_quad_order(spaces[1])
-        #     tests_degrees = get_degrees(tests, spaces[1])
-        #     trials_degrees = get_degrees(trials, spaces[0])
-        #     multiplicity_tests = get_multiplicity(tests, spaces[1].vector_space)
+        #     is_sesquilinear     = True
+        #     tests               = expr.test_functions
+        #     trials              = expr.trial_functions
+        #     atoms               = terminal_expr.expr.atoms(ScalarFunction, VectorFunction)
+        #     fields              = tuple(i for i in atoms if i not in tests + trials)
+        #     is_broken           = spaces[1].symbolic_space.is_broken
+        #     quad_order          = get_quad_order(spaces[1])
+        #     tests_degrees       = get_degrees(tests, spaces[1])
+        #     trials_degrees      = get_degrees(trials, spaces[0])
+        #     multiplicity_tests  = get_multiplicity(tests, spaces[1].vector_space)
         #     multiplicity_trials = get_multiplicity(trials, spaces[0].vector_space)
-        #     is_parallel = spaces[1].vector_space.parallel
-        #     spaces = [V.symbolic_space for V in spaces]
+        #     is_parallel         = spaces[1].vector_space.parallel
+        #     spaces              = [V.symbolic_space for V in spaces]
+
         elif isinstance(expr, Functional):
             is_functional       = True
             fields              = tuple(expr.atoms(ScalarFunction, VectorFunction))
@@ -390,22 +396,22 @@ class AST(object):
             is_parallel         = spaces.vector_space.parallel
             spaces              = spaces.symbolic_space
             if hasattr(spaces, 'codomain_type'):
-                dtype = spaces.codomain_type
+                dtype           = spaces.codomain_type
             else:
-                dtype = 'real'
+                dtype           = 'real'
+
         else:
             raise NotImplementedError('TODO')
 
-        tests  = expand_hdiv_hcurl(tests)
-        trials = expand_hdiv_hcurl(trials)
-        fields = expand_hdiv_hcurl(fields)
+        tests                = expand_hdiv_hcurl(tests)
+        trials               = expand_hdiv_hcurl(trials)
+        fields               = expand_hdiv_hcurl(fields)
 
-        kwargs['quad_order']     = quad_order
+        kwargs['quad_order'] = quad_order
 
-        atoms_types = (ScalarFunction, VectorFunction, IndexedVectorFunction)
-
-        nderiv = 1
-        terminal_expr = terminal_expr.expr
+        atoms_types          = (ScalarFunction, VectorFunction, IndexedVectorFunction)
+        nderiv               = 1
+        terminal_expr        = terminal_expr.expr
         if isinstance(terminal_expr, (ImmutableDenseMatrix, Matrix)):
             n_rows, n_cols    = terminal_expr.shape
             atomic_expr_field = {f:[] for f in fields}
@@ -441,37 +447,37 @@ class AST(object):
 
             terminal_expr     = Matrix([[terminal_expr]])
 
-        d_tests  = {v: {'global': GlobalTensorQuadratureTestBasis(v),
-                        'local' : LocalTensorQuadratureTestBasis(v),
-                        'span': GlobalSpanArray(v),
-                        'local_span': LocalSpanArray(v),
-                        'multiplicity':multiplicity_tests[i],
-                        'degrees': tests_degrees[i],
-                        'thread_span':GlobalThreadSpanArray(v)} for i,v in enumerate(tests) }
+        d_tests  = {v: {'global':       GlobalTensorQuadratureTestBasis(v),
+                        'local':        LocalTensorQuadratureTestBasis(v),
+                        'span':         GlobalSpanArray(v),
+                        'local_span':   LocalSpanArray(v),
+                        'multiplicity': multiplicity_tests[i],
+                        'degrees':      tests_degrees[i],
+                        'thread_span':  GlobalThreadSpanArray(v)} for i,v in enumerate(tests) }
 
-        d_trials = {u: {'global': GlobalTensorQuadratureTrialBasis(u),
-                        'local' : LocalTensorQuadratureTrialBasis(u),
-                        'span': GlobalSpanArray(u),
-                        'local_span': LocalSpanArray(u),
-                        'multiplicity':multiplicity_trials[i],
-                        'degrees':trials_degrees[i]} for i,u in enumerate(trials)}
+        d_trials = {u: {'global':       GlobalTensorQuadratureTrialBasis(u),
+                        'local':        LocalTensorQuadratureTrialBasis(u),
+                        'span':         GlobalSpanArray(u),
+                        'local_span':   LocalSpanArray(u),
+                        'multiplicity': multiplicity_trials[i],
+                        'degrees':      trials_degrees[i]} for i,u in enumerate(trials)}
 
         if isinstance(expr, Functional):
-            d_fields = {f: {'global': GlobalTensorQuadratureTestBasis(f),
-                            'local' : LocalTensorQuadratureTestBasis(f),
-                            'span': GlobalSpanArray(f),
-                            'local_span': LocalSpanArray(f),
-                            'multiplicity':multiplicity_fields[i],
-                            'degrees':fields_degrees[i]} for i,f in enumerate(fields)}
+            d_fields = {f: {'global':       GlobalTensorQuadratureTestBasis(f),
+                            'local':        LocalTensorQuadratureTestBasis(f),
+                            'span':         GlobalSpanArray(f),
+                            'local_span':   LocalSpanArray(f),
+                            'multiplicity': multiplicity_fields[i],
+                            'degrees':      fields_degrees[i]} for i,f in enumerate(fields)}
 
         else:
-            d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f),
-                            'local' : LocalTensorQuadratureTestBasis(f),
-                            'span': GlobalSpanArray(f),
+            d_fields = {f: {'global':     GlobalTensorQuadratureTestBasis (f),
+                            'local' :     LocalTensorQuadratureTestBasis(f),
+                            'span':       GlobalSpanArray(f),
                             'local_span': LocalSpanArray(f)} for i,f in enumerate(fields)}
 
         if mapping_space:
-            f         = (tests+trials+fields)[0]
+            f = (tests+trials+fields)[0]
             f = f.base if isinstance(f, IndexedVectorFunction) else f
             if isinstance(domain, Interface):
                 f_m = f.duplicate('mapping_'+f.name)
@@ -479,12 +485,13 @@ class AST(object):
                 f_p = f.duplicate('mapping_plus_'+f.name)
                 f_p = expand([f_p])[0]
                 f   = (f_m, f_p)
-                mapping_degrees_m  = get_degrees([f_m], mapping_space[0])
-                mapping_degrees_p  = get_degrees([f_p], mapping_space[1])
+
+                mapping_degrees_m      = get_degrees([f_m], mapping_space[0])
+                mapping_degrees_p      = get_degrees([f_p], mapping_space[1])
                 multiplicity_mapping_m = get_multiplicity([f_m], mapping_space[0].vector_space)
                 multiplicity_mapping_p = get_multiplicity([f_p], mapping_space[1].vector_space)
-                mapping_degrees = (mapping_degrees_m, mapping_degrees_p)
-                multiplicity_mapping = (multiplicity_mapping_m, multiplicity_mapping_p)
+                mapping_degrees        = (mapping_degrees_m, mapping_degrees_p)
+                multiplicity_mapping   = (multiplicity_mapping_m, multiplicity_mapping_p)
             else:
                 f  = f.duplicate('mapping_'+f.name)
                 f  = expand([f])[0]
@@ -492,12 +499,12 @@ class AST(object):
                 mapping_degrees      = (get_degrees(f, mapping_space),)
                 multiplicity_mapping = (get_multiplicity(f, mapping_space.vector_space),)
 
-            d_mapping = {fi: {'global': GlobalTensorQuadratureTestBasis (fi),
-                              'local' : LocalTensorQuadratureTestBasis(fi),
-                              'span': GlobalSpanArray(fi),
-                              'local_span': LocalSpanArray(fi),
-                              'multiplicity':multiplicity_mapping_i[0],
-                              'degrees': mapping_degrees_i[0]}
+            d_mapping = {fi: {'global':       GlobalTensorQuadratureTestBasis (fi),
+                              'local' :       LocalTensorQuadratureTestBasis(fi),
+                              'span':         GlobalSpanArray(fi),
+                              'local_span':   LocalSpanArray(fi),
+                              'multiplicity': multiplicity_mapping_i[0],
+                              'degrees':      mapping_degrees_i[0]}
                               for fi,mapping_degrees_i,multiplicity_mapping_i in zip(f,mapping_degrees,multiplicity_mapping) }
         else:
            d_mapping = {}
@@ -525,44 +532,30 @@ class AST(object):
             mapping = IdentityMapping('M_{}'.format(name), dim)
 
         if is_linear:
-            ast = _create_ast_linear_form(terminal_expr, atomic_expr_field,
-                                          tests, d_tests,
-                                          fields, d_fields, constants,
-                                          nderiv, domain.dim, dtype,
-                                          mapping, d_mapping, is_rational_mapping, mapping_space, mask, tag,
-                                          num_threads, **kwargs)
+            ast = _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fields, d_fields, constants,
+                                          nderiv, domain.dim, dtype, mapping, d_mapping, is_rational_mapping, mapping_space,
+                                          mask, tag, num_threads, **kwargs)
 
         elif is_bilinear:
             if dtype=='complex':
-                ast = _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field,
-                                                    tests, d_tests,
-                                                    trials, d_trials,
-                                                    fields, d_fields, constants,
-                                                    nderiv, domain.dim, domain,
-                                                    mapping, d_mapping, is_rational_mapping, mapping_space,  mask, tag, is_parallel,
+                ast = _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tests, trials, d_trials,
+                                                    fields, d_fields, constants, nderiv, domain.dim, domain, mapping,
+                                                    d_mapping, is_rational_mapping, mapping_space,  mask, tag, is_parallel,
                                                     num_threads, **kwargs)
             else:
-                ast = _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
-                                                    tests, d_tests,
-                                                    trials, d_trials,
-                                                    fields, d_fields, constants,
-                                                    nderiv, domain.dim, domain,
-                                                    mapping, d_mapping, is_rational_mapping, mapping_space,  mask, tag, is_parallel,
-                                                    num_threads, **kwargs)
+                ast = _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests, d_tests, trials, d_trials,
+                                                fields, d_fields, constants, nderiv, domain.dim, domain, mapping,
+                                                d_mapping, is_rational_mapping, mapping_space,  mask, tag, is_parallel,
+                                                num_threads, **kwargs)
         elif is_sesquilinear:
-            ast = _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field,
-                                                tests, d_tests,
-                                                trials, d_trials,
-                                                fields, d_fields, constants,
-                                                nderiv, domain.dim, domain,
-                                                mapping, d_mapping, is_rational_mapping, mapping_space,  mask, tag, is_parallel,
+            ast = _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tests, trials, d_trials,
+                                                fields, d_fields, constants, nderiv, domain.dim, domain, mapping,
+                                                d_mapping, is_rational_mapping, mapping_space,  mask, tag, is_parallel,
                                                 num_threads, **kwargs)
         elif is_functional:
-            ast = _create_ast_functional_form(terminal_expr, atomic_expr_field,
-                                              fields, d_fields, constants,
-                                              nderiv, domain.dim, dtype,
-                                              mapping, d_mapping, is_rational_mapping, mapping_space, mask, tag,
-                                              num_threads, **kwargs)
+            ast = _create_ast_functional_form(terminal_expr, atomic_expr_field, fields, d_fields, constants, nderiv,
+                                              domain.dim, dtype, mapping, d_mapping, is_rational_mapping, mapping_space,
+                                              mask, tag, num_threads, **kwargs)
         else:
             raise NotImplementedError('TODO')
         # ...
@@ -598,12 +591,9 @@ class AST(object):
         return self._num_threads
 
 #================================================================================================================================
-def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
-                              tests,  d_tests,
-                              trials, d_trials,
-                              fields, d_fields, constants,
-                              nderiv, dim, domain, mapping, d_mapping, is_rational_mapping, mapping_space, mask, tag, is_parallel,
-                              num_threads, **kwargs):
+def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests, trials, d_trials, fields, d_fields,
+                              constants, nderiv, dim, domain, mapping, d_mapping, is_rational_mapping, mapping_space,
+                              mask, tag, is_parallel, num_threads, **kwargs):
     """
     This function creates the assembly function of a bilinearform
 
@@ -1192,14 +1182,11 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     node = DefNode(f'assemble_matrix_{tag}', args, local_vars, body, imports, (), 'bilinearform')
 
     return node
+
 # ================================================================================================================================
-def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field,
-                                  tests, d_tests,
-                                  trials, d_trials,
-                                  fields, d_fields, constants,
-                                  nderiv, dim, domain, mapping, d_mapping, is_rational_mapping, mapping_space, mask,
-                                  tag, is_parallel,
-                                  num_threads, **kwargs):
+def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tests, trials, d_trials, fields, d_fields,
+                                  constants, nderiv, dim, domain, mapping, d_mapping, is_rational_mapping, mapping_space,
+                                  mask, tag, is_parallel, num_threads, **kwargs):
     """
     This function creates the assembly function of a sesquilinearform
     Parameters
