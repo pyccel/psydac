@@ -70,12 +70,13 @@ from psydac.api.utilities     import flatten
 from psydac.linalg.block      import BlockVectorSpace
 from psydac.fem.vector        import ProductFemSpace, VectorFemSpace
 
-#==============================================================================
+#=======================================================================================================================
 def toInteger(a):
     if isinstance(a,(int, np.int64)):
         return Integer(int(a))
     return a
-#==============================================================================
+
+#=======================================================================================================================
 def convert(dtype):
     """
     This function returns the index of a Function Space in a 3D DeRham sequence
@@ -89,12 +90,14 @@ def convert(dtype):
         return 2
     elif isinstance(dtype, L2SpaceType):
         return 3
-#==============================================================================
+
+#=======================================================================================================================
 def compute_diag_len(p, md, mc):
     n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
     n = n-np.minimum(0, n-p)+p+1
     return n.astype('int')
-#==============================================================================
+
+#=======================================================================================================================
 def regroup(tests):
     """
     This function regourps the test/trial functions by their Function Space
@@ -124,7 +127,7 @@ def regroup(tests):
             groups += [(d,g)]
     return groups
 
-#==============================================================================
+#=======================================================================================================================
 def expand(args):
     """
     This function expands vector functions into indexed functions
@@ -140,7 +143,7 @@ def expand(args):
             raise NotImplementedError("TODO")
     return tuple(new_args)
 
-#==============================================================================
+#=======================================================================================================================
 class Block(Basic):
     """
     This class represents a Block of statements
@@ -157,6 +160,8 @@ class Block(Basic):
     def body(self):
         return self._args[0]
 
+
+#=======================================================================================================================
 class ParallelBlock(Block):
     def __new__(cls, default='private', private=(), shared=(), firstprivate=(), lastprivate=(), body=()):
         return Basic.__new__(cls, default, private, shared, firstprivate, lastprivate, body)
@@ -184,7 +189,9 @@ class ParallelBlock(Block):
     @property
     def body(self):
         return self._args[5]
-#==============================================================================
+
+
+#=======================================================================================================================
 class DefNode(Basic):
     """
     DefNode represents a function definition where it contains the arguments and the body
@@ -220,7 +227,9 @@ class DefNode(Basic):
     @property
     def kind(self):
         return self._args[6]
-#==============================================================================
+
+
+#=======================================================================================================================
 def expand_hdiv_hcurl(args):
     """
 
@@ -240,8 +249,8 @@ def expand_hdiv_hcurl(args):
             raise NotImplementedError("TODO")
 
     return tuple(new_args)
-    
-#==============================================================================
+
+#=======================================================================================================================
 def get_multiplicity(funcs, space):
     def recursive_func(space):
         if isinstance(space, BlockVectorSpace):
@@ -266,7 +275,8 @@ def get_multiplicity(funcs, space):
             if i+1==len(funcs) or isinstance(funcs[i+1], ScalarFunction) or funcs[i].base != funcs[i+1].base:
                 new_multiplicity.append(multiplicity[i])
     return new_multiplicity
-#==============================================================================
+
+#=======================================================================================================================
 def get_degrees(funcs, space):
     degrees = list(space.degree)
     if not isinstance(degrees[0], (list, tuple)):
@@ -284,13 +294,14 @@ def get_degrees(funcs, space):
             if i+1==len(funcs) or isinstance(funcs[i+1], ScalarFunction) or funcs[i].base != funcs[i+1].base:
                 new_degrees.append(degrees[i])
     return new_degrees
-#==============================================================================
+
+#=======================================================================================================================
 def get_quad_order(Vh):
     if isinstance(Vh, (ProductFemSpace, VectorFemSpace)):
         return get_quad_order(Vh.spaces[0])
     return tuple([g.weights.shape[1] for g in Vh.quad_grids])
 
-#==============================================================================
+#=======================================================================================================================
 class AST(object):
     """
     The Ast class transforms a terminal expression returned from sympde
@@ -590,7 +601,8 @@ class AST(object):
     def num_threads(self):
         return self._num_threads
 
-#================================================================================================================================
+
+#=======================================================================================================================
 def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests, trials, d_trials, fields, d_fields,
                               constants, nderiv, dim, domain, mapping, d_mapping, is_rational_mapping, mapping_space,
                               mask, tag, is_parallel, num_threads, **kwargs):
@@ -1183,7 +1195,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
 
     return node
 
-# ================================================================================================================================
+#=======================================================================================================================
 def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tests, trials, d_trials, fields, d_fields,
                                   constants, nderiv, dim, domain, mapping, d_mapping, is_rational_mapping, mapping_space,
                                   mask, tag, is_parallel, num_threads, **kwargs):
@@ -1794,9 +1806,10 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
                    imports=imports, results=(), kind='sesquilinearform')
     return node
 
-#================================================================================================================================
+#=======================================================================================================================
 def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fields, d_fields, constants, nderiv,
-                            dim, dtype, mapping, d_mapping, is_rational_mapping, mapping_space, mask, tag, num_threads, **kwargs):
+                            dim, dtype, mapping, d_mapping, is_rational_mapping, mapping_space, mask, tag, num_threads,
+                            **kwargs):
     """
     This function creates the assembly function of a linearform
 
@@ -1920,10 +1933,10 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     for f in fields:
         f_ex         = expand([f])
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
-        l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
+        l_coeffs     = [MatrixLocalBasis(i, dtype=dtype)    for i in f_ex]
         ind_dof_test = index_dof_test.set_range(stop=lengths_fields[f]+1)
         eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], coeffs, l_coeffs,
-                                 g_coeffs[f], [f], mapping, nderiv, mask)
+                                 g_coeffs[f], [f], mapping, nderiv, mask, dtype=dtype)
         eval_fields += [eval_field]
 
     g_stmts = []
@@ -2118,9 +2131,10 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     return node
 
-#================================================================================================================================
+#=======================================================================================================================
 def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, constants, nderiv,
-                                dim, dtype, mapping, d_mapping, is_rational_mapping, mapping_space, mask, tag, num_threads, **kwargs):
+                                dim, dtype, mapping, d_mapping, is_rational_mapping, mapping_space, mask, tag,
+                                num_threads, **kwargs):
     """
     This function creates the assembly function of a Functional Form
 
@@ -2221,9 +2235,10 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     for f in fields:
         f_ex         = expand([f])
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
-        l_coeffs     = [MatrixLocalBasis(i, dtype)    for i in f_ex]
+        l_coeffs     = [MatrixLocalBasis(i, dtype=dtype)    for i in f_ex]
         ind_dof_test = index_dof_test.set_range(stop=lengths_fields[f]+1)
-        eval_field   = EvalField(atomic_expr[f], ind_quad, ind_dof_test, d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask, dtype=dtype)
+        eval_field   = EvalField(atomic_expr[f], ind_quad, ind_dof_test, d_fields[f]['global'], coeffs, l_coeffs,
+                                 g_coeffs[f], [f], mapping, nderiv, mask, dtype=dtype)
         eval_fields  += [eval_field]
 
     #=========================================================begin kernel======================================================
