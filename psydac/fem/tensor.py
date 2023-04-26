@@ -1061,7 +1061,7 @@ class TensorFemSpace( FemSpace ):
 
         domain = domain.refine(ncells, new_global_starts, new_global_ends)
 
-        FS     = TensorFemSpace(domain, *spaces, quad_order=self.quad_order)
+        FS     = TensorFemSpace(domain, *spaces, nquads=self.nquads)
         self.set_refined_space(ncells, FS)
 
     # ...
