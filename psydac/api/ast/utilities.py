@@ -3,41 +3,22 @@ import string
 import random
 
 from sympy import Symbol, IndexedBase, Indexed, Idx
-from sympy import Mul, Pow, Function, Tuple
-from sympy import sqrt as sympy_sqrt, Range
+from sympy import Mul, Function
 from sympy.utilities.iterables import cartes
 
-from sympde.topology.space       import ScalarFunction
-from sympde.topology.space       import VectorFunction
-from sympde.topology.space       import IndexedVectorFunction
-from sympde.topology.space       import element_of
-from sympde.topology             import Mapping
-from sympde.topology             import Boundary
-from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology.derivatives import _logical_partial_derivatives
-from sympde.topology.derivatives import get_atom_derivatives
-from sympde.topology.derivatives import get_index_derivatives
-from sympde.topology.derivatives import get_atom_logical_derivatives
-from sympde.topology.derivatives import get_index_logical_derivatives
-from sympde.topology             import LogicalExpr
-from sympde.topology             import SymbolicExpr
+from sympde.topology.space       import ScalarFunction, VectorFunction, IndexedVectorFunction, element_of
+from sympde.topology             import Mapping, LogicalExpr, SymbolicExpr
+from sympde.topology.derivatives import _partial_derivatives, _logical_partial_derivatives, get_atom_derivatives, \
+                                        get_index_derivatives, get_atom_logical_derivatives, get_index_logical_derivatives
 from sympde.core                 import Constant
 
-from psydac.pyccel.ast.core import Variable, IndexedVariable
-from psydac.pyccel.ast.core import For
-from psydac.pyccel.ast.core import Assign
-from psydac.pyccel.ast.core import AugAssign
-from psydac.pyccel.ast.core import Product
-from psydac.pyccel.ast.core import _atomic
-from psydac.pyccel.ast.core import Comment
-from psydac.pyccel.ast.core import String
+from psydac.pyccel.ast.core import Variable, IndexedVariable, Assign, AugAssign, _atomic, Comment, String
 
 #==============================================================================
 def random_string( n ):
     chars    = string.ascii_lowercase + string.digits
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
-
 
 #==============================================================================
 def is_mapping(expr):
@@ -54,165 +35,7 @@ def is_mapping(expr):
     return False
 
 #==============================================================================
-def logical2physical(expr):
-
-    partial_der = dict(zip(_logical_partial_derivatives,_partial_derivatives))
-    
-    if isinstance(expr, _logical_partial_derivatives):
-        argument = logical2physical(expr.args[0])
-        new_expr = partial_der[type(expr)](argument)
-        return new_expr
-    else:
-        return expr
-#==============================================================================
-def _get_name(atom):
-    atom_name = None
-    if isinstance( atom, ScalarFunction ):
-        atom_name = str(atom.name)
-
-    elif isinstance( atom, VectorFunction ):
-        atom_name = str(atom.name)
-
-    elif isinstance( atom, IndexedVectorFunction ):
-        atom_name = str(atom.base.name)
-
-    else:
-        raise TypeError('> Wrong type')
-
-    return atom_name
-        
-#==============================================================================
-def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
-                       indices_trial, basis_trial,
-                       basis_test, cords, test_function,
-                       is_linear,
-                       mapping):
-
-    """
-    This function computes atomic expressions needed
-    to evaluate  the Kernel final expression
-
-    Parameters
-    ----------
-    atomic_exprs : <list>
-        list of atoms
-
-    indices_quad : <list>
-        list of quadrature indices used in the quadrature loops
-
-    indices_test : <list>
-        list of  test_functions indices used in the for loops of the basis functions
-
-    indices_trial : <list>
-        list of  trial_functions indices used in the for loops of the basis functions
-
-    basis_test : <list>
-        list of basis functions in each dimesion
-
-    cords : <list>
-        list of coordinates Symbols
-
-    test_function : <Symbol>
-        test_function Symbol
-
-    is_linear : <boolean>
-        variable to determine if we are in the linear case
-
-    mapping : <Mapping>
-        Mapping object
-
-    Returns
-    -------
-    inits : <list>
-       list of assignments of the atomic expression evaluated in the quadrature points
-
-    map_stmts : <list>
-        list of assigments of atomic expression in case of mapping
-
-    """
-
-    cls = (_partial_derivatives,
-           VectorFunction,
-           ScalarFunction,
-           IndexedVectorFunction)
-    
-    dim  = len(indices_test)
-
-    if not isinstance(atomic_exprs, (list, tuple, Tuple)):
-        raise TypeError('Expecting a list of atoms')
-    
-    for atom in atomic_exprs:   
-        if not isinstance(atom, cls):
-            raise TypeError('atom must be of type {}'.format(str(cls)))
-    
-    # If there is a mapping, compute [dx(u), dy(u), dz(u)] as functions
-    # of [dx1(u), dx2(u), dx3(u)], and store results into intermediate
-    # variables [u_x, u_y, u_z]. (Same thing is done for higher derivatives.)
-    #
-    # Accordingly, we create a new list of atoms where all partial derivatives
-    # are taken with respect to the logical coordinates.
-    if mapping:
-
-        new_atoms = set()
-        map_stmts = []
-        get_index = get_index_logical_derivatives
-        get_atom  = get_atom_logical_derivatives
-
-        for atom in atomic_exprs:
-
-            if isinstance(atom, _partial_derivatives):
-                lhs   = SymbolicExpr(atom)
-                rhs_p = LogicalExpr(mapping, atom)
-
-                # we look for new_atoms that must be added to atomic_exprs
-                # because we need them in the maps stmts
-                logical_atoms = _atomic(rhs_p, cls=_logical_partial_derivatives)
-                for a in logical_atoms:
-                    ls = _atomic(a, Symbol)
-                    assert len(ls) == 1
-                    if isinstance(ls[0], cls):
-                        new_atoms.add(a)
-    
-                rhs = SymbolicExpr(rhs_p)
-                map_stmts += [Assign(lhs, rhs)]
-
-            else:
-                new_atoms.add(atom)
-
-    else:
-        new_atoms = atomic_exprs
-        map_stmts = []
-        get_index = get_index_derivatives
-        get_atom  = get_atom_derivatives
-
-    # Create a list of statements for initialization of the point values,
-    # for each of the atoms in our (possibly new) list.
-    inits = []
-    for atom in new_atoms:
-        orders = [*get_index(atom).values()]
-        a      = get_atom(atom)
-        test   = _get_name(a) in [_get_name(f) for f in test_function]
-
-        if test or is_linear:
-            basis  = basis_test
-            idxs   = indices_test
-        else:
-            basis  = basis_trial
-            idxs   = indices_trial
-
-        args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
-        lhs    = SymbolicExpr(atom)
-        rhs    = Mul(*args)
-        inits += [Assign(lhs, rhs)]
-
-    # Return the initialization statements, and the additional initialization
-    # of intermediate variables in case of mapping
-    return inits, map_stmts
-
-#==============================================================================
-def compute_atoms_expr_field(atomic_exprs, indices_quad,
-                            idxs, basis,
-                            test_function, mapping):
+def compute_atoms_expr_field(atomic_exprs, indices_quad, idxs, basis, test_function, mapping):
 
     """
     This function computes atomic expressions needed
@@ -344,9 +167,7 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
 
 #==============================================================================
 # TODO: merge into 'compute_atoms_expr_field'
-def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
-                               idxs, basis,
-                               test_function):
+def compute_atoms_expr_mapping(atomic_exprs, indices_quad, idxs, basis, test_function):
 
     """
     This function computes atomic expressions needed
@@ -511,194 +332,6 @@ def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
                     stmts += [stmt]
 
     return stmts
-
-#==============================================================================
-def filter_product(indices, args, boundary):
-
-    mask = []
-    ext = []
-    if boundary:
-
-        if isinstance(boundary, Boundary):
-            mask = [boundary.axis]
-            ext  = [boundary.ext]
-        else:
-            raise TypeError
-
-        # discrete_boundary gives the perpendicular indices, then we need to
-        # remove them from directions
-
-    dim = len(indices)
-    args = [args[i][indices[i]] for i in range(dim) if not(i in mask)]
-
-    return Mul(*args)
-
-#==============================================================================
-# TODO remove it later
-def filter_loops(indices, ranges, body, boundary, boundary_basis=False):
-
-    quad_mask = []
-    quad_ext = []
-    if boundary:
-
-        if isinstance(boundary, Boundary):
-            quad_mask = [boundary.axis]
-            quad_ext  = [boundary.ext]
-        else:
-            raise TypeError
-
-        # discrete_boundary gives the perpendicular indices, then we need to
-        # remove them from directions
-
-    dim = len(indices)
-    for i in range(dim-1,-1,-1):
-        rx = ranges[i]
-        x = indices[i]
-        start = rx.start
-        end   = rx.stop
-
-        if i in quad_mask:
-            i_index = quad_mask.index(i)
-            ext = quad_ext[i_index]
-            if ext == -1:
-                end = start + 1
-
-            elif ext == 1:
-                start = end - 1
-            else:
-                raise ValueError('> Wrong value for ext. It should be -1 or 1')
-
-        rx = Range(start, end)
-        body = [For(x, rx, body)]
-
-    body = fusion_loops(body)
-
-    return body
-
-#==============================================================================
-def select_loops(indices, ranges, body, boundary, boundary_basis=False):
-
-    quad_mask = []
-    quad_ext = []
-    if boundary:
-
-        if isinstance(boundary, Boundary):
-            quad_mask = [boundary.axis]
-            quad_ext  = [boundary.ext]
-        else:
-            raise TypeError
-
-        # discrete_boundary gives the perpendicular indices, then we need to
-        # remove them from directions
-
-    dim = len(indices)
-    dims = [i for i in range(dim-1,-1,-1) if not( i in quad_mask )]
-
-    for i in dims:
-        rx = ranges[i]
-        x = indices[i]
-        start = rx.start
-        end   = rx.stop
-
-        rx = Range(start, end)
-        body = [For(x, rx, body)]
-
-    body = fusion_loops(body)
-    return body
-
-#==============================================================================
-def fusion_loops(loops):
-    ranges = []
-    indices = []
-    loops_cp = loops
-
-    while len(loops) == 1 and isinstance(loops[0], For):
-
-        loops = loops[0]
-        target = loops.target
-        iterable = loops.iterable
-
-        if isinstance(iterable, Product):
-            ranges  += list(iterable.elements)
-            indices += list(target)
-            if not isinstance(target,(tuple,list,Tuple)):
-                raise ValueError('target must be a list or a tuple of indices')
-
-        elif isinstance(iterable, Range):
-            ranges.append(iterable)
-            indices.append(target)
-        else:
-            raise TypeError('only range an product are supported')
-
-        loops = loops.body
-
-    if len(ranges)>1:
-        return [For(indices, Product(*ranges), loops)]
-    else:
-        return loops_cp
-
-#==============================================================================
-def compute_boundary_jacobian(parent_namespace, boundary, mapping=None):
-
-    # Sanity check on arguments
-    if not isinstance(boundary, Boundary):
-        raise TypeError(boundary)
-
-    if mapping is None:
-        stmts = []
-
-    else:
-        # Compute metric determinant g on manifold
-        J  = SymbolicExpr(mapping.jacobian)
-        Jm = J[:, [i for i in range(J.shape[1]) if i != boundary.axis]]
-        g  = (Jm.T * Jm).det()
-
-        # Create statements for computing sqrt(g)
-        det_jac_bnd = parent_namespace['det_jac_bnd']
-        stmts       = [Assign(det_jac_bnd, sympy_sqrt(g))]
-
-    return stmts
-
-#==============================================================================
-def compute_normal_vector(parent_namespace, vector, boundary, mapping=None):
-
-    # Sanity check on arguments
-    if isinstance(boundary, Boundary):
-        axis = boundary.axis
-        ext  = boundary.ext
-    else:
-        raise TypeError(boundary)
-
-    # If there is no mapping, normal vector has only one non-zero component,
-    # which is +1 or -1 according to the orientation of the boundary.
-    if mapping is None:
-        return [Assign(v, ext if i==axis else 0) for i, v in enumerate(vector)]
-
-    # Given the Jacobian matrix J, we need to extract the (i=axis) row of
-    # J^(-1) and then normalize it. We recall that J^(-1)[i, j] is equal to
-    # the cofactor of J[i, j] divided by det(J). For efficiency we only
-    # compute the cofactors C[i=0:dim] of the (j=axis) column of J, and we
-    # do not divide them by det(J) because the normal vector will need to
-    # be normalized anyway.
-    #
-    # NOTE: we also change the vector orientation according to 'ext'
-    J = SymbolicExpr(mapping.jacobian)
-    values = [ext * J.cofactor(i, j=axis) for i in range(J.shape[0])]
-
-    # Create statements for computing normal vector components
-    stmts = [Assign(lhs, rhs) for lhs, rhs in zip(vector, values)]
-
-    # Normalize vector
-    inv_norm_variable = Symbol('inv_norm')
-    inv_norm_value    = 1 / sympy_sqrt(sum(v**2 for v in values))
-    stmts += [Assign(inv_norm_variable, inv_norm_value)]
-    stmts += [AugAssign(v, '*', inv_norm_variable) for v in vector]
-
-    return stmts
-
-#==============================================================================
-def compute_tangent_vector(parent_namespace, vector, boundary, mapping):
-    raise NotImplementedError('TODO')
 
 #==============================================================================
 _range = re.compile('([0-9]*:[0-9]+|[a-zA-Z]?:[a-zA-Z])')
@@ -887,14 +520,8 @@ pythran_dtypes = {'real':'float','int':'int'}
 
 #==============================================================================
 
-from sympy import preorder_traversal
-from sympy import NumberSymbol
-from sympy import Pow, S
-from sympy.printing.pycode import _known_functions_math
-from sympy.printing.pycode import _known_constants_math
-from sympy.printing.pycode import _known_functions_mpmath
-from sympy.printing.pycode import _known_constants_mpmath
-from sympy.printing.pycode import _known_functions_numpy
+from sympy import preorder_traversal, NumberSymbol, Pow, S
+from sympy.printing.pycode import _known_functions_math, _known_constants_math, _known_functions_mpmath, _known_constants_mpmath, _known_functions_numpy
 
 
 def math_atoms_as_str(expr, lib='math'):

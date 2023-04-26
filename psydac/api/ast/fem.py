@@ -60,7 +60,7 @@ from .nodes import thread_coords, local_index_element
 from .nodes import TensorIntDiv, TensorAssignExpr, TensorInteger
 from .nodes import TensorAdd, TensorMul, TensorMax
 from .nodes import IntDivNode, AddNode, MulNode
-from .nodes import AndNode, StrictLessThanNode, WhileLoop, NotNode, EqNode, IfNode
+from .nodes import EqNode, IfNode
 from .nodes import GlobalThreadStarts, GlobalThreadEnds, GlobalThreadSizes, NumThreads
 from .nodes import LocalThreadStarts, LocalThreadEnds
 from .nodes import Allocate, Min, Array

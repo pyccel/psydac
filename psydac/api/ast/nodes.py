@@ -300,9 +300,13 @@ class RankNode(with_metaclass(Singleton, Basic)):
     """Base class representing a rank of an iterator"""
     pass
 
+
+#==============================================================================
 class RankDimension(RankNode):
     pass
 
+
+#==============================================================================
 rank_dim = RankDimension()
 
 #==============================================================================
@@ -311,17 +315,21 @@ class BaseNode(Basic):
     """
     pass
 
+
 #==============================================================================
 class Element(BaseNode):
     """
     """
     pass
 
+
 #==============================================================================
 class Pattern(Tuple):
     """
     """
     pass
+
+
 #==============================================================================
 class Mask(Basic):
     def __new__(cls, axis, ext):
@@ -334,6 +342,8 @@ class Mask(Basic):
     @property
     def ext(self):
         return self._args[1]
+
+
 #==============================================================================
 class EvalField(BaseNode):
     """
@@ -444,8 +454,7 @@ class EvalField(BaseNode):
     def g_coeffs(self):
         return self._g_coeffs
 
-class RAT(Basic):
-    pass
+
 #==============================================================================
 class EvalMapping(BaseNode):
     """
@@ -593,6 +602,7 @@ class EvalMapping(BaseNode):
     def trial(self):
         return self._trial
 
+
 #==============================================================================
 class IteratorBase(BaseNode):
     """
@@ -613,13 +623,16 @@ class IteratorBase(BaseNode):
     def dummies(self):
         return self._args[1]
 
+
 #==============================================================================
 class TensorIterator(IteratorBase):
     pass
 
+
 #==============================================================================
 class ProductIterator(IteratorBase):
     pass
+
 
 #==============================================================================
 # TODO dummies should not be None
@@ -643,6 +656,7 @@ class GeneratorBase(BaseNode):
     @property
     def dummies(self):
         return self._args[1]
+
 
 #==============================================================================
 class TensorGenerator(GeneratorBase):
@@ -670,6 +684,7 @@ class TensorGenerator(GeneratorBase):
      (IndexedElement(local_x2, i_quad_2), IndexedElement(local_w2, i_quad_2)))
     """
 
+
 #==============================================================================
 class ProductGenerator(GeneratorBase):
     """
@@ -694,17 +709,20 @@ class ProductGenerator(GeneratorBase):
     IndexedElement(rank_from_coords, thread_coords_1, thread_coords_2)
     """
 
+
 #==============================================================================
 class Grid(BaseNode):
     """
     """
     pass
 
+
 #==============================================================================
 class ScalarNode(BaseNode, AtomicExpr):
     """
     """
     pass
+
 
 #==============================================================================
 class ArrayNode(BaseNode, AtomicExpr):
@@ -741,12 +759,16 @@ class ArrayNode(BaseNode, AtomicExpr):
 
         return Pattern(*args)
 
+
 #==============================================================================
 class MatrixNode(ArrayNode):
     pass
 
+
+#==============================================================================
 class BlockLinearOperatorNode(MatrixNode):
     pass
+
 
 #==============================================================================
 class GlobalTensorQuadratureGrid(ArrayNode):
@@ -763,10 +785,12 @@ class GlobalTensorQuadratureGrid(ArrayNode):
     def weights( self ):
         return self._weights
 
+
 #==============================================================================
 class PlusGlobalTensorQuadratureGrid(GlobalTensorQuadratureGrid):
     """This class represents the quadrature points and weights in the plus side of an interface.
     """
+
 
 #==============================================================================
 class LocalTensorQuadratureGrid(ArrayNode):
@@ -782,10 +806,12 @@ class LocalTensorQuadratureGrid(ArrayNode):
     def weights( self ):
         return self._weights
 
+
 #==============================================================================
 class PlusLocalTensorQuadratureGrid(LocalTensorQuadratureGrid):
     """This class represents the element wise quadrature points and weights in the plus side of an interface.
     """
+
 
 #==============================================================================
 class TensorQuadrature(ScalarNode):
@@ -798,10 +824,12 @@ class TensorQuadrature(ScalarNode):
     def weights( self ):
         return self._weights
 
+
 #==============================================================================
 class PlusTensorQuadrature(TensorQuadrature):
     """This class represents the quadrature point and weight in the plus side of an interface.
     """
+
 
 #==============================================================================
 class MatrixQuadrature(MatrixNode):
@@ -821,17 +849,23 @@ class MatrixQuadrature(MatrixNode):
     def dtype(self):
         return self._args[1]
 
+
 #==============================================================================
 class MatrixRankFromCoords(MatrixNode):
     pass
+
+
 #==============================================================================
 class MatrixCoordsFromRank(MatrixNode):
     pass
+
+
 #==============================================================================
 class WeightedVolumeQuadrature(ScalarNode):
     """
     """
     pass
+
 
 #==============================================================================
 class GlobalTensorQuadratureBasis(ArrayNode):
@@ -870,6 +904,8 @@ class GlobalTensorQuadratureBasis(ArrayNode):
 
     def set_index(self, index):
         return type(self)(self.target, index)
+
+
 #==============================================================================
 class LocalTensorQuadratureBasis(ArrayNode):
     """
@@ -907,6 +943,8 @@ class LocalTensorQuadratureBasis(ArrayNode):
 
     def set_index(self, index):
         return type(self)(self.target, index)
+
+
 #==============================================================================
 class TensorQuadratureBasis(ArrayNode):
     """
@@ -938,6 +976,8 @@ class TensorQuadratureBasis(ArrayNode):
     @property
     def is_scalar(self):
         return isinstance(self.target, (ScalarFunction, IndexedVectorFunction))
+
+
 #==============================================================================
 class CoefficientBasis(ScalarNode):
     """
@@ -951,46 +991,58 @@ class CoefficientBasis(ScalarNode):
     @property
     def target(self):
         return self._args[0]
+
+
 #==============================================================================
 class TensorBasis(CoefficientBasis):
     pass
+
 
 #==============================================================================
 class GlobalTensorQuadratureTestBasis(GlobalTensorQuadratureBasis):
     _positions = {index_quad: 3, index_deriv: 2, index_dof_test: 1, index_element: 0}
     _free_indices = [index_element, index_quad, index_dof_test]
 
+
 #==============================================================================
 class LocalTensorQuadratureTestBasis(LocalTensorQuadratureBasis):
     _positions = {index_quad: 3, index_deriv: 2, index_dof_test: 1, index_element: 0}
     _free_indices = [index_element, index_quad, index_dof_test]
 
+
 #==============================================================================
 class TensorQuadratureTestBasis(TensorQuadratureBasis):
     pass
 
+
 #==============================================================================
 class TensorTestBasis(TensorBasis):
     pass
+
 
 #==============================================================================
 class GlobalTensorQuadratureTrialBasis(GlobalTensorQuadratureBasis):
     _positions = {index_quad: 3, index_deriv: 2, index_dof_trial: 1, index_element: 0}
     _free_indices = [index_element, index_quad, index_dof_trial]
 
+
 #==============================================================================
 class LocalTensorQuadratureTrialBasis(LocalTensorQuadratureBasis):
     _positions = {index_quad: 3, index_deriv: 2, index_dof_trial: 1, index_element: 0}
     _free_indices = [index_element, index_quad, index_dof_trial]
 
+
 #==============================================================================
 class TensorQuadratureTrialBasis(TensorQuadratureBasis):
     pass
+
 
 #==============================================================================
 class TensorTrialBasis(TensorBasis):
     pass
 
+
+#==============================================================================
 class MatrixGlobalBasis(MatrixNode):
     """
     used to describe global dof
@@ -1012,6 +1064,8 @@ class MatrixGlobalBasis(MatrixNode):
     @property
     def dtype(self):
         return self._args[2]
+
+
 #==============================================================================
 class MatrixLocalBasis(MatrixNode):
     """
@@ -1030,6 +1084,7 @@ class MatrixLocalBasis(MatrixNode):
     @property
     def dtype(self):
         return self._args[1]
+
 
 #==============================================================================
 class StencilMatrixLocalBasis(MatrixNode):
@@ -1067,6 +1122,7 @@ class StencilMatrixLocalBasis(MatrixNode):
     def dtype(self):
         return self._args[4]
 
+
 #==============================================================================
 class StencilMatrixGlobalBasis(MatrixNode):
     """
@@ -1102,6 +1158,7 @@ class StencilMatrixGlobalBasis(MatrixNode):
     def dtype(self):
         return self._args[4]
 
+
 #==============================================================================
 class StencilVectorLocalBasis(MatrixNode):
     """
@@ -1136,6 +1193,7 @@ class StencilVectorLocalBasis(MatrixNode):
     @property
     def dtype(self):
         return self._args[4]
+
 
 #==============================================================================
 class StencilVectorGlobalBasis(MatrixNode):
@@ -1178,9 +1236,12 @@ class LocalElementBasis(MatrixNode):
     tag  = random_string( 6 )
     dtype='real'
 
+
+#==============================================================================
 class GlobalElementBasis(MatrixNode):
     tag  = random_string( 6 )
     dtype='real'
+
 
 #==============================================================================
 class BlockStencilMatrixLocalBasis(BlockLinearOperatorNode):
@@ -1239,6 +1300,7 @@ class BlockStencilMatrixLocalBasis(BlockLinearOperatorNode):
             cond = cond or all(isinstance(space.kind, cls) for space in spaces)
         return cond
 
+
 #==============================================================================
 class BlockStencilMatrixGlobalBasis(BlockLinearOperatorNode):
     """
@@ -1289,6 +1351,7 @@ class BlockStencilMatrixGlobalBasis(BlockLinearOperatorNode):
             cond = cond or all(isinstance(space.kind, cls) for space in spaces)
         return cond
 
+
 #==============================================================================
 class BlockStencilVectorLocalBasis(BlockLinearOperatorNode):
     """
@@ -1333,6 +1396,7 @@ class BlockStencilVectorLocalBasis(BlockLinearOperatorNode):
         for cls in types:
             cond = cond or all(isinstance(space.kind, cls) for space in spaces)
         return cond
+
 
 #==============================================================================
 class BlockStencilVectorGlobalBasis(BlockLinearOperatorNode):
@@ -1383,6 +1447,7 @@ class BlockStencilVectorGlobalBasis(BlockLinearOperatorNode):
             cond = cond or all(isinstance(space.kind, cls) for space in spaces)
         return cond
 
+
 #==============================================================================
 class ScalarLocalBasis(ScalarNode):
     """
@@ -1410,6 +1475,8 @@ class ScalarLocalBasis(ScalarNode):
     @property
     def test(self):
         return self._test
+
+
 #==============================================================================
 class BlockScalarLocalBasis(ScalarNode):
     """
@@ -1444,6 +1511,7 @@ class BlockScalarLocalBasis(ScalarNode):
     def expr(self):
         return self._expr
 
+
 #==============================================================================
 class SpanArray(ArrayNode):
     """
@@ -1467,6 +1535,7 @@ class SpanArray(ArrayNode):
     def set_index(self, index):
         return type(self)(self.target, index)
 
+
 #==============================================================================
 class GlobalSpanArray(SpanArray):
     """
@@ -1475,6 +1544,7 @@ class GlobalSpanArray(SpanArray):
     _rank = 1
     _positions = {index_element: 0}
 
+
 #==============================================================================
 class LocalSpanArray(SpanArray):
     """
@@ -1482,12 +1552,16 @@ class LocalSpanArray(SpanArray):
     """
     _rank = 1
     _positions = {index_element: 0}
+
+
 #==============================================================================
 class GlobalThreadSpanArray(SpanArray):
     """
      This represents the global span array of each thread
     """
     _rank = 1
+
+
 #==============================================================================
 class GlobalThreadStarts(ArrayNode):
     """
@@ -1504,7 +1578,8 @@ class GlobalThreadStarts(ArrayNode):
 
     def set_index(self, index):
         return GlobalThreadStarts(index)
- 
+
+
 #==============================================================================
 class GlobalThreadEnds(ArrayNode):
     """
@@ -1521,6 +1596,7 @@ class GlobalThreadEnds(ArrayNode):
 
     def set_index(self, index):
         return GlobalThreadEnds(index)
+
 
 #==============================================================================
 class GlobalThreadSizes(ArrayNode):
@@ -1539,6 +1615,7 @@ class GlobalThreadSizes(ArrayNode):
     def set_index(self, index):
         return GlobalThreadSizes(index)
 
+
 #==============================================================================
 class LocalThreadStarts(ArrayNode):
     """
@@ -1556,6 +1633,7 @@ class LocalThreadStarts(ArrayNode):
     def set_index(self, index):
         return LocalThreadStarts(index)
 
+
 #==============================================================================
 class LocalThreadEnds(ArrayNode):
     """
@@ -1572,6 +1650,7 @@ class LocalThreadEnds(ArrayNode):
 
     def set_index(self, index):
         return LocalThreadEnds(index)
+
 
 #==============================================================================
 class Span(ScalarNode):
@@ -1595,6 +1674,8 @@ class Span(ScalarNode):
     def set_index(self, index):
         return Span(self.target, index)
 
+
+#==============================================================================
 class Pads(ScalarNode):
     """
      This represents the global pads
@@ -1639,23 +1720,6 @@ class Pads(ScalarNode):
     def trials_multiplicity(self):
         return self._trials_multiplicity
 
-#==============================================================================
-class Evaluation(BaseNode):
-    """
-    """
-    pass
-
-#==============================================================================
-class FieldEvaluation(Evaluation):
-    """
-    """
-    pass
-
-#==============================================================================
-class MappingEvaluation(Evaluation):
-    """
-    """
-    pass
 
 #==============================================================================
 class ComputeNode(Basic):
@@ -1668,17 +1732,20 @@ class ComputeNode(Basic):
     def expr(self):
         return self._args[0]
 
+
 #==============================================================================
 class ComputePhysical(ComputeNode):
     """
     """
     pass
 
+
 #==============================================================================
 class ComputePhysicalBasis(ComputePhysical):
     """
     """
     pass
+
 
 #==============================================================================
 class ComputeKernelExpr(ComputeNode):
@@ -1694,17 +1761,21 @@ class ComputeKernelExpr(ComputeNode):
     @property
     def weights(self):
         return self._args[1]
+
+
 #==============================================================================
 class ComputeLogical(ComputeNode):
     """
     """
     pass
 
+
 #==============================================================================
 class ComputeLogicalBasis(ComputeLogical):
     """
     """
     pass
+
 
 #==============================================================================
 class Reduction(Basic):
@@ -1726,6 +1797,7 @@ class Reduction(Basic):
     @property
     def lhs(self):
         return self._args[2]
+
 
 #==============================================================================
 class Reduce(Basic):
@@ -1755,6 +1827,7 @@ class Reduce(Basic):
     def loop(self):
         return self._args[3]
 
+
 #==============================================================================
 class Reset(Basic):
     """
@@ -1770,6 +1843,7 @@ class Reset(Basic):
     def expr(self):
         return self._args[1]
 
+
 #==============================================================================
 class ElementOf(Basic):
     """
@@ -1781,11 +1855,13 @@ class ElementOf(Basic):
     def target(self):
         return self._args[0]
 
+
 #==============================================================================
 class ExprNode(Basic):
     """
     """
     pass
+
 
 #==============================================================================
 class AtomicNode(ExprNode, AtomicExpr):
@@ -1795,6 +1871,7 @@ class AtomicNode(ExprNode, AtomicExpr):
     @property
     def expr(self):
         return self._args[0]
+
 
 #==============================================================================
 class ValueNode(ExprNode):
@@ -1807,29 +1884,26 @@ class ValueNode(ExprNode):
     def expr(self):
         return self._args[0]
 
+
 #==============================================================================
 class PhysicalValueNode(ValueNode):
     pass
+
 
 #==============================================================================
 class LogicalValueNode(ValueNode):
     pass
 
+
 #==============================================================================
 class PhysicalBasisValue(PhysicalValueNode):
     pass
+
 
 #==============================================================================
 class LogicalBasisValue(LogicalValueNode):
     pass
 
-#==============================================================================
-class PhysicalGeometryValue(PhysicalValueNode):
-    pass
-
-#==============================================================================
-class LogicalGeometryValue(LogicalValueNode):
-    pass
 
 #==============================================================================
 class BasisAtom(AtomicNode):
@@ -1856,6 +1930,7 @@ class BasisAtom(AtomicNode):
     def atom(self):
         return self._atom
 
+
 #==============================================================================
 class GeometryAtom(AtomicNode):
     """
@@ -1880,6 +1955,7 @@ class GeometryAtom(AtomicNode):
     def atom(self):
         return self._atom
 
+
 #==============================================================================
 class GeometryExpr(Basic):
     """
@@ -1899,6 +1975,7 @@ class GeometryExpr(Basic):
     def expr(self):
         return self._args[1]
 
+
 #==============================================================================
 class IfNode(BaseNode):
     def __new__(cls, *args):
@@ -1909,19 +1986,7 @@ class IfNode(BaseNode):
     def args(self):
         return self._args[0]
 
-#==============================================================================
-class WhileLoop(BaseNode):
-    def __new__(cls, condition, body):
-        body = tuple(body)
-        return Basic.__new__(cls, condition, body)
 
-    @property
-    def condition(self):
-        return self._args[0]
-
-    @property
-    def body(self):
-        return self._args[1]
 #==============================================================================
 class Loop(BaseNode):
     """
@@ -2085,146 +2150,7 @@ class Loop(BaseNode):
             args = [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
         return Tuple(*args)
 
-#==============================================================================
-class TensorIteration(BaseNode):
-    """
-    """
 
-    def __new__(cls, iterator, generator):
-        # ...
-        if not( isinstance(iterator, TensorIterator) ):
-            raise TypeError('Expecting an TensorIterator')
-
-        if not( isinstance(generator, TensorGenerator) ):
-            raise TypeError('Expecting a TensorGenerator')
-        # ...
-
-        return Basic.__new__(cls, iterator, generator)
-
-    @property
-    def iterator(self):
-        return self._args[0]
-
-    @property
-    def generator(self):
-        return self._args[1]
-
-#==============================================================================
-class ProductIteration(BaseNode):
-    """
-    """
-
-    def __new__(cls, iterator, generator):
-        # ...
-        if not( isinstance(iterator, ProductIterator) ):
-            raise TypeError('Expecting an ProductIterator')
-
-        if not( isinstance(generator, ProductGenerator) ):
-            raise TypeError('Expecting a ProductGenerator')
-        # ...
-
-        return Basic.__new__(cls, iterator, generator)
-
-    @property
-    def iterator(self):
-        return self._args[0]
-
-    @property
-    def generator(self):
-        return self._args[1]
-
-#==============================================================================
-class SplitArray(BaseNode):
-    """
-    """
-    def __new__(cls, target, positions, lengths):
-        if not isinstance(positions, (list, tuple, Tuple)):
-            positions = [positions]
-        positions = Tuple(*positions)
-
-        if not isinstance(lengths, (list, tuple, Tuple)):
-            lengths = [lengths]
-        lengths = Tuple(*lengths)
-
-        return Basic.__new__(cls, target, positions, lengths)
-
-    @property
-    def target(self):
-        return self._args[0]
-
-    @property
-    def positions(self):
-        return self._args[1]
-
-    @property
-    def lengths(self):
-        return self._args[2]
-
-#==============================================================================
-def construct_logical_expressions(u, nderiv):
-    if isinstance(u, IndexedVectorFunction):
-        dim = u.base.space.ldim
-    else:
-        dim = u.space.ldim
-
-    ops = [dx1, dx2, dx3][:dim]
-    r = range(nderiv+1)
-    ranges = [r]*dim
-    indices = product(*ranges)
-
-    indices = list(indices)
-    indices = [ijk for ijk in indices if sum(ijk) <= nderiv]
-
-    args = []
-    u = [u] if isinstance(u, (ScalarFunction, IndexedVectorFunction)) else [u[i] for i in range(dim)]
-    for ijk in indices:
-        for atom in u:
-            for n,op in zip(ijk, ops):
-                for _ in range(1, n+1):
-                    atom = op(atom)
-            args.append(atom)
-    return [ComputeLogicalBasis(i) for i in args]
-
-#==============================================================================
-class GeometryExpressions(Basic):
-    """
-    """
-    def __new__(cls, M, nderiv, dtype='real'):
-        expressions = []
-        args        = []
-        if not M.is_analytical:
-
-            dim = M.ldim
-            nderiv = 1 if nderiv == 0 else nderiv
-            ops = [dx1, dx2, dx3][:dim]
-            r = range(nderiv+1)
-            ranges = [r]*dim
-            indices = product(*ranges)
-
-            indices = list(indices)
-            indices = [ijk for ijk in indices if sum(ijk) <= nderiv]
-
-            for d in range(dim):
-                for ijk in indices:
-                    atom = M[d]
-                    for n,op in zip(ijk, ops):
-                        for _ in range(1, n+1):
-                            atom = op(atom)
-                    args.append(atom)
-
-            expressions = [GeometryExpr(i, dtype) for i in args]
-
-        args        = Tuple(*args)
-        expressions = Tuple(*expressions)
-        return Basic.__new__(cls, args, expressions)
-
-    @property
-    def arguments(self):
-        return self._args[0]
-
-    @property
-    def expressions(self):
-        return self._args[1]
 #==============================================================================
 def construct_itergener(a, index):
     """
@@ -2332,6 +2258,151 @@ def construct_itergener(a, index):
 
     return iterator, generator
 
+#==============================================================================
+class TensorIteration(BaseNode):
+    """
+    """
+
+    def __new__(cls, iterator, generator):
+        # ...
+        if not( isinstance(iterator, TensorIterator) ):
+            raise TypeError('Expecting an TensorIterator')
+
+        if not( isinstance(generator, TensorGenerator) ):
+            raise TypeError('Expecting a TensorGenerator')
+        # ...
+
+        return Basic.__new__(cls, iterator, generator)
+
+    @property
+    def iterator(self):
+        return self._args[0]
+
+    @property
+    def generator(self):
+        return self._args[1]
+
+
+#==============================================================================
+class ProductIteration(BaseNode):
+    """
+    """
+
+    def __new__(cls, iterator, generator):
+        # ...
+        if not( isinstance(iterator, ProductIterator) ):
+            raise TypeError('Expecting an ProductIterator')
+
+        if not( isinstance(generator, ProductGenerator) ):
+            raise TypeError('Expecting a ProductGenerator')
+        # ...
+
+        return Basic.__new__(cls, iterator, generator)
+
+    @property
+    def iterator(self):
+        return self._args[0]
+
+    @property
+    def generator(self):
+        return self._args[1]
+
+
+#==============================================================================
+class SplitArray(BaseNode):
+    """
+    """
+    def __new__(cls, target, positions, lengths):
+        if not isinstance(positions, (list, tuple, Tuple)):
+            positions = [positions]
+        positions = Tuple(*positions)
+
+        if not isinstance(lengths, (list, tuple, Tuple)):
+            lengths = [lengths]
+        lengths = Tuple(*lengths)
+
+        return Basic.__new__(cls, target, positions, lengths)
+
+    @property
+    def target(self):
+        return self._args[0]
+
+    @property
+    def positions(self):
+        return self._args[1]
+
+    @property
+    def lengths(self):
+        return self._args[2]
+
+
+#==============================================================================
+def construct_logical_expressions(u, nderiv):
+    if isinstance(u, IndexedVectorFunction):
+        dim = u.base.space.ldim
+    else:
+        dim = u.space.ldim
+
+    ops = [dx1, dx2, dx3][:dim]
+    r = range(nderiv+1)
+    ranges = [r]*dim
+    indices = product(*ranges)
+
+    indices = list(indices)
+    indices = [ijk for ijk in indices if sum(ijk) <= nderiv]
+
+    args = []
+    u = [u] if isinstance(u, (ScalarFunction, IndexedVectorFunction)) else [u[i] for i in range(dim)]
+    for ijk in indices:
+        for atom in u:
+            for n,op in zip(ijk, ops):
+                for _ in range(1, n+1):
+                    atom = op(atom)
+            args.append(atom)
+    return [ComputeLogicalBasis(i) for i in args]
+
+#==============================================================================
+class GeometryExpressions(Basic):
+    """
+    """
+    def __new__(cls, M, nderiv, dtype='real'):
+        expressions = []
+        args        = []
+        if not M.is_analytical:
+
+            dim = M.ldim
+            nderiv = 1 if nderiv == 0 else nderiv
+            ops = [dx1, dx2, dx3][:dim]
+            r = range(nderiv+1)
+            ranges = [r]*dim
+            indices = product(*ranges)
+
+            indices = list(indices)
+            indices = [ijk for ijk in indices if sum(ijk) <= nderiv]
+
+            for d in range(dim):
+                for ijk in indices:
+                    atom = M[d]
+                    for n,op in zip(ijk, ops):
+                        for _ in range(1, n+1):
+                            atom = op(atom)
+                    args.append(atom)
+
+            expressions = [GeometryExpr(i, dtype) for i in args]
+
+        args        = Tuple(*args)
+        expressions = Tuple(*expressions)
+        return Basic.__new__(cls, args, expressions)
+
+    @property
+    def arguments(self):
+        return self._args[0]
+
+    @property
+    def expressions(self):
+        return self._args[1]
+
+
 #=============================================================================================
 # the Expression class works with fixed dimension expressions instead of vectorized one,
 # where in some cases we need to treat each dimesion diffrently
@@ -2349,23 +2420,25 @@ class Expression(Expr):
     def __new__(cls, *args):
         return Expr.__new__(cls, *args)
 
+
+#=============================================================================================
 class AddNode(Expression):
     pass
 
+
+#=============================================================================================
 class MulNode(Expression):
     pass
 
+
+#=============================================================================================
 class IntDivNode(Expression):
     pass
 
-class AndNode(Expression):
-    pass
 
-class NotNode(Expression):
-    pass
-
+#=============================================================================================
 class EqNode(Expression):
     pass
 
-class StrictLessThanNode(Expression):
-    pass
+
+#=============================================================================================
