@@ -77,20 +77,14 @@ from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.utilities     import flatten
 from psydac.api.ast.utilities import build_pythran_types_header
 from psydac.api.ast.utilities import build_pyccel_types_decorator
+from psydac.api.utilities import random_string
 
 #==============================================================================
-# TODO move it
-import string
-import random
-def random_string( n ):
-    chars    = string.ascii_lowercase + string.digits
-    selector = random.SystemRandom()
-    return ''.join( selector.choice( chars ) for _ in range( n ) )
-
 class Shape(Basic):
     @property
     def arg(self):
         return self._args[0]
+
 
 def is_scalar_array(var):
     indices = var.indices
@@ -98,8 +92,8 @@ def is_scalar_array(var):
         if isinstance(ind, Slice):
             return False
     return True
-#==============================================================================
 
+#==============================================================================
 def parse(expr, settings, backend=None):
     """
     This function takes a Psydac Ast and returns a Pyccel Ast

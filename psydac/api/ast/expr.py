@@ -30,7 +30,7 @@ from sympde.topology             import SymbolicExpr
 from sympde.calculus.matrices    import SymbolicDeterminant
 
 from .basic      import SplBasic
-from .utilities  import random_string
+from psydac.api.utilities  import random_string
 from .utilities  import build_pythran_types_header, variables
 from .utilities  import build_pyccel_types_decorator
 from .utilities  import math_atoms_as_str
