@@ -9,11 +9,16 @@ from sympy.utilities.iterables import cartes
 from sympde.topology.space       import ScalarFunction, VectorFunction, IndexedVectorFunction, element_of
 from sympde.topology             import Mapping, LogicalExpr, SymbolicExpr
 from sympde.topology.derivatives import _partial_derivatives, _logical_partial_derivatives, get_atom_derivatives, \
-                                        get_atom_logical_derivatives, get_index_derivatives, get_index_logical_derivatives
+                                        get_index_derivatives, get_atom_logical_derivatives, get_index_logical_derivatives
 from sympde.core                 import Constant
 
 from psydac.pyccel.ast.core import Variable, IndexedVariable, Assign, AugAssign, _atomic, Comment, String
 
+#==============================================================================
+def random_string( n ):
+    chars    = string.ascii_lowercase + string.digits
+    selector = random.SystemRandom()
+    return ''.join( selector.choice( chars ) for _ in range( n ) )
 
 #==============================================================================
 def is_mapping(expr):

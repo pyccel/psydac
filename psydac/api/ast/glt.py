@@ -38,7 +38,7 @@ from sympde.expr.evaluation import TerminalExpr
 from gelato.expr import gelatize
 
 from .basic      import SplBasic
-from psydac.api.utilities  import random_string
+from .utilities  import random_string
 from .utilities  import build_pythran_types_header, variables
 from .utilities  import build_pyccel_types_decorator
 from .utilities  import is_mapping

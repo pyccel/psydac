@@ -21,9 +21,16 @@ from sympde.topology import get_atom_logical_derivatives
 
 from psydac.pyccel.ast.core import AugAssign, Assign
 from psydac.pyccel.ast.core import _atomic
-from psydac.api.utilities   import flatten, random_string
+from psydac.api.utilities   import flatten
 
 #==============================================================================
+# TODO move it
+import string
+import random
+def random_string( n ):
+    chars    = string.ascii_lowercase + string.digits
+    selector = random.SystemRandom()
+    return ''.join( selector.choice( chars ) for _ in range( n ) )
 
 class ZerosLike(Function):
     @property

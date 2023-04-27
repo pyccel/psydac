@@ -25,6 +25,12 @@ from psydac.core.kernels import (pushforward_2d_l2, pushforward_3d_l2,
 __all__ = ('SplineMapping', 'NurbsMapping')
 
 #==============================================================================
+def random_string(n):
+    chars    = string.ascii_uppercase + string.ascii_lowercase + string.digits
+    selector = random.SystemRandom()
+    return ''.join(selector.choice(chars) for _ in range(n))
+
+#==============================================================================
 class SplineMapping(BasicCallableMapping):
 
     def __init__(self, *components, name=None):
