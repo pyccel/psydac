@@ -342,8 +342,18 @@ class Parser(object):
         args = [self._visit(a) for a in expr.args]
         return And(*args)
 
+    def _visit_NotNode(self, expr, **kwargs):
+        return Not(self._visit(expr.args[0]))
+
     def _visit_EqNode(self, expr, **kwargs):
         return Eq(self._visit(expr.args[0]), self._visit(expr.args[1]))
+
+    # ....................................................
+    def _visit_StrictLessThanNode(self, expr, **kwargs):
+        a = self._visit(expr.args[0])
+        b = self._visit(expr.args[1])
+        return StrictLessThan(a,b)
+
     # ....................................................
     def _visit_Add(self, expr, **kwargs):
         args = [self._visit(i) for i in expr.args]
@@ -526,7 +536,7 @@ class Parser(object):
             if isinstance(i, Shape):
                 inits.append(Assign(var, ZerosLike(i.arg)))
             else:
-                inits.append(Assign(var, Zeros(i, dtype=var.dtype)))
+                inits.append(Assign(var, Zeros(i)))
 
         inits.append(EmptyNode())
         body =  tuple(inits) + body
@@ -1373,6 +1383,13 @@ class Parser(object):
             raise TypeError('{} not available'.format(type(expr)))
 
     # ....................................................
+    def _visit_PhysicalGeometryValue(self, expr, **kwargs):
+        target  = self._target
+        expr = LogicalExpr(expr.expr, mapping(target))
+
+        return SymbolicExpr(expr)
+
+    # ....................................................
     def _visit_ElementOf(self, expr, **kwargs):
         dim    = self.dim
         target = expr.target
@@ -1918,6 +1935,14 @@ class Parser(object):
         generator = self._visit(expr.generator)
     
         return Assign(iterator, generator)
+
+    def _visit_RAT(self, expr):
+        return str(expr)
+
+    def _visit_WhileLoop(self, expr, **kwargs):
+        cond = self._visit(expr.condition)
+        body = [self._visit(a) for a in expr.body]
+        return While(cond, body)
 
     def _visit_IfNode(self, expr, **kwargs):
         args = []

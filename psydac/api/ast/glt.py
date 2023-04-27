@@ -571,7 +571,6 @@ class GltKernel(SplBasic):
                            decorators=decorators,header=header)
 
 
-#=======================================================================================================================
 class GltInterface(SplBasic):
 
     def __new__(cls, kernel, name=None, domain=None, mapping=None, is_rational_mapping=None, backend=None, **kwargs):
@@ -823,6 +822,3 @@ class GltInterface(SplBasic):
 
         self._imports = imports
         return FunctionDef(self.name, list(func_args), [], body)
-
-
-#=======================================================================================================================
