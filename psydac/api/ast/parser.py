@@ -536,7 +536,7 @@ class Parser(object):
             if isinstance(i, Shape):
                 inits.append(Assign(var, ZerosLike(i.arg)))
             else:
-                inits.append(Assign(var, Zeros(i)))
+                inits.append(Assign(var, Zeros(i, dtype=var.dtype)))
 
         inits.append(EmptyNode())
         body =  tuple(inits) + body
