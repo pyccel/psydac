@@ -9,7 +9,7 @@ from sympde.topology import Line, Square
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import element_of, Derham
 from sympde.core     import Constant
-from sympde.expr     import LinearForm, BilinearForm, Functional
+from sympde.expr     import LinearForm, BilinearForm, Functional, Norm
 from sympde.expr     import integral
 
 from psydac.linalg.solvers     import inverse
@@ -70,12 +70,206 @@ def test_field_and_constant(backend, dtype):
     # Test matrix A
     x = fh.coeffs
 
-    # TODO: remove conj when it is implemented in assemble
     assert abs(A.dot(x).dot(x) - res) < 1e-12
 
     # Test vector b
     assert abs(b.toarray().sum() - res) < 1e-12
+    print("PASSED")
 
+#==============================================================================
+def test_bilinearForm_complex(backend, dtype='complex'):
+
+    # If 'backend' is specified, accelerate Python code by passing **kwargs
+    # to discretization of bilinear forms, linear forms and functionals.
+    kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
+
+    domain = Square()
+    V = ScalarFunctionSpace('V', domain)
+
+    # TODO: remove codomain_type when It is implemented in sympde
+    V.codomain_type = dtype
+    u = element_of(V, name='u')
+    v = element_of(V, name='v')
+    f = element_of(V, name='f')
+    c = Constant(name='c')
+
+    res=(1.+1.j)/2
+    # We try to put complex as a sympy object in the expression
+    g1 = (1.+I)/2 * c * f**2
+
+    # We try to put complex as a python scalar in the expression
+    g2 = res * c * f**2
+
+    # We try to put complex in a Sympde Constant in the expression
+    g3 = c * f**2
+
+    # We try to put complex in a PSYDAC FemField in the expression
+    g4 = c * f**2
+
+    a1 = BilinearForm((u, v), integral(domain, u * v * g1))
+    a2 = BilinearForm((u, v), integral(domain, u * v * g2))
+    a3 = BilinearForm((u, v), integral(domain, u * v * g3))
+    a4 = BilinearForm((u, v), integral(domain, u * v * g4))
+
+    ncells = (5, 5)
+    degree = (3, 3)
+    domain_h = discretize(domain, ncells=ncells)
+    Vh = discretize(V, domain_h, degree=degree)
+    a1h = discretize(a1, domain_h, [Vh, Vh], **kwargs)
+    a2h = discretize(a2, domain_h, [Vh, Vh], **kwargs)
+    a3h = discretize(a3, domain_h, [Vh, Vh], **kwargs)
+    a4h = discretize(a4, domain_h, [Vh, Vh], **kwargs)
+
+    fh = FemField(Vh)
+    fh.coeffs[:] = 1
+    fh2 = FemField(Vh)
+    fh2.coeffs[:] = np.sqrt(res)
+
+    # Assembly call should not crash if correct arguments are used
+    A1 = a1h.assemble(c=1.0, f=fh)
+    A2 = a2h.assemble(c=1.0, f=fh)
+    A3 = a3h.assemble(c=res, f=fh)
+    A4 = a4h.assemble(c=1.0, f=fh2)
+
+    # Test matrix A
+    x = fh.coeffs
+
+    assert abs(A1.dot(x).dot(x) - res) < 1e-12
+    assert abs(A2.dot(x).dot(x) - res) < 1e-12
+    assert abs(A3.dot(x).dot(x) - res) < 1e-12
+    assert abs(A4.dot(x).dot(x) - res) < 1e-12
+
+    print("PASSED")
+
+#==============================================================================
+def test_linearForm_complex(backend, dtype='complex'):
+
+    # If 'backend' is specified, accelerate Python code by passing **kwargs
+    # to discretization of bilinear forms, linear forms and functionals.
+    kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
+
+    domain = Square()
+    V = ScalarFunctionSpace('V', domain)
+
+    # TODO: remove codomain_type when It is implemented in sympde
+    V.codomain_type = dtype
+    u = element_of(V, name='u')
+    v = element_of(V, name='v')
+    f = element_of(V, name='f')
+    c = Constant(name='c')
+
+    res = (1.+1.j)/2
+    # We try to put complex as a sympy object in the expression
+    g1 = (1.+I)/2 * c * f**2
+
+    # We try to put complex as a python scalar in the expression
+    g2 = res * c * f**2
+
+    # We try to put complex in a Sympde Constant in the expression
+    g3 = c * f**2
+
+    # We try to put complex in a PSYDAC FemField in the expression
+    g4 = c * f**2
+
+    l1 = LinearForm(v, integral(domain, g1 * v))
+    l2 = LinearForm(v, integral(domain, g2 * v))
+    l3 = LinearForm(v, integral(domain, g3 * v))
+    l4 = LinearForm(v, integral(domain, g4 * v))
+
+    ncells = (5, 5)
+    degree = (3, 3)
+    domain_h = discretize(domain, ncells=ncells)
+    Vh = discretize(V, domain_h, degree=degree)
+    l1h = discretize(l1, domain_h, Vh, **kwargs)
+    l2h = discretize(l2, domain_h, Vh, **kwargs)
+    l3h = discretize(l3, domain_h, Vh, **kwargs)
+    l4h = discretize(l4, domain_h, Vh, **kwargs)
+
+    fh = FemField(Vh)
+    fh.coeffs[:] = 1
+    fh2 = FemField(Vh)
+    fh2.coeffs[:] = np.sqrt(res)
+
+    # Assembly call should not crash if correct arguments are used
+    b1 = l1h.assemble(c=1.0, f=fh)
+    b2 = l2h.assemble(c=1.0, f=fh)
+    b3 = l3h.assemble(c=res, f=fh)
+    b4 = l4h.assemble(c=1.0, f=fh2)
+
+    # Test matrix A
+    x = fh.coeffs
+
+
+    # Test vector b
+    assert abs(b1.toarray().sum() - res) < 1e-12
+    assert abs(b2.toarray().sum() - res) < 1e-12
+    assert abs(b3.toarray().sum() - res) < 1e-12
+    assert abs(b4.toarray().sum() - res) < 1e-12
+
+    print("PASSED")
+
+#==============================================================================
+def test_Norm_complex(backend, dtype='complex'):
+
+    # If 'backend' is specified, accelerate Python code by passing **kwargs
+    # to discretization of bilinear forms, linear forms and functionals.
+    kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
+
+    domain = Square()
+    V = ScalarFunctionSpace('V', domain)
+
+    # TODO: remove codomain_type when It is implemented in sympde
+    V.codomain_type = dtype
+    u = element_of(V, name='u')
+    v = element_of(V, name='v')
+    f = element_of(V, name='f')
+    c = Constant(name='c')
+
+    res = (1.+1.j)/np.sqrt(2)
+
+    # We try to put complex as a sympy object in the expression
+    g1  = (1.+I)/np.sqrt(2)
+
+    # We try to put complex as a python scalar in the expression
+    g2  = res
+
+    # We try to put complex in a Sympde Constant in the expression
+    g3  = c
+
+    n1 = Norm(v-g1, domain)
+    n2 = Norm(v-g2, domain)
+    n3 = Norm(v-g3, domain)
+
+    # We try to put complex in a PSYDAC FemField in the expression
+    n4 = Norm(v, domain)
+
+
+    ncells = (5, 5)
+    degree = (3, 3)
+    domain_h = discretize(domain, ncells=ncells)
+    Vh = discretize(V, domain_h, degree=degree)
+    n1h = discretize(n1, domain_h, Vh, **kwargs)
+    n2h = discretize(n2, domain_h, Vh, **kwargs)
+    n3h = discretize(n3, domain_h, Vh, **kwargs)
+    n4h = discretize(n4, domain_h, Vh, **kwargs)
+
+    fh = FemField(Vh)
+    fh.coeffs[:] = 1
+
+    fh2 = FemField(Vh)
+    fh2.coeffs[:] = np.sqrt(res)
+
+    # Assembly call should not crash if correct arguments are used
+    r1 = n1h.assemble(v=fh)
+    r2 = n2h.assemble(v=fh)
+    r3 = n3h.assemble(v=fh, c=res)
+    r4 = n4h.assemble(v=fh2)
+
+    # Test matrix A
+    assert abs(r1-0.7653668647301748) < 1e-12
+    assert abs(r1 - r2) < 1e-12
+    assert abs(r1 - r3) < 1e-12
+    assert abs(r4 - 1) < 1e-12
     print("PASSED")
 
 #==============================================================================
@@ -123,7 +317,6 @@ def test_multiple_fields(backend, dtype):
     x = fh.coeffs
 
     # Test matrix A
-    # TODO: remove conj when it is implemented in assemble
     assert abs(A.dot(x).dot(x) - res) < 1e-12
 
     # Test vector b
