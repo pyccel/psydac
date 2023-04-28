@@ -524,8 +524,10 @@ class BlockLinearOperator(LinearOperator):
 
         for (i, j), Lij in self._blocks.items():
             assert isinstance(Lij, (StencilMatrix, BlockLinearOperator))
-            Lij_out = Lij.conjugate()
-            out[i,j] = Lij_out
+            if out[i,j]==None:
+                out[i, j] = Lij.conjugate()
+            else:
+                Lij.conjugate(out=out[i,j])
         return out
 
     def conj(self, out=None):

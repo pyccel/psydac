@@ -71,7 +71,7 @@ def test_field_and_constant(backend, dtype):
     x = fh.coeffs
 
     # TODO: remove conj when it is implemented in assemble
-    assert abs((A.conj()).dot(x).dot(x) - res) < 1e-12
+    assert abs(A.dot(x).dot(x) - res) < 1e-12
 
     # Test vector b
     assert abs(b.toarray().sum() - res) < 1e-12
@@ -124,7 +124,7 @@ def test_multiple_fields(backend, dtype):
 
     # Test matrix A
     # TODO: remove conj when it is implemented in assemble
-    assert abs((A.conj()).dot(x).dot(x) - res) < 1e-12
+    assert abs(A.dot(x).dot(x) - res) < 1e-12
 
     # Test vector b
     assert abs(b.toarray().sum() - res) < 1e-12
