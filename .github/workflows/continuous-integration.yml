@@ -4,8 +4,8 @@
 name: Run tests
 
 on:
-  push:
-    branches: [ devel ]
+#  push:
+#    branches: [ devel ]
   pull_request:
     branches: [ devel ]
 
