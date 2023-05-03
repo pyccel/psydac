@@ -2,6 +2,7 @@
 #
 # Copyright 2018 Yaman Güçlü, Jalal Lakhlili
 # Copyright 2022 Yaman Güçlü, Said Hadjout, Julian Owezarek
+"""This is a docstring."""
 
 from abc   import ABC, abstractmethod
 from scipy.sparse import coo_matrix
@@ -30,10 +31,6 @@ class VectorSpace(ABC):
     def dtype(self):
         """
         The data type of the field over which the space is built.
-
-        See also
-        --------
-        https://en.wikipedia.org/wiki/Field_(mathematics)
 
         """
 
@@ -904,7 +901,7 @@ class InverseLinearOperator(LinearOperator):
     def jacobi(A, b, out=None):
         """
         Jacobi preconditioner.
-        ----------
+        ----------------------
         A : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator
             Left-hand-side matrix A of linear system.
 
