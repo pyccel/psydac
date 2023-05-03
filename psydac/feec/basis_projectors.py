@@ -347,10 +347,26 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
         # histopolation
         elif space_out.basis == 'M':
 
+            """if space_out.degree % 2 == 0:
+                union_breaks = space_out.breaks
+            else:
+                union_breaks = space_out.breaks[:-1]
+
+            # Make union of Greville and break points
+            tmp = set(np.round_(space_out.histopolation_grid, decimals=14)).union(
+                np.round_(union_breaks, decimals=14))
+
+            tmp = list(tmp)
+            tmp.sort()
+            tmp_a = np.array(tmp)
+
+            x_grid = tmp_a[np.logical_and(tmp_a >= np.min(
+                histopol_loc) - 1e-14, tmp_a <= np.max(histopol_loc) + 1e-14)]"""
+
             x_grid = space_out.histopolation_grid
 
             # determine subinterval index (= 0 or 1):
-            subs += [np.zeros(x_grid.size, dtype=int)]
+            subs += [np.zeros(len(x_grid), dtype=int)]
             for n, x_h in enumerate(x_grid):
                 add = 1
                 for x_g in histopol_loc:
@@ -364,15 +380,14 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
                 nq = space_in.degree + 1
             else:
                 nq = n_quad[direction]
-
             pts_loc, wts_loc = gauss_legendre(nq-1)
             pts_loc, wts_loc = pts_loc[::-1], wts_loc[::-1]
             global_quad_x, global_quad_w = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
             #"roll" back points to the interval to ensure that the quadrature points are
             #in the domain. Probably only usefull on periodic cases
             roll_edges(space_out.domain, global_quad_x) 
-            x = global_quad_x[s:e+1]
-            w = global_quad_w[s:e+1]
+            x = global_quad_x#[s:e+1]
+            w = global_quad_w#[s:e+1]
             pts += [x]
             wts += [w]
 
