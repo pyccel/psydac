@@ -98,7 +98,7 @@ where the `HDF5_DIR` environment variable should store the absolute path to the 
 ```sh
 h5pcc -showconfig
 ```
-or (on a mac)
+or (on macOS)
 ```sh
 brew info hdf5-mpi
 ```
