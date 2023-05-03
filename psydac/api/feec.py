@@ -1,3 +1,5 @@
+from sympde.topology.mapping import Mapping
+
 from psydac.api.basic              import BasicDiscrete
 from psydac.feec.derivatives       import Derivative_1D, Gradient_2D, Gradient_3D
 from psydac.feec.derivatives       import ScalarCurl_2D, VectorCurl_2D, Curl_3D
@@ -16,6 +18,8 @@ class DiscreteDerham(BasicDiscrete):
     """
     def __init__(self, mapping, get_vec=False, *spaces):
 
+        assert (mapping is None) or isinstance(mapping, Mapping)
+        
         self.has_vec = get_vec
 
         if self.has_vec : 
@@ -26,8 +30,11 @@ class DiscreteDerham(BasicDiscrete):
         else :
             dim           = len(spaces) - 1
             self._spaces  = spaces
+
+        dim           = len(spaces) - 1
         self._dim     = dim
         self._mapping = mapping
+        self._callable_mapping = mapping.get_callable_mapping() if mapping else None
 
         if dim == 1:
             D0 = Derivative_1D(spaces[0], spaces[1])
@@ -100,6 +107,10 @@ class DiscreteDerham(BasicDiscrete):
         return self._mapping
 
     @property
+    def callable_mapping(self):
+        return self._callable_mapping
+
+    @property
     def derivatives_as_matrices(self):
         return tuple(V.diff.matrix for V in self.spaces[:-1])
 
@@ -116,9 +127,9 @@ class DiscreteDerham(BasicDiscrete):
         if self.dim == 1:
             P0 = Projector_H1(self.V0)
             P1 = Projector_L2(self.V1, nquads)
-            if self.mapping :
-                P0_m = lambda f: P0(pull_1d_h1(f, self.mapping))
-                P1_m = lambda f: P1(pull_1d_l2(f, self.mapping))
+            if self.mapping:
+                P0_m = lambda f: P0(pull_1d_h1(f, self.callable_mapping))
+                P1_m = lambda f: P1(pull_1d_l2(f, self.callable_mapping))
                 return P0_m, P1_m
             return P0, P1
 
@@ -137,15 +148,15 @@ class DiscreteDerham(BasicDiscrete):
             if self.has_vec : 
                 Pvec = Projector_H1vec(self.Vvec)
 
-            if self.mapping :
-                P0_m = lambda f: P0(pull_2d_h1(f, self.mapping))
-                P2_m = lambda f: P2(pull_2d_l2(f, self.mapping))
+            if self.mapping:
+                P0_m = lambda f: P0(pull_2d_h1(f, self.callable_mapping))
+                P2_m = lambda f: P2(pull_2d_l2(f, self.callable_mapping))
                 if kind == 'hcurl':
-                    P1_m = lambda f: P1(pull_2d_hcurl(f, self.mapping))
+                    P1_m = lambda f: P1(pull_2d_hcurl(f, self.callable_mapping))
                 elif kind == 'hdiv':
-                    P1_m = lambda f: P1(pull_2d_hdiv(f, self.mapping))
+                    P1_m = lambda f: P1(pull_2d_hdiv(f, self.callable_mapping))
                 if self.has_vec : 
-                    Pvec_m = lambda f: Pvec(pull_2d_v(f, self.mapping))
+                    Pvec_m = lambda f: Pvec(pull_2d_v(f, self.callable_mapping))
                     return P0_m, P1_m, P2_m, Pvec_m
                 else : 
                     return P0_m, P1_m, P2_m
@@ -163,12 +174,12 @@ class DiscreteDerham(BasicDiscrete):
             if self.has_vec : 
                 Pvec = Projector_H1vec(self.Vvec)
             if self.mapping :
-                P0_m = lambda f: P0(pull_3d_h1   (f, self.mapping))
-                P1_m = lambda f: P1(pull_3d_hcurl(f, self.mapping))
-                P2_m = lambda f: P2(pull_3d_hdiv (f, self.mapping))
-                P3_m = lambda f: P3(pull_3d_l2   (f, self.mapping))
+                P0_m = lambda f: P0(pull_3d_h1   (f, self.callable_mapping))
+                P1_m = lambda f: P1(pull_3d_hcurl(f, self.callable_mapping))
+                P2_m = lambda f: P2(pull_3d_hdiv (f, self.callable_mapping))
+                P3_m = lambda f: P3(pull_3d_l2   (f, self.callable_mapping))
                 if self.has_vec : 
-                    Pvec_m = lambda f: Pvec(pull_3d_v(f, self.mapping))
+                    Pvec_m = lambda f: Pvec(pull_3d_v(f, self.callable_mapping))
                     return P0_m, P1_m, P2_m, P3_m, Pvec_m
                 else : 
                     return P0_m, P1_m, P2_m, P3_m
@@ -177,3 +188,4 @@ class DiscreteDerham(BasicDiscrete):
                 return P0, P1, P2, P3, Pvec
             else : 
                 return P0, P1, P2, P3
+

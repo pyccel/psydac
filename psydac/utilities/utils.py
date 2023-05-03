@@ -33,7 +33,7 @@ def refine_array_1d(x, n, remove_duplicates=True):
         xr.extend(np.linspace(a, b, n, endpoint=not remove_duplicates))
     if remove_duplicates:
         xr.append(x[-1])
-    return xr
+    return np.array(xr)
 
 #===============================================================================
 def unroll_edges(domain, xgrid):
