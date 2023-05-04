@@ -382,8 +382,9 @@ class EvalField(BaseNode):
         inits    = []
         mats     = []
 
+        # TODO check why the rhs f is considered as a test function
         for v in tests:
-            stmts_1 += construct_logical_expressions(v, nderiv)
+            stmts_1 += construct_logical_expressions(v, nderiv, prefix='basis')
 
         logical_atoms   = [a.expr for a in stmts_1]
         new_atoms = {}
@@ -397,19 +398,21 @@ class EvalField(BaseNode):
         logical_atoms = new_atoms
         for coeff, l_coeff in zip(coeffs,l_coeffs):
             for a in logical_atoms[str(coeff.target)]:
-                node    = AtomicNode(a)
+                # We add value in the array
                 mat     = MatrixQuadrature(a, dtype)
                 val     = ProductGenerator(mat, q_index)
-                rhs     = Mul(coeff,node)
+                rhs     = Mul(coeff, BasisAtom(a, prefix='basis'))
                 stmts_1 += [AugAssign(val, '+', rhs)]
                 mats    += [mat]
-                inits += [Assign(node,val)]
+
+                # We initialize array in kernel loop
+                inits += [Assign(BasisAtom(a), val)]
                 stmts_2[coeff] = Assign(coeff, ProductGenerator(l_coeff, l_index))
 
-        body  = Loop( q_basis, q_index, stmts=stmts_1, mask=mask)
-        stmts_2 = [*stmts_2.values(), body]
-        body  = Loop((), l_index, stmts_2)
-        obj = Basic.__new__(cls, Tuple(*mats), inits, body, dtype)
+        quad_loop  = Loop( q_basis, q_index, stmts=stmts_1, mask=mask, prefix='basis')
+        stmts_2 = [*stmts_2.values(), quad_loop]
+        basis_loop  = Loop((), l_index, stmts=stmts_2)
+        obj = Basic.__new__(cls, Tuple(*mats), inits, basis_loop, dtype)
         obj._l_coeffs = l_coeffs
         obj._g_coeffs = g_coeffs
         obj._tests    = tests
@@ -553,7 +556,7 @@ class EvalMapping(BaseNode):
 
             rationalization  = [*declarations, *rationalization]
 
-        loop   = Loop((q_basis,*l_coeffs), indices_basis, stmts)
+        loop   = Loop((q_basis,*l_coeffs), indices_basis, stmts=stmts)
         loop   = Loop((), quads, stmts=[loop, *rationalization], mask=mask)
 
         obj    = Basic.__new__(cls, loop, l_coeffs, g_coeffs, values, multiplicity, pads)
@@ -597,13 +600,13 @@ class EvalMapping(BaseNode):
 class IteratorBase(BaseNode):
     """
     """
-    def __new__(cls, target, dummies=None):
+    def __new__(cls, target, dummies=None, *, prefix=None):
         if not dummies is None:
             if not isinstance(dummies, (list, tuple, Tuple)):
                 dummies = [dummies]
             dummies = Tuple(*dummies)
 
-        return Basic.__new__(cls, target, dummies)
+        return Basic.__new__(cls, target, dummies, prefix)
 
     @property
     def target(self):
@@ -612,6 +615,10 @@ class IteratorBase(BaseNode):
     @property
     def dummies(self):
         return self._args[1]
+
+    @property
+    def prefix(self):
+        return self._args[2]
 
 #==============================================================================
 class TensorIterator(IteratorBase):
@@ -1704,7 +1711,16 @@ class ComputeLogical(ComputeNode):
 class ComputeLogicalBasis(ComputeLogical):
     """
     """
-    pass
+    def __new__(cls, expr, *, prefix=None):
+        return Basic.__new__(cls, expr, prefix)
+
+    @property
+    def expr(self):
+        return self._args[0]
+
+    @property
+    def prefix(self):
+        return self._args[1]
 
 #==============================================================================
 class Reduction(Basic):
@@ -1821,7 +1837,18 @@ class PhysicalBasisValue(PhysicalValueNode):
 
 #==============================================================================
 class LogicalBasisValue(LogicalValueNode):
-    pass
+    """
+    """
+    def __new__(cls, expr, *, prefix=None):
+        return Basic.__new__(cls, expr, prefix)
+
+    @property
+    def expr(self):
+        return self._args[0]
+
+    @property
+    def prefix(self):
+        return self._args[1]
 
 #==============================================================================
 class PhysicalGeometryValue(PhysicalValueNode):
@@ -1835,7 +1862,7 @@ class LogicalGeometryValue(LogicalValueNode):
 class BasisAtom(AtomicNode):
     """
     """
-    def __new__(cls, expr):
+    def __new__(cls, expr, *, prefix=None):
         types = (IndexedVectorFunction, VectorFunction, ScalarFunction)
 
         ls = _atomic(expr, cls=types)
@@ -1844,13 +1871,17 @@ class BasisAtom(AtomicNode):
 
         u = ls[0]
 
-        obj = Basic.__new__(cls, expr)
+        obj = Basic.__new__(cls, expr, prefix)
         obj._atom = u
         return obj
 
     @property
     def expr(self):
         return self._args[0]
+
+    @property
+    def prefix(self):
+        return self._args[1]
 
     @property
     def atom(self):
@@ -1960,9 +1991,10 @@ class Loop(BaseNode):
         specifies the last private variables in the parallel region
     """
 
-    def __new__(cls, iterable, index, stmts=None, mask=None, 
-                    parallel=None, default=None, shared=None, 
-                    private=None, firstprivate=None, lastprivate=None, reduction=None):
+    def __new__(cls, iterable, index, *, stmts=None, mask=None,
+                parallel=None, default=None, shared=None,
+                private=None, firstprivate=None, lastprivate=None,
+                reduction=None, prefix=None):
         # ...
         if not( isinstance(iterable, (list, tuple, Tuple)) ):
             iterable = [iterable]
@@ -1988,7 +2020,7 @@ class Loop(BaseNode):
         iterator = []
         generator = []
         for a in iterable:
-            i,g = construct_itergener(a, index)
+            i,g = construct_itergener(a, index, prefix=prefix)
             iterator.append(i)
             generator.append(g)
         # ...
@@ -2161,7 +2193,7 @@ class SplitArray(BaseNode):
         return self._args[2]
 
 #==============================================================================
-def construct_logical_expressions(u, nderiv):
+def construct_logical_expressions(u, nderiv, *, prefix=None):
     if isinstance(u, IndexedVectorFunction):
         dim = u.base.space.ldim
     else:
@@ -2183,7 +2215,7 @@ def construct_logical_expressions(u, nderiv):
                 for _ in range(1, n+1):
                     atom = op(atom)
             args.append(atom)
-    return [ComputeLogicalBasis(i) for i in args]
+    return [ComputeLogicalBasis(i, prefix=prefix) for i in args]
 
 #==============================================================================
 class GeometryExpressions(Basic):
@@ -2226,7 +2258,7 @@ class GeometryExpressions(Basic):
     def expressions(self):
         return self._args[1]
 #==============================================================================
-def construct_itergener(a, index):
+def construct_itergener(a, index, *, prefix=None):
     """
     """
     # ... create generator
@@ -2285,47 +2317,29 @@ def construct_itergener(a, index):
     # ...
 
     # ... create iterator
-    if isinstance(element, LocalTensorQuadratureGrid):
-        iterator = TensorIterator(element)
+    tensor_classes = (LocalTensorQuadratureGrid,
+                      TensorQuadrature,
+                      TensorQuadratureTrialBasis,
+                      TensorTrialBasis,
+                      TensorQuadratureTestBasis,
+                      TensorTestBasis,
+                      LocalTensorQuadratureBasis,
+                      TensorQuadratureBasis,
+                      TensorBasis,
+                      Span,
+                      Expr,
+                      Tuple)
 
-    elif isinstance(element, TensorQuadrature):
-        iterator = TensorIterator(element)
+    product_classes = (CoefficientBasis,
+                       GeometryAtom,
+                       MatrixLocalBasis)
 
-    elif isinstance(element, TensorQuadratureTrialBasis):
-        iterator = TensorIterator(element)
+    if isinstance(element, tensor_classes):
+        iterator = TensorIterator(element, prefix=prefix)
 
-    elif isinstance(element, TensorTrialBasis):
-        iterator = TensorIterator(element)
+    elif isinstance(element, product_classes):
+        iterator = ProductIterator(element, prefix=prefix)
 
-    elif isinstance(element, TensorQuadratureTestBasis):
-        iterator = TensorIterator(element)
-
-    elif isinstance(element, TensorTestBasis):
-        iterator = TensorIterator(element)
-
-    elif isinstance(element, LocalTensorQuadratureBasis):
-        iterator = TensorIterator(element)
-
-    elif isinstance(element, TensorQuadratureBasis):
-        iterator = TensorIterator(element)
-
-    elif isinstance(element, TensorBasis):
-        iterator = TensorIterator(element)
-
-    elif isinstance(element, Span):
-        iterator = TensorIterator(element)
-
-    elif isinstance(element, CoefficientBasis):
-        iterator = ProductIterator(element)
-
-    elif isinstance(element, GeometryAtom):
-        iterator = ProductIterator(element)
-
-    elif isinstance(element, MatrixLocalBasis):
-        iterator = ProductIterator(element)
-
-    elif isinstance(element, (Expr, Tuple)):
-        iterator = TensorIterator(element)
     else:
         raise TypeError('{} not available'.format(type(element)))
     # ...

@@ -840,14 +840,14 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
                 # ... loop over trials
                 length = Tuple(*[d+1 for d in trials_degrees[sub_trials[0]]])
                 ind_dof_trial = index_dof_trial.set_range(stop=length)
-                loop1  = Loop((), ind_dof_trial, [Reset(l_sub_scalars),loop, VectorAssign(ElementOf(l_sub_mats), ElementOf(l_sub_scalars))])
+                loop1  = Loop((), ind_dof_trial, stmts=[Reset(l_sub_scalars),loop, VectorAssign(ElementOf(l_sub_mats), ElementOf(l_sub_scalars))])
 
                 # ... loop over tests
                 length = Tuple(*[d+1 for d in tests_degree[sub_tests[0]]])
                 ends   = Tuple(*[d+1-e for d,e in zip(tests_degree[sub_tests[0]], es[sub_tests[0]])])
                 starts = Tuple(*bs[sub_tests[0]])
                 ind_dof_test = index_dof_test.set_range(start=starts, stop=ends, length=length)
-                loop  = Loop((), ind_dof_test, [loop1])
+                loop  = Loop((), ind_dof_test, stmts=[loop1])
                 # ...
 
                 body  = (loop,)
@@ -899,15 +899,15 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
                     # ... loop over trials
                     length_t = Tuple(*[d+1 for d in trials_degrees[sub_trials[0]]])
                     ind_dof_trial = index_dof_trial.set_range(stop=length_t)
-                    loop  = Loop((), ind_dof_trial, [Reset(l_sub_scalars), loop, VectorAssign(ElementOf(l_sub_mats), ElementOf(l_sub_scalars))])
+                    loop  = Loop((), ind_dof_trial, stmts=[Reset(l_sub_scalars), loop, VectorAssign(ElementOf(l_sub_mats), ElementOf(l_sub_scalars))])
  
                     rem_length = Tuple(*[(d+1)-(d+1)%m for d,m in zip(tests_degree[sub_tests[0]], multiplicity)])
                     ind_inner_dof_test = index_inner_dof_test.set_range(stop=multiplicity)
                     expr1 = TensorAdd(TensorMul(ind_outer_dof_test, multiplicity),ind_inner_dof_test)
                     expr2 = TensorAdd(rem_length, ind_outer_dof_test)
                     expr  = TensorAssignExpr(index_dof_test, TensorAdd(TensorMul(expr1,not_mask_inner_i),TensorMul(expr2, mask_inner_i)))
-                    loop  = Loop((expr,), ind_inner_dof_test, [loop], mask=mask_inner_i)
-                    loop  = Loop((), ind_outer_dof_test, [loop])
+                    loop  = Loop((expr,), ind_inner_dof_test, stmts=[loop], mask=mask_inner_i)
+                    loop  = Loop((), ind_outer_dof_test, stmts=[loop])
 
                     l_stmts += [loop]
 
@@ -1954,11 +1954,11 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     for _, group in groups:
         tests_indices     = [ex_tests.index(i) for i in expand(group)]
-        sub_terminal_expr = terminal_expr[tests_indices,0]
+        sub_terminal_expr = terminal_expr[tests_indices, 0]
         l_sub_vecs        = BlockStencilVectorLocalBasis(group, pads, sub_terminal_expr, l_vecs.tag, dtype=dtype)
-        l_sub_scalars     =  BlockScalarLocalBasis(tests=group, expr=sub_terminal_expr, tag=l_vecs.tag, dtype=dtype)
+        l_sub_scalars     = BlockScalarLocalBasis(tests=group, expr=sub_terminal_expr, tag=l_vecs.tag, dtype=dtype)
 
-        q_basis = {v:d_tests[v]['global']  for v in group}
+        q_basis = {v: d_tests[v]['global']  for v in group}
         if is_zero(sub_terminal_expr):
             continue
         stmts = []
@@ -1975,7 +1975,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     # ... loop over tests
         length   = lengths_tests[group[0]]
         ind_dof_test = index_dof_test.set_range(stop=length+1)
-        loop  = Loop((), ind_dof_test, [Reset(l_sub_scalars),loop, VectorAssign(ElementOf(l_sub_vecs), ElementOf(l_sub_scalars))])
+        loop  = Loop((), ind_dof_test, stmts=[Reset(l_sub_scalars),loop, VectorAssign(ElementOf(l_sub_vecs), ElementOf(l_sub_scalars))])
         # ...
         body  = (loop,)
         stmts = Block(body)
@@ -2204,6 +2204,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     geo      = GeometryExpressions(mapping, nderiv)
 
     g_span   = dict((v,d_fields[v]['span']) for v in fields)
+
     if mapping_space:
         m_span  = dict((f,d_mapping[f]['span']) for f in d_mapping)
     else:
@@ -2244,7 +2245,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     #=========================================================begin kernel======================================================
     # ... loop over tests functions
 
-    loop   = Loop((*l_quad, geo), ind_quad, flatten([eval_field.inits for eval_field in eval_fields]))
+    loop   = Loop((*l_quad, geo), ind_quad, stmts=flatten([eval_field.inits for eval_field in eval_fields]))
     loop   = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
 
     # ... loop over tests functions to evaluate the fields
@@ -2292,15 +2293,15 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         if constants:
             firstprivate = firstprivate + (*constants,)
  
-        loop  = Loop((*g_quad, *g_span.values(), *m_span.values()), ind_element, stmts, 
+        loop  = Loop(iterable=(*g_quad, *g_span.values(), *m_span.values()), index=ind_element, stmts=stmts,
                       parallel=True, default='private', shared=shared, firstprivate=firstprivate)
     else:
-        loop  = Loop((*g_quad, *g_span.values(), *m_span.values()), ind_element, stmts)
+        loop  = Loop(iterable=(*g_quad, *g_span.values(), *m_span.values()), index=ind_element, stmts=stmts)
     # ...
 
     body = (Reset(g_vec), Reduce('+', l_vec, g_vec, loop), Return(g_vec))
 
     local_vars = []
-    node = DefNode(f'assemble_scalar_{tag}', args, local_vars, body, (), (g_vec,), 'functionalform')
+    node = DefNode(f'assemble_scalar_{tag}', args, local_vars, body, (), (g_vec,), 'functionalform', domain_dtype=dtype)
 
     return node

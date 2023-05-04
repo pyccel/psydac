@@ -1235,16 +1235,17 @@ class Parser(object):
 
     # ....................................................
     def _visit_ComputeLogicalBasis(self, expr, op=None, lhs=None, **kwargs):
+        prefix = expr.prefix
         expr = expr.expr
         if lhs is None:
             if not isinstance(expr, (Add, Mul)):
-                atom = BasisAtom(expr)
+                atom = BasisAtom(expr, prefix=prefix)
                 lhs  = self._visit_BasisAtom(atom, **kwargs)
             else:
                 lhs = random_string( 6 )
                 lhs = Symbol('tmp_{}'.format(lhs))
 
-        expr = LogicalBasisValue(expr)
+        expr = LogicalBasisValue(expr, prefix=prefix)
         rhs = self._visit_LogicalBasisValue(expr, **kwargs)
 
         if op is None:
@@ -1256,6 +1257,10 @@ class Parser(object):
 
     # ....................................................
     def _visit_ComputeKernelExpr(self, expr, op=None, lhs=None, **kwargs):
+        """
+        Compute Symbolic expression given by the user
+
+        """
         if lhs is None:
             if not isinstance(expr, (Add, Mul)):
                 lhs = self._visit_BasisAtom(BasisAtom(expr), **kwargs)
@@ -1324,7 +1329,11 @@ class Parser(object):
 
     # ....................................................
     def _visit_BasisAtom(self, expr, **kwargs):
+        prefix = expr.prefix
         symbol = SymbolicExpr(expr.expr)
+        if prefix:
+            symbol = Symbol(f"{prefix}_{symbol.name}")
+
         self.variables[str(symbol.name)] = symbol
         return symbol
 
@@ -1343,6 +1352,8 @@ class Parser(object):
         dim = self.dim
         coords = ['x1', 'x2', 'x3'][:dim]
 
+        prefix = expr.prefix
+
         expr   = expr.expr
         atom   = BasisAtom(expr).atom
         atoms  = _split_test_function(atom)
@@ -1351,16 +1362,19 @@ class Parser(object):
         d_ops   = dict(zip(coords, ops))
         d_indices = get_index_logical_derivatives(expr)
         args = []
-        for k,u in d_atoms.items():
+        for k, u in d_atoms.items():
             d = d_ops[k]
             n = d_indices[k]
             for _ in range(n):
                 u = d(u)
+            u = SymbolicExpr(u)
+            if prefix:
+                u = Symbol(f'{prefix}_{u.name}')
             args.append(u)
         # ...
 
         expr = Mul(*args)
-        expr =  SymbolicExpr(expr)
+
         return expr
 
     # ....................................................
@@ -1898,19 +1912,32 @@ class Parser(object):
 
     # ....................................................
     def _visit_TensorIteration(self, expr, **kwargs):
+        """
+        Initialize index in loop
+        Parameters
+        ----------
+        expr
+        kwargs
+
+        Returns
+        -------
+        inits : list
+            Initialization instructions
+
+        """
         dim       = self.dim
         iterator  = self._visit(expr.iterator)
         generator = self._visit(expr.generator)
 
+        # Case of a simple iterable
         if isinstance(iterator, (tuple, Tuple, list)):
-            inits = []
-            for i,g in zip(iterator, generator):
-                inits.append([Assign(i,g)])
-            return inits
+            return [Assign(i, g) for i, g in zip(iterator, generator)]
+
+        # Case of a dictionary
 
         inits = [()]*dim
 
-        for (i, l_xs),(j, g_xs) in zip(iterator.items(), generator.items()):
+        for l_xs, g_xs in zip(iterator.values(), generator.values()):
             if isinstance(expr.generator.target, (LocalTensorQuadratureBasis, GlobalTensorQuadratureBasis)):
                 positions = [expr.generator.target.positions[index_deriv]]
                 g_xs = [SplitArray(xs[0], positions, [self.nderiv+1]) for xs in g_xs]
@@ -1920,7 +1947,7 @@ class Parser(object):
                 ls = []
                 for l_x,g_x in zip(l_xs[i], g_xs[i]):
                     if isinstance(expr.generator.target, (LocalTensorQuadratureBasis, GlobalTensorQuadratureBasis)):
-                        lhs = self._visit_BasisAtom(BasisAtom(l_x))
+                        lhs = self._visit_BasisAtom(BasisAtom(l_x, prefix=expr.iterator.prefix))
                     else:
                         lhs = l_x
                     ls += [self._visit(Assign(lhs, g_x))]
@@ -1960,7 +1987,7 @@ class Parser(object):
 
         t_iterator   = [i for i in expr.iterator  if isinstance(i, TensorIterator)]
         t_generator  = [i for i in expr.generator if isinstance(i, TensorGenerator)]
-        t_iterations = [TensorIteration(i,j)
+        t_iterations = [TensorIteration(i, j)
                         for i,j in zip(t_iterator, t_generator)]
 
         indices = list(self._visit(expr.index))
