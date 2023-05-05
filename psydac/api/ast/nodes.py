@@ -405,8 +405,10 @@ class EvalField(BaseNode):
                 stmts_1 += [AugAssign(val, '+', rhs)]
                 mats    += [mat]
 
-                # We initialize array in kernel loop
+                # We initialize array for the kernel loop
                 inits += [Assign(BasisAtom(a), val)]
+
+                # We extract data from arr_coeffs_{ScalarFunction.name}
                 stmts_2[coeff] = Assign(coeff, ProductGenerator(l_coeff, l_index))
 
         quad_loop  = Loop( q_basis, q_index, stmts=stmts_1, mask=mask, prefix='basis')
@@ -2260,6 +2262,7 @@ class GeometryExpressions(Basic):
 #==============================================================================
 def construct_itergener(a, index, *, prefix=None):
     """
+    Create the generator and the iterator based on a and the index
     """
     # ... create generator
     if isinstance(a, PlusGlobalTensorQuadratureGrid):
@@ -2286,15 +2289,11 @@ def construct_itergener(a, index, *, prefix=None):
         generator = TensorGenerator(a, index)
         element   = TensorTestBasis(a.target)
 
-    elif isinstance(a, GlobalTensorQuadratureBasis):
+    elif isinstance(a, (GlobalTensorQuadratureBasis, TensorQuadratureBasis)):
         generator = TensorGenerator(a, index)
         element   = TensorBasis(a.target)
 
-    elif isinstance(a, TensorQuadratureBasis):
-        generator = TensorGenerator(a, index)
-        element   = TensorBasis(a.target)
-
-    elif isinstance(a, (LocalSpanArray,GlobalSpanArray)):
+    elif isinstance(a, (LocalSpanArray, GlobalSpanArray)):
         generator = TensorGenerator(a, index)
         element   = Span(a.target)
 
@@ -2309,9 +2308,11 @@ def construct_itergener(a, index, *, prefix=None):
     elif isinstance(a, GeometryExpr):
         generator = ProductGenerator(a.expr, index)
         element   = a.atom
+
     elif isinstance(a, TensorAssignExpr):
         generator = TensorGenerator(a.rhs, index)
         element   = a.lhs
+
     else:
         raise TypeError('{} not available'.format(type(a)))
     # ...
@@ -2319,10 +2320,6 @@ def construct_itergener(a, index, *, prefix=None):
     # ... create iterator
     tensor_classes = (LocalTensorQuadratureGrid,
                       TensorQuadrature,
-                      TensorQuadratureTrialBasis,
-                      TensorTrialBasis,
-                      TensorQuadratureTestBasis,
-                      TensorTestBasis,
                       LocalTensorQuadratureBasis,
                       TensorQuadratureBasis,
                       TensorBasis,

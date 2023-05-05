@@ -1329,6 +1329,9 @@ class Parser(object):
 
     # ....................................................
     def _visit_BasisAtom(self, expr, **kwargs):
+        """
+        Transform derivatives of the ScalarFunction into the correspondant symbol.
+        """
         prefix = expr.prefix
         symbol = SymbolicExpr(expr.expr)
         if prefix:
@@ -1341,13 +1344,16 @@ class Parser(object):
     def _visit_AtomicNode(self, expr, **kwargs):
         if isinstance(expr.expr, WeightedVolumeQuadrature):
             expr = SymbolicWeightedVolume(self.mapping)
-            return self._visit(expr, **kwargs )
+            return SymbolicExpr(expr)
 
         else:
             return SymbolicExpr(expr.expr)
 
     # ....................................................
     def _visit_LogicalBasisValue(self, expr, **kwargs):
+        """
+        Split the derivatives of the ScalarFunction along the dimensions, transform it into the correspondant symbol.
+        """
         # ...
         dim = self.dim
         coords = ['x1', 'x2', 'x3'][:dim]
@@ -1356,11 +1362,15 @@ class Parser(object):
 
         expr   = expr.expr
         atom   = BasisAtom(expr).atom
+
+        # Split the ScalarFunction along each dimension
         atoms  = _split_test_function(atom)
         ops = [dx1, dx2, dx3][:dim]
         d_atoms = dict(zip(coords, atoms[atom]))
         d_ops   = dict(zip(coords, ops))
         d_indices = get_index_logical_derivatives(expr)
+
+        # Create the symbol of the derivative for each splitted ScalarFunction
         args = []
         for k, u in d_atoms.items():
             d = d_ops[k]
@@ -1371,22 +1381,26 @@ class Parser(object):
             if prefix:
                 u = Symbol(f'{prefix}_{u.name}')
             args.append(u)
-        # ...
 
+        # ...
+        # Do the multiplication needed
         expr = Mul(*args)
 
         return expr
 
     # ....................................................
     def _visit_LogicalValueNode(self, expr, **kwargs):
+        """
+        This Node seems to return the multiplication of weight.
+        """
 
+        #TODO Should we clear this function and replace it by a _visit_WeigthedVolumeQuadrature
         expr = expr.expr
         target = self.target
 
         if isinstance(expr, WeightedVolumeQuadrature):
             #TODO improve l_quad should not be used like this
-            l_quad = TensorQuadrature()
-            l_quad = self._visit_TensorQuadrature(l_quad, **kwargs)
+            l_quad = self._visit_TensorQuadrature(TensorQuadrature(), **kwargs)
             _, weights = list(zip(*list(l_quad.values())[0]))
             if isinstance(target, Boundary):
                 weights = list(weights)
@@ -1405,10 +1419,16 @@ class Parser(object):
 
     # ....................................................
     def _visit_ElementOf(self, expr, **kwargs):
+        """
+        Create an MutableDenseMatrix containing either a variable for a scalar or an IndexedElement to index an element of the matrix/vector
+        """
         dim    = self.dim
         target = expr.target
-        #improve we shouldn't use index_dof_test
+
+
+        # Case where we need to create an element of the matrix indented
         if isinstance(target, BlockStencilMatrixLocalBasis):
+            # improve we shouldn't use index_dof_test
             rows = self._visit(index_dof_test)
             outer = self._visit(target.outer) if target.outer else rows
             cols = self._visit(index_dof_trial)
@@ -1442,6 +1462,7 @@ class Parser(object):
                     targets[i,j] = targets[i,j][indices]
             return targets
 
+        # Case where we need to create an element of the vector indented
         elif isinstance(target, BlockStencilVectorLocalBasis):
             targets = self._visit_BlockStencilVectorLocalBasis(target, **kwargs)
 
@@ -1453,13 +1474,17 @@ class Parser(object):
                         continue
                     targets[i,j] = targets[i,j][indices]
             return targets
+
+        # Case where we need to create a scalar for the kernel loop (l_el_{tag})
         elif isinstance(target, LocalElementBasis):
             target = self._visit(target, **kwargs)
             return (target,)
 
+        # Case where we need to create a scalar for the kernel loop (c_v_u_{tag})/(c_v_{tag})
         elif isinstance(target, BlockScalarLocalBasis):
             targets = self._visit(target)
             return targets
+
         else:
             raise NotImplementedError('TODO')
 
