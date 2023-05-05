@@ -31,7 +31,6 @@ class DiscreteDerham(BasicDiscrete):
             dim           = len(spaces) - 1
             self._spaces  = spaces
 
-        dim           = len(spaces) - 1
         self._dim     = dim
         self._mapping = mapping
         self._callable_mapping = mapping.get_callable_mapping() if mapping else None

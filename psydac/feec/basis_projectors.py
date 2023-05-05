@@ -170,10 +170,12 @@ class BasisProjectionOperator(LinearOperator):
 
         return out
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         """
         Returns the transposed operator.
         """
+        if conjugate==True:
+            raise NotImplementedError("No complex here!")
         return BasisProjectionOperator(self._P, self._V, self._fun, not self.transposed)
 
     @staticmethod
@@ -386,8 +388,8 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
             #"roll" back points to the interval to ensure that the quadrature points are
             #in the domain. Probably only usefull on periodic cases
             roll_edges(space_out.domain, global_quad_x) 
-            x = global_quad_x#[s:e+1]
-            w = global_quad_w#[s:e+1]
+            x = global_quad_x[s:e+1]
+            w = global_quad_w[s:e+1]
             pts += [x]
             wts += [w]
 

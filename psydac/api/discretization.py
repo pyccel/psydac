@@ -55,7 +55,7 @@ def discretize_derham(derham, domain_h, get_vec = False, *args, **kwargs):
     if get_vec:
         V0h = spaces[0]
         X   = VectorFunctionSpace('X', domain_h.domain, kind='h1')
-        Xh  = ProductFemSpace(V0h, V0h)
+        Xh  = VectorFemSpace(V0h, V0h)
         Xh.symbolic_space = X
         spaces.append(Xh)
 
