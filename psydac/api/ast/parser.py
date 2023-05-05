@@ -549,7 +549,7 @@ class Parser(object):
         results = [self._visit(a) for a in expr.results]
 
         if self.backend['name'] == 'pyccel':
-            a = [String(str(i)) for i in build_pyccel_types_decorator(arguments)]
+            a = [String(str(i)) for i in build_pyccel_types_decorator(arguments, domain_type=expr.domain_dtype)]
             decorators = {'types': Function('types')(*a)}
         elif self.backend['name'] == 'numba':
             decorators = {'njit': Function('njit')(ValuedArgument(Symbol('fastmath'), self.backend['fastmath']))}

@@ -197,8 +197,10 @@ class DefNode(Basic):
     DefNode represents a function definition where it contains the arguments and the body
 
     """
-    def __new__(cls, name, arguments, local_variables, body, imports, results, kind):
-        return Basic.__new__(cls, name, arguments, local_variables, body, imports, results, kind)
+    def __new__(cls, name, arguments, local_variables, body, imports, results, kind, domain_dtype='real'):
+        obj = Basic.__new__(cls, name, arguments, local_variables, body, imports, results, kind)
+        obj._domain_dtype=domain_dtype
+        return obj
 
     @property
     def name(self):
@@ -227,6 +229,10 @@ class DefNode(Basic):
     @property
     def kind(self):
         return self._args[6]
+
+    @property
+    def domain_dtype(self):
+        return self._domain_dtype
 
 
 #=======================================================================================================================
@@ -1191,7 +1197,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
     if add_openmp:
         imports.append(Import('pyccel.stdlib.internal.openmp',('omp_get_thread_num', )))
 
-    node = DefNode(f'assemble_matrix_{tag}', args, local_vars, body, imports, (), 'bilinearform')
+    node = DefNode(f'assemble_matrix_{tag}', args, local_vars, body, imports, (), 'bilinearform', domain_dtype='real')
 
     return node
 
@@ -1803,7 +1809,7 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
         imports.append(Import('pyccel.stdlib.internal.openmp', ('omp_get_thread_num',)))
 
     node = DefNode(name=f'assemble_matrix_{tag}', arguments=args, local_variables=local_vars, body=body,
-                   imports=imports, results=(), kind='sesquilinearform')
+                   imports=imports, results=(), kind='sesquilinearform', domain_dtype='complex')
     return node
 
 #=======================================================================================================================
@@ -2127,7 +2133,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     imports    = []
     if add_openmp:
         imports.append(Import('pyccel.stdlib.internal.openmp',('omp_get_thread_num', )))
-    node = DefNode(f'assemble_vector_{tag}', args, local_vars, body, imports, (), 'linearform')
+    node = DefNode(f'assemble_vector_{tag}', args, local_vars, body, imports, (), 'linearform', domain_dtype=dtype)
 
     return node
 
@@ -2243,15 +2249,15 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         eval_fields  += [eval_field]
 
     #=========================================================begin kernel======================================================
-    # ... loop over tests functions
+    # ... loop over tests functions to compute the value (last loop in the dependency)
 
-    loop   = Loop((*l_quad, geo), ind_quad, stmts=flatten([eval_field.inits for eval_field in eval_fields]))
+    loop   = Loop((*l_quad, geo), ind_quad, stmts=flatten([eval_field.inits for eval_field in eval_fields])) # TODO Missing argument initialize or not good name in expression
     loop   = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
 
-    # ... loop over tests functions to evaluate the fields
+    # ... loop over tests functions to evaluate the fields (first loop)
     stmts  = []
     if mapping_space:
-        stmts.append(eval_mapping)
+        stmts.append(eval_mapping) #TODO Fix problem with coeff missing
 
     stmts += [*eval_fields, Reset(l_vec), loop]
     stmts  = Block(stmts)

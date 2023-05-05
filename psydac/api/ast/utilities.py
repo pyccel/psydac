@@ -816,7 +816,7 @@ def variables(names, dtype, **args):
         raise TypeError('Expecting a string')
 
 #==============================================================================
-def build_pyccel_types_decorator(args, order=None):
+def build_pyccel_types_decorator(args, order=None, domain_type='float'):
     """
     builds a types decorator from a list of arguments (of FunctionDef)
     """
@@ -839,7 +839,10 @@ def build_pyccel_types_decorator(args, order=None):
             elif a.is_complex:
                 dtype = 'complex'
             else:
-                dtype = 'float' # default value
+                if domain_type=='complex':
+                    dtype = 'T' # default value
+                else:
+                    dtype='float'
 
         else:
             raise TypeError('unexpected type for {}'.format(a))

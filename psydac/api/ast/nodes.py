@@ -556,10 +556,10 @@ class EvalMapping(BaseNode):
 
             rationalization  = [*declarations, *rationalization]
 
-        loop   = Loop((q_basis,*l_coeffs), indices_basis, stmts=stmts)
-        loop   = Loop((), quads, stmts=[loop, *rationalization], mask=mask)
+        basis_loop  = Loop((q_basis,*l_coeffs), indices_basis, stmts=[*inits_coeffs]+stmts)
+        quad_loop   = Loop((), quads, stmts=[basis_loop , *rationalization], mask=mask)
 
-        obj    = Basic.__new__(cls, loop, l_coeffs, g_coeffs, values, multiplicity, pads)
+        obj    = Basic.__new__(cls, quad_loop, l_coeffs, g_coeffs, values, multiplicity, pads)
         obj._mapping = mapping
         obj._trial   = trial
         return obj
