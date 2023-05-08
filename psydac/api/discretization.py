@@ -260,6 +260,12 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     if sequence in ['TH', 'N', 'RT']:
         assert isinstance(V, ProductSpace) and len(V.spaces) == 2
 
+    # Define data type of our TensorFemSpace
+    dtype = float
+    if hasattr(V, 'codomain_type'):
+        if V.codomain_type == 'complex':
+            dtype = complex
+
     g_spaces   = {}
     domain     = domain_h.domain
 
@@ -328,11 +334,6 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
                  # Create 1D finite element spaces and precompute quadrature data
                 spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]
 
-         # Define data type of our TensorFemSpace
-        dtype = float
-        if hasattr(V, 'codomain_type'):
-            if V.codomain_type == 'complex':
-                dtype = complex
 
         carts    = create_cart(ddms, spaces)
         g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], quad_order=quad_order, dtype=dtype) for i,inter in enumerate(interiors)}
@@ -369,6 +370,8 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
     Vh = ProductFemSpace(*new_g_spaces.values(), connectivity=connectivity)
     Vh.symbolic_space = V
+
+    Vh._vector_space.change_dtype(dtype)
 
     return Vh
 

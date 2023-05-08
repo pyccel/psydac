@@ -143,6 +143,10 @@ class StencilVectorSpace( VectorSpace ):
         return self._dtype
 
     # ...
+    def change_dtype( self, dtype ):
+        self._dtype=dtype
+
+    # ...
     def zeros( self ):
         """
         Get a copy of the null element of the StencilVectorSpace V.
@@ -248,7 +252,7 @@ class StencilVectorSpace( VectorSpace ):
         if cart.is_comm_null: return
         if isinstance(cart, InterfaceCartDecomposition):
             # Case where the patches that share the interface are owned by different intra-communicators
-            space = StencilVectorSpace(cart)
+            space = StencilVectorSpace(cart, dtype=self.dtype)
             self._interfaces[axis, ext] = space
         else:
             # Case where the patches that share the interface are owned by the same intra-communicator
