@@ -1956,7 +1956,7 @@ class Parser(object):
 
         # Case of a simple iterable
         if isinstance(iterator, (tuple, Tuple, list)):
-            return [Assign(i, g) for i, g in zip(iterator, generator)]
+            return [[Assign(i, g)] for i, g in zip(iterator, generator)]
 
         # Case of a dictionary
 
@@ -2005,6 +2005,9 @@ class Parser(object):
         return If(*args)
     # ....................................................
     def _visit_Loop(self, expr, **kwargs):
+        """
+        Create
+        """
         # we first create iteration statements
         # these iterations are splitted between what is tensor or not
 

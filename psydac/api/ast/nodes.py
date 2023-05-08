@@ -558,7 +558,7 @@ class EvalMapping(BaseNode):
 
             rationalization  = [*declarations, *rationalization]
 
-        basis_loop  = Loop((q_basis,*l_coeffs), indices_basis, stmts=[*inits_coeffs]+stmts)
+        basis_loop  = Loop((q_basis,*l_coeffs), indices_basis, stmts=stmts)
         quad_loop   = Loop((), quads, stmts=[basis_loop , *rationalization], mask=mask)
 
         obj    = Basic.__new__(cls, quad_loop, l_coeffs, g_coeffs, values, multiplicity, pads)
@@ -2323,9 +2323,7 @@ def construct_itergener(a, index, *, prefix=None):
                       LocalTensorQuadratureBasis,
                       TensorQuadratureBasis,
                       TensorBasis,
-                      Span,
-                      Expr,
-                      Tuple)
+                      Span)
 
     product_classes = (CoefficientBasis,
                        GeometryAtom,
@@ -2336,6 +2334,9 @@ def construct_itergener(a, index, *, prefix=None):
 
     elif isinstance(element, product_classes):
         iterator = ProductIterator(element, prefix=prefix)
+
+    elif isinstance(element, (Expr, Tuple)):
+        iterator = TensorIterator(element, prefix=prefix)
 
     else:
         raise TypeError('{} not available'.format(type(element)))
