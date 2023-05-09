@@ -1760,7 +1760,7 @@ class GMRES(InverseLinearOperator):
 
     References
     ----------
-    [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
+    [1] Y. Saad and M.H. Schultz, "GMRES: A generalized minimal residual algorithm for solving nonsymmetric linear systems", SIAM J. Sci. Stat. Comput., 7:856–869, 1986.
 
     """
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
@@ -1784,13 +1784,10 @@ class GMRES(InverseLinearOperator):
         
     def _generate_intern_mat(self):
         self._H = np.zeros((self._maxiter + 1, self._maxiter))
-        self._Q = np.zeros((self._A.shape[0], self._maxiter + 1))
-        self._beta = np.zeros(self._maxiter + 1,) # is upper Hessenberg matrix
-
-        self._h = np.zeros((self._maxiter + 1,))
-        self._q = np.zeros((self._A.shape[0],))
-        self._sn = np.zeros(self._maxiter,)
-        self._cn = np.zeros(self._maxiter,)
+        self._Q = [] #np.zeros((self._A.shape[0], self._maxiter + 1))
+        self._beta = [] # is upper Hessenberg matrix
+        self._sn = []
+        self._cn = []
 
     def _check_options(self, **kwargs):
         keys = ('x0', 'tol', 'maxiter', 'verbose')
@@ -1899,16 +1896,13 @@ class GMRES(InverseLinearOperator):
         cn = self._cn
 
         # First values
-        A.dot (x, out=v)
         r += b - A.dot( x )
 
         r_norm = r.dot( r ) ** 0.5
         am = r_norm
 
-        beta[0] = r_norm
-        Q[:,0] += r.toarray() / r_norm
-
-        m = 0
+        beta.append(r_norm)
+        Q.append(r / r_norm)
 
         if verbose:
             print( "GMRES solver:" )
@@ -1922,7 +1916,6 @@ class GMRES(InverseLinearOperator):
 
         for k in range(maxiter):
             if am < tol:
-                m -= 1
                 break
 
             # run Arnoldi
@@ -1932,54 +1925,58 @@ class GMRES(InverseLinearOperator):
             self.apply_givens_rotation(k)
 
             # update the residual vector
-            beta[k+1] = - sn[k] * beta[k]
+            beta.append(- sn[k] * beta[k])
             beta[k] *= cn[k]
-            #error = abs(beta[k+1]) / b_norm
 
             am = abs(beta[k+1])
-            m += 1
             if verbose:
-                print( template.format( m, sqrt( am ) ) )
+                print( template.format( k+2, sqrt( am ) ) )
 
         if verbose:
             print( "+---------+---------------------+")        
         # calculate result
-        y = self.solve_triangular(H[:m, :m], beta[:m]) # system of upper triangular matrix
-        x[x.starts[0] : x.ends[0] + 1] += Q[:, :m] @ y
+        self.solve_triangular(H[:k, :k], beta[:k]) # system of upper triangular matrix
+
+        for j in range(x.starts[0], x.ends[0] + 1):
+            for i in range(k):
+                x[j] += Q[i][j] * v[i] 
+        
+        #x[x.starts[0] : x.ends[0] + 1] += Q[:m] @ y
 
         # Convergence information
-        self._info = {'niter': m, 'success': am < tol, 'res_norm': am }
+        self._info = {'niter': k+1, 'success': am < tol, 'res_norm': am }
         
         return x
     
     def solve_triangular(self, T, d):
         # Backwards substitution. Assumes T is upper triangular
-        n = T.shape[0]
-        y = np.zeros_like(d)
+        k = T.shape[0]
+        v = self._tmps["v"]
+        v -= v
 
-        for k1 in range(n):
+        for k1 in range(v.starts[0], k):
             temp = 0.
-            for k2 in range(1, k1 + 1):
-                temp += T[n - 1 - k1, n - 1 - k1 + k2] * y[n - 1 - k1 + k2]
-            y[n - 1 - k1] = ( d[n - 1 - k1] - temp ) / T[n - 1 - k1, n - 1 - k1]
+            for k2 in range(v.starts[0] + 1, k1 + 1):
+                temp += T[k - 1 - k1, k - 1 - k1 + k2] * v[k - 1 - k1 + k2]
+            v[k - 1 - k1] = ( d[k - 1 - k1] - temp ) / T[k - 1 - k1, k - 1 - k1]
 
-        return y
 
     def arnoldi(self, k):
         h = self._H[:k+2, k]
-        q = self._Q[:, k+1]
 
         p = self._tmps["p"]
-        p[p.starts[0] : p.ends[0] + 1] = self._Q[:, k]
-
-        q += self._A.dot(p).toarray() # Krylov vector
+        p -= p 
+        p += self._A.dot( self._Q[k] ) # Krylov vector
 
         for i in range(k + 1): # Modified Gram-Schmidt, keeping Hessenberg matrix
-            h[i] = np.dot(q, self._Q[:, i])
-            q -= h[i] * self._Q[:, i]
+            h[i] = p.dot( self._Q[i] )
+            p -= h[i] * self._Q[i]
         
-        h[k+1] = np.linalg.norm(q)
-        q /= h[k+1] # Normalize vector
+        h[k+1] = p.dot(p) ** 0.5
+        p /= h[k+1] # Normalize vector
+
+        self._Q.append(p.copy())
+
 
     def apply_givens_rotation(self, k):
         # Apply Givens rotation to last column of H
@@ -1991,8 +1988,8 @@ class GMRES(InverseLinearOperator):
             h[i] = temp
         
         mod = (h[k]**2 + h[k+1]**2)**0.5
-        self._cn[k] = h[k] / mod
-        self._sn[k] = h[k+1] / mod
+        self._cn.append( h[k] / mod )
+        self._sn.append( h[k+1] / mod )
 
         h[k] = self._cn[k] * h[k] + self._sn[k] * h[k+1]
         h[k+1] = 0. # becomes triangular
