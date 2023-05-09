@@ -32,6 +32,7 @@ from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
+from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 from psydac.api.discretization import discretize
 
 # ... get the mesh directory
@@ -61,7 +62,7 @@ def get_boundaries(*args):
 
 #==============================================================================
 def run_biharmonic_2d_dir(filename, solution, f, dir_zero_boundary,
-        dir_nonzero_boundary, backend=None, comm=None):
+        dir_nonzero_boundary, backend=PSYDAC_BACKEND_GPYCCEL, comm=None, dtype=float):
 
     assert isinstance(   dir_zero_boundary, (list, tuple))
     assert isinstance(dir_nonzero_boundary, (list, tuple))
@@ -75,6 +76,12 @@ def run_biharmonic_2d_dir(filename, solution, f, dir_zero_boundary,
     B_dirichlet_i = Union(*[domain.get_boundary(**kw) for kw in dir_nonzero_boundary])
 
     V  = ScalarFunctionSpace('V', domain)
+    if dtype==complex:
+        V.codomain_type = 'complex'
+        factor=1.j
+    else:
+        factor=1
+
     u  = element_of(V, name='u')
     v  = element_of(V, name='v')
     nn = NormalVector('nn')
@@ -83,7 +90,8 @@ def run_biharmonic_2d_dir(filename, solution, f, dir_zero_boundary,
     a = BilinearForm((u, v), integral(domain, laplace(u) * laplace(v)))
 
     # Linear form l: V --> R
-    l = LinearForm(v, integral(domain, f * v))
+    l = LinearForm(v, integral(domain, factor*f * v))
+
 
     # Essential boundary conditions
     dn = lambda a: dot(grad(a), nn)
@@ -99,7 +107,7 @@ def run_biharmonic_2d_dir(filename, solution, f, dir_zero_boundary,
     equation = find(u, forall=v, lhs=a(u, v), rhs=l(v), bc=bc)
 
     # Error norms
-    error  = u - solution
+    error  = u - factor*solution
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
     h2norm = Norm(error, domain, kind='h2')
@@ -127,6 +135,7 @@ def run_biharmonic_2d_dir(filename, solution, f, dir_zero_boundary,
     #+++++++++++++++++++++++++++++++
 
     # Solve linear system
+    equation_h.set_solver('bicg', tol=1e-9)
     uh = equation_h.solve()
 
     # Compute error norms
@@ -139,8 +148,8 @@ def run_biharmonic_2d_dir(filename, solution, f, dir_zero_boundary,
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
-
-def test_biharmonic_2d_identity_dir0_1234():
+@pytest.mark.parametrize('dtype', [float, complex])
+def test_biharmonic_2d_identity_dir0_1234(dtype):
 
     filename = os.path.join(mesh_dir, 'identity_2d.h5')
     solution = (sin(pi*x)*sin(pi*y))**2
@@ -150,7 +159,7 @@ def test_biharmonic_2d_identity_dir0_1234():
     dir_nonzero_boundary = get_boundaries()
 
     l2_error, h1_error, h2_error = run_biharmonic_2d_dir(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary)
+            dir_zero_boundary, dir_nonzero_boundary, dtype=dtype)
 
     expected_l2_error = 0.015086415626060034
     expected_h1_error = 0.08773346232941553
@@ -161,8 +170,8 @@ def test_biharmonic_2d_identity_dir0_1234():
     assert( abs(h2_error - expected_h2_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-
-def test_biharmonic_2d_collela_dir0_1234():
+@pytest.mark.parametrize('dtype', [float, complex])
+def test_biharmonic_2d_collela_dir0_1234(dtype):
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
     solution = (cos(pi*x/2)*cos(pi*y/2))**2
@@ -172,7 +181,7 @@ def test_biharmonic_2d_collela_dir0_1234():
     dir_nonzero_boundary = get_boundaries()
 
     l2_error, h1_error, h2_error = run_biharmonic_2d_dir(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary)
+            dir_zero_boundary, dir_nonzero_boundary, dtype=dtype)
 
     expected_l2_error = 0.10977627980052021
     expected_h1_error = 0.32254511059711766
@@ -183,7 +192,8 @@ def test_biharmonic_2d_collela_dir0_1234():
     assert( abs(h2_error - expected_h2_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_biharmonic_2d_quarter_annulus_dir0_1234():
+@pytest.mark.parametrize('dtype', [float, complex])
+def test_biharmonic_2d_quarter_annulus_dir0_1234(dtype):
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
     r_in     = 0.5
@@ -196,7 +206,7 @@ def test_biharmonic_2d_quarter_annulus_dir0_1234():
     dir_nonzero_boundary = get_boundaries()
 
     l2_error, h1_error, h2_error = run_biharmonic_2d_dir(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary)
+            dir_zero_boundary, dir_nonzero_boundary, dtype=dtype)
 
     expected_l2_error = 0.016730298635551484
     expected_h1_error = 0.21243295522291714
