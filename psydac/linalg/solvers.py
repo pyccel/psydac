@@ -8,7 +8,6 @@ import numpy as np
 
 from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator, IdentityOperator, ScaledLinearOperator
 from psydac.linalg.utilities import _sym_ortho
-from psydac.linalg.stencil   import StencilVector
 
 __all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'BiConjugateGradientStabilized', 'MinimumResidual', 'LSMR', 'GMRES']
 
@@ -1766,57 +1765,52 @@ class GMRES(InverseLinearOperator):
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
         assert isinstance(A, LinearOperator)
-        assert A.domain == A.codomain
-        self._solver = 'gmres'
+        assert A.domain.dimension == A.codomain.dimension
+        domain = A.codomain
+        codomain = A.domain
+
+        if x0 is not None:
+            assert isinstance(x0, Vector)
+            assert x0.space is codomain
+        else:
+            x0 = codomain.zeros()
+
         self._A = A
-        self._domain = A.codomain
-        self._codomain = A.domain
-        self._space = A.domain
-        self._x0 = x0
-        self._tol = tol
-        self._maxiter = maxiter
-        self._verbose = verbose
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
-        self._check_options(**self._options)
-        self._tmps = {"v":A.domain.zeros(), "r":A.domain.zeros(), "p":A.domain.zeros()}   
-        self._generate_intern_mat()   
+        self._domain = domain
+        self._codomain = codomain
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
+        self._check_options(**self._options) 
+        self._tmps = {key: domain.zeros() for key in ("r", "p")}
+
+        # Initialize upper Hessenberg matrix
+        self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]))
+
         self._info = None
         
-    def _generate_intern_mat(self):
-        self._H = np.zeros((self._maxiter + 1, self._maxiter))
-        self._Q = [] #np.zeros((self._A.shape[0], self._maxiter + 1))
-        self._beta = [] # is upper Hessenberg matrix
-        self._sn = []
-        self._cn = []
 
     def _check_options(self, **kwargs):
-        keys = ('x0', 'tol', 'maxiter', 'verbose')
         for key, value in kwargs.items():
-            idx = [key == keys[i] for i in range(len(keys))]
-            assert any(idx), "key not supported, check options"
-            true_idx = idx.index(True)
-            if true_idx == 0:
+
+            if key == 'x0':
                 if value is not None:
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
-            elif true_idx == 1:
+                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
+            elif key == 'tol':
                 assert value is not None, "tol may not be None"
-                # don't know if that one works -want to check if value is a number
                 assert value*0 == 0, "tol must be a real number"
                 assert value > 0, "tol must be positive"
-            elif true_idx == 2:
+            elif key == 'maxiter':
                 assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
-            elif true_idx == 3:
+            elif key == 'verbose':
                 assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
+            else:
+                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def _update_options(self):
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
-
-    def transpose(self):
-        At = self._A.T
+    def transpose(self, conjugate=False):
+        At = self._A.transpose(conjugate=conjugate)
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
@@ -1855,54 +1849,44 @@ class GMRES(InverseLinearOperator):
         """
 
         A = self._A
-        n = A.shape[0]
-        x0 = self._x0
-        tol = self._tol
-        maxiter = self._maxiter
-        verbose = self._verbose
+        domain = self._domain
+        codomain = self._codomain
+        options = self._options
+        x0 = options["x0"]
+        tol = options["tol"]
+        maxiter = options["maxiter"]
+        verbose = options["verbose"]
         
 
-        assert( A.shape == (n,n) )
-        assert( b.shape == (n, ) )
+        assert isinstance(b, Vector)
+        assert b.space is domain
 
         # First guess of solution
         if out is not None:
             assert isinstance(out, Vector)
-            assert out.space == self._domain
-            out *= 0
-            if x0 is None:
-                x = out
-            else:
-                assert( x0.shape == (n,) )
-                out += x0
-                x = out
-        else:
-            if x0 is None:
-                x  = b.copy()
-                x *= 0.0
-            else:
-                assert( x0.shape == (n,) )
-                x = x0.copy()
+            assert out.space is codomain
+
+        x = x0.copy(out=out)
         
         # Extract local storage
-        v = self._tmps["v"]
         r = self._tmps["r"]
 
-        # Internal matrices of GMRES
+        # Internal objects of GMRES
         H = self._H
-        Q = self._Q
-        beta = self._beta
-        sn = self._sn
-        cn = self._cn
+        Q = []
+        beta = []
+        sn = []
+        cn = []
 
         # First values
         r += b - A.dot( x )
 
-        r_norm = r.dot( r ) ** 0.5
+        r_norm = r.dot(r).real ** 0.5
         am = r_norm
 
         beta.append(r_norm)
         Q.append(r / r_norm)
+
 
         if verbose:
             print( "GMRES solver:" )
@@ -1919,10 +1903,10 @@ class GMRES(InverseLinearOperator):
                 break
 
             # run Arnoldi
-            self.arnoldi(k)
+            self.arnoldi(k, Q)
 
             # make the last diagonal entry in H equal to 0, so that H becomes upper triangular
-            self.apply_givens_rotation(k)
+            self.apply_givens_rotation(k, sn, cn)
 
             # update the residual vector
             beta.append(- sn[k] * beta[k])
@@ -1930,16 +1914,16 @@ class GMRES(InverseLinearOperator):
 
             am = abs(beta[k+1])
             if verbose:
-                print( template.format( k+2, sqrt( am ) ) )
+                print( template.format( k+2, am ) )
 
         if verbose:
             print( "+---------+---------------------+")        
         # calculate result
-        self.solve_triangular(H[:k, :k], beta[:k]) # system of upper triangular matrix
+        y = self.solve_triangular(H[:k, :k], beta[:k]) # system of upper triangular matrix
 
         for j in range(x.starts[0], x.ends[0] + 1):
             for i in range(k):
-                x[j] += Q[i][j] * v[i] 
+                x[j] += Q[i][j] * y[i] 
         
         #x[x.starts[0] : x.ends[0] + 1] += Q[:m] @ y
 
@@ -1951,47 +1935,47 @@ class GMRES(InverseLinearOperator):
     def solve_triangular(self, T, d):
         # Backwards substitution. Assumes T is upper triangular
         k = T.shape[0]
-        v = self._tmps["v"]
-        v -= v
+        y = np.zeros((k,))
 
-        for k1 in range(v.starts[0], k):
+        for k1 in range(k):
             temp = 0.
-            for k2 in range(v.starts[0] + 1, k1 + 1):
-                temp += T[k - 1 - k1, k - 1 - k1 + k2] * v[k - 1 - k1 + k2]
-            v[k - 1 - k1] = ( d[k - 1 - k1] - temp ) / T[k - 1 - k1, k - 1 - k1]
+            for k2 in range(1, k1 + 1):
+                temp += T[k - 1 - k1, k - 1 - k1 + k2] * y[k - 1 - k1 + k2]
+            y[k - 1 - k1] = ( d[k - 1 - k1] - temp ) / T[k - 1 - k1, k - 1 - k1]
+        
+        return y
 
-
-    def arnoldi(self, k):
+    def arnoldi(self, k, Q):
         h = self._H[:k+2, k]
 
         p = self._tmps["p"]
         p -= p 
-        p += self._A.dot( self._Q[k] ) # Krylov vector
+        p += self._A.dot( Q[k] ) # Krylov vector
 
         for i in range(k + 1): # Modified Gram-Schmidt, keeping Hessenberg matrix
-            h[i] = p.dot( self._Q[i] )
-            p -= h[i] * self._Q[i]
+            h[i] = p.dot( Q[i] )
+            p -= h[i] * Q[i]
         
         h[k+1] = p.dot(p) ** 0.5
         p /= h[k+1] # Normalize vector
 
-        self._Q.append(p.copy())
+        Q.append(p.copy())
 
 
-    def apply_givens_rotation(self, k):
+    def apply_givens_rotation(self, k, sn, cn):
         # Apply Givens rotation to last column of H
         h = self._H[:k+2, k]
 
         for i in range(k):
-            temp = self._cn[i] * h[i] + self._sn[i] * h[i+1]
-            h[i+1] = - self._sn[i] * h[i] + self._cn[i] * h[i+1]
+            temp = cn[i] * h[i] + sn[i] * h[i+1]
+            h[i+1] = - sn[i] * h[i] + cn[i] * h[i+1]
             h[i] = temp
         
         mod = (h[k]**2 + h[k+1]**2)**0.5
-        self._cn.append( h[k] / mod )
-        self._sn.append( h[k+1] / mod )
+        cn.append( h[k] / mod )
+        sn.append( h[k+1] / mod )
 
-        h[k] = self._cn[k] * h[k] + self._sn[k] * h[k+1]
+        h[k] = cn[k] * h[k] + sn[k] * h[k+1]
         h[k+1] = 0. # becomes triangular
 
     def dot(self, b, out=None):
