@@ -10,9 +10,7 @@ from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperato
 from psydac.linalg.utilities import _sym_ortho
 from psydac.linalg.stencil   import StencilVector
 
-__all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'MinimumResidual', 'LSMR', 'GMRES']
-
-
+__all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'BiConjugateGradientStabilized', 'MinimumResidual', 'LSMR', 'GMRES']
 
 def inverse(A, solver, **kwargs):
     """
@@ -45,8 +43,8 @@ def inverse(A, solver, **kwargs):
 
     """
     # Check solver input
-    solvers = ('cg', 'pcg', 'bicg', 'minres', 'lsmr', 'gmres')
-    if not any([solver == solvers[i] for i in range(len(solvers))]):
+    solvers = ('cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres')
+    if solver not in solvers:
         raise ValueError(f"Required solver '{solver}' not understood.")
 
     assert isinstance(A, LinearOperator)
@@ -64,6 +62,8 @@ def inverse(A, solver, **kwargs):
         obj = PConjugateGradient(A, **kwargs)
     elif solver == 'bicg':
         obj = BiConjugateGradient(A, **kwargs)
+    elif solver == 'bicgstab':
+        obj = BiConjugateGradientStabilized(A, **kwargs)
     elif solver == 'minres':
         obj = MinimumResidual(A, **kwargs)
     elif solver == 'lsmr':
@@ -108,50 +108,48 @@ class ConjugateGradient(InverseLinearOperator):
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
         assert isinstance(A, LinearOperator)
-        assert A.domain == A.codomain
-        self._solver = 'cg'
+        assert A.domain.dimension == A.codomain.dimension
+        domain = A.codomain
+        codomain = A.domain
+
+        if x0 is not None:
+            assert isinstance(x0, Vector)
+            assert x0.space is codomain
+        else:
+            x0 = codomain.zeros()
+
         self._A = A
-        self._domain = A.codomain
-        self._codomain = A.domain
-        self._space = A.domain
-        self._x0 = x0
-        self._tol = tol
-        self._maxiter = maxiter
-        self._verbose = verbose
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+        self._domain = domain
+        self._codomain = codomain
+        self._solver = 'cg'
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
-        self._tmps = {"v":A.domain.zeros(), "r":A.domain.zeros(), "p":A.domain.zeros(), 
-                      "lp":A.domain.zeros(), "lv":A.domain.zeros()}
+        self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "lp", "lv")}
         self._info = None
 
     def _check_options(self, **kwargs):
-        keys = ('x0', 'tol', 'maxiter', 'verbose')
         for key, value in kwargs.items():
-            idx = [key == keys[i] for i in range(len(keys))]
-            assert any(idx), "key not supported, check options"
-            true_idx = idx.index(True)
-            if true_idx == 0:
+
+            if key == 'x0':
                 if value is not None:
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
-            elif true_idx == 1:
+                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
+            elif key == 'tol':
                 assert value is not None, "tol may not be None"
-                # don't know if that one works -want to check if value is a number
                 assert value*0 == 0, "tol must be a real number"
                 assert value > 0, "tol must be positive"
-            elif true_idx == 2:
+            elif key == 'maxiter':
                 assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
-            elif true_idx == 3:
+            elif key == 'verbose':
                 assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
+            else:
+                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def _update_options(self):
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
-
-    def transpose(self):
-        At = self._A.T
+    def transpose(self, conjugate=False):
+        At = self._A.transpose(conjugate=conjugate)
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
@@ -159,6 +157,7 @@ class ConjugateGradient(InverseLinearOperator):
     def solve(self, b, out=None):
         """
         Conjugate gradient algorithm for solving linear system Ax=b.
+        Only working if A is an hermitian and positive-definite linear operator.
         Implementation from [1], page 137.
         Info can be accessed using get_info(), see :func:~`basic.InverseLinearOperator.get_info`.
 
@@ -191,34 +190,23 @@ class ConjugateGradient(InverseLinearOperator):
         """
 
         A = self._A
-        n = A.shape[0]
-        x0 = self._x0
-        tol = self._tol
-        maxiter = self._maxiter
-        verbose = self._verbose
+        domain = self._domain
+        codomain = self._codomain
+        options = self._options
+        x0 = options["x0"]
+        tol = options["tol"]
+        maxiter = options["maxiter"]
+        verbose = options["verbose"]
         
-
-        assert( A.shape == (n,n) )
-        assert( b.shape == (n, ) )
+        assert isinstance(b, Vector)
+        assert b.space is domain
 
         # First guess of solution
         if out is not None:
             assert isinstance(out, Vector)
-            assert out.space == self._domain
-            out *= 0
-            if x0 is None:
-                x = out
-            else:
-                assert( x0.shape == (n,) )
-                out += x0
-                x = out
-        else:
-            if x0 is None:
-                x  = b.copy()
-                x *= 0.0
-            else:
-                assert( x0.shape == (n,) )
-                x = x0.copy()
+            assert out.space is codomain
+
+        x = x0.copy(out=out)
 
         # Extract local storage
         v = self._tmps["v"]
@@ -232,7 +220,7 @@ class ConjugateGradient(InverseLinearOperator):
         A.dot(x, out=v)
         b.copy(out=r)
         r -= v
-        am = r.dot( r )
+        am = r.dot(r).real
         r.copy(out=p)
 
         tol_sqr = tol**2
@@ -243,36 +231,35 @@ class ConjugateGradient(InverseLinearOperator):
             print( "+ Iter. # | L2-norm of residual |")
             print( "+---------+---------------------+")
             template = "| {:7d} | {:19.2e} |"
-            print( template.format( 1, sqrt( am ) ) )
+            print(template.format(1, sqrt(am)))
 
         # Iterate to convergence
-        for m in range( 2, maxiter+1 ):
+        for m in range(2, maxiter+1):
             if am < tol_sqr:
                 m -= 1
                 break
             A.dot(p, out=v)
-            l   = am / v.dot( p )
+            l   = am / v.dot(p)
             p.copy(out=lp)
             lp *= l
             x  += lp # this was x += l*p
             v.copy(out=lv)
             lv *= l
             r  -= lv # this was r -= l*v
-            am1 = r.dot( r )
+            am1 = r.dot(r).real
             p  *= (am1/am)
             p  += r
             am  = am1
             if verbose:
-                print( template.format( m, sqrt( am ) ) )
+                print(template.format(m, sqrt(am)))
 
         if verbose:
             print( "+---------+---------------------+")
 
         # Convergence information
-        #info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am ) }
-        self._info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am ) }
-        
-        return x#, info
+        self._info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt(am) }
+
+        return x
 
     def dot(self, b, out=None):
         return self.solve(b, out=out)
@@ -314,57 +301,56 @@ class PConjugateGradient(InverseLinearOperator):
         If True, L2-norm of residual r is printed at each iteration.
 
     """
-    def __init__(self, A, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, *, pc='jacobi', x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
         assert isinstance(A, LinearOperator)
-        assert A.domain == A.codomain
-        self._solver = 'pcg'
+        assert A.domain.dimension == A.codomain.dimension
+        domain = A.codomain
+        codomain = A.domain
+
+        if x0 is not None:
+            assert isinstance(x0, Vector)
+            assert x0.space is codomain
+        else:
+            x0 = codomain.zeros()
+
         self._A = A
-        self._domain = A.codomain
-        self._codomain = A.domain
-        self._space = A.domain
-        self._pc = pc
-        self._x0 = x0
-        self._tol = tol
-        self._maxiter = maxiter
-        self._verbose = verbose
-        self._options = {"pc": self._pc, "x0": self._x0, "tol": self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+        self._domain = domain
+        self._codomain = codomain
+        self._solver = 'pcg'
+        self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
-        self._tmps = {"v":A.domain.zeros(), "r":A.domain.zeros(), "p":A.codomain.zeros(), 
-                      "s":A.codomain.zeros(), "lp":A.codomain.zeros(), "lv":A.domain.zeros()}
+        tmps_codomain = {key: codomain.zeros() for key in ("p", "s", "lp")}
+        tmps_domain = {key: domain.zeros() for key in ("v", "r", "lv")}
+        self._tmps = {**tmps_codomain, **tmps_domain}
         self._info = None
 
     def _check_options(self, **kwargs):
-        keys = ('pc', 'x0', 'tol', 'maxiter', 'verbose')
         for key, value in kwargs.items():
-            idx = [key == keys[i] for i in range(len(keys))]
-            assert any(idx), "key not supported, check options"
-            true_idx = idx.index(True)
-            if true_idx == 0:
+
+            if key == 'pc':
                 assert value is not None, "pc may not be None"
-                assert value == 'jacobi' or value == 'weighted_jacobi', "unsupported preconditioner"
-            elif true_idx == 1:
+                assert value == 'jacobi', "unsupported preconditioner"
+            elif key == 'x0':
                 if value is not None:
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
-            elif true_idx == 2:
+                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
+            elif key == 'tol':
                 assert value is not None, "tol may not be None"
-                # don't know if that one works -want to check if value is a number
                 assert value*0 == 0, "tol must be a real number"
                 assert value > 0, "tol must be positive"
-            elif true_idx == 3:
+            elif key == 'maxiter':
                 assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
-            elif true_idx == 4:
+            elif key == 'verbose':
                 assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
+            else:
+                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def _update_options( self ):
-        self._options = {"pc": self._pc, "x0": self._x0, "tol": self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
-
-    def transpose(self):
-        At = self._A.T
+    def transpose(self, conjugate=False):
+        At = self._A.transpose(conjugate=conjugate)
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
@@ -398,41 +384,31 @@ class PConjugateGradient(InverseLinearOperator):
         """
 
         A = self._A
-        n = A.shape[0]
-        pc = self._pc
-        x0 = self._x0
-        tol = self._tol
-        maxiter = self._maxiter
-        verbose = self._verbose
+        domain = self._domain
+        codomain = self._codomain
+        options = self._options
+        x0 = options["x0"]
+        pc = options["pc"]
+        tol = options["tol"]
+        maxiter = options["maxiter"]
+        verbose = options["verbose"]
 
-        assert( A.shape == (n,n) )
-        assert( b.shape == (n, ) )
+        assert isinstance(b, Vector)
+        assert b.space is domain
 
         # First guess of solution
         if out is not None:
             assert isinstance(out, Vector)
-            assert out.space == self._domain
-            out *= 0
-            if x0 is None:
-                x  = out
-            else:
-                assert( x0.shape == (n,) )
-                out += x0
-                x = out
-        else:
-            if x0 is None:
-                x  = b.copy()
-                x *= 0.0
-            else:
-                assert( x0.shape == (n,) )
-                x = x0.copy()
+            assert out.space is codomain
+
+        x = x0.copy(out=out)
 
         # Preconditioner
         assert pc is not None
         if pc == 'jacobi':
             psolve = lambda r, out: InverseLinearOperator.jacobi(A, r, out)
-        elif pc == 'weighted_jacobi':
-            psolve = lambda r: InverseLinearOperator.weighted_jacobi(A, r) # allows for further specification not callable like this!
+        #elif pc == 'weighted_jacobi':
+        #    psolve = lambda r, out: InverseLinearOperator.weighted_jacobi(A, r, out) # allows for further specification not callable like this!
         #elif isinstance(pc, str):
         #    pcfun = getattr(InverseLinearOperator, str)
         #    #pcfun = globals()[pc]
@@ -455,13 +431,13 @@ class PConjugateGradient(InverseLinearOperator):
         # First values
         A.dot(x, out=v)
         b.copy(out=r)
-        r -= v
-        nrmr_sqr = r.dot(r)
+        r       -= v
+        nrmr_sqr = r.dot(r).real
         psolve(r, out=s)
-        am = s.dot(r)
+        am       = s.dot(r)
         s.copy(out=p)
 
-        tol_sqr = tol**2
+        tol_sqr  = tol**2
 
         if verbose:
             print( "Pre-conditioned CG solver:" )
@@ -487,7 +463,7 @@ class PConjugateGradient(InverseLinearOperator):
             lv *= l
             r  -= lv # this was r -= l*v
 
-            nrmr_sqr = r.dot(r)
+            nrmr_sqr = r.dot(r).real
             psolve(r, out=s)
 
             am1 = s.dot(r)
@@ -502,10 +478,9 @@ class PConjugateGradient(InverseLinearOperator):
             print( "+---------+---------------------+")
 
         # Convergence information
-        #info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr) }
         self._info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr) }
 
-        return x#, info
+        return x
 
     def dot(self, b, out=None):
         return self.solve(b, out=out)
@@ -542,58 +517,53 @@ class BiConjugateGradient(InverseLinearOperator):
     ----------
     [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
 
-    TODO
-    ----
-    Add optional preconditioner
-
     """
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
         assert isinstance(A, LinearOperator)
-        assert A.domain == A.codomain
-        self._solver = 'bicg'
+        assert A.domain.dimension == A.codomain.dimension
+        domain = A.codomain
+        codomain = A.domain
+
+        if x0 is not None:
+            assert isinstance(x0, Vector)
+            assert x0.space is codomain
+        else:
+            x0 = codomain.zeros()
+
         self._A = A
-        self._domain = A.codomain
-        self._codomain = A.domain
-        self._space = A.domain
-        self._x0 = x0
-        self._tol = tol
-        self._maxiter = maxiter
-        self._verbose = verbose
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+        self._Ah = A.H
+        self._domain = domain
+        self._codomain = codomain
+        self._solver = 'bicg'
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
-        self._tmps = {"v":A.domain.zeros(), "r":A.domain.zeros(), "p":A.domain.zeros(), 
-                      "vs":A.domain.zeros(), "rs":A.domain.zeros(), "ps":A.domain.zeros()}
+        self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vs", "rs", "ps")}
         self._info = None
 
     def _check_options(self, **kwargs):
-        keys = ('x0', 'tol', 'maxiter', 'verbose')
         for key, value in kwargs.items():
-            idx = [key == keys[i] for i in range(len(keys))]
-            assert any(idx), "key not supported, check options"
-            true_idx = idx.index(True)
-            if true_idx == 0:
+
+            if key == 'x0':
                 if value is not None:
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
-            elif true_idx == 1:
+                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
+            elif key == 'tol':
                 assert value is not None, "tol may not be None"
-                # don't know if that one works -want to check if value is a number
                 assert value*0 == 0, "tol must be a real number"
                 assert value > 0, "tol must be positive"
-            elif true_idx == 2:
+            elif key == 'maxiter':
                 assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
-            elif true_idx == 3:
+            elif key == 'verbose':
                 assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
+            else:
+                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def _update_options( self ):
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
-
-    def transpose(self):
-        At = self._A.T
+    def transpose(self, conjugate=False):
+        At = self._A.transpose(conjugate=conjugate)
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
@@ -636,35 +606,24 @@ class BiConjugateGradient(InverseLinearOperator):
 
         """
         A = self._A
-        At = A.T
-        n = A.shape[0]
-        x0 = self._x0
-        tol = self._tol
-        maxiter = self._maxiter
-        verbose = self._verbose
+        Ah = self._Ah
+        domain = self._domain
+        codomain = self._codomain
+        options = self._options
+        x0 = options["x0"]
+        tol = options["tol"]
+        maxiter = options["maxiter"]
+        verbose = options["verbose"]
 
-        assert A .shape == (n, n)
-        assert At.shape == (n, n)
-        assert b .shape == (n,)
+        assert isinstance(b, Vector)
+        assert b.space is domain
 
         # First guess of solution
         if out is not None:
             assert isinstance(out, Vector)
-            assert out.space == self._domain
-            out *= 0
-            if x0 is None:
-                x  = out
-            else:
-                assert( x0.shape == (n,) )
-                out += x0
-                x = out
-        else:
-            if x0 is None:
-                x  = b.copy()
-                x *= 0.0
-            else:
-                assert( x0.shape == (n,) )
-                x = x0.copy()
+            assert out.space is codomain
+
+        x = x0.copy(out=out)
 
         # Extract local storage
         v = self._tmps["v"]
@@ -685,7 +644,7 @@ class BiConjugateGradient(InverseLinearOperator):
         p.copy(out=ps)
         v.copy(out=vs)
 
-        res_sqr = r.dot(r)
+        res_sqr = r.dot(r).real
         tol_sqr = tol**2
 
         if verbose:
@@ -706,16 +665,16 @@ class BiConjugateGradient(InverseLinearOperator):
             # MATRIX-VECTOR PRODUCTS
             #-----------------------
             A.dot(p, out=v)
-            At.dot(ps, out=vs)
+            Ah.dot(ps, out=vs)
             #v  = A.dot(p , out=v) # overwriting v, then saving in v. Necessary?
             #vs = At.dot(ps, out=vs) # same story
             #-----------------------
 
-            # c := (r, rs)
-            c = r.dot(rs)
+            # c := (rs, r)
+            c = rs.dot(r)
 
-            # a := (r, rs) / (v, ps)
-            a = c / v.dot(ps)
+            # a := (rs, r) / (ps, v)
+            a = c / ps.dot(v)
 
             #-----------------------
             # SOLUTION UPDATE
@@ -729,23 +688,23 @@ class BiConjugateGradient(InverseLinearOperator):
             v *= a
             r -= v
 
-            # rs := rs - a*vs
-            vs *= a
+            # rs := rs - conj(a)*vs
+            vs *= a.conj()
             rs -= vs
 
-            # b := (r, rs)_{m+1} / (r, rs)_m
-            b = r.dot(rs) / c
+            # b := (rs, r)_{m+1} / (rs, r)_m
+            b = rs.dot(r) / c
 
             # p := r + b*p
             p *= (b/a) # *= (b/a) why a? or update description
             p += r
 
-            # ps := rs + b*ps
-            ps *= b
+            # ps := rs + conj(b)*ps
+            ps *= b.conj()
             ps += rs
 
             # ||r||_2 := (r, r)
-            res_sqr = r.dot( r )
+            res_sqr = r.dot(r).real
 
             if verbose:
                 print( template.format(m, sqrt(res_sqr)) )
@@ -754,10 +713,258 @@ class BiConjugateGradient(InverseLinearOperator):
             print( "+---------+---------------------+")
 
         # Convergence information
-        #info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt( res_sqr ) }
-        self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt( res_sqr ) }
+        self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
 
-        return x#, info
+        return x
+
+    def dot(self, b, out=None):
+        return self.solve(b, out=out)
+
+#===============================================================================
+class BiConjugateGradientStabilized(InverseLinearOperator):
+    """
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+
+    The .dot (and also the .solve) function are based on the
+    Biconjugate gradient Stabilized (BCGSTAB) algorithm for solving linear system Ax=b.
+    Implementation from [1], page 175.
+
+    Parameters
+    ----------
+    A : psydac.linalg.basic.LinearOperator
+        Left-hand-side matrix A of linear system; individual entries A[i,j]
+        can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
+        function (i.e. matrix-vector product A*p).
+
+    x0 : psydac.linalg.basic.Vector
+        First guess of solution for iterative solver (optional).
+
+    tol : float
+        Absolute tolerance for 2-norm of residual r = A*x - b.
+
+    maxiter: int
+        Maximum number of iterations.
+
+    verbose : bool
+        If True, 2-norm of residual r is printed at each iteration.
+
+    References
+    ----------
+    [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
+
+    """
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+
+        assert isinstance(A, LinearOperator)
+        assert A.domain.dimension == A.codomain.dimension
+        domain = A.codomain
+        codomain = A.domain
+
+        if x0 is not None:
+            assert isinstance(x0, Vector)
+            assert x0.space is codomain
+        else:
+            x0 = codomain.zeros()
+
+        self._A = A
+        self._domain = domain
+        self._codomain = codomain
+        self._solver = 'bicgstab'
+        self._options = {"x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose}
+        self._check_options(**self._options)
+        self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vs", "r0", "s")}
+        self._info = None
+
+    def _check_options(self, **kwargs):
+        keys = ('x0', 'tol', 'maxiter', 'verbose')
+        for key, value in kwargs.items():
+            idx = [key == keys[i] for i in range(len(keys))]
+            assert any(idx), "key not supported, check options"
+            true_idx = idx.index(True)
+            if true_idx == 0:
+                if value is not None:
+                    assert isinstance(value, Vector), "x0 must be a Vector or None"
+                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
+            elif true_idx == 1:
+                assert value is not None, "tol may not be None"
+                # don't know if that one works -want to check if value is a number
+                assert value*0 == 0, "tol must be a real number"
+                assert value > 0, "tol must be positive"
+            elif true_idx == 2:
+                assert value is not None, "maxiter may not be None"
+                assert isinstance(value, int), "maxiter must be an int"
+                assert value > 0, "maxiter must be positive"
+            elif true_idx == 3:
+                assert value is not None, "verbose may not be None"
+                assert isinstance(value, bool), "verbose must be a bool"
+
+    def _update_options( self ):
+        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+
+    def transpose(self, conjugate=False):
+        At = self._A.transpose(conjugate=conjugate)
+        solver = self._solver
+        options = self._options
+        return inverse(At, solver, **options)
+
+    def solve(self, b, out=None):
+        """
+        Biconjugate gradient stabilized method (BCGSTAB) algorithm for solving linear system Ax=b.
+        Implementation from [1], page 175.
+
+        Parameters
+        ----------
+        b : psydac.linalg.basic.Vector
+            Right-hand-side vector of linear system. Individual entries b[i] need
+            not be accessed, but b has 'shape' attribute and provides 'copy()' and
+            'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
+            scalar multiplication and sum operations are available.
+        out : psydac.linalg.basic.Vector | NoneType
+            The output vector, or None (optional).
+
+        Results
+        -------
+        x : psydac.linalg.basic.Vector
+            Numerical solution of linear system.
+        info : dict
+            Dictionary containing convergence information:
+              - 'niter'    = (int) number of iterations
+              - 'success'  = (boolean) whether convergence criteria have been met
+              - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+
+        References
+        ----------
+        [1] H. A. van der Vorst. Bi-CGSTAB: A fast and smoothly converging variant of Bi-CG for the
+        solution of nonsymmetric linear systems. SIAM J. Sci. Stat. Comp., 13(2):631–644, 1992
+
+        TODO
+        ----
+        Add optional preconditioner
+        """
+
+        A = self._A
+        domain = self._domain
+        codomain = self._codomain
+        options = self._options
+        x0 = options["x0"]
+        tol = options["tol"]
+        maxiter = options["maxiter"]
+        verbose = options["verbose"]
+
+        assert isinstance(b, Vector)
+        assert b.space is domain
+
+        # First guess of solution
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space is codomain
+
+        x = x0.copy(out=out)
+
+        # Extract local storage
+        v = self._tmps["v"]
+        r = self._tmps["r"]
+        p = self._tmps["p"]
+        vs = self._tmps["vs"]
+        r0 = self._tmps["r0"]
+        s = self._tmps["s"]
+
+        # First values
+        A.dot(x, out=v)
+        b.copy(out=r)
+        r -= v
+        #r = b - A.dot(x)
+        r.copy(out=p)
+        v *= 0.0
+        vs *= 0.0
+
+        r.copy(out=r0)
+        r.copy(out=s)
+        s *= 0.0
+
+        res_sqr = r.dot(r).real
+        tol_sqr = tol ** 2
+
+        if verbose:
+            print("BiCGSTAB solver:")
+            print("+---------+---------------------+")
+            print("+ Iter. # | L2-norm of residual |")
+            print("+---------+---------------------+")
+            template = "| {:7d} | {:19.2e} |"
+
+        # Iterate to convergence
+        for m in range(1, maxiter + 1):
+
+            if res_sqr < tol_sqr:
+                m -= 1
+                break
+
+            # -----------------------
+            # MATRIX-VECTOR PRODUCTS
+            # -----------------------
+            v = A.dot(p, out=v)
+            # -----------------------
+
+            # c := (r0, r)
+            c = r0.dot(r)
+
+            # a := (r0, r) / (r0, v)
+            a = c / (r0.dot(v))
+
+            # s := r - a*v
+            s *= 0
+            v *= a
+            s += r
+            s -= v
+
+            # vs :=  A*s
+            vs = A.dot(s, out=vs)
+
+            # w := (s, A*s) / (A*s, A*s)
+            w = s.dot(vs) / vs.dot(vs)
+
+            # -----------------------
+            # SOLUTION UPDATE
+            # -----------------------
+            # x := x + a*p +w*s
+            p *= a
+            s *= w
+            x += p
+            x += s
+            # -----------------------
+
+            # r := s - w*vs
+            vs *= w
+            s *= 1 / w
+            r *= 0
+            r += s
+            r -= vs
+
+            # ||r||_2 := (r, r)
+            res_sqr = r.dot(r).real
+
+            if res_sqr < tol_sqr:
+                break
+
+            # b := a / w * (r0, r)_{m+1} / (r0, r)_m
+            b = r0.dot(r) * a / (c * w)
+
+            # p := r + b*p- b*w*v
+            v *= (b * w / a)
+            p *= (b / a)
+            p -= v
+            p += r
+
+            if verbose:
+                print(template.format(m, sqrt(res_sqr)))
+
+        if verbose:
+            print("+---------+---------------------+")
+
+        # Convergence information
+        self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
+
+        return x
 
     def dot(self, b, out=None):
         return self.solve(b, out=out)
@@ -808,50 +1015,50 @@ class MinimumResidual(InverseLinearOperator):
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
         assert isinstance(A, LinearOperator)
-        assert A.domain == A.codomain
-        self._solver = 'minres'
+        assert A.domain.dimension == A.codomain.dimension
+        assert A.dtype == float
+        domain = A.codomain
+        codomain = A.domain
+
+        if x0 is not None:
+            assert isinstance(x0, Vector)
+            assert x0.space is codomain
+        else:
+            x0 = codomain.zeros()
+
         self._A = A
-        self._domain = A.codomain
-        self._codomain = A.domain
-        self._space = A.domain
-        self._x0 = x0
-        self._tol = tol
-        self._maxiter = maxiter
-        self._verbose = verbose
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+        self._domain = domain
+        self._codomain = codomain
+        self._solver = 'minres'
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
-        self._tmps = {"rs":A.domain.zeros(), "y":A.domain.zeros(), "v":A.domain.zeros(), "w":A.domain.zeros(), 
-                      "w2":A.domain.zeros(), "res1":A.domain.zeros(), "res2":A.domain.zeros()}
+        self._tmps = {key: domain.zeros() for key in ("res1", "res2", "w", "w2", "yc",
+                      "v", "resc", "res2c", "ycc", "res1c", "wc", "w2c")}
         self._info = None
 
     def _check_options(self, **kwargs):
-        keys = ('x0', 'tol', 'maxiter', 'verbose')
         for key, value in kwargs.items():
-            idx = [key == keys[i] for i in range(len(keys))]
-            assert any(idx), "key not supported, check options"
-            true_idx = idx.index(True)
-            if true_idx == 0:
+
+            if key == 'x0':
                 if value is not None:
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
-            elif true_idx == 1:
+                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
+            elif key == 'tol':
                 assert value is not None, "tol may not be None"
-                # don't know if that one works -want to check if value is a number
                 assert value*0 == 0, "tol must be a real number"
                 assert value > 0, "tol must be positive"
-            elif true_idx == 2:
+            elif key == 'maxiter':
                 assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
-            elif true_idx == 3:
+            elif key == 'verbose':
                 assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
+            else:
+                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def _update_options(self):
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
-
-    def transpose(self):
-        At = self._A.T
+    def transpose(self, conjugate=False):
+        At = self._A.transpose(conjugate=conjugate)
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
@@ -896,42 +1103,38 @@ class MinimumResidual(InverseLinearOperator):
         """
 
         A = self._A
-        n = A.shape[0]
-        x0 = self._x0
-        tol = self._tol
-        maxiter = self._maxiter
-        verbose = self._verbose
+        domain = self._domain
+        codomain = self._codomain
+        options = self._options
+        x0 = options["x0"]
+        tol = options["tol"]
+        maxiter = options["maxiter"]
+        verbose = options["verbose"]
+
+        assert isinstance(b, Vector)
+        assert b.space is domain
+
+        # First guess of solution
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space is codomain
+
+        x = x0.copy(out=out)
 
         # Extract local storage
-        rs = self._tmps["rs"]
-        y = self._tmps["y"]
         v = self._tmps["v"]
         w = self._tmps["w"]
         w2 = self._tmps["w2"]
         res1 = self._tmps["res1"]
         res2 = self._tmps["res2"]
-
-        assert A .shape == (n, n)
-        assert b .shape == (n,)
-
-        # First guess of solution
-        if out is not None:
-            assert isinstance(out, Vector)
-            assert out.space == self._domain
-            out *= 0
-            if x0 is None:
-                x  = out
-            else:
-                assert( x0.shape == (n,) )
-                out += x0
-                x = out
-        else:
-            if x0 is None:
-                x  = b.copy()
-                x *= 0.0
-            else:
-                assert( x0.shape == (n,) )
-                x = x0.copy()
+        # auxiliary to minimzize temps, optimal solution until proven wrong
+        wc = self._tmps["wc"]
+        w2c = self._tmps["w2c"]
+        yc = self._tmps["yc"]
+        ycc = self._tmps["ycc"]
+        resc = self._tmps["resc"]
+        res1c = self._tmps["res1c"]
+        res2c = self._tmps["res2c"]
 
         istop = 0
         itn   = 0
@@ -942,10 +1145,10 @@ class MinimumResidual(InverseLinearOperator):
 
         eps = np.finfo(b.dtype).eps
 
-        A.dot(x, out=rs)
-        b.copy(out=res1)
-        res1 -= rs
-        res1.copy(out=y)
+        A.dot(x, out=res1)
+        res1 -= b
+        res1 *= -1.0
+        y  = res1
 
         beta = sqrt(res1.dot(res1))
 
@@ -963,9 +1166,9 @@ class MinimumResidual(InverseLinearOperator):
         cs      = -1
         sn      = 0
         b.copy(out=w)
-        w *= 0
+        w *= 0.0
         b.copy(out=w2)
-        w2 *= 0
+        w2 *= 0.0
         res1.copy(out=res2)
 
         if verbose:
@@ -977,19 +1180,30 @@ class MinimumResidual(InverseLinearOperator):
 
 
         for itn in range(1, maxiter + 1 ):
+
             s = 1.0/beta
             y.copy(out=v)
             v *= s
-            A.dot(v, out=y)
+            A.dot(v, out=yc)
+            y = yc
+
             if itn >= 2:
                 res1 *= (beta/oldb)
                 y -= res1
 
             alfa = v.dot(y)
-            res2.copy(out=res1)
-            res2 *= alfa/beta
-            y -= res2
-            y.copy(out=res2)
+            res1 = res2
+
+            res2.copy(out=resc)
+            resc *= (alfa/beta)
+            y.copy(out=ycc)
+            ycc -= resc
+            y = ycc
+            res1.copy(out=res1c)
+            res1 = res1c
+            y.copy(out=res2c)
+            res2 = res2c
+
             oldb = beta
             beta = sqrt(y.dot(y))
             tnorm2 += alfa**2 + oldb**2 + beta**2
@@ -1018,17 +1232,22 @@ class MinimumResidual(InverseLinearOperator):
             # Update  x.
 
             denom = 1.0/gamma
+            w1    = w2
+            w2    = w
 
-            w1 = w
-            w2 *= oldeps
-            w *= -delta
-            w -= w2
-            w += v
-            w *= denom
-            w2 = w1
-
-            w *= phi
-            x += w
+            w1.copy(out=yc)
+            yc *= oldeps
+            w2.copy(out=w2c)
+            w2.copy(out=wc)
+            w = wc
+            w2 = w2c
+            w *= delta
+            w += yc
+            w -= v
+            w *= -denom
+            w.copy(out=yc)
+            yc *= phi
+            x += yc
 
             # Go round again.
 
@@ -1051,7 +1270,7 @@ class MinimumResidual(InverseLinearOperator):
 
             rnorm  = phibar
             if ynorm == 0 or Anorm == 0:test1 = inf
-    #        else:test1 = rnorm / (Anorm*ynorm)  # ||r||  / (||A|| ||x||)
+            #else:test1 = rnorm / (Anorm*ynorm)  # ||r||  / (||A|| ||x||)
             else:test1 = rnorm                   # ||r||
 
             if Anorm == 0:test2 = inf
@@ -1087,15 +1306,14 @@ class MinimumResidual(InverseLinearOperator):
             print( "+---------+---------------------+")
 
         # Convergence information
-        #info = {'niter': itn, 'success': rnorm<tol, 'res_norm': rnorm }
         self._info = {'niter': itn, 'success': rnorm<tol, 'res_norm': rnorm }
 
-        return x#, info
+        return x
 
     def dot(self, b, out=None):
         return self.solve(b, out=out)
 
-        #===============================================================================
+#===============================================================================
 class LSMR(InverseLinearOperator):
     """
     A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
@@ -1154,61 +1372,63 @@ class LSMR(InverseLinearOperator):
     def __init__(self, A, *, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim=1e8, verbose=False):
 
         assert isinstance(A, LinearOperator)
-        assert A.domain == A.codomain
-        self._solver = 'cg'
+        assert A.domain.dimension == A.codomain.dimension
+        domain = A.codomain
+        codomain = A.domain
+
+        if x0 is not None:
+            assert isinstance(x0, Vector)
+            assert x0.space is codomain
+        else:
+            x0 = codomain.zeros()
+
         self._A = A
-        self._domain = A.codomain
-        self._codomain = A.domain
-        self._space = A.domain
-        self._x0 = x0
-        self._tol = tol
-        self._atol = atol
-        self._btol = btol
-        self._maxiter = maxiter
-        self._conlim = conlim
-        self._verbose = verbose
-        self._options = {"x0":self._x0, "tol":self._tol, "atol":self._atol, 
-                         "btol":self._btol, "maxiter": self._maxiter, "conlim":self._conlim, "verbose": self._verbose}
+        self._domain = domain
+        self._codomain = codomain
+        self._solver = 'lsmr'
+        self._options = {"x0":x0, "tol":tol, "atol":atol, "btol":btol,
+                         "maxiter":maxiter, "conlim":conlim, "verbose":verbose}
         self._check_options(**self._options)
-        #self._tmps = {"v":A.domain.zeros(), "r":A.domain.zeros(), "p":A.domain.zeros(), 
-        #              "lp":A.domain.zeros(), "lv":A.domain.zeros()}
         self._info = None
+        self._successful = None
+        tmps_domain = {key: domain.zeros() for key in ("uh", "uc")}
+        tmps_codomain = {key: codomain.zeros() for key in ("v", "vh", "h", "hbar")}
+        self._tmps = {**tmps_codomain, **tmps_domain}
+
+    def get_success(self):
+        return self._successful
 
     def _check_options(self, **kwargs):
-        keys = ('x0', 'tol', 'atol', 'btol', 'maxiter', 'conlim', 'verbose')
         for key, value in kwargs.items():
-            idx = [key == keys[i] for i in range(len(keys))]
-            assert any(idx), "key not supported, check options"
-            true_idx = idx.index(True)
-            if true_idx == 0:
+
+            if key == 'x0':
                 if value is not None:
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._domain, "x0 belongs to the wrong VectorSpace"
-            elif true_idx == 1 or true_idx == 2 or true_idx == 3:
-                #assert value is not None, "tol may not be None" # for lsmr tol/atol/btol may be None
-                # don't know if that one works -want to check if value is a number
+                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
+            elif key == 'tol':
                 if value is not None:
                     assert value*0 == 0, "tol must be a real number"
                     assert value > 0, "tol must be positive" # suppose atol/btol must also be positive numbers
-            elif true_idx == 4:
+            elif key == 'atol' or key == 'btol':
+                if value is not None:
+                    assert value*0 == 0, "atol/btol must be a real number"
+                    assert value >= 0, "atol/btol must not be negative"
+            elif key == 'maxiter':
                 assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
-            elif true_idx == 5:
+            elif key == 'conlim':
                 assert value is not None, "conlim may not be None"
-                # don't know if that one works -want to check if value is a number
                 assert value*0 == 0, "conlim must be a real number" # actually an integer?
                 assert value > 0, "conlim must be positive" # supposedly
-            elif true_idx == 6:
+            elif key == 'verbose':
                 assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
+            else:
+                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
-    def _update_options(self):
-        self._options = {"x0":self._x0, "tol":self._tol, "atol":self._atol, 
-                         "btol":self._btol, "maxiter": self._maxiter, "conlim":self._conlim, "verbose": self._verbose}
-
-    def transpose(self):
-        At = self._A.T
+    def transpose(self, conjugate=False):
+        At = self._A.transpose(conjugate=conjugate)
         solver = self._solver
         options = self._options
         return inverse(At, solver, **options)
@@ -1259,65 +1479,64 @@ class LSMR(InverseLinearOperator):
         """
 
         A = self._A
-        At = A.T
-        m, n = A.shape
-        x0 = self._x0
-        tol = self._tol
-        atol = self._atol
-        btol = self._btol
-        maxiter = self._maxiter
-        conlim = self._conlim
-        verbose = self._verbose
+        At = A.H
+        domain = self._domain
+        codomain = self._codomain
+        options = self._options
+        x0 = options["x0"]
+        tol = options["tol"]
+        atol = options["atol"]
+        btol = options["btol"]
+        maxiter = options["maxiter"]
+        conlim = options["conlim"]
+        verbose = options["verbose"]
+
+        assert isinstance(b, Vector)
+        assert b.space is domain
+
+        # First guess of solution
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space is codomain
+
+        x = x0.copy(out=out)
+
+        # Extract local storage
+        v = self._tmps["v"]
+        h = self._tmps["h"]
+        hbar = self._tmps["hbar"]
+        # Not strictly needed by the LSMR, but necessary to avoid temporaries
+        uh = self._tmps["uh"]
+        vh = self._tmps["vh"]
+        uc = self._tmps["uc"]
 
         if atol is None:atol = 1e-6
         if btol is None:btol = 1e-6
         if tol is not None: 
             atol = tol
             btol = tol
-            
-        u = b
-        normb = sqrt(b.dot(b))
 
-        # Julian 25.01.23: Ignoring the np.ndarray() case
-        # while adding the "if out is not None" part.
-        if out is not None:
-            assert isinstance(out, Vector)
-            assert out.space == self._domain
-            out *= 0
-            if x0 is None:
-                x  = out
-                beta = normb
-            else:
-                assert( x0.shape == (n,) )
-                out += x0
-                x = out
-                u -= A.dot(x)
-                beta = sqrt(u.dot(u))
-        else:
-            if x0 is None:
-                if not isinstance(A, np.ndarray):
-                    x = A.domain.zeros()
-                else:
-                    x = np.zeros(n, dtype=A.dtype)
-                beta = normb
-            else:
-                x = x0.copy()
-                assert x0.shape == (n,)
-                u = u - A.dot(x)
-                beta = sqrt(u.dot(u))
+        u = b
+        normb = sqrt(b.dot(b).real)
+
+        A.dot(x, out=uh)
+        u -= uh
+        beta = sqrt(u.dot(u).real)
 
         if beta > 0:
-            u = (1 / beta) * u
-            v = At.dot(u)
-            alpha = sqrt(v.dot(v))
+            u.copy(out = uc)
+            uc *= (1 / beta)
+            u = uc
+            At.dot(u, out=v)
+            alpha = sqrt(v.dot(v).real)
         else:
-            v = x.copy()
+            x.copy(out=v)
             alpha = 0
 
-        if alpha > 0:v = (1 / alpha) * v
+        if alpha > 0:
+            v *= (1 / alpha)
 
         # Initialize variables for 1st iteration.
-
         itn      = 0
         zetabar  = alpha * beta
         alphabar = alpha
@@ -1326,8 +1545,9 @@ class LSMR(InverseLinearOperator):
         cbar     = 1
         sbar     = 0
 
-        h    = v.copy()
-        hbar = 0. * x.copy()
+        v.copy(out=h)
+        x.copy(out=hbar)
+        hbar *= 0.0
 
         # Initialize variables for estimation of ||r||.
 
@@ -1373,14 +1593,16 @@ class LSMR(InverseLinearOperator):
             #        alpha*v  =  A'*u  -  beta*v.
 
             u *= -alpha
-            u += A.dot(v)
-            beta = sqrt(u.dot(u))
+            A.dot(v, out=uh)
+            u += uh
+            beta = sqrt(u.dot(u).real)
 
             if beta > 0:
                 u     *= (1 / beta)
                 v     *= -beta
-                v     += At.dot(u)
-                alpha = sqrt(v.dot(v))
+                At.dot(u, out=vh)
+                v     += vh
+                alpha = sqrt(v.dot(v).real)
                 if alpha > 0:v *= (1 / alpha)
 
             # At this point, beta = beta_{k+1}, alpha = alpha_{k+1}.
@@ -1410,7 +1632,11 @@ class LSMR(InverseLinearOperator):
 
             hbar *= - (thetabar * rho / (rhoold * rhobarold))
             hbar += h
-            x    += (zeta / (rho * rhobar)) * hbar
+
+            hbar.copy(out=uh)
+            uh *= (zeta / (rho * rhobar))
+            x += uh
+
             h    *= - (thetanew / rho)
             h    += v
 
@@ -1455,7 +1681,7 @@ class LSMR(InverseLinearOperator):
 
             # Compute norms for convergence testing.
             normar = abs(zetabar)
-            normx  = sqrt(x.dot(x))
+            normx  = sqrt(x.dot(x).real)
 
             # Now use these norms to estimate certain other quantities,
             # some of which will be small near a solution.
@@ -1496,8 +1722,10 @@ class LSMR(InverseLinearOperator):
 
         # Convergence information
         self._info = {'niter': itn, 'success': istop in [1,2,3], 'res_norm': normr }
-        
-        return x#, info
+        # Seems necessary, as algorithm might terminate even though rnorm > tol.
+        self._successful = istop in [1,2,3]
+
+        return x
 
     def dot(self, b, out=None):
         return self.solve(b, out=out)

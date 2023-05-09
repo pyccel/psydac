@@ -5,7 +5,7 @@ from mpi4py       import MPI
 from psydac.ddm.cart       import CartDecomposition
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.api.settings   import PSYDAC_BACKEND_GPYCCEL
-from psydac.linalg.iterative_solvers import cg
+from psydac.linalg.solvers import inverse
 
 n1 = 10000
 p1 = 1
@@ -40,7 +40,9 @@ for i1 in range(s1,e1+1):
 b = A.dot(x0)
 
 t0 = time.time()
-x, info = cg( A, b, tol=1e-13, maxiter=30000 )
+A_inv = inverse(A, 'cg', tol=1e-13, maxiter=30000)
+x = A_inv @ b
+info = A_inv.get_info()
 t1 = time.time()
 T  = t1-t0
 T  = comm.reduce(T, op=MPI.MAX)

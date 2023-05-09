@@ -5,7 +5,6 @@ from psydac.core.bsplines          import make_knots
 from psydac.fem.basic              import FemField
 from psydac.fem.splines            import SplineSpace
 from psydac.fem.tensor             import TensorFemSpace
-from psydac.fem.vector             import ProductFemSpace
 from psydac.feec.global_projectors import Projector_H1, Projector_L2
 from psydac.ddm.cart               import DomainDecomposition
 

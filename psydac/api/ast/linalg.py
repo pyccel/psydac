@@ -156,9 +156,17 @@ class LinearOperatorDot(SplBasic):
         interface_axis  = kwargs.pop('interface_axis', None)
         d_start         = kwargs.pop('d_start', None)
         c_start         = kwargs.pop('c_start', None)
-        mats            = [variables('mat{}'.format(''.join(str(i) for i in key)),'real', cls=IndexedVariable, rank=2*ndim) for key in keys]
-        xs              = [variables('x{}'.format(i),'real', cls=IndexedVariable, rank=ndim) for i in range(block_shape[1])]
-        outs            = [variables('out{}'.format(i),'real', cls=IndexedVariable, rank=ndim) for i in range(block_shape[0])]
+        dtype           = kwargs.pop('dtype', float)
+
+        # Adapt the type of data treated in our dot function
+        if dtype==complex:
+            dtype_string='complex'
+        else:
+            dtype_string='real'
+
+        mats            = [variables('mat{}'.format(''.join(str(i) for i in key)),dtype_string, cls=IndexedVariable, rank=2*ndim) for key in keys]
+        xs              = [variables('x{}'.format(i),dtype_string, cls=IndexedVariable, rank=ndim) for i in range(block_shape[1])]
+        outs            = [variables('out{}'.format(i),dtype_string, cls=IndexedVariable, rank=ndim) for i in range(block_shape[0])]
 
         func_args    = (*mats, *xs, *outs)
         shared       = (*mats, *xs, *outs)
@@ -181,7 +189,7 @@ class LinearOperatorDot(SplBasic):
                 indices1        = variables('i1:%s'%(ndim+1),  'int')
                 bb              = variables('b1:%s'%(ndim+1),  'int')
                 indices2        = variables('k1:%s'%(ndim+1),  'int')
-                v               = variables('v{}'.format(key_str),'real')
+                v               = variables('v{}'.format(key_str),dtype_string)
                 xshape          = variables('xn1:%s'%(ndim+1),  'int')
 
                 pads_k          = tuple(map(toInteger, pads[k]))
@@ -234,7 +242,12 @@ class LinearOperatorDot(SplBasic):
                 for i,j in zip(indices2[::-1], ranges[::-1]):
                     body = [For(i,j, body)]
 
-                body.insert(0,Assign(v, 0.0))
+                # Adapt data type of the variable v=0
+                if dtype==complex:
+                    body.insert(0,Assign(v, 0.0+0j))
+                else:
+                    body.insert(0,Assign(v, 0.0))
+
                 if diag_keys:
                     body.append(Assign(v3,v))
                 else:
@@ -289,7 +302,12 @@ class LinearOperatorDot(SplBasic):
                     for i,j in zip(indices2[::-1], ranges[::-1]):
                         for_body = [For(i,j, for_body)]
 
-                    for_body.insert(0,Assign(v, 0.0))
+                    # Adapt data type of the variable v=0
+                    if dtype == complex:
+                        for_body.insert(0, Assign(v, 0.0 + 0j))
+                    else:
+                        for_body.insert(0, Assign(v, 0.0))
+
                     if diag_keys:
                         for_body.append(Assign(v3,v))
                     else:
@@ -433,12 +451,16 @@ class LinearOperatorDot(SplBasic):
 class TransposeOperator(SplBasic):
 
     name_template = 'transpose_{ndim}d'
-    function_dict = {1 : transpose_1d, 2 : transpose_2d, 3 : transpose_3d}
+    function_dict = {1 : transpose_1d,
+                     2 : transpose_2d,
+                     3 : transpose_3d}
 
     # TODO [YG 01.04.2022]: drop support for old Pyccel versions, then remove
-    args_dtype_dict = {1 : [repr('float[:,:]')]*2 + [repr('int64')]*11,
-                       2 : [repr('float[:,:,:,:]')]*2 + [repr('int64')]*22,
-                       3 : [repr('float[:,:,:,:,:,:]')]*2 + [repr('int64')]*33}
+    # T is defined in linalg_kernel.py and it is a template of pyccel that accept float or complex array
+    args_dtype_dict = {1: [repr('T')]*2 + [repr('int64')]*11,
+                       2: [repr('T')]*2 + [repr('int64')]*22,
+                       3: [repr('T')]*2 + [repr('int64')]*33
+                       }
 
     def __new__(cls, ndim, comm=None, **kwargs):
         if comm is not None:
@@ -521,23 +543,19 @@ class TransposeOperator(SplBasic):
 
         if self.comm is None or self.comm.rank == 0:
 
-            dec  = ''
+            dec = ''
             code = self._code
+            imports='from pyccel.decorators import template'
             if backend and backend['name'] == 'pyccel':
                 import pyccel
                 from packaging import version
                 if version.parse(pyccel.__version__) < version.parse('1.1.0'):
                     # Add @types decorator due the  minimum required Pyccel version 0.10.1
-                    imports = 'from pyccel.decorators import types'
+                    imports = imports + ',types'
                     dec     = '@types({})'.format(','.join(self._args_dtype))
-                else:
-                    imports = ''
-                    dec     = ''
             elif backend and backend['name'] == 'numba':
-                imports = 'from numba import njit'
+                imports = imports + '\nfrom numba import njit'
                 dec     = '@njit(fastmath={})'.format(backend['fastmath'])
-            else:
-                imports = ''
 
             code = f'{imports}\n{dec}\n{code}'
             write_code(modname + '.py', code, folder=self.folder)
@@ -590,14 +608,17 @@ class InterfaceTransposeOperator(TransposeOperator):
     """
 
     name_template = 'interface_transpose_{ndim}d'
-    function_dict = {1 : interface_transpose_1d,
-                     2 : interface_transpose_2d,
-                     3 : interface_transpose_3d}
+    function_dict = {1: interface_transpose_1d,
+                     2: interface_transpose_2d,
+                     3: interface_transpose_3d}
 
     # TODO [YG 01.04.2022]: drop support for old Pyccel versions, then remove
-    args_dtype_dict = {1 : [repr('float[:,:]')]*2 + [repr('int64')]*12,
-                       2 : [repr('float[:,:,:,:]')]*2 + [repr('int64')]*21,
-                       3 : [repr('float[:,:,:,:,:,:]')]*2 + [repr('int64')]*30}
+
+    # T is defined in linalg_kernel.py and it is a template of pyccel that accept float or complex array
+    args_dtype_dict = {1 : [repr('T')]*2 + [repr('int64')]*12,
+                       2 : [repr('T')]*2 + [repr('int64')]*21,
+                       3 : [repr('T')]*2 + [repr('int64')]*30
+                       }
 
 #==============================================================================
 class VectorDot(SplBasic):
