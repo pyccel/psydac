@@ -8,6 +8,7 @@ import numpy as np
 
 from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator, IdentityOperator, ScaledLinearOperator
 from psydac.linalg.utilities import _sym_ortho
+from psydac.linalg.stencil   import StencilVector
 
 __all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'MinimumResidual', 'LSMR', 'GMRES']
 
@@ -23,6 +24,7 @@ def inverse(A, solver, **kwargs):
     :func:~`solvers.BiConjugateGradient`
     :func:~`solvers.MinimumResidual`
     :func:~`solvers.LSMR`
+    :func:~`solvers.GMRES`
     
     Parameters
     ----------
@@ -32,7 +34,7 @@ def inverse(A, solver, **kwargs):
         function (i.e. matrix-vector product A*p).
 
     solver : str
-        14.02.23: Either 'cg', 'pcg', 'bicg', 'minres' or 'lsmr'
+        14.02.23: Either 'cg', 'pcg', 'bicg', 'minres', 'lsmr' or 'gmres'
         Indicating the preferred iterative solver.
 
     Returns
@@ -43,7 +45,7 @@ def inverse(A, solver, **kwargs):
 
     """
     # Check solver input
-    solvers = ('cg', 'pcg', 'bicg', 'minres', 'lsmr')
+    solvers = ('cg', 'pcg', 'bicg', 'minres', 'lsmr', 'gmres')
     if not any([solver == solvers[i] for i in range(len(solvers))]):
         raise ValueError(f"Required solver '{solver}' not understood.")
 
@@ -1548,9 +1550,19 @@ class GMRES(InverseLinearOperator):
         self._verbose = verbose
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
         self._check_options(**self._options)
-        self._tmps = {"v":A.domain.zeros(), "r":A.domain.zeros(), "p":A.domain.zeros(), 
-                      "lp":A.domain.zeros(), "lv":A.domain.zeros()}
+        self._tmps = {"v":A.domain.zeros(), "r":A.domain.zeros(), "p":A.domain.zeros()}   
+        self._generate_intern_mat()   
         self._info = None
+        
+    def _generate_intern_mat(self):
+        self._H = np.zeros((self._maxiter + 1, self._maxiter))
+        self._Q = np.zeros((self._A.shape[0], self._maxiter + 1))
+        self._beta = np.zeros(self._maxiter + 1,) # is upper Hessenberg matrix
+
+        self._h = np.zeros((self._maxiter + 1,))
+        self._q = np.zeros((self._A.shape[0],))
+        self._sn = np.zeros(self._maxiter,)
+        self._cn = np.zeros(self._maxiter,)
 
     def _check_options(self, **kwargs):
         keys = ('x0', 'tol', 'maxiter', 'verbose')
@@ -1650,29 +1662,23 @@ class GMRES(InverseLinearOperator):
         # Extract local storage
         v = self._tmps["v"]
         r = self._tmps["r"]
-        p = self._tmps["p"]
-        # Not strictly needed by the conjugate gradient, but necessary to avoid temporaries
-        lp = self._tmps["lp"]
-        lv = self._tmps["lv"]
-        
+
+        # Internal matrices of GMRES
+        H = self._H
+        Q = self._Q
+        beta = self._beta
+        sn = self._sn
+        cn = self._cn
 
         # First values
-        r = b - A.dot( x )
+        A.dot (x, out=v)
+        r += b - A.dot( x )
 
         r_norm = r.dot( r ) ** 0.5
         am = r_norm
 
-        #error = r_norm / b_norm
-
-        sn = np.zeros(maxiter,)
-        cn = np.zeros(maxiter,)
-
-        beta = np.zeros(maxiter + 1,) # is upper Hessenberg matrix
         beta[0] = r_norm
-
-        H = np.zeros((maxiter + 1, maxiter))
-        Q = np.zeros((r.size, maxiter + 1))
-        Q[:,0] = r / r_norm
+        Q[:,0] += r.toarray() / r_norm
 
         m = 0
 
@@ -1682,7 +1688,7 @@ class GMRES(InverseLinearOperator):
             print( "+ Iter. # | L2-norm of residual |")
             print( "+---------+---------------------+")
             template = "| {:7d} | {:19.2e} |"
-            print( template.format( 1, sqrt( r ) ) )
+            print( template.format( 1, am ) )
 
         # Iterate to convergence
 
@@ -1692,10 +1698,10 @@ class GMRES(InverseLinearOperator):
                 break
 
             # run Arnoldi
-            H[:k+2, k], Q[:, k+1] = self.arnoldi(Q, k)
+            self.arnoldi(k)
 
             # make the last diagonal entry in H equal to 0, so that H becomes upper triangular
-            H[:k+2, k], cn[k], sn[k] = self.apply_givens_rotation(H[:k+2, k], cn, sn, k)
+            self.apply_givens_rotation(k)
 
             # update the residual vector
             beta[k+1] = - sn[k] * beta[k]
@@ -1711,17 +1717,15 @@ class GMRES(InverseLinearOperator):
             print( "+---------+---------------------+")        
         # calculate result
         y = self.solve_triangular(H[:m, :m], beta[:m]) # system of upper triangular matrix
-        x += Q[:, :m] @ y
+        x[x.starts[0] : x.ends[0] + 1] += Q[:, :m] @ y
 
         # Convergence information
-        #info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am ) }
         self._info = {'niter': m, 'success': am < tol, 'res_norm': am }
         
-        return x#, info
+        return x
     
     def solve_triangular(self, T, d):
-        # Assume upper triangular
-        # Backwards substitution
+        # Backwards substitution. Assumes T is upper triangular
         n = T.shape[0]
         y = np.zeros_like(d)
 
@@ -1733,35 +1737,37 @@ class GMRES(InverseLinearOperator):
 
         return y
 
-            
+    def arnoldi(self, k):
+        h = self._H[:k+2, k]
+        q = self._Q[:, k+1]
 
+        p = self._tmps["p"]
+        p[p.starts[0] : p.ends[0] + 1] = self._Q[:, k]
 
-    def arnoldi(self, Q, k):
-        h = np.zeros((k + 2,))
-        q = self._A.dot(Q[:, k]) # Krylov vector
+        q += self._A.dot(p).toarray() # Krylov vector
 
         for i in range(k + 1): # Modified Gram-Schmidt, keeping Hessenberg matrix
-            h[i] = np.dot(q, Q[:, i])
-            q -= h[i] * Q[:, i]
+            h[i] = np.dot(q, self._Q[:, i])
+            q -= h[i] * self._Q[:, i]
         
         h[k+1] = np.linalg.norm(q)
         q /= h[k+1] # Normalize vector
-        return h, q
 
-    def apply_givens_rotation(self, h, cn, sn, k):
+    def apply_givens_rotation(self, k):
         # Apply Givens rotation to last column of H
+        h = self._H[:k+2, k]
+
         for i in range(k):
-            temp = cn[i] * h[i] + sn[i] * h[i+1]
-            h[i+1] = - sn[i] * h[i] + cn[i] * h[i+1]
+            temp = self._cn[i] * h[i] + self._sn[i] * h[i+1]
+            h[i+1] = - self._sn[i] * h[i] + self._cn[i] * h[i+1]
             h[i] = temp
         
         mod = (h[k]**2 + h[k+1]**2)**0.5
-        cn_k = h[k] / mod
-        sn_k = h[k+1] / mod
+        self._cn[k] = h[k] / mod
+        self._sn[k] = h[k+1] / mod
 
-        h[k] = cn_k * h[k] + sn_k * h[k+1]
+        h[k] = self._cn[k] * h[k] + self._sn[k] * h[k+1]
         h[k+1] = 0. # becomes triangular
-        return h, cn_k, sn_k
 
     def dot(self, b, out=None):
         return self.solve(b, out=out)
