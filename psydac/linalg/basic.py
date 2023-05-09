@@ -28,14 +28,7 @@ class VectorSpace(ABC):
     @property
     @abstractmethod
     def dtype(self):
-        """
-        The data type of the field over which the space is built.
-
-        See also
-        --------
-        https://en.wikipedia.org/wiki/Field_(mathematics)
-
-        """
+        """The data type of the field over which the space is built."""
 
     @abstractmethod
     def zeros(self):
