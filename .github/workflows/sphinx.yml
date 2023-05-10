@@ -17,7 +17,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pydata_sphinx_theme
-        pip install numpydoc    
+  
     - uses: ammaraskar/sphinx-action@master
       with:
         docs-folder: "docs/"
