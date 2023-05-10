@@ -9,10 +9,8 @@
 # add these directories to sys.path here.
 import pathlib
 import sys
-import os
 autodoc_mock_imports = ['numpy', 'scipy', 'sympy', 'sympde', 'mpi4py', 'pyccel', 'h5py', 'yaml']
 sys.path.insert(0, pathlib.Path(__file__).parents[2].resolve().as_posix())
-sys.path.insert(0, os.path.abspath("../../linalg/"))
 
 project = 'PSYDAC'
 copyright = '2023, Numerical Methods in Plasma Physics division, Max Planck Institute for Plasma Physics Garching'
@@ -29,6 +27,7 @@ extensions = [
 'sphinx.ext.graphviz',
 'sphinx.ext.autodoc',
 'sphinx.ext.autosummary',
+'sphinx.ext.githubpages',
 ]
 
 #numpydoc_class_members_toctree = False, nothing changed using this
