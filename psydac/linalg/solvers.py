@@ -1780,7 +1780,7 @@ class GMRES(InverseLinearOperator):
         self._codomain = codomain
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options) 
-        self._tmps = {key: domain.zeros() for key in ("r", "p")}
+        self._tmps = {key: domain.zeros() for key in ("r", "p", "v", "lv")}
 
         # Initialize upper Hessenberg matrix
         self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]))
@@ -1870,6 +1870,7 @@ class GMRES(InverseLinearOperator):
         
         # Extract local storage
         r = self._tmps["r"]
+        v = self._tmps["v"]
 
         # Internal objects of GMRES
         H = self._H
@@ -1879,7 +1880,10 @@ class GMRES(InverseLinearOperator):
         cn = []
 
         # First values
-        r += b - A.dot( x )
+
+        A.dot( x , out=r)
+
+        r += b - r 
 
         r_norm = r.dot(r).real ** 0.5
         am = r_norm
@@ -1921,9 +1925,10 @@ class GMRES(InverseLinearOperator):
         # calculate result
         y = self.solve_triangular(H[:k, :k], beta[:k]) # system of upper triangular matrix
 
-        for j in range(x.starts[0], x.ends[0] + 1):
-            for i in range(k):
-                x[j] += Q[i][j] * y[i] 
+        for i in range(k):
+            Q[i].copy(out=v)
+            v *= y[i]
+            x += v
         
         #x[x.starts[0] : x.ends[0] + 1] += Q[:m] @ y
 
@@ -1949,8 +1954,7 @@ class GMRES(InverseLinearOperator):
         h = self._H[:k+2, k]
 
         p = self._tmps["p"]
-        p -= p 
-        p += self._A.dot( Q[k] ) # Krylov vector
+        self._A.dot( Q[k] , out=p) # Krylov vector
 
         for i in range(k + 1): # Modified Gram-Schmidt, keeping Hessenberg matrix
             h[i] = p.dot( Q[i] )
