@@ -51,7 +51,7 @@ class FemAssemblyGrid:
         degree       = space.degree          # spline degree
         n            = space.nbasis          # total number of control points
         grid         = space.breaks          # breakpoints
-        k            = nquads or degree      # number of quadrature points or degree
+        k            = nquads                # number of quadrature points
 
         # Gauss-legendre quadrature rule
         u, w = gauss_legendre( k )
