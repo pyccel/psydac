@@ -17,6 +17,10 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN}}
 
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -39,21 +43,19 @@ jobs:
 
   #deploy_docs:
   #  needs: build_docs
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+
     #runs-on: ubuntu-latest
-    steps:
-      - name: Setup Pages
-        uses: actions/configure-pages@v3
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v1
-        with:
-          # Upload entire docs folder
-          path: 'docs/html'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v2
+    #steps:
+    - name: Setup Pages
+      uses: actions/configure-pages@v3
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v1
+      with:
+        # Upload entire docs folder
+        path: 'docs/html'
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v2
         
     #- name: Init new repo in dist folder and commit generated files
     #  run: |
