@@ -41,36 +41,18 @@ jobs:
         make -C docs clean
         make -C docs html
 
-  #deploy_docs:
-  #  needs: build_docs
-
-    #runs-on: ubuntu-latest
-    #steps:
     - name: Setup Pages
       uses: actions/configure-pages@v3
+
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v1
       with:
-        # Upload entire docs folder
         path: 'docs/build/html'
+
+  deploy_docs:
+    needs: build_docs
+    runs-on: ubuntu-latest
+    steps:
     - name: Deploy to GitHub Pages
       id: deployment
       uses: actions/deploy-pages@v2
-        
-    #- name: Init new repo in dist folder and commit generated files
-    #  run: |
-    #    cd docs/build/html
-    #    git init
-    #    touch .nojekyll
-    #    git add -A
-    #    git config --local user.email "action@github.com"
-    #    git config --local user.name "Github Action"
-    #    git commit -m 'deploy'
-        
-    #- name: Force push to destination branch
-    #  uses: ad-m/github-push-action@v0.6.0
-    #  with:
-    #    github_token: ${{ secrets.GITHUB_TOKEN }}
-    #    branch: gh-pages
-    #    force: false
-    #    directory: ./docs/build/html
