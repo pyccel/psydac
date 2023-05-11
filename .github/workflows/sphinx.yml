@@ -2,8 +2,9 @@ name: sphinx
 
 on:
   push:
-    branches:    
-      - devel
+    branches: [ devel ]
+  pull_request:
+    branches: [ devel ]
 
 permissions:
   contents: read
@@ -39,6 +40,7 @@ jobs:
         path: 'docs/build/html'
 
   deploy_docs:
+    if: github.event_name != 'pull_request'
     needs: build_docs
     runs-on: ubuntu-latest
     environment:
