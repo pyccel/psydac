@@ -41,7 +41,6 @@ jobs:
       run: |
         cd docs/build/html
         git init
-        git config --global --add safe.directory /github/workspace/docs/build/html
         touch .nojekyll
         git add -A
         git config --local user.email "action@github.com"
@@ -53,5 +52,5 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         branch: gh-pages
-        force: true
+        force: false
         directory: ./docs/build/html
