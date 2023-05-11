@@ -52,7 +52,7 @@ jobs:
       uses: actions/upload-pages-artifact@v1
       with:
         # Upload entire docs folder
-        path: 'docs/html'
+        path: 'docs/build/html'
     - name: Deploy to GitHub Pages
       id: deployment
       uses: actions/deploy-pages@v2
