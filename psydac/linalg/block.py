@@ -75,6 +75,8 @@ class BlockVectorSpace(VectorSpace):
 
     # ...
     def change_dtype(self, dtype):
+        for Vi in self.spaces:
+            Vi.change_dtype(dtype)
         self._dtype = dtype
 
     def zeros(self):

@@ -144,7 +144,15 @@ class StencilVectorSpace( VectorSpace ):
 
     # ...
     def change_dtype( self, dtype ):
+        cart = self.cart
         self._dtype=dtype
+        # Parallel attributes
+        if cart.is_parallel and not cart.is_comm_null:
+            self._mpi_type      = find_mpi_type(dtype)
+            if isinstance(cart, InterfaceCartDecomposition):
+                self._shape = cart.get_interface_communication_infos(cart.axis)['gbuf_recv_shape'][0]
+            else:
+                self._synchronizer = get_data_exchanger( cart, dtype , assembly=True, blocking=False)
 
     # ...
     def zeros( self ):
@@ -2508,7 +2516,8 @@ class StencilInterfaceMatrix(LinearOperator):
                                     flip_axis=self._flip,
                                     interface_axis=self._codomain_axis,
                                     d_start=(self._domain_start,),
-                                    c_start=(self._codomain_start,))
+                                    c_start=(self._codomain_start,),
+                                    dtype= self.dtype)
 
                     starts = self._args.pop('starts')
                     nrows  = self._args.pop('nrows')
@@ -2534,7 +2543,8 @@ class StencilInterfaceMatrix(LinearOperator):
                                             flip_axis=self._flip,
                                             interface_axis=self._codomain_axis,
                                             d_start=(self._domain_start,),
-                                            c_start=(self._codomain_start,))
+                                            c_start=(self._codomain_start,),
+                                            dtype= self.dtype)
 
                     starts      = self._args.pop('starts')
                     nrows       = self._args.pop('nrows')
@@ -2568,7 +2578,8 @@ class StencilInterfaceMatrix(LinearOperator):
                                         flip_axis=self._flip,
                                         interface_axis=self._codomain_axis,
                                         d_start=(self._domain_start,),
-                                        c_start=(self._codomain_start,))
+                                        c_start=(self._codomain_start,),
+                                        dtype= self.dtype)
 
                 self._args = {}
 
