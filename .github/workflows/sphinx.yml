@@ -12,15 +12,9 @@ permissions:
 
 jobs:
   build_docs:
-
     runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN}}
-
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -47,6 +41,9 @@ jobs:
   deploy_docs:
     needs: build_docs
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
     - name: Deploy to GitHub Pages
       id: deployment
