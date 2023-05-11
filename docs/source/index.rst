@@ -9,7 +9,7 @@ Welcome to PSYDAC's documentation!
 .. _note:
 .. note::
 
-   Update: Moved folder
+   Update: Moved folder - two jobs!
    This is still a work in progress! Find our github `here <https://github.com/pyccel/psydac/tree/devel/>`_.
 
 +--------------------------------------------------------------------------------------------------------------------------------+
