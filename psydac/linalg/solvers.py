@@ -1780,7 +1780,7 @@ class GMRES(InverseLinearOperator):
         self._codomain = codomain
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options) 
-        self._tmps = {key: domain.zeros() for key in ("r", "p", "v", "lv")}
+        self._tmps = {key: domain.zeros() for key in ("r", "p", "v")}
 
         # Initialize upper Hessenberg matrix
         self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]))
