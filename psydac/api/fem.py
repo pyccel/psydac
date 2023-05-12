@@ -222,11 +222,6 @@ class DiscreteBilinearForm(BasicDiscrete):
         domain = self.domain
         target = self.target
 
-        dtype = float
-        if hasattr(spaces[0].symbolic_space, 'codomain_type'):
-            if spaces[0].symbolic_space.codomain_type=='complex':
-                dtype=complex
-
         # ...
         if len(domain) > 1:
             i, j = self.get_space_indices_from_target(domain, target)
@@ -398,7 +393,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._test_basis  = BasisValues( test_space, nderiv = self.max_nderiv, trial=False, grid= test_grid)
         self._trial_basis = BasisValues(trial_space, nderiv = self.max_nderiv, trial=True , grid=trial_grid)
 
-        self.allocate_matrices(linalg_backend, dtype=dtype)
+        self.allocate_matrices(linalg_backend)
         with_openmp = (assembly_backend['name'] == 'pyccel' and assembly_backend['openmp']) if assembly_backend else False
         self._args , self._threads_args = self.construct_arguments(with_openmp=with_openmp)
 
@@ -630,8 +625,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         return args, threads_args
 
-    def allocate_matrices(self, backend=None, dtype=float):
-        #TODO remove change_dtype and create new spaces for global matrices
+    def allocate_matrices(self, backend=None):
         """
         Allocate the global matrices used in the assembly method.
         In this method we allocate only the matrices that are computed in the self._target domain,
@@ -650,9 +644,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         test_degree     = np.array(self.test_basis.space.degree)
         trial_degree    = np.array(self.trial_basis.space.degree)
         test_space      = self.spaces[1].vector_space
-        test_space.change_dtype(dtype)
         trial_space     = self.spaces[0].vector_space
-        trial_space.change_dtype(dtype)
         test_fem_space  = self.spaces[1]
         trial_fem_space = self.spaces[0]
         domain          = self.domain
@@ -798,8 +790,6 @@ class DiscreteBilinearForm(BasicDiscrete):
                     flip[axis] = 1
 
                     if self._func != do_nothing:
-                        trial_fem_space.get_refined_space(ncells).vector_space.change_dtype(dtype)
-                        test_fem_space.get_refined_space(ncells).vector_space.change_dtype(dtype)
                         mat = StencilInterfaceMatrix(trial_fem_space.get_refined_space(ncells).vector_space,
                                                      test_fem_space.get_refined_space(ncells).vector_space,
                                                      s_d, s_c,
@@ -815,13 +805,17 @@ class DiscreteBilinearForm(BasicDiscrete):
                                 mat = ComposedLinearOperator(trial_space, test_space, mat, P)
 
                         global_mats[i, j] = mat
+
+                # define part of the global matrix as a StencilMatrix
                 else:
                     global_mats[i, j] = StencilMatrix(trial_space, test_space, pads=tuple(pads))
 
                 if (i, j) in global_mats:
                     self._matrix[i, j] = global_mats[i, j]
 
-            else: # single patch
+
+            # in single patch case, we define the matrices needed for the patch
+            else:
                 if self._matrix:
                     global_mats[0, 0] = self._matrix
                 else:
@@ -829,6 +823,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
                 self._matrix = global_mats[0, 0]
 
+        # Set the backend of our matrices if given
         if backend is not None and is_broken:
             for mat in global_mats.values():
                 mat.set_backend(backend)
