@@ -42,9 +42,6 @@ def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int
         basis1 : 3d float array
             Values of p1 + 1 non-zero eta-1 basis functions at quadrature points in format (ii, iq, basis function).
 
-        sub1 : 1d int array
-            Sub-interval indices in direction 1.
-
         dim1_in : int
             Dimension of the first direction of the input space
 
@@ -52,8 +49,6 @@ def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int
             Spline degree of the first direction of the output space
     '''
     
-    from numpy import sum
-
     # Start/end indices and paddings for distributed stencil matrix of input space
     # si1 = starts_in[0}
     # ei1 = ends_in[0]
@@ -166,12 +161,6 @@ def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 
         basis2 : 3d float array
             Values of p2 + 1 non-zero eta-2 basis functions at quadrature points in format (jj, jq, basis function).
 
-        sub1 : 1d int array
-            Sub-interval indices in direction 1.
-
-        sub2 : 1d int array
-            Sub-interval indices in direction 2.
-
         dim1_in : int
             Dimension of the first direction of the input space
 
@@ -184,8 +173,6 @@ def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 
         p2_out : int
             Spline degree of the second direction of the output space
     '''
-
-    from numpy import sum
 
     # Start/end indices and paddings for distributed stencil matrix of input space
     # si1 = starts_in[0]
@@ -344,15 +331,6 @@ def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_i
         basis3 : 3d float array
             Values of p3 + 1 non-zero eta-3 basis functions at quadrature points in format (kk, kq, basis function).
 
-        sub1 : 1d int array
-            Sub-interval indices in direction 1.
-
-        sub2 : 1d int array
-            Sub-interval indices in direction 2.
-
-        sub3 : 1d int array
-            Sub-interval indices in direction 3.
-
         dim1_in : int
             Dimension of the first direction of the input space
 
@@ -371,8 +349,6 @@ def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_i
         p3_out : int
             Spline degree of the third direction of the output space
     '''
-
-    from numpy import sum
 
     # Start/end indices and paddings for distributed stencil matrix of input space
     # si1 = starts_in[0]
