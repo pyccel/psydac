@@ -3413,8 +3413,8 @@ class FunctionDef(Basic):
 
         # arguments
 
-        if not iterable(arguments):
-            raise TypeError('arguments must be an iterable')
+        #if not iterable(arguments):
+        #    raise TypeError('arguments must be an iterable')
 
         # TODO improve and uncomment
 #        if not all(isinstance(a, Argument) for a in arguments):

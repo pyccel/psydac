@@ -27,7 +27,8 @@ from psydac.fem.basic import FemSpace, FemField
 from psydac.utilities.vtk import writeParallelVTKUnstructuredGrid
 from psydac.core.bsplines import elevate_knots
 
-
+__all__ = ('get_grid_lines_2d', '_augment_space_degree_dict',
+           'OutputManager', 'PostProcessManager')
 #===============================================================================
 def get_grid_lines_2d(domain_h, V_h, *, refine=1):
     """
