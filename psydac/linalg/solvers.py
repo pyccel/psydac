@@ -509,12 +509,15 @@ class BiConjugateGradient(InverseLinearOperator):
     verbose : bool
         If True, 2-norm of residual r is printed at each iteration.
 
+    metric : LinearOperator
+        The matrix giving the metric to compute the errors
+
     References
     ----------
     [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
 
     """
-    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, metric=None):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
@@ -532,7 +535,7 @@ class BiConjugateGradient(InverseLinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._solver = 'bicg'
-        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "metric":metric}
         self._check_options(**self._options)
         self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vs", "rs", "ps")}
         self._info = None
@@ -555,6 +558,12 @@ class BiConjugateGradient(InverseLinearOperator):
             elif key == 'verbose':
                 assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
+            elif key == 'metric':
+                if value is not None:
+                    assert isinstance(value, LinearOperator), "metric must be a LinearOperator or None"
+                    assert value.domain == value.codomain, "metric must be square with same domain and codomain "
+                    assert value.domain == self._codomain, "metric must be defined on the codomain of the operator to solve "
+
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
@@ -610,7 +619,9 @@ class BiConjugateGradient(InverseLinearOperator):
         tol = options["tol"]
         maxiter = options["maxiter"]
         verbose = options["verbose"]
-
+        M   = options["metric"]
+        if M == None:
+            M=IdentityOperator(domain,codomain)
         assert isinstance(b, Vector)
         assert b.space is domain
 
@@ -640,7 +651,7 @@ class BiConjugateGradient(InverseLinearOperator):
         p.copy(out=ps)
         v.copy(out=vs)
 
-        res_sqr = r.dot(r).real
+        res_sqr = r.dot(M.dot(r)).real
         tol_sqr = tol**2
 
         if verbose:
@@ -700,7 +711,7 @@ class BiConjugateGradient(InverseLinearOperator):
             ps += rs
 
             # ||r||_2 := (r, r)
-            res_sqr = r.dot(r).real
+            res_sqr = r.dot(M.dot(r)).real
 
             if verbose:
                 print( template.format(m, sqrt(res_sqr)) )
@@ -744,12 +755,15 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
     verbose : bool
         If True, 2-norm of residual r is printed at each iteration.
 
+    metric : LinearOperator
+        The matrix giving the metric to compute the errors
+
     References
     ----------
     [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
 
     """
-    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, metric=None):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
@@ -766,13 +780,13 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._solver = 'bicgstab'
-        self._options = {"x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose}
+        self._options = {"x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose, "metric":metric}
         self._check_options(**self._options)
         self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vs", "r0", "s")}
         self._info = None
 
     def _check_options(self, **kwargs):
-        keys = ('x0', 'tol', 'maxiter', 'verbose')
+        keys = ('x0', 'tol', 'maxiter', 'verbose', 'metric')
         for key, value in kwargs.items():
             idx = [key == keys[i] for i in range(len(keys))]
             assert any(idx), "key not supported, check options"
@@ -793,9 +807,14 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             elif true_idx == 3:
                 assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
+            elif true_idx == 4:
+                if value is not None:
+                    assert isinstance(value, LinearOperator), "metric must be a LinearOperator or None"
+                    assert value.domain == value.codomain, "metric must be square with same domain and codomain "
+                    assert value.domain == self._codomain, "metric must be defined on the codomain of the operator to solve "
 
     def _update_options( self ):
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose, "metric":self._metric}
 
     def transpose(self, conjugate=False):
         At = self._A.transpose(conjugate=conjugate)
@@ -846,6 +865,9 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         tol = options["tol"]
         maxiter = options["maxiter"]
         verbose = options["verbose"]
+        M   = options["metric"]
+        if M == None:
+            M=IdentityOperator(domain,codomain)
 
         assert isinstance(b, Vector)
         assert b.space is domain
@@ -878,7 +900,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         r.copy(out=s)
         s *= 0.0
 
-        res_sqr = r.dot(r).real
+        res_sqr = r.dot(M.dot(r)).real
         tol_sqr = tol ** 2
 
         if verbose:
@@ -937,7 +959,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             r -= vs
 
             # ||r||_2 := (r, r)
-            res_sqr = r.dot(r).real
+            res_sqr = r.dot(M.dot(r)).real
 
             if res_sqr < tol_sqr:
                 break

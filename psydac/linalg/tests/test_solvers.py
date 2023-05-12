@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVectorSpace, StencilMatrix, StencilVector
-from psydac.linalg.basic import LinearSolver
+from psydac.linalg.basic import LinearSolver, IdentityOperator
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
 
@@ -86,8 +86,10 @@ def test_bicgstab_tridiagonal(n, p, dtype, verbose=False):
     bt = (A.T).dot( xe )
     bh = (A.H).dot( xe )
 
+    metric = 2*IdentityOperator(V,V)
+
     #Create the solvers
-    solv = inverse(A, 'bicgstab', tol=1e-13, verbose=True)
+    solv = inverse(A, 'bicgstab', tol=1e-13, verbose=True, metric=metric)
     solvt = solv.transpose()
     solvh = solv.H
 
@@ -160,13 +162,15 @@ def test_bicg_tridiagonal(n, p, dtype, verbose=False):
         print( "="*80 )
         print()
 
+    metric = 2*IdentityOperator(V,V)
+
     # Manufacture right-hand-side vector from exact solution
     b  = A.dot( xe )
     bt = A.T.dot( xe )
     bh = A.H.dot( xe )
 
     #Create the solvers
-    solv  = inverse(A, 'bicg', tol=1e-13, verbose=True)
+    solv  = inverse(A, 'bicg', tol=1e-13, verbose=True, metric=metric)
     solvt = solv.transpose()
     solvh = solv.H
 
