@@ -1,4 +1,4 @@
-# pylint disable=redefined-builtin
+# pylint: disable=redefined-builtin
 
 # Configuration file for the Sphinx documentation builder.
 #
