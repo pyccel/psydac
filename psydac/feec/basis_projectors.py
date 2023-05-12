@@ -18,12 +18,15 @@ from psydac.utilities.utils import roll_edges
 class BasisProjectionOperator(LinearOperator):
     """
     Class for "basis projection operators" PI_ijk(fun Lambda_mno) in the general form BP * P * DOF * EV^T * BV^T.
+    Be carefull that PI is the Projector on the reference domain and fun has to be define on the reference domain,
+    in other terms, this class does dot handle mappings
 
     Parameters
     ----------
-    P : struphy.psydac_api.projectors.Projector
+    P : psydac.feec.global_projection.GlobalProjector
         Global commuting projector mapping into TensorFemSpace/ProductFemSpace W = P.space (codomain of operator).
-
+        Has to be the projection on the reference domain
+    
     V : psydac.fem.basic.FemSpace
         Finite element spline space (domain, input space).
 
@@ -49,6 +52,7 @@ class BasisProjectionOperator(LinearOperator):
         self._fun = fun
         self._transposed = transposed
         self._dtype = V.vector_space.dtype
+        assert(self._dtype == float)
 
         # set domain and codomain symbolic names
         if hasattr(P.space.symbolic_space, 'name'):
@@ -174,8 +178,7 @@ class BasisProjectionOperator(LinearOperator):
         """
         Returns the transposed operator.
         """
-        if conjugate==True:
-            raise NotImplementedError("No complex here!")
+        #conjugate not implemented
         return BasisProjectionOperator(self._P, self._V, self._fun, not self.transposed)
 
     @staticmethod
@@ -243,7 +246,7 @@ class BasisProjectionOperator(LinearOperator):
                 _ends_out = np.array(dofs_mat.codomain.ends)
                 _pads_out = np.array(dofs_mat.codomain.pads)
 
-                _ptsG, _wtsG, _spans, _bases, _subs = prepare_projection_of_basis(
+                _ptsG, _wtsG, _spans, _bases = prepare_projection_of_basis(
                     V1d, W1d, _starts_out, _ends_out, nq)
 
                 _ptsG = [pts.flatten() for pts in _ptsG]
@@ -251,8 +254,7 @@ class BasisProjectionOperator(LinearOperator):
 
                 # Evaluate weight function at quadrature points
                 pts = np.meshgrid(*_ptsG, indexing='ij')
-                #needs to be improved when passing FemFields, 
-                #a lot of evaluations that are probably not needed
+  
                 if isinstance(f, FemField):
                     assert(isinstance(f.space,TensorFemSpace))
                     _fun_q = f.space.eval_fields_irregular_tensor_grid(_ptsG, f) 
@@ -272,7 +274,7 @@ class BasisProjectionOperator(LinearOperator):
                         basis_projection_kernels, 'assemble_dofs_for_weighted_basisfuns_' + str(V.ldim) + 'd')
 
                     kernel(dofs_mat._data, _starts_in, _ends_in, _pads_in, _starts_out, _ends_out,
-                           _pads_out, _fun_q, *_wtsG, *_spans, *_bases, *_subs, *_Vnbases, *_Wdegrees)
+                           _pads_out, _fun_q, *_wtsG, *_spans, *_bases, *_Vnbases, *_Wdegrees)
 
                     blocks[-1] += [dofs_mat]
 
@@ -343,39 +345,12 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
             x_grid = greville_loc
             pts += [greville_loc[:, None]]
             wts += [np.ones(pts[-1].shape, dtype=float)]
-            # sub-interval index is always 0 for interpolation.
-            subs += [np.zeros(pts[-1].shape[0], dtype=int)]
 
         # histopolation
         elif space_out.basis == 'M':
 
-            """if space_out.degree % 2 == 0:
-                union_breaks = space_out.breaks
-            else:
-                union_breaks = space_out.breaks[:-1]
-
-            # Make union of Greville and break points
-            tmp = set(np.round_(space_out.histopolation_grid, decimals=14)).union(
-                np.round_(union_breaks, decimals=14))
-
-            tmp = list(tmp)
-            tmp.sort()
-            tmp_a = np.array(tmp)
-
-            x_grid = tmp_a[np.logical_and(tmp_a >= np.min(
-                histopol_loc) - 1e-14, tmp_a <= np.max(histopol_loc) + 1e-14)]"""
-
             x_grid = space_out.histopolation_grid
-
-            # determine subinterval index (= 0 or 1):
-            subs += [np.zeros(len(x_grid), dtype=int)]
-            for n, x_h in enumerate(x_grid):
-                add = 1
-                for x_g in histopol_loc:
-                    if abs(x_h - x_g) < 1e-14:
-                        add = 0
-                subs[-1][n] += add
-
+            
             # Gauss - Legendre quadrature points and weights
             if n_quad is None:
                 # products of basis functions are integrated exactly
@@ -400,8 +375,7 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
         bases += [b]
 
         direction += 1
-
-    return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(subs)
+    return tuple(pts), tuple(wts), tuple(spans), tuple(bases)
 
 
 def get_span_and_basis(pts, space):

@@ -1,4 +1,4 @@
-def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_q : 'float[:]', wts1 : 'float[:,:]', span1 : 'int[:,:]', basis1 : 'float[:,:,:]', sub1 : 'int[:]', dim1_in : int, p1_out : int):
+def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_q : 'float[:]', wts1 : 'float[:,:]', span1 : 'int[:,:]', basis1 : 'float[:,:,:]', dim1_in : int, p1_out : int):
     '''Kernel for assembling the matrix
 
     A_(i,j) = DOFS_i(fun*Lambda^in_j) ,
@@ -74,12 +74,11 @@ def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int
     mat[:] = 0.
 
     # Dimensions of output space
-    dim1_out = span1.shape[0] - sum(sub1)
+    dim1_out = span1.shape[0]
     # Interval (either element or sub-interval thereof)
     # -------------------------------------------------
     cumsub_i = 0  # Cumulative sub-interval index
     for ii in range(span1.shape[0]):
-        cumsub_i += sub1[ii]
         i = ii - cumsub_i  # local DOF index
 
         # Quadrature point index in interval
@@ -114,7 +113,7 @@ def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int
                 mat[po1 + i, col1] += value
 
 
-def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_q : 'float[:,:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', span1 : 'int[:,:]', span2 : 'int[:,:]', basis1 : 'float[:,:,:]', basis2 : 'float[:,:,:]', sub1 : 'int[:]', sub2 : 'int[:]', dim1_in : int, dim2_in : int, p1_out : int, p2_out : int):
+def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_q : 'float[:,:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', span1 : 'int[:,:]', span2 : 'int[:,:]', basis1 : 'float[:,:,:]', basis2 : 'float[:,:,:]', dim1_in : int, dim2_in : int, p1_out : int, p2_out : int):
     '''Kernel for assembling the matrix
 
     A_(ij,kl) = DOFS_ij(fun*Lambda^in_kl) ,
@@ -216,19 +215,17 @@ def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 
     mat[:] = 0.
 
     # Dimensions of output space
-    dim1_out = span1.shape[0] - sum(sub1)
-    dim2_out = span2.shape[0] - sum(sub2)
+    dim1_out = span1.shape[0]
+    dim2_out = span2.shape[0]
 
     # Interval (either element or sub-interval thereof)
     # -------------------------------------------------
     cumsub_i = 0  # Cumulative sub-interval index
     for ii in range(span1.shape[0]):
-        cumsub_i += sub1[ii]
         i = ii - cumsub_i  # local DOF index
 
         cumsub_j = 0  # Cumulative sub-interval index
         for jj in range(span2.shape[0]):
-            cumsub_j += sub2[jj]
             j = jj - cumsub_j  # local DOF index
 
             # Quadrature point index in interval
@@ -285,7 +282,7 @@ def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 
 
 
 
-def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_q : 'float[:,:,:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', wts3 : 'float[:,:]', span1 : 'int[:,:]', span2 : 'int[:,:]', span3 : 'int[:,:]', basis1 : 'float[:,:,:]', basis2 : 'float[:,:,:]', basis3 : 'float[:,:,:]', sub1 : 'int[:]', sub2 : 'int[:]', sub3 : 'int[:]', dim1_in : int, dim2_in : int, dim3_in : int, p1_out : int, p2_out : int, p3_out : int):
+def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_q : 'float[:,:,:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', wts3 : 'float[:,:]', span1 : 'int[:,:]', span2 : 'int[:,:]', span3 : 'int[:,:]', basis1 : 'float[:,:,:]', basis2 : 'float[:,:,:]', basis3 : 'float[:,:,:]', dim1_in : int, dim2_in : int, dim3_in : int, p1_out : int, p2_out : int, p3_out : int):
     '''Kernel for assembling the matrix
 
     A_(ijk,mno) = DOFS_ijk(fun*Lambda^in_mno) ,
@@ -413,25 +410,22 @@ def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_i
     mat[:] = 0.
 
     # Dimensions of output space
-    dim1_out = span1.shape[0] - sum(sub1)
-    dim2_out = span2.shape[0] - sum(sub2)
-    dim3_out = span3.shape[0] - sum(sub3)
+    dim1_out = span1.shape[0]
+    dim2_out = span2.shape[0]
+    dim3_out = span3.shape[0]
 
     # Interval (either element or sub-interval thereof)
     # -------------------------------------------------
     cumsub_i = 0  # Cumulative sub-interval index
     for ii in range(span1.shape[0]):
-        cumsub_i += sub1[ii]
         i = ii - cumsub_i  # local DOF index
 
         cumsub_j = 0  # Cumulative sub-interval index
         for jj in range(span2.shape[0]):
-            cumsub_j += sub2[jj]
             j = jj - cumsub_j  # local DOF index
 
             cumsub_k = 0  # Cumulative sub-interval index
             for kk in range(span3.shape[0]):
-                cumsub_k += sub3[kk]
                 k = kk - cumsub_k  # local DOF index
 
                 # Quadrature point index in interval
