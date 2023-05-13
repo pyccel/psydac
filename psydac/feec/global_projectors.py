@@ -1,18 +1,20 @@
 # -*- coding: UTF-8 -*-
-
+from abc import ABCMeta, abstractmethod
 import numpy as np
+import scipy
 
-from psydac.linalg.kron           import KroneckerLinearSolver
-from psydac.linalg.stencil        import StencilVector
-from psydac.linalg.block          import BlockDiagonalSolver, BlockVector
+from psydac.cad.geometry          import Geometry
 from psydac.core.bsplines         import quadrature_grid
-from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
-
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
+from psydac.linalg.kron           import KroneckerLinearSolver
+from psydac.linalg.block          import BlockDiagonalSolver
+from psydac.utilities.quadratures import gauss_legendre
 
-from abc import ABCMeta, abstractmethod
+from sympde.topology.domain       import Domain
+
+from scipy.sparse._lil import lil_matrix
 
 #==============================================================================
 class GlobalProjector(metaclass=ABCMeta):
@@ -786,3 +788,56 @@ def evaluate_dofs_3d_3form(
                             F[i1, i2, i3] += \
                                     quad_w1[i1, g1] * quad_w2[i2, g2] * quad_w3[i3, g3] * \
                                     f(quad_x1[i1, g1], quad_x2[i2, g2], quad_x3[i3, g3])
+
+
+def projection_matrix_Hdiv_homogeneous_bc(V1h: VectorFemSpace) -> lil_matrix:
+    """
+    Assembles the matrix of the projection operator onto the 
+    subspace with homogeneous boundary conditions for a H(div)-conforming 
+    finite element space in 2D.
+
+    The finite element space consists of tensor products of splines.
+
+    Homogeneous boundary conditions in H(div) correspond to the normal trace
+    begin zero.
+
+    Arguments
+    ---------
+    V1h : VectorFemSpace
+        H(div)-conforming FE space in 2D
+
+    Returns
+    -------
+    lil_matrix
+        The projection matrix in scipy 'lil' format
+    """
+    dim_total = V1h.nbasis
+    domain : Domain = V1h.symbolic_space.domain
+    # shapes[i][j] is the dimension of the j-th spline space of the 
+    # i-th component function space which is a TensorFemSpace
+    shapes = [ [None, None], [None, None] ] 
+    for i, component_space in enumerate(V1h.spaces):
+        for j, spline_space in enumerate(component_space.spaces):
+            shapes[i][j] = spline_space.nbasis
+
+    proj_mat = scipy.sparse.eye(dim_total, format="lil")
+    # Number of basis functions of the discrete space of the first component
+    n_basis_1stcomponent = shapes[0][0]*shapes[0][1] 
+
+    # Loop over the boundaries and set the corresponding entries in the 
+    # proj_mat to zero
+    for bnd in domain.boundary:
+        axis = bnd.axis
+        ext = bnd.ext
+        multi_index = [None]*2
+        if ext == -1:
+            multi_index[axis] = 0
+        elif ext == 1:
+            multi_index[axis] = shapes[axis][axis]-1
+        for id in range(shapes[axis][1-axis]): 
+            multi_index[1-axis] = id        
+            idx_global = (axis*n_basis_1stcomponent 
+                            + np.ravel_multi_index(multi_index, shapes[axis]) )
+            proj_mat[idx_global, idx_global] = 0
+    
+    return proj_mat

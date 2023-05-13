@@ -10,7 +10,7 @@ from scipy.sparse import save_npz, load_npz
 from scipy.sparse import kron, block_diag
 from scipy.sparse.linalg import inv
 
-from sympde.topology  import Boundary, Interface, Union
+from sympde.topology  import Boundary, Interface, Union, Domain
 from sympde.topology  import element_of, elements_of
 from sympde.topology.space  import ScalarFunction
 from sympde.calculus  import grad, dot, inner, rot, div
@@ -23,9 +23,10 @@ from psydac.core.bsplines         import collocation_matrix, histopolation_matri
 
 from psydac.api.discretization       import discretize
 from psydac.api.essential_bc         import apply_essential_bc_stencil
+from psydac.api.fem import DiscreteSumForm
 from psydac.api.settings             import PSYDAC_BACKENDS
 from psydac.linalg.block             import BlockVectorSpace, BlockVector, BlockLinearOperator
-from psydac.linalg.stencil           import StencilVector, StencilMatrix, StencilInterfaceMatrix
+from psydac.linalg.stencil           import StencilVectorSpace, StencilMatrix, StencilInterfaceMatrix
 from psydac.linalg.solvers           import inverse
 from psydac.fem.basic                import FemField
 
@@ -272,8 +273,9 @@ class ConformingProjection_V0( FemLinearOperator):
 
         FemLinearOperator.__init__(self, fem_domain=V0h)
 
-        V0                      = V0h.symbolic_space
-        domain                  = V0.domain
+        V0             = V0h.symbolic_space
+        domain         = V0.domain
+        assert isinstance(domain, Domain)
         self.symbolic_domain    = domain
 
         if storage_fn and os.path.exists(storage_fn):
@@ -282,37 +284,80 @@ class ConformingProjection_V0( FemLinearOperator):
 
         else:
             # assemble the operator matrix
+
+            # Create the matrix of the L2 inner product plus interface penalty terms
             u, v = elements_of(V0, names='u, v')
             expr   = u*v  # dot(u,v)
 
             Interfaces  = domain.interfaces  # note: interfaces does not include the boundary
+            print("type(Interfaces):", type(Interfaces))
             expr_I = ( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
             a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
             # print('[[ forcing python backend for ConformingProjection_V0]] ')
             # backend_language = 'python'
-            ah = discretize(a, domain_h, [V0h, V0h], backend=PSYDAC_BACKENDS[backend_language])
+            ah : DiscreteSumForm = discretize(a, domain_h, [V0h, V0h], backend=PSYDAC_BACKENDS[backend_language])
+            assert isinstance(ah, DiscreteSumForm)
+            # Is it a DiscreteSumForm because we sum over the interfaces?
+            ###DEBUG###
+            print("\ntype(ah):", type(ah))
+            ###########
 
             # self._A = ah.assemble()
-            self._A = ah.forms[0]._matrix
+            self._A : BlockLinearOperator = ah.forms[0]._matrix
 
-            spaces = self._A.domain.spaces
+            # 
+            spaces : tuple[StencilVectorSpace] = self._A.domain.spaces # vector spaces in the domain of the operator?
+            ###DEBUG###
+            print("type(spaces):", type(spaces))
+            print("spaces:", spaces)
+            ###########
 
             if isinstance(Interfaces, Interface):
                 Interfaces = (Interfaces, )
 
+            # We either leave block as None or set them to zero?
+            b1 : tuple[Union(StencilMatrix, StencilInterfaceMatrix, None)]
             for b1 in self._A.blocks:
+                ###DEBUG###
+                if b1 == self._A.blocks[0]:
+                    print("\ntype(self._A):", type(self._A))
+                    print("b1:", b1)
+                    print("type(b1):", type(b1))
+                ###########
                 for A in b1:
                     if A is None:continue
                     A[:,:,:,:] = 0
-
+            
+            # Set the entries for the interfaces to 1/2
+            # What is this indices object? Why is there this slice object?
             indices = [slice(None,None)]*domain.dim + [0]*domain.dim
 
+            ###DEBUG###
+            print("\nindices:", indices)
+            ###########
+
             for i in range(len(self._A.blocks)):
+                assert isinstance(self._A[i,i], StencilMatrix)
+                ###DEBUG###
+                if i < 3:
+                    print("tuple(indices):",tuple(indices))
+                    print(f"self._A[{i},{i}].toarray()[:10,:10]:", self._A[i,i].toarray()[:10,:10])
+                ###########
                 self._A[i,i][tuple(indices)]  = 1
-
+                ###DEBUG###
+                if i < 3:
+                    print(f"self._A[{i},{i}].toarray()[:10,:10]:", self._A[i,i].toarray()[:10,:10])
+                ###########
+            # for every interface do what? 
+            do_print = True
             for I in Interfaces:
-
+                ###DEBUG### 
+                if do_print:
+                    do_print = False
+                    print(f"\nThe current interface:{type(I)} {I}")
+                    print("I.axis:", I.axis)
+                ###########
                 axis = I.axis
                 i_minus = get_patch_index_from_face(domain, I.minus)
                 i_plus  = get_patch_index_from_face(domain, I.plus )
@@ -320,41 +365,61 @@ class ConformingProjection_V0( FemLinearOperator):
                 sp_minus = spaces[i_minus]
                 sp_plus  = spaces[i_plus]
 
-                s_minus = sp_minus.starts[axis]
-                e_minus = sp_minus.ends[axis]
+                s_minus = sp_minus.starts[axis] 
+                e_minus = sp_minus.ends[axis] # end index of the minus space
 
                 s_plus = sp_plus.starts[axis]
                 e_plus = sp_plus.ends[axis]
 
                 d_minus = V0h.spaces[i_minus].degree[axis]
-                d_plus  = V0h.spaces[i_plus].degree[axis]
-
+                d_plus  = V0h.spaces[i_plus].degree[axis] # the degree of the plus patch 
+                        # in on given axis
+                # Initialize list of indices for accessing stecil matrix
                 indices = [slice(None,None)]*domain.dim + [0]*domain.dim
-
                 minus_ext = I.minus.ext
                 plus_ext = I.plus.ext
-
+                ###DEBUG###
+                if do_print:
+                    print("minus_ext:", minus_ext)
+                    print("plus_ext:", plus_ext)
+                ###########
+                # Set the corresponding entries in the matrix to 1/2
                 if minus_ext == 1:
                     indices[axis] = e_minus
+                    # That means the axis entry of indices is the end of the 
+                    # minus space or the start of it
                 else:
-                    indices[axis] = s_minus
+                    indices[axis] = s_minus 
+                assert isinstance(self._A[i_minus,i_minus], StencilMatrix)
+                ###DEBUG###
+                print("\nindices:", indices)
+                print(f"self._A[{i_minus},{i_minus}].toarray():", self._A[i_minus,i_minus].toarray())
+                ###########
+                # What is this indexing?
                 self._A[i_minus,i_minus][tuple(indices)] = 1/2
-
+                ###DEBUG###
+                print(f"self._A[{i_minus},{i_minus}].toarray():", self._A[i_minus,i_minus].toarray())
+                ###########
                 if plus_ext == 1:
                     indices[axis] = e_plus
                 else:
                     indices[axis] = s_plus
-
+                ###DEBUG###
+                print("\nindices:", indices)
+                print(f"self._A[{i_plus},{i_plus}].toarray():", self._A[i_plus,i_plus].toarray()[:10,:10])
+                ###########
                 self._A[i_plus,i_plus][tuple(indices)] = 1/2
+                ###DEBUG###
+                print(f"self._A[{i_plus},{i_plus}].toarray():", self._A[i_plus,i_plus].toarray()[:10,:10])
+                ###########
 
                 if plus_ext == minus_ext:
                     if minus_ext == 1:
                         indices[axis] = d_minus
                     else:
                         indices[axis] = s_minus
-
                     self._A[i_minus,i_plus][tuple(indices)] = 1/2
-
+                    # Is this not determined by the fact that plus_ext == minus_ext?
                     if plus_ext == 1:
                         indices[axis] = d_plus
                     else:
@@ -386,10 +451,27 @@ class ConformingProjection_V0( FemLinearOperator):
                         indices[domain.dim + axis] = -d_minus
 
                     self._A[i_plus,i_minus][tuple(indices)] = 1/2
+                
 
             domain = domain.logical_domain
             corner_blocks = {}
+            ###DEBUG###
+            print("\n #### Taking care of the corners ####\n")
+            ###DEBUG###
+            print("type(domain):", type(domain))
+            print("domain:", domain)
+            print("type(domain.corners):", type(domain.corners))
+            #############
             for c in domain.corners:
+                ###DEBUG###
+                if c == domain.corners[0]:
+                    print("type(c)", type(c))
+                    print("c", c)
+                    print("type(domain):", type(domain))
+                    print("domain:", domain)
+                    print("type(c.corners):", type(c.corners))
+                    print("c.corners:", c.corners)
+                ###########
                 for b1 in c.corners:
                     i = get_patch_index_from_face(domain, b1.domain)
                     for b2 in c.corners:
