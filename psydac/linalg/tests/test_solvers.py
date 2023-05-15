@@ -563,7 +563,7 @@ def test_gmres_tridiagonal( n, p, dtype, verbose=False):
     # PARAMETERS
     # ---------------------------------------------------------------------------
 
-    V, A, xe = define_data(n, p, [2, -1, 3], dtype=dtype)
+    V, A, xe = define_data(n, p, [2, -1, -5], dtype=dtype)
 
     # Tolerance for success: L2-norm of error in solution
     tol = 1e-10
@@ -603,17 +603,6 @@ def test_gmres_tridiagonal( n, p, dtype, verbose=False):
     errh = xh-xe
     errh_norm = np.linalg.norm( errh.toarray() )
 
-###########################
-
-    # Verify correctness of calculation: L2-norm of error
-    res = A.dot(x)-b
-    res_norm = np.linalg.norm( res.toarray() )
-    rest = A.T.dot(xt)-bt
-    rest_norm = np.linalg.norm( rest.toarray() )
-    resh = A.H.dot(xh)-bh
-    resh_norm = np.linalg.norm( resh.toarray() )
-    #####
-
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
     #---------------------------------------------------------------------------
@@ -638,8 +627,8 @@ def test_gmres_tridiagonal( n, p, dtype, verbose=False):
     # PYTEST
     #---------------------------------------------------------------------------
     assert err_norm < tol
-    #assert errt_norm < tol
-    #assert errh_norm < tol
+    assert errt_norm < tol
+    assert errh_norm < tol
 
 # ===============================================================================
 # SCRIPT FUNCTIONALITY
