@@ -32,7 +32,7 @@ def define_data_hermitian(n, p, dtype=float):
     xe[s:e + 1] = factor*np.random.random(e + 1 - s)
     return(V, A, xe)
 
-def define_data(n, p, matrix_data, dtype):
+def define_data(n, p, matrix_data, dtype=float):
     domain_decomposition = DomainDecomposition([n - p], [False])
     cart = CartDecomposition(domain_decomposition, [n], [np.array([0])], [np.array([n - 1])], [p], [1])
     # ... Vector Spaces
@@ -330,15 +330,15 @@ def test_minres_tridiagonal(n, p, verbose=False):
     x = solv @ b
     info = solv.get_info()
     xt = solvt.solve(bt)
-    xh = solvh.dot(b)
+    xh = solvh.dot(bh)
 
     # Verify correctness of calculation: L2-norm of error
-    res = A.dot(x)-b
-    res_norm = np.linalg.norm( res.toarray() )
-    rest = A.T.dot(xt)-bt
-    rest_norm = np.linalg.norm( rest.toarray() )
-    resh = A.H.dot(x)-bh
-    resh_norm = np.linalg.norm( resh.toarray() )
+    err = x-xe
+    err_norm = np.linalg.norm( err.toarray() )
+    errt = xt-xe
+    errt_norm = np.linalg.norm( errt.toarray() )
+    errh = xh-xe
+    errh_norm = np.linalg.norm( errh.toarray() )
 
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
@@ -352,8 +352,8 @@ def test_minres_tridiagonal(n, p, verbose=False):
         print( 'info =', info )
         print()
         print( "-"*40 )
-        print( "L2-norm of error in solution = {:.2e}".format( res_norm ) )
-        if res_norm < tol:
+        print( "L2-norm of error in solution = {:.2e}".format( err_norm ) )
+        if err_norm < tol:
             print( "PASSED" )
         else:
             print( "FAIL" )
@@ -362,9 +362,9 @@ def test_minres_tridiagonal(n, p, verbose=False):
     #---------------------------------------------------------------------------
     # PYTEST
     #---------------------------------------------------------------------------
-    assert res_norm < tol
-    assert rest_norm < tol
-    assert resh_norm < tol
+    assert err_norm < tol
+    assert errt_norm < tol
+    assert errh_norm < tol
 
 # ===============================================================================
 @pytest.mark.parametrize('n', [8, 16])
@@ -512,7 +512,7 @@ def test_cg_tridiagonal( n, p, dtype, verbose=False):
     solvt = solv.transpose()
     solvh = solv.H
 
-    # Solve linear system using lsmr
+    # Solve linear system using cg
     x = solv @ b
     xt = solvt.solve(bt)
     xh = solvh.dot(bh)
@@ -552,6 +552,94 @@ def test_cg_tridiagonal( n, p, dtype, verbose=False):
     assert err_norm < tol
     assert errt_norm < tol
     assert errh_norm < tol
+
+#===============================================================================
+@pytest.mark.parametrize( 'n', [5, 10, 13] )
+@pytest.mark.parametrize('p', [2, 3])
+@pytest.mark.parametrize('dtype', [float, complex])
+def test_gmres_tridiagonal( n, p, dtype, verbose=False):
+
+    # ---------------------------------------------------------------------------
+    # PARAMETERS
+    # ---------------------------------------------------------------------------
+
+    V, A, xe = define_data(n, p, [2, -1, 3], dtype=dtype)
+
+    # Tolerance for success: L2-norm of error in solution
+    tol = 1e-10
+
+    #---------------------------------------------------------------------------
+    # TEST
+    #---------------------------------------------------------------------------
+    if verbose:
+        # Title
+        print()
+        print( "="*80 )
+        print( "SERIAL TEST: solve linear system A*x = b using generalized minimum residual method" )
+        print( "="*80 )
+        print()
+
+    # Manufacture right-hand-side vector from exact solution
+    b = A.dot( xe )
+    bt = A.T.dot( xe )
+    bh = A.H.dot( xe )
+
+    #Create the solvers
+    solv  = inverse(A, 'gmres', tol=1e-13, verbose=True)
+    solvt = solv.transpose()
+    solvh = solv.H
+
+    # Solve linear system using gmres
+    x = solv @ b
+    info = solv.get_info()
+    xt = solvt.solve(bt)
+    xh = solvh.dot(bh)
+
+    # Verify correctness of calculation: L2-norm of error
+    err = x-xe
+    err_norm = np.linalg.norm( err.toarray() )
+    errt = xt-xe
+    errt_norm = np.linalg.norm( errt.toarray() )
+    errh = xh-xe
+    errh_norm = np.linalg.norm( errh.toarray() )
+
+###########################
+
+    # Verify correctness of calculation: L2-norm of error
+    res = A.dot(x)-b
+    res_norm = np.linalg.norm( res.toarray() )
+    rest = A.T.dot(xt)-bt
+    rest_norm = np.linalg.norm( rest.toarray() )
+    resh = A.H.dot(xh)-bh
+    resh_norm = np.linalg.norm( resh.toarray() )
+    #####
+
+    #---------------------------------------------------------------------------
+    # TERMINAL OUTPUT
+    #---------------------------------------------------------------------------
+    if verbose:
+        print()
+        print( 'A  =', A, sep='\n' )
+        print( 'b  =', b )
+        print( 'x  =', x )
+        print( 'xe =', xe )
+        print( 'info =', info )
+        print()
+
+        print( "-"*40 )
+        print( "L2-norm of error in solution = {:.2e}".format( err_norm ) )
+        if err_norm < tol:
+            print( "PASSED" )
+        else:
+            print( "FAIL" )
+        print( "-"*40 )
+
+    #---------------------------------------------------------------------------
+    # PYTEST
+    #---------------------------------------------------------------------------
+    assert err_norm < tol
+    #assert errt_norm < tol
+    #assert errh_norm < tol
 
 # ===============================================================================
 # SCRIPT FUNCTIONALITY

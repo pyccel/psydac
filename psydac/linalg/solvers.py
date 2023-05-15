@@ -1778,12 +1778,13 @@ class GMRES(InverseLinearOperator):
         self._A = A
         self._domain = domain
         self._codomain = codomain
+        self._solver = 'gmres'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options) 
         self._tmps = {key: domain.zeros() for key in ("r", "p", "v")}
 
         # Initialize upper Hessenberg matrix
-        self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]))
+        self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]), dtype=A.dtype)
 
         self._info = None
         
@@ -1940,7 +1941,7 @@ class GMRES(InverseLinearOperator):
     def solve_triangular(self, T, d):
         # Backwards substitution. Assumes T is upper triangular
         k = T.shape[0]
-        y = np.zeros((k,))
+        y = np.zeros((k,), dtype=self._A.dtype)
 
         for k1 in range(k):
             temp = 0.
