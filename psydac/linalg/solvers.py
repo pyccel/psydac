@@ -1762,7 +1762,7 @@ class GMRES(InverseLinearOperator):
     [1] Y. Saad and M.H. Schultz, "GMRES: A generalized minimal residual algorithm for solving nonsymmetric linear systems", SIAM J. Sci. Stat. Comput., 7:856–869, 1986.
 
     """
-    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=100, verbose=False):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
@@ -1781,7 +1781,7 @@ class GMRES(InverseLinearOperator):
         self._solver = 'gmres'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options) 
-        self._tmps = {key: domain.zeros() for key in ("r", "p", "v")}
+        self._tmps = {key: domain.zeros() for key in ("r", "p", "v", "lv")}
 
         # Initialize upper Hessenberg matrix
         self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]), dtype=A.dtype)
@@ -1954,9 +1954,13 @@ class GMRES(InverseLinearOperator):
         p = self._tmps["p"]
         self._A.dot( Q[k] , out=p) # Krylov vector
 
+        lv = self._tmps["lv"]
+
         for i in range(k + 1): # Modified Gram-Schmidt, keeping Hessenberg matrix
-            h[i] = p.dot( Q[i] )
-            p -= h[i] * Q[i]
+            h[i] = p.dot(Q[i])
+            Q[i].copy(out=lv)
+            lv *= h[i]
+            p -= lv
         
         h[k+1] = p.dot(p) ** 0.5
         p /= h[k+1] # Normalize vector
