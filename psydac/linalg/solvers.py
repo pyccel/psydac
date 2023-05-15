@@ -1882,15 +1882,11 @@ class GMRES(InverseLinearOperator):
 
         # First values
         A.dot( x , out=r)
+        r -= b
 
-        r += b - r 
-
-        r_norm = r.dot(r).real ** 0.5
-        am = r_norm
-
-        beta.append(r_norm)
-        Q.append(r / r_norm)
-
+        am = r.dot(r).real ** 0.5
+        beta.append(am)
+        Q.append(- r / am)       
 
         if verbose:
             print( "GMRES solver:" )
