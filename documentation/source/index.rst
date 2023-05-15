@@ -9,4 +9,7 @@ Welcome to PSYDAC's documentation!
 .. _note:
 .. note::
 
-   This is still a work in progress! Find our github `here <https://github.com/pyccel/psydac/tree/devel/>`_.
+   .. image:: wip.gif
+      :width: 400
+
+   This documentation is still under construction. Find our github `here <https://github.com/pyccel/psydac/tree/devel/>`_.

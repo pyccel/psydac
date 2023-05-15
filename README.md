@@ -1,7 +1,5 @@
 # Welcome to PSYDAC
 
-[![build-devel](https://travis-ci.com/pyccel/psydac.svg?branch=devel)](https://travis-ci.com/pyccel/psydac) [![docs](https://readthedocs.org/projects/spl/badge/?version=latest)](http://spl.readthedocs.io/en/latest/?badge=latest)
-
 **PSYDAC** is a Python 3 Library for isogeometric analysis.
 
 ## Table of contents
@@ -151,7 +149,7 @@ pyccel kernels.py --language fortran
 
 ## Code documentation
 
-Find our latest code documentation [here](https://pyccel.github.io/psydac/). Note that this is still a work in progress.
+Find our latest code documentation [here](https://pyccel.github.io/psydac/).
 
 ## Mesh Generation
 
