@@ -13,6 +13,7 @@
 -   [Running tests](#running-tests)
 -   [Speeding up Psydac's core](#speeding-up-psydacs-core)
 -   [User Documentation](#user-documentation)
+-   [Code Documentation](#code-documentation)
 
 ## Requirements
 
@@ -147,6 +148,10 @@ pyccel kernels.py --language fortran
 -   [Output formats](./output.md)
 -   [Notebook examples](./examples/notebooks/)
 -   [Other examples](./examples/)
+
+## Code documentation
+
+Find our latest code documentation [here](https://pyccel.github.io/psydac/). Note that this is still a work in progress.
 
 ## Mesh Generation
 

@@ -3,18 +3,10 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to PSYDAC documentation's documentation!
+Welcome to PSYDAC's documentation!
 ================================================
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+.. _note:
+.. note::
 
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   This is still a work in progress! Find our github `here <https://github.com/pyccel/psydac/tree/devel/>`_.
