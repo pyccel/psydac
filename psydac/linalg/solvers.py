@@ -1881,7 +1881,6 @@ class GMRES(InverseLinearOperator):
         cn = []
 
         # First values
-
         A.dot( x , out=r)
 
         r += b - r 
@@ -1930,8 +1929,6 @@ class GMRES(InverseLinearOperator):
             Q[i].copy(out=v)
             v *= y[i]
             x += v
-        
-        #x[x.starts[0] : x.ends[0] + 1] += Q[:m] @ y
 
         # Convergence information
         self._info = {'niter': k+1, 'success': am < tol, 'res_norm': am }
