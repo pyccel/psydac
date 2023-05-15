@@ -1897,7 +1897,6 @@ class GMRES(InverseLinearOperator):
             print( template.format( 1, am ) )
 
         # Iterate to convergence
-
         for k in range(maxiter):
             if am < tol:
                 break
@@ -1958,7 +1957,7 @@ class GMRES(InverseLinearOperator):
             lv *= h[i]
             p -= lv
         
-        h[k+1] = p.dot(p) ** 0.5
+        h[k+1] = p.dot(p).real ** 0.5
         p /= h[k+1] # Normalize vector
 
         Q.append(p.copy())
@@ -1969,15 +1968,20 @@ class GMRES(InverseLinearOperator):
         h = self._H[:k+2, k]
 
         for i in range(k):
-            temp = cn[i] * h[i] + sn[i] * h[i+1]
-            h[i+1] = - sn[i] * h[i] + cn[i] * h[i+1]
-            h[i] = temp
+            h_i_prev = h[i]
+
+            h[i] *= cn[i]
+            h[i] += sn[i] * h[i+1]
+
+            h[i+1] *= cn[i]
+            h[i+1] -= sn[i] * h_i_prev
         
         mod = (h[k]**2 + h[k+1]**2)**0.5
         cn.append( h[k] / mod )
         sn.append( h[k+1] / mod )
 
-        h[k] = cn[k] * h[k] + sn[k] * h[k+1]
+        h[k] *= cn[k]
+        h[k] += sn[k] * h[k+1]
         h[k+1] = 0. # becomes triangular
 
     def dot(self, b, out=None):
