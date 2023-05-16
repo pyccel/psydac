@@ -11,6 +11,7 @@ linalg.basic
    * :ref:`ComposedLinearOperator <composedlinearoperator>`
    * :ref:`PowerLinearOperator <powerlinearoperator>`
    * :ref:`InverseLinearOperator <inverselinearoperator>`
+   * :ref:`LinearSolver <linearsolver>`
 
 .. inheritance-diagram:: psydac.linalg.basic
 
@@ -92,4 +93,12 @@ InverseLinearOperator
 ---------------------
 
 .. autoclass:: psydac.linalg.basic.InverseLinearOperator
+   :members:
+
+.. _linearsolver:
+
+LinearSolver
+------------
+
+.. autoclass:: psydac.linalg.basic.LinearSolver
    :members:

@@ -1,7 +1,8 @@
 Modules
 =======
 
-This is where you find more detailed information on PSYDAC's modules.
+Find here every class and every function of every module in PSYDAC.
+Relying solely on docstrings.
 
 .. toctree::
     :maxdepth: 1

@@ -296,9 +296,9 @@ class OutputManager:
         femspaces: dict
             Named femspaces
 
-        Note
-        ----
-        Femspaces are added to ``self._space_info``.
+        Note:
+            * Femspaces are added to ``self._space_info``.
+        
         """
         assert all(isinstance(femspace, FemSpace) for femspace in femspaces.values())
 

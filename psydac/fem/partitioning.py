@@ -13,19 +13,20 @@ __all__ = ('partition_coefficients', 'construct_connectivity', 'get_minus_starts
            'create_cart', 'construct_interface_spaces', 'construct_reduced_interface_spaces',)
 
 def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
-    """ Partition the coefficients starting from the grid decomposition.
+    """
+    Partition the coefficients starting from the grid decomposition.
 
     Parameters
     ----------
 
     domain_decomposition: DomainDecomposition
-      The distributed topological domain.
+        The distributed topological domain.
 
     spaces: list of SplineSpace
-      The 1d spline spaces that construct the tensor fem space.
+        The 1d spline spaces that construct the tensor fem space.
 
     min_blocks: list of int
-      The minimum number of coefficients owned by a process.
+        The minimum number of coefficients owned by a process.
 
     Returns
     -------

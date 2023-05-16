@@ -2,7 +2,6 @@
 #
 # Copyright 2018 Yaman Güçlü, Jalal Lakhlili
 # Copyright 2022 Yaman Güçlü, Said Hadjout, Julian Owezarek
-"""This is a docstring."""
 
 from abc   import ABC, abstractmethod
 from scipy.sparse import coo_matrix
@@ -901,7 +900,7 @@ class InverseLinearOperator(LinearOperator):
     def jacobi(A, b, out=None):
         """
         Jacobi preconditioner.
-        ----------------------
+
         A : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator
             Left-hand-side matrix A of linear system.
 

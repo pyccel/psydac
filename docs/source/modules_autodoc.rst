@@ -1,7 +1,7 @@
 Summary
 =======
 
-This is what the documentation would look like using autosummary only.
+A more compact and automatically generated outline of PSYDAC's modules.
 
 .. toctree::
     :maxdepth: 1

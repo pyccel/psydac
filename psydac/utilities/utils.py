@@ -17,12 +17,12 @@ def refine_array_1d(x, n, remove_duplicates=True):
         1D array to be refined.
     
     n : int
-         Number of subdivisions to be created in each interval (x[i], x[i+1]).
+        Number of subdivisions to be created in each interval (x[i], x[i+1]).
 
     remove_duplicates : bool, default=True
         If True, the refined array will not contain any duplicate points.
         If False, the original internal grid points x[1:-1] will appear twice: this may
-           be useful to visualize fields that are discontinuous across cell boundaries.
+        be useful to visualize fields that are discontinuous across cell boundaries.
 
     Returns
     -------
@@ -69,7 +69,7 @@ def split_space(Xh):
     Xh : ProductFemSpace
         The discrete space.
 
-    Results
+    Returns
     -------
     Vh : <list, FemSpace>
          List of fem spaces.
@@ -106,7 +106,7 @@ def split_field(uh, spaces, out=None):
     out: optional, <list, FemField>
         List of fields to write the results to.
  
-    Results
+    Returns
     -------
     out : <list, FemField>
          List of fem fields.

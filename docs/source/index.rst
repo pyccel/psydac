@@ -6,11 +6,24 @@
 Welcome to PSYDAC's documentation!
 ==================================
 
+Contents
+--------
+.. toctree::
+   :maxdepth: 1
+   
+   modules
+   examples
+   modules_autodoc
+
 .. _note:
 .. note::
 
-   Update: Moved folder
-   This is still a work in progress! Find our github `here <https://github.com/pyccel/psydac/tree/devel/>`_.
+   .. image:: wip.gif
+      :width: 400
+
+   This documentation is still under construction.
+   For the time being, its purpose is to assist the developers.
+   Find our github `here <https://github.com/pyccel/psydac/tree/devel/>`_.
 
 +--------------------------------------------------------------------------------------------------------------------------------+
 |Psydac is a high-level finite-element library in Python 3, that uses high-order splines, mapped domains and MPI parallelization.|
@@ -25,21 +38,8 @@ Welcome to PSYDAC's documentation!
 |ad-hoc Python code which is accelerated using either Numba or Pyccel.                                                           |
 +--------------------------------------------------------------------------------------------------------------------------------+
 
-Contents
---------
-.. toctree::
-   :maxdepth: 1
-   
-   modules
-   examples
-   modules_autodoc
-   
-Check out the :doc:`modules` section to get an overview over our modules and class hierarchy.
-
-Check out the :doc:`examples` section for documented used cases.
-
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`
