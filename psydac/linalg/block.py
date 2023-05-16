@@ -73,12 +73,6 @@ class BlockVectorSpace(VectorSpace):
     def dtype(self):
         return self._dtype
 
-    # ...
-    def change_dtype(self, dtype):
-        for Vi in self.spaces:
-            Vi.change_dtype(dtype)
-        self._dtype = dtype
-
     def zeros(self):
         """
         Get a copy of the null element of the product space V = [V1, V2, ...]

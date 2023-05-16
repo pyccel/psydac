@@ -143,18 +143,6 @@ class StencilVectorSpace( VectorSpace ):
         return self._dtype
 
     # ...
-    def change_dtype( self, dtype ):
-        cart = self.cart
-        self._dtype=dtype
-        # Parallel attributes
-        if cart.is_parallel and not cart.is_comm_null:
-            self._mpi_type      = find_mpi_type(dtype)
-            if isinstance(cart, InterfaceCartDecomposition):
-                self._shape = cart.get_interface_communication_infos(cart.axis)['gbuf_recv_shape'][0]
-            else:
-                self._synchronizer = get_data_exchanger( cart, dtype , assembly=True, blocking=False)
-
-    # ...
     def zeros( self ):
         """
         Get a copy of the null element of the StencilVectorSpace V.
