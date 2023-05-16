@@ -13,3 +13,4 @@ This is where you find more detailed information on PSYDAC's modules.
     modules/linalg
     modules/mapping
     modules/polar
+    modules/utilities

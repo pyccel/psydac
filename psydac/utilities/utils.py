@@ -8,12 +8,14 @@ __all__ = ['refine_array_1d', 'unroll_edges', 'split_space', 'split_field', 'ani
 
 #===============================================================================
 def refine_array_1d(x, n, remove_duplicates=True):
-    """Refines a 1D array by subdividing each interval (x[i], x[i+1]) into n identical parts.
+    """
+    Refines a 1D array by subdividing each interval (x[i], x[i+1]) into n identical parts.
 
     Parameters
     ----------
     x : ndarray
         1D array to be refined.
+    
     n : int
          Number of subdivisions to be created in each interval (x[i], x[i+1]).
 

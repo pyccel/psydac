@@ -13,3 +13,4 @@ This is what the documentation would look like using autosummary only.
     modules_as/linalg
     modules_as/mapping
     modules_as/polar
+    modules_as/utilities
