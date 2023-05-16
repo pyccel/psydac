@@ -26,7 +26,7 @@ def fem_context( filename, comm=MPI.COMM_WORLD ):
     comm : mpi4py.Comm
       MPI communicator.
 
-    Results
+    Returns
     -------
     w : TensorFemSpace
       Tensor-product spline space.

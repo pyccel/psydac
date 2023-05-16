@@ -12,6 +12,8 @@ from psydac.polar.c1_spaces  import new_c1_vector_space
 from psydac.polar.c1_linops  import LinearOperator_StencilToDense
 from psydac.polar.c1_linops  import LinearOperator_DenseToStencil
 
+__all__ = ['C1Projector']
+
 #===============================================================================
 class C1Projector:
     """

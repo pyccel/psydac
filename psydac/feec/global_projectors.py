@@ -14,6 +14,11 @@ from psydac.fem.vector import VectorFemSpace
 
 from abc import ABCMeta, abstractmethod
 
+__all__ = ['GlobalProjector', 'Projector_H1', 'Projector_Hcurl', 'Projector_Hdiv', 'Projector_L2',
+           'evaluate_dofs_1d_0form', 'evaluate_dofs_1d_1form',
+           'evaluate_dofs_2d_0form', 'evaluate_dofs_2d_1form_hcurl', 'evaluate_dofs_2d_1form_hdiv', 'evaluate_dofs_2d_2form',
+           'evaluate_dofs_3d_0form', 'evaluate_dofs_3d_1form', 'evaluate_dofs_3d_2form', 'evaluate_dofs_3d_3form']
+
 #==============================================================================
 class GlobalProjector(metaclass=ABCMeta):
     """
