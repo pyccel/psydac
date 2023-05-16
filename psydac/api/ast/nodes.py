@@ -1,6 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 from itertools import product
+from types import NoneType
 
 from sympy import Basic, Expr
 from sympy import AtomicExpr, S
@@ -607,6 +608,9 @@ class IteratorBase(BaseNode):
             if not isinstance(dummies, (list, tuple, Tuple)):
                 dummies = [dummies]
             dummies = Tuple(*dummies)
+
+        if not isinstance(prefix, (str, NoneType)):
+            raise TypeError('expecting a prefix as a string')
 
         return Basic.__new__(cls, target, dummies, prefix)
 
@@ -1714,6 +1718,9 @@ class ComputeLogicalBasis(ComputeLogical):
     """
     """
     def __new__(cls, expr, *, prefix=None):
+
+        if not isinstance(prefix, (str, NoneType)):
+            raise TypeError('expecting a prefix as a string')
         return Basic.__new__(cls, expr, prefix)
 
     @property
@@ -1842,6 +1849,8 @@ class LogicalBasisValue(LogicalValueNode):
     """
     """
     def __new__(cls, expr, *, prefix=None):
+        if not isinstance(prefix, (str, NoneType)):
+            raise TypeError('expecting a prefix as a string')
         return Basic.__new__(cls, expr, prefix)
 
     @property
@@ -1872,6 +1881,9 @@ class BasisAtom(AtomicNode):
             raise ValueError('Expecting an expression with one test function')
 
         u = ls[0]
+
+        if not isinstance(prefix, (str, NoneType)):
+            raise TypeError('expecting a prefix as a string')
 
         obj = Basic.__new__(cls, expr, prefix)
         obj._atom = u
