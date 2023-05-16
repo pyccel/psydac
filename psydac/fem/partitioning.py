@@ -141,7 +141,7 @@ def create_cart(domain_decomposition, spaces):
     domain_decomposition : DomainDecomposition|tuple of DomainDecomposition
 
     spaces : list of list of 1D global Spline spaces
-     The 1D global spline spaces that will be distributed.
+        The 1D global spline spaces that will be distributed.
 
     Returns
     -------

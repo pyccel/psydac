@@ -784,6 +784,7 @@ class CartDecomposition():
         -------
         v: CartDecomposition
             The reduced cart.
+        
         """
 
         cart = CartDecomposition(self.domain_decomposition, npts, global_starts, global_ends, self.pads, shifts)

@@ -9,7 +9,7 @@
 # add these directories to sys.path here.
 import pathlib
 import sys
-autodoc_mock_imports = ['sympy', 'sympde', 'numpy', 'scipy', 'mpi4py', 'pyccel', 'h5py', 'yaml', 'gelato', 'pyevtk']
+autodoc_mock_imports = ['sympy', 'sympde', 'numpy', 'scipy', 'mpi4py', 'pyccel', 'h5py', 'yaml', 'gelato', 'pyevtk', 'matplotlib']
 sys.path.insert(0, pathlib.Path(__file__).parents[2].resolve().as_posix())
 
 project = 'PSYDAC'

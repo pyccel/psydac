@@ -6,6 +6,6 @@ polar.c1_spaces
 .. _newc1vectorspace:
 
 new_c1_vector_space
------------
+-------------------
 
 .. autofunction:: psydac.polar.c1_spaces.new_c1_vector_space

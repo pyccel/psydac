@@ -42,12 +42,11 @@ def get_grid_lines_2d(domain_h, V_h, *, refine=1):
 
     V_h : psydac.fem.tensor.TensorFemSpace
         Spline space from which the breakpoints are extracted.
-                    - TODO: remove this argument -
+            - TODO: remove this argument -
 
     refine : int
         Number of segments used to describe a grid curve in each element
         (minimum value is 1, which yields quadrilateral elements).
-
 
     Returns
     -------
@@ -64,7 +63,7 @@ def get_grid_lines_2d(domain_h, V_h, *, refine=1):
             - 'eta2' : value of eta2 on the curve
             - 'x'    : x coordinates of N points along the curve
             - 'y'    : y coordinates of N points along the curve
-
+    
     """
     # Check that domain is of correct type and contains only one patch
     assert isinstance(domain_h, Geometry)
@@ -791,7 +790,7 @@ class PostProcessManager:
         return fields
 
     def read_space_info(self):
-        """Read ``self.space_filename ``.
+        """Read self.space_filename.
 
         Returns
         -------
