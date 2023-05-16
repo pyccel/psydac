@@ -13,6 +13,8 @@ linalg
    linalg/kron
    linalg/solvers
    linalg/stencil
+   linalg/topetsc
+   linalg/utilities
 
 .. list-table::
    :widths: 20 80
@@ -33,3 +35,7 @@ linalg
      - .. automodule:: psydac.linalg.solvers
    * - :doc:`stencil <linalg/stencil>`
      - .. automodule:: psydac.linalg.stencil
+   * - :doc:`topetsc <linalg/topetsc>`
+     - .. automodule:: psydac.linalg.topetsc
+   * - :doc:`utilities <linalg/utilities>`
+     - .. automodule:: psydac.linalg.utilities

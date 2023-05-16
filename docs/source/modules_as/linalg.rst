@@ -12,3 +12,5 @@ linalg
     psydac.linalg.kron
     psydac.linalg.solvers
     psydac.linalg.stencil
+    psydac.linalg.topetsc
+    psydac.linalg.utilities
