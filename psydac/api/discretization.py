@@ -40,9 +40,47 @@ from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 
+from psydac.linalg.stencil     import StencilVectorSpace
+from psydac.linalg.block       import BlockVectorSpace
+
 __all__ = ('discretize',)
 
-#==============================================================================           
+#==============================================================================
+def change_dtype(V, dtype):
+    """
+    This function take a FemSpace V and create a new vector_space with the data type required.
+
+    Parameters
+    ----------
+
+    Vh : <FemSpace>
+        The fem space.
+
+    dtype   : <Data Type>
+        float or complex
+    """
+
+    if isinstance(V._vector_space, BlockVectorSpace):
+        # Recreate the BlockVectorSpace
+        blocks=[]
+        for v in V.spaces:
+            change_dtype(v, dtype)
+            blocks.append(v._vector_space)
+        V._vector_space = BlockVectorSpace(*blocks, connectivity=V._vector_space._connectivity)
+
+    # If the vector_space is a StencilVectorSpace
+    else:
+        # Recreate the StencilVectorSpace
+        interface=V._vector_space.interfaces
+        V._vector_space = StencilVectorSpace(V._vector_space._cart, dtype=dtype)
+
+        # Recreate the interface in the StencilVectorSpace
+        for axis, ext in interface:
+            V._vector_space.set_interface(axis, ext, V._vector_space._cart)
+
+    return V
+
+#==============================================================================
 def discretize_derham(derham, domain_h, *args, **kwargs):
 
     ldim    = derham.shape
@@ -262,6 +300,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
     # Define data type of our TensorFemSpace
     dtype = float
+    # TODO remove when codomain_type is implemented in SymPDE
     if hasattr(V, 'codomain_type'):
         if V.codomain_type == 'complex':
             dtype = complex
@@ -282,7 +321,8 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
         else:
             mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
 
-        spaces    = [m.space for m in mappings]
+        # Get all the FEM spaces from the mapping and convert their vector_space at the dtype needed
+        spaces    = [change_dtype(m.space, dtype) for m in mappings]
         g_spaces  = dict(zip(interiors, spaces))
         spaces    = [S.spaces for S in spaces]
 
@@ -370,8 +410,6 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
     Vh = ProductFemSpace(*new_g_spaces.values(), connectivity=connectivity)
     Vh.symbolic_space = V
-
-    Vh._vector_space.change_dtype(dtype)
 
     return Vh
 
