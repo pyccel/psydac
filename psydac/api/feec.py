@@ -10,7 +10,7 @@ from psydac.feec.pull_push         import pull_1d_h1, pull_1d_l2
 from psydac.feec.pull_push         import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2
 from psydac.feec.pull_push         import pull_3d_h1, pull_3d_hcurl, pull_3d_hdiv, pull_3d_l2
 
-__all__ = ('DiscreteDerham',)
+__all__ = ['DiscreteDerham']
 
 #==============================================================================
 class DiscreteDerham(BasicDiscrete):

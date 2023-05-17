@@ -9,8 +9,8 @@ from psydac.ddm.cart       import CartDecomposition, InterfaceCartDecomposition,
 from psydac.core.bsplines  import elements_spans
 from psydac.fem.vector     import ProductFemSpace, VectorFemSpace
 
-__all__ = ('partition_coefficients', 'construct_connectivity', 'get_minus_starts_ends', 'get_plus_starts_ends',
-           'create_cart', 'construct_interface_spaces', 'construct_reduced_interface_spaces',)
+__all__ = ['partition_coefficients', 'construct_connectivity', 'get_minus_starts_ends', 'get_plus_starts_ends',
+           'create_cart', 'construct_interface_spaces', 'construct_reduced_interface_spaces']
 
 def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
     """

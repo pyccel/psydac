@@ -2,7 +2,7 @@
 
 from sympde.topology.callable_mapping import BasicCallableMapping
 
-__all__ = (
+__all__ = [
     #
     # Pull-back operators
     # -------------------
@@ -29,8 +29,8 @@ __all__ = (
     'push_3d_h1',
     'push_3d_hcurl',
     'push_3d_hdiv',
-    'push_3d_l2',
-)
+    'push_3d_l2'
+]
 
 #==============================================================================
 # 1D PULL-BACKS

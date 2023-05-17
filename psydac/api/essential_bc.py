@@ -7,8 +7,8 @@ from psydac.linalg.stencil import StencilInterfaceMatrix
 from psydac.linalg.kron    import KroneckerDenseMatrix
 from psydac.linalg.block   import BlockVector, BlockLinearOperator
 
-__all__ = ('apply_essential_bc', 'check_boundary_type', 'apply_essential_bc_kronecker_dense_matrix', 'apply_essential_bc_stencil', 
-           'apply_essential_bc_BlockLinearOperator', 'apply_essential_bc_BlockVector')
+__all__ = ['apply_essential_bc', 'check_boundary_type', 'apply_essential_bc_kronecker_dense_matrix', 'apply_essential_bc_stencil', 
+           'apply_essential_bc_BlockLinearOperator', 'apply_essential_bc_BlockVector']
 #==============================================================================
 def apply_essential_bc(a, *bcs, **kwargs):
 

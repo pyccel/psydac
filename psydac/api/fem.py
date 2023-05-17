@@ -31,11 +31,11 @@ from psydac.fem.projectors   import knot_insertion_projection_operator
 from psydac.core.bsplines    import find_span, basis_funs_all_ders
 from psydac.ddm.cart         import InterfaceCartDecomposition
 
-__all__ = ('collect_spaces', 'compute_diag_len', 'get_quad_order', 
+__all__ = ['collect_spaces', 'compute_diag_len', 'get_quad_order', 
            'construct_test_space_arguments', 'construct_trial_space_arguments', 
            'construct_quad_grids_arguments', 'reset_arrays', 'do_nothing', 'extract_stencil_mats', 
-           'DiscreteBilinearForm', 'DiscreteFunctional', 'DiscreteLinearForm', 'DiscreteSumForm',
-)
+           'DiscreteBilinearForm', 'DiscreteFunctional', 'DiscreteLinearForm', 'DiscreteSumForm'
+]
 
 #==============================================================================
 def collect_spaces(space, *args):
