@@ -841,3 +841,41 @@ def projection_matrix_Hdiv_homogeneous_bc(V1h: VectorFemSpace) -> lil_matrix:
             proj_mat[idx_global, idx_global] = 0
     
     return proj_mat
+
+def projection_matrix_H1_homogeneous_bc(V0h : TensorFemSpace) -> lil_matrix:
+    """
+    Returns projection matrix onto the subspace with homogeneous boundary 
+    conditions.
+
+    Parameters
+    ----------
+    V0h: TensorFemSpace
+        Scalar valued FEM space of tensor product splines
+    
+    Returns
+    -------
+    lil_matrix
+        Projection matrix in scipy 'lil' format
+    """
+    shape = [V0h.spaces[0].nbasis, V0h.spaces[1].nbasis]
+    domain : Domain = V0h.symbolic_space.domain
+
+    proj_mat = scipy.sparse.eye(V0h.nbasis, format='lil')
+    multi_index = [None,None]
+
+    # Iterate over the sub boundaries and set the corresponding entries in the 
+    # matrix to zero
+    for b in domain.boundary:
+        axis = b.axis
+        ext = b.ext
+        if ext == -1:
+            multi_index[axis] = 0
+        elif ext == 1:
+            multi_index[axis] = shape[axis]-1
+        for k in range(shape[1-axis]):
+            multi_index[1-axis] = k
+            idx_global = np.ravel_multi_index(multi_index, shape)
+            proj_mat[idx_global] = 0
+    
+    return proj_mat
+
