@@ -56,13 +56,14 @@ from psydac.utilities.quadratures import gauss_legendre
 
 from sympde.topology.domain       import Domain
 
+from scipy.sparse import bmat, csr_matrix
 from scipy.sparse._lil import lil_matrix
-from scipy.sparse.linalg import eigs
+from scipy.sparse.linalg import eigs, spsolve
 from scipy.sparse.linalg import inv
 
 
 
-def solve_magnetostatic_pbm_annulus(f : Tuple[sympy.Expr], J : sympy.Expr):
+def solve_magnetostatic_pbm_annulus(f : sympy.Tuple):
     logger_magnetostatic = logging.getLogger(name='solve_magnetostatic_pbm_annulus')
     logical_domain = Square(name='square', bounds1=(0,1), bounds2=(0,2*np.pi))
     boundary_logical_domain = Union(logical_domain.get_boundary(axis=0, ext=-1),
@@ -115,21 +116,14 @@ def solve_magnetostatic_pbm_annulus(f : Tuple[sympy.Expr], J : sympy.Expr):
     logger_magnetostatic.debug('type(M1):%s', type(M1))
     logger_magnetostatic.debug('M1.shape:%s', M1.shape)
 
-    l_f = LinearForm(v, integral(annulus, dot(f,v)))
-    l_f_h = discretize(l_f, annulus_h, space=derham_h.V1)
-    assert isinstance(l_f_h, DiscreteLinearForm)
-    f_tilde_h_block : BlockVector = l_f_h.assemble()
-    f_tilde_h = f_tilde_h_block.toarray()
-    assert isinstance(f_tilde_h, np.ndarray)
-
     P0_h_mat = projection_matrix_H1_homogeneous_bc(derham_h.V0)
     P1_h_mat = projection_matrix_Hdiv_homogeneous_bc(derham_h.V1)
     alpha = 10
     I1 = scipy.sparse.eye(derham_h.V1.nbasis, format='lil')
     S_h_mat = alpha * (I1 - P1_h_mat).transpose() @ M1 @ (I1 - P1_h_mat)
-
     D0_h_mat = D0_mat @ P0_h_mat
     D1_h_mat = D1_mat @ P1_h_mat
+    
     summand1 = D0_h_mat @ inv(M0) @ D0_h_mat.transpose() @ M1
     summand2 = inv(M1) @ D1_h_mat.transpose() @ M2 @ D1_h_mat
     summand3 = alpha * inv(M1) @ S_h_mat
@@ -138,9 +132,46 @@ def solve_magnetostatic_pbm_annulus(f : Tuple[sympy.Expr], J : sympy.Expr):
     L_h_tilde = summand1 + summand2 + summand3
     eig_val, eig_vec = eigs(L_h_tilde, sigma=0.001)
     logger_magnetostatic.debug('eig_val.shape:%s', eig_val.shape)
-    logger_magnetostatic.debug('eig_val:%s', eig_val)
-    logger_magnetostatic.debug('eig_vec:%s', eig_vec)
-    logger_magnetostatic.debug('L_h_tilde.dot(eig_vec[:,0]):%s', L_h_tilde.dot(eig_vec[:,0]))
+    logger_magnetostatic.debug('L_h_tilde.dot(eig_vec[:,0]):%s\n', 
+                               L_h_tilde.dot(eig_vec[:,0]))
+    harmonic_form_coeffs = eig_vec[:,0]
+
+    l_f = LinearForm(v, integral(annulus, dot(f,v)))
+    l_f_h = discretize(l_f, annulus_h, space=derham_h.V1)
+    assert isinstance(l_f_h, DiscreteLinearForm)
+    f_tilde_h_block : BlockVector = l_f_h.assemble()
+    f_tilde_h = f_tilde_h_block.toarray()
+    assert isinstance(f_tilde_h, np.ndarray)
+    f_h = inv(M1) @ P1_h_mat.transpose() @ f_tilde_h
+    assert isinstance(f_h, np.ndarray)
+
+    # psi_h_coeffs = psi_h.coeffs.toarray()
+    # assert isinstance(psi_h_coeffs, np.ndarray)
+    # curl_psi_h_coeffs = D0_h_mat @ psi_h_coeffs
+
+    harmonic_block = csr_matrix( P1_h_mat.transpose() @ M1 @ harmonic_form_coeffs)
+    harmonic_block = harmonic_block.transpose()
+    logger_magnetostatic.debug('harmonic_block.shape:%s\n', harmonic_block.shape)
+
+    DD_tilde_mat = (D1_h_mat @ P1_h_mat).transpose() @ M2 @ D1_h_mat @ P1_h_mat
+    logger_magnetostatic.debug('type(DD_tilde_mat):%s', type(DD_tilde_mat))
+    logger_magnetostatic.debug('type(P0_h_mat):%s', type(P0_h_mat))
+    logger_magnetostatic.debug('type(M1):%s', type(M1))
+    logger_magnetostatic.debug('type(M1 @ D0_h_mat @ P0_h_mat):%s\n', type(M1 @ D0_h_mat @ P0_h_mat))
+
+    logger_magnetostatic.debug('(M1 @ D0_h_mat @ P0_h_mat).shape:%s', (M1 @ D0_h_mat @ P0_h_mat).shape)
+    logger_magnetostatic.debug('(DD_tilde_mat  + alpha * S_h_mat).shape:%s', (DD_tilde_mat  + alpha * S_h_mat).shape)
+    logger_magnetostatic.debug('harmonic_block.shape:%s\n', harmonic_block.shape)
+
+    A_mat = bmat([[M0 , (D0_h_mat @ P0_h_mat).transpose() , None],
+                  [M1 @ D0_h_mat @ P0_h_mat,  DD_tilde_mat  + alpha * S_h_mat, harmonic_block],
+                  [None, harmonic_block.T , None]])
+    
+    rhs = np.concatenate((np.zeros(derham_h.V0.nbasis), f_h, np.zeros(1)))
+    sol = spsolve(A_mat, rhs)
+    return sol[derham_h.V0.nbasis:-1]
+
+
 
 
 
