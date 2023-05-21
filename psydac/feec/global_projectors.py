@@ -810,6 +810,15 @@ def projection_matrix_Hdiv_homogeneous_bc(V1h: VectorFemSpace) -> lil_matrix:
     -------
     lil_matrix
         The projection matrix in scipy 'lil' format
+    
+    Notes
+    -----
+    The dofs have to be ordered as in [1, Sec. 5]
+
+    References
+    ----------
+    [1] Broken-FEEC discretizations and Hodge Laplace problems. 
+        Campos Pinto, Güclü. 2022
     """
     dim_total = V1h.nbasis
     domain : Domain = V1h.symbolic_space.domain
