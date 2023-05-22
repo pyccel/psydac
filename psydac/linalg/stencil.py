@@ -123,6 +123,7 @@ class StencilVectorSpace( VectorSpace ):
         if cart.is_parallel and not cart.is_comm_null:
             self._mpi_type      = find_mpi_type(dtype)
             if isinstance(cart, InterfaceCartDecomposition):
+                # TODO : Check if this line really change the ._shape
                 self._shape = cart.get_interface_communication_infos(cart.axis)['gbuf_recv_shape'][0]
             else:
                 self._synchronizer = get_data_exchanger( cart, dtype , assembly=True, blocking=False)
@@ -271,6 +272,8 @@ class StencilVectorSpace( VectorSpace ):
                     parent_ends[axis] = self.pads[axis]
 
             cart = cart.change_starts_ends(tuple(starts), tuple(ends), tuple(parent_starts), tuple(parent_ends))
+
+            #TODO Check if we create object from it, otherwise its only purpose is to store some parameters which is innefficient
             space = StencilVectorSpace(cart, self.dtype)
 
             self._interfaces[axis, ext] = space

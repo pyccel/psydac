@@ -383,6 +383,7 @@ class BlockVector(Vector):
                 cart_j = Vj.cart
 
                 buf = [None]*2
+                # TODO rename buf[0] as read_buffer and buf[1] as write_buffer
                 if cart_i.is_comm_null:
                     buf[0] = self._blocks[i]._interface_data[axis_i, ext_i]
                 else:
