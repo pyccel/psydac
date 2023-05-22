@@ -383,11 +383,14 @@ class AST(object):
             multiplicity_trials = get_multiplicity(trials, spaces[0].vector_space)
             is_parallel         = spaces[1].vector_space.parallel
             spaces              = [V.symbolic_space for V in spaces]
+
+            # TODO Remove when we have a SesquilinearForm define in SymPDE
             if hasattr(spaces[0], 'codomain_type'):
                 dtype           = spaces[0].codomain_type
             else:
                 dtype           = 'real'
 
+        # TODO Uncomment when we have a SesquilinearForm define in SymPDE
         # elif isinstance(expr, SesquiLinearForm):
         #     is_sesquilinear     = True
         #     tests               = expr.test_functions
@@ -554,6 +557,7 @@ class AST(object):
                                           mask, tag, num_threads, **kwargs)
 
         elif is_bilinear:
+            # TODO Remove when we have a SesquilinearForm define in SymPDE
             if dtype=='complex':
                 ast = _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tests, trials, d_trials,
                                                     fields, d_fields, constants, nderiv, domain.dim, domain, mapping,
@@ -682,8 +686,11 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
 
     """
 
+    # Define flags
     backend    = kwargs.pop('backend')
     is_pyccel  = backend['name'] == 'pyccel' if backend else False
+    add_openmp = is_pyccel and backend['openmp'] and num_threads>1
+
     pads       = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     g_quad     = [GlobalTensorQuadratureGrid(False)]
     l_quad     = [LocalTensorQuadratureGrid(False)]
@@ -695,11 +702,10 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
     rank_from_coords = MatrixRankFromCoords()
     coords_from_rank = MatrixCoordsFromRank()
 
-    add_openmp = is_pyccel and backend['openmp'] and num_threads>1
-
     quad_order    = kwargs.pop('quad_order', None)
     thread_span   =  dict((u,d_tests[u]['thread_span']) for u in tests)
     # ...........................................................................................
+    # Define name of span keys if we used OpenMP or not
     if add_openmp:
         span  = 'local_span'
         basis = 'local'
@@ -709,17 +715,19 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
 
     g_span              = dict((u,d_tests[u][span]) for u in tests)
     f_span              = dict((f,d_fields[f][span]) for f in fields)
+
+    # Collect mapping span
     if mapping_space:
         m_span   = dict((f,d_mapping[f][span]) for f in d_mapping)
     else:
         m_span = {}
 
-    m_trials            = dict((u,d_trials[u]['multiplicity'])  for u in trials)
+    # m_trials            = dict((u,d_trials[u]['multiplicity'])  for u in trials)
     m_tests             = dict((v,d_tests[v]['multiplicity'])   for v in tests)
     lengths_trials      = dict((u,LengthDofTrial(u)) for u in trials)
     lengths_tests       = dict((v,LengthDofTest(v)) for v in tests)
-    lengths_outer_tests = dict((v,LengthOuterDofTest(v)) for v in tests)
-    lengths_inner_tests = dict((v,LengthInnerDofTest(v)) for v in tests)
+    # lengths_outer_tests = dict((v,LengthOuterDofTest(v)) for v in tests)
+    # lengths_inner_tests = dict((v,LengthInnerDofTest(v)) for v in tests)
     lengths_fields      = dict((f,LengthDofTest(f)) for f in fields)
 
     # ...........................................................................................
@@ -748,14 +756,16 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
     else:
         ind_quad      = index_quad.set_range(stop=quad_length)
 
-    g_starts        = Tuple(*[ProductGenerator(global_thread_s.set_index(i), thread_coords.set_index(i)) for i in range(dim)])
-    g_ends          = Tuple(*[AddNode(ProductGenerator(global_thread_e.set_index(i), thread_coords.set_index(i)), Integer(1)) for i in range(dim)])
+    # g_starts        = Tuple(*[ProductGenerator(global_thread_s.set_index(i), thread_coords.set_index(i)) for i in range(dim)])
+    # g_ends          = Tuple(*[AddNode(ProductGenerator(global_thread_e.set_index(i), thread_coords.set_index(i)), Integer(1)) for i in range(dim)])
     l_starts        = Tuple(*[ProductGenerator(local_thread_s.set_index(i), local_index_element.set_index(i)) for i in range(dim)])
     l_ends          = Tuple(*[ProductGenerator(local_thread_e.set_index(i), local_index_element.set_index(i)) for i in range(dim)])
 
     #ind_element   = index_element.set_range(start=g_starts,stop=g_ends) if add_openmp else index_element.set_range(stop=el_length)
     ind_element   = index_element.set_range(start=l_starts,stop=l_ends) if add_openmp else index_element.set_range(stop=el_length)
     l_ind_element = local_index_element.set_range(stop=TensorInteger(2))
+
+    # Create mapping loop if the user give a mapping of an interface
     if mapping_space and isinstance(domain, Interface):
         is_trial = (kwargs["is_trial"][domain.minus], kwargs["is_trial"][domain.plus])
         mappings = (mapping.minus, mapping.plus)
@@ -763,12 +773,15 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
         # ...........................................................................................
         eval_mappings = [EvalMapping(ind_quad, ind_dof_tests[i], d_mapping[fi][basis],
                         mappings[i], geos[i], mapping_space[i], nderiv, mask, is_rational_mapping[i], trial=is_trial[i]) for i,fi in enumerate(d_mapping)]
+
+    # Create mapping loop if the user give a mapping of a domain
     elif mapping_space:
         ind_dof_tests  = [index_dof_test.set_range(stop=Tuple(*[d+1 for d in d_mapping[f]['degrees']])) for f in d_mapping]
         # ...........................................................................................
         eval_mappings = [EvalMapping(ind_quad, ind_dof_tests[i], d_mapping[fi][basis],
                         mapping, geos[i], mapping_space, nderiv, mask, is_rational_mapping) for i,fi in enumerate(d_mapping)]
 
+    # Create Evaluating loop for each field
     eval_fields = []
     for f in fields:
         f_ex         = expand([f])
@@ -779,16 +792,19 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
                                  coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
         eval_fields += [eval_field]
 
+    # Add the Mapping loop into the geometric statements if there is one
     g_stmts = []
     if mapping_space:
         g_stmts = g_stmts + eval_mappings
 
+    # Add the Evaluating loop into the geometric statements
     g_stmts += [*eval_fields]
     g_stmts_texpr = []
 
     # sort tests and trials by their space type
     test_groups  = regroup(tests)
     trial_groups = regroup(trials)
+
     # expand every VectorFunction into IndexedVectorFunctions
     ex_tests     = expand(tests)
     ex_trials    = expand(trials)
@@ -812,7 +828,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
             bs             = dict()
             es             = dict()
             for v in sub_tests:
-                v_str = str(SymbolicExpr(v))
+                # v_str = str(SymbolicExpr(v))
 #                bs[v] = variables(('b_{v}_1, b_{v}_2, b_{v}_3'.format(v=v_str)), dtype='int')[:dim] if is_parallel else [S.Zero]*dim
 #                es[v] = variables(('e_{v}_1, e_{v}_2, e_{v}_3'.format(v=v_str)), dtype='int')[:dim] if is_parallel else [S.Zero]*dim
                 bs[v] = [S.Zero]*dim
@@ -840,39 +856,39 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
                 # fields (and their derivatives) at a single quadrature point
                 stmts += flatten([eval_field.inits for eval_field in eval_fields])
          
-                loop  = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), *geos), ind_quad, stmts=stmts, mask=mask)
-                loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_scalars), loop)
+                precomputed_loop          = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), *geos), ind_quad, stmts=stmts, mask=mask)
+                reduced_precomputed_loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_scalars), precomputed_loop)
 
                 # ... loop over trials
                 length = Tuple(*[d+1 for d in trials_degrees[sub_trials[0]]])
                 ind_dof_trial = index_dof_trial.set_range(stop=length)
-                loop1  = Loop((), ind_dof_trial, stmts=[Reset(l_sub_scalars),loop, VectorAssign(ElementOf(l_sub_mats), ElementOf(l_sub_scalars))])
+                trials_loop  = Loop((), ind_dof_trial, stmts=[Reset(l_sub_scalars), reduced_precomputed_loop, VectorAssign(ElementOf(l_sub_mats), ElementOf(l_sub_scalars))])
 
                 # ... loop over tests
                 length = Tuple(*[d+1 for d in tests_degree[sub_tests[0]]])
                 ends   = Tuple(*[d+1-e for d,e in zip(tests_degree[sub_tests[0]], es[sub_tests[0]])])
                 starts = Tuple(*bs[sub_tests[0]])
                 ind_dof_test = index_dof_test.set_range(start=starts, stop=ends, length=length)
-                loop  = Loop((), ind_dof_test, stmts=[loop1])
+                tests_loop  = Loop((), ind_dof_test, stmts=[trials_loop])
                 # ...
 
-                body  = (loop,)
+                body  = (tests_loop,)
                 stmts = Block(body)
                 g_stmts += [stmts]
 
-                if is_parallel:
-                    ln         = Tuple(*[d-1 for d in tests_degree[sub_tests[0]]])
-                    thr_s      = Tuple(*[ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i))) for i in range(dim)]) if add_openmp else Tuple(*[0]*dim)
-                    start_expr =  TensorMax(TensorMul(TensorAdd(TensorMul(TensorAdd(thr_s,ind_element),
-                                  Tuple(*[-1]*dim)), ln), Tuple(*[S.Zero]*dim)),Tuple(*[S.Zero]*dim))
-
-                    start_expr = TensorAssignExpr(Tuple(*bs[sub_tests[0]]), start_expr)
-                    end_expr   = TensorMax(TensorMul(TensorAdd(TensorMul(Tuple(*[-1]*dim), el_length),
-                                           TensorAdd(TensorAdd(thr_s,ind_element),
-                                           Tuple(*tests_degree[sub_tests[0]]))), Tuple(*[S.Zero]*dim)), Tuple(*[S.Zero]*dim))
-
-                    end_expr   = TensorAssignExpr(Tuple(*es[sub_tests[0]]), end_expr)
-#                    g_stmts_texpr += [start_expr, end_expr]
+#                 if is_parallel:
+#                     ln         = Tuple(*[d-1 for d in tests_degree[sub_tests[0]]])
+#                     thr_s      = Tuple(*[ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i))) for i in range(dim)]) if add_openmp else Tuple(*[0]*dim)
+#                     start_expr =  TensorMax(TensorMul(TensorAdd(TensorMul(TensorAdd(thr_s,ind_element),
+#                                   Tuple(*[-1]*dim)), ln), Tuple(*[S.Zero]*dim)),Tuple(*[S.Zero]*dim))
+#
+#                     start_expr = TensorAssignExpr(Tuple(*bs[sub_tests[0]]), start_expr)
+#                     end_expr   = TensorMax(TensorMul(TensorAdd(TensorMul(Tuple(*[-1]*dim), el_length),
+#                                            TensorAdd(TensorAdd(thr_s,ind_element),
+#                                            Tuple(*tests_degree[sub_tests[0]]))), Tuple(*[S.Zero]*dim)), Tuple(*[S.Zero]*dim))
+#
+#                     end_expr   = TensorAssignExpr(Tuple(*es[sub_tests[0]]), end_expr)
+# #                    g_stmts_texpr += [start_expr, end_expr]
 
             else:
                 l_stmts = []
@@ -899,27 +915,29 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
                                                               tests_multiplicity=m_tests, trials_multiplicity=m_trials)
 
                     l_sub_scalars =  BlockScalarLocalBasis(trials = sub_trials, tests=sub_tests, expr=sub_terminal_expr, tag=l_mats.tag)
-                    loop  = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), *geos), ind_quad, stmts=stmts, mask=mask)
-                    loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_scalars), loop)
+                    precomputed_loop  = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), *geos), ind_quad, stmts=stmts, mask=mask)
+                    reduced_precomputed_loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_scalars), precomputed_loop)
 
                     # ... loop over trials
                     length_t = Tuple(*[d+1 for d in trials_degrees[sub_trials[0]]])
                     ind_dof_trial = index_dof_trial.set_range(stop=length_t)
-                    loop  = Loop((), ind_dof_trial, stmts=[Reset(l_sub_scalars), loop, VectorAssign(ElementOf(l_sub_mats), ElementOf(l_sub_scalars))])
- 
+                    trials_loop  = Loop((), ind_dof_trial, stmts=[Reset(l_sub_scalars), reduced_precomputed_loop, VectorAssign(ElementOf(l_sub_mats), ElementOf(l_sub_scalars))])
+
+                    # ... loop over tests
                     rem_length = Tuple(*[(d+1)-(d+1)%m for d,m in zip(tests_degree[sub_tests[0]], multiplicity)])
                     ind_inner_dof_test = index_inner_dof_test.set_range(stop=multiplicity)
                     expr1 = TensorAdd(TensorMul(ind_outer_dof_test, multiplicity),ind_inner_dof_test)
                     expr2 = TensorAdd(rem_length, ind_outer_dof_test)
                     expr  = TensorAssignExpr(index_dof_test, TensorAdd(TensorMul(expr1,not_mask_inner_i),TensorMul(expr2, mask_inner_i)))
-                    loop  = Loop((expr,), ind_inner_dof_test, stmts=[loop], mask=mask_inner_i)
-                    loop  = Loop((), ind_outer_dof_test, stmts=[loop])
+                    tests_loop  = Loop((expr,), ind_inner_dof_test, stmts=[trials_loop], mask=mask_inner_i)
+                    tests_loop  = Loop((), ind_outer_dof_test, stmts=[tests_loop])
 
-                    l_stmts += [loop]
+                    l_stmts += [tests_loop]
 
                 g_stmts += [*l_stmts]
 
     #=========================================================end kernel=========================================================
+    # Create the loop over global element code for OpenMP
     if add_openmp:
 #        body = [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), num_threads) for j in range(dim)]), 
 #                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
@@ -942,8 +960,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
 
         for i in range(dim):
             lhs = local_thread_e.set_index(i)
-            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
-            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+            # thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            # thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
             rhs = Array(Tuple(IntDivNode(global_thread_l.set_index(i), Integer(2)), global_thread_l.set_index(i)))
             parallel_body += [Assign(lhs, rhs)]
 
@@ -1080,52 +1098,52 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
 #            g_stmts_texpr += [TensorAssignExpr(Tuple(*lhs), rhs)]
 
          #... loop over global elements
-        loop  = Loop((*g_quad, *g_span.values(), *m_span.values(), *f_span.values(), *g_stmts_texpr),
+        global_loop  = Loop((*g_quad, *g_span.values(), *m_span.values(), *f_span.values(), *g_stmts_texpr),
                       ind_element, stmts=g_stmts, mask=mask)
 
-        loop_reduction = Reduce('+', l_mats, g_mats, loop)
-        loop           = Loop((), l_ind_element, stmts=[Comment('#$omp barrier'), loop_reduction], mask=mask)
+        global_loop_reduction = Reduce('+', l_mats, g_mats, global_loop)
+        global_loop           = Loop((), l_ind_element, stmts=[Comment('#$omp barrier'), global_loop_reduction], mask=mask)
 
         if mask is not None:
             empty_loop = Loop((), l_ind_element, stmts=[Comment('#$omp barrier'), Continue()], mask=mask)
-            loop = IfNode((EqNode(thread_coords.set_index(mask.axis), Integer(0)),[loop]),(true, [empty_loop]))
+            global_loop = IfNode((EqNode(thread_coords.set_index(mask.axis), Integer(0)),[global_loop]),(true, [empty_loop]))
 
-        parallel_body += [loop]
+        parallel_body += [global_loop]
 #        parallel_body += [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), thread_id) for j in range(dim)]), 
 #                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
+    # Create the loop over global element code if we don't use OpenMP
     else:
         # ... loop over global elements
-        loop  = Loop((*g_quad, *g_span.values(), *m_span.values(), *f_span.values(), *g_stmts_texpr),
+        global_loop  = Loop((*g_quad, *g_span.values(), *m_span.values(), *f_span.values(), *g_stmts_texpr),
                       ind_element, stmts=g_stmts, mask=mask)
 
-        body = [Reduce('+', l_mats, g_mats, loop)]
+        body = [Reduce('+', l_mats, g_mats, global_loop)]
 
     # ...
     args = {}
     args['tests_basis']  = tuple(d_tests[v]['global'] for v in tests)
     args['trial_basis']  = tuple(d_trials[u]['global'] for u in trials)
-
     args['spans'] = tuple(d_tests[v]['span'] for v in tests)
     args['quads'] = g_quad
-
     args['tests_degrees']  = lengths_tests
     args['trials_degrees'] = lengths_trials
-
     args['quads_degree'] = lengths
     args['global_pads']  = pads
     args['local_pads']   = Pads(tests, trials)
+    args['mats']  = [g_mats]
 
     if add_openmp:
         args['thread_args']  = (coords_from_rank, rank_from_coords, global_thread_s, global_thread_e, thread_id.length)
 
-    args['mats']  = [g_mats]
-
+    # Collect fields parameters if there is one
     if mapping_space:
         args['mapping'] = flatten([eval_mapping.coeffs for eval_mapping in eval_mappings])
         args['mapping_degrees'] = [LengthDofTest(f) for f in d_mapping]
         args['mapping_basis'] = flatten([d_mapping[f]['global'] for f in d_mapping])
         args['mapping_spans'] = flatten([d_mapping[f]['span'] for f in d_mapping])
 
+
+    # Collect fields parameters if there is one
     if fields:
         args['f_span']         =  tuple(d_fields[f]['span'] for f in fields)
         args['f_coeffs']       = flatten(list(g_coeffs.values()))
@@ -1135,21 +1153,25 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
         fields                 = tuple(f.base if isinstance(f, IndexedVectorFunction) else f for f in fields)
         args['fields']         = tuple(dict.fromkeys(fields))
 
+    # Collect constants if there is one in the equation
     if constants:
         args['constants'] = constants
 
 #    args['starts'] = b0s
 #    args['ends']   = e0s
 
+    # Add the allocation for the OpenMP arguments initialization
     allocations = []
     if add_openmp:
         allocations = [[Allocate(thread_span[u].set_index(i), (Integer(1+num_threads),)) for i in range(dim)] for u in thread_span]
         allocations = [Tuple(*i) for i in allocations]
 
-    m_trials      = dict((u,d_trials[u]['multiplicity'])  for u in trials)
-    m_tests       = dict((v,d_tests[v]['multiplicity'])   for v in tests)
-    trials_degree = dict((u,d_trials[u]['degrees'])       for u in trials)
-    tests_degree  = dict((v,d_tests[v]['degrees'])        for v in tests)
+    body  = allocations + body
+
+    # m_trials      = dict((u,d_trials[u]['multiplicity'])  for u in trials)
+    # m_tests       = dict((v,d_tests[v]['multiplicity'])   for v in tests)
+    # trials_degree = dict((u,d_trials[u]['degrees'])       for u in trials)
+    # tests_degree  = dict((v,d_tests[v]['degrees'])        for v in tests)
 
     local_allocations = []
     for j,u in enumerate(ex_trials):
@@ -1167,8 +1189,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
             mat = Allocate(StencilMatrixLocalBasis(u, v, pads, l_mats.tag), shape)
             local_allocations.append(mat)
 
-    body  = allocations + body
-
+    # Collect arguments for OpenMP if used and add the parallel code
     if add_openmp:
         shared = (*thread_span.values(), coords_from_rank, rank_from_coords, global_thread_s, global_thread_e,
                   *args['tests_basis'], *args['trial_basis'], *args['spans'], *args['quads'], g_mats)
@@ -1192,11 +1213,13 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
     else:
         body = local_allocations + body
 
+    # Add Import OpenMP if used
     local_vars = []
     imports    = []
     if add_openmp:
         imports.append(Import('pyccel.stdlib.internal.openmp',('omp_get_thread_num', )))
 
+    # Create the tree
     node = DefNode(f'assemble_matrix_{tag}', args, local_vars, body, imports, (), 'bilinearform', domain_dtype='real')
 
     return node
@@ -1252,8 +1275,12 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
     node : DefNode
         represents the a function definition node that computes the assembly
     """
+
+    # Create flags for parallel case
     backend = kwargs.pop('backend')
     is_pyccel = backend['name'] == 'pyccel' if backend else False
+    add_openmp = is_pyccel and backend['openmp'] and num_threads > 1
+
     pads = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     g_quad = [GlobalTensorQuadratureGrid(False)]
     l_quad = [LocalTensorQuadratureGrid(False)]
@@ -1264,8 +1291,6 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
 
     rank_from_coords = MatrixRankFromCoords()
     coords_from_rank = MatrixCoordsFromRank()
-
-    add_openmp = is_pyccel and backend['openmp'] and num_threads > 1
 
     quad_order = kwargs.pop('quad_order', None)
     thread_span = dict((u, d_tests[u]['thread_span']) for u in tests)
@@ -1279,17 +1304,19 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
 
     g_span = dict((u, d_tests[u][span]) for u in tests)
     f_span = dict((f, d_fields[f][span]) for f in fields)
+
+    # Create mapping span if the user give an explicit mapping
     if mapping_space:
         m_span = dict((f, d_mapping[f][span]) for f in d_mapping)
     else:
         m_span = {}
 
-    m_trials = dict((u, d_trials[u]['multiplicity']) for u in trials)
+    # m_trials = dict((u, d_trials[u]['multiplicity']) for u in trials)
     m_tests = dict((v, d_tests[v]['multiplicity']) for v in tests)
     lengths_trials = dict((u, LengthDofTrial(u)) for u in trials)
     lengths_tests = dict((v, LengthDofTest(v)) for v in tests)
-    lengths_outer_tests = dict((v, LengthOuterDofTest(v)) for v in tests)
-    lengths_inner_tests = dict((v, LengthInnerDofTest(v)) for v in tests)
+    # lengths_outer_tests = dict((v, LengthOuterDofTest(v)) for v in tests)
+    # lengths_inner_tests = dict((v, LengthInnerDofTest(v)) for v in tests)
     lengths_fields = dict((f, LengthDofTest(f)) for f in fields)
 
     # ...........................................................................................
@@ -1320,10 +1347,11 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
     else:
         ind_quad = index_quad.set_range(stop=quad_length)
 
-    g_starts = Tuple(*[ProductGenerator(target=global_thread_s.set_index(i), dummies=thread_coords.set_index(i)) for i in range(dim)])
-    g_ends = Tuple(
-        *[AddNode(ProductGenerator(target=global_thread_e.set_index(i), dummies=thread_coords.set_index(i)), Integer(1)) for i in
-          range(dim)])
+    # g_starts = Tuple(*[ProductGenerator(target=global_thread_s.set_index(i), dummies=thread_coords.set_index(i)) for i in range(dim)])
+    # g_ends = Tuple(
+    #     *[AddNode(ProductGenerator(target=global_thread_e.set_index(i), dummies=thread_coords.set_index(i)), Integer(1)) for i in
+    #       range(dim)])
+
     l_starts = Tuple(
         *[ProductGenerator(target=local_thread_s.set_index(i), dummies=local_index_element.set_index(i)) for i in range(dim)])
     l_ends = Tuple(
@@ -1333,6 +1361,8 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
     ind_element = index_element.set_range(start=l_starts, stop=l_ends) if add_openmp else index_element.set_range(
         stop=el_length)
     l_ind_element = local_index_element.set_range(stop=TensorInteger(2))
+
+    # Create mapping loop if the user give a mapping of an interface
     if mapping_space and isinstance(domain, Interface):
         is_trial = (kwargs["is_trial"][domain.minus], kwargs["is_trial"][domain.plus])
         mappings = (mapping.minus, mapping.plus)
@@ -1342,6 +1372,8 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
         eval_mappings = [EvalMapping(ind_quad, ind_dof_tests[i], d_mapping[fi][basis],
                                      mappings[i], geos[i], mapping_space[i], nderiv, mask, is_rational_mapping[i],
                                      trial=is_trial[i]) for i, fi in enumerate(d_mapping)]
+
+    # Create mapping loop if the user give a mapping of a patch
     elif mapping_space:
         ind_dof_tests = [index_dof_test.set_range(stop=Tuple(*[d + 1 for d in d_mapping[f]['degrees']])) for f in
                          d_mapping]
@@ -1350,6 +1382,7 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
                                      mapping, geos[i], mapping_space, nderiv, mask, is_rational_mapping) for i, fi in
                          enumerate(d_mapping)]
 
+    # Create field loop that initialize field value before computing the kernel
     eval_fields = []
     for f in fields:
         f_ex = expand([f])
@@ -1364,13 +1397,13 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
     g_stmts = []
     if mapping_space:
         g_stmts = g_stmts + eval_mappings
-
     g_stmts += [*eval_fields]
     g_stmts_texpr = []
 
     # sort tests and trials by their space type
     test_groups = regroup(tests)
     trial_groups = regroup(trials)
+
     # expand every VectorFunction into IndexedVectorFunctions
     ex_tests = expand(tests)
     ex_trials = expand(trials)
@@ -1394,7 +1427,7 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
             bs = dict()
             es = dict()
             for v in sub_tests:
-                v_str = str(SymbolicExpr(v))
+                # v_str = str(SymbolicExpr(v))
                 #                bs[v] = variables(('b_{v}_1, b_{v}_2, b_{v}_3'.format(v=v_str)), dtype='int')[:dim] if is_parallel else [S.Zero]*dim
                 #                es[v] = variables(('e_{v}_1, e_{v}_2, e_{v}_3'.format(v=v_str)), dtype='int')[:dim] if is_parallel else [S.Zero]*dim
                 bs[v] = [S.Zero] * dim
@@ -1424,46 +1457,46 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
                 # fields (and their derivatives) at a single quadrature point
                 stmts += flatten([eval_field.inits for eval_field in eval_fields])
 
-                loop = Loop(iterable=(*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), *geos), index=ind_quad,
+                quadrature_loop = Loop(iterable=(*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), *geos), index=ind_quad,
                             stmts=stmts,mask=mask)
-                loop = Reduce(op='+', rhs=ComputeKernelExpr(sub_terminal_expr, weights=False),
-                              lhs=ElementOf(l_sub_scalars), loop=loop)
+                reduced_quadrature_loop = Reduce(op='+', rhs=ComputeKernelExpr(sub_terminal_expr, weights=False),
+                              lhs=ElementOf(l_sub_scalars), loop=quadrature_loop)
 
                 # ... loop over trials
                 length = Tuple(*[d + 1 for d in trials_degrees[sub_trials[0]]])
                 ind_dof_trial = index_dof_trial.set_range(stop=length)
-                loop1 = Loop(iterable=(), index=ind_dof_trial,
-                             stmts=[Reset(l_sub_scalars), loop, VectorAssign(ElementOf(l_sub_mats), ElementOf(l_sub_scalars))])
+                trials_loop = Loop(iterable=(), index=ind_dof_trial,
+                             stmts=[Reset(l_sub_scalars), reduced_quadrature_loop, VectorAssign(ElementOf(l_sub_mats), ElementOf(l_sub_scalars))])
 
                 # ... loop over tests
                 length = Tuple(*[d + 1 for d in tests_degree[sub_tests[0]]])
                 ends = Tuple(*[d + 1 - e for d, e in zip(tests_degree[sub_tests[0]], es[sub_tests[0]])])
                 starts = Tuple(*bs[sub_tests[0]])
                 ind_dof_test = index_dof_test.set_range(start=starts, stop=ends, length=length)
-                loop = Loop(iterable=(), index=ind_dof_test, stmts=[loop1])
+                test_loop = Loop(iterable=(), index=ind_dof_test, stmts=[trials_loop])
                 # ...
 
-                body = (loop,)
+                body = (test_loop,)
                 stmts = Block(body)
                 g_stmts += [stmts]
 
-                if is_parallel:
-                    ln = Tuple(*[d - 1 for d in tests_degree[sub_tests[0]]])
-                    thr_s = Tuple(
-                        *[ProductGenerator(target=global_thread_s.set_index(i), dummies=Tuple(thread_coords.set_index(i))) for i in
-                          range(dim)]) if add_openmp else Tuple(*[0] * dim)
-                    start_expr = TensorMax(TensorMul(TensorAdd(TensorMul(TensorAdd(thr_s, ind_element),
-                                                                         Tuple(*[-1] * dim)), ln),
-                                                     Tuple(*[S.Zero] * dim)), Tuple(*[S.Zero] * dim))
-
-                    start_expr = TensorAssignExpr(lhs=Tuple(*bs[sub_tests[0]]), rhs=start_expr)
-                    end_expr = TensorMax(TensorMul(TensorAdd(TensorMul(Tuple(*[-1] * dim), el_length),
-                                                             TensorAdd(TensorAdd(thr_s, ind_element),
-                                                                       Tuple(*tests_degree[sub_tests[0]]))),
-                                                   Tuple(*[S.Zero] * dim)), Tuple(*[S.Zero] * dim))
-
-                    end_expr = TensorAssignExpr(lhs=Tuple(*es[sub_tests[0]]), rhs=end_expr)
-            #                    g_stmts_texpr += [start_expr, end_expr]
+            #     if is_parallel:
+            #         ln = Tuple(*[d - 1 for d in tests_degree[sub_tests[0]]])
+            #         thr_s = Tuple(
+            #             *[ProductGenerator(target=global_thread_s.set_index(i), dummies=Tuple(thread_coords.set_index(i))) for i in
+            #               range(dim)]) if add_openmp else Tuple(*[0] * dim)
+            #         start_expr = TensorMax(TensorMul(TensorAdd(TensorMul(TensorAdd(thr_s, ind_element),
+            #                                                              Tuple(*[-1] * dim)), ln),
+            #                                          Tuple(*[S.Zero] * dim)), Tuple(*[S.Zero] * dim))
+            #
+            #         start_expr = TensorAssignExpr(lhs=Tuple(*bs[sub_tests[0]]), rhs=start_expr)
+            #         end_expr = TensorMax(TensorMul(TensorAdd(TensorMul(Tuple(*[-1] * dim), el_length),
+            #                                                  TensorAdd(TensorAdd(thr_s, ind_element),
+            #                                                            Tuple(*tests_degree[sub_tests[0]]))),
+            #                                        Tuple(*[S.Zero] * dim)), Tuple(*[S.Zero] * dim))
+            #
+            #         end_expr = TensorAssignExpr(lhs=Tuple(*es[sub_tests[0]]), rhs=end_expr)
+            # #                    g_stmts_texpr += [start_expr, end_expr]
 
             else:
                 l_stmts = []
@@ -1494,16 +1527,16 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
 
                     l_sub_scalars = BlockScalarLocalBasis(trials=sub_trials, tests=sub_tests, expr=sub_terminal_expr,
                                                           tag=l_mats.tag)
-                    loop = Loop(iterable=(*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), *geos),
+                    precomputed_loop = Loop(iterable=(*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), *geos),
                                 index=ind_quad, stmts=stmts, mask=mask)
-                    loop = Reduce(op='+', rhs=ComputeKernelExpr(sub_terminal_expr, weights=False),
-                                  lhs=ElementOf(l_sub_scalars), loop=loop)
+                    precomputed_loop = Reduce(op='+', rhs=ComputeKernelExpr(sub_terminal_expr, weights=False),
+                                  lhs=ElementOf(l_sub_scalars), loop=precomputed_loop)
 
                     # ... loop over trials
                     length_t = Tuple(*[d + 1 for d in trials_degrees[sub_trials[0]]])
                     ind_dof_trial = index_dof_trial.set_range(stop=length_t)
-                    loop = Loop(iterable=(), index=ind_dof_trial,
-                                stmts=[Reset(l_sub_scalars), loop, VectorAssign(ElementOf(l_sub_mats), ElementOf(l_sub_scalars))])
+                    trials_loop = Loop(iterable=(), index=ind_dof_trial,
+                                stmts=[Reset(l_sub_scalars), precomputed_loop, VectorAssign(ElementOf(l_sub_mats), ElementOf(l_sub_scalars))])
 
                     rem_length = Tuple(
                         *[(d + 1) - (d + 1) % m for d, m in zip(tests_degree[sub_tests[0]], multiplicity)])
@@ -1513,14 +1546,16 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
                     expr = TensorAssignExpr(lhs=index_dof_test,
                                             rhs=TensorAdd(TensorMul(expr1, not_mask_inner_i),
                                                           TensorMul(expr2, mask_inner_i)))
-                    loop = Loop(iterable=(expr,), index=ind_inner_dof_test, stmts=[loop], mask=mask_inner_i)
-                    loop = Loop(iterable=(), index=ind_outer_dof_test, stmts=[loop])
+                    # Loop over tests
+                    test_loop = Loop(iterable=(expr,), index=ind_inner_dof_test, stmts=[trials_loop], mask=mask_inner_i)
+                    test_loop = Loop(iterable=(), index=ind_outer_dof_test, stmts=[test_loop])
 
-                    l_stmts += [loop]
+                    l_stmts += [test_loop]
 
                 g_stmts += [*l_stmts]
 
     # =========================================================end kernel=========================================================
+    # If OpenMP is used, we initialize the variables
     if add_openmp:
         #        body = [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), num_threads) for j in range(dim)]),
         #                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
@@ -1545,8 +1580,8 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
 
         for i in range(dim):
             lhs = local_thread_e.set_index(i)
-            thr_s = ProductGenerator(target=global_thread_s.set_index(i), dummies=Tuple(thread_coords.set_index(i)))
-            thr_e = ProductGenerator(target=global_thread_e.set_index(i), dummies=Tuple(thread_coords.set_index(i)))
+            # thr_s = ProductGenerator(target=global_thread_s.set_index(i), dummies=Tuple(thread_coords.set_index(i)))
+            # thr_e = ProductGenerator(target=global_thread_e.set_index(i), dummies=Tuple(thread_coords.set_index(i)))
             rhs = Array(Tuple(IntDivNode(global_thread_l.set_index(i), Integer(2)), global_thread_l.set_index(i)))
             parallel_body += [Assign(lhs, rhs)]
 
@@ -1683,56 +1718,56 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
 #            g_stmts_texpr += [TensorAssignExpr(Tuple(*lhs), rhs)]
 
         # ... loop over global elements
-        loop = Loop(iterable=(*g_quad, *g_span.values(), *m_span.values(), *f_span.values(), *g_stmts_texpr),
+        global_loop = Loop(iterable=(*g_quad, *g_span.values(), *m_span.values(), *f_span.values(), *g_stmts_texpr),
                     index=ind_element, stmts=g_stmts, mask=mask)
 
-        loop_reduction = Reduce(op='+', rhs=l_mats, lhs=g_mats, loop=loop)
-        loop = Loop(iterable=(), index=l_ind_element, stmts=[Comment('#$omp barrier'), loop_reduction],
+        global_loop_reduction = Reduce(op='+', rhs=l_mats, lhs=g_mats, loop=global_loop)
+        global_loop = Loop(iterable=(), index=l_ind_element, stmts=[Comment('#$omp barrier'), global_loop_reduction],
                     mask=mask)
 
         if mask is not None:
             empty_loop = Loop(iterable=(), index=l_ind_element, stmts=[Comment('#$omp barrier'), Continue()],
                               mask=mask)
-            loop = IfNode((EqNode(thread_coords.set_index(mask.axis), Integer(0)), [loop]),
+            global_loop = IfNode((EqNode(thread_coords.set_index(mask.axis), Integer(0)), [global_loop]),
                           (true, [empty_loop]))
 
-        parallel_body += [loop]
+        parallel_body += [global_loop]
         #        parallel_body += [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), thread_id) for j in range(dim)]),
         #                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
     else:
         # ... loop over global elements
-        loop = Loop(iterable=(*g_quad, *g_span.values(), *m_span.values(), *f_span.values(), *g_stmts_texpr),
+        global_loop = Loop(iterable=(*g_quad, *g_span.values(), *m_span.values(), *f_span.values(), *g_stmts_texpr),
                     index=ind_element, stmts=g_stmts, mask=mask)
 
-        body = [Reduce(op='+', rhs=l_mats, lhs=g_mats, loop=loop)]
+        body = [Reduce(op='+', rhs=l_mats, lhs=g_mats, loop=global_loop)]
 
         # ...
     args = {}
     args['tests_basis'] = tuple(d_tests[v]['global'] for v in tests)
     args['trial_basis'] = tuple(d_trials[u]['global'] for u in trials)
-
     args['spans'] = tuple(d_tests[v]['span'] for v in tests)
     args['quads'] = g_quad
-
     args['tests_degrees'] = lengths_tests
     args['trials_degrees'] = lengths_trials
-
     args['quads_degree'] = lengths
     args['global_pads'] = pads
     args['local_pads'] = Pads(tests, trials)
 
+    # If we use OpenMP we collect the arguments of the Thread
     if add_openmp:
         args['thread_args'] = (
         coords_from_rank, rank_from_coords, global_thread_s, global_thread_e, thread_id.length)
 
     args['mats'] = [g_mats]
 
+    # If a mapping space is gived by the user we collect the arguments
     if mapping_space:
         args['mapping'] = flatten([eval_mapping.coeffs for eval_mapping in eval_mappings])
         args['mapping_degrees'] = [LengthDofTest(f) for f in d_mapping]
         args['mapping_basis'] = flatten([d_mapping[f]['global'] for f in d_mapping])
         args['mapping_spans'] = flatten([d_mapping[f]['span'] for f in d_mapping])
 
+    # If there is a field, we collect the arguments
     if fields:
         args['f_span'] = tuple(d_fields[f]['span'] for f in fields)
         args['f_coeffs'] = flatten(list(g_coeffs.values()))
@@ -1742,6 +1777,7 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
         fields = tuple(f.base if isinstance(f, IndexedVectorFunction) else f for f in fields)
         args['fields'] = tuple(dict.fromkeys(fields))
 
+    # If there is a constant, we collect the arguments
     if constants:
         args['constants'] = constants
 
@@ -1755,10 +1791,10 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
                        thread_span]
         allocations = [Tuple(*i) for i in allocations]
 
-    m_trials = dict((u, d_trials[u]['multiplicity']) for u in trials)
-    m_tests = dict((v, d_tests[v]['multiplicity']) for v in tests)
-    trials_degree = dict((u, d_trials[u]['degrees']) for u in trials)
-    tests_degree = dict((v, d_tests[v]['degrees']) for v in tests)
+    # m_trials = dict((u, d_trials[u]['multiplicity']) for u in trials)
+    # m_tests = dict((v, d_tests[v]['multiplicity']) for v in tests)
+    # trials_degree = dict((u, d_trials[u]['degrees']) for u in trials)
+    # tests_degree = dict((v, d_tests[v]['degrees']) for v in tests)
 
     local_allocations = []
     for j, u in enumerate(ex_trials):
@@ -1803,11 +1839,13 @@ def _create_ast_sesquilinear_form(terminal_expr, atomic_expr_field, tests, d_tes
     else:
         body = local_allocations + body
 
+    # Add import of Openmp if needed
     local_vars = []
     imports = []
     if add_openmp:
         imports.append(Import('pyccel.stdlib.internal.openmp', ('omp_get_thread_num',)))
 
+    # Create the tree
     node = DefNode(name=f'assemble_matrix_{tag}', arguments=args, local_variables=local_vars, body=body,
                    imports=imports, results=(), kind='sesquilinearform', domain_dtype='complex')
     return node
@@ -1846,6 +1884,9 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     dim : int
         number of dimension
 
+    dim : Data Type
+        type of the data in the arrays (float/complex)
+
     mapping : <Mapping>
         Sympde Mapping object
 
@@ -1874,15 +1915,16 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     """
 
+    # Define flags
     backend   = kwargs.pop('backend', None)
     is_pyccel = backend['name'] == 'pyccel' if backend else False
+    add_openmp = is_pyccel and backend['openmp'] and num_threads>1
+
     pads     = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     g_quad   = [GlobalTensorQuadratureGrid(False)]
     l_quad   = [LocalTensorQuadratureGrid(False)]
     geo      = GeometryExpressions(mapping, nderiv)
     g_coeffs = {f:[MatrixGlobalBasis(i, i, dtype) for i in expand([f])] for f in fields}
-
-    add_openmp = is_pyccel and backend['openmp'] and num_threads>1
 
     rank_from_coords = MatrixRankFromCoords()
     coords_from_rank = MatrixCoordsFromRank()
@@ -1891,13 +1933,15 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     thread_span   =  dict((u,d_tests[u]['thread_span']) for u in tests)
  
     m_tests = dict((v,d_tests[v]['multiplicity'])   for v in tests)
+
+    # Initialize BlockVector locally and globally
     l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr, tag, dtype)
     g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, m_tests, terminal_expr, l_vecs.tag, dtype)
 
     g_span          = dict((v,d_tests[v]['span']) for v in tests)
     f_span          = dict((f,d_fields[f]['span']) for f in fields)
 
-
+    # Collect mapping span when a mapping is given by the user otherwise it returns an empty dictionary
     if mapping_space:
         m_span      = dict((f,d_mapping[f]['span']) for f in d_mapping)
     else:
@@ -1916,25 +1960,30 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     local_thread_e  = LocalThreadEnds()
     lengths         = [el_length,quad_length]
 
+    # Set index of quadrature
     if quad_order is not None:
         ind_quad      = index_quad.set_range(stop=Tuple(*quad_order))
     else:
         ind_quad      = index_quad.set_range(stop=quad_length)
 
-    g_starts        = Tuple(*[ProductGenerator(global_thread_s.set_index(i), thread_coords.set_index(i)) for i in range(dim)])
-    g_ends          = Tuple(*[AddNode(ProductGenerator(global_thread_e.set_index(i), thread_coords.set_index(i)), Integer(1)) for i in range(dim)])
+    # g_starts        = Tuple(*[ProductGenerator(global_thread_s.set_index(i), thread_coords.set_index(i)) for i in range(dim)])
+    # g_ends          = Tuple(*[AddNode(ProductGenerator(global_thread_e.set_index(i), thread_coords.set_index(i)), Integer(1)) for i in range(dim)])
     l_starts        = Tuple(*[ProductGenerator(local_thread_s.set_index(i), local_index_element.set_index(i)) for i in range(dim)])
     l_ends          = Tuple(*[ProductGenerator(local_thread_e.set_index(i), local_index_element.set_index(i)) for i in range(dim)])
 
 #    ind_element   = index_element.set_range(start=g_starts,stop=g_ends) if add_openmp else index_element.set_range(stop=el_length)
     ind_element   = index_element.set_range(start=l_starts,stop=l_ends) if add_openmp else index_element.set_range(stop=el_length)
     l_ind_element = local_index_element.set_range(stop=TensorInteger(2))
+
+    # Create the loop for the mapping coefficient when a mapping is given by the user
     if mapping_space:
         ind_dof_test  = index_dof_test.set_range(stop=Tuple(*[d+1 for d in list(d_mapping.values())[0]['degrees']]))
         # ...........................................................................................
         eval_mapping  = EvalMapping(ind_quad, ind_dof_test, list(d_mapping.values())[0]['global'],
                         mapping, geo, mapping_space, nderiv, mask, is_rational_mapping)
 
+
+    # Create the loop for the fields coefficient
     eval_fields = []
     for f in fields:
         f_ex         = expand([f])
@@ -1990,6 +2039,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     #=========================================================end kernel=========================================================
 
+    # Create the loop over global elements when open_mp is used with pyccel
     if add_openmp:
         body = [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), num_threads) for j in range(dim)]), 
                              Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
@@ -2030,46 +2080,49 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 #            g_stmts_texpr += [TensorAssignExpr(Tuple(*lhs), rhs)]
 
         # ... loop over global elements
-        loop  = Loop((*g_quad, *g_span.values(), *m_span.values(), *f_span.values()), ind_element, stmts=g_stmts, mask=mask)
+        global_elements_loop  = Loop((*g_quad, *g_span.values(), *m_span.values(), *f_span.values()), ind_element, stmts=g_stmts, mask=mask)
         # ...
 
 
-        loop_reduction = Reduce('+', l_vecs, g_vecs, loop)
-        loop           = Loop((), l_ind_element, stmts=[Comment('#$omp barrier'),loop_reduction], mask=mask)
+        global_elements_loop_reduction = Reduce('+', l_vecs, g_vecs, global_elements_loop)
+        global_elements_loop           = Loop((), l_ind_element, stmts=[Comment('#$omp barrier'), global_elements_loop_reduction], mask=mask)
+
+        # Case where the user impose a mask
         if mask is not None:
             empty_loop = Loop((), l_ind_element, stmts=[Comment('#$omp barrier'), Continue()], mask=mask)
-            loop = IfNode((EqNode(thread_coords.set_index(mask.axis), Integer(0)),[loop]),(true, [empty_loop]))
+            global_elements_loop = IfNode((EqNode(thread_coords.set_index(mask.axis), Integer(0)), [global_elements_loop]), (true, [empty_loop]))
 
-        parallel_body += [loop]
+        parallel_body += [global_elements_loop]
 #        parallel_body += [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), thread_id) for j in range(dim)]), 
 #                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
+
+    # Create the loop over global elements when open_mp is not used with pyccel
     else:
         # ... loop over global elements
-        loop  = Loop((*g_quad, *g_span.values(), *m_span.values(), *f_span.values()), ind_element, stmts=g_stmts, mask=mask)
+        global_element_loop  = Loop((*g_quad, *g_span.values(), *m_span.values(), *f_span.values()), ind_element, stmts=g_stmts, mask=mask)
         # ...
 
-        body = [Reduce('+', l_vecs, g_vecs, loop)]
+        body = [Reduce('+', l_vecs, g_vecs, global_element_loop)]
     # ...
 
     args = dict()
     args['tests_basis']  = tuple(d_tests[v]['global']  for v in tests)
-
     args['spans'] = g_span.values()
     args['quads'] = g_quad
-
     args['tests_degrees'] = lengths_tests
-
     args['quads_degree'] = lengths
     args['global_pads']  = pads
-
     args['mats']  = [g_vecs]
 
+    # Collect the mapping data if the user give a mapping
     if mapping_space:
         args['mapping'] = eval_mapping.coeffs
         args['mapping_degrees'] = [LengthDofTest(list(d_mapping.keys())[0])]
         args['mapping_basis'] = [list(d_mapping.values())[0]['global']]
         args['mapping_spans'] = [list(d_mapping.values())[0]['span']]
 
+
+    # Collect the fields data
     if fields:
         args['f_span']         = f_span.values()
         args['f_coeffs']       = flatten(list(g_coeffs.values()))
@@ -2079,19 +2132,23 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         fields                 = tuple(f.base if isinstance(f, IndexedVectorFunction) else f for f in fields)
         args['fields']         = tuple(dict.fromkeys(fields))
 
+    # Collect the constants if the expression have some
     if constants:
         args['constants'] = constants
 
+    # Collect the thread arguments if we are in a parallel case
     if add_openmp:
         args['thread_args']  = (coords_from_rank, rank_from_coords, global_thread_s, global_thread_e, thread_id.length)
 
+    # Allocate space for thread arguments if we are in a parallel case
     allocations = []
     if add_openmp:
         allocations = [[Allocate(thread_span[u].set_index(i), (Integer(1+num_threads),)) for i in range(dim)] for u in thread_span]
         allocations = [Tuple(*i) for i in allocations]
 
-    tests_degree  = dict((v,d_tests[v]['degrees']) for v in tests)
+    # tests_degree  = dict((v,d_tests[v]['degrees']) for v in tests)
 
+    # Allocate space for StencilVectors
     local_allocations = []
     for i,v in enumerate(ex_tests):
         if terminal_expr[i,0] == 0:
@@ -2104,6 +2161,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     body  = allocations + body
 
+    # Add the Parallel code if it's a parallel case
     if add_openmp:
         shared = (*thread_span.values(), coords_from_rank, rank_from_coords, global_thread_s, global_thread_e,
                   *args['tests_basis'], *args['spans'], *args['quads'], g_vecs)
@@ -2131,8 +2189,10 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     local_vars = []
     imports    = []
+    # Imports openmp if used
     if add_openmp:
         imports.append(Import('pyccel.stdlib.internal.openmp',('omp_get_thread_num', )))
+
     node = DefNode(f'assemble_vector_{tag}', args, local_vars, body, imports, (), 'linearform', domain_dtype=dtype)
 
     return node
@@ -2168,6 +2228,9 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     dim : int
         number of dimension
 
+    dim : Data Type
+        type of the data in the arrays (float/complex)
+
     mapping : <Mapping>
         Sympde Mapping object
 
@@ -2192,29 +2255,31 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     Returns
     -------
     node : DefNode
-        represents the a function definition node that computes the assembly
+        represents the function definition node that computes the assembly
 
     """
-
+    # Create flags for the code
     backend   = kwargs.pop('backend', None)
     is_pyccel = backend['name'] == 'pyccel' if backend else False
-    pads   = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
+    add_openmp = is_pyccel and backend['openmp'] and num_threads>1
+
+    # pads   = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     g_quad = [GlobalTensorQuadratureGrid()]
     l_quad = [LocalTensorQuadratureGrid()]
 
     #TODO move to EvalField
     g_coeffs = {f:[MatrixGlobalBasis(i, i, dtype=dtype) for i in expand([f])] for f in fields}
 
-    add_openmp = is_pyccel and backend['openmp'] and num_threads>1
-
     geo      = GeometryExpressions(mapping, nderiv)
 
     g_span   = dict((v,d_fields[v]['span']) for v in fields)
 
+    # Collect mapping span when a mapping is given by the user otherwise it returns an empty dictionary
     if mapping_space:
         m_span  = dict((f,d_mapping[f]['span']) for f in d_mapping)
     else:
         m_span = {}
+
     g_basis  = dict((v,d_fields[v]['global'])  for v in fields)
 
     lengths_fields  = dict((f,LengthDofTest(f)) for f in fields)
@@ -2232,6 +2297,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     ind_quad      = index_quad.set_range(stop=quad_length)
     ind_element   = index_element.set_range(stop=el_length)
 
+    # Create EvalMapping when a mapping is given by the user
     if mapping_space:
         ind_dof_test  = index_dof_test.set_range(stop=Tuple(*[d+1 for d in list(d_mapping.values())[0]['degrees']]))
         # ...........................................................................................
@@ -2239,6 +2305,8 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
                         mapping, geo, mapping_space, nderiv, mask, is_rational_mapping)
 
     eval_fields = []
+
+    # Create EvalFields for each patch
     for f in fields:
         f_ex         = expand([f])
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
@@ -2251,16 +2319,16 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     #=========================================================begin kernel======================================================
     # ... loop over tests functions to compute the value (last loop in the dependency)
 
-    loop   = Loop((*l_quad, geo), ind_quad, stmts=flatten([eval_field.inits for eval_field in eval_fields])) # TODO Missing argument initialize or not good name in expression
-    loop   = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
+    test_function_loop          = Loop((*l_quad, geo), ind_quad, stmts=flatten([eval_field.inits for eval_field in eval_fields]))
+    reduced_test_function_loop  = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), test_function_loop)
 
     # ... loop over tests functions to evaluate the fields (first loop)
-    stmts  = []
+    kernel_stmts  = []
     if mapping_space:
-        stmts.append(eval_mapping) #TODO Fix problem with coeff missing
+        kernel_stmts.append(eval_mapping)
 
-    stmts += [*eval_fields, Reset(l_vec), loop]
-    stmts  = Block(stmts)
+    kernel_stmts += [*eval_fields, Reset(l_vec), reduced_test_function_loop]
+    kernel_stmts  = Block(kernel_stmts)
 
     #=========================================================end kernel=========================================================
     # ... loop over global elements
@@ -2274,6 +2342,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     args['global_pads']   = [f.pads for f in eval_fields]
     args['mats']          = []
 
+    # Collect mapping data when a mapping is given by the user
     if mapping_space:
         args['mapping']         = eval_mapping.coeffs
         args['mapping_degrees'] = [LengthDofTest(list(d_mapping.keys())[0])]
@@ -2284,9 +2353,11 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     fields           = tuple(f.base if isinstance(f, IndexedVectorFunction) else f for f in fields)
     args['fields']   = tuple(dict.fromkeys(fields))
 
+    # Collect constant when there is constant in the expression
     if constants:
         args['constants'] = constants
 
+    # Case where openmp is used
     if add_openmp:
         shared = (*args['tests_basis'], *args['spans'], *args['quads'], *args['f_coeffs'], g_vec)
         if mapping_space:
@@ -2299,13 +2370,13 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         if constants:
             firstprivate = firstprivate + (*constants,)
  
-        loop  = Loop(iterable=(*g_quad, *g_span.values(), *m_span.values()), index=ind_element, stmts=stmts,
+        global_element_loop  = Loop(iterable=(*g_quad, *g_span.values(), *m_span.values()), index=ind_element, stmts=kernel_stmts,
                       parallel=True, default='private', shared=shared, firstprivate=firstprivate)
     else:
-        loop  = Loop(iterable=(*g_quad, *g_span.values(), *m_span.values()), index=ind_element, stmts=stmts)
+        global_element_loop  = Loop(iterable=(*g_quad, *g_span.values(), *m_span.values()), index=ind_element, stmts=kernel_stmts)
     # ...
 
-    body = (Reset(g_vec), Reduce('+', l_vec, g_vec, loop), Return(g_vec))
+    body = (Reset(g_vec), Reduce('+', l_vec, g_vec, global_element_loop), Return(g_vec))
 
     local_vars = []
     node = DefNode(f'assemble_scalar_{tag}', args, local_vars, body, (), (g_vec,), 'functionalform', domain_dtype=dtype)
