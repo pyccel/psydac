@@ -246,7 +246,7 @@ class BasisProjectionOperator(LinearOperator):
                 _ends_out = np.array(dofs_mat.codomain.ends)
                 _pads_out = np.array(dofs_mat.codomain.pads)
 
-                _ptsG, _wtsG, _spans, _bases = prepare_projection_of_basis(
+                _ptsG, _wtsG, _spans, _bases, _npt_pts = prepare_projection_of_basis(
                     V1d, W1d, _starts_out, _ends_out, nq)
 
                 _ptsG = [pts.flatten() for pts in _ptsG]
@@ -257,7 +257,7 @@ class BasisProjectionOperator(LinearOperator):
   
                 if isinstance(f, FemField):
                     assert(isinstance(f.space,TensorFemSpace))
-                    _fun_q = f.space.eval_fields_irregular_tensor_grid(_ptsG, f) 
+                    _fun_q = f.space.eval_fields(_ptsG, f, npts_per_cell=_npt_pts)#_irregular_tensor_grid(_ptsG, f) 
                     _fun_q = np.squeeze(_fun_q) #since we only evaluate one field the result is a 3D
                     #array with last dim 1, we need to squeeze it in order to use the pyccelized kernels
                 elif isinstance(f, float) or isinstance(f, int):
@@ -328,7 +328,7 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
     import psydac.core.bsplines as bsp
 
 
-    x_grid, subs, pts, wts, spans, bases = [], [], [], [], [], []
+    x_grid, pts, wts, spans, bases, np_pts_cell = [], [], [], [], [], []
 
     # Loop over direction, prepare point sets and evaluate basis functions
     direction = 0
@@ -345,11 +345,12 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
             x_grid = greville_loc
             pts += [greville_loc[:, None]]
             wts += [np.ones(pts[-1].shape, dtype=float)]
+            np_pts_cell += [1]
 
         # histopolation
         elif space_out.basis == 'M':
 
-            x_grid = space_out.histopolation_grid
+            x_grid = histopol_loc #space_out.histopolation_grid
             
             # Gauss - Legendre quadrature points and weights
             if n_quad is None:
@@ -363,11 +364,11 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
             #"roll" back points to the interval to ensure that the quadrature points are
             #in the domain. Probably only usefull on periodic cases
             roll_edges(space_out.domain, global_quad_x) 
-            x = global_quad_x[s:e+1]
-            w = global_quad_w[s:e+1]
+            x = global_quad_x#[s:e+1]
+            w = global_quad_w#[s:e+1]
             pts += [x]
             wts += [w]
-
+            np_pts_cell += [nq]
         # Knot span indices and V-basis functions evaluated at W-point sets
         s, b = get_span_and_basis(pts[-1], space_in)
 
@@ -375,7 +376,7 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
         bases += [b]
 
         direction += 1
-    return tuple(pts), tuple(wts), tuple(spans), tuple(bases)
+    return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(np_pts_cell)
 
 
 def get_span_and_basis(pts, space):
