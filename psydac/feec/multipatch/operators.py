@@ -26,7 +26,7 @@ from psydac.api.essential_bc         import apply_essential_bc_stencil
 from psydac.api.settings             import PSYDAC_BACKENDS
 from psydac.linalg.block             import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.linalg.stencil           import StencilVector, StencilMatrix, StencilInterfaceMatrix
-from psydac.linalg.iterative_solvers import cg, pcg
+from psydac.linalg.solvers           import inverse
 from psydac.fem.basic                import FemField
 
 
@@ -990,7 +990,7 @@ class BrokenGradient_2D(FemLinearOperator):
         self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D0i._matrix for i, D0i in enumerate(D0s)})
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         # todo (MCP): define as the dual differential operator
         return BrokenTransposedGradient_2D(self.fem_domain, self.fem_codomain)
 
@@ -1006,7 +1006,7 @@ class BrokenTransposedGradient_2D( FemLinearOperator ):
         self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D0i._matrix.T for i, D0i in enumerate(D0s)})
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         # todo (MCP): discard
         return BrokenGradient_2D(self.fem_codomain, self.fem_domain)
 
@@ -1022,7 +1022,7 @@ class BrokenScalarCurl_2D(FemLinearOperator):
         self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D1i._matrix for i, D1i in enumerate(D1s)})
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         return BrokenTransposedScalarCurl_2D(V1h=self.fem_domain, V2h=self.fem_codomain)
 
 
@@ -1038,7 +1038,7 @@ class BrokenTransposedScalarCurl_2D( FemLinearOperator ):
         self._matrix = BlockLinearOperator(self.domain, self.codomain, \
                 blocks={(i, i): D1i._matrix.T for i, D1i in enumerate(D1s)})
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         return BrokenScalarCurl_2D(V1h=self.fem_codomain, V2h=self.fem_domain)
 
 #==============================================================================
@@ -1115,7 +1115,8 @@ def ortho_proj_Hcurl(EE, V1h, domain_h, M1, backend_language='python'):
     l = LinearForm(v, integral(V1.domain, dot(v,EE)))
     lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
     b = lh.assemble()
-    sol_coeffs, info = pcg(M1.mat(), b, pc="jacobi", tol=1e-10)
+    M1_inv = inverse(M1.mat(), 'pcg', pc='jacobi', tol=1e-10)
+    sol_coeffs = M1_inv @ b
 
     return FemField(V1h, coeffs=sol_coeffs)
 

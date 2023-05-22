@@ -10,8 +10,9 @@ from sympde.topology.callable_mapping   import CallableMapping
 from sympde.topology.analytical_mapping import IdentityMapping, PolarMapping
 from sympde.topology.analytical_mapping import TargetMapping, CzarnyMapping
 
+from psydac.ddm.cart                   import DomainDecomposition
 from psydac.linalg.stencil             import StencilVector, StencilMatrix
-from psydac.linalg.iterative_solvers   import cg
+from psydac.linalg.solvers             import inverse
 from psydac.fem.splines                import SplineSpace
 from psydac.fem.tensor                 import TensorFemSpace
 from psydac.fem.basic                  import FemField
@@ -35,22 +36,22 @@ class Laplacian:
         self._metric_det = sym.metric_det_expr
 
     # ...
-    def __call__( self, phi ):
+    def __call__(self, phi):
 
         from sympy import sqrt, Matrix
 
         u      = self._eta
         G      = self._metric
-        sqrt_g = sqrt( self._metric_det )
+        sqrt_g = sqrt(self._metric_det)
 
         # Store column vector of partial derivatives of phi w.r.t. uj
-        dphi_du = Matrix( [phi.diff( uj ) for uj in u] )
+        dphi_du = Matrix([phi.diff(uj) for uj in u])
 
         # Compute gradient of phi in tangent basis: A = G^(-1) dphi_du
-        A = G.LUsolve( dphi_du )
+        A = G.LUsolve(dphi_du)
 
         # Compute Laplacian of phi using formula for divergence of vector A
-        lapl = sum( (sqrt_g*Ai).diff( ui ) for ui,Ai in zip( u,A ) ) / sqrt_g
+        lapl = sum((sqrt_g * Ai).diff(ui) for ui, Ai in zip(u, A)) / sqrt_g
 
         return lapl
 
@@ -64,7 +65,7 @@ class Poisson2D:
     $(\partial^2_{xx} + \partial^2_{yy}) \phi(x,y) = -\rho(x,y)$
 
     """
-    def __init__( self, domain, periodic, mapping, phi, rho, O_point=False ):
+    def __init__(self, domain, periodic, mapping, phi, rho, O_point=False):
 
         self._domain   = domain
         self._periodic = periodic
@@ -75,7 +76,7 @@ class Poisson2D:
 
     # ...
     @staticmethod
-    def new_square( mx=1, my=1 ):
+    def new_square(mx=1, my=1):
         """
         Solve Poisson's equation on the unit square.
 
@@ -91,13 +92,13 @@ class Poisson2D:
 
         from sympy import symbols, sin, cos, pi, lambdify
         x,y   = symbols('x y')
-        phi_e = sin( mx*pi*x ) * sin( my*pi*y )
-        rho_e = -phi_e.diff(x,2)-phi_e.diff(y,2)
+        phi_e = sin(mx * pi * x) * sin(my * pi * y)
+        rho_e = -phi_e.diff(x, 2) - phi_e.diff(y, 2)
 
-        phi = lambdify( [x,y], phi_e )
-        rho = lambdify( [x,y], rho_e )
+        phi = lambdify([x, y], phi_e)
+        rho = lambdify([x, y], rho_e)
 
-        return Poisson2D( domain, periodic, mapping, phi, rho )
+        return Poisson2D(domain, periodic, mapping, phi, rho)
 
     # ...
     @staticmethod
@@ -119,23 +120,23 @@ class Poisson2D:
 
         from sympy import symbols, sin, cos, pi, lambdify
 
-        lapl  = Laplacian( mapping )
+        lapl  = Laplacian(mapping)
         r, t  = mapping.symbolic_mapping.logical_coordinates
         x, y  = mapping.symbolic_mapping.expressions
 
         # Manufactured solutions in logical coordinates
         parab = (r-rmin) * (rmax-r) * 4 / (rmax-rmin)**2
-        phi_e = parab * sin( 2*pi*x ) * sin( 2*pi*y )
-        rho_e = -lapl( phi_e )
+        phi_e = parab * sin(2*pi*x) * sin(2*pi*y)
+        rho_e = -lapl(phi_e)
 
         # For further simplifications, assume that (r,t) are positive and real
-        R,T   = symbols( 'R T', real=True, positive=True )
-        phi_e = phi_e.subs( {r:R, t:T} ).simplify()
-        rho_e = rho_e.subs( {r:R, t:T} ).simplify()
+        R,T   = symbols('R T', real=True, positive=True)
+        phi_e = phi_e.subs({r:R, t:T}).simplify()
+        rho_e = rho_e.subs({r:R, t:T}).simplify()
 
         # Callable functions
-        phi = lambdify( [R,T], phi_e )
-        rho = lambdify( [R,T], rho_e )
+        phi = lambdify([R, T], phi_e)
+        rho = lambdify([R, T], rho_e)
 
         return Poisson2D( domain, periodic, mapping, phi, rho, O_point=(rmin==0) )
 
@@ -153,39 +154,39 @@ class Poisson2D:
         $\phi(x,y) = 1-r**2$.
 
         """
-        domain   = ((0,1),(0,2*np.pi))
+        domain   = ((0, 1), (0, 2*np.pi))
         periodic = (False, True)
         mapping  = PolarMapping('F', c1=0, c2=0, rmin=0, rmax=2*np.pi).get_callable_mapping()
 
         from sympy import lambdify
 
-        lapl  = Laplacian( mapping )
+        lapl  = Laplacian(mapping)
         r, t  = mapping.symbolic_mapping.logical_coordinates
 
         # Manufactured solutions in logical coordinates
         phi_e = 1-r**2
-        rho_e = -lapl( phi_e )
+        rho_e = -lapl(phi_e)
 
         # Callable functions
-        phi = lambdify( [r,t], phi_e )
-        rho = lambdify( [r,t], rho_e )
+        phi = lambdify([r, t], phi_e)
+        rho = lambdify([r, t], rho_e)
 
-        rho = np.vectorize( rho )
+        rho = np.vectorize(rho)
 
-        return Poisson2D( domain, periodic, mapping, phi, rho, O_point=True )
+        return Poisson2D(domain, periodic, mapping, phi, rho, O_point=True)
 
     # ...
     @staticmethod
     def new_target():
 
-        domain   = ((0,1),(0,2*np.pi))
+        domain   = ((0, 1), (0, 2*np.pi))
         periodic = (False, True)
         params   = dict(c1=0, c2=0, k=0.3, D=0.2)
         mapping  = TargetMapping('F', **params).get_callable_mapping()
 
         from sympy import symbols, sin, cos, pi, lambdify
 
-        lapl  = Laplacian( mapping )
+        lapl  = Laplacian(mapping)
         s, t  = mapping.symbolic_mapping.logical_coordinates
         x, y  = mapping.symbolic_mapping.expressions
 
@@ -194,12 +195,12 @@ class Poisson2D:
         D     = params['D']
         kx    = 2*pi/(1-k+D)
         ky    = 2*pi/(1+k)
-        phi_e = (1-s**8) * sin( kx*(x-0.5) ) * cos( ky*y )
-        rho_e = -lapl( phi_e )
+        phi_e = (1-s**8) * sin(kx*(x-0.5)) * cos(ky*y)
+        rho_e = -lapl(phi_e)
 
         # Callable functions
-        phi = lambdify( [s,t], phi_e )
-        rho = lambdify( [s,t], rho_e )
+        phi = lambdify([s, t], phi_e)
+        rho = lambdify([s, t], rho_e)
 
         return Poisson2D( domain, periodic, mapping, phi, rho, O_point=True )
 
@@ -207,54 +208,54 @@ class Poisson2D:
     @staticmethod
     def new_czarny():
 
-        domain   = ((0,1),(0,2*np.pi))
+        domain   = ((0, 1), (0, 2*np.pi))
         periodic = (False, True)
         params   = dict(c1=0, c2=0, eps=0.2, b=1.4)
         mapping  = CzarnyMapping('F', **params).get_callable_mapping()
 
         from sympy import symbols, sin, cos, pi, lambdify
 
-        lapl  = Laplacian( mapping )
-        s, t  = mapping.symbolic_mapping.logical_coordinates
-        x, y  = mapping.symbolic_mapping.expressions
+        lapl = Laplacian(mapping)
+        s, t = mapping.symbolic_mapping.logical_coordinates
+        x, y = mapping.symbolic_mapping.expressions
 
         # Manufactured solution in logical coordinates
-        phi_e = (1-s**8) * sin( pi*x ) * cos( pi*y )
-        rho_e = -lapl( phi_e )
+        phi_e = (1-s**8) * sin(pi*x) * cos(pi*y)
+        rho_e = -lapl(phi_e)
 
         # Callable functions
-        phi = lambdify( [s,t], phi_e )
-        rho = lambdify( [s,t], rho_e )
+        phi = lambdify([s, t], phi_e)
+        rho = lambdify([s, t], rho_e)
 
-        return Poisson2D( domain, periodic, mapping, phi, rho, O_point=True )
+        return Poisson2D(domain, periodic, mapping, phi, rho, O_point=True)
 
     # ...
     @property
-    def domain( self ):
+    def domain(self):
         return self._domain
 
     @property
-    def periodic( self ):
+    def periodic(self):
         return self._periodic
 
     @property
-    def mapping( self ):
+    def mapping(self):
         return self._mapping
 
     @property
-    def phi( self ):
+    def phi(self):
         return self._phi
 
     @property
-    def rho( self ):
+    def rho(self):
         return self._rho
 
     @property
-    def O_point( self ):
+    def O_point(self):
         return self._O_point
 
 #==============================================================================
-def kernel( p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s ):
+def kernel(p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s):
     """
     Kernel for computing the mass/stiffness element matrices.
 
@@ -297,8 +298,8 @@ def kernel( p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s ):
 
     """
     # Reset element matrices
-    mat_m[:,:,:,:] = 0.
-    mat_s[:,:,:,:] = 0.
+    mat_m[:, :, :, :] = 0.
+    mat_s[:, :, :, :] = 0.
 
     # Cycle over non-zero test functions in element
     for il1 in range(p1+1):
@@ -345,18 +346,18 @@ def kernel( p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s ):
                             bj_y = inv_jac_det * (-x_x2*bj_x1 + x_x1*bj_x2)
 
                             # Get volume associated to quadrature point
-                            wvol = w1[q1] * w2[q2] * abs( jac_det )
+                            wvol = w1[q1] * w2[q2] * abs(jac_det)
 
                             # Add contribution to integrals
                             v_m +=  bi_0 * bj_0 * wvol
                             v_s += (bi_x * bj_x + bi_y * bj_y) * wvol
 
                     # Update element matrices
-                    mat_m[il1, il2, p1+jl1-il1, p2+jl2-il2 ] = v_m
-                    mat_s[il1, il2, p1+jl1-il1, p2+jl2-il2 ] = v_s
+                    mat_m[il1, il2, p1+jl1-il1, p2+jl2-il2] = v_m
+                    mat_s[il1, il2, p1+jl1-il1, p2+jl2-il2] = v_s
 
 #==============================================================================
-def assemble_matrices( V, mapping, kernel ):
+def assemble_matrices(V, mapping, kernel):
     """
     Assemble mass and stiffness matrices using 2D stencil format.
 
@@ -394,36 +395,36 @@ def assemble_matrices( V, mapping, kernel ):
     [weights_1, weights_2] = [g.weights      for g in V.quad_grids]
 
     # Create global matrices
-    mass      = StencilMatrix( V.vector_space, V.vector_space )
-    stiffness = StencilMatrix( V.vector_space, V.vector_space )
+    mass      = StencilMatrix(V.vector_space, V.vector_space)
+    stiffness = StencilMatrix(V.vector_space, V.vector_space)
 
     # Create element matrices
-    mat_m = np.zeros( (p1+1, p2+1, 2*p1+1, 2*p2+1) ) # mass
-    mat_s = np.zeros( (p1+1, p2+1, 2*p1+1, 2*p2+1) ) # stiffness
+    mat_m = np.zeros((p1+1, p2+1, 2*p1+1, 2*p2+1)) # mass
+    mat_s = np.zeros((p1+1, p2+1, 2*p1+1, 2*p2+1)) # stiffness
 
     # Build global matrices: cycle over elements
-    for k1 in range( nk1 ):
-        for k2 in range( nk2 ):
+    for k1 in range(nk1):
+        for k2 in range(nk2):
 
             # Get spline index, B-splines' values and quadrature weights
             is1 =   spans_1[k1]
-            bs1 =   basis_1[k1,:,:,:]
-            w1  = weights_1[k1,:]
+            bs1 =   basis_1[k1, :, :, :]
+            w1  = weights_1[k1, :]
 
             is2 =   spans_2[k2]
-            bs2 =   basis_2[k2,:,:,:]
-            w2  = weights_2[k2,:]
+            bs2 =   basis_2[k2, :, :, :]
+            w2  = weights_2[k2, :]
 
             # Compute Jacobian matrix at all quadrature points
-            jac_mat = np.empty( (nq1,nq2, 2, 2) )
-            for q1 in range( nq1 ):
-                for q2 in range( nq2 ):
-                    x1 = points_1[k1,q1]
-                    x2 = points_2[k2,q2]
+            jac_mat = np.empty((nq1, nq2, 2, 2))
+            for q1 in range(nq1):
+                for q2 in range(nq2):
+                    x1 = points_1[k1, q1]
+                    x2 = points_2[k2, q2]
                     jac_mat[q1, q2, :, :] = mapping.jacobian(x1, x2)
 
             # Compute element matrices
-            kernel( p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s )
+            kernel(p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s)
 
             # Update global matrices
             mass     [is1-p1:is1+1, is2-p2:is2+1, :, :] += mat_m[:, :, :, :]
@@ -436,7 +437,7 @@ def assemble_matrices( V, mapping, kernel ):
     return mass, stiffness
 
 #==============================================================================
-def assemble_rhs( V, mapping, f ):
+def assemble_rhs(V, mapping, f):
     """
     Assemble right-hand-side vector.
 
@@ -471,42 +472,42 @@ def assemble_rhs( V, mapping, f ):
     [weights_1, weights_2] = [g.weights      for g in V.quad_grids]
 
     # Data structure
-    rhs = StencilVector( V.vector_space )
+    rhs = StencilVector(V.vector_space)
 
     # Build RHS
-    for k1 in range( nk1 ):
-        for k2 in range( nk2 ):
+    for k1 in range(nk1):
+        for k2 in range(nk2):
 
             # Get spline index, B-splines' values and quadrature weights
             is1 =   spans_1[k1]
-            bs1 =   basis_1[k1,:,:,:]
-            w1  = weights_1[k1,:]
-            x1  =  points_1[k1,:]
+            bs1 =   basis_1[k1, :, :, :]
+            w1  = weights_1[k1, :]
+            x1  =  points_1[k1, :]
 
             is2 =   spans_2[k2]
-            bs2 =   basis_2[k2,:,:,:]
-            w2  = weights_2[k2,:]
-            x2  =  points_2[k2,:]
+            bs2 =   basis_2[k2, :, :, :]
+            w2  = weights_2[k2, :]
+            x2  =  points_2[k2, :]
 
             # Evaluate function at all quadrature points
-            f_quad = f( *np.meshgrid( x1, x2, indexing='ij' ) )
+            f_quad = f(*np.meshgrid(x1, x2, indexing='ij'))
 
             # Compute Jacobian determinant at all quadrature points
-            metric_det = np.empty( (nq1,nq2) )
-            for q1 in range( nq1 ):
-                for q2 in range( nq2 ):
+            metric_det = np.empty((nq1, nq2))
+            for q1 in range(nq1):
+                for q2 in range(nq2):
                     metric_det[q1, q2] = mapping.metric_det(x1[q1], x2[q2])
-            jac_det = np.sqrt( metric_det )
+            jac_det = np.sqrt(metric_det)
 
-            for il1 in range( p1+1 ):
-                for il2 in range( p2+1 ):
+            for il1 in range(p1+1):
+                for il2 in range(p2+1):
 
                     v = 0.0
-                    for q1 in range( nq1 ):
-                        for q2 in range( nq2 ):
+                    for q1 in range(nq1):
+                        for q2 in range(nq2):
                             bi_0 = bs1[il1, 0, q1] * bs2[il2, 0, q2]
-                            wvol = w1[q1] * w2[q2] * jac_det[q1,q2]
-                            v   += bi_0 * f_quad[q1,q2] * wvol
+                            wvol = w1[q1] * w2[q2] * jac_det[q1, q2]
+                            v   += bi_0 * f_quad[q1, q2] * wvol
 
                     # Global index of test basis
                     i1 = is1 - p1 + il1
@@ -522,7 +523,7 @@ def assemble_rhs( V, mapping, f ):
 
 ####################################################################################
 
-def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distribute_viz ):
+def main(*, test_case, ncells, degree, use_spline_mapping, c1_correction, distribute_viz):
 
     timing = {}
     timing['assembly'   ] = 0.0
@@ -533,9 +534,9 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
 
     # Method of manufactured solution
     if test_case == 'square':
-        model = Poisson2D.new_square( mx=1, my=1 )
+        model = Poisson2D.new_square(mx=1, my=1)
     elif test_case == 'annulus':
-        model = Poisson2D.new_annulus( rmin=0.1, rmax=1.0 )
+        model = Poisson2D.new_annulus(rmin=0.1, rmax=1.0)
     elif test_case == 'circle':
         model = Poisson2D.new_circle()
     elif test_case == 'target':
@@ -543,18 +544,18 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     elif test_case == 'czarny':
         model = Poisson2D.new_czarny()
     else:
-        raise ValueError( "Only available test-cases are 'square', 'annulus', "
-                          "'circle', 'target' and 'czarny'" )
+        raise ValueError("Only available test-cases are 'square', 'annulus', "
+                         "'circle', 'target' and 'czarny'")
 
     if c1_correction and (not model.O_point):
-        print( "WARNING: cannot use C1 correction in geometry without polar singularity!" )
-        print( "WARNING: setting 'c1_correction' flag to False..." )
+        print("WARNING: cannot use C1 correction in geometry without polar singularity!")
+        print("WARNING: setting 'c1_correction' flag to False...")
         print()
         c1_correction = False
 
     if c1_correction and (not use_spline_mapping):
-        print( "WARNING: cannot use C1 correction without spline mapping!" )
-        print( "WARNING: setting 'c1_correction' flag to False..." )
+        print("WARNING: cannot use C1 correction without spline mapping!")
+        print("WARNING: setting 'c1_correction' flag to False...")
         print()
         c1_correction = False
 
@@ -571,15 +572,18 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     per1, per2 = model.periodic
 
     # Create uniform grid
-    grid_1 = np.linspace( *model.domain[0], num=ne1+1 )
-    grid_2 = np.linspace( *model.domain[1], num=ne2+1 )
+    grid_1 = np.linspace(*model.domain[0], num=ne1+1)
+    grid_2 = np.linspace(*model.domain[1], num=ne2+1)
+
+    # Decompose 2D domain across MPI processes
+    dd = DomainDecomposition(ncells, model.periodic, comm=mpi_comm)
 
     # Create 1D finite element spaces
-    V1 = SplineSpace( p1, grid=grid_1, periodic=per1 )
-    V2 = SplineSpace( p2, grid=grid_2, periodic=per2 )
+    V1 = SplineSpace(p1, grid=grid_1, periodic=per1)
+    V2 = SplineSpace(p2, grid=grid_2, periodic=per2)
 
     # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2, comm=mpi_comm )
+    V = TensorFemSpace(dd, V1, V2)
 
     s1, s2 = V.vector_space.starts
     e1, e2 = V.vector_space.ends
@@ -587,34 +591,34 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # Print decomposition information to terminal
     if mpi_rank == 0:
-        print( '--------------------------------------------------' )
-        print( ' CARTESIAN DECOMPOSITION' )
-        print( '--------------------------------------------------' )
-        int_array_to_str = lambda array: ','.join( '{:3d}'.format(i) for i in array )
+        print('--------------------------------------------------')
+        print(' CARTESIAN DECOMPOSITION' )
+        print('--------------------------------------------------')
+        int_array_to_str = lambda array: ','.join('{:3d}'.format(i) for i in array)
         int_tuples_to_str = lambda tuples:  ',  '.join(
-                '[{:d}, {:d}]'.format(a,b) for a,b in tuples )
+                '[{:d}, {:d}]'.format(a,b) for a,b in tuples)
 
         cart = V.vector_space.cart
 
-        block_sizes_i1     = [e1-s1+1 for s1,e1 in zip( cart.global_starts[0], cart.global_ends[0] )]
-        block_sizes_i2     = [e2-s2+1 for s2,e2 in zip( cart.global_starts[1], cart.global_ends[1] )]
+        block_sizes_i1     = [e1-s1+1 for s1, e1 in zip(cart.global_starts[0], cart.global_ends[0])]
+        block_sizes_i2     = [e2-s2+1 for s2, e2 in zip(cart.global_starts[1], cart.global_ends[1])]
 
-        block_intervals_i1 = [(s1,e1) for s1,e1 in zip( cart.global_starts[0], cart.global_ends[0] )]
-        block_intervals_i2 = [(s2,e2) for s2,e2 in zip( cart.global_starts[1], cart.global_ends[1] )]
+        block_intervals_i1 = [(s1, e1) for s1, e1 in zip(cart.global_starts[0], cart.global_ends[0])]
+        block_intervals_i2 = [(s2, e2) for s2, e2 in zip(cart.global_starts[1], cart.global_ends[1])]
 
-        print( '> No. of points along eta1 :: {:d}'.format( cart.npts[0] ) )
-        print( '> No. of points along eta2 :: {:d}'.format( cart.npts[1] ) )
-        print( '' )
-        print( '> No. of blocks along eta1 :: {:d}'.format( cart.nprocs[0] ) )
-        print( '> No. of blocks along eta2 :: {:d}'.format( cart.nprocs[1] ) )
-        print( '' )
-        print( '> Block sizes along eta1 :: ' + int_array_to_str( block_sizes_i1 ) )
-        print( '> Block sizes along eta2 :: ' + int_array_to_str( block_sizes_i2 ) )
-        print( '' )
-        print( '> Intervals along eta1   :: ' + int_tuples_to_str( block_intervals_i1 ) )
-        print( '> Intervals along eta2   :: ' + int_tuples_to_str( block_intervals_i2 ) )
-        print( '', flush=True )
-        sleep( 0.001 )
+        print('> No. of points along eta1 :: {:d}'.format(cart.npts[0]))
+        print('> No. of points along eta2 :: {:d}'.format(cart.npts[1]))
+        print('')
+        print('> No. of blocks along eta1 :: {:d}'.format(cart.nprocs[0]))
+        print('> No. of blocks along eta2 :: {:d}'.format(cart.nprocs[1]))
+        print('')
+        print('> Block sizes along eta1 :: ' + int_array_to_str(block_sizes_i1))
+        print('> Block sizes along eta2 :: ' + int_array_to_str(block_sizes_i2))
+        print('')
+        print('> Intervals along eta1   :: ' + int_tuples_to_str(block_intervals_i1))
+        print('> Intervals along eta2   :: ' + int_tuples_to_str(block_intervals_i2))
+        print('', flush=True)
+        sleep(0.001)
 
     mpi_comm.Barrier()
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -623,8 +627,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     map_analytic = model.mapping
 
     if use_spline_mapping:
-        map_discrete = SplineMapping.from_mapping( V, map_analytic.symbolic_mapping )
-        map_discrete.jacobian = map_discrete.jac_mat  # needed after changes in mapping classes
+        map_discrete = SplineMapping.from_mapping(V, map_analytic)
         # Write discrete geometry to HDF5 file
         t0 = time()
         geometry = Geometry.from_discrete_mapping(map_discrete, comm=mpi_comm)
@@ -637,8 +640,8 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
 
     # Build mass and stiffness matrices, and right-hand side vector
     t0 = time()
-    M, S = assemble_matrices( V, mapping, kernel )
-    b  = assemble_rhs( V, mapping, model.rho )
+    M, S = assemble_matrices(V, mapping, kernel)
+    b  = assemble_rhs(V, mapping, model.rho)
     t1 = time()
     timing['assembly'] = t1-t0
 
@@ -646,10 +649,10 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     # stiffness/mass matrices and right-hand-side vector to C1 space
     if c1_correction:
         t0 = time()
-        proj = C1Projector( mapping )
-        Sp   = proj.change_matrix_basis( S )
-        Mp   = proj.change_matrix_basis( M )
-        bp   = proj.change_rhs_basis( b )
+        proj = C1Projector(mapping)
+        Sp   = proj.change_matrix_basis(S)
+        Mp   = proj.change_matrix_basis(M)
+        bp   = proj.change_rhs_basis(b)
         t1 = time()
         timing['projection'] = t1-t0
 
@@ -658,79 +661,81 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     if not V1.periodic:
         # left  bc at x=0.
         if not model.O_point and s1 == 0:
-            S[s1,:,:,:] = 0.
-            b[s1,:]     = 0.
+            S[s1, :, :, :] = 0.
+            b[s1, :]       = 0.
         # right bc at x=1.
         if e1 == V1.nbasis-1:
-            S[e1,:,:,:] = 0.
-            b[e1,:]     = 0.
+            S[e1, :, :, :] = 0.
+            b[e1, :]       = 0.
 
     if not V2.periodic:
         # lower bc at y=0.
         if s2 == 0:
-            S[:,s2,:,:] = 0.
-            b[:,s2]     = 0.
+            S[:, s2, :, :] = 0.
+            b[:, s2]       = 0.
         # upper bc at y=1.
         if e2 == V2.nbasis-1:
-            S[:,e2,:,:] = 0.
-            b[:,e2]     = 0.
+            S[:, e2, :, :] = 0.
+            b[:, e2]       = 0.
 
     if c1_correction and e1 == V1.nbasis-1:
         # only bc is at s=1
-        last = bp[1].space.npts[0]-1
-        Sp[1,1][last,:,:,:] = 0.
-        bp[1]  [last,:]     = 0.
+        last = bp[1].space.npts[0] - 1
+        Sp[1,1][last, :, :, :] = 0.
+        bp[1]  [last, :]       = 0.
 
     # Solve linear system
+    t0 = time()
     if c1_correction:
-        t0 = time()
-        xp, info = cg( Sp, bp, tol=1e-7, maxiter=100, verbose=False )
-        x = proj.convert_to_tensor_basis( xp )
-        t1 = time()
+        Sp_inv = inverse(Sp, 'cg', tol=1e-7, maxiter=100, verbose=False)
+        xp     = Sp_inv @ bp
+        info   = Sp_inv.get_info()
+        x      = proj.convert_to_tensor_basis(xp)
     else:
-        t0 = time()
-        x, info = cg( S, b, tol=1e-7, maxiter=100, verbose=False )
-        t1 = time()
+        S_inv = inverse(S, 'cg', tol=1e-7, maxiter=100, verbose=False)
+        x     = S_inv @ b
+        info  = S_inv.get_info()
+    t1 = time()
     timing['solution'] = t1-t0
 
     # Create potential field
-    phi = FemField( V, coeffs=x )
+    phi = FemField(V, coeffs=x)
     phi.coeffs.update_ghost_regions()
 
     # Compute L2 norm of error
     t0 = time()
-    sqrt_g    = lambda *x: np.sqrt( mapping.metric_det(*x) )
-    integrand = lambda *x: (phi(*x)-model.phi(*x))**2 * sqrt_g(*x)
-    err2 = np.sqrt( V.integral( integrand ) )
+    sqrt_g    = lambda *x: np.sqrt(mapping.metric_det(*x))
+    integrand = lambda *x: (phi(*x) - model.phi(*x))**2 * sqrt_g(*x)
+    err2 = np.sqrt(V.integral(integrand))
     t1 = time()
     timing['diagnostics'] = t1-t0
 
     # Write solution to HDF5 file
     t0 = time()
-    V.export_fields( 'fields.h5', phi=phi )
+    V.export_fields('fields.h5', phi=phi)
     t1 = time()
     timing['export'] += t1-t0
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # Print some information to terminal
-    for i in range( mpi_size ):
+    for i in range(mpi_size):
         if i == mpi_rank:
-            print( '--------------------------------------------------' )
-            print( ' RANK = {}'.format( mpi_rank ) )
-            print( '--------------------------------------------------' )
-            print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne1, ne2=ne2) )
-            print( '> Degree        :: [{p1},{p2}]'  .format( p1=p1, p2=p2 ) )
-            print( '> CG info       :: ',info )
-            print( '> L2 error      :: {:.2e}'.format( err2 ) )
-            print( '' )
-            print( '> Assembly time :: {:.2e}'.format( timing['assembly'] ) )
+            print('--------------------------------------------------' )
+            print(' RANK = {}'.format(mpi_rank))
+            print('--------------------------------------------------' )
+            print('> Grid          :: [{ne1},{ne2}]'.format(ne1=ne1, ne2=ne2))
+            print('> Degree        :: [{p1},{p2}]'  .format(p1=p1, p2=p2))
+            print('> CG info       :: ', info)
+            print('> L2 error      :: {:.2e}'.format(err2))
+            print('' )
+            print('> Assembly time :: {:.2e}'.format(timing['assembly']))
             if c1_correction:
-                print( '> Project. time :: {:.2e}'.format( timing['projection'] ) )
-            print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
-            print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
-            print( '> Export   time :: {:.2e}'.format( timing['export'] ) )
-            print( '', flush=True )
-            sleep( 0.001 )
+                print('> Project. time :: {:.2e}'.format( timing['projection']))
+            print('> Solution time :: {:.2e}'.format(timing['solution']))
+            print('> Evaluat. time :: {:.2e}'.format(timing['diagnostics']))
+            print('> Export   time :: {:.2e}'.format(timing['export']))
+            print('', flush=True)
+            sleep(0.001)
         mpi_comm.Barrier()
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -742,7 +747,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     ##########
 
     # Plot domain decomposition (master only)
-    V.plot_2d_decomposition( model.mapping, refine=N )
+    V.plot_2d_decomposition(model.mapping, refine=N)
 
     # Perform other visualization using master or all processes
     if not distribute_viz:
@@ -758,74 +763,75 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
             V = map_discrete.space
             mapping = map_discrete
         else:
-            V = TensorFemSpace( V1, V2, comm=MPI.COMM_SELF )
+            dd = DomainDecomposition(ncells, model.periodic, comm=MPI.COMM_SELF)
+            V = TensorFemSpace(dd, V1, V2)
 
         # Import solution vector into new serial field
         phi, = V.import_fields( 'fields.h5', 'phi' )
 
     # Compute numerical solution (and error) on refined logical grid
-    [sk1,sk2], [ek1,ek2] = V.local_domain
+    [sk1, sk2], [ek1, ek2] = V.local_domain
 
-    eta1 = refine_array_1d( V1.breaks[sk1:ek1+2], N )
-    eta2 = refine_array_1d( V2.breaks[sk2:ek2+2], N )
-    num = np.array( [[      phi( e1,e2 ) for e2 in eta2] for e1 in eta1] )
-    ex  = np.array( [[model.phi( e1,e2 ) for e2 in eta2] for e1 in eta1] )
+    eta1 = refine_array_1d(V1.breaks[sk1:ek1+2], N)
+    eta2 = refine_array_1d(V2.breaks[sk2:ek2+2], N)
+    num = np.array([[      phi(e1, e2) for e2 in eta2] for e1 in eta1])
+    ex  = np.array([[model.phi(e1, e2) for e2 in eta2] for e1 in eta1])
     err = num - ex
 
     # Compute physical coordinates of logical grid
-    pcoords = np.array( [[model.mapping(e1, e2) for e2 in eta2] for e1 in eta1] )
-    xx = pcoords[:,:,0]
-    yy = pcoords[:,:,1]
+    pcoords = np.array([[model.mapping(e1, e2) for e2 in eta2] for e1 in eta1])
+    xx = pcoords[:, :, 0]
+    yy = pcoords[:, :, 1]
 
     # Create figure with 3 subplots:
     #  1. exact solution on exact domain
     #  2. numerical solution on mapped domain (analytical or spline)
     #  3. numerical error    on mapped domain (analytical or spline)
-    fig, axes = plt.subplots( 1, 3, figsize=(12.8, 4.8) )
+    fig, axes = plt.subplots(1, 3, figsize=(12.8, 4.8))
 
-    def add_colorbar( im, ax ):
-        divider = make_axes_locatable( ax )
-        cax = divider.append_axes( "right", size=0.2, pad=0.2 )
-        cbar = ax.get_figure().colorbar( im, cax=cax )
+    def add_colorbar(im, ax):
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size=0.2, pad=0.2)
+        cbar = ax.get_figure().colorbar(im, cax=cax)
         return cbar
 
     # Plot exact solution
     ax = axes[0]
-    im = ax.contourf( xx, yy, ex, 40, cmap='jet' )
-    add_colorbar( im, ax )
-    ax.set_xlabel( r'$x$', rotation='horizontal' )
-    ax.set_ylabel( r'$y$', rotation='horizontal' )
-    ax.set_title ( r'$\phi_{ex}(x,y)$' )
-    ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
-    ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
+    im = ax.contourf(xx, yy, ex, 40, cmap='jet')
+    add_colorbar(im, ax)
+    ax.set_xlabel(r'$x$', rotation='horizontal')
+    ax.set_ylabel(r'$y$', rotation='horizontal')
+    ax.set_title (r'$\phi_{ex}(x,y)$')
+    ax.plot(xx[:, ::N]  , yy[:, ::N]  , 'k')
+    ax.plot(xx[::N, :].T, yy[::N, :].T, 'k')
     ax.set_aspect('equal')
 
     if use_spline_mapping:
         # Recompute physical coordinates of logical grid using spline mapping
-        pcoords = np.array( [[map_discrete(e1, e2) for e2 in eta2] for e1 in eta1] )
-        xx = pcoords[:,:,0]
-        yy = pcoords[:,:,1]
+        pcoords = np.array([[map_discrete(e1, e2) for e2 in eta2] for e1 in eta1])
+        xx = pcoords[:, :, 0]
+        yy = pcoords[:, :, 1]
 
     # Plot numerical solution
     ax = axes[1]
-    im = ax.contourf( xx, yy, num, 40, cmap='jet' )
-    add_colorbar( im, ax )
-    ax.set_xlabel( r'$x$', rotation='horizontal' )
-    ax.set_ylabel( r'$y$', rotation='horizontal' )
-    ax.set_title ( r'$\phi(x,y)$' )
-    ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
-    ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
+    im = ax.contourf(xx, yy, num, 40, cmap='jet')
+    add_colorbar(im, ax)
+    ax.set_xlabel(r'$x$', rotation='horizontal')
+    ax.set_ylabel(r'$y$', rotation='horizontal')
+    ax.set_title (r'$\phi(x,y)$')
+    ax.plot(xx[:, ::N]  , yy[:, ::N]  , 'k')
+    ax.plot(xx[::N, :].T, yy[::N, :].T, 'k')
     ax.set_aspect('equal')
 
     # Plot numerical error
     ax = axes[2]
-    im = ax.contourf( xx, yy, err, 40, cmap='jet' )
-    add_colorbar( im, ax )
-    ax.set_xlabel( r'$x$', rotation='horizontal' )
-    ax.set_ylabel( r'$y$', rotation='horizontal' )
-    ax.set_title ( r'$\phi(x,y) - \phi_{ex}(x,y)$' )
-    ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
-    ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
+    im = ax.contourf(xx, yy, err, 40, cmap='jet')
+    add_colorbar(im, ax)
+    ax.set_xlabel(r'$x$', rotation='horizontal')
+    ax.set_ylabel(r'$y$', rotation='horizontal')
+    ax.set_title (r'$\phi(x,y) - \phi_{ex}(x,y)$')
+    ax.plot(xx[:, ::N]  , yy[:, ::N]  , 'k')
+    ax.plot(xx[::N, :].T, yy[::N, :].T, 'k')
     ax.set_aspect('equal')
 
     # Show figure
@@ -856,7 +862,7 @@ def parse_input_arguments():
     parser.add_argument( '-d',
         type    = int,
         nargs   = 2,
-        default = [2,2],
+        default = [2, 2],
         metavar = ('P1','P2'),
         dest    = 'degree',
         help    = 'Spline degree along each dimension'
@@ -865,7 +871,7 @@ def parse_input_arguments():
     parser.add_argument( '-n',
         type    = int,
         nargs   = 2,
-        default = [10,10],
+        default = [10, 10],
         metavar = ('N1','N2'),
         dest    = 'ncells',
         help    = 'Number of grid cells (elements) along each dimension'

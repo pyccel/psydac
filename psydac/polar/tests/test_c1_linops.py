@@ -100,8 +100,7 @@ def test_c1_linops( n0, npts, pads, verbose=False ):
 
     if verbose:
         print( "PASSED" )
-
-    return locals()
+        return locals()
 
 #==============================================================================
 if __name__ == "__main__":

@@ -4,6 +4,7 @@
 # Copyright 2022 Yaman Güçlü, Said Hadjout, Julian Owezarek
 
 from abc   import ABC, abstractmethod
+from scipy.sparse import coo_matrix
 import numpy as np
 
 __all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'ZeroOperator', 'IdentityOperator', 'ScaledLinearOperator',
@@ -93,6 +94,7 @@ class Vector(ABC):
 
     @abstractmethod
     def copy(self, out=None):
+        """Ensure x.copy(out=x) returns x and not a new object."""
         pass
 
     @abstractmethod
@@ -101,10 +103,6 @@ class Vector(ABC):
 
     @abstractmethod
     def __mul__(self, a):
-        pass
-
-    @abstractmethod
-    def __rmul__(self, a):
         pass
 
     @abstractmethod
@@ -127,15 +125,40 @@ class Vector(ABC):
     def __isub__(self, v):
         pass
 
+    @abstractmethod
+    def conjugate(self, out=None):
+        """Compute the complex conjugate vector.
+
+        If the field is real (i.e. `self.dtype in (np.float32, np.float64)`) this method is equivalent to `copy`.
+        If the field is complex (i.e. `self.dtype in (np.complex64, np.complex128)`) this method returns
+        the complex conjugate of `self`, element-wise.
+
+        The behavior of this function is similar to `numpy.conjugate(self, out=None)`.
+        """
+
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
+    def __rmul__(self, a):
+        return self * a
+
     def __truediv__(self, a):
         return self * (1.0 / a)
 
     def __itruediv__(self, a):
         self *= 1.0 / a
         return self
+
+    def conj(self, out=None):
+        """Compute the complex conjugate vector.
+
+        If the field is real (i.e. `self.dtype in (np.float32, np.float64)`) this method is equivalent to `copy`.
+        If the field is complex (i.e. `self.dtype in (np.complex64, np.complex128)`) this method returns
+        the complex conjugate of `self`, element-wise.
+
+        The behavior of this function is similar to `numpy.conj(self, out=None)`.
+        """
+        return self.conjugate(out)
 
 #===============================================================================
 class LinearOperator(ABC):
@@ -169,10 +192,6 @@ class LinearOperator(ABC):
     def dtype(self):
         pass
 
-    @property
-    def T(self):
-        return self.transpose()
-
     @abstractmethod
     def tosparse(self):
         pass
@@ -185,6 +204,17 @@ class LinearOperator(ABC):
     def dot(self, v, out=None):
         """ Apply linear operator to Vector v. Result is written to Vector out, if provided."""
         pass
+
+    @abstractmethod
+    def transpose(self, conjugate=False):
+        """
+        Transpose the LinearOperator .
+
+        If conjugate is True, return the Hermitian transpose.
+        """
+        pass
+
+    # TODO: check if we should add a copy method!!!
 
     #-------------------------------------
     # Magic methods
@@ -207,7 +237,7 @@ class LinearOperator(ABC):
             return ScaledLinearOperator(self._domain, self._codomain, c, self)
 
     def __rmul__(self, c):
-        """ Calles :ref:`__mul__ <mul>` instead. """
+        """ Calls :ref:`__mul__ <mul>` instead. """
         return self * c
 
     def __matmul__(self, B):
@@ -243,16 +273,31 @@ class LinearOperator(ABC):
         """ Creates an object of class :ref:`PowerLinearOperator <powerlinearoperator>`. """
         return PowerLinearOperator(self._domain, self._codomain, self, n)
 
+    def __truediv__(self, c):
+        """ Divide by scalar. """
+        return self * (1.0 / c)
+
+    def __itruediv__(self, c):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / c
+        return self
+
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
-    def transpose(self):
-        raise NotImplementedError()
+
+    @property
+    def T(self):
+        return self.transpose()
+
+    @property
+    def H(self):
+        return self.transpose(conjugate=True)
 
     def idot(self, v, out):
         """
         Implements out += self @ v with a temporary.
-        Subclasses should provide a implementation without a temporary.
+        Subclasses should provide an implementation without a temporary.
 
         """
         assert isinstance(v, Vector)
@@ -314,7 +359,7 @@ class ZeroOperator(LinearOperator):
         from scipy.sparse import csr_matrix
         return csr_matrix(self.shape, dtype=self.dtype)
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         return ZeroOperator(domain=self._codomain, codomain=self._domain)
 
     def dot(self, v, out=None):
@@ -403,7 +448,7 @@ class IdentityOperator(LinearOperator):
         from scipy.sparse import identity
         return identity(self._domain.dimension, dtype=self.dtype, format="csr")
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         """ Could return self, but by convention returns new object. """
         return IdentityOperator(self._domain, self._codomain)
 
@@ -478,8 +523,8 @@ class ScaledLinearOperator(LinearOperator):
         from scipy.sparse import csr_matrix
         return self._scalar*csr_matrix(self._operator.toarray())
 
-    def transpose(self):
-        return ScaledLinearOperator(domain=self._codomain, codomain=self._domain, c=self._scalar, A=self._operator.T)
+    def transpose(self, conjugate=False):
+        return ScaledLinearOperator(domain=self._codomain, codomain=self._domain, c=self._scalar, A=self._operator.transpose(conjugate=conjugate))
 
     def __neg__(self):
         return ScaledLinearOperator(domain=self._domain, codomain=self._codomain, c=-1*self._scalar, A=self._operator)
@@ -571,10 +616,10 @@ class SumLinearOperator(LinearOperator):
             out += a.tosparse()
         return out
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         t_addends = ()
         for a in self._addends:
-            t_addends = (*t_addends, a.T)
+            t_addends = (*t_addends, a.transpose(conjugate=conjugate))
         return SumLinearOperator(self._codomain, self._domain, *t_addends)
 
     @staticmethod
@@ -678,17 +723,20 @@ class ComposedLinearOperator(LinearOperator):
         raise NotImplementedError('toarray() is not defined for ComposedLinearOperators.')
 
     def tosparse(self):
-        raise NotImplementedError('tosparse() is not defined for ComposedLinearOperators.')
+        mats = [M.tosparse() for M in self._multiplicants]
+        M = mats[0]
+        for Mi in mats[1:]:
+            M = M @ Mi
+        return coo_matrix(M)
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         t_multiplicants = ()
         for a in self._multiplicants:
-            t_multiplicants = (a.T, *t_multiplicants)
+            t_multiplicants = (a.transpose(conjugate=conjugate), *t_multiplicants)
         new_dom = self._codomain
         new_cod = self._domain
         assert isinstance(new_dom, VectorSpace)
         assert isinstance(new_cod, VectorSpace)
-        #print(*t_multiplicants)
         return ComposedLinearOperator(self._codomain, self._domain, *t_multiplicants)
 
     def dot(self, v, out=None):
@@ -707,10 +755,19 @@ class ComposedLinearOperator(LinearOperator):
 
         A = self._multiplicants[0]
         if out is not None:
+
             A.dot(x, out=out)
         else:
             out = A.dot(x)
         return out
+
+    def exchange_assembly_data( self ):
+        for op in self._multiplicants:
+            op.exchange_assembly_data()
+
+    def set_backend(self, backend):
+        for op in self._multiplicants:
+            op.set_backend(backend)
 
 #===============================================================================
 class PowerLinearOperator(LinearOperator):
@@ -769,8 +826,8 @@ class PowerLinearOperator(LinearOperator):
     def tosparse(self):
         raise NotImplementedError('tosparse() is not defined for PowerLinearOperators.')
 
-    def transpose(self):
-        return PowerLinearOperator(domain=self._codomain, codomain=self._domain, A=self._operator.T, n=self._factorial)
+    def transpose(self, conjugate=False):
+        return PowerLinearOperator(domain=self._codomain, codomain=self._domain, A=self._operator.transpose(conjugate=conjugate), n=self._factorial)
 
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
@@ -828,26 +885,19 @@ class InverseLinearOperator(LinearOperator):
     def get_info(self):
         return self._info
 
-    @abstractmethod
-    def _update_options(self):
-        pass
+    def get_options(self):
+        return self._options.copy()
 
-    def getoptions(self):
-        for key, value in self.options.items():
-            print(key, ": ", value)
-
-    def setoptions(self, **kwargs):
+    def set_options(self, **kwargs):
         self._check_options(**kwargs)
-        for key, value in kwargs.items():
-            setattr(self, '_'+key, value)
-        self._update_options()
+        self._options.update(kwargs)
 
     @abstractmethod
     def _check_options(self, **kwargs):
         pass
 
     @abstractmethod
-    def transpose(self):
+    def transpose(self, conjugate=False):
         pass
 
     @staticmethod
@@ -877,7 +927,7 @@ class InverseLinearOperator(LinearOperator):
         # Sanity checks
         assert isinstance(A, (StencilMatrix, BlockLinearOperator))
         assert isinstance(b, (StencilVector, BlockVector))
-        assert A.codomain == A.domain
+        assert A.codomain.dimension == A.domain.dimension
         assert A.codomain == b.space
 
         #-------------------------------------------------------------
@@ -905,102 +955,6 @@ class InverseLinearOperator(LinearOperator):
             out[i] /= A.diagonal()
             out.update_ghost_regions()
             return out
-
-    @staticmethod
-    def weighted_jacobi(A, b, x0=None, omega= 2./3, tol=1e-10, maxiter=100, verbose=False):
-        """
-        Weighted Jacobi iterative preconditioner.
-
-        Parameters
-        ----------
-        A : psydac.linalg.stencil.StencilMatrix
-            Left-hand-side matrix A of linear system.
-
-        b : psydac.linalg.stencil.StencilVector
-            Right-hand-side vector of linear system.
-
-        x0 : psydac.linalg.basic.Vector
-            First guess of solution for iterative solver (optional).
-
-        omega : float
-            The weight parameter (optional). Default value equal to 2/3.
-
-        tol : float
-            Absolute tolerance for L2-norm of residual r = A*x - b.
-
-        maxiter: int
-            Maximum number of iterations.
-
-        verbose : bool
-            If True, L2-norm of residual r is printed at each iteration.
-
-        Returns
-        -------
-        x : psydac.linalg.stencil.StencilVector
-            Converged solution.
-
-        """
-        from math import sqrt
-
-        n = A.shape[0]
-
-        assert(A.shape == (n,n))
-        assert(b.shape == (n, ))
-
-        V  = b.space
-        s = V.starts
-        e = V.ends
-
-        # First guess of solution
-        if x0 is None:
-            x = 0.0 * b.copy()
-        else:
-            assert( x0.shape == (n,) )
-            x = x0.copy()
-
-        dr = 0.0 * b.copy()
-        tol_sqr = tol**2
-
-        if verbose:
-            print( "Weighted Jacobi iterative method:" )
-            print( "+---------+---------------------+")
-            print( "+ Iter. # | L2-norm of residual |")
-            print( "+---------+---------------------+")
-            template = "| {:7d} | {:19.2e} |"
-
-        # Iterate to convergence
-        for k in range(1, maxiter+1):
-            r = b - A.dot(x)
-
-            # TODO build new external method get_diagonal and add 3d case
-            if V.ndim ==1:
-                for i1 in range(s[0], e[0]+1):
-                    dr[i1] = omega*r[i1]/A[i1, 0]
-
-            elif V.ndim ==2:
-                for i1 in range(s[0], e[0]+1):
-                    for i2 in range(s[1], e[1]+1):
-                        dr[i1, i2] = omega*r[i1, i2]/A[i1, i2, 0, 0]
-            # ...
-            dr.update_ghost_regions()
-
-            x  = x + dr
-
-            nrmr = dr.dot(dr)
-            if nrmr < tol_sqr:
-                k -= 1
-                break
-
-            if verbose:
-                print( template.format(k, sqrt(nrmr)))
-
-        if verbose:
-            print( "+---------+---------------------+")
-
-        # Convergence information
-        info = {'niter': k, 'success': nrmr < tol_sqr, 'res_norm': sqrt(nrmr) }
-
-        return x
 
 #===============================================================================
 class LinearSolver(ABC):

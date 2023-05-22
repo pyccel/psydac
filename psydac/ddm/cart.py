@@ -194,9 +194,13 @@ class DomainDecomposition:
         This information is needed when comm is None (sequential case) or comm == MPI.COMM_NULL (MPI rank does not own the domain),
         to be able to calculate global_element_starts and global_element_ends.
 
+    mpi_dims_mask: list of bool
+        True if the dimension is to be used in the domain decomposition (=default for each dimension). 
+        If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+
     """
 
-    def __init__(self, ncells, periods, comm=None, global_comm=None, num_threads=None, size=None):
+    def __init__(self, ncells, periods, comm=None, global_comm=None, num_threads=None, size=None, mpi_dims_mask=None):
 
         # Check input arguments
         # TODO: check that arguments are identical across all processes
@@ -225,7 +229,7 @@ class DomainDecomposition:
             self._rank = comm.Get_rank()
 
         self._ndims         = len(ncells)
-        nprocs, block_shape = compute_dims( self._size, self._ncells )
+        nprocs, block_shape = compute_dims( self._size, self._ncells, mpi_dims_mask=mpi_dims_mask )
 
         self._nprocs = nprocs
 
@@ -366,6 +370,47 @@ class DomainDecomposition:
     #---------------------------------------------------------------------------
     def coords_exist( self, coords ):
         return all( P or (0 <= c < d) for P,c,d in zip( self._periods, coords, self._nprocs ) )
+
+    def refine(self, ncells, global_element_starts, global_element_ends):
+        """ Create the new Cartesian decomposition of the refined domain.
+
+        Parameters
+        ----------
+        ncells : list or tuple of int
+            Number of cells of refined space.
+
+        global_starts: list of list of int
+            The starts of the coefficients for every process along each direction.
+
+        global_ends: list of list of int
+            The ends of the coefficients for every process along each direction.
+
+        Returns
+        -------
+        domain : CartDecomposition
+            Cartesian decomposition of the refined domain.
+        """
+
+        # Check input arguments
+        assert len( ncells ) == len( self.ncells )
+        assert all(nc>=snc for nc, snc in zip(ncells, self.ncells))
+
+        domain         = DomainDecomposition(self.ncells, self.periods, comm=self.comm,
+                                            global_comm=self.global_comm, num_threads=self.num_threads,
+                                            size=self.size)
+        domain._ncells = tuple ( ncells )
+
+        # Store arrays with all the starts and ends along each direction for every process
+        domain._global_element_starts = tuple(global_element_starts)
+        domain._global_element_ends   = tuple(global_element_ends)
+        if self.is_comm_null:return domain
+
+        # Start/end values of global indices (without ghost regions)
+        domain._starts = tuple( domain._global_element_starts[axis][c] for axis,c in zip(range(self._ndims), self._coords) )
+        domain._ends   = tuple( domain._global_element_ends  [axis][c] for axis,c in zip(range(self._ndims), self._coords) )
+
+        domain._local_ncells = tuple(e-s+1 for s,e in zip(self._starts, self._ends))
+        return domain
 
 #==================================================================================
 class CartDecomposition():

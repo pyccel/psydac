@@ -27,7 +27,7 @@ from sympde.expr     import linearize
 
 from psydac.api.essential_bc   import apply_essential_bc
 from psydac.fem.basic          import FemField
-from psydac.fem.vector         import ProductFemSpace
+from psydac.fem.vector         import VectorFemSpace
 from psydac.core.bsplines      import make_knots
 from psydac.api.discretization import discretize
 from psydac.linalg.utilities   import array_to_psydac
@@ -35,7 +35,7 @@ from psydac.linalg.stencil     import *
 from psydac.linalg.block       import *
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 from psydac.utilities.utils    import refine_array_1d, animate_field, split_space, split_field
-from psydac.linalg.iterative_solvers import cg, pcg, bicg, lsmr
+from psydac.linalg.solvers     import inverse
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
@@ -73,7 +73,10 @@ def scipy_solver(M, b):
 
 #------------------------------------------------------------------------------
 def psydac_solver(M, b):
-    return lsmr(M, M.T, b, maxiter=10000, tol=1e-6)
+    M_inv = inverse(M, 'lsmr', maxiter=10000, tol=1e-6)
+    x = M_inv @ b
+    info = M_inv.get_info()
+    return x, info
 
 #==============================================================================
 def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max_newton_iter=100, scipy=True):
@@ -131,7 +134,7 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
     # ... discrete spaces
     V1h = discretize(V1, domain_h)
     V2h = discretize(V2, domain_h)
-    Xh  = V1h*V2h
+    Xh  = VectorFemSpace(V1h, V2h)
 
     # ... discretize the equations
     equation_h        = discretize(equation,        domain_h, [Xh, Xh], backend=PSYDAC_BACKEND_GPYCCEL)
