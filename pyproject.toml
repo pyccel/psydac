@@ -63,8 +63,10 @@ Repository    = "https://github.com/pyccel/psydac.git"
 [project.scripts]
 psydac-mesh = "psydac.cmd.mesh:main"
 
-[tool.setuptools.packages]
-find = {}
+[tool.setuptools.packages.find]
+include = ["psydac*"]
+exclude = ["*__psydac__*"]
+namespaces = false
 
 [tool.setuptools.package-data]
-psydac = ["*.txt"]
+"*" = ["*.txt"]
