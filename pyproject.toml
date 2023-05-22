@@ -9,17 +9,15 @@ description     = "Python package for isogeometric analysis (IGA)"
 readme          = "README.md"
 requires-python = ">=3.7, <3.11"
 license         = {file = "LICENSE"}
-authors         = [{
-    name  = "Psydac development team",
-    email = "psydac@googlegroups.com",
-    file  = "AUTHORS"
-}]
+authors         = [
+    {name = "Psydac development team", email = "psydac@googlegroups.com"}
+]
 maintainers = [
     {name = "Yaman Güçlü"  , email = "yaman.guclu@gmail.com"},
     {name = "Ahmed Ratnani", email = "ratnaniahmed@gmail.com"},
     {name = "Said Hadjout"},
 ]
-keywords     = ["FEM", "IGA", B-spline", "NURBS"]
+keywords     = ["FEM", "IGA", "B-spline", "NURBS"]
 classifiers  = ["Programming Language :: Python :: 3"]
 dependencies = [
 
@@ -64,3 +62,6 @@ Repository    = "https://github.com/pyccel/psydac.git"
 
 [project.scripts]
 psydac-mesh = "psydac.cmd.mesh:main"
+
+[tool.setuptools.packages]
+find = {}
