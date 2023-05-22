@@ -9,8 +9,8 @@ from psydac.fem.tensor             import TensorFemSpace
 from psydac.feec.derivatives       import VectorCurl_2D, Divergence_2D
 from psydac.feec.global_projectors import Projector_H1, Projector_L2
 from psydac.feec.global_projectors import projection_matrix_H1_homogeneous_bc, projection_matrix_Hdiv_homogeneous_bc 
+from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_annulus
 from psydac.ddm.cart               import DomainDecomposition
-
 
 import numpy as np
 import sympy
@@ -61,13 +61,16 @@ from scipy.sparse._lil import lil_matrix
 from scipy.sparse.linalg import eigs, spsolve
 from scipy.sparse.linalg import inv
 
-from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_annulus
 
 def test_magnetostatic_pbm_homogeneous():
     f = sympy.Tuple(1e-10, 1e-10)
-    B = solve_magnetostatic_pbm_annulus(f)
+    J = sympy.sympify('1e-10')
+    B = solve_magnetostatic_pbm_annulus(J, f)
     assert isinstance(B, np.ndarray)
-    assert np.linalg.norm(B) < 1e-6
+    logger = logging.getLogger(name='test_homogeneous')
+    logger.debug('B.max():%s',B.max())
+    logger.debug('B.min():%s\n',B.min())
+    assert np.linalg.norm(B) < 1e-6, f"np.linalg.norm(B):{np.linalg.norm(B)}"
 
 
 if __name__ == '__main__':
