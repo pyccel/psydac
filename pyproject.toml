@@ -65,3 +65,6 @@ psydac-mesh = "psydac.cmd.mesh:main"
 
 [tool.setuptools.packages]
 find = {}
+
+[tool.setuptools.package-data]
+psydac = ["*.txt"]
