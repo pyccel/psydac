@@ -972,6 +972,12 @@ class HodgeOperator( FemLinearOperator ):
 
         return self._dual_Hodge_sparse_matrix
 
+    def get_dual_Hodge_block_operator(self):
+        if self._dual_Hodge_sparse_matrix is None:
+            self.assemble_dual_Hodge_matrix()
+        return self._dual_Hodge_matrix
+
+
 #==============================================================================
 class BrokenGradient_2D(FemLinearOperator):
 
