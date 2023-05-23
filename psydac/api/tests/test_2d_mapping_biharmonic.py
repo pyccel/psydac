@@ -161,6 +161,7 @@ def test_biharmonic_2d_identity_dir0_1234():
     assert( abs(h2_error - expected_h2_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
+
 def test_biharmonic_2d_collela_dir0_1234():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
