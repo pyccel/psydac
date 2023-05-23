@@ -8,12 +8,15 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-from psydac import __version__
+import tomli
 
-project = 'PSYDAC'
+with open('../../pyproject.toml', mode='rb') as pyproject:
+    pkg_meta = tomli.load(pyproject)['project']
+
+project   = str(pkg_meta['name'])
 copyright = '2018-2023, Psydac Developers'
-author = 'Psydac Developers'
-release = __version__
+author    = str(pkg_meta['authors'][0]['name'])
+release   = str(pkg_meta['version'])
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
