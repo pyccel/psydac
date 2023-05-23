@@ -8,10 +8,13 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import importlib.metadata
+__version__ = importlib.metadata.version("psydac")
+
 project = 'PSYDAC'
-copyright = '2023, Numerical Methods in Plasma Physics division, Max Planck Institute for Plasma Physics Garching'
-author = 'Numerical Methods in Plasma Physics division, Max Planck Institute for Plasma Physics Garching'
-release = 'v0.1'
+copyright = '2018-2023, Psydac Developers'
+author = 'Psydac Developers'
+release = __version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
