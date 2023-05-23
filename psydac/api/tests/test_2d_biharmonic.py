@@ -36,7 +36,7 @@ def get_boundaries(*args):
     return tuple(boundaries[i] for i in args)
 
 #==============================================================================
-def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells, degree, backend=None, comm=None, dtype=float):
+def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells, degree, backend=None, comm=None):
 
     assert isinstance(dir_zero_boundary, (list, tuple))
 
@@ -49,11 +49,6 @@ def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells, degree, backen
     B_dirichlet_i = domain.boundary.complement(B_dirichlet_0)
 
     V  = ScalarFunctionSpace('V', domain)
-    if  dtype==complex:
-        V.codomain_type='complex'
-        factor=1.j
-    else:
-        factor=1
     u  = element_of(V, name='u')
     v  = element_of(V, name='v')
     nn = NormalVector('nn')
@@ -62,7 +57,7 @@ def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells, degree, backen
     a = BilinearForm((u, v), integral(domain, laplace(u) * laplace(v)))
 
     # Linear form l: V --> R
-    l = LinearForm(v, integral(domain, factor * f * v))
+    l = LinearForm(v, integral(domain, f * v))
 
     # Essential boundary conditions
     dn = lambda a: dot(grad(a), nn)
@@ -78,7 +73,7 @@ def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells, degree, backen
     equation = find(u, forall=v, lhs=a(u, v), rhs=l(v), bc=bc)
 
     # Error norms
-    error  = u - factor * solution
+    error  = u - solution
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
     h2norm = Norm(error, domain, kind='h2')
@@ -119,8 +114,7 @@ def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells, degree, backen
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
-@pytest.mark.parametrize('dtype', [float, complex])
-def test_biharmonic_2d_dir0_1234(dtype):
+def test_biharmonic_2d_dir0_1234():
 
     solution = sin(pi * x)**2 * sin(pi * y)**2
     f        = laplace(laplace(solution))
@@ -128,7 +122,7 @@ def test_biharmonic_2d_dir0_1234(dtype):
     dir_zero_boundary = get_boundaries(1, 2, 3, 4)
 
     l2_error, h1_error, h2_error = run_biharmonic_2d_dir(solution, f,
-            dir_zero_boundary, ncells=[2**3, 2**3], degree=[3, 3], dtype=dtype)
+            dir_zero_boundary, ncells=[2**3, 2**3], degree=[3, 3])
 
     expected_l2_error = 0.00019981371108040476
     expected_h1_error = 0.0063205179028178295

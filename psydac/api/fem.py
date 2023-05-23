@@ -476,7 +476,6 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._func(*args, *self._threads_args)
         if self._matrix and self._update_ghost_regions:
             self._matrix.exchange_assembly_data()
-            self._matrix.conjugate(out=self._matrix)
 
         if self._matrix: self._matrix.ghost_regions_in_sync = False
         return self._matrix
