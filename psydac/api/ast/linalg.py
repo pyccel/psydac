@@ -490,14 +490,20 @@ class TransposeOperator(SplBasic):
         # Initialize instance (code generation happens here)
         obj.ndim        = ndim
         backend         = dict(kwargs.pop('backend'))
-        obj._code       = inspect.getsource(obj.function_dict[ndim])
-        obj._args_dtype = obj.args_dtype_dict[ndim]
-        obj._folder     = obj._initialize_folder()
-        obj._generate_code(backend=backend)
-        obj._compile(backend=backend)
+        # We try to take the code. If an error is raised, the code has been accelerated by hand in another file.
+        try:
+            obj._code = inspect.getsource(obj.function_dict[ndim])
+            obj._args_dtype = obj.args_dtype_dict[ndim]
+            obj._folder = obj._initialize_folder()
+            obj._generate_code(backend=backend)
+            obj._compile(backend=backend)
 
-        # Return instance
-        return obj
+            # Return instance
+            return obj
+        except TypeError:
+            obj._func = eval(name)
+            # Return instance
+            return obj
 
     @property
     def func(self):
