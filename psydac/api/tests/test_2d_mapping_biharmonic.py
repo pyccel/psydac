@@ -32,7 +32,6 @@ from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
-from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 from psydac.api.discretization import discretize
 
 # ... get the mesh directory
@@ -62,7 +61,7 @@ def get_boundaries(*args):
 
 #==============================================================================
 def run_biharmonic_2d_dir(filename, solution, f, dir_zero_boundary,
-        dir_nonzero_boundary, backend=PSYDAC_BACKEND_GPYCCEL, comm=None):
+        dir_nonzero_boundary, backend=None, comm=None):
 
     assert isinstance(   dir_zero_boundary, (list, tuple))
     assert isinstance(dir_nonzero_boundary, (list, tuple))
@@ -76,7 +75,6 @@ def run_biharmonic_2d_dir(filename, solution, f, dir_zero_boundary,
     B_dirichlet_i = Union(*[domain.get_boundary(**kw) for kw in dir_nonzero_boundary])
 
     V  = ScalarFunctionSpace('V', domain)
-
     u  = element_of(V, name='u')
     v  = element_of(V, name='v')
     nn = NormalVector('nn')
@@ -86,7 +84,6 @@ def run_biharmonic_2d_dir(filename, solution, f, dir_zero_boundary,
 
     # Linear form l: V --> R
     l = LinearForm(v, integral(domain, f * v))
-
 
     # Essential boundary conditions
     dn = lambda a: dot(grad(a), nn)

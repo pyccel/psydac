@@ -114,6 +114,7 @@ def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells, degree, backen
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
+
 def test_biharmonic_2d_dir0_1234():
 
     solution = sin(pi * x)**2 * sin(pi * y)**2
