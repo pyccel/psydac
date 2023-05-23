@@ -8,8 +8,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-import importlib.metadata
-__version__ = importlib.metadata.version("psydac")
+from psydac import __version__
 
 project = 'PSYDAC'
 copyright = '2018-2023, Psydac Developers'
