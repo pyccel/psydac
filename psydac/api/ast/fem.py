@@ -368,10 +368,7 @@ class AST(object):
             spaces              = spaces.symbolic_space
 
             # Define the type of scalar that the code should manage
-            if hasattr(spaces, 'codomain_type'):
-                dtype           = spaces.codomain_type
-            else:
-                dtype           = 'real'
+            dtype           = spaces.codomain_type if hasattr(spaces, 'codomain_type') else 'real'
 
         elif isinstance(expr, BilinearForm):
             is_bilinear         = True
@@ -409,10 +406,7 @@ class AST(object):
             spaces              = spaces.symbolic_space
 
             # Define the type of scalar that the code should manage
-            if hasattr(spaces, 'codomain_type'):
-                dtype           = spaces.codomain_type
-            else:
-                dtype           = 'real'
+            dtype           = spaces.codomain_type if hasattr(spaces, 'codomain_type') else 'real'
 
         else:
             raise NotImplementedError('TODO')
@@ -606,7 +600,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
     ----------
 
     terminal_expr : <Matrix>
-        atomic representation of the bilinear form
+        atomic representation of the bilinear/sesquilineqr form
 
     atomic_expr_field: <dict>
         dict  of atomic expressions of fields
@@ -630,10 +624,13 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
         list of constants
 
     nderiv : int
-        the order of the bilinear form
+        the order of the bilinear/sesquilinearForm form
 
     dim : int
         number of dimension
+
+    dtype : str
+        type of data 'complex' or 'float'
 
     domain : <Domain>
         Sympde Domain object
@@ -665,7 +662,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
     Returns
     -------
     node : DefNode
-        represents the a function definition node that computes the assembly
+        represents the function definition node that computes the assembly
 
     """
 
@@ -1251,8 +1248,8 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     dim : int
         number of dimension
 
-    dim : Data Type
-        type of the data in the arrays (float/complex)
+    dtype : str
+        type of data 'complex' or 'float'
 
     mapping : <Mapping>
         Sympde Mapping object
@@ -1595,8 +1592,8 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     dim : int
         number of dimension
 
-    dim : Data Type
-        type of the data in the arrays (float/complex)
+    dtype : str
+        type of data 'complex' or 'float'
 
     mapping : <Mapping>
         Sympde Mapping object
