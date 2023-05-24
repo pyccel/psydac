@@ -6,7 +6,9 @@ $ ipython
 
 In [1]: run poisson_2d_mapping.py -t target -n 10 20 -s -c
 
-In [2]: run -i test_mass_matrix.py
+In [2]: run -i visualize_matrices.py
+
+In [3]: run -i test_mass_matrix.py
 
 """
 
