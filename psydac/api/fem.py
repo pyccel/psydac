@@ -834,6 +834,55 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         self._global_matrices = [M._data for M in extract_stencil_mats(global_mats.values())]
 
+
+# ==============================================================================
+class DiscreteSesquilinearForm(DiscreteBilinearForm):
+    """ Class that represents the concept of a discrete sesqui-linear form with the antilinearity on the first vaiable.
+        This class allocates the matrix and generates the matrix assembly method.
+
+    Parameters
+    ----------
+
+    expr : sympde.expr.expr.SesquilinearForm
+        The symbolic sesqui-linear form.
+
+    kernel_expr : sympde.expr.evaluation.KernelExpression
+        The atomic representation of the sesqui-linear form.
+
+    domain_h : Geometry
+        The discretized domain
+
+    spaces: list of FemSpace
+        The trial and test discrete spaces.
+
+    matrix: Matrix
+        The matrix that we assemble into it.
+        If not provided, it will create a new Matrix of the appropriate space.
+
+    update_ghost_regions: bool
+        Accumulate the contributions of the neighbouring processes.
+
+    quad_order: list of tuple
+        The number of quadrature points used in the assembly method.
+
+    backend: dict
+        The backend used to accelerate the computing kernels.
+        The backend dictionaries are defined in the file psydac/api/settings.py
+
+    assembly_backend: dict
+        The backend used to accelerate the assembly method.
+        The backend dictionaries are defined in the file psydac/api/settings.py
+
+    linalg_backend: dict
+        The backend used to accelerate the computing kernels of the linear operator.
+        The backend dictionaries are defined in the file psydac/api/settings.py
+
+    symbolic_mapping: Sympde.topology.Mapping
+        The symbolic mapping which defines the physical domain of the sesqui-linear form.
+
+    """
+
+
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
     """ Class that represents the concept of a discrete linear form.
@@ -1206,6 +1255,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         self._global_matrices = [M._data for M in global_mats.values()]
 
+
 #==============================================================================
 class DiscreteFunctional(BasicDiscrete):
     """ Class that represents the concept of a discrete functional form.
@@ -1454,10 +1504,14 @@ class DiscreteFunctional(BasicDiscrete):
                 raise NotImplementedError('TODO')
         return v
 
+
 #==============================================================================
 class DiscreteSumForm(BasicDiscrete):
 
     def __init__(self, a, kernel_expr, *args, **kwargs):
+        # TODO Uncomment when the sesquilineqrForm exist in SymPDE
+        #if not isinstance(a, (sym_BilinearForm, sym_SesquilinearForm, sym_LinearForm, sym_Functional)):
+            # raise TypeError('> Expecting a symbolic BilinearForm, SesquilinearForm, LinearForm, Functional')
         if not isinstance(a, (sym_BilinearForm, sym_LinearForm, sym_Functional)):
             raise TypeError('> Expecting a symbolic BilinearForm, LinearForm, Functional')
 
@@ -1477,17 +1531,24 @@ class DiscreteSumForm(BasicDiscrete):
         self._kernel_expr = kernel_expr
         operator = None
         for e in kernel_expr:
-            if isinstance(a, sym_BilinearForm):
-                kwargs['update_ghost_regions'] = False
-                ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
-                kwargs['matrix'] = ah._matrix
-                operator = ah._matrix
-
-            elif isinstance(a, sym_LinearForm):
+            if isinstance(a, sym_LinearForm):
                 kwargs['update_ghost_regions'] = False
                 ah = DiscreteLinearForm(a, e, *args, backend=backend, **kwargs)
                 kwargs['vector'] = ah._vector
                 operator = ah._vector
+
+            # TODO Uncomment when the sesquilineqrForm exist in SymPDE
+            # elif isinstance(a, sym_SesquilinearForm):
+            #     kwargs['update_ghost_regions'] = False
+            #     ah = DiscreteSesquilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
+            #     kwargs['matrix'] = ah._matrix
+            #     operator = ah._matrix
+
+            elif isinstance(a, sym_BilinearForm):
+                kwargs['update_ghost_regions'] = False
+                ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
+                kwargs['matrix'] = ah._matrix
+                operator = ah._matrix
 
             elif isinstance(a, sym_Functional):
                 ah = DiscreteFunctional(a, e, *args, backend=backend, **kwargs)
@@ -1534,3 +1595,5 @@ class DiscreteSumForm(BasicDiscrete):
             M = [form.assemble(**kwargs) for form in self.forms]
             M = np.sum(M)
             return M
+
+
