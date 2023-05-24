@@ -10,7 +10,7 @@ from sympde.expr     import LinearForm
 from sympde.expr     import integral
 from sympde.expr     import find
 from sympde.expr     import EssentialBC
-from sympy     import I
+from sympy           import I
 
 from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
@@ -26,7 +26,7 @@ def dtype(request):
     return request.param
 
 #==============================================================================
-def test_field_and_constant(backend='pyccel-gcc', dtype='complex'):
+def test_field_and_constant(backend, dtype):
 
     # If 'backend' is specified, accelerate Python code by passing **kwargs
     # to discretization of bilinear forms, linear forms and functionals.
@@ -50,8 +50,8 @@ def test_field_and_constant(backend='pyccel-gcc', dtype='complex'):
         g = c * f**2
         res = 1
 
-    a = BilinearForm((u, v), integral(domain, u * v))
-    l = LinearForm(v, integral(domain, g * v))
+    a  = BilinearForm((u, v), integral(domain, u * v))
+    l  = LinearForm(v, integral(domain, g * v))
     bc = EssentialBC(u, g, domain.boundary)
 
     equation = find(u, forall=v, lhs=a(u, v), rhs=l(v), bc=bc)

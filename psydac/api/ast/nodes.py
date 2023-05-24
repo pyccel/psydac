@@ -1188,11 +1188,9 @@ class StencilVectorGlobalBasis(MatrixNode):
 #==============================================================================
 class LocalElementBasis(MatrixNode):
     tag  = random_string( 6 )
-    dtype='real'
 
 class GlobalElementBasis(MatrixNode):
     tag  = random_string( 6 )
-    dtype='real'
 
 #==============================================================================
 class BlockStencilMatrixLocalBasis(BlockLinearOperatorNode):
@@ -1871,6 +1869,7 @@ class LogicalGeometryValue(LogicalValueNode):
 #==============================================================================
 class BasisAtom(AtomicNode):
     """
+    Used to describe a temporary for the basis coefficient or in the kernel.
     """
     def __new__(cls, expr, *, prefix=None):
         types = (IndexedVectorFunction, VectorFunction, ScalarFunction)

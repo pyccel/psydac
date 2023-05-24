@@ -839,8 +839,10 @@ def build_pyccel_types_decorator(args, order=None, domain_type='float'):
             elif a.is_complex:
                 dtype = 'complex'
             else:
+                # if we don't have any information about the constant, in case of a complex domain,
+                # we should support complex and real value with the template type T
                 if domain_type=='complex':
-                    dtype = 'T' # default value
+                    dtype = 'T'
                 else:
                     dtype='float'
 

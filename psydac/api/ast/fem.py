@@ -232,6 +232,9 @@ class DefNode(Basic):
 
     @property
     def domain_dtype(self):
+        '''
+        This property is used when we create the type of a constant for pyccel in build_pyccel_types_decorator.
+        '''
         return self._domain_dtype
 
 
@@ -363,6 +366,8 @@ class AST(object):
             multiplicity_tests  = get_multiplicity(tests, spaces.vector_space)
             is_parallel         = spaces.vector_space.parallel
             spaces              = spaces.symbolic_space
+
+            # Define the type of scalar that the code should manage
             if hasattr(spaces, 'codomain_type'):
                 dtype           = spaces.codomain_type
             else:
@@ -383,6 +388,7 @@ class AST(object):
             is_parallel         = spaces[1].vector_space.parallel
             spaces              = [V.symbolic_space for V in spaces]
 
+            # Define the type of scalar that the code should manage
             if hasattr(spaces[0], 'codomain_type'):
                 # TODO uncomment this line when we have a SesquilinearForm define in SymPDE
                 #assert isinstance(expr, SesquilinearForm)
@@ -401,6 +407,8 @@ class AST(object):
             multiplicity_fields = get_multiplicity(fields, spaces.vector_space)
             is_parallel         = spaces.vector_space.parallel
             spaces              = spaces.symbolic_space
+
+            # Define the type of scalar that the code should manage
             if hasattr(spaces, 'codomain_type'):
                 dtype           = spaces.codomain_type
             else:
@@ -723,9 +731,9 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
         geos = [GeometryExpressions(mapping, nderiv)]
 
     # Define the global and local matrices
-    g_coeffs   = {f:[MatrixGlobalBasis(i, i, dtype=dtype) for i in expand([f])] for f in fields}
-    l_mats     = BlockStencilMatrixLocalBasis(trials, tests, terminal_expr, dim, tag, dtype=dtype)
-    g_mats     = BlockStencilMatrixGlobalBasis(trials, tests, pads, m_tests, terminal_expr, l_mats.tag, dtype=dtype)
+    g_coeffs   = {f:[MatrixGlobalBasis(i, i, dtype=dtype) for i in expand([f])] for f in fields} #dtype manage the initialization at 0
+    l_mats     = BlockStencilMatrixLocalBasis(trials, tests, terminal_expr, dim, tag, dtype=dtype) #dtype manage the reset at 0
+    g_mats     = BlockStencilMatrixGlobalBasis(trials, tests, pads, m_tests, terminal_expr, l_mats.tag, dtype=dtype) #dtype manage the decorators type in pyccel
     # ...........................................................................................
 
     if quad_order is not None:
@@ -765,10 +773,10 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
     for f in fields:
         f_ex         = expand([f])
         coeffs       = [CoefficientBasis(i)                 for i in f_ex]
-        l_coeffs     = [MatrixLocalBasis(i, dtype=dtype)    for i in f_ex]
+        l_coeffs     = [MatrixLocalBasis(i, dtype=dtype)    for i in f_ex] #dtype manage the initialization at 0 in the evaluating loop
         ind_dof_test = index_dof_test.set_range(stop=lengths_fields[f]+1)
         eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f][basis],
-                                 coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask, dtype=dtype)
+                                 coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask, dtype=dtype) #dtype manage the reset at 0 in the evaluating loop
         eval_fields += [eval_field]
 
     # Add the Mapping loop into the geometric statements if there is one
