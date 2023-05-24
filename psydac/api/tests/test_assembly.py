@@ -26,6 +26,11 @@ def backend(request):
 def dtype(request):
     return request.param
 
+
+    # The assembly method of a BilinearForm applied a conjugate on the theoretical matrices to solve the good equation.
+    # In theory, we have the system A.conj(u)=conj(b) due to the complex dot product between the tests functions.
+    # In psydac, we have decided to assemble the matrix conj(A) and b to get the good solution.
+
 #==============================================================================
 def test_field_and_constant(backend, dtype):
 
@@ -50,7 +55,7 @@ def test_field_and_constant(backend, dtype):
         g = c * f**2
         res = 1
 
-    a = BilinearForm((u, v), integral(domain, u * v * g))
+    a = BilinearForm((u, v), integral(domain, g * u * v))
     l = LinearForm(v, integral(domain, g * v))
 
     ncells = (5, 5)
@@ -69,8 +74,8 @@ def test_field_and_constant(backend, dtype):
 
     # Test matrix A
     x = fh.coeffs
-
-    assert abs(A.dot(x).dot(x) - res) < 1e-12
+    #TODO change res into np.conj(res) when the conjugate is applied in the dot product in sympde
+    assert abs(x.dot(A.dot(x)) - res) < 1e-12
 
     # Test vector b
     assert abs(b.toarray().sum() - res) < 1e-12
@@ -134,10 +139,11 @@ def test_bilinearForm_complex(backend, dtype='complex'):
     # Test matrix A
     x = fh.coeffs
 
-    assert abs(A1.dot(x).dot(x) - res) < 1e-12
-    assert abs(A2.dot(x).dot(x) - res) < 1e-12
-    assert abs(A3.dot(x).dot(x) - res) < 1e-12
-    assert abs(A4.dot(x).dot(x) - res) < 1e-12
+    #TODO change res into np.conj(res) when the conjugate is applied in the dot product in sympde
+    assert abs(x.dot(A1.dot(x)) - res) < 1e-12
+    assert abs(x.dot(A2.dot(x)) - res) < 1e-12
+    assert abs(x.dot(A3.dot(x)) - res) < 1e-12
+    assert abs(x.dot(A4.dot(x)) - res) < 1e-12
 
     print("PASSED")
 
@@ -153,7 +159,6 @@ def test_linearForm_complex(backend, dtype='complex'):
 
     # TODO: remove codomain_type when It is implemented in sympde
     V.codomain_type = dtype
-    u = element_of(V, name='u')
     v = element_of(V, name='v')
     f = element_of(V, name='f')
     c = Constant(name='c')
@@ -196,9 +201,6 @@ def test_linearForm_complex(backend, dtype='complex'):
     b3 = l3h.assemble(c=res, f=fh)
     b4 = l4h.assemble(c=1.0, f=fh2)
 
-    # Test matrix A
-    x = fh.coeffs
-
 
     # Test vector b
     assert abs(b1.toarray().sum() - res) < 1e-12
@@ -220,9 +222,7 @@ def test_Norm_complex(backend, dtype='complex'):
 
     # TODO: remove codomain_type when It is implemented in sympde
     V.codomain_type = dtype
-    u = element_of(V, name='u')
     v = element_of(V, name='v')
-    f = element_of(V, name='f')
     c = Constant(name='c')
 
     res = (1.+1.j)/np.sqrt(2)
@@ -317,7 +317,8 @@ def test_multiple_fields(backend, dtype):
     x = fh.coeffs
 
     # Test matrix A
-    assert abs(A.dot(x).dot(x) - res) < 1e-12
+    #TODO change res into np.conj(res) when the conjugate is applied in the dot product in sympde
+    assert abs(x.dot(A.dot(x)) - res) < 1e-12
 
     # Test vector b
     assert abs(b.toarray().sum() - res) < 1e-12

@@ -477,6 +477,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         if self._matrix and self._update_ghost_regions:
             self._matrix.exchange_assembly_data()
 
+        # TODO : uncomment this line when the conjugate is applied on the dot product in the complex case
+        #self._matrix.conjugate(out=self._matrix)
+
         if self._matrix: self._matrix.ghost_regions_in_sync = False
         return self._matrix
 
@@ -1055,6 +1058,9 @@ class DiscreteLinearForm(BasicDiscrete):
         self._func(*args, *self._threads_args)
         if self._vector and self._update_ghost_regions:
             self._vector.exchange_assembly_data()
+
+        # TODO : uncomment this line when the conjugate is applied on the dot product in the complex case
+        # self._vector.conjugate(out=self._vector)
 
         if self._vector: self._vector.ghost_regions_in_sync = False
         return self._vector
