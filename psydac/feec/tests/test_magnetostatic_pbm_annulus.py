@@ -72,7 +72,61 @@ def test_magnetostatic_pbm_homogeneous():
     logger.debug('B.min():%s\n',B.min())
     assert np.linalg.norm(B) < 1e-6, f"np.linalg.norm(B):{np.linalg.norm(B)}"
 
+def test_magnetostatic_pbm_manufactured():
+    logger = logging.getLogger(name='test_magnetostatic')
+    # REFACTOR: This should not be done in the function
+    logical_domain = Square(name='logical_domain', bounds1=(0,1), bounds2=(0,2*np.pi))
+    boundary_logical_domain = Union(logical_domain.get_boundary(axis=0, ext=-1),
+                                    logical_domain.get_boundary(axis=0, ext=1))
+    logical_domain = Domain(name='logical_domain',
+                            interiors=logical_domain.interior,
+                            boundaries=boundary_logical_domain,
+                            dim=2)
+    polar_mapping = PolarMapping(name='polar_mapping', dim=2, c1=0., c2=0.,
+                                 rmin=1.0, rmax=2.0)
+    annulus = polar_mapping(logical_domain)
+    derham = Derham(domain=annulus, sequence=['H1', 'Hdiv', 'L2'])
+
+    ncells = [10,10]
+    annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
+    derham_h = discretize(derham, annulus_h, degree=[2,2])
+    assert isinstance(derham_h, DiscreteDerham)
+
+
+    x, y = sympy.symbols('x, y')
+    J = 4*x**2 - 12*x**2/sympy.sqrt(x**2 + y**2) + 4*y**2 - 12*y**2/sympy.sqrt(x**2 + y**2) + 8
+    f = sympy.Tuple(8*y - 12*y/sympy.sqrt(x**2 + y**2), -8*x + 12*x/sympy.sqrt(x**2 + y**2))
+    B_h_coeffs_arr = solve_magnetostatic_pbm_annulus(J, f)
+    B_h_coeffs = array_to_psydac(B_h_coeffs_arr, derham_h.V1.vector_space)
+    B_h = FemField(derham_h.V1, coeffs=B_h_coeffs)
+
+    does_plot = False
+    if does_plot:
+        output_manager = OutputManager('spaces_magnetostatic.yml', 
+                                       'fields_magnetostatic.h5')
+        output_manager.add_spaces(V1=derham_h.V1)
+        output_manager.export_space_info()
+        output_manager.set_static()
+        output_manager.export_fields(B_h=B_h)
+        post_processor = PostProcessManager(domain=annulus, 
+                                            space_file='spaces_magnetostatic.yml',
+                                            fields_file='fields_magnetostatic.h5')
+        post_processor.export_to_vtk('magnetostatic_pbm_vtk', npts_per_cell=3,
+                                        fields=("B_h"))
+    
+    eval_grid = [np.array([0.25, 0.5, 0.75]), np.array([np.pi/2, np.pi])]
+    V1h = derham_h.V1
+    assert isinstance(V1h, VectorFemSpace)
+    B_h_eval = V1h.eval_fields(eval_grid, B_h)
+    print(B_h_eval)
+    assert np.linalg.norm(B_h_eval[0][0]) < 1e-5
+    assert abs( B_h_eval[0][1][0,1] - (0.25-1)**2 * (0.25+1)) < 0.01
+    assert abs( B_h_eval[0][1][1,0] - (0.5-1)**2 * (0.5+1)) < 0.01
+    assert abs( B_h_eval[0][1][2,1] - (0.75-1)**2 * (0.75+1)) < 0.01
+
+
 
 if __name__ == '__main__':
     logging.basicConfig(filename='mydebug.log', level=logging.DEBUG, filemode='w')
-    test_magnetostatic_pbm_homogeneous()
+    # test_magnetostatic_pbm_homogeneous()
+    test_magnetostatic_pbm_manufactured()
