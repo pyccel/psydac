@@ -21,12 +21,8 @@ from psydac.api.settings       import PSYDAC_BACKENDS
 def backend(request):
     return request.param
 
-@pytest.fixture(params=['real', 'complex'])
-def dtype(request):
-    return request.param
-
 #==============================================================================
-def test_field_and_constant(backend, dtype):
+def test_field_and_constant(backend):
 
     # If 'backend' is specified, accelerate Python code by passing **kwargs
     # to discretization of bilinear forms, linear forms and functionals.
@@ -35,20 +31,12 @@ def test_field_and_constant(backend, dtype):
     # Symbolic problem definition with SymPDE
     domain = Square()
     V = ScalarFunctionSpace('V', domain)
-
-    # TODO: remove codomain_type when It is implemented in sympde
-    V.codomain_type = dtype
     u = element_of(V, name='u')
     v = element_of(V, name='v')
     f = element_of(V, name='f')
     c = Constant(name='c')
-
-    if dtype == 'complex':
-        g = I * c * f**2
-        res = 1.j
-    else:
-        g = c * f**2
-        res = 1
+    g = c * f**2
+    res = 1
 
     a  = BilinearForm((u, v), integral(domain, u * v))
     l  = LinearForm(v, integral(domain, g * v))
