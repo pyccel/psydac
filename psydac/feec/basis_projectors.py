@@ -257,7 +257,7 @@ class BasisProjectionOperator(LinearOperator):
   
                 if isinstance(f, FemField):
                     assert(isinstance(f.space,TensorFemSpace))
-                    _fun_q = f.space.eval_fields(_ptsG, f, npts_per_cell=_npt_pts)#_irregular_tensor_grid(_ptsG, f) 
+                    _fun_q = f.space.eval_fields(_ptsG, f)#, npts_per_cell=_npt_pts)#_irregular_tensor_grid(_ptsG, f) 
                     _fun_q = np.squeeze(_fun_q) #since we only evaluate one field the result is a 3D
                     #array with last dim 1, we need to squeeze it in order to use the pyccelized kernels
                 elif isinstance(f, float) or isinstance(f, int):
@@ -364,8 +364,8 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
             #"roll" back points to the interval to ensure that the quadrature points are
             #in the domain. Probably only usefull on periodic cases
             roll_edges(space_out.domain, global_quad_x) 
-            x = global_quad_x#[s:e+1]
-            w = global_quad_w#[s:e+1]
+            x = global_quad_x
+            w = global_quad_w
             pts += [x]
             wts += [w]
             np_pts_cell += [nq]
