@@ -63,10 +63,10 @@ from scipy.sparse._lil import lil_matrix
 from scipy.sparse.linalg import eigs, spsolve
 from scipy.sparse.linalg import inv
 
-from psydac.fem.tests.get_integration_function import solve_poisson_2d_annulus
 
 
-def solve_magnetostatic_pbm_annulus(J: sympy.Expr, f : sympy.Tuple):
+def solve_magnetostatic_pbm_annulus(J: sympy.Expr, f : sympy.Tuple, 
+                                    psi_h : FemField, rhs_curve_integral: float):
     logger_magnetostatic = logging.getLogger(name='solve_magnetostatic_pbm_annulus')
     logical_domain = Square(name='logical_domain', bounds1=(0,1), bounds2=(0,2*np.pi))
     boundary_logical_domain = Union(logical_domain.get_boundary(axis=0, ext=-1),
@@ -118,11 +118,6 @@ def solve_magnetostatic_pbm_annulus(J: sympy.Expr, f : sympy.Tuple):
     f_h = P1_h_mat.transpose() @ f_tilde_h
     assert isinstance(f_h, np.ndarray)
 
-    x,y = sympy.symbols(names='x y')
-    boundary_values_poisson = 1/3*(x**2 + y**2 - 1)  # Equals one 
-        # on the exterior boundary and zero on the interior boundary
-    psi_h = solve_poisson_2d_annulus(annulus_h, derham_h.V0, rhs=1e-10, 
-                                     boundary_values=boundary_values_poisson)
     psi_h_coeffs = psi_h.coeffs.toarray()
     assert isinstance(psi_h_coeffs, np.ndarray)
     curl_psi_h_coeffs = D0_mat @ psi_h_coeffs
@@ -130,16 +125,7 @@ def solve_magnetostatic_pbm_annulus(J: sympy.Expr, f : sympy.Tuple):
     curl_psi_h_mat = curl_psi_h_mat.transpose()
     logger_magnetostatic.debug('curl_psi_h_mat.shape:%s\n', curl_psi_h_mat.shape)
 
-    sigma, tau = top.elements_of(derham.V0, names='sigma tau')
-    inner_prod_J = LinearForm(tau, integral(annulus, J*tau))
-    inner_prod_J_h = discretize(inner_prod_J, annulus_h, space=derham_h.V0)
-    assert isinstance(inner_prod_J_h, DiscreteLinearForm)
-    inner_prod_J_h_stencil = inner_prod_J_h.assemble()
-    # Try changing this to the evaluation using the dicrete linear form directly
-    assert isinstance(inner_prod_J_h_stencil, StencilVector)
-    inner_prod_J_h_vec = inner_prod_J_h_stencil.toarray()
-    c_0 = 0.
-    curve_integral_rhs = np.array([c_0 + np.dot(inner_prod_J_h_vec, psi_h_coeffs)])
+    curve_integral_rhs_arr = np.array([rhs_curve_integral])
 
     DD_tilde_mat = D1_h_mat.transpose() @ M2 @ D1_h_mat
 
@@ -147,7 +133,7 @@ def solve_magnetostatic_pbm_annulus(J: sympy.Expr, f : sympy.Tuple):
                   [M1 @ D0_h_mat,  DD_tilde_mat  + alpha * S_h_tilde_mat, harmonic_block],
                   [None, curl_psi_h_mat.transpose() @ M1 , None]])
     
-    rhs = np.concatenate((np.zeros(derham_h.V0.nbasis), f_h, curve_integral_rhs))
+    rhs = np.concatenate((np.zeros(derham_h.V0.nbasis), f_h, curve_integral_rhs_arr))
     A_mat = csr_matrix(A_mat) # Why is this not transforming into a CSR matrix?
     logger_magnetostatic.debug('type(A_mat):%s\n', type(A_mat))
     sol = spsolve(A_mat, rhs)
@@ -158,7 +144,7 @@ def _assemble_harmonic_block(M0, M1, M2, P1_h_mat, alpha, S_h_mat, D0_h_mat, D1_
     summand2 = inv(M1) @ D1_h_mat.transpose() @ M2 @ D1_h_mat
     summand3 = alpha * inv(M1) @ S_h_mat
     # Matrix representation of stabilized Hodge laplacian from primal 
-    # to dual basis
+    # to dual basis (29.5. REALLY?)
     L_h = summand1 + summand2 + summand3
     eig_val, eig_vec = eigs(L_h, sigma=0.001)
     harmonic_form_coeffs = eig_vec[:,0]
