@@ -670,26 +670,31 @@ def main(*, test_case, ncells, degree, use_spline_mapping, c1_correction, distri
         # left  bc at x=0.
         if not model.O_point and s1 == 0:
             S[s1, :, :, :] = 0.
+            S[s1, :, 0, 0] = 1.
             b[s1, :]       = 0.
         # right bc at x=1.
         if e1 == V1.nbasis-1:
             S[e1, :, :, :] = 0.
+            S[e1, :, 0, 0] = 1.
             b[e1, :]       = 0.
 
     if not V2.periodic:
         # lower bc at y=0.
         if s2 == 0:
             S[:, s2, :, :] = 0.
+            S[:, s2, 0, 0] = 1.
             b[:, s2]       = 0.
         # upper bc at y=1.
         if e2 == V2.nbasis-1:
             S[:, e2, :, :] = 0.
+            S[:, e2, 0, 0] = 1.
             b[:, e2]       = 0.
 
     if c1_correction and e1 == V1.nbasis-1:
         # only bc is at s=1
         last = bp[1].space.npts[0] - 1
         Sp[1,1][last, :, :, :] = 0.
+        Sp[1,1][last, :, 0, 0] = 0.
         bp[1]  [last, :]       = 0.
 
     # Solve linear system
