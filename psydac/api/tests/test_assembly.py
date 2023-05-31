@@ -233,4 +233,3 @@ if __name__ == '__main__':
     test_math_imports(None)
     test_non_symmetric_BilinearForm(None)
     test_assembly_no_synchr_args(None)
-
