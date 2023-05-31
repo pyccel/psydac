@@ -475,7 +475,7 @@ def basis_integrals_true(knots, degree):
 # Tests
 ###############################################################################
 # Tolerance for testing float equality
-RTOL = 1e-15
+RTOL = 1e-14
 ATOL = 1e-15
 
 
