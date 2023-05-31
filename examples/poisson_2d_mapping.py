@@ -431,6 +431,10 @@ def assemble_matrices(V, mapping, kernel):
             mass     [is1-p1:is1+1, is2-p2:is2+1, :, :] += mat_m[:, :, :, :]
             stiffness[is1-p1:is1+1, is2-p2:is2+1, :, :] += mat_s[:, :, :, :]
 
+    # IMPORTANT: new assembly procedure requires dedicated data exchange
+    mass     .exchange_assembly_data()
+    stiffness.exchange_assembly_data()
+
     # Make sure that periodic corners are zero in non-periodic case
     mass     .remove_spurious_entries()
     stiffness.remove_spurious_entries()
@@ -516,6 +520,9 @@ def assemble_rhs(V, mapping, f):
 
                     # Update one element of the rhs vector
                     rhs[i1, i2] += v
+
+    # IMPORTANT: new assembly procedure requires dedicated data exchange
+    rhs.exchange_assembly_data()
 
     # IMPORTANT: ghost regions must be up-to-date
     rhs.update_ghost_regions()
