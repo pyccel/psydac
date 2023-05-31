@@ -264,6 +264,7 @@ class LinearOperator_DenseToStencil( LinearOperator ):
         if out:
             assert isinstance( out, StencilVector )
             assert out.space is self._codomain
+            out *= 0.0
         else:
             out = self._codomain.zeros()
 
