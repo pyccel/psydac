@@ -7,10 +7,10 @@ from scipy.sparse import coo_matrix
 
 from psydac.linalg.basic import VectorSpace, Vector, LinearOperator
 
-__all__ = ['DenseVectorSpace', 'DenseVector', 'DenseMatrix']
+__all__ = ('DenseVectorSpace', 'DenseVector', 'DenseMatrix')
 
 #==============================================================================
-class DenseVectorSpace( VectorSpace ):
+class DenseVectorSpace(VectorSpace):
     """
     Space of one-dimensional global arrays, NOT distributed across processes.
 
@@ -65,7 +65,7 @@ class DenseVectorSpace( VectorSpace ):
            subcommunicator (process with radial coordinate = 0 is the root);
 
     """
-    def __init__( self, n, *, dtype=np.float64, cart=None, radial_dim=0, angle_dim=1 ):
+    def __init__(self, n, *, dtype=np.float64, cart=None, radial_dim=0, angle_dim=1):
 
         self._n     = n
         self._dtype = dtype
@@ -81,11 +81,11 @@ class DenseVectorSpace( VectorSpace ):
             # Radial sub-communicator (1D)
             radial_comm   = cart.subcomm[radial_dim]
             radial_master = (cart.coords[radial_dim] == 0)
-            radial_root   = radial_comm.allreduce( radial_comm.rank if radial_master else 0 )
+            radial_root   = radial_comm.allreduce(radial_comm.rank if radial_master else 0)
 
             # Tensor sub-communicator (M-dimensional)
-            remain_dims = [d not in (radial_dim, angle_dim) for d in range( cart.ndim )]
-            tensor_comm = cart.comm_cart.Sub( remain_dims )
+            remain_dims = [d not in (radial_dim, angle_dim) for d in range(cart.ndim)]
+            tensor_comm = cart.comm_cart.Sub(remain_dims)
 
             # Calculate dimension of linear space
             tensor_shape = [cart.npts[i] for i, d in enumerate(remain_dims) if d]
@@ -112,7 +112,7 @@ class DenseVectorSpace( VectorSpace ):
     # Abstract interface
     #-------------------------------------
     @property
-    def dimension( self ):
+    def dimension(self):
         """ The dimension of a vector space V is the cardinality
             (i.e. the number of vectors) of a basis of V over its base field.
         """
@@ -120,11 +120,11 @@ class DenseVectorSpace( VectorSpace ):
 
     # ...
     @property
-    def dtype( self ):
+    def dtype(self):
         return self._dtype
 
     # ...
-    def zeros( self ):
+    def zeros(self):
         """
         Get a copy of the null element of the DenseVectorSpace V.
 
@@ -134,20 +134,20 @@ class DenseVectorSpace( VectorSpace ):
             A new vector object with all components equal to zero.
 
         """
-        data = np.zeros( self.ncoeff, dtype=self.dtype )
-        return DenseVector( self, data )
+        data = np.zeros(self.ncoeff, dtype=self.dtype)
+        return DenseVector(self, data)
 
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
 
     @property
-    def parallel( self ):
+    def parallel(self):
         return (self._cart is not None)
 
     # ...
     @property
-    def ncoeff( self ):
+    def ncoeff(self):
         """ Local number of coefficients. """
         # TODO: maybe keep this number global, and add local 'dshape' property
         if self.parallel:
@@ -157,32 +157,32 @@ class DenseVectorSpace( VectorSpace ):
 
     # ...
     @property
-    def tensor_comm( self ):
+    def tensor_comm(self):
         return self._tensor_comm
 
     # ...
     @property
-    def angle_comm( self ):
+    def angle_comm(self):
         return self._angle_comm
 
     # ...
     @property
-    def radial_comm( self ):
+    def radial_comm(self):
         return self._radial_comm
 
     # ...
     @property
-    def radial_root( self ):
+    def radial_root(self):
         return self._radial_root
 
 #==============================================================================
-class DenseVector( Vector ):
+class DenseVector(Vector):
 
-    def __init__( self, V, data ):
+    def __init__(self, V, data):
 
-        assert isinstance( V, DenseVectorSpace )
+        assert isinstance(V, DenseVectorSpace)
 
-        data = np.asarray( data )
+        data = np.asarray(data)
         assert data.ndim  == 1
         assert data.shape ==(V.ncoeff,)
         assert data.dtype == V.dtype
@@ -194,26 +194,26 @@ class DenseVector( Vector ):
     # Abstract interface
     #--------------------------------------
     @property
-    def space( self ):
+    def space(self):
         return self._space
 
     # ...
     @property
-    def dtype( self ):
+    def dtype(self):
         return self.space.dtype
 
     # ...
-    def dot( self, v ):
-        assert isinstance( v, DenseVector )
+    def dot(self, v):
+        assert isinstance(v, DenseVector)
         assert v._space is self._space
 
-        res = np.dot( self._data, v._data )
+        res = np.dot(self._data, v._data)
 
         V = self._space
         if V.parallel:
             if V.radial_comm.rank == V.radial_root:
-                res = V.tensor_comm.allreduce( res )
-            res = V.radial_comm.bcast( res, root=V.radial_root )
+                res = V.tensor_comm.allreduce(res)
+            res = V.radial_comm.bcast(res, root=V.radial_root)
 
         return res
 
@@ -239,40 +239,40 @@ class DenseVector( Vector ):
             return DenseVector(self._space, self._data.copy())
 
     # ...
-    def __neg__( self ):
-        return DenseVector( self._space, -self._data )
+    def __neg__(self):
+        return DenseVector(self._space, -self._data)
 
     # ...
-    def __mul__( self, a ):
-        return DenseVector( self._space, self._data * a )
+    def __mul__(self, a):
+        return DenseVector(self._space, self._data * a)
 
     # ...
-    def __add__( self, v ):
-        assert isinstance( v, DenseVector )
+    def __add__(self, v):
+        assert isinstance(v, DenseVector)
         assert v._space is self._space
-        return DenseVector( self._space, self._data + v._data )
+        return DenseVector(self._space, self._data + v._data)
 
     # ...
-    def __sub__( self, v ):
-        assert isinstance( v, DenseVector )
+    def __sub__(self, v):
+        assert isinstance(v, DenseVector)
         assert v._space is self._space
-        return DenseVector( self._space, self._data - v._data )
+        return DenseVector(self._space, self._data - v._data)
 
     # ...
-    def __imul__( self, a ):
+    def __imul__(self, a):
         self._data *= a
         return self
 
     # ...
-    def __iadd__( self, v ):
-        assert isinstance( v, DenseVector )
+    def __iadd__(self, v):
+        assert isinstance(v, DenseVector)
         assert v._space is self._space
         self._data += v._data
         return self
 
     # ...
-    def __isub__( self, v ):
-        assert isinstance( v, DenseVector )
+    def __isub__(self, v):
+        assert isinstance(v, DenseVector)
         assert v._space is self._space
         self._data -= v._data
         return self
@@ -280,11 +280,11 @@ class DenseVector( Vector ):
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
-    def toarray( self , **kwargs):
+    def toarray(self, **kwargs):
         return self._data.copy()
 
     # ...
-    def update_ghost_regions( self, *, direction=None ):
+    def update_ghost_regions(self, *, direction=None):
         pass
 
     # ...
@@ -294,18 +294,18 @@ class DenseVector( Vector ):
 
     # ...
     @ghost_regions_in_sync.setter
-    def ghost_regions_in_sync( self, value ):
+    def ghost_regions_in_sync(self, value):
         pass
 
 #==============================================================================
-class DenseMatrix( LinearOperator ):
+class DenseMatrix(LinearOperator):
 
-    def __init__( self, V, W, data ):
+    def __init__(self, V, W, data):
 
-        assert isinstance( V, DenseVectorSpace )
-        assert isinstance( W, DenseVectorSpace )
+        assert isinstance(V, DenseVectorSpace)
+        assert isinstance(W, DenseVectorSpace)
 
-        data = np.asarray( data )
+        data = np.asarray(data)
         assert data.ndim  == 2
         assert data.shape == (W.ncoeff, V.ncoeff)
 #        assert data.dfype == #???
@@ -318,12 +318,12 @@ class DenseMatrix( LinearOperator ):
     # Abstract interface
     #--------------------------------------
     @property
-    def domain( self ):
+    def domain(self):
         return self._domain
 
     # ...
     @property
-    def codomain( self ):
+    def codomain(self):
         return self._codomain
 
     def transpose(self, conjugate=False):
@@ -331,7 +331,7 @@ class DenseMatrix( LinearOperator ):
 
     # ...
     @property
-    def dtype( self ):
+    def dtype(self):
         return self.domain.dtype
 
     def __truediv__(self, a):
@@ -344,29 +344,29 @@ class DenseMatrix( LinearOperator ):
         return self
 
     # ...
-    def dot( self, v, out=None ):
+    def dot(self, v, out=None):
 
-        assert isinstance( v, DenseVector )
+        assert isinstance(v, DenseVector)
         assert v.space is self._domain
 
         if out:
-            assert isinstance( out, DenseVector )
+            assert isinstance(out, DenseVector)
             assert out.space is self._codomain
-            np.dot( self._data, v._data, out=out._data )
+            np.dot(self._data, v._data, out=out._data)
         else:
             W    = self._codomain
-            data = np.dot( self._data, v._data )
-            out  = DenseVector( W, data )
+            data = np.dot(self._data, v._data)
+            out  = DenseVector(W, data)
 
         return out
 
     # ...
-    def toarray( self , **kwargs ):
+    def toarray(self , **kwargs):
         return self._data.copy()
 
     # ...
-    def tosparse( self , **kwargs ):
-        return coo_matrix( self._data )
+    def tosparse(self , **kwargs):
+        return coo_matrix(self._data)
 
     # ...
     def copy(self):
