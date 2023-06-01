@@ -88,7 +88,8 @@ class DenseVectorSpace( VectorSpace ):
             tensor_comm = cart.comm_cart.Sub( remain_dims )
 
             # Calculate dimension of linear space
-            self._dimension = n * np.prod( [cart.npts[d] for d in remain_dims] )
+            tensor_shape = [cart.npts[i] for i, d in enumerate(remain_dims) if d]
+            dimension    = n * np.prod(tensor_shape, dtype=int)
 
             # Store info
             self._radial_dim  = radial_dim
@@ -97,6 +98,7 @@ class DenseVectorSpace( VectorSpace ):
             self._angle_dim   = angle_dim
             self._angle_comm  = angle_comm
             self._tensor_comm = tensor_comm
+            self._dimension   = dimension
 
         else:
 
