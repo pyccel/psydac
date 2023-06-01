@@ -1,4 +1,9 @@
 """
+Post-processing script for example `poisson_2d_mapping.py`.
+
+Plot the mass and stiffness matrices built in the tensor-product spline space V
+and in the C1 polar spline space V'.
+
 USAGE
 =====
 
