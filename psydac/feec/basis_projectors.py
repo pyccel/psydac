@@ -37,10 +37,10 @@ class BasisProjectionOperator(LinearOperator):
         Whether to assemble the transposed operator.
     """
 
-    def __init__(self, P, V, fun, transposed=False):
+    def __init__(self, P, V, fun, transposed=False, preproc_grid=None, dof_mat=None):
 
         # only for M1 Mac users
-        PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
+        #PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
 
         assert isinstance(P, GlobalProjector)
         assert isinstance(V, FemSpace)
@@ -72,9 +72,12 @@ class BasisProjectionOperator(LinearOperator):
             self._domain_symbolic_name = V_name
             self._codomain_symbolic_name = P_name
 
+        self._preproc_grid = preproc_grid
+
         # ============= assemble tensor-product dof matrix =======
-        dof_mat = BasisProjectionOperator.assemble_mat(
-            P, V, fun)
+        if dof_mat == None:
+            dof_mat = BasisProjectionOperator.assemble_mat(
+            P, V, fun, self._preproc_grid)
         # ========================================================
 
         self._dof_operator = dof_mat
@@ -179,10 +182,13 @@ class BasisProjectionOperator(LinearOperator):
         Returns the transposed operator.
         """
         #conjugate not implemented
-        return BasisProjectionOperator(self._P, self._V, self._fun, not self.transposed)
+        if self.transposed:
+            return BasisProjectionOperator(self._P, self._V, self._fun, not self.transposed, preproc_grid=self._preproc_grid, dof_mat=self._dof_operator.transpose())
+        else : 
+            return BasisProjectionOperator(self._P, self._V, self._fun, not self.transposed, preproc_grid=self._preproc_grid, dof_mat=self._dof_operator)
 
     @staticmethod
-    def assemble_mat(P, V, fun):
+    def assemble_mat(P, V, fun, preproc_grid=None):
         """
         Assembles the tensor-product DOF matrix sigma_i(fun*Lambda_j), where i=(i1, i2, ...) and j=(j1, j2, ...) depending on the number of spatial dimensions (1d, 2d or 3d).
 
@@ -225,11 +231,12 @@ class BasisProjectionOperator(LinearOperator):
 
         # blocks of dof matrix
         blocks = []
-
+        i=0
         # ouptut vector space (codomain), row of block
         for Wspace, W1d, nq, fun_line in zip(_Wspaces, _W1ds, _nqs, fun):
             blocks += [[]]
             _Wdegrees = [space.degree for space in W1d]
+            j=0
 
             # input vector space (domain), column of block
             for Vspace, V1d, f in zip(_Vspaces, _V1ds, fun_line):
@@ -246,7 +253,11 @@ class BasisProjectionOperator(LinearOperator):
                 _ends_out = np.array(dofs_mat.codomain.ends)
                 _pads_out = np.array(dofs_mat.codomain.pads)
 
-                _ptsG, _wtsG, _spans, _bases, _npt_pts = prepare_projection_of_basis(
+                if preproc_grid != None :
+                    _ptsG, _wtsG, _spans, _bases, _npt_pts = preproc_grid[i][j]
+
+                else:
+                    _ptsG, _wtsG, _spans, _bases, _npt_pts = prepare_projection_of_basis(
                     V1d, W1d, _starts_out, _ends_out, nq)
 
                 _ptsG = [pts.flatten() for pts in _ptsG]
@@ -280,6 +291,8 @@ class BasisProjectionOperator(LinearOperator):
 
                 else:
                     blocks[-1] += [None]
+                j+=1
+            i+=1
 
         # build BlockLinearOperator (if necessary) and return
         if len(blocks) == len(blocks[0]) == 1:
@@ -418,3 +431,66 @@ def get_span_and_basis(pts, space):
             span[n, nq] = span_tmp  # % space.nbasis
 
     return span, basis
+
+
+def preprocess_grid(P, V):
+    """
+    Gather the results of prepare_projection_of_basis for the different SplineSpaces composing a space, 
+    the result of this function can then be passed when initialyzing a BasisProjectionOperator to avoid
+    computing several time the same quantities
+
+    Parameters
+    ----------
+    P : GlobalProjector
+    The psydac global tensor product projector defining the space onto which the input shall be projected.
+
+    V : TensorFemSpace | ProductFemSpace
+        The spline space which shall be projected.
+
+    Returns
+    -------
+    preproc : List of List of Tuple
+        List of List containing the outputs of prepare_projection_of_basis applied to the differents spaces
+    """
+
+    # input space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
+    if isinstance(V, TensorFemSpace):
+        _Vspaces = [V.vector_space]
+        _V1ds = [V.spaces]
+    else:
+        _Vspaces = V.vector_space
+        _V1ds = [comp.spaces for comp in V.spaces]
+
+    # output space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
+    if isinstance(P.space, TensorFemSpace):
+        _Wspaces = [P.space.vector_space]
+        _W1ds = [P.space.spaces]
+    else:
+        _Wspaces = P.space.vector_space
+        _W1ds = [comp.spaces for comp in P.space.spaces]
+
+    # retrieve number of quadrature points of each component (=1 for interpolation)
+    _nqs = [[P.grid_x[comp][direction].shape[1]
+             for direction in range(V.ldim)] for comp in range(len(_W1ds))]
+
+    # blocks of dof matrix
+    preproc = []
+    # ouptut vector space (codomain), row of block
+    for Wspace, W1d, nq in zip(_Wspaces, _W1ds, _nqs):
+
+        line_pre = []
+        # input vector space (domain), column of block
+        for Vspace, V1d in zip(_Vspaces, _V1ds):
+
+            # instantiate cell of block matrix
+            dofs_mat = StencilMatrix(
+                Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL)
+
+            _starts_out = np.array(dofs_mat.codomain.starts)
+            _ends_out = np.array(dofs_mat.codomain.ends)
+
+            _ptsG, _wtsG, _spans, _bases, _npt_pts = prepare_projection_of_basis(
+                V1d, W1d, _starts_out, _ends_out, nq)
+            line_pre.append((_ptsG, _wtsG, _spans, _bases, _npt_pts))
+        preproc.append(line_pre.copy())
+    return preproc
