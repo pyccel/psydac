@@ -125,12 +125,8 @@ if __name__ == '__main__':
     N = 20
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-    mappings_list = list(mappings.values()) # issue: mappings_list does not consist of BasicCallableMapping objects. This has the following consequences:
-                                            # grid_vals_hcurl -> get_grid_vals -> push_field -> push_2d_hcurl executes F.jacobian_inv(*eta),
-                                            # but 'PolarMapping' object has no attribute 'jacobian_inv'.
-                                            # Further: assert isinstance(..., BasicCallableMapping fails in push_2d_hcurl and pull_2d_hcurl)
-    for f in mappings_list:
-        print(f.__class__.__name__)
+    mappings_list = [m.get_callable_mapping() for m in mappings.values()]
+
     Eex_x   = lambdify(domain.coordinates, Eex[0])
     Eex_y   = lambdify(domain.coordinates, Eex[1])
     Eex_log = [pull_2d_hcurl([Eex_x,Eex_y], f) for f in mappings_list]
