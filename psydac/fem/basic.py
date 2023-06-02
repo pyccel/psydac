@@ -327,4 +327,3 @@ class FemField:
         assert self._space is other._space
         self._coeffs -= other._coeffs
         return self
-
