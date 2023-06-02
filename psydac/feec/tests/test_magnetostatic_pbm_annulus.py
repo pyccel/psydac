@@ -64,7 +64,7 @@ from scipy.sparse.linalg import inv
 
 from psydac.fem.tests.get_integration_function import solve_poisson_2d_annulus
 
-def test_magnetostatic_pbm_homogeneous():
+def _create_domain_and_derham() -> Tuple[Domain, Derham]:
     logical_domain = Square(name='logical_domain', bounds1=(0,1), bounds2=(0,2*np.pi))
     boundary_logical_domain = Union(logical_domain.get_boundary(axis=0, ext=-1),
                                     logical_domain.get_boundary(axis=0, ext=1))
@@ -76,7 +76,11 @@ def test_magnetostatic_pbm_homogeneous():
                                  rmin=1.0, rmax=2.0)
     annulus = polar_mapping(logical_domain)
     derham = Derham(domain=annulus, sequence=['H1', 'Hdiv', 'L2'])
+    return annulus, derham
 
+
+def test_magnetostatic_pbm_homogeneous():
+    annulus, derham = _create_domain_and_derham()
     ncells = [10,10]
     annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
     derham_h = discretize(derham, annulus_h, degree=[2,2])
@@ -90,29 +94,20 @@ def test_magnetostatic_pbm_homogeneous():
     inner_prod_J = LinearForm(tau, integral(annulus, J*tau))
     inner_prod_J_h = discretize(inner_prod_J, annulus_h, space=derham_h.V0)
     assert isinstance(inner_prod_J_h, DiscreteLinearForm)
-    inner_prod_J_h_stencil = inner_prod_J_h.assemble()
-    # Try changing this to the evaluation using the dicrete linear form directly
-    assert isinstance(inner_prod_J_h_stencil, StencilVector)
-    inner_prod_J_h_vec = inner_prod_J_h_stencil.toarray()
+    inner_prod_J_h_vec = inner_prod_J_h.assemble().toarray()
+    assert isinstance(inner_prod_J_h_vec, np.ndarray)
     c_0 = 0.
     boundary_values_poisson = 1/3*(x**2 + y**2 - 1)  # Equals one 
         # on the exterior boundary and zero on the interior boundary
     psi_h = solve_poisson_2d_annulus(annulus_h, derham_h.V0, rhs=1e-10, 
                                      boundary_values=boundary_values_poisson)
     psi_h_coeffs = psi_h.coeffs.toarray()
-    curve_integral_rhs = np.array([c_0 + np.dot(inner_prod_J_h_vec, psi_h_coeffs)])
-    
-    sigma, tau = top.elements_of(derham.V0, names='sigma tau')
-    inner_prod_J = LinearForm(tau, integral(annulus, J*tau))
-    inner_prod_J_h = discretize(inner_prod_J, annulus_h, space=derham_h.V0)
-    assert isinstance(inner_prod_J_h, DiscreteLinearForm)
-    inner_prod_J_h_stencil = inner_prod_J_h.assemble()
-    # Try changing this to the evaluation using the dicrete linear form directly
-    assert isinstance(inner_prod_J_h_stencil, StencilVector)
-    inner_prod_J_h_vec = inner_prod_J_h_stencil.toarray()
     curve_integral_rhs = c_0 + np.dot(inner_prod_J_h_vec, psi_h_coeffs)
-
-    B = solve_magnetostatic_pbm_annulus(J, f, psi_h, rhs_curve_integral=curve_integral_rhs)
+    
+    B = solve_magnetostatic_pbm_annulus(f, psi_h, rhs_curve_integral=curve_integral_rhs,
+                                        derham_h=derham_h,
+                                        derham=derham,
+                                        annulus_h=annulus_h)
     assert isinstance(B, np.ndarray)
     logger = logging.getLogger(name='test_homogeneous')
     logger.debug('B.max():%s',B.max())
@@ -122,23 +117,12 @@ def test_magnetostatic_pbm_homogeneous():
 def test_magnetostatic_pbm_manufactured():
     logger = logging.getLogger(name='test_magnetostatic')
     # REFACTOR: This should not be done in the function
-    logical_domain = Square(name='logical_domain', bounds1=(0,1), bounds2=(0,2*np.pi))
-    boundary_logical_domain = Union(logical_domain.get_boundary(axis=0, ext=-1),
-                                    logical_domain.get_boundary(axis=0, ext=1))
-    logical_domain = Domain(name='logical_domain',
-                            interiors=logical_domain.interior,
-                            boundaries=boundary_logical_domain,
-                            dim=2)
-    polar_mapping = PolarMapping(name='polar_mapping', dim=2, c1=0., c2=0.,
-                                 rmin=1.0, rmax=2.0)
-    annulus = polar_mapping(logical_domain)
-    derham = Derham(domain=annulus, sequence=['H1', 'Hdiv', 'L2'])
+    annulus, derham = _create_domain_and_derham()
 
     ncells = [10,10]
     annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
     derham_h = discretize(derham, annulus_h, degree=[2,2])
     assert isinstance(derham_h, DiscreteDerham)
-
 
     x,y = sympy.symbols(names='x y')
     boundary_values_poisson = 1/3*(x**2 + y**2 - 1)  # Equals one 
@@ -161,7 +145,10 @@ def test_magnetostatic_pbm_manufactured():
     c_0 = 0.
     curve_integral_rhs = c_0 + np.dot(inner_prod_J_h_vec, psi_h_coeffs)
 
-    B_h_coeffs_arr = solve_magnetostatic_pbm_annulus(J, f, psi_h, rhs_curve_integral=curve_integral_rhs)
+    B_h_coeffs_arr = solve_magnetostatic_pbm_annulus(f, psi_h, rhs_curve_integral=curve_integral_rhs,
+                                                     derham_h=derham_h,
+                                                     derham=derham,
+                                                     annulus_h=annulus_h)
     B_h_coeffs = array_to_psydac(B_h_coeffs_arr, derham_h.V1.vector_space)
     B_h = FemField(derham_h.V1, coeffs=B_h_coeffs)
 
@@ -190,17 +177,7 @@ def test_magnetostatic_pbm_manufactured():
     assert abs( B_h_eval[0][1][2,1] - (0.75-1)**2 * (0.75+1)) < 0.01
 
 def test_magnetostatic_pbm_inner_curve():
-    logical_domain = Square(name='logical_domain', bounds1=(0,1), bounds2=(0,2*np.pi))
-    boundary_logical_domain = Union(logical_domain.get_boundary(axis=0, ext=-1),
-                                    logical_domain.get_boundary(axis=0, ext=1))
-    logical_domain = Domain(name='logical_domain',
-                            interiors=logical_domain.interior,
-                            boundaries=boundary_logical_domain,
-                            dim=2)
-    polar_mapping = PolarMapping(name='polar_mapping', dim=2, c1=0., c2=0.,
-                                 rmin=1.0, rmax=2.0)
-    annulus = polar_mapping(logical_domain)
-    derham = Derham(domain=annulus, sequence=['H1', 'Hdiv', 'L2'])
+    annulus, derham = _create_domain_and_derham()
 
     ncells = [10,10]
     annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
@@ -221,6 +198,8 @@ def test_magnetostatic_pbm_inner_curve():
                             interiors=logical_domain_gamma.interior,
                             boundaries=boundary_logical_domain_gamma,
                             dim=2)
+    polar_mapping = PolarMapping(name='polar_mapping', dim=2, c1=0., c2=0.,
+                                 rmin=1.0, rmax=2.0)
     omega_gamma = polar_mapping(logical_domain_gamma)
     derham_gamma = Derham(domain=omega_gamma, sequence=['H1', 'Hdiv', 'L2'])
 
@@ -242,7 +221,11 @@ def test_magnetostatic_pbm_inner_curve():
     c_0 = -1.125*np.pi
     rhs_curve_integral = c_0 + np.dot(inner_prod_J_h_vec, psi_h_gamma_coeffs)
 
-    B_h_coeffs_arr = solve_magnetostatic_pbm_annulus(J=J, f=f, psi_h=psi_h, rhs_curve_integral=rhs_curve_integral)
+    B_h_coeffs_arr = solve_magnetostatic_pbm_annulus(f=f, psi_h=psi_h, rhs_curve_integral=rhs_curve_integral,
+                                                     derham=derham,
+                                                     derham_h=derham_h,
+                                                     annulus_h=annulus_h)
+
     B_h_coeffs = array_to_psydac(B_h_coeffs_arr, derham_h.V1.vector_space)
     B_h = FemField(derham_h.V1, coeffs=B_h_coeffs)
 

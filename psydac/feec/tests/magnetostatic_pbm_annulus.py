@@ -36,6 +36,7 @@ from psydac.linalg.utilities import array_to_psydac
 
 from scipy.sparse._lil import lil_matrix
 from scipy.sparse._coo import coo_matrix
+from scipy.sparse._csc import csc_matrix
 
 from sympde.calculus      import grad, dot
 from sympde.expr import BilinearForm, LinearForm, integral
@@ -63,51 +64,56 @@ from scipy.sparse._lil import lil_matrix
 from scipy.sparse.linalg import eigs, spsolve
 from scipy.sparse.linalg import inv
 
+@dataclass
+class _Matrices:
+    M0 : coo_matrix = None
+    M1 : coo_matrix = None
+    M2 : coo_matrix = None
+    P0h : lil_matrix = None
+    P1h : lil_matrix = None
+    P2h : lil_matrix = None
+    D0 : coo_matrix = None
+    D1 : coo_matrix = None
+    D2 : coo_matrix = None
+    D0_h : csr_matrix = None
+    D1_h : csr_matrix = None
+    S_h_tilde : csc_matrix = None
 
-
-def solve_magnetostatic_pbm_annulus(J: sympy.Expr, f : sympy.Tuple, 
-                                    psi_h : FemField, rhs_curve_integral: float):
+def solve_magnetostatic_pbm_annulus(f : sympy.Tuple, 
+                                    psi_h : FemField, rhs_curve_integral: float,
+                                    derham_h: DiscreteDerham,
+                                    derham: Derham,
+                                    annulus_h: Geometry):
     logger_magnetostatic = logging.getLogger(name='solve_magnetostatic_pbm_annulus')
-    logical_domain = Square(name='logical_domain', bounds1=(0,1), bounds2=(0,2*np.pi))
-    boundary_logical_domain = Union(logical_domain.get_boundary(axis=0, ext=-1),
-                                    logical_domain.get_boundary(axis=0, ext=1))
-    logical_domain = Domain(name='logical_domain', 
-                            interiors=logical_domain.interior,
-                            boundaries=boundary_logical_domain,
-                            dim=2)
-    polar_mapping = PolarMapping(name='polar_mapping', dim=2, c1=0., c2=0., 
-                                 rmin=1.0, rmax=2.0)
-    annulus = polar_mapping(logical_domain)
-    derham = Derham(domain=annulus, sequence=['H1', 'Hdiv', 'L2'])
 
-    ncells = [10,10]
-    annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
-    derham_h = discretize(derham, annulus_h, degree=[2,2])
-    assert isinstance(derham_h, DiscreteDerham)
-
+    matrices = _Matrices()
     D0_block_operator, D1_block_operator = derham_h.derivatives_as_matrices
-    D0_mat = D0_block_operator.tosparse()
-    D1_mat = D1_block_operator.tosparse()
-    assert isinstance(D0_mat, coo_matrix)
-    assert isinstance(D1_mat, coo_matrix)
+    matrices.D0 = D0_block_operator.tosparse()
+    matrices.D1 = D1_block_operator.tosparse()
+    assert isinstance(matrices.D0, coo_matrix)
+    assert isinstance(matrices.D1, coo_matrix)
 
-    M0, M1, M2 = assemble_mass_matrices(derham, derham_h, annulus_h)
-    assert isinstance(M0, coo_matrix)
-    assert isinstance(M1, coo_matrix)
-    assert isinstance(M2, coo_matrix)
+    matrices.M0, matrices.M1, matrices.M2 = assemble_mass_matrices(derham, derham_h, annulus_h)
+    assert isinstance(matrices.M0, coo_matrix)
+    assert isinstance(matrices.M1, coo_matrix)
+    assert isinstance(matrices.M2 , coo_matrix)
 
-    P0_h_mat = projection_matrix_H1_homogeneous_bc(derham_h.V0)
-    P1_h_mat = projection_matrix_Hdiv_homogeneous_bc(derham_h.V1)
-    assert isinstance(P0_h_mat, lil_matrix)
-    assert isinstance(P1_h_mat, lil_matrix)
+    matrices.P0h = projection_matrix_H1_homogeneous_bc(derham_h.V0)
+    matrices.P1h = projection_matrix_Hdiv_homogeneous_bc(derham_h.V1)
+    assert isinstance(matrices.P0h, lil_matrix)
+    assert isinstance(matrices.P1h, lil_matrix)
     alpha = 10
     I1 = scipy.sparse.eye(derham_h.V1.nbasis, format='lil')
-    S_h_tilde_mat = alpha * (I1 - P1_h_mat).transpose() @ M1 @ (I1 - P1_h_mat)
-    D0_h_mat = D0_mat @ P0_h_mat
-    D1_h_mat = D1_mat @ P1_h_mat
-    
-    harmonic_block = _assemble_harmonic_block(M0, M1, M2, P1_h_mat, alpha, S_h_tilde_mat, D0_h_mat, D1_h_mat)
+    matrices.S_h_tilde = (I1 - matrices.P1h).transpose() @ matrices.M1 @ (I1 - matrices.P1h)
+    matrices.D0_h = matrices.D0 @ matrices.P0h
+    matrices.D1_h = matrices.D1 @ matrices.P1h
+    assert isinstance(matrices.D0_h, csr_matrix), f"type(D0_h_mat):{type(matrices.D0_h)}"
+    assert isinstance(matrices.D1_h, csr_matrix)
+    assert isinstance(matrices.S_h_tilde, csc_matrix), f"type(S_h_tilde_mat):{type(matrices.S_h_tilde)}"
 
+    harmonic_block = _assemble_harmonic_block(matrices=matrices, alpha=alpha)
+
+    annulus = annulus_h.domain
     u, v = top.elements_of(derham.V1, names='u v')
     l_f = LinearForm(v, integral(annulus, dot(f,v)))
     l_f_h = discretize(l_f, annulus_h, space=derham_h.V1)
@@ -115,23 +121,23 @@ def solve_magnetostatic_pbm_annulus(J: sympy.Expr, f : sympy.Tuple,
     f_tilde_h_block : BlockVector = l_f_h.assemble()
     f_tilde_h = f_tilde_h_block.toarray()
     assert isinstance(f_tilde_h, np.ndarray)
-    f_h = P1_h_mat.transpose() @ f_tilde_h
+    f_h = matrices.P1h.transpose() @ f_tilde_h
     assert isinstance(f_h, np.ndarray)
 
     psi_h_coeffs = psi_h.coeffs.toarray()
     assert isinstance(psi_h_coeffs, np.ndarray)
-    curl_psi_h_coeffs = D0_mat @ psi_h_coeffs
+    curl_psi_h_coeffs = matrices.D0 @ psi_h_coeffs
     curl_psi_h_mat = csr_matrix(curl_psi_h_coeffs)
     curl_psi_h_mat = curl_psi_h_mat.transpose()
     logger_magnetostatic.debug('curl_psi_h_mat.shape:%s\n', curl_psi_h_mat.shape)
 
     curve_integral_rhs_arr = np.array([rhs_curve_integral])
 
-    DD_tilde_mat = D1_h_mat.transpose() @ M2 @ D1_h_mat
+    DD_tilde_mat = matrices.D1_h.transpose() @ matrices.M2  @ matrices.D1_h
 
-    A_mat = bmat([[M0 , -D0_h_mat.transpose() @ M1, None],
-                  [M1 @ D0_h_mat,  DD_tilde_mat  + alpha * S_h_tilde_mat, harmonic_block],
-                  [None, curl_psi_h_mat.transpose() @ M1 , None]])
+    A_mat = bmat([[matrices.M0 , -matrices.D0_h.transpose() @ matrices.M1, None],
+                  [matrices.M1 @ matrices.D0_h,  DD_tilde_mat  + alpha * matrices.S_h_tilde, harmonic_block],
+                  [None, curl_psi_h_mat.transpose() @ matrices.M1 , None]])
     
     rhs = np.concatenate((np.zeros(derham_h.V0.nbasis), f_h, curve_integral_rhs_arr))
     A_mat = csr_matrix(A_mat) # Why is this not transforming into a CSR matrix?
@@ -139,16 +145,16 @@ def solve_magnetostatic_pbm_annulus(J: sympy.Expr, f : sympy.Tuple,
     sol = spsolve(A_mat, rhs)
     return sol[derham_h.V0.nbasis:-1]
 
-def _assemble_harmonic_block(M0, M1, M2, P1_h_mat, alpha, S_h_mat, D0_h_mat, D1_h_mat):
-    summand1 = D0_h_mat @ inv(M0) @ D0_h_mat.transpose() @ M1
-    summand2 = inv(M1) @ D1_h_mat.transpose() @ M2 @ D1_h_mat
-    summand3 = alpha * inv(M1) @ S_h_mat
+def _assemble_harmonic_block(matrices: _Matrices, alpha):
+    summand1 = matrices.D0_h @ inv(matrices.M0) @ matrices.D0_h.transpose() @ matrices.M1
+    summand2 = inv(matrices.M1) @ matrices.D1_h.transpose() @ matrices.M2 @ matrices.D1_h
+    summand3 = alpha * inv(matrices.M1) @ matrices.S_h_tilde
     # Matrix representation of stabilized Hodge laplacian from primal 
     # to dual basis (29.5. REALLY?)
     L_h = summand1 + summand2 + summand3
     eig_val, eig_vec = eigs(L_h, sigma=0.001)
     harmonic_form_coeffs = eig_vec[:,0]
-    harmonic_block = csr_matrix( P1_h_mat.transpose() @ M1 @ harmonic_form_coeffs)
+    harmonic_block = csr_matrix( matrices.P1h.transpose() @ matrices.M1 @ harmonic_form_coeffs)
     harmonic_block = harmonic_block.transpose()
     return harmonic_block
 
