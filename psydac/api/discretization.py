@@ -216,7 +216,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
         The number of quadrature points in each direction.
 
     basis: str
-        The type of basis function can be 'b' for b-splines or 'M' for M-splines.
+        The type of basis function can be 'B' for B-splines or 'M' for M-splines.
 
     sequence: str
         The sequence used to reduce the space. The available choices are:
