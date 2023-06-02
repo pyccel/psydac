@@ -89,6 +89,10 @@ class TensorFemSpace( FemSpace ):
         # Compute extended 1D quadrature grids (local to process) along each direction
         self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, nquads=q)
                                   for V,s,e,q in zip( self.spaces, starts, ends, self._nquads ) )
+        
+        # TODO [YG 02.06.2023]: Use dictionary and setter
+        #self._quad_grids = tuple({q: FemAssemblyGrid(V, s, e, nderiv=V.degree, nquads=q)}
+        #                          for V, s, e, q in zip( self.spaces, starts, ends, self._nquads))
 
         # Determine portion of logical domain local to process
         self._element_starts = starts
@@ -744,6 +748,26 @@ class TensorFemSpace( FemSpace ):
 
         """
         return self._quad_grids
+
+    # TODO [YG 02.06.2023]: Replace nquads and quad_grids properties with this method:
+    def get_quadrature_grids(self, *nquads):
+        assert len(nquads) == self.ndims
+        assert all(isinstance(nq, int) for nq in nquads)
+        quad_grids = [None, None, None]
+        for i, nq in enumerate(nquads):
+            # Get a reference to the local dictionary of FemAssemblyGrid along direction i
+            quad_grids_dict_i = self._quad_grids[i]
+            # If there is no FemAssemblyGrid for the required number of quadrature points,
+            # create a new FemAssemblyGrid and store it in the local dictionary.
+            if nq not in quad_grids_dict_i:
+                V = self.spaces[i]
+                s = self.starts[i]
+                e = self.ends  [i]
+                quad_grids_dict_i[nq] = FemAssemblyGrid(V, s, e, nderiv=V.degree, nquads=nq)
+            # Store the required FemAssemblyGrid in the list
+            quad_grids[i] = quad_grids_dict_i[nq]
+        # Return a tuple with the FemAssemblyGrid objects
+        return tuple(quad_grids)
 
     @property
     def local_domain( self ):
