@@ -32,8 +32,6 @@ jobs:
         python -m pip install -U sphinx
         python -m pip install pydata_sphinx_theme
         python -m pip install numpydoc
-        python -m pip install btd.sphinx.inheritance_diagram
-        python -m pip install graphviz
         python -m pip install tomli
     - name: Make the sphinx doc
       run: |
