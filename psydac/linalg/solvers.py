@@ -135,14 +135,12 @@ class ConjugateGradient(InverseLinearOperator):
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
                 assert value is not None, "tol may not be None"
-                assert value*0 == 0, "tol must be a real number"
+                assert value.real == value, "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif key == 'maxiter':
-                assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
             elif key == 'verbose':
-                assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
@@ -171,16 +169,10 @@ class ConjugateGradient(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
-            Converged solution.
-
-        info : dict
-            Dictionary containing convergence information:
-            - 'niter'    = (int) number of iterations
-            - 'success'  = (boolean) whether convergence criteria have been met
-            - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+            Numerical solution of the linear system. To check the convergence of the solver, inspect InverseLinearOperator._info
 
         References
         ----------
@@ -335,15 +327,13 @@ class PConjugateGradient(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
-                assert value is not None, "tol may not be None"
-                assert value*0 == 0, "tol must be a real number"
+                assert value is not None, "tol cannot be None"
+                assert value.real == value, "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif key == 'maxiter':
-                assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
             elif key == 'verbose':
-                assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
@@ -372,13 +362,7 @@ class PConjugateGradient(InverseLinearOperator):
         Returns
         -------
         x : psydac.linalg.basic.Vector
-            Converged solution.
-
-        info : dict
-            Dictionary containing convergence information:
-            - 'niter'    = (int) number of iterations
-            - 'success'  = (boolean) whether convergence criteria have been met
-            - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+            Numerical solution of the linear system. To check the convergence of the solver, inspect InverseLinearOperator._info
 
         """
 
@@ -548,15 +532,13 @@ class BiConjugateGradient(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
-                assert value is not None, "tol may not be None"
-                assert value*0 == 0, "tol must be a real number"
+                assert value is not None, "tol cannot be None"
+                assert value.real == value, "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif key == 'maxiter':
-                assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
             elif key == 'verbose':
-                assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
@@ -584,16 +566,10 @@ class BiConjugateGradient(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
-            Numerical solution of linear system.
-
-        info : dict
-            Dictionary containing convergence information:
-            - 'niter'    = (int) number of iterations
-            - 'success'  = (boolean) whether convergence criteria have been met
-            - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+            Numerical solution of linear system. To check the convergence of the solver, inspect InverseLinearOperator._info
 
         References
         ----------
@@ -785,16 +761,13 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif true_idx == 1:
-                assert value is not None, "tol may not be None"
-                # don't know if that one works -want to check if value is a number
-                assert value*0 == 0, "tol must be a real number"
+                assert value is not None, "tol cannot be None"
+                assert value.real == value, "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif true_idx == 2:
-                assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
             elif true_idx == 3:
-                assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
 
     def _update_options( self ):
@@ -821,15 +794,10 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
-            Numerical solution of linear system.
-        info : dict
-            Dictionary containing convergence information:
-              - 'niter'    = (int) number of iterations
-              - 'success'  = (boolean) whether convergence criteria have been met
-              - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+            Numerical solution of linear system. To check the convergence of the solver, inspect InverseLinearOperator._info
 
         References
         ----------
@@ -1043,15 +1011,13 @@ class MinimumResidual(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
-                assert value is not None, "tol may not be None"
-                assert value*0 == 0, "tol must be a real number"
+                assert value is not None, "tol cannot be None"
+                assert value.real == value, "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif key == 'maxiter':
-                assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
             elif key == 'verbose':
-                assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
@@ -1080,15 +1046,11 @@ class MinimumResidual(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
-            Numerical solution of linear system.
-        info : dict
-            Dictionary containing convergence information:
-            - 'niter'    = (int) number of iterations
-            - 'success'  = (boolean) whether convergence criteria have been met
-            - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+            Numerical solution of linear system. To check the convergence of the solver, inspect InverseLinearOperator._info
+
         Notes
         -----
         This is an adaptation of the MINRES Solver in Scipy, where the method is modified to accept Psydac data structures,
@@ -1406,22 +1368,20 @@ class LSMR(InverseLinearOperator):
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
                 if value is not None:
-                    assert value*0 == 0, "tol must be a real number"
+                    assert value.real == value, "tol must be a real number"
                     assert value > 0, "tol must be positive" # suppose atol/btol must also be positive numbers
             elif key == 'atol' or key == 'btol':
                 if value is not None:
                     assert value*0 == 0, "atol/btol must be a real number"
                     assert value >= 0, "atol/btol must not be negative"
             elif key == 'maxiter':
-                assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
             elif key == 'conlim':
-                assert value is not None, "conlim may not be None"
-                assert value*0 == 0, "conlim must be a real number" # actually an integer?
+                assert value is not None, "conlim cannot be None"
+                assert value.real == value, "conlim must be a real number" # actually an integer?
                 assert value > 0, "conlim must be positive" # supposedly
             elif key == 'verbose':
-                assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
@@ -1452,16 +1412,10 @@ class LSMR(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
-            Numerical solution of linear system.
-
-        info : dict
-            Dictionary containing convergence information:
-            - 'niter'    = (int) number of iterations
-            - 'success'  = (boolean) whether convergence criteria have been met
-            - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+            Numerical solution of linear system. To check the convergence of the solver, inspect InverseLinearOperator._info
 
         Notes
         -----
@@ -1797,15 +1751,13 @@ class GMRES(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
-                assert value is not None, "tol may not be None"
-                assert value*0 == 0, "tol must be a real number"
+                assert value is not None, "tol cannot be None"
+                assert value.real == value, "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif key == 'maxiter':
-                assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
             elif key == 'verbose':
-                assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
@@ -1819,7 +1771,7 @@ class GMRES(InverseLinearOperator):
     def solve(self, b, out=None):
         """
         Generalized minimum residual algorithm for solving linear system Ax=b.
-        Implementation from Wikipedia
+        Implementation from Wikipedia.
         Info can be accessed using get_info(), see :func:~`basic.InverseLinearOperator.get_info`.
 
         Parameters
@@ -1833,20 +1785,15 @@ class GMRES(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
-            Converged solution.
-
-        info : dict
-            Dictionary containing convergence information:
-            - 'niter'    = (int) number of iterations
-            - 'success'  = (boolean) whether convergence criteria have been met
-            - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
-
+            Numerical solution of the linear system. To check the convergence of the solver, inspect InverseLinearOperator._info
+        
         References
         ----------
-
+        [1] Y. Saad and M.H. Schultz, "GMRES: A generalized minimal residual algorithm for solving nonsymmetric linear systems", SIAM J. Sci. Stat. Comput., 7:856–869, 1986.
+        
         """
 
         A = self._A
@@ -1886,7 +1833,8 @@ class GMRES(InverseLinearOperator):
 
         am = r.dot(r).real ** 0.5
         beta.append(am)
-        Q.append(- r / am)       
+        r *= - 1 / am
+        Q.append(r)       
 
         if verbose:
             print( "GMRES solver:" )
@@ -1960,7 +1908,10 @@ class GMRES(InverseLinearOperator):
         h[k+1] = p.dot(p).real ** 0.5
         p /= h[k+1] # Normalize vector
 
-        Q.append(p.copy())
+        if len(Q) > k:
+            p.copy(out = Q[k+1])
+        else:
+            Q.append(p.copy())
 
 
     def apply_givens_rotation(self, k, sn, cn):
@@ -1986,3 +1937,4 @@ class GMRES(InverseLinearOperator):
 
     def dot(self, b, out=None):
         return self.solve(b, out=out)
+    
