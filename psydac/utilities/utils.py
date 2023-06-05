@@ -4,7 +4,7 @@
 
 import numpy as np
 
-__all__ = ['refine_array_1d', 'unroll_edges', 'split_space', 'split_field', 'animate_field']
+__all__ = ('refine_array_1d', 'unroll_edges', 'split_space', 'split_field', 'animate_field')
 
 #===============================================================================
 def refine_array_1d(x, n, remove_duplicates=True):

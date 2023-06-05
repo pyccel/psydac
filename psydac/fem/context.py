@@ -10,7 +10,7 @@ from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.mapping.discrete import SplineMapping
 
-__all__ = ['fem_context']
+__all__ = ('fem_context',)
 
 #==============================================================================
 def fem_context( filename, comm=MPI.COMM_WORLD ):

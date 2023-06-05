@@ -7,8 +7,8 @@ from abc   import ABC, abstractmethod
 from scipy.sparse import coo_matrix
 import numpy as np
 
-__all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'ZeroOperator', 'IdentityOperator', 'ScaledLinearOperator',
-           'SumLinearOperator', 'ComposedLinearOperator', 'PowerLinearOperator', 'InverseLinearOperator', 'LinearSolver']
+__all__ = ('VectorSpace', 'Vector', 'LinearOperator', 'ZeroOperator', 'IdentityOperator', 'ScaledLinearOperator',
+           'SumLinearOperator', 'ComposedLinearOperator', 'PowerLinearOperator', 'InverseLinearOperator', 'LinearSolver')
 
 #===============================================================================
 class VectorSpace(ABC):

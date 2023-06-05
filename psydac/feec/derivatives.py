@@ -13,7 +13,7 @@ from psydac.fem.basic       import FemField
 from psydac.linalg.basic    import LinearOperator
 from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
 
-__all__ = [
+__all__ = (
     'DirectionalDerivativeOperator',
     'DiffOperator',
     'Derivative_1D',
@@ -25,7 +25,7 @@ __all__ = [
     'Divergence_2D',
     'Divergence_3D',
     'block_tostencil'
-]
+)
 
 #====================================================================================================
 def block_tostencil(M):

@@ -4,7 +4,7 @@ from pyevtk.vtk import (VtkPUnstructuredGrid,
                         )
 from pyevtk.hl import _addDataToParallelFile
 
-__all__ = ['writeParallelVTKUnstructuredGrid']
+__all__ = ('writeParallelVTKUnstructuredGrid',)
 
 def writeParallelVTKUnstructuredGrid(
     path, coordsdtype, sources, ghostlevel=0, cellData=None, pointData=None

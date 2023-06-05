@@ -5,7 +5,7 @@ from math                  import sqrt
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from psydac.linalg.block   import BlockVector, BlockVectorSpace
 
-__all__ = ['array_to_psydac', 'petsc_to_psydac', '_sym_ortho']
+__all__ = ('array_to_psydac', 'petsc_to_psydac', '_sym_ortho')
 
 def array_to_psydac(x, Xh):
     """ converts a numpy array to StencilVector or BlockVector format"""

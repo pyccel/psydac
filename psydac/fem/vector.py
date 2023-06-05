@@ -18,7 +18,7 @@ from psydac.core.kernels import (pushforward_2d_hdiv,
                                  pushforward_2d_hcurl,
                                  pushforward_3d_hcurl)
 
-__all__ = ['VectorFemSpace', 'ProductFemSpace']
+__all__ = ('VectorFemSpace', 'ProductFemSpace')
 
 #===============================================================================
 class VectorFemSpace( FemSpace ):

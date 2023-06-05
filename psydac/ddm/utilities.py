@@ -5,7 +5,7 @@ from .blocking_data_exchanger    import BlockingCartDataExchanger
 from .nonblocking_data_exchanger import NonBlockingCartDataExchanger
 from .interface_data_exchanger   import InterfaceCartDataExchanger
 
-__all__ = ['get_data_exchanger']
+__all__ = ('get_data_exchanger',)
 
 def get_data_exchanger(cart, dtype, *, coeff_shape=(),  assembly=False, axis=None, shape=None, blocking=True):
 

@@ -9,12 +9,12 @@ from mpi4py    import MPI
 from psydac.ddm.partition import compute_dims, partition_procs_per_patch
 
 
-__all__ = ['find_mpi_type',
+__all__ = ('find_mpi_type',
            'MultiPatchDomainDecomposition',
            'DomainDecomposition',
            'CartDecomposition',
            'InterfaceCartDecomposition',
-           'create_interfaces_cart']
+           'create_interfaces_cart')
 
 #===============================================================================
 def find_mpi_type( dtype ):

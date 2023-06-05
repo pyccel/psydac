@@ -9,7 +9,7 @@ with weights equal to 1
 
 import numpy as np
 
-__all__ = ['gauss_legendre', 'gauss_lobatto', 'quadrature']
+__all__ = ('gauss_legendre', 'gauss_lobatto', 'quadrature')
 
 # ....
 def gauss_legendre(ordergl,tol=10e-14):

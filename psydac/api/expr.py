@@ -19,7 +19,7 @@ from psydac.fem.splines       import SplineSpace
 from psydac.fem.tensor        import TensorFemSpace
 from psydac.fem.vector        import ProductFemSpace
 
-__all__ = ['DiscreteExpr']
+__all__ = ('DiscreteExpr',)
 #==============================================================================
 class DiscreteExpr(BasicCodeGen):
 

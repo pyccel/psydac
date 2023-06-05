@@ -9,7 +9,7 @@ import numpy as np
 from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator, IdentityOperator, ScaledLinearOperator
 from psydac.linalg.utilities import _sym_ortho
 
-__all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'BiConjugateGradientStabilized', 'MinimumResidual', 'LSMR']
+__all__ = ('ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'BiConjugateGradientStabilized', 'MinimumResidual', 'LSMR')
 
 def inverse(A, solver, **kwargs):
     """

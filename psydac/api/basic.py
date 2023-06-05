@@ -17,7 +17,7 @@ from psydac.api.printing.pycode import pycode
 from psydac.api.settings        import PSYDAC_BACKENDS, PSYDAC_DEFAULT_FOLDER
 from psydac.api.utilities       import mkdir_p, touch_init_file, random_string, write_code
 
-__all__ = ['BasicCodeGen', 'BasicDiscrete']
+__all__ = ('BasicCodeGen', 'BasicDiscrete')
 
 #==============================================================================
 # TODO have it as abstract class

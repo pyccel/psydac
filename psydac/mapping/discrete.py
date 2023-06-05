@@ -22,7 +22,7 @@ from psydac.core.kernels import (pushforward_2d_l2, pushforward_3d_l2,
                                  pushforward_2d_hdiv, pushforward_3d_hdiv,
                                  pushforward_2d_hcurl, pushforward_3d_hcurl)
 
-__all__ = ['SplineMapping', 'NurbsMapping']
+__all__ = ('SplineMapping', 'NurbsMapping')
 
 #==============================================================================
 def random_string(n):

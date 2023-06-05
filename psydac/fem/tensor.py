@@ -40,7 +40,7 @@ from psydac.core.kernels import (eval_fields_2d_no_weights,
                                  eval_fields_3d_weighted,
                                  eval_fields_3d_irregular_weighted)
 
-__all__ = ['TensorFemSpace']
+__all__ = ('TensorFemSpace',)
 
 #===============================================================================
 class TensorFemSpace( FemSpace ):

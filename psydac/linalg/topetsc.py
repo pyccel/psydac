@@ -6,7 +6,7 @@ from scipy.sparse import coo_matrix, bmat
 
 from mpi4py import MPI
 
-__all__ = ['flatten_vec', 'vec_topetsc', 'mat_topetsc']
+__all__ = ('flatten_vec', 'vec_topetsc', 'mat_topetsc')
 
 def flatten_vec( vec ):
     """ Return the flattened 1D array values and indices owned by the process of the given vector.

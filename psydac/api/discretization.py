@@ -40,7 +40,7 @@ from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 
-__all__ = ['discretize', 'discretize_derham', 'reduce_space_degrees', 'discretize_space', 'discretize_domain']
+__all__ = ('discretize', 'discretize_derham', 'reduce_space_degrees', 'discretize_space', 'discretize_domain')
 
 #==============================================================================           
 def discretize_derham(derham, domain_h, *args, **kwargs):
