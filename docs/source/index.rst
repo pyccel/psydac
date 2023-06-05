@@ -13,7 +13,6 @@ Contents
    
    modules
    examples
-   modules_autodoc
 
 .. _note:
 .. note::
