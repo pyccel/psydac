@@ -63,7 +63,7 @@ def get_grid_lines_2d(domain_h, V_h, *, refine=1):
             - 'eta2' : value of eta2 on the curve
             - 'x'    : x coordinates of N points along the curve
             - 'y'    : y coordinates of N points along the curve
-    
+
     """
     # Check that domain is of correct type and contains only one patch
     assert isinstance(domain_h, Geometry)
@@ -296,8 +296,9 @@ class OutputManager:
         femspaces: dict
             Named femspaces
 
-        Note:
-            * Femspaces are added to ``self._space_info``.
+        Notes
+        -----
+        Femspaces are added to ``self._space_info``.
         
         """
         assert all(isinstance(femspace, FemSpace) for femspace in femspaces.values())
