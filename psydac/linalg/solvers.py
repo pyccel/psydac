@@ -11,6 +11,10 @@ from psydac.linalg.utilities import _sym_ortho
 
 __all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'BiConjugateGradientStabilized', 'MinimumResidual', 'LSMR', 'GMRES']
 
+def is_real(x):
+    from numbers import Number
+    return isinstance(x, Number) and np.isrealobj(x) and not isinstance(x, bool)
+
 def inverse(A, solver, **kwargs):
     """
     A function to create objects of all InverseLinearOperator subclasses.
@@ -134,8 +138,7 @@ class ConjugateGradient(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
-                assert value is not None, "tol may not be None"
-                assert value.real == value, "tol must be a real number"
+                assert is_real(value), "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif key == 'maxiter':
                 assert isinstance(value, int), "maxiter must be an int"
@@ -327,8 +330,7 @@ class PConjugateGradient(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
-                assert value is not None, "tol cannot be None"
-                assert value.real == value, "tol must be a real number"
+                assert is_real(value), "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif key == 'maxiter':
                 assert isinstance(value, int), "maxiter must be an int"
@@ -532,8 +534,7 @@ class BiConjugateGradient(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
-                assert value is not None, "tol cannot be None"
-                assert value.real == value, "tol must be a real number"
+                assert is_real(value), "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif key == 'maxiter':
                 assert isinstance(value, int), "maxiter must be an int"
@@ -761,8 +762,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif true_idx == 1:
-                assert value is not None, "tol cannot be None"
-                assert value.real == value, "tol must be a real number"
+                assert is_real(value), "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif true_idx == 2:
                 assert isinstance(value, int), "maxiter must be an int"
@@ -1011,8 +1011,7 @@ class MinimumResidual(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
-                assert value is not None, "tol cannot be None"
-                assert value.real == value, "tol must be a real number"
+                assert is_real(value), "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif key == 'maxiter':
                 assert isinstance(value, int), "maxiter must be an int"
@@ -1368,18 +1367,17 @@ class LSMR(InverseLinearOperator):
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
                 if value is not None:
-                    assert value.real == value, "tol must be a real number"
+                    assert is_real(value), "tol must be a real number"
                     assert value > 0, "tol must be positive" # suppose atol/btol must also be positive numbers
             elif key == 'atol' or key == 'btol':
                 if value is not None:
-                    assert value*0 == 0, "atol/btol must be a real number"
+                    assert is_real(value), "atol/btol must be a real number"
                     assert value >= 0, "atol/btol must not be negative"
             elif key == 'maxiter':
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
             elif key == 'conlim':
-                assert value is not None, "conlim cannot be None"
-                assert value.real == value, "conlim must be a real number" # actually an integer?
+                assert is_real(value), "conlim must be a real number" # actually an integer?
                 assert value > 0, "conlim must be positive" # supposedly
             elif key == 'verbose':
                 assert isinstance(value, bool), "verbose must be a bool"
@@ -1739,6 +1737,7 @@ class GMRES(InverseLinearOperator):
 
         # Initialize upper Hessenberg matrix
         self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]), dtype=A.dtype)
+        self._Q = []
 
         self._info = None
         
@@ -1751,8 +1750,7 @@ class GMRES(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
-                assert value is not None, "tol cannot be None"
-                assert value.real == value, "tol must be a real number"
+                assert is_real(value), "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif key == 'maxiter':
                 assert isinstance(value, int), "maxiter must be an int"
@@ -1822,7 +1820,7 @@ class GMRES(InverseLinearOperator):
 
         # Internal objects of GMRES
         H = self._H
-        Q = []
+        Q = self._Q
         beta = []
         sn = []
         cn = []
@@ -1908,8 +1906,9 @@ class GMRES(InverseLinearOperator):
         h[k+1] = p.dot(p).real ** 0.5
         p /= h[k+1] # Normalize vector
 
-        if len(Q) > k:
+        if len(Q) > k + 1:
             p.copy(out = Q[k+1])
+            #Q.append(p.copy())
         else:
             Q.append(p.copy())
 
