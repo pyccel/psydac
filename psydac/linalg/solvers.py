@@ -1819,8 +1819,7 @@ class GMRES(InverseLinearOperator):
         v = self._tmps["v"]
 
         # Internal objects of GMRES
-        H = self._H
-        Q = self._Q
+        self._H[:,:] = 0.
         beta = []
         sn = []
         cn = []
@@ -1832,8 +1831,16 @@ class GMRES(InverseLinearOperator):
         am = r.dot(r).real ** 0.5
         beta.append(am)
         r *= - 1 / am
-        Q.append(r)       
+        
+        
+        if len(self._Q) == 0:
+            self._Q.append(r)
+        else:
+            r.copy(out=self._Q[0])
 
+        b_norm = b.dot(b).real ** 0.5
+        am *= 1 / b_norm
+        
         if verbose:
             print( "GMRES solver:" )
             print( "+---------+---------------------+")
@@ -1848,7 +1855,7 @@ class GMRES(InverseLinearOperator):
                 break
 
             # run Arnoldi
-            self.arnoldi(k, Q)
+            self.arnoldi(k)
 
             # make the last diagonal entry in H equal to 0, so that H becomes upper triangular
             self.apply_givens_rotation(k, sn, cn)
@@ -1857,17 +1864,17 @@ class GMRES(InverseLinearOperator):
             beta.append(- sn[k] * beta[k])
             beta[k] *= cn[k]
 
-            am = abs(beta[k+1])
+            am = abs(beta[k+1]) / b_norm
             if verbose:
                 print( template.format( k+2, am ) )
 
         if verbose:
             print( "+---------+---------------------+")        
         # calculate result
-        y = self.solve_triangular(H[:k, :k], beta[:k]) # system of upper triangular matrix
+        y = self.solve_triangular(self._H[:k, :k], beta[:k]) # system of upper triangular matrix
 
         for i in range(k):
-            Q[i].copy(out=v)
+            self._Q[i].copy(out=v)
             v *= y[i]
             x += v
 
@@ -1889,28 +1896,27 @@ class GMRES(InverseLinearOperator):
         
         return y
 
-    def arnoldi(self, k, Q):
+    def arnoldi(self, k):
         h = self._H[:k+2, k]
 
         p = self._tmps["p"]
-        self._A.dot( Q[k] , out=p) # Krylov vector
+        self._A.dot( self._Q[k] , out=p) # Krylov vector
 
         lv = self._tmps["lv"]
 
         for i in range(k + 1): # Modified Gram-Schmidt, keeping Hessenberg matrix
-            h[i] = p.dot(Q[i])
-            Q[i].copy(out=lv)
+            h[i] = p.dot(self._Q[i])
+            self._Q[i].copy(out=lv)
             lv *= h[i]
             p -= lv
         
         h[k+1] = p.dot(p).real ** 0.5
         p /= h[k+1] # Normalize vector
 
-        if len(Q) > k + 1:
-            p.copy(out = Q[k+1])
-            #Q.append(p.copy())
+        if len(self._Q) > k + 1:
+            p.copy(out=self._Q[k+1])
         else:
-            Q.append(p.copy())
+            self._Q.append(p.copy())
 
 
     def apply_givens_rotation(self, k, sn, cn):
