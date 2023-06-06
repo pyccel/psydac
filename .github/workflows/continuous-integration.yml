@@ -127,7 +127,7 @@ jobs:
           pyccel psydac/core/kernels.py --language c
           pyccel psydac/core/bsplines_pyccel.py --language c
           pyccel psydac/api/ast/linalg_kernels.py --language c
-          pyccel psydac/linalg/kernels.py --language c
+          pyccel psydac/linalg/kernels.py --language fortran
           psydac-accelerate
           python -m pip freeze
 
