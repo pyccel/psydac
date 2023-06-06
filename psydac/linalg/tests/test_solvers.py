@@ -562,8 +562,11 @@ def test_gmres_tridiagonal( n, p, dtype, verbose=False):
     # ---------------------------------------------------------------------------
     # PARAMETERS
     # ---------------------------------------------------------------------------
-
-    V, A, xe = define_data(n, p, [2, -1, -5], dtype=dtype)
+    
+    if dtype==complex:
+        V, A, xe = define_data(n, p, [-7+2j,6+2j,-1-10j],dtype=dtype)
+    else:
+        V, A, xe = define_data(n, p, [-7,-1,3],dtype=dtype)
 
     # Tolerance for success: L2-norm of error in solution
     tol = 1e-10
