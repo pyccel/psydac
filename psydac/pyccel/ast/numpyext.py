@@ -1304,7 +1304,7 @@ class Int64(NumpyInt):
     _precision = dtype_registry['int64'][1]
 
 
-
+# Removed by JO in 06/23 in PR #303: This seems to be dead code which was related to TypeErrors being raised when using Sphinx
 #NumpyArrayClass = ClassDef('numpy.ndarray',
 #        methods=[
 #            FunctionDef('shape',[],[],body=[],
