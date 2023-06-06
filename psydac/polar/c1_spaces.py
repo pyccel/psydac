@@ -26,7 +26,7 @@ def new_c1_vector_space(V, radial_dim=0, angle_dim=1):
     angle_dim : int
         Index of the dimension that corresponds to the 'angle' direction.
 
-    Results
+    Returns
     -------
     P : BlockVectorSpace
         Space of the coefficients of a new finite-element space which has

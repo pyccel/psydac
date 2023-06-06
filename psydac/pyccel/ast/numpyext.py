@@ -1304,20 +1304,20 @@ class Int64(NumpyInt):
     _precision = dtype_registry['int64'][1]
 
 
-
-NumpyArrayClass = ClassDef('numpy.ndarray',
-        methods=[
-            FunctionDef('shape',[],[],body=[],
-                decorators={'property':'property', 'numpy_wrapper':Shape}),
-            FunctionDef('sum',[],[],body=[],
-                decorators={'numpy_wrapper':NumpySum}),
-            FunctionDef('min',[],[],body=[],
-                decorators={'numpy_wrapper':NumpyMin}),
-            FunctionDef('max',[],[],body=[],
-                decorators={'numpy_wrapper':NumpyMax}),
-            FunctionDef('imag',[],[],body=[],
-                decorators={'property':'property', 'numpy_wrapper':Imag}),
-            FunctionDef('real',[],[],body=[],
-                decorators={'property':'property', 'numpy_wrapper':Real}),
-            FunctionDef('diagonal',[],[],body=[],
-                decorators={'numpy_wrapper':Diag})])
+# Removed by JO in 06/23 in PR #303: This seems to be dead code which was related to TypeErrors being raised when using Sphinx
+#NumpyArrayClass = ClassDef('numpy.ndarray',
+#        methods=[
+#            FunctionDef('shape',[],[],body=[],
+#                decorators={'property':'property', 'numpy_wrapper':Shape}),
+#            FunctionDef('sum',[],[],body=[],
+#                decorators={'numpy_wrapper':NumpySum}),
+#            FunctionDef('min',[],[],body=[],
+#                decorators={'numpy_wrapper':NumpyMin}),
+#            FunctionDef('max',[],[],body=[],
+#                decorators={'numpy_wrapper':NumpyMax}),
+#            FunctionDef('imag',[],[],body=[],
+#                decorators={'property':'property', 'numpy_wrapper':Imag}),
+#            FunctionDef('real',[],[],body=[],
+#                decorators={'property':'property', 'numpy_wrapper':Real}),
+#            FunctionDef('diagonal',[],[],body=[],
+#                decorators={'numpy_wrapper':Diag})])

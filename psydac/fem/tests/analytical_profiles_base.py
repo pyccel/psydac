@@ -3,7 +3,7 @@
 
 from abc import ABCMeta, abstractmethod
 
-__all__ = ['AnalyticalProfile']
+__all__ = ('AnalyticalProfile',)
 
 #===============================================================================
 class AnalyticalProfile( metaclass=ABCMeta ):

@@ -9,18 +9,14 @@ import numpy as np
 from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator, IdentityOperator, ScaledLinearOperator
 from psydac.linalg.utilities import _sym_ortho
 
-__all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'BiConjugateGradientStabilized', 'MinimumResidual', 'LSMR']
+__all__ = ('ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'BiConjugateGradientStabilized', 'MinimumResidual', 'LSMR')
 
 def inverse(A, solver, **kwargs):
     """
     A function to create objects of all InverseLinearOperator subclasses.
-    14.02.23: ConjugateGradient, PConjugateGradient, BiConjugateGradient, MinimumResidual, LSMR
-    The ''kwargs given must be compatible with the chosen solver subclass, see
-    :func:~`solvers.ConjugateGradient`
-    :func:~`solvers.PConjugateGradient`
-    :func:~`solvers.BiConjugateGradient`
-    :func:~`solvers.MinimumResidual`
-    :func:~`solvers.LSMR`
+    These are, as of May 03, 2023:
+    ConjugateGradient, PConjugateGradient, BiConjugateGradient, BiConjugateGradientStabilized, MinimumResidual, LSMR
+    The kwargs given must be compatible with the chosen solver subclass.
     
     Parameters
     ----------
@@ -30,7 +26,7 @@ def inverse(A, solver, **kwargs):
         function (i.e. matrix-vector product A*p).
 
     solver : str
-        14.02.23: Either 'cg', 'pcg', 'bicg', 'minres' or 'lsmr'
+        Either 'cg', 'pcg', 'bicg', 'bicgstab', 'minres' or 'lsmr'
         Indicating the preferred iterative solver.
 
     Returns
@@ -90,7 +86,7 @@ class ConjugateGradient(InverseLinearOperator):
     tol : float
         Absolute tolerance for L2-norm of residual r = A*x - b.
 
-    maxiter: int
+    maxiter : int
         Maximum number of iterations.
 
     verbose : bool
@@ -168,7 +164,7 @@ class ConjugateGradient(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
             Converged solution.
@@ -569,6 +565,7 @@ class BiConjugateGradient(InverseLinearOperator):
         Biconjugate gradient (BCG) algorithm for solving linear system Ax=b.
         Implementation from [1], page 175.
         Info can be accessed using get_info(), see :func:~`basic.InverseLinearOperator.get_info`.
+        ToDo: Add optional preconditioner
 
         Parameters
         ----------
@@ -581,7 +578,7 @@ class BiConjugateGradient(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
             Numerical solution of linear system.
@@ -595,10 +592,6 @@ class BiConjugateGradient(InverseLinearOperator):
         References
         ----------
         [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
-
-        TODO
-        ----
-        Add optional preconditioner
 
         """
         A = self._A
@@ -807,6 +800,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         """
         Biconjugate gradient stabilized method (BCGSTAB) algorithm for solving linear system Ax=b.
         Implementation from [1], page 175.
+        ToDo: Add optional preconditioner
 
         Parameters
         ----------
@@ -818,10 +812,11 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
             Numerical solution of linear system.
+        
         info : dict
             Dictionary containing convergence information:
               - 'niter'    = (int) number of iterations
@@ -832,10 +827,6 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         ----------
         [1] H. A. van der Vorst. Bi-CGSTAB: A fast and smoothly converging variant of Bi-CG for the
         solution of nonsymmetric linear systems. SIAM J. Sci. Stat. Comp., 13(2):631–644, 1992
-
-        TODO
-        ----
-        Add optional preconditioner
         """
 
         A = self._A
@@ -1003,9 +994,9 @@ class MinimumResidual(InverseLinearOperator):
     References
     ----------
     Solution of sparse indefinite systems of linear equations,
-        C. C. Paige and M. A. Saunders (1975),
-        SIAM J. Numer. Anal. 12(4), pp. 617-629.
-        https://web.stanford.edu/group/SOL/software/minres/
+    C. C. Paige and M. A. Saunders (1975),
+    SIAM J. Numer. Anal. 12(4), pp. 617-629.
+    https://web.stanford.edu/group/SOL/software/minres/
 
     """
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
@@ -1077,15 +1068,17 @@ class MinimumResidual(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
             Numerical solution of linear system.
+        
         info : dict
             Dictionary containing convergence information:
             - 'niter'    = (int) number of iterations
             - 'success'  = (boolean) whether convergence criteria have been met
             - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+
         Notes
         -----
         This is an adaptation of the MINRES Solver in Scipy, where the method is modified to accept Psydac data structures,
@@ -1093,9 +1086,9 @@ class MinimumResidual(InverseLinearOperator):
         References
         ----------
         Solution of sparse indefinite systems of linear equations,
-            C. C. Paige and M. A. Saunders (1975),
-            SIAM J. Numer. Anal. 12(4), pp. 617-629.
-            https://web.stanford.edu/group/SOL/software/minres/
+        C. C. Paige and M. A. Saunders (1975),
+        SIAM J. Numer. Anal. 12(4), pp. 617-629.
+        https://web.stanford.edu/group/SOL/software/minres/
         """
 
         A = self._A
@@ -1361,7 +1354,7 @@ class LSMR(InverseLinearOperator):
     .. [1] D. C.-L. Fong and M. A. Saunders,
            "LSMR: An iterative algorithm for sparse least-squares problems",
            SIAM J. Sci. Comput., vol. 33, pp. 2950-2971, 2011.
-           :arxiv:`1006.0758`
+           arxiv:`1006.0758`
     .. [2] LSMR Software, https://web.stanford.edu/group/SOL/software/lsmr/
     
     """
@@ -1449,7 +1442,7 @@ class LSMR(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
             Numerical solution of linear system.
@@ -1470,7 +1463,7 @@ class LSMR(InverseLinearOperator):
         .. [1] D. C.-L. Fong and M. A. Saunders,
             "LSMR: An iterative algorithm for sparse least-squares problems",
             SIAM J. Sci. Comput., vol. 33, pp. 2950-2971, 2011.
-            :arxiv:`1006.0758`
+            arxiv:`1006.0758`
         .. [2] LSMR Software, https://web.stanford.edu/group/SOL/software/lsmr/
         """
 

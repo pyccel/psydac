@@ -197,7 +197,7 @@ class SplineMapping(BasicCallableMapping):
         """Evaluates the Jacobian matrix of the mapping at the given location(s) grid.
 
         Parameters
-        -----------
+        ----------
         grid : List of array_like
             Grid on which to evaluate the fields
 
@@ -367,7 +367,7 @@ class SplineMapping(BasicCallableMapping):
         """Evaluates the inverse of the Jacobian matrix of the mapping at the given location(s) grid.
 
         Parameters
-        -----------
+        ----------
         grid : List of array_like
             Grid on which to evaluate the fields
 
@@ -538,7 +538,7 @@ class SplineMapping(BasicCallableMapping):
         """Evaluates the Jacobian determinant of the mapping at the given location(s) grid.
 
         Parameters
-        -----------
+        ----------
         grid : List of array_like
             Grid on which to evaluate the fields
 
@@ -1031,21 +1031,21 @@ class NurbsMapping(SplineMapping):
     def inv_jac_mat_regular_tensor_grid(self, grid, overlap=0):
         """Evaluates the inverse of the Jacobian matrix on a regular tensor product grid.
 
-         Parameters
-         ----------
-         grid : List of ndarray
-             List of 1D arrays representing each direction of the grid.
+        Parameters
+        ----------
+        grid : List of ndarray
+            List of 1D arrays representing each direction of the grid.
 
         overlap : int
             How much to overlap. Only used in the distributed context.
 
-         Returns
-         -------
-         inv_jac_mats : ndarray
-             ``self.ldim + 2`` D array of shape ``(n_x_1, ..., n_x_ldim, ldim, ldim)``.
-             ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the Jacobian matrix a
-             at the location corresponding to ``(x_1, ..., x_ldim)``.
-         """
+        Returns
+        -------
+        inv_jac_mats : ndarray
+            ``self.ldim + 2`` D array of shape ``(n_x_1, ..., n_x_ldim, ldim, ldim)``.
+            ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the Jacobian matrix a
+            at the location corresponding to ``(x_1, ..., x_ldim)``.
+        """
 
         from psydac.core.kernels import eval_jacobians_inv_2d_weights, eval_jacobians_inv_3d_weights
 
