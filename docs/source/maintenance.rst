@@ -8,7 +8,7 @@ This section shall serve as a short guide on how to maintain this documentation.
    * :ref:`The structure <structure>`
    * :ref:`Adding or deleting a class or a (public) function to a module <simplechange>`
    * :ref:`Adding or deleting a module <heavychange>`
-   * :ref:`Changing a class or a function within module <nochange>`
+   * :ref:`Changing a class or a function within a module <nochange>`
 
 .. _structure:
 
@@ -74,7 +74,7 @@ Upon adding ``GMRES``, the ``docs/source/modules/linalg/solvers.rst`` file has t
       * :ref:`BiConjugateGradientStabilized <biconjugategradientstabilized>`
       * :ref:`MinimumResidual <minimumresidual>`
       * :ref:`LSMR <lsmr>`
-      * :ref:`GMRES <gmres>` 				            # this line is new
+      * :ref:`GMRES <gmres>`				# this line is new
 
    .. inheritance-diagram:: psydac.linalg.solvers
 
@@ -93,15 +93,15 @@ Upon adding ``GMRES``, the ``docs/source/modules/linalg/solvers.rst`` file has t
    .. autoclass:: psydac.linalg.solvers.ConjugateGradient
       :members:
       
-   -----------------------------------             # five further classes later, add:
+   ...   					        # five further classes later, add:
    
-   .. _gmres:						                     # this line is new
+   .. _gmres:						# this line is new
    
-   GMRES						                           # this line is new
-   -----						                           # this line is new
+   GMRES						# this line is new
+   -----						# this line is new
    
    .. autoclass:: psydac.linalg.solvers.GMRES		# this line is new
-      :members:						                  # this line is new
+      :members:						# this line is new
       
 2) Adding a (public) function
 
@@ -163,8 +163,8 @@ Undo the above.
 
 .. _nochange:
 
-Changing a class or a (public) function within module
------------------------------------------------------
+Changing a class or a (public) function within a module
+-------------------------------------------------------
 
 No changes must be made to the documentation if no changes to the underlying code structure are made. That is, if we only change the way the 
 function ``inverse`` in ``psydac.linalg.solvers`` works, or if we only change local variables or the solve-algorithm within the ``ConjugateGradient``
