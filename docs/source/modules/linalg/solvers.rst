@@ -8,7 +8,6 @@ linalg.solvers
    * :ref:`BiConjugateGradientStabilized <biconjugategradientstabilized>`
    * :ref:`MinimumResidual <minimumresidual>`
    * :ref:`LSMR <lsmr>`
-   * :ref:`GMRES <gmres>` 
 
 .. inheritance-diagram:: psydac.linalg.solvers
 
@@ -66,11 +65,3 @@ LSMR
 
 .. autoclass:: psydac.linalg.solvers.LSMR
    :members:
-
-.. _gmres:
-
-GMRES
------                                                
-
-.. autoclass:: psydac.linalg.solvers.GMRES
-   :members:   
