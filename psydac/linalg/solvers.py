@@ -1828,7 +1828,7 @@ class GMRES(InverseLinearOperator):
         A.dot( x , out=r)
         r -= b
 
-        am = r.dot(r).real ** 0.5
+        am = sqrt(r.dot(r).real)
         beta.append(am)
         r *= - 1 / am
         
@@ -1906,7 +1906,7 @@ class GMRES(InverseLinearOperator):
             lv *= h[i]
             p -= lv
         
-        h[k+1] = p.dot(p).real ** 0.5
+        h[k+1] = sqrt(p.dot(p).real)
         p /= h[k+1] # Normalize vector
 
         if len(self._Q) > k + 1:

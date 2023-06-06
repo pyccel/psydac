@@ -54,20 +54,40 @@ def define_data(n, p, matrix_data, dtype=float):
     xe[s:e + 1] = np.random.random(e + 1 - s)
     return(V, A, xe)
 
+
 #===============================================================================
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
-@pytest.mark.parametrize('dtype', [float,complex])
-def test_bicgstab_tridiagonal(n, p, dtype, verbose=False):
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'])
+
+def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
 
     #---------------------------------------------------------------------------
     # PARAMETERS
     #---------------------------------------------------------------------------
-    if dtype==complex:
-        V, A, xe = define_data(n, p, [1-10j,6+9j,3+5j], dtype=dtype)
+
+    if solver in ['bicg', 'bicgstab', 'lsmr']:
+        if dtype==complex:
+            diagonals = [1-10j,6+9j,3+5j]
+        else:
+            diagonals = [1,6,3]
+    elif solver == 'gmres':
+        if dtype==complex:
+            diagonals = [-7-2j,-6-2j,-1-10j]
+        else:
+            diagonals = [-7,-1,-3]
+
+    if solver in ['cg', 'pcg', 'minres']:
+        # pcg runs with Jacobi preconditioner
+        V, A, xe = define_data_hermitian(n, p, dtype=dtype)
+        if solver == 'minres' and dtype == complex:
+            # minres only works for real matrices
+            return
     else:
-        V, A, xe = define_data(n, p, [1,6,3], dtype=dtype)
-    # Tolerance for success: L2-norm of error in solution
+        V, A, xe = define_data(n, p, diagonals, dtype=dtype)
+
+    # Tolerance for success: 2-norm of error in solution
     tol = 1e-10
 
     #---------------------------------------------------------------------------
@@ -77,453 +97,36 @@ def test_bicgstab_tridiagonal(n, p, dtype, verbose=False):
         # Title
         print()
         print( "="*80 )
-        print( "SERIAL TEST: solve linear system A*x = b using biconjugate gradient" )
+        print( f"SERIAL TEST: solve linear system A*x = b using {solver}")
         print( "="*80 )
         print()
-
-    # Manufacture right-hand-side vector from exact solution
-    b = A.dot( xe )
-    bt = (A.T).dot( xe )
-    bh = (A.H).dot( xe )
 
     #Create the solvers
-    solv = inverse(A, 'bicgstab', tol=1e-13, verbose=True)
+    solv  = inverse(A, solver, tol=1e-13, verbose=True)
     solvt = solv.transpose()
     solvh = solv.H
-
-    # Solve linear system using BiCGSTAB
-    x = solv @ b
-    xt = solvt.solve(bt)
-    xh = solvh.dot(bh)
-    info = solv.get_info()
-
-    # Verify correctness of calculation: L2-norm of error
-    err = x-xe
-    err_norm = np.linalg.norm( err.toarray() )
-
-    errt = xt-xe
-    errt_norm = np.linalg.norm( errt.toarray() )
-
-    errh = xh-xe
-    errh_norm = np.linalg.norm( errh.toarray() )
-
-    #---------------------------------------------------------------------------
-    # TERMINAL OUTPUT
-    #---------------------------------------------------------------------------
-    if verbose:
-        print()
-        print( 'A  =', A, sep='\n' )
-        print( 'b  =', b )
-        print( 'x  =', x )
-        print( 'xe =', xe )
-        print( 'info =', info )
-        print()
-        print( "-"*40 )
-        print( "L2-norm of error in solution = {:.2e}".format( err_norm ) )
-        if err_norm < tol:
-            print( "PASSED" )
-        else:
-            print( "FAIL" )
-        print( "-"*40 )
-
-    #---------------------------------------------------------------------------
-    # PYTEST
-    #---------------------------------------------------------------------------
-    assert err_norm < tol
-    assert errt_norm < tol
-    assert errh_norm < tol
-
-#===============================================================================
-@pytest.mark.parametrize( 'n', [5, 10, 13] )
-@pytest.mark.parametrize('p', [2, 3])
-@pytest.mark.parametrize('dtype', [float,complex])
-def test_bicg_tridiagonal(n, p, dtype, verbose=False):
-
-    #---------------------------------------------------------------------------
-    # PARAMETERS
-    #---------------------------------------------------------------------------
-    if dtype==complex:
-        V, A, xe = define_data(n, p, [1-10j,6+9j,3+5j], dtype=dtype)
-    else:
-        V, A, xe = define_data(n, p, [1,6,3], dtype=dtype)
-    # Tolerance for success: L2-norm of error in solution
-    tol = 1e-10
-
-    #---------------------------------------------------------------------------
-    # TEST
-    #---------------------------------------------------------------------------
-    if verbose:
-        # Title
-        print()
-        print( "="*80 )
-        print( "SERIAL TEST: solve linear system A*x = b using biconjugate gradient" )
-        print( "="*80 )
-        print()
 
     # Manufacture right-hand-side vector from exact solution
     b  = A.dot( xe )
+    b2 = A.dot( b ) # Test solver with consecutive solves
     bt = A.T.dot( xe )
     bh = A.H.dot( xe )
 
-    #Create the solvers
-    solv  = inverse(A, 'bicg', tol=1e-13, verbose=True)
-    solvt = solv.transpose()
-    solvh = solv.H
-
-    # Solve linear system using BiCG
+    # Solve linear system
     x = solv @ b
+    info = solv.get_info()
+    x2 = solv @ b2
     xt = solvt.solve(bt)
     xh = solvh.dot(bh)
-    info = solv.get_info()
 
-    # Verify correctness of calculation: L2-norm of error
-    err = x-xe
+    # Verify correctness of calculation: 2-norm of error
+    err = x - xe
     err_norm = np.linalg.norm( err.toarray() )
-    errt = xt-xe
+    err2 = x2 - b
+    err2_norm = np.linalg.norm( err2.toarray() )
+    errt = xt - xe
     errt_norm = np.linalg.norm( errt.toarray() )
-    errh = xh-xe
-    errh_norm = np.linalg.norm( errh.toarray() )
-
-    #---------------------------------------------------------------------------
-    # TERMINAL OUTPUT
-    #---------------------------------------------------------------------------
-    if verbose:
-        print()
-        print( 'A  =', A, sep='\n' )
-        print( 'b  =', b )
-        print( 'x  =', x )
-        print( 'xe =', xe )
-        print( 'info =', info )
-        print()
-        print( "-"*40 )
-        print( "L2-norm of error in solution = {:.2e}".format( err_norm ) )
-        if err_norm < tol:
-            print( "PASSED" )
-        else:
-            print( "FAIL" )
-        print( "-"*40 )
-
-    #---------------------------------------------------------------------------
-    # PYTEST
-    #---------------------------------------------------------------------------
-    assert err_norm < tol
-    assert errt_norm < tol
-    assert errh_norm < tol
-
-#===============================================================================
-@pytest.mark.parametrize( 'n', [5, 10, 13] )
-@pytest.mark.parametrize('p', [2, 3])
-@pytest.mark.parametrize('dtype', [float, complex])
-def test_lsmr_tridiagonal(n, p, dtype, verbose=False):
-
-    #---------------------------------------------------------------------------
-    # PARAMETERS
-    #---------------------------------------------------------------------------
-
-    if dtype==complex:
-        V, A, xe = define_data(n, p, [1+2j,6+2j,3+2j],dtype=dtype)
-    else:
-        V, A, xe = define_data(n, p, [1,6,3],dtype=dtype)
-
-    # Tolerance for success: L2-norm of error in solution
-    tol = 1e-10
-
-    #---------------------------------------------------------------------------
-    # TEST
-    #---------------------------------------------------------------------------
-    if verbose:
-        # Title
-        print()
-        print( "="*80 )
-        print( "SERIAL TEST: solve linear system A*x = b using lsmr" )
-        print( "="*80 )
-        print()
-
-    # Manufacture right-hand-side vector from exact solution
-    b  = A.dot( xe )
-    bt = A.T.dot( xe )
-    bh = A.H.dot( xe )
-
-    #Create the solvers
-    solv  = inverse(A, 'lsmr', tol=1e-13, verbose=True)
-    solvt = solv.transpose()
-    solvh = solv.H
-
-    # Solve linear system using lsmr
-    x = solv @ b
-    info = solv.get_info()
-    xt = solvt.solve(bt)
-    xh = solvh.dot(bh)
-
-    # Verify correctness of calculation: L2-norm of error
-    res = A.dot(x)-b
-    res_norm = np.linalg.norm( res.toarray() )
-    rest = A.T.dot(xt)-bt
-    rest_norm = np.linalg.norm( rest.toarray() )
-    resh = A.H.dot(xh)-bh
-    resh_norm = np.linalg.norm( resh.toarray() )
-
-    #---------------------------------------------------------------------------
-    # TERMINAL OUTPUT
-    #---------------------------------------------------------------------------
-    if verbose:
-        print()
-        print( 'A  =', A, sep='\n' )
-        print( 'b  =', b )
-        print( 'x  =', x )
-        print( 'xe =', xe )
-        print( 'info =', info )
-        print()
-
-        print( "-"*40 )
-        print( "L2-norm of error in solution = {:.2e}".format( res_norm ) )
-        if res_norm < tol:
-            print( "PASSED" )
-        else:
-            print( "FAIL" )
-        print( "-"*40 )
-
-    #---------------------------------------------------------------------------
-    # PYTEST
-    #---------------------------------------------------------------------------
-    assert res_norm < tol
-    assert rest_norm < tol
-    assert resh_norm < tol
-
-#===============================================================================
-@pytest.mark.parametrize( 'n', [5, 10, 13] )
-@pytest.mark.parametrize('p', [2, 3])
-def test_minres_tridiagonal(n, p, verbose=False):
-
-    #---------------------------------------------------------------------------
-    # PARAMETERS
-    #---------------------------------------------------------------------------
-
-    V, A, xe = define_data_hermitian(n, p)
-
-    # Tolerance for success: L2-norm of error in solution
-    tol = 1e-12
-
-    #---------------------------------------------------------------------------
-    # TEST
-    #---------------------------------------------------------------------------
-    if verbose:
-        # Title
-        print()
-        print( "="*80 )
-        print( "SERIAL TEST: solve linear system A*x = b using minres" )
-        print( "="*80 )
-        print()
-
-    # Manufacture right-hand-side vector from exact solution
-    b = A.dot( xe )
-    bt = A.T.dot( xe )
-    bh = A.H.dot( xe )
-
-
-    #Create the solvers
-    solv  = inverse(A, 'minres', tol=1e-13, verbose=True)
-    solvt = solv.transpose()
-    solvh = solv.H
-
-    # Solve linear system using minres
-    x = solv @ b
-    info = solv.get_info()
-    xt = solvt.solve(bt)
-    xh = solvh.dot(bh)
-
-    # Verify correctness of calculation: L2-norm of error
-    err = x-xe
-    err_norm = np.linalg.norm( err.toarray() )
-    errt = xt-xe
-    errt_norm = np.linalg.norm( errt.toarray() )
-    errh = xh-xe
-    errh_norm = np.linalg.norm( errh.toarray() )
-
-    #---------------------------------------------------------------------------
-    # TERMINAL OUTPUT
-    #---------------------------------------------------------------------------
-    if verbose:
-        print()
-        print( 'A  =', A, sep='\n' )
-        print( 'b  =', b )
-        print( 'x  =', x )
-        print( 'xe =', xe )
-        print( 'info =', info )
-        print()
-        print( "-"*40 )
-        print( "L2-norm of error in solution = {:.2e}".format( err_norm ) )
-        if err_norm < tol:
-            print( "PASSED" )
-        else:
-            print( "FAIL" )
-        print( "-"*40 )
-
-    #---------------------------------------------------------------------------
-    # PYTEST
-    #---------------------------------------------------------------------------
-    assert err_norm < tol
-    assert errt_norm < tol
-    assert errh_norm < tol
-
-# ===============================================================================
-@pytest.mark.parametrize('n', [8, 16])
-@pytest.mark.parametrize('p', [2, 3])
-@pytest.mark.parametrize('dtype', [float, complex])
-def test_pcg_tridiagonal(n, p, dtype, verbose=False):
-    # ---------------------------------------------------------------------------
-    # PARAMETERS
-    # ---------------------------------------------------------------------------
-
-    V, A, xe = define_data_hermitian(n, p, dtype=dtype)
-
-    # Tolerance for success: L2-norm of error in solution
-    tol = 1e-10
-
-    # ---------------------------------------------------------------------------
-    # TEST
-    # ---------------------------------------------------------------------------
-    if verbose:
-        # Title
-        print()
-        print("=" * 80)
-        print("SERIAL TEST: solve linear system A*x = b using preconditioned conjugate gradient")
-        print("=" * 80)
-        print()
-
-    # Manufacture right-hand-side vector from exact solution
-    b  = A.dot(xe)
-    bt = A.T.dot(xe)
-    bh = A.H.dot(xe)
-
-    # class LocallyOnlyJacobiSolver(LinearSolver):
-    #     @property
-    #     def space(self):
-    #         return V
-    #
-    #     def solve(self, rhs, out=None, transposed=False):
-    #         # (don't care about out or any other parameter here; it's only used locally)
-    #         return jacobi(A, rhs)
-
-    # Solve linear system using PCG (and CG)
-    # also does an interface test for the Jacobi preconditioner
-
-
-    #Create the solvers with different preconditioner
-    solv0  = inverse(A, 'pcg', tol=1e-13, verbose=True)
-    solv0t = solv0.transpose()
-    solv0h = solv0.H
-    solv1  = inverse(A, 'pcg', tol=1e-13, verbose=True, pc="jacobi")
-    # solv1b = inverse(A, 'pcg', tol=1e-13, verbose=True, pc=jacobi)
-    # solv1c = inverse(A, 'pcg', tol=1e-13, verbose=True, pc=LocallyOnlyJacobiSolver())
-    # solv2 = inverse(A, 'pcg', tol=1e-13, verbose=True, pc="weighted_jacobi")
-
-    # Solve linear system using PCG with different preconditioner
-    x0 = solv0 @ b
-    info0 = solv0.get_info()
-    x0t = solv0t.solve(bt)
-    x0h = solv0h.dot(bh)
-    x1 = solv1 @ b
-    info1 = solv1.get_info()
-    # x1b = solv1b @ b
-    # info1b = solv1b.get_info()
-    # x1c = solv1c @ b
-    # info1c = solv1c.get_info()
-    # x2 = solv2 @ b
-    # info2 = solv2.get_info()
-
-    # Verify correctness of calculation: L2-norm of error
-    err0 = x0 - xe
-    err_norm0 = np.linalg.norm(err0.toarray())
-    err0t = x0t - xe
-    errt_norm0 = np.linalg.norm(err0t.toarray())
-    err0h = x0h - xe
-    errh_norm0 = np.linalg.norm(err0h.toarray())
-
-    err1 = x1 - xe
-    err_norm1 = np.linalg.norm(err1.toarray())
-
-    # err2 = x2 - xe
-    # err_norm2 = np.linalg.norm(err2.toarray())
-
-    # ---------------------------------------------------------------------------
-    # TERMINAL OUTPUT
-    # ---------------------------------------------------------------------------
-    if verbose:
-        print()
-        print('A  =', A.toarray(), sep='\n')
-        print('b  =', b.toarray())
-        print('x1 =', x1.toarray())
-        # print('x2 =', x2.toarray())
-        print('xe =', xe.toarray())
-        print('info1 (Jac)  =', info1)
-        # print('info2 (w-Jac)=', info2)
-        print()
-
-        print("-" * 40)
-        print("L2-norm of error in (PCG + Jacobi) solution = {:.2e}".format(err_norm1))
-        # print("L2-norm of error in solution (PCG + weighted Jacobi) solution = {:.2e}".format(err_norm2))
-        if err_norm0 < tol and err_norm1 < tol: #and err_norm2 < tol:
-            print("PASSED")
-        else:
-            print("FAIL")
-        print("-" * 40)
-
-    # ---------------------------------------------------------------------------
-    # PYTEST
-    # ---------------------------------------------------------------------------
-    assert err_norm0 < tol and err_norm1 < tol # and err_norm2 < tol
-    assert errt_norm0 < tol and errh_norm0 < tol
-    # assert info1 == info1b and info1 == info1c
-
-#===============================================================================
-@pytest.mark.parametrize( 'n', [5, 10, 13] )
-@pytest.mark.parametrize('p', [2, 3])
-@pytest.mark.parametrize('dtype', [float, complex])
-def test_cg_tridiagonal( n, p, dtype, verbose=False):
-
-    # ---------------------------------------------------------------------------
-    # PARAMETERS
-    # ---------------------------------------------------------------------------
-
-    V, A, xe = define_data_hermitian(n, p, dtype=dtype)
-
-    # Tolerance for success: L2-norm of error in solution
-    tol = 1e-10
-
-    #---------------------------------------------------------------------------
-    # TEST
-    #---------------------------------------------------------------------------
-    if verbose:
-        # Title
-        print()
-        print( "="*80 )
-        print( "SERIAL TEST: solve linear system A*x = b using conjugate gradient" )
-        print( "="*80 )
-        print()
-
-    # Manufacture right-hand-side vector from exact solution
-    b = A.dot( xe )
-    bt = A.T.dot( xe )
-    bh = A.H.dot( xe )
-
-    #Create the solvers
-    solv  = inverse(A, 'cg', tol=1e-13, verbose=True)
-    solvt = solv.transpose()
-    solvh = solv.H
-
-    # Solve linear system using cg
-    x = solv @ b
-    xt = solvt.solve(bt)
-    xh = solvh.dot(bh)
-    info = solv.get_info()
-
-    # Verify correctness of calculation: L2-norm of error
-    err = x-xe
-    err_norm = np.linalg.norm( err.toarray() )
-    errt = xt-xe
-    errt_norm = np.linalg.norm( errt.toarray() )
-    errh = xh-xe
+    errh = xh - xe
     errh_norm = np.linalg.norm( errh.toarray() )
 
     #---------------------------------------------------------------------------
@@ -539,7 +142,7 @@ def test_cg_tridiagonal( n, p, dtype, verbose=False):
         print()
 
         print( "-"*40 )
-        print( "L2-norm of error in solution = {:.2e}".format( err_norm ) )
+        print( f"2-norm of error in solution = {err_norm:.2e}" )
         if err_norm < tol:
             print( "PASSED" )
         else:
@@ -550,88 +153,10 @@ def test_cg_tridiagonal( n, p, dtype, verbose=False):
     # PYTEST
     #---------------------------------------------------------------------------
     assert err_norm < tol
+    assert err2_norm < tol
     assert errt_norm < tol
     assert errh_norm < tol
 
-#===============================================================================
-@pytest.mark.parametrize( 'n', [5, 10, 13] )
-@pytest.mark.parametrize('p', [2, 3])
-@pytest.mark.parametrize('dtype', [float, complex])
-def test_gmres_tridiagonal( n, p, dtype, verbose=False):
-
-    # ---------------------------------------------------------------------------
-    # PARAMETERS
-    # ---------------------------------------------------------------------------
-    
-    if dtype==complex:
-        V, A, xe = define_data(n, p, [-7+2j,6+2j,-1-10j],dtype=dtype)
-    else:
-        V, A, xe = define_data(n, p, [-7,-1,3],dtype=dtype)
-
-    # Tolerance for success: L2-norm of error in solution
-    tol = 1e-10
-
-    #---------------------------------------------------------------------------
-    # TEST
-    #---------------------------------------------------------------------------
-    if verbose:
-        # Title
-        print()
-        print( "="*80 )
-        print( "SERIAL TEST: solve linear system A*x = b using generalized minimum residual method" )
-        print( "="*80 )
-        print()
-
-    # Manufacture right-hand-side vector from exact solution
-    b = A.dot( xe )
-    bt = A.T.dot( xe )
-    bh = A.H.dot( xe )
-
-    #Create the solvers
-    solv  = inverse(A, 'gmres', tol=1e-13, verbose=True)
-    solvt = solv.transpose()
-    solvh = solv.H
-
-    # Solve linear system using gmres
-    x = solv @ b
-    info = solv.get_info()
-    xt = solvt.solve(bt)
-    xh = solvh.dot(bh)
-
-    # Verify correctness of calculation: L2-norm of error
-    err = x-xe
-    err_norm = np.linalg.norm( err.toarray() )
-    errt = xt-xe
-    errt_norm = np.linalg.norm( errt.toarray() )
-    errh = xh-xe
-    errh_norm = np.linalg.norm( errh.toarray() )
-
-    #---------------------------------------------------------------------------
-    # TERMINAL OUTPUT
-    #---------------------------------------------------------------------------
-    if verbose:
-        print()
-        print( 'A  =', A, sep='\n' )
-        print( 'b  =', b )
-        print( 'x  =', x )
-        print( 'xe =', xe )
-        print( 'info =', info )
-        print()
-
-        print( "-"*40 )
-        print( "L2-norm of error in solution = {:.2e}".format( err_norm ) )
-        if err_norm < tol:
-            print( "PASSED" )
-        else:
-            print( "FAIL" )
-        print( "-"*40 )
-
-    #---------------------------------------------------------------------------
-    # PYTEST
-    #---------------------------------------------------------------------------
-    assert err_norm < tol
-    assert errt_norm < tol
-    assert errh_norm < tol
 
 # ===============================================================================
 # SCRIPT FUNCTIONALITY
