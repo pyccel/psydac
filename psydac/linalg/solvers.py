@@ -1832,15 +1832,11 @@ class GMRES(InverseLinearOperator):
         beta.append(am)
         r *= - 1 / am
         
-        
         if len(self._Q) == 0:
             self._Q.append(r)
         else:
             r.copy(out=self._Q[0])
 
-        b_norm = b.dot(b).real ** 0.5
-        am *= 1 / b_norm
-        
         if verbose:
             print( "GMRES solver:" )
             print( "+---------+---------------------+")
@@ -1864,7 +1860,7 @@ class GMRES(InverseLinearOperator):
             beta.append(- sn[k] * beta[k])
             beta[k] *= cn[k]
 
-            am = abs(beta[k+1]) / b_norm
+            am = abs(beta[k+1])
             if verbose:
                 print( template.format( k+2, am ) )
 
