@@ -19,6 +19,7 @@ from psydac.fem.basic                  import FemField
 from psydac.mapping.discrete           import SplineMapping
 from psydac.utilities.utils            import refine_array_1d
 from psydac.cad.geometry               import Geometry
+from psydac.ddm.cart                   import DomainDecomposition
 
 from psydac.polar.c1_projections       import C1Projector
 
@@ -102,7 +103,7 @@ class Poisson2D:
 
     # ...
     @staticmethod
-    def new_annulus( rmin=0.5, rmax=1.0 ):
+    def new_annulus(rmin=0.5, rmax=1.0):
         """
         Solve Poisson's equation on an annulus centered at (x,y)=(0,0),
         with logical coordinates (r,theta):
@@ -430,6 +431,10 @@ def assemble_matrices(V, mapping, kernel):
             mass     [is1-p1:is1+1, is2-p2:is2+1, :, :] += mat_m[:, :, :, :]
             stiffness[is1-p1:is1+1, is2-p2:is2+1, :, :] += mat_s[:, :, :, :]
 
+    # IMPORTANT: new assembly procedure requires dedicated data exchange
+    mass     .exchange_assembly_data()
+    stiffness.exchange_assembly_data()
+
     # Make sure that periodic corners are zero in non-periodic case
     mass     .remove_spurious_entries()
     stiffness.remove_spurious_entries()
@@ -515,6 +520,9 @@ def assemble_rhs(V, mapping, f):
 
                     # Update one element of the rhs vector
                     rhs[i1, i2] += v
+
+    # IMPORTANT: new assembly procedure requires dedicated data exchange
+    rhs.exchange_assembly_data()
 
     # IMPORTANT: ghost regions must be up-to-date
     rhs.update_ghost_regions()
@@ -662,26 +670,31 @@ def main(*, test_case, ncells, degree, use_spline_mapping, c1_correction, distri
         # left  bc at x=0.
         if not model.O_point and s1 == 0:
             S[s1, :, :, :] = 0.
+            S[s1, :, 0, 0] = 1.
             b[s1, :]       = 0.
         # right bc at x=1.
         if e1 == V1.nbasis-1:
             S[e1, :, :, :] = 0.
+            S[e1, :, 0, 0] = 1.
             b[e1, :]       = 0.
 
     if not V2.periodic:
         # lower bc at y=0.
         if s2 == 0:
             S[:, s2, :, :] = 0.
+            S[:, s2, 0, 0] = 1.
             b[:, s2]       = 0.
         # upper bc at y=1.
         if e2 == V2.nbasis-1:
             S[:, e2, :, :] = 0.
+            S[:, e2, 0, 0] = 1.
             b[:, e2]       = 0.
 
     if c1_correction and e1 == V1.nbasis-1:
         # only bc is at s=1
         last = bp[1].space.npts[0] - 1
         Sp[1,1][last, :, :, :] = 0.
+        Sp[1,1][last, :, 0, 0] = 1.
         bp[1]  [last, :]       = 0.
 
     # Solve linear system
@@ -760,17 +773,17 @@ def main(*, test_case, ncells, degree, use_spline_mapping, c1_correction, distri
         if use_spline_mapping:
             geometry = Geometry(filename='geo.h5', comm=MPI.COMM_SELF)
             map_discrete = [*geometry.mappings.values()].pop()
-            V = map_discrete.space
+            Vnew = map_discrete.space
             mapping = map_discrete
         else:
             dd = DomainDecomposition(ncells, model.periodic, comm=MPI.COMM_SELF)
-            V = TensorFemSpace(dd, V1, V2)
+            Vnew = TensorFemSpace(dd, V1, V2)
 
         # Import solution vector into new serial field
-        phi, = V.import_fields( 'fields.h5', 'phi' )
+        phi, = Vnew.import_fields( 'fields.h5', 'phi' )
 
     # Compute numerical solution (and error) on refined logical grid
-    [sk1, sk2], [ek1, ek2] = V.local_domain
+    [sk1, sk2], [ek1, ek2] = Vnew.local_domain
 
     eta1 = refine_array_1d(V1.breaks[sk1:ek1+2], N)
     eta2 = refine_array_1d(V2.breaks[sk2:ek2+2], N)
@@ -903,10 +916,10 @@ def parse_input_arguments():
 if __name__ == '__main__':
 
     args = parse_input_arguments()
-    namespace = main( **vars( args ) )
+    namespace = main(**vars(args))
 
     import __main__
-    if hasattr( __main__, '__file__' ):
+    if hasattr(__main__, '__file__'):
         try:
            __IPYTHON__
         except NameError:
