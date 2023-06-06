@@ -28,6 +28,7 @@ class C1Projector:
          |   |         |
          |   |         |
          +---+---------+
+    
     """
     def __init__(self, mapping):
 

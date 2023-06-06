@@ -36,7 +36,7 @@ from psydac.core.bsplines_pyccel import (find_span_p,
                                          cell_index_p,
                                          basis_ders_on_irregular_grid_p)
 
-__all__ = ['find_span',
+__all__ = ('find_span',
            'find_spans',
            'basis_funs',
            'basis_funs_array',
@@ -53,7 +53,7 @@ __all__ = ['find_span',
            'basis_integrals',
            'basis_ders_on_quad_grid',
            'cell_index',
-           'basis_ders_on_irregular_grid']
+           'basis_ders_on_irregular_grid')
 
 
 #==============================================================================

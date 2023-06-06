@@ -25,7 +25,7 @@ from psydac.utilities.quadratures import gauss_legendre
 from psydac.utilities.utils import unroll_edges, refine_array_1d
 from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
 
-__all__ = ['SplineSpace']
+__all__ = ('SplineSpace',)
 
 #===============================================================================
 class SplineSpace( FemSpace ):

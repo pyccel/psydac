@@ -32,6 +32,9 @@ import string
 import random
 from mpi4py import MPI
 
+__all__ = ('GltBasicCodeGen', 'DiscreteGltExpr')
+
+#==============================================================================
 class GltBasicCodeGen(object):
     """ Basic class for any discrete concept that needs code generation """
 

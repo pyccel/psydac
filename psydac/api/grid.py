@@ -10,6 +10,10 @@ from psydac.fem.splines            import SplineSpace
 from psydac.fem.tensor             import TensorFemSpace
 from psydac.fem.vector             import ProductFemSpace, VectorFemSpace
 
+__all__ = ('get_points_weights', 'create_collocation_basis',
+           'QuadratureGrid', 'BasisValues', 'CollocationBasisValues')
+
+#==============================================================================
 def get_points_weights(spaces, axis, e):
     for s in spaces:
         if e in s.quad_grids[axis].indices:

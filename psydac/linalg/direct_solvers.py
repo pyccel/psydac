@@ -9,7 +9,7 @@ from scipy.sparse.linalg import splu
 
 from psydac.linalg.basic    import LinearSolver
 
-__all__ = ['DirectSolver', 'BandedSolver', 'SparseSolver']
+__all__ = ('DirectSolver', 'BandedSolver', 'SparseSolver')
 
 #===============================================================================
 class DirectSolver( LinearSolver ):
