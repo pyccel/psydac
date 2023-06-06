@@ -10,7 +10,7 @@ from psydac.core.bsplines         import basis_ders_on_quad_grid
 from psydac.core.bsplines         import elevate_knots
 from psydac.utilities.quadratures import gauss_legendre
 
-__all__ = ['FemAssemblyGrid']
+__all__ = ('FemAssemblyGrid',)
 
 #==============================================================================
 class FemAssemblyGrid:

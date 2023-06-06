@@ -7,8 +7,8 @@ from abc   import ABC, abstractmethod
 from scipy.sparse import coo_matrix
 import numpy as np
 
-__all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'ZeroOperator', 'IdentityOperator', 'ScaledLinearOperator',
-           'SumLinearOperator', 'ComposedLinearOperator', 'PowerLinearOperator', 'InverseLinearOperator', 'LinearSolver']
+__all__ = ('VectorSpace', 'Vector', 'LinearOperator', 'ZeroOperator', 'IdentityOperator', 'ScaledLinearOperator',
+           'SumLinearOperator', 'ComposedLinearOperator', 'PowerLinearOperator', 'InverseLinearOperator', 'LinearSolver')
 
 #===============================================================================
 class VectorSpace(ABC):
@@ -30,10 +30,6 @@ class VectorSpace(ABC):
     def dtype(self):
         """
         The data type of the field over which the space is built.
-
-        See also
-        --------
-        https://en.wikipedia.org/wiki/Field_(mathematics)
 
         """
 
@@ -904,7 +900,7 @@ class InverseLinearOperator(LinearOperator):
     def jacobi(A, b, out=None):
         """
         Jacobi preconditioner.
-        ----------
+
         A : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator
             Left-hand-side matrix A of linear system.
 
