@@ -287,7 +287,7 @@ def get_degrees(funcs, space):
 def get_nquads(Vh):
     if isinstance(Vh, (ProductFemSpace, VectorFemSpace)):
         return get_nquads(Vh.spaces[0])
-    return tuple([g.weights.shape[1] for g in Vh.quad_grids])
+    return tuple([g.weights.shape[1] for g in Vh.quad_grids()])
 
 #==============================================================================
 class AST(object):

@@ -47,6 +47,8 @@ class FemAssemblyGrid:
     """
     def __init__( self, space, start, end, *, nquads=None, nderiv=1):
 
+        assert nquads is not None
+
         T            = space.knots           # knots sequence
         degree       = space.degree          # spline degree
         n            = space.nbasis          # total number of control points

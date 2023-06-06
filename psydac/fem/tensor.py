@@ -87,12 +87,12 @@ class TensorFemSpace( FemSpace ):
         ends   = self._vector_space.cart.domain_decomposition.ends
 
         # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, nquads=q)
-                                  for V,s,e,q in zip( self.spaces, starts, ends, self._nquads ) )
+        #self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, nquads=q)
+        #                          for V,s,e,q in zip( self.spaces, starts, ends, self._nquads ) )
         
         # TODO [YG 02.06.2023]: Use dictionary and setter
-        #self._quad_grids = tuple({q: FemAssemblyGrid(V, s, e, nderiv=V.degree, nquads=q)}
-        #                          for V, s, e, q in zip( self.spaces, starts, ends, self._nquads))
+        self._quad_grids = tuple({q: FemAssemblyGrid(V, s, e, nderiv=V.degree, nquads=q)}
+                                  for V, s, e, q in zip( self.spaces, starts, ends, self._nquads))
 
         # Determine portion of logical domain local to process
         self._element_starts = starts
@@ -654,13 +654,14 @@ class TensorFemSpace( FemSpace ):
         assert hasattr( f, '__call__' )
 
         # Extract and store quadrature data
-        nq      = [g.num_quad_pts for g in self.quad_grids]
-        points  = [g.points       for g in self.quad_grids]
-        weights = [g.weights      for g in self.quad_grids]
+        quad_grids = self.quad_grids()
+        nq      = [g.num_quad_pts for g in quad_grids]
+        points  = [g.points       for g in quad_grids]
+        weights = [g.weights      for g in quad_grids]
 
         # Get local element range
-        sk = [g.local_element_start for g in self.quad_grids]
-        ek = [g.local_element_end   for g in self.quad_grids]
+        sk = [g.local_element_start for g in quad_grids]
+        ek = [g.local_element_end   for g in quad_grids]
 
         # Iterator over multi-index k (equivalent to nested loops over each dimension)
         multi_range = lambda starts, ends: \
@@ -738,22 +739,29 @@ class TensorFemSpace( FemSpace ):
     def nquads( self ):
         return self._nquads
 
-    @property
-    def quad_grids( self ):
+    #@property
+    def quad_grids( self, *nquads ):
         """
-        List of 'FemAssemblyGrid' objects (one for each direction)
+        Tuple of 'FemAssemblyGrid' objects (one for each direction)
         containing all 1D information local to process that is necessary
         for the correct assembly of the l.h.s. matrix and r.h.s. vector
         in a finite element method.
 
         """
-        return self._quad_grids
+        # TODO: Turn comments into docstring & add check for the case all(nquads == tuple(self._nquads))
+        if len(nquads) == 0:
+            # If *nquads is not provided, use self._nquads to convert the tuple of dictionaries self._quad_grids into a tuple of the right args
+            quad_grids = tuple(dic[nq] for dic, nq in zip(self._quad_grids, self._nquads))
+        else:
+            # If *nquads is provided, use get_quadrature_grids to compute the appropriate quadrature grids
+            quad_grids = self.get_quadrature_grids(*nquads)
+        return quad_grids
 
     # TODO [YG 02.06.2023]: Replace nquads and quad_grids properties with this method:
     def get_quadrature_grids(self, *nquads):
         assert len(nquads) == self.ndims
         assert all(isinstance(nq, int) for nq in nquads)
-        quad_grids = [None, None, None]
+        quad_grids = [None]*len(nquads)
         for i, nq in enumerate(nquads):
             # Get a reference to the local dictionary of FemAssemblyGrid along direction i
             quad_grids_dict_i = self._quad_grids[i]

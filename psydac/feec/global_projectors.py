@@ -75,7 +75,7 @@ class GlobalProjector(metaclass=ABCMeta):
         else:
             # for now, we assume that all tensorspaces have the same quad_grids
             # (this seems to be the case at the moment, but maybe checking it might be a good idea nontheless...)
-            uw = [(quad_grid.quad_rule_x,quad_grid.quad_rule_w) for quad_grid in tensorspaces[0].quad_grids]
+            uw = [(quad_grid.quad_rule_x,quad_grid.quad_rule_w) for quad_grid in tensorspaces[0].quad_grids()]
         
         # retrieve projection space structure
         # this is a 2D Python array (first level: block, second level: tensor direction)

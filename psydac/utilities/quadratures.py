@@ -16,6 +16,8 @@ def gauss_legendre(ordergl,tol=10e-14):
     Returns nodal abscissas {x} and weights {A} of
     Gauss-Legendre m-point quadrature.
     """
+    assert odergl is not None
+    
     m = ordergl + 1
     from math import cos,pi
     from numpy import zeros

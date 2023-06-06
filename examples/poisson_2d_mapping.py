@@ -387,12 +387,13 @@ def assemble_matrices(V, mapping, kernel):
     [p1, p2] = V.vector_space.pads
 
     # Quadrature data
-    [      nk1,       nk2] = [g.num_elements for g in V.quad_grids]
-    [      nq1,       nq2] = [g.num_quad_pts for g in V.quad_grids]
-    [  spans_1,   spans_2] = [g.spans        for g in V.quad_grids]
-    [  basis_1,   basis_2] = [g.basis        for g in V.quad_grids]
-    [ points_1,  points_2] = [g.points       for g in V.quad_grids]
-    [weights_1, weights_2] = [g.weights      for g in V.quad_grids]
+    quad_grids = V.quad_grids()
+    [      nk1,       nk2] = [g.num_elements for g in quad_grids]
+    [      nq1,       nq2] = [g.num_quad_pts for g in quad_grids]
+    [  spans_1,   spans_2] = [g.spans        for g in quad_grids]
+    [  basis_1,   basis_2] = [g.basis        for g in quad_grids]
+    [ points_1,  points_2] = [g.points       for g in quad_grids]
+    [weights_1, weights_2] = [g.weights      for g in quad_grids]
 
     # Create global matrices
     mass      = StencilMatrix(V.vector_space, V.vector_space)
@@ -464,12 +465,13 @@ def assemble_rhs(V, mapping, f):
     [p1, p2] = V.vector_space.pads
 
     # Quadrature data
-    [      nk1,       nk2] = [g.num_elements for g in V.quad_grids]
-    [      nq1,       nq2] = [g.num_quad_pts for g in V.quad_grids]
-    [  spans_1,   spans_2] = [g.spans        for g in V.quad_grids]
-    [  basis_1,   basis_2] = [g.basis        for g in V.quad_grids]
-    [ points_1,  points_2] = [g.points       for g in V.quad_grids]
-    [weights_1, weights_2] = [g.weights      for g in V.quad_grids]
+    quad_grids = V.quad_grids()
+    [      nk1,       nk2] = [g.num_elements for g in quad_grids]
+    [      nq1,       nq2] = [g.num_quad_pts for g in quad_grids]
+    [  spans_1,   spans_2] = [g.spans        for g in quad_grids]
+    [  basis_1,   basis_2] = [g.basis        for g in quad_grids]
+    [ points_1,  points_2] = [g.points       for g in quad_grids]
+    [weights_1, weights_2] = [g.weights      for g in quad_grids]
 
     # Data structure
     rhs = StencilVector(V.vector_space)
