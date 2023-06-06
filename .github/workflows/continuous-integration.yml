@@ -123,10 +123,11 @@ jobs:
       - name: Install project
         run: |
           python -m pip install .
-          pyccel psydac/core/kernels.py --language fortran
-          pyccel psydac/core/bsplines_pyccel.py --language fortran
-          pyccel psydac/api/ast/linalg_kernels.py --language fortran
-          pyccel psydac/linalg/kernels.py --language fortran
+          export PYCCEL_LANGUAGE = C
+          pyccel psydac/core/kernels.py --language C
+          pyccel psydac/core/bsplines_pyccel.py --language C
+          pyccel psydac/api/ast/linalg_kernels.py --language C
+          pyccel psydac/linalg/kernels.py --language C
           psydac-accelerate
           python -m pip freeze
 
