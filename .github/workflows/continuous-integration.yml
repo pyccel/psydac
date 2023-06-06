@@ -123,7 +123,6 @@ jobs:
       - name: Install project
         run: |
           python -m pip install .
-#         for now the code can only be accelerated with fortran, with c, it returns a lot of error
           export PYCCEL_LANGUAGE=fortran
           pyccel psydac/core/kernels.py --language fortran
           pyccel psydac/core/bsplines_pyccel.py --language fortran
