@@ -41,9 +41,21 @@ class PyccelCommand(distutils.cmd.Command):
     command3 = 'pyccel ' + psydac_path + '/psydac/core/kernels.py '           + language_param
     command4 = 'pyccel ' + psydac_path + '/psydac/core/bsplines_pyccel.py '   + language_param
 
+    self.announce(
+        'Running commands: %s' % str(command1),
+        level=distutils.log.INFO)
     subprocess.run(command1, check=True, shell=True)
+    self.announce(
+        'Running commands: %s' % str(command2),
+        level=distutils.log.INFO)
     subprocess.run(command2, check=True, shell=True)
+    self.announce(
+        'Running commands: %s' % str(command3),
+        level=distutils.log.INFO)
     subprocess.run(command3, check=True, shell=True)
+    self.announce(
+        'Running commands: %s' % str(command4),
+        level=distutils.log.INFO)
     subprocess.run(command4, check=True, shell=True)
 
 class BuildPyCommand(setuptools.command.build_py.build_py):
