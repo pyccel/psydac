@@ -501,7 +501,7 @@ class TransposeOperator(SplBasic):
             # Return instance
             return obj
         except TypeError:
-            obj._func = eval(obj.function_dict[ndim])
+            obj._func = eval(name)
             # Return instance
             return obj
 
