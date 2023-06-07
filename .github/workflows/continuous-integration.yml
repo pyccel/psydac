@@ -123,7 +123,6 @@ jobs:
       - name: Install project
         run: |
           python -m pip install .
-          export PYCCEL_LANGUAGE=fortran
           psydac-accelerate
           python -m pip freeze
 
