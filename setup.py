@@ -36,10 +36,10 @@ class PyccelCommand(distutils.cmd.Command):
     else:
         language_param = '--language fortran \n'
 
-    command = ['pyccel', psydac_path, '/psydac/linalg/kernels.py',         language_param]
-    command += ['pyccel', psydac_path, '/psydac/api/ast/linalg_kernels.py', language_param]
-    command += ['pyccel', psydac_path, '/psydac/core/kernels.py',           language_param]
-    command += ['pyccel', psydac_path, '/psydac/core/bsplines_pyccel.py',   language_param]
+    command =  ['pyccel', psydac_path + '/psydac/linalg/kernels.py',         language_param]
+    command += ['pyccel', psydac_path + '/psydac/api/ast/linalg_kernels.py', language_param]
+    command += ['pyccel', psydac_path + '/psydac/core/kernels.py',           language_param]
+    command += ['pyccel', psydac_path + '/psydac/core/bsplines_pyccel.py',   language_param]
 
     command.append(psydac_path)
     self.announce(
