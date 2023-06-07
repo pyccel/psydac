@@ -174,7 +174,7 @@ class ConjugateGradient(InverseLinearOperator):
         -------
         x : psydac.linalg.basic.Vector
             Numerical solution of the linear system. To check the convergence of the solver,
-            inspect InverseLinearOperator._info.
+            use the method InverseLinearOperator.get_info().
 
         References
         ----------
@@ -364,7 +364,7 @@ class PConjugateGradient(InverseLinearOperator):
         -------
         x : psydac.linalg.basic.Vector
             Numerical solution of the linear system. To check the convergence of the solver,
-            inspect InverseLinearOperator._info.
+            use the method InverseLinearOperator.get_info().
 
         """
 
@@ -572,7 +572,7 @@ class BiConjugateGradient(InverseLinearOperator):
         -------
         x : psydac.linalg.basic.Vector
             Numerical solution of linear system. To check the convergence of the solver,
-            inspect InverseLinearOperator._info.
+            use the method InverseLinearOperator.get_info().
 
         References
         ----------
@@ -797,7 +797,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         -------
         x : psydac.linalg.basic.Vector
             Numerical solution of linear system. To check the convergence of the solver,
-            inspect InverseLinearOperator._info.
+            use the method InverseLinearOperator.get_info().
         
         info : dict
             Dictionary containing convergence information:
@@ -1051,7 +1051,7 @@ class MinimumResidual(InverseLinearOperator):
         -------
         x : psydac.linalg.basic.Vector
             Numerical solution of linear system. To check the convergence of the solver,
-            inspect InverseLinearOperator._info.
+            use the method InverseLinearOperator.get_info().
 
         info : dict
             Dictionary containing convergence information:
@@ -1423,7 +1423,7 @@ class LSMR(InverseLinearOperator):
         -------
         x : psydac.linalg.basic.Vector
             Numerical solution of linear system. To check the convergence of the solver,
-            inspect InverseLinearOperator._info.
+            use the method InverseLinearOperator.get_info().
 
         Notes
         -----
@@ -1697,7 +1697,7 @@ class GMRES(InverseLinearOperator):
     A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
 
     The .dot (and also the .solve) function are based on the 
-    Generalized minimum residual algorithm for solving linear system Ax=b.
+    generalized minimal residual algorithm for solving linear system Ax=b.
     Implementation from Wikipedia
 
     Parameters
@@ -1748,9 +1748,7 @@ class GMRES(InverseLinearOperator):
         # Initialize upper Hessenberg matrix
         self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]), dtype=A.dtype)
         self._Q = []
-
         self._info = None
-        
 
     def _check_options(self, **kwargs):
         for key, value in kwargs.items():
@@ -1778,7 +1776,7 @@ class GMRES(InverseLinearOperator):
 
     def solve(self, b, out=None):
         """
-        Generalized minimum residual algorithm for solving linear system Ax=b.
+        Generalized minimal residual algorithm for solving linear system Ax=b.
         Implementation from Wikipedia.
         Info can be accessed using get_info(), see :func:~`basic.InverseLinearOperator.get_info`.
 
@@ -1797,7 +1795,7 @@ class GMRES(InverseLinearOperator):
         -------
         x : psydac.linalg.basic.Vector
             Numerical solution of the linear system. To check the convergence of the solver,
-            inspect InverseLinearOperator._info.
+            use the method InverseLinearOperator.get_info().
         
         References
         ----------
@@ -1814,7 +1812,6 @@ class GMRES(InverseLinearOperator):
         maxiter = options["maxiter"]
         verbose = options["verbose"]
         
-
         assert isinstance(b, Vector)
         assert b.space is domain
 
@@ -1924,7 +1921,6 @@ class GMRES(InverseLinearOperator):
             p.copy(out=self._Q[k+1])
         else:
             self._Q.append(p.copy())
-
 
     def apply_givens_rotation(self, k, sn, cn):
         # Apply Givens rotation to last column of H
