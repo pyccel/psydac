@@ -14,7 +14,7 @@ from mpi4py       import MPI
 from psydac.linalg.basic   import VectorSpace, Vector, LinearOperator
 from psydac.ddm.cart       import find_mpi_type, CartDecomposition, InterfaceCartDecomposition
 from psydac.ddm.utilities  import get_data_exchanger
-from .kernels              import *
+from .stencil2coo_kernels              import *
 
 __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix']
 

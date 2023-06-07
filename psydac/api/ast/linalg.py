@@ -39,9 +39,9 @@ from psydac.api.printing      import pycode
 from psydac.api.settings      import PSYDAC_BACKENDS, PSYDAC_DEFAULT_FOLDER
 from psydac.api.utilities     import mkdir_p, touch_init_file, random_string, write_code
 
-from psydac.api.ast.linalg_kernels import transpose_1d, interface_transpose_1d
-from psydac.api.ast.linalg_kernels import transpose_2d, interface_transpose_2d
-from psydac.api.ast.linalg_kernels import transpose_3d, interface_transpose_3d
+from psydac.api.ast.transpose_kernels import transpose_1d, interface_transpose_1d
+from psydac.api.ast.transpose_kernels import transpose_2d, interface_transpose_2d
+from psydac.api.ast.transpose_kernels import transpose_3d, interface_transpose_3d
 
 #==============================================================================
 def variable_to_sympy(x):

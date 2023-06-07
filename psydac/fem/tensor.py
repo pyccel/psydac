@@ -31,14 +31,14 @@ from psydac.core.bsplines  import (find_span,
                                    cell_index,
                                    basis_ders_on_irregular_grid)
 
-from psydac.core.kernels import (eval_fields_2d_no_weights,
-                                 eval_fields_2d_irregular_no_weights,
-                                 eval_fields_2d_weighted,
-                                 eval_fields_2d_irregular_weighted,
-                                 eval_fields_3d_no_weights,
-                                 eval_fields_3d_irregular_no_weights,
-                                 eval_fields_3d_weighted,
-                                 eval_fields_3d_irregular_weighted)
+from psydac.core.field_evaluation_kernels import (eval_fields_2d_no_weights,
+                                                  eval_fields_2d_irregular_no_weights,
+                                                  eval_fields_2d_weighted,
+                                                  eval_fields_2d_irregular_weighted,
+                                                  eval_fields_3d_no_weights,
+                                                  eval_fields_3d_irregular_no_weights,
+                                                  eval_fields_3d_weighted,
+                                                  eval_fields_3d_irregular_weighted)
 
 
 #===============================================================================

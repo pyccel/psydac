@@ -9,9 +9,9 @@ from psydac.mapping.discrete import SplineMapping
 from psydac.fem.basic import FemField
 from psydac.fem.vector import ProductFemSpace, VectorFemSpace
 from psydac.core.bsplines import cell_index
-from psydac.core.kernels import (pushforward_2d_l2, pushforward_3d_l2,
-                                 pushforward_2d_hdiv, pushforward_3d_hdiv,
-                                 pushforward_2d_hcurl, pushforward_3d_hcurl)
+from psydac.core.field_evaluation_kernels import (pushforward_2d_l2, pushforward_3d_l2,
+                                                  pushforward_2d_hdiv, pushforward_3d_hdiv,
+                                                  pushforward_2d_hcurl, pushforward_3d_hcurl)
 
 # L2 and Hdiv push-forward algorithms use the metric determinant and
 # not the jacobian determinant. For this reason, sign descrepancies can

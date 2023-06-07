@@ -25,10 +25,10 @@ def main():
         print("The language given is not used by pyccel. It must be fortran or c.")
         language = 'fortran'
 
-    os.system('pyccel ' + psydac_path + '/../linalg/kernels.py --language '         + language)
-    os.system('pyccel ' + psydac_path + '/../api/ast/linalg_kernels.py --language ' + language)
-    os.system('pyccel ' + psydac_path + '/../core/kernels.py --language '           + language)
-    os.system('pyccel ' + psydac_path + '/../core/bsplines_pyccel.py --language '   + language)
+    os.system('pyccel ' + psydac_path + '/../linalg/stencil2coo_kernels.py --language '         + language)
+    os.system('pyccel ' + psydac_path + '/../api/ast/transpose_kernels.py --language ' + language)
+    os.system('pyccel ' + psydac_path + '/../core/field_evaluation_kernels.py --language '           + language)
+    os.system('pyccel ' + psydac_path + '/../core/bsplines_kernels.py --language '   + language)
     return
 
 main()

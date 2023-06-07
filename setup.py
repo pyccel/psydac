@@ -36,10 +36,10 @@ class PyccelCommand(distutils.cmd.Command):
     else:
         language_param = '--language fortran'
 
-    command1 = 'pyccel ' + psydac_path + '/psydac/linalg/kernels.py '         + language_param
-    command2 = 'pyccel ' + psydac_path + '/psydac/api/ast/linalg_kernels.py ' + language_param
-    command3 = 'pyccel ' + psydac_path + '/psydac/core/kernels.py '           + language_param
-    command4 = 'pyccel ' + psydac_path + '/psydac/core/bsplines_pyccel.py '   + language_param
+    command1 = 'pyccel ' + psydac_path + '/psydac/linalg/stencil2coo_kernels.py '         + language_param
+    command2 = 'pyccel ' + psydac_path + '/psydac/api/ast/transpose_kernels.py ' + language_param
+    command3 = 'pyccel ' + psydac_path + '/psydac/core/field_evaluation_kernels.py '           + language_param
+    command4 = 'pyccel ' + psydac_path + '/psydac/core/bsplines_kernels.py '   + language_param
 
     self.announce(
         'Running commands: %s' % str(command1),
