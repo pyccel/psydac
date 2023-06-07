@@ -123,8 +123,12 @@ jobs:
       - name: Install project
         run: |
           python -m pip install .
+          export PYCCEL_LANGUAGE=fortran
           pyccel psydac/core/kernels.py --language fortran
           pyccel psydac/core/bsplines_pyccel.py --language fortran
+          pyccel psydac/api/ast/linalg_kernels.py --language fortran
+          pyccel psydac/linalg/kernels.py --language fortran
+          psydac-accelerate
           python -m pip freeze
 
       - name: Initialize test directory
