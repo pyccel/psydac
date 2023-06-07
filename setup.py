@@ -32,21 +32,20 @@ class PyccelCommand(distutils.cmd.Command):
     psydac_path = os.getcwd()
 
     if self.language:
-        language_param = '--language ' +  self.language
+        language_param = '--language ' +  self.language + '\n'
     else:
-        language_param = '--language fortran'
+        language_param = '--language fortran \n'
 
-    command1 = 'pyccel ' + psydac_path + '/psydac/linalg/kernels.py '         + language_param
-    command2 = 'pyccel ' + psydac_path + '/psydac/api/ast/linalg_kernels.py ' + language_param
-    command3 = 'pyccel ' + psydac_path + '/psydac/core/kernels.py '           + language_param
-    command4 = 'pyccel ' + psydac_path + '/psydac/core/bsplines_pyccel.py '   + language_param
-    command = [command1, command2, command3, command4]
+    command = ['pyccel', psydac_path, '/psydac/linalg/kernels.py',         language_param]
+    command += ['pyccel', psydac_path, '/psydac/api/ast/linalg_kernels.py', language_param]
+    command += ['pyccel', psydac_path, '/psydac/core/kernels.py',           language_param]
+    command += ['pyccel', psydac_path, '/psydac/core/bsplines_pyccel.py',   language_param]
 
     command.append(psydac_path)
     self.announce(
         'Running commands: %s' % str(command),
         level=distutils.log.INFO)
-    subprocess.run(command, shell=True)
+    subprocess.run(command, shell=False)
 
 class BuildPyCommand(setuptools.command.build_py.build_py):
   """Custom build command."""
