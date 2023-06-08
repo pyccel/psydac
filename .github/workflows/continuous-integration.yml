@@ -28,15 +28,7 @@ jobs:
 
     name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
 
-    steps:
-      - name: Check job configuration
-        run: |
-          echo ${{ matrix.os }}
-          echo ${{ matrix.python-version }}
-          echo ${{ github.event_name }}
-          echo ${{ github.ref }}
-          echo ${{ matrix.isMerge }}
-      
+    steps:      
       - uses: actions/checkout@v3
 
       - name: Set up Python ${{ matrix.python-version }}
