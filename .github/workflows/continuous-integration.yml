@@ -17,8 +17,7 @@ jobs:
       matrix:
         os: [ ubuntu-latest ]
         python-version: [ 3.7, 3.8, 3.9, '3.10' ]
-        isMerge:
-          - [ ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
+        isMerge: [ ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }} ]
         exclude:
           - { isMerge: false, python-version: 3.8 }
           - { isMerge: false, python-version: 3.9 }
