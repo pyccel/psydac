@@ -9,13 +9,20 @@ import numpy as np
 from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator, IdentityOperator, ScaledLinearOperator
 from psydac.linalg.utilities import _sym_ortho
 
-__all__ = ('ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'BiConjugateGradientStabilized', 'MinimumResidual', 'LSMR')
+__all__ = ('ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'BiConjugateGradientStabilized', 'MinimumResidual', 'LSMR', 'GMRES')
+
+def is_real(x):
+    from numbers import Number
+    return isinstance(x, Number) and np.isrealobj(x) and not isinstance(x, bool)
 
 def inverse(A, solver, **kwargs):
     """
     A function to create objects of all InverseLinearOperator subclasses.
-    These are, as of May 03, 2023:
-    ConjugateGradient, PConjugateGradient, BiConjugateGradient, BiConjugateGradientStabilized, MinimumResidual, LSMR
+
+    These are, as of June 06, 2023:
+    ConjugateGradient, PConjugateGradient, BiConjugateGradient,
+    BiConjugateGradientStabilized, MinimumResidual, LSMR, GMRES.
+
     The kwargs given must be compatible with the chosen solver subclass.
     
     Parameters
@@ -26,8 +33,8 @@ def inverse(A, solver, **kwargs):
         function (i.e. matrix-vector product A*p).
 
     solver : str
-        Either 'cg', 'pcg', 'bicg', 'bicgstab', 'minres' or 'lsmr'
-        Indicating the preferred iterative solver.
+        Preferred iterative solver. Options are: 'cg', 'pcg', 'bicg',
+        'bicgstab', 'minres', 'lsmr', 'gmres'.
 
     Returns
     -------
@@ -790,7 +797,8 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         Returns
         -------
         x : psydac.linalg.basic.Vector
-            Numerical solution of linear system.
+            Numerical solution of linear system. To check the convergence of the solver,
+            use the method InverseLinearOperator.get_info().
         
         info : dict
             Dictionary containing convergence information:
@@ -801,7 +809,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         References
         ----------
         [1] H. A. van der Vorst. Bi-CGSTAB: A fast and smoothly converging variant of Bi-CG for the
-        solution of nonsymmetric linear systems. SIAM J. Sci. Stat. Comp., 13(2):631–644, 1992
+        solution of nonsymmetric linear systems. SIAM J. Sci. Stat. Comp., 13(2):631–644, 1992.
         """
 
         A = self._A
@@ -1044,8 +1052,9 @@ class MinimumResidual(InverseLinearOperator):
         Returns
         -------
         x : psydac.linalg.basic.Vector
-            Numerical solution of linear system.
-        
+            Numerical solution of linear system. To check the convergence of the solver,
+            use the method InverseLinearOperator.get_info().
+
         info : dict
             Dictionary containing convergence information:
             - 'niter'    = (int) number of iterations
