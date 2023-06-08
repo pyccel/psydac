@@ -20,11 +20,11 @@ jobs:
             python-version: 3.7
 
           - os: ubuntu-latest
-            if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel'}}
+            if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
             python-version: 3.8
 
           - os: ubuntu-latest
-            if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel'}}
+            if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
             python-version: 3.9
 
           - os: ubuntu-latest
