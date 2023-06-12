@@ -2,7 +2,7 @@ import setuptools.command.build_py
 import distutils.cmd
 import distutils.log
 import setuptools
-import subprocess
+# import subprocess
 import os
 
 
@@ -44,19 +44,19 @@ class PyccelCommand(distutils.cmd.Command):
     self.announce(
         'Running commands: %s' % str(command1),
         level=distutils.log.INFO)
-    subprocess.run(command1, check=True, shell=True)
+    os.system(command1)
     self.announce(
         'Running commands: %s' % str(command2),
         level=distutils.log.INFO)
-    subprocess.run(command2, check=True, shell=True)
+    os.system(command2)
     self.announce(
         'Running commands: %s' % str(command3),
         level=distutils.log.INFO)
-    subprocess.run(command3, check=True, shell=True)
+    os.system(command3)
     self.announce(
         'Running commands: %s' % str(command4),
         level=distutils.log.INFO)
-    subprocess.run(command4, check=True, shell=True)
+    os.system(command4)
 
 class BuildPyCommand(setuptools.command.build_py.build_py):
   """Custom build command."""

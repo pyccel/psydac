@@ -22,13 +22,14 @@ def main():
     language    = args.language
 
     if language not in ['fortran', 'c']:
-        print("The language given is not used by pyccel. It must be fortran or c.")
+        print("The language given is not used by pyccel. It must be 'fortran' or 'c'.")
         language = 'fortran'
 
-    os.system('pyccel ' + psydac_path + '/../linalg/stencil2coo_kernels.py --language '         + language)
-    os.system('pyccel ' + psydac_path + '/../api/ast/transpose_kernels.py --language ' + language)
-    os.system('pyccel ' + psydac_path + '/../core/field_evaluation_kernels.py --language '           + language)
-    os.system('pyccel ' + psydac_path + '/../core/bsplines_kernels.py --language '   + language)
+    os.system('pyccel ' + psydac_path + '/../linalg/stencil2coo_kernels.py --language '    + language)
+    os.system('pyccel ' + psydac_path + '/../api/ast/transpose_kernels.py --language '     + language)
+    os.system('pyccel ' + psydac_path + '/../core/field_evaluation_kernels.py --language ' + language)
+    os.system('pyccel ' + psydac_path + '/../core/bsplines_kernels.py --language '         + language)
+
+
     return
 
-main()
