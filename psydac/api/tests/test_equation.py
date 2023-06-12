@@ -34,10 +34,10 @@ def test_field_and_constant(backend):
     v = element_of(V, name='v')
     f = element_of(V, name='f')
     c = Constant(name='c')
-
     g = c * f**2
-    a  = BilinearForm((u, v), integral(domain, u * v))
-    l  = LinearForm(v, integral(domain, g * v))
+    a = BilinearForm((u, v), integral(domain, u * v))
+    l = LinearForm(v, integral(domain, g * v))
+
     bc = EssentialBC(u, g, domain.boundary)
 
     equation = find(u, forall=v, lhs=a(u, v), rhs=l(v), bc=bc)

@@ -1,8 +1,7 @@
 import pytest
 import numpy as np
-from sympy import pi, sin, cos, tan, atan, atan2
-from sympy import exp, sinh, cosh, tanh, atanh, Tuple
-from sympy import I
+
+from sympy import pi, sin, cos, tan, atan, atan2, exp, sinh, cosh, tanh, atanh, Tuple, I
 
 
 from sympde.topology import Line, Square
@@ -105,16 +104,12 @@ def test_bilinearForm_complex(backend, dtype='complex'):
     # We try to put complex as a python scalar in the expression
     g2 = res * c * f**2
 
-    # We try to put complex in a Sympde Constant in the expression
+    # We try to put complex in a Sympde Constant in the expression or in a PSYDAC FemField in the expression
     g3 = c * f**2
-
-    # We try to put complex in a PSYDAC FemField in the expression
-    g4 = c * f**2
 
     a1 = BilinearForm((u, v), integral(domain, u * v * g1))
     a2 = BilinearForm((u, v), integral(domain, u * v * g2))
     a3 = BilinearForm((u, v), integral(domain, u * v * g3))
-    a4 = BilinearForm((u, v), integral(domain, u * v * g4))
 
     ncells = (5, 5)
     degree = (3, 3)
@@ -123,7 +118,6 @@ def test_bilinearForm_complex(backend, dtype='complex'):
     a1h = discretize(a1, domain_h, [Vh, Vh], **kwargs)
     a2h = discretize(a2, domain_h, [Vh, Vh], **kwargs)
     a3h = discretize(a3, domain_h, [Vh, Vh], **kwargs)
-    a4h = discretize(a4, domain_h, [Vh, Vh], **kwargs)
 
     fh = FemField(Vh)
     fh.coeffs[:] = 1
@@ -134,7 +128,7 @@ def test_bilinearForm_complex(backend, dtype='complex'):
     A1 = a1h.assemble(c=1.0, f=fh)
     A2 = a2h.assemble(c=1.0, f=fh)
     A3 = a3h.assemble(c=res, f=fh)
-    A4 = a4h.assemble(c=1.0, f=fh2)
+    A4 = a3h.assemble(c=1.0, f=fh2)
 
     # Test matrix A
     x = fh.coeffs
@@ -170,16 +164,12 @@ def test_linearForm_complex(backend, dtype='complex'):
     # We try to put complex as a python scalar in the expression
     g2 = res * c * f**2
 
-    # We try to put complex in a Sympde Constant in the expression
+    # We try to put complex in a Sympde Constant in the expression or in a PSYDAC FemField in the expression
     g3 = c * f**2
-
-    # We try to put complex in a PSYDAC FemField in the expression
-    g4 = c * f**2
 
     l1 = LinearForm(v, integral(domain, g1 * v))
     l2 = LinearForm(v, integral(domain, g2 * v))
     l3 = LinearForm(v, integral(domain, g3 * v))
-    l4 = LinearForm(v, integral(domain, g4 * v))
 
     ncells = (5, 5)
     degree = (3, 3)
@@ -188,7 +178,6 @@ def test_linearForm_complex(backend, dtype='complex'):
     l1h = discretize(l1, domain_h, Vh, **kwargs)
     l2h = discretize(l2, domain_h, Vh, **kwargs)
     l3h = discretize(l3, domain_h, Vh, **kwargs)
-    l4h = discretize(l4, domain_h, Vh, **kwargs)
 
     fh = FemField(Vh)
     fh.coeffs[:] = 1
@@ -199,7 +188,7 @@ def test_linearForm_complex(backend, dtype='complex'):
     b1 = l1h.assemble(c=1.0, f=fh)
     b2 = l2h.assemble(c=1.0, f=fh)
     b3 = l3h.assemble(c=res, f=fh)
-    b4 = l4h.assemble(c=1.0, f=fh2)
+    b4 = l3h.assemble(c=1.0, f=fh2)
 
 
     # Test vector b
