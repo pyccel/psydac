@@ -541,11 +541,20 @@ class Parser(object):
         inits.append(EmptyNode())
         body          =  tuple(inits) + body
         name          = expr.name
-        numpy_imports = ('array', 'zeros', 'zeros_like', 'floor')
-        math_imports  = (*self._math_functions,)
-        imports       = [Import('numpy', numpy_imports)] + \
-                        ([Import('math', math_imports)] if math_imports else []) + \
-                        [*expr.imports]
+
+        # If we are with complex object, we should import the mathematical function from numpy and not math to handle complex value.
+        if expr.domain_dtype=='complex':
+            numpy_imports = ('array', 'zeros', 'zeros_like', 'floor', *self._math_functions)
+            imports       = [Import('numpy', numpy_imports)] + \
+                            [*expr.imports]
+        # Else we import them from math
+        else:
+            math_imports  = (*self._math_functions,)
+            numpy_imports = ('array', 'zeros', 'zeros_like', 'floor')
+            imports       = [Import('numpy', numpy_imports)] + \
+                            ([Import('math', math_imports)] if math_imports else []) + \
+                            [*expr.imports]
+
         results       = [self._visit(a) for a in expr.results]
 
         if self.backend['name'] == 'pyccel':

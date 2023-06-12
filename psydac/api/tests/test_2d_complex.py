@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 from mpi4py import MPI
-from sympy import pi, cos, sin, symbols
+from sympy import pi, cos, sin, symbols, conjugate, exp
 from sympy.utilities.lambdify import implemented_function
 import pytest
 
@@ -201,7 +201,7 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
 ###############################################################################
 def test_complex_biharmonic_2d():
     x, y, z = symbols('x1, x2, x3')
-    solution = sin(pi * x)**2 * sin(pi * y)**2 + 1j * sin(2*pi * x)**2 * sin(2*pi * y)**2
+    solution = (sin(pi * x)**2 * sin(pi * y)**2 + 1j * sin(2*pi * x)**2 * sin(2*pi * y)**2) * exp(pi * 1j * (x**2+y**2))
     f        = laplace(laplace(solution))
 
     dir_zero_boundary = get_boundaries(1, 2, 3, 4)
@@ -209,9 +209,9 @@ def test_complex_biharmonic_2d():
     l2_error, h1_error, h2_error = run_biharmonic_2d_dir(solution, f,
             dir_zero_boundary, ncells=[2**3, 2**3], degree=[3, 3])
 
-    expected_l2_error = 0.004992837948223034
-    expected_h1_error = 0.15447635154355155
-    expected_h2_error = 4.262286950680158
+    expected_l2_error = 0.0027365784556742626
+    expected_h1_error = 0.07976499145119309
+    expected_h2_error = 1.701552032688161
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
