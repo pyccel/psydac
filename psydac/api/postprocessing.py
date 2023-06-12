@@ -27,7 +27,8 @@ from psydac.fem.basic import FemSpace, FemField
 from psydac.utilities.vtk import writeParallelVTKUnstructuredGrid
 from psydac.core.bsplines import elevate_knots
 
-
+__all__ = ('get_grid_lines_2d', '_augment_space_degree_dict',
+           'OutputManager', 'PostProcessManager')
 #===============================================================================
 def get_grid_lines_2d(domain_h, V_h, *, refine=1):
     """
@@ -41,12 +42,11 @@ def get_grid_lines_2d(domain_h, V_h, *, refine=1):
 
     V_h : psydac.fem.tensor.TensorFemSpace
         Spline space from which the breakpoints are extracted.
-                    - TODO: remove this argument -
+            - TODO: remove this argument -
 
     refine : int
         Number of segments used to describe a grid curve in each element
         (minimum value is 1, which yields quadrilateral elements).
-
 
     Returns
     -------
@@ -296,9 +296,10 @@ class OutputManager:
         femspaces: dict
             Named femspaces
 
-        Note
-        ----
+        Notes
+        -----
         Femspaces are added to ``self._space_info``.
+        
         """
         assert all(isinstance(femspace, FemSpace) for femspace in femspaces.values())
 
@@ -707,7 +708,7 @@ class PostProcessManager:
         one space that isn't empty.
 
     Warns
-    ------
+    -----
     UserWarning
         If fields_file wasn't found.
     """
@@ -790,7 +791,7 @@ class PostProcessManager:
         return fields
 
     def read_space_info(self):
-        """Read ``self.space_filename ``.
+        """Read self.space_filename.
 
         Returns
         -------

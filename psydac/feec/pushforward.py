@@ -17,6 +17,8 @@ from psydac.core.field_evaluation_kernels import (pushforward_2d_l2, pushforward
 # not the jacobian determinant. For this reason, sign descrepancies can
 # happen when comparing against algorithms which use the latter.
 
+__all__ = ('Pushforward',)
+
 class Pushforward:
     """
     Class used to help push-forwarding several fields using the

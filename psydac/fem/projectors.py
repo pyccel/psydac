@@ -4,6 +4,7 @@ from psydac.linalg.kron     import KroneckerDenseMatrix
 from psydac.core.bsplines   import hrefinement_matrix
 from psydac.linalg.stencil  import StencilVectorSpace
 
+__all__ = ('knots_to_insert', 'knot_insertion_projection_operator')
 
 def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
     """ Compute the point difference between the fine grid and coarse grid."""
@@ -99,4 +100,3 @@ def knot_insertion_projection_operator(domain, codomain):
             ops.append(np.eye(d.nbasis))
 
     return KroneckerDenseMatrix(domain.vector_space, codomain.vector_space, *ops)
-

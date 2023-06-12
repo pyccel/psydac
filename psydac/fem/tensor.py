@@ -40,6 +40,7 @@ from psydac.core.field_evaluation_kernels import (eval_fields_2d_no_weights,
                                                   eval_fields_3d_weighted,
                                                   eval_fields_3d_irregular_weighted)
 
+__all__ = ('TensorFemSpace',)
 
 #===============================================================================
 class TensorFemSpace( FemSpace ):
@@ -371,7 +372,7 @@ class TensorFemSpace( FemSpace ):
         """Evaluate one or several fields at the given location(s) grid.
 
         Parameters
-        -----------
+        ----------
         grid : List of ndarray
             Grid on which to evaluate the fields
 
@@ -938,7 +939,7 @@ class TensorFemSpace( FemSpace ):
         field_names : list of str
             Names of the datasets with the required spline coefficients.
 
-        Results
+        Returns
         -------
         fields : list of FemSpace objects
             Distributed fields, given in the same order of the names.
@@ -1182,4 +1183,3 @@ class TensorFemSpace( FemSpace ):
         dims = ', '.join(str(V.nbasis) for V in self.spaces)
         txt += '> nbasis :: ({dims})\n'.format(dims=dims)
         return txt
-

@@ -9,18 +9,21 @@ import numpy as np
 from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator, IdentityOperator, ScaledLinearOperator
 from psydac.linalg.utilities import _sym_ortho
 
-__all__ = ['ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'BiConjugateGradientStabilized', 'MinimumResidual', 'LSMR']
+__all__ = ('ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'BiConjugateGradientStabilized', 'MinimumResidual', 'LSMR', 'GMRES')
+
+def is_real(x):
+    from numbers import Number
+    return isinstance(x, Number) and np.isrealobj(x) and not isinstance(x, bool)
 
 def inverse(A, solver, **kwargs):
     """
     A function to create objects of all InverseLinearOperator subclasses.
-    14.02.23: ConjugateGradient, PConjugateGradient, BiConjugateGradient, MinimumResidual, LSMR
-    The ''kwargs given must be compatible with the chosen solver subclass, see
-    :func:~`solvers.ConjugateGradient`
-    :func:~`solvers.PConjugateGradient`
-    :func:~`solvers.BiConjugateGradient`
-    :func:~`solvers.MinimumResidual`
-    :func:~`solvers.LSMR`
+
+    These are, as of June 06, 2023:
+    ConjugateGradient, PConjugateGradient, BiConjugateGradient,
+    BiConjugateGradientStabilized, MinimumResidual, LSMR, GMRES.
+
+    The kwargs given must be compatible with the chosen solver subclass.
     
     Parameters
     ----------
@@ -30,8 +33,8 @@ def inverse(A, solver, **kwargs):
         function (i.e. matrix-vector product A*p).
 
     solver : str
-        14.02.23: Either 'cg', 'pcg', 'bicg', 'minres' or 'lsmr'
-        Indicating the preferred iterative solver.
+        Preferred iterative solver. Options are: 'cg', 'pcg', 'bicg',
+        'bicgstab', 'minres', 'lsmr', 'gmres'.
 
     Returns
     -------
@@ -41,7 +44,7 @@ def inverse(A, solver, **kwargs):
 
     """
     # Check solver input
-    solvers = ('cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr')
+    solvers = ('cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres')
     if solver not in solvers:
         raise ValueError(f"Required solver '{solver}' not understood.")
 
@@ -66,6 +69,8 @@ def inverse(A, solver, **kwargs):
         obj = MinimumResidual(A, **kwargs)
     elif solver == 'lsmr':
         obj = LSMR(A, **kwargs)
+    elif solver == 'gmres':
+        obj = GMRES(A, **kwargs)
     return obj
 
 #===============================================================================
@@ -90,7 +95,7 @@ class ConjugateGradient(InverseLinearOperator):
     tol : float
         Absolute tolerance for L2-norm of residual r = A*x - b.
 
-    maxiter: int
+    maxiter : int
         Maximum number of iterations.
 
     verbose : bool
@@ -131,15 +136,12 @@ class ConjugateGradient(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
-                assert value is not None, "tol may not be None"
-                assert value*0 == 0, "tol must be a real number"
+                assert is_real(value), "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif key == 'maxiter':
-                assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
             elif key == 'verbose':
-                assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
@@ -168,16 +170,11 @@ class ConjugateGradient(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
-            Converged solution.
-
-        info : dict
-            Dictionary containing convergence information:
-            - 'niter'    = (int) number of iterations
-            - 'success'  = (boolean) whether convergence criteria have been met
-            - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+            Numerical solution of the linear system. To check the convergence of the solver,
+            use the method InverseLinearOperator.get_info().
 
         References
         ----------
@@ -332,15 +329,12 @@ class PConjugateGradient(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
-                assert value is not None, "tol may not be None"
-                assert value*0 == 0, "tol must be a real number"
+                assert is_real(value), "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif key == 'maxiter':
-                assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
             elif key == 'verbose':
-                assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
@@ -369,13 +363,8 @@ class PConjugateGradient(InverseLinearOperator):
         Returns
         -------
         x : psydac.linalg.basic.Vector
-            Converged solution.
-
-        info : dict
-            Dictionary containing convergence information:
-            - 'niter'    = (int) number of iterations
-            - 'success'  = (boolean) whether convergence criteria have been met
-            - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+            Numerical solution of the linear system. To check the convergence of the solver,
+            use the method InverseLinearOperator.get_info().
 
         """
 
@@ -545,15 +534,12 @@ class BiConjugateGradient(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
-                assert value is not None, "tol may not be None"
-                assert value*0 == 0, "tol must be a real number"
+                assert is_real(value), "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif key == 'maxiter':
-                assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
             elif key == 'verbose':
-                assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
@@ -569,6 +555,7 @@ class BiConjugateGradient(InverseLinearOperator):
         Biconjugate gradient (BCG) algorithm for solving linear system Ax=b.
         Implementation from [1], page 175.
         Info can be accessed using get_info(), see :func:~`basic.InverseLinearOperator.get_info`.
+        ToDo: Add optional preconditioner
 
         Parameters
         ----------
@@ -581,24 +568,15 @@ class BiConjugateGradient(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
-            Numerical solution of linear system.
-
-        info : dict
-            Dictionary containing convergence information:
-            - 'niter'    = (int) number of iterations
-            - 'success'  = (boolean) whether convergence criteria have been met
-            - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+            Numerical solution of linear system. To check the convergence of the solver,
+            use the method InverseLinearOperator.get_info().
 
         References
         ----------
         [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
-
-        TODO
-        ----
-        Add optional preconditioner
 
         """
         A = self._A
@@ -782,16 +760,12 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif true_idx == 1:
-                assert value is not None, "tol may not be None"
-                # don't know if that one works -want to check if value is a number
-                assert value*0 == 0, "tol must be a real number"
+                assert is_real(value), "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif true_idx == 2:
-                assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
             elif true_idx == 3:
-                assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
 
     def _update_options( self ):
@@ -807,6 +781,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         """
         Biconjugate gradient stabilized method (BCGSTAB) algorithm for solving linear system Ax=b.
         Implementation from [1], page 175.
+        ToDo: Add optional preconditioner
 
         Parameters
         ----------
@@ -818,10 +793,12 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
-            Numerical solution of linear system.
+            Numerical solution of linear system. To check the convergence of the solver,
+            use the method InverseLinearOperator.get_info().
+        
         info : dict
             Dictionary containing convergence information:
               - 'niter'    = (int) number of iterations
@@ -831,11 +808,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         References
         ----------
         [1] H. A. van der Vorst. Bi-CGSTAB: A fast and smoothly converging variant of Bi-CG for the
-        solution of nonsymmetric linear systems. SIAM J. Sci. Stat. Comp., 13(2):631–644, 1992
-
-        TODO
-        ----
-        Add optional preconditioner
+        solution of nonsymmetric linear systems. SIAM J. Sci. Stat. Comp., 13(2):631–644, 1992.
         """
 
         A = self._A
@@ -1003,9 +976,9 @@ class MinimumResidual(InverseLinearOperator):
     References
     ----------
     Solution of sparse indefinite systems of linear equations,
-        C. C. Paige and M. A. Saunders (1975),
-        SIAM J. Numer. Anal. 12(4), pp. 617-629.
-        https://web.stanford.edu/group/SOL/software/minres/
+    C. C. Paige and M. A. Saunders (1975),
+    SIAM J. Numer. Anal. 12(4), pp. 617-629.
+    https://web.stanford.edu/group/SOL/software/minres/
 
     """
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
@@ -1040,15 +1013,12 @@ class MinimumResidual(InverseLinearOperator):
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
-                assert value is not None, "tol may not be None"
-                assert value*0 == 0, "tol must be a real number"
+                assert is_real(value), "tol must be a real number"
                 assert value > 0, "tol must be positive"
             elif key == 'maxiter':
-                assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
             elif key == 'verbose':
-                assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
@@ -1077,15 +1047,18 @@ class MinimumResidual(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
-            Numerical solution of linear system.
+            Numerical solution of linear system. To check the convergence of the solver,
+            use the method InverseLinearOperator.get_info().
+
         info : dict
             Dictionary containing convergence information:
             - 'niter'    = (int) number of iterations
             - 'success'  = (boolean) whether convergence criteria have been met
             - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+
         Notes
         -----
         This is an adaptation of the MINRES Solver in Scipy, where the method is modified to accept Psydac data structures,
@@ -1093,9 +1066,9 @@ class MinimumResidual(InverseLinearOperator):
         References
         ----------
         Solution of sparse indefinite systems of linear equations,
-            C. C. Paige and M. A. Saunders (1975),
-            SIAM J. Numer. Anal. 12(4), pp. 617-629.
-            https://web.stanford.edu/group/SOL/software/minres/
+        C. C. Paige and M. A. Saunders (1975),
+        SIAM J. Numer. Anal. 12(4), pp. 617-629.
+        https://web.stanford.edu/group/SOL/software/minres/
         """
 
         A = self._A
@@ -1361,7 +1334,7 @@ class LSMR(InverseLinearOperator):
     .. [1] D. C.-L. Fong and M. A. Saunders,
            "LSMR: An iterative algorithm for sparse least-squares problems",
            SIAM J. Sci. Comput., vol. 33, pp. 2950-2971, 2011.
-           :arxiv:`1006.0758`
+           arxiv:`1006.0758`
     .. [2] LSMR Software, https://web.stanford.edu/group/SOL/software/lsmr/
     
     """
@@ -1403,22 +1376,19 @@ class LSMR(InverseLinearOperator):
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
             elif key == 'tol':
                 if value is not None:
-                    assert value*0 == 0, "tol must be a real number"
+                    assert is_real(value), "tol must be a real number"
                     assert value > 0, "tol must be positive" # suppose atol/btol must also be positive numbers
             elif key == 'atol' or key == 'btol':
                 if value is not None:
-                    assert value*0 == 0, "atol/btol must be a real number"
+                    assert is_real(value), "atol/btol must be a real number"
                     assert value >= 0, "atol/btol must not be negative"
             elif key == 'maxiter':
-                assert value is not None, "maxiter may not be None"
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
             elif key == 'conlim':
-                assert value is not None, "conlim may not be None"
-                assert value*0 == 0, "conlim must be a real number" # actually an integer?
+                assert is_real(value), "conlim must be a real number" # actually an integer?
                 assert value > 0, "conlim must be positive" # supposedly
             elif key == 'verbose':
-                assert value is not None, "verbose may not be None"
                 assert isinstance(value, bool), "verbose must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
@@ -1449,16 +1419,11 @@ class LSMR(InverseLinearOperator):
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
 
-        Results
+        Returns
         -------
         x : psydac.linalg.basic.Vector
-            Numerical solution of linear system.
-
-        info : dict
-            Dictionary containing convergence information:
-            - 'niter'    = (int) number of iterations
-            - 'success'  = (boolean) whether convergence criteria have been met
-            - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+            Numerical solution of linear system. To check the convergence of the solver,
+            use the method InverseLinearOperator.get_info().
 
         Notes
         -----
@@ -1470,7 +1435,7 @@ class LSMR(InverseLinearOperator):
         .. [1] D. C.-L. Fong and M. A. Saunders,
             "LSMR: An iterative algorithm for sparse least-squares problems",
             SIAM J. Sci. Comput., vol. 33, pp. 2950-2971, 2011.
-            :arxiv:`1006.0758`
+            arxiv:`1006.0758`
         .. [2] LSMR Software, https://web.stanford.edu/group/SOL/software/lsmr/
         """
 
@@ -1725,3 +1690,259 @@ class LSMR(InverseLinearOperator):
 
     def dot(self, b, out=None):
         return self.solve(b, out=out)
+
+#===============================================================================
+class GMRES(InverseLinearOperator):
+    """
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+
+    The .dot (and also the .solve) function are based on the 
+    generalized minimal residual algorithm for solving linear system Ax=b.
+    Implementation from Wikipedia
+
+    Parameters
+    ----------
+    A : psydac.linalg.basic.LinearOperator
+        Left-hand-side matrix A of linear system; individual entries A[i,j]
+        can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
+        function (i.e. matrix-vector product A*p).
+
+    x0 : psydac.linalg.basic.Vector
+        First guess of solution for iterative solver (optional).
+
+    tol : float
+        Absolute tolerance for L2-norm of residual r = A*x - b.
+
+    maxiter: int
+        Maximum number of iterations.
+
+    verbose : bool
+        If True, L2-norm of residual r is printed at each iteration.
+
+    References
+    ----------
+    [1] Y. Saad and M.H. Schultz, "GMRES: A generalized minimal residual algorithm for solving nonsymmetric linear systems", SIAM J. Sci. Stat. Comput., 7:856–869, 1986.
+
+    """
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=100, verbose=False):
+
+        assert isinstance(A, LinearOperator)
+        assert A.domain.dimension == A.codomain.dimension
+        domain = A.codomain
+        codomain = A.domain
+
+        if x0 is not None:
+            assert isinstance(x0, Vector)
+            assert x0.space is codomain
+        else:
+            x0 = codomain.zeros()
+
+        self._A = A
+        self._domain = domain
+        self._codomain = codomain
+        self._solver = 'gmres'
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
+        self._check_options(**self._options) 
+        self._tmps = {key: domain.zeros() for key in ("r", "p", "v", "lv")}
+
+        # Initialize upper Hessenberg matrix
+        self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]), dtype=A.dtype)
+        self._Q = []
+        self._info = None
+
+    def _check_options(self, **kwargs):
+        for key, value in kwargs.items():
+
+            if key == 'x0':
+                if value is not None:
+                    assert isinstance(value, Vector), "x0 must be a Vector or None"
+                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
+            elif key == 'tol':
+                assert is_real(value), "tol must be a real number"
+                assert value > 0, "tol must be positive"
+            elif key == 'maxiter':
+                assert isinstance(value, int), "maxiter must be an int"
+                assert value > 0, "maxiter must be positive"
+            elif key == 'verbose':
+                assert isinstance(value, bool), "verbose must be a bool"
+            else:
+                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
+
+    def transpose(self, conjugate=False):
+        At = self._A.transpose(conjugate=conjugate)
+        solver = self._solver
+        options = self._options
+        return inverse(At, solver, **options)
+
+    def solve(self, b, out=None):
+        """
+        Generalized minimal residual algorithm for solving linear system Ax=b.
+        Implementation from Wikipedia.
+        Info can be accessed using get_info(), see :func:~`basic.InverseLinearOperator.get_info`.
+
+        Parameters
+        ----------
+        b : psydac.linalg.basic.Vector
+            Right-hand-side vector of linear system Ax = b. Individual entries b[i] need
+            not be accessed, but b has 'shape' attribute and provides 'copy()' and
+            'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
+            scalar multiplication and sum operations are available.
+
+        out : psydac.linalg.basic.Vector | NoneType
+            The output vector, or None (optional).
+
+        Returns
+        -------
+        x : psydac.linalg.basic.Vector
+            Numerical solution of the linear system. To check the convergence of the solver,
+            use the method InverseLinearOperator.get_info().
+        
+        References
+        ----------
+        [1] Y. Saad and M.H. Schultz, "GMRES: A generalized minimal residual algorithm for solving nonsymmetric linear systems", SIAM J. Sci. Stat. Comput., 7:856–869, 1986.
+        
+        """
+
+        A = self._A
+        domain = self._domain
+        codomain = self._codomain
+        options = self._options
+        x0 = options["x0"]
+        tol = options["tol"]
+        maxiter = options["maxiter"]
+        verbose = options["verbose"]
+        
+        assert isinstance(b, Vector)
+        assert b.space is domain
+
+        # First guess of solution
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space is codomain
+
+        x = x0.copy(out=out)
+        
+        # Extract local storage
+        r = self._tmps["r"]
+        v = self._tmps["v"]
+
+        # Internal objects of GMRES
+        self._H[:,:] = 0.
+        beta = []
+        sn = []
+        cn = []
+
+        # First values
+        A.dot( x , out=r)
+        r -= b
+
+        am = sqrt(r.dot(r).real)
+        beta.append(am)
+        r *= - 1 / am
+        
+        if len(self._Q) == 0:
+            self._Q.append(r)
+        else:
+            r.copy(out=self._Q[0])
+
+        if verbose:
+            print( "GMRES solver:" )
+            print( "+---------+---------------------+")
+            print( "+ Iter. # | L2-norm of residual |")
+            print( "+---------+---------------------+")
+            template = "| {:7d} | {:19.2e} |"
+            print( template.format( 1, am ) )
+
+        # Iterate to convergence
+        for k in range(maxiter):
+            if am < tol:
+                break
+
+            # run Arnoldi
+            self.arnoldi(k)
+
+            # make the last diagonal entry in H equal to 0, so that H becomes upper triangular
+            self.apply_givens_rotation(k, sn, cn)
+
+            # update the residual vector
+            beta.append(- sn[k] * beta[k])
+            beta[k] *= cn[k]
+
+            am = abs(beta[k+1])
+            if verbose:
+                print( template.format( k+2, am ) )
+
+        if verbose:
+            print( "+---------+---------------------+")        
+        # calculate result
+        y = self.solve_triangular(self._H[:k, :k], beta[:k]) # system of upper triangular matrix
+
+        for i in range(k):
+            self._Q[i].copy(out=v)
+            v *= y[i]
+            x += v
+
+        # Convergence information
+        self._info = {'niter': k+1, 'success': am < tol, 'res_norm': am }
+        
+        return x
+    
+    def solve_triangular(self, T, d):
+        # Backwards substitution. Assumes T is upper triangular
+        k = T.shape[0]
+        y = np.zeros((k,), dtype=self._A.dtype)
+
+        for k1 in range(k):
+            temp = 0.
+            for k2 in range(1, k1 + 1):
+                temp += T[k - 1 - k1, k - 1 - k1 + k2] * y[k - 1 - k1 + k2]
+            y[k - 1 - k1] = ( d[k - 1 - k1] - temp ) / T[k - 1 - k1, k - 1 - k1]
+        
+        return y
+
+    def arnoldi(self, k):
+        h = self._H[:k+2, k]
+
+        p = self._tmps["p"]
+        self._A.dot( self._Q[k] , out=p) # Krylov vector
+
+        lv = self._tmps["lv"]
+
+        for i in range(k + 1): # Modified Gram-Schmidt, keeping Hessenberg matrix
+            h[i] = p.dot(self._Q[i])
+            self._Q[i].copy(out=lv)
+            lv *= h[i]
+            p -= lv
+        
+        h[k+1] = sqrt(p.dot(p).real)
+        p /= h[k+1] # Normalize vector
+
+        if len(self._Q) > k + 1:
+            p.copy(out=self._Q[k+1])
+        else:
+            self._Q.append(p.copy())
+
+    def apply_givens_rotation(self, k, sn, cn):
+        # Apply Givens rotation to last column of H
+        h = self._H[:k+2, k]
+
+        for i in range(k):
+            h_i_prev = h[i]
+
+            h[i] *= cn[i]
+            h[i] += sn[i] * h[i+1]
+
+            h[i+1] *= cn[i]
+            h[i+1] -= sn[i] * h_i_prev
+        
+        mod = (h[k]**2 + h[k+1]**2)**0.5
+        cn.append( h[k] / mod )
+        sn.append( h[k+1] / mod )
+
+        h[k] *= cn[k]
+        h[k] += sn[k] * h[k+1]
+        h[k+1] = 0. # becomes triangular
+
+    def dot(self, b, out=None):
+        return self.solve(b, out=out)
+    

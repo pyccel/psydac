@@ -16,7 +16,7 @@ from psydac.ddm.cart       import find_mpi_type, CartDecomposition, InterfaceCar
 from psydac.ddm.utilities  import get_data_exchanger
 from .stencil2coo_kernels              import *
 
-__all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix']
+__all__ = ('StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix')
 
 #===============================================================================
 def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False):

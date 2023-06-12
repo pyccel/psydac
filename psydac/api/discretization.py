@@ -40,7 +40,7 @@ from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 
-__all__ = ('discretize',)
+__all__ = ('discretize', 'discretize_derham', 'reduce_space_degrees', 'discretize_space', 'discretize_domain')
 
 #==============================================================================           
 def discretize_derham(derham, domain_h, *args, **kwargs):
@@ -119,7 +119,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
           'N' : for Nedelec elements, as described in [2],
           'RT': for Raviart-Thomas elements, as described in [2].
 
-    Results
+    Returns
     -------
     Wh : TensorFemSpace, VectorFemSpace
       The reduced space
@@ -216,7 +216,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
         The number of quadrature points in each direction.
 
     basis: str
-        The type of basis function can be 'b' for b-splines or 'M' for M-splines.
+        The type of basis function can be 'B' for B-splines or 'M' for M-splines.
 
     sequence: str
         The sequence used to reduce the space. The available choices are:

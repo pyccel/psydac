@@ -23,7 +23,8 @@ __all__ = (
     'VectorCurl_2D',
     'Curl_3D',
     'Divergence_2D',
-    'Divergence_3D'
+    'Divergence_3D',
+    'block_tostencil'
 )
 
 #====================================================================================================

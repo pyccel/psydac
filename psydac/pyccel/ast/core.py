@@ -3413,8 +3413,9 @@ class FunctionDef(Basic):
 
         # arguments
 
-        if not iterable(arguments):
-            raise TypeError('arguments must be an iterable')
+        # Removed by JO in 06/23 in PR #303: This TypeError was raised upon Sphinx trying to import several of Psydac's modules.
+        #if not iterable(arguments):
+        #    raise TypeError('arguments must be an iterable')
 
         # TODO improve and uncomment
 #        if not all(isinstance(a, Argument) for a in arguments):
