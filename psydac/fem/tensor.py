@@ -59,6 +59,7 @@ class TensorFemSpace( FemSpace ):
         assert all( isinstance( s, SplineSpace ) for s in spaces )
         self._domain_decomposition = domain_decomposition
         self._spaces = tuple(spaces)
+        self._dtype   = dtype
 
         if cart is not None:
             self._vector_space = StencilVectorSpace(cart, dtype=dtype)
@@ -693,6 +694,10 @@ class TensorFemSpace( FemSpace ):
     def is_scalar(self):
         return True
 
+    @property
+    def dtype(self):
+        return self._dtype
+
     #TODO: return tuple instead of product?
     @property
     def nbasis(self):
@@ -791,14 +796,14 @@ class TensorFemSpace( FemSpace ):
         for V in self.spaces:
             # TODO: check if OK to access private attribute...
             if not V._interpolation_ready:
-                V.init_interpolation()
+                V.init_interpolation(dtype=self.dtype)
 
     # ...
     def init_histopolation( self ):
         for V in self.spaces:
             # TODO: check if OK to access private attribute...
             if not V._histopolation_ready:
-                V.init_histopolation()
+                V.init_histopolation(dtype=self.dtype)
 
     # ...
     def compute_interpolant( self, values, field ):
