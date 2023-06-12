@@ -133,14 +133,9 @@ python3 /path/to/psydac/mpi_tester.py --pyargs psydac -m "parallel"
 
 ## Speeding up **Psydac**'s core
 
-Some of the low-level functions in psydac are written in python in a way that can be accelerated by pyccel. Currently, all of those are in `psydac/core/kernels.py`, `psydac/core/bsplines_pyccel.py` and `psydac/linalg/kernels.py`.
+Some of the low-level functions in psydac are written in python in a way that can be accelerated by pyccel. Currently, all of those are in `psydac/core/field_evaluation_kernels.py`, `psydac/core/bsplines_kernels.py`, `psydac/ast/api/transpose_kernels.py` and `psydac/linalg/stencil2coo_kernels.py`.
 ```bash
-cd path/to/psydac/core
-pyccel field_evaluation_kernels.py --language fortran
-pyccel bsplines_kernels.py --language fortran
-
-cd ../linalg
-pyccel field_evaluation_kernels.py --language fortran
+psydac-accelerate
 ```
 
 ## User documentation
