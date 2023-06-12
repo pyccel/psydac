@@ -9,20 +9,24 @@ from psydac.ddm.cart       import CartDecomposition, InterfaceCartDecomposition,
 from psydac.core.bsplines  import elements_spans
 from psydac.fem.vector     import ProductFemSpace, VectorFemSpace
 
+__all__ = ('partition_coefficients', 'construct_connectivity', 'get_minus_starts_ends', 'get_plus_starts_ends',
+           'create_cart', 'construct_interface_spaces', 'construct_reduced_interface_spaces')
+
 def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
-    """ Partition the coefficients starting from the grid decomposition.
+    """
+    Partition the coefficients starting from the grid decomposition.
 
     Parameters
     ----------
 
     domain_decomposition: DomainDecomposition
-      The distributed topological domain.
+        The distributed topological domain.
 
     spaces: list of SplineSpace
-      The 1d spline spaces that construct the tensor fem space.
+        The 1d spline spaces that construct the tensor fem space.
 
     min_blocks: list of int
-      The minimum number of coefficients owned by a process.
+        The minimum number of coefficients owned by a process.
 
     Returns
     -------
@@ -128,6 +132,7 @@ def create_cart(domain_decomposition, spaces):
     Two different cases are possible:
     - Single patch :
         We distribute the coefficients using all the processes provided by the given communicator.
+    
     - Multiple patches :
         We decompose the provided communicator in a list of smaller disjoint intra-communicators,
         and decompose the coefficients of each patch with an assigned intra-communicator.
@@ -137,13 +142,12 @@ def create_cart(domain_decomposition, spaces):
     domain_decomposition : DomainDecomposition|tuple of DomainDecomposition
 
     spaces : list of list of 1D global Spline spaces
-     The 1D global spline spaces that will be distributed.
+        The 1D global spline spaces that will be distributed.
 
     Returns
     -------
     cart : tuple of CartDecomposition
         Cartesian decomposition of the coefficient space for each patch in the domain.
-        
 
     """
 
@@ -355,4 +359,3 @@ def construct_reduced_interface_spaces(spaces, reduced_spaces, interiors, connec
                 cart_j = Vj.get_refined_space(max_ncells).vector_space.cart
                 Vi.get_refined_space(max_ncells).create_interface_space(axis_i, ext_i, cart=cart_i)
                 Vj.get_refined_space(max_ncells).create_interface_space(axis_j, ext_j, cart=cart_j)
-

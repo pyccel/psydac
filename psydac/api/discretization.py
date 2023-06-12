@@ -43,7 +43,8 @@ from psydac.mapping.discrete import NurbsMapping
 from psydac.linalg.stencil     import StencilVectorSpace
 from psydac.linalg.block       import BlockVectorSpace
 
-__all__ = ('discretize',)
+__all__ = ('discretize', 'discretize_derham', 'reduce_space_degrees', 'discretize_space', 'discretize_domain')
+
 
 #==============================================================================
 def change_dtype(V, dtype):
@@ -157,7 +158,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
           'N' : for Nedelec elements, as described in [2],
           'RT': for Raviart-Thomas elements, as described in [2].
 
-    Results
+    Returns
     -------
     Wh : TensorFemSpace, VectorFemSpace
       The reduced space

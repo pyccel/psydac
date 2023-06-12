@@ -12,7 +12,7 @@ from psydac.ddm.cart      import InterfaceCartDecomposition
 from psydac.ddm.utilities import get_data_exchanger
 from psydac.linalg.stencil import StencilVector, StencilMatrix
 
-__all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockDiagonalSolver']
+__all__ = ('BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockDiagonalSolver')
 
 #===============================================================================
 class BlockVectorSpace(VectorSpace):
