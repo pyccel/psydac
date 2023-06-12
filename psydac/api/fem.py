@@ -1080,13 +1080,13 @@ class DiscreteLinearForm(BasicDiscrete):
 
     def assemble(self, *, reset=True, **kwargs):
         """
-        This method assemble the right hand side Vector coefficient with the self._func.
+        This method assembles the right-hand side Vector coefficient with the self._func.
 
         In the complex case, this function return the conjugate of the Vector. This come from the fact that the
         problem a(u,v)=b(v) is discretize as A.conj(U)=B due to the antilinearity of a on the first variable.
         Thus, to obtain U, the assemble function for the LinearForm return conj(B).
 
-        TODO: remove these line when the dot product is changed for complex.
+        TODO: remove these line when the dot product is changed for complex in sympde.
         For now, since the dot product didn't do the conjugate in the complex case. We don't use the conjugate in the assemble function.
         It should work if the complex only come from the rhs in the linear form.
         """
@@ -1494,7 +1494,7 @@ class DiscreteFunctional(BasicDiscrete):
 
     def assemble(self, **kwargs):
         """
-        This method assemble the right hand side Vector coefficient with the self._func.
+        This method assembles the right-hand side Vector coefficient with the self._func.
         """
         args = [*self._args]
         for key in self._free_args:
