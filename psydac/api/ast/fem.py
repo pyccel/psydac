@@ -241,9 +241,7 @@ class DefNode(Basic):
 #=======================================================================================================================
 def expand_hdiv_hcurl(args):
     """
-
     This function expands vector functions of type hdiv and hculr into indexed functions
-
     """
     new_args         = []
     for i,a in enumerate(args):
@@ -414,12 +412,11 @@ class AST(object):
         tests                = expand_hdiv_hcurl(tests)
         trials               = expand_hdiv_hcurl(trials)
         fields               = expand_hdiv_hcurl(fields)
-
         kwargs['quad_order'] = quad_order
-
         atoms_types          = (ScalarFunction, VectorFunction, IndexedVectorFunction)
         nderiv               = 1
         terminal_expr        = terminal_expr.expr
+
         if isinstance(terminal_expr, (ImmutableDenseMatrix, Matrix)):
             n_rows, n_cols    = terminal_expr.shape
             atomic_expr_field = {f:[] for f in fields}
