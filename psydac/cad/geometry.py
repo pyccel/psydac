@@ -85,7 +85,7 @@ class Geometry( object ):
                 assert isinstance(periodic, dict)
 
             # ... check sanity
-            interior_names = sorted(domain.interior_names)
+            interior_names = domain.interior_names
             mappings_keys  = sorted(list(mappings.keys()))
 
             assert sorted(interior_names) == mappings_keys
