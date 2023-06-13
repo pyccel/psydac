@@ -85,6 +85,12 @@ def compute_diag_len(p, md, mc):
     return n.astype('int')
 
 def get_nquads(Vh):
+    """
+    This function is to be deleted in the future, as we intend to make the number of
+    quadrature points a property of DiscreteLinearForms, DiscreteBilinearForms and
+    DiscreteFunctionals rather than a property of spaces.
+    
+    """
     if isinstance(Vh, (ProductFemSpace, VectorFemSpace)):
         return get_nquads(Vh.spaces[0])
     return tuple([g.weights.shape[1] for g in Vh.quad_grids()])
@@ -178,6 +184,9 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     nquads: list of tuple
         The number of quadrature points used in the assembly method.
+        This optional argument will be mandatory in the future, when quadrature grids
+        will not be property-like attributes of a TensorFemSpace anymore, but instead will only be
+        given to the constructors of DiscreteBilinearForm, DiscreteLinearForm, and DiscreteFunctional.
 
     backend: dict
         The backend used to accelerate the computing kernels.
@@ -319,9 +328,9 @@ class DiscreteBilinearForm(BasicDiscrete):
             self._trial_ext = trial_target.ext
 
         #...
-        discrete_space   = (trial_space, test_space)
-        space_nquads     = [qo - 1 for qo in get_nquads(test_space)]
-        nquads           = [qo + 1 for qo in (nquads or space_nquads)]
+        discrete_space = (trial_space, test_space)
+        space_nquads   = [qo - 1 for qo in get_nquads(test_space)]
+        nquads         = [qo + 1 for qo in (nquads or space_nquads)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
         assert np.array_equal(nquads, get_nquads(test_space))

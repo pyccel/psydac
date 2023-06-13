@@ -20,6 +20,7 @@ def get_points_weights(spaces, axis, e):
         if e in quad_grid_axis.indices:
             i = np.where(quad_grid_axis.indices==e)[0][0]
             return quad_grid_axis.points[i:i+1], quad_grid_axis.weights[i:i+1]
+
 #==============================================================================
 class QuadratureGrid():
     def __init__( self, V , axis=None, ext=None, trial_space=None):

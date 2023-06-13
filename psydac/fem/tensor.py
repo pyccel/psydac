@@ -47,6 +47,24 @@ class TensorFemSpace( FemSpace ):
     """
     Tensor-product Finite Element space V.
 
+    Parameters
+    ----------
+    domain_decomposition : psydac.ddm.cart.DomainDecomposition
+
+    spaces : list of psydac.fem.splines.SplineSpace
+        1D finite element spaces.
+
+    vector_space : psydac.linalg.stencil.StencilVectorSpace or None
+
+    cart : psydac.ddm.CartDecomposition or None
+        Object that contains all information about the Cartesian decomposition
+        of a tensor-product grid of coefficients.
+
+    nquads : list of int or None
+        Number of quadrature points used in the Gauss-Legendre quadrature formula in each direction.
+        Used as a default value for various computations. Will be removed, once nquads will only be given 
+        to the constructors of DiscreteBilinearForm, DiscreteLinearForm, and DiscreteFunctional.
+    
     Notes
     -----
     For now we assume that this tensor-product space can ONLY be constructed
@@ -88,10 +106,6 @@ class TensorFemSpace( FemSpace ):
         ends   = self._vector_space.cart.domain_decomposition.ends
 
         # Compute extended 1D quadrature grids (local to process) along each direction
-        #self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, nquads=q)
-        #                          for V,s,e,q in zip( self.spaces, starts, ends, self._nquads ) )
-        
-        # TODO [YG 02.06.2023]: Use dictionary and setter
         self._quad_grids = tuple({q: FemAssemblyGrid(V, s, e, nderiv=V.degree, nquads=q)}
                                   for V, s, e, q in zip( self.spaces, starts, ends, self._nquads))
 

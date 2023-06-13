@@ -37,8 +37,7 @@ class FemAssemblyGrid:
         Index of last element local to process.
 
     nquads : int
-        Polynomial order for which mass matrix is exact, assuming identity map
-        (default: spline degree).
+        Number of quadrature points used in the Gauss-Legendre quadrature formula.
 
     nderiv : int
         Number of basis functions' derivatives to be precomputed at the Gauss

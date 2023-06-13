@@ -34,7 +34,6 @@ def test_custom_nquads(test_nquads):
 
     domain_h = discretize(domain, ncells=ncells)
 
-    # TODO for future (once fixed/solved): remove the nquads=(10,10) here again
     Vh = discretize(V, domain_h, degree=degree, nquads=test_nquads)
 
     # NOTE: we _need_ the Python backend here for range checking, otherwise we'd only get segfaults at best
