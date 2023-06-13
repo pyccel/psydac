@@ -118,7 +118,6 @@ jobs:
       - name: Install project
         run: |
           python -m pip install .
-          psydac-accelerate
           python -m pip freeze
 
       - name: Initialize test directory
