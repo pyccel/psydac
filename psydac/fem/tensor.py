@@ -47,6 +47,24 @@ class TensorFemSpace( FemSpace ):
     """
     Tensor-product Finite Element space V.
 
+    Parameters
+    ----------
+    domain_decomposition : psydac.ddm.cart.DomainDecomposition
+
+    spaces : list of psydac.fem.splines.SplineSpace
+        1D finite element spaces.
+
+    vector_space : psydac.linalg.stencil.StencilVectorSpace or None
+
+    cart : psydac.ddm.CartDecomposition or None
+        Object that contains all information about the Cartesian decomposition
+        of a tensor-product grid of coefficients.
+
+    nquads : list of int or None
+        Number of quadrature points used in the Gauss-Legendre quadrature formula in each direction.
+        Used as a default value for various computations. Will be removed, once nquads will only be given 
+        to the constructors of DiscreteBilinearForm, DiscreteLinearForm, and DiscreteFunctional.
+    
     Notes
     -----
     For now we assume that this tensor-product space can ONLY be constructed
@@ -54,7 +72,7 @@ class TensorFemSpace( FemSpace ):
 
     """
 
-    def __init__( self, domain_decomposition, *spaces, vector_space=None, cart=None, quad_order=None ):
+    def __init__( self, domain_decomposition, *spaces, vector_space=None, cart=None, nquads=None ):
         """."""
         assert isinstance(domain_decomposition, DomainDecomposition)
         assert all( isinstance( s, SplineSpace ) for s in spaces )
@@ -72,10 +90,10 @@ class TensorFemSpace( FemSpace ):
         # Shortcut
         v = self._vector_space
 
-        if quad_order is None:
-            self._quad_order = [sp.degree for sp in self.spaces]
+        if nquads is None:
+            self._nquads = [sp.degree for sp in self.spaces]
         else:
-            self._quad_order = quad_order
+            self._nquads = nquads
 
         self._symbolic_space = None
         self._refined_space  = {}
@@ -88,8 +106,8 @@ class TensorFemSpace( FemSpace ):
         ends   = self._vector_space.cart.domain_decomposition.ends
 
         # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q)
-                                  for V,s,e,q in zip( self.spaces, starts, ends, self._quad_order ) )
+        self._quad_grids = tuple({q: FemAssemblyGrid(V, s, e, nderiv=V.degree, nquads=q)}
+                                  for V, s, e, q in zip( self.spaces, starts, ends, self._nquads))
 
         # Determine portion of logical domain local to process
         self._element_starts = starts
@@ -651,13 +669,14 @@ class TensorFemSpace( FemSpace ):
         assert hasattr( f, '__call__' )
 
         # Extract and store quadrature data
-        nq      = [g.num_quad_pts for g in self.quad_grids]
-        points  = [g.points       for g in self.quad_grids]
-        weights = [g.weights      for g in self.quad_grids]
+        quad_grids = self.quad_grids()
+        nq      = [g.num_quad_pts for g in quad_grids]
+        points  = [g.points       for g in quad_grids]
+        weights = [g.weights      for g in quad_grids]
 
         # Get local element range
-        sk = [g.local_element_start for g in self.quad_grids]
-        ek = [g.local_element_end   for g in self.quad_grids]
+        sk = [g.local_element_start for g in quad_grids]
+        ek = [g.local_element_end   for g in quad_grids]
 
         # Iterator over multi-index k (equivalent to nested loops over each dimension)
         multi_range = lambda starts, ends: \
@@ -732,19 +751,46 @@ class TensorFemSpace( FemSpace ):
         return self._spaces
     
     @property
-    def quad_order( self ):
-        return self._quad_order
+    def nquads( self ):
+        return self._nquads
 
-    @property
-    def quad_grids( self ):
+    #@property
+    def quad_grids( self, *nquads ):
         """
-        List of 'FemAssemblyGrid' objects (one for each direction)
+        Tuple of 'FemAssemblyGrid' objects (one for each direction)
         containing all 1D information local to process that is necessary
         for the correct assembly of the l.h.s. matrix and r.h.s. vector
         in a finite element method.
 
         """
-        return self._quad_grids
+        # TODO: Turn comments into docstring & add check for the case all(nquads == tuple(self._nquads))
+        if len(nquads) == 0:
+            # If *nquads is not provided, use self._nquads to convert the tuple of dictionaries self._quad_grids into a tuple of the right args
+            quad_grids = tuple(dic[nq] for dic, nq in zip(self._quad_grids, self._nquads))
+        else:
+            # If *nquads is provided, use get_quadrature_grids to compute the appropriate quadrature grids
+            quad_grids = self.get_quadrature_grids(*nquads)
+        return quad_grids
+
+    # TODO [YG 02.06.2023]: Replace nquads and quad_grids properties with this method:
+    def get_quadrature_grids(self, *nquads):
+        assert len(nquads) == self.ndims
+        assert all(isinstance(nq, int) for nq in nquads)
+        quad_grids = [None]*len(nquads)
+        for i, nq in enumerate(nquads):
+            # Get a reference to the local dictionary of FemAssemblyGrid along direction i
+            quad_grids_dict_i = self._quad_grids[i]
+            # If there is no FemAssemblyGrid for the required number of quadrature points,
+            # create a new FemAssemblyGrid and store it in the local dictionary.
+            if nq not in quad_grids_dict_i:
+                V = self.spaces[i]
+                s = self.starts[i]
+                e = self.ends  [i]
+                quad_grids_dict_i[nq] = FemAssemblyGrid(V, s, e, nderiv=V.degree, nquads=nq)
+            # Store the required FemAssemblyGrid in the list
+            quad_grids[i] = quad_grids_dict_i[nq]
+        # Return a tuple with the FemAssemblyGrid objects
+        return tuple(quad_grids)
 
     @property
     def local_domain( self ):
@@ -895,7 +941,7 @@ class TensorFemSpace( FemSpace ):
                 global_starts[axis][0] = 0
 
         cart = v._cart.reduce_grid(global_starts, global_ends)
-        V    = TensorFemSpace(*spaces, cart=cart, quad_order=self._quad_order)
+        V    = TensorFemSpace(*spaces, cart=cart, nquads=self._nquads)
         return V
 
     # ...
@@ -1018,7 +1064,7 @@ class TensorFemSpace( FemSpace ):
         red_cart   = v.cart.reduce_npts(npts, global_starts, global_ends, shifts=multiplicity)
 
         # create new TensorFemSpace
-        tensor_vec = TensorFemSpace(self._domain_decomposition, *spaces, cart=red_cart, quad_order=self._quad_order)
+        tensor_vec = TensorFemSpace(self._domain_decomposition, *spaces, cart=red_cart, nquads=self._nquads)
 
         tensor_vec._interpolation_ready = False
 
@@ -1062,7 +1108,7 @@ class TensorFemSpace( FemSpace ):
 
         domain = domain.refine(ncells, new_global_starts, new_global_ends)
 
-        FS     = TensorFemSpace(domain, *spaces, quad_order=self.quad_order)
+        FS     = TensorFemSpace(domain, *spaces, nquads=self.nquads)
         self.set_refined_space(ncells, FS)
 
     # ...
@@ -1089,10 +1135,10 @@ class TensorFemSpace( FemSpace ):
         if cart.is_comm_null or self._interfaces.get((axis, ext), None): return
         spaces       = self.spaces
         vector_space = self.vector_space
-        quad_order   = self.quad_order
+        nquads       = self.nquads
 
         vector_space.set_interface(axis, ext, cart)
-        space = TensorFemSpace( self._domain_decomposition, *spaces, vector_space=vector_space.interfaces[axis, ext], quad_order=self.quad_order)
+        space = TensorFemSpace( self._domain_decomposition, *spaces, vector_space=vector_space.interfaces[axis, ext], nquads=self.nquads)
         self._interfaces[axis, ext] = space
 
     def get_refined_space(self, ncells):
