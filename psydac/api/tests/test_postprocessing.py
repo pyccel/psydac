@@ -89,7 +89,9 @@ def build_2_cubes():
 def test_add_spaces():
     domain = Square('D')
     A = ScalarFunctionSpace('A', domain, kind='H1')
+    A.codomain_type='complex'
     B = VectorFunctionSpace('B', domain, kind=None)
+    B.codomain_type='complex'
 
     domain_h = discretize(domain, ncells=[5, 5])
 
@@ -114,7 +116,7 @@ def test_add_spaces():
                                          'scalar_spaces': [{'name': 'Ah',
                                                             'ldim': 2,
                                                             'kind': 'h1',
-                                                            'dtype': "<class 'float'>",
+                                                            'dtype': "<class 'complex'>",
                                                             'rational': False,
                                                             'periodic': [False, False],
                                                             'degree': [3, 3],
@@ -130,7 +132,7 @@ def test_add_spaces():
                                                            {'name': 'Bh[0]',
                                                             'ldim': 2,
                                                             'kind': 'undefined',
-                                                            'dtype': "<class 'float'>",
+                                                            'dtype': "<class 'complex'>",
                                                             'rational': False,
                                                             'periodic': [False, False],
                                                             'degree': [2, 2],
@@ -146,7 +148,7 @@ def test_add_spaces():
                                                            {'name': 'Bh[1]',
                                                             'ldim': 2,
                                                             'kind': 'undefined',
-                                                            'dtype': "<class 'float'>",
+                                                            'dtype': "<class 'complex'>",
                                                             'rational': False,
                                                             'periodic': [False, False],
                                                             'degree': [2, 2],
@@ -166,7 +168,7 @@ def test_add_spaces():
                                                                 {'name': 'Bh[0]',
                                                                  'ldim': 2,
                                                                  'kind': 'undefined',
-                                                                 'dtype': "<class 'float'>",
+                                                                 'dtype': "<class 'complex'>",
                                                                  'rational': False,
                                                                  'periodic': [False, False],
                                                                  'degree': [2, 2],
@@ -182,7 +184,7 @@ def test_add_spaces():
                                                                 {'name': 'Bh[1]',
                                                                  'ldim': 2,
                                                                  'kind': 'undefined',
-                                                                 'dtype': "<class 'float'>",
+                                                                 'dtype': "<class 'complex'>",
                                                                  'rational': False,
                                                                  'periodic': [False, False],
                                                                  'degree': [2, 2],
@@ -210,7 +212,9 @@ def test_add_spaces():
 def test_export_fields_serial():
     domain = Square('D')
     A = ScalarFunctionSpace('A', domain, kind='H1')
+    A.codomain_type='complex'
     B = VectorFunctionSpace('B', domain, kind=None)
+    B.codomain_type='complex'
 
     domain_h = discretize(domain, ncells=[5, 5])
 
@@ -334,14 +338,19 @@ def test_reconstruct_spaces_topological_domain(domain):
     domain_h = discretize(domain, ncells=[5] * dim)
 
     Vh1 = ScalarFunctionSpace('Vh1', domain, kind='h1')
+    Vh1.codomain_type='complex'
     Vvh1 = VectorFunctionSpace('Vvh1', domain, kind='h1')
+    Vvh1.codomain_type='complex'
 
     Vl2 = ScalarFunctionSpace('Vl2', domain, kind='l2')
+    Vl2.codomain_type='complex'
     Vvl2 = VectorFunctionSpace('Vvl2', domain, kind='l2')
+    Vvl2.codomain_type='complex'
 
     Vhdiv = VectorFunctionSpace('Vhdiv', domain, kind='hdiv')
-
+    Vhdiv.codomain_type='complex'
     Vhcurl = VectorFunctionSpace('Vhcurl', domain, kind='hcurl')
+    Vhcurl.codomain_type='complex'
 
     degree1 = [2, 3, 4][:dim]
     degree2 = [5, 5, 5][:dim]
@@ -393,7 +402,8 @@ def test_reconstruct_spaces_topological_domain(domain):
 @pytest.mark.parametrize('domain, seq', [(Square(), ['h1', 'hdiv', 'l2']), (Square(), ['h1', 'hcurl', 'l2']), (Cube(), None)])
 def test_reconstruct_DerhamSequence_topological_domain(domain, seq):
     derham = Derham(domain, sequence=seq)
-
+    for V in derham.spaces:
+        V.codomain_type='complex'
     domain_h  = discretize(domain, ncells=[5]*domain.dim)
     derham_h = discretize(derham, domain_h, degree=[2]*domain.dim)
 
@@ -456,6 +466,9 @@ def test_reconstruct_DerhamSequence_discrete_domain(geometry, seq):
     domain = Domain.from_file(geometry_file)
 
     derham = Derham(domain, sequence=seq)
+
+    for V in derham.spaces:
+        V.codomain_type='complex'
 
     domain_h  = discretize(domain, filename=geometry_file)
     derham_h = discretize(derham, domain_h, degree=[2]*domain.dim)
@@ -520,10 +533,15 @@ def test_reconstruct_multipatch():
                     bnd_plus=B.get_boundary(axis=1, ext=-1))
 
     Va = ScalarFunctionSpace('Va', A)
+    Va.codomain_type='complex'
     Vb = ScalarFunctionSpace('Vb', B)
+    Vb.codomain_type='complex'
     V = ScalarFunctionSpace('V', domain)
+    V.codomain_type='complex'
     Vv = VectorFunctionSpace('Vv', domain)
+    Vv.codomain_type='complex'
     Vva = VectorFunctionSpace('Vva', A)
+    Vva.codomain_type='complex'
 
     Om = OutputManager('spaces_multipatch.yml', 'fields_multipatch.h5')
 
@@ -585,6 +603,7 @@ def test_reconstruct_multipatch():
 def test_incorrect_arg_export_to_vtk():
     domain = Square()
     space = ScalarFunctionSpace('V', domain)
+    space.codomain_type='codomain'
 
     domain_h = discretize(domain, ncells=[4, 4])
     space_h = discretize(space, domain_h, degree=[2, 2])
@@ -646,6 +665,7 @@ def test_parallel_export_discrete_domain(geometry, kind, space):
     dim = domain.dim
 
     symbolic_space = space('V', domain, kind=kind)
+    symbolic_space.codomain_type='complex'
 
     degree = list(domain_h.mappings.values())[0].space.degree
     space_h = discretize(symbolic_space, domain_h, degree=degree)
@@ -763,6 +783,7 @@ def test_parallel_export_topological_domain(domain, mapping, kind, space):
         domain = F(domain)
 
     symbolic_space = space('V', domain, kind=kind)
+    symbolic_space.codomain_type='complex'
 
     degree = [2, 2, 2][:dim]
     domain_h = discretize(domain, ncells=[6] * dim, comm=comm)

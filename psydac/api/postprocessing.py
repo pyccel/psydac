@@ -859,6 +859,7 @@ class PostProcessManager:
                 for sc_sp in components:
                     already_used_names.append(sc_sp['name'])
                     basis += sc_sp['basis']
+                    codomain_type='complex' if sc_sp['dtype']=="<class 'complex'>" else 'real'
 
                 basis = list(set(basis))
                 if len(basis) != 1:
@@ -885,6 +886,7 @@ class PostProcessManager:
                     'knots': knots,
                     'basis': basis,
                     'periodic':periodic,
+                    'codomain_type': codomain_type
                 }
 
                 self._space_reconstruct_helper(
@@ -916,6 +918,7 @@ class PostProcessManager:
 
                     knots = [np.asarray(sc_sp['knots'][i]) for i in range(sc_sp['ldim'])]
                     periodic = sc_sp['periodic']
+                    codomain_type= 'complex' if sc_sp['dtype']=="<class 'complex'>" else 'real'
 
                     for i in range(sc_sp['ldim']):
                         if new_degree[i] != degree[i]:
@@ -927,6 +930,7 @@ class PostProcessManager:
                         'knots': knots,
                         'basis': basis,
                         'periodic': periodic,
+                        'codomain_type': codomain_type
                     }
 
                     self._space_reconstruct_helper(
@@ -962,10 +966,13 @@ class PostProcessManager:
                 subdomain_h = discretize(subdomain, ncells=ncells, comm=self.comm, periodic=periodic)
 
             for space_name, (is_vector, kind, discrete_kwargs) in space_dict.items():
+                codomain_type=discrete_kwargs.pop('codomain_type')
                 if is_vector:
                     temp_symbolic_space = VectorFunctionSpace(space_name, subdomain, kind)
+                    temp_symbolic_space.codomain_type=codomain_type
                 else:
                     temp_symbolic_space = ScalarFunctionSpace(space_name, subdomain, kind)
+                    temp_symbolic_space.codomain_type=codomain_type
 
                 # Until PR #213 is merged knots as to be set to None
                 discrete_kwargs['knots'] = None if len(discrete_kwargs['knots']) !=1 else discrete_kwargs['knots'][subdomain.name]
