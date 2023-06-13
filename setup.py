@@ -1,76 +1,51 @@
 import setuptools.command.build_py
-import distutils.cmd
-import distutils.log
+import distutils.command.build_py as orig
 import setuptools
-# import subprocess
+import distutils.log
+import distutils.cmd
 import os
 
-
-class PyccelCommand(distutils.cmd.Command):
-  """A custom command to run Pyccel on all kernels source files."""
-
-  description = 'run Pyccel on kernels source files'
-  user_options = [
-      # The format is (long option, short option, description).
-      ('language=', None, 'language to pyccelise the kernels files'),
-  ]
-
-  def initialize_options(self):
-    """Set default values for options."""
-    # Each user option must be listed here with their default value.
-    self.language = ''
-
-  def finalize_options(self):
-    """Post-process options."""
-    if self.language:
-      assert self.language in ['fortran', 'c'], (
-          'Language is of the good format' % self.language)
-
-  def run(self):
-    """Run command."""
-
-    psydac_path = os.getcwd()
-
-    if self.language:
-        language_param = '--language ' +  self.language
-    else:
-        language_param = '--language fortran'
-
-    command1 = 'pyccel ' + psydac_path + '/psydac/linalg/stencil2coo_kernels.py '         + language_param
-    command2 = 'pyccel ' + psydac_path + '/psydac/api/ast/transpose_kernels.py ' + language_param
-    command3 = 'pyccel ' + psydac_path + '/psydac/core/field_evaluation_kernels.py '           + language_param
-    command4 = 'pyccel ' + psydac_path + '/psydac/core/bsplines_kernels.py '   + language_param
-
-    self.announce(
-        'Running commands: %s' % str(command1),
-        level=distutils.log.INFO)
-    os.system(command1)
-    self.announce(
-        'Running commands: %s' % str(command2),
-        level=distutils.log.INFO)
-    os.system(command2)
-    self.announce(
-        'Running commands: %s' % str(command3),
-        level=distutils.log.INFO)
-    os.system(command3)
-    self.announce(
-        'Running commands: %s' % str(command4),
-        level=distutils.log.INFO)
-    os.system(command4)
-
 class BuildPyCommand(setuptools.command.build_py.build_py):
-  """Custom build command."""
+    """Custom build command."""
 
-  def run(self):
-    self.run_command('pyccel')
-    setuptools.command.build_py.build_py.run(self)
+    def finalize_options(self):
+        orig.build_py.finalize_options(self)
+        self.package_data = self.distribution.package_data
+        self.exclude_package_data = self.distribution.exclude_package_data or {}
+        if 'data_files' in self.__dict__:
+            del self.__dict__['data_files']
+        self.__updated_files = []
+
+    def build_module(self, module, module_file, package):
+        if isinstance(package, str):
+            package = package.split('.')
+        elif not isinstance(package, (list, tuple)):
+            raise TypeError(
+                "'package' must be a string (dot-separated), list, or tuple"
+            )
+
+            # Now put the module source file into the "build" area -- this is
+            # easy, we just copy it somewhere under self.build_lib (the build
+            # directory for Python source).
+        outfile = self.get_module_outfile(self.build_lib, package, module)
+        dir = os.path.dirname(outfile)
+        self.mkpath(dir)
+        outfile, copied = self.copy_file(module_file, outfile, preserve_mode=0)
+
+        if module.endswith('_kernels'):
+            command ='pyccel ' +outfile
+            os.system(command)
+
+        if copied:
+            self.__updated_files.append(outfile)
+
+        return outfile, copied
+    def run(self):
+        setuptools.command.build_py.build_py.run(self)
 
 
 setuptools.setup(
     cmdclass={
-        'pyccel': PyccelCommand,
         'build_py': BuildPyCommand,
     },
-    # Usual setup() args.
-    # ...
 )
