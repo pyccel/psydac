@@ -862,6 +862,9 @@ class DiscreteLinearForm(BasicDiscrete):
 
     nquads : list or tuple
         The number of quadrature points used in the assembly method.
+        This optional argument will be mandatory in the future, when quadrature grids
+        will not be property-like attributes of a TensorFemSpace anymore, but instead will only be
+        given to the constructors of DiscreteBilinearForm, DiscreteLinearForm, and DiscreteFunctional.
 
     backend : dict
         The backend used to accelerate the computing kernels.
@@ -1227,6 +1230,9 @@ class DiscreteFunctional(BasicDiscrete):
 
     nquads : list or tuple
         The number of quadrature points used in the assembly method.
+        This optional argument will be mandatory in the future, when quadrature grids
+        will not be property-like attributes of a TensorFemSpace anymore, but instead will only be
+        given to the constructors of DiscreteBilinearForm, DiscreteLinearForm, and DiscreteFunctional.
 
     backend : dict
         The backend used to accelerate the computing kernels.
