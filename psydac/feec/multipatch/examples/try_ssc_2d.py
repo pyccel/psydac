@@ -108,9 +108,25 @@ def try_ssc_2d(ncells=[[2,2], [2,2]], prml_degree=[3,3], domain=[[0, np.pi],[0, 
     dual_V1h = dual_derham_h.V1
     dual_V2h = dual_derham_h.V2
 
+    from pprint import pprint
+    # pprint(vars(prml_V1h))
+    
+    # pprint(type(prml_V1h._spaces[0]))
+    print("prml_V1h._spaces[0]: ")
+    pprint(vars(prml_V1h._spaces[0]))
+    print("prml_V1h._spaces[0]._spaces[0]: ")
+    pprint(vars(prml_V1h._spaces[0]._spaces[0]))
+    
+    print("dual_V1h._spaces[0]: ")  
+    pprint(vars(dual_V1h._spaces[0]))
+    print("dual_V1h._spaces[0]._spaces[0]: ")
+    pprint(vars(dual_V1h._spaces[0]._spaces[0]))
+    exit()
+
     print('Mass matrices...')
     m_load_dir = None
     # multi-patch (broken) mass matrices
+    print("AA")
     prml_H1 = HodgeOperator(prml_V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
     dual_H1 = HodgeOperator(dual_V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
 
@@ -210,7 +226,7 @@ if __name__ == '__main__':
         domain=[[0, np.pi],[0, np.pi]], 
         domain_name=domain_name, 
         plot_dir='./plots/'+run_dir,
-        backend_language='pyccel-gcc'
+        backend_language='python' #'pyccel-gcc'
     )
 
     time_count(t_stamp_full, msg='full program')

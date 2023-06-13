@@ -31,7 +31,7 @@ from psydac.fem.basic                import FemField
 
 
 from psydac.feec.global_projectors               import Projector_H1, Projector_Hcurl, Projector_L2
-from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_2D
+from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_2D, VectorCurl_2D, Divergence_2D
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
 def get_patch_index_from_face(domain, face):
@@ -862,7 +862,7 @@ class HodgeOperator( FemLinearOperator ):
     """
     def __init__( self, Vh, domain_h, backend_language='python', load_dir=None, load_space_index=''):
 
-
+        print("init Hodge")
         FemLinearOperator.__init__(self, fem_domain=Vh)
         self._domain_h = domain_h
         self._backend_language = backend_language
@@ -922,7 +922,7 @@ class HodgeOperator( FemLinearOperator ):
         the Hodge matrix is the patch-wise inverse of the multi-patch mass matrix
         it is not stored by default but computed on demand, by local (patch-wise) inversion of the mass matrix
         """
-
+        print("to_sparse_matrix")
         if (self._sparse_matrix is not None) or (self._matrix is not None):
             return FemLinearOperator.to_sparse_matrix(self)
 
@@ -949,13 +949,20 @@ class HodgeOperator( FemLinearOperator ):
                 expr   = u*v
             else:
                 expr   = dot(u,v)
+            print("assemble_dual_Hodge_matrix: aa")   
             a = BilinearForm((u,v), integral(domain, expr))
+            print("assemble_dual_Hodge_matrix: bb")            
             ah = discretize(a, self._domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[self._backend_language])
-
+            print("assemble_dual_Hodge_matrix: cc")
+            print("self._backend_language = {}".format(self._backend_language))
+            print("PSYDAC_BACKENDS[self._backend_language] = {}".format(PSYDAC_BACKENDS[self._backend_language]))
             self._dual_Hodge_matrix = ah.assemble()  # Mass matrix in stencil format
+            print("assemble_dual_Hodge_matrix: dd")   
             self._dual_Hodge_sparse_matrix = self._dual_Hodge_matrix.tosparse()
 
     def get_dual_Hodge_sparse_matrix( self ):
+
+        print("get_dual_Hodge_sparse_matrix")
         if self._dual_Hodge_sparse_matrix is None:
             self.assemble_dual_Hodge_matrix()
 
@@ -1025,6 +1032,66 @@ class BrokenTransposedScalarCurl_2D( FemLinearOperator ):
         return BrokenScalarCurl_2D(V1h=self.fem_codomain, V2h=self.fem_domain)
 
 
+#==============================================================================
+class BrokenVectorCurl_2D(FemLinearOperator):
+    def __init__(self, V0h, V1h):
+
+        FemLinearOperator.__init__(self, fem_domain=V0h, fem_codomain=V1h)
+
+        D0s = [VectorCurl_2D(V0, V1) for V0, V1 in zip(V0h.spaces, V1h.spaces)]
+
+        self._matrix = BlockLinearOperator(self.domain, self.codomain, \
+                blocks={(i, i): D0i._matrix for i, D0i in enumerate(D0s)})
+
+    def transpose(self):
+        return BrokenTransposedVectorCurl_2D(V0h=self.fem_domain, V1h=self.fem_codomain)
+
+
+#==============================================================================
+class BrokenTransposedVectorCurl_2D( FemLinearOperator ):
+
+    def __init__( self, V0h, V1h):
+
+        FemLinearOperator.__init__(self, fem_domain=V1h, fem_codomain=V0h)
+
+        D0s = [VectorCurl_2D(V0, V1) for V0, V1 in zip(V0h.spaces, V1h.spaces)]
+
+        self._matrix = BlockLinearOperator(self.domain, self.codomain, \
+                blocks={(i, i): D0i._matrix.T for i, D0i in enumerate(D0s)})
+
+    def transpose(self):
+        return BrokenVectorCurl_2D(V0h=self.fem_codomain, V1h=self.fem_domain)
+
+
+#==============================================================================
+class BrokenDivergence_2D(FemLinearOperator):
+    def __init__(self, V1h, V2h):
+
+        FemLinearOperator.__init__(self, fem_domain=V1h, fem_codomain=V2h)
+
+        D1s = [Divergence_2D(V1, V2) for V1, V2 in zip(V1h.spaces, V2h.spaces)]
+
+        self._matrix = BlockLinearOperator(self.domain, self.codomain, \
+                blocks={(i, i): D1i._matrix for i, D1i in enumerate(D1s)})
+
+    def transpose(self):
+        return BrokenTransposedDivergence_2D(V1h=self.fem_domain, V2h=self.fem_codomain)
+
+
+#==============================================================================
+class BrokenTransposedDivergence_2D( FemLinearOperator ):
+
+    def __init__( self, V1h, V2h):
+
+        FemLinearOperator.__init__(self, fem_domain=V2h, fem_codomain=V1h)
+
+        D1s = [Divergence_2D(V1, V2) for V1, V2 in zip(V1h.spaces, V2h.spaces)]
+
+        self._matrix = BlockLinearOperator(self.domain, self.codomain, \
+                blocks={(i, i): D1i._matrix.T for i, D1i in enumerate(D1s)})
+
+    def transpose(self):
+        return BrokenDivergence_2D(V1h=self.fem_codomain, V2h=self.fem_domain)
 
 #==============================================================================
 from sympy import Tuple

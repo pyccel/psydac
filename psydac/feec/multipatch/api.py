@@ -16,6 +16,8 @@ from psydac.api.discretization        import discretize_space
 from psydac.api.discretization        import DiscreteDerham
 from psydac.feec.multipatch.operators import BrokenGradient_2D
 from psydac.feec.multipatch.operators import BrokenScalarCurl_2D
+from psydac.feec.multipatch.operators import BrokenVectorCurl_2D
+from psydac.feec.multipatch.operators import BrokenDivergence_2D
 from psydac.feec.multipatch.operators import Multipatch_Projector_H1
 from psydac.feec.multipatch.operators import Multipatch_Projector_Hcurl
 from psydac.feec.multipatch.operators import Multipatch_Projector_L2
@@ -77,7 +79,11 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 
             elif tuple(sequence) == ('h1', 'hdiv', 'l2'):
                 self._sequence = tuple(sequence)
-                raise NotImplementedError('2D sequence with H-div not available yet')
+                # copying from Valentin_INS branch
+                self._broken_diff_ops = (
+                    BrokenVectorCurl_2D(self.V0, self.V1),
+                    BrokenDivergence_2D(self.V1, self.V2),  # None,
+                )
 
             else:
                 raise ValueError('2D sequence not understood')
