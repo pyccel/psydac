@@ -112,16 +112,16 @@ def try_ssc_2d(ncells=[[2,2], [2,2]], prml_degree=[3,3], domain=[[0, np.pi],[0, 
     # pprint(vars(prml_V1h))
     
     # pprint(type(prml_V1h._spaces[0]))
-    print("prml_V1h._spaces[0]: ")
-    pprint(vars(prml_V1h._spaces[0]))
-    print("prml_V1h._spaces[0]._spaces[0]: ")
-    pprint(vars(prml_V1h._spaces[0]._spaces[0]))
+    # print("prml_V1h._spaces[0]: ")
+    # pprint(vars(prml_V1h._spaces[0]))
+    # print("prml_V1h._spaces[0]._spaces[0]: ")
+    # pprint(vars(prml_V1h._spaces[0]._spaces[0]))
     
-    print("dual_V1h._spaces[0]: ")  
-    pprint(vars(dual_V1h._spaces[0]))
-    print("dual_V1h._spaces[0]._spaces[0]: ")
-    pprint(vars(dual_V1h._spaces[0]._spaces[0]))
-    exit()
+    # print("dual_V1h._spaces[0]: ")  
+    # pprint(vars(dual_V1h._spaces[0]))
+    # print("dual_V1h._spaces[0]._spaces[0]: ")
+    # pprint(vars(dual_V1h._spaces[0]._spaces[0]))
+    # exit()
 
     print('Mass matrices...')
     m_load_dir = None
@@ -144,8 +144,8 @@ def try_ssc_2d(ncells=[[2,2], [2,2]], prml_degree=[3,3], domain=[[0, np.pi],[0, 
     prml_V1 = prml_V1h.symbolic_space
     dual_V1 = dual_V1h.symbolic_space
 
-    u1 = element_of(dual_V1, names='u1')
-    v1 = element_of(prml_V1, names='v1')
+    u1 = element_of(dual_V1, name='u1')
+    v1 = element_of(prml_V1, name='v1')
 
     a = BilinearForm((u1,v1), integral(domain, dot(u1,v1)))
     ah = discretize(a, domain_h, [dual_V1h, prml_V1h], backend=PSYDAC_BACKENDS[backend_language])
@@ -208,7 +208,7 @@ if __name__ == '__main__':
     t_stamp_full = time_count()
 
     ref_square = False
-    deg = 2
+    deg = 3
 
     if ref_square:
         domain_name = 'refined_square'
