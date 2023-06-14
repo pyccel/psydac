@@ -2,7 +2,7 @@ import setuptools.command.build_py
 import distutils.command.build_py as orig
 import distutils.log
 import setuptools
-import subprocess
+from subprocess import run as sub_run
 import shutil
 import os
 
@@ -38,7 +38,7 @@ class BuildPyCommand(setuptools.command.build_py.build_py):
             self.announce(
                 '\nPyccelise module: %s' % str(module),
                 level=distutils.log.INFO)
-            subprocess.run([shutil.which('pyccel'), outfile, '--language', 'fortran'], check=True)
+            sub_run([shutil.which('pyccel'), outfile, '--language', 'fortran'])
 
         # This part is copy from setuptools.command.build_py.build_module
         if copied:

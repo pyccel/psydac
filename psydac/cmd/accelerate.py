@@ -1,10 +1,8 @@
 def main():
     import argparse
     import os
-    import subprocess
+    from subprocess import run as sub_run
     import shutil
-    from warnings import warn
-    from warnings import showwarning
 
     # Add Argument --language at the command psydac-accelerate
     parser = argparse.ArgumentParser(
@@ -40,7 +38,7 @@ def main():
         for name in files:
             if name.endswith('_kernels.py'):
                 print('Pyccelise file :' + os.path.join(path, name))
-                subprocess.run([shutil.which('pyccel'), os.path.join(path, name), '--language', language], check=True)
+                sub_run([shutil.which('pyccel'), os.path.join(path, name), '--language', language])
                 print('\n')
 
     return
