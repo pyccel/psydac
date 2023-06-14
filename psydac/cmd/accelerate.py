@@ -1,8 +1,12 @@
 def main():
     import argparse
     import os
-    from glob import glob
+    import subprocess
+    import shutil
+    from warnings import warn
+    from warnings import showwarning
 
+    # Add Argument --language at the command psydac-accelerate
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description="Get language for the pyccelisation."
@@ -19,30 +23,25 @@ def main():
     args = parser.parse_args()
 
 
+    # get the absolute path to the psydac directory
     psydac_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+    print("\nThis command should only be used if psydac was installed in editable mode.\n")
+
+    # check if the language have the good format
     language    = args.language
 
     if language not in ['fortran', 'c']:
-        print("The language given is not used by pyccel. It must be 'fortran' or 'c'.")
+        print("\nWarning: The language given is not used by pyccel. It must be 'fortran' or 'c'. For this run, it is taken as fortran.\n")
         language = 'fortran'
 
-
-    # for file in glob(psydac_path+"/*/*_kernels.py"):
-    #     print('Pyccelise file :' + file)
-    #     os.system('pyccel '+ file +' --language ' + language)
 
     for path, subdirs, files in os.walk(psydac_path):
         for name in files:
             if name.endswith('_kernels.py'):
                 print('Pyccelise file :' + os.path.join(path, name))
-                os.system('pyccel '+ os.path.join(path, name) +' --language ' + language)
-
-    # os.system('pyccel ' + psydac_path + '/linalg/stencil2coo_kernels.py --language '    + language)
-    # os.system('pyccel ' + psydac_path + '/api/ast/transpose_kernels.py --language '     + language)
-    # os.system('pyccel ' + psydac_path + '/core/field_evaluation_kernels.py --language ' + language)
-    # os.system('pyccel ' + psydac_path + '/core/bsplines_kernels.py --language '         + language)
-
+                subprocess.run([shutil.which('pyccel'), os.path.join(path, name), '--language', language], check=True)
+                print('\n')
 
     return
 

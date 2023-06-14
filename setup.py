@@ -1,13 +1,15 @@
 import setuptools.command.build_py
 import distutils.command.build_py as orig
-import setuptools
 import distutils.log
-import distutils.cmd
+import setuptools
+import subprocess
+import shutil
 import os
 
 class BuildPyCommand(setuptools.command.build_py.build_py):
-    """Custom build command."""
+    """Custom build command to pyccelise _kernels files in the build directory."""
 
+    # Copy the setuptools.command.build_py.build_py.finalize_options to recreate the __updated_files variable
     def finalize_options(self):
         orig.build_py.finalize_options(self)
         self.package_data = self.distribution.package_data
@@ -16,7 +18,9 @@ class BuildPyCommand(setuptools.command.build_py.build_py):
             del self.__dict__['data_files']
         self.__updated_files = []
 
+    # Rewrite the build_module function to copy each module in the build repository and pyccelise the modules ending with _kernels
     def build_module(self, module, module_file, package):
+        # This part is copy from distutils.command.build_py.build_module
         if isinstance(package, str):
             package = package.split('.')
         elif not isinstance(package, (list, tuple)):
@@ -32,14 +36,20 @@ class BuildPyCommand(setuptools.command.build_py.build_py):
         self.mkpath(dir)
         outfile, copied = self.copy_file(module_file, outfile, preserve_mode=0)
 
-        if module.endswith('_kernels'):
-            command ='pyccel ' +outfile
-            os.system(command)
 
+        # This part check if the module is pyccelisable and pyccelise it in case
+        if module.endswith('_kernels'):
+            self.announce(
+                '\nPyccelise module: %s' % str(module),
+                level=distutils.log.INFO)
+            subprocess.run([shutil.which('pyccel'), outfile, '--language', 'fortran'], check=True)
+
+        # This part is copy from setuptools.command.build_py.build_module
         if copied:
             self.__updated_files.append(outfile)
 
         return outfile, copied
+
     def run(self):
         setuptools.command.build_py.build_py.run(self)
 
