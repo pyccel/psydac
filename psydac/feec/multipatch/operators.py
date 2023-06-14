@@ -30,7 +30,7 @@ from psydac.linalg.solvers           import inverse
 from psydac.fem.basic                import FemField
 
 
-from psydac.feec.global_projectors               import Projector_H1, Projector_Hcurl, Projector_L2
+from psydac.feec.global_projectors               import Projector_H1, Projector_Hcurl, Projector_Hdiv, Projector_L2
 from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_2D, VectorCurl_2D, Divergence_2D
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
@@ -1147,6 +1147,28 @@ class Multipatch_Projector_Hcurl:
 
         return FemField(self._V1h, coeffs = E1_coeffs)
 
+#==============================================================================
+class Multipatch_Projector_Hdiv:
+
+    """
+    to apply the Hdiv projection (2D) on every patch
+    """
+    def __init__(self, V1h, nquads=None):
+
+        self._P1s = [Projector_Hdiv(V, nquads=nquads) for V in V1h.spaces]
+        self._V1h  = V1h   # multipatch Fem Space
+
+    def __call__(self, funs_log):
+        """
+        project a list of functions given in the logical domain
+        """
+        E1s = [P(fun) for P, fun, in zip(self._P1s, funs_log)]
+
+        E1_coeffs = BlockVector(self._V1h.vector_space, \
+                blocks = [E1j.coeffs for E1j in E1s])
+
+        return FemField(self._V1h, coeffs = E1_coeffs)
+    
 #==============================================================================
 class Multipatch_Projector_L2:
 
