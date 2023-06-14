@@ -80,28 +80,52 @@ class _Matrices:
     S_h_tilde : csc_matrix = None
 
 def solve_magnetostatic_pbm_annulus(f : sympy.Tuple, 
-                                    psi_h : FemField, rhs_curve_integral: float,
+                                    psi_h : FemField, 
+                                    rhs_curve_integral: float,
                                     derham_h: DiscreteDerham,
                                     derham: Derham,
                                     annulus_h: Geometry):
+    """
+    Solves the Hodge Laplacian problem with curve integral constraint on an annulus
+
+    It solves the Hodge Laplacian problem with right hand side f 
+    with the additional constraint corresponding to a curve integral (see ...)
+
+    Parameters
+    ----------
+    f : sympy.Tuple
+        Right hand side
+    psi_h : FemField
+        Interpolated integration function
+    rhs_curve_integral : float
+        Sum of inner product of psi with J plus curve integral
+    derham_h : DiscreteDerham#
+        Discretized de Rham sequence
+    derham : 
+        Symbolic de Rham sequence
+    annulus_h : Geometry
+        Discretized annulus domain
+    """
     logger_magnetostatic = logging.getLogger(name='solve_magnetostatic_pbm_annulus')
 
+    # Compute the discrete differential operators, mass matrices and projection 
+    # matrices
     matrices = _Matrices()
     D0_block_operator, D1_block_operator = derham_h.derivatives_as_matrices
     matrices.D0 = D0_block_operator.tosparse()
     matrices.D1 = D1_block_operator.tosparse()
     assert isinstance(matrices.D0, coo_matrix)
     assert isinstance(matrices.D1, coo_matrix)
-
     matrices.M0, matrices.M1, matrices.M2 = assemble_mass_matrices(derham, derham_h, annulus_h)
     assert isinstance(matrices.M0, coo_matrix)
     assert isinstance(matrices.M1, coo_matrix)
     assert isinstance(matrices.M2 , coo_matrix)
-
     matrices.P0h = projection_matrix_H1_homogeneous_bc(derham_h.V0)
     matrices.P1h = projection_matrix_Hdiv_homogeneous_bc(derham_h.V1)
     assert isinstance(matrices.P0h, lil_matrix)
     assert isinstance(matrices.P1h, lil_matrix)
+
+    # Compute penalty matrix
     alpha = 10
     I1 = scipy.sparse.eye(derham_h.V1.nbasis, format='lil')
     matrices.S_h_tilde = (I1 - matrices.P1h).transpose() @ matrices.M1 @ (I1 - matrices.P1h)
@@ -113,6 +137,7 @@ def solve_magnetostatic_pbm_annulus(f : sympy.Tuple,
 
     harmonic_block = _assemble_harmonic_block(matrices=matrices, alpha=alpha)
 
+    # Compute part of right hand side
     annulus = annulus_h.domain
     u, v = top.elements_of(derham.V1, names='u v')
     l_f = LinearForm(v, integral(annulus, dot(f,v)))
@@ -124,6 +149,7 @@ def solve_magnetostatic_pbm_annulus(f : sympy.Tuple,
     f_h = matrices.P1h.transpose() @ f_tilde_h
     assert isinstance(f_h, np.ndarray)
 
+    # Compute curl of the integration function psi
     psi_h_coeffs = psi_h.coeffs.toarray()
     assert isinstance(psi_h_coeffs, np.ndarray)
     curl_psi_h_coeffs = matrices.D0 @ psi_h_coeffs
@@ -131,14 +157,12 @@ def solve_magnetostatic_pbm_annulus(f : sympy.Tuple,
     curl_psi_h_mat = curl_psi_h_mat.transpose()
     logger_magnetostatic.debug('curl_psi_h_mat.shape:%s\n', curl_psi_h_mat.shape)
 
+    # Assemble the final system and solve
     curve_integral_rhs_arr = np.array([rhs_curve_integral])
-
     DD_tilde_mat = matrices.D1_h.transpose() @ matrices.M2  @ matrices.D1_h
-
     A_mat = bmat([[matrices.M0 , -matrices.D0_h.transpose() @ matrices.M1, None],
                   [matrices.M1 @ matrices.D0_h,  DD_tilde_mat  + alpha * matrices.S_h_tilde, harmonic_block],
                   [None, curl_psi_h_mat.transpose() @ matrices.M1 , None]])
-    
     rhs = np.concatenate((np.zeros(derham_h.V0.nbasis), f_h, curve_integral_rhs_arr))
     A_mat = csr_matrix(A_mat) # Why is this not transforming into a CSR matrix?
     logger_magnetostatic.debug('type(A_mat):%s\n', type(A_mat))
@@ -146,6 +170,10 @@ def solve_magnetostatic_pbm_annulus(f : sympy.Tuple,
     return sol[derham_h.V0.nbasis:-1]
 
 def _assemble_harmonic_block(matrices: _Matrices, alpha):
+    """
+    Returns the block for stiffnesss matrix corresponding to the inner product
+    with a harmonic form
+    """
     summand1 = matrices.D0_h @ inv(matrices.M0) @ matrices.D0_h.transpose() @ matrices.M1
     summand2 = inv(matrices.M1) @ matrices.D1_h.transpose() @ matrices.M2 @ matrices.D1_h
     summand3 = alpha * inv(matrices.M1) @ matrices.S_h_tilde
@@ -158,7 +186,27 @@ def _assemble_harmonic_block(matrices: _Matrices, alpha):
     harmonic_block = harmonic_block.transpose()
     return harmonic_block
 
-def assemble_mass_matrices(derham, derham_h, annulus_h : Geometry) -> Tuple[coo_matrix]:
+def assemble_mass_matrices(derham: Derham, derham_h: DiscreteDerham, annulus_h : Geometry
+                           ) -> Tuple[coo_matrix]:
+    """
+    Assemble the mass matrices of the spaces a discrete de Rham sequence
+    of length 2 on an annulus
+
+    Parameters
+    ----------
+    derham : Derham
+        Symbolic de Rham sequence of length 2
+    derham_h : DiscreteDerham
+        Discrete de Rham sequence of length 2
+    annulus_h : Geometry
+        Discrete annulus domain
+
+    Returns
+    -------
+    Tuple[coo_matrix]
+        Mass matrices in Scipy COO-format
+    """
+    # Define symbolic L2 inner products
     u, v = top.elements_of(derham.V1, names='u, v')
     rho, nu = top.elements_of(derham.V2, names='rho nu')
     annulus = annulus_h.domain
@@ -172,6 +220,8 @@ def assemble_mass_matrices(derham, derham_h, annulus_h : Geometry) -> Tuple[coo_
     l2_inner_product_V0 = BilinearForm(arguments=(sigma,tau), 
         expr=integral(annulus, sigma*tau)
     )
+
+    # Discretize the inner products and convert to scipy COO-matrix
     l2_inner_product_V2h = discretize(l2_inner_product_V2, annulus_h, 
                                       spaces=[derham_h.V2, derham_h.V2])
     l2_inner_product_V1h = discretize(l2_inner_product_V1, annulus_h, 
