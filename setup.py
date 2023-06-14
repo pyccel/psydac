@@ -27,10 +27,6 @@ class BuildPyCommand(setuptools.command.build_py.build_py):
             raise TypeError(
                 "'package' must be a string (dot-separated), list, or tuple"
             )
-
-            # Now put the module source file into the "build" area -- this is
-            # easy, we just copy it somewhere under self.build_lib (the build
-            # directory for Python source).
         outfile = self.get_module_outfile(self.build_lib, package, module)
         dir = os.path.dirname(outfile)
         self.mkpath(dir)
