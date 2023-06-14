@@ -30,11 +30,12 @@ from psydac.feec.multipatch.utilities                   import time_count #, get
 # from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_file
 from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2
 
+from psydac.feec.multipatch.bilinear_form_scipy import construct_V1_mass_matrix, construct_pairing_matrix
 from sympde.topology      import Square    
 from sympde.topology      import IdentityMapping, PolarMapping
 from psydac.fem.vector import ProductFemSpace
 
-from scipy.sparse.linalg import spilu, lgmres
+from scipy.sparse.linalg import spilu, lgmres, norm as sp_norm
 from scipy.sparse.linalg import LinearOperator, eigsh, minres
 from scipy.sparse          import csr_matrix
 from scipy.linalg        import norm
@@ -123,7 +124,11 @@ def try_ssc_2d(ncells=[[2,2], [2,2]], prml_degree=[3,3], domain=[[0, np.pi],[0, 
     # pprint(vars(dual_V1h._spaces[0]._spaces[0]))
     # exit()
 
+
     print('Mass matrices...')
+
+    # M1 = construct_V1_mass_matrix(prml_V1h).tocsr()
+    M1 = construct_pairing_matrix(prml_V1h,prml_V1h).tocsr()
     m_load_dir = None
     # multi-patch (broken) mass matrices
     print("AA")
@@ -135,43 +140,59 @@ def try_ssc_2d(ncells=[[2,2], [2,2]], prml_degree=[3,3], domain=[[0, np.pi],[0, 
     dual_M1     = dual_H1.get_dual_Hodge_sparse_matrix()  # =         mass matrix of dual_V1
     dual_M1_inv = dual_H1.to_sparse_matrix()  # = inverse mass matrix of dual_V1
 
+
+    print(sp_norm(prml_M1-M1))
+
+    
+    
+    
+    # exit()
     print('Pairing matrices...')
 
     # 
     # compute prml_K1 = (<dual_Lambda^1_i, prml_Lambda^1_j>)
     # 
+    
 
-    prml_V1 = prml_V1h.symbolic_space
-    dual_V1 = dual_V1h.symbolic_space
+    assemble_bf = False
+    if assemble_bf:
+        prml_V1 = prml_V1h.symbolic_space
+        dual_V1 = dual_V1h.symbolic_space
 
-    u1 = element_of(dual_V1, name='u1')
-    v1 = element_of(prml_V1, name='v1')
+        u1 = element_of(dual_V1, name='u1')
+        v1 = element_of(prml_V1, name='v1')
 
-    a = BilinearForm((u1,v1), integral(domain, dot(u1,v1)))
-    ah = discretize(a, domain_h, [dual_V1h, prml_V1h], backend=PSYDAC_BACKENDS[backend_language])
+        a = BilinearForm((u1,v1), integral(domain, dot(u1,v1)))
+        ah = discretize(a, domain_h, [dual_V1h, prml_V1h], backend=PSYDAC_BACKENDS[backend_language])
 
-    prml_K1 = ah.assemble().tosparse()  # matrix in scipy format
-    dual_K1 = prml_K1.transpose()
+        prml_K1 = ah.assemble().tosparse()  # matrix in scipy format
+        dual_K1 = prml_K1.transpose()
+
+    else:
+        prml_K1 = construct_pairing_matrix(dual_V1h,prml_V1h).tocsr()  # matrix in scipy format
+        dual_K1 = prml_K1.transpose()
 
     test_prml_H1 = False # True
 
+
+    
+    # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
+
+
     if test_prml_H1:
         # prml_H1: prml_V1 -> dual_V1
-        prml_H1 = dual_M1_inv @ dual_V1.transpose() @ prml_K1
+        print('Compute conforming projection matrix: dual_P1 ...')
+        dual_cP1_matrix = dual_derham_h.conforming_projection(space='V1', hom_bc=False, backend_language=backend_language, load_dir=m_load_dir)
+        dual_cP1 = dual_cP1_matrix.to_sparse_matrix()
+        print('WARNING: dual_P1 should be corrected to map in the C1 spaces. And to preserve polynomial moments')
+        prml_H1 = dual_M1_inv @ dual_cP1.transpose() @ prml_K1
     else:
         # dual_H1: dual_V1 -> prml_V1
-        dual_H1 = prml_M1_inv @ prml_V1.transpose() @ dual_K1
-
-    print('Compute conforming projection matrices: prml_P1 and dual_P1 ...')
-    # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    prml_cP1_matrix = prml_derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
-    prml_cP1 = prml_cP1_matrix.to_sparse_matrix()
-    print('WARNING: prml_P1 should be corrected to map in the C1 spaces. And to preserve polynomial moments')
-
-    dual_cP1_matrix = dual_derham_h.conforming_projection(space='V1', hom_bc=False, backend_language=backend_language, load_dir=m_load_dir)
-    dual_cP1 = dual_cP1_matrix.to_sparse_matrix()
-    print('WARNING: dual_P1 should be corrected to map in the C1 spaces. And to preserve polynomial moments')
-
+        print('Compute conforming projection matrix: prml_P1 ...')
+        prml_cP1_matrix = prml_derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
+        prml_cP1 = prml_cP1_matrix.to_sparse_matrix()
+        print('WARNING: prml_P1 should be corrected to map in the C1 spaces. And to preserve polynomial moments')
+        dual_H1 = prml_M1_inv @ prml_cP1.transpose() @ dual_K1
 
     # some target function
     x,y    = domain.coordinates
