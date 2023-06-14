@@ -922,7 +922,6 @@ class HodgeOperator( FemLinearOperator ):
         the Hodge matrix is the patch-wise inverse of the multi-patch mass matrix
         it is not stored by default but computed on demand, by local (patch-wise) inversion of the mass matrix
         """
-        print("to_sparse_matrix")
         if (self._sparse_matrix is not None) or (self._matrix is not None):
             return FemLinearOperator.to_sparse_matrix(self)
 
@@ -949,20 +948,13 @@ class HodgeOperator( FemLinearOperator ):
                 expr   = u*v
             else:
                 expr   = dot(u,v)
-            print("assemble_dual_Hodge_matrix: aa")   
             a = BilinearForm((u,v), integral(domain, expr))
-            print("assemble_dual_Hodge_matrix: bb")            
             ah = discretize(a, self._domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[self._backend_language])
-            print("assemble_dual_Hodge_matrix: cc")
-            print("self._backend_language = {}".format(self._backend_language))
-            print("PSYDAC_BACKENDS[self._backend_language] = {}".format(PSYDAC_BACKENDS[self._backend_language]))
             self._dual_Hodge_matrix = ah.assemble()  # Mass matrix in stencil format
-            print("assemble_dual_Hodge_matrix: dd")   
             self._dual_Hodge_sparse_matrix = self._dual_Hodge_matrix.tosparse()
 
     def get_dual_Hodge_sparse_matrix( self ):
 
-        print("get_dual_Hodge_sparse_matrix")
         if self._dual_Hodge_sparse_matrix is None:
             self.assemble_dual_Hodge_matrix()
 
