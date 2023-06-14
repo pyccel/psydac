@@ -92,13 +92,10 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
             periodic = ( False,  False,  False)
 
         elif mapping == 'spherical shell':
-            map_analytic = SphericalMapping( 'M', dim=dim )
-            lims1   = (1, 4)
-            lims2   = (0, np.pi)
-            lims3   = (0, np.pi/2)
-            period1 = False
-            period2 = False
-            period3 = False
+            map_analytic = SphericalMapping('M', dim=dim)
+            limits   = ((1, 4), (0, np.pi), (0, np.pi/2))
+            periodic = ( False,  False,  False)
+
         else:
             raise ValueError("Required 3D mapping not available")
 

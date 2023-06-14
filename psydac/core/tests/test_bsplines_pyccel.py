@@ -691,9 +691,9 @@ def test_elevate_knots(knots, degree, periodic, multiplicity):
 
 @pytest.mark.parametrize('breaks', (np.linspace(0, 1, 10, endpoint=False),
                                     np.sort(np.random.random(15))))
-@pytest.mark.parametrize('quad_order', (2, 3, 4, 5))
-def test_quadrature_grid(breaks, quad_order):
-    quad_x, quad_w = gauss_legendre(quad_order)
+@pytest.mark.parametrize('nquads', (2, 3, 4, 5))
+def test_quadrature_grid(breaks, nquads):
+    quad_x, quad_w = gauss_legendre(nquads)
     expected = quadrature_grid_true(breaks, quad_x[::-1], quad_w[::-1])
     out = quadrature_grid(breaks, quad_x[::-1], quad_w[::-1])
 
@@ -713,9 +713,9 @@ def test_quadrature_grid(breaks, quad_order):
                           (np.array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]), 3)])
 @pytest.mark.parametrize('n', (2, 3, 4, 5))
 @pytest.mark.parametrize('normalization', ('B', 'M'))
-@pytest.mark.parametrize('quad_order', (2, 3, 4, 5))
-def test_basis_ders_on_quad_grid(knots, degree, n, normalization, quad_order):
-    quad_rule_x, quad_rule_w = gauss_legendre(quad_order)
+@pytest.mark.parametrize('nquads', (2, 3, 4, 5))
+def test_basis_ders_on_quad_grid(knots, degree, n, normalization, nquads):
+    quad_rule_x, quad_rule_w = gauss_legendre(nquads)
     breaks = breakpoints_true(knots, degree)
     quad_grid, quad_weights = quadrature_grid_true(breaks, quad_rule_x, quad_rule_w)
 
