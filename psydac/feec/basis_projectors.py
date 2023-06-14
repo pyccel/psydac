@@ -37,10 +37,10 @@ class BasisProjectionOperator(LinearOperator):
         Whether to assemble the transposed operator.
     """
 
-    def __init__(self, P, V, fun, transposed=False):
+    def __init__(self, P, V, fun, transposed=False, preproc_grid=None, dof_mat=None):
 
         # only for M1 Mac users
-        PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
+        #PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
 
         assert isinstance(P, GlobalProjector)
         assert isinstance(V, FemSpace)
@@ -72,9 +72,12 @@ class BasisProjectionOperator(LinearOperator):
             self._domain_symbolic_name = V_name
             self._codomain_symbolic_name = P_name
 
+        self._preproc_grid = preproc_grid
+
         # ============= assemble tensor-product dof matrix =======
-        dof_mat = BasisProjectionOperator.assemble_mat(
-            P, V, fun)
+        if dof_mat == None:
+            dof_mat = BasisProjectionOperator.assemble_mat(
+            P, V, fun, self._preproc_grid)
         # ========================================================
 
         self._dof_operator = dof_mat
@@ -179,10 +182,13 @@ class BasisProjectionOperator(LinearOperator):
         Returns the transposed operator.
         """
         #conjugate not implemented
-        return BasisProjectionOperator(self._P, self._V, self._fun, not self.transposed)
+        if self.transposed:
+            return BasisProjectionOperator(self._P, self._V, self._fun, not self.transposed, preproc_grid=self._preproc_grid, dof_mat=self._dof_operator.transpose())
+        else : 
+            return BasisProjectionOperator(self._P, self._V, self._fun, not self.transposed, preproc_grid=self._preproc_grid, dof_mat=self._dof_operator)
 
     @staticmethod
-    def assemble_mat(P, V, fun):
+    def assemble_mat(P, V, fun, preproc_grid=None):
         """
         Assembles the tensor-product DOF matrix sigma_i(fun*Lambda_j), where i=(i1, i2, ...) and j=(j1, j2, ...) depending on the number of spatial dimensions (1d, 2d or 3d).
 
@@ -225,15 +231,15 @@ class BasisProjectionOperator(LinearOperator):
 
         # blocks of dof matrix
         blocks = []
-
+        i=0
         # ouptut vector space (codomain), row of block
         for Wspace, W1d, nq, fun_line in zip(_Wspaces, _W1ds, _nqs, fun):
             blocks += [[]]
             _Wdegrees = [space.degree for space in W1d]
+            j=0
 
             # input vector space (domain), column of block
             for Vspace, V1d, f in zip(_Vspaces, _V1ds, fun_line):
-
                 # instantiate cell of block matrix
                 dofs_mat = StencilMatrix(
                     Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL)
@@ -246,40 +252,70 @@ class BasisProjectionOperator(LinearOperator):
                 _ends_out = np.array(dofs_mat.codomain.ends)
                 _pads_out = np.array(dofs_mat.codomain.pads)
 
-                _ptsG, _wtsG, _spans, _bases = prepare_projection_of_basis(
-                    V1d, W1d, _starts_out, _ends_out, nq)
+                if isinstance(f,FemField):
 
-                _ptsG = [pts.flatten() for pts in _ptsG]
-                _Vnbases = [space.nbasis for space in V1d]
+                    space_ff = f.space.vector_space
+                    Vfd      = f.space.spaces
+                    _starts_c = np.array(space_ff.starts)
+                    _ends_c = np.array(space_ff.ends)
+                    _pads_c = np.array(space_ff.pads)
 
-                # Evaluate weight function at quadrature points
-                pts = np.meshgrid(*_ptsG, indexing='ij')
-  
-                if isinstance(f, FemField):
-                    assert(isinstance(f.space,TensorFemSpace))
-                    _fun_q = f.space.eval_fields_irregular_tensor_grid(_ptsG, f) 
-                    _fun_q = np.squeeze(_fun_q) #since we only evaluate one field the result is a 3D
-                    #array with last dim 1, we need to squeeze it in order to use the pyccelized kernels
-                elif isinstance(f, float) or isinstance(f, int):
-                    shape_grid = tuple([len(pts_i) for pts_i in _ptsG])
-                    _fun_q = np.full(shape_grid, f)
-                else : 
-                    f = np.vectorize(f)
-                    _fun_q = f(*pts).copy() #this formulation does not work atm for FemFields
+                    if preproc_grid != None :
+                        _ptsG, _wtsG, _spans, _bases, _spans_ff, _bases_ff, _npt_pts = preproc_grid[i][j]
 
-                # Call the kernel if weight function is not zero
-                if np.any(np.abs(_fun_q) > 1e-14):
+                    else : 
+                        _ptsG, _wtsG, _spans, _bases, _spans_ff, _bases_ff, _npt_pts = \
+                            prepare_projection_of_basis_ff(V1d, W1d, Vfd, _starts_out, _ends_out, nq)
 
+                    _ptsG = [pts.flatten() for pts in _ptsG]
+                    _Vnbases = [space.nbasis for space in V1d]
+                    f_coeffs = f.coeffs._data
                     kernel = getattr(
-                        basis_projection_kernels, 'assemble_dofs_for_weighted_basisfuns_' + str(V.ldim) + 'd')
+                        basis_projection_kernels, 'assemble_dofs_for_weighted_basisfuns_' + str(V.ldim) + 'd_ff')
 
                     kernel(dofs_mat._data, _starts_in, _ends_in, _pads_in, _starts_out, _ends_out,
-                           _pads_out, _fun_q, *_wtsG, *_spans, *_bases, *_Vnbases, *_Wdegrees)
+                        _pads_out, _starts_c, _ends_c, _pads_c, *_wtsG, *_spans, *_bases, f_coeffs, *_spans_ff,
+                        *_bases_ff, *_Vnbases, *_Wdegrees)
 
                     blocks[-1] += [dofs_mat]
 
-                else:
-                    blocks[-1] += [None]
+                else : 
+
+                    if preproc_grid != None :
+                        _ptsG, _wtsG, _spans, _bases, _npt_pts = preproc_grid[i][j]
+
+                    else:
+                        _ptsG, _wtsG, _spans, _bases, _npt_pts = prepare_projection_of_basis(
+                        V1d, W1d, _starts_out, _ends_out, nq)
+
+                    _ptsG = [pts.flatten() for pts in _ptsG]
+                    _Vnbases = [space.nbasis for space in V1d]
+
+                    # Evaluate weight function at quadrature points
+                    pts = np.meshgrid(*_ptsG, indexing='ij')
+                            
+                    if isinstance(f, float) or isinstance(f, int):
+                        shape_grid = tuple([len(pts_i) for pts_i in _ptsG])
+                        _fun_q = np.full(shape_grid, f)
+                    else : 
+                        f = np.vectorize(f)
+                        _fun_q = f(*pts)
+
+                    # Call the kernel if weight function is not zero
+                    if np.any(np.abs(_fun_q) > 1e-14):
+
+                        kernel = getattr(
+                            basis_projection_kernels, 'assemble_dofs_for_weighted_basisfuns_' + str(V.ldim) + 'd')
+
+                        kernel(dofs_mat._data, _starts_in, _ends_in, _pads_in, _starts_out, _ends_out,
+                            _pads_out, _fun_q, *_wtsG, *_spans, *_bases, *_Vnbases, *_Wdegrees)
+
+                        blocks[-1] += [dofs_mat]
+
+                    else:
+                        blocks[-1] += [None]
+                j+=1
+            i+=1
 
         # build BlockLinearOperator (if necessary) and return
         if len(blocks) == len(blocks[0]) == 1:
@@ -328,7 +364,7 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
     import psydac.core.bsplines as bsp
 
 
-    x_grid, subs, pts, wts, spans, bases = [], [], [], [], [], []
+    x_grid, pts, wts, spans, bases, np_pts_cell = [], [], [], [], [], []
 
     # Loop over direction, prepare point sets and evaluate basis functions
     direction = 0
@@ -345,11 +381,12 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
             x_grid = greville_loc
             pts += [greville_loc[:, None]]
             wts += [np.ones(pts[-1].shape, dtype=float)]
+            np_pts_cell += [1]
 
         # histopolation
         elif space_out.basis == 'M':
 
-            x_grid = space_out.histopolation_grid
+            x_grid = histopol_loc #space_out.histopolation_grid
             
             # Gauss - Legendre quadrature points and weights
             if n_quad is None:
@@ -363,11 +400,11 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
             #"roll" back points to the interval to ensure that the quadrature points are
             #in the domain. Probably only usefull on periodic cases
             roll_edges(space_out.domain, global_quad_x) 
-            x = global_quad_x[s:e+1]
-            w = global_quad_w[s:e+1]
+            x = global_quad_x
+            w = global_quad_w
             pts += [x]
             wts += [w]
-
+            np_pts_cell += [nq]
         # Knot span indices and V-basis functions evaluated at W-point sets
         s, b = get_span_and_basis(pts[-1], space_in)
 
@@ -375,7 +412,97 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
         bases += [b]
 
         direction += 1
-    return tuple(pts), tuple(wts), tuple(spans), tuple(bases)
+    return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(np_pts_cell)
+
+def prepare_projection_of_basis_ff(V1d, W1d, space_ff, starts_out, ends_out, n_quad=None):
+    '''Obtain knot span indices and basis functions evaluated at projection point sets of a given space.
+
+    Parameters
+    ----------
+    V1d : 3-list
+        Three SplineSpace objects from Psydac from the input space (to be projected).
+
+    W1d : 3-list
+        Three SplineSpace objects from Psydac from the output space (projected onto).
+
+    starts_out : 3-list
+        Global starting indices of process. 
+
+    ends_out : 3-list
+        Global ending indices of process.
+
+    n_quad : 3_list
+        Number of quadrature points per histpolation interval. If not given, is set to V1d.degree + 1.
+
+    Returns
+    -------
+    ptsG : 3-tuple of 2d float arrays
+        Quadrature points (or Greville points for interpolation) in each dimension in format (interval, quadrature point).
+
+    wtsG : 3-tuple of 2d float arrays
+        Quadrature weights (or ones for interpolation) in each dimension in format (interval, quadrature point).
+
+    spans : 3-tuple of 2d int arrays
+        Knot span indices in each direction in format (n, nq).
+
+    bases : 3-tuple of 3d float arrays
+        Values of p + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).'''
+
+    import psydac.core.bsplines as bsp
+
+
+    x_grid, pts, wts, spans, bases, spans_c, bases_c, np_pts_cell = [], [], [], [], [], [], [], []
+
+    # Loop over direction, prepare point sets and evaluate basis functions
+    direction = 0
+    for space_in, space_out, space_coeff, s, e in zip(V1d, W1d, space_ff, starts_out, ends_out):
+
+        greville_loc = space_out.greville[s: e + 1].copy()
+        histopol_loc = space_out.histopolation_grid[s: e + 2].copy()
+
+        # make sure that greville points used for interpolation are in [0, 1]
+        #assert np.all(np.logical_and(greville_loc >= 0., greville_loc <= 1.))
+
+        # interpolation
+        if space_out.basis == 'B':
+            x_grid = greville_loc
+            pts += [greville_loc[:, None]]
+            wts += [np.ones(pts[-1].shape, dtype=float)]
+            np_pts_cell += [1]
+
+        # histopolation
+        elif space_out.basis == 'M':
+
+            x_grid = histopol_loc #space_out.histopolation_grid
+            
+            # Gauss - Legendre quadrature points and weights
+            if n_quad is None:
+                # products of basis functions are integrated exactly
+                nq = space_in.degree + 1
+            else:
+                nq = n_quad[direction]
+            pts_loc, wts_loc = gauss_legendre(nq-1)
+            pts_loc, wts_loc = pts_loc[::-1], wts_loc[::-1]
+            global_quad_x, global_quad_w = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
+            #"roll" back points to the interval to ensure that the quadrature points are
+            #in the domain. Probably only usefull on periodic cases
+            roll_edges(space_out.domain, global_quad_x) 
+            x = global_quad_x
+            w = global_quad_w
+            pts += [x]
+            wts += [w]
+            np_pts_cell += [nq]
+        # Knot span indices and V-basis functions evaluated at W-point sets
+        s, b = get_span_and_basis(pts[-1], space_in)
+        s_c, b_c = get_span_and_basis(pts[-1], space_coeff)
+
+        spans += [s]
+        bases += [b]
+        spans_c +=[s_c]
+        bases_c +=[b_c]
+
+        direction += 1
+    return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(spans_c), tuple(bases_c), tuple(np_pts_cell)
 
 
 def get_span_and_basis(pts, space):
@@ -417,3 +544,145 @@ def get_span_and_basis(pts, space):
             span[n, nq] = span_tmp  # % space.nbasis
 
     return span, basis
+
+
+def preprocess_grid(P, V):
+    """
+    Gather the results of prepare_projection_of_basis for the different SplineSpaces composing a space, 
+    the result of this function can then be passed when initialyzing a BasisProjectionOperator to avoid
+    computing several time the same quantities
+
+    Parameters
+    ----------
+    P : GlobalProjector
+    The psydac global tensor product projector defining the space onto which the input shall be projected.
+
+    V : TensorFemSpace | ProductFemSpace
+        The spline space which shall be projected.
+
+    Returns
+    -------
+    preproc : List of List of Tuple
+        List of List containing the outputs of prepare_projection_of_basis applied to the differents spaces
+    """
+
+    # input space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
+    if isinstance(V, TensorFemSpace):
+        _Vspaces = [V.vector_space]
+        _V1ds = [V.spaces]
+    else:
+        _Vspaces = V.vector_space
+        _V1ds = [comp.spaces for comp in V.spaces]
+
+    # output space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
+    if isinstance(P.space, TensorFemSpace):
+        _Wspaces = [P.space.vector_space]
+        _W1ds = [P.space.spaces]
+    else:
+        _Wspaces = P.space.vector_space
+        _W1ds = [comp.spaces for comp in P.space.spaces]
+
+    # retrieve number of quadrature points of each component (=1 for interpolation)
+    _nqs = [[P.grid_x[comp][direction].shape[1]
+             for direction in range(V.ldim)] for comp in range(len(_W1ds))]
+
+    # blocks of dof matrix
+    preproc = []
+
+    # ouptut vector space (codomain), row of block
+    for Wspace, W1d, nq in zip(_Wspaces, _W1ds, _nqs):
+
+        line_pre = []
+        # input vector space (domain), column of block
+        for Vspace, V1d in zip(_Vspaces, _V1ds):
+
+            # instantiate cell of block matrix
+            dofs_mat = StencilMatrix(
+                Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL)
+
+            _starts_out = np.array(dofs_mat.codomain.starts)
+            _ends_out = np.array(dofs_mat.codomain.ends)
+
+            _ptsG, _wtsG, _spans, _bases, _npt_pts = prepare_projection_of_basis(
+                V1d, W1d, _starts_out, _ends_out, nq)
+            line_pre.append((_ptsG, _wtsG, _spans, _bases, _npt_pts))
+        preproc.append(line_pre.copy())
+    return preproc
+
+
+def preprocess_grid_with_ff(P, V, f_type):
+    """
+    Gather the results of prepare_projection_of_basis for the different SplineSpaces composing a space, 
+    the result of this function can then be passed when initialyzing a BasisProjectionOperator to avoid
+    computing several time the same quantities
+
+    Parameters
+    ----------
+    P : GlobalProjector
+    The psydac global tensor product projector defining the space onto which the input shall be projected.
+
+    V : TensorFemSpace | ProductFemSpace
+        The spline space which shall be projected.
+
+    f_type : None | list
+        Instance of the callable that will be used in the projection basis. Only used to compute the grids
+        if some of those callable are FemFields to preocompute the grids.
+
+    Returns
+    -------
+    preproc : List of List of Tuple
+        List of List containing the outputs of prepare_projection_of_basis applied to the differents spaces
+    """
+
+    # input space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
+    if isinstance(V, TensorFemSpace):
+        _Vspaces = [V.vector_space]
+        _V1ds = [V.spaces]
+    else:
+        _Vspaces = V.vector_space
+        _V1ds = [comp.spaces for comp in V.spaces]
+
+    # output space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
+    if isinstance(P.space, TensorFemSpace):
+        _Wspaces = [P.space.vector_space]
+        _W1ds = [P.space.spaces]
+    else:
+        _Wspaces = P.space.vector_space
+        _W1ds = [comp.spaces for comp in P.space.spaces]
+
+    # retrieve number of quadrature points of each component (=1 for interpolation)
+    _nqs = [[P.grid_x[comp][direction].shape[1]
+             for direction in range(V.ldim)] for comp in range(len(_W1ds))]
+
+    # blocks of dof matrix
+    preproc = []
+
+    # ouptut vector space (codomain), row of block
+    for Wspace, W1d, nq, f_line in zip(_Wspaces, _W1ds, _nqs, f_type):
+
+        line_pre = []
+        # input vector space (domain), column of block
+        for Vspace, V1d, f in zip(_Vspaces, _V1ds, f_line):
+
+
+            # instantiate cell of block matrix
+            dofs_mat = StencilMatrix(
+                Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL)
+
+            _starts_out = np.array(dofs_mat.codomain.starts)
+            _ends_out = np.array(dofs_mat.codomain.ends)
+
+            if isinstance(f,FemField):
+
+                Vfd      = f.space.spaces
+                _ptsG, _wtsG, _spans, _bases, _spans_ff, _bases_ff, _npt_pts = \
+                    prepare_projection_of_basis_ff(V1d, W1d, Vfd, _starts_out, _ends_out, nq)
+
+                line_pre.append((_ptsG, _wtsG, _spans, _bases, _spans_ff, _bases_ff, _npt_pts))
+
+            else : 
+                _ptsG, _wtsG, _spans, _bases, _npt_pts = prepare_projection_of_basis(
+                    V1d, W1d, _starts_out, _ends_out, nq)
+                line_pre.append((_ptsG, _wtsG, _spans, _bases, _npt_pts))
+        preproc.append(line_pre.copy())
+    return preproc

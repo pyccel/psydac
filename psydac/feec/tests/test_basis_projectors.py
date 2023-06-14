@@ -569,4 +569,5 @@ def test_basis_projector_2d_mapping(deg, filename):
     assert(np.allclose(sol_with_op.toarray(),sol_no_op.coeffs.toarray(),1e-12))
 
 if __name__ == '__main__':
+    test_basis_projector_2d(4, 2, [False,False])
     test_basis_projector_2d_mapping(2, 'collela_2d.h5')
