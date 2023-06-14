@@ -45,41 +45,45 @@ from psydac.feec.multipatch.examples.fs_domains_examples import create_square_do
 
 
 
-def try_ssc_2d(ncells=[[2,2], [2,2]], prml_degree=[3,3], domain=[[0, np.pi],[0, np.pi]], domain_name='refined_square', plot_dir='./plots/', backend_language='pyccel-gcc'):
+def try_ssc_2d(ncells=None, prml_degree=[3,3], domain_name='refined_square', plot_dir='./plots/', backend_language='pyccel-gcc'):
 
     """
     Testing the Strong-Strong Conga (SSC) sequence:
     with two strong broken DeRham sequences (a primal Hermite with hom BC and a dual Lagrange) and pairing matrices
     """
-    # domain_name = 'refined_square'
-    int_x, int_y = [[0, np.pi],[0, np.pi]]
 
     print('---------------------------------------------------------------------------------------------------------')
     print('Starting hcurl_solve_eigen_pbm function with: ')
     print(' ncells = {}'.format(ncells))
     print(' prml_degree = {}'.format(prml_degree))
     print(' domain_name = {}'.format(domain_name))
-    print(' backend_language = {}'.format(backend_language))
+    # print(' backend_language = {}'.format(backend_language))
     print('---------------------------------------------------------------------------------------------------------')
     t_stamp = time_count()
+    if not os.path.exists(plot_dir):
+        os.makedirs(plot_dir)
+
     print('building symbolic and discrete domain...')
 
     if domain_name == 'refined_square' or domain_name =='square_L_shape':
+        int_x, int_y = [[0, np.pi],[0, np.pi]]
+        # need to change ncells I guess... 
         domain = create_square_domain(ncells, int_x, int_y, mapping='identity')
         ncells_h = {patch.name: [ncells[int(patch.name[2])][int(patch.name[4])], ncells[int(patch.name[2])][int(patch.name[4])]] for patch in domain.interior}
     
     else:
         domain = build_multipatch_domain(domain_name=domain_name)
-        ncells_h = ncells[0]   # ?
+        ncells_h = ncells   # ?
 
         # ValueError("Domain not defined.")
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-    mappings_list = list(mappings.values())
+    # mappings_list = list(mappings.values())
+    mappings_list = [m.get_callable_mapping() for m in mappings.values()]
 
     t_stamp = time_count(t_stamp)
     print(' .. discrete domain...')
-    domain_h = discretize(domain, ncells=ncells_h)   # Vh space
+    domain_h = discretize(domain, ncells=ncells_h)
 
     print('building symbolic and discrete derham sequences...')
     dual_degree = [d-1 for d in prml_degree]
@@ -197,8 +201,10 @@ def try_ssc_2d(ncells=[[2,2], [2,2]], prml_degree=[3,3], domain=[[0, np.pi],[0, 
     # some target function
     x,y    = domain.coordinates
     alpha = 1
-    f_vect  = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
-                    alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+    # f_vect  = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+    #                 alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+    f_vect  = Tuple(sin(pi*y),
+                    sin(pi*x))
 
     prml_P0, prml_P1, prml_P2 = prml_derham_h.projectors()
     dual_P0, dual_P1, dual_P2 = dual_derham_h.projectors()
@@ -208,20 +214,20 @@ def try_ssc_2d(ncells=[[2,2], [2,2]], prml_degree=[3,3], domain=[[0, np.pi],[0, 
 
     if test_prml_H1:
         print(" -----  approx f in prml_V1  ---------")
-        prml_f_log = [pull_2d_hcurl([f_x, f_y], m) for m in mappings_list]
+        prml_f_log = [pull_2d_hcurl([f_x, f_y], F) for F in mappings_list]
         f_h = prml_P1(prml_f_log)
         prml_f1 = f_h.coeffs.toarray()
         dual_f1 = prml_H1 @ prml_f1
 
     else:
         print(" -----  approx f in dual_V1  ---------")
-        prml_f_log = [pull_2d_hdiv([f_x, f_y], m) for m in mappings_list]
-        f_h = prml_P1(prml_f_log)
+        dual_f_log = [pull_2d_hdiv([f_x, f_y], F) for F in mappings_list]
+        f_h = dual_P1(dual_f_log)
         dual_f1 = f_h.coeffs.toarray()
         prml_f1 = dual_H1 @ dual_f1
 
-    plot_field(numpy_coeffs=prml_f1, Vh=prml_V1h, space_kind='hcurl', domain=domain, title='f in prml_V1', filename=plot_dir+'_prml_f1.png', hide_plot=False)
-    plot_field(numpy_coeffs=dual_f1, Vh=dual_V1h, space_kind='hdiv',  domain=domain, title='f in dual_V1', filename=plot_dir+'_dual_f1.png', hide_plot=False)
+    plot_field(numpy_coeffs=prml_f1, Vh=prml_V1h, space_kind='hcurl', domain=domain, title='f in prml_V1', cmap='viridis', filename=plot_dir+'_prml_f1.png', hide_plot=False)
+    plot_field(numpy_coeffs=dual_f1, Vh=dual_V1h, space_kind='hdiv',  domain=domain, title='f in dual_V1', cmap='viridis', filename=plot_dir+'_dual_f1.png', hide_plot=False)
 
 
 if __name__ == '__main__':
@@ -229,22 +235,21 @@ if __name__ == '__main__':
     t_stamp_full = time_count()
 
     ref_square = False
-    deg = 3
+    deg = 5
 
     if ref_square:
         domain_name = 'refined_square'
         nc = 10
     else:
         domain_name = 'square_9'
-        nc = 3
+        nc = 10
 
     run_dir = '{}_nc={}_deg={}/'.format(domain_name, nc, deg)
 
         # m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
     try_ssc_2d(
-        ncells=[[nc,nc], [nc,nc]], 
-        prml_degree=[deg,deg], 
-        domain=[[0, np.pi],[0, np.pi]], 
+        ncells=[nc,nc], 
+        prml_degree=[deg,deg],
         domain_name=domain_name, 
         plot_dir='./plots/'+run_dir,
         backend_language='python' #'pyccel-gcc'

@@ -192,7 +192,7 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     return gridlines_x1, gridlines_x2
 
 #------------------------------------------------------------------------------
-def plot_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, domain=None, space_kind=None, title=None, filename='dummy_plot.png', subtitles=None, hide_plot=True):
+def plot_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, domain=None, space_kind=None, title=None, filename='dummy_plot.png', cmap='hsv', subtitles=None, hide_plot=True):
     """
     plot a discrete field (given as a FemField or by its coeffs in numpy or stencil format) on the given domain
 
@@ -200,7 +200,7 @@ def plot_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, 
     :param space_kind: type of the push-forward defining the physical Fem Space
     :param subtitles: in case one would like to have several subplots # todo: then v should be given as a list of fields...
     """
-    if not space_kind in ['h1', 'hcurl', 'l2']:
+    if not space_kind in ['h1', 'hcurl', 'hdiv', 'l2']:
         raise ValueError('invalid value for space_kind = {}'.format(space_kind))
 
     vh = fem_field
@@ -211,7 +211,8 @@ def plot_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, 
         vh = FemField(Vh, coeffs=stencil_coeffs)
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-    mappings_list = list(mappings.values())
+    # mappings_list = list(mappings.values())
+    mappings_list = [m.get_callable_mapping() for m in mappings.values()]
     etas, xx, yy    = get_plotting_grid(mappings, N=20)
     grid_vals = lambda v: get_grid_vals(v, etas, mappings_list, space_kind=space_kind)
 
@@ -233,7 +234,7 @@ def plot_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, 
         save_fig=filename,
         save_vals = True,
         hide_plot=hide_plot,
-        cmap='hsv',
+        cmap=cmap,
         dpi = 400,
     )
 
