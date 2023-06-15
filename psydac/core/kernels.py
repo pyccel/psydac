@@ -55,7 +55,7 @@ def eval_fields_3d_no_weights(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]))
+    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]), dtype=glob_arr_coeff.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -131,7 +131,7 @@ def eval_fields_2d_no_weights(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int,
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, out_fields.shape[2]))
+    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, out_fields.shape[2]), dtype=glob_arr_coeff.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -210,7 +210,7 @@ def eval_fields_3d_irregular_no_weights(np1: int, np2: int, np3: int, f_p1: int,
     out_fields : ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]))
+    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]), dtype=glob_arr_coeff.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -284,7 +284,7 @@ def eval_fields_2d_irregular_no_weights(np1: int, np2: int, f_p1: int, f_p2: int
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, out_fields.shape[2]))
+    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, out_fields.shape[2]), dtype=glob_arr_coeff.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -367,11 +367,11 @@ def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int,
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]))
-    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]), dtype=glob_arr_coeff.dtype)
+    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_weights.dtype)
 
-    arr_fields = np.zeros((k1, k2, k3, out_fields.shape[3]))
-    arr_weights = np.zeros((k1, k2, k3))
+    arr_fields = np.zeros((k1, k2, k3, out_fields.shape[3]), dtype=glob_arr_coeff.dtype)
+    arr_weights = np.zeros((k1, k2, k3), dtype=global_arr_weights.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -466,11 +466,11 @@ def eval_fields_2d_weighted(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k
     out_fields: ndarray of float
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, out_fields.shape[2]))
-    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, out_fields.shape[2]), dtype=global_arr_coeff.dtype)
+    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_weights.dtype)
 
-    arr_fields = np.zeros((k1, k2, out_fields.shape[2]))
-    arr_weights = np.zeros((k1, k2))
+    arr_fields = np.zeros((k1, k2, out_fields.shape[2]), dtype=global_arr_coeff.dtype)
+    arr_weights = np.zeros((k1, k2), dtype=global_arr_weights.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -569,10 +569,10 @@ def eval_fields_3d_irregular_weighted(np1: int, np2: int, np3: int, f_p1: int, f
     out_fields : ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]))
-    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]), dtype=glob_arr_coeff.dtype)
+    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_weights.dtype)
 
-    temp_fields = np.zeros(out_fields.shape[3])
+    temp_fields = np.zeros(out_fields.shape[3], dtype=glob_arr_coeff.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -662,10 +662,10 @@ def eval_fields_2d_irregular_weighted(np1: int, np2: int, f_p1: int, f_p2: int,
     out_fields : ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, out_fields.shape[2]))
-    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, out_fields.shape[2]), dtype=global_arr_coeff.dtype)
+    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_weights.dtype)
 
-    temp_fields = np.zeros(out_fields.shape[2])
+    temp_fields = np.zeros(out_fields.shape[2], dtype=global_arr_coeff.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -765,21 +765,21 @@ def eval_jac_det_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: in
     jac_det: ndarray of floats
         Jacobian determinant on the grid.
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
+    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2, k3))
-    arr_x_x2 = np.zeros((k1, k2, k3))
-    arr_x_x3 = np.zeros((k1, k2, k3))
+    arr_x_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_x_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_x_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
 
-    arr_y_x1 = np.zeros((k1, k2, k3))
-    arr_y_x2 = np.zeros((k1, k2, k3))
-    arr_y_x3 = np.zeros((k1, k2, k3))
+    arr_y_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_y_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_y_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
 
-    arr_z_x1 = np.zeros((k1, k2, k3))
-    arr_z_x2 = np.zeros((k1, k2, k3))
-    arr_z_x3 = np.zeros((k1, k2, k3))
+    arr_z_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_z_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_z_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -910,14 +910,14 @@ def eval_jac_det_2d(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int, 
     jac_det: ndarray of floats
         Jacobian determinant on the grid.
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2))
-    arr_x_x2 = np.zeros((k1, k2))
+    arr_x_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
+    arr_x_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
 
-    arr_y_x1 = np.zeros((k1, k2))
-    arr_y_x2 = np.zeros((k1, k2))
+    arr_y_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
+    arr_y_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -1027,9 +1027,9 @@ def eval_jac_det_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: int
     jac_det: ndarray of floats
         Jacobian determinant on the grid.
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
+    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -1147,8 +1147,8 @@ def eval_jac_det_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_ind
     out_fields : ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -1255,32 +1255,32 @@ def eval_jac_det_3d_weights(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, 
     jac_det: ndarray of floats
         Jacobian determinant on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
+    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
+    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_weights.dtype)
 
-    arr_x = np.zeros((k1, k2, k3))
-    arr_y = np.zeros((k1, k2, k3))
-    arr_z = np.zeros((k1, k2, k3))
+    arr_x = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_y = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_z = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2, k3))
-    arr_x_x2 = np.zeros((k1, k2, k3))
-    arr_x_x3 = np.zeros((k1, k2, k3))
+    arr_x_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_x_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_x_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
 
-    arr_y_x1 = np.zeros((k1, k2, k3))
-    arr_y_x2 = np.zeros((k1, k2, k3))
-    arr_y_x3 = np.zeros((k1, k2, k3))
+    arr_y_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_y_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_y_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
 
-    arr_z_x1 = np.zeros((k1, k2, k3))
-    arr_z_x2 = np.zeros((k1, k2, k3))
-    arr_z_x3 = np.zeros((k1, k2, k3))
+    arr_z_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_z_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_z_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
 
-    arr_weights = np.zeros((k1, k2, k3))
+    arr_weights = np.zeros((k1, k2, k3), dtype=global_arr_coeff_weights.dtype)
 
-    arr_weights_x1 = np.zeros((k1, k2, k3))
-    arr_weights_x2 = np.zeros((k1, k2, k3))
-    arr_weights_x3 = np.zeros((k1, k2, k3))
+    arr_weights_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_weights_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_weights_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -1467,23 +1467,23 @@ def eval_jac_det_2d_weights(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k
     jac_det: ndarray of floats
         Jacobian determinant on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
-    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
+    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_weights.dtype)
 
-    arr_x = np.zeros((k1, k2))
-    arr_y = np.zeros((k1, k2))
+    arr_x = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
+    arr_y = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2))
-    arr_x_x2 = np.zeros((k1, k2))
+    arr_x_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
+    arr_x_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
 
-    arr_y_x1 = np.zeros((k1, k2))
-    arr_y_x2 = np.zeros((k1, k2))
+    arr_y_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
+    arr_y_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
 
-    arr_weights = np.zeros((k1, k2))
+    arr_weights = np.zeros((k1, k2), dtype=global_arr_coeff_weights.dtype)
 
-    arr_weights_x1 = np.zeros((k1, k2))
-    arr_weights_x2 = np.zeros((k1, k2))
+    arr_weights_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
+    arr_weights_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -1634,11 +1634,11 @@ def eval_jac_det_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int, f
     jac_det: ndarray of floats
         Jacobian determinant on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
+    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
 
-    arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_weights.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -1804,10 +1804,10 @@ def eval_jac_det_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int,
     jac_det: ndarray of floats
         Jacobian determinant on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
 
-    arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_weights.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -1940,21 +1940,21 @@ def eval_jacobians_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: 
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
+    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2, k3))
-    arr_x_x2 = np.zeros((k1, k2, k3))
-    arr_x_x3 = np.zeros((k1, k2, k3))
+    arr_x_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_x_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_x_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
 
-    arr_y_x1 = np.zeros((k1, k2, k3))
-    arr_y_x2 = np.zeros((k1, k2, k3))
-    arr_y_x3 = np.zeros((k1, k2, k3))
+    arr_y_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_y_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_y_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
 
-    arr_z_x1 = np.zeros((k1, k2, k3))
-    arr_z_x2 = np.zeros((k1, k2, k3))
-    arr_z_x3 = np.zeros((k1, k2, k3))
+    arr_z_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_z_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_z_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -2083,14 +2083,14 @@ def eval_jacobians_2d(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int
     jacobians: ndarray of floats
         Jacobian matrix at every point of the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2))
-    arr_x_x2 = np.zeros((k1, k2))
+    arr_x_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
+    arr_x_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
 
-    arr_y_x1 = np.zeros((k1, k2))
-    arr_y_x2 = np.zeros((k1, k2))
+    arr_y_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
+    arr_y_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -2202,9 +2202,9 @@ def eval_jacobians_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: i
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
+    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -2319,8 +2319,8 @@ def eval_jacobians_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_i
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -2427,32 +2427,32 @@ def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: in
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
+    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
+    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_weights.dtype)
 
-    arr_x = np.zeros((k1, k2, k3))
-    arr_y = np.zeros((k1, k2, k3))
-    arr_z = np.zeros((k1, k2, k3))
+    arr_x = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_y = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_z = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2, k3))
-    arr_x_x2 = np.zeros((k1, k2, k3))
-    arr_x_x3 = np.zeros((k1, k2, k3))
+    arr_x_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_x_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_x_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
 
-    arr_y_x1 = np.zeros((k1, k2, k3))
-    arr_y_x2 = np.zeros((k1, k2, k3))
-    arr_y_x3 = np.zeros((k1, k2, k3))
+    arr_y_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_y_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_y_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
 
-    arr_z_x1 = np.zeros((k1, k2, k3))
-    arr_z_x2 = np.zeros((k1, k2, k3))
-    arr_z_x3 = np.zeros((k1, k2, k3))
+    arr_z_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_z_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_z_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
 
-    arr_weights = np.zeros((k1, k2, k3))
+    arr_weights = np.zeros((k1, k2, k3), dtype=global_arr_coeff_weights.dtype)
 
-    arr_weights_x1 = np.zeros((k1, k2, k3))
-    arr_weights_x2 = np.zeros((k1, k2, k3))
-    arr_weights_x3 = np.zeros((k1, k2, k3))
+    arr_weights_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_weights_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_weights_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -2637,23 +2637,23 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int
     jacobians: ndarray of floats
         Jacobian matrix at every point of the grid
        """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
-    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
+    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_weights.dtype)
 
-    arr_x = np.zeros((k1, k2))
-    arr_y = np.zeros((k1, k2))
+    arr_x = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
+    arr_y = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2))
-    arr_x_x2 = np.zeros((k1, k2))
+    arr_x_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
+    arr_x_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
 
-    arr_y_x1 = np.zeros((k1, k2))
-    arr_y_x2 = np.zeros((k1, k2))
+    arr_y_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
+    arr_y_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
 
-    arr_weights = np.zeros((k1, k2))
+    arr_weights = np.zeros((k1, k2), dtype=global_arr_coeff_weights.dtype)
 
-    arr_weights_x1 = np.zeros((k1, k2))
-    arr_weights_x2 = np.zeros((k1, k2))
+    arr_weights_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
+    arr_weights_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -2806,11 +2806,11 @@ def eval_jacobians_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int,
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
+    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
 
-    arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_weights.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -2975,10 +2975,10 @@ def eval_jacobians_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
 
-    arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_weights.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -3114,21 +3114,21 @@ def eval_jacobians_inv_3d(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: int,
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
+    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2, k3))
-    arr_x_x2 = np.zeros((k1, k2, k3))
-    arr_x_x3 = np.zeros((k1, k2, k3))
+    arr_x_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_x_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_x_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
 
-    arr_y_x1 = np.zeros((k1, k2, k3))
-    arr_y_x2 = np.zeros((k1, k2, k3))
-    arr_y_x3 = np.zeros((k1, k2, k3))
+    arr_y_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_y_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_y_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
 
-    arr_z_x1 = np.zeros((k1, k2, k3))
-    arr_z_x2 = np.zeros((k1, k2, k3))
-    arr_z_x3 = np.zeros((k1, k2, k3))
+    arr_z_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_z_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_z_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -3272,14 +3272,14 @@ def eval_jacobians_inv_2d(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int, k2
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2))
-    arr_x_x2 = np.zeros((k1, k2))
+    arr_x_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
+    arr_x_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
 
-    arr_y_x1 = np.zeros((k1, k2))
-    arr_y_x2 = np.zeros((k1, k2))
+    arr_y_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
+    arr_y_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -3393,9 +3393,9 @@ def eval_jacobians_inv_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
+    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -3532,8 +3532,8 @@ def eval_jacobians_inv_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, ce
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -3642,32 +3642,32 @@ def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
+    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
+    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_weigths.dtype)
 
-    arr_x = np.zeros((k1, k2, k3))
-    arr_y = np.zeros((k1, k2, k3))
-    arr_z = np.zeros((k1, k2, k3))
+    arr_x = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_y = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_z = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2, k3))
-    arr_x_x2 = np.zeros((k1, k2, k3))
-    arr_x_x3 = np.zeros((k1, k2, k3))
+    arr_x_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_x_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_x_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
 
-    arr_y_x1 = np.zeros((k1, k2, k3))
-    arr_y_x2 = np.zeros((k1, k2, k3))
-    arr_y_x3 = np.zeros((k1, k2, k3))
+    arr_y_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_y_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_y_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
 
-    arr_z_x1 = np.zeros((k1, k2, k3))
-    arr_z_x2 = np.zeros((k1, k2, k3))
-    arr_z_x3 = np.zeros((k1, k2, k3))
+    arr_z_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_z_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_z_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
 
-    arr_weights = np.zeros((k1, k2, k3))
+    arr_weights = np.zeros((k1, k2, k3), dtype=global_arr_coeff_weigths.dtype)
 
-    arr_weights_x1 = np.zeros((k1, k2, k3))
-    arr_weights_x2 = np.zeros((k1, k2, k3))
-    arr_weights_x3 = np.zeros((k1, k2, k3))
+    arr_weights_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_weights_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_weights_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -3867,23 +3867,23 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1:
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
        """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
-    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
+    arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_weights.dtype)
 
-    arr_x = np.zeros((k1, k2))
-    arr_y = np.zeros((k1, k2))
+    arr_x = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
+    arr_y = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2))
-    arr_x_x2 = np.zeros((k1, k2))
+    arr_x_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
+    arr_x_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
 
-    arr_y_x1 = np.zeros((k1, k2))
-    arr_y_x2 = np.zeros((k1, k2))
+    arr_y_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
+    arr_y_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
 
-    arr_weights = np.zeros((k1, k2))
+    arr_weights = np.zeros((k1, k2), dtype=global_arr_coeff_weights.dtype)
 
-    arr_weights_x1 = np.zeros((k1, k2))
-    arr_weights_x2 = np.zeros((k1, k2))
+    arr_weights_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
+    arr_weights_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -4038,11 +4038,11 @@ def eval_jacobians_inv_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: 
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
+    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
 
-    arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_weights.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -4223,10 +4223,10 @@ def eval_jacobians_inv_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2:
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
 
-    arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2))
+    arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_weights.dtype)
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
