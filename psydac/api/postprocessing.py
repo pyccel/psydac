@@ -1744,6 +1744,16 @@ class PostProcessManager:
 
                 offset += i_mesh[0].size
 
+            # redefine the list of the field exported, all the complex field are divided in two new field for the real and imaginary part
+            new_fields_relevant = []
+            for name_intra in fields_relevant:
+                if name_intra in self._last_loaded_fields and self._last_loaded_fields[name_intra].coeffs.dtype==complex:
+                    new_fields_relevant.append(name_intra + '_Real')
+                    new_fields_relevant.append(name_intra + '_Imag')
+                else:
+                    new_fields_relevant.append(name_intra)
+            fields_relevant = tuple(new_fields_relevant)
+
             # Fields
             for name_intra in fields_relevant:
                 i_data = i_point_data.get(name_intra, None)
@@ -1807,10 +1817,23 @@ class PostProcessManager:
         # physical functions
         for name, lambda_f in additional_physical_functions.items():
             f_result = lambda_f(*mesh_info[0])
+            # For each physical functions, we add the data of this field into the point_data dictionary.
+            # In complex case, we create two real array : for the real and imaginary part.
+            # Case of a Vector field
             if isinstance(f_result, np.ndarray):
-                point_data[name] = np.ravel(f_result, 'F')
+                if f_result.dtype==complex:
+                    point_data[name+'_Real'] = np.ravel(f_result.real, 'F')
+                    point_data[name+'_Imag'] = np.ravel(f_result.imag, 'F')
+                else:
+                    point_data[name] = np.ravel(f_result, 'F')
+
+            # Case of a Scalar field
             elif isinstance(f_result, tuple):
-                point_data[name] = tuple(np.ravel(i_result, 'F') for i_result in f_result)
+                if f_result[0].dtype==complex:
+                    point_data[name+'_Real'] = tuple(np.ravel(i_result.real, 'F') for i_result in f_result)
+                    point_data[name+'_Imag'] = tuple(np.ravel(i_result.imag, 'F') for i_result in f_result)
+                else:
+                    point_data[name] = np.ravel(f_result, 'F')
 
         self._last_mesh_info = mesh_info, {'patch': patch_numbers}, {'MPI_RANK_SIMU': mpi_rank_simu_array}
         self._last_subdomain = subdomain
@@ -2107,7 +2130,24 @@ class PostProcessManager:
         for space, (field_names, field_list) in space_dict.items():
             list_pushed_fields = pushforward._dispatch_pushforward(space, *field_list)
             for i, field_name in enumerate(field_names):
-                point_data[field_name] = list_pushed_fields[i]
+                # For each field_name, if it is in list_pushed_fields, it add the data of this field into the point_data dictionary.
+                # In complex case, we create two real array : for the real and imaginary part.
+                # Case of a Vector field
+                if isinstance(list_pushed_fields[i],tuple):
+                    # If complex value
+                    if list_pushed_fields[i][0].dtype==complex:
+                        point_data[field_name+'_Real'] = tuple([coeffs.real for coeffs in list_pushed_fields[i]])
+                        point_data[field_name+'_Imag'] = tuple([coeffs.imag for coeffs in list_pushed_fields[i]])
+                    else:
+                        point_data[field_name] = list_pushed_fields[i]
+                # Case of a Scalar field
+                else:
+                    # If complex value
+                    if list_pushed_fields[i].dtype==complex:
+                        point_data[field_name+'_Real'] = list_pushed_fields[i].real
+                        point_data[field_name+'_Imag'] = list_pushed_fields[i].imag
+                    else:
+                        point_data[field_name] = list_pushed_fields[i]
 
         if grid_local[0].ndim == 1:
             log_mesh_grids = np.meshgrid(*grid_local, indexing='ij')
