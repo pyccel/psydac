@@ -479,9 +479,9 @@ class TensorFemSpace( FemSpace ):
         degree, global_basis, global_spans, local_shape = self.preprocess_regular_tensor_grid(grid, der=0, overlap=overlap)
         ncells = [local_shape[i][0] for i in range(self.ldim)]
         n_eval_points = [local_shape[i][1] for i in range(self.ldim)]
-        out_fields = np.zeros((*(tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim))), len(fields)))
+        out_fields = np.zeros((*(tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim))), len(fields)), dtype=fields[0].coeffs)
 
-        glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)))
+        glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)), dtype=fields[0].coeffs)
 
         for i in range(len(fields)):
             glob_arr_coeffs[..., i] = fields[i].coeffs._data
@@ -550,9 +550,9 @@ class TensorFemSpace( FemSpace ):
         """
         degree, global_basis, global_spans, cell_indexes, local_shape = \
             self.preprocess_irregular_tensor_grid(grid, overlap=overlap)
-        out_fields = np.zeros(tuple(local_shape) + (len(fields),))
+        out_fields = np.zeros(tuple(local_shape) + (len(fields),), dtype=fields[0].coeffs.dtype)
 
-        glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)))
+        glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)), dtype=fields[0].coeffs.dtype)
 
         npoints = local_shape
 
