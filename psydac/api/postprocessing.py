@@ -594,8 +594,22 @@ class OutputManager:
                 else:
                     V = field.space.vector_space
                     index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
-                    dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
-                    dset[index] = field.coeffs[index]
+                    if V.dtype==complex:
+                        name_field_re = name_field + '.re'
+                        name_field_im = name_field + '.im'
+
+                        Vi = field.space.vector_space.spaces[i]
+                        index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
+
+                        dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field_re}', shape=V.npts, dtype=V.dtype)
+                        dset[index] = field_coeff[index].re
+                        dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field_im}', shape=V.npts, dtype=V.dtype)
+                        dset[index] = field_coeff[index].im
+
+
+                    else:
+                        dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
+                        dset[index] = field.coeffs[index]
 
 
     def export_space_info(self):
