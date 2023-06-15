@@ -38,7 +38,7 @@ def main():
         for name in files:
             if name.endswith('_kernels.py'):
                 print('Pyccelise file :' + os.path.join(path, name))
-                sub_run([shutil.which('pyccel'), os.path.join(path, name), '--language', language])
+                sub_run([shutil.which('pyccel'), os.path.join(path, name), '--language', language], shell=False)
                 print('\n')
 
     return
