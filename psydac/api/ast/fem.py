@@ -3,46 +3,30 @@
 import numpy as np
 from itertools   import groupby, product
 
-from sympy import Basic, S, Function, Integer, StrictLessThan
-from sympy import Matrix, ImmutableDenseMatrix, Float, true
+from sympy import Basic, S, Function, Integer
+from sympy import Matrix, ImmutableDenseMatrix, true
 from sympy.core.containers import Tuple
 
-from sympde.expr                 import LinearForm
-from sympde.expr                 import BilinearForm
-from sympde.expr                 import Functional
+from sympde.expr                 import LinearForm, BilinearForm, Functional
 from sympde.topology.basic       import Boundary, Interface
-from sympde.topology             import H1SpaceType, HcurlSpaceType
-from sympde.topology             import HdivSpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.topology             import IdentityMapping, SymbolicExpr
-from sympde.topology.space       import ScalarFunction
-from sympde.topology.space       import VectorFunction
-from sympde.topology.space       import IndexedVectorFunction
-from sympde.topology.derivatives import _logical_partial_derivatives
-from sympde.topology.derivatives import get_max_logical_partial_derivatives
+from sympde.topology             import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType, IdentityMapping
+from sympde.topology.space       import ScalarFunction, VectorFunction, IndexedVectorFunction
+from sympde.topology.derivatives import _logical_partial_derivatives, get_max_logical_partial_derivatives
 from sympde.topology.mapping     import InterfaceMapping
 from sympde.calculus.core        import is_zero, PlusInterfaceOperator
 
-from psydac.pyccel.ast.core import _atomic, Assign, Import, AugAssign, Return
-from psydac.pyccel.ast.core import Comment, Continue, Slice
+from psydac.pyccel.ast.core import _atomic, Assign, Import, Return, Comment, Continue, Slice
 
-from .nodes import GlobalTensorQuadratureGrid, PlusGlobalTensorQuadratureGrid
-from .nodes import LocalTensorQuadratureGrid, PlusLocalTensorQuadratureGrid
-from .nodes import GlobalTensorQuadratureTestBasis, LocalTensorQuadratureTestBasis
-from .nodes import GlobalTensorQuadratureTrialBasis, LocalTensorQuadratureTrialBasis
+from .nodes import GlobalTensorQuadratureGrid, PlusGlobalTensorQuadratureGrid, LocalTensorQuadratureGrid, PlusLocalTensorQuadratureGrid
+from .nodes import GlobalTensorQuadratureTestBasis, LocalTensorQuadratureTestBasis, GlobalTensorQuadratureTrialBasis, LocalTensorQuadratureTrialBasis
 from .nodes import LengthElement, LengthQuadrature
 from .nodes import LengthDofTrial, LengthDofTest
-from .nodes import LengthOuterDofTest, LengthInnerDofTest
 from .nodes import Reset, ProductGenerator
-from .nodes import BlockStencilMatrixLocalBasis, StencilMatrixLocalBasis
-from .nodes import BlockStencilMatrixGlobalBasis, BlockScalarLocalBasis
-from .nodes import BlockStencilVectorLocalBasis, StencilVectorLocalBasis
-from .nodes import BlockStencilVectorGlobalBasis
-from .nodes import GlobalElementBasis
-from .nodes import LocalElementBasis
-from .nodes import GlobalSpanArray, LocalSpanArray, GlobalThreadSpanArray, Span
-from .nodes import CoefficientBasis
-from .nodes import MatrixLocalBasis, MatrixGlobalBasis
-from .nodes import MatrixRankFromCoords, MatrixCoordsFromRank
+from .nodes import BlockStencilMatrixLocalBasis, StencilMatrixLocalBasis, BlockStencilMatrixGlobalBasis, BlockScalarLocalBasis
+from .nodes import BlockStencilVectorLocalBasis, StencilVectorLocalBasis, BlockStencilVectorGlobalBasis
+from .nodes import GlobalElementBasis, LocalElementBasis
+from .nodes import GlobalSpanArray, LocalSpanArray, GlobalThreadSpanArray, CoefficientBasis
+from .nodes import MatrixLocalBasis, MatrixGlobalBasis, MatrixRankFromCoords, MatrixCoordsFromRank
 from .nodes import GeometryExpressions
 from .nodes import Loop, VectorAssign
 from .nodes import EvalMapping, EvalField
@@ -50,20 +34,12 @@ from .nodes import ComputeKernelExpr
 from .nodes import ElementOf, Reduce
 from .nodes import construct_logical_expressions
 from .nodes import Pads, Mask
-from .nodes import index_quad
-from .nodes import index_element
-from .nodes import index_dof_test
-from .nodes import index_dof_trial
-from .nodes import index_outer_dof_test
-from .nodes import index_inner_dof_test, thread_id, neighbour_threads
-from .nodes import thread_coords, local_index_element
-from .nodes import TensorIntDiv, TensorAssignExpr, TensorInteger
-from .nodes import TensorAdd, TensorMul, TensorMax
-from .nodes import IntDivNode, AddNode, MulNode
-from .nodes import AndNode, StrictLessThanNode, WhileLoop, NotNode, EqNode, IfNode
-from .nodes import GlobalThreadStarts, GlobalThreadEnds, GlobalThreadSizes, NumThreads
-from .nodes import LocalThreadStarts, LocalThreadEnds
-from .nodes import Allocate, Min, Array
+from .nodes import index_quad, index_element, index_dof_test, index_dof_trial, index_outer_dof_test, index_inner_dof_test
+from .nodes import thread_coords, local_index_element, thread_id
+from .nodes import TensorAssignExpr, TensorInteger, TensorAdd, TensorMul
+from .nodes import IntDivNode, AddNode, MulNode, EqNode, IfNode
+from .nodes import GlobalThreadStarts, GlobalThreadEnds, GlobalThreadSizes, LocalThreadStarts, LocalThreadEnds
+from .nodes import Allocate, Array
 
 from psydac.api.ast.utilities import variables
 from psydac.api.utilities     import flatten
