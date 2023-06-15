@@ -298,7 +298,7 @@ class Pushforward:
         else:
 
             fields_to_push = np.ascontiguousarray(fields_eval[index_trim])
-            pushed_fields = np.zeros_like(fields_to_push)
+            pushed_fields = np.zeros_like(fields_to_push, dtype=fields_eval.dtype)
             if self.ldim == 2:
                 pushforward_2d_l2(fields_to_push, self.sqrt_metric_det_temp, pushed_fields)
             if self.ldim == 3:

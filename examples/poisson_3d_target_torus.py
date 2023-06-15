@@ -111,6 +111,7 @@ def run_model(ncells, degree, comm=None, is_logical=False):
 
     # Define abstract model
     V = ScalarFunctionSpace('V', Omega, kind='h1')
+    V.codomain_type='complex'
     v = element_of(V, name='v')
     u = element_of(V, name='u')
 

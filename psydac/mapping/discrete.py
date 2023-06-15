@@ -631,7 +631,7 @@ class SplineMapping(BasicCallableMapping):
         ncells = [local_shape[i][0] for i in range(self.ldim)]
         n_eval_points = [local_shape[i][1] for i in range(self.ldim)]
 
-        jac_dets = np.zeros(shape=tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim)))
+        jac_dets = np.zeros(shape=tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim)), dtype=self._fields[0].dtype)
 
         if self.ldim == 3:
 

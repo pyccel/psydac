@@ -34,6 +34,7 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
     #+++++++++++++++++++++++++++++++
 
     V  = VectorFunctionSpace('V', domain, kind='hcurl')
+    V.codomain_type='complex'
 
     u, v, F = elements_of(V, names='u, v, F')
     nn      = NormalVector('nn')
@@ -75,7 +76,6 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
 
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     Vh       = discretize(V, domain_h, degree=degree, basis='M')
-
     equation_h = discretize(equation, domain_h, [Vh, Vh])
     l2norm_h   = discretize(l2norm, domain_h, Vh)
 
@@ -92,7 +92,7 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
     t1       = time.time()
     timing['diagnostics'] = t1-t0
 
-    return uh, info, timing, l2_error
+    return Vh, uh, info, timing, l2_error
 
 #==============================================================================
 if __name__ == '__main__':
@@ -102,6 +102,7 @@ if __name__ == '__main__':
     from psydac.api.tests.build_domain             import build_pretzel
     from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
     from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
+    from psydac.api.postprocessing                 import OutputManager, PostProcessManager
 
     domain = build_pretzel()
     x,y    = domain.coordinates
@@ -113,8 +114,41 @@ if __name__ == '__main__':
 
     ne     = [4, 4]
     degree = [2, 2]
+    import os
 
-    Eh, info, timing, l2_error = run_maxwell_2d(Eex, f, alpha, domain, ncells=ne, degree=degree)
+    os.makedirs('results_poisson', exist_ok=True)
+    Om = OutputManager(
+        f'results_poisson/space_info_{domain.name}',
+        f'results_poisson/field_info_{domain.name}',
+        # MPI version
+        #   comm=comm,
+    )
+    Vh, Eh, info, timing, l2_error = run_maxwell_2d(Eex, f, alpha, domain, ncells=ne, degree=degree)
+
+
+    Om.add_spaces(V=Vh)
+    Om.export_space_info()
+    Om.set_static()
+    Om.export_fields(u=Eh)
+
+    Om.close()
+
+    Pm = PostProcessManager(
+        domain=domain,
+        space_file=f'results_poisson/space_info_{domain.name}.yaml',
+        fields_file=f'results_poisson/field_info_{domain.name}.h5',
+        # MPI version
+        #   comm=comm,
+    )
+
+    Pm.export_to_vtk(
+        f'results_poisson/visu_{domain.name}',
+        grid=None,
+        npts_per_cell=3,
+        fields='u'
+    )
+
+    Pm.close()
 
     # ...
     print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne[0], ne2=ne[1]) )
