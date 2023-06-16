@@ -57,7 +57,7 @@ def eval_fields_3d_no_weights(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]), dtype=glob_arr_coeff.dtype)
+    arr_coeff_fields = np.zeros_like(glob_arr_coeff, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -134,7 +134,7 @@ def eval_fields_2d_no_weights(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int,
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, out_fields.shape[2]), dtype=glob_arr_coeff.dtype)
+    arr_coeff_fields = np.zeros_like(glob_arr_coeff, shape=(1 + f_p1, 1 + f_p2, out_fields.shape[2]))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -214,7 +214,7 @@ def eval_fields_3d_irregular_no_weights(np1: int, np2: int, np3: int, f_p1: int,
     out_fields : ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]), dtype=glob_arr_coeff.dtype)
+    arr_coeff_fields = np.zeros_like(glob_arr_coeff, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]))
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -289,7 +289,7 @@ def eval_fields_2d_irregular_no_weights(np1: int, np2: int, f_p1: int, f_p2: int
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, out_fields.shape[2]), dtype=glob_arr_coeff.dtype)
+    arr_coeff_fields = np.zeros_like(glob_arr_coeff, shape=(1 + f_p1, 1 + f_p2, out_fields.shape[2]))
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -373,10 +373,10 @@ def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int,
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]), dtype=glob_arr_coeff.dtype)
+    arr_coeff_fields = np.zeros_like(glob_arr_coeff, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]))
     arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
 
-    arr_fields = np.zeros((k1, k2, k3, out_fields.shape[3]), dtype=glob_arr_coeff.dtype)
+    arr_fields = np.zeros_like(glob_arr_coeff, shape=(k1, k2, k3, out_fields.shape[3]))
     arr_weights = np.zeros((k1, k2, k3))
 
     for i_cell_1 in range(nc1):
@@ -473,10 +473,10 @@ def eval_fields_2d_weighted(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k
     out_fields: ndarray of float
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, out_fields.shape[2]), dtype=global_arr_coeff.dtype)
+    arr_coeff_fields = np.zeros_like(global_arr_coeff, shape=(1 + f_p1, 1 + f_p2, out_fields.shape[2]))
     arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2))
 
-    arr_fields = np.zeros((k1, k2, out_fields.shape[2]), dtype=global_arr_coeff.dtype)
+    arr_fields = np.zeros_like(global_arr_coeff, shape=(1 + f_p1, 1 + f_p2, out_fields.shape[2]))
     arr_weights = np.zeros((k1, k2))
 
     for i_cell_1 in range(nc1):
@@ -577,10 +577,10 @@ def eval_fields_3d_irregular_weighted(np1: int, np2: int, np3: int, f_p1: int, f
     out_fields : ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]), dtype=glob_arr_coeff.dtype)
+    arr_coeff_fields = np.zeros_like(glob_arr_coeff, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]))
     arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
 
-    temp_fields = np.zeros(out_fields.shape[3], dtype=glob_arr_coeff.dtype)
+    temp_fields = np.zeros_like(glob_arr_coeff, shape=out_fields.shape[3])
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -671,10 +671,10 @@ def eval_fields_2d_irregular_weighted(np1: int, np2: int, f_p1: int, f_p2: int,
     out_fields : ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, out_fields.shape[2]), dtype=global_arr_coeff.dtype)
+    arr_coeff_fields = np.zeros_like(global_arr_coeff, shape=(1 + f_p1, 1 + f_p2, out_fields.shape[2]))
     arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2))
 
-    temp_fields = np.zeros(out_fields.shape[2], dtype=global_arr_coeff.dtype)
+    temp_fields = np.zeros_like(global_arr_coeff, shape=out_fields.shape[2])
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -775,21 +775,22 @@ def eval_jac_det_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: in
     jac_det: ndarray of floats
         Jacobian determinant on the grid.
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_x_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_x_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_z = np.zeros_like(global_arr_coeff_z, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
 
-    arr_y_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_y_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_y_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_x_x1 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+    arr_x_x2 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+    arr_x_x3 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
 
-    arr_z_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-    arr_z_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-    arr_z_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_y_x1 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+    arr_y_x2 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+    arr_y_x3 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+
+    arr_z_x1 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+    arr_z_x2 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+    arr_z_x3 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -921,14 +922,15 @@ def eval_jac_det_2d(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int, 
     jac_det: ndarray of floats
         Jacobian determinant on the grid.
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
-    arr_x_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
 
-    arr_y_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
-    arr_y_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
+    arr_x_x1 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+    arr_x_x2 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+
+    arr_y_x1 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
+    arr_y_x2 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -1039,9 +1041,23 @@ def eval_jac_det_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: int
     jac_det: ndarray of floats
         Jacobian determinant on the grid.
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
+
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_z = np.zeros_like(global_arr_coeff_z, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+
+    temp_x_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_x_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_x_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
+
+    temp_y_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_y_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
+
+    temp_z_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_z_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_z_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -1067,17 +1083,17 @@ def eval_jac_det_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: int
                                                            span_2 - f_p2:1 + span_2,
                                                            span_3 - f_p3:1 + span_3]
 
-                temp_x_x1 = 0.0
-                temp_x_x2 = 0.0
-                temp_x_x3 = 0.0
+                temp_x_x1 *= 0.0
+                temp_x_x2 *= 0.0
+                temp_x_x3 *= 0.0
 
-                temp_y_x1 = 0.0
-                temp_y_x2 = 0.0
-                temp_y_x3 = 0.0
+                temp_y_x1 *= 0.0
+                temp_y_x2 *= 0.0
+                temp_y_x3 *= 0.0
 
-                temp_z_x1 = 0.0
-                temp_z_x2 = 0.0
-                temp_z_x3 = 0.0
+                temp_z_x1 *= 0.0
+                temp_z_x2 *= 0.0
+                temp_z_x3 *= 0.0
 
                 for i_basis_1 in range(1 + f_p1):
                     spline_1 = global_basis_1[i_p_1, i_basis_1, 0]
@@ -1099,24 +1115,24 @@ def eval_jac_det_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: int
                             coeff_y = arr_coeffs_y[i_basis_1, i_basis_2, i_basis_3]
                             coeff_z = arr_coeffs_z[i_basis_1, i_basis_2, i_basis_3]
 
-                            temp_x_x1 += mapping_x1 * coeff_x
-                            temp_x_x2 += mapping_x2 * coeff_x
-                            temp_x_x3 += mapping_x3 * coeff_x
+                            temp_x_x1[0] += mapping_x1 * coeff_x
+                            temp_x_x2[0] += mapping_x2 * coeff_x
+                            temp_x_x3[0] += mapping_x3 * coeff_x
 
-                            temp_y_x1 += mapping_x1 * coeff_y
-                            temp_y_x2 += mapping_x2 * coeff_y
-                            temp_y_x3 += mapping_x3 * coeff_y
+                            temp_y_x1[0] += mapping_x1 * coeff_y
+                            temp_y_x2[0] += mapping_x2 * coeff_y
+                            temp_y_x3[0] += mapping_x3 * coeff_y
 
-                            temp_z_x1 += mapping_x1 * coeff_z
-                            temp_z_x2 += mapping_x2 * coeff_z
-                            temp_z_x3 += mapping_x3 * coeff_z
+                            temp_z_x1[0] += mapping_x1 * coeff_z
+                            temp_z_x2[0] += mapping_x2 * coeff_z
+                            temp_z_x3[0] += mapping_x3 * coeff_z
 
-                jac_det[i_p_1, i_p_2, i_p_3] = (+ temp_x_x1 * temp_y_x2 * temp_z_x3
-                                                + temp_x_x2 * temp_y_x3 * temp_z_x1
-                                                + temp_x_x3 * temp_y_x1 * temp_z_x2
-                                                - temp_x_x1 * temp_y_x3 * temp_z_x2
-                                                - temp_x_x2 * temp_y_x1 * temp_z_x3
-                                                - temp_x_x3 * temp_y_x2 * temp_z_x1)
+                jac_det[i_p_1, i_p_2, i_p_3] = (+ temp_x_x1[0] * temp_y_x2[0] * temp_z_x3[0]
+                                                + temp_x_x2[0] * temp_y_x3[0] * temp_z_x1[0]
+                                                + temp_x_x3[0] * temp_y_x1[0] * temp_z_x2[0]
+                                                - temp_x_x1[0] * temp_y_x3[0] * temp_z_x2[0]
+                                                - temp_x_x2[0] * temp_y_x1[0] * temp_z_x3[0]
+                                                - temp_x_x3[0] * temp_y_x2[0] * temp_z_x1[0])
 
 
 @template(name='T', types=['float[:,:]', 'complex[:,:]'])
@@ -1160,8 +1176,15 @@ def eval_jac_det_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_ind
     out_fields : ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
+
+    temp_x_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_x_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+
+    temp_y_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -1177,11 +1200,11 @@ def eval_jac_det_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_ind
             arr_coeffs_y[:, :] = global_arr_coeff_y[span_1 - f_p1:1 + span_1,
                                                        span_2 - f_p2:1 + span_2]
 
-            temp_x_x1 = 0.0
-            temp_x_x2 = 0.0
+            temp_x_x1 *= 0.0
+            temp_x_x2 *= 0.0
 
-            temp_y_x1 = 0.0
-            temp_y_x2 = 0.0
+            temp_y_x1 *= 0.0
+            temp_y_x2 *= 0.0
 
             for i_basis_1 in range(1 + f_p1):
                 spline_1 = global_basis_1[i_p_1, i_basis_1, 0]
@@ -1197,13 +1220,13 @@ def eval_jac_det_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_ind
                     coeff_x = arr_coeffs_x[i_basis_1, i_basis_2]
                     coeff_y = arr_coeffs_y[i_basis_1, i_basis_2]
 
-                    temp_x_x1 += mapping_x1 * coeff_x
-                    temp_x_x2 += mapping_x2 * coeff_x
+                    temp_x_x1[0] += mapping_x1 * coeff_x
+                    temp_x_x2[0] += mapping_x2 * coeff_x
 
-                    temp_y_x1 += mapping_x1 * coeff_y
-                    temp_y_x2 += mapping_x2 * coeff_y
+                    temp_y_x1[0] += mapping_x1 * coeff_y
+                    temp_y_x2[0] += mapping_x2 * coeff_y
 
-            jac_det[i_p_1, i_p_2] = temp_x_x1 * temp_y_x2 - temp_x_x2 * temp_y_x1
+            jac_det[i_p_1, i_p_2] = temp_x_x1[0] * temp_y_x2[0] - temp_x_x2[0] * temp_y_x1[0]
 
 
 # -----------------------------------------------------------------------------
@@ -1270,27 +1293,28 @@ def eval_jac_det_3d_weights(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, 
     jac_det: ndarray of floats
         Jacobian determinant on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_z = np.zeros_like(global_arr_coeff_z, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+
+    arr_x = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+    arr_y = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+    arr_z = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+
+    arr_x_x1 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+    arr_x_x2 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+    arr_x_x3 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+
+    arr_y_x1 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+    arr_y_x2 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+    arr_y_x3 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+
+    arr_z_x1 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+    arr_z_x2 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+    arr_z_x3 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+
     arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-
-    arr_x = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_y = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_z = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-
-    arr_x_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_x_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_x_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-
-    arr_y_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_y_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_y_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-
-    arr_z_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-    arr_z_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-    arr_z_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-
     arr_weights = np.zeros((k1, k2, k3))
 
     arr_weights_x1 = np.zeros((k1, k2, k3))
@@ -1483,18 +1507,20 @@ def eval_jac_det_2d_weights(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k
     jac_det: ndarray of floats
         Jacobian determinant on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
+
+    arr_x = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+    arr_y = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
+
+    arr_x_x1 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+    arr_x_x2 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+
+    arr_y_x1 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
+    arr_y_x2 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
+
     arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2))
-
-    arr_x = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
-    arr_y = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
-
-    arr_x_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
-    arr_x_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
-
-    arr_y_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
-    arr_y_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
 
     arr_weights = np.zeros((k1, k2))
 
@@ -1651,11 +1677,28 @@ def eval_jac_det_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int, f
     jac_det: ndarray of floats
         Jacobian determinant on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_z = np.zeros_like(global_arr_coeff_z, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
 
     arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+
+    temp_x = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_z = np.zeros_like(arr_coeffs_z, shape=(1))
+
+    temp_x_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_x_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_x_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
+
+    temp_y_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_y_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
+
+    temp_z_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_z_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_z_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -1685,23 +1728,23 @@ def eval_jac_det_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int, f
                                                                        span_2 - f_p2:1 + span_2,
                                                                        span_3 - f_p3:1 + span_3]
 
-                temp_x =0.0
-                temp_y =0.0
-                temp_z= 0.0
+                temp_x *= 0.0
+                temp_y *= 0.0
+                temp_z *= 0.0
 
                 temp_weight= 0.0
 
-                temp_x_x1 = 0.0
-                temp_x_x2 = 0.0
-                temp_x_x3 = 0.0
+                temp_x_x1 *= 0.0
+                temp_x_x2 *= 0.0
+                temp_x_x3 *= 0.0
 
-                temp_y_x1 = 0.0
-                temp_y_x2 = 0.0
-                temp_y_x3 = 0.0
+                temp_y_x1 *= 0.0
+                temp_y_x2 *= 0.0
+                temp_y_x3 *= 0.0
 
-                temp_z_x1 = 0.0
-                temp_z_x2 = 0.0
-                temp_z_x3 = 0.0
+                temp_z_x1 *= 0.0
+                temp_z_x2 *= 0.0
+                temp_z_x3 *= 0.0
 
                 temp_weight_x1 = 0.0
                 temp_weight_x2 = 0.0
@@ -1731,23 +1774,23 @@ def eval_jac_det_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int, f
 
                             coeff_weight = arr_coeffs_weights[i_basis_1, i_basis_2, i_basis_3]
 
-                            temp_x += mapping * coeff_x * coeff_weight
-                            temp_y += mapping * coeff_y * coeff_weight
-                            temp_z += mapping * coeff_z * coeff_weight
+                            temp_x[0] += mapping * coeff_x * coeff_weight
+                            temp_y[0] += mapping * coeff_y * coeff_weight
+                            temp_z[0] += mapping * coeff_z * coeff_weight
 
                             temp_weight += mapping * coeff_weight
 
-                            temp_x_x1 += mapping_x1 * coeff_x * coeff_weight
-                            temp_x_x2 += mapping_x2 * coeff_x * coeff_weight
-                            temp_x_x3 += mapping_x3 * coeff_x * coeff_weight
+                            temp_x_x1[0] += mapping_x1 * coeff_x * coeff_weight
+                            temp_x_x2[0] += mapping_x2 * coeff_x * coeff_weight
+                            temp_x_x3[0] += mapping_x3 * coeff_x * coeff_weight
 
-                            temp_y_x1 += mapping_x1 * coeff_y * coeff_weight
-                            temp_y_x2 += mapping_x2 * coeff_y * coeff_weight
-                            temp_y_x3 += mapping_x3 * coeff_y * coeff_weight
+                            temp_y_x1[0] += mapping_x1 * coeff_y * coeff_weight
+                            temp_y_x2[0] += mapping_x2 * coeff_y * coeff_weight
+                            temp_y_x3[0] += mapping_x3 * coeff_y * coeff_weight
 
-                            temp_z_x1 += mapping_x1 * coeff_z * coeff_weight
-                            temp_z_x2 += mapping_x2 * coeff_z * coeff_weight
-                            temp_z_x3 += mapping_x3 * coeff_z * coeff_weight
+                            temp_z_x1[0] += mapping_x1 * coeff_z * coeff_weight
+                            temp_z_x2[0] += mapping_x2 * coeff_z * coeff_weight
+                            temp_z_x3[0] += mapping_x3 * coeff_z * coeff_weight
 
                             temp_weight_x1 += mapping_x1 * coeff_weight
                             temp_weight_x2 += mapping_x2 * coeff_weight
@@ -1755,17 +1798,17 @@ def eval_jac_det_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int, f
 
                 inv_weight = 1.0 / temp_weight
 
-                x_x1 = (temp_x_x1 - temp_weight_x1 * temp_x * inv_weight) * inv_weight
-                x_x2 = (temp_x_x2 - temp_weight_x2 * temp_x * inv_weight) * inv_weight
-                x_x3 = (temp_x_x3 - temp_weight_x3 * temp_x * inv_weight) * inv_weight
+                x_x1 = (temp_x_x1[0] - temp_weight_x1 * temp_x[0] * inv_weight) * inv_weight
+                x_x2 = (temp_x_x2[0] - temp_weight_x2 * temp_x[0] * inv_weight) * inv_weight
+                x_x3 = (temp_x_x3[0] - temp_weight_x3 * temp_x[0] * inv_weight) * inv_weight
 
-                y_x1 = (temp_y_x1 - temp_weight_x1 * temp_y * inv_weight) * inv_weight
-                y_x2 = (temp_y_x2 - temp_weight_x2 * temp_y * inv_weight) * inv_weight
-                y_x3 = (temp_y_x3 - temp_weight_x3 * temp_y * inv_weight) * inv_weight
+                y_x1 = (temp_y_x1[0] - temp_weight_x1 * temp_y[0] * inv_weight) * inv_weight
+                y_x2 = (temp_y_x2[0] - temp_weight_x2 * temp_y[0] * inv_weight) * inv_weight
+                y_x3 = (temp_y_x3[0] - temp_weight_x3 * temp_y[0] * inv_weight) * inv_weight
 
-                z_x1 = (temp_z_x1 - temp_weight_x1 * temp_z * inv_weight) * inv_weight
-                z_x2 = (temp_z_x2 - temp_weight_x2 * temp_z * inv_weight) * inv_weight
-                z_x3 = (temp_z_x3 - temp_weight_x3 * temp_z * inv_weight) * inv_weight
+                z_x1 = (temp_z_x1[0] - temp_weight_x1 * temp_z[0] * inv_weight) * inv_weight
+                z_x2 = (temp_z_x2[0] - temp_weight_x2 * temp_z[0] * inv_weight) * inv_weight
+                z_x3 = (temp_z_x3[0] - temp_weight_x3 * temp_z[0] * inv_weight) * inv_weight
 
                 jac_det[i_p_1, i_p_2, i_p_3] = (+ x_x1 * y_x2 * z_x3
                                                 + x_x2 * y_x3 * z_x1
@@ -1822,11 +1865,20 @@ def eval_jac_det_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int,
     jac_det: ndarray of floats
         Jacobian determinant on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
 
     arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2))
 
+    temp_x = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y = np.zeros_like(arr_coeffs_y, shape=(1))
+
+    temp_x_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_x_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+
+    temp_y_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
         span_1 = global_spans_1[i_cell_1]
@@ -1842,16 +1894,16 @@ def eval_jac_det_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int,
 
             arr_coeffs_weights[:, :] = global_arr_coeff_weights[span_1 - f_p1:1 + span_1,
                                                                 span_2 - f_p2:1 + span_2]
-            temp_x =0.0
-            temp_y =0.0
+            temp_x *= 0.0
+            temp_y *= 0.0
 
-            temp_weight= 0.0
+            temp_weight = 0.0
 
-            temp_x_x1 = 0.0
-            temp_x_x2 = 0.0
+            temp_x_x1 *= 0.0
+            temp_x_x2 *= 0.0
 
-            temp_y_x1 = 0.0
-            temp_y_x2 = 0.0
+            temp_y_x1 *= 0.0
+            temp_y_x2 *= 0.0
 
             temp_weight_x1 = 0.0
             temp_weight_x2 = 0.0
@@ -1874,29 +1926,29 @@ def eval_jac_det_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int,
 
                     coeff_weight = arr_coeffs_weights[i_basis_1, i_basis_2]
 
-                    temp_x += mapping * coeff_x * coeff_weight
-                    temp_y += mapping * coeff_y * coeff_weight
+                    temp_x[0] += mapping * coeff_x * coeff_weight
+                    temp_y[0] += mapping * coeff_y * coeff_weight
 
                     temp_weight += mapping * coeff_weight
 
-                    temp_x_x1 += mapping_x1 * coeff_x * coeff_weight
-                    temp_x_x2 += mapping_x2 * coeff_x * coeff_weight
+                    temp_x_x1[0] += mapping_x1 * coeff_x * coeff_weight
+                    temp_x_x2[0] += mapping_x2 * coeff_x * coeff_weight
 
-                    temp_y_x1 += mapping_x1 * coeff_y * coeff_weight
-                    temp_y_x2 += mapping_x2 * coeff_y * coeff_weight
+                    temp_y_x1[0] += mapping_x1 * coeff_y * coeff_weight
+                    temp_y_x2[0] += mapping_x2 * coeff_y * coeff_weight
 
                     temp_weight_x1 += mapping_x1 * coeff_weight
                     temp_weight_x2 += mapping_x2 * coeff_weight
 
             inv_weight = 1.0 / temp_weight
 
-            x_x1 = (temp_x_x1 - temp_weight_x1 * temp_x * inv_weight) * inv_weight
-            x_x2 = (temp_x_x2 - temp_weight_x2 * temp_x * inv_weight) * inv_weight
+            x_x1 = (temp_x_x1[0] - temp_weight_x1 * temp_x[0] * inv_weight) * inv_weight
+            x_x2 = (temp_x_x2[0] - temp_weight_x2 * temp_x[0] * inv_weight) * inv_weight
 
-            y_x1 = (temp_y_x1 - temp_weight_x1 * temp_y * inv_weight) * inv_weight
-            y_x2 = (temp_y_x2 - temp_weight_x2 * temp_y * inv_weight) * inv_weight
+            y_x1 = (temp_y_x1[0] - temp_weight_x1 * temp_y[0] * inv_weight) * inv_weight
+            y_x2 = (temp_y_x2[0] - temp_weight_x2 * temp_y[0] * inv_weight) * inv_weight
 
-            jac_det[i_p_1, i_p_2] = x_x1 * y_x2 - x_x2 * y_x1
+            [i_p_1, i_p_2] = x_x1 * y_x2 - x_x2 * y_x1
 
 
 # =============================================================================
@@ -1960,21 +2012,22 @@ def eval_jacobians_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: 
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_x_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_x_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_z = np.zeros_like(global_arr_coeff_z, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
 
-    arr_y_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_y_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_y_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_x_x1 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+    arr_x_x2 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+    arr_x_x3 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
 
-    arr_z_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_z_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_z_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_y_x1 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+    arr_y_x2 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+    arr_y_x3 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+
+    arr_z_x1 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+    arr_z_x2 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+    arr_z_x3 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -2105,14 +2158,18 @@ def eval_jacobians_2d(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int
     jacobians: ndarray of floats
         Jacobian matrix at every point of the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
-    arr_x_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
 
-    arr_y_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
-    arr_y_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
+    arr_x = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+    arr_y = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
+
+    arr_x_x1 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+    arr_x_x2 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+
+    arr_y_x1 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
+    arr_y_x2 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -2226,9 +2283,22 @@ def eval_jacobians_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: i
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_z = np.zeros_like(global_arr_coeff_z, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+
+    temp_x_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_x_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_x_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
+
+    temp_y_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_y_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
+
+    temp_z_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_z_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_z_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -2254,17 +2324,17 @@ def eval_jacobians_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: i
                                                            span_2 - f_p2:1 + span_2,
                                                            span_3 - f_p3:1 + span_3]
 
-                temp_x_x1 = 0.0
-                temp_x_x2 = 0.0
-                temp_x_x3 = 0.0
+                temp_x_x1 *= 0.0
+                temp_x_x2 *= 0.0
+                temp_x_x3 *= 0.0
 
-                temp_y_x1 = 0.0
-                temp_y_x2 = 0.0
-                temp_y_x3 = 0.0
+                temp_y_x1 *= 0.0
+                temp_y_x2 *= 0.0
+                temp_y_x3 *= 0.0
 
-                temp_z_x1 = 0.0
-                temp_z_x2 = 0.0
-                temp_z_x3 = 0.0
+                temp_z_x1 *= 0.0
+                temp_z_x2 *= 0.0
+                temp_z_x3 *= 0.0
 
                 for i_basis_1 in range(1 + f_p1):
                     spline_1 = global_basis_1[i_p_1, i_basis_1, 0]
@@ -2286,21 +2356,21 @@ def eval_jacobians_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: i
                             coeff_y = arr_coeffs_y[i_basis_1, i_basis_2, i_basis_3]
                             coeff_z = arr_coeffs_z[i_basis_1, i_basis_2, i_basis_3]
 
-                            temp_x_x1 += mapping_x1 * coeff_x
-                            temp_x_x2 += mapping_x2 * coeff_x
-                            temp_x_x3 += mapping_x3 * coeff_x
+                            temp_x_x1[0] += mapping_x1 * coeff_x
+                            temp_x_x2[0] += mapping_x2 * coeff_x
+                            temp_x_x3[0] += mapping_x3 * coeff_x
 
-                            temp_y_x1 += mapping_x1 * coeff_y
-                            temp_y_x2 += mapping_x2 * coeff_y
-                            temp_y_x3 += mapping_x3 * coeff_y
+                            temp_y_x1[0] += mapping_x1 * coeff_y
+                            temp_y_x2[0] += mapping_x2 * coeff_y
+                            temp_y_x3[0] += mapping_x3 * coeff_y
 
-                            temp_z_x1 += mapping_x1 * coeff_z
-                            temp_z_x2 += mapping_x2 * coeff_z
-                            temp_z_x3 += mapping_x3 * coeff_z
+                            temp_z_x1[0] += mapping_x1 * coeff_z
+                            temp_z_x2[0] += mapping_x2 * coeff_z
+                            temp_z_x3[0] += mapping_x3 * coeff_z
 
-                jacobians[i_p_1, i_p_2, i_p_3, :, :] = np.array([[temp_x_x1, temp_x_x2, temp_x_x3],
-                                                                 [temp_y_x1, temp_y_x2, temp_y_x3],
-                                                                 [temp_z_x1, temp_z_x2, temp_z_x3]])
+                jacobians[i_p_1, i_p_2, i_p_3, :, :] = np.array([[temp_x_x1[0], temp_x_x2[0], temp_x_x3[0]],
+                                                                 [temp_y_x1[0], temp_y_x2[0], temp_y_x3[0]],
+                                                                 [temp_z_x1[0], temp_z_x2[0], temp_z_x3[0]]])
 
 
 @template(name='T', types=['float[:,:]', 'complex[:,:]'])
@@ -2345,8 +2415,15 @@ def eval_jacobians_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_i
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
+
+    temp_x_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_x_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+
+    temp_y_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -2362,11 +2439,11 @@ def eval_jacobians_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_i
             arr_coeffs_y[:, :] = global_arr_coeff_y[span_1 - f_p1:1 + span_1,
                                                        span_2 - f_p2:1 + span_2]
 
-            temp_x_x1 = 0.0
-            temp_x_x2 = 0.0
+            temp_x_x1 *= 0.0
+            temp_x_x2 *= 0.0
 
-            temp_y_x1 = 0.0
-            temp_y_x2 = 0.0
+            temp_y_x1 *= 0.0
+            temp_y_x2 *= 0.0
 
             for i_basis_1 in range(1 + f_p1):
                 spline_1 = global_basis_1[i_p_1, i_basis_1, 0]
@@ -2382,14 +2459,14 @@ def eval_jacobians_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_i
                     coeff_x = arr_coeffs_x[i_basis_1, i_basis_2]
                     coeff_y = arr_coeffs_y[i_basis_1, i_basis_2]
 
-                    temp_x_x1 += mapping_x1 * coeff_x
-                    temp_x_x2 += mapping_x2 * coeff_x
+                    temp_x_x1[0] += mapping_x1 * coeff_x
+                    temp_x_x2[0] += mapping_x2 * coeff_x
 
-                    temp_y_x1 += mapping_x1 * coeff_y
-                    temp_y_x2 += mapping_x2 * coeff_y
+                    temp_y_x1[0] += mapping_x1 * coeff_y
+                    temp_y_x2[0] += mapping_x2 * coeff_y
 
-            jacobians[i_p_1, i_p_2, :, :] = np.array([[temp_x_x1, temp_x_x2],
-                                                      [temp_y_x1, temp_y_x2]])
+            jacobians[i_p_1, i_p_2, :, :] = np.array([[temp_x_x1[0], temp_x_x2[0]],
+                                                      [temp_y_x1[0], temp_y_x2[0]]])
 
 # -----------------------------------------------------------------------------
 # 3: Regular tensor grid with weights
@@ -2455,32 +2532,33 @@ def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: in
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_z = np.zeros_like(global_arr_coeff_z, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+
+    arr_x = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+    arr_y = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+    arr_z = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+
+    arr_x_x1 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+    arr_x_x2 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+    arr_x_x3 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+
+    arr_y_x1 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+    arr_y_x2 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+    arr_y_x3 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+
+    arr_z_x1 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+    arr_z_x2 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+    arr_z_x3 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+
     arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-
-    arr_x = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_y = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_z = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-
-    arr_x_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_x_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_x_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-
-    arr_y_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_y_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_y_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-
-    arr_z_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-    arr_z_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-    arr_z_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-
     arr_weights = np.zeros((k1, k2, k3))
 
-    arr_weights_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_weights_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_weights_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_weights_x1 = np.zeros((k1, k2, k3))
+    arr_weights_x2 = np.zeros((k1, k2, k3))
+    arr_weights_x3 = np.zeros((k1, k2, k3))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -2667,19 +2745,20 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int
     jacobians: ndarray of floats
         Jacobian matrix at every point of the grid
        """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
+
+    arr_x = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+    arr_y = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
+
+    arr_x_x1 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+    arr_x_x2 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+
+    arr_y_x1 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
+    arr_y_x2 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
+
     arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2))
-
-    arr_x = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
-    arr_y = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
-
-    arr_x_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
-    arr_x_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
-
-    arr_y_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
-    arr_y_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
-
     arr_weights = np.zeros((k1, k2))
 
     arr_weights_x1 = np.zeros((k1, k2))
@@ -2838,11 +2917,28 @@ def eval_jacobians_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int,
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_z = np.zeros_like(global_arr_coeff_z, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
 
     arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+
+    temp_x = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_z = np.zeros_like(arr_coeffs_z, shape=(1))
+
+    temp_x_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_x_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_x_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
+
+    temp_y_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_y_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
+
+    temp_z_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_z_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_z_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -2872,23 +2968,23 @@ def eval_jacobians_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int,
                                                                        span_2 - f_p2:1 + span_2,
                                                                        span_3 - f_p3:1 + span_3]
 
-                temp_x = 0.0
-                temp_y = 0.0
-                temp_z = 0.0
+                temp_x *= 0.0
+                temp_y *= 0.0
+                temp_z *= 0.0
 
                 temp_weight = 0.0
 
-                temp_x_x1 = 0.0
-                temp_x_x2 = 0.0
-                temp_x_x3 = 0.0
+                temp_x_x1 *= 0.0
+                temp_x_x2 *= 0.0
+                temp_x_x3 *= 0.0
 
-                temp_y_x1 = 0.0
-                temp_y_x2 = 0.0
-                temp_y_x3 = 0.0
+                temp_y_x1 *= 0.0
+                temp_y_x2 *= 0.0
+                temp_y_x3 *= 0.0
 
-                temp_z_x1 = 0.0
-                temp_z_x2 = 0.0
-                temp_z_x3 = 0.0
+                temp_z_x1 *= 0.0
+                temp_z_x2 *= 0.0
+                temp_z_x3 *= 0.0
 
                 temp_weight_x1 = 0.0
                 temp_weight_x2 = 0.0
@@ -2918,23 +3014,23 @@ def eval_jacobians_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int,
 
                             coeff_weight = arr_coeffs_weights[i_basis_1, i_basis_2, i_basis_3]
 
-                            temp_x += mapping * coeff_x * coeff_weight
-                            temp_y += mapping * coeff_y * coeff_weight
-                            temp_z += mapping * coeff_z * coeff_weight
+                            temp_x[0] += mapping * coeff_x * coeff_weight
+                            temp_y[0] += mapping * coeff_y * coeff_weight
+                            temp_z[0] += mapping * coeff_z * coeff_weight
 
                             temp_weight += mapping * coeff_weight
 
-                            temp_x_x1 += mapping_x1 * coeff_x * coeff_weight
-                            temp_x_x2 += mapping_x2 * coeff_x * coeff_weight
-                            temp_x_x3 += mapping_x3 * coeff_x * coeff_weight
+                            temp_x_x1[0] += mapping_x1 * coeff_x * coeff_weight
+                            temp_x_x2[0] += mapping_x2 * coeff_x * coeff_weight
+                            temp_x_x3[0] += mapping_x3 * coeff_x * coeff_weight
 
-                            temp_y_x1 += mapping_x1 * coeff_y * coeff_weight
-                            temp_y_x2 += mapping_x2 * coeff_y * coeff_weight
-                            temp_y_x3 += mapping_x3 * coeff_y * coeff_weight
+                            temp_y_x1[0] += mapping_x1 * coeff_y * coeff_weight
+                            temp_y_x2[0] += mapping_x2 * coeff_y * coeff_weight
+                            temp_y_x3[0] += mapping_x3 * coeff_y * coeff_weight
 
-                            temp_z_x1 += mapping_x1 * coeff_z * coeff_weight
-                            temp_z_x2 += mapping_x2 * coeff_z * coeff_weight
-                            temp_z_x3 += mapping_x3 * coeff_z * coeff_weight
+                            temp_z_x1[0] += mapping_x1 * coeff_z * coeff_weight
+                            temp_z_x2[0] += mapping_x2 * coeff_z * coeff_weight
+                            temp_z_x3[0] += mapping_x3 * coeff_z * coeff_weight
 
                             temp_weight_x1 += mapping_x1 * coeff_weight
                             temp_weight_x2 += mapping_x2 * coeff_weight
@@ -2942,17 +3038,17 @@ def eval_jacobians_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int,
 
                 inv_weight = 1.0 / temp_weight
 
-                x_x1 = (temp_x_x1 - temp_weight_x1 * temp_x * inv_weight) * inv_weight
-                x_x2 = (temp_x_x2 - temp_weight_x2 * temp_x * inv_weight) * inv_weight
-                x_x3 = (temp_x_x3 - temp_weight_x3 * temp_x * inv_weight) * inv_weight
+                x_x1 = (temp_x_x1[0] - temp_weight_x1 * temp_x[0] * inv_weight) * inv_weight
+                x_x2 = (temp_x_x2[0] - temp_weight_x2 * temp_x[0] * inv_weight) * inv_weight
+                x_x3 = (temp_x_x3[0] - temp_weight_x3 * temp_x[0] * inv_weight) * inv_weight
 
-                y_x1 = (temp_y_x1 - temp_weight_x1 * temp_y * inv_weight) * inv_weight
-                y_x2 = (temp_y_x2 - temp_weight_x2 * temp_y * inv_weight) * inv_weight
-                y_x3 = (temp_y_x3 - temp_weight_x3 * temp_y * inv_weight) * inv_weight
+                y_x1 = (temp_y_x1[0] - temp_weight_x1 * temp_y[0] * inv_weight) * inv_weight
+                y_x2 = (temp_y_x2[0] - temp_weight_x2 * temp_y[0] * inv_weight) * inv_weight
+                y_x3 = (temp_y_x3[0] - temp_weight_x3 * temp_y[0] * inv_weight) * inv_weight
 
-                z_x1 = (temp_z_x1 - temp_weight_x1 * temp_z * inv_weight) * inv_weight
-                z_x2 = (temp_z_x2 - temp_weight_x2 * temp_z * inv_weight) * inv_weight
-                z_x3 = (temp_z_x3 - temp_weight_x3 * temp_z * inv_weight) * inv_weight
+                z_x1 = (temp_z_x1[0] - temp_weight_x1 * temp_z[0] * inv_weight) * inv_weight
+                z_x2 = (temp_z_x2[0] - temp_weight_x2 * temp_z[0] * inv_weight) * inv_weight
+                z_x3 = (temp_z_x3[0] - temp_weight_x3 * temp_z[0] * inv_weight) * inv_weight
 
                 jacobians[i_p_1, i_p_2, i_p_3, :, :] = np.array([[x_x1, x_x2, x_x3],
                                                                  [y_x1, y_x2, y_x3],
@@ -3009,10 +3105,20 @@ def eval_jacobians_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
 
     arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2))
+
+    temp_x = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y = np.zeros_like(arr_coeffs_y, shape=(1))
+
+    temp_x_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_x_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+
+    temp_y_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -3029,16 +3135,16 @@ def eval_jacobians_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int
 
             arr_coeffs_weights[:, :] = global_arr_coeff_weights[span_1 - f_p1:1 + span_1,
                                                                 span_2 - f_p2:1 + span_2]
-            temp_x = 0.0
-            temp_y = 0.0
+            temp_x *= 0.0
+            temp_y *= 0.0
 
             temp_weight = 0.0
 
-            temp_x_x1 = 0.0
-            temp_x_x2 = 0.0
+            temp_x_x1 *= 0.0
+            temp_x_x2 *= 0.0
 
-            temp_y_x1 = 0.0
-            temp_y_x2 = 0.0
+            temp_y_x1 *= 0.0
+            temp_y_x2 *= 0.0
 
             temp_weight_x1 = 0.0
             temp_weight_x2 = 0.0
@@ -3061,27 +3167,27 @@ def eval_jacobians_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int
 
                     coeff_weight = arr_coeffs_weights[i_basis_1, i_basis_2]
 
-                    temp_x += mapping * coeff_x * coeff_weight
-                    temp_y += mapping * coeff_y * coeff_weight
+                    temp_x[0] += mapping * coeff_x * coeff_weight
+                    temp_y[0] += mapping * coeff_y * coeff_weight
 
                     temp_weight += mapping * coeff_weight
 
-                    temp_x_x1 += mapping_x1 * coeff_x * coeff_weight
-                    temp_x_x2 += mapping_x2 * coeff_x * coeff_weight
+                    temp_x_x1[0] += mapping_x1 * coeff_x * coeff_weight
+                    temp_x_x2[0] += mapping_x2 * coeff_x * coeff_weight
 
-                    temp_y_x1 += mapping_x1 * coeff_y * coeff_weight
-                    temp_y_x2 += mapping_x2 * coeff_y * coeff_weight
+                    temp_y_x1[0] += mapping_x1 * coeff_y * coeff_weight
+                    temp_y_x2[0] += mapping_x2 * coeff_y * coeff_weight
 
                     temp_weight_x1 += mapping_x1 * coeff_weight
                     temp_weight_x2 += mapping_x2 * coeff_weight
 
             inv_weight = 1.0 / temp_weight
 
-            x_x1 = (temp_x_x1 - temp_weight_x1 * temp_x * inv_weight) * inv_weight
-            x_x2 = (temp_x_x2 - temp_weight_x2 * temp_x * inv_weight) * inv_weight
+            x_x1 = (temp_x_x1[0] - temp_weight_x1 * temp_x[0] * inv_weight) * inv_weight
+            x_x2 = (temp_x_x2[0] - temp_weight_x2 * temp_x[0] * inv_weight) * inv_weight
 
-            y_x1 = (temp_y_x1 - temp_weight_x1 * temp_y * inv_weight) * inv_weight
-            y_x2 = (temp_y_x2 - temp_weight_x2 * temp_y * inv_weight) * inv_weight
+            y_x1 = (temp_y_x1[0] - temp_weight_x1 * temp_y[0] * inv_weight) * inv_weight
+            y_x2 = (temp_y_x2[0] - temp_weight_x2 * temp_y[0] * inv_weight) * inv_weight
 
             jacobians[i_p_1, i_p_2, :, :] = np.array([[x_x1, x_x2],
                                                       [y_x1, y_x2]])
@@ -3150,21 +3256,22 @@ def eval_jacobians_inv_3d(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: int,
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_x_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_x_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_z = np.zeros_like(global_arr_coeff_z, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
 
-    arr_y_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_y_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_y_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
+    arr_x_x1 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+    arr_x_x2 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+    arr_x_x3 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
 
-    arr_z_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-    arr_z_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-    arr_z_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
+    arr_y_x1 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+    arr_y_x2 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+    arr_y_x3 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+
+    arr_z_x1 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+    arr_z_x2 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+    arr_z_x3 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -3310,14 +3417,15 @@ def eval_jacobians_inv_2d(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int, k2
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
 
-    arr_x_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
-    arr_x_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
 
-    arr_y_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
-    arr_y_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
+    arr_x_x1 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+    arr_x_x2 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+
+    arr_y_x1 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
+    arr_y_x2 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -3433,9 +3541,22 @@ def eval_jacobians_inv_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_z = np.zeros_like(global_arr_coeff_z, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+
+    temp_x_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_x_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_x_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
+
+    temp_y_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_y_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
+
+    temp_z_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_z_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_z_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -3461,17 +3582,17 @@ def eval_jacobians_inv_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p
                                                            span_2 - f_p2:1 + span_2,
                                                            span_3 - f_p3:1 + span_3]
 
-                temp_x_x1 = 0.0
-                temp_x_x2 = 0.0
-                temp_x_x3 = 0.0
+                temp_x_x1 *= 0.0
+                temp_x_x2 *= 0.0
+                temp_x_x3 *= 0.0
 
-                temp_y_x1 = 0.0
-                temp_y_x2 = 0.0
-                temp_y_x3 = 0.0
+                temp_y_x1 *= 0.0
+                temp_y_x2 *= 0.0
+                temp_y_x3 *= 0.0
 
-                temp_z_x1 = 0.0
-                temp_z_x2 = 0.0
-                temp_z_x3 = 0.0
+                temp_z_x1 *= 0.0
+                temp_z_x2 *= 0.0
+                temp_z_x3 *= 0.0
 
                 for i_basis_1 in range(1 + f_p1):
                     spline_1 = global_basis_1[i_p_1, i_basis_1, 0]
@@ -3493,36 +3614,36 @@ def eval_jacobians_inv_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p
                             coeff_y = arr_coeffs_y[i_basis_1, i_basis_2, i_basis_3]
                             coeff_z = arr_coeffs_z[i_basis_1, i_basis_2, i_basis_3]
 
-                            temp_x_x1 += mapping_x1 * coeff_x
-                            temp_x_x2 += mapping_x2 * coeff_x
-                            temp_x_x3 += mapping_x3 * coeff_x
+                            temp_x_x1[0] += mapping_x1 * coeff_x
+                            temp_x_x2[0] += mapping_x2 * coeff_x
+                            temp_x_x3[0] += mapping_x3 * coeff_x
 
-                            temp_y_x1 += mapping_x1 * coeff_y
-                            temp_y_x2 += mapping_x2 * coeff_y
-                            temp_y_x3 += mapping_x3 * coeff_y
+                            temp_y_x1[0] += mapping_x1 * coeff_y
+                            temp_y_x2[0] += mapping_x2 * coeff_y
+                            temp_y_x3[0] += mapping_x3 * coeff_y
 
-                            temp_z_x1 += mapping_x1 * coeff_z
-                            temp_z_x2 += mapping_x2 * coeff_z
-                            temp_z_x3 += mapping_x3 * coeff_z
+                            temp_z_x1[0] += mapping_x1 * coeff_z
+                            temp_z_x2[0] += mapping_x2 * coeff_z
+                            temp_z_x3[0] += mapping_x3 * coeff_z
 
-                det = (+ temp_x_x1 * temp_y_x2 * temp_z_x3
-                       + temp_x_x2 * temp_y_x3 * temp_z_x1
-                       + temp_x_x3 * temp_y_x1 * temp_z_x2
-                       - temp_x_x1 * temp_y_x3 * temp_z_x2
-                       - temp_x_x2 * temp_y_x1 * temp_z_x3
-                       - temp_x_x3 * temp_y_x2 * temp_z_x1)
+                det = (+ temp_x_x1[0] * temp_y_x2[0] * temp_z_x3[0]
+                       + temp_x_x2[0] * temp_y_x3[0] * temp_z_x1[0]
+                       + temp_x_x3[0] * temp_y_x1[0] * temp_z_x2[0]
+                       - temp_x_x1[0] * temp_y_x3[0] * temp_z_x2[0]
+                       - temp_x_x2[0] * temp_y_x1[0] * temp_z_x3[0]
+                       - temp_x_x3[0] * temp_y_x2[0] * temp_z_x1[0])
 
-                a_11 = temp_y_x2 * temp_z_x3 - temp_y_x3 * temp_z_x2
-                a_12 = - temp_y_x1 * temp_z_x3 + temp_y_x3 * temp_z_x1
-                a_13 = temp_y_x1 * temp_z_x2 - temp_y_x2 * temp_z_x1
+                a_11 = temp_y_x2[0] * temp_z_x3[0] - temp_y_x3[0] * temp_z_x2[0]
+                a_12 = - temp_y_x1[0] * temp_z_x3[0] + temp_y_x3[0] * temp_z_x1[0]
+                a_13 = temp_y_x1[0] * temp_z_x2[0] - temp_y_x2[0] * temp_z_x1[0]
 
-                a_21 = - temp_x_x2 * temp_z_x3 + temp_x_x3 * temp_z_x2
-                a_22 = temp_x_x1 * temp_z_x3 - temp_x_x3 * temp_z_x1
-                a_23 = - temp_x_x1 * temp_z_x2 + temp_x_x2 * temp_z_x1
+                a_21 = - temp_x_x2[0] * temp_z_x3[0] + temp_x_x3[0] * temp_z_x2[0]
+                a_22 = temp_x_x1[0] * temp_z_x3[0] - temp_x_x3[0] * temp_z_x1[0]
+                a_23 = - temp_x_x1[0] * temp_z_x2[0] + temp_x_x2[0] * temp_z_x1[0]
 
-                a_31 = temp_x_x2 * temp_y_x3 - temp_x_x3 * temp_y_x2
-                a_32 = - temp_x_x1 * temp_y_x3 + temp_x_x3 * temp_y_x1
-                a_33 = temp_x_x1 * temp_y_x2 - temp_x_x2 * temp_y_x1
+                a_31 = temp_x_x2[0] * temp_y_x3[0] - temp_x_x3[0] * temp_y_x2[0]
+                a_32 = - temp_x_x1[0] * temp_y_x3[0] + temp_x_x3[0] * temp_y_x1[0]
+                a_33 = temp_x_x1[0] * temp_y_x2[0] - temp_x_x2[0] * temp_y_x1[0]
 
                 jacobians_inv[i_p_1,
                                 i_p_2,
@@ -3574,8 +3695,16 @@ def eval_jacobians_inv_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, ce
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
+
+    temp_x_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_x_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+
+    temp_y_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -3591,11 +3720,11 @@ def eval_jacobians_inv_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, ce
             arr_coeffs_y[:, :] = global_arr_coeff_y[span_1 - f_p1:1 + span_1,
                                                        span_2 - f_p2:1 + span_2]
 
-            temp_x_x1 = 0.0
-            temp_x_x2 = 0.0
+            temp_x_x1 *= 0.0
+            temp_x_x2 *= 0.0
 
-            temp_y_x1 = 0.0
-            temp_y_x2 = 0.0
+            temp_y_x1 *= 0.0
+            temp_y_x2 *= 0.0
 
             for i_basis_1 in range(1 + f_p1):
                 spline_1 = global_basis_1[i_p_1, i_basis_1, 0]
@@ -3611,16 +3740,16 @@ def eval_jacobians_inv_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, ce
                     coeff_x = arr_coeffs_x[i_basis_1, i_basis_2]
                     coeff_y = arr_coeffs_y[i_basis_1, i_basis_2]
 
-                    temp_x_x1 += mapping_x1 * coeff_x
-                    temp_x_x2 += mapping_x2 * coeff_x
+                    temp_x_x1[0] += mapping_x1 * coeff_x
+                    temp_x_x2[0] += mapping_x2 * coeff_x
 
-                    temp_y_x1 += mapping_x1 * coeff_y
-                    temp_y_x2 += mapping_x2 * coeff_y
+                    temp_y_x1[0] += mapping_x1 * coeff_y
+                    temp_y_x2[0] += mapping_x2 * coeff_y
 
-            det = temp_x_x1 * temp_y_x2 - temp_y_x1 * temp_x_x2
+            det = temp_x_x1[0] * temp_y_x2[0] - temp_y_x1[0] * temp_x_x2[0]
 
-            jacobians_inv[i_p_1, i_p_2, :, :] = np.array([[temp_y_x2, - temp_x_x2],
-                                                          [- temp_y_x1, temp_x_x1]]) / det
+            jacobians_inv[i_p_1, i_p_2, :, :] = np.array([[temp_y_x2[0], - temp_x_x2[0]],
+                                                          [- temp_y_x1[0], temp_x_x1[0]]]) / det
 
 # -----------------------------------------------------------------------------
 # 3: Regular tensor grid with weights
@@ -3686,27 +3815,28 @@ def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix on the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_z = np.zeros_like(global_arr_coeff_z, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+
+    arr_x = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+    arr_y = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+    arr_z = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+
+    arr_x_x1 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+    arr_x_x2 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+    arr_x_x3 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2, k3))
+
+    arr_y_x1 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+    arr_y_x2 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+    arr_y_x3 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2, k3))
+
+    arr_z_x1 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+    arr_z_x2 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+    arr_z_x3 = np.zeros_like(global_arr_coeff_z, shape=(k1, k2, k3))
+
     arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
-
-    arr_x = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_y = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_z = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-
-    arr_x_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_x_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-    arr_x_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_x.dtype)
-
-    arr_y_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_y_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-    arr_y_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_y.dtype)
-
-    arr_z_x1 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-    arr_z_x2 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-    arr_z_x3 = np.zeros((k1, k2, k3), dtype=global_arr_coeff_z.dtype)
-
     arr_weights = np.zeros((k1, k2, k3))
 
     arr_weights_x1 = np.zeros((k1, k2, k3))
@@ -3913,19 +4043,20 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1:
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
        """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
+
+    arr_x = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+    arr_y = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
+
+    arr_x_x1 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+    arr_x_x2 = np.zeros_like(global_arr_coeff_x, shape=(k1, k2))
+
+    arr_y_x1 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
+    arr_y_x2 = np.zeros_like(global_arr_coeff_y, shape=(k1, k2))
+
     arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2))
-
-    arr_x = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
-    arr_y = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
-
-    arr_x_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
-    arr_x_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_x.dtype)
-
-    arr_y_x1 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
-    arr_y_x2 = np.zeros((k1, k2), dtype=global_arr_coeff_y.dtype)
-
     arr_weights = np.zeros((k1, k2))
 
     arr_weights_x1 = np.zeros((k1, k2))
@@ -4086,11 +4217,28 @@ def eval_jacobians_inv_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: 
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_y.dtype)
-    arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3), dtype=global_arr_coeff_z.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
+    arr_coeffs_z = np.zeros_like(global_arr_coeff_z, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
 
     arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
+
+    temp_x = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_z = np.zeros_like(arr_coeffs_z, shape=(1))
+
+    temp_x_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_x_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_x_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
+
+    temp_y_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_y_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
+
+    temp_z_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_z_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+    temp_z_x3 = np.zeros_like(arr_coeffs_z, shape=(1))
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -4120,23 +4268,23 @@ def eval_jacobians_inv_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: 
                                                                        span_2 - f_p2:1 + span_2,
                                                                        span_3 - f_p3:1 + span_3]
 
-                temp_x =0.0
-                temp_y =0.0
-                temp_z= 0.0
+                temp_x *= 0.0
+                temp_y *= 0.0
+                temp_z *= 0.0
 
                 temp_weight= 0.0
 
-                temp_x_x1 = 0.0
-                temp_x_x2 = 0.0
-                temp_x_x3 = 0.0
+                temp_x_x1 *= 0.0
+                temp_x_x2 *= 0.0
+                temp_x_x3 *= 0.0
 
-                temp_y_x1 = 0.0
-                temp_y_x2 = 0.0
-                temp_y_x3 = 0.0
+                temp_y_x1 *= 0.0
+                temp_y_x2 *= 0.0
+                temp_y_x3 *= 0.0
 
-                temp_z_x1 = 0.0
-                temp_z_x2 = 0.0
-                temp_z_x3 = 0.0
+                temp_z_x1 *= 0.0
+                temp_z_x2 *= 0.0
+                temp_z_x3 *= 0.0
 
                 temp_weight_x1 = 0.0
                 temp_weight_x2 = 0.0
@@ -4166,23 +4314,23 @@ def eval_jacobians_inv_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: 
 
                             coeff_weight = arr_coeffs_weights[i_basis_1, i_basis_2, i_basis_3]
 
-                            temp_x += mapping * coeff_x * coeff_weight
-                            temp_y += mapping * coeff_y * coeff_weight
-                            temp_z += mapping * coeff_z * coeff_weight
+                            temp_x[0] += mapping * coeff_x * coeff_weight
+                            temp_y[0] += mapping * coeff_y * coeff_weight
+                            temp_z[0] += mapping * coeff_z * coeff_weight
 
                             temp_weight += mapping * coeff_weight
 
-                            temp_x_x1 += mapping_x1 * coeff_x * coeff_weight
-                            temp_x_x2 += mapping_x2 * coeff_x * coeff_weight
-                            temp_x_x3 += mapping_x3 * coeff_x * coeff_weight
+                            temp_x_x1[0] += mapping_x1 * coeff_x * coeff_weight
+                            temp_x_x2[0] += mapping_x2 * coeff_x * coeff_weight
+                            temp_x_x3[0] += mapping_x3 * coeff_x * coeff_weight
 
-                            temp_y_x1 += mapping_x1 * coeff_y * coeff_weight
-                            temp_y_x2 += mapping_x2 * coeff_y * coeff_weight
-                            temp_y_x3 += mapping_x3 * coeff_y * coeff_weight
+                            temp_y_x1[0] += mapping_x1 * coeff_y * coeff_weight
+                            temp_y_x2[0] += mapping_x2 * coeff_y * coeff_weight
+                            temp_y_x3[0] += mapping_x3 * coeff_y * coeff_weight
 
-                            temp_z_x1 += mapping_x1 * coeff_z * coeff_weight
-                            temp_z_x2 += mapping_x2 * coeff_z * coeff_weight
-                            temp_z_x3 += mapping_x3 * coeff_z * coeff_weight
+                            temp_z_x1[0] += mapping_x1 * coeff_z * coeff_weight
+                            temp_z_x2[0] += mapping_x2 * coeff_z * coeff_weight
+                            temp_z_x3[0] += mapping_x3 * coeff_z * coeff_weight
 
                             temp_weight_x1 += mapping_x1 * coeff_weight
                             temp_weight_x2 += mapping_x2 * coeff_weight
@@ -4190,17 +4338,17 @@ def eval_jacobians_inv_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: 
 
                 inv_weight = 1.0 / temp_weight
 
-                x_x1 = (temp_x_x1 - temp_weight_x1 * temp_x * inv_weight) * inv_weight
-                x_x2 = (temp_x_x2 - temp_weight_x2 * temp_x * inv_weight) * inv_weight
-                x_x3 = (temp_x_x3 - temp_weight_x3 * temp_x * inv_weight) * inv_weight
+                x_x1 = (temp_x_x1[0] - temp_weight_x1 * temp_x[0] * inv_weight) * inv_weight
+                x_x2 = (temp_x_x2[0] - temp_weight_x2 * temp_x[0] * inv_weight) * inv_weight
+                x_x3 = (temp_x_x3[0] - temp_weight_x3 * temp_x[0] * inv_weight) * inv_weight
 
-                y_x1 = (temp_y_x1 - temp_weight_x1 * temp_y * inv_weight) * inv_weight
-                y_x2 = (temp_y_x2 - temp_weight_x2 * temp_y * inv_weight) * inv_weight
-                y_x3 = (temp_y_x3 - temp_weight_x3 * temp_y * inv_weight) * inv_weight
+                y_x1 = (temp_y_x1[0] - temp_weight_x1 * temp_y[0] * inv_weight) * inv_weight
+                y_x2 = (temp_y_x2[0] - temp_weight_x2 * temp_y[0] * inv_weight) * inv_weight
+                y_x3 = (temp_y_x3[0] - temp_weight_x3 * temp_y[0] * inv_weight) * inv_weight
 
-                z_x1 = (temp_z_x1 - temp_weight_x1 * temp_z * inv_weight) * inv_weight
-                z_x2 = (temp_z_x2 - temp_weight_x2 * temp_z * inv_weight) * inv_weight
-                z_x3 = (temp_z_x3 - temp_weight_x3 * temp_z * inv_weight) * inv_weight
+                z_x1 = (temp_z_x1[0] - temp_weight_x1 * temp_z[0] * inv_weight) * inv_weight
+                z_x2 = (temp_z_x2[0] - temp_weight_x2 * temp_z[0] * inv_weight) * inv_weight
+                z_x3 = (temp_z_x3[0] - temp_weight_x3 * temp_z[0] * inv_weight) * inv_weight
 
                 det = x_x1 * y_x2 * z_x3 + x_x2 * y_x3 * z_x1 + x_x3 * y_x1 * z_x2 \
                         - x_x1 * y_x3 * z_x2 - x_x2 * y_x1 * z_x3 - x_x3 * y_x2 * z_x1
@@ -4273,10 +4421,20 @@ def eval_jacobians_inv_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2:
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
-    arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_x.dtype)
-    arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2), dtype=global_arr_coeff_y.dtype)
+
+    arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
+    arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
 
     arr_coeffs_weights = np.zeros((1 + f_p1, 1 + f_p2))
+
+    temp_x = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y = np.zeros_like(arr_coeffs_y, shape=(1))
+
+    temp_x_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_x_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
+
+    temp_y_x1 = np.zeros_like(arr_coeffs_x, shape=(1))
+    temp_y_x2 = np.zeros_like(arr_coeffs_y, shape=(1))
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
@@ -4293,16 +4451,16 @@ def eval_jacobians_inv_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2:
 
             arr_coeffs_weights[:, :] = global_arr_coeff_weights[span_1 - f_p1:1 + span_1,
                                                                 span_2 - f_p2:1 + span_2]
-            temp_x =0.0
-            temp_y =0.0
+            temp_x *=0.0
+            temp_y *=0.0
 
             temp_weight= 0.0
 
-            temp_x_x1 = 0.0
-            temp_x_x2 = 0.0
+            temp_x_x1 *= 0.0
+            temp_x_x2 *= 0.0
 
-            temp_y_x1 = 0.0
-            temp_y_x2 = 0.0
+            temp_y_x1 *= 0.0
+            temp_y_x2 *= 0.0
 
             temp_weight_x1 = 0.0
             temp_weight_x2 = 0.0
@@ -4325,27 +4483,27 @@ def eval_jacobians_inv_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2:
 
                     coeff_weight = arr_coeffs_weights[i_basis_1, i_basis_2]
 
-                    temp_x += mapping * coeff_x * coeff_weight
-                    temp_y += mapping * coeff_y * coeff_weight
+                    temp_x[0] += mapping * coeff_x * coeff_weight
+                    temp_y[0] += mapping * coeff_y * coeff_weight
 
                     temp_weight += mapping * coeff_weight
 
-                    temp_x_x1 += mapping_x1 * coeff_x * coeff_weight
-                    temp_x_x2 += mapping_x2 * coeff_x * coeff_weight
+                    temp_x_x1[0] += mapping_x1 * coeff_x * coeff_weight
+                    temp_x_x2[0] += mapping_x2 * coeff_x * coeff_weight
 
-                    temp_y_x1 += mapping_x1 * coeff_y * coeff_weight
-                    temp_y_x2 += mapping_x2 * coeff_y * coeff_weight
+                    temp_y_x1[0] += mapping_x1 * coeff_y * coeff_weight
+                    temp_y_x2[0] += mapping_x2 * coeff_y * coeff_weight
 
                     temp_weight_x1 += mapping_x1 * coeff_weight
                     temp_weight_x2 += mapping_x2 * coeff_weight
 
             inv_weight = 1.0 / temp_weight
 
-            x_x1 = (temp_x_x1 - temp_weight_x1 * temp_x * inv_weight) * inv_weight
-            x_x2 = (temp_x_x2 - temp_weight_x2 * temp_x * inv_weight) * inv_weight
+            x_x1 = (temp_x_x1[0] - temp_weight_x1 * temp_x[0] * inv_weight) * inv_weight
+            x_x2 = (temp_x_x2[0] - temp_weight_x2 * temp_x[0] * inv_weight) * inv_weight
 
-            y_x1 = (temp_y_x1 - temp_weight_x1 * temp_y * inv_weight) * inv_weight
-            y_x2 = (temp_y_x2 - temp_weight_x2 * temp_y * inv_weight) * inv_weight
+            y_x1 = (temp_y_x1[0] - temp_weight_x1 * temp_y[0] * inv_weight) * inv_weight
+            y_x2 = (temp_y_x2[0] - temp_weight_x2 * temp_y[0] * inv_weight) * inv_weight
 
             det = x_x1 * y_x2 - x_x2 * y_x1
 
