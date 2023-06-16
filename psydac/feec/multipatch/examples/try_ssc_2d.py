@@ -30,7 +30,7 @@ from psydac.feec.multipatch.utilities                   import time_count #, get
 # from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_file
 from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2
 
-from psydac.feec.multipatch.bilinear_form_scipy import construct_V1_mass_matrix, construct_pairing_matrix
+from psydac.feec.multipatch.bilinear_form_scipy import construct_V1_mass_matrix, construct_pairing_matrix, Conf_proj_1
 from sympde.topology      import Square    
 from sympde.topology      import IdentityMapping, PolarMapping
 from psydac.fem.vector import ProductFemSpace
@@ -45,7 +45,15 @@ from psydac.feec.multipatch.examples.fs_domains_examples import create_square_do
 
 
 
-def try_ssc_2d(ncells=None, prml_degree=[3,3], domain_name='refined_square', plot_dir='./plots/', backend_language='pyccel-gcc'):
+def try_ssc_2d(
+        ncells=None, 
+        prml_degree=[3,3], 
+        domain_name='refined_square', 
+        plot_dir='./plots/', 
+        test_prml_H1=True, # False # 
+        std_P1=False,
+        backend_language='pyccel-gcc'
+        ):
 
     """
     Testing the Strong-Strong Conga (SSC) sequence:
@@ -128,35 +136,32 @@ def try_ssc_2d(ncells=None, prml_degree=[3,3], domain_name='refined_square', plo
     # pprint(vars(dual_V1h._spaces[0]._spaces[0]))
     # exit()
 
-
+    t_stamp = time_count(t_stamp)
     print('Mass matrices...')
-
-    # M1 = construct_V1_mass_matrix(prml_V1h).tocsr()
-    M1 = construct_pairing_matrix(prml_V1h,prml_V1h).tocsr()
-    m_load_dir = None
+    # M1 = construct_V1_mass_matrix(prml_V1h).tocsr()  # note: also works
     # multi-patch (broken) mass matrices
-    print("AA")
+    m_load_dir = None
+    ## NOTE: with a strong-strong diagram we should not call these "Hodge" operators !! 
     prml_H1 = HodgeOperator(prml_V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
     dual_H1 = HodgeOperator(dual_V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
+    
+    if test_prml_H1:
+        dual_M1 = dual_H1.get_dual_Hodge_sparse_matrix()  # =         mass matrix of dual_V1
+        dual_M1_inv = dual_H1.to_sparse_matrix()  # = inverse mass matrix of dual_V1
+        prml_M1_inv = None
 
-    prml_M1     = prml_H1.get_dual_Hodge_sparse_matrix()  # =         mass matrix of prml_V1
-    prml_M1_inv = prml_H1.to_sparse_matrix()              # = inverse mass matrix of prml_V1
-    dual_M1     = dual_H1.get_dual_Hodge_sparse_matrix()  # =         mass matrix of dual_V1
-    dual_M1_inv = dual_H1.to_sparse_matrix()  # = inverse mass matrix of dual_V1
+    else:
+        prml_M1 = prml_H1.get_dual_Hodge_sparse_matrix()  # =         mass matrix of prml_V1
+        prml_M1_inv = prml_H1.to_sparse_matrix()              # = inverse mass matrix of prml_V1
+        dual_M1_inv = None
 
-
-    print(sp_norm(prml_M1-M1))
+    # print(sp_norm(prml_M1-M1))
 
     
-    
-    
-    # exit()
+    t_stamp = time_count(t_stamp)
     print('Pairing matrices...')
-
-    # 
     # compute prml_K1 = (<dual_Lambda^1_i, prml_Lambda^1_j>)
     # 
-    
 
     assemble_bf = False
     if assemble_bf:
@@ -176,20 +181,22 @@ def try_ssc_2d(ncells=None, prml_degree=[3,3], domain_name='refined_square', plo
         prml_K1 = construct_pairing_matrix(dual_V1h,prml_V1h).tocsr()  # matrix in scipy format
         dual_K1 = prml_K1.transpose()
 
-    test_prml_H1 = False # True
-
-
     
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-
-
+    t_stamp = time_count(t_stamp)
+    print('Compute conforming projection matrix')
+    
     if test_prml_H1:
         # prml_H1: prml_V1 -> dual_V1
         print('Compute conforming projection matrix: dual_P1 ...')
-        dual_cP1_matrix = dual_derham_h.conforming_projection(space='V1', hom_bc=False, backend_language=backend_language, load_dir=m_load_dir)
-        dual_cP1 = dual_cP1_matrix.to_sparse_matrix()
+        if std_P1:
+            dual_cP1_matrix = dual_derham_h.conforming_projection(space='V1', hom_bc=False, backend_language=backend_language, load_dir=m_load_dir)
+            dual_cP1 = dual_cP1_matrix.to_sparse_matrix()
+        else:
+            dual_cP1 = Conf_proj_1(dual_V1h,nquads = [4*(d + 1) for d in dual_degree])
         print('WARNING: dual_P1 should be corrected to map in the C1 spaces. And to preserve polynomial moments')
         prml_H1 = dual_M1_inv @ dual_cP1.transpose() @ prml_K1
+        prml_PL2 = dual_M1_inv @ prml_K1  # L2 projection prml_V1 -> dual_V1 
     else:
         # dual_H1: dual_V1 -> prml_V1
         print('Compute conforming projection matrix: prml_P1 ...')
@@ -197,6 +204,7 @@ def try_ssc_2d(ncells=None, prml_degree=[3,3], domain_name='refined_square', plo
         prml_cP1 = prml_cP1_matrix.to_sparse_matrix()
         print('WARNING: prml_P1 should be corrected to map in the C1 spaces. And to preserve polynomial moments')
         dual_H1 = prml_M1_inv @ prml_cP1.transpose() @ dual_K1
+        dual_PL2 = prml_M1_inv @ dual_K1  # L2 projection dual_V1 -> prml_V1
 
     # some target function
     x,y    = domain.coordinates
@@ -217,42 +225,63 @@ def try_ssc_2d(ncells=None, prml_degree=[3,3], domain_name='refined_square', plo
         prml_f_log = [pull_2d_hcurl([f_x, f_y], F) for F in mappings_list]
         f_h = prml_P1(prml_f_log)
         prml_f1 = f_h.coeffs.toarray()
-        dual_f1 = prml_H1 @ prml_f1
-
+        print(" -----  Hodge: f -> dual_V1  ---------")
+        dual_f1     = prml_H1  @ prml_f1
+        dual_f1_PL2 = prml_PL2 @ prml_f1
+        error_dual_f1 = dual_f1 - dual_f1_PL2
+        L2_error = np.sqrt(np.dot(error_dual_f1, dual_M1 @ error_dual_f1)/np.dot(dual_f1, dual_M1 @ dual_f1))
+        test_label = 'test_prml_H1'
+        prml_f1_label = 'f1 = prml_P1 @ f'
+        dual_f1_label = 't_f1 = H1 @ f1'
     else:
         print(" -----  approx f in dual_V1  ---------")
         dual_f_log = [pull_2d_hdiv([f_x, f_y], F) for F in mappings_list]
         f_h = dual_P1(dual_f_log)
         dual_f1 = f_h.coeffs.toarray()
-        prml_f1 = dual_H1 @ dual_f1
+        print(" -----  Hodge: f -> prml_V1  ---------")
+        prml_f1     = dual_H1  @ dual_f1
+        prml_f1_PL2 = dual_PL2 @ dual_f1
+        error_prml_f1 = prml_f1 - prml_f1_PL2
+        L2_error = np.sqrt(np.dot(error_prml_f1, prml_M1 @ error_prml_f1)/np.dot(prml_f1, prml_M1 @ prml_f1))
 
-    plot_field(numpy_coeffs=prml_f1, Vh=prml_V1h, space_kind='hcurl', domain=domain, title='f in prml_V1', cmap='viridis', filename=plot_dir+'_prml_f1.png', hide_plot=False)
-    plot_field(numpy_coeffs=dual_f1, Vh=dual_V1h, space_kind='hdiv',  domain=domain, title='f in dual_V1', cmap='viridis', filename=plot_dir+'_dual_f1.png', hide_plot=False)
+        test_label = 'test_dual_H1'
+        dual_f1_label = 't_f1 = t_P1 @ f'
+        prml_f1_label = 'f1 = t_H1 @ t_f1'
 
+    plot_field(numpy_coeffs=prml_f1, Vh=prml_V1h, space_kind='hcurl', domain=domain, title=prml_f1_label, cmap='viridis', filename=plot_dir+test_label+'_prml_f1.png', hide_plot=False)
+    plot_field(numpy_coeffs=dual_f1, Vh=dual_V1h, space_kind='hdiv',  domain=domain, title=dual_f1_label, cmap='viridis', filename=plot_dir+test_label+'_dual_f1.png', hide_plot=False)
+
+    return L2_error    
 
 if __name__ == '__main__':
 
     t_stamp_full = time_count()
 
-    ref_square = False
-    deg = 5
-
-    if ref_square:
+    test_prml_H1 = False # True # 
+    std_P1 = False # use moment conserving P1 
+    refined_square = False
+    
+    if refined_square:
         domain_name = 'refined_square'
         nc = 10
     else:
         domain_name = 'square_9'
-        nc = 10
+        nc = 2
+
+    deg = 3
 
     run_dir = '{}_nc={}_deg={}/'.format(domain_name, nc, deg)
 
-        # m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
-    try_ssc_2d(
+    # m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
+    error = try_ssc_2d(
         ncells=[nc,nc], 
         prml_degree=[deg,deg],
         domain_name=domain_name, 
         plot_dir='./plots/'+run_dir,
+        test_prml_H1=test_prml_H1,
+        std_P1=std_P1,
         backend_language='python' #'pyccel-gcc'
     )
 
+    print("error: {}".format(error))
     time_count(t_stamp_full, msg='full program')

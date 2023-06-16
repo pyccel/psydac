@@ -862,7 +862,6 @@ class HodgeOperator( FemLinearOperator ):
     """
     def __init__( self, Vh, domain_h, backend_language='python', load_dir=None, load_space_index=''):
 
-        print("init Hodge")
         FemLinearOperator.__init__(self, fem_domain=Vh)
         self._domain_h = domain_h
         self._backend_language = backend_language
