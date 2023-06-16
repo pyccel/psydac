@@ -476,7 +476,7 @@ def eval_fields_2d_weighted(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k
     arr_coeff_fields = np.zeros_like(global_arr_coeff, shape=(1 + f_p1, 1 + f_p2, out_fields.shape[2]))
     arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2))
 
-    arr_fields = np.zeros_like(global_arr_coeff, shape=(1 + f_p1, 1 + f_p2, out_fields.shape[2]))
+    arr_fields = np.zeros_like(global_arr_coeff, shape=(k1, k2, out_fields.shape[2]))
     arr_weights = np.zeros((k1, k2))
 
     for i_cell_1 in range(nc1):
@@ -1948,7 +1948,7 @@ def eval_jac_det_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int,
             y_x1 = (temp_y_x1[0] - temp_weight_x1 * temp_y[0] * inv_weight) * inv_weight
             y_x2 = (temp_y_x2[0] - temp_weight_x2 * temp_y[0] * inv_weight) * inv_weight
 
-            [i_p_1, i_p_2] = x_x1 * y_x2 - x_x2 * y_x1
+            jac_det[i_p_1, i_p_2] = x_x1 * y_x2 - x_x2 * y_x1
 
 
 # =============================================================================
@@ -4636,7 +4636,8 @@ def pushforward_3d_hcurl(fields_to_push: 'T', inv_jac_mats: 'float[:,:,:,:,:]',
 # 1: Hdiv Push-forward
 # --------------------------------------------------------------------------
 @template(name='T', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
-def pushforward_2d_hdiv(fields_to_push: 'T', jac_mats: 'float[:,:,:,:]', sqrt_met_dets: 'float[:, :]', pushed_fields: 'T'):
+def pushforward_2d_hdiv(fields_to_push: 'T', jac_mats: 'float[:,:,:,:]',
+                        sqrt_met_dets: 'float[:, :]', pushed_fields: 'T'):
     """
     Parameters
     ----------
