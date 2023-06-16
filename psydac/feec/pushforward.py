@@ -285,7 +285,7 @@ class Pushforward:
         if isinstance(space, (VectorFemSpace, ProductFemSpace)):
 
             fields_to_push = [np.ascontiguousarray(fields_eval[i][index_trim[i]]) for i in range(self.ldim)]
-            pushed_fields_list = [np.zeros_like(fields_to_push[i], dtype=fields_eval.dtype) for i in range(self.ldim)]
+            pushed_fields_list = [np.zeros_like(fields_to_push[i]) for i in range(self.ldim)]
             if self.ldim == 2:
                 for i in range(2):
                     pushforward_2d_l2(fields_to_push[i], self.sqrt_metric_det_temp, pushed_fields_list[i])
