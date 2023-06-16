@@ -594,22 +594,8 @@ class OutputManager:
                 else:
                     V = field.space.vector_space
                     index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
-                    if V.dtype==complex:
-                        name_field_re = name_field + '.re'
-                        name_field_im = name_field + '.im'
-
-                        Vi = field.space.vector_space.spaces[i]
-                        index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
-
-                        dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field_re}', shape=V.npts, dtype=V.dtype)
-                        dset[index] = field_coeff[index].re
-                        dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field_im}', shape=V.npts, dtype=V.dtype)
-                        dset[index] = field_coeff[index].im
-
-
-                    else:
-                        dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
-                        dset[index] = field.coeffs[index]
+                    dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
+                    dset[index] = field.coeffs[index]
 
 
     def export_space_info(self):
@@ -983,9 +969,11 @@ class PostProcessManager:
                 codomain_type=discrete_kwargs.pop('codomain_type')
                 if is_vector:
                     temp_symbolic_space = VectorFunctionSpace(space_name, subdomain, kind)
+                    # Remove this line when codomain_type is define in VectorFunctionSpace
                     temp_symbolic_space.codomain_type=codomain_type
                 else:
                     temp_symbolic_space = ScalarFunctionSpace(space_name, subdomain, kind)
+                    # Remove this line when codomain_type is define in VectorFunctionSpace
                     temp_symbolic_space.codomain_type=codomain_type
 
                 # Until PR #213 is merged knots as to be set to None
