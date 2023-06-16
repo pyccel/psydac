@@ -30,7 +30,8 @@ from psydac.feec.multipatch.utilities                   import time_count #, get
 # from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_file
 from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2
 
-from psydac.feec.multipatch.bilinear_form_scipy import construct_V1_mass_matrix, construct_pairing_matrix, Conf_proj_1
+from psydac.feec.multipatch.bilinear_form_scipy import construct_pairing_matrix
+from psydac.feec.multipatch.conf_projections_scipy import Conf_proj_1
 from sympde.topology      import Square    
 from sympde.topology      import IdentityMapping, PolarMapping
 from psydac.fem.vector import ProductFemSpace
@@ -208,9 +209,6 @@ def try_ssc_2d(
 
     # some target function
     x,y    = domain.coordinates
-    alpha = 1
-    # f_vect  = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
-    #                 alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
     f_vect  = Tuple(sin(pi*y),
                     sin(pi*x))
 
