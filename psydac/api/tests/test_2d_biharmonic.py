@@ -54,7 +54,7 @@ def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells, degree, backen
     nn = NormalVector('nn')
 
     # Bilinear form a: V x V --> R
-    a = BilinearForm((u, v), integral(domain, dot(laplace(u), laplace(v))))
+    a = BilinearForm((u, v), integral(domain, laplace(u) * laplace(v)))
 
     # Linear form l: V --> R
     l = LinearForm(v, integral(domain, f * v))
