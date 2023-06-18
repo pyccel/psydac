@@ -122,26 +122,10 @@ def try_ssc_2d(
     dual_V1h = dual_derham_h.V1
     dual_V2h = dual_derham_h.V2
 
-    from pprint import pprint
-    # pprint(vars(prml_V1h))
-    
-    # pprint(type(prml_V1h._spaces[0]))
-    # print("prml_V1h._spaces[0]: ")
-    # pprint(vars(prml_V1h._spaces[0]))
-    # print("prml_V1h._spaces[0]._spaces[0]: ")
-    # pprint(vars(prml_V1h._spaces[0]._spaces[0]))
-    
-    # print("dual_V1h._spaces[0]: ")  
-    # pprint(vars(dual_V1h._spaces[0]))
-    # print("dual_V1h._spaces[0]._spaces[0]: ")
-    # pprint(vars(dual_V1h._spaces[0]._spaces[0]))
-    # exit()
-
     t_stamp = time_count(t_stamp)
     print('Mass matrices...')
-    # M1 = construct_V1_mass_matrix(prml_V1h).tocsr()  # note: also works
-    # multi-patch (broken) mass matrices
     m_load_dir = None
+
     ## NOTE: with a strong-strong diagram we should not call these "Hodge" operators !! 
     prml_H1 = HodgeOperator(prml_V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
     dual_H1 = HodgeOperator(dual_V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
@@ -155,9 +139,6 @@ def try_ssc_2d(
         prml_M1 = prml_H1.get_dual_Hodge_sparse_matrix()  # =         mass matrix of prml_V1
         prml_M1_inv = prml_H1.to_sparse_matrix()              # = inverse mass matrix of prml_V1
         dual_M1_inv = None
-
-    # print(sp_norm(prml_M1-M1))
-
     
     t_stamp = time_count(t_stamp)
     print('Pairing matrices...')

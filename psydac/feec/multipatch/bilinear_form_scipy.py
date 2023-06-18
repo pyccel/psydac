@@ -77,12 +77,24 @@ def construct_pairing_matrix(Vh, Wh, storage_fn=None):
     n_patches = len(domain)
     assert n_patches == len(Vh.spaces)
     assert n_patches == len(Wh.spaces)
-    assert isinstance(Vh.spaces[0], VectorFemSpace)
-    n_components = len(Vh.spaces[0].spaces) # dimension of the functions value
-    assert isinstance(Wh.spaces[0], VectorFemSpace)
-    assert n_components == len(Wh.spaces[0].spaces)
-    assert isinstance(Vh.spaces[0].spaces[0], TensorFemSpace)
-    assert isinstance(Vh.spaces[0].spaces[0], TensorFemSpace)
+    # print("type(Vh.spaces[0]) = ", type(Vh.spaces[0]))
+    
+    if isinstance(Vh.spaces[0], TensorFemSpace):
+        # Vh is a scalar-valued space
+        n_components = 1
+        if not isinstance(Wh.spaces[0], TensorFemSpace):
+            raise TypeError("Vh seems to be scalar-valued but Wh is not")
+    else:
+        assert isinstance(Vh.spaces[0], VectorFemSpace)
+        n_components = len(Vh.spaces[0].spaces) # dimension of the functions value
+        if not isinstance(Wh.spaces[0], VectorFemSpace):
+            raise TypeError("Vh seems to be vector-valued but Wh is not")
+        if not n_components == len(Wh.spaces[0].spaces):
+            raise TypeError("Vh and Wh don't have the same number of components")
+    
+        assert isinstance(Vh.spaces[0].spaces[0], TensorFemSpace)
+        assert isinstance(Vh.spaces[0].spaces[0], TensorFemSpace)
+    
     K = lil_matrix((Vh.nbasis, Wh.nbasis))
 
     l2g_V = Local2GlobalIndexMap(ndim, n_patches, n_components)
@@ -91,8 +103,17 @@ def construct_pairing_matrix(Vh, Wh, storage_fn=None):
         Vk = Vh.spaces[k]
         Wk = Wh.spaces[k]
         # T is a TensorFemSpace and S is a 1D SplineSpace
-        V_shapes = [[S.nbasis for S in T.spaces] for T in Vk.spaces]
-        W_shapes = [[S.nbasis for S in T.spaces] for T in Wk.spaces]
+        if n_components > 1:
+            Vk_scalar_spaces = Vk.spaces
+            Wk_scalar_spaces = Wk.spaces
+
+        else:
+            Vk_scalar_spaces = [Vk]
+            Wk_scalar_spaces = [Wk]
+
+        V_shapes = [[S.nbasis for S in T.spaces] for T in Vk_scalar_spaces]
+        W_shapes = [[S.nbasis for S in T.spaces] for T in Wk_scalar_spaces]
+
         l2g_V.set_patch_shapes(k, *V_shapes)
         l2g_W.set_patch_shapes(k, *W_shapes)
 
@@ -100,8 +121,8 @@ def construct_pairing_matrix(Vh, Wh, storage_fn=None):
             # compute products Lambda_V_{d,i} . Lambda_W_{d,j}
             # -- hard-coded assumption: Lambda_V_{c,i} . Lambda_W_{d,j} = 0 for c≠d
 
-            Vk_d = Vk.spaces[d]
-            Wk_d = Wk.spaces[d]
+            Vk_d = Vk_scalar_spaces[d]
+            Wk_d = Wk_scalar_spaces[d]
             assert isinstance(Vk_d, TensorFemSpace)             
 
             K_1D = [None]*ndim
