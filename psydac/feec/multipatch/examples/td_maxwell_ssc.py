@@ -96,8 +96,8 @@ def solve_td_maxwell_pbm(
         diag_dtau = nb_t_periods//10
 
     if m_load_dir is not None:
-        pm_load_dir = m_load_dir+"primal/"
-        dm_load_dir = m_load_dir+"dual/"
+        pm_load_dir = m_load_dir+"primal"
+        dm_load_dir = m_load_dir+"dual"
         for load_dir in [pm_load_dir, dm_load_dir]:        
             if not os.path.exists(load_dir):
                 os.makedirs(load_dir)
