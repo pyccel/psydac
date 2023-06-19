@@ -181,7 +181,7 @@ class SplineSpace( FemSpace ):
             xgrid    = self.greville
         )
 
-        if self.periodic:
+        if True : # self.periodic:
             # Convert to CSC format and compute sparse LU decomposition
             self._interpolator = SparseSolver( csc_matrix( imat ) )
         else:
@@ -215,7 +215,7 @@ class SplineSpace( FemSpace ):
             xgrid    = self.ext_greville
         )
         self.hmat= imat
-        if self.periodic:
+        if True :# self.periodic:
             # Convert to CSC format and compute sparse LU decomposition
             self._histopolator = SparseSolver( csc_matrix( imat ) )
         else:

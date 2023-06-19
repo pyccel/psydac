@@ -414,7 +414,7 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
         direction += 1
     return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(np_pts_cell)
 
-def prepare_projection_of_basis_ff(V1d, W1d, space_ff, starts_out, ends_out, n_quad=None):
+def prepare_projection_of_basis_ff(V1d, W1d, space_ff, starts_out, ends_out, bc, n_quad=None):
     '''Obtain knot span indices and basis functions evaluated at projection point sets of a given space.
 
     Parameters
@@ -496,6 +496,10 @@ def prepare_projection_of_basis_ff(V1d, W1d, space_ff, starts_out, ends_out, n_q
         s, b = get_span_and_basis(pts[-1], space_in)
         s_c, b_c = get_span_and_basis(pts[-1], space_coeff)
 
+        #set boundary weights to zero in prescribed direction
+        if direction in bc :
+            wts[-1][0]=0.
+            wts[-1][-1]=0.
         spans += [s]
         bases += [b]
         spans_c +=[s_c]
@@ -610,7 +614,7 @@ def preprocess_grid(P, V):
     return preproc
 
 
-def preprocess_grid_with_ff(P, V, f_type):
+def preprocess_grid_with_ff(P, V, f_type, bc):
     """
     Gather the results of prepare_projection_of_basis for the different SplineSpaces composing a space, 
     the result of this function can then be passed when initialyzing a BasisProjectionOperator to avoid
@@ -658,8 +662,7 @@ def preprocess_grid_with_ff(P, V, f_type):
     preproc = []
 
     # ouptut vector space (codomain), row of block
-    for Wspace, W1d, nq, f_line in zip(_Wspaces, _W1ds, _nqs, f_type):
-
+    for Wspace, W1d, nq, f_line, loc_b in zip(_Wspaces, _W1ds, _nqs, f_type, bc):
         line_pre = []
         # input vector space (domain), column of block
         for Vspace, V1d, f in zip(_Vspaces, _V1ds, f_line):
@@ -676,7 +679,7 @@ def preprocess_grid_with_ff(P, V, f_type):
 
                 Vfd      = f.space.spaces
                 _ptsG, _wtsG, _spans, _bases, _spans_ff, _bases_ff, _npt_pts = \
-                    prepare_projection_of_basis_ff(V1d, W1d, Vfd, _starts_out, _ends_out, nq)
+                    prepare_projection_of_basis_ff(V1d, W1d, Vfd, _starts_out, _ends_out, loc_b, nq)
 
                 line_pre.append((_ptsG, _wtsG, _spans, _bases, _spans_ff, _bases_ff, _npt_pts))
 

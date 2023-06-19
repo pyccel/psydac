@@ -364,7 +364,7 @@ class StencilVector( Vector ):
     @staticmethod
     def _dot(v1, v2, pads, shifts):
         index = tuple( slice(m*p,-m*p) for p,m in zip(pads, shifts))
-        return np.vdot(v1[index].flat, v2[index].flat)
+        return np.vdot(v1[index], v2[index])
 
     def conjugate(self, out=None):
         if out is not None:
