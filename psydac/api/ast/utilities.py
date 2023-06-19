@@ -937,6 +937,10 @@ def math_atoms_as_str(expr, lib='math'):
     else:
         raise ValueError("Library {} not supported.".format(mod))
 
+    complex_functions={
+    'conjugate': 'conjugate'
+    }
+
     # Initialize variables
     math_functions = set()
     math_constants = set()
@@ -950,6 +954,9 @@ def math_atoms_as_str(expr, lib='math'):
             s = str(type(i))
             if s in known_functions:
                 p = known_functions[s]
+                math_functions.add(p)
+            elif s in complex_functions and lib=='numpy':
+                p = complex_functions[s]
                 math_functions.add(p)
 
         # Search for math constants (e.g. pi, e, ...)

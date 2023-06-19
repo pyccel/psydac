@@ -162,13 +162,14 @@ class Parser(object):
         self.backend   = backend
 
         # TODO improve
-        self.indices          = {}
-        self.shapes           = {}
-        self.functions        = {}
-        self.variables        = {}
-        self.arguments        = {}
-        self.allocated        = {}
-        self._math_functions  = ()
+        self.indices           = {}
+        self.shapes            = {}
+        self.functions         = {}
+        self.variables         = {}
+        self.arguments         = {}
+        self.allocated         = {}
+        self._math_functions   = ()
+        self._numpy_functions  = ()
         
 
     @property
@@ -544,13 +545,13 @@ class Parser(object):
 
         # If we are with complex object, we should import the mathematical function from numpy and not math to handle complex value.
         if expr.domain_dtype=='complex':
-            numpy_imports = ('array', 'zeros', 'zeros_like', 'floor', *self._math_functions)
+            numpy_imports = ('array', 'zeros', 'zeros_like', 'floor', *self._math_functions) + self._numpy_functions
             imports       = [Import('numpy', numpy_imports)] + \
                             [*expr.imports]
         # Else we import them from math
         else:
             math_imports  = (*self._math_functions,)
-            numpy_imports = ('array', 'zeros', 'zeros_like', 'floor')
+            numpy_imports = ('array', 'zeros', 'zeros_like', 'floor',) + self._numpy_functions
             imports       = [Import('numpy', numpy_imports)] + \
                             ([Import('math', math_imports)] if math_imports else []) + \
                             [*expr.imports]
@@ -1330,9 +1331,13 @@ class Parser(object):
         stmts = tuple(self._visit(stmt, **kwargs) for stmt in stmts)
         stmts = tuple(vars_plus) + tuple(normal_vec_stmts) + temps + stmts
 
-        math_functions = math_atoms_as_str(list(exprs)+normal_vec_stmts, 'math')
+        imports_needed = list(exprs)+normal_vec_stmts
+        math_functions = math_atoms_as_str(imports_needed, 'math')
         math_functions = tuple(m for m in math_functions if m not in self._math_functions)
         self._math_functions = math_functions + self._math_functions
+        numpy_functions = math_atoms_as_str(imports_needed, 'numpy')
+        numpy_functions = tuple(m for m in numpy_functions if m not in self._numpy_functions+self._math_functions)
+        self._numpy_functions = numpy_functions + self._numpy_functions
         return stmts
 
     # ....................................................
