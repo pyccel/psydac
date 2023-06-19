@@ -31,7 +31,7 @@ from psydac.feec.multipatch.examples.ppc_test_cases     import get_div_free_puls
 from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P_phys_hdiv, get_Vh_diags_for
 from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
 from psydac.feec.multipatch.bilinear_form_scipy         import construct_pairing_matrix
-from psydac.feec.multipatch.conf_projections_scipy      import Conf_proj_0, Conf_proj_1
+from psydac.feec.multipatch.conf_projections_scipy      import Conf_proj_0, Conf_proj_1, Conf_proj_0_c1, Conf_proj_1_c1
 
 def solve_td_maxwell_pbm(
         nc=4, deg=4, Nt_pp=None, cfl=.8, nb_t_periods=20, omega=20, source_is_harmonic=True,
@@ -184,12 +184,12 @@ def solve_td_maxwell_pbm(
     d_KK1     = construct_pairing_matrix(p_V1h,d_V1h).tocsr()  # matrix in scipy format
 
     # TODO: write "C1" conforming proj with hom bc's
-    p_PP0 = Conf_proj_0(p_V0h, nquads = [4*(d + 1) for d in degree])
+    p_PP0 = Conf_proj_0_c1(p_V0h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
     # p_PP0_pm = p_derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language, load_dir=pm_load_dir)
     # p_PP0    = p_PP0_pm.to_sparse_matrix()
 
     # TODO: write "C1-curl" conforming proj, with hom bc's
-    p_PP1 = Conf_proj_1(p_V1h, nquads = [4*(d + 1) for d in degree])
+    p_PP1 = Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
     # p_PP1_pm = p_derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language, load_dir=pm_load_dir)
     # p_PP1    = p_PP1_pm.to_sparse_matrix()
 
@@ -443,7 +443,8 @@ def solve_td_maxwell_pbm(
         else:
             title = r'energy vs '+t_label
         if D0_type == 'pulse':
-            ax.set_ylim([0, 5])
+            ax.set_ylim([0, 6])
+        
         ax.set_xlabel(t_label, fontsize=16)                    
         ax.set_title(title, fontsize=18)
         fig.tight_layout()
