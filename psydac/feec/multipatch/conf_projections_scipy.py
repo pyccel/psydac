@@ -118,7 +118,10 @@ def smooth_x(V0h,nquads):
 
     #Creating vector of weights for moments preserving
     uw = [gauss_legendre( k-1 ) for k in nquads]
-    u = [u[::-1] for u,w in uw]
+    #u = [u[::-1] for u,w in uw]
+    u = [np.array([-1,0,1]) for u,w in uw]
+    print(u)
+    print()
     w = [w[::-1] for u,w in uw]
 
 
@@ -133,6 +136,8 @@ def smooth_x(V0h,nquads):
     grid = [np.array([deepcopy((0.5*(u[0]+1)*(breakpoints_x[i+1]-breakpoints_x[i])+breakpoints_x[i])) for i in range(Nel[0])]),
             np.array([deepcopy((0.5*(u[1]+1)*(breakpoints_y[i+1]-breakpoints_y[i])+breakpoints_y[i])) for i in range(Nel[1])])]
     _, basis, span, _ = patch_space.preprocess_regular_tensor_grid(grid,der=1)
+    print(basis[0][0,:,1,0])
+    print(basis[0][-1,:,1,-1])
     span = [deepcopy(span[k] + patch_space.vector_space.starts[k] - patch_space.vector_space.shifts[k] * patch_space.vector_space.pads[k]) for k in range(2)]
     px=degree[0]
     enddom = breakpoints_x[-1]
