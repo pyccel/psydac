@@ -443,7 +443,7 @@ def solve_td_maxwell_pbm(
         else:
             title = r'energy vs '+t_label
         if D0_type == 'pulse':
-            ax.set_ylim([0, 6])
+            ax.set_ylim([0, 7])
         
         ax.set_xlabel(t_label, fontsize=16)                    
         ax.set_title(title, fontsize=18)
