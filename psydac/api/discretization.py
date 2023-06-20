@@ -49,15 +49,15 @@ __all__ = ('discretize', 'discretize_derham', 'reduce_space_degrees', 'discretiz
 #==============================================================================
 def change_dtype(V, dtype):
     """
-    This function take a FemSpace V and create a new vector_space with the data type required.
+    This function take a FemSpace V and create a new vector_space for it with the data type required.
 
     Parameters
     ----------
 
-    Vh : <FemSpace>
-        The fem space.
+    Vh : FemSpace
+        The FEM space.
 
-    dtype   : <Data Type>
+    dtype   : Data Type
         float or complex
     """
     if not V._vector_space.dtype == dtype:
