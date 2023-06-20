@@ -129,11 +129,12 @@ def assemble_matrices( V, kernel ):
     [p1] = V.vector_space.pads
 
     # Quadrature data
-    nk1       = V.quad_grids[0].num_elements
-    nq1       = V.quad_grids[0].num_quad_pts
-    spans_1   = V.quad_grids[0].spans
-    basis_1   = V.quad_grids[0].basis
-    weights_1 = V.quad_grids[0].weights
+    quad_grid = V.quad_grids()[0]
+    nk1       = quad_grid.num_elements
+    nq1       = quad_grid.num_quad_pts
+    spans_1   = quad_grid.spans
+    basis_1   = quad_grid.basis
+    weights_1 = quad_grid.weights
 
     # Create global matrices
     mass      = StencilMatrix( V.vector_space, V.vector_space )
@@ -185,12 +186,13 @@ def assemble_rhs( V, f ):
     [p1] = V.vector_space.pads
 
     # Quadrature data
-    nk1       = V.quad_grids[0].num_elements
-    nq1       = V.quad_grids[0].num_quad_pts
-    spans_1   = V.quad_grids[0].spans
-    basis_1   = V.quad_grids[0].basis
-    points_1  = V.quad_grids[0].points
-    weights_1 = V.quad_grids[0].weights
+    quad_grid = V.quad_grids()[0]
+    nk1       = quad_grid.num_elements
+    nq1       = quad_grid.num_quad_pts
+    spans_1   = quad_grid.spans
+    basis_1   = quad_grid.basis
+    points_1  = quad_grid.points
+    weights_1 = quad_grid.weights
 
     # Data structure
     rhs = StencilVector( V.vector_space )
