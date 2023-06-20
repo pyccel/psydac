@@ -46,13 +46,13 @@ from psydac.api.utilities     import flatten
 from psydac.linalg.block      import BlockVectorSpace
 from psydac.fem.vector        import ProductFemSpace, VectorFemSpace
 
-#=======================================================================================================================
+#==============================================================================
 def toInteger(a):
     if isinstance(a,(int, np.int64)):
         return Integer(int(a))
     return a
 
-#=======================================================================================================================
+#==============================================================================
 def convert(dtype):
     """
     This function returns the index of a Function Space in a 3D DeRham sequence
@@ -67,13 +67,13 @@ def convert(dtype):
     elif isinstance(dtype, L2SpaceType):
         return 3
 
-#=======================================================================================================================
+#==============================================================================
 def compute_diag_len(p, md, mc):
     n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
     n = n-np.minimum(0, n-p)+p+1
     return n.astype('int')
 
-#=======================================================================================================================
+#==============================================================================
 def regroup(tests):
     """
     This function regourps the test/trial functions by their Function Space
@@ -103,7 +103,7 @@ def regroup(tests):
             groups += [(d,g)]
     return groups
 
-#=======================================================================================================================
+#==============================================================================
 def expand(args):
     """
     This function expands vector functions into indexed functions
@@ -119,7 +119,7 @@ def expand(args):
             raise NotImplementedError("TODO")
     return tuple(new_args)
 
-#=======================================================================================================================
+#==============================================================================
 class Block(Basic):
     """
     This class represents a Block of statements
@@ -137,7 +137,7 @@ class Block(Basic):
         return self._args[0]
 
 
-#=======================================================================================================================
+#==============================================================================
 class ParallelBlock(Block):
     def __new__(cls, default='private', private=(), shared=(), firstprivate=(), lastprivate=(), body=()):
         return Basic.__new__(cls, default, private, shared, firstprivate, lastprivate, body)
@@ -167,7 +167,7 @@ class ParallelBlock(Block):
         return self._args[5]
 
 
-#=======================================================================================================================
+#==============================================================================
 class DefNode(Basic):
     """
     DefNode represents a function definition where it contains the arguments and the body
@@ -214,7 +214,7 @@ class DefNode(Basic):
         return self._domain_dtype
 
 
-#=======================================================================================================================
+#==============================================================================
 def expand_hdiv_hcurl(args):
     """
     This function expands vector functions of type hdiv and hculr into indexed functions
@@ -233,7 +233,7 @@ def expand_hdiv_hcurl(args):
 
     return tuple(new_args)
 
-#=======================================================================================================================
+#==============================================================================
 def get_multiplicity(funcs, space):
     def recursive_func(space):
         if isinstance(space, BlockVectorSpace):
@@ -259,7 +259,7 @@ def get_multiplicity(funcs, space):
                 new_multiplicity.append(multiplicity[i])
     return new_multiplicity
 
-#=======================================================================================================================
+#==============================================================================
 def get_degrees(funcs, space):
     degrees = list(space.degree)
     if not isinstance(degrees[0], (list, tuple)):
@@ -278,12 +278,13 @@ def get_degrees(funcs, space):
                 new_degrees.append(degrees[i])
     return new_degrees
 
+#==============================================================================
 def get_quad_order(Vh):
     if isinstance(Vh, (ProductFemSpace, VectorFemSpace)):
-        return get_nquads(Vh.spaces[0])
-    return tuple([g.weights.shape[1] for g in Vh.quad_grids()])
+        return get_quad_order(Vh.spaces[0])
+    return tuple([g.weights.shape[1] for g in Vh.quad_grids])
 
-#=======================================================================================================================
+#==============================================================================
 class AST(object):
     """
     The Ast class transforms a terminal expression returned from sympde
@@ -334,7 +335,7 @@ class AST(object):
             tests               = expr.test_functions
             fields              = expr.fields
             is_broken           = spaces.symbolic_space.is_broken
-            nquads              = get_nquads(spaces)
+            quad_order          = get_quad_order(spaces)
             tests_degrees       = get_degrees(tests, spaces)
             multiplicity_tests  = get_multiplicity(tests, spaces.vector_space)
             is_parallel         = spaces.vector_space.parallel
@@ -350,7 +351,7 @@ class AST(object):
             atoms               = terminal_expr.expr.atoms(ScalarFunction, VectorFunction)
             fields              = tuple(i for i in atoms if i not in tests+trials)
             is_broken           = spaces[1].symbolic_space.is_broken
-            nquads              = get_nquads(spaces[1])
+            quad_order          = get_quad_order(spaces[1])
             tests_degrees       = get_degrees(tests, spaces[1])
             trials_degrees      = get_degrees(trials, spaces[0])
             multiplicity_tests  = get_multiplicity(tests, spaces[1].vector_space)
@@ -372,7 +373,7 @@ class AST(object):
             is_functional       = True
             fields              = tuple(expr.atoms(ScalarFunction, VectorFunction))
             is_broken           = spaces.symbolic_space.is_broken
-            nquads              = get_nquads(spaces)
+            quad_order          = get_quad_order(spaces)
             fields_degrees      = get_degrees(fields, spaces)
             multiplicity_fields = get_multiplicity(fields, spaces.vector_space)
             is_parallel         = spaces.vector_space.parallel
@@ -380,9 +381,9 @@ class AST(object):
 
             # Define the type of scalar that the code should manage
             dtype           = spaces.codomain_type if hasattr(spaces, 'codomain_type') else 'real'
+
         else:
             raise NotImplementedError('TODO')
-
 
         tests                = expand_hdiv_hcurl(tests)
         trials               = expand_hdiv_hcurl(trials)
@@ -560,19 +561,19 @@ class AST(object):
         return self._num_threads
 
 
-#=======================================================================================================================
+#==============================================================================
 def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests, trials, d_trials, fields, d_fields,
                               constants, nderiv, dim, dtype, domain, mapping, d_mapping, is_rational_mapping, mapping_space,
                               mask, tag, is_parallel, num_threads, **kwargs):
     """
-    This function creates the assembly function of a bilinearform in the real case
+    This function creates the assembly function of a bilinear form in the real case
     or of a sesquilinear form in complex case.
 
     Parameters
     ----------
 
     terminal_expr : <Matrix>
-        atomic representation of the bilinear/sesquilineqr form
+        atomic representation of the bilinear/sesquilinear form
 
     atomic_expr_field: <dict>
         dict  of atomic expressions of fields
@@ -674,13 +675,15 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
     else:
         m_span = {}
 
-    # m_trials            = dict((u,d_trials[u]['multiplicity'])  for u in trials)
     m_tests             = dict((v,d_tests[v]['multiplicity'])   for v in tests)
     lengths_trials      = dict((u,LengthDofTrial(u)) for u in trials)
     lengths_tests       = dict((v,LengthDofTest(v)) for v in tests)
+    lengths_fields      = dict((f,LengthDofTest(f)) for f in fields)
+
+    # Those dictionaries were defined but never used
+    # m_trials            = dict((u,d_trials[u]['multiplicity'])  for u in trials)
     # lengths_outer_tests = dict((v,LengthOuterDofTest(v)) for v in tests)
     # lengths_inner_tests = dict((v,LengthInnerDofTest(v)) for v in tests)
-    lengths_fields      = dict((f,LengthDofTest(f)) for f in fields)
 
     # ...........................................................................................
     quad_length     = LengthQuadrature()
@@ -705,8 +708,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
     g_mats     = BlockStencilMatrixGlobalBasis(trials, tests, pads, m_tests, terminal_expr, l_mats.tag, dtype=dtype) #dtype manage the decorators type in pyccel
     # ...........................................................................................
 
-    if nquads is not None:
-        ind_quad      = index_quad.set_range(stop=Tuple(*nquads))
+    if quad_order is not None:
+        ind_quad      = index_quad.set_range(stop=Tuple(*quad_order))
     else:
         ind_quad      = index_quad.set_range(stop=quad_length)
 
@@ -837,6 +840,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
                 stmts    = Block(body)
                 g_stmts += [stmts]
 
+                # This part of the code was never used and has no impact on the result of this function.
 #                 if is_parallel:
 #                     ln         = Tuple(*[d-1 for d in tests_degree[sub_tests[0]]])
 #                     thr_s      = Tuple(*[ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i))) for i in range(dim)]) if add_openmp else Tuple(*[0]*dim)
@@ -933,7 +937,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
                               (global_thread_l.set_index(i),
                               Integer(get_d(v)[i]+1),
                               Integer(nderiv+1),
-                              Integer(nquads[i]))) for v in d_tests]
+                              Integer(quad_order[i]))) for v in d_tests]
 
             thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
             thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
@@ -953,7 +957,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
                               (global_thread_l.set_index(i),
                               Integer(get_d(u)[i]+1),
                               Integer(nderiv+1),
-                              Integer(nquads[i]))) for u in d_trials]
+                              Integer(quad_order[i]))) for u in d_trials]
 
             thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
             thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
@@ -988,7 +992,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
                               (global_thread_l.set_index(i),
                               toInteger(get_d(f)[i]+1),
                               Integer(nderiv+1),
-                              Integer(nquads[i]))) for f in d_fields]
+                              Integer(quad_order[i]))) for f in d_fields]
 
             thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
             thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
@@ -1021,7 +1025,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
                                   (global_thread_l.set_index(i),
                                   Integer(get_d(f)[i]+1),
                                   Integer(nderiv+1),
-                                  Integer(nquads[i]))) for f in d_mapping]
+                                  Integer(quad_order[i]))) for f in d_mapping]
 
                 thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
                 thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
@@ -1130,6 +1134,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
 
     body  = allocations + body
 
+    # Those dictionaries were defined but never used
     # m_trials      = dict((u,d_trials[u]['multiplicity'])  for u in trials)
     # m_tests       = dict((v,d_tests[v]['multiplicity'])   for v in tests)
     # trials_degree = dict((u,d_trials[u]['degrees'])       for u in trials)
@@ -1186,7 +1191,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
 
     return node
 
-#=======================================================================================================================
+#==============================================================================
 def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fields, d_fields, constants, nderiv,
                             dim, dtype, mapping, d_mapping, is_rational_mapping, mapping_space, mask, tag, num_threads,
                             **kwargs):
@@ -1265,7 +1270,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     rank_from_coords = MatrixRankFromCoords()
     coords_from_rank = MatrixCoordsFromRank()
 
-    nquads        = kwargs.pop('nquads', None)
+    quad_order    = kwargs.pop('quad_order', None)
     thread_span   =  dict((u,d_tests[u]['thread_span']) for u in tests)
  
     m_tests = dict((v,d_tests[v]['multiplicity'])   for v in tests)
@@ -1299,7 +1304,6 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     # Set index of quadrature
     if quad_order is not None:
         ind_quad      = index_quad.set_range(stop=Tuple(*quad_order))
-
     else:
         ind_quad      = index_quad.set_range(stop=quad_length)
 
@@ -1534,7 +1538,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     return node
 
-#=======================================================================================================================
+#==============================================================================
 def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, constants, nderiv,
                                 dim, dtype, mapping, d_mapping, is_rational_mapping, mapping_space, mask, tag,
                                 num_threads, **kwargs):
