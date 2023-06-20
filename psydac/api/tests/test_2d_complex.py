@@ -332,7 +332,7 @@ def test_complex_poisson_2d_multipatch_mapping():
 
 def test_complex_helmholtz_2d():
     domain = Square('domain', bounds1=(0, 1), bounds2=(0, 1))
-    
+
     x, y = domain.coordinates
     kappa = 2*pi
     solution = sin(kappa * x) * sin(kappa * y)
@@ -345,4 +345,3 @@ def test_complex_helmholtz_2d():
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
-
