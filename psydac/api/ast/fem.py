@@ -675,13 +675,15 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
     else:
         m_span = {}
 
-    # m_trials            = dict((u,d_trials[u]['multiplicity'])  for u in trials)
     m_tests             = dict((v,d_tests[v]['multiplicity'])   for v in tests)
     lengths_trials      = dict((u,LengthDofTrial(u)) for u in trials)
     lengths_tests       = dict((v,LengthDofTest(v)) for v in tests)
+    lengths_fields      = dict((f,LengthDofTest(f)) for f in fields)
+
+    # Those dictionaries were defined but never used
+    # m_trials            = dict((u,d_trials[u]['multiplicity'])  for u in trials)
     # lengths_outer_tests = dict((v,LengthOuterDofTest(v)) for v in tests)
     # lengths_inner_tests = dict((v,LengthInnerDofTest(v)) for v in tests)
-    lengths_fields      = dict((f,LengthDofTest(f)) for f in fields)
 
     # ...........................................................................................
     quad_length     = LengthQuadrature()
@@ -838,6 +840,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
                 stmts    = Block(body)
                 g_stmts += [stmts]
 
+                # This part of the code was never used and has no impact on the result of this function.
 #                 if is_parallel:
 #                     ln         = Tuple(*[d-1 for d in tests_degree[sub_tests[0]]])
 #                     thr_s      = Tuple(*[ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i))) for i in range(dim)]) if add_openmp else Tuple(*[0]*dim)
@@ -1131,6 +1134,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
 
     body  = allocations + body
 
+    # Those dictionaries were defined but never used
     # m_trials      = dict((u,d_trials[u]['multiplicity'])  for u in trials)
     # m_tests       = dict((v,d_tests[v]['multiplicity'])   for v in tests)
     # trials_degree = dict((u,d_trials[u]['degrees'])       for u in trials)
