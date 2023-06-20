@@ -21,6 +21,7 @@ from psydac.linalg.utilities   import array_to_psydac
 @pytest.fixture(params=[None, 'numba', 'pyccel-gcc'])
 def backend(request):
     return request.param
+
 @pytest.fixture(params=['real','complex'])
 def dtype(request):
     return request.param
