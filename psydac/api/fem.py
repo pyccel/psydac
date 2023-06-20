@@ -1079,15 +1079,15 @@ class DiscreteLinearForm(BasicDiscrete):
 
     def assemble(self, *, reset=True, **kwargs):
         """
-        This method assembles the right-hand side Vector with the self._func.
+        This method assembles the right-hand side Vector by calling the private method `self._func` with proper arguments.
 
-        In the complex case, this function return the conjugate of the Vector. This come from the fact that the
-        problem a(u,v)=b(v) is discretize as A.conj(U)=B due to the antilinearity of a on the first variable.
-        Thus, to obtain U, the assemble function for the LinearForm return conj(B).
+        In the complex case, this function returns the vector conjugate. This comes from the fact that the
+        problem `a(u,v)=b(v)` is discretize as `A @ conj(U) = B` due to the antilinearity of `a` in the first variable.
+        Thus, to obtain `U`, the assemble function for the LinearForm return `conj(B)`.
 
-        TODO: remove these line when the dot product is changed for complex in sympde.
-        For now, since the dot product didn't do the conjugate in the complex case. We don't use the conjugate in the assemble function.
-        It should work if the complex only come from the rhs in the linear form.
+        TODO: remove these lines when the dot product is changed for complex in sympde.
+        For now, since the dot product does not do the conjugate in the complex case, we do not use the conjugate in the assemble function.
+        It should work if the complex only comes from the `rhs` in the linear form.
         """
         if self._free_args:
             basis   = []
