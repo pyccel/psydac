@@ -526,6 +526,7 @@ class BlockLinearOperator(LinearOperator):
                 out[i, j] = Lij.conjugate()
             else:
                 Lij.conjugate(out=out[i,j])
+
         return out
 
     def conj(self, out=None):
@@ -613,6 +614,7 @@ class BlockLinearOperator(LinearOperator):
                 assert isinstance(out, Vector)
             else:
                 assert isinstance(out, BlockVector)
+
             assert out.space is self.codomain
             out *= 0.0
         else:
@@ -941,6 +943,7 @@ class BlockLinearOperator(LinearOperator):
                                 root = MPI.ROOT
                             else:
                                 root = MPI.PROC_NULL
+
                         else:
                             root = 0
 
@@ -970,6 +973,7 @@ class BlockLinearOperator(LinearOperator):
                                 blocks_T[j,i][k2,k1] = block_ij_k1k2.transpose(Mt=block_ji_k2k1)
                     else:
                         continue
+
                     break
 
                 if (j,i) in blocks_T and len(blocks_T[j,i]._blocks) == 0:
@@ -998,6 +1002,7 @@ class BlockLinearOperator(LinearOperator):
                                 root = MPI.ROOT
                             else:
                                 root = MPI.PROC_NULL
+
                         else:
                             root = 0
 
@@ -1031,6 +1036,7 @@ class BlockLinearOperator(LinearOperator):
 
                     else:
                         continue
+
                     break
 
 
@@ -1055,6 +1061,7 @@ class BlockLinearOperator(LinearOperator):
                         root = MPI.ROOT
                     else:
                         root = MPI.PROC_NULL
+
                 else:
                     root = 0
 
@@ -1082,6 +1089,7 @@ class BlockLinearOperator(LinearOperator):
                         root = MPI.ROOT
                     else:
                         root = MPI.PROC_NULL
+
                 else:
                     root = 0
 
