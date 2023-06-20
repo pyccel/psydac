@@ -99,7 +99,7 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
     int_0 = lambda expr: integral(domain , expr)
 
     # time step
-    dt = Constant(name='dt')
+    dt = Constant(name='dt', real=True)
 
     # Boundaries
     boundary_h = Union(*[domain.get_boundary(**kw) for kw in get_boundaries(3,4)])

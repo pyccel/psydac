@@ -44,15 +44,18 @@ def test_field_and_constant(backend, dtype):
     u = element_of(V, name='u')
     v = element_of(V, name='v')
     f = element_of(V, name='f')
-    c = Constant(name='c')
 
     if dtype == 'complex':
+        c = Constant(name='c', complex=True)
         V.codomain_type = dtype
         g = I * c * f**2
         res = 1.j
+        cst=complex(1.0)
     else:
+        c = Constant(name='c', real=True)
         g = c * f**2
         res = 1
+        cst=1.0
 
     a = BilinearForm((u, v), integral(domain, g * u * v))
     l = LinearForm(v, integral(domain, g * v))
@@ -68,8 +71,8 @@ def test_field_and_constant(backend, dtype):
     fh.coeffs[:] = 1
 
     # Assembly call should not crash if correct arguments are used
-    A = ah.assemble(c=1.0, f=fh)
-    b = lh.assemble(f=fh, c=1.0)
+    A = ah.assemble(c=cst, f=fh)
+    b = lh.assemble(f=fh, c=cst)
 
     # Test matrix A
     x = fh.coeffs
@@ -95,7 +98,7 @@ def test_bilinearForm_complex(backend):
     u = element_of(V, name='u')
     v = element_of(V, name='v')
     f = element_of(V, name='f')
-    c = Constant(name='c')
+    c = Constant(name='c', complex=True)
 
     res=(1.+1.j)/2
     # We try to put complex as a sympy object in the expression
@@ -125,10 +128,10 @@ def test_bilinearForm_complex(backend):
     fh2.coeffs[:] = np.sqrt(res)
 
     # Assembly call should not crash if correct arguments are used
-    A1 = a1h.assemble(c=1.0, f=fh)
-    A2 = a2h.assemble(c=1.0, f=fh)
+    A1 = a1h.assemble(c=complex(1.0), f=fh)
+    A2 = a2h.assemble(c=complex(1.0), f=fh)
     A3 = a3h.assemble(c=res, f=fh)
-    A4 = a3h.assemble(c=1.0, f=fh2)
+    A4 = a3h.assemble(c=complex(1.0), f=fh2)
 
     # Test matrix A
     x = fh.coeffs
@@ -155,7 +158,7 @@ def test_linearForm_complex(backend):
     V.codomain_type = 'complex'
     v = element_of(V, name='v')
     f = element_of(V, name='f')
-    c = Constant(name='c')
+    c = Constant(name='c', complex=True)
 
     res = (1.+1.j)/2
     # We try to put complex as a sympy object in the expression
@@ -185,10 +188,10 @@ def test_linearForm_complex(backend):
     fh2.coeffs[:] = np.sqrt(res)
 
     # Assembly call should not crash if correct arguments are used
-    b1 = l1h.assemble(c=1.0, f=fh)
-    b2 = l2h.assemble(c=1.0, f=fh)
+    b1 = l1h.assemble(c=complex(1.0), f=fh)
+    b2 = l2h.assemble(c=complex(1.0), f=fh)
     b3 = l3h.assemble(c=res, f=fh)
-    b4 = l3h.assemble(c=1.0, f=fh2)
+    b4 = l3h.assemble(c=complex(1.0), f=fh2)
 
 
     # Test vector b
@@ -212,7 +215,7 @@ def test_Norm_complex(backend):
     # TODO: remove codomain_type when It is implemented in sympde
     V.codomain_type = 'complex'
     v = element_of(V, name='v')
-    c = Constant(name='c')
+    c = Constant(name='c', complex=True)
 
     res = (1.+1.j)/np.sqrt(2)
 

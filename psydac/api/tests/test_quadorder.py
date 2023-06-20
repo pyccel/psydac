@@ -24,7 +24,7 @@ def test_custom_quad_order(test_quad_order):
     V = ScalarFunctionSpace('V', domain)
     u = element_of(V, name='u')
     v = element_of(V, name='v')
-    c = Constant(name='c')
+    c = Constant(name='c', real=True)
 
     a = BilinearForm((u, v), integral(domain, u * v))
     l = LinearForm(v, integral(domain, v))
