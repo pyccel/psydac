@@ -31,7 +31,7 @@ from psydac.fem.projectors   import knot_insertion_projection_operator
 from psydac.core.bsplines    import find_span, basis_funs_all_ders
 from psydac.ddm.cart         import InterfaceCartDecomposition
 
-__all__ = ('collect_spaces', 'compute_diag_len', 'get_quad_order', 
+__all__ = ('collect_spaces', 'compute_diag_len', 'get_nquads',
            'construct_test_space_arguments', 'construct_trial_space_arguments', 
            'construct_quad_grids_arguments', 'reset_arrays', 'do_nothing', 'extract_stencil_mats', 
            'DiscreteBilinearForm', 'DiscreteFunctional', 'DiscreteLinearForm', 'DiscreteSumForm'
@@ -881,7 +881,7 @@ class DiscreteSesquilinearForm(DiscreteBilinearForm):
     update_ghost_regions: bool
         Accumulate the contributions of the neighbouring processes.
 
-    quad_order: list of tuple
+    nquads: list of tuple
         The number of quadrature points used in the assembly method.
 
     backend: dict

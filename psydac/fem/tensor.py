@@ -73,7 +73,7 @@ class TensorFemSpace( FemSpace ):
     """
 
 
-    def __init__(self, domain_decomposition, *spaces, vector_space=None, cart=None, quad_order=None, dtype=float):
+    def __init__(self, domain_decomposition, *spaces, vector_space=None, cart=None, nquads=None, dtype=float):
 
         """."""
         assert isinstance(domain_decomposition, DomainDecomposition)
@@ -949,7 +949,7 @@ class TensorFemSpace( FemSpace ):
 
         cart = v._cart.reduce_grid(global_starts, global_ends)
 
-        V    = TensorFemSpace(*spaces, cart=cart, quad_order=self._quad_order, dtype=v.dtype)
+        V    = TensorFemSpace(*spaces, cart=cart, nquads=self._nquads, dtype=v.dtype)
 
         return V
 
@@ -1074,7 +1074,7 @@ class TensorFemSpace( FemSpace ):
 
         # create new TensorFemSpace
 
-        tensor_vec = TensorFemSpace(self._domain_decomposition, *spaces, cart=red_cart, quad_order=self._quad_order, dtype=v.dtype)
+        tensor_vec = TensorFemSpace(self._domain_decomposition, *spaces, cart=red_cart, nquads=self._nquads, dtype=v.dtype)
 
         tensor_vec._interpolation_ready = False
 
@@ -1119,7 +1119,7 @@ class TensorFemSpace( FemSpace ):
         domain = domain.refine(ncells, new_global_starts, new_global_ends)
 
 
-        FS     = TensorFemSpace(domain, *spaces, quad_order=self.quad_order, dtype=self._vector_space.dtype)
+        FS     = TensorFemSpace(domain, *spaces, nquads=self.nquads, dtype=self._vector_space.dtype)
 
         self.set_refined_space(ncells, FS)
 
@@ -1152,7 +1152,7 @@ class TensorFemSpace( FemSpace ):
         vector_space.set_interface(axis, ext, cart)
 
         space = TensorFemSpace( self._domain_decomposition, *spaces, vector_space=vector_space.interfaces[axis, ext],
-                                quad_order=self.quad_order, dtype=vector_space.dtype)
+                                nquads=self.nquads, dtype=vector_space.dtype)
 
         self._interfaces[axis, ext] = space
 
