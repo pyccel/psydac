@@ -14,7 +14,7 @@ from sympde.topology import NormalVector
 from sympde.topology import Union
 from sympde.topology import Domain, Square
 from sympde.topology      import IdentityMapping, AffineMapping
-from sympde.expr     import BilinearForm, LinearForm, integral
+from sympde.expr     import BilinearForm, LinearForm, integral, SesquilinearForm
 from sympde.expr     import Norm
 from sympde.expr     import find, EssentialBC
 
@@ -63,14 +63,13 @@ def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells=None, degree=No
 
     B_dirichlet_0 = Union(*[domain.get_boundary(**kw) for kw in dir_zero_boundary])
 
-    V  = ScalarFunctionSpace('V', domain)
-    V.codomain_type = 'complex'
+    V  = ScalarFunctionSpace('V', domain, codomain_complex=True)
     u  = element_of(V, name='u')
     v  = element_of(V, name='v')
     nn = NormalVector('nn')
 
     # Bilinear form a: V x V --> R
-    a = BilinearForm((u, v), integral(domain, laplace(u) * laplace(v)))
+    a = SesquilinearForm((u, v), integral(domain, dot(laplace(u), laplace(v))))
 
     # Linear form l: V --> R
     l = LinearForm(v, integral(domain, f * v))
@@ -136,8 +135,7 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
     # 1. Abstract model
     #+++++++++++++++++++++++++++++++
 
-    V   = ScalarFunctionSpace('V', domain, kind=None)
-    V.codomain_type='complex'
+    V   = ScalarFunctionSpace('V', domain, kind=None, codomain_complex=True)
 
     u = element_of(V, name='u')
     v = element_of(V, name='v')
@@ -164,8 +162,8 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
 
     expr   = dot(grad(u),grad(v))
 
-    a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
-    l = LinearForm(v, integral(domain, f*v))
+    a = SesquilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
+    l = LinearForm(v, integral(domain, dot(f,v)))
 
     equation = find(u, forall=v, lhs=1j*a(u,v), rhs=1j*l(v), bc=bc)
 
