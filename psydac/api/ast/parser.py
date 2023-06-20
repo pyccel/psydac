@@ -542,6 +542,7 @@ class Parser(object):
         body          =  tuple(inits) + body
         name          = expr.name
 
+        # TODO : when Pyccel will work on the cmath library, we should import the math function from cmath and not from numpy
         # If we are with complex object, we should import the mathematical function from numpy and not math to handle complex value.
         if expr.domain_dtype=='complex':
             numpy_imports = ('array', 'zeros', 'zeros_like', 'floor', *self._math_functions)
