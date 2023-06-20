@@ -201,7 +201,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                        quad_order=None, backend=None, linalg_backend=None, assembly_backend=None,
                        symbolic_mapping=None):
 
-        if not isinstance(expr, sym_BilinearForm):
+        if not isinstance(expr, (sym_BilinearForm, sym_SesquilinearForm)):
             raise TypeError('> Expecting a symbolic BilinearForm')
 
         assert( isinstance(domain_h, Geometry) )

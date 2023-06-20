@@ -414,7 +414,7 @@ class AST(object):
             spaces              = spaces.symbolic_space
 
             # Define the type of scalar that the code should manage
-            dtype           = spaces.codomain_type if hasattr(spaces, 'codomain_type') else 'real'
+            dtype           = 'complex' if spaces.codomain_complex else 'real'
 
         else:
             raise NotImplementedError('TODO')

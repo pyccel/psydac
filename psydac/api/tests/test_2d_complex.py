@@ -215,7 +215,6 @@ def test_complex_biharmonic_2d():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
     assert( abs(h2_error - expected_h2_error) < 1.e-7)
 
-
 def test_complex_biharmonic_2d_mapping():
 
     x, y, z = symbols('x, y, z')
