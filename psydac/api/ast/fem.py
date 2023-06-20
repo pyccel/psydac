@@ -278,11 +278,10 @@ def get_degrees(funcs, space):
                 new_degrees.append(degrees[i])
     return new_degrees
 
-#=======================================================================================================================
 def get_quad_order(Vh):
     if isinstance(Vh, (ProductFemSpace, VectorFemSpace)):
-        return get_quad_order(Vh.spaces[0])
-    return tuple([g.weights.shape[1] for g in Vh.quad_grids])
+        return get_nquads(Vh.spaces[0])
+    return tuple([g.weights.shape[1] for g in Vh.quad_grids()])
 
 #=======================================================================================================================
 class AST(object):
@@ -335,7 +334,7 @@ class AST(object):
             tests               = expr.test_functions
             fields              = expr.fields
             is_broken           = spaces.symbolic_space.is_broken
-            quad_order          = get_quad_order(spaces)
+            nquads              = get_nquads(spaces)
             tests_degrees       = get_degrees(tests, spaces)
             multiplicity_tests  = get_multiplicity(tests, spaces.vector_space)
             is_parallel         = spaces.vector_space.parallel
@@ -351,7 +350,7 @@ class AST(object):
             atoms               = terminal_expr.expr.atoms(ScalarFunction, VectorFunction)
             fields              = tuple(i for i in atoms if i not in tests+trials)
             is_broken           = spaces[1].symbolic_space.is_broken
-            quad_order          = get_quad_order(spaces[1])
+            nquads              = get_nquads(spaces[1])
             tests_degrees       = get_degrees(tests, spaces[1])
             trials_degrees      = get_degrees(trials, spaces[0])
             multiplicity_tests  = get_multiplicity(tests, spaces[1].vector_space)
@@ -373,7 +372,7 @@ class AST(object):
             is_functional       = True
             fields              = tuple(expr.atoms(ScalarFunction, VectorFunction))
             is_broken           = spaces.symbolic_space.is_broken
-            quad_order          = get_quad_order(spaces)
+            nquads              = get_nquads(spaces)
             fields_degrees      = get_degrees(fields, spaces)
             multiplicity_fields = get_multiplicity(fields, spaces.vector_space)
             is_parallel         = spaces.vector_space.parallel
@@ -381,9 +380,9 @@ class AST(object):
 
             # Define the type of scalar that the code should manage
             dtype           = spaces.codomain_type if hasattr(spaces, 'codomain_type') else 'real'
-
         else:
             raise NotImplementedError('TODO')
+
 
         tests                = expand_hdiv_hcurl(tests)
         trials               = expand_hdiv_hcurl(trials)
@@ -706,8 +705,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
     g_mats     = BlockStencilMatrixGlobalBasis(trials, tests, pads, m_tests, terminal_expr, l_mats.tag, dtype=dtype) #dtype manage the decorators type in pyccel
     # ...........................................................................................
 
-    if quad_order is not None:
-        ind_quad      = index_quad.set_range(stop=Tuple(*quad_order))
+    if nquads is not None:
+        ind_quad      = index_quad.set_range(stop=Tuple(*nquads))
     else:
         ind_quad      = index_quad.set_range(stop=quad_length)
 
@@ -934,7 +933,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
                               (global_thread_l.set_index(i),
                               Integer(get_d(v)[i]+1),
                               Integer(nderiv+1),
-                              Integer(quad_order[i]))) for v in d_tests]
+                              Integer(nquads[i]))) for v in d_tests]
 
             thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
             thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
@@ -954,7 +953,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
                               (global_thread_l.set_index(i),
                               Integer(get_d(u)[i]+1),
                               Integer(nderiv+1),
-                              Integer(quad_order[i]))) for u in d_trials]
+                              Integer(nquads[i]))) for u in d_trials]
 
             thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
             thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
@@ -989,7 +988,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
                               (global_thread_l.set_index(i),
                               toInteger(get_d(f)[i]+1),
                               Integer(nderiv+1),
-                              Integer(quad_order[i]))) for f in d_fields]
+                              Integer(nquads[i]))) for f in d_fields]
 
             thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
             thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
@@ -1022,7 +1021,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
                                   (global_thread_l.set_index(i),
                                   Integer(get_d(f)[i]+1),
                                   Integer(nderiv+1),
-                                  Integer(quad_order[i]))) for f in d_mapping]
+                                  Integer(nquads[i]))) for f in d_mapping]
 
                 thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
                 thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
@@ -1266,7 +1265,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     rank_from_coords = MatrixRankFromCoords()
     coords_from_rank = MatrixCoordsFromRank()
 
-    quad_order    = kwargs.pop('quad_order', None)
+    nquads        = kwargs.pop('nquads', None)
     thread_span   =  dict((u,d_tests[u]['thread_span']) for u in tests)
  
     m_tests = dict((v,d_tests[v]['multiplicity'])   for v in tests)
@@ -1300,6 +1299,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     # Set index of quadrature
     if quad_order is not None:
         ind_quad      = index_quad.set_range(stop=Tuple(*quad_order))
+
     else:
         ind_quad      = index_quad.set_range(stop=quad_length)
 

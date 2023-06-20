@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
-#         nderiv has not been changed. shall we add quad_order too?
+#         nderiv has not been changed. shall we add nquads too?
 
 import numpy as np
 from sympy import ImmutableDenseMatrix, Matrix
@@ -84,10 +84,16 @@ def compute_diag_len(p, md, mc):
     n = n-np.minimum(0, n-p)+p+1
     return n.astype('int')
 
-def get_quad_order(Vh):
+def get_nquads(Vh):
+    """
+    This function is to be deleted in the future, as we intend to make the number of
+    quadrature points a property of DiscreteLinearForms, DiscreteBilinearForms and
+    DiscreteFunctionals rather than a property of spaces.
+    
+    """
     if isinstance(Vh, (ProductFemSpace, VectorFemSpace)):
-        return get_quad_order(Vh.spaces[0])
-    return tuple([g.weights.shape[1] for g in Vh.quad_grids])
+        return get_nquads(Vh.spaces[0])
+    return tuple([g.weights.shape[1] for g in Vh.quad_grids()])
 
 #==============================================================================
 def construct_test_space_arguments(basis_values):
@@ -132,9 +138,9 @@ def construct_quad_grids_arguments(grid, use_weights=True):
     else:
         quads = flatten(list(zip(points)))
 
-    quads_order   = flatten(grid.quad_order)
+    nquads        = flatten(grid.nquads)
     n_elements    = grid.n_elements
-    return n_elements, quads, quads_order
+    return n_elements, quads, nquads
 
 def reset_arrays(*args):
     for a in args:
@@ -177,8 +183,11 @@ class DiscreteBilinearForm(BasicDiscrete):
     update_ghost_regions: bool
         Accumulate the contributions of the neighbouring processes.
 
-    quad_order: list of tuple
+    nquads: list of tuple
         The number of quadrature points used in the assembly method.
+        This optional argument will be mandatory in the future, when quadrature grids
+        will not be property-like attributes of a TensorFemSpace anymore, but instead will only be
+        given to the constructors of DiscreteBilinearForm, DiscreteLinearForm, and DiscreteFunctional.
 
     backend: dict
         The backend used to accelerate the computing kernels.
@@ -197,7 +206,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     """
     def __init__(self, expr, kernel_expr, domain_h, spaces, *, matrix=None, update_ghost_regions=True,
-                       quad_order=None, backend=None, linalg_backend=None, assembly_backend=None,
+                       nquads=None, backend=None, linalg_backend=None, assembly_backend=None,
                        symbolic_mapping=None):
 
         if not isinstance(expr, sym_BilinearForm):
@@ -320,12 +329,12 @@ class DiscreteBilinearForm(BasicDiscrete):
             self._trial_ext = trial_target.ext
 
         #...
-        discrete_space   = (trial_space, test_space)
-        space_quad_order = [qo - 1 for qo in get_quad_order(test_space)]
-        quad_order       = [qo + 1 for qo in (quad_order or space_quad_order)]
+        discrete_space = (trial_space, test_space)
+        space_nquads   = [qo - 1 for qo in get_nquads(test_space)]
+        nquads         = [qo + 1 for qo in (nquads or space_nquads)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(quad_order, get_quad_order(test_space))
+        assert np.array_equal(nquads, get_nquads(test_space))
 
         # Assuming that all vector spaces (and their Cartesian decomposition,
         # if any) are compatible with each other, extract the first available
@@ -344,7 +353,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
         # self._func, self._free_args, self._max_nderiv and self._backend
         BasicDiscrete.__init__(self, expr, kernel_expr, comm=comm, root=0, discrete_space=discrete_space,
-                       quad_order=quad_order, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
+                       nquads=nquads, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
                        mapping_space=mapping_space, num_threads=self._num_threads,backend=assembly_backend)
 
         #...
@@ -548,8 +557,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                 map_coeffs = [[e._coeffs._data for e in self.mapping._fields]]
                 spaces     = [self.mapping._fields[0].space]
                 map_degree = [sp.degree for sp in spaces]
-                map_span   = [[q.spans-s for q,s in zip(sp.quad_grids, sp.vector_space.starts)] for sp in spaces]
-                map_basis  = [[q.basis for q in sp.quad_grids] for sp in spaces]
+                map_span   = [[q.spans-s for q,s in zip(sp.quad_grids(), sp.vector_space.starts)] for sp in spaces]
+                map_basis  = [[q.basis for q in sp.quad_grids()] for sp in spaces]
                 points     = [g.points for g in self.grid]
                 weights    = [self.mapping.weights_field.coeffs._data] if self.is_rational_mapping else []
             elif len(self.grid) == 2:
@@ -588,8 +597,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                         weights_p[0] = weights_p[0]._interface_data[axis, ext]
 
                 map_degree = [sp.degree for sp in spaces]
-                map_span   = [[q.spans-s for q,s in zip(sp.quad_grids, sp.vector_space.starts)] for sp in spaces]
-                map_basis  = [[q.basis for q in sp.quad_grids] for sp in spaces]
+                map_span   = [[q.spans-s for q,s in zip(sp.quad_grids(), sp.vector_space.starts)] for sp in spaces]
+                map_basis  = [[q.basis for q in sp.quad_grids()] for sp in spaces]
                 points     = [g.points for g in self.grid]
 
             nderiv = self.max_nderiv
@@ -920,8 +929,11 @@ class DiscreteLinearForm(BasicDiscrete):
     update_ghost_regions : bool
         Accumulate the contributions of the neighbouring processes.
 
-    quad_order : list or tuple
+    nquads : list or tuple
         The number of quadrature points used in the assembly method.
+        This optional argument will be mandatory in the future, when quadrature grids
+        will not be property-like attributes of a TensorFemSpace anymore, but instead will only be
+        given to the constructors of DiscreteBilinearForm, DiscreteLinearForm, and DiscreteFunctional.
 
     backend : dict
         The backend used to accelerate the computing kernels.
@@ -932,7 +944,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
     """
     def __init__(self, expr, kernel_expr, domain_h, space, *, vector=None,
-                       update_ghost_regions=True, quad_order=None, backend=None,
+                       update_ghost_regions=True, nquads=None, backend=None,
                        symbolic_mapping=None):
 
         if not isinstance(expr, sym_LinearForm):
@@ -1001,11 +1013,11 @@ class DiscreteLinearForm(BasicDiscrete):
         discrete_space            = test_space
 
 
-        space_quad_order = [qo - 1 for qo in get_quad_order(test_space)]
-        quad_order       = [qo + 1 for qo in (quad_order or space_quad_order)]
+        space_nquads = [qo - 1 for qo in get_nquads(test_space)]
+        nquads       = [qo + 1 for qo in (nquads or space_nquads)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(quad_order, get_quad_order(test_space))
+        assert np.array_equal(nquads, get_nquads(test_space))
 
         comm        = None
         if vector_space.parallel:
@@ -1014,7 +1026,7 @@ class DiscreteLinearForm(BasicDiscrete):
         # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
         # self._func, self._free_args, self._max_nderiv and self._backend
         BasicDiscrete.__init__(self, expr, kernel_expr, comm=comm, root=0, discrete_space=discrete_space,
-                              quad_order=quad_order, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
+                              nquads=nquads, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
                               mapping_space=mapping_space, num_threads=self._num_threads, backend=backend)
 
         if not isinstance(target, Boundary):
@@ -1171,7 +1183,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         """
         tests_basis, tests_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
-        n_elements, quads, quads_degree         = construct_quad_grids_arguments(self.grid, use_weights=False)
+        n_elements, quads, nquads               = construct_quad_grids_arguments(self.grid, use_weights=False)
 
         global_pads   = self.space.vector_space.pads
 
@@ -1179,8 +1191,8 @@ class DiscreteLinearForm(BasicDiscrete):
             mapping    = [e._coeffs._data for e in self.mapping._fields]
             space      = self.mapping._fields[0].space
             map_degree = space.degree
-            map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
-            map_basis  = [q.basis for q in space.quad_grids]
+            map_span   = [q.spans-s for q,s in zip(space.quad_grids(), space.vector_space.starts)]
+            map_basis  = [q.basis for q in space.quad_grids()]
             axis       = self.grid.axis
             ext        = self.grid.ext
             points     = self.grid.points
@@ -1204,7 +1216,7 @@ class DiscreteLinearForm(BasicDiscrete):
             map_span   = []
             map_basis  = []
 
-        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping, *self._global_matrices)
+        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *nquads, *global_pads, *mapping, *self._global_matrices)
 
         with_openmp  = with_openmp and self._num_threads>1
 
@@ -1300,8 +1312,11 @@ class DiscreteFunctional(BasicDiscrete):
     update_ghost_regions : bool
         Accumulate the contributions of the neighbouring processes.
 
-    quad_order : list or tuple
+    nquads : list or tuple
         The number of quadrature points used in the assembly method.
+        This optional argument will be mandatory in the future, when quadrature grids
+        will not be property-like attributes of a TensorFemSpace anymore, but instead will only be
+        given to the constructors of DiscreteBilinearForm, DiscreteLinearForm, and DiscreteFunctional.
 
     backend : dict
         The backend used to accelerate the computing kernels.
@@ -1311,7 +1326,7 @@ class DiscreteFunctional(BasicDiscrete):
         The symbolic mapping which defines the physical domain of the functional form.
 
     """
-    def __init__(self, expr, kernel_expr, domain_h, space, *, quad_order=None,
+    def __init__(self, expr, kernel_expr, domain_h, space, *, nquads=None,
                        backend=None, symbolic_mapping=None):
 
         if not isinstance(expr, sym_Functional):
@@ -1387,16 +1402,16 @@ class DiscreteFunctional(BasicDiscrete):
         if vector_space.parallel:
             comm = vector_space.cart.comm
 
-        space_quad_order = [qo - 1 for qo in get_quad_order(self._space)]
-        quad_order       = [qo + 1 for qo in (quad_order or space_quad_order)]
+        space_nquads = [qo - 1 for qo in get_nquads(self._space)]
+        nquads       = [qo + 1 for qo in (nquads or space_nquads)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(quad_order, get_quad_order(self.space))
+        assert np.array_equal(nquads, get_nquads(self.space))
 
         # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
         # self._func, self._free_args, self._max_nderiv and self._backend
         BasicDiscrete.__init__(self, expr, kernel_expr, comm=comm, root=0, discrete_space=discrete_space,
-                              quad_order=quad_order, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
+                              nquads=nquads, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
                               mapping_space=mapping_space, num_threads=num_threads, backend=backend)
 
         self._comm       = domain_h.comm
@@ -1469,14 +1484,14 @@ class DiscreteFunctional(BasicDiscrete):
         tests_degrees = flatten(tests_degrees)
         spans         = flatten(spans)
         quads         = flatten(list(zip(points, weights)))
-        quads_degree  = flatten(self.grid.quad_order)
+        nquads        = flatten(self.grid.nquads)
 
         if self.mapping:
             mapping    = [e._coeffs._data for e in self.mapping._fields]
             space      = self.mapping._fields[0].space
             map_degree = space.degree
-            map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
-            map_basis  = [q.basis for q in space.quad_grids]
+            map_span   = [q.spans-s for q,s in zip(space.quad_grids(), space.vector_space.starts)]
+            map_basis  = [q.basis for q in space.quad_grids()]
 
             if self.is_rational_mapping:
                 mapping = [*mapping, self.mapping._weights_field._coeffs._data]
@@ -1486,7 +1501,7 @@ class DiscreteFunctional(BasicDiscrete):
             map_span   = []
             map_basis  = []
 
-        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping)
+        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *nquads, *global_pads, *mapping)
         args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
 
         return args

@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
-#         nderiv has not been changed. shall we add quad_order too?
+#         nderiv has not been changed. shall we add nquads too?
 import os
 from sympy import Expr as sym_Expr
 import numpy as np
@@ -229,7 +229,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, quad_order=None, basis='B', sequence='DR'):
+def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, nquads=None, basis='B', sequence='DR'):
     """
     This function creates the discretized space starting from the symbolic space.
 
@@ -251,7 +251,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     knots: list | dict
         The knots sequence of the h1 space in each direction.
 
-    quad_order: list
+    nquads: list
         The number of quadrature points in each direction.
 
     basis: str
@@ -378,6 +378,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
         carts    = create_cart(ddms, spaces)
         g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], quad_order=quad_order, dtype=dtype) for i,inter in enumerate(interiors)}
+
 
         for i,j in connectivity:
             ((axis_i, ext_i), (axis_j , ext_j)) = connectivity[i, j]
