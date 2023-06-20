@@ -382,19 +382,17 @@ class BlockVector(Vector):
                 cart_i = Vi.cart
                 cart_j = Vj.cart
 
-                buf = [None]*2
-                # TODO rename buf[0] as read_buffer and buf[1] as write_buffer
                 if cart_i.is_comm_null:
-                    buf[0] = self._blocks[i]._interface_data[axis_i, ext_i]
+                    read_buffer = self._blocks[i]._interface_data[axis_i, ext_i]
                 else:
-                    buf[0] = self._blocks[i]._data
+                    read_buffer = self._blocks[i]._data
 
                 if cart_j.is_comm_null:
-                    buf[1] = self._blocks[j]._interface_data[axis_j, ext_j]
+                    write_buffer = self._blocks[j]._interface_data[axis_j, ext_j]
                 else:
-                    buf[1] = self._blocks[j]._data
+                    write_buffer = self._blocks[j]._data
 
-                self._interface_buf[i, j].append(tuple(buf))
+                self._interface_buf[i, j].append((read_buffer,write_buffer))
 
     # ...
     def exchange_assembly_data(self):
