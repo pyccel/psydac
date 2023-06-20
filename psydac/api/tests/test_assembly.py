@@ -81,7 +81,7 @@ def test_field_and_constant(backend, dtype):
     print("PASSED")
 
 #==============================================================================
-def test_bilinearForm_complex(backend, dtype='complex'):
+def test_bilinearForm_complex(backend):
 
     # If 'backend' is specified, accelerate Python code by passing **kwargs
     # to discretization of bilinear forms, linear forms and functionals.
@@ -91,7 +91,7 @@ def test_bilinearForm_complex(backend, dtype='complex'):
     V = ScalarFunctionSpace('V', domain)
 
     # TODO: remove codomain_type when It is implemented in sympde
-    V.codomain_type = dtype
+    V.codomain_type = 'complex'
     u = element_of(V, name='u')
     v = element_of(V, name='v')
     f = element_of(V, name='f')
@@ -142,7 +142,7 @@ def test_bilinearForm_complex(backend, dtype='complex'):
     print("PASSED")
 
 #==============================================================================
-def test_linearForm_complex(backend, dtype='complex'):
+def test_linearForm_complex(backend):
 
     # If 'backend' is specified, accelerate Python code by passing **kwargs
     # to discretization of bilinear forms, linear forms and functionals.
@@ -152,7 +152,7 @@ def test_linearForm_complex(backend, dtype='complex'):
     V = ScalarFunctionSpace('V', domain)
 
     # TODO: remove codomain_type when It is implemented in sympde
-    V.codomain_type = dtype
+    V.codomain_type = 'complex'
     v = element_of(V, name='v')
     f = element_of(V, name='f')
     c = Constant(name='c')
@@ -200,7 +200,7 @@ def test_linearForm_complex(backend, dtype='complex'):
     print("PASSED")
 
 #==============================================================================
-def test_Norm_complex(backend, dtype='complex'):
+def test_Norm_complex(backend):
 
     # If 'backend' is specified, accelerate Python code by passing **kwargs
     # to discretization of bilinear forms, linear forms and functionals.
@@ -210,7 +210,7 @@ def test_Norm_complex(backend, dtype='complex'):
     V = ScalarFunctionSpace('V', domain)
 
     # TODO: remove codomain_type when It is implemented in sympde
-    V.codomain_type = dtype
+    V.codomain_type = 'complex'
     v = element_of(V, name='v')
     c = Constant(name='c')
 
