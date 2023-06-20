@@ -196,6 +196,59 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
 
     return l2_error, h1_error
 
+#==============================================================================
+def run_helmholtz_2d(solution, f, kappa, domain, ncells=None, degree=None, filename=None, backend=None):
+
+    #+++++++++++++++++++++++++++++++
+    # 1. Abstract model
+    #+++++++++++++++++++++++++++++++
+
+    V   = ScalarFunctionSpace('V', domain, kind=None)
+    V.codomain_type='complex'
+
+    u = element_of(V, name='u')
+    v = element_of(V, name='v')
+
+    nn   = NormalVector('nn')
+
+    bc   = EssentialBC(u, 0, domain.boundary)
+
+    error  = u - solution
+
+    expr   = dot(grad(u),grad(v)) - kappa ** 2 * u * v
+
+    a = BilinearForm((u,v), integral(domain, expr))
+    l = LinearForm(v, integral(domain, f*v))
+
+    equation = find(u, forall=v, lhs=1j*a(u,v), rhs=1j*l(v), bc=bc)
+
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
+
+    #+++++++++++++++++++++++++++++++
+    # 2. Discretization
+    #+++++++++++++++++++++++++++++++
+
+    if filename is None:
+        domain_h = discretize(domain, ncells=ncells)
+        Vh       = discretize(V, domain_h, degree=degree)
+    else:
+        domain_h = discretize(domain, filename=filename)
+        Vh       = discretize(V, domain_h)
+
+    equation_h = discretize(equation, domain_h, [Vh, Vh], backend=backend)
+
+    l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
+    h1norm_h = discretize(h1norm, domain_h, Vh, backend=backend)
+
+    equation_h.set_solver('gmres')
+    uh = equation_h.solve()
+
+    l2_error = l2norm_h.assemble(u=uh)
+    h1_error = h1norm_h.assemble(u=uh)
+
+    return l2_error, h1_error
+
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
@@ -216,7 +269,6 @@ def test_complex_biharmonic_2d():
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
     assert( abs(h2_error - expected_h2_error) < 1.e-7)
-
 
 def test_complex_biharmonic_2d_mapping():
 
@@ -261,7 +313,7 @@ def test_complex_poisson_2d_multipatch():
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
-def test_complex_poisson_2d_multipatch_mapping ():
+def test_complex_poisson_2d_multipatch_mapping():
 
     filename = os.path.join(mesh_dir, 'multipatch/square.h5')
     domain   = Domain.from_file(filename)
@@ -277,3 +329,19 @@ def test_complex_poisson_2d_multipatch_mapping ():
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+
+def test_complex_helmholtz_2d():
+    domain = Square('domain', bounds1=(0, 1), bounds2=(0, 1))
+
+    x, y = domain.coordinates
+    kappa = 2*pi
+    solution = sin(kappa * x) * sin(kappa * y)
+    f = -laplace(solution) - kappa ** 2 * solution 
+
+    l2_error, h1_error = run_helmholtz_2d(solution, f, kappa, domain, ncells=[2**2,2**2], degree=[2,2])
+
+    expected_l2_error = 0.02825173598719276
+    expected_h1_error = 0.5612214263537559
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
