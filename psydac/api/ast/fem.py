@@ -8,7 +8,7 @@ from sympy import Matrix, ImmutableDenseMatrix, Float, true
 from sympy.core.containers import Tuple
 
 from sympde.expr                 import LinearForm
-from sympde.expr                 import BilinearForm
+from sympde.expr                 import BilinearForm, SesquilinearForm
 from sympde.expr                 import Functional
 from sympde.topology.basic       import Boundary, Interface
 from sympde.topology             import H1SpaceType, HcurlSpaceType
@@ -321,6 +321,7 @@ class AST(object):
         # TODO check that we have one single domain/interface/boundary
 
         is_bilinear         = False
+        is_sesquilinear         = False
         is_linear           = False
         is_functional       = False
         tests               = ()
@@ -366,7 +367,7 @@ class AST(object):
             spaces              = spaces.symbolic_space
 
             # Define the type of scalar that the code should manage
-            dtype           = spaces.codomain_type if hasattr(spaces, 'codomain_type') else 'real'
+            dtype           = 'complex' if spaces.codomain_complex else 'real'
 
         elif isinstance(expr, BilinearForm):
             is_bilinear         = True
@@ -382,16 +383,25 @@ class AST(object):
             multiplicity_trials = get_multiplicity(trials, spaces[0].vector_space)
             is_parallel         = spaces[1].vector_space.parallel
             spaces              = [V.symbolic_space for V in spaces]
-
             # Define the type of scalar that the code should manage
-            if hasattr(spaces[0], 'codomain_type'):
-                # TODO uncomment this line when we have a SesquilinearForm define in SymPDE
-                #assert isinstance(expr, SesquilinearForm)
-                dtype           = spaces[0].codomain_type
-            else:
-                # TODO uncomment this line when we have a SesquilinearForm define in SymPDE
-                #assert not isinstance(expr, SesquilinearForm)
-                dtype           = 'real'
+            dtype           = 'real'
+
+        elif isinstance(expr, SesquilinearForm):
+            is_sesquilinear         = True
+            tests               = expr.test_functions
+            trials              = expr.trial_functions
+            atoms               = terminal_expr.expr.atoms(ScalarFunction, VectorFunction)
+            fields              = tuple(i for i in atoms if i not in tests+trials)
+            is_broken           = spaces[1].symbolic_space.is_broken
+            quad_order          = get_quad_order(spaces[1])
+            tests_degrees       = get_degrees(tests, spaces[1])
+            trials_degrees      = get_degrees(trials, spaces[0])
+            multiplicity_tests  = get_multiplicity(tests, spaces[1].vector_space)
+            multiplicity_trials = get_multiplicity(trials, spaces[0].vector_space)
+            is_parallel         = spaces[1].vector_space.parallel
+            spaces              = [V.symbolic_space for V in spaces]
+            # Define the type of scalar that the code should manage
+            dtype           = 'complex'
 
         elif isinstance(expr, Functional):
             is_functional       = True
@@ -541,7 +551,7 @@ class AST(object):
                                           nderiv, domain.dim, dtype, mapping, d_mapping, is_rational_mapping, mapping_space,
                                           mask, tag, num_threads, **kwargs)
 
-        elif is_bilinear:
+        elif is_bilinear or is_sesquilinear:
             ast = _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests, d_tests, trials, d_trials,
                                             fields, d_fields, constants, nderiv, domain.dim, dtype, domain, mapping,
                                             d_mapping, is_rational_mapping, mapping_space,  mask, tag, is_parallel,

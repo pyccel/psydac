@@ -5,8 +5,8 @@
 
 import numpy as np
 from sympy import ImmutableDenseMatrix, Matrix
-
 from sympde.expr          import BilinearForm as sym_BilinearForm
+from sympde.expr          import SesquilinearForm as sym_SesquilinearForm
 from sympde.expr          import LinearForm as sym_LinearForm
 from sympde.expr          import Functional as sym_Functional
 from sympde.expr          import Norm as sym_Norm
@@ -1534,11 +1534,8 @@ class DiscreteFunctional(BasicDiscrete):
 class DiscreteSumForm(BasicDiscrete):
 
     def __init__(self, a, kernel_expr, *args, **kwargs):
-        # TODO Uncomment when the sesquilinearForm exist in SymPDE
-        #if not isinstance(a, (sym_BilinearForm, sym_SesquilinearForm, sym_LinearForm, sym_Functional)):
-            # raise TypeError('> Expecting a symbolic BilinearForm, SesquilinearForm, LinearForm, Functional')
-        if not isinstance(a, (sym_BilinearForm, sym_LinearForm, sym_Functional)):
-            raise TypeError('> Expecting a symbolic BilinearForm, LinearForm, Functional')
+        if not isinstance(a, (sym_BilinearForm, sym_SesquilinearForm, sym_LinearForm, sym_Functional)):
+            raise TypeError('> Expecting a symbolic BilinearForm, SesquilinearForm, LinearForm, Functional')
 
         self._expr = a
         backend = kwargs.pop('backend', None)
@@ -1562,12 +1559,11 @@ class DiscreteSumForm(BasicDiscrete):
                 kwargs['vector'] = ah._vector
                 operator = ah._vector
 
-            # TODO Uncomment when the sesquilinearForm exist in SymPDE
-            # elif isinstance(a, sym_SesquilinearForm):
-            #     kwargs['update_ghost_regions'] = False
-            #     ah = DiscreteSesquilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
-            #     kwargs['matrix'] = ah._matrix
-            #     operator = ah._matrix
+            elif isinstance(a, sym_SesquilinearForm):
+                kwargs['update_ghost_regions'] = False
+                ah = DiscreteSesquilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
+                kwargs['matrix'] = ah._matrix
+                operator = ah._matrix
 
             elif isinstance(a, sym_BilinearForm):
                 kwargs['update_ghost_regions'] = False

@@ -8,6 +8,7 @@ import numpy as np
 
 from sympde.expr     import BasicForm as sym_BasicForm
 from sympde.expr     import BilinearForm as sym_BilinearForm
+from sympde.expr     import SesquilinearForm as sym_SesquilinearForm
 from sympde.expr     import LinearForm as sym_LinearForm
 from sympde.expr     import Functional as sym_Functional
 from sympde.expr     import Equation as sym_Equation
@@ -24,7 +25,7 @@ from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceT
 
 from gelato.expr import GltExpr as sym_GltExpr
 
-from psydac.api.fem          import DiscreteBilinearForm
+from psydac.api.fem          import DiscreteBilinearForm, DiscreteSesquilinearForm
 from psydac.api.fem          import DiscreteLinearForm
 from psydac.api.fem          import DiscreteFunctional
 from psydac.api.fem          import DiscreteSumForm
@@ -299,11 +300,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
         assert isinstance(V, ProductSpace) and len(V.spaces) == 2
 
     # Define data type of our TensorFemSpace
-    dtype = float
-    # TODO remove when codomain_type is implemented in SymPDE
-    if hasattr(V, 'codomain_type'):
-        if V.codomain_type == 'complex':
-            dtype = complex
+    dtype = complex if V.codomain_complex else float
 
     g_spaces   = {}
     domain     = domain_h.domain
@@ -457,9 +454,8 @@ def discretize(a, *args, **kwargs):
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
 
-    # TODO uncomment when the sesquilinearForm subclass of bilinearForm is create in SymPDE
-    # if isinstance(a, sym_SesquilinearForm):
-    #     return DiscreteSesquilinearForm(a, kernel_expr, *args, **kwargs)
+    if isinstance(a, sym_SesquilinearForm):
+        return DiscreteSesquilinearForm(a, kernel_expr, *args, **kwargs)
 
     if isinstance(a, sym_BilinearForm):
         return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
