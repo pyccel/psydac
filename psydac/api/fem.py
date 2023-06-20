@@ -430,7 +430,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def assemble(self, *, reset=True, **kwargs):
         """
-        This method assemble the left hand side Matrix coefficient with the self._func.
+        This method assemble the left hand side Matrix with the self._func.
 
         In the complex case, this function return the conjugate of the Matrix. This come from the fact that the
         problem a(u,v)=b(v) is discretize as A.conj(U)=B due to the antilinearity of a on the first variable.
@@ -1079,7 +1079,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
     def assemble(self, *, reset=True, **kwargs):
         """
-        This method assembles the right-hand side Vector coefficient with the self._func.
+        This method assembles the right-hand side Vector with the self._func.
 
         In the complex case, this function return the conjugate of the Vector. This come from the fact that the
         problem a(u,v)=b(v) is discretize as A.conj(U)=B due to the antilinearity of a on the first variable.
@@ -1493,7 +1493,7 @@ class DiscreteFunctional(BasicDiscrete):
 
     def assemble(self, **kwargs):
         """
-        This method assembles the right-hand side Vector coefficient with the self._func.
+        This method assembles the right-hand side Vector with the self._func.
         """
         args = [*self._args]
         for key in self._free_args:
