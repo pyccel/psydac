@@ -238,7 +238,8 @@ class BasicCodeGen:
         ast = self.ast
         expr = parse(ast.expr, settings={'dim': ast.dim, 'nderiv': ast.nderiv, 'mapping':ast.mapping, 'target':ast.domain}, backend=self.backend)
 
-        code = '{imports}\n{dep}'.format(imports=imports, dep=pycode(expr))
+        dep = pycode(expr)
+        code = f'{imports}\n{dep}'
 
         return code
 
