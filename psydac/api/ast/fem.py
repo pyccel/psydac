@@ -46,13 +46,13 @@ from psydac.api.utilities     import flatten
 from psydac.linalg.block      import BlockVectorSpace
 from psydac.fem.vector        import ProductFemSpace, VectorFemSpace
 
-#=======================================================================================================================
+#==============================================================================
 def toInteger(a):
     if isinstance(a,(int, np.int64)):
         return Integer(int(a))
     return a
 
-#=======================================================================================================================
+#==============================================================================
 def convert(dtype):
     """
     This function returns the index of a Function Space in a 3D DeRham sequence
@@ -67,13 +67,13 @@ def convert(dtype):
     elif isinstance(dtype, L2SpaceType):
         return 3
 
-#=======================================================================================================================
+#==============================================================================
 def compute_diag_len(p, md, mc):
     n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
     n = n-np.minimum(0, n-p)+p+1
     return n.astype('int')
 
-#=======================================================================================================================
+#==============================================================================
 def regroup(tests):
     """
     This function regourps the test/trial functions by their Function Space
@@ -103,7 +103,7 @@ def regroup(tests):
             groups += [(d,g)]
     return groups
 
-#=======================================================================================================================
+#==============================================================================
 def expand(args):
     """
     This function expands vector functions into indexed functions
@@ -119,7 +119,7 @@ def expand(args):
             raise NotImplementedError("TODO")
     return tuple(new_args)
 
-#=======================================================================================================================
+#==============================================================================
 class Block(Basic):
     """
     This class represents a Block of statements
@@ -137,7 +137,7 @@ class Block(Basic):
         return self._args[0]
 
 
-#=======================================================================================================================
+#==============================================================================
 class ParallelBlock(Block):
     def __new__(cls, default='private', private=(), shared=(), firstprivate=(), lastprivate=(), body=()):
         return Basic.__new__(cls, default, private, shared, firstprivate, lastprivate, body)
@@ -167,7 +167,7 @@ class ParallelBlock(Block):
         return self._args[5]
 
 
-#=======================================================================================================================
+#==============================================================================
 class DefNode(Basic):
     """
     DefNode represents a function definition where it contains the arguments and the body
@@ -214,7 +214,7 @@ class DefNode(Basic):
         return self._domain_dtype
 
 
-#=======================================================================================================================
+#==============================================================================
 def expand_hdiv_hcurl(args):
     """
     This function expands vector functions of type hdiv and hculr into indexed functions
@@ -233,7 +233,7 @@ def expand_hdiv_hcurl(args):
 
     return tuple(new_args)
 
-#=======================================================================================================================
+#==============================================================================
 def get_multiplicity(funcs, space):
     def recursive_func(space):
         if isinstance(space, BlockVectorSpace):
@@ -259,7 +259,7 @@ def get_multiplicity(funcs, space):
                 new_multiplicity.append(multiplicity[i])
     return new_multiplicity
 
-#=======================================================================================================================
+#==============================================================================
 def get_degrees(funcs, space):
     degrees = list(space.degree)
     if not isinstance(degrees[0], (list, tuple)):
@@ -278,13 +278,13 @@ def get_degrees(funcs, space):
                 new_degrees.append(degrees[i])
     return new_degrees
 
-#=======================================================================================================================
+#==============================================================================
 def get_quad_order(Vh):
     if isinstance(Vh, (ProductFemSpace, VectorFemSpace)):
         return get_quad_order(Vh.spaces[0])
     return tuple([g.weights.shape[1] for g in Vh.quad_grids])
 
-#=======================================================================================================================
+#==============================================================================
 class AST(object):
     """
     The Ast class transforms a terminal expression returned from sympde
@@ -561,19 +561,19 @@ class AST(object):
         return self._num_threads
 
 
-#=======================================================================================================================
+#==============================================================================
 def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests, trials, d_trials, fields, d_fields,
                               constants, nderiv, dim, dtype, domain, mapping, d_mapping, is_rational_mapping, mapping_space,
                               mask, tag, is_parallel, num_threads, **kwargs):
     """
-    This function creates the assembly function of a bilinearform in the real case
+    This function creates the assembly function of a bilinear form in the real case
     or of a sesquilinear form in complex case.
 
     Parameters
     ----------
 
     terminal_expr : <Matrix>
-        atomic representation of the bilinear/sesquilineqr form
+        atomic representation of the bilinear/sesquilinear form
 
     atomic_expr_field: <dict>
         dict  of atomic expressions of fields
@@ -1187,7 +1187,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
 
     return node
 
-#=======================================================================================================================
+#==============================================================================
 def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fields, d_fields, constants, nderiv,
                             dim, dtype, mapping, d_mapping, is_rational_mapping, mapping_space, mask, tag, num_threads,
                             **kwargs):
@@ -1534,7 +1534,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     return node
 
-#=======================================================================================================================
+#==============================================================================
 def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, constants, nderiv,
                                 dim, dtype, mapping, d_mapping, is_rational_mapping, mapping_space, mask, tag,
                                 num_threads, **kwargs):
