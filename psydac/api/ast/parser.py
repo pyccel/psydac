@@ -1289,8 +1289,9 @@ class Parser(object):
         rhs = [weight*self._visit(expr, **kwargs) for expr in exprs[:]]
         lhs = lhs[:]
 
-        temps = []
-        temps, rhs = cse_main.cse(rhs, symbols=cse_main.numbered_symbols(prefix='temp'))
+        # Create a new name for the temporaries used in each patch
+        name=lhs[0]._name[12:-8]
+        temps, rhs = cse_main.cse(rhs, symbols=cse_main.numbered_symbols(prefix=f'temp{name}'))
 
         normal_vec_stmts = []
         normal_vectors = expr.expr.atoms(NormalVector)

@@ -5,11 +5,12 @@ from sympy import pi, cos, sin, symbols, conjugate, exp
 from sympy.utilities.lambdify import implemented_function
 import pytest
 
-from sympde.calculus import grad, dot
+from sympde.calculus import grad, dot, cross, curl
+from sympy  import Tuple, Matrix
 from sympde.calculus      import minus, plus
 from sympde.calculus import laplace
-from sympde.topology import ScalarFunctionSpace
-from sympde.topology import element_of
+from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.topology import element_of, elements_of
 from sympde.topology import NormalVector
 from sympde.topology import Union
 from sympde.topology import Domain, Square
@@ -249,6 +250,68 @@ def run_helmholtz_2d(solution, f, kappa, domain, ncells=None, degree=None, filen
 
     return l2_error, h1_error
 
+#==============================================================================
+def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=None, k=None, kappa=None, comm=None):
+
+    if filename is None:
+        assert ncells is not None
+        assert degree is not None
+
+    #+++++++++++++++++++++++++++++++
+    # 1. Abstract model
+    #+++++++++++++++++++++++++++++++
+
+    V  = VectorFunctionSpace('V', domain, kind='hcurl')
+    V.codomain_type = 'complex'
+
+    u, v, F  = elements_of(V, names='u, v, F')
+    nn       = NormalVector('nn')
+
+    error   = Matrix([F[0]-uex[0], F[1]-uex[1]])
+
+    boundary = domain.boundary
+
+    kappa   = 10*ncells[0] if ncells else 100
+    k       = 1
+
+    expr1   = curl(u)*curl(v) + alpha*dot(u,v)
+    expr1_b = -cross(nn, v) * curl(u) -k*cross(nn, u)*curl(v)  + kappa*cross(nn, u)*cross(nn, v)
+
+    expr2   = dot(f,v)
+    expr2_b = -k*cross(nn, uex)*curl(v) + kappa * cross(nn, uex) * cross(nn, v)
+
+    # Bilinear form a: V x V --> R
+    a      = BilinearForm((u,v), integral(domain, expr1) + integral(boundary, expr1_b))
+
+    # Linear form l: V --> R
+    l      = LinearForm(v, integral(domain, expr2) + integral(boundary, expr2_b))
+
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
+
+    l2norm = Norm(error, domain, kind='l2')
+    #+++++++++++++++++++++++++++++++
+    # 2. Discretization
+    #+++++++++++++++++++++++++++++++
+
+    if filename is None:
+        domain_h = discretize(domain, ncells=ncells, comm=comm)
+        Vh       = discretize(V, domain_h, degree=degree)
+    else:
+        domain_h = discretize(domain, filename=filename, comm=comm)
+        Vh       = discretize(V, domain_h)
+
+
+    equation_h = discretize(equation, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL)
+    l2norm_h   = discretize(l2norm, domain_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL)
+
+    equation_h.set_solver('bicg', tol=1e-8)
+
+    uh = equation_h.solve()
+    l2_error = l2norm_h.assemble(F=uh)
+
+
+    return l2_error, uh
+
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
@@ -345,3 +408,21 @@ def test_complex_helmholtz_2d():
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+def test_maxwell_2d_2_patch_dirichlet_2():
+
+    domain = Square('domain', bounds1=(0, 1), bounds2=(0, 1))
+    x,y      = domain.coordinates
+
+    omega = 1.5
+    alpha = -1j*omega**2
+    Eex   = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+    f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                  alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+
+    l2_error, Eh      = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2, 2])
+
+    expected_l2_error = 0.012726070686020729
+
+    assert abs(l2_error - expected_l2_error) < 1e-7
+
