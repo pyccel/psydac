@@ -27,8 +27,8 @@ from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
 from psydac.feec.multipatch.operators                   import HodgeOperator, get_K0_and_K0_inv, get_K1_and_K1_inv
 from psydac.feec.multipatch.plotting_utilities_2          import plot_field #, write_field_to_diag_grid, 
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.examples.ppc_test_cases     import get_div_free_pulse
-from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P_phys_hdiv, get_Vh_diags_for
+from psydac.feec.multipatch.examples.ppc_test_cases     import get_div_free_pulse, get_cavity_solution
+from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P_phys_l2, P_phys_hdiv, get_Vh_diags_for
 from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
 from psydac.feec.multipatch.bilinear_form_scipy         import construct_pairing_matrix
 from psydac.feec.multipatch.conf_projections_scipy      import Conf_proj_0, Conf_proj_1, Conf_proj_0_c1, Conf_proj_1_c1
@@ -37,7 +37,7 @@ def solve_td_maxwell_pbm(
         nc=4, deg=4, Nt_pp=None, cfl=.8, nb_t_periods=20, omega=20, source_is_harmonic=True,
         domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
         project_sol=False, filter_source=True, quad_param=1,
-        D0_type='zero', D0_proj='P_L2', 
+        solution_type='zero', solution_proj='P_geom', 
         plot_source=False, plot_dir=None, plot_divD=False, hide_plots=True, plot_time_ranges=None, diag_dtau=None,
         skip_plot_titles=False,
         cb_min_sol=None, cb_max_sol=None,
@@ -89,6 +89,19 @@ def solve_td_maxwell_pbm(
     period_time = 2*np.pi/omega
     final_time = nb_t_periods * period_time
 
+    if solution_type == 'cavity':
+        a = np.pi
+        b = np.pi
+        nx = 3  # mode
+        ny = 2  # mode
+        kx = np.pi * nx / a
+        ky = np.pi * ny / b
+        c = omega / np.sqrt(kx**2 + ky**2)
+    
+    else:
+        raise NotImplementedError
+
+
     if plot_time_ranges is None:
         plot_time_ranges = [[0, final_time], 2]
 
@@ -107,8 +120,8 @@ def solve_td_maxwell_pbm(
     print(' ncells = {}'.format(ncells))
     print(' degree = {}'.format(degree))
     print(' domain_name = {}'.format(domain_name))
-    print(' D0_type = {}'.format(D0_type))
-    print(' D0_proj = {}'.format(D0_proj))
+    print(' solution_type = {}'.format(solution_type))
+    print(' solution_proj = {}'.format(solution_proj))
     print(' source_type = {}'.format(source_type))
     print(' source_proj = {}'.format(source_proj))
     print(' backend_language = {}'.format(backend_language))
@@ -156,7 +169,11 @@ def solve_td_maxwell_pbm(
     d_HOp0   = HodgeOperator(d_V0h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=0)
     d_MM0     = d_HOp0.get_dual_Hodge_sparse_matrix()    # mass matrix
     d_MM0_inv = d_HOp0.to_sparse_matrix()                # inverse mass matrix
-    
+
+    d_HOp1   = HodgeOperator(d_V1h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=1)
+    d_MM1     = d_HOp1.get_dual_Hodge_sparse_matrix()    # mass matrix
+    d_MM1_inv = d_HOp1.to_sparse_matrix()                # inverse mass matrix
+
     print('aa ')
 
     # d_KK1     = construct_pairing_matrix(p_V1h,d_V1h).tocsr()  # matrix in scipy format  # REMOVE
@@ -180,6 +197,10 @@ def solve_td_maxwell_pbm(
     p_HOp1   = HodgeOperator(p_V1h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=1)
     p_MM1     = p_HOp1.get_dual_Hodge_sparse_matrix()    # mass matrix
     p_MM1_inv = p_HOp1.to_sparse_matrix()                # inverse mass matrix
+
+    p_HOp2    = HodgeOperator(p_V2h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=2)
+    p_MM2     = p_HOp2.get_dual_Hodge_sparse_matrix()    # mass matrix
+    p_MM2_inv = p_HOp2.to_sparse_matrix()                # inverse mass matrix
 
     d_KK1     = construct_pairing_matrix(p_V1h,d_V1h).tocsr()  # matrix in scipy format
 
@@ -348,7 +369,7 @@ def solve_td_maxwell_pbm(
         
     t_stamp = time_count(t_stamp)
     
-    def plot_D_field(D_c, nt, project_sol=False, plot_divD=False):
+    def plot_D_field(D_c, nt, project_sol=False, plot_divD=False, label=''):
 
         """
         plot E in p_V1h
@@ -364,12 +385,12 @@ def solve_td_maxwell_pbm(
                 Ep_c = p_PP1_m.dot(E_c)
             else:
                 Dp_c = D_c
-            print(' .. plotting the D field...')                
+            print(' .. plotting the '+label+' D field...')                
             title = r'$D_h$ (amplitude) at $t = {:5.4f}$'.format(dt*nt)
             
             params_str = 'Nt_pp={}'.format(Nt_pp)
             plot_field(numpy_coeffs=Dp_c, Vh=d_V1h, space_kind='hdiv', domain=domain, surface_plot=False, title=title, 
-                filename=plot_dir+'/'+params_str+'_Dh_nt={}.pdf'.format(nt),
+                filename=plot_dir+'/'+params_str+label+'_Dh_nt={}.pdf'.format(nt),
                 plot_type='amplitude', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
 
             if plot_divD:
@@ -380,13 +401,13 @@ def solve_td_maxwell_pbm(
                 divD_norm2 = np.dot(divD_c, d_MM2.dot(divD_c))
                 title = r'div $D_h$ at $t = {:5.4f}, norm = {}$'.format(dt*nt, np.sqrt(divD_norm2))
                 plot_field(numpy_coeffs=divD_c, Vh=d_V2h, space_kind='l2', domain=domain, surface_plot=False, title=title, 
-                    filename=plot_dir+'/'+params_str+'_divDh_nt={}.pdf'.format(nt),
+                    filename=plot_dir+'/'+params_str+label+'_divDh_nt={}.pdf'.format(nt),
                     plot_type=plot_type, cb_min=None, cb_max=None, hide_plot=hide_plots)
                 
         else:
             print(' -- WARNING: unknown plot_dir !!')
 
-    def plot_B_field(B_c, nt):
+    def plot_B_field(B_c, nt, label=''):
 
         if plot_dir:
 
@@ -395,7 +416,7 @@ def solve_td_maxwell_pbm(
 
             title = r'$B_h$ (amplitude) for $t = {:5.4f}$'.format(dt*nt)
             plot_field(numpy_coeffs=B_c, Vh=p_V2h, space_kind='l2', domain=domain, surface_plot=False, title=title, 
-                filename=plot_dir+'/'+params_str+'_Bh_nt={}.pdf'.format(nt),
+                filename=plot_dir+'/'+params_str+label+'_Bh_nt={}.pdf'.format(nt),
                 plot_type='amplitude', cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
 
         else:
@@ -442,7 +463,7 @@ def solve_td_maxwell_pbm(
             title = ''
         else:
             title = r'energy vs '+t_label
-        if D0_type == 'pulse':
+        if solution_type == 'pulse':
             ax.set_ylim([0, 7])
         
         ax.set_xlabel(t_label, fontsize=16)                    
@@ -491,6 +512,27 @@ def solve_td_maxwell_pbm(
             print("saving plot for '"+title+"' in figure '"+diag_fn)
             fig.savefig(diag_fn)     
         
+    
+    def project_exact_cavity_solution(t, proj_type='P_geom'):
+        E_ex, B_ex = get_cavity_solution(omega, kx, ky, t=t, domain=domain)
+
+        if proj_type == 'P_geom':
+            Dex_h = P_phys_hdiv(E_ex, d_geomP1, domain, mappings_list)
+            Dex_c = Dex_h.coeffs.toarray()
+            Bex_h = P_phys_l2(B_ex, p_geomP2, domain, mappings_list)
+            Bex_c = Bex_h.coeffs.toarray()
+
+        elif proj_type == 'P_L2':
+            tilde_D_ex_c = d_derham_h.get_dual_dofs(space='V1', f=E_ex, backend_language=backend_language, return_format='numpy_array')
+            Dex_c = d_MM1_inv.dot(tilde_D_ex_c)
+            tilde_B_ex_c = p_derham_h.get_dual_dofs(space='V2', f=B_ex, backend_language=backend_language, return_format='numpy_array')
+            Bex_c = p_MM2_inv.dot(tilde_B_ex_c)
+        
+        else: 
+            raise NotImplementedError
+        
+        return Dex_c, Bex_c
+        
     # diags arrays
     E_energ_diag = np.zeros(Nt+1)
     H_energ_diag = np.zeros(Nt+1)
@@ -502,39 +544,11 @@ def solve_td_maxwell_pbm(
 
     print(' .. initial solution ..')
 
-    # initial B sol
-    B_c = np.zeros(p_V2h.nbasis)
-    
-    # initial D sol
-    if D0_type == 'zero':
-        D_c = np.zeros(d_V1h.nbasis)
-
-    elif D0_type == 'pulse':       
-
-        D0 = get_div_free_pulse(x_0=1.0, y_0=1.0, domain=domain)
-        
-        if D0_proj == 'P_geom':
-            print(' .. projecting E0 with commuting projection...')
-            D0_h = P_phys_hdiv(D0, d_geomP1, domain, mappings_list)
-            D_c = D0_h.coeffs.toarray()
-        
-        elif D0_proj == 'P_L2':
-            
-            raise NotImplementedError
-            # helper: save/load coefs
-            E0dd_filename = m_load_dir+'/E0_pulse_dual_dofs_qp{}.npy'.format(quad_param)
-            if os.path.exists(E0dd_filename):
-                print(' .. loading E0 dual dofs from file {}'.format(E0dd_filename))
-                tilde_E0_c = np.load(E0dd_filename)
-            else:
-                print(' .. projecting E0 with L2 projection...')
-                tilde_E0_c = derham_h.get_dual_dofs(space='V1', f=E0, backend_language=backend_language, return_format='numpy_array')
-                print(' .. saving E0 dual dofs to file {}'.format(E0dd_filename))
-                np.save(E0dd_filename, tilde_E0_c)
-            E_c = dH1_m.dot(tilde_E0_c)
+    if solution_type == 'cavity':
+        D_c, B_c = project_exact_cavity_solution(t=0, proj_type='P_geom')
 
     else:
-        raise ValueError(D0_type)        
+        raise NotImplementedError    
 
 
     # ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- 
@@ -552,6 +566,11 @@ def solve_td_maxwell_pbm(
     plot_D_field(D_c, nt=0, plot_divD=plot_divD)
     plot_B_field(B_c, nt=0)
     
+    if solution_type == 'cavity':
+        Dex_c, Bex_c = project_exact_cavity_solution(t=0, proj_type='P_geom')
+        plot_D_field(Dex_c, nt=0, plot_divD=plot_divD, label='_ex_')
+        plot_B_field(Bex_c, nt=0, label='_ex_')
+
     f_c = np.copy(f0_c)
     for nt in range(Nt):
         print(' .. nt+1 = {}/{}'.format(nt+1, Nt))
@@ -574,6 +593,10 @@ def solve_td_maxwell_pbm(
         if is_plotting_time(nt+1):
             plot_D_field(D_c, nt=nt+1, project_sol=project_sol, plot_divD=plot_divD)
             plot_B_field(B_c, nt=nt+1)
+            if solution_type == 'cavity':
+                Dex_c, Bex_c = project_exact_cavity_solution(t=(nt+1)*dt, proj_type='P_geom')
+                plot_D_field(Dex_c, nt=nt+1, plot_divD=plot_divD, label='_ex_')
+                plot_B_field(Bex_c, nt=nt+1, label='_ex_')
 
         if (nt+1)%(diag_dtau*Nt_pp) == 0:
             tau_here = nt+1
@@ -595,6 +618,38 @@ def solve_td_maxwell_pbm(
         nt_start=0, 
         nt_end=Nt, 
     )
+
+    if solution_type == 'cavity':
+        t_stamp = time_count(t_stamp)
+
+        print(' .. comparing with an L2 projection of the exact cavity solution...')
+        D_ex_c, B_ex_c = project_exact_cavity_solution(t=final_time)
+        
+        E_ex, B_ex = get_cavity_solution(omega, kx, ky, t=final_time, domain=domain)
+        
+        tilde_D_ex_c = d_derham_h.get_dual_dofs(space='V1', f=E_ex, backend_language=backend_language, return_format='numpy_array')
+        D_ex_c = d_MM1_inv.dot(tilde_D_ex_c)
+        D_err_c = D_c - D_ex_c
+        D_L2_error = np.sqrt(np.dot(D_err_c, d_MM1.dot(D_err_c)))
+
+        tilde_B_ex_c = p_derham_h.get_dual_dofs(space='V2', f=B_ex, backend_language=backend_language, return_format='numpy_array')
+        B_ex_c = p_MM2_inv.dot(tilde_B_ex_c)
+        B_err_c = B_c - B_ex_c
+        B_L2_error = np.sqrt(np.dot(B_err_c, p_MM2.dot(B_err_c)))
+
+        # print(' .. saving E0 dual dofs to file {}'.format(E0dd_filename))
+        # np.save(E0dd_filename, tilde_E0_c)
+                
+        # D_ex_h = P_phys_hdiv(E_ex, d_geomP1, domain, mappings_list)
+        # D_ex_c = D_ex_h.coeffs.toarray()
+        # D_ex_h = P_phys_hdiv(E_ex, d_geomP1, domain, mappings_list)
+        # D_ex_c = D_ex_h.coeffs.toarray()
+
+        print("D_L2_error = ", D_L2_error)
+        print("B_L2_error = ", B_L2_error) 
+        t_stamp = time_count(t_stamp)
+        diags["D_L2_error"] = D_L2_error
+        diags["B_L2_error"] = B_L2_error
 
     return diags
 

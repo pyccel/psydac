@@ -377,3 +377,17 @@ def get_div_free_pulse(x_0, y_0, domain=None):
     f_vect = Tuple(f_x, f_y)
 
     return f_vect
+
+
+def get_cavity_solution(omega, kx, ky, t, domain):
+
+    x,y    = domain.coordinates
+
+        # Exact solutions for electric and magnetic field
+    E_ex = Tuple( 
+         ky * cos(kx * x) * sin(ky * y) * cos(omega * t),
+        -kx * sin(kx * x) * cos(ky * y) * cos(omega * t)
+    )
+    B_ex = cos(kx * x) * cos(ky * y) * sin(omega * t) * (kx**2 + ky**2) / omega
+
+    return E_ex, B_ex
