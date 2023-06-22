@@ -268,12 +268,20 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
     u, v, F  = elements_of(V, names='u, v, F')
     nn       = NormalVector('nn')
 
-    error   = Matrix([F[0]-uex[0], F[1]-uex[1]])
+    error   = Matrix([1j*F[0]-uex[0], 1j*F[1]-uex[1]])
 
     boundary = domain.boundary
+    I        = domain.interfaces
 
     kappa   = 10*ncells[0] if ncells else 100
     k       = 1
+
+    jump = lambda w:plus(w)-minus(w)
+    avr  = lambda w:(plus(w) + minus(w))/2
+
+    expr1_I  =  cross(nn, jump(v))*curl(avr(u))\
+               +k*cross(nn, jump(u))*curl(avr(v))\
+               +kappa*cross(nn, jump(u))*cross(nn, jump(v))
 
     expr1   = curl(u)*curl(v) + alpha*dot(u,v)
     expr1_b = -cross(nn, v) * curl(u) -k*cross(nn, u)*curl(v)  + kappa*cross(nn, u)*cross(nn, v)
@@ -282,12 +290,12 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
     expr2_b = -k*cross(nn, uex)*curl(v) + kappa * cross(nn, uex) * cross(nn, v)
 
     # Bilinear form a: V x V --> R
-    a      = BilinearForm((u,v), integral(domain, expr1) + integral(boundary, expr1_b))
+    a      = BilinearForm((u,v), integral(domain, expr1) + integral(boundary, expr1_b) + integral(I, expr1_I))
 
     # Linear form l: V --> R
     l      = LinearForm(v, integral(domain, expr2) + integral(boundary, expr2_b))
 
-    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
+    equation = find(u, forall=v, lhs=1j*a(u,v), rhs=l(v))
 
     l2norm = Norm(error, domain, kind='l2')
     #+++++++++++++++++++++++++++++++
@@ -457,6 +465,6 @@ def test_maxwell_2d_2_patch_dirichlet_parallel_0():
 
     l2_error, Eh      = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], comm=MPI.COMM_WORLD)
 
-    expected_l2_error = 0.012079972184813596
+    expected_l2_error = 0.012075890891927784
 
     assert abs(l2_error - expected_l2_error) < 1e-7
