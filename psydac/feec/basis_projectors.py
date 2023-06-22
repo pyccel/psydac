@@ -13,6 +13,10 @@ from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic import FemField
 from psydac.utilities.utils import roll_edges
 
+from sympy.core.numbers import Zero
+
+from copy import deepcopy
+
 
 
 class BasisProjectionOperator(LinearOperator):
@@ -327,7 +331,7 @@ class BasisProjectionOperator(LinearOperator):
             return BlockLinearOperator(V.vector_space, P.space.vector_space, blocks)
 
 
-def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
+def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, bc, n_quad=None):
     '''Obtain knot span indices and basis functions evaluated at projection point sets of a given space.
 
     Parameters
@@ -405,7 +409,11 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
             pts += [x]
             wts += [w]
             np_pts_cell += [nq]
+            
         # Knot span indices and V-basis functions evaluated at W-point sets
+        if direction in bc :
+            wts[-1][0]=0.
+            wts[-1][-1]=0.
         s, b = get_span_and_basis(pts[-1], space_in)
 
         spans += [s]
@@ -685,7 +693,7 @@ def preprocess_grid_with_ff(P, V, f_type, bc):
 
             else : 
                 _ptsG, _wtsG, _spans, _bases, _npt_pts = prepare_projection_of_basis(
-                    V1d, W1d, _starts_out, _ends_out, nq)
+                    V1d, W1d, _starts_out, _ends_out, loc_b,nq)
                 line_pre.append((_ptsG, _wtsG, _spans, _bases, _npt_pts))
-        preproc.append(line_pre.copy())
+        preproc.append(deepcopy(line_pre))
     return preproc
