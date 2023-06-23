@@ -869,7 +869,6 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
 
     patch_space = V1h.spaces[0]
     local_shape = [[patch_space.spaces[0].spaces[0].nbasis,patch_space.spaces[0].spaces[1].nbasis],[patch_space.spaces[1].spaces[0].nbasis,patch_space.spaces[1].spaces[1].nbasis]]
-    p      = patch_space.degree                     # spline degrees
     Nel    = patch_space.ncells                     # number of elements
     patch_space_x = patch_space.spaces[0]
     patch_space_y = patch_space.spaces[1]
@@ -881,26 +880,27 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
     #compute grid for the correction coefficients ensuring moment preservation
     grid = [np.array([deepcopy((0.5*(u[0]+1)*(breakpoints_x_x[i+1]-breakpoints_x_x[i])+breakpoints_x_x[i])) for i in range(Nel[0])]),
             np.array([deepcopy((0.5*(u[1]+1)*(breakpoints_x_y[i+1]-breakpoints_x_y[i])+breakpoints_x_y[i])) for i in range(Nel[1])])]
-    _, basis_x, span_x, _ = patch_space_x.preprocess_regular_tensor_grid(grid,der=1)
-    _, basis_y, span_y, _ = patch_space_y.preprocess_regular_tensor_grid(grid,der=1)
+    _, basis_x, span_x, _ = patch_space_x.preprocess_regular_tensor_grid(grid,der=0)
+    _, basis_y, span_y, _ = patch_space_y.preprocess_regular_tensor_grid(grid,der=0)
     span_x = [deepcopy(span_x[k] + patch_space_x.vector_space.starts[k] - patch_space_x.vector_space.shifts[k] * patch_space_x.vector_space.pads[k]) for k in range(2)]
     span_y = [deepcopy(span_y[k] + patch_space_y.vector_space.starts[k] - patch_space_y.vector_space.shifts[k] * patch_space_y.vector_space.pads[k]) for k in range(2)]
-    px=degree_x[0]
+    px=degree_x[1]
     enddom = breakpoints_x_x[-1]
     begdom = breakpoints_x_x[0]
     denom = enddom-begdom
-    #Direction x
-    Mass_mat = np.zeros((px+1,local_shape[0][0]))
+    #Direction y (average x component)
+    Mass_mat = np.zeros((px+1,local_shape[0][1]))
     #computing the contribution to every moment of the differents basis function
     for poldeg in range(px+1):
-        for ie1 in range(Nel[0]):   #loop on cells
-            for il1 in range(degree_x[0]+1): #loops on basis function in each cell
+        for ie1 in range(Nel[1]):   #loop on cells
+            cell_size = breakpoints_x_y[ie1+1]-breakpoints_x_y[ie1]
+            for il1 in range(px+1): #loops on basis function in each cell
                 val=0.
-                for q1 in range(nquads[0]): #loops on quadrature points
-                    v0 = basis_x[0][ie1,il1,0,q1]
-                    x  = grid[0][ie1,q1]
-                    val += w[0][q1]*v0*((enddom-x)/denom)**poldeg
-                locindx=span_x[0][ie1]-degree_x[0]+il1
+                for q1 in range(nquads[1]): #loops on quadrature points
+                    v0 = basis_x[1][ie1,il1,0,q1]
+                    x  = grid[1][ie1,q1]
+                    val += cell_size*0.5*w[1][q1]*v0*((x-begdom)/denom)**poldeg
+                locindx=span_x[1][ie1]-degree_x[1]+il1
                 Mass_mat[poldeg,locindx]+=val
     Rhs_0 = Mass_mat[:,0]
     Rhs_1 = Mass_mat[:,1]
@@ -912,30 +912,32 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
 
     Correct_coef_x_bnd = np.linalg.solve(Mat_to_inv_bnd,Rhs_0)
 
-    py=degree_y[1]
+    py=degree_y[0]
     enddom = breakpoints_x_y[-1]
     begdom = breakpoints_x_y[0]
     denom = enddom-begdom
-    #Direction y
-    Mass_mat = np.zeros((py+1,local_shape[1][1]))
+    #Direction x (average y component)
+    Mass_mat = np.zeros((py+1,local_shape[1][0]))
     #computing the contribution to every moment of the differents basis function
     for poldeg in range(py+1):
         for ie1 in range(Nel[1]):   #loop on cells
-            for il1 in range(degree_y[1]+1): #loops on basis function in each cell
+            cell_size = breakpoints_x_y[ie1+1]-breakpoints_x_y[ie1]
+            for il1 in range(py+1): #loops on basis function in each cell
                 val=0.
                 for q1 in range(nquads[1]): #loops on quadrature points
-                    v0 = basis_y[1][ie1,il1,0,q1]
+                    v0 = basis_y[0][ie1,il1,0,q1]
                     y  = grid[1][ie1,q1]
-                    val += w[1][q1]*v0*((enddom-y)/denom)**poldeg 
-                locindy=span_y[1][ie1]-degree_y[1]+il1
+                    val += cell_size/2*w[1][q1]*v0*((y-begdom)/denom)**poldeg 
+                locindy=span_y[0][ie1]-degree_y[0]+il1
                 Mass_mat[poldeg,locindy]+=val
+                
     Rhs_0 = Mass_mat[:,0]
     Rhs_1 = Mass_mat[:,1]
     Mat_to_inv = Mass_mat[:,2:py+3]
     Mat_to_inv_bnd = Mass_mat[:,1:py+2]
 
-    Correct_coef_y_0 = np.linalg.solve(Mat_to_inv,Rhs_0)
     Correct_coef_y_1 = np.linalg.solve(Mat_to_inv,Rhs_1)
+    Correct_coef_y_0 = np.linalg.solve(Mat_to_inv,Rhs_0)
 
     Correct_coef_y_bnd = np.linalg.solve(Mat_to_inv_bnd,Rhs_0)
     #Direction y, interface on the right
@@ -1005,10 +1007,10 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                                 [s_plus.spaces[1].spaces[0].nbasis,s_plus.spaces[1].spaces[1].nbasis]]
             if axis == 0 :
                 for i in range(s_plus.spaces[1].spaces[1].nbasis):
-                    indice_minus = loca2global([i_minus,1,n_deg_minus-1,i],n_patches,patch_shape_minus)
-                    indice_plus  = loca2global([i_plus,1,0,i],n_patches,patch_shape_plus)
+                    indice_minus = loca2global([i_minus,  1,n_deg_minus-1,i],n_patches,patch_shape_minus)
+                    indice_plus  = loca2global([i_plus,   1,   0,i],n_patches,patch_shape_plus)
                     indice_minus_1 = loca2global([i_minus,1,n_deg_minus-2,i],n_patches,patch_shape_minus)
-                    indice_plus_1  = loca2global([i_plus,1,1,i],n_patches,patch_shape_plus)
+                    indice_plus_1  = loca2global([i_plus, 1,   1,i],n_patches,patch_shape_plus)
                     #changing this coefficients ensure C1 continuity at the interface
                     Proj[indice_minus,indice_minus]-=1/2
                     Proj[indice_plus,indice_plus]-=1/2
@@ -1025,10 +1027,7 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                         #modified by the C1 enforcement
                         indice_plus_i  = loca2global([i_plus,  1, p+2,                 i], n_patches,patch_shape_plus)
                         indice_minus_i = loca2global([i_minus, 1, n_deg_minus-1-(p+2), i], n_patches,patch_shape_minus)
-                        indice_plus    = loca2global([i_plus,  1, 0,                   i], n_patches,patch_shape_plus)
-                        indice_minus   = loca2global([i_minus, 1, n_deg_minus-1,       i], n_patches,patch_shape_minus)
-                        indice_minus_1 = loca2global([i_minus,1,n_deg_minus-2,i],n_patches,patch_shape_minus)
-                        indice_plus_1  = loca2global([i_plus,1,1,i],n_patches,patch_shape_plus)
+
                         Proj[indice_plus_i,indice_plus]+=Correct_coef_y_0[p]/2
                         Proj[indice_plus_i,indice_minus]-=Correct_coef_y_0[p]/2
                         Proj[indice_minus_i,indice_plus]-=Correct_coef_y_0[p]/2
@@ -1039,6 +1038,15 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                         Proj[indice_plus_i,indice_minus]-=Correct_coef_y_1[p]
                         Proj[indice_minus_i,indice_plus_1]+=Correct_coef_y_1[p]/2
                         Proj[indice_plus_i,indice_minus_1]+=Correct_coef_y_1[p]/2
+                n_deg_minus = s_minus.spaces[axis].spaces[axis].nbasis
+                for i in range(s_plus.spaces[0].spaces[1].nbasis):
+                    indice_minus = loca2global([i_minus,  0,n_deg_minus-1,i],n_patches,patch_shape_minus)
+                    indice_plus  = loca2global([i_plus,   0,   0,i],n_patches,patch_shape_plus)
+                    #changing this coefficients ensure C1 continuity at the interface
+                    Proj[indice_minus,indice_minus]-=1/2
+                    Proj[indice_plus,indice_plus]-=1/2
+                    Proj[indice_plus,indice_minus]+=1/2
+                    Proj[indice_minus,indice_plus]+=1/2
             elif axis == 1 :
                 for i in range(s_plus.spaces[0].spaces[0].nbasis):
                     indice_minus = loca2global([i_minus,0,i,n_deg_minus-1],n_patches,patch_shape_minus)
@@ -1061,10 +1069,6 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                         #modified by the C1 enforcement
                         indice_plus_i  = loca2global([i_plus,  0, i, p+2                ], n_patches,patch_shape_plus)
                         indice_minus_i = loca2global([i_minus, 0, i, n_deg_minus-1-(p+2)], n_patches,patch_shape_minus)
-                        indice_plus    = loca2global([i_plus,  0, i, 0                  ], n_patches,patch_shape_plus)
-                        indice_minus   = loca2global([i_minus, 0, i, n_deg_minus-1      ], n_patches,patch_shape_minus)
-                        indice_minus_1 = loca2global([i_minus,0,i,n_deg_minus-2],n_patches,patch_shape_minus)
-                        indice_plus_1  = loca2global([i_plus,0,i,1],n_patches,patch_shape_plus)
                         Proj[indice_plus_i,indice_plus]+=Correct_coef_x_0[p]/2
                         Proj[indice_plus_i,indice_minus]-=Correct_coef_x_0[p]/2
                         Proj[indice_minus_i,indice_plus]-=Correct_coef_x_0[p]/2
@@ -1075,7 +1079,15 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                         Proj[indice_plus_i,indice_minus]-=Correct_coef_x_1[p]
                         Proj[indice_minus_i,indice_plus_1]+=Correct_coef_x_1[p]/2
                         Proj[indice_plus_i,indice_minus_1]+=Correct_coef_x_1[p]/2
-
+                n_deg_minus = s_minus.spaces[axis].spaces[axis].nbasis
+                for i in range(s_plus.spaces[1].spaces[0].nbasis):
+                    indice_minus = loca2global([i_minus,  1,i,n_deg_minus-1],n_patches,patch_shape_minus)
+                    indice_plus  = loca2global([i_plus,   1, i,  0,],n_patches,patch_shape_plus)
+                    #changing this coefficients ensure C1 continuity at the interface
+                    Proj[indice_minus,indice_minus]-=1/2
+                    Proj[indice_plus,indice_plus]-=1/2
+                    Proj[indice_plus,indice_minus]+=1/2
+                    Proj[indice_minus,indice_plus]+=1/2
         if hom_bc:
             for b in boundary : 
                 axis = b.axis
@@ -1133,4 +1145,113 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                         #Proj[indice_1,indice_1]-=1/2
     else :
         print("Error in Conf_proj_1 : wrong kind of space")
-    return Proj
+
+    Proj_par = sparse_eye(dim_tot,format="lil")
+
+    enddom = breakpoints_x_x[-1]
+    begdom = breakpoints_x_x[0]
+    denom = enddom-begdom
+    #Direction x (average x component)
+    Mass_mat = np.zeros((px+1,local_shape[0][0]))
+    #computing the contribution to every moment of the differents basis function
+    for poldeg in range(px+1):
+        for ie1 in range(Nel[0]):   #loop on cells
+            cell_size = breakpoints_x_x[ie1+1]-breakpoints_x_x[ie1]
+            for il1 in range(degree_x[0]+1): #loops on basis function in each cell
+                val=0.
+                for q1 in range(nquads[0]): #loops on quadrature points
+                    v0 = basis_x[0][ie1,il1,0,q1]
+                    x  = grid[0][ie1,q1]
+                    val += cell_size*0.5*w[0][q1]*v0*((x-begdom)/denom)**poldeg
+                locindx=span_x[0][ie1]-degree_x[0]+il1
+                Mass_mat[poldeg,locindx]+=val
+    Rhs = Mass_mat[:,0]
+    Mat_to_inv = Mass_mat[:,1:px+2]
+    Mat_to_inv_bnd = Mass_mat[:,1:px+2]
+
+    Correct_coef_x = np.linalg.solve(Mat_to_inv,Rhs) #coefficient to ensure moment preservation due to modification of first coeff
+
+    Correct_coef_x_bnd = np.linalg.solve(Mat_to_inv_bnd,Rhs)
+
+    enddom = breakpoints_x_y[-1]
+    begdom = breakpoints_x_y[0]
+    denom = enddom-begdom
+    #Direction x (average y component)
+    Mass_mat = np.zeros((py+1,local_shape[1][1]))
+    #computing the contribution to every moment of the differents basis function
+    for poldeg in range(py+1):
+        for ie1 in range(Nel[1]):   #loop on cells
+            cell_size = breakpoints_x_y[ie1+1]-breakpoints_x_y[ie1]
+            for il1 in range(degree_y[1]+1): #loops on basis function in each cell
+                val=0.
+                for q1 in range(nquads[1]): #loops on quadrature points
+                    v0 = basis_y[1][ie1,il1,0,q1]
+                    y  = grid[1][ie1,q1]
+                    val += cell_size/2*w[1][q1]*v0*((y-begdom)/denom)**poldeg 
+                locindy=span_y[1][ie1]-degree_y[1]+il1
+                Mass_mat[poldeg,locindy]+=val
+                
+    Rhs = Mass_mat[:,0]
+    Mat_to_inv = Mass_mat[:,1:py+2]
+    Mat_to_inv_bnd = Mass_mat[:,1:py+2]
+
+    Correct_coef_y = np.linalg.solve(Mat_to_inv,Rhs)
+
+    Correct_coef_y_bnd = np.linalg.solve(Mat_to_inv_bnd,Rhs)
+
+    for I in Interfaces:
+        axis = I.axis
+        i_minus = get_patch_index_from_face(domain, I.minus)
+        i_plus  = get_patch_index_from_face(domain, I.plus )
+        s_minus = V1h.spaces[i_minus]
+        s_plus  = V1h.spaces[i_plus]
+        naxis = (axis+1)%2
+        patch_shape_minus = [[s_minus.spaces[0].spaces[0].nbasis,s_minus.spaces[0].spaces[1].nbasis],
+                            [s_minus.spaces[1].spaces[0].nbasis,s_minus.spaces[1].spaces[1].nbasis]]
+        patch_shape_plus  = [[s_plus.spaces[0].spaces[0].nbasis,s_plus.spaces[0].spaces[1].nbasis],
+                            [s_plus.spaces[1].spaces[0].nbasis,s_plus.spaces[1].spaces[1].nbasis]]
+        n_deg_minus = s_minus.spaces[axis].spaces[axis].nbasis
+        if axis == 0 :
+            for i in range(s_plus.spaces[0].spaces[1].nbasis):
+                indice_minus = loca2global([i_minus,  0,n_deg_minus-1,i],n_patches,patch_shape_minus)
+                indice_plus  = loca2global([i_plus,   0,   0,i],n_patches,patch_shape_plus)
+                #changing this coefficients ensure C0 continuity at the interface
+                Proj_par[indice_minus,indice_minus]-=1/2
+                Proj_par[indice_plus,indice_plus]-=1/2
+                Proj_par[indice_plus,indice_minus]+=1/2
+                Proj_par[indice_minus,indice_plus]+=1/2
+                for p in range(0,px+1):
+                    #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
+                    #modified by the C0 enforcement
+                    indice_plus_i  = loca2global([i_plus,  0, p+1,                 i], n_patches,patch_shape_plus)
+                    indice_minus_i = loca2global([i_minus, 0, n_deg_minus-1-(p+1), i], n_patches,patch_shape_minus)
+
+                    Proj_par[indice_plus_i,indice_plus]+=Correct_coef_x[p]/2
+                    Proj_par[indice_plus_i,indice_minus]-=Correct_coef_x[p]/2
+                    Proj_par[indice_minus_i,indice_plus]-=Correct_coef_x[p]/2
+                    Proj_par[indice_minus_i,indice_minus]+=Correct_coef_x[p]/2
+        elif axis == 1 :
+            for i in range(s_plus.spaces[1].spaces[0].nbasis):
+                indice_minus = loca2global([i_minus,  1,i,n_deg_minus-1],n_patches,patch_shape_minus)
+                indice_plus  = loca2global([i_plus,   1, i,  0,],n_patches,patch_shape_plus)
+                #changing this coefficients ensure C0 continuity at the interface
+                Proj_par[indice_minus,indice_minus]-=1/2
+                Proj_par[indice_plus,indice_plus]-=1/2
+                Proj_par[indice_plus,indice_minus]+=1/2
+                Proj_par[indice_minus,indice_plus]+=1/2
+                for p in range(0,py+1):
+                    #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
+                    #modified by the C0 enforcement
+                    indice_plus_i  = loca2global([i_plus,  1, i, p+1                ], n_patches,patch_shape_plus)
+                    indice_minus_i = loca2global([i_minus, 1, i, n_deg_minus-1-(p+1)], n_patches,patch_shape_minus)
+
+                    Proj_par[indice_plus_i,indice_plus]+=Correct_coef_y[p]/2
+                    Proj_par[indice_plus_i,indice_minus]-=Correct_coef_y[p]/2
+                    Proj_par[indice_minus_i,indice_plus]-=Correct_coef_y[p]/2
+                    Proj_par[indice_minus_i,indice_minus]+=Correct_coef_y[p]/2
+
+    #print((Proj@Proj_par-Proj_par@Proj))
+
+    #assert(np.allclose((Proj@Proj_par).todense(),(Proj_par@Proj).todense()))
+
+    return Proj@Proj_par
