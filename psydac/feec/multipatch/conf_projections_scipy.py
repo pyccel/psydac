@@ -1038,15 +1038,7 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                         Proj[indice_plus_i,indice_minus]-=Correct_coef_y_1[p]
                         Proj[indice_minus_i,indice_plus_1]+=Correct_coef_y_1[p]/2
                         Proj[indice_plus_i,indice_minus_1]+=Correct_coef_y_1[p]/2
-                n_deg_minus = s_minus.spaces[axis].spaces[axis].nbasis
-                for i in range(s_plus.spaces[0].spaces[1].nbasis):
-                    indice_minus = loca2global([i_minus,  0,n_deg_minus-1,i],n_patches,patch_shape_minus)
-                    indice_plus  = loca2global([i_plus,   0,   0,i],n_patches,patch_shape_plus)
-                    #changing this coefficients ensure C1 continuity at the interface
-                    Proj[indice_minus,indice_minus]-=1/2
-                    Proj[indice_plus,indice_plus]-=1/2
-                    Proj[indice_plus,indice_minus]+=1/2
-                    Proj[indice_minus,indice_plus]+=1/2
+
             elif axis == 1 :
                 for i in range(s_plus.spaces[0].spaces[0].nbasis):
                     indice_minus = loca2global([i_minus,0,i,n_deg_minus-1],n_patches,patch_shape_minus)
@@ -1079,15 +1071,7 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                         Proj[indice_plus_i,indice_minus]-=Correct_coef_x_1[p]
                         Proj[indice_minus_i,indice_plus_1]+=Correct_coef_x_1[p]/2
                         Proj[indice_plus_i,indice_minus_1]+=Correct_coef_x_1[p]/2
-                n_deg_minus = s_minus.spaces[axis].spaces[axis].nbasis
-                for i in range(s_plus.spaces[1].spaces[0].nbasis):
-                    indice_minus = loca2global([i_minus,  1,i,n_deg_minus-1],n_patches,patch_shape_minus)
-                    indice_plus  = loca2global([i_plus,   1, i,  0,],n_patches,patch_shape_plus)
-                    #changing this coefficients ensure C1 continuity at the interface
-                    Proj[indice_minus,indice_minus]-=1/2
-                    Proj[indice_plus,indice_plus]-=1/2
-                    Proj[indice_plus,indice_minus]+=1/2
-                    Proj[indice_minus,indice_plus]+=1/2
+
         if hom_bc:
             for b in boundary : 
                 axis = b.axis
@@ -1250,8 +1234,8 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                     Proj_par[indice_minus_i,indice_plus]-=Correct_coef_y[p]/2
                     Proj_par[indice_minus_i,indice_minus]+=Correct_coef_y[p]/2
 
-    #print((Proj@Proj_par-Proj_par@Proj))
+    print((Proj@Proj_par-Proj_par@Proj))
 
-    #assert(np.allclose((Proj@Proj_par).todense(),(Proj_par@Proj).todense()))
+    assert(np.allclose((Proj@Proj_par).todense(),(Proj_par@Proj).todense()))
 
     return Proj@Proj_par
