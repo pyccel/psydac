@@ -25,14 +25,14 @@ from psydac.api.settings                                import PSYDAC_BACKENDS
 from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
 from psydac.feec.multipatch.operators                   import HodgeOperator
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.plotting_utilities          import plot_field
+from psydac.feec.multipatch.plotting_utilities_2          import plot_field
 from psydac.feec.multipatch.utilities                   import time_count #, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
 # from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_file
 from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2
 from psydac.feec.multipatch.utils_conga_2d              import P_phys_l2, P_phys_hdiv, P_phys_hcurl, P_phys_h1
 
 from psydac.feec.multipatch.bilinear_form_scipy import construct_pairing_matrix
-from psydac.feec.multipatch.conf_projections_scipy import Conf_proj_0, Conf_proj_1, Conf_proj_1_c1
+from psydac.feec.multipatch.conf_projections_scipy import Conf_proj_0, Conf_proj_1, Conf_proj_0_c1, Conf_proj_1_c1
 from sympde.topology      import Square    
 from sympde.topology      import IdentityMapping, PolarMapping
 from psydac.fem.vector import ProductFemSpace
@@ -131,47 +131,62 @@ def try_ssc_2d(
     d_V2h = d_derham_h.V2
 
     t_stamp = time_count(t_stamp)
+    print('Pairing matrices...')
+
+    p_KK1     = construct_pairing_matrix(d_V1h,p_V1h).tocsr()  # matrix in scipy format
+    p_KK2     = construct_pairing_matrix(d_V0h,p_V2h).tocsr()  # matrix in scipy format
+    d_KK1     = p_KK1.transpose()
+
+    t_stamp = time_count(t_stamp)
+    print('Conforming projections...')
+    p_PP0     = Conf_proj_0_c1(p_V0h, nquads = [4*(d + 1) for d in p_degree], hom_bc=False)
+    p_PP1     = Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in p_degree], hom_bc=False)
+    d_PP0     = Conf_proj_0(d_V0h, nquads = [4*(d + 1) for d in d_degree])
+    d_PP1     = Conf_proj_1(d_V1h, nquads = [4*(d + 1) for d in d_degree])
+
+    t_stamp = time_count(t_stamp)
     print('Mass matrices...')
+    p_HOp1    = HodgeOperator(p_V1h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=1)
+    p_MM1     = p_HOp1.get_dual_Hodge_sparse_matrix()    # mass matrix
+    p_MM1_inv = p_HOp1.to_sparse_matrix()                # inverse mass matrix
 
-    ## NOTE: with a strong-strong diagram we should not call these "Hodge" operators !! 
-    # p_H1 = HodgeOperator(p_V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
-    # d_H1 = HodgeOperator(d_V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
+    p_HOp2    = HodgeOperator(p_V2h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=2)
+    p_MM2     = p_HOp2.get_dual_Hodge_sparse_matrix()    # mass matrix
+    p_MM2_inv = p_HOp2.to_sparse_matrix()                # inverse mass matrix
+
+    d_HOp0    = HodgeOperator(d_V0h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=0)
+    d_MM0     = d_HOp0.get_dual_Hodge_sparse_matrix()    # mass matrix
+    d_MM0_inv = d_HOp0.to_sparse_matrix()                # inverse mass matrix
+
+    d_HOp1    = HodgeOperator(d_V1h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=1)
+    d_MM1     = d_HOp1.get_dual_Hodge_sparse_matrix()    # mass matrix
+    d_MM1_inv = d_HOp1.to_sparse_matrix()                # inverse mass matrix
+
+    t_stamp = time_count(t_stamp)
+    print('Hodge operators...')
     
-    if Htest == 'p_HH2':
-        # p_HH2: p_V2 -> d_V0
-        p_KK2     = construct_pairing_matrix(d_V0h,p_V2h).tocsr()  # matrix in scipy format
-        d_PP0     = Conf_proj_0(d_V0h, nquads = [4*(d + 1) for d in d_degree])
-        d_HOp0    = HodgeOperator(d_V0h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=0)
-        d_MM0     = d_HOp0.get_dual_Hodge_sparse_matrix()    # mass matrix
-        d_MM0_inv = d_HOp0.to_sparse_matrix()                # inverse mass matrix
+    p_HH1     = d_MM1_inv @ d_PP1.transpose() @ p_KK1
+    p_HH2     = d_MM0_inv @ d_PP0.transpose() @ p_KK2
 
-        p_HH2     = d_MM0_inv @ d_PP0.transpose() @ p_KK2
-        # d_HH2     = p_MM1_inv @ d_KK1           # L2 projection (L2 version of Hodge)
+    d_HH1     = p_MM1_inv @ p_PP1.transpose() @ d_KK1     #  BAD !!
+    
+    t_stamp = time_count(t_stamp)
+    print('diff operators...')
 
-    elif Htest == 'd_HH1':
-        # d_HH1: d_V1 -> p_V1
-        d_KK1     = construct_pairing_matrix(p_V1h,d_V1h).tocsr()  # matrix in scipy format
-        p_PP1     = Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in p_degree], hom_bc=True)
-        p_HOp1    = HodgeOperator(p_V1h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=1)
-        p_MM1     = p_HOp1.get_dual_Hodge_sparse_matrix()    # mass matrix
-        p_MM1_inv = p_HOp1.to_sparse_matrix()                # inverse mass matrix
+    p_bD0, p_bD1 = p_derham_h.broken_derivatives_as_operators
+    d_bD0, d_bD1 = d_derham_h.broken_derivatives_as_operators
+    
+    p_bG = p_bD0.to_sparse_matrix() # broken grad (primal)
+    p_GG = p_bG @ p_PP0             # Conga grad (primal)
+    p_bC = p_bD1.to_sparse_matrix() # broken curl (primal: scalar-valued)
+    p_CC = p_bC @ p_PP1             # Conga curl (primal)
+    
+    d_bC = d_bD0.to_sparse_matrix() # broken curl (dual: vector-valued)
+    d_CC = d_bC @ d_PP0             # Conga curl (dual)    
+    d_bD = d_bD1.to_sparse_matrix() # broken div
+    d_DD = d_bD @ d_PP1             # Conga div (dual)    
+
         
-        d_HH1     = p_MM1_inv @ p_PP1.transpose() @ d_KK1
-        # d_HH1_L2  = p_MM1_inv @ d_KK1           # L2 projection (L2 version of Hodge)
-
-    elif Htest == 'p_HH1':
-        # p_HH1: p_V1 -> d_V1
-        p_KK1      = construct_pairing_matrix(d_V1h,p_V1h).tocsr()  # matrix in scipy format
-        d_PP1     = Conf_proj_1(d_V1h, nquads = [4*(d + 1) for d in d_degree], hom_bc=False)
-        d_HOp1    = HodgeOperator(d_V1h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=1)
-        d_MM1     = d_HOp1.get_dual_Hodge_sparse_matrix()    # mass matrix
-        d_MM1_inv = d_HOp1.to_sparse_matrix()                # inverse mass matrix
-        
-        p_HH1     = d_MM1_inv @ d_PP1.transpose() @ p_KK1
-        # p_HH1_L2  = d_MM1_inv @ p_KK1           # L2 projection (L2 version of Hodge)
-
-    else:
-        raise NotImplementedError
     
     
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
@@ -179,10 +194,15 @@ def try_ssc_2d(
         
     # some target function
     x,y    = domain.coordinates
-    f_symb  = Tuple(sin(pi*y),
-                    sin(pi*x))
+    # f_symb  = Tuple(sin(pi*y),
+    #                 sin(pi*x))
+    f_symb  = Tuple(x*x,
+                    0*y)
+
     # f_x = lambdify(domain.coordinates, f_vect[0])
     # f_y = lambdify(domain.coordinates, f_vect[1])
+    nb_patches = len(domain)
+    G_sol_log = [[lambda xi1, xi2, ii=i : ii+1 for d in [0,1]] for i in range(nb_patches)]
 
     g_symb = sin(pi*x)*sin(pi*y)
     g = lambdify(domain.coordinates, g_symb)
@@ -191,8 +211,37 @@ def try_ssc_2d(
     d_geomP0, d_geomP1, d_geomP2 = d_derham_h.projectors()
 
 
+    if Htest == 'p_PP1':
 
-    if Htest == 'p_HH2':
+        G_pV1_c = p_geomP1(G_sol_log).coeffs.toarray()
+        G_pP1_c = p_PP1 @ G_pV1_c
+
+        ref_c = G_pV1_c
+        app_c = G_pP1_c
+        label_ref   = 'G_pV1'
+        label_app   = 'p_PP1 @ G_pV1'
+        MM      = p_MM1
+        Vh      = p_V1h
+        Vh_kind = 'hcurl'
+        plot_type = 'components'
+
+    elif Htest == 'p_PP1_C1':
+
+        G_pV1_c = p_geomP1(G_sol_log).coeffs.toarray()
+        dP_G_c  = p_bC @ p_PP1 @ G_pV1_c
+
+        # dG_pP2_c  = p_bC @ G_pV1_c  
+
+        ref_c = np.zeros(p_V2h.nbasis)
+        app_c = dP_G_c
+        label_ref   = 'noref'
+        label_app   = 'p_bC @ G_pP1_c'
+        MM      = p_MM2
+        Vh      = p_V2h
+        Vh_kind = 'l2'
+        plot_type = 'amplitude'
+
+    elif Htest == 'p_HH2':
         
         g_dV0   = P_phys_h1(g_symb, d_geomP0, domain, mappings_list)
         g_dV0_c = g_dV0.coeffs.toarray()
@@ -201,9 +250,6 @@ def try_ssc_2d(
         g_pV2_c = g_pV2.coeffs.toarray()
         gh_c    = p_HH2 @ g_pV2_c
 
-        err_c = g_dV0_c - gh_c 
-        L2_error = np.sqrt(np.dot(err_c, d_MM0 @ err_c)/np.dot(g_dV0_c, d_MM0 @ g_dV0_c))
-
         ref_c   = g_dV0_c
         app_c   = gh_c
         label_ref   = 'g_dV0'
@@ -211,7 +257,7 @@ def try_ssc_2d(
         MM      = d_MM0
         Vh      = d_V0h
         Vh_kind = 'h1'
-
+        plot_type = 'components'
 
     elif Htest == 'd_HH1':
 
@@ -229,6 +275,7 @@ def try_ssc_2d(
         MM      = p_MM1
         Vh      = p_V1h 
         Vh_kind = 'hdiv'
+        plot_type = 'components'
 
 
         # print(" -----  approx f in d_V1  ---------")
@@ -267,8 +314,16 @@ def try_ssc_2d(
         raise NotImplementedError
     
 
-    plot_field(numpy_coeffs=app_c, Vh=Vh, space_kind=Vh_kind, domain=domain, title=label_app, cmap='viridis', filename=plot_dir+'test='+Htest+'_app_.png', hide_plot=False)
-    plot_field(numpy_coeffs=ref_c, Vh=Vh, space_kind=Vh_kind, domain=domain, title=label_ref, cmap='viridis', filename=plot_dir+'test='+Htest+'_ref_.png', hide_plot=False)
+    plot_field(numpy_coeffs=app_c, Vh=Vh, space_kind=Vh_kind, 
+               plot_type=plot_type,
+               domain=domain, title=label_app, cmap='viridis', 
+               filename=plot_dir+'test='+Htest+'_app_.png', 
+               hide_plot=False)
+    plot_field(numpy_coeffs=ref_c, Vh=Vh, space_kind=Vh_kind, 
+               plot_type=plot_type,
+               domain=domain, title=label_ref, cmap='viridis', 
+               filename=plot_dir+'test='+Htest+'_ref_.png', 
+               hide_plot=False)
 
     err_c = app_c - ref_c 
     L2_error = np.sqrt(np.dot(err_c, MM @ err_c)/np.dot(ref_c, MM @ ref_c))
@@ -279,7 +334,8 @@ if __name__ == '__main__':
 
     t_stamp_full = time_count()
 
-    Htest = "p_HH2"
+    # Htest = "p_HH2"
+    Htest = "p_PP1_C1" # "p_PP1" # "d_HH1"
     refined_square = False
     
     if refined_square:
@@ -287,9 +343,9 @@ if __name__ == '__main__':
         nc = 10
     else:
         domain_name = 'square_9'
-        nc = 2
+        nc = 8
 
-    deg = 4
+    deg = 3
 
     run_dir = '{}_nc={}_deg={}/'.format(domain_name, nc, deg)
 
