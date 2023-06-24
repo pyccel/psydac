@@ -380,6 +380,10 @@ def get_div_free_pulse(x_0, y_0, domain=None):
 
 
 def get_cavity_solution(omega, kx, ky, t, domain):
+    """
+    dt B + curl E = 0
+    dt E - c**2 * curl B = (1/eps) * J
+    """
 
     x,y    = domain.coordinates
 
@@ -391,3 +395,10 @@ def get_cavity_solution(omega, kx, ky, t, domain):
     B_ex = cos(kx * x) * cos(ky * y) * sin(omega * t) * (kx**2 + ky**2) / omega
 
     return E_ex, B_ex
+
+# dt B + curl E = (kx**2 + ky**2) + (-kx*2 - ky**2)
+
+# dt E   = (- ky * cos(kx * x) * sin(ky * y) ,  kx * sin(kx * x) * cos(ky * y) )  omega * sin(omega * t)
+# curl B = (- ky * cos(kx * x) * sin(ky * y)  , kx * sin(kx * x) * cos(ky * y) ) * (kx**2 + ky**2) / omega * sin(omega * t)
+
+# OK IF (kx**2 + ky**2) = omega**2

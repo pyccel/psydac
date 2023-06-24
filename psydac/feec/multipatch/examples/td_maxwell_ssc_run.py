@@ -32,10 +32,28 @@ deg_s = [4]
 # domain_name = 'pretzel_f'
 domain_name = 'square_9'
 
-# we use a t_period = (2*pi/omega) (sometimes denoted tau)
+test_case = 'cavity'
+
+
+if test_case == 'cavity':
+    a = np.pi 
+    b = np.pi
+    nx = 3  # mode
+    ny = 2  # mode
+    kx = np.pi * nx / a
+    ky = np.pi * ny / b
+    omega = np.sqrt(kx**2 + ky**2)
+    # c = omega / np.sqrt(kx**2 + ky**2) ## = 1 here
+
+else:
+    # c = None
+    raise NotImplementedError
+
+# we use a period_time = (2*pi/omega) (sometimes denoted tau)
 # this is relevant for oscillating sources but also for plotting
-omega = 5*2*np.pi 
-nb_t_periods = 1  #  # final time: T = nb_t_periods * t_period
+
+# omega = 2*np.pi 
+nb_t_periods = 1  #  # final time: T = nb_t_periods * period_time
 
 # plotting ranges:
 #   we give a list of ranges and plotting period: [[t_start, t_end], nt_plot_period]
@@ -47,6 +65,8 @@ plot_time_ranges = [
     [[nb_t_periods-1, nb_t_periods], 4]
     ]
 
+plot_variables = []
+
 # nb of time steps per period (if None, will be set from cfl)
 Nt_pp = None
 cfl = .8  
@@ -56,7 +76,7 @@ if test_case == 'E0_pulse_no_source':
     source_type = 'zero' 
     source_is_harmonic = False
     
-    nb_t_periods = 16 # 25 # final time: T = nb_t_periods * t_period
+    nb_t_periods = 16 # 25 # final time: T = nb_t_periods * period_time
     plot_a_lot = True # False # 
     if plot_a_lot:
         plot_time_ranges = [
@@ -83,11 +103,13 @@ elif test_case == 'cavity':
     source_type = 'zero' 
     source_is_harmonic = False
 
-    nb_t_periods = 1 # 25 # final time: T = nb_t_periods * t_period
+    plot_variables = ["D", "Dex"]
+    # plot_variables = ["D", "B", "Dex", "Bex", "divD"]
+    nb_t_periods = 1 # 25 # final time: T = nb_t_periods * period_time
     plot_a_lot = True # False # 
     if plot_a_lot:
         plot_time_ranges = [
-            [[0, nb_t_periods], 100] 
+            [[0, nb_t_periods], 1] 
             # [[0, nb_t_periods], 1]
         ]
     else:
@@ -106,7 +128,7 @@ elif test_case == 'Issautier_like_source':
     source_type = 'Il_pulse_pp'  # 'Il_pulse' has a coarser rho
     source_is_harmonic = False
 
-    nb_t_periods = 100  #  # final time: T = nb_t_periods * t_period
+    nb_t_periods = 100  #  # final time: T = nb_t_periods * period_time
             
     if J_proj_case == 'P_geom':    
         cb_min_sol = None #
@@ -215,7 +237,7 @@ for nc in nc_s:
             cfl=cfl,
             source_is_harmonic=source_is_harmonic,
             nb_t_periods=nb_t_periods,
-            omega=omega,
+            omega=omega, kx=kx, ky=ky,
             domain_name=domain_name,
             solution_type=solution_type,
             solution_proj=solution_proj,
@@ -224,11 +246,11 @@ for nc in nc_s:
             backend_language=backend_language,
             quad_param=quad_param,
             plot_source=True,
-            plot_divD=True,
             project_sol=project_sol,
             filter_source=filter_source,
             plot_dir=plot_dir,
             plot_time_ranges=plot_time_ranges,
+            plot_variables=plot_variables,
             diag_dtau=diag_dtau,
             hide_plots=True,
             skip_plot_titles=True,

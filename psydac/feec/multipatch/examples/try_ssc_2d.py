@@ -338,7 +338,7 @@ if __name__ == '__main__':
     t_stamp_full = time_count()
 
     # Htest = "p_HH2"
-    Htest = "p_PP1_C1" # "p_PP1" # "d_HH1"
+    Htest = "d_HH1" #"p_PP1_C1" # "p_PP1" # 
     refined_square = False
     
     if refined_square:

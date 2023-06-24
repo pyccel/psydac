@@ -34,11 +34,12 @@ from psydac.feec.multipatch.bilinear_form_scipy         import construct_pairing
 from psydac.feec.multipatch.conf_projections_scipy      import Conf_proj_0, Conf_proj_1, Conf_proj_0_c1, Conf_proj_1_c1
 
 def solve_td_maxwell_pbm(
-        nc=4, deg=4, Nt_pp=None, cfl=.8, nb_t_periods=20, omega=20, source_is_harmonic=True,
+        nc=4, deg=4, Nt_pp=None, cfl=.8, nb_t_periods=20, omega=20, kx=1,ky=1, source_is_harmonic=True,
         domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
         project_sol=False, filter_source=True, quad_param=1,
         solution_type='zero', solution_proj='P_geom', 
-        plot_source=False, plot_dir=None, plot_divD=False, hide_plots=True, plot_time_ranges=None, diag_dtau=None,
+        plot_source=False, plot_dir=None, hide_plots=True, plot_time_ranges=None, 
+        plot_variables=["D", "B", "Dex", "Bex", "divD"], diag_dtau=None,
         skip_plot_titles=False,
         cb_min_sol=None, cb_max_sol=None,
         m_load_dir="",
@@ -88,19 +89,6 @@ def solve_td_maxwell_pbm(
 
     period_time = 2*np.pi/omega
     final_time = nb_t_periods * period_time
-
-    if solution_type == 'cavity':
-        a = np.pi
-        b = np.pi
-        nx = 3  # mode
-        ny = 2  # mode
-        kx = np.pi * nx / a
-        ky = np.pi * ny / b
-        c = omega / np.sqrt(kx**2 + ky**2)
-    
-    else:
-        raise NotImplementedError
-
 
     if plot_time_ranges is None:
         plot_time_ranges = [[0, final_time], 2]
@@ -335,6 +323,14 @@ def solve_td_maxwell_pbm(
         norm_curlh = None
     Nt = Nt_pp * nb_t_periods
 
+    # print("final_time = ", final_time)
+    # print("Nt * dt = ", Nt*dt)
+    # print("period_time = ", period_time)
+    # print("Nt_pp * dt = ", Nt_pp*dt)
+    # print("2*np.pi/omega = ", 2*np.pi/omega)
+    # exit()
+
+
     def is_plotting_time(nt):
         answer = (nt==0) or (nt==Nt)
         for tau_range, nt_plots_pp in plot_time_ranges:
@@ -343,6 +339,8 @@ def solve_td_maxwell_pbm(
             tp = max(Nt_pp//nt_plots_pp,1)
             answer = (tau_range[0]*period_time <= nt*dt <= tau_range[1]*period_time and (nt)%tp == 0)
         return answer
+    
+    plot_divD = ("divD" in plot_variables)
 
     print(' ------ ------ ------ ------ ------ ------ ------ ------ ')
     print(' ------ ------ ------ ------ ------ ------ ------ ------ ')
@@ -563,13 +561,13 @@ def solve_td_maxwell_pbm(
         divD_c = d_DD @ D_c
         divD_norm2_diag[nt] = np.dot(divD_c, d_MM2.dot(divD_c))
 
-    plot_D_field(D_c, nt=0, plot_divD=plot_divD)
-    plot_B_field(B_c, nt=0)
+    if "D" in plot_variables: plot_D_field(D_c, nt=0, plot_divD=plot_divD)
+    if "B" in plot_variables: plot_B_field(B_c, nt=0)
     
-    if solution_type == 'cavity':
+    if solution_type == 'cavity' and ("Dex" in plot_variables or "Bex" in plot_variables):
         Dex_c, Bex_c = project_exact_cavity_solution(t=0, proj_type='P_geom')
-        plot_D_field(Dex_c, nt=0, plot_divD=plot_divD, label='_ex_')
-        plot_B_field(Bex_c, nt=0, label='_ex_')
+        if "Dex" in plot_variables: plot_D_field(Dex_c, nt=0, plot_divD=plot_divD, label='_ex')
+        if "Bex" in plot_variables: plot_B_field(Bex_c, nt=0, label='_ex')
 
     f_c = np.copy(f0_c)
     for nt in range(Nt):
@@ -591,13 +589,13 @@ def solve_td_maxwell_pbm(
         compute_diags(D_c, B_c, f_c, nt=nt+1)
         
         if is_plotting_time(nt+1):
-            plot_D_field(D_c, nt=nt+1, project_sol=project_sol, plot_divD=plot_divD)
-            plot_B_field(B_c, nt=nt+1)
-            if solution_type == 'cavity':
+            if "D" in plot_variables: plot_D_field(D_c, nt=nt+1, project_sol=project_sol, plot_divD=plot_divD)
+            if "B" in plot_variables: plot_B_field(B_c, nt=nt+1)
+            if solution_type == 'cavity' and ("Dex" in plot_variables or "Bex" in plot_variables):
                 Dex_c, Bex_c = project_exact_cavity_solution(t=(nt+1)*dt, proj_type='P_geom')
-                plot_D_field(Dex_c, nt=nt+1, plot_divD=plot_divD, label='_ex_')
-                plot_B_field(Bex_c, nt=nt+1, label='_ex_')
-
+                if "Dex" in plot_variables: plot_D_field(Dex_c, nt=0, plot_divD=plot_divD, label='_ex')
+                if "Bex" in plot_variables: plot_B_field(Bex_c, nt=0, label='_ex')
+            
         if (nt+1)%(diag_dtau*Nt_pp) == 0:
             tau_here = nt+1
             
