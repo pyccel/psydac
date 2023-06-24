@@ -141,6 +141,9 @@ def try_ssc_2d(
     print('Conforming projections...')
     p_PP0     = Conf_proj_0_c1(p_V0h, nquads = [4*(d + 1) for d in p_degree], hom_bc=False)
     p_PP1     = Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in p_degree], hom_bc=False)
+
+    p_PP1_C0     = Conf_proj_1(p_V1h, nquads = [4*(d + 1) for d in p_degree])  # to compare
+
     d_PP0     = Conf_proj_0(d_V0h, nquads = [4*(d + 1) for d in d_degree])
     d_PP1     = Conf_proj_1(d_V1h, nquads = [4*(d + 1) for d in d_degree])
 
