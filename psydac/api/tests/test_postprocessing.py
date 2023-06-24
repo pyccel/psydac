@@ -55,31 +55,27 @@ def build_2_mapped_squares():
     D1     = mapping_1(A)
     D2     = mapping_2(B)
 
-    domain = D1.join(D2, name = 'domain',
-                bnd_minus = D1.get_boundary(axis=1, ext=1),
-                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
-    return domain
+    domains = [D1, D2]
+    connectivity = [((0,1,1),(1,1,-1))]
+    return Domain.join(domains, connectivity, 'domain')
 
 
 def build_2_squares():
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
 
-    domain = A.join(B, 'domain',
-                    bnd_minus=A.get_boundary(1, 1),
-                    bnd_plus=B.get_boundary(1, -1))
-    return domain
+    domains = [A, B]
+    connectivity = [((0,1,1),(1,1,-1))]
+    return Domain.join(domains, connectivity, 'domain')
 
 
 def build_2_cubes():
     A = Cube('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2), bounds3=(0, 1))
     B = Cube('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi), bounds3=(0, 1))
 
-    domain = A.join(B, 'domain',
-                    bnd_minus=A.get_boundary(1, 1),
-                    bnd_plus=B.get_boundary(1, -1))
-
-    return domain
+    domains = [A, B]
+    connectivity = [((0,1,1),(1,1,-1))]
+    return Domain.join(domains, connectivity, 'domain')
 
 
 ###############################################################################
@@ -515,9 +511,9 @@ def test_reconstruct_multipatch():
     A = Square('A',bounds1=bounds1, bounds2=bounds2_A)
     B = Square('B',bounds1=bounds1, bounds2=bounds2_B)
 
-    domain = A.join(B, name='domain',
-                    bnd_minus=A.get_boundary(axis=1, ext=1),
-                    bnd_plus=B.get_boundary(axis=1, ext=-1))
+    connectivity = [((0,1,1),(1,1,-1))]
+    domains = [A,B]
+    domain = Domain.join(domains, connectivity, 'domain')
 
     Va = ScalarFunctionSpace('Va', A)
     Vb = ScalarFunctionSpace('Vb', B)

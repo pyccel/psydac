@@ -7,18 +7,6 @@ import numpy as np
 from sympde.topology       import Domain, Line, Square, Cube, Mapping
 from sympde.topology.basic import Union
 
-def union(domains, name):
-    assert len(domains)>1
-    domain = domains[0]
-    for p in domains[1:]:
-        domain = domain.join(p, name=name)
-    return domain
-
-def set_interfaces(domain, interfaces):
-    for I in interfaces:
-        domain = domain.join(domain, domain.name, bnd_minus=I[0], bnd_plus=I[1], direction=I[2])
-    return domain
-
 def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict, comm=None ):
 
     """
@@ -107,14 +95,13 @@ def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict,
             domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
             domains.append(mapping(domain))
 
-    domain = union(domains, filename[:-3])
     interfaces = []
     for edge in connectivity:
         minus,plus = connectivity[edge]
-        interface = [domains[edge[0]].get_boundary(axis=minus[0], ext=minus[1]), domains[edge[1]].get_boundary(axis=plus[0], ext=plus[1]),1]
+        interface = ((edge[0], minus[0], minus[1]), (edge[1], plus[0], plus[1]),1)
         interfaces.append(interface)
 
-    domain = set_interfaces(domain, interfaces)
+    domain = Domain.join(domains, interfaces, filename[:-3])
     topo_yml = domain.todict()
 
     # Dump geometry metadata to string in YAML file format
