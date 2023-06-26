@@ -252,7 +252,7 @@ def run_helmholtz_2d(solution, f, kappa, domain, ncells=None, degree=None, filen
     return l2_error, h1_error
 
 #==============================================================================
-def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=None, k=None, kappa=None, comm=None):
+def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=None, comm=None):
 
     if filename is None:
         assert ncells is not None
@@ -268,7 +268,7 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
     u, v, F  = elements_of(V, names='u, v, F')
     nn       = NormalVector('nn')
 
-    error   = Matrix([1j*F[0]-uex[0], 1j*F[1]-uex[1]])
+    error   = Matrix([F[0]-uex[0], F[1]-uex[1]])
 
     boundary = domain.boundary
     I        = domain.interfaces
@@ -295,7 +295,7 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
     # Linear form l: V --> R
     l      = LinearForm(v, integral(domain, expr2) + integral(boundary, expr2_b))
 
-    equation = find(u, forall=v, lhs=1j*a(u,v), rhs=l(v))
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
 
     l2norm = Norm(error, domain, kind='l2')
     #+++++++++++++++++++++++++++++++
@@ -442,8 +442,8 @@ def test_maxwell_2d_2_patch_dirichlet_parallel_0():
     bounds2_A = (0, np.pi/2)
     bounds2_B = (np.pi/2, np.pi)
 
-    A = Square('A',bounds1=bounds1, bounds2=bounds2_A)
-    B = Square('B',bounds1=bounds1, bounds2=bounds2_B)
+    A = Square('A', bounds1=bounds1, bounds2=bounds2_A)
+    B = Square('B', bounds1=bounds1, bounds2=bounds2_B)
 
     mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
     mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
@@ -465,6 +465,6 @@ def test_maxwell_2d_2_patch_dirichlet_parallel_0():
 
     l2_error, Eh      = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], comm=MPI.COMM_WORLD)
 
-    expected_l2_error = 0.012075890891927784
+    expected_l2_error = 0.012075890902616281
 
     assert abs(l2_error - expected_l2_error) < 1e-7
