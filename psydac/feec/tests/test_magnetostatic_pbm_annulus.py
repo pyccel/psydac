@@ -9,7 +9,7 @@ from psydac.fem.tensor             import TensorFemSpace
 from psydac.feec.derivatives       import VectorCurl_2D, Divergence_2D
 from psydac.feec.global_projectors import Projector_H1, Projector_L2
 from psydac.feec.global_projectors import projection_matrix_H1_homogeneous_bc, projection_matrix_Hdiv_homogeneous_bc 
-from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_annulus
+from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_annulus, solve_magnetostatic_pbm_J_direct_annulus
 from psydac.ddm.cart               import DomainDecomposition
 
 import numpy as np
@@ -293,10 +293,114 @@ def test_magnetostatic_pbm_inner_curve():
     assert abs( B_h_eval[0][1][2,1] - (0.75-1)**2 * (0.75+1)) < 0.01
 
 
+def test_solve_J_direct_annulus_with_poisson_psi():
+    annulus, derham = _create_domain_and_derham()
+    ncells = [10,10]
+    annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
+    derham_h = discretize(derham, annulus_h, degree=[2,2])
+    assert isinstance(derham_h, DiscreteDerham)
+    
+    # Compute right hand side
+    x,y = sympy.symbols(names='x y')
+    boundary_values_poisson = 1/3*(x**2 + y**2 - 1)  # Equals one 
+        # on the exterior boundary and zero on the interior boundary
+    psi_h = solve_poisson_2d_annulus(annulus_h, derham_h.V0, rhs=1e-10, 
+                                     boundary_values=boundary_values_poisson)
+
+    J = 4*x**2 - 12*x**2/sympy.sqrt(x**2 + y**2) + 4*y**2 - 12*y**2/sympy.sqrt(x**2 + y**2) + 8
+    f = sympy.Tuple(8*y - 12*y/sympy.sqrt(x**2 + y**2), -8*x + 12*x/sympy.sqrt(x**2 + y**2))
+    sigma, tau = top.elements_of(derham.V0, names='sigma tau')
+    inner_prod_J = LinearForm(tau, integral(annulus, J*tau))
+    inner_prod_J_h = discretize(inner_prod_J, annulus_h, space=derham_h.V0)
+    assert isinstance(inner_prod_J_h, DiscreteLinearForm)
+    inner_prod_J_h_stencil = inner_prod_J_h.assemble()
+    # Try changing this to the evaluation using the dicrete linear form directly
+    assert isinstance(inner_prod_J_h_stencil, StencilVector)
+    inner_prod_J_h_vec = inner_prod_J_h_stencil.toarray()
+    psi_h_coeffs = psi_h.coeffs.toarray()
+    c_0 = 0.
+    curve_integral_rhs = c_0 + np.dot(inner_prod_J_h_vec, psi_h_coeffs)
+
+    B_h_coeffs_arr = solve_magnetostatic_pbm_J_direct_annulus(J, psi_h, rhs_curve_integral=curve_integral_rhs,
+                                                     derham_h=derham_h,
+                                                     derham=derham,
+                                                     annulus_h=annulus_h)
+    B_h_coeffs = array_to_psydac(B_h_coeffs_arr, derham_h.V1.vector_space)
+    B_h = FemField(derham_h.V1, coeffs=B_h_coeffs)
+
+    eval_grid = [np.array([0.25, 0.5, 0.75]), np.array([np.pi/2, np.pi])]
+    V1h = derham_h.V1
+    assert isinstance(V1h, VectorFemSpace)
+    B_h_eval = V1h.eval_fields(eval_grid, B_h)
+    print(B_h_eval)
+    assert np.linalg.norm(B_h_eval[0][0]) < 1e-5
+    assert abs( B_h_eval[0][1][0,1] - (0.25-1)**2 * (0.25+1)) < 0.01
+    assert abs( B_h_eval[0][1][1,0] - (0.5-1)**2 * (0.5+1)) < 0.01
+    assert abs( B_h_eval[0][1][2,1] - (0.75-1)**2 * (0.75+1)) < 0.01
+
+def test_solve_J_direct_annulus_inner_curve():
+    annulus, derham = _create_domain_and_derham()
+
+    ncells = [10,10]
+    annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
+    derham_h = discretize(derham, annulus_h, degree=[2,2])
+    assert isinstance(derham_h, DiscreteDerham)
+
+    psi = lambda alpha, theta : 2*alpha if alpha <= 0.5 else 1.0
+    h1_proj = Projector_H1(derham_h.V0)
+    psi_h = h1_proj(psi) 
+    x, y = sympy.symbols(names='x, y')
+    J = 4*x**2 - 12*x**2/sympy.sqrt(x**2 + y**2) + 4*y**2 - 12*y**2/sympy.sqrt(x**2 + y**2) + 8
+    f = sympy.Tuple(8*y - 12*y/sympy.sqrt(x**2 + y**2), -8*x + 12*x/sympy.sqrt(x**2 + y**2))
+    
+    # Compute right hand side of the curve integral constraint
+    logical_domain_gamma = Square(name='logical_domain_gamma', bounds1=(0,0.5), bounds2=(0,2*np.pi))
+    boundary_logical_domain_gamma = Union(logical_domain_gamma.get_boundary(axis=0, ext=-1),
+                                    logical_domain_gamma.get_boundary(axis=0, ext=1))
+    logical_domain_gamma = Domain(name='logical_domain_gamma',
+                            interiors=logical_domain_gamma.interior,
+                            boundaries=boundary_logical_domain_gamma,
+                            dim=2)
+    polar_mapping = PolarMapping(name='polar_mapping', dim=2, c1=0., c2=0.,
+                                 rmin=1.0, rmax=2.0)
+    omega_gamma = polar_mapping(logical_domain_gamma)
+    derham_gamma = Derham(domain=omega_gamma, sequence=['H1', 'Hdiv', 'L2'])
+    omega_gamma_h = discretize(omega_gamma, ncells=[5,10], periodic=[False, True])
+    derham_gamma_h = discretize(derham_gamma, omega_gamma_h, degree=[2,2])
+    h1_proj_gamma = Projector_H1(derham_gamma_h.V0)
+    assert isinstance(derham_h, DiscreteDerham)
+    sigma, tau = top.elements_of(derham_gamma.V0, names='sigma tau')
+    inner_prod_J = LinearForm(tau, integral(omega_gamma, J*tau))
+    inner_prod_J_h = discretize(inner_prod_J, omega_gamma_h, space=derham_gamma_h.V0)
+    assert isinstance(inner_prod_J_h, DiscreteLinearForm)
+    inner_prod_J_h_stencil = inner_prod_J_h.assemble()
+    # Try changing this to the evaluation using the dicrete linear form directly
+    assert isinstance(inner_prod_J_h_stencil, StencilVector)
+    inner_prod_J_h_vec = inner_prod_J_h_stencil.toarray()
+    psi_h_gamma = h1_proj_gamma(psi)
+    psi_h_gamma_coeffs = psi_h_gamma.coeffs.toarray()
+    c_0 = -1.125*np.pi
+    rhs_curve_integral = c_0 + np.dot(inner_prod_J_h_vec, psi_h_gamma_coeffs)
+    B_h_coeffs_arr = solve_magnetostatic_pbm_J_direct_annulus(J, psi_h=psi_h, rhs_curve_integral=rhs_curve_integral,
+                                                     derham=derham,
+                                                     derham_h=derham_h,
+                                                     annulus_h=annulus_h)
+
+    B_h_coeffs = array_to_psydac(B_h_coeffs_arr, derham_h.V1.vector_space)
+    B_h = FemField(derham_h.V1, coeffs=B_h_coeffs)
+    eval_grid = [np.array([0.25, 0.5, 0.75]), np.array([np.pi/2, np.pi])]
+    V1h = derham_h.V1
+    assert isinstance(V1h, VectorFemSpace)
+    B_h_eval = V1h.eval_fields(eval_grid, B_h)
+    print(B_h_eval)
+    assert np.linalg.norm(B_h_eval[0][0]) < 1e-5
+    assert abs( B_h_eval[0][1][0,1] - (0.25-1)**2 * (0.25+1)) < 0.01
+    assert abs( B_h_eval[0][1][1,0] - (0.5-1)**2 * (0.5+1)) < 0.01
+    assert abs( B_h_eval[0][1][2,1] - (0.75-1)**2 * (0.75+1)) < 0.01
 
 
 if __name__ == '__main__':
     logging.basicConfig(filename='mydebug.log', level=logging.DEBUG, filemode='w')
     # test_magnetostatic_pbm_homogeneous()
     # test_magnetostatic_pbm_manufactured()
-    test_magnetostatic_pbm_inner_curve()
+    test_solve_J_direct_annulus_inner_curve()
