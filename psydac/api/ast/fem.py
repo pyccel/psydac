@@ -597,7 +597,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field, tests,  d_tests,
         list of constants
 
     nderiv : int
-        the order of the bilinear/sesquilinearForm form
+        the order of the bilinear/sesquilinear form
 
     dim : int
         number of dimension

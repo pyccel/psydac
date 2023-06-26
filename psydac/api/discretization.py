@@ -459,7 +459,7 @@ def discretize(a, *args, **kwargs):
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
 
-    # TODO uncomment when the sesquilinearForm subclass of bilinearForm is create in SymPDE
+    # TODO uncomment when the SesquilinearForm subclass of bilinearForm is create in SymPDE
     # if isinstance(a, sym_SesquilinearForm):
     #     return DiscreteSesquilinearForm(a, kernel_expr, *args, **kwargs)
 

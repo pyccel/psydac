@@ -1559,7 +1559,7 @@ class DiscreteFunctional(BasicDiscrete):
 class DiscreteSumForm(BasicDiscrete):
 
     def __init__(self, a, kernel_expr, *args, **kwargs):
-        # TODO Uncomment when the sesquilinearForm exist in SymPDE
+        # TODO Uncomment when the SesquilinearForm exist in SymPDE
         #if not isinstance(a, (sym_BilinearForm, sym_SesquilinearForm, sym_LinearForm, sym_Functional)):
             # raise TypeError('> Expecting a symbolic BilinearForm, SesquilinearForm, LinearForm, Functional')
         if not isinstance(a, (sym_BilinearForm, sym_LinearForm, sym_Functional)):
@@ -1587,7 +1587,7 @@ class DiscreteSumForm(BasicDiscrete):
                 kwargs['vector'] = ah._vector
                 operator = ah._vector
 
-            # TODO Uncomment when the sesquilinearForm exist in SymPDE
+            # TODO Uncomment when the SesquilinearForm exist in SymPDE
             # elif isinstance(a, sym_SesquilinearForm):
             #     kwargs['update_ghost_regions'] = False
             #     ah = DiscreteSesquilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
