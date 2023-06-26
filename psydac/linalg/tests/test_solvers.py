@@ -157,6 +157,11 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     assert errt_norm < tol
     assert errh_norm < tol
 
+
+# ===============================================================================
+# SCRIPT FUNCTIONALITY
+#===============================================================================
+
 if __name__ == "__main__":
     import sys
     pytest.main( sys.argv )
