@@ -57,10 +57,6 @@ def solve_magnetostatic_pbm_curve_integral(J : sympy.Expr,
     N0 = V0h.vector_space.dimension
     N1 = V1h.vector_space.dimension
     N2 = V2h.vector_space.dimension
-    ###DEBUG###
-    print("N0:", N0)
-    print("N1:", N1)
-    ###########
     H0 = HodgeOperator(V0h, domain_h, load_space_index=0)
     H1 = HodgeOperator(V1h, domain_h, load_space_index=1)
     H2 = HodgeOperator(V2h, domain_h, load_space_index=2)
@@ -69,22 +65,11 @@ def solve_magnetostatic_pbm_curve_integral(J : sympy.Expr,
     dH1_m = H1.get_dual_Hodge_sparse_matrix().tocsr()   # = mass matrix of V1
     dH2_m = H2.get_dual_Hodge_sparse_matrix().tocsr()   # = mass matrix of V2
     
-    # ###DEBUG###
-    # print("Does this print?")
-    # print("dH1_m:", dH1_m)
-    # ###########
-
     # Create the sparse matrices of discrete differential operators
     vector_curl_h = VectorCurl_2D(V0h, V1h)
     div_h = Divergence_2D(V1h, V2h)
     vector_curl_h_mat = vector_curl_h.matrix.tosparse().tocsr()
     div_h_mat = div_h.matrix.tosparse().tocsr()
-    ###DEBUG###
-    # print("vector_curl_h_mat.shape:", vector_curl_h_mat.shape)
-    # print("vector_curl_h_mat:", vector_curl_h_mat)
-    # print("div_h_mat:", div_h_mat)
-    # print("div_h_mat.shape:", div_h_mat.shape)
-    ###########
     
     # Compute matrix representation of the curve integral
     # NOTE: We assume for now that our domain is an annulus
@@ -95,35 +80,15 @@ def solve_magnetostatic_pbm_curve_integral(J : sympy.Expr,
 
     psi_h_vec = psi_h.coeffs.toarray()
     curl_psi_h_vec = curl_psi_h.coeffs.toarray()
-    ###DEBUG###
-    # print("div_h_mat.dot(curl_psi_h_vec):", div_h_mat.dot(curl_psi_h_vec))
-    ###########
-
-
-    ###DEBUG###
-    # print("psi_h_vec:", psi_h_vec)
-    # print("curl_psi_h_vec:", curl_psi_h_vec)
-    ###########
     # TBD: name
     curve_integral_array = dH1_m.dot(curl_psi_h_vec)
-    ###DEBUG###
-    # print("np.abs(curve_integral_array).min():", np.abs(curve_integral_array).min() )
-    # print("np.abs(curve_integral_array).max():", np.abs(curve_integral_array).max() )
-    ###########
     curve_integral_mat = sparse.csr_matrix(curve_integral_array) # This will be 
                         # submatrix of stiffness matrix in the final system
-    ###DEBUG###
-    # print("curve_integral_mat:", curve_integral_mat)
-    # print("np.abs(curve_integral_array).min():", np.abs(curve_integral_array).min())
-    # print("np.abs(curve_integral_array).max():", np.abs(curve_integral_array).max())
-    ###########
 
     tCurl_mat = dH1_m @ vector_curl_h_mat
     DD_m = div_h_mat.transpose().tocsr() @ dH2_m @ div_h_mat
     assert isinstance(tCurl_mat, sparse.csr_matrix)
     assert isinstance(DD_m, sparse.csr_matrix)
-    ###DEBUG###
-    print("tCurl_mat.transpose().dot(curl_psi_h_vec):", tCurl_mat.transpose().dot(curl_psi_h_vec))
 
     # Compute the matrix representations of the boundary integrals used to 
     # enforce the boundary conditions

@@ -115,12 +115,6 @@ def test_magnetostatic_problem_manufactured_sol():
     psi_h = solve_poisson_2d_annulus(annulus_h=annulus_h, Vh=derham_h.V0, 
                                      rhs=1e-9, boundary_values=boundary_expr)
     V0h : TensorFemSpace = derham_h.V0
-    ###DEBUG###
-    x_eval = np.linspace(0, 1, 4)
-    y_eval = np.linspace(0, 2*np.pi, 4)
-    psi_h_eval = V0h.eval_fields([x_eval, y_eval], psi_h)
-    print("psi_h_eval:", psi_h_eval)
-    ###########
     curve_integral_data = CurveIntegralData(c_0=4*np.pi, curve_integral_function=psi_h)
 
     B_h = solve_magnetostatic_pbm_curve_integral(J=-4., 
