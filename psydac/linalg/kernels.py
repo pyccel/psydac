@@ -1,6 +1,6 @@
 # coding: utf-8
 from pyccel.decorators import template
-
+from numpy import conjugate
 #========================================================================================================
 
 #__all__ = ['stencil2coo_1d_C','stencil2coo_1d_F','stencil2coo_2d_C','stencil2coo_2d_F', 'stencil2coo_3d_C', 'stencil2coo_3d_F']
@@ -189,3 +189,134 @@ def stencil2coo_3d_F(A:'T', data:'data', rows:'int64[:]', cols:'int64[:]',
                             data[nnz] = value
                             nnz += 1
     return nnz
+
+
+#Implementation of dot products
+
+def dot_product_1d_float64(v1:'float[:]',v2:'float[:]',pads0:'int64',shift0:'int64',shape0:'int64'):
+    '''kernel for computing the inner product (case two real 1d vectors)
+
+    Parameters
+    ----------
+        v1, v2 : 1d float array
+            Data of the vectors from which we are computing the inner product.
+
+        pads0, shift0, shape0 : int
+            pads, shift and shape of the space of the vectors in the 0 direction.
+            
+    Returns
+    -------
+        result : float containing the results'''
+    result = float(0)
+    for i0 in range(pads0*shift0,shape0-pads0*shift0):
+        result += v1[i0]*v2[i0]
+    return result
+
+
+def dot_product_2d_float64(v1:'float[:,:]',v2:'float[:,:]',pads0:'int64',pads1:'int64',shift0:'int64',shift1:'int64',shape0:'int64',shape1:'int64'):
+    '''kernel for computing the inner product (case two real 2d vectors)
+
+    Parameters
+    ----------
+        v1, v2 : 2d float array
+            Data of the vectors from which we are computing the inner product.
+
+        pads0, shift0, shape0, pads1, shift1, shape1 : int
+            pads, shift and shape of the space of the vectors in the 0/1 direction.
+            
+    Returns
+    -------
+        result : float containing the results'''
+    result = float(0)
+    for i0 in range(pads0*shift0,shape0-pads0*shift0):
+        for i1 in range(pads1*shift1,shape1-pads1*shift1):
+            result += v1[i0,i1]*v2[i0,i1]
+    return result
+
+def dot_product_3d_float64(v1:'float[:,:,:]',v2:'float[:,:,:]',pads0:'int64',pads1:'int64',pads2:'int64',shift0:'int64',shift1:'int64',shift2:'int64',shape0:'int64',shape1:'int64',shape2:'int64'):
+    '''kernel for computing the inner product (case two real 3d vectors)
+
+    Parameters
+    ----------
+        v1, v2 : 3d float array
+            Data of the vectors from which we are computing the inner product.
+
+        pads0, shift0, shape0, pads1, shift1, shape1, pads2, shift2, shape2 : int
+            pads, shift and shape of the space of the vectors in the 0/1/2 direction.
+            
+    Returns
+    -------
+        result : float containing the results'''
+    result = float(0)
+    for i0 in range(pads0*shift0,shape0-pads0*shift0):
+        for i1 in range(pads1*shift1,shape1-pads1*shift1):
+            for i2 in range(pads2*shift2,shape2-pads2*shift2):
+                result += v1[i0,i1,i2]*v2[i0,i1,i2]
+    return result
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+#!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!#
+#!!!!!!! Conjugate on the first argument !!!!!!!#
+#!!!!!!!!!! This will need an update !!!!!!!!!!!#
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+
+def dot_product_1d_complex128(v1:'complex[:]',v2:'complex[:]',pads0:'int64',shift0:'int64',shape0:'int64'):
+    '''kernel for computing the inner product (case two complex 1d vectors)
+
+    Parameters
+    ----------
+        v1, v2 : 1d complex array
+            Data of the vectors from which we are computing the inner product.
+
+        pads0, shift0, shape0 : int
+            pads, shift and shape of the space of the vectors in the 0 direction.
+            
+    Returns
+    -------
+        result : complex containing the results'''
+    result = complex(0)
+    for i0 in range(pads0*shift0,shape0-pads0*shift0):
+        result += v1[i0].conjugate()*v2[i0]
+    return result
+
+
+def dot_product_2d_complex128(v1:'complex[:,:]',v2:'complex[:,:]',pads0:'int64',pads1:'int64',shift0:'int64',shift1:'int64',shape0:'int64',shape1:'int64'):
+    '''kernel for computing the inner product (case two complex 2d vectors)
+
+    Parameters
+    ----------
+        v1, v2 : 2d complex array
+            Data of the vectors from which we are computing the inner product.
+
+        pads0, shift0, shape0, pads1, shift1, shape1 : int
+            pads, shift and shape of the space of the vectors in the 0/1 direction.
+            
+    Returns
+    -------
+        result : complex containing the results'''
+    result = complex(0)
+    for i0 in range(pads0*shift0,shape0-pads0*shift0):
+        for i1 in range(pads1*shift1,shape1-pads1*shift1):
+            result += v1[i0,i1].conjugate()*v2[i0,i1]
+    return result
+
+def dot_product_3d_complex128(v1:'complex[:,:,:]',v2:'complex[:,:,:]',pads0:'int64',pads1:'int64',pads2:'int64',shift0:'int64',shift1:'int64',shift2:'int64',shape0:'int64',shape1:'int64',shape2:'int64'):
+    '''kernel for computing the inner product (case two complex 3d vectors)
+
+    Parameters
+    ----------
+        v1, v2 : 3d complex array
+            Data of the vectors from which we are computing the inner product.
+
+        pads0, shift0, shape0, pads1, shift1, shape1, pads2, shift2, shape2 : int
+            pads, shift and shape of the space of the vectors in the 0/1/2 direction.
+            
+    Returns
+    -------
+        result : complex containing the results'''
+    result = complex(0)
+    for i0 in range(pads0*shift0,shape0-pads0*shift0):
+        for i1 in range(pads1*shift1,shape1-pads1*shift1):
+            for i2 in range(pads2*shift2,shape2-pads2*shift2):
+                result += v1[i0,i1,i2].conjugate()*v2[i0,i1,i2]
+    return result
