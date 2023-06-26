@@ -392,7 +392,7 @@ class BlockVector(Vector):
                 else:
                     write_buffer = self._blocks[j]._data
 
-                self._interface_buf[i, j].append((read_buffer,write_buffer))
+                self._interface_buf[i, j].append((read_buffer, write_buffer))
 
     # ...
     def exchange_assembly_data(self):
