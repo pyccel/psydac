@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-
+from mpi4py import MPI
 from sympy import pi, sin, cos, tan, atan, atan2, exp, sinh, cosh, tanh, atanh, Tuple, I
 
 
@@ -265,6 +265,70 @@ def test_Norm_complex(backend):
     assert abs(r4 - 1) < 1e-12
     print("PASSED")
 
+#==============================================================================
+@pytest.mark.parallel
+def test_assemble_complex_parallel(backend):
+
+    # If 'backend' is specified, accelerate Python code by passing **kwargs
+    # to discretization of bilinear forms, linear forms and functionals.
+    kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
+
+    domain = Square()
+    V = ScalarFunctionSpace('V', domain)
+    V.codomain_type = 'complex'
+
+    Vr = ScalarFunctionSpace('Vr', domain)
+    Vr.codomain_type = 'complex'
+
+    # TODO: remove codomain_type when It is implemented in sympde
+    u = element_of(V, name='u')
+    v = element_of(V, name='v')
+    f = element_of(V, name='f')
+
+    c = Constant(name='c', complex=True)
+    gr = c * f**2
+    gc = I * c * f**2
+    cst = 1.0+0.0j
+
+    ac = BilinearForm((u, v), integral(domain, gc * u * v))
+    ar = BilinearForm((u, v), integral(domain, gr * u * v))
+    lc = LinearForm(v, integral(domain, gc * v))
+    lr = LinearForm(v, integral(domain, gr * v))
+    nr = Norm(1.0*v, domain, kind='l2')
+    nc = Norm(1.0j*v, domain, kind='l2')
+
+    ncells = (5, 5)
+    degree = (3, 3)
+    domain_h = discretize(domain, ncells=ncells, comm=MPI.COMM_WORLD)
+    Vh = discretize(V, domain_h, degree=degree)
+    Vrh = discretize(Vr, domain_h, degree=degree)
+    ach = discretize(ac, domain_h, [Vh, Vh], **kwargs)
+    arh = discretize(ar, domain_h, [Vrh, Vrh], **kwargs)
+    lch = discretize(lc, domain_h,      Vh , **kwargs)
+    lrh = discretize(lr, domain_h,      Vrh , **kwargs)
+    nch = discretize(nc, domain_h,      Vh , **kwargs)
+    nrh = discretize(nr, domain_h,      Vrh , **kwargs)
+
+    fh = FemField(Vh)
+    fh.coeffs[:] = 1
+
+    # Assembly call should not crash if correct arguments are used
+    Ac = ach.assemble(c=cst, f=fh)
+    Ar = arh.assemble(c=cst, f=fh)
+    bc = lch.assemble(f=fh, c=cst)
+    br = lrh.assemble(f=fh, c=cst)
+    nc = nch.assemble(v=fh)
+    nr = nrh.assemble(v=fh)
+
+    # Test matrix Ac and Ar
+    #TODO change Ar*1j into -Ar*1j when the conjugate is applied in the dot product in sympde
+    assert np.all(abs((Ac)._data-(Ar)._data*1j))<1e-16
+
+    # Test vector bc and br
+    assert np.all(abs((bc)._data-(br)._data*1j)<1e-16)
+
+    # Test Norm nc and nr
+    assert abs(nc - nr) < 1e-8
 #==============================================================================
 def test_multiple_fields(backend, dtype):
 
