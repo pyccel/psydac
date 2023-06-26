@@ -4,8 +4,8 @@
 # This file is the Python translation of a Selalib Fortran module:
 # 'selalib/src/splines/tests/m_splines_error_bounds.F90'
 
-__all__ = ['spline_1d_error_bound', 'spline_1d_error_bound_on_deriv',
-           'spline_2d_error_bound', 'spline_2d_error_bounds_on_grad']
+__all__ = ('spline_1d_error_bound', 'spline_1d_error_bound_on_deriv',
+           'spline_2d_error_bound', 'spline_2d_error_bounds_on_grad')
 
 #===============================================================================
 

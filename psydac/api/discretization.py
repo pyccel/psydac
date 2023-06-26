@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
-#         nderiv has not been changed. shall we add quad_order too?
+#         nderiv has not been changed. shall we add nquads too?
 import os
 from sympy import Expr as sym_Expr
 import numpy as np
@@ -40,7 +40,7 @@ from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 
-__all__ = ('discretize',)
+__all__ = ('discretize', 'discretize_derham', 'reduce_space_degrees', 'discretize_space', 'discretize_domain')
 
 #==============================================================================           
 def discretize_derham(derham, domain_h, *args, **kwargs):
@@ -119,7 +119,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
           'N' : for Nedelec elements, as described in [2],
           'RT': for Raviart-Thomas elements, as described in [2].
 
-    Results
+    Returns
     -------
     Wh : TensorFemSpace, VectorFemSpace
       The reduced space
@@ -190,7 +190,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, quad_order=None, basis='B', sequence='DR'):
+def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, nquads=None, basis='B', sequence='DR'):
     """
     This function creates the discretized space starting from the symbolic space.
 
@@ -212,11 +212,11 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     knots: list | dict
         The knots sequence of the h1 space in each direction.
 
-    quad_order: list
+    nquads: list
         The number of quadrature points in each direction.
 
     basis: str
-        The type of basis function can be 'b' for b-splines or 'M' for M-splines.
+        The type of basis function can be 'B' for B-splines or 'M' for M-splines.
 
     sequence: str
         The sequence used to reduce the space. The available choices are:
@@ -329,7 +329,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
                 spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]
 
         carts    = create_cart(ddms, spaces)
-        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], quad_order=quad_order) for i,inter in enumerate(interiors)}
+        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], nquads=nquads) for i,inter in enumerate(interiors)}
 
         for i,j in connectivity:
             ((axis_i, ext_i), (axis_j , ext_j)) = connectivity[i, j]

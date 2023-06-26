@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-__all__ = ['CartDataExchanger']
+__all__ = ('CartDataExchanger',)
 #===============================================================================
 class CartDataExchanger(ABC):
     """

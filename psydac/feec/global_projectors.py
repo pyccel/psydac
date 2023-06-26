@@ -16,6 +16,11 @@ from sympde.topology.domain       import Domain
 
 from scipy.sparse._lil import lil_matrix
 
+__all__ = ('GlobalProjector', 'Projector_H1', 'Projector_Hcurl', 'Projector_Hdiv', 'Projector_L2',
+           'evaluate_dofs_1d_0form', 'evaluate_dofs_1d_1form',
+           'evaluate_dofs_2d_0form', 'evaluate_dofs_2d_1form_hcurl', 'evaluate_dofs_2d_1form_hdiv', 'evaluate_dofs_2d_2form',
+           'evaluate_dofs_3d_0form', 'evaluate_dofs_3d_1form', 'evaluate_dofs_3d_2form', 'evaluate_dofs_3d_3form')
+
 #==============================================================================
 class GlobalProjector(metaclass=ABCMeta):
     """
@@ -77,7 +82,7 @@ class GlobalProjector(metaclass=ABCMeta):
         else:
             # for now, we assume that all tensorspaces have the same quad_grids
             # (this seems to be the case at the moment, but maybe checking it might be a good idea nontheless...)
-            uw = [(quad_grid.quad_rule_x,quad_grid.quad_rule_w) for quad_grid in tensorspaces[0].quad_grids]
+            uw = [(quad_grid.quad_rule_x,quad_grid.quad_rule_w) for quad_grid in tensorspaces[0].quad_grids()]
         
         # retrieve projection space structure
         # this is a 2D Python array (first level: block, second level: tensor direction)

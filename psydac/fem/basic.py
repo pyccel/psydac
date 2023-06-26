@@ -8,6 +8,9 @@ be used to specify the used data structure for example.
 
 from abc import ABCMeta, abstractmethod
 from psydac.linalg.basic import Vector
+
+__all__ = ('FemSpace', 'FemField')
+
 #===============================================================================
 # ABSTRACT BASE CLASS: FINITE ELEMENT SPACE
 #===============================================================================
@@ -327,4 +330,3 @@ class FemField:
         assert self._space is other._space
         self._coeffs -= other._coeffs
         return self
-

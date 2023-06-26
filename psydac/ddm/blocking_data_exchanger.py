@@ -6,7 +6,7 @@ from mpi4py import MPI
 from .cart import CartDecomposition, find_mpi_type
 from .basic import CartDataExchanger
 
-__all__ = ['BlockingCartDataExchanger']
+__all__ = ('BlockingCartDataExchanger',)
 
 class BlockingCartDataExchanger(CartDataExchanger):
     """

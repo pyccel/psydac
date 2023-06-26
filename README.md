@@ -1,6 +1,6 @@
 # Welcome to PSYDAC
 
-[![build-devel](https://travis-ci.com/pyccel/psydac.svg?branch=devel)](https://travis-ci.com/pyccel/psydac) [![docs](https://readthedocs.org/projects/spl/badge/?version=latest)](http://spl.readthedocs.io/en/latest/?badge=latest)
+[![devel_tests](https://github.com/pyccel/psydac/actions/workflows/continuous-integration.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/continuous-integration.yml) [![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
 
 **PSYDAC** is a Python 3 Library for isogeometric analysis.
 
@@ -13,6 +13,7 @@
 -   [Running tests](#running-tests)
 -   [Speeding up Psydac's core](#speeding-up-psydacs-core)
 -   [User Documentation](#user-documentation)
+-   [Code Documentation](#code-documentation)
 
 ## Requirements
 
@@ -98,6 +99,10 @@ where the `HDF5_DIR` environment variable should store the absolute path to the 
 ```sh
 h5pcc -showconfig
 ```
+or (on macOS)
+```sh
+brew info hdf5-mpi
+```
 
 At this point the Psydac library may be installed in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the Psydac directory. The latter mode allows one to effect the behavior of Psydac by modifying the source files.
 
@@ -143,6 +148,10 @@ pyccel kernels.py --language fortran
 -   [Output formats](./output.md)
 -   [Notebook examples](./examples/notebooks/)
 -   [Other examples](./examples/)
+
+## Code documentation
+
+Find our latest code documentation [here](https://pyccel.github.io/psydac/).
 
 ## Mesh Generation
 
