@@ -913,8 +913,8 @@ class TensorFemSpace( FemSpace ):
         v = self._vector_space
         spaces = list(self.spaces)
 
-        global_starts = v._cart._global_starts.copy()
-        global_ends   = v._cart._global_ends.copy()
+        global_starts = list(v._cart._global_starts).copy()
+        global_ends   = list(v._cart._global_ends).copy()
         global_domains_ends  = self._global_element_ends
 
         for i, axis in enumerate(axes):
@@ -947,9 +947,9 @@ class TensorFemSpace( FemSpace ):
                 global_ends[axis][-1] += 1
                 global_starts[axis][0] = 0
 
-        cart = v._cart.reduce_grid(global_starts, global_ends)
+        cart = v._cart.reduce_grid(tuple(global_starts), tuple(global_ends))
 
-        V    = TensorFemSpace(*spaces, cart=cart, nquads=self._nquads, dtype=v.dtype)
+        V    = TensorFemSpace(cart.domain_decomposition, *spaces, cart=cart, nquads=self._nquads, dtype=v.dtype)
 
         return V
 
