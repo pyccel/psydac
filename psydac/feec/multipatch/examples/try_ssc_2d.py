@@ -63,7 +63,7 @@ def try_ssc_2d(
     """
 
     print('---------------------------------------------------------------------------------------------------------')
-    print('Starting hcurl_solve_eigen_pbm function with: ')
+    print('Starting try_ssc_2d function with: ')
     print(' ncells = {}'.format(ncells))
     print(' p_degree = {}'.format(p_degree))
     print(' domain_name = {}'.format(domain_name))
@@ -338,15 +338,15 @@ if __name__ == '__main__':
     t_stamp_full = time_count()
 
     # Htest = "p_HH2"
-    Htest = "d_HH1" #"p_PP1_C1" # "p_PP1" # 
+    Htest = "p_PP1_C1" # "p_PP1" # "d_HH1" #
     refined_square = False
     
     if refined_square:
         domain_name = 'refined_square'
         nc = 10
     else:
-        domain_name = 'square_9'
-        nc = 8
+        domain_name = 'square_2' #'square_9'
+        nc = 4
 
     deg = 3
 

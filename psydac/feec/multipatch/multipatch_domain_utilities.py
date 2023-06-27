@@ -23,8 +23,16 @@ class TransposedPolarMapping(Mapping):
     _ldim        = 2
     _pdim        = 2
 
-
-
+class CollelaMapping2D(Mapping):
+    """
+    copied from psydac/api/tests/test_api_feec_2d.py
+    here for a [0,pi]x[0,pi] logical domain
+    
+    """
+    _ldim = 2
+    _pdim = 2
+    _expressions = {'x': 'x1 + eps / 2 * sin(2*x1) * sin(2*x2)',
+                    'y': 'x2 + eps / 2 * sin(2*x1) * sin(2*x2)'}
 
 
 def union(domains, name):
@@ -174,44 +182,49 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
             [domain_4.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1),1],
         ]
 
-    elif domain_name in ['square_8', 'square_9']:
+    elif domain_name in ['square_8', 'square_9', 'collela_square_9']:
         # square with third-length patches, with or without a hole:
 
+        if domain_name[:7] == 'collela':
+            F = lambda name: CollelaMapping2D(name, eps=0.5)
+        else:
+            F = lambda name: IdentityMapping(name, 2)
+
         OmegaLog1 = Square('OmegaLog1',bounds1=(0., np.pi/3), bounds2=(0., np.pi/3))
-        mapping_1 = IdentityMapping('M1',2)
+        mapping_1 = F('M1') #IdentityMapping('M1',2)
         domain_1     = mapping_1(OmegaLog1)
 
         OmegaLog2 = Square('OmegaLog2',bounds1=(np.pi/3, np.pi*2/3), bounds2=(0., np.pi/3))
-        mapping_2 = IdentityMapping('M2',2)
+        mapping_2 = F('M2') #IdentityMapping('M2',2)
         domain_2     = mapping_2(OmegaLog2)
 
         OmegaLog3 = Square('OmegaLog3',bounds1=(np.pi*2/3, np.pi), bounds2=(0., np.pi/3))
-        mapping_3 = IdentityMapping('M3',2)
+        mapping_3 = F('M3') #IdentityMapping('M3',2)
         domain_3     = mapping_3(OmegaLog3)
 
         OmegaLog4 = Square('OmegaLog4',bounds1=(0., np.pi/3), bounds2=(np.pi/3, np.pi*2/3))
-        mapping_4 = IdentityMapping('M4',2)
+        mapping_4 = F('M4') #IdentityMapping('M4',2)
         domain_4     = mapping_4(OmegaLog4)
 
         OmegaLog5 = Square('OmegaLog5',bounds1=(np.pi*2/3, np.pi), bounds2=(np.pi/3, np.pi*2/3))
-        mapping_5 = IdentityMapping('M5',2)
+        mapping_5 = F('M5') #IdentityMapping('M5',2)
         domain_5     = mapping_5(OmegaLog5)
 
         OmegaLog6 = Square('OmegaLog6',bounds1=(0., np.pi/3), bounds2=(np.pi*2/3, np.pi))
-        mapping_6 = IdentityMapping('M6',2)
+        mapping_6 = F('M6') #IdentityMapping('M6',2)
         domain_6     = mapping_6(OmegaLog6)
 
         OmegaLog7 = Square('OmegaLog7',bounds1=(np.pi/3, np.pi*2/3), bounds2=(np.pi*2/3, np.pi))
-        mapping_7 = IdentityMapping('M7',2)
+        mapping_7 = F('M7') #IdentityMapping('M7',2)
         domain_7     = mapping_7(OmegaLog7)
 
         OmegaLog8 = Square('OmegaLog8',bounds1=(np.pi*2/3, np.pi), bounds2=(np.pi*2/3, np.pi))
-        mapping_8 = IdentityMapping('M8',2)
+        mapping_8 = F('M8') #IdentityMapping('M8',2)
         domain_8     = mapping_8(OmegaLog8)
 
         # center domain
         OmegaLog9 = Square('OmegaLog9',bounds1=(np.pi/3, np.pi*2/3), bounds2=(np.pi/3, np.pi*2/3))
-        mapping_9 = IdentityMapping('M9',2)
+        mapping_9 = F('M9') #IdentityMapping('M9',2)
         domain_9     = mapping_9(OmegaLog9)
 
         if domain_name == 'square_8':
@@ -234,7 +247,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
                 [domain_5.get_boundary(axis=1, ext=+1), domain_8.get_boundary(axis=1, ext=-1),1],
             ]
 
-        elif domain_name == 'square_9':
+        elif domain_name in ['square_9', 'collela_square_9']:
             # square domain with no hole:
             # 6 7 8
             # 4 9 5

@@ -217,3 +217,33 @@ def write_diags_to_file(diags, script_filename, diag_filename, params={}):
             a_writer.write('   {}: {} \n'.format(key, value))
         a_writer.write(' ---------- ---------- ---------- ---------- ---------- ---------- \n')
         a_writer.write('\n')
+
+def write_errors_array(errors, deg_s, nc_s, error_dir, name):
+    if not os.path.exists(error_dir):
+        os.makedirs(error_dir)
+
+    diag_filename = error_dir+'/errors.txt'
+    if not os.path.exists(diag_filename):
+        open(diag_filename, 'w')
+
+    with open(diag_filename, 'a') as a_writer:
+
+        a_writer.write('\n')
+        a_writer.write('nc_1d = np.array([')
+        for nc in nc_s:
+            a_writer.write('{},'.format(nc))
+        a_writer.write('])  # total nb of cells per patch \n\n')
+
+        nb_deg = len(deg_s)
+        nb_nc = len(nc_s)
+        
+        a_writer.write('# errors for '+name+'\n')
+        a_writer.write('errors = { \n')
+    
+        for i_deg in range(nb_deg):
+            a_writer.write('{} : ['.format(deg_s[i_deg]))
+            for i_nc in range(nb_nc):
+                a_writer.write('{}, '.format(errors[i_deg][i_nc]))
+            a_writer.write('], \n')
+        
+        a_writer.write('} \n\n')

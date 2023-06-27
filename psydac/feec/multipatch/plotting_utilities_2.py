@@ -12,6 +12,7 @@ from collections import OrderedDict
 
 from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic        import FemField
+from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.utilities.utils  import refine_array_1d
 from psydac.feec.pull_push   import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
 
@@ -173,8 +174,12 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     F = [M.get_callable_mapping() for d,M in mappings.items()]
 
     if plotted_patch in range(len(mappings)):
-        grid_x1 = Vh.spaces[plotted_patch].breaks[0]
-        grid_x2 = Vh.spaces[plotted_patch].breaks[1]
+        space   = Vh.spaces[plotted_patch]
+        if isinstance(space, (VectorFemSpace, ProductFemSpace)):
+            space = space.spaces[0]
+
+        grid_x1 = space.breaks[0]
+        grid_x2 = space.breaks[1]
 
         x1 = refine_array_1d(grid_x1, N)
         x2 = refine_array_1d(grid_x2, N)
@@ -194,7 +199,7 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
 #------------------------------------------------------------------------------
 def plot_field(
     fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, domain=None, surface_plot=False, cb_min=None, cb_max=None,
-    cf_levels=50, plot_type='amplitude', cmap='hsv', space_kind=None, title=None, filename='dummy_plot.png', subtitles=None, 
+    cf_levels=50, plot_type='amplitude', show_grid=False, cmap='hsv', space_kind=None, title=None, filename='dummy_plot.png', subtitles=None, 
     N_vis=20, vf_skip=2, hide_plot=True):
     """
     plot a discrete field (given as a FemField or by its coeffs in numpy or stencil format) on the given domain
@@ -265,6 +270,14 @@ def plot_field(
         else:
             raise ValueError(plot_type)
 
+        gridlines_x1_list = []
+        gridlines_x2_list = []
+        if show_grid:
+            for k in range(len(domain)):
+                gl_x1, gl_x2 = get_patch_knots_gridlines(Vh, N=N_vis, mappings=mappings, plotted_patch=k)
+                gridlines_x1_list.append(gl_x1)
+                gridlines_x2_list.append(gl_x2)
+
         my_small_plot(
             title=title,
             vals=plot_vals_list,
@@ -272,6 +285,8 @@ def plot_field(
             xx=xx,
             yy=yy,
             surface_plot=surface_plot,
+            gridlines_x1_list=gridlines_x1_list,
+            gridlines_x2_list=gridlines_x2_list,
             cb_min=cb_min,
             cb_max=cb_max,
             levels=cf_levels,
@@ -307,8 +322,8 @@ def plot_field(
 def my_small_plot(
         title, vals, titles=None,
         xx=None, yy=None,
-        gridlines_x1=None,
-        gridlines_x2=None,
+        gridlines_x1_list=[],
+        gridlines_x2_list=[],
         surface_plot=False,
         cmap='viridis',
         cb_min=None,
@@ -360,9 +375,10 @@ def my_small_plot(
             ax.contourf(xx[k], yy[k], vals[i][k], levels, norm=cnorm, cmap=cmap, zorder=-10) #, extend='both')
         ax.set_rasterization_zorder(0)
         cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
-        if gridlines_x1 is not None:
-            ax.plot(*gridlines_x1, color='k')
-            ax.plot(*gridlines_x2, color='k')
+        for gl_x1 in gridlines_x1_list:
+            ax.plot(*gl_x1, color='k')
+        for gl_x2 in gridlines_x2_list:
+            ax.plot(*gl_x2, color='k')
         if show_xylabel:
             ax.set_xlabel( r'$x$', rotation='horizontal' )
             ax.set_ylabel( r'$y$', rotation='horizontal' )

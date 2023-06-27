@@ -33,10 +33,10 @@ def error_fn(source_type=None, method=None, conf_proj=None, k=None, domain_name=
 
 def diag_fn(source_type=None, source_proj=None):
     """ Get the diagnostics filename"""
-    if source_type is not None:
-        fn = 'diag_'+source_name(source_type, source_proj)+'.txt'
-    else:
+    if source_type == 'zero':
         fn = 'diag.txt'
+    else:
+        fn = 'diag_'+source_name(source_type, source_proj)+'.txt'
     return fn
 
 def get_method_name(method=None, k=None, conf_proj=None, penal_regime=None):
