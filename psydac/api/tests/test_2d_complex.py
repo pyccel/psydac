@@ -468,3 +468,14 @@ def test_maxwell_2d_2_patch_dirichlet_parallel_0():
     expected_l2_error = 0.012075890902616281
 
     assert abs(l2_error - expected_l2_error) < 1e-7
+#==============================================================================
+# CLEAN UP SYMPY NAMESPACE
+#==============================================================================
+
+def teardown_module():
+    from sympy.core import cache
+    cache.clear_cache()
+
+def teardown_function():
+    from sympy.core import cache
+    cache.clear_cache()
