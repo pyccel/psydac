@@ -416,6 +416,7 @@ if __name__ == '__main__':
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
 
     mappings_list = list(mappings.values())
+    mappings_list = [mapping.get_callable_mapping() for mapping in mappings_list]
 
     from sympy import lambdify
     u_ex = lambdify(domain.coordinates, solution)

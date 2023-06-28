@@ -325,6 +325,7 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
 #            SERIAL TESTS
 ###############################################################################
 def test_complex_biharmonic_2d():
+    # This test solve the biharmonic problem with homogeneous dirichlet condition without a mapping
     x, y, z = symbols('x1, x2, x3')
     solution = (sin(pi * x)**2 * sin(pi * y)**2 + 1j * sin(2*pi * x)**2 * sin(2*pi * y)**2) * exp(pi * 1j * (x**2+y**2))
     f        = laplace(laplace(solution))
@@ -343,6 +344,7 @@ def test_complex_biharmonic_2d():
     assert( abs(h2_error - expected_h2_error) < 1.e-7)
 
 def test_complex_biharmonic_2d_mapping():
+    # This test solve the biharmonic problem with homogeneous dirichlet condition with a mapping
 
     x, y, z = symbols('x, y, z')
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -365,6 +367,7 @@ def test_complex_biharmonic_2d_mapping():
     assert( abs(h2_error/factor - expected_h2_error) < 1.e-7)
 
 def test_complex_poisson_2d_multipatch():
+    # This test solve the poisson problem with homogeneous dirichlet condition in multipatch case
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
 
@@ -386,7 +389,7 @@ def test_complex_poisson_2d_multipatch():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 def test_complex_poisson_2d_multipatch_mapping():
-
+    # This test solve the poisson problem with homogeneous dirichlet condition in multipatch with mapping case
     filename = os.path.join(mesh_dir, 'multipatch/square.h5')
     domain   = Domain.from_file(filename)
 
@@ -403,6 +406,7 @@ def test_complex_poisson_2d_multipatch_mapping():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 def test_complex_helmholtz_2d():
+    # This test solve the helmotz problem with homogeneous dirichlet condition
     domain = Square('domain', bounds1=(0, 1), bounds2=(0, 1))
 
     x, y = domain.coordinates
@@ -419,7 +423,7 @@ def test_complex_helmholtz_2d():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 def test_maxwell_2d_2_patch_dirichlet_2():
-
+    # This test solve the maxwell problem with non-homogeneous dirichlet condition with penalization on the border of the exact solution
     domain = Square('domain', bounds1=(0, 1), bounds2=(0, 1))
     x,y      = domain.coordinates
 
@@ -437,6 +441,7 @@ def test_maxwell_2d_2_patch_dirichlet_2():
 
 @pytest.mark.parallel
 def test_maxwell_2d_2_patch_dirichlet_parallel_0():
+    # This test solve the maxwell problem with non-homogeneous dirichlet condition with penalization on the border of the exact solution
 
     bounds1   = (0.5, 1.)
     bounds2_A = (0, np.pi/2)
@@ -479,3 +484,61 @@ def teardown_module():
 def teardown_function():
     from sympy.core import cache
     cache.clear_cache()
+
+
+if __name__ == '__main__':
+
+    from collections                               import OrderedDict
+    from sympy                                     import lambdify
+    from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
+    from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
+    from psydac.api.tests.build_domain   import build_pretzel
+    from psydac.feec.pull_push           import pull_2d_hcurl
+
+    domain    = build_pretzel()
+    x,y       = domain.coordinates
+
+    omega = 1.5
+    alpha = -omega**2
+    Eex   = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+    f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                  alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+
+    l2_error, Eh = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2,2])
+
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    mappings_list = list(mappings.values())
+    mappings_list = [mapping.get_callable_mapping() for mapping in mappings_list]
+
+    Eex_x   = lambdify(domain.coordinates, Eex[0])
+    Eex_y   = lambdify(domain.coordinates, Eex[1])
+    Eex_log = [pull_2d_hcurl([Eex_x,Eex_y], f) for f in mappings_list]
+
+    etas, xx, yy         = get_plotting_grid(mappings, N=20)
+    grid_vals_hcurl      = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='hcurl')
+
+    Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
+    E_x_vals, E_y_vals   = grid_vals_hcurl(Eex_log)
+
+    E_x_err              = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
+    E_y_err              = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
+
+    my_small_plot(
+        title=r'approximation of solution $u$, $x$ component',
+        vals=[E_x_vals, Eh_x_vals, E_x_err],
+        titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+        xx=xx,
+        yy=yy,
+        gridlines_x1=None,
+        gridlines_x2=None,
+    )
+
+    my_small_plot(
+        title=r'approximation of solution $u$, $y$ component',
+        vals=[E_y_vals, Eh_y_vals, E_y_err],
+        titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
+        xx=xx,
+        yy=yy,
+        gridlines_x1=None,
+        gridlines_x2=None,
+    )
