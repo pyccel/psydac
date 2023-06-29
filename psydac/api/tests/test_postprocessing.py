@@ -55,27 +55,27 @@ def build_2_mapped_squares():
     D1     = mapping_1(A)
     D2     = mapping_2(B)
 
-    domains = [D1, D2]
+    patches = [D1, D2]
     connectivity = [((0,1,1),(1,1,-1))]
-    return Domain.join(domains, connectivity, 'domain')
+    return Domain.join(patches, connectivity, 'domain')
 
 
 def build_2_squares():
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
 
-    domains = [A, B]
+    patches = [A, B]
     connectivity = [((0,1,1),(1,1,-1))]
-    return Domain.join(domains, connectivity, 'domain')
+    return Domain.join(patches, connectivity, 'domain')
 
 
 def build_2_cubes():
     A = Cube('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2), bounds3=(0, 1))
     B = Cube('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi), bounds3=(0, 1))
 
-    domains = [A, B]
+    patches = [A, B]
     connectivity = [((0,1,1),(1,1,-1))]
-    return Domain.join(domains, connectivity, 'domain')
+    return Domain.join(patches, connectivity, 'domain')
 
 
 ###############################################################################
@@ -512,8 +512,8 @@ def test_reconstruct_multipatch():
     B = Square('B',bounds1=bounds1, bounds2=bounds2_B)
 
     connectivity = [((0,1,1),(1,1,-1))]
-    domains = [A,B]
-    domain = Domain.join(domains, connectivity, 'domain')
+    patches = [A,B]
+    domain = Domain.join(patches, connectivity, 'domain')
 
     Va = ScalarFunctionSpace('Va', A)
     Vb = ScalarFunctionSpace('Vb', B)

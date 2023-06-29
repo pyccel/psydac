@@ -751,6 +751,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                         s_d = trial_n - trial_s - trial_degree[k2][axis] - 1 if ext_d == 1 else 0
                         s_c =  test_n - trial_s -  test_degree[k1][axis] - 1 if ext_c == 1 else 0
 
+                        # We only handle the case where direction = 1
                         direction = target.ornt
                         if domain.dim == 2:
                             assert direction == 1
@@ -795,6 +796,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     s_d = trial_n - trial_s - trial_degree[axis] - 1 if ext_d == 1 else 0
                     s_c =  test_n - trial_s -  test_degree[axis] - 1 if ext_c == 1 else 0
 
+                    # We only handle the case where direction = 1
                     direction = target.ornt
                     if domain.dim == 2:
                         assert direction == 1

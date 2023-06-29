@@ -69,14 +69,14 @@ def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict,
     h5['geometry.yml'] = np.array( geom, dtype='S' )
     # ...
 
-    domains = []
+    patches = []
     # ... topology
     if nurbs[0].dim == 1:
         for i,(nurbsi,patch_name) in enumerate(zip(nurbs, patch_names)):
             bounds1 = (float(nurbsi.breaks(0)[0]), float(nurbsi.breaks(0)[-1]))
             domain  = Line(patch_name, bounds1=bounds1)
             mapping = Mapping(mapping_ids[i], dim=nurbs[0].dim)
-            domains.append(mapping(domain))
+            patches.append(mapping(domain))
 
     elif nurbs[0].dim == 2:
         for i,(nurbsi,patch_name) in enumerate(zip(nurbs, patch_names)):
@@ -84,7 +84,7 @@ def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict,
             bounds2 = (float(nurbsi.breaks(1)[0]), float(nurbsi.breaks(1)[-1]))
             domain  = Square(patch_name, bounds1=bounds1, bounds2=bounds2)
             mapping = Mapping(mapping_ids[i], dim=nurbs[0].dim)
-            domains.append(mapping(domain))
+            patches.append(mapping(domain))
 
     elif nurbs[0].dim == 3:
         for i,(nurbsi,patch_name) in enumerate(zip(nurbs, patch_names)):
@@ -93,7 +93,7 @@ def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict,
             bounds3 = (float(nurbsi.breaks(2)[0]), float(nurbsi.breaks(2)[-1]))
             mapping = Mapping(mapping_ids[i], dim=nurbs[0].dim)
             domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
-            domains.append(mapping(domain))
+            patches.append(mapping(domain))
 
     interfaces = []
     for edge in connectivity:
@@ -101,7 +101,7 @@ def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict,
         interface = ((edge[0], minus[0], minus[1]), (edge[1], plus[0], plus[1]),1)
         interfaces.append(interface)
 
-    domain = Domain.join(domains, interfaces, filename[:-3])
+    domain = Domain.join(patches, interfaces, filename[:-3])
     topo_yml = domain.todict()
 
     # Dump geometry metadata to string in YAML file format

@@ -115,8 +115,8 @@ def test_poisson_2d_2_patches_dirichlet_0():
     D2     = mapping_2(B)
 
     connectivity = [((0,1,1),(1,1,-1))]
-    domains = [D1,D2]
-    domain = Domain.join(domains, connectivity, 'domain')
+    patches = [D1,D2]
+    domain = Domain.join(patches, connectivity, 'domain')
 
     x,y = domain.coordinates
     solution = x**2 + y**2
@@ -143,8 +143,8 @@ def test_poisson_2d_2_patches_dirichlet_1():
     D2     = mapping_2(B)
 
     connectivity = [((0,1,1),(1,1,-1))]
-    domains = [D1,D2]
-    domain = Domain.join(domains, connectivity, 'domain')
+    patches = [D1,D2]
+    domain = Domain.join(patches, connectivity, 'domain')
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
@@ -174,8 +174,8 @@ def test_poisson_2d_2_patches_dirichlet_2():
     D3     = mapping_3(C)
 
     connectivity = [((0,1,1),(1,1,-1)), ((1,1,1),(2,1,-1))]
-    domains = [D1, D2, D3]
-    domain = Domain.join(domains, connectivity, 'domain')
+    patches = [D1, D2, D3]
+    domain = Domain.join(patches, connectivity, 'domain')
 
     x,y       = domain.coordinates
     solution  = x**2 + y**2
@@ -278,8 +278,8 @@ def test_poisson_2d_4_patch_dirichlet_0():
     D4     = mapping_4(D)
 
     connectivity = [((0,1,1),(1,1,-1)), ((2,1,1),(3,1,-1)), ((0,0,1),(2,0,-1)),((1,0,1),(3,0,-1))]
-    domains = [D1, D2, D3, D4]
-    domain = Domain.join(domains, connectivity, 'domain')
+    patches = [D1, D2, D3, D4]
+    domain = Domain.join(patches, connectivity, 'domain')
 
     x,y       = domain.coordinates
     solution  = x**2 + y**2
@@ -318,8 +318,8 @@ def test_poisson_2d_2_patches_dirichlet_parallel_0():
     D2     = mapping_2(B)
                 
     connectivity = [((0,1,1),(1,1,-1))]
-    domains = [D1, D2]
-    domain = Domain.join(domains, connectivity, 'domain')
+    patches = [D1, D2]
+    domain = Domain.join(patches, connectivity, 'domain')
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)

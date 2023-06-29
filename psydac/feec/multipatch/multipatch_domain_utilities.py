@@ -25,12 +25,12 @@ class TransposedPolarMapping(Mapping):
 
 
 
-def create_domain(domains, interfaces, name):
+def create_domain(patches, interfaces, name):
     connectivity = []
-    domains_interiors = [D.interior for D in domains]
+    patches_interiors = [D.interior for D in patches]
     for I in interfaces:
-        connectivity.append(((domains_interiors.index(I[0].domain),I[0].axis, I[0].ext), (domains_interiors.index(I[1].domain), I[1].axis, I[1].ext), I[2]))
-    return Domain.join(domains, connectivity, name)
+        connectivity.append(((patches_interiors.index(I[0].domain),I[0].axis, I[0].ext), (patches_interiors.index(I[1].domain), I[1].axis, I[1].ext), I[2]))
+    return Domain.join(patches, connectivity, name)
 
 # def get_annulus_fourpatches(r_min, r_max):
 #
@@ -55,8 +55,8 @@ def create_domain(domains, interfaces, name):
 #         [domain_3.get_boundary(axis=1, ext=1), domain_4.get_boundary(axis=1, ext=-1), 1],
 #         [domain_4.get_boundary(axis=1, ext=1), domain_1.get_boundary(axis=1, ext=-1), 1]
 #         ]
-#     domains = [domain_1, domain_2, domain_3, domain_4]
-#     domain = create_domain(domains, interfaces, name='domain')
+#     patches = [domain_1, domain_2, domain_3, domain_4]
+#     domain = create_domain(patches, interfaces, name='domain')
 #
 #     return domain
 
@@ -118,7 +118,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
         mapping_2 = IdentityMapping('M2',2)
         domain_2     = mapping_2(OmegaLog2)
 
-        domains = [domain_1, domain_2]
+        patches = [domain_1, domain_2]
 
         interfaces = [
             [domain_1.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1),1]
@@ -154,7 +154,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
         mapping_6 = IdentityMapping('M6',2)
         domain_6     = mapping_6(OmegaLog6)
 
-        domains = [domain_1, domain_2, domain_3, domain_4, domain_5, domain_6]
+        patches = [domain_1, domain_2, domain_3, domain_4, domain_5, domain_6]
 
         interfaces = [
             [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1),1],
@@ -213,7 +213,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
             # 1 2 3
 
 
-            domains = [domain_1, domain_2, domain_3, domain_4, domain_5, domain_6, domain_7, domain_8]
+            patches = [domain_1, domain_2, domain_3, domain_4, domain_5, domain_6, domain_7, domain_8]
 
             interfaces = [
                 [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1),1],
@@ -233,7 +233,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
             # 1 2 3
 
 
-            domains = [domain_1, domain_2, domain_3, domain_4, domain_5, domain_6, domain_7, domain_8, domain_9]
+            patches = [domain_1, domain_2, domain_3, domain_4, domain_5, domain_6, domain_7, domain_8, domain_9]
 
             interfaces = [
                 [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1),1],
@@ -391,7 +391,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
         # domain_15  = mapping_15(dom_log_15)
 
         if domain_name == 'pretzel':
-            domains = ([
+            patches = ([
                     domain_1,
                     domain_2,
                     domain_3,
@@ -422,7 +422,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
                 ]
 
         elif domain_name == 'pretzel_f':
-            domains = ([
+            patches = ([
                             domain_1_1,
                             domain_1_2,
                             domain_2_1,
@@ -471,7 +471,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
         elif domain_name == 'pretzel_annulus':
             # only the annulus part of the pretzel (not the inner arcs)
 
-            domains = ([
+            patches = ([
                             domain_1,
                             domain_5,
                             domain_6,
@@ -496,7 +496,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
                 ]
 
         elif domain_name == 'pretzel_debug':
-            domains = ([
+            patches = ([
                     domain_1,
                     domain_10,
                     ])
@@ -524,7 +524,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
         mapping_3 = PolarMapping('M3',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
         domain_3     = mapping_3(dom_log_3)
 
-        domains = ([
+        patches = ([
                     domain_1,
                     domain_2,
                     domain_3,
@@ -555,7 +555,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
             mapping_3 = PolarMapping('M3',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
             domain_3     = mapping_3(OmegaLog3)
 
-            domains = [domain_1, domain_2, domain_3]
+            patches = [domain_1, domain_2, domain_3]
 
             interfaces = [
                 [domain_1.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1),1],
@@ -580,7 +580,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
             mapping_4 = PolarMapping('M4',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
             domain_4     = mapping_4(OmegaLog4)
 
-            domains = [domain_1, domain_2, domain_3, domain_4]
+            patches = [domain_1, domain_2, domain_3, domain_4]
 
             interfaces = [
                 [domain_1.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1),1],
@@ -594,7 +594,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
     else:
         raise NotImplementedError
 
-    domain = create_domain(domains, interfaces, name='domain')
+    domain = create_domain(patches, interfaces, name='domain')
 
     # print("int: ", domain.interior)
     # print("bound: ", domain.boundary)

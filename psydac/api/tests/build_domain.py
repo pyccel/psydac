@@ -20,12 +20,12 @@ class TransposedPolarMapping(Mapping):
     _ldim        = 2
     _pdim        = 2
 
-def create_domain(domains, interfaces, name):
+def create_domain(patches, interfaces, name):
     connectivity = []
-    domains_interiors = [D.interior for D in domains]
+    patches_interiors = [D.interior for D in patches]
     for I in interfaces:
-        connectivity.append(((domains_interiors.index(I[0].domain),I[0].axis, I[0].ext), (domains_interiors.index(I[1].domain), I[1].axis, I[1].ext), I[2]))
-    return Domain.join(domains, connectivity, name)
+        connectivity.append(((patches_interiors.index(I[0].domain),I[0].axis, I[0].ext), (patches_interiors.index(I[1].domain), I[1].axis, I[1].ext), I[2]))
+    return Domain.join(patches, connectivity, name)
 
 def get_2D_rotation_mapping(name='no_name', c1=0., c2=0., alpha=np.pi/2):
 
@@ -175,7 +175,7 @@ def build_pretzel(domain_name='pretzel', r_min=None, r_max=None):
     mapping_14_2 = TransposedPolarMapping('M14_2',2, c1= r_min+h, c2= r_min+h, rmin = 0., rmax=1.)
     domain_14_2  = mapping_14_2(dom_log_14_2)
 
-    domains = ([
+    patches = ([
                     domain_1,
                     domain_2,
                     domain_3,
@@ -206,6 +206,6 @@ def build_pretzel(domain_name='pretzel', r_min=None, r_max=None):
         ]
 
 
-    domain = create_domain(domains, interfaces, domain_name)
+    domain = create_domain(patches, interfaces, domain_name)
     return domain
 
