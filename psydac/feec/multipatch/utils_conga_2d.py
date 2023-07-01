@@ -247,3 +247,35 @@ def write_errors_array(errors, deg_s, nc_s, error_dir, name):
             a_writer.write('], \n')
         
         a_writer.write('} \n\n')
+
+
+def write_errors_array_deg_nbp(errors, deg_s, nbp_s, nc, error_dir, name):
+    if not os.path.exists(error_dir):
+        os.makedirs(error_dir)
+
+    diag_filename = error_dir+'/errors.txt'
+    if not os.path.exists(diag_filename):
+        open(diag_filename, 'w')
+
+    with open(diag_filename, 'a') as a_writer:
+
+        a_writer.write('\n')
+        a_writer.write('nbp_1d = np.array([')
+        for nbp in nbp_s:
+            a_writer.write('{},'.format(nbp))
+        a_writer.write('])  # nb of patches per dimension \n\n')
+        a_writer.write('nc_1d = {} # nb of cells per dimension \n'.format(nc))
+        a_writer.write('nc_tot = np.array([')
+        for nbp in nbp_s:
+            a_writer.write('{},'.format(nbp**2 * nc**2))
+        a_writer.write('])  # total nb of cells \n\n')
+        
+        a_writer.write('# errors for '+name+'\n')
+        a_writer.write('errors = { \n')
+        for i_deg, deg in enumerate(deg_s): 
+            a_writer.write('{} : ['.format(deg))
+            for i_nbp, nbp in enumerate(nbp_s): 
+                a_writer.write('{}, '.format(errors[i_deg][i_nbp]))
+            a_writer.write('], \n')
+        
+        a_writer.write('} \n\n')

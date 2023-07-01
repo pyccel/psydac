@@ -14,7 +14,7 @@ from psydac.linalg.utilities    import array_to_psydac
 
 ####  projection from valentin:
 
-
+mom_pres = True
 
 # def get_patch_index_from_face(domain, face):
 #     """ Return the patch index of subdomain/boundary
@@ -179,16 +179,17 @@ def smooth_x(V0h,nquads):
                 Proj[indice_plus,indice_plus]-=1/2
                 Proj[indice_plus,indice_minus]+=1/2
                 Proj[indice_minus,indice_plus]+=1/2
-                for p in range(0,px+2):
-                    #correction
-                    indice_plus_i  = loca2global([i_plus, p+1,                  i], n_patches,patch_shape_plus)
-                    indice_minus_i = loca2global([i_minus, n_deg_minus-1-(p+1), i], n_patches,patch_shape_minus)
-                    indice_plus    = loca2global([i_plus, 0,                    i], n_patches,patch_shape_plus)
-                    indice_minus   = loca2global([i_minus, n_deg_minus-1,       i], n_patches,patch_shape_minus)
-                    Proj[indice_plus_i,indice_plus]+=Correct_coef[p]/2
-                    Proj[indice_plus_i,indice_minus]-=Correct_coef[p]/2
-                    Proj[indice_minus_i,indice_plus]-=Correct_coef[p]/2
-                    Proj[indice_minus_i,indice_minus]+=Correct_coef[p]/2
+                if mom_pres:
+                    for p in range(0,px+2):
+                        #correction
+                        indice_plus_i  = loca2global([i_plus, p+1,                  i], n_patches,patch_shape_plus)
+                        indice_minus_i = loca2global([i_minus, n_deg_minus-1-(p+1), i], n_patches,patch_shape_minus)
+                        indice_plus    = loca2global([i_plus, 0,                    i], n_patches,patch_shape_plus)
+                        indice_minus   = loca2global([i_minus, n_deg_minus-1,       i], n_patches,patch_shape_minus)
+                        Proj[indice_plus_i,indice_plus]+=Correct_coef[p]/2
+                        Proj[indice_plus_i,indice_minus]-=Correct_coef[p]/2
+                        Proj[indice_minus_i,indice_plus]-=Correct_coef[p]/2
+                        Proj[indice_minus_i,indice_minus]+=Correct_coef[p]/2
     return Proj
 
 def smooth_y(V0h,nquads):
@@ -256,16 +257,17 @@ def smooth_y(V0h,nquads):
                 Proj[indice_plus,indice_plus]-=1/2
                 Proj[indice_plus,indice_minus]+=1/2
                 Proj[indice_minus,indice_plus]+=1/2
-                for p in range(0,py+2):
-                    #correction
-                    indice_plus_i  = loca2global([i_plus,  i, p+1                ], n_patches,patch_shape_plus)
-                    indice_minus_i = loca2global([i_minus, i, n_deg_minus-1-(p+1)], n_patches,patch_shape_minus)
-                    indice_plus    = loca2global([i_plus,  i, 0                  ], n_patches,patch_shape_plus)
-                    indice_minus   = loca2global([i_minus, i, n_deg_minus-1      ], n_patches,patch_shape_minus)
-                    Proj[indice_plus_i,indice_plus]+=Correct_coef[p]/2
-                    Proj[indice_plus_i,indice_minus]-=Correct_coef[p]/2
-                    Proj[indice_minus_i,indice_plus]-=Correct_coef[p]/2
-                    Proj[indice_minus_i,indice_minus]+=Correct_coef[p]/2
+                if mom_pres:
+                    for p in range(0,py+2):
+                        #correction
+                        indice_plus_i  = loca2global([i_plus,  i, p+1                ], n_patches,patch_shape_plus)
+                        indice_minus_i = loca2global([i_minus, i, n_deg_minus-1-(p+1)], n_patches,patch_shape_minus)
+                        indice_plus    = loca2global([i_plus,  i, 0                  ], n_patches,patch_shape_plus)
+                        indice_minus   = loca2global([i_minus, i, n_deg_minus-1      ], n_patches,patch_shape_minus)
+                        Proj[indice_plus_i,indice_plus]+=Correct_coef[p]/2
+                        Proj[indice_plus_i,indice_minus]-=Correct_coef[p]/2
+                        Proj[indice_minus_i,indice_plus]-=Correct_coef[p]/2
+                        Proj[indice_minus_i,indice_minus]+=Correct_coef[p]/2
     return Proj
 
 def Conf_proj_0(V0h,nquads):
@@ -398,16 +400,17 @@ def Conf_proj_1(V1h,nquads):
                     Proj[indice_plus,indice_plus]-=1/2
                     Proj[indice_plus,indice_minus]+=1/2
                     Proj[indice_minus,indice_plus]+=1/2
-                    for p in range(0,px+1):
-                        #correction
-                        indice_plus_i  = loca2global([i_plus,  0, p+1,                 i], n_patches,patch_shape_plus)
-                        indice_minus_i = loca2global([i_minus, 0, n_deg_minus-1-(p+1), i], n_patches,patch_shape_minus)
-                        indice_plus    = loca2global([i_plus,  0, 0,                   i], n_patches,patch_shape_plus)
-                        indice_minus   = loca2global([i_minus, 0, n_deg_minus-1,       i], n_patches,patch_shape_minus)
-                        Proj[indice_plus_i,indice_plus]+=Correct_coef_x[p]/2
-                        Proj[indice_plus_i,indice_minus]-=Correct_coef_x[p]/2
-                        Proj[indice_minus_i,indice_plus]-=Correct_coef_x[p]/2
-                        Proj[indice_minus_i,indice_minus]+=Correct_coef_x[p]/2
+                    if mom_pres:                    
+                        for p in range(0,px+1):
+                            #correction
+                            indice_plus_i  = loca2global([i_plus,  0, p+1,                 i], n_patches,patch_shape_plus)
+                            indice_minus_i = loca2global([i_minus, 0, n_deg_minus-1-(p+1), i], n_patches,patch_shape_minus)
+                            indice_plus    = loca2global([i_plus,  0, 0,                   i], n_patches,patch_shape_plus)
+                            indice_minus   = loca2global([i_minus, 0, n_deg_minus-1,       i], n_patches,patch_shape_minus)
+                            Proj[indice_plus_i,indice_plus]+=Correct_coef_x[p]/2
+                            Proj[indice_plus_i,indice_minus]-=Correct_coef_x[p]/2
+                            Proj[indice_minus_i,indice_plus]-=Correct_coef_x[p]/2
+                            Proj[indice_minus_i,indice_minus]+=Correct_coef_x[p]/2
 
 
             elif axis == 1 :
@@ -418,16 +421,17 @@ def Conf_proj_1(V1h,nquads):
                     Proj[indice_plus,indice_plus]-=1/2
                     Proj[indice_plus,indice_minus]+=1/2
                     Proj[indice_minus,indice_plus]+=1/2
-                    for p in range(0,py+1):
-                        #correction
-                        indice_plus_i  = loca2global([i_plus,  1, i, p+1                ], n_patches,patch_shape_plus)
-                        indice_minus_i = loca2global([i_minus, 1, i, n_deg_minus-1-(p+1)], n_patches,patch_shape_minus)
-                        indice_plus    = loca2global([i_plus,  1, i, 0                  ], n_patches,patch_shape_plus)
-                        indice_minus   = loca2global([i_minus, 1, i, n_deg_minus-1      ], n_patches,patch_shape_minus)
-                        Proj[indice_plus_i,indice_plus]+=Correct_coef_y[p]/2
-                        Proj[indice_plus_i,indice_minus]-=Correct_coef_y[p]/2
-                        Proj[indice_minus_i,indice_plus]-=Correct_coef_y[p]/2
-                        Proj[indice_minus_i,indice_minus]+=Correct_coef_y[p]/2
+                    if mom_pres:
+                        for p in range(0,py+1):
+                            #correction
+                            indice_plus_i  = loca2global([i_plus,  1, i, p+1                ], n_patches,patch_shape_plus)
+                            indice_minus_i = loca2global([i_minus, 1, i, n_deg_minus-1-(p+1)], n_patches,patch_shape_minus)
+                            indice_plus    = loca2global([i_plus,  1, i, 0                  ], n_patches,patch_shape_plus)
+                            indice_minus   = loca2global([i_minus, 1, i, n_deg_minus-1      ], n_patches,patch_shape_minus)
+                            Proj[indice_plus_i,indice_plus]+=Correct_coef_y[p]/2
+                            Proj[indice_plus_i,indice_minus]-=Correct_coef_y[p]/2
+                            Proj[indice_minus_i,indice_plus]-=Correct_coef_y[p]/2
+                            Proj[indice_minus_i,indice_minus]+=Correct_coef_y[p]/2
     elif V1.name=="Hcurl":
         for I in Interfaces:
             axis = I.axis
@@ -606,25 +610,26 @@ def smooth_x_c1(V0h,nquads,hom_bc):
                 Proj[indice_plus_1,indice_minus]+=1 
                 Proj[indice_minus_1,indice_plus_1]-=1/2
                 Proj[indice_plus_1,indice_minus_1]-=1/2
-                for p in range(0,px+1):
-                    #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
-                    #modified by the C1 enforcement
-                    indice_plus_i  = loca2global([i_plus, p+2,                  i], n_patches,patch_shape_plus)
-                    indice_minus_i = loca2global([i_minus, n_deg_minus-1-(p+2), i], n_patches,patch_shape_minus)
-                    indice_plus    = loca2global([i_plus, 0,                    i], n_patches,patch_shape_plus)
-                    indice_minus   = loca2global([i_minus, n_deg_minus-1,       i], n_patches,patch_shape_minus)
-                    indice_plus    = loca2global([i_plus, 1,                    i], n_patches,patch_shape_plus)
-                    indice_minus   = loca2global([i_minus, n_deg_minus-2,       i], n_patches,patch_shape_minus)
-                    Proj[indice_plus_i,indice_plus]+=Correct_coef_0[p]/2
-                    Proj[indice_plus_i,indice_minus]-=Correct_coef_0[p]/2
-                    Proj[indice_minus_i,indice_plus]-=Correct_coef_0[p]/2
-                    Proj[indice_minus_i,indice_minus]+=Correct_coef_0[p]/2
-                    Proj[indice_minus_i, indice_minus_1]+=Correct_coef_1[p]/2
-                    Proj[indice_plus_i, indice_plus_1]+=Correct_coef_1[p]/2
-                    Proj[indice_minus_i, indice_plus]-=Correct_coef_1[p]
-                    Proj[indice_plus_i, indice_minus]-=Correct_coef_1[p]
-                    Proj[indice_minus_i, indice_plus_1]+=Correct_coef_1[p]/2
-                    Proj[indice_plus_i, indice_minus_1]+=Correct_coef_1[p]/2
+                if mom_pres:
+                    for p in range(0,px+1):
+                        #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
+                        #modified by the C1 enforcement
+                        indice_plus_i  = loca2global([i_plus, p+2,                  i], n_patches,patch_shape_plus)
+                        indice_minus_i = loca2global([i_minus, n_deg_minus-1-(p+2), i], n_patches,patch_shape_minus)
+                        indice_plus    = loca2global([i_plus, 0,                    i], n_patches,patch_shape_plus)
+                        indice_minus   = loca2global([i_minus, n_deg_minus-1,       i], n_patches,patch_shape_minus)
+                        indice_plus    = loca2global([i_plus, 1,                    i], n_patches,patch_shape_plus)
+                        indice_minus   = loca2global([i_minus, n_deg_minus-2,       i], n_patches,patch_shape_minus)
+                        Proj[indice_plus_i,indice_plus]+=Correct_coef_0[p]/2
+                        Proj[indice_plus_i,indice_minus]-=Correct_coef_0[p]/2
+                        Proj[indice_minus_i,indice_plus]-=Correct_coef_0[p]/2
+                        Proj[indice_minus_i,indice_minus]+=Correct_coef_0[p]/2
+                        Proj[indice_minus_i, indice_minus_1]+=Correct_coef_1[p]/2
+                        Proj[indice_plus_i, indice_plus_1]+=Correct_coef_1[p]/2
+                        Proj[indice_minus_i, indice_plus]-=Correct_coef_1[p]
+                        Proj[indice_plus_i, indice_minus]-=Correct_coef_1[p]
+                        Proj[indice_minus_i, indice_plus_1]+=Correct_coef_1[p]/2
+                        Proj[indice_plus_i, indice_minus_1]+=Correct_coef_1[p]/2
 
     if hom_bc:
         for b in boundary : 
@@ -646,15 +651,16 @@ def smooth_x_c1(V0h,nquads,hom_bc):
                         ValueError("wrong value for ext")
                     Proj[indice,indice]-=1
                     #Proj[indice_1,indice_1]-=1/2
-                    for p in range(0,px+1):
-                        #correction
-                        if ext ==+1 :
-                            indice_i = loca2global([i_patch,n_deg-(p+1),i],n_patches,patch_shape)
-                        elif ext == -1 : 
-                            indice_i = loca2global([i_patch,p+1,i],n_patches,patch_shape)
-                        else :
-                            ValueError("wrong value for ext")
-                        Proj[indice_i,indice]+=Correct_coef_bnd[p]    
+                    if mom_pres:
+                        for p in range(0,px+1):
+                            #correction
+                            if ext ==+1 :
+                                indice_i = loca2global([i_patch,n_deg-(p+1),i],n_patches,patch_shape)
+                            elif ext == -1 : 
+                                indice_i = loca2global([i_patch,p+1,i],n_patches,patch_shape)
+                            else :
+                                ValueError("wrong value for ext")
+                            Proj[indice_i,indice]+=Correct_coef_bnd[p]    
     return Proj
 
 def smooth_y_c1(V0h,nquads,hom_bc):
@@ -753,25 +759,26 @@ def smooth_y_c1(V0h,nquads,hom_bc):
                 Proj[indice_plus_1,indice_minus]+=1
                 Proj[indice_minus_1,indice_plus_1]-=1/2
                 Proj[indice_plus_1,indice_minus_1]-=1/2
-                for p in range(0,py+1):
-                    #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
-                    #modified by the C1 enforcement
-                    indice_plus_i  = loca2global([i_plus,  i, p+2                ], n_patches,patch_shape_plus)
-                    indice_minus_i = loca2global([i_minus, i, n_deg_minus-1-(p+2)], n_patches,patch_shape_minus)
-                    indice_plus    = loca2global([i_plus,  i, 0                  ], n_patches,patch_shape_plus)
-                    indice_minus   = loca2global([i_minus, i, n_deg_minus-1      ], n_patches,patch_shape_minus)
-                    indice_minus_1 = loca2global([i_minus,i,n_deg_minus-2],n_patches,patch_shape_minus)
-                    indice_plus_1  = loca2global([i_plus,i,1],n_patches,patch_shape_plus)
-                    Proj[indice_plus_i,indice_plus]+=Correct_coef_0[p]/2
-                    Proj[indice_plus_i,indice_minus]-=Correct_coef_0[p]/2
-                    Proj[indice_minus_i,indice_plus]-=Correct_coef_0[p]/2
-                    Proj[indice_minus_i,indice_minus]+=Correct_coef_0[p]/2
-                    Proj[indice_minus_i,indice_minus_1]+=Correct_coef_1[p]/2
-                    Proj[indice_plus_i,indice_plus_1]+=Correct_coef_1[p]/2
-                    Proj[indice_minus_i,indice_plus]-=Correct_coef_1[p]
-                    Proj[indice_plus_i,indice_minus]-=Correct_coef_1[p]
-                    Proj[indice_minus_i,indice_plus_1]+=Correct_coef_1[p]/2
-                    Proj[indice_plus_i,indice_minus_1]+=Correct_coef_1[p]/2
+                if mom_pres:
+                    for p in range(0,py+1):
+                        #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
+                        #modified by the C1 enforcement
+                        indice_plus_i  = loca2global([i_plus,  i, p+2                ], n_patches,patch_shape_plus)
+                        indice_minus_i = loca2global([i_minus, i, n_deg_minus-1-(p+2)], n_patches,patch_shape_minus)
+                        indice_plus    = loca2global([i_plus,  i, 0                  ], n_patches,patch_shape_plus)
+                        indice_minus   = loca2global([i_minus, i, n_deg_minus-1      ], n_patches,patch_shape_minus)
+                        indice_minus_1 = loca2global([i_minus,i,n_deg_minus-2],n_patches,patch_shape_minus)
+                        indice_plus_1  = loca2global([i_plus,i,1],n_patches,patch_shape_plus)
+                        Proj[indice_plus_i,indice_plus]+=Correct_coef_0[p]/2
+                        Proj[indice_plus_i,indice_minus]-=Correct_coef_0[p]/2
+                        Proj[indice_minus_i,indice_plus]-=Correct_coef_0[p]/2
+                        Proj[indice_minus_i,indice_minus]+=Correct_coef_0[p]/2
+                        Proj[indice_minus_i,indice_minus_1]+=Correct_coef_1[p]/2
+                        Proj[indice_plus_i,indice_plus_1]+=Correct_coef_1[p]/2
+                        Proj[indice_minus_i,indice_plus]-=Correct_coef_1[p]
+                        Proj[indice_plus_i,indice_minus]-=Correct_coef_1[p]
+                        Proj[indice_minus_i,indice_plus_1]+=Correct_coef_1[p]/2
+                        Proj[indice_plus_i,indice_minus_1]+=Correct_coef_1[p]/2
 
     if hom_bc:
         for b in boundary : 
@@ -791,15 +798,16 @@ def smooth_y_c1(V0h,nquads,hom_bc):
                         indice_1 = loca2global([i_patch,i,1],n_patches,patch_shape)
                     else :
                         ValueError("wrong value for ext")
-                    for p in range(0,py+1):
-                        #correction
-                        if ext ==+1 :
-                            indice_i = loca2global([i_patch,i,n_deg-(p+1)],n_patches,patch_shape)
-                        elif ext == -1 : 
-                            indice_i = loca2global([i_patch,i,p+1],n_patches,patch_shape)
-                        else :
-                            ValueError("wrong value for ext")
-                        Proj[indice_i,indice]+=Correct_coef_bnd[p]    
+                    if mom_pres:
+                        for p in range(0,py+1):
+                            #correction
+                            if ext ==+1 :
+                                indice_i = loca2global([i_patch,i,n_deg-(p+1)],n_patches,patch_shape)
+                            elif ext == -1 : 
+                                indice_i = loca2global([i_patch,i,p+1],n_patches,patch_shape)
+                            else :
+                                ValueError("wrong value for ext")
+                            Proj[indice_i,indice]+=Correct_coef_bnd[p]    
     return Proj
 
 def Conf_proj_0_c1(V0h,nquads,hom_bc=False):
@@ -962,16 +970,17 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                     Proj[indice_plus,indice_plus]-=1/2
                     Proj[indice_plus,indice_minus]+=1/2
                     Proj[indice_minus,indice_plus]+=1/2
-                    for p in range(0,px+1):
-                        #correction
-                        indice_plus_i  = loca2global([i_plus,  0, p+2,                 i], n_patches,patch_shape_plus)
-                        indice_minus_i = loca2global([i_minus, 0, n_deg_minus-1-(p+2), i], n_patches,patch_shape_minus)
-                        indice_plus    = loca2global([i_plus,  0, 0,                   i], n_patches,patch_shape_plus)
-                        indice_minus   = loca2global([i_minus, 0, n_deg_minus-1,       i], n_patches,patch_shape_minus)
-                        Proj[indice_plus_i,indice_plus]+=Correct_coef_x_0[p]/2
-                        Proj[indice_plus_i,indice_minus]-=Correct_coef_x_0[p]/2
-                        Proj[indice_minus_i,indice_plus]-=Correct_coef_x_0[p]/2
-                        Proj[indice_minus_i,indice_minus]+=Correct_coef_x_0[p]/2
+                    if mom_pres:
+                        for p in range(0,px+1):
+                            #correction
+                            indice_plus_i  = loca2global([i_plus,  0, p+2,                 i], n_patches,patch_shape_plus)
+                            indice_minus_i = loca2global([i_minus, 0, n_deg_minus-1-(p+2), i], n_patches,patch_shape_minus)
+                            indice_plus    = loca2global([i_plus,  0, 0,                   i], n_patches,patch_shape_plus)
+                            indice_minus   = loca2global([i_minus, 0, n_deg_minus-1,       i], n_patches,patch_shape_minus)
+                            Proj[indice_plus_i,indice_plus]+=Correct_coef_x_0[p]/2
+                            Proj[indice_plus_i,indice_minus]-=Correct_coef_x_0[p]/2
+                            Proj[indice_minus_i,indice_plus]-=Correct_coef_x_0[p]/2
+                            Proj[indice_minus_i,indice_minus]+=Correct_coef_x_0[p]/2
 
 
             elif axis == 1 :
@@ -982,16 +991,18 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                     Proj[indice_plus,indice_plus]-=1/2
                     Proj[indice_plus,indice_minus]+=1/2
                     Proj[indice_minus,indice_plus]+=1/2
-                    for p in range(0,py+1):
-                        #correction
-                        indice_plus_i  = loca2global([i_plus,  1, i, p+2                ], n_patches,patch_shape_plus)
-                        indice_minus_i = loca2global([i_minus, 1, i, n_deg_minus-1-(p+2)], n_patches,patch_shape_minus)
-                        indice_plus    = loca2global([i_plus,  1, i, 0                  ], n_patches,patch_shape_plus)
-                        indice_minus   = loca2global([i_minus, 1, i, n_deg_minus-1      ], n_patches,patch_shape_minus)
-                        Proj[indice_plus_i,indice_plus]+=Correct_coef_y_0[p]/2
-                        Proj[indice_plus_i,indice_minus]-=Correct_coef_y_0[p]/2
-                        Proj[indice_minus_i,indice_plus]-=Correct_coef_y_0[p]/2
-                        Proj[indice_minus_i,indice_minus]+=Correct_coef_y_0[p]/2
+                    if mom_pres:
+                        for p in range(0,py+1):
+                            #correction
+                            indice_plus_i  = loca2global([i_plus,  1, i, p+2                ], n_patches,patch_shape_plus)
+                            indice_minus_i = loca2global([i_minus, 1, i, n_deg_minus-1-(p+2)], n_patches,patch_shape_minus)
+                            indice_plus    = loca2global([i_plus,  1, i, 0                  ], n_patches,patch_shape_plus)
+                            indice_minus   = loca2global([i_minus, 1, i, n_deg_minus-1      ], n_patches,patch_shape_minus)
+                            Proj[indice_plus_i,indice_plus]+=Correct_coef_y_0[p]/2
+                            Proj[indice_plus_i,indice_minus]-=Correct_coef_y_0[p]/2
+                            Proj[indice_minus_i,indice_plus]-=Correct_coef_y_0[p]/2
+                            Proj[indice_minus_i,indice_minus]+=Correct_coef_y_0[p]/2
+
     elif V1.name=="Hcurl":
         for I in Interfaces:
             axis = I.axis
@@ -1022,24 +1033,26 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                     Proj[indice_plus_1,indice_minus]+=1
                     Proj[indice_minus_1,indice_plus_1]-=1/2
                     Proj[indice_plus_1,indice_minus_1]-=1/2
-                    for p in range(0,py+1):
-                        #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
-                        #modified by the C1 enforcement
-                        indice_plus_i  = loca2global([i_plus,  1, p+2,                 i], n_patches,patch_shape_plus)
-                        indice_minus_i = loca2global([i_minus, 1, n_deg_minus-1-(p+2), i], n_patches,patch_shape_minus)
+                    if mom_pres:
+                        for p in range(0,py+1):
+                            #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
+                            #modified by the C1 enforcement
+                            indice_plus_i  = loca2global([i_plus,  1, p+2,                 i], n_patches,patch_shape_plus)
+                            indice_minus_i = loca2global([i_minus, 1, n_deg_minus-1-(p+2), i], n_patches,patch_shape_minus)
 
-                        Proj[indice_plus_i,indice_plus]+=Correct_coef_y_0[p]/2
-                        Proj[indice_plus_i,indice_minus]-=Correct_coef_y_0[p]/2
-                        Proj[indice_minus_i,indice_plus]-=Correct_coef_y_0[p]/2
-                        Proj[indice_minus_i,indice_minus]+=Correct_coef_y_0[p]/2
-                        Proj[indice_minus_i,indice_minus_1]+=Correct_coef_y_1[p]/2
-                        Proj[indice_plus_i,indice_plus_1]+=Correct_coef_y_1[p]/2
-                        Proj[indice_minus_i,indice_plus]-=Correct_coef_y_1[p]
-                        Proj[indice_plus_i,indice_minus]-=Correct_coef_y_1[p]
-                        Proj[indice_minus_i,indice_plus_1]+=Correct_coef_y_1[p]/2
-                        Proj[indice_plus_i,indice_minus_1]+=Correct_coef_y_1[p]/2
+                            Proj[indice_plus_i,indice_plus]+=Correct_coef_y_0[p]/2
+                            Proj[indice_plus_i,indice_minus]-=Correct_coef_y_0[p]/2
+                            Proj[indice_minus_i,indice_plus]-=Correct_coef_y_0[p]/2
+                            Proj[indice_minus_i,indice_minus]+=Correct_coef_y_0[p]/2
+                            Proj[indice_minus_i,indice_minus_1]+=Correct_coef_y_1[p]/2
+                            Proj[indice_plus_i,indice_plus_1]+=Correct_coef_y_1[p]/2
+                            Proj[indice_minus_i,indice_plus]-=Correct_coef_y_1[p]
+                            Proj[indice_plus_i,indice_minus]-=Correct_coef_y_1[p]
+                            Proj[indice_minus_i,indice_plus_1]+=Correct_coef_y_1[p]/2
+                            Proj[indice_plus_i,indice_minus_1]+=Correct_coef_y_1[p]/2
 
             elif axis == 1 :
+                gamma = 1  # smoother than 0 ?
                 for i in range(s_plus.spaces[0].spaces[0].nbasis):
                     indice_minus = loca2global([i_minus,0,i,n_deg_minus-1],n_patches,patch_shape_minus)
                     indice_plus  = loca2global([i_plus,0,i,0],n_patches,patch_shape_plus)
@@ -1050,27 +1063,45 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                     Proj[indice_plus,indice_plus]-=1/2
                     Proj[indice_plus,indice_minus]+=1/2
                     Proj[indice_minus,indice_plus]+=1/2
-                    Proj[indice_minus_1,indice_minus_1]-=1/2
-                    Proj[indice_plus_1,indice_plus_1]-=1/2
-                    Proj[indice_minus_1,indice_plus]+=1
-                    Proj[indice_plus_1,indice_minus]+=1
-                    Proj[indice_minus_1,indice_plus_1]-=1/2
-                    Proj[indice_plus_1,indice_minus_1]-=1/2
-                    for p in range(0,px+1):
-                        #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
-                        #modified by the C1 enforcement
-                        indice_plus_i  = loca2global([i_plus,  0, i, p+2                ], n_patches,patch_shape_plus)
-                        indice_minus_i = loca2global([i_minus, 0, i, n_deg_minus-1-(p+2)], n_patches,patch_shape_minus)
-                        Proj[indice_plus_i,indice_plus]+=Correct_coef_x_0[p]/2
-                        Proj[indice_plus_i,indice_minus]-=Correct_coef_x_0[p]/2
-                        Proj[indice_minus_i,indice_plus]-=Correct_coef_x_0[p]/2
-                        Proj[indice_minus_i,indice_minus]+=Correct_coef_x_0[p]/2
-                        Proj[indice_minus_i,indice_minus_1]+=Correct_coef_x_1[p]/2
-                        Proj[indice_plus_i,indice_plus_1]+=Correct_coef_x_1[p]/2
-                        Proj[indice_minus_i,indice_plus]-=Correct_coef_x_1[p]
-                        Proj[indice_plus_i,indice_minus]-=Correct_coef_x_1[p]
-                        Proj[indice_minus_i,indice_plus_1]+=Correct_coef_x_1[p]/2
-                        Proj[indice_plus_i,indice_minus_1]+=Correct_coef_x_1[p]/2
+                    # Proj[indice_minus,indice_minus] =0
+                    # Proj[indice_plus,indice_plus]=0
+                    # Proj[indice_plus,indice_minus]=0
+                    # Proj[indice_minus,indice_plus]=0
+                    Proj[indice_minus_1,indice_minus_1] -= 1/2
+                    Proj[indice_minus_1,indice_minus  ]  = gamma/2
+                    Proj[indice_minus_1,indice_plus   ]  = (2 - gamma)/2
+                    Proj[indice_minus_1,indice_plus_1 ]  = -1/2
+                    
+                    Proj[indice_plus_1,indice_minus_1]  = -1/2
+                    Proj[indice_plus_1,indice_minus  ]  = (2 - gamma)/2
+                    Proj[indice_plus_1,indice_plus   ]  = gamma/2
+                    Proj[indice_plus_1,indice_plus_1 ] -= 1/2
+
+                    # Proj[indice_minus_1,indice_minus_1] = 0
+                    # Proj[indice_plus_1,indice_plus_1]-=1/2
+                    # Proj[indice_plus_1,indice_plus_1] = 0
+                    # Proj[indice_minus_1,indice_plus] = 0 
+                    # Proj[indice_plus_1,indice_minus] =0 #+=1
+                    # Proj[indice_plus_1,indice_minus]=0
+                    # Proj[indice_minus_1,indice_plus_1] = 0
+                    # Proj[indice_plus_1,indice_minus_1]-=1/2
+                    # Proj[indice_plus_1,indice_minus_1]=0
+                    if mom_pres:
+                        for p in range(0,px+1):
+                            #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
+                            #modified by the C1 enforcement
+                            indice_plus_i  = loca2global([i_plus,  0, i, p+2                ], n_patches,patch_shape_plus)
+                            indice_minus_i = loca2global([i_minus, 0, i, n_deg_minus-1-(p+2)], n_patches,patch_shape_minus)
+                            Proj[indice_plus_i,indice_plus]+=Correct_coef_x_0[p]/2
+                            Proj[indice_plus_i,indice_minus]-=Correct_coef_x_0[p]/2
+                            Proj[indice_minus_i,indice_plus]-=Correct_coef_x_0[p]/2
+                            Proj[indice_minus_i,indice_minus]+=Correct_coef_x_0[p]/2
+                            Proj[indice_minus_i,indice_minus_1]+=Correct_coef_x_1[p]/2
+                            Proj[indice_plus_i,indice_plus_1]+=Correct_coef_x_1[p]/2
+                            Proj[indice_minus_i,indice_plus]-=Correct_coef_x_1[p]
+                            Proj[indice_plus_i,indice_minus]-=Correct_coef_x_1[p]
+                            Proj[indice_minus_i,indice_plus_1]+=Correct_coef_x_1[p]/2
+                            Proj[indice_plus_i,indice_minus_1]+=Correct_coef_x_1[p]/2
 
         if hom_bc:
             for b in boundary : 
@@ -1094,17 +1125,18 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                             ValueError("wrong value for ext")
                         #set bnd dof to zero
                         Proj[indice,indice]-=1
-                        for p in range(0,py+1):
-                        #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
-                        #modified by the C1 enforcement
-                            if ext ==+1 :
-                                indice_i = loca2global([i_patch,1,n_deg-1-(p+1),i],n_patches,patch_shape)
-                            elif ext == -1 : 
-                                indice_i = loca2global([i_patch,1,p+1,i],n_patches,patch_shape)
-                            else :
-                                ValueError("wrong value for ext")
-                            Proj[indice_i,indice]+=Correct_coef_y_bnd[p]
-                        #Proj[indice_1,indice_1]-=1/2
+                        if mom_pres:
+                            for p in range(0,py+1):
+                            #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
+                            #modified by the C1 enforcement
+                                if ext ==+1 :
+                                    indice_i = loca2global([i_patch,1,n_deg-1-(p+1),i],n_patches,patch_shape)
+                                elif ext == -1 : 
+                                    indice_i = loca2global([i_patch,1,p+1,i],n_patches,patch_shape)
+                                else :
+                                    ValueError("wrong value for ext")
+                                Proj[indice_i,indice]+=Correct_coef_y_bnd[p]
+                            #Proj[indice_1,indice_1]-=1/2
                 elif axis == 1 :
                     for i in range(space.spaces[0].spaces[0].nbasis):
                         if ext ==+1 :
@@ -1116,17 +1148,18 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                         else :
                             ValueError("wrong value for ext")
                         Proj[indice,indice]-=1
-                        for p in range(0,px+1):
-                        #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
-                        #modified by the C1 enforcement
-                            if ext ==+1 :
-                                indice_i = loca2global([i_patch,0,i,n_deg-1-(p+1)],n_patches,patch_shape)
-                            elif ext == -1 : 
-                                indice_i = loca2global([i_patch,0,i,p+1],n_patches,patch_shape)
-                            else :
-                                ValueError("wrong value for ext")
-                            Proj[indice_i,indice]+=Correct_coef_x_bnd[p]
-                        #Proj[indice_1,indice_1]-=1/2
+                        if mom_pres:
+                            for p in range(0,px+1):
+                            #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
+                            #modified by the C1 enforcement
+                                if ext ==+1 :
+                                    indice_i = loca2global([i_patch,0,i,n_deg-1-(p+1)],n_patches,patch_shape)
+                                elif ext == -1 : 
+                                    indice_i = loca2global([i_patch,0,i,p+1],n_patches,patch_shape)
+                                else :
+                                    ValueError("wrong value for ext")
+                                Proj[indice_i,indice]+=Correct_coef_x_bnd[p]
+                            #Proj[indice_1,indice_1]-=1/2
     else :
         print("Error in Conf_proj_1 : wrong kind of space")
 
@@ -1204,16 +1237,17 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                 Proj_par[indice_plus,indice_plus]-=1/2
                 Proj_par[indice_plus,indice_minus]+=1/2
                 Proj_par[indice_minus,indice_plus]+=1/2
-                for p in range(0,px+1):
-                    #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
-                    #modified by the C0 enforcement
-                    indice_plus_i  = loca2global([i_plus,  0, p+1,                 i], n_patches,patch_shape_plus)
-                    indice_minus_i = loca2global([i_minus, 0, n_deg_minus-1-(p+1), i], n_patches,patch_shape_minus)
+                if mom_pres:
+                    for p in range(0,px+1):
+                        #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
+                        #modified by the C0 enforcement
+                        indice_plus_i  = loca2global([i_plus,  0, p+1,                 i], n_patches,patch_shape_plus)
+                        indice_minus_i = loca2global([i_minus, 0, n_deg_minus-1-(p+1), i], n_patches,patch_shape_minus)
 
-                    Proj_par[indice_plus_i,indice_plus]+=Correct_coef_x[p]/2
-                    Proj_par[indice_plus_i,indice_minus]-=Correct_coef_x[p]/2
-                    Proj_par[indice_minus_i,indice_plus]-=Correct_coef_x[p]/2
-                    Proj_par[indice_minus_i,indice_minus]+=Correct_coef_x[p]/2
+                        Proj_par[indice_plus_i,indice_plus]+=Correct_coef_x[p]/2
+                        Proj_par[indice_plus_i,indice_minus]-=Correct_coef_x[p]/2
+                        Proj_par[indice_minus_i,indice_plus]-=Correct_coef_x[p]/2
+                        Proj_par[indice_minus_i,indice_minus]+=Correct_coef_x[p]/2
         elif axis == 1 :
             for i in range(s_plus.spaces[1].spaces[0].nbasis):
                 indice_minus = loca2global([i_minus,  1,i,n_deg_minus-1],n_patches,patch_shape_minus)
@@ -1223,16 +1257,17 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                 Proj_par[indice_plus,indice_plus]-=1/2
                 Proj_par[indice_plus,indice_minus]+=1/2
                 Proj_par[indice_minus,indice_plus]+=1/2
-                for p in range(0,py+1):
-                    #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
-                    #modified by the C0 enforcement
-                    indice_plus_i  = loca2global([i_plus,  1, i, p+1                ], n_patches,patch_shape_plus)
-                    indice_minus_i = loca2global([i_minus, 1, i, n_deg_minus-1-(p+1)], n_patches,patch_shape_minus)
+                if mom_pres:
+                    for p in range(0,py+1):
+                        #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
+                        #modified by the C0 enforcement
+                        indice_plus_i  = loca2global([i_plus,  1, i, p+1                ], n_patches,patch_shape_plus)
+                        indice_minus_i = loca2global([i_minus, 1, i, n_deg_minus-1-(p+1)], n_patches,patch_shape_minus)
 
-                    Proj_par[indice_plus_i,indice_plus]+=Correct_coef_y[p]/2
-                    Proj_par[indice_plus_i,indice_minus]-=Correct_coef_y[p]/2
-                    Proj_par[indice_minus_i,indice_plus]-=Correct_coef_y[p]/2
-                    Proj_par[indice_minus_i,indice_minus]+=Correct_coef_y[p]/2
+                        Proj_par[indice_plus_i,indice_plus]+=Correct_coef_y[p]/2
+                        Proj_par[indice_plus_i,indice_minus]-=Correct_coef_y[p]/2
+                        Proj_par[indice_minus_i,indice_plus]-=Correct_coef_y[p]/2
+                        Proj_par[indice_minus_i,indice_minus]+=Correct_coef_y[p]/2
 
     print((Proj@Proj_par-Proj_par@Proj))
 

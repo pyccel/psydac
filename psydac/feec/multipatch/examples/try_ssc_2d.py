@@ -24,7 +24,7 @@ from psydac.feec.multipatch.api                         import discretize
 from psydac.api.settings                                import PSYDAC_BACKENDS
 from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
 from psydac.feec.multipatch.operators                   import HodgeOperator
-from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
+from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain, build_multipatch_rectangle
 from psydac.feec.multipatch.plotting_utilities_2          import plot_field
 from psydac.feec.multipatch.utilities                   import time_count #, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
 # from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_file
@@ -32,29 +32,35 @@ from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_
 from psydac.feec.multipatch.utils_conga_2d              import P_phys_l2, P_phys_hdiv, P_phys_hcurl, P_phys_h1
 
 from psydac.feec.multipatch.bilinear_form_scipy import construct_pairing_matrix
-from psydac.feec.multipatch.conf_projections_scipy import Conf_proj_0, Conf_proj_1, Conf_proj_0_c1, Conf_proj_1_c1
+import psydac.feec.multipatch.conf_projections_scipy as cps
+# from psydac.feec.multipatch.conf_projections_scipy import Conf_proj_0, Conf_proj_1, Conf_proj_0_c1, Conf_proj_1_c1
 from sympde.topology      import Square    
 from sympde.topology      import IdentityMapping, PolarMapping
 from psydac.fem.vector import ProductFemSpace
 
+from scipy.sparse import save_npz, load_npz
 from scipy.sparse.linalg import spilu, lgmres, norm as sp_norm
 from scipy.sparse.linalg import LinearOperator, eigsh, minres
 from scipy.sparse          import csr_matrix
 from scipy.linalg        import norm
 
-
 from psydac.feec.multipatch.examples.fs_domains_examples import create_square_domain
+from psydac.feec.multipatch.utils_conga_2d              import write_errors_array_deg_nbp
 
-
+cps.mom_pres = False
 
 def try_ssc_2d(
         ncells=None, 
-        p_degree=[3,3], 
+        p_degree=[3,3],
+        nb_patch_x=2,
+        nb_patch_y=2, 
         domain_name='refined_square', 
         plot_dir='./plots/', 
-        Htest=None,
+        test_case=None,
         m_load_dir=None,
-        backend_language='pyccel-gcc'
+        backend_language='pyccel-gcc',
+        make_plots=True,
+        hide_plots=False, 
         ):
 
     """
@@ -64,8 +70,8 @@ def try_ssc_2d(
 
     print('---------------------------------------------------------------------------------------------------------')
     print('Starting try_ssc_2d function with: ')
-    print(' ncells = {}'.format(ncells))
-    print(' p_degree = {}'.format(p_degree))
+    print(' ncells      = {}'.format(ncells))
+    print(' p_degree    = {}'.format(p_degree))
     print(' domain_name = {}'.format(domain_name))
     # print(' backend_language = {}'.format(backend_language))
     print('---------------------------------------------------------------------------------------------------------')
@@ -79,28 +85,34 @@ def try_ssc_2d(
         for load_dir in [pm_load_dir, dm_load_dir]:        
             if not os.path.exists(load_dir):
                 os.makedirs(load_dir)
-
+    
+    t_stamp = time_count(t_stamp)
     print('building symbolic and discrete domain...')
 
-    if domain_name == 'refined_square' or domain_name =='square_L_shape':
+    if domain_name == 'multipatch_rectangle':
+        domain, domain_h, bnds = build_multipatch_rectangle(
+            nb_patch_x, nb_patch_y, 
+            x_min=0, x_max=np.pi,
+            y_min=0, y_max=np.pi,
+            perio=[False,False],
+            ncells=ncells,
+            )
+
+    elif domain_name == 'refined_square' or domain_name =='square_L_shape':
         int_x, int_y = [[0, np.pi],[0, np.pi]]
         # need to change ncells I guess... 
         domain = create_square_domain(ncells, int_x, int_y, mapping='identity')
         ncells_h = {patch.name: [ncells[int(patch.name[2])][int(patch.name[4])], ncells[int(patch.name[2])][int(patch.name[4])]] for patch in domain.interior}
-    
+        domain_h = discretize(domain, ncells=ncells_h)
     else:
         domain = build_multipatch_domain(domain_name=domain_name)
-        ncells_h = ncells   # ?
+        domain_h = discretize(domain, ncells=ncells)
 
         # ValueError("Domain not defined.")
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     # mappings_list = list(mappings.values())
     mappings_list = [m.get_callable_mapping() for m in mappings.values()]
-
-    t_stamp = time_count(t_stamp)
-    print(' .. discrete domain...')
-    domain_h = discretize(domain, ncells=ncells_h)
 
     print('building symbolic and discrete derham sequences...')
     d_degree = [d-1 for d in p_degree]
@@ -133,19 +145,39 @@ def try_ssc_2d(
     t_stamp = time_count(t_stamp)
     print('Pairing matrices...')
 
-    p_KK1     = construct_pairing_matrix(d_V1h,p_V1h).tocsr()  # matrix in scipy format
-    p_KK2     = construct_pairing_matrix(d_V0h,p_V2h).tocsr()  # matrix in scipy format
-    d_KK1     = p_KK1.transpose()
+    p_KK2_storage_fn = m_load_dir+'/p_KK2.npz'
+    if os.path.exists(p_KK2_storage_fn):
+        # matrix is stored
+        print('loading pairing matrix found in '+p_KK2_storage_fn)
+        p_KK2 = load_npz(p_KK2_storage_fn)
+    else:
+        print('pairing matrix not found, computing... ')
+        p_KK2 = construct_pairing_matrix(d_V0h,p_V2h).tocsr()  # matrix in scipy format
+        t_stamp = time_count(t_stamp)
+        print('storing pairing matrix in '+p_KK2_storage_fn)
+        save_npz(p_KK2_storage_fn, p_KK2)
+
+    d_KK1_storage_fn = m_load_dir+'/d_KK1.npz'
+    if os.path.exists(d_KK1_storage_fn):
+        # matrix is stored
+        d_KK1 = load_npz(d_KK1_storage_fn)
+    else:
+        d_KK1 = construct_pairing_matrix(p_V1h,d_V1h).tocsr()  # matrix in scipy format
+        save_npz(d_KK1_storage_fn, d_KK1)
+
+    # p_KK1     = construct_pairing_matrix(d_V1h,p_V1h).tocsr()  # matrix in scipy format
+    # p_KK2     = construct_pairing_matrix(d_V0h,p_V2h).tocsr()  # matrix in scipy format
+    p_KK1 = d_KK1.transpose()
 
     t_stamp = time_count(t_stamp)
     print('Conforming projections...')
-    p_PP0     = Conf_proj_0_c1(p_V0h, nquads = [4*(d + 1) for d in p_degree], hom_bc=False)
-    p_PP1     = Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in p_degree], hom_bc=False)
+    p_PP0     = cps.Conf_proj_0_c1(p_V0h, nquads = [4*(d + 1) for d in p_degree], hom_bc=False)
+    p_PP1     = cps.Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in p_degree], hom_bc=False)
 
-    p_PP1_C0     = Conf_proj_1(p_V1h, nquads = [4*(d + 1) for d in p_degree])  # to compare
+    p_PP1_C0     = cps.Conf_proj_1(p_V1h, nquads = [4*(d + 1) for d in p_degree])  # to compare
 
-    d_PP0     = Conf_proj_0(d_V0h, nquads = [4*(d + 1) for d in d_degree])
-    d_PP1     = Conf_proj_1(d_V1h, nquads = [4*(d + 1) for d in d_degree])
+    d_PP0     = cps.Conf_proj_0(d_V0h, nquads = [4*(d + 1) for d in d_degree])
+    d_PP1     = cps.Conf_proj_1(d_V1h, nquads = [4*(d + 1) for d in d_degree])
 
     t_stamp = time_count(t_stamp)
     print('Mass matrices...')
@@ -197,15 +229,15 @@ def try_ssc_2d(
         
     # some target function
     x,y    = domain.coordinates
-    # f_symb  = Tuple(sin(pi*y),
-    #                 sin(pi*x))
-    f_symb  = Tuple(x*x,
-                    0*y)
+    f_smooth  = Tuple(sin(pi*y),
+                    sin(pi*x))
+    f_aff  = Tuple(y,
+                    0*x)
 
     # f_x = lambdify(domain.coordinates, f_vect[0])
     # f_y = lambdify(domain.coordinates, f_vect[1])
     nb_patches = len(domain)
-    G_sol_log = [[lambda xi1, xi2, ii=i : ii+1 for d in [0,1]] for i in range(nb_patches)]
+    G_sol_log = [[lambda xi1, xi2, ii=i : (ii+1)%2 for d in [0,1]] for i in range(nb_patches)]
 
     g_symb = sin(pi*x)*sin(pi*y)
     g = lambdify(domain.coordinates, g_symb)
@@ -213,10 +245,24 @@ def try_ssc_2d(
     p_geomP0, p_geomP1, p_geomP2 = p_derham_h.projectors()
     d_geomP0, d_geomP1, d_geomP2 = d_derham_h.projectors()
 
+    sol = 'smooth'
 
-    if Htest == 'p_PP1':
+    if test_case == 'p_PP1':
 
-        G_pV1_c = p_geomP1(G_sol_log).coeffs.toarray()
+        if sol == "discontinuous":
+            G_pV1_c = p_geomP1(G_sol_log).coeffs.toarray()
+        elif sol == "affine":
+            tilde_G_c = p_derham_h.get_dual_dofs(space='V1', f=f_aff, backend_language=backend_language, return_format='numpy_array')
+            G_pV1_c = p_MM1_inv @ tilde_G_c
+            # = P_phys_hcurl(f_aff, p_geomP1, domain, mappings_list).coeffs.toarray()
+        elif sol == "smooth":
+            tilde_G_c = p_derham_h.get_dual_dofs(space='V1', f=f_smooth, backend_language=backend_language, return_format='numpy_array')
+            G_pV1_c = p_MM1_inv @ tilde_G_c
+            # G_pV1_c = P_phys_hcurl(f_smooth, p_geomP1, domain, mappings_list).coeffs.toarray()
+
+        else:
+            raise NotImplementedError
+        
         G_pP1_c = p_PP1 @ G_pV1_c
 
         ref_c = G_pV1_c
@@ -228,7 +274,34 @@ def try_ssc_2d(
         Vh_kind = 'hcurl'
         plot_type = 'components'
 
-    elif Htest == 'p_PP1_C1':
+    elif test_case == 'd_PP1':
+
+        if sol == "discontinuous":
+            G_dV1_c = d_geomP1(G_sol_log).coeffs.toarray()
+        elif sol == "affine":
+            tilde_G_c = d_derham_h.get_dual_dofs(space='V1', f=f_aff, backend_language=backend_language, return_format='numpy_array')
+            G_dV1_c = d_MM1_inv @ tilde_G_c
+            # = P_phys_hcurl(f_aff, p_geomP1, domain, mappings_list).coeffs.toarray()
+        elif sol == "smooth":
+            tilde_G_c = d_derham_h.get_dual_dofs(space='V1', f=f_smooth, backend_language=backend_language, return_format='numpy_array')
+            G_dV1_c = d_MM1_inv @ tilde_G_c
+            # G_dV1_c = P_phys_hcurl(f_smooth, p_geomP1, domain, mappings_list).coeffs.toarray()
+
+        else:
+            raise NotImplementedError
+        
+        G_dP1_c = d_PP1 @ G_dV1_c
+
+        ref_c = G_dV1_c
+        app_c = G_dP1_c
+        label_ref   = 'G_dV1'
+        label_app   = 'd_PP1 @ G_dV1'
+        MM      = d_MM1
+        Vh      = d_V1h
+        Vh_kind = 'hdiv'
+        plot_type = 'components'        
+
+    elif test_case == 'p_PP1_C1':
 
         G_pV1_c = p_geomP1(G_sol_log).coeffs.toarray()
         dP_G_c  = p_bC @ p_PP1 @ G_pV1_c
@@ -238,13 +311,13 @@ def try_ssc_2d(
         ref_c = np.zeros(p_V2h.nbasis)
         app_c = dP_G_c
         label_ref   = 'noref'
-        label_app   = 'p_bC @ G_pP1_c'
+        label_app   = 'p_bC @ p_PP1 @ G_pV1_c'
         MM      = p_MM2
         Vh      = p_V2h
         Vh_kind = 'l2'
         plot_type = 'amplitude'
 
-    elif Htest == 'p_HH2':
+    elif test_case == 'p_HH2':
         
         g_dV0   = P_phys_h1(g_symb, d_geomP0, domain, mappings_list)
         g_dV0_c = g_dV0.coeffs.toarray()
@@ -262,7 +335,7 @@ def try_ssc_2d(
         Vh_kind = 'h1'
         plot_type = 'components'
 
-    elif Htest == 'd_HH1':
+    elif test_case == 'd_HH1':
 
         f_pV1   = P_phys_hcurl(f_symb, p_geomP1, domain, mappings_list)
         f_pV1_c = f_pV1.coeffs.toarray()
@@ -296,7 +369,7 @@ def try_ssc_2d(
         # p_f1_label = 'f1 = t_H1 @ t_f1'
         
 
-    elif Htest == 'p_HH1':
+    elif test_case == 'p_HH1':
 
         raise NotImplementedError
     
@@ -316,18 +389,27 @@ def try_ssc_2d(
     else:
         raise NotImplementedError
     
-
-    plot_field(numpy_coeffs=app_c, Vh=Vh, space_kind=Vh_kind, 
-               plot_type=plot_type,
-               domain=domain, title=label_app, cmap='viridis', 
-               filename=plot_dir+'test='+Htest+'_app_.png', 
-               hide_plot=False)
-    plot_field(numpy_coeffs=ref_c, Vh=Vh, space_kind=Vh_kind, 
-               plot_type=plot_type,
-               domain=domain, title=label_ref, cmap='viridis', 
-               filename=plot_dir+'test='+Htest+'_ref_.png', 
-               hide_plot=False)
-
+    if make_plots:
+        plot_field(numpy_coeffs=app_c, Vh=Vh, space_kind=Vh_kind, 
+                plot_type=plot_type,
+                domain=domain, title=label_app, cmap='viridis', 
+                filename=plot_dir+'test='+test_case+'_app_.png', 
+                hide_plot=hide_plots, 
+                N_vis=20,
+                #    eta_crop=[[0.2,0.3], [0,10]],
+                surface_plot=True)
+        
+        plot_field(numpy_coeffs=ref_c, Vh=Vh, space_kind=Vh_kind, 
+                plot_type=plot_type,
+                domain=domain, title=label_ref, cmap='viridis', 
+                filename=plot_dir+'test='+test_case+'_ref_.png', 
+                hide_plot=hide_plots, 
+                N_vis=20,
+                #    eta_crop=[[0.2,0.3], [0,10]],
+                surface_plot=True)
+    else:
+        print( "-- -- -- skipping plots -- -- -- ")
+    
     err_c = app_c - ref_c 
     L2_error = np.sqrt(np.dot(err_c, MM @ err_c)/np.dot(ref_c, MM @ ref_c))
 
@@ -337,31 +419,54 @@ if __name__ == '__main__':
 
     t_stamp_full = time_count()
 
-    # Htest = "p_HH2"
-    Htest = "p_PP1_C1" # "p_PP1" # "d_HH1" #
+    test_case = "d_PP1" # "p_PP1" # "p_PP1_C1" # "d_HH1" # "p_PP1_C1" # 
     refined_square = False
     
-    if refined_square:
-        domain_name = 'refined_square'
-        nc = 10
-    else:
-        domain_name = 'square_2' #'square_9'
-        nc = 4
+    make_plots = False
+    hide_plots = True
+    
 
-    deg = 3
+    nbp_s = [2,4] #,6,8]
+    deg_s = [3]
+    
+    nc = 10
+    
+    errors = [[ None for nbp in nbp_s] for deg in deg_s]
 
-    run_dir = '{}_nc={}_deg={}/'.format(domain_name, nc, deg)
+    for i_deg, deg in enumerate(deg_s): 
+        for i_nc, nbp in enumerate(nbp_s): 
+            nb_patch_x = nbp
+            nb_patch_y = nbp     
+            if refined_square:
+                domain_name = 'refined_square'
+                raise NotImplementedError("CHECK FIRST")
+                m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
+            else:
+                domain_name = 'multipatch_rectangle' #'square_9'
+                m_load_dir = 'matrices_{}_nbp={}_nc={}_deg={}/'.format(domain_name, nbp, nc, deg)
 
-    m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
-    error = try_ssc_2d(
-        ncells=[nc,nc], 
-        p_degree=[deg,deg],
-        domain_name=domain_name, 
-        Htest=Htest,
-        plot_dir='./plots/'+run_dir,
-        m_load_dir=m_load_dir,
-        backend_language='python' #'pyccel-gcc'
-    )
+            run_dir = '{}_nc={}_deg={}/'.format(domain_name, nc, deg)
 
-    print("error: {}".format(error))
+            error = try_ssc_2d(
+                ncells=[nc,nc], 
+                nb_patch_x=nb_patch_x,
+                nb_patch_y=nb_patch_y,
+                p_degree=[deg,deg],
+                domain_name=domain_name, 
+                test_case=test_case,
+                plot_dir='./plots/'+run_dir,
+                m_load_dir=m_load_dir,
+                backend_language='python', #'pyccel-gcc'
+                hide_plots=hide_plots,
+                make_plots=make_plots,
+            )
+            print("-------------------------------------------------")
+            print("for deg = {}, nb_patches = {}**2".format(deg,nbp))
+            print("error: {}".format(error))
+            print("-------------------------------------------------\n")
+    
+            errors[i_deg][i_nc] = error
+
+    write_errors_array_deg_nbp(errors, deg_s, nbp_s, nc, error_dir='./errors', name=test_case)
+
     time_count(t_stamp_full, msg='full program')

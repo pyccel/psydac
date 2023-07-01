@@ -36,51 +36,53 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
     vector_valued = is_vector_valued(u) if isinstance(u, FemField) else isinstance(u[0],(list, tuple))
     if vector_valued:
         # WARNING: here we assume 2D !
-        u_vals_components = [n_patches*[None], n_patches*[None]]
+        u_vals_components = [n_patches*[np.nan], n_patches*[np.nan]]
     else:
-        u_vals_components = [n_patches*[None]]
+        u_vals_components = [n_patches*[np.nan]]
 
-    for k in range(n_patches):
-        eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
-        for vals in u_vals_components:
-            vals[k] = np.empty_like(eta_1)
-        uk_field_1 = None
-        if isinstance(u,FemField):
-            if vector_valued:
-                uk_field_0 = u[k].fields[0]
-                uk_field_1 = u[k].fields[1]
-            else:
-                uk_field_0 = u.fields[k]   # it would be nice to just write u[k].fields[0] here...
-        else:
-            # then u should be callable
-            if vector_valued:
-                uk_field_0 = u[k][0]
-                uk_field_1 = u[k][1]
-            else:
-                uk_field_0 = u[k]
-
-        # computing the pushed-fwd values on the grid
-        if space_kind == 'h1':
-            assert not vector_valued
-            # todo (MCP): add 2d_hcurl_vector
-            push_field = lambda eta1, eta2: push_2d_h1(uk_field_0, eta1, eta2)
-        elif space_kind == 'hcurl':
-            # todo (MCP): specify 2d_hcurl_scalar in push functions
-            push_field = lambda eta1, eta2: push_2d_hcurl(uk_field_0, uk_field_1, eta1, eta2, F=mappings_list[k])
-        elif space_kind == 'hdiv':
-            push_field = lambda eta1, eta2: push_2d_hdiv(uk_field_0, uk_field_1, eta1, eta2, F=mappings_list[k])
-        elif space_kind == 'l2':
-            assert not vector_valued
-            push_field = lambda eta1, eta2: push_2d_l2(uk_field_0, eta1, eta2, F=mappings_list[k])
-        else:
-            raise ValueError('unknown value for space_kind = {}'.format(space_kind))
-
-        for i, x1i in enumerate(eta_1[:, 0]):
-            for j, x2j in enumerate(eta_2[0, :]):
+    for k in range(n_patches):        
+        if etas[k][0][0] is not None:
+            # print("etas[k][0] = ", etas[k][0])
+            eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
+            for vals in u_vals_components:
+                vals[k] = np.empty_like(eta_1)
+            uk_field_1 = None
+            if isinstance(u,FemField):
                 if vector_valued:
-                    u_vals_components[0][k][i, j], u_vals_components[1][k][i, j] = push_field(x1i, x2j)
+                    uk_field_0 = u[k].fields[0]
+                    uk_field_1 = u[k].fields[1]
                 else:
-                    u_vals_components[0][k][i, j] = push_field(x1i, x2j)
+                    uk_field_0 = u.fields[k]   # it would be nice to just write u[k].fields[0] here...
+            else:
+                # then u should be callable
+                if vector_valued:
+                    uk_field_0 = u[k][0]
+                    uk_field_1 = u[k][1]
+                else:
+                    uk_field_0 = u[k]
+
+            # computing the pushed-fwd values on the grid
+            if space_kind == 'h1':
+                assert not vector_valued
+                # todo (MCP): add 2d_hcurl_vector
+                push_field = lambda eta1, eta2: push_2d_h1(uk_field_0, eta1, eta2)
+            elif space_kind == 'hcurl':
+                # todo (MCP): specify 2d_hcurl_scalar in push functions
+                push_field = lambda eta1, eta2: push_2d_hcurl(uk_field_0, uk_field_1, eta1, eta2, F=mappings_list[k])
+            elif space_kind == 'hdiv':
+                push_field = lambda eta1, eta2: push_2d_hdiv(uk_field_0, uk_field_1, eta1, eta2, F=mappings_list[k])
+            elif space_kind == 'l2':
+                assert not vector_valued
+                push_field = lambda eta1, eta2: push_2d_l2(uk_field_0, eta1, eta2, F=mappings_list[k])
+            else:
+                raise ValueError('unknown value for space_kind = {}'.format(space_kind))
+
+            for i, x1i in enumerate(eta_1[:, 0]):
+                for j, x2j in enumerate(eta_2[0, :]):
+                    if vector_valued:
+                        u_vals_components[0][k][i, j], u_vals_components[1][k][i, j] = push_field(x1i, x2j)
+                    else:
+                        u_vals_components[0][k][i, j] = push_field(x1i, x2j)
 
     # always return a list, even for scalar-valued functions ?
     if not vector_valued:
@@ -114,7 +116,7 @@ def get_grid_quad_weights(etas, patch_logvols, mappings_list):  #_obj):
     return quad_weights
 
 #------------------------------------------------------------------------------
-def get_plotting_grid(mappings, N, centered_nodes=False, return_patch_logvols=False):
+def get_plotting_grid(mappings, N, centered_nodes=False, return_patch_logvols=False, eta_crop=None):
     # if centered_nodes == False, returns a regular grid with (N+1)x(N+1) nodes, starting and ending at patch boundaries
     # (useful for plotting the full patches)
     # if centered_nodes == True, returns the grid consisting of the NxN centers of the latter
@@ -137,7 +139,23 @@ def get_plotting_grid(mappings, N, centered_nodes=False, return_patch_logvols=Fa
     else:
         N_cells = N
     # etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
-    etas = [[refine_array_1d( bounds, N_cells ) for bounds in zip(grid_min_coords[k], grid_max_coords[k])] for k in range(nb_patches)]
+    if eta_crop is None:
+        etas = [[refine_array_1d( bounds, N_cells ) for bounds in zip(grid_min_coords[k], grid_max_coords[k])] for k in range(nb_patches)]
+    else:
+        etas = [[[None,], [None,]] for k in range(nb_patches)]
+        for k in range(nb_patches):
+            nonempty_patch_crop = True
+            for dim in range(2):
+                nonempty_patch_crop = ( 
+                    nonempty_patch_crop
+                    and eta_crop[dim][1] > grid_min_coords[k][dim]
+                    and eta_crop[dim][0] < grid_max_coords[k][dim]
+                    )
+            if nonempty_patch_crop:           
+                for dim in range(2):
+                    grid_min_coords[k][dim] = max(grid_min_coords[k][dim], eta_crop[dim][0])
+                    grid_max_coords[k][dim] = min(grid_max_coords[k][dim], eta_crop[dim][1])
+                etas[k] = [refine_array_1d( bounds, N_cells ) for bounds in zip(grid_min_coords[k], grid_max_coords[k])]
     mappings_lambda = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
 
     pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings_lambda, etas)]
@@ -200,7 +218,7 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
 def plot_field(
     fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, domain=None, surface_plot=False, cb_min=None, cb_max=None,
     cf_levels=50, plot_type='amplitude', show_grid=False, cmap='hsv', space_kind=None, title=None, filename='dummy_plot.png', subtitles=None, 
-    N_vis=20, vf_skip=2, hide_plot=True):
+    N_vis=20, vf_skip=2, hide_plot=True, eta_crop=None):
     """
     plot a discrete field (given as a FemField or by its coeffs in numpy or stencil format) on the given domain
 
@@ -223,7 +241,7 @@ def plot_field(
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = [m.get_callable_mapping() for m in mappings.values()]
     # mappings_list = list(mappings.values())
-    etas, xx, yy    = get_plotting_grid(mappings, N=N_vis)
+    etas, xx, yy    = get_plotting_grid(mappings, N=N_vis, eta_crop=eta_crop)
     grid_vals = lambda v: get_grid_vals(v, etas, mappings_list, space_kind=space_kind)
 
     vh_vals = grid_vals(vh)
@@ -277,6 +295,11 @@ def plot_field(
                 gl_x1, gl_x2 = get_patch_knots_gridlines(Vh, N=N_vis, mappings=mappings, plotted_patch=k)
                 gridlines_x1_list.append(gl_x1)
                 gridlines_x2_list.append(gl_x2)
+
+        # if eta_crop is not None:
+        #     # otherwise may bug
+        #     cb_min = 0
+        #     cb_max = 1
 
         my_small_plot(
             title=title,
@@ -348,6 +371,7 @@ def my_small_plot(
             print('Warning [my_small_plot]: will discard argument titles for a single plot')
         titles = [title]
 
+    # if xx is not None
     n_patches = len(xx)
     assert n_patches == len(yy)
 
@@ -357,22 +381,30 @@ def my_small_plot(
     fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
     fig.suptitle(title, fontsize=14)
 
+    vmin = [None for i in range(n_plots)]
+    vmax = [None for i in range(n_plots)]
+
     for i in range(n_plots):
         if cb_min is None:
-            vmin = np.min(vals[i])
+            # print("vals[i][k] = ", vals[i])
+            vmin[i] = np.nanmin([np.min(vals_ik) for vals_ik in vals[i]])
         else:
-            vmin = cb_min
+            vmin[i] = cb_min
         if cb_max is None:
-            vmax = np.max(vals[i])
+            vmax[i] = np.nanmax([np.max(vals_ik) for vals_ik in vals[i]])
         else:
-            vmax = cb_max
-        cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
+            vmax[i] = cb_max
+        
+        cnorm = colors.Normalize(vmin=vmin[i], vmax=vmax[i])
         assert n_patches == len(vals[i])
 
         ax = fig.add_subplot(1, n_plots, i+1)
         for k in range(n_patches):
-            # ax.contourf(xx[k], yy[k], vals[i][k], levels, vmin=vmin, vmax=vmax, norm=cnorm, cmap=cmap, zorder=-10) #, extend='both')
-            ax.contourf(xx[k], yy[k], vals[i][k], levels, norm=cnorm, cmap=cmap, zorder=-10) #, extend='both')
+            if xx[k][0][0] is not None and yy[k][0][0] is not None:
+                ax.contourf(xx[k], yy[k], vals[i][k], levels, norm=cnorm, cmap=cmap, zorder=-10) #, extend='both')
+        
+        ax.plot(yy[k], vals[i][k], '--', color='k', label='curve', ms=5)
+
         ax.set_rasterization_zorder(0)
         cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
         for gl_x1 in gridlines_x1_list:
@@ -398,20 +430,13 @@ def my_small_plot(
         fig.suptitle(title+' -- surface', fontsize=14)
 
         for i in range(n_plots):
-            if cb_min is None:
-                vmin = np.min(vals[i])
-            else:
-                vmin = cb_min
-            if cb_max is None:
-                vmax = np.max(vals[i])
-            else:
-                vmax = cb_max
-            cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
+            cnorm = colors.Normalize(vmin=vmin[i], vmax=vmax[i])
             assert n_patches == len(vals[i])
             ax = fig.add_subplot(1, n_plots, i+1, projection='3d')
             for k in range(n_patches):
-                ax.plot_surface(xx[k], yy[k], vals[i][k], norm=cnorm, rstride=10, cstride=10, cmap=cmap,
-                           linewidth=0, antialiased=False)
+                if xx[k][0][0] is not None and yy[k][0][0] is not None:
+                    ax.plot_surface(xx[k], yy[k], vals[i][k], norm=cnorm, rstride=10, cstride=10, cmap=cmap,
+                               linewidth=0, antialiased=False)
             cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
             if show_xylabel:
                 ax.set_xlabel( r'$x$', rotation='horizontal' )

@@ -673,11 +673,12 @@ def solve_td_maxwell_pbm(
         Dex_c, Bex_c, Eex_c, Hex_c = project_exact_cavity_solution(t=final_time, proj_type='P_geom')
 
         # D error (in d_V1h)
-        D_err_c = d_PP1 @ D_c - Dex_c
+        D_err_c = D_c - Dex_c
         D_L2_error = np.sqrt(np.dot(D_err_c, d_MM1.dot(D_err_c)))
 
         # E error (in p_V1h)
-        E_err_c = p_PP1 @ d_HH1 @ D_c - Eex_c
+        # E_err_c = p_PP1 @ d_HH1 @ D_c - Eex_c
+        E_err_c = d_HH1 @ D_c - Eex_c
         E_L2_error = np.sqrt(np.dot(E_err_c, p_MM1.dot(E_err_c)))
 
         # B error (in p_V2h)
@@ -685,7 +686,8 @@ def solve_td_maxwell_pbm(
         B_L2_error = np.sqrt(np.dot(B_err_c, p_MM2.dot(B_err_c)))
 
         # H error (in d_V0h)
-        H_err_c = d_PP0 @ p_HH2 @ B_c - Hex_c
+        # H_err_c = d_PP0 @ p_HH2 @ B_c - Hex_c
+        H_err_c = p_HH2 @ B_c - Hex_c
         H_L2_error = np.sqrt(np.dot(H_err_c, d_MM0.dot(H_err_c)))
                 
         print("D_error = ", D_L2_error)

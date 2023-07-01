@@ -6,7 +6,8 @@ import numpy as np
 
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mapping #TransposedPolarMapping
-
+from sympde.topology import Union
+from psydac.feec.multipatch.api import discretize
 
 #==============================================================================
 # small extension to SymPDE:
@@ -623,6 +624,119 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
     # print("interfaces: ", domain.interfaces)
 
     return domain
+
+def union_bnd(list_of_bnd):
+    assert(len(list_of_bnd)>0)
+    unif_bnd=None
+    for i in range(0,len(list_of_bnd)):
+        unif_bnd = Union(unif_bnd, list_of_bnd[i])
+    return unif_bnd
+
+def build_multipatch_rectangle(nb_patch_x = 2, nb_patch_y = 2, x_min=0, x_max=np.pi, y_min=0, y_max=np.pi, perio=[True,True], ncells=[4,4], comm=None):
+    """
+    Create a 2D multipatch rectangle domain with the prescribed number of patch in each direction.
+    (copied from Valentin's code)
+
+    Parameters
+    ----------
+    nb_patch_x: <int>
+     number of patch in x direction
+
+    nb_patch_y: <int>
+     number of patch in y direction
+    
+    x_min: <float>
+     x cordinate for the left boundary of the domain
+
+    x_max: <float>
+     x cordinate for the right boundary of the domain
+
+    y_min: <float>
+     y cordinate for the bottom boundary of the domain
+
+    y_max: <float>
+     y cordinate for the top boundary of the domain
+
+    perio: list of <bool>
+     periodicity of the domain in each direction
+    
+    Returns
+    -------
+    domain : <Sympde.topology.Domain>
+     The symbolic multipatch domain
+    """
+
+    x_diff=x_max-x_min
+    y_diff=y_max-y_min    
+
+    list_Omega = [[Square('OmegaLog_'+str(i)+'_'+str(j),
+                    bounds1 = (x_min+i/nb_patch_x*x_diff,x_min+(i+1)/nb_patch_x*x_diff),
+                    bounds2 = (y_min+j/nb_patch_y*y_diff,y_min+(j+1)/nb_patch_y*y_diff)) for j in range(nb_patch_y)] for i in range(nb_patch_x)]
+
+    list_mapping = [[IdentityMapping('M_'+str(i)+'_'+str(j),2) for j in range(nb_patch_y)] for i in range(nb_patch_x)]
+
+    list_domain = [[list_mapping[i][j](list_Omega[i][j]) for j in range(nb_patch_y)] for i in range(nb_patch_x)]
+
+    flat_list = []
+
+    for i in range(nb_patch_x):
+        flat_list.extend(list_domain[i])
+
+    domain = union(flat_list, name='domain')
+
+    interfaces = []
+    #interfaces in x
+    list_right_bnd = []
+    list_left_bnd  = []
+    list_top_bnd = []
+    list_bottom_bnd1  = []
+    list_bottom_bnd2  = []
+    for j in range(nb_patch_y):
+        interfaces.extend([[list_domain[i][j].get_boundary(axis=0, ext=+1), list_domain[i+1][j].get_boundary(axis=0, ext=-1), 1] for i in range(nb_patch_x-1)])
+        #periodic boundaries
+        if perio[0]:
+            interfaces.append([list_domain[nb_patch_x-1][j].get_boundary(axis=0, ext=+1), list_domain[0][j].get_boundary(axis=0, ext=-1), 1])
+        else:
+            list_right_bnd.append(list_domain[nb_patch_x-1][j].get_boundary(axis=0, ext=+1))
+            list_left_bnd.append(list_domain[0][j].get_boundary(axis=0, ext=-1))
+
+
+    #interfaces in y
+    for i in range(nb_patch_x):
+        interfaces.extend([[list_domain[i][j].get_boundary(axis=1, ext=+1), list_domain[i][j+1].get_boundary(axis=1, ext=-1), 1] for j in range(nb_patch_y-1)])
+        #periodic boundariesnb_patch_y-1
+        if perio[1]:
+            interfaces.append([list_domain[i][nb_patch_y-1].get_boundary(axis=1, ext=+1), list_domain[i][0].get_boundary(axis=1, ext=-1), 1])
+        else:
+            list_top_bnd.append(list_domain[i][nb_patch_y-1].get_boundary(axis=1, ext=+1))
+            if i<nb_patch_x/2:
+                list_bottom_bnd1.append(list_domain[i][0].get_boundary(axis=1, ext=-1))
+            else : 
+                list_bottom_bnd2.append(list_domain[i][0].get_boundary(axis=1, ext=-1))
+
+
+    right_bnd = None
+    left_bnd  = None
+    top_bnd   = None
+    bottom_bnd1= None
+    bottom_bnd2= None
+    if not perio[0]:
+        right_bnd = union_bnd(list_right_bnd)
+        left_bnd  = union_bnd(list_left_bnd)
+    if not perio[1]:
+        top_bnd = union_bnd(list_top_bnd)
+        bottom_bnd1  = union_bnd(list_bottom_bnd1)
+        if len(list_bottom_bnd2)>0:
+            bottom_bnd2  = union_bnd(list_bottom_bnd2)
+        else : 
+            bottom_bnd2 = None
+    if nb_patch_x>1 and nb_patch_y>1:
+        domain = set_interfaces(domain, interfaces)
+        domain_h = discretize(domain, ncells=ncells, comm=comm)
+    else:
+        domain_h = discretize(domain, ncells=ncells, periodic=perio, comm=comm)
+
+    return domain, domain_h, [right_bnd, left_bnd, top_bnd, bottom_bnd1, bottom_bnd2]
 
 
 def get_ref_eigenvalues(domain_name, operator):

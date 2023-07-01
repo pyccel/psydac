@@ -23,12 +23,12 @@ J_proj_case = ''
 # method:
 #   - swc = strong-weak-conga
 #   - ssc = strong-strong-conga
-method =  'ssc' #'swc' #
+method =  'ssc' # 'swc' #
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
-nc_s = [4] #,8,16] #,32]
+nc_s = [6] #,8,16] #,32]
 deg_s = [3] # ,4,5]
 
 # nc_s = [20]
