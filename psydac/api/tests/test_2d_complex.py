@@ -1,28 +1,27 @@
 # -*- coding: UTF-8 -*-
+import os
 
 from mpi4py import MPI
-from sympy import pi, cos, sin, symbols, conjugate, exp
-from sympy.utilities.lambdify import implemented_function
 import pytest
 import numpy as np
+from sympy import pi, cos, sin, symbols, conjugate, exp
+from sympy import Tuple, Matrix
 
 from sympde.calculus import grad, dot, cross, curl
-from sympy  import Tuple, Matrix
-from sympde.calculus      import minus, plus
+from sympde.calculus import minus, plus
 from sympde.calculus import laplace
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import element_of, elements_of
 from sympde.topology import NormalVector
 from sympde.topology import Union
 from sympde.topology import Domain, Square
-from sympde.topology      import IdentityMapping, AffineMapping, PolarMapping
+from sympde.topology import IdentityMapping, AffineMapping, PolarMapping
 from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm
 from sympde.expr     import find, EssentialBC
 
 from psydac.api.discretization import discretize
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
-import os
 
 # ... get the mesh directory
 try:
@@ -138,35 +137,35 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
     # 1. Abstract model
     #+++++++++++++++++++++++++++++++
 
-    V   = ScalarFunctionSpace('V', domain, kind=None)
+    V = ScalarFunctionSpace('V', domain, kind=None)
     V.codomain_type='complex'
 
     u = element_of(V, name='u')
     v = element_of(V, name='v')
 
-    nn   = NormalVector('nn')
+    nn = NormalVector('nn')
 
-    bc   = EssentialBC(u, 0, domain.boundary)
+    bc = EssentialBC(u, 0, domain.boundary)
 
-    error  = u - solution
+    error = u - solution
 
     I = domain.interfaces
 
-    kappa  = 10**3
+    kappa = 10**3
 
     #expr_I =- dot(grad(plus(u)),nn)*minus(v)  + dot(grad(minus(v)),nn)*plus(u) - kappa*plus(u)*minus(v)\
     #        + dot(grad(minus(u)),nn)*plus(v)  - dot(grad(plus(v)),nn)*minus(u) - kappa*plus(v)*minus(u)\
     #        - dot(grad(plus(v)),nn)*plus(u)   + kappa*plus(u)*plus(v)\
     #        - dot(grad(minus(v)),nn)*minus(u) + kappa*minus(u)*minus(v)
 
-    expr_I =- 0.5*dot(grad(plus(u)),nn)*minus(v)  + 0.5*dot(grad(minus(v)),nn)*plus(u)  - kappa*plus(u)*minus(v)\
-            + 0.5*dot(grad(minus(u)),nn)*plus(v)  - 0.5*dot(grad(plus(v)),nn)*minus(u)  - kappa*plus(v)*minus(u)\
-            - 0.5*dot(grad(minus(v)),nn)*minus(u) - 0.5*dot(grad(minus(u)),nn)*minus(v) + kappa*minus(u)*minus(v)\
-            + 0.5*dot(grad(plus(v)),nn)*plus(u)   + 0.5*dot(grad(plus(u)),nn)*plus(v)   + kappa*plus(u)*plus(v)
+    expr_I =- 0.5*dot(grad( plus(u)), nn) * minus(v) + 0.5*dot(grad(minus(v)), nn) *  plus(u) - kappa * plus(u)*minus(v)\
+            + 0.5*dot(grad(minus(u)), nn) *  plus(v) - 0.5*dot(grad( plus(v)), nn) * minus(u) - kappa * plus(v)*minus(u)\
+            - 0.5*dot(grad(minus(v)), nn) * minus(u) - 0.5*dot(grad(minus(u)), nn) * minus(v) + kappa *minus(u)*minus(v)\
+            + 0.5*dot(grad( plus(v)), nn) *  plus(u) + 0.5*dot(grad( plus(u)), nn) *  plus(v) + kappa * plus(u)* plus(v)
 
-    expr   = dot(grad(u),grad(v))
+    expr = dot(grad(u), grad(v))
 
-    a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
+    a = BilinearForm((u, v), integral(domain, expr) + integral(I, expr_I))
     l = LinearForm(v, integral(domain, f*v))
 
     equation = find(u, forall=v, lhs=1j*a(u,v), rhs=1j*l(v), bc=bc)
@@ -219,7 +218,7 @@ def run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=None, degr
 
     boundary_source_expr = - dx_e_w_0 * v - 1j * kappa * e_w_0 * v    
 
-    a = BilinearForm((u,v), integral(domain, expr) + integral(x_boundary, boundary_expr))
+    a = BilinearForm((u, v), integral(domain, expr) + integral(x_boundary, boundary_expr))
     l = LinearForm(v, integral(domain.get_boundary(axis=0, ext=-1), boundary_source_expr))
 
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
@@ -257,47 +256,46 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
     #+++++++++++++++++++++++++++++++
-
     V  = VectorFunctionSpace('V', domain, kind='hcurl')
     V.codomain_type = 'complex'
 
-    u, v, F  = elements_of(V, names='u, v, F')
-    nn       = NormalVector('nn')
+    u, v, F = elements_of(V, names='u, v, F')
+    nn      = NormalVector('nn')
 
     error   = Matrix([F[0]-uex[0], F[1]-uex[1]])
 
     boundary = domain.boundary
     I        = domain.interfaces
 
-    kappa   = 10*ncells[0] if ncells else 100
-    k       = 1
+    kappa = 10*ncells[0] if ncells else 100
+    k     = 1
 
-    jump = lambda w:plus(w)-minus(w)
-    avr  = lambda w:(plus(w) + minus(w))/2
+    jump = lambda w:  plus(w) - minus(w)
+    avr  = lambda w: (plus(w) + minus(w))/2
 
     expr1_I  =  cross(nn, jump(v))*curl(avr(u))\
                +k*cross(nn, jump(u))*curl(avr(v))\
                +kappa*cross(nn, jump(u))*cross(nn, jump(v))
 
     expr1   = curl(u)*curl(v) + alpha*dot(u,v)
-    expr1_b = -cross(nn, v) * curl(u) -k*cross(nn, u)*curl(v)  + kappa*cross(nn, u)*cross(nn, v)
+    expr1_b = -cross(nn, v) * curl(u) -k*cross(nn, u) * curl(v)  + kappa * cross(nn, u) * cross(nn, v)
 
     expr2   = dot(f,v)
     expr2_b = -k*cross(nn, uex)*curl(v) + kappa * cross(nn, uex) * cross(nn, v)
 
     # Bilinear form a: V x V --> R
-    a      = BilinearForm((u,v), integral(domain, expr1) + integral(boundary, expr1_b) + integral(I, expr1_I))
+    a = BilinearForm((u, v), integral(domain, expr1) + integral(boundary, expr1_b) + integral(I, expr1_I))
 
     # Linear form l: V --> R
-    l      = LinearForm(v, integral(domain, expr2) + integral(boundary, expr2_b))
+    l = LinearForm(v, integral(domain, expr2) + integral(boundary, expr2_b))
 
-    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
+    equation = find(u, forall=v, lhs=a(u, v), rhs=l(v))
 
     l2norm = Norm(error, domain, kind='l2')
+
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
     #+++++++++++++++++++++++++++++++
-
     if filename is None:
         domain_h = discretize(domain, ncells=ncells, comm=comm)
         Vh       = discretize(V, domain_h, degree=degree)
@@ -313,7 +311,6 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
 
     uh = equation_h.solve()
     l2_error = l2norm_h.assemble(F=uh)
-
 
     return l2_error, uh
 
@@ -335,9 +332,10 @@ def test_complex_biharmonic_2d():
     expected_h1_error = 0.07976499145119309
     expected_h2_error = 1.701552032688161
 
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-    assert( abs(h2_error - expected_h2_error) < 1.e-7)
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
+    assert abs(h2_error - expected_h2_error) < 1.e-7
+
 
 def test_complex_biharmonic_2d_mapping():
     # This test solve the biharmonic problem with homogeneous dirichlet condition with a mapping
@@ -358,9 +356,10 @@ def test_complex_biharmonic_2d_mapping():
     expected_h1_error = 0.32254511059711766
     expected_h2_error = 1.87205519824758
 
-    assert( abs(l2_error/factor - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error/factor - expected_h1_error) < 1.e-7)
-    assert( abs(h2_error/factor - expected_h2_error) < 1.e-7)
+    assert abs(l2_error/factor - expected_l2_error) < 1.e-7
+    assert abs(h1_error/factor - expected_h1_error) < 1.e-7
+    assert abs(h2_error/factor - expected_h2_error) < 1.e-7
+
 
 def test_complex_poisson_2d_multipatch():
     # This test solve the poisson problem with homogeneous dirichlet condition in multipatch case
@@ -371,18 +370,19 @@ def test_complex_poisson_2d_multipatch():
                 bnd_minus = A.get_boundary(axis=0, ext=1),
                 bnd_plus  = B.get_boundary(axis=0, ext=-1))
 
-    x,y = domain.coordinates
+    x, y = domain.coordinates
 
     solution = (cos(1) + sin(1) * 1j) * x*y*(1-y)*(1-x)
     f        = (-2*x*(x - 1) -2*y*(y - 1))*(cos(1) + sin(1) * 1j)
 
-    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
+    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2, 2])
 
     expected_l2_error = 2.176726763610992e-09
     expected_h1_error = 2.9725703533101877e-09
 
-    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
-    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+    assert abs(l2_error - expected_l2_error) < 1e-7
+    assert abs(h1_error - expected_h1_error) < 1e-7
+
 
 def test_complex_poisson_2d_multipatch_mapping():
     # This test solve the poisson problem with homogeneous dirichlet condition in multipatch with mapping case
@@ -398,8 +398,9 @@ def test_complex_poisson_2d_multipatch_mapping():
     expected_l2_error = 2.176726763610992e-09
     expected_h1_error = 2.9725703533101877e-09
 
-    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
-    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+    assert abs(l2_error - expected_l2_error) < 1e-7
+    assert abs(h1_error - expected_h1_error) < 1e-7
+
 
 def test_complex_helmholtz_2d():
     # This test solves the homogeneous Helmhotz equation with impedance BC. 
@@ -432,11 +433,12 @@ def test_maxwell_2d_2_patch_dirichlet_2():
     f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
                   alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
-    l2_error, Eh      = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2, 2])
+    l2_error, Eh = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2, 2])
 
     expected_l2_error = 0.012726070686020729
 
     assert abs(l2_error - expected_l2_error) < 1e-7
+
 
 @pytest.mark.parallel
 def test_maxwell_2d_2_patch_dirichlet_parallel_0():
@@ -452,14 +454,14 @@ def test_maxwell_2d_2_patch_dirichlet_parallel_0():
     mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
     mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
-    D1     = mapping_1(A)
-    D2     = mapping_2(B)
+    D1 = mapping_1(A)
+    D2 = mapping_2(B)
 
     domain = D1.join(D2, name = 'domain',
                 bnd_minus = D1.get_boundary(axis=1, ext=1),
                 bnd_plus  = D2.get_boundary(axis=1, ext=-1))
 
-    x,y    = domain.coordinates
+    x, y = domain.coordinates
 
     omega = 1.5
     alpha = -1j*omega**2
@@ -467,11 +469,12 @@ def test_maxwell_2d_2_patch_dirichlet_parallel_0():
     f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
                   alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
-    l2_error, Eh      = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], comm=MPI.COMM_WORLD)
+    l2_error, Eh = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2, 2], comm=MPI.COMM_WORLD)
 
     expected_l2_error = 0.012075890902616281
 
     assert abs(l2_error - expected_l2_error) < 1e-7
+
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================
@@ -480,6 +483,7 @@ def teardown_module():
     from sympy.core import cache
     cache.clear_cache()
 
+
 def teardown_function():
     from sympy.core import cache
     cache.clear_cache()
@@ -487,15 +491,17 @@ def teardown_function():
 
 if __name__ == '__main__':
 
-    from collections                               import OrderedDict
-    from sympy                                     import lambdify
+    from collections import OrderedDict
+
+    from sympy       import lambdify
+
     from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
     from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
-    from psydac.api.tests.build_domain   import build_pretzel
-    from psydac.feec.pull_push           import pull_2d_hcurl
+    from psydac.api.tests.build_domain             import build_pretzel
+    from psydac.feec.pull_push                     import pull_2d_hcurl
 
-    domain    = build_pretzel()
-    x,y       = domain.coordinates
+    domain = build_pretzel()
+    x,y    = domain.coordinates
 
     omega = 1.5
     alpha = -omega**2
