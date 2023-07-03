@@ -77,7 +77,8 @@ class _Matrices:
     D2 : coo_matrix = None
     D0_h : csr_matrix = None
     D1_h : csr_matrix = None
-    S_h_tilde : csc_matrix = None
+    S0_h_tilde : csc_matrix = None
+    S1_h_tilde : csc_matrix = None
 
 def solve_magnetostatic_pbm_annulus(f : sympy.Tuple, 
                                     psi_h : FemField, 
@@ -128,12 +129,12 @@ def solve_magnetostatic_pbm_annulus(f : sympy.Tuple,
     # Compute penalty matrix
     alpha = 10
     I1 = scipy.sparse.eye(derham_h.V1.nbasis, format='lil')
-    matrices.S_h_tilde = (I1 - matrices.P1h).transpose() @ matrices.M1 @ (I1 - matrices.P1h)
+    matrices.S1_h_tilde = (I1 - matrices.P1h).transpose() @ matrices.M1 @ (I1 - matrices.P1h)
     matrices.D0_h = matrices.D0 @ matrices.P0h
     matrices.D1_h = matrices.D1 @ matrices.P1h
     assert isinstance(matrices.D0_h, csr_matrix), f"type(D0_h_mat):{type(matrices.D0_h)}"
     assert isinstance(matrices.D1_h, csr_matrix)
-    assert isinstance(matrices.S_h_tilde, csc_matrix), f"type(S_h_tilde_mat):{type(matrices.S_h_tilde)}"
+    assert isinstance(matrices.S1_h_tilde, csc_matrix), f"type(S1_h_tilde_mat):{type(matrices.S1_h_tilde)}"
 
     harmonic_block = _assemble_harmonic_block(matrices=matrices, alpha=alpha)
 
@@ -161,7 +162,7 @@ def solve_magnetostatic_pbm_annulus(f : sympy.Tuple,
     curve_integral_rhs_arr = np.array([rhs_curve_integral])
     DD_tilde_mat = matrices.D1_h.transpose() @ matrices.M2  @ matrices.D1_h
     A_mat = bmat([[matrices.M0 , -matrices.D0_h.transpose() @ matrices.M1, None],
-                  [matrices.M1 @ matrices.D0_h,  DD_tilde_mat  + alpha * matrices.S_h_tilde, harmonic_block],
+                  [matrices.M1 @ matrices.D0_h,  DD_tilde_mat  + alpha * matrices.S1_h_tilde, harmonic_block],
                   [None, curl_psi_h_mat.transpose() @ matrices.M1 , None]])
     rhs = np.concatenate((np.zeros(derham_h.V0.nbasis), f_h, curve_integral_rhs_arr))
     A_mat = csr_matrix(A_mat) # Why is this not transforming into a CSR matrix?
@@ -176,7 +177,7 @@ def _assemble_harmonic_block(matrices: _Matrices, alpha):
     """
     summand1 = matrices.D0_h @ inv(matrices.M0) @ matrices.D0_h.transpose() @ matrices.M1
     summand2 = inv(matrices.M1) @ matrices.D1_h.transpose() @ matrices.M2 @ matrices.D1_h
-    summand3 = alpha * inv(matrices.M1) @ matrices.S_h_tilde
+    summand3 = alpha * inv(matrices.M1) @ matrices.S1_h_tilde
     # Matrix representation of stabilized Hodge laplacian from primal 
     # to dual basis (29.5. REALLY?)
     L_h = summand1 + summand2 + summand3
@@ -266,13 +267,15 @@ def solve_magnetostatic_pbm_J_direct_annulus(J : sympy.Expr,
 
     # Compute penalty matrix
     alpha = 10
+    I0 = scipy.sparse.eye(derham_h.V0.nbasis, format='lil')
     I1 = scipy.sparse.eye(derham_h.V1.nbasis, format='lil')
-    matrices.S_h_tilde = (I1 - matrices.P1h).transpose() @ matrices.M1 @ (I1 - matrices.P1h)
+    matrices.S0_h_tilde = (I0 - matrices.P0h).transpose() @ matrices.M0 @ (I0 - matrices.P0h)
+    matrices.S1_h_tilde = (I1 - matrices.P1h).transpose() @ matrices.M1 @ (I1 - matrices.P1h)
     matrices.D0_h = matrices.D0 @ matrices.P0h
     matrices.D1_h = matrices.D1 @ matrices.P1h
     assert isinstance(matrices.D0_h, csr_matrix), f"type(D0_h_mat):{type(matrices.D0_h)}"
     assert isinstance(matrices.D1_h, csr_matrix)
-    assert isinstance(matrices.S_h_tilde, csc_matrix), f"type(S_h_tilde_mat):{type(matrices.S_h_tilde)}"
+    assert isinstance(matrices.S1_h_tilde, csc_matrix), f"type(S1_h_tilde_mat):{type(matrices.S1_h_tilde)}"
 
     harmonic_block = _assemble_harmonic_block(matrices=matrices, alpha=alpha)
 
@@ -298,8 +301,8 @@ def solve_magnetostatic_pbm_J_direct_annulus(J : sympy.Expr,
     # Assemble the final system and solve
     curve_integral_rhs_arr = np.array([rhs_curve_integral])
     DD_tilde_mat = matrices.D1_h.transpose() @ matrices.M2  @ matrices.D1_h
-    A_mat = bmat([[matrices.M0 , -matrices.D0_h.transpose() @ matrices.M1, None],
-                  [matrices.M1 @ matrices.D0_h,  DD_tilde_mat  + alpha * matrices.S_h_tilde, harmonic_block],
+    A_mat = bmat([[matrices.M0 +  alpha * matrices.S0_h_tilde, -matrices.D0_h.transpose() @ matrices.M1, None],
+                  [matrices.M1 @ matrices.D0_h,  DD_tilde_mat  + alpha * matrices.S1_h_tilde, harmonic_block],
                   [None, curl_psi_h_mat.transpose() @ matrices.M1 , None]])
     rhs = np.concatenate((-J_h_array, np.zeros(derham_h.V1.nbasis), curve_integral_rhs_arr))
     A_mat = csr_matrix(A_mat) # Why is this not transforming into a CSR matrix?
