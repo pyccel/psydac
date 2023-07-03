@@ -40,9 +40,48 @@ from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 
+from psydac.linalg.stencil     import StencilVectorSpace
+from psydac.linalg.block       import BlockVectorSpace
+
 __all__ = ('discretize', 'discretize_derham', 'reduce_space_degrees', 'discretize_space', 'discretize_domain')
 
-#==============================================================================           
+
+#==============================================================================
+def change_dtype(V, dtype):
+    """
+    This function take a FemSpace V and create a new vector_space for it with the data type required.
+
+    Parameters
+    ----------
+
+    Vh : FemSpace
+        The FEM space.
+
+    dtype   : Data Type
+        float or complex
+    """
+    if not V._vector_space.dtype == dtype:
+        if isinstance(V._vector_space, BlockVectorSpace):
+            # Recreate the BlockVectorSpace
+            blocks=[]
+            for v in V.spaces:
+                change_dtype(v, dtype)
+                blocks.append(v._vector_space)
+            V._vector_space = BlockVectorSpace(*blocks, connectivity=V._vector_space._connectivity)
+
+        # If the vector_space is a StencilVectorSpace
+        else:
+            # Recreate the StencilVectorSpace
+            interface=V._vector_space.interfaces
+            V._vector_space = StencilVectorSpace(V._vector_space._cart, dtype=dtype)
+
+            # Recreate the interface in the StencilVectorSpace
+            for axis, ext in interface:
+                V._vector_space.set_interface(axis, ext, V._vector_space._cart)
+
+    return V
+
+#==============================================================================
 def discretize_derham(derham, domain_h, *args, **kwargs):
 
     ldim    = derham.shape
@@ -260,6 +299,13 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     if sequence in ['TH', 'N', 'RT']:
         assert isinstance(V, ProductSpace) and len(V.spaces) == 2
 
+    # Define data type of our TensorFemSpace
+    dtype = float
+    # TODO remove when codomain_type is implemented in SymPDE
+    if hasattr(V, 'codomain_type'):
+        if V.codomain_type == 'complex':
+            dtype = complex
+
     g_spaces   = {}
     domain     = domain_h.domain
 
@@ -276,7 +322,8 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
         else:
             mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
 
-        spaces    = [m.space for m in mappings]
+        # Get all the FEM spaces from the mapping and convert their vector_space at the dtype needed
+        spaces    = [change_dtype(m.space, dtype) for m in mappings]
         g_spaces  = dict(zip(interiors, spaces))
         spaces    = [S.spaces for S in spaces]
 
@@ -330,8 +377,10 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
                  # Create 1D finite element spaces and precompute quadrature data
                 spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]            
 
+
         carts    = create_cart(ddms, spaces)
-        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], nquads=nquads) for i,inter in enumerate(interiors)}
+        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], nquads=nquads, dtype=dtype) for i,inter in enumerate(interiors)}
+
 
         for i,j in connectivity:
             ((axis_i, ext_i), (axis_j , ext_j)) = connectivity[i, j]
@@ -411,6 +460,10 @@ def discretize(a, *args, **kwargs):
 
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
+
+    # TODO uncomment when the SesquilinearForm subclass of bilinearForm is create in SymPDE
+    # if isinstance(a, sym_SesquilinearForm):
+    #     return DiscreteSesquilinearForm(a, kernel_expr, *args, **kwargs)
 
     if isinstance(a, sym_BilinearForm):
         return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)

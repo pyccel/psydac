@@ -375,15 +375,16 @@ class EvalField(BaseNode):
         mask    : int,optional
             The fixed direction in case of a boundary integral
     """
-    def __new__(cls, atoms, q_index, l_index, q_basis, coeffs, l_coeffs, g_coeffs, tests, mapping, nderiv, mask=None):
+    def __new__(cls, atoms, q_index, l_index, q_basis, coeffs, l_coeffs, g_coeffs, tests, mapping, nderiv, mask=None, dtype='real'):
 
         stmts_1  = []
         stmts_2  = {}
         inits    = []
         mats     = []
 
+        # TODO check why the rhs f is considered as a test function
         for v in tests:
-            stmts_1 += construct_logical_expressions(v, nderiv)
+            stmts_1 += construct_logical_expressions(v, nderiv, prefix='basis')
 
         logical_atoms   = [a.expr for a in stmts_1]
         new_atoms = {}
@@ -397,19 +398,23 @@ class EvalField(BaseNode):
         logical_atoms = new_atoms
         for coeff, l_coeff in zip(coeffs,l_coeffs):
             for a in logical_atoms[str(coeff.target)]:
-                node    = AtomicNode(a)
-                mat     = MatrixQuadrature(a)
+                # We add value in the array
+                mat     = MatrixQuadrature(a, dtype)
                 val     = ProductGenerator(mat, q_index)
-                rhs     = Mul(coeff,node)
+                rhs     = Mul(coeff, BasisAtom(a, prefix='basis'))
                 stmts_1 += [AugAssign(val, '+', rhs)]
                 mats    += [mat]
-                inits += [Assign(node,val)]
+
+                # We initialize array for the kernel loop
+                inits += [Assign(BasisAtom(a), val)]
+
+                # We extract data from arr_coeffs_{ScalarFunction.name}
                 stmts_2[coeff] = Assign(coeff, ProductGenerator(l_coeff, l_index))
 
-        body  = Loop( q_basis, q_index, stmts=stmts_1, mask=mask)
-        stmts_2 = [*stmts_2.values(), body]
-        body  = Loop((), l_index, stmts_2)
-        obj = Basic.__new__(cls, Tuple(*mats), inits, body)
+        quad_loop  = Loop( q_basis, q_index, stmts=stmts_1, mask=mask, prefix='basis')
+        stmts_2 = [*stmts_2.values(), quad_loop]
+        basis_loop  = Loop((), l_index, stmts=stmts_2)
+        obj = Basic.__new__(cls, Tuple(*mats), inits, basis_loop, dtype)
         obj._l_coeffs = l_coeffs
         obj._g_coeffs = g_coeffs
         obj._tests    = tests
@@ -427,6 +432,10 @@ class EvalField(BaseNode):
     @property
     def body(self):
         return self._args[2]
+
+    @property
+    def dtype(self):
+        return self._args[3]
 
     @property
     def pads(self):
@@ -549,10 +558,10 @@ class EvalMapping(BaseNode):
 
             rationalization  = [*declarations, *rationalization]
 
-        loop   = Loop((q_basis,*l_coeffs), indices_basis, stmts)
-        loop   = Loop((), quads, stmts=[loop, *rationalization], mask=mask)
+        basis_loop  = Loop((q_basis,*l_coeffs), indices_basis, stmts=stmts)
+        quad_loop   = Loop((), quads, stmts=[basis_loop , *rationalization], mask=mask)
 
-        obj    = Basic.__new__(cls, loop, l_coeffs, g_coeffs, values, multiplicity, pads)
+        obj    = Basic.__new__(cls, quad_loop, l_coeffs, g_coeffs, values, multiplicity, pads)
         obj._mapping = mapping
         obj._trial   = trial
         return obj
@@ -593,13 +602,16 @@ class EvalMapping(BaseNode):
 class IteratorBase(BaseNode):
     """
     """
-    def __new__(cls, target, dummies=None):
+    def __new__(cls, target, dummies=None, *, prefix=None):
         if not dummies is None:
             if not isinstance(dummies, (list, tuple, Tuple)):
                 dummies = [dummies]
             dummies = Tuple(*dummies)
 
-        return Basic.__new__(cls, target, dummies)
+        if not isinstance(prefix, (str, type(None))):
+            raise TypeError('expecting a prefix as a string')
+
+        return Basic.__new__(cls, target, dummies, prefix)
 
     @property
     def target(self):
@@ -608,6 +620,10 @@ class IteratorBase(BaseNode):
     @property
     def dummies(self):
         return self._args[1]
+
+    @property
+    def prefix(self):
+        return self._args[2]
 
 #==============================================================================
 class TensorIterator(IteratorBase):
@@ -805,13 +821,17 @@ class MatrixQuadrature(MatrixNode):
     """
     _rank = rank_dim
 
-    def __new__(cls, target):
+    def __new__(cls, target, dtype='real'):
         # TODO check target
-        return Basic.__new__(cls, target)
+        return Basic.__new__(cls, target, dtype)
 
     @property
     def target(self):
         return self._args[0]
+
+    @property
+    def dtype(self):
+        return self._args[1]
 
 #==============================================================================
 class MatrixRankFromCoords(MatrixNode):
@@ -989,9 +1009,9 @@ class MatrixGlobalBasis(MatrixNode):
     """
     _rank = rank_dim
 
-    def __new__(cls, target, test):
+    def __new__(cls, target, test, dtype='real'):
         # TODO check target
-        return Basic.__new__(cls, target, test)
+        return Basic.__new__(cls, target, test, dtype)
 
     @property
     def target(self):
@@ -1000,6 +1020,10 @@ class MatrixGlobalBasis(MatrixNode):
     @property
     def test(self):
         return self._args[1]
+
+    @property
+    def dtype(self):
+        return self._args[2]
 #==============================================================================
 class MatrixLocalBasis(MatrixNode):
     """
@@ -1007,20 +1031,24 @@ class MatrixLocalBasis(MatrixNode):
     """
     _rank = rank_dim
 
-    def __new__(cls, target):
+    def __new__(cls, target, dtype='real'):
         # TODO check target
-        return Basic.__new__(cls, target)
+        return Basic.__new__(cls, target, dtype)
 
     @property
     def target(self):
         return self._args[0]
+
+    @property
+    def dtype(self):
+        return self._args[1]
 
 #==============================================================================
 class StencilMatrixLocalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil matrix
     """
-    def __new__(cls, u, v, pads, tag=None):
+    def __new__(cls, u, v, pads, tag=None, dtype='real'):
 
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
@@ -1029,7 +1057,7 @@ class StencilMatrixLocalBasis(MatrixNode):
         rank = 2*len(pads)
         tag  = tag or random_string( 6 )
         name = (u, v)
-        return Basic.__new__(cls, pads, rank, name, tag)
+        return Basic.__new__(cls, pads, rank, name, tag, dtype)
 
     @property
     def pads(self):
@@ -1046,13 +1074,17 @@ class StencilMatrixLocalBasis(MatrixNode):
     @property
     def tag(self):
         return self._args[3]
+
+    @property
+    def dtype(self):
+        return self._args[4]
 
 #==============================================================================
 class StencilMatrixGlobalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil matrix
     """
-    def __new__(cls, u, v, pads, tag=None):
+    def __new__(cls, u, v, pads, tag=None, dtype='real'):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
@@ -1060,7 +1092,7 @@ class StencilMatrixGlobalBasis(MatrixNode):
         rank = 2*len(pads)
         tag  = tag or random_string( 6 )
         name = (u, v)
-        return Basic.__new__(cls, pads, rank, name, tag)
+        return Basic.__new__(cls, pads, rank, name, tag, dtype)
 
     @property
     def pads(self):
@@ -1077,13 +1109,17 @@ class StencilMatrixGlobalBasis(MatrixNode):
     @property
     def tag(self):
         return self._args[3]
+
+    @property
+    def dtype(self):
+        return self._args[4]
 
 #==============================================================================
 class StencilVectorLocalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil vector
     """
-    def __new__(cls, v, pads, tag=None):
+    def __new__(cls, v, pads, tag=None, dtype='real'):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
@@ -1091,7 +1127,7 @@ class StencilVectorLocalBasis(MatrixNode):
         rank = len(pads)
         tag  = tag or random_string( 6 )
         name = v
-        return Basic.__new__(cls, pads, rank, name, tag)
+        return Basic.__new__(cls, pads, rank, name, tag, dtype)
 
     @property
     def pads(self):
@@ -1108,13 +1144,17 @@ class StencilVectorLocalBasis(MatrixNode):
     @property
     def tag(self):
         return self._args[3]
+
+    @property
+    def dtype(self):
+        return self._args[4]
 
 #==============================================================================
 class StencilVectorGlobalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil vector
     """
-    def __new__(cls, v, pads, tag=None):
+    def __new__(cls, v, pads, tag=None, dtype='real'):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
@@ -1122,7 +1162,7 @@ class StencilVectorGlobalBasis(MatrixNode):
         rank = len(pads)
         tag  = tag or random_string( 6 )
         name = v
-        return Basic.__new__(cls, pads, rank, name, tag)
+        return Basic.__new__(cls, pads, rank, name, tag, dtype)
 
     @property
     def pads(self):
@@ -1139,6 +1179,11 @@ class StencilVectorGlobalBasis(MatrixNode):
     @property
     def tag(self):
         return self._args[3]
+
+    @property
+    def dtype(self):
+        return self._args[4]
+
 
 #==============================================================================
 class LocalElementBasis(MatrixNode):
@@ -1154,14 +1199,14 @@ class BlockStencilMatrixLocalBasis(BlockLinearOperatorNode):
     """
     def __new__(cls, trials, tests, expr, dim, tag=None, outer=None,
                      tests_degree=None, trials_degree=None,
-                     tests_multiplicity=None, trials_multiplicity=None):
+                     tests_multiplicity=None, trials_multiplicity=None, dtype='real'):
 
         pads = Pads(tests, trials, tests_degree, trials_degree,
                     tests_multiplicity, trials_multiplicity)
 
         rank = 2*dim
         tag  = tag or random_string( 6 )
-        obj  = Basic.__new__(cls, pads, rank, trials_multiplicity, tag, expr)
+        obj  = Basic.__new__(cls, pads, rank, trials_multiplicity, tag, expr, dtype)
         obj._trials = trials
         obj._tests  = tests
         obj._outer  = outer
@@ -1188,6 +1233,10 @@ class BlockStencilMatrixLocalBasis(BlockLinearOperatorNode):
         return self._args[4]
 
     @property
+    def dtype(self):
+        return self._args[5]
+
+    @property
     def outer(self):
         return self._outer
 
@@ -1205,14 +1254,14 @@ class BlockStencilMatrixGlobalBasis(BlockLinearOperatorNode):
     """
     used to describe local dof over an element as a block stencil matrix
     """
-    def __new__(cls, trials, tests, pads, multiplicity, expr, tag=None):
+    def __new__(cls, trials, tests, pads, multiplicity, expr, tag=None, dtype='real'):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = 2*len(pads)
         tag  = tag or random_string( 6 )
-        obj  = Basic.__new__(cls, pads, multiplicity, rank, tag, expr)
+        obj  = Basic.__new__(cls, pads, multiplicity, rank, tag, expr, dtype)
         obj._trials = trials
         obj._tests  = tests
         return obj
@@ -1236,6 +1285,10 @@ class BlockStencilMatrixGlobalBasis(BlockLinearOperatorNode):
     @property
     def expr(self):
         return self._args[4]
+
+    @property
+    def dtype(self):
+        return self._args[5]
 
     @property
     def unique_scalar_space(self):
@@ -1251,14 +1304,14 @@ class BlockStencilVectorLocalBasis(BlockLinearOperatorNode):
     """
     used to describe local dof over an element as a block stencil matrix
     """
-    def __new__(cls,tests, pads, expr, tag=None):
+    def __new__(cls,tests, pads, expr, tag=None, dtype='real'):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = len(pads)
         tag  = tag or random_string( 6 )
-        obj  = Basic.__new__(cls, pads, rank, tag, expr)
+        obj  = Basic.__new__(cls, pads, rank, tag, expr, dtype)
         obj._tests  = tests
         return obj
 
@@ -1279,6 +1332,10 @@ class BlockStencilVectorLocalBasis(BlockLinearOperatorNode):
         return self._args[3]
 
     @property
+    def dtype(self):
+        return self._args[4]
+
+    @property
     def unique_scalar_space(self):
         types = (H1SpaceType, L2SpaceType, UndefinedSpaceType)
         spaces = self._tests.space
@@ -1292,14 +1349,14 @@ class BlockStencilVectorGlobalBasis(BlockLinearOperatorNode):
     """
     used to describe local dof over an element as a block stencil matrix
     """
-    def __new__(cls, tests, pads, multiplicity, expr, tag=None):
+    def __new__(cls, tests, pads, multiplicity, expr, tag=None, dtype='real'):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = len(pads)
         tag  = tag or random_string( 6 )
-        obj  = Basic.__new__(cls, pads, multiplicity, rank, tag, expr)
+        obj  = Basic.__new__(cls, pads, multiplicity, rank, tag, expr, dtype)
         obj._tests  = tests
         return obj
 
@@ -1324,6 +1381,10 @@ class BlockStencilVectorGlobalBasis(BlockLinearOperatorNode):
         return self._args[4]
 
     @property
+    def dtype(self):
+        return self._args[5]
+
+    @property
     def unique_scalar_space(self):
         types = (H1SpaceType, L2SpaceType, UndefinedSpaceType)
         spaces = self._tests.space
@@ -1337,9 +1398,9 @@ class ScalarLocalBasis(ScalarNode):
     """
      This is used to describe scalar dof over an element
     """
-    def __new__(cls, u=None, v=None, tag=None):
+    def __new__(cls, u=None, v=None, tag=None, dtype='real'):
         tag  = tag or random_string( 6 )
-        obj  = Basic.__new__(cls, tag)
+        obj  = Basic.__new__(cls, tag, dtype)
         obj._test  = v
         obj._trial = u
         return obj
@@ -1347,6 +1408,10 @@ class ScalarLocalBasis(ScalarNode):
     @property
     def tag(self):
         return self._args[0]
+
+    @property
+    def dtype(self):
+        return self._args[1]
 
     @property
     def trial(self):
@@ -1360,10 +1425,10 @@ class BlockScalarLocalBasis(ScalarNode):
     """
        This is used to describe a block of scalar dofs over an element
     """
-    def __new__(cls, trials=None, tests=None, expr=None, tag=None):
+    def __new__(cls, trials=None, tests=None, expr=None, tag=None, dtype='real'):
 
         tag = tag or random_string( 6 )
-        obj = Basic.__new__(cls, tag)
+        obj = Basic.__new__(cls, tag, dtype)
         obj._tests  = tests
         obj._trials = trials
         obj._expr   = expr
@@ -1372,6 +1437,10 @@ class BlockScalarLocalBasis(ScalarNode):
     @property
     def tag(self):
         return self._args[0]
+
+    @property
+    def dtype(self):
+        return self._args[1]
 
     @property
     def tests(self):
@@ -1645,14 +1714,27 @@ class ComputeLogical(ComputeNode):
 class ComputeLogicalBasis(ComputeLogical):
     """
     """
-    pass
+    def __new__(cls, expr, *, prefix=None):
+
+        if not isinstance(prefix, (str, type(None))):
+            raise TypeError('expecting a prefix as a string')
+        return Basic.__new__(cls, expr, prefix)
+
+    @property
+    def expr(self):
+        return self._args[0]
+
+    @property
+    def prefix(self):
+        return self._args[1]
 
 #==============================================================================
 class Reduction(Basic):
     """
     """
     def __new__(cls, op, expr, lhs=None):
-        # TODO add verification on op = '-', '+', '*', '/'
+        if not op in ['-', '+', '*', '/']:
+            raise TypeError("Expecting an operation type in : '-', '+', '*', '/'")
         return Basic.__new__(cls, op, expr, lhs)
 
     @property
@@ -1672,7 +1754,8 @@ class Reduce(Basic):
     """
     """
     def __new__(cls, op, rhs, lhs, loop):
-        # TODO add verification on op = '-', '+', '*', '/'
+        if not op in ['-', '+', '*', '/']:
+            raise TypeError("Expecting an operation type in : '-', '+', '*', '/'")
         if not isinstance(loop, Loop):
             raise TypeError('Expecting a Loop')
 
@@ -1760,7 +1843,20 @@ class PhysicalBasisValue(PhysicalValueNode):
 
 #==============================================================================
 class LogicalBasisValue(LogicalValueNode):
-    pass
+    """
+    """
+    def __new__(cls, expr, *, prefix=None):
+        if not isinstance(prefix, (str, type(None))):
+            raise TypeError('expecting a prefix as a string')
+        return Basic.__new__(cls, expr, prefix)
+
+    @property
+    def expr(self):
+        return self._args[0]
+
+    @property
+    def prefix(self):
+        return self._args[1]
 
 #==============================================================================
 class PhysicalGeometryValue(PhysicalValueNode):
@@ -1773,8 +1869,9 @@ class LogicalGeometryValue(LogicalValueNode):
 #==============================================================================
 class BasisAtom(AtomicNode):
     """
+    Used to describe a temporary for the basis coefficient or in the kernel.
     """
-    def __new__(cls, expr):
+    def __new__(cls, expr, *, prefix=None):
         types = (IndexedVectorFunction, VectorFunction, ScalarFunction)
 
         ls = _atomic(expr, cls=types)
@@ -1783,13 +1880,20 @@ class BasisAtom(AtomicNode):
 
         u = ls[0]
 
-        obj = Basic.__new__(cls, expr)
+        if not isinstance(prefix, (str, type(None))):
+            raise TypeError('expecting a prefix as a string')
+
+        obj = Basic.__new__(cls, expr, prefix)
         obj._atom = u
         return obj
 
     @property
     def expr(self):
         return self._args[0]
+
+    @property
+    def prefix(self):
+        return self._args[1]
 
     @property
     def atom(self):
@@ -1823,10 +1927,10 @@ class GeometryAtom(AtomicNode):
 class GeometryExpr(Basic):
     """
     """
-    def __new__(cls, expr):
+    def __new__(cls, expr, dtype='real'):
         # TODO assert on expr
         atom = GeometryAtom(expr)
-        expr = MatrixQuadrature(expr)
+        expr = MatrixQuadrature(expr, dtype)
 
         return Basic.__new__(cls, atom, expr)
 
@@ -1899,9 +2003,10 @@ class Loop(BaseNode):
         specifies the last private variables in the parallel region
     """
 
-    def __new__(cls, iterable, index, stmts=None, mask=None, 
-                    parallel=None, default=None, shared=None, 
-                    private=None, firstprivate=None, lastprivate=None, reduction=None):
+    def __new__(cls, iterable, index, *, stmts=None, mask=None,
+                parallel=None, default=None, shared=None,
+                private=None, firstprivate=None, lastprivate=None,
+                reduction=None, prefix=None):
         # ...
         if not( isinstance(iterable, (list, tuple, Tuple)) ):
             iterable = [iterable]
@@ -1927,7 +2032,7 @@ class Loop(BaseNode):
         iterator = []
         generator = []
         for a in iterable:
-            i,g = construct_itergener(a, index)
+            i,g = construct_itergener(a, index, prefix=prefix)
             iterator.append(i)
             generator.append(g)
         # ...
@@ -2100,7 +2205,7 @@ class SplitArray(BaseNode):
         return self._args[2]
 
 #==============================================================================
-def construct_logical_expressions(u, nderiv):
+def construct_logical_expressions(u, nderiv, *, prefix=None):
     if isinstance(u, IndexedVectorFunction):
         dim = u.base.space.ldim
     else:
@@ -2122,13 +2227,13 @@ def construct_logical_expressions(u, nderiv):
                 for _ in range(1, n+1):
                     atom = op(atom)
             args.append(atom)
-    return [ComputeLogicalBasis(i) for i in args]
+    return [ComputeLogicalBasis(i, prefix=prefix) for i in args]
 
 #==============================================================================
 class GeometryExpressions(Basic):
     """
     """
-    def __new__(cls, M, nderiv):
+    def __new__(cls, M, nderiv, dtype='real'):
         expressions = []
         args        = []
         if not M.is_analytical:
@@ -2151,7 +2256,7 @@ class GeometryExpressions(Basic):
                             atom = op(atom)
                     args.append(atom)
 
-            expressions = [GeometryExpr(i) for i in args]
+            expressions = [GeometryExpr(i, dtype) for i in args]
 
         args        = Tuple(*args)
         expressions = Tuple(*expressions)
@@ -2165,8 +2270,9 @@ class GeometryExpressions(Basic):
     def expressions(self):
         return self._args[1]
 #==============================================================================
-def construct_itergener(a, index):
+def construct_itergener(a, index, *, prefix=None):
     """
+    Create the generator and the iterator based on a and the index
     """
     # ... create generator
     if isinstance(a, PlusGlobalTensorQuadratureGrid):
@@ -2193,15 +2299,11 @@ def construct_itergener(a, index):
         generator = TensorGenerator(a, index)
         element   = TensorTestBasis(a.target)
 
-    elif isinstance(a, GlobalTensorQuadratureBasis):
+    elif isinstance(a, (GlobalTensorQuadratureBasis, TensorQuadratureBasis)):
         generator = TensorGenerator(a, index)
         element   = TensorBasis(a.target)
 
-    elif isinstance(a, TensorQuadratureBasis):
-        generator = TensorGenerator(a, index)
-        element   = TensorBasis(a.target)
-
-    elif isinstance(a, (LocalSpanArray,GlobalSpanArray)):
+    elif isinstance(a, (LocalSpanArray, GlobalSpanArray)):
         generator = TensorGenerator(a, index)
         element   = Span(a.target)
 
@@ -2216,55 +2318,36 @@ def construct_itergener(a, index):
     elif isinstance(a, GeometryExpr):
         generator = ProductGenerator(a.expr, index)
         element   = a.atom
+
     elif isinstance(a, TensorAssignExpr):
         generator = TensorGenerator(a.rhs, index)
         element   = a.lhs
+
     else:
         raise TypeError('{} not available'.format(type(a)))
     # ...
 
     # ... create iterator
-    if isinstance(element, LocalTensorQuadratureGrid):
-        iterator = TensorIterator(element)
+    tensor_classes = (LocalTensorQuadratureGrid,
+                      TensorQuadrature,
+                      LocalTensorQuadratureBasis,
+                      TensorQuadratureBasis,
+                      TensorBasis,
+                      Span)
 
-    elif isinstance(element, TensorQuadrature):
-        iterator = TensorIterator(element)
+    product_classes = (CoefficientBasis,
+                       GeometryAtom,
+                       MatrixLocalBasis)
 
-    elif isinstance(element, TensorQuadratureTrialBasis):
-        iterator = TensorIterator(element)
+    if isinstance(element, tensor_classes):
+        iterator = TensorIterator(element, prefix=prefix)
 
-    elif isinstance(element, TensorTrialBasis):
-        iterator = TensorIterator(element)
-
-    elif isinstance(element, TensorQuadratureTestBasis):
-        iterator = TensorIterator(element)
-
-    elif isinstance(element, TensorTestBasis):
-        iterator = TensorIterator(element)
-
-    elif isinstance(element, LocalTensorQuadratureBasis):
-        iterator = TensorIterator(element)
-
-    elif isinstance(element, TensorQuadratureBasis):
-        iterator = TensorIterator(element)
-
-    elif isinstance(element, TensorBasis):
-        iterator = TensorIterator(element)
-
-    elif isinstance(element, Span):
-        iterator = TensorIterator(element)
-
-    elif isinstance(element, CoefficientBasis):
-        iterator = ProductIterator(element)
-
-    elif isinstance(element, GeometryAtom):
-        iterator = ProductIterator(element)
-
-    elif isinstance(element, MatrixLocalBasis):
-        iterator = ProductIterator(element)
+    elif isinstance(element, product_classes):
+        iterator = ProductIterator(element, prefix=prefix)
 
     elif isinstance(element, (Expr, Tuple)):
-        iterator = TensorIterator(element)
+        iterator = TensorIterator(element, prefix=prefix)
+
     else:
         raise TypeError('{} not available'.format(type(element)))
     # ...

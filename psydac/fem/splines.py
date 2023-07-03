@@ -166,7 +166,7 @@ class SplineSpace( FemSpace ):
         return self._histopolation_grid
 
     # ...
-    def init_interpolation( self ):
+    def init_interpolation( self, dtype=float ):
         """
         Compute the 1D collocation matrix and factorize it, in preparation
         for the calculation of a spline interpolant given the values at the
@@ -190,7 +190,7 @@ class SplineSpace( FemSpace ):
             l = abs( dmat.offsets.min() )
             u =      dmat.offsets.max()
             cmat = csr_matrix( dmat )
-            bmat = np.zeros( (1+u+2*l, cmat.shape[1]) )
+            bmat = np.zeros( (1+u+2*l, cmat.shape[1]), dtype=dtype )
             for i,j in zip( *cmat.nonzero() ):
                 bmat[u+l+i-j,j] = cmat[i,j]
             self._interpolator = BandedSolver( u, l, bmat )
@@ -200,7 +200,7 @@ class SplineSpace( FemSpace ):
         self._interpolation_ready = True
 
     # ...
-    def init_histopolation( self ):
+    def init_histopolation( self, dtype=float):
         """
         Compute the 1D histopolation matrix and factorize it, in preparation
         for the calculation of a spline interpolant given the integrals within
@@ -224,7 +224,7 @@ class SplineSpace( FemSpace ):
             l = abs( dmat.offsets.min() )
             u =      dmat.offsets.max()
             cmat = csr_matrix( dmat )
-            bmat = np.zeros( (1+u+2*l, cmat.shape[1]) )
+            bmat = np.zeros( (1+u+2*l, cmat.shape[1]), dtype=dtype)
             for i,j in zip( *cmat.nonzero() ):
                 bmat[u+l+i-j,j] = cmat[i,j]
             self._histopolator = BandedSolver( u, l, bmat )
