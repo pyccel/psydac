@@ -4,7 +4,7 @@ from sympy import pi, sin
 
 from sympde.calculus      import grad, dot
 from sympde.calculus      import minus, plus
-from sympde.topology      import Square
+from sympde.topology      import Square, Domain
 from sympde.topology      import ScalarFunctionSpace
 from sympde.topology      import elements_of
 from sympde.topology      import NormalVector
@@ -80,9 +80,9 @@ def test_poisson_2d_2_patch_dirichlet_0():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
 
-    domain = A.join(B, name = 'domain',
-                bnd_minus = A.get_boundary(axis=0, ext=1),
-                bnd_plus  = B.get_boundary(axis=0, ext=-1))
+    connectivity = [((0,0,1),(1,0,-1))]
+    patches = [A,B]
+    domain = Domain.join(patches, connectivity, 'domain')
 
     x,y = domain.coordinates
 
@@ -102,9 +102,9 @@ def test_poisson_2d_2_patch_dirichlet_1():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
 
-    domain = A.join(B, name = 'domain',
-                bnd_minus = A.get_boundary(axis=0, ext=1),
-                bnd_plus  = B.get_boundary(axis=0, ext=-1))
+    connectivity = [((0,0,1),(1,0,-1))]
+    patches = [A,B]
+    domain = Domain.join(patches, connectivity, 'domain')
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
@@ -123,9 +123,9 @@ def test_poisson_2d_2_patch_dirichlet_2():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
 
-    domain = A.join(B, name = 'domain',
-                bnd_minus = A.get_boundary(axis=0, ext=1),
-                bnd_plus  = B.get_boundary(axis=0, ext=-1))
+    connectivity = [((0,0,1),(1,0,-1))]
+    patches = [A,B]
+    domain = Domain.join(patches, connectivity, 'domain')
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
@@ -151,9 +151,10 @@ def test_poisson_2d_2_patch_dirichlet_3():
 
     D1 = M1(A)
     D2 = M2(B)
-    domain = D1.join(D2, name = 'domain',
-                bnd_minus = D1.get_boundary(axis=0, ext=1),
-                bnd_plus  = D2.get_boundary(axis=0, ext=1))
+
+    connectivity = [((0,0,1),(1,0,1))]
+    patches = [D1,D2]
+    domain = Domain.join(patches, connectivity, 'domain')
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
@@ -177,9 +178,10 @@ def test_poisson_2d_2_patch_dirichlet_4():
 
     D1 = M1(A)
     D2 = M2(B)
-    domain = D1.join(D2, name = 'domain',
-                bnd_minus = D1.get_boundary(axis=0, ext=-1),
-                bnd_plus  = D2.get_boundary(axis=0, ext=-1))
+
+    connectivity = [((0,0,-1),(1,0,-1))]
+    patches = [D1,D2]
+    domain = Domain.join(patches, connectivity, 'domain')
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)

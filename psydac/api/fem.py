@@ -31,7 +31,7 @@ from psydac.fem.projectors   import knot_insertion_projection_operator
 from psydac.core.bsplines    import find_span, basis_funs_all_ders
 from psydac.ddm.cart         import InterfaceCartDecomposition
 
-__all__ = ('collect_spaces', 'compute_diag_len', 'get_quad_order', 
+__all__ = ('collect_spaces', 'compute_diag_len', 'get_nquads',
            'construct_test_space_arguments', 'construct_trial_space_arguments', 
            'construct_quad_grids_arguments', 'reset_arrays', 'do_nothing', 'extract_stencil_mats', 
            'DiscreteBilinearForm', 'DiscreteFunctional', 'DiscreteLinearForm', 'DiscreteSumForm'
@@ -143,7 +143,8 @@ def construct_quad_grids_arguments(grid, use_weights=True):
     return n_elements, quads, nquads
 
 def reset_arrays(*args):
-    for a in args: a[:] = 0.
+    for a in args:
+        a[:]= 0.j if a.dtype==complex else 0.
 
 def do_nothing(*args): return 0
 
@@ -437,6 +438,17 @@ class DiscreteBilinearForm(BasicDiscrete):
         return self._args
 
     def assemble(self, *, reset=True, **kwargs):
+        """
+        This method assembles the left hand side Matrix by calling the private method `self._func` with proper arguments.
+
+        In the complex case, this function returns the matrix conjugate. This comes from the fact that the
+        problem `a(u,v)=b(v)` is discretized as `A @ conj(U) = B` due to the antilinearity of `a` in the first variable.
+        Thus, to obtain `U`, the assemble function returns `conj(A)`.
+
+        TODO: remove these lines when the dot product is changed for complex.
+        For now, since the dot product does not compute the conjugate in the complex case. We do not use the conjugate in the assemble function.
+        It should work if the complex only comes from the `rhs` in the linear form.
+        """
 
         if self._free_args:
             basis   = []
@@ -483,6 +495,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._func(*args, *self._threads_args)
         if self._matrix and self._update_ghost_regions:
             self._matrix.exchange_assembly_data()
+
+        # TODO : uncomment this line when the conjugate is applied on the dot product in the complex case
+        #self._matrix.conjugate(out=self._matrix)
 
         if self._matrix: self._matrix.ghost_regions_in_sync = False
         return self._matrix
@@ -633,7 +648,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def allocate_matrices(self, backend=None):
         """
-        Allocate the global matrices used in the assmebly method.
+        Allocate the global matrices used in the assembly method.
         In this method we allocate only the matrices that are computed in the self._target domain,
         we also avoid double allocation if we have many DiscreteLinearForm that are defined on the same self._target domain.
 
@@ -751,8 +766,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                         s_d = trial_n - trial_s - trial_degree[k2][axis] - 1 if ext_d == 1 else 0
                         s_c =  test_n - trial_s -  test_degree[k1][axis] - 1 if ext_c == 1 else 0
 
-                        direction = target.direction
-                        direction = 1 if direction is None else direction
+                        # We only handle the case where direction = 1
+                        direction = target.ornt
+                        if domain.dim == 2:
+                            assert direction == 1
+                        elif domain.dim == 3:
+                            assert all(d==1 for d in direction)
+
+                        direction = 1
                         flip = [direction]*domain.dim
                         flip[axis] = 1
                         if self._func != do_nothing:
@@ -790,8 +811,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                     s_d = trial_n - trial_s - trial_degree[axis] - 1 if ext_d == 1 else 0
                     s_c =  test_n - trial_s -  test_degree[axis] - 1 if ext_c == 1 else 0
 
-                    direction = target.direction
-                    direction = 1 if direction is None else direction
+                    # We only handle the case where direction = 1
+                    direction = target.ornt
+                    if domain.dim == 2:
+                        assert direction == 1
+                    elif domain.dim == 3:
+                        assert all(d==1 for d in direction)
+
+                    direction = 1
                     flip = [direction]*domain.dim
                     flip[axis] = 1
 
@@ -811,13 +838,17 @@ class DiscreteBilinearForm(BasicDiscrete):
                                 mat = ComposedLinearOperator(trial_space, test_space, mat, P)
 
                         global_mats[i, j] = mat
+
+                # define part of the global matrix as a StencilMatrix
                 else:
                     global_mats[i, j] = StencilMatrix(trial_space, test_space, pads=tuple(pads))
 
                 if (i, j) in global_mats:
                     self._matrix[i, j] = global_mats[i, j]
 
-            else: # single patch
+
+            # in single patch case, we define the matrices needed for the patch
+            else:
                 if self._matrix:
                     global_mats[0, 0] = self._matrix
                 else:
@@ -825,6 +856,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
                 self._matrix = global_mats[0, 0]
 
+        # Set the backend of our matrices if given
         if backend is not None and is_broken:
             for mat in global_mats.values():
                 mat.set_backend(backend)
@@ -832,6 +864,55 @@ class DiscreteBilinearForm(BasicDiscrete):
             self._matrix.set_backend(backend)
 
         self._global_matrices = [M._data for M in extract_stencil_mats(global_mats.values())]
+
+
+# ==============================================================================
+class DiscreteSesquilinearForm(DiscreteBilinearForm):
+    """ Class that represents the concept of a discrete sesqui-linear form with the antilinearity on the first variable.
+        This class allocates the matrix and generates the matrix assembly method.
+
+    Parameters
+    ----------
+
+    expr : sympde.expr.expr.SesquilinearForm
+        The symbolic sesqui-linear form.
+
+    kernel_expr : sympde.expr.evaluation.KernelExpression
+        The atomic representation of the sesqui-linear form.
+
+    domain_h : Geometry
+        The discretized domain
+
+    spaces: list of FemSpace
+        The trial and test discrete spaces.
+
+    matrix: Matrix
+        The matrix that we assemble into it.
+        If not provided, it will create a new Matrix of the appropriate space.
+
+    update_ghost_regions: bool
+        Accumulate the contributions of the neighbouring processes.
+
+    nquads: list of tuple
+        The number of quadrature points used in the assembly method.
+
+    backend: dict
+        The backend used to accelerate the computing kernels.
+        The backend dictionaries are defined in the file psydac/api/settings.py
+
+    assembly_backend: dict
+        The backend used to accelerate the assembly method.
+        The backend dictionaries are defined in the file psydac/api/settings.py
+
+    linalg_backend: dict
+        The backend used to accelerate the computing kernels of the linear operator.
+        The backend dictionaries are defined in the file psydac/api/settings.py
+
+    symbolic_mapping: Sympde.topology.Mapping
+        The symbolic mapping which defines the physical domain of the sesqui-linear form.
+
+    """
+
 
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
@@ -1021,6 +1102,17 @@ class DiscreteLinearForm(BasicDiscrete):
         return self._args
 
     def assemble(self, *, reset=True, **kwargs):
+        """
+        This method assembles the right-hand side Vector by calling the private method `self._func` with proper arguments.
+
+        In the complex case, this function returns the vector conjugate. This comes from the fact that the
+        problem `a(u,v)=b(v)` is discretize as `A @ conj(U) = B` due to the antilinearity of `a` in the first variable.
+        Thus, to obtain `U`, the assemble function for the LinearForm return `conj(B)`.
+
+        TODO: remove these lines when the dot product is changed for complex in sympde.
+        For now, since the dot product does not do the conjugate in the complex case, we do not use the conjugate in the assemble function.
+        It should work if the complex only comes from the `rhs` in the linear form.
+        """
         if self._free_args:
             basis   = []
             spans   = []
@@ -1060,6 +1152,9 @@ class DiscreteLinearForm(BasicDiscrete):
         self._func(*args, *self._threads_args)
         if self._vector and self._update_ghost_regions:
             self._vector.exchange_assembly_data()
+
+        # TODO : uncomment this line when the conjugate is applied on the dot product in the complex case
+        # self._vector.conjugate(out=self._vector)
 
         if self._vector: self._vector.ghost_regions_in_sync = False
         return self._vector
@@ -1149,7 +1244,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
     def allocate_matrices(self):
         """
-        Allocate the global matrices used in the assmebly method.
+        Allocate the global matrices used in the assembly method.
         In this method we allocate only the matrices that are computed in the self._target domain,
         we also avoid double allocation if we have many DiscreteLinearForm that are defined on the same self._target domain.
         """
@@ -1204,6 +1299,7 @@ class DiscreteLinearForm(BasicDiscrete):
                     self._vector   = global_mats[0]
 
         self._global_matrices = [M._data for M in global_mats.values()]
+
 
 #==============================================================================
 class DiscreteFunctional(BasicDiscrete):
@@ -1423,6 +1519,20 @@ class DiscreteFunctional(BasicDiscrete):
         return args
 
     def assemble(self, **kwargs):
+        """
+        This method assembles the square of the functional expression with the given arguments and then compute
+        the square root of the absolute value of the result.
+
+        Example
+        --------------
+        n = Norm(1.0j*v, domain, kind='l2')
+        nh = discretize(n, domain_h,      Vh , **kwargs)
+        fh = FemField(Vh)
+        fh.coeffs[:] = 1
+        n_value = nh.assemble(v=fh)
+
+        In n_value we have the value of np.sqrt(abs(sum((1.0jv)**2)))
+        """
         args = [*self._args]
         for key in self._free_args:
             v = kwargs[key]
@@ -1456,12 +1566,16 @@ class DiscreteFunctional(BasicDiscrete):
                 raise NotImplementedError('TODO')
         return v
 
+
 #==============================================================================
 class DiscreteSumForm(BasicDiscrete):
 
     def __init__(self, a, kernel_expr, *args, **kwargs):
+        # TODO Uncomment when the SesquilinearForm exist in SymPDE
+        #if not isinstance(a, (sym_BilinearForm, sym_SesquilinearForm, sym_LinearForm, sym_Functional)):
+            # raise TypeError('> Expecting a symbolic BilinearForm, SesquilinearForm, LinearForm, Functional')
         if not isinstance(a, (sym_BilinearForm, sym_LinearForm, sym_Functional)):
-            raise TypeError('> Expecting a symbolic BilinearForm, LinearFormn Functional')
+            raise TypeError('> Expecting a symbolic BilinearForm, LinearForm, Functional')
 
         self._expr = a
         backend = kwargs.pop('backend', None)
@@ -1479,17 +1593,24 @@ class DiscreteSumForm(BasicDiscrete):
         self._kernel_expr = kernel_expr
         operator = None
         for e in kernel_expr:
-            if isinstance(a, sym_BilinearForm):
-                kwargs['update_ghost_regions'] = False
-                ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
-                kwargs['matrix'] = ah._matrix
-                operator = ah._matrix
-
-            elif isinstance(a, sym_LinearForm):
+            if isinstance(a, sym_LinearForm):
                 kwargs['update_ghost_regions'] = False
                 ah = DiscreteLinearForm(a, e, *args, backend=backend, **kwargs)
                 kwargs['vector'] = ah._vector
                 operator = ah._vector
+
+            # TODO Uncomment when the SesquilinearForm exist in SymPDE
+            # elif isinstance(a, sym_SesquilinearForm):
+            #     kwargs['update_ghost_regions'] = False
+            #     ah = DiscreteSesquilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
+            #     kwargs['matrix'] = ah._matrix
+            #     operator = ah._matrix
+
+            elif isinstance(a, sym_BilinearForm):
+                kwargs['update_ghost_regions'] = False
+                ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
+                kwargs['matrix'] = ah._matrix
+                operator = ah._matrix
 
             elif isinstance(a, sym_Functional):
                 ah = DiscreteFunctional(a, e, *args, backend=backend, **kwargs)
@@ -1536,3 +1657,5 @@ class DiscreteSumForm(BasicDiscrete):
             M = [form.assemble(**kwargs) for form in self.forms]
             M = np.sum(M)
             return M
+
+
