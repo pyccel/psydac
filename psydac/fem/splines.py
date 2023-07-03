@@ -431,7 +431,7 @@ class SplineSpace( FemSpace ):
         assert field.space is self
 
         if not self._interpolation_ready:
-            self.init_interpolation()
+            self.init_interpolation(dtype=field.vector_space.dtype)
 
         n = self.nbasis
         c = field.coeffs
