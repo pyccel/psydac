@@ -73,7 +73,6 @@ class BlockVectorSpace(VectorSpace):
     def dtype(self):
         return self._dtype
 
-    # ...
     def zeros(self):
         """
         Get a copy of the null element of the product space V = [V1, V2, ...]
@@ -383,18 +382,17 @@ class BlockVector(Vector):
                 cart_i = Vi.cart
                 cart_j = Vj.cart
 
-                buf = [None]*2
                 if cart_i.is_comm_null:
-                    buf[0] = self._blocks[i]._interface_data[axis_i, ext_i]
+                    read_buffer = self._blocks[i]._interface_data[axis_i, ext_i]
                 else:
-                    buf[0] = self._blocks[i]._data
+                    read_buffer = self._blocks[i]._data
 
                 if cart_j.is_comm_null:
-                    buf[1] = self._blocks[j]._interface_data[axis_j, ext_j]
+                    write_buffer = self._blocks[j]._interface_data[axis_j, ext_j]
                 else:
-                    buf[1] = self._blocks[j]._data
+                    write_buffer = self._blocks[j]._data
 
-                self._interface_buf[i, j].append(tuple(buf))
+                self._interface_buf[i, j].append((read_buffer, write_buffer))
 
     # ...
     def exchange_assembly_data(self):
@@ -524,8 +522,11 @@ class BlockLinearOperator(LinearOperator):
 
         for (i, j), Lij in self._blocks.items():
             assert isinstance(Lij, (StencilMatrix, BlockLinearOperator))
-            Lij_out = Lij.conjugate()
-            out[i,j] = Lij_out
+            if out[i,j]==None:
+                out[i, j] = Lij.conjugate()
+            else:
+                Lij.conjugate(out=out[i,j])
+
         return out
 
     def conj(self, out=None):
@@ -613,6 +614,7 @@ class BlockLinearOperator(LinearOperator):
                 assert isinstance(out, Vector)
             else:
                 assert isinstance(out, BlockVector)
+
             assert out.space is self.codomain
             out *= 0.0
         else:
@@ -941,6 +943,7 @@ class BlockLinearOperator(LinearOperator):
                                 root = MPI.ROOT
                             else:
                                 root = MPI.PROC_NULL
+
                         else:
                             root = 0
 
@@ -970,6 +973,7 @@ class BlockLinearOperator(LinearOperator):
                                 blocks_T[j,i][k2,k1] = block_ij_k1k2.transpose(Mt=block_ji_k2k1)
                     else:
                         continue
+
                     break
 
                 if (j,i) in blocks_T and len(blocks_T[j,i]._blocks) == 0:
@@ -998,6 +1002,7 @@ class BlockLinearOperator(LinearOperator):
                                 root = MPI.ROOT
                             else:
                                 root = MPI.PROC_NULL
+
                         else:
                             root = 0
 
@@ -1031,6 +1036,7 @@ class BlockLinearOperator(LinearOperator):
 
                     else:
                         continue
+
                     break
 
 
@@ -1055,6 +1061,7 @@ class BlockLinearOperator(LinearOperator):
                         root = MPI.ROOT
                     else:
                         root = MPI.PROC_NULL
+
                 else:
                     root = 0
 
@@ -1082,6 +1089,7 @@ class BlockLinearOperator(LinearOperator):
                         root = MPI.ROOT
                     else:
                         root = MPI.PROC_NULL
+
                 else:
                     root = 0
 

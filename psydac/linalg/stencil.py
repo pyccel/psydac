@@ -123,6 +123,7 @@ class StencilVectorSpace( VectorSpace ):
         if cart.is_parallel and not cart.is_comm_null:
             self._mpi_type      = find_mpi_type(dtype)
             if isinstance(cart, InterfaceCartDecomposition):
+                # TODO : Check if this line really change the ._shape
                 self._shape = cart.get_interface_communication_infos(cart.axis)['gbuf_recv_shape'][0]
             else:
                 self._synchronizer = get_data_exchanger( cart, dtype , assembly=True, blocking=False)
@@ -248,7 +249,7 @@ class StencilVectorSpace( VectorSpace ):
         if cart.is_comm_null: return
         if isinstance(cart, InterfaceCartDecomposition):
             # Case where the patches that share the interface are owned by different intra-communicators
-            space = StencilVectorSpace(cart)
+            space = StencilVectorSpace(cart, dtype=self.dtype)
             self._interfaces[axis, ext] = space
         else:
             # Case where the patches that share the interface are owned by the same intra-communicator
@@ -271,6 +272,8 @@ class StencilVectorSpace( VectorSpace ):
                     parent_ends[axis] = self.pads[axis]
 
             cart = cart.change_starts_ends(tuple(starts), tuple(ends), tuple(parent_starts), tuple(parent_ends))
+
+            #TODO Check if we create object from it, otherwise its only purpose is to store some parameters which is innefficient
             space = StencilVectorSpace(cart, self.dtype)
 
             self._interfaces[axis, ext] = space
@@ -2504,7 +2507,8 @@ class StencilInterfaceMatrix(LinearOperator):
                                     flip_axis=self._flip,
                                     interface_axis=self._codomain_axis,
                                     d_start=(self._domain_start,),
-                                    c_start=(self._codomain_start,))
+                                    c_start=(self._codomain_start,),
+                                    dtype= self.dtype)
 
                     starts = self._args.pop('starts')
                     nrows  = self._args.pop('nrows')
@@ -2530,7 +2534,8 @@ class StencilInterfaceMatrix(LinearOperator):
                                             flip_axis=self._flip,
                                             interface_axis=self._codomain_axis,
                                             d_start=(self._domain_start,),
-                                            c_start=(self._codomain_start,))
+                                            c_start=(self._codomain_start,),
+                                            dtype= self.dtype)
 
                     starts      = self._args.pop('starts')
                     nrows       = self._args.pop('nrows')
@@ -2564,7 +2569,8 @@ class StencilInterfaceMatrix(LinearOperator):
                                         flip_axis=self._flip,
                                         interface_axis=self._codomain_axis,
                                         d_start=(self._domain_start,),
-                                        c_start=(self._codomain_start,))
+                                        c_start=(self._codomain_start,),
+                                        dtype= self.dtype)
 
                 self._args = {}
 
