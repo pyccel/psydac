@@ -149,49 +149,49 @@ if __name__ == '__main__':
     )
 
     Pm.close()
-    # ...
-    print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne[0], ne2=ne[1]) )
-    print( '> Degree        :: [{p1},{p2}]'  .format( p1=degree[0], p2=degree[1] ) )
-    print( '> CG info       :: ',info )
-    print( '> L2 error      :: {:.2e}'.format( l2_error ) )
-    print( '' )
-    print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
-    print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
-    N = 20
-
-    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-    mappings_list = [m.get_callable_mapping() for m in mappings.values()]
-
-    Eex_x   = lambdify(domain.coordinates, Eex[0])
-    Eex_y   = lambdify(domain.coordinates, Eex[1])
-    Eex_log = [pull_2d_hcurl([Eex_x, Eex_y], f) for f in mappings_list]
-
-    etas, xx, yy    = get_plotting_grid(mappings, N=20)
-    grid_vals_hcurl = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='hcurl')
-
-    Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
-    E_x_vals , E_y_vals  = grid_vals_hcurl(Eex_log)
-
-    E_x_err = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
-    E_y_err = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
-
-    my_small_plot(
-        title=r'approximation of solution $u$, $x$ component',
-        vals=[E_x_vals, Eh_x_vals, E_x_err],
-        titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
-        xx=xx,
-        yy=yy,
-        gridlines_x1=None,
-        gridlines_x2=None,
-    )
-
-    my_small_plot(
-        title=r'approximation of solution $u$, $y$ component',
-        vals=[E_y_vals, Eh_y_vals, E_y_err],
-        titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
-        xx=xx,
-        yy=yy,
-        gridlines_x1=None,
-        gridlines_x2=None,
-    )
+    # # ...
+    # print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne[0], ne2=ne[1]) )
+    # print( '> Degree        :: [{p1},{p2}]'  .format( p1=degree[0], p2=degree[1] ) )
+    # print( '> CG info       :: ',info )
+    # print( '> L2 error      :: {:.2e}'.format( l2_error ) )
+    # print( '' )
+    # print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
+    # print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
+    # N = 20
+    #
+    # mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    # mappings_list = [m.get_callable_mapping() for m in mappings.values()]
+    #
+    # Eex_x   = lambdify(domain.coordinates, Eex[0])
+    # Eex_y   = lambdify(domain.coordinates, Eex[1])
+    # Eex_log = [pull_2d_hcurl([Eex_x, Eex_y], f) for f in mappings_list]
+    #
+    # etas, xx, yy    = get_plotting_grid(mappings, N=20)
+    # grid_vals_hcurl = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='hcurl')
+    #
+    # Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
+    # E_x_vals , E_y_vals  = grid_vals_hcurl(Eex_log)
+    #
+    # E_x_err = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
+    # E_y_err = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
+    #
+    # my_small_plot(
+    #     title=r'approximation of solution $u$, $x$ component',
+    #     vals=[E_x_vals, Eh_x_vals, E_x_err],
+    #     titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+    #     xx=xx,
+    #     yy=yy,
+    #     gridlines_x1=None,
+    #     gridlines_x2=None,
+    # )
+    #
+    # my_small_plot(
+    #     title=r'approximation of solution $u$, $y$ component',
+    #     vals=[E_y_vals, Eh_y_vals, E_y_err],
+    #     titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
+    #     xx=xx,
+    #     yy=yy,
+    #     gridlines_x1=None,
+    #     gridlines_x2=None,
+    # )
 
