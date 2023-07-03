@@ -839,7 +839,8 @@ def build_pyccel_types_decorator(args, order=None):
             elif a.is_complex:
                 dtype = 'complex'
             else:
-                dtype = 'float' # default value
+                raise TypeError(f"The Constant {a} don't have any information about the type of the variable.\n"
+                                f"Please create the Constant like this Constant('{a}', real=True), Constant('{a}', complex=True) or Constant('{a}', integer=True).")
 
         else:
             raise TypeError('unexpected type for {}'.format(a))

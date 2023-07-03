@@ -621,6 +621,7 @@ class CartDecomposition():
     def shape( self ):
         return self._shape
 
+    # TODO check if the property ranks_in_topo is still defined
     @property
     def ranks_in_topo( self ):
         return self._ranks_in_topo
@@ -720,17 +721,16 @@ class CartDecomposition():
  
         """
         # Make a copy
-        cart = CartDecomposition(self.npts, self.pads, self.periods, self.reorder, comm=self.comm)
+        # cart = CartDecomposition(self.npts, self.pads, self.periods, self.reorder, comm=self.comm)
+        cart = CartDecomposition(self.domain_decomposition, tuple(end[-1] + 1 for end in global_ends), global_starts, global_ends, self.pads, self.shifts)
+        # cart._npts = tuple(end[-1] + 1 for end in global_ends)
 
-        cart._npts = tuple(end[-1] + 1 for end in global_ends)
-
-        cart._dims = self._dims
+        cart._ndims = self._ndims
 
         # Create a 2D MPI cart
         cart._comm_cart = self._comm_cart
 
         # Know my coordinates in the topology
-        cart._rank_in_topo = self._rank_in_topo
         cart._coords       = self._coords
 
         # Start/end values of global indices (without ghost regions)

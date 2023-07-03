@@ -72,20 +72,23 @@ class TensorFemSpace( FemSpace ):
 
     """
 
-    def __init__( self, domain_decomposition, *spaces, vector_space=None, cart=None, nquads=None ):
+
+    def __init__(self, domain_decomposition, *spaces, vector_space=None, cart=None, nquads=None, dtype=float):
+
         """."""
         assert isinstance(domain_decomposition, DomainDecomposition)
         assert all( isinstance( s, SplineSpace ) for s in spaces )
         self._domain_decomposition = domain_decomposition
         self._spaces = tuple(spaces)
+        self._dtype   = dtype
 
         if cart is not None:
-            self._vector_space = StencilVectorSpace(cart)
+            self._vector_space = StencilVectorSpace(cart, dtype=dtype)
         elif vector_space is not None:
             self._vector_space = vector_space
         else:
             cart               = create_cart([domain_decomposition], [self._spaces])
-            self._vector_space = StencilVectorSpace(cart[0])
+            self._vector_space = StencilVectorSpace(cart[0], dtype=dtype)
 
         # Shortcut
         v = self._vector_space
@@ -713,6 +716,10 @@ class TensorFemSpace( FemSpace ):
     def is_scalar(self):
         return True
 
+    @property
+    def dtype(self):
+        return self._dtype
+
     #TODO: return tuple instead of product?
     @property
     def nbasis(self):
@@ -838,14 +845,14 @@ class TensorFemSpace( FemSpace ):
         for V in self.spaces:
             # TODO: check if OK to access private attribute...
             if not V._interpolation_ready:
-                V.init_interpolation()
+                V.init_interpolation(dtype=self.dtype)
 
     # ...
     def init_histopolation( self ):
         for V in self.spaces:
             # TODO: check if OK to access private attribute...
             if not V._histopolation_ready:
-                V.init_histopolation()
+                V.init_histopolation(dtype=self.dtype)
 
     # ...
     def compute_interpolant( self, values, field ):
@@ -906,8 +913,8 @@ class TensorFemSpace( FemSpace ):
         v = self._vector_space
         spaces = list(self.spaces)
 
-        global_starts = v._cart._global_starts.copy()
-        global_ends   = v._cart._global_ends.copy()
+        global_starts = list(v._cart._global_starts).copy()
+        global_ends   = list(v._cart._global_ends).copy()
         global_domains_ends  = self._global_element_ends
 
         for i, axis in enumerate(axes):
@@ -940,8 +947,10 @@ class TensorFemSpace( FemSpace ):
                 global_ends[axis][-1] += 1
                 global_starts[axis][0] = 0
 
-        cart = v._cart.reduce_grid(global_starts, global_ends)
-        V    = TensorFemSpace(*spaces, cart=cart, nquads=self._nquads)
+        cart = v._cart.reduce_grid(tuple(global_starts), tuple(global_ends))
+
+        V    = TensorFemSpace(cart.domain_decomposition, *spaces, cart=cart, nquads=self._nquads, dtype=v.dtype)
+
         return V
 
     # ...
@@ -1064,7 +1073,8 @@ class TensorFemSpace( FemSpace ):
         red_cart   = v.cart.reduce_npts(npts, global_starts, global_ends, shifts=multiplicity)
 
         # create new TensorFemSpace
-        tensor_vec = TensorFemSpace(self._domain_decomposition, *spaces, cart=red_cart, nquads=self._nquads)
+
+        tensor_vec = TensorFemSpace(self._domain_decomposition, *spaces, cart=red_cart, nquads=self._nquads, dtype=v.dtype)
 
         tensor_vec._interpolation_ready = False
 
@@ -1108,7 +1118,9 @@ class TensorFemSpace( FemSpace ):
 
         domain = domain.refine(ncells, new_global_starts, new_global_ends)
 
-        FS     = TensorFemSpace(domain, *spaces, nquads=self.nquads)
+
+        FS     = TensorFemSpace(domain, *spaces, nquads=self.nquads, dtype=self._vector_space.dtype)
+
         self.set_refined_space(ncells, FS)
 
     # ...
@@ -1138,7 +1150,10 @@ class TensorFemSpace( FemSpace ):
         nquads       = self.nquads
 
         vector_space.set_interface(axis, ext, cart)
-        space = TensorFemSpace( self._domain_decomposition, *spaces, vector_space=vector_space.interfaces[axis, ext], nquads=self.nquads)
+
+        space = TensorFemSpace( self._domain_decomposition, *spaces, vector_space=vector_space.interfaces[axis, ext],
+                                nquads=self.nquads, dtype=vector_space.dtype)
+
         self._interfaces[axis, ext] = space
 
     def get_refined_space(self, ncells):

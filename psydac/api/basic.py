@@ -228,16 +228,18 @@ class BasicCodeGen:
 
     def _generate_code(self):
         # ... generate code that can be pyccelized
-        code = ''
+        imports = ''
         if self.backend['name'] == 'pyccel':
-            code = 'from pyccel.decorators import types'
+            imports = "from pyccel.decorators import types"
+            imports += ", template \n@template(name='T', types=['float', 'complex']) "
         elif self.backend['name'] == 'numba':
-            code = 'from numba import njit'
+            imports = 'from numba import njit'
 
         ast = self.ast
         expr = parse(ast.expr, settings={'dim': ast.dim, 'nderiv': ast.nderiv, 'mapping':ast.mapping, 'target':ast.domain}, backend=self.backend)
 
-        code = '{code}\n{dep}'.format(code=code, dep=pycode(expr))
+        dep = pycode(expr)
+        code = f'{imports}\n{dep}'
 
         return code
 

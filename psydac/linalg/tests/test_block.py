@@ -590,7 +590,7 @@ def test_3D_block_serial_basic_operator( dtype, npts, p, P1, P2, P3 ):
     assert np.allclose(A4.blocks[1][0]._data, (M2)._data/5,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A4.blocks[1][1]._data, (M1)._data/5,  rtol=1e-14, atol=1e-14 )
 #===============================================================================
-@pytest.mark.parametrize( 'dtype', [complex] )
+@pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'npts', [[6, 8]] )
 @pytest.mark.parametrize( 'p', [[1,1], [2,3]] )
 @pytest.mark.parametrize( 'P1', [True, False] )

@@ -4,7 +4,7 @@ from mpi4py import MPI
 
 import numpy as np
 
-from sympde.topology import Square
+from sympde.topology import Square, Domain
 from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mapping #TransposedPolarMapping
 
 
@@ -25,19 +25,12 @@ class TransposedPolarMapping(Mapping):
 
 
 
-
-
-def union(domains, name):
-    assert len(domains)>1
-    domain = domains[0]
-    for p in domains[1:]:
-        domain = domain.join(p, name=name)
-    return domain
-
-def set_interfaces(domain, interfaces):
+def create_domain(patches, interfaces, name):
+    connectivity = []
+    patches_interiors = [D.interior for D in patches]
     for I in interfaces:
-        domain = domain.join(domain, domain.name, bnd_minus=I[0], bnd_plus=I[1], direction=I[2])
-    return domain
+        connectivity.append(((patches_interiors.index(I[0].domain),I[0].axis, I[0].ext), (patches_interiors.index(I[1].domain), I[1].axis, I[1].ext), I[2]))
+    return Domain.join(patches, connectivity, name)
 
 # def get_annulus_fourpatches(r_min, r_max):
 #
@@ -62,8 +55,8 @@ def set_interfaces(domain, interfaces):
 #         [domain_3.get_boundary(axis=1, ext=1), domain_4.get_boundary(axis=1, ext=-1), 1],
 #         [domain_4.get_boundary(axis=1, ext=1), domain_1.get_boundary(axis=1, ext=-1), 1]
 #         ]
-#     domain = union([domain_1, domain_2, domain_3, domain_4], name = 'domain')
-#     domain = set_interfaces(domain, interfaces)
+#     patches = [domain_1, domain_2, domain_3, domain_4]
+#     domain = create_domain(patches, interfaces, name='domain')
 #
 #     return domain
 
@@ -125,8 +118,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
         mapping_2 = IdentityMapping('M2',2)
         domain_2     = mapping_2(OmegaLog2)
 
-        domain = union([domain_1,
-                        domain_2], name = 'domain')
+        patches = [domain_1, domain_2]
 
         interfaces = [
             [domain_1.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1),1]
@@ -162,7 +154,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
         mapping_6 = IdentityMapping('M6',2)
         domain_6     = mapping_6(OmegaLog6)
 
-        domain = union([domain_1, domain_2, domain_3, domain_4, domain_5, domain_6], name = 'domain')
+        patches = [domain_1, domain_2, domain_3, domain_4, domain_5, domain_6]
 
         interfaces = [
             [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1),1],
@@ -221,7 +213,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
             # 1 2 3
 
 
-            domain = union([domain_1, domain_2, domain_3, domain_4, domain_5, domain_6, domain_7, domain_8], name = 'domain')
+            patches = [domain_1, domain_2, domain_3, domain_4, domain_5, domain_6, domain_7, domain_8]
 
             interfaces = [
                 [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1),1],
@@ -241,7 +233,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
             # 1 2 3
 
 
-            domain = union([domain_1, domain_2, domain_3, domain_4, domain_5, domain_6, domain_7, domain_8, domain_9], name = 'domain')
+            patches = [domain_1, domain_2, domain_3, domain_4, domain_5, domain_6, domain_7, domain_8, domain_9]
 
             interfaces = [
                 [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1),1],
@@ -399,19 +391,19 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
         # domain_15  = mapping_15(dom_log_15)
 
         if domain_name == 'pretzel':
-            domain = union([
-                            domain_1,
-                            domain_2,
-                            domain_3,
-                            domain_4,
-                            domain_5,
-                            domain_6,
-                            domain_7,
-                            domain_9,
-                            domain_12,
-                            domain_13,
-                            domain_14,
-                            ], name = 'domain')
+            patches = ([
+                    domain_1,
+                    domain_2,
+                    domain_3,
+                    domain_4,
+                    domain_5,
+                    domain_6,
+                    domain_7,
+                    domain_9,
+                    domain_12,
+                    domain_13,
+                    domain_14,
+                              ])
 
             interfaces = [
                 [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),  1],
@@ -430,7 +422,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
                 ]
 
         elif domain_name == 'pretzel_f':
-            domain = union([
+            patches = ([
                             domain_1_1,
                             domain_1_2,
                             domain_2_1,
@@ -449,7 +441,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
                             domain_13_2,
                             domain_14_1,
                             domain_14_2,
-                            ], name = 'domain')
+                            ])
 
             interfaces = [
                 [domain_1_1.get_boundary(axis=1, ext=+1), domain_1_2.get_boundary(axis=1, ext=-1), 1],
@@ -479,7 +471,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
         elif domain_name == 'pretzel_annulus':
             # only the annulus part of the pretzel (not the inner arcs)
 
-            domain = union([
+            patches = ([
                             domain_1,
                             domain_5,
                             domain_6,
@@ -489,7 +481,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
                             domain_9,
                             domain_4,
                             domain_12,
-                            ], name = 'domain')
+                            ])
 
             interfaces = [
                 [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),1],
@@ -504,10 +496,10 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
                 ]
 
         elif domain_name == 'pretzel_debug':
-            domain = union([
-                            domain_1,
-                            domain_10,
-                            ], name = 'domain')
+            patches = ([
+                    domain_1,
+                    domain_10,
+                    ])
 
             interfaces = [
                 [domain_1.get_boundary(axis=1, ext=+1), domain_10.get_boundary(axis=1, ext=-1),1],
@@ -532,11 +524,11 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
         mapping_3 = PolarMapping('M3',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
         domain_3     = mapping_3(dom_log_3)
 
-        domain = union([
-                        domain_1,
-                        domain_2,
-                        domain_3,
-                        ], name = 'domain')
+        patches = ([
+                    domain_1,
+                    domain_2,
+                    domain_3,
+                    ])
 
         interfaces = [
             [domain_1.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1),1],
@@ -563,7 +555,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
             mapping_3 = PolarMapping('M3',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
             domain_3     = mapping_3(OmegaLog3)
 
-            domain = union([domain_1, domain_2, domain_3], name = 'domain')
+            patches = [domain_1, domain_2, domain_3]
 
             interfaces = [
                 [domain_1.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1),1],
@@ -588,7 +580,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
             mapping_4 = PolarMapping('M4',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
             domain_4     = mapping_4(OmegaLog4)
 
-            domain = union([domain_1, domain_2, domain_3, domain_4], name = 'domain')
+            patches = [domain_1, domain_2, domain_3, domain_4]
 
             interfaces = [
                 [domain_1.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1),1],
@@ -602,7 +594,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
     else:
         raise NotImplementedError
 
-    domain = set_interfaces(domain, interfaces)
+    domain = create_domain(patches, interfaces, name='domain')
 
     # print("int: ", domain.interior)
     # print("bound: ", domain.boundary)
