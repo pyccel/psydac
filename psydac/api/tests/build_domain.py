@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from sympde.topology import Square
+from sympde.topology import Square, Domain
 from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mapping
 
 #==============================================================================
@@ -20,17 +20,12 @@ class TransposedPolarMapping(Mapping):
     _ldim        = 2
     _pdim        = 2
 
-def union(domains, name):
-    assert len(domains)>1
-    domain = domains[0]
-    for p in domains[1:]:
-        domain = domain.join(p, name=name)
-    return domain
-
-def set_interfaces(domain, interfaces):
+def create_domain(patches, interfaces, name):
+    connectivity = []
+    patches_interiors = [D.interior for D in patches]
     for I in interfaces:
-        domain = domain.join(domain, domain.name, bnd_minus=I[0], bnd_plus=I[1], direction=I[2])
-    return domain
+        connectivity.append(((patches_interiors.index(I[0].domain),I[0].axis, I[0].ext), (patches_interiors.index(I[1].domain), I[1].axis, I[1].ext), I[2]))
+    return Domain.join(patches, connectivity, name)
 
 def get_2D_rotation_mapping(name='no_name', c1=0., c2=0., alpha=np.pi/2):
 
@@ -180,7 +175,7 @@ def build_pretzel(domain_name='pretzel', r_min=None, r_max=None):
     mapping_14_2 = TransposedPolarMapping('M14_2',2, c1= r_min+h, c2= r_min+h, rmin = 0., rmax=1.)
     domain_14_2  = mapping_14_2(dom_log_14_2)
 
-    domain = union([
+    patches = ([
                     domain_1,
                     domain_2,
                     domain_3,
@@ -192,7 +187,7 @@ def build_pretzel(domain_name='pretzel', r_min=None, r_max=None):
                     domain_12,
                     domain_13,
                     domain_14,
-                    ], name = domain_name)
+                    ])
 
     interfaces = [
         [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),  1],
@@ -211,6 +206,6 @@ def build_pretzel(domain_name='pretzel', r_min=None, r_max=None):
         ]
 
 
-    domain = set_interfaces(domain, interfaces)
+    domain = create_domain(patches, interfaces, domain_name)
     return domain
 
