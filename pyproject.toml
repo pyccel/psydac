@@ -32,7 +32,7 @@ dependencies = [
     'pyevtk',
 
     # Our packages from PyPi
-    'sympde==0.16.1',
+    'sympde==0.17.0',
     'pyccel>=1.7.3',
     'gelato==0.12',
 
