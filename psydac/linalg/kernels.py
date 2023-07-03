@@ -206,11 +206,14 @@ def dot_product_1d_float64(v1:'float[:]',v2:'float[:]',pads0:'int64',shift0:'int
             
     Returns
     -------
-        result : float containing the results'''
-    result = float(0)
+        res : float containing the results'''
+    res = float(0)
+    #$omp parallel default(private) firstprivate( pads0, shift0, shape0) shared(res, v1, v2)
+    #$omp for collapse(1) reduction(+ : res)
     for i0 in range(pads0*shift0,shape0-pads0*shift0):
-        result += v1[i0]*v2[i0]
-    return result
+        res += v1[i0]*v2[i0]
+    #$omp end parallel
+    return res
 
 
 def dot_product_2d_float64(v1:'float[:,:]',v2:'float[:,:]',pads0:'int64',pads1:'int64',shift0:'int64',shift1:'int64',shape0:'int64',shape1:'int64'):
@@ -226,12 +229,15 @@ def dot_product_2d_float64(v1:'float[:,:]',v2:'float[:,:]',pads0:'int64',pads1:'
             
     Returns
     -------
-        result : float containing the results'''
-    result = float(0)
+        res : float containing the results'''
+    res = float(0)
+    #$omp parallel default(private) firstprivate( pads0, pads1, shift0, shift1, shape0, shape1) shared(res, v1, v2)
+    #$omp for collapse(2) reduction(+ : res)
     for i0 in range(pads0*shift0,shape0-pads0*shift0):
         for i1 in range(pads1*shift1,shape1-pads1*shift1):
-            result += v1[i0,i1]*v2[i0,i1]
-    return result
+            res += v1[i0,i1]*v2[i0,i1]
+    #$omp end parallel
+    return res
 
 def dot_product_3d_float64(v1:'float[:,:,:]',v2:'float[:,:,:]',pads0:'int64',pads1:'int64',pads2:'int64',shift0:'int64',shift1:'int64',shift2:'int64',shape0:'int64',shape1:'int64',shape2:'int64'):
     '''kernel for computing the inner product (case two real 3d vectors)
@@ -246,13 +252,16 @@ def dot_product_3d_float64(v1:'float[:,:,:]',v2:'float[:,:,:]',pads0:'int64',pad
             
     Returns
     -------
-        result : float containing the results'''
-    result = float(0)
+        res : float containing the results'''
+    res = float(0)
+    #$omp parallel default(private) firstprivate( pads0, pads1, pads2, shift0, shift1, shift2, shape0, shape1, shape2) shared(res, v1, v2)
+    #$omp for collapse(3) reduction(+ : res)
     for i0 in range(pads0*shift0,shape0-pads0*shift0):
         for i1 in range(pads1*shift1,shape1-pads1*shift1):
             for i2 in range(pads2*shift2,shape2-pads2*shift2):
-                result += v1[i0,i1,i2]*v2[i0,i1,i2]
-    return result
+                res += v1[i0,i1,i2]*v2[i0,i1,i2]
+    #$omp end parallel
+    return res
 
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 #!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!#
@@ -273,11 +282,14 @@ def dot_product_1d_complex128(v1:'complex[:]',v2:'complex[:]',pads0:'int64',shif
             
     Returns
     -------
-        result : complex containing the results'''
-    result = complex(0)
+        res : complex containing the results'''
+    res = complex(0)
+    #$omp parallel default(private) firstprivate( pads0, shift0, shape0) shared(res, v1, v2)
+    #$omp for collapse(1) reduction(+ : res)
     for i0 in range(pads0*shift0,shape0-pads0*shift0):
-        result += v1[i0].conjugate()*v2[i0]
-    return result
+        res += v1[i0].conjugate()*v2[i0]
+    #$omp end parallel
+    return res
 
 
 def dot_product_2d_complex128(v1:'complex[:,:]',v2:'complex[:,:]',pads0:'int64',pads1:'int64',shift0:'int64',shift1:'int64',shape0:'int64',shape1:'int64'):
@@ -293,12 +305,15 @@ def dot_product_2d_complex128(v1:'complex[:,:]',v2:'complex[:,:]',pads0:'int64',
             
     Returns
     -------
-        result : complex containing the results'''
-    result = complex(0)
+        res : complex containing the results'''
+    res = complex(0)
+    #$omp parallel default(private) firstprivate( pads0, pads1, shift0, shift1, shape0, shape1) shared(res, v1, v2)
+    #$omp for collapse(2) reduction(+ : res)
     for i0 in range(pads0*shift0,shape0-pads0*shift0):
         for i1 in range(pads1*shift1,shape1-pads1*shift1):
-            result += v1[i0,i1].conjugate()*v2[i0,i1]
-    return result
+            res += v1[i0,i1].conjugate()*v2[i0,i1]
+    #$omp end parallel
+    return res
 
 def dot_product_3d_complex128(v1:'complex[:,:,:]',v2:'complex[:,:,:]',pads0:'int64',pads1:'int64',pads2:'int64',shift0:'int64',shift1:'int64',shift2:'int64',shape0:'int64',shape1:'int64',shape2:'int64'):
     '''kernel for computing the inner product (case two complex 3d vectors)
@@ -313,10 +328,13 @@ def dot_product_3d_complex128(v1:'complex[:,:,:]',v2:'complex[:,:,:]',pads0:'int
             
     Returns
     -------
-        result : complex containing the results'''
-    result = complex(0)
+        res : complex containing the results'''
+    res = complex(0)
+    #$omp parallel default(private) firstprivate( pads0, pads1, pads2, shift0, shift1, shift2, shape0, shape1, shape2) shared(res, v1, v2)
+    #$omp for collapse(3) reduction(+ : res)
     for i0 in range(pads0*shift0,shape0-pads0*shift0):
         for i1 in range(pads1*shift1,shape1-pads1*shift1):
             for i2 in range(pads2*shift2,shape2-pads2*shift2):
-                result += v1[i0,i1,i2].conjugate()*v2[i0,i1,i2]
-    return result
+                res += v1[i0,i1,i2].conjugate()*v2[i0,i1,i2]
+    #$omp end parallel
+    return res
