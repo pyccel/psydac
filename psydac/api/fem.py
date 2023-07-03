@@ -751,8 +751,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                         s_d = trial_n - trial_s - trial_degree[k2][axis] - 1 if ext_d == 1 else 0
                         s_c =  test_n - trial_s -  test_degree[k1][axis] - 1 if ext_c == 1 else 0
 
-                        direction = target.direction
-                        direction = 1 if direction is None else direction
+                        # We only handle the case where direction = 1
+                        direction = target.ornt
+                        if domain.dim == 2:
+                            assert direction == 1
+                        elif domain.dim == 3:
+                            assert all(d==1 for d in direction)
+
+                        direction = 1
                         flip = [direction]*domain.dim
                         flip[axis] = 1
                         if self._func != do_nothing:
@@ -790,8 +796,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                     s_d = trial_n - trial_s - trial_degree[axis] - 1 if ext_d == 1 else 0
                     s_c =  test_n - trial_s -  test_degree[axis] - 1 if ext_c == 1 else 0
 
-                    direction = target.direction
-                    direction = 1 if direction is None else direction
+                    # We only handle the case where direction = 1
+                    direction = target.ornt
+                    if domain.dim == 2:
+                        assert direction == 1
+                    elif domain.dim == 3:
+                        assert all(d==1 for d in direction)
+
+                    direction = 1
                     flip = [direction]*domain.dim
                     flip[axis] = 1
 

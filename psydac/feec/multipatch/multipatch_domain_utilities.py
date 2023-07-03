@@ -5,6 +5,7 @@ from mpi4py import MPI
 import numpy as np
 
 from sympde.topology import Square, Domain
+from sympde.topology import Square, Domain
 from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mapping #TransposedPolarMapping
 from sympde.topology import Union
 from psydac.feec.multipatch.api import discretize
@@ -24,6 +25,7 @@ class TransposedPolarMapping(Mapping):
     _ldim        = 2
     _pdim        = 2
 
+
 class CollelaMapping2D(Mapping):
     """
     copied from psydac/api/tests/test_api_feec_2d.py
@@ -35,25 +37,13 @@ class CollelaMapping2D(Mapping):
     _expressions = {'x': 'x1 + eps / 2 * sin(2*x1) * sin(2*x2)',
                     'y': 'x2 + eps / 2 * sin(2*x1) * sin(2*x2)'}
 
+
 def create_domain(patches, interfaces, name):
     connectivity = []
     patches_interiors = [D.interior for D in patches]
     for I in interfaces:
         connectivity.append(((patches_interiors.index(I[0].domain),I[0].axis, I[0].ext), (patches_interiors.index(I[1].domain), I[1].axis, I[1].ext), I[2]))
     return Domain.join(patches, connectivity, name)
-
-def union(domains, name):
-    assert len(domains)>0  #1
-    domain = domains[0]
-    # print("type(domain) = ", type(domain))
-    for p in domains[1:]:
-        domain = domain.join(p, name=name)
-    return domain
-
-def set_interfaces(domain, interfaces):
-    for I in interfaces:
-        domain = domain.join(domain, domain.name, bnd_minus=I[0], bnd_plus=I[1], direction=I[2])
-    return domain
 
 # def create_domain(patches, interfaces, name):
 #     connectivity = []
@@ -85,8 +75,8 @@ def set_interfaces(domain, interfaces):
 #         [domain_3.get_boundary(axis=1, ext=1), domain_4.get_boundary(axis=1, ext=-1), 1],
 #         [domain_4.get_boundary(axis=1, ext=1), domain_1.get_boundary(axis=1, ext=-1), 1]
 #         ]
-#     domain = union([domain_1, domain_2, domain_3, domain_4], name = 'domain')
-#     domain = set_interfaces(domain, interfaces)
+#     patches = [domain_1, domain_2, domain_3, domain_4]
+#     domain = create_domain(patches, interfaces, name='domain')
 #
 #     return domain
 
