@@ -860,6 +860,7 @@ class PostProcessManager:
                 for sc_sp in components:
                     already_used_names.append(sc_sp['name'])
                     basis += sc_sp['basis']
+                    # TODO change codomain type when implemanted in symPDE
                     codomain_type = 'complex' if sc_sp['dtype'] == "<class 'complex'>" else 'real'
 
                 basis = list(set(basis))
@@ -882,6 +883,7 @@ class PostProcessManager:
                         for j in range(new_degree[i] - degree[0][i]):
                             knots[i] = elevate_knots(knots[i], degree[0][i], periodic=periodic[i])
 
+                # TODO change codomain type when implemanted in symPDE
                 temp_kwargs_discretization = {
                     'degree':[int(new_degree[i]) for i in range(components[0]['ldim'])],
                     'knots': knots,
@@ -919,6 +921,7 @@ class PostProcessManager:
 
                     knots = [np.asarray(sc_sp['knots'][i]) for i in range(sc_sp['ldim'])]
                     periodic = sc_sp['periodic']
+                    # TODO change codomain type when implemanted in symPDE
                     codomain_type = 'complex' if sc_sp['dtype'] == "<class 'complex'>" else 'real'
 
                     for i in range(sc_sp['ldim']):
@@ -926,6 +929,7 @@ class PostProcessManager:
                             for j in range(new_degree[i] - degree[i]):
                                 knots[i] = elevate_knots(knots[i], degree[i], periodic=periodic[i])
 
+                    # TODO change codomain type when implemanted in symPDE
                     temp_kwargs_discretization = {
                         'degree': [int(new_degree[i]) for i in range(sc_sp['ldim'])],
                         'knots': knots,
@@ -969,10 +973,12 @@ class PostProcessManager:
             for space_name, (is_vector, kind, discrete_kwargs) in space_dict.items():
                 codomain_type=discrete_kwargs.pop('codomain_type')
                 if is_vector:
+                    # TODO change codomain type when implemanted in symPDE
                     temp_symbolic_space = VectorFunctionSpace(space_name, subdomain, kind)
                     # Remove this line when codomain_type is define in VectorFunctionSpace
                     temp_symbolic_space.codomain_type = codomain_type
                 else:
+                    # TODO change codomain type when implemanted in symPDE
                     temp_symbolic_space = ScalarFunctionSpace(space_name, subdomain, kind)
                     # Remove this line when codomain_type is define in VectorFunctionSpace
                     temp_symbolic_space.codomain_type = codomain_type
