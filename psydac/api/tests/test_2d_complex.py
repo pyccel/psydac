@@ -15,8 +15,8 @@ from sympde.topology import element_of, elements_of
 from sympde.topology import NormalVector
 from sympde.topology import Union
 from sympde.topology import Domain, Square
-from sympde.topology import IdentityMapping, AffineMapping, PolarMapping
-from sympde.expr     import BilinearForm, LinearForm, integral
+from sympde.topology import PolarMapping
+from sympde.expr     import LinearForm, integral, SesquilinearForm
 from sympde.expr     import Norm
 from sympde.expr     import find, EssentialBC
 
@@ -64,14 +64,13 @@ def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells=None, degree=No
 
     B_dirichlet_0 = Union(*[domain.get_boundary(**kw) for kw in dir_zero_boundary])
 
-    V  = ScalarFunctionSpace('V', domain)
-    V.codomain_type = 'complex'
+    V  = ScalarFunctionSpace('V', domain, codomain_complex=True)
     u  = element_of(V, name='u')
     v  = element_of(V, name='v')
     nn = NormalVector('nn')
 
     # Bilinear form a: V x V --> R
-    a = BilinearForm((u, v), integral(domain, laplace(u) * laplace(v)))
+    a = SesquilinearForm((u, v), integral(domain, laplace(u) * laplace(v)))
 
     # Linear form l: V --> R
     l = LinearForm(v, integral(domain, f * v))
@@ -137,8 +136,7 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
     # 1. Abstract model
     #+++++++++++++++++++++++++++++++
 
-    V = ScalarFunctionSpace('V', domain, kind=None)
-    V.codomain_type='complex'
+    V = ScalarFunctionSpace('V', domain, kind=None, codomain_complex=True)
 
     u = element_of(V, name='u')
     v = element_of(V, name='v')
@@ -165,7 +163,7 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
 
     expr = dot(grad(u), grad(v))
 
-    a = BilinearForm((u, v), integral(domain, expr) + integral(I, expr_I))
+    a = SesquilinearForm((u, v), integral(domain, expr) + integral(I, expr_I))
     l = LinearForm(v, integral(domain, f*v))
 
     equation = find(u, forall=v, lhs=1j*a(u,v), rhs=1j*l(v), bc=bc)
@@ -204,8 +202,7 @@ def run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=None, degr
     # 1. Abstract model
     #+++++++++++++++++++++++++++++++
 
-    V   = ScalarFunctionSpace('V', domain, kind=None)
-    V.codomain_type='complex'
+    V   = ScalarFunctionSpace('V', domain, kind=None, codomain_complex=True)
 
     u = element_of(V, name='u')
     v = element_of(V, name='v')
@@ -218,7 +215,7 @@ def run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=None, degr
 
     boundary_source_expr = - dx_e_w_0 * v - 1j * kappa * e_w_0 * v    
 
-    a = BilinearForm((u, v), integral(domain, expr) + integral(x_boundary, boundary_expr))
+    a = SesquilinearForm((u, v), integral(domain, expr) + integral(x_boundary, boundary_expr))
     l = LinearForm(v, integral(domain.get_boundary(axis=0, ext=-1), boundary_source_expr))
 
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
@@ -256,8 +253,7 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
     #+++++++++++++++++++++++++++++++
-    V  = VectorFunctionSpace('V', domain, kind='hcurl')
-    V.codomain_type = 'complex'
+    V  = VectorFunctionSpace('V', domain, kind='hcurl', codomain_complex=True)
 
     u, v, F = elements_of(V, names='u, v, F')
     nn      = NormalVector('nn')
@@ -283,8 +279,8 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
     expr2   = dot(f,v)
     expr2_b = -k*cross(nn, uex)*curl(v) + kappa * cross(nn, uex) * cross(nn, v)
 
-    # Bilinear form a: V x V --> R
-    a = BilinearForm((u, v), integral(domain, expr1) + integral(boundary, expr1_b) + integral(I, expr1_I))
+    # Sesquilinear form a: V x V --> R
+    a = SesquilinearForm((u, v), integral(domain, expr1) + integral(boundary, expr1_b) + integral(I, expr1_I))
 
     # Linear form l: V --> R
     l = LinearForm(v, integral(domain, expr2) + integral(boundary, expr2_b))
