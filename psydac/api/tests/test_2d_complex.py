@@ -4,7 +4,7 @@ import os
 from mpi4py import MPI
 import pytest
 import numpy as np
-from sympy import pi, cos, sin, symbols, conjugate, exp
+from sympy import pi, cos, sin, symbols, exp
 from sympy import Tuple, Matrix
 
 from sympde.calculus import grad, dot, cross, curl
@@ -53,7 +53,6 @@ def get_boundaries(*args):
 def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells=None, degree=None, backend=None, comm=None, filename=None):
 
     assert isinstance(dir_zero_boundary, (list, tuple))
-
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
     #+++++++++++++++++++++++++++++++
