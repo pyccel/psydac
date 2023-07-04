@@ -604,7 +604,6 @@ def test_reconstruct_multipatch(dtype):
                         assert value1 == value2
 
 @pytest.mark.serial
-@pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
 def test_incorrect_arg_export_to_vtk():
     domain = Square()
     space = ScalarFunctionSpace('V', domain)
