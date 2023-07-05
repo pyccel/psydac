@@ -137,7 +137,7 @@ Some of the low-level functions in psydac are written in python in a way that ca
 
 In case of an editable installation, the command `psydac-accelerate` allow to apply pyccel on all of them. Otherwise, the classical installation already pyccelise the kernels files.
 
-* **ONLY in development mode**:
+*   **Only in development mode**:
     ```bash
     psydac-accelerate --language LANGUAGE
     ```
