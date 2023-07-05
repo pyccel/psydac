@@ -8,8 +8,9 @@ from sympde.topology import Line, Square
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import element_of, Derham
 from sympde.core     import Constant
-from sympde.expr     import LinearForm, BilinearForm, Functional, Norm
+from sympde.expr     import LinearForm, BilinearForm, Functional, Norm, SesquilinearForm
 from sympde.expr     import integral
+from sympde.calculus.core import inner
 
 from psydac.linalg.solvers     import inverse
 from psydac.api.discretization import discretize
@@ -22,8 +23,8 @@ from psydac.linalg.utilities   import array_to_psydac
 def backend(request):
     return request.param
 
-@pytest.fixture(params=['real','complex'])
-def dtype(request):
+@pytest.fixture(params=[True, False])
+def codomain_complex(request):
     return request.param
 
 
@@ -32,34 +33,32 @@ def dtype(request):
     # In psydac, we have decided to assemble the matrix conj(A) and b to get the good solution.
 
 #==============================================================================
-def test_field_and_constant(backend, dtype):
+def test_field_and_constant(backend, codomain_complex):
 
     # If 'backend' is specified, accelerate Python code by passing **kwargs
     # to discretization of bilinear forms, linear forms and functionals.
     kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
 
     domain = Square()
-    V = ScalarFunctionSpace('V', domain)
-
-    # TODO: remove codomain_type when It is implemented in sympde
+    V = ScalarFunctionSpace('V', domain, codomain_complex=codomain_complex)
     u = element_of(V, name='u')
     v = element_of(V, name='v')
     f = element_of(V, name='f')
 
-    if dtype == 'complex':
+    if codomain_complex:
         c = Constant(name='c', complex=True)
-        V.codomain_type = dtype
         g = I * c * f**2
         res = 1.j
         cst=complex(1.0)
+        a = SesquilinearForm((u, v), integral(domain, g*inner(u, v)))
     else:
         c = Constant(name='c', real=True)
         g = c * f**2
         res = 1
         cst=1.0
+        a = BilinearForm((u, v), integral(domain, g * inner(u, v)))
 
-    a = BilinearForm((u, v), integral(domain, g * u * v))
-    l = LinearForm(v, integral(domain, g * v))
+    l = LinearForm(v, integral(domain, inner(g, v)))
 
     ncells = (5, 5)
     degree = (3, 3)

@@ -7,7 +7,7 @@ import numpy as np
 from sympy import pi, cos, sin, symbols, exp
 from sympy import Tuple, Matrix
 
-from sympde.calculus import grad, dot, cross, curl
+from sympde.calculus import grad, dot, cross, curl, inner
 from sympde.calculus import minus, plus
 from sympde.calculus import laplace
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
@@ -69,10 +69,10 @@ def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells=None, degree=No
     nn = NormalVector('nn')
 
     # Bilinear form a: V x V --> R
-    a = SesquilinearForm((u, v), integral(domain, laplace(u) * laplace(v)))
+    a = SesquilinearForm((u, v), integral(domain, inner(laplace(u), laplace(v))))
 
     # Linear form l: V --> R
-    l = LinearForm(v, integral(domain, f * v))
+    l = LinearForm(v, integral(domain, inner(f, v)))
 
     # Essential boundary conditions
     dn = lambda a: dot(grad(a), nn)
