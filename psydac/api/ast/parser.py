@@ -169,6 +169,7 @@ class Parser(object):
         self.arguments        = {}
         self.allocated        = {}
         self._math_functions  = ()
+        self._numpy_complex_functions  = ()
         
 
     @property
@@ -545,7 +546,7 @@ class Parser(object):
         # TODO : when Pyccel will work on the cmath library, we should import the math function from cmath and not from numpy
         # If we are with complex object, we should import the mathematical function from numpy and not math to handle complex value.
         if expr.domain_dtype=='complex':
-            numpy_imports = ('array', 'zeros', 'zeros_like', 'floor', *self._math_functions)
+            numpy_imports = ('array', 'zeros', 'zeros_like', 'floor', *self._math_functions, *self._numpy_complex_functions)
             imports       = [Import('numpy', numpy_imports)] + \
                             [*expr.imports]
         # Else we import them from math
@@ -1332,9 +1333,18 @@ class Parser(object):
         stmts = tuple(self._visit(stmt, **kwargs) for stmt in stmts)
         stmts = tuple(vars_plus) + tuple(normal_vec_stmts) + temps + stmts
 
-        math_functions = math_atoms_as_str(list(exprs)+normal_vec_stmts, 'math')
+        imports_needed = list(exprs) + normal_vec_stmts
+
+        # Search in the statement all the functions from the math library
+        math_functions = math_atoms_as_str(imports_needed, 'math')
         math_functions = tuple(m for m in math_functions if m not in self._math_functions)
         self._math_functions = math_functions + self._math_functions
+
+        # Search in the statement all the complex function from the numpy library (like conjugate, real, Imag, Abs)
+        numpy_complex_functions = math_atoms_as_str(imports_needed, 'numpy')
+        numpy_complex_functions = tuple(m for m in numpy_complex_functions if m not in self._numpy_complex_functions + self._math_functions)
+        self._numpy_complex_functions = numpy_complex_functions + self._numpy_complex_functions
+
         return stmts
 
     # ....................................................
