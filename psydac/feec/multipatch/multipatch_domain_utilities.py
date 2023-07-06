@@ -4,7 +4,7 @@ from mpi4py import MPI
 
 import numpy as np
 
-from sympde.topology import Square
+from sympde.topology import Square, Domain
 from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mapping #TransposedPolarMapping
 from sympde.topology import Union
 from psydac.feec.multipatch.api import discretize
@@ -37,8 +37,9 @@ class CollelaMapping2D(Mapping):
 
 
 def union(domains, name):
-    assert len(domains)>1
+    assert len(domains)>0  #1
     domain = domains[0]
+    # print("type(domain) = ", type(domain))
     for p in domains[1:]:
         domain = domain.join(p, name=name)
     return domain
@@ -47,6 +48,13 @@ def set_interfaces(domain, interfaces):
     for I in interfaces:
         domain = domain.join(domain, domain.name, bnd_minus=I[0], bnd_plus=I[1], direction=I[2])
     return domain
+
+# def create_domain(patches, interfaces, name):
+#     connectivity = []
+#     patches_interiors = [D.interior for D in patches]
+#     for I in interfaces:
+#         connectivity.append(((patches_interiors.index(I[0].domain),I[0].axis, I[0].ext), (patches_interiors.index(I[1].domain), I[1].axis, I[1].ext), I[2]))
+#     return Domain.join(patches, connectivity, name)
 
 # def get_annulus_fourpatches(r_min, r_max):
 #
@@ -681,7 +689,7 @@ def build_multipatch_rectangle(nb_patch_x = 2, nb_patch_y = 2, x_min=0, x_max=np
 
     for i in range(nb_patch_x):
         flat_list.extend(list_domain[i])
-
+ 
     domain = union(flat_list, name='domain')
 
     interfaces = []

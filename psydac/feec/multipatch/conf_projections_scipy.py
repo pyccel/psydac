@@ -15,6 +15,7 @@ from psydac.linalg.utilities    import array_to_psydac
 ####  projection from valentin:
 
 mom_pres = True
+gamma = 0 #1 # 0  # option for C1 conformity (1 smoother than 0 ?)
 
 # def get_patch_index_from_face(domain, face):
 #     """ Return the patch index of subdomain/boundary
@@ -1027,12 +1028,21 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                     Proj[indice_plus,indice_plus]-=1/2
                     Proj[indice_plus,indice_minus]+=1/2
                     Proj[indice_minus,indice_plus]+=1/2
-                    Proj[indice_minus_1,indice_minus_1]-=1/2
-                    Proj[indice_plus_1,indice_plus_1]-=1/2
-                    Proj[indice_minus_1,indice_plus]+=1
-                    Proj[indice_plus_1,indice_minus]+=1
-                    Proj[indice_minus_1,indice_plus_1]-=1/2
-                    Proj[indice_plus_1,indice_minus_1]-=1/2
+                    # Proj[indice_minus_1,indice_minus_1]-=1/2
+                    # Proj[indice_plus_1,indice_plus_1]-=1/2
+                    # Proj[indice_minus_1,indice_plus]+=1
+                    # Proj[indice_plus_1,indice_minus]+=1
+                    # Proj[indice_minus_1,indice_plus_1]-=1/2
+                    # Proj[indice_plus_1,indice_minus_1]-=1/2
+                    Proj[indice_minus_1,indice_minus_1] -= 1/2
+                    Proj[indice_minus_1,indice_minus  ]  = gamma/2
+                    Proj[indice_minus_1,indice_plus   ]  = (2 - gamma)/2
+                    Proj[indice_minus_1,indice_plus_1 ]  = -1/2
+                    
+                    Proj[indice_plus_1,indice_minus_1]  = -1/2
+                    Proj[indice_plus_1,indice_minus  ]  = (2 + gamma)/2
+                    Proj[indice_plus_1,indice_plus   ]  = -gamma/2
+                    Proj[indice_plus_1,indice_plus_1 ] -= 1/2
                     if mom_pres:
                         for p in range(0,py+1):
                             #correction for moment preserving : modify p+1 other basis function to preserve the p+1 moments
@@ -1052,7 +1062,7 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                             Proj[indice_plus_i,indice_minus_1]+=Correct_coef_y_1[p]/2
 
             elif axis == 1 :
-                gamma = 1  # smoother than 0 ?
+                # gamma = 1  # smoother than 0 ?
                 for i in range(s_plus.spaces[0].spaces[0].nbasis):
                     indice_minus = loca2global([i_minus,0,i,n_deg_minus-1],n_patches,patch_shape_minus)
                     indice_plus  = loca2global([i_plus,0,i,0],n_patches,patch_shape_plus)
@@ -1068,13 +1078,13 @@ def Conf_proj_1_c1(V1h,nquads, hom_bc):
                     # Proj[indice_plus,indice_minus]=0
                     # Proj[indice_minus,indice_plus]=0
                     Proj[indice_minus_1,indice_minus_1] -= 1/2
-                    Proj[indice_minus_1,indice_minus  ]  = gamma/2
+                    Proj[indice_minus_1,indice_minus  ]  =  gamma/2
                     Proj[indice_minus_1,indice_plus   ]  = (2 - gamma)/2
                     Proj[indice_minus_1,indice_plus_1 ]  = -1/2
                     
                     Proj[indice_plus_1,indice_minus_1]  = -1/2
-                    Proj[indice_plus_1,indice_minus  ]  = (2 - gamma)/2
-                    Proj[indice_plus_1,indice_plus   ]  = gamma/2
+                    Proj[indice_plus_1,indice_minus  ]  = (2 + gamma)/2
+                    Proj[indice_plus_1,indice_plus   ]  = -gamma/2
                     Proj[indice_plus_1,indice_plus_1 ] -= 1/2
 
                     # Proj[indice_minus_1,indice_minus_1] = 0
