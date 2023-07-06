@@ -34,7 +34,6 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
     #+++++++++++++++++++++++++++++++
 
     V  = VectorFunctionSpace('V', domain, kind='hcurl')
-    V.codomain_type='complex'
 
     u, v, F = elements_of(V, names='u, v, F')
     nn      = NormalVector('nn')
@@ -93,7 +92,7 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
     t1       = time.time()
     timing['diagnostics'] = t1-t0
 
-    return Vh, uh, info, timing, l2_error
+    return uh, info, timing, l2_error
 
 #==============================================================================
 if __name__ == '__main__':
@@ -103,7 +102,7 @@ if __name__ == '__main__':
     from psydac.api.tests.build_domain             import build_pretzel
     from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
     from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
-    from psydac.api.postprocessing import OutputManager, PostProcessManager
+
     domain = build_pretzel()
     x,y    = domain.coordinates
     omega  = 1.5
@@ -115,83 +114,51 @@ if __name__ == '__main__':
     ne     = [4, 4]
     degree = [2, 2]
 
-    import os
+    Eh, info, timing, l2_error = run_maxwell_2d(Eex, f, alpha, domain, ncells=ne, degree=degree)
 
-    os.makedirs('results_poisson', exist_ok=True)
-    Om = OutputManager(
-        f'results_poisson/space_info_{domain.name}',
-        f'results_poisson/field_info_{domain.name}',
-        # MPI version
-        #   comm=comm,
+    # ...
+    print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne[0], ne2=ne[1]) )
+    print( '> Degree        :: [{p1},{p2}]'  .format( p1=degree[0], p2=degree[1] ) )
+    print( '> CG info       :: ',info )
+    print( '> L2 error      :: {:.2e}'.format( l2_error ) )
+    print( '' )
+    print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
+    print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
+    N = 20
+
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    mappings_list = [m.get_callable_mapping() for m in mappings.values()]
+
+    Eex_x   = lambdify(domain.coordinates, Eex[0])
+    Eex_y   = lambdify(domain.coordinates, Eex[1])
+    Eex_log = [pull_2d_hcurl([Eex_x, Eex_y], f) for f in mappings_list]
+
+    etas, xx, yy    = get_plotting_grid(mappings, N=20)
+    grid_vals_hcurl = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='hcurl')
+
+    Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
+    E_x_vals , E_y_vals  = grid_vals_hcurl(Eex_log)
+
+    E_x_err = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
+    E_y_err = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
+
+    my_small_plot(
+        title=r'approximation of solution $u$, $x$ component',
+        vals=[E_x_vals, Eh_x_vals, E_x_err],
+        titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+        xx=xx,
+        yy=yy,
+        gridlines_x1=None,
+        gridlines_x2=None,
     )
-    Vh, Eh, info, timing, l2_error = run_maxwell_2d(Eex, f, alpha, domain, ncells=ne, degree=degree)
 
-    Om.add_spaces(V=Vh)
-    Om.export_space_info()
-    Om.set_static()
-    Om.export_fields(u=Eh)
-
-    Om.close()
-
-    Pm = PostProcessManager(
-        domain=domain,
-        space_file=f'results_poisson/space_info_{domain.name}.yaml',
-        fields_file=f'results_poisson/field_info_{domain.name}.h5',
-        # MPI version
-        #   comm=comm,
+    my_small_plot(
+        title=r'approximation of solution $u$, $y$ component',
+        vals=[E_y_vals, Eh_y_vals, E_y_err],
+        titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
+        xx=xx,
+        yy=yy,
+        gridlines_x1=None,
+        gridlines_x2=None,
     )
-
-    Pm.export_to_vtk(
-        f'results_poisson/visu_{domain.name}',
-        grid=None,
-        npts_per_cell=3,
-        fields='u'
-    )
-
-    Pm.close()
-    # # ...
-    # print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne[0], ne2=ne[1]) )
-    # print( '> Degree        :: [{p1},{p2}]'  .format( p1=degree[0], p2=degree[1] ) )
-    # print( '> CG info       :: ',info )
-    # print( '> L2 error      :: {:.2e}'.format( l2_error ) )
-    # print( '' )
-    # print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
-    # print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
-    # N = 20
-    #
-    # mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-    # mappings_list = [m.get_callable_mapping() for m in mappings.values()]
-    #
-    # Eex_x   = lambdify(domain.coordinates, Eex[0])
-    # Eex_y   = lambdify(domain.coordinates, Eex[1])
-    # Eex_log = [pull_2d_hcurl([Eex_x, Eex_y], f) for f in mappings_list]
-    #
-    # etas, xx, yy    = get_plotting_grid(mappings, N=20)
-    # grid_vals_hcurl = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='hcurl')
-    #
-    # Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
-    # E_x_vals , E_y_vals  = grid_vals_hcurl(Eex_log)
-    #
-    # E_x_err = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
-    # E_y_err = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
-    #
-    # my_small_plot(
-    #     title=r'approximation of solution $u$, $x$ component',
-    #     vals=[E_x_vals, Eh_x_vals, E_x_err],
-    #     titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
-    #     xx=xx,
-    #     yy=yy,
-    #     gridlines_x1=None,
-    #     gridlines_x2=None,
-    # )
-    #
-    # my_small_plot(
-    #     title=r'approximation of solution $u$, $y$ component',
-    #     vals=[E_y_vals, Eh_y_vals, E_y_err],
-    #     titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
-    #     xx=xx,
-    #     yy=yy,
-    #     gridlines_x1=None,
-    #     gridlines_x2=None,
-    # )
 
