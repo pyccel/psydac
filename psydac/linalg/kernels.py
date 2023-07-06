@@ -423,7 +423,7 @@ def axpy_2d(alpha: 'T', x: "Tarray", y: "Tarray", shape0: 'int64', shape1: 'int6
 #========================================================================================================
 @template(name='Tarray', types=['float[:,:,:]', 'complex[:,:,:]'])
 @template(name='T', types=['float', 'complex'])
-def axpy_3d(alpha: 'T', x: "Tarray", y: "Tarray",shape0:'int64',shape1:'int64',shape2:'int64'):
+def axpy_3d(alpha: 'T', x: "Tarray", y: "Tarray", shape0: 'int64', shape1: 'int64', shape2: 'int64'):
     """
         kernel for computing y=y+alpha*x
 
@@ -443,7 +443,7 @@ def axpy_3d(alpha: 'T', x: "Tarray", y: "Tarray",shape0:'int64',shape1:'int64',s
     for i1 in range(0, shape0, 1):
         for i2 in range(0, shape1, 1):
             for i3 in range(0, shape2, 1):
-                x[i1, i2, i3] += alpha*y[i1, i2, i3]
+                y[i1, i2, i3] += alpha*x[i1, i2, i3]
     #$omp end parallel
 
 
