@@ -52,6 +52,20 @@ class VectorSpace(ABC):
 
         """
 
+    @abstractmethod
+    def axpy(self, a, x, y):
+        """
+        This method compute the operation x+=a*y.
+
+        Parameters
+        ----------
+            x, y : Vector
+                The two Vector needed for the computation.
+
+            a : scalar
+                Coefficient needed for the operation
+        """
+
 #===============================================================================
 class Vector(ABC):
     """
@@ -75,6 +89,9 @@ class Vector(ABC):
         assert isinstance(other, Vector)
         assert self.space is other.space
         return self.space.dot(self, other)
+
+    def mul_iadd(self, a, y):
+        self.space.axpy(a, self, y)
 
     #-------------------------------------
     # Deferred methods

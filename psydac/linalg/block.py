@@ -85,6 +85,28 @@ class BlockVectorSpace(VectorSpace):
         """
         return BlockVector(self, [Vi.zeros() for Vi in self._spaces])
 
+    #...
+    def axpy(self, a, x, y):
+        """
+        This method compute the operation x+=a*y.
+
+        Parameters
+        ----------
+            x, y : BlockVector
+                The two BlockVector needed for the computation.
+
+            a : scalar
+                Coefficient needed for the operation
+        """
+        assert isinstance(y, BlockVector)
+        assert y._space is self
+        assert isinstance(x, BlockVector)
+        assert x._space is self
+
+        for i in range(len(self.spaces)):
+            self.spaces[i].axpy(a, x.blocks[i], y.blocks[i])
+        x._sync = x._sync and y._sync
+
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
@@ -291,14 +313,6 @@ class BlockVector(Vector):
         assert value.space == self.space[key]
         assert isinstance(value, Vector)
         self._blocks[key] = value
-
-    #...
-    def axpy(self, v2, a):
-        assert isinstance(v2, BlockVector)
-        assert v2._space is self._space
-        for i in range(len(self.blocks)):
-            self.blocks[i].axpy(v2.blocks[i], a)
-        self._sync = self._sync and v2._sync
 
     def conjugate(self, out=None):
         if out is not None:

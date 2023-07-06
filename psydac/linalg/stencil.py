@@ -156,6 +156,43 @@ class StencilVectorSpace( VectorSpace ):
         """
         return StencilVector( self )
 
+    # ...
+    def axpy(self, a, x, y):
+        """
+        This method compute the operation x+=a*y.
+
+        Parameters
+        ----------
+            x, y : StencilVector
+                The two Vector needed for the computation.
+
+            a : scalar
+                Coefficient needed for the operation
+        """
+        assert isinstance( x, StencilVector )
+        assert x._space is self
+
+        assert isinstance( y, StencilVector )
+        assert y._space is self
+
+        if self.dtype==complex:
+            a = complex(a)
+        else:
+            if isinstance(a, complex):
+                raise TypeError('A complex scalar was given in a real case')
+            else:
+                a = float(a)
+
+        ndim = len(self.shape)
+        func = 'axpy_{dim}d'.format(dim=ndim)
+        ishape = [np.int64(n) for n in self.shape]
+        axpy = eval(func)
+        axpy(a, x._data[:], y._data[:], *ishape)
+        for axis, ext in self.interfaces:
+            ishape = [np.int64(n) for n in x._interface_data[axis, ext].space.shape]
+            axpy(a, x._interface_data[axis, ext][:], y._interface_data[axis, ext][:], *ishape)
+        x._sync  = x._sync and y._sync
+
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
@@ -490,29 +527,6 @@ class StencilVector( Vector ):
         txt += '> data    :: {data}\n'  .format( data  = self._data  )
         txt += '> sync    :: {sync}\n'  .format( sync  = self._sync  )
         return txt
-
-    #...
-    def axpy(self, v2, a):
-        assert isinstance( v2, StencilVector )
-        assert v2._space is self._space
-
-        if self.dtype==complex:
-            a=complex(a)
-        else:
-            if isinstance(a, complex):
-                raise TypeError('A complex scalar was given in a real case')
-            else:
-                a = float(a)
-
-        ndim = len(self.space.shape)
-        func        = 'axpy_{dim}d'.format(dim=ndim)
-        ishape = [np.int64(n) for n in self.space.shape]
-        axpy = eval(func)
-        axpy(self._data[:], a, v2._data[:], *ishape)
-        for axis, ext in self._space.interfaces:
-            ishape = [np.int64(n) for n in self._interface_data[axis, ext].space.shape]
-            axpy(self._interface_data[axis, ext][:], a, v2._interface_data[axis, ext][:], *ishape)
-        self._sync  = v2._sync and self._sync
 
     # ...
     def toarray(self, *, order='C', with_pads=False):

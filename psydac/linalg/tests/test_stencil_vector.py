@@ -305,7 +305,7 @@ def test_stencil_vector_2d_serial_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2
         cst = 5
 
     z3 = x + cst * y
-    x.axpy(y, cst)
+    x.mul_iadd(cst, y)
 
     # Test exact value and symetry of the scalar product
     assert z1.dtype == dtype
@@ -707,7 +707,7 @@ def test_stencil_vector_2d_parallel_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, 
         cst = 5
 
     z3 = x + cst * y
-    x.axpy(y, cst)
+    x.mul_iadd(cst, y)
 
     # Test exact value and symetry of the scalar product
     assert np.allclose(x._data, z3._data)
@@ -776,7 +776,7 @@ def test_stencil_vector_3d_parallel_dot(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s
         cst = 5
 
     z3 = x + cst * y
-    x.axpy(y, cst)
+    x.mul_iadd(cst, y)
 
     # Test exact value and symetry of the scalar product
     assert np.allclose(x._data, z3._data)

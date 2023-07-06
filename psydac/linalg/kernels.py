@@ -371,7 +371,7 @@ def dot_product_3d_complex128(v1: 'complex[:,:,:]', v2: 'complex[:,:,:]', pads0:
 
 @template(name='Tarray', types=['float[:]', 'complex[:]'])
 @template(name='T', types=['float', 'complex'])
-def axpy_1d(v1: "Tarray", alpha: 'T', v2: "Tarray", shape0:'int64'):
+def axpy_1d(alpha: 'T', v1: "Tarray", v2: "Tarray", shape0:'int64'):
     """
         kernel for computing v1=v1+alpha*v2
 
@@ -397,7 +397,7 @@ def axpy_1d(v1: "Tarray", alpha: 'T', v2: "Tarray", shape0:'int64'):
 
 @template(name='Tarray', types=['float[:,:]', 'complex[:,:]'])
 @template(name='T', types=['float', 'complex'])
-def axpy_2d(v1: "Tarray", alpha: 'T', v2: "Tarray", shape0: 'int64', shape1: 'int64'):
+def axpy_2d(alpha: 'T', v1: "Tarray", v2: "Tarray", shape0: 'int64', shape1: 'int64'):
     """
         kernel for computing v1=v1+alpha*v2
 
@@ -423,7 +423,7 @@ def axpy_2d(v1: "Tarray", alpha: 'T', v2: "Tarray", shape0: 'int64', shape1: 'in
 #========================================================================================================
 @template(name='Tarray', types=['float[:,:,:]', 'complex[:,:,:]'])
 @template(name='T', types=['float', 'complex'])
-def axpy_3d(v1: "Tarray", alpha: 'T', v2: "Tarray",shape0:'int64',shape1:'int64',shape2:'int64'):
+def axpy_3d(alpha: 'T', v1: "Tarray", v2: "Tarray",shape0:'int64',shape1:'int64',shape2:'int64'):
     """
         kernel for computing v1=v1+alpha*v2
 

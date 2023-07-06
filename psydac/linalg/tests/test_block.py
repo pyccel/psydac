@@ -393,8 +393,7 @@ def test_block_serial_dimension( ndim, p, P1, P2, P3, dtype ):
 
     # Test axpy product
     axpy_exact = X + np.pi * cst * Y
-    X.axpy(Y, np.pi * cst)
-    print((X-axpy_exact)[0]._data)
+    X.mul_iadd(np.pi * cst, Y)
     assert np.allclose(X[0]._data, axpy_exact[0]._data,  rtol=1e-10, atol=1e-10 )
     assert np.allclose(X[1]._data, axpy_exact[1]._data,  rtol=1e-10, atol=1e-10 )
 
@@ -1430,7 +1429,7 @@ def test_block_matrix_operator_parallel_dot_backend( dtype, n1, n2, p1, p2, P1, 
 
     #Test axpy method in parallel
     z3 = X + 5 * factor * Y
-    X.axpy(Y, 5*factor)
+    X.mul_iadd(5 * factor, Y)
 
     # Test exact value and symetry of the scalar product
     assert np.allclose(X[0]._data, z3[0]._data)
