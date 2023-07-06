@@ -397,7 +397,7 @@ def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int,
                                                                 span_2 - f_p2:1 + span_2,
                                                                 span_3 - f_p3:1 + span_3]
 
-                arr_fields[:, :, :, :] *= 0.0
+                arr_fields[:, :, :, :] = 0.0
                 arr_weights[:, :, :] = 0.0
 
                 for i_quad_1 in range(k1):
@@ -492,7 +492,7 @@ def eval_fields_2d_weighted(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k
             arr_coeff_weights[:, :] = global_arr_weights[span_1 - f_p1:1 + span_1,
                                                          span_2 - f_p2:1 + span_2]
 
-            arr_fields[:, :, :] *= 0.0
+            arr_fields[:, :, :] = 0.0
             arr_weights[:, :] = 0.0
 
             for i_quad_1 in range(k1):
@@ -603,7 +603,7 @@ def eval_fields_3d_irregular_weighted(np1: int, np2: int, np3: int, f_p1: int, f
                                                                 span_2 - f_p2:1 + span_2,
                                                                 span_3 - f_p3:1 + span_3]
 
-                temp_fields[:] *= 0.0
+                temp_fields[:] = 0.0
                 temp_weight = 0.0
 
                 for i_basis_1 in range(1 + f_p1):
@@ -692,7 +692,7 @@ def eval_fields_2d_irregular_weighted(np1: int, np2: int, f_p1: int, f_p2: int,
             arr_coeff_weights[:, :] = global_arr_weights[span_1 - f_p1:1 + span_1,
                                                          span_2 - f_p2:1 + span_2]
 
-            temp_fields[:] *= 0.0
+            temp_fields[:] = 0.0
             temp_weight     = 0.0
 
             for i_basis_1 in range(1 + f_p1):
@@ -801,17 +801,17 @@ def eval_jac_det_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: in
             for i_cell_3 in range(nc3):
                 span_3 = global_spans_3[i_cell_3]
 
-                arr_x_x1[:, :, :] *= 0.0
-                arr_x_x2[:, :, :] *= 0.0
-                arr_x_x3[:, :, :] *= 0.0
+                arr_x_x1[:, :, :] = 0.0
+                arr_x_x2[:, :, :] = 0.0
+                arr_x_x3[:, :, :] = 0.0
 
-                arr_y_x1[:, :, :] *= 0.0
-                arr_y_x2[:, :, :] *= 0.0
-                arr_y_x3[:, :, :] *= 0.0
+                arr_y_x1[:, :, :] = 0.0
+                arr_y_x2[:, :, :] = 0.0
+                arr_y_x3[:, :, :] = 0.0
 
-                arr_z_x1[:, :, :] *= 0.0
-                arr_z_x2[:, :, :] *= 0.0
-                arr_z_x3[:, :, :] *= 0.0
+                arr_z_x1[:, :, :] = 0.0
+                arr_z_x2[:, :, :] = 0.0
+                arr_z_x3[:, :, :] = 0.0
 
                 arr_coeffs_x[:, :, :] = global_arr_coeff_x[span_1 - f_p1:1 + span_1,
                                                            span_2 - f_p2:1 + span_2,
@@ -938,11 +938,11 @@ def eval_jac_det_2d(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int, 
         for i_cell_2 in range(nc2):
             span_2 = global_spans_2[i_cell_2]
 
-            arr_x_x1[:, :] *= 0.0
-            arr_x_x2[:, :] *= 0.0
+            arr_x_x1[:, :] = 0.0
+            arr_x_x2[:, :] = 0.0
 
-            arr_y_x1[:, :] *= 0.0
-            arr_y_x2[:, :] *= 0.0
+            arr_y_x1[:, :] = 0.0
+            arr_y_x2[:, :] = 0.0
 
             arr_coeffs_x[:, :] = global_arr_coeff_x[span_1 - f_p1:1 + span_1,
                                                     span_2 - f_p2:1 + span_2]
@@ -1327,21 +1327,21 @@ def eval_jac_det_3d_weights(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, 
             for i_cell_3 in range(nc3):
                 span_3 = global_spans_3[i_cell_3]
 
-                arr_x[:, :, :] *= 0.0
-                arr_y[:, :, :] *= 0.0
-                arr_z[:, :, :] *= 0.0
+                arr_x[:, :, :] = 0.0
+                arr_y[:, :, :] = 0.0
+                arr_z[:, :, :] = 0.0
 
-                arr_x_x1[:, :, :] *= 0.0
-                arr_x_x2[:, :, :] *= 0.0
-                arr_x_x3[:, :, :] *= 0.0
+                arr_x_x1[:, :, :] = 0.0
+                arr_x_x2[:, :, :] = 0.0
+                arr_x_x3[:, :, :] = 0.0
 
-                arr_y_x1[:, :, :] *= 0.0
-                arr_y_x2[:, :, :] *= 0.0
-                arr_y_x3[:, :, :] *= 0.0
+                arr_y_x1[:, :, :] = 0.0
+                arr_y_x2[:, :, :] = 0.0
+                arr_y_x3[:, :, :] = 0.0
 
-                arr_z_x1[:, :, :] *= 0.0
-                arr_z_x2[:, :, :] *= 0.0
-                arr_z_x3[:, :, :] *= 0.0
+                arr_z_x1[:, :, :] = 0.0
+                arr_z_x2[:, :, :] = 0.0
+                arr_z_x3[:, :, :] = 0.0
 
                 arr_weights[:, :, :] = 0.0
 
@@ -1530,14 +1530,14 @@ def eval_jac_det_2d_weights(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k
         for i_cell_2 in range(nc2):
             span_2 = global_spans_2[i_cell_2]
 
-            arr_x[:, :] *= 0.0
-            arr_y[:, :] *= 0.0
+            arr_x[:, :] = 0.0
+            arr_y[:, :] = 0.0
 
-            arr_x_x1[:, :] *= 0.0
-            arr_x_x2[:, :] *= 0.0
+            arr_x_x1[:, :] = 0.0
+            arr_x_x2[:, :] = 0.0
 
-            arr_y_x1[:, :] *= 0.0
-            arr_y_x2[:, :] *= 0.0
+            arr_y_x1[:, :] = 0.0
+            arr_y_x2[:, :] = 0.0
 
             arr_weights[:, :] = 0.0
 
@@ -2036,17 +2036,17 @@ def eval_jacobians_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: 
             for i_cell_3 in range(nc3):
                 span_3 = global_spans_3[i_cell_3]
 
-                arr_x_x1[:, :, :] *= 0.0
-                arr_x_x2[:, :, :] *= 0.0
-                arr_x_x3[:, :, :] *= 0.0
+                arr_x_x1[:, :, :] = 0.0
+                arr_x_x2[:, :, :] = 0.0
+                arr_x_x3[:, :, :] = 0.0
 
-                arr_y_x1[:, :, :] *= 0.0
-                arr_y_x2[:, :, :] *= 0.0
-                arr_y_x3[:, :, :] *= 0.0
+                arr_y_x1[:, :, :] = 0.0
+                arr_y_x2[:, :, :] = 0.0
+                arr_y_x3[:, :, :] = 0.0
 
-                arr_z_x1[:, :, :] *= 0.0
-                arr_z_x2[:, :, :] *= 0.0
-                arr_z_x3[:, :, :] *= 0.0
+                arr_z_x1[:, :, :] = 0.0
+                arr_z_x2[:, :, :] = 0.0
+                arr_z_x3[:, :, :] = 0.0
 
                 arr_coeffs_x[:, :, :] = global_arr_coeff_x[span_1 - f_p1:1 + span_1,
                                                            span_2 - f_p2:1 + span_2,
@@ -2172,11 +2172,11 @@ def eval_jacobians_2d(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int
         for i_cell_2 in range(nc2):
             span_2 = global_spans_2[i_cell_2]
 
-            arr_x_x1[:, :] *= 0.0
-            arr_x_x2[:, :] *= 0.0
+            arr_x_x1[:, :] = 0.0
+            arr_x_x2[:, :] = 0.0
 
-            arr_y_x1[:, :] *= 0.0
-            arr_y_x2[:, :] *= 0.0
+            arr_y_x1[:, :] = 0.0
+            arr_y_x2[:, :] = 0.0
 
             arr_coeffs_x[:, :] = global_arr_coeff_x[span_1 - f_p1:1 + span_1,
                                                     span_2 - f_p2:1 + span_2]
@@ -2564,21 +2564,21 @@ def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: in
             for i_cell_3 in range(nc3):
                 span_3 = global_spans_3[i_cell_3]
 
-                arr_x[:, :, :] *= 0.0
-                arr_y[:, :, :] *= 0.0
-                arr_z[:, :, :] *= 0.0
+                arr_x[:, :, :] = 0.0
+                arr_y[:, :, :] = 0.0
+                arr_z[:, :, :] = 0.0
 
-                arr_x_x1[:, :, :] *= 0.0
-                arr_x_x2[:, :, :] *= 0.0
-                arr_x_x3[:, :, :] *= 0.0
+                arr_x_x1[:, :, :] = 0.0
+                arr_x_x2[:, :, :] = 0.0
+                arr_x_x3[:, :, :] = 0.0
 
-                arr_y_x1[:, :, :] *= 0.0
-                arr_y_x2[:, :, :] *= 0.0
-                arr_y_x3[:, :, :] *= 0.0
+                arr_y_x1[:, :, :] = 0.0
+                arr_y_x2[:, :, :] = 0.0
+                arr_y_x3[:, :, :] = 0.0
 
-                arr_z_x1[:, :, :] *= 0.0
-                arr_z_x2[:, :, :] *= 0.0
-                arr_z_x3[:, :, :] *= 0.0
+                arr_z_x1[:, :, :] = 0.0
+                arr_z_x2[:, :, :] = 0.0
+                arr_z_x3[:, :, :] = 0.0
 
                 arr_weights[:, :, :] = 0.0
 
@@ -2765,14 +2765,14 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int
         for i_cell_2 in range(nc2):
             span_2 = global_spans_2[i_cell_2]
 
-            arr_x[:, :] *= 0.0
-            arr_y[:, :] *= 0.0
+            arr_x[:, :] = 0.0
+            arr_y[:, :] = 0.0
 
-            arr_x_x1[:, :] *= 0.0
-            arr_x_x2[:, :] *= 0.0
+            arr_x_x1[:, :] = 0.0
+            arr_x_x2[:, :] = 0.0
 
-            arr_y_x1[:, :] *= 0.0
-            arr_y_x2[:, :] *= 0.0
+            arr_y_x1[:, :] = 0.0
+            arr_y_x2[:, :] = 0.0
 
             arr_weights[:, :] = 0.0
 
@@ -3276,17 +3276,17 @@ def eval_jacobians_inv_3d(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: int,
             for i_cell_3 in range(nc3):
                 span_3 = global_spans_3[i_cell_3]
 
-                arr_x_x1[:, :, :] *= 0.0
-                arr_x_x2[:, :, :] *= 0.0
-                arr_x_x3[:, :, :] *= 0.0
+                arr_x_x1[:, :, :] = 0.0
+                arr_x_x2[:, :, :] = 0.0
+                arr_x_x3[:, :, :] = 0.0
 
-                arr_y_x1[:, :, :] *= 0.0
-                arr_y_x2[:, :, :] *= 0.0
-                arr_y_x3[:, :, :] *= 0.0
+                arr_y_x1[:, :, :] = 0.0
+                arr_y_x2[:, :, :] = 0.0
+                arr_y_x3[:, :, :] = 0.0
 
-                arr_z_x1[:, :, :] *= 0.0
-                arr_z_x2[:, :, :] *= 0.0
-                arr_z_x3[:, :, :] *= 0.0
+                arr_z_x1[:, :, :] = 0.0
+                arr_z_x2[:, :, :] = 0.0
+                arr_z_x3[:, :, :] = 0.0
 
                 arr_coeffs_x[:, :, :] = global_arr_coeff_x[span_1 - f_p1:1 + span_1,
                                                            span_2 - f_p2:1 + span_2,
@@ -3427,11 +3427,11 @@ def eval_jacobians_inv_2d(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int, k2
         for i_cell_2 in range(nc2):
             span_2 = global_spans_2[i_cell_2]
 
-            arr_x_x1[:, :] *= 0.0
-            arr_x_x2[:, :] *= 0.0
+            arr_x_x1[:, :] = 0.0
+            arr_x_x2[:, :] = 0.0
 
-            arr_y_x1[:, :] *= 0.0
-            arr_y_x2[:, :] *= 0.0
+            arr_y_x1[:, :] = 0.0
+            arr_y_x2[:, :] = 0.0
 
             arr_coeffs_x[:, :] = global_arr_coeff_x[span_1 - f_p1:1 + span_1,
                                                     span_2 - f_p2:1 + span_2]
@@ -3846,21 +3846,21 @@ def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2
             for i_cell_3 in range(nc3):
                 span_3 = global_spans_3[i_cell_3]
 
-                arr_x[:, :, :] *= 0.0
-                arr_y[:, :, :] *= 0.0
-                arr_z[:, :, :] *= 0.0
+                arr_x[:, :, :] = 0.0
+                arr_y[:, :, :] = 0.0
+                arr_z[:, :, :] = 0.0
 
-                arr_x_x1[:, :, :] *= 0.0
-                arr_x_x2[:, :, :] *= 0.0
-                arr_x_x3[:, :, :] *= 0.0
+                arr_x_x1[:, :, :] = 0.0
+                arr_x_x2[:, :, :] = 0.0
+                arr_x_x3[:, :, :] = 0.0
 
-                arr_y_x1[:, :, :] *= 0.0
-                arr_y_x1[:, :, :] *= 0.0
-                arr_y_x3[:, :, :] *= 0.0
+                arr_y_x1[:, :, :] = 0.0
+                arr_y_x1[:, :, :] = 0.0
+                arr_y_x3[:, :, :] = 0.0
 
-                arr_z_x1[:, :, :] *= 0.0
-                arr_z_x2[:, :, :] *= 0.0
-                arr_z_x3[:, :, :] *= 0.0
+                arr_z_x1[:, :, :] = 0.0
+                arr_z_x2[:, :, :] = 0.0
+                arr_z_x3[:, :, :] = 0.0
 
                 arr_weights[:, :, :] = 0.0
 
@@ -4062,14 +4062,14 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1:
         for i_cell_2 in range(nc2):
             span_2 = global_spans_2[i_cell_2]
 
-            arr_x[:, :] *= 0.0
-            arr_y[:, :] *= 0.0
+            arr_x[:, :] = 0.0
+            arr_y[:, :] = 0.0
 
-            arr_x_x1[:, :] *= 0.0
-            arr_x_x2[:, :] *= 0.0
+            arr_x_x1[:, :] = 0.0
+            arr_x_x2[:, :] = 0.0
 
-            arr_y_x1[:, :] *= 0.0
-            arr_y_x2[:, :] *= 0.0
+            arr_y_x1[:, :] = 0.0
+            arr_y_x2[:, :] = 0.0
 
             arr_weights[:, :] = 0.0
 
