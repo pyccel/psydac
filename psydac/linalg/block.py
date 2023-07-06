@@ -292,6 +292,14 @@ class BlockVector(Vector):
         assert isinstance(value, Vector)
         self._blocks[key] = value
 
+    #...
+    def axpy(self, v2, a):
+        assert isinstance(v2, BlockVector)
+        assert v2._space is self._space
+        for i in range(len(self.blocks)):
+            self.blocks[i].axpy(v2.blocks[i], a)
+        self._sync = self._sync and v2._sync
+
     def conjugate(self, out=None):
         if out is not None:
             assert isinstance(out, BlockVector)

@@ -299,30 +299,31 @@ def test_2D_block_diagonal_solver_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     assert L3.blocks == (M1, M2)
     assert L3.n_blocks == 2
 #===============================================================================
+@pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'ndim', [1, 2, 3] )
 @pytest.mark.parametrize( 'p', [1, 2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 @pytest.mark.parametrize( 'P3', [True] )
-def test_block_serial_dimension( ndim, p, P1, P2, P3 ):
+def test_block_serial_dimension( ndim, p, P1, P2, P3, dtype ):
 
-    if ndim==1:
-        npts=[12]
-        ps=[p]
-        Ps=[P1]
-        shifts=[1]
+    if ndim == 1:
+        npts = [12]
+        ps = [p]
+        Ps = [P1]
+        shifts = [1]
 
-    elif ndim==2:
-        npts=[12,15]
-        ps=[p,p]
-        Ps=[P1,P2]
-        shifts=[1,1]
+    elif ndim == 2:
+        npts =[12, 15]
+        ps = [p, p]
+        Ps = [P1, P2]
+        shifts = [1, 1]
 
     else:
-        npts=[12,15,9]
-        ps=[p,p,p]
-        Ps=[P1,P2,P3]
-        shifts=[1,1,1]
+        npts = [12, 15, 9]
+        ps = [p, p, p]
+        Ps = [P1, P2, P3]
+        shifts = [1, 1, 1]
 
     # set seed for reproducibility
     D = DomainDecomposition(npts, periods=Ps)
@@ -333,7 +334,11 @@ def test_block_serial_dimension( ndim, p, P1, P2, P3 ):
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=ps, shifts=shifts)
 
     # Create vector spaces, stencil matrices, and stencil vectors
-    V = StencilVectorSpace( cart)
+    V = StencilVectorSpace( cart, dtype=dtype)
+    if dtype==complex:
+        cst=1j
+    else:
+        cst=1
 
     x1 = StencilVector( V )
     x2 = StencilVector( V )
@@ -345,22 +350,22 @@ def test_block_serial_dimension( ndim, p, P1, P2, P3 ):
 
     # Fill in vector with random values, then update ghost regions
     if ndim==1:
-        x1[:] = 2.0*np.random.random((npts[0]+2*p))
-        x2[:] = 5.0*np.random.random((npts[0]+2*p))
-        y1[:] = 2.0*np.random.random((npts[0]+2*p))
-        y2[:] = 3.0*np.random.random((npts[0]+2*p))
+        x1[:] = cst*2.0*np.random.random((npts[0]+2*p))
+        x2[:] = cst*5.0*np.random.random((npts[0]+2*p))
+        y1[:] = cst*2.0*np.random.random((npts[0]+2*p))
+        y2[:] = cst*3.0*np.random.random((npts[0]+2*p))
 
     elif ndim==2:
-        x1[:,:] = 2.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
-        x2[:,:] = 5.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
-        y1[:,:] = 2.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
-        y2[:,:] = 3.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
+        x1[:,:] = cst*2.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
+        x2[:,:] = cst*5.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
+        y1[:,:] = cst*2.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
+        y2[:,:] = cst*3.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
 
     else:
-        x1[:,:,:] = 2.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
-        x2[:,:,:] = 5.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
-        y1[:,:,:] = 2.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
-        y2[:,:,:] = 3.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
+        x1[:,:,:] = cst*2.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
+        x2[:,:,:] = cst*5.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
+        y1[:,:,:] = cst*2.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
+        y2[:,:,:] = cst*3.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
 
     x1.update_ghost_regions()
     x2.update_ghost_regions()
@@ -380,10 +385,18 @@ def test_block_serial_dimension( ndim, p, P1, P2, P3 ):
     Y[0] = y1
     Y[1] = y2
 
-    exact_dot=x1.dot(y1)+x2.dot(y2)
+    # Test dot product
+    exact_dot = x1.dot(y1)+x2.dot(y2)
 
-    assert X.dtype == float
+    assert X.dtype == dtype
     assert np.allclose(X.dot(Y), exact_dot,  rtol=1e-14, atol=1e-14 )
+
+    # Test axpy product
+    axpy_exact = X + np.pi * cst * Y
+    X.axpy(Y, np.pi * cst)
+    print((X-axpy_exact)[0]._data)
+    assert np.allclose(X[0]._data, axpy_exact[0]._data,  rtol=1e-10, atol=1e-10 )
+    assert np.allclose(X[1]._data, axpy_exact[1]._data,  rtol=1e-10, atol=1e-10 )
 
     M1 = StencilMatrix(V, V)
     M2 = StencilMatrix(V, V)
@@ -421,7 +434,7 @@ def test_block_serial_dimension( ndim, p, P1, P2, P3 ):
     Y[0]=M1.dot(x1)+M2.dot(x2)
     Y[1]=M3.dot(x1)
 
-    assert M.dtype == float
+    assert M.dtype == dtype
     assert np.allclose((M.dot(X)).toarray(), Y.toarray(),  rtol=1e-14, atol=1e-14 )
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
@@ -1414,6 +1427,13 @@ def test_block_matrix_operator_parallel_dot_backend( dtype, n1, n2, p1, p2, P1, 
     # Compute matrix-vector products for each block
     y1 = M1.dot(x1) + M2.dot(x2)
     y2 = M3.dot(x1) + M4.dot(x2)
+
+    #Test axpy method in parallel
+    z3 = X + 5 * factor * Y
+    X.axpy(Y, 5*factor)
+
+    # Test exact value and symetry of the scalar product
+    assert np.allclose(X[0]._data, z3[0]._data)
 
     # Check data in 1D array
     assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-13, atol=1e-13 )

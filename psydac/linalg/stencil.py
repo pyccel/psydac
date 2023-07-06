@@ -491,6 +491,29 @@ class StencilVector( Vector ):
         txt += '> sync    :: {sync}\n'  .format( sync  = self._sync  )
         return txt
 
+    #...
+    def axpy(self, v2, a):
+        assert isinstance( v2, StencilVector )
+        assert v2._space is self._space
+
+        if self.dtype==complex:
+            a=complex(a)
+        else:
+            if isinstance(a, complex):
+                raise TypeError('A complex scalar was given in a real case')
+            else:
+                a = float(a)
+
+        ndim = len(self.space.shape)
+        func        = 'axpy_{dim}d'.format(dim=ndim)
+        ishape = [np.int64(n) for n in self.space.shape]
+        axpy = eval(func)
+        axpy(self._data[:], a, v2._data[:], *ishape)
+        for axis, ext in self._space.interfaces:
+            ishape = [np.int64(n) for n in self._interface_data[axis, ext].space.shape]
+            axpy(self._interface_data[axis, ext][:], a, v2._interface_data[axis, ext][:], *ishape)
+        self._sync  = v2._sync and self._sync
+
     # ...
     def toarray(self, *, order='C', with_pads=False):
         """
