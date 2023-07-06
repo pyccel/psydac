@@ -371,13 +371,13 @@ def dot_product_3d_complex128(v1: 'complex[:,:,:]', v2: 'complex[:,:,:]', pads0:
 
 @template(name='Tarray', types=['float[:]', 'complex[:]'])
 @template(name='T', types=['float', 'complex'])
-def axpy_1d(alpha: 'T', v1: "Tarray", v2: "Tarray", shape0:'int64'):
+def axpy_1d(alpha: 'T', x: "Tarray", y: "Tarray", shape0:'int64'):
     """
-        kernel for computing v1=v1+alpha*v2
+        kernel for computing y=y+alpha*x
 
         Parameters
         ----------
-            v1, v2 : 1d array
+            x, y : 1d array
                 Data of the vectors from which we are computing the inner product.
 
             alpha : scalar
@@ -389,7 +389,7 @@ def axpy_1d(alpha: 'T', v1: "Tarray", v2: "Tarray", shape0:'int64'):
     #$omp parallel default(private) firstprivate(shape0) shared(alpha, v1, v2)
     #$omp for collapse(1) reduction(+ : v1)
     for i1 in range(0, shape0, 1):
-        v1[i1] += alpha*v2[i1]
+        y[i1] += alpha*x[i1]
     #$omp end parallel
 
 
@@ -397,13 +397,13 @@ def axpy_1d(alpha: 'T', v1: "Tarray", v2: "Tarray", shape0:'int64'):
 
 @template(name='Tarray', types=['float[:,:]', 'complex[:,:]'])
 @template(name='T', types=['float', 'complex'])
-def axpy_2d(alpha: 'T', v1: "Tarray", v2: "Tarray", shape0: 'int64', shape1: 'int64'):
+def axpy_2d(alpha: 'T', x: "Tarray", y: "Tarray", shape0: 'int64', shape1: 'int64'):
     """
-        kernel for computing v1=v1+alpha*v2
+        kernel for computing y=y+alpha*x
 
         Parameters
         ----------
-            v1, v2 : 2d complex array
+            x, y : 2d complex array
                 Data of the vectors from which we are computing the inner product.
 
             alpha : scalar
@@ -416,20 +416,20 @@ def axpy_2d(alpha: 'T', v1: "Tarray", v2: "Tarray", shape0: 'int64', shape1: 'in
     # $omp for collapse(2) reduction(+ : v1)
     for i1 in range(0, shape0, 1):
         for i2 in range(0, shape1, 1):
-            v1[i1, i2] += alpha * v2[i1, i2]
+            y[i1, i2] += alpha * x[i1, i2]
     # $omp end parallel
 
 
 #========================================================================================================
 @template(name='Tarray', types=['float[:,:,:]', 'complex[:,:,:]'])
 @template(name='T', types=['float', 'complex'])
-def axpy_3d(alpha: 'T', v1: "Tarray", v2: "Tarray",shape0:'int64',shape1:'int64',shape2:'int64'):
+def axpy_3d(alpha: 'T', x: "Tarray", y: "Tarray",shape0:'int64',shape1:'int64',shape2:'int64'):
     """
-        kernel for computing v1=v1+alpha*v2
+        kernel for computing y=y+alpha*x
 
         Parameters
         ----------
-            v1, v2 : 3d complex array
+            x, y : 3d complex array
                 Data of the vectors from which we are computing the inner product.
 
             alpha : scalar
@@ -443,7 +443,7 @@ def axpy_3d(alpha: 'T', v1: "Tarray", v2: "Tarray",shape0:'int64',shape1:'int64'
     for i1 in range(0, shape0, 1):
         for i2 in range(0, shape1, 1):
             for i3 in range(0, shape2, 1):
-                v1[i1, i2, i3] += alpha*v2[i1, i2, i3]
+                x[i1, i2, i3] += alpha*y[i1, i2, i3]
     #$omp end parallel
 
 

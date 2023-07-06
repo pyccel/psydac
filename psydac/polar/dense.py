@@ -138,7 +138,7 @@ class DenseVectorSpace(VectorSpace):
         return DenseVector(self, data)
 
     def axpy(self,a ,x ,y):
-        x += a*y
+        y += a*x
 
     #-------------------------------------
     # Other properties/methods

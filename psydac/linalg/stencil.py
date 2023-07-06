@@ -159,7 +159,7 @@ class StencilVectorSpace( VectorSpace ):
     # ...
     def axpy(self, a, x, y):
         """
-        This method compute the operation x+=a*y.
+        This method compute the operation y+=a*x.
 
         Parameters
         ----------
@@ -186,11 +186,14 @@ class StencilVectorSpace( VectorSpace ):
         ndim = len(self.shape)
         func = 'axpy_{dim}d'.format(dim=ndim)
         ishape = [np.int64(n) for n in self.shape]
+
         axpy = eval(func)
         axpy(a, x._data[:], y._data[:], *ishape)
+
         for axis, ext in self.interfaces:
             ishape = [np.int64(n) for n in x._interface_data[axis, ext].shape]
             axpy(a, x._interface_data[axis, ext][:], y._interface_data[axis, ext][:], *ishape)
+
         x._sync  = x._sync and y._sync
 
     #--------------------------------------

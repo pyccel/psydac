@@ -90,8 +90,11 @@ class Vector(ABC):
         assert self.space is other.space
         return self.space.dot(self, other)
 
-    def mul_iadd(self, a, y):
-        self.space.axpy(a, self, y)
+    def mul_iadd(self, a, x):
+        '''
+        Compute self = self + a * x.
+        '''
+        self.space.axpy(a, x, self)
 
     #-------------------------------------
     # Deferred methods
