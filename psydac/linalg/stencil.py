@@ -189,7 +189,7 @@ class StencilVectorSpace( VectorSpace ):
         axpy = eval(func)
         axpy(a, x._data[:], y._data[:], *ishape)
         for axis, ext in self.interfaces:
-            ishape = [np.int64(n) for n in x._interface_data[axis, ext].space.shape]
+            ishape = [np.int64(n) for n in x._interface_data[axis, ext].shape]
             axpy(a, x._interface_data[axis, ext][:], y._interface_data[axis, ext][:], *ishape)
         x._sync  = x._sync and y._sync
 
