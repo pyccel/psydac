@@ -55,7 +55,7 @@ class VectorSpace(ABC):
     @abstractmethod
     def axpy(self, a, x, y):
         """
-        This method compute the operation x+=a*y.
+        This method compute the operation y+=a*x.
 
         Parameters
         ----------
