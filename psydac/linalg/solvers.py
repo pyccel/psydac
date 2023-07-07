@@ -970,7 +970,7 @@ class MinimumResidual(InverseLinearOperator):
         self._solver = 'minres'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
-        self._tmps = {key: domain.zeros() for key in ("res_old", "res", "w", "w_temp", "w_old", "v")}
+        self._tmps = {key: domain.zeros() for key in ("res_old", "res_new", "w_new", "w_temp", "w_old", "v", "y")}
         self._info = None
 
     def _check_options(self, **kwargs):
@@ -1060,12 +1060,12 @@ class MinimumResidual(InverseLinearOperator):
 
         # Extract local storage
         v = self._tmps["v"]
-        w = self._tmps["w"]
+        y = self._tmps["y"]
+        w_new = self._tmps["w_new"]
+        w_temp = self._tmps["w_temp"]
         w_old = self._tmps["w_old"]
         res_old = self._tmps["res_old"]
-        res = self._tmps["res"]
-        # Not strictly needed by the MinRes, but necessary to avoid temporaries
-        w_temp = self._tmps["w_temp"]
+        res_new = self._tmps["res_new"]
 
         istop = 0
         itn   = 0
@@ -1073,10 +1073,10 @@ class MinimumResidual(InverseLinearOperator):
 
         eps = np.finfo(b.dtype).eps
 
-        A.dot(x, out=res_old)
-        res_old -= b
-        res_old *= -1.0
-        y  = res_old
+        A.dot(x, out=y)
+        y -= b
+        y *= -1.0
+        y.copy(out=res_old)
 
         beta = sqrt(res_old.dot(res_old))
 
@@ -1092,7 +1092,10 @@ class MinimumResidual(InverseLinearOperator):
         gmin    = np.finfo(b.dtype).max
         cs      = -1
         sn      = 0
-        res_old.copy(out=res)
+        w_new  *= 0.0
+        w_temp *= 0.0
+        w_old *= 0.0
+        res_old.copy(out=res_new)
 
         if verbose:
             print( "MINRES solver:" )
@@ -1113,13 +1116,13 @@ class MinimumResidual(InverseLinearOperator):
                 y.mul_iadd(-(beta/oldb), res_old)
 
             alfa = v.dot(y)
-            res_old = res
+            y.mul_iadd(-(alfa/beta), res_new)
 
-            y.mul_iadd(-(alfa/beta), res)
-            res = y
+            res_new.copy(out=res_old)
+            y.copy(out=res_new)
 
             oldb = beta
-            beta = sqrt(res.dot(res))
+            beta = sqrt(res_new.dot(res_new))
             tnorm2 += alfa**2 + oldb**2 + beta**2
 
             # Apply previous rotation Qk-1 to get
@@ -1146,13 +1149,13 @@ class MinimumResidual(InverseLinearOperator):
 
             denom = 1.0/gamma
             w_old.copy(out=w_temp)
-            w.copy(out=w_old)
+            w_new.copy(out=w_old)
 
-            w *= delta
-            w.mul_iadd(oldeps, w_temp)
-            w -= v
-            w *= -denom
-            x.mul_iadd(phi, w)
+            w_new *= delta
+            w_new.mul_iadd(oldeps, w_temp)
+            w_new -= v
+            w_new *= -denom
+            x.mul_iadd(phi, w_new)
 
             # Go round again.
 
@@ -1166,7 +1169,6 @@ class MinimumResidual(InverseLinearOperator):
 
             Anorm = sqrt(tnorm2)
             ynorm = sqrt(x.dot(x))
-
 
             rnorm  = phibar
             if ynorm == 0 or Anorm == 0:test1 = inf
