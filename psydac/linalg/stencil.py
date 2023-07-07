@@ -185,14 +185,12 @@ class StencilVectorSpace( VectorSpace ):
 
         ndim = len(self.shape)
         func = 'axpy_{dim}d'.format(dim=ndim)
-        ishape = [np.int64(n) for n in self.shape]
 
         axpy = eval(func)
-        axpy(a, x._data[:], y._data[:], *ishape)
+        axpy(a, x._data, y._data)
 
         for axis, ext in self.interfaces:
-            ishape = [np.int64(n) for n in x._interface_data[axis, ext].shape]
-            axpy(a, x._interface_data[axis, ext][:], y._interface_data[axis, ext][:], *ishape)
+            axpy(a, x._interface_data[axis, ext], y._interface_data[axis, ext])
 
         x._sync  = x._sync and y._sync
 
@@ -410,9 +408,8 @@ class StencilVector( Vector ):
         func        = 'dot_product_{dim}d_{type}'.format(dim=ndim, type=v1.dtype)
         ipads = [np.int64(p) for p in pads]
         ishifts = [np.int64(s) for s in shifts]
-        ishape = [np.int64(s) for s in shape]
         dot_product = eval(func)
-        return dot_product(v1, v2, *ipads, *ishifts, *ishape)
+        return dot_product(v1, v2, *ipads, *ishifts)
 
     def conjugate(self, out=None):
         if out is not None:
