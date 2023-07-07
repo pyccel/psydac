@@ -617,9 +617,9 @@ def test_pushforwards_l2(ldim, jac_det, field_to_push):
 @pytest.mark.parametrize('ldim', (2, 3))
 def test_pushforwards_hdiv(ldim):
     jacobians = np.full((5,) * ldim + (ldim, ldim), np.eye(ldim))
-    metric_dets = np.full((5,) * ldim, 1)
+    metric_dets = np.full((5,) * ldim, 1.0)
     field_to_push = np.random.rand(ldim, *((5, ) * ldim), 1)
-    expected = np.moveaxis(field_to_push,-1, 0)
+    expected = np.moveaxis(field_to_push, -1, 0)
     out = np.zeros(expected.shape)
     if ldim == 2:
         pushforward_2d_hdiv(field_to_push, jacobians, metric_dets, out)
