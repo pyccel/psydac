@@ -231,7 +231,7 @@ class ConjugateGradient(InverseLinearOperator):
             A.dot(p, out=v)
             l   = am / v.dot(p)
 
-            x.mul_iadd(l, p) # this is x += l*p
+            x.mul_iadd(l, p)  # this is x += l*p
             r.mul_iadd(-l, v) # this is r -= l*v
 
             am1 = r.dot(r).real
@@ -433,14 +433,19 @@ class PConjugateGradient(InverseLinearOperator):
 
             v  = A.dot(p, out=v)
             l  = am / v.dot(p)
+
             x.mul_iadd(l, p) # this is x += l*p
             r.mul_iadd(-l, v) # this is r -= l*v
+
             nrmr_sqr = r.dot(r).real
             psolve(r, out=s)
 
             am1 = s.dot(r)
-            p  *= (am1/am)
-            p  += s
+
+            # we are computing p = (am1 / am) * p + s by using axpy on s and exchanging the arrays
+            s.mul_iadd((am1/am), p)
+            s, p = p, s
+
             am  = am1
 
             if verbose:
@@ -648,6 +653,9 @@ class BiConjugateGradient(InverseLinearOperator):
             # rs := rs - conj(a)*vs
             rs.mul_iadd(-a.conjugate(), vs)
 
+            # ||r||_2 := (r, r)
+            res_sqr = r.dot(r).real
+
             # b := (rs, r)_{m+1} / (rs, r)_m
             b = rs.dot(r) / c
 
@@ -658,9 +666,6 @@ class BiConjugateGradient(InverseLinearOperator):
             # ps := rs + conj(b)*ps
             ps *= b.conj()
             ps += rs
-
-            # ||r||_2 := (r, r)
-            res_sqr = r.dot(r).real
 
             if verbose:
                 print( template.format(m, sqrt(res_sqr)) )
@@ -970,7 +975,7 @@ class MinimumResidual(InverseLinearOperator):
         self._solver = 'minres'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
-        self._tmps = {key: domain.zeros() for key in ("res_old", "res_new", "w_new", "w_temp", "w_old", "v", "y")}
+        self._tmps = {key: domain.zeros() for key in ("res_old", "res_new", "w_new", "w_work", "w_old", "v", "y")}
         self._info = None
 
     def _check_options(self, **kwargs):
@@ -1062,7 +1067,7 @@ class MinimumResidual(InverseLinearOperator):
         v = self._tmps["v"]
         y = self._tmps["y"]
         w_new = self._tmps["w_new"]
-        w_temp = self._tmps["w_temp"]
+        w_work = self._tmps["w_work"]
         w_old = self._tmps["w_old"]
         res_old = self._tmps["res_old"]
         res_new = self._tmps["res_new"]
@@ -1093,7 +1098,7 @@ class MinimumResidual(InverseLinearOperator):
         cs      = -1
         sn      = 0
         w_new  *= 0.0
-        w_temp *= 0.0
+        w_work *= 0.0
         w_old *= 0.0
         res_old.copy(out=res_new)
 
@@ -1118,7 +1123,8 @@ class MinimumResidual(InverseLinearOperator):
             alfa = v.dot(y)
             y.mul_iadd(-(alfa/beta), res_new)
 
-            res_new.copy(out=res_old)
+            # We put res_new in res_old and y in res_new
+            res_new, res_old = res_old, res_new
             y.copy(out=res_new)
 
             oldb = beta
@@ -1146,13 +1152,14 @@ class MinimumResidual(InverseLinearOperator):
             phibar = sn * phibar                 # phibark+1
 
             # Update  x.
-
             denom = 1.0/gamma
-            w_old.copy(out=w_temp)
+
+            # We put w_old in w_work and w_new in w_old
+            w_work, w_old = w_old, w_work
             w_new.copy(out=w_old)
 
             w_new *= delta
-            w_new.mul_iadd(oldeps, w_temp)
+            w_new.mul_iadd(oldeps, w_work)
             w_new -= v
             w_new *= -denom
             x.mul_iadd(phi, w_new)
@@ -1293,8 +1300,8 @@ class LSMR(InverseLinearOperator):
         self._check_options(**self._options)
         self._info = None
         self._successful = None
-        tmps_domain = {key: domain.zeros() for key in ("u", "u_temp")}
-        tmps_codomain = {key: codomain.zeros() for key in ("v", "v_temp", "h", "hbar")}
+        tmps_domain = {key: domain.zeros() for key in ("u", "u_work")}
+        tmps_codomain = {key: codomain.zeros() for key in ("v", "v_work", "h", "hbar")}
         self._tmps = {**tmps_codomain, **tmps_domain}
 
     def get_success(self):
@@ -1401,8 +1408,8 @@ class LSMR(InverseLinearOperator):
         h = self._tmps["h"]
         hbar = self._tmps["hbar"]
         # Not strictly needed by the LSMR, but necessary to avoid temporaries
-        u_temp = self._tmps["u_temp"]
-        v_temp = self._tmps["v_temp"]
+        u_work = self._tmps["u_work"]
+        v_work = self._tmps["v_work"]
 
         if atol is None:atol = 1e-6
         if btol is None:btol = 1e-6
@@ -1413,8 +1420,8 @@ class LSMR(InverseLinearOperator):
         b.copy(out=u)
         normb = sqrt(b.dot(b).real)
 
-        A.dot(x, out=u_temp)
-        u -= u_temp
+        A.dot(x, out=u_work)
+        u -= u_work
         beta = sqrt(u.dot(u).real)
 
         if beta > 0:
@@ -1481,15 +1488,15 @@ class LSMR(InverseLinearOperator):
             #        alpha*v  =  A'*u  -  beta*v.
 
             u *= -alpha
-            A.dot(v, out=u_temp)
-            u += u_temp
+            A.dot(v, out=u_work)
+            u += u_work
             beta = sqrt(u.dot(u).real)
 
             if beta > 0:
                 u     *= (1 / beta)
                 v     *= -beta
-                At.dot(u, out=v_temp)
-                v     += v_temp
+                At.dot(u, out=v_work)
+                v     += v_work
                 alpha = sqrt(v.dot(v).real)
                 if alpha > 0:v *= (1 / alpha)
 
