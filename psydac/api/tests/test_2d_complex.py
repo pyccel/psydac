@@ -212,7 +212,7 @@ def run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=None, degr
 
     error  = u - solution
 
-    expr   = dot(grad(u),grad(v)) - kappa ** 2 * u * v
+    expr   = dot(grad(u),grad(v)) - 2 * kappa ** 2 * u * v
     boundary_expr = - 1j * kappa * u * v
     x_boundary = Union(domain.get_boundary(axis=0, ext=-1), domain.get_boundary(axis=0, ext=1))
 
@@ -409,13 +409,13 @@ def test_complex_helmholtz_2d():
     x, y = domain.coordinates
     kappa = 2*pi
     solution = exp(1j * kappa * x) * sin(kappa * y)
-    e_w_0 = 2. # value of incoming wave at x=0, forall y
-    dx_e_w_0 = 0. # derivative wrt. x of incoming wave at x=0, forall y
+    e_w_0 = sin(kappa * y) # value of incoming wave at x=0, forall y
+    dx_e_w_0 = 1j*kappa*sin(kappa * y) # derivative wrt. x of incoming wave at x=0, forall y
 
     l2_error, h1_error = run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    expected_l2_error = 0.064921964652824
-    expected_h1_error = 0.7509453460689905
+    expected_l2_error = 0.01540947560953227
+    expected_h1_error = 0.19040207344639598
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
