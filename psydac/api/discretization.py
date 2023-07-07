@@ -60,24 +60,24 @@ def change_dtype(V, dtype):
     dtype   : Data Type
         float or complex
     """
-    if not V._vector_space.dtype == dtype:
-        if isinstance(V._vector_space, BlockVectorSpace):
+    if not V.vector_space.dtype == dtype:
+        if isinstance(V.vector_space, BlockVectorSpace):
             # Recreate the BlockVectorSpace
-            blocks=[]
+            new_spaces=[]
             for v in V.spaces:
                 change_dtype(v, dtype)
-                blocks.append(v._vector_space)
-            V._vector_space = BlockVectorSpace(*blocks, connectivity=V._vector_space._connectivity)
+                new_spaces.append(v.vector_space)
+            V._vector_space = BlockVectorSpace(*new_spaces, connectivity=V.vector_space.connectivity)
 
         # If the vector_space is a StencilVectorSpace
         else:
             # Recreate the StencilVectorSpace
-            interface=V._vector_space.interfaces
-            V._vector_space = StencilVectorSpace(V._vector_space._cart, dtype=dtype)
+            interfaces = V.vector_space.interfaces
+            V._vector_space = StencilVectorSpace(V.vector_space.cart, dtype=dtype)
 
             # Recreate the interface in the StencilVectorSpace
-            for axis, ext in interface:
-                V._vector_space.set_interface(axis, ext, V._vector_space._cart)
+            for (axis, ext), interface_space in interfaces.items():
+                V.vector_space.set_interface(axis, ext, interface_space.cart)
 
     return V
 
