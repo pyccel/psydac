@@ -33,7 +33,7 @@ dependencies = [
 
     # Our packages from PyPi
     'sympde==0.17.0',
-    "pyccel@git+https://github.com/pyccel/pyccel.git",
+    'pyccel >= 1.8.1',
     'gelato==0.12',
 
     # Alternative backend to Pyccel is Numba
