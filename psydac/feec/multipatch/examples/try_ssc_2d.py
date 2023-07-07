@@ -11,7 +11,7 @@ from collections import OrderedDict
 from sympy import pi, cos, sin, Tuple, exp
 from sympy import lambdify
 
-from sympde.topology    import Derham
+from sympde.topology    import Derham, Domain
 from sympde.topology    import element_of, elements_of
 
 from sympde.calculus  import dot
@@ -96,7 +96,13 @@ def try_ssc_2d(
     t_stamp = time_count(t_stamp)
     print('building symbolic and discrete domain...')
 
-    if domain_name == 'multipatch_rectangle':
+    if domain_name == 'square':
+        OmegaLog = Square('domain', bounds1=(0, np.pi), bounds2=(0, np.pi))
+        mapping_1 = IdentityMapping('M1',2)
+        domain     = mapping_1(OmegaLog)
+        domain_h = discretize(domain, ncells=ncells)
+
+    elif domain_name == 'multipatch_rectangle':
         domain, domain_h, bnds = build_multipatch_rectangle(
             nb_patch_x, nb_patch_y, 
             x_min=0, x_max=np.pi,
@@ -114,6 +120,12 @@ def try_ssc_2d(
     else:
         domain = build_multipatch_domain(domain_name=domain_name)
         domain_h = discretize(domain, ncells=ncells)
+
+    # assert isinstance(domain, Domain)
+    # print("len(domain.interfaces) = ", len(domain.interfaces))
+    # # print(domain.connectivity)
+    # print("len(domain.interior) = ", len(domain.interior))
+    # # exit()
 
         # ValueError("Domain not defined.")
     multipatch = nb_patch_x > 1 or nb_patch_y > 1
@@ -153,8 +165,21 @@ def try_ssc_2d(
     d_V1h = d_derham_h.V1
     d_V2h = d_derham_h.V2
 
+    if test_case == 'norm_Lambda0':
+        # p_HOp0    = HodgeOperator(p_V0h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=0)
+        # p_MM0     = p_HOp0.get_dual_Hodge_sparse_matrix()    # mass matrix
+        
+        Vh = p_V0h
+        V = Vh.symbolic_space
+        u, v = elements_of(V, names='u, v')
+        expr   = u*v
+        #     expr   = dot(u,v)
+        a = BilinearForm((u,v), integral(domain, expr))
+        ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
+        p_MM0 = ah.assemble().tosparse()  # Mass matrix in stencil > scipy format
+        
+    else:
 
-    if multipatch:
         t_stamp = time_count(t_stamp)
         print('Pairing matrices...')
 
@@ -235,20 +260,6 @@ def try_ssc_2d(
         d_bD = d_bD1.to_sparse_matrix() # broken div
         d_DD = d_bD @ d_PP1             # Conga div (dual)    
 
-    else:
-        assert test_case == 'norm_Lambda0'
-        # p_HOp0    = HodgeOperator(p_V0h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=0)
-        # p_MM0     = p_HOp0.get_dual_Hodge_sparse_matrix()    # mass matrix
-        
-        Vh = p_V0h
-        V = Vh.symbolic_space
-        u, v = elements_of(V, names='u, v')
-        expr   = u*v
-        #     expr   = dot(u,v)
-        a = BilinearForm((u,v), integral(domain, expr))
-        ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
-        p_MM0 = ah.assemble().tosparse()  # Mass matrix in stencil > scipy format
-        
     
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
     t_stamp = time_count(t_stamp)
@@ -521,21 +532,21 @@ if __name__ == '__main__':
 
     t_stamp_full = time_count()
 
-    # test_case = "norm_Lambda0"
+    test_case = "norm_Lambda0"
     # test_case = "p_PP1" # "d_HH1" # "p_PP1" # "p_PP1_C1" # "d_HH1" # "p_PP1_C1" # 
     # test_case = "pP1_L2" 
-    test_case = "p_HH2"
+    # test_case = "p_HH2"
     refined_square = False
     
     make_plots = True #False
     hide_plots = True
     
 
-    nbp_s = [2] #[2,4] #,6,8]
+    nbp_s = [1] #[2,4] #,6,8]
     deg_s = [3]
     
-    # nbc_s = [10]
-    nbc_s = [2,4,6,8,16,32]
+    nbc_s = [10]
+    # nbc_s = [2,4,6,8,16,32]
     
     errors = [[[ None for nbc in nbc_s] for nbp in nbp_s] for deg in deg_s]
 
@@ -544,14 +555,16 @@ if __name__ == '__main__':
             for i_nbc, nbc in enumerate(nbc_s): 
                 nb_patch_x = nbp
                 nb_patch_y = nbp     
-                if refined_square:
+                if nbp == 1:
+                    domain_name = 'square'
+                elif refined_square:
                     domain_name = 'refined_square'
                     raise NotImplementedError("CHECK FIRST")
-                    m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
                 else:
+                    # domain_name = 'square_9'
                     domain_name = 'multipatch_rectangle' #'square_9'
-                    m_load_dir = 'matrices_{}_nbp={}_nc={}_deg={}/'.format(domain_name, nbp, nbc, deg)
 
+                m_load_dir = 'matrices_{}_nbp={}_nc={}_deg={}/'.format(domain_name, nbp, nbc, deg)
                 run_dir = '{}_nbp={}_nc={}_deg={}/'.format(domain_name, nbp, nbc, deg)
 
                 error = try_ssc_2d(
