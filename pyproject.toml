@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 64.0", "wheel", "numpy"]
+requires = ["setuptools >= 64.0", "wheel", "numpy < 1.25"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -22,7 +22,7 @@ classifiers  = ["Programming Language :: Python :: 3"]
 dependencies = [
 
     # Third-party packages from PyPi
-    'numpy >= 1.16',
+    'numpy >= 1.16, < 1.25',
     'scipy >= 0.18',
     'sympy >= 1.5',
     'matplotlib',
