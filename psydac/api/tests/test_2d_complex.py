@@ -4,7 +4,7 @@ import os
 from mpi4py import MPI
 import pytest
 import numpy as np
-from sympy import pi, cos, sin, symbols, exp
+from sympy import pi, cos, sin, symbols, exp, conjugate
 from sympy import Tuple, Matrix
 
 from sympde.calculus import grad, dot, cross, curl, inner
@@ -208,11 +208,11 @@ def run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=None, degr
 
     error  = u - solution
 
-    expr   = dot(grad(u),grad(v)) - 2 * kappa ** 2 * u * v
-    boundary_expr = - 1j * kappa * u * v
+    expr   = inner(grad(u), grad(v)) - 2 * kappa ** 2 * inner(u, v)
+    boundary_expr = - 1j * kappa * inner(u, v)
     x_boundary = Union(domain.get_boundary(axis=0, ext=-1), domain.get_boundary(axis=0, ext=1))
 
-    boundary_source_expr = - dx_e_w_0 * v - 1j * kappa * e_w_0 * v    
+    boundary_source_expr = - inner(dx_e_w_0, v) - 1j * kappa * inner(e_w_0, v)
 
     a = SesquilinearForm((u, v), integral(domain, expr) + integral(x_boundary, boundary_expr))
     l = LinearForm(v, integral(domain.get_boundary(axis=0, ext=-1), boundary_source_expr))
@@ -268,15 +268,15 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
     jump = lambda w:  plus(w) - minus(w)
     avr  = lambda w: (plus(w) + minus(w))/2
 
-    expr1_I  =  cross(nn, jump(v))*curl(avr(u))\
-               +k*cross(nn, jump(u))*curl(avr(v))\
-               +kappa*cross(nn, jump(u))*cross(nn, jump(v))
+    expr1_I  =  conjugate(cross(nn, jump(v))) * curl(avr(u))\
+               +k*cross(nn, jump(u)) * conjugate(curl(avr(v)))\
+               +kappa*cross(nn, jump(u)) * conjugate(cross(nn, jump(v)))
 
-    expr1   = curl(u)*curl(v) + alpha*dot(u,v)
-    expr1_b = -cross(nn, v) * curl(u) -k*cross(nn, u) * curl(v)  + kappa * cross(nn, u) * cross(nn, v)
+    expr1   = inner(curl(u), curl(v)) + alpha*inner(u, v)
+    expr1_b = -conjugate(cross(nn, v)) * curl(u) -k*cross(nn, u) * conjugate(curl(v))  + kappa * cross(nn, u) * conjugate(cross(nn, v))
 
-    expr2   = dot(f,v)
-    expr2_b = -k*cross(nn, uex)*curl(v) + kappa * cross(nn, uex) * cross(nn, v)
+    expr2   = inner(f, v)
+    expr2_b = -k*cross(nn, uex)*conjugate(curl(v)) + kappa * cross(nn, uex) * conjugate(cross(nn, v))
 
     # Sesquilinear form a: V x V --> R
     a = SesquilinearForm((u, v), integral(domain, expr1) + integral(boundary, expr1_b) + integral(I, expr1_I))
@@ -323,9 +323,9 @@ def test_complex_biharmonic_2d():
     l2_error, h1_error, h2_error = run_biharmonic_2d_dir(solution, f,
             dir_zero_boundary, ncells=[2**3, 2**3], degree=[3, 3])
 
-    expected_l2_error = 0.0027365784556742626
-    expected_h1_error = 0.07976499145119309
-    expected_h2_error = 1.701552032688161
+    expected_l2_error = 0.015032753501452296
+    expected_h1_error = 0.43023236297622447
+    expected_h2_error = 10.46203043253215
 
     assert abs(l2_error - expected_l2_error) < 1.e-7
     assert abs(h1_error - expected_h1_error) < 1.e-7
@@ -338,7 +338,7 @@ def test_complex_biharmonic_2d_mapping():
     x, y, z = symbols('x, y, z')
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
 
-    factor=2.5
+    factor = 2.5
     solution = factor * (cos(1) + sin(1) * 1j) * (cos(pi*x/2)*cos(pi*y/2))**2
     f        = laplace(laplace(solution))
 
@@ -347,9 +347,9 @@ def test_complex_biharmonic_2d_mapping():
     l2_error, h1_error, h2_error = run_biharmonic_2d_dir(solution, f,
             dir_zero_boundary, filename=filename)
 
-    expected_l2_error = 0.10977627980052021
-    expected_h1_error = 0.32254511059711766
-    expected_h2_error = 1.87205519824758
+    expected_l2_error = 0.10977627980052293
+    expected_h1_error = 0.3225451105971228
+    expected_h2_error = 1.8720551982475115
 
     assert abs(l2_error/factor - expected_l2_error) < 1.e-7
     assert abs(h1_error/factor - expected_h1_error) < 1.e-7
@@ -358,8 +358,8 @@ def test_complex_biharmonic_2d_mapping():
 
 def test_complex_poisson_2d_multipatch():
     # This test solve the poisson problem with homogeneous dirichlet condition in multipatch case
-    A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
-    B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
+    A = Square('A', bounds1=(0, 0.5), bounds2=(0, 1))
+    B = Square('B', bounds1=(0.5, 1.), bounds2=(0, 1))
 
     domain = Domain.join([A, B], [((0, 0, 1), (1, 0, -1))], 'domain')
 
@@ -368,7 +368,7 @@ def test_complex_poisson_2d_multipatch():
     solution = (cos(1) + sin(1) * 1j) * x*y*(1-y)*(1-x)
     f        = (-2*x*(x - 1) -2*y*(y - 1))*(cos(1) + sin(1) * 1j)
 
-    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2, 2])
+    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2, 2**2], degree=[2, 2])
 
     expected_l2_error = 2.176726763610992e-09
     expected_h1_error = 2.9725703533101877e-09
@@ -407,10 +407,10 @@ def test_complex_helmholtz_2d():
     e_w_0 = sin(kappa * y) # value of incoming wave at x=0, forall y
     dx_e_w_0 = 1j*kappa*sin(kappa * y) # derivative wrt. x of incoming wave at x=0, forall y
 
-    l2_error, h1_error = run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=[2**2,2**2], degree=[2,2])
+    l2_error, h1_error = run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=[2**2, 2**2], degree=[2, 2])
 
-    expected_l2_error = 0.01540947560953227
-    expected_h1_error = 0.19040207344639598
+    expected_l2_error = 0.048884673545551996
+    expected_h1_error = 0.823622440549956
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -426,9 +426,9 @@ def test_maxwell_2d_2_patch_dirichlet_2():
     f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
                   alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
-    l2_error, Eh = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2, 2])
+    l2_error, Eh = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**3, 2**2], degree=[2, 2])
 
-    expected_l2_error = 0.012726070686020729
+    expected_l2_error = 0.012726245186597323
 
     assert abs(l2_error - expected_l2_error) < 1e-7
 
@@ -444,8 +444,8 @@ def test_maxwell_2d_2_patch_dirichlet_parallel_0():
     A = Square('A', bounds1=bounds1, bounds2=bounds2_A)
     B = Square('B', bounds1=bounds1, bounds2=bounds2_B)
 
-    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    mapping_1 = PolarMapping('M1', 2, c1= 0., c2=0., rmin = 0., rmax=1.)
+    mapping_2 = PolarMapping('M2', 2, c1= 0., c2=0., rmin = 0., rmax=1.)
 
     D1 = mapping_1(A)
     D2 = mapping_2(B)

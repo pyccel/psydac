@@ -91,16 +91,14 @@ def test_bilinearForm_complex(backend):
     kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
 
     domain = Square()
-    V = ScalarFunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain, codomain_complex=True)
 
-    # TODO: remove codomain_type when It is implemented in sympde
-    V.codomain_type = 'complex'
     u = element_of(V, name='u')
     v = element_of(V, name='v')
     f = element_of(V, name='f')
     c = Constant(name='c', complex=True)
 
-    res=(1.+1.j)/2
+    res = (1.+1.j)/2
     # We try to put complex as a sympy object in the expression
     g1 = (1.+I)/2 * c * f**2
 
@@ -110,9 +108,9 @@ def test_bilinearForm_complex(backend):
     # We try to put complex in a Sympde Constant in the expression or in a PSYDAC FemField in the expression
     g3 = c * f**2
 
-    a1 = BilinearForm((u, v), integral(domain, u * v * g1))
-    a2 = BilinearForm((u, v), integral(domain, u * v * g2))
-    a3 = BilinearForm((u, v), integral(domain, u * v * g3))
+    a1 = SesquilinearForm((u, v), integral(domain, inner(u, v) * g1))
+    a2 = SesquilinearForm((u, v), integral(domain, inner(u, v) * g2))
+    a3 = SesquilinearForm((u, v), integral(domain, inner(u, v) * g3))
 
     ncells = (5, 5)
     degree = (3, 3)
@@ -152,10 +150,8 @@ def test_linearForm_complex(backend):
     kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
 
     domain = Square()
-    V = ScalarFunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain, codomain_complex=True)
 
-    # TODO: remove codomain_type when It is implemented in sympde
-    V.codomain_type = 'complex'
     v = element_of(V, name='v')
     f = element_of(V, name='f')
     c = Constant(name='c', complex=True)
@@ -170,9 +166,9 @@ def test_linearForm_complex(backend):
     # We try to put complex in a Sympde Constant in the expression or in a PSYDAC FemField in the expression
     g3 = c * f**2
 
-    l1 = LinearForm(v, integral(domain, g1 * v))
-    l2 = LinearForm(v, integral(domain, g2 * v))
-    l3 = LinearForm(v, integral(domain, g3 * v))
+    l1 = LinearForm(v, integral(domain, inner(g1, v)))
+    l2 = LinearForm(v, integral(domain, inner(g2, v)))
+    l3 = LinearForm(v, integral(domain, inner(g3, v)))
 
     ncells = (5, 5)
     degree = (3, 3)
@@ -210,17 +206,15 @@ def test_Norm_complex(backend):
     kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
 
     domain = Square()
-    V = ScalarFunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain, codomain_complex=True)
 
-    # TODO: remove codomain_type when It is implemented in sympde
-    V.codomain_type = 'complex'
     v = element_of(V, name='v')
     c = Constant(name='c', complex=True)
 
     res = (1.+1.j)/np.sqrt(2)
 
     # We try to put complex as a sympy object in the expression
-    g1  = (1.+I)/np.sqrt(2)
+    g1  = (1.+1.j)/np.sqrt(2)
 
     # We try to put complex as a python scalar in the expression
     g2  = res
@@ -273,11 +267,9 @@ def test_assemble_complex_parallel(backend):
     kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
 
     domain = Square()
-    V = ScalarFunctionSpace('V', domain)
-    V.codomain_type = 'complex'
+    V = ScalarFunctionSpace('V', domain, codomain_complex=True)
 
-    Vr = ScalarFunctionSpace('Vr', domain)
-    Vr.codomain_type = 'complex'
+    Vr = ScalarFunctionSpace('Vr', domain, codomain_complex=True)
 
     # TODO: remove codomain_type when It is implemented in sympde
     u = element_of(V, name='u')
@@ -289,10 +281,10 @@ def test_assemble_complex_parallel(backend):
     gc = I * c * f**2
     cst = 1.0+0.0j
 
-    ac = BilinearForm((u, v), integral(domain, gc * u * v))
-    ar = BilinearForm((u, v), integral(domain, gr * u * v))
-    lc = LinearForm(v, integral(domain, gc * v))
-    lr = LinearForm(v, integral(domain, gr * v))
+    ac = SesquilinearForm((u, v), integral(domain, gc * inner(u, v)))
+    ar = SesquilinearForm((u, v), integral(domain, gr * inner(u, v)))
+    lc = LinearForm(v, integral(domain,  inner(gc, v)))
+    lr = LinearForm(v, integral(domain,  inner(gr, v)))
     nr = Norm(1.0*v, domain, kind='l2')
     nc = Norm(1.0j*v, domain, kind='l2')
 
@@ -320,7 +312,6 @@ def test_assemble_complex_parallel(backend):
     nr = nrh.assemble(v=fh)
 
     # Test matrix Ac and Ar
-    #TODO change Ar*1j into -Ar*1j when the conjugate is applied in the dot product in sympde
     assert np.all(abs((Ac)._data-(Ar)._data*1j))<1e-16
 
     # Test vector bc and br
@@ -329,32 +320,32 @@ def test_assemble_complex_parallel(backend):
     # Test Norm nc and nr
     assert abs(nc - nr) < 1e-8
 #==============================================================================
-def test_multiple_fields(backend, dtype):
+def test_multiple_fields(backend, codomain_complex):
 
     # If 'backend' is specified, accelerate Python code by passing **kwargs
     # to discretization of bilinear forms, linear forms and functionals.
     kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
 
     domain = Line()
-    V = ScalarFunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain, codomain_complex=codomain_complex)
 
-    # TODO: remove codomain_type when It is implemented in sympde
-    V.codomain_type = dtype
     u = element_of(V, name='u')
     v = element_of(V, name='v')
 
     f1 = element_of(V, name='f1')
     f2 = element_of(V, name='f2')
 
-    if dtype == 'complex':
+    if codomain_complex:
         g = 0.5j * (f1**2 + f2)
         res = 1.j
+        a = SesquilinearForm((u, v), integral(domain, inner(u , v) * g))
+        l = LinearForm(v, integral(domain, inner(g , v)))
     else:
         g = 0.5 * (f1**2 + f2)
         res = 1
+        a = BilinearForm((u, v), integral(domain, inner(u , v) * g))
+        l = LinearForm(v, integral(domain, inner(g , v)))
 
-    a = BilinearForm((u, v), integral(domain, u * v * g))
-    l = LinearForm(v, integral(domain, g * v))
 
     ncells = (5,)
     degree = (3,)
@@ -373,7 +364,6 @@ def test_multiple_fields(backend, dtype):
     x = fh.coeffs
 
     # Test matrix A
-    #TODO change res into np.conj(res) when the conjugate is applied in the dot product in sympde
     assert abs(x.dot(A.dot(x)) - res) < 1e-12
 
     # Test vector b
