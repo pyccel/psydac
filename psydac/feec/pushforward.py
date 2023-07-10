@@ -263,9 +263,9 @@ class Pushforward:
         fields_eval = getattr(space, self._eval_func)(self.grid, *field_list, overlap=overlap)
 
         if isinstance(space, (VectorFemSpace, ProductFemSpace)):
-            return [tuple(np.ascontiguousarray(fields_eval[i][index_trim[i] + (j,)]) for i in range(self.ldim)) for j in range(len(field_list))]
+            return [tuple(np.ascontiguousarray(fields_eval[i][index_trim[i] + (j,)], dtype=field_list[0].coeffs.dtype) for i in range(self.ldim)) for j in range(len(field_list))]
         else:
-            return [np.ascontiguousarray(fields_eval[index_trim + (j,)]) for j in range(len(field_list))]
+            return [np.ascontiguousarray(fields_eval[index_trim + (j,)], dtype=field_list[0].coeffs.dtype) for j in range(len(field_list))]
 
     def _pushforward_l2(self, space, *field_list):
         """
@@ -287,7 +287,7 @@ class Pushforward:
         if isinstance(space, (VectorFemSpace, ProductFemSpace)):
 
             fields_to_push = [np.ascontiguousarray(fields_eval[i][index_trim[i]]) for i in range(self.ldim)]
-            pushed_fields_list = [np.zeros_like(fields_to_push[i]) for i in range(self.ldim)]
+            pushed_fields_list = [np.zeros_like(fields_to_push[i], dtype=fields_eval[i].dtype) for i in range(self.ldim)]
             if self.ldim == 2:
                 for i in range(2):
                     pushforward_2d_l2(fields_to_push[i], self.sqrt_metric_det_temp, pushed_fields_list[i])
@@ -300,7 +300,7 @@ class Pushforward:
         else:
 
             fields_to_push = np.ascontiguousarray(fields_eval[index_trim])
-            pushed_fields = np.zeros_like(fields_to_push)
+            pushed_fields = np.zeros_like(fields_to_push, dtype=fields_eval.dtype)
             if self.ldim == 2:
                 pushforward_2d_l2(fields_to_push, self.sqrt_metric_det_temp, pushed_fields)
             if self.ldim == 3:
@@ -329,7 +329,7 @@ class Pushforward:
 
         fields_eval = np.ascontiguousarray(np.stack([fields_eval[i][(*index_trim[i], Ellipsis)] for i in range(self.ldim)], axis=0))
 
-        pushed_fields = np.zeros((fields_eval.shape[-1], *fields_eval.shape[:-1]))
+        pushed_fields = np.zeros((fields_eval.shape[-1], *fields_eval.shape[:-1]), dtype=fields_eval.dtype)
         if self.ldim == 2:
             pushforward_2d_hdiv(fields_eval, self.jac_temp, self.sqrt_metric_det_temp, pushed_fields)
         if self.ldim == 3:
@@ -352,7 +352,7 @@ class Pushforward:
         if self.inv_jac_temp is None:
             self.inv_jac_temp = self.jacobian_inv()
         fields_eval = np.ascontiguousarray(np.stack([fields_eval[i][(*index_trim[i], Ellipsis)] for i in range(self.ldim)], axis=0))
-        pushed_fields = np.zeros((fields_eval.shape[-1], *fields_eval.shape[:-1]))
+        pushed_fields = np.zeros((fields_eval.shape[-1], *fields_eval.shape[:-1]), dtype=fields_eval.dtype)
 
         if self.ldim == 2:
             pushforward_2d_hcurl(fields_eval, self.inv_jac_temp, pushed_fields)
