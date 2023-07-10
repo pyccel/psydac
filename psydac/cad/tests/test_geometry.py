@@ -296,5 +296,5 @@ def teardown_module():
             os.remove(fname)
 
 def teardown_function():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
