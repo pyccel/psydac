@@ -193,97 +193,13 @@ def stencil2coo_3d_F(A:'T', data:'data', rows:'int64[:]', cols:'int64[:]',
 
 #========================================================================================================
 
-#Implementation of dot products
-
-def dot_product_1d_float64(v1:'float[:]',v2:'float[:]',pads0:'int64',shift0:'int64'):
-    '''kernel for computing the inner product (case two real 1d vectors)
-
-    Parameters
-    ----------
-        v1, v2 : 1d float array
-            Data of the vectors from which we are computing the inner product.
-
-        pads0, shift0, shape0 : int
-            pads, shift and shape of the space of the vectors in the 0 direction.
-            
-    Returns
-    -------
-        res : float containing the results'''
-    res = float(0)
-    #$omp parallel firstprivate( pads0, shift0) shared(res, v1, v2) private(shape0)
-    shape0= v1.shape
-    #$omp for reduction(+ : res)
-    for i0 in range(pads0*shift0,shape0-pads0*shift0):
-        res += v1[i0]*v2[i0]
-    #$omp end parallel
-    return res
-
-
-#========================================================================================================
-
-
-def dot_product_2d_float64(v1:'float[:,:]',v2:'float[:,:]',pads0:'int64',pads1:'int64',shift0:'int64',shift1:'int64'):
-    '''kernel for computing the inner product (case two real 2d vectors)
-
-    Parameters
-    ----------
-        v1, v2 : 2d float array
-            Data of the vectors from which we are computing the inner product.
-
-        pads0, shift0, shape0, pads1, shift1, shape1 : int
-            pads, shift and shape of the space of the vectors in the 0/1 direction.
-            
-    Returns
-    -------
-        res : float containing the results'''
-    res = float(0)
-    #$omp parallel firstprivate( pads0, pads1, shift0, shift1) shared(res, v1, v2) private(shape0, shape1)
-    shape0, shape1 = v1.shape
-    #$omp for collapse(2) reduction(+ : res)
-    for i0 in range(pads0*shift0,shape0-pads0*shift0):
-        for i1 in range(pads1*shift1,shape1-pads1*shift1):
-            res += v1[i0,i1]*v2[i0,i1]
-    #$omp end parallel
-    return res
-
-
-#========================================================================================================
-
-def dot_product_3d_float64(v1:'float[:,:,:]',v2:'float[:,:,:]',pads0:'int64',pads1:'int64',pads2:'int64',shift0:'int64',shift1:'int64',shift2:'int64'):
-    '''kernel for computing the inner product (case two real 3d vectors)
-
-    Parameters
-    ----------
-        v1, v2 : 3d float array
-            Data of the vectors from which we are computing the inner product.
-
-        pads0, shift0, shape0, pads1, shift1, shape1, pads2, shift2, shape2 : int
-            pads, shift and shape of the space of the vectors in the 0/1/2 direction.
-            
-    Returns
-    -------
-        res : float containing the results'''
-    res = float(0)
-    #$omp parallel firstprivate( pads0, pads1, pads2, shift0, shift1, shift2) shared(res, v1, v2) private(shape0, shape1, shape2)
-    shape0, shape1, shape2 = v1.shape
-    #$omp for collapse(3) reduction(+ : res)
-    for i0 in range(pads0*shift0,shape0-pads0*shift0):
-        for i1 in range(pads1*shift1,shape1-pads1*shift1):
-            for i2 in range(pads2*shift2,shape2-pads2*shift2):
-                res += v1[i0,i1,i2]*v2[i0,i1,i2]
-    #$omp end parallel
-    return res
-
-
-#========================================================================================================
-
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 #!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!#
 #!!!!!!! Conjugate on the first argument !!!!!!!#
 #!!!!!!!!!! This will need an update !!!!!!!!!!!#
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
-
-def dot_product_1d_complex128(v1: 'complex[:]', v2: 'complex[:]', pads0: 'int64', shift0: 'int64'):
+@template(name='T', types=['float[:]', 'complex[:]'])
+def dot_product_1d(v1: 'T', v2: 'T', pads0: 'int64', shift0: 'int64'):
     """
     kernel for computing the inner product (case two complex 1d vectors)
 
@@ -299,9 +215,9 @@ def dot_product_1d_complex128(v1: 'complex[:]', v2: 'complex[:]', pads0: 'int64'
     -------
         res : complex containing the results
         """
-    res = complex(0)
     #$omp parallel firstprivate( pads0, shift0) shared(res, v1, v2) private(shape0)
-    shape0= v1.shape
+    res = v1[0]-v1[0]
+    shape0, = v1.shape
     #$omp for collapse(1) reduction(+ : res)
     for i0 in range(pads0*shift0, shape0-pads0*shift0):
         res += v1[i0].conjugate()*v2[i0]
@@ -310,9 +226,8 @@ def dot_product_1d_complex128(v1: 'complex[:]', v2: 'complex[:]', pads0: 'int64'
 
 
 #========================================================================================================
-
-
-def dot_product_2d_complex128(v1: 'complex[:,:]', v2: 'complex[:,:]', pads0: 'int64', pads1: 'int64', shift0: 'int64',
+@template(name='T', types=['float[:,:]', 'complex[:,:]'])
+def dot_product_2d(v1: 'T', v2: 'T', pads0: 'int64', pads1: 'int64', shift0: 'int64',
                               shift1: 'int64'):
     """
     kernel for computing the inner product (case two complex 2d vectors)
@@ -329,8 +244,8 @@ def dot_product_2d_complex128(v1: 'complex[:,:]', v2: 'complex[:,:]', pads0: 'in
     -------
         res : complex containing the results
     """
-    res = complex(0)
     #$omp parallel firstprivate( pads0, pads1, shift0, shift1) shared(res, v1, v2) private(shape0, shape1)
+    res = v1[0, 0]-v1[0, 0]
     shape0, shape1 = v1.shape
     #$omp for collapse(2) reduction(+ : res)
     for i0 in range(pads0*shift0, shape0-pads0*shift0):
@@ -341,8 +256,8 @@ def dot_product_2d_complex128(v1: 'complex[:,:]', v2: 'complex[:,:]', pads0: 'in
 
 
 #========================================================================================================
-
-def dot_product_3d_complex128(v1: 'complex[:,:,:]', v2: 'complex[:,:,:]', pads0: 'int64', pads1: 'int64', pads2: 'int64',
+@template(name='T', types=['float[:,:,:]', 'complex[:,:,:]'])
+def dot_product_3d(v1: 'T', v2: 'T', pads0: 'int64', pads1: 'int64', pads2: 'int64',
                               shift0: 'int64', shift1: 'int64', shift2: 'int64'):
     """
     kernel for computing the inner product (case two complex 3d vectors)
@@ -359,8 +274,8 @@ def dot_product_3d_complex128(v1: 'complex[:,:,:]', v2: 'complex[:,:,:]', pads0:
     -------
         res : complex containing the results
     """
-    res = complex(0)
     #$omp parallel firstprivate( pads0, pads1, pads2, shift0, shift1, shift2) shared(res, v1, v2) private(shape0, shape1, shape2)
+    res = v1[0, 0, 0] - v1[0, 0, 0]
     shape0, shape1, shape2 = v1.shape
     #$omp for collapse(3) reduction(+ : res)
     for i0 in range(pads0*shift0, shape0-pads0*shift0):

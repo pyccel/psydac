@@ -393,21 +393,25 @@ class StencilVector( Vector ):
         assert v._space is self._space
 
         if self._space.parallel:
-            self._dot_send_data[0] = self._dot(self._data, v._data , self._space.pads, self._space.shifts, self._space.shape)
+            self._dot_send_data[0] = self._dot(self._data, v._data , self._space.pads, self._space.shifts)
             self._space.cart.global_comm.Allreduce((self._dot_send_data, self._space.mpi_type),
                                                    (self._dot_recv_data, self._space.mpi_type),
                                                    op=MPI.SUM )
             return self._dot_recv_data[0]
         else:
-            return self._dot(self._data, v._data , self._space.pads, self._space.shifts, self._space.shape)
+            return self._dot(self._data, v._data , self._space.pads, self._space.shifts)
 
     #...
     @staticmethod
-    def _dot(v1, v2, pads, shifts, shape):
+    def _dot(v1, v2, pads, shifts):
         ndim = len(v1.shape)
-        func        = 'dot_product_{dim}d_{type}'.format(dim=ndim, type=v1.dtype)
+        func        = 'dot_product_{dim}d'.format(dim=ndim)
         ipads = [np.int64(p) for p in pads]
         ishifts = [np.int64(s) for s in shifts]
+        # Sometimes in parallel case, we can get an empty vector that broke our kernel
+        if v1.shape[0] == 0:
+            return 0
+
         dot_product = eval(func)
         return dot_product(v1, v2, *ipads, *ishifts)
 
