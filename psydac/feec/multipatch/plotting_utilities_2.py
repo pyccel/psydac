@@ -33,7 +33,11 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
     :param space_kind: specifies the push-forward for the physical values
     """
     n_patches = len(mappings_list)
-    vector_valued = is_vector_valued(u) if isinstance(u, FemField) else isinstance(u[0],(list, tuple))
+    if n_patches == 1:
+        vector_valued = isinstance(u.fields,(list, tuple)) if isinstance(u, FemField) else isinstance(u,(list, tuple))
+    else:
+        vector_valued = is_vector_valued(u) if isinstance(u, FemField) else isinstance(u[0],(list, tuple))
+
     if vector_valued:
         # WARNING: here we assume 2D !
         u_vals_components = [n_patches*[np.nan], n_patches*[np.nan]]
@@ -238,7 +242,12 @@ def plot_field(
             stencil_coeffs = array_to_psydac(numpy_coeffs, Vh.vector_space)
         vh = FemField(Vh, coeffs=stencil_coeffs)
 
-    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    if len(domain)==1:
+        interiors  = [domain.interior]
+    else:
+        interiors  = list(domain.interior.args)
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in interiors])
+    # mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = [m.get_callable_mapping() for m in mappings.values()]
     # mappings_list = list(mappings.values())
     etas, xx, yy    = get_plotting_grid(mappings, N=N_vis, eta_crop=eta_crop)

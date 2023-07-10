@@ -222,7 +222,7 @@ def write_diags_to_file(diags, script_filename, diag_filename, params={}):
         a_writer.write(' ---------- ---------- ---------- ---------- ---------- ---------- \n')
         a_writer.write('\n')
 
-def write_errors_array(errors, deg_s, nc_s, error_dir, name):
+def write_errors_array_deg_nbc(errors, deg_s, nbp, nbc_s, error_dir, name):
     if not os.path.exists(error_dir):
         os.makedirs(error_dir)
 
@@ -234,26 +234,40 @@ def write_errors_array(errors, deg_s, nc_s, error_dir, name):
 
         a_writer.write('\n')
         a_writer.write('nc_1d = np.array([')
-        for nc in nc_s:
-            a_writer.write('{},'.format(nc))
-        a_writer.write('])  # total nb of cells per patch \n\n')
+        for nbc in nbc_s:
+            a_writer.write('{},'.format(nbc))
+        a_writer.write('])  # nb of cells per patch (per dim) \n\n')
 
         nb_deg = len(deg_s)
-        nb_nc = len(nc_s)
+        nb_nbc = len(nbc_s)
         
         a_writer.write('# errors for '+name+'\n')
         a_writer.write('errors = { \n')
     
         for i_deg in range(nb_deg):
             a_writer.write('{} : ['.format(deg_s[i_deg]))
-            for i_nc in range(nb_nc):
+            for i_nc in range(nb_nbc):
                 a_writer.write('{}, '.format(errors[i_deg][i_nc]))
             a_writer.write('], \n')
         
         a_writer.write('} \n\n')
 
 
-def write_errors_array_deg_nbp(errors, deg_s, nbp_s, nc, error_dir, name):
+def write_errors_array_deg_nbp(errors, deg_s, nbp_s, nbc, error_dir, name):
+
+    # print errors in file for convergence curves: 
+    #   here for various degrees and nb of patches (nbp), but a single nb of cells per patch (nbc)
+    #
+    # errors: list of errors, of the form
+    # [[[ error_nbc_nbp_deg ] for nbp in nbp_s] for deg in deg_s]
+    # (with a single nbc)
+    
+    assert len(errors) == len(deg_s)
+    for i_deg, deg in enumerate(deg_s): 
+        assert len(errors[i_deg]) == len(nbp_s)
+        for i_nbp, nbp in enumerate(nbp_s): 
+            assert len(errors[i_deg][i_nbp]) == 1
+
     if not os.path.exists(error_dir):
         os.makedirs(error_dir)
 
@@ -268,10 +282,10 @@ def write_errors_array_deg_nbp(errors, deg_s, nbp_s, nc, error_dir, name):
         for nbp in nbp_s:
             a_writer.write('{},'.format(nbp))
         a_writer.write('])  # nb of patches per dimension \n\n')
-        a_writer.write('nc_1d = {} # nb of cells per dimension \n'.format(nc))
-        a_writer.write('nc_tot = np.array([')
+        a_writer.write('nbc_1d = {} # nb of cells per dimension \n'.format(nbc))
+        a_writer.write('nbc_tot = np.array([')
         for nbp in nbp_s:
-            a_writer.write('{},'.format(nbp**2 * nc**2))
+            a_writer.write('{},'.format(nbp**2 * nbc**2))
         a_writer.write('])  # total nb of cells \n\n')
         
         a_writer.write('# errors for '+name+'\n')
@@ -279,7 +293,7 @@ def write_errors_array_deg_nbp(errors, deg_s, nbp_s, nc, error_dir, name):
         for i_deg, deg in enumerate(deg_s): 
             a_writer.write('{} : ['.format(deg))
             for i_nbp, nbp in enumerate(nbp_s): 
-                a_writer.write('{}, '.format(errors[i_deg][i_nbp]))
+                a_writer.write('{}, '.format(errors[i_deg][i_nbp][0]))
             a_writer.write('], \n')
         
         a_writer.write('} \n\n')

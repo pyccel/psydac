@@ -134,8 +134,18 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
     domain : <Sympde.topology.Domain>
      The symbolic multipatch domain
     """
+    if domain_name == 'square_1':
+        # reference square [0,pi]x[0,pi] with 1 patch
+        OmegaLog1 = Square('OmegaLog1',bounds1=(0., np.pi), bounds2=(0., np.pi))
+        mapping_1 = IdentityMapping('M1',2)
+        domain_1     = mapping_1(OmegaLog1)
 
-    if domain_name == 'square_2':
+        patches = [domain_1]
+
+        interfaces = [
+        ]
+
+    elif domain_name == 'square_2':
         # reference square [0,pi]x[0,pi] with 2 patches
         # mp structure:
         # 2

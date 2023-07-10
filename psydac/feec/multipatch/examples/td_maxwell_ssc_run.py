@@ -3,7 +3,9 @@ import os
 import numpy as np
 from psydac.feec.multipatch.examples.td_maxwell_ssc     import solve_td_maxwell_pbm
 from psydac.feec.multipatch.utilities                   import time_count, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
-from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_file, write_errors_array
+from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_file, write_errors_array_deg_nbp, write_errors_array_deg_nbc
+
+
 
 t_stamp_full = time_count()
 
@@ -28,15 +30,17 @@ method =  'ssc' # 'swc' #
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
-nc_s = [6] #,8,16] #,32]
-deg_s = [3] # ,4,5]
+nbc_s = [6] #,8,16] #,32]
+# deg_s = [4] # ,4,5]
+# nbp_s = [2,4,8, 16]  # only for 'multipatch_rectangle' domain
 
-# nc_s = [20]
-# deg_s = [6]
+deg_s = [3,4] # ,4,5]
+nbp_s = [2,4,8,16]  # only for 'multipatch_rectangle' domain
 
 # domain_name = 'pretzel_f'
-domain_name = 'square_9'  # for cavity solution, must be a square of diameter pi
+# domain_name = 'square_9'  # for cavity solution, must be a square of diameter pi
 # domain_name = 'collela_square_9'  # for cavity solution, must be a square of diameter pi
+domain_name = 'multipatch_rectangle'
 
 if test_case == 'cavity':
     a = np.pi 
@@ -75,7 +79,7 @@ plot_variables = []
 
 # nb of time steps per period (if None, will be set from cfl)
 Nt_pertau = None
-cfl = .01  
+cfl = .1  
 
 if test_case == 'E0_pulse_no_source':
     solution_type = 'pulse'
@@ -96,9 +100,9 @@ if test_case == 'E0_pulse_no_source':
         ]
 
     if domain_name == 'pretzel_f':
-        if nc_s == [20] and deg_s == [6]:
+        if nbc_s == [20] and deg_s == [6]:
             Nt_pertau = 54  # 54 is stable for cfl = 0.8 but sometimes the solver gets 53
-        if nc_s == [8] and deg_s == [3]:
+        if nbc_s == [8] and deg_s == [3]:
             Nt_pertau = 10
 
     cb_min_sol = 0
@@ -152,7 +156,7 @@ elif test_case == 'Issautier_like_source':
 
             # plot_time_ranges = [
             #     ]
-            # if nc_s == [8]:
+            # if nbc_s == [8]:
             #     Nt_pertau = 10
 
 else:
@@ -164,7 +168,7 @@ solution_proj = 'P_geom' # 'P_L2' #
 # whether cP1 E_h is plotted instead of E_h:
 project_sol =  False #    True # 
 
-case_dir = 'td_maxwell_' + test_case + '_' + method
+case_name = 'td_maxwell_' + test_case + '_' + method
 
 # projection used for the source J
 if J_proj_case == 'P_geom':
@@ -191,11 +195,11 @@ else:
 quad_param = 4
 
 if J_proj_case != '':
-    case_dir += '_J_proj=' + J_proj_case 
-case_dir += '_qp{}'.format(quad_param)
+    case_name += '_J_proj=' + J_proj_case 
+case_name += '_qp{}'.format(quad_param)
 if project_sol:
-    case_dir += '_E_proj'
-case_dir += '_nb_tau={}'.format(nb_tau)
+    case_name += '_E_proj'
+case_name += '_nb_tau={}'.format(nb_tau)
 
 # diag_dtau: tau period for intermediate diags (time curves) plotting
 diag_dtau = max(1,nb_tau//10)
@@ -203,106 +207,128 @@ diag_dtau = max(1,nb_tau//10)
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
-common_diag_dir = './'+case_dir+'_'+domain_name
+common_diag_dir = './'+case_name+'_'+domain_name
 common_diag_filename = common_diag_dir+'/diags.txt'
 if not os.path.exists(common_diag_dir):
     os.makedirs(common_diag_dir)
 
 nb_deg = len(deg_s)
-nb_nc = len(nc_s)
+nb_nc = len(nbc_s)
 
-E_errors = [[ None for nc in nc_s] for deg in deg_s]
-D_errors = [[ None for nc in nc_s] for deg in deg_s]
-B_errors = [[ None for nc in nc_s] for deg in deg_s]
-H_errors = [[ None for nc in nc_s] for deg in deg_s]
+E_errors = [[[ None for nbc in nbc_s] for nbp in nbp_s] for deg in deg_s]
+B_errors = [[[ None for nbc in nbc_s] for nbp in nbp_s] for deg in deg_s]
+H_errors = [[[ None for nbc in nbc_s] for nbp in nbp_s] for deg in deg_s]
+D_errors = [[[ None for nbc in nbc_s] for nbp in nbp_s] for deg in deg_s]
 
-for i_nc in range(nb_nc):
-    nc = nc_s[i_nc] 
-    for i_deg in range(nb_deg):
-        deg = deg_s[i_deg]
-        
-        params = {
-            'domain_name': domain_name,
-            'nc': nc,
-            'deg': deg,
-            'homogeneous': True,
-            'solution_type': solution_type,
-            'solution_proj': solution_proj,
-            'source_type': source_type,
-            'source_is_harmonic ': source_is_harmonic,
-            'source_proj': source_proj,
-            'filter_source': filter_source, 
-            'project_sol': project_sol,
-            'omega': omega,
-            'quad_param': quad_param,
-        }
-        # backend_language = 'numba'
-        backend_language='python' # 'pyccel-gcc'
+for i_deg, deg in enumerate(deg_s): 
+    for i_nbp, nbp in enumerate(nbp_s): 
+        for i_nbc, nbc in enumerate(nbc_s): 
 
-        run_dir = get_run_dir(domain_name, nc, deg, source_type=source_type)
-        plot_dir = get_plot_dir(case_dir, run_dir)
-        diag_filename = plot_dir+'/'+diag_fn(source_type=source_type, source_proj=source_proj)
+            params = {
+                'domain_name': domain_name,
+                'nb_cells': nbc,
+                'deg': deg,
+                'homogeneous': True,
+                'solution_type': solution_type,
+                'solution_proj': solution_proj,
+                'source_type': source_type,
+                'source_is_harmonic ': source_is_harmonic,
+                'source_proj': source_proj,
+                'filter_source': filter_source, 
+                'project_sol': project_sol,
+                'omega': omega,
+                'quad_param': quad_param,
+            }
+            if domain_name == 'multipatch_rectangle':
+                params['nbp'] = nbp
 
-        if not os.path.exists(plot_dir):
-            os.makedirs(plot_dir)
+            # backend_language = 'numba'
+            backend_language='python' # 'pyccel-gcc'
 
-        # to save and load matrices
-        m_load_dir = get_mat_dir(domain_name, nc, deg, quad_param=quad_param)        
+            # run_dir = get_run_dir(domain_name, nc, deg, source_type=source_type)
+            m_load_dir = 'matrices_{}_nbp={}_nc={}_deg={}/'.format(domain_name, nbp, nbc, deg)
+            run_dir = './'+case_name+'/{}_nbp={}_nc={}_deg={}/'.format(domain_name, nbp, nbc, deg)
+            plot_dir= run_dir+'plots/'
+            diag_filename = run_dir+'/'+diag_fn(source_type=source_type, source_proj=source_proj)
 
-        print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
-        print(' Calling solve_td_maxwell_pbm() with params = {}'.format(params))
-        print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
-        
-        # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
-        # calling solver for time domain maxwell
-        
-        diags = solve_td_maxwell_pbm(
-            method=method,
-            dry_run=False,
-            nc=nc, deg=deg,
-            Nt_pertau=Nt_pertau,
-            cfl=cfl,
-            source_is_harmonic=source_is_harmonic,
-            tau=tau,
-            nb_tau=nb_tau,
-            sol_params=sol_params,
-            domain_name=domain_name,
-            solution_type=solution_type,
-            solution_proj=solution_proj,
-            source_type=source_type,
-            source_proj=source_proj,
-            backend_language=backend_language,
-            quad_param=quad_param,
-            plot_source=True,
-            project_sol=project_sol,
-            filter_source=filter_source,
-            plot_dir=plot_dir,
-            plot_time_ranges=plot_time_ranges,
-            plot_variables=plot_variables,
-            diag_dtau=diag_dtau,
-            hide_plots=True,
-            skip_plot_titles=True,
-            cb_min_sol=cb_min_sol, 
-            cb_max_sol=cb_max_sol,
-            m_load_dir=m_load_dir,
-        )
+            if not os.path.exists(plot_dir):
+                os.makedirs(plot_dir)
 
-        #
-        # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
-
-        write_diags_to_file(diags, script_filename=__file__, diag_filename=diag_filename, params=params)
-        write_diags_to_file(diags, script_filename=__file__, diag_filename=common_diag_filename, params=params)
-
-        E_errors[i_deg][i_nc] = diags["E_error"]
-        D_errors[i_deg][i_nc] = diags["D_error"]
-        B_errors[i_deg][i_nc] = diags["B_error"]
-        H_errors[i_deg][i_nc] = diags["H_error"]
+            # to save and load matrices
+            # m_load_dir = get_mat_dir(domain_name, nc, deg, quad_param=quad_param)        
+            # plot_dir = get_plot_dir(case_dir, run_dir)
 
 
-write_errors_array(E_errors, deg_s, nc_s, error_dir=common_diag_dir, name="E")
-write_errors_array(B_errors, deg_s, nc_s, error_dir=common_diag_dir, name="B")
-write_errors_array(D_errors, deg_s, nc_s, error_dir=common_diag_dir, name="D")
-write_errors_array(H_errors, deg_s, nc_s, error_dir=common_diag_dir, name="H")
+
+            print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
+            print(' Calling solve_td_maxwell_pbm() with params = {}'.format(params))
+            print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
+            
+            # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+            # calling solver for time domain maxwell
+            
+            diags = solve_td_maxwell_pbm(
+                method=method,
+                dry_run=False,
+                nbc=nbc, deg=deg,
+                Nt_pertau=Nt_pertau,
+                cfl=cfl,
+                source_is_harmonic=source_is_harmonic,
+                tau=tau,
+                nb_tau=nb_tau,
+                sol_params=sol_params,
+                domain_name=domain_name,
+                nb_patch_x=nbp,
+                nb_patch_y=nbp,
+                solution_type=solution_type,
+                solution_proj=solution_proj,
+                source_type=source_type,
+                source_proj=source_proj,
+                backend_language=backend_language,
+                quad_param=quad_param,
+                plot_source=True,
+                project_sol=project_sol,
+                filter_source=filter_source,
+                plot_dir=plot_dir,
+                plot_time_ranges=plot_time_ranges,
+                plot_variables=plot_variables,
+                diag_dtau=diag_dtau,
+                hide_plots=True,
+                skip_plot_titles=True,
+                cb_min_sol=cb_min_sol, 
+                cb_max_sol=cb_max_sol,
+                m_load_dir=m_load_dir,
+            )
+
+            #
+            # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+
+            write_diags_to_file(diags, script_filename=__file__, diag_filename=diag_filename, params=params)
+            write_diags_to_file(diags, script_filename=__file__, diag_filename=common_diag_filename, params=params)
+
+            E_errors[i_deg][i_nbp][i_nbc] = diags["E_error"]
+            D_errors[i_deg][i_nbp][i_nbc] = diags["D_error"]
+            B_errors[i_deg][i_nbp][i_nbc] = diags["B_error"]
+            H_errors[i_deg][i_nbp][i_nbc] = diags["H_error"]
+
+print('writing error arrays for convergence curve in '+ common_diag_dir + ' ...')
+    
+if len(nbc_s) == 1:
+
+    print('with increasing nb of patches (and fixed nb of cells per patch)...')
+    write_errors_array_deg_nbp(E_errors, deg_s, nbp_s, nbc_s[0], error_dir=common_diag_dir, name="E")
+    write_errors_array_deg_nbp(B_errors, deg_s, nbp_s, nbc_s[0], error_dir=common_diag_dir, name="B")
+    write_errors_array_deg_nbp(D_errors, deg_s, nbp_s, nbc_s[0], error_dir=common_diag_dir, name="D")
+    write_errors_array_deg_nbp(H_errors, deg_s, nbp_s, nbc_s[0], error_dir=common_diag_dir, name="H")
+
+else:        
+
+    print('with increasing nb of cells per patch (and fixed nb of patches)...')
+    write_errors_array_deg_nbc(E_errors, deg_s, nbc_s, error_dir=common_diag_dir, name="E")
+    write_errors_array_deg_nbc(B_errors, deg_s, nbc_s, error_dir=common_diag_dir, name="B")
+    write_errors_array_deg_nbc(D_errors, deg_s, nbc_s, error_dir=common_diag_dir, name="D")
+    write_errors_array_deg_nbc(H_errors, deg_s, nbc_s, error_dir=common_diag_dir, name="H")
+
 
 
 time_count(t_stamp_full, msg='full program')

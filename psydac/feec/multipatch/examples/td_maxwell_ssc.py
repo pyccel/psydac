@@ -27,7 +27,7 @@ from psydac.feec.multipatch.api                         import discretize
 from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
 from psydac.feec.multipatch.operators                   import HodgeOperator, get_K0_and_K0_inv, get_K1_and_K1_inv
 from psydac.feec.multipatch.plotting_utilities_2          import plot_field #, write_field_to_diag_grid, 
-from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
+from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain, build_multipatch_rectangle
 from psydac.feec.multipatch.examples.ppc_test_cases     import get_div_free_pulse, get_cavity_solution
 from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P_phys_l2, P_phys_hdiv, P_phys_hcurl, P_phys_h1, get_Vh_diags_for
 from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
@@ -36,9 +36,10 @@ from psydac.feec.multipatch.conf_projections_scipy      import Conf_proj_0, Conf
 
 def solve_td_maxwell_pbm(
         method='ssc',
-        nc=4, deg=4, Nt_pertau=None, cfl=.8, tau=None,
+        nbc=4, deg=4, Nt_pertau=None, cfl=.8, tau=None,
         nb_tau=1, sol_params=None, source_is_harmonic=True,
         domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
+        nb_patch_x=2, nb_patch_y=2, 
         project_sol=False, filter_source=True, quad_param=1,
         solution_type='zero', solution_proj='P_geom', 
         plot_source=False, plot_dir=None, hide_plots=True, plot_time_ranges=None, 
@@ -80,7 +81,7 @@ def solve_td_maxwell_pbm(
             d_HH1 = hodge:   d_V1h -> p_V1h
             p_CC  = curl:    p_V1h -> p_V2h
 
-    :param nc: nb of cells per dimension, in each patch
+    :param nbc: nb of cells per dimension, in each patch
     :param deg: coordinate degree in each patch
     :param source_proj: approximation operator for the source (see later)
     :param source_type: must be implemented in get_source_and_solution()
@@ -106,7 +107,7 @@ def solve_td_maxwell_pbm(
 
         return diags
 
-    ncells = [nc, nc]
+    ncells = [nbc, nbc]
     degree = [deg,deg]
 
     final_time = nb_tau * tau
@@ -127,9 +128,11 @@ def solve_td_maxwell_pbm(
 
     print('---------------------------------------------------------------------------------------------------------')
     print('Starting solve_td_maxwell_pbm function with: ')
+    print(' domain_name = {}'.format(domain_name))
+    if domain_name == 'multipatch_rectangle':
+        print(' nb_patches = [{},{}]'.format(nb_patch_x, nb_patch_y))
     print(' ncells = {}'.format(ncells))
     print(' degree = {}'.format(degree))
-    print(' domain_name = {}'.format(domain_name))
     print(' solution_type = {}'.format(solution_type))
     print(' solution_proj = {}'.format(solution_proj))
     print(' source_type = {}'.format(source_type))
@@ -144,7 +147,19 @@ def solve_td_maxwell_pbm(
 
     t_stamp = time_count()
     print(' .. multi-patch domain...')
-    domain = build_multipatch_domain(domain_name=domain_name)
+    
+    if domain_name == 'multipatch_rectangle':
+        domain, domain_h, bnds = build_multipatch_rectangle(
+            nb_patch_x, nb_patch_y, 
+            x_min=0, x_max=np.pi,
+            y_min=0, y_max=np.pi,
+            perio=[False,False],
+            ncells=ncells,
+            )
+
+    else:
+        domain = build_multipatch_domain(domain_name=domain_name)
+
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = [m.get_callable_mapping() for m in mappings.values()]
 

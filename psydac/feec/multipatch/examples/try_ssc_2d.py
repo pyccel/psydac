@@ -524,9 +524,11 @@ def try_ssc_2d(
         print( "-- -- -- skipping plots -- -- -- ")
     
     err_c = app_c - ref_c 
-    L2_error = np.sqrt(np.dot(err_c, MM @ err_c)/np.dot(ref_c, MM @ ref_c))
+    L2_norm  = np.sqrt(max(np.dot(ref_c, MM @ ref_c), np.dot(app_c, MM @ app_c)))
+    L2_error = np.sqrt(np.dot(err_c, MM @ err_c))
+    L2_relerror = L2_error/L2_norm
 
-    return L2_error    
+    return L2_error, L2_relerror    
 
 if __name__ == '__main__':
 
@@ -538,15 +540,15 @@ if __name__ == '__main__':
     # test_case = "p_HH2"
     refined_square = False
     
-    make_plots = True #False
+    make_plots = False # True #
     hide_plots = True
     
 
     nbp_s = [1] #[2,4] #,6,8]
     deg_s = [3]
     
-    nbc_s = [10]
-    # nbc_s = [2,4,6,8,16,32]
+    # nbc_s = [10]
+    nbc_s = [2,4,6,8,16,32]
     
     errors = [[[ None for nbc in nbc_s] for nbp in nbp_s] for deg in deg_s]
 
@@ -567,7 +569,7 @@ if __name__ == '__main__':
                 m_load_dir = 'matrices_{}_nbp={}_nc={}_deg={}/'.format(domain_name, nbp, nbc, deg)
                 run_dir = '{}_nbp={}_nc={}_deg={}/'.format(domain_name, nbp, nbc, deg)
 
-                error = try_ssc_2d(
+                error, relerror = try_ssc_2d(
                     ncells=[nbc,nbc], 
                     nb_patch_x=nb_patch_x,
                     nb_patch_y=nb_patch_y,
@@ -582,17 +584,30 @@ if __name__ == '__main__':
                 )
                 print("-------------------------------------------------")
                 print("for deg = {}, nb_patches = {}**2".format(deg,nbp))
-                print("error: {}".format(error))
+                print("error         : {}".format(error))
+                print("relative error: {}".format(relerror))
                 print("-------------------------------------------------\n")
         
                 errors[i_deg][i_nbp][i_nbc] = error
     
     if len(nbc_s) == 1:
         write_errors_array_deg_nbp(errors, deg_s, nbp_s, nbc, error_dir='./errors', name=test_case)
-    else:
-        print("WARNING: not writing any error file")        
+    
+    else:        
+        for i_deg, deg in enumerate(deg_s): 
+            for i_nbp, nbp in enumerate(nbp_s): 
+                print("-------------------------------------------------\n")
+                print("errors as nb of cells increase: ")
+                for i_nbc, nbc in enumerate(nbc_s): 
+                    h = np.pi / nbc
+                    err = errors[i_deg][i_nbp][i_nbc]                    
+                    print("error for deg = {}, nbp = {}, nbc = {}:  {}".format(
+                        deg, nbp, nbc, err))
+                    print("ratio error / h :  {}".format(err / h))
 
-    # if len(nbc_s) == 1:
-    #     write_errors_array_deg_nbp(errors, deg_s, nbp_s, nbc, error_dir='./errors', name=test_case)
+        print("-------------------------------------------------\n")
+        print("WARNING: not writing any error file")        
+        print("-------------------------------------------------\n")
+
 
     time_count(t_stamp_full, msg='full program')

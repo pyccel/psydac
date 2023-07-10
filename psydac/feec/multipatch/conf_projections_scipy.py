@@ -15,7 +15,7 @@ from psydac.linalg.utilities    import array_to_psydac
 ####  projection from valentin:
 
 mom_pres = True
-gamma = 0 #1 # 0  # option for C1 conformity (1 smoother than 0 ?)
+gamma = 0  # option for C1 conformity (1 smoother than 0 ?)
 
 # def get_patch_index_from_face(domain, face):
 #     """ Return the patch index of subdomain/boundary
