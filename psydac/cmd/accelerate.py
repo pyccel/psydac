@@ -54,7 +54,13 @@ def main():
         for name in files:
             if name.endswith('_kernels.py'):
                 print('Pyccelise file :' + os.path.join(path, name))
-                sub_run([shutil.which('pyccel'), os.path.join(path, name), *parameters], shell=False)
+                # TODO remove the if when the issue of pyccelise bsplines_kernels.py with --openmp is solved
+                if name.endswith('bsplines_kernels.py') and '--openmp' in parameters:
+                    parameters_splines = parameters.copy()
+                    parameters_splines.remove('--openmp')
+                    sub_run([shutil.which('pyccel'), os.path.join(path, name), *parameters_splines], shell=False)
+                else:
+                    sub_run([shutil.which('pyccel'), os.path.join(path, name), *parameters], shell=False)
                 print('\n')
     return
 
