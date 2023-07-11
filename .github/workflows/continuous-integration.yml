@@ -102,6 +102,7 @@ jobs:
       - name: Install project
         run: |
           python -m pip install .
+          pyccel psydac/core/kernels.py --language fortran
           python -m pip freeze
 
       - name: Initialize test directory

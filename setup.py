@@ -112,9 +112,7 @@ class BuildPyCommand(setuptools.command.build_py.build_py):
                 '\nPyccelise module: %s' % str(module),
                 level=distutils.log.INFO)
             # TODO remove the if when the issue of pyccelise bsplines_kernels.py with --openmp is solved
-            if module.endswith('bsplines_kernels'):
-                sub_run([shutil.which('pyccel'), outfile], shell=False)
-            else:
+            if not module.endswith('bsplines_kernels'):
                 sub_run([shutil.which('pyccel'), outfile, '--language', 'fortran', '--openmp'], shell=False)
 
         # This part is copy from setuptools.command.build_py.build_module
