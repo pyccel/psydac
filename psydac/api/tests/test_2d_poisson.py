@@ -1,11 +1,12 @@
 # -*- coding: UTF-8 -*-
 
+import os
+os.environ['OMP_NUM_THREADS'] = "2"
+
 from mpi4py import MPI
 from sympy import pi, cos, sin, symbols
 from sympy.utilities.lambdify import implemented_function
 import pytest
-import os
-os.environ['OMP_NUM_THREADS'] = "2"
 
 from sympde.calculus import grad, dot
 from sympde.topology import ScalarFunctionSpace
