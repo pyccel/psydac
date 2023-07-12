@@ -14,6 +14,7 @@
 #      Please note that the logical coordinates (x1, x2) correspond to the polar
 #      coordinates (r, theta), but with reversed order: hence x1=theta and x2=r
 
+import os
 from mpi4py import MPI
 from sympy import pi, cos, sin, symbols
 from sympy.abc import x, y
