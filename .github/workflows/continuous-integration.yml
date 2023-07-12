@@ -113,7 +113,7 @@ jobs:
         working-directory: ./pytest
         run: |
           export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
-          export OMP_NUM_THREADS = 4
+          export OMP_NUM_THREADS03
           python -m pytest --pyargs psydac.api.tests.test_2d_mapping_poisson -m "not parallel" -vx
           python mpi_tester.py --pyargs psydac -m "parallel and not petsc"
 
