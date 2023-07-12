@@ -1,7 +1,5 @@
 # -*- coding: UTF-8 -*-
 
-import os
-os.environ['OMP_NUM_THREADS'] = "2"
 
 from mpi4py import MPI
 from sympy import pi, cos, sin, symbols
