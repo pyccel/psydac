@@ -20,13 +20,14 @@ from sympy.abc import x, y
 import pytest
 import os
 import numpy as np
+os.environ['OMP_NUM_THREADS']    = "2"
 
 from sympde.calculus import grad, dot
 from sympde.calculus import laplace
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import NormalVector
-from sympde.topology import Domain,Square
+from sympde.topology import Domain
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
@@ -43,8 +44,7 @@ except:
     base_dir = os.path.dirname(os.path.realpath(__file__))
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
-# ...
-os.environ['OMP_NUM_THREADS']    = "2"
+
 # backend to activate multi threading
 PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP           = PSYDAC_BACKEND_GPYCCEL.copy()
 PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP['openmp'] = True
