@@ -588,6 +588,7 @@ def test_poisson_2d_collela_dir0_123_neui_4(backend):
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    print(os.environ.get('OMP_NUM_THREADS'))
 
 #------------------------------------------------------------------------------
 def test_poisson_2d_collela_dir0_123_diri_4():
