@@ -106,19 +106,19 @@ brew info hdf5-mpi
 
 At this point the Psydac library may be installed in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the Psydac directory. The latter mode allows one to effect the behavior of Psydac by modifying the source files.
 
-*   **Standard mode**:
+-   **Standard mode**:
     ```bash
     python3 -m pip install .
     ```
 
-*   **Development mode**:
+-   **Development mode**:
     ```bash
     python3 -m pip install --editable .
     ```
 
 ## Uninstall
 
-*   **Whichever the install mode**:
+-   **Whichever the install mode**:
     ```bash
     python3 -m pip uninstall psydac
     ```
@@ -137,7 +137,7 @@ Some of the low-level functions in psydac are written in python in a way that ca
 
 In case of an editable installation, the command `psydac-accelerate` allow to apply pyccel on all of them. Otherwise, the classical installation already pyccelise the kernels files.
 
-*   **Only in development mode**:
+-   **Only in development mode**:
     ```bash
     psydac-accelerate --language LANGUAGE
     ```
