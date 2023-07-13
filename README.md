@@ -139,7 +139,7 @@ In case of an editable installation, the command `psydac-accelerate` allow to ap
 
 -   **Only in development mode**:
     ```bash
-    psydac-accelerate --language LANGUAGE
+    python3 /path/to/psydac/psydac_accelerate.py [--language LANGUAGE] [--openmp]
     ```
 
 ## User documentation
