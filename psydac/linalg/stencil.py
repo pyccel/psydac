@@ -1625,7 +1625,7 @@ class StencilMatrix( LinearOperator ):
                  for mi, mj, n, p in zip(cm, dm, ndiagsT, pp)]
 
         args = [*nrows, *ncols, *gpads, *pp, *dm, *cm, *ndiags, *ndiagsT, *si, *sk, *sl]
-        return args
+        return np.int64(args)
 
     # ...
     def set_backend(self, backend):
@@ -2030,7 +2030,7 @@ class StencilInterfaceMatrix(LinearOperator):
         ncols[dim] = pads[dim] + 1 - diff_c + 2*cm[dim]*pads[dim]
 
         args = [*nrows, *ncols, *gpads, *pads, *dm, *cm, *ndiags, *ndiagsT, *si, *sk, *sl]
-        return args
+        return np.int64(args)
     # ...
     def toarray( self, **kwargs ):
 
