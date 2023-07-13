@@ -32,7 +32,7 @@ args = parser.parse_args()
 # get the absolute path to the psydac directory
 psydac_path = os.path.dirname(os.path.abspath(__file__))+'/psydac'
 
-print("\nThis command should only be used if psydac was installed in editable mode.\n")
+print("\n This script should only be used if psydac was installed in editable mode.\n")
 
 # Define all the parameters of the command in the parameters array
 parameters = ['--language', args.language]
