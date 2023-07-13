@@ -13,6 +13,7 @@ def main():
     parser.add_argument('--language',
                         type=str,
                         default='fortran',
+                        choices=['fortran', 'c'],
                         action='store',
                         dest='language',
                         help='Language used to pyccelise all the _kernels files'
@@ -34,19 +35,11 @@ def main():
 
     print("\nThis command should only be used if psydac was installed in editable mode.\n")
 
-    # check if the language have the good format
-    language    = args.language
-
-    if language not in ['fortran', 'c']:
-        print("\nWarning: The language given is not used by pyccel. It must be 'fortran' or 'c'. For this run, it is taken as fortran.\n")
-        language = 'fortran'
-
     # Define all the parameters of the command in the parameters array
-    parameters = ['--language', language]
+    parameters = ['--language', args.language]
 
     # check if the flag --openmp is passed and add it to the argument if it's the case
-    openmp      = args.openmp
-    if openmp:
+    if args.openmp:
         parameters.append('--openmp')
 
     # search in psydac/psydac folder all the files ending with the tag _kernels.py

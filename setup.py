@@ -122,6 +122,15 @@ class BuildPyCommand(setuptools.command.build_py.build_py):
     def run(self):
         setuptools.command.build_py.build_py.run(self)
 
+        # Remove __pyccel__ directories
+        sub_run(['pyccel-clean', self.build_lib], shell=False)
+
+        # Remove useless .lock files
+        for path, subdirs, files in os.walk(self.build_lib):
+            for name in files:
+                if name == '.lock_acquisition.lock':
+                    os.remove(os.path.join(path, name))
+
 
 setuptools.setup(
     cmdclass={
