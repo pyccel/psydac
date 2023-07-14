@@ -13,7 +13,7 @@ from sympy import Float as sp_Float, Rational as sp_Rational
 from sympy import preorder_traversal
 
 from sympy.simplify.radsimp   import fraction
-from sympy.core.compatibility import with_metaclass
+from sympde.old_sympy_utilities import with_metaclass
 from sympy.core.assumptions   import StdFactKB
 from sympy.core.singleton     import S
 from sympy.core.function      import Function, Application
