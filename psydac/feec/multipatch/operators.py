@@ -188,6 +188,7 @@ def get_row_col_index(corner1, corner2, interface, axis, V1, V2):
 
     return row+col
 
+
 #===============================================================================
 def allocate_interface_matrix(corners, test_space, trial_space):
     """ Allocate the interface matrix for a vertex shared by two patches
@@ -242,6 +243,10 @@ def allocate_interface_matrix(corners, test_space, trial_space):
     mat  = StencilInterfaceMatrix(trial_space.vector_space, test_space.vector_space, s, s, axis, flip=flips[0], permutation=list(permutation))
     return mat
 
+#===============================================================================
+# The following operators are not compatible with the changes in the Stencil format
+# and their datatype does not allow for non-matching interfaces, but they might be
+# useful for future implementations 
 #===============================================================================
 class ConformingProjection_V0( FemLinearOperator):
     """
