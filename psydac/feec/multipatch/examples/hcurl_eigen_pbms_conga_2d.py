@@ -18,6 +18,7 @@ from psydac.feec.multipatch.operators                   import HodgeOperator
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.utilities                   import time_count
+from psydac.feec.multipatch.non_matching_operators      import construct_V0_conforming_projection, construct_V1_conforming_projection
 
 def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='python', mu=1, nu=1, gamma_h=10,
                           sigma=None, nb_eigs=4, nb_eigs_plot=4,
@@ -71,7 +72,7 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
 
     print('building symbolic and discrete derham sequences...')
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-    derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
+    derham_h = discretize(derham, domain_h, degree=degree)
 
     V0h = derham_h.V0
     V1h = derham_h.V1
@@ -102,10 +103,8 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
 
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
-    cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
-    cP0_m = cP0.to_sparse_matrix()
-    cP1_m = cP1.to_sparse_matrix()
+    cP0_m = construct_V0_conforming_projection(V0h, domain_h, True)
+    cP1_m = construct_V1_conforming_projection(V1h, domain_h, True)
 
     print('broken differential operators...')
     bD0, bD1 = derham_h.broken_derivatives_as_operators
@@ -214,10 +213,10 @@ if __name__ == '__main__':
         nc = 8
         deg = 4
 
-    domain_name = 'pretzel_f'
-    # domain_name = 'curved_L_shape'
+    #domain_name = 'pretzel_f'
+    domain_name = 'curved_L_shape'
     nc = 10
-    deg = 2
+    deg = 3
 
     m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
     run_dir = 'eigenpbm_{}_nc={}_deg={}/'.format(domain_name, nc, deg)

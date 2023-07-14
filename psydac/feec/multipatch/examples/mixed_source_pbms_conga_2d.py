@@ -28,6 +28,8 @@ from psydac.feec.multipatch.examples.ppc_test_cases            import get_source
 from psydac.feec.multipatch.examples.hcurl_eigen_pbms_conga_2d import get_eigenvalues
 from psydac.feec.multipatch.utilities                          import time_count
 
+from psydac.feec.multipatch.non_matching_operators      import construct_V0_conforming_projection, construct_V1_conforming_projection
+
 def solve_magnetostatic_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_L2_wcurl_J',
         source_type='dipole_J', bc_type='metallic',
@@ -120,7 +122,7 @@ def solve_magnetostatic_pbm(
 
     print('building symbolic and discrete derham sequences...')
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-    derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
+    derham_h = discretize(derham, domain_h, degree=degree)
 
     V0h = derham_h.V0
     V1h = derham_h.V1
@@ -137,18 +139,18 @@ def solve_magnetostatic_pbm(
     # these physical projection operators should probably be in the interface...
     def P0_phys(f_phys):
         f = lambdify(domain.coordinates, f_phys)
-        f_log = [pull_2d_h1(f, m) for m in mappings_list]
+        f_log = [pull_2d_h1(f, m.get_callable_mapping()) for m in mappings_list]
         return P0(f_log)
 
     def P1_phys(f_phys):
         f_x = lambdify(domain.coordinates, f_phys[0])
         f_y = lambdify(domain.coordinates, f_phys[1])
-        f_log = [pull_2d_hcurl([f_x, f_y], m) for m in mappings_list]
+        f_log = [pull_2d_hcurl([f_x, f_y], m.get_callable_mapping()) for m in mappings_list]
         return P1(f_log)
 
     def P2_phys(f_phys):
         f = lambdify(domain.coordinates, f_phys)
-        f_log = [pull_2d_l2(f, m) for m in mappings_list]
+        f_log = [pull_2d_l2(f, m.get_callable_mapping()) for m in mappings_list]
         return P2(f_log)
 
     I0_m = IdLinearOperator(V0h).to_sparse_matrix()
@@ -175,10 +177,9 @@ def solve_magnetostatic_pbm(
 
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    cP0 = derham_h.conforming_projection(space='V0', hom_bc=hom_bc, backend_language=backend_language, load_dir=m_load_dir)
-    cP1 = derham_h.conforming_projection(space='V1', hom_bc=hom_bc, backend_language=backend_language, load_dir=m_load_dir)
-    cP0_m = cP0.to_sparse_matrix()
-    cP1_m = cP1.to_sparse_matrix()
+    cP0_m = construct_V0_conforming_projection(V0h, domain_h, hom_bc=True)
+    cP1_m = construct_V1_conforming_projection(V1h, domain_h, hom_bc=True)
+
 
     print('broken differential operators...')
     bD0, bD1 = derham_h.broken_derivatives_as_operators

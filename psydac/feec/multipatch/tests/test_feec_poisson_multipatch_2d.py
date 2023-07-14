@@ -16,7 +16,7 @@ def test_poisson_pretzel_f():
                 backend_language='pyccel-gcc',
                 plot_source=False,
                 plot_dir='./plots/h1_tests_source_february/'+run_dir)
-
+    print(l2_error)
     assert abs(l2_error-8.054935880021907e-05)<1e-10
 
 #==============================================================================
@@ -30,3 +30,6 @@ def teardown_module():
 def teardown_function():
     from sympy.core import cache
     cache.clear_cache()
+
+if __name__ == '__main__':
+    test_poisson_pretzel_f()

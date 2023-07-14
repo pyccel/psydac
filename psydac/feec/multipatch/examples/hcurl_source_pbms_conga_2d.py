@@ -29,6 +29,8 @@ from psydac.feec.multipatch.utilities                   import time_count
 from psydac.linalg.utilities                            import array_to_psydac
 from psydac.fem.basic                                   import FemField
 
+from psydac.feec.multipatch.non_matching_operators      import construct_V0_conforming_projection, construct_V1_conforming_projection
+
 def solve_hcurl_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
         eta=-10., mu=1., nu=1., gamma_h=10.,
@@ -107,7 +109,7 @@ def solve_hcurl_source_pbm(
 
     t_stamp = time_count(t_stamp)
     print('building discrete derham sequence...')
-    derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
+    derham_h = discretize(derham, domain_h, degree=degree)
 
     t_stamp = time_count(t_stamp)
     print('building commuting projection operators...')
@@ -162,10 +164,8 @@ def solve_hcurl_source_pbm(
     t_stamp = time_count(t_stamp)
     print('building the conforming Projection operators and matrices...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
-    cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
-    cP0_m = cP0.to_sparse_matrix()
-    cP1_m = cP1.to_sparse_matrix()
+    cP0_m = construct_V0_conforming_projection(V0h, domain_h, hom_bc=True)
+    cP1_m = construct_V1_conforming_projection(V1h, domain_h, hom_bc=True)
 
     t_stamp = time_count(t_stamp)
     print('building the broken differential operators and matrices...')
@@ -183,7 +183,7 @@ def solve_hcurl_source_pbm(
             # note: for simplicity we apply the full P1 on u_bc, but we only need to set the boundary dofs
             u_bc_x = lambdify(domain.coordinates, u_bc[0])
             u_bc_y = lambdify(domain.coordinates, u_bc[1])
-            u_bc_log = [pull_2d_hcurl([u_bc_x, u_bc_y], m) for m in mappings_list]
+            u_bc_log = [pull_2d_hcurl([u_bc_x, u_bc_y], m.get_callable_mapping()) for m in mappings_list]
             # it's a bit weird to apply P1 on the list of (pulled back) logical fields -- why not just apply it on u_bc ?
             uh_bc = P1(u_bc_log)
             ubc_c = uh_bc.coeffs.toarray()
@@ -240,7 +240,7 @@ def solve_hcurl_source_pbm(
         print('projecting the source with commuting projection...')
         f_x = lambdify(domain.coordinates, f_vect[0])
         f_y = lambdify(domain.coordinates, f_vect[1])
-        f_log = [pull_2d_hcurl([f_x, f_y], m) for m in mappings_list]
+        f_log = [pull_2d_hcurl([f_x, f_y], m.get_callable_mapping()) for m in mappings_list]
         f_h = P1(f_log)
         f_c = f_h.coeffs.toarray()
         b_c = dH1_m.dot(f_c)
@@ -251,7 +251,7 @@ def solve_hcurl_source_pbm(
         v  = element_of(V1h.symbolic_space, name='v')
         expr = dot(f_vect,v)
         l = LinearForm(v, integral(domain, expr))
-        lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
+        lh = discretize(l, domain_h, V1h)
         b  = lh.assemble()
         b_c = b.toarray()
         if plot_source:
