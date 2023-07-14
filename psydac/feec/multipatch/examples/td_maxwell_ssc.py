@@ -148,13 +148,19 @@ def solve_td_maxwell_pbm(
     t_stamp = time_count()
     print(' .. multi-patch domain...')
     
-    if domain_name == 'multipatch_rectangle':
+    if domain_name in ['multipatch_rectangle', 'mpr_collela']:
+        if domain_name == 'multipatch_rectangle':
+            F_name = 'Identity'
+        else:
+            F_name = 'Collela'
+        
         domain, domain_h, bnds = build_multipatch_rectangle(
             nb_patch_x, nb_patch_y, 
             x_min=0, x_max=np.pi,
             y_min=0, y_max=np.pi,
             perio=[False,False],
             ncells=ncells,
+            F_name=F_name,
             )
 
     else:

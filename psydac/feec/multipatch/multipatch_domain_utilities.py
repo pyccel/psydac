@@ -655,7 +655,7 @@ def union_bnd(list_of_bnd):
         unif_bnd = Union(unif_bnd, list_of_bnd[i])
     return unif_bnd
 
-def build_multipatch_rectangle(nb_patch_x = 2, nb_patch_y = 2, x_min=0, x_max=np.pi, y_min=0, y_max=np.pi, perio=[True,True], ncells=[4,4], comm=None):
+def build_multipatch_rectangle(nb_patch_x = 2, nb_patch_y = 2, x_min=0, x_max=np.pi, y_min=0, y_max=np.pi, perio=[True,True], ncells=[4,4], comm=None, F_name='Identity'):
     """
     Create a 2D multipatch rectangle domain with the prescribed number of patch in each direction.
     (copied from Valentin's code)
@@ -683,6 +683,9 @@ def build_multipatch_rectangle(nb_patch_x = 2, nb_patch_y = 2, x_min=0, x_max=np
     perio: list of <bool>
      periodicity of the domain in each direction
     
+    F_name: <string>
+     name of a (global) mapping to apply to all the patches
+
     Returns
     -------
     domain : <Sympde.topology.Domain>
@@ -696,7 +699,14 @@ def build_multipatch_rectangle(nb_patch_x = 2, nb_patch_y = 2, x_min=0, x_max=np
                     bounds1 = (x_min+i/nb_patch_x*x_diff,x_min+(i+1)/nb_patch_x*x_diff),
                     bounds2 = (y_min+j/nb_patch_y*y_diff,y_min+(j+1)/nb_patch_y*y_diff)) for j in range(nb_patch_y)] for i in range(nb_patch_x)]
 
-    list_mapping = [[IdentityMapping('M_'+str(i)+'_'+str(j),2) for j in range(nb_patch_y)] for i in range(nb_patch_x)]
+    if F_name == 'Identity':
+        F = lambda name: IdentityMapping(name, 2)
+    elif F_name == 'Collela':
+        F = lambda name: CollelaMapping2D(name, eps=0.5)
+    else:
+        raise NotImplementedError(F_name)
+
+    list_mapping = [[F('M_'+str(i)+'_'+str(j)) for j in range(nb_patch_y)] for i in range(nb_patch_x)]
 
     list_domain = [[list_mapping[i][j](list_Omega[i][j]) for j in range(nb_patch_y)] for i in range(nb_patch_x)]
 

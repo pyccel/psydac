@@ -25,7 +25,7 @@ J_proj_case = ''
 # method:
 #   - swc = strong-weak-conga
 #   - ssc = strong-strong-conga
-method =  'ssc' # 'swc' #
+method =  'swc' #'ssc' # 
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
@@ -35,12 +35,13 @@ nbc_s = [6] #,8,16] #,32]
 # nbp_s = [2,4,8, 16]  # only for 'multipatch_rectangle' domain
 
 deg_s = [3,4] # ,4,5]
-nbp_s = [2,4,8,16]  # only for 'multipatch_rectangle' domain
+nbp_s = [2,4] #,8,16]  # only for 'multipatch_rectangle' domain
 
 # domain_name = 'pretzel_f'
 # domain_name = 'square_9'  # for cavity solution, must be a square of diameter pi
 # domain_name = 'collela_square_9'  # for cavity solution, must be a square of diameter pi
 domain_name = 'multipatch_rectangle'
+domain_name = 'mpr_collela'
 
 if test_case == 'cavity':
     a = np.pi 
@@ -64,6 +65,7 @@ tau = 0.01 * period_time
 
 # must be integer ! (for now)
 nb_tau = 1  # final time: T = nb_tau * tau
+nb_tau = 100 # (1 period)
 
 # plotting ranges:
 #   we give a list of ranges and plotting period: [[t_start, t_end], nt_plot_period]
@@ -121,11 +123,11 @@ elif test_case == 'cavity':
         plot_time_ranges = [
             [[0, nb_tau], 10] 
         ]
-    else:
-        # plot only a few snapshots
-        plot_time_ranges = [
-            [[0, nb_tau], 1]        
-        ]
+    # else:
+    #     # plot only a few snapshots
+    #     plot_time_ranges = [
+    #         [[0, nb_tau], 1]        
+    #     ]
 
     cb_min_sol = 0
     cb_max_sol = 1
@@ -239,7 +241,7 @@ for i_deg, deg in enumerate(deg_s):
                 'omega': omega,
                 'quad_param': quad_param,
             }
-            if domain_name == 'multipatch_rectangle':
+            if domain_name in ['multipatch_rectangle', 'mpr_collela']:
                 params['nbp'] = nbp
 
             # backend_language = 'numba'
