@@ -66,6 +66,11 @@ def get_fem_name(method=None, k=None, DG_full=False, conf_proj=None, domain_name
         fn += '_inhom'
     return fn
 
+def FEM_sol_fn(source_type=None, source_proj=None):
+    """ Get the filename for FEM solution coeffs in numpy array format """
+    fn = 'sol_'+source_name(source_type, source_proj)+'.npy'
+    return fn
+    
 def get_load_dir(method=None, DG_full=False, domain_name=None,nc=None,deg=None,data='matrices'):
     """ get load directory name based on the fem name"""
     assert data in ['matrices','solutions','rhs']
@@ -73,3 +78,32 @@ def get_load_dir(method=None, DG_full=False, domain_name=None,nc=None,deg=None,d
         assert data == 'rhs'
     fem_name = get_fem_name(domain_name=domain_name,method=method, nc=nc,deg=deg, DG_full=DG_full)
     return './saved_'+data+'/'+fem_name+'/'
+
+def get_run_dir(domain_name, nc, deg, source_type=None, conf_proj=None):
+    rdir = domain_name
+    if source_type:
+        rdir += '_'+source_type
+    if conf_proj:
+        rdir += '_P='+conf_proj
+    rdir += '_nc={}_deg={}'.format(nc, deg)
+    return rdir
+
+def get_plot_dir(case_dir, run_dir):
+    return './plots/'+case_dir+'/'+run_dir
+
+def get_mat_dir(domain_name, nc, deg, quad_param=None):
+    mat_dir = './saved_matrices/matrices_{}_nc={}_deg={}'.format(domain_name, nc, deg)
+    if quad_param is not None:
+        mat_dir += '_qp={}'.format(quad_param)
+    return mat_dir
+
+def get_sol_dir(case_dir, domain_name, nc, deg):
+    return './saved_solutions/'+case_dir+'/solutions_{}_nc={}_deg={}'.format(domain_name, nc, deg)
+            
+def diag_fn(source_type=None, source_proj=None):
+    """ Get the diagnostics filename"""
+    if source_type is not None:
+        fn = 'diag_'+source_name(source_type, source_proj)+'.txt'
+    else:
+        fn = 'diag.txt'
+    return fn
