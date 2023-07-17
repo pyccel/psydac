@@ -956,9 +956,10 @@ class PostProcessManager:
             ncells_dict = {interior_name: interior_names_to_ncells[interior_name] for interior_name in subdomain_names}
             # No need for a a dict until PR about non-conforming meshes is merged
             # Check for conformity
-            ncells =  list(ncells_dict.values())[0]
-            assert all(ncells_patch == ncells for ncells_patch in ncells_dict.values())
-
+            ncells =  ncells_dict#list(ncells_dict.values())[0]
+            #try non conforming
+            #assert all(ncells_patch == ncells for ncells_patch in ncells_dict.values())
+            
             subdomain    = domain.get_subdomain(subdomain_names)
             space_name_0 = list(space_dict.keys())[0]
             periodic     = space_dict[space_name_0][2].get('periodic', None)
