@@ -32,7 +32,7 @@ dependencies = [
     'pyevtk',
 
     # Our packages from PyPi
-    'sympde @ git+https://github.com/pyccel/sympde.git#egg=Upgrade_sympy',
+    'sympde@git+https://github.com/pyccel/sympde.git#egg=Upgrade_sympy',
     'pyccel >= 1.8.1',
     'gelato == 0.12',
 
