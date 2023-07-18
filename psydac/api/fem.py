@@ -726,7 +726,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                         elif use_prolongation:
                             Ps  = [knot_insertion_projection_operator(trs, trs.get_refined_space(ncells)) for trs in trial_fem_space.spaces]
                             P   = BlockLinearOperator(trial_fem_space.vector_space, trial_fem_space.get_refined_space(ncells).vector_space)
-                            for ni,Pi in enumerate(Ps):P[ni,ni] = Pi
+                            for ni,Pi in enumerate(Ps):
+                                P[ni,ni] = Pi
+
                             mat = ComposedLinearOperator(trial_space, test_space, mat, P)
 
                     self._matrix[i,j] = mat
@@ -789,9 +791,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                     if is_conformal:
                         matrix[k1, k2] = global_mats[k1, k2]
                     elif use_restriction:
-                        matrix.operators[-1][k1, k2] = global_mats[k1, k2]
+                        matrix.multiplicants[-1][k1, k2] = global_mats[k1, k2]
                     elif use_prolongation:
-                        matrix.operators[0][k1, k2] = global_mats[k1, k2]
+                        matrix.multiplicants[0][k1, k2] = global_mats[k1, k2]
 
         else: # case of scalar equation
             if is_broken: # multi-patch
