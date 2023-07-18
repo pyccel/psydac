@@ -118,7 +118,7 @@ class MultiPatchDomainDecomposition:
 
     @property
     def ncells( self ):
-        return self._npts
+        return self._ncells
 
     @property
     def periods( self ):
