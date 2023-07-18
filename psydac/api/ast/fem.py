@@ -1450,9 +1450,9 @@ def _create_ast_linear_form(domain, terminal_expr, atomic_expr_field, tests, d_t
         if invert_quad_loop:
             # ... loop over the quadrature points
             loop   = Loop((*l_quad,), ind_quad, stmts=g_stmts, mask=mask)
-            g_stmts = [Reset(l_vecs), *[em.inits for em in eval_fields], inits, loop]
+            g_stmts = flatten([Reset(l_vecs), *[em.inits for em in eval_fields], inits, loop])
         else:
-            g_stmts = [inits, *g_stmts]
+            g_stmts = flatten([inits, *g_stmts])
 
         # ... loop over global elements
         global_elements_loop  = Loop((*g_quad, *g_span.values(), *m_span.values(), *f_span.values()), ind_element, stmts=g_stmts, mask=mask)
