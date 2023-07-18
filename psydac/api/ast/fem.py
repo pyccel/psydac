@@ -470,7 +470,7 @@ class AST(object):
             mapping = IdentityMapping('M_{}'.format(name), dim)
 
         invert_quad_loop = True if nderiv>1 or mapping_space else False
-        invert_quad_loop = False
+        invert_quad_loop = True
 
         if is_linear:
             ast = _create_ast_linear_form(domain, terminal_expr, atomic_expr_field, tests, d_tests, fields, d_fields, constants,
