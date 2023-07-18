@@ -300,7 +300,7 @@ def test_magnetostatic_pbm_inner_curve():
 
 def test_solve_J_direct_annulus_with_poisson_psi():
     annulus, derham = _create_domain_and_derham()
-    ncells = [10,10]
+    ncells = [16,16]
     annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
     derham_h = discretize(derham, annulus_h, degree=[2,2])
     assert isinstance(derham_h, DiscreteDerham)
@@ -333,6 +333,34 @@ def test_solve_J_direct_annulus_with_poisson_psi():
     B_h_coeffs = array_to_psydac(B_h_coeffs_arr, derham_h.V1.vector_space)
     B_h = FemField(derham_h.V1, coeffs=B_h_coeffs)
 
+    does_plot_psi = True
+    if does_plot_psi:
+        output_manager = OutputManager('magnetostatic_V0.yml',
+                                             'psi_h.h5')
+        output_manager.add_spaces(V0=derham_h.V0)
+        output_manager.export_space_info()
+        output_manager.set_static()
+        output_manager.export_fields(psi_h=psi_h)
+        post_processor = PostProcessManager(domain=annulus,
+                                            space_file='magnetostatic_V0.yml',
+                                            fields_file='psi_h.h5')
+        post_processor.export_to_vtk('plot_files/manufactured_poisson_psi/psi_h_vtk', npts_per_cell=5, fields='psi_h')
+
+    does_plot = True
+    if does_plot:
+        output_manager = OutputManager('spaces_magnetostatic.yml', 
+                                       'fields_magnetostatic.h5')
+        output_manager.add_spaces(V1=derham_h.V1)
+        output_manager.export_space_info()
+        output_manager.set_static()
+        output_manager.export_fields(B_h=B_h)
+        post_processor = PostProcessManager(domain=annulus, 
+                                            space_file='spaces_magnetostatic.yml',
+                                            fields_file='fields_magnetostatic.h5')
+        post_processor.export_to_vtk('plot_files/manufactured_poisson_psi/B_h_vtk', npts_per_cell=5,
+                                        fields=("B_h"))
+
+
     eval_grid = [np.array([0.25, 0.5, 0.75]), np.array([np.pi/2, np.pi])]
     V1h = derham_h.V1
     assert isinstance(V1h, VectorFemSpace)
@@ -346,7 +374,7 @@ def test_solve_J_direct_annulus_with_poisson_psi():
 def test_solve_J_direct_annulus_inner_curve():
     annulus, derham = _create_domain_and_derham()
 
-    ncells = [10,10]
+    ncells = [64,64]
     annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
     derham_h = discretize(derham, annulus_h, degree=[2,2])
     assert isinstance(derham_h, DiscreteDerham)
@@ -393,6 +421,35 @@ def test_solve_J_direct_annulus_inner_curve():
 
     B_h_coeffs = array_to_psydac(B_h_coeffs_arr, derham_h.V1.vector_space)
     B_h = FemField(derham_h.V1, coeffs=B_h_coeffs)
+
+    does_plot_psi = True
+    if does_plot_psi:
+        output_manager = OutputManager('magnetostatic_V0.yml',
+                                             'psi_h.h5')
+        output_manager.add_spaces(V0=derham_h.V0)
+        output_manager.export_space_info()
+        output_manager.set_static()
+        output_manager.export_fields(psi_h=psi_h)
+        post_processor = PostProcessManager(domain=annulus,
+                                            space_file='magnetostatic_V0.yml',
+                                            fields_file='psi_h.h5')
+        post_processor.export_to_vtk('plot_files/manufactured_inner_curve/psi_h_vtk', npts_per_cell=5, fields='psi_h')
+
+    does_plot = True
+    if does_plot:
+        output_manager = OutputManager('spaces_magnetostatic.yml', 
+                                       'fields_magnetostatic.h5')
+        output_manager.add_spaces(V1=derham_h.V1)
+        output_manager.export_space_info()
+        output_manager.set_static()
+        output_manager.export_fields(B_h=B_h)
+        post_processor = PostProcessManager(domain=annulus, 
+                                            space_file='spaces_magnetostatic.yml',
+                                            fields_file='fields_magnetostatic.h5')
+        post_processor.export_to_vtk('plot_files/manufactured_inner_curve/B_h_vtk', npts_per_cell=5,
+                                        fields=("B_h"))
+
+
     eval_grid = [np.array([0.25, 0.5, 0.75]), np.array([np.pi/2, np.pi])]
     V1h = derham_h.V1
     assert isinstance(V1h, VectorFemSpace)
@@ -405,7 +462,7 @@ def test_solve_J_direct_annulus_inner_curve():
 
 def test_biot_savart():
     annulus, derham = _create_domain_and_derham()
-    ncells = [10,10]
+    ncells = [64,64]
     annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
     derham_h = discretize(derham, annulus_h, degree=[2,2])
     assert isinstance(derham_h, DiscreteDerham)
@@ -428,7 +485,7 @@ def test_biot_savart():
                                     rmin=1.0, rmax=2.0)
     omega_gamma = polar_mapping(logical_domain_gamma)
     derham_gamma = Derham(domain=omega_gamma, sequence=['H1', 'Hdiv', 'L2'])
-    omega_gamma_h = discretize(omega_gamma, ncells=[5,10], periodic=[False, True])
+    omega_gamma_h = discretize(omega_gamma, ncells=[32,64], periodic=[False, True])
     derham_gamma_h = discretize(derham_gamma, omega_gamma_h, degree=[2,2])
     h1_proj_gamma = Projector_H1(derham_gamma_h.V0)
     assert isinstance(derham_h, DiscreteDerham)
@@ -466,7 +523,7 @@ def test_biot_savart():
         post_processor = PostProcessManager(domain=annulus,
                                             space_file='magnetostatic_V0.yml',
                                             fields_file='psi_h.h5')
-        post_processor.export_to_vtk('psi_h_vtk', npts_per_cell=5, fields='psi_h')
+        post_processor.export_to_vtk('plot_files/biot_savart_annulus/psi_h_vtk', npts_per_cell=5, fields='psi_h')
 
     does_plot = True
     if does_plot:
@@ -479,7 +536,7 @@ def test_biot_savart():
         post_processor = PostProcessManager(domain=annulus, 
                                             space_file='spaces_magnetostatic.yml',
                                             fields_file='fields_magnetostatic.h5')
-        post_processor.export_to_vtk('magnetostatic_pbm_vtk', npts_per_cell=3,
+        post_processor.export_to_vtk('plot_files/biot_savart_annulus/B_h_vtk', npts_per_cell=3,
                                         fields=("B_h"))
     
     does_plot_psi_omega = False
@@ -620,7 +677,7 @@ def _create_distorted_annulus_and_derham() -> Tuple[Domain, Derham]:
 def test_magnetostatic_pbm_annuluslike():
     logger = logging.getLogger("test_magnetostatic_pbm_annuluslike")
     domain, derham = _create_distorted_annulus_and_derham()
-    ncells = [16,16]
+    ncells = [64,64]
     domain_h = discretize(domain, ncells=ncells, periodic=[False, True])
     derham_h = discretize(derham, domain_h, degree=[2,2])
     assert isinstance(derham_h, DiscreteDerham)
@@ -655,7 +712,7 @@ def test_magnetostatic_pbm_annuluslike():
     distorted_polar_mapping = DistortedPolarMapping(name='polar_mapping', dim=2)
     omega_gamma = distorted_polar_mapping(logical_domain_gamma)
     derham_gamma = Derham(domain=omega_gamma, sequence=['H1', 'Hdiv', 'L2'])
-    omega_gamma_h = discretize(omega_gamma, ncells=[8,16], periodic=[False, True])
+    omega_gamma_h = discretize(omega_gamma, ncells=[32,64], periodic=[False, True])
     derham_gamma_h = discretize(derham_gamma, omega_gamma_h, degree=[2,2])
     h1_proj_gamma = Projector_H1(derham_gamma_h.V0)
     assert isinstance(derham_h, DiscreteDerham)
@@ -704,9 +761,21 @@ def test_magnetostatic_pbm_annuluslike():
         post_processor = PostProcessManager(domain=domain, 
                                             space_file='spaces_magnetostatic_distorted_annulus.yml',
                                             fields_file='fields_magnetostatic_distorted_annulus.h5')
-        post_processor.export_to_vtk('magnetostatic_pbm_distorted_annulus_vtk', npts_per_cell=3,
+        post_processor.export_to_vtk('plot_files/biot_savart_distorted/B_h', npts_per_cell=5,
                                         fields=("B_h", "B_exact"))
 
+    does_plot_psi = True
+    if does_plot_psi:
+        output_manager = OutputManager('magnetostatic_V0.yml',
+                                             'psi_h.h5')
+        output_manager.add_spaces(V0=derham_h.V0)
+        output_manager.export_space_info()
+        output_manager.set_static()
+        output_manager.export_fields(psi_h=psi_h)
+        post_processor = PostProcessManager(domain=domain,
+                                            space_file='magnetostatic_V0.yml',
+                                            fields_file='psi_h.h5')
+        post_processor.export_to_vtk('plot_files/biot_savart_distorted/psi_h_vtk', npts_per_cell=5, fields='psi_h')
 
     eval_grid = [np.array([0.25, 0.5, 0.75]), np.array([np.pi/2, np.pi])]
     V1h = derham_h.V1
@@ -724,5 +793,8 @@ if __name__ == '__main__':
     logging.basicConfig(filename='mydebug.log', level=logging.DEBUG, filemode='w')
     # test_magnetostatic_pbm_homogeneous()
     # test_magnetostatic_pbm_manufactured()
+    # test_solve_J_direct_annulus_with_poisson_psi()
+    # test_solve_J_direct_annulus_inner_curve()
     # test_constant_one()
+    # test_biot_savart()
     test_magnetostatic_pbm_annuluslike()
