@@ -470,7 +470,7 @@ class AST(object):
             mapping = IdentityMapping('M_{}'.format(name), dim)
 
         invert_quad_loop = True if nderiv>1 or mapping_space else False
-        invert_quad_loop = True
+        invert_quad_loop = False
 
         if is_linear:
             ast = _create_ast_linear_form(domain, terminal_expr, atomic_expr_field, tests, d_tests, fields, d_fields, constants,
@@ -1479,7 +1479,7 @@ def _create_ast_linear_form(domain, terminal_expr, atomic_expr_field, tests, d_t
             g_stmts = flatten([Reset(l_vecs), *[em.inits for em in eval_fields], inits, loop])
 
         else:
-            g_stmts = [inits, *g_stmts]
+            g_stmts = flatten([inits, *g_stmts])
 
         # ... loop over global elements
         global_element_loop  = Loop((*g_quad, *g_span.values(), *m_span.values(), *f_span.values()), ind_element, stmts=g_stmts, mask=mask)

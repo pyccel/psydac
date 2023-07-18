@@ -416,11 +416,13 @@ class EvalField(BaseNode):
         if isinstance(old_basis, IndexedVectorFunction):
             space  = old_basis.base.space
             name   = old_basis.base.name
+            basis = element_of(space, name=name+'_field')
+            basis = basis[old_basis.indices[0]]
         else:
             space  = old_basis.space
             name   = old_basis.name
 
-        basis = element_of(space, name=name+'_field')
+            basis = element_of(space, name=name+'_field')
 
         for v in tests:
             stmts_1 += list(zip(construct_logical_expressions(v, nderiv, lhs=v.subs(old_basis,basis)),
@@ -474,13 +476,15 @@ class EvalField(BaseNode):
             inits2  = [Assign(ProductGenerator(mat,Tuple(lhs_slices)), zero) for mat in mats]
 
         from psydac.api.ast.fem import expand
-        basis        = old_basis if old_basis in tests else old_basis.base
-        spans        = [Span(basis, i) for i in range(dim)]
-        degrees      = [LengthDofTest(basis, i) for i in range(dim)]
         ex_tests     = expand(tests)
-        index        = ex_tests.index(basis)
-        pads         = [Pads(tests, test_index=index, dim_index=i) for i in range(dim)]
+
         for coeff, l_coeff in zip(g_coeffs, l_coeffs):
+            basis        = coeff.test
+            index        = ex_tests.index(basis)
+            basis        = basis if basis in tests else basis.base
+            degrees      = [LengthDofTest(basis, i) for i in range(dim)]
+            spans        = [Span(basis, i) for i in range(dim)]
+            pads         = [Pads(tests, test_index=index, dim_index=i) for i in range(dim)]
             rhs_starts   = [AddNode(pads[i],spans[i],MulNode(Integer(-1),degrees[i])) for i in range(dim)]
             rhs_ends     = [AddNode(pads[i],spans[i],Integer(1))          for i in range(dim)]
             rhs_slices = tuple(Slice(toInteger(s), toInteger(e)) for s,e in zip(rhs_starts, rhs_ends))
@@ -491,7 +495,7 @@ class EvalField(BaseNode):
             body = Block([*inits2, body])
         else:
             body = Block([*inits, body])
-            inits = inits2
+            inits = Block(inits2)
 
         obj = Basic.__new__(cls, inits, body, dtype)
         obj._pads = Pads(tests)
@@ -2319,10 +2323,11 @@ def construct_logical_expressions(u, nderiv, lhs=None):
     args     = []
     lhs_args = []
     u = [u] if isinstance(u, (ScalarFunction, IndexedVectorFunction)) else [u[i] for i in range(dim)]
+
     if lhs is not None:
-        lhs = [lhs] if isinstance(lhs, (ScalarFunction, IndexedVectorFunction)) else [lhs[i] for i in range(dim)]
+        lhs = [lhs]*len(u) if isinstance(lhs, (ScalarFunction, IndexedVectorFunction)) else [lhs[i] for i in range(dim)]
     else:
-        lhs = [lhs]
+        lhs = [lhs]*len(u)
 
     for ijk in indices:
         for atom,lhs_atom in zip(u,lhs):
@@ -2333,6 +2338,7 @@ def construct_logical_expressions(u, nderiv, lhs=None):
                        lhs_atom = op(lhs_atom)
             args.append(atom)
             lhs_args.append(lhs_atom)
+
     return [ComputeLogicalBasis(i, lhs=a) for i,a in zip(args, lhs_args)]
 
 #==============================================================================
