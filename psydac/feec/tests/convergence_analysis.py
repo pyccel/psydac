@@ -199,10 +199,13 @@ if __name__ == '__main__':
             pickle.dump(l2_error_data, file)
 
     else: 
-        l2_error_data = None
-        with open('l2_error_data/biot_savart_annulus.pkl', 'rb') as file:
-            l2_error_data = pickle.load(file)
+        l2_error_data = {"n_cells": np.array([8,16,32,64]), "l2_error": np.zeros(4)}
         
+        n_cells = np.loadtxt('l2_error_data/biot_savart_annulus/n_cells.csv')
+        l2_error = np.loadtxt('l2_error_data/biot_savart_annulus/l2_error.csv')
+        l2_error_data['n_cells'] = n_cells
+        l2_error_data['l2_error'] = l2_error
+
         h = l2_error_data['n_cells']**(-1.0)
         h_squared = l2_error_data['n_cells']**(-2.0)
         h_cubed = l2_error_data['n_cells']**(-3.0)

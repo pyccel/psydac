@@ -211,20 +211,29 @@ def l2_error_biot_savart_distorted(N):
 
 
 if __name__ == '__main__':
-    computes_l2_errors = True
+    computes_l2_errors = False
     if computes_l2_errors:
-        l2_error_data = {"n_cells": np.array([8,16,32,64,128]), "l2_error": np.zeros(5)}
-        for i,N in enumerate([8,16,32,64,128]):
+        l2_error_data = {"n_cells": np.array([8,16,32,64]), "l2_error": np.zeros(4)}
+        for i,N in enumerate([8,16,32,64]):
             l2_error_data['l2_error'][i] = l2_error_biot_savart_distorted(N)
+            
+        np.savetxt('l2_error_data/biot_savart_distorted/n_cells.csv',
+                   l2_error_data['n_cells'], delimiter='\t')
+        np.savetxt('l2_error_data/biot_savart_distorted/l2_error.csv',
+                   l2_error_data['l2_error'], delimiter='\t')
 
-        with open('l2_error_data/biot_savart_distorted.pkl', 'wb') as file:
-            pickle.dump(l2_error_data, file)
 
     else: 
-        l2_error_data = None
-        with open('l2_error_data/biot_savart_distorted.pkl', 'rb') as file:
-            l2_error_data = pickle.load(file)
+        l2_error_data = {"n_cells": np.array([8,16,32,64]), "l2_error": np.zeros(4)}
+        # with open('l2_error_data/biot_savart_distorted.pkl', 'rb') as file:
+        #     l2_error_data = pickle.load(file)
         
+        
+        n_cells = np.loadtxt('l2_error_data/biot_savart_distorted/n_cells.csv')
+        l2_error = np.loadtxt('l2_error_data/biot_savart_distorted/l2_error.csv')
+        l2_error_data['n_cells'] = n_cells
+        l2_error_data['l2_error'] = l2_error
+
         h = l2_error_data['n_cells']**(-1.0)
         h_squared = l2_error_data['n_cells']**(-2.0)
         h_cubed = l2_error_data['n_cells']**(-3.0)
