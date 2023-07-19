@@ -23,7 +23,7 @@ parser.add_argument('--openmp',
                     default=False,
                     action='store_true',
                     dest='openmp',
-                    help='Do we read the OpenMP instrucions'
+                    help="Use OpenMP multithreading in generated code."
                     )
 
 # Read input arguments
