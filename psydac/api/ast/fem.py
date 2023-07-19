@@ -3,7 +3,7 @@
 import numpy as np
 from itertools   import groupby, product
 
-from sympy import Basic, S, Function, Integer
+from sympy import Basic, S, Function, Integer, Symbol
 from sympy import Matrix, ImmutableDenseMatrix, true
 from sympy.core.containers import Tuple
 
@@ -469,8 +469,9 @@ class AST(object):
                 name = domain.name
             mapping = IdentityMapping('M_{}'.format(name), dim)
 
-        invert_quad_loop = True if nderiv>1 or mapping_space else False
-        invert_quad_loop = True
+        invert_quad_loop = False
+        if mapping_space or (mapping.is_analytical and mapping.jacobian_expr.atoms(Symbol)):
+            invert_quad_loop = True
 
         if is_linear:
             ast = _create_ast_linear_form(domain, terminal_expr, atomic_expr_field, tests, d_tests, fields, d_fields, constants,
