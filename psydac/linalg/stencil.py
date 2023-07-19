@@ -14,9 +14,8 @@ from mpi4py       import MPI
 from psydac.linalg.basic   import VectorSpace, Vector, LinearOperator
 from psydac.ddm.cart       import find_mpi_type, CartDecomposition, InterfaceCartDecomposition
 from psydac.ddm.utilities  import get_data_exchanger
-from .stencil2coo_kernels  import stencil2coo_1d_C, stencil2coo_2d_C, stencil2coo_3d_C, stencil2coo_1d_F, stencil2coo_2d_F, stencil2coo_3d_F
-from .transpose_kernels    import transpose_1d, transpose_2d, transpose_3d, interface_transpose_1d, interface_transpose_2d, interface_transpose_3d
-
+from psydac.linalg.kernels.transpose_kernels import transpose_1d, transpose_2d, transpose_3d, interface_transpose_1d, interface_transpose_2d, interface_transpose_3d
+from psydac.linalg.kernels.stencil2coo_kernels import stencil2coo_1d_F, stencil2coo_1d_C,stencil2coo_2d_C, stencil2coo_2d_F, stencil2coo_3d_C,stencil2coo_3d_F
 __all__ = ('StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix')
 
 #===============================================================================
