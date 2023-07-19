@@ -585,11 +585,7 @@ class Parser(object):
     def _visit_EvalMapping(self, expr, **kwargs):
         if self._mapping.is_analytical:
             return EmptyNode()
-
         stmts = self._visit(expr.stmts)
-#        inits = self._visit(expr.inits)
-#        stmts = [s.body if isinstance(inits, CodeBlock) else s for s in (inits, stmts)]
-#        stmts = CodeBlock(flatten(stmts))
         return stmts
     # ....................................................
     def _visit_Grid(self, expr, **kwargs):
@@ -1052,6 +1048,8 @@ class Parser(object):
             return tuple(Assign(a, zero) for a,b in zip(lhs[:], expr[:]) if b)
 
         expr = var.expr
+        if not any(lhs[:]):
+            return ()
         rank = [l.rank for l in lhs[:] if l][0]
         args  = [Slice(None, None)]*rank
         return tuple(Assign(a[args], zero) for a,b in zip(lhs[:], expr[:]) if b)
