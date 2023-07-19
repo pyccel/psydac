@@ -4,12 +4,19 @@ import os
 from subprocess import run as sub_run
 import shutil
 
-# Add Argument --language at the command psydac-accelerate
+'''
+The purpose of this file is to be launched after an editable installation of Psydac, to pyccelise all the Psydac kernels.
+
+This file is useless during a classic installation because the kernels are already pyccelised in the construction folder.
+
+'''
+
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     description="Get language for the pyccelisation."
 )
 
+# Add Argument --language at the pyccel command
 parser.add_argument('--language',
                     type=str,
                     default='fortran',
@@ -19,6 +26,7 @@ parser.add_argument('--language',
                     help='Language used to pyccelise all the _kernels files'
                     )
 
+# Add flag --openmp at the pyccel command
 parser.add_argument('--openmp',
                     default=False,
                     action='store_true',
