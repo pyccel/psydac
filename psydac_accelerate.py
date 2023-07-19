@@ -4,12 +4,12 @@ import os
 from subprocess import run as sub_run
 import shutil
 
-'''
-The purpose of this file is to be launched after an editable installation of Psydac, to pyccelise all the Psydac kernels.
 
-This file is useless during a classic installation because the kernels are already pyccelised in the construction folder.
 
-'''
+#The purpose of this file is to be launched after an editable installation of Psydac, to pyccelise all the Psydac kernels.
+#This file is useless during a classic installation because the kernels are already pyccelised in the construction folder.
+
+
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
