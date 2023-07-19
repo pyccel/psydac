@@ -13,7 +13,7 @@ import shutil
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    description="Get language for the pyccelisation."
+    description="Accelerate all computational kernels in Psydac using Pyccel (editable install only)"
 )
 
 # Add Argument --language at the pyccel command
