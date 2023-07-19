@@ -1853,8 +1853,8 @@ class StencilInterfaceMatrix(LinearOperator):
         self._args         = args.copy()
         self._func         = self._dot
 
-        self._transpose_args= self._prepare_transpose_args()
-        self._transpose_func      = eval(f'interface_transpose_{self._ndim}d')
+        self._transpose_args = self._prepare_transpose_args()
+        self._transpose_func = eval(f'interface_transpose_{self._ndim}d')
 
         if backend is None:
             backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
