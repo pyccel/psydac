@@ -1003,9 +1003,9 @@ class StencilMatrix( LinearOperator ):
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
         if conjugate:
-            self._transpose_func(np.conjugate(M._data), Mt._data, *self._transpose_args)
+            self._transpose_func(np.conjugate(M._data), Mt._data, **self._transpose_args)
         else:
-            self._transpose_func(M._data, Mt._data, *self._transpose_args)
+            self._transpose_func(M._data, Mt._data, **self._transpose_args)
         return Mt
 
     # ...
@@ -1624,8 +1624,20 @@ class StencilMatrix( LinearOperator ):
                  + (-p + mj * (p//mi) if mi == mj else 0)\
                  for mi, mj, n, p in zip(cm, dm, ndiagsT, pp)]
 
-        args = [*nrows, *ncols, *gpads, *pp, *dm, *cm, *ndiags, *ndiagsT, *si, *sk, *sl]
-        return np.int64(args)
+        args={}
+        args['n']   = np.int64(nrows)
+        args['nc']  = np.int64(ncols)
+        args['gp']  = np.int64(gpads)
+        args['p']   = np.int64(pp)
+        args['dm']  = np.int64(dm)
+        args['cm']  = np.int64(cm)
+        args['nd']  = np.int64(ndiags)
+        args['ndT'] = np.int64(ndiagsT)
+        args['si'] = np.int64(si)
+        args['sk'] = np.int64(sk)
+        args['sl'] = np.int64(sl)
+
+        return args
 
     # ...
     def set_backend(self, backend):
@@ -1971,9 +1983,9 @@ class StencilInterfaceMatrix(LinearOperator):
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
         if conjugate:
-            M._transpose_func(np.conjugate(M._data), Mt._data, *M._transpose_args)
+            M._transpose_func(np.conjugate(M._data), Mt._data, **M._transpose_args)
         else:
-            M._transpose_func(M._data, Mt._data, *M._transpose_args)
+            M._transpose_func(M._data, Mt._data, **M._transpose_args)
         return Mt
 
     def _prepare_transpose_args(self):
@@ -2029,8 +2041,20 @@ class StencilInterfaceMatrix(LinearOperator):
         nrows[dim] = pads[dim] + 1 - diff_r
         ncols[dim] = pads[dim] + 1 - diff_c + 2*cm[dim]*pads[dim]
 
-        args = [*nrows, *ncols, *gpads, *pads, *dm, *cm, *ndiags, *ndiagsT, *si, *sk, *sl]
-        return np.int64(args)
+
+        args={}
+        args['n']   = np.int64(nrows)
+        args['nc']  = np.int64(ncols)
+        args['gp']  = np.int64(gpads)
+        args['p']   = np.int64(pp)
+        args['dm']  = np.int64(dm)
+        args['cm']  = np.int64(cm)
+        args['nd']  = np.int64(ndiags)
+        args['ndT'] = np.int64(ndiagsT)
+        args['si'] = np.int64(si)
+        args['sk'] = np.int64(sk)
+        args['sl'] = np.int64(sl)
+        return args
     # ...
     def toarray( self, **kwargs ):
 
