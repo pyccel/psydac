@@ -133,7 +133,8 @@ class StencilVectorSpace( VectorSpace ):
             else:
                 self._synchronizer = get_data_exchanger( cart, dtype , assembly=True, blocking=False)
 
-        self._axpy_func = eval('axpy_{dim}d'.format(dim=self._ndim))
+        if self._ndim in [1, 2, 3]:
+            self._axpy_func = eval('axpy_{dim}d'.format(dim=self._ndim))
 
     #--------------------------------------
     # Abstract interface
@@ -354,7 +355,8 @@ class StencilVector( Vector ):
         # TODO: distinguish between different directions
         self._sync  = False
 
-        self._inner_dot_func = eval('inner_dot_{dim}d'.format(dim=self._ndim))
+        if self._ndim in [1, 2, 3]:
+            self._inner_dot_func = eval('inner_dot_{dim}d'.format(dim=self._ndim))
 
     def __del__(self):
         # Release memory of persistent MPI communication channels
