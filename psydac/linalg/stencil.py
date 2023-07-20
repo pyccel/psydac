@@ -123,6 +123,7 @@ class StencilVectorSpace( VectorSpace ):
         self._interfaces_readonly = MappingProxyType(self._interfaces)
 
 
+
         # Parallel attributes
         if cart.is_parallel and not cart.is_comm_null:
             self._mpi_type      = find_mpi_type(dtype)
@@ -131,6 +132,8 @@ class StencilVectorSpace( VectorSpace ):
                 self._shape = cart.get_interface_communication_infos(cart.axis)['gbuf_recv_shape'][0]
             else:
                 self._synchronizer = get_data_exchanger( cart, dtype , assembly=True, blocking=False)
+
+        self._axpy_func = eval('axpy_{dim}d'.format(dim=self._ndim))
 
     #--------------------------------------
     # Abstract interface
@@ -187,14 +190,10 @@ class StencilVectorSpace( VectorSpace ):
             else:
                 a = float(a)
 
-        ndim = len(self.shape)
-        func = 'axpy_{dim}d'.format(dim=ndim)
-
-        axpy = eval(func)
-        axpy(a, x._data, y._data)
+        self._axpy_func(a, x._data, y._data)
 
         for axis, ext in self.interfaces:
-            axpy(a, x._interface_data[axis, ext], y._interface_data[axis, ext])
+            self._axpy_func(a, x._interface_data[axis, ext], y._interface_data[axis, ext])
 
         x._sync  = x._sync and y._sync
 
@@ -355,6 +354,8 @@ class StencilVector( Vector ):
         # TODO: distinguish between different directions
         self._sync  = False
 
+        self._inner_dot_func = eval('inner_dot_{dim}d'.format(dim=self._ndim))
+
     def __del__(self):
         # Release memory of persistent MPI communication channels
         if self._requests:
@@ -397,27 +398,24 @@ class StencilVector( Vector ):
         assert v._space is self._space
 
         if self._space.parallel:
-            self._dot_send_data[0] = self._dot(self._data, v._data , self._space.pads, self._space.shifts)
+            self._dot_send_data[0] = self._dot(self._data, v._data , self._space.pads, self._space.shifts, self._inner_dot_func)
             self._space.cart.global_comm.Allreduce((self._dot_send_data, self._space.mpi_type),
                                                    (self._dot_recv_data, self._space.mpi_type),
                                                    op=MPI.SUM )
             return self._dot_recv_data[0]
         else:
-            return self._dot(self._data, v._data , self._space.pads, self._space.shifts)
+            return self._dot(self._data, v._data, self._space.pads, self._space.shifts, self._inner_dot_func)
 
     #...
     @staticmethod
-    def _dot(v1, v2, pads, shifts):
-        ndim = len(v1.shape)
-        func        = 'inner_dot_{dim}d'.format(dim=ndim)
+    def _dot(v1, v2, pads, shifts, inner_dot_func):
         ipads = [np.int64(p) for p in pads]
         ishifts = [np.int64(s) for s in shifts]
         # Sometimes in parallel case, we can get an empty vector that broke our kernel
         if v1.shape[0] == 0:
             return 0
 
-        dot_product = eval(func)
-        return dot_product(v1, v2, *ipads, *ishifts)
+        return inner_dot_func(v1, v2, *ipads, *ishifts)
 
     def conjugate(self, out=None):
         if out is not None:

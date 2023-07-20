@@ -20,7 +20,6 @@ def axpy_1d(alpha: 'T', x: "Tarray", y: "Tarray"):
                 Coefficient needed for the operation to multiply v2
     """
     n1, = x.shape
-    #$ omp parallel for default(private) firstprivate(alpha, n1) shared(x, y) schedule(static)
     for i1 in range(n1):
         y[i1] += alpha*x[i1]
     return
@@ -43,7 +42,6 @@ def axpy_2d(alpha: 'T', x: "Tarray", y: "Tarray"):
                 Coefficient needed for the operation to multiply v2
     """
     n1, n2 = x.shape
-    #$ omp parallel for default(private) firstprivate(alpha, n1, n2) shared(x, y) collapse(2) schedule(static)
     for i1 in range(n1):
         for i2 in range(n2):
             y[i1, i2] += alpha * x[i1, i2]
@@ -65,7 +63,6 @@ def axpy_3d(alpha: 'T', x: "Tarray", y: "Tarray"):
                 Coefficient needed for the operation to multiply v2
     """
     n1, n2, n3 = x.shape
-    #$ omp parallel for default(private) firstprivate(alpha, n1, n2, n3) shared(x, y) collapse(3) schedule(static)
     for i1 in range(n1):
         for i2 in range(n2):
             for i3 in range(n3):
