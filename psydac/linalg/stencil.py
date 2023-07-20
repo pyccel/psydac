@@ -14,8 +14,12 @@ from mpi4py       import MPI
 from psydac.linalg.basic   import VectorSpace, Vector, LinearOperator
 from psydac.ddm.cart       import find_mpi_type, CartDecomposition, InterfaceCartDecomposition
 from psydac.ddm.utilities  import get_data_exchanger
+
 from psydac.linalg.kernels.transpose_kernels import transpose_1d, transpose_2d, transpose_3d, interface_transpose_1d, interface_transpose_2d, interface_transpose_3d
 from psydac.linalg.kernels.stencil2coo_kernels import stencil2coo_1d_F, stencil2coo_1d_C,stencil2coo_2d_C, stencil2coo_2d_F, stencil2coo_3d_C,stencil2coo_3d_F
+from psydac.linalg.kernels.axpy_kernels import axpy_1d, axpy_2d, axpy_3d
+from psydac.linalg.kernels.inner_dot_kernels import inner_dot_1d, inner_dot_2d, inner_dot_3d
+
 __all__ = ('StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix')
 
 #===============================================================================
@@ -405,7 +409,7 @@ class StencilVector( Vector ):
     @staticmethod
     def _dot(v1, v2, pads, shifts):
         ndim = len(v1.shape)
-        func        = 'dot_product_{dim}d'.format(dim=ndim)
+        func        = 'inner_dot_{dim}d'.format(dim=ndim)
         ipads = [np.int64(p) for p in pads]
         ishifts = [np.int64(s) for s in shifts]
         # Sometimes in parallel case, we can get an empty vector that broke our kernel
