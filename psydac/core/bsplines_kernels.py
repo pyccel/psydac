@@ -447,7 +447,6 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
                     out[i, actual_j] = basis[i, j] * scaling[spans[i] - degree + j]
 
         else:
-            scaling = 1.0 / integrals
             for i in range(nx):
                 local_scaling = scaling[spans[i] - degree:spans[i] + 1]
                 out[i, spans[i] - degree:spans[i] + 1] = basis[i, :] * local_scaling[:]
