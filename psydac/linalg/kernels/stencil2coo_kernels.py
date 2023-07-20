@@ -1,5 +1,6 @@
 # coding: utf-8
 from pyccel.decorators import template
+
 #========================================================================================================
 
 #__all__ = ['stencil2coo_1d_C','stencil2coo_1d_F','stencil2coo_2d_C','stencil2coo_2d_F', 'stencil2coo_3d_C', 'stencil2coo_3d_F']
@@ -188,7 +189,3 @@ def stencil2coo_3d_F(A:'T', data:'data', rows:'int64[:]', cols:'int64[:]',
                             data[nnz] = value
                             nnz += 1
     return nnz
-
-
-
-

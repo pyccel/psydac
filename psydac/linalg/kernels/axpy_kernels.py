@@ -2,9 +2,6 @@
 from pyccel.decorators import template
 
 #========================================================================================================
-
-#Implementation of the axpy kernels
-
 @template(name='Tarray', types=['float[:]', 'complex[:]'])
 @template(name='T', types=['float', 'complex'])
 def axpy_1d(alpha: 'T', x: "Tarray", y: "Tarray"):
@@ -26,7 +23,6 @@ def axpy_1d(alpha: 'T', x: "Tarray", y: "Tarray"):
 
 
 #========================================================================================================
-
 @template(name='Tarray', types=['float[:,:]', 'complex[:,:]'])
 @template(name='T', types=['float', 'complex'])
 def axpy_2d(alpha: 'T', x: "Tarray", y: "Tarray"):
@@ -68,6 +64,3 @@ def axpy_3d(alpha: 'T', x: "Tarray", y: "Tarray"):
             for i3 in range(n3):
                 y[i1, i2, i3] += alpha*x[i1, i2, i3]
     return
-
-
-#========================================================================================================
