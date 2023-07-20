@@ -25,8 +25,8 @@ def inner_dot_1d(v1: 'T', v2: 'T', pads0: 'int64', shift0: 'int64'):
     -------
         res : scalar (real or complex) containing the results
         """
-    #$omp parallel firstprivate( pads0, shift0) shared(res, v1, v2) private(shape0)
     res = v1[0]-v1[0]
+    #$omp parallel default(private) firstprivate( pads0, shift0) shared(res, v1, v2)
     shape0, = v1.shape
     #$omp for collapse(1) reduction(+ : res)
     for i0 in range(pads0*shift0, shape0-pads0*shift0):
@@ -54,8 +54,8 @@ def inner_dot_2d(v1: 'T', v2: 'T', pads0: 'int64', pads1: 'int64', shift0: 'int6
     -------
         res : scalar containing the results
     """
-    #$omp parallel firstprivate( pads0, pads1, shift0, shift1) shared(res, v1, v2) private(shape0, shape1)
     res = v1[0, 0]-v1[0, 0]
+    #$omp parallel default(private) firstprivate( pads0, pads1, shift0, shift1) shared(res, v1, v2)
     shape0, shape1 = v1.shape
     #$omp for collapse(2) reduction(+ : res)
     for i0 in range(pads0*shift0, shape0-pads0*shift0):
@@ -84,8 +84,8 @@ def inner_dot_3d(v1: 'T', v2: 'T', pads0: 'int64', pads1: 'int64', pads2: 'int64
     -------
         res : scalar (real or complex) containing the results
     """
-    #$omp parallel firstprivate( pads0, pads1, pads2, shift0, shift1, shift2) shared(res, v1, v2) private(shape0, shape1, shape2)
     res = v1[0, 0, 0] - v1[0, 0, 0]
+    #$omp parallel default(private) firstprivate( pads0, pads1, pads2, shift0, shift1, shift2) shared(res, v1, v2)
     shape0, shape1, shape2 = v1.shape
     #$omp for collapse(3) reduction(+ : res)
     for i0 in range(pads0*shift0, shape0-pads0*shift0):
