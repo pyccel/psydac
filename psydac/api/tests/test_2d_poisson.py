@@ -1,10 +1,10 @@
 # -*- coding: UTF-8 -*-
 
+
 from mpi4py import MPI
 from sympy import pi, cos, sin, symbols
 from sympy.utilities.lambdify import implemented_function
 import pytest
-import os
 
 from sympde.calculus import grad, dot
 from sympde.topology import ScalarFunctionSpace
@@ -20,7 +20,6 @@ from psydac.api.discretization import discretize
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
 
 x,y,z = symbols('x1, x2, x3')
-os.environ['OMP_NUM_THREADS'] = "2"
 
 # backend to activate multi threading
 PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP           = PSYDAC_BACKEND_GPYCCEL.copy()

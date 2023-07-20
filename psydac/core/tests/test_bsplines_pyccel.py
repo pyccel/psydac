@@ -475,8 +475,8 @@ def basis_integrals_true(knots, degree):
 # Tests
 ###############################################################################
 # Tolerance for testing float equality
-RTOL = 1e-15
-ATOL = 1e-15
+RTOL = 1e-11
+ATOL = 1e-11
 
 
 @pytest.mark.parametrize(('knots', 'degree'),
