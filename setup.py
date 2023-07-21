@@ -39,7 +39,7 @@ class BuildPyCommand(setuptools.command.build_py.build_py):
             self.announce(
                 '\nPyccelise module: %s' % str(module),
                 level=distutils.log.INFO)
-            sub_run([shutil.which('pyccel'), outfile, '--language', 'fortran'], shell=False)
+            sub_run([shutil.which('pyccel'), outfile, '--language', 'fortran', '--openmp'], shell=False)
 
         # This part is copy from setuptools.command.build_py.build_module
         if copied:
