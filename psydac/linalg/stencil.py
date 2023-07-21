@@ -20,6 +20,8 @@ from psydac.linalg.kernels.stencil2coo_kernels import stencil2coo_1d_F, stencil2
 from psydac.linalg.kernels.axpy_kernels import axpy_1d, axpy_2d, axpy_3d
 from psydac.linalg.kernels.inner_dot_kernels import inner_dot_1d, inner_dot_2d, inner_dot_3d
 
+from .kernels.dot_mv_kernels import Mv_product_1d, Mv_product_2d, Mv_product_3d
+
 __all__ = ('StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix')
 
 #===============================================================================
@@ -881,14 +883,15 @@ class StencilMatrix( LinearOperator ):
         args['dm']           = tuple(V.shifts)
         args['cm']           = tuple(W.shifts)
 
+
         self._dotargs_null = args
         self._args         = args.copy()
         self._func         = self._dot
 
         self._transpose_args = self._prepare_transpose_args()
         self._transpose_func      = eval(f'transpose_{self._ndim}d')
-        if backend is None:
-            backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
+        # if backend is None:
+        #     backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
 
         if backend:
             self.set_backend(backend)
@@ -992,13 +995,11 @@ class StencilMatrix( LinearOperator ):
         out.ghost_regions_in_sync = False
         return out
 
-    # ...
     @staticmethod
     def _dot(mat, x, out, starts, nrows, nrows_extra, gpads, pads, dm, cm):
 
         # Index for k=i-j
         ndim = len(x.shape)
-        kk   = [slice(None)]*ndim
 
         # pads are <= gpads
         diff = [gp-p for gp,p in zip(gpads, pads)]
@@ -1006,35 +1007,9 @@ class StencilMatrix( LinearOperator ):
         ndiags, _ = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
 
         bb = [p*m+p+1-n-s%m for p,m,n,s in zip(gpads, dm, ndiags, starts)]
+        dot_func     = eval(f'Mv_product_{ndim}d')
+        dot_func(mat, x, out, np.int64(starts), np.int64(nrows), np.int64(nrows_extra), np.int64(dm), np.int64(cm), np.int64(diff), np.int64(bb), np.int64(ndiags), np.int64(gpads))
 
-        for xx in np.ndindex( *nrows ):
-
-            ii    = tuple( mi*pi + x for mi,pi,x in zip(cm, gpads, xx) )
-            jj    = tuple( slice(b-d+(x+s%mj)//mi*mj,b-d+(x+s%mj)//mi*mj+n) for x,mi,mj,b,s,n,d in zip(xx,cm,dm,bb,starts,ndiags,diff) )
-            ii_kk = tuple( list(ii) + kk )
-            out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
-
-        new_nrows = list(nrows).copy()
-
-        for d,er in enumerate(nrows_extra):
-
-            rows = new_nrows.copy()
-            del rows[d]
-
-            for n in range(er):
-                for xx in np.ndindex(*rows):
-                    xx = list(xx)
-                    xx.insert(d, nrows[d]+n)
-
-                    ii     = tuple(mi*pi + x for mi,pi,x in zip(cm, gpads, xx))
-                    ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
-                    jj     = tuple( slice(b-d+(x+s%mj)//mi*mj, b-d+(x+s%mj)//mi*mj+n-e) for x,mi,mj,d,e,b,s,n in zip(xx, cm, dm, diff, ee,bb,starts, ndiags) )
-                    kk     = [slice(None,n-e) for n,e in zip(ndiags, ee)]
-                    ii_kk  = tuple( list(ii) + kk )
-                    out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
-
-            new_nrows[d] += er
-            
     # ...
     def transpose(self, conjugate=False):
         """ Create new StencilMatrix Mt, where domain and codomain are swapped
