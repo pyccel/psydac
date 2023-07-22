@@ -13,10 +13,10 @@ from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.block   import BlockVectorSpace
 from psydac.fem.basic      import FemSpace, FemField
 
-from psydac.core.kernels import (pushforward_2d_hdiv,
-                                 pushforward_3d_hdiv,
-                                 pushforward_2d_hcurl,
-                                 pushforward_3d_hcurl)
+from psydac.core.field_evaluation_kernels import (pushforward_2d_hdiv,
+                                                  pushforward_3d_hdiv,
+                                                  pushforward_2d_hcurl,
+                                                  pushforward_3d_hcurl)
 
 __all__ = ('VectorFemSpace', 'ProductFemSpace')
 
