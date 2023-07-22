@@ -352,6 +352,7 @@ class VectorFemSpace( FemSpace ):
         return self._refined_space[tuple(ncells)]
 
     def set_refined_space(self, ncells, new_space):
+        assert all(nc1==nc2 for nc1,nc2 in zip(ncells, new_space.ncells))
         self._refined_space[tuple(ncells)] = new_space
 
     def __str__(self):
