@@ -32,7 +32,11 @@ from psydac.feec.multipatch.examples.ppc_test_cases     import get_div_free_puls
 from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P_phys_l2, P_phys_hdiv, P_phys_hcurl, P_phys_h1, get_Vh_diags_for
 from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
 from psydac.feec.multipatch.bilinear_form_scipy         import construct_pairing_matrix
-from psydac.feec.multipatch.conf_projections_scipy      import Conf_proj_0, Conf_proj_1, Conf_proj_0_c1, Conf_proj_1_c1
+# from psydac.feec.multipatch.conf_projections_scipy      import Conf_proj_0, Conf_proj_1, Conf_proj_0_c1, Conf_proj_1_c1
+import psydac.feec.multipatch.conf_projections_scipy as cps
+
+cps.mom_pres = True #False # 
+cps.proj_op = 2
 
 def solve_td_maxwell_pbm(
         method='ssc',
@@ -246,13 +250,14 @@ def solve_td_maxwell_pbm(
     t_stamp = time_count(t_stamp)
     print('building the conforming projection matrices ...')
 
+
     # by default we use the same C1 primal sequence in both swc and ssw -- but we should also try with C0 in swc
-    p_PP0 = Conf_proj_0_c1(p_V0h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
-    p_PP1 = Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
+    p_PP0     = cps.Conf_proj_0_c1(p_V0h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
+    p_PP1     = cps.Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
 
     if method == 'ssc':
-        d_PP0 = Conf_proj_0(d_V0h, nquads = [4*(d + 1) for d in dual_degree])
-        d_PP1 = Conf_proj_1(d_V1h, nquads = [4*(d + 1) for d in dual_degree])
+        d_PP0 = cps.Conf_proj_0(d_V0h, nquads = [4*(d + 1) for d in dual_degree])
+        d_PP1 = cps.Conf_proj_1(d_V1h, nquads = [4*(d + 1) for d in dual_degree])
     
     elif method == 'swc':
         d_PP0 = None
@@ -343,6 +348,17 @@ def solve_td_maxwell_pbm(
         print(Far_Op.shape)
         print(p_V2h.nbasis)
         Nt_pertau, dt, norm_curlh = compute_stable_dt(cfl, tau, Amp_Op, Far_Op, p_V2h.nbasis)
+        
+        h = np.pi/(nb_patch_x*ncells[0])
+        print(" *** with cps.proj_op = ", cps.proj_op)
+        print("h    = ", h)
+        print("dt   = ", dt)
+        print("dt/h = ", dt/h)
+        print("h*norm_curlh = ", h*norm_curlh)
+        final_time = tau * nb_tau
+        print('final_time = ', final_time)
+        print('Nt = ', Nt_pertau * nb_tau)
+        exit()
     else:
         dt = tau/Nt_pertau
         norm_curlh = None

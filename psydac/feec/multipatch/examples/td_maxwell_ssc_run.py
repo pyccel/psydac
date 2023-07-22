@@ -25,7 +25,7 @@ J_proj_case = ''
 # method:
 #   - swc = strong-weak-conga
 #   - ssc = strong-strong-conga
-method =  'swc' #'ssc' # 
+method =  'ssc' # 'swc' # 
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
@@ -34,14 +34,16 @@ nbc_s = [6] #,8,16] #,32]
 # deg_s = [4] # ,4,5]
 # nbp_s = [2,4,8, 16]  # only for 'multipatch_rectangle' domain
 
-deg_s = [3,4] # ,4,5]
-nbp_s = [2,4] #,8,16]  # only for 'multipatch_rectangle' domain
+deg_s = [3] # ,4,5]
+nbp_s = [2,4,8] #,16]  # only for 'multipatch_rectangle' domain
+# nbp_s = [4,8,16]  # only for 'multipatch_rectangle' domain
+# nbp_s = [4]  # only for 'multipatch_rectangle' domain
 
 # domain_name = 'pretzel_f'
 # domain_name = 'square_9'  # for cavity solution, must be a square of diameter pi
 # domain_name = 'collela_square_9'  # for cavity solution, must be a square of diameter pi
 domain_name = 'multipatch_rectangle'
-domain_name = 'mpr_collela'
+# domain_name = 'mpr_collela'
 
 if test_case == 'cavity':
     a = np.pi 

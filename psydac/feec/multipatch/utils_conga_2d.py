@@ -252,8 +252,17 @@ def write_errors_array_deg_nbc(errors, deg_s, nbp, nbc_s, error_dir, name):
         
         a_writer.write('} \n\n')
 
+def check_file(error_dir, name):
 
-def write_errors_array_deg_nbp(errors, deg_s, nbp_s, nbc, error_dir, name):
+    if not os.path.exists(error_dir):
+        os.makedirs(error_dir)
+
+    diag_filename = error_dir+'/errors_'+name+'.txt'
+    print('checking that I can write in error file '+ diag_filename + ' ...')
+    if not os.path.exists(diag_filename):
+        open(diag_filename, 'w')
+
+def write_errors_array_deg_nbp(errors, deg_s, nbp_s, nbc, error_dir, name, title=''):
 
     # print errors in file for convergence curves: 
     #   here for various degrees and nb of patches (nbp), but a single nb of cells per patch (nbc)
@@ -271,7 +280,8 @@ def write_errors_array_deg_nbp(errors, deg_s, nbp_s, nbc, error_dir, name):
     if not os.path.exists(error_dir):
         os.makedirs(error_dir)
 
-    diag_filename = error_dir+'/errors.txt'
+    diag_filename = error_dir+'/errors_'+name+'.txt'
+    print('writing error arrays for convergence curve in '+ diag_filename + ' ...')
     if not os.path.exists(diag_filename):
         open(diag_filename, 'w')
 
@@ -295,5 +305,9 @@ def write_errors_array_deg_nbp(errors, deg_s, nbp_s, nbc, error_dir, name):
             for i_nbp, nbp in enumerate(nbp_s): 
                 a_writer.write('{}, '.format(errors[i_deg][i_nbp][0]))
             a_writer.write('], \n')
-        
+
         a_writer.write('} \n\n')
+
+        a_writer.write('# name = {}, \n'.format(name))            
+        a_writer.write('# title = {}, \n'.format(title))            
+        a_writer.write('\n\n')

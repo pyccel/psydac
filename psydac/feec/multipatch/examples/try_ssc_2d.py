@@ -33,6 +33,7 @@ from psydac.feec.multipatch.utils_conga_2d              import P_phys_l2, P_phys
 
 from psydac.feec.multipatch.bilinear_form_scipy import construct_pairing_matrix
 import psydac.feec.multipatch.conf_projections_scipy as cps
+import psydac.feec.multipatch.conf_projections_scipy2 as cps2
 # from psydac.feec.multipatch.conf_projections_scipy import Conf_proj_0, Conf_proj_1, Conf_proj_0_c1, Conf_proj_1_c1
 from sympde.topology      import Square    
 from sympde.topology      import IdentityMapping, PolarMapping
@@ -45,10 +46,10 @@ from scipy.sparse          import csr_matrix
 from scipy.linalg        import norm
 
 from psydac.feec.multipatch.examples.fs_domains_examples import create_square_domain
-from psydac.feec.multipatch.utils_conga_2d              import write_errors_array_deg_nbp
+from psydac.feec.multipatch.utils_conga_2d              import write_errors_array_deg_nbp, check_file
 
-cps.mom_pres =  True # False # 
-cps.gamma = 1
+cps.mom_pres =  False # True # 
+cps.proj_op = 1
 
 def try_ssc_2d(
         ncells=None, 
@@ -61,7 +62,8 @@ def try_ssc_2d(
         m_load_dir=None,
         backend_language='pyccel-gcc',
         make_plots=True,
-        hide_plots=False, 
+        hide_plots=False,
+        cps_opts='',
         ):
 
     """
@@ -69,11 +71,7 @@ def try_ssc_2d(
     with two strong broken DeRham sequences (a primal Hermite with hom BC and a dual Lagrange) and pairing matrices
     """
 
-    if cps.mom_pres:
-        cps_opts = 'mom_pres_g={}/'.format(cps.gamma)
-    else:
-        cps_opts = 'nomom_pres_g={}/'.format(cps.gamma)
-    plot_dir += cps_opts
+    plot_dir += cps_opts+'/'
 
     print('---------------------------------------------------------------------------------------------------------')
     print('Starting try_ssc_2d function with: ')
@@ -211,6 +209,8 @@ def try_ssc_2d(
         print('Conforming projections...')
         p_PP0     = cps.Conf_proj_0_c1(p_V0h, nquads = [4*(d + 1) for d in p_degree], hom_bc=False)
         p_PP1     = cps.Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in p_degree], hom_bc=False)
+        # p_PP1     = cps2.Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in p_degree], hom_bc=False)
+
 
         p_PP1_C0     = cps.Conf_proj_1(p_V1h, nquads = [4*(d + 1) for d in p_degree])  # to compare
 
@@ -534,8 +534,17 @@ if __name__ == '__main__':
 
     t_stamp_full = time_count()
 
-    test_case = "norm_Lambda0"
-    # test_case = "p_PP1" # "d_HH1" # "p_PP1" # "p_PP1_C1" # "d_HH1" # "p_PP1_C1" # 
+    # test_case = "norm_Lambda0"
+    test_case = "p_PP1" # "d_HH1" # "p_PP1" # "p_PP1_C1" # "d_HH1" # "p_PP1_C1" # 
+    # test_case = "d_HH1"
+
+    if cps.mom_pres:
+        cps_opts = 'po{}_wimop'.format(cps.proj_op)
+        cps_options = 'proj_op={}, with mom preservation'.format(cps.proj_op)
+    else:
+        cps_opts = 'po{}_nomop'.format(cps.proj_op)
+        cps_options = 'proj_op={}, no mom preservation'.format(cps.proj_op)
+
     # test_case = "pP1_L2" 
     # test_case = "p_HH2"
     refined_square = False
@@ -544,13 +553,23 @@ if __name__ == '__main__':
     hide_plots = True
     
 
-    nbp_s = [1] #[2,4] #,6,8]
-    deg_s = [3]
+    deg_s = [3] #, 4]
     
-    # nbc_s = [10]
-    nbc_s = [2,4,6,8,16,32]
-    
+    # nb of cells (per patch and dim)
+    nbc_s = [6]
+    # nbc_s = [2,4,6,8,16,32]
+
+    # nb of patches (per dim)
+    # nbp_s = [1] 
+    nbp_s = [4] #,8]
+
     errors = [[[ None for nbc in nbc_s] for nbp in nbp_s] for deg in deg_s]
+    error_dir = './errors'      
+
+    check_file(
+        error_dir=error_dir,
+        name=test_case+'_'+cps_opts, 
+        )
 
     for i_deg, deg in enumerate(deg_s): 
         for i_nbp, nbp in enumerate(nbp_s): 
@@ -581,6 +600,7 @@ if __name__ == '__main__':
                     backend_language='python', #'pyccel-gcc'
                     hide_plots=hide_plots,
                     make_plots=make_plots,
+                    cps_opts=cps_opts,
                 )
                 print("-------------------------------------------------")
                 print("for deg = {}, nb_patches = {}**2".format(deg,nbp))
@@ -591,7 +611,11 @@ if __name__ == '__main__':
                 errors[i_deg][i_nbp][i_nbc] = error
     
     if len(nbc_s) == 1:
-        write_errors_array_deg_nbp(errors, deg_s, nbp_s, nbc, error_dir='./errors', name=test_case)
+
+        write_errors_array_deg_nbp(errors, deg_s, nbp_s, nbc_s[0], 
+                                   error_dir=error_dir, 
+                                   name=test_case+'_'+cps_opts,
+                                   title=test_case + ' ' + cps_options)
     
     else:        
         for i_deg, deg in enumerate(deg_s): 
