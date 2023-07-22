@@ -349,10 +349,10 @@ class VectorFemSpace( FemSpace ):
 
     # ...
     def get_refined_space(self, ncells):
-        return self._refined_space[tuple(self.ncells)]
+        return self._refined_space[tuple(ncells)]
 
     def set_refined_space(self, ncells, new_space):
-        self._refined_space[tuple(self.ncells)] = new_space
+        self._refined_space[tuple(ncells)] = new_space
 
     def __str__(self):
         """Pretty printing"""
