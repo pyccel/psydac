@@ -882,9 +882,8 @@ class StencilMatrix( LinearOperator ):
         args['pads']         = tuple(self._pads)
         args['dm']           = tuple(V.shifts)
         args['cm']           = tuple(W.shifts)
-        args['diff']         = [gp-p for gp,p in zip(V.pads, self._pads)]
-        ndiags, _            = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(self._pads,W.shifts,V.shifts)]))
-        args['bb']           = [p*m+p+1-n-s%m for p,m,n,s in zip(V.pads, V.shifts, ndiags, V.starts)]
+        ndiags, _            = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(self._pads, W.shifts, V.shifts)]))
+        args['pad_imp']      = [gp*m+gp+1-n-s%m+p-gp  for gp,m,n,s,p in zip(V.pads, V.shifts, ndiags, V.starts, self._pads)]
         args['ndiags']       = ndiags
 
 
@@ -1743,9 +1742,8 @@ class StencilMatrix( LinearOperator ):
                 self._args.pop('dm')
                 self._args.pop('cm')
 
-            self._args.pop('diff')
+            self._args.pop('pad_imp')
             self._args.pop('ndiags')
-            self._args.pop('bb')
             self._func = dot.func
 
 #===============================================================================
