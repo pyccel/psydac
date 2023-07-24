@@ -22,7 +22,7 @@ from psydac.feec.multipatch.non_matching_operators      import construct_V0_conf
 
 def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='python', mu=1, nu=1, gamma_h=10,
                           sigma=None, nb_eigs=4, nb_eigs_plot=4,
-                          plot_dir=None, hide_plots=True, m_load_dir="",):
+                          plot_dir=None, hide_plots=True, m_load_dir="",skip_eigs_threshold = 1e-7,):
     """
     solver for the eigenvalue problem: find lambda in R and u in H0(curl), such that
 
@@ -134,15 +134,41 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     print('nu = {}'.format(nu))
     A_m = mu * CC_m - nu * GD_m + gamma_h * JP_m
 
-    eigenvalues, eigenvectors = get_eigenvalues(nb_eigs, sigma, A_m, dH1_m)
+    if False: #gneralized problen
+        print('adding jump stabilization to RHS of generalized eigenproblem...')
+        B_m = cP1_m.transpose() @ dH1_m @ cP1_m + JS_m
+    else:
+        B_m = dH1_m
+        
+    print('solving matrix eigenproblem...')
+    all_eigenvalues, all_eigenvectors_transp = get_eigenvalues(nb_eigs, sigma, A_m, B_m)
+    #Eigenvalue processing
+  
+    zero_eigenvalues = []
+    if skip_eigs_threshold is not None:
+        eigenvalues = []
+        eigenvectors = []
+        for val, vect in zip(all_eigenvalues, all_eigenvectors_transp.T):
+            if abs(val) < skip_eigs_threshold: 
+                zero_eigenvalues.append(val)
+                # we skip the eigenvector
+            else:
+                eigenvalues.append(val)
+                eigenvectors.append(vect)
+    else:
+        eigenvalues = all_eigenvalues
+        eigenvectors = all_eigenvectors_transp.T
 
+
+        
     # plot first eigenvalues
 
-    for i in range(min(nb_eigs_plot, nb_eigs)):
+    for i in range(min(nb_eigs_plot, len(eigenvalues))):
 
-        print('looking at emode i = {}... '.format(i))
         lambda_i  = eigenvalues[i]
-        emode_i = np.real(eigenvectors[:,i])
+        print('looking at emode i = {}: {}... '.format(i, lambda_i))
+  
+        emode_i = np.real(eigenvectors[i])
         norm_emode_i = np.dot(emode_i,dH1_m.dot(emode_i))
         print('norm of computed eigenmode: ', norm_emode_i)
         eh_c = emode_i/norm_emode_i  # numpy coeffs of the normalized eigenmode
@@ -202,8 +228,8 @@ if __name__ == '__main__':
 
     t_stamp_full = time_count()
 
-    quick_run = True
-    # quick_run = False
+    # quick_run = True
+    quick_run = False
 
     if quick_run:
         domain_name = 'curved_L_shape'
@@ -218,18 +244,27 @@ if __name__ == '__main__':
     nc = 10
     deg = 3
 
+    sigma = 7
+    nb_eigs_solve = 7
+    nb_eigs_plot = 7
+    skip_eigs_threshold = 1e-7
+
     m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
     run_dir = 'eigenpbm_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
     hcurl_solve_eigen_pbm(
         nc=nc, deg=deg,
         nu=0,
         mu=1, #1,
-        sigma=1,
         domain_name=domain_name,
         backend_language='pyccel-gcc',
         plot_dir='./plots/tests_source_february/'+run_dir,
         hide_plots=True,
-        m_load_dir=m_load_dir,
+        m_load_dir=m_load_dir, 
+        gamma_h=0,
+        sigma=sigma, 
+        nb_eigs=nb_eigs_solve, 
+        nb_eigs_plot=nb_eigs_plot,
+        skip_eigs_threshold=skip_eigs_threshold,
     )
 
     time_count(t_stamp_full, msg='full program')

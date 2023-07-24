@@ -535,8 +535,8 @@ if __name__ == '__main__':
     print(' .. multi-patch domain...')
 
     #domain_name = 'square_6'
-    #domain_name = '2patch_nc_mapped'
-    domain_name = '2patch_nc'
+    domain_name = '2patch_nc_mapped'
+    #domain_name = '2patch_nc'
 
     if domain_name == '2patch_nc_mapped':
 
@@ -615,9 +615,10 @@ if __name__ == '__main__':
 
     # G_sol_log = [[lambda xi1, xi2, ii=i : ii+xi1+xi2**2 for d in [0,1]] for i in range(len(domain))]
     # G_sol_log = [[lambda xi1, xi2, kk=k : levelof(kk)-1  for d in [0,1]] for k in range(len(domain))]
-    G_sol_log = [[lambda xi1, xi2, kk=k: kk for d in [0, 1]]
+    #G_sol_log = [[lambda xi1, xi2, kk=k: kk for d in [0, 1]]
+    #              for k in range(len(domain))]
+    G_sol_log = [[lambda xi1, xi2, kk=k: np.cos(xi1)*np.sin(xi2) for d in [0, 1]]
                   for k in range(len(domain))]
-
     P0, P1, P2 = derham_h.projectors()
 
     G1h = P1(G_sol_log)
@@ -639,9 +640,10 @@ if __name__ == '__main__':
 
     #G0_sol_log = [[lambda xi1, xi2, kk=k: kk for d in [0]]
     #             for k in range(len(domain))]
-    G0_sol_log = [[lambda xi1, xi2, kk=k:kk  for d in [0]]
-                    for k in range(len(domain))]
-    
+    #G0_sol_log = [[lambda xi1, xi2, kk=k:kk  for d in [0]]
+    #                for k in range(len(domain))]
+    G0_sol_log = [[lambda xi1, xi2, kk=k: np.cos(xi1)*np.sin(xi2) for d in [0]]
+                for k in range(len(domain))]
     G0h = P0(G0_sol_log)
     G0h_coeffs = G0h.coeffs.toarray()
 
