@@ -31,14 +31,14 @@ from psydac.core.bsplines  import (find_span,
                                    cell_index,
                                    basis_ders_on_irregular_grid)
 
-from psydac.core.kernels import (eval_fields_2d_no_weights,
-                                 eval_fields_2d_irregular_no_weights,
-                                 eval_fields_2d_weighted,
-                                 eval_fields_2d_irregular_weighted,
-                                 eval_fields_3d_no_weights,
-                                 eval_fields_3d_irregular_no_weights,
-                                 eval_fields_3d_weighted,
-                                 eval_fields_3d_irregular_weighted)
+from psydac.core.field_evaluation_kernels import (eval_fields_2d_no_weights,
+                                                  eval_fields_2d_irregular_no_weights,
+                                                  eval_fields_2d_weighted,
+                                                  eval_fields_2d_irregular_weighted,
+                                                  eval_fields_3d_no_weights,
+                                                  eval_fields_3d_irregular_no_weights,
+                                                  eval_fields_3d_weighted,
+                                                  eval_fields_3d_irregular_weighted)
 
 __all__ = ('TensorFemSpace',)
 
@@ -1157,10 +1157,11 @@ class TensorFemSpace( FemSpace ):
         self._interfaces[axis, ext] = space
 
     def get_refined_space(self, ncells):
-        return self._refined_space[tuple(self.ncells)]
+        return self._refined_space[tuple(ncells)]
 
     def set_refined_space(self, ncells, new_space):
-        self._refined_space[tuple(self.ncells)] = new_space
+        assert all(nc1==nc2 for nc1,nc2 in zip(ncells, new_space.ncells))
+        self._refined_space[tuple(ncells)] = new_space
 
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):

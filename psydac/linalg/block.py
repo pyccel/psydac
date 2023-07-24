@@ -1123,7 +1123,7 @@ class BlockLinearOperator(LinearOperator):
         if backend is None:return
         if backend is self._backend:return
 
-        from psydac.api.ast.linalg import LinearOperatorDot, TransposeOperator, InterfaceTransposeOperator
+        from psydac.api.ast.linalg import LinearOperatorDot
         from psydac.linalg.stencil import StencilInterfaceMatrix, StencilMatrix
 
         if not all(isinstance(b, (StencilMatrix, StencilInterfaceMatrix)) for b in self._blocks.values()):
@@ -1158,35 +1158,6 @@ class BlockLinearOperator(LinearOperator):
             permutation    = None
             c_starts       = None
             d_starts       = None
-
-        if interface:
-            transpose = InterfaceTransposeOperator(ndim, backend=frozenset(backend.items()))
-        else:
-            transpose = TransposeOperator(ndim, backend=frozenset(backend.items()))
-
-        for k,key in enumerate(keys):
-            self._blocks[key]._transpose_func = transpose.func
-            self._blocks[key]._transpose_args  = self._blocks[key]._transpose_args_null.copy()
-            nrows   = self._blocks[key]._transpose_args.pop('nrows')
-            ncols   = self._blocks[key]._transpose_args.pop('ncols')
-            gpads   = self._blocks[key]._transpose_args.pop('gpads')
-            pads    = self._blocks[key]._transpose_args.pop('pads')
-            ndiags  = self._blocks[key]._transpose_args.pop('ndiags')
-            ndiagsT = self._blocks[key]._transpose_args.pop('ndiagsT')
-            si      = self._blocks[key]._transpose_args.pop('si')
-            sk      = self._blocks[key]._transpose_args.pop('sk')
-            sl      = self._blocks[key]._transpose_args.pop('sl')
-            dm      = self._blocks[key]._transpose_args.pop('dm')
-            cm      = self._blocks[key]._transpose_args.pop('cm')
-
-            args = dict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads ),
-                            ('dm{i}', dm),('cm{i}', cm),('nd{i}', ndiags),
-                            ('ndT{i}', ndiagsT),('si{i}', si),('sk{i}', sk),('sl{i}', sl)])
-
-            self._blocks[key]._transpose_args = {}
-            for arg_name, arg_val in args.items():
-                for i in range(len(nrows)):
-                    self._blocks[key]._transpose_args[arg_name.format(i=i+1)] = np.int64(arg_val[i]) if isinstance(arg_val[i], int) else arg_val[i]
 
         starts      = []
         nrows       = []

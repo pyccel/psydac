@@ -102,8 +102,6 @@ jobs:
       - name: Install project
         run: |
           python -m pip install .
-          pyccel psydac/core/kernels.py --language fortran
-          pyccel psydac/core/bsplines_pyccel.py --language fortran
           python -m pip freeze
 
       - name: Initialize test directory
@@ -115,6 +113,7 @@ jobs:
         working-directory: ./pytest
         run: |
           export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
+          export OMP_NUM_THREADS=2
           python -m pytest --pyargs psydac -m "not parallel"
           python mpi_tester.py --pyargs psydac -m "parallel and not petsc"
 

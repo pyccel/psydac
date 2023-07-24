@@ -106,19 +106,19 @@ brew info hdf5-mpi
 
 At this point the Psydac library may be installed in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the Psydac directory. The latter mode allows one to effect the behavior of Psydac by modifying the source files.
 
-*   **Standard mode**:
+-   **Standard mode**:
     ```bash
     python3 -m pip install .
     ```
 
-*   **Development mode**:
+-   **Development mode**:
     ```bash
     python3 -m pip install --editable .
     ```
 
 ## Uninstall
 
-*   **Whichever the install mode**:
+-   **Whichever the install mode**:
     ```bash
     python3 -m pip uninstall psydac
     ```
@@ -133,15 +133,14 @@ python3 /path/to/psydac/mpi_tester.py --pyargs psydac -m "parallel"
 
 ## Speeding up **Psydac**'s core
 
-Some of the low-level functions in psydac are written in python in a way that can be accelerated by pyccel. Currently, all of those are in `psydac/core/kernels.py`, `psydac/core/bsplines_pyccel.py` and `psydac/linalg/kernels.py`.
-```bash
-cd path/to/psydac/core
-pyccel kernels.py --language fortran
-pyccel bsplines_pyccel.py --language fortran
+Many of Psydac's low-level Python functions can be translated to a compiled language using the [Pyccel](https://github.com/pyccel/pyccel) transpiler. Currently, all of those functions are collected in modules which follow the name pattern `[module]_kernels.py`.
 
-cd ../linalg
-pyccel kernels.py --language fortran
-```
+The classical installation translates all kernel files to Fortran without user intervention. This does not happen in the case of an editable install, but the command `psydac-accelerate` is made available to the user instead. This command applies Pyccel to all the kernel files in the source directory, and the C language may be selected instead of Fortran (which is the default).
+
+-   **Only in development mode**:
+    ```bash
+    python3 /path/to/psydac/psydac_accelerate.py [--language LANGUAGE] [--openmp]
+    ```
 
 ## User documentation
 

@@ -13,10 +13,10 @@ from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.block   import BlockVectorSpace
 from psydac.fem.basic      import FemSpace, FemField
 
-from psydac.core.kernels import (pushforward_2d_hdiv,
-                                 pushforward_3d_hdiv,
-                                 pushforward_2d_hcurl,
-                                 pushforward_3d_hcurl)
+from psydac.core.field_evaluation_kernels import (pushforward_2d_hdiv,
+                                                  pushforward_3d_hdiv,
+                                                  pushforward_2d_hcurl,
+                                                  pushforward_3d_hcurl)
 
 __all__ = ('VectorFemSpace', 'ProductFemSpace')
 
@@ -349,10 +349,11 @@ class VectorFemSpace( FemSpace ):
 
     # ...
     def get_refined_space(self, ncells):
-        return self._refined_space[tuple(self.ncells)]
+        return self._refined_space[tuple(ncells)]
 
     def set_refined_space(self, ncells, new_space):
-        self._refined_space[tuple(self.ncells)] = new_space
+        assert all(nc1==nc2 for nc1,nc2 in zip(ncells, new_space.ncells))
+        self._refined_space[tuple(ncells)] = new_space
 
     def __str__(self):
         """Pretty printing"""
