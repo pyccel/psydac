@@ -882,19 +882,19 @@ class StencilMatrix( LinearOperator ):
         args['pads']         = tuple(self._pads)
         args['dm']           = tuple(V.shifts)
         args['cm']           = tuple(W.shifts)
+        args['diff']         = [gp-p for gp,p in zip(V.pads, self._pads)]
+        ndiags, _            = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(self._pads,W.shifts,V.shifts)]))
+        args['bb']           = [p*m+p+1-n-s%m for p,m,n,s in zip(V.pads, V.shifts, ndiags, V.starts)]
+        args['ndiags']       = ndiags
 
 
         self._dotargs_null = args
-        self._args         = args.copy()
-        self._func         = self._dot
+        self._dot          = eval(f'Mv_product_{self._ndim}d')
 
         self._transpose_args = self._prepare_transpose_args()
         self._transpose_func      = eval(f'transpose_{self._ndim}d')
-        # if backend is None:
-        #     backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
 
-        if backend:
-            self.set_backend(backend)
+        self.set_backend(backend)
 
     #--------------------------------------
     # Abstract interface
@@ -994,21 +994,6 @@ class StencilMatrix( LinearOperator ):
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
         return out
-
-    @staticmethod
-    def _dot(mat, x, out, starts, nrows, nrows_extra, gpads, pads, dm, cm):
-
-        # Index for k=i-j
-        ndim = len(x.shape)
-
-        # pads are <= gpads
-        diff = [gp-p for gp,p in zip(gpads, pads)]
-
-        ndiags, _ = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
-
-        bb = [p*m+p+1-n-s%m for p,m,n,s in zip(gpads, dm, ndiags, starts)]
-        dot_func     = eval(f'Mv_product_{ndim}d')
-        dot_func(mat, x, out, np.int64(starts), np.int64(nrows), np.int64(nrows_extra), np.int64(dm), np.int64(cm), np.int64(diff), np.int64(bb), np.int64(ndiags), np.int64(gpads))
 
     # ...
     def transpose(self, conjugate=False):
@@ -1670,7 +1655,10 @@ class StencilMatrix( LinearOperator ):
         self._args            = self._dotargs_null.copy()
 
         if self._backend is None:
-            self._func           = self._dot
+            for key, arg in self._args.items():
+                self._args[key] = np.int64(arg)
+            self._func = self._dot
+            self._args.pop('pads')
         else:
             if self.domain.parallel:
                 comm = self.codomain.cart.comm
@@ -1755,6 +1743,9 @@ class StencilMatrix( LinearOperator ):
                 self._args.pop('dm')
                 self._args.pop('cm')
 
+            self._args.pop('diff')
+            self._args.pop('ndiags')
+            self._args.pop('bb')
             self._func = dot.func
 
 #===============================================================================
