@@ -375,7 +375,7 @@ class AST(object):
             #--------------------------------------------------------------------
             # TODO [YG, 05.02.2021]: create 'get_test_function' and use it below:
 #            field_atoms = [a for a in atoms if get_test_function(a) in fields]
-            field_atoms  = []
+            field_atoms = []
             #--------------------------------------------------------------------
             atomic_expr_field = {f:[] for f in fields}
             for f in field_atoms:
@@ -597,7 +597,6 @@ def _create_ast_bilinear_form(domain, terminal_expr, atomic_expr_field, tests,  
 
     """
 
-
     # Create flags for parallel case
 
     dim        = domain.dim
@@ -635,7 +634,6 @@ def _create_ast_bilinear_form(domain, terminal_expr, atomic_expr_field, tests,  
         m_span   = dict((f, d_mapping[f][span]) for f in d_mapping)
     else:
         m_span = {}
-
 
     eval_mappings       = []
     m_trials            = dict((u,d_trials[u]['multiplicity'])  for u in trials)
@@ -1205,7 +1203,7 @@ def _create_ast_bilinear_form(domain, terminal_expr, atomic_expr_field, tests,  
 
     return node
 
-#================================================================================================================================
+#==============================================================================
 def _create_ast_linear_form(domain, terminal_expr, atomic_expr_field, tests, d_tests, fields, d_fields, constants, nderiv, dtype,
                             mapping, d_mapping, is_rational_mapping, mapping_space, mask, tag, num_threads, invert_quad_loop, **kwargs):
 
