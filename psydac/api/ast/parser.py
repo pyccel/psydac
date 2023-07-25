@@ -579,81 +579,14 @@ class Parser(object):
         return stmts
 
     def _visit_EvalField(self, expr, **kwargs):
-        g_coeffs   = expr.g_coeffs
-        l_coeffs   = expr.l_coeffs
-        tests      = list(expr._tests)
-        ex_tests   = list(expand(tests))
-        mats       = expr.atoms
-        dim        = self._dim
-        lhs_slices = [Slice(None,None)]*dim
-        mats       = [self._visit(mat, **kwargs) for mat in mats]
-        dtype      = expr.dtype
-        zero       = 0.j if dtype=='complex' else 0.
-        inits      = {mat:Assign(mat[lhs_slices], zero) for mat in mats}
         body       = self._visit(expr.body, **kwargs)
-        stmts      = {}
-        pads       = self._visit_Pads(expr.pads)
-
-        if isinstance(self._target, Interface):
-            raise NotImplementedError("field evaluation in an interface is not available")
-
-        for l_coeff,g_coeff in zip(l_coeffs, g_coeffs):
-            basis        = g_coeff.test
-            index        = ex_tests.index(basis)
-            basis        = basis if basis in tests else basis.base
-            degrees      = self._visit_LengthDofTest(LengthDofTest(basis))
-            spans        = flatten(self._visit_Span(Span(basis))[basis])
-            rhs_starts   = [pads[index,0][i] + spans[i]-degrees[i] for i in range(dim)]
-            rhs_ends     = [pads[index,0][i] + spans[i]+1          for i in range(dim)]
-            rhs_slices   = [Slice(s, e) for s,e in zip(rhs_starts, rhs_ends)]
-            l_coeff      = self._visit(l_coeff, **kwargs)
-            g_coeff      = self._visit(g_coeff, **kwargs)
-            stmt         = self._visit_Assign(Assign(l_coeff[lhs_slices], g_coeff[rhs_slices]), **kwargs)
-            stmts[stmt.lhs.base] = stmt
-        return CodeBlock([*inits.values() , *stmts.values() , body])
+        return body
 
     def _visit_EvalMapping(self, expr, **kwargs):
         if self._mapping.is_analytical:
             return EmptyNode()
-        values       = expr.values
-        coeffs       = expr.coeffs
-        l_coeffs     = expr.local_coeffs
-        stmts        = []
-        dim          = self._dim
-        test         = coeffs[0].test
-        lhs_slices   = [Slice(None,None)]*dim
-        multiplicity = expr.multiplicity
-        pads         = expr.pads
-        is_trial     = expr.trial
-        mapping      = expr.mapping
-        for coeff, l_coeff in zip(coeffs, l_coeffs):
-            spans      = flatten(self._visit_Span(Span(test))[test])
-            degrees    = self._visit_LengthDofTest(LengthDofTest(test))
-            coeff      = self._visit(coeff)
-            l_coeff    = self._visit(l_coeff)
-            rhs_starts = [multiplicity[i]*pads[i] + spans[i]-degrees[i] for i in range(dim)]
-            rhs_ends   = [multiplicity[i]*pads[i] + spans[i]+1          for i in range(dim)]
-            if isinstance(self._target, Interface) and is_trial and mapping.is_plus :
-                axis             = self._target.plus.axis
-                rhs_starts[axis] = multiplicity[axis]*pads[axis]
-                rhs_ends[axis]   = multiplicity[axis]*pads[axis] + degrees[axis] + 1
-            elif isinstance(self._target, Interface) and is_trial and mapping.is_minus :
-                axis             = self._target.minus.axis
-                rhs_starts[axis] = multiplicity[axis]*pads[axis]
-                rhs_ends[axis]   = multiplicity[axis]*pads[axis] + degrees[axis] + 1
-
-            rhs_slices = [Slice(s, e) for s,e in zip(rhs_starts, rhs_ends)]
-            stmt       = self._visit_Assign(Assign(l_coeff[lhs_slices], coeff[rhs_slices]), **kwargs)
-            stmts.append(stmt)
-
-        inits = []
-        for val in values:
-            val = self._visit(val, **kwargs)
-            inits.append(Assign(val[lhs_slices], 0.))
-        loop = self._visit(expr.loop, **kwargs)
-        stmts.append(loop)
-        return CodeBlock(inits+stmts)
-
+        stmts = self._visit(expr.stmts)
+        return stmts
     # ....................................................
     def _visit_Grid(self, expr, **kwargs):
         raise NotImplementedError('TODO')
@@ -1022,6 +955,10 @@ class Parser(object):
                     targets = variables(names, dtype='int')
                     pads[i,j] = Tuple(*targets)
                     self.insert_variables(*targets)
+            if expr.test_index is not None and expr.trial_index is not None:
+                if expr.dim_index is not None:return pads[expr.test_index,expr.trial_index][expr.dim_index]
+                return pads[expr.test_index,expr.trial_index]
+                
         else:
             pads = Matrix.zeros(len(tests),1)
             for i in range(pads.shape[0]):
@@ -1030,6 +967,11 @@ class Parser(object):
                 targets   = variables(names, dtype='int')
                 pads[i,0] = Tuple(*targets)
                 self.insert_variables(*targets)
+
+            if expr.test_index is not None:
+                if expr.dim_index is not None:return pads[expr.test_index,0][expr.dim_index]
+                return pads[expr.test_index,0]
+
         return pads
     # ....................................................
     def _visit_TensorBasis(self, expr, **kwargs):
@@ -1106,7 +1048,9 @@ class Parser(object):
             return tuple(Assign(a, zero) for a,b in zip(lhs[:], expr[:]) if b)
 
         expr = var.expr
-        rank = lhs[0,0].rank
+        if not any(lhs[:]):
+            return ()
+        rank = [l.rank for l in lhs[:] if l][0]
         args  = [Slice(None, None)]*rank
         return tuple(Assign(a[args], zero) for a,b in zip(lhs[:], expr[:]) if b)
 
@@ -1184,7 +1128,10 @@ class Parser(object):
                         lhs[k1,k2] = [lhs[k1,k2][lhs_slices]]
                         rhs[k1,k2] = [rhs[k1,k2][rhs_slices]]
 
-            return tuple( AugAssign(a, op, b) for a,b,e in zip(lhs[:], rhs[:], expr.expr[:]) if e)
+            if op is None:
+                return tuple( Assign(a, b) for a,b,e in zip(lhs[:], rhs[:], expr.expr[:]) if e)
+            else:
+                return tuple( AugAssign(a, op, b) for a,b,e in zip(lhs[:], rhs[:], expr.expr[:]) if e)
 
         elif isinstance(lhs, BlockStencilVectorLocalBasis):
             lhs = self._visit_BlockStencilVectorLocalBasis(lhs)
@@ -1244,18 +1191,13 @@ class Parser(object):
 
     # ....................................................
     def _visit_ComputeLogicalBasis(self, expr, op=None, lhs=None, **kwargs):
-        prefix = expr.prefix
+        lhs  = lhs or expr.lhs
         expr = expr.expr
         if lhs is None:
-            if not isinstance(expr, (Add, Mul)):
-                atom = BasisAtom(expr, prefix=prefix)
-                lhs  = self._visit_BasisAtom(atom, **kwargs)
-            else:
-                lhs = random_string( 6 )
-                lhs = Symbol('tmp_{}'.format(lhs))
+            atom = BasisAtom(expr)
+            lhs  = self._visit_BasisAtom(atom, **kwargs)
 
-        expr = LogicalBasisValue(expr, prefix=prefix)
-        rhs = self._visit_LogicalBasisValue(expr, **kwargs)
+        rhs = self._visit_LogicalBasisValue(LogicalBasisValue(expr), **kwargs)
 
         if op is None:
             stmt = Assign(lhs, rhs)
@@ -1342,11 +1284,7 @@ class Parser(object):
         """
         Transform derivatives of the ScalarFunction into the correspondant symbol.
         """
-        prefix = expr.prefix
         symbol = SymbolicExpr(expr.expr)
-        if prefix:
-            symbol = Symbol(f"{prefix}_{symbol.name}")
-
         self.variables[str(symbol.name)] = symbol
         return symbol
 
@@ -1368,8 +1306,6 @@ class Parser(object):
         dim = self.dim
         coords = ['x1', 'x2', 'x3'][:dim]
 
-        prefix = expr.prefix
-
         expr   = expr.expr
         atom   = BasisAtom(expr).atom
 
@@ -1388,8 +1324,6 @@ class Parser(object):
             for _ in range(n):
                 u = d(u)
             u = SymbolicExpr(u)
-            if prefix:
-                u = Symbol(f'{prefix}_{u.name}')
             args.append(u)
 
         # ...
@@ -1982,7 +1916,7 @@ class Parser(object):
                 ls = []
                 for l_x,g_x in zip(l_xs[i], g_xs[i]):
                     if isinstance(expr.generator.target, (LocalTensorQuadratureBasis, GlobalTensorQuadratureBasis)):
-                        lhs = self._visit_BasisAtom(BasisAtom(l_x, prefix=expr.iterator.prefix))
+                        lhs = self._visit_BasisAtom(BasisAtom(l_x))
                     else:
                         lhs = l_x
                     ls += [self._visit(Assign(lhs, g_x))]
@@ -2177,4 +2111,9 @@ class Parser(object):
     def _visit_NoneType(self, expr, **kwargs):
         return expr
 
+    def _visit_float(self, expr, **kwargs):
+        return expr
+
+    def _visit_complex(self, expr, **kwargs):
+        return expr
 

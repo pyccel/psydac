@@ -1,11 +1,12 @@
 # -*- coding: UTF-8 -*-
+import numpy as np
 
 from itertools import product
 
 from sympy import Basic, Expr
 from sympy import AtomicExpr, S
 from sympy import Function
-from sympy import Mul
+from sympy import Mul,Integer
 from sympy.core.singleton     import Singleton
 from sympy.core.containers    import Tuple
 from sympy.core.compatibility import with_metaclass
@@ -18,8 +19,9 @@ from sympde.topology import H1SpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.topology import Mapping
 from sympde.topology import dx1, dx2, dx3
 from sympde.topology import get_atom_logical_derivatives
+from sympde.topology import Interface
 
-from psydac.pyccel.ast.core import AugAssign, Assign
+from psydac.pyccel.ast.core import AugAssign, Assign, Slice
 from psydac.pyccel.ast.core import _atomic
 from psydac.api.utilities   import flatten
 
@@ -32,6 +34,28 @@ def random_string( n ):
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
+#==============================================================================
+def toInteger(a):
+    if isinstance(a,(int, np.int64)):
+        return Integer(int(a))
+    return a
+#==============================================================================
+_logical_partial_derivatives = (dx1, dx2, dx3)
+
+def get_number_derivatives(expr):
+    """
+    returns the number of partial derivatives in expr.
+    this assumes that expr is of the
+    form d(a) where a is a single atom.
+    """
+    n = 0
+    if isinstance(expr, _logical_partial_derivatives):
+        assert(len(expr.args) == 1)
+
+        n += 1 + get_number_derivatives(expr.args[0])
+    return n
+
+#==============================================================================
 class ZerosLike(Function):
     @property
     def rhs(self):
@@ -342,6 +366,9 @@ class EvalField(BaseNode):
 
         Parameters:
         ----------
+        domain : <Domain>
+            Sympde Domain object
+
         atoms: tuple_like (Expr)
             The atomic expression to be evaluated
 
@@ -375,21 +402,39 @@ class EvalField(BaseNode):
         mask    : int,optional
             The fixed direction in case of a boundary integral
     """
-    def __new__(cls, atoms, q_index, l_index, q_basis, coeffs, l_coeffs, g_coeffs, tests, mapping, nderiv, mask=None, dtype='real'):
+
+    def __new__(cls, domain, atoms, q_index, l_index, q_basis, coeffs, l_coeffs, g_coeffs, tests, mapping, nderiv, mask=None, dtype='real', quad_loop=None):
 
         stmts_1  = []
         stmts_2  = {}
         inits    = []
         mats     = []
+        zero     = 0.j if dtype=='complex' else 0.
 
-        # TODO check why the rhs f is considered as a test function
+        old_basis = q_basis.target
+
+        if isinstance(old_basis, IndexedVectorFunction):
+            space  = old_basis.base.space
+            name   = old_basis.base.name
+            basis = element_of(space, name=name+'_field')
+            basis = basis[old_basis.indices[0]]
+        else:
+            space  = old_basis.space
+            name   = old_basis.name
+
+            basis = element_of(space, name=name+'_field')
+
         for v in tests:
-            stmts_1 += construct_logical_expressions(v, nderiv, prefix='basis')
+            stmts_1 += list(zip(construct_logical_expressions(v, nderiv, lhs=v.subs(old_basis,basis)),
+                                construct_logical_expressions(v.subs(old_basis,basis),nderiv)))
 
-        logical_atoms   = [a.expr for a in stmts_1]
+        logical_atoms   = [[a[0].expr,a[1].expr] for a in stmts_1]
+
+        stmts_1 = [st[0] for st in stmts_1]
+
         new_atoms = {}
         for a in logical_atoms:
-            atom = str(get_atom_logical_derivatives(a))
+            atom = str(get_atom_logical_derivatives(a[0]))
             if atom  in new_atoms:
                 new_atoms[atom] += [a]
             else:
@@ -398,56 +443,79 @@ class EvalField(BaseNode):
         logical_atoms = new_atoms
         for coeff, l_coeff in zip(coeffs,l_coeffs):
             for a in logical_atoms[str(coeff.target)]:
-                # We add value in the array
-                mat     = MatrixQuadrature(a, dtype)
-                val     = ProductGenerator(mat, q_index)
-                rhs     = Mul(coeff, BasisAtom(a, prefix='basis'))
+                node    = AtomicNode(a[1])
+                if quad_loop:
+                    mat     = MatrixQuadrature(a[0], dtype)
+                    val     = ProductGenerator(mat, q_index)
+                else:
+                    val = AtomicNode(a[0])
+                rhs     = Mul(coeff,node)
                 stmts_1 += [AugAssign(val, '+', rhs)]
-                mats    += [mat]
 
-                # We initialize array for the kernel loop
-                inits += [Assign(BasisAtom(a), val)]
+                if quad_loop:
+                    mats  += [mat]
+                    inits += [Assign(AtomicNode(a[0]),val)]
+                else:
+                    inits += [Assign(val, zero)]
 
-                # We extract data from arr_coeffs_{ScalarFunction.name}
                 stmts_2[coeff] = Assign(coeff, ProductGenerator(l_coeff, l_index))
 
-        quad_loop  = Loop( q_basis, q_index, stmts=stmts_1, mask=mask, prefix='basis')
-        stmts_2 = [*stmts_2.values(), quad_loop]
-        basis_loop  = Loop((), l_index, stmts=stmts_2)
-        obj = Basic.__new__(cls, Tuple(*mats), inits, basis_loop, dtype)
-        obj._l_coeffs = l_coeffs
-        obj._g_coeffs = g_coeffs
-        obj._tests    = tests
-        obj._pads     = Pads(tests)
+        if quad_loop:
+            body  = Loop( q_basis, q_index, stmts=stmts_1, mask=mask)
+            stmts_2 = [*stmts_2.values(), body]
+            body  = Loop((), l_index, stmts=stmts_2)
+        else:
+            stmts_2 = flatten([*stmts_2.values(), *stmts_1])
+
+            body  = Loop((q_basis), l_index, stmts=stmts_2)
+
+        inits2       = []
+        dim          = domain.dim
+        lhs_slices   = (Slice(None,None),)*dim
+        if quad_loop:
+            inits2  = [Assign(ProductGenerator(mat,Tuple(lhs_slices)), zero) for mat in mats]
+
+        from psydac.api.ast.fem import expand
+        ex_tests     = expand(tests)
+
+        for coeff, l_coeff in zip(g_coeffs, l_coeffs):
+            basis        = coeff.test
+            index        = ex_tests.index(basis)
+            basis        = basis if basis in tests else basis.base
+            degrees      = [LengthDofTest(basis, i) for i in range(dim)]
+            spans        = [Span(basis, i) for i in range(dim)]
+            pads         = [Pads(tests, test_index=index, dim_index=i) for i in range(dim)]
+            rhs_starts   = [AddNode(pads[i],spans[i],MulNode(Integer(-1),degrees[i])) for i in range(dim)]
+            rhs_ends     = [AddNode(pads[i],spans[i],Integer(1))          for i in range(dim)]
+            rhs_slices = tuple(Slice(toInteger(s), toInteger(e)) for s,e in zip(rhs_starts, rhs_ends))
+            stmt       = Assign(ProductGenerator(l_coeff,Tuple(lhs_slices)), ProductGenerator(coeff,Tuple(rhs_slices)))
+            inits2.append(stmt)
+   
+        if quad_loop:
+            body = Block([*inits2, body])
+        else:
+            body = Block([*inits, body])
+            inits = Block(inits2)
+
+        obj = Basic.__new__(cls, inits, body, dtype)
+        obj._pads = Pads(tests)
         return obj
 
     @property
-    def atoms(self):
+    def inits(self):
         return self._args[0]
 
     @property
-    def inits(self):
+    def body(self):
         return self._args[1]
 
     @property
-    def body(self):
-        return self._args[2]
-
-    @property
     def dtype(self):
-        return self._args[3]
+        return self._args[2]
 
     @property
     def pads(self):
         return self._pads
-
-    @property
-    def l_coeffs(self):
-        return self._l_coeffs
-
-    @property
-    def g_coeffs(self):
-        return self._g_coeffs
 
 class RAT(Basic):
     pass
@@ -459,6 +527,9 @@ class EvalMapping(BaseNode):
 
         Parameters:
         ----------
+        domain : <Domain>
+            Sympde Domain object
+
         quads: <IndexQuadrature>
             Indices used for the quadrature loops
 
@@ -486,17 +557,18 @@ class EvalMapping(BaseNode):
         is_rational: bool,optional
             True if the mapping is rational
     """
-    def __new__(cls, quads, indices_basis, q_basis, mapping, components, mapping_space, nderiv, mask=None, is_rational=None, trial=None):
+    def __new__(cls, domain, quads, indices_basis, q_basis, mapping, components, mapping_space, nderiv, mask=None, is_rational=None, trial=None, quad_loop=None):
         mapping_atoms  = components.arguments
         basis          = q_basis
         target         = basis.target
         multiplicity   = tuple(mapping_space.vector_space.shifts) if mapping_space else ()
         pads           = tuple(mapping_space.vector_space.pads) if mapping_space else ()
-        
+        quad_loop      = True if quad_loop is None else quad_loop
+
         if isinstance(target, IndexedVectorFunction):
-            space          = target.base.space
+            space  = target.base.space
         else:
-            space      = target.space
+            space  = target.space
 
         if mapping.is_plus:
             weight = element_of(space, name='weight_plus')
@@ -513,20 +585,25 @@ class EvalMapping(BaseNode):
         g_coeffs    = []
         values      = set()
 
+        mapping_atoms = sorted(mapping_atoms,key=get_number_derivatives, reverse=True)
         components  = [get_atom_logical_derivatives(a) for a in mapping_atoms]
         test_atoms  = [a.subs(comp, target) for a,comp in zip(mapping_atoms, components)]
         weights     = [a.subs(comp, weight) for a,comp in zip(mapping_atoms, components)]
 
-        stmts       = [ComputeLogicalBasis(v,) for v in set(test_atoms)]
-        declarations = []
+        stmts           = [ComputeLogicalBasis(v,) for v in set(test_atoms)]
+        declarations    = []
         rationalization = []
         for test,mapp,comp in zip(test_atoms, mapping_atoms, components):
             test    = AtomicNode(test)
-            val     = ProductGenerator(MatrixQuadrature(mapp), quads)
-            if is_rational:
-                rhs     = Mul(CoefficientBasis(comp),CoefficientBasis(weight),test)
+            if quad_loop:
+                val  = ProductGenerator(MatrixQuadrature(mapp), quads)
             else:
-                rhs     = Mul(CoefficientBasis(comp),test)
+                val = mapp
+
+            if is_rational:
+                rhs = Mul(CoefficientBasis(comp),CoefficientBasis(weight),test)
+            else:
+                rhs = Mul(CoefficientBasis(comp),test)
             stmts  += [AugAssign(val, '+', rhs)]
 
             l_coeff = MatrixLocalBasis(comp)
@@ -536,7 +613,7 @@ class EvalMapping(BaseNode):
                 l_coeffs.append(l_coeff)
                 g_coeffs.append(g_coeff)
 
-            values.add(val.target)
+            values.add(val.target if quad_loop else val)
 
         if is_rational:
             l_coeffs.append(MatrixLocalBasis(weight))
@@ -544,74 +621,88 @@ class EvalMapping(BaseNode):
 
             for node, w in set(zip(test_atoms, weights)):
                 node    = AtomicNode(node)
-                val     = ProductGenerator(MatrixQuadrature(w), quads)
+                if quad_loop:
+                    val     = ProductGenerator(MatrixQuadrature(w), quads)
+                else:
+                    val = w
                 rhs     = Mul(CoefficientBasis(weight),node)
                 stmts  += [AugAssign(val, '+', rhs)]
-                values.add(val.target)
+                values.add(val.target if quad_loop else val)
                 declarations += [Assign(w,val)]
 
             for test,mapp,w in zip(test_atoms, mapping_atoms, weights):
                 comp = get_atom_logical_derivatives(mapp)
-                lhs  = ProductGenerator(MatrixQuadrature(mapp), quads)
+                if quad_loop:
+                    lhs  = ProductGenerator(MatrixQuadrature(mapp), quads)
+                else:
+                    lhs = mapp
                 rhs  = mapp.subs(comp,comp/weight)
                 rationalization += [Assign(lhs, rhs)]
 
             rationalization  = [*declarations, *rationalization]
 
-        basis_loop  = Loop((q_basis,*l_coeffs), indices_basis, stmts=stmts)
-        quad_loop   = Loop((), quads, stmts=[basis_loop , *rationalization], mask=mask)
+        loop   = Loop((q_basis,*l_coeffs), indices_basis, stmts=stmts)
 
-        obj    = Basic.__new__(cls, quad_loop, l_coeffs, g_coeffs, values, multiplicity, pads)
-        obj._mapping = mapping
-        obj._trial   = trial
+        if quad_loop:
+            stmts   = [Loop((), quads, stmts=[loop, *rationalization], mask=mask)]
+        else:
+            stmts = [loop, *rationalization]
+
+        dim          = domain.dim
+        test         = g_coeffs[0].test
+        lhs_slices   = (Slice(None,None),)*dim
+        is_trial     = trial
+        spans        = [Span(test, i) for i in range(dim)]
+        degrees      = [LengthDofTest(test, i) for i in range(dim)]
+        inits        = []
+        for coeff, l_coeff in zip(g_coeffs, l_coeffs):
+            rhs_starts = [multiplicity[i]*pads[i] + spans[i]-degrees[i] for i in range(dim)]
+            rhs_ends   = [multiplicity[i]*pads[i] + spans[i]+1          for i in range(dim)]
+            if isinstance(domain, Interface) and is_trial and mapping.is_plus :
+                axis             = domain.plus.axis
+                rhs_starts[axis] = multiplicity[axis]*pads[axis]
+                rhs_ends[axis]   = multiplicity[axis]*pads[axis] + degrees[axis] + 1
+            elif isinstance(domain, Interface) and is_trial and mapping.is_minus :
+                axis             = domain.minus.axis
+                rhs_starts[axis] = multiplicity[axis]*pads[axis]
+                rhs_ends[axis]   = multiplicity[axis]*pads[axis] + degrees[axis] + 1
+
+            rhs_slices = tuple(Slice(toInteger(s), toInteger(e)) for s,e in zip(rhs_starts, rhs_ends))
+            stmt       = Assign(ProductGenerator(l_coeff,Tuple(lhs_slices)), ProductGenerator(coeff,Tuple(rhs_slices)))
+            inits.append(stmt)
+
+        for val in values:
+            if quad_loop:
+                stmts = [Assign(ProductGenerator(val, Tuple(lhs_slices)), 0.)] + stmts
+            else:
+                stmts = [Assign(val, 0.)] + stmts
+
+        obj    = Basic.__new__(cls, Block(stmts), Block(inits), g_coeffs)
         return obj
 
     @property
-    def loop(self):
+    def stmts(self):
         return self._args[0]
 
     @property
-    def local_coeffs(self):
+    def inits(self):
         return self._args[1]
 
     @property
     def coeffs(self):
         return self._args[2]
 
-    @property
-    def values(self):
-        return self._args[3]
-
-    @property
-    def multiplicity(self):
-        return self._args[4]
-
-    @property
-    def pads(self):
-        return self._args[5]
-
-    @property
-    def mapping(self):
-        return self._mapping
-
-    @property
-    def trial(self):
-        return self._trial
-
 #==============================================================================
 class IteratorBase(BaseNode):
     """
     """
-    def __new__(cls, target, dummies=None, *, prefix=None):
+    def __new__(cls, target, dummies=None):
         if not dummies is None:
             if not isinstance(dummies, (list, tuple, Tuple)):
                 dummies = [dummies]
             dummies = Tuple(*dummies)
 
-        if not isinstance(prefix, (str, type(None))):
-            raise TypeError('expecting a prefix as a string')
-
-        return Basic.__new__(cls, target, dummies, prefix)
+        return Basic.__new__(cls, target, dummies)
 
     @property
     def target(self):
@@ -620,10 +711,6 @@ class IteratorBase(BaseNode):
     @property
     def dummies(self):
         return self._args[1]
-
-    @property
-    def prefix(self):
-        return self._args[2]
 
 #==============================================================================
 class TensorIterator(IteratorBase):
@@ -1024,6 +1111,9 @@ class MatrixGlobalBasis(MatrixNode):
     @property
     def dtype(self):
         return self._args[2]
+
+    def __getitem__(self, a):
+        return IndexedMatrixGlobalBasis(self, a)
 #==============================================================================
 class MatrixLocalBasis(MatrixNode):
     """
@@ -1042,6 +1132,9 @@ class MatrixLocalBasis(MatrixNode):
     @property
     def dtype(self):
         return self._args[1]
+
+    def __getitem__(self, a):
+        return IndexedMatrixLocalBasis(self, a)
 
 #==============================================================================
 class StencilMatrixLocalBasis(MatrixNode):
@@ -1610,7 +1703,7 @@ class Pads(ScalarNode):
      This represents the global pads
     """
     def __new__(cls, tests, trials=None, tests_degree=None, trials_degree=None,
-                    tests_multiplicity=None, trials_multiplicity=None):
+                    tests_multiplicity=None, trials_multiplicity=None, test_index=None, trial_index=None, dim_index=None):
         for target in tests:
             if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
                 raise TypeError('Expecting a scalar/vector test function')
@@ -1623,6 +1716,9 @@ class Pads(ScalarNode):
         obj._trials_degree = trials_degree
         obj._tests_multiplicity = tests_multiplicity
         obj._trials_multiplicity = trials_multiplicity
+        obj._trial_index = trial_index
+        obj._test_index = test_index
+        obj._dim_index = dim_index
         return obj
 
     @property
@@ -1649,6 +1745,17 @@ class Pads(ScalarNode):
     def trials_multiplicity(self):
         return self._trials_multiplicity
 
+    @property
+    def test_index(self):
+        return self._test_index
+
+    @property
+    def trial_index(self):
+        return self._trial_index
+
+    @property
+    def dim_index(self):
+        return self._dim_index
 #==============================================================================
 class Evaluation(BaseNode):
     """
@@ -1708,32 +1815,40 @@ class ComputeKernelExpr(ComputeNode):
 class ComputeLogical(ComputeNode):
     """
     """
-    pass
-
-#==============================================================================
-class ComputeLogicalBasis(ComputeLogical):
-    """
-    """
-    def __new__(cls, expr, *, prefix=None):
-
-        if not isinstance(prefix, (str, type(None))):
-            raise TypeError('expecting a prefix as a string')
-        return Basic.__new__(cls, expr, prefix)
+    def __new__(cls, expr, weights=True, lhs=None):
+        return Basic.__new__(cls, expr, weights, lhs)
 
     @property
     def expr(self):
         return self._args[0]
 
     @property
-    def prefix(self):
+    def weights(self):
         return self._args[1]
 
+    @property
+    def lhs(self):
+        return self._args[2]
+#==============================================================================
+class ComputeLogicalBasis(ComputeLogical):
+    """
+    """
+    def __new__(cls, expr, lhs=None):
+        return Basic.__new__(cls, expr, lhs)
+
+    @property
+    def expr(self):
+        return self._args[0]
+
+    @property
+    def lhs(self):
+        return self._args[1]
 #==============================================================================
 class Reduction(Basic):
     """
     """
     def __new__(cls, op, expr, lhs=None):
-        if not op in ['-', '+', '*', '/']:
+        if not op in ['-', '+', '*', '/', None]:
             raise TypeError("Expecting an operation type in : '-', '+', '*', '/'")
         return Basic.__new__(cls, op, expr, lhs)
 
@@ -1845,19 +1960,12 @@ class PhysicalBasisValue(PhysicalValueNode):
 class LogicalBasisValue(LogicalValueNode):
     """
     """
-    def __new__(cls, expr, *, prefix=None):
-        if not isinstance(prefix, (str, type(None))):
-            raise TypeError('expecting a prefix as a string')
-        return Basic.__new__(cls, expr, prefix)
+    def __new__(cls, expr):
+        return Basic.__new__(cls, expr)
 
     @property
     def expr(self):
         return self._args[0]
-
-    @property
-    def prefix(self):
-        return self._args[1]
-
 #==============================================================================
 class PhysicalGeometryValue(PhysicalValueNode):
     pass
@@ -1871,7 +1979,7 @@ class BasisAtom(AtomicNode):
     """
     Used to describe a temporary for the basis coefficient or in the kernel.
     """
-    def __new__(cls, expr, *, prefix=None):
+    def __new__(cls, expr):
         types = (IndexedVectorFunction, VectorFunction, ScalarFunction)
 
         ls = _atomic(expr, cls=types)
@@ -1880,20 +1988,13 @@ class BasisAtom(AtomicNode):
 
         u = ls[0]
 
-        if not isinstance(prefix, (str, type(None))):
-            raise TypeError('expecting a prefix as a string')
-
-        obj = Basic.__new__(cls, expr, prefix)
+        obj = Basic.__new__(cls, expr)
         obj._atom = u
         return obj
 
     @property
     def expr(self):
         return self._args[0]
-
-    @property
-    def prefix(self):
-        return self._args[1]
 
     @property
     def atom(self):
@@ -2006,7 +2107,7 @@ class Loop(BaseNode):
     def __new__(cls, iterable, index, *, stmts=None, mask=None,
                 parallel=None, default=None, shared=None,
                 private=None, firstprivate=None, lastprivate=None,
-                reduction=None, prefix=None):
+                reduction=None):
         # ...
         if not( isinstance(iterable, (list, tuple, Tuple)) ):
             iterable = [iterable]
@@ -2032,7 +2133,7 @@ class Loop(BaseNode):
         iterator = []
         generator = []
         for a in iterable:
-            i,g = construct_itergener(a, index, prefix=prefix)
+            i,g = construct_itergener(a, index)
             iterator.append(i)
             generator.append(g)
         # ...
@@ -2205,7 +2306,7 @@ class SplitArray(BaseNode):
         return self._args[2]
 
 #==============================================================================
-def construct_logical_expressions(u, nderiv, *, prefix=None):
+def construct_logical_expressions(u, nderiv, lhs=None):
     if isinstance(u, IndexedVectorFunction):
         dim = u.base.space.ldim
     else:
@@ -2219,15 +2320,26 @@ def construct_logical_expressions(u, nderiv, *, prefix=None):
     indices = list(indices)
     indices = [ijk for ijk in indices if sum(ijk) <= nderiv]
 
-    args = []
+    args     = []
+    lhs_args = []
     u = [u] if isinstance(u, (ScalarFunction, IndexedVectorFunction)) else [u[i] for i in range(dim)]
+
+    if lhs is not None:
+        lhs = [lhs]*len(u) if isinstance(lhs, (ScalarFunction, IndexedVectorFunction)) else [lhs[i] for i in range(dim)]
+    else:
+        lhs = [lhs]*len(u)
+
     for ijk in indices:
-        for atom in u:
+        for atom,lhs_atom in zip(u,lhs):
             for n,op in zip(ijk, ops):
                 for _ in range(1, n+1):
                     atom = op(atom)
+                    if lhs_atom is not None:
+                       lhs_atom = op(lhs_atom)
             args.append(atom)
-    return [ComputeLogicalBasis(i, prefix=prefix) for i in args]
+            lhs_args.append(lhs_atom)
+
+    return [ComputeLogicalBasis(i, lhs=a) for i,a in zip(args, lhs_args)]
 
 #==============================================================================
 class GeometryExpressions(Basic):
@@ -2269,8 +2381,55 @@ class GeometryExpressions(Basic):
     @property
     def expressions(self):
         return self._args[1]
+
 #==============================================================================
-def construct_itergener(a, index, *, prefix=None):
+class Block(Basic):
+    """
+    This class represents a Block of statements
+
+    """
+    def __new__(cls, body):
+        if not isinstance(body, (list, tuple, Tuple)):
+            body = [body]
+
+        body = Tuple(*body)
+        return Basic.__new__(cls, body)
+
+    @property
+    def body(self):
+        return self._args[0]
+
+#==============================================================================
+class ParallelBlock(Block):
+    def __new__(cls, default='private', private=(), shared=(), firstprivate=(), lastprivate=(), body=()):
+        return Basic.__new__(cls, default, private, shared, firstprivate, lastprivate, body)
+
+    @property
+    def default(self):
+        return self._args[0]
+
+    @property
+    def private(self):
+        return self._args[1]
+
+    @property
+    def shared(self):
+        return self._args[2]
+
+    @property
+    def firstprivate(self):
+        return self._args[3]
+
+    @property
+    def lastprivate(self):
+        return self._args[4]
+
+    @property
+    def body(self):
+        return self._args[5]
+
+#==============================================================================
+def construct_itergener(a, index):
     """
     Create the generator and the iterator based on a and the index
     """
@@ -2340,13 +2499,13 @@ def construct_itergener(a, index, *, prefix=None):
                        MatrixLocalBasis)
 
     if isinstance(element, tensor_classes):
-        iterator = TensorIterator(element, prefix=prefix)
+        iterator = TensorIterator(element)
 
     elif isinstance(element, product_classes):
-        iterator = ProductIterator(element, prefix=prefix)
+        iterator = ProductIterator(element)
 
     elif isinstance(element, (Expr, Tuple)):
-        iterator = TensorIterator(element, prefix=prefix)
+        iterator = TensorIterator(element)
 
     else:
         raise TypeError('{} not available'.format(type(element)))
