@@ -10,7 +10,7 @@ from sympde.topology import Mapping#, IdentityMapping, PolarMapping
 from sympde.expr     import integral
 from sympde.expr     import LinearForm
 from sympde.expr     import BilinearForm
-from sympde.expr     import Norm
+from sympde.expr     import SemiNorm
 
 from sympde.expr.evaluation import TerminalExpr
 
@@ -54,8 +54,8 @@ def test_codegen():
     l = LinearForm(v, int_0(dot(f, v)))
 
     error = Matrix([F[0]-Fe[0], F[1]-Fe[1]])
-    l2norm_F = Norm(error, domain, kind='l2')
-    h1norm_F = Norm(error, domain, kind='h1')
+    l2norm_F = SemiNorm(error, domain, kind='l2')
+    h1norm_F = SemiNorm(error, domain, kind='h1')
 
     # Create computational domain from topological domain
     domain_h = discretize(domain, filename=filename)
@@ -73,7 +73,7 @@ def test_codegen():
     stmt_l = parse(ast_l.expr, settings={'dim':2,'nderiv':1, 'mapping':Vh.symbolic_mapping})
     print(pycode(stmt_l))
 
-    print('============================================Norm===========================================')
+    print('============================================SemiNorm===========================================')
     ast_norm = AST(h1norm_F, TerminalExpr(h1norm_F)[0], Vh)
     stmt_n = parse(ast_norm.expr, settings={'dim':2,'nderiv':1, 'mapping':Vh.symbolic_mapping})
     print(pycode(stmt_n))

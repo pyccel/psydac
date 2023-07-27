@@ -19,7 +19,7 @@ from sympde.topology import ProductSpace
 from sympde.topology import element_of, elements_of
 from sympde.topology import Domain, Square, Union
 from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm
+from sympde.expr     import SemiNorm
 from sympde.expr     import find, EssentialBC
 from sympde.core     import Constant
 from sympde.expr     import TerminalExpr
@@ -125,8 +125,8 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
     equation_stokes = find((du, dp), forall=(v, q), lhs=a_stokes((du, dp), (v, q)), rhs=l_stokes(v, q), bc=bc)
 
     # Define (abstract) norms
-    l2norm_du  = Norm(Matrix([du[0],du[1]]), domain, kind='l2')
-    l2norm_dp  = Norm(dp     , domain, kind='l2')
+    l2norm_du  = SemiNorm(Matrix([du[0],du[1]]), domain, kind='l2')
+    l2norm_dp  = SemiNorm(dp     , domain, kind='l2')
 
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, filename=filename)
@@ -262,11 +262,11 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree, mult
     equation = find((du, dp), forall=(v, q), lhs=a((du, dp), (v, q)), rhs=l(v, q), bc=bc)
 
     # Define (abstract) norms
-    l2norm_u   = Norm(Matrix([u[0]-ue[0],u[1]-ue[1]]), domain, kind='l2')
-    l2norm_p   = Norm(p-pe  , domain, kind='l2')
+    l2norm_u   = SemiNorm(Matrix([u[0]-ue[0],u[1]-ue[1]]), domain, kind='l2')
+    l2norm_p   = SemiNorm(p-pe  , domain, kind='l2')
 
-    l2norm_du  = Norm(Matrix([du[0],du[1]]), domain, kind='l2')
-    l2norm_dp  = Norm(dp     , domain, kind='l2')
+    l2norm_du  = SemiNorm(Matrix([du[0],du[1]]), domain, kind='l2')
+    l2norm_dp  = SemiNorm(dp     , domain, kind='l2')
 
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, ncells=ncells, comm=comm)

@@ -9,7 +9,7 @@ from sympde.topology import VectorFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import Domain
 from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm
+from sympde.expr import SemiNorm
 from sympde.expr import find, EssentialBC
 
 from psydac.api.discretization import discretize
@@ -46,8 +46,8 @@ def run_vector_poisson_3d_dir(filename, solution, f):
     l = LinearForm(v, int_0(expr))
 
     error  = Matrix([u[0]-solution[0], u[1]-solution[1], u[2]-solution[2]])
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    l2norm = SemiNorm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)

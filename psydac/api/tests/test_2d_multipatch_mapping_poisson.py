@@ -16,7 +16,7 @@ from sympde.topology      import Square, Domain
 from sympde.topology      import IdentityMapping, PolarMapping, AffineMapping
 from sympde.expr.expr     import LinearForm, BilinearForm
 from sympde.expr.expr     import integral
-from sympde.expr.expr     import Norm
+from sympde.expr.expr     import SemiNorm
 from sympde.expr.equation import find, EssentialBC
 
 from psydac.api.discretization     import discretize
@@ -76,8 +76,8 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
 
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
 
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    l2norm = SemiNorm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     #+++++++++++++++++++++++++++++++
     # 2. Discretization

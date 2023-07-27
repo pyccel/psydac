@@ -10,7 +10,7 @@ from sympde.topology import element_of
 from sympde.topology import Line
 from sympde.expr     import BilinearForm, LinearForm
 from sympde.expr     import integral
-from sympde.expr     import Norm
+from sympde.expr     import SemiNorm
 from sympde.expr     import find
 
 from psydac.fem.basic          import FemField
@@ -39,7 +39,7 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
     l  = LinearForm((q,v), int_0(f0*v))
 
     error = F-sol
-    l2norm_F = Norm(error, domain, kind='l2')
+    l2norm_F = SemiNorm(error, domain, kind='l2')
 
 
     equation = find([p,u], forall=[q,v], lhs=a((p,u),(q,v)), rhs=l(q,v))

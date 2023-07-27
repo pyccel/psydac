@@ -13,7 +13,7 @@ from sympde.topology import NormalVector
 from sympde.topology import Square
 from sympde.topology import Union
 from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm
+from sympde.expr     import SemiNorm
 from sympde.expr     import find, EssentialBC
 
 from psydac.api.discretization import discretize
@@ -78,8 +78,8 @@ def run_laplace_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary,
 
     # Error norms
     error  = u - solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    l2norm = SemiNorm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     #+++++++++++++++++++++++++++++++
     # 2. Discretization

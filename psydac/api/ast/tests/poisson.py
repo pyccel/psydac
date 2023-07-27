@@ -13,7 +13,7 @@ from sympde.topology import IdentityMapping,Mapping ,PolarMapping
 from sympde.expr     import integral
 from sympde.expr     import LinearForm
 from sympde.expr     import BilinearForm
-from sympde.expr     import Norm
+from sympde.expr     import SemiNorm
 from sympde.expr.evaluation import TerminalExpr
 
 from psydac.api.ast.fem          import AST
@@ -51,8 +51,8 @@ def test_codegen():
     Vh = discretize(V, domain_h)
 
     error  = u - sin(pi*x)*sin(pi*y)
-    l2norm = LogicalExpr(M, Norm(error, domain, kind='l2'))
-    h1norm = LogicalExpr(M, Norm(error, domain, kind='h1'))
+    l2norm = LogicalExpr(M, SemiNorm(error, domain, kind='l2'))
+    h1norm = LogicalExpr(M, SemiNorm(error, domain, kind='h1'))
 
     ast_b = AST(b, TerminalExpr(b)[0],[Vh, Vh])
     ast_b = parse(ast_b.expr, settings={'dim':2,'nderiv':1,'mapping':M,'target':domain.logical_domain})

@@ -11,7 +11,7 @@ from sympde.topology import NormalVector
 from sympde.topology import Cube
 from sympde.topology import Union
 from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm
+from sympde.expr     import SemiNorm
 from sympde.expr     import find, EssentialBC
 
 from psydac.api.discretization import discretize
@@ -38,8 +38,8 @@ def run_poisson_3d_dir(solution, f, ncells, degree, comm=None):
     l = LinearForm(v, int_0(expr))
 
     error  = u - solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    l2norm = SemiNorm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
@@ -113,8 +113,8 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
     l = LinearForm(v, expr)
 
     error  = u - solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    l2norm = SemiNorm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     B_dirichlet = domain.boundary.complement(B_neumann)
     bc = EssentialBC(u, 0, B_dirichlet)

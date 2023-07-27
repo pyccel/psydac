@@ -11,7 +11,7 @@ from sympde.expr     import BilinearForm as sym_BilinearForm
 from sympde.expr     import LinearForm as sym_LinearForm
 from sympde.expr     import Functional as sym_Functional
 from sympde.expr     import Equation as sym_Equation
-from sympde.expr     import Norm as sym_Norm
+from sympde.expr     import Norm as sym_Norm, SemiNorm as sym_SemiNorm
 from sympde.expr     import TerminalExpr
 
 from sympde.topology import BasicFunctionSpace
@@ -445,7 +445,7 @@ def discretize(a, *args, **kwargs):
         kwargs['symbolic_mapping'] = mapping
 
     if isinstance(a, sym_BasicForm):
-        if isinstance(a, sym_Norm):
+        if isinstance(a, (sym_Norm,sym_SemiNorm)):
             kernel_expr = TerminalExpr(a, domain)
             if not mapping is None:
                 kernel_expr = tuple(LogicalExpr(i, domain) for i in kernel_expr)
