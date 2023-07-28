@@ -148,7 +148,10 @@ def hcurl_solve_eigen_pbm_multipatch_dg(ncells=[[2,2], [2,2]], degree=[3,3], dom
 
     t_stamp = time_count(t_stamp)
     print('plotting the eigenmodes...')     
-
+    
+    if not os.path.exists(plot_dir):
+        os.makedirs(plot_dir)
+        
    # OM = OutputManager('spaces.yml', 'fields.h5')
    # OM.add_spaces(V1h=V1h)
 

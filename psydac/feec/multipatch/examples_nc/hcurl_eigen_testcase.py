@@ -1,9 +1,9 @@
 import os
 import numpy as np
 
-#from psydac.feec.multipatch.examples_nc.multipatch_non_conf_examples import hcurl_solve_eigen_pbm_multipatch_nc
-from psydac.feec.multipatch.examples_nc.hcurl_eigen_pbms_nc import hcurl_solve_eigen_pbm_multipatch_nc
 
+from psydac.feec.multipatch.examples_nc.hcurl_eigen_pbms_nc import hcurl_solve_eigen_pbm_multipatch_nc
+from psydac.feec.multipatch.examples_nc.hcurl_eigen_pbms_dg import hcurl_solve_eigen_pbm_multipatch_dg
 
 from psydac.feec.multipatch.utilities                   import time_count, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
 from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_file
@@ -15,6 +15,8 @@ t_stamp_full = time_count()
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 #
 # test-case and numerical parameters:
+# method = 'feec'
+method = 'dg'
 
 operator = 'curl-curl' 
 degree = [3,3] # shared across all patches
@@ -69,8 +71,8 @@ domain_name = 'curved_L_shape'
 domain=[[1, 3],[0, np.pi/4]] # interval in x- and y-direction
 
 
-ncells = np.array([[None, 10],
-                   [10,   5]])
+ncells = np.array([[None, 5],
+                   [5,   10]])
 
 
 
@@ -111,7 +113,7 @@ if operator == 'curl-curl':
 else:
     raise ValueError(operator)
 
-case_dir = 'talk_eigenpbm_'+operator
+case_dir = 'eigenpbm_'+operator+'_'+method
 ref_case_dir = case_dir
 
 cb_min_sol = None
@@ -232,8 +234,26 @@ print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
 # note:
 #   - we look for nb_eigs_solve eigenvalues close to sigma (skip zero eigenvalues if skip_zero_eigs==True)
 #   - we plot nb_eigs_plot eigenvectors
-
-diags, eigenvalues, eigenvalues2 = hcurl_solve_eigen_pbm_multipatch_nc(
+if method == 'feec':
+    diags, eigenvalues = hcurl_solve_eigen_pbm_multipatch_nc(
+        ncells=ncells, degree=degree,
+        gamma_h=gamma_h,
+        generalized_pbm=generalized_pbm,
+        nu=nu,
+        mu=mu,
+        sigma=sigma,
+        ref_sigmas=ref_sigmas,
+        skip_eigs_threshold=skip_eigs_threshold,
+        nb_eigs_solve=nb_eigs_solve,
+        nb_eigs_plot=nb_eigs_plot,
+        domain_name=domain_name, domain=domain,
+        backend_language=backend_language,
+        plot_dir=plot_dir,
+        hide_plots=True,
+        m_load_dir=m_load_dir,
+    )
+elif method == 'dg': 
+    diags, eigenvalues = hcurl_solve_eigen_pbm_multipatch_dg(
     ncells=ncells, degree=degree,
     gamma_h=gamma_h,
     generalized_pbm=generalized_pbm,
@@ -249,14 +269,14 @@ diags, eigenvalues, eigenvalues2 = hcurl_solve_eigen_pbm_multipatch_nc(
     plot_dir=plot_dir,
     hide_plots=True,
     m_load_dir=m_load_dir,
-)
+    )
+
 
 if ref_sigmas is not None:
         errors = []
         n_errs = min(len(ref_sigmas), len(eigenvalues))
         for k in range(n_errs):
             diags['error_{}'.format(k)] = abs(eigenvalues[k]-ref_sigmas[k])
-            diags['error2_{}'.format(k)] = abs(eigenvalues2[k]-ref_sigmas[k])
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 

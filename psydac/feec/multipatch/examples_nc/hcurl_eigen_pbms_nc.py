@@ -32,25 +32,6 @@ from psydac.feec.multipatch.non_matching_operators import construct_V1_conformin
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
-#from said
-from scipy.sparse.linalg import spsolve, inv
-
-from sympde.calculus      import grad, dot, curl, cross
-from sympde.calculus      import minus, plus
-from sympde.topology      import VectorFunctionSpace
-from sympde.topology      import elements_of
-from sympde.topology      import NormalVector
-from sympde.topology      import Square
-from sympde.topology      import IdentityMapping, PolarMapping
-from sympde.expr.expr     import LinearForm, BilinearForm
-from sympde.expr.expr     import integral
-from sympde.expr.expr     import Norm
-from sympde.expr.equation import find, EssentialBC
-
-from psydac.api.tests.build_domain   import build_pretzel
-from psydac.fem.basic                import FemField
-from psydac.api.settings             import PSYDAC_BACKEND_GPYCCEL
-from psydac.feec.pull_push           import pull_2d_hcurl
 
 def hcurl_solve_eigen_pbm_multipatch_nc(ncells=[[2,2], [2,2]], degree=[3,3], domain=[[0, np.pi],[0, np.pi]], domain_name='refined_square', backend_language='pyccel-gcc', mu=1, nu=0, gamma_h=0,
                           generalized_pbm=False, sigma=None, ref_sigmas=[], nb_eigs_solve=8, nb_eigs_plot=5, skip_eigs_threshold=1e-7,
@@ -253,112 +234,7 @@ def hcurl_solve_eigen_pbm_multipatch_nc(ncells=[[2,2], [2,2]], degree=[3,3], dom
 
         t_stamp = time_count(t_stamp)
 
-    ### Saids Code
-
-    V  = VectorFunctionSpace('V', domain, kind='hcurl')
-
-    u, v, F  = elements_of(V, names='u, v, F')
-    nn       = NormalVector('nn')
-
-    I        = domain.interfaces
-    boundary = domain.boundary
-
-    kappa   = 10
-    k       = 1
-
-    jump = lambda w:plus(w)-minus(w)
-    avr  = lambda w:0.5*plus(w) + 0.5*minus(w)
-
-    expr1_I  =  cross(nn, jump(v))*curl(avr(u))\
-               +k*cross(nn, jump(u))*curl(avr(v))\
-               +kappa*cross(nn, jump(u))*cross(nn, jump(v))
-
-    expr1   = curl(u)*curl(v) 
-    expr1_b = -cross(nn, v) * curl(u) -k*cross(nn, u)*curl(v)  + kappa*cross(nn, u)*cross(nn, v)
-    ## curl curl u = - omega**2 u 
-
-    expr2   = dot(u,v)
-    #expr2_I = kappa*cross(nn, jump(u))*cross(nn, jump(v))
-    #expr2_b = -k*cross(nn, u)*curl(v) + kappa * cross(nn, u) * cross(nn, v)
-
-    # Bilinear form a: V x V --> R
-    a      = BilinearForm((u,v),  integral(domain, expr1) + integral(I, expr1_I) + integral(boundary, expr1_b))
-    
-    # Linear form l: V --> R
-    b     = BilinearForm((u,v), integral(domain, expr2))# + integral(I, expr2_I) + integral(boundary, expr2_b))
-
-    #+++++++++++++++++++++++++++++++
-    # 2. Discretization
-    #+++++++++++++++++++++++++++++++
-
-    domain_h = discretize(domain, ncells=ncells_h)
-    Vh       = discretize(V, domain_h, degree=degree)
-
-    ah = discretize(a, domain_h, [Vh, Vh])
-    Ah_m = ah.assemble().tosparse()
-
-    bh = discretize(b, domain_h, [Vh, Vh])
-    Bh_m = bh.assemble().tosparse()
-
-    all_eigenvalues_2, all_eigenvectors_transp_2 = get_eigenvalues(nb_eigs_solve, sigma, Ah_m, Bh_m)
-
-    #Eigenvalue processing
-    t_stamp = time_count(t_stamp)
-    print('sorting out eigenvalues...')
-    zero_eigenvalues2 = []
-    if skip_eigs_threshold is not None:
-        eigenvalues2 = []
-        eigenvectors2 = []
-        for val, vect in zip(all_eigenvalues_2, all_eigenvectors_transp_2.T):
-            if abs(val) < skip_eigs_threshold: 
-                zero_eigenvalues2.append(val)
-                # we skip the eigenvector
-            else:
-                eigenvalues2.append(val)
-                eigenvectors2.append(vect)
-    else:
-        eigenvalues2 = all_eigenvalues_2
-        eigenvectors2 = all_eigenvectors_transp_2.T
-    diags['DG'] = True 
-    for k, val in enumerate(eigenvalues2):
-        diags['eigenvalue2_{}'.format(k)] = val #eigenvalues[k]
-    
-    for k, val in enumerate(zero_eigenvalues2):
-        diags['skipped eigenvalue2_{}'.format(k)] = val
-
-    t_stamp = time_count(t_stamp)
-    print('plotting the eigenmodes...')     
-
-   # OM = OutputManager('spaces.yml', 'fields.h5')
-   # OM.add_spaces(V1h=V1h)
-
-    nb_eigs = len(eigenvalues2)
-    for i in range(min(nb_eigs_plot, nb_eigs)):
-        OM = OutputManager(plot_dir+'/spaces2.yml', plot_dir+'/fields2.h5')
-        OM.add_spaces(V1h=Vh)
-        print('looking at emode i = {}... '.format(i))
-        lambda_i  = eigenvalues2[i]
-        emode_i = np.real(eigenvectors2[i])
-        norm_emode_i = np.dot(emode_i,Bh_m.dot(emode_i))
-        eh_c = emode_i/norm_emode_i 
-        stencil_coeffs = array_to_psydac(eh_c, Vh.vector_space)
-        vh = FemField(Vh, coeffs=stencil_coeffs)
-        OM.set_static()
-        #OM.add_snapshot(t=i , ts=0) 
-        OM.export_fields(vh = vh)
-
-        #print('norm of computed eigenmode: ', norm_emode_i)
-        # plot the broken eigenmode:
-        OM.export_space_info()
-        OM.close()
-
-        PM = PostProcessManager(domain=domain, space_file=plot_dir+'/spaces2.yml', fields_file=plot_dir+'/fields2.h5' )
-        PM.export_to_vtk(plot_dir+"/eigen2_{}".format(i),grid=None, npts_per_cell=[6]*2,snapshots='all', fields='vh' )
-        PM.close()
-
-        t_stamp = time_count(t_stamp)
-
-    return diags, eigenvalues, eigenvalues2
+    return diags, eigenvalues
 
 
 def get_eigenvalues(nb_eigs, sigma, A_m, M_m):

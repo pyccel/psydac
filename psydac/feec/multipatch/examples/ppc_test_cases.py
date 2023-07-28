@@ -90,15 +90,15 @@ def get_Gaussian_beam(x_0, y_0, domain=None):
     x = x - x_0
     y = y - y_0
     
-    k = 2*pi 
-    sigma = 0.7
+    k = pi 
+    sigma = 0.5
 
     xy = x**2 + y**2
     ef = exp( - xy/(2*sigma**2) )
 
     E = cos(k * y) * ef
-    B = y/(sigma**2) * E - sin(k * y) * ef 
-
+    B = -y/(sigma**2) * E 
+    
     return Tuple(E, 0), B
 
 def get_Gaussian_beam2(x_0, y_0, domain=None):
