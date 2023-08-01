@@ -182,7 +182,17 @@ def solve_td_maxwell_pbm(
     print('building derham sequences...')
     p_derham  = Derham(domain, ["H1", "Hcurl", "L2"])
     domain_h = discretize(domain, ncells=ncells)
-    p_derham_h = discretize(p_derham, domain_h, degree=degree)
+
+    #grid_type=[np.linspace(-1,1,nc+1) for nc in ncells]
+    
+    x1 = 0.5
+    x2 = 0.8 
+
+    h = max([1-x2,x2-x1,x1])
+
+    grid_type = [np.array([-1,-x2,-x1,0,x1,x2,1]) for n in ncells]
+
+    p_derham_h = discretize(p_derham, domain_h, degree=degree, grid_type=grid_type)
 
     p_V0h = p_derham_h.V0
     p_V1h = p_derham_h.V1
@@ -191,7 +201,7 @@ def solve_td_maxwell_pbm(
     if method == 'ssc':
         d_derham  = Derham(domain, ["H1", "Hdiv", "L2"])
         dual_degree = [d-1 for d in degree]
-        d_derham_h = discretize(d_derham, domain_h, degree=dual_degree)
+        d_derham_h = discretize(d_derham, domain_h, degree=dual_degree, grid_type=grid_type)
 
         d_V0h = d_derham_h.V0
         d_V1h = d_derham_h.V1
@@ -351,8 +361,8 @@ def solve_td_maxwell_pbm(
         Nt_pertau, dt, norm_curlh = compute_stable_dt(cfl, tau, Amp_Op, Far_Op, p_V2h.nbasis)
         u, w = gauss_lobatto(ncells[0])
         #h = np.pi/(2*nb_patch_x)*(u[ncells[0]//2+1]-u[ncells[0]//2])
-        h = np.pi/(nb_patch_x*(ncells[0]-2))
-        h = 0.3260281616729299
+        #h = np.pi/(nb_patch_x*(ncells[0]-2))
+        h = h*np.pi/(2*nb_patch_x)
         print(" *** with cps.proj_op = ", cps.proj_op)
         print("h    = ", h)
         print("dt   = ", dt)

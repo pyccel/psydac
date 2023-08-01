@@ -193,7 +193,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, nquads=None, basis='B', sequence='DR'):
+def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, grid_type=None, nquads=None, basis='B', sequence='DR'):
     """
     This function creates the discretized space starting from the symbolic space.
 
@@ -319,40 +319,19 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
             max_coords = interior.max_coords
 
             assert len(ncells) == len(periodic) == len(degree_i)  == len(multiplicity_i) == len(min_coords) == len(max_coords)
-
-            if knots is None:
-                # Create uniform grid
-                uw = [gauss_lobatto( n ) for n in ncells]
-                u = [(ui+1)/2 for ui,wi in uw]
-                #print(u)
-                #grids = [xmin+u_i*(xmax-xmin)
-                #         for xmin, xmax, u_i in zip(min_coords, max_coords, u)]
-                #print(u[0][1])
+            if knots is not None and grid_type is not None :
+                raise(ValueError("grids and knots cannot be both provided"))
+            elif knots is None:
+                if grid_type is None :
+                    grid_type = [np.linspace(-1,1,ne+1) for ne in ncells]
+                grids = [xmin*(1-grid)/2+xmax*(1+grid)/2
+                        for xmin, xmax, grid in zip(min_coords, max_coords, grid_type)]
                 
-                beta = u[0][1]
-                #beta = 0.08
-                alpha = (ncells[0]-2)*(u[0][1])
-                print(beta)
-                #alpha=0.25
-                #print(alpha)
-                grids = [np.linspace((beta*xmax+(1-beta)*xmin), (beta*xmin+(1-beta)*xmax), num=ne - 1)
-                        for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
-                print(grids[0][1]-grids[0][0])
-                print(grids)
-                grids = [np.concatenate((u[0][:1]*xmax+(1-u[0][:1])*xmin,grid,u[0][-1:]*xmax+(1-u[0][-1:])*xmin))
-                        for xmin, xmax, grid in zip(min_coords, max_coords,grids)]
-                #grids = [np.linspace(xmin, xmax, num=ne - 1)
-                        #for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
-                print(grids)
-                #grids = [np.insert(grid, 1,(1-alpha)*grid[0]+(alpha)*grid[1]) for (i,grid) in enumerate(grids)]
-                #grids = [np.insert(grid,-1,(1-alpha)*grid[-1]+(alpha)*(grid[-2])) for (i,grid) in enumerate(grids)]
-                    
-                #print(grids)
-                # Create 1D finite element spaces and precompute quadrature data
-                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
+                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) 
+                        for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
             else:
                  # Create 1D finite element spaces and precompute quadrature data
-                spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]
+                spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]            
 
         carts    = create_cart(ddms, spaces)
         g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], nquads=nquads) for i,inter in enumerate(interiors)}
