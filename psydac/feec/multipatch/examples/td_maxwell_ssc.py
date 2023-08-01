@@ -35,6 +35,8 @@ from psydac.feec.multipatch.bilinear_form_scipy         import construct_pairing
 # from psydac.feec.multipatch.conf_projections_scipy      import Conf_proj_0, Conf_proj_1, Conf_proj_0_c1, Conf_proj_1_c1
 import psydac.feec.multipatch.conf_projections_scipy as cps
 
+from psydac.utilities.quadratures import gauss_lobatto
+
 cps.mom_pres = True #False # 
 cps.proj_op = 2
 
@@ -268,7 +270,6 @@ def solve_td_maxwell_pbm(
 
     t_stamp = time_count(t_stamp)
     print('building the Hodge matrices ...')
-
     if method == 'ssc':
         p_KK2_storage_fn = m_load_dir+'/p_KK2.npz'
         if os.path.exists(p_KK2_storage_fn):
@@ -348,12 +349,15 @@ def solve_td_maxwell_pbm(
         print(Far_Op.shape)
         print(p_V2h.nbasis)
         Nt_pertau, dt, norm_curlh = compute_stable_dt(cfl, tau, Amp_Op, Far_Op, p_V2h.nbasis)
-        
-        h = np.pi/(nb_patch_x*ncells[0])
+        u, w = gauss_lobatto(ncells[0])
+        #h = np.pi/(2*nb_patch_x)*(u[ncells[0]//2+1]-u[ncells[0]//2])
+        h = np.pi/(nb_patch_x*(ncells[0]-2))
+        h = 0.3260281616729299
         print(" *** with cps.proj_op = ", cps.proj_op)
         print("h    = ", h)
         print("dt   = ", dt)
         print("dt/h = ", dt/h)
+        print("norm_curlh = ", norm_curlh)
         print("h*norm_curlh = ", h*norm_curlh)
         final_time = tau * nb_tau
         print('final_time = ', final_time)
@@ -765,7 +769,7 @@ def compute_stable_dt(cfl, tau, C_m, dC_m, V1_dim):
         
         norm_vv = vect_norm_2(vv)
         old_spectral_rho = spectral_rho
-        spectral_rho = vect_norm_2(vv) # approximation
+        spectral_rho = norm_vv.copy() # approximation
         conv = abs((spectral_rho - old_spectral_rho)/spectral_rho) < 0.001
         print ("    ... spectral radius iteration: spectral_rho( dC_m @ C_m ) ~= {}".format(spectral_rho))
     t_stamp = time_count(t_stamp)

@@ -4,7 +4,7 @@ from scipy.sparse import eye as sparse_eye
 
 from sympde.topology import Boundary, Interface, Union
 from psydac.core.bsplines import breakpoints
-from psydac.utilities.quadratures import gauss_legendre
+from psydac.utilities.quadratures import gauss_legendre, gauss_lobatto
 from psydac.linalg.basic        import IdentityOperator
 from psydac.feec.multipatch.operators import get_patch_index_from_face
 from psydac.linalg.basic        import IdentityOperator
