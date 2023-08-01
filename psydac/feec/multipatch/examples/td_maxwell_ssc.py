@@ -183,15 +183,32 @@ def solve_td_maxwell_pbm(
     p_derham  = Derham(domain, ["H1", "Hcurl", "L2"])
     domain_h = discretize(domain, ncells=ncells)
 
+    #standard uniform grid
     #grid_type=[np.linspace(-1,1,nc+1) for nc in ncells]
     
-    x1 = 0.5
-    x2 = 0.8 
+    #this seems to be quite good
+    x = 1-1/ncells[0] #leftmost point - the rest is uniform grid
+    grid_type=[np.concatenate(([-1],np.linspace(-x,x,num=nc-1),[1])) for nc in ncells]
+    
+    h=(2*x)/(ncells[0]-2)
+    #print(u)
+    
+    #trying to optimize the grid by hand 
+    #x = 0.905#u[0][-2]#
 
-    h = max([1-x2,x2-x1,x1])
+    #x1 = x/4#0.2941
+    #x2 = 2*x/4#0.5883
+    #x3 = 3*x/4#0.8825
+    #x4 = x
 
-    grid_type = [np.array([-1,-x2,-x1,0,x1,x2,1]) for n in ncells]
+    
+    #h = max([1-x2,x2-x1,x1])
+    #h = max([1-x3,x3-x2,x2-x1,x1])
+    #h = max([1-x4,x4-x3,x3-x2,x2-x1,x1])
 
+    #grid_type = [np.array([-1,-x2,-x1,0,x1,x2,1]) for n in ncells]
+    #grid_type = [np.array([-1,-x3,-x2,-x1,0,x1,x2,x3,1]) for n in ncells]   
+    #grid_type = [np.array([-1,-x4,-x3,-x2,-x1,0,x1,x2,x3,x4,1]) for n in ncells]  
     p_derham_h = discretize(p_derham, domain_h, degree=degree, grid_type=grid_type)
 
     p_V0h = p_derham_h.V0
@@ -359,9 +376,6 @@ def solve_td_maxwell_pbm(
         print(Far_Op.shape)
         print(p_V2h.nbasis)
         Nt_pertau, dt, norm_curlh = compute_stable_dt(cfl, tau, Amp_Op, Far_Op, p_V2h.nbasis)
-        u, w = gauss_lobatto(ncells[0])
-        #h = np.pi/(2*nb_patch_x)*(u[ncells[0]//2+1]-u[ncells[0]//2])
-        #h = np.pi/(nb_patch_x*(ncells[0]-2))
         h = h*np.pi/(2*nb_patch_x)
         print(" *** with cps.proj_op = ", cps.proj_op)
         print("h    = ", h)
@@ -780,7 +794,7 @@ def compute_stable_dt(cfl, tau, C_m, dC_m, V1_dim):
         norm_vv = vect_norm_2(vv)
         old_spectral_rho = spectral_rho
         spectral_rho = norm_vv.copy() # approximation
-        conv = abs((spectral_rho - old_spectral_rho)/spectral_rho) < 0.001
+        conv = abs((spectral_rho - old_spectral_rho)/spectral_rho) < 0.00001
         print ("    ... spectral radius iteration: spectral_rho( dC_m @ C_m ) ~= {}".format(spectral_rho))
     t_stamp = time_count(t_stamp)
     
