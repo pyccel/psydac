@@ -26,11 +26,12 @@ from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_
 from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_OBSOLETE
 from psydac.feec.multipatch.utilities                   import time_count
 from psydac.feec.multipatch.non_matching_operators      import construct_V0_conforming_projection, construct_V1_conforming_projection
+from psydac.api.postprocessing import OutputManager, PostProcessManager
 
 from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic        import FemField
 
-def solve_h1_source_pbm(
+def solve_h1_source_pbm_nc(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_L2', source_type='manu_poisson',
         eta=-10., mu=1., gamma_h=10.,
         plot_source=False, plot_dir=None, hide_plots=True
@@ -66,7 +67,7 @@ def solve_h1_source_pbm(
     :param source_type: must be implemented in get_source_and_solution()
     """
 
-    ncells = [nc, nc]
+    ncells = nc
     degree = [deg,deg]
 
     # if backend_language is None:
@@ -89,7 +90,8 @@ def solve_h1_source_pbm(
     domain = build_multipatch_domain(domain_name=domain_name)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
-    domain_h = discretize(domain, ncells=ncells)
+    ncells_h = {patch.name: [ncells[i], ncells[i]] for (i,patch) in enumerate(domain.interior)}
+    domain_h = discretize(domain, ncells=ncells_h)
 
     print('building the symbolic and discrete deRham sequences...')
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
@@ -254,14 +256,14 @@ if __name__ == '__main__':
 
     domain_name = 'pretzel_f'
     # domain_name = 'curved_L_shape'
-    nc = 10
+    nc = np.array([8, 8, 16, 16, 8, 4, 4, 4, 4, 4, 2, 2, 4, 16, 16, 8, 2, 2, 2])
     deg = 2
 
     # nc = 2
     # deg = 2
 
     run_dir = '{}_{}_nc={}_deg={}/'.format(domain_name, source_type, nc, deg)
-    solve_h1_source_pbm(
+    solve_h1_source_pbm_nc(
         nc=nc, deg=deg,
         eta=eta,
         mu=1, #1,

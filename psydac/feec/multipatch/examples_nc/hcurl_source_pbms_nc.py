@@ -29,6 +29,7 @@ from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P0_phys
 from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
 from psydac.linalg.utilities                            import array_to_psydac
 from psydac.fem.basic                                   import FemField
+from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_OBSOLETE
 
 from psydac.feec.multipatch.non_matching_operators import construct_V0_conforming_projection, construct_V1_conforming_projection
 from psydac.api.postprocessing import OutputManager, PostProcessManager
@@ -39,8 +40,8 @@ def solve_hcurl_source_pbm_nc(
         project_sol=False,
         plot_source=False, plot_dir=None, hide_plots=True, skip_plot_titles=False,
         cb_min_sol=None, cb_max_sol=None,
-        m_load_dir="", sol_filename="", sol_ref_filename="",
-        ref_nc=None, ref_deg=None,
+        m_load_dir=None, sol_filename="", sol_ref_filename="",
+        ref_nc=None, ref_deg=None, test=False
 ):
     """
     solver for the problem: find u in H(curl), such that
@@ -246,9 +247,14 @@ def solve_hcurl_source_pbm_nc(
     t_stamp = time_count(t_stamp)
     print()
     print(' -- getting source --')
-    f_vect, u_bc, u_ex, curl_u_ex, div_u_ex = get_source_and_solution_hcurl(
+    if source_type == 'manu_maxwell':
+        f_scal, f_vect, u_bc, p_ex, u_ex, phi, grad_phi = get_source_and_solution_OBSOLETE(
         source_type=source_type, eta=eta, mu=mu, domain=domain, domain_name=domain_name,
-    )
+        )
+    else:
+        f_vect, u_bc, u_ex, curl_u_ex, div_u_ex = get_source_and_solution_hcurl(
+        source_type=source_type, eta=eta, mu=mu, domain=domain, domain_name=domain_name,
+        )
     # compute approximate source f_h
     t_stamp = time_count(t_stamp)
     tilde_f_c = f_c = None
@@ -351,6 +357,15 @@ def solve_hcurl_source_pbm_nc(
         PM.close()
 
     time_count(t_stamp)
+
+    if test:
+        u         = element_of(V1h.symbolic_space, name='u')
+        l2norm    = Norm(Matrix([u[0] - u_ex[0],u[1] - u_ex[1]]), domain, kind='l2')
+        l2norm_h  = discretize(l2norm, domain_h, V1h)
+        uh_c      = array_to_psydac(uh_c, V1h.vector_space)
+        l2_error  = l2norm_h.assemble(u=FemField(V1h, coeffs=uh_c))
+        print(l2_error)
+        return l2_error
 
 
     return diags

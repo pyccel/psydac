@@ -2,8 +2,8 @@ import os
 import numpy as np
 
 
-from psydac.feec.multipatch.examples_nc.hcurl_eigen_pbms_nc import hcurl_solve_eigen_pbm_multipatch_nc
-from psydac.feec.multipatch.examples_nc.hcurl_eigen_pbms_dg import hcurl_solve_eigen_pbm_multipatch_dg
+from psydac.feec.multipatch.examples_nc.hcurl_eigen_pbms_nc import hcurl_solve_eigen_pbm_nc
+from psydac.feec.multipatch.examples_nc.hcurl_eigen_pbms_dg import hcurl_solve_eigen_pbm_dg
 
 from psydac.feec.multipatch.utilities                   import time_count, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
 from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_file
@@ -235,7 +235,7 @@ print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
 #   - we look for nb_eigs_solve eigenvalues close to sigma (skip zero eigenvalues if skip_zero_eigs==True)
 #   - we plot nb_eigs_plot eigenvectors
 if method == 'feec':
-    diags, eigenvalues = hcurl_solve_eigen_pbm_multipatch_nc(
+    diags, eigenvalues = hcurl_solve_eigen_pbm_nc(
         ncells=ncells, degree=degree,
         gamma_h=gamma_h,
         generalized_pbm=generalized_pbm,
@@ -253,7 +253,7 @@ if method == 'feec':
         m_load_dir=m_load_dir,
     )
 elif method == 'dg': 
-    diags, eigenvalues = hcurl_solve_eigen_pbm_multipatch_dg(
+    diags, eigenvalues = hcurl_solve_eigen_pbm_dg(
     ncells=ncells, degree=degree,
     gamma_h=gamma_h,
     generalized_pbm=generalized_pbm,

@@ -16,7 +16,6 @@ t_stamp_full = time_count()
 test_case = 'maxwell_hom_eta=170'   # used in paper
 # test_case = 'maxwell_inhom'   # used in paper
 
-compute_ref_sol = False  # (not needed for inhomogeneous test-case, as exact solution is known)
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 

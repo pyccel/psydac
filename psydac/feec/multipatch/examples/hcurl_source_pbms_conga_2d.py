@@ -24,7 +24,7 @@ from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
 from psydac.feec.multipatch.operators                   import HodgeOperator
 from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution
+from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_OBSOLETE
 from psydac.feec.multipatch.utilities                   import time_count
 from psydac.linalg.utilities                            import array_to_psydac
 from psydac.fem.basic                                   import FemField
@@ -227,9 +227,8 @@ def solve_hcurl_source_pbm(
     print('getting the source and ref solution...')
     N_diag = 200
     method = 'conga'
-    f_scal, f_vect, u_bc, ph_ref, uh_ref, p_ex, u_ex, phi, grad_phi = get_source_and_solution(
+    f_scal, f_vect, u_bc, p_ex, u_ex, phi, grad_phi = get_source_and_solution_OBSOLETE(
         source_type=source_type, eta=eta, mu=mu, domain=domain, domain_name=domain_name,
-        refsol_params=[N_diag, method, source_proj],
     )
 
     # compute approximate source f_h

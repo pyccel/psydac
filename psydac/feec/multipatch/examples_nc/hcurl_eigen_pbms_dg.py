@@ -30,7 +30,7 @@ from psydac.feec.pull_push           import pull_2d_hcurl
 from psydac.feec.multipatch.non_matching_multipatch_domain_utilities import create_square_domain
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
-def hcurl_solve_eigen_pbm_multipatch_dg(ncells=[[2,2], [2,2]], degree=[3,3], domain=[[0, np.pi],[0, np.pi]], domain_name='refined_square', backend_language='pyccel-gcc', mu=1, nu=0, gamma_h=0,
+def hcurl_solve_eigen_pbm_dg(ncells=[[2,2], [2,2]], degree=[3,3], domain=[[0, np.pi],[0, np.pi]], domain_name='refined_square', backend_language='pyccel-gcc', mu=1, nu=0, gamma_h=0,
                           generalized_pbm=False, sigma=None, ref_sigmas=[], nb_eigs_solve=8, nb_eigs_plot=5, skip_eigs_threshold=1e-7,
                           plot_dir=None, hide_plots=True, m_load_dir="",):
 
