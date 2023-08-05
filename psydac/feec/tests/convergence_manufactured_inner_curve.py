@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import logging
+import pandas as pd
 import pickle
 import matplotlib.pyplot as plt
 
@@ -75,12 +76,12 @@ from psydac.fem.tests.get_integration_function import solve_poisson_2d_annulus
 
 
 
-def test_solve_J_direct_annulus_inner_curve(N):
+def test_solve_J_direct_annulus_inner_curve(N, p):
     annulus, derham = _create_domain_and_derham()
 
-    ncells = [N,N]
+    ncells = [N,N//2]
     annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
-    derham_h = discretize(derham, annulus_h, degree=[2,2])
+    derham_h = discretize(derham, annulus_h, degree=[p,p])
     assert isinstance(derham_h, DiscreteDerham)
 
     psi = lambda alpha, theta : 2*alpha if alpha <= 0.5 else 1.0
@@ -102,8 +103,8 @@ def test_solve_J_direct_annulus_inner_curve(N):
                                  rmin=1.0, rmax=2.0)
     omega_gamma = polar_mapping(logical_domain_gamma)
     derham_gamma = Derham(domain=omega_gamma, sequence=['H1', 'Hdiv', 'L2'])
-    omega_gamma_h = discretize(omega_gamma, ncells=[N//2,N], periodic=[False, True])
-    derham_gamma_h = discretize(derham_gamma, omega_gamma_h, degree=[2,2])
+    omega_gamma_h = discretize(omega_gamma, ncells=[N//2,N//2], periodic=[False, True])
+    derham_gamma_h = discretize(derham_gamma, omega_gamma_h, degree=[p,p])
     h1_proj_gamma = Projector_H1(derham_gamma_h.V0)
     assert isinstance(derham_h, DiscreteDerham)
     sigma, tau = top.elements_of(derham_gamma.V0, names='sigma tau')
@@ -151,33 +152,39 @@ if __name__ == '__main__':
     if computes_l2_errors:
         l2_error_data = {"n_cells": np.array([8,16,32,64]), "l2_error": np.zeros(4)}
         for i,N in enumerate([8,16,32,64]):
-            l2_error_data['l2_error'][i] = test_solve_J_direct_annulus_inner_curve(N)
+            l2_error_data['l2_error'][i] = test_solve_J_direct_annulus_inner_curve(N, 4)
 
-        with open('l2_error_data/manufactured_inner_curve.pkl', 'wb') as file:
-            pickle.dump(l2_error_data, file)
+        np.save('l2_error_data/manufactured_inner_curve/degree3/n_cells.npy', l2_error_data['n_cells'])
+        np.save('l2_error_data/manufactured_inner_curve/degree3/l2_error.npy', l2_error_data['l2_error'])
 
     else: 
-        l2_error_data = {"n_cells": np.array([8,16,32,64]), "l2_error": np.zeros(4)}
-        with open('l2_error_data/manufactured_inner_curve.pkl', 'rb') as file:
-            l2_error_data = pickle.load(file)
+        # l2_error_data = {"n_cells": np.array([8,16,32,64]), "l2_error": np.zeros(4)}
+        # with open('l2_error_data/manufactured_inner_curve.pkl', 'rb') as file:
+        #     l2_error_data = pickle.load(file)
         
         # np.savetxt('l2_error_data/manufactured_inner_curve/n_cells.csv',
         #             l2_error_data['n_cells'], delimiter='\t')
         # np.savetxt('l2_error_data/manufactured_inner_curve/l2_error.csv',
         #            l2_error_data['l2_error'], delimiter='\t')
 
-        l2_error_data = {"n_cells": np.array([8,16,32,64]), "l2_error": np.zeros(4)}
-        n_cells = np.loadtxt('l2_error_data/manufactured_inner_curve/n_cells.csv')
-        l2_error = np.loadtxt('l2_error_data/manufactured_inner_curve/l2_error.csv')
+        n_cells = np.load('l2_error_data/manufactured_inner_curve/degree3/n_cells.npy')
+        l2_error = np.load('l2_error_data/manufactured_inner_curve/degree3/l2_error.npy')
+
+        l2_error_array = np.column_stack((n_cells, l2_error))
+        l2_error_data = pd.DataFrame(data=l2_error_array, columns=['n_cells', 'l2_error'])
+
+        l2_error_data.to_csv('l2_error_data/manufactured_inner_curve/degree3/l2_error_data.csv',
+                             sep='\t', index=False)
+
         l2_error_data['n_cells'] = n_cells
         l2_error_data['l2_error'] = l2_error
 
         h = l2_error_data['n_cells']**(-1.0)
         h_squared = l2_error_data['n_cells']**(-2.0)
         h_cubed = l2_error_data['n_cells']**(-3.0)
-        plt.loglog(l2_error_data['n_cells'], l2_error_data['l2_error'], label='l2_error')
+        plt.loglog(l2_error_data['n_cells'], l2_error_data['l2_error'], marker='o', label='l2_error')
         plt.loglog(l2_error_data['n_cells'], h)
         plt.loglog(l2_error_data['n_cells'], h_squared)
-        plt.loglog(l2_error_data['n_cells'], h_cubed)
+        plt.loglog(l2_error_data['n_cells'], h_cubed, label='h_cubed')
         plt.legend()
         plt.show()

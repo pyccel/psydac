@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import logging
+import pandas as pd
 import pickle
 import matplotlib.pyplot as plt
 
@@ -98,12 +99,12 @@ def _create_distorted_annulus_and_derham() -> Tuple[Domain, Derham]:
     derham = Derham(domain=domain, sequence=['H1', 'Hdiv', 'L2'])
     return domain, derham
 
-def l2_error_biot_savart_distorted(N):
+def l2_error_biot_savart_distorted(N, p):
     logger = logging.getLogger("test_magnetostatic_pbm_annuluslike")
     domain, derham = _create_distorted_annulus_and_derham()
-    ncells = [N,N]
+    ncells = [N,N//2]
     domain_h = discretize(domain, ncells=ncells, periodic=[False, True])
-    derham_h = discretize(derham, domain_h, degree=[2,2])
+    derham_h = discretize(derham, domain_h, degree=[p,p])
     assert isinstance(derham_h, DiscreteDerham)
 
     psi = lambda alpha, theta : 2*alpha if alpha <= 0.5 else 1.0
@@ -136,8 +137,8 @@ def l2_error_biot_savart_distorted(N):
     distorted_polar_mapping = DistortedPolarMapping(name='polar_mapping', dim=2)
     omega_gamma = distorted_polar_mapping(logical_domain_gamma)
     derham_gamma = Derham(domain=omega_gamma, sequence=['H1', 'Hdiv', 'L2'])
-    omega_gamma_h = discretize(omega_gamma, ncells=[N//2,N], periodic=[False, True])
-    derham_gamma_h = discretize(derham_gamma, omega_gamma_h, degree=[2,2])
+    omega_gamma_h = discretize(omega_gamma, ncells=[N//2,N//2], periodic=[False, True])
+    derham_gamma_h = discretize(derham_gamma, omega_gamma_h, degree=[p,p])
     h1_proj_gamma = Projector_H1(derham_gamma_h.V0)
     assert isinstance(derham_h, DiscreteDerham)
 
@@ -213,33 +214,39 @@ def l2_error_biot_savart_distorted(N):
 if __name__ == '__main__':
     computes_l2_errors = False
     if computes_l2_errors:
-        l2_error_data = {"n_cells": np.array([8,16,32,64]), "l2_error": np.zeros(4)}
-        for i,N in enumerate([8,16,32,64]):
-            l2_error_data['l2_error'][i] = l2_error_biot_savart_distorted(N)
+        l2_error_data = {"n_cells": np.array([8,12,16,24,32,48,64]), "l2_error": np.zeros(7)}
+        for i,N in enumerate([8,12,16,24,32,48,64]):
+            l2_error_data['l2_error'][i] = l2_error_biot_savart_distorted(N, 3)
             
-        np.savetxt('l2_error_data/biot_savart_distorted/n_cells.csv',
+        np.savetxt('l2_error_data/biot_savart_distorted/degree3/n_cells.csv',
                    l2_error_data['n_cells'], delimiter='\t')
-        np.savetxt('l2_error_data/biot_savart_distorted/l2_error.csv',
+        np.savetxt('l2_error_data/biot_savart_distorted/degree3/l2_error.csv',
                    l2_error_data['l2_error'], delimiter='\t')
 
 
     else: 
-        l2_error_data = {"n_cells": np.array([8,16,32,64]), "l2_error": np.zeros(4)}
+        l2_error_data = {"n_cells": np.array([8,12,16,24,32,48,64]), "l2_error": np.zeros(7)}
         # with open('l2_error_data/biot_savart_distorted.pkl', 'rb') as file:
         #     l2_error_data = pickle.load(file)
         
         
-        n_cells = np.loadtxt('l2_error_data/biot_savart_distorted/n_cells.csv')
-        l2_error = np.loadtxt('l2_error_data/biot_savart_distorted/l2_error.csv')
-        l2_error_data['n_cells'] = n_cells
-        l2_error_data['l2_error'] = l2_error
+        n_cells = np.loadtxt('l2_error_data/biot_savart_distorted/degree3/n_cells.csv')
+        l2_error = np.loadtxt('l2_error_data/biot_savart_distorted/degree3/l2_error.csv')
 
-        h = l2_error_data['n_cells']**(-1.0)
-        h_squared = l2_error_data['n_cells']**(-2.0)
-        h_cubed = l2_error_data['n_cells']**(-3.0)
-        plt.loglog(l2_error_data['n_cells'], l2_error_data['l2_error'], label='l2_error')
-        plt.loglog(l2_error_data['n_cells'], h)
-        plt.loglog(l2_error_data['n_cells'], h_squared)
-        plt.loglog(l2_error_data['n_cells'], h_cubed)
+        l2_error_array = np.column_stack((n_cells, l2_error))
+
+        l2_error_data = pd.DataFrame(data=l2_error_array, columns=['N', 'l2_error'])
+        l2_error_data.to_csv('l2_error_data/biot_savart_distorted/degree3/l2_error_data.csv',
+                             index=False, header=True, sep='\t')
+        # l2_error_data['n_cells'] = n_cells
+        # l2_error_data['l2_error'] = l2_error
+
+        h = l2_error_data['N']**(-1.0)
+        h_squared = l2_error_data['N']**(-2.0)
+        h_cubed = l2_error_data['N']**(-3.0)
+        plt.loglog(l2_error_data['N'], l2_error_data['l2_error'], marker='o', label='l2_error')
+        plt.loglog(l2_error_data['N'], h)
+        plt.loglog(l2_error_data['N'], 100*h_squared)
+        plt.loglog(l2_error_data['N'], 2500*h_cubed)
         plt.legend()
         plt.show()
