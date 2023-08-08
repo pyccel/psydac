@@ -197,7 +197,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, quad_order=None, basis='B', sequence='DR'):
+def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, grid_type=None, nquads=None, basis='B', sequence='DR'):
     """
     This function creates the discretized space starting from the symbolic space.
 
@@ -219,11 +219,11 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     knots: list | dict
         The knots sequence of the h1 space in each direction.
 
-    quad_order: list
+    nquads: list
         The number of quadrature points in each direction.
 
     basis: str
-        The type of basis function can be 'b' for b-splines or 'M' for M-splines.
+        The type of basis function can be 'B' for B-splines or 'M' for M-splines.
 
     sequence: str
         The sequence used to reduce the space. The available choices are:
@@ -323,20 +323,22 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
             max_coords = interior.max_coords
 
             assert len(ncells) == len(periodic) == len(degree_i)  == len(multiplicity_i) == len(min_coords) == len(max_coords)
-
-            if knots is None:
-                # Create uniform grid
-                grids = [np.linspace(xmin, xmax, num=ne + 1)
-                         for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
-
-                # Create 1D finite element spaces and precompute quadrature data
-                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
+            if knots is not None and grid_type is not None :
+                raise(ValueError("grids and knots cannot be both provided"))
+            elif knots is None:
+                if grid_type is None :
+                    grid_type = [np.linspace(-1,1,ne+1) for ne in ncells]
+                grids = [xmin*(1-grid)/2+xmax*(1+grid)/2
+                        for xmin, xmax, grid in zip(min_coords, max_coords, grid_type)]
+                
+                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) 
+                        for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
             else:
                  # Create 1D finite element spaces and precompute quadrature data
-                spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]
+                spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]            
 
         carts    = create_cart(ddms, spaces)
-        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], quad_order=quad_order) for i,inter in enumerate(interiors)}
+        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], nquads=nquads) for i,inter in enumerate(interiors)}
 
         for i,j in connectivity:
             ((axis_i, ext_i), (axis_j , ext_j)) = connectivity[i, j]
