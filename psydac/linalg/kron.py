@@ -368,6 +368,8 @@ class KroneckerDenseMatrix(LinearOperator):
     def exchange_assembly_data( self ):
         pass
 
+    def set_backend(self, backend):
+        pass
 #==============================================================================
 class KroneckerLinearSolver(LinearSolver):
     """
