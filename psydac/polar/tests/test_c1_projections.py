@@ -16,7 +16,6 @@ from psydac.ddm.cart             import DomainDecomposition
 #==============================================================================
 @pytest.mark.parametrize('degrees', [(2, 2), (2, 3), (3,2), (3, 3)])
 @pytest.mark.parametrize('ncells' , [(9, 11), (10, 12), (12, 14)])
-@pytest.mark.xfail
 
 def test_c1_projections(degrees, ncells, verbose=False):
 
