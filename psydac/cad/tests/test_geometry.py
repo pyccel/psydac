@@ -170,7 +170,6 @@ def test_geometry_2d_4():
     geo.export('circle.h5')
 
 #==============================================================================
-@pytest.mark.xfail
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
 def test_export_nurbs_to_hdf5(ncells, degree):
