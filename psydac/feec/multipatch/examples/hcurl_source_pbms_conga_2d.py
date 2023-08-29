@@ -107,7 +107,7 @@ def solve_hcurl_source_pbm(
 
     t_stamp = time_count(t_stamp)
     print('building discrete derham sequence...')
-    derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
+    derham_h = discretize(derham, domain_h, degree=degree)
 
     t_stamp = time_count(t_stamp)
     print('building commuting projection operators...')

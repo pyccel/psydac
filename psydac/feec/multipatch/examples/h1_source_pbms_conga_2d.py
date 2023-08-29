@@ -92,7 +92,7 @@ def solve_h1_source_pbm(
 
     print('building the symbolic and discrete deRham sequences...')
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-    derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
+    derham_h = discretize(derham, domain_h, degree=degree)
 
     # multi-patch (broken) spaces
     V0h = derham_h.V0
