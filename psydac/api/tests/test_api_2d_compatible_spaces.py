@@ -17,7 +17,7 @@ from sympde.topology import ProductSpace
 from sympde.topology import element_of, elements_of
 from sympde.topology import Square
 from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import SemiNorm
+from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
 from psydac.fem.basic          import FemField
@@ -50,7 +50,7 @@ def run_poisson_mixed_form_2d_dir(f0, sol, ncells, degree):
     
     # ...
     error = F-sol
-    l2norm_F = SemiNorm(error, domain, kind='l2')
+    l2norm_F = Norm(error, domain, kind='l2')
 
     # ...
     equation = find([p,u], forall=[q,v], lhs=a((p,u),(q,v)), rhs=l(q,v))
@@ -192,11 +192,11 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
 
     # L2 error norm of the velocity field
     error_u   = [ue[0]-u[0], ue[1]-u[1]]
-    l2norm_u  = SemiNorm(error_u, domain, kind='l2')
+    l2norm_u  = Norm(error_u, domain, kind='l2')
     l2norm_uh = discretize(l2norm_u, domain_h, V1h)
 
     # L2 error norm of the pressure, after removing the average value from the field
-    l2norm_p  = SemiNorm(pe - (p - p_avg), domain, kind='l2')
+    l2norm_p  = Norm(pe - (p - p_avg), domain, kind='l2')
     l2norm_ph = discretize(l2norm_p, domain_h, V2h)
 
     # Compute error norms
@@ -329,11 +329,11 @@ def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree):
 
     # L2 error norm of the velocity field
     error_u   = [ue[0]-u[0], ue[1]-u[1]]
-    l2norm_u  = SemiNorm(error_u, domain, kind='l2')
+    l2norm_u  = Norm(error_u, domain, kind='l2')
     l2norm_uh = discretize(l2norm_u, domain_h, V1h)
 
     # L2 error norm of the pressure, after removing the average value from the field
-    l2norm_p  = SemiNorm(pe - (p - p_avg), domain, kind='l2')
+    l2norm_p  = Norm(pe - (p - p_avg), domain, kind='l2')
     l2norm_ph = discretize(l2norm_p, domain_h, V2h)
 
     # Compute error norms
@@ -372,7 +372,7 @@ def run_maxwell_time_harmonic_2d_dir(uex, f, alpha, ncells, degree):
 
     # l2 error
     error   = Matrix([F[0]-uex[0],F[1]-uex[1]])
-    l2norm  = SemiNorm(error, domain, kind='l2')
+    l2norm  = Norm(error, domain, kind='l2')
 
     #+++++++++++++++++++++++++++++++
     # 2. Discretization

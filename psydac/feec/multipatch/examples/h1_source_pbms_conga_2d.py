@@ -10,7 +10,7 @@ from sympy import lambdify
 from scipy.sparse.linalg import spsolve
 
 from sympde.expr.expr import LinearForm
-from sympde.expr.expr import integral, SemiNorm
+from sympde.expr.expr import integral, Norm
 from sympde.topology  import Derham
 from sympde.topology import element_of
 
@@ -225,7 +225,7 @@ def solve_h1_source_pbm(
 
     if u_ex:
         u         = element_of(V0h.symbolic_space, name='u')
-        l2norm    = SemiNorm(u - u_ex, domain, kind='l2')
+        l2norm    = Norm(u - u_ex, domain, kind='l2')
         l2norm_h  = discretize(l2norm, domain_h, V0h)
         uh_c      = array_to_psydac(uh_c, V0h.vector_space)
         l2_error  = l2norm_h.assemble(u=FemField(V0h, coeffs=uh_c))

@@ -30,7 +30,7 @@ from sympde.topology import Union
 from sympde.topology import Square
 from sympde.expr     import linearize
 from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import SemiNorm
+from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
 from psydac.fem.basic              import FemField
@@ -211,8 +211,8 @@ def run_non_linear_poisson(filename, comm=None):
     equation = find(du, forall=v, lhs=a(du, v), rhs=-l(v), bc=bc)
 
     # Define (abstract) norms
-    l2norm_err = SemiNorm(u - u_e, Omega, kind='l2')
-    l2norm_du  = SemiNorm(du     , Omega, kind='l2')
+    l2norm_err = Norm(u - u_e, Omega, kind='l2')
+    l2norm_du  = Norm(du     , Omega, kind='l2')
 
     # Create computational domain from topological domain
     Omega_h = discretize(Omega, filename=filename, comm=comm)

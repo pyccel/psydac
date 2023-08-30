@@ -29,7 +29,7 @@ from sympde.topology import NormalVector
 from sympde.topology import Domain
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import SemiNorm
+from sympde.expr import Norm, SemiNorm
 from sympde.expr import find, EssentialBC
 
 from psydac.api.discretization import discretize
@@ -106,7 +106,7 @@ def run_poisson_2d(filename, solution, f, dir_zero_boundary,
 
     # Error norms
     error  = u - solution
-    l2norm = SemiNorm(error, domain, kind='l2')
+    l2norm =     Norm(error, domain, kind='l2')
     h1norm = SemiNorm(error, domain, kind='h1')
 
     #+++++++++++++++++++++++++++++++

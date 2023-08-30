@@ -8,7 +8,7 @@ from sympde.topology import Line, Square
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import element_of, Derham
 from sympde.core     import Constant
-from sympde.expr     import LinearForm, BilinearForm, Functional, SemiNorm
+from sympde.expr     import LinearForm, BilinearForm, Functional, Norm
 from sympde.expr     import integral
 
 from psydac.linalg.solvers     import inverse
@@ -204,7 +204,7 @@ def test_linearForm_complex(backend):
     print("PASSED")
 
 #==============================================================================
-def test_SemiNorm_complex(backend):
+def test_Norm_complex(backend):
 
     # If 'backend' is specified, accelerate Python code by passing **kwargs
     # to discretization of bilinear forms, linear forms and functionals.
@@ -229,12 +229,12 @@ def test_SemiNorm_complex(backend):
     # We try to put complex in a Sympde Constant in the expression
     g3  = c
 
-    n1 = SemiNorm(v-g1, domain)
-    n2 = SemiNorm(v-g2, domain)
-    n3 = SemiNorm(v-g3, domain)
+    n1 = Norm(v-g1, domain)
+    n2 = Norm(v-g2, domain)
+    n3 = Norm(v-g3, domain)
 
     # We try to put complex in a PSYDAC FemField in the expression
-    n4 = SemiNorm(v, domain)
+    n4 = Norm(v, domain)
 
 
     ncells = (5, 5)
@@ -294,8 +294,8 @@ def test_assemble_complex_parallel(backend):
     ar = BilinearForm((u, v), integral(domain, gr * u * v))
     lc = LinearForm(v, integral(domain, gc * v))
     lr = LinearForm(v, integral(domain, gr * v))
-    nr = SemiNorm(1.0*v, domain, kind='l2')
-    nc = SemiNorm(1.0j*v, domain, kind='l2')
+    nr = Norm(1.0 *v, domain, kind='l2')
+    nc = Norm(1.0j*v, domain, kind='l2')
 
     ncells = (5, 5)
     degree = (3, 3)
@@ -327,7 +327,7 @@ def test_assemble_complex_parallel(backend):
     # Test vector bc and br
     assert np.all(abs((bc)._data-(br)._data*1j)<1e-16)
 
-    # Test SemiNorm nc and nr
+    # Test Norm nc and nr
     assert abs(nc - nr) < 1e-8
 #==============================================================================
 def test_multiple_fields(backend, dtype):

@@ -8,7 +8,7 @@ from sympde.topology      import Square
 from sympde.topology      import PolarMapping
 from sympde.expr.expr     import LinearForm, BilinearForm
 from sympde.expr.expr     import integral
-from sympde.expr.expr     import SemiNorm
+from sympde.expr.expr     import Norm, SemiNorm
 from sympde.expr.equation import find, EssentialBC
 
 from psydac.api.discretization import discretize
@@ -33,7 +33,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
 
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
 
-    l2norm = SemiNorm(error, domain, kind='l2')
+    l2norm =     Norm(error, domain, kind='l2')
     h1norm = SemiNorm(error, domain, kind='h1')
 
     #+++++++++++++++++++++++++++++++

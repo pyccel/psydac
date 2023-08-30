@@ -15,7 +15,7 @@ from sympde.topology      import Square, Domain
 from sympde.topology      import IdentityMapping, PolarMapping
 from sympde.expr.expr     import LinearForm, BilinearForm
 from sympde.expr.expr     import integral
-from sympde.expr.expr     import SemiNorm
+from sympde.expr.expr     import Norm
 from sympde.expr.equation import find, EssentialBC
 
 from psydac.api.discretization       import discretize
@@ -78,7 +78,7 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
 
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
 
-    l2norm = SemiNorm(error, domain, kind='l2')
+    l2norm = Norm(error, domain, kind='l2')
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
     #+++++++++++++++++++++++++++++++

@@ -13,7 +13,7 @@ from scipy.sparse.linalg import spsolve
 from sympde.calculus  import dot
 from sympde.topology  import element_of
 from sympde.expr.expr import LinearForm
-from sympde.expr.expr import integral, SemiNorm
+from sympde.expr.expr import integral, Norm
 from sympde.topology  import Derham
 
 from psydac.api.settings   import PSYDAC_BACKENDS
@@ -298,7 +298,7 @@ def solve_hcurl_source_pbm(
 
     if u_ex:
         u         = element_of(V1h.symbolic_space, name='u')
-        l2norm    = SemiNorm(Matrix([u[0] - u_ex[0],u[1] - u_ex[1]]), domain, kind='l2')
+        l2norm    = Norm(Matrix([u[0] - u_ex[0],u[1] - u_ex[1]]), domain, kind='l2')
         l2norm_h  = discretize(l2norm, domain_h, V1h)
         uh_c      = array_to_psydac(uh_c, V1h.vector_space)
         l2_error  = l2norm_h.assemble(u=FemField(V1h, coeffs=uh_c))
