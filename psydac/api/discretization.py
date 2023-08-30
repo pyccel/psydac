@@ -3,6 +3,7 @@
 # TODO: - init_fem is called whenever we call discretize. we should check that
 #         nderiv has not been changed. shall we add nquads too?
 import os
+
 from sympy import Expr as sym_Expr
 import numpy as np
 
@@ -39,9 +40,8 @@ from psydac.fem.partitioning import create_cart, construct_connectivity, constru
 from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
-
-from psydac.linalg.stencil     import StencilVectorSpace
-from psydac.linalg.block       import BlockVectorSpace
+from psydac.linalg.stencil   import StencilVectorSpace
+from psydac.linalg.block     import BlockVectorSpace
 
 __all__ = ('discretize', 'discretize_derham', 'reduce_space_degrees', 'discretize_space', 'discretize_domain')
 
@@ -445,7 +445,7 @@ def discretize(a, *args, **kwargs):
         kwargs['symbolic_mapping'] = mapping
 
     if isinstance(a, sym_BasicForm):
-        if isinstance(a, (sym_Norm,sym_SemiNorm)):
+        if isinstance(a, (sym_Norm, sym_SemiNorm)):
             kernel_expr = TerminalExpr(a, domain)
             if not mapping is None:
                 kernel_expr = tuple(LogicalExpr(i, domain) for i in kernel_expr)
