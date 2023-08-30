@@ -9,6 +9,7 @@ from sympy import ImmutableDenseMatrix, Matrix
 from sympde.expr          import BilinearForm as sym_BilinearForm
 from sympde.expr          import LinearForm as sym_LinearForm
 from sympde.expr          import Functional as sym_Functional
+from sympde.expr          import Norm as sym_Norm
 from sympde.expr          import SemiNorm as sym_SemiNorm
 from sympde.topology      import Boundary, Interface
 from sympde.topology      import VectorFunctionSpace
@@ -1555,7 +1556,7 @@ class DiscreteFunctional(BasicDiscrete):
                 args += (v, )
 
         v = self._func(*args)
-        if isinstance(self.expr, sym_SemiNorm):
+        if isinstance(self.expr, (sym_Norm, sym_SemiNorm)):
             if not( self.comm is None ):
                 v = self.comm.allreduce(sendobj=v)
 
