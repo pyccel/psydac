@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 64.0", "wheel", "numpy < 1.25", "pyccel @ git+https://github.com/pyccel/pyccel/tree/none_dealloc_bug"]
+requires = ["setuptools >= 64.0", "wheel", "numpy < 1.25", "pyccel @ git+https://github.com/pyccel/pyccel@none_dealloc_bug"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -33,7 +33,7 @@ dependencies = [
 
     # Our packages from PyPi
     'sympde == 0.18.0',
-    'pyccel @ git+https://github.com/pyccel/pyccel/tree/none_dealloc_bug',
+    'pyccel @ git+https://github.com/pyccel/pyccel@none_dealloc_bug',
     'gelato == 0.12',
 
     # Alternative backend to Pyccel is Numba
