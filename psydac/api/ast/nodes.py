@@ -9,7 +9,7 @@ from sympy import Function
 from sympy import Mul,Integer
 from sympy.core.singleton     import Singleton
 from sympy.core.containers    import Tuple
-from sympy.core.compatibility import with_metaclass
+from sympde.old_sympy_utilities import with_metaclass
 
 from sympde.topology import element_of
 from sympde.topology import ScalarFunction, VectorFunction

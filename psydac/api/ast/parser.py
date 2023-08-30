@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from sympy import S
 from sympy import IndexedBase, Indexed
 from sympy import Mul, Matrix, Expr
 from sympy import Add, And, StrictLessThan, Eq
@@ -253,9 +254,9 @@ class Parser(object):
         lhs = self._visit(expr.lhs)
         rhs = self._visit(expr.rhs)
         if expr.op is None:
-            return [Assign(l,r) for l,r in zip(lhs, rhs) if l is not None and r is not None]
+            return [Assign(l,r) for l,r in zip(lhs, rhs) if l is not None and r is not None and l is not S.Zero]
         else:
-            return [AugAssign(l,expr.op, r) for l,r in zip(lhs, rhs) if l is not None and r is not None]
+            return [AugAssign(l,expr.op, r) for l,r in zip(lhs, rhs) if l is not None and r is not None and l is not S.Zero]
     # ....................................................
     def _visit_Assign(self, expr, **kwargs):
 
@@ -1383,7 +1384,7 @@ class Parser(object):
             targets = self._visit_BlockStencilMatrixLocalBasis(target)
             for i in range(targets.shape[0]):
                 for j in range(targets.shape[1]):
-                    if targets[i,j] is None:
+                    if targets[i,j] is S.Zero:
                         continue
                     if trials[j] in pads.trials_multiplicity:
                         trials_m  = pads.trials_multiplicity[trials[j]]
@@ -1414,7 +1415,7 @@ class Parser(object):
             indices = list(rows)
             for i in range(targets.shape[0]):
                 for j in range(targets.shape[1]):
-                    if targets[i,j] is None:
+                    if targets[i,j] is S.Zero:
                         continue
                     targets[i,j] = targets[i,j][indices]
             return targets
@@ -1445,7 +1446,6 @@ class Parser(object):
         for i, v in enumerate(tests):
             for j, u in enumerate(trials):
                 if expr.expr[i, j] == 0:
-                    targets[i, j] = None
                     continue
                 mat = StencilMatrixLocalBasis(u=u, v=v, pads=pads[i, j], tag=tag, dtype=dtype)
                 mat = self._visit_StencilMatrixLocalBasis(mat, **kwargs)
@@ -1464,7 +1464,6 @@ class Parser(object):
         for i, v in enumerate(tests):
             for j, u in enumerate(trials):
                 if expr.expr[i, j] == 0:
-                    targets[i, j] = None
                     continue
                 mat = StencilMatrixGlobalBasis(u=u, v=v, pads=pads, tag=tag, dtype=dtype)
                 mat = self._visit_StencilMatrixGlobalBasis(mat, **kwargs)
@@ -1480,7 +1479,6 @@ class Parser(object):
         targets = Matrix.zeros(len(tests), 1)
         for i, v in enumerate(tests):
             if expr.expr[i, 0] == 0:
-                targets[i, 0] = None
                 continue
             mat = StencilVectorLocalBasis(v, pads, tag, dtype)
             mat = self._visit_StencilVectorLocalBasis(mat, **kwargs)
@@ -1496,7 +1494,6 @@ class Parser(object):
         targets = Matrix.zeros(len(tests), 1)
         for i,v in enumerate(tests):
             if expr.expr[i, 0] == 0:
-                targets[i, 0] = None
                 continue
             mat = StencilVectorGlobalBasis(v, pads, tag, dtype)
             mat = self._visit_StencilVectorGlobalBasis(mat, **kwargs)
@@ -1513,7 +1510,6 @@ class Parser(object):
         for i,v in enumerate(tests):
             for j,u in enumerate(trials):
                 if expr.expr[i, j] == 0:
-                    targets[i, j] = None
                     continue
                 var = ScalarLocalBasis(u, v, tag, dtype)
                 var = self._visit_ScalarLocalBasis(var, **kwargs)
