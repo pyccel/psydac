@@ -11,7 +11,7 @@ from sympde.topology import ProductSpace
 from sympde.topology import element_of
 from sympde.topology import Square
 from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm
+from sympde.expr import Norm, SemiNorm
 from sympde.expr import find, EssentialBC
 
 from psydac.fem.basic          import FemField
@@ -49,12 +49,12 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     l  = LinearForm((v,q), l0(v) + l1(q))
 
     error = Matrix([F[0]-Fe[0], F[1]-Fe[1]])
-    l2norm_F = Norm(error, domain, kind='l2')
-    h1norm_F = Norm(error, domain, kind='h1')
+    l2norm_F =     Norm(error, domain, kind='l2')
+    h1norm_F = SemiNorm(error, domain, kind='h1')
 
     error = G-Ge
-    l2norm_G = Norm(error, domain, kind='l2')
-    h1norm_G = Norm(error, domain, kind='h1')
+    l2norm_G =     Norm(error, domain, kind='l2')
+    h1norm_G = SemiNorm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
     equation = find([u,p], forall=[v,q], lhs=a((u,p),(v,q)), rhs=l(v,q), bc=bc)

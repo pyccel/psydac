@@ -17,7 +17,7 @@ from sympde.topology import Union
 from sympde.topology import Domain, Square
 from sympde.topology import IdentityMapping, AffineMapping, PolarMapping
 from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm
+from sympde.expr     import Norm, SemiNorm
 from sympde.expr     import find, EssentialBC
 
 from psydac.api.discretization import discretize
@@ -87,9 +87,9 @@ def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells=None, degree=No
 
     # Error norms
     error  = u - solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
-    h2norm = Norm(error, domain, kind='h2')
+    l2norm =     Norm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
+    h2norm = SemiNorm(error, domain, kind='h2')
 
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
@@ -170,8 +170,8 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
 
     equation = find(u, forall=v, lhs=1j*a(u,v), rhs=1j*l(v), bc=bc)
 
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    l2norm =     Norm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
@@ -223,8 +223,8 @@ def run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=None, degr
 
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
 
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    l2norm =     Norm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
