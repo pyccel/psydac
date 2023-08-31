@@ -3,7 +3,7 @@
 from .singleton import Singleton
 from .basic import Basic
 
-from sympy.core.compatibility import with_metaclass
+from sympde.old_sympy_utilities import with_metaclass
 
 import numpy
 

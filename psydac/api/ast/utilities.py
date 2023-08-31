@@ -891,11 +891,89 @@ pythran_dtypes = {'real':'float','int':'int'}
 from sympy import preorder_traversal
 from sympy import NumberSymbol
 from sympy import Pow, S
-from sympy.printing.pycode import _known_functions_math
-from sympy.printing.pycode import _known_constants_math
-from sympy.printing.pycode import _known_functions_mpmath
-from sympy.printing.pycode import _known_constants_mpmath
-from sympy.printing.pycode import _known_functions_numpy
+
+_known_functions_math = {
+    'acos': 'acos',
+    'acosh': 'acosh',
+    'asin': 'asin',
+    'asinh': 'asinh',
+    'atan': 'atan',
+    'atan2': 'atan2',
+    'atanh': 'atanh',
+    'ceiling': 'ceil',
+    'cos': 'cos',
+    'cosh': 'cosh',
+    'erf': 'erf',
+    'erfc': 'erfc',
+    'exp': 'exp',
+    'expm1': 'expm1',
+    'factorial': 'factorial',
+    'floor': 'floor',
+    'gamma': 'gamma',
+    'hypot': 'hypot',
+    'loggamma': 'lgamma',
+    'log': 'log',
+    'ln': 'log',
+    'log10': 'log10',
+    'log1p': 'log1p',
+    'log2': 'log2',
+    'sin': 'sin',
+    'sinh': 'sinh',
+    'Sqrt': 'sqrt',
+    'tan': 'tan',
+    'tanh': 'tanh'
+
+}  # Not used from ``math``: [copysign isclose isfinite isinf isnan ldexp frexp pow modf
+# radians trunc fmod fsum gcd degrees fabs]
+_known_constants_math = {
+    'Exp1': 'e',
+    'Pi': 'pi',
+    'E': 'e'
+    # Only in python >= 3.5:
+    # 'Infinity': 'inf',
+    # 'NaN': 'nan'
+}
+
+_not_in_mpmath = 'log1p log2'.split()
+_in_mpmath = [(k, v) for k, v in _known_functions_math.items() if k not in _not_in_mpmath]
+_known_functions_mpmath = dict(_in_mpmath, **{
+    'beta': 'beta',
+    'fresnelc': 'fresnelc',
+    'fresnels': 'fresnels',
+    'sign': 'sign',
+})
+_known_constants_mpmath = {
+    'Exp1': 'e',
+    'Pi': 'pi',
+    'GoldenRatio': 'phi',
+    'EulerGamma': 'euler',
+    'Catalan': 'catalan',
+    'NaN': 'nan',
+    'Infinity': 'inf',
+    'NegativeInfinity': 'ninf'
+}
+
+_not_in_numpy = 'erf erfc factorial gamma loggamma'.split()
+_in_numpy = [(k, v) for k, v in _known_functions_math.items() if k not in _not_in_numpy]
+_known_functions_numpy = dict(_in_numpy, **{
+    'acos': 'arccos',
+    'acosh': 'arccosh',
+    'asin': 'arcsin',
+    'asinh': 'arcsinh',
+    'atan': 'arctan',
+    'atan2': 'arctan2',
+    'atanh': 'arctanh',
+    'exp2': 'exp2',
+    'sign': 'sign',
+})
+_known_constants_numpy = {
+    'Exp1': 'e',
+    'Pi': 'pi',
+    'EulerGamma': 'euler_gamma',
+    'NaN': 'nan',
+    'Infinity': 'PINF',
+    'NegativeInfinity': 'NINF'
+}
 
 
 def math_atoms_as_str(expr, lib='math'):
@@ -929,7 +1007,7 @@ def math_atoms_as_str(expr, lib='math'):
         known_constants = _known_constants_mpmath
     elif lib == 'numpy':
         known_functions = _known_functions_numpy
-        known_constants = _known_constants_math   # numpy version missing
+        known_constants = _known_constants_numpy   # numpy version missing
     else:
         raise ValueError("Library {} not supported.".format(mod))
 
