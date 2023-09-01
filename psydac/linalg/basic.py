@@ -55,15 +55,20 @@ class VectorSpace(ABC):
     @abstractmethod
     def axpy(self, a, x, y):
         """
-        This method compute the operation y+=a*x.
+        Increment the vector y with the a-scaled vector x, i.e. y = a * x + y,
+        provided that x and y belong to the same vector space V (self).
+        The scalar value a may be real or complex, depending on the field of V.
 
         Parameters
         ----------
-            x, y : Vector
-                The two Vector needed for the computation.
+        a : scalar
+            The scaling coefficient needed for the operation.
 
-            a : scalar
-                Coefficient needed for the operation
+        x : Vector
+            The vector which is not modified by this function.
+
+        y : Vector
+            The vector modified by this function (incremented by a * x).
         """
 
 #===============================================================================
@@ -91,9 +96,17 @@ class Vector(ABC):
         return self.space.dot(self, other)
 
     def mul_iadd(self, a, x):
-        '''
-        Compute self = self + a * x.
-        '''
+        """
+        Compute self += a * x, where x is another vector of the same space.
+
+        Parameters
+        ----------
+        a : scalar
+            Rescaling coefficient, which can be cast to the correct dtype.
+
+        x : Vector
+            Vector belonging to the same space as self.
+        """
         self.space.axpy(a, x, self)
 
     #-------------------------------------
