@@ -2330,7 +2330,7 @@ class StencilInterfaceMatrix(LinearOperator):
         p        = self._codomain.pads   [direction]
 
         idx_front = [slice(None)] * direction
-        idx_back  = [slice(None)] * (ndim-direction-1 + ndim)  # TODO [YG, 01.09.2023]: Check this integer expression!
+        idx_back  = [slice(None)] * (ndim-direction-1)
 
         if periodic:
 
