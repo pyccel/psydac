@@ -53,9 +53,9 @@ def discretize_derham(derham, domain_h, get_vec = False, *args, **kwargs):
             for V, basis in zip(derham.spaces, bases)]
 
     if get_vec:
-        V0h = spaces[0]
+        Vnh = spaces[0]
         X   = VectorFunctionSpace('X', domain_h.domain, kind='h1')
-        Xh  = VectorFemSpace(V0h, V0h)
+        Xh  = VectorFemSpace(Vnh, Vnh)
         Xh.symbolic_space = X
         spaces.append(Xh)
 
@@ -197,7 +197,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, grid_type=None, nquads=None, basis='B', sequence='DR'):
+def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, grid_type=None, quad_order=None, basis='B', sequence='DR'):
     """
     This function creates the discretized space starting from the symbolic space.
 
@@ -258,6 +258,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 #    and the case where we have either an analytical mapping or without a mapping.
 #    We build the dictionary g_spaces for each interior domain, where it conatians the interiors as keys and the spaces as values,
 #    we then create the compatible spaces if needed with the suitable basis functions.
+
 
     comm                = domain_h.comm
     ldim                = V.ldim
@@ -330,7 +331,6 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
                     grid_type = [np.linspace(-1,1,ne+1) for ne in ncells]
                 grids = [xmin*(1-grid)/2+xmax*(1+grid)/2
                         for xmin, xmax, grid in zip(min_coords, max_coords, grid_type)]
-                
                 spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) 
                         for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
             else:
@@ -338,7 +338,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
                 spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]            
 
         carts    = create_cart(ddms, spaces)
-        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], nquads=nquads) for i,inter in enumerate(interiors)}
+        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], quad_order=quad_order) for i,inter in enumerate(interiors)}
 
         for i,j in connectivity:
             ((axis_i, ext_i), (axis_j , ext_j)) = connectivity[i, j]

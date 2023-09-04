@@ -478,7 +478,7 @@ def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_i
                                         mat[po1 + i, po2 + j, po3 + k, col1, col2, col3] += value
 
 
-def assemble_dofs_for_weighted_basisfuns_1d_ff(mat : 'float[:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', starts_c : 'int[:]', ends_c : 'int[:]', pads_c : 'int[:]', wts1 : 'float[:,:]', span1 : 'int[:,:]', basis1 : 'float[:,:,:]', coeffs_f : 'float[:,:]', span_c1 : 'int[:,:]', basis_c1 : 'float[:,:,:]', dim1_in : int, p1_out : int):
+def assemble_dofs_for_weighted_basisfuns_1d_ff(mat : 'float[:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', starts_c : 'int[:]', ends_c : 'int[:]', pads_c : 'int[:]', wts1 : 'float[:,:]', span1 : 'int[:,:]', basis1 : 'float[:,:,:]', coeffs_f : 'float[:sssssse44]', span_c1 : 'int[:,:]', basis_c1 : 'float[:,:,:]', dim1_in : int, p1_out : int):
     '''Kernel for assembling the matrix
 
     A_(i,j) = DOFS_i(fun*Lambda^in_j) ,
