@@ -68,8 +68,8 @@ class StencilVectorSpace(VectorSpace):
     Vector space for n-dimensional stencil format. Two different initializations
     are possible:
 
-    - serial  : StencilVectorSpace( npts, pads, periods, shifts=None, starts=None, ends=None, dtype=float )
-    - parallel: StencilVectorSpace( cart, dtype=float )
+    - serial  : StencilVectorSpace(npts, pads, periods, shifts=None, starts=None, ends=None, dtype=float)
+    - parallel: StencilVectorSpace(cart, dtype=float)
 
     Parameters
     ----------
@@ -134,10 +134,15 @@ class StencilVectorSpace(VectorSpace):
                 # TODO : Check if this line really change the ._shape
                 self._shape = cart.get_interface_communication_infos(cart.axis)['gbuf_recv_shape'][0]
             else:
-                self._synchronizer = get_data_exchanger( cart, dtype , assembly=True, blocking=False)
+                self._synchronizer = get_data_exchanger(cart, dtype , assembly=True, blocking=False)
 
-        if self._ndim in [1, 2, 3]:
-            self._axpy_func = eval('axpy_{dim}d'.format(dim=self._ndim))
+        if self._ndim not in [1, 2, 3]:
+            raise NotImplementedError(f"Kernel functions not available in {self._ndim} dimensions.")
+
+        # Kernels and their constant arguments, if any
+        self._axpy_func = eval('axpy_{dim}d'.format(dim=self._ndim))
+        self._inner_dot_func = eval('inner_dot_{dim}d'.format(dim=self._ndim))
+        self._inner_dot_consts = tuple(np.int64(p * s) for p, s in zip(self._pads, self._shifts))
 
     #--------------------------------------
     # Abstract interface
@@ -346,7 +351,7 @@ class StencilVector(Vector):
         self._space          = V
         self._sizes          = V.shape
         self._ndim           = len(V.npts)
-        self._data           = np.zeros( V.shape, dtype=V.dtype )
+        self._data           = np.zeros(V.shape, dtype=V.dtype)
         self._dot_send_data  = np.zeros((1,), dtype=V.dtype)
         self._dot_recv_data  = np.zeros((1,), dtype=V.dtype)
         self._interface_data = {}
@@ -354,7 +359,7 @@ class StencilVector(Vector):
 
         # allocate data for the boundary that shares an interface
         for axis, ext in V.interfaces:
-            self._interface_data[axis, ext] = np.zeros( V.interfaces[axis, ext].shape, dtype=V.dtype )
+            self._interface_data[axis, ext] = np.zeros(V.interfaces[axis, ext].shape, dtype=V.dtype)
 
         #prepare communications
         if V.cart.is_parallel and not V.cart.is_comm_null and isinstance(V.cart, CartDecomposition):
@@ -363,9 +368,7 @@ class StencilVector(Vector):
         # TODO: distinguish between different directions
         self._sync = False
 
-        if self._ndim in [1, 2, 3]:
-            self._inner_dot_func = eval('inner_dot_{dim}d'.format(dim=self._ndim))
-
+    #...
     def __del__(self):
         # Release memory of persistent MPI communication channels
         if self._requests:
@@ -407,25 +410,18 @@ class StencilVector(Vector):
         assert isinstance(v, StencilVector)
         assert v._space is self._space
 
+        inner_dot_func = self._space._inner_dot_func
+        inner_dot_args = (self._data, v._data, *self._space._inner_dot_consts)
+
         if self._space.parallel:
-            self._dot_send_data[0] = self._dot(self._data, v._data , self._space.pads, self._space.shifts, self._inner_dot_func)
+            # Sometimes in the parallel case, we can get an empty vector that breaks our kernel
+            self._dot_send_data[0] = 0 if self._data.shape[0] == 0 else inner_dot_func(*inner_dot_args)
             self._space.cart.global_comm.Allreduce((self._dot_send_data, self._space.mpi_type),
                                                    (self._dot_recv_data, self._space.mpi_type),
                                                    op=MPI.SUM )
             return self._dot_recv_data[0]
         else:
-            return self._dot(self._data, v._data, self._space.pads, self._space.shifts, self._inner_dot_func)
-
-    #...
-    @staticmethod
-    def _dot(v1, v2, pads, shifts, inner_dot_func):
-        ipads = [np.int64(p) for p in pads]
-        ishifts = [np.int64(s) for s in shifts]
-        # Sometimes in parallel case, we can get an empty vector that broke our kernel
-        if v1.shape[0] == 0:
-            return 0
-
-        return inner_dot_func(v1, v2, *ipads, *ishifts)
+            return inner_dot_func(*inner_dot_args)
 
     #...
     def conjugate(self, out=None):
