@@ -136,13 +136,37 @@ class StencilVectorSpace(VectorSpace):
             else:
                 self._synchronizer = get_data_exchanger(cart, dtype , assembly=True, blocking=False)
 
-        if self._ndim not in [1, 2, 3]:
-            raise NotImplementedError(f"Kernel functions not available in {self._ndim} dimensions.")
+        # Select kernel for AXPY operation
+        if self._ndim in [1, 2, 3]:
+            self._axpy_func = eval('axpy_{dim}d'.format(dim=self._ndim))
+        else:
+            self._axpy_func = self._axpy_python
+            self._axpy_work = self.zeros()  # work array
 
-        # Kernels and their constant arguments, if any
-        self._axpy_func = eval('axpy_{dim}d'.format(dim=self._ndim))
-        self._inner_dot_func = eval('inner_dot_{dim}d'.format(dim=self._ndim))
+        # Select kernel for inner product
+        if self._ndim in [1, 2, 3]:
+            self._inner_dot_func = eval('inner_dot_{dim}d'.format(dim=self._ndim))
+        else:
+            self._inner_dot_func = self._inner_dot_python
+
+        # Constant arguments for inner product: total number of ghost cells
         self._inner_dot_consts = tuple(np.int64(p * s) for p, s in zip(self._pads, self._shifts))
+
+        # TODO [YG, 06.09.2023]: print warning if pure Python functions are used
+
+    #--------------------------------------
+    # Pure Python methods for backup
+    #--------------------------------------
+    def _axpy_python(self, a, x, y):
+        w = self._axpy_work
+        x.copy(out=w)  # w <- x
+        w *= a         # w <- a * x
+        y += w         # y <- a * x + y
+
+    @staticmethod
+    def _inner_dot_python(v1, v2, nghost):
+        index = tuple(slice(ng, -ng) for ng in nghost)
+        return np.vdot(v1[index].flat, v2[index].flat)
 
     #--------------------------------------
     # Abstract interface
