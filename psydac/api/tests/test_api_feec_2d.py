@@ -185,7 +185,7 @@ def update_plot(fig, t, x, y, field_h, field_ex):
 def run_maxwell_2d_TE(*, use_spline_mapping,
         eps, ncells, degree, periodic,
         Cp, nsteps, tend,
-        splitting_order, plot_interval, diagnostics_interval, tol, verbose):
+        splitting_order, plot_interval, diagnostics_interval, tol, verbose, mult=1):
 
     import os
 
@@ -290,7 +290,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     #--------------------------------------------------------------------------
     if use_spline_mapping:
         domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD)
-        derham_h = discretize(derham, domain_h)
+        derham_h = discretize(derham, domain_h, multiplicity = [mult,mult])
 
         periodic_list = mapping.get_callable_mapping().space.periodic
         degree_list   = mapping.get_callable_mapping().space.degree
@@ -311,7 +311,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     else:
         # Discrete physical domain and discrete DeRham sequence
         domain_h = discretize(domain, ncells=[ncells, ncells], periodic=[periodic, periodic], comm=MPI.COMM_WORLD)
-        derham_h = discretize(derham, domain_h, degree=[degree, degree])
+        derham_h = discretize(derham, domain_h, degree=[degree, degree], multiplicity = [mult,mult])
 
     # Discrete bilinear forms
     a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
@@ -709,6 +709,25 @@ def test_maxwell_2d_periodic():
     assert abs(namespace['error_Ex'] - ref['error_Ex']) / ref['error_Ex'] <= TOL
     assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
     assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
+
+def test_maxwell_2d_periodic_multiplicity():
+
+    namespace = run_maxwell_2d_TE(
+        use_spline_mapping = False,
+        eps      = 0.5,
+        ncells   = 12,
+        degree   = 3,
+        periodic = True,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        verbose = False,
+        mult = 2
+    )
 
 
 def test_maxwell_2d_dirichlet():
