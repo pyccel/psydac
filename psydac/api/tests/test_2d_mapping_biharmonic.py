@@ -29,7 +29,7 @@ from sympde.topology import NormalVector
 from sympde.topology import Domain,Square
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm
+from sympde.expr import Norm, SemiNorm
 from sympde.expr import find, EssentialBC
 
 from psydac.api.discretization import discretize
@@ -100,9 +100,9 @@ def run_biharmonic_2d_dir(filename, solution, f, dir_zero_boundary,
 
     # Error norms
     error  = u - solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
-    h2norm = Norm(error, domain, kind='h2')
+    l2norm =     Norm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
+    h2norm = SemiNorm(error, domain, kind='h2')
 
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
