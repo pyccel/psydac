@@ -3,7 +3,7 @@ from pyccel.decorators import template
 
 @template(name='T', types=['float[:]', 'complex[:]'])
 @template(name='Tarray', types=['float[:,:]', 'complex[:,:]'])
-def Mv_product_1d(mat00:'Tarray', x0:'T', out0:'T', starts: 'int64[:]', nrows: 'int64[:]', nrows_extra: 'int64[:]',
+def matvec_1d(mat00:'Tarray', x0:'T', out0:'T', starts: 'int64[:]', nrows: 'int64[:]', nrows_extra: 'int64[:]',
                   dm:'int64[:]', cm:'int64[:]', pad_imp:'int64[:]', ndiags:'int64[:]', gpads: 'int64[:]'):
 
     nrows1   = nrows[0]
@@ -40,7 +40,7 @@ def Mv_product_1d(mat00:'Tarray', x0:'T', out0:'T', starts: 'int64[:]', nrows: '
 
 @template(name='T', types=['float[:,:]', 'complex[:,:]'])
 @template(name='Tarray', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
-def Mv_product_2d(mat00:'Tarray', x0:'T', out0:'T', starts:'int64[:]', nrows:'int64[:]', nrows_extra:'int64[:]',
+def matvec_2d(mat00:'Tarray', x0:'T', out0:'T', starts:'int64[:]', nrows:'int64[:]', nrows_extra:'int64[:]',
                   dm:'int64[:]', cm:'int64[:]', pad_imp:'int64[:]', ndiags:'int64[:]', gpads: 'int64[:]'):
 
     nrows1   = nrows[0]
@@ -107,7 +107,7 @@ def Mv_product_2d(mat00:'Tarray', x0:'T', out0:'T', starts:'int64[:]', nrows:'in
 
 @template(name='T', types=['float[:,:,:]', 'complex[:,:,:]'])
 @template(name='Tarray', types=['float[:,:,:,:,:,:]', 'complex[:,:,:,:,:,:]'])
-def Mv_product_3d(mat00:'Tarray', x0:'T', out0:'T', starts:'int64[:]', nrows:'int64[:]', nrows_extra:'int64[:]',
+def matvec_3d(mat00:'Tarray', x0:'T', out0:'T', starts:'int64[:]', nrows:'int64[:]', nrows_extra:'int64[:]',
                   dm:'int64[:]', cm:'int64[:]', pad_imp:'int64[:]', ndiags:'int64[:]', gpads: 'int64[:]'):
 
     nrows1   = nrows[0]

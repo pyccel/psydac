@@ -14,17 +14,35 @@ from mpi4py       import MPI
 from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator
 from psydac.ddm.cart      import find_mpi_type, CartDecomposition, InterfaceCartDecomposition
 from psydac.ddm.utilities import get_data_exchanger
+from psydac.api.settings  import PSYDAC_BACKENDS
 
-from psydac.linalg.kernels.transpose_kernels import transpose_1d, transpose_2d, transpose_3d, interface_transpose_1d, interface_transpose_2d, interface_transpose_3d
-from psydac.linalg.kernels.stencil2coo_kernels import stencil2coo_1d_F, stencil2coo_1d_C, stencil2coo_2d_C, stencil2coo_2d_F, stencil2coo_3d_C, stencil2coo_3d_F
-from psydac.linalg.kernels.axpy_kernels import axpy_1d, axpy_2d, axpy_3d
-from psydac.linalg.kernels.inner_dot_kernels import inner_dot_1d, inner_dot_2d, inner_dot_3d
+from .kernels.axpy_kernels        import axpy_1d, axpy_2d, axpy_3d
+from .kernels.inner_kernels       import inner_1d, inner_2d, inner_3d
+from .kernels.matvec_kernels      import matvec_1d, matvec_2d, matvec_3d
+from .kernels.transpose_kernels   import transpose_1d, transpose_2d, transpose_3d
+from .kernels.transpose_kernels   import interface_transpose_1d, interface_transpose_2d, interface_transpose_3d
+from .kernels.stencil2coo_kernels import stencil2coo_1d_F, stencil2coo_2d_F, stencil2coo_3d_F
+from .kernels.stencil2coo_kernels import stencil2coo_1d_C, stencil2coo_2d_C, stencil2coo_3d_C
 
-from psydac.api.settings import PSYDAC_BACKENDS
 
-from .kernels.dot_mv_kernels import Mv_product_1d, Mv_product_2d, Mv_product_3d
+__all__ = (
+    'StencilVectorSpace',
+    'StencilVector',
+    'StencilMatrix',
+    'StencilInterfaceMatrix'
+)
 
-__all__ = ('StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix')
+#===============================================================================
+# Dictionary used to select correct kernel functions based on dimensionality
+kernels = {
+    'axpy'  : (None,   axpy_1d,   axpy_2d,   axpy_3d),
+    'inner' : (None,  inner_1d,  inner_2d,  inner_3d),
+    'matvec': (None, matvec_1d, matvec_2d, matvec_3d),
+    'transpose': (None, transpose_1d, transpose_2d, transpose_3d),
+    'interface_transpose': (None, interface_transpose_1d, interface_transpose_2d, interface_transpose_3d),
+    'stencil2coo': {'F': (None, stencil2coo_1d_F, stencil2coo_2d_F, stencil2coo_3d_F),
+                    'C': (None, stencil2coo_1d_C, stencil2coo_2d_C, stencil2coo_3d_C)}
+}
 
 #===============================================================================
 def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False):
@@ -138,19 +156,19 @@ class StencilVectorSpace(VectorSpace):
 
         # Select kernel for AXPY operation
         if self._ndim in [1, 2, 3]:
-            self._axpy_func = eval('axpy_{dim}d'.format(dim=self._ndim))
+            self._axpy_func = kernels['axpy'][self._ndim]
         else:
             self._axpy_func = self._axpy_python
             self._axpy_work = self.zeros()  # work array
 
         # Select kernel for inner product
         if self._ndim in [1, 2, 3]:
-            self._inner_dot_func = eval('inner_dot_{dim}d'.format(dim=self._ndim))
+            self._inner_func = kernels['inner'][self._ndim]
         else:
-            self._inner_dot_func = self._inner_dot_python
+            self._inner_func = self._inner_python
 
         # Constant arguments for inner product: total number of ghost cells
-        self._inner_dot_consts = tuple(np.int64(p * s) for p, s in zip(self._pads, self._shifts))
+        self._inner_consts = tuple(np.int64(p * s) for p, s in zip(self._pads, self._shifts))
 
         # TODO [YG, 06.09.2023]: print warning if pure Python functions are used
 
@@ -164,7 +182,7 @@ class StencilVectorSpace(VectorSpace):
         y += w         # y <- a * x + y
 
     @staticmethod
-    def _inner_dot_python(v1, v2, nghost):
+    def _inner_python(v1, v2, nghost):
         index = tuple(slice(ng, -ng) for ng in nghost)
         return np.vdot(v1[index].flat, v2[index].flat)
 
@@ -434,18 +452,18 @@ class StencilVector(Vector):
         assert isinstance(v, StencilVector)
         assert v._space is self._space
 
-        inner_dot_func = self._space._inner_dot_func
-        inner_dot_args = (self._data, v._data, *self._space._inner_dot_consts)
+        inner_func = self._space._inner_func
+        inner_args = (self._data, v._data, *self._space._inner_consts)
 
         if self._space.parallel:
             # Sometimes in the parallel case, we can get an empty vector that breaks our kernel
-            self._dot_send_data[0] = 0 if self._data.shape[0] == 0 else inner_dot_func(*inner_dot_args)
+            self._dot_send_data[0] = 0 if self._data.shape[0] == 0 else inner_func(*inner_dot_args)
             self._space.cart.global_comm.Allreduce((self._dot_send_data, self._space.mpi_type),
                                                    (self._dot_recv_data, self._space.mpi_type),
                                                    op=MPI.SUM )
             return self._dot_recv_data[0]
         else:
-            return inner_dot_func(*inner_dot_args)
+            return inner_func(*inner_args)
 
     #...
     def conjugate(self, out=None):
@@ -914,10 +932,10 @@ class StencilMatrix(LinearOperator):
         args['ndiags']      = ndiags
 
         self._dotargs_null = args
-        self._dot          = eval(f'Mv_product_{self._ndim}d')
+        self._dot          = kernels['matvec'][ndim]
 
         self._transpose_args = self._prepare_transpose_args()
-        self._transpose_func = eval(f'transpose_{self._ndim}d')
+        self._transpose_func = kernels['transpose'][ndim]
 
         self.set_backend(backend)
 
@@ -1473,8 +1491,7 @@ class StencilMatrix(LinearOperator):
         cpads = [np.int64(i) for i in cpads]
         pp = [np.int64(i) for i in pp]
 
-        func        = 'stencil2coo_{dim}d_{order}'.format(dim=nd, order=order)
-        stencil2coo = eval(func)
+        stencil2coo = kernels['stencil2coo'][order][nd]
 
         ind = stencil2coo(self._data, data, rows, cols, *nrl, *ncl, *ss, *nr, *nc, *dm, *cm, *cpads, *pp)
         M = coo_matrix(
@@ -1902,7 +1919,7 @@ class StencilInterfaceMatrix(LinearOperator):
         self._func         = self._dot
 
         self._transpose_args = self._prepare_transpose_args()
-        self._transpose_func = eval(f'interface_transpose_{self._ndim}d')
+        self._transpose_func = kernels['interface_transpose'][self._ndim]
 
         if backend is None:
             backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
