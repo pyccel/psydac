@@ -928,14 +928,14 @@ class StencilMatrix(LinearOperator):
         args['dm']          = tuple(V.shifts)
         args['cm']          = tuple(W.shifts)
         ndiags, _           = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(self._pads, W.shifts, V.shifts)]))
-        args['pad_imp']     = [gp*m+gp+1-n-s%m+p-gp  for gp,m,n,s,p in zip(V.pads, V.shifts, ndiags, V.starts, self._pads)]
+        args['pad_imp']     = [gp*m+gp+1-n-s%m+p-gp for gp,m,n,s,p in zip(V.pads, V.shifts, ndiags, V.starts, self._pads)]
         args['ndiags']      = ndiags
 
         self._dotargs_null = args
-        self._dot          = kernels['matvec'][ndim]
+        self._dot          = kernels['matvec'][self._ndim]
 
         self._transpose_args = self._prepare_transpose_args()
-        self._transpose_func = kernels['transpose'][ndim]
+        self._transpose_func = kernels['transpose'][self._ndim]
 
         self.set_backend(backend)
 
