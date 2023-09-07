@@ -457,7 +457,7 @@ class StencilVector(Vector):
 
         if self._space.parallel:
             # Sometimes in the parallel case, we can get an empty vector that breaks our kernel
-            self._dot_send_data[0] = 0 if self._data.shape[0] == 0 else inner_func(*inner_dot_args)
+            self._dot_send_data[0] = 0 if self._data.shape[0] == 0 else inner_func(*inner_args)
             self._space.cart.global_comm.Allreduce((self._dot_send_data, self._space.mpi_type),
                                                    (self._dot_recv_data, self._space.mpi_type),
                                                    op=MPI.SUM )
