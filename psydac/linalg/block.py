@@ -85,6 +85,35 @@ class BlockVectorSpace(VectorSpace):
         """
         return BlockVector(self, [Vi.zeros() for Vi in self._spaces])
 
+    #...
+    def axpy(self, a, x, y):
+        """
+        Increment the vector y with the a-scaled vector x, i.e. y = a * x + y,
+        provided that x and y belong to the same vector space V (self).
+        The scalar value a may be real or complex, depending on the field of V.
+
+        Parameters
+        ----------
+        a : scalar
+            The scaling coefficient needed for the operation.
+
+        x : BlockVector
+            The vector which is not modified by this function.
+
+        y : BlockVector
+            The vector modified by this function (incremented by a * x).
+        """
+
+        assert isinstance(x, BlockVector)
+        assert isinstance(y, BlockVector)
+        assert x.space is self
+        assert y.space is self
+
+        for Vi, xi, yi in zip(self.spaces, x.blocks, y.blocks):
+            Vi.axpy(a, xi, yi)
+
+        x._sync = x._sync and y._sync
+
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
