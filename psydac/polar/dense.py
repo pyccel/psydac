@@ -137,6 +137,10 @@ class DenseVectorSpace(VectorSpace):
         data = np.zeros(self.ncoeff, dtype=self.dtype)
         return DenseVector(self, data)
 
+    # ...
+    def axpy(self, a, x, y):
+        y += a * x
+
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
