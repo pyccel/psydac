@@ -14,11 +14,11 @@
 #      Please note that the logical coordinates (x1, x2) correspond to the polar
 #      coordinates (r, theta), but with reversed order: hence x1=theta and x2=r
 
+import os
 from mpi4py import MPI
 from sympy import pi, cos, sin, symbols
 from sympy.abc import x, y
 import pytest
-import os
 import numpy as np
 
 from sympde.calculus import grad, dot
@@ -26,10 +26,10 @@ from sympde.calculus import laplace
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import NormalVector
-from sympde.topology import Domain,Square
+from sympde.topology import Domain
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm
+from sympde.expr import Norm, SemiNorm
 from sympde.expr import find, EssentialBC
 
 from psydac.api.discretization import discretize
@@ -43,8 +43,7 @@ except:
     base_dir = os.path.dirname(os.path.realpath(__file__))
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
-# ...
-os.environ['OMP_NUM_THREADS']    = "2"
+
 # backend to activate multi threading
 PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP           = PSYDAC_BACKEND_GPYCCEL.copy()
 PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP['openmp'] = True
@@ -107,8 +106,8 @@ def run_poisson_2d(filename, solution, f, dir_zero_boundary,
 
     # Error norms
     error  = u - solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    l2norm =     Norm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     #+++++++++++++++++++++++++++++++
     # 2. Discretization

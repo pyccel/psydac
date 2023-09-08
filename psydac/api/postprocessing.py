@@ -27,7 +27,8 @@ from psydac.fem.basic import FemSpace, FemField
 from psydac.utilities.vtk import writeParallelVTKUnstructuredGrid
 from psydac.core.bsplines import elevate_knots
 
-
+__all__ = ('get_grid_lines_2d', '_augment_space_degree_dict',
+           'OutputManager', 'PostProcessManager')
 #===============================================================================
 def get_grid_lines_2d(domain_h, V_h, *, refine=1):
     """
@@ -41,12 +42,11 @@ def get_grid_lines_2d(domain_h, V_h, *, refine=1):
 
     V_h : psydac.fem.tensor.TensorFemSpace
         Spline space from which the breakpoints are extracted.
-                    - TODO: remove this argument -
+            - TODO: remove this argument -
 
     refine : int
         Number of segments used to describe a grid curve in each element
         (minimum value is 1, which yields quadrilateral elements).
-
 
     Returns
     -------
@@ -296,9 +296,10 @@ class OutputManager:
         femspaces: dict
             Named femspaces
 
-        Note
-        ----
+        Notes
+        -----
         Femspaces are added to ``self._space_info``.
+        
         """
         assert all(isinstance(femspace, FemSpace) for femspace in femspaces.values())
 
@@ -707,7 +708,7 @@ class PostProcessManager:
         one space that isn't empty.
 
     Warns
-    ------
+    -----
     UserWarning
         If fields_file wasn't found.
     """
@@ -790,7 +791,7 @@ class PostProcessManager:
         return fields
 
     def read_space_info(self):
-        """Read ``self.space_filename ``.
+        """Read self.space_filename.
 
         Returns
         -------
@@ -859,6 +860,8 @@ class PostProcessManager:
                 for sc_sp in components:
                     already_used_names.append(sc_sp['name'])
                     basis += sc_sp['basis']
+                    # TODO change codomain type when implemented in symPDE
+                    codomain_type = 'complex' if sc_sp['dtype'] == "<class 'complex'>" else 'real'
 
                 basis = list(set(basis))
                 if len(basis) != 1:
@@ -880,11 +883,13 @@ class PostProcessManager:
                         for j in range(new_degree[i] - degree[0][i]):
                             knots[i] = elevate_knots(knots[i], degree[0][i], periodic=periodic[i])
 
+                # TODO change codomain type when implemented in symPDE
                 temp_kwargs_discretization = {
                     'degree':[int(new_degree[i]) for i in range(components[0]['ldim'])],
                     'knots': knots,
                     'basis': basis,
                     'periodic':periodic,
+                    'codomain_type': codomain_type
                 }
 
                 self._space_reconstruct_helper(
@@ -916,17 +921,21 @@ class PostProcessManager:
 
                     knots = [np.asarray(sc_sp['knots'][i]) for i in range(sc_sp['ldim'])]
                     periodic = sc_sp['periodic']
+                    # TODO change codomain type when implemented in symPDE
+                    codomain_type = 'complex' if sc_sp['dtype'] == "<class 'complex'>" else 'real'
 
                     for i in range(sc_sp['ldim']):
                         if new_degree[i] != degree[i]:
                             for j in range(new_degree[i] - degree[i]):
                                 knots[i] = elevate_knots(knots[i], degree[i], periodic=periodic[i])
 
+                    # TODO change codomain type when implemented in symPDE
                     temp_kwargs_discretization = {
                         'degree': [int(new_degree[i]) for i in range(sc_sp['ldim'])],
                         'knots': knots,
                         'basis': basis,
                         'periodic': periodic,
+                        'codomain_type': codomain_type,
                     }
 
                     self._space_reconstruct_helper(
@@ -962,10 +971,17 @@ class PostProcessManager:
                 subdomain_h = discretize(subdomain, ncells=ncells, comm=self.comm, periodic=periodic)
 
             for space_name, (is_vector, kind, discrete_kwargs) in space_dict.items():
+                codomain_type=discrete_kwargs.pop('codomain_type')
                 if is_vector:
+                    # TODO change codomain type when implemented in symPDE
                     temp_symbolic_space = VectorFunctionSpace(space_name, subdomain, kind)
+                    # Remove this line when codomain_type is define in VectorFunctionSpace
+                    temp_symbolic_space.codomain_type = codomain_type
                 else:
+                    # TODO change codomain type when implemented in symPDE
                     temp_symbolic_space = ScalarFunctionSpace(space_name, subdomain, kind)
+                    # Remove this line when codomain_type is define in VectorFunctionSpace
+                    temp_symbolic_space.codomain_type = codomain_type
 
                 # Until PR #213 is merged knots as to be set to None
                 discrete_kwargs['knots'] = None if len(discrete_kwargs['knots']) !=1 else discrete_kwargs['knots'][subdomain.name]
@@ -1723,6 +1739,16 @@ class PostProcessManager:
 
                 offset += i_mesh[0].size
 
+            # redefine the list of the field exported, all the complex field are divided in two new field for the real and imaginary part
+            new_fields_relevant = []
+            for name_intra in fields_relevant:
+                if name_intra in self._last_loaded_fields and self._last_loaded_fields[name_intra].coeffs.dtype==complex:
+                    new_fields_relevant.append(name_intra + '_Real')
+                    new_fields_relevant.append(name_intra + '_Imag')
+                else:
+                    new_fields_relevant.append(name_intra)
+            fields_relevant = tuple(new_fields_relevant)
+
             # Fields
             for name_intra in fields_relevant:
                 i_data = i_point_data.get(name_intra, None)
@@ -1786,10 +1812,23 @@ class PostProcessManager:
         # physical functions
         for name, lambda_f in additional_physical_functions.items():
             f_result = lambda_f(*mesh_info[0])
+            # For each physical functions, we add the data of this field into the point_data dictionary.
+            # In complex case, we create two real array : for the real and imaginary part.
+            # Case of a Vector field
             if isinstance(f_result, np.ndarray):
-                point_data[name] = np.ravel(f_result, 'F')
+                if f_result.dtype == complex:
+                    point_data[name + '_Real'] = np.ravel(f_result.real, 'F')
+                    point_data[name + '_Imag'] = np.ravel(f_result.imag, 'F')
+                else:
+                    point_data[name] = np.ravel(f_result, 'F')
+
+            # Case of a Scalar field
             elif isinstance(f_result, tuple):
-                point_data[name] = tuple(np.ravel(i_result, 'F') for i_result in f_result)
+                if f_result[0].dtype == complex:
+                    point_data[name + '_Real'] = tuple(np.ravel(i_result.real, 'F') for i_result in f_result)
+                    point_data[name + '_Imag'] = tuple(np.ravel(i_result.imag, 'F') for i_result in f_result)
+                else:
+                    point_data[name] = np.ravel(f_result, 'F')
 
         self._last_mesh_info = mesh_info, {'patch': patch_numbers}, {'MPI_RANK_SIMU': mpi_rank_simu_array}
         self._last_subdomain = subdomain
@@ -2086,7 +2125,24 @@ class PostProcessManager:
         for space, (field_names, field_list) in space_dict.items():
             list_pushed_fields = pushforward._dispatch_pushforward(space, *field_list)
             for i, field_name in enumerate(field_names):
-                point_data[field_name] = list_pushed_fields[i]
+                # For each field_name, if it is in list_pushed_fields, it add the data of this field into the point_data dictionary.
+                # In complex case, we create two real array : for the real and imaginary part.
+                # Case of a Vector field
+                if isinstance(list_pushed_fields[i],tuple):
+                    # If complex value
+                    if list_pushed_fields[i][0].dtype==complex:
+                        point_data[field_name+'_Real'] = tuple([coeffs.real for coeffs in list_pushed_fields[i]])
+                        point_data[field_name+'_Imag'] = tuple([coeffs.imag for coeffs in list_pushed_fields[i]])
+                    else:
+                        point_data[field_name] = list_pushed_fields[i]
+                # Case of a Scalar field
+                else:
+                    # If complex value
+                    if list_pushed_fields[i].dtype==complex:
+                        point_data[field_name+'_Real'] = list_pushed_fields[i].real
+                        point_data[field_name+'_Imag'] = list_pushed_fields[i].imag
+                    else:
+                        point_data[field_name] = list_pushed_fields[i]
 
         if grid_local[0].ndim == 1:
             log_mesh_grids = np.meshgrid(*grid_local, indexing='ij')

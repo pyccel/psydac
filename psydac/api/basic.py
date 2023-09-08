@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
-#         nderiv has not been changed. shall we add quad_order too?
+#         nderiv has not been changed. shall we add nquads too?
 
 # TODO: avoid using os.system and use subprocess.call
 
@@ -42,7 +42,7 @@ class BasicCodeGen:
     kernel_expr : sympde.expr.evaluation.KernelExpression
         The atomic representation of the bi-linear form.
 
-    quad_order: list of tuple
+    nquads: list of tuple
         The number of quadrature points used in the assembly method.
 
     is_rational_mapping : bool
@@ -63,7 +63,7 @@ class BasicCodeGen:
 
     """
     def __init__(self, expr, *, folder=None, comm=None, root=None, discrete_space=None,
-                       kernel_expr=None, quad_order=None, is_rational_mapping=None, mapping=None,
+                       kernel_expr=None, nquads=None, is_rational_mapping=None, mapping=None,
                        mapping_space=None, num_threads=None, backend=None):
 
         # Get default backend from environment, or use 'python'.
@@ -82,7 +82,7 @@ class BasicCodeGen:
             if comm.rank == root:
                 tag = random_string( 8 )
                 ast = self._create_ast( expr=expr, tag=tag, comm=comm, discrete_space=discrete_space,
-                           kernel_expr=kernel_expr, quad_order=quad_order, is_rational_mapping=is_rational_mapping,
+                           kernel_expr=kernel_expr, nquads=nquads, is_rational_mapping=is_rational_mapping,
                            mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend )
 
                 max_nderiv = ast.nderiv
@@ -106,7 +106,7 @@ class BasicCodeGen:
         else:
             tag = random_string( 8 )
             ast = self._create_ast( expr=expr, tag=tag, discrete_space=discrete_space,
-                       kernel_expr=kernel_expr, quad_order=quad_order, is_rational_mapping=is_rational_mapping,
+                       kernel_expr=kernel_expr, nquads=nquads, is_rational_mapping=is_rational_mapping,
                        mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend )
 
             max_nderiv = ast.nderiv
@@ -228,16 +228,18 @@ class BasicCodeGen:
 
     def _generate_code(self):
         # ... generate code that can be pyccelized
-        code = ''
+        imports = ''
         if self.backend['name'] == 'pyccel':
-            code = 'from pyccel.decorators import types'
+            imports = "from pyccel.decorators import types"
+            imports += ", template \n@template(name='T', types=['float', 'complex']) "
         elif self.backend['name'] == 'numba':
-            code = 'from numba import njit'
+            imports = 'from numba import njit'
 
         ast = self.ast
         expr = parse(ast.expr, settings={'dim': ast.dim, 'nderiv': ast.nderiv, 'mapping':ast.mapping, 'target':ast.domain}, backend=self.backend)
 
-        code = '{code}\n{dep}'.format(code=code, dep=pycode(expr))
+        dep = pycode(expr)
+        code = f'{imports}\n{dep}'
 
         return code
 
@@ -289,11 +291,11 @@ class BasicDiscrete(BasicCodeGen):
     """
 
     def __init__(self, expr, kernel_expr, *, folder=None, comm=None, root=None, discrete_space=None,
-                       quad_order=None, is_rational_mapping=None, mapping=None,
+                       nquads=None, is_rational_mapping=None, mapping=None,
                        mapping_space=None, num_threads=None, backend=None):
 
         BasicCodeGen.__init__(self, expr, folder=folder, comm=comm, root=root, discrete_space=discrete_space,
-                       kernel_expr=kernel_expr, quad_order=quad_order, is_rational_mapping=is_rational_mapping,
+                       kernel_expr=kernel_expr, nquads=nquads, is_rational_mapping=is_rational_mapping,
                        mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend)
         # ...
         self._kernel_expr = kernel_expr
@@ -327,14 +329,14 @@ class BasicDiscrete(BasicCodeGen):
 
         mapping_space  = kwargs.pop('mapping_space', None)
         tag            = kwargs.pop('tag', None)
-        quad_order     = kwargs.pop('quad_order', None)
+        nquads         = kwargs.pop('nquads', None)
         mapping        = kwargs.pop('mapping', None)
         num_threads    = kwargs.pop('num_threads', None)
         backend        = kwargs.pop('backend', None)
         is_rational_mapping = kwargs.pop('is_rational_mapping', None)
 
         return AST(expr, kernel_expr, discrete_space, mapping_space=mapping_space,
-                   tag=tag, quad_order=quad_order, mapping=mapping, is_rational_mapping=is_rational_mapping,
+                   tag=tag, nquads=nquads, mapping=mapping, is_rational_mapping=is_rational_mapping,
                    backend=backend, num_threads=num_threads)
 
 

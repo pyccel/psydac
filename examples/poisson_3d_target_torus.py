@@ -154,14 +154,16 @@ def run_model(ncells, degree, comm=None, is_logical=False):
 
     print("Start discretization", flush=True)
     # Create computational domain from topological domain
-    Omega_h = discretize(Omega, ncells=ncells, comm=comm)
-    Omega_log_h = discretize(Omega_logical, ncells=ncells, comm=comm)
+    periodic = [False, False, False]
+    periodic_log = [False, True, True]
+    Omega_h = discretize(Omega, ncells=ncells, periodic=periodic, comm=comm)
+    Omega_log_h = discretize(Omega_logical, ncells=ncells, periodic=periodic_log, comm=comm)
 
     # Create discrete spline space
     if is_logical:
-        Vh = discretize(V, Omega_log_h, degree=degree, periodic=[False, True, True])
+        Vh = discretize(V, Omega_log_h, degree=degree)
     else:
-        Vh = discretize(V, Omega_h, degree=degree, periodic=[False, False, False])
+        Vh = discretize(V, Omega_h, degree=degree)
     # Discretize equation
     if is_logical:
         equation_h = discretize(equation, Omega_log_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP)

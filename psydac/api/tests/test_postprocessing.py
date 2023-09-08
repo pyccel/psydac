@@ -55,41 +55,40 @@ def build_2_mapped_squares():
     D1     = mapping_1(A)
     D2     = mapping_2(B)
 
-    domain = D1.join(D2, name = 'domain',
-                bnd_minus = D1.get_boundary(axis=1, ext=1),
-                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
-    return domain
+    patches = [D1, D2]
+    connectivity = [((0,1,1),(1,1,-1))]
+    return Domain.join(patches, connectivity, 'domain')
 
 
 def build_2_squares():
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
 
-    domain = A.join(B, 'domain',
-                    bnd_minus=A.get_boundary(1, 1),
-                    bnd_plus=B.get_boundary(1, -1))
-    return domain
+    patches = [A, B]
+    connectivity = [((0,1,1),(1,1,-1))]
+    return Domain.join(patches, connectivity, 'domain')
 
 
 def build_2_cubes():
     A = Cube('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2), bounds3=(0, 1))
     B = Cube('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi), bounds3=(0, 1))
 
-    domain = A.join(B, 'domain',
-                    bnd_minus=A.get_boundary(1, 1),
-                    bnd_plus=B.get_boundary(1, -1))
-
-    return domain
+    patches = [A, B]
+    connectivity = [((0,1,1),(1,1,-1))]
+    return Domain.join(patches, connectivity, 'domain')
 
 
 ###############################################################################
 #                            Output Manager tests                             #
 ###############################################################################
 @pytest.mark.serial
-def test_add_spaces():
+@pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
+def test_add_spaces(dtype):
     domain = Square('D')
     A = ScalarFunctionSpace('A', domain, kind='H1')
+    A.codomain_type = dtype
     B = VectorFunctionSpace('B', domain, kind=None)
+    B.codomain_type = dtype
 
     domain_h = discretize(domain, ncells=[5, 5])
 
@@ -114,7 +113,7 @@ def test_add_spaces():
                                          'scalar_spaces': [{'name': 'Ah',
                                                             'ldim': 2,
                                                             'kind': 'h1',
-                                                            'dtype': "<class 'float'>",
+                                                            'dtype': f"<class '{dtype}'>",
                                                             'rational': False,
                                                             'periodic': [False, False],
                                                             'degree': [3, 3],
@@ -130,7 +129,7 @@ def test_add_spaces():
                                                            {'name': 'Bh[0]',
                                                             'ldim': 2,
                                                             'kind': 'undefined',
-                                                            'dtype': "<class 'float'>",
+                                                            'dtype': f"<class '{dtype}'>",
                                                             'rational': False,
                                                             'periodic': [False, False],
                                                             'degree': [2, 2],
@@ -146,7 +145,7 @@ def test_add_spaces():
                                                            {'name': 'Bh[1]',
                                                             'ldim': 2,
                                                             'kind': 'undefined',
-                                                            'dtype': "<class 'float'>",
+                                                            'dtype': f"<class '{dtype}'>",
                                                             'rational': False,
                                                             'periodic': [False, False],
                                                             'degree': [2, 2],
@@ -166,7 +165,7 @@ def test_add_spaces():
                                                                 {'name': 'Bh[0]',
                                                                  'ldim': 2,
                                                                  'kind': 'undefined',
-                                                                 'dtype': "<class 'float'>",
+                                                                 'dtype': f"<class '{dtype}'>",
                                                                  'rational': False,
                                                                  'periodic': [False, False],
                                                                  'degree': [2, 2],
@@ -182,7 +181,7 @@ def test_add_spaces():
                                                                 {'name': 'Bh[1]',
                                                                  'ldim': 2,
                                                                  'kind': 'undefined',
-                                                                 'dtype': "<class 'float'>",
+                                                                 'dtype': f"<class '{dtype}'>",
                                                                  'rational': False,
                                                                  'periodic': [False, False],
                                                                  'degree': [2, 2],
@@ -207,10 +206,13 @@ def test_add_spaces():
     os.remove('test_add_spaces_single_patch.yml')
 
 @pytest.mark.serial
-def test_export_fields_serial():
+@pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
+def test_export_fields_serial(dtype):
     domain = Square('D')
     A = ScalarFunctionSpace('A', domain, kind='H1')
+    A.codomain_type = dtype
     B = VectorFunctionSpace('B', domain, kind=None)
+    B.codomain_type = dtype
 
     domain_h = discretize(domain, ncells=[5, 5])
 
@@ -328,20 +330,27 @@ def test_export_fields_parallel():
 ###############################################################################
 @pytest.mark.serial
 @pytest.mark.parametrize('domain', [Square(), Cube()])
-def test_reconstruct_spaces_topological_domain(domain):
+@pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
+def test_reconstruct_spaces_topological_domain(domain, dtype):
     dim = domain.dim
 
     domain_h = discretize(domain, ncells=[5] * dim)
 
     Vh1 = ScalarFunctionSpace('Vh1', domain, kind='h1')
+    Vh1.codomain_type = dtype
     Vvh1 = VectorFunctionSpace('Vvh1', domain, kind='h1')
+    Vvh1.codomain_type = dtype
 
     Vl2 = ScalarFunctionSpace('Vl2', domain, kind='l2')
+    Vl2.codomain_type = dtype
     Vvl2 = VectorFunctionSpace('Vvl2', domain, kind='l2')
+    Vvl2.codomain_type = dtype
 
     Vhdiv = VectorFunctionSpace('Vhdiv', domain, kind='hdiv')
+    Vhdiv.codomain_type = dtype
 
     Vhcurl = VectorFunctionSpace('Vhcurl', domain, kind='hcurl')
+    Vhdiv.codomain_type = dtype
 
     degree1 = [2, 3, 4][:dim]
     degree2 = [5, 5, 5][:dim]
@@ -391,8 +400,12 @@ def test_reconstruct_spaces_topological_domain(domain):
 
 @pytest.mark.serial
 @pytest.mark.parametrize('domain, seq', [(Square(), ['h1', 'hdiv', 'l2']), (Square(), ['h1', 'hcurl', 'l2']), (Cube(), None)])
-def test_reconstruct_DerhamSequence_topological_domain(domain, seq):
+@pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
+def test_reconstruct_DerhamSequence_topological_domain(domain, seq, dtype):
     derham = Derham(domain, sequence=seq)
+
+    for V in derham.spaces:
+        V.codomain_type = dtype
 
     domain_h  = discretize(domain, ncells=[5]*domain.dim)
     derham_h = discretize(derham, domain_h, degree=[2]*domain.dim)
@@ -450,12 +463,16 @@ def test_reconstruct_DerhamSequence_topological_domain(domain, seq):
                                            ('identity_3d.h5', None),
                                            ('pipe.h5', ['h1', 'hdiv', 'l2']),
                                            ('pipe.h5', ['h1', 'hcurl', 'l2'])])
-def test_reconstruct_DerhamSequence_discrete_domain(geometry, seq):
+@pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
+def test_reconstruct_DerhamSequence_discrete_domain(geometry, seq, dtype):
 
     geometry_file = os.path.join(mesh_dir, geometry)
     domain = Domain.from_file(geometry_file)
 
     derham = Derham(domain, sequence=seq)
+
+    for V in derham.spaces:
+        V.codomain_type = dtype
 
     domain_h  = discretize(domain, filename=geometry_file)
     derham_h = discretize(derham, domain_h, degree=[2]*domain.dim)
@@ -506,8 +523,8 @@ def test_reconstruct_DerhamSequence_discrete_domain(geometry, seq):
     os.remove('test_reconstruct_DerhamSequence_discrete_domain_2.yml')
     os.remove('test_reconstruct_DerhamSequence_discrete_domain.yml')
 
-
-def test_reconstruct_multipatch():
+@pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
+def test_reconstruct_multipatch(dtype):
     bounds1   = (0.5, 1.)
     bounds2_A = (0, np.pi/2)
     bounds2_B = (np.pi/2, np.pi)
@@ -515,15 +532,20 @@ def test_reconstruct_multipatch():
     A = Square('A',bounds1=bounds1, bounds2=bounds2_A)
     B = Square('B',bounds1=bounds1, bounds2=bounds2_B)
 
-    domain = A.join(B, name='domain',
-                    bnd_minus=A.get_boundary(axis=1, ext=1),
-                    bnd_plus=B.get_boundary(axis=1, ext=-1))
+    connectivity = [((0,1,1),(1,1,-1))]
+    patches = [A,B]
+    domain = Domain.join(patches, connectivity, 'domain')
 
     Va = ScalarFunctionSpace('Va', A)
+    Va.codomain_type = dtype
     Vb = ScalarFunctionSpace('Vb', B)
+    Vb.codomain_type = dtype
     V = ScalarFunctionSpace('V', domain)
+    V.codomain_type = dtype
     Vv = VectorFunctionSpace('Vv', domain)
+    Vv.codomain_type = dtype
     Vva = VectorFunctionSpace('Vva', A)
+    Vva.codomain_type = dtype
 
     Om = OutputManager('spaces_multipatch.yml', 'fields_multipatch.h5')
 
@@ -634,7 +656,8 @@ def test_incorrect_arg_export_to_vtk():
                                       'multipatch/plate_with_hole_mp_7.h5'])
 @pytest.mark.parametrize('kind', ['h1', 'l2', 'hdiv', 'hcurl'])
 @pytest.mark.parametrize('space', [ScalarFunctionSpace, VectorFunctionSpace])
-def test_parallel_export_discrete_domain(geometry, kind, space):
+@pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
+def test_parallel_export_discrete_domain(geometry, kind, space, dtype):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
@@ -646,6 +669,7 @@ def test_parallel_export_discrete_domain(geometry, kind, space):
     dim = domain.dim
 
     symbolic_space = space('V', domain, kind=kind)
+    symbolic_space.codomain_type = dtype
 
     degree = list(domain_h.mappings.values())[0].space.degree
     space_h = discretize(symbolic_space, domain_h, degree=degree)
@@ -745,7 +769,8 @@ def test_parallel_export_discrete_domain(geometry, kind, space):
 @pytest.mark.parametrize('mapping', [IdentityMapping, AffineMapping])
 @pytest.mark.parametrize('kind', ['h1', 'l2', 'hdiv', 'hcurl'])
 @pytest.mark.parametrize('space', [ScalarFunctionSpace, VectorFunctionSpace])
-def test_parallel_export_topological_domain(domain, mapping, kind, space):
+@pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
+def test_parallel_export_topological_domain(domain, mapping, kind, space, dtype):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     dim = domain.dim
@@ -763,6 +788,7 @@ def test_parallel_export_topological_domain(domain, mapping, kind, space):
         domain = F(domain)
 
     symbolic_space = space('V', domain, kind=kind)
+    symbolic_space.codomain_type = dtype
 
     degree = [2, 2, 2][:dim]
     domain_h = discretize(domain, ncells=[6] * dim, comm=comm)

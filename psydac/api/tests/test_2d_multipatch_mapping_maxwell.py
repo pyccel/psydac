@@ -117,9 +117,9 @@ def test_maxwell_2d_2_patch_dirichlet_0():
     D1     = mapping_1(A)
     D2     = mapping_2(B)
 
-    domain = D1.join(D2, name = 'domain',
-                bnd_minus = D1.get_boundary(axis=1, ext=1),
-                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
+    connectivity = [((0,1,1),(1,1,-1))]
+    patches = [D1,D2]
+    domain = Domain.join(patches, connectivity, 'domain')
 
     x,y    = domain.coordinates
 
@@ -194,10 +194,9 @@ def test_maxwell_2d_2_patch_dirichlet_parallel_0():
     D1     = mapping_1(A)
     D2     = mapping_2(B)
 
-    domain = D1.join(D2, name = 'domain',
-                bnd_minus = D1.get_boundary(axis=1, ext=1),
-                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
-
+    connectivity = [((0,1,1),(1,1,-1))]
+    patches = [D1,D2]
+    domain = Domain.join(patches, connectivity, 'domain')
     x,y    = domain.coordinates
 
     omega = 1.5
@@ -209,6 +208,25 @@ def test_maxwell_2d_2_patch_dirichlet_parallel_0():
     l2_error, Eh      = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], comm=MPI.COMM_WORLD)
 
     expected_l2_error = 0.012077019124862177
+
+    assert abs(l2_error - expected_l2_error) < 1e-7
+
+@pytest.mark.parallel
+def test_maxwell_2d_2_patch_dirichlet_parallel_1():
+
+    filename = os.path.join(mesh_dir, 'multipatch/square_repeated_knots.h5')
+    domain   = Domain.from_file(filename)
+    x,y      = domain.coordinates
+
+    omega = 1.5
+    alpha = -omega**2
+    Eex   = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+    f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                  alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+
+    l2_error, Eh  = run_maxwell_2d(Eex, f, alpha, domain, filename=filename, comm=MPI.COMM_WORLD)
+
+    expected_l2_error = 0.00024103192798735168
 
     assert abs(l2_error - expected_l2_error) < 1e-7
 #==============================================================================
@@ -243,6 +261,7 @@ if __name__ == '__main__':
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
+    mappings_list = [mapping.get_callable_mapping() for mapping in mappings_list]
 
     Eex_x   = lambdify(domain.coordinates, Eex[0])
     Eex_y   = lambdify(domain.coordinates, Eex[1])

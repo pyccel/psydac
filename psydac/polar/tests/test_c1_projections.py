@@ -140,6 +140,12 @@ def test_c1_projections(degrees, ncells, verbose=False):
     assert np.allclose(Ap_bp[0].toarray(), Et_A_E_bp[0].toarray(), **kwargs)
     assert np.allclose(Ap_bp[1].toarray(), Et_A_E_bp[1].toarray(), **kwargs)
 
+    # Verify that matrix-vector product can be computed correctly twice
+    # (necessary for Krylov solvers)
+    Ap_bp_array = Ap.toarray() @ bp.toarray()
+    assert np.allclose(Ap_bp_array, Ap_bp.toarray(), **kwargs)
+    assert np.allclose(Ap_bp_array, Ap.dot(bp).toarray(), **kwargs)
+
     if verbose:
         print("PASSED")
         return locals()

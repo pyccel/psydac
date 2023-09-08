@@ -10,7 +10,7 @@ from psydac.core.bsplines         import basis_ders_on_quad_grid
 from psydac.core.bsplines         import elevate_knots
 from psydac.utilities.quadratures import gauss_legendre
 
-__all__ = ['FemAssemblyGrid']
+__all__ = ('FemAssemblyGrid',)
 
 #==============================================================================
 class FemAssemblyGrid:
@@ -36,22 +36,23 @@ class FemAssemblyGrid:
     end : int
         Index of last element local to process.
 
-    quad_order : int
-        Polynomial order for which mass matrix is exact, assuming identity map
-        (default: spline degree).
+    nquads : int
+        Number of quadrature points used in the Gauss-Legendre quadrature formula.
 
     nderiv : int
         Number of basis functions' derivatives to be precomputed at the Gauss
         points (default: 1).
 
     """
-    def __init__( self, space, start, end, *, quad_order=None, nderiv=1):
+    def __init__( self, space, start, end, *, nquads=None, nderiv=1):
+
+        assert nquads is not None
 
         T            = space.knots           # knots sequence
         degree       = space.degree          # spline degree
         n            = space.nbasis          # total number of control points
         grid         = space.breaks          # breakpoints
-        k            = quad_order or degree  # polynomial order for which the mass matrix is exact
+        k            = nquads                # number of quadrature points
 
         # Gauss-legendre quadrature rule
         u, w = gauss_legendre( k )

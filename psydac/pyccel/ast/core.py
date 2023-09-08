@@ -13,7 +13,7 @@ from sympy import Float as sp_Float, Rational as sp_Rational
 from sympy import preorder_traversal
 
 from sympy.simplify.radsimp   import fraction
-from sympy.core.compatibility import with_metaclass
+from sympde.old_sympy_utilities import with_metaclass
 from sympy.core.assumptions   import StdFactKB
 from sympy.core.singleton     import S
 from sympy.core.function      import Function, Application
@@ -3413,8 +3413,9 @@ class FunctionDef(Basic):
 
         # arguments
 
-        if not iterable(arguments):
-            raise TypeError('arguments must be an iterable')
+        # Removed by JO in 06/23 in PR #303: This TypeError was raised upon Sphinx trying to import several of Psydac's modules.
+        #if not iterable(arguments):
+        #    raise TypeError('arguments must be an iterable')
 
         # TODO improve and uncomment
 #        if not all(isinstance(a, Argument) for a in arguments):

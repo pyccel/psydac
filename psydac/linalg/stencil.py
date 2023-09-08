@@ -14,9 +14,9 @@ from mpi4py       import MPI
 from psydac.linalg.basic   import VectorSpace, Vector, LinearOperator
 from psydac.ddm.cart       import find_mpi_type, CartDecomposition, InterfaceCartDecomposition
 from psydac.ddm.utilities  import get_data_exchanger
-from .kernels              import *
-
-__all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix']
+from psydac.linalg.kernels.transpose_kernels import transpose_1d, transpose_2d, transpose_3d, interface_transpose_1d, interface_transpose_2d, interface_transpose_3d
+from psydac.linalg.kernels.stencil2coo_kernels import stencil2coo_1d_F, stencil2coo_1d_C,stencil2coo_2d_C, stencil2coo_2d_F, stencil2coo_3d_C,stencil2coo_3d_F
+__all__ = ('StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix')
 
 #===============================================================================
 def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False):
@@ -123,6 +123,7 @@ class StencilVectorSpace( VectorSpace ):
         if cart.is_parallel and not cart.is_comm_null:
             self._mpi_type      = find_mpi_type(dtype)
             if isinstance(cart, InterfaceCartDecomposition):
+                # TODO : Check if this line really change the ._shape
                 self._shape = cart.get_interface_communication_infos(cart.axis)['gbuf_recv_shape'][0]
             else:
                 self._synchronizer = get_data_exchanger( cart, dtype , assembly=True, blocking=False)
@@ -248,7 +249,7 @@ class StencilVectorSpace( VectorSpace ):
         if cart.is_comm_null: return
         if isinstance(cart, InterfaceCartDecomposition):
             # Case where the patches that share the interface are owned by different intra-communicators
-            space = StencilVectorSpace(cart)
+            space = StencilVectorSpace(cart, dtype=self.dtype)
             self._interfaces[axis, ext] = space
         else:
             # Case where the patches that share the interface are owned by the same intra-communicator
@@ -271,6 +272,8 @@ class StencilVectorSpace( VectorSpace ):
                     parent_ends[axis] = self.pads[axis]
 
             cart = cart.change_starts_ends(tuple(starts), tuple(ends), tuple(parent_starts), tuple(parent_ends))
+
+            #TODO Check if we create object from it, otherwise its only purpose is to store some parameters which is innefficient
             space = StencilVectorSpace(cart, self.dtype)
 
             self._interfaces[axis, ext] = space
@@ -832,10 +835,8 @@ class StencilMatrix( LinearOperator ):
         self._args         = args.copy()
         self._func         = self._dot
 
-        self._transpose_args_null = self._prepare_transpose_args()
-        self._transpose_args      = self._transpose_args_null.copy()
-        self._transpose_func      = self._transpose
-
+        self._transpose_args = self._prepare_transpose_args()
+        self._transpose_func      = eval(f'transpose_{self._ndim}d')
         if backend is None:
             backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
 
@@ -1005,33 +1006,6 @@ class StencilMatrix( LinearOperator ):
         else:
             self._transpose_func(M._data, Mt._data, **self._transpose_args)
         return Mt
-
-    @staticmethod
-    def _transpose( M, Mt, nrows, ncols, gpads, pads, dm, cm, ndiags, ndiagsT, si, sk, sl):
-
-        # NOTE:
-        #  . Array M  index by [i1, i2, ..., k1, k2, ...]
-        #  . Array Mt index by [j1, j2, ..., l1, l2, ...]
-
-        #M[i,j-i+p]
-        #Mt[j,i-j+p]
-
-        diff   = [gp-p for gp,p in zip(gpads, pads)]
-        for xx in np.ndindex( *nrows ):
-
-            jj = tuple(m*p + x for m,p,x in zip(dm, gpads, xx) )
-
-            for ll in np.ndindex( *ndiags ):
-
-                ii = tuple( s + mi*(x//mj) + l + d for mj,mi,x,l,d,s in zip(dm,cm, xx, ll, diff, si))
-
-                kk = tuple( s + x%mj-mj*(l//mi) for mj,mi,l,x,s in zip(dm, cm, ll, xx, sk))
-                ll = tuple(l+s for l,s in zip(ll, sl))
-
-                if all(k<n  and k>-1 for k,n in zip(kk,ndiagsT)) and\
-                   all(l<n for l,n in zip(ll, ndiags)) and\
-                   all(i<n for i,n in zip(ii, ncols)):
-                    Mt[(*jj, *ll)] = M[(*ii, *kk)]
 
     # ...
     def toarray( self, **kwargs ):
@@ -1626,77 +1600,53 @@ class StencilMatrix( LinearOperator ):
         cm    = W.shifts
 
         # Number of rows in the transposed matrix (along each dimension)
-        nrows       = [e-s+1 for s,e in zip(ssd, eed)]
-        ncols       = [e-s+2*m*p+1 for s,e,m,p in zip(ssc, eec, cm, gpads)]
+        nrows       = [e-s+1 for s, e in zip(ssd, eed)]
+        ncols       = [e-s+2*m*p+1 for s, e, m, p in zip(ssc, eec, cm, gpads)]
 
         pp = pads
-        ndiags, starts = list(zip(*[compute_diag_len(p,mi,mj, return_padding=True) for p,mi,mj in zip(pp,cm,dm)]))
-        ndiagsT, _     = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pp,cm,dm)]))
+        ndiags, starts = list(zip(*[compute_diag_len(p, mi, mj, return_padding=True) for p, mi, mj in zip(pp, cm, dm)]))
+        ndiagsT, _     = list(zip(*[compute_diag_len(p, mj, mi, return_padding=True) for p, mi, mj in zip(pp, cm, dm)]))
 
-        diff   = [gp-p for gp,p in zip(gpads, pp)]
+        diff   = [gp-p for gp, p in zip(gpads, pp)]
 
-        sl   = [(s if mi>mj else 0) + (s%mi+mi//mj if mi<mj else 0)+(s if mi==mj else 0)\
-                 for s,p,mi,mj in zip(starts,pp,cm,dm)]
+        sl   = [(s if mi > mj else 0) + (s % mi + mi//mj if mi < mj else 0)+(s if mi == mj else 0)\
+                 for s, p, mi, mj in zip(starts, pp, cm, dm)]
 
-        si   = [(mi*p-mi*(int(np.ceil((p+1)/mj))-1) if mi>mj else 0)+\
-                 (mi*p-mi*(p//mi)+ d*(mi-1) if mi<mj else 0)+\
-                 (mj*p-mj*(p//mi)+ d*(mi-1) if mi==mj else 0)\
-                  for mi,mj,p,d in zip(cm, dm, pp, diff)]
+        si   = [(mi * p - mi * (int(np.ceil((p + 1)/mj)) - 1) if mi > mj else 0) + \
+                 (mi * p - mi * (p//mi) + d * (mi - 1) if mi < mj else 0) + \
+                 (mj * p - mj * (p//mi) + d * (mi - 1) if mi == mj else 0)\
+                  for mi, mj, p, d in zip(cm, dm, pp, diff)]
 
         sk   = [n-1\
-                 + (-(p%mj) if mi>mj else 0)\
-                 + (-p+mj*(p//mi) if mi<mj  else 0)\
-                 + (-p+mj*(p//mi) if mi==mj else 0)\
-                 for mi,mj,n,p in zip(cm, dm, ndiagsT, pp)]
+                 + (-(p % mj) if mi > mj else 0)\
+                 + (-p + mj * (p//mi) if mi < mj else 0)\
+                 + (-p + mj * (p//mi) if mi == mj else 0)\
+                 for mi, mj, n, p in zip(cm, dm, ndiagsT, pp)]
 
-        args = {}
-        args['nrows']   = tuple(nrows)
-        args['ncols']   = tuple(ncols)
-        args['gpads']   = tuple(gpads)
-        args['pads']    = tuple(pads)
-        args['dm']      = tuple(dm)
-        args['cm']      = tuple(cm)
-        args['ndiags']  = tuple(ndiags)
-        args['ndiagsT'] = tuple(ndiagsT)
-        args['si']      = tuple(si)
-        args['sk']      = tuple(sk)
-        args['sl']      = tuple(sl)
+        args={}
+        args['n']   = np.int64(nrows)
+        args['nc']  = np.int64(ncols)
+        args['gp']  = np.int64(gpads)
+        args['p']   = np.int64(pp)
+        args['dm']  = np.int64(dm)
+        args['cm']  = np.int64(cm)
+        args['nd']  = np.int64(ndiags)
+        args['ndT'] = np.int64(ndiagsT)
+        args['si'] = np.int64(si)
+        args['sk'] = np.int64(sk)
+        args['sl'] = np.int64(sl)
+
         return args
 
     # ...
     def set_backend(self, backend):
-        from psydac.api.ast.linalg import LinearOperatorDot, TransposeOperator
+        from psydac.api.ast.linalg import LinearOperatorDot
         self._backend         = backend
         self._args            = self._dotargs_null.copy()
-        self._transpose_args  = self._transpose_args_null.copy()
 
         if self._backend is None:
             self._func           = self._dot
-            self._transpose_func = self._transpose
         else:
-            transpose = TransposeOperator(self._ndim, backend=frozenset(backend.items()))
-            self._transpose_func = transpose.func
-
-            nrows   = self._transpose_args.pop('nrows')
-            ncols   = self._transpose_args.pop('ncols')
-            gpads   = self._transpose_args.pop('gpads')
-            pads    = self._transpose_args.pop('pads')
-            dm      = self._transpose_args.pop('dm')
-            cm      = self._transpose_args.pop('cm')
-            ndiags  = self._transpose_args.pop('ndiags')
-            ndiagsT = self._transpose_args.pop('ndiagsT')
-            si      = self._transpose_args.pop('si')
-            sk      = self._transpose_args.pop('sk')
-            sl      = self._transpose_args.pop('sl')
-
-            args = dict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads ),
-                                ('dm{i}', dm),('cm{i}', cm),('nd{i}', ndiags),
-                                ('ndT{i}', ndiagsT),('si{i}', si),('sk{i}', sk),('sl{i}', sl)])
-
-            for arg_name, arg_val in args.items():
-                for i in range(len(nrows)):
-                    self._transpose_args[arg_name.format(i=i+1)] = np.int64(arg_val[i]) if isinstance(arg_val[i], int) else arg_val[i]
-
             if self.domain.parallel:
                 comm = self.codomain.cart.comm
                 if self.domain == self.codomain:
@@ -1914,9 +1864,8 @@ class StencilInterfaceMatrix(LinearOperator):
         self._args         = args.copy()
         self._func         = self._dot
 
-        self._transpose_args_null = self._prepare_transpose_args()
-        self._transpose_args      = self._transpose_args_null.copy()
-        self._transpose_func      = self._transpose
+        self._transpose_args = self._prepare_transpose_args()
+        self._transpose_func = eval(f'interface_transpose_{self._ndim}d')
 
         if backend is None:
             backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
@@ -2038,30 +1987,6 @@ class StencilInterfaceMatrix(LinearOperator):
             M._transpose_func(M._data, Mt._data, **M._transpose_args)
         return Mt
 
-    @staticmethod
-    def _transpose( M, Mt, nrows, ncols, gpads, pads, dm, cm, ndiags, ndiagsT, si, sk, sl):
-
-        # NOTE:
-        #  . Array M  index by [i1, i2, ..., k1, k2, ...]
-        #  . Array Mt index by [j1, j2, ..., l1, l2, ...]
-
-        #M[i,j-i+p]
-        #Mt[j,i-j+p]
-
-        diff       = [gp-p for gp,p in zip(gpads, pads)]
-
-        for xx in np.ndindex( *nrows ):
-            jj = tuple(m*p + x for m,p,x in zip(dm, gpads, xx) )
-            for ll in np.ndindex( *ndiags ):
-                ii = tuple( s + mi*(x//mj) + l + d for mj,mi,x,l,d,s in zip(dm,cm, xx, ll, diff, si))
-                kk = tuple( s + x%mj-mj*(l//mi) for mj,mi,l,x,s in zip(dm, cm, ll, xx, sk))
-                ll = tuple(l+s for l,s in zip(ll, sl))
-
-                if all(k<n  and k>-1 for k,n in zip(kk,ndiagsT)) and\
-                   all(l<n for l,n in zip(ll, ndiags)) and\
-                   all(i<n for i,n in zip(ii, ncols)):
-                    Mt[(*jj, *ll)] = M[(*ii, *kk)]
-
     def _prepare_transpose_args(self):
 
         #prepare the arguments for the transpose method
@@ -2079,54 +2004,55 @@ class StencilInterfaceMatrix(LinearOperator):
 
         # Number of rows in the transposed matrix (along each dimension)
         nrows       = [e-s+1 for s,e in zip(ssd, eed)]
-        ncols       = [e-s+1+2*m*p for s,e,m,p in zip(ssc, eec, cm, gpads)]
+        ncols       = [e-s+1+2*m*p for s, e, m, p in zip(ssc, eec, cm, gpads)]
 
         pp = pads
-        ndiags, starts = list(zip(*[compute_diag_len(p,mi,mj, return_padding=True) for p,mi,mj in zip(pp,cm,dm)]))
-        ndiagsT, _     = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pp,cm,dm)]))
+        ndiags, starts = list(zip(*[compute_diag_len(p,mi,mj, return_padding=True) for p, mi, mj in zip(pp, cm, dm)]))
+        ndiagsT, _     = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p, mi, mj in zip(pp, cm, dm)]))
 
-        diff   = [gp-p for gp,p in zip(gpads, pp)]
+        diff   = [gp-p for gp, p in zip(gpads, pp)]
 
-        sl   = [(s if mi>mj else 0) + (s%mi+mi//mj if mi<mj else 0)+(s if mi==mj else 0)\
-                 for s,p,mi,mj in zip(starts,pp,cm,dm)]
+        sl   = [(s if mi > mj else 0) + (s % mi + mi//mj if mi < mj else 0)+(s if mi == mj else 0)\
+                 for s, p, mi, mj in zip(starts, pp, cm, dm)]
 
-        si   = [(mi*p-mi*(int(np.ceil((p+1)/mj))-1) if mi>mj else 0)+\
-                 (mi*p-mi*(p//mi)+ d*(mi-1) if mi<mj else 0)+\
-                 (mj*p-mj*(p//mi)+ d*(mi-1) if mi==mj else 0)\
-                  for mi,mj,p,d in zip(cm, dm, pp, diff)]
+        si   = [(mi * p - mi * (int(np.ceil((p + 1)/mj)) - 1) if mi > mj else 0) + \
+                 (mi * p - mi * (p//mi) + d * (mi - 1) if mi < mj else 0) + \
+                 (mj * p - mj * (p//mi) + d * (mi - 1) if mi == mj else 0)\
+                  for mi, mj, p, d in zip(cm, dm, pp, diff)]
 
-        sk   = [n-1\
-                 + (-(p%mj) if mi>mj else 0)\
-                 + (-p+mj*(p//mi) if mi<mj  else 0)\
-                 + (-p+mj*(p//mi) if mi==mj else 0)\
-                 for mi,mj,n,p in zip(cm, dm, ndiagsT, pp)]
+        sk   = [n - 1\
+                 + (-(p % mj) if mi > mj else 0)\
+                 + (-p + mj * (p//mi) if mi < mj else 0)\
+                 + (-p + mj * (p//mi) if mi == mj else 0)\
+                 for mi, mj, n, p in zip(cm, dm, ndiagsT, pp)]
 
 
         if V.parent_ends[dim] is not None:
-            diff_r = min(1,V.parent_ends[dim]-V.ends[dim])
+            diff_r = min(1, V.parent_ends[dim] - V.ends[dim])
         else:
             diff_r = 0
 
         if W.parent_ends[dim] is not None:
-            diff_c = min(1,W.parent_ends[dim]-W.ends[dim])
+            diff_c = min(1, W.parent_ends[dim] - W.ends[dim])
         else:
             diff_c = 0
 
-        nrows[dim]  = pads[dim] + 1 - diff_r
-        ncols[dim]  = pads[dim] + 1 - diff_c + 2*cm[dim]*pads[dim]
+        nrows[dim] = pads[dim] + 1 - diff_r
+        ncols[dim] = pads[dim] + 1 - diff_c + 2*cm[dim]*pads[dim]
 
-        args = {}
-        args['nrows']   = tuple(nrows)
-        args['ncols']   = tuple(ncols)
-        args['gpads']   = tuple(gpads)
-        args['pads']    = tuple(pads)
-        args['dm']      = tuple(dm)
-        args['cm']      = tuple(cm)
-        args['ndiags']  = tuple(ndiags)
-        args['ndiagsT'] = tuple(ndiagsT)
-        args['si']      = tuple(si)
-        args['sk']      = tuple(sk)
-        args['sl']      = tuple(sl)
+
+        args={}
+        args['n']   = np.int64(nrows)
+        args['nc']  = np.int64(ncols)
+        args['gp']  = np.int64(gpads)
+        args['p']   = np.int64(pp)
+        args['dm']  = np.int64(dm)
+        args['cm']  = np.int64(cm)
+        args['nd']  = np.int64(ndiags)
+        args['ndT'] = np.int64(ndiagsT)
+        args['si'] = np.int64(si)
+        args['sk'] = np.int64(sk)
+        args['sl'] = np.int64(sl)
         return args
     # ...
     def toarray( self, **kwargs ):
@@ -2249,11 +2175,6 @@ class StencilInterfaceMatrix(LinearOperator):
     @property
     def pads( self ):
         return self._pads
-
-    # ...
-    @property
-    def T(self):
-        return self.transpose()
 
     # ...
     def __getitem__(self, key):
@@ -2451,39 +2372,13 @@ class StencilInterfaceMatrix(LinearOperator):
                 self._data[idx_to] += self._data[idx_from]
 
     def set_backend(self, backend):
-        from psydac.api.ast.linalg import LinearOperatorDot, InterfaceTransposeOperator
+        from psydac.api.ast.linalg import LinearOperatorDot
         self._backend         = backend
         self._args            = self._dotargs_null.copy()
-        self._transpose_args  = self._transpose_args_null.copy()
 
         if self._backend is None:
             self._func           = self._dot
-            self._transpose_func = self._transpose
         else:
-            transpose = InterfaceTransposeOperator(self._ndim, backend=frozenset(backend.items()))
-            self._transpose_func = transpose.func
-
-            nrows   = self._transpose_args.pop('nrows')
-            ncols   = self._transpose_args.pop('ncols')
-            gpads   = self._transpose_args.pop('gpads')
-            pads    = self._transpose_args.pop('pads')
-            dm      = self._transpose_args.pop('dm')
-            cm      = self._transpose_args.pop('cm')
-            ndiags  = self._transpose_args.pop('ndiags')
-            ndiagsT = self._transpose_args.pop('ndiagsT')
-            si      = self._transpose_args.pop('si')
-            sk      = self._transpose_args.pop('sk')
-            sl      = self._transpose_args.pop('sl')
-
-            args = dict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads ),
-                          ('dm{i}', dm),('cm{i}', cm), ('nd{i}', ndiags),('ndT{i}', ndiagsT),('si{i}', si),
-                          ('sk{i}', sk),('sl{i}', sl)])
-
-            self._transpose_args            = {}
-            for arg_name, arg_val in args.items():
-                for i in range(len(nrows)):
-                    self._transpose_args[arg_name.format(i=i+1)] =  np.int64(arg_val[i])
-
             if self.domain.parallel:
 
                 comm = self.domain.interfaces[self._domain_axis, self._domain_ext].cart.local_comm
@@ -2504,7 +2399,8 @@ class StencilInterfaceMatrix(LinearOperator):
                                     flip_axis=self._flip,
                                     interface_axis=self._codomain_axis,
                                     d_start=(self._domain_start,),
-                                    c_start=(self._codomain_start,))
+                                    c_start=(self._codomain_start,),
+                                    dtype= self.dtype)
 
                     starts = self._args.pop('starts')
                     nrows  = self._args.pop('nrows')
@@ -2530,7 +2426,8 @@ class StencilInterfaceMatrix(LinearOperator):
                                             flip_axis=self._flip,
                                             interface_axis=self._codomain_axis,
                                             d_start=(self._domain_start,),
-                                            c_start=(self._codomain_start,))
+                                            c_start=(self._codomain_start,),
+                                            dtype= self.dtype)
 
                     starts      = self._args.pop('starts')
                     nrows       = self._args.pop('nrows')
@@ -2564,7 +2461,8 @@ class StencilInterfaceMatrix(LinearOperator):
                                         flip_axis=self._flip,
                                         interface_axis=self._codomain_axis,
                                         d_start=(self._domain_start,),
-                                        c_start=(self._codomain_start,))
+                                        c_start=(self._codomain_start,),
+                                        dtype= self.dtype)
 
                 self._args = {}
 

@@ -8,10 +8,10 @@ from scipy.sparse import coo_matrix
 from psydac.linalg.basic   import LinearOperator, LinearSolver
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 
-__all__ = ['KroneckerStencilMatrix',
+__all__ = ('KroneckerStencilMatrix',
            'KroneckerLinearSolver',
            'KroneckerDenseMatrix',
-           'kronecker_solve']
+           'kronecker_solve')
 
 #==============================================================================
 class KroneckerStencilMatrix(LinearOperator):
@@ -368,6 +368,8 @@ class KroneckerDenseMatrix(LinearOperator):
     def exchange_assembly_data( self ):
         pass
 
+    def set_backend(self, backend):
+        pass
 #==============================================================================
 class KroneckerLinearSolver(LinearSolver):
     """

@@ -17,26 +17,26 @@ References
 """
 import numpy as np
 
-from psydac.core.bsplines_pyccel import (find_span_p,
-                                         find_spans_p,
-                                         basis_funs_p,
-                                         basis_funs_array_p,
-                                         basis_funs_1st_der_p,
-                                         basis_funs_all_ders_p,
-                                         collocation_matrix_p,
-                                         histopolation_matrix_p,
-                                         greville_p,
-                                         breakpoints_p,
-                                         elements_spans_p,
-                                         make_knots_p,
-                                         elevate_knots_p,
-                                         quadrature_grid_p,
-                                         basis_ders_on_quad_grid_p,
-                                         basis_integrals_p,
-                                         cell_index_p,
-                                         basis_ders_on_irregular_grid_p)
+from psydac.core.bsplines_kernels import (find_span_p,
+                                          find_spans_p,
+                                          basis_funs_p,
+                                          basis_funs_array_p,
+                                          basis_funs_1st_der_p,
+                                          basis_funs_all_ders_p,
+                                          collocation_matrix_p,
+                                          histopolation_matrix_p,
+                                          greville_p,
+                                          breakpoints_p,
+                                          elements_spans_p,
+                                          make_knots_p,
+                                          elevate_knots_p,
+                                          quadrature_grid_p,
+                                          basis_ders_on_quad_grid_p,
+                                          basis_integrals_p,
+                                          cell_index_p,
+                                          basis_ders_on_irregular_grid_p)
 
-__all__ = ['find_span',
+__all__ = ('find_span',
            'find_spans',
            'basis_funs',
            'basis_funs_array',
@@ -53,7 +53,7 @@ __all__ = ['find_span',
            'basis_integrals',
            'basis_ders_on_quad_grid',
            'cell_index',
-           'basis_ders_on_irregular_grid']
+           'basis_ders_on_irregular_grid')
 
 
 #==============================================================================

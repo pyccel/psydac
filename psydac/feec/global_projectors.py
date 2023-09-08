@@ -16,6 +16,11 @@ from psydac.utilities.utils import roll_edges
 
 from abc import ABCMeta, abstractmethod
 
+__all__ = ('GlobalProjector', 'Projector_H1', 'Projector_Hcurl', 'Projector_Hdiv', 'Projector_L2',
+           'evaluate_dofs_1d_0form', 'evaluate_dofs_1d_1form',
+           'evaluate_dofs_2d_0form', 'evaluate_dofs_2d_1form_hcurl', 'evaluate_dofs_2d_1form_hdiv', 'evaluate_dofs_2d_2form',
+           'evaluate_dofs_3d_0form', 'evaluate_dofs_3d_1form', 'evaluate_dofs_3d_2form', 'evaluate_dofs_3d_3form')
+
 #==============================================================================
 class GlobalProjector(metaclass=ABCMeta):
     """
@@ -77,7 +82,7 @@ class GlobalProjector(metaclass=ABCMeta):
         else:
             # for now, we assume that all tensorspaces have the same quad_grids
             # (this seems to be the case at the moment, but maybe checking it might be a good idea nontheless...)
-            uw = [(quad_grid.quad_rule_x,quad_grid.quad_rule_w) for quad_grid in tensorspaces[0].quad_grids]
+            uw = [(quad_grid.quad_rule_x,quad_grid.quad_rule_w) for quad_grid in tensorspaces[0].quad_grids()]
         
         # retrieve projection space structure
         # this is a 2D Python array (first level: block, second level: tensor direction)
@@ -279,7 +284,7 @@ class GlobalProjector(metaclass=ABCMeta):
         Parameters
         ----------
         fun : callable or list/tuple of callables
-            Scalar components of the real-valued vector function to be
+            Scalar components of the real- or complex-valued vector function to be
             projected, with arguments the coordinates (x_1, ..., x_N) of a
             point in the logical domain.
 
@@ -289,7 +294,7 @@ class GlobalProjector(metaclass=ABCMeta):
         -------
         field : FemField
             Field obtained by projection (element of the target space-conforming
-            finite element space). This is also a real-valued scalar/vector function
+            finite element space). This is also a real- or complex-valued scalar/vector function
             in the logical domain.
         """
         # build the rhs
@@ -339,7 +344,7 @@ class Projector_H1(GlobalProjector):
         Parameters
         ----------
         fun : callable
-            Real-valued scalar function to be projected, with arguments the
+            Real- or complex-valued scalar function to be projected, with arguments the
             coordinates (x_1, ..., x_N) of a point in the logical domain. This
             corresponds to the coefficient of a 0-form.
 
@@ -349,7 +354,7 @@ class Projector_H1(GlobalProjector):
         -------
         field : FemField
             Field obtained by projection (element of the H1-conforming finite
-            element space). This is also a real-valued scalar function in the
+            element space). This is also a real- or complex-valued scalar function in the
             logical domain.
         """
         return super().__call__(fun)
@@ -411,7 +416,7 @@ class Projector_Hcurl(GlobalProjector):
         Parameters
         ----------
         fun : list/tuple of callables
-            Scalar components of the real-valued vector function to be
+            Scalar components of the real- or complex-valued vector function to be
             projected, with arguments the coordinates (x_1, ..., x_N) of a
             point in the logical domain. These correspond to the coefficients
             of a 1-form in the canonical basis (dx_1, ..., dx_N).
@@ -422,7 +427,7 @@ class Projector_Hcurl(GlobalProjector):
         -------
         field : FemField
             Field obtained by projection (element of the H(curl)-conforming
-            finite element space). This is also a real-valued vector function
+            finite element space). This is also a real- or complex-valued vector function
             in the logical domain.
         """
         return super().__call__(fun)
@@ -487,7 +492,7 @@ class Projector_Hdiv(GlobalProjector):
         Parameters
         ----------
         fun : list/tuples of callable
-            Scalar components of the real-valued vector function to be
+            Scalar components of the real- or complex-valued vector function to be
             projected, with arguments the coordinates (x_1, ..., x_N) of a
             point in the logical domain. In 3D these correspond to the
             coefficients of a 2-form in the canonical basis (dx_1 ∧ dx_2,
@@ -499,7 +504,7 @@ class Projector_Hdiv(GlobalProjector):
         -------
         field : FemField
             Field obtained by projection (element of the H(div)-conforming
-            finite element space). This is also a real-valued vector function
+            finite element space). This is also a real- or complex-valued vector function
             in the logical domain.
         """
         return super().__call__(fun)
@@ -548,7 +553,7 @@ class Projector_L2(GlobalProjector):
         Parameters
         ----------
         fun : callable
-            Real-valued scalar function to be projected, with arguments the
+            Real- or complex-valued scalar function to be projected, with arguments the
             coordinates (x_1, ..., x_N) of a point in the logical domain. This
             corresponds to the coefficient of an N-form in N dimensions, in
             the canonical basis dx_1 ∧ ... ∧ dx_N.
@@ -559,7 +564,7 @@ class Projector_L2(GlobalProjector):
         -------
         field : FemField
             Field obtained by projection (element of the L2-conforming finite
-            element space). This is also a real-valued scalar function in the
+            element space). This is also a real- or complex-valued scalar function in the
             logical domain.
         """
         return super().__call__(fun)

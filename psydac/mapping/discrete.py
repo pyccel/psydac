@@ -18,9 +18,9 @@ from sympde.topology.datatype import (H1SpaceType, L2SpaceType,
 from psydac.fem.basic    import FemField
 from psydac.fem.tensor   import TensorFemSpace
 from psydac.fem.vector   import ProductFemSpace, VectorFemSpace
-from psydac.core.kernels import (pushforward_2d_l2, pushforward_3d_l2, 
-                                 pushforward_2d_hdiv, pushforward_3d_hdiv,
-                                 pushforward_2d_hcurl, pushforward_3d_hcurl)
+from psydac.core.field_evaluation_kernels import (pushforward_2d_l2, pushforward_3d_l2,
+                                                  pushforward_2d_hdiv, pushforward_3d_hdiv,
+                                                  pushforward_2d_hcurl, pushforward_3d_hcurl)
 
 __all__ = ('SplineMapping', 'NurbsMapping')
 
@@ -197,7 +197,7 @@ class SplineMapping(BasicCallableMapping):
         """Evaluates the Jacobian matrix of the mapping at the given location(s) grid.
 
         Parameters
-        -----------
+        ----------
         grid : List of array_like
             Grid on which to evaluate the fields
 
@@ -282,7 +282,7 @@ class SplineMapping(BasicCallableMapping):
             ``jac_mats[x_1, ..., x_ldim]`` is the Jacobian matrix at the location corresponding
             to ``(x_1, ..., x_ldim)``.
         """
-        from psydac.core.kernels import eval_jacobians_2d, eval_jacobians_3d
+        from psydac.core.field_evaluation_kernels import eval_jacobians_2d, eval_jacobians_3d
 
         degree, global_basis, global_spans, local_shape = self.space.preprocess_regular_tensor_grid(grid, der=1, overlap=overlap)
 
@@ -332,7 +332,7 @@ class SplineMapping(BasicCallableMapping):
             ``jac_mats[x_1, ..., x_ldim]`` is the Jacobian matrix at the location corresponding
             to ``(x_1, ..., x_ldim)``.
         """
-        from psydac.core.kernels import eval_jacobians_irregular_2d, eval_jacobians_irregular_3d
+        from psydac.core.field_evaluation_kernels import eval_jacobians_irregular_2d, eval_jacobians_irregular_3d
 
         degree, global_basis, global_spans, cell_indexes, \
         local_shape = self.space.preprocess_irregular_tensor_grid(grid, der=1, overlap=overlap)
@@ -367,7 +367,7 @@ class SplineMapping(BasicCallableMapping):
         """Evaluates the inverse of the Jacobian matrix of the mapping at the given location(s) grid.
 
         Parameters
-        -----------
+        ----------
         grid : List of array_like
             Grid on which to evaluate the fields
 
@@ -452,7 +452,7 @@ class SplineMapping(BasicCallableMapping):
             ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the Jacobian matrix
             at the location corresponding to ``(x_1, ..., x_ldim)``.
         """
-        from psydac.core.kernels import eval_jacobians_inv_2d, eval_jacobians_inv_3d
+        from psydac.core.field_evaluation_kernels import eval_jacobians_inv_2d, eval_jacobians_inv_3d
 
         degree, global_basis, global_spans, local_shape = self.space.preprocess_regular_tensor_grid(grid, der=1, overlap=overlap)
 
@@ -502,8 +502,8 @@ class SplineMapping(BasicCallableMapping):
             ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the Jacobian matrix
             at the location corresponding to ``(x_1, ..., x_ldim)``.
         """
-        from psydac.core.kernels import (eval_jacobians_inv_irregular_2d, 
-                                         eval_jacobians_inv_irregular_3d)
+        from psydac.core.field_evaluation_kernels import (eval_jacobians_inv_irregular_2d,
+                                                          eval_jacobians_inv_irregular_3d)
 
         degree, global_basis, global_spans, cell_indexes, \
         local_shape = self.space.preprocess_irregular_tensor_grid(grid, der=1, overlap=overlap)
@@ -538,7 +538,7 @@ class SplineMapping(BasicCallableMapping):
         """Evaluates the Jacobian determinant of the mapping at the given location(s) grid.
 
         Parameters
-        -----------
+        ----------
         grid : List of array_like
             Grid on which to evaluate the fields
 
@@ -623,7 +623,7 @@ class SplineMapping(BasicCallableMapping):
             ``jac_dets[x_1, ..., x_ldim]`` is the Jacobian determinant
             at the location corresponding to ``(x_1, ..., x_ldim)``.
         """
-        from psydac.core.kernels import eval_jac_det_3d, eval_jac_det_2d
+        from psydac.core.field_evaluation_kernels import eval_jac_det_3d, eval_jac_det_2d
 
         degree, global_basis, global_spans, local_shape = self.space.preprocess_regular_tensor_grid(grid, der=1, 
                                                                                                     overlap=overlap)
@@ -631,7 +631,7 @@ class SplineMapping(BasicCallableMapping):
         ncells = [local_shape[i][0] for i in range(self.ldim)]
         n_eval_points = [local_shape[i][1] for i in range(self.ldim)]
 
-        jac_dets = np.zeros(shape=tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim)))
+        jac_dets = np.zeros(shape=tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim)), dtype=self._fields[0].coeffs.dtype)
 
         if self.ldim == 3:
 
@@ -673,7 +673,7 @@ class SplineMapping(BasicCallableMapping):
             ``jac_dets[x_1, ..., x_ldim]`` is the Jacobian determinant
             at the location corresponding to ``(x_1, ..., x_ldim)``.
         """
-        from psydac.core.kernels import eval_jac_det_irregular_3d, eval_jac_det_irregular_2d
+        from psydac.core.field_evaluation_kernels import eval_jac_det_irregular_3d, eval_jac_det_irregular_2d
 
         degree, global_basis, global_spans, cell_indexes, \
         local_shape = self.space.preprocess_irregular_tensor_grid(grid, der=1, overlap=overlap)
@@ -938,7 +938,7 @@ class NurbsMapping(SplineMapping):
             ``jac_mats[x_1, ..., x_ldim]`` is the Jacobian matrix at the location corresponding
             to ``(x_1, ..., x_ldim)``.
         """
-        from psydac.core.kernels import eval_jacobians_2d_weights, eval_jacobians_3d_weights
+        from psydac.core.field_evaluation_kernels import eval_jacobians_2d_weights, eval_jacobians_3d_weights
 
         degree, global_basis, global_spans, local_shape = self.space.preprocess_regular_tensor_grid(grid, der=1, overlap=overlap)
 
@@ -993,8 +993,8 @@ class NurbsMapping(SplineMapping):
             ``jac_mats[x_1, ..., x_ldim]`` is the Jacobian matrix at the location corresponding
             to ``(x_1, ..., x_ldim)``.
         """
-        from psydac.core.kernels import (eval_jacobians_irregular_2d_weights, 
-                                         eval_jacobians_irregular_3d_weights)
+        from psydac.core.field_evaluation_kernels import (eval_jacobians_irregular_2d_weights,
+                                                          eval_jacobians_irregular_3d_weights)
 
         degree, global_basis, global_spans, cell_indexes, \
         local_shape = self.space.preprocess_irregular_tensor_grid(grid, der=1, overlap=overlap)
@@ -1031,23 +1031,23 @@ class NurbsMapping(SplineMapping):
     def inv_jac_mat_regular_tensor_grid(self, grid, overlap=0):
         """Evaluates the inverse of the Jacobian matrix on a regular tensor product grid.
 
-         Parameters
-         ----------
-         grid : List of ndarray
-             List of 1D arrays representing each direction of the grid.
+        Parameters
+        ----------
+        grid : List of ndarray
+            List of 1D arrays representing each direction of the grid.
 
         overlap : int
             How much to overlap. Only used in the distributed context.
 
-         Returns
-         -------
-         inv_jac_mats : ndarray
-             ``self.ldim + 2`` D array of shape ``(n_x_1, ..., n_x_ldim, ldim, ldim)``.
-             ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the Jacobian matrix a
-             at the location corresponding to ``(x_1, ..., x_ldim)``.
-         """
+        Returns
+        -------
+        inv_jac_mats : ndarray
+            ``self.ldim + 2`` D array of shape ``(n_x_1, ..., n_x_ldim, ldim, ldim)``.
+            ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the Jacobian matrix a
+            at the location corresponding to ``(x_1, ..., x_ldim)``.
+        """
 
-        from psydac.core.kernels import eval_jacobians_inv_2d_weights, eval_jacobians_inv_3d_weights
+        from psydac.core.field_evaluation_kernels import eval_jacobians_inv_2d_weights, eval_jacobians_inv_3d_weights
 
         degree, global_basis, global_spans, local_shape = self.space.preprocess_regular_tensor_grid(grid, der=1, overlap=overlap)
 
@@ -1103,8 +1103,8 @@ class NurbsMapping(SplineMapping):
             ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the Jacobian matrix
             at the location corresponding to ``(x_1, ..., x_ldim)``.
         """
-        from psydac.core.kernels import (eval_jacobians_inv_irregular_2d_weights, 
-                                         eval_jacobians_inv_irregular_3d_weights)
+        from psydac.core.field_evaluation_kernels import (eval_jacobians_inv_irregular_2d_weights,
+                                                          eval_jacobians_inv_irregular_3d_weights)
 
         degree, global_basis, global_spans, cell_indexes, \
         local_shape = self.space.preprocess_irregular_tensor_grid(grid, der=1, overlap=overlap)
@@ -1159,7 +1159,7 @@ class NurbsMapping(SplineMapping):
             ``jac_dets[x_1, ..., x_ldim]`` is the Jacobian determinant
             at the location corresponding to ``(x_1, ..., x_ldim)``.
         """
-        from psydac.core.kernels import eval_jac_det_3d_weights, eval_jac_det_2d_weights
+        from psydac.core.field_evaluation_kernels import eval_jac_det_3d_weights, eval_jac_det_2d_weights
         
         degree, global_basis, global_spans, local_shape = self.space.preprocess_regular_tensor_grid(grid, der=1, overlap=overlap)
 
@@ -1217,8 +1217,8 @@ class NurbsMapping(SplineMapping):
             ``jac_dets[x_1, ..., x_ldim]`` is the Jacobian determinant
             at the location corresponding to ``(x_1, ..., x_ldim)``.
         """
-        from psydac.core.kernels import (eval_jac_det_irregular_3d_weights, 
-                                         eval_jac_det_irregular_2d_weights)
+        from psydac.core.field_evaluation_kernels import (eval_jac_det_irregular_3d_weights,
+                                                          eval_jac_det_irregular_2d_weights)
 
         degree, global_basis, global_spans, cell_indexes, \
         local_shape = self.space.preprocess_irregular_tensor_grid(grid, der=1, overlap=overlap)

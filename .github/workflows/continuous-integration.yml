@@ -15,19 +15,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        os: [ ubuntu-latest ]
+        python-version: [ 3.8, 3.9, '3.10', '3.11' ]
+        isMerge:
+          - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
+        exclude:
+          - { isMerge: false, python-version: 3.9 }
+          - { isMerge: false, python-version: '3.10' }
         include:
-          - os: ubuntu-latest
-            python-version: 3.7
-
-          - os: ubuntu-latest
-            python-version: 3.8
-
-          - os: ubuntu-latest
-            python-version: 3.9
-
-          - os: ubuntu-latest
-            python-version: '3.10'
-
           - os: macos-latest
             python-version: 3.9
 
@@ -100,22 +95,6 @@ jobs:
           python -m pip install -r requirements_extra.txt --no-build-isolation
           python -m pip list
 
-#      - name: Install Python dependencies
-##        if: steps.pip-cache.outputs.cache-hit != 'true'
-#        run: |
-#          export CC="mpicc"
-#          export HDF5_MPI="ON"
-#          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-#            export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
-#          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-#            export HDF5_DIR=$((h5pcc -showconfig -echo || true) | grep "Installation point:" | cut -d ":" -f2 | tr -d " ")
-#          fi
-#          python -m pip install -v Cython>=0.25 "numpy>=1.16,<1.22" pkgconfig mpi4py>=3.0.0
-#          python -m pip list
-#          python -m pip install --no-build-isolation -r requirements.txt
-#          python -m pip install --no-build-isolation -r requirements_extra.txt
-#          python -m pip list
-
       - name: Check h5py installation
         run: |
             python3 -c "from h5py import File; print(File)"
@@ -123,8 +102,6 @@ jobs:
       - name: Install project
         run: |
           python -m pip install .
-          pyccel psydac/core/kernels.py --language fortran
-          pyccel psydac/core/bsplines_pyccel.py --language fortran
           python -m pip freeze
 
       - name: Initialize test directory
@@ -136,6 +113,7 @@ jobs:
         working-directory: ./pytest
         run: |
           export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
+          export OMP_NUM_THREADS=2
           python -m pytest --pyargs psydac -m "not parallel"
           python mpi_tester.py --pyargs psydac -m "parallel and not petsc"
 
