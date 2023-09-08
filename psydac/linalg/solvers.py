@@ -490,15 +490,12 @@ class BiConjugateGradient(InverseLinearOperator):
     verbose : bool
         If True, 2-norm of residual r is printed at each iteration.
 
-    metric : LinearOperator
-        The matrix giving the metric to compute the errors
-
     References
     ----------
     [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
 
     """
-    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, metric=None):
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
@@ -516,7 +513,7 @@ class BiConjugateGradient(InverseLinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._solver = 'bicg'
-        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "metric":metric}
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
         self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vs", "rs", "ps")}
         self._info = None
@@ -536,12 +533,6 @@ class BiConjugateGradient(InverseLinearOperator):
                 assert value > 0, "maxiter must be positive"
             elif key == 'verbose':
                 assert isinstance(value, bool), "verbose must be a bool"
-            elif key == 'metric':
-                if value is not None:
-                    assert isinstance(value, LinearOperator), "metric must be a LinearOperator or None"
-                    assert value.domain == value.codomain, "metric must be square with same domain and codomain "
-                    assert value.domain == self._codomain, "metric must be defined on the codomain of the operator to solve "
-
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
@@ -589,9 +580,6 @@ class BiConjugateGradient(InverseLinearOperator):
         tol = options["tol"]
         maxiter = options["maxiter"]
         verbose = options["verbose"]
-        M   = options["metric"]
-        if M == None:
-            M=IdentityOperator(domain,codomain)
         assert isinstance(b, Vector)
         assert b.space is domain
 
@@ -621,7 +609,7 @@ class BiConjugateGradient(InverseLinearOperator):
         p.copy(out=ps)
         v.copy(out=vs)
 
-        res_sqr = r.dot(M.dot(r)).real
+        res_sqr = r.dot(r).real
         tol_sqr = tol**2
 
         if verbose:
@@ -720,15 +708,12 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
     verbose : bool
         If True, 2-norm of residual r is printed at each iteration.
 
-    metric : LinearOperator
-        The matrix giving the metric to compute the errors
-
     References
     ----------
     [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
 
     """
-    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, metric=None):
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
@@ -745,13 +730,13 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._solver = 'bicgstab'
-        self._options = {"x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose, "metric":metric}
+        self._options = {"x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose}
         self._check_options(**self._options)
         self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vr", "r0")}
         self._info = None
 
     def _check_options(self, **kwargs):
-        keys = ('x0', 'tol', 'maxiter', 'verbose', 'metric')
+        keys = ('x0', 'tol', 'maxiter', 'verbose')
         for key, value in kwargs.items():
             idx = [key == keys[i] for i in range(len(keys))]
             assert any(idx), "key not supported, check options"
@@ -775,7 +760,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
                     assert value.domain == self._codomain, "metric must be defined on the codomain of the operator to solve "
 
     def _update_options( self ):
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose, "metric":self._metric}
+        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def transpose(self, conjugate=False):
         At = self._A.transpose(conjugate=conjugate)
@@ -825,9 +810,6 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         tol = options["tol"]
         maxiter = options["maxiter"]
         verbose = options["verbose"]
-        M   = options["metric"]
-        if M == None:
-            M=IdentityOperator(domain,codomain)
 
         assert isinstance(b, Vector)
         assert b.space is domain
@@ -857,7 +839,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
 
         r.copy(out=r0)
 
-        res_sqr = r.dot(M.dot(r)).real
+        res_sqr = r.dot(r).real
         tol_sqr = tol ** 2
 
         if verbose:
@@ -907,7 +889,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             r.mul_iadd(-w, vr)
 
             # ||r||_2 := (r, r)
-            res_sqr = r.dot(M.dot(r)).real
+            res_sqr = r.dot(r).real
 
             if res_sqr < tol_sqr:
                 break
