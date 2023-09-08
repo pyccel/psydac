@@ -754,7 +754,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
                 assert value > 0, "maxiter must be positive"
             elif true_idx == 3:
                 assert isinstance(value, bool), "verbose must be a bool"
-            
+
     def _update_options( self ):
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
