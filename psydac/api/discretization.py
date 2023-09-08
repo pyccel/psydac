@@ -386,7 +386,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
 
         carts    = create_cart(ddms, spaces)
-        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], nquads=nquads, dtype=dtype) for i,inter in enumerate(interiors)}
+        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], nquads=quad_order, dtype=dtype) for i,inter in enumerate(interiors)}
 
 
         for i,j in connectivity:
