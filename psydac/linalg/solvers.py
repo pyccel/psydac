@@ -580,6 +580,7 @@ class BiConjugateGradient(InverseLinearOperator):
         tol = options["tol"]
         maxiter = options["maxiter"]
         verbose = options["verbose"]
+
         assert isinstance(b, Vector)
         assert b.space is domain
 
@@ -753,12 +754,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
                 assert value > 0, "maxiter must be positive"
             elif true_idx == 3:
                 assert isinstance(value, bool), "verbose must be a bool"
-            elif true_idx == 4:
-                if value is not None:
-                    assert isinstance(value, LinearOperator), "metric must be a LinearOperator or None"
-                    assert value.domain == value.codomain, "metric must be square with same domain and codomain "
-                    assert value.domain == self._codomain, "metric must be defined on the codomain of the operator to solve "
-
+            
     def _update_options( self ):
         self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 

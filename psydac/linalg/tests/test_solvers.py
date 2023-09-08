@@ -54,6 +54,7 @@ def define_data(n, p, matrix_data, dtype=float):
     xe[s:e + 1] = np.random.random(e + 1 - s)
     return(V, A, xe)
 
+
 #===============================================================================
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
