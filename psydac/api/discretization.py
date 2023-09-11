@@ -94,6 +94,8 @@ def discretize_derham(derham, domain_h, get_vec = False, *args, **kwargs):
     if get_vec:
         Vnh = spaces[0]
         X   = VectorFunctionSpace('X', domain_h.domain, kind='h1')
+        #Vn  = Vnh.symbolic_space
+        #X   = ProductSpace(Vn,Vn) #should fix sympde first
         Xh  = VectorFemSpace(Vnh, Vnh)
         Xh.symbolic_space = X
         spaces.append(Xh)
@@ -473,6 +475,7 @@ def discretize(a, *args, **kwargs):
     #     return DiscreteSesquilinearForm(a, kernel_expr, *args, **kwargs)
 
     if isinstance(a, sym_BilinearForm):
+        print(kernel_expr)
         return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
 
     elif isinstance(a, sym_LinearForm):
