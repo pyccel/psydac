@@ -1044,5 +1044,5 @@ def math_atoms_as_str(expr, lib='math'):
 def get_name(lhs):
     for term in lhs:
         if term !=0:
-            return term._name
+            return term._name[12:-8]
     return "zero_term"
