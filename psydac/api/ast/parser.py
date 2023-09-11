@@ -30,8 +30,6 @@ from sympde.topology import Boundary, NormalVector, Interface
 
 from sympde.topology.derivatives import get_index_logical_derivatives
 
-from psydac.api.ast.utilities import get_name
-
 from .nodes import AtomicNode
 from .nodes import BasisAtom
 from .nodes import PhysicalBasisValue
@@ -75,7 +73,7 @@ from .nodes import index_deriv, Max, Min
 
 from .nodes import Zeros, ZerosLike, Array
 from .fem import expand, expand_hdiv_hcurl
-from psydac.api.ast.utilities import variables, math_atoms_as_str
+from psydac.api.ast.utilities import variables, math_atoms_as_str, get_name
 from psydac.api.utilities     import flatten
 from psydac.api.ast.utilities import build_pythran_types_header
 from psydac.api.ast.utilities import build_pyccel_types_decorator
