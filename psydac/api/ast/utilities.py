@@ -1040,3 +1040,9 @@ def math_atoms_as_str(expr, lib='math'):
                 sqrt = True
 
     return set.union(math_functions, math_constants)
+
+def get_name(lhs):
+    for term in lhs:
+        if term !=0:
+            return term._name
+    return "zero_term"
