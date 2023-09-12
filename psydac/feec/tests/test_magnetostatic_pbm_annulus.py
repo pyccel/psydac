@@ -213,6 +213,20 @@ def compute_rhs_inner_curve(N1, N2, psi, J, c_0):
     derham_gamma_h = discretize(derham_gamma, omega_gamma_h, degree=[2,2])
     h1_proj_gamma = Projector_H1(derham_gamma_h.V0)
     psi_h_gamma = h1_proj_gamma(psi)
+    
+    does_plot_psi_omega = False
+    if does_plot_psi_omega:
+        output_manager_gamma = OutputManager('V0_gamma.yml', 'psi_h_gamma.h5')
+        output_manager_gamma.add_spaces(V0_gamma=derham_gamma_h.V0)
+        output_manager_gamma.export_space_info()
+        output_manager_gamma.set_static()
+        output_manager_gamma.export_fields(psi_h_gamma=psi_h_gamma)
+        post_processor_gamma = PostProcessManager(domain=omega_gamma,
+                                                  space_file='V0_gamma.yml',
+                                                  fields_file='psi_h_gamma.h5')
+        post_processor_gamma.export_to_vtk('psi_h_gamma_vtk', npts_per_cell=5,
+                                           fields=('psi_h_gamma'))
+
     sigma, tau = top.elements_of(derham_gamma.V0, names='sigma tau')
     inner_prod_J = LinearForm(tau, integral(omega_gamma, J*tau))
     inner_prod_J_h = discretize(inner_prod_J, omega_gamma_h, space=derham_gamma_h.V0)
@@ -278,21 +292,6 @@ def test_biot_savart():
         post_processor.export_to_vtk('plot_files/biot_savart_annulus/B_h_vtk', npts_per_cell=3,
                                         fields=("B_h"))
     
-    does_plot_psi_omega = False
-    if does_plot_psi_omega:
-        output_manager_gamma = OutputManager('V0_gamma.yml', 'psi_h_gamma.h5')
-        output_manager_gamma.add_spaces(V0_gamma=derham_gamma_h.V0)
-        output_manager_gamma.export_space_info()
-        output_manager_gamma.set_static()
-        output_manager_gamma.export_fields(psi_h_gamma=psi_h_gamma)
-        post_processor_gamma = PostProcessManager(domain=omega_gamma,
-                                                  space_file='V0_gamma.yml',
-                                                  fields_file='psi_h_gamma.h5')
-        post_processor_gamma.export_to_vtk('psi_h_gamma_vtk', npts_per_cell=5,
-                                           fields=('psi_h_gamma'))
-
-
-
     eval_grid = [np.array([0.25, 0.5, 0.75]), np.array([np.pi/2, np.pi])]
     V1h = derham_h.V1
     assert isinstance(V1h, VectorFemSpace)
