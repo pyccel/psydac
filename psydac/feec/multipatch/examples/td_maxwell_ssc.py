@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from sympy import lambdify, Matrix
 
 from scipy.sparse import save_npz, load_npz
-from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg import spsolve, norm as sp_norm
 from scipy import special
 
 from sympde.calculus  import dot
@@ -35,9 +35,8 @@ from psydac.feec.multipatch.bilinear_form_scipy         import construct_pairing
 # from psydac.feec.multipatch.conf_projections_scipy      import Conf_proj_0, Conf_proj_1, Conf_proj_0_c1, Conf_proj_1_c1
 import psydac.feec.multipatch.conf_projections_scipy as cps
 
-from psydac.utilities.quadratures import gauss_lobatto
 
-cps.mom_pres = True #False # 
+cps.mom_pres = False # True #
 cps.proj_op = 2
 
 def solve_td_maxwell_pbm(
@@ -358,6 +357,15 @@ def solve_td_maxwell_pbm(
     Amp_Op = d_CC @ p_HH2
     Far_Op = p_CC @ d_HH1
 
+    print(f'sp_norm(d_DD@Amp_Op) = {sp_norm(d_DD@Amp_Op)}')
+    print(f'sp_norm(p_bC@p_bG) = {sp_norm(p_bC@p_bG)}')
+    print(f'sp_norm(p_PP0 - p_PP0@p_PP0) = {sp_norm(p_PP0 - p_PP0@p_PP0)}')    
+    print(f'sp_norm(p_PP1 - p_PP1@p_PP1) = {sp_norm(p_PP1 - p_PP1@p_PP1)}')    
+    print(f'sp_norm(p_bG@p_PP0) = {sp_norm(p_bG@p_PP0)}')
+    print(f'sp_norm(p_PP1@p_bG@p_PP0) = {sp_norm(p_PP1@p_bG@p_PP0)}')
+    print(f'sp_norm(p_CC@p_GG) = {sp_norm(p_CC@p_GG)}')
+    # exit()
+    
     t_stamp = time_count(t_stamp)
 
     p_geomP0, p_geomP1, p_geomP2 = p_derham_h.projectors()
@@ -386,7 +394,7 @@ def solve_td_maxwell_pbm(
         final_time = tau * nb_tau
         print('final_time = ', final_time)
         print('Nt = ', Nt_pertau * nb_tau)
-        exit()
+        # exit()
     else:
         dt = tau/Nt_pertau
         norm_curlh = None
@@ -453,26 +461,28 @@ def solve_td_maxwell_pbm(
             params_str = 'Nt_pertau={}'.format(Nt_pertau)
             plot_field(numpy_coeffs=Dp_c, Vh=Vh, space_kind='hdiv', domain=domain, surface_plot=False, title=title, 
                 filename=plot_dir+'/'+params_str+label+'_Dh_nt={}.pdf'.format(nt),
-                plot_type='amplitude', show_grid=True, cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
+                plot_type='amplitude', show_grid=False, cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
 
             if plot_divD:
                 params_str = 'Nt_pertau={}'.format(Nt_pertau)
                 plot_type = 'amplitude'
 
-                divD_c = d_DD @ Dp_c
+                divD_c = d_DD @ D_c  # divD coefs in dual basis of pV0 (swc) or basis of dV2 (ssc)
 
                 if method == 'swc':
-                    Vh_aux = p_V0h
-                    divD_c = p_MM0_inv @ divD_c # get coefs in primal basis for plotting 
+                    Vh_aux = p_V0h                    
+                    divDp_c = p_MM0_inv @ divD_c # get coefs in primal basis for plotting 
                     # here, divD_c = coefs in p_V0h
-                    divD_norm2 = np.dot(divD_c, p_MM0.dot(divD_c))
+                    # divD_norm2 = np.dot(divD_c, divDp_c) # = np.dot(divDp_c, p_MM0.dot(divDp_c))
+                    divD_norm2 = np.dot(divDp_c, p_MM0.dot(divDp_c))
                 else:
                     assert method == 'ssc'
                     Vh_aux = d_V2h  # plot directly in dual space                    
+                    divDp_c = divD_c
                     divD_norm2 = np.dot(divD_c, d_MM2.dot(divD_c))
 
                 title = r'div $D_h$ at $t = {:5.4f}, norm = {}$'.format(dt*nt, np.sqrt(divD_norm2))
-                plot_field(numpy_coeffs=divD_c, Vh=Vh_aux, space_kind='l2', domain=domain, surface_plot=False, title=title, 
+                plot_field(numpy_coeffs=divDp_c, Vh=Vh_aux, space_kind='l2', domain=domain, surface_plot=False, title=title, 
                     filename=plot_dir+'/'+params_str+label+'_divDh_nt={}.pdf'.format(nt),
                     plot_type=plot_type, cb_min=None, cb_max=None, hide_plot=hide_plots)
                 
@@ -489,7 +499,7 @@ def solve_td_maxwell_pbm(
             title = r'$B_h$ (amplitude) for $t = {:5.4f}$'.format(dt*nt)
             plot_field(numpy_coeffs=B_c, Vh=p_V2h, space_kind='l2', domain=domain, surface_plot=False, title=title, 
                 filename=plot_dir+'/'+params_str+label+'_Bh_nt={}.pdf'.format(nt),
-                plot_type='amplitude', show_grid=True, cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
+                plot_type='amplitude', show_grid=False, cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
 
         else:
             print(' -- WARNING: unknown plot_dir !!')
@@ -667,13 +677,13 @@ def solve_td_maxwell_pbm(
         # print(d_MM2.shape)
         # print("p_V0h.nbasis = ", p_V0h.nbasis)
         # print("p_V1h.nbasis = ", p_V1h.nbasis)
-        # if method == 'swc':
-        #     divD_c = p_MM0_inv @ divD_c # get coefs in primal basis for plotting 
-        #     # here, divD_c = coefs in p_V0h
-        #     divD_norm2 = np.dot(divD_c, p_MM0.dot(divD_c))
-        # else:
-        #     assert method == 'ssc'
-        divD_norm2_diag[nt] = np.dot(divD_c, d_MM2.dot(divD_c))
+        if method == 'swc':
+            divDp_c = p_MM0_inv @ divD_c # get coefs in primal basis
+            # here, divD_c = coefs in p_V0h
+            divD_norm2_diag[nt] = np.dot(divDp_c, divD_c)
+        else:
+            assert method == 'ssc'
+            divD_norm2_diag[nt] = np.dot(divD_c, d_MM2.dot(divD_c))
 
     if "D" in plot_variables: plot_D_field(D_c, nt=0, plot_divD=plot_divD)
     if "B" in plot_variables: plot_B_field(B_c, nt=0)
@@ -707,8 +717,8 @@ def solve_td_maxwell_pbm(
             if "B" in plot_variables: plot_B_field(B_c, nt=nt+1)
             if solution_type == 'cavity' and ("Dex" in plot_variables or "Bex" in plot_variables):
                 Dex_c, Bex_c, Eex_c, Hex_c = project_exact_cavity_solution(t=(nt+1)*dt, proj_type='P_geom')
-                if "Dex" in plot_variables: plot_D_field(Dex_c, nt=0, plot_divD=plot_divD, label='_ex')
-                if "Bex" in plot_variables: plot_B_field(Bex_c, nt=0, label='_ex')
+                if "Dex" in plot_variables: plot_D_field(Dex_c, nt=nt+1, plot_divD=plot_divD, label='_ex')
+                if "Bex" in plot_variables: plot_B_field(Bex_c, nt=nt+1, label='_ex')
             
         if (nt+1)%(diag_dtau*Nt_pertau) == 0:
             tau_here = nt+1
