@@ -4,7 +4,7 @@ from psydac.fem.basic              import FemField
 from psydac.feec.global_projectors import Projector_H1, Projector_Hdiv
 from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_annulus
 from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_with_bc
-from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_distorted_annulus
+# from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_distorted_annulus
 from psydac.feec.pull_push         import pull_2d_hdiv
 
 
@@ -213,7 +213,7 @@ def compute_rhs_inner_curve(N1, N2, psi, J, c_0):
     derham_gamma_h = discretize(derham_gamma, omega_gamma_h, degree=[2,2])
     h1_proj_gamma = Projector_H1(derham_gamma_h.V0)
     psi_h_gamma = h1_proj_gamma(psi)
-    
+
     does_plot_psi_omega = False
     if does_plot_psi_omega:
         output_manager_gamma = OutputManager('V0_gamma.yml', 'psi_h_gamma.h5')
@@ -332,12 +332,12 @@ def test_constant_one():
                                                      boundary_data=boundary_data,
                                                      derham=derham,
                                                      derham_h=derham_h,
-                                                     annulus_h=annulus_h)
+                                                     domain_h=annulus_h)
     
     B_h_coeffs = array_to_psydac(B_h_coeffs_arr, derham_h.V1.vector_space)
     B_h = FemField(derham_h.V1, coeffs=B_h_coeffs)
 
-    does_plot = True
+    does_plot = False
     if does_plot:
         output_manager = OutputManager('spaces_magnetostatic_constant_one.yml', 
                                        'fields_magnetostatic_constant_one.h5')
@@ -452,7 +452,7 @@ def test_magnetostatic_pbm_annuluslike():
     P0, P1, P2 = derham_h.projectors()
     boundary_data = P1(B_exact) 
 
-    B_h_coeffs_arr = solve_magnetostatic_pbm_distorted_annulus(J, psi_h=psi_h, rhs_curve_integral=rhs_curve_integral,
+    B_h_coeffs_arr = solve_magnetostatic_pbm_J_direct_with_bc(J, psi_h=psi_h, rhs_curve_integral=rhs_curve_integral,
                                                      boundary_data=boundary_data,
                                                      derham=derham,
                                                      derham_h=derham_h,
@@ -502,10 +502,4 @@ def test_magnetostatic_pbm_annuluslike():
 
 if __name__ == '__main__':
     logging.basicConfig(filename='mydebug.log', level=logging.DEBUG, filemode='w')
-    # test_magnetostatic_pbm_homogeneous()
-    # test_magnetostatic_pbm_manufactured()
-    # test_solve_J_direct_annulus_with_poisson_psi()
-    # test_solve_J_direct_annulus_inner_curve()
-    # test_constant_one()
-    # test_biot_savart()
-    test_magnetostatic_pbm_annuluslike()
+    test_solve_J_direct_annulus_with_poisson_psi()
