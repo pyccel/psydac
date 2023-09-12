@@ -4,7 +4,7 @@ from sympde.expr.equation  import EssentialBC
 from psydac.linalg.basic   import ComposedLinearOperator
 from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.stencil import StencilInterfaceMatrix
-from psydac.linalg.kron    import KroneckerDenseMatrix
+from psydac.linalg.kron    import KroneckerInterfaceDenseMatrix
 from psydac.linalg.block   import BlockVector, BlockLinearOperator
 
 __all__ = ('apply_essential_bc', 'check_boundary_type', 'apply_essential_bc_kronecker_dense_matrix', 'apply_essential_bc_stencil', 
@@ -26,7 +26,7 @@ def apply_essential_bc(a, *bcs, **kwargs):
     elif isinstance(a, ComposedLinearOperator):
         apply_essential_bc(a.multiplicants[0], *bcs, **kwargs)
 
-    elif isinstance(a, KroneckerDenseMatrix):
+    elif isinstance(a, KroneckerInterfaceDenseMatrix):
         for bc in bcs:
             check_boundary_type(bc)
             apply_essential_bc_kronecker_dense_matrix(a,
@@ -82,17 +82,20 @@ def apply_essential_bc_kronecker_dense_matrix(a, *, axis, ext, order, identity=F
     """
 
     mats = a.mats
+    axes = list(range(a.codomain.ndims))
+    axes.pop(a._c_axis)
+    raxis = axes.index(axis)
     p = a.codomain.pads[axis]
 
     if ext == 1:
-        mats[axis][-p-1] = 0.
+        mats[raxis][-p-1] = 0.
     elif ext == -1:
-        mats[axis][p] = 0.
+        mats[raxis][p] = 0.
 
     if identity and ext == 1:
-        mats[axis][-p-1,mats[axis].shape[0]-2*p-1] = 1
+        mats[raxis][-p-1,mats[raxis].shape[0]-2*p-1] = 1
     elif identity and ext == -1:
-        mats[axis][p][0] = 1
+        mats[raxis][p][0] = 1
 
 #==============================================================================
 def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):

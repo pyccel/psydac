@@ -1,6 +1,6 @@
 import numpy as np
 
-from psydac.linalg.kron     import KroneckerDenseMatrix
+from psydac.linalg.kron     import KroneckerInterfaceDenseMatrix
 from psydac.core.bsplines   import hrefinement_matrix
 from psydac.linalg.stencil  import StencilVectorSpace
 
@@ -18,8 +18,7 @@ def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
     assert abs(intersection-coarse_grid).max()<tol
     return T
 
-
-def knot_insertion_projection_operator(domain, codomain):
+def knot_insertion_projection_operator(domain, codomain, d_axis, c_axis, d_ext, c_ext):
     """
     Compute the projection operator based on the knot insertion technique.
 
@@ -74,7 +73,8 @@ def knot_insertion_projection_operator(domain, codomain):
 
     """
     ops = []
-    for d, c in zip(domain.spaces, codomain.spaces):
+    for i,(d, c) in enumerate(zip(domain.spaces, codomain.spaces)):
+        if i == c_axis:continue
 
         if d.ncells > c.ncells:
             Ts = knots_to_insert(c.breaks, d.breaks)
@@ -85,6 +85,7 @@ def knot_insertion_projection_operator(domain, codomain):
                 P = np.diag(1 / d._scaling_array) @ P @ np.diag(c._scaling_array)
 
             ops.append(P.T)
+            axis, ext = c_axis, c_ext
 
         elif d.ncells < c.ncells:
             Ts = knots_to_insert(d.breaks, c.breaks)
@@ -95,8 +96,8 @@ def knot_insertion_projection_operator(domain, codomain):
                 P = np.diag(1 / c._scaling_array) @ P @ np.diag(d._scaling_array)
 
             ops.append(P)
-
+            axis, ext = d_axis, d_ext
         else:
             ops.append(np.eye(d.nbasis))
 
-    return KroneckerDenseMatrix(domain.vector_space, codomain.vector_space, *ops)
+    return KroneckerInterfaceDenseMatrix(domain.vector_space, codomain.vector_space, axis, ext, *ops)

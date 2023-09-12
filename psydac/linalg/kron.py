@@ -10,7 +10,7 @@ from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatr
 
 __all__ = ('KroneckerStencilMatrix',
            'KroneckerLinearSolver',
-           'KroneckerDenseMatrix',
+           'KroneckerInterfaceDenseMatrix',
            'kronecker_solve')
 
 #==============================================================================
@@ -220,7 +220,7 @@ class KroneckerStencilMatrix(LinearOperator):
         return KroneckerStencilMatrix(self.codomain, self.domain, *mats_tr)
 
 #==============================================================================
-class KroneckerDenseMatrix(LinearOperator):
+class KroneckerInterfaceDenseMatrix(LinearOperator):
     """
     Kronecker product of 1D dense matrices.
 
@@ -237,11 +237,12 @@ class KroneckerDenseMatrix(LinearOperator):
 
     """
 
-    def __init__(self, V, W, *args , with_pads=False):
+    def __init__(self, V, W, axis, ext, *args, with_pads=False):
 
         assert isinstance(V, StencilVectorSpace)
         assert isinstance(W, StencilVectorSpace)
         assert V.pads == W.pads
+        assert len(args) == V.ndim-1
 
         for i,A in enumerate(args):
             assert isinstance(A, np.ndarray)
@@ -256,7 +257,9 @@ class KroneckerDenseMatrix(LinearOperator):
         self._domain   = V
         self._codomain = W
         self._mats     = list(args)
-        self._ndim     = len(args)
+        self._ndim     = V.ndim
+        self._axis   = axis
+        self._ext    = ext
 
     #--------------------------------------
     # Abstract interface
@@ -288,8 +291,6 @@ class KroneckerDenseMatrix(LinearOperator):
     # ...
     def dot(self, x, out=None):
 
-        dot = np.dot
-
         assert isinstance(x, StencilVector)
         assert x.space is self.domain
 
@@ -303,26 +304,39 @@ class KroneckerDenseMatrix(LinearOperator):
         else:
             out = StencilVector(self.codomain)
 
-        d_starts = self._domain.starts
-        d_ends   = self._domain.ends
-        c_starts = self._codomain.starts
-        c_ends   = self._codomain.ends
-        pads     = self._codomain.pads
+        d_starts = list(self._domain.starts)
+        d_ends   = list(self._domain.ends)
+        c_starts = list(self._codomain.starts)
+        c_ends   = list(self._codomain.ends)
+        pads     = list(self._codomain.pads)
+        d_starts.pop(self._axis)
+        d_ends.pop(self._axis)
+        c_starts.pop(self._axis)
+        c_ends.pop(self._axis)
+        pads.pop(self._axis)
         mats     = self.mats
+        nrows    = [e-s+1 for s,e in zip(c_starts, c_ends)]
+        ncols    = [e-s+1+2*p for s,e,p in zip(d_starts, d_ends, pads)]
+        kk       = [slice(s, s+nc) for nc,s in zip(ncols, d_starts)]
+        slices   = [slice(None, None)]*self._ndim
+        x_data   = x._interface_data[self._axis, self._ext]
+        out_data = out._interface_data[self._axis, self._ext]
+        def func(i_mats):
+            if self._ndim == 2:
+                return i_mats[0].ravel()
+            elif self._ndim == 3:
+                return np.outer(*i_mats).ravel()
 
-        nrows  = tuple(e-s+1 for s,e in zip(c_starts, c_ends))
-        ncols  = tuple(e-s+1+2*p for s,e,p in zip(d_starts, d_ends, pads))
-        kk     = tuple(slice(s, s+nc) for nc,s in zip(ncols, d_starts))
-        x_data   = x._data.ravel()
-        out_data = out._data
-
-        for xx in np.ndindex(*nrows):
-            ii     = tuple(x+p for x,p in zip(xx,pads))
-            i_mats = [mat[i+s, k] for i,s,k,mat in zip(ii, c_starts, kk, mats)]
-            out_data[ii] = np.dot(x_data, np.outer(*i_mats).ravel())
+        for ni in range(x_data.shape[self._axis]):
+            for xx in np.ndindex(*nrows):
+                ii     = [x+p for x,p in zip(xx, pads)]
+                i_mats = [mat[i+s, k] for i,s,k,mat in zip(ii, c_starts, kk, mats)]
+                ii.insert(self._axis, ni)
+                slices[self._axis] = ni
+                out_data[tuple(ii)] = np.dot(x_data[tuple(slices)], func(i_mats))
 
         # IMPORTANT: flag that ghost regions are not up-to-date
-        out.ghost_regions_in_sync = False
+        out.ghost_regions_in_sync = True
         return out
 
     # ...

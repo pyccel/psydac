@@ -716,8 +716,11 @@ class DiscreteBilinearForm(BasicDiscrete):
                 if not self._matrix[i,j]:
                     mat = BlockLinearOperator(trial_fem_space.get_refined_space(ncells).vector_space, test_fem_space.get_refined_space(ncells).vector_space)
                     if not is_conformal and not i==j:
+                        axis    = target.axis
+                        ext_d   = self._trial_ext
+                        ext_c   = self._test_ext
                         if use_restriction:
-                            Ps  = [knot_insertion_projection_operator(ts.get_refined_space(ncells), ts) for ts in test_fem_space.spaces]
+                            Ps  = [knot_insertion_projection_operator(ts.get_refined_space(ncells), ts, axis, axis, ext_d, ext_c) for ts in test_fem_space.spaces]
                             P   = BlockLinearOperator(test_fem_space.get_refined_space(ncells).vector_space, test_fem_space.vector_space)
                             for ni,Pi in enumerate(Ps):
                                 P[ni,ni] = Pi
@@ -725,7 +728,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                             mat = ComposedLinearOperator(trial_space, test_space, P, mat)
 
                         elif use_prolongation:
-                            Ps  = [knot_insertion_projection_operator(trs, trs.get_refined_space(ncells)) for trs in trial_fem_space.spaces]
+                            Ps  = [knot_insertion_projection_operator(trs, trs.get_refined_space(ncells), axis, axis, ext_d, ext_c) for trs in trial_fem_space.spaces]
                             P   = BlockLinearOperator(trial_fem_space.vector_space, trial_fem_space.get_refined_space(ncells).vector_space)
                             for ni,Pi in enumerate(Ps):P[ni,ni] = Pi
                             mat = ComposedLinearOperator(trial_space, test_space, mat, P)
@@ -831,11 +834,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                                                      ext_d, ext_c,
                                                      flip=flip)
                         if not is_conformal:
+                            axis    = target.axis
+                            ext_d   = self._trial_ext
+                            ext_c   = self._test_ext
                             if use_restriction:
-                                P   = knot_insertion_projection_operator(test_fem_space.get_refined_space(ncells), test_fem_space)
+                                P   = knot_insertion_projection_operator(test_fem_space.get_refined_space(ncells), test_fem_space, axis, axis, ext_d, ext_c)
                                 mat = ComposedLinearOperator(trial_space, test_space, P, mat)
                             elif use_prolongation:
-                                P   = knot_insertion_projection_operator(trial_fem_space, trial_fem_space.get_refined_space(ncells))
+                                P   = knot_insertion_projection_operator(trial_fem_space, trial_fem_space.get_refined_space(ncells), axis, axis, ext_d, ext_c)
                                 mat = ComposedLinearOperator(trial_space, test_space, mat, P)
 
                         global_mats[i, j] = mat

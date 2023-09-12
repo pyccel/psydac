@@ -251,7 +251,7 @@ def construct_interface_spaces(domain_decomposition, g_spaces, carts, interiors,
             cart_plus  = cart
             cart.set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
 
-        if any(nci!=ncj for nci,ncj in zip(max_ncells, g_spaces[interiors[i]].ncells)):
+        if any(nci!=ncj for nci,ncj in zip(max_ncells, g_spaces[interiors[i]].ncells)) or True:
             g_spaces[interiors[i]].get_refined_space(max_ncells).create_interface_space(axis_minus, ext_minus, cart=cart_minus)
             g_spaces[interiors[j]].get_refined_space(max_ncells).create_interface_space(axis_plus , ext_plus , cart=cart_plus)
 

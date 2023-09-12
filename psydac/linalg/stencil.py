@@ -743,7 +743,6 @@ class StencilVector(Vector):
 
         # Update interface ghost regions
         if self.space.parallel:
-
             for axis, ext in self.space.interfaces:
                 V = self.space.interfaces[axis, ext]
                 if isinstance(V.cart, InterfaceCartDecomposition):
@@ -751,7 +750,6 @@ class StencilVector(Vector):
                 slices = [slice(s, e+2*m*p+1) for s,e,m,p in zip(V.starts, V.ends, V.shifts, V.pads)]
                 self._interface_data[axis, ext][...] = self._data[tuple(slices)]
         else:
-
             for axis, ext in self.space.interfaces:
                 V = self.space.interfaces[axis, ext]
                 slices = [slice(s, e+2*m*p+1) for s,e,m,p in zip(V.starts, V.ends, V.shifts, V.pads)]
@@ -1963,7 +1961,7 @@ class StencilInterfaceMatrix(LinearOperator):
             out = StencilVector( self.codomain )
 
         # Necessary if vector space is distributed across processes
-        if not v.ghost_regions_in_sync and not v.space.parallel:
+        if not v.ghost_regions_in_sync:
             v.update_ghost_regions()
 
         self._func(self._data, v._interface_data[self._domain_axis, self._domain_ext], out._data, **self._args)
