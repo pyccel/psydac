@@ -347,7 +347,7 @@ class AST(object):
         fields               = expand_hdiv_hcurl(fields)
         kwargs['nquads']     = nquads
         atoms_types          = (ScalarFunction, VectorFunction, IndexedVectorFunction)
-        nderiv               = 1
+        nderiv               = 0
         terminal_expr        = terminal_expr.expr
 
         if isinstance(terminal_expr, (ImmutableDenseMatrix, Matrix)):
