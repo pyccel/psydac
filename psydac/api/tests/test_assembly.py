@@ -532,9 +532,9 @@ def test_assembly_no_synchr_args(backend):
 
 #==============================================================================
 if __name__ == '__main__':
-    #test_field_and_constant(None)
-    #test_multiple_fields(None)
-    #test_math_imports(None)
-    #test_non_symmetric_BilinearForm(None)
+    test_field_and_constant(None)
+    test_multiple_fields(None)
+    test_math_imports(None)
+    test_non_symmetric_BilinearForm(None)
     test_non_symmetric_different_space_BilinearForm(None)
-    #test_assembly_no_synchr_args(None)
+    test_assembly_no_synchr_args(None)
