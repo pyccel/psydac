@@ -15,7 +15,7 @@ from psydac.feec.global_projectors import projection_matrix_H1_homogeneous_bc, p
 from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_annulus
 from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_with_bc
 # from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_distorted_annulus
-from psydac.feec.tests.test_magnetostatic_pbm_annulus import compute_solution_annulus_inner_curve, _create_domain_and_derham
+from psydac.feec.tests.test_magnetostatic_pbm_annulus import _compute_solution_annulus_inner_curve, _create_domain_and_derham
 from psydac.feec.pull_push         import pull_2d_hdiv
 from psydac.ddm.cart               import DomainDecomposition
 
@@ -76,8 +76,7 @@ from psydac.fem.tests.get_integration_function import solve_poisson_2d_annulus
 
 
 def l2_error_biot_savart_annulus(N, p):
-    # TODO: Too many return values, bad name
-    derham, derham_h, annulus, annulus_h, B_h = compute_solution_annulus_inner_curve(
+    derham, derham_h, annulus, annulus_h, B_h = _compute_solution_annulus_inner_curve(
                                         N1=N, N2=N//2, p=p, does_plot_psi=False,
                                         does_plot=False, J=1e-10, c_0=-4*np.pi)
 

@@ -1,5 +1,6 @@
 import logging
 
+from psydac.cad.geometry import Geometry
 from psydac.fem.basic              import FemField
 from psydac.feec.global_projectors import Projector_H1, Projector_Hdiv
 from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_annulus
@@ -53,13 +54,12 @@ def _create_domain_and_derham() -> Tuple[Domain, Derham]:
     derham = Derham(domain=annulus, sequence=['H1', 'Hdiv', 'L2'])
     return annulus, derham
 
-def compute_curve_integral_rhs(derham, annulus, J, annulus_h, derham_h, 
+def _compute_curve_integral_rhs(derham, annulus, J, annulus_h, derham_h, 
                                 psi_h, c_0):
     sigma, tau = top.elements_of(derham.V0, names='sigma tau')
     inner_prod_J = LinearForm(tau, integral(annulus, J*tau))
-    inner_prod_J_h = discretize(inner_prod_J, annulus_h, space=derham_h.V0)
-    assert isinstance(inner_prod_J_h, DiscreteLinearForm)
-    inner_prod_J_h_stencil = inner_prod_J_h.assemble()
+    inner_prod_J_h : DiscreteLinearForm = discretize(inner_prod_J, annulus_h, space=derham_h.V0)
+    inner_prod_J_h_stencil : StencilVector = inner_prod_J_h.assemble()
     # Try changing this to the evaluation using the dicrete linear form directly
     assert isinstance(inner_prod_J_h_stencil, StencilVector)
     inner_prod_J_h_vec = inner_prod_J_h_stencil.toarray()
@@ -74,6 +74,7 @@ def test_solve_J_direct_annulus_with_poisson_psi():
     annulus, derham = _create_domain_and_derham()
     annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
     derham_h = discretize(derham, annulus_h, degree=[2,2])
+    assert isinstance(annulus_h, Geometry)
     assert isinstance(derham_h, DiscreteDerham)
     
     # Compute right hand side
@@ -85,7 +86,7 @@ def test_solve_J_direct_annulus_with_poisson_psi():
 
     J = 4*x**2 - 12*x**2/sympy.sqrt(x**2 + y**2) + 4*y**2 - 12*y**2/sympy.sqrt(x**2 + y**2) + 8
 
-    curve_integral_rhs = compute_curve_integral_rhs(derham, annulus, J, annulus_h, derham_h, psi_h, c_0=0.)
+    curve_integral_rhs = _compute_curve_integral_rhs(derham, annulus, J, annulus_h, derham_h, psi_h, c_0=0.)
 
     B_h_coeffs_arr = solve_magnetostatic_pbm_J_direct_annulus(J, psi_h, rhs_curve_integral=curve_integral_rhs,
                                                      derham_h=derham_h,
@@ -138,17 +139,17 @@ def test_solve_J_direct_annulus_inner_curve():
     ncells = [N1,N2]
     annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
     derham_h = discretize(derham, annulus_h, degree=[2,2])
+    assert isinstance(annulus_h, Geometry)
     assert isinstance(derham_h, DiscreteDerham)
 
     psi = lambda alpha, theta : 2*alpha if alpha <= 0.5 else 1.0
     h1_proj = Projector_H1(derham_h.V0)
-    psi_h = h1_proj(psi) 
+    psi_h : FemField = h1_proj(psi) 
     x, y = sympy.symbols(names='x, y')
     J = 4*x**2 - 12*x**2/sympy.sqrt(x**2 + y**2) + 4*y**2 - 12*y**2/sympy.sqrt(x**2 + y**2) + 8
-    # f = sympy.Tuple(8*y - 12*y/sympy.sqrt(x**2 + y**2), -8*x + 12*x/sympy.sqrt(x**2 + y**2))
     c_0 = -1.125*np.pi
 
-    rhs_curve_integral = compute_rhs_inner_curve(N1, N2, psi, J, c_0)
+    rhs_curve_integral = _compute_rhs_inner_curve(N1, N2, psi, J, c_0)
 
     B_h_coeffs_arr = solve_magnetostatic_pbm_J_direct_annulus(J, psi_h=psi_h, 
                                                      rhs_curve_integral=rhs_curve_integral,
@@ -197,8 +198,8 @@ def test_solve_J_direct_annulus_inner_curve():
     assert abs( B_h_eval[0][1][1,0] - (0.5-1)**2 * (0.5+1)) < 0.01
     assert abs( B_h_eval[0][1][2,1] - (0.75-1)**2 * (0.75+1)) < 0.01
 
-# TODO: Too many input values
-def compute_rhs_inner_curve(N1, N2, psi, J, c_0):
+def _compute_rhs_inner_curve(N1, N2, psi, J, c_0):
+    # Define Omega_Gamma and psi_h
     logical_domain_gamma = Square(name='logical_domain_gamma', bounds1=(0,0.5), bounds2=(0,2*np.pi))
     boundary_logical_domain_gamma = Union(logical_domain_gamma.get_boundary(axis=0, ext=-1),
                                     logical_domain_gamma.get_boundary(axis=0, ext=1))
@@ -227,7 +228,7 @@ def compute_rhs_inner_curve(N1, N2, psi, J, c_0):
                                                   fields_file='psi_h_gamma.h5')
         post_processor_gamma.export_to_vtk('psi_h_gamma_vtk', npts_per_cell=5,
                                            fields=('psi_h_gamma'))
-
+    
     sigma, tau = top.elements_of(derham_gamma.V0, names='sigma tau')
     inner_prod_J = LinearForm(tau, integral(omega_gamma, J*tau))
     inner_prod_J_h = discretize(inner_prod_J, omega_gamma_h, space=derham_gamma_h.V0)
@@ -240,8 +241,7 @@ def compute_rhs_inner_curve(N1, N2, psi, J, c_0):
     rhs_curve_integral = c_0 + np.dot(inner_prod_J_h_vec, psi_h_gamma_coeffs)
     return rhs_curve_integral
 
-# TODO: Bad name, too many input/output values
-def compute_solution_annulus_inner_curve(N1, N2, p, does_plot_psi, does_plot, J, c_0):
+def _compute_solution_annulus_inner_curve(N1, N2, p, does_plot_psi, does_plot, J, c_0):
     annulus, derham = _create_domain_and_derham()
     ncells = [N1,N2]
     annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
@@ -250,11 +250,11 @@ def compute_solution_annulus_inner_curve(N1, N2, p, does_plot_psi, does_plot, J,
 
     psi = lambda alpha, theta : 2*alpha if alpha <= 0.5 else 1.0
     h1_proj = Projector_H1(derham_h.V0)
-    psi_h = h1_proj(psi) 
+    psi_h : FemField = h1_proj(psi) 
     x, y = sympy.symbols(names='x, y')
     # J = 1e-10
     # c_0 = -4*np.pi
-    rhs_curve_integral = compute_rhs_inner_curve(N1, N2, psi, J, c_0)
+    rhs_curve_integral = _compute_rhs_inner_curve(N1, N2, psi, J, c_0)
 
     B_h_coeffs_arr = solve_magnetostatic_pbm_J_direct_annulus(J, psi_h=psi_h, rhs_curve_integral=rhs_curve_integral,
                                                      derham=derham,
@@ -296,7 +296,7 @@ def test_biot_savart():
     N1 = 8
     N2 = 8
 
-    derham, derham_h, annulus, annulus_h, B_h = compute_solution_annulus_inner_curve(
+    derham, derham_h, annulus, annulus_h, B_h = _compute_solution_annulus_inner_curve(
         N1, N2, p=2, does_plot_psi=True, does_plot=True, J=1e-10, c_0=-4*np.pi)
 
     eval_grid = [np.array([0.25, 0.5, 0.75]), np.array([np.pi/2, np.pi])]
@@ -316,23 +316,23 @@ def test_constant_one():
     ncells = [N1,N2]
     annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
     derham_h = discretize(derham, annulus_h, degree=[2,2])
+    assert isinstance(annulus_h, Geometry)
     assert isinstance(derham_h, DiscreteDerham)
 
     psi = lambda alpha, theta : 2*alpha if alpha <= 0.5 else 1.0
     h1_proj = Projector_H1(derham_h.V0)
-    psi_h = h1_proj(psi) 
+    psi_h : FemField = h1_proj(psi) 
     x, y = sympy.symbols(names='x, y')
     J = 1e-10
     c_0 = 0.
 
-    rhs_curve_integral = compute_rhs_inner_curve(N1, N2, psi, J, c_0)
+    rhs_curve_integral = _compute_rhs_inner_curve(N1, N2, psi, J, c_0)
 
-    h_div_projector = Projector_Hdiv(derham_h.V1)
     B_exact_1 = lambda x,y: 1.0
     B_exact_2 = lambda x,y: 1.0
     B_exact = (B_exact_1, B_exact_2)
     P0, P1, P2 = derham_h.projectors()
-    boundary_data = P1(B_exact) # B_exact is not correct it is zero on the boundary
+    boundary_data = P1(B_exact) 
 
 
     B_h_coeffs_arr = solve_magnetostatic_pbm_J_direct_with_bc(J, psi_h=psi_h, rhs_curve_integral=rhs_curve_integral,
@@ -369,11 +369,6 @@ def test_constant_one():
     assert abs( B_h_eval[0][0][2,1] - (0.75+1) * (np.sin(np.pi)+np.cos(np.pi))) < 0.03
 
 class DistortedPolarMapping(Mapping):
-    """
-
-    Examples
-
-    """
     _expressions = {'x': '3.0*(x1 + 1)*cos(x2)*(cos(x2)**2+1)',
                     'y': '(x1 + 1)*sin(x2)*(cos(x2)**2+1)'}
 
@@ -393,7 +388,8 @@ def _create_distorted_annulus_and_derham() -> Tuple[Domain, Derham]:
     derham = Derham(domain=domain, sequence=['H1', 'Hdiv', 'L2'])
     return domain, derham
 
-def compute_rhs_distorted_inner_curve(N1, N2, psi, J, c_0, distorted_polar_mapping):
+def _compute_rhs_distorted_inner_curve(N1, N2, psi, J, c_0, distorted_polar_mapping):
+    # Compute psi_h on Omega_Gamma
     logical_domain_gamma = Square(name='logical_domain_gamma', bounds1=(0,0.5), bounds2=(0,2*np.pi))
     boundary_logical_domain_gamma = Union(logical_domain_gamma.get_boundary(axis=0, ext=-1),
                                     logical_domain_gamma.get_boundary(axis=0, ext=1))
@@ -405,8 +401,11 @@ def compute_rhs_distorted_inner_curve(N1, N2, psi, J, c_0, distorted_polar_mappi
     derham_gamma = Derham(domain=omega_gamma, sequence=['H1', 'Hdiv', 'L2'])
     omega_gamma_h = discretize(omega_gamma, ncells=[N1//2,N2], periodic=[False, True])
     derham_gamma_h = discretize(derham_gamma, omega_gamma_h, degree=[2,2])
+    assert isinstance(omega_gamma_h, Geometry)
+    assert isinstance(derham_gamma_h, DiscreteDerham)
     h1_proj_gamma = Projector_H1(derham_gamma_h.V0)
-    psi_h_gamma = h1_proj_gamma(psi)
+    psi_h_gamma : FemField = h1_proj_gamma(psi)
+
     sigma, tau = top.elements_of(derham_gamma.V0, names='sigma tau')
     inner_prod_J = LinearForm(tau, integral(omega_gamma, J*tau))
     inner_prod_J_h = discretize(inner_prod_J, omega_gamma_h, space=derham_gamma_h.V0)
@@ -424,14 +423,15 @@ def test_magnetostatic_pbm_annuluslike():
     domain, derham = _create_distorted_annulus_and_derham()
     N1 = 16
     N2 = 16
-    ncells = [16,16]
+    ncells = [N1,N2]
     domain_h = discretize(domain, ncells=ncells, periodic=[False, True])
     derham_h = discretize(derham, domain_h, degree=[2,2])
+    assert isinstance(domain_h, Geometry)
     assert isinstance(derham_h, DiscreteDerham)
 
     psi = lambda alpha, theta : 2*alpha if alpha <= 0.5 else 1.0
     h1_proj = Projector_H1(derham_h.V0)
-    psi_h = h1_proj(psi)
+    psi_h : FemField = h1_proj(psi)
     x, y = sympy.symbols(names='x, y')
     J = 1e-10
     c_0 = -4*np.pi
@@ -450,9 +450,8 @@ def test_magnetostatic_pbm_annuluslike():
         post_processor.export_to_vtk('psi_h_vtk', npts_per_cell=5, fields='psi_h')
     
     distorted_polar_mapping = DistortedPolarMapping(name='polar_mapping', dim=2)
-    rhs_curve_integral = compute_rhs_distorted_inner_curve(N1, N2, psi, J, c_0, distorted_polar_mapping)
+    rhs_curve_integral = _compute_rhs_distorted_inner_curve(N1, N2, psi, J, c_0, distorted_polar_mapping)
 
-    h_div_projector = Projector_Hdiv(derham_h.V1)
     B_exact_1 = lambda x,y: -2*y/(x**2 + y**2) 
     B_exact_2 = lambda x,y: 2*x/(x**2 + y**2)
     B_exact = (B_exact_1, B_exact_2)
@@ -464,7 +463,6 @@ def test_magnetostatic_pbm_annuluslike():
                                                      derham=derham,
                                                      derham_h=derham_h,
                                                      domain_h=domain_h)
-    
     B_h_coeffs = array_to_psydac(B_h_coeffs_arr, derham_h.V1.vector_space)
     B_h = FemField(derham_h.V1, coeffs=B_h_coeffs)
 

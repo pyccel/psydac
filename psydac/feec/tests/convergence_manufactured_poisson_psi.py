@@ -14,7 +14,7 @@ from psydac.feec.global_projectors import Projector_H1, Projector_Hdiv
 from psydac.feec.global_projectors import projection_matrix_H1_homogeneous_bc, projection_matrix_Hdiv_homogeneous_bc 
 from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_annulus
 from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_with_bc
-from psydac.feec.tests.test_magnetostatic_pbm_annulus import _create_domain_and_derham, compute_curve_integral_rhs
+from psydac.feec.tests.test_magnetostatic_pbm_annulus import _create_domain_and_derham, _compute_curve_integral_rhs
 from psydac.feec.pull_push         import pull_2d_hdiv
 from psydac.ddm.cart               import DomainDecomposition
 
@@ -92,7 +92,7 @@ def l2_error_manufactured_poisson_psi(N, p):
                                      boundary_values=boundary_values_poisson)
     c_0 = 0.
     J = 4*x**2 - 12*x**2/sympy.sqrt(x**2 + y**2) + 4*y**2 - 12*y**2/sympy.sqrt(x**2 + y**2) + 8
-    curve_integral_rhs = compute_curve_integral_rhs(derham, annulus, J, annulus_h, 
+    curve_integral_rhs = _compute_curve_integral_rhs(derham, annulus, J, annulus_h, 
                                                     derham_h, psi_h, c_0)
 
     B_h_coeffs_arr = solve_magnetostatic_pbm_J_direct_annulus(J, psi_h, rhs_curve_integral=curve_integral_rhs,

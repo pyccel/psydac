@@ -15,8 +15,7 @@ from psydac.feec.global_projectors import projection_matrix_H1_homogeneous_bc, p
 from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_annulus
 from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_with_bc
 from psydac.feec.tests.test_magnetostatic_pbm_annulus import (_create_domain_and_derham, 
-                                                              compute_solution_annulus_inner_curve,
-                                                              compute_rhs_inner_curve
+                                                              _compute_solution_annulus_inner_curve,
 )
 from psydac.feec.pull_push         import pull_2d_hdiv
 from psydac.ddm.cart               import DomainDecomposition
@@ -85,7 +84,7 @@ def l2_error_manufactured_inner_curve(N, p):
     J = 4*x**2 - 12*x**2/sympy.sqrt(x**2 + y**2) + 4*y**2 - 12*y**2/sympy.sqrt(x**2 + y**2) + 8
     c_0 = -1.125*np.pi
     
-    derham, derham_h, annulus, annulus_h, B_h = compute_solution_annulus_inner_curve(
+    derham, derham_h, annulus, annulus_h, B_h = _compute_solution_annulus_inner_curve(
         N1, N2, p, does_plot_psi=False, does_plot=False, J=J, c_0=c_0
     )
 
