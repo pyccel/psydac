@@ -150,7 +150,8 @@ def test_solve_J_direct_annulus_inner_curve():
 
     rhs_curve_integral = compute_rhs_inner_curve(N1, N2, psi, J, c_0)
 
-    B_h_coeffs_arr = solve_magnetostatic_pbm_J_direct_annulus(J, psi_h=psi_h, rhs_curve_integral=rhs_curve_integral,
+    B_h_coeffs_arr = solve_magnetostatic_pbm_J_direct_annulus(J, psi_h=psi_h, 
+                                                     rhs_curve_integral=rhs_curve_integral,
                                                      derham=derham,
                                                      derham_h=derham_h,
                                                      annulus_h=annulus_h)
@@ -196,7 +197,7 @@ def test_solve_J_direct_annulus_inner_curve():
     assert abs( B_h_eval[0][1][1,0] - (0.5-1)**2 * (0.5+1)) < 0.01
     assert abs( B_h_eval[0][1][2,1] - (0.75-1)**2 * (0.75+1)) < 0.01
 
-
+# TODO: Too many input values
 def compute_rhs_inner_curve(N1, N2, psi, J, c_0):
     logical_domain_gamma = Square(name='logical_domain_gamma', bounds1=(0,0.5), bounds2=(0,2*np.pi))
     boundary_logical_domain_gamma = Union(logical_domain_gamma.get_boundary(axis=0, ext=-1),
@@ -239,22 +240,20 @@ def compute_rhs_inner_curve(N1, N2, psi, J, c_0):
     rhs_curve_integral = c_0 + np.dot(inner_prod_J_h_vec, psi_h_gamma_coeffs)
     return rhs_curve_integral
 
-
-def test_biot_savart():
+# TODO: Bad name, too many input/output values
+def compute_solution_annulus_inner_curve(N1, N2, p, does_plot_psi, does_plot, J, c_0):
     annulus, derham = _create_domain_and_derham()
-    N1 = 8
-    N2 = 8
     ncells = [N1,N2]
     annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
-    derham_h = discretize(derham, annulus_h, degree=[2,2])
+    derham_h = discretize(derham, annulus_h, degree=[p,p])
     assert isinstance(derham_h, DiscreteDerham)
 
     psi = lambda alpha, theta : 2*alpha if alpha <= 0.5 else 1.0
     h1_proj = Projector_H1(derham_h.V0)
     psi_h = h1_proj(psi) 
     x, y = sympy.symbols(names='x, y')
-    J = 1e-10
-    c_0 = -4*np.pi
+    # J = 1e-10
+    # c_0 = -4*np.pi
     rhs_curve_integral = compute_rhs_inner_curve(N1, N2, psi, J, c_0)
 
     B_h_coeffs_arr = solve_magnetostatic_pbm_J_direct_annulus(J, psi_h=psi_h, rhs_curve_integral=rhs_curve_integral,
@@ -265,7 +264,7 @@ def test_biot_savart():
     B_h_coeffs = array_to_psydac(B_h_coeffs_arr, derham_h.V1.vector_space)
     B_h = FemField(derham_h.V1, coeffs=B_h_coeffs)
 
-    does_plot_psi = True
+    
     if does_plot_psi:
         output_manager = OutputManager('magnetostatic_V0.yml',
                                              'psi_h.h5')
@@ -278,7 +277,6 @@ def test_biot_savart():
                                             fields_file='psi_h.h5')
         post_processor.export_to_vtk('plot_files/biot_savart_annulus/psi_h_vtk', npts_per_cell=5, fields='psi_h')
 
-    does_plot = True
     if does_plot:
         output_manager = OutputManager('spaces_magnetostatic.yml', 
                                        'fields_magnetostatic.h5')
@@ -291,7 +289,16 @@ def test_biot_savart():
                                             fields_file='fields_magnetostatic.h5')
         post_processor.export_to_vtk('plot_files/biot_savart_annulus/B_h_vtk', npts_per_cell=3,
                                         fields=("B_h"))
-    
+    return derham, derham_h, annulus, annulus_h, B_h
+
+
+def test_biot_savart():
+    N1 = 8
+    N2 = 8
+
+    derham, derham_h, annulus, annulus_h, B_h = compute_solution_annulus_inner_curve(
+        N1, N2, p=2, does_plot_psi=True, does_plot=True, J=1e-10, c_0=-4*np.pi)
+
     eval_grid = [np.array([0.25, 0.5, 0.75]), np.array([np.pi/2, np.pi])]
     V1h = derham_h.V1
     assert isinstance(V1h, VectorFemSpace)
