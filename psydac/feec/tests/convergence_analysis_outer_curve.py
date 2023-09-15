@@ -12,9 +12,8 @@ from psydac.fem.tensor             import TensorFemSpace
 from psydac.feec.derivatives       import VectorCurl_2D, Divergence_2D
 from psydac.feec.global_projectors import Projector_H1, Projector_Hdiv
 from psydac.feec.global_projectors import projection_matrix_H1_homogeneous_bc, projection_matrix_Hdiv_homogeneous_bc 
-from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_annulus, solve_magnetostatic_pbm_J_direct_annulus
+from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_annulus
 from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_with_bc
-from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_distorted_annulus
 from psydac.feec.tests.test_magnetostatic_pbm_annulus import _create_domain_and_derham
 from psydac.feec.pull_push         import pull_2d_hdiv
 from psydac.ddm.cart               import DomainDecomposition
@@ -87,37 +86,8 @@ def l2_error_biot_savart_annulus_outer_curve(N, p):
     psi_h = solve_poisson_2d_annulus(annulus_h, derham_h.V0, rhs=1e-12, 
                                      boundary_values=boundary_values_poisson)
     J = 1e-10
-
-    # Compute right hand side of the curve integral constraint
-    logical_domain_gamma = Square(name='logical_domain_gamma', bounds1=(0,0.5), bounds2=(0,2*np.pi))
-    boundary_logical_domain_gamma = Union(logical_domain_gamma.get_boundary(axis=0, ext=-1),
-                                    logical_domain_gamma.get_boundary(axis=0, ext=1))
-    logical_domain_gamma = Domain(name='logical_domain_gamma',
-                            interiors=logical_domain_gamma.interior,
-                            boundaries=boundary_logical_domain_gamma,
-                            dim=2)
-    polar_mapping = PolarMapping(name='polar_mapping', dim=2, c1=0., c2=0.,
-                                    rmin=1.0, rmax=2.0)
-    omega_gamma = polar_mapping(logical_domain_gamma)
-    derham_gamma = Derham(domain=omega_gamma, sequence=['H1', 'Hdiv', 'L2'])
-    omega_gamma_h = discretize(omega_gamma, ncells=[N//2,N//2], periodic=[False, True])
-    derham_gamma_h = discretize(derham_gamma, omega_gamma_h, degree=[p,p])
-    h1_proj_gamma = Projector_H1(derham_gamma_h.V0)
-    assert isinstance(derham_h, DiscreteDerham)
-
-    sigma, tau = top.elements_of(derham_gamma.V0, names='sigma tau')
-    inner_prod_J = LinearForm(tau, integral(omega_gamma, J*tau))
-    inner_prod_J_h = discretize(inner_prod_J, omega_gamma_h, space=derham_gamma_h.V0)
-    assert isinstance(inner_prod_J_h, DiscreteLinearForm)
-    inner_prod_J_h_stencil = inner_prod_J_h.assemble()
-    # Try changing this to the evaluation using the dicrete linear form directly
-    assert isinstance(inner_prod_J_h_stencil, StencilVector)
-    inner_prod_J_h_vec = inner_prod_J_h_stencil.toarray()
-
-    # psi_h_gamma = h1_proj_gamma(psi)
-    # psi_h_gamma_coeffs = psi_h_gamma.coeffs.toarray()
     c_0 = -4*np.pi
-    rhs_curve_integral = c_0 #+ np.dot(inner_prod_J_h_vec, psi_h_gamma_coeffs)
+    rhs_curve_integral = c_0 
 
     B_h_coeffs_arr = solve_magnetostatic_pbm_J_direct_annulus(J, psi_h=psi_h, rhs_curve_integral=rhs_curve_integral,
                                                      derham=derham,

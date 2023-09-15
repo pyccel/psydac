@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import logging
+import pandas as pd
 import pickle
 import matplotlib.pyplot as plt
 
@@ -11,10 +12,9 @@ from psydac.fem.tensor             import TensorFemSpace
 from psydac.feec.derivatives       import VectorCurl_2D, Divergence_2D
 from psydac.feec.global_projectors import Projector_H1, Projector_Hdiv
 from psydac.feec.global_projectors import projection_matrix_H1_homogeneous_bc, projection_matrix_Hdiv_homogeneous_bc 
-from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_annulus, solve_magnetostatic_pbm_J_direct_annulus
+from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_annulus
 from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_with_bc
-from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_distorted_annulus
-from psydac.feec.tests.test_magnetostatic_pbm_annulus import _create_domain_and_derham
+from psydac.feec.tests.test_magnetostatic_pbm_annulus import _create_domain_and_derham, compute_curve_integral_rhs
 from psydac.feec.pull_push         import pull_2d_hdiv
 from psydac.ddm.cart               import DomainDecomposition
 
@@ -75,11 +75,13 @@ from psydac.fem.tests.get_integration_function import solve_poisson_2d_annulus
 
 
 
-def l2_error_manufactured_poisson_psi(N):
+def l2_error_manufactured_poisson_psi(N, p):
+    N1 = 8
+    N2 = 8
+    ncells = [N,N//2]
     annulus, derham = _create_domain_and_derham()
-    ncells = [N,N]
     annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
-    derham_h = discretize(derham, annulus_h, degree=[2,2])
+    derham_h = discretize(derham, annulus_h, degree=[p,p])
     assert isinstance(derham_h, DiscreteDerham)
     
     # Compute right hand side
@@ -88,20 +90,10 @@ def l2_error_manufactured_poisson_psi(N):
         # on the exterior boundary and zero on the interior boundary
     psi_h = solve_poisson_2d_annulus(annulus_h, derham_h.V0, rhs=1e-10, 
                                      boundary_values=boundary_values_poisson)
-
-    J = 4*x**2 - 12*x**2/sympy.sqrt(x**2 + y**2) + 4*y**2 - 12*y**2/sympy.sqrt(x**2 + y**2) + 8
-    f = sympy.Tuple(8*y - 12*y/sympy.sqrt(x**2 + y**2), -8*x + 12*x/sympy.sqrt(x**2 + y**2))
-    sigma, tau = top.elements_of(derham.V0, names='sigma tau')
-    inner_prod_J = LinearForm(tau, integral(annulus, J*tau))
-    inner_prod_J_h = discretize(inner_prod_J, annulus_h, space=derham_h.V0)
-    assert isinstance(inner_prod_J_h, DiscreteLinearForm)
-    inner_prod_J_h_stencil = inner_prod_J_h.assemble()
-    # Try changing this to the evaluation using the dicrete linear form directly
-    assert isinstance(inner_prod_J_h_stencil, StencilVector)
-    inner_prod_J_h_vec = inner_prod_J_h_stencil.toarray()
-    psi_h_coeffs = psi_h.coeffs.toarray()
     c_0 = 0.
-    curve_integral_rhs = c_0 + np.dot(inner_prod_J_h_vec, psi_h_coeffs)
+    J = 4*x**2 - 12*x**2/sympy.sqrt(x**2 + y**2) + 4*y**2 - 12*y**2/sympy.sqrt(x**2 + y**2) + 8
+    curve_integral_rhs = compute_curve_integral_rhs(derham, annulus, J, annulus_h, 
+                                                    derham_h, psi_h, c_0)
 
     B_h_coeffs_arr = solve_magnetostatic_pbm_J_direct_annulus(J, psi_h, rhs_curve_integral=curve_integral_rhs,
                                                      derham_h=derham_h,
@@ -109,16 +101,6 @@ def l2_error_manufactured_poisson_psi(N):
                                                      annulus_h=annulus_h)
     B_h_coeffs = array_to_psydac(B_h_coeffs_arr, derham_h.V1.vector_space)
     B_h = FemField(derham_h.V1, coeffs=B_h_coeffs)
-
-    # eval_grid = [np.array([0.25, 0.5, 0.75]), np.array([np.pi/2, np.pi])]
-    # V1h = derham_h.V1
-    # assert isinstance(V1h, VectorFemSpace)
-    # B_h_eval = V1h.eval_fields(eval_grid, B_h)
-    # print(B_h_eval)
-    # assert np.linalg.norm(B_h_eval[0][0]) < 1e-5
-    # assert abs( B_h_eval[0][1][0,1] - (0.25-1)**2 * (0.25+1)) < 0.01
-    # assert abs( B_h_eval[0][1][1,0] - (0.5-1)**2 * (0.5+1)) < 0.01
-    # assert abs( B_h_eval[0][1][2,1] - (0.75-1)**2 * (0.75+1)) < 0.01
 
     x, y = annulus.coordinates
     B_ex = sympy.Tuple((sympy.sqrt(x**2 + y**2)-2)**2 * (-y), 
@@ -132,38 +114,44 @@ def l2_error_manufactured_poisson_psi(N):
     return l2_error
 
 if __name__ == '__main__':
-    computes_l2_errors = False
+    computes_l2_errors = True
     if computes_l2_errors:
         l2_error_data = {"n_cells": np.array([8,16,32,64]), "l2_error": np.zeros(4)}
         for i,N in enumerate([8,16,32,64]):
-            l2_error_data['l2_error'][i] = l2_error_manufactured_poisson_psi(N)
+            l2_error_data['l2_error'][i] = l2_error_manufactured_poisson_psi(N, 2)
 
-        with open('l2_error_data/manufactured_poisson_psi.pkl', 'wb') as file:
-            pickle.dump(l2_error_data, file)
+        # with open('l2_error_data/manufactured_poisson_psi.pkl', 'wb') as file:
+        #     pickle.dump(l2_error_data, file)
+        np.save('l2_error_data/manufactured_poisson_psi/degree3/n_cells.npy', l2_error_data['n_cells'])
+        np.save('l2_error_data/manufactured_poisson_psi/degree3/l2_error.npy', l2_error_data['l2_error'])
 
-    else: 
-        # l2_error_data = None
-        # with open('l2_error_data/manufactured_poisson_psi.pkl', 'rb') as file:
-        #     l2_error_data = pickle.load(file)
-        # np.savetxt('l2_error_data/manufactured_poisson_psi/n_cells.csv',
-        #             l2_error_data['n_cells'], delimiter='\t')
-        # np.savetxt('l2_error_data/manufactured_poisson_psi/l2_error.csv',
-        #            l2_error_data['l2_error'], delimiter='\t')
+    # l2_error_data = None
+    # with open('l2_error_data/manufactured_poisson_psi.pkl', 'rb') as file:
+    #     l2_error_data = pickle.load(file)
+    # np.savetxt('l2_error_data/manufactured_poisson_psi/n_cells.csv',
+    #             l2_error_data['n_cells'], delimiter='\t')
+    # np.savetxt('l2_error_data/manufactured_poisson_psi/l2_error.csv',
+    #            l2_error_data['l2_error'], delimiter='\t')
 
-        l2_error_data = {"n_cells": np.array([8,16,32,64]), "l2_error": np.zeros(4)}
-        n_cells = np.loadtxt('l2_error_data/manufactured_poisson_psi/n_cells.csv')
-        l2_error = np.loadtxt('l2_error_data/manufactured_poisson_psi/l2_error.csv')
-        l2_error_data['n_cells'] = n_cells
-        l2_error_data['l2_error'] = l2_error
-        
-        h = l2_error_data['n_cells']**(-1.0)
-        h_squared = l2_error_data['n_cells']**(-2.0)
-        h_cubed = l2_error_data['n_cells']**(-3.0)
-        plt.loglog(l2_error_data['n_cells'], l2_error_data['l2_error'], label='l2_error')
-        plt.loglog(l2_error_data['n_cells'], h)
-        plt.loglog(l2_error_data['n_cells'], h_squared)
-        plt.loglog(l2_error_data['n_cells'], h_cubed)
-        plt.legend()
-        plt.show()
+    # l2_error_data = {"n_cells": np.array([8,16,32,64]), "l2_error": np.zeros(4)}
+    n_cells = np.load('l2_error_data/manufactured_poisson_psi/degree3/n_cells.npy')
+    l2_error = np.load('l2_error_data/manufactured_poisson_psi/degree3/l2_error.npy')
+
+    l2_error_data_array = np.column_stack((n_cells, l2_error))
+    l2_error_data = pd.DataFrame(data=l2_error_data_array, columns=['n_cells', 'l2_error'])
+
+    # l2_error_data.to_csv('l2_error_data/manufactured_poisson_psi/degree3/l2_error_data.csv')
+    # l2_error_data['n_cells'] = n_cells
+    # l2_error_data['l2_error'] = l2_error
+    
+    h = l2_error_data['n_cells']**(-1.0)
+    h_squared = l2_error_data['n_cells']**(-2.0)
+    h_cubed = l2_error_data['n_cells']**(-3.0)
+    plt.loglog(l2_error_data['n_cells'], l2_error_data['l2_error'], label='l2_error', marker='o')
+    plt.loglog(l2_error_data['n_cells'], h)
+    plt.loglog(l2_error_data['n_cells'], h_squared)
+    plt.loglog(l2_error_data['n_cells'], h_cubed)
+    plt.legend()
+    plt.show()
 
 
