@@ -203,7 +203,7 @@ def get_Vh_diags_for(v=None, v_ref=None, M_m=None, print_diags=True, msg='error 
 
 
 def write_diags_to_file(diags, script_filename, diag_filename, params={}):
-    print(' -- writing diags to file {} --'.format(diag_filename))
+    print('\n\n -- writing diags to file {} --'.format(diag_filename))
     if not os.path.exists(diag_filename):
         open(diag_filename, 'w')
 
@@ -262,52 +262,64 @@ def check_file(error_dir, name):
     if not os.path.exists(diag_filename):
         open(diag_filename, 'w')
 
-def write_errors_array_deg_nbp(errors, deg_s, nbp_s, nbc, error_dir, name, title=''):
+    dir
 
-    # print errors in file for convergence curves: 
-    #   here for various degrees and nb of patches (nbp), but a single nb of cells per patch (nbc)
-    #
-    # errors: list of errors, of the form
-    # [[[ error_nbc_nbp_deg ] for nbp in nbp_s] for deg in deg_s]
-    # (with a single nbc)
+# def write_errors_array_deg_nbp(errors, deg_s, nbp_s, nbc, error_dir, name, title=''):
+def write_diags_deg_nbp(values, deg_s, nbp_s, nbc, name, filename=None, dir=None, title=''):
+
+    """    
+    print (error) values in file for (convergence) curves: 
+    here for various degrees and nb of patches (nbp), but a single nb of cells per patch (nbc)
     
-    assert len(errors) == len(deg_s)
+    values: list of the form
+    [[[ val_nbc_nbp_deg ] for nbp in nbp_s] for deg in deg_s]
+    (with a single nbc)
+    """    
+    
+    assert len(values) == len(deg_s)
     for i_deg, deg in enumerate(deg_s): 
-        assert len(errors[i_deg]) == len(nbp_s)
+        assert len(values[i_deg]) == len(nbp_s)
         for i_nbp, nbp in enumerate(nbp_s): 
-            assert len(errors[i_deg][i_nbp]) == 1
+            assert len(values[i_deg][i_nbp]) == 1
 
-    if not os.path.exists(error_dir):
-        os.makedirs(error_dir)
-
-    diag_filename = error_dir+'/errors_'+name+'.txt'
-    print('writing error arrays for convergence curve in '+ diag_filename + ' ...')
+    if filename:
+        diag_filename = filename
+    else:
+        if dir is None:
+            print("WARNING !! no filename or directory given writing in working dir")
+            dir = './'
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        diag_filename = dir+'/diag_values.txt'
+    
+    print(f'writing values for {name} in {diag_filename} ...')
     if not os.path.exists(diag_filename):
         open(diag_filename, 'w')
 
     with open(diag_filename, 'a') as a_writer:
 
         a_writer.write('\n')
+        a_writer.write(f'# writing values for {name}, \n')
         a_writer.write('nbp_1d = np.array([')
         for nbp in nbp_s:
-            a_writer.write('{},'.format(nbp))
+            a_writer.write(f'{nbp},')
         a_writer.write('])  # nb of patches per dimension \n\n')
-        a_writer.write('nbc_1d = {} # nb of cells per dimension \n'.format(nbc))
+        a_writer.write(f'nbc_1d = {nbc} # nb of cells per dimension \n')
         a_writer.write('nbc_tot = np.array([')
         for nbp in nbp_s:
             a_writer.write('{},'.format(nbp**2 * nbc**2))
         a_writer.write('])  # total nb of cells \n\n')
         
-        a_writer.write('# errors for '+name+'\n')
-        a_writer.write('errors = { \n')
+        a_writer.write(f'# values for {name}\n')
+        a_writer.write('values = { \n')
         for i_deg, deg in enumerate(deg_s): 
-            a_writer.write('{} : ['.format(deg))
+            a_writer.write(f'{deg} : [')
             for i_nbp, nbp in enumerate(nbp_s): 
-                a_writer.write('{}, '.format(errors[i_deg][i_nbp][0]))
+                a_writer.write(f'{values[i_deg][i_nbp][0]}, ')
             a_writer.write('], \n')
 
         a_writer.write('} \n\n')
 
-        a_writer.write('# name = {}, \n'.format(name))            
-        a_writer.write('# title = {}, \n'.format(title))            
+        a_writer.write(f'# name = {name}, \n')            
+        a_writer.write(f'# title = {title}, \n')            
         a_writer.write('\n\n')

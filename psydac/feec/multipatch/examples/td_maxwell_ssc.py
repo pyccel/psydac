@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 from sympy import lambdify, Matrix
 
-from scipy.sparse import save_npz, load_npz
+from scipy.sparse import save_npz, load_npz, eye as sparse_eye
 from scipy.sparse.linalg import spsolve, norm as sp_norm
 from scipy import special
 
@@ -35,9 +35,8 @@ from psydac.feec.multipatch.bilinear_form_scipy         import construct_pairing
 # from psydac.feec.multipatch.conf_projections_scipy      import Conf_proj_0, Conf_proj_1, Conf_proj_0_c1, Conf_proj_1_c1
 import psydac.feec.multipatch.conf_projections_scipy as cps
 
-
-cps.mom_pres = False # True #
-cps.proj_op = 2
+cps.mom_pres = True # False # 
+cps.proj_op = 1
 
 def solve_td_maxwell_pbm(
         method='ssc',
@@ -48,6 +47,7 @@ def solve_td_maxwell_pbm(
         project_sol=False, filter_source=True, quad_param=1,
         solution_type='zero', solution_proj='P_geom', 
         plot_source=False, plot_dir=None, hide_plots=True, plot_time_ranges=None, 
+        show_grid=True,
         plot_variables=["D", "B", "Dex", "Bex", "divD"], diag_dtau=None,
         skip_plot_titles=False,
         cb_min_sol=None, cb_max_sol=None,
@@ -223,7 +223,7 @@ def solve_td_maxwell_pbm(
         d_V1h = d_derham_h.V1
         d_V2h = d_derham_h.V2
     
-    elif method == 'swc':
+    elif method in ['swc_C1', 'swc_C0']:
         d_V0h = p_derham_h.V2
         d_V1h = p_derham_h.V1
         d_V2h = p_derham_h.V0
@@ -260,7 +260,7 @@ def solve_td_maxwell_pbm(
         d_HOp2   = HodgeOperator(d_V2h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=2)
         d_MM2    = d_HOp2.get_dual_Hodge_sparse_matrix()    # mass matrix
 
-    elif method == 'swc':
+    elif method in ['swc_C1', 'swc_C0']:
 
         # not sure whether useful...
         d_MM0     = p_MM2_inv
@@ -278,22 +278,28 @@ def solve_td_maxwell_pbm(
     t_stamp = time_count(t_stamp)
     print('building the conforming projection matrices ...')
 
+    if method == 'swc_C0':
+        # SWC uses the 'usual' C0 primal sequence
 
-    # by default we use the same C1 primal sequence in both swc and ssw -- but we should also try with C0 in swc
-    p_PP0     = cps.Conf_proj_0_c1(p_V0h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
-    p_PP1     = cps.Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
+        ### TODO: write C0 (H1 / H-curl) version of C1 projs with moment preservation and hom_bc
 
+        p_PP0 = cps.Conf_proj_0(p_V0h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
+        p_PP1 = cps.Conf_proj_1(p_V1h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
+    
+    else:
+        assert method in ['ssc', 'swc_C1']
+        # both SSC and SWC (C1) use the same C1 primal sequence
+        p_PP0 = cps.Conf_proj_0_c1(p_V0h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
+        p_PP1 = cps.Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
+    
     if method == 'ssc':
         d_PP0 = cps.Conf_proj_0(d_V0h, nquads = [4*(d + 1) for d in dual_degree])
         d_PP1 = cps.Conf_proj_1(d_V1h, nquads = [4*(d + 1) for d in dual_degree])
     
-    elif method == 'swc':
+    else:
         d_PP0 = None
         d_PP1 = None
     
-    else:
-        raise NotImplementedError
-
     t_stamp = time_count(t_stamp)
     print('building the Hodge matrices ...')
     if method == 'ssc':
@@ -320,7 +326,7 @@ def solve_td_maxwell_pbm(
         p_HH2 = d_MM0_inv @ d_PP0.transpose() @ p_KK2
         d_HH1 = p_MM1_inv @ p_PP1.transpose() @ d_KK1
 
-    elif method == 'swc':
+    elif method in ['swc_C1', 'swc_C0']:
 
         p_HH2 = p_MM2 
         d_HH1 = p_MM1_inv 
@@ -328,6 +334,7 @@ def solve_td_maxwell_pbm(
     else:
         raise NotImplementedError
 
+    p_I1 = sparse_eye(p_V1h.nbasis)
 
     t_stamp = time_count(t_stamp)
     print(' .. differential operators...')
@@ -344,7 +351,7 @@ def solve_td_maxwell_pbm(
         d_bD = d_bD1.to_sparse_matrix() # broken div
         d_DD = d_bD @ d_PP1             # Conga div (dual)    
         
-    elif method == 'swc':
+    elif method in ['swc_C1', 'swc_C0']:
         d_CC = p_CC.transpose()
         d_DD = - p_GG.transpose()
         
@@ -357,14 +364,21 @@ def solve_td_maxwell_pbm(
     Amp_Op = d_CC @ p_HH2
     Far_Op = p_CC @ d_HH1
 
-    print(f'sp_norm(d_DD@Amp_Op) = {sp_norm(d_DD@Amp_Op)}')
-    print(f'sp_norm(p_bC@p_bG) = {sp_norm(p_bC@p_bG)}')
-    print(f'sp_norm(p_PP0 - p_PP0@p_PP0) = {sp_norm(p_PP0 - p_PP0@p_PP0)}')    
-    print(f'sp_norm(p_PP1 - p_PP1@p_PP1) = {sp_norm(p_PP1 - p_PP1@p_PP1)}')    
-    print(f'sp_norm(p_bG@p_PP0) = {sp_norm(p_bG@p_PP0)}')
-    print(f'sp_norm(p_PP1@p_bG@p_PP0) = {sp_norm(p_PP1@p_bG@p_PP0)}')
-    print(f'sp_norm(p_CC@p_GG) = {sp_norm(p_CC@p_GG)}')
-    # exit()
+    print(' -- doing some checks: (all matrix norms should be zero)')
+    for spn_name, spn in [
+        ["sp_norm(d_DD@Amp_Op)", sp_norm(d_DD@Amp_Op)],
+        ["sp_norm(p_bC@p_bG)", sp_norm(p_bC@p_bG)],
+        ["sp_norm(p_PP0 - p_PP0@p_PP0)",sp_norm(p_PP0 - p_PP0@p_PP0)],
+        ["sp_norm(p_PP1 - p_PP1@p_PP1)",sp_norm(p_PP1 - p_PP1@p_PP1)],
+        ["sp_norm((p_PP1-p_I1)@p_bG@p_PP0)",sp_norm((p_PP1-p_I1)@p_bG@p_PP0)],
+        ["sp_norm(p_CC@p_GG)",sp_norm(p_CC@p_GG)],
+        ]:
+        print(f'{spn_name} = {spn}')
+        if abs(spn) > 1e-10:
+            print(20*" WARNING ! ")
+            print(f'{spn_name} is too large \n -----------------------------')
+
+    print(' .. ok checks done -- ')
     
     t_stamp = time_count(t_stamp)
 
@@ -394,10 +408,13 @@ def solve_td_maxwell_pbm(
         final_time = tau * nb_tau
         print('final_time = ', final_time)
         print('Nt = ', Nt_pertau * nb_tau)
+        diags["h*norm_curlh"] = h*norm_curlh
         # exit()
     else:
+        diags["h*norm_curlh"] = 0
         dt = tau/Nt_pertau
         norm_curlh = None
+    diags["Nt_pertau"]    = Nt_pertau
     Nt = Nt_pertau * nb_tau
 
     def is_plotting_time(nt):
@@ -439,7 +456,7 @@ def solve_td_maxwell_pbm(
     def plot_D_field(D_c, nt, project_sol=False, plot_divD=False, label=''):
         if plot_dir:
 
-            if method == 'swc':
+            if method in ['swc_C1', 'swc_C0']:
                 Dp_c = p_MM1_inv @ D_c # get coefs in primal basis for plotting 
                 Vh = p_V1h
             
@@ -461,7 +478,7 @@ def solve_td_maxwell_pbm(
             params_str = 'Nt_pertau={}'.format(Nt_pertau)
             plot_field(numpy_coeffs=Dp_c, Vh=Vh, space_kind='hdiv', domain=domain, surface_plot=False, title=title, 
                 filename=plot_dir+'/'+params_str+label+'_Dh_nt={}.pdf'.format(nt),
-                plot_type='amplitude', show_grid=False, cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
+                plot_type='amplitude', show_grid=show_grid, cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
 
             if plot_divD:
                 params_str = 'Nt_pertau={}'.format(Nt_pertau)
@@ -469,7 +486,7 @@ def solve_td_maxwell_pbm(
 
                 divD_c = d_DD @ D_c  # divD coefs in dual basis of pV0 (swc) or basis of dV2 (ssc)
 
-                if method == 'swc':
+                if method in ['swc_C1', 'swc_C0']:
                     Vh_aux = p_V0h                    
                     divDp_c = p_MM0_inv @ divD_c # get coefs in primal basis for plotting 
                     # here, divD_c = coefs in p_V0h
@@ -499,7 +516,7 @@ def solve_td_maxwell_pbm(
             title = r'$B_h$ (amplitude) for $t = {:5.4f}$'.format(dt*nt)
             plot_field(numpy_coeffs=B_c, Vh=p_V2h, space_kind='l2', domain=domain, surface_plot=False, title=title, 
                 filename=plot_dir+'/'+params_str+label+'_Bh_nt={}.pdf'.format(nt),
-                plot_type='amplitude', show_grid=False, cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
+                plot_type='amplitude', show_grid=show_grid, cb_min=cb_min_sol, cb_max=cb_max_sol, hide_plot=hide_plots)
 
         else:
             print(' -- WARNING: unknown plot_dir !!')
@@ -607,7 +624,7 @@ def solve_td_maxwell_pbm(
             Eex_c = Eex_h.coeffs.toarray()
             Bex_h = P_phys_l2(B_ex, p_geomP2, domain, mappings_list)
             Bex_c = Bex_h.coeffs.toarray()
-            if method == 'swc':
+            if method in ['swc_C1', 'swc_C0']:
                 Dex_c = p_MM1 @ Eex_c
                 Hex_c = p_MM2 @ Bex_c
 
@@ -627,7 +644,7 @@ def solve_td_maxwell_pbm(
             tilde_B_ex_c = p_derham_h.get_dual_dofs(space='V2', f=B_ex, backend_language=backend_language, return_format='numpy_array')
             Bex_c = p_MM2_inv @ tilde_B_ex_c
 
-            if method == 'swc':                
+            if method in ['swc_C1', 'swc_C0']:                
                 Dex_c = tilde_Eex_c
                 Hex_c = tilde_B_ex_c
         
@@ -677,7 +694,7 @@ def solve_td_maxwell_pbm(
         # print(d_MM2.shape)
         # print("p_V0h.nbasis = ", p_V0h.nbasis)
         # print("p_V1h.nbasis = ", p_V1h.nbasis)
-        if method == 'swc':
+        if method in ['swc_C1', 'swc_C0']:
             divDp_c = p_MM0_inv @ divD_c # get coefs in primal basis
             # here, divD_c = coefs in p_V0h
             divD_norm2_diag[nt] = np.dot(divDp_c, divD_c)
@@ -775,7 +792,7 @@ def solve_td_maxwell_pbm(
         diags["E_error"] = E_L2_error
         diags["B_error"] = B_L2_error
         diags["H_error"] = H_L2_error
-
+        
     return diags
 
 

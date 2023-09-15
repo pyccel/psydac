@@ -412,7 +412,7 @@ def my_small_plot(
             if xx[k][0][0] is not None and yy[k][0][0] is not None:
                 ax.contourf(xx[k], yy[k], vals[i][k], levels, norm=cnorm, cmap=cmap, zorder=-10) #, extend='both')
         
-        ax.plot(yy[k], vals[i][k], '--', color='k', label='curve', ms=5)
+        # ax.plot(yy[k], vals[i][k], '--', color='k', label='curve', ms=5)
 
         ax.set_rasterization_zorder(0)
         cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)

@@ -48,8 +48,9 @@ from scipy.linalg        import norm
 from psydac.feec.multipatch.examples.fs_domains_examples import create_square_domain
 from psydac.feec.multipatch.utils_conga_2d              import write_errors_array_deg_nbp, check_file
 
-cps.mom_pres =  False # True # 
-cps.proj_op = 1
+cps.mom_pres =  True # False # 
+cps.proj_op = 1 #50
+hom_bc = True # False #
 
 def try_ssc_2d(
         ncells=None, 
@@ -164,17 +165,19 @@ def try_ssc_2d(
     d_V2h = d_derham_h.V2
 
     if test_case == 'norm_Lambda0':
+        
+        print("p_MM0 already assembled")
         # p_HOp0    = HodgeOperator(p_V0h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=0)
         # p_MM0     = p_HOp0.get_dual_Hodge_sparse_matrix()    # mass matrix
         
-        Vh = p_V0h
-        V = Vh.symbolic_space
-        u, v = elements_of(V, names='u, v')
-        expr   = u*v
+        # Vh = p_V0h
+        # V = Vh.symbolic_space
+        # u, v = elements_of(V, names='u, v')
+        # expr   = u*v
         #     expr   = dot(u,v)
-        a = BilinearForm((u,v), integral(domain, expr))
-        ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
-        p_MM0 = ah.assemble().tosparse()  # Mass matrix in stencil > scipy format
+        # a = BilinearForm((u,v), integral(domain, expr))
+        # ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
+        # p_MM0 = ah.assemble().tosparse()  # Mass matrix in stencil > scipy format
         
     else:
 
@@ -207,10 +210,8 @@ def try_ssc_2d(
 
         t_stamp = time_count(t_stamp)
         print('Conforming projections...')
-        p_PP0     = cps.Conf_proj_0_c1(p_V0h, nquads = [4*(d + 1) for d in p_degree], hom_bc=False)
-        p_PP1     = cps.Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in p_degree], hom_bc=False)
-        # p_PP1     = cps2.Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in p_degree], hom_bc=False)
-
+        p_PP0     = cps.Conf_proj_0_c1(p_V0h, nquads = [4*(d + 1) for d in p_degree], hom_bc=hom_bc)
+        p_PP1     = cps.Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in p_degree], hom_bc=hom_bc)
 
         p_PP1_C0     = cps.Conf_proj_1(p_V1h, nquads = [4*(d + 1) for d in p_degree])  # to compare
 
@@ -219,6 +220,11 @@ def try_ssc_2d(
 
         t_stamp = time_count(t_stamp)
         print('Mass matrices...')
+        ### TODO: they are not "Hodge Operators" for the primal/dual sequences.... 
+        p_HOp0    = HodgeOperator(p_V0h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=0)
+        p_MM0     = p_HOp0.get_dual_Hodge_sparse_matrix()    # mass matrix
+        p_MM0_inv = p_HOp0.to_sparse_matrix()                # inverse mass matrix
+
         p_HOp1    = HodgeOperator(p_V1h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=1)
         p_MM1     = p_HOp1.get_dual_Hodge_sparse_matrix()    # mass matrix
         p_MM1_inv = p_HOp1.to_sparse_matrix()                # inverse mass matrix
@@ -237,7 +243,7 @@ def try_ssc_2d(
 
 
         t_stamp = time_count(t_stamp)
-        print('Hodge operators...')
+        print('Hodge operators (primal/dual sequences)...')
         
         p_HH1     = d_MM1_inv @ d_PP1.transpose() @ p_KK1
         p_HH2     = d_MM0_inv @ d_PP0.transpose() @ p_KK2
@@ -274,7 +280,9 @@ def try_ssc_2d(
     # f_x = lambdify(domain.coordinates, f_vect[0])
     # f_y = lambdify(domain.coordinates, f_vect[1])
     nb_patches = len(domain)
-    G_sol_log = [[lambda xi1, xi2, ii=i : (ii+1)%2 for d in [0,1]] for i in range(nb_patches)]
+    G_sol_log = [[lambda xi1, xi2, ii=i : (ii+1) for d in [0,1]] for i in range(nb_patches)]
+    
+    f0_log = [lambda xi1, xi2, ii=i : (ii+1) for i in range(nb_patches)]
 
     g_symb = sin(pi*x)*sin(pi*y)
     g = lambdify(domain.coordinates, g_symb)
@@ -282,9 +290,63 @@ def try_ssc_2d(
     p_geomP0, p_geomP1, p_geomP2 = p_derham_h.projectors()
     d_geomP0, d_geomP1, d_geomP2 = d_derham_h.projectors()
 
-    sol = 'smooth'
+    # some tests :
+    print(f"some tests, with: ")
+    print(f"    mom_pres = {cps.mom_pres}")
+    print(f"    proj_op = {cps.proj_op}")
+    print(f"    hom_bc = {hom_bc}")
+    
+    diff = sp_norm(p_PP0 - p_PP0@p_PP0)
+    print(f'sp_norm(p_PP0 - p_PP0@p_PP0) = {diff}')    
+    if abs(diff) > 1e-10:
+        print('WARNING !! should be 0')
+    diff = sp_norm(p_PP1 - p_PP1@p_PP1)
+    print(f'sp_norm(p_PP1 - p_PP1@p_PP1) = {diff}')    
+    if abs(diff) > 1e-10:
+        print('WARNING !! should be 0')
+    diff = sp_norm(p_bG@p_PP0 - p_PP1@p_bG@p_PP0)
+    print(f'sp_norm(p_bG@p_PP0 - p_PP1@p_bG@p_PP0) = {diff}')
+    if abs(diff) > 1e-10:
+        print('WARNING !! should be 0')
 
-    if test_case == 'p_PP1':
+
+    sol = 'discontinuous'
+    print(f"running with test_case = {test_case} and sol = {sol} ...")
+
+    if test_case == 'p_PP0':
+        # no pull-back needed...
+        f0h = p_geomP0(f0_log)  # P_phys_h1(f0, p_geomP0, domain, mappings_list)
+        f0_c = f0h.coeffs.toarray()
+        
+        ref_c = f0_c
+        label_ref   = 'f'
+        
+        app_c = p_PP0 @ f0_c
+        label_app   = 'P0f'
+
+        MM      = p_MM0
+        Vh      = p_V0h
+        Vh_kind = 'h1'
+        plot_type = 'components'
+    
+    elif test_case == 'PGP0':
+        # no pull-back needed...
+        f0h = p_geomP0(f0_log)  # P_phys_h1(f0, p_geomP0, domain, mappings_list)
+        f0_c = f0h.coeffs.toarray()
+        
+        ref_c = p_bG @ p_PP0 @ f0_c
+        label_ref   = 'GPf'
+        
+        app_c = p_PP1 @ p_bG @ p_PP0 @ f0_c
+        label_app   = 'PGPf'
+
+        MM      = p_MM1
+        Vh      = p_V1h
+        Vh_kind = 'hcurl'
+        plot_type = 'components'
+
+
+    elif test_case == 'p_PP1':
 
         if sol == "discontinuous":
             G_pV1_c = p_geomP1(G_sol_log).coeffs.toarray()
@@ -490,30 +552,35 @@ def try_ssc_2d(
         raise NotImplementedError
     
     if make_plots:
-        # plot_field(numpy_coeffs=app_c, Vh=Vh, space_kind=Vh_kind, 
-        #         plot_type=plot_type,
-        #         domain=domain, title=label_app, cmap='viridis', 
-        #         filename=plot_dir+'test='+test_case+'_app_.png', 
-        #         hide_plot=hide_plots, 
-        #         N_vis=20,
-        #         #    eta_crop=[[0.2,0.3], [0,10]],
-        #         surface_plot=True)
+        # plot_type = 'amplitude'
+        show_grid = False
+        plot_field(numpy_coeffs=app_c, Vh=Vh, space_kind=Vh_kind, 
+                plot_type=plot_type,
+                domain=domain, title=label_app, cmap='viridis', 
+                filename=plot_dir+'test='+test_case+'_approx.png', 
+                hide_plot=hide_plots,
+                show_grid=show_grid, 
+                N_vis=20,
+                #    eta_crop=[[0.2,0.3], [0,10]],
+                surface_plot=True)
         
-        # plot_field(numpy_coeffs=ref_c, Vh=Vh, space_kind=Vh_kind, 
-        #         plot_type=plot_type,
-        #         domain=domain, title=label_ref, cmap='viridis', 
-        #         filename=plot_dir+'test='+test_case+'_ref_.png', 
-        #         hide_plot=hide_plots, 
-        #         N_vis=20,
-        #         #    eta_crop=[[0.2,0.3], [0,10]],
-        #         surface_plot=True)
+        plot_field(numpy_coeffs=ref_c, Vh=Vh, space_kind=Vh_kind, 
+                plot_type=plot_type,
+                domain=domain, title=label_ref, cmap='viridis', 
+                filename=plot_dir+'test='+test_case+'_ref.png', 
+                hide_plot=hide_plots, 
+                show_grid=show_grid,
+                N_vis=20,
+                #    eta_crop=[[0.2,0.3], [0,10]],
+                surface_plot=True)
 
         label_err  = label_ref + ' - ' + label_app + ' with: ' + cps_opts
         plot_field(numpy_coeffs=app_c-ref_c, Vh=Vh, space_kind=Vh_kind, 
                 plot_type=plot_type,
                 domain=domain, title=label_err, cmap='viridis', 
-                filename=plot_dir+'test='+test_case+'_err_.png', 
+                filename=plot_dir+'test='+test_case+'_err.png', 
                 hide_plot=hide_plots,
+                show_grid=show_grid,
                 cb_min=-0.00015,
                 cb_max=0.00015,
                 N_vis=20,
@@ -535,7 +602,9 @@ if __name__ == '__main__':
     t_stamp_full = time_count()
 
     # test_case = "norm_Lambda0"
-    test_case = "p_PP1" # "d_HH1" # "p_PP1" # "p_PP1_C1" # "d_HH1" # "p_PP1_C1" # 
+    # test_case = "p_PP0"
+    test_case = "PGP0"
+    # test_case = "p_PP1" # "d_HH1" # "p_PP1" # "p_PP1_C1" # "d_HH1" # "p_PP1_C1" # 
     # test_case = "d_HH1"
 
     if cps.mom_pres:
@@ -549,7 +618,7 @@ if __name__ == '__main__':
     # test_case = "p_HH2"
     refined_square = False
     
-    make_plots = False # True #
+    make_plots = True #False # 
     hide_plots = True
     
 
@@ -561,7 +630,7 @@ if __name__ == '__main__':
 
     # nb of patches (per dim)
     # nbp_s = [1] 
-    nbp_s = [4] #,8]
+    nbp_s = [2] #,8]
 
     errors = [[[ None for nbc in nbc_s] for nbp in nbp_s] for deg in deg_s]
     error_dir = './errors'      
