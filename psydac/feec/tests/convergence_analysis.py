@@ -76,6 +76,12 @@ from psydac.fem.tests.get_integration_function import solve_poisson_2d_annulus
 
 
 def l2_error_biot_savart_annulus(N, p):
+    """
+    Computes L2 error of solution of the Biot-Savart problem with curve integral constraint in 2D
+    (see test_magnetostatic_pbm_annulus.py for details) where the domain is an annulus with rmin=1 and 
+    rmax=2 and the curve is the circle with radius 1.5
+    """
+    
     derham, derham_h, annulus, annulus_h, B_h = _compute_solution_annulus_inner_curve(
                                         N1=N, N2=N//2, p=p, does_plot_psi=False,
                                         does_plot=False, J=1e-10, c_0=-4*np.pi)

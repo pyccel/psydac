@@ -12,9 +12,7 @@ from psydac.fem.tensor             import TensorFemSpace
 from psydac.feec.derivatives       import VectorCurl_2D, Divergence_2D
 from psydac.feec.global_projectors import Projector_H1, Projector_Hdiv
 from psydac.feec.global_projectors import projection_matrix_H1_homogeneous_bc, projection_matrix_Hdiv_homogeneous_bc 
-from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_annulus, solve_magnetostatic_pbm_J_direct_annulus
 from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_with_bc
-from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_distorted_annulus
 from psydac.feec.tests.test_magnetostatic_pbm_annulus import _create_domain_and_derham
 from psydac.feec.pull_push         import pull_2d_hdiv
 from psydac.ddm.cart               import DomainDecomposition
@@ -73,33 +71,39 @@ from scipy.sparse.linalg import eigs, spsolve
 from scipy.sparse.linalg import inv
 
 from psydac.fem.tests.get_integration_function import solve_poisson_2d_annulus
+from psydac.feec.tests.test_magnetostatic_pbm_annulus import (DistortedPolarMapping, 
+                                                              _create_distorted_annulus_and_derham)
 
-class DistortedPolarMapping(Mapping):
-    """
+# class DistortedPolarMapping(Mapping):
+#     """
 
-    Examples
+#     Examples
 
-    """
-    _expressions = {'x': '3.0*(x1 + 1)*cos(x2)*(cos(x2)**2+1)',
-                    'y': '(x1 + 1)*sin(x2)*(cos(x2)**2+1)'}
+#     """
+#     _expressions = {'x': '3.0*(x1 + 1)*cos(x2)*(cos(x2)**2+1)',
+#                     'y': '(x1 + 1)*sin(x2)*(cos(x2)**2+1)'}
 
-    _ldim        = 2
-    _pdim        = 2
+#     _ldim        = 2
+#     _pdim        = 2
 
-def _create_distorted_annulus_and_derham() -> Tuple[Domain, Derham]:
-    logical_domain = Square(name='logical_domain', bounds1=(0,1), bounds2=(0,2*np.pi))
-    boundary_logical_domain = Union(logical_domain.get_boundary(axis=0, ext=-1),
-                                    logical_domain.get_boundary(axis=0, ext=1))
-    logical_domain = Domain(name='logical_domain',
-                            interiors=logical_domain.interior,
-                            boundaries=boundary_logical_domain,
-                            dim=2)
-    distorted_polar_mapping = DistortedPolarMapping(name='distorted_polar_mapping', dim=2)
-    domain = distorted_polar_mapping(logical_domain)
-    derham = Derham(domain=domain, sequence=['H1', 'Hdiv', 'L2'])
-    return domain, derham
+# def _create_distorted_annulus_and_derham() -> Tuple[Domain, Derham]:
+#     logical_domain = Square(name='logical_domain', bounds1=(0,1), bounds2=(0,2*np.pi))
+#     boundary_logical_domain = Union(logical_domain.get_boundary(axis=0, ext=-1),
+#                                     logical_domain.get_boundary(axis=0, ext=1))
+#     logical_domain = Domain(name='logical_domain',
+#                             interiors=logical_domain.interior,
+#                             boundaries=boundary_logical_domain,
+#                             dim=2)
+#     distorted_polar_mapping = DistortedPolarMapping(name='distorted_polar_mapping', dim=2)
+#     domain = distorted_polar_mapping(logical_domain)
+#     derham = Derham(domain=domain, sequence=['H1', 'Hdiv', 'L2'])
+#     return domain, derham
 
 def l2_error_biot_savart_distorted(N, p):
+    """
+    Computes L2 error of solution of the Biot-Savart problem with curve integral constraint in 2D
+    (see test_magnetostatic_pbm_annulus.py for details) for the distorted annulus domain 
+    """
     logger = logging.getLogger("test_magnetostatic_pbm_annuluslike")
     domain, derham = _create_distorted_annulus_and_derham()
     ncells = [N,N//2]
@@ -166,7 +170,7 @@ def l2_error_biot_savart_distorted(N, p):
     boundary_data = P1(B_exact) 
 
 
-    B_h_coeffs_arr = solve_magnetostatic_pbm_distorted_annulus(J, psi_h=psi_h, rhs_curve_integral=rhs_curve_integral,
+    B_h_coeffs_arr = solve_magnetostatic_pbm_J_direct_with_bc(J, psi_h=psi_h, rhs_curve_integral=rhs_curve_integral,
                                                      boundary_data=boundary_data,
                                                      derham=derham,
                                                      derham_h=derham_h,
@@ -212,7 +216,7 @@ def l2_error_biot_savart_distorted(N, p):
 
 
 if __name__ == '__main__':
-    computes_l2_errors = False
+    computes_l2_errors = True
     if computes_l2_errors:
         l2_error_data = {"n_cells": np.array([8,12,16,24,32,48,64]), "l2_error": np.zeros(7)}
         for i,N in enumerate([8,12,16,24,32,48,64]):
@@ -224,29 +228,28 @@ if __name__ == '__main__':
                    l2_error_data['l2_error'], delimiter='\t')
 
 
-    else: 
-        l2_error_data = {"n_cells": np.array([8,12,16,24,32,48,64]), "l2_error": np.zeros(7)}
-        # with open('l2_error_data/biot_savart_distorted.pkl', 'rb') as file:
-        #     l2_error_data = pickle.load(file)
-        
-        
-        n_cells = np.loadtxt('l2_error_data/biot_savart_distorted/degree3/n_cells.csv')
-        l2_error = np.loadtxt('l2_error_data/biot_savart_distorted/degree3/l2_error.csv')
+    l2_error_data = {"n_cells": np.array([8,12,16,24,32,48,64]), "l2_error": np.zeros(7)}
+    # with open('l2_error_data/biot_savart_distorted.pkl', 'rb') as file:
+    #     l2_error_data = pickle.load(file)
+    
+    
+    n_cells = np.loadtxt('l2_error_data/biot_savart_distorted/degree3/n_cells.csv')
+    l2_error = np.loadtxt('l2_error_data/biot_savart_distorted/degree3/l2_error.csv')
 
-        l2_error_array = np.column_stack((n_cells, l2_error))
+    l2_error_array = np.column_stack((n_cells, l2_error))
 
-        l2_error_data = pd.DataFrame(data=l2_error_array, columns=['N', 'l2_error'])
-        l2_error_data.to_csv('l2_error_data/biot_savart_distorted/degree3/l2_error_data.csv',
-                             index=False, header=True, sep='\t')
-        # l2_error_data['n_cells'] = n_cells
-        # l2_error_data['l2_error'] = l2_error
+    l2_error_data = pd.DataFrame(data=l2_error_array, columns=['N', 'l2_error'])
+    l2_error_data.to_csv('l2_error_data/biot_savart_distorted/degree3/l2_error_data.csv',
+                            index=False, header=True, sep='\t')
+    # l2_error_data['n_cells'] = n_cells
+    # l2_error_data['l2_error'] = l2_error
 
-        h = l2_error_data['N']**(-1.0)
-        h_squared = l2_error_data['N']**(-2.0)
-        h_cubed = l2_error_data['N']**(-3.0)
-        plt.loglog(l2_error_data['N'], l2_error_data['l2_error'], marker='o', label='l2_error')
-        plt.loglog(l2_error_data['N'], h)
-        plt.loglog(l2_error_data['N'], 100*h_squared)
-        plt.loglog(l2_error_data['N'], 2500*h_cubed)
-        plt.legend()
-        plt.show()
+    h = l2_error_data['N']**(-1.0)
+    h_squared = l2_error_data['N']**(-2.0)
+    h_cubed = l2_error_data['N']**(-3.0)
+    plt.loglog(l2_error_data['N'], l2_error_data['l2_error'], marker='o', label='l2_error')
+    plt.loglog(l2_error_data['N'], h)
+    plt.loglog(l2_error_data['N'], 100*h_squared)
+    plt.loglog(l2_error_data['N'], 2500*h_cubed)
+    plt.legend()
+    plt.show()

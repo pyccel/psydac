@@ -1,77 +1,43 @@
-import numpy as np
-import pytest
-import logging
 from dataclasses import dataclass
-
-from psydac.core.bsplines          import make_knots
-from psydac.fem.basic              import FemField
-from psydac.fem.splines            import SplineSpace
-from psydac.fem.tensor             import TensorFemSpace
-from psydac.feec.derivatives       import VectorCurl_2D, Divergence_2D
-from psydac.feec.global_projectors import Projector_H1, Projector_L2
-from psydac.feec.global_projectors import projection_matrix_H1_homogeneous_bc, projection_matrix_Hdiv_homogeneous_bc 
-from psydac.ddm.cart               import DomainDecomposition
-
-
+import logging
 import numpy as np
-import sympy
-from typing import Tuple, List
-
-from sympde.topology  import Derham, Square, IdentityMapping, PolarMapping
-from sympde.topology.domain import Domain, Union, Connectivity
-
-from psydac.feec.global_projectors import projection_matrix_Hdiv_homogeneous_bc, projection_matrix_H1_homogeneous_bc
-
-from psydac.api.discretization import discretize
-from psydac.api.feec import DiscreteDerham
-from psydac.api.fem  import DiscreteBilinearForm, DiscreteLinearForm
-from psydac.api.postprocessing import OutputManager, PostProcessManager
-from psydac.cad.geometry     import Geometry
-from psydac.fem.basic import FemField
-from psydac.fem.vector import VectorFemSpace
-from psydac.fem.tensor import TensorFemSpace
-from psydac.linalg.block import BlockVector
-from psydac.linalg.stencil import StencilVector
-from psydac.linalg.utilities import array_to_psydac
-
+import scipy
+from scipy.sparse import bmat, csr_matrix, lil_matrix
+from scipy.sparse.linalg import eigs, spsolve
+from scipy.sparse.linalg import inv
 from scipy.sparse._lil import lil_matrix
 from scipy.sparse._coo import coo_matrix
 from scipy.sparse._csc import csc_matrix
 
-from sympde.calculus      import grad, dot
+from typing import Tuple
+
+from psydac.api.discretization import discretize
+from psydac.api.feec import DiscreteDerham
+from psydac.api.fem  import DiscreteBilinearForm, DiscreteLinearForm
+from psydac.cad.geometry     import Geometry
+from psydac.feec.global_projectors import projection_matrix_H1_homogeneous_bc, projection_matrix_Hdiv_homogeneous_bc 
+from psydac.fem.basic              import FemField
+
+
+import sympy
+from sympde.calculus      import dot
 from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr.equation import find, EssentialBC
+from sympde.topology  import Derham
 import sympde.topology as top
-from sympde.utilities.utils import plot_domain
 
-from abc import ABCMeta, abstractmethod
-import numpy as np
-import scipy
 
-from psydac.cad.geometry          import Geometry
-from psydac.core.bsplines         import quadrature_grid
-from psydac.fem.basic             import FemField
-from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import VectorFemSpace
-from psydac.linalg.kron           import KroneckerLinearSolver
-from psydac.linalg.block          import BlockDiagonalSolver
-from psydac.utilities.quadratures import gauss_legendre
-
-from sympde.topology.domain       import Domain
-
-from scipy.sparse import bmat, csr_matrix, lil_matrix
 # from scipy.sparse._lil import lil_matrix
-from scipy.sparse.linalg import eigs, spsolve
-from scipy.sparse.linalg import inv
 
 @dataclass
 class _Matrices:
+    """
+    Matrices needed for solving the problem
+    """
     M0 : coo_matrix = None
     M1 : coo_matrix = None
     M2 : coo_matrix = None
     P0h : lil_matrix = None
     P1h : lil_matrix = None
-    P2h : lil_matrix = None
     D0 : coo_matrix = None
     D1 : coo_matrix = None
     D2 : coo_matrix = None
@@ -170,10 +136,10 @@ class _Matrices:
 #     sol = spsolve(A_mat, rhs)
 #     return sol[derham_h.V0.nbasis:-1]
 
-def _assemble_harmonic_block(matrices: _Matrices, alpha):
+def _assemble_harmonic_block(matrices: _Matrices, alpha) -> csc_matrix:
     """
     Returns the block for stiffness matrix corresponding to the inner product
-    with a harmonic form
+    with a discrete harmonic form
     """
     summand1 = matrices.M1 @ matrices.D0_h @ inv(matrices.M0) @ matrices.D0_h.transpose() @ matrices.M1
     summand2 = matrices.D1_h.transpose() @ matrices.M2 @ matrices.D1_h
@@ -186,11 +152,11 @@ def _assemble_harmonic_block(matrices: _Matrices, alpha):
     harmonic_block = harmonic_block.transpose()
     return harmonic_block
 
-def assemble_mass_matrices(derham: Derham, derham_h: DiscreteDerham, annulus_h : Geometry
+def assemble_mass_matrices(derham: Derham, derham_h: DiscreteDerham, domain_h : Geometry
                            ) -> Tuple[coo_matrix]:
     """
     Assemble the mass matrices of the spaces a discrete de Rham sequence
-    of length 2 on an annulus
+    of length 2
 
     Parameters
     ----------
@@ -198,8 +164,8 @@ def assemble_mass_matrices(derham: Derham, derham_h: DiscreteDerham, annulus_h :
         Symbolic de Rham sequence of length 2
     derham_h : DiscreteDerham
         Discrete de Rham sequence of length 2
-    annulus_h : Geometry
-        Discrete annulus domain
+    domain_h : Geometry
+        Discrete domain
 
     Returns
     -------
@@ -209,7 +175,7 @@ def assemble_mass_matrices(derham: Derham, derham_h: DiscreteDerham, annulus_h :
     # Define symbolic L2 inner products
     u, v = top.elements_of(derham.V1, names='u, v')
     rho, nu = top.elements_of(derham.V2, names='rho nu')
-    annulus = annulus_h.domain
+    annulus = domain_h.domain
     l2_inner_product_V2 = BilinearForm(arguments=(rho,nu), 
         expr=integral(annulus, rho*nu)
     )
@@ -222,54 +188,6 @@ def assemble_mass_matrices(derham: Derham, derham_h: DiscreteDerham, annulus_h :
     )
 
     # Discretize the inner products and convert to scipy COO-matrix
-    l2_inner_product_V2h = discretize(l2_inner_product_V2, annulus_h, 
-                                      spaces=[derham_h.V2, derham_h.V2])
-    l2_inner_product_V1h = discretize(l2_inner_product_V1, annulus_h, 
-                                      spaces=[derham_h.V1, derham_h.V1])
-    l2_inner_product_V0h = discretize(l2_inner_product_V0, annulus_h, 
-                                      spaces=[derham_h.V0, derham_h.V0])
-    assert isinstance(l2_inner_product_V2h, DiscreteBilinearForm)
-    assert isinstance(l2_inner_product_V1h, DiscreteBilinearForm)
-    assert isinstance(l2_inner_product_V0h, DiscreteBilinearForm)
-    M0 = l2_inner_product_V0h.assemble().tosparse()
-    M1 = l2_inner_product_V1h.assemble().tosparse()
-    M2 = l2_inner_product_V2h.assemble().tosparse()
-    return M0,M1,M2
-
-def assemble_mass_matrices_general(derham: Derham, derham_h: DiscreteDerham, domain_h : Geometry
-                           ) -> Tuple[coo_matrix]:
-    """
-    Assemble the mass matrices of the spaces a discrete de Rham sequence
-    of length 2 on an annulus
-
-    Parameters
-    ----------
-    derham : Derham
-        Symbolic de Rham sequence of length 2
-    derham_h : DiscreteDerham
-        Discrete de Rham sequence of length 2
-    ???
-    Returns
-    -------
-    Tuple[coo_matrix]
-        Mass matrices in Scipy COO-format
-    """
-    # Define symbolic L2 inner products
-    u, v = top.elements_of(derham.V1, names='u, v')
-    rho, nu = top.elements_of(derham.V2, names='rho nu')
-    domain = domain_h.domain
-    l2_inner_product_V2 = BilinearForm(arguments=(rho,nu), 
-        expr=integral(domain, rho*nu)
-    )
-    l2_inner_product_V1 = BilinearForm(arguments=(u,v), 
-        expr=integral(domain, dot(u,v))
-    )
-    sigma, tau = top.elements_of(derham.V0, names='sigma, tau')
-    l2_inner_product_V0 = BilinearForm(arguments=(sigma,tau), 
-        expr=integral(domain, sigma*tau)
-    )
-
-    # Discretize the inner products and convert to scipy COO-matrix
     l2_inner_product_V2h = discretize(l2_inner_product_V2, domain_h, 
                                       spaces=[derham_h.V2, derham_h.V2])
     l2_inner_product_V1h = discretize(l2_inner_product_V1, domain_h, 
@@ -279,10 +197,58 @@ def assemble_mass_matrices_general(derham: Derham, derham_h: DiscreteDerham, dom
     assert isinstance(l2_inner_product_V2h, DiscreteBilinearForm)
     assert isinstance(l2_inner_product_V1h, DiscreteBilinearForm)
     assert isinstance(l2_inner_product_V0h, DiscreteBilinearForm)
-    M0 = l2_inner_product_V0h.assemble().tosparse()
-    M1 = l2_inner_product_V1h.assemble().tosparse()
-    M2 = l2_inner_product_V2h.assemble().tosparse()
+    M0 = l2_inner_product_V0h.assemble().tosparse().tocoo()
+    M1 = l2_inner_product_V1h.assemble().tosparse().tocoo()
+    M2 = l2_inner_product_V2h.assemble().tosparse().tocoo()
     return M0,M1,M2
+
+# def assemble_mass_matrices_general(derham: Derham, derham_h: DiscreteDerham, domain_h : Geometry
+#                            ) -> Tuple[coo_matrix]:
+#     """
+#     Assemble the mass matrices of the spaces a discrete de Rham sequence
+#     of length 2 on an annulus
+
+#     Parameters
+#     ----------
+#     derham : Derham
+#         Symbolic de Rham sequence of length 2
+#     derham_h : DiscreteDerham
+#         Discrete de Rham sequence of length 2
+#     ???
+#     Returns
+#     -------
+#     Tuple[coo_matrix]
+#         Mass matrices in Scipy COO-format
+#     """
+#     # Define symbolic L2 inner products
+#     u, v = top.elements_of(derham.V1, names='u, v')
+#     rho, nu = top.elements_of(derham.V2, names='rho nu')
+#     domain = domain_h.domain
+#     l2_inner_product_V2 = BilinearForm(arguments=(rho,nu), 
+#         expr=integral(domain, rho*nu)
+#     )
+#     l2_inner_product_V1 = BilinearForm(arguments=(u,v), 
+#         expr=integral(domain, dot(u,v))
+#     )
+#     sigma, tau = top.elements_of(derham.V0, names='sigma, tau')
+#     l2_inner_product_V0 = BilinearForm(arguments=(sigma,tau), 
+#         expr=integral(domain, sigma*tau)
+#     )
+
+#     # Discretize the inner products and convert to scipy COO-matrix
+#     l2_inner_product_V2h = discretize(l2_inner_product_V2, domain_h, 
+#                                       spaces=[derham_h.V2, derham_h.V2])
+#     l2_inner_product_V1h = discretize(l2_inner_product_V1, domain_h, 
+#                                       spaces=[derham_h.V1, derham_h.V1])
+#     l2_inner_product_V0h = discretize(l2_inner_product_V0, domain_h, 
+#                                       spaces=[derham_h.V0, derham_h.V0])
+#     assert isinstance(l2_inner_product_V2h, DiscreteBilinearForm)
+#     assert isinstance(l2_inner_product_V1h, DiscreteBilinearForm)
+#     assert isinstance(l2_inner_product_V0h, DiscreteBilinearForm)
+#     M0 = l2_inner_product_V0h.assemble().tosparse()
+#     M1 = l2_inner_product_V1h.assemble().tosparse()
+#     M2 = l2_inner_product_V2h.assemble().tosparse()
+#     return M0,M1,M2
 
 
 def solve_magnetostatic_pbm_J_direct_annulus(J : sympy.Expr, 
@@ -290,22 +256,37 @@ def solve_magnetostatic_pbm_J_direct_annulus(J : sympy.Expr,
                                     rhs_curve_integral: float,
                                     derham_h: DiscreteDerham,
                                     derham: Derham,
-                                    annulus_h: Geometry):
+                                    annulus_h: Geometry
+                                    ) -> np.ndarray:
     """
+    Solves the 2D magnetostatic problem with curve integral constraint on an annulus
+
+    Parameters
+    ----------
+    J: Scalar valued current source
+    psi_h: Discretized function for the curve integral constraint
+    rhs_curve_integral: Right hands side for the curve integral constraint
+    derham_h: Discretized curl-div de Rham sequence
+    derham: curl-div de Rham sequence
+    annulus_h: Discretized annulus domain
+
+    Returns
+    -------
+    Coefficients of the approximated magnetic field
+
+    References
+    ----------
+    See Alexander Hoffmann's masters thesis "The magnetostatic problem on 
+    exterior domains" (2023)
     """
 
     # Compute the discrete differential operators, mass matrices and projection 
     # matrices
     matrices = _Matrices()
     D0_block_operator, D1_block_operator = derham_h.derivatives_as_matrices
-    matrices.D0 = D0_block_operator.tosparse()
-    matrices.D1 = D1_block_operator.tosparse()
-    assert isinstance(matrices.D0, coo_matrix)
-    assert isinstance(matrices.D1, coo_matrix)
+    matrices.D0 = D0_block_operator.tosparse().tocoo()
+    matrices.D1 = D1_block_operator.tosparse().tocoo()
     matrices.M0, matrices.M1, matrices.M2 = assemble_mass_matrices(derham, derham_h, annulus_h)
-    assert isinstance(matrices.M0, coo_matrix)
-    assert isinstance(matrices.M1, coo_matrix)
-    assert isinstance(matrices.M2 , coo_matrix)
     matrices.P0h = projection_matrix_H1_homogeneous_bc(derham_h.V0)
     matrices.P1h = projection_matrix_Hdiv_homogeneous_bc(derham_h.V1)
     assert isinstance(matrices.P0h, lil_matrix)
@@ -363,8 +344,29 @@ def solve_magnetostatic_pbm_J_direct_with_bc(J : sympy.Expr,
                                     boundary_data: FemField,
                                     derham_h: DiscreteDerham,
                                     derham: Derham,
-                                    domain_h: Geometry):
+                                    domain_h: Geometry
+                                    ) -> np.ndarray:
     """
+    Solves the 2D magnetostatic problem with curve integral constraint on an annulus
+    with non-homogeneous boundary conditions
+
+    Parameters
+    ----------
+    J: Scalar valued current source
+    psi_h: Discretized function for the curve integral constraint
+    rhs_curve_integral: Right hands side for the curve integral constraint
+    derham_h: Discretized curl-div de Rham sequence
+    derham: curl-div de Rham sequence
+    annulus_h: Discretized annulus domain
+
+    Returns
+    -------
+    Coefficients of the approximated magnetic field
+
+    References
+    ----------
+    See Alexander Hoffmann's masters thesis "The magnetostatic problem on 
+    exterior domains" (2023)
     """
     # Compute the discrete differential operators, mass matrices and projection 
     # matrices
@@ -431,7 +433,7 @@ def solve_magnetostatic_pbm_J_direct_with_bc(J : sympy.Expr,
     rhs = np.concatenate((-J_h_array + matrices.D0_h.transpose() @ matrices.M1 @ B_boundary_coeffs, 
                           boundary_rhs, 
                           curve_integral_rhs_arr - curl_psi_h_mat.transpose() @ matrices.M1 @ B_boundary_coeffs))
-    A_mat = A_mat.tocsr() # Why is this not transforming into a CSR matrix?
+    A_mat = A_mat.tocsr() 
     sol = spsolve(A_mat, rhs)
     B_0 = sol[derham_h.V0.nbasis:-1]
     B = B_0 + B_boundary_coeffs

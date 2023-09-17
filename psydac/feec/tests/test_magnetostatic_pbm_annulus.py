@@ -1,43 +1,37 @@
-import logging
+"""
+Test the solution of the magnetostatic problem with curve integral constraint in 2D
 
-from psydac.cad.geometry import Geometry
-from psydac.fem.basic              import FemField
-from psydac.feec.global_projectors import Projector_H1, Projector_Hdiv
-from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_annulus
-from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_with_bc
-# from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_distorted_annulus
-from psydac.feec.pull_push         import pull_2d_hdiv
+The problem and method are described in Part 2 of Alexander Hoffmann's masters thesis "The magnetostatic problem on
+exterior domains" (2023)
+"""
 
+import  logging
+import  numpy as np
+import  sympy
+from    typing import Tuple
 
-import numpy as np
-import sympy
-from typing import Tuple
-
-from sympde.topology  import Derham, Square, PolarMapping
-from sympde.topology.domain import Domain, Union
-from sympde.topology.mapping import Mapping
-
-
-from psydac.api.discretization import discretize
-from psydac.api.feec import DiscreteDerham
-from psydac.api.fem  import DiscreteLinearForm
-from psydac.api.postprocessing import OutputManager, PostProcessManager
-from psydac.fem.basic import FemField
-from psydac.fem.vector import VectorFemSpace
-from psydac.linalg.utilities import array_to_psydac
-from psydac.linalg.stencil import StencilVector
-
-from sympde.calculus      import grad, dot
-from sympde.expr import LinearForm, integral
-import sympde.topology as top
-import numpy as np
-
-from psydac.fem.basic             import FemField
-from psydac.fem.vector import VectorFemSpace
-
-from sympde.topology.domain       import Domain
-
+from psydac.api.discretization  import discretize
+from psydac.api.feec            import DiscreteDerham
+from psydac.api.fem             import DiscreteLinearForm
+from psydac.api.postprocessing  import OutputManager, PostProcessManager
+from psydac.cad.geometry        import Geometry
+from psydac.fem.basic           import FemField
 from psydac.fem.tests.get_integration_function import solve_poisson_2d_annulus
+from psydac.fem.vector          import VectorFemSpace
+from psydac.feec.global_projectors                  import Projector_H1, Projector_Hdiv
+from psydac.feec.tests.magnetostatic_pbm_annulus    import solve_magnetostatic_pbm_J_direct_annulus
+from psydac.feec.tests.magnetostatic_pbm_annulus    import solve_magnetostatic_pbm_J_direct_with_bc
+from psydac.feec.pull_push      import pull_2d_hdiv
+from psydac.linalg.utilities    import array_to_psydac
+from psydac.linalg.stencil      import StencilVector
+
+from sympde.calculus            import grad, dot
+from sympde.expr                import LinearForm, integral
+from sympde.topology            import Derham, Square, PolarMapping
+from sympde.topology.domain     import Domain, Union
+from sympde.topology.mapping    import Mapping
+import sympde.topology as top
+
 
 def _create_domain_and_derham() -> Tuple[Domain, Derham]:
     """ Creates domain and de Rham sequence on annulus with rmin=1. and rmax=2."""
@@ -55,7 +49,11 @@ def _create_domain_and_derham() -> Tuple[Domain, Derham]:
     return annulus, derham
 
 def _compute_curve_integral_rhs(derham, annulus, J, annulus_h, derham_h, 
-                                psi_h, c_0):
+                                psi_h, c_0) -> float:
+    """
+    Computes the right hand side of the curve integral constraint (C_1 in the thesis)
+    for the final system
+    """
     sigma, tau = top.elements_of(derham.V0, names='sigma tau')
     inner_prod_J = LinearForm(tau, integral(annulus, J*tau))
     inner_prod_J_h : DiscreteLinearForm = discretize(inner_prod_J, annulus_h, space=derham_h.V0)
@@ -68,6 +66,10 @@ def _compute_curve_integral_rhs(derham, annulus, J, annulus_h, derham_h,
     return curve_integral_rhs
 
 def test_solve_J_direct_annulus_with_poisson_psi():
+    """
+    Solution on annulus with rmin=1 and rmax=2 with psi as solution of 
+    Laplace problem with J coming from the manufactured solution approach
+    """
     N1 = 8
     N2 = 8
     ncells = [N1,N2]
@@ -132,6 +134,10 @@ def test_solve_J_direct_annulus_with_poisson_psi():
     assert abs( B_h_eval[0][1][2,1] - (0.75-1)**2 * (0.75+1)) < 0.01
 
 def test_solve_J_direct_annulus_inner_curve():
+    """ 
+    Solution on annulus with rmin=1 and rmax=2 with J coming 
+    from the manufactured solution approach and Gamma being the circle with rmin=1.5
+    """
     annulus, derham = _create_domain_and_derham()
 
     N1 = 8
@@ -198,7 +204,11 @@ def test_solve_J_direct_annulus_inner_curve():
     assert abs( B_h_eval[0][1][1,0] - (0.5-1)**2 * (0.5+1)) < 0.01
     assert abs( B_h_eval[0][1][2,1] - (0.75-1)**2 * (0.75+1)) < 0.01
 
-def _compute_rhs_inner_curve(N1, N2, psi, J, c_0):
+def _compute_rhs_inner_curve(N1, N2, psi, J, c_0) -> float: 
+    """
+    Computes the right hand side of the curve integral constraint (C_1 in the thesis)
+    for the final system when Gamma is the circle with radius 1.5
+    """
     # Define Omega_Gamma and psi_h
     logical_domain_gamma = Square(name='logical_domain_gamma', bounds1=(0,0.5), bounds2=(0,2*np.pi))
     boundary_logical_domain_gamma = Union(logical_domain_gamma.get_boundary(axis=0, ext=-1),
@@ -241,7 +251,16 @@ def _compute_rhs_inner_curve(N1, N2, psi, J, c_0):
     rhs_curve_integral = c_0 + np.dot(inner_prod_J_h_vec, psi_h_gamma_coeffs)
     return rhs_curve_integral
 
-def _compute_solution_annulus_inner_curve(N1, N2, p, does_plot_psi, does_plot, J, c_0):
+def _compute_solution_annulus_inner_curve(N1, N2, p, does_plot_psi, does_plot, J, c_0
+                                          ) -> Tuple[Derham, 
+                                                     DiscreteDerham, 
+                                                     Domain, 
+                                                     Geometry, 
+                                                     FemField]:
+    """
+    Returns the de Rham sequence and domain in symbolic and discrete form and the solution 
+    on the annulus domain with rmin=1 and rmax=2. Gamma is the circle with radius 1.5
+    """
     annulus, derham = _create_domain_and_derham()
     ncells = [N1,N2]
     annulus_h = discretize(annulus, ncells=ncells, periodic=[False, True])
@@ -293,6 +312,9 @@ def _compute_solution_annulus_inner_curve(N1, N2, p, does_plot_psi, does_plot, J
 
 
 def test_biot_savart():
+    """
+    Biot-Savart solution on annulus with wire equal to z-axis
+    """
     N1 = 8
     N2 = 8
 
@@ -310,6 +332,9 @@ def test_biot_savart():
     assert abs( B_h_eval[0][1][2,1] - 2/(1+0.75)) < 0.01
 
 def test_constant_one():
+    """
+    Manufactured solution for B=(1,1) on annulus with rmin=1 and rmax=2
+    """
     annulus, derham = _create_domain_and_derham()
     N1 = 16
     N2 = 16
@@ -369,6 +394,9 @@ def test_constant_one():
     assert abs( B_h_eval[0][0][2,1] - (0.75+1) * (np.sin(np.pi)+np.cos(np.pi))) < 0.03
 
 class DistortedPolarMapping(Mapping):
+    """
+    Mapping leading to the distorted annulus domain (see reference at beginning of the file)
+    """
     _expressions = {'x': '3.0*(x1 + 1)*cos(x2)*(cos(x2)**2+1)',
                     'y': '(x1 + 1)*sin(x2)*(cos(x2)**2+1)'}
 
@@ -376,6 +404,9 @@ class DistortedPolarMapping(Mapping):
     _pdim        = 2
 
 def _create_distorted_annulus_and_derham() -> Tuple[Domain, Derham]:
+    """
+    Returns distorted annlus domain and the corresponding de Rham sequence
+    """
     logical_domain = Square(name='logical_domain', bounds1=(0,1), bounds2=(0,2*np.pi))
     boundary_logical_domain = Union(logical_domain.get_boundary(axis=0, ext=-1),
                                     logical_domain.get_boundary(axis=0, ext=1))
@@ -389,6 +420,11 @@ def _create_distorted_annulus_and_derham() -> Tuple[Domain, Derham]:
     return domain, derham
 
 def _compute_rhs_distorted_inner_curve(N1, N2, psi, J, c_0, distorted_polar_mapping):
+    """
+    Computes the right hand side of the curve integral constraint (C_1 in the thesis)
+    for the distorted annulus domain
+    """
+
     # Compute psi_h on Omega_Gamma
     logical_domain_gamma = Square(name='logical_domain_gamma', bounds1=(0,0.5), bounds2=(0,2*np.pi))
     boundary_logical_domain_gamma = Union(logical_domain_gamma.get_boundary(axis=0, ext=-1),
@@ -420,6 +456,10 @@ def _compute_rhs_distorted_inner_curve(N1, N2, psi, J, c_0, distorted_polar_mapp
 
 
 def test_magnetostatic_pbm_annuluslike():
+    """
+    Biot-Savart solution on distorted annulus domain
+    """
+
     domain, derham = _create_distorted_annulus_and_derham()
     N1 = 16
     N2 = 16
