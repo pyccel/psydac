@@ -777,12 +777,14 @@ class ComposedLinearOperator(LinearOperator):
 
         x = v
         for i in range(len(self._tmp_vectors)):
+            x.update_ghost_regions()
             y = self._tmp_vectors[-1-i]
             A = self._multiplicants[-1-i]
             A.dot(x, out=y)
             x = y
 
         A = self._multiplicants[0]
+        x.update_ghost_regions()
         if out is not None:
 
             A.dot(x, out=out)
