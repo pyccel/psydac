@@ -268,10 +268,9 @@ class BasisProjectionOperator(LinearOperator):
                         _ptsG, _wtsG, _spans, _bases, _spans_ff, _bases_ff, _npt_pts = preproc_grid[i][j]
 
                     else : 
-                        print("yes")
                         _ptsG, _wtsG, _spans, _bases, _spans_ff, _bases_ff, _npt_pts = \
                             prepare_projection_of_basis_ff(V1d, W1d, Vfd, _starts_out, _ends_out, nq)
-                    print(_ptsG)
+                    
                     _ptsG = [pts.flatten() for pts in _ptsG]
                     _Vnbases = [space.nbasis for space in V1d]
                     f_coeffs = f.coeffs._data
