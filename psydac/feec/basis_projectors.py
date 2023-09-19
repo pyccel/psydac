@@ -135,6 +135,13 @@ class BasisProjectionOperator(LinearOperator):
         """
         return self._dof_operator
 
+    def update_fun(self, fun):
+        self._fun = fun
+        self._dof_operator = BasisProjectionOperator.assemble_mat(
+            self._P, self._V, fun, self._preproc_grid)
+        if self._transposed:
+            self._dof_operator = self._dof_operator.transpose()
+
     def dot(self, v, out=None):
         """
         Applies the basis projection operator to the FE coefficients v.
