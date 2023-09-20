@@ -299,8 +299,7 @@ def test_poisson_2d_4_patch_dirichlet_0():
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
-    print("haha")
-test_poisson_2d_4_patch_dirichlet_0()
+
 ###############################################################################
 #            PARALLEL TESTS
 ###############################################################################
@@ -385,50 +384,50 @@ def teardown_function():
     from sympy.core import cache
     cache.clear_cache()
 
-#if __name__ == '__main__':
+if __name__ == '__main__':
 
-#    from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
-#    from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
-#    from collections                               import OrderedDict
+    from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
+    from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
+    from collections                               import OrderedDict
 
-#    domain    = build_pretzel()
-#    x,y       = domain.coordinates
-#    solution  = x**2 + y**2
-#    f         = -4
+    domain    = build_pretzel()
+    x,y       = domain.coordinates
+    solution  = x**2 + y**2
+    f         = -4
 
-#    l2_error, h1_error, u_h = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
+    l2_error, h1_error, u_h = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-#    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
 
-#    mappings_list = list(mappings.values())
-#    mappings_list = [mapping.get_callable_mapping() for mapping in mappings_list]
+    mappings_list = list(mappings.values())
+    mappings_list = [mapping.get_callable_mapping() for mapping in mappings_list]
 
-#    from sympy import lambdify
-#    u_ex = lambdify(domain.coordinates, solution)
-#    f_ex = lambdify(domain.coordinates, f)
-#    F    = [f.get_callable_mapping() for f in mappings_list]
+    from sympy import lambdify
+    u_ex = lambdify(domain.coordinates, solution)
+    f_ex = lambdify(domain.coordinates, f)
+    F    = [f.get_callable_mapping() for f in mappings_list]
 
-#    u_ex_log = [lambda xi1, xi2,ff=f : u_ex(*ff(xi1,xi2)) for f in F]
+    u_ex_log = [lambda xi1, xi2,ff=f : u_ex(*ff(xi1,xi2)) for f in F]
 
-#    N=20
-#    etas, xx, yy = get_plotting_grid(mappings, N)
-#    gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(u_h.space, N, mappings, plotted_patch=1)
+    N=20
+    etas, xx, yy = get_plotting_grid(mappings, N)
+    gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(u_h.space, N, mappings, plotted_patch=1)
 
-#    grid_vals_h1 = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='h1')
+    grid_vals_h1 = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='h1')
 
-#    u_ref_vals = grid_vals_h1(u_ex_log)
-#    u_h_vals   = grid_vals_h1(u_h)
-#    u_err      = [abs(uir - uih) for uir, uih in zip(u_ref_vals, u_h_vals)]
+    u_ref_vals = grid_vals_h1(u_ex_log)
+    u_h_vals   = grid_vals_h1(u_h)
+    u_err      = [abs(uir - uih) for uir, uih in zip(u_ref_vals, u_h_vals)]
 
-#    my_small_plot(
-#        title=r'Solution of Poisson problem $\Delta \phi = f$',
-#        vals=[u_ref_vals, u_h_vals, u_err],
-#        titles=[r'$\phi^{ex}(x,y)$', r'$\phi^h(x,y)$', r'$|(\phi-\phi^h)(x,y)|$'],
-#        xx=xx, yy=yy,
-#        gridlines_x1=gridlines_x1,
-#        gridlines_x2=gridlines_x2,
-#        surface_plot=True,
-#        cmap='jet',
-#    )
+    my_small_plot(
+        title=r'Solution of Poisson problem $\Delta \phi = f$',
+        vals=[u_ref_vals, u_h_vals, u_err],
+        titles=[r'$\phi^{ex}(x,y)$', r'$\phi^h(x,y)$', r'$|(\phi-\phi^h)(x,y)|$'],
+        xx=xx, yy=yy,
+        gridlines_x1=gridlines_x1,
+        gridlines_x2=gridlines_x2,
+        surface_plot=True,
+        cmap='jet',
+    )
 
 

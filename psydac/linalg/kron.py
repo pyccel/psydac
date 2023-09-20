@@ -380,16 +380,22 @@ class KroneckerInterfaceDenseMatrix(LinearOperator):
 
     def tosparse(self, **kwargs):
         mats = [m[p:-p,p:-p] for m,p in zip(self.mats, self.domain.pads)]
-        shape = (self.domain.shape[self._axis], self.domain.shape[self._axis])
+        shape = (self.codomain.shape[self._axis]-2*self.codomain.pads[self._axis],
+                 self.domain.shape[self._axis]-2*self.domain.pads[self._axis])
+
         mat = np.zeros(shape)
+        domain = self.domain.interfaces[self._axis, self._ext]
+        size = domain.shape[self._axis]-2*domain.pads[self._axis]
         if self._ext == -1:
-            for i in range(self.domain.interfaces[self._axis, self._ext].shape[self._axis])
+            for i in range(size):
                 mat[i,i] = 1.
         elif self._ext == 1:
-            for i in range(self.domain.interfaces[self._axis, self._ext].shape[self._axis])
+            for i in range(size):
                 mat[-i-1,-i-1] = 1.
+
         mats.insert(self._axis, mat)
-        return coo_matrix(reduce(kron, mats)))
+        mat = reduce(kron, mats)
+        return coo_matrix(mat)
 
     def toarray(self):
         return reduce(kron, (m[p:-p,p:-p] for m,p in zip(self.mats, self.domain.pads)))
