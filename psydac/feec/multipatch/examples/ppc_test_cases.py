@@ -102,7 +102,12 @@ def get_Gaussian_beam(x_0, y_0, domain=None):
     return Tuple(E, 0), B
 
 def get_Gaussian_beam2(x_0, y_0, domain=None):
-    # return E = cos(k*x) exp( - x^2 + y^2 / 2 sigma^2) v
+    """ 
+    Gaussian beam
+    Beam inciding from the left, centered and normal to wall:
+        x: axial normalized distance to the beam's focus
+        y: radial normalized distance to the center axis of the beam
+    """
     x,y    = domain.coordinates
 
 
@@ -113,11 +118,8 @@ def get_Gaussian_beam2(x_0, y_0, domain=None):
 
     t = [(x-x0)*cos(theta) - (y - y0) * sin(theta), (x-x0)*sin(theta) + (y-y0) * cos(theta)]
 
-    ## Gaussian beam
-    '''Beam inciding from the left, centered and normal to wall:
-        x: axial normalized distance to the beam's focus
-        y: radial normalized distance to the center axis of the beam
-    '''
+    
+    
     EW0 = 1.0  # amplitude at the waist
     k0 = 2 * pi # free-space wavenumber
 

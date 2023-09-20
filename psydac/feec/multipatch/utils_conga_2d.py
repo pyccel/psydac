@@ -192,7 +192,7 @@ def get_Vh_diags_for(v=None, v_ref=None, M_m=None, print_diags=True, msg='error 
     return diags
 
 
-def write_diags_to_file(diags, script_filename, diag_filename, params={}):
+def write_diags_to_file(diags, script_filename, diag_filename, params=None):
     print(' -- writing diags to file {} --'.format(diag_filename))
     if not os.path.exists(diag_filename):
         open(diag_filename, 'w')

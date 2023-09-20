@@ -484,9 +484,6 @@ def solve_td_maxwell_pbm(*,
 
     # f0_c = np.zeros(V1h.nbasis)
 
-    def source_enveloppe(tau):        
-        return 1
-
     if source_omega is not None:
         f0_harmonic = f0
         f0 = None
@@ -494,6 +491,9 @@ def solve_td_maxwell_pbm(*,
             # use source enveloppe for smooth transition from 0 to 1
             def source_enveloppe(tau):        
                 return (special.erf((tau/25)-2)-special.erf(-2))/2
+        else:
+            def source_enveloppe(tau):        
+                return 1
 
     t_stamp = time_count(t_stamp)
     tilde_f0_c = f0_c = None

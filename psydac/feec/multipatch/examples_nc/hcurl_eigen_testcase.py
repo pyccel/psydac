@@ -116,9 +116,13 @@ else:
 case_dir = 'eigenpbm_'+operator+'_'+method
 ref_case_dir = case_dir
 
-cb_min_sol = None
-cb_max_sol = None
-
+ref_sigmas = None
+sigma = None
+nb_eigs_solve = None 
+nb_eigs_plot = None
+skip_eigs_threshold = None
+diags = None
+eigenvalues = None
 
 if domain_name == 'refined_square':
     assert domain == [[0, np.pi],[0, np.pi]]
