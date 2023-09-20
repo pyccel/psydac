@@ -125,7 +125,7 @@ class ConjugateGradient(InverseLinearOperator):
         self._solver = 'cg'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
-        self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "lp", "lv")}
+        self._tmps = {key: domain.zeros() for key in ("v", "r", "p")}
         self._info = None
 
     def _check_options(self, **kwargs):
@@ -205,9 +205,6 @@ class ConjugateGradient(InverseLinearOperator):
         v = self._tmps["v"]
         r = self._tmps["r"]
         p = self._tmps["p"]
-        # Not strictly needed by the conjugate gradient, but necessary to avoid temporaries
-        lp = self._tmps["lp"]
-        lv = self._tmps["lv"]
 
         # First values
         A.dot(x, out=v)
@@ -233,12 +230,10 @@ class ConjugateGradient(InverseLinearOperator):
                 break
             A.dot(p, out=v)
             l   = am / v.dot(p)
-            p.copy(out=lp)
-            lp *= l
-            x  += lp # this was x += l*p
-            v.copy(out=lv)
-            lv *= l
-            r  -= lv # this was r -= l*v
+
+            x.mul_iadd(l, p)  # this is x += l*p
+            r.mul_iadd(-l, v) # this is r -= l*v
+
             am1 = r.dot(r).real
             p  *= (am1/am)
             p  += r
@@ -313,8 +308,8 @@ class PConjugateGradient(InverseLinearOperator):
         self._solver = 'pcg'
         self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
-        tmps_codomain = {key: codomain.zeros() for key in ("p", "s", "lp")}
-        tmps_domain = {key: domain.zeros() for key in ("v", "r", "lv")}
+        tmps_codomain = {key: codomain.zeros() for key in ("p", "s")}
+        tmps_domain = {key: domain.zeros() for key in ("v", "r")}
         self._tmps = {**tmps_codomain, **tmps_domain}
         self._info = None
 
@@ -409,9 +404,6 @@ class PConjugateGradient(InverseLinearOperator):
         r = self._tmps["r"]
         p = self._tmps["p"]
         s = self._tmps["s"]
-        # Not strictly needed by the conjugate gradient, but necessary to avoid temporaries
-        lp = self._tmps["lp"]
-        lv = self._tmps["lv"]
 
         # First values
         A.dot(x, out=v)
@@ -441,19 +433,19 @@ class PConjugateGradient(InverseLinearOperator):
 
             v  = A.dot(p, out=v)
             l  = am / v.dot(p)
-            p.copy(out=lp)
-            lp *= l
-            x  += lp # this was x += l*p
-            v.copy(out=lv)
-            lv *= l
-            r  -= lv # this was r -= l*v
+
+            x.mul_iadd(l, p) # this is x += l*p
+            r.mul_iadd(-l, v) # this is r -= l*v
 
             nrmr_sqr = r.dot(r).real
             psolve(r, out=s)
 
             am1 = s.dot(r)
-            p  *= (am1/am)
-            p  += s
+
+            # we are computing p = (am1 / am) * p + s by using axpy on s and exchanging the arrays
+            s.mul_iadd((am1/am), p)
+            s, p = p, s
+
             am  = am1
 
             if verbose:
@@ -640,8 +632,6 @@ class BiConjugateGradient(InverseLinearOperator):
             #-----------------------
             A.dot(p, out=v)
             Ah.dot(ps, out=vs)
-            #v  = A.dot(p , out=v) # overwriting v, then saving in v. Necessary?
-            #vs = At.dot(ps, out=vs) # same story
             #-----------------------
 
             # c := (rs, r)
@@ -654,31 +644,28 @@ class BiConjugateGradient(InverseLinearOperator):
             # SOLUTION UPDATE
             #-----------------------
             # x := x + a*p
-            p *= a
-            x += p
+            x.mul_iadd(a, p)
             #-----------------------
 
             # r := r - a*v
-            v *= a
-            r -= v
+            r.mul_iadd(-a, v)
 
             # rs := rs - conj(a)*vs
-            vs *= a.conj()
-            rs -= vs
+            rs.mul_iadd(-a.conjugate(), vs)
+
+            # ||r||_2 := (r, r)
+            res_sqr = r.dot(r).real
 
             # b := (rs, r)_{m+1} / (rs, r)_m
             b = rs.dot(r) / c
 
             # p := r + b*p
-            p *= (b/a) # *= (b/a) why a? or update description
+            p *= b
             p += r
 
             # ps := rs + conj(b)*ps
             ps *= b.conj()
             ps += rs
-
-            # ||r||_2 := (r, r)
-            res_sqr = r.dot(r).real
 
             if verbose:
                 print( template.format(m, sqrt(res_sqr)) )
@@ -746,7 +733,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         self._solver = 'bicgstab'
         self._options = {"x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose}
         self._check_options(**self._options)
-        self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vs", "r0", "s")}
+        self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vr", "r0")}
         self._info = None
 
     def _check_options(self, **kwargs):
@@ -834,9 +821,8 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         v = self._tmps["v"]
         r = self._tmps["r"]
         p = self._tmps["p"]
-        vs = self._tmps["vs"]
+        vr = self._tmps["vr"]
         r0 = self._tmps["r0"]
-        s = self._tmps["s"]
 
         # First values
         A.dot(x, out=v)
@@ -845,11 +831,9 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         #r = b - A.dot(x)
         r.copy(out=p)
         v *= 0.0
-        vs *= 0.0
+        vr *= 0.0
 
         r.copy(out=r0)
-        r.copy(out=s)
-        s *= 0.0
 
         res_sqr = r.dot(r).real
         tol_sqr = tol ** 2
@@ -880,34 +864,25 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             # a := (r0, r) / (r0, v)
             a = c / (r0.dot(v))
 
-            # s := r - a*v
-            s *= 0
-            v *= a
-            s += r
-            s -= v
+            # r := r - a*v
+            r.mul_iadd(-a, v)
 
-            # vs :=  A*s
-            vs = A.dot(s, out=vs)
+            # vr :=  A*r
+            vr = A.dot(r, out=vr)
 
-            # w := (s, A*s) / (A*s, A*s)
-            w = s.dot(vs) / vs.dot(vs)
+            # w := (r, A*r) / (A*r, A*r)
+            w = r.dot(vr) / vr.dot(vr)
 
             # -----------------------
             # SOLUTION UPDATE
             # -----------------------
-            # x := x + a*p +w*s
-            p *= a
-            s *= w
-            x += p
-            x += s
+            # x := x + a*p +w*r
+            x.mul_iadd(a, p)
+            x.mul_iadd(w, r)
             # -----------------------
 
-            # r := s - w*vs
-            vs *= w
-            s *= 1 / w
-            r *= 0
-            r += s
-            r -= vs
+            # r := r - w*A*r
+            r.mul_iadd(-w, vr)
 
             # ||r||_2 := (r, r)
             res_sqr = r.dot(r).real
@@ -919,10 +894,9 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             b = r0.dot(r) * a / (c * w)
 
             # p := r + b*p- b*w*v
-            v *= (b * w / a)
-            p *= (b / a)
-            p -= v
+            p *= b
             p += r
+            p.mul_iadd(-b * w, v)
 
             if verbose:
                 print(template.format(m, sqrt(res_sqr)))
@@ -1001,8 +975,7 @@ class MinimumResidual(InverseLinearOperator):
         self._solver = 'minres'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options)
-        self._tmps = {key: domain.zeros() for key in ("res1", "res2", "w", "w2", "yc",
-                      "v", "resc", "res2c", "ycc", "res1c", "wc", "w2c")}
+        self._tmps = {key: domain.zeros() for key in ("res_old", "res_new", "w_new", "w_work", "w_old", "v", "y")}
         self._info = None
 
     def _check_options(self, **kwargs):
@@ -1092,40 +1065,30 @@ class MinimumResidual(InverseLinearOperator):
 
         # Extract local storage
         v = self._tmps["v"]
-        w = self._tmps["w"]
-        w2 = self._tmps["w2"]
-        res1 = self._tmps["res1"]
-        res2 = self._tmps["res2"]
-        # auxiliary to minimzize temps, optimal solution until proven wrong
-        wc = self._tmps["wc"]
-        w2c = self._tmps["w2c"]
-        yc = self._tmps["yc"]
-        ycc = self._tmps["ycc"]
-        resc = self._tmps["resc"]
-        res1c = self._tmps["res1c"]
-        res2c = self._tmps["res2c"]
+        y = self._tmps["y"]
+        w_new = self._tmps["w_new"]
+        w_work = self._tmps["w_work"]
+        w_old = self._tmps["w_old"]
+        res_old = self._tmps["res_old"]
+        res_new = self._tmps["res_new"]
 
         istop = 0
         itn   = 0
-        Anorm = 0
-        Acond = 0
         rnorm = 0
-        ynorm = 0
 
         eps = np.finfo(b.dtype).eps
 
-        A.dot(x, out=res1)
-        res1 -= b
-        res1 *= -1.0
-        y  = res1
+        A.dot(x, out=y)
+        y -= b
+        y *= -1.0
+        y.copy(out=res_old)
 
-        beta = sqrt(res1.dot(res1))
+        beta = sqrt(res_old.dot(res_old))
 
         # Initialize other quantities
         oldb    = 0
         dbar    = 0
         epsln   = 0
-        qrnorm  = beta
         phibar  = beta
         rhs1    = beta
         rhs2    = 0
@@ -1134,11 +1097,10 @@ class MinimumResidual(InverseLinearOperator):
         gmin    = np.finfo(b.dtype).max
         cs      = -1
         sn      = 0
-        b.copy(out=w)
-        w *= 0.0
-        b.copy(out=w2)
-        w2 *= 0.0
-        res1.copy(out=res2)
+        w_new  *= 0.0
+        w_work *= 0.0
+        w_old *= 0.0
+        res_old.copy(out=res_new)
 
         if verbose:
             print( "MINRES solver:" )
@@ -1153,28 +1115,20 @@ class MinimumResidual(InverseLinearOperator):
             s = 1.0/beta
             y.copy(out=v)
             v *= s
-            A.dot(v, out=yc)
-            y = yc
+            A.dot(v, out=y)
 
             if itn >= 2:
-                res1 *= (beta/oldb)
-                y -= res1
+                y.mul_iadd(-(beta/oldb), res_old)
 
             alfa = v.dot(y)
-            res1 = res2
+            y.mul_iadd(-(alfa/beta), res_new)
 
-            res2.copy(out=resc)
-            resc *= (alfa/beta)
-            y.copy(out=ycc)
-            ycc -= resc
-            y = ycc
-            res1.copy(out=res1c)
-            res1 = res1c
-            y.copy(out=res2c)
-            res2 = res2c
+            # We put res_new in res_old and y in res_new
+            res_new, res_old = res_old, res_new
+            y.copy(out=res_new)
 
             oldb = beta
-            beta = sqrt(y.dot(y))
+            beta = sqrt(res_new.dot(res_new))
             tnorm2 += alfa**2 + oldb**2 + beta**2
 
             # Apply previous rotation Qk-1 to get
@@ -1187,7 +1141,6 @@ class MinimumResidual(InverseLinearOperator):
             epsln  = sn * beta                  # epsln2 = 0         epslnk+1
             dbar   = - cs * beta                # dbar 2 = beta2     dbar k+1
             root   = sqrt(gbar**2 + dbar**2)
-            Arnorm = phibar * root
 
             # Compute the next plane rotation Qk
 
@@ -1199,24 +1152,17 @@ class MinimumResidual(InverseLinearOperator):
             phibar = sn * phibar                 # phibark+1
 
             # Update  x.
-
             denom = 1.0/gamma
-            w1    = w2
-            w2    = w
 
-            w1.copy(out=yc)
-            yc *= oldeps
-            w2.copy(out=w2c)
-            w2.copy(out=wc)
-            w = wc
-            w2 = w2c
-            w *= delta
-            w += yc
-            w -= v
-            w *= -denom
-            w.copy(out=yc)
-            yc *= phi
-            x += yc
+            # We put w_old in w_work and w_new in w_old
+            w_work, w_old = w_old, w_work
+            w_new.copy(out=w_old)
+
+            w_new *= delta
+            w_new.mul_iadd(oldeps, w_work)
+            w_new -= v
+            w_new *= -denom
+            x.mul_iadd(phi, w_new)
 
             # Go round again.
 
@@ -1230,12 +1176,6 @@ class MinimumResidual(InverseLinearOperator):
 
             Anorm = sqrt(tnorm2)
             ynorm = sqrt(x.dot(x))
-            epsa  = Anorm * eps
-            epsx  = Anorm * ynorm * eps
-            epsr  = Anorm * ynorm * tol
-            diag  = gbar
-
-            if diag == 0:diag = epsa
 
             rnorm  = phibar
             if ynorm == 0 or Anorm == 0:test1 = inf
@@ -1360,8 +1300,8 @@ class LSMR(InverseLinearOperator):
         self._check_options(**self._options)
         self._info = None
         self._successful = None
-        tmps_domain = {key: domain.zeros() for key in ("uh", "uc")}
-        tmps_codomain = {key: codomain.zeros() for key in ("v", "vh", "h", "hbar")}
+        tmps_domain = {key: domain.zeros() for key in ("u", "u_work")}
+        tmps_codomain = {key: codomain.zeros() for key in ("v", "v_work", "h", "hbar")}
         self._tmps = {**tmps_codomain, **tmps_domain}
 
     def get_success(self):
@@ -1463,13 +1403,13 @@ class LSMR(InverseLinearOperator):
         x = x0.copy(out=out)
 
         # Extract local storage
+        u = self._tmps["u"]
         v = self._tmps["v"]
         h = self._tmps["h"]
         hbar = self._tmps["hbar"]
         # Not strictly needed by the LSMR, but necessary to avoid temporaries
-        uh = self._tmps["uh"]
-        vh = self._tmps["vh"]
-        uc = self._tmps["uc"]
+        u_work = self._tmps["u_work"]
+        v_work = self._tmps["v_work"]
 
         if atol is None:atol = 1e-6
         if btol is None:btol = 1e-6
@@ -1477,17 +1417,15 @@ class LSMR(InverseLinearOperator):
             atol = tol
             btol = tol
 
-        u = b
+        b.copy(out=u)
         normb = sqrt(b.dot(b).real)
 
-        A.dot(x, out=uh)
-        u -= uh
+        A.dot(x, out=u_work)
+        u -= u_work
         beta = sqrt(u.dot(u).real)
 
         if beta > 0:
-            u.copy(out = uc)
-            uc *= (1 / beta)
-            u = uc
+            u *= (1 / beta)
             At.dot(u, out=v)
             alpha = sqrt(v.dot(v).real)
         else:
@@ -1525,9 +1463,6 @@ class LSMR(InverseLinearOperator):
         normA2  = alpha * alpha
         maxrbar = 0
         minrbar = 1e+100
-        normA   = sqrt(normA2)
-        condA   = 1
-        normx   = 0
 
         # Items for use in stopping rules, normb set earlier
         istop = 0
@@ -1536,7 +1471,6 @@ class LSMR(InverseLinearOperator):
         normr = beta
 
         # Reverse the order here from the original matlab code because
-        normar = alpha * beta
 
         if verbose:
             print( "LSMR solver:" )
@@ -1554,15 +1488,15 @@ class LSMR(InverseLinearOperator):
             #        alpha*v  =  A'*u  -  beta*v.
 
             u *= -alpha
-            A.dot(v, out=uh)
-            u += uh
+            A.dot(v, out=u_work)
+            u += u_work
             beta = sqrt(u.dot(u).real)
 
             if beta > 0:
                 u     *= (1 / beta)
                 v     *= -beta
-                At.dot(u, out=vh)
-                v     += vh
+                At.dot(u, out=v_work)
+                v     += v_work
                 alpha = sqrt(v.dot(v).real)
                 if alpha > 0:v *= (1 / alpha)
 
@@ -1594,9 +1528,7 @@ class LSMR(InverseLinearOperator):
             hbar *= - (thetabar * rho / (rhoold * rhobarold))
             hbar += h
 
-            hbar.copy(out=uh)
-            uh *= (zeta / (rho * rhobar))
-            x += uh
+            x.mul_iadd((zeta / (rho * rhobar)), hbar)
 
             h    *= - (thetanew / rho)
             h    += v
@@ -1743,7 +1675,7 @@ class GMRES(InverseLinearOperator):
         self._solver = 'gmres'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
         self._check_options(**self._options) 
-        self._tmps = {key: domain.zeros() for key in ("r", "p", "v", "lv")}
+        self._tmps = {key: domain.zeros() for key in ("r", "p")}
 
         # Initialize upper Hessenberg matrix
         self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]), dtype=A.dtype)
@@ -1824,7 +1756,7 @@ class GMRES(InverseLinearOperator):
         
         # Extract local storage
         r = self._tmps["r"]
-        v = self._tmps["v"]
+        p = self._tmps["p"]
 
         # Internal objects of GMRES
         self._H[:,:] = 0.
@@ -1859,7 +1791,7 @@ class GMRES(InverseLinearOperator):
                 break
 
             # run Arnoldi
-            self.arnoldi(k)
+            self.arnoldi(k, p)
 
             # make the last diagonal entry in H equal to 0, so that H becomes upper triangular
             self.apply_givens_rotation(k, sn, cn)
@@ -1878,9 +1810,7 @@ class GMRES(InverseLinearOperator):
         y = self.solve_triangular(self._H[:k, :k], beta[:k]) # system of upper triangular matrix
 
         for i in range(k):
-            self._Q[i].copy(out=v)
-            v *= y[i]
-            x += v
+            x.mul_iadd(y[i], self._Q[i])
 
         # Convergence information
         self._info = {'niter': k+1, 'success': am < tol, 'res_norm': am }
@@ -1900,19 +1830,13 @@ class GMRES(InverseLinearOperator):
         
         return y
 
-    def arnoldi(self, k):
+    def arnoldi(self, k, p):
         h = self._H[:k+2, k]
-
-        p = self._tmps["p"]
         self._A.dot( self._Q[k] , out=p) # Krylov vector
-
-        lv = self._tmps["lv"]
 
         for i in range(k + 1): # Modified Gram-Schmidt, keeping Hessenberg matrix
             h[i] = p.dot(self._Q[i])
-            self._Q[i].copy(out=lv)
-            lv *= h[i]
-            p -= lv
+            p.mul_iadd(-h[i], self._Q[i])
         
         h[k+1] = sqrt(p.dot(p).real)
         p /= h[k+1] # Normalize vector

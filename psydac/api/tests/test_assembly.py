@@ -294,7 +294,7 @@ def test_assemble_complex_parallel(backend):
     ar = BilinearForm((u, v), integral(domain, gr * u * v))
     lc = LinearForm(v, integral(domain, gc * v))
     lr = LinearForm(v, integral(domain, gr * v))
-    nr = Norm(1.0*v, domain, kind='l2')
+    nr = Norm(1.0 *v, domain, kind='l2')
     nc = Norm(1.0j*v, domain, kind='l2')
 
     ncells = (5, 5)
