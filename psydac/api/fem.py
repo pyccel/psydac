@@ -763,14 +763,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                         continue
 
                     if isinstance(test_fem_space, VectorFemSpace):
-                        ts_space = test_fem_space.get_refined_space(ncells_tests).vector_space.spaces[k1]
+                        ts_space = test_fem_space.get_refined_space(ncells_tests).spaces[k1]
                     else:
-                        ts_space = test_fem_space.get_refined_space(ncells_tests).vector_space
+                        ts_space = test_fem_space.get_refined_space(ncells_tests)
 
                     if isinstance(trial_fem_space, VectorFemSpace):
-                        tr_space = trial_fem_space.get_refined_space(ncells_trials).vector_space.spaces[k2]
+                        tr_space = trial_fem_space.get_refined_space(ncells_trials).spaces[k2]
                     else:
-                        tr_space = trial_fem_space.get_refined_space(ncells_trials).vector_space
+                        tr_space = trial_fem_space.get_refined_space(ncells_trials)
 
                     if is_conformal and matrix[k1, k2]:
                         global_mats[k1, k2] = matrix[k1, k2]
@@ -798,14 +798,18 @@ class DiscreteBilinearForm(BasicDiscrete):
                         flip = [direction]*domain.dim
                         flip[axis] = 1
                         if self._func != do_nothing:
-                            global_mats[k1, k2] = StencilInterfaceMatrix(tr_space, ts_space,
+                            extra_nr = max(ts_space.degree[axis]-tr_space.degree[axis], 0)
+                            global_mats[k1, k2] = StencilInterfaceMatrix(tr_space.vector_space,
+                                                                         ts_space.vector_space,
                                                                          s_d, s_c,
                                                                          axis, axis,
                                                                          ext_d, ext_c,
                                                                          pads=tuple(pads[k1, k2]),
+                                                                         extra_nr=extra_nr,
                                                                          flip=flip)
                     else:
-                        global_mats[k1, k2] = StencilMatrix(tr_space, ts_space, pads = tuple(pads[k1, k2]))
+                        global_mats[k1, k2] = StencilMatrix(tr_space.vector_space,
+                                                            ts_space.vector_space, pads = tuple(pads[k1, k2]))
 
                     if is_conformal:
                         matrix[k1, k2] = global_mats[k1, k2]
