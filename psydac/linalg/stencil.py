@@ -1835,11 +1835,12 @@ class StencilInterfaceMatrix(LinearOperator):
           Padding of the linear operator.
 
     """
-    def __init__(self, V, W, s_d, s_c, d_axis, c_axis, d_ext, c_ext, *, flip=None, pads=None, backend=None):
+    def __init__(self, V, W, s_d, s_c, d_axis, c_axis, d_ext, c_ext, *, extra_nr=0, flip=None, pads=None, backend=None):
 
         assert isinstance(V, StencilVectorSpace)
         assert isinstance(W, StencilVectorSpace)
         assert W.pads == V.pads
+        extra_nr = int(extra_nr)
 
         Vin = V.interfaces[d_axis, d_ext]
 
@@ -1886,17 +1887,16 @@ class StencilInterfaceMatrix(LinearOperator):
         self._ndim           = len(dims)
         self._backend        = None
 
-
         # Prepare the arguments for the dot product method
         nd = [(ej-sj+2*gp*mj-mj*p-gp)//mj*mi+1 for sj,ej,mj,mi,p,gp in zip(Vin.starts, Vin.ends, Vin.shifts, W.shifts, self._pads, Vin.pads)]
         nc = [ei-si+1 for si,ei,mj,p in zip(W.starts, W.ends, Vin.shifts, self._pads)]
-
         # Number of rows in matrix (along each dimension)
         nrows         = [min(ni,nj) for ni,nj  in zip(nc, nd)]
         nrows_extra   = [max(0,ni-nj) for ni,nj in zip(nc, nd)]
-        nrows_extra[c_axis] = max(W.npts[c_axis]-Vin.npts[c_axis], 0)
-        nrows[c_axis] = W.pads[c_axis] + 1-diff-nrows_extra[c_axis]
+        nrows_extra[c_axis] = extra_nr
+        #max(W.npts[c_axis]-Vin.npts[c_axis], 0)
 
+        nrows[c_axis] = W.pads[c_axis]+1-diff-nrows_extra[c_axis]
 
         args                = {}
         args['starts']      = tuple(Vin.starts)
@@ -1961,7 +1961,7 @@ class StencilInterfaceMatrix(LinearOperator):
             out = StencilVector( self.codomain )
 
         # Necessary if vector space is distributed across processes
-        if not v.ghost_regions_in_sync:
+        if not v.ghost_regions_in_sync and not v.space.parallel:
             v.update_ghost_regions()
 
         self._func(self._data, v._interface_data[self._domain_axis, self._domain_ext], out._data, **self._args)

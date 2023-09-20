@@ -235,9 +235,11 @@ def construct_interface_spaces(domain_decomposition, g_spaces, carts, interiors,
         g_spaces[interiors[i]].create_interface_space(axis_minus, ext_minus, cart=cart_minus)
         g_spaces[interiors[j]].create_interface_space(axis_plus , ext_plus , cart=cart_plus)
 
-        max_ncells = tuple(max(ni,nj) for ni,nj in zip(g_spaces[interiors[i]].ncells,g_spaces[interiors[j]].ncells))
-        cart_minus = g_spaces[interiors[i]].get_refined_space(max_ncells).vector_space.cart
-        cart_plus  = g_spaces[interiors[j]].get_refined_space(max_ncells).vector_space.cart
+        max_ncells_minus = tuple(max(ni,nj) if k!=axis_minus else ni for k,(ni,nj) in enumerate(zip(g_spaces[interiors[i]].ncells,g_spaces[interiors[j]].ncells)))
+        cart_minus = g_spaces[interiors[i]].get_refined_space(max_ncells_minus).vector_space.cart
+
+        max_ncells_plus = tuple(max(ni,nj) if k!=axis_plus else nj for k,(ni,nj) in enumerate(zip(g_spaces[interiors[i]].ncells,g_spaces[interiors[j]].ncells)))
+        cart_plus  = g_spaces[interiors[j]].get_refined_space(max_ncells_plus).vector_space.cart
         if isinstance(cart_minus, InterfaceCartDecomposition):
             cart = InterfaceCartDecomposition(cart_minus._cart_minus, cart_plus._cart_plus,
                                               cart_minus._comm, [axis_minus, axis_plus], [ext_minus, ext_plus],
@@ -251,9 +253,8 @@ def construct_interface_spaces(domain_decomposition, g_spaces, carts, interiors,
             cart_plus  = cart
             cart.set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
 
-        if any(nci!=ncj for nci,ncj in zip(max_ncells, g_spaces[interiors[i]].ncells)) or True:
-            g_spaces[interiors[i]].get_refined_space(max_ncells).create_interface_space(axis_minus, ext_minus, cart=cart_minus)
-            g_spaces[interiors[j]].get_refined_space(max_ncells).create_interface_space(axis_plus , ext_plus , cart=cart_plus)
+        g_spaces[interiors[i]].get_refined_space(max_ncells_minus).create_interface_space(axis_minus, ext_minus, cart=cart_minus)
+        g_spaces[interiors[j]].get_refined_space(max_ncells_plus).create_interface_space(axis_plus , ext_plus , cart=cart_plus)
 
 #------------------------------------------------------------------------------
 def construct_reduced_interface_spaces(spaces, reduced_spaces, interiors, connectivity):
@@ -315,9 +316,12 @@ def construct_reduced_interface_spaces(spaces, reduced_spaces, interiors, connec
                                                       [], reduce_elements=True)
 
                     cart.set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
-                    max_ncells = tuple(max(ni,nj) for ni,nj in zip(Vi.ncells,Vj.ncells))
-                    Vi.get_refined_space(max_ncells).create_interface_space(axis_i, ext_i, cart=cart)
-                    Vj.get_refined_space(max_ncells).create_interface_space(axis_j, ext_j, cart=cart)
+
+                    max_ncells_minus = tuple(max(ni,nj) if k!=axis_i else ni for k,(ni,nj) in enumerate(zip(Vi.ncells,Vj.ncells)))
+                    max_ncells_plus = tuple(max(ni,nj) if k!=axis_j else nj for k,(ni,nj) in enumerate(zip(Vi.ncells,Vj.ncells)))
+
+                    Vi.get_refined_space(max_ncells_minus).create_interface_space(axis_i, ext_i, cart=cart)
+                    Vj.get_refined_space(max_ncells_plus).create_interface_space(axis_j, ext_j, cart=cart)
             else:
                 Vi = reduced_spaces[patch_i]
                 Vj = reduced_spaces[patch_j]
@@ -337,26 +341,33 @@ def construct_reduced_interface_spaces(spaces, reduced_spaces, interiors, connec
                                                   [], reduce_elements=True)
 
                 cart.set_interface_communication_infos(get_minus_starts_ends, get_plus_starts_ends)
-                max_ncells = tuple(max(ni,nj) for ni,nj in zip(Vi.ncells,Vj.ncells))
-                Vi.get_refined_space(max_ncells).create_interface_space(axis_i, ext_i, cart=cart)
-                Vj.get_refined_space(max_ncells).create_interface_space(axis_j, ext_j, cart=cart)
+                max_ncells_minus = tuple(max(ni,nj) if k!=axis_i else ni for k,(ni,nj) in enumerate(zip(Vi.ncells,Vj.ncells)))
+                max_ncells_plus = tuple(max(ni,nj) if k!=axis_j else nj for k,(ni,nj) in enumerate(zip(Vi.ncells,Vj.ncells)))
+
+                Vi.get_refined_space(max_ncells_minus).create_interface_space(axis_i, ext_i, cart=cart)
+                Vj.get_refined_space(max_ncells_plus).create_interface_space(axis_j, ext_j, cart=cart)
         else:
             if isinstance(reduced_spaces[patch_i], VectorFemSpace):
                 for Vi,Vj in zip(reduced_spaces[patch_i].spaces, reduced_spaces[patch_j].spaces):
                     Vi.create_interface_space(axis_i, ext_i, cart=Vi.vector_space.cart)
                     Vj.create_interface_space(axis_j , ext_j , cart=Vj.vector_space.cart)
-                    max_ncells = tuple(max(ni,nj) for ni,nj in zip(Vi.ncells,Vj.ncells))
-                    cart_i = Vi.get_refined_space(max_ncells).vector_space.cart
-                    cart_j = Vj.get_refined_space(max_ncells).vector_space.cart
-                    Vi.get_refined_space(max_ncells).create_interface_space(axis_i, ext_i, cart=cart_i)
-                    Vj.get_refined_space(max_ncells).create_interface_space(axis_j, ext_j, cart=cart_j)
+                    max_ncells_minus = tuple(max(ni,nj) if k!=axis_i else ni for k,(ni,nj) in enumerate(zip(Vi.ncells,Vj.ncells)))
+                    max_ncells_plus = tuple(max(ni,nj) if k!=axis_j else nj for k,(ni,nj) in enumerate(zip(Vi.ncells,Vj.ncells)))
+
+                    cart_i = Vi.get_refined_space(max_ncells_minus).vector_space.cart
+                    cart_j = Vj.get_refined_space(max_ncells_plus).vector_space.cart
+                    Vi.get_refined_space(max_ncells_minus).create_interface_space(axis_i, ext_i, cart=cart_i)
+                    Vj.get_refined_space(max_ncells_plus).create_interface_space(axis_j, ext_j, cart=cart_j)
             else:
                 Vi = reduced_spaces[patch_i]
                 Vj = reduced_spaces[patch_j]
                 Vi.create_interface_space(axis_i, ext_i, cart=Vi.vector_space.cart)
                 Vj.create_interface_space(axis_j , ext_j , cart=Vj.vector_space.cart)
-                max_ncells = tuple(max(ni,nj) for ni,nj in zip(Vi.ncells,Vj.ncells))
-                cart_i = Vi.get_refined_space(max_ncells).vector_space.cart
-                cart_j = Vj.get_refined_space(max_ncells).vector_space.cart
-                Vi.get_refined_space(max_ncells).create_interface_space(axis_i, ext_i, cart=cart_i)
-                Vj.get_refined_space(max_ncells).create_interface_space(axis_j, ext_j, cart=cart_j)
+                max_ncells_minus = tuple(max(ni,nj) if k!=axis_i else ni for k,(ni,nj) in enumerate(zip(Vi.ncells,Vj.ncells)))
+                max_ncells_plus = tuple(max(ni,nj) if k!=axis_j else nj for k,(ni,nj) in enumerate(zip(Vi.ncells,Vj.ncells)))
+
+                cart_i = Vi.get_refined_space(max_ncells_minus).vector_space.cart
+                cart_j = Vj.get_refined_space(max_ncells_plus).vector_space.cart
+                Vi.get_refined_space(max_ncells_minus).create_interface_space(axis_i, ext_i, cart=cart_i)
+                Vj.get_refined_space(max_ncells_plus).create_interface_space(axis_j, ext_j, cart=cart_j)
+

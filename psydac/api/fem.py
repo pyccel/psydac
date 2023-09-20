@@ -308,12 +308,15 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_target = target.plus if isinstance(trial, PlusInterfaceOperator) else target.minus
             test_ext     = test_target.ext
             trial_ext    = trial_target.ext
-            ncells       = tuple(max(i, j) for i, j in zip(test_space.ncells, trial_space.ncells))
+
+            ncells_tests  = tuple(max(i1,i2) if k!=test_target.axis  else i1 for k,(i1,i2) in enumerate(zip(test_space.ncells, trial_space.ncells)))
+            ncells_trials = tuple(max(i1,i2) if k!=trial_target.axis else i2 for k,(i1,i2) in enumerate(zip(test_space.ncells, trial_space.ncells)))
+
             if isinstance(trial_space, VectorFemSpace):
                 spaces = []
                 for sp in trial_space.spaces:
                     if (trial_target.axis, trial_target.ext) in sp.interfaces:
-                        spaces.append(sp.get_refined_space(ncells).interfaces[trial_target.axis, trial_target.ext])
+                        spaces.append(sp.get_refined_space(ncells_trials).interfaces[trial_target.axis, trial_target.ext])
 
                 if len(spaces) == len(trial_space.spaces):
                     sym_space   = trial_space.symbolic_space
@@ -322,10 +325,10 @@ class DiscreteBilinearForm(BasicDiscrete):
 
             elif (trial_target.axis, trial_target.ext) in trial_space.interfaces:
                 sym_space   = trial_space.symbolic_space
-                trial_space = trial_space.get_refined_space(ncells).interfaces[trial_target.axis, trial_target.ext]
+                trial_space = trial_space.get_refined_space(ncells_trials).interfaces[trial_target.axis, trial_target.ext]
                 trial_space.symbolic_space = sym_space
 
-            test_space      = test_space.get_refined_space(ncells)
+            test_space      = test_space.get_refined_space(ncells_tests)
             self._test_ext  = test_target.ext
             self._trial_ext = trial_target.ext
 
@@ -698,14 +701,27 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_fem_space  = self.spaces[0].spaces[j]
             test_space  = test_space.spaces[i]
             trial_space = trial_space.spaces[j]
-            ncells = tuple(max(i,j) for i,j in zip(test_fem_space.ncells, trial_fem_space.ncells))
-            is_conformal = tuple(test_fem_space.ncells) == ncells and tuple(trial_fem_space.ncells) == ncells
-            if is_broken and not is_conformal and not i==j:
-                use_restriction = all(trn>=tn for trn,tn in zip(trial_fem_space.ncells, test_fem_space.ncells))
-                use_prolongation = not use_restriction
+            if i != j:
+                assert isinstance(target, Interface)
+                test_axis  = target.plus.axis if isinstance( self.kernel_expr.test, PlusInterfaceOperator) else target.minus.axis
+                trial_axis = target.plus.axis if isinstance(self.kernel_expr.trial, PlusInterfaceOperator) else target.minus.axis
+            else:
+                test_axis = -1
+                trial_axis = -1
+            ncells_tests  = tuple(max(i1,i2) if k!=test_axis else i1   for k,(i1,i2) in enumerate(zip(test_fem_space.ncells, trial_fem_space.ncells)))
+            ncells_trials = tuple(max(i1,i2) if k!=trial_axis else i2   for k,(i1,i2) in enumerate(zip(test_fem_space.ncells, trial_fem_space.ncells)))
+            is_conformal = tuple(test_fem_space.ncells) == ncells_tests and tuple(trial_fem_space.ncells) == ncells_trials
+            if is_broken and not is_conformal and i!=j:
+                tr_ncells = list(trial_fem_space.ncells)
+                ts_ncells = list(test_fem_space.ncells)
+                tr_ncells.pop(trial_axis)
+                ts_ncells.pop(test_axis)
+                use_prolongation = all(tr<=ts  for ts,tr in zip(ts_ncells, tr_ncells))
+                use_restriction = not use_prolongation
 
         else:
-            ncells = tuple(max(i,j) for i,j in zip(test_fem_space.ncells, trial_fem_space.ncells))
+            ncells_trials = tuple(max(i,j) for i,j in zip(test_fem_space.ncells, trial_fem_space.ncells))
+            ncells_tests  = ncells_trials
             i=0
             j=0
             #else so initialisation causing bug on line 682
@@ -714,22 +730,23 @@ class DiscreteBilinearForm(BasicDiscrete):
 
             if is_broken: #multi patch
                 if not self._matrix[i,j]:
-                    mat = BlockLinearOperator(trial_fem_space.get_refined_space(ncells).vector_space, test_fem_space.get_refined_space(ncells).vector_space)
+                    mat = BlockLinearOperator(trial_fem_space.get_refined_space(ncells_trials).vector_space,
+                                              test_fem_space.get_refined_space(ncells_tests).vector_space)
                     if not is_conformal and not i==j:
                         axis    = target.axis
                         ext_d   = self._trial_ext
                         ext_c   = self._test_ext
                         if use_restriction:
-                            Ps  = [knot_insertion_projection_operator(ts.get_refined_space(ncells), ts, axis, axis, ext_d, ext_c) for ts in test_fem_space.spaces]
-                            P   = BlockLinearOperator(test_fem_space.get_refined_space(ncells).vector_space, test_fem_space.vector_space)
+                            Ps  = [knot_insertion_projection_operator(ts.get_refined_space(ncells_tests), ts, axis, axis, ext_d, ext_c) for ts in test_fem_space.spaces]
+                            P   = BlockLinearOperator(test_fem_space.get_refined_space(ncells_tests).vector_space, test_fem_space.vector_space)
                             for ni,Pi in enumerate(Ps):
                                 P[ni,ni] = Pi
 
                             mat = ComposedLinearOperator(trial_space, test_space, P, mat)
 
                         elif use_prolongation:
-                            Ps  = [knot_insertion_projection_operator(trs, trs.get_refined_space(ncells), axis, axis, ext_d, ext_c) for trs in trial_fem_space.spaces]
-                            P   = BlockLinearOperator(trial_fem_space.vector_space, trial_fem_space.get_refined_space(ncells).vector_space)
+                            Ps  = [knot_insertion_projection_operator(trs, trs.get_refined_space(ncells_trials), axis, axis, ext_d, ext_c) for trs in trial_fem_space.spaces]
+                            P   = BlockLinearOperator(trial_fem_space.vector_space, trial_fem_space.get_refined_space(ncells_trials).vector_space)
                             for ni,Pi in enumerate(Ps):P[ni,ni] = Pi
                             mat = ComposedLinearOperator(trial_space, test_space, mat, P)
 
@@ -746,14 +763,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                         continue
 
                     if isinstance(test_fem_space, VectorFemSpace):
-                        ts_space = test_fem_space.get_refined_space(ncells).vector_space.spaces[k1]
+                        ts_space = test_fem_space.get_refined_space(ncells_tests).vector_space.spaces[k1]
                     else:
-                        ts_space = test_fem_space.get_refined_space(ncells).vector_space
+                        ts_space = test_fem_space.get_refined_space(ncells_tests).vector_space
 
                     if isinstance(trial_fem_space, VectorFemSpace):
-                        tr_space = trial_fem_space.get_refined_space(ncells).vector_space.spaces[k2]
+                        tr_space = trial_fem_space.get_refined_space(ncells_trials).vector_space.spaces[k2]
                     else:
-                        tr_space = trial_fem_space.get_refined_space(ncells).vector_space
+                        tr_space = trial_fem_space.get_refined_space(ncells_trials).vector_space
 
                     if is_conformal and matrix[k1, k2]:
                         global_mats[k1, k2] = matrix[k1, k2]
@@ -827,21 +844,26 @@ class DiscreteBilinearForm(BasicDiscrete):
                     flip[axis] = 1
 
                     if self._func != do_nothing:
-                        mat = StencilInterfaceMatrix(trial_fem_space.get_refined_space(ncells).vector_space,
-                                                     test_fem_space.get_refined_space(ncells).vector_space,
+                        tr_space = trial_fem_space.get_refined_space(ncells_trials)
+                        ts_space = test_fem_space.get_refined_space(ncells_tests)
+                        extra_nr = max(ts_space.degree[axis]-tr_space.degree[axis],0)
+
+                        mat = StencilInterfaceMatrix(tr_space.vector_space,
+                                                     ts_space.vector_space,
                                                      s_d, s_c,
                                                      axis, axis,
                                                      ext_d, ext_c,
+                                                     extra_nr=extra_nr,
                                                      flip=flip)
                         if not is_conformal:
                             axis    = target.axis
                             ext_d   = self._trial_ext
                             ext_c   = self._test_ext
                             if use_restriction:
-                                P   = knot_insertion_projection_operator(test_fem_space.get_refined_space(ncells), test_fem_space, axis, axis, ext_d, ext_c)
+                                P   = knot_insertion_projection_operator(test_fem_space.get_refined_space(ncells_tests), test_fem_space, axis, axis, ext_d, ext_c)
                                 mat = ComposedLinearOperator(trial_space, test_space, P, mat)
                             elif use_prolongation:
-                                P   = knot_insertion_projection_operator(trial_fem_space, trial_fem_space.get_refined_space(ncells), axis, axis, ext_d, ext_c)
+                                P   = knot_insertion_projection_operator(trial_fem_space, trial_fem_space.get_refined_space(ncells_trials), axis, axis, ext_d, ext_c)
                                 mat = ComposedLinearOperator(trial_space, test_space, mat, P)
 
                         global_mats[i, j] = mat

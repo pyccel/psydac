@@ -220,7 +220,7 @@ class ConjugateGradient(InverseLinearOperator):
             print( "+---------+---------------------+")
             print( "+ Iter. # | L2-norm of residual |")
             print( "+---------+---------------------+")
-            template = "| {:7d} | {:19.2e} |"
+            template = "| {:7d} | {:19.16e} |"
             print(template.format(1, sqrt(am)))
 
         # Iterate to convergence
@@ -228,6 +228,7 @@ class ConjugateGradient(InverseLinearOperator):
             if am < tol_sqr:
                 m -= 1
                 break
+            v *= 0.
             A.dot(p, out=v)
             l   = am / v.dot(p)
 

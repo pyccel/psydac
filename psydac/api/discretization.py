@@ -384,9 +384,11 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
             ((axis_i, ext_i), (axis_j , ext_j)) = connectivity[i, j]
             minus = interiors[i]
             plus  = interiors[j]
-            max_ncells = [max(ni,nj) for ni,nj in zip(domain_h.ncells[minus.name],domain_h.ncells[plus.name])]
-            g_spaces[minus].add_refined_space(ncells=max_ncells)
-            g_spaces[plus].add_refined_space(ncells=max_ncells)
+            max_ncells_minus = tuple(max(ni,nj) if k!= axis_i else ni for k,(ni,nj) in enumerate(zip(domain_h.ncells[minus.name],domain_h.ncells[plus.name])))
+            max_ncells_plus  = tuple(max(ni,nj) if k!= axis_j else nj for k,(ni,nj) in enumerate(zip(domain_h.ncells[minus.name],domain_h.ncells[plus.name])))
+
+            g_spaces[minus].add_refined_space(ncells=max_ncells_minus)
+            g_spaces[plus].add_refined_space(ncells=max_ncells_plus)
 
         # ... construct interface spaces
         construct_interface_spaces(domain_h.ddm, g_spaces, carts, interiors, connectivity)

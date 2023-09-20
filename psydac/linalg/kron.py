@@ -244,12 +244,16 @@ class KroneckerInterfaceDenseMatrix(LinearOperator):
         assert V.pads == W.pads
         assert len(args) == V.ndim-1
 
+        npts = list(V.npts)
+        pads = list(V.pads)
+        npts.pop(axis)
+        pads.pop(axis)
         for i,A in enumerate(args):
             assert isinstance(A, np.ndarray)
             if with_pads:
-                assert A.shape[1] == V.npts[i] + 2*V.pads[i]
+                assert A.shape[1] == npts[i] + 2*pads[i]
             else:
-                assert A.shape[1] == V.npts[i]
+                assert A.shape[1] == npts[i]
 
         if not with_pads:
             args = [np.pad(a,p) for a,p in zip(args, W.pads)]
@@ -301,6 +305,7 @@ class KroneckerInterfaceDenseMatrix(LinearOperator):
         if out is not None:
             assert isinstance(out, StencilVector)
             assert out.space is self.codomain
+            out *= 0
         else:
             out = StencilVector(self.codomain)
 
@@ -335,8 +340,12 @@ class KroneckerInterfaceDenseMatrix(LinearOperator):
                 slices[self._axis] = ni
                 out_data[tuple(ii)] = np.dot(x_data[tuple(slices)], func(i_mats))
 
+        V = out.space.interfaces[self._axis, self._ext]
+        slices = tuple(slice(s, e+2*m*p+1) for s,e,m,p in zip(V.starts, V.ends, V.shifts, V.pads))
+        out._data[tuple(slices)] = out_data
+
         # IMPORTANT: flag that ghost regions are not up-to-date
-        out.ghost_regions_in_sync = True
+        out.ghost_regions_in_sync = False
         return out
 
     # ...
