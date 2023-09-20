@@ -78,16 +78,37 @@ class BasisProjectionOperator(LinearOperator):
 
         self._preproc_grid = preproc_grid
 
+        if isinstance(V, TensorFemSpace):
+            Vspaces = [V.vector_space]
+        else:
+            Vspaces = V.vector_space
+
+        # output space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
+        if isinstance(P.space, TensorFemSpace):
+            Wspaces = [P.space.vector_space]
+        else:
+            Wspaces = P.space.vector_space
+        blocks = []
+        for Wspace in Wspaces:
+            blocks += [[]]
+            # input vector space (domain), column of block
+            for Vspace in Vspaces:
+                dofs_mat = StencilMatrix(
+                    Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL)
+                blocks[-1] += [dofs_mat]
+
+        self._dof_operator_pre = BlockLinearOperator(V.vector_space, P.space.vector_space, blocks)
+
         # ============= assemble tensor-product dof matrix =======
-        if dof_mat == None:
-            dof_mat = BasisProjectionOperator.assemble_mat(
-            P, V, fun, self._preproc_grid)
+        
+        BasisProjectionOperator.assemble_mat(
+            P, V, fun, self._dof_operator_pre, self._preproc_grid)
         # ========================================================
 
-        self._dof_operator = dof_mat
-
         if transposed:
-            self._dof_operator = self._dof_operator.transpose()
+            self._dof_operator = self._dof_operator_pre.transpose()
+        else:
+            self._dof_operator = self._dof_operator_pre
 
         # set domain and codomain
         self._domain = self.dof_operator.domain
@@ -137,10 +158,12 @@ class BasisProjectionOperator(LinearOperator):
 
     def update_fun(self, fun):
         self._fun = fun
-        self._dof_operator = BasisProjectionOperator.assemble_mat(
-            self._P, self._V, fun, self._preproc_grid)
+        BasisProjectionOperator.assemble_mat(
+            self._P, self._V, fun, self._dof_operator_pre, self._preproc_grid)
         if self._transposed:
-            self._dof_operator = self._dof_operator.transpose()
+            self._dof_operator = self._dof_operator_pre.transpose()
+        else:
+            self._dof_operator = self._dof_operator_pre
 
     def dot(self, v, out=None):
         """
@@ -199,7 +222,7 @@ class BasisProjectionOperator(LinearOperator):
             return BasisProjectionOperator(self._P, self._V, self._fun, not self.transposed, preproc_grid=self._preproc_grid, dof_mat=self._dof_operator)
 
     @staticmethod
-    def assemble_mat(P, V, fun, preproc_grid=None):
+    def assemble_mat(P, V, fun, dof_operator, preproc_grid=None):
         """
         Assembles the tensor-product DOF matrix sigma_i(fun*Lambda_j), where i=(i1, i2, ...) and j=(j1, j2, ...) depending on the number of spatial dimensions (1d, 2d or 3d).
 
@@ -241,19 +264,24 @@ class BasisProjectionOperator(LinearOperator):
                  for direction in range(V.ldim)] for comp in range(len(_W1ds))]
 
         # blocks of dof matrix
-        blocks = []
+        
         i=0
         # ouptut vector space (codomain), row of block
         for Wspace, W1d, nq, fun_line in zip(_Wspaces, _W1ds, _nqs, fun):
-            blocks += [[]]
+            
             _Wdegrees = [space.degree for space in W1d]
             j=0
 
             # input vector space (domain), column of block
             for Vspace, V1d, f in zip(_Vspaces, _V1ds, fun_line):
                 # instantiate cell of block matrix
-                dofs_mat = StencilMatrix(
-                    Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL)
+                """if isinstance(V, TensorFemSpace):
+                    dofs_mat = dof_operator.blocks[i]
+                elif isinstance(P.space, TensorFemSpace):                
+                    dofs_mat = dof_operator.blocks[j]
+                else :
+                    dofs_mat = dof_operator.blocks[i][j]"""
+                dofs_mat = dof_operator._blocks[i, j]
 
                 _starts_in = np.array(dofs_mat.domain.starts)
                 _ends_in = np.array(dofs_mat.domain.ends)
@@ -288,7 +316,7 @@ class BasisProjectionOperator(LinearOperator):
                         _pads_out, _starts_c, _ends_c, _pads_c, *_wtsG, *_spans, *_bases, f_coeffs, *_spans_ff,
                         *_bases_ff, *_Vnbases, *_Wdegrees)
 
-                    blocks[-1] += [dofs_mat]
+                    
 
                 else : 
 
@@ -321,21 +349,8 @@ class BasisProjectionOperator(LinearOperator):
                         kernel(dofs_mat._data, _starts_in, _ends_in, _pads_in, _starts_out, _ends_out,
                             _pads_out, _fun_q, *_wtsG, *_spans, *_bases, *_Vnbases, *_Wdegrees)
 
-                        blocks[-1] += [dofs_mat]
-
-                    else:
-                        blocks[-1] += [None]
                 j+=1
             i+=1
-
-        # build BlockLinearOperator (if necessary) and return
-        if len(blocks) == len(blocks[0]) == 1:
-            if blocks[0][0] is not None:
-                return blocks[0][0]
-            else:
-                return dofs_mat
-        else:
-            return BlockLinearOperator(V.vector_space, P.space.vector_space, blocks)
 
 
 def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
