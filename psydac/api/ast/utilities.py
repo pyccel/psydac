@@ -1043,7 +1043,7 @@ def math_atoms_as_str(expr, lib='math'):
 
 def get_name(lhs):
     """
-    Given a list of variable return the meaninfull part of the name of the
+    Given a list of variable return the meaningful part of the name of the
     first variable that has a _name attribute.
 
     Was added to solve issue #327 caused by trying to access the name of a 
@@ -1056,8 +1056,8 @@ def get_name(lhs):
 
     Returns
     -------
-      : str
-        meaningfull part of the name of the variable or "zero term" if no 
+    str
+        meaningful part of the name of the variable or "zero term" if no 
         variable has a name.
 
     """
