@@ -326,6 +326,7 @@ class KroneckerInterfaceDenseMatrix(LinearOperator):
         slices   = [slice(None, None)]*self._ndim
         x_data   = x._interface_data[self._axis, self._ext]
         out_data = out._interface_data[self._axis, self._ext]
+
         def func(i_mats):
             if self._ndim == 2:
                 return i_mats[0].ravel()
@@ -378,7 +379,17 @@ class KroneckerInterfaceDenseMatrix(LinearOperator):
     #--------------------------------------
 
     def tosparse(self, **kwargs):
-        return coo_matrix(reduce(kron, (m[p:-p,p:-p] for m,p in zip(self.mats, self.domain.pads))))
+        mats = [m[p:-p,p:-p] for m,p in zip(self.mats, self.domain.pads)]
+        shape = (self.domain.shape[self._axis], self.domain.shape[self._axis])
+        mat = np.zeros(shape)
+        if self._ext == -1:
+            for i in range(self.domain.interfaces[self._axis, self._ext].shape[self._axis])
+                mat[i,i] = 1.
+        elif self._ext == 1:
+            for i in range(self.domain.interfaces[self._axis, self._ext].shape[self._axis])
+                mat[-i-1,-i-1] = 1.
+        mats.insert(self._axis, mat)
+        return coo_matrix(reduce(kron, mats)))
 
     def toarray(self):
         return reduce(kron, (m[p:-p,p:-p] for m,p in zip(self.mats, self.domain.pads)))
