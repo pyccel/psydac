@@ -254,7 +254,7 @@ class ConjugateGradient(InverseLinearOperator):
         self._info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt(am) }
 
         if recycle:
-            self.set_options(x0=x.copy()) # try x.copy(out=self._options["x0"]) instead
+            x.copy(out=self._options["x0"])
 
         return x
 
@@ -473,7 +473,7 @@ class PConjugateGradient(InverseLinearOperator):
         self._info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr) }
 
         if recycle:
-            self.set_options(x0=x.copy())
+            x.copy(out=self._options["x0"])
 
         return x
 
@@ -701,7 +701,7 @@ class BiConjugateGradient(InverseLinearOperator):
         self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
 
         if recycle:
-            self.set_options(x0=x.copy()) # try x.copy(out=self._options["x0"]) instead
+            x.copy(out=self._options["x0"])
 
         return x
 
@@ -937,7 +937,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
 
         if recycle:
-            self.set_options(x0=x.copy()) # try x.copy(out=self._options["x0"]) instead
+            x.copy(out=self._options["x0"])
 
         return x
 
@@ -1256,7 +1256,7 @@ class MinimumResidual(InverseLinearOperator):
         self._info = {'niter': itn, 'success': rnorm<tol, 'res_norm': rnorm }
 
         if recycle:
-            self.set_options(x0=x.copy())
+            x.copy(out=self._options["x0"])
 
         return x
 
@@ -1666,7 +1666,7 @@ class LSMR(InverseLinearOperator):
         self._successful = istop in [1,2,3]
 
         if recycle:
-            self.set_options(x0=x.copy()) # try x.copy(out=self._options["x0"]) instead
+            x.copy(out=self._options["x0"])
 
         return x
 
@@ -1872,7 +1872,7 @@ class GMRES(InverseLinearOperator):
         self._info = {'niter': k+1, 'success': am < tol, 'res_norm': am }
         
         if recycle:
-            self.set_options(x0=x.copy()) # try x.copy(out=self._options["x0"]) instead
+            x.copy(out=self._options["x0"])
 
         return x
     
