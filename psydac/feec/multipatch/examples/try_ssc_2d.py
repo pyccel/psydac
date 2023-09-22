@@ -46,15 +46,14 @@ from scipy.sparse          import csr_matrix
 from scipy.linalg        import norm
 
 from psydac.feec.multipatch.examples.fs_domains_examples import create_square_domain
-from psydac.feec.multipatch.utils_conga_2d              import write_errors_array_deg_nbp, check_file
-
-cps.mom_pres =  True # False # 
-cps.proj_op = 1 #50
-hom_bc = True # False #
+from psydac.feec.multipatch.utils_conga_2d              import write_diags_deg_nbp, check_file
 
 def try_ssc_2d(
         ncells=None, 
         p_degree=[3,3],
+        hom_bc=False,
+        mom_pres=False,
+        reg=0,
         nb_patch_x=2,
         nb_patch_y=2, 
         domain_name='refined_square', 
@@ -144,8 +143,9 @@ def try_ssc_2d(
     p_derham  = Derham(domain, ["H1", "Hcurl", "L2"])
 
     t_stamp = time_count(t_stamp)
+    nquads = [(d + 1) for d in p_degree] # [4*(d + 1) for d in p_degree]
     print(' .. Primal discrete derham sequence...')
-    p_derham_h = discretize(p_derham, domain_h, degree=p_degree) #, backend=PSYDAC_BACKENDS[backend_language])
+    p_derham_h = discretize(p_derham, domain_h, degree=p_degree, nquads=nquads) #, backend=PSYDAC_BACKENDS[backend_language])
     # primal is with hom bc, but this is in the conf projections
 
     t_stamp = time_count()
@@ -154,7 +154,7 @@ def try_ssc_2d(
 
     t_stamp = time_count(t_stamp)
     print(' .. Dual discrete derham sequence...')
-    d_derham_h = discretize(d_derham, domain_h, degree=d_degree) #, backend=PSYDAC_BACKENDS[backend_language])
+    d_derham_h = discretize(d_derham, domain_h, degree=d_degree, nquads=nquads) #, backend=PSYDAC_BACKENDS[backend_language])
     
     p_V0h = p_derham_h.V0
     p_V1h = p_derham_h.V1
@@ -210,10 +210,33 @@ def try_ssc_2d(
 
         t_stamp = time_count(t_stamp)
         print('Conforming projections...')
-        p_PP0     = cps.Conf_proj_0_c1(p_V0h, nquads = [4*(d + 1) for d in p_degree], hom_bc=hom_bc)
-        p_PP1     = cps.Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in p_degree], hom_bc=hom_bc)
 
-        p_PP1_C0     = cps.Conf_proj_1(p_V1h, nquads = [4*(d + 1) for d in p_degree])  # to compare
+        if mom_pres:
+            # nb of interior functions per patch (and per dimension): nb_interior = n_cells + p - 2 *(1+reg)
+            # we can only preserve moments of degree p if p +1 <= nb_interior
+            max_p_moments = [ncells[d] + p_degree[d] - 2 *(1+reg) - 1 for d in range(2)]
+            p_moments = [max(-1, min(p_degree[d], max_p_moments[d])) for d in range(2)]
+        else:
+            p_moments = [-1,-1]
+
+        # p_PP0     = cps.Conf_proj_0_c1(p_V0h, nquads=nquads, hom_bc=hom_bc)
+        # p_PP1     = cps.Conf_proj_1_c1(p_V1h, nquads=nquads, hom_bc=hom_bc)
+
+        p_PP0     = cps.Conf_proj_0_c01(p_V0h, reg=reg, p_moments=p_moments, nquads=nquads, hom_bc=hom_bc)
+        # p_PP0_std     = cps.Conf_proj_0(p_V0h, nquads = [4*(d + 1) for d in d_degree])
+        # print(f'sp_norm(p_PP0_std-p_PP0) = {sp_norm(p_PP0_std-p_PP0)}')
+        p_PP1     = cps.Conf_proj_1_c01(p_V1h, reg=reg, nquads=nquads, hom_bc=hom_bc)
+        # import scipy
+        # scipy.set_printoptions(linewidth=300)
+        # p_PP0.maxprint = 300
+        
+        # P0.maxprint = np.inf
+        # print(p_PP0) #.toarray())
+        
+        # from matrepr import mprint
+        # exit()
+
+        p_PP1_C0     = cps.Conf_proj_1(p_V1h, nquads=nquads)  # to compare
 
         d_PP0     = cps.Conf_proj_0(d_V0h, nquads = [4*(d + 1) for d in d_degree])
         d_PP1     = cps.Conf_proj_1(d_V1h, nquads = [4*(d + 1) for d in d_degree])
@@ -221,23 +244,23 @@ def try_ssc_2d(
         t_stamp = time_count(t_stamp)
         print('Mass matrices...')
         ### TODO: they are not "Hodge Operators" for the primal/dual sequences.... 
-        p_HOp0    = HodgeOperator(p_V0h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=0)
+        p_HOp0    = HodgeOperator(p_V0h, domain_h, backend_language=backend_language, nquads=nquads, load_dir=pm_load_dir, load_space_index=0)
         p_MM0     = p_HOp0.get_dual_Hodge_sparse_matrix()    # mass matrix
         p_MM0_inv = p_HOp0.to_sparse_matrix()                # inverse mass matrix
 
-        p_HOp1    = HodgeOperator(p_V1h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=1)
+        p_HOp1    = HodgeOperator(p_V1h, domain_h, backend_language=backend_language, nquads=nquads, load_dir=pm_load_dir, load_space_index=1)
         p_MM1     = p_HOp1.get_dual_Hodge_sparse_matrix()    # mass matrix
         p_MM1_inv = p_HOp1.to_sparse_matrix()                # inverse mass matrix
 
-        p_HOp2    = HodgeOperator(p_V2h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=2)
+        p_HOp2    = HodgeOperator(p_V2h, domain_h, backend_language=backend_language, nquads=nquads, load_dir=pm_load_dir, load_space_index=2)
         p_MM2     = p_HOp2.get_dual_Hodge_sparse_matrix()    # mass matrix
         p_MM2_inv = p_HOp2.to_sparse_matrix()                # inverse mass matrix
 
-        d_HOp0    = HodgeOperator(d_V0h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=0)
+        d_HOp0    = HodgeOperator(d_V0h, domain_h, backend_language=backend_language, nquads=nquads, load_dir=dm_load_dir, load_space_index=0)
         d_MM0     = d_HOp0.get_dual_Hodge_sparse_matrix()    # mass matrix
         d_MM0_inv = d_HOp0.to_sparse_matrix()                # inverse mass matrix
 
-        d_HOp1    = HodgeOperator(d_V1h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=1)
+        d_HOp1    = HodgeOperator(d_V1h, domain_h, backend_language=backend_language, nquads=nquads, load_dir=dm_load_dir, load_space_index=1)
         d_MM1     = d_HOp1.get_dual_Hodge_sparse_matrix()    # mass matrix
         d_MM1_inv = d_HOp1.to_sparse_matrix()                # inverse mass matrix
 
@@ -290,24 +313,93 @@ def try_ssc_2d(
     p_geomP0, p_geomP1, p_geomP2 = p_derham_h.projectors()
     d_geomP0, d_geomP1, d_geomP2 = d_derham_h.projectors()
 
-    # some tests :
-    print(f"some tests, with: ")
-    print(f"    mom_pres = {cps.mom_pres}")
-    print(f"    proj_op = {cps.proj_op}")
-    print(f"    hom_bc = {hom_bc}")
-    
-    diff = sp_norm(p_PP0 - p_PP0@p_PP0)
-    print(f'sp_norm(p_PP0 - p_PP0@p_PP0) = {diff}')    
-    if abs(diff) > 1e-10:
-        print('WARNING !! should be 0')
-    diff = sp_norm(p_PP1 - p_PP1@p_PP1)
-    print(f'sp_norm(p_PP1 - p_PP1@p_PP1) = {diff}')    
-    if abs(diff) > 1e-10:
-        print('WARNING !! should be 0')
-    diff = sp_norm(p_bG@p_PP0 - p_PP1@p_bG@p_PP0)
-    print(f'sp_norm(p_bG@p_PP0 - p_PP1@p_bG@p_PP0) = {diff}')
-    if abs(diff) > 1e-10:
-        print('WARNING !! should be 0')
+    if test_case == "unit_tests":
+
+        failed_tests = 0
+
+        print('-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- ')
+        print(f"do some tests, with: ")
+        print(f"    mom_pres = {mom_pres}")
+        print(f"    proj_op = {cps.proj_op}")
+        print(f"    hom_bc = {hom_bc}")
+        print(f"    reg = {reg}")
+        
+        diff = sp_norm(p_PP0 - p_PP0@p_PP0)
+        print(f'sp_norm(p_PP0 - p_PP0@p_PP0) = {diff}')    
+        if abs(diff) > 1e-10:
+            print('WARNING !! should be 0')
+            failed_tests += 1
+
+        diff = sp_norm(p_PP1 - p_PP1@p_PP1)
+        print(f'sp_norm(p_PP1 - p_PP1@p_PP1) = {diff}')    
+        if abs(diff) > 1e-10:
+            print('WARNING !! should be 0')
+            failed_tests += 1
+
+        diff = sp_norm(p_bG@p_PP0 - p_PP1@p_bG@p_PP0)
+        print(f'sp_norm(p_bG@p_PP0 - p_PP1@p_bG@p_PP0) = {diff}')
+        if abs(diff) > 1e-10:
+            print('WARNING !! should be 0')
+            failed_tests += 1
+
+        def test_err(app_c, ref_c, label_error):
+
+            err_c = app_c - ref_c 
+            error = np.sqrt(np.dot(err_c, MM @ err_c))
+            print(f'{label_error} = {error}')
+            if abs(error) > 1e-10:
+                print('WARNING !! should be 0')
+                return 1
+            return 0
+
+        def get_polynomial_function(degree, hom_bc):            
+            if hom_bc:                
+                assert degree[0] > 1 and degree[1] > 1
+                g0 = (  x * (x-np.pi) * (x-1.554)**(degree[0]-2)
+                        * y * (y-np.pi) * (y-0.324)**(degree[1]-2)
+                    )
+            else:
+                if degree[0] > 1 and degree[1] > 1:
+                    g0 = (  (x-0.543)**2 * (x-1.554)**(degree[0]-2)
+                            * (y-1.675)**2 * (y-0.324)**(degree[1]-2)
+                        )
+                else:
+                    g0 = ( (x-1.554)**degree[0]
+                            * (y-0.324)**degree[1]
+                        )
+            return g0
+        
+        # unit test: different projections of a polynomial should be exact: 
+        g0 = get_polynomial_function(degree=p_degree, hom_bc=hom_bc)        
+        g0h = P_phys_h1(g0, p_geomP0, domain, mappings_list)
+        g0_c = g0h.coeffs.toarray()  
+        
+        MM    = p_MM0
+
+        tilde_g0_c = p_derham_h.get_dual_dofs(space='V0', f=g0, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
+        g0_L2_c = p_MM0_inv @ tilde_g0_c
+
+        failed_tests += test_err(app_c = g0_L2_c,         ref_c = g0_c, label_error="|| (P0_geom - P0_L2) polynomial ||_L2")
+        failed_tests += test_err(app_c = p_PP0 @ g0_L2_c, ref_c = g0_c, label_error="|| (P0_geom - confP0 @ P0_L2) polynomial ||_L2")
+        
+        # testing that polynomial moments are preserved:
+        # projection P* : L2 -> V0, 
+        # <conf_P* g, phi> := <g, conf_P phi> for all phi in V0
+        # should be exact
+        if p_moments[0] >= 0 and p_moments[1] >= 0:
+            g0 = get_polynomial_function(degree=p_moments, hom_bc=False)
+            g0h = P_phys_h1(g0, p_geomP0, domain, mappings_list)
+            g0_c = g0h.coeffs.toarray()    
+
+            tilde_g0_c = p_derham_h.get_dual_dofs(space='V0', f=g0, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
+            g0_star_c = p_MM0_inv @ p_PP0.transpose() @ tilde_g0_c
+            failed_tests += test_err(app_c = g0_star_c, ref_c = g0_c, label_error="|| (P0_geom - P0_star) polynomial ||_L2")
+
+        print()
+        print(f'tests done: failed = {failed_tests}')
+        print('-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- ')
+        
+        return failed_tests
 
 
     sol = 'discontinuous'
@@ -473,6 +565,73 @@ def try_ssc_2d(
         Vh_kind = 'hcurl'
         plot_type = 'components'
 
+    elif test_case == "pP0_order":
+        # unit test: different projections of a polynomial should be exact: 
+        degree = p_degree #[p_degree[d] - 1 for d in range(2)]
+        if hom_bc:
+            assert degree[0] > 1 and degree[1] > 1
+            g0 = (  x * (x-np.pi) * (x-1.554)**(degree[0]-2)
+                  * y * (y-np.pi) * (y-0.324)**(degree[1]-2)
+             )
+        else:
+            g0 = (  (x-0.543)**2 * (x-1.554)**(degree[0]-2)
+                  * (y-1.675)**2 * (y-0.324)**(degree[1]-2)
+             )
+
+        # applying P0_geom (should be exact)
+        g0h = P_phys_h1(g0, p_geomP0, domain, mappings_list)
+        g0_c = g0h.coeffs.toarray()
+        
+        # applying conf_P0 @ P0_L2 
+        tilde_g0_c = p_derham_h.get_dual_dofs(space='V0', f=g0, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
+        g0_L2_c = p_MM0_inv @ tilde_g0_c
+
+        app_c = p_PP0 @ g0_L2_c
+        ref_c = g0_c
+
+        label_ref   = 'P_geom g'
+        label_app   = 'P_conf P_L2 g'
+        MM      = p_MM0
+        Vh      = p_V0h
+        Vh_kind = 'h1'
+        plot_type = 'components'
+
+    elif test_case == "pP0_moment_order":
+        # testing that moments against a polynomial are exact:
+        # projection P* : L2 -> V0, 
+        # <conf_P* g, phi> := <g, conf_P phi> for all phi in V0
+        # should be exact
+        
+        degree = p_degree #[p_degree[d] - 1 for d in range(2)]
+        if hom_bc:
+            assert degree[0] > 1 and degree[1] > 1
+            g0 = (  x * (x-np.pi) * (x-1.554)**(degree[0]-2)
+                  * y * (y-np.pi) * (y-0.324)**(degree[1]-2)
+             )
+        else:
+            g0 = (  (x-0.543)**2 * (x-1.554)**(degree[0]-2)
+                  * (y-1.675)**2 * (y-0.324)**(degree[1]-2)
+             )
+
+        # applying P0_geom (should be exact)
+        g0h = P_phys_h1(g0, p_geomP0, domain, mappings_list)
+        g0_c = g0h.coeffs.toarray()
+        
+        # applying P0_L2 
+        tilde_g0_c = p_derham_h.get_dual_dofs(space='V0', f=g0, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
+        g0_star_c = p_MM0_inv @ p_PP0.transpose() @ tilde_g0_c
+
+
+        ref_c = g0_c
+        app_c = g0_star_c
+
+        label_ref   = 'P_geom g0'
+        label_app   = 'P_star g0'
+        MM      = p_MM0
+        Vh      = p_V0h
+        Vh_kind = 'h1'
+        plot_type = 'components'
+
     elif test_case == "pP1_L2":
 
         if sol == "discontinuous":
@@ -602,30 +761,27 @@ if __name__ == '__main__':
     t_stamp_full = time_count()
 
     # test_case = "norm_Lambda0"
-    # test_case = "p_PP0"
-    test_case = "PGP0"
+    test_case = "p_PP0"
+    # test_case = "PGP0"
     # test_case = "p_PP1" # "d_HH1" # "p_PP1" # "p_PP1_C1" # "d_HH1" # "p_PP1_C1" # 
     # test_case = "d_HH1"
+    test_case = "pP0_order"
+    test_case = "pP0_moment_order"
 
-    if cps.mom_pres:
-        cps_opts = 'po{}_wimop'.format(cps.proj_op)
-        cps_options = 'proj_op={}, with mom preservation'.format(cps.proj_op)
-    else:
-        cps_opts = 'po{}_nomop'.format(cps.proj_op)
-        cps_options = 'proj_op={}, no mom preservation'.format(cps.proj_op)
+    test_case = "unit_tests"
 
     # test_case = "pP1_L2" 
     # test_case = "p_HH2"
     refined_square = False
     
-    make_plots = True #False # 
-    hide_plots = True
+    make_plots = True # False # 
+    hide_plots = True # False # 
     
 
     deg_s = [3] #, 4]
     
     # nb of cells (per patch and dim)
-    nbc_s = [6]
+    nbc_s = [4]
     # nbc_s = [2,4,6,8,16,32]
 
     # nb of patches (per dim)
@@ -635,72 +791,123 @@ if __name__ == '__main__':
     errors = [[[ None for nbc in nbc_s] for nbp in nbp_s] for deg in deg_s]
     error_dir = './errors'      
 
-    check_file(
-        error_dir=error_dir,
-        name=test_case+'_'+cps_opts, 
-        )
+    cps.proj_op = 1 # use as argument to conf projections
+    test_parameters_list = []
+    if test_case == "unit_tests":
+        failed_tests = 0
+        for mom_pres in [False, True]:
+            for reg in [0, 1]:
+                for hom_bc in [False, True]:
+                    test_parameters_list.append({
+                        'mom_pres' : mom_pres,
+                        'reg' : reg,
+                        'hom_bc' : hom_bc
+                        })
 
-    for i_deg, deg in enumerate(deg_s): 
-        for i_nbp, nbp in enumerate(nbp_s): 
-            for i_nbc, nbc in enumerate(nbc_s): 
-                nb_patch_x = nbp
-                nb_patch_y = nbp     
-                if nbp == 1:
-                    domain_name = 'square'
-                elif refined_square:
-                    domain_name = 'refined_square'
-                    raise NotImplementedError("CHECK FIRST")
-                else:
-                    # domain_name = 'square_9'
-                    domain_name = 'multipatch_rectangle' #'square_9'
+    else:
+        failed_tests = None
+        test_parameters_list.append({
+            'mom_pres' : False,
+            'reg' : 1,
+            'hom_bc' : True
+            })
+        assert len(test_parameters_list) == 1
 
-                m_load_dir = 'matrices_{}_nbp={}_nc={}_deg={}/'.format(domain_name, nbp, nbc, deg)
-                run_dir = '{}_nbp={}_nc={}_deg={}/'.format(domain_name, nbp, nbc, deg)
-
-                error, relerror = try_ssc_2d(
-                    ncells=[nbc,nbc], 
-                    nb_patch_x=nb_patch_x,
-                    nb_patch_y=nb_patch_y,
-                    p_degree=[deg,deg],
-                    domain_name=domain_name, 
-                    test_case=test_case,
-                    plot_dir='./plots/'+run_dir,
-                    m_load_dir=m_load_dir,
-                    backend_language='python', #'pyccel-gcc'
-                    hide_plots=hide_plots,
-                    make_plots=make_plots,
-                    cps_opts=cps_opts,
-                )
-                print("-------------------------------------------------")
-                print("for deg = {}, nb_patches = {}**2".format(deg,nbp))
-                print("error         : {}".format(error))
-                print("relative error: {}".format(relerror))
-                print("-------------------------------------------------\n")
+    for params in test_parameters_list:
+        mom_pres=params['mom_pres']
+        hom_bc=params['hom_bc']
+        reg=params['reg']
         
-                errors[i_deg][i_nbp][i_nbc] = error
-    
-    if len(nbc_s) == 1:
+        if mom_pres:
+            cps_opts = 'po{}_wimop'.format(cps.proj_op)
+            cps_options = 'proj_op={}, with mom preservation'.format(cps.proj_op)
+        else:
+            cps_opts = 'po{}_nomop'.format(cps.proj_op)
+            cps_options = 'proj_op={}, no mom preservation'.format(cps.proj_op)
 
-        write_errors_array_deg_nbp(errors, deg_s, nbp_s, nbc_s[0], 
-                                   error_dir=error_dir, 
-                                   name=test_case+'_'+cps_opts,
-                                   title=test_case + ' ' + cps_options)
-    
-    else:        
+        check_file(
+            error_dir=error_dir,
+            name=test_case+'_'+cps_opts, 
+            )
+
         for i_deg, deg in enumerate(deg_s): 
             for i_nbp, nbp in enumerate(nbp_s): 
-                print("-------------------------------------------------\n")
-                print("errors as nb of cells increase: ")
                 for i_nbc, nbc in enumerate(nbc_s): 
-                    h = np.pi / nbc
-                    err = errors[i_deg][i_nbp][i_nbc]                    
-                    print("error for deg = {}, nbp = {}, nbc = {}:  {}".format(
-                        deg, nbp, nbc, err))
-                    print("ratio error / h :  {}".format(err / h))
+                    nb_patch_x = nbp
+                    nb_patch_y = nbp     
+                    if nbp == 1:
+                        domain_name = 'square'
+                    elif refined_square:
+                        domain_name = 'refined_square'
+                        raise NotImplementedError("CHECK FIRST")
+                    else:
+                        # domain_name = 'square_9'
+                        domain_name = 'multipatch_rectangle' #'square_9'
 
+                    m_load_dir = 'matrices_{}_nbp={}_nc={}_deg={}/'.format(domain_name, nbp, nbc, deg)
+                    run_dir = '{}_nbp={}_nc={}_deg={}/'.format(domain_name, nbp, nbc, deg)
+
+                    res = try_ssc_2d(
+                        ncells=[nbc,nbc], 
+                        nb_patch_x=nb_patch_x,
+                        nb_patch_y=nb_patch_y,
+                        hom_bc=hom_bc,
+                        mom_pres=mom_pres,
+                        reg=reg,
+                        p_degree=[deg,deg],
+                        domain_name=domain_name, 
+                        test_case='unit_tests',
+                        plot_dir='./plots/'+run_dir,
+                        m_load_dir=m_load_dir,
+                        backend_language='python', #'pyccel-gcc'
+                        hide_plots=hide_plots,
+                        make_plots=make_plots,
+                        cps_opts=cps_opts,
+                    )
+
+                    if test_case == 'unit_tests':
+                        failed_tests += res
+
+                    else:
+                        error, relerror = res
+
+                        print("-------------------------------------------------")
+                        print("for deg = {}, nb_patches = {}**2".format(deg,nbp))
+                        print("error         : {}".format(error))
+                        print("relative error: {}".format(relerror))
+                        print("-------------------------------------------------\n")
+                
+                        errors[i_deg][i_nbp][i_nbc] = error
+    
+    if test_case == 'unit_tests':
+        print("-------------------------------------------------")
+        print(f" total nb of failed tests: {failed_tests}        ")
         print("-------------------------------------------------\n")
-        print("WARNING: not writing any error file")        
-        print("-------------------------------------------------\n")
+
+    else:    
+
+        if len(nbc_s) == 1:
+            diag_filename = error_dir+f'/errors_{cps_opts}.txt'
+            write_diags_deg_nbp(errors, deg_s, nbp_s, nbc_s[0], 
+                                filename=diag_filename, 
+                                name=test_case+'_'+cps_opts,
+                                title=test_case + ' ' + cps_options)
+        
+        else:        
+            for i_deg, deg in enumerate(deg_s): 
+                for i_nbp, nbp in enumerate(nbp_s): 
+                    print("-------------------------------------------------\n")
+                    print("errors as nb of cells increase: ")
+                    for i_nbc, nbc in enumerate(nbc_s): 
+                        h = np.pi / nbc
+                        err = errors[i_deg][i_nbp][i_nbc]                    
+                        print("error for deg = {}, nbp = {}, nbc = {}:  {}".format(
+                            deg, nbp, nbc, err))
+                        print("ratio error / h :  {}".format(err / h))
+
+            print("-------------------------------------------------\n")
+            print("WARNING: not writing any error file")        
+            print("-------------------------------------------------\n")
 
 
     time_count(t_stamp_full, msg='full program')

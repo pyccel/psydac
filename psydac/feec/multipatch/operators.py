@@ -860,13 +860,14 @@ class HodgeOperator( FemLinearOperator ):
      # todo: we compute the sparse matrix when to_sparse_matrix is called -- but never the stencil matrix (should be fixed...)
 
     """
-    def __init__( self, Vh, domain_h, backend_language='python', load_dir=None, load_space_index=''):
+    def __init__( self, Vh, domain_h, backend_language='python', load_dir=None, load_space_index='', nquads=None):
 
         FemLinearOperator.__init__(self, fem_domain=Vh)
         self._domain_h = domain_h
         self._backend_language = backend_language
         self._dual_Hodge_matrix = None
         self._dual_Hodge_sparse_matrix = None
+        self._nquads = nquads
 
         if load_dir and isinstance(load_dir, str):
             if not os.path.exists(load_dir):
@@ -948,7 +949,7 @@ class HodgeOperator( FemLinearOperator ):
             else:
                 expr   = dot(u,v)
             a = BilinearForm((u,v), integral(domain, expr))
-            ah = discretize(a, self._domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[self._backend_language])
+            ah = discretize(a, self._domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[self._backend_language], nquads=self._nquads)
             self._dual_Hodge_matrix = ah.assemble()  # Mass matrix in stencil format
             self._dual_Hodge_sparse_matrix = self._dual_Hodge_matrix.tosparse()
 

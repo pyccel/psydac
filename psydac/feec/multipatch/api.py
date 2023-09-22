@@ -231,7 +231,7 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 
         return cP
 
-    def get_dual_dofs(self, space, f, backend_language="python", return_format='stencil_array'):
+    def get_dual_dofs(self, space, f, backend_language="python", return_format='stencil_array', nquads=None):
         """
         return the dual dofs tilde_sigma_i(f) = < Lambda_i, f >_{L2} i = 1, .. dim(V^k)) of a given function f, as a stencil array or numpy array
 
@@ -272,7 +272,7 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
             expr   = dot(f,v)
 
         l        = LinearForm(v, integral( V.domain, expr))
-        lh       = discretize(l, self._domain_h, Vh, backend=PSYDAC_BACKENDS[backend_language])
+        lh       = discretize(l, self._domain_h, Vh, backend=PSYDAC_BACKENDS[backend_language], nquads=nquads)
         tilde_f  = lh.assemble()
 
         if return_format == 'numpy_array':
