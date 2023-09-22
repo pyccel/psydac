@@ -679,6 +679,7 @@ class SumLinearOperator(LinearOperator):
     def simplifiy(addends):
         class_list = [addends[i].__class__.__name__ for i in range(len(addends))]
         unique_list = list(set(class_list))
+        unique_list.sort()
         if len(unique_list) == 1:
             return addends
         out = ()
@@ -803,27 +804,23 @@ class ComposedLinearOperator(LinearOperator):
 
         x = v
         for i in range(len(self._tmp_vectors)):
-            x.update_ghost_regions()
             y = self._tmp_vectors[-1-i]
             A = self._multiplicants[-1-i]
             A.dot(x, out=y)
             x = y
+            x.update_ghost_regions()
 
         A = self._multiplicants[0]
-        x.update_ghost_regions()
         if out is not None:
 
             A.dot(x, out=out)
         else:
             out = A.dot(x)
+        out.update_ghost_regions()
         return out
 
     def idot(self, v, out):
-        """
-        Implements out += self @ v with a temporary.
-        Subclasses should provide an implementation without a temporary.
-
-        """
+        
         assert isinstance(v, Vector)
         assert v.space == self.domain
         assert isinstance(out, Vector)
