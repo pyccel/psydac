@@ -48,6 +48,50 @@ from scipy.linalg        import norm
 from psydac.feec.multipatch.examples.fs_domains_examples import create_square_domain
 from psydac.feec.multipatch.utils_conga_2d              import write_diags_deg_nbp, check_file
 
+total_tests = 0
+failed_tests = 0
+
+def test_err(app_c, ref_c, label_error, MM=None, tol=1e-12):
+    global total_tests, failed_tests
+
+    total_tests += 1
+    err_c = app_c - ref_c 
+    if MM is None:
+        # error is a matrix
+        error = sp_norm(err_c)
+    else:
+        # error is a vector of coefs in a space with mass matrix MM
+        error = np.sqrt(np.dot(err_c, MM @ err_c))
+    if abs(error) > tol:
+        msg = f'[TEST FAILED !! (tol = {tol})]'
+        failed_tests += 1
+    else:
+        msg = f'test: ok (passed with tol = {tol})'
+    print(f'.. {msg}  --  {label_error} = {error}')
+    
+def get_polynomial_function(degree, hom_bc_axes, domain):
+    x, y = domain.coordinates            
+    if hom_bc_axes[0]:                
+        assert degree[0] > 1
+        g0_x = x * (x-np.pi) * (x-1.554)**(degree[0]-2)
+    else:
+        if degree[0] > 1:
+            g0_x = (x-0.543)**2 * (x-1.554)**(degree[0]-2)
+        else:
+            g0_x = (x-1.554)**degree[0]
+
+    if hom_bc_axes[1]:                
+        assert degree[1] > 1
+        g0_y = y * (y-np.pi) * (y-0.324)**(degree[1]-2)
+    else:
+        if degree[1] > 1:
+            g0_y = (y-1.675)**2 * (y-0.324)**(degree[1]-2)
+
+        else:
+            g0_y = (y-0.324)**degree[1]
+
+    return g0_x * g0_y
+
 def try_ssc_2d(
         ncells=None, 
         p_degree=[3,3],
@@ -215,9 +259,9 @@ def try_ssc_2d(
             # nb of interior functions per patch (and per dimension): nb_interior = n_cells + p - 2 *(1+reg)
             # we can only preserve moments of degree p if p +1 <= nb_interior
             max_p_moments = [ncells[d] + p_degree[d] - 2 *(1+reg) - 1 for d in range(2)]
-            p_moments = [max(-1, min(p_degree[d], max_p_moments[d])) for d in range(2)]
+            p_moments = max([max(-1, min(p_degree[d], max_p_moments[d])) for d in range(2)])
         else:
-            p_moments = [-1,-1]
+            p_moments = -1
 
         # p_PP0     = cps.Conf_proj_0_c1(p_V0h, nquads=nquads, hom_bc=hom_bc)
         # p_PP1     = cps.Conf_proj_1_c1(p_V1h, nquads=nquads, hom_bc=hom_bc)
@@ -225,7 +269,11 @@ def try_ssc_2d(
         p_PP0     = cps.Conf_proj_0_c01(p_V0h, reg=reg, p_moments=p_moments, nquads=nquads, hom_bc=hom_bc)
         # p_PP0_std     = cps.Conf_proj_0(p_V0h, nquads = [4*(d + 1) for d in d_degree])
         # print(f'sp_norm(p_PP0_std-p_PP0) = {sp_norm(p_PP0_std-p_PP0)}')
-        p_PP1     = cps.Conf_proj_1_c01(p_V1h, reg=reg, nquads=nquads, hom_bc=hom_bc)
+        p_PP1     = cps.Conf_proj_1_c01(p_V1h, reg=reg, p_moments=p_moments, nquads=nquads, hom_bc=hom_bc)
+        p_PP2     = cps.Conf_proj_0_c01(p_V2h, reg=reg-1, p_moments=p_moments, nquads=nquads)
+
+        # print('OAIJ')
+        # exit()
         # import scipy
         # scipy.set_printoptions(linewidth=300)
         # p_PP0.maxprint = 300
@@ -236,7 +284,7 @@ def try_ssc_2d(
         # from matrepr import mprint
         # exit()
 
-        p_PP1_C0     = cps.Conf_proj_1(p_V1h, nquads=nquads)  # to compare
+        # p_PP1_C0     = cps.Conf_proj_1(p_V1h, nquads=nquads)  # to compare
 
         d_PP0     = cps.Conf_proj_0(d_V0h, nquads = [4*(d + 1) for d in d_degree])
         d_PP1     = cps.Conf_proj_1(d_V1h, nquads = [4*(d + 1) for d in d_degree])
@@ -315,8 +363,6 @@ def try_ssc_2d(
 
     if test_case == "unit_tests":
 
-        failed_tests = 0
-
         print('-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- ')
         print(f"do some tests, with: ")
         print(f"    mom_pres = {mom_pres}")
@@ -324,83 +370,95 @@ def try_ssc_2d(
         print(f"    hom_bc = {hom_bc}")
         print(f"    reg = {reg}")
         
-        diff = sp_norm(p_PP0 - p_PP0@p_PP0)
-        print(f'sp_norm(p_PP0 - p_PP0@p_PP0) = {diff}')    
-        if abs(diff) > 1e-10:
-            print('WARNING !! should be 0')
-            failed_tests += 1
+        test_err(p_PP0, p_PP0@p_PP0, label_error='|| p_PP0 - p_PP0@p_PP0 ||')
+        test_err(p_PP1, p_PP1@p_PP1, label_error='|| p_PP1 - p_PP1@p_PP1 ||')
+        test_err(p_bG@p_PP0, p_PP1@p_bG@p_PP0, label_error='|| p_bG@p_PP0 - p_PP1@p_bG@p_PP0 ||')
+        test_err(p_bC@p_PP1, p_PP2@p_bC@p_PP1, label_error='|| p_bC@p_PP1 - p_PP2@p_bC@p_PP1 ||')
 
-        diff = sp_norm(p_PP1 - p_PP1@p_PP1)
-        print(f'sp_norm(p_PP1 - p_PP1@p_PP1) = {diff}')    
-        if abs(diff) > 1e-10:
-            print('WARNING !! should be 0')
-            failed_tests += 1
-
-        diff = sp_norm(p_bG@p_PP0 - p_PP1@p_bG@p_PP0)
-        print(f'sp_norm(p_bG@p_PP0 - p_PP1@p_bG@p_PP0) = {diff}')
-        if abs(diff) > 1e-10:
-            print('WARNING !! should be 0')
-            failed_tests += 1
-
-        def test_err(app_c, ref_c, label_error):
-
-            err_c = app_c - ref_c 
-            error = np.sqrt(np.dot(err_c, MM @ err_c))
-            print(f'{label_error} = {error}')
-            if abs(error) > 1e-10:
-                print('WARNING !! should be 0')
-                return 1
-            return 0
-
-        def get_polynomial_function(degree, hom_bc):            
-            if hom_bc:                
-                assert degree[0] > 1 and degree[1] > 1
-                g0 = (  x * (x-np.pi) * (x-1.554)**(degree[0]-2)
-                        * y * (y-np.pi) * (y-0.324)**(degree[1]-2)
-                    )
-            else:
-                if degree[0] > 1 and degree[1] > 1:
-                    g0 = (  (x-0.543)**2 * (x-1.554)**(degree[0]-2)
-                            * (y-1.675)**2 * (y-0.324)**(degree[1]-2)
-                        )
-                else:
-                    g0 = ( (x-1.554)**degree[0]
-                            * (y-0.324)**degree[1]
-                        )
-            return g0
-        
         # unit test: different projections of a polynomial should be exact: 
-        g0 = get_polynomial_function(degree=p_degree, hom_bc=hom_bc)        
+        
+        # tests on p_PP0:
+
+        g0 = get_polynomial_function(degree=p_degree, hom_bc_axes=[hom_bc,hom_bc], domain=domain)        
         g0h = P_phys_h1(g0, p_geomP0, domain, mappings_list)
         g0_c = g0h.coeffs.toarray()  
         
-        MM    = p_MM0
-
         tilde_g0_c = p_derham_h.get_dual_dofs(space='V0', f=g0, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
         g0_L2_c = p_MM0_inv @ tilde_g0_c
 
-        failed_tests += test_err(app_c = g0_L2_c,         ref_c = g0_c, label_error="|| (P0_geom - P0_L2) polynomial ||_L2")
-        failed_tests += test_err(app_c = p_PP0 @ g0_L2_c, ref_c = g0_c, label_error="|| (P0_geom - confP0 @ P0_L2) polynomial ||_L2")
+        test_err(app_c = g0_L2_c,         ref_c = g0_c, MM = p_MM0, label_error="|| (P0_geom - P0_L2) polynomial ||_L2")
+        test_err(app_c = p_PP0 @ g0_L2_c, ref_c = g0_c, MM = p_MM0, label_error="|| (P0_geom - confP0 @ P0_L2) polynomial ||_L2")
         
-        # testing that polynomial moments are preserved:
-        # projection P* : L2 -> V0, 
-        # <conf_P* g, phi> := <g, conf_P phi> for all phi in V0
-        # should be exact
-        if p_moments[0] >= 0 and p_moments[1] >= 0:
-            g0 = get_polynomial_function(degree=p_moments, hom_bc=False)
+        if p_moments >= 0:
+            # testing that polynomial moments are preserved: the following projection should be exact:
+            #   conf_P0* : L2 -> V0 defined by <conf_P0* g, phi> := <g, conf_P0 phi> for all phi in V0            
+            g0 = get_polynomial_function(degree=[p_moments,p_moments], hom_bc_axes=[False, False], domain=domain)
             g0h = P_phys_h1(g0, p_geomP0, domain, mappings_list)
             g0_c = g0h.coeffs.toarray()    
 
             tilde_g0_c = p_derham_h.get_dual_dofs(space='V0', f=g0, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
             g0_star_c = p_MM0_inv @ p_PP0.transpose() @ tilde_g0_c
-            failed_tests += test_err(app_c = g0_star_c, ref_c = g0_c, label_error="|| (P0_geom - P0_star) polynomial ||_L2")
+            test_err(app_c = g0_star_c, ref_c = g0_c, MM = p_MM0, label_error="|| (P0_geom - P0_star) polynomial ||_L2")
+
+        # tests on p_PP1:
+
+        G1 = Tuple(
+            get_polynomial_function(degree=[p_degree[0]-1,p_degree[1]], hom_bc_axes=[False,hom_bc], domain=domain),
+            get_polynomial_function(degree=[p_degree[0],p_degree[1]-1], hom_bc_axes=[hom_bc,False], domain=domain)
+        )
+
+        G1h = P_phys_hcurl(G1, p_geomP1, domain, mappings_list)
+        G1_c = G1h.coeffs.toarray()  
+        
+        tilde_G1_c = p_derham_h.get_dual_dofs(space='V1', f=G1, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
+        G1_L2_c = p_MM1_inv @ tilde_G1_c
+
+        test_err(app_c = G1_L2_c,         ref_c = G1_c, MM = p_MM1, label_error="|| (P1_geom - P1_L2) polynomial ||_L2")
+        test_err(app_c = p_PP1 @ G1_L2_c, ref_c = G1_c, MM = p_MM1, label_error="|| (P1_geom - confP1 @ P1_L2) polynomial ||_L2")
+
+        if p_moments >= 0:
+            # testing that polynomial moments are preserved: the following projection should be exact:            
+            #   conf_P1* : L2 -> V1  defined by  <conf_P1* G, Phi> := <G, conf_P1 Phi> for all Phi in V1            
+            G1 = Tuple(
+                get_polynomial_function(degree=[p_moments,p_moments], hom_bc_axes=[False,False], domain=domain),
+                get_polynomial_function(degree=[p_moments,p_moments], hom_bc_axes=[False,False], domain=domain)
+            )
+
+            G1h = P_phys_hcurl(G1, p_geomP1, domain, mappings_list)
+            G1_c = G1h.coeffs.toarray()  
+
+            tilde_G1_c = p_derham_h.get_dual_dofs(space='V1', f=G1, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
+            G1_star_c = p_MM1_inv @ p_PP1.transpose() @ tilde_G1_c
+            test_err(app_c = G1_star_c, ref_c = G1_c, MM = p_MM1, label_error="|| (P1_geom - P1_star) polynomial ||_L2")
+
+        # tests on p_PP2 (non trivial for reg = 1):
+        
+        g2 = get_polynomial_function(degree=[p_degree[d]-1 for d in range(2)], hom_bc_axes=[False,False], domain=domain)        
+        g2h = P_phys_l2(g2, p_geomP2, domain, mappings_list)
+        g2_c = g2h.coeffs.toarray()  
+        
+        tilde_g2_c = p_derham_h.get_dual_dofs(space='V2', f=g2, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
+        g2_L2_c = p_MM2_inv @ tilde_g2_c
+
+        test_err(app_c = g2_L2_c,         ref_c = g2_c, MM = p_MM2, label_error="|| (P2_geom - P2_L2) polynomial ||_L2")
+        test_err(app_c = p_PP2 @ g2_L2_c, ref_c = g2_c, MM = p_MM2, label_error="|| (P2_geom - confP2 @ P2_L2) polynomial ||_L2")
+
+        if p_moments >= 0:
+            # testing that polynomial moments are preserved, as above
+            g2 = get_polynomial_function(degree=[p_moments,p_moments], hom_bc_axes=[False, False], domain=domain)
+            g2h = P_phys_h1(g2, p_geomP2, domain, mappings_list)
+            g0_c = g2h.coeffs.toarray()    
+
+            tilde_g2_c = p_derham_h.get_dual_dofs(space='V2', f=g2, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
+            g2_star_c = p_MM2_inv @ p_PP2.transpose() @ tilde_g2_c
+            test_err(app_c = g2_star_c, ref_c = g2_c, MM = p_MM2, label_error="|| (P2_geom - P2_star) polynomial ||_L2")
+
 
         print()
-        print(f'tests done: failed = {failed_tests}')
+        print(f'batch of tests done')
         print('-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- ')
-        
-        return failed_tests
 
+        return    
 
     sol = 'discontinuous'
     print(f"running with test_case = {test_case} and sol = {sol} ...")
@@ -758,6 +816,7 @@ def try_ssc_2d(
 
 if __name__ == '__main__':
 
+    # global total_tests, failed_tests
     t_stamp_full = time_count()
 
     # test_case = "norm_Lambda0"
@@ -794,7 +853,6 @@ if __name__ == '__main__':
     cps.proj_op = 1 # use as argument to conf projections
     test_parameters_list = []
     if test_case == "unit_tests":
-        failed_tests = 0
         for mom_pres in [False, True]:
             for reg in [0, 1]:
                 for hom_bc in [False, True]:
@@ -805,7 +863,6 @@ if __name__ == '__main__':
                         })
 
     else:
-        failed_tests = None
         test_parameters_list.append({
             'mom_pres' : False,
             'reg' : 1,
@@ -865,10 +922,8 @@ if __name__ == '__main__':
                         cps_opts=cps_opts,
                     )
 
-                    if test_case == 'unit_tests':
-                        failed_tests += res
+                    if test_case != 'unit_tests':
 
-                    else:
                         error, relerror = res
 
                         print("-------------------------------------------------")
@@ -881,7 +936,7 @@ if __name__ == '__main__':
     
     if test_case == 'unit_tests':
         print("-------------------------------------------------")
-        print(f" total nb of failed tests: {failed_tests}        ")
+        print(f" total nb of failed tests: {failed_tests} / {total_tests}       ")
         print("-------------------------------------------------\n")
 
     else:    
