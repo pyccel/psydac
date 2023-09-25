@@ -119,10 +119,12 @@ def try_ssc_2d(
 
     print('---------------------------------------------------------------------------------------------------------')
     print('Starting try_ssc_2d function with: ')
+    print(f' test_case      = {test_case}')
     print(' ncells      = {}'.format(ncells))
     print(' p_degree    = {}'.format(p_degree))
     print(' domain_name = {}'.format(domain_name))
-    # print(' backend_language = {}'.format(backend_language))
+    print(' reg = {}'.format(reg))
+    print(' mom_pres = {}'.format(mom_pres))
     print('---------------------------------------------------------------------------------------------------------')
     t_stamp = time_count()
     if not os.path.exists(plot_dir):
@@ -255,46 +257,44 @@ def try_ssc_2d(
         t_stamp = time_count(t_stamp)
         print('Conforming projections...')
 
-        if mom_pres:
-            # nb of interior functions per patch (and per dimension): nb_interior = n_cells + p - 2 *(1+reg)
-            # we can only preserve moments of degree p if p +1 <= nb_interior
-            max_p_moments = [ncells[d] + p_degree[d] - 2 *(1+reg) - 1 for d in range(2)]
-            p_moments_V0 = max([max(-1, min(p_degree[d], max_p_moments[d])) for d in range(2)])
-            p_moments_V1 = max([max(-1, min(p_degree[d]-1, max_p_moments[d])) for d in range(2)])
-            p_moments_V2 = p_moments_V1
+        use_new = True
+        if use_new:
 
-            print(f'with max_p_moments = {max_p_moments}, using:')
-            print(f' p_moments_V0 = {p_moments_V0}')
-            print(f' p_moments_V1 = {p_moments_V1}')
-            print(f' p_moments_V2 = {p_moments_V2}')
+            if (ncells[0] < 3 + 2*reg) or (ncells[1] < 3 + 2*reg):
+                full_mom_pres = False
+                print('full moment preservation will not be possible (not enough cells)')
+            else:
+                full_mom_pres = True
+
+            # primal projs: for testing (unrelated to dual projs)
+            print(f'OIUHIHU******************************** hom_bc = {hom_bc}')
+            p_PP0, p_PP1, p_PP2 = cps.conf_projectors_scipy(p_derham_h, reg=reg, mom_pres=mom_pres, nquads=nquads, hom_bc=hom_bc)
+            
+            d_PP0, d_PP1, d_PP2 = cps.conf_projectors_scipy(d_derham_h, reg=0, mom_pres=mom_pres, nquads=nquads, hom_bc=False)
+
         else:
-            p_moments_V0 = p_moments_V1 = p_moments_V2 = -1
-
-        # p_PP0     = cps.Conf_proj_0_c1(p_V0h, nquads=nquads, hom_bc=hom_bc)
-        # p_PP1     = cps.Conf_proj_1_c1(p_V1h, nquads=nquads, hom_bc=hom_bc)
-
-        p_PP0     = cps.Conf_proj_0_c01(p_V0h, reg=reg, p_moments=p_moments_V0, nquads=nquads, hom_bc=hom_bc)
-        # p_PP0_std     = cps.Conf_proj_0(p_V0h, nquads = [4*(d + 1) for d in d_degree])
-        # print(f'sp_norm(p_PP0_std-p_PP0) = {sp_norm(p_PP0_std-p_PP0)}')
-        p_PP1     = cps.Conf_proj_1_c01(p_V1h, reg=reg, p_moments=p_moments_V1, nquads=nquads, hom_bc=hom_bc)
-        p_PP2     = cps.Conf_proj_0_c01(p_V2h, reg=reg-1, p_moments=p_moments_V2, nquads=nquads)
-
-        # print('OAIJ')
-        # exit()
-        # import scipy
-        # scipy.set_printoptions(linewidth=300)
-        # p_PP0.maxprint = 300
         
-        # P0.maxprint = np.inf
-        # print(p_PP0) #.toarray())
-        
-        # from matrepr import mprint
-        # exit()
+            if mom_pres:
+                # nb of interior functions per patch (and per dimension): nb_interior = n_cells + p - 2 *(1+reg)
+                # we can only preserve moments of degree p if p +1 <= nb_interior
+                max_p_moments = [ncells[d] + p_degree[d] - 2 *(1+reg) - 1 for d in range(2)]
+                p_moments_V0 = max([max(-1, min(p_degree[d], max_p_moments[d])) for d in range(2)])
+                p_moments_V1 = max([max(-1, min(p_degree[d]-1, max_p_moments[d])) for d in range(2)])
+                p_moments_V2 = p_moments_V1
 
-        # p_PP1_C0     = cps.Conf_proj_1(p_V1h, nquads=nquads)  # to compare
+                print(f'with max_p_moments = {max_p_moments}, using:')
+                print(f' p_moments_V0 = {p_moments_V0}')
+                print(f' p_moments_V1 = {p_moments_V1}')
+                print(f' p_moments_V2 = {p_moments_V2}')
+            else:
+                p_moments_V0 = p_moments_V1 = p_moments_V2 = -1
 
-        d_PP0     = cps.Conf_proj_0(d_V0h, nquads = [4*(d + 1) for d in d_degree])
-        d_PP1     = cps.Conf_proj_1(d_V1h, nquads = [4*(d + 1) for d in d_degree])
+            p_PP0     = cps.Conf_proj_0_c01(p_V0h, reg=reg, p_moments=p_moments_V0, nquads=nquads, hom_bc=hom_bc)
+            p_PP1     = cps.Conf_proj_1_c01(p_V1h, reg=reg, p_moments=p_moments_V1, nquads=nquads, hom_bc=hom_bc)
+            p_PP2     = cps.Conf_proj_0_c01(p_V2h, reg=reg-1, p_moments=p_moments_V2, nquads=nquads)
+
+            d_PP0     = cps.Conf_proj_0(d_V0h, nquads = [4*(d + 1) for d in d_degree])
+            d_PP1     = cps.Conf_proj_1(d_V1h, nquads = [4*(d + 1) for d in d_degree])
 
         t_stamp = time_count(t_stamp)
         print('Mass matrices...')
@@ -379,6 +379,7 @@ def try_ssc_2d(
         
         test_err(p_PP0, p_PP0@p_PP0, label_error='|| p_PP0 - p_PP0@p_PP0 ||')
         test_err(p_PP1, p_PP1@p_PP1, label_error='|| p_PP1 - p_PP1@p_PP1 ||')
+        test_err(p_PP2, p_PP2@p_PP2, label_error='|| p_PP2 - p_PP2@p_PP2 ||')
         test_err(p_bG@p_PP0, p_PP1@p_bG@p_PP0, label_error='|| p_bG@p_PP0 - p_PP1@p_bG@p_PP0 ||')
         test_err(p_bC@p_PP1, p_PP2@p_bC@p_PP1, label_error='|| p_bC@p_PP1 - p_PP2@p_bC@p_PP1 ||')
 
@@ -397,21 +398,24 @@ def try_ssc_2d(
         test_err(app_c = p_PP0 @ g0_L2_c, ref_c = g0_c, MM = p_MM0, label_error="|| (P0_geom - confP0 @ P0_L2) polynomial ||_L2")
         
         if mom_pres:
-            # testing that polynomial moments are preserved: the following projection should be exact:
-            #   conf_P0* : L2 -> V0 defined by <conf_P0* g, phi> := <g, conf_P0 phi> for all phi in V0            
-            g0 = get_polynomial_function(degree=[p_moments_V0,p_moments_V0], hom_bc_axes=[False, False], domain=domain)
-            g0h = P_phys_h1(g0, p_geomP0, domain, mappings_list)
-            g0_c = g0h.coeffs.toarray()    
+            if full_mom_pres:
+                # testing that polynomial moments are preserved: the following projection should be exact:
+                #   conf_P0* : L2 -> V0 defined by <conf_P0* g, phi> := <g, conf_P0 phi> for all phi in V0            
+                g0 = get_polynomial_function(degree=p_degree, hom_bc_axes=[False, False], domain=domain)
+                g0h = P_phys_h1(g0, p_geomP0, domain, mappings_list)
+                g0_c = g0h.coeffs.toarray()    
 
-            tilde_g0_c = p_derham_h.get_dual_dofs(space='V0', f=g0, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
-            g0_star_c = p_MM0_inv @ p_PP0.transpose() @ tilde_g0_c
-            test_err(app_c = g0_star_c, ref_c = g0_c, MM = p_MM0, label_error="|| (P0_geom - P0_star) polynomial ||_L2")
+                tilde_g0_c = p_derham_h.get_dual_dofs(space='V0', f=g0, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
+                g0_star_c = p_MM0_inv @ p_PP0.transpose() @ tilde_g0_c
+                test_err(app_c = g0_star_c, ref_c = g0_c, MM = p_MM0, label_error="|| (P0_geom - P0_star) polynomial ||_L2")
+            else:
+                print('full moment preservation was not possible (not enough cells), so not testing')
 
         # tests on p_PP1:
 
         G1 = Tuple(
-            get_polynomial_function(degree=[p_degree[0]-1,p_degree[1]], hom_bc_axes=[False,hom_bc], domain=domain),
-            get_polynomial_function(degree=[p_degree[0],p_degree[1]-1], hom_bc_axes=[hom_bc,False], domain=domain)
+            get_polynomial_function(degree=[p_degree[0]-1,p_degree[1]],   hom_bc_axes=[False,hom_bc], domain=domain),
+            get_polynomial_function(degree=[p_degree[0],  p_degree[1]-1], hom_bc_axes=[hom_bc,False], domain=domain)
         )
 
         G1h = P_phys_hcurl(G1, p_geomP1, domain, mappings_list)
@@ -424,23 +428,26 @@ def try_ssc_2d(
         test_err(app_c = p_PP1 @ G1_L2_c, ref_c = G1_c, MM = p_MM1, label_error="|| (P1_geom - confP1 @ P1_L2) polynomial ||_L2")
 
         if mom_pres:
-            # testing that polynomial moments are preserved: the following projection should be exact:            
-            #   conf_P1* : L2 -> V1  defined by  <conf_P1* G, Phi> := <G, conf_P1 Phi> for all Phi in V1            
-            G1 = Tuple(
-                get_polynomial_function(degree=[p_moments_V1,p_moments_V1], hom_bc_axes=[False,False], domain=domain),
-                get_polynomial_function(degree=[p_moments_V1,p_moments_V1], hom_bc_axes=[False,False], domain=domain)
-            )
+            if full_mom_pres:
+                # testing that polynomial moments are preserved: the following projection should be exact:            
+                #   conf_P1* : L2 -> V1  defined by  <conf_P1* G, Phi> := <G, conf_P1 Phi> for all Phi in V1            
+                G1 = Tuple(
+                    get_polynomial_function(degree=[p_degree[0]-1,p_degree[1]],   hom_bc_axes=[False,False], domain=domain),
+                    get_polynomial_function(degree=[p_degree[0],  p_degree[1]-1], hom_bc_axes=[False,False], domain=domain)
+                )
 
-            G1h = P_phys_hcurl(G1, p_geomP1, domain, mappings_list)
-            G1_c = G1h.coeffs.toarray()  
+                G1h = P_phys_hcurl(G1, p_geomP1, domain, mappings_list)
+                G1_c = G1h.coeffs.toarray()  
 
-            tilde_G1_c = p_derham_h.get_dual_dofs(space='V1', f=G1, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
-            G1_star_c = p_MM1_inv @ p_PP1.transpose() @ tilde_G1_c
-            test_err(app_c = G1_star_c, ref_c = G1_c, MM = p_MM1, label_error="|| (P1_geom - P1_star) polynomial ||_L2")
+                tilde_G1_c = p_derham_h.get_dual_dofs(space='V1', f=G1, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
+                G1_star_c = p_MM1_inv @ p_PP1.transpose() @ tilde_G1_c
+                test_err(app_c = G1_star_c, ref_c = G1_c, MM = p_MM1, label_error="|| (P1_geom - P1_star) polynomial ||_L2")
+            else:
+                print('full moment preservation was not possible (not enough cells), so not testing')
 
         # tests on p_PP2 (non trivial for reg = 1):
         
-        g2 = get_polynomial_function(degree=[p_degree[d]-1 for d in range(2)], hom_bc_axes=[False,False], domain=domain)        
+        g2 = get_polynomial_function(degree=[p_degree[0]-1,p_degree[1]-1], hom_bc_axes=[False,False], domain=domain)        
         g2h = P_phys_l2(g2, p_geomP2, domain, mappings_list)
         g2_c = g2h.coeffs.toarray()  
         
@@ -451,14 +458,17 @@ def try_ssc_2d(
         test_err(app_c = p_PP2 @ g2_L2_c, ref_c = g2_c, MM = p_MM2, label_error="|| (P2_geom - confP2 @ P2_L2) polynomial ||_L2")
 
         if mom_pres:
-            # testing that polynomial moments are preserved, as above
-            g2 = get_polynomial_function(degree=[p_moments_V2,p_moments_V2], hom_bc_axes=[False, False], domain=domain)
-            g2h = P_phys_l2(g2, p_geomP2, domain, mappings_list)
-            g0_c = g2h.coeffs.toarray()    
+            if full_mom_pres:                
+                # testing that polynomial moments are preserved, as above (here g2 is always as above, since no bc's on V2)
+                # g2 = get_polynomial_function(degree=[p_moments_V2,p_moments_V2], hom_bc_axes=[False, False], domain=domain)
+                # g2h = P_phys_l2(g2, p_geomP2, domain, mappings_list)
+                # g2_c = g2h.coeffs.toarray()    
 
-            tilde_g2_c = p_derham_h.get_dual_dofs(space='V2', f=g2, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
-            g2_star_c = p_MM2_inv @ p_PP2.transpose() @ tilde_g2_c
-            test_err(app_c = g2_star_c, ref_c = g2_c, MM = p_MM2, label_error="|| (P2_geom - P2_star) polynomial ||_L2")
+                # tilde_g2_c = p_derham_h.get_dual_dofs(space='V2', f=g2, backend_language=backend_language, return_format='numpy_array', nquads=nquads)
+                g2_star_c = p_MM2_inv @ p_PP2.transpose() @ tilde_g2_c
+                test_err(app_c = g2_star_c, ref_c = g2_c, MM = p_MM2, label_error="|| (P2_geom - P2_star) polynomial ||_L2")
+            else:
+                print('full moment preservation was not possible (not enough cells), so not testing')
 
 
         print()
@@ -827,12 +837,12 @@ if __name__ == '__main__':
     t_stamp_full = time_count()
 
     # test_case = "norm_Lambda0"
-    test_case = "p_PP0"
+    # test_case = "p_PP0"
     # test_case = "PGP0"
-    # test_case = "p_PP1" # "d_HH1" # "p_PP1" # "p_PP1_C1" # "d_HH1" # "p_PP1_C1" # 
+    test_case = "p_PP1" # "d_HH1" # "p_PP1" # "p_PP1_C1" # "d_HH1" # "p_PP1_C1" # 
     # test_case = "d_HH1"
-    test_case = "pP0_order"
-    test_case = "pP0_moment_order"
+    # test_case = "pP0_order"
+    # test_case = "pP0_moment_order"
 
     test_case = "unit_tests"
 
@@ -841,7 +851,7 @@ if __name__ == '__main__':
     refined_square = False
     
     make_plots = True # False # 
-    hide_plots = True # False # 
+    hide_plots =  False # True #
     
 
     deg_s = [3] #, 4]
@@ -872,8 +882,8 @@ if __name__ == '__main__':
     else:
         test_parameters_list.append({
             'mom_pres' : False,
-            'reg' : 1,
-            'hom_bc' : True
+            'reg' : 0,
+            'hom_bc' : False
             })
         assert len(test_parameters_list) == 1
 
@@ -920,7 +930,7 @@ if __name__ == '__main__':
                         reg=reg,
                         p_degree=[deg,deg],
                         domain_name=domain_name, 
-                        test_case='unit_tests',
+                        test_case=test_case,
                         plot_dir='./plots/'+run_dir,
                         m_load_dir=m_load_dir,
                         backend_language='python', #'pyccel-gcc'
