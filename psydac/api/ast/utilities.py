@@ -1040,3 +1040,28 @@ def math_atoms_as_str(expr, lib='math'):
                 sqrt = True
 
     return set.union(math_functions, math_constants)
+
+def get_name(lhs):
+    """
+    Given a list of variable return the meaningful part of the name of the
+    first variable that has a _name attribute.
+
+    Was added to solve issue #327 caused by trying to access the name of a 
+    variable that has not such attribute.
+
+    Parameters
+    ----------
+    lhs : list
+        list from whom we need to extract a name.
+
+    Returns
+    -------
+    str
+        meaningful part of the name of the variable or "zero term" if no 
+        variable has a name.
+
+    """
+    for term in lhs:
+        if hasattr(term, '_name'):
+            return term._name[12:-8]
+    return "zero_term"
