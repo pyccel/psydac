@@ -959,7 +959,7 @@ class MinimumResidual(InverseLinearOperator):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
-        assert A.dtype == float
+        assert A.domain.dtype == float
         domain = A.codomain
         codomain = A.domain
 
