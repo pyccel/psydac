@@ -38,7 +38,8 @@ from psydac.core.field_evaluation_kernels import (eval_fields_2d_no_weights,
                                                   eval_fields_3d_no_weights,
                                                   eval_fields_3d_irregular_no_weights,
                                                   eval_fields_3d_weighted,
-                                                  eval_fields_3d_irregular_weighted)
+                                                  eval_fields_3d_irregular_weighted,
+                                                  eval_field_3d_once)
 
 __all__ = ('TensorFemSpace',)
 
@@ -230,9 +231,7 @@ class TensorFemSpace( FemSpace ):
         #   - Pros: small number of Python iterations = ldim
         #   - Cons: we create ldim-1 temporary objects of decreasing size
         #
-        res = coeffs
-        for basis in bases[::-1]:
-            res = np.dot( res, basis )
+        res = eval_field_3d_once(coeffs, bases[0], bases[1], bases[2])
 
 #        # Option 2: cycle over each element of 'coeffs' (touched only once)
 #        #   - Pros: no temporary objects are created
