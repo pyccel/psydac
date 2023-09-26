@@ -231,7 +231,12 @@ class TensorFemSpace( FemSpace ):
         #   - Pros: small number of Python iterations = ldim
         #   - Cons: we create ldim-1 temporary objects of decreasing size
         #
-        res = eval_field_3d_once(coeffs, bases[0], bases[1], bases[2])
+        if len(bases) == 3:
+            res = eval_field_3d_once(coeffs, bases[0], bases[1], bases[2])
+        else:
+            res = coeffs
+            for basis in bases[::-1]:
+                res = np.dot( res, basis )
 
 #        # Option 2: cycle over each element of 'coeffs' (touched only once)
 #        #   - Pros: no temporary objects are created
