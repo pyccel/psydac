@@ -319,21 +319,26 @@ class DirectionalDerivativeOperator(LinearOperator):
 
             if self._diffdir == d:
                 # if we are at the differentiation direction, construct differentiation matrix
-                maindiag = np.ones(domain_local) * (-sign)
-                adddiag = np.ones(domain_local) * sign
+                if codomain_local == 1 and domain_local == 1 and self.domain.periods[d]:
+                    # case of one cell and periodic BC should be treated as a constant
+                    addmatrix = spa.coo_array((codomain_local, domain_local))
 
-                # handle special case with not self.domain.parallel and not with_pads and periodic
-                if self.domain.periods[d] and not self.domain.parallel and not with_pads:
-                    # then: add element to other side of the array
-                    adddiagcirc = np.array([sign])
-                    offsets = (-codomain_local+1, 0, 1)
-                    diags = (adddiagcirc, maindiag, adddiag)
                 else:
-                    # else, just take main and off diagonal
-                    offsets = (0,1)
-                    diags = (maindiag, adddiag)
-                
-                addmatrix = spa.diags(diags, offsets=offsets, shape=(codomain_local, domain_local), format='coo')
+                    maindiag = np.ones(domain_local) * (-sign)
+                    adddiag = np.ones(domain_local) * sign
+
+                    # handle special case with not self.domain.parallel and not with_pads and periodic
+                    if self.domain.periods[d] and not self.domain.parallel and not with_pads:
+                        # then: add element to other side of the array
+                        adddiagcirc = np.array([sign])
+                        offsets = (-codomain_local+1, 0, 1)
+                        diags = (adddiagcirc, maindiag, adddiag)
+                    else:
+                        # else, just take main and off diagonal
+                        offsets = (0,1)
+                        diags = (maindiag, adddiag)
+
+                    addmatrix = spa.diags(diags, offsets=offsets, shape=(codomain_local, domain_local), format='coo')
             else:
                 # avoid using padding, if possible
                 addmatrix = spa.identity(domain_local)
