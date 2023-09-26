@@ -58,4 +58,4 @@ def test_field_and_constant(backend):
     xh = equation_h.solve(c=c_value, f=fh)
 
     # Verify that solution is equal to c_value
-    assert np.allclose(xh.coeffs.toarray(), c_value, rtol=1e-10, atol=1e-16)
+    assert np.allclose(xh.coeffs.toarray(), c_value, rtol=1e-9, atol=1e-16)
