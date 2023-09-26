@@ -267,7 +267,6 @@ def try_ssc_2d(
                 full_mom_pres = True
 
             # primal projs: for testing (unrelated to dual projs)
-            print(f'OIUHIHU******************************** hom_bc = {hom_bc}')
             p_PP0, p_PP1, p_PP2 = cps.conf_projectors_scipy(p_derham_h, reg=reg, mom_pres=mom_pres, nquads=nquads, hom_bc=hom_bc)
             
             d_PP0, d_PP1, d_PP2 = cps.conf_projectors_scipy(d_derham_h, reg=0, mom_pres=mom_pres, nquads=nquads, hom_bc=False)
@@ -867,7 +866,7 @@ if __name__ == '__main__':
     errors = [[[ None for nbc in nbc_s] for nbp in nbp_s] for deg in deg_s]
     error_dir = './errors'      
 
-    cps.proj_op = 1 # use as argument to conf projections
+    cps.proj_op = 2 # use as argument to conf projections
     test_parameters_list = []
     if test_case == "unit_tests":
         for mom_pres in [False, True]:

@@ -137,7 +137,6 @@ def univariate_conf_proj_scalar_space(Vh, conf_axis, reg=0, p_moments=-1, nquads
     """
     dim_tot = Vh.nbasis
     Proj    = sparse_eye(dim_tot,format="lil")
-    print(f'reg = {reg}')
     if reg < 0:
         return Proj
     
