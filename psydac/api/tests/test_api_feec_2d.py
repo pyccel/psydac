@@ -715,9 +715,9 @@ def test_maxwell_2d_periodic_multiplicity():
     namespace = run_maxwell_2d_TE(
         use_spline_mapping = False,
         eps      = 0.5,
-        ncells   = 12,
-        degree   = 3,
-        periodic = True,
+        ncells   = 10,
+        degree   = 5,
+        periodic = False,
         Cp       = 0.5,
         nsteps   = 1,
         tend     = None,
@@ -847,6 +847,8 @@ def test_maxwell_2d_dirichlet_par():
 #==============================================================================
 if __name__ == '__main__':
 
+    test_maxwell_2d_periodic_multiplicity()
+    exit() 
     import argparse
 
     parser = argparse.ArgumentParser(

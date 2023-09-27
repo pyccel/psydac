@@ -354,7 +354,7 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None):
     return out
 
 #==============================================================================
-def histopolation_matrix(knots, degree, periodic, normalization, xgrid, check_boundary=True, out=None):
+def histopolation_matrix(knots, degree, periodic, normalization, xgrid, multiplicity=1, check_boundary=True, out=None):
     """Computes the histopolation matrix.
 
     If called with normalization='M', this uses M-splines instead of B-splines.
@@ -418,7 +418,7 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid, check_bo
 
     knots = np.ascontiguousarray(knots, dtype=float)
     xgrid = np.ascontiguousarray(xgrid, dtype=float)
-    elevated_knots = elevate_knots(knots, degree, periodic)
+    elevated_knots = elevate_knots(knots, degree, periodic, multiplicity=multiplicity)
 
     normalization = normalization == "M"
 

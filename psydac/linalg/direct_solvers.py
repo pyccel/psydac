@@ -149,6 +149,8 @@ class SparseSolver ( DirectSolver ):
         assert isinstance( spmat, spmatrix )
 
         self._space = np.ndarray
+        print("top")
+        print(spmat.tocsc())
         self._splu  = splu( spmat.tocsc() )
 
     #--------------------------------------
