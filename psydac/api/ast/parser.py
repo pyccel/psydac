@@ -73,7 +73,7 @@ from .nodes import index_deriv, Max, Min
 
 from .nodes import Zeros, ZerosLike, Array
 from .fem import expand, expand_hdiv_hcurl
-from psydac.api.ast.utilities import variables, math_atoms_as_str
+from psydac.api.ast.utilities import variables, math_atoms_as_str, get_name
 from psydac.api.utilities     import flatten
 from psydac.api.ast.utilities import build_pythran_types_header
 from psydac.api.ast.utilities import build_pyccel_types_decorator
@@ -1233,7 +1233,7 @@ class Parser(object):
         lhs = lhs[:]
 
         # Create a new name for the temporaries used in each patch
-        name=lhs[0]._name[12:-8]
+        name = get_name(lhs)
         temps, rhs = cse_main.cse(rhs, symbols=cse_main.numbered_symbols(prefix=f'temp{name}'))
 
         normal_vec_stmts = []
