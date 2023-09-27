@@ -7,10 +7,11 @@ import numpy as np
 from types import MappingProxyType
 from scipy.sparse import bmat, lil_matrix
 
-from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator, LinearSolver, ZeroOperator
-from psydac.ddm.cart      import InterfaceCartDecomposition
-from psydac.ddm.utilities import get_data_exchanger
-from psydac.linalg.stencil import StencilVector, StencilMatrix
+from psydac.linalg.basic    import VectorSpace, Vector, LinearOperator, LinearSolver
+from psydac.linalg.stencil  import StencilMatrix
+from psydac.linalg.kron     import KroneckerLinearSolver
+from psydac.ddm.cart        import InterfaceCartDecomposition
+from psydac.ddm.utilities   import get_data_exchanger
 
 __all__ = ('BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockDiagonalSolver')
 
@@ -1450,7 +1451,7 @@ class BlockDiagonalSolver( LinearSolver ):
     def __setitem__( self, key, value ):
         assert 0 <= key < self._nblocks
 
-        assert isinstance( value, LinearSolver )
+        assert isinstance( value, (LinearSolver, KroneckerLinearSolver) )
 
         # Check domain of rhs
         assert value.space is self.space[key]

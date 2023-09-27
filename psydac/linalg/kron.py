@@ -371,7 +371,7 @@ class KroneckerDenseMatrix(LinearOperator):
     def set_backend(self, backend):
         pass
 #==============================================================================
-class KroneckerLinearSolver(LinearSolver):
+class KroneckerLinearSolver(LinearOperator):
     """
     A solver for Ax=b, where A is a Kronecker matrix from arbirary dimension d,
     defined by d solvers. We also need information about the space of b.
@@ -400,6 +400,8 @@ class KroneckerLinearSolver(LinearSolver):
 
         # general arguments
         self._space = V
+        self._domain = self._space
+        self._codomain = self._space
         self._solvers = solvers
         self._parallel = self._space.parallel
         self._dtype = self._space._dtype
@@ -507,6 +509,30 @@ class KroneckerLinearSolver(LinearSolver):
         about the cartesian distribution is taken from).
         """
         return self._space
+
+    @property
+    def domain(self):
+        return self._space
+    
+    @property
+    def codomain(self):
+        return self._space
+    
+    @property
+    def dtype(self):
+        return None
+    
+    def toarray(self):
+        raise NotImplementedError('toarray() is not defined for KroneckerLinearSolvers.')
+    
+    def tosparse(self):
+        raise NotImplementedError('tosparse() is not defined for KroneckerLinearSolvers.')
+
+    def transpose(self):
+        raise NotImplementedError('transpose() is not defined for KroneckerLinearSolvers.')
+
+    def dot(self, v, out=None):
+        return self.solve(v, out=out)
 
     @property
     def solvers(self):
