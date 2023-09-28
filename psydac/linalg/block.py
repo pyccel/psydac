@@ -1326,7 +1326,7 @@ class BlockLinearOperator(LinearOperator):
 #===============================================================================
 class BlockDiagonalSolver( LinearSolver ):
     """
-    A LinearSolver that can be written as blocks of other LinearSolvers,
+    A LinearSolver that can be written as blocks of other (Kronecker-)LinearSolvers,
     i.e. it can be seen as a solver for linear equations with block-diagonal matrices.
 
     The space of this solver has to be of the type BlockVectorSpace.
@@ -1337,14 +1337,14 @@ class BlockDiagonalSolver( LinearSolver ):
         Space of the new blocked linear solver.
 
     blocks : dict | list | tuple
-        LinearSolver objects (optional).
+        (Kronecker-)LinearSolver objects (optional).
 
         a) 'blocks' can be dictionary with
             . key   = integer i >= 0
-            . value = corresponding LinearSolver Lii
+            . value = corresponding (Kronecker-)LinearSolver Lii
 
-        b) 'blocks' can be list of LinearSolvers (or tuple of these) where blocks[i]
-            is the LinearSolver Lii (if None, we assume null operator)
+        b) 'blocks' can be list of (Kronecker-)LinearSolvers (or tuple of these) where blocks[i]
+            is the (Kronecker-)LinearSolver Lii (if None, we assume null operator)
 
     """
     def __init__( self, V, blocks=None ):
@@ -1454,6 +1454,11 @@ class BlockDiagonalSolver( LinearSolver ):
         assert isinstance( value, (LinearSolver, KroneckerLinearSolver) )
 
         # Check domain of rhs
-        assert value.space is self.space[key]
+        if isinstance(value, LinearSolver):
+            assert value.space is self.space[key]
+        else:
+            # restrictive, eventually to be removed assumption, that space = domain = codomain
+            assert value.domain is self.space[key]
+            assert value.codomain is self.space[key]
 
         self._blocks[key] = value

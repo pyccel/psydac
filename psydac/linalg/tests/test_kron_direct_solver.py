@@ -70,10 +70,10 @@ def matrix_to_sparse(A):
     A.remove_spurious_entries()
     return SparseSolver(A.tosparse())
 
-def random_matrix(seed, space):
-    A = StencilMatrix(space, space)
-    p = space.pads[0]
-    dtype = space.dtype
+def random_matrix(seed, domain, codomain):
+    A = StencilMatrix(domain, codomain)
+    p = domain.pads[0] # by definition of the StencilMatrix, domain.pads == codomain.pads
+    dtype = domain.dtype # by definition of the StencilMatrix, domain.dtype == codomain.dtype
 
     # for now, take matrices like this (as in the other tests)
     if dtype==complex:
@@ -118,13 +118,14 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, dtype=float, t
     Ds    = [DomainDecomposition([n], periods=[P]) for n,P in zip(npts, periods)]
     carts = [CartDecomposition(Di, [n],  *compute_global_starts_ends(Di, [n]), pads=[p], shifts=[1]) for Di,n,p in zip(Ds, npts, pads)]
     Vs = [StencilVectorSpace(carti, dtype=dtype) for carti in carts]
+    Ws = [StencilVectorSpace(carti, dtype=dtype) for carti in carts]
     localslice = tuple([slice(s, e+1) for s, e in zip(V.starts, V.ends)])
 
     if verbose:
         print(f'[{rank}] Vector spaces built', flush=True)
 
     # bulid matrices (A)
-    A = [random_matrix(seed+i+1, Vi) for i,Vi in enumerate(Vs)]
+    A = [random_matrix(seed+i+1, Vi, Wi) for i,(Vi, Wi) in enumerate(zip(Vs, Ws))]
     solvers = [direct_solver(Ai) for Ai in A]
 
     if verbose:
@@ -143,7 +144,7 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, dtype=float, t
     X_glob = kron_solve_seq_ref(Y_glob, A, transposed)
     Xout = StencilVector(V)
 
-    X = KroneckerLinearSolver(V, solvers).solve(Y, out=Xout, transposed=transposed)
+    X = KroneckerLinearSolver(V, V, solvers).solve(Y, out=Xout, transposed=transposed)
     assert X is Xout
 
     if verbose:
@@ -177,11 +178,12 @@ def test_direct_solvers(dtype, seed, n, p, P, nrhs, direct_solver, transposed):
     D    = DomainDecomposition([n], periods=[P])
     cart = CartDecomposition(D, [n],  *compute_global_starts_ends(D, [n]), pads=[p], shifts=[1])
 
-    # space (V)
+    # domain V and codomain W
     V = StencilVectorSpace( cart, dtype=dtype )
+    W = StencilVectorSpace( cart, dtype=dtype )
 
     # bulid matrices (A)
-    A = random_matrix(seed+1, V)
+    A = random_matrix(seed+1, V, W)
     solver = direct_solver(A)
 
     # vector to solve for (Y)
