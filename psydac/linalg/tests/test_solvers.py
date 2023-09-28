@@ -59,7 +59,7 @@ def define_data(n, p, matrix_data, dtype=float):
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('solver', ['cg', 'pcg' 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'])
+@pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'])
 
 def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
 
