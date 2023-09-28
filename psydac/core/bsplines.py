@@ -339,7 +339,6 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None):
     """
     knots = np.ascontiguousarray(knots, dtype=float)
     xgrid = np.ascontiguousarray(xgrid, dtype=float)
-
     if out is None:
         nb = len(knots) - degree - 1
         if periodic:
