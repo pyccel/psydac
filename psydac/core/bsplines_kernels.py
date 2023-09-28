@@ -811,7 +811,7 @@ def make_knots_p(breaks: 'float[:]', degree: int, periodic: bool, out: 'float[:]
         It should be of the appropriate shape and dtype.
     """
     ncells = len(breaks) - 1
-    for i in range(1, ncells):
+    for i in range(0, ncells + 1):
         out[degree + 1  + (i - 1) * multiplicity:degree + 1 + i * multiplicity] = breaks[i]
 
     out[degree] = breaks[0]
@@ -820,8 +820,11 @@ def make_knots_p(breaks: 'float[:]', degree: int, periodic: bool, out: 'float[:]
     if periodic:
         period = breaks[-1]-breaks[0]
 
-        out[:degree] = breaks[ncells - degree:ncells] - period
-        out[len(out) - degree:] = breaks[1:degree + 1] + period
+        #out[:degree] = breaks[ncells - degree:ncells] - period
+        #out[len(out) - degree:] = breaks[1:degree + 1] + period
+
+        out[:degree + 1-multiplicity] = out[(ncells-1) * multiplicity+1:degree + (ncells-2) * multiplicity + 1] - period
+        out[len(out) - degree + multiplicity-1:] = out[degree+multiplicity:2*degree + 1] + period
     else:
         out[0:degree + 1] = breaks[0]
         out[len(out) - degree - 1:] = breaks[-1]

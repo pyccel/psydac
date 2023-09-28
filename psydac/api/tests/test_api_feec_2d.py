@@ -710,7 +710,7 @@ def test_maxwell_2d_periodic():
     assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
     assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
 
-def test_maxwell_2d_periodic_multiplicity():
+def test_maxwell_2d_multiplicity():
 
     namespace = run_maxwell_2d_TE(
         use_spline_mapping = False,
@@ -727,6 +727,25 @@ def test_maxwell_2d_periodic_multiplicity():
         tol = 1e-6,
         verbose = False,
         mult = 2
+    )
+    
+def test_maxwell_2d_periodic_multiplicity():
+
+    namespace = run_maxwell_2d_TE(
+        use_spline_mapping = False,
+        eps      = 0.5,
+        ncells   = 4,
+        degree   = 2,
+        periodic = True,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        verbose = False,
+        mult =2
     )
 
 
