@@ -59,7 +59,7 @@ def define_data(n, p, matrix_data, dtype=float):
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'])
+@pytest.mark.parametrize('solver', ['cg', 'pcg' 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'])
 
 def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
 
@@ -105,10 +105,11 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     solv  = inverse(A, solver, tol=1e-13, verbose=True)
     solvt = solv.transpose()
     solvh = solv.H
+    solv2 = inverse(A@A, solver, tol=1e-13, verbose=True) # Test solver of composition of operators
 
     # Manufacture right-hand-side vector from exact solution
     b  = A.dot( xe )
-    b2 = A.dot( b ) # Test solver with consecutive solves
+    b2 = A.dot( b ) # Test consecutive solves with same solver
     bt = A.T.dot( xe )
     bh = A.H.dot( xe )
 
@@ -118,6 +119,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     x2 = solv @ b2
     xt = solvt.solve(bt)
     xh = solvh.dot(bh)
+    xc = solv2.dot(b2)
 
     # Verify correctness of calculation: 2-norm of error
     err = x - xe
@@ -128,6 +130,8 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     errt_norm = np.linalg.norm( errt.toarray() )
     errh = xh - xe
     errh_norm = np.linalg.norm( errh.toarray() )
+    errc = xc - xe
+    errc_norm = np.linalg.norm( errc.toarray() )
 
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
@@ -156,6 +160,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     assert err2_norm < tol
     assert errt_norm < tol
     assert errh_norm < tol
+    assert errc_norm < tol
 
 
 # ===============================================================================
