@@ -910,5 +910,5 @@ def kronecker_solve(solvers, rhs, out=None, transposed=False):
     else:
         out = StencilVector(rhs.space)
 
-    kronsolver = KroneckerLinearSolver(rhs.space, solvers)
+    kronsolver = KroneckerLinearSolver(rhs.space, rhs.space, solvers)
     return kronsolver.solve(rhs, out=out, transposed=transposed)
