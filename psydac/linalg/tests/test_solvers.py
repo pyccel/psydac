@@ -119,7 +119,6 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     x2 = solv @ b2
     xt = solvt.solve(bt)
     xh = solvh.dot(bh)
-    xc = solv2.dot(b2)
 
     # Verify correctness of calculation: 2-norm of error
     err = x - xe
@@ -130,8 +129,12 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     errt_norm = np.linalg.norm( errt.toarray() )
     errh = xh - xe
     errh_norm = np.linalg.norm( errh.toarray() )
-    errc = xc - xe
-    errc_norm = np.linalg.norm( errc.toarray() )
+
+    if solver != 'pcg':
+        # PCG only works with operators with diagonal
+        xc = solv2.dot(b2)    
+        errc = xc - xe
+        errc_norm = np.linalg.norm( errc.toarray() )
 
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
@@ -160,8 +163,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     assert err2_norm < tol
     assert errt_norm < tol
     assert errh_norm < tol
-    assert errc_norm < tol
-
+    assert solver == 'pcg' or errc_norm < tol
 
 # ===============================================================================
 # SCRIPT FUNCTIONALITY
