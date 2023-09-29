@@ -5,7 +5,7 @@
 import numpy as np
 
 # =============================================================================
-def find_span_p(knots: 'float[:]', degree: int, x: float):
+def find_span_p(knots: 'float[:]', degree: int, x: float, multiplicity : int = 1):
     """
     Determine the knot span index at location x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
@@ -36,9 +36,10 @@ def find_span_p(knots: 'float[:]', degree: int, x: float):
     """
     # Knot index at left/right boundary
     low  = degree
-    high = len(knots)-1-degree
+    high = len(knots)-multiplicity-degree
 
     # Check if point is exactly on left/right boundary, or outside domain
+
     if x <= knots[low ]: return low
     if x >= knots[high]: return high-1
 
@@ -55,7 +56,7 @@ def find_span_p(knots: 'float[:]', degree: int, x: float):
 
 
 # =============================================================================
-def find_spans_p(knots: 'float[:]', degree: int, x: 'float[:]', out: 'int[:]'):
+def find_spans_p(knots: 'float[:]', degree: int, x: 'float[:]', out: 'int[:]', multiplicity : int = 1):
     """
     Determine the knot span index at a set of locations x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
@@ -81,7 +82,7 @@ def find_spans_p(knots: 'float[:]', degree: int, x: 'float[:]', out: 'int[:]'):
     n = x.shape[0]
 
     for i in range(n):
-        out[i] = find_span_p(knots, degree, x[i])
+        out[i] = find_span_p(knots, degree, x[i], multiplicity=multiplicity)
 
 
 # =============================================================================
@@ -383,7 +384,7 @@ def basis_integrals_p(knots: 'float[:]', degree: int, out: 'float[:]'):
 
 # =============================================================================
 def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normalization: bool, xgrid: 'float[:]',
-                         out: 'float[:,:]'):
+                         out: 'float[:,:]', multiplicity : int = 1):
     """
     Compute the collocation matrix :math:`C_ij = B_j(x_i)`, which contains the
     values of each B-spline basis function :math:`B_j` at all locations :math:`x_i`.
@@ -421,11 +422,10 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
 
     basis = np.zeros((nx, degree + 1))
     spans = np.zeros(nx, dtype=int)
-    find_spans_p(knots, degree, xgrid, spans)
+    find_spans_p(knots, degree, xgrid, spans, multiplicity = multiplicity)
     basis_funs_array_p(knots, degree, xgrid, spans, basis)
 
     # Fill in non-zero matrix values
-
     # Rescaling of B-splines, to get M-splines if needed
     if not normalization:
         if periodic:
@@ -460,7 +460,7 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
 
 # =============================================================================
 def histopolation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normalization: bool, xgrid: 'float[:]',
-                           check_boundary: bool, elevated_knots: 'float[:]', out: 'float[:,:]'):
+                           check_boundary: bool, elevated_knots: 'float[:]', out: 'float[:,:]', multiplicity : int = 1):
     """Computes the histopolation matrix.
 
     If called with normalization=True, this uses M-splines instead of B-splines.
@@ -545,7 +545,8 @@ def histopolation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, norma
                             False,
                             False,
                             xgrid_new[:actual_len],
-                            colloc)
+                            colloc,
+                            multiplicity = multiplicity)
 
     m = colloc.shape[0] - 1
     n = colloc.shape[1] - 1
@@ -811,21 +812,23 @@ def make_knots_p(breaks: 'float[:]', degree: int, periodic: bool, out: 'float[:]
         It should be of the appropriate shape and dtype.
     """
     ncells = len(breaks) - 1
-    for i in range(0, ncells + 1):
-        out[degree + 1  + (i - 1) * multiplicity:degree + 1 + i * multiplicity] = breaks[i]
-
-    out[degree] = breaks[0]
-    out[len(out) - degree - 1] = breaks[-1]
-
+    
     if periodic:
+        for i in range(1, ncells+1):
+            out[degree + 1 + (i-1) * multiplicity  :degree + 1 + i * multiplicity ] = breaks[i]
         period = breaks[-1]-breaks[0]
 
         #out[:degree] = breaks[ncells - degree:ncells] - period
         #out[len(out) - degree:] = breaks[1:degree + 1] + period
+        out[:degree + 1] = out[ncells * multiplicity : ncells * multiplicity + degree + 1] - period
+        out[len(out) - degree :] = out[degree+1:2*degree + 1] + period
+        
 
-        out[:degree + 1-multiplicity] = out[(ncells-1) * multiplicity+1:degree + (ncells-2) * multiplicity + 1] - period
-        out[len(out) - degree + multiplicity-1:] = out[degree+multiplicity:2*degree + 1] + period
+        #
     else:
+        for i in range(1, ncells):
+            out[degree + 1 + (i - 1) * multiplicity:degree + 1 + i * multiplicity] = breaks[i]
+
         out[0:degree + 1] = breaks[0]
         out[len(out) - degree - 1:] = breaks[-1]
 

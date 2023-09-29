@@ -57,7 +57,7 @@ __all__ = ('find_span',
 
 
 #==============================================================================
-def find_span(knots, degree, x):
+def find_span(knots, degree, x, multiplicity = 1):
     """
     Determine the knot span index at location x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
@@ -83,7 +83,8 @@ def find_span(knots, degree, x):
     """
     x = float(x)
     knots = np.ascontiguousarray(knots, dtype=float)
-    return find_span_p(knots, degree, x)
+    multiplicity = int(multiplicity)
+    return find_span_p(knots, degree, x, multiplicity = multiplicity)
 
 #==============================================================================
 def find_spans(knots, degree, x, out=None):
@@ -301,7 +302,7 @@ def basis_funs_all_ders(knots, degree, x, span, n, normalization='B', out=None):
     return out
 
 #==============================================================================
-def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None):
+def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None, multiplicity = 1):
     """Computes the collocation matrix
 
     If called with normalization='M', this uses M-splines instead of B-splines.
@@ -349,8 +350,9 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None):
         assert out.shape == ((xgrid.shape[0], nb)) and out.dtype == np.dtype('float')
 
     bool_normalization = normalization == "M"
+    multiplicity = int(multiplicity)
 
-    collocation_matrix_p(knots, degree, periodic, bool_normalization, xgrid, out)
+    collocation_matrix_p(knots, degree, periodic, bool_normalization, xgrid, out, multiplicity=multiplicity)
     return out
 
 #==============================================================================
@@ -433,8 +435,8 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid, multipli
         else:
             assert out.shape == (len(xgrid) - 1, len(elevated_knots) - (degree + 1) - 1 - 1)
         assert out.dtype == np.dtype('float')
-
-    histopolation_matrix_p(knots, degree, periodic, normalization, xgrid, check_boundary, elevated_knots, out)
+    multiplicity = int(multiplicity)
+    histopolation_matrix_p(knots, degree, periodic, normalization, xgrid, check_boundary, elevated_knots, out, multiplicity = multiplicity)
     return out
 
 #==============================================================================
@@ -607,7 +609,10 @@ def make_knots(breaks, degree, periodic, multiplicity=1, out=None):
 
     breaks = np.ascontiguousarray(breaks, dtype=float)
     if out is None:
-        out = np.zeros(multiplicity * len(breaks[1:-1]) + 2 + 2 * degree)
+        if periodic :
+            out = np.zeros(multiplicity * len(breaks[1:]) + 1 + 2 * degree)
+        else : 
+            out = np.zeros(multiplicity * len(breaks[1:-1]) + 2 + 2 * degree)
     else:
         assert out.shape == (multiplicity * len(breaks[1:-1]) + 2 + 2 * degree,) \
             and out.dtype == np.dtype('float')

@@ -464,7 +464,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
                         push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, F)
 
                 Bz_values[i, j] = push_2d_l2(B, x1i, x2j, F)
-
+        
         # Electric field, x component
         fig2 = plot_field_and_error(r'E^x', x, y, Ex_values, Ex_ex(0, x, y), *gridlines)
         fig2.show()                                             
@@ -605,10 +605,9 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
                 Ex_values[i, j], Ey_values[i, j] = \
                         push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, F)
-
                 Bz_values[i, j] = push_2d_l2(B, x1i, x2j, F)
-        # ...
 
+        # ...
         # Error at final time
         error_Ex = abs(Ex_ex(t, x, y) - Ex_values).max()
         error_Ey = abs(Ey_ex(t, x, y) - Ey_values).max()
@@ -734,8 +733,8 @@ def test_maxwell_2d_periodic_multiplicity():
     namespace = run_maxwell_2d_TE(
         use_spline_mapping = False,
         eps      = 0.5,
-        ncells   = 4,
-        degree   = 2,
+        ncells   = 3,
+        degree   = 3,
         periodic = True,
         Cp       = 0.5,
         nsteps   = 1,
