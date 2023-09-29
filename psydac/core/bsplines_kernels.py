@@ -39,7 +39,6 @@ def find_span_p(knots: 'float[:]', degree: int, x: float, multiplicity : int = 1
     high = len(knots)-multiplicity-degree
 
     # Check if point is exactly on left/right boundary, or outside domain
-
     if x <= knots[low ]: return low
     if x >= knots[high]: return high-1
 

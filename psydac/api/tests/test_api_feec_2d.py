@@ -605,7 +605,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
                 Ex_values[i, j], Ey_values[i, j] = \
                         push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, F)
- 
+
                 Bz_values[i, j] = push_2d_l2(B, x1i, x2j, F)
         # ...
 
