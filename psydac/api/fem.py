@@ -609,7 +609,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                 if axis is None:continue
                 space  = spaces[i].spaces[axis]
                 points_i = points[i][axis]
-                local_span = find_span(space.knots, space.degree, points_i[0, 0])
+                periodic = space.periodic
+                local_span = find_span(space.knots, space.degree, periodic, points_i[0, 0])
                 boundary_basis = basis_funs_all_ders(space.knots, space.degree,
                                                      points_i[0, 0], local_span, nderiv, space.basis)
                 map_basis[i][axis] = map_basis[i][axis].copy()
@@ -1213,7 +1214,7 @@ class DiscreteLinearForm(BasicDiscrete):
                 nderiv = self.max_nderiv
                 space  = space.spaces[axis]
                 points = points[axis]
-                local_span = find_span(space.knots, space.degree, points[0, 0])
+                local_span = find_span(space.knots, space.degree, space.periodic, points[0, 0])
                 boundary_basis = basis_funs_all_ders(space.knots, space.degree,
                                                      points[0, 0], local_span, nderiv, space.basis)
                 map_basis[axis] = map_basis[axis].copy()

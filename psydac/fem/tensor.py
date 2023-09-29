@@ -194,7 +194,8 @@ class TensorFemSpace( FemSpace ):
             knots  = space.knots
             degree = space.degree
             multiplicity = space.multiplicity
-            span   =  find_span( knots, degree, x , multiplicity = multiplicity)
+            periodic = space.periodic
+            span   =  find_span( knots, degree, x, periodic, multiplicity = multiplicity)
             #-------------------------------------------------#
             # Fix span for boundaries between subdomains      #
             #-------------------------------------------------#
@@ -622,7 +623,8 @@ class TensorFemSpace( FemSpace ):
             knots   = space.knots
             degree  = space.degree
             multiplicity = space.multiplicity
-            span    =  find_span( knots, degree, x , multiplicity = multiplicity)
+            periodic = space.periodic
+            span    =  find_span( knots, degree, x, periodic, multiplicity = multiplicity)
             #-------------------------------------------------#
             # Fix span for boundaries between subdomains      #
             #-------------------------------------------------#

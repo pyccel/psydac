@@ -493,7 +493,7 @@ ATOL = 1e-11
 @pytest.mark.parametrize('x', (np.random.random(), np.random.random(), np.random.random()))
 def test_find_span(knots, degree, x):
     expected = find_span_true(knots, degree, x)
-    out = find_span(knots, degree, x)
+    out = find_span(knots, degree, False, x)
 
     assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
@@ -511,7 +511,7 @@ def test_find_span(knots, degree, x):
                           (np.array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]), 3)])
 @pytest.mark.parametrize('x', (np.random.random(), np.random.random(), np.random.random()))
 def test_basis_funs(knots, degree, x):
-    span = find_span(knots, degree, x)
+    span = find_span(knots, degree, False, x)
     expected = basis_funs_true(knots, degree, x, span)
     out = basis_funs(knots, degree, x, span)
 
@@ -531,7 +531,7 @@ def test_basis_funs(knots, degree, x):
                           (np.array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]), 3)])
 @pytest.mark.parametrize('x', (np.random.random(), np.random.random(), np.random.random()))
 def test_basis_funs_1st_der(knots, degree, x):
-    span = find_span(knots, degree, x)
+    span = find_span(knots, degree, False, x)
     expected = basis_funs_1st_der_true(knots, degree, x, span)
     out = basis_funs_1st_der(knots, degree, x, span)
 
@@ -553,7 +553,7 @@ def test_basis_funs_1st_der(knots, degree, x):
 @pytest.mark.parametrize('n', (2, 3, 4, 5))
 @pytest.mark.parametrize('normalization', ('B', 'M'))
 def test_basis_funs_all_ders(knots, degree, x, n, normalization):
-    span = find_span(knots, degree, x)
+    span = find_span(knots, degree, False, x)
     expected = basis_funs_all_ders_true(knots, degree, x, span, n, normalization)
     out = basis_funs_all_ders(knots, degree, x, span, n, normalization)
 

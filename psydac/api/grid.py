@@ -206,7 +206,7 @@ class BasisValues():
             for i,Vi in enumerate(V):
                 space  = Vi.spaces[axis]
                 points = grid.points[axis]
-                local_span = find_span(space.knots, space.degree, points[0, 0])
+                local_span = find_span(space.knots, space.degree, space.periodic, points[0, 0])
                 boundary_basis = basis_funs_all_ders(space.knots, space.degree,
                                                      points[0, 0], local_span, nderiv, space.basis)
 
@@ -230,11 +230,12 @@ class BasisValues():
 # TODO have a parallel version of this function, as done for fem
 def create_collocation_basis( glob_points, space, nderiv=1 ):
 
-    T    = space.knots      # knots sequence
-    p    = space.degree     # spline degree
-    n    = space.nbasis     # total number of control points
-    grid = space.breaks     # breakpoints
-    nc   = space.ncells     # number of cells in domain (nc=len(grid)-1)
+    T     = space.knots      # knots sequence
+    p     = space.degree     # spline degree
+    n     = space.nbasis     # total number of control points
+    grid  = space.breaks     # breakpoints
+    nc    = space.ncells     # number of cells in domain (nc=len(grid)-1)
+    perio = space.perio
 
     #-------------------------------------------
     # GLOBAL GRID
@@ -246,7 +247,7 @@ def create_collocation_basis( glob_points, space, nderiv=1 ):
 #    glob_basis = np.zeros( (p+1,nderiv+1,nq) ) # TODO use this for local basis fct
     glob_basis = np.zeros( (n+p,nderiv+1,nq) ) # n+p for ghosts
     for iq,xq in enumerate(glob_points):
-        span = find_span( T, p, xq )
+        span = find_span( T, p, perio, xq )
         glob_spans[iq] = span
 
         ders = basis_funs_all_ders( T, p, xq, span, nderiv )

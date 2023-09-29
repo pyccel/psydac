@@ -5,7 +5,7 @@
 import numpy as np
 
 # =============================================================================
-def find_span_p(knots: 'float[:]', degree: int, x: float, multiplicity : int = 1):
+def find_span_p(knots: 'float[:]', degree: int, x: float, periodic : bool, multiplicity : int = 1):
     """
     Determine the knot span index at location x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
@@ -36,7 +36,11 @@ def find_span_p(knots: 'float[:]', degree: int, x: float, multiplicity : int = 1
     """
     # Knot index at left/right boundary
     low  = degree
-    high = len(knots)-multiplicity-degree
+    if periodic : 
+        high = len(knots)-multiplicity-degree
+    else : 
+        high = len(knots)-1-degree
+        
 
     # Check if point is exactly on left/right boundary, or outside domain
     if x <= knots[low ]: return low
@@ -55,7 +59,7 @@ def find_span_p(knots: 'float[:]', degree: int, x: float, multiplicity : int = 1
 
 
 # =============================================================================
-def find_spans_p(knots: 'float[:]', degree: int, x: 'float[:]', out: 'int[:]', multiplicity : int = 1):
+def find_spans_p(knots: 'float[:]', degree: int, x: 'float[:]', out: 'int[:]', periodic : bool, multiplicity : int = 1):
     """
     Determine the knot span index at a set of locations x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
@@ -81,7 +85,7 @@ def find_spans_p(knots: 'float[:]', degree: int, x: 'float[:]', out: 'int[:]', m
     n = x.shape[0]
 
     for i in range(n):
-        out[i] = find_span_p(knots, degree, x[i], multiplicity=multiplicity)
+        out[i] = find_span_p(knots, degree, x[i], periodic, multiplicity=multiplicity)
 
 
 # =============================================================================
@@ -421,7 +425,7 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
 
     basis = np.zeros((nx, degree + 1))
     spans = np.zeros(nx, dtype=int)
-    find_spans_p(knots, degree, xgrid, spans, multiplicity = multiplicity)
+    find_spans_p(knots, degree, xgrid, spans, periodic, multiplicity = multiplicity)
     basis_funs_array_p(knots, degree, xgrid, spans, basis)
 
     # Fill in non-zero matrix values

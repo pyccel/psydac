@@ -32,9 +32,9 @@ def test_find_span( lims, nc, p, eps=1e-12 ):
     knots = np.r_[ [grid[0]]*p, grid, [grid[-1]]*p ]
 
     for i,xi in enumerate( grid ):
-        assert find_span( knots, p, x=xi-eps ) == p + max( 0,  i-1 )
-        assert find_span( knots, p, x=xi     ) == p + min( i, nc-1 )
-        assert find_span( knots, p, x=xi+eps ) == p + min( i, nc-1 )
+        assert find_span( knots, p, False, x=xi-eps ) == p + max( 0,  i-1 )
+        assert find_span( knots, p, False, x=xi     ) == p + min( i, nc-1 )
+        assert find_span( knots, p, False, x=xi+eps ) == p + min( i, nc-1 )
 
 #==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
@@ -48,7 +48,7 @@ def test_basis_funs( lims, nc, p, tol=1e-14 ):
 
     xx = np.linspace( *lims, num=101 )
     for x in xx:
-        span  =  find_span( knots, p, x )
+        span  =  find_span( knots, p, False, x )
         basis = basis_funs( knots, p, x, span )
         assert len( basis ) == p+1
         assert np.all( basis >= 0 )
@@ -66,7 +66,7 @@ def test_basis_funs_1st_der( lims, nc, p, tol=1e-14 ):
 
     xx = np.linspace( *lims, num=101 )
     for x in xx:
-        span = find_span( knots, p, x )
+        span = find_span( knots, p, False, x )
         ders = basis_funs_1st_der( knots, p, x, span )
         assert len( ders ) == p+1
         assert abs( sum( ders ) ) < tol
@@ -86,7 +86,7 @@ def test_basis_funs_all_ders( lims, nc, p, tol=1e-14 ):
 
     xx = np.linspace( *lims, num=101 )
     for x in xx:
-        span = find_span( knots, p, x )
+        span = find_span( knots, p, False, x )
         ders = basis_funs_all_ders( knots, p, x, span, n )
 
         # Test output array
@@ -195,7 +195,7 @@ if __name__ == '__main__':
     yy = np.zeros( (len(xx), nb) )
     zz = np.zeros( (len(xx), nb) )
     for i,x in enumerate( xx ):
-        span = find_span( knots, p, x )
+        span = find_span( knots, p, False, x )
         yy[i,span-p:span+1] = basis_funs        ( knots, p, x, span )
         zz[i,span-p:span+1] = basis_funs_1st_der( knots, p, x, span )
 

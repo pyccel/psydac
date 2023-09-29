@@ -57,7 +57,7 @@ __all__ = ('find_span',
 
 
 #==============================================================================
-def find_span(knots, degree, x, multiplicity = 1):
+def find_span(knots, degree, x, periodic, multiplicity = 1):
     """
     Determine the knot span index at location x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
@@ -84,10 +84,10 @@ def find_span(knots, degree, x, multiplicity = 1):
     x = float(x)
     knots = np.ascontiguousarray(knots, dtype=float)
     multiplicity = int(multiplicity)
-    return find_span_p(knots, degree, x, multiplicity = multiplicity)
+    return find_span_p(knots, degree, x, periodic, multiplicity = multiplicity)
 
 #==============================================================================
-def find_spans(knots, degree, x, out=None):
+def find_spans(knots, degree, x, periodic, out=None):
     """
     Determine the knot span index at a set of locations x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
@@ -122,7 +122,7 @@ def find_spans(knots, degree, x, out=None):
     else:
         assert out.shape == x.shape and out.dtype == np.dtype('int')
 
-    find_spans_p(knots, degree, x, out)
+    find_spans_p(knots, degree, x, periodic, out)
     return out
 
 #==============================================================================
