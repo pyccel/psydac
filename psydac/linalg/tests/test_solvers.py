@@ -195,7 +195,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
         assert err2_norm < tol
         assert errt_norm < tol
         assert errh_norm < tol
-        assert (solver == 'pcg' or errc_norm < tol)
+        assert solver == 'pcg' or errc_norm < tol
 
 # ===============================================================================
 # SCRIPT FUNCTIONALITY
