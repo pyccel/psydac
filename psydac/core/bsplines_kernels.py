@@ -818,8 +818,6 @@ def make_knots_p(breaks: 'float[:]', degree: int, periodic: bool, out: 'float[:]
             out[degree + 1 + (i-1) * multiplicity  :degree + 1 + i * multiplicity ] = breaks[i]
         period = breaks[-1]-breaks[0]
 
-        #out[:degree] = breaks[ncells - degree:ncells] - period
-        #out[len(out) - degree:] = breaks[1:degree + 1] + period
         out[:degree + 1] = out[ncells * multiplicity : ncells * multiplicity + degree + 1] - period
         out[len(out) - degree :] = out[degree+1:2*degree + 1] + period
         

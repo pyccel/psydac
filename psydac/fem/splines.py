@@ -87,7 +87,7 @@ class SplineSpace( FemSpace ):
         if knots is None:
             if multiplicity is None:multiplicity = 1
             knots = make_knots( grid, degree, periodic, multiplicity )
-            
+
         if grid is None:
             grid = breakpoints(knots, degree)
 
@@ -174,7 +174,6 @@ class SplineSpace( FemSpace ):
         Greville points.
 
         """
-        
         imat = collocation_matrix(
             knots    = self.knots,
             degree   = self.degree,
@@ -210,7 +209,6 @@ class SplineSpace( FemSpace ):
         the cells defined by the extended Greville points.
 
         """
-
         imat = histopolation_matrix(
             knots    = self.knots,
             degree   = self.degree,
