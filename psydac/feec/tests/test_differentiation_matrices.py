@@ -21,6 +21,13 @@ from mpi4py                  import MPI
 # They do not check, if it really computes the derivatives
 # (this is done in the gradient etc. tests below already)
 def run_directional_derivative_operator(comm, domain, ncells, degree, periodic, direction, negative, transposed, seed, matrix_assembly=False):
+
+    if ncells == (1,1,1) and degree != (1,1,1):
+        return
+    
+    # assemble matrix when 1 cell in each direction
+    matrix_assembly = (ncells == (1,1,1))
+    
     # determinize tests
     np.random.seed(seed)
 
@@ -281,8 +288,8 @@ def test_directional_derivative_operator_2d_ser(domain, ncells, degree, periodic
     run_directional_derivative_operator(None, domain, ncells, degree, periodic, direction, negative, transposed, seed, True) 
 
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])
-@pytest.mark.parametrize('ncells', [(4, 5, 7)])
-@pytest.mark.parametrize('degree', [(3, 2, 5), (2, 4, 7)])
+@pytest.mark.parametrize('ncells', [(4, 5, 7), (1, 1, 1)])
+@pytest.mark.parametrize('degree', [(3, 2, 5), (2, 4, 7), (1, 1, 1)])
 @pytest.mark.parametrize('periodic', [( True, False, False),
                                       (False,  True, False),
                                       (False, False,  True)])
@@ -645,7 +652,7 @@ def test_VectorCurl_2D(domain, ncells, degree, periodic, seed):
 @pytest.mark.parametrize('degree', [(3, 2, 5), (2, 4, 7)])            # 2 cases
 @pytest.mark.parametrize('periodic', [( True, False, False),          # 3 cases
                                       (False,  True, False),
-                                      (False, False,  True)])
+                                      (False, False, True)])
 @pytest.mark.parametrize('seed', [1,3])
 
 def test_Curl_3D(domain, ncells, degree, periodic, seed):
