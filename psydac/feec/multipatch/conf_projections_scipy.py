@@ -11,8 +11,6 @@ from psydac.linalg.basic        import IdentityOperator
 from psydac.linalg.basic        import LinearOperator, Vector
 from psydac.linalg.utilities    import array_to_psydac
 
-mom_pres = True
-proj_op = 0
 
 ## TODO: 
 #   decide whether to use this loca2global function, 
@@ -112,7 +110,7 @@ def glob_ind_interface_vecfield(i, j, side, k_patch, axis, patch_shape, n_patche
 
 #-#-# UNIVARIATE CONFORMING PROJECTIONS #-#-#
 
-def univariate_conf_proj_scalar_space(Vh, conf_axis, reg=0, p_moments=-1, nquads=None, hom_bc=False):
+def univariate_conf_proj_scalar_space(Vh, conf_axis, reg=0, p_moments=-1, nquads=None, C1_proj_opt=None, hom_bc=False):
     """
     Create the matrix enforcing Cr continuity (r = 0 or 1) with moment preservation along one axis for a scalar space
     
@@ -128,6 +126,8 @@ def univariate_conf_proj_scalar_space(Vh, conf_axis, reg=0, p_moments=-1, nquads
 
     nquads : number of integration points to compute the moment preserving weights
 
+    C1_proj_opt : option for the projection of derivatives at interface
+    
     hom_bc : Wether or not enforce homogeneous boundary conditions
 
     Returns
@@ -154,11 +154,10 @@ def univariate_conf_proj_scalar_space(Vh, conf_axis, reg=0, p_moments=-1, nquads
     degree = patch_space.degree
     breakpoints_xy = [breakpoints(patch_space.knots[axis],degree[axis]) for axis in range(2)]
 
+    #Creating vector of weights for moments preserving
     if nquads is None:
         # default: Gauss-Legendre quadratures should be exact for polynomials of deg ≤ 2*degree
         nquads = [ degree[axis]+1 for axis in range(2)]
-
-    #Creating vector of weights for moments preserving
     uw = [gauss_legendre( k-1 ) for k in nquads]
     u = [u[::-1] for u,w in uw]
     w = [w[::-1] for u,w in uw]
@@ -182,20 +181,23 @@ def univariate_conf_proj_scalar_space(Vh, conf_axis, reg=0, p_moments=-1, nquads
     a_nb[0] = a_sm[0]
 
     if reg == 1:
+        if C1_proj_opt is None:
+            # default option:
+            C1_proj_opt = 1
         b_sm = np.zeros(p_moments+3)   # coefs of P B1 on same patch
         b_nb = np.zeros(p_moments+3)   # coefs of P B1 on neighbor patch
-        if proj_op == 0:
+        if C1_proj_opt == 0:
             # new slope is average of old ones
             a_sm[1] = 0  
-        elif proj_op == 1:
+        elif C1_proj_opt == 1:
             # new slope is average of old ones after averaging of interface coef
             a_sm[1] = 1/2
-        elif proj_op == 2:
+        elif C1_proj_opt == 2:
             # new slope is average of reconstructed ones using local values and slopes
             a_sm[1] = 1/(2*p_axis)
         else:
             # just to try something else
-            a_sm[1] = proj_op/2
+            a_sm[1] = C1_proj_opt/2
 
         a_nb[1] = 2*a_sm[0] - a_sm[1]
         b_sm[0] = 0
@@ -333,7 +335,6 @@ def univariate_conf_proj_scalar_space(Vh, conf_axis, reg=0, p_moments=-1, nquads
                     Proj[index_plus_1,index_plus   ]  = a_sm[1]      
                     Proj[index_plus_1,index_plus_1 ]  = b_sm[1]
 
-                # if mom_pres:
                 for p in range(0,p_moments+1):
                     # correction for moment preservation: modify the projection of the interface functions with the interior ones
                     j = p+reg+1   # index of interior function (relative to interface)
@@ -400,7 +401,7 @@ def univariate_conf_proj_scalar_space(Vh, conf_axis, reg=0, p_moments=-1, nquads
     return Proj
 
 
-def univariate_conf_proj_vector_space(Vh, conf_axis, conf_comp, reg=0, p_moments=-1, nquads=None, hom_bc=False):
+def univariate_conf_proj_vector_space(Vh, conf_axis, conf_comp, reg=0, p_moments=-1, nquads=None, C1_proj_opt=None, hom_bc=False):
     """
     Create the matrix enforcing Cr continuity (r = 0 or 1) with moment preservation along one axis for a component of a vector-valued space
     
@@ -417,6 +418,8 @@ def univariate_conf_proj_vector_space(Vh, conf_axis, conf_comp, reg=0, p_moments
     p_moments : degree of polynomial moments to preserve (-1 for none)
 
     nquads : number of integration points to compute the moment preserving weights
+
+    C1_proj_opt : option for the projection of derivatives at interface
 
     hom_bc : Wether or not enforce homogeneous boundary conditions
 
@@ -450,6 +453,9 @@ def univariate_conf_proj_vector_space(Vh, conf_axis, conf_comp, reg=0, p_moments
                               for axis in range(2)] for comp in range(2)]
     
     #Creating vector of weights for moments preserving
+    if nquads is None:
+        # default: Gauss-Legendre quadratures should be exact for polynomials of deg ≤ 2*degree
+        nquads = [ degree[conf_comp][axis]+1 for axis in range(2)]
     uw = [gauss_legendre( k-1 ) for k in nquads]
     u = [u[::-1] for u,w in uw]
     w = [w[::-1] for u,w in uw]
@@ -480,20 +486,24 @@ def univariate_conf_proj_vector_space(Vh, conf_axis, conf_comp, reg=0, p_moments
     a_nb[0] = a_sm[0]
 
     if reg == 1:
+        if C1_proj_opt is None:
+            # default option:
+            C1_proj_opt = 1
+
         b_sm = np.zeros(p_moments+3)   # coefs of P B1 on same patch
         b_nb = np.zeros(p_moments+3)   # coefs of P B1 on neighbor patch
-        if proj_op == 0:
+        if C1_proj_opt == 0:
             # new slope is average of old ones
             a_sm[1] = 0  
-        elif proj_op == 1:
+        elif C1_proj_opt == 1:
             # new slope is average of old ones after averaging of interface coef
             a_sm[1] = 1/2
-        elif proj_op == 2:
+        elif C1_proj_opt == 2:
             # new slope is average of reconstructed ones using local values and slopes
             a_sm[1] = 1/(2*p_comp_axis)
         else:
             # just to try something else
-            a_sm[1] = proj_op/2
+            a_sm[1] = C1_proj_opt/2
 
         a_nb[1] = 2*a_sm[0] - a_sm[1]
         b_sm[0] = 0
@@ -712,7 +722,7 @@ def univariate_conf_proj_vector_space(Vh, conf_axis, conf_comp, reg=0, p_moments
                         
     return Proj
 
-def conf_proj_scalar_space(Vh, reg_orders=[0,0], deg_moments=[-1,-1], nquads=None, hom_bc_list=[False,False]):
+def conf_proj_scalar_space(Vh, reg_orders=[0,0], deg_moments=[-1,-1], nquads=None, C1_proj_opt=None, hom_bc_list=[False,False]):
     """
     Create the matrix enforcing the C0 or C1 continuity with moment preservation for a scalar space over 2D domain
     
@@ -725,6 +735,8 @@ def conf_proj_scalar_space(Vh, reg_orders=[0,0], deg_moments=[-1,-1], nquads=Non
     deg_moments : degrees (per axis) of polynomial moments to preserve (-1 for none)
 
     nquads : number of integration points to compute the moment preserving weights
+
+    C1_proj_opt : option for the projection of derivatives at interface
 
     hom_bc_list : wether or not enforce homogeneous boundary conditions (per axis)
         
@@ -746,7 +758,11 @@ def conf_proj_scalar_space(Vh, reg_orders=[0,0], deg_moments=[-1,-1], nquads=Non
 
     # else : 
     for axis in range(2):
-        P_ax = univariate_conf_proj_scalar_space(Vh, conf_axis=axis, reg=reg_orders[axis], p_moments=deg_moments[axis], nquads=nquads, hom_bc=hom_bc_list[axis])
+        P_ax = univariate_conf_proj_scalar_space(
+            Vh, conf_axis=axis, 
+            reg=reg_orders[axis], p_moments=deg_moments[axis], 
+            nquads=nquads, C1_proj_opt=C1_proj_opt, hom_bc=hom_bc_list[axis]
+            )
         Proj = Proj @ P_ax
         
     return Proj
@@ -754,7 +770,7 @@ def conf_proj_scalar_space(Vh, reg_orders=[0,0], deg_moments=[-1,-1], nquads=Non
 
 
 
-def conf_proj_vector_space(Vh, reg_orders=[[0,0],[0,0]], deg_moments=[[-1,-1],[-1,-1]], nquads=None, hom_bc_list=[[False,False],[False,False]]):
+def conf_proj_vector_space(Vh, reg_orders=[[0,0],[0,0]], deg_moments=[[-1,-1],[-1,-1]], nquads=None, C1_proj_opt=None, hom_bc_list=[[False,False],[False,False]]):
     """
     Create the matrix enforcing C0 or C1 continuity with moment preservation for a vector-valued (2D) space over 2D domain
     
@@ -767,6 +783,8 @@ def conf_proj_vector_space(Vh, reg_orders=[[0,0],[0,0]], deg_moments=[[-1,-1],[-
     deg_moments : degrees (per component and axis) of polynomial moments to preserve (-1 for none)
 
     nquads : number of integration points to compute the moment preserving weights
+
+    C1_proj_opt : option for the projection of derivatives at interface
 
     hom_bc_list : wether or not enforce homogeneous boundary conditions (per component and axis)
 
@@ -784,7 +802,10 @@ def conf_proj_vector_space(Vh, reg_orders=[[0,0],[0,0]], deg_moments=[[-1,-1],[-
             hom_bc_cp_ax = hom_bc_list[comp][axis]
             reg = reg_orders[comp][axis]
             if hom_bc_cp_ax or reg >= 0:
-                P_cp_ax = univariate_conf_proj_vector_space(Vh, conf_comp=comp, conf_axis=axis, reg=reg, p_moments=deg_moments[comp][axis], nquads=nquads, hom_bc=hom_bc_cp_ax)
+                P_cp_ax = univariate_conf_proj_vector_space(
+                    Vh, conf_comp=comp, conf_axis=axis, 
+                    reg=reg, p_moments=deg_moments[comp][axis], nquads=nquads, C1_proj_opt=C1_proj_opt, hom_bc=hom_bc_cp_ax
+                    )
                 Proj = Proj @ P_cp_ax
             else:
                 # no constraints: do nothing
@@ -792,7 +813,7 @@ def conf_proj_vector_space(Vh, reg_orders=[[0,0],[0,0]], deg_moments=[[-1,-1],[-
 
     return Proj
 
-def conf_projectors_scipy(derham_h, single_space=None, reg=0, mom_pres=False, nquads=None, hom_bc=False):
+def conf_projectors_scipy(derham_h, single_space=None, reg=0, mom_pres=False, nquads=None, C1_proj_opt=None, hom_bc=False):
     """
     Return all conforming projections for a given sequence
     
@@ -807,6 +828,8 @@ def conf_projectors_scipy(derham_h, single_space=None, reg=0, mom_pres=False, nq
     mom_pres : (bool flag) whether to preserve polynomial moments (default = same as degree, in each space)
 
     nquads : number of integration points to compute the moment preserving weights
+
+    C1_proj_opt : option for the projection of derivatives at interface (see details in code)
 
     hom_bc : (bool flag) wether or not to enforce homogeneous boundary conditions
 
@@ -832,7 +855,9 @@ def conf_projectors_scipy(derham_h, single_space=None, reg=0, mom_pres=False, nq
             deg_moments = V0h.spaces[0].degree
         else:
             deg_moments = [-1,-1]
-        cP0 = conf_proj_scalar_space(V0h, reg_orders=reg_orders, deg_moments=deg_moments, nquads=nquads, hom_bc_list=hom_bc_list)
+        cP0 = conf_proj_scalar_space(
+            V0h, reg_orders=reg_orders, deg_moments=deg_moments, nquads=nquads, C1_proj_opt=C1_proj_opt, hom_bc_list=hom_bc_list
+            )
         if single_space == 'V0':
             return cP0 
     else:
@@ -855,7 +880,9 @@ def conf_projectors_scipy(derham_h, single_space=None, reg=0, mom_pres=False, nq
         else:
             raise NotImplementedError(f"[conf_projectors_scipy]: no conformity rule for V1.name = {V1.name}")                
 
-        cP1 = conf_proj_vector_space(V1h, reg_orders=reg_orders, deg_moments=deg_moments, nquads=nquads, hom_bc_list=hom_bc_list)
+        cP1 = conf_proj_vector_space(
+            V1h, reg_orders=reg_orders, deg_moments=deg_moments, nquads=nquads, C1_proj_opt=C1_proj_opt, hom_bc_list=hom_bc_list
+            )
         if single_space == 'V1':
             return cP1   
     else:
@@ -869,7 +896,9 @@ def conf_projectors_scipy(derham_h, single_space=None, reg=0, mom_pres=False, nq
             deg_moments = V2h.spaces[0].degree
         else:
             deg_moments = [-1,-1]
-        cP2 = conf_proj_scalar_space(V2h, reg_orders=reg_orders, deg_moments=deg_moments, nquads=nquads, hom_bc_list=hom_bc_list)
+        cP2 = conf_proj_scalar_space(
+            V2h, reg_orders=reg_orders, deg_moments=deg_moments, nquads=nquads, C1_proj_opt=C1_proj_opt, hom_bc_list=hom_bc_list
+            )
         if single_space == 'V2':
             return cP2
     else:

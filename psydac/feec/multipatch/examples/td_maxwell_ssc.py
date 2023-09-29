@@ -33,14 +33,14 @@ from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P_phys_
 from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
 from psydac.feec.multipatch.bilinear_form_scipy         import construct_pairing_matrix
 # from psydac.feec.multipatch.conf_projections_scipy      import Conf_proj_0, Conf_proj_1, Conf_proj_0_c1, Conf_proj_1_c1
-import psydac.feec.multipatch.conf_projections_scipy as cps
-
-cps.mom_pres = True # False # 
-cps.proj_op = 1
+from psydac.feec.multipatch.conf_projections_scipy      import conf_projectors_scipy
 
 def solve_td_maxwell_pbm(
         method='ssc',
-        nbc=4, deg=4, Nt_pertau=None, cfl=.8, tau=None,
+        nbc=4, deg=4, 
+        mom_pres=False, 
+        C1_proj_opt=None,
+        Nt_pertau=None, cfl=.8, tau=None,
         nb_tau=1, sol_params=None, source_is_harmonic=True,
         domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
         nb_patch_x=2, nb_patch_y=2, 
@@ -167,8 +167,9 @@ def solve_td_maxwell_pbm(
             ncells=ncells,
             F_name=F_name,
             )
-
+        
     else:
+        raise NotImplementedError
         domain = build_multipatch_domain(domain_name=domain_name)
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
@@ -177,20 +178,21 @@ def solve_td_maxwell_pbm(
     # for diagnostics
     diag_grid = DiagGrid(mappings=mappings, N_diag=100)
 
-    t_stamp = time_count(t_stamp)
-    print('building derham sequences...')
-    p_derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-    domain_h = discretize(domain, ncells=ncells)
+    unif_grid = True
 
-    #standard uniform grid
-    #grid_type=[np.linspace(-1,1,nc+1) for nc in ncells]
+    total_nb_cells_x = nb_patch_x*ncells[0]
+    h = np.pi/(total_nb_cells_x)
     
-    #this seems to be quite good
-    x = 1-1/ncells[0] #leftmost point - the rest is uniform grid
-    grid_type=[np.concatenate(([-1],np.linspace(-x,x,num=nc-1),[1])) for nc in ncells]
+    if unif_grid:
+        #standard uniform grid
+        grid_type=[np.linspace(-1,1,nc+1) for nc in ncells]
+
+    else:
+        #this seems to be quite good
+        x = 1-1/ncells[0] #leftmost point - the rest is uniform grid
+        grid_type=[np.concatenate(([-1],np.linspace(-x,x,num=nc-1),[1])) for nc in ncells]
     
-    h=(2*x)/(ncells[0]-2)
-    #print(u)
+        # h=(2*x)/(ncells[0]-2)
     
     #trying to optimize the grid by hand 
     #x = 0.905#u[0][-2]#
@@ -208,6 +210,12 @@ def solve_td_maxwell_pbm(
     #grid_type = [np.array([-1,-x2,-x1,0,x1,x2,1]) for n in ncells]
     #grid_type = [np.array([-1,-x3,-x2,-x1,0,x1,x2,x3,1]) for n in ncells]   
     #grid_type = [np.array([-1,-x4,-x3,-x2,-x1,0,x1,x2,x3,x4,1]) for n in ncells]  
+
+    domain_h = discretize(domain, ncells=ncells)  # todo: remove this ?
+
+    t_stamp = time_count(t_stamp)
+    print('building (primal) derham sequence...')
+    p_derham  = Derham(domain, ["H1", "Hcurl", "L2"])
     p_derham_h = discretize(p_derham, domain_h, degree=degree, grid_type=grid_type)
 
     p_V0h = p_derham_h.V0
@@ -215,6 +223,8 @@ def solve_td_maxwell_pbm(
     p_V2h = p_derham_h.V2
 
     if method == 'ssc':
+        t_stamp = time_count(t_stamp)
+        print('building dual derham sequence...')
         d_derham  = Derham(domain, ["H1", "Hdiv", "L2"])
         dual_degree = [d-1 for d in degree]
         d_derham_h = discretize(d_derham, domain_h, degree=dual_degree, grid_type=grid_type)
@@ -222,11 +232,29 @@ def solve_td_maxwell_pbm(
         d_V0h = d_derham_h.V0
         d_V1h = d_derham_h.V1
         d_V2h = d_derham_h.V2
+
+        t_stamp = time_count(t_stamp)       
+        print('building the conforming projection matrices in primal spaces ...')
+        p_PP0, p_PP1, p_PP2 = conf_projectors_scipy(p_derham_h, reg=1, mom_pres=mom_pres, C1_proj_opt=C1_proj_opt, hom_bc=True)
+        t_stamp = time_count(t_stamp)       
+        print('building the conforming projection matrices in dual spaces ...')
+        d_PP0, d_PP1, d_PP2 = conf_projectors_scipy(d_derham_h, reg=0, mom_pres=mom_pres, C1_proj_opt=C1_proj_opt, hom_bc=False)
+
     
     elif method in ['swc_C1', 'swc_C0']:
+
         d_V0h = p_derham_h.V2
         d_V1h = p_derham_h.V1
         d_V2h = p_derham_h.V0
+
+        if method == 'swc_C1':
+            reg=1
+        else:
+            reg=0
+
+        t_stamp = time_count(t_stamp)       
+        print('building the conforming projection matrices ...')
+        p_PP0, p_PP1, p_PP2 = conf_projectors_scipy(p_derham_h, reg=reg, mom_pres=mom_pres, C1_proj_opt=C1_proj_opt, hom_bc=True)
 
     else:
         raise NotImplementedError
@@ -246,7 +274,6 @@ def solve_td_maxwell_pbm(
     p_HOp2    = HodgeOperator(p_V2h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=2)
     p_MM2     = p_HOp2.get_dual_Hodge_sparse_matrix()    # mass matrix
     p_MM2_inv = p_HOp2.to_sparse_matrix()                # inverse mass matrix
-
 
     if method == 'ssc':
         d_HOp0   = HodgeOperator(d_V0h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=0)
@@ -273,32 +300,6 @@ def solve_td_maxwell_pbm(
 
     else:
         raise NotImplementedError
-
-
-    t_stamp = time_count(t_stamp)
-    print('building the conforming projection matrices ...')
-
-    if method == 'swc_C0':
-        # SWC uses the 'usual' C0 primal sequence
-
-        ### TODO: write C0 (H1 / H-curl) version of C1 projs with moment preservation and hom_bc
-
-        p_PP0 = cps.Conf_proj_0(p_V0h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
-        p_PP1 = cps.Conf_proj_1(p_V1h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
-    
-    else:
-        assert method in ['ssc', 'swc_C1']
-        # both SSC and SWC (C1) use the same C1 primal sequence
-        p_PP0 = cps.Conf_proj_0_c1(p_V0h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
-        p_PP1 = cps.Conf_proj_1_c1(p_V1h, nquads = [4*(d + 1) for d in degree], hom_bc=True)
-    
-    if method == 'ssc':
-        d_PP0 = cps.Conf_proj_0(d_V0h, nquads = [4*(d + 1) for d in dual_degree])
-        d_PP1 = cps.Conf_proj_1(d_V1h, nquads = [4*(d + 1) for d in dual_degree])
-    
-    else:
-        d_PP0 = None
-        d_PP1 = None
     
     t_stamp = time_count(t_stamp)
     print('building the Hodge matrices ...')
@@ -397,9 +398,8 @@ def solve_td_maxwell_pbm(
         print(Amp_Op.shape)
         print(Far_Op.shape)
         print(p_V2h.nbasis)
-        Nt_pertau, dt, norm_curlh = compute_stable_dt(cfl, tau, Amp_Op, Far_Op, p_V2h.nbasis)
-        h = h*np.pi/(2*nb_patch_x)
-        print(" *** with cps.proj_op = ", cps.proj_op)
+        Nt_pertau, dt, norm_curlh = compute_stable_dt(cfl, tau, Amp_Op, Far_Op, p_V2h.nbasis)        
+        print(" *** with C1_proj_opt = ", C1_proj_opt)
         print("h    = ", h)
         print("dt   = ", dt)
         print("dt/h = ", dt/h)
