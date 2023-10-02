@@ -75,6 +75,12 @@ def find_span(knots, degree, x, periodic, multiplicity = 1):
 
     x : float
         Location of interest.
+        
+    periodic : bool
+        Indicating if the domain is periodic.
+        
+    multiplicity : int
+        Multplicity in the knot sequence.
 
     Returns
      -------
@@ -84,6 +90,7 @@ def find_span(knots, degree, x, periodic, multiplicity = 1):
     x = float(x)
     knots = np.ascontiguousarray(knots, dtype=float)
     multiplicity = int(multiplicity)
+    periodic = bool(periodic)
     return find_span_p(knots, degree, x, periodic, multiplicity = multiplicity)
 
 #==============================================================================
