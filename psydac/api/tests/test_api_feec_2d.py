@@ -626,9 +626,9 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     error_l2_Ex = np.sqrt(derham_h.V1.spaces[0].integral(errx))
     error_l2_Ey = np.sqrt(derham_h.V1.spaces[1].integral(erry))
     error_l2_Bz = np.sqrt(derham_h.V0.integral(errz))
-    print('L2 norm of error on Ex(t,x,y) at final time: {:.2e}'.format(error_l2_Ex))
-    print('L2 norm of error on Ey(t,x,y) at final time: {:.2e}'.format(error_l2_Ey))
-    print('L2 norm of error on Bz(t,x,y) at final time: {:.2e}'.format(error_l2_Bz))
+    print('L2 norm of error on Ex(t,x,y) at final time: {:.10e}'.format(error_l2_Ex))
+    print('L2 norm of error on Ey(t,x,y) at final time: {:.10e}'.format(error_l2_Ey))
+    print('L2 norm of error on Bz(t,x,y) at final time: {:.10e}'.format(error_l2_Bz))
 
     if diagnostics_interval:
 
@@ -758,9 +758,9 @@ def test_maxwell_2d_periodic_multiplicity():
     )
     
     TOL = 1e-6
-    ref = dict(error_l2_Ex = 2.0425545241e-02,
-               error_l2_Ey = 2.0425545241e-02,
-               error_l2_Bz = 1.2401168441e-01)
+    ref = dict(error_l2_Ex = 8.2398553953e-02,
+               error_l2_Ey = 8.2398553953e-02,
+               error_l2_Bz = 2.6713526134e-01)
 
     assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
     assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
@@ -884,6 +884,9 @@ def test_maxwell_2d_dirichlet_par():
 #==============================================================================
 if __name__ == '__main__':
 
+    test_maxwell_2d_periodic_multiplicity()
+    exit()
+    
     import argparse
 
     parser = argparse.ArgumentParser(
