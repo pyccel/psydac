@@ -377,17 +377,23 @@ def make_knots_true( breaks, degree, periodic, multiplicity=1 ):
         assert len(breaks) > degree
 
     p = degree
-    T = np.zeros( multiplicity*len(breaks[1:-1])+2+2*p )
+    if periodic :
+        T = np.zeros(multiplicity * len(breaks[1:]) + 1 + 2 * degree)
+    else : 
+        T = np.zeros(multiplicity * len(breaks[1:-1]) + 2 + 2 * degree)
 
-    T[p+1:-p-1] = np.repeat(breaks[1:-1], multiplicity)
-    T[p]        = breaks[ 0]
-    T[-p-1]     = breaks[-1]
+    
 
     if periodic:
         period = breaks[-1]-breaks[0]
-        T[0:p] = [xi-period for xi in breaks[-p-1:-1 ]]
-        T[-p:] = [xi+period for xi in breaks[   1:p+1]]
+        T[p+1:-p] = np.repeat(breaks[1:], multiplicity)
+
+        T[0:p+1] = [xi-period for xi in T[-2*p-1:-p ]]
+        T[-p:] = [xi+period for xi in T[   p+1:2*p+1]]
     else:
+        T[p+1:-p-1] = np.repeat(breaks[1:-1], multiplicity)
+        T[p]        = breaks[ 0]
+        T[-p-1]     = breaks[-1]
         T[0:p+1] = breaks[ 0]
         T[-p-1:] = breaks[-1]
 
