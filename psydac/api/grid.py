@@ -206,7 +206,7 @@ class BasisValues():
             for i,Vi in enumerate(V):
                 space  = Vi.spaces[axis]
                 points = grid.points[axis]
-                local_span = find_span(space.knots, space.degree, space.periodic, points[0, 0])
+                local_span = find_span(space.knots, space.degree, points[0, 0], space.periodic)
                 boundary_basis = basis_funs_all_ders(space.knots, space.degree,
                                                      points[0, 0], local_span, nderiv, space.basis)
 
@@ -247,7 +247,7 @@ def create_collocation_basis( glob_points, space, nderiv=1 ):
 #    glob_basis = np.zeros( (p+1,nderiv+1,nq) ) # TODO use this for local basis fct
     glob_basis = np.zeros( (n+p,nderiv+1,nq) ) # n+p for ghosts
     for iq,xq in enumerate(glob_points):
-        span = find_span( T, p, perio, xq )
+        span = find_span( T, p, xq, perio )
         glob_spans[iq] = span
 
         ders = basis_funs_all_ders( T, p, xq, span, nderiv )

@@ -195,7 +195,7 @@ if __name__ == '__main__':
     yy = np.zeros( (len(xx), nb) )
     zz = np.zeros( (len(xx), nb) )
     for i,x in enumerate( xx ):
-        span = find_span( knots, p, False, x )
+        span = find_span( knots, p, x, False )
         yy[i,span-p:span+1] = basis_funs        ( knots, p, x, span )
         zz[i,span-p:span+1] = basis_funs_1st_der( knots, p, x, span )
 
