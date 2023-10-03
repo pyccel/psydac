@@ -1008,7 +1008,7 @@ def _refinement_matrix_one_stage(t, p, knots):
 
     mat = np.zeros((n+1,n))
 
-    left = find_span( knots, p, t )
+    left = find_span( knots, p, t, False )
 
     # ...
     j = 0
