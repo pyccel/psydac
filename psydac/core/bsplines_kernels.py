@@ -23,7 +23,13 @@ def find_span_p(knots: 'float[:]', degree: int, x: float, periodic : bool, multi
 
     x : float
         Location of interest.
-
+        
+    periodic : bool
+        Indicating if the domain is periodic.
+        
+    multiplicity : int
+        Multplicity in the knot sequence.
+        
     Returns
         -------
     span : int
@@ -40,7 +46,6 @@ def find_span_p(knots: 'float[:]', degree: int, x: float, periodic : bool, multi
         high = len(knots)-multiplicity-degree
     else : 
         high = len(knots)-1-degree
-        
 
     # Check if point is exactly on left/right boundary, or outside domain
     if x <= knots[low ]: return low
@@ -387,7 +392,7 @@ def basis_integrals_p(knots: 'float[:]', degree: int, out: 'float[:]'):
 
 # =============================================================================
 def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normalization: bool, xgrid: 'float[:]',
-                         out: 'float[:,:]', multiplicity : int = 1):
+                         out: 'float[:,:]', multiplicity : int = 1, perio_hist : bool = False):
     """
     Compute the collocation matrix :math:`C_ij = B_j(x_i)`, which contains the
     values of each B-spline basis function :math:`B_j` at all locations :math:`x_i`.
@@ -414,6 +419,9 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
     out : array
         The result will be inserted into this array.
         It should be of the appropriate shape and dtype.
+        
+    perio_hist : bool 
+        True if this function was called by histopolation_matrix_p with a periodic domain.
     """
     # Number of basis functions (in periodic case remove degree repeated elements)
     nb = len(knots)-degree-1
@@ -425,7 +433,9 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
 
     basis = np.zeros((nx, degree + 1))
     spans = np.zeros(nx, dtype=int)
-    find_spans_p(knots, degree, xgrid, spans, periodic, multiplicity = multiplicity)
+    #use perio_hist to have the right spans in the case this function was called by histopolation_matrix_p 
+    #with a periodic domain (else find_spans will return wrong results for points at the boundary)
+    find_spans_p(knots, degree, xgrid, spans, (periodic or perio_hist), multiplicity = multiplicity)
     basis_funs_array_p(knots, degree, xgrid, spans, basis)
 
     # Fill in non-zero matrix values
@@ -549,7 +559,8 @@ def histopolation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, norma
                             False,
                             xgrid_new[:actual_len],
                             colloc,
-                            multiplicity = multiplicity)
+                            multiplicity = multiplicity,
+                            perio_hist = periodic)
 
     m = colloc.shape[0] - 1
     n = colloc.shape[1] - 1

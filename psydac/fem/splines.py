@@ -218,7 +218,6 @@ class SplineSpace( FemSpace ):
             multiplicity = self._multiplicity
         )
 
-
         self.hmat= imat
         if self.periodic:
             # Convert to CSC format and compute sparse LU decomposition
