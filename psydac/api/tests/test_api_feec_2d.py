@@ -626,9 +626,9 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     error_l2_Ex = np.sqrt(derham_h.V1.spaces[0].integral(errx))
     error_l2_Ey = np.sqrt(derham_h.V1.spaces[1].integral(erry))
     error_l2_Bz = np.sqrt(derham_h.V0.integral(errz))
-    print('L2 norm of error on Ex(t,x,y) at final time: {:.10e}'.format(error_l2_Ex))
-    print('L2 norm of error on Ey(t,x,y) at final time: {:.10e}'.format(error_l2_Ey))
-    print('L2 norm of error on Bz(t,x,y) at final time: {:.10e}'.format(error_l2_Bz))
+    print('L2 norm of error on Ex(t,x,y) at final time: {:.2e}'.format(error_l2_Ex))
+    print('L2 norm of error on Ey(t,x,y) at final time: {:.2e}'.format(error_l2_Ey))
+    print('L2 norm of error on Bz(t,x,y) at final time: {:.2e}'.format(error_l2_Bz))
 
     if diagnostics_interval:
 
