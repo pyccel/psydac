@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.sparse import eye as sparse_eye
-from scipy.sparse import csr_matrix, lil_matrix, kron
+from scipy.sparse import csr_matrix, lil_matrix, kron, block_diag
+from scipy.sparse.linalg import inv as spla_inv
 
 from psydac.fem.tensor  import TensorFemSpace, FemSpace
 from psydac.fem.vector  import VectorFemSpace
@@ -50,6 +51,19 @@ class Local2GlobalIndexMap:
         Ip = sum(sizes) + Ipc
         I = sum(self._ndofs[:k]) + Ip
         return I
+
+def block_diag_inv(M):
+    nrows = M.n_block_rows
+    assert nrows == M.n_block_cols
+
+    inv_M_blocks = []
+    for i in range(nrows):
+        Mii = M[i,i].tosparse()
+        inv_Mii = spla_inv(Mii.tocsc())
+        inv_Mii.eliminate_zeros()
+        inv_M_blocks.append(inv_Mii)
+
+    return block_diag(inv_M_blocks)
 
 
 def construct_pairing_matrix(Vh, Wh, storage_fn=None):

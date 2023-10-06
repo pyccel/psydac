@@ -478,6 +478,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
                             domain_14_2,
                             ])
 
+
             interfaces = [
                 [domain_1_1.get_boundary(axis=1, ext=+1), domain_1_2.get_boundary(axis=1, ext=-1), 1],
                 [domain_1_2.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),   1],

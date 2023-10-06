@@ -12,6 +12,7 @@ from sympy import lambdify, Matrix
 
 from scipy.sparse import save_npz, load_npz, eye as sparse_eye
 from scipy.sparse.linalg import spsolve, norm as sp_norm
+from scipy.sparse.linalg import inv as spla_inv
 from scipy import special
 
 from sympde.calculus  import dot
@@ -31,7 +32,7 @@ from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_
 from psydac.feec.multipatch.examples.ppc_test_cases     import get_div_free_pulse, get_cavity_solution
 from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P_phys_l2, P_phys_hdiv, P_phys_hcurl, P_phys_h1, get_Vh_diags_for
 from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
-from psydac.feec.multipatch.bilinear_form_scipy         import construct_pairing_matrix
+from psydac.feec.multipatch.bilinear_form_scipy         import construct_pairing_matrix, block_diag_inv
 # from psydac.feec.multipatch.conf_projections_scipy      import Conf_proj_0, Conf_proj_1, Conf_proj_0_c1, Conf_proj_1_c1
 from psydac.feec.multipatch.conf_projections_scipy      import conf_projectors_scipy
 
@@ -262,30 +263,59 @@ def solve_td_maxwell_pbm(
     t_stamp = time_count(t_stamp)
     print('building the mass matrices ...')
     
-    ## NOTE: with a strong-strong diagram we should not call these "Hodge" operators !! 
-    p_HOp0    = HodgeOperator(p_V0h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=0)
-    p_MM0     = p_HOp0.get_dual_Hodge_sparse_matrix()    # mass matrix
-    p_MM0_inv = p_HOp0.to_sparse_matrix()                # inverse mass matrix
+    basic_MM = False #True  # do not use with a mapping !!
+    if basic_MM:
+        p_MM0 = construct_pairing_matrix(p_V0h,p_V0h).tocsr()  # matrix in scipy format
+        print('inverting p_MM0...')
+        p_MM0_inv = spla_inv(p_MM0.tocsc())
 
-    p_HOp1   = HodgeOperator(p_V1h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=1)
-    p_MM1     = p_HOp1.get_dual_Hodge_sparse_matrix()    # mass matrix
-    p_MM1_inv = p_HOp1.to_sparse_matrix()                # inverse mass matrix
+        p_MM1 = construct_pairing_matrix(p_V1h,p_V1h).tocsr()  # matrix in scipy format
+        print('inverting p_MM1...')
+        p_MM1_inv = spla_inv(p_MM1.tocsc())
 
-    p_HOp2    = HodgeOperator(p_V2h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=2)
-    p_MM2     = p_HOp2.get_dual_Hodge_sparse_matrix()    # mass matrix
-    p_MM2_inv = p_HOp2.to_sparse_matrix()                # inverse mass matrix
+        p_MM2 = construct_pairing_matrix(p_V2h,p_V2h).tocsr()  # matrix in scipy format
+        print('inverting p_MM2...')
+        p_MM2_inv = spla_inv(p_MM2.tocsc())
+
+    else:        
+
+        ## NOTE: with a strong-strong diagram we should not call these "Hodge" operators !! 
+        p_HOp0    = HodgeOperator(p_V0h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=0)
+        p_MM0     = p_HOp0.get_dual_Hodge_sparse_matrix()    # mass matrix
+        p_MM0_inv = p_HOp0.to_sparse_matrix()                # inverse mass matrix
+
+        p_HOp1   = HodgeOperator(p_V1h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=1)
+        p_MM1     = p_HOp1.get_dual_Hodge_sparse_matrix()    # mass matrix
+        p_MM1_inv = p_HOp1.to_sparse_matrix()                # inverse mass matrix
+
+        p_HOp2    = HodgeOperator(p_V2h, domain_h, backend_language=backend_language, load_dir=pm_load_dir, load_space_index=2)
+        p_MM2     = p_HOp2.get_dual_Hodge_sparse_matrix()    # mass matrix
+        p_MM2_inv = p_HOp2.to_sparse_matrix()                # inverse mass matrix
 
     if method == 'ssc':
-        d_HOp0   = HodgeOperator(d_V0h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=0)
-        d_MM0     = d_HOp0.get_dual_Hodge_sparse_matrix()    # mass matrix
-        d_MM0_inv = d_HOp0.to_sparse_matrix()                # inverse mass matrix
 
-        d_HOp1   = HodgeOperator(d_V1h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=1)
-        d_MM1     = d_HOp1.get_dual_Hodge_sparse_matrix()    # mass matrix
-        d_MM1_inv = d_HOp1.to_sparse_matrix()                # inverse mass matrix
+        if basic_MM:
+            d_MM0 = construct_pairing_matrix(d_V0h,d_V0h).tocsr()  # matrix in scipy format
+            print('inverting d_MM0...')
+            d_MM0_inv = spla_inv(d_MM0.tocsc())
 
-        d_HOp2   = HodgeOperator(d_V2h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=2)
-        d_MM2    = d_HOp2.get_dual_Hodge_sparse_matrix()    # mass matrix
+            d_MM1 = construct_pairing_matrix(d_V1h,d_V1h).tocsr()  # matrix in scipy format
+            print('inverting d_MM1...')
+            d_MM1_inv = spla_inv(d_MM1.tocsc())
+
+            d_MM2 = construct_pairing_matrix(d_V2h,d_V2h).tocsr()  # matrix in scipy format
+
+        else:   
+            d_HOp0   = HodgeOperator(d_V0h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=0)
+            d_MM0     = d_HOp0.get_dual_Hodge_sparse_matrix()    # mass matrix
+            d_MM0_inv = d_HOp0.to_sparse_matrix()                # inverse mass matrix
+
+            d_HOp1   = HodgeOperator(d_V1h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=1)
+            d_MM1     = d_HOp1.get_dual_Hodge_sparse_matrix()    # mass matrix
+            d_MM1_inv = d_HOp1.to_sparse_matrix()                # inverse mass matrix
+
+            d_HOp2   = HodgeOperator(d_V2h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=2)
+            d_MM2    = d_HOp2.get_dual_Hodge_sparse_matrix()    # mass matrix
 
     elif method in ['swc_C1', 'swc_C0']:
 
@@ -401,6 +431,7 @@ def solve_td_maxwell_pbm(
         Nt_pertau, dt, norm_curlh = compute_stable_dt(cfl, tau, Amp_Op, Far_Op, p_V2h.nbasis)        
         print(" *** with C1_proj_opt = ", C1_proj_opt)
         print("h    = ", h)
+        print("h*total_nb_cells_x = ", h*total_nb_cells_x)
         print("dt   = ", dt)
         print("dt/h = ", dt/h)
         print("norm_curlh = ", norm_curlh)
@@ -409,7 +440,7 @@ def solve_td_maxwell_pbm(
         print('final_time = ', final_time)
         print('Nt = ', Nt_pertau * nb_tau)
         diags["h*norm_curlh"] = h*norm_curlh
-        # exit()
+        exit()
     else:
         diags["h*norm_curlh"] = 0
         dt = tau/Nt_pertau
