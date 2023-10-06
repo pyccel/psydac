@@ -331,14 +331,14 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
         orders = [*get_index(atom).values()]
         args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
         inits += [Assign(test_fun, Mul(*args))]
-        # ...
+        # ...
 
-        # ...
+        # ...
         args     = [IndexedBase(field_name)[idxs], test_fun]
         val_name = SymbolicExpr(atom).name + '_values'
         val      = IndexedBase(val_name)[indices_quad]
         updates += [AugAssign(val,'+',Mul(*args))]
-        # ...
+        # ...
 
     return inits, updates, map_stmts, new_atoms
 
@@ -386,23 +386,23 @@ def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
         element = get_atom_logical_derivatives(atom)
         element_name = 'coeff_' + SymbolicExpr(element).name
 
-        # ...
+        # ...
         test_fun = atom.subs(element, test_function)
         test_fun = SymbolicExpr(test_fun)
-        # ...
+        # ...
 
-        # ...
+        # ...
         orders = [*get_index_logical_derivatives(atom).values()]
         args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
         inits += [Assign(test_fun, Mul(*args))]
-        # ...
+        # ...
 
-        # ...
+        # ...
         val_name = SymbolicExpr(atom).name + '_values'
         val      = IndexedBase(val_name)[indices_quad]
         expr     = IndexedBase(element_name)[idxs] * test_fun
         updates += [AugAssign(val, '+', expr)]
-        # ...
+        # ...
 
     return inits, updates
 
@@ -1042,7 +1042,27 @@ def math_atoms_as_str(expr, lib='math'):
     return set.union(math_functions, math_constants)
 
 def get_name(lhs):
+
+    """
+    Given a list of variable return the meaningful part of the name of the
+    first variable that has a _name attribute.
+
+    Was added to solve issue #327 caused by trying to access the name of a 
+    variable that has not such attribute.
+
+    Parameters
+    ----------
+    lhs : list
+        list from whom we need to extract a name.
+
+    Returns
+    -------
+    str
+        meaningful part of the name of the variable or "zero term" if no 
+        variable has a name.
+
+    """
     for term in lhs:
-        if term !=0:
+        if hasattr(term, '_name'):
             return term._name[12:-8]
     return "zero_term"
