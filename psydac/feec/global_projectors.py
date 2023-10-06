@@ -166,7 +166,7 @@ class GlobalProjector(metaclass=ABCMeta):
             self._grid_x += [block_x]
             self._grid_w += [block_w]
 
-            solverblocks += [KroneckerLinearSolver(tensorspaces[i].vector_space, solvercells)]
+            solverblocks += [KroneckerLinearSolver(tensorspaces[i].vector_space, tensorspaces[i].vector_space, solvercells)]
 
             dataslice = tuple(slice(p, -p) for p in tensorspaces[i].vector_space.pads)
             dofs[i] = rhsblocks[i]._data[dataslice]

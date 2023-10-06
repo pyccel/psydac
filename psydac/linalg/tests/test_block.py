@@ -248,8 +248,8 @@ def test_2D_block_diagonal_solver_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     M12 = SparseSolver( spa.csc_matrix(m12) )
     M21 = SparseSolver( spa.csc_matrix(m21) )
     M22 = SparseSolver( spa.csc_matrix(m22) )
-    M1 = KroneckerLinearSolver(V, [M11,M12])
-    M2 = KroneckerLinearSolver(V, [M21,M22])
+    M1 = KroneckerLinearSolver(V, V, [M11,M12])
+    M2 = KroneckerLinearSolver(V, V, [M21,M22])
     x1 = StencilVector( V )
     x2 = StencilVector( V )
 
@@ -836,8 +836,8 @@ def test_block_diagonal_solver_serial_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     M12 = SparseSolver( spa.csc_matrix(m12) )
     M21 = SparseSolver( spa.csc_matrix(m21) )
     M22 = SparseSolver( spa.csc_matrix(m22) )
-    M1 = KroneckerLinearSolver(V, [M11,M12])
-    M2 = KroneckerLinearSolver(V, [M21,M22])
+    M1 = KroneckerLinearSolver(V, V, [M11,M12])
+    M2 = KroneckerLinearSolver(V, V, [M21,M22])
     x1 = StencilVector( V )
     x2 = StencilVector( V )
 
@@ -1251,8 +1251,8 @@ def test_block_diagonal_solver_parallel_dot( dtype, n1, n2, p1, p2, P1, P2  ):
     M12 = SparseSolver( spa.csc_matrix(m12) )
     M21 = SparseSolver( spa.csc_matrix(m21) )
     M22 = SparseSolver( spa.csc_matrix(m22) )
-    M1 = KroneckerLinearSolver(V, [M11,M12])
-    M2 = KroneckerLinearSolver(V, [M21,M22])
+    M1 = KroneckerLinearSolver(V, V, [M11,M12])
+    M2 = KroneckerLinearSolver(V, V, [M21,M22])
     x1 = StencilVector( V )
     x2 = StencilVector( V )
 

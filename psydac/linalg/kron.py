@@ -371,7 +371,7 @@ class KroneckerDenseMatrix(LinearOperator):
     def set_backend(self, backend):
         pass
 #==============================================================================
-class KroneckerLinearSolver(LinearSolver):
+class KroneckerLinearSolver(LinearOperator):
     """
     A solver for Ax=b, where A is a Kronecker matrix from arbirary dimension d,
     defined by d solvers. We also need information about the space of b.
@@ -380,34 +380,45 @@ class KroneckerLinearSolver(LinearSolver):
     ----------
     V : StencilVectorSpace
         The space b will live in; i.e. which gives us information about
-        the distribution of the right-hand sides.
+        the distribution of the right-hand side b.
+
+    W : StencilVectorSpace
+        The space x will live in; i.e. which gives us information about
+        the distribution of the unknown vector x.
     
     solvers : list of LinearSolver
         The components of A in each dimension.
     
     Attributes
     ----------
-    space : StencilVectorSpace
-        The space our vectors to solve live in.
+    domain : StencilVectorSpace
+        The space of the rhs vector b.
+
+    codomain : StencilVectorSpace
+        The space of the unknown vector x.
     """
-    def __init__(self, V, solvers):
+    def __init__(self, V, W, solvers):
         assert isinstance(V, StencilVectorSpace)
+        assert isinstance(W, StencilVectorSpace)
         assert hasattr( solvers, '__iter__' )
         for solver in solvers:
             assert isinstance(solver, LinearSolver)
 
         assert V.ndim == len(solvers)
+        assert W.ndim == len(solvers)
+        assert V.npts == W.npts
 
         # general arguments
-        self._space = V
+        self._domain = V
+        self._codomain = W
         self._solvers = solvers
-        self._parallel = self._space.parallel
-        self._dtype = self._space._dtype
+        self._parallel = self._domain.parallel
+        self._dtype = self._codomain._dtype
         if self._parallel:
-            self._mpi_type = V._mpi_type
+            self._mpi_type = self._domain._mpi_type
         else:
             self._mpi_type = None
-        self._ndim = self._space.ndim
+        self._ndim = self._codomain.ndim
 
         # compute and setup solver arguments
         self._setup_solvers()
@@ -424,12 +435,12 @@ class KroneckerLinearSolver(LinearSolver):
         (which potentially utilize MPI).
         """
         # slice sizes
-        starts = np.array(self._space.starts)
-        ends = np.array(self._space.ends) + 1
+        starts = np.array(self._domain.starts)
+        ends = np.array(self._domain.ends) + 1
         self._slice = tuple([slice(s, e) for s,e in zip(starts, ends)])
 
         # local and global sizes
-        nglobals = self._space.npts
+        nglobals = self._domain.npts
         nlocals = ends - starts
         self._localsize = np.product(nlocals)
         mglobals = self._localsize // nlocals
@@ -446,15 +457,15 @@ class KroneckerLinearSolver(LinearSolver):
             # useful e.g. if we have little data in some directions
             # (and thus no data distributed there)
 
-            if not self._parallel or self._space.cart.subcomm[i].size <= 1:
+            if not self._parallel or self._domain.cart.subcomm[i].size <= 1:
                 # serial solve
                 solver_passes[i] = KroneckerLinearSolver.KroneckerSolverSerialPass(
                         self._solvers[i], nglobals[i], mglobals[i])
             else:
                 # for the parallel case, use Alltoallv
                 solver_passes[i] = KroneckerLinearSolver.KroneckerSolverParallelPass(
-                        self._solvers[i], self._space._mpi_type, i,
-                        self._space.cart, mglobals[i], nglobals[i], nlocals[i], self._localsize)
+                        self._solvers[i], self._domain._mpi_type, i,
+                        self._domain.cart, mglobals[i], nglobals[i], nlocals[i], self._localsize)
 
                 # we have a parallel solve pass now, so we are not completely local any more
                 self._allserial = False
@@ -499,14 +510,30 @@ class KroneckerLinearSolver(LinearSolver):
         else:
             temp2 = np.empty((self._tempsize,), dtype=self._dtype)
         return temp1, temp2
+
+    @property
+    def domain(self):
+        return self._domain
     
     @property
-    def space(self):
-        """
-        Returns the space associated to this solver (i.e. where the information
-        about the cartesian distribution is taken from).
-        """
-        return self._space
+    def codomain(self):
+        return self._codomain
+    
+    @property
+    def dtype(self):
+        return None
+    
+    def toarray(self):
+        raise NotImplementedError('toarray() is not defined for KroneckerLinearSolvers.')
+    
+    def tosparse(self):
+        raise NotImplementedError('tosparse() is not defined for KroneckerLinearSolvers.')
+
+    def transpose(self, conjugate=False):
+        raise NotImplementedError('transpose() is not defined for KroneckerLinearSolvers.')
+
+    def dot(self, v, out=None):
+        return self.solve(v, out=out)
 
     @property
     def solvers(self):
@@ -522,11 +549,11 @@ class KroneckerLinearSolver(LinearSolver):
         """
 
         # type checks
-        assert rhs.space is self._space
+        assert rhs.space is self._domain
 
         if out is not None:
             assert isinstance( out, StencilVector )
-            assert out.space is self._space
+            assert out.space is self._codomain
         else:
             out = StencilVector( rhs.space )
         
@@ -883,5 +910,5 @@ def kronecker_solve(solvers, rhs, out=None, transposed=False):
     else:
         out = StencilVector(rhs.space)
 
-    kronsolver = KroneckerLinearSolver(rhs.space, solvers)
+    kronsolver = KroneckerLinearSolver(rhs.space, rhs.space, solvers)
     return kronsolver.solve(rhs, out=out, transposed=transposed)
