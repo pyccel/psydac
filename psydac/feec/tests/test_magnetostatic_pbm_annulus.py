@@ -136,7 +136,7 @@ def test_solve_J_direct_annulus_with_poisson_psi():
 def test_solve_J_direct_annulus_inner_curve():
     """ 
     Solution on annulus with rmin=1 and rmax=2 with J coming 
-    from the manufactured solution approach and Gamma being the circle with rmin=1.5
+    from the manufactured solution approach and the curve Gamma being the circle with rmin=1.5
     """
     annulus, derham = _create_domain_and_derham()
 
@@ -333,7 +333,7 @@ def test_biot_savart():
 
 def test_constant_one():
     """
-    Manufactured solution for B=(1,1) on annulus with rmin=1 and rmax=2
+    Manufactured solution for magnetic field B=(1,1) on annulus with rmin=1 and rmax=2
     """
     annulus, derham = _create_domain_and_derham()
     N1 = 16

@@ -1,103 +1,32 @@
-import numpy as np
-import pytest
 import logging
-import pandas as pd
-import pickle
 import matplotlib.pyplot as plt
-
-from psydac.core.bsplines          import make_knots
-from psydac.fem.basic              import FemField
-from psydac.fem.splines            import SplineSpace
-from psydac.fem.tensor             import TensorFemSpace
-from psydac.feec.derivatives       import VectorCurl_2D, Divergence_2D
-from psydac.feec.global_projectors import Projector_H1, Projector_Hdiv
-from psydac.feec.global_projectors import projection_matrix_H1_homogeneous_bc, projection_matrix_Hdiv_homogeneous_bc 
-from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_with_bc
-from psydac.feec.tests.test_magnetostatic_pbm_annulus import _create_domain_and_derham
-from psydac.feec.pull_push         import pull_2d_hdiv
-from psydac.ddm.cart               import DomainDecomposition
-
-
 import numpy as np
+import pandas as pd
 import sympy
-from typing import Tuple
 
-from sympde.topology  import Derham, Square, IdentityMapping, PolarMapping
-from sympde.topology.domain import Domain, Union, Connectivity
-from sympde.topology.mapping import Mapping
 
-from psydac.feec.global_projectors import projection_matrix_Hdiv_homogeneous_bc, projection_matrix_H1_homogeneous_bc
+
+
 
 from psydac.api.discretization import discretize
 from psydac.api.feec import DiscreteDerham
-from psydac.api.fem  import DiscreteBilinearForm, DiscreteLinearForm
+from psydac.api.fem  import DiscreteLinearForm
+from psydac.fem.basic          import FemField
 from psydac.api.postprocessing import OutputManager, PostProcessManager
-from psydac.cad.geometry     import Geometry
+from psydac.feec.global_projectors import Projector_H1, Projector_Hdiv
+from psydac.feec.tests.magnetostatic_pbm_annulus import solve_magnetostatic_pbm_J_direct_with_bc
 from psydac.fem.basic import FemField
-from psydac.fem.vector import VectorFemSpace
-from psydac.fem.tensor import TensorFemSpace
-from psydac.linalg.block import BlockVector
 from psydac.linalg.utilities import array_to_psydac
 from psydac.linalg.stencil import StencilVector
-
-from scipy.sparse._lil import lil_matrix
-from scipy.sparse._coo import coo_matrix
-
-from sympde.calculus      import grad, dot
-from sympde.expr import BilinearForm, LinearForm, integral
+from sympde.expr import LinearForm, integral
 from sympde.expr.expr import Norm
-from sympde.expr.equation import find, EssentialBC
+from sympde.topology  import Derham, Square
+from sympde.topology.domain import Domain, Union
+
 import sympde.topology as top
-from sympde.utilities.utils import plot_domain
 
-from abc import ABCMeta, abstractmethod
-import numpy as np
-import scipy
-
-from psydac.cad.geometry          import Geometry
-from psydac.core.bsplines         import quadrature_grid
-from psydac.fem.basic             import FemField
-from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import VectorFemSpace
-from psydac.linalg.kron           import KroneckerLinearSolver
-from psydac.linalg.block          import BlockDiagonalSolver
-from psydac.utilities.quadratures import gauss_legendre
-
-from sympde.topology.domain       import Domain
-
-from scipy.sparse import bmat
-from scipy.sparse._lil import lil_matrix
-from scipy.sparse.linalg import eigs, spsolve
-from scipy.sparse.linalg import inv
-
-from psydac.fem.tests.get_integration_function import solve_poisson_2d_annulus
 from psydac.feec.tests.test_magnetostatic_pbm_annulus import (DistortedPolarMapping, 
                                                               _create_distorted_annulus_and_derham)
-
-# class DistortedPolarMapping(Mapping):
-#     """
-
-#     Examples
-
-#     """
-#     _expressions = {'x': '3.0*(x1 + 1)*cos(x2)*(cos(x2)**2+1)',
-#                     'y': '(x1 + 1)*sin(x2)*(cos(x2)**2+1)'}
-
-#     _ldim        = 2
-#     _pdim        = 2
-
-# def _create_distorted_annulus_and_derham() -> Tuple[Domain, Derham]:
-#     logical_domain = Square(name='logical_domain', bounds1=(0,1), bounds2=(0,2*np.pi))
-#     boundary_logical_domain = Union(logical_domain.get_boundary(axis=0, ext=-1),
-#                                     logical_domain.get_boundary(axis=0, ext=1))
-#     logical_domain = Domain(name='logical_domain',
-#                             interiors=logical_domain.interior,
-#                             boundaries=boundary_logical_domain,
-#                             dim=2)
-#     distorted_polar_mapping = DistortedPolarMapping(name='distorted_polar_mapping', dim=2)
-#     domain = distorted_polar_mapping(logical_domain)
-#     derham = Derham(domain=domain, sequence=['H1', 'Hdiv', 'L2'])
-#     return domain, derham
 
 def l2_error_biot_savart_distorted(N, p):
     """

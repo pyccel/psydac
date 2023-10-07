@@ -1,3 +1,10 @@
+"""
+Convergence analysis of solution of the magnetostatic problem with curve integral constraint in 2D
+
+The problem and method are described in Part 2 of Alexander Hoffmann's masters thesis "The magnetostatic problem on
+exterior domains" (2023)
+"""
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt

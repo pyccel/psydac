@@ -16,9 +16,6 @@ import sympy
 from sympde.expr.expr import Norm
 import sympde.topology as top
 
-
-
-
 def l2_error_biot_savart_annulus_outer_curve(N, p):
     """
     Computes L2 error of solution of the Biot-Savart problem with curve integral constraint in 2D
