@@ -7,11 +7,10 @@ import numpy as np
 from types import MappingProxyType
 from scipy.sparse import bmat, lil_matrix
 
-from psydac.linalg.basic    import VectorSpace, Vector, LinearOperator, LinearSolver
-from psydac.linalg.stencil  import StencilMatrix
-from psydac.linalg.kron     import KroneckerLinearSolver
-from psydac.ddm.cart        import InterfaceCartDecomposition
-from psydac.ddm.utilities   import get_data_exchanger
+from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator, LinearSolver, ZeroOperator
+from psydac.ddm.cart      import InterfaceCartDecomposition
+from psydac.ddm.utilities import get_data_exchanger
+from psydac.linalg.stencil import StencilVector, StencilMatrix
 
 __all__ = ('BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockDiagonalSolver')
 
@@ -649,29 +648,6 @@ class BlockLinearOperator(LinearOperator):
             out *= 0.0
         else:
             out = self.codomain.zeros()
-
-        if not v.ghost_regions_in_sync:
-            v.update_ghost_regions()
-
-        self._func(self._blocks_as_args, v, out, **self._args)
-
-        out.ghost_regions_in_sync = False
-        return out
-    
-    def idot(self, v, out):
-
-        if self.n_block_cols == 1:
-            assert isinstance(v, Vector)
-        else:
-            assert isinstance(v, BlockVector)
-
-        assert v.space is self.domain
-
-        if self.n_block_rows == 1:
-            assert isinstance(out, Vector)
-        else:
-            assert isinstance(out, BlockVector)
-            assert out.space is self.codomain
 
         if not v.ghost_regions_in_sync:
             v.update_ghost_regions()
@@ -1349,7 +1325,7 @@ class BlockLinearOperator(LinearOperator):
 #===============================================================================
 class BlockDiagonalSolver( LinearSolver ):
     """
-    A LinearSolver that can be written as blocks of other (Kronecker-)LinearSolvers,
+    A LinearSolver that can be written as blocks of other LinearSolvers,
     i.e. it can be seen as a solver for linear equations with block-diagonal matrices.
 
     The space of this solver has to be of the type BlockVectorSpace.
@@ -1364,10 +1340,10 @@ class BlockDiagonalSolver( LinearSolver ):
 
         a) 'blocks' can be dictionary with
             . key   = integer i >= 0
-            . value = corresponding (Kronecker-)LinearSolver Lii
+            . value = corresponding LinearSolver Lii
 
-        b) 'blocks' can be list of (Kronecker-)LinearSolvers (or tuple of these) where blocks[i]
-            is the (Kronecker-)LinearSolver Lii (if None, we assume null operator)
+        b) 'blocks' can be list of LinearSolvers (or tuple of these) where blocks[i]
+            is the LinearSolver Lii (if None, we assume null operator)
 
     """
     def __init__( self, V, blocks=None ):
@@ -1474,14 +1450,9 @@ class BlockDiagonalSolver( LinearSolver ):
     def __setitem__( self, key, value ):
         assert 0 <= key < self._nblocks
 
-        assert isinstance( value, (LinearSolver, KroneckerLinearSolver) )
+        assert isinstance( value, LinearSolver)
 
         # Check domain of rhs
-        if isinstance(value, LinearSolver):
-            assert value.space is self.space[key]
-        else:
-            # restrictive, eventually to be removed assumption, that space = domain = codomain
-            assert value.domain is self.space[key]
-            assert value.codomain is self.space[key]
+        assert value.space is self.space[key]
 
         self._blocks[key] = value

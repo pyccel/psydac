@@ -67,7 +67,7 @@ class DistributedFFTBase(LinearOperator):
         else:
             onedimsolver = DistributedFFTBase.OneDimSolver(functions)
             solvers = [onedimsolver] * space.ndim
-        self._isolver = KroneckerLinearSolver(space, space, solvers)
+        self._isolver = KroneckerLinearSolver(space, solvers)
 
     # ...
     @property
