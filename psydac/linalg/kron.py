@@ -380,7 +380,7 @@ class KroneckerLinearSolver(LinearSolver):
     ----------
     V : StencilVectorSpace
         The space b will live in; i.e. which gives us information about
-        the distribution of the right-hand side.
+        the distribution of the right-hand sides.
     
     solvers : list of LinearSolver
         The components of A in each dimension.
@@ -499,7 +499,7 @@ class KroneckerLinearSolver(LinearSolver):
         else:
             temp2 = np.empty((self._tempsize,), dtype=self._dtype)
         return temp1, temp2
-
+    
     @property
     def space(self):
         """

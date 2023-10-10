@@ -1336,7 +1336,7 @@ class BlockDiagonalSolver( LinearSolver ):
         Space of the new blocked linear solver.
 
     blocks : dict | list | tuple
-        (Kronecker-)LinearSolver objects (optional).
+        LinearSolver objects (optional).
 
         a) 'blocks' can be dictionary with
             . key   = integer i >= 0
@@ -1450,7 +1450,7 @@ class BlockDiagonalSolver( LinearSolver ):
     def __setitem__( self, key, value ):
         assert 0 <= key < self._nblocks
 
-        assert isinstance( value, LinearSolver)
+        assert isinstance( value, LinearSolver )
 
         # Check domain of rhs
         assert value.space is self.space[key]
