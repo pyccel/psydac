@@ -109,7 +109,7 @@ class TensorFemSpace( FemSpace ):
         ends   = self._vector_space.cart.domain_decomposition.ends
 
         # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple({q: FemAssemblyGrid(V, s, e, nderiv=max(V.degree,1), nquads=q)}
+        self._quad_grids = tuple({q: FemAssemblyGrid(V, s, e, nderiv=V.degree, nquads=q)}
                                   for V, s, e, q in zip( self.spaces, starts, ends, self._nquads))
 
         # Determine portion of logical domain local to process
