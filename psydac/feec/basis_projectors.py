@@ -13,8 +13,6 @@ from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic import FemField
 from psydac.utilities.utils import roll_edges
 
-from sympy.core.numbers import Zero
-
 from copy import deepcopy
 
 
@@ -78,26 +76,32 @@ class BasisProjectionOperator(LinearOperator):
 
         self._preproc_grid = preproc_grid
 
-        if isinstance(V, TensorFemSpace):
-            Vspaces = [V.vector_space]
-        else:
-            Vspaces = V.vector_space
-
-        # output space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
-        if isinstance(P.space, TensorFemSpace):
-            Wspaces = [P.space.vector_space]
-        else:
-            Wspaces = P.space.vector_space
-        blocks = []
-        for Wspace in Wspaces:
-            blocks += [[]]
-            # input vector space (domain), column of block
-            for Vspace in Vspaces:
-                dofs_mat = StencilMatrix(
-                    Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL)
-                blocks[-1] += [dofs_mat]
-
-        self._dof_operator_pre = BlockLinearOperator(V.vector_space, P.space.vector_space, blocks)
+        if isinstance(V, TensorFemSpace) and isinstance(P.space, TensorFemSpace):
+            dofs_mat = StencilMatrix(
+                        V.vector_space, P.space.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
+            self._dof_operator_pre = dofs_mat
+            
+        else :
+            if isinstance(V, TensorFemSpace):
+                Vspaces = [V.vector_space]
+            else:
+                Vspaces = V.vector_space
+    
+            # output space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
+            if isinstance(P.space, TensorFemSpace):
+                Wspaces = [P.space.vector_space]
+            else:
+                Wspaces = P.space.vector_space
+            blocks = []
+            for Wspace in Wspaces:
+                blocks += [[]]
+                # input vector space (domain), column of block
+                for Vspace in Vspaces:
+                    dofs_mat = StencilMatrix(
+                        Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL)
+                    blocks[-1] += [dofs_mat]
+             
+            self._dof_operator_pre = BlockLinearOperator(V.vector_space, P.space.vector_space, blocks)
 
         # ============= assemble tensor-product dof matrix =======
         
@@ -281,7 +285,10 @@ class BasisProjectionOperator(LinearOperator):
                     dofs_mat = dof_operator.blocks[j]
                 else :
                     dofs_mat = dof_operator.blocks[i][j]"""
-                dofs_mat = dof_operator._blocks[i, j]
+                if isinstance(dof_operator, BlockLinearOperator):
+                    dofs_mat = dof_operator._blocks[i, j]
+                else :
+                    dofs_mat = dof_operator
 
                 _starts_in = np.array(dofs_mat.domain.starts)
                 _ends_in = np.array(dofs_mat.domain.ends)
