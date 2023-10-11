@@ -912,9 +912,6 @@ def test_maxwell_2d_dirichlet_par():
 # SCRIPT CAPABILITIES
 #==============================================================================
 if __name__ == '__main__':
-
-    test_maxwell_2d_periodic_multiplicity_equal_deg()
-    exit()
     
     import argparse
 
