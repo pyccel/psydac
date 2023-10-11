@@ -450,14 +450,17 @@ def test_Gradient_2D(domain, ncells, degree, periodic, seed):
 
 #==============================================================================
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  # 1 case
-@pytest.mark.parametrize('ncells', [(4, 5, 7)])                       # 1 case
-@pytest.mark.parametrize('degree', [(3, 2, 5), (2, 4, 7)])            # 2 cases
+@pytest.mark.parametrize('ncells', [(1,1,1), (4, 5, 7)])                       # 2 case
+@pytest.mark.parametrize('degree', [(1,1,1), (3, 2, 5), (2, 4, 7)])            # 3 cases
 @pytest.mark.parametrize('periodic', [( True, False, False),          # 3 cases
                                       (False,  True, False),
                                       (False, False,  True)])
 @pytest.mark.parametrize('seed', [1,3])
 
 def test_Gradient_3D(domain, ncells, degree, periodic, seed):
+    if ncells == (1,1,1) and any(periodic) and degree != (1,1,1):
+        return
+    
     # determinize tests
     np.random.seed(seed)
 
