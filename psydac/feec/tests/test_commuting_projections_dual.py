@@ -47,7 +47,7 @@ def test_3d_commuting_pro_dual_1(Nel, p, bc):
 
     divT_u3 = - div.matrix.T.dot(u3)
 
-    error = np.linalg.norm((u2-divT_u3).toarray())
+    error = abs((u2-divT_u3).toarray()).max()
     assert error < 9e-05
 
 @pytest.mark.parametrize('Nel', [8, 12])
@@ -100,7 +100,7 @@ def test_3d_commuting_pro_dual_2(Nel, p, bc):
 
     curlT_u2 = curl.matrix.T.dot(u2)
 
-    error = np.linalg.norm((u1-curlT_u2).toarray())
+    error = abs((u1-curlT_u2).toarray()).max()
     assert error < 9e-3
 
 
@@ -143,7 +143,7 @@ def test_3d_commuting_pro_dual_3(Nel, p, bc):
 
     gradT_u1 = -grad.matrix.T.dot(u1)
 
-    error = np.linalg.norm((u0-gradT_u1).toarray())
+    error = abs((u0-gradT_u1).toarray()).max()
     assert error < 4e-3 
 
 
