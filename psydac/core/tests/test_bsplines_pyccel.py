@@ -21,11 +21,13 @@ from psydac.core.bsplines import (find_span,
 # "True" Functions
 ###############################################################################
 
-def find_span_true( knots, degree, x ):
+def find_span_true( knots, degree, x, periodic, multiplicity=1 ):
     # Knot index at left/right boundary
     low  = degree
-    high = len(knots)-1-degree
-
+    if periodic : 
+        high = len(knots)-multiplicity-degree
+    else : 
+        high = len(knots)-1-degree
     # Check if point is exactly on left/right boundary, or outside domain
     if x <= knots[low ]: return low
     if x >= knots[high]: return high-1
@@ -209,7 +211,7 @@ def collocation_matrix_true(knots, degree, periodic, normalization, xgrid):
 
     # Fill in non-zero matrix values
     for i,x in enumerate( xgrid ):
-        span  =  find_span_true( knots, degree, x )
+        span  =  find_span_true( knots, degree, x, periodic )
         basis = basis_funs_true( knots, degree, x, span )
         mat[i,js(span)] = normalize(basis, span)
 
@@ -459,7 +461,7 @@ def basis_ders_on_quad_grid_true(knots, degree, quad_grid, nders, normalization)
     for ie in range(ne):
         xx = quad_grid[ie, :]
         for iq, xq in enumerate(xx):
-            span = find_span_true(knots, degree, xq)
+            span = find_span_true(knots, degree, xq, False)
             ders = basis_funs_all_ders_true(knots, degree, xq, span, nders)
             if normalization == 'M':
                 ders *= scaling[None, span-degree:span+1]
@@ -497,9 +499,11 @@ ATOL = 1e-11
                           (np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]), 2),
                           (np.array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]), 3)])
 @pytest.mark.parametrize('x', (np.random.random(), np.random.random(), np.random.random()))
-def test_find_span(knots, degree, x):
-    expected = find_span_true(knots, degree, x)
-    out = find_span(knots, degree, x, False)
+@pytest.mark.parametrize('periodic', [True, False])
+@pytest.mark.parametrize('multiplicity', [1, 2, 3])
+def test_find_span(knots, degree, x, periodic, multiplicity):
+    expected = find_span_true(knots, degree, x, periodic, multiplicity=multiplicity)
+    out = find_span(knots, degree, x, periodic, multiplicity=multiplicity)
 
     assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 

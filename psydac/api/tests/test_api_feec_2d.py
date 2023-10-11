@@ -912,7 +912,7 @@ def test_maxwell_2d_dirichlet_par():
 # SCRIPT CAPABILITIES
 #==============================================================================
 if __name__ == '__main__':
-    
+
     import argparse
 
     parser = argparse.ArgumentParser(
