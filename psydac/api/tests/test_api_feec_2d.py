@@ -765,6 +765,35 @@ def test_maxwell_2d_periodic_multiplicity():
     assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
     assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
     assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL
+    
+    
+def test_maxwell_2d_periodic_multiplicity_equal_deg():
+
+    namespace = run_maxwell_2d_TE(
+        use_spline_mapping = False,
+        eps      = 0.5,
+        ncells   = 10,
+        degree   = 2,
+        periodic = True,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        verbose = False,
+        mult =2
+    )
+    
+    TOL = 1e-6
+    ref = dict(error_l2_Ex = 7.43229667e-02,
+               error_l2_Ey = 7.43229667e-02,
+               error_l2_Bz = 2.59863979e-01)
+    
+    assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
+    assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
+    assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL
 
 
 def test_maxwell_2d_dirichlet():
@@ -884,7 +913,7 @@ def test_maxwell_2d_dirichlet_par():
 #==============================================================================
 if __name__ == '__main__':
 
-    test_maxwell_2d_periodic_multiplicity()
+    test_maxwell_2d_periodic_multiplicity_equal_deg()
     exit()
     
     import argparse

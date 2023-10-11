@@ -702,7 +702,7 @@ def breakpoints_p(knots: 'float[:]', degree: int, out: 'float[:]', tol: float = 
 
 
 # =============================================================================
-def greville_p(knots: 'float[:]', degree: int, periodic: bool, out:'float[:]'):
+def greville_p(knots: 'float[:]', degree: int, periodic: bool, out:'float[:]', multiplicity: int=1):
     """
     Compute coordinates of all Greville points.
 
@@ -726,9 +726,9 @@ def greville_p(knots: 'float[:]', degree: int, periodic: bool, out:'float[:]'):
     n = len(T)-2*p-1 if periodic else len(T)-p-1
 
     # Compute greville abscissas as average of p consecutive knot values
-    if p == 0:
+    if p == multiplicity-1:
         for i in range(n):
-            out[i] = sum(T[i:i + 2]) / 2
+            out[i] = sum(T[i:i + p + 2]) / (p + 2)
     else:
         for i in range(1, 1+n):
             out[i - 1] = sum(T[i:i + p]) / p

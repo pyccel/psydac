@@ -481,7 +481,7 @@ def breakpoints(knots, degree, tol=1e-15, out=None):
     return out[:i_final]
 
 #==============================================================================
-def greville(knots, degree, periodic, out=None):
+def greville(knots, degree, periodic, out=None, multiplicity=1):
     """
     Compute coordinates of all Greville points.
 
@@ -510,7 +510,8 @@ def greville(knots, degree, periodic, out=None):
     if out is None:
         n = len(knots) - 2 * degree - 1 if periodic else len(knots) - degree - 1
         out = np.zeros(n)
-    greville_p(knots, degree, periodic, out)
+    multiplicity = int(multiplicity)
+    greville_p(knots, degree, periodic, out, multiplicity)
     return out
 
 #===============================================================================
