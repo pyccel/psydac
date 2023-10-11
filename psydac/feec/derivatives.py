@@ -9,7 +9,7 @@ from psydac.linalg.block    import BlockVector, BlockLinearOperator
 from psydac.fem.vector      import ProductFemSpace, VectorFemSpace
 from psydac.fem.tensor      import TensorFemSpace
 from psydac.linalg.basic    import IdentityOperator
-from psydac.fem.basic       import FemField
+from psydac.fem.basic       import FemField, FemSpace
 from psydac.linalg.basic    import LinearOperator
 from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
 
@@ -361,6 +361,16 @@ class DirectionalDerivativeOperator(LinearOperator):
 
 #====================================================================================================
 class DiffOperator:
+    def __init__(self, domain, codomain, matrix):
+        assert isinstance(domain, FemSpace)
+        assert isinstance(codomain, FemSpace)
+        assert isinstance(matrix, LinearOperator)
+        assert domain.vector_space is matrix.domain
+        assert codomain.vector_space is matrix.codomain
+
+        self._domain = domain
+        self._codomain = codomain
+        self._matrix = matrix
 
     @property
     def matrix(self):

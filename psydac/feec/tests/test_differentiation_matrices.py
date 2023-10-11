@@ -22,8 +22,8 @@ from mpi4py                  import MPI
 # (this is done in the gradient etc. tests below already)
 def run_directional_derivative_operator(comm, domain, ncells, degree, periodic, direction, negative, transposed, seed, matrix_assembly=False):
 
-    if ncells == (1,1,1) and degree != (1,1,1):
-        return
+    if not all([not periodic[i] or (ncells[i] >= degree[i]) for i in range(len(degree)) ]):
+       return
     
     # assemble matrix when 1 cell in each direction
     matrix_assembly = (ncells == (1,1,1))
@@ -648,14 +648,17 @@ def test_VectorCurl_2D(domain, ncells, degree, periodic, seed):
 
 #==============================================================================
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  # 1 case
-@pytest.mark.parametrize('ncells', [(4, 5, 7)])                       # 1 case
-@pytest.mark.parametrize('degree', [(3, 2, 5), (2, 4, 7)])            # 2 cases
+@pytest.mark.parametrize('ncells', [(1, 1, 1), (4, 5, 7)])            # 2 cases
+@pytest.mark.parametrize('degree', [(1, 3, 5), (3, 2, 5), (2, 4, 7)]) # 2 cases
 @pytest.mark.parametrize('periodic', [( True, False, False),          # 3 cases
                                       (False,  True, False),
                                       (False, False, True)])
 @pytest.mark.parametrize('seed', [1,3])
 
 def test_Curl_3D(domain, ncells, degree, periodic, seed):
+    if ncells == (1,1,1) and any(periodic) and degree != (1,1,1):
+        return
+
     # determinize tests
     np.random.seed(seed)
 
