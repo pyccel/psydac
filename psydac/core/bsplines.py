@@ -574,7 +574,15 @@ def make_knots(breaks, degree, periodic, multiplicity=1, out=None):
     Create spline knots from breakpoints, with appropriate boundary conditions.
     Let p be spline degree. If domain is periodic, knot sequence is extended
     by periodicity so that first p basis functions are identical to last p.
-    Otherwise, knot sequence is clamped (i.e. endpoints are repeated p times).
+    
+    This is done by first creating the "true" knot sequence (the one that we 
+    would have if the space was really periodic), by ignoring the first 
+    breakpoint (which is equal to the last one with periodicity). Then we add 
+    2p+1 more knots so that the total number of basis function is n_basis+p.
+    p+1 of this knots are on the left by shifting the last p+1 knots previously 
+    created and p of them are added on the left.
+    
+    Otherwise, knot sequence is clamped (i.e. endpoints have multiplicity p+1).
 
     Parameters
     ----------

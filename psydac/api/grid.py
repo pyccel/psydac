@@ -229,13 +229,14 @@ class BasisValues():
 #==============================================================================
 # TODO have a parallel version of this function, as done for fem
 def create_collocation_basis( glob_points, space, nderiv=1 ):
-
+    
+    #V.C 12/10/23 : Is this function really used somewhere? What is it suppose to do?
     T     = space.knots      # knots sequence
     p     = space.degree     # spline degree
     n     = space.nbasis     # total number of control points
     grid  = space.breaks     # breakpoints
     nc    = space.ncells     # number of cells in domain (nc=len(grid)-1)
-    perio = space.perio
+    perio = space.periodic   # periodicity of the space 
 
     #-------------------------------------------
     # GLOBAL GRID

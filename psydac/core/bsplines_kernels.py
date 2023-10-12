@@ -28,7 +28,9 @@ def find_span_p(knots: 'float[:]', degree: int, x: float, periodic : bool, multi
         Indicating if the domain is periodic.
         
     multiplicity : int
-        Multplicity in the knot sequence.
+        Multplicity in the knot sequence. One assume that all the knots have 
+        multiplicity multiplicity, and in the none periodic case that the 
+        boundary knots have multiplicity p+1 (has created by make_knots)
         
     Returns
         -------
@@ -41,6 +43,9 @@ def find_span_p(knots: 'float[:]', degree: int, x: float, periodic : bool, multi
         Springer-Verlag Berlin Heidelberg GmbH, 1997.
     """
     # Knot index at left/right boundary
+    #In the periodic case the p+1 knots is the last knot equal to the left 
+    #boundary, while the first knots being the right boundary is multiplicity+p
+    #before the last knot of the sequence (see make knots)
     low  = degree
     if periodic : 
         high = len(knots)-multiplicity-degree
@@ -803,7 +808,15 @@ def make_knots_p(breaks: 'float[:]', degree: int, periodic: bool, out: 'float[:]
     Create spline knots from breakpoints, with appropriate boundary conditions.
     Let p be spline degree. If domain is periodic, knot sequence is extended
     by periodicity so that first p basis functions are identical to last p.
-    Otherwise, knot sequence is clamped (i.e. endpoints are repeated p times).
+    
+    This is done by first creating the "true" knot sequence (the one that we 
+    would have if the space was really periodic), by ignoring the first 
+    breakpoint (which is equal to the last one with periodicity). Then we add 
+    2p+1 more knots so that the total number of basis function is n_basis+p.
+    p+1 of this knots are on the left by shifting the last p+1 knots previously 
+    created and p of them are added on the left.
+    
+    Otherwise, knot sequence is clamped (i.e. endpoints have multiplicity p+1).
 
     Parameters
     ----------
