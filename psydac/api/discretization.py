@@ -109,12 +109,14 @@ def discretize_derham(derham, domain_h, get_vec = False, *args, **kwargs):
             for V, basis in zip(derham.spaces, bases)]
 
     if get_vec:
+        X = VectorFunctionSpace('X', domain_h.domain, kind='h1')
         V0h = spaces[0]
         Xh  = VectorFemSpace(*([V0h]*ldim))
+        Xh.symbolic_space = X
+        #We still need to specify the symbolic space because of "_recursive_element_of" not implemented in sympde
         spaces.append(Xh)
 
     return DiscreteDerham(mapping, get_vec, *spaces)
-
 #==============================================================================
 def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
     """
