@@ -449,16 +449,16 @@ def test_Gradient_2D(domain, ncells, degree, periodic, seed):
     assert maxnorm_error / maxnorm_field <= 1e-14
 
 #==============================================================================
-@pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  # 1 case
-@pytest.mark.parametrize('ncells', [(1,1,1), (4, 5, 7)])                       # 2 case
-@pytest.mark.parametrize('degree', [(1,1,1), (3, 2, 5), (2, 4, 7)])            # 3 cases
-@pytest.mark.parametrize('periodic', [( True, False, False),          # 3 cases
+@pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])             # 1 case
+@pytest.mark.parametrize('ncells', [(1, 8, 3), (7, 1, 2), (2, 2, 1), (4, 5, 7)]) # 4 cases
+@pytest.mark.parametrize('degree', [(1, 3, 1), (3, 1, 5), (2, 4, 7)])            # 3 cases
+@pytest.mark.parametrize('periodic', [( True, False, False),                     # 3 cases
                                       (False,  True, False),
                                       (False, False,  True)])
 @pytest.mark.parametrize('seed', [1,3])
 
 def test_Gradient_3D(domain, ncells, degree, periodic, seed):
-    if ncells == (1,1,1) and any(periodic) and degree != (1,1,1):
+    if any([ncells[d] <= degree[d] and periodic[d] for d in range(3)]):
         return
     
     # determinize tests
@@ -650,16 +650,16 @@ def test_VectorCurl_2D(domain, ncells, degree, periodic, seed):
     assert maxnorm_error / maxnorm_field <= 1e-14
 
 #==============================================================================
-@pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  # 1 case
-@pytest.mark.parametrize('ncells', [(1, 1, 1), (4, 5, 7)])            # 2 cases
-@pytest.mark.parametrize('degree', [(1, 3, 5), (3, 2, 5), (2, 4, 7)]) # 2 cases
-@pytest.mark.parametrize('periodic', [( True, False, False),          # 3 cases
+@pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])             # 1 case
+@pytest.mark.parametrize('ncells', [(1, 8, 3), (5, 1, 2), (2, 2, 1), (4, 5, 7)]) # 3 cases
+@pytest.mark.parametrize('degree', [(1, 3, 5), (3, 1, 2), (2, 4, 7)])            # 3 cases
+@pytest.mark.parametrize('periodic', [( True, False, False),                     # 3 cases
                                       (False,  True, False),
                                       (False, False, True)])
 @pytest.mark.parametrize('seed', [1,3])
 
 def test_Curl_3D(domain, ncells, degree, periodic, seed):
-    if ncells == (1,1,1) and any(periodic) and degree != (1,1,1):
+    if any([ncells[d] <= degree[d] and periodic[d] for d in range(3)]):
         return
 
     # determinize tests
