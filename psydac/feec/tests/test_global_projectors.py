@@ -89,7 +89,7 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads):
 #    assert maxnorm_error <= 1e-14
     
     #==============================================================================
-@pytest.mark.parametrize('ncells', [200,200])
+@pytest.mark.parametrize('ncells', [[200,200]])
 @pytest.mark.parametrize('degree', [[2,2], [2,3], [3,3]])
 @pytest.mark.parametrize('periodic', [[False, False], [True, True]])
 
@@ -134,7 +134,7 @@ def test_derham_projector_2d_hdiv(ncells, degree, periodic):
 #    assert maxnorm_error <= 1e-14
     
 #==============================================================================
-@pytest.mark.parametrize('ncells', [200,200])
+@pytest.mark.parametrize('ncells', [[200,200]])
 @pytest.mark.parametrize('degree', [[2,2], [2,3], [3,3]])
 @pytest.mark.parametrize('periodic', [[False, False], [True, False] ,[True, True]])
 
@@ -179,7 +179,7 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic):
 #    assert maxnorm_error <= 1e-14
     
 #==============================================================================
-@pytest.mark.parametrize('ncells', [30,30,30])
+@pytest.mark.parametrize('ncells', [[30,30,30]])
 @pytest.mark.parametrize('degree', [[2,2,2], [2,3,2], [3,3,3]])
 @pytest.mark.parametrize('periodic', [[False, False, False], [True, True, True]])
 
