@@ -9,7 +9,7 @@ from psydac.linalg.block    import BlockVector, BlockLinearOperator
 from psydac.fem.vector      import ProductFemSpace, VectorFemSpace
 from psydac.fem.tensor      import TensorFemSpace
 from psydac.linalg.basic    import IdentityOperator
-from psydac.fem.basic       import FemField
+from psydac.fem.basic       import FemField, FemSpace
 from psydac.linalg.basic    import LinearOperator
 from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
 
@@ -319,27 +319,32 @@ class DirectionalDerivativeOperator(LinearOperator):
 
             if self._diffdir == d:
                 # if we are at the differentiation direction, construct differentiation matrix
-                maindiag = np.ones(domain_local) * (-sign)
-                adddiag = np.ones(domain_local) * sign
+                if codomain_local == 1 and domain_local == 1 and self.domain.periods[d]:
+                    # case of one cell and periodic BC should be treated as a constant, thus zero matrix
+                    directional_matrix = spa.coo_array((codomain_local, domain_local))
 
-                # handle special case with not self.domain.parallel and not with_pads and periodic
-                if self.domain.periods[d] and not self.domain.parallel and not with_pads:
-                    # then: add element to other side of the array
-                    adddiagcirc = np.array([sign])
-                    offsets = (-codomain_local+1, 0, 1)
-                    diags = (adddiagcirc, maindiag, adddiag)
                 else:
-                    # else, just take main and off diagonal
-                    offsets = (0,1)
-                    diags = (maindiag, adddiag)
-                
-                addmatrix = spa.diags(diags, offsets=offsets, shape=(codomain_local, domain_local), format='coo')
+                    maindiag = np.ones(domain_local) * (-sign)
+                    adddiag = np.ones(domain_local) * sign
+
+                    # handle special case with not self.domain.parallel and not with_pads and periodic
+                    if self.domain.periods[d] and not self.domain.parallel and not with_pads:
+                        # then: add element to other side of the array
+                        adddiagcirc = np.array([sign])
+                        offsets = (-codomain_local+1, 0, 1)
+                        diags = (adddiagcirc, maindiag, adddiag)
+                    else:
+                        # else, just take main and off diagonal
+                        offsets = (0,1)
+                        diags = (maindiag, adddiag)
+
+                    directional_matrix = spa.diags(diags, offsets=offsets, shape=(codomain_local, domain_local), format='coo')
             else:
                 # avoid using padding, if possible
-                addmatrix = spa.identity(domain_local)
+                directional_matrix = spa.identity(domain_local)
             
             # finally, take the Kronecker product
-            matrix = spa.kron(matrix, addmatrix)
+            matrix = spa.kron(matrix, directional_matrix)
         
         # now, we may transpose (this should be very cheap)
         if self._transposed:
@@ -356,6 +361,16 @@ class DirectionalDerivativeOperator(LinearOperator):
 
 #====================================================================================================
 class DiffOperator:
+    def __init__(self, domain, codomain, matrix):
+        assert isinstance(domain, FemSpace)
+        assert isinstance(codomain, FemSpace)
+        assert isinstance(matrix, LinearOperator)
+        assert domain.vector_space is matrix.domain
+        assert codomain.vector_space is matrix.codomain
+
+        self._domain = domain
+        self._codomain = codomain
+        self._matrix = matrix
 
     @property
     def matrix(self):
@@ -398,9 +413,8 @@ class Derivative_1D(DiffOperator):
         assert H1.periodic[0] == L2.periodic[0]
         assert H1.degree[0] == L2.degree[0] + 1
 
-        self._domain   = H1
-        self._codomain = L2
-        self._matrix   = DirectionalDerivativeOperator(H1.vector_space, L2.vector_space, 0)
+        # Store data in object   
+        super().__init__(H1, L2, DirectionalDerivativeOperator(H1.vector_space, L2.vector_space, 0))
 
 #====================================================================================================
 class Gradient_2D(DiffOperator):
@@ -438,10 +452,9 @@ class Gradient_2D(DiffOperator):
                   [DirectionalDerivativeOperator(B_B, B_M, 1)]]
         matrix = BlockLinearOperator(H1.vector_space, Hcurl.vector_space, blocks=blocks)
 
-        # Store data in object
-        self._domain   = H1
-        self._codomain = Hcurl
-        self._matrix   = matrix
+        # Store data in object   
+        super().__init__(H1, Hcurl, matrix)
+
 
 #====================================================================================================
 class Gradient_3D(DiffOperator):
@@ -482,10 +495,8 @@ class Gradient_3D(DiffOperator):
                   [DirectionalDerivativeOperator(B_B_B, B_B_M, 2)]]
         matrix = BlockLinearOperator(H1.vector_space, Hcurl.vector_space, blocks=blocks)
 
-        # Store data in object
-        self._domain   = H1
-        self._codomain = Hcurl
-        self._matrix   = matrix
+        # Store data in object   
+        super().__init__(H1, Hcurl, matrix)
 
 #====================================================================================================
 class ScalarCurl_2D(DiffOperator):
@@ -523,10 +534,8 @@ class ScalarCurl_2D(DiffOperator):
                   DirectionalDerivativeOperator(B_M, M_M, 0)]]
         matrix = BlockLinearOperator(Hcurl.vector_space, L2.vector_space, blocks=blocks)
 
-        # Store data in object
-        self._domain   = Hcurl
-        self._codomain = L2
-        self._matrix   = matrix
+        # Store data in object   
+        super().__init__(Hcurl, L2, matrix)
 
 #====================================================================================================
 class VectorCurl_2D(DiffOperator):
@@ -565,10 +574,8 @@ class VectorCurl_2D(DiffOperator):
                   [-DirectionalDerivativeOperator(B_B, M_B, 0)]]
         matrix = BlockLinearOperator(H1.vector_space, Hdiv.vector_space, blocks=blocks)
 
-        # Store data in object
-        self._domain   = H1
-        self._codomain = Hdiv
-        self._matrix   = matrix
+        # Store data in object   
+        super().__init__(H1, Hdiv, matrix)
 
 #====================================================================================================
 class Curl_3D(DiffOperator):
@@ -617,10 +624,8 @@ class Curl_3D(DiffOperator):
         matrix = BlockLinearOperator(Hcurl.vector_space, Hdiv.vector_space, blocks=blocks)
         # ...
 
-        # Store data in object
-        self._domain   = Hcurl
-        self._codomain = Hdiv
-        self._matrix   = matrix
+        # Store data in object        
+        super().__init__(Hcurl, Hdiv, matrix)
 
 #====================================================================================================
 class Divergence_2D(DiffOperator):
@@ -658,10 +663,8 @@ class Divergence_2D(DiffOperator):
         blocks = [[DirectionalDerivativeOperator(B_M, M_M, 0), DirectionalDerivativeOperator(M_B, M_M, 1)]]
         matrix = BlockLinearOperator(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
 
-        # Store data in object
-        self._domain   = Hdiv
-        self._codomain = L2
-        self._matrix   = matrix
+        # Store data in object   
+        super().__init__(Hdiv, L2, matrix)
 
 #====================================================================================================
 class Divergence_3D(DiffOperator):
@@ -702,7 +705,5 @@ class Divergence_3D(DiffOperator):
                    DirectionalDerivativeOperator(M_M_B, M_M_M, 2)]]
         matrix = BlockLinearOperator(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
 
-        # Store data in object
-        self._domain   = Hdiv
-        self._codomain = L2
-        self._matrix   = matrix
+        # Store data in object   
+        super().__init__(Hdiv, L2, matrix)
