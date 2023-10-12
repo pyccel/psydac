@@ -321,7 +321,7 @@ class DirectionalDerivativeOperator(LinearOperator):
                 # if we are at the differentiation direction, construct differentiation matrix
                 if codomain_local == 1 and domain_local == 1 and self.domain.periods[d]:
                     # case of one cell and periodic BC should be treated as a constant, thus zero matrix
-                    addmatrix = spa.coo_array((codomain_local, domain_local))
+                    directional_matrix = spa.coo_array((codomain_local, domain_local))
 
                 else:
                     maindiag = np.ones(domain_local) * (-sign)
@@ -338,13 +338,13 @@ class DirectionalDerivativeOperator(LinearOperator):
                         offsets = (0,1)
                         diags = (maindiag, adddiag)
 
-                    addmatrix = spa.diags(diags, offsets=offsets, shape=(codomain_local, domain_local), format='coo')
+                    directional_matrix = spa.diags(diags, offsets=offsets, shape=(codomain_local, domain_local), format='coo')
             else:
                 # avoid using padding, if possible
-                addmatrix = spa.identity(domain_local)
+                directional_matrix = spa.identity(domain_local)
             
             # finally, take the Kronecker product
-            matrix = spa.kron(matrix, addmatrix)
+            matrix = spa.kron(matrix, directional_matrix)
         
         # now, we may transpose (this should be very cheap)
         if self._transposed:
