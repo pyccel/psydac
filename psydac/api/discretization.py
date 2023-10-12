@@ -113,6 +113,7 @@ def discretize_derham(derham, domain_h, get_vec = False, *args, **kwargs):
         V0h = spaces[0]
         Xh  = VectorFemSpace(*([V0h]*ldim))
         Xh.symbolic_space = X
+        #We still need to specify the symbolic space because of "_recursive_element_of" not implemented in sympde
         spaces.append(Xh)
 
     return DiscreteDerham(mapping, get_vec, *spaces)
