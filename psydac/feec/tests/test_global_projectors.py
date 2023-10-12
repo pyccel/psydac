@@ -7,6 +7,10 @@ from psydac.fem.splines            import SplineSpace
 from psydac.fem.tensor             import TensorFemSpace
 from psydac.feec.global_projectors import Projector_H1, Projector_L2
 from psydac.ddm.cart               import DomainDecomposition
+from sympde.topology               import Square, Cube
+from psydac.api.discretization     import discretize
+from sympde.topology               import element_of, Derham
+
 
 #==============================================================================
 @pytest.mark.parametrize('domain', [(0, 2*np.pi)])
@@ -83,6 +87,146 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads):
     maxnorm_error = abs(vals_u1 - vals_f).max()
     print(ncells, maxnorm_error)
 #    assert maxnorm_error <= 1e-14
+    
+    #==============================================================================
+@pytest.mark.parametrize('ncells', [200,200])
+@pytest.mark.parametrize('degree', [[2,2], [2,3], [3,3]])
+@pytest.mark.parametrize('periodic', [[False, False], [True, True]])
+
+def test_derham_projector_2d_hdiv(ncells, degree, periodic):
+
+    domain = Square('Omega', bounds1 = (0,2*np.pi), bounds2 = (0,2*np.pi))
+    domain_h = discretize(domain, ncells=ncells, periodic=periodic)
+    
+    derham   = Derham(domain, ["H1", "Hdiv", "L2"])
+    derham_h   = discretize(derham, domain_h, degree=degree, get_vec = True)
+    P0, P1, P2, PX = derham_h.projectors()
+
+    # Projector onto H1 space (1D interpolation)
+
+    # Function to project
+    f1  = lambda xi1, xi2 : np.sin( xi1 + 0.5 ) * np.cos( xi2 + 0.3 )
+    f2  = lambda xi1, xi2 : np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2 )
+
+    # Compute the projection
+    u0 = P0(f1)
+    u2 = P2(f1)
+    u1 = P1((f1,f2))
+    ux = PX((f1,f2))
+
+    # Create evaluation grid, and check if  u0(x) == f(x)
+    xgrid = np.linspace(0, 2*np.pi, num=51)
+    vals_u0   = np.array([[u0(x, y) for x in xgrid] for y in xgrid])
+    vals_u1_1 = np.array([[u1(x, y)[0] for x in xgrid] for y in xgrid])
+    vals_u2   = np.array([[u2(x, y) for x in xgrid] for y in xgrid])
+    vals_ux_1 = np.array([[ux(x, y)[0] for x in xgrid] for y in xgrid])
+    vals_f    = np.array([[f1(x, y) for x in xgrid] for y in xgrid])
+
+    # Test if max-norm of error is <= TOL
+    maxnorm_error = abs(vals_u0 - vals_f).max()
+    print(ncells, maxnorm_error)
+    maxnorm_error = abs(vals_u1_1 - vals_f).max()
+    print(ncells, maxnorm_error)
+    maxnorm_error = abs(vals_u2 - vals_f).max()
+    print(ncells, maxnorm_error)
+    maxnorm_error = abs(vals_ux_1 - vals_f).max()
+    print(ncells, maxnorm_error)
+#    assert maxnorm_error <= 1e-14
+    
+#==============================================================================
+@pytest.mark.parametrize('ncells', [200,200])
+@pytest.mark.parametrize('degree', [[2,2], [2,3], [3,3]])
+@pytest.mark.parametrize('periodic', [[False, False], [True, False] ,[True, True]])
+
+def test_derham_projector_2d_hcurl(ncells, degree, periodic):
+
+    domain = Square('Omega', bounds1 = (0,2*np.pi), bounds2 = (0,2*np.pi))
+    domain_h = discretize(domain, ncells=ncells, periodic=periodic)
+    
+    derham   = Derham(domain, ["H1", "Hcurl", "L2"])
+    derham_h   = discretize(derham, domain_h, degree=degree, get_vec = True)
+    P0, P1, P2, PX = derham_h.projectors()
+
+    # Projector onto H1 space (1D interpolation)
+
+    # Function to project
+    f1  = lambda xi1, xi2 : np.sin( xi1 + 0.5 ) * np.cos( xi2 + 0.3 )
+    f2  = lambda xi1, xi2 : np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2 )
+
+    # Compute the projection
+    u0 = P0(f1)
+    u2 = P2(f1)
+    u1 = P1((f1,f2))
+    ux = PX((f1,f2))
+
+    # Create evaluation grid, and check if  u0(x) == f(x)
+    xgrid = np.linspace(0, 2*np.pi, num=51)
+    vals_u0   = np.array([[u0(x, y) for x in xgrid] for y in xgrid])
+    vals_u1_1 = np.array([[u1(x, y)[0] for x in xgrid] for y in xgrid])
+    vals_u2   = np.array([[u2(x, y) for x in xgrid] for y in xgrid])
+    vals_ux_1 = np.array([[ux(x, y)[0] for x in xgrid] for y in xgrid])
+    vals_f    = np.array([[f1(x, y) for x in xgrid] for y in xgrid])
+
+    # Test if max-norm of error is <= TOL
+    maxnorm_error = abs(vals_u0 - vals_f).max()
+    print(ncells, maxnorm_error)
+    maxnorm_error = abs(vals_u1_1 - vals_f).max()
+    print(ncells, maxnorm_error)
+    maxnorm_error = abs(vals_u2 - vals_f).max()
+    print(ncells, maxnorm_error)
+    maxnorm_error = abs(vals_ux_1 - vals_f).max()
+    print(ncells, maxnorm_error)
+#    assert maxnorm_error <= 1e-14
+    
+#==============================================================================
+@pytest.mark.parametrize('ncells', [30,30,30])
+@pytest.mark.parametrize('degree', [[2,2,2], [2,3,2], [3,3,3]])
+@pytest.mark.parametrize('periodic', [[False, False, False], [True, True, True]])
+
+def test_derham_projector_3d(ncells, degree, periodic):
+
+    domain = Cube('Omega', bounds1 = (0,2*np.pi), bounds2 = (0,2*np.pi), bounds3 = (0,2*np.pi))
+    domain_h = discretize(domain, ncells=ncells, periodic=periodic)
+    
+    derham   = Derham(domain)
+    derham_h   = discretize(derham, domain_h, degree=degree, get_vec = True)
+    P0, P1, P2, P3, PX = derham_h.projectors()
+
+    # Projector onto H1 space (1D interpolation)
+
+    # Function to project
+    f1  = lambda xi1, xi2, xi3 : np.sin( xi1 + 0.5 ) * np.cos( xi2 + 0.3 ) * np.sin( 2 * xi3 )
+    f2  = lambda xi1, xi2, xi3 : np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2 ) * np.cos( xi3 )
+    f3  = lambda xi1, xi2, xi3 : np.cos( xi1 + 0.7 ) * np.sin( 2*xi2 - 0.2 ) * np.cos( xi3 )
+
+    # Compute the projection
+    u0 = P0(f1)
+    u3 = P3(f1)
+    u1 = P1((f1,f2,f3))
+    u2 = P2((f1,f2,f3))
+    ux = PX((f1,f2,f3))
+
+    # Create evaluation grid, and check if  u0(x) == f(x)
+    xgrid = np.linspace(0, 2*np.pi, num=21)
+    vals_u0   = np.array([[[u0(x, y, z) for x in xgrid] for y in xgrid] for z in xgrid])
+    vals_u1_1 = np.array([[[u1(x, y, z)[0] for x in xgrid] for y in xgrid] for z in xgrid])
+    vals_u2_1 = np.array([[[u2(x, y, z)[0] for x in xgrid] for y in xgrid] for z in xgrid])
+    vals_ux_1 = np.array([[[ux(x, y, z)[0] for x in xgrid] for y in xgrid] for z in xgrid])
+    vals_u3   = np.array([[[u3(x, y, z) for x in xgrid] for y in xgrid] for z in xgrid])
+    vals_f    = np.array([[[f1(x, y, z) for x in xgrid] for y in xgrid] for z in xgrid])
+
+    # Test if max-norm of error is <= TOL
+    maxnorm_error = abs(vals_u0 - vals_f).max()
+    print(ncells, maxnorm_error)
+    maxnorm_error = abs(vals_u1_1 - vals_f).max()
+    print(ncells, maxnorm_error)
+    maxnorm_error = abs(vals_u2_1 - vals_f).max()
+    print(ncells, maxnorm_error)
+    maxnorm_error = abs(vals_u3 - vals_f).max()
+    print(ncells, maxnorm_error)
+    maxnorm_error = abs(vals_ux_1 - vals_f).max()
+    print(ncells, maxnorm_error)
+#    assert maxnorm_error <= 1e-14
 
 #==============================================================================
 if __name__ == '__main__':
@@ -98,3 +242,13 @@ if __name__ == '__main__':
     nquads = degree
     for nc in ncells:
         test_L2_projector_1d(domain, nc, degree, periodic, nquads)
+        
+    for nc in ncells:
+        test_derham_projector_2d_hdiv([nc, nc], [degree, degree], [periodic, periodic])
+        
+    for nc in ncells :
+        test_derham_projector_2d_hcurl([nc, nc], [degree, degree], [periodic, periodic])
+
+    for nc in ncells[:3] :
+        test_derham_projector_3d([nc, nc, nc], [degree, degree, degree], [periodic, periodic, periodic])
+

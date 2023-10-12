@@ -110,9 +110,7 @@ def discretize_derham(derham, domain_h, get_vec = False, *args, **kwargs):
 
     if get_vec:
         V0h = spaces[0]
-        X   = VectorFunctionSpace('X', domain_h.domain, kind='h1')
-        Xh  = VectorFemSpace([V0h]*ldim)
-        Xh.symbolic_space = X
+        Xh  = VectorFemSpace(*([V0h]*ldim))
         spaces.append(Xh)
 
     return DiscreteDerham(mapping, get_vec, *spaces)
