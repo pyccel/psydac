@@ -80,7 +80,9 @@ def find_span(knots, degree, x, periodic, multiplicity = 1):
         Indicating if the domain is periodic.
         
     multiplicity : int
-        Multplicity in the knot sequence.
+        Multplicity in the knot sequence. One assume that all the knots have 
+        multiplicity multiplicity, and in the none periodic case that the 
+        boundary knots have multiplicity p+1 (has created by make_knots)
 
     Returns
      -------
