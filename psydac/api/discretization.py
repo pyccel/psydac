@@ -83,20 +83,35 @@ def change_dtype(V, dtype):
 
 #==============================================================================           
 def discretize_derham(derham, domain_h, get_vec = False, *args, **kwargs):
+    """
+    Create a discrete De Rham sequence by creating the spaces and then initiating DiscreteDerham object.
+
+    Parameters
+    ----------
+
+    derham : sympde.topology.space.Derham
+        The symbolic Derham sequence
+
+    domain_h   : Geometry
+        Discrete domain where the spaces will be discretized
+        
+    get_vec : Bool
+        True to also get the "Hvec" space discretizing (H1)^n vector fields
+        
+    **kwargs : list
+        optional parameters for the space discretization
+    """
 
     ldim    = derham.shape
     mapping = domain_h.domain.mapping # NOTE: assuming single-patch domain!
-
     bases  = ['B'] + ldim * ['M']
     spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \
             for V, basis in zip(derham.spaces, bases)]
 
     if get_vec:
-        Vnh = spaces[0]
+        V0h = spaces[0]
         X   = VectorFunctionSpace('X', domain_h.domain, kind='h1')
-        #Vn  = Vnh.symbolic_space
-        #X   = ProductSpace(Vn,Vn) #should fix sympde first
-        Xh  = VectorFemSpace(Vnh, Vnh)
+        Xh  = VectorFemSpace([V0h]*ldim)
         Xh.symbolic_space = X
         spaces.append(Xh)
 
@@ -372,6 +387,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
             max_coords = interior.max_coords
 
             assert len(ncells) == len(periodic) == len(degree_i)  == len(multiplicity_i) == len(min_coords) == len(max_coords)
+
             if knots is None:
                 # Create uniform grid
                 grids = [np.linspace(xmin, xmax, num=ne + 1)
