@@ -83,21 +83,34 @@ def change_dtype(V, dtype):
 
 #==============================================================================           
 def discretize_derham(derham, domain_h, get_vec = False, *args, **kwargs):
+    """
+    Create a discrete De Rham sequence by creating the spaces and then initiating DiscreteDerham object.
+
+    Parameters
+    ----------
+
+    derham : sympde.topology.space.Derham
+        The symbolic Derham sequence
+
+    domain_h   : Geometry
+        Discrete domain where the spaces will be discretized
+        
+    get_vec : Bool
+        True to also get the "Hvec" space discretizing (H1)^n vector fields
+        
+    **kwargs : list
+        optional parameters for the space discretization
+    """
 
     ldim    = derham.shape
     mapping = domain_h.domain.mapping # NOTE: assuming single-patch domain!
-
     bases  = ['B'] + ldim * ['M']
     spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \
             for V, basis in zip(derham.spaces, bases)]
 
     if get_vec:
-        Vnh = spaces[0]
-        X   = VectorFunctionSpace('X', domain_h.domain, kind='h1')
-        #Vn  = Vnh.symbolic_space
-        #X   = ProductSpace(Vn,Vn) #should fix sympde first
-        Xh  = VectorFemSpace(Vnh, Vnh)
-        Xh.symbolic_space = X
+        V0h = spaces[0]
+        Xh  = VectorFemSpace(*([V0h]*ldim))
         spaces.append(Xh)
 
     return DiscreteDerham(mapping, get_vec, *spaces)
