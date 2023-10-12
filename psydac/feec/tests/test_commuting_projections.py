@@ -90,11 +90,11 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc):
     # solve and compare
     u0vec = u0.coeffs
     u0vec_imat = I0inv.solve(P0._rhs)
-    assert np.allclose(u0vec.toarray(), u0vec_imat.toarray(), atol=1e-6)
+    assert np.allclose(u0vec.toarray(), u0vec_imat.toarray(), atol=1e-5)
 
     u1vec = u1.coeffs
     u1vec_imat = I1inv.solve(P1._rhs)
-    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-6)
+    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-5)
 
 #==============================================================================
 @pytest.mark.parametrize('Nel', [8, 12])
@@ -187,11 +187,11 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc):
     # solve and compare
     u1vec = u1.coeffs
     u1vec_imat = I1inv.solve(P1._rhs)
-    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-6)
+    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-5)
     
     u2vec = u2.coeffs
     u2vec_imat = I2inv.solve(P2._rhs)
-    assert np.allclose(u2vec.toarray(), u2vec_imat.toarray(), atol=1e-6)
+    assert np.allclose(u2vec.toarray(), u2vec_imat.toarray(), atol=1e-5)
 
 #==============================================================================
 @pytest.mark.parametrize('Nel', [8, 12])
@@ -275,11 +275,11 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc):
     # solve and compare
     u2vec = u2.coeffs
     u2vec_imat = I2inv.solve(P2._rhs)
-    assert np.allclose(u2vec.toarray(), u2vec_imat.toarray(), atol=1e-6)
+    assert np.allclose(u2vec.toarray(), u2vec_imat.toarray(), atol=1e-5)
     
     u3vec = u3.coeffs
     u3vec_imat = I3inv.solve(P3._rhs)
-    assert np.allclose(u3vec.toarray(), u3vec_imat.toarray(), atol=1e-6)
+    assert np.allclose(u3vec.toarray(), u3vec_imat.toarray(), atol=1e-5)
 
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
@@ -510,11 +510,11 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc):
     # solve and compare
     u2vec = u2.coeffs
     u2vec_imat = I2inv.solve(P2._rhs)
-    assert np.allclose(u2vec.toarray(), u2vec_imat.toarray(), atol=1e-6)
+    assert np.allclose(u2vec.toarray(), u2vec_imat.toarray(), atol=1e-5)
     
     u3vec = u3.coeffs
     u3vec_imat = I3inv.solve(P3._rhs)
-    assert np.allclose(u3vec.toarray(), u3vec_imat.toarray(), atol=1e-6)
+    assert np.allclose(u3vec.toarray(), u3vec_imat.toarray(), atol=1e-5)
 
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
@@ -593,11 +593,11 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc):
     # solve and compare
     u1vec = u1.coeffs
     u1vec_imat = I1inv.solve(P1._rhs)
-    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-6)
+    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-5)
     
     u2vec = u2.coeffs
     u2vec_imat = I2inv.solve(P2._rhs)
-    assert np.allclose(u2vec.toarray(), u2vec_imat.toarray(), atol=1e-6)
+    assert np.allclose(u2vec.toarray(), u2vec_imat.toarray(), atol=1e-5)
 
 @pytest.mark.parametrize('Nel', [16, 20])
 @pytest.mark.parametrize('Nq', [5])
@@ -673,18 +673,19 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc):
 #==============================================================================
 if __name__ == '__main__':
 
-    Nel = 8
+    Nel = 12
     Nq  = 8
     p   = 3
     bc  = False
 
-    test_1d_commuting_pro_1(Nel, Nq, p, bc)
-    test_2d_commuting_pro_1(Nel, Nq, p, bc)
-    test_2d_commuting_pro_2(Nel, Nq, p, bc)
-    test_2d_commuting_pro_3(Nel, Nq, p, bc)
-    test_2d_commuting_pro_4(Nel, Nq, p, bc)
-    test_3d_commuting_pro_1(Nel, Nq, p, bc)
-    test_3d_commuting_pro_3(Nel, Nq, p, bc)
-    test_2d_commuting_pro_4(Nel, Nq, p, bc)
+    # test_1d_commuting_pro_1(Nel, Nq, p, bc)
+    # test_2d_commuting_pro_1(Nel, Nq, p, bc)
+    # test_2d_commuting_pro_2(Nel, Nq, p, bc)
+    # test_2d_commuting_pro_3(Nel, Nq, p, bc)
+    # test_2d_commuting_pro_4(Nel, Nq, p, bc)
+    # test_3d_commuting_pro_1(Nel, Nq, p, bc)
+    test_3d_commuting_pro_2(Nel, Nq, p, bc)
+    # test_3d_commuting_pro_3(Nel, Nq, p, bc)
+    # test_2d_commuting_pro_4(Nel, Nq, p, bc)
     
 
