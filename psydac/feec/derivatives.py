@@ -320,7 +320,7 @@ class DirectionalDerivativeOperator(LinearOperator):
             if self._diffdir == d:
                 # if we are at the differentiation direction, construct differentiation matrix
                 if codomain_local == 1 and domain_local == 1 and self.domain.periods[d]:
-                    # case of one cell and periodic BC should be treated as a constant
+                    # case of one cell and periodic BC should be treated as a constant, thus zero matrix
                     addmatrix = spa.coo_array((codomain_local, domain_local))
 
                 else:
@@ -413,9 +413,8 @@ class Derivative_1D(DiffOperator):
         assert H1.periodic[0] == L2.periodic[0]
         assert H1.degree[0] == L2.degree[0] + 1
 
-        self._domain   = H1
-        self._codomain = L2
-        self._matrix   = DirectionalDerivativeOperator(H1.vector_space, L2.vector_space, 0)
+        # Store data in object   
+        super().__init__(H1, L2, DirectionalDerivativeOperator(H1.vector_space, L2.vector_space, 0))
 
 #====================================================================================================
 class Gradient_2D(DiffOperator):
@@ -453,10 +452,9 @@ class Gradient_2D(DiffOperator):
                   [DirectionalDerivativeOperator(B_B, B_M, 1)]]
         matrix = BlockLinearOperator(H1.vector_space, Hcurl.vector_space, blocks=blocks)
 
-        # Store data in object
-        self._domain   = H1
-        self._codomain = Hcurl
-        self._matrix   = matrix
+        # Store data in object   
+        super().__init__(H1, Hcurl, matrix)
+
 
 #====================================================================================================
 class Gradient_3D(DiffOperator):
@@ -497,10 +495,8 @@ class Gradient_3D(DiffOperator):
                   [DirectionalDerivativeOperator(B_B_B, B_B_M, 2)]]
         matrix = BlockLinearOperator(H1.vector_space, Hcurl.vector_space, blocks=blocks)
 
-        # Store data in object
-        self._domain   = H1
-        self._codomain = Hcurl
-        self._matrix   = matrix
+        # Store data in object   
+        super().__init__(H1, Hcurl, matrix)
 
 #====================================================================================================
 class ScalarCurl_2D(DiffOperator):
@@ -538,10 +534,8 @@ class ScalarCurl_2D(DiffOperator):
                   DirectionalDerivativeOperator(B_M, M_M, 0)]]
         matrix = BlockLinearOperator(Hcurl.vector_space, L2.vector_space, blocks=blocks)
 
-        # Store data in object
-        self._domain   = Hcurl
-        self._codomain = L2
-        self._matrix   = matrix
+        # Store data in object   
+        super().__init__(Hcurl, L2, matrix)
 
 #====================================================================================================
 class VectorCurl_2D(DiffOperator):
@@ -580,10 +574,8 @@ class VectorCurl_2D(DiffOperator):
                   [-DirectionalDerivativeOperator(B_B, M_B, 0)]]
         matrix = BlockLinearOperator(H1.vector_space, Hdiv.vector_space, blocks=blocks)
 
-        # Store data in object
-        self._domain   = H1
-        self._codomain = Hdiv
-        self._matrix   = matrix
+        # Store data in object   
+        super().__init__(H1, Hdiv, matrix)
 
 #====================================================================================================
 class Curl_3D(DiffOperator):
@@ -632,10 +624,8 @@ class Curl_3D(DiffOperator):
         matrix = BlockLinearOperator(Hcurl.vector_space, Hdiv.vector_space, blocks=blocks)
         # ...
 
-        # Store data in object
-        self._domain   = Hcurl
-        self._codomain = Hdiv
-        self._matrix   = matrix
+        # Store data in object        
+        super().__init__(Hcurl, Hdiv, matrix)
 
 #====================================================================================================
 class Divergence_2D(DiffOperator):
@@ -673,10 +663,8 @@ class Divergence_2D(DiffOperator):
         blocks = [[DirectionalDerivativeOperator(B_M, M_M, 0), DirectionalDerivativeOperator(M_B, M_M, 1)]]
         matrix = BlockLinearOperator(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
 
-        # Store data in object
-        self._domain   = Hdiv
-        self._codomain = L2
-        self._matrix   = matrix
+        # Store data in object   
+        super().__init__(Hdiv, L2, matrix)
 
 #====================================================================================================
 class Divergence_3D(DiffOperator):
@@ -717,7 +705,5 @@ class Divergence_3D(DiffOperator):
                    DirectionalDerivativeOperator(M_M_B, M_M_M, 2)]]
         matrix = BlockLinearOperator(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
 
-        # Store data in object
-        self._domain   = Hdiv
-        self._codomain = L2
-        self._matrix   = matrix
+        # Store data in object   
+        super().__init__(Hdiv, L2, matrix)
