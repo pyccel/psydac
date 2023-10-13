@@ -13,6 +13,7 @@ from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
 
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
+from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
 from abc import ABCMeta, abstractmethod
 
@@ -147,7 +148,7 @@ class GlobalProjector(metaclass=ABCMeta):
                 domain_decomp = DomainDecomposition([ncells], [periodic])
                 cart_decomp = CartDecomposition(domain_decomp, [n], [[s]], [[e]], [p], [1])
                 V_cart = StencilVectorSpace(cart_decomp)
-                M = StencilMatrix(V_cart, V_cart)
+                M = StencilMatrix(V_cart, V_cart, backend=PSYDAC_BACKEND_GPYCCEL)
 
                 if cell == 'I':
                     # interpolation case

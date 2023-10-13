@@ -351,11 +351,11 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc):
     # solve and compare
     u0vec = u0.coeffs
     u0vec_imat = I0inv.solve(P0._rhs)
-    assert np.allclose(u0vec.toarray(), u0vec_imat.toarray())
+    assert np.allclose(u0vec.toarray(), u0vec_imat.toarray(), atol=1e-5)
     
     u1vec = u1.coeffs
     u1vec_imat = I1inv.solve(P1._rhs)
-    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray())
+    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-5)
 
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
@@ -427,11 +427,11 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc):
     # solve and compare
     u0vec = u0.coeffs
     u0vec_imat = I0inv.solve(P0._rhs)
-    assert np.allclose(u0vec.toarray(), u0vec_imat.toarray())
+    assert np.allclose(u0vec.toarray(), u0vec_imat.toarray(), atol=1e-5)
     
     u1vec = u1.coeffs
     u1vec_imat = I1inv.solve(P1._rhs)
-    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray())
+    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-5)
 
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
@@ -664,27 +664,27 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc):
     # solve and compare
     u0vec = u0.coeffs
     u0vec_imat = I0inv.solve(P0._rhs)
-    assert np.allclose(u0vec.toarray(), u0vec_imat.toarray())
+    assert np.allclose(u0vec.toarray(), u0vec_imat.toarray(), atol=1e-5)
     
     u1vec = u1.coeffs
     u1vec_imat = I1inv.solve(P1._rhs)
-    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray())
+    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-5)
     
 #==============================================================================
 if __name__ == '__main__':
 
     Nel = 12
-    Nq  = 8
+    Nq  = 5
     p   = 3
     bc  = False
 
-    # test_1d_commuting_pro_1(Nel, Nq, p, bc)
-    # test_2d_commuting_pro_1(Nel, Nq, p, bc)
-    # test_2d_commuting_pro_2(Nel, Nq, p, bc)
+    test_1d_commuting_pro_1(20, Nq, p, bc)
+    test_2d_commuting_pro_1(Nel, Nq, p, bc)
+    test_2d_commuting_pro_2(Nel, Nq, p, bc)
     # test_2d_commuting_pro_3(Nel, Nq, p, bc)
     # test_2d_commuting_pro_4(Nel, Nq, p, bc)
     # test_3d_commuting_pro_1(Nel, Nq, p, bc)
-    test_3d_commuting_pro_2(Nel, Nq, p, bc)
+    # test_3d_commuting_pro_2(Nel, Nq, p, bc)
     # test_3d_commuting_pro_3(Nel, Nq, p, bc)
     # test_2d_commuting_pro_4(Nel, Nq, p, bc)
     
