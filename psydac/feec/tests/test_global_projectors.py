@@ -99,7 +99,7 @@ def test_derham_projector_2d_hdiv(ncells, degree, periodic):
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
     
     derham   = Derham(domain, ["H1", "Hdiv", "L2"])
-    derham_h   = discretize(derham, domain_h, degree=degree, get_vec = True)
+    derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True)
     P0, P1, P2, PX = derham_h.projectors()
 
     # Projector onto H1 space (1D interpolation)
@@ -144,7 +144,7 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic):
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
     
     derham   = Derham(domain, ["H1", "Hcurl", "L2"])
-    derham_h   = discretize(derham, domain_h, degree=degree, get_vec = True)
+    derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True)
     P0, P1, P2, PX = derham_h.projectors()
 
     # Projector onto H1 space (1D interpolation)
@@ -189,7 +189,7 @@ def test_derham_projector_3d(ncells, degree, periodic):
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
     
     derham   = Derham(domain)
-    derham_h   = discretize(derham, domain_h, degree=degree, get_vec = True)
+    derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True)
     P0, P1, P2, P3, PX = derham_h.projectors()
 
     # Projector onto H1 space (1D interpolation)
