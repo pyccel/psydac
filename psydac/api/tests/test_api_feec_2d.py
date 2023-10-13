@@ -743,10 +743,11 @@ def test_maxwell_2d_periodic_multiplicity():
     namespace = run_maxwell_2d_TE(
         use_spline_mapping = False,
         eps      = 0.5,
-        ncells   = 10,
-        degree   = 5,
+        ncells   = 30,
+        degree   = 3,
         periodic = True,
-        Cp       = 0.5,
+        Cp       = 0.5, #it's seems that with higher multiplicity we need 
+        #to be more carefull with the CFL (with C=5. error is )
         nsteps   = 1,
         tend     = None,
         splitting_order      = 2,
@@ -912,6 +913,9 @@ def test_maxwell_2d_dirichlet_par():
 # SCRIPT CAPABILITIES
 #==============================================================================
 if __name__ == '__main__':
+    
+    test_maxwell_2d_periodic_multiplicity()
+    exit()
 
     import argparse
 

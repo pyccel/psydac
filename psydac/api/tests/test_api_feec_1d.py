@@ -406,8 +406,8 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         error_E = max(abs(E_ex(t, x) - E_values))
         error_B = max(abs(B_ex(t, x) - B_values))
         print()
-        print('Max-norm of error on E(t,x) at final time: {:.2e}'.format(error_E))
-        print('Max-norm of error on B(t,x) at final time: {:.2e}'.format(error_B))
+        print('Max-norm of error on E(t,x) at final time: {:.8e}'.format(error_E))
+        print('Max-norm of error on B(t,x) at final time: {:.8e}'.format(error_B))
 
     # compute L2 error as well
     F = mapping.get_callable_mapping()
@@ -518,8 +518,8 @@ def test_maxwell_1d_periodic_mult():
     )
 
     TOL = 1e-6
-    ref = dict(error_E = 4.24689277e-04,
-               error_B = 4.03195666e-04)
+    ref = dict(error_E = 4.54259221e-04,
+               error_B = 3.71519383e-04)
 
     assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
     assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL

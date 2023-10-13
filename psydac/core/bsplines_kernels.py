@@ -47,10 +47,7 @@ def find_span_p(knots: 'float[:]', degree: int, x: float, periodic : bool, multi
     #boundary, while the first knots being the right boundary is multiplicity+p
     #before the last knot of the sequence (see make knots)
     low  = degree
-    if periodic : 
-        high = len(knots)-multiplicity-degree
-    else : 
-        high = len(knots)-1-degree
+    high = len(knots)-1-degree
 
     # Check if point is exactly on left/right boundary, or outside domain
     if x <= knots[low ]: return low
@@ -397,7 +394,7 @@ def basis_integrals_p(knots: 'float[:]', degree: int, out: 'float[:]'):
 
 # =============================================================================
 def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normalization: bool, xgrid: 'float[:]',
-                         out: 'float[:,:]', multiplicity : int = 1, perio_hist : bool = False):
+                         out: 'float[:,:]', multiplicity : int = 1):
     """
     Compute the collocation matrix :math:`C_ij = B_j(x_i)`, which contains the
     values of each B-spline basis function :math:`B_j` at all locations :math:`x_i`.
@@ -425,8 +422,6 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
         The result will be inserted into this array.
         It should be of the appropriate shape and dtype.
         
-    perio_hist : bool 
-        True if this function was called by histopolation_matrix_p with a periodic domain.
     """
     # Number of basis functions (in periodic case remove degree repeated elements)
     nb = len(knots)-degree-1
@@ -438,9 +433,8 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
 
     basis = np.zeros((nx, degree + 1))
     spans = np.zeros(nx, dtype=int)
-    #use perio_hist to have the right spans in the case this function was called by histopolation_matrix_p 
-    #with a periodic domain (else find_spans will return wrong results for points at the boundary)
-    find_spans_p(knots, degree, xgrid, spans, (periodic or perio_hist), multiplicity = multiplicity)
+
+    find_spans_p(knots, degree, xgrid, spans, periodic, multiplicity = multiplicity)
     basis_funs_array_p(knots, degree, xgrid, spans, basis)
 
     # Fill in non-zero matrix values
@@ -564,8 +558,7 @@ def histopolation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, norma
                             False,
                             xgrid_new[:actual_len],
                             colloc,
-                            multiplicity = multiplicity,
-                            perio_hist = periodic)
+                            multiplicity = multiplicity)
 
     m = colloc.shape[0] - 1
     n = colloc.shape[1] - 1
@@ -806,15 +799,10 @@ def elements_spans_p(knots: 'float[:]', degree: int, out: 'int[:]'):
 def make_knots_p(breaks: 'float[:]', degree: int, periodic: bool, out: 'float[:]', multiplicity: int = 1):
     """
     Create spline knots from breakpoints, with appropriate boundary conditions.
-    Let p be spline degree. If domain is periodic, knot sequence is extended
-    by periodicity so that first p basis functions are identical to last p.
     
-    This is done by first creating the "true" knot sequence (the one that we 
-    would have if the space was really periodic), by ignoring the first 
-    breakpoint (which is equal to the last one with periodicity). Then we add 
-    2p+1 more knots so that the total number of basis function is n_basis+p.
-    p+1 of this knots are on the left by shifting the last p+1 knots previously 
-    created and p of them are added on the left.
+    If domain is periodic, knot sequence is extended by periodicity to have a 
+    total of (n_cells-1)*mult+2p+2 knots (all break points are repeated mult 
+    time and we add p+1-mult knots by periodicity at each side).
     
     Otherwise, knot sequence is clamped (i.e. endpoints have multiplicity p+1).
 
@@ -840,22 +828,22 @@ def make_knots_p(breaks: 'float[:]', degree: int, periodic: bool, out: 'float[:]
     """
     ncells = len(breaks) - 1
     
+    for i in range(0, ncells+1):
+        out[degree + 1 + (i-1) * multiplicity  :degree + 1 + i * multiplicity ] = breaks[i]
+    
+    len_out = len(out)
+    
     if periodic:
-        for i in range(1, ncells+1):
-            out[degree + 1 + (i-1) * multiplicity  :degree + 1 + i * multiplicity ] = breaks[i]
         period = breaks[-1]-breaks[0]
 
-        out[:degree + 1] = out[ncells * multiplicity : ncells * multiplicity + degree + 1] - period
-        out[len(out) - degree :] = out[degree+1:2*degree + 1] + period
+        out[: degree + 1 - multiplicity] = out[len_out - 2 * (degree + 1 )+ multiplicity: len_out - (degree + 1)] - period
+        out[len(out) - (degree + 1 - multiplicity) :] = out[degree + 1:2*(degree + 1)- multiplicity] + period
         
 
         #
     else:
-        for i in range(1, ncells):
-            out[degree + 1 + (i - 1) * multiplicity:degree + 1 + i * multiplicity] = breaks[i]
-
-        out[0:degree + 1] = breaks[0]
-        out[len(out) - degree - 1:] = breaks[-1]
+        out[0:degree + 1 - multiplicity] = breaks[0]
+        out[len_out - degree - 1 + multiplicity:] = breaks[-1]
 
 
 # =============================================================================
@@ -897,8 +885,8 @@ def elevate_knots_p(knots: 'float[:]', degree: int, periodic: bool, out: 'float[
     if periodic:
         T, p = knots, degree
         period = T[len(knots) -1 - p] - T[p]
-        left   = T[len(knots) -2 - 2 * p] - period
-        right  = T[2 * p + 1] + period
+        left   = T[len(knots) -2 - 2 * p + multiplicity-1] - period
+        right  = T[2 * p + 2 - multiplicity] + period
 
         out[0] = left
         out[-1] = right

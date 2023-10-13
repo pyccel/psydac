@@ -572,15 +572,10 @@ def elements_spans(knots, degree, out=None):
 def make_knots(breaks, degree, periodic, multiplicity=1, out=None):
     """
     Create spline knots from breakpoints, with appropriate boundary conditions.
-    Let p be spline degree. If domain is periodic, knot sequence is extended
-    by periodicity so that first p basis functions are identical to last p.
     
-    This is done by first creating the "true" knot sequence (the one that we 
-    would have if the space was really periodic), by ignoring the first 
-    breakpoint (which is equal to the last one with periodicity). Then we add 
-    2p+1 more knots so that the total number of basis function is n_basis+p.
-    p+1 of this knots are on the left by shifting the last p+1 knots previously 
-    created and p of them are added on the left.
+    If domain is periodic, knot sequence is extended by periodicity to have a 
+    total of (n_cells-1)*mult+2p+2 knots (all break points are repeated mult 
+    time and we add p+1-mult knots by periodicity at each side).
     
     Otherwise, knot sequence is clamped (i.e. endpoints have multiplicity p+1).
 
@@ -627,10 +622,7 @@ def make_knots(breaks, degree, periodic, multiplicity=1, out=None):
 
     breaks = np.ascontiguousarray(breaks, dtype=float)
     if out is None:
-        if periodic :
-            out = np.zeros(multiplicity * len(breaks[1:]) + 1 + 2 * degree)
-        else : 
-            out = np.zeros(multiplicity * len(breaks[1:-1]) + 2 + 2 * degree)
+        out = np.zeros(multiplicity * len(breaks[1:-1]) + 2 + 2 * degree)
     else:
         assert out.shape == (multiplicity * len(breaks[1:-1]) + 2 + 2 * degree,) \
             and out.dtype == np.dtype('float')
