@@ -95,7 +95,7 @@ def discretize_derham(derham, domain_h, get_H1vec_space = False, *args, **kwargs
     domain_h   : Geometry
         Discrete domain where the spaces will be discretized
         
-    get_vec : Bool
+    get_H1vec_space : Bool
         True to also get the "Hvec" space discretizing (H1)^n vector fields
         
     **kwargs : list
