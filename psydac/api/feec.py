@@ -25,7 +25,7 @@ class DiscreteDerham(BasicDiscrete):
     mapping : Mapping
         The mapping from the logical space to the physical space of the discrete De Rham.
         
-    *spaces : list of 
+    *spaces : list of FemSpace
         The discrete spaces of the De Rham sequence
     """
     def __init__(self, mapping, *spaces):
