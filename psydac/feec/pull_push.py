@@ -79,7 +79,7 @@ def pull_2d_vec(f, F):
         a2_phys = f2(x, y)
 
         J_inv_value = F.jacobian_inv(eta1, eta2)
-        value_1 = J_inv_value[0,0]*a1_phys + J_inv_value[0,1]*a2_phys
+        value_1 = J_inv_value[0, 0] * a1_phys + J_inv_value[0, 1] * a2_phys
         return value_1
 
     def f2_logical(eta1, eta2):
@@ -89,7 +89,7 @@ def pull_2d_vec(f, F):
         a2_phys = f2(x, y)
 
         J_inv_value = F.jacobian_inv(eta1, eta2)
-        value_2 = J_inv_value[1,0]*a1_phys + J_inv_value[1,1]*a2_phys
+        value_2 = J_inv_value[1, 0] * a1_phys + J_inv_value[1, 1] * a2_phys
         return value_2
 
     return f1_logical, f2_logical
@@ -206,7 +206,7 @@ def pull_3d_vec(f, F):
         a3_phys = f3(x, y, z)
 
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
-        value_1 = J_inv_value[0,0]*a1_phys + J_inv_value[0,1]*a2_phys + J_inv_value[0,2]*a3_phys
+        value_1 = J_inv_value[0, 0] * a1_phys + J_inv_value[0, 1] * a2_phys + J_inv_value[0, 2] * a3_phys
         return value_1
 
     def f2_logical(eta1, eta2, eta3):
@@ -217,7 +217,7 @@ def pull_3d_vec(f, F):
         a3_phys = f3(x, y, z)
 
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
-        value_2 = J_inv_value[1,0]*a1_phys + J_inv_value[1,1]*a2_phys + J_inv_value[1,2]*a3_phys
+        value_2 = J_inv_value[1, 0] * a1_phys + J_inv_value[1, 1] * a2_phys + J_inv_value[1, 2] * a3_phys
         return value_2
 
     def f3_logical(eta1, eta2, eta3):
@@ -228,7 +228,7 @@ def pull_3d_vec(f, F):
         a3_phys = f3(x, y, z)
 
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
-        value_2 = J_inv_value[2,0]*a1_phys + J_inv_value[2,1]*a2_phys + J_inv_value[2,2]*a3_phys
+        value_2 = J_inv_value[2, 0] * a1_phys + J_inv_value[2, 1] * a2_phys + J_inv_value[2, 2] * a3_phys
         return value_2
 
     return f1_logical, f2_logical, f3_logical

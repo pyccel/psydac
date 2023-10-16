@@ -9,6 +9,8 @@ from psydac.feec.global_projectors import Projector_Hdiv, Projector_L2
 from psydac.feec.pull_push         import pull_1d_h1, pull_1d_l2
 from psydac.feec.pull_push         import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2, pull_2d_vec
 from psydac.feec.pull_push         import pull_3d_h1, pull_3d_hcurl, pull_3d_hdiv, pull_3d_l2, pull_3d_vec
+from psydac.fem.vector             import VectorFemSpace
+
 
 __all__ = ('DiscreteDerham',)
 
@@ -22,23 +24,20 @@ class DiscreteDerham(BasicDiscrete):
 
     mapping : Mapping
         The mapping from the logical space to the physical space of the discrete De Rham.
-
-    get_vec : Bool
-        True to also get the "Hvec" space discretizing (H1)^n vector fields
         
     *spaces : list of 
         The discrete spaces of the De Rham sequence
     """
-    def __init__(self, mapping, get_H1vec_space=False, *spaces):
+    def __init__(self, mapping, *spaces):
 
         assert (mapping is None) or isinstance(mapping, Mapping)
         
-        self.has_vec = get_H1vec_space
+        self.has_vec = isinstance(spaces[-1], VectorFemSpace)
 
         if self.has_vec : 
             dim          = len(spaces) - 2
             self._spaces = spaces[:-1]
-            self._Vvec    = spaces[-1]
+            self._H1vec    = spaces[-1]
 
         else :
             dim           = len(spaces) - 1
@@ -106,9 +105,9 @@ class DiscreteDerham(BasicDiscrete):
         return self._spaces[3]
 
     @property
-    def Vvec(self):
+    def H1vec(self):
         assert self.has_vec
-        return self._Vvec
+        return self._H1vec
 
     @property
     def spaces(self):
@@ -158,7 +157,7 @@ class DiscreteDerham(BasicDiscrete):
                 raise TypeError('projector of space type {} is not available'.format(kind))
 
             if self.has_vec : 
-                Pvec = Projector_H1vec(self.Vvec, nquads)
+                Pvec = Projector_H1vec(self.H1vec, nquads)
 
             if self.mapping:
                 P0_m = lambda f: P0(pull_2d_h1(f, self.callable_mapping))
@@ -184,7 +183,7 @@ class DiscreteDerham(BasicDiscrete):
             P2 = Projector_Hdiv (self.V2, nquads)
             P3 = Projector_L2   (self.V3, nquads)
             if self.has_vec : 
-                Pvec = Projector_H1vec(self.Vvec)
+                Pvec = Projector_H1vec(self.H1vec)
             if self.mapping:
                 P0_m = lambda f: P0(pull_3d_h1   (f, self.callable_mapping))
                 P1_m = lambda f: P1(pull_3d_hcurl(f, self.callable_mapping))

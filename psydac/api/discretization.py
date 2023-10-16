@@ -116,7 +116,7 @@ def discretize_derham(derham, domain_h, get_H1vec_space = False, *args, **kwargs
         #We still need to specify the symbolic space because of "_recursive_element_of" not implemented in sympde
         spaces.append(Xh)
 
-    return DiscreteDerham(mapping, get_H1vec_space, *spaces)
+    return DiscreteDerham(mapping, *spaces)
 #==============================================================================
 def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
     """

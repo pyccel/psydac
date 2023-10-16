@@ -577,11 +577,16 @@ class Projector_H1vec(GlobalProjector):
     This is a global projector constructed over a tensor-product grid in the
     logical domain. The vertices of this grid are obtained as the tensor
     product of the 1D splines' Greville points along each direction.
+    
     Parameters
     ----------
     H1vec : ProductFemSpace
         H1 x H1 x H1-conforming finite element space, codomain of the projection
         operator.
+        
+    nquads : list(int) | tuple(int)
+        Number of quadrature points along each direction, to be used in Gauss
+        quadrature rule for computing the (approximated) degrees of freedom.
     """
     def _structure(self, dim):
         if dim == 3:
@@ -609,6 +614,7 @@ class Projector_H1vec(GlobalProjector):
         r"""
         Project vector function onto the H1 x H1 x H1-conforming finite element
         space. This happens in the logical domain $\hat{\Omega}$.
+        
         Parameters
         ----------
         fun : list/tuple of callables
@@ -617,6 +623,7 @@ class Projector_H1vec(GlobalProjector):
             point in the logical domain. These correspond to the coefficients
             of a vector-field.
             $fun_i : \hat{\Omega} \mapsto \mathbb{R}$ with i = 1, ..., N.
+            
         Returns
         -------
         field : FemField
