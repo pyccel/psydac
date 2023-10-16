@@ -8,12 +8,12 @@ __all__ = (
     # -------------------
     'pull_1d_h1',
     'pull_1d_l2',
-    'pull_2d_vec',
+    'pull_2d_h1vec',
     'pull_2d_h1',
     'pull_2d_hcurl',
     'pull_2d_hdiv',
     'pull_2d_l2',
-    'pull_3d_vec',  # NOTE: what is this used for?
+    'pull_3d_h1vec',  # NOTE: what is this used for?
     'pull_3d_h1',
     'pull_3d_hcurl',
     'pull_3d_hdiv',
@@ -65,7 +65,7 @@ def pull_1d_l2(f, F):
 #==============================================================================
 # 2D PULL-BACKS
 #==============================================================================
-def pull_2d_vec(f, F):
+def pull_2d_h1vec(f, F):
 
     assert isinstance(F, BasicCallableMapping)
     assert F.ldim == 2    
@@ -191,7 +191,7 @@ def pull_2d_l2(f, F):
 # TODO [YG 05.10.2022]:
 # Remove? But it makes sense to return a vector-valued function...
 
-def pull_3d_vec(f, F):
+def pull_3d_h1vec(f, F):
 
     assert isinstance(F, BasicCallableMapping)
     assert F.ldim == 3

@@ -7,8 +7,8 @@ from psydac.feec.derivatives       import Divergence_2D, Divergence_3D
 from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl, Projector_H1vec
 from psydac.feec.global_projectors import Projector_Hdiv, Projector_L2
 from psydac.feec.pull_push         import pull_1d_h1, pull_1d_l2
-from psydac.feec.pull_push         import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2, pull_2d_vec
-from psydac.feec.pull_push         import pull_3d_h1, pull_3d_hcurl, pull_3d_hdiv, pull_3d_l2, pull_3d_vec
+from psydac.feec.pull_push         import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2, pull_2d_h1vec
+from psydac.feec.pull_push         import pull_3d_h1, pull_3d_hcurl, pull_3d_hdiv, pull_3d_l2, pull_3d_h1vec
 from psydac.fem.vector             import VectorFemSpace
 
 
@@ -167,7 +167,7 @@ class DiscreteDerham(BasicDiscrete):
                 elif kind == 'hdiv':
                     P1_m = lambda f: P1(pull_2d_hdiv(f, self.callable_mapping))
                 if self.has_vec : 
-                    Pvec_m = lambda f: Pvec(pull_2d_vec(f, self.callable_mapping))
+                    Pvec_m = lambda f: Pvec(pull_2d_h1vec(f, self.callable_mapping))
                     return P0_m, P1_m, P2_m, Pvec_m
                 else : 
                     return P0_m, P1_m, P2_m
@@ -190,7 +190,7 @@ class DiscreteDerham(BasicDiscrete):
                 P2_m = lambda f: P2(pull_3d_hdiv (f, self.callable_mapping))
                 P3_m = lambda f: P3(pull_3d_l2   (f, self.callable_mapping))
                 if self.has_vec : 
-                    Pvec_m = lambda f: Pvec(pull_3d_vec(f, self.callable_mapping))
+                    Pvec_m = lambda f: Pvec(pull_3d_h1vec(f, self.callable_mapping))
                     return P0_m, P1_m, P2_m, P3_m, Pvec_m
                 else : 
                     return P0_m, P1_m, P2_m, P3_m
