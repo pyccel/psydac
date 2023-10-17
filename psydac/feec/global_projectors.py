@@ -150,7 +150,9 @@ class GlobalProjector(metaclass=ABCMeta):
                         u, w = uw[j]
                         global_quad_x, global_quad_w = quadrature_grid(V.histopolation_grid, u, w)
                         #"roll" back points to the interval to ensure that the quadrature points are
-                        #in the domain. Probably only usefull on periodic cases
+                        #in the domain. Only usefull in th eperiodic case (else do nothing)
+                        #if not used then you will have quadrature points outside of the domain which 
+                        #might cause problem when your function is only defined inside the domain
                         roll_edges(V.domain, global_quad_x) 
                         quad_x[j] = global_quad_x[s:e+1]
                         quad_w[j] = global_quad_w[s:e+1]

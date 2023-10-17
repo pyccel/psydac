@@ -46,7 +46,7 @@ def test_H1_projector_1d(domain, ncells, degree, periodic):
     # Test if max-norm of error is <= TOL
     maxnorm_error = abs(vals_u0 - vals_f).max()
     print(ncells, maxnorm_error)
-#    assert maxnorm_error <= 1e-14
+    assert maxnorm_error <= 1e-9
 
 #==============================================================================
 @pytest.mark.parametrize('domain', [(0, 2*np.pi)])
@@ -86,9 +86,9 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads):
     # Test if max-norm of error is <= TOL
     maxnorm_error = abs(vals_u1 - vals_f).max()
     print(ncells, maxnorm_error)
-#    assert maxnorm_error <= 1e-14
+    assert maxnorm_error <= 1e-3
     
-    #==============================================================================
+#==============================================================================
 @pytest.mark.parametrize('ncells', [[200,200]])
 @pytest.mark.parametrize('degree', [[2,2], [2,3], [3,3]])
 @pytest.mark.parametrize('periodic', [[False, False], [True, True]])
@@ -125,13 +125,65 @@ def test_derham_projector_2d_hdiv(ncells, degree, periodic):
     # Test if max-norm of error is <= TOL
     maxnorm_error = abs(vals_u0 - vals_f).max()
     print(ncells, maxnorm_error)
+    assert maxnorm_error <= 1e-3
     maxnorm_error = abs(vals_u1_1 - vals_f).max()
     print(ncells, maxnorm_error)
+    assert maxnorm_error <= 1e-3
     maxnorm_error = abs(vals_u2 - vals_f).max()
     print(ncells, maxnorm_error)
+    assert maxnorm_error <= 1e-3
     maxnorm_error = abs(vals_ux_1 - vals_f).max()
     print(ncells, maxnorm_error)
-#    assert maxnorm_error <= 1e-14
+    assert maxnorm_error <= 1e-3
+    
+#==============================================================================
+@pytest.mark.parametrize('ncells', [[200,200]])
+@pytest.mark.parametrize('degree', [[2,2], [2,3], [3,3]])
+@pytest.mark.parametrize('periodic', [[False, False], [True, True]])
+
+def test_derham_projector_2d_hdiv_2(ncells, degree, periodic):
+
+    domain = Square('Omega', bounds1 = (0,1), bounds2 = (0,1))
+    domain_h = discretize(domain, ncells=ncells, periodic=periodic)
+    
+    derham   = Derham(domain, ["H1", "Hdiv", "L2"])
+    derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True)
+    P0, P1, P2, PX = derham_h.projectors()
+
+    # Projector onto H1 space (1D interpolation)
+
+    # Function to project
+    f1  = lambda xi1, xi2 : xi1**2*(xi1-1.)**2 
+    #function C0 restricted to [0,1] with periodic BC (0 at x1=0 and x1=1)
+    f2  = lambda xi1, xi2 : xi2**2*(xi2-1.)**2
+
+    # Compute the projection
+    u0 = P0(f1)
+    u2 = P2(f1)
+    u1 = P1((f1,f2))
+    ux = PX((f1,f2))
+
+    # Create evaluation grid, and check if  u0(x) == f(x)
+    xgrid = np.linspace(0, 1, num=51)
+    vals_u0   = np.array([[u0(x, y) for x in xgrid] for y in xgrid])
+    vals_u1_1 = np.array([[u1(x, y)[0] for x in xgrid] for y in xgrid])
+    vals_u2   = np.array([[u2(x, y) for x in xgrid] for y in xgrid])
+    vals_ux_1 = np.array([[ux(x, y)[0] for x in xgrid] for y in xgrid])
+    vals_f    = np.array([[f1(x, y) for x in xgrid] for y in xgrid])
+
+    # Test if max-norm of error is <= TOL
+    maxnorm_error = abs(vals_u0 - vals_f).max()
+    print(ncells, maxnorm_error)
+    assert maxnorm_error <= 1e-3
+    maxnorm_error = abs(vals_u1_1 - vals_f).max()
+    print(ncells, maxnorm_error)
+    assert maxnorm_error <= 1e-3
+    maxnorm_error = abs(vals_u2 - vals_f).max()
+    print(ncells, maxnorm_error)
+    assert maxnorm_error <= 1e-3
+    maxnorm_error = abs(vals_ux_1 - vals_f).max()
+    print(ncells, maxnorm_error)
+    assert maxnorm_error <= 1e-3
     
 #==============================================================================
 @pytest.mark.parametrize('ncells', [[200,200]])
@@ -170,13 +222,16 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic):
     # Test if max-norm of error is <= TOL
     maxnorm_error = abs(vals_u0 - vals_f).max()
     print(ncells, maxnorm_error)
+    assert maxnorm_error <= 1e-3
     maxnorm_error = abs(vals_u1_1 - vals_f).max()
     print(ncells, maxnorm_error)
+    assert maxnorm_error <= 1e-3
     maxnorm_error = abs(vals_u2 - vals_f).max()
     print(ncells, maxnorm_error)
+    assert maxnorm_error <= 1e-3
     maxnorm_error = abs(vals_ux_1 - vals_f).max()
     print(ncells, maxnorm_error)
-#    assert maxnorm_error <= 1e-14
+    assert maxnorm_error <= 1e-3
     
 #==============================================================================
 @pytest.mark.parametrize('ncells', [[30,30,30]])
@@ -218,15 +273,19 @@ def test_derham_projector_3d(ncells, degree, periodic):
     # Test if max-norm of error is <= TOL
     maxnorm_error = abs(vals_u0 - vals_f).max()
     print(ncells, maxnorm_error)
+    assert maxnorm_error <= 2e-2
     maxnorm_error = abs(vals_u1_1 - vals_f).max()
     print(ncells, maxnorm_error)
+    assert maxnorm_error <= 2e-2
     maxnorm_error = abs(vals_u2_1 - vals_f).max()
     print(ncells, maxnorm_error)
+    assert maxnorm_error <= 2e-2
     maxnorm_error = abs(vals_u3 - vals_f).max()
     print(ncells, maxnorm_error)
+    assert maxnorm_error <= 2e-2
     maxnorm_error = abs(vals_ux_1 - vals_f).max()
     print(ncells, maxnorm_error)
-#    assert maxnorm_error <= 1e-14
+    assert maxnorm_error <= 2e-2
 
 #==============================================================================
 if __name__ == '__main__':
@@ -244,6 +303,7 @@ if __name__ == '__main__':
         test_L2_projector_1d(domain, nc, degree, periodic, nquads)
         
     for nc in ncells:
+        test_derham_projector_2d_hdiv_2([nc, nc], [degree, degree], [periodic, periodic])
         test_derham_projector_2d_hdiv([nc, nc], [degree, degree], [periodic, periodic])
         
     for nc in ncells :
