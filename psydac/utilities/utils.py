@@ -59,6 +59,17 @@ def unroll_edges(domain, xgrid):
 
     elif xgrid[-1] != xB:
         return np.array([*xgrid, xgrid[0] + (xB-xA)])
+
+#===============================================================================
+def roll_edges(domain, points):
+    """If necessary, "roll" back intervals that cross boundary of periodic domain.
+    Changes are made in place to avoid duplicating the array
+    """
+    xA, xB = domain
+    assert xA < xB
+    points -=xA
+    points %=(xB-xA)
+    points +=xA
 #===============================================================================
 def split_space(Xh):
     """Split the flattened fem spaces into

@@ -4,25 +4,46 @@ from psydac.api.basic              import BasicDiscrete
 from psydac.feec.derivatives       import Derivative_1D, Gradient_2D, Gradient_3D
 from psydac.feec.derivatives       import ScalarCurl_2D, VectorCurl_2D, Curl_3D
 from psydac.feec.derivatives       import Divergence_2D, Divergence_3D
-from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl
+from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl, Projector_H1vec
 from psydac.feec.global_projectors import Projector_Hdiv, Projector_L2
 from psydac.feec.pull_push         import pull_1d_h1, pull_1d_l2
-from psydac.feec.pull_push         import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2
-from psydac.feec.pull_push         import pull_3d_h1, pull_3d_hcurl, pull_3d_hdiv, pull_3d_l2
+from psydac.feec.pull_push         import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2, pull_2d_h1vec
+from psydac.feec.pull_push         import pull_3d_h1, pull_3d_hcurl, pull_3d_hdiv, pull_3d_l2, pull_3d_h1vec
+from psydac.fem.vector             import VectorFemSpace
+
 
 __all__ = ('DiscreteDerham',)
 
 #==============================================================================
 class DiscreteDerham(BasicDiscrete):
     """ Represent the discrete De Rham sequence.
+    Should be initialized via discretize_derham function in api.discretization.py
+    
+    Parameters
+    ----------
+
+    mapping : Mapping
+        The mapping from the logical space to the physical space of the discrete De Rham.
+        
+    *spaces : list of FemSpace
+        The discrete spaces of the De Rham sequence
     """
     def __init__(self, mapping, *spaces):
 
         assert (mapping is None) or isinstance(mapping, Mapping)
+        
+        self.has_vec = isinstance(spaces[-1], VectorFemSpace)
 
-        dim           = len(spaces) - 1
+        if self.has_vec : 
+            dim          = len(spaces) - 2
+            self._spaces = spaces[:-1]
+            self._H1vec    = spaces[-1]
+
+        else :
+            dim           = len(spaces) - 1
+            self._spaces  = spaces
+
         self._dim     = dim
-        self._spaces  = spaces
         self._mapping = mapping
         self._callable_mapping = mapping.get_callable_mapping() if mapping else None
 
@@ -84,6 +105,11 @@ class DiscreteDerham(BasicDiscrete):
         return self._spaces[3]
 
     @property
+    def H1vec(self):
+        assert self.has_vec
+        return self._H1vec
+
+    @property
     def spaces(self):
         return self._spaces
 
@@ -130,6 +156,9 @@ class DiscreteDerham(BasicDiscrete):
             else:
                 raise TypeError('projector of space type {} is not available'.format(kind))
 
+            if self.has_vec : 
+                Pvec = Projector_H1vec(self.H1vec, nquads)
+
             if self.mapping:
                 P0_m = lambda f: P0(pull_2d_h1(f, self.callable_mapping))
                 P2_m = lambda f: P2(pull_2d_l2(f, self.callable_mapping))
@@ -137,18 +166,37 @@ class DiscreteDerham(BasicDiscrete):
                     P1_m = lambda f: P1(pull_2d_hcurl(f, self.callable_mapping))
                 elif kind == 'hdiv':
                     P1_m = lambda f: P1(pull_2d_hdiv(f, self.callable_mapping))
-                return P0_m, P1_m, P2_m
-            return P0, P1, P2
+                if self.has_vec : 
+                    Pvec_m = lambda f: Pvec(pull_2d_h1vec(f, self.callable_mapping))
+                    return P0_m, P1_m, P2_m, Pvec_m
+                else : 
+                    return P0_m, P1_m, P2_m
+
+            if self.has_vec :
+                return P0, P1, P2, Pvec
+            else : 
+                return P0, P1, P2
 
         elif self.dim == 3:
             P0 = Projector_H1   (self.V0)
             P1 = Projector_Hcurl(self.V1, nquads)
             P2 = Projector_Hdiv (self.V2, nquads)
             P3 = Projector_L2   (self.V3, nquads)
+            if self.has_vec : 
+                Pvec = Projector_H1vec(self.H1vec)
             if self.mapping:
                 P0_m = lambda f: P0(pull_3d_h1   (f, self.callable_mapping))
                 P1_m = lambda f: P1(pull_3d_hcurl(f, self.callable_mapping))
                 P2_m = lambda f: P2(pull_3d_hdiv (f, self.callable_mapping))
                 P3_m = lambda f: P3(pull_3d_l2   (f, self.callable_mapping))
-                return P0_m, P1_m, P2_m, P3_m
-            return P0, P1, P2, P3
+                if self.has_vec : 
+                    Pvec_m = lambda f: Pvec(pull_3d_h1vec(f, self.callable_mapping))
+                    return P0_m, P1_m, P2_m, P3_m, Pvec_m
+                else : 
+                    return P0_m, P1_m, P2_m, P3_m
+
+            if self.has_vec :
+                return P0, P1, P2, P3, Pvec
+            else : 
+                return P0, P1, P2, P3
+
