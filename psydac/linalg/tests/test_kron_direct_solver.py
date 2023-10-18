@@ -185,7 +185,7 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, dtype=float, t
 def get_M1_block_kron_solver(V1, ncells, degree, periodic):
     """
     Given a 3D DeRham sequenece (V0 = H(grad) --grad--> V1 = H(curl) --curl--> V2 = H(div) --div--> V3 = L2)
-    discreticed using ncells, degree and periodic,
+    discretized using ncells, degree and periodic,
 
         domain = Cube('C', bounds1=(0, 1), bounds2=(0, 1), bounds3=(0, 1))
         derham = Derham(domain)
@@ -245,8 +245,8 @@ def get_M1_block_kron_solver(V1, ncells, degree, periodic):
     B3_kron_inv = KroneckerLinearSolver(V1_3, V1_3, B3_solvers)
 
     M1_block_kron_solver = BlockLinearOperator(V1, V1, ((B1_kron_inv, None, None), 
-                                                              (None, B2_kron_inv, None), 
-                                                              (None, None, B3_kron_inv)))
+                                                        (None, B2_kron_inv, None), 
+                                                        (None, None, B3_kron_inv)))
 
     return M1_block_kron_solver
 
@@ -255,7 +255,7 @@ def get_M1_block_kron_solver(V1, ncells, degree, periodic):
 def get_inverse_mass_matrices(derham_h, domain_h):
     """
     Given a 2D DeRham sequence (V0 = H(grad) --curl--> V1 = H(div) --div--> V2 = L2)
-    and it's discrete domain, which shall be rectangular,
+    and its discrete domain, which shall be rectangular,
     returns the inverse of the mass matrices for all three spaces using kronecker solvers.
     """
     # assert 2D
@@ -328,7 +328,7 @@ def get_inverse_mass_matrices(derham_h, domain_h):
     B2_kron_inv_V1 = KroneckerLinearSolver(V1_2, V1_2, B2_solvers_V1)
 
     M1_block_kron_solver = BlockLinearOperator(V1h, V1h, ((B1_kron_inv_V1, None), 
-                                                              (None, B2_kron_inv_V1)))
+                                                          (None, B2_kron_inv_V1)))
     
     #V2 L2 space
     
