@@ -86,31 +86,43 @@ class DiscreteDerham(BasicDiscrete):
     #--------------------------------------------------------------------------
     @property
     def dim(self):
+        """dimension of the ambient space"""
         return self._dim
 
     @property
     def V0(self):
+        """First space of the De Rham sequence : H1 space"""
         return self._spaces[0]
 
     @property
     def V1(self):
+        """Second space of the De Rham sequence :
+        1d : L2 space
+        2d : either Hdiv or Hcurl space
+        3d : Hcurl space"""
         return self._spaces[1]
 
     @property
     def V2(self):
+        """Third space of the De Rham sequence :
+        2d : L2 space
+        3d : Hdiv space"""
         return self._spaces[2]
 
     @property
     def V3(self):
+        """Fourth space of the De Rham sequence : L2 space in 3d"""
         return self._spaces[3]
 
     @property
     def H1vec(self):
+        """Vectorial H1 space built has cartesian product of V0"""
         assert self.has_vec
         return self._H1vec
 
     @property
     def spaces(self):
+        """Spaces of the proper de Rham sequence (excluding Hvec)"""
         return self._spaces
 
     @property
