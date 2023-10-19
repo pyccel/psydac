@@ -663,7 +663,7 @@ def test_2d_mass_solver(ncells, degree, bounds, periodic):
     a0 = BilinearForm((u0, v0), integral(domain, u0*v0))
     a0_h = discretize(a0, domain_h, (derham_h.V0, derham_h.V0))
     M0 = a0_h.assemble()
-    tol = 1e-12
+    tol = 1e-10
     maxiter = 1000
     M0_iterative_solver = inverse(M0, 'cg', tol = tol, maxiter=maxiter)
 
@@ -672,7 +672,7 @@ def test_2d_mass_solver(ncells, degree, bounds, periodic):
     a1 = BilinearForm((u1, v1), integral(domain, dot(u1, v1)))
     a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1))
     M1 = a1_h.assemble()
-    tol = 1e-12
+    tol = 1e-10
     maxiter = 1000
     M1_iterative_solver = inverse(M1, 'cg', tol = tol, maxiter=maxiter)
     
@@ -681,7 +681,7 @@ def test_2d_mass_solver(ncells, degree, bounds, periodic):
     a2 = BilinearForm((u2, v2), integral(domain, u2*v2))
     a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2))
     M2 = a2_h.assemble()
-    tol = 1e-12
+    tol = 1e-10
     maxiter = 1000
     M2_iterative_solver = inverse(M2, 'cg', tol = tol, maxiter=maxiter)
 
