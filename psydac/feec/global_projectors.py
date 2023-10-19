@@ -309,7 +309,7 @@ class GlobalProjector(metaclass=ABCMeta):
         else:
             self._func(fun)
 
-        coeffs = self._solver.solve(self._rhs)
+        coeffs = self._solver.dot(self._rhs)
 
         return FemField(self._space, coeffs=coeffs)
 
