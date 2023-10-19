@@ -7,9 +7,8 @@ import numpy as np
 from types import MappingProxyType
 from scipy.sparse import bmat, lil_matrix
 
-from psydac.linalg.basic    import VectorSpace, Vector, LinearOperator, LinearSolver
+from psydac.linalg.basic    import VectorSpace, Vector, LinearOperator
 from psydac.linalg.stencil  import StencilMatrix
-from psydac.linalg.kron     import KroneckerLinearSolver
 from psydac.ddm.cart        import InterfaceCartDecomposition
 from psydac.ddm.utilities   import get_data_exchanger
 

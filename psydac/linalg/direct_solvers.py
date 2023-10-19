@@ -27,6 +27,15 @@ class DirectSolver( LinearSolver ):
         pass
 
     @abstractmethod
+    def transpose(self, conjugate=False):
+        """
+        Transpose the DirectSolver.
+
+        If conjugate is True, return the Hermitian transpose.
+        """
+        pass
+
+    @abstractmethod
     def solve( self, rhs, out=None, transposed=False ):
         pass
 
@@ -90,6 +99,9 @@ class BandedSolver ( DirectSolver ):
     @property
     def space( self ):
         return self._space
+    
+    def transpose(self, conjugate=False):
+        raise NotImplementedError('transpose() is not implemented for BandedSolvers')
 
     #...
     def solve( self, rhs, out=None, transposed=False ):
@@ -157,6 +169,9 @@ class SparseSolver ( DirectSolver ):
     @property
     def space( self ):
         return self._space
+    
+    def transpose(self, conjugate=False):
+        raise NotImplementedError('transpose() is not implemented for SparseSolvers')
 
     #...
     def solve( self, rhs, out=None, transposed=False ):
