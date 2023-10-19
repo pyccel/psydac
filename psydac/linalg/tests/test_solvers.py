@@ -105,6 +105,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     solv  = inverse(A, solver, tol=tol, verbose=False, recycle=True)
     solvt = solv.transpose()
     solvh = solv.H
+    solv2 = inverse(A@A, solver, tol=1e-13, verbose=True, recycle=True) # Test solver of composition of operators
 
     # Manufacture right-hand-side vector from exact solution
     be  = A @ xe
@@ -135,11 +136,21 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     assert np.array_equal(xh.toarray(), solvh_x0.toarray())
     assert xh is not solvh_x0
 
+    if solver != 'pcg':
+        # PCG only works with operators with diagonal
+        xc = solv2 @ be2
+        solv2_x0 = solv2._options["x0"]
+        assert np.array_equal(xc.toarray(), solv2_x0.toarray())
+        assert xc is not solv2_x0
+
+
     # Verify correctness of calculation: 2-norm of error
     b = A @ x
     b2 = A @ x2
     bt = A.T @ xt
     bh = A.H @ xh
+    if solver != 'pcg':
+        bc = A @ A @ xc
 
     
     err = b - be
@@ -150,6 +161,10 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     errt_norm = np.linalg.norm( errt.toarray() )
     errh = bh - beh
     errh_norm = np.linalg.norm( errh.toarray() )
+
+    if solver != 'pcg': 
+        errc = bc - be2
+        errc_norm = np.linalg.norm( errc.toarray() )
 
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
@@ -180,7 +195,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
         assert err2_norm < tol
         assert errt_norm < tol
         assert errh_norm < tol
-
+        assert solver == 'pcg' or errc_norm < tol
 
 # ===============================================================================
 # SCRIPT FUNCTIONALITY
