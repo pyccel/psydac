@@ -9,38 +9,10 @@ from scipy.sparse.linalg import splu
 
 from psydac.linalg.basic    import LinearSolver
 
-__all__ = ('DirectSolver', 'BandedSolver', 'SparseSolver')
+__all__ = ('BandedSolver', 'SparseSolver')
 
 #===============================================================================
-class DirectSolver( LinearSolver ):
-    """
-    Abstract class for direct linear solvers.
-
-    """
-
-    #-------------------------------------
-    # Deferred methods
-    #-------------------------------------
-    @property
-    @abstractmethod
-    def space( self ):
-        pass
-
-    @abstractmethod
-    def transpose(self, conjugate=False):
-        """
-        Transpose the DirectSolver.
-
-        If conjugate is True, return the Hermitian transpose.
-        """
-        pass
-
-    @abstractmethod
-    def solve( self, rhs, out=None, transposed=False ):
-        pass
-
-#===============================================================================
-class BandedSolver ( DirectSolver ):
+class BandedSolver(LinearSolver):
     """
     Solve the equation Ax = b for x, assuming A is banded matrix.
 
@@ -56,10 +28,11 @@ class BandedSolver ( DirectSolver ):
         Banded matrix.
 
     """
-    def __init__( self, u, l, bmat ):
+    def __init__(self, u, l, bmat, transposed=False):
 
         self._u    = u
         self._l    = l
+        self._transposed = transposed
 
         # ... LU factorization
         if bmat.dtype == np.float32:
@@ -75,7 +48,7 @@ class BandedSolver ( DirectSolver ):
             self._factor_function = zgbtrf
             self._solver_function = zgbtrs
         else:
-            msg = f'Cannot create a DirectSolver for bmat.dtype = {bmat.dtype}'
+            msg = f'Cannot create a BandedSolver for bmat.dtype = {bmat.dtype}'
             raise NotImplementedError(msg)
 
         self._bmat, self._ipiv, self._finfo = self._factor_function(bmat, l, u)
@@ -86,25 +59,40 @@ class BandedSolver ( DirectSolver ):
         self._dtype = bmat.dtype
 
     @property
-    def finfo( self ):
+    def finfo(self):
         return self._finfo
 
     @property
-    def sinfo( self ):
+    def sinfo(self):
         return self._sinfo
 
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
     @property
-    def space( self ):
+    def space(self):
         return self._space
-    
-    def transpose(self, conjugate=False):
-        raise NotImplementedError('transpose() is not implemented for BandedSolvers')
+
+    def transpose(self):
+        cls = type(self)
+        obj = super().__new__(cls)
+
+        obj._u = self._l
+        obj._l = self._u
+        obj._bmat = self._bmat
+        obj._ipiv = self._ipiv
+        obj._finfo = self._finfo
+        obj._factor_function = self._factor_function
+        obj._solver_function = self._solver_function
+        obj._sinfo = None
+        obj._space = self._space
+        obj._dtype = self._dtype
+        obj._transposed = not self._transposed
+
+        return obj
 
     #...
-    def solve( self, rhs, out=None, transposed=False ):
+    def solve(self, rhs, out=None):
         """
         Solves for the given right-hand side.
 
@@ -118,11 +106,10 @@ class BandedSolver ( DirectSolver ):
         
         out : ndarray | NoneType
             Output vector. If given, it has to have the same shape and datatype as rhs.
-        
-        transposed : bool
-            If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
         """
         assert rhs.T.shape[0] == self._bmat.shape[1]
+
+        transposed = self._transposed
 
         if out is None:
             preout, self._sinfo = self._solver_function(self._bmat, self._l, self._u, rhs.T, self._ipiv,
@@ -146,7 +133,7 @@ class BandedSolver ( DirectSolver ):
         return out
 
 #===============================================================================
-class SparseSolver ( DirectSolver ):
+class SparseSolver (LinearSolver):
     """
     Solve the equation Ax = b for x, assuming A is scipy sparse matrix.
 
@@ -156,25 +143,26 @@ class SparseSolver ( DirectSolver ):
         Generic sparse matrix.
 
     """
-    def __init__( self, spmat ):
+    def __init__(self, spmat):
 
-        assert isinstance( spmat, spmatrix )
+        assert isinstance(spmat, spmatrix)
 
         self._space = np.ndarray
-        self._splu  = splu( spmat.tocsc() )
+        self._spmat = spmat
+        self._splu  = splu(spmat.tocsc())
 
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
     @property
-    def space( self ):
+    def space(self):
         return self._space
-    
-    def transpose(self, conjugate=False):
-        raise NotImplementedError('transpose() is not implemented for SparseSolvers')
+
+    def transpose(self):
+        return SparseSolver(self._spmat.transpose())
 
     #...
-    def solve( self, rhs, out=None, transposed=False ):
+    def solve(self, rhs, out=None):
         """
         Solves for the given right-hand side.
 
@@ -188,21 +176,18 @@ class SparseSolver ( DirectSolver ):
         
         out : ndarray | NoneType
             Output vector. If given, it has to have the same shape and datatype as rhs.
-        
-        transposed : bool
-            If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
         """
         
         assert rhs.T.shape[0] == self._splu.shape[1]
 
         if out is None:
-            out = self._splu.solve( rhs.T, trans='T' if transposed else 'N' ).T
+            out = self._splu.solve(rhs.T).T
 
         else:
             assert out.shape == rhs.shape
             assert out.dtype == rhs.dtype
 
             # currently no in-place solve exposed
-            out[:] = self._splu.solve( rhs.T, trans='T' if transposed else 'N' ).T
+            out[:] = self._splu.solve(rhs.T).T
 
         return out

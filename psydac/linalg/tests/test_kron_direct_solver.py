@@ -151,7 +151,10 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, dtype=float, t
         print(f'[{rank}] Matrices built', flush=True)
 
     # vector to solve for (Y)
-    Y = StencilVector(V)
+    if transposed:
+        Y = StencilVector(W)
+    else:
+        Y = StencilVector(V)
     Y_glob = random_vectordata(seed, npts, dtype=dtype)
     Y[localslice] = Y_glob[localslice]
     Y.update_ghost_regions()
@@ -161,9 +164,16 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, dtype=float, t
 
     # solve in two different ways
     X_glob = kron_solve_seq_ref(Y_glob, A, transposed)
-    Xout = StencilVector(W)
+    if transposed:
+        Xout = StencilVector(V)
+    else:
+        Xout = StencilVector(W)
 
-    X = KroneckerLinearSolver(V, W, solvers).solve(Y, out=Xout, transposed=transposed)
+    solver = KroneckerLinearSolver(V, W, solvers)
+    if transposed:
+        solver = solver.T
+    
+    X = solver.solve(Y, out=Xout)
     assert X is Xout
 
     if verbose:
@@ -362,6 +372,8 @@ def test_direct_solvers(dtype, seed, n, p, P, nrhs, direct_solver, transposed):
     # bulid matrices (A)
     A = random_matrix(seed+1, V, V)
     solver = direct_solver(A)
+    if transposed:
+        solver = solver.T
 
     # vector to solve for (Y)
     Y_glob = np.stack([random_vectordata(seed + i, [n], dtype) for i in range(nrhs)], axis=0)
@@ -377,15 +389,15 @@ def test_direct_solvers(dtype, seed, n, p, P, nrhs, direct_solver, transposed):
     X_glob = C_op.solve(Y_glob.T).T
 
     # new vector allocation
-    X_glob2 = solver.solve(Y_glob, transposed=transposed)
+    X_glob2 = solver.solve(Y_glob)
 
     # solve with out vector
     X_glob3 = Y_glob.copy()
-    X_glob4 = solver.solve(Y_glob, out=X_glob3, transposed=transposed)
+    X_glob4 = solver.solve(Y_glob, out=X_glob3)
 
     # solve in-place
     X_glob5 = Y_glob.copy()
-    X_glob6 = solver.solve(X_glob5, out=X_glob5, transposed=transposed)
+    X_glob6 = solver.solve(X_glob5, out=X_glob5)
 
     # compare results
     assert X_glob4 is X_glob3

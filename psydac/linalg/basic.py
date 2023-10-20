@@ -1005,14 +1005,14 @@ class LinearSolver(ABC):
         pass
 
     @abstractmethod
-    def transpose(self, conjugate=False):
-        """
-        Transpose the LinearSolver.
-
-        If conjugate is True, return the Hermitian transpose.
-        """
+    def transpose(self):
+        """Return the transpose of the LinearSolver."""
         pass
 
     @abstractmethod
-    def solve(self, rhs, out=None, transposed=False):
+    def solve(self, rhs, out=None):
         pass
+
+    @property
+    def T(self):
+        return self.transpose()

@@ -532,7 +532,7 @@ class KroneckerLinearSolver(LinearOperator):
     def transpose(self, conjugate=False):
         new_domain = self._codomain
         new_codomain = self._domain
-        new_solvers = [solver.transpose(conjugate=conjugate) for solver in self._solvers]
+        new_solvers = [solver.transpose() for solver in self._solvers]
         return KroneckerLinearSolver(new_domain, new_codomain, new_solvers)
 
     def dot(self, v, out=None):
@@ -545,7 +545,7 @@ class KroneckerLinearSolver(LinearOperator):
         """
         return tuple(self._solvers)
 
-    def solve(self, rhs, out=None, transposed=False):
+    def solve(self, rhs, out=None):
         """
         Solves Ax=b where A is a Kronecker product matrix (and represented as such),
         and b is a suitable vector.
@@ -564,12 +564,12 @@ class KroneckerLinearSolver(LinearOperator):
         outslice = out[self._slice]
 
         # call the actual kernel
-        self._solve_nd(inslice, outslice, transposed)
+        self._solve_nd(inslice, outslice)
         
         out.update_ghost_regions()
         return out
  
-    def _solve_nd(self, inslice, outslice, transposed):
+    def _solve_nd(self, inslice, outslice):
         """
         The internal solve loop. Can handle arbitrary dimensions.
         """
@@ -582,14 +582,14 @@ class KroneckerLinearSolver(LinearOperator):
         # internal passes
         for i in range(self._ndim - 1):
             # solve direction
-            self._solver_passes[i].solve_pass(temp1, temp2, transposed)
+            self._solver_passes[i].solve_pass(temp1, temp2)
 
             # reorder and swap
             self._reorder_temp_to_temp(temp1, temp2, i)
             temp1, temp2 = temp2, temp1
         
         # last pass
-        self._solver_passes[-1].solve_pass(temp1, temp2, transposed)
+        self._solver_passes[-1].solve_pass(temp1, temp2)
 
         # copy to output
         self._reorder_temp_to_outslice(temp1, outslice)
@@ -634,7 +634,7 @@ class KroneckerLinearSolver(LinearOperator):
 
         Parameters
         ----------
-        solver : DirectSolver
+        solver : BandedSolver or SparseSolver
             The internally used solver class.
         
         nglobal : int
@@ -659,7 +659,7 @@ class KroneckerLinearSolver(LinearOperator):
             """
             return self._datasize
 
-        def solve_pass(self, workmem, tempmem, transposed):
+        def solve_pass(self, workmem, tempmem):
             """
             Solves the data available in workmem, assuming that all data is available locally.
 
@@ -672,16 +672,13 @@ class KroneckerLinearSolver(LinearOperator):
             
             tempmem : ndarray
                 Ignored, it exists for compatibility with the parallel solver.
-            
-            transposed : bool
-                True, if and only if we want to solve against the transposed matrix instead.
             """
             # reshape necessary memory in column-major
             view = workmem[:self._datasize]
             view.shape = (self._numrhs,self._dimrhs)
 
             # call solver in in-place mode
-            self._solver.solve(view, out=view, transposed=transposed)
+            self._solver.solve(view, out=view)
 
     class KroneckerSolverParallelPass:
         """
@@ -701,7 +698,7 @@ class KroneckerLinearSolver(LinearOperator):
 
         Parameters
         ----------
-        solver : DirectSolver
+        solver : BandedSolver or SparseSolver
             The internally used solver class.
         
         mpi_type : MPI type
@@ -846,7 +843,7 @@ class KroneckerLinearSolver(LinearOperator):
                 contiguouspart.shape = (self._mlocal,end-start)
                 contiguouspart[:] = blocked_view[:,start:end]
 
-        def solve_pass(self, workmem, tempmem, transposed):
+        def solve_pass(self, workmem, tempmem):
             """
             Solves the data available in workmem in a distributed manner, using MPI_Alltoallv.
 
@@ -859,9 +856,6 @@ class KroneckerLinearSolver(LinearOperator):
             
             tempmem : ndarray
                 Temporary array of the same minimum size as workmem.
-            
-            transposed : bool
-                True, if and only if we want to solve against the transposed matrix instead.
             """
             # preparation
             sourceargs = [workmem[:self._localsize], self._source_transfer, self._mpi_type]
@@ -874,7 +868,7 @@ class KroneckerLinearSolver(LinearOperator):
             self._blocked_to_contiguous(workmem, tempmem)
 
             # actual solve (source contains the data)
-            self._serialsolver.solve_pass(workmem, tempmem, transposed)
+            self._serialsolver.solve_pass(workmem, tempmem)
 
             # ordered stripes -> blocked stripes
             self._contiguous_to_blocked(workmem, tempmem)
@@ -883,7 +877,7 @@ class KroneckerLinearSolver(LinearOperator):
             self._comm.Alltoallv(targetargs, sourceargs)
 
 #==============================================================================
-def kronecker_solve(solvers, rhs, out=None, transposed=False):
+def kronecker_solve(solvers, rhs, out=None):
     """
     Solve linear system Ax=b with A=kron( A_n, A_{n-1}, ..., A_2, A_1 ), given
     $n$ separate linear solvers $L_n$ for the 1D problems $A_n x_n = b_n$:
@@ -914,4 +908,4 @@ def kronecker_solve(solvers, rhs, out=None, transposed=False):
         out = StencilVector(rhs.space)
 
     kronsolver = KroneckerLinearSolver(rhs.space, rhs.space, solvers)
-    return kronsolver.solve(rhs, out=out, transposed=transposed)
+    return kronsolver.solve(rhs, out=out)
