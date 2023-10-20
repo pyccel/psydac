@@ -22,7 +22,7 @@ classifiers  = ["Programming Language :: Python :: 3"]
 dependencies = [
 
     # Third-party packages from PyPi
-    'numpy >= 1.16, < 1.25',
+    'numpy >= 1.16',
     'scipy >= 0.18',
     'sympy >= 1.5',
     'matplotlib',
