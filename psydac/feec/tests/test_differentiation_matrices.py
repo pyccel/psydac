@@ -12,6 +12,8 @@ from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
 from psydac.feec.derivatives import ScalarCurl_2D, VectorCurl_2D, Curl_3D
 from psydac.feec.derivatives import Divergence_2D, Divergence_3D
 
+from psydac.feec.global_projectors import Projector_H1
+
 from psydac.ddm.cart         import DomainDecomposition
 from mpi4py                  import MPI
 
@@ -348,13 +350,14 @@ def test_directional_derivative_operator_3d_par(domain, ncells, degree, periodic
 @pytest.mark.parametrize('degree', [2, 3, 4, 5])
 @pytest.mark.parametrize('periodic', [True, False])
 @pytest.mark.parametrize('seed', [1,3])
+@pytest.mark.parametrize('multiplicity', [1,2])
 
-def test_Derivative_1D(domain, ncells, degree, periodic, seed):
+def test_Derivative_1D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
     np.random.seed(seed)
 
     breaks = np.linspace(*domain, num=ncells+1)
-    knots  = make_knots(breaks, degree, periodic)
+    knots  = make_knots(breaks, degree, periodic, multiplicity=multiplicity)
 
     # H1 space (0-forms)
     N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
@@ -365,12 +368,11 @@ def test_Derivative_1D(domain, ncells, degree, periodic, seed):
     # L2 space (1-forms)
     V1 = V0.reduce_degree(axes=[0], basis='M')
 
+    u0 = FemField(V0)
     # Linear operator: 1D derivative
     grad = Derivative_1D(V0, V1)
-
+    
     # Create random field in V0
-    u0 = FemField(V0)
-
     s, = V0.vector_space.starts
     e, = V0.vector_space.ends
 
@@ -378,7 +380,7 @@ def test_Derivative_1D(domain, ncells, degree, periodic, seed):
 
     # Compute gradient (=derivative) of u0
     u1 = grad(u0)
-
+    #print(u1.coeffs)
     # Create evaluation grid, and check if ∂/∂x u0(x) == u1(x)
     xgrid = np.linspace(*N.domain, num=11)
     vals_grad_u0 = np.array([u0.gradient(x)[0] for x in xgrid])
@@ -395,8 +397,9 @@ def test_Derivative_1D(domain, ncells, degree, periodic, seed):
 @pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 # 2 cases
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)]) # 2 cases
 @pytest.mark.parametrize('seed', [1,3])
+@pytest.mark.parametrize('multiplicity', [[1,1],[1,2],[2,2]])
 
-def test_Gradient_2D(domain, ncells, degree, periodic, seed):
+def test_Gradient_2D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
     np.random.seed(seed)
 
@@ -404,8 +407,8 @@ def test_Gradient_2D(domain, ncells, degree, periodic, seed):
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
 
     # H1 space (0-forms)
-    Nx, Ny = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
-                                  for d, g, p in zip(degree, breaks, periodic)]
+    Nx, Ny = [SplineSpace(degree=d, grid=g, periodic=p, basis='B', multiplicity=m) \
+                                  for d, g, p, m in zip(degree, breaks, periodic, multiplicity)]
 
     domain_decomposition = DomainDecomposition(ncells, periodic)
     V0 = TensorFemSpace(domain_decomposition, Nx, Ny)
@@ -456,11 +459,17 @@ def test_Gradient_2D(domain, ncells, degree, periodic, seed):
                                       (False,  True, False),
                                       (False, False,  True)])
 @pytest.mark.parametrize('seed', [1,3])
+@pytest.mark.parametrize('multiplicity', [[1,1,1],[1,2,2],[2,2,2]])
 
-def test_Gradient_3D(domain, ncells, degree, periodic, seed):
+
+def test_Gradient_3D(domain, ncells, degree, periodic, seed, multiplicity):
     if any([ncells[d] <= degree[d] and periodic[d] for d in range(3)]):
         return
     
+    #change mulitplicity if higher than degree to avoid problems (case p<m doesn't work)
+    print(multiplicity)
+    multiplicity = [min(m,p,nc) for p, m, nc in zip (degree, multiplicity, ncells)]
+    print(multiplicity)
     # determinize tests
     np.random.seed(seed)
 
@@ -468,8 +477,8 @@ def test_Gradient_3D(domain, ncells, degree, periodic, seed):
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
 
     # H1 space (0-forms)
-    Nx, Ny, Nz = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
-                                  for d, g, p in zip(degree, breaks, periodic)]
+    Nx, Ny, Nz = [SplineSpace(degree=d, grid=g, periodic=p, basis='B', multiplicity=m) \
+                                  for d, g, p, m in zip(degree, breaks, periodic, multiplicity)]
 
     domain_decomposition = DomainDecomposition(ncells, periodic)
     V0 = TensorFemSpace(domain_decomposition, Nx, Ny, Nz)
@@ -894,9 +903,11 @@ def test_Divergence_3D(domain, ncells, degree, periodic, seed):
 
 #==============================================================================
 if __name__ == '__main__':
-
-    test_Derivative_1D(domain=[0, 1], ncells=12, degree=3, periodic=False, seed=1)
-    test_Derivative_1D(domain=[0, 1], ncells=12, degree=3, periodic=True, seed=1)
+    
+    test_Derivative_1D((0, 1), 11, 3, True, 1, 2)
+    exit()
+    test_Derivative_1D(domain=[0, 1], ncells=12, degree=3, periodic=False, seed=1, multiplicity=1)
+    test_Derivative_1D(domain=[0, 1], ncells=12, degree=3, periodic=True, seed=1, multiplicity=1)
 
     test_Gradient_2D(
         domain   = ([0, 1], [0, 1]),

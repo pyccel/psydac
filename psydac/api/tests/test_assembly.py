@@ -86,6 +86,60 @@ def test_field_and_constant(backend, dtype):
     print("PASSED")
 
 #==============================================================================
+def test_field_and_constant_mult(backend, dtype):
+
+    # If 'backend' is specified, accelerate Python code by passing **kwargs
+    # to discretization of bilinear forms, linear forms and functionals.
+    kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
+
+    domain = Square()
+    V = ScalarFunctionSpace('V', domain)
+
+    # TODO: remove codomain_type when It is implemented in sympde
+    u = element_of(V, name='u')
+    v = element_of(V, name='v')
+    f = element_of(V, name='f')
+
+    if dtype == 'complex':
+        c = Constant(name='c', complex=True)
+        V.codomain_type = dtype
+        g = I * c * f**2
+        res = 1.j
+        cst=complex(1.0)
+    else:
+        c = Constant(name='c', real=True)
+        g = c * f**2
+        res = 1
+        cst=1.0
+
+    a = BilinearForm((u, v), integral(domain, g * u * v))
+    l = LinearForm(v, integral(domain, g * v))
+
+    ncells = (5, 5)
+    degree = (3, 3)
+    multiplicity = (2,2)
+    domain_h = discretize(domain, ncells=ncells)
+    Vh = discretize(V, domain_h, degree=degree, multiplicity = multiplicity)
+    ah = discretize(a, domain_h, [Vh, Vh], **kwargs)
+    lh = discretize(l, domain_h,      Vh , **kwargs)
+
+    fh = FemField(Vh)
+    fh.coeffs[:] = 1
+
+    # Assembly call should not crash if correct arguments are used
+    A = ah.assemble(c=cst, f=fh)
+    b = lh.assemble(f=fh, c=cst)
+
+    # Test matrix A
+    x = fh.coeffs
+    #TODO change res into np.conj(res) when the conjugate is applied in the dot product in sympde
+    assert abs(x.dot(A.dot(x)) - res) < 1e-12
+
+    # Test vector b
+    assert abs(b.toarray().sum() - res) < 1e-12
+    print("PASSED")
+
+#==============================================================================
 def test_bilinearForm_complex(backend):
 
     # If 'backend' is specified, accelerate Python code by passing **kwargs
@@ -532,7 +586,9 @@ def test_assembly_no_synchr_args(backend):
 
 #==============================================================================
 if __name__ == '__main__':
-    test_field_and_constant(None)
+    test_field_and_constant_mult('pyccel-gcc','real')
+    exit()
+    test_field_and_constant(None,'real')
     test_multiple_fields(None)
     test_math_imports(None)
     test_non_symmetric_BilinearForm(None)

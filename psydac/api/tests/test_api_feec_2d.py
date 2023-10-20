@@ -914,7 +914,7 @@ def test_maxwell_2d_dirichlet_par():
 #==============================================================================
 if __name__ == '__main__':
     
-    test_maxwell_2d_periodic_multiplicity()
+    test_maxwell_2d_multiplicity()
     exit()
 
     import argparse
