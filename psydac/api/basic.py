@@ -229,11 +229,10 @@ class BasicCodeGen:
     def _generate_code(self):
         # ... generate code that can be pyccelized
         imports = ''
+
         if self.backend['name'] == 'pyccel':
             imports = "from pyccel.decorators import types"
             imports += ", template \n@template(name='T', types=['float', 'complex']) "
-        elif self.backend['name'] == 'numba':
-            imports = 'from numba import njit'
 
         ast = self.ast
         expr = parse(ast.expr, settings={'dim': ast.dim, 'nderiv': ast.nderiv, 'mapping':ast.mapping, 'target':ast.domain}, backend=self.backend)

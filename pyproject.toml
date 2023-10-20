@@ -36,9 +36,6 @@ dependencies = [
     'pyccel == 1.8.1',
     'gelato == 0.12',
 
-    # Alternative backend to Pyccel is Numba
-    'numba',
-
     # In addition, we depend on mpi4py and h5py (MPI version).
     # Since h5py must be built from source, we run the commands
     #

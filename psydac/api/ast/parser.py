@@ -562,19 +562,13 @@ class Parser(object):
         if self.backend['name'] == 'pyccel':
             a = [String(str(i)) for i in build_pyccel_types_decorator(arguments)]
             decorators = {'types': Function('types')(*a)}
-        elif self.backend['name'] == 'numba':
-            decorators = {'njit': Function('njit')(ValuedArgument(Symbol('fastmath'), self.backend['fastmath']))}
         elif self.backend['name'] == 'pythran':
             header = build_pythran_types_header(name, arguments)
         else:
             decorators = {}
 
-        if self.backend['name'] == 'numba':
-            func = FunctionDef(name, arguments, results, body, decorators=decorators)
-            stmts = CodeBlock([*imports , func])
-        else:
-            func = FunctionDef(name, arguments, results, body, imports=imports, decorators=decorators)
-            stmts = func
+        func = FunctionDef(name, arguments, results, body, imports=imports, decorators=decorators)
+        stmts = func
 
         self.functions[name] = func
         return stmts

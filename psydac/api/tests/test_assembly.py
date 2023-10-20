@@ -19,7 +19,7 @@ from psydac.api.settings       import PSYDAC_BACKENDS
 from psydac.linalg.utilities   import array_to_psydac
 
 #==============================================================================
-@pytest.fixture(params=[None, 'numba', 'pyccel-gcc'])
+@pytest.fixture(params=[None, 'pyccel-gcc'])
 def backend(request):
     return request.param
 
