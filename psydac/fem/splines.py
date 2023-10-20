@@ -90,14 +90,16 @@ class SplineSpace( FemSpace ):
 
         if grid is None:
             grid = breakpoints(knots, degree)
-
+            
         indices = np.where(np.diff(knots[degree+1:-degree-1])>1e-15)[0]
 
-        if len(indices)>0:
-            multiplicity = np.diff(indices).max(initial=1)
-        else:
-            multiplicity = max(1,len(knots[degree+1:-degree-1]))
 
+        if multiplicity is None: #V.C 20/10/23 : why computing the multiplicity again?
+            if len(indices)>0:
+                multiplicity = np.diff(indices).max(initial=1)
+            else:
+                multiplicity = max(1,len(knots[degree+1:-degree-1]))
+            
         if parent_multiplicity is None:
             parent_multiplicity = multiplicity
 
@@ -107,7 +109,7 @@ class SplineSpace( FemSpace ):
 
         # Number of basis function in space (= cardinality)
         if periodic:
-            nbasis = len(knots) - 2*degree - 1
+            nbasis = len(knots) - 2*degree - 2 + multiplicity
         else:
             defect = 0
             if dirichlet[0]: defect += 1
@@ -134,7 +136,6 @@ class SplineSpace( FemSpace ):
         self._greville      = greville(knots, degree, periodic, multiplicity = multiplicity)
         self._ext_greville  = greville(elevate_knots(knots, degree, periodic, multiplicity=multiplicity), degree+1, periodic, multiplicity = multiplicity)
         self._scaling_array = scaling_array
-
         self._parent_multiplicity  = parent_multiplicity
         self._histopolation_grid   = unroll_edges(self.domain, self.ext_greville)
 
@@ -181,7 +182,7 @@ class SplineSpace( FemSpace ):
             xgrid    = self.greville,
             multiplicity = self.multiplicity
         )
-
+        
         if self.periodic:
             # Convert to CSC format and compute sparse LU decomposition
             self._interpolator = SparseSolver( csc_matrix( imat ) )
@@ -290,7 +291,7 @@ class SplineSpace( FemSpace ):
 
         eta = eta[0]
 
-        span = find_span( self.knots, self.degree, eta, self.periodic)
+        span = find_span( self.knots, self.degree, eta)
 
         basis_array = basis_funs( self.knots, self.degree, eta, span)
         index = slice(span-self.degree, span + 1)

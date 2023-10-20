@@ -5,7 +5,7 @@
 import numpy as np
 
 # =============================================================================
-def find_span_p(knots: 'float[:]', degree: int, x: float, periodic : bool, multiplicity : int = 1):
+def find_span_p(knots: 'float[:]', degree: int, x: float):
     """
     Determine the knot span index at location x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
@@ -24,14 +24,6 @@ def find_span_p(knots: 'float[:]', degree: int, x: float, periodic : bool, multi
     x : float
         Location of interest.
         
-    periodic : bool
-        Indicating if the domain is periodic.
-        
-    multiplicity : int
-        Multplicity in the knot sequence. One assume that all the knots have 
-        multiplicity multiplicity, and in the none periodic case that the 
-        boundary knots have multiplicity p+1 (has created by make_knots)
-        
     Returns
         -------
     span : int
@@ -43,9 +35,6 @@ def find_span_p(knots: 'float[:]', degree: int, x: float, periodic : bool, multi
         Springer-Verlag Berlin Heidelberg GmbH, 1997.
     """
     # Knot index at left/right boundary
-    #In the periodic case the p+1 knots is the last knot equal to the left 
-    #boundary, while the first knots being the right boundary is multiplicity+p
-    #before the last knot of the sequence (see make knots)
     low  = degree
     high = len(knots)-1-degree
 
@@ -66,7 +55,7 @@ def find_span_p(knots: 'float[:]', degree: int, x: float, periodic : bool, multi
 
 
 # =============================================================================
-def find_spans_p(knots: 'float[:]', degree: int, x: 'float[:]', out: 'int[:]', periodic : bool, multiplicity : int = 1):
+def find_spans_p(knots: 'float[:]', degree: int, x: 'float[:]', out: 'int[:]'):
     """
     Determine the knot span index at a set of locations x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
@@ -92,7 +81,7 @@ def find_spans_p(knots: 'float[:]', degree: int, x: 'float[:]', out: 'int[:]', p
     n = x.shape[0]
 
     for i in range(n):
-        out[i] = find_span_p(knots, degree, x[i], periodic, multiplicity=multiplicity)
+        out[i] = find_span_p(knots, degree, x[i])
 
 
 # =============================================================================
@@ -422,11 +411,15 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
         The result will be inserted into this array.
         It should be of the appropriate shape and dtype.
         
+    multiplicity : int
+        Multiplicity of the knots in the knot sequence, we assume that the same 
+        multiplicity applies to each interior knot.
+        
     """
     # Number of basis functions (in periodic case remove degree repeated elements)
     nb = len(knots)-degree-1
     if periodic:
-        nb -= degree
+        nb -= degree + 1 - multiplicity
 
     # Number of evaluation points
     nx = len(xgrid)
@@ -434,7 +427,7 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
     basis = np.zeros((nx, degree + 1))
     spans = np.zeros(nx, dtype=int)
 
-    find_spans_p(knots, degree, xgrid, spans, periodic, multiplicity = multiplicity)
+    find_spans_p(knots, degree, xgrid, spans)
     basis_funs_array_p(knots, degree, xgrid, spans, basis)
 
     # Fill in non-zero matrix values
@@ -500,6 +493,10 @@ def histopolation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, norma
     out : array
         The result will be inserted into this array.
         It should be of the appropriate shape and dtype.
+        
+    multiplicity : int
+        Multiplicity of the knots in the knot sequence, we assume that the same 
+        multiplicity applies to each interior knot.
 
     Notes
     -----
@@ -509,7 +506,7 @@ def histopolation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, norma
     """
     nb = len(knots) - degree - 1
     if periodic:
-        nb -= degree
+        nb -= degree + 1 - multiplicity
 
     # Number of evaluation points
     nx = len(xgrid)
@@ -718,10 +715,14 @@ def greville_p(knots: 'float[:]', degree: int, periodic: bool, out:'float[:]', m
     out : array
         The result will be inserted into this array.
         It should be of the appropriate shape and dtype.
+        
+    multiplicity : int
+        Multiplicity of the knots in the knot sequence, we assume that the same 
+        multiplicity applies to each interior knot.
     """
     T = knots
     p = degree
-    n = len(T)-2*p-1 if periodic else len(T)-p-1
+    n = len(T)-2*p-2 + multiplicity if periodic else len(T)-p-1
 
     # Compute greville abscissas as average of p consecutive knot values
     if p == multiplicity-1:

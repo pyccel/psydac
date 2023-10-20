@@ -57,7 +57,7 @@ __all__ = ('find_span',
 
 
 #==============================================================================
-def find_span(knots, degree, x, periodic, multiplicity = 1):
+def find_span(knots, degree, x):
     """
     Determine the knot span index at location x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
@@ -74,15 +74,7 @@ def find_span(knots, degree, x, periodic, multiplicity = 1):
         Polynomial degree of B-splines.
 
     x : float
-        Location of interest.
-        
-    periodic : bool
-        Indicating if the domain is periodic.
-        
-    multiplicity : int
-        Multplicity in the knot sequence. One assume that all the knots have 
-        multiplicity multiplicity, and in the none periodic case that the 
-        boundary knots have multiplicity p+1 (has created by make_knots)
+        Location of interest..
 
     Returns
      -------
@@ -91,12 +83,10 @@ def find_span(knots, degree, x, periodic, multiplicity = 1):
     """
     x = float(x)
     knots = np.ascontiguousarray(knots, dtype=float)
-    multiplicity = int(multiplicity)
-    periodic = bool(periodic)
-    return find_span_p(knots, degree, x, periodic, multiplicity = multiplicity)
+    return find_span_p(knots, degree, x)
 
 #==============================================================================
-def find_spans(knots, degree, x, periodic, out=None):
+def find_spans(knots, degree, x, out=None):
     """
     Determine the knot span index at a set of locations x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
@@ -131,7 +121,7 @@ def find_spans(knots, degree, x, periodic, out=None):
     else:
         assert out.shape == x.shape and out.dtype == np.dtype('int')
 
-    find_spans_p(knots, degree, x, periodic, out)
+    find_spans_p(knots, degree, x, out)
     return out
 
 #==============================================================================
@@ -336,6 +326,10 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None, 
     out : array, optional
         If provided, the result will be inserted into this array.
         It should be of the appropriate shape and dtype.
+        
+    multiplicity : int
+        Multiplicity of the knots in the knot sequence, we assume that the same 
+        multiplicity applies to each interior knot.
 
     Returns
     -------
@@ -352,7 +346,7 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None, 
     if out is None:
         nb = len(knots) - degree - 1
         if periodic:
-            nb -= degree
+            nb -= degree + 1 - multiplicity
 
         out = np.zeros((xgrid.shape[0], nb), dtype=float)
     else:
@@ -386,6 +380,10 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid, multipli
 
     xgrid : array_like
         Grid points.
+        
+    multiplicity : int
+        Multiplicity of the knots in the knot sequence, we assume that the same 
+        multiplicity applies to each interior knot.
 
     check_boundary : bool, default=True
         If true and ``periodic``, will check the boundaries of ``xgrid``.
@@ -435,12 +433,12 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid, multipli
 
     if out is None:
         if periodic:
-            out = np.zeros((len(xgrid), len(knots) - 2 * degree - 1), dtype=float)
+            out = np.zeros((len(xgrid), len(knots) - 2 * degree - 2 + multiplicity), dtype=float)
         else:
             out = np.zeros((len(xgrid) - 1, len(elevated_knots) - (degree + 1) - 1 - 1), dtype=float)
     else:
         if periodic:
-            assert out.shape == (len(xgrid), len(knots) - 2 * degree - 1)
+            assert out.shape == (len(xgrid), len(knots) - 2 * degree - 2 + multiplicity)
         else:
             assert out.shape == (len(xgrid) - 1, len(elevated_knots) - (degree + 1) - 1 - 1)
         assert out.dtype == np.dtype('float')
@@ -501,6 +499,10 @@ def greville(knots, degree, periodic, out=None, multiplicity=1):
     out : array, optional
         If provided, the result will be inserted into this array.
         It should be of the appropriate shape and dtype.
+        
+    multiplicity : int
+        Multiplicity of the knots in the knot sequence, we assume that the same 
+        multiplicity applies to each interior knot.
 
     Returns
     -------
@@ -510,7 +512,7 @@ def greville(knots, degree, periodic, out=None, multiplicity=1):
     """
     knots = np.ascontiguousarray(knots, dtype=float)
     if out is None:
-        n = len(knots) - 2 * degree - 1 if periodic else len(knots) - degree - 1
+        n = len(knots) - 2 * degree - 2 + multiplicity if periodic else len(knots) - degree - 1
         out = np.zeros(n)
     multiplicity = int(multiplicity)
     greville_p(knots, degree, periodic, out, multiplicity)
@@ -1011,7 +1013,7 @@ def _refinement_matrix_one_stage(t, p, knots):
 
     mat = np.zeros((n+1,n))
 
-    left = find_span( knots, p, t, False )
+    left = find_span( knots, p, t )
 
     # ...
     j = 0

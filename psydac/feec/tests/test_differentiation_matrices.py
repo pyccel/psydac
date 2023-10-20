@@ -461,21 +461,18 @@ def test_Gradient_2D(domain, ncells, degree, periodic, seed, multiplicity):
 @pytest.mark.parametrize('seed', [1,3])
 @pytest.mark.parametrize('multiplicity', [[1,1,1],[1,2,2],[2,2,2]])
 
-
 def test_Gradient_3D(domain, ncells, degree, periodic, seed, multiplicity):
     if any([ncells[d] <= degree[d] and periodic[d] for d in range(3)]):
         return
     
-    #change mulitplicity if higher than degree to avoid problems (case p<m doesn't work)
-    print(multiplicity)
-    multiplicity = [min(m,p,nc) for p, m, nc in zip (degree, multiplicity, ncells)]
-    print(multiplicity)
     # determinize tests
     np.random.seed(seed)
 
     # Compute breakpoints along each direction
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
 
+    #change mulitplicity if higher than degree to avoid problems (case p<m doesn't work)
+    multiplicity = [min(m,p) for p, m in zip (degree, multiplicity)]
     # H1 space (0-forms)
     Nx, Ny, Nz = [SplineSpace(degree=d, grid=g, periodic=p, basis='B', multiplicity=m) \
                                   for d, g, p, m in zip(degree, breaks, periodic, multiplicity)]
@@ -528,17 +525,20 @@ def test_Gradient_3D(domain, ncells, degree, periodic, seed, multiplicity):
 @pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 # 2 cases
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)]) # 2 cases
 @pytest.mark.parametrize('seed', [1,3])
+@pytest.mark.parametrize('multiplicity', [[1,1],[1,2],[2,2]])
 
-def test_ScalarCurl_2D(domain, ncells, degree, periodic, seed):
+
+def test_ScalarCurl_2D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
     np.random.seed(seed)
 
     # Compute breakpoints along each direction
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
-
+    #change mulitplicity if higher than degree to avoid problems (case p<m doesn't work)
+    multiplicity = [min(m,p) for p, m in zip (degree, multiplicity)]
     # H1 space (0-forms)
-    Nx, Ny = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
-                                  for d, g, p in zip(degree, breaks, periodic)]
+    Nx, Ny = [SplineSpace(degree=d, grid=g, periodic=p, basis='B', multiplicity=m) \
+                                  for d, g, p, m in zip(degree, breaks, periodic, multiplicity)]
 
     domain_decomposition = DomainDecomposition(ncells, periodic)
     V0 = TensorFemSpace(domain_decomposition, Nx, Ny)
@@ -601,18 +601,19 @@ def test_ScalarCurl_2D(domain, ncells, degree, periodic, seed):
 @pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 # 2 cases
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)]) # 2 cases
 @pytest.mark.parametrize('seed', [1,3])
+@pytest.mark.parametrize('multiplicity', [[1,1],[1,2],[2,2]])
 
-def test_VectorCurl_2D(domain, ncells, degree, periodic, seed):
+def test_VectorCurl_2D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
     np.random.seed(seed)
 
     # Compute breakpoints along each direction
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
-
+    #change mulitplicity if higher than degree to avoid problems (case p<m doesn't work)
+    multiplicity = [min(m,p) for p, m in zip (degree, multiplicity)]
     # H1 space (0-forms)
-    Nx, Ny = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
-                                  for d, g, p in zip(degree, breaks, periodic)]
-
+    Nx, Ny = [SplineSpace(degree=d, grid=g, periodic=p, basis='B', multiplicity=m) \
+                                  for d, g, p, m in zip(degree, breaks, periodic, multiplicity)]
     domain_decomposition = DomainDecomposition(ncells, periodic)
     V0 = TensorFemSpace(domain_decomposition, Nx, Ny)
 
@@ -666,8 +667,9 @@ def test_VectorCurl_2D(domain, ncells, degree, periodic, seed):
                                       (False,  True, False),
                                       (False, False, True)])
 @pytest.mark.parametrize('seed', [1,3])
+@pytest.mark.parametrize('multiplicity', [[1,1,1],[1,2,2],[2,2,2]])
 
-def test_Curl_3D(domain, ncells, degree, periodic, seed):
+def test_Curl_3D(domain, ncells, degree, periodic, seed, multiplicity):
     if any([ncells[d] <= degree[d] and periodic[d] for d in range(3)]):
         return
 
@@ -677,9 +679,11 @@ def test_Curl_3D(domain, ncells, degree, periodic, seed):
     # Compute breakpoints along each direction
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
 
+    #change mulitplicity if higher than degree to avoid problems (case p<m doesn't work)
+    multiplicity = [min(m,p) for p, m in zip (degree, multiplicity)]
     # H1 space (0-forms)
-    Nx, Ny, Nz = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
-                                  for d, g, p in zip(degree, breaks, periodic)]
+    Nx, Ny, Nz = [SplineSpace(degree=d, grid=g, periodic=p, basis='B', multiplicity=m) \
+                                  for d, g, p, m in zip(degree, breaks, periodic, multiplicity)]
 
     domain_decomposition = DomainDecomposition(ncells, periodic)
     V0 = TensorFemSpace(domain_decomposition, Nx, Ny, Nz)
@@ -755,17 +759,19 @@ def test_Curl_3D(domain, ncells, degree, periodic, seed):
 @pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 # 2 cases
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)]) # 2 cases
 @pytest.mark.parametrize('seed', [1,3])
+@pytest.mark.parametrize('multiplicity', [[1,1],[1,2],[2,2]])
 
-def test_Divergence_2D(domain, ncells, degree, periodic, seed):
+def test_Divergence_2D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
     np.random.seed(seed)
 
     # Compute breakpoints along each direction
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
-
+    #change mulitplicity if higher than degree to avoid problems (case p<m doesn't work)
+    multiplicity = [min(m,p) for p, m in zip (degree, multiplicity)]
     # H1 space (0-forms)
-    Nx, Ny = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
-                                  for d, g, p in zip(degree, breaks, periodic)]
+    Nx, Ny = [SplineSpace(degree=d, grid=g, periodic=p, basis='B', multiplicity=m) \
+                                  for d, g, p, m in zip(degree, breaks, periodic, multiplicity)]
 
     domain_decomposition = DomainDecomposition(ncells, periodic)
     V0 = TensorFemSpace(domain_decomposition, Nx, Ny)
@@ -829,17 +835,20 @@ def test_Divergence_2D(domain, ncells, degree, periodic, seed):
                                       (False,  True, False),
                                       (False, False,  True)])
 @pytest.mark.parametrize('seed', [1,3])
+@pytest.mark.parametrize('multiplicity', [[1,1,1],[1,2,2],[2,2,2]])
 
-def test_Divergence_3D(domain, ncells, degree, periodic, seed):
+def test_Divergence_3D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
     np.random.seed(seed)
 
     # Compute breakpoints along each direction
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
 
+    #change mulitplicity if higher than degree to avoid problems (case p<m doesn't work)
+    multiplicity = [min(m,p) for p, m in zip (degree, multiplicity)]
     # H1 space (0-forms)
-    Nx, Ny, Nz = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
-                                  for d, g, p in zip(degree, breaks, periodic)]
+    Nx, Ny, Nz = [SplineSpace(degree=d, grid=g, periodic=p, basis='B', multiplicity=m) \
+                                  for d, g, p, m in zip(degree, breaks, periodic, multiplicity)]
 
     domain_decomposition = DomainDecomposition(ncells, periodic)
     V0 = TensorFemSpace(domain_decomposition, Nx, Ny, Nz)
@@ -904,8 +913,6 @@ def test_Divergence_3D(domain, ncells, degree, periodic, seed):
 #==============================================================================
 if __name__ == '__main__':
     
-    test_Derivative_1D((0, 1), 11, 3, True, 1, 2)
-    exit()
     test_Derivative_1D(domain=[0, 1], ncells=12, degree=3, periodic=False, seed=1, multiplicity=1)
     test_Derivative_1D(domain=[0, 1], ncells=12, degree=3, periodic=True, seed=1, multiplicity=1)
 

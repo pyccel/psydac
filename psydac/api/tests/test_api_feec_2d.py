@@ -730,9 +730,9 @@ def test_maxwell_2d_multiplicity():
     )
     
     TOL = 1e-6
-    ref = dict(error_l2_Ex = 4.0298626142e-02,
-               error_l2_Ey = 4.0298626142e-02,
-               error_l2_Bz = 3.0892842064e-01)
+    ref = dict(error_l2_Ex = 4.35005708e-04,
+               error_l2_Ey = 4.35005708e-04,
+               error_l2_Bz = 3.76106860e-03)
 
     assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
     assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
@@ -746,8 +746,7 @@ def test_maxwell_2d_periodic_multiplicity():
         ncells   = 30,
         degree   = 3,
         periodic = True,
-        Cp       = 0.5, #it's seems that with higher multiplicity we need 
-        #to be more carefull with the CFL (with C=5. error is )
+        Cp       = 0.5,
         nsteps   = 1,
         tend     = None,
         splitting_order      = 2,
@@ -759,9 +758,9 @@ def test_maxwell_2d_periodic_multiplicity():
     )
     
     TOL = 1e-6
-    ref = dict(error_l2_Ex = 8.2398553953e-02,
-               error_l2_Ey = 8.2398553953e-02,
-               error_l2_Bz = 2.6713526134e-01)
+    ref = dict(error_l2_Ex = 1.78557685e-04,
+               error_l2_Ey = 1.78557685e-04,
+               error_l2_Bz = 1.40582413e-04)
 
     assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
     assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
@@ -788,9 +787,9 @@ def test_maxwell_2d_periodic_multiplicity_equal_deg():
     )
     
     TOL = 1e-6
-    ref = dict(error_l2_Ex = 7.43229667e-02,
-               error_l2_Ey = 7.43229667e-02,
-               error_l2_Bz = 2.59863979e-01)
+    ref = dict(error_l2_Ex = 2.50585008e-02,
+               error_l2_Ey = 2.50585008e-02,
+               error_l2_Bz = 1.58438290e-02)
     
     assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
     assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
@@ -913,9 +912,6 @@ def test_maxwell_2d_dirichlet_par():
 # SCRIPT CAPABILITIES
 #==============================================================================
 if __name__ == '__main__':
-    
-    test_maxwell_2d_multiplicity()
-    exit()
 
     import argparse
 

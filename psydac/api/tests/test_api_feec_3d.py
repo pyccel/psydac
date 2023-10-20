@@ -395,7 +395,7 @@ def test_maxwell_3d_2_mult():
     T     = dt*niter
 
     error = run_maxwell_3d_stencil(logical_domain, M, e_ex, b_ex, ncells, degree, periodic, dt, niter, mult=2)
-    assert abs(error - 0.9020674104318802) < 1e-9
+    assert abs(error - 0.24749763720543216) < 1e-9
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE

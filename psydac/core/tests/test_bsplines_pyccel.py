@@ -21,13 +21,11 @@ from psydac.core.bsplines import (find_span,
 # "True" Functions
 ###############################################################################
 
-def find_span_true( knots, degree, x, periodic, multiplicity=1 ):
+def find_span_true( knots, degree, x):
     # Knot index at left/right boundary
     low  = degree
-    if periodic : 
-        high = len(knots)-multiplicity-degree
-    else : 
-        high = len(knots)-1-degree
+    high = len(knots)-1-degree
+
     # Check if point is exactly on left/right boundary, or outside domain
     if x <= knots[low ]: return low
     if x >= knots[high]: return high-1
@@ -211,7 +209,7 @@ def collocation_matrix_true(knots, degree, periodic, normalization, xgrid):
 
     # Fill in non-zero matrix values
     for i,x in enumerate( xgrid ):
-        span  =  find_span_true( knots, degree, x, periodic )
+        span  =  find_span( knots, degree, x )
         basis = basis_funs_true( knots, degree, x, span )
         mat[i,js(span)] = normalize(basis, span)
 
@@ -377,27 +375,29 @@ def make_knots_true( breaks, degree, periodic, multiplicity=1 ):
 
     if periodic:
         assert len(breaks) > degree
-
-    p = degree
-    if periodic :
-        T = np.zeros(multiplicity * len(breaks[1:]) + 1 + 2 * degree)
-    else : 
-        T = np.zeros(multiplicity * len(breaks[1:-1]) + 2 + 2 * degree)
-
+        
+    T = np.zeros(multiplicity * len(breaks[1:-1]) + 2 + 2 * degree)
+    
     
 
+    ncells = len(breaks) - 1
+    
+    for i in range(0, ncells+1):
+        T[degree + 1 + (i-1) * multiplicity  :degree + 1 + i * multiplicity ] = breaks[i]
+    
+    len_out = len(T)
+    
     if periodic:
         period = breaks[-1]-breaks[0]
-        T[p+1:-p] = np.repeat(breaks[1:], multiplicity)
 
-        T[0:p+1] = [xi-period for xi in T[-2*p-1:-p ]]
-        T[-p:] = [xi+period for xi in T[   p+1:2*p+1]]
+        T[: degree + 1 - multiplicity] = T[len_out - 2 * (degree + 1 )+ multiplicity: len_out - (degree + 1)] - period
+        T[len_out - (degree + 1 - multiplicity) :] = T[degree + 1:2*(degree + 1)- multiplicity] + period
+        
+
+        #
     else:
-        T[p+1:-p-1] = np.repeat(breaks[1:-1], multiplicity)
-        T[p]        = breaks[ 0]
-        T[-p-1]     = breaks[-1]
-        T[0:p+1] = breaks[ 0]
-        T[-p-1:] = breaks[-1]
+        T[0:degree + 1 - multiplicity] = breaks[0]
+        T[len_out - degree - 1 + multiplicity:] = breaks[-1]
 
     return T
 
@@ -406,10 +406,10 @@ def elevate_knots_true(knots, degree, periodic, multiplicity=1, tol=1e-15):
     knots = np.array(knots)
 
     if periodic:
-        [T, p] = knots, degree
-        period = T[-1-p] - T[p]
-        left   = [T[-1-p-(p+1)] - period]
-        right  = [T[   p+(p+1)] + period]
+        T, p = knots, degree
+        period = T[len(knots) -1 - p] - T[p]
+        left   = [T[len(knots) -2 - 2 * p + multiplicity-1] - period]
+        right  = [T[2 * p + 2 - multiplicity] + period]
     else:
         left  = [knots[0],*knots[:degree+1]]
         right = [knots[-1],*knots[-degree-1:]]
@@ -461,7 +461,7 @@ def basis_ders_on_quad_grid_true(knots, degree, quad_grid, nders, normalization)
     for ie in range(ne):
         xx = quad_grid[ie, :]
         for iq, xq in enumerate(xx):
-            span = find_span_true(knots, degree, xq, False)
+            span = find_span_true(knots, degree, xq)
             ders = basis_funs_all_ders_true(knots, degree, xq, span, nders)
             if normalization == 'M':
                 ders *= scaling[None, span-degree:span+1]
@@ -499,11 +499,10 @@ ATOL = 1e-11
                           (np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]), 2),
                           (np.array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]), 3)])
 @pytest.mark.parametrize('x', (np.random.random(), np.random.random(), np.random.random()))
-@pytest.mark.parametrize('periodic', [True, False])
-@pytest.mark.parametrize('multiplicity', [1, 2, 3])
-def test_find_span(knots, degree, x, periodic, multiplicity):
-    expected = find_span_true(knots, degree, x, periodic, multiplicity=multiplicity)
-    out = find_span(knots, degree, x, periodic, multiplicity=multiplicity)
+
+def test_find_span(knots, degree, x):
+    expected = find_span_true(knots, degree, x)
+    out = find_span(knots, degree, x)
 
     assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
@@ -521,7 +520,7 @@ def test_find_span(knots, degree, x, periodic, multiplicity):
                           (np.array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]), 3)])
 @pytest.mark.parametrize('x', (np.random.random(), np.random.random(), np.random.random()))
 def test_basis_funs(knots, degree, x):
-    span = find_span(knots, degree, x, False)
+    span = find_span(knots, degree, x)
     expected = basis_funs_true(knots, degree, x, span)
     out = basis_funs(knots, degree, x, span)
 
@@ -541,7 +540,7 @@ def test_basis_funs(knots, degree, x):
                           (np.array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]), 3)])
 @pytest.mark.parametrize('x', (np.random.random(), np.random.random(), np.random.random()))
 def test_basis_funs_1st_der(knots, degree, x):
-    span = find_span(knots, degree, x, False)
+    span = find_span(knots, degree, x)
     expected = basis_funs_1st_der_true(knots, degree, x, span)
     out = basis_funs_1st_der(knots, degree, x, span)
 
@@ -563,7 +562,7 @@ def test_basis_funs_1st_der(knots, degree, x):
 @pytest.mark.parametrize('n', (2, 3, 4, 5))
 @pytest.mark.parametrize('normalization', ('B', 'M'))
 def test_basis_funs_all_ders(knots, degree, x, n, normalization):
-    span = find_span(knots, degree, x, False)
+    span = find_span(knots, degree, x)
     expected = basis_funs_all_ders_true(knots, degree, x, span, n, normalization)
     out = basis_funs_all_ders(knots, degree, x, span, n, normalization)
 
