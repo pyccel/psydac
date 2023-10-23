@@ -396,7 +396,7 @@ def test_Derivative_1D(domain, ncells, degree, periodic, seed, multiplicity):
 @pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 # 2 cases
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)]) # 2 cases
 @pytest.mark.parametrize('seed', [1,3])
-@pytest.mark.parametrize('multiplicity', [[1,1],[1,2],[2,2]])
+@pytest.mark.parametrize('multiplicity', [(1, 1), (1, 2), (2, 2)])
 
 def test_Gradient_2D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
@@ -458,7 +458,7 @@ def test_Gradient_2D(domain, ncells, degree, periodic, seed, multiplicity):
                                       (False,  True, False),
                                       (False, False,  True)])
 @pytest.mark.parametrize('seed', [1,3])
-@pytest.mark.parametrize('multiplicity', [[1,1,1],[1,2,2],[2,2,2]])
+@pytest.mark.parametrize('multiplicity', [(1, 1, 1), (1, 2, 2), (2, 2, 2)])
 
 def test_Gradient_3D(domain, ncells, degree, periodic, seed, multiplicity):
     if any([ncells[d] <= degree[d] and periodic[d] for d in range(3)]):
@@ -524,7 +524,7 @@ def test_Gradient_3D(domain, ncells, degree, periodic, seed, multiplicity):
 @pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 # 2 cases
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)]) # 2 cases
 @pytest.mark.parametrize('seed', [1,3])
-@pytest.mark.parametrize('multiplicity', [[1,1],[1,2],[2,2]])
+@pytest.mark.parametrize('multiplicity', [(1, 1), (1, 2), (2, 2)])
 
 
 def test_ScalarCurl_2D(domain, ncells, degree, periodic, seed, multiplicity):
@@ -600,7 +600,7 @@ def test_ScalarCurl_2D(domain, ncells, degree, periodic, seed, multiplicity):
 @pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 # 2 cases
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)]) # 2 cases
 @pytest.mark.parametrize('seed', [1,3])
-@pytest.mark.parametrize('multiplicity', [[1,1],[1,2],[2,2]])
+@pytest.mark.parametrize('multiplicity', [(1, 1), (1, 2), (2, 2)])
 
 def test_VectorCurl_2D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
@@ -666,7 +666,7 @@ def test_VectorCurl_2D(domain, ncells, degree, periodic, seed, multiplicity):
                                       (False,  True, False),
                                       (False, False, True)])
 @pytest.mark.parametrize('seed', [1,3])
-@pytest.mark.parametrize('multiplicity', [[1,1,1],[1,2,2],[2,2,2]])
+@pytest.mark.parametrize('multiplicity', [(1, 1, 1), (1, 2, 2), (2, 2, 2)])
 
 def test_Curl_3D(domain, ncells, degree, periodic, seed, multiplicity):
     if any([ncells[d] <= degree[d] and periodic[d] for d in range(3)]):
@@ -758,7 +758,7 @@ def test_Curl_3D(domain, ncells, degree, periodic, seed, multiplicity):
 @pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 # 2 cases
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)]) # 2 cases
 @pytest.mark.parametrize('seed', [1,3])
-@pytest.mark.parametrize('multiplicity', [[1,1],[1,2],[2,2]])
+@pytest.mark.parametrize('multiplicity', [(1, 1), (1, 2), (2, 2)])
 
 def test_Divergence_2D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
@@ -834,7 +834,7 @@ def test_Divergence_2D(domain, ncells, degree, periodic, seed, multiplicity):
                                       (False,  True, False),
                                       (False, False,  True)])
 @pytest.mark.parametrize('seed', [1,3])
-@pytest.mark.parametrize('multiplicity', [[1,1,1],[1,2,2],[2,2,2]])
+@pytest.mark.parametrize('multiplicity', [(1, 1, 1), (1, 2, 2), (2, 2, 2)])
 
 def test_Divergence_3D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
