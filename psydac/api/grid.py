@@ -229,12 +229,12 @@ class BasisValues():
 #==============================================================================
 # TODO have a parallel version of this function, as done for fem
 def create_collocation_basis( glob_points, space, nderiv=1 ):
-    
-    T     = space.knots      # knots sequence
-    p     = space.degree     # spline degree
-    n     = space.nbasis     # total number of control points
-    grid  = space.breaks     # breakpoints
-    nc    = space.ncells     # number of cells in domain (nc=len(grid)-1)
+
+    T    = space.knots      # knots sequence
+    p    = space.degree     # spline degree
+    n    = space.nbasis     # total number of control points
+    grid = space.breaks     # breakpoints
+    nc   = space.ncells     # number of cells in domain (nc=len(grid)-1)
 
     #-------------------------------------------
     # GLOBAL GRID
@@ -246,7 +246,7 @@ def create_collocation_basis( glob_points, space, nderiv=1 ):
 #    glob_basis = np.zeros( (p+1,nderiv+1,nq) ) # TODO use this for local basis fct
     glob_basis = np.zeros( (n+p,nderiv+1,nq) ) # n+p for ghosts
     for iq,xq in enumerate(glob_points):
-        span = find_span( T, p, xq)
+        span = find_span( T, p, xq )
         glob_spans[iq] = span
 
         ders = basis_funs_all_ders( T, p, xq, span, nderiv )

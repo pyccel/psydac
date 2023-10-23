@@ -21,7 +21,7 @@ from psydac.core.bsplines import (find_span,
 # "True" Functions
 ###############################################################################
 
-def find_span_true( knots, degree, x):
+def find_span_true( knots, degree, x ):
     # Knot index at left/right boundary
     low  = degree
     high = len(knots)-1-degree
@@ -209,7 +209,7 @@ def collocation_matrix_true(knots, degree, periodic, normalization, xgrid):
 
     # Fill in non-zero matrix values
     for i,x in enumerate( xgrid ):
-        span  =  find_span( knots, degree, x )
+        span  =  find_span_true( knots, degree, x )
         basis = basis_funs_true( knots, degree, x, span )
         mat[i,js(span)] = normalize(basis, span)
 

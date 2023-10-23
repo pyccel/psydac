@@ -406,8 +406,8 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         error_E = max(abs(E_ex(t, x) - E_values))
         error_B = max(abs(B_ex(t, x) - B_values))
         print()
-        print('Max-norm of error on E(t,x) at final time: {:.8e}'.format(error_E))
-        print('Max-norm of error on B(t,x) at final time: {:.8e}'.format(error_B))
+        print('Max-norm of error on E(t,x) at final time: {:.2e}'.format(error_E))
+        print('Max-norm of error on B(t,x) at final time: {:.2e}'.format(error_B))
 
     # compute L2 error as well
     F = mapping.get_callable_mapping()
@@ -415,8 +415,8 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     errB = lambda x1: (push_1d_l2(B, x1, F) - B_ex(t, *F(x1)))**2 * np.sqrt(F.metric_det(x1))
     error_l2_E = np.sqrt(derham_h.V1.integral(errE))
     error_l2_B = np.sqrt(derham_h.V0.integral(errB))
-    print('L2 norm of error on E(t,x) at final time: {:.12e}'.format(error_l2_E))
-    print('L2 norm of error on B(t,x) at final time: {:.12e}'.format(error_l2_B))
+    print('L2 norm of error on E(t,x) at final time: {:.2e}'.format(error_l2_E))
+    print('L2 norm of error on B(t,x) at final time: {:.2e}'.format(error_l2_B))
 
     if diagnostics_interval:
 

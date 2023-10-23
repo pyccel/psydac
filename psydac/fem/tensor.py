@@ -191,9 +191,11 @@ class TensorFemSpace( FemSpace ):
             field.coeffs.update_ghost_regions()
 
         for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
+
             knots  = space.knots
             degree = space.degree
             span   =  find_span( knots, degree, x )
+
             #-------------------------------------------------#
             # Fix span for boundaries between subdomains      #
             #-------------------------------------------------#

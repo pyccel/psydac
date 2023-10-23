@@ -90,7 +90,7 @@ class SplineSpace( FemSpace ):
 
         if grid is None:
             grid = breakpoints(knots, degree)
-            
+
         indices = np.where(np.diff(knots[degree+1:-degree-1])>1e-15)[0]
 
 

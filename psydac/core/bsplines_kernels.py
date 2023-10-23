@@ -23,7 +23,7 @@ def find_span_p(knots: 'float[:]', degree: int, x: float):
 
     x : float
         Location of interest.
-        
+
     Returns
         -------
     span : int
@@ -426,11 +426,11 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
 
     basis = np.zeros((nx, degree + 1))
     spans = np.zeros(nx, dtype=int)
-
     find_spans_p(knots, degree, xgrid, spans)
     basis_funs_array_p(knots, degree, xgrid, spans, basis)
 
     # Fill in non-zero matrix values
+
     # Rescaling of B-splines, to get M-splines if needed
     if not normalization:
         if periodic:
@@ -838,7 +838,7 @@ def make_knots_p(breaks: 'float[:]', degree: int, periodic: bool, out: 'float[:]
         period = breaks[-1]-breaks[0]
 
         out[: degree + 1 - multiplicity] = out[len_out - 2 * (degree + 1 )+ multiplicity: len_out - (degree + 1)] - period
-        out[len(out) - (degree + 1 - multiplicity) :] = out[degree + 1:2*(degree + 1)- multiplicity] + period
+        out[len_out - (degree + 1 - multiplicity) :] = out[degree + 1:2*(degree + 1)- multiplicity] + period
         
 
         #

@@ -117,7 +117,7 @@ def test_field_and_constant_mult(backend, dtype):
 
     ncells = (5, 5)
     degree = (3, 3)
-    multiplicity = (2,2)
+    multiplicity = [2,2]
     domain_h = discretize(domain, ncells=ncells)
     Vh = discretize(V, domain_h, degree=degree, multiplicity = multiplicity)
     ah = discretize(a, domain_h, [Vh, Vh], **kwargs)

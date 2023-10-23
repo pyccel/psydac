@@ -371,7 +371,7 @@ def test_Derivative_1D(domain, ncells, degree, periodic, seed, multiplicity):
     u0 = FemField(V0)
     # Linear operator: 1D derivative
     grad = Derivative_1D(V0, V1)
-    
+
     # Create random field in V0
     s, = V0.vector_space.starts
     e, = V0.vector_space.ends
@@ -380,7 +380,6 @@ def test_Derivative_1D(domain, ncells, degree, periodic, seed, multiplicity):
 
     # Compute gradient (=derivative) of u0
     u1 = grad(u0)
-    #print(u1.coeffs)
     # Create evaluation grid, and check if ∂/∂x u0(x) == u1(x)
     xgrid = np.linspace(*N.domain, num=11)
     vals_grad_u0 = np.array([u0.gradient(x)[0] for x in xgrid])
