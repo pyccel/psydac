@@ -4,7 +4,6 @@ linalg.block
    * :ref:`BlockVectorSpace <blockvectorspace>`
    * :ref:`BlockVector <blockvector>`
    * :ref:`BlockLinearOperator <blocklinearoperator>`
-   * :ref:`BlockDiagonalSolver <blockdiagonalsolver>`  
 
 .. inheritance-diagram:: psydac.linalg.block
 
@@ -30,12 +29,4 @@ BlockLinearOperator
 -------------------
 
 .. autoclass:: psydac.linalg.block.BlockLinearOperator
-   :members:
-
-.. _blockdiagonalsolver:
-
-BlockDiagonalSolver
--------------------
-
-.. autoclass:: psydac.linalg.block.BlockDiagonalSolver
    :members:

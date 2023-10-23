@@ -1767,7 +1767,7 @@ def test_stencil_matrix_3d_serial_transpose_1(dtype, n1, n2, n3, p1, p2, p3, s1,
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [False])
-@pytest.mark.parametrize('backend', [ PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_dot_1(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend):
    # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -1853,7 +1853,7 @@ def test_stencil_matrix_2d_serial_backend_dot_1(dtype, n1, n2, p1, p2, s1, s2, P
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_dot_2(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -1922,7 +1922,7 @@ def test_stencil_matrix_2d_serial_backend_dot_2(dtype, n1, n2, p1, p2, s1, s2, P
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [False])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_dot_3(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -2008,8 +2008,8 @@ def test_stencil_matrix_2d_serial_backend_dot_3(dtype, n1, n2, p1, p2, s1, s2, P
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
-@pytest.mark.parametrize('backend2', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend2', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend, backend2):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -2565,7 +2565,7 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
 @pytest.mark.parametrize('p1', [1])
 @pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('P1', [True])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL])
 @pytest.mark.parallel
 def test_stencil_matrix_1d_parallel_backend_dot(dtype, n1, p1, sh1, P1, backend):
     from mpi4py import MPI
@@ -2625,7 +2625,7 @@ def test_stencil_matrix_1d_parallel_backend_dot(dtype, n1, p1, sh1, P1, backend)
 @pytest.mark.parametrize('sh2', [1])
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 @pytest.mark.parallel
 def test_stencil_matrix_2d_parallel_backend_dot(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2, backend):
     from mpi4py import MPI

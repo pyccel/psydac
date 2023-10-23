@@ -173,8 +173,6 @@ class EvalArrayField(SplBasic):
         header = None
         if self.backend['name'] == 'pyccel':
             decorators = {'types': build_pyccel_types_decorator(func_args)}
-        elif self.backend['name'] == 'numba':
-            decorators = {'jit':[]}
         elif self.backend['name'] == 'pythran':
             header = build_pythran_types_header(self.name, func_args)
 
@@ -410,8 +408,6 @@ class EvalArrayMapping(SplBasic):
         header = None
         if self.backend['name'] == 'pyccel':
             decorators = {'types': build_pyccel_types_decorator(func_args)}
-        elif self.backend['name'] == 'numba':
-            decorators = {'jit':[]}
         elif self.backend['name'] == 'pythran':
             header = build_pythran_types_header(self.name, func_args)
 
