@@ -143,13 +143,13 @@ class SparseSolver (LinearSolver):
         Generic sparse matrix.
 
     """
-    def __init__(self, spmat):
+    def __init__(self, spmat, transposed=False):
 
         assert isinstance(spmat, spmatrix)
 
         self._space = np.ndarray
-        self._spmat = spmat
         self._splu  = splu(spmat.tocsc())
+        self._transposed = transposed
 
     #--------------------------------------
     # Abstract interface
@@ -159,7 +159,14 @@ class SparseSolver (LinearSolver):
         return self._space
 
     def transpose(self):
-        return SparseSolver(self._spmat.transpose())
+        cls = type(self)
+        obj = super().__new__(cls)
+
+        obj._space = self._space
+        obj._splu = self._splu
+        obj._transposed = not self._transposed
+
+        return obj
 
     #...
     def solve(self, rhs, out=None):
@@ -179,15 +186,16 @@ class SparseSolver (LinearSolver):
         """
         
         assert rhs.T.shape[0] == self._splu.shape[1]
+        transposed = self._transposed
 
         if out is None:
-            out = self._splu.solve(rhs.T).T
+            out = self._splu.solve(rhs.T, trans='T' if transposed else 'N').T
 
         else:
             assert out.shape == rhs.shape
             assert out.dtype == rhs.dtype
 
             # currently no in-place solve exposed
-            out[:] = self._splu.solve(rhs.T).T
+            out[:] = self._splu.solve(rhs.T, trans='T' if transposed else 'N').T
 
         return out
