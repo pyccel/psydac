@@ -911,9 +911,10 @@ def test_Divergence_3D(domain, ncells, degree, periodic, seed, multiplicity):
 
 #==============================================================================
 if __name__ == '__main__':
-    
-    test_Derivative_1D(domain=[0, 1], ncells=12, degree=3, periodic=False, seed=1, multiplicity=1)
+        
+    test_Derivative_1D(domain=[0, 1], ncells=3, degree=3, periodic=False, seed=1, multiplicity=1)
     test_Derivative_1D(domain=[0, 1], ncells=12, degree=3, periodic=True, seed=1, multiplicity=1)
+
 
     test_Gradient_2D(
         domain   = ([0, 1], [0, 1]),

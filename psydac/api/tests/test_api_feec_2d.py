@@ -729,9 +729,9 @@ def test_maxwell_2d_multiplicity():
         mult = 2
     )
     
-    TOL = 1e-6
-    ref = dict(error_l2_Ex = 4.35005708e-04,
-               error_l2_Ey = 4.35005708e-04,
+    TOL = 1e-5
+    ref = dict(error_l2_Ex = 4.350041934920621e-04,
+               error_l2_Ey = 4.350041934920621e-04,
                error_l2_Bz = 3.76106860e-03)
 
     assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL

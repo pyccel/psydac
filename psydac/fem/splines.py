@@ -91,15 +91,13 @@ class SplineSpace( FemSpace ):
         if grid is None:
             grid = breakpoints(knots, degree)
 
-        indices = np.where(np.diff(knots[degree+1:-degree-1])>1e-15)[0]
+        indices = np.where(np.diff(knots[degree:len(knots)-degree])>1e-15)[0]
 
+        if len(indices)>0:
+            multiplicity = np.diff(indices).max(initial=1)
+        else:
+            multiplicity = max(1,len(knots[degree+1:-degree-1]))
 
-        if multiplicity is None: #V.C 20/10/23 : why computing the multiplicity again?
-            if len(indices)>0:
-                multiplicity = np.diff(indices).max(initial=1)
-            else:
-                multiplicity = max(1,len(knots[degree+1:-degree-1]))
-            
         if parent_multiplicity is None:
             parent_multiplicity = multiplicity
 
