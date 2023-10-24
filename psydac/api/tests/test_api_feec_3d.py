@@ -19,7 +19,7 @@ from sympde.expr     import find, EssentialBC
 from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
 from psydac.feec.pull_push     import push_3d_hcurl, push_3d_hdiv
-from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
+from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 from psydac.linalg.utilities   import array_to_psydac
 from psydac.linalg.solvers     import inverse
 

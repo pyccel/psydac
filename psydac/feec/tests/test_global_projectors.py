@@ -17,7 +17,7 @@ from sympde.topology               import element_of, Derham
 @pytest.mark.parametrize('ncells', [500])
 @pytest.mark.parametrize('degree', [1, 2, 3, 4, 5, 6, 7])
 @pytest.mark.parametrize('periodic', [False, True])
-@pytest.mark.parametrize('multiplicity', [1,2])
+@pytest.mark.parametrize('multiplicity', [1, 2])
 
 def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity):
     
@@ -55,9 +55,9 @@ def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity):
 @pytest.mark.parametrize('domain', [(0, 2*np.pi)])
 @pytest.mark.parametrize('ncells', [100, 200, 300])
 @pytest.mark.parametrize('degree', [2])
-@pytest.mark.parametrize('periodic', [True,False])
+@pytest.mark.parametrize('periodic', [True, False])
 @pytest.mark.parametrize('nquads', [100, 120, 140, 160])
-@pytest.mark.parametrize('multiplicity', [1,2])
+@pytest.mark.parametrize('multiplicity', [1, 2])
 
 def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity):
 
@@ -69,8 +69,8 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity)
     domain_decomposition = DomainDecomposition([ncells], [periodic])
 
     # H1 space (0-forms)
-    #change mulitplicity if higher than degree to avoid problems (case p<m doesn't work)
-    multiplicity = min(multiplicity,degree)
+    #change multiplicity if higher than degree to avoid problems (case p<m doesn't work)
+    multiplicity = min(multiplicity, degree)
     # H1 space (0-forms)
     N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
     V0 = TensorFemSpace(domain_decomposition, N)
@@ -101,14 +101,15 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity)
 @pytest.mark.parametrize('ncells', [[200,200]])
 @pytest.mark.parametrize('degree', [[2,2], [2,3], [3,3]])
 @pytest.mark.parametrize('periodic', [[False, False], [True, True]])
-@pytest.mark.parametrize('multiplicity', [[1,1],[2,2]])
+@pytest.mark.parametrize('multiplicity', [(1, 1), (2, 2)])
 
 def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity):
 
     domain = Square('Omega', bounds1 = (0,2*np.pi), bounds2 = (0,2*np.pi))
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
-    #change mulitplicity if higher than degree to avoid problems (case p<m doesn't work)
-    multiplicity = [min(m,p) for p, m in zip (degree, multiplicity)]
+    #change multiplicity if higher than degree to avoid problems (case p<m doesn't work)
+    multiplicity = [min(m, p) for p, m in zip(degree, multiplicity)]
+
     derham   = Derham(domain, ["H1", "Hdiv", "L2"])
     derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True, multiplicity=multiplicity)
     P0, P1, P2, PX = derham_h.projectors(nquads=[2*p+1 for p in degree])
@@ -151,14 +152,14 @@ def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity):
 @pytest.mark.parametrize('ncells', [[200,200]])
 @pytest.mark.parametrize('degree', [[2,2], [2,3], [3,3]])
 @pytest.mark.parametrize('periodic', [[False, False], [True, True]])
-@pytest.mark.parametrize('multiplicity', [[1,1],[2,2]])
+@pytest.mark.parametrize('multiplicity', [(1, 1), (2, 2)])
 
 def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity):
 
     domain = Square('Omega', bounds1 = (0,1), bounds2 = (0,1))
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
     
-    multiplicity = [min(m,p) for p, m in zip (degree, multiplicity)]
+    multiplicity = [min(m, p) for p, m in zip(degree, multiplicity)]
     derham   = Derham(domain, ["H1", "Hdiv", "L2"])
     derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True, multiplicity=multiplicity)
     P0, P1, P2, PX = derham_h.projectors()
@@ -250,7 +251,7 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity):
 @pytest.mark.parametrize('ncells', [[30,30,30]])
 @pytest.mark.parametrize('degree', [[2,2,2], [2,3,2], [3,3,3]])
 @pytest.mark.parametrize('periodic', [[False, False, False], [True, True, True]])
-@pytest.mark.parametrize('multiplicity', [[1,1,1],[1,2,2],[2,2,2]])
+@pytest.mark.parametrize('multiplicity', [[1,1,1], [1,2,2], [2,2,2]])
 
 def test_derham_projector_3d(ncells, degree, periodic, multiplicity):
 
@@ -258,8 +259,9 @@ def test_derham_projector_3d(ncells, degree, periodic, multiplicity):
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
     
     derham   = Derham(domain)
-    #change mulitplicity if higher than degree to avoid problems (case p<m doesn't work)
-    multiplicity = [min(m,p) for p, m in zip (degree, multiplicity)]
+    #change multiplicity if higher than degree to avoid problems (case p<m doesn't work)
+    multiplicity = [min(m, p) for p, m in zip(degree, multiplicity)]
+
     derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True, multiplicity = multiplicity)
     P0, P1, P2, P3, PX = derham_h.projectors()
 
@@ -310,7 +312,7 @@ if __name__ == '__main__':
     ncells   = [10, 20, 40, 80, 160, 320, 640]
     
     for nc in ncells:
-        test_derham_projector_2d_hdiv([nc, nc], [degree, degree], [periodic, periodic],[2,2])
+        test_derham_projector_2d_hdiv([nc, nc], [degree, degree], [periodic, periodic], [2, 2])
     
     for nc in ncells:
         test_H1_projector_1d(domain, nc, degree, periodic, multiplicity = 2)
@@ -321,7 +323,7 @@ if __name__ == '__main__':
         
     for nc in ncells:
         test_derham_projector_2d_hdiv_2([nc, nc], [degree, degree], [periodic, periodic])
-        test_derham_projector_2d_hdiv([nc, nc], [degree, degree], [periodic, periodic],2)
+        test_derham_projector_2d_hdiv([nc, nc], [degree, degree], [periodic, periodic], 2)
         
     for nc in ncells :
         test_derham_projector_2d_hcurl([nc, nc], [degree, degree], [periodic, periodic])

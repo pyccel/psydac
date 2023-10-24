@@ -4,7 +4,7 @@ import numpy as np
 
 from psydac.linalg.kron           import KroneckerLinearSolver
 from psydac.linalg.stencil        import StencilVector
-from psydac.linalg.block          import BlockDiagonalSolver, BlockVector
+from psydac.linalg.block          import BlockLinearOperator, BlockVector
 from psydac.core.bsplines         import quadrature_grid
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
@@ -168,7 +168,7 @@ class GlobalProjector(metaclass=ABCMeta):
             self._grid_x += [block_x]
             self._grid_w += [block_w]
 
-            solverblocks += [KroneckerLinearSolver(tensorspaces[i].vector_space, solvercells)]
+            solverblocks += [KroneckerLinearSolver(tensorspaces[i].vector_space, tensorspaces[i].vector_space, solvercells)]
 
             dataslice = tuple(slice(p*m, -p*m) for p, m in zip(tensorspaces[i].vector_space.pads,tensorspaces[i].vector_space.shifts))
             dofs[i] = rhsblocks[i]._data[dataslice]
@@ -177,11 +177,13 @@ class GlobalProjector(metaclass=ABCMeta):
         args = (*intp_x, *quad_x, *quad_w, *dofs)
         self._func = lambda *fun: func(*args, *fun)
 
-        # build a BlockDiagonalSolver, if necessary
+        # build a BlockLinearOperator, if necessary
         if len(solverblocks) == 1:
             self._solver = solverblocks[0]
         else:
-            self._solver = BlockDiagonalSolver(self._space.vector_space, blocks=solverblocks)
+            domain = codomain = self._space.vector_space
+            blocks = {(i, i): B_i for i, B_i in enumerate(solverblocks)}
+            self._solver = BlockLinearOperator(domain, codomain, blocks)
     
     @property
     def space(self):
@@ -307,7 +309,7 @@ class GlobalProjector(metaclass=ABCMeta):
         else:
             self._func(fun)
 
-        coeffs = self._solver.solve(self._rhs)
+        coeffs = self._solver.dot(self._rhs)
 
         return FemField(self._space, coeffs=coeffs)
 
