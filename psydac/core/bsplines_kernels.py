@@ -833,7 +833,7 @@ def make_knots_p(breaks: 'float[:]', degree: int, periodic: bool, out: 'float[:]
         out[degree + 1 + (i-1) * multiplicity  :degree + 1 + i * multiplicity ] = breaks[i]
     
     len_out = len(out)
-    
+
     if periodic:
         period = breaks[-1]-breaks[0]
 

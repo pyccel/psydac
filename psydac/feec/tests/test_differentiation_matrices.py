@@ -368,6 +368,7 @@ def test_Derivative_1D(domain, ncells, degree, periodic, seed, multiplicity):
     # L2 space (1-forms)
     V1 = V0.reduce_degree(axes=[0], basis='M')
 
+    # Create random field in V0
     u0 = FemField(V0)
 
     # Linear operator: 1D derivative
