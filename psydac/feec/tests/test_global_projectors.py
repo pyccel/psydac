@@ -25,9 +25,9 @@ def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity):
     multiplicity = min(multiplicity,degree)
     breaks = np.linspace(*domain, num=ncells+1)
     knots  = make_knots(breaks, degree, periodic, multiplicity=multiplicity)
-    
+
     domain_decomposition = DomainDecomposition([ncells], [periodic])
-    
+
     # H1 space (0-forms)
     N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
     V0 = TensorFemSpace(domain_decomposition, N)

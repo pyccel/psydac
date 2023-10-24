@@ -180,7 +180,7 @@ class SplineSpace( FemSpace ):
             xgrid    = self.greville,
             multiplicity = self.multiplicity
         )
-        
+
         if self.periodic:
             # Convert to CSC format and compute sparse LU decomposition
             self._interpolator = SparseSolver( csc_matrix( imat ) )

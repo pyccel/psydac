@@ -377,9 +377,6 @@ def make_knots_true( breaks, degree, periodic, multiplicity=1 ):
         assert len(breaks) > degree
         
     T = np.zeros(multiplicity * len(breaks[1:-1]) + 2 + 2 * degree)
-    
-    
-
     ncells = len(breaks) - 1
     
     for i in range(0, ncells+1):
@@ -392,9 +389,7 @@ def make_knots_true( breaks, degree, periodic, multiplicity=1 ):
 
         T[: degree + 1 - multiplicity] = T[len_out - 2 * (degree + 1 )+ multiplicity: len_out - (degree + 1)] - period
         T[len_out - (degree + 1 - multiplicity) :] = T[degree + 1:2*(degree + 1)- multiplicity] + period
-        
 
-        #
     else:
         T[0:degree + 1 - multiplicity] = breaks[0]
         T[len_out - degree - 1 + multiplicity:] = breaks[-1]

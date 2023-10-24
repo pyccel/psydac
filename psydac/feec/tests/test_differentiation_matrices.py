@@ -369,6 +369,7 @@ def test_Derivative_1D(domain, ncells, degree, periodic, seed, multiplicity):
     V1 = V0.reduce_degree(axes=[0], basis='M')
 
     u0 = FemField(V0)
+
     # Linear operator: 1D derivative
     grad = Derivative_1D(V0, V1)
 
@@ -380,6 +381,7 @@ def test_Derivative_1D(domain, ncells, degree, periodic, seed, multiplicity):
 
     # Compute gradient (=derivative) of u0
     u1 = grad(u0)
+
     # Create evaluation grid, and check if ∂/∂x u0(x) == u1(x)
     xgrid = np.linspace(*N.domain, num=11)
     vals_grad_u0 = np.array([u0.gradient(x)[0] for x in xgrid])
@@ -470,7 +472,7 @@ def test_Gradient_3D(domain, ncells, degree, periodic, seed, multiplicity):
     # Compute breakpoints along each direction
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
 
-    #change mulitplicity if higher than degree to avoid problems (case p<m doesn't work)
+    #change multiplicity if higher than degree to avoid problems (case p<m doesn't work)
     multiplicity = [min(m,p) for p, m in zip (degree, multiplicity)]
     # H1 space (0-forms)
     Nx, Ny, Nz = [SplineSpace(degree=d, grid=g, periodic=p, basis='B', multiplicity=m) \
