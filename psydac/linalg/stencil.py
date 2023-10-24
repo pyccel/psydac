@@ -1037,7 +1037,7 @@ class StencilMatrix(LinearOperator):
         return out
 
     # ...
-    def transpose(self, conjugate=False):
+    def transpose(self, conjugate=False, out=None):
         """ Create new StencilMatrix Mt, where domain and codomain are swapped
             with respect to original matrix M, and Mt_{ij} = M_{ji}.
         """
@@ -1049,14 +1049,20 @@ class StencilMatrix(LinearOperator):
             M.update_ghost_regions()
 
         # Create new matrix where domain and codomain are swapped
-        Mt = StencilMatrix(M.codomain, M.domain, pads=self._pads, backend=self._backend)
+        if out is not None :
+            assert isinstance(out, StencilMatrix)
+            assert out.codomain == M.domain
+            assert out.domain == M.codomain
+            
+        else :
+            out = StencilMatrix(M.codomain, M.domain, pads=self._pads, backend=self._backend)
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
         if conjugate:
-            self._transpose_func(np.conjugate(M._data), Mt._data, **self._transpose_args)
+            self._transpose_func(np.conjugate(M._data), out._data, **self._transpose_args)
         else:
-            self._transpose_func(M._data, Mt._data, **self._transpose_args)
-        return Mt
+            self._transpose_func(M._data, out._data, **self._transpose_args)
+        return out
 
     # ...
     def toarray(self, **kwargs):
@@ -1190,12 +1196,17 @@ class StencilMatrix(LinearOperator):
         return self._data.max()
 
     #...
-    def copy(self):
-        M = StencilMatrix( self.domain, self.codomain, self._pads, self._backend )
-        M._data[:] = self._data[:]
-        M._func    = self._func
-        M._args    = self._args
-        return M
+    def copy(self, out = None):
+        if out is not None :
+            assert isinstance(out, StencilMatrix)
+            assert out.domain == self.domain
+            assert out.codomain == self.codomain
+        else :
+            out = StencilMatrix( self.domain, self.codomain, self._pads, self._backend )
+        out._data[:] = self._data[:]
+        out._func    = self._func
+        out._args    = self._args
+        return out
 
     #...
     def __imul__(self, a):

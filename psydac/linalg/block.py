@@ -696,13 +696,22 @@ class BlockLinearOperator(LinearOperator):
                 out[i] += Lij.dot(v[j], out=inc[i])
 
     # ...
-    def transpose(self, conjugate=False):
-        blocks, blocks_T = self.compute_interface_matrices_transpose()
-        blocks = {(j, i): b.transpose(conjugate=conjugate) for (i, j), b in blocks.items()}
-        blocks.update(blocks_T)
-        mat = BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
-        mat.set_backend(self._backend)
-        return mat
+    def transpose(self, conjugate=False, out=None):
+        if out is not None :
+            assert isinstance(out,BlockLinearOperator)
+            assert out.domain==self.codomain
+            assert out.codomain == self.domain
+            #should probably have more asserts
+            for i, line in enumerate(self.blocks):
+                for j, b in enumerate(line) :
+                    b.transpose(conjugate=conjugate, out=out._blocks[(j,i)])
+        else :
+            blocks, blocks_T = self.compute_interface_matrices_transpose()
+            blocks = {(j, i): b.transpose(conjugate=conjugate) for (i, j), b in blocks.items()}
+            blocks.update(blocks_T)
+            out = BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
+        out.set_backend(self._backend)
+        return out
 
     #--------------------------------------
     # Overridden properties/methods
@@ -887,15 +896,23 @@ class BlockLinearOperator(LinearOperator):
         return self._backend
 
     # ...
-    def copy(self):
-        blocks = {ij: Bij.copy() for ij, Bij in self._blocks.items()}
-        mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+    def copy(self, out=None):
+        if out is not None:
+            assert isinstance(out, BlockLinearOperator)
+            assert out.domain==self.domain
+            assert out.codomain == self.codomain
+            for i, line in enumerate(self.blocks):
+                for j, b in enumerate(line) :
+                    b.copy(out=out._blocks[(i,j)])
+        else :
+            blocks = {ij: Bij.copy() for ij, Bij in self._blocks.items()}
+            out = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
         if self._backend is not None:
-            mat._func = self._func
-            mat._args = self._args
-            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
-            mat._backend = self._backend
-        return mat
+            out._func = self._func
+            out._args = self._args
+            out._blocks_as_args = [out._blocks[key]._data for key in self._blocks]
+            out._backend = self._backend
+        return out
 
     # ...
     def __imul__(self, a):

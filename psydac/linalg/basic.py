@@ -718,7 +718,7 @@ class SumLinearOperator(LinearOperator):
 class ComposedLinearOperator(LinearOperator):
 
     def __init__(self, domain, codomain, *args):
-
+                
         assert isinstance(domain, VectorSpace)
         assert isinstance(codomain, VectorSpace)
 
@@ -798,10 +798,11 @@ class ComposedLinearOperator(LinearOperator):
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
         assert v.space == self._domain
+        from psydac.linalg.block import BlockVector
+
         if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self._codomain
-
         x = v
         for i in range(len(self._tmp_vectors)):
             y = self._tmp_vectors[-1-i]

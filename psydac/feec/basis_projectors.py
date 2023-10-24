@@ -161,10 +161,10 @@ class BasisProjectionOperator(LinearOperator):
         BasisProjectionOperator.assemble_mat(
             self._P, self._V, fun, self._dof_operator_pre, self._preproc_grid)
         if self._transposed:
-            self._dof_operator = self._dof_operator_pre.transpose()
+            self._dof_operator_pre.transpose(out = self._dof_operator)
         else:
-            self._dof_operator = self._dof_operator_pre
-
+            self._dof_operator_pre.copy(out = self._dof_operator)
+            
     def dot(self, v, out=None):
         """
         Applies the basis projection operator to the FE coefficients v.
@@ -204,6 +204,7 @@ class BasisProjectionOperator(LinearOperator):
                 # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
                 self._P.solver.solve(v, out=self._tmp_dom, transposed=True)
                 self.dof_operator.dot(self._tmp_dom, out=out)
+             
             else:
                 # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
                 self.dof_operator.dot(v, out=self._tmp_codom)
@@ -290,9 +291,8 @@ class BasisProjectionOperator(LinearOperator):
                 _starts_out = np.array(dofs_mat.codomain.starts)
                 _ends_out = np.array(dofs_mat.codomain.ends)
                 _pads_out = np.array(dofs_mat.codomain.pads)
-
                 if isinstance(f,FemField):
-
+                    
                     space_ff = f.space.vector_space
                     Vfd      = f.space.spaces
                     _starts_c = np.array(space_ff.starts)
@@ -319,7 +319,6 @@ class BasisProjectionOperator(LinearOperator):
                     
 
                 else : 
-
                     if preproc_grid != None :
                         _ptsG, _wtsG, _spans, _bases, _npt_pts = preproc_grid[i][j]
 
