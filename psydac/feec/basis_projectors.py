@@ -208,7 +208,7 @@ class BasisProjectionOperator(LinearOperator):
                 # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
                 self.dof_operator.dot(v, out=self._tmp_codom)
                 self._P.solver.solve(self._tmp_codom, out=out)
-
+        out.update_ghost_regions()
         return out
 
     def transpose(self, conjugate=False):
@@ -348,7 +348,7 @@ class BasisProjectionOperator(LinearOperator):
 
                         kernel(dofs_mat._data, _starts_in, _ends_in, _pads_in, _starts_out, _ends_out,
                             _pads_out, _fun_q, *_wtsG, *_spans, *_bases, *_Vnbases, *_Wdegrees)
-
+                dofs_mat.update_ghost_regions()
                 j+=1
             i+=1
 
