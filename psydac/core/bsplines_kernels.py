@@ -34,8 +34,9 @@ def find_span_p(knots: 'float[:]', degree: int, x: float):
     .. [1] L. Piegl and W. Tiller. The NURBS Book, 2nd ed.,
         Springer-Verlag Berlin Heidelberg GmbH, 1997.
     """
-    # Knot index at left/right boundary
-    low  = degree
+    # last knot on the left boundary 
+    low = degree 
+    # first knot on the right boundary 
     high = len(knots)-1-degree
 
     # Check if point is exactly on left/right boundary, or outside domain
