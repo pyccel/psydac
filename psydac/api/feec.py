@@ -127,22 +127,47 @@ class DiscreteDerham(BasicDiscrete):
 
     @property
     def mapping(self):
+        """The mapping from the logical space to the physical space of the discrete De Rham."""
         return self._mapping
 
     @property
     def callable_mapping(self):
+        """The mapping as a callable"""
         return self._callable_mapping
 
     @property
     def derivatives_as_matrices(self):
+        """Differential operators of the De Rham sequence as BlockLinearOperator"""
         return tuple(V.diff.matrix for V in self.spaces[:-1])
 
     @property
     def derivatives_as_operators(self):
+        """Differential operators of the De Rham sequence as DiffOperator"""
         return tuple(V.diff for V in self.spaces[:-1])
 
     #--------------------------------------------------------------------------
     def projectors(self, *, kind='global', nquads=None):
+        """Projectors mapping callable to FemFields of the De Rham sequence.
+        
+        Parameters
+        ----------
+
+        kind : str
+            Type of the projection : at the moment, only global is accepted and
+            returns commuting projectors based on interpolation/histopolation 
+            for the De Rham sequence (GlobalProjector objects)
+        
+        nquads : list(int) | tuple(int)
+            Number of quadrature points along each direction, to be used in Gauss
+            quadrature rule for computing the (approximated) degrees of freedom.
+            
+        Returns
+        -------
+        P0, ..., Pn : callables
+            Projectors that can be called on any callable function that maps 
+            from the physical space to R (scalar case) or R^d (vector case) and
+            returns a FemField belonging to the i-th space of the De Rham sequence
+            """
 
         if not (kind == 'global'):
             raise NotImplementedError('only global projectors are available')

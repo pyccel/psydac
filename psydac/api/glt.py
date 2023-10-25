@@ -266,9 +266,6 @@ class GltBasicCodeGen(object):
             code += '\nfrom pyccel.decorators import types'
             code += '\nfrom pyccel.decorators import external, external_call'
 
-        elif self.backend['name'] == 'numba':
-            code = 'from numba import jit'
-
         imports = '\n'.join(pycode(imp) for dep in self.dependencies for imp in dep.imports )
 
         code = '{code}\n{imports}'.format(code=code, imports=imports)

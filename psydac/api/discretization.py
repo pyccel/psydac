@@ -100,6 +100,12 @@ def discretize_derham(derham, domain_h, get_H1vec_space = False, *args, **kwargs
         
     **kwargs : list
         optional parameters for the space discretization
+        
+    Returns
+    -------
+      : DiscreteDerham
+      The discrete De Rham sequence containing the discrete spaces, 
+      differential operators and projectors
     """
 
     ldim    = derham.shape

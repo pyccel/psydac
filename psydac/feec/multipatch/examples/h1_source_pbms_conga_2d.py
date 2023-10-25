@@ -69,10 +69,7 @@ def solve_h1_source_pbm(
     degree = [deg,deg]
 
     # if backend_language is None:
-    #     if domain_name in ['pretzel', 'pretzel_f'] and nc > 8:
-    #         backend_language='numba'
-    #     else:
-    #         backend_language='python'
+    #     backend_language='python'
     # print('[note: using '+backend_language+ ' backends in discretize functions]')
 
     print('---------------------------------------------------------------------------------------------------------')
