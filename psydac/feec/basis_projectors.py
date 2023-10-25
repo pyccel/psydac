@@ -512,7 +512,7 @@ def prepare_projection_of_basis_ff(V1d, W1d, space_ff, starts_out, ends_out, n_q
             global_quad_x, global_quad_w = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
             #"roll" back points to the interval to ensure that the quadrature points are
             #in the domain. Probably only usefull on periodic cases
-            roll_edges(space_out.domain, global_quad_x) 
+            #roll_edges(space_out.domain, global_quad_x) 
             x = global_quad_x
             w = global_quad_w
             pts += [x]
