@@ -86,7 +86,7 @@ class DiscreteDerham(BasicDiscrete):
     #--------------------------------------------------------------------------
     @property
     def dim(self):
-        """dimension of the ambient space"""
+        """dimension of the physical and logical space"""
         return self._dim
 
     @property
