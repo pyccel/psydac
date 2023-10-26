@@ -31,6 +31,7 @@ from psydac.pyccel.ast.core import Product
 from psydac.pyccel.ast.core import _atomic
 from psydac.pyccel.ast.core import Comment
 from psydac.pyccel.ast.core import String
+from psydac.pyccel.ast.core import AnnotatedArgument
 
 #==============================================================================
 def random_string( n ):
@@ -814,6 +815,47 @@ def variables(names, dtype, **args):
         return tuple(variables(i, dtype, cls=cls,rank=rank,**args) for i in names)
     else:
         raise TypeError('Expecting a string')
+
+#==============================================================================
+def build_pyccel_type_annotations(args, order=None):
+
+    new_args = []
+
+    for a in args:
+        if isinstance(a, Variable):
+            rank  = a.rank
+            dtype = a.dtype.name.lower()
+
+        elif isinstance(a, IndexedVariable):
+            rank  = a.rank
+            dtype = a.dtype.name.lower()
+
+        elif isinstance(a, Constant):
+            rank = 0
+            if a.is_integer:
+                dtype = 'int'
+            elif a.is_real:
+                dtype = 'float'
+            elif a.is_complex:
+                dtype = 'complex'
+            else:
+                raise TypeError(f"The Constant {a} don't have any information about the type of the variable.\n"
+                                f"Please create the Constant like this Constant('{a}', real=True), Constant('{a}', complex=True) or Constant('{a}', integer=True).")
+
+        else:
+            raise TypeError('unexpected type for {}'.format(a))
+
+        if rank > 0:
+            shape = ','.join(':' * rank)
+            dtype = '{dtype}[{shape}]'.format(dtype=dtype, shape=shape)
+            if order and rank > 1:
+                dtype = "{dtype}(order={ordering})".format(dtype=dtype, ordering=order)
+
+        dtype = String(dtype)
+        new_a = AnnotatedArgument(a, dtype)
+        new_args.append(new_a)
+
+    return new_args
 
 #==============================================================================
 def build_pyccel_types_decorator(args, order=None):

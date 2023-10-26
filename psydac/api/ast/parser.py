@@ -76,7 +76,8 @@ from .fem import expand, expand_hdiv_hcurl
 from psydac.api.ast.utilities import variables, math_atoms_as_str, get_name
 from psydac.api.utilities     import flatten
 from psydac.api.ast.utilities import build_pythran_types_header
-from psydac.api.ast.utilities import build_pyccel_types_decorator
+#from psydac.api.ast.utilities import build_pyccel_types_decorator
+from psydac.api.ast.utilities import build_pyccel_type_annotations
 
 #==============================================================================
 # TODO move it
@@ -560,10 +561,16 @@ class Parser(object):
         results       = [self._visit(a) for a in expr.results]
 
         if self.backend['name'] == 'pyccel':
-            a = [String(str(i)) for i in build_pyccel_types_decorator(arguments)]
-            decorators = {'types': Function('types')(*a)}
+#            a = [String(str(i)) for i in build_pyccel_types_decorator(arguments)]
+#            decorators = {'types': Function('types')(*a)}
+            arguments = build_pyccel_type_annotations(arguments)
+#            print('-'*30)
+#            for a in arguments:
+#                print(self._visit(a))
+#            print('-'*30)
+            decorators = {}
         elif self.backend['name'] == 'pythran':
-            header = build_pythran_types_header(name, arguments)
+            header = build_pythran_types_header(name, arguments) # Could this work??
         else:
             decorators = {}
 
