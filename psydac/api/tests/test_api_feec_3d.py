@@ -19,7 +19,7 @@ from sympde.expr     import find, EssentialBC
 from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
 from psydac.feec.pull_push     import push_3d_hcurl, push_3d_hdiv
-from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
+from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 from psydac.linalg.utilities   import array_to_psydac
 from psydac.linalg.solvers     import inverse
 
@@ -86,7 +86,7 @@ def evaluation_all_times(fields, x, y, z):
     return ak_value
 
 #==================================================================================
-def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, periodic, dt, niter):
+def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, periodic, dt, niter, mult=1):
 
     #------------------------------------------------------------------------------
     # Symbolic objects: SymPDE
@@ -113,7 +113,7 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
     #------------------------------------------------------------------------------
 
     domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=MPI.COMM_WORLD)
-    derham_h = discretize(derham, domain_h, degree=degree)
+    derham_h = discretize(derham, domain_h, degree=degree, multiplicity = [mult,mult,mult])
 
     a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
     a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=PSYDAC_BACKEND_GPYCCEL)
@@ -181,7 +181,7 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
     return error
 
 #==================================================================================
-def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, periodic, dt, niter):
+def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, periodic, dt, niter, mult=1):
 
     #------------------------------------------------------------------------------
     # Symbolic objects: SymPDE
@@ -208,7 +208,7 @@ def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, 
     #------------------------------------------------------------------------------
 
     domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=MPI.COMM_WORLD)
-    derham_h = discretize(derham, domain_h, degree=degree)
+    derham_h = discretize(derham, domain_h, degree=degree, multiplicity = [mult,mult,mult])
 
     a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
     a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=PSYDAC_BACKEND_GPYCCEL)
@@ -356,6 +356,46 @@ def test_maxwell_3d_2():
 
     error = run_maxwell_3d_stencil(logical_domain, M, e_ex, b_ex, ncells, degree, periodic, dt, niter)
     assert abs(error - 0.24586986658559362) < 1e-9
+    
+#------------------------------------------------------------------------------
+def test_maxwell_3d_2_mult():
+    class CollelaMapping3D(Mapping):
+
+        _expressions = {'x': 'k1*(x1 + eps*sin(2.*pi*x1)*sin(2.*pi*x2))',
+                        'y': 'k2*(x2 + eps*sin(2.*pi*x1)*sin(2.*pi*x2))',
+                        'z': 'k3*x3'}
+
+        _ldim        = 3
+        _pdim        = 3
+
+    M               = CollelaMapping3D('M', k1=1, k2=1, k3=1, eps=0.1)
+    logical_domain  = Cube('C', bounds1=(0, 1), bounds2=(0, 1), bounds3=(0, 1))
+
+    # exact solution
+    e_ex_0 = lambda t, x, y, z: 0
+    e_ex_1 = lambda t, x, y, z: -np.cos(2*np.pi*t-2*np.pi*z)
+    e_ex_2 = lambda t, x, y, z: 0
+
+    e_ex   = (e_ex_0, e_ex_1, e_ex_2)
+
+    b_ex_0 = lambda t, x, y, z : np.cos(2*np.pi*t-2*np.pi*z)
+    b_ex_1 = lambda t, x, y, z : 0
+    b_ex_2 = lambda t, x, y, z : 0
+
+    b_ex   = (b_ex_0, b_ex_1, b_ex_2)
+
+    #space parameters
+    ncells   = [7, 7, 7]
+    degree   = [2, 2, 2]
+    periodic = [True, True, True]
+
+    #time parameters
+    dt    = 0.5*1/max(ncells)
+    niter = 2
+    T     = dt*niter
+
+    error = run_maxwell_3d_stencil(logical_domain, M, e_ex, b_ex, ncells, degree, periodic, dt, niter, mult=2)
+    assert abs(error - 0.24749763720543216) < 1e-9
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
@@ -368,4 +408,8 @@ def teardown_module():
 def teardown_function():
     from sympy.core import cache
     cache.clear_cache()
+    
+if __name__ == '__main__' :
+    test_maxwell_3d_2_mult()
+    
 

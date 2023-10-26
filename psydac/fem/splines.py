@@ -91,7 +91,7 @@ class SplineSpace( FemSpace ):
         if grid is None:
             grid = breakpoints(knots, degree)
 
-        indices = np.where(np.diff(knots[degree+1:-degree-1])>1e-15)[0]
+        indices = np.where(np.diff(knots[degree:len(knots)-degree])>1e-15)[0]
 
         if len(indices)>0:
             multiplicity = np.diff(indices).max(initial=1)
@@ -107,7 +107,7 @@ class SplineSpace( FemSpace ):
 
         # Number of basis function in space (= cardinality)
         if periodic:
-            nbasis = len(knots) - 2*degree - 1
+            nbasis = len(knots) - 2*degree - 2 + multiplicity
         else:
             defect = 0
             if dirichlet[0]: defect += 1
@@ -131,10 +131,9 @@ class SplineSpace( FemSpace ):
         self._nbasis        = nbasis
         self._breaks        = grid
         self._ncells        = len(grid) - 1
-        self._greville      = greville(knots, degree, periodic)
-        self._ext_greville  = greville(elevate_knots(knots, degree, periodic), degree+1, periodic)
+        self._greville      = greville(knots, degree, periodic, multiplicity = multiplicity)
+        self._ext_greville  = greville(elevate_knots(knots, degree, periodic, multiplicity=multiplicity), degree+1, periodic, multiplicity = multiplicity)
         self._scaling_array = scaling_array
-
         self._parent_multiplicity  = parent_multiplicity
         self._histopolation_grid   = unroll_edges(self.domain, self.ext_greville)
 
@@ -178,7 +177,8 @@ class SplineSpace( FemSpace ):
             degree   = self.degree,
             periodic = self.periodic,
             normalization = self.basis,
-            xgrid    = self.greville
+            xgrid    = self.greville,
+            multiplicity = self.multiplicity
         )
 
         if self.periodic:
@@ -212,8 +212,10 @@ class SplineSpace( FemSpace ):
             degree   = self.degree,
             periodic = self.periodic,
             normalization = self.basis,
-            xgrid    = self.ext_greville
+            xgrid    = self.ext_greville,
+            multiplicity = self._multiplicity
         )
+
         self.hmat= imat
         if self.periodic:
             # Convert to CSC format and compute sparse LU decomposition
