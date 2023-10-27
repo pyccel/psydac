@@ -35,7 +35,6 @@ from psydac.pyccel.ast.core import AnnotatedArgument
 
 __all__ = (
     'build_pyccel_type_annotations',
-    'build_pyccel_types_decorator',
     'build_pythran_types_header',
     'compute_atoms_expr',
     'compute_atoms_expr_field',
@@ -879,47 +878,6 @@ def build_pyccel_type_annotations(args, order=None):
         new_args.append(new_a)
 
     return new_args
-
-#==============================================================================
-def build_pyccel_types_decorator(args, order=None):
-    """
-    builds a types decorator from a list of arguments (of FunctionDef)
-    """
-    types = []
-    for a in args:
-        if isinstance(a, Variable):
-            rank  = a.rank
-            dtype = a.dtype.name.lower()
-
-        elif isinstance(a, IndexedVariable):
-            rank  = a.rank
-            dtype = a.dtype.name.lower()
-
-        elif isinstance(a, Constant):
-            rank = 0
-            if a.is_integer:
-                dtype = 'int'
-            elif a.is_real:
-                dtype = 'float'
-            elif a.is_complex:
-                dtype = 'complex'
-            else:
-                raise TypeError(f"The Constant {a} don't have any information about the type of the variable.\n"
-                                f"Please create the Constant like this Constant('{a}', real=True), Constant('{a}', complex=True) or Constant('{a}', integer=True).")
-
-        else:
-            raise TypeError('unexpected type for {}'.format(a))
-
-        if rank > 0:
-            shape = ','.join(':' * rank)
-            dtype = '{dtype}[{shape}]'.format(dtype=dtype, shape=shape)
-            if order and rank > 1:
-                dtype = "{dtype}(order={ordering})".format(dtype=dtype, ordering=order)
-
-        dtype = String(dtype)
-        types.append(dtype)
-
-    return types
 
 #==============================================================================
 def build_pythran_types_header(name, args, order=None):
