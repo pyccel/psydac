@@ -17,6 +17,8 @@ from sympy.core.numbers import Zero
 
 from copy import deepcopy
 
+import time
+
 
 
 class BasisProjectionOperator(LinearOperator):
@@ -159,11 +161,13 @@ class BasisProjectionOperator(LinearOperator):
     def update_fun(self, fun):
         self._fun = fun
         BasisProjectionOperator.assemble_mat(
-            self._P, self._V, fun, self._dof_operator_pre, self._preproc_grid)
+            self._P, self._V, fun, self._dof_operator_pre, preproc_grid=self._preproc_grid)
         if self._transposed:
             self._dof_operator_pre.transpose(out = self._dof_operator)
+            #self._dof_operator = self._dof_operator_pre.transpose()
         else:
             self._dof_operator_pre.copy(out = self._dof_operator)
+            #self._dof_operator = self._dof_operator_pre.copy()
             
     def dot(self, v, out=None):
         """
@@ -203,11 +207,13 @@ class BasisProjectionOperator(LinearOperator):
             if self.transposed:
                 # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
                 self._P.solver.solve(v, out=self._tmp_dom, transposed=True)
+                self._tmp_dom.update_ghost_regions()
                 self.dof_operator.dot(self._tmp_dom, out=out)
              
             else:
                 # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
                 self.dof_operator.dot(v, out=self._tmp_codom)
+                self._tmp_codom.update_ghost_regions()
                 self._P.solver.solve(self._tmp_codom, out=out)
         out.update_ghost_regions()
         return out
@@ -308,13 +314,16 @@ class BasisProjectionOperator(LinearOperator):
                     
                     _ptsG = [pts.flatten() for pts in _ptsG]
                     _Vnbases = [space.nbasis for space in V1d]
+                    _V_c_nbases = [space.nbasis for space in Vfd]
+
                     f_coeffs = f.coeffs._data
+
                     kernel = getattr(
                         basis_projection_kernels, 'assemble_dofs_for_weighted_basisfuns_' + str(V.ldim) + 'd_ff')
 
                     kernel(dofs_mat._data, _starts_in, _ends_in, _pads_in, _starts_out, _ends_out,
                         _pads_out, _starts_c, _ends_c, _pads_c, *_wtsG, *_spans, *_bases, f_coeffs, *_spans_ff,
-                        *_bases_ff, *_Vnbases, *_Wdegrees)
+                        *_bases_ff, *_Vnbases, *_V_c_nbases, *_Wdegrees)
 
                     
 
@@ -335,6 +344,11 @@ class BasisProjectionOperator(LinearOperator):
                     if isinstance(f, float) or isinstance(f, int):
                         shape_grid = tuple([len(pts_i) for pts_i in _ptsG])
                         _fun_q = np.full(shape_grid, f)
+                    elif isinstance(f,FemField):
+                        space_ff = f.space
+                        _fun_q = space_ff.eval_fields_irregular_tensor_grid(_ptsG, f)
+                        _fun_q = np.squeeze(_fun_q)
+                        
                     else : 
                         f = np.vectorize(f)
                         _fun_q = f(*pts)
@@ -347,7 +361,9 @@ class BasisProjectionOperator(LinearOperator):
 
                         kernel(dofs_mat._data, _starts_in, _ends_in, _pads_in, _starts_out, _ends_out,
                             _pads_out, _fun_q, *_wtsG, *_spans, *_bases, *_Vnbases, *_Wdegrees)
+
                 dofs_mat.update_ghost_regions()
+                dofs_mat.set_backend(backend=PSYDAC_BACKEND_GPYCCEL)
                 j+=1
             i+=1
 
@@ -424,7 +440,8 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
             global_quad_x, global_quad_w = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
             #"roll" back points to the interval to ensure that the quadrature points are
             #in the domain. Probably only usefull on periodic cases
-            roll_edges(space_out.domain, global_quad_x) 
+            roll_edges(space_out.domain, global_quad_x)
+
             x = global_quad_x
             w = global_quad_w
             pts += [x]
@@ -512,7 +529,9 @@ def prepare_projection_of_basis_ff(V1d, W1d, space_ff, starts_out, ends_out, n_q
             global_quad_x, global_quad_w = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
             #"roll" back points to the interval to ensure that the quadrature points are
             #in the domain. Probably only usefull on periodic cases
-            #roll_edges(space_out.domain, global_quad_x) 
+
+            roll_edges(space_out.domain, global_quad_x)
+
             x = global_quad_x
             w = global_quad_w
             pts += [x]
@@ -568,8 +587,7 @@ def get_span_and_basis(pts, space):
             span_tmp = bsp.find_span(T, p, x)
             basis[n, nq, :] = bsp.basis_funs_all_ders(
                 T, p, x, span_tmp, 0, normalization=space.basis)
-            span[n, nq] = span_tmp  # % space.nbasis
-
+            span[n, nq] = span_tmp #% space.nbasis
     return span, basis
 
 

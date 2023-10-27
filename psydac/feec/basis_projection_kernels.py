@@ -615,7 +615,7 @@ def assemble_dofs_for_weighted_basisfuns_1d_ff(mat : 'float[:,:]', starts_in : '
                 mat[po1 + i, col1] += value
 
 
-def assemble_dofs_for_weighted_basisfuns_2d_ff(mat : 'float[:,:,:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', starts_c : 'int[:]', ends_c : 'int[:]', pads_c : 'int[:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', span1 : 'int[:,:]', span2 : 'int[:,:]', basis1 : 'float[:,:,:]', basis2 : 'float[:,:,:]', coeffs_f : 'float[:,:]', span_c1 : 'int[:,:]', span_c2 : 'int[:,:]', basis_c1 : 'float[:,:,:]', basis_c2 : 'float[:,:,:]', dim1_in : int, dim2_in : int, p1_out : int, p2_out : int):
+def assemble_dofs_for_weighted_basisfuns_2d_ff(mat : 'float[:,:,:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', starts_c : 'int[:]', ends_c : 'int[:]', pads_c : 'int[:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', span1 : 'int[:,:]', span2 : 'int[:,:]', basis1 : 'float[:,:,:]', basis2 : 'float[:,:,:]', coeffs_f : 'float[:,:]', span_c1 : 'int[:,:]', span_c2 : 'int[:,:]', basis_c1 : 'float[:,:,:]', basis_c2 : 'float[:,:,:]', dim1_in : int, dim2_in : int, dim1_c : int, dim2_c : int, p1_out : int, p2_out : int):
     '''Kernel for assembling the matrix
 
     A_(ij,kl) = DOFS_ij(fun*Lambda^in_kl) ,
@@ -695,6 +695,12 @@ def assemble_dofs_for_weighted_basisfuns_2d_ff(mat : 'float[:,:,:,:]', starts_in
         dim2_in : int
             Dimension of the second direction of the input space
 
+        dim1_c : int
+            Dimension of the first direction of the coefficient space
+
+        dim2_c : int
+            Dimension of the second direction of the coefficient space
+
         p1_out : int
             Spline degree of the first direction of the output space
 
@@ -720,8 +726,8 @@ def assemble_dofs_for_weighted_basisfuns_2d_ff(mat : 'float[:,:,:,:]', starts_in
 
     sc1 = starts_c[0]
     sc2 = starts_c[1]
-    # ec1 = ends_c[0]
-    # ec2 = ends_c[1]
+    ec1 = ends_c[0]
+    ec2 = ends_c[1]
     pc1 = pads_c[0]
     pc2 = pads_c[1]
 
@@ -743,6 +749,7 @@ def assemble_dofs_for_weighted_basisfuns_2d_ff(mat : 'float[:,:,:,:]', starts_in
     dim1_out = span1.shape[0]
     dim2_out = span2.shape[0]
 
+
     # Interval (either element or sub-interval thereof)
     # -------------------------------------------------
     # local DOF index
@@ -762,12 +769,18 @@ def assemble_dofs_for_weighted_basisfuns_2d_ff(mat : 'float[:,:,:,:]', starts_in
                         m = (span_c1[i, iq] - p1_c + b1)
                         #local index
                         m_loc = m-sc1+pc1
+                        if m_loc>ec1+2*pc1:
+                            m_loc-= dim1_c
+                            
                         for b2 in range(p2_c + 1):
                             # global index
                             n = (span_c2[j, jq] - p2_c + b2)
                             #local index
                             n_loc = n-sc2+pc2
-                            f_val += basis_c1[i, iq, b1] * basis_c2[j, jq, b2] *coeffs_f[m_loc,n_loc] 
+                            if n_loc>ec2+2*pc2:
+                                n_loc-= dim2_c
+                            f_val += basis_c1[i, iq, b1] * basis_c2[j, jq, b2] * coeffs_f[m_loc,n_loc] 
+
 
                     funval = wts1[i, iq] * wts2[j, jq] * f_val
 

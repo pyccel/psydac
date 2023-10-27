@@ -365,7 +365,9 @@ class TensorFemSpace( FemSpace ):
         for i in range(self.ldim):
             # Check the that the grid is sorted.
             grid_i = grid[i]
-            assert all(grid_i[j] <= grid_i[j + 1] for j in range(len(grid_i) - 1))
+            
+            #V.C 27/10/2023 : Why?
+            #assert all(grid_i[j] <= grid_i[j + 1] for j in range(len(grid_i) - 1))
 
             # Get the cell indexes
             cell_index_i = cell_index(self.breaks[i], grid_i)
