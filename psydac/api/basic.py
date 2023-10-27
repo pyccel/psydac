@@ -227,20 +227,22 @@ class BasicCodeGen:
         return folder
 
     def _generate_code(self):
-        # ... generate code that can be pyccelized
-        imports = ''
+        """
+        Generate Python code which can be pyccelized.
+        """
+        psydac_ast = self.ast
 
-        if self.backend['name'] == 'pyccel':
-            imports = "from pyccel.decorators import types"
-            imports += ", template \n@template(name='T', types=['float', 'complex']) "
+        parser_settings = {
+            'dim'    : psydac_ast.dim,
+            'nderiv' : psydac_ast.nderiv,
+            'mapping': psydac_ast.mapping,
+            'target' : psydac_ast.domain
+        }
 
-        ast = self.ast
-        expr = parse(ast.expr, settings={'dim': ast.dim, 'nderiv': ast.nderiv, 'mapping':ast.mapping, 'target':ast.domain}, backend=self.backend)
+        pyccel_ast  = parse(psydac_ast.expr, settings=parser_settings, backend=self.backend)
+        python_code = pycode(pyccel_ast)
 
-        dep = pycode(expr)
-        code = f'{imports}\n{dep}'
-
-        return code
+        return python_code
 
     def _save_code(self, code, backend=None):
         # ...
