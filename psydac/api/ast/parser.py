@@ -76,7 +76,6 @@ from .fem import expand, expand_hdiv_hcurl
 from psydac.api.ast.utilities import variables, math_atoms_as_str, get_name
 from psydac.api.utilities     import flatten
 from psydac.api.ast.utilities import build_pythran_types_header
-#from psydac.api.ast.utilities import build_pyccel_types_decorator
 from psydac.api.ast.utilities import build_pyccel_type_annotations
 
 #==============================================================================
