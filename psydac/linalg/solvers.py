@@ -998,7 +998,7 @@ class MinimumResidual(InverseLinearOperator):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
-        assert A.dtype == float
+        assert A.domain.dtype == float
         domain = A.codomain
         codomain = A.domain
 
@@ -1735,7 +1735,7 @@ class GMRES(InverseLinearOperator):
         self._tmps = {key: domain.zeros() for key in ("r", "p")}
 
         # Initialize upper Hessenberg matrix
-        self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]), dtype=A.dtype)
+        self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]), dtype=A.domain.dtype)
         self._Q = []
         self._info = None
 
@@ -1883,7 +1883,7 @@ class GMRES(InverseLinearOperator):
     def solve_triangular(self, T, d):
         # Backwards substitution. Assumes T is upper triangular
         k = T.shape[0]
-        y = np.zeros((k,), dtype=self._A.dtype)
+        y = np.zeros((k,), dtype=self._A.domain.dtype)
 
         for k1 in range(k):
             temp = 0.

@@ -48,8 +48,11 @@ class DistributedFFTBase(LinearOperator):
         @property
         def space(self):
             return np.ndarray
+
+        def transpose(self):
+            raise NotImplementedError('transpose() is not implemented for OneDimSolvers')
         
-        def solve(self, rhs, out=None, transposed=False):
+        def solve(self, rhs, out=None):
             if out is None:
                 out = np.empty_like(rhs)
             

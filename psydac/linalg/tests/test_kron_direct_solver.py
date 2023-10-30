@@ -12,7 +12,8 @@ from scipy.sparse.linalg        import splu
 from sympde.calculus import dot
 from sympde.expr     import BilinearForm, integral
 from sympde.topology import Line
-from sympde.topology import Cube
+
+from sympde.topology import Cube, Square
 from sympde.topology import Derham
 from sympde.topology import elements_of
 
@@ -151,7 +152,10 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, dtype=float, t
         print(f'[{rank}] Matrices built', flush=True)
 
     # vector to solve for (Y)
-    Y = StencilVector(V)
+    if transposed:
+        Y = StencilVector(W)
+    else:
+        Y = StencilVector(V)
     Y_glob = random_vectordata(seed, npts, dtype=dtype)
     Y[localslice] = Y_glob[localslice]
     Y.update_ghost_regions()
@@ -161,9 +165,17 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, dtype=float, t
 
     # solve in two different ways
     X_glob = kron_solve_seq_ref(Y_glob, A, transposed)
-    Xout = StencilVector(W)
 
-    X = KroneckerLinearSolver(V, W, solvers).solve(Y, out=Xout, transposed=transposed)
+    if transposed:
+        Xout = StencilVector(V)
+    else:
+        Xout = StencilVector(W)
+
+    solver = KroneckerLinearSolver(V, W, solvers)
+    if transposed:
+        solver = solver.T
+    
+    X = solver.solve(Y, out=Xout)
     assert X is Xout
 
     if verbose:
@@ -185,7 +197,7 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, dtype=float, t
 def get_M1_block_kron_solver(V1, ncells, degree, periodic):
     """
     Given a 3D DeRham sequenece (V0 = H(grad) --grad--> V1 = H(curl) --curl--> V2 = H(div) --div--> V3 = L2)
-    discreticed using ncells, degree and periodic,
+    discretized using ncells, degree and periodic,
 
         domain = Cube('C', bounds1=(0, 1), bounds2=(0, 1), bounds3=(0, 1))
         derham = Derham(domain)
@@ -245,10 +257,101 @@ def get_M1_block_kron_solver(V1, ncells, degree, periodic):
     B3_kron_inv = KroneckerLinearSolver(V1_3, V1_3, B3_solvers)
 
     M1_block_kron_solver = BlockLinearOperator(V1, V1, ((B1_kron_inv, None, None), 
-                                                              (None, B2_kron_inv, None), 
-                                                              (None, None, B3_kron_inv)))
+                                                        (None, B2_kron_inv, None), 
+                                                        (None, None, B3_kron_inv)))
 
     return M1_block_kron_solver
+
+
+
+def get_inverse_mass_matrices(derham_h, domain_h):
+    """
+    Given a 2D DeRham sequence (V0 = H(grad) --curl--> V1 = H(div) --div--> V2 = L2)
+    and its discrete domain, which shall be rectangular,
+    returns the inverse of the mass matrices for all three spaces using kronecker solvers.
+    """
+    # assert 2D
+    # Maybe should add more assert regarding the types and the domain form in case this get used in general context.
+    
+    V0h   = derham_h.V0.vector_space
+    V1h   = derham_h.V1.vector_space
+    V2h   = derham_h.V2.vector_space
+    
+    bounds1 = domain_h.domain.bounds1
+    bounds2 = domain_h.domain.bounds2
+        
+    ncells = domain_h.ncells[domain_h.domain.name]
+    degree = derham_h.V0.degree
+    periodic = domain_h.periodic[domain_h.domain.name]
+    
+    assert len(ncells) == 2
+    assert len(degree) == 2
+    assert len(periodic) == 2
+
+    # 1D domain to be discreticed using the respective values of ncells, degree, periodic
+    list_domain_1d = [Line('L1', bounds=bounds1), Line('L2', bounds=bounds2)]
+    list_derham_1d = [Derham(domain_1d) for domain_1d in list_domain_1d]
+
+    # storage for the 1D mass matrices
+    M0_matrices = []
+    M1_matrices = []
+
+    # assembly of the 1D mass matrices
+    for (n, p, P, domain_1d, derham_1d) in zip(ncells, degree, periodic, list_domain_1d, list_derham_1d):
+
+        domain_1d_h = discretize(domain_1d, ncells=[n], periodic=[P])
+        derham_1d_h = discretize(derham_1d, domain_1d_h, degree=[p])
+
+        u_1d_0, v_1d_0 = elements_of(derham_1d.V0, names='u_1d_0, v_1d_0')
+        u_1d_1, v_1d_1 = elements_of(derham_1d.V1, names='u_1d_1, v_1d_1')
+
+        a_1d_0 = BilinearForm((u_1d_0, v_1d_0), integral(domain_1d, u_1d_0 * v_1d_0))
+        a_1d_1 = BilinearForm((u_1d_1, v_1d_1), integral(domain_1d, u_1d_1 * v_1d_1))
+
+        a_1d_0_h = discretize(a_1d_0, domain_1d_h, (derham_1d_h.V0, derham_1d_h.V0))
+        a_1d_1_h = discretize(a_1d_1, domain_1d_h, (derham_1d_h.V1, derham_1d_h.V1))
+
+        M_1d_0 = a_1d_0_h.assemble()
+        M_1d_1 = a_1d_1_h.assemble()
+
+        M0_matrices.append(M_1d_0)
+        M1_matrices.append(M_1d_1)
+
+    #V0 H1 space
+    
+    B_mat_V0 = [M0_matrices[0], M0_matrices[1]]
+    
+    B_solvers_V0 = [matrix_to_bandsolver(Ai) for Ai in B_mat_V0]
+    
+    M0_kron_solver = KroneckerLinearSolver(V0h, V0h, B_solvers_V0)
+
+
+    #V1 Hdiv space
+    V1_1 = V1h[0]
+    V1_2 = V1h[1]
+
+    B1_mat_V1 = [M0_matrices[0], M1_matrices[1]]
+    B2_mat_V1 = [M1_matrices[0], M0_matrices[1]]
+
+    B1_solvers_V1 = [matrix_to_bandsolver(Ai) for Ai in B1_mat_V1]
+    B2_solvers_V1 = [matrix_to_bandsolver(Ai) for Ai in B2_mat_V1]
+
+    B1_kron_inv_V1 = KroneckerLinearSolver(V1_1, V1_1, B1_solvers_V1)
+    B2_kron_inv_V1 = KroneckerLinearSolver(V1_2, V1_2, B2_solvers_V1)
+
+    M1_block_kron_solver = BlockLinearOperator(V1h, V1h, ((B1_kron_inv_V1, None), 
+                                                          (None, B2_kron_inv_V1)))
+    
+    #V2 L2 space
+    
+    B_mat_V2 = [M1_matrices[0], M1_matrices[1]]
+    
+    B_solvers_V2 = [matrix_to_bandsolver(Ai) for Ai in B_mat_V2]
+    
+    M2_kron_solver = KroneckerLinearSolver(V2h, V2h, B_solvers_V2)
+    
+    
+    return M0_kron_solver, M1_block_kron_solver, M2_kron_solver
 
 #===============================================================================
 # tests of the direct solvers
@@ -271,6 +374,8 @@ def test_direct_solvers(dtype, seed, n, p, P, nrhs, direct_solver, transposed):
     # bulid matrices (A)
     A = random_matrix(seed+1, V, V)
     solver = direct_solver(A)
+    if transposed:
+        solver = solver.T
 
     # vector to solve for (Y)
     Y_glob = np.stack([random_vectordata(seed + i, [n], dtype) for i in range(nrhs)], axis=0)
@@ -286,15 +391,15 @@ def test_direct_solvers(dtype, seed, n, p, P, nrhs, direct_solver, transposed):
     X_glob = C_op.solve(Y_glob.T).T
 
     # new vector allocation
-    X_glob2 = solver.solve(Y_glob, transposed=transposed)
+    X_glob2 = solver.solve(Y_glob)
 
     # solve with out vector
     X_glob3 = Y_glob.copy()
-    X_glob4 = solver.solve(Y_glob, out=X_glob3, transposed=transposed)
+    X_glob4 = solver.solve(Y_glob, out=X_glob3)
 
     # solve in-place
     X_glob5 = Y_glob.copy()
-    X_glob6 = solver.solve(X_glob5, out=X_glob5, transposed=transposed)
+    X_glob6 = solver.solve(X_glob5, out=X_glob5)
 
     # compare results
     assert X_glob4 is X_glob3
@@ -547,6 +652,126 @@ def test_3d_m1_solver(ncells, degree, periodic):
     rhs_direct = M1 @ x_direct
     assert np.linalg.norm((rhs-rhs_iterative).toarray()) < tol
     assert np.linalg.norm((rhs-rhs_direct).toarray()) < tol
+
+    
+#===============================================================================
+
+# test Kronecker solver of the mass matrices of our 2D (H1,Hdiv,L2) DeRham sequence, using get_inverse_mass_matrices function
+
+@pytest.mark.parametrize( 'ncells', [[8, 8], [8, 16]] )
+@pytest.mark.parametrize( 'degree', [[2, 2], [2,3]] )
+@pytest.mark.parametrize( 'bounds', [[(0,1), (0,1)], [(0,0.5), (0,2.)]] )
+@pytest.mark.parametrize( 'periodic', [[True, True], [False,False]] )
+@pytest.mark.parallel
+def test_2d_mass_solver(ncells, degree, bounds, periodic):
+
+    comm = MPI.COMM_WORLD
+    domain = Square('Omega', bounds1=bounds[0], bounds2=bounds[1])
+    derham = Derham(domain, ["H1", "Hdiv", "L2"])
+    domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=comm)
+    derham_h = discretize(derham, domain_h, degree=degree)
+
+    P0, P1, P2 = derham_h.projectors()
+    
+    # obtain an iterative M0 solver the usual way
+    u0, v0 = elements_of(derham.V0, names='u0, v0')
+    a0 = BilinearForm((u0, v0), integral(domain, u0*v0))
+    a0_h = discretize(a0, domain_h, (derham_h.V0, derham_h.V0))
+    M0 = a0_h.assemble()
+    tol = 1e-10
+    maxiter = 1000
+    M0_iterative_solver = inverse(M0, 'cg', tol = tol, maxiter=maxiter)
+
+    # obtain an iterative M1 solver the usual way
+    u1, v1 = elements_of(derham.V1, names='u1, v1')
+    a1 = BilinearForm((u1, v1), integral(domain, dot(u1, v1)))
+    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1))
+    M1 = a1_h.assemble()
+    tol = 1e-10
+    maxiter = 1000
+    M1_iterative_solver = inverse(M1, 'cg', tol = tol, maxiter=maxiter)
+    
+    # obtain an iterative M2 solver the usual way
+    u2, v2 = elements_of(derham.V2, names='u0, v0')
+    a2 = BilinearForm((u2, v2), integral(domain, u2*v2))
+    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2))
+    M2 = a2_h.assemble()
+    tol = 1e-10
+    maxiter = 1000
+    M2_iterative_solver = inverse(M2, 'cg', tol = tol, maxiter=maxiter)
+
+    # obtain a direct M1 solver utilizing the Block-Kronecker structure of M1
+    M0_direct_solver, M1_direct_solver, M2_direct_solver = get_inverse_mass_matrices(derham_h, domain_h)
+
+    # obtain x and rhs = M1 @ x, both elements of derham_h.V1
+    def get_A_fun_vec(n=1, m=1, A0=1e04):
+        """Get the tuple A = (A1, A2), where each entry is a function taking x,y,z as input."""
+
+        mu_tilde = np.sqrt(m**2 + n**2)  
+
+        eta = lambda x, y: x**2 * (1-x)**2 * y**2 * (1-y)**2
+
+        u1  = lambda x, y:  A0 * (n/mu_tilde) * np.sin(np.pi * m * x) * np.cos(np.pi * n * y)
+        u2  = lambda x, y: -A0 * (m/mu_tilde) * np.cos(np.pi * m * x) * np.sin(np.pi * n * y)
+
+        A1 = lambda x, y: eta(x, y) * u1(x, y)
+        A2 = lambda x, y: eta(x, y) * u2(x, y)
+
+        A = (A1, A2)
+        return A
+    
+    def get_A_fun_scalar(n=1, m=1, A0=1e04):
+        """Get the tuple A = (A1, A2), where each entry is a function taking x,y,z as input."""
+
+        mu_tilde = np.sqrt(m**2 + n**2)  
+
+        eta = lambda x, y: x**2 * (1-x)**2 * y**2 * (1-y)**2
+
+        u  = lambda x, y:  A0 * (n/mu_tilde) * np.sin(np.pi * m * x) * np.cos(np.pi * n * y)
+
+        A = lambda x, y: eta(x, y) * u(x, y)
+        return A
+    
+    
+    x0 = P0(get_A_fun_scalar()).coeffs
+    rhs = M0 @ x0
+
+    # solve M0 @ x9 = rhs for x two ways
+    x_iterative = M0_iterative_solver @ rhs
+    x_direct = M0_direct_solver @ rhs
+
+    # assert rhs_iterative is within the tolerance close to rhs, and so is rhs_direct
+    rhs_iterative = M0 @ x_iterative
+    rhs_direct = M0 @ x_direct
+    assert np.linalg.norm((rhs-rhs_iterative).toarray()) < tol
+    assert np.linalg.norm((rhs-rhs_direct).toarray()) < tol
+    
+    x1 = P1(get_A_fun_vec()).coeffs
+    rhs = M1 @ x1
+
+    # solve M1 @ x = rhs for x two ways
+    x_iterative = M1_iterative_solver @ rhs
+    x_direct = M1_direct_solver @ rhs
+
+    # assert rhs_iterative is within the tolerance close to rhs, and so is rhs_direct
+    rhs_iterative = M1 @ x_iterative
+    rhs_direct = M1 @ x_direct
+    assert np.linalg.norm((rhs-rhs_iterative).toarray()) < tol
+    assert np.linalg.norm((rhs-rhs_direct).toarray()) < tol
+    
+    x2 = P2(get_A_fun_scalar()).coeffs
+    rhs = M2 @ x2
+
+    # solve M2 @ x = rhs for x two ways
+    x_iterative = M2_iterative_solver @ rhs
+    x_direct = M2_direct_solver @ rhs
+
+    # assert rhs_iterative is within the tolerance close to rhs, and so is rhs_direct
+    rhs_iterative = M2 @ x_iterative
+    rhs_direct = M2 @ x_direct
+    assert np.linalg.norm((rhs-rhs_iterative).toarray()) < tol
+    assert np.linalg.norm((rhs-rhs_direct).toarray()) < tol
+    
 #===============================================================================
 
 if __name__ == '__main__':

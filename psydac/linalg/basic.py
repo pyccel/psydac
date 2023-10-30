@@ -1045,5 +1045,14 @@ class LinearSolver(ABC):
         pass
 
     @abstractmethod
-    def solve(self, rhs, out=None, transposed=False):
+    def transpose(self):
+        """Return the transpose of the LinearSolver."""
         pass
+
+    @abstractmethod
+    def solve(self, rhs, out=None):
+        pass
+
+    @property
+    def T(self):
+        return self.transpose()

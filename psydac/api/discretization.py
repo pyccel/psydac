@@ -82,7 +82,7 @@ def change_dtype(V, dtype):
     return V
 
 #==============================================================================           
-def discretize_derham(derham, domain_h, get_vec = False, *args, **kwargs):
+def discretize_derham(derham, domain_h, get_H1vec_space = False, *args, **kwargs):
     """
     Create a discrete De Rham sequence by creating the spaces and then initiating DiscreteDerham object.
 
@@ -95,7 +95,7 @@ def discretize_derham(derham, domain_h, get_vec = False, *args, **kwargs):
     domain_h   : Geometry
         Discrete domain where the spaces will be discretized
         
-    get_vec : Bool
+    get_H1vec_space : Bool
         True to also get the "Hvec" space discretizing (H1)^n vector fields
         
     **kwargs : list
@@ -108,7 +108,7 @@ def discretize_derham(derham, domain_h, get_vec = False, *args, **kwargs):
     spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \
             for V, basis in zip(derham.spaces, bases)]
 
-    if get_vec:
+    if get_H1vec_space:
         X = VectorFunctionSpace('X', domain_h.domain, kind='h1')
         V0h = spaces[0]
         Xh  = VectorFemSpace(*([V0h]*ldim))
@@ -116,8 +116,7 @@ def discretize_derham(derham, domain_h, get_vec = False, *args, **kwargs):
         #We still need to specify the symbolic space because of "_recursive_element_of" not implemented in sympde
         spaces.append(Xh)
 
-    return DiscreteDerham(mapping, get_vec, *spaces)
-
+    return DiscreteDerham(mapping, *spaces)
 #==============================================================================
 def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
     """

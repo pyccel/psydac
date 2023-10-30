@@ -4,7 +4,7 @@ import numpy as np
 
 from psydac.linalg.kron           import KroneckerLinearSolver
 from psydac.linalg.stencil        import StencilVector
-from psydac.linalg.block          import BlockDiagonalSolver, BlockVector
+from psydac.linalg.block          import BlockLinearOperator, BlockVector
 from psydac.core.bsplines         import quadrature_grid
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
@@ -150,7 +150,10 @@ class GlobalProjector(metaclass=ABCMeta):
                         u, w = uw[j]
                         global_quad_x, global_quad_w = quadrature_grid(V.histopolation_grid, u, w)
                         #"roll" back points to the interval to ensure that the quadrature points are
-                        #in the domain. Probably only usefull on periodic cases
+                        #in the domain. Only usefull in the periodic case (else do nothing)
+                        #if not used then you will have quadrature points outside of the domain which 
+                        #might cause problem when your function is only defined inside the domain
+
                         roll_edges(V.domain, global_quad_x) 
                         quad_x[j] = global_quad_x[s:e+1]
                         quad_w[j] = global_quad_w[s:e+1]
@@ -168,18 +171,20 @@ class GlobalProjector(metaclass=ABCMeta):
 
             solverblocks += [KroneckerLinearSolver(tensorspaces[i].vector_space, tensorspaces[i].vector_space, solvercells)]
 
-            dataslice = tuple(slice(p, -p) for p in tensorspaces[i].vector_space.pads)
+            dataslice = tuple(slice(p*m, -p*m) for p, m in zip(tensorspaces[i].vector_space.pads,tensorspaces[i].vector_space.shifts))
             dofs[i] = rhsblocks[i]._data[dataslice]
         
         # finish arguments and create a lambda
         args = (*intp_x, *quad_x, *quad_w, *dofs)
         self._func = lambda *fun: func(*args, *fun)
 
-        # build a BlockDiagonalSolver, if necessary
+        # build a BlockLinearOperator, if necessary
         if len(solverblocks) == 1:
             self._solver = solverblocks[0]
         else:
-            self._solver = BlockDiagonalSolver(self._space.vector_space, blocks=solverblocks)
+            domain = codomain = self._space.vector_space
+            blocks = {(i, i): B_i for i, B_i in enumerate(solverblocks)}
+            self._solver = BlockLinearOperator(domain, codomain, blocks)
     
     @property
     def space(self):
@@ -305,7 +310,7 @@ class GlobalProjector(metaclass=ABCMeta):
         else:
             self._func(fun)
 
-        coeffs = self._solver.solve(self._rhs)
+        coeffs = self._solver.dot(self._rhs)
 
         return FemField(self._space, coeffs=coeffs)
 
@@ -577,11 +582,16 @@ class Projector_H1vec(GlobalProjector):
     This is a global projector constructed over a tensor-product grid in the
     logical domain. The vertices of this grid are obtained as the tensor
     product of the 1D splines' Greville points along each direction.
+    
     Parameters
     ----------
     H1vec : ProductFemSpace
         H1 x H1 x H1-conforming finite element space, codomain of the projection
         operator.
+        
+    nquads : list(int) | tuple(int)
+        Number of quadrature points along each direction, to be used in Gauss
+        quadrature rule for computing the (approximated) degrees of freedom.
     """
     def _structure(self, dim):
         if dim == 3:
@@ -609,6 +619,7 @@ class Projector_H1vec(GlobalProjector):
         r"""
         Project vector function onto the H1 x H1 x H1-conforming finite element
         space. This happens in the logical domain $\hat{\Omega}$.
+
         Parameters
         ----------
         fun : list/tuple of callables
@@ -617,6 +628,7 @@ class Projector_H1vec(GlobalProjector):
             point in the logical domain. These correspond to the coefficients
             of a vector-field.
             $fun_i : \hat{\Omega} \mapsto \mathbb{R}$ with i = 1, ..., N.
+
         Returns
         -------
         field : FemField
@@ -880,8 +892,7 @@ def evaluate_dofs_3d_vec(
         ):
     
     # evaluate input functions at interpolation points (make sure that points are in [0, 1])
-    
-    
+
     n1, n2, n3 = F1.shape
     for i1 in range(n1):
         for i2 in range(n2):

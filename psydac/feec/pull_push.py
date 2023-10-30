@@ -8,12 +8,12 @@ __all__ = (
     # -------------------
     'pull_1d_h1',
     'pull_1d_l2',
-    'pull_2d_v',
+    'pull_2d_h1vec',
     'pull_2d_h1',
     'pull_2d_hcurl',
     'pull_2d_hdiv',
     'pull_2d_l2',
-    'pull_3d_v',  # NOTE: what is this used for?
+    'pull_3d_h1vec',  # NOTE: what is this used for?
     'pull_3d_h1',
     'pull_3d_hcurl',
     'pull_3d_hdiv',
@@ -65,8 +65,8 @@ def pull_1d_l2(f, F):
 #==============================================================================
 # 2D PULL-BACKS
 #==============================================================================
-def pull_2d_v(f, F):
-    #We should check if the metric terms are really the good ones!
+
+def pull_2d_h1vec(f, F):
 
     assert isinstance(F, BasicCallableMapping)
     assert F.ldim == 2    
@@ -80,7 +80,7 @@ def pull_2d_v(f, F):
         a2_phys = f2(x, y)
 
         J_inv_value = F.jacobian_inv(eta1, eta2)
-        value_1 = J_inv_value[0,0]*a1_phys + J_inv_value[0,1]*a2_phys
+        value_1 = J_inv_value[0, 0] * a1_phys + J_inv_value[0, 1] * a2_phys
         return value_1
 
     def f2_logical(eta1, eta2):
@@ -90,7 +90,8 @@ def pull_2d_v(f, F):
         a2_phys = f2(x, y)
 
         J_inv_value = F.jacobian_inv(eta1, eta2)
-        value_2 = J_inv_value[1,0]*a1_phys + J_inv_value[1,1]*a2_phys
+
+        value_2 = J_inv_value[1, 0] * a1_phys + J_inv_value[1, 1] * a2_phys
         return value_2
 
     return f1_logical, f2_logical
@@ -192,7 +193,8 @@ def pull_2d_l2(f, F):
 # TODO [YG 05.10.2022]:
 # Remove? But it makes sense to return a vector-valued function...
 
-def pull_3d_v(f, F):
+
+def pull_3d_h1vec(f, F):
 
     assert isinstance(F, BasicCallableMapping)
     assert F.ldim == 3
@@ -207,7 +209,7 @@ def pull_3d_v(f, F):
         a3_phys = f3(x, y, z)
 
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
-        value_1 = J_inv_value[0,0]*a1_phys + J_inv_value[0,1]*a2_phys + J_inv_value[0,2]*a3_phys
+        value_1 = J_inv_value[0, 0] * a1_phys + J_inv_value[0, 1] * a2_phys + J_inv_value[0, 2] * a3_phys
         return value_1
 
     def f2_logical(eta1, eta2, eta3):
@@ -218,7 +220,7 @@ def pull_3d_v(f, F):
         a3_phys = f3(x, y, z)
 
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
-        value_2 = J_inv_value[1,0]*a1_phys + J_inv_value[1,1]*a2_phys + J_inv_value[1,2]*a3_phys
+        value_2 = J_inv_value[1, 0] * a1_phys + J_inv_value[1, 1] * a2_phys + J_inv_value[1, 2] * a3_phys
         return value_2
 
     def f3_logical(eta1, eta2, eta3):
@@ -229,7 +231,7 @@ def pull_3d_v(f, F):
         a3_phys = f3(x, y, z)
 
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
-        value_2 = J_inv_value[2,0]*a1_phys + J_inv_value[2,1]*a2_phys + J_inv_value[2,2]*a3_phys
+        value_2 = J_inv_value[2, 0] * a1_phys + J_inv_value[2, 1] * a2_phys + J_inv_value[2, 2] * a3_phys
         return value_2
 
     return f1_logical, f2_logical, f3_logical
