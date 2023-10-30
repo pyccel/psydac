@@ -19,13 +19,6 @@ PSYDAC_BACKEND_GPYCCEL = {'name':     'pyccel',
                       'tag':'gpyccel',
                       'openmp':False}
 
-PSYDAC_BACKEND_GPYCCEL_MPI = {'name':     'pyccel',
-                      'compiler': 'gfortran' if pyccel_legacy else 'GNU',
-                      'flags':    '-O3 -march=native -mtune=native  -mavx -ffast-math -ffree-line-length-none',
-                      'folder': '__gpyccel__',
-                      'tag':'gpyccel',
-                      'openmp':True}
-
 PSYDAC_BACKEND_IPYCCEL = {'name':     'pyccel',
                       'compiler': 'ifort' if pyccel_legacy else 'intel',
                       'flags':    '-O3',
@@ -45,7 +38,6 @@ PSYDAC_BACKEND_PGPYCCEL = {'name':     'pyccel',
 PSYDAC_BACKENDS = {
     'python'      : PSYDAC_BACKEND_PYTHON,
     'pyccel-gcc'  : PSYDAC_BACKEND_GPYCCEL,
-    'pyccel-gcc-mpi'  : PSYDAC_BACKEND_GPYCCEL_MPI,
     'pyccel-intel': PSYDAC_BACKEND_IPYCCEL,
     'pyccel-pgi'  : PSYDAC_BACKEND_PGPYCCEL,
 }

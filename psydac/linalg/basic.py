@@ -718,7 +718,7 @@ class SumLinearOperator(LinearOperator):
 class ComposedLinearOperator(LinearOperator):
 
     def __init__(self, domain, codomain, *args):
-                
+
         assert isinstance(domain, VectorSpace)
         assert isinstance(codomain, VectorSpace)
 

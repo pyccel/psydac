@@ -206,7 +206,7 @@ class BasisProjectionOperator(LinearOperator):
 
             if self.transposed:
                 # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
-                self._P.solver.solve(v, out=self._tmp_dom, transposed=True)
+                self._P.solver.T.dot(v, out=self._tmp_dom)
                 self._tmp_dom.update_ghost_regions()
                 self.dof_operator.dot(self._tmp_dom, out=out)
              
@@ -214,7 +214,7 @@ class BasisProjectionOperator(LinearOperator):
                 # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
                 self.dof_operator.dot(v, out=self._tmp_codom)
                 self._tmp_codom.update_ghost_regions()
-                self._P.solver.solve(self._tmp_codom, out=out)
+                self._P.solver.dot(self._tmp_codom, out=out)
         out.update_ghost_regions()
         return out
 
@@ -313,8 +313,8 @@ class BasisProjectionOperator(LinearOperator):
                             prepare_projection_of_basis_ff(V1d, W1d, Vfd, _starts_out, _ends_out, nq)
                     
                     _ptsG = [pts.flatten() for pts in _ptsG]
-                    _Vnbases = [space.nbasis for space in V1d]
-                    _V_c_nbases = [space.nbasis for space in Vfd]
+                    _Vnbases = [int(space.nbasis) for space in V1d]
+                    _V_c_nbases = [int(space.nbasis) for space in Vfd]
 
                     f_coeffs = f.coeffs._data
 

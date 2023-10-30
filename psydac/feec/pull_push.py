@@ -65,7 +65,6 @@ def pull_1d_l2(f, F):
 #==============================================================================
 # 2D PULL-BACKS
 #==============================================================================
-
 def pull_2d_h1vec(f, F):
 
     assert isinstance(F, BasicCallableMapping)
@@ -90,7 +89,6 @@ def pull_2d_h1vec(f, F):
         a2_phys = f2(x, y)
 
         J_inv_value = F.jacobian_inv(eta1, eta2)
-
         value_2 = J_inv_value[1, 0] * a1_phys + J_inv_value[1, 1] * a2_phys
         return value_2
 
@@ -192,7 +190,6 @@ def pull_2d_l2(f, F):
 
 # TODO [YG 05.10.2022]:
 # Remove? But it makes sense to return a vector-valued function...
-
 
 def pull_3d_h1vec(f, F):
 

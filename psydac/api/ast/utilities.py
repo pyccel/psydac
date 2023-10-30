@@ -1042,7 +1042,6 @@ def math_atoms_as_str(expr, lib='math'):
     return set.union(math_functions, math_constants)
 
 def get_name(lhs):
-
     """
     Given a list of variable return the meaningful part of the name of the
     first variable that has a _name attribute.

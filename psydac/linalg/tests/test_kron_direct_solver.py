@@ -12,7 +12,6 @@ from scipy.sparse.linalg        import splu
 from sympde.calculus import dot
 from sympde.expr     import BilinearForm, integral
 from sympde.topology import Line
-
 from sympde.topology import Cube, Square
 from sympde.topology import Derham
 from sympde.topology import elements_of
@@ -165,7 +164,6 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, dtype=float, t
 
     # solve in two different ways
     X_glob = kron_solve_seq_ref(Y_glob, A, transposed)
-
     if transposed:
         Xout = StencilVector(V)
     else:
@@ -560,7 +558,6 @@ def test_kron_solver_nd_par(seed, dim, dtype):
 #===============================================================================
 
 # test Kronecker solver of the M1 mass matrix of our 3D DeRham sequence, as described in the get_M1_block_kron_solver method
-
 @pytest.mark.parametrize( 'ncells', [[8, 8, 8], [8, 16, 8]] )
 @pytest.mark.parametrize( 'degree', [[2, 2, 2]] )
 @pytest.mark.parametrize( 'periodic', [[True, True, True]] )

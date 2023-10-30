@@ -7,7 +7,6 @@ from psydac.feec.derivatives       import Divergence_2D, Divergence_3D
 from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl, Projector_H1vec
 from psydac.feec.global_projectors import Projector_Hdiv, Projector_L2
 from psydac.feec.pull_push         import pull_1d_h1, pull_1d_l2
-
 from psydac.feec.pull_push         import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2, pull_2d_h1vec
 from psydac.feec.pull_push         import pull_3d_h1, pull_3d_hcurl, pull_3d_hdiv, pull_3d_l2, pull_3d_h1vec
 from psydac.fem.vector             import VectorFemSpace
@@ -29,7 +28,7 @@ class DiscreteDerham(BasicDiscrete):
     *spaces : list of FemSpace
         The discrete spaces of the De Rham sequence
     """
-    def __init__(self, mapping, get_vec=False, *spaces):
+    def __init__(self, mapping, *spaces):
 
         assert (mapping is None) or isinstance(mapping, Mapping)
         
@@ -158,7 +157,7 @@ class DiscreteDerham(BasicDiscrete):
                 raise TypeError('projector of space type {} is not available'.format(kind))
 
             if self.has_vec : 
-                Pvec = Projector_H1vec(self.Vvec, nquads)
+                Pvec = Projector_H1vec(self.H1vec, nquads)
 
             if self.mapping and not get_reference:
                 P0_m = lambda f: P0(pull_2d_h1(f, self.callable_mapping))

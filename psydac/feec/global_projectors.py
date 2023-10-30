@@ -892,7 +892,6 @@ def evaluate_dofs_3d_vec(
         ):
     
     # evaluate input functions at interpolation points (make sure that points are in [0, 1])
-
     n1, n2, n3 = F1.shape
     for i1 in range(n1):
         for i2 in range(n2):

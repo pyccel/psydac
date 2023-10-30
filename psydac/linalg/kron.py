@@ -530,7 +530,6 @@ class KroneckerLinearSolver(LinearOperator):
         raise NotImplementedError('tosparse() is not defined for KroneckerLinearSolvers.')
 
     def transpose(self, conjugate=False):
-
         new_domain = self._codomain
         new_codomain = self._domain
         new_solvers = [solver.transpose() for solver in self._solvers]
