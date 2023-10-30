@@ -576,7 +576,6 @@ def get_span_and_basis(pts, space):
     # Extract knot vectors, degree and kind of basis
     T = space.knots
     p = space.degree
-
     span = np.zeros(pts.shape, dtype=int)
     basis = np.zeros((*pts.shape, p + 1), dtype=float)
 
@@ -724,9 +723,12 @@ def preprocess_grid_with_ff(P, V, f_type):
 
                 line_pre.append((_ptsG, _wtsG, _spans, _bases, _spans_ff, _bases_ff, _npt_pts))
 
+
             else : 
                 _ptsG, _wtsG, _spans, _bases, _npt_pts = prepare_projection_of_basis(
                     V1d, W1d, _starts_out, _ends_out,nq)
                 line_pre.append((_ptsG, _wtsG, _spans, _bases, _npt_pts))
+                
         preproc.append(deepcopy(line_pre))
-    return preproc
+
+    return preproc.copy()

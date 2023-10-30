@@ -183,7 +183,7 @@ class DiscreteDerham(BasicDiscrete):
             P2 = Projector_Hdiv (self.V2, nquads)
             P3 = Projector_L2   (self.V3, nquads)
             if self.has_vec : 
-                Pvec = Projector_H1vec(self.Vvec)
+                Pvec = Projector_H1vec(self.H1vec)
             if self.mapping and not get_reference:
 
                 P0_m = lambda f: P0(pull_3d_h1   (f, self.callable_mapping))
