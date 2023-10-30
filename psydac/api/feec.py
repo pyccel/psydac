@@ -86,7 +86,7 @@ class DiscreteDerham(BasicDiscrete):
     #--------------------------------------------------------------------------
     @property
     def dim(self):
-        """dimension of the physical and logical space"""
+        """dimension of the physical and logical domains, which are assumed to be the same"""
         return self._dim
 
     @property
@@ -116,7 +116,7 @@ class DiscreteDerham(BasicDiscrete):
 
     @property
     def H1vec(self):
-        """Vectorial H1 space built has cartesian product of V0"""
+        """Vector H1 space built as cartesian product of V0 n times with n = dimension of (logical) domain"""
         assert self.has_vec
         return self._H1vec
 
@@ -137,12 +137,14 @@ class DiscreteDerham(BasicDiscrete):
 
     @property
     def derivatives_as_matrices(self):
-        """Differential operators of the De Rham sequence as BlockLinearOperator"""
+        """Differential operators of the De Rham sequence as LinearOperator"""
         return tuple(V.diff.matrix for V in self.spaces[:-1])
 
     @property
     def derivatives_as_operators(self):
-        """Differential operators of the De Rham sequence as DiffOperator"""
+        """Differential operators of the De Rham sequence as DiffOperator objects.
+        Those are objects with domain and codomain properties that are FemSpace, 
+        they act on FemField (they take a FemField of their domain as input and return a FemField of their codomain."""
         return tuple(V.diff for V in self.spaces[:-1])
 
     #--------------------------------------------------------------------------
@@ -154,7 +156,7 @@ class DiscreteDerham(BasicDiscrete):
 
         kind : str
             Type of the projection : at the moment, only global is accepted and
-            returns commuting projectors based on interpolation/histopolation 
+            returns geometric commuting projectors based on interpolation/histopolation 
             for the De Rham sequence (GlobalProjector objects)
         
         nquads : list(int) | tuple(int)
