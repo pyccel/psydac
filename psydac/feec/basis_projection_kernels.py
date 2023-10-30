@@ -478,7 +478,7 @@ def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_i
                                         mat[po1 + i, po2 + j, po3 + k, col1, col2, col3] += value
 
 
-def assemble_dofs_for_weighted_basisfuns_1d_ff(mat : 'float[:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', starts_c : 'int[:]', ends_c : 'int[:]', pads_c : 'int[:]', wts1 : 'float[:,:]', span1 : 'int[:,:]', basis1 : 'float[:,:,:]', coeffs_f : 'float[:]', span_c1 : 'int[:,:]', basis_c1 : 'float[:,:,:]', dim1_in : int, p1_out : int):
+def assemble_dofs_for_weighted_basisfuns_1d_ff(mat : 'float[:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', starts_c : 'int[:]', ends_c : 'int[:]', pads_c : 'int[:]', wts1 : 'float[:,:]', span1 : 'int[:,:]', basis1 : 'float[:,:,:]', coeffs_f : 'float[:]', span_c1 : 'int[:,:]', basis_c1 : 'float[:,:,:]', dim1_in : int, dim1_c : int, p1_out : int):
     '''Kernel for assembling the matrix
 
     A_(i,j) = DOFS_i(fun*Lambda^in_j) ,
@@ -539,6 +539,9 @@ def assemble_dofs_for_weighted_basisfuns_1d_ff(mat : 'float[:,:]', starts_in : '
 
         dim1_in : int
             Dimension of the first direction of the input space
+            
+        dim1_c : int
+            Dimension of the first direction of the coefficient space
 
         p1_out : int
             Spline degree of the first direction of the output space
@@ -555,7 +558,7 @@ def assemble_dofs_for_weighted_basisfuns_1d_ff(mat : 'float[:,:]', starts_in : '
     po1 = pads_out[0]
 
     sc1 = starts_c[0]
-    # ec1 = ends_c[0]
+    ec1 = ends_c[0]
     pc1 = pads_c[0]
 
     # Spline degrees of input space
@@ -585,6 +588,8 @@ def assemble_dofs_for_weighted_basisfuns_1d_ff(mat : 'float[:,:]', starts_in : '
                 m = (span_c1[i, iq] - p1_c + b1)
                 #local index
                 m_loc = m-sc1+pc1
+                if m_loc>ec1+2*pc1:
+                    m_loc-= dim1_c
                 f_val += basis_c1[i, iq, b1] * coeffs_f[m_loc] 
 
             funval = wts1[i, iq] * f_val
@@ -831,7 +836,7 @@ def assemble_dofs_for_weighted_basisfuns_2d_ff(mat : 'float[:,:,:,:]', starts_in
 
 
 
-def assemble_dofs_for_weighted_basisfuns_3d_ff(mat : 'float[:,:,:,:,:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', starts_c : 'int[:]', ends_c : 'int[:]', pads_c : 'int[:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', wts3 : 'float[:,:]', span1 : 'int[:,:]', span2 : 'int[:,:]', span3 : 'int[:,:]', basis1 : 'float[:,:,:]', basis2 : 'float[:,:,:]', basis3 : 'float[:,:,:]', coeffs_f : 'float[:,:,:]', span_c1 : 'int[:,:]', span_c2 : 'int[:,:]', span_c3 : 'int[:,:]', basis_c1 : 'float[:,:,:]', basis_c2 : 'float[:,:,:]', basis_c3 : 'float[:,:,:]', dim1_in : int, dim2_in : int, dim3_in : int, p1_out : int, p2_out : int, p3_out : int):
+def assemble_dofs_for_weighted_basisfuns_3d_ff(mat : 'float[:,:,:,:,:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', starts_c : 'int[:]', ends_c : 'int[:]', pads_c : 'int[:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', wts3 : 'float[:,:]', span1 : 'int[:,:]', span2 : 'int[:,:]', span3 : 'int[:,:]', basis1 : 'float[:,:,:]', basis2 : 'float[:,:,:]', basis3 : 'float[:,:,:]', coeffs_f : 'float[:,:,:]', span_c1 : 'int[:,:]', span_c2 : 'int[:,:]', span_c3 : 'int[:,:]', basis_c1 : 'float[:,:,:]', basis_c2 : 'float[:,:,:]', basis_c3 : 'float[:,:,:]', dim1_in : int, dim2_in : int, dim3_in : int, dim1_c : int, dim2_c : int, dim3_c : int, p1_out : int, p2_out : int, p3_out : int):
     '''Kernel for assembling the matrix
 
     A_(ijk,mno) = DOFS_ijk(fun*Lambda^in_mno) ,
@@ -928,6 +933,15 @@ def assemble_dofs_for_weighted_basisfuns_3d_ff(mat : 'float[:,:,:,:,:,:]', start
 
         dim3_in : int
             Dimension of the third direction of the input space
+        
+        dim1_c : int
+            Dimension of the first direction of the coefficient space
+
+        dim2_c : int
+            Dimension of the second direction of the coefficient space
+
+        dim3_c : int
+            Dimension of the third direction of the coefficient space
 
         p1_out : int
             Spline degree of the first direction of the output space
@@ -964,9 +978,9 @@ def assemble_dofs_for_weighted_basisfuns_3d_ff(mat : 'float[:,:,:,:,:,:]', start
     sc1 = starts_c[0]
     sc2 = starts_c[1]
     sc3 = starts_c[2]
-    # ec1 = ends_c[0]
-    # ec2 = ends_c[1]
-    # ec3 = ends_c[2]
+    ec1 = ends_c[0]
+    ec2 = ends_c[1]
+    ec3 = ends_c[2]
     pc1 = pads_c[0]
     pc2 = pads_c[1]
     pc3 = pads_c[2]
@@ -1015,16 +1029,22 @@ def assemble_dofs_for_weighted_basisfuns_3d_ff(mat : 'float[:,:,:,:,:,:]', start
                                 m = (span_c1[i, iq] - p1_c + b1)
                                 #local index
                                 m_loc = m-sc1+pc1
+                                if m_loc>ec1+2*pc1:
+                                    m_loc-= dim1_c
                                 for b2 in range(p2_c + 1):
                                     # global index
                                     n = (span_c2[j, jq] - p2_c + b2)
                                     #local index
                                     n_loc = n-sc2+pc2
+                                    if n_loc>ec2+2*pc2:
+                                        n_loc-= dim2_c
                                     for b3 in range(p3_c + 1):
                                         # global index
                                         o = (span_c3[k, kq] - p3_c + b3)
                                         #local index
                                         o_loc = o-sc3+pc3
+                                        if o_loc>ec3+2*pc3:
+                                            o_loc-= dim3_c
                                         f_val += basis_c1[i, iq, b1] * basis_c2[j, jq, b2] * basis_c3[k, kq, b3] * coeffs_f[m_loc,n_loc,o_loc] 
 
                             funval = wts1[i, iq] * wts2[j, jq] * wts3[k, kq] * f_val 
