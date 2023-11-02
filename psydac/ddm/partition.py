@@ -30,12 +30,12 @@ def partition_procs_per_patch(npts, size):
         such that k1<=k2.
 
     """
-    npts       = [np.product(nc) for nc in npts]
-    percentage = [nc/sum(npts) for nc in npts]
+    npts       = [np.prod(nc) for nc in npts]
+    percentage = [nc / sum(npts) for nc in npts]
     sizes      = np.array([int(p*size) for p in percentage])
-    diff       = [p*size-s for s,p in zip(sizes, percentage)]
+    diff       = [p * size - s for s, p in zip(sizes, percentage)]
     indices    = np.argsort(diff)[::-1]
-    rm         = size-sum(sizes)
+    rm         = size - sum(sizes)
 
     sizes[indices[:rm]] +=1
     assert sum(sizes) == size
@@ -58,10 +58,11 @@ def partition_procs_per_patch(npts, size):
 
     k = 0
     for i,s in enumerate(sizes):
-        if s>0:continue
+        if s > 0:
+            continue
         sizes[i]  = 1
         ranges[i] = [ranks[k], ranks[k]]
-        k         = (k+1)%size
+        k         = (k+1) % size
 
     return sizes, ranges
 

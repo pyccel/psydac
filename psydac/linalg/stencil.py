@@ -1351,7 +1351,7 @@ class StencilMatrix(LinearOperator):
             ss    = self.codomain.starts
             pp    = [compute_diag_len(p,mj,mi)-(p+1) for p,mi,mj in zip(self._pads, cm, dm)]
             nrows = tuple(e-s+1 for s,e in zip(self.codomain.starts, self.codomain.ends))
-            indices = [np.zeros(np.product(nrows), dtype=int) for _ in range(2*len(nrows))]
+            indices = [np.zeros(np.prod(nrows), dtype=int) for _ in range(2*len(nrows))]
             l = 0
             for xx in np.ndindex(*nrows):
                 ii = [m*p+x for m,p,x in zip(self.domain.shifts, self.domain.pads, xx)]
