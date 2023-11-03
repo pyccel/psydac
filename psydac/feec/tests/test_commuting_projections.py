@@ -8,7 +8,7 @@ from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
 from psydac.feec.derivatives import ScalarCurl_2D, VectorCurl_2D, Curl_3D
 from psydac.feec.derivatives import Divergence_2D, Divergence_3D
 from psydac.ddm.cart         import DomainDecomposition
-from psydac.linalg.solvers   import GMRES as Inverse
+from psydac.linalg.solvers   import inverse
 
 from mpi4py import MPI
 import numpy as np
@@ -81,8 +81,8 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc):
     # build the solver from the LinearOperator
     # imat_kronecker_P0 = P0.imat_kronecker 
     # imat_kronecker_P1 = P1.imat_kronecker
-    # I0inv = Inverse(imat_kronecker_P0, verbose=True)
-    # I1inv = Inverse(imat_kronecker_P1, verbose=True)  
+    # I0inv = inverse(imat_kronecker_P0, 'gmres', verbose=True)
+    # I1inv = inverse(imat_kronecker_P1, 'gmres', verbose=True)  
     
     # # build the rhs
     # P0.func(fun1)
@@ -179,8 +179,8 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc):
     # build the solver from the LinearOperator
     # imat_kronecker_P1 = P1.imat_kronecker
     # imat_kronecker_P2 = P2.imat_kronecker 
-    # I1inv = Inverse(imat_kronecker_P1, verbose=True) 
-    # I2inv = Inverse(imat_kronecker_P2, verbose=True)
+    # I1inv = inverse(imat_kronecker_P1, 'gmres', verbose=True) 
+    # I2inv = inverse(imat_kronecker_P2, 'gmres', verbose=True)
     
     # # build the rhs
     # P1.func(fun1, fun2, fun3)
@@ -268,8 +268,8 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc):
     # build the solver from the LinearOperator
     # imat_kronecker_P2 = P2.imat_kronecker
     # imat_kronecker_P3 = P3.imat_kronecker 
-    # I2inv = Inverse(imat_kronecker_P2, verbose=True)
-    # I3inv = Inverse(imat_kronecker_P3, verbose=True) 
+    # I2inv = inverse(imat_kronecker_P2, 'gmres', verbose=True)
+    # I3inv = inverse(imat_kronecker_P3, 'gmres', verbose=True) 
     
     # # build the rhs
     # P2.func(fun1, fun2, fun3)
@@ -344,8 +344,8 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc):
     # build the solver from the LinearOperator
     imat_kronecker_P0 = P0.imat_kronecker 
     imat_kronecker_P1 = P1.imat_kronecker
-    I0inv = Inverse(imat_kronecker_P0, verbose=True)
-    I1inv = Inverse(imat_kronecker_P1, verbose=True)  
+    I0inv = inverse(imat_kronecker_P0, 'gmres', verbose=True)
+    I1inv = inverse(imat_kronecker_P1, 'gmres', verbose=True)  
     
     # build the rhs
     P0.func(fun1)
@@ -420,8 +420,8 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc):
     # build the solver from the LinearOperator
     imat_kronecker_P0 = P0.imat_kronecker 
     imat_kronecker_P1 = P1.imat_kronecker
-    I0inv = Inverse(imat_kronecker_P0, verbose=True)
-    I1inv = Inverse(imat_kronecker_P1, verbose=True)  
+    I0inv = inverse(imat_kronecker_P0, 'gmres', verbose=True)
+    I1inv = inverse(imat_kronecker_P1, 'gmres', verbose=True)  
     
     # build the rhs
     P0.func(fun1)
@@ -503,8 +503,8 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc):
     # build the solver from the LinearOperator
     imat_kronecker_P2 = P2.imat_kronecker
     imat_kronecker_P3 = P3.imat_kronecker 
-    I2inv = Inverse(imat_kronecker_P2, verbose=True)
-    I3inv = Inverse(imat_kronecker_P3, verbose=True) 
+    I2inv = inverse(imat_kronecker_P2, 'gmres', verbose=True)
+    I3inv = inverse(imat_kronecker_P3, 'gmres', verbose=True) 
     
     # build the rhs
     P2.func(fun1, fun2)
@@ -586,8 +586,8 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc):
     # build the solver from the LinearOperator
     imat_kronecker_P1 = P1.imat_kronecker
     imat_kronecker_P2 = P2.imat_kronecker 
-    I1inv = Inverse(imat_kronecker_P1, verbose=True) 
-    I2inv = Inverse(imat_kronecker_P2, verbose=True)
+    I1inv = inverse(imat_kronecker_P1, 'gmres', verbose=True) 
+    I2inv = inverse(imat_kronecker_P2, 'gmres', verbose=True)
     
     # build the rhs
     P1.func(fun1, fun2)
@@ -657,8 +657,8 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc):
     # build the solver from the LinearOperator
     imat_kronecker_P0 = P0.imat_kronecker 
     imat_kronecker_P1 = P1.imat_kronecker
-    I0inv = Inverse(imat_kronecker_P0, verbose=True)
-    I1inv = Inverse(imat_kronecker_P1, verbose=True)  
+    I0inv = inverse(imat_kronecker_P0, 'gmres', verbose=True)
+    I1inv = inverse(imat_kronecker_P1, 'gmres', verbose=True)  
     
     # build the rhs
     P0.func(fun1)
@@ -689,6 +689,5 @@ if __name__ == '__main__':
     test_3d_commuting_pro_1(Nel, Nq, p, bc)
     test_3d_commuting_pro_2(Nel, Nq, p, bc)
     test_3d_commuting_pro_3(Nel, Nq, p, bc)
-    test_2d_commuting_pro_4(Nel, Nq, p, bc)
     
 
