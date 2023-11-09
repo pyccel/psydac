@@ -31,6 +31,29 @@ from psydac.pyccel.ast.core import Product
 from psydac.pyccel.ast.core import _atomic
 from psydac.pyccel.ast.core import Comment
 from psydac.pyccel.ast.core import String
+from psydac.pyccel.ast.core import AnnotatedArgument
+
+__all__ = (
+    'build_pyccel_type_annotations',
+    'build_pythran_types_header',
+    'compute_atoms_expr',
+    'compute_atoms_expr_field',
+    'compute_atoms_expr_mapping',
+    'compute_boundary_jacobian',
+    'compute_normal_vector',
+    'compute_tangent_vector',
+    'filter_loops',
+    'filter_product',
+    'fusion_loops',
+    'get_name',
+    'is_mapping',
+    'logical2physical',
+    'math_atoms_as_str',
+    'random_string',
+    'rationalize_eval_mapping',
+    'select_loops',
+    'variables',
+)
 
 #==============================================================================
 def random_string( n ):
@@ -816,11 +839,10 @@ def variables(names, dtype, **args):
         raise TypeError('Expecting a string')
 
 #==============================================================================
-def build_pyccel_types_decorator(args, order=None):
-    """
-    builds a types decorator from a list of arguments (of FunctionDef)
-    """
-    types = []
+def build_pyccel_type_annotations(args, order=None):
+
+    new_args = []
+
     for a in args:
         if isinstance(a, Variable):
             rank  = a.rank
@@ -852,9 +874,10 @@ def build_pyccel_types_decorator(args, order=None):
                 dtype = "{dtype}(order={ordering})".format(dtype=dtype, ordering=order)
 
         dtype = String(dtype)
-        types.append(dtype)
+        new_a = AnnotatedArgument(a, dtype)
+        new_args.append(new_a)
 
-    return types
+    return new_args
 
 #==============================================================================
 def build_pythran_types_header(name, args, order=None):

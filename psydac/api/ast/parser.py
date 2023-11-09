@@ -76,7 +76,7 @@ from .fem import expand, expand_hdiv_hcurl
 from psydac.api.ast.utilities import variables, math_atoms_as_str, get_name
 from psydac.api.utilities     import flatten
 from psydac.api.ast.utilities import build_pythran_types_header
-from psydac.api.ast.utilities import build_pyccel_types_decorator
+from psydac.api.ast.utilities import build_pyccel_type_annotations
 
 #==============================================================================
 # TODO move it
@@ -484,19 +484,17 @@ class Parser(object):
             map_basis   = []
             map_span    = []
 
-        constants  = args.pop('constants', None)
-
-        f_coeffs   = args.pop('f_coeffs',    None)
+        constants = args.pop('constants', None)
+        f_coeffs  = args.pop('f_coeffs' , None)
 
         starts = args.pop('starts', [])
-        ends   = args.pop('ends', [])
+        ends   = args.pop('ends'  , [])
         if f_coeffs:
-            f_span     = args.pop('f_span',      [])
-            f_basis    = args.pop('field_basis', [])
-            f_degrees  = args.pop('fields_degrees', [])
-            f_pads     = args.pop('f_pads', [])
-            f_args     = (*f_basis, *f_span, *f_degrees, *f_pads, *f_coeffs)
-
+            f_span    = args.pop('f_span',      [])
+            f_basis   = args.pop('field_basis', [])
+            f_degrees = args.pop('fields_degrees', [])
+            f_pads    = args.pop('f_pads', [])
+            f_args    = (*f_basis, *f_span, *f_degrees, *f_pads, *f_coeffs)
 
         args = [*tests_basis, *trial_basis, *map_basis,\
                 *g_span, *map_span, *g_quad,\
@@ -504,10 +502,10 @@ class Parser(object):
                 *map_degrees, *lengths, *g_pads, *map_coeffs]
 
         if mats:
-            exprs     = [mat.expr for mat in mats]
-            mats      = [self._visit(mat) for mat in mats]
-            mats      = [[a for a,e in zip(mat[:],expr[:]) if e] for mat,expr in zip(mats, exprs)]
-            mats      = flatten(mats)
+            exprs = [mat.expr for mat in mats]
+            mats  = [self._visit(mat) for mat in mats]
+            mats  = [[a for a,e in zip(mat[:],expr[:]) if e] for mat,expr in zip(mats, exprs)]
+            mats  = flatten(mats)
 
         args      = [self._visit(i, **kwargs) for i in args]
         args      = [tuple(arg.values())[0] if isinstance(arg, dict) else arg for arg in args]
@@ -540,8 +538,8 @@ class Parser(object):
                 inits.append(Assign(var, Zeros(i, dtype=var.dtype)))
 
         inits.append(EmptyNode())
-        body          =  tuple(inits) + body
-        name          = expr.name
+        body = tuple(inits) + body
+        name = expr.name
 
         # TODO : when Pyccel will work on the cmath library, we should import the math function from cmath and not from numpy
         # If we are with complex object, we should import the mathematical function from numpy and not math to handle complex value.
@@ -557,13 +555,13 @@ class Parser(object):
                             ([Import('math', math_imports)] if math_imports else []) + \
                             [*expr.imports]
 
-        results       = [self._visit(a) for a in expr.results]
+        results = [self._visit(a) for a in expr.results]
 
         if self.backend['name'] == 'pyccel':
-            a = [String(str(i)) for i in build_pyccel_types_decorator(arguments)]
-            decorators = {'types': Function('types')(*a)}
+            arguments = build_pyccel_type_annotations(arguments)
+            decorators = {}
         elif self.backend['name'] == 'pythran':
-            header = build_pythran_types_header(name, arguments)
+            header = build_pythran_types_header(name, arguments) # Could this work??
         else:
             decorators = {}
 
@@ -574,7 +572,7 @@ class Parser(object):
         return stmts
 
     def _visit_EvalField(self, expr, **kwargs):
-        body       = self._visit(expr.body, **kwargs)
+        body = self._visit(expr.body, **kwargs)
         return body
 
     def _visit_EvalMapping(self, expr, **kwargs):
