@@ -301,7 +301,7 @@ class PConjugateGradient(InverseLinearOperator):
         Stores a copy of the output in x0 to speed up consecutive calculations of slightly altered linear systems
 
     """
-    def __init__(self, A, *, pc='jacobi', x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False, precond=None):
+    def __init__(self, A, *, pc='jacobi', x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False, precond=None, metric=None):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
@@ -318,7 +318,7 @@ class PConjugateGradient(InverseLinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._solver = 'pcg'
-        self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle, "precond":precond}
+        self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle, "precond":precond, "metric":metric}
         self._check_options(**self._options)
         tmps_codomain = {key: codomain.zeros() for key in ("p", "s")}
         tmps_domain = {key: domain.zeros() for key in ("v", "r")}
@@ -346,6 +346,8 @@ class PConjugateGradient(InverseLinearOperator):
             elif key == 'recycle':
                 assert isinstance(value, bool), "recycle must be a bool"
             elif key == 'precond':
+                pass
+            elif key == 'metric':
                 pass
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
@@ -389,6 +391,11 @@ class PConjugateGradient(InverseLinearOperator):
         maxiter = options["maxiter"]
         verbose = options["verbose"]
         recycle = options["recycle"]
+        
+        if options["metric"] is None:
+            M = IdentityOperator(b.space)
+        else :
+            M = options['metric']
 
         assert isinstance(b, Vector)
         assert b.space is domain
@@ -428,7 +435,7 @@ class PConjugateGradient(InverseLinearOperator):
         A.dot(x, out=v)
         b.copy(out=r)
         r       -= v
-        nrmr_sqr = r.dot(r).real
+        nrmr_sqr = r.dot(M.dot(r)).real
         psolve(r, out=s)
         am       = s.dot(r)
         s.copy(out=p)
@@ -456,7 +463,7 @@ class PConjugateGradient(InverseLinearOperator):
             x.mul_iadd(l, p) # this is x += l*p
             r.mul_iadd(-l, v) # this is r -= l*v
 
-            nrmr_sqr = r.dot(r).real
+            nrmr_sqr = r.dot(M.dot(r)).real
             psolve(r, out=s)
 
             am1 = s.dot(r)
