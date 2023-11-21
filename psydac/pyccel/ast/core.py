@@ -5705,3 +5705,18 @@ class PyccelArraySize(Function, PyccelAstNode):
             code_init = 'size({0}, {1})'.format(init_value, index)
 
         return code_init
+
+
+class AnnotatedArgument(Symbol, PyccelAstNode):
+
+    def __new__(cls, name, annotation):
+        return Basic.__new__(cls, name, annotation)
+
+    @property
+    def name(self):
+        return self.args[0]
+
+    @property
+    def annotation(self):
+        return self.args[1]
+
