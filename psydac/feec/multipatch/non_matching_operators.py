@@ -1451,7 +1451,6 @@ def calculate_mass_matrix(space_1d, spl_type):
 
 
 # if __name__ == '__main__':
-#     from psydac.feec.multipatch.conf_proj_martin import conf_proj_scalar_space, conf_proj_vector_space, conf_projectors_scipy
  
 #     nc = 5
 #     deg = 3

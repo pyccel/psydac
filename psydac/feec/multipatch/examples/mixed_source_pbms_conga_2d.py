@@ -28,7 +28,7 @@ from psydac.feec.multipatch.examples.ppc_test_cases            import get_source
 from psydac.feec.multipatch.examples.hcurl_eigen_pbms_conga_2d import get_eigenvalues
 from psydac.feec.multipatch.utilities                          import time_count
 
-from psydac.feec.multipatch.non_matching_operators      import construct_V0_conforming_projection, construct_V1_conforming_projection
+from psydac.feec.multipatch.non_matching_operators      import construct_scalar_conforming_projection, construct_vector_conforming_projection
 
 def solve_magnetostatic_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_L2_wcurl_J',
@@ -177,8 +177,8 @@ def solve_magnetostatic_pbm(
 
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    cP0_m = construct_V0_conforming_projection(V0h, domain_h, hom_bc=True)
-    cP1_m = construct_V1_conforming_projection(V1h, domain_h, hom_bc=True)
+    cP0_m = construct_scalar_conforming_projection(V0h, hom_bc=[True,True])
+    cP1_m = construct_vector_conforming_projection(V1h, hom_bc=[True,True])
 
 
     print('broken differential operators...')

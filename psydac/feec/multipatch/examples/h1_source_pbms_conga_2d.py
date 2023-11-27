@@ -25,7 +25,7 @@ from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_OBSOLETE
 from psydac.feec.multipatch.utilities                   import time_count
-from psydac.feec.multipatch.non_matching_operators      import construct_V0_conforming_projection, construct_V1_conforming_projection
+from psydac.feec.multipatch.non_matching_operators      import construct_scalar_conforming_projection, construct_vector_conforming_projection
 
 from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic        import FemField
@@ -129,8 +129,8 @@ def solve_h1_source_pbm(
 
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    cP0_m = construct_V0_conforming_projection(V0h, domain_h, hom_bc=True)
-    # cP1_m = construct_V1_conforming_projection(V1h, domain_h, hom_bc=True)
+    cP0_m = construct_scalar_conforming_projection(V0h, hom_bc=[True,True])
+    # cP1_m = construct_vector_conforming_projection(V1h, domain_h, hom_bc=True)
 
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
@@ -267,6 +267,7 @@ if __name__ == '__main__':
         mu=1, #1,
         domain_name=domain_name,
         source_type=source_type,
+        source_proj = 'P_geom',
         backend_language='pyccel-gcc',
         plot_source=True,
         plot_dir='./plots/h1_tests_source_february/'+run_dir,

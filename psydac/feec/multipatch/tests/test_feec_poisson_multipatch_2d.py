@@ -20,7 +20,7 @@ def test_poisson_pretzel_f():
                 plot_source=False,
                 plot_dir='./plots/h1_tests_source_february/'+run_dir)
 
-    assert abs(l2_error-0.11860734907095004)<1e-10
+    assert abs(l2_error-0.1173467869129417)<1e-10
 
 def test_poisson_pretzel_f_nc():
 
@@ -38,8 +38,8 @@ def test_poisson_pretzel_f_nc():
                 backend_language='pyccel-gcc',
                 plot_source=False,
                 plot_dir='./plots/h1_tests_source_february/'+run_dir)
-
-    assert abs(l2_error-0.04324704991715671)<1e-10
+    print(l2_error)
+    assert abs(l2_error-0.03821274975800339)<1e-10
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================

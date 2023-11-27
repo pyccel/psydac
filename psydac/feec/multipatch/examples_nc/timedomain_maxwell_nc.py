@@ -31,7 +31,7 @@ from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P0_phys
 from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
 from psydac.linalg.utilities                            import array_to_psydac
 from psydac.fem.basic                                   import FemField
-from psydac.feec.multipatch.non_matching_operators import construct_V0_conforming_projection, construct_V1_conforming_projection
+from psydac.feec.multipatch.non_matching_operators import construct_vector_conforming_projection, construct_scalar_conforming_projection
 from psydac.feec.multipatch.non_matching_multipatch_domain_utilities import create_square_domain
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
@@ -322,10 +322,9 @@ def solve_td_maxwell_pbm(*,
 
     t_stamp = time_count(t_stamp)
     print(' .. conforming Projection operators...')
- 
-    cP0_m = construct_V0_conforming_projection(V0h, domain_h, hom_bc=False)
-    cP1_m = construct_V1_conforming_projection(V1h, domain_h, hom_bc=False)
-
+    #(Vh, reg_orders=[0,0], p_moments=[-1,-1], nquads=None, hom_bc=[False, False])
+    cP0_m = construct_scalar_conforming_projection(V0h, [0,0], [-1,-1], nquads=None, hom_bc=[False,False])
+    cP1_m = construct_vector_conforming_projection(V1h, [0,0], [-1,-1], nquads=None, hom_bc=[False,False])
 
     if conf_proj == 'GSP':
         print(' [* GSP-conga: using Geometric Spline conf Projections ]')
@@ -826,7 +825,7 @@ def solve_td_maxwell_pbm(*,
         #E0 = get_easy_Gaussian_beam_E_2(x_0=0.05, y_0=0.05, domain=domain)
         #B0 = get_easy_Gaussian_beam_B_2(x_0=0.05, y_0=0.05, domain=domain)
 
-        E0, B0 = get_Gaussian_beam(x_0=3.14, y_0=0.05, domain=domain)
+        E0, B0 = get_Gaussian_beam(y_0=3.14, x_0=3.14 , domain=domain)
         #B0 = get_easy_Gaussian_beam_B(x_0=3.14, y_0=0.05, domain=domain)
 
         if E0_proj == 'P_geom':
@@ -1004,11 +1003,11 @@ def solve_td_maxwell_pbm(*,
 
     print("Do some PP")
     PM = PostProcessManager(domain=domain, space_file=plot_dir+'/spaces1.yml', fields_file=plot_dir+'/fields1.h5' )
-    PM.export_to_vtk(plot_dir+"/Eh",grid=None, npts_per_cell=[6]*2,snapshots='all', fields = 'Eh' )
+    PM.export_to_vtk(plot_dir+"/Eh",grid=None, npts_per_cell=2,snapshots='all', fields = 'Eh' )
     PM.close()
 
     PM = PostProcessManager(domain=domain, space_file=plot_dir+'/spaces2.yml', fields_file=plot_dir+'/fields2.h5' )
-    PM.export_to_vtk(plot_dir+"/Bh",grid=None, npts_per_cell=[6]*2,snapshots='all', fields = 'Bh' )
+    PM.export_to_vtk(plot_dir+"/Bh",grid=None, npts_per_cell=2,snapshots='all', fields = 'Bh' )
     PM.close()
 
    # plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start=0, nt_end=Nt, 

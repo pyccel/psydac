@@ -31,7 +31,7 @@ from psydac.linalg.utilities                            import array_to_psydac
 from psydac.fem.basic                                   import FemField
 from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_OBSOLETE
 
-from psydac.feec.multipatch.non_matching_operators import construct_V0_conforming_projection, construct_V1_conforming_projection
+from psydac.feec.multipatch.non_matching_operators import construct_scalar_conforming_projection, construct_vector_conforming_projection
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
 def solve_hcurl_source_pbm_nc(
@@ -190,8 +190,8 @@ def solve_hcurl_source_pbm_nc(
     #cP1_m = cP1.to_sparse_matrix()
 
     # Try the NC one
-    cP1_m = construct_V1_conforming_projection(V1h, domain_h, hom_bc=True)
-    cP0_m = construct_V0_conforming_projection(V0h, domain_h, hom_bc=True)
+    cP1_m = construct_vector_conforming_projection(V1h, hom_bc=[True, True])
+    cP0_m = construct_scalar_conforming_projection(V0h, hom_bc=[True, True])
 
     t_stamp = time_count(t_stamp)
     print(' .. broken differential operators...')

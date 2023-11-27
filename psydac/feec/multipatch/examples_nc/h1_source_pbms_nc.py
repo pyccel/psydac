@@ -25,7 +25,7 @@ from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_OBSOLETE
 from psydac.feec.multipatch.utilities                   import time_count
-from psydac.feec.multipatch.non_matching_operators      import construct_V0_conforming_projection, construct_V1_conforming_projection
+from psydac.feec.multipatch.non_matching_operators      import construct_scalar_conforming_projection, construct_vector_conforming_projection
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
 from psydac.linalg.utilities import array_to_psydac
@@ -131,8 +131,8 @@ def solve_h1_source_pbm_nc(
 
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    cP0_m = construct_V0_conforming_projection(V0h, domain_h, hom_bc=True)
-    # cP1_m = construct_V1_conforming_projection(V1h, domain_h, hom_bc=True)
+    cP0_m = construct_scalar_conforming_projection(V0h, hom_bc=[True,True])
+    # cP1_m = construct_vector_conforming_projection(V1h, hom_bc=[True, True])
 
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
@@ -257,6 +257,8 @@ if __name__ == '__main__':
     domain_name = 'pretzel_f'
     # domain_name = 'curved_L_shape'
     nc = np.array([8, 8, 16, 16, 8, 4, 4, 4, 4, 4, 2, 2, 4, 16, 16, 8, 2, 2, 2])
+
+
     deg = 2
 
     # nc = 2

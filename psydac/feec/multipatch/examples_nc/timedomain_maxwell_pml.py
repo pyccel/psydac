@@ -31,7 +31,7 @@ from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P0_phys
 from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
 from psydac.linalg.utilities                            import array_to_psydac
 from psydac.fem.basic                                   import FemField
-from psydac.feec.multipatch.non_matching_operators import construct_vector_conforming_projection, construct_scalar_conforming_projection, construct_V0_conforming_projection, construct_V1_conforming_projection
+from psydac.feec.multipatch.non_matching_operators import construct_vector_conforming_projection, construct_scalar_conforming_projection
 from psydac.feec.multipatch.non_matching_multipatch_domain_utilities import create_square_domain
 
 from sympde.calculus      import grad, dot, curl, cross

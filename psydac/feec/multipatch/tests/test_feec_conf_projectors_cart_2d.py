@@ -42,13 +42,13 @@ def get_polynomial_function(degree, hom_bc_axes, domain):
     return g0_x * g0_y
 
 #==============================================================================
-# @pytest.mark.parametrize('V1_type', ["Hcurl"])
-# @pytest.mark.parametrize('degree', [[2,2], [3,3]])
-# @pytest.mark.parametrize('nc', [2, 4])
-# @pytest.mark.parametrize('reg', [0])
-# @pytest.mark.parametrize('hom_bc', [[False, False], True])
-# @pytest.mark.parametrize('mom_pres', [False, True])
-# @pytest.mark.parametrize('domain_name', ["4patch_nc", "curved_L_shape"])
+@pytest.mark.parametrize('V1_type', ["Hcurl"])
+@pytest.mark.parametrize('degree', [[3,3]])
+@pytest.mark.parametrize('nc', [4])
+@pytest.mark.parametrize('reg', [[0,0]])
+@pytest.mark.parametrize('hom_bc', [[False, False]])
+@pytest.mark.parametrize('mom_pres', [[-1, -1]])
+@pytest.mark.parametrize('domain_name', ["4patch_nc"])
 
 def test_conf_projectors_2d(
         V1_type,
@@ -175,7 +175,7 @@ def test_conf_projectors_2d(
     p_geomP0, p_geomP1, p_geomP2 = p_derham_h.projectors()
 
     # conforming projections (scipy matrices)
-    cP0 =  construct_scalar_conforming_projection(V0h, reg, mom_pres, nquads, hom_bc)
+    cP0 = construct_scalar_conforming_projection(V0h, reg, mom_pres, nquads, hom_bc)
     cP1 = construct_vector_conforming_projection(V1h, reg, mom_pres, nquads, hom_bc)
     cP2 = construct_scalar_conforming_projection(V2h, [reg[0]- 1, reg[1]-1], mom_pres, nquads, hom_bc)
 
@@ -290,27 +290,27 @@ def test_conf_projectors_2d(
         g2_star_c = M2_inv @ cP2.transpose() @ tilde_g2_c
         np.allclose(g2_c, g2_star_c, 1e-12, 1e-12) # (P2_geom - P2_star) polynomial = 0
 
-if __name__ == '__main__':
-    V1_type = "Hcurl"
-    nc = 7
-    deg = 2
+# if __name__ == '__main__':
+#     V1_type = "Hcurl"
+#     nc = 7
+#     deg = 2
 
-    degree = [deg, deg]
-    reg=[0,0]
-    mom_pres=[5,5]
-    hom_bc = [False, False]
+#     degree = [deg, deg]
+#     reg=[0,0]
+#     mom_pres=[5,5]
+#     hom_bc = [False, False]
     
-    # domain_name = 'square_6'
-    # domain_name = 'curved_L_shape'
-    # domain_name = '2patch_nc_mapped'
-    domain_name = '4patch_nc'
+#     # domain_name = 'square_6'
+#     # domain_name = 'curved_L_shape'
+#     # domain_name = '2patch_nc_mapped'
+#     domain_name = '4patch_nc'
 
-    test_conf_projectors_2d(
-        V1_type,
-        degree,
-        nc, 
-        reg,
-        hom_bc,
-        mom_pres,   
-        domain_name     
-    )
+#     test_conf_projectors_2d(
+#         V1_type,
+#         degree,
+#         nc, 
+#         reg,
+#         hom_bc,
+#         mom_pres,   
+#         domain_name     
+#     )

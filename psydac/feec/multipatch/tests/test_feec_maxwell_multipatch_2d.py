@@ -137,7 +137,7 @@ def test_maxwell_eigen_curved_L_shape_nc():
     for k in range(n_errs):
         error += (eigenvalues[k]-ref_sigmas[k])**2
     error = np.sqrt(error)
-
+    
     assert abs(error - 0.004289103786542442)<1e-10
 
 def test_maxwell_eigen_curved_L_shape_dg():

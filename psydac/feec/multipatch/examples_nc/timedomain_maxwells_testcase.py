@@ -1,5 +1,5 @@
 import numpy as np
-from psydac.feec.multipatch.examples_nc.td_maxwell_conga_2d_nc_absorbing import solve_td_maxwell_pbm
+from psydac.feec.multipatch.examples_nc.timedomain_maxwell_nc import solve_td_maxwell_pbm
 from psydac.feec.multipatch.utilities                   import time_count, FEM_sol_fn, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
 from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_file
 
@@ -21,7 +21,7 @@ J_proj_case = 'P_L2'
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
 # Parameters to be changed in the batch run
-deg   = 4
+deg   = 3
 
 # Common simulation parameters
 #domain_name = 'square_6'
@@ -29,13 +29,14 @@ deg   = 4
 #domain_name = 'pretzel_f'
 
 #non-conf domains
-domain=[[0, 2*np.pi],[0, 3*np.pi]] # interval in x- and y-direction
+domain=[[0, 2*np.pi],[0, 2*np.pi]] # interval in x- and y-direction
 domain_name = 'refined_square'
 #use isotropic meshes (probably with a square domain) 
 # 4x8= 64 patches
 #care for the transpose
-ncells = np.array([[8, 8],
-                   [8, 8]])
+ncells = np.array([[16, 16],
+                   [16, 16]])
+
 #ncells = np.array([[8,8,16,8],
 #                  [8,8,16,8],
 #                  [8,8,16,8], 
@@ -75,7 +76,7 @@ cfl_max     = 0.8
 E0_proj     = 'P_geom' # 'P_geom'  # projection used for initial E0 (B0 = 0 in all cases)
 backend     = 'pyccel-gcc'
 project_sol = True  # whether cP1 E_h is plotted instead of E_h
-quad_param  = 4     # multiplicative parameter for quadrature order in (bi)linear forms discretization
+quad_param  = 4     # multiplicative parameter for quadrature order in (bi)linear forms discretizaion
 gamma_h     = 0     # jump dissipation parameter (not used in paper)
 conf_proj   = 'GSP' # 'BSP' # type of conforming projection operators (averaging B-spline or Geometric-splines coefficients)
 hide_plots  = True
@@ -88,7 +89,7 @@ if test_case == 'E0_pulse_no_source':
     E0_type      = 'pulse_2'   # non-zero initial conditions
     source_type  = 'zero'    # no current source
     source_omega = None
-    final_time   = 8         # wave transit time in domain is > 4
+    final_time   = 9.02 # wave transit time in domain is > 4
     dt_max       = None
     plot_source  = False
 
@@ -172,7 +173,7 @@ elif J_proj_case == 'tilde Pi_1':
 else:
     raise ValueError(J_proj_case)
 
-case_dir = 'talk_wave_td_maxwell_' + test_case + '_J_proj=' + J_proj_case + '_qp{}'.format(quad_param)
+case_dir = 'nov14_' + test_case + '_J_proj=' + J_proj_case + '_qp{}'.format(quad_param)
 if filter_source:
     case_dir += '_Jfilter'
 else:

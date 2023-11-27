@@ -28,7 +28,7 @@ from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic        import FemField
 
 from psydac.feec.multipatch.non_matching_multipatch_domain_utilities import create_square_domain
-from psydac.feec.multipatch.non_matching_operators import construct_V1_conforming_projection
+from psydac.feec.multipatch.non_matching_operators import construct_vector_conforming_projection
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
@@ -127,7 +127,7 @@ def hcurl_solve_eigen_pbm_nc(ncells=np.array([[8, 4], [4, 4]]), degree=(3,3), do
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
     cP0_m = None
-    cP1_m = construct_V1_conforming_projection(V1h, domain_h, hom_bc=True)
+    cP1_m = construct_vector_conforming_projection(V1h, hom_bc=[True,True])
 
     t_stamp = time_count(t_stamp)
     print('broken differential operators...')

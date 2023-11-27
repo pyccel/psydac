@@ -90,6 +90,27 @@ def get_Gaussian_beam(x_0, y_0, domain=None):
     x = x - x_0
     y = y - y_0
     
+    k = (np.pi, 0)
+    nk = np.sqrt(k[0]**2 + k[1]**2)
+
+    v = (k[0]/nk, k[1]/nk)
+    
+    sigma = 0.25
+
+    xy = x**2 + y**2
+    ef = exp( - xy/(2*sigma**2) )
+
+    E = cos(k[1] * x + k[0] * y) * ef
+    B = (-v[1]*x + v[0]*y)/(sigma**2) * E 
+    
+    return Tuple(v[0]*E, v[1]*E), B
+ 
+def get_easy_Gaussian_beam(x_0, y_0, domain=None):
+    # return E = cos(k*x) exp( - x^2 + y^2 / 2 sigma^2) v
+    x,y    = domain.coordinates
+    x = x - x_0
+    y = y - y_0
+    
     k = pi 
     sigma = 0.5
 
