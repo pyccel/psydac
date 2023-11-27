@@ -35,6 +35,34 @@ def P2_phys(f_phys, P2, domain, mappings_list):
     f_log = [pull_2d_l2(f, m.get_callable_mapping()) for m in mappings_list]
     return P2(f_log)
 
+# commuting projections on the physical domain (should probably be in the interface)
+def P_phys_h1(f_phys, P0, domain, mappings_list):
+    f = lambdify(domain.coordinates, f_phys)
+    if len(mappings_list) == 1:
+        m = mappings_list[0]
+        f_log = pull_2d_h1(f, m)
+    else:
+        f_log = [pull_2d_h1(f, m) for m in mappings_list]
+    return P0(f_log)
+
+def P_phys_hcurl(f_phys, P1, domain, mappings_list):
+    f_x = lambdify(domain.coordinates, f_phys[0])
+    f_y = lambdify(domain.coordinates, f_phys[1])
+    f_log = [pull_2d_hcurl([f_x, f_y], m) for m in mappings_list]
+    return P1(f_log)
+
+def P_phys_hdiv(f_phys, P1, domain, mappings_list):
+    f_x = lambdify(domain.coordinates, f_phys[0])
+    f_y = lambdify(domain.coordinates, f_phys[1])
+    f_log = [pull_2d_hdiv([f_x, f_y], m) for m in mappings_list]
+    return P1(f_log)
+
+def P_phys_l2(f_phys, P2, domain, mappings_list):
+    f = lambdify(domain.coordinates, f_phys)
+    f_log = [pull_2d_l2(f, m) for m in mappings_list]
+    return P2(f_log)
+
+
 def get_kind(space='V*'):
     # temp helper
     if space == 'V0':
