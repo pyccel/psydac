@@ -530,7 +530,7 @@ def get_corners(domain, boundary_only):
     return corner_data
 
 
-def construct_scalar_conforming_projection(Vh, reg_orders=[0,0], p_moments=[-1,-1], nquads=None, hom_bc=[False, False]):
+def construct_scalar_conforming_projection(Vh, reg_orders=(0,0), p_moments=(-1,-1), nquads=None, hom_bc=(False, False)):
     #construct conforming projection for a 2-dimensional scalar space 
 
     dim_tot = Vh.nbasis
@@ -917,7 +917,7 @@ def construct_scalar_conforming_projection(Vh, reg_orders=[0,0], p_moments=[-1,-
 
     return Proj_edge @ Proj_vertex
 
-def construct_vector_conforming_projection(Vh, reg_orders= [0,0], p_moments=[-1,-1], nquads=None, hom_bc=[False, False]):
+def construct_vector_conforming_projection(Vh, reg_orders= (0,0), p_moments=(-1,-1), nquads=None, hom_bc=(False, False)):
     dim_tot = Vh.nbasis
 
     # fully discontinuous space
@@ -1249,7 +1249,7 @@ def get_scalar_moment_correction(patch_space, conf_axis, reg=0, p_moments=-1, nq
                 a_nb[p+2] = -(a_sm[p+2] + 2*b_sm[p+2])
     return a_sm, a_nb, b_sm, b_nb, Correct_coef_bnd, Correct_coef_0
 
-def get_vector_moment_correction(patch_space, conf_comp, conf_axis, reg=[[0,0], [0,0]], p_moments=[[-1,-1], [-1,-1]], nquads=None, hom_bc=[[False, False],[False, False]]):
+def get_vector_moment_correction(patch_space, conf_comp, conf_axis, reg=([0,0], [0,0]), p_moments=([-1,-1], [-1,-1]), nquads=None, hom_bc=([False, False],[False, False])):
 
     proj_op = 0
     local_shape = [[patch_space.spaces[comp].spaces[axis].nbasis 

@@ -629,7 +629,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
     return domain
 
 
-def build_multipatch_rectangle(nb_patch_x = 2, nb_patch_y = 2, x_min=0, x_max=np.pi, y_min=0, y_max=np.pi, perio=[True,True], ncells=[4,4], comm=None, F_name='Identity'):
+def build_multipatch_rectangle(nb_patch_x = 2, nb_patch_y = 2, x_min=0, x_max=np.pi, y_min=0, y_max=np.pi, perio=(True,True), ncells=(4,4), comm=None, F_name='Identity'):
     """
     Create a 2D multipatch rectangle domain with the prescribed number of patch in each direction.
     (copied from Valentin's code)
