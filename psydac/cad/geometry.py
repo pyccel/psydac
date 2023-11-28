@@ -136,6 +136,7 @@ class Geometry( object ):
         elif mapping.ldim == 3:
             M        = Mapping('mapping_0', dim=3)
             domain   = M(Cube(name='Omega'))
+            M.set_callable_mapping(mapping)
             mappings = {domain.name: mapping}
             ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
             periodic = {domain.name: mapping.space.domain_decomposition.periods}
