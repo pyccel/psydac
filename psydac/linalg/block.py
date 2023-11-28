@@ -686,13 +686,12 @@ class BlockLinearOperator(LinearOperator):
         """
         if out is not None:
             assert isinstance(out, BlockLinearOperator)
-            assert out.domain is self.domain
-            assert out.codomain is self.codomain
+            assert out.codomain is self.domain
+            assert out.domain is self.codomain
         else:
-            out = BlockLinearOperator(self.domain, self.codomain)
+            out = BlockLinearOperator(self.codomain, self.domain)
 
         for (i, j), Lij in self._blocks.items():
-            assert isinstance(Lij, (StencilMatrix, BlockLinearOperator))
             if out[j,i]==None:
                 out[j, i] = Lij.transpose(conjugate=conjugate)
             else:
@@ -901,7 +900,6 @@ class BlockLinearOperator(LinearOperator):
             out = BlockLinearOperator(self.domain, self.codomain)
 
         for (i, j), Lij in self._blocks.items():
-            assert isinstance(Lij, (StencilMatrix, BlockLinearOperator))
             if out[i,j]==None:
                 out[i, j] = Lij.copy()
             else:
