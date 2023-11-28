@@ -684,19 +684,20 @@ class BlockLinearOperator(LinearOperator):
         out : BlockLinearOperator(optional)
             Optional out for the transpose to avoid temporaries
         """
-        if out is not None :
-            assert isinstance(out,BlockLinearOperator)
-            assert out.domain==self.codomain
-            assert out.codomain == self.domain
-            #should probably have more asserts
-            for i, line in enumerate(self.blocks):
-                for j, b in enumerate(line) :
-                    b.transpose(conjugate=conjugate, out=out._blocks[(j,i)])
-        else :
-            blocks, blocks_T = self.compute_interface_matrices_transpose()
-            blocks = {(j, i): b.transpose(conjugate=conjugate) for (i, j), b in blocks.items()}
-            blocks.update(blocks_T)
-            out = BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
+        if out is not None:
+            assert isinstance(out, BlockLinearOperator)
+            assert out.domain is self.domain
+            assert out.codomain is self.codomain
+        else:
+            out = BlockLinearOperator(self.domain, self.codomain)
+
+        for (i, j), Lij in self._blocks.items():
+            assert isinstance(Lij, (StencilMatrix, BlockLinearOperator))
+            if out[j,i]==None:
+                out[j, i] = Lij.transpose(conjugate=conjugate)
+            else:
+                Lij.transpose(conjugate=conjugate, out=out[j,i])
+
         out.set_backend(self._backend)
         return out
 
@@ -894,20 +895,20 @@ class BlockLinearOperator(LinearOperator):
         """
         if out is not None:
             assert isinstance(out, BlockLinearOperator)
-            assert out.domain==self.domain
-            assert out.codomain == self.codomain
-            for i, line in enumerate(self.blocks):
-                for j, b in enumerate(line) :
-                    b.copy(out=out._blocks[(i,j)])
-        else :
-            blocks = {ij: Bij.copy() for ij, Bij in self._blocks.items()}
-            out = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
-        if self._backend is not None:
-            out._func = self._func
-            out._args = self._args
-            out._blocks_as_args = [out._blocks[key]._data for key in self._blocks]
-            out._backend = self._backend
-        return out
+            assert out.domain is self.domain
+            assert out.codomain is self.codomain
+        else:
+            out = BlockLinearOperator(self.domain, self.codomain)
+
+        for (i, j), Lij in self._blocks.items():
+            assert isinstance(Lij, (StencilMatrix, BlockLinearOperator))
+            if out[i,j]==None:
+                out[i, j] = Lij.copy()
+            else:
+                Lij.copy(out=out[i,j])
+
+        out.set_backend(self._backend)
+        
 
     # ...
     def __imul__(self, a):

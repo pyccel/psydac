@@ -170,6 +170,17 @@ def test_2D_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     assert L1.nonzero_block_indices == ((0,0),(0,1),(1,0))
     assert L1.backend()==None
 
+    # Test copy method with an out
+    L4 = BlockLinearOperator( W, W )
+    L1.copy(out=L4)
+    assert L1.domain == W
+    assert L1.codomain == W
+    assert L1.dtype == dtype
+    assert L1.n_block_rows == 2
+    assert L1.n_block_cols == 2
+    assert L1.nonzero_block_indices == ((0,0),(0,1),(1,0))
+    assert L1.backend()==None
+
     L2 = BlockLinearOperator( W, W, blocks=list_blocks )
     L3 = BlockLinearOperator( W, W )
 
@@ -177,10 +188,11 @@ def test_2D_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     L3[0,1] = M2
     L3[1,0] = M3
 
-    # Convert L1, L2 and L3 to COO form
+    # Convert L1, L2, L3 and L4 to COO form
     coo1 = L1.tosparse().tocoo()
     coo2 = L2.tosparse().tocoo()
     coo3 = L3.tosparse().tocoo()
+    coo4 = L4.tosparse().tocoo()
 
     # Check if the data are in the same place
     assert np.array_equal( coo1.col , coo2.col  )
@@ -190,6 +202,46 @@ def test_2D_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     assert np.array_equal( coo1.col , coo3.col  )
     assert np.array_equal( coo1.row , coo3.row  )
     assert np.array_equal( coo1.data, coo3.data )
+
+    assert np.array_equal( coo1.col , coo4.col  )
+    assert np.array_equal( coo1.row , coo4.row  )
+    assert np.array_equal( coo1.data, coo4.data )
+    
+    dict_blocks = {(0,0):M1, (0,1):M2}
+
+    L1 = BlockLinearOperator( W, W, blocks=dict_blocks )
+
+    # Test transpose
+    LT1 = L1.transpose()
+    LT2 = BlockLinearOperator( W, W )
+    L1.transpose(out=LT2)
+
+    assert LT1.domain == W
+    assert LT1.codomain == W
+    assert LT1.dtype == dtype
+    assert LT1.n_block_rows == 2
+    assert LT1.n_block_cols == 2
+    assert LT1.nonzero_block_indices == ((0,0),(1,0))
+    assert LT1.backend()==None
+
+    assert LT2.domain == W
+    assert LT2.codomain == W
+    assert LT2.dtype == dtype
+    assert LT2.n_block_rows == 2
+    assert LT2.n_block_cols == 2
+    assert LT2.nonzero_block_indices == ((0,0),(1,0))
+    assert LT2.backend()==None
+
+    #convert to scipy for tests
+    LT1_sp = LT1.tosparse()
+    LT2_sp = LT2.tosparse()
+    L1_spT  = L1.tosparse().T
+
+    # Check if the data are in the same place
+    assert abs(LT1_sp - L1_spT).max()< 1e-14
+    assert abs(LT2_sp - L1_spT).max()< 1e-14
+
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'ndim', [1, 2, 3] )
