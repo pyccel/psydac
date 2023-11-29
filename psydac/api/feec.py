@@ -16,8 +16,9 @@ __all__ = ('DiscreteDerham',)
 
 #==============================================================================
 class DiscreteDerham(BasicDiscrete):
-    """ Represent the discrete De Rham sequence.
-    Should be initialized via discretize_derham function in api.discretization.py
+    """ Represent the discrete De Rham sequence in the case of a single patch geometry.
+    For the multipatch counterpart please see `MultipatchDiscreteDerham` in `psydac.feec.multipatch.api.py`
+    Should be initialized via `discretize_derham` function in `api.discretization.py`
     
     Parameters
     ----------
@@ -116,7 +117,7 @@ class DiscreteDerham(BasicDiscrete):
 
     @property
     def H1vec(self):
-        """Vector H1 space built as cartesian product of V0 n times with n = dimension of (logical) domain"""
+        """Vector-valued H1 space built as cartesian product of V0 n times with n = dimension of (logical) domain"""
         assert self.has_vec
         return self._H1vec
 
@@ -141,15 +142,17 @@ class DiscreteDerham(BasicDiscrete):
         return tuple(V.diff.matrix for V in self.spaces[:-1])
 
     @property
-    def derivatives_as_operators(self):
-        """Differential operators of the De Rham sequence as DiffOperator objects.
-        Those are objects with domain and codomain properties that are FemSpace, 
-        they act on FemField (they take a FemField of their domain as input and return a FemField of their codomain."""
+    def derivatives(self):
+        """Differential operators of the De Rham sequence as `DiffOperator` objects.
+        Those are objects with `domain` and `codomain` properties that are `FemSpace`, 
+        they act on `FemField` (they take a `FemField` of their `domain` as input and return 
+        a `FemField` of their `codomain`."""
         return tuple(V.diff for V in self.spaces[:-1])
 
     #--------------------------------------------------------------------------
     def projectors(self, *, kind='global', nquads=None):
-        """Projectors mapping callable to FemFields of the De Rham sequence.
+        """Projectors mapping callable functions of the physical coordinates to a 
+        corresponding `FemField` object in the De Rham sequence.
         
         Parameters
         ----------
