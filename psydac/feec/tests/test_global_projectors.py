@@ -311,6 +311,9 @@ if __name__ == '__main__':
     periodic = True
     ncells   = [10, 20, 40, 80, 160, 320, 640]
     
+    test_H1_projector_1d((0,1), 1, 1, True, 1)
+    exit()
+    
     for nc in ncells:
         test_derham_projector_2d_hdiv([nc, nc], [degree, degree], [periodic, periodic], [2, 2])
     

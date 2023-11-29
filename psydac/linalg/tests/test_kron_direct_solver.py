@@ -649,7 +649,7 @@ def test_3d_m1_solver(ncells, degree, periodic):
     rhs_direct = M1 @ x_direct
     assert np.linalg.norm((rhs-rhs_iterative).toarray()) < tol
     assert np.linalg.norm((rhs-rhs_direct).toarray()) < tol
-    
+
     
 #===============================================================================
 

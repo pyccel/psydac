@@ -301,7 +301,7 @@ class PConjugateGradient(InverseLinearOperator):
         Stores a copy of the output in x0 to speed up consecutive calculations of slightly altered linear systems
 
     """
-    def __init__(self, A, *, pc='jacobi', x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
+    def __init__(self, A, *, pc='jacobi', x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False, precond=None):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
@@ -318,7 +318,7 @@ class PConjugateGradient(InverseLinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._solver = 'pcg'
-        self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
+        self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle, "precond":precond}
         self._check_options(**self._options)
         tmps_codomain = {key: codomain.zeros() for key in ("p", "s")}
         tmps_domain = {key: domain.zeros() for key in ("v", "r")}
@@ -330,7 +330,7 @@ class PConjugateGradient(InverseLinearOperator):
 
             if key == 'pc':
                 assert value is not None, "pc may not be None"
-                assert value == 'jacobi', "unsupported preconditioner"
+                assert value == 'jacobi' or value == 'given_precond', "unsupported preconditioner"
             elif key == 'x0':
                 if value is not None:
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
@@ -345,6 +345,8 @@ class PConjugateGradient(InverseLinearOperator):
                 assert isinstance(value, bool), "verbose must be a bool"
             elif key == 'recycle':
                 assert isinstance(value, bool), "recycle must be a bool"
+            elif key == 'precond':
+                pass
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
@@ -402,6 +404,8 @@ class PConjugateGradient(InverseLinearOperator):
         assert pc is not None
         if pc == 'jacobi':
             psolve = lambda r, out: InverseLinearOperator.jacobi(A, r, out)
+        elif pc == 'given_precond':
+            psolve = options["precond"]
         #elif pc == 'weighted_jacobi':
         #    psolve = lambda r, out: InverseLinearOperator.weighted_jacobi(A, r, out) # allows for further specification not callable like this!
         #elif isinstance(pc, str):
