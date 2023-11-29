@@ -989,6 +989,34 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     # Check data in 1D array
     assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
     assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+
+    # Test copy with an out 
+    K = BlockLinearOperator( W, W )
+    L.copy(out=K)
+
+    # Compute Block-vector product
+    K.dot(X, out= Y)
+
+    # Check data in 1D array
+    assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
+    assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+
+    # Test transpose with an out
+    N = BlockLinearOperator( W, W )
+    L.transpose(out = N)
+    
+    # Compute Block-vector product
+    Z = N.dot(X)
+
+    # Compute matrix-vector products for each block
+    y1 = M1.T.dot(x1) + M3.T.dot(x2)
+    y2 = M2.T.dot(x1) + M4.T.dot(x2)
+
+    # Check data in 1D array
+    assert np.allclose( Z.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
+    assert np.allclose( Z.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+    
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )

@@ -2569,12 +2569,17 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
 
     # TEST: compute transpose, then convert to Scipy sparse format
     Ts = M.transpose().tosparse()
+    # Test using out option
+    To = StencilMatrix(V, V)
+    M.transpose(out=To)
+    Tos = To.tosparse()
 
     # Exact result: convert to Scipy sparse format, then transpose
     Ts_exact = M.tosparse().transpose()
 
     # Exact result: convert to Scipy sparse format including padding, then
     # transpose, hence remove entries that do not belong to current process.
+    # V.C 29/11/2023 : Is there a reason to compute twice Ts_exact?
     Ts_exact = M.tosparse(with_pads=True).transpose()
 
     # ...
@@ -2589,6 +2594,7 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
 
     # Check data
     assert abs(Ts - Ts_exact).max() < 1e-14
+    assert abs(Tos - Ts_exact).max() < 1e-14
 
 # ===============================================================================
 # PARALLEL BACKENDS TESTS
