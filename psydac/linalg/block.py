@@ -688,14 +688,16 @@ class BlockLinearOperator(LinearOperator):
             assert isinstance(out, BlockLinearOperator)
             assert out.codomain is self.domain
             assert out.domain is self.codomain
+            for (i, j), Lij in self._blocks.items():
+                if out[j,i]==None:
+                    out[j, i] = Lij.transpose(conjugate=conjugate)
+                else:
+                    Lij.transpose(conjugate=conjugate, out=out[j,i])
         else:
-            out = BlockLinearOperator(self.codomain, self.domain)
-
-        for (i, j), Lij in self._blocks.items():
-            if out[j,i]==None:
-                out[j, i] = Lij.transpose(conjugate=conjugate)
-            else:
-                Lij.transpose(conjugate=conjugate, out=out[j,i])
+            blocks, blocks_T = self.compute_interface_matrices_transpose()
+            blocks = {(j, i): b.transpose(conjugate=conjugate) for (i, j), b in blocks.items()}
+            blocks.update(blocks_T)
+            out = BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
 
         out.set_backend(self._backend)
         return out
@@ -1034,7 +1036,7 @@ class BlockLinearOperator(LinearOperator):
                             data_exchanger.update_ghost_regions(array_minus=block_ij_k1k2._data)
 
                             if cart_i.is_comm_null:
-                                blocks_T[j,i][k2,k1] = block_ij_k1k2.transpose(Mt=block_ji_k2k1)
+                                blocks_T[j,i][k2,k1] = block_ij_k1k2.transpose(out=block_ji_k2k1)
                     else:
                         continue
 
@@ -1096,7 +1098,7 @@ class BlockLinearOperator(LinearOperator):
                             data_exchanger.update_ghost_regions(array_plus=block_ji_k2k1._data)
 
                             if cart_j.is_comm_null:
-                                blocks_T[i,j][k1,k2] = block_ji_k2k1.transpose(Mt=block_ij_k1k2)
+                                blocks_T[i,j][k1,k2] = block_ji_k2k1.transpose(out=block_ij_k1k2)
 
                     else:
                         continue
@@ -1146,7 +1148,7 @@ class BlockLinearOperator(LinearOperator):
                     data_exchanger.update_ghost_regions(array_minus=block_ij._data)
 
                     if cart_i.is_comm_null:
-                        blocks_T[j,i] = block_ij.transpose(Mt=block_ji)
+                        blocks_T[j,i] = block_ij.transpose(out=block_ji)
 
                 if not cart_j.is_comm_null:
                     if cart_ij.intercomm.rank == 0:
@@ -1173,7 +1175,7 @@ class BlockLinearOperator(LinearOperator):
                     data_exchanger.update_ghost_regions(array_plus=block_ji._data)
 
                     if cart_j.is_comm_null:
-                        blocks_T[i,j] = block_ji.transpose(Mt=block_ij)
+                        blocks_T[i,j] = block_ji.transpose(out=block_ij)
 
         return blocks, blocks_T
 

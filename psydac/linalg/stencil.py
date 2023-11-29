@@ -2047,7 +2047,7 @@ class StencilInterfaceMatrix(LinearOperator):
             new_nrows[d] += er
 
     # ...
-    def transpose( self, conjugate=False, Mt=None):
+    def transpose( self, conjugate=False, out=None):
         """ Create new StencilInterfaceMatrix Mt, where domain and codomain are swapped
             with respect to original matrix M, and Mt_{ij} = M_{ji}.
         """
@@ -2055,18 +2055,18 @@ class StencilInterfaceMatrix(LinearOperator):
         # For clarity rename self
         M = self
 
-        if Mt is None:
+        if out is None:
             # Create new matrix where domain and codomain are swapped
 
-            Mt = StencilInterfaceMatrix(M.codomain, M.domain, M.codomain_start, M.domain_start, M.codomain_axis, M.domain_axis, M.codomain_ext, M.domain_ext,
+            out = StencilInterfaceMatrix(M.codomain, M.domain, M.codomain_start, M.domain_start, M.codomain_axis, M.domain_axis, M.codomain_ext, M.domain_ext,
                                         flip=M.flip, pads=M.pads, backend=M.backend)
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
         if conjugate:
-            M._transpose_func(np.conjugate(M._data), Mt._data, **M._transpose_args)
+            M._transpose_func(np.conjugate(M._data), out._data, **M._transpose_args)
         else:
-            M._transpose_func(M._data, Mt._data, **M._transpose_args)
-        return Mt
+            M._transpose_func(M._data, out._data, **M._transpose_args)
+        return out
 
     def _prepare_transpose_args(self):
 
