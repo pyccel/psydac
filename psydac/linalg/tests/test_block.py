@@ -991,7 +991,30 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
 
     # Test copy with an out 
+    # Create random matrix 
+    N1 = StencilMatrix( V, V )
+    N2 = StencilMatrix( V, V )
+    N3 = StencilMatrix( V, V )
+    N4 = StencilMatrix( V, V )
+
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            N1[:,:,k1,k2] = factor*random()
+            N2[:,:,k1,k2] = factor*random()
+            N3[:,:,k1,k2] = factor*random()
+            N4[:,:,k1,k2] = factor*random()
+
     K = BlockLinearOperator( W, W )
+    N = BlockLinearOperator( W, W )
+
+
+    K[0,0] = N1
+    K[0,1] = N2
+    K[1,0] = N3
+    K[1,1] = N4
+
+    #replace the random entries to check they are really overwritten
+    K.copy(out=N)
     L.copy(out=K)
 
     # Compute Block-vector product
@@ -1001,8 +1024,7 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
     assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
 
-    # Test transpose with an out
-    N = BlockLinearOperator( W, W )
+    # Test transpose with an out, check that we overwrite the random entries
     L.transpose(out = N)
     
     # Compute Block-vector product
