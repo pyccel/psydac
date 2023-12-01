@@ -40,7 +40,7 @@ class DiscreteDerham(BasicDiscrete):
     def __init__(self, mapping, *spaces):
 
         assert (mapping is None) or isinstance(mapping, Mapping)
-        assert all(isinstance(space, FemSpace))
+        assert all(isinstance(space, FemSpace) for space in spaces)
 
         self.has_vec = isinstance(spaces[-1], VectorFemSpace)
 
