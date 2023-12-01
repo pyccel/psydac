@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 64.0", "wheel", "numpy", "pyccel >= 1.8.1"]
+requires = ["setuptools >= 64.0", "wheel", "numpy", "pyccel >= 1.9.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -33,7 +33,7 @@ dependencies = [
 
     # Our packages from PyPi
     'sympde == 0.18.1',
-    'pyccel >= 1.8.1',
+    'pyccel >= 1.9.2',
     'gelato == 0.12',
 
     # In addition, we depend on mpi4py and h5py (MPI version).
