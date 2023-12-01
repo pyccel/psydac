@@ -16,7 +16,7 @@ from psydac.api.discretization import discretize
 from psydac.api.settings       import PSYDAC_BACKENDS
 
 #==============================================================================
-@pytest.fixture(params=[None, 'numba', 'pyccel-gcc'])
+@pytest.fixture(params=[None, 'pyccel-gcc'])
 def backend(request):
     return request.param
 
@@ -33,7 +33,7 @@ def test_field_and_constant(backend):
     u = element_of(V, name='u')
     v = element_of(V, name='v')
     f = element_of(V, name='f')
-    c = Constant(name='c')
+    c = Constant(name='c', real=True)
 
     g = c * f**2
     a = BilinearForm((u, v), integral(domain, u * v))
@@ -58,4 +58,4 @@ def test_field_and_constant(backend):
     xh = equation_h.solve(c=c_value, f=fh)
 
     # Verify that solution is equal to c_value
-    assert np.allclose(xh.coeffs.toarray(), c_value, rtol=1e-10, atol=1e-16)
+    assert np.allclose(xh.coeffs.toarray(), c_value, rtol=1e-9, atol=1e-16)

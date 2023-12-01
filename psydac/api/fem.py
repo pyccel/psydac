@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
-#         nderiv has not been changed. shall we add quad_order too?
+#         nderiv has not been changed. shall we add nquads too?
 
 import numpy as np
 from sympy import ImmutableDenseMatrix, Matrix
@@ -10,6 +10,7 @@ from sympde.expr          import BilinearForm as sym_BilinearForm
 from sympde.expr          import LinearForm as sym_LinearForm
 from sympde.expr          import Functional as sym_Functional
 from sympde.expr          import Norm as sym_Norm
+from sympde.expr          import SemiNorm as sym_SemiNorm
 from sympde.topology      import Boundary, Interface
 from sympde.topology      import VectorFunctionSpace
 from sympde.topology      import ProductSpace
@@ -31,11 +32,10 @@ from psydac.fem.projectors   import knot_insertion_projection_operator
 from psydac.core.bsplines    import find_span, basis_funs_all_ders
 from psydac.ddm.cart         import InterfaceCartDecomposition
 
-__all__ = (
-    'DiscreteBilinearForm',
-    'DiscreteFunctional',
-    'DiscreteLinearForm',
-    'DiscreteSumForm',
+__all__ = ('collect_spaces', 'compute_diag_len', 'get_nquads',
+           'construct_test_space_arguments', 'construct_trial_space_arguments', 
+           'construct_quad_grids_arguments', 'reset_arrays', 'do_nothing', 'extract_stencil_mats', 
+           'DiscreteBilinearForm', 'DiscreteFunctional', 'DiscreteLinearForm', 'DiscreteSumForm'
 )
 
 #==============================================================================
@@ -85,10 +85,16 @@ def compute_diag_len(p, md, mc):
     n = n-np.minimum(0, n-p)+p+1
     return n.astype('int')
 
-def get_quad_order(Vh):
+def get_nquads(Vh):
+    """
+    This function is to be deleted in the future, as we intend to make the number of
+    quadrature points a property of DiscreteLinearForms, DiscreteBilinearForms and
+    DiscreteFunctionals rather than a property of spaces.
+    
+    """
     if isinstance(Vh, (ProductFemSpace, VectorFemSpace)):
-        return get_quad_order(Vh.spaces[0])
-    return tuple([g.weights.shape[1] for g in Vh.quad_grids])
+        return get_nquads(Vh.spaces[0])
+    return tuple([g.weights.shape[1] for g in Vh.quad_grids()])
 
 #==============================================================================
 def construct_test_space_arguments(basis_values):
@@ -133,12 +139,13 @@ def construct_quad_grids_arguments(grid, use_weights=True):
     else:
         quads = flatten(list(zip(points)))
 
-    quads_order   = flatten(grid.quad_order)
+    nquads        = flatten(grid.nquads)
     n_elements    = grid.n_elements
-    return n_elements, quads, quads_order
+    return n_elements, quads, nquads
 
 def reset_arrays(*args):
-    for a in args: a[:] = 0.
+    for a in args:
+        a[:]= 0.j if a.dtype==complex else 0.
 
 def do_nothing(*args): return 0
 
@@ -177,8 +184,11 @@ class DiscreteBilinearForm(BasicDiscrete):
     update_ghost_regions: bool
         Accumulate the contributions of the neighbouring processes.
 
-    quad_order: list of tuple
+    nquads: list of tuple
         The number of quadrature points used in the assembly method.
+        This optional argument will be mandatory in the future, when quadrature grids
+        will not be property-like attributes of a TensorFemSpace anymore, but instead will only be
+        given to the constructors of DiscreteBilinearForm, DiscreteLinearForm, and DiscreteFunctional.
 
     backend: dict
         The backend used to accelerate the computing kernels.
@@ -197,7 +207,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     """
     def __init__(self, expr, kernel_expr, domain_h, spaces, *, matrix=None, update_ghost_regions=True,
-                       quad_order=None, backend=None, linalg_backend=None, assembly_backend=None,
+                       nquads=None, backend=None, linalg_backend=None, assembly_backend=None,
                        symbolic_mapping=None):
 
         if not isinstance(expr, sym_BilinearForm):
@@ -320,12 +330,12 @@ class DiscreteBilinearForm(BasicDiscrete):
             self._trial_ext = trial_target.ext
 
         #...
-        discrete_space   = (trial_space, test_space)
-        space_quad_order = [qo - 1 for qo in get_quad_order(test_space)]
-        quad_order       = [qo + 1 for qo in (quad_order or space_quad_order)]
+        discrete_space = (trial_space, test_space)
+        space_nquads   = [qo - 1 for qo in get_nquads(test_space)]
+        nquads         = [qo + 1 for qo in (nquads or space_nquads)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(quad_order, get_quad_order(test_space))
+        assert np.array_equal(nquads, get_nquads(test_space))
 
         # Assuming that all vector spaces (and their Cartesian decomposition,
         # if any) are compatible with each other, extract the first available
@@ -344,7 +354,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
         # self._func, self._free_args, self._max_nderiv and self._backend
         BasicDiscrete.__init__(self, expr, kernel_expr, comm=comm, root=0, discrete_space=discrete_space,
-                       quad_order=quad_order, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
+                       nquads=nquads, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
                        mapping_space=mapping_space, num_threads=self._num_threads,backend=assembly_backend)
 
         #...
@@ -429,6 +439,17 @@ class DiscreteBilinearForm(BasicDiscrete):
         return self._args
 
     def assemble(self, *, reset=True, **kwargs):
+        """
+        This method assembles the left hand side Matrix by calling the private method `self._func` with proper arguments.
+
+        In the complex case, this function returns the matrix conjugate. This comes from the fact that the
+        problem `a(u,v)=b(v)` is discretized as `A @ conj(U) = B` due to the antilinearity of `a` in the first variable.
+        Thus, to obtain `U`, the assemble function returns `conj(A)`.
+
+        TODO: remove these lines when the dot product is changed for complex.
+        For now, since the dot product does not compute the conjugate in the complex case. We do not use the conjugate in the assemble function.
+        It should work if the complex only comes from the `rhs` in the linear form.
+        """
 
         if self._free_args:
             basis   = []
@@ -475,6 +496,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._func(*args, *self._threads_args)
         if self._matrix and self._update_ghost_regions:
             self._matrix.exchange_assembly_data()
+
+        # TODO : uncomment this line when the conjugate is applied on the dot product in the complex case
+        #self._matrix.conjugate(out=self._matrix)
 
         if self._matrix: self._matrix.ghost_regions_in_sync = False
         return self._matrix
@@ -534,8 +558,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                 map_coeffs = [[e._coeffs._data for e in self.mapping._fields]]
                 spaces     = [self.mapping._fields[0].space]
                 map_degree = [sp.degree for sp in spaces]
-                map_span   = [[q.spans-s for q,s in zip(sp.quad_grids, sp.vector_space.starts)] for sp in spaces]
-                map_basis  = [[q.basis for q in sp.quad_grids] for sp in spaces]
+                map_span   = [[q.spans-s for q,s in zip(sp.quad_grids(), sp.vector_space.starts)] for sp in spaces]
+                map_basis  = [[q.basis for q in sp.quad_grids()] for sp in spaces]
                 points     = [g.points for g in self.grid]
                 weights    = [self.mapping.weights_field.coeffs._data] if self.is_rational_mapping else []
             elif len(self.grid) == 2:
@@ -574,8 +598,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                         weights_p[0] = weights_p[0]._interface_data[axis, ext]
 
                 map_degree = [sp.degree for sp in spaces]
-                map_span   = [[q.spans-s for q,s in zip(sp.quad_grids, sp.vector_space.starts)] for sp in spaces]
-                map_basis  = [[q.basis for q in sp.quad_grids] for sp in spaces]
+                map_span   = [[q.spans-s for q,s in zip(sp.quad_grids(), sp.vector_space.starts)] for sp in spaces]
+                map_basis  = [[q.basis for q in sp.quad_grids()] for sp in spaces]
                 points     = [g.points for g in self.grid]
 
             nderiv = self.max_nderiv
@@ -625,7 +649,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def allocate_matrices(self, backend=None):
         """
-        Allocate the global matrices used in the assmebly method.
+        Allocate the global matrices used in the assembly method.
         In this method we allocate only the matrices that are computed in the self._target domain,
         we also avoid double allocation if we have many DiscreteLinearForm that are defined on the same self._target domain.
 
@@ -743,8 +767,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                         s_d = trial_n - trial_s - trial_degree[k2][axis] - 1 if ext_d == 1 else 0
                         s_c =  test_n - trial_s -  test_degree[k1][axis] - 1 if ext_c == 1 else 0
 
-                        direction = target.direction
-                        direction = 1 if direction is None else direction
+                        # We only handle the case where direction = 1
+                        direction = target.ornt
+                        if domain.dim == 2:
+                            assert direction == 1
+                        elif domain.dim == 3:
+                            assert all(d==1 for d in direction)
+
+                        direction = 1
                         flip = [direction]*domain.dim
                         flip[axis] = 1
                         if self._func != do_nothing:
@@ -760,9 +790,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                     if is_conformal:
                         matrix[k1, k2] = global_mats[k1, k2]
                     elif use_restriction:
-                        matrix.operators[-1][k1, k2] = global_mats[k1, k2]
+                        matrix.multiplicants[-1][k1, k2] = global_mats[k1, k2]
                     elif use_prolongation:
-                        matrix.operators[0][k1, k2] = global_mats[k1, k2]
+                        matrix.multiplicants[0][k1, k2] = global_mats[k1, k2]
 
         else: # case of scalar equation
             if is_broken: # multi-patch
@@ -782,8 +812,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                     s_d = trial_n - trial_s - trial_degree[axis] - 1 if ext_d == 1 else 0
                     s_c =  test_n - trial_s -  test_degree[axis] - 1 if ext_c == 1 else 0
 
-                    direction = target.direction
-                    direction = 1 if direction is None else direction
+                    # We only handle the case where direction = 1
+                    direction = target.ornt
+                    if domain.dim == 2:
+                        assert direction == 1
+                    elif domain.dim == 3:
+                        assert all(d==1 for d in direction)
+
+                    direction = 1
                     flip = [direction]*domain.dim
                     flip[axis] = 1
 
@@ -803,13 +839,17 @@ class DiscreteBilinearForm(BasicDiscrete):
                                 mat = ComposedLinearOperator(trial_space, test_space, mat, P)
 
                         global_mats[i, j] = mat
+
+                # define part of the global matrix as a StencilMatrix
                 else:
                     global_mats[i, j] = StencilMatrix(trial_space, test_space, pads=tuple(pads))
 
                 if (i, j) in global_mats:
                     self._matrix[i, j] = global_mats[i, j]
 
-            else: # single patch
+
+            # in single patch case, we define the matrices needed for the patch
+            else:
                 if self._matrix:
                     global_mats[0, 0] = self._matrix
                 else:
@@ -817,6 +857,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
                 self._matrix = global_mats[0, 0]
 
+        # Set the backend of our matrices if given
         if backend is not None and is_broken:
             for mat in global_mats.values():
                 mat.set_backend(backend)
@@ -824,6 +865,55 @@ class DiscreteBilinearForm(BasicDiscrete):
             self._matrix.set_backend(backend)
 
         self._global_matrices = [M._data for M in extract_stencil_mats(global_mats.values())]
+
+
+# ==============================================================================
+class DiscreteSesquilinearForm(DiscreteBilinearForm):
+    """ Class that represents the concept of a discrete sesqui-linear form with the antilinearity on the first variable.
+        This class allocates the matrix and generates the matrix assembly method.
+
+    Parameters
+    ----------
+
+    expr : sympde.expr.expr.SesquilinearForm
+        The symbolic sesqui-linear form.
+
+    kernel_expr : sympde.expr.evaluation.KernelExpression
+        The atomic representation of the sesqui-linear form.
+
+    domain_h : Geometry
+        The discretized domain
+
+    spaces: list of FemSpace
+        The trial and test discrete spaces.
+
+    matrix: Matrix
+        The matrix that we assemble into it.
+        If not provided, it will create a new Matrix of the appropriate space.
+
+    update_ghost_regions: bool
+        Accumulate the contributions of the neighbouring processes.
+
+    nquads: list of tuple
+        The number of quadrature points used in the assembly method.
+
+    backend: dict
+        The backend used to accelerate the computing kernels.
+        The backend dictionaries are defined in the file psydac/api/settings.py
+
+    assembly_backend: dict
+        The backend used to accelerate the assembly method.
+        The backend dictionaries are defined in the file psydac/api/settings.py
+
+    linalg_backend: dict
+        The backend used to accelerate the computing kernels of the linear operator.
+        The backend dictionaries are defined in the file psydac/api/settings.py
+
+    symbolic_mapping: Sympde.topology.Mapping
+        The symbolic mapping which defines the physical domain of the sesqui-linear form.
+
+    """
+
 
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
@@ -852,8 +942,11 @@ class DiscreteLinearForm(BasicDiscrete):
     update_ghost_regions : bool
         Accumulate the contributions of the neighbouring processes.
 
-    quad_order : list or tuple
+    nquads : list or tuple
         The number of quadrature points used in the assembly method.
+        This optional argument will be mandatory in the future, when quadrature grids
+        will not be property-like attributes of a TensorFemSpace anymore, but instead will only be
+        given to the constructors of DiscreteBilinearForm, DiscreteLinearForm, and DiscreteFunctional.
 
     backend : dict
         The backend used to accelerate the computing kernels.
@@ -864,7 +957,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
     """
     def __init__(self, expr, kernel_expr, domain_h, space, *, vector=None,
-                       update_ghost_regions=True, quad_order=None, backend=None,
+                       update_ghost_regions=True, nquads=None, backend=None,
                        symbolic_mapping=None):
 
         if not isinstance(expr, sym_LinearForm):
@@ -933,11 +1026,11 @@ class DiscreteLinearForm(BasicDiscrete):
         discrete_space            = test_space
 
 
-        space_quad_order = [qo - 1 for qo in get_quad_order(test_space)]
-        quad_order       = [qo + 1 for qo in (quad_order or space_quad_order)]
+        space_nquads = [qo - 1 for qo in get_nquads(test_space)]
+        nquads       = [qo + 1 for qo in (nquads or space_nquads)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(quad_order, get_quad_order(test_space))
+        assert np.array_equal(nquads, get_nquads(test_space))
 
         comm        = None
         if vector_space.parallel:
@@ -946,7 +1039,7 @@ class DiscreteLinearForm(BasicDiscrete):
         # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
         # self._func, self._free_args, self._max_nderiv and self._backend
         BasicDiscrete.__init__(self, expr, kernel_expr, comm=comm, root=0, discrete_space=discrete_space,
-                              quad_order=quad_order, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
+                              nquads=nquads, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
                               mapping_space=mapping_space, num_threads=self._num_threads, backend=backend)
 
         if not isinstance(target, Boundary):
@@ -1010,6 +1103,17 @@ class DiscreteLinearForm(BasicDiscrete):
         return self._args
 
     def assemble(self, *, reset=True, **kwargs):
+        """
+        This method assembles the right-hand side Vector by calling the private method `self._func` with proper arguments.
+
+        In the complex case, this function returns the vector conjugate. This comes from the fact that the
+        problem `a(u,v)=b(v)` is discretize as `A @ conj(U) = B` due to the antilinearity of `a` in the first variable.
+        Thus, to obtain `U`, the assemble function for the LinearForm return `conj(B)`.
+
+        TODO: remove these lines when the dot product is changed for complex in sympde.
+        For now, since the dot product does not do the conjugate in the complex case, we do not use the conjugate in the assemble function.
+        It should work if the complex only comes from the `rhs` in the linear form.
+        """
         if self._free_args:
             basis   = []
             spans   = []
@@ -1050,6 +1154,9 @@ class DiscreteLinearForm(BasicDiscrete):
         if self._vector and self._update_ghost_regions:
             self._vector.exchange_assembly_data()
 
+        # TODO : uncomment this line when the conjugate is applied on the dot product in the complex case
+        # self._vector.conjugate(out=self._vector)
+
         if self._vector: self._vector.ghost_regions_in_sync = False
         return self._vector.copy()
 
@@ -1089,7 +1196,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         """
         tests_basis, tests_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
-        n_elements, quads, quads_degree         = construct_quad_grids_arguments(self.grid, use_weights=False)
+        n_elements, quads, nquads               = construct_quad_grids_arguments(self.grid, use_weights=False)
 
         global_pads   = self.space.vector_space.pads
 
@@ -1097,8 +1204,8 @@ class DiscreteLinearForm(BasicDiscrete):
             mapping    = [e._coeffs._data for e in self.mapping._fields]
             space      = self.mapping._fields[0].space
             map_degree = space.degree
-            map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
-            map_basis  = [q.basis for q in space.quad_grids]
+            map_span   = [q.spans-s for q,s in zip(space.quad_grids(), space.vector_space.starts)]
+            map_basis  = [q.basis for q in space.quad_grids()]
             axis       = self.grid.axis
             ext        = self.grid.ext
             points     = self.grid.points
@@ -1122,7 +1229,7 @@ class DiscreteLinearForm(BasicDiscrete):
             map_span   = []
             map_basis  = []
 
-        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping, *self._global_matrices)
+        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *nquads, *global_pads, *mapping, *self._global_matrices)
 
         with_openmp  = with_openmp and self._num_threads>1
 
@@ -1138,7 +1245,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
     def allocate_matrices(self):
         """
-        Allocate the global matrices used in the assmebly method.
+        Allocate the global matrices used in the assembly method.
         In this method we allocate only the matrices that are computed in the self._target domain,
         we also avoid double allocation if we have many DiscreteLinearForm that are defined on the same self._target domain.
         """
@@ -1194,6 +1301,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         self._global_matrices = [M._data for M in global_mats.values()]
 
+
 #==============================================================================
 class DiscreteFunctional(BasicDiscrete):
     """ Class that represents the concept of a discrete functional form.
@@ -1217,8 +1325,11 @@ class DiscreteFunctional(BasicDiscrete):
     update_ghost_regions : bool
         Accumulate the contributions of the neighbouring processes.
 
-    quad_order : list or tuple
+    nquads : list or tuple
         The number of quadrature points used in the assembly method.
+        This optional argument will be mandatory in the future, when quadrature grids
+        will not be property-like attributes of a TensorFemSpace anymore, but instead will only be
+        given to the constructors of DiscreteBilinearForm, DiscreteLinearForm, and DiscreteFunctional.
 
     backend : dict
         The backend used to accelerate the computing kernels.
@@ -1228,7 +1339,7 @@ class DiscreteFunctional(BasicDiscrete):
         The symbolic mapping which defines the physical domain of the functional form.
 
     """
-    def __init__(self, expr, kernel_expr, domain_h, space, *, quad_order=None,
+    def __init__(self, expr, kernel_expr, domain_h, space, *, nquads=None,
                        backend=None, symbolic_mapping=None):
 
         if not isinstance(expr, sym_Functional):
@@ -1304,16 +1415,16 @@ class DiscreteFunctional(BasicDiscrete):
         if vector_space.parallel:
             comm = vector_space.cart.comm
 
-        space_quad_order = [qo - 1 for qo in get_quad_order(self._space)]
-        quad_order       = [qo + 1 for qo in (quad_order or space_quad_order)]
+        space_nquads = [qo - 1 for qo in get_nquads(self._space)]
+        nquads       = [qo + 1 for qo in (nquads or space_nquads)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(quad_order, get_quad_order(self.space))
+        assert np.array_equal(nquads, get_nquads(self.space))
 
         # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
         # self._func, self._free_args, self._max_nderiv and self._backend
         BasicDiscrete.__init__(self, expr, kernel_expr, comm=comm, root=0, discrete_space=discrete_space,
-                              quad_order=quad_order, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
+                              nquads=nquads, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
                               mapping_space=mapping_space, num_threads=num_threads, backend=backend)
 
         self._comm       = domain_h.comm
@@ -1386,14 +1497,14 @@ class DiscreteFunctional(BasicDiscrete):
         tests_degrees = flatten(tests_degrees)
         spans         = flatten(spans)
         quads         = flatten(list(zip(points, weights)))
-        quads_degree  = flatten(self.grid.quad_order)
+        nquads        = flatten(self.grid.nquads)
 
         if self.mapping:
             mapping    = [e._coeffs._data for e in self.mapping._fields]
             space      = self.mapping._fields[0].space
             map_degree = space.degree
-            map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
-            map_basis  = [q.basis for q in space.quad_grids]
+            map_span   = [q.spans-s for q,s in zip(space.quad_grids(), space.vector_space.starts)]
+            map_basis  = [q.basis for q in space.quad_grids()]
 
             if self.is_rational_mapping:
                 mapping = [*mapping, self.mapping._weights_field._coeffs._data]
@@ -1403,18 +1514,32 @@ class DiscreteFunctional(BasicDiscrete):
             map_span   = []
             map_basis  = []
 
-        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping)
+        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *nquads, *global_pads, *mapping)
         args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
 
         return args
 
     def assemble(self, **kwargs):
+        """
+        This method assembles the square of the functional expression with the given arguments and then compute
+        the square root of the absolute value of the result.
+
+        Example
+        --------------
+        n = SemiNorm(1.0j*v, domain, kind='l2')
+        nh = discretize(n, domain_h,      Vh , **kwargs)
+        fh = FemField(Vh)
+        fh.coeffs[:] = 1
+        n_value = nh.assemble(v=fh)
+
+        In n_value we have the value of np.sqrt(abs(sum((1.0jv)**2)))
+        """
         args = [*self._args]
         for key in self._free_args:
             v = kwargs[key]
             if isinstance(v, FemField):
                 if not v.coeffs.ghost_regions_in_sync:
-                        v.coeffs.update_ghost_regions()
+                    v.coeffs.update_ghost_regions()
                 if v.space.is_product:
                     coeffs = v.coeffs
                     if self._symbolic_space.is_broken:
@@ -1431,7 +1556,7 @@ class DiscreteFunctional(BasicDiscrete):
                 args += (v, )
 
         v = self._func(*args)
-        if isinstance(self.expr, sym_Norm):
+        if isinstance(self.expr, (sym_Norm, sym_SemiNorm)):
             if not( self.comm is None ):
                 v = self.comm.allreduce(sendobj=v)
 
@@ -1442,12 +1567,16 @@ class DiscreteFunctional(BasicDiscrete):
                 raise NotImplementedError('TODO')
         return v
 
+
 #==============================================================================
 class DiscreteSumForm(BasicDiscrete):
 
     def __init__(self, a, kernel_expr, *args, **kwargs):
+        # TODO Uncomment when the SesquilinearForm exist in SymPDE
+        #if not isinstance(a, (sym_BilinearForm, sym_SesquilinearForm, sym_LinearForm, sym_Functional)):
+            # raise TypeError('> Expecting a symbolic BilinearForm, SesquilinearForm, LinearForm, Functional')
         if not isinstance(a, (sym_BilinearForm, sym_LinearForm, sym_Functional)):
-            raise TypeError('> Expecting a symbolic BilinearForm, LinearFormn Functional')
+            raise TypeError('> Expecting a symbolic BilinearForm, LinearForm, Functional')
 
         self._expr = a
         backend = kwargs.pop('backend', None)
@@ -1465,17 +1594,24 @@ class DiscreteSumForm(BasicDiscrete):
         self._kernel_expr = kernel_expr
         operator = None
         for e in kernel_expr:
-            if isinstance(a, sym_BilinearForm):
-                kwargs['update_ghost_regions'] = False
-                ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
-                kwargs['matrix'] = ah._matrix
-                operator = ah._matrix
-
-            elif isinstance(a, sym_LinearForm):
+            if isinstance(a, sym_LinearForm):
                 kwargs['update_ghost_regions'] = False
                 ah = DiscreteLinearForm(a, e, *args, backend=backend, **kwargs)
                 kwargs['vector'] = ah._vector
                 operator = ah._vector
+
+            # TODO Uncomment when the SesquilinearForm exist in SymPDE
+            # elif isinstance(a, sym_SesquilinearForm):
+            #     kwargs['update_ghost_regions'] = False
+            #     ah = DiscreteSesquilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
+            #     kwargs['matrix'] = ah._matrix
+            #     operator = ah._matrix
+
+            elif isinstance(a, sym_BilinearForm):
+                kwargs['update_ghost_regions'] = False
+                ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
+                kwargs['matrix'] = ah._matrix
+                operator = ah._matrix
 
             elif isinstance(a, sym_Functional):
                 ah = DiscreteFunctional(a, e, *args, backend=backend, **kwargs)
@@ -1522,3 +1658,5 @@ class DiscreteSumForm(BasicDiscrete):
             M = [form.assemble(**kwargs) for form in self.forms]
             M = np.sum(M)
             return M
+
+

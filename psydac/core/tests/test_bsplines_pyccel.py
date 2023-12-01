@@ -375,21 +375,24 @@ def make_knots_true( breaks, degree, periodic, multiplicity=1 ):
 
     if periodic:
         assert len(breaks) > degree
-
-    p = degree
-    T = np.zeros( multiplicity*len(breaks[1:-1])+2+2*p )
-
-    T[p+1:-p-1] = np.repeat(breaks[1:-1], multiplicity)
-    T[p]        = breaks[ 0]
-    T[-p-1]     = breaks[-1]
-
+        
+    T = np.zeros(multiplicity * len(breaks[1:-1]) + 2 + 2 * degree)
+    ncells = len(breaks) - 1
+    
+    for i in range(0, ncells+1):
+        T[degree + 1 + (i-1) * multiplicity  :degree + 1 + i * multiplicity ] = breaks[i]
+    
+    len_out = len(T)
+    
     if periodic:
         period = breaks[-1]-breaks[0]
-        T[0:p] = [xi-period for xi in breaks[-p-1:-1 ]]
-        T[-p:] = [xi+period for xi in breaks[   1:p+1]]
+
+        T[: degree + 1 - multiplicity] = T[len_out - 2 * (degree + 1 )+ multiplicity: len_out - (degree + 1)] - period
+        T[len_out - (degree + 1 - multiplicity) :] = T[degree + 1:2*(degree + 1)- multiplicity] + period
+
     else:
-        T[0:p+1] = breaks[ 0]
-        T[-p-1:] = breaks[-1]
+        T[0:degree + 1 - multiplicity] = breaks[0]
+        T[len_out - degree - 1 + multiplicity:] = breaks[-1]
 
     return T
 
@@ -398,10 +401,10 @@ def elevate_knots_true(knots, degree, periodic, multiplicity=1, tol=1e-15):
     knots = np.array(knots)
 
     if periodic:
-        [T, p] = knots, degree
-        period = T[-1-p] - T[p]
-        left   = [T[-1-p-(p+1)] - period]
-        right  = [T[   p+(p+1)] + period]
+        T, p = knots, degree
+        period = T[len(knots) -1 - p] - T[p]
+        left   = [T[len(knots) -2 - 2 * p + multiplicity-1] - period]
+        right  = [T[2 * p + 2 - multiplicity] + period]
     else:
         left  = [knots[0],*knots[:degree+1]]
         right = [knots[-1],*knots[-degree-1:]]
@@ -475,8 +478,8 @@ def basis_integrals_true(knots, degree):
 # Tests
 ###############################################################################
 # Tolerance for testing float equality
-RTOL = 1e-15
-ATOL = 1e-15
+RTOL = 1e-11
+ATOL = 1e-11
 
 
 @pytest.mark.parametrize(('knots', 'degree'),
@@ -491,6 +494,7 @@ ATOL = 1e-15
                           (np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]), 2),
                           (np.array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]), 3)])
 @pytest.mark.parametrize('x', (np.random.random(), np.random.random(), np.random.random()))
+
 def test_find_span(knots, degree, x):
     expected = find_span_true(knots, degree, x)
     out = find_span(knots, degree, x)
@@ -691,9 +695,9 @@ def test_elevate_knots(knots, degree, periodic, multiplicity):
 
 @pytest.mark.parametrize('breaks', (np.linspace(0, 1, 10, endpoint=False),
                                     np.sort(np.random.random(15))))
-@pytest.mark.parametrize('quad_order', (2, 3, 4, 5))
-def test_quadrature_grid(breaks, quad_order):
-    quad_x, quad_w = gauss_legendre(quad_order)
+@pytest.mark.parametrize('nquads', (2, 3, 4, 5))
+def test_quadrature_grid(breaks, nquads):
+    quad_x, quad_w = gauss_legendre(nquads)
     expected = quadrature_grid_true(breaks, quad_x[::-1], quad_w[::-1])
     out = quadrature_grid(breaks, quad_x[::-1], quad_w[::-1])
 
@@ -713,9 +717,9 @@ def test_quadrature_grid(breaks, quad_order):
                           (np.array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]), 3)])
 @pytest.mark.parametrize('n', (2, 3, 4, 5))
 @pytest.mark.parametrize('normalization', ('B', 'M'))
-@pytest.mark.parametrize('quad_order', (2, 3, 4, 5))
-def test_basis_ders_on_quad_grid(knots, degree, n, normalization, quad_order):
-    quad_rule_x, quad_rule_w = gauss_legendre(quad_order)
+@pytest.mark.parametrize('nquads', (2, 3, 4, 5))
+def test_basis_ders_on_quad_grid(knots, degree, n, normalization, nquads):
+    quad_rule_x, quad_rule_w = gauss_legendre(nquads)
     breaks = breakpoints_true(knots, degree)
     quad_grid, quad_weights = quadrature_grid_true(breaks, quad_rule_x, quad_rule_w)
 

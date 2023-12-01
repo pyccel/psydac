@@ -32,7 +32,7 @@ from sympde.calculus.matrices    import SymbolicDeterminant
 from .basic      import SplBasic
 from .utilities  import random_string
 from .utilities  import build_pythran_types_header, variables
-from .utilities  import build_pyccel_types_decorator
+from .utilities  import build_pyccel_type_annotations
 from .utilities  import math_atoms_as_str
 
 from psydac.fem.vector import ProductFemSpace
@@ -246,7 +246,7 @@ class ExprKernel(SplBasic):
             for j in range(0, n_cols):
                 is_complex = False
                 mat = IndexedBase('val_{i}{j}'.format(i=i,j=j))
-                d_vals[i,j] = mat
+                d_vals[i, j] = mat
         # ...
 
         xs = [Symbol(x) for x in ['x', 'y', 'z'][:dim]]
@@ -279,14 +279,17 @@ class ExprKernel(SplBasic):
         fields = symbols(fields_str)
         vector_fields = symbols(vector_fields_str)
         
-        fields_coeff = ()
-        vector_fields_coeff = ()
         if fields:
-            fields_coeff    = variables(['F_coeff',],
-                                          dtype='real', rank=dim, cls=IndexedVariable)
+            fields_coeff = variables(['F_coeff',],
+                    dtype='real', rank=dim, cls=IndexedVariable)
+        else:
+            field_coeff = ()
+
         if vector_fields:                              
-            vector_fields_coeff    = variables(['F_{}_coeff'.format(str(i)) for i in range(size)],
-                                          dtype='real', rank=dim, cls=IndexedVariable)
+            vector_fields_coeff = variables(['F_{}_coeff'.format(str(i)) for i in range(size)],
+                    dtype='real', rank=dim, cls=IndexedVariable)
+        else:
+            vector_fields_coeff = ()
                                           
         self._fields_coeff        = fields_coeff
         self._vector_fields_coeff = vector_fields_coeff 
@@ -367,14 +370,14 @@ class ExprKernel(SplBasic):
                 val = val[indices]
 
                 if isinstance(expr, (Matrix, ImmutableDenseMatrix)):
-                    rhs   = SymbolicExpr(expr[i_row,i_col])
+                    rhs   = SymbolicExpr(expr[i_row, i_col])
                     body += [Assign(val, rhs)]
 
                 else:
                     rhs   = SymbolicExpr(expr)
                     body += [Assign(val, rhs)]
 
-        for i in range(dim-1,-1,-1):
+        for i in range(dim-1, -1, -1):
             x = indices[i]
             rx = ranges[i]
 
@@ -403,7 +406,7 @@ class ExprKernel(SplBasic):
         mats = []
         for i in range(0, n_rows):
             for j in range(0, n_cols):
-                mats.append(d_vals[i,j])
+                mats.append(d_vals[i, j])
         mats = tuple(mats)
         self._global_mats = mats
         # ...
@@ -412,7 +415,7 @@ class ExprKernel(SplBasic):
             for i in range(0, n_rows):
                 for j in range(0, n_cols):
                     dtype = 'float'
-                    if expr[i,j].atoms(ImaginaryUnit):
+                    if expr[i, j].atoms(ImaginaryUnit):
                         dtype = 'complex'
                     mats_types.append(dtype)
 
@@ -432,15 +435,14 @@ class ExprKernel(SplBasic):
         func_args = self.build_arguments(mats)
         decorators = {}
         header = None
+
         if self.backend['name'] == 'pyccel':
-            decorators = {'types': build_pyccel_types_decorator(func_args)}
-        elif self.backend['name'] == 'numba':
-            decorators = {'jit':[]}
+            func_args = build_pyccel_type_annotations(func_args)
         elif self.backend['name'] == 'pythran':
             header = build_pythran_types_header(self.name, func_args)
 
         return FunctionDef(self.name, list(func_args), [], body,
-                           decorators=decorators,header=header)
+                           decorators=decorators, header=header)
 
 
 class ExprInterface(SplBasic):

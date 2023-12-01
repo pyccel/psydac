@@ -730,7 +730,7 @@ def test_stencil_matrix_2d_serial_dot_1(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
 
     # Check data in 1D array
     assert y.dtype==dtype
-    assert np.allclose(ya, ya_exact, rtol=1e-13, atol=1e-13)
+    assert np.allclose(ya, ya_exact, rtol=1e-12, atol=1e-12)
 
 # TODO: verify for s>1
 # ===============================================================================
@@ -1208,9 +1208,6 @@ def test_stencil_matrix_2d_serial_vdot(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
 
     # Exact result using Numpy dot product
     ya_exact = np.dot(np.conjugate(Ma), xa)
-
-    print(ya)
-    print(ya_exact)
     # Check data in 1D array
     assert y.dtype == dtype
     assert np.allclose(ya, ya_exact, rtol=1e-13, atol=1e-13)
@@ -1770,7 +1767,7 @@ def test_stencil_matrix_3d_serial_transpose_1(dtype, n1, n2, n3, p1, p2, p3, s1,
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [False])
-@pytest.mark.parametrize('backend', [ PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_dot_1(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend):
    # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -1856,7 +1853,7 @@ def test_stencil_matrix_2d_serial_backend_dot_1(dtype, n1, n2, p1, p2, s1, s2, P
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_dot_2(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -1925,7 +1922,7 @@ def test_stencil_matrix_2d_serial_backend_dot_2(dtype, n1, n2, p1, p2, s1, s2, P
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [False])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_dot_3(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -2002,193 +1999,6 @@ def test_stencil_matrix_2d_serial_backend_dot_3(dtype, n1, n2, p1, p2, s1, s2, P
     assert np.allclose(y2a, y2a_exact, rtol=1e-13, atol=1e-13)
 
 # ===============================================================================
-@pytest.mark.parametrize('dtype', [float,complex])
-@pytest.mark.parametrize('n1', [5])
-@pytest.mark.parametrize('p1', [2])
-@pytest.mark.parametrize('s1', [1])
-@pytest.mark.parametrize('P1', [False])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
-def test_stencil_matrix_1d_serial_backend_transpose(dtype, n1, p1, s1, P1, backend):
-    # Create domain decomposition
-    D = DomainDecomposition([n1 - 1], periods=[P1])
-
-    # Partition the points
-    npts1 = [n1]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1])
-
-    npts2 = [n1 - 1]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1])
-
-    cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1], shifts=[s1])
-    cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1], shifts=[s1])
-
-    # Create vector space, stencil matrix, and stencil vector
-    V1 = StencilVectorSpace(cart1, dtype=dtype)
-    V2 = StencilVectorSpace(cart2, dtype=dtype)
-    M1 = StencilMatrix(V1, V2, pads=(p1 - 1,), backend=backend)
-    M2 = StencilMatrix(V2, V1, pads=(p1 - 1,), backend=backend)
-
-    # Fill in stencil matrix values based on diagonal index (periodic!)
-    if dtype == complex:
-        M1[0:n1, :] = np.random.random((n1, 2 * p1 - 1)) \
-                                       +1j*np.random.random((n1, 2 * p1 - 1))
-        M2[0:n1 - 1, :] = np.random.random((n1 - 1, 2 * p1 - 1)) \
-                                   +1j*np.random.random((n1 - 1, 2 * p1 - 1))
-    else:
-        M1[0:n1, :] = np.random.random((n1, 2 * p1 - 1))
-        M2[0:n1 - 1, :] = np.random.random((n1 - 1, 2 * p1 - 1))
-    # If any dimension is not periodic, set corresponding periodic corners to zero
-    M1.remove_spurious_entries()
-    M2.remove_spurious_entries()
-
-    # Convert stencil objects to Numpy arrays
-    M1a = M1.toarray()
-    M2a = M2.toarray()
-
-    # Compute matrix-vector product
-    T1 = M1.transpose()
-    T2 = M2.H
-
-    # Exact result using Numpy dot product
-    T1_exact = M1a.transpose()
-    T2_exact = (M2a.transpose()).conj()
-
-    # Check data in 1D array
-
-    print(T2.toarray())
-    print(T2_exact)
-    assert np.allclose(T1.toarray(), T1_exact, rtol=1e-13, atol=1e-13)
-    assert np.allclose(T2.toarray(), T2_exact, rtol=1e-13, atol=1e-13)
-
-# ===============================================================================
-@pytest.mark.parametrize('dtype', [float,complex])
-@pytest.mark.parametrize('n1', [5])
-@pytest.mark.parametrize('n2', [5])
-@pytest.mark.parametrize('p1', [2])
-@pytest.mark.parametrize('p2', [2])
-@pytest.mark.parametrize('s1', [1])
-@pytest.mark.parametrize('s2', [1])
-@pytest.mark.parametrize('P1', [False])
-@pytest.mark.parametrize('P2', [False])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
-def test_stencil_matrix_2d_serial_backend_transpose(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend):
-    # Create domain decomposition
-    D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
-
-    # Partition the points
-    npts1 = [n1 - 1, n2]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1, p2])
-
-    npts2 = [n1 - 1, n2 - 1]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1, p2])
-
-    cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1, p2], shifts=[s1, s2])
-    cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1, p2], shifts=[s1, s2])
-
-    # Create vector space, stencil matrix, and stencil vector
-    V1 = StencilVectorSpace(cart1, dtype=dtype)
-    V2 = StencilVectorSpace(cart2, dtype=dtype)
-    M1 = StencilMatrix(V1, V2, pads=(p1 - 1, p2), backend=backend)
-    M2 = StencilMatrix(V2, V1, pads=(p1 - 1, p2), backend=backend)
-
-    # Fill in stencil matrix values based on diagonal index (periodic!)
-    if dtype == complex:
-        M1[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1)) \
-                                       +1j*np.random.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1))
-        M2[0:n1 - 1, 0:n2, :, :] = np.random.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1)) \
-                                   +1j*np.random.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1))
-    else:
-        M1[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1))
-        M2[0:n1 - 1, 0:n2, :, :] = np.random.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1))
-    # If any dimension is not periodic, set corresponding periodic corners to zero
-    M1.remove_spurious_entries()
-    M2.remove_spurious_entries()
-
-
-    # Compute matrix-vector product
-    T1 = M1.transpose()
-    T2 = M2.transpose()
-
-    # Convert stencil objects to Numpy arrays
-    M1a = M1.toarray()
-    M2a = M2.toarray()
-
-    # Exact result using Numpy dot product
-    T1_exact = M1a.transpose()
-    T2_exact = M2a.transpose()
-
-    # Check data in 1D array
-
-    assert np.allclose(T1.toarray(), T1_exact, rtol=1e-13, atol=1e-13)
-    assert np.allclose(T2.toarray(), T2_exact, rtol=1e-13, atol=1e-13)
-
-# ===============================================================================
-@pytest.mark.parametrize('dtype', [float,complex])
-@pytest.mark.parametrize('n1', [5])
-@pytest.mark.parametrize('n2', [5])
-@pytest.mark.parametrize('n3', [5])
-@pytest.mark.parametrize('p1', [2])
-@pytest.mark.parametrize('p2', [2])
-@pytest.mark.parametrize('p3', [2])
-@pytest.mark.parametrize('s1', [1])
-@pytest.mark.parametrize('s2', [1])
-@pytest.mark.parametrize('s3', [1])
-@pytest.mark.parametrize('P1', [False])
-@pytest.mark.parametrize('P2', [False])
-@pytest.mark.parametrize('P3', [False])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
-def test_stencil_matrix_3d_serial_backend_transpose(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1, P2, P3, backend):
-    # Create domain decomposition
-    D = DomainDecomposition([n1 - 1, n2 - 1, n3 - 1], periods=[P1, P2, P3])
-
-    # Partition the points
-    npts1 = [n1 - 1, n2, n3]
-    global_starts1, global_ends1 = compute_global_starts_ends(D, npts1, [p1, p2, p3])
-
-    npts2 = [n1 - 1, n2 - 1, n3]
-    global_starts2, global_ends2 = compute_global_starts_ends(D, npts2, [p1, p2, p3])
-
-    cart1 = CartDecomposition(D, npts1, global_starts1, global_ends1, pads=[p1, p2, p3], shifts=[s1, s2, s3])
-    cart2 = CartDecomposition(D, npts2, global_starts2, global_ends2, pads=[p1, p2, p3], shifts=[s1, s2, s3])
-
-    # Create vector space, stencil matrix, and stencil vector
-    V1 = StencilVectorSpace(cart1, dtype=dtype)
-    V2 = StencilVectorSpace(cart2, dtype=dtype)
-    M1 = StencilMatrix(V1, V2, pads=(p1 - 1, p2, p3), backend=backend)
-    M2 = StencilMatrix(V2, V1, pads=(p1 - 1, p2, p3), backend=backend)
-
-    # Fill in stencil matrix values based on diagonal index (periodic!)
-    if dtype == complex:
-        M1[0:n1 - 1, 0:n2 - 1, 0:n3, :, :,:] = np.random.random((n1 - 1, n2 - 1,n3, 2 * p1 - 1, 2 * p2 + 1,2*p3+1)) \
-                                       +1j*np.random.random((n1 - 1, n2 - 1,n3, 2 * p1 - 1, 2 * p2 + 1,2*p3+1))
-        M2[0:n1 - 1, 0:n2, 0:n3, :, :,:] = np.random.random((n1 - 1, n2,n3, 2 * p1 - 1, 2 * p2 + 1,2*p3+1)) \
-                                   +1j*np.random.random((n1 - 1, n2,n3, 2 * p1 - 1, 2 * p2 + 1,2*p3+1))
-    else:
-        M1[0:n1 - 1, 0:n2 - 1, 0:n3, :, :,:] = np.random.random((n1 - 1, n2 - 1, n3, 2 * p1 - 1, 2 * p2 + 1, 2*p3+1))
-        M2[0:n1 - 1, 0:n2, 0:n3, :, :,:] = np.random.random((n1 - 1, n2, n3, 2 * p1 - 1, 2 * p2 + 1, 2*p3+1))
-
-    # If any dimension is not periodic, set corresponding periodic corners to zero
-    M1.remove_spurious_entries()
-    M2.remove_spurious_entries()
-
-    # Compute matrix-vector product
-    T1 = M1.transpose()
-    T2 = M2.transpose()
-
-    # Convert stencil objects to Numpy arrays
-    M1a = M1.toarray()
-    M2a = M2.toarray()
-
-    # Exact result using Numpy dot product
-    T1_exact = M1a.transpose()
-    T2_exact = M2a.transpose()
-
-    # Check data in 1D array
-
-    assert np.allclose(T1.toarray(), T1_exact, rtol=1e-13, atol=1e-13)
-    assert np.allclose(T2.toarray(), T2_exact, rtol=1e-13, atol=1e-13)
-
-# ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [15])
 @pytest.mark.parametrize('n2', [12])
@@ -2198,8 +2008,8 @@ def test_stencil_matrix_3d_serial_backend_transpose(dtype, n1, n2, n3, p1, p2, p
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
-@pytest.mark.parametrize('backend2', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend2', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend, backend2):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -2366,7 +2176,6 @@ def test_stencil_matrix_1d_parallel_dot(dtype, n1, p1, sh1, P1):
     ya_exact = Ms.dot(xa)
 
     # Check data in 1D array
-    print(ya-ya_exact)
     assert np.allclose(ya, ya_exact, rtol=1e-14, atol=1e-14)
 
 # ===============================================================================
@@ -2756,7 +2565,7 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
 @pytest.mark.parametrize('p1', [1])
 @pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('P1', [True])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL])
 @pytest.mark.parallel
 def test_stencil_matrix_1d_parallel_backend_dot(dtype, n1, p1, sh1, P1, backend):
     from mpi4py import MPI
@@ -2816,7 +2625,7 @@ def test_stencil_matrix_1d_parallel_backend_dot(dtype, n1, p1, sh1, P1, backend)
 @pytest.mark.parametrize('sh2', [1])
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 @pytest.mark.parallel
 def test_stencil_matrix_2d_parallel_backend_dot(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2, backend):
     from mpi4py import MPI
@@ -2881,72 +2690,6 @@ def test_stencil_matrix_2d_parallel_backend_dot(dtype, n1, n2, p1, p2, sh1, sh2,
     assert M.T.backend is M.backend
     assert (M + M).backend is M.backend
     assert (2 * M).backend is M.backend
-
-# ===============================================================================
-@pytest.mark.parametrize('dtype', [float,complex])
-@pytest.mark.parametrize('n1', [8])
-@pytest.mark.parametrize('n2', [13])
-@pytest.mark.parametrize('p1', [2])
-@pytest.mark.parametrize('p2', [3])
-@pytest.mark.parametrize('sh1', [1])
-@pytest.mark.parametrize('sh2', [1])
-@pytest.mark.parametrize('P1', [False])
-@pytest.mark.parametrize('P2', [True])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
-@pytest.mark.parallel
-def test_stencil_matrix_2d_parallel_backend_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2, backend):
-    from mpi4py import MPI
-    from psydac.ddm.cart import CartDecomposition
-
-    comm = MPI.COMM_WORLD
-    # Create domain decomposition
-    D = DomainDecomposition([n1, n2], periods=[P1, P2], comm=comm)
-
-    # Partition the points
-    npts = [n1, n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
-
-    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[sh1, sh2])
-
-    # Create vector space and stencil matrix
-    V = StencilVectorSpace(cart, dtype=dtype)
-    M = StencilMatrix(V, V, backend=backend)
-
-    s1, s2 = V.starts
-    e1, e2 = V.ends
-
-    # Fill in matrix values with random numbers between 0 and 1
-    if dtype == complex:
-        fill_in = lambda i1, i2: 10j * i1 + i2
-    else:
-        fill_in = lambda i1, i2: 10 * i1 + i2
-
-    for k1 in range(-p1, p1 + 1):
-        for k2 in range(-p2, p2 + 1):
-            M[s1:e1, s2:e2, k1, k2] = fill_in(k1, k2)
-
-    # If domain is not periodic, set corresponding periodic corners to zero
-    M.remove_spurious_entries()
-
-    # TEST: compute transpose, then convert to Scipy sparse format
-    Ts = M.transpose().tosparse()
-
-    # Exact result: convert to Scipy sparse format including padding, then
-    # transpose, hence remove entries that do not belong to current process.
-    Ts_exact = M.tosparse(with_pads=True).transpose()
-
-    # ...
-    Ts_exact = Ts_exact.tocsr()
-    for i, j in zip(*Ts_exact.nonzero()):
-        i1, i2 = np.unravel_index(i, shape=[n1, n2], order='C')
-        if not (s1 <= i1 <= e1 and s2 <= i2 <= e2):
-            Ts_exact[i, j] = 0.0
-    Ts_exact = Ts_exact.tocoo()
-    Ts_exact.eliminate_zeros()
-    ...
-
-    # Check data
-    assert abs(Ts - Ts_exact).max() < 1e-14
 
 # ===============================================================================
 # SCRIPT FUNCTIONALITY

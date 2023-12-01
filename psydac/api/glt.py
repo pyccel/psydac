@@ -32,6 +32,9 @@ import string
 import random
 from mpi4py import MPI
 
+__all__ = ('GltBasicCodeGen', 'DiscreteGltExpr')
+
+#==============================================================================
 class GltBasicCodeGen(object):
     """ Basic class for any discrete concept that needs code generation """
 
@@ -262,9 +265,6 @@ class GltBasicCodeGen(object):
 
             code += '\nfrom pyccel.decorators import types'
             code += '\nfrom pyccel.decorators import external, external_call'
-
-        elif self.backend['name'] == 'numba':
-            code = 'from numba import jit'
 
         imports = '\n'.join(pycode(imp) for dep in self.dependencies for imp in dep.imports )
 

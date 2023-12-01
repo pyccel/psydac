@@ -4,7 +4,7 @@ from mpi4py import MPI
 
 from .cart import InterfaceCartDecomposition, find_mpi_type
 
-__all__ = ['InterfaceCartDataExchanger']
+__all__ = ('InterfaceCartDataExchanger',)
 
 class InterfaceCartDataExchanger:
     """

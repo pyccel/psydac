@@ -69,10 +69,7 @@ def solve_h1_source_pbm(
     degree = [deg,deg]
 
     # if backend_language is None:
-    #     if domain_name in ['pretzel', 'pretzel_f'] and nc > 8:
-    #         backend_language='numba'
-    #     else:
-    #         backend_language='python'
+    #     backend_language='python'
     # print('[note: using '+backend_language+ ' backends in discretize functions]')
 
     print('---------------------------------------------------------------------------------------------------------')
@@ -92,7 +89,7 @@ def solve_h1_source_pbm(
 
     print('building the symbolic and discrete deRham sequences...')
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-    derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
+    derham_h = discretize(derham, domain_h, degree=degree)
 
     # multi-patch (broken) spaces
     V0h = derham_h.V0

@@ -13,10 +13,12 @@ from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.block   import BlockVectorSpace
 from psydac.fem.basic      import FemSpace, FemField
 
-from psydac.core.kernels import (pushforward_2d_hdiv,
-                                 pushforward_3d_hdiv,
-                                 pushforward_2d_hcurl,
-                                 pushforward_3d_hcurl)
+from psydac.core.field_evaluation_kernels import (pushforward_2d_hdiv,
+                                                  pushforward_3d_hdiv,
+                                                  pushforward_2d_hcurl,
+                                                  pushforward_3d_hcurl)
+
+__all__ = ('VectorFemSpace', 'ProductFemSpace')
 
 #===============================================================================
 class VectorFemSpace( FemSpace ):
@@ -56,7 +58,8 @@ class VectorFemSpace( FemSpace ):
 
         self._symbolic_space = None
         if all(s.symbolic_space for s in spaces):
-            self._symbolic_space = reduce(lambda x,y:x.symbolic_space*y.symbolic_space, spaces)
+            symbolic_spaces = [s.symbolic_space for s in spaces]
+            self._symbolic_space = reduce(lambda x,y:x*y, symbolic_spaces)
 
         self._vector_space     = BlockVectorSpace(*[V.vector_space for V in self.spaces])
         self._refined_space    = {}
@@ -116,7 +119,7 @@ class VectorFemSpace( FemSpace ):
         """Evaluates one or several fields on the given location(s) grid.
 
         Parameters
-        -----------
+        ----------
         grid : List of ndarray
             Grid on which to evaluate the fields.
             Each array in this list corresponds to one logical coordinate.
@@ -170,7 +173,7 @@ class VectorFemSpace( FemSpace ):
         """Evaluates one or several fields on a regular tensor grid.
 
         Parameters
-        -----------
+        ----------
         grid : List of ndarray
             List of 2D arrays representing each direction of the grid.
             Each of these arrays should have shape (ne_xi, nv_xi) where ne_xi is the
@@ -230,7 +233,7 @@ class VectorFemSpace( FemSpace ):
         a tensor grid where the number of points per cell depends on the cell.
 
         Parameters
-        -----------
+        ----------
         grid : List of ndarray
             List of 1D arrays representing each direction of the grid.
 
@@ -347,10 +350,11 @@ class VectorFemSpace( FemSpace ):
 
     # ...
     def get_refined_space(self, ncells):
-        return self._refined_space[tuple(self.ncells)]
+        return self._refined_space[tuple(ncells)]
 
     def set_refined_space(self, ncells, new_space):
-        self._refined_space[tuple(self.ncells)] = new_space
+        assert all(nc1==nc2 for nc1,nc2 in zip(ncells, new_space.ncells))
+        self._refined_space[tuple(ncells)] = new_space
 
     def __str__(self):
         """Pretty printing"""
@@ -379,7 +383,7 @@ class ProductFemSpace( FemSpace ):
     def __init__( self, *spaces, connectivity=None):
         """
         Parameters
-        -----------
+        ----------
         *spaces : 
             single-patch FEM spaces                        
         """
@@ -450,7 +454,7 @@ class ProductFemSpace( FemSpace ):
         """Evaluates one or several fields on the given location(s) grid.
 
         Parameters
-        -----------
+        ----------
         grid : List of ndarray
             Grid on which to evaluate the fields.
             Each array in this list corresponds to one logical coordinate.
@@ -504,7 +508,7 @@ class ProductFemSpace( FemSpace ):
         """Evaluates one or several fields on a regular tensor grid.
 
         Parameters
-        -----------
+        ----------
         grid : List of ndarray
             List of 2D arrays representing each direction of the grid.
             Each of these arrays should have shape (ne_xi, nv_xi) where ne_xi is the
@@ -564,7 +568,7 @@ class ProductFemSpace( FemSpace ):
         a tensor grid where the number of points per cell depends on the cell.
 
         Parameters
-        -----------
+        ----------
         grid : List of ndarray
             List of 1D arrays representing each direction of the grid.
 

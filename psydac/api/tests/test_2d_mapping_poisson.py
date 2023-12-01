@@ -14,11 +14,11 @@
 #      Please note that the logical coordinates (x1, x2) correspond to the polar
 #      coordinates (r, theta), but with reversed order: hence x1=theta and x2=r
 
+import os
 from mpi4py import MPI
 from sympy import pi, cos, sin, symbols
 from sympy.abc import x, y
 import pytest
-import os
 import numpy as np
 
 from sympde.calculus import grad, dot
@@ -26,14 +26,14 @@ from sympde.calculus import laplace
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import NormalVector
-from sympde.topology import Domain,Square
+from sympde.topology import Domain
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm
+from sympde.expr import Norm, SemiNorm
 from sympde.expr import find, EssentialBC
 
 from psydac.api.discretization import discretize
-from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
+from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 
 # ... get the mesh directory
 try:
@@ -43,8 +43,7 @@ except:
     base_dir = os.path.dirname(os.path.realpath(__file__))
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
-# ...
-os.environ['OMP_NUM_THREADS']    = "2"
+
 # backend to activate multi threading
 PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP           = PSYDAC_BACKEND_GPYCCEL.copy()
 PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP['openmp'] = True
@@ -107,8 +106,8 @@ def run_poisson_2d(filename, solution, f, dir_zero_boundary,
 
     # Error norms
     error  = u - solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    l2norm =     Norm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
@@ -570,7 +569,7 @@ def test_poisson_2d_collela_dir0_124_neui_3():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_collela_dir0_123_neui_4(backend):
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -611,7 +610,7 @@ def test_poisson_2d_collela_dir0_123_diri_4():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_collela_dir0_13_diri_24(backend):
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -677,7 +676,7 @@ def test_poisson_2d_quarter_annulus_dir0_1234():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_quarter_annulus_dir0_12_diri_34(backend):
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
@@ -718,7 +717,7 @@ def test_poisson_2d_quarter_annulus_diri_1234():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_quarter_annulus_diri_34_neui_12(backend):
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
@@ -761,7 +760,7 @@ def test_poisson_2d_quarter_annulus_diri_12_neui_34():
 #==============================================================================
 # 2D Poisson's equation on circle
 #==============================================================================
-@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_circle_dir0(backend):
 
     filename = os.path.join(mesh_dir, 'circle.h5')
@@ -784,7 +783,7 @@ def test_poisson_2d_circle_dir0(backend):
 #==============================================================================
 # 2D Poisson's equation on pipe
 #==============================================================================
-@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_pipe_dir_1234(backend):
 
     filename = os.path.join(mesh_dir, 'pipe.h5')

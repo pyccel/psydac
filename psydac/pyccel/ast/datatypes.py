@@ -3,7 +3,7 @@
 from .singleton import Singleton
 from .basic import Basic
 
-from sympy.core.compatibility import with_metaclass
+from sympde.old_sympy_utilities import with_metaclass
 
 import numpy
 
@@ -75,11 +75,9 @@ dtype_and_precision_registry = { 'real':('real',default_precision['float']),
                                  'int32':('int',4),
                                  'int64':('int',8),
                                  'int'  :('int', default_precision['int']),
-                                 'int_'  :('int', default_precision['int']), # numba only accepts int_ as datatype instead of int
                                  'pythonint'  :('int', default_precision['int']),
                                  'integer':('int',default_precision['int']),
                                  'bool' :('bool',default_precision['bool']),
-                                 'bool_' :('bool',default_precision['bool']), # numba only accepts bool_ as datatype instead of bool
                                  'pythonbool' :('bool',default_precision['bool'])}
 
 

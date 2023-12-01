@@ -63,12 +63,12 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
             push_field = lambda eta1, eta2: push_2d_h1(uk_field_0, eta1, eta2)
         elif space_kind == 'hcurl':
             # todo (MCP): specify 2d_hcurl_scalar in push functions
-            push_field = lambda eta1, eta2: push_2d_hcurl(uk_field_0, uk_field_1, eta1, eta2, mapping=mappings_list[k])
+            push_field = lambda eta1, eta2: push_2d_hcurl(uk_field_0, uk_field_1, eta1, eta2, mappings_list[k]) 
         elif space_kind == 'hdiv':
-            push_field = lambda eta1, eta2: push_2d_hdiv(uk_field_0, uk_field_1, eta1, eta2, mapping=mappings_list[k])
+            push_field = lambda eta1, eta2: push_2d_hdiv(uk_field_0, uk_field_1, eta1, eta2, mappings_list[k])
         elif space_kind == 'l2':
             assert not vector_valued
-            push_field = lambda eta1, eta2: push_2d_l2(uk_field_0, eta1, eta2, mapping=mappings_list[k])
+            push_field = lambda eta1, eta2: push_2d_l2(uk_field_0, eta1, eta2, mappings_list[k])
         else:
             raise ValueError('unknown value for space_kind = {}'.format(space_kind))
 

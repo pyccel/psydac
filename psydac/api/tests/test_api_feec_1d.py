@@ -46,7 +46,7 @@ def update_plot(ax, t, sol_ex, sol_num):
 #==============================================================================
 def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         splitting_order, plot_interval, diagnostics_interval,
-        bc_mode, tol, verbose):
+        bc_mode, tol, verbose, mult=1):
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -132,7 +132,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
     # Discrete physical domain and discrete DeRham sequence
     domain_h = discretize(domain, ncells=[ncells], periodic=[periodic], comm=MPI.COMM_WORLD)
-    derham_h = discretize(derham, domain_h, degree=[degree])
+    derham_h = discretize(derham, domain_h, degree=[degree], multiplicity=[mult])
 
     # Discrete bilinear forms
     a0_h = discretize(a0, domain_h, (derham_h.V0, derham_h.V0), backend=PSYDAC_BACKEND_PYTHON)
@@ -493,6 +493,33 @@ def test_maxwell_1d_periodic():
     TOL = 1e-6
     ref = dict(error_E = 4.191954319623381e-04,
                error_B = 4.447074070748624e-04)
+
+    assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
+    assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
+    
+def test_maxwell_1d_periodic_mult():
+
+    namespace = run_maxwell_1d(
+        L        = 1.0,
+        eps      = 0.5,
+        ncells   = 30,
+        degree   = 3,
+        periodic = True,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        bc_mode = None,
+        verbose = False,
+        mult = 2
+    )
+
+    TOL = 1e-6
+    ref = dict(error_E = 4.24689338e-04,
+               error_B = 4.03195792e-04)
 
     assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
     assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL

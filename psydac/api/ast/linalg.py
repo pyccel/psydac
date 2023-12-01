@@ -10,13 +10,13 @@ import numpy as np
 from functools import lru_cache
 from mpi4py    import MPI
 
-from sympy import Mul, Tuple, Symbol
-from sympy import Mod as sy_Mod, Abs, Range, Symbol, Max
+from sympy import Mul
+from sympy import Mod as sy_Mod, Range, Symbol, Max
 from sympy import Function, Integer
 
 from psydac.pyccel.ast.core import Variable, IndexedVariable
 from psydac.pyccel.ast.core import For, Comment
-from psydac.pyccel.ast.core import Slice, String
+from psydac.pyccel.ast.core import String
 from psydac.pyccel.ast.core import ValuedArgument
 from psydac.pyccel.ast.core import Assign
 from psydac.pyccel.ast.core import AugAssign
@@ -27,21 +27,14 @@ from psydac.pyccel.ast.core import Import
 from psydac.pyccel.ast.datatypes import NativeInteger
 
 from psydac.api.ast.nodes     import FloorDiv
-from psydac.api.ast.utilities import variables, math_atoms_as_str
-from psydac.api.ast.utilities import build_pyccel_types_decorator
+from psydac.api.ast.utilities import variables
+from psydac.api.ast.utilities import build_pyccel_type_annotations
 from psydac.api.utilities     import flatten
 
-from psydac.fem.splines       import SplineSpace
-from psydac.fem.tensor        import TensorFemSpace
-from psydac.fem.vector        import ProductFemSpace
 from psydac.api.ast.basic     import SplBasic
 from psydac.api.printing      import pycode
-from psydac.api.settings      import PSYDAC_BACKENDS, PSYDAC_DEFAULT_FOLDER
+from psydac.api.settings      import PSYDAC_DEFAULT_FOLDER
 from psydac.api.utilities     import mkdir_p, touch_init_file, random_string, write_code
-
-from psydac.api.ast.linalg_kernels import transpose_1d, interface_transpose_1d
-from psydac.api.ast.linalg_kernels import transpose_2d, interface_transpose_2d
-from psydac.api.ast.linalg_kernels import transpose_3d, interface_transpose_3d
 
 #==============================================================================
 def variable_to_sympy(x):
@@ -350,21 +343,18 @@ class LinearOperatorDot(SplBasic):
         imports    = []
         if backend:
             if backend['name'] == 'pyccel':
-                a = [String(str(i)) for i in build_pyccel_types_decorator(func_args)]
-                decorators = {'types': Function('types')(*a)}
-            elif backend['name'] == 'numba':
-                decorators = {'njit': Function('njit')(ValuedArgument(Symbol('fastmath'), backend['fastmath']))}
+                func_args = build_pyccel_type_annotations(func_args)
             elif backend['name'] == 'pythran':
                 header = build_pythran_types_header(name, func_args)
 
         if openmp:
-            shared  = ','.join(str(a) for a in shared)
-            firstprivate  = "firstprivate({})".format(','.join(str(a) for a in firstprivate)) if firstprivate else ""
+            shared = ','.join(str(a) for a in shared)
+            firstprivate = "firstprivate({})".format(','.join(str(a) for a in firstprivate)) if firstprivate else ""
             pragma1 = "#$omp parallel default(private) shared({}) {}\n".format(shared, firstprivate)
             pragma2 = "#$omp end parallel"
-            body     = [Comment(pragma1)] + body + [Comment(pragma2)]
-        func = FunctionDef(self.name, list(func_args), [], body, imports=imports, decorators=decorators)
-        return func
+            body    = [Comment(pragma1)] + body + [Comment(pragma2)]
+
+        return FunctionDef(self.name, list(func_args), [], body, imports=imports, decorators=decorators)
 
     def _initialize_folder(self, folder=None):
         # ...
@@ -393,18 +383,8 @@ class LinearOperatorDot(SplBasic):
         modname = 'dependencies_{}'.format(self.tag)
 
         if self.comm is None or self.comm.rank == 0:
-
-            if backend and backend['name'] == 'pyccel':
-                imports  = 'from pyccel.decorators import types\n'
-                imports += 'from numpy import shape'
-            elif backend and backend['name'] == 'numba':
-                imports  = 'from numba import njit\n'
-                imports += 'from numpy import shape'
-            else:
-                imports = 'from numpy import shape'
-
-            code = f'{imports}\n{pycode.pycode(self.code)}'
-            write_code(modname + '.py', code, folder=self.folder)
+            python_code = pycode.pycode(self.code)
+            write_code(modname + '.py', python_code, folder=self.folder)
 
         self._modname = modname
 
@@ -448,179 +428,6 @@ class LinearOperatorDot(SplBasic):
         return fmod
 
 #==============================================================================
-class TransposeOperator(SplBasic):
-
-    name_template = 'transpose_{ndim}d'
-    function_dict = {1 : transpose_1d,
-                     2 : transpose_2d,
-                     3 : transpose_3d}
-
-    # TODO [YG 01.04.2022]: drop support for old Pyccel versions, then remove
-    # T is defined in linalg_kernel.py and it is a template of pyccel that accept float or complex array
-    args_dtype_dict = {1: [repr('T')]*2 + [repr('int64')]*11,
-                       2: [repr('T')]*2 + [repr('int64')]*22,
-                       3: [repr('T')]*2 + [repr('int64')]*33
-                       }
-
-    def __new__(cls, ndim, comm=None, **kwargs):
-        if comm is not None:
-            assert isinstance(comm, MPI.Comm)
-            comm_id = comm.py2f()
-        else:
-            comm_id = None
-        return cls.__hashable_new__(ndim, comm_id, **kwargs)
-
-    @classmethod
-    @lru_cache(maxsize=32)
-    def __hashable_new__(cls, ndim, comm_id=None, **kwargs):
-        # If integer communicator is provided, convert it to mpi4py object
-        comm = None if comm_id is None else MPI.COMM_WORLD.f2py(comm_id)
-
-        # Generate random tag, unique for all processes in MPI communicator
-        tag = random_string(8)
-        if comm is not None and comm.size>1:
-            tag = comm.bcast(tag , root=0 )
-
-        # Determine name based on number of dimensions
-        name = cls.name_template.format(ndim=ndim)
-
-        # Create new instance of this class
-        obj = SplBasic.__new__(cls, tag, name=name, comm=comm)
-
-        # Initialize instance (code generation happens here)
-        obj.ndim        = ndim
-        backend         = dict(kwargs.pop('backend'))
-        obj._code       = inspect.getsource(obj.function_dict[ndim])
-        obj._args_dtype = obj.args_dtype_dict[ndim]
-        obj._folder     = obj._initialize_folder()
-        obj._generate_code(backend=backend)
-        obj._compile(backend=backend)
-
-        # Return instance
-        return obj
-
-    @property
-    def func(self):
-        return self._func
-
-    @property
-    def arguments(self):
-        return self._arguments
-
-    @property
-    def code(self):
-        return self._code
-
-    @property
-    def folder(self):
-        return self._folder
-
-    def _initialize_folder(self, folder=None):
-        # ...
-        if folder is None:
-            basedir = os.getcwd()
-            folder = PSYDAC_DEFAULT_FOLDER['name']
-            folder = os.path.join( basedir, folder )
-
-            # ... add __init__ to all directories to be able to
-            touch_init_file('__pycache__')
-            for root, dirs, files in os.walk(folder):
-                touch_init_file(root)
-            # ...
-
-        else:
-            raise NotImplementedError('user output folder not yet available')
-
-        folder = os.path.abspath( folder )
-        mkdir_p(folder)
-        # ...
-
-        return folder
-
-    def _generate_code(self, backend=None):
-
-        modname = 'dependencies_{}'.format(self.tag)
-
-        if self.comm is None or self.comm.rank == 0:
-
-            dec = ''
-            code = self._code
-            imports='from pyccel.decorators import template'
-            if backend and backend['name'] == 'pyccel':
-                import pyccel
-                from packaging import version
-                if version.parse(pyccel.__version__) < version.parse('1.1.0'):
-                    # Add @types decorator due the  minimum required Pyccel version 0.10.1
-                    imports = imports + ',types'
-                    dec     = '@types({})'.format(','.join(self._args_dtype))
-            elif backend and backend['name'] == 'numba':
-                imports = imports + '\nfrom numba import njit'
-                dec     = '@njit(fastmath={})'.format(backend['fastmath'])
-
-            code = f'{imports}\n{dec}\n{code}'
-            write_code(modname + '.py', code, folder=self.folder)
-
-        self._modname = modname
-
-    def _compile(self, backend=None):
-
-        # Make sure that code generated by process 0 is available to all others
-        # Cheapest solution is a broadcast from process 0
-        comm = self.comm
-        if comm is not None and comm.size > 1:
-            comm.bcast(0, root=0)
-
-        module_name = self._modname
-        sys.path.append(self.folder)
-        importlib.invalidate_caches()
-        package = importlib.import_module( module_name )
-        sys.path.remove(self.folder)
-
-        if backend and backend['name'] == 'pyccel':
-            package = self._compile_pyccel(package, backend)
-
-        self._func = getattr(package, self.name)
-
-    def _compile_pyccel(self, mod, backend, verbose=False):
-
-        # ... convert python to fortran using pyccel
-        compiler       = backend['compiler']
-        fflags         = backend['flags']
-        _PYCCEL_FOLDER = backend['folder']
-        accelerators   = ["openmp"] if backend["openmp"] else []
-
-        from pyccel.epyccel import epyccel
-
-        fmod = epyccel(mod,
-                       accelerators = accelerators,
-                       compiler     = compiler,
-                       fflags       = fflags,
-                       comm         = self.comm,
-                       bcast        = True,
-                       folder       = _PYCCEL_FOLDER,
-                       verbose      = verbose)
-
-        return fmod
-
-#==============================================================================
-class InterfaceTransposeOperator(TransposeOperator):
-    """ This class generates the Matrix transpose code for a StencilInterfaceMatrix.
-    """
-
-    name_template = 'interface_transpose_{ndim}d'
-    function_dict = {1: interface_transpose_1d,
-                     2: interface_transpose_2d,
-                     3: interface_transpose_3d}
-
-    # TODO [YG 01.04.2022]: drop support for old Pyccel versions, then remove
-
-    # T is defined in linalg_kernel.py and it is a template of pyccel that accept float or complex array
-    args_dtype_dict = {1 : [repr('T')]*2 + [repr('int64')]*12,
-                       2 : [repr('T')]*2 + [repr('int64')]*21,
-                       3 : [repr('T')]*2 + [repr('int64')]*30
-                       }
-
-#==============================================================================
 class VectorDot(SplBasic):
 
     def __new__(cls, ndim, backend=None):
@@ -647,25 +454,25 @@ class VectorDot(SplBasic):
 
         ndim = self.ndim
 
-        indices = variables('i1:%s'%(ndim+1),'int')
-        dims    = variables('n1:%s'%(ndim+1),'int')
-        pads    = variables('p1:%s'%(ndim+1),'int')
+        indices = variables('i1:%s'%(ndim+1), 'int')
+        dims    = variables('n1:%s'%(ndim+1), 'int')
+        pads    = variables('p1:%s'%(ndim+1), 'int')
         out     = variables('out','real')
-        x1,x2   = variables('x1, x2','real',rank=ndim,cls=IndexedVariable)
+        x1,x2   = variables('x1, x2','real', rank=ndim, cls=IndexedVariable)
 
         body = []
-        ranges = [Range(p,n-p) for n,p in zip(dims,pads)]
+        ranges = [Range(p, n-p) for n, p in zip(dims, pads)]
         target = Product(*ranges)
 
         v1 = x1[indices]
         v2 = x2[indices]
 
-        body = [AugAssign(out,'+' ,Mul(v1,v2))]
+        body = [AugAssign(out, '+' , Mul(v1, v2))]
         body = [For(indices, target, body)]
-        body.insert(0,Assign(out, 0.0))
+        body.insert(0, Assign(out, 0.0))
         body.append(Return(out))
 
-        func_args =  (x1, x2) + pads + dims
+        func_args = (x1, x2) + pads + dims
 
         self._imports = [Import('itertools', 'product')]
 
@@ -673,11 +480,9 @@ class VectorDot(SplBasic):
         header = None
 
         if self.backend['name'] == 'pyccel':
-            decorators = {'types': build_pyccel_types_decorator(func_args), 'external':[]}
-        elif self.backend['name'] == 'numba':
-            decorators = {'jit':[]}
+            func_args = build_pyccel_type_annotations(func_args)
         elif self.backend['name'] == 'pythran':
             header = build_pythran_types_header(self.name, func_args)
 
         return FunctionDef(self.name, list(func_args), [], body,
-                           decorators=decorators,header=header)
+                           decorators=decorators, header=header)

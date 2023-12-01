@@ -71,8 +71,8 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc):
     Dfun_h    = grad(u0)
     Dfun_proj = u1
 
-    error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
-    assert abs(error)<1e-9
+    error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
+    assert error < 1e-9
 
 #==============================================================================
 @pytest.mark.parametrize('Nel', [8, 12])
@@ -146,8 +146,8 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc):
     Dfun_h    = curl(u1)
     Dfun_proj = u2
 
-    error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
-    assert abs(error)<1e-9
+    error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
+    assert error < 1e-9
 
 #==============================================================================
 @pytest.mark.parametrize('Nel', [8, 12])
@@ -212,8 +212,8 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc):
     Dfun_h    = div(u2)
     Dfun_proj = u3
 
-    error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
-    assert abs(error)<1e-9
+    error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
+    assert error < 1e-9
 
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
@@ -266,8 +266,8 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc):
     Dfun_h    = grad(u0)
     Dfun_proj = u1
 
-    error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
-    assert abs(error)<1e-9
+    error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
+    assert error < 1e-9
 
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
@@ -320,8 +320,8 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc):
     Dfun_h    = curl(u0)
     Dfun_proj = u1
 
-    error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
-    assert abs(error)<1e-9
+    error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
+    assert error < 1e-9
 
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
@@ -381,8 +381,8 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc):
     Dfun_h    = div(u2)
     Dfun_proj = u3
 
-    error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
-    assert abs(error)<1e-9
+    error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
+    assert error < 1e-9
 
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
@@ -442,8 +442,8 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc):
     Dfun_h    = curl(u2)
     Dfun_proj = u3
 
-    error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
-    assert abs(error)<1e-9
+    error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
+    assert error < 1e-9
 
 @pytest.mark.parametrize('Nel', [16, 20])
 @pytest.mark.parametrize('Nq', [5])
@@ -491,8 +491,8 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc):
     Dfun_h    = grad(u0)
     Dfun_proj = u1
 
-    error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
-    assert abs(error)<1e-9
+    error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
+    assert error < 1e-9
 #==============================================================================
 if __name__ == '__main__':
 

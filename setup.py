@@ -1,103 +1,67 @@
-# -*- coding: UTF-8 -*-
-#! /usr/bin/python
+import setuptools.command.build_py
+import distutils.command.build_py as orig
+import distutils.log
+import setuptools
+from subprocess import run as sub_run
+import shutil
+import os
 
-from pathlib    import Path
-from importlib  import util
-from setuptools import find_packages
-from numpy.distutils.core import setup
-from numpy.distutils.core import Extension
 
-# ...
-# Load module 'psydac.version' without running file 'psydac.__init__'
-path = Path(__file__).parent / 'psydac' / 'version.py'
-spec = util.spec_from_file_location('version', str(path))
-mod  = util.module_from_spec(spec)
-spec.loader.exec_module(mod)
-# ...
+class BuildPyCommand(setuptools.command.build_py.build_py):
+    """Custom build command to pyccelise _kernels files in the build directory."""
 
-NAME    = 'psydac'
-VERSION = mod.__version__
-AUTHOR  = 'Ahmed Ratnani, Jalal Lakhlili, Yaman Güçlü, Said Hadjout'
-EMAIL   = 'ratnaniahmed@gmail.com'
-URL     = 'http://www.ahmed.ratnani.org'
-DESCR   = 'Python package for BSplines/NURBS'
-KEYWORDS = ['FEM', 'IGA', 'BSplines']
-LICENSE = "LICENSE.txt"
+    # Copy the setuptools.command.build_py.build_py.finalize_options to recreate the __updated_files variable
+    def finalize_options(self):
+        orig.build_py.finalize_options(self)
+        self.package_data = self.distribution.package_data
+        self.exclude_package_data = self.distribution.exclude_package_data or {}
+        if 'data_files' in self.__dict__:
+            del self.__dict__['data_files']
+        self.__updated_files = []
 
-setup_args = dict(
-    name             = NAME,
-    version          = VERSION,
-    description      = DESCR,
-    long_description = open('README.md').read(),
-    author           = AUTHOR,
-    author_email     = EMAIL,
-    license          = LICENSE,
-    keywords         = KEYWORDS,
-    url              = URL,
-#    download_url     = URL+'/get/default.tar.gz',
+    # Rewrite the build_module function to copy each module in the build repository and pyccelise the modules ending with _kernels
+    def build_module(self, module, module_file, package):
+        # This part is copied from distutils.command.build_py.build_module
+        if isinstance(package, str):
+            package = package.split('.')
+        elif not isinstance(package, (list, tuple)):
+            raise TypeError(
+                "'package' must be a string (dot-separated), list, or tuple"
+            )
+        outfile = self.get_module_outfile(self.build_lib, package, module)
+        dirname = os.path.dirname(outfile)
+        self.mkpath(dirname)
+        outfile, copied = self.copy_file(module_file, outfile, preserve_mode=0)
+
+
+        # This part check if the module is pyccelisable and pyccelise it in case
+        if module.endswith('_kernels'):
+            self.announce(
+                '\nPyccelise module: %s' % str(module),
+                level=distutils.log.INFO)
+            sub_run([shutil.which('pyccel'), outfile, '--language', 'fortran', '--openmp'], shell=False)
+
+        # This part is copy from setuptools.command.build_py.build_module
+        if copied:
+            self.__updated_files.append(outfile)
+
+        return outfile, copied
+
+    def run(self):
+        setuptools.command.build_py.build_py.run(self)
+
+        # Remove __pyccel__ directories
+        sub_run(['pyccel-clean', self.build_lib], shell=False)
+
+        # Remove useless .lock files
+        for path, subdirs, files in os.walk(self.build_lib):
+            for name in files:
+                if name == '.lock_acquisition.lock':
+                    os.remove(os.path.join(path, name))
+
+
+setuptools.setup(
+    cmdclass={
+        'build_py': BuildPyCommand,
+    },
 )
-
-# ...
-packages = find_packages()
-#packages = find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"])
-# ...
-
-# ...
-install_requires = [
-
-    # Third-party packages from PyPi
-    'numpy>=1.16',
-    'scipy>=0.18',
-    'sympy>=1.5',
-    'matplotlib',
-    'pytest>=4.5',
-    'pyyaml>=5.1',
-    'packaging',
-    'pyevtk',
-
-    # Our packages from PyPi
-    'sympde==0.16.1',
-    'pyccel>=1.7.3',
-    'gelato==0.11',
-
-    # Alternative backend to Pyccel is Numba
-    'numba',
-
-    # In addition, we depend on mpi4py and h5py (MPI version).
-    # Since h5py must be built from source, we run the commands
-    #
-    # python3 -m pip install requirements.txt
-    # python3 -m pip install .
-    'mpi4py',
-    'h5py',
-
-    # When pyccel is run in parallel with MPI, it uses tblib to pickle
-    # tracebacks, which allows mpi4py to broadcast exceptions
-    'tblib',
-
-    # IGAKIT - not on PyPI
-    'igakit',
-]
-
-dependency_links = []
-# ...
-
-# ...
-entry_points = {'console_scripts': ['psydac-mesh = psydac.cmd.mesh:main']}
-# ...
-
-# ...
-def setup_package():
-    setup(packages=packages,
-          python_requires='>=3.7',
-          install_requires=install_requires,
-          include_package_data=True,
-          package_data = {'':['*.txt']},
-          zip_safe=True,
-          dependency_links=dependency_links,
-          entry_points=entry_points,
-          **setup_args)
-# ....
-# ..................................................................................
-if __name__ == "__main__":
-    setup_package()

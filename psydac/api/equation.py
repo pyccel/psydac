@@ -14,7 +14,7 @@ from psydac.api.essential_bc         import apply_essential_bc
 from psydac.fem.basic                import FemField
 from psydac.linalg.solvers           import inverse
 
-__all__ = ('DiscreteEquation',)
+__all__ = ('l2_boundary_projection', 'DiscreteEquation')
 
 #==============================================================================
 LinearSystem = namedtuple('LinearSystem', ['lhs', 'rhs'])

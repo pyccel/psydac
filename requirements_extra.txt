@@ -1,5 +1,5 @@
-# h5py must be built from source using MPI compiler
-# and linked to parallel HDF5 library. To do so set
+# h5py must be built from source using the MPI compiler
+# and linked to the parallel HDF5 library. To do so set
 #
 # CC="mpicc"
 # HDF5_MPI="ON"
@@ -7,6 +7,3 @@
 #
 h5py
 --no-binary h5py
-
-# IGAKIT - not on PyPI
-https://github.com/dalcinl/igakit/archive/refs/heads/master.zip

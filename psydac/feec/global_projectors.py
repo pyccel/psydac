@@ -4,7 +4,7 @@ import numpy as np
 
 from psydac.linalg.kron           import KroneckerLinearSolver
 from psydac.linalg.stencil        import StencilVector
-from psydac.linalg.block          import BlockDiagonalSolver, BlockVector
+from psydac.linalg.block          import BlockLinearOperator, BlockVector
 from psydac.core.bsplines         import quadrature_grid
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
@@ -12,7 +12,14 @@ from psydac.fem.basic             import FemField
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
 
+from psydac.utilities.utils import roll_edges
+
 from abc import ABCMeta, abstractmethod
+
+__all__ = ('GlobalProjector', 'Projector_H1', 'Projector_Hcurl', 'Projector_Hdiv', 'Projector_L2',
+           'evaluate_dofs_1d_0form', 'evaluate_dofs_1d_1form',
+           'evaluate_dofs_2d_0form', 'evaluate_dofs_2d_1form_hcurl', 'evaluate_dofs_2d_1form_hdiv', 'evaluate_dofs_2d_2form',
+           'evaluate_dofs_3d_0form', 'evaluate_dofs_3d_1form', 'evaluate_dofs_3d_2form', 'evaluate_dofs_3d_3form')
 
 #==============================================================================
 class GlobalProjector(metaclass=ABCMeta):
@@ -75,7 +82,7 @@ class GlobalProjector(metaclass=ABCMeta):
         else:
             # for now, we assume that all tensorspaces have the same quad_grids
             # (this seems to be the case at the moment, but maybe checking it might be a good idea nontheless...)
-            uw = [(quad_grid.quad_rule_x,quad_grid.quad_rule_w) for quad_grid in tensorspaces[0].quad_grids]
+            uw = [(quad_grid.quad_rule_x,quad_grid.quad_rule_w) for quad_grid in tensorspaces[0].quad_grids()]
         
         # retrieve projection space structure
         # this is a 2D Python array (first level: block, second level: tensor direction)
@@ -142,6 +149,11 @@ class GlobalProjector(metaclass=ABCMeta):
                     if quad_x[j] is None:
                         u, w = uw[j]
                         global_quad_x, global_quad_w = quadrature_grid(V.histopolation_grid, u, w)
+                        #"roll" back points to the interval to ensure that the quadrature points are
+                        #in the domain. Only usefull in th eperiodic case (else do nothing)
+                        #if not used then you will have quadrature points outside of the domain which 
+                        #might cause problem when your function is only defined inside the domain
+                        roll_edges(V.domain, global_quad_x) 
                         quad_x[j] = global_quad_x[s:e+1]
                         quad_w[j] = global_quad_w[s:e+1]
                     local_x, local_w = quad_x[j], quad_w[j]
@@ -156,20 +168,22 @@ class GlobalProjector(metaclass=ABCMeta):
             self._grid_x += [block_x]
             self._grid_w += [block_w]
 
-            solverblocks += [KroneckerLinearSolver(tensorspaces[i].vector_space, solvercells)]
+            solverblocks += [KroneckerLinearSolver(tensorspaces[i].vector_space, tensorspaces[i].vector_space, solvercells)]
 
-            dataslice = tuple(slice(p, -p) for p in tensorspaces[i].vector_space.pads)
+            dataslice = tuple(slice(p*m, -p*m) for p, m in zip(tensorspaces[i].vector_space.pads,tensorspaces[i].vector_space.shifts))
             dofs[i] = rhsblocks[i]._data[dataslice]
         
         # finish arguments and create a lambda
         args = (*intp_x, *quad_x, *quad_w, *dofs)
         self._func = lambda *fun: func(*args, *fun)
 
-        # build a BlockDiagonalSolver, if necessary
+        # build a BlockLinearOperator, if necessary
         if len(solverblocks) == 1:
             self._solver = solverblocks[0]
         else:
-            self._solver = BlockDiagonalSolver(self._space.vector_space, blocks=solverblocks)
+            domain = codomain = self._space.vector_space
+            blocks = {(i, i): B_i for i, B_i in enumerate(solverblocks)}
+            self._solver = BlockLinearOperator(domain, codomain, blocks)
     
     @property
     def space(self):
@@ -274,7 +288,7 @@ class GlobalProjector(metaclass=ABCMeta):
         Parameters
         ----------
         fun : callable or list/tuple of callables
-            Scalar components of the real-valued vector function to be
+            Scalar components of the real- or complex-valued vector function to be
             projected, with arguments the coordinates (x_1, ..., x_N) of a
             point in the logical domain.
 
@@ -284,7 +298,7 @@ class GlobalProjector(metaclass=ABCMeta):
         -------
         field : FemField
             Field obtained by projection (element of the target space-conforming
-            finite element space). This is also a real-valued scalar/vector function
+            finite element space). This is also a real- or complex-valued scalar/vector function
             in the logical domain.
         """
         # build the rhs
@@ -295,7 +309,7 @@ class GlobalProjector(metaclass=ABCMeta):
         else:
             self._func(fun)
 
-        coeffs = self._solver.solve(self._rhs)
+        coeffs = self._solver.dot(self._rhs)
 
         return FemField(self._space, coeffs=coeffs)
 
@@ -334,7 +348,7 @@ class Projector_H1(GlobalProjector):
         Parameters
         ----------
         fun : callable
-            Real-valued scalar function to be projected, with arguments the
+            Real- or complex-valued scalar function to be projected, with arguments the
             coordinates (x_1, ..., x_N) of a point in the logical domain. This
             corresponds to the coefficient of a 0-form.
 
@@ -344,7 +358,7 @@ class Projector_H1(GlobalProjector):
         -------
         field : FemField
             Field obtained by projection (element of the H1-conforming finite
-            element space). This is also a real-valued scalar function in the
+            element space). This is also a real- or complex-valued scalar function in the
             logical domain.
         """
         return super().__call__(fun)
@@ -406,7 +420,7 @@ class Projector_Hcurl(GlobalProjector):
         Parameters
         ----------
         fun : list/tuple of callables
-            Scalar components of the real-valued vector function to be
+            Scalar components of the real- or complex-valued vector function to be
             projected, with arguments the coordinates (x_1, ..., x_N) of a
             point in the logical domain. These correspond to the coefficients
             of a 1-form in the canonical basis (dx_1, ..., dx_N).
@@ -417,7 +431,7 @@ class Projector_Hcurl(GlobalProjector):
         -------
         field : FemField
             Field obtained by projection (element of the H(curl)-conforming
-            finite element space). This is also a real-valued vector function
+            finite element space). This is also a real- or complex-valued vector function
             in the logical domain.
         """
         return super().__call__(fun)
@@ -482,7 +496,7 @@ class Projector_Hdiv(GlobalProjector):
         Parameters
         ----------
         fun : list/tuples of callable
-            Scalar components of the real-valued vector function to be
+            Scalar components of the real- or complex-valued vector function to be
             projected, with arguments the coordinates (x_1, ..., x_N) of a
             point in the logical domain. In 3D these correspond to the
             coefficients of a 2-form in the canonical basis (dx_1 ∧ dx_2,
@@ -494,7 +508,7 @@ class Projector_Hdiv(GlobalProjector):
         -------
         field : FemField
             Field obtained by projection (element of the H(div)-conforming
-            finite element space). This is also a real-valued vector function
+            finite element space). This is also a real- or complex-valued vector function
             in the logical domain.
         """
         return super().__call__(fun)
@@ -543,7 +557,7 @@ class Projector_L2(GlobalProjector):
         Parameters
         ----------
         fun : callable
-            Real-valued scalar function to be projected, with arguments the
+            Real- or complex-valued scalar function to be projected, with arguments the
             coordinates (x_1, ..., x_N) of a point in the logical domain. This
             corresponds to the coefficient of an N-form in N dimensions, in
             the canonical basis dx_1 ∧ ... ∧ dx_N.
@@ -554,8 +568,72 @@ class Projector_L2(GlobalProjector):
         -------
         field : FemField
             Field obtained by projection (element of the L2-conforming finite
-            element space). This is also a real-valued scalar function in the
+            element space). This is also a real- or complex-valued scalar function in the
             logical domain.
+        """
+        return super().__call__(fun)
+
+class Projector_H1vec(GlobalProjector):
+    """
+    Projector from H1^3 = H1 x H1 x H1 to a conforming finite element space, i.e.
+    a finite dimensional subspace of H1^3, constructed with tensor-product
+    B-splines in 2 or 3 dimensions.
+    This is a global projector constructed over a tensor-product grid in the
+    logical domain. The vertices of this grid are obtained as the tensor
+    product of the 1D splines' Greville points along each direction.
+    
+    Parameters
+    ----------
+    H1vec : ProductFemSpace
+        H1 x H1 x H1-conforming finite element space, codomain of the projection
+        operator.
+        
+    nquads : list(int) | tuple(int)
+        Number of quadrature points along each direction, to be used in Gauss
+        quadrature rule for computing the (approximated) degrees of freedom.
+    """
+    def _structure(self, dim):
+        if dim == 3:
+            return [
+                ['I', 'I', 'I'],
+                ['I', 'I', 'I'],
+                ['I', 'I', 'I']
+            ]
+        elif dim == 2:
+            return [
+                ['I', 'I'],
+                ['I', 'I']
+            ]
+        else:
+            raise NotImplementedError('The H1vec projector is only available in 2D or 3D.')
+    
+    def _function(self, dim):
+        if dim == 3: return evaluate_dofs_3d_vec
+        elif dim == 2: return evaluate_dofs_2d_vec
+        else:
+            raise NotImplementedError('The H1vec projector is only available in 2/3D.')
+
+    #--------------------------------------------------------------------------
+    def __call__(self, fun):
+        r"""
+        Project vector function onto the H1 x H1 x H1-conforming finite element
+        space. This happens in the logical domain $\hat{\Omega}$.
+        
+        Parameters
+        ----------
+        fun : list/tuple of callables
+            Scalar components of the real-valued vector function to be
+            projected, with arguments the coordinates (x_1, ..., x_N) of a
+            point in the logical domain. These correspond to the coefficients
+            of a vector-field.
+            $fun_i : \hat{\Omega} \mapsto \mathbb{R}$ with i = 1, ..., N.
+            
+        Returns
+        -------
+        field : FemField
+            Field obtained by projection (element of the H1^3-conforming
+            finite element space). This is also a real-valued vector function
+            in the logical domain.
         """
         return super().__call__(fun)
 
@@ -667,6 +745,24 @@ def evaluate_dofs_2d_2form(
                 for g2 in range(k2):
                     F[i1, i2] += quad_w1[i1, g1] * quad_w2[i2, g2] * \
                             f(quad_x1[i1, g1], quad_x2[i2, g2])
+
+#------------------------------------------------------------------------------    
+def evaluate_dofs_2d_vec(
+        intp_x1, intp_x2,      # interpolation points
+        F1, F2,                # array of degrees of freedom (intent out)
+        f1, f2,                # input scalar function (callable)
+        ):
+    
+    n1, n2 = F1.shape
+    for i1 in range(n1):
+        for i2 in range(n2):
+            F1[i1, i2] = f1(intp_x1[i1], intp_x2[i2])
+                
+    n1, n2 = F2.shape
+    for i1 in range(n1):
+        for i2 in range(n2):
+            F2[i1, i2] = f2(intp_x1[i1], intp_x2[i2])
+
 
 #==============================================================================
 # 3D DEGREES OF FREEDOM
@@ -786,3 +882,30 @@ def evaluate_dofs_3d_3form(
                             F[i1, i2, i3] += \
                                     quad_w1[i1, g1] * quad_w2[i2, g2] * quad_w3[i3, g3] * \
                                     f(quad_x1[i1, g1], quad_x2[i2, g2], quad_x3[i3, g3])
+
+#------------------------------------------------------------------------------
+def evaluate_dofs_3d_vec(
+        intp_x1, intp_x2, intp_x3, # interpolation points
+        F1, F2, F3,                # array of degrees of freedom (intent out)
+        f1, f2, f3,                # input scalar function (callable)
+        ):
+    
+    # evaluate input functions at interpolation points (make sure that points are in [0, 1])
+    n1, n2, n3 = F1.shape
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                F1[i1, i2, i3] = f1(intp_x1[i1], intp_x2[i2], intp_x3[i3])
+                
+    n1, n2, n3 = F2.shape
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                F2[i1, i2, i3] = f2(intp_x1[i1], intp_x2[i2], intp_x3[i3])
+                
+    n1, n2, n3 = F3.shape
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                F3[i1, i2, i3] = f3(intp_x1[i1], intp_x2[i2], intp_x3[i3])
+

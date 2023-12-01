@@ -1,10 +1,10 @@
 # -*- coding: UTF-8 -*-
 
+
 from mpi4py import MPI
 from sympy import pi, cos, sin, symbols
 from sympy.utilities.lambdify import implemented_function
 import pytest
-import os
 
 from sympde.calculus import grad, dot
 from sympde.topology import ScalarFunctionSpace
@@ -13,14 +13,13 @@ from sympde.topology import NormalVector
 from sympde.topology import Square
 from sympde.topology import Union
 from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm
+from sympde.expr     import Norm, SemiNorm
 from sympde.expr     import find, EssentialBC
 
 from psydac.api.discretization import discretize
-from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
+from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 
 x,y,z = symbols('x1, x2, x3')
-os.environ['OMP_NUM_THREADS'] = "2"
 
 # backend to activate multi threading
 PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP           = PSYDAC_BACKEND_GPYCCEL.copy()
@@ -84,8 +83,8 @@ def run_poisson_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary,
 
     # Error norms
     error  = u - solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    l2norm =     Norm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
@@ -121,7 +120,7 @@ def run_poisson_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary,
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
-@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_dir0_1234(backend):
 
     solution = sin(pi*x)*sin(pi*y)
@@ -409,7 +408,7 @@ def test_poisson_2d_dir0_1234_user_function():
 ###############################################################################
 
 @pytest.mark.parallel
-@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_dir0_1234_parallel(backend):
 
     solution = sin(pi*x)*sin(pi*y)

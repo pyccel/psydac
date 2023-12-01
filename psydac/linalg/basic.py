@@ -7,8 +7,8 @@ from abc   import ABC, abstractmethod
 from scipy.sparse import coo_matrix
 import numpy as np
 
-__all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'ZeroOperator', 'IdentityOperator', 'ScaledLinearOperator',
-           'SumLinearOperator', 'ComposedLinearOperator', 'PowerLinearOperator', 'InverseLinearOperator', 'LinearSolver']
+__all__ = ('VectorSpace', 'Vector', 'LinearOperator', 'ZeroOperator', 'IdentityOperator', 'ScaledLinearOperator',
+           'SumLinearOperator', 'ComposedLinearOperator', 'PowerLinearOperator', 'InverseLinearOperator', 'LinearSolver')
 
 #===============================================================================
 class VectorSpace(ABC):
@@ -31,10 +31,6 @@ class VectorSpace(ABC):
         """
         The data type of the field over which the space is built.
 
-        See also
-        --------
-        https://en.wikipedia.org/wiki/Field_(mathematics)
-
         """
 
     @abstractmethod
@@ -54,6 +50,25 @@ class VectorSpace(ABC):
         """
         Evaluate the scalar product between two vectors of the same space.
 
+        """
+
+    @abstractmethod
+    def axpy(self, a, x, y):
+        """
+        Increment the vector y with the a-scaled vector x, i.e. y = a * x + y,
+        provided that x and y belong to the same vector space V (self).
+        The scalar value a may be real or complex, depending on the field of V.
+
+        Parameters
+        ----------
+        a : scalar
+            The scaling coefficient needed for the operation.
+
+        x : Vector
+            The vector which is not modified by this function.
+
+        y : Vector
+            The vector modified by this function (incremented by a * x).
         """
 
 #===============================================================================
@@ -79,6 +94,20 @@ class Vector(ABC):
         assert isinstance(other, Vector)
         assert self.space is other.space
         return self.space.dot(self, other)
+
+    def mul_iadd(self, a, x):
+        """
+        Compute self += a * x, where x is another vector of the same space.
+
+        Parameters
+        ----------
+        a : scalar
+            Rescaling coefficient, which can be cast to the correct dtype.
+
+        x : Vector
+            Vector belonging to the same space as self.
+        """
+        self.space.axpy(a, x, self)
 
     #-------------------------------------
     # Deferred methods
@@ -904,7 +933,7 @@ class InverseLinearOperator(LinearOperator):
     def jacobi(A, b, out=None):
         """
         Jacobi preconditioner.
-        ----------
+
         A : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator
             Left-hand-side matrix A of linear system.
 
@@ -976,5 +1005,14 @@ class LinearSolver(ABC):
         pass
 
     @abstractmethod
-    def solve(self, rhs, out=None, transposed=False):
+    def transpose(self):
+        """Return the transpose of the LinearSolver."""
         pass
+
+    @abstractmethod
+    def solve(self, rhs, out=None):
+        pass
+
+    @property
+    def T(self):
+        return self.transpose()

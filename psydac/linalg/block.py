@@ -7,12 +7,12 @@ import numpy as np
 from types import MappingProxyType
 from scipy.sparse import bmat, lil_matrix
 
-from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator, LinearSolver, ZeroOperator
-from psydac.ddm.cart      import InterfaceCartDecomposition
-from psydac.ddm.utilities import get_data_exchanger
-from psydac.linalg.stencil import StencilVector, StencilMatrix
+from psydac.linalg.basic    import VectorSpace, Vector, LinearOperator
+from psydac.linalg.stencil  import StencilMatrix
+from psydac.ddm.cart        import InterfaceCartDecomposition
+from psydac.ddm.utilities   import get_data_exchanger
 
-__all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockDiagonalSolver']
+__all__ = ('BlockVectorSpace', 'BlockVector', 'BlockLinearOperator')
 
 #===============================================================================
 class BlockVectorSpace(VectorSpace):
@@ -73,7 +73,6 @@ class BlockVectorSpace(VectorSpace):
     def dtype(self):
         return self._dtype
 
-    # ...
     def zeros(self):
         """
         Get a copy of the null element of the product space V = [V1, V2, ...]
@@ -85,6 +84,35 @@ class BlockVectorSpace(VectorSpace):
 
         """
         return BlockVector(self, [Vi.zeros() for Vi in self._spaces])
+
+    #...
+    def axpy(self, a, x, y):
+        """
+        Increment the vector y with the a-scaled vector x, i.e. y = a * x + y,
+        provided that x and y belong to the same vector space V (self).
+        The scalar value a may be real or complex, depending on the field of V.
+
+        Parameters
+        ----------
+        a : scalar
+            The scaling coefficient needed for the operation.
+
+        x : BlockVector
+            The vector which is not modified by this function.
+
+        y : BlockVector
+            The vector modified by this function (incremented by a * x).
+        """
+
+        assert isinstance(x, BlockVector)
+        assert isinstance(y, BlockVector)
+        assert x.space is self
+        assert y.space is self
+
+        for Vi, xi, yi in zip(self.spaces, x.blocks, y.blocks):
+            Vi.axpy(a, xi, yi)
+
+        x._sync = x._sync and y._sync
 
     #--------------------------------------
     # Other properties/methods
@@ -383,18 +411,17 @@ class BlockVector(Vector):
                 cart_i = Vi.cart
                 cart_j = Vj.cart
 
-                buf = [None]*2
                 if cart_i.is_comm_null:
-                    buf[0] = self._blocks[i]._interface_data[axis_i, ext_i]
+                    read_buffer = self._blocks[i]._interface_data[axis_i, ext_i]
                 else:
-                    buf[0] = self._blocks[i]._data
+                    read_buffer = self._blocks[i]._data
 
                 if cart_j.is_comm_null:
-                    buf[1] = self._blocks[j]._interface_data[axis_j, ext_j]
+                    write_buffer = self._blocks[j]._interface_data[axis_j, ext_j]
                 else:
-                    buf[1] = self._blocks[j]._data
+                    write_buffer = self._blocks[j]._data
 
-                self._interface_buf[i, j].append(tuple(buf))
+                self._interface_buf[i, j].append((read_buffer, write_buffer))
 
     # ...
     def exchange_assembly_data(self):
@@ -524,8 +551,11 @@ class BlockLinearOperator(LinearOperator):
 
         for (i, j), Lij in self._blocks.items():
             assert isinstance(Lij, (StencilMatrix, BlockLinearOperator))
-            Lij_out = Lij.conjugate()
-            out[i,j] = Lij_out
+            if out[i,j]==None:
+                out[i, j] = Lij.conjugate()
+            else:
+                Lij.conjugate(out=out[i,j])
+
         return out
 
     def conj(self, out=None):
@@ -614,6 +644,8 @@ class BlockLinearOperator(LinearOperator):
                 assert isinstance(out, Vector)
             else:
                 assert isinstance(out, BlockVector)
+
+            assert out.space is self.codomain
             out *= 0.0
         else:
             out = self.codomain.zeros()
@@ -941,6 +973,7 @@ class BlockLinearOperator(LinearOperator):
                                 root = MPI.ROOT
                             else:
                                 root = MPI.PROC_NULL
+
                         else:
                             root = 0
 
@@ -970,6 +1003,7 @@ class BlockLinearOperator(LinearOperator):
                                 blocks_T[j,i][k2,k1] = block_ij_k1k2.transpose(Mt=block_ji_k2k1)
                     else:
                         continue
+
                     break
 
                 if (j,i) in blocks_T and len(blocks_T[j,i]._blocks) == 0:
@@ -998,6 +1032,7 @@ class BlockLinearOperator(LinearOperator):
                                 root = MPI.ROOT
                             else:
                                 root = MPI.PROC_NULL
+
                         else:
                             root = 0
 
@@ -1031,6 +1066,7 @@ class BlockLinearOperator(LinearOperator):
 
                     else:
                         continue
+
                     break
 
 
@@ -1055,6 +1091,7 @@ class BlockLinearOperator(LinearOperator):
                         root = MPI.ROOT
                     else:
                         root = MPI.PROC_NULL
+
                 else:
                     root = 0
 
@@ -1082,6 +1119,7 @@ class BlockLinearOperator(LinearOperator):
                         root = MPI.ROOT
                     else:
                         root = MPI.PROC_NULL
+
                 else:
                     root = 0
 
@@ -1115,7 +1153,7 @@ class BlockLinearOperator(LinearOperator):
         if backend is None:return
         if backend is self._backend:return
 
-        from psydac.api.ast.linalg import LinearOperatorDot, TransposeOperator, InterfaceTransposeOperator
+        from psydac.api.ast.linalg import LinearOperatorDot
         from psydac.linalg.stencil import StencilInterfaceMatrix, StencilMatrix
 
         if not all(isinstance(b, (StencilMatrix, StencilInterfaceMatrix)) for b in self._blocks.values()):
@@ -1150,35 +1188,6 @@ class BlockLinearOperator(LinearOperator):
             permutation    = None
             c_starts       = None
             d_starts       = None
-
-        if interface:
-            transpose = InterfaceTransposeOperator(ndim, backend=frozenset(backend.items()))
-        else:
-            transpose = TransposeOperator(ndim, backend=frozenset(backend.items()))
-
-        for k,key in enumerate(keys):
-            self._blocks[key]._transpose_func = transpose.func
-            self._blocks[key]._transpose_args  = self._blocks[key]._transpose_args_null.copy()
-            nrows   = self._blocks[key]._transpose_args.pop('nrows')
-            ncols   = self._blocks[key]._transpose_args.pop('ncols')
-            gpads   = self._blocks[key]._transpose_args.pop('gpads')
-            pads    = self._blocks[key]._transpose_args.pop('pads')
-            ndiags  = self._blocks[key]._transpose_args.pop('ndiags')
-            ndiagsT = self._blocks[key]._transpose_args.pop('ndiagsT')
-            si      = self._blocks[key]._transpose_args.pop('si')
-            sk      = self._blocks[key]._transpose_args.pop('sk')
-            sl      = self._blocks[key]._transpose_args.pop('sl')
-            dm      = self._blocks[key]._transpose_args.pop('dm')
-            cm      = self._blocks[key]._transpose_args.pop('cm')
-
-            args = dict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads ),
-                            ('dm{i}', dm),('cm{i}', cm),('nd{i}', ndiags),
-                            ('ndT{i}', ndiagsT),('si{i}', si),('sk{i}', sk),('sl{i}', sl)])
-
-            self._blocks[key]._transpose_args = {}
-            for arg_name, arg_val in args.items():
-                for i in range(len(nrows)):
-                    self._blocks[key]._transpose_args[arg_name.format(i=i+1)] = np.int64(arg_val[i]) if isinstance(arg_val[i], int) else arg_val[i]
 
         starts      = []
         nrows       = []
@@ -1313,138 +1322,3 @@ class BlockLinearOperator(LinearOperator):
 
         self._func    = func
         self._backend = backend
-
-#===============================================================================
-class BlockDiagonalSolver( LinearSolver ):
-    """
-    A LinearSolver that can be written as blocks of other LinearSolvers,
-    i.e. it can be seen as a solver for linear equations with block-diagonal matrices.
-
-    The space of this solver has to be of the type BlockVectorSpace.
-
-    Parameters
-    ----------
-    V : psydac.linalg.block.BlockVectorSpace
-        Space of the new blocked linear solver.
-
-    blocks : dict | list | tuple
-        LinearSolver objects (optional).
-
-        a) 'blocks' can be dictionary with
-            . key   = integer i >= 0
-            . value = corresponding LinearSolver Lii
-
-        b) 'blocks' can be list of LinearSolvers (or tuple of these) where blocks[i]
-            is the LinearSolver Lii (if None, we assume null operator)
-
-    """
-    def __init__( self, V, blocks=None ):
-
-        assert isinstance( V, BlockVectorSpace )
-
-        self._space   = V
-        self._nblocks = V.n_blocks
-
-        # Store blocks in list (hence, they can be manually changed later)
-        self._blocks   = [None] * self._nblocks
-
-        if blocks:
-
-            if isinstance( blocks, dict ):
-                for i, L in blocks.items():
-                    self[i] = L
-
-            elif isinstance( blocks, (list, tuple) ):
-                for i, L in enumerate( blocks ):
-                    self[i] = L
-
-            else:
-                raise ValueError( "Blocks can only be given as dict or 1D list/tuple." )
-
-    #--------------------------------------
-    # Abstract interface
-    #--------------------------------------
-    @property
-    def space( self ):
-        """
-        The space this BlockDiagonalSolver works on.
-        """
-        return self._space
-
-    # ...
-    def solve( self, rhs, out=None, transposed=False ):
-        """
-        Solves the linear system for the given right-hand side rhs.
-        An out vector can be supplied, otherwise a new vector will be allocated.
-
-        This operation supports in-place operations, given that the underlying solvers
-        do as well.
-
-        Parameters
-        ----------
-        rhs : BlockVector
-            The input right-hand side.
-        
-        out : BlockVector | NoneType
-            The output vector, or None.
-        
-        transposed : Bool
-            If true, and supported by the underlying solvers,
-            rhs is solved against the transposed right-hand sides.
-        
-        Returns
-        -------
-        out : BlockVector
-            Either `out`, if given as input parameter, or a newly-allocated vector.
-            In all cases, it holds the result of the computation.
-        """
-        assert isinstance(rhs, BlockVector)
-        assert rhs.space is self.space
-        if out is None:
-            out = self.space.zeros()
-        
-        assert isinstance(out, BlockVector)
-        assert out.space is self.space
-
-        rhs.update_ghost_regions()
-
-        for i, L in enumerate(self._blocks):
-            if L is None:
-                raise NotImplementedError('All solvers have to be defined.')
-            L.solve(rhs[i], out=out[i], transposed=transposed)
-
-        return out
-
-    #--------------------------------------
-    # Other properties/methods
-    #--------------------------------------
-    @property
-    def blocks( self ):
-        """ Immutable 1D view (tuple) of the linear solvers,
-            including the empty blocks as 'None' objects.
-        """
-        return tuple(self._blocks)
-    # ...
-    @property
-    def n_blocks( self ):
-        """
-        The number of blocks in the matrix.
-        """
-        return self._nblocks
-
-    # ...
-    def __getitem__( self, key ):
-        assert 0 <= key < self._nblocks
-
-        return self._blocks.get( key, None )
-
-    # ...
-    def __setitem__( self, key, value ):
-        assert 0 <= key < self._nblocks
-
-        assert isinstance( value, LinearSolver )
-
-        # Check domain of rhs
-        assert value.space is self.space[key]
-
-        self._blocks[key] = value
