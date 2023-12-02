@@ -2574,8 +2574,8 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
     M.transpose(out=To)
     Tos = To.tosparse()
 
-    # Exact result: convert to Scipy sparse format, then transpose
-    Ts_exact = M.tosparse().transpose()
+    # Exact result: convert to Scipy sparse format with padding, then transpose
+    Ts_exact = M.tosparse(with_pads=True).transpose()
 
     # ...
     Ts_exact = Ts_exact.tocsr()
