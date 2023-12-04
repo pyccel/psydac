@@ -1037,9 +1037,17 @@ class StencilMatrix(LinearOperator):
         return out
 
     # ...
-    def transpose(self, conjugate=False):
-        """ Create new StencilMatrix Mt, where domain and codomain are swapped
-            with respect to original matrix M, and Mt_{ij} = M_{ji}.
+    def transpose(self, conjugate=False, out=None):
+        """"
+        Return the transposed StencilMatrix, or the Hermitian Transpose if conjugate==True
+
+        Parameters
+        ----------
+        conjugate : Bool(optional)
+            True to get the Hermitian adjoint.
+
+        out : StencilMatrix(optional)
+            Optional out for the transpose to avoid temporaries
         """
         # For clarity rename self
         M = self
@@ -1049,14 +1057,20 @@ class StencilMatrix(LinearOperator):
             M.update_ghost_regions()
 
         # Create new matrix where domain and codomain are swapped
-        Mt = StencilMatrix(M.codomain, M.domain, pads=self._pads, backend=self._backend)
+        if out is not None :
+            assert isinstance(out, StencilMatrix)
+            assert out.codomain == M.domain
+            assert out.domain == M.codomain
+            
+        else :
+            out = StencilMatrix(M.codomain, M.domain, pads=self._pads, backend=self._backend)
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
         if conjugate:
-            self._transpose_func(np.conjugate(M._data), Mt._data, **self._transpose_args)
+            self._transpose_func(np.conjugate(M._data), out._data, **self._transpose_args)
         else:
-            self._transpose_func(M._data, Mt._data, **self._transpose_args)
-        return Mt
+            self._transpose_func(M._data, out._data, **self._transpose_args)
+        return out
 
     # ...
     def toarray(self, **kwargs):
@@ -1190,12 +1204,25 @@ class StencilMatrix(LinearOperator):
         return self._data.max()
 
     #...
-    def copy(self):
-        M = StencilMatrix( self.domain, self.codomain, self._pads, self._backend )
-        M._data[:] = self._data[:]
-        M._func    = self._func
-        M._args    = self._args
-        return M
+    def copy(self, out = None):
+        """
+        Create a copy of self, that can potentially be stored in a given StencilMatrix.
+
+        Parameters
+        ----------
+        out : StencilMatrix(optional)
+            The existing StencilMatrix in which we want to copy self.
+        """
+        if out is not None :
+            assert isinstance(out, StencilMatrix)
+            assert out.domain == self.domain
+            assert out.codomain == self.codomain
+        else :
+            out = StencilMatrix( self.domain, self.codomain, self._pads, self._backend )
+        out._data[:] = self._data[:]
+        out._func    = self._func
+        out._args    = self._args
+        return out
 
     #...
     def __imul__(self, a):
@@ -2020,7 +2047,7 @@ class StencilInterfaceMatrix(LinearOperator):
             new_nrows[d] += er
 
     # ...
-    def transpose( self, conjugate=False, Mt=None):
+    def transpose( self, conjugate=False, out=None):
         """ Create new StencilInterfaceMatrix Mt, where domain and codomain are swapped
             with respect to original matrix M, and Mt_{ij} = M_{ji}.
         """
@@ -2028,18 +2055,18 @@ class StencilInterfaceMatrix(LinearOperator):
         # For clarity rename self
         M = self
 
-        if Mt is None:
+        if out is None:
             # Create new matrix where domain and codomain are swapped
 
-            Mt = StencilInterfaceMatrix(M.codomain, M.domain, M.codomain_start, M.domain_start, M.codomain_axis, M.domain_axis, M.codomain_ext, M.domain_ext,
+            out = StencilInterfaceMatrix(M.codomain, M.domain, M.codomain_start, M.domain_start, M.codomain_axis, M.domain_axis, M.codomain_ext, M.domain_ext,
                                         flip=M.flip, pads=M.pads, backend=M.backend)
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
         if conjugate:
-            M._transpose_func(np.conjugate(M._data), Mt._data, **M._transpose_args)
+            M._transpose_func(np.conjugate(M._data), out._data, **M._transpose_args)
         else:
-            M._transpose_func(M._data, Mt._data, **M._transpose_args)
-        return Mt
+            M._transpose_func(M._data, out._data, **M._transpose_args)
+        return out
 
     def _prepare_transpose_args(self):
 
