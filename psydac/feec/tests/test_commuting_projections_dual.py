@@ -164,6 +164,6 @@ if __name__ == '__main__':
     bc  = True
     m   = 2
 
-    test_transpose_div_3d(Nel, Nq, p, bc, m)
+    test_transpose_div_3d (Nel, Nq, p, bc, m)
     test_transpose_curl_3d(Nel, Nq, p, bc, m)
     test_transpose_grad_3d(Nel, Nq, p, bc, m)
