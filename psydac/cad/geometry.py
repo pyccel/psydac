@@ -125,9 +125,19 @@ class Geometry( object ):
     def from_discrete_mapping(cls, mapping, comm=None):
         """Create a geometry from one discrete mapping."""
 
-        if mapping.ldim == 2:
+        if mapping.ldim == 1:
+            M        = Mapping('mapping_0', dim=1)
+            domain   = M(Line(name='Omega'))
+            M.set_callable_mapping(mapping)
+            mappings = {domain.name: mapping}
+            ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
+            periodic = {domain.name: mapping.space.domain_decomposition.periods}
+            return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
+
+        elif mapping.ldim == 2:
             M        = Mapping('mapping_0', dim=2)
             domain   = M(Square(name='Omega'))
+            M.set_callable_mapping(mapping)
             mappings = {domain.name: mapping}
             ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
             periodic = {domain.name: mapping.space.domain_decomposition.periods}
