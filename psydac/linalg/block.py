@@ -696,19 +696,32 @@ class BlockLinearOperator(LinearOperator):
 
     # ...
     def transpose(self, conjugate=False, out=None):
-        if out is not None :
-            assert isinstance(out,BlockLinearOperator)
-            assert out.domain==self.codomain
-            assert out.codomain == self.domain
-            #should probably have more asserts
-            for i, line in enumerate(self.blocks):
-                for j, b in enumerate(line) :
-                    b.transpose(conjugate=conjugate, out=out._blocks[(j,i)])
-        else :
+        """"
+        Return the transposed BlockLinearOperator, or the Hermitian Transpose if conjugate==True
+
+        Parameters
+        ----------
+        conjugate : Bool(optional)
+            True to get the Hermitian adjoint.
+
+        out : BlockLinearOperator(optional)
+            Optional out for the transpose to avoid temporaries
+        """
+        if out is not None:
+            assert isinstance(out, BlockLinearOperator)
+            assert out.codomain is self.domain
+            assert out.domain is self.codomain
+            for (i, j), Lij in self._blocks.items():
+                if out[j,i]==None:
+                    out[j, i] = Lij.transpose(conjugate=conjugate)
+                else:
+                    Lij.transpose(conjugate=conjugate, out=out[j,i])
+        else:
             blocks, blocks_T = self.compute_interface_matrices_transpose()
             blocks = {(j, i): b.transpose(conjugate=conjugate) for (i, j), b in blocks.items()}
             blocks.update(blocks_T)
             out = BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
+
         out.set_backend(self._backend)
         return out
 
@@ -896,22 +909,29 @@ class BlockLinearOperator(LinearOperator):
 
     # ...
     def copy(self, out=None):
+        """
+        Create a copy of self, that can potentially be stored in a given BlockLinearOperator.
+
+        Parameters
+        ----------
+        out : BlockLinearOperator(optional)
+            The existing BlockLinearOperator in which we want to copy self.
+        """
         if out is not None:
             assert isinstance(out, BlockLinearOperator)
-            assert out.domain==self.domain
-            assert out.codomain == self.codomain
-            for i, line in enumerate(self.blocks):
-                for j, b in enumerate(line) :
-                    b.copy(out=out._blocks[(i,j)])
-        else :
-            blocks = {ij: Bij.copy() for ij, Bij in self._blocks.items()}
-            out = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
-        if self._backend is not None:
-            out._func = self._func
-            out._args = self._args
-            out._blocks_as_args = [out._blocks[key]._data for key in self._blocks]
-            out._backend = self._backend
-        return out
+            assert out.domain is self.domain
+            assert out.codomain is self.codomain
+        else:
+            out = BlockLinearOperator(self.domain, self.codomain)
+
+        for (i, j), Lij in self._blocks.items():
+            if out[i,j]==None:
+                out[i, j] = Lij.copy()
+            else:
+                Lij.copy(out=out[i,j])
+
+        out.set_backend(self._backend)
+        
 
     # ...
     def __imul__(self, a):
@@ -1039,7 +1059,7 @@ class BlockLinearOperator(LinearOperator):
                             data_exchanger.update_ghost_regions(array_minus=block_ij_k1k2._data)
 
                             if cart_i.is_comm_null:
-                                blocks_T[j,i][k2,k1] = block_ij_k1k2.transpose(Mt=block_ji_k2k1)
+                                blocks_T[j,i][k2,k1] = block_ij_k1k2.transpose(out=block_ji_k2k1)
                     else:
                         continue
 
@@ -1101,7 +1121,7 @@ class BlockLinearOperator(LinearOperator):
                             data_exchanger.update_ghost_regions(array_plus=block_ji_k2k1._data)
 
                             if cart_j.is_comm_null:
-                                blocks_T[i,j][k1,k2] = block_ji_k2k1.transpose(Mt=block_ij_k1k2)
+                                blocks_T[i,j][k1,k2] = block_ji_k2k1.transpose(out=block_ij_k1k2)
 
                     else:
                         continue
@@ -1151,7 +1171,7 @@ class BlockLinearOperator(LinearOperator):
                     data_exchanger.update_ghost_regions(array_minus=block_ij._data)
 
                     if cart_i.is_comm_null:
-                        blocks_T[j,i] = block_ij.transpose(Mt=block_ji)
+                        blocks_T[j,i] = block_ij.transpose(out=block_ji)
 
                 if not cart_j.is_comm_null:
                     if cart_ij.intercomm.rank == 0:
@@ -1178,7 +1198,7 @@ class BlockLinearOperator(LinearOperator):
                     data_exchanger.update_ghost_regions(array_plus=block_ji._data)
 
                     if cart_j.is_comm_null:
-                        blocks_T[i,j] = block_ji.transpose(Mt=block_ij)
+                        blocks_T[i,j] = block_ji.transpose(out=block_ij)
 
         return blocks, blocks_T
 
