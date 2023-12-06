@@ -113,51 +113,16 @@ class ConjugateGradient(InverseLinearOperator):
     """
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
-        assert isinstance(A, LinearOperator)
-        assert A.domain.dimension == A.codomain.dimension
-        domain = A.codomain
-        codomain = A.domain
-
-        if x0 is not None:
-            assert isinstance(x0, Vector)
-            assert x0.space is codomain
-        else:
-            x0 = codomain.zeros()
-
-        self._A = A
-        self._domain = domain
-        self._codomain = codomain
-        self._solver = 'cg'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
-        self._check_options(**self._options)
-        self._tmps = {key: domain.zeros() for key in ("v", "r", "p")}
+        
+        super().__init__(A, **self._options)
+        
+        self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p")}
         self._info = None
 
-    def _check_options(self, **kwargs):
-        for key, value in kwargs.items():
-
-            if key == 'x0':
-                if value is not None:
-                    assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif key == 'tol':
-                assert is_real(value), "tol must be a real number"
-                assert value > 0, "tol must be positive"
-            elif key == 'maxiter':
-                assert isinstance(value, int), "maxiter must be an int"
-                assert value > 0, "maxiter must be positive"
-            elif key == 'verbose':
-                assert isinstance(value, bool), "verbose must be a bool"
-            elif key == 'recycle':
-                assert isinstance(value, bool), "recycle must be a bool"
-            else:
-                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def transpose(self, conjugate=False):
-        At = self._A.transpose(conjugate=conjugate)
-        solver = self._solver
-        options = self._options
-        return inverse(At, solver, **options)
+    @property
+    def solver(self):
+        return 'cg'
 
     def solve(self, b, out=None):
         """
@@ -299,57 +264,23 @@ class PConjugateGradient(InverseLinearOperator):
     """
     def __init__(self, A, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
-        assert isinstance(A, LinearOperator)
-        assert A.domain.dimension == A.codomain.dimension
-        domain = A.codomain
-        codomain = A.domain
-
-        if x0 is not None:
-            assert isinstance(x0, Vector)
-            assert x0.space is codomain
-        else:
-            x0 = codomain.zeros()
-
-        self._A = A
-        self._domain = domain
-        self._codomain = codomain
-        self._solver = 'pcg'
-        if pc is None:
-            pc = IdentityOperator(self._domain)
         self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
-        self._check_options(**self._options)
-        tmps_codomain = {key: codomain.zeros() for key in ("p", "s")}
-        tmps_domain = {key: domain.zeros() for key in ("v", "r")}
+        
+        super().__init__(A, **self._options)
+        
+        if pc is None:
+            self._options['pc'] = IdentityOperator(self.domain)
+        else:
+            assert isinstance(pc, LinearOperator)
+            
+        tmps_codomain = {key: self.codomain.zeros() for key in ("p", "s")}
+        tmps_domain = {key: self.domain.zeros() for key in ("v", "r")}
         self._tmps = {**tmps_codomain, **tmps_domain}
         self._info = None
 
-    def _check_options(self, **kwargs):
-        for key, value in kwargs.items():
-
-            if key == 'pc':
-                assert isinstance(value, LinearOperator)
-            elif key == 'x0':
-                if value is not None:
-                    assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif key == 'tol':
-                assert is_real(value), "tol must be a real number"
-                assert value > 0, "tol must be positive"
-            elif key == 'maxiter':
-                assert isinstance(value, int), "maxiter must be an int"
-                assert value > 0, "maxiter must be positive"
-            elif key == 'verbose':
-                assert isinstance(value, bool), "verbose must be a bool"
-            elif key == 'recycle':
-                assert isinstance(value, bool), "recycle must be a bool"
-            else:
-                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def transpose(self, conjugate=False):
-        At = self._A.transpose(conjugate=conjugate)
-        solver = self._solver
-        options = self._options
-        return inverse(At, solver, **options)
+    @property
+    def solver(self):
+        return 'pcg'
 
     def solve(self, b, out=None):
         """
@@ -501,52 +432,17 @@ class BiConjugateGradient(InverseLinearOperator):
     """
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
-        assert isinstance(A, LinearOperator)
-        assert A.domain.dimension == A.codomain.dimension
-        domain = A.codomain
-        codomain = A.domain
-
-        if x0 is not None:
-            assert isinstance(x0, Vector)
-            assert x0.space is codomain
-        else:
-            x0 = codomain.zeros()
-
-        self._A = A
-        self._Ah = A.H
-        self._domain = domain
-        self._codomain = codomain
-        self._solver = 'bicg'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
-        self._check_options(**self._options)
-        self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vs", "rs", "ps")}
+        
+        super().__init__(A, **self._options)
+        
+        self._Ah = A.H
+        self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p", "vs", "rs", "ps")}
         self._info = None
 
-    def _check_options(self, **kwargs):
-        for key, value in kwargs.items():
-
-            if key == 'x0':
-                if value is not None:
-                    assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif key == 'tol':
-                assert is_real(value), "tol must be a real number"
-                assert value > 0, "tol must be positive"
-            elif key == 'maxiter':
-                assert isinstance(value, int), "maxiter must be an int"
-                assert value > 0, "maxiter must be positive"
-            elif key == 'verbose':
-                assert isinstance(value, bool), "verbose must be a bool"
-            elif key == 'recycle':
-                assert isinstance(value, bool), "recycle must be a bool"
-            else:
-                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def transpose(self, conjugate=False):
-        At = self._A.transpose(conjugate=conjugate)
-        solver = self._solver
-        options = self._options
-        return inverse(At, solver, **options)
+    @property
+    def solver(self):
+        return 'bicg'
 
     def solve(self, b, out=None):
         """
@@ -692,6 +588,207 @@ class BiConjugateGradient(InverseLinearOperator):
         return self.solve(b, out=out)
 
 #===============================================================================
+class BiConjugateGradientStabilized(InverseLinearOperator):
+    """
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+
+    The .dot (and also the .solve) function are based on the
+    Biconjugate gradient Stabilized (BCGSTAB) algorithm for solving linear system Ax=b.
+    Implementation from [1], page 175.
+
+    Parameters
+    ----------
+    A : psydac.linalg.basic.LinearOperator
+        Left-hand-side matrix A of linear system; individual entries A[i,j]
+        can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
+        function (i.e. matrix-vector product A*p).
+
+    x0 : psydac.linalg.basic.Vector
+        First guess of solution for iterative solver (optional).
+
+    tol : float
+        Absolute tolerance for 2-norm of residual r = A*x - b.
+
+    maxiter: int
+        Maximum number of iterations.
+
+    verbose : bool
+        If True, 2-norm of residual r is printed at each iteration.
+
+    recycle : bool
+        Stores a copy of the output in x0 to speed up consecutive calculations of slightly altered linear systems
+
+    References
+    ----------
+    [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
+
+    """
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
+
+        self._options = {"x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose, "recycle":recycle}
+        
+        super().__init__(A, **self._options)
+        
+        self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p", "vr", "r0")}
+        self._info = None
+
+    @property
+    def solver(self):
+        return 'bicgstab'
+
+    def solve(self, b, out=None):
+        """
+        Biconjugate gradient stabilized method (BCGSTAB) algorithm for solving linear system Ax=b.
+        Implementation from [1], page 175.
+        ToDo: Add optional preconditioner
+
+        Parameters
+        ----------
+        b : psydac.linalg.basic.Vector
+            Right-hand-side vector of linear system. Individual entries b[i] need
+            not be accessed, but b has 'shape' attribute and provides 'copy()' and
+            'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
+            scalar multiplication and sum operations are available.
+        out : psydac.linalg.basic.Vector | NoneType
+            The output vector, or None (optional).
+
+        Returns
+        -------
+        x : psydac.linalg.basic.Vector
+            Numerical solution of linear system. To check the convergence of the solver,
+            use the method InverseLinearOperator.get_info().
+        
+        info : dict
+            Dictionary containing convergence information:
+              - 'niter'    = (int) number of iterations
+              - 'success'  = (boolean) whether convergence criteria have been met
+              - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+
+        References
+        ----------
+        [1] H. A. van der Vorst. Bi-CGSTAB: A fast and smoothly converging variant of Bi-CG for the
+        solution of nonsymmetric linear systems. SIAM J. Sci. Stat. Comp., 13(2):631–644, 1992.
+        """
+
+        A = self._A
+        domain = self._domain
+        codomain = self._codomain
+        options = self._options
+        x0 = options["x0"]
+        tol = options["tol"]
+        maxiter = options["maxiter"]
+        verbose = options["verbose"]
+        recycle = options["recycle"]
+
+        assert isinstance(b, Vector)
+        assert b.space is domain
+
+        # First guess of solution
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space is codomain
+
+        x = x0.copy(out=out)
+
+        # Extract local storage
+        v = self._tmps["v"]
+        r = self._tmps["r"]
+        p = self._tmps["p"]
+        vr = self._tmps["vr"]
+        r0 = self._tmps["r0"]
+
+        # First values
+        A.dot(x, out=v)
+        b.copy(out=r)
+        r -= v
+        #r = b - A.dot(x)
+        r.copy(out=p)
+        v *= 0.0
+        vr *= 0.0
+
+        r.copy(out=r0)
+
+        res_sqr = r.dot(r).real
+        tol_sqr = tol ** 2
+
+        if verbose:
+            print("BiCGSTAB solver:")
+            print("+---------+---------------------+")
+            print("+ Iter. # | L2-norm of residual |")
+            print("+---------+---------------------+")
+            template = "| {:7d} | {:19.2e} |"
+
+        # Iterate to convergence
+        for m in range(1, maxiter + 1):
+
+            if res_sqr < tol_sqr:
+                m -= 1
+                break
+
+            # -----------------------
+            # MATRIX-VECTOR PRODUCTS
+            # -----------------------
+            v = A.dot(p, out=v)
+            # -----------------------
+
+            # c := (r0, r)
+            c = r0.dot(r)
+
+            # a := (r0, r) / (r0, v)
+            a = c / (r0.dot(v))
+
+            # r := r - a*v
+            r.mul_iadd(-a, v)
+
+            # vr :=  A*r
+            vr = A.dot(r, out=vr)
+
+            # w := (r, A*r) / (A*r, A*r)
+            w = r.dot(vr) / vr.dot(vr)
+
+            # -----------------------
+            # SOLUTION UPDATE
+            # -----------------------
+            # x := x + a*p +w*r
+            x.mul_iadd(a, p)
+            x.mul_iadd(w, r)
+            # -----------------------
+
+            # r := r - w*A*r
+            r.mul_iadd(-w, vr)
+
+            # ||r||_2 := (r, r)
+            res_sqr = r.dot(r).real
+
+            if res_sqr < tol_sqr:
+                break
+
+            # b := a / w * (r0, r)_{m+1} / (r0, r)_m
+            b = r0.dot(r) * a / (c * w)
+
+            # p := r + b*p- b*w*v
+            p *= b
+            p += r
+            p.mul_iadd(-b * w, v)
+
+            if verbose:
+                print(template.format(m, sqrt(res_sqr)))
+
+        if verbose:
+            print("+---------+---------------------+")
+
+        # Convergence information
+        self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
+
+        if recycle:
+            x.copy(out=self._options["x0"])
+
+        return x
+
+    def dot(self, b, out=None):
+        return self.solve(b, out=out)
+
+#===============================================================================
 class PBiConjugateGradientStabilized(InverseLinearOperator):
     """
     A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
@@ -720,60 +817,27 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
     """
     def __init__(self, A, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
-        assert isinstance(A, LinearOperator)
-        assert A.domain.dimension == A.codomain.dimension
-        domain = A.codomain
-        codomain = A.domain
-
-        if x0 is not None:
-            assert isinstance(x0, Vector)
-            assert x0.space is codomain
-        else:
-            x0 = codomain.zeros()
-
-        self._A = A
-        self._domain = domain
-        self._codomain = codomain
-        self._solver = 'pbicgstab'
-        if pc is None:
-            pc = IdentityOperator(self._domain)
         self._options = { "pc": pc, "x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose}
-        self._check_options(**self._options)
-        self._tmps = {key: domain.zeros() for key in ("v", "r", "s", "t", 
+
+        super().__init__(A, **self._options)
+
+        if pc is None:
+            self._options['pc'] = IdentityOperator(self.domain)
+        else:
+            assert isinstance(pc, LinearOperator)
+
+        self._tmps = {key: self.domain.zeros() for key in ("v", "r", "s", "t", 
                                                       "vp", "rp", "sp", "tp",
                                                       "pp", "av", "app", "osp", 
                                                       "rp0")}
         self._info = None
 
-    def _check_options(self, **kwargs):
-        keys = ('pc', 'x0', 'tol', 'maxiter', 'verbose')
-        for key, value in kwargs.items():
-            idx = [key == keys[i] for i in range(len(keys))]
-            assert any(idx), "key not supported, check options"
-            true_idx = idx.index(True)
-            if true_idx == 0:
-                assert isinstance(value, LinearOperator)
-            elif true_idx == 1:
-                if value is not None:
-                    assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif true_idx == 2:
-                assert is_real(value), "tol must be a real number"
-                assert value > 0, "tol must be positive"
-            elif true_idx == 3:
-                assert isinstance(value, int), "maxiter must be an int"
-                assert value > 0, "maxiter must be positive"
-            elif true_idx == 4:
-                assert isinstance(value, bool), "verbose must be a bool"
+    @property
+    def solver(self):
+        return 'pbicgstab'
 
     def _update_options( self ):
         self._options = {"pc": self._pc, "x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
-
-    def transpose(self, conjugate=False):
-        At = self._A.transpose(conjugate=conjugate)
-        solver = self._solver
-        options = self._options
-        return inverse(At, solver, **options)
 
     def solve(self, b, out=None):
         """
@@ -954,242 +1018,6 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
         return self.solve(b, out=out)
 
 #===============================================================================
-class BiConjugateGradientStabilized(InverseLinearOperator):
-    """
-    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
-
-    The .dot (and also the .solve) function are based on the
-    Biconjugate gradient Stabilized (BCGSTAB) algorithm for solving linear system Ax=b.
-    Implementation from [1], page 175.
-
-    Parameters
-    ----------
-    A : psydac.linalg.basic.LinearOperator
-        Left-hand-side matrix A of linear system; individual entries A[i,j]
-        can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
-        function (i.e. matrix-vector product A*p).
-
-    x0 : psydac.linalg.basic.Vector
-        First guess of solution for iterative solver (optional).
-
-    tol : float
-        Absolute tolerance for 2-norm of residual r = A*x - b.
-
-    maxiter: int
-        Maximum number of iterations.
-
-    verbose : bool
-        If True, 2-norm of residual r is printed at each iteration.
-
-    recycle : bool
-        Stores a copy of the output in x0 to speed up consecutive calculations of slightly altered linear systems
-
-    References
-    ----------
-    [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
-
-    """
-    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
-
-        assert isinstance(A, LinearOperator)
-        assert A.domain.dimension == A.codomain.dimension
-        domain = A.codomain
-        codomain = A.domain
-
-        if x0 is not None:
-            assert isinstance(x0, Vector)
-            assert x0.space is codomain
-        else:
-            x0 = codomain.zeros()
-
-        self._A = A
-        self._domain = domain
-        self._codomain = codomain
-        self._solver = 'bicgstab'
-        self._options = {"x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose, "recycle":recycle}
-        self._check_options(**self._options)
-        self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vr", "r0")}
-        self._info = None
-
-    def _check_options(self, **kwargs):
-        for key, value in kwargs.items():
-
-            if key == 'x0':
-                if value is not None:
-                    assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif key == 'tol':
-                assert is_real(value), "tol must be a real number"
-                assert value > 0, "tol must be positive"
-            elif key == 'maxiter':
-                assert isinstance(value, int), "maxiter must be an int"
-                assert value > 0, "maxiter must be positive"
-            elif key == 'verbose':
-                assert isinstance(value, bool), "verbose must be a bool"
-            elif key == 'recycle':
-                assert isinstance(value, bool), "recycle must be a bool"
-            else:
-                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def transpose(self, conjugate=False):
-        At = self._A.transpose(conjugate=conjugate)
-        solver = self._solver
-        options = self._options
-        return inverse(At, solver, **options)
-
-    def solve(self, b, out=None):
-        """
-        Biconjugate gradient stabilized method (BCGSTAB) algorithm for solving linear system Ax=b.
-        Implementation from [1], page 175.
-        ToDo: Add optional preconditioner
-
-        Parameters
-        ----------
-        b : psydac.linalg.basic.Vector
-            Right-hand-side vector of linear system. Individual entries b[i] need
-            not be accessed, but b has 'shape' attribute and provides 'copy()' and
-            'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
-            scalar multiplication and sum operations are available.
-        out : psydac.linalg.basic.Vector | NoneType
-            The output vector, or None (optional).
-
-        Returns
-        -------
-        x : psydac.linalg.basic.Vector
-            Numerical solution of linear system. To check the convergence of the solver,
-            use the method InverseLinearOperator.get_info().
-        
-        info : dict
-            Dictionary containing convergence information:
-              - 'niter'    = (int) number of iterations
-              - 'success'  = (boolean) whether convergence criteria have been met
-              - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
-
-        References
-        ----------
-        [1] H. A. van der Vorst. Bi-CGSTAB: A fast and smoothly converging variant of Bi-CG for the
-        solution of nonsymmetric linear systems. SIAM J. Sci. Stat. Comp., 13(2):631–644, 1992.
-        """
-
-        A = self._A
-        domain = self._domain
-        codomain = self._codomain
-        options = self._options
-        x0 = options["x0"]
-        tol = options["tol"]
-        maxiter = options["maxiter"]
-        verbose = options["verbose"]
-        recycle = options["recycle"]
-
-        assert isinstance(b, Vector)
-        assert b.space is domain
-
-        # First guess of solution
-        if out is not None:
-            assert isinstance(out, Vector)
-            assert out.space is codomain
-
-        x = x0.copy(out=out)
-
-        # Extract local storage
-        v = self._tmps["v"]
-        r = self._tmps["r"]
-        p = self._tmps["p"]
-        vr = self._tmps["vr"]
-        r0 = self._tmps["r0"]
-
-        # First values
-        A.dot(x, out=v)
-        b.copy(out=r)
-        r -= v
-        #r = b - A.dot(x)
-        r.copy(out=p)
-        v *= 0.0
-        vr *= 0.0
-
-        r.copy(out=r0)
-
-        res_sqr = r.dot(r).real
-        tol_sqr = tol ** 2
-
-        if verbose:
-            print("BiCGSTAB solver:")
-            print("+---------+---------------------+")
-            print("+ Iter. # | L2-norm of residual |")
-            print("+---------+---------------------+")
-            template = "| {:7d} | {:19.2e} |"
-
-        # Iterate to convergence
-        for m in range(1, maxiter + 1):
-
-            if res_sqr < tol_sqr:
-                m -= 1
-                break
-
-            # -----------------------
-            # MATRIX-VECTOR PRODUCTS
-            # -----------------------
-            v = A.dot(p, out=v)
-            # -----------------------
-
-            # c := (r0, r)
-            c = r0.dot(r)
-
-            # a := (r0, r) / (r0, v)
-            a = c / (r0.dot(v))
-
-            # r := r - a*v
-            r.mul_iadd(-a, v)
-
-            # vr :=  A*r
-            vr = A.dot(r, out=vr)
-
-            # w := (r, A*r) / (A*r, A*r)
-            w = r.dot(vr) / vr.dot(vr)
-
-            # -----------------------
-            # SOLUTION UPDATE
-            # -----------------------
-            # x := x + a*p +w*r
-            x.mul_iadd(a, p)
-            x.mul_iadd(w, r)
-            # -----------------------
-
-            # r := r - w*A*r
-            r.mul_iadd(-w, vr)
-
-            # ||r||_2 := (r, r)
-            res_sqr = r.dot(r).real
-
-            if res_sqr < tol_sqr:
-                break
-
-            # b := a / w * (r0, r)_{m+1} / (r0, r)_m
-            b = r0.dot(r) * a / (c * w)
-
-            # p := r + b*p- b*w*v
-            p *= b
-            p += r
-            p.mul_iadd(-b * w, v)
-
-            if verbose:
-                print(template.format(m, sqrt(res_sqr)))
-
-        if verbose:
-            print("+---------+---------------------+")
-
-        # Convergence information
-        self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
-
-        if recycle:
-            x.copy(out=self._options["x0"])
-
-        return x
-
-    def dot(self, b, out=None):
-        return self.solve(b, out=out)
-
-#===============================================================================
 class MinimumResidual(InverseLinearOperator):
     """
     A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
@@ -1237,52 +1065,16 @@ class MinimumResidual(InverseLinearOperator):
     """
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
-        assert isinstance(A, LinearOperator)
-        assert A.domain.dimension == A.codomain.dimension
-        assert A.domain.dtype == float
-        domain = A.codomain
-        codomain = A.domain
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
 
-        if x0 is not None:
-            assert isinstance(x0, Vector)
-            assert x0.space is codomain
-        else:
-            x0 = codomain.zeros()
-
-        self._A = A
-        self._domain = domain
-        self._codomain = codomain
-        self._solver = 'minres'
-        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
-        self._check_options(**self._options)
-        self._tmps = {key: domain.zeros() for key in ("res_old", "res_new", "w_new", "w_work", "w_old", "v", "y")}
+        super().__init__(A, **self._options)
+        
+        self._tmps = {key: self.domain.zeros() for key in ("res_old", "res_new", "w_new", "w_work", "w_old", "v", "y")}
         self._info = None
 
-    def _check_options(self, **kwargs):
-        for key, value in kwargs.items():
-
-            if key == 'x0':
-                if value is not None:
-                    assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif key == 'tol':
-                assert is_real(value), "tol must be a real number"
-                assert value > 0, "tol must be positive"
-            elif key == 'maxiter':
-                assert isinstance(value, int), "maxiter must be an int"
-                assert value > 0, "maxiter must be positive"
-            elif key == 'verbose':
-                assert isinstance(value, bool), "verbose must be a bool"
-            elif key == 'recycle':
-                assert isinstance(value, bool), "recycle must be a bool"
-            else:
-                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def transpose(self, conjugate=False):
-        At = self._A.transpose(conjugate=conjugate)
-        solver = self._solver
-        options = self._options
-        return inverse(At, solver, **options)
+    @property
+    def solver(self):
+        return 'minres'
 
     def solve(self, b, out=None):
         """
@@ -1569,66 +1361,33 @@ class LSMR(InverseLinearOperator):
     """
     def __init__(self, A, *, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim=1e8, verbose=False, recycle=False):
 
-        assert isinstance(A, LinearOperator)
-        assert A.domain.dimension == A.codomain.dimension
-        domain = A.codomain
-        codomain = A.domain
-
-        if x0 is not None:
-            assert isinstance(x0, Vector)
-            assert x0.space is codomain
-        else:
-            x0 = codomain.zeros()
-
-        self._A = A
-        self._domain = domain
-        self._codomain = codomain
-        self._solver = 'lsmr'
         self._options = {"x0":x0, "tol":tol, "atol":atol, "btol":btol,
                          "maxiter":maxiter, "conlim":conlim, "verbose":verbose, "recycle":recycle}
-        self._check_options(**self._options)
+        
+        super().__init__(A, **self._options)
+
+        # check additional options
+        if atol is not None:
+            assert is_real(atol), "atol must be a real number"
+            assert atol >= 0, "atol must not be negative"
+        if btol is not None:
+            assert is_real(btol), "btol must be a real number"
+            assert btol >= 0, "btol must not be negative"
+        assert is_real(conlim), "conlim must be a real number" # actually an integer?
+        assert conlim > 0, "conlim must be positive" # supposedly
+        
         self._info = None
         self._successful = None
-        tmps_domain = {key: domain.zeros() for key in ("u", "u_work")}
-        tmps_codomain = {key: codomain.zeros() for key in ("v", "v_work", "h", "hbar")}
+        tmps_domain = {key: self.domain.zeros() for key in ("u", "u_work")}
+        tmps_codomain = {key: self.codomain.zeros() for key in ("v", "v_work", "h", "hbar")}
         self._tmps = {**tmps_codomain, **tmps_domain}
+
+    @property
+    def solver(self):
+        return 'lsmr'
 
     def get_success(self):
         return self._successful
-
-    def _check_options(self, **kwargs):
-        for key, value in kwargs.items():
-
-            if key == 'x0':
-                if value is not None:
-                    assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif key == 'tol':
-                if value is not None:
-                    assert is_real(value), "tol must be a real number"
-                    assert value > 0, "tol must be positive" # suppose atol/btol must also be positive numbers
-            elif key == 'atol' or key == 'btol':
-                if value is not None:
-                    assert is_real(value), "atol/btol must be a real number"
-                    assert value >= 0, "atol/btol must not be negative"
-            elif key == 'maxiter':
-                assert isinstance(value, int), "maxiter must be an int"
-                assert value > 0, "maxiter must be positive"
-            elif key == 'conlim':
-                assert is_real(value), "conlim must be a real number" # actually an integer?
-                assert value > 0, "conlim must be positive" # supposedly
-            elif key == 'verbose':
-                assert isinstance(value, bool), "verbose must be a bool"
-            elif key == 'recycle':
-                assert isinstance(value, bool), "recycle must be a bool"
-            else:
-                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def transpose(self, conjugate=False):
-        At = self._A.transpose(conjugate=conjugate)
-        solver = self._solver
-        options = self._options
-        return inverse(At, solver, **options)
 
     def solve(self, b, out=None):
         """Iterative solver for least-squares problems.
@@ -1956,55 +1715,20 @@ class GMRES(InverseLinearOperator):
     """
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=100, verbose=False, recycle=False):
 
-        assert isinstance(A, LinearOperator)
-        assert A.domain.dimension == A.codomain.dimension
-        domain = A.codomain
-        codomain = A.domain
-
-        if x0 is not None:
-            assert isinstance(x0, Vector)
-            assert x0.space is codomain
-        else:
-            x0 = codomain.zeros()
-
-        self._A = A
-        self._domain = domain
-        self._codomain = codomain
-        self._solver = 'gmres'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
-        self._check_options(**self._options) 
-        self._tmps = {key: domain.zeros() for key in ("r", "p")}
+
+        super().__init__(A, **self._options)
+
+        self._tmps = {key: self.domain.zeros() for key in ("r", "p")}
 
         # Initialize upper Hessenberg matrix
         self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]), dtype=A.domain.dtype)
         self._Q = []
         self._info = None
 
-    def _check_options(self, **kwargs):
-        for key, value in kwargs.items():
-
-            if key == 'x0':
-                if value is not None:
-                    assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif key == 'tol':
-                assert is_real(value), "tol must be a real number"
-                assert value > 0, "tol must be positive"
-            elif key == 'maxiter':
-                assert isinstance(value, int), "maxiter must be an int"
-                assert value > 0, "maxiter must be positive"
-            elif key == 'verbose':
-                assert isinstance(value, bool), "verbose must be a bool"
-            elif key == 'recycle':
-                assert isinstance(value, bool), "recycle must be a bool"
-            else:
-                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def transpose(self, conjugate=False):
-        At = self._A.transpose(conjugate=conjugate)
-        solver = self._solver
-        options = self._options
-        return inverse(At, solver, **options)
+    @property
+    def solver(self):
+        return 'gmres'
 
     def solve(self, b, out=None):
         """

@@ -879,11 +879,39 @@ class InverseLinearOperator(LinearOperator):
     Iterative solver for square linear system Ax=b, where x and b belong to (normed)
     vector space V.
 
+    Parameters
+    ----------
+    A : psydac.linalg.basic.LinearOperator
+        Left-hand-side matrix A of linear system.
+        
+    x0 : psydac.linalg.basic.Vector
+        First guess of solution for iterative solver (optional).
+        
+    tol : float
+        Absolute tolerance for L2-norm of residual r = A*x - b.
+        
+    maxiter: int
+        Maximum number of iterations.
+        
+    verbose : bool
+        If True, L2-norm of residual r is printed at each iteration.
     """
 
-    @property
-    def space(self):
-        return self._space
+    def __init__(self, A, **kwargs):
+
+        assert isinstance(A, LinearOperator)
+        assert A.domain.dimension == A.codomain.dimension
+        domain = A.codomain
+        codomain = A.domain
+
+        if kwargs['x0'] is None:
+            kwargs['x0'] = codomain.zeros()
+
+        self._A = A
+        self._domain = domain
+        self._codomain = codomain
+        self._options = kwargs
+        self._check_options(**self._options)
 
     @property
     def domain(self):
@@ -900,10 +928,39 @@ class InverseLinearOperator(LinearOperator):
     @property
     def linop(self):
         return self._A
+    
+    @linop.setter
+    def linop(self, a):
+        assert isinstance(a, LinearOperator)
+        assert a.domain is self.domain
+        assert a.codomain is self.codomain
+        self._A = a
 
     @property
     def options(self):
         return self._options
+    
+    @property
+    @abstractmethod
+    def solver(self):
+        "String that identifies the solver."
+        pass
+
+    def _check_options(self, **kwargs):
+        for key, value in kwargs.items():
+
+            if key == 'x0':
+                if value is not None:
+                    assert isinstance(value, Vector), "x0 must be a Vector or None"
+                    assert value.space == self.codomain, "x0 belongs to the wrong VectorSpace"
+            elif key == 'tol':
+                assert is_real(value), "tol must be a real number"
+                assert value > 0, "tol must be positive"
+            elif key == 'maxiter':
+                assert isinstance(value, int), "maxiter must be an int"
+                assert value > 0, "maxiter must be positive"
+            elif key == 'verbose':
+                assert isinstance(value, bool), "verbose must be a bool"
 
     def toarray(self):
         raise NotImplementedError('toarray() is not defined for InverseLinearOperators.')
@@ -921,13 +978,13 @@ class InverseLinearOperator(LinearOperator):
         self._check_options(**kwargs)
         self._options.update(kwargs)
 
-    @abstractmethod
-    def _check_options(self, **kwargs):
-        pass
-
-    @abstractmethod
     def transpose(self, conjugate=False):
-        pass
+        from psydac.linalg.solvers import inverse
+
+        At = self.linop.transpose(conjugate=conjugate)
+        solver = self.solver
+        options = self._options
+        return inverse(At, solver, **options)
 
     @staticmethod
     def jacobi(A, b, out=None):
@@ -1016,3 +1073,8 @@ class LinearSolver(ABC):
     @property
     def T(self):
         return self.transpose()
+
+    
+def is_real(x):
+    from numbers import Number
+    return isinstance(x, Number) and np.isrealobj(x) and not isinstance(x, bool)
