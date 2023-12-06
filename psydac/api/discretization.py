@@ -271,8 +271,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, grid_type=None, nquads=None, basis='B', sequence='DR'):
-    """
+def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, nquads=None, basis='B', sequence='DR'):    """
     This function creates the discretized space starting from the symbolic space.
 
     Parameters
@@ -331,8 +330,6 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 #    We build the dictionary g_spaces for each interior domain, where it conatians the interiors as keys and the spaces as values,
 #    we then create the compatible spaces if needed with the suitable basis functions.
 
-    #store a boolean knowing if grid type was given or not for later use
-    is_grid_type = (grid_type is not None)
     comm                = domain_h.comm
     ldim                = V.ldim
     is_rational_mapping = False
