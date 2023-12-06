@@ -52,10 +52,6 @@ def get_StencilVectorSpace(n1, n2, p1, p2, P1, P2):
 
 def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
 
-    # 1. Initiate square LOs S,S1 (StencilMatrix), I (IdentityOperator), Z (ZeroOperator) and a Stencilvector v
-    # 2. Test general basic operations
-    # 3. Test special cases
-
     ###
     ### 1. Initiation
     ###
@@ -116,6 +112,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     Apoarr = np.matmul(A1, A1)
     Apoarr = np.matmul(Apoarr, A1)
     
+    assert isinstance(Spo3, PowerLinearOperator)
     assert np.array_equal(Spo3arr, Apoarr)
         
     ###
@@ -139,11 +136,6 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
 @pytest.mark.parametrize('p2', p2array)
 
 def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
-
-    # 1. Initiate square LOs S,S1 (StencilMatrix), Z (ZeroOperator) and a Stencilvector v
-    #    Initiate square LOs B,B1 (BlockLO), BZ (ZeroOperator), BI (IdentityOperator) and a BlockVector vb
-    # 2. Test general basic operations
-    # 3. Test special cases
 
     # Initiate StencilVectorSpace
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)

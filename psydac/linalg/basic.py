@@ -223,27 +223,15 @@ class LinearOperator(ABC):
     def dtype(self):
         pass
 
-    # Function that returns the matrix corresponding to the linear operator. Returns a scipy.sparse.csr.csr_matrix.
+    # Function that returns the local matrix corresponding to the linear operator. Returns a scipy.sparse.csr.csr_matrix.
     def tosparse(self):
         """
-        Transforms the linear operator into a matrix, which is either stored in dense or sparse format.
-
-        Parameters
-        ----------
-        out : Numpy.ndarray, optional
-            If given, the output will be written in-place into this array.
-        is_sparse : bool, optional
-            If set to True the method returns the matrix as a Scipy sparse matrix, if set to false
-            it returns the full matrix as a Numpy.ndarray
-        format : string, optional
-            Only relevant if is_sparse is True. Specifies the format in which the sparse matrix is to be stored. 
-            Choose from "csr" (Compressed Sparse Row, default),"csc" (Compressed Sparse Column), "bsr" (Block Sparse Row ), 
-            "lil" (List of Lists), "dok" (Dictionary of Keys), "coo" (COOrdinate format) and "dia" (DIAgonal).
+        Transforms the linear operator into a matrix, which is stored in sparse csr format.
 
         Returns
         -------
         out : Numpy.ndarray or scipy.sparse.csr.csr_matrix
-            The matrix form of the linear operator. If ran in parallel each rank gets the full
+            The matrix form of the linear operator. If ran in parallel each rank gets the local
             matrix representation of the linear operator.
         """
         # v will be the unit vector with which we compute Av = ith column of A.
@@ -252,8 +240,7 @@ class LinearOperator(ABC):
         tmp2 = self.codomain.zeros()
         
         #We need to determine if we are a blockvector or a stencilvector but we are not able to use 
-        #the BlockVectorSpace and StencilVectorSpace classes in here. So we use the following
-        #char.
+        #the BlockVectorSpace and StencilVectorSpace classes in here. So we use the following char.
         #This char is either a b for Blockvectors or an s for Stencilvectors
         BoS= str(self.domain)[15]
 
@@ -412,26 +399,19 @@ class LinearOperator(ABC):
         return sparse.csr_matrix((data, (row, colarr)), shape=(numrows, numcols))
 
     # Function that returns the matrix corresponding to the linear operator. Returns a numpy array.
-    def toarray(self, out=None, is_sparse=False, format="csr"):
+    def toarray(self, out=None):
         """
-        Transforms the linear operator into a matrix, which is either stored in dense or sparse format.
+        Transforms the linear operator into a matrix, which is stored in dense format.
 
         Parameters
         ----------
         out : Numpy.ndarray, optional
             If given, the output will be written in-place into this array.
-        is_sparse : bool, optional
-            If set to True the method returns the matrix as a Scipy sparse matrix, if set to false
-            it returns the full matrix as a Numpy.ndarray
-        format : string, optional
-            Only relevant if is_sparse is True. Specifies the format in which the sparse matrix is to be stored. 
-            Choose from "csr" (Compressed Sparse Row, default),"csc" (Compressed Sparse Column), "bsr" (Block Sparse Row ), 
-            "lil" (List of Lists), "dok" (Dictionary of Keys), "coo" (COOrdinate format) and "dia" (DIAgonal).
-
+            
         Returns
         -------
-        out : Numpy.ndarray or scipy.sparse.csr.csr_matrix
-            The matrix form of the linear operator. If ran in parallel each rank gets the full
+        out : Numpy.ndarray
+            The matrix form of the linear operator. If ran in parallel each rank gets the local
             matrix representation of the linear operator.
         """
         # v will be the unit vector with which we compute Av = ith column of A.
@@ -451,26 +431,15 @@ class LinearOperator(ABC):
         rank = comm.Get_rank()
         size = comm.Get_size()
 
-        if (is_sparse == False):
-            if out is None:
-                # We declare the matrix form of our linear operator
-                out = np.zeros(
-                    [self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
-            else:
-                assert isinstance(out, np.ndarray)
-                assert out.shape[0] == self.codomain.dimension
-                assert out.shape[1] == self.domain.dimension
+        if out is None:
+            # We declare the matrix form of our linear operator
+            out = np.zeros(
+                [self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
         else:
-            if out is not None:
-                raise Exception(
-                    'If is_sparse is True then out must be set to None.')
-            numrows = self.codomain.dimension
-            numcols = self.domain.dimension
-            # We define a list to store the non-zero data, a list to sotre the row index of said data and a list to store the column index.
-            data = []
-            row = []
-            colarr = []
-
+            assert isinstance(out, np.ndarray)
+            assert out.shape[0] == self.codomain.dimension
+            assert out.shape[1] == self.domain.dimension
+       
         # V is either a BlockVector or a StencilVector depending on the domain of the linear operator.
         if BoS == "b":
             # we collect all starts and ends in two big lists
@@ -531,15 +500,7 @@ class LinearOperator(ABC):
                         # Compute to which column this iteration belongs
                         col = spoint
                         col += np.ravel_multi_index(i, npts[h])
-                        if is_sparse == False:
-                            out[:, col] = tmp2.toarray()
-                        else:
-                            aux = tmp2.toarray()
-                            # We now need to now which entries on tmp2 are non-zero and store then in our data list
-                            for l in np.where(aux != 0)[0]:
-                                data.append(aux[l])
-                                colarr.append(col)
-                                row.append(l)
+                        out[:, col] = tmp2.toarray()
                         if (rank == currentrank):
                             v[h][i] = 0.0
                         v[h].update_ghost_regions()
@@ -597,15 +558,7 @@ class LinearOperator(ABC):
                     self.dot(v, out=tmp2)
                     # Compute to which column this iteration belongs
                     col = np.ravel_multi_index(i, npts)
-                    if is_sparse == False:
-                        out[:, col] = tmp2.toarray()
-                    else:
-                        aux = tmp2.toarray()
-                        # We now need to now which entries on tmp2 are non-zero and store then in our data list
-                        for l in np.where(aux != 0)[0]:
-                            data.append(aux[l])
-                            colarr.append(col)
-                            row.append(l)
+                    out[:, col] = tmp2.toarray()
                     if (rank == currentrank):
                         v[i] = 0.0
                     v.update_ghost_regions()
@@ -614,59 +567,8 @@ class LinearOperator(ABC):
             # I cannot conceive any situation where this error should be thrown, but I put it here just in case something unexpected happens.
             raise Exception(
                 'Function toarray_struphy() only supports Stencil Vectors or Block Vectors.')
-
-        if is_sparse == False:
-            return out
-        else:
-            # Gather all rows on rank 0
-            gathered_rows = comm.gather(row, root=0)
-            # Gather all colarr on rank 0
-            gathered_cols = comm.gather(colarr, root=0)
-            # Gather all data on rank 0
-            gathered_data = comm.gather(data, root=0)
-
-            if rank == 0:
-                # Rank 0 collects all rows from other ranks
-                all_rows = [
-                    item for sublist in gathered_rows for item in sublist]
-                # Rank 0 collects all columns from other ranks
-                all_cols = [
-                    item for sublist in gathered_cols for item in sublist]
-                # Rank 0 collects all data from other ranks
-                all_data = [
-                    item for sublist in gathered_data for item in sublist]
-
-                # Broadcast 'all_rows' to all other ranks
-                comm.bcast(all_rows, root=0)
-                # Broadcast 'all_cols' to all other ranks
-                comm.bcast(all_cols, root=0)
-                # Broadcast 'all_data' to all other ranks
-                comm.bcast(all_data, root=0)
-            else:
-                # Other ranks receive the 'all_rows' list through broadcast
-                all_rows = comm.bcast(None, root=0)
-                # Other ranks receive the 'all_cols' list through broadcast
-                all_cols = comm.bcast(None, root=0)
-                # Other ranks receive the 'all_data' list through broadcast
-                all_data = comm.bcast(None, root=0)
-
-            if format == "csr":
-                return sparse.csr_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols))
-            elif format == "csc":
-                return sparse.csc_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols))
-            elif format == "bsr":
-                return sparse.bsr_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols))
-            elif format == "lil":
-                return sparse.csr_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols)).tolil()
-            elif format == "dok":
-                return sparse.csr_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols)).todok()
-            elif format == "coo":
-                return sparse.coo_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols))
-            elif format == "dia":
-                return sparse.csr_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols)).todia()
-            else:
-                raise Exception(
-                    'The selected sparse matrix format must be one of the following : csr, csc, bsr, lil, dok,  coo or dia.')
+        return out
+        
 
     
     @abstractmethod

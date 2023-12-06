@@ -155,8 +155,7 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
         aux = i.flatten()
         for j in aux:
             v1arr.append(j)
-
-    # Test copy with an out 
+    
     # Create random matrix 
     N1 = StencilMatrix( V, V )
     N2 = StencilMatrix( V, V )
@@ -179,7 +178,9 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     
     #Now we use a PowerLinearOperator
     KP = K**3
+    #We compute the local matrix representation of KP
     KParrloc = KP.toarray()
+    #We compute the global matrix representation of KP
     KParr = np.zeros(np.shape(KParrloc))
     comm.Allreduce(KParrloc, KParr, op=MPI.SUM)
 
