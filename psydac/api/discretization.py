@@ -271,7 +271,8 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, nquads=None, basis='B', sequence='DR'):    """
+def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, nquads=None, basis='B', sequence='DR'):
+    """
     This function creates the discretized space starting from the symbolic space.
 
     Parameters
@@ -402,17 +403,13 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
             max_coords = interior.max_coords
 
             assert len(ncells) == len(periodic) == len(degree_i)  == len(multiplicity_i) == len(min_coords) == len(max_coords)
-            if knots is not None and is_grid_type :
-                raise(ValueError("grids and knots cannot be both provided"))
-            elif knots is None:
-                if not is_grid_type :
-                    grid_type = [np.linspace(-1,1,num=ne+1) for ne in ncells]
-                else :
-                    assert(len(grid_i)==ne+1 for grid_i, ne in zip(grid_type, ncells))
-                grids = [xmin*(1-grid)/2+xmax*(1+grid)/2
-                        for xmin, xmax, grid in zip(min_coords, max_coords, grid_type)]
-                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) 
-                        for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
+            if knots is None:
+                # Create uniform grid
+                grids = [np.linspace(xmin, xmax, num=ne + 1)
+                         for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
+
+                # Create 1D finite element spaces and precompute quadrature data
+                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
             else:
                  # Create 1D finite element spaces and precompute quadrature data
                 spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]
