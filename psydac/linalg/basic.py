@@ -571,7 +571,6 @@ class ScaledLinearOperator(LinearOperator):
             out = self._operator.dot(v)
             out *= self._scalar
             return out
-        
 
 #===============================================================================
 class SumLinearOperator(LinearOperator):

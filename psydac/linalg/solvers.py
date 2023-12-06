@@ -318,7 +318,7 @@ class PConjugateGradient(InverseLinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._solver = 'pcg'
-        self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle, "precond":precond}
+        self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
         self._check_options(**self._options)
         tmps_codomain = {key: codomain.zeros() for key in ("p", "s")}
         tmps_domain = {key: domain.zeros() for key in ("v", "r")}

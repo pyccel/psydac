@@ -656,7 +656,7 @@ class BlockLinearOperator(LinearOperator):
 
         out.ghost_regions_in_sync = False
         return out
-    
+
     #...
     @staticmethod
     def _dot(blocks, v, out, n_rows, n_cols, inc):
