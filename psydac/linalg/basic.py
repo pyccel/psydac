@@ -772,18 +772,16 @@ class ComposedLinearOperator(LinearOperator):
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
         assert v.space == self._domain
-        from psydac.linalg.block import BlockVector
-
         if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self._codomain
+
         x = v
         for i in range(len(self._tmp_vectors)):
             y = self._tmp_vectors[-1-i]
             A = self._multiplicants[-1-i]
             A.dot(x, out=y)
             x = y
-            x.update_ghost_regions()
 
         A = self._multiplicants[0]
         if out is not None:
@@ -791,7 +789,6 @@ class ComposedLinearOperator(LinearOperator):
             A.dot(x, out=out)
         else:
             out = A.dot(x)
-        out.update_ghost_regions()
         return out
 
     def exchange_assembly_data( self ):
