@@ -404,6 +404,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
             assert len(ncells) == len(periodic) == len(degree_i)  == len(multiplicity_i) == len(min_coords) == len(max_coords)
             if knots is None:
+                
                 # Create uniform grid
                 grids = [np.linspace(xmin, xmax, num=ne + 1)
                          for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]

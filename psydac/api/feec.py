@@ -191,7 +191,7 @@ class DiscreteDerham(BasicDiscrete):
         if self.dim == 1:
             P0 = Projector_H1(self.V0)
             P1 = Projector_L2(self.V1, nquads)
-            if self.mapping and not get_reference:
+            if self.mapping:
                 P0_m = lambda f: P0(pull_1d_h1(f, self.callable_mapping))
                 P1_m = lambda f: P1(pull_1d_l2(f, self.callable_mapping))
                 return P0_m, P1_m
@@ -212,7 +212,7 @@ class DiscreteDerham(BasicDiscrete):
             if self.has_vec : 
                 Pvec = Projector_H1vec(self.H1vec, nquads)
 
-            if self.mapping and not get_reference:
+            if self.mapping:
                 P0_m = lambda f: P0(pull_2d_h1(f, self.callable_mapping))
                 P2_m = lambda f: P2(pull_2d_l2(f, self.callable_mapping))
                 if kind == 'hcurl':
@@ -237,8 +237,7 @@ class DiscreteDerham(BasicDiscrete):
             P3 = Projector_L2   (self.V3, nquads)
             if self.has_vec : 
                 Pvec = Projector_H1vec(self.H1vec)
-            if self.mapping and not get_reference:
-
+            if self.mapping:
                 P0_m = lambda f: P0(pull_3d_h1   (f, self.callable_mapping))
                 P1_m = lambda f: P1(pull_3d_hcurl(f, self.callable_mapping))
                 P2_m = lambda f: P2(pull_3d_hdiv (f, self.callable_mapping))
