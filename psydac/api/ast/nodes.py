@@ -6,9 +6,11 @@ from itertools import product
 from sympy import Basic, Expr
 from sympy import AtomicExpr, S
 from sympy import Function
-from sympy import Mul,Integer
-from sympy.core.singleton     import Singleton
-from sympy.core.containers    import Tuple
+from sympy import Mul, Integer
+from sympy.core.singleton      import Singleton
+from sympy.core.containers     import Tuple
+from sympy.utilities.iterables import iterable as is_iterable
+
 from sympde.old_sympy_utilities import with_metaclass
 
 from sympde.topology import element_of
@@ -1143,13 +1145,14 @@ class StencilMatrixLocalBasis(MatrixNode):
     """
     def __new__(cls, u, v, pads, tag=None, dtype='real'):
 
-        if not isinstance(pads, (list, tuple, Tuple)):
+        if not is_iterable(pads):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
-        rank = 2*len(pads)
-        tag  = tag or random_string( 6 )
+        rank = 2 * len(pads)
         name = (u, v)
+        tag  = tag or random_string(6)
+
         return Basic.__new__(cls, pads, rank, name, tag, dtype)
 
     @property
@@ -1178,13 +1181,15 @@ class StencilMatrixGlobalBasis(MatrixNode):
     used to describe local dof over an element as a stencil matrix
     """
     def __new__(cls, u, v, pads, tag=None, dtype='real'):
-        if not isinstance(pads, (list, tuple, Tuple)):
+
+        if not is_iterable(pads):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
-        rank = 2*len(pads)
-        tag  = tag or random_string( 6 )
+        rank = 2 * len(pads)
         name = (u, v)
+        tag  = tag or random_string(6)
+
         return Basic.__new__(cls, pads, rank, name, tag, dtype)
 
     @property
@@ -1213,13 +1218,15 @@ class StencilVectorLocalBasis(MatrixNode):
     used to describe local dof over an element as a stencil vector
     """
     def __new__(cls, v, pads, tag=None, dtype='real'):
-        if not isinstance(pads, (list, tuple, Tuple)):
+
+        if not is_iterable(pads):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = len(pads)
-        tag  = tag or random_string( 6 )
         name = v
+        tag  = tag or random_string(6)
+
         return Basic.__new__(cls, pads, rank, name, tag, dtype)
 
     @property
@@ -1248,13 +1255,15 @@ class StencilVectorGlobalBasis(MatrixNode):
     used to describe local dof over an element as a stencil vector
     """
     def __new__(cls, v, pads, tag=None, dtype='real'):
-        if not isinstance(pads, (list, tuple, Tuple)):
+
+        if not is_iterable(pads):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = len(pads)
-        tag  = tag or random_string( 6 )
         name = v
+        tag  = tag or random_string(6)
+
         return Basic.__new__(cls, pads, rank, name, tag, dtype)
 
     @property
@@ -1297,9 +1306,10 @@ class BlockStencilMatrixLocalBasis(BlockLinearOperatorNode):
         pads = Pads(tests, trials, tests_degree, trials_degree,
                     tests_multiplicity, trials_multiplicity)
 
-        rank = 2*dim
-        tag  = tag or random_string( 6 )
-        obj  = Basic.__new__(cls, pads, rank, trials_multiplicity, tag, expr, dtype)
+        rank = 2 * dim
+        tag  = tag or random_string(6)
+
+        obj = Basic.__new__(cls, pads, rank, trials_multiplicity, tag, expr, dtype)
         obj._trials = trials
         obj._tests  = tests
         obj._outer  = outer
@@ -1348,13 +1358,15 @@ class BlockStencilMatrixGlobalBasis(BlockLinearOperatorNode):
     used to describe local dof over an element as a block stencil matrix
     """
     def __new__(cls, trials, tests, pads, multiplicity, expr, tag=None, dtype='real'):
-        if not isinstance(pads, (list, tuple, Tuple)):
+
+        if not is_iterable(pads):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
-        rank = 2*len(pads)
-        tag  = tag or random_string( 6 )
-        obj  = Basic.__new__(cls, pads, multiplicity, rank, tag, expr, dtype)
+        rank = 2 * len(pads)
+        tag  = tag or random_string(6)
+
+        obj = Basic.__new__(cls, pads, multiplicity, rank, tag, expr, dtype)
         obj._trials = trials
         obj._tests  = tests
         return obj
@@ -1398,14 +1410,16 @@ class BlockStencilVectorLocalBasis(BlockLinearOperatorNode):
     used to describe local dof over an element as a block stencil matrix
     """
     def __new__(cls,tests, pads, expr, tag=None, dtype='real'):
-        if not isinstance(pads, (list, tuple, Tuple)):
+
+        if not is_iterable(pads):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = len(pads)
-        tag  = tag or random_string( 6 )
-        obj  = Basic.__new__(cls, pads, rank, tag, expr, dtype)
-        obj._tests  = tests
+        tag  = tag or random_string(6)
+
+        obj = Basic.__new__(cls, pads, rank, tag, expr, dtype)
+        obj._tests = tests
         return obj
 
     @property
@@ -1443,14 +1457,16 @@ class BlockStencilVectorGlobalBasis(BlockLinearOperatorNode):
     used to describe local dof over an element as a block stencil matrix
     """
     def __new__(cls, tests, pads, multiplicity, expr, tag=None, dtype='real'):
-        if not isinstance(pads, (list, tuple, Tuple)):
+
+        if not is_iterable(pads):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = len(pads)
-        tag  = tag or random_string( 6 )
-        obj  = Basic.__new__(cls, pads, multiplicity, rank, tag, expr, dtype)
-        obj._tests  = tests
+        tag  = tag or random_string(6)
+
+        obj = Basic.__new__(cls, pads, multiplicity, rank, tag, expr, dtype)
+        obj._tests = tests
         return obj
 
     @property
@@ -1492,8 +1508,10 @@ class ScalarLocalBasis(ScalarNode):
      This is used to describe scalar dof over an element
     """
     def __new__(cls, u=None, v=None, tag=None, dtype='real'):
-        tag  = tag or random_string( 6 )
-        obj  = Basic.__new__(cls, tag, dtype)
+
+        tag = tag or random_string(6)
+
+        obj = Basic.__new__(cls, tag, dtype)
         obj._test  = v
         obj._trial = u
         return obj
@@ -1513,6 +1531,7 @@ class ScalarLocalBasis(ScalarNode):
     @property
     def test(self):
         return self._test
+
 #==============================================================================
 class BlockScalarLocalBasis(ScalarNode):
     """
@@ -1520,7 +1539,8 @@ class BlockScalarLocalBasis(ScalarNode):
     """
     def __new__(cls, trials=None, tests=None, expr=None, tag=None, dtype='real'):
 
-        tag = tag or random_string( 6 )
+        tag = tag or random_string(6)
+
         obj = Basic.__new__(cls, tag, dtype)
         obj._tests  = tests
         obj._trials = trials
@@ -1585,12 +1605,14 @@ class LocalSpanArray(SpanArray):
     """
     _rank = 1
     _positions = {index_element: 0}
+
 #==============================================================================
 class GlobalThreadSpanArray(SpanArray):
     """
      This represents the global span array of each thread
     """
     _rank = 1
+
 #==============================================================================
 class GlobalThreadStarts(ArrayNode):
     """
@@ -2109,22 +2131,19 @@ class Loop(BaseNode):
                 private=None, firstprivate=None, lastprivate=None,
                 reduction=None):
         # ...
-        if not( isinstance(iterable, (list, tuple, Tuple)) ):
+        if not is_iterable(iterable):
             iterable = [iterable]
-
-        iterable = Tuple(*iterable)
         # ...
 
         # ... replace GeometryExpressions by a list of expressions
         others = [i for i in iterable if not isinstance(i, GeometryExpressions)]
         geos   = [i.expressions for i in iterable if isinstance(i, GeometryExpressions)]
 
-        iterable = others + flatten(geos)
-        iterable = Tuple(*iterable)
+        iterable = Tuple(*others, *flatten(geos))
         # ...
 
         # ...
-        if not( isinstance(index, IndexNode) ):
+        if not isinstance(index, IndexNode):
             raise TypeError('Expecting an index node')
         # ...
 
@@ -2133,7 +2152,7 @@ class Loop(BaseNode):
         iterator = []
         generator = []
         for a in iterable:
-            i,g = construct_itergener(a, index)
+            i, g = construct_itergener(a, index)
             iterator.append(i)
             generator.append(g)
         # ...
@@ -2145,8 +2164,7 @@ class Loop(BaseNode):
         # ...
         if stmts is None:
             stmts = []
-
-        elif not isinstance(stmts, (tuple, list, Tuple)):
+        elif not is_iterable(stmts):
             stmts = [stmts]
 
         stmts = Tuple(*stmts)
@@ -2261,10 +2279,10 @@ class ProductIteration(BaseNode):
 
     def __new__(cls, iterator, generator):
         # ...
-        if not( isinstance(iterator, ProductIterator) ):
+        if not isinstance(iterator, ProductIterator):
             raise TypeError('Expecting an ProductIterator')
 
-        if not( isinstance(generator, ProductGenerator) ):
+        if not isinstance(generator, ProductGenerator):
             raise TypeError('Expecting a ProductGenerator')
         # ...
 
@@ -2283,11 +2301,12 @@ class SplitArray(BaseNode):
     """
     """
     def __new__(cls, target, positions, lengths):
-        if not isinstance(positions, (list, tuple, Tuple)):
+
+        if not is_iterable(positions):
             positions = [positions]
         positions = Tuple(*positions)
 
-        if not isinstance(lengths, (list, tuple, Tuple)):
+        if not is_iterable(lengths):
             lengths = [lengths]
         lengths = Tuple(*lengths)
 
@@ -2389,10 +2408,11 @@ class Block(Basic):
 
     """
     def __new__(cls, body):
-        if not isinstance(body, (list, tuple, Tuple)):
-            body = [body]
 
+        if not is_iterable(body):
+            body = [body]
         body = Tuple(*body)
+
         return Basic.__new__(cls, body)
 
     @property
