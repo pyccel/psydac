@@ -2189,7 +2189,7 @@ class PostProcessManager:
             local_domain = mapping.space.local_domain
             global_ends = tuple(nc_i - 1 for nc_i in list(mapping.space.ncells))
             breaks = mapping.space.breaks
-        elif isinstance(mapping.get_callable_mapping(), SplineMapping):
+        elif hasattr(mapping, 'callable_mapping') and isinstance(mapping.get_callable_mapping(), SplineMapping):
             c_m = mapping.get_callable_mapping()
             local_domain = c_m.space.local_domain
             global_ends = tuple(nc_i - 1 for nc_i in list(c_m.space.ncells))
