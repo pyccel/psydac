@@ -13,14 +13,21 @@ import numpy as np
 
 from sympy      import exp, lambdify
 
-def build_derham_spline_mapping_id_1d(degree=[2], ncells=[10], periodic = [False]):
+import pytest
+
+
+@pytest.mark.parametrize('degree', [[2], [3]])
+@pytest.mark.parametrize('ncells', [[4], [10]])
+@pytest.mark.parametrize('periodic', [[True], [False]])
+
+def test_build_derham_spline_mapping_id_1d(degree, ncells, periodic):
     
     p1,  = degree
     nc1, = ncells
     periodic1, = periodic
 
     # Spaces for the SplineMapping
-    V1 = SplineSpace( grid=np.linspace( 0, 1, num=nc1+1), degree=p1, periodic=False )
+    V1 = SplineSpace( grid=np.linspace( 0, 1, num=nc1+1), degree=p1, periodic=periodic1 )
 
     domain_decomposition = DomainDecomposition([nc1], [periodic1])
     tensor_space = TensorFemSpace(domain_decomposition, V1)
@@ -65,15 +72,19 @@ def build_derham_spline_mapping_id_1d(degree=[2], ncells=[10], periodic = [False
     #                 snapshots='all', fields=('f'))     
     #Pm.close()
 
-def build_derham_spline_mapping_id_2d(degree=[2,2], ncells=[10,10], periodic = [False, False]):
+@pytest.mark.parametrize('degree', [[2,2], [3,4]])
+@pytest.mark.parametrize('ncells', [[4,6], [10,10]])
+@pytest.mark.parametrize('periodic', [[True,True], [True,False]])
+
+def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
     
     p1 , p2 = degree
     nc1, nc2 = ncells
     periodic1, periodic2 = periodic
 
     # Spaces for the SplineMapping
-    V1 = SplineSpace( grid=np.linspace( 0, 1, num=nc1+1), degree=p1, periodic=False )
-    V2 = SplineSpace( grid=np.linspace( 0, 1, num=nc2+1), degree=p2, periodic=False )
+    V1 = SplineSpace( grid=np.linspace( 0, 1, num=nc1+1), degree=p1, periodic=periodic1 )
+    V2 = SplineSpace( grid=np.linspace( 0, 1, num=nc2+1), degree=p2, periodic=periodic2 )
 
     domain_decomposition = DomainDecomposition([nc1, nc2], [periodic1, periodic2])
     tensor_space = TensorFemSpace(domain_decomposition, V1, V2)
@@ -117,16 +128,20 @@ def build_derham_spline_mapping_id_2d(degree=[2,2], ncells=[10,10], periodic = [
                      snapshots='all', fields=('f'))     
     Pm.close()
 
-def build_derham_spline_mapping_id_3d(degree=[2,2,2], ncells=[10,10,3], periodic = [False, False, False]):
+@pytest.mark.parametrize('degree', [[2,2,2], [2,3,4]])
+@pytest.mark.parametrize('ncells', [[4,6,7], [10,10,10]])
+@pytest.mark.parametrize('periodic', [[True,True,True], [True,False,False]])
+
+def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
     
     p1 , p2, p3  = degree
     nc1, nc2, nc3 = ncells
     periodic1, periodic2, periodic3 = periodic
 
     # Spaces for the SplineMapping
-    V1 = SplineSpace( grid=np.linspace( 0, 1, num=nc1+1), degree=p1, periodic=False )
-    V2 = SplineSpace( grid=np.linspace( 0, 1, num=nc2+1), degree=p2, periodic=False )
-    V3 = SplineSpace( grid=np.linspace( 0, 1, num=nc3+1), degree=p3, periodic=False )
+    V1 = SplineSpace( grid=np.linspace( 0, 1, num=nc1+1), degree=p1, periodic=periodic1 )
+    V2 = SplineSpace( grid=np.linspace( 0, 1, num=nc2+1), degree=p2, periodic=periodic2 )
+    V3 = SplineSpace( grid=np.linspace( 0, 1, num=nc3+1), degree=p3, periodic=periodic3 )
 
     domain_decomposition = DomainDecomposition([nc1, nc2, nc3], [periodic1, periodic2, periodic3])
     tensor_space = TensorFemSpace(domain_decomposition, V1, V2, V3)
@@ -171,6 +186,6 @@ def build_derham_spline_mapping_id_3d(degree=[2,2,2], ncells=[10,10,3], periodic
     Pm.close()
 
 if __name__ == '__main__':
-    build_derham_spline_mapping_id_1d()    
-    build_derham_spline_mapping_id_2d()    
-    build_derham_spline_mapping_id_3d()
+    #test_build_derham_spline_mapping_id_1d([2], [10], [True])    
+    test_build_derham_spline_mapping_id_2d([2,2], [10,10], [True,True])    
+    #test_build_derham_spline_mapping_id_3d([2,3,4], [10,11,3], [True,False,False])
