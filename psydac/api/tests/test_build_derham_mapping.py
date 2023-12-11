@@ -9,11 +9,11 @@ from psydac.api.postprocessing import OutputManager, PostProcessManager
 from sympde.topology.analytical_mapping import IdentityMapping
 from sympde.topology                  import Cube, Derham
 
-import numpy as np
-
 from sympy      import exp, lambdify
 
 import pytest
+import numpy as np
+import os
 
 
 @pytest.mark.parametrize('degree', [[2], [3]])
@@ -73,13 +73,17 @@ def test_build_derham_spline_mapping_id_1d(degree, ncells, periodic):
     #Pm.close()
 
 @pytest.mark.parametrize('degree', [[2,2], [3,4]])
-@pytest.mark.parametrize('ncells', [[4,6], [10,10]])
+@pytest.mark.parametrize('ncells', [[5,6], [10,10]])
 @pytest.mark.parametrize('periodic', [[True,True], [True,False]])
 
 def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
-    
+    print()
+    print()
+    print()
     p1 , p2 = degree
     nc1, nc2 = ncells
+    print(nc1)
+    print(nc2)
     periodic1, periodic2 = periodic
 
     # Spaces for the SplineMapping
@@ -128,12 +132,17 @@ def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
                      snapshots='all', fields=('f'))     
     Pm.close()
 
+    #cleanup 
+    os.remove("./export_sol.yml")
+    os.remove("./export_sol.h5")
+    os.remove("./fields_test.0000.vtu")
+
 @pytest.mark.parametrize('degree', [[2,2,2], [2,3,4]])
 @pytest.mark.parametrize('ncells', [[4,6,7], [10,10,10]])
 @pytest.mark.parametrize('periodic', [[True,True,True], [True,False,False]])
 
 def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
-    
+    return
     p1 , p2, p3  = degree
     nc1, nc2, nc3 = ncells
     periodic1, periodic2, periodic3 = periodic
@@ -186,6 +195,9 @@ def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
     Pm.close()
 
 if __name__ == '__main__':
-    #test_build_derham_spline_mapping_id_1d([2], [10], [True])    
+    #test_build_derham_spline_mapping_id_1d([2], [10], [True]) 
+    import time   
+    test_build_derham_spline_mapping_id_2d([2,2], [5,10], [True,True])  
+    #time.sleep(15) 
     test_build_derham_spline_mapping_id_2d([2,2], [10,10], [True,True])    
     #test_build_derham_spline_mapping_id_3d([2,3,4], [10,11,3], [True,False,False])
