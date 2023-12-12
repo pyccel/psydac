@@ -84,13 +84,55 @@ def get_Delta_phi_pulse(x_0, y_0, domain=None, pp=False):
 
     return f
 
-def get_Gaussian_beam(x_0, y_0, domain=None):
+def get_Gaussian_beam_old(x_0, y_0, domain=None):
     # return E = cos(k*x) exp( - x^2 + y^2 / 2 sigma^2) v
     x,y    = domain.coordinates
     x = x - x_0
     y = y - y_0
     
-    k = (np.pi, 0)
+    k = (10, 0)
+    nk = np.sqrt(k[0]**2 + k[1]**2)
+
+    v = (k[0]/nk, k[1]/nk)
+    
+    sigma = 0.05
+
+    xy = x**2 + y**2
+    ef = exp( - xy/(2*sigma**2) )
+
+    E = cos(k[1] * x + k[0] * y) * ef
+    B = (-v[1]*x + v[0]*y)/(sigma**2) * E 
+    
+    return Tuple(v[0]*E, v[1]*E), B
+
+from sympy.functions.special.error_functions import erf
+def get_Gaussian_beam(x_0, y_0, domain=None):
+    # return E = cos(k*x) exp( - x^2 + y^2 / 2 sigma^2) v
+    x,y    = domain.coordinates
+    
+    x = x - x_0
+    y = y - y_0
+    
+    sigma = 0.1
+
+    xy = x**2 + y**2
+    ef = 1/(sigma**2) * exp( - xy/(2*sigma**2) )
+
+    # E = curl exp
+    E =  Tuple(  y * ef,  -x * ef)
+
+    # B = curl E 
+    B =  (xy/(sigma**2) - 2) * ef
+    
+    return E, B
+
+def get_diag_Gaussian_beam(x_0, y_0, domain=None):
+    # return E = cos(k*x) exp( - x^2 + y^2 / 2 sigma^2) v
+    x,y    = domain.coordinates
+    x = x - x_0
+    y = y - y_0
+    
+    k = (np.pi, np.pi)
     nk = np.sqrt(k[0]**2 + k[1]**2)
 
     v = (k[0]/nk, k[1]/nk)
@@ -104,7 +146,7 @@ def get_Gaussian_beam(x_0, y_0, domain=None):
     B = (-v[1]*x + v[0]*y)/(sigma**2) * E 
     
     return Tuple(v[0]*E, v[1]*E), B
- 
+
 def get_easy_Gaussian_beam(x_0, y_0, domain=None):
     # return E = cos(k*x) exp( - x^2 + y^2 / 2 sigma^2) v
     x,y    = domain.coordinates

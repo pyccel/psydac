@@ -25,8 +25,8 @@ from psydac.feec.multipatch.api                         import discretize
 from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
 from psydac.feec.multipatch.operators                   import HodgeOperator, get_K0_and_K0_inv, get_K1_and_K1_inv
 from psydac.feec.multipatch.plotting_utilities          import plot_field #, write_field_to_diag_grid, 
-from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_hcurl, get_div_free_pulse, get_curl_free_pulse, get_Delta_phi_pulse, get_Gaussian_beam#, get_praxial_Gaussian_beam_E, get_easy_Gaussian_beam_E, get_easy_Gaussian_beam_B,get_easy_Gaussian_beam_E_2, get_easy_Gaussian_beam_B_2
+from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain, create_domain
+from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_hcurl, get_div_free_pulse, get_curl_free_pulse, get_Delta_phi_pulse, get_Gaussian_beam, get_diag_Gaussian_beam#, get_praxial_Gaussian_beam_E, get_easy_Gaussian_beam_E, get_easy_Gaussian_beam_B,get_easy_Gaussian_beam_E_2, get_easy_Gaussian_beam_B_2
 from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P0_phys, P1_phys, P2_phys, get_Vh_diags_for
 from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
 from psydac.linalg.utilities                            import array_to_psydac
@@ -39,21 +39,38 @@ from sympde.topology      import NormalVector
 from sympde.expr.expr     import BilinearForm
 from sympde.topology      import elements_of
 from sympde import Tuple
+from sympde.topology import Square, Domain
+from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mapping #TransposedPolarMapping
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 from sympy.functions.special.error_functions import erf
 
+from psydac.feec.multipatch.non_matching_operators import get_moment_pres_scalar_extension_restriction
+from psydac.fem.splines import SplineSpace
+
 def run_sim():
     ## Minimal example for a PML implementation of the Time-Domain Maxwells equation
-    ncells  = [8, 8, 8, 8]
+    ncells  = [8, 16]
     degree = [3,3]
-    plot_dir = "plots/PML/test2"
-    if not os.path.exists(plot_dir):
-        os.makedirs(plot_dir)
-    final_time = 3
+    plot_dir = "plots/PML/interface_diffusion"
+    final_time = 5
 
-    domain = build_multipatch_domain(domain_name='square_4')
-    ncells_h = {patch.name: [ncells[i], ncells[i]] for (i,patch) in enumerate(domain.interior)}
+    OmegaLog1 = Square('OmegaLog1',bounds1=(0., 2*np.pi), bounds2=(0., np.pi))
+    mapping_1 = IdentityMapping('M1',2)
+    domain_1     = mapping_1(OmegaLog1)
+
+    OmegaLog2 = Square('OmegaLog2',bounds1=(0., 2*np.pi), bounds2=(np.pi, 2*np.pi))
+    mapping_2 = IdentityMapping('M2',2)
+    domain_2     = mapping_2(OmegaLog2)
+
+    patches = [domain_1, domain_2]
+
+    interfaces = [
+        [domain_1.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1),1]
+    ]
+    domain = create_domain(patches, interfaces, name='domain')
+
+    ncells_h = {patch.name: [2 * ncells[i], ncells[i]] for (i,patch) in enumerate(domain.interior)}
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
 
@@ -72,6 +89,12 @@ def run_sim():
     I1 = IdLinearOperator(V1h)
     I1_m = I1.to_sparse_matrix()
 
+    I2 = IdLinearOperator(V2h)
+    I2_m = I2.to_sparse_matrix()
+
+    I0 = IdLinearOperator(V0h)
+    I0_m = I0.to_sparse_matrix()
+
     backend     = 'pyccel-gcc'
 
     H0 = HodgeOperator(V0h, domain_h)
@@ -87,7 +110,78 @@ def run_sim():
     cP0_m = construct_scalar_conforming_projection(V0h, [0,0], [-1,-1], nquads=None, hom_bc=[False,False])
     cP1_m = construct_vector_conforming_projection(V1h, [0,0], [-1,-1], nquads=None, hom_bc=[False,False])
 
-    ## PML
+    def patch_extension_restriction(coarse_space, fine_space):
+        # coarse patch, fine patch -> Matrix: fine -> coarse
+        E_xy = []
+        R_xy = []
+        for k in range(2):
+            cs_k = coarse_space.spaces[k]
+            knots = [ (k - cs_k.knots[0])/(cs_k.knots[-1] - cs_k.knots[0]) for k in cs_k.knots]
+            css_k = SplineSpace(cs_k.degree, knots = knots, basis=cs_k.basis)
+
+            fs_k = fine_space.spaces[k]
+            knots = [ (k - fs_k.knots[0])/(fs_k.knots[-1] - fs_k.knots[0]) for k in fs_k.knots]
+            fss_k = SplineSpace(fs_k.degree, knots=knots, basis=fs_k.basis)
+            
+            matching = (css_k.ncells == fss_k.ncells)
+            E_k, R_k, ER_k = get_moment_pres_scalar_extension_restriction(matching, css_k, fss_k, css_k.basis)
+            E_xy.append(E_k)
+            R_xy.append(R_k)
+
+        E = np.kron(E_xy[0].toarray(), E_xy[1].toarray())
+        if matching:
+            R = np.kron(R_xy[0].toarray(), R_xy[1].toarray())
+        else:
+            R = np.kron(R_xy[0], R_xy[1])
+
+        return E, R
+
+    def global_matrices(V0h, V1h, V2h):
+
+        E, R = patch_extension_restriction(V0h.spaces[0], V0h.spaces[1])
+        n0 = V0h.spaces[0].nbasis
+        n1 = V0h.spaces[1].nbasis
+        R0_global = np.block([[np.eye(n0), np.zeros((n0, n1))], 
+                [np.zeros((n1, n0)), E@R]])
+        I0_global = np.eye(n0+n0)
+
+        # first component
+       # E, R = patch_extension_restriction(V1h.spaces[0].spaces[0], V1h.spaces[1].spaces[0])
+        n = V1h.spaces[0].nbasis
+        #10 = V1h.spaces[1].spaces[0].nbasis
+        R00_global = np.eye(n) #np.block([[np.eye(n00), np.zeros((n00, n10))], 
+                #[np.zeros((n10, n00)), E@R]])
+
+        #second component
+        E, R = patch_extension_restriction(V1h.spaces[0].spaces[0], V1h.spaces[1].spaces[0])
+        R0 = E@R
+        E, R = patch_extension_restriction(V1h.spaces[0].spaces[1], V1h.spaces[1].spaces[1])
+        R1 = E@R
+
+        n01 = V1h.spaces[1].spaces[0].nbasis
+        n11 = V1h.spaces[1].spaces[1].nbasis
+        
+        R11_global = np.block([[R0, np.zeros((n01, n11))], 
+                [np.zeros((n11, n01)), R1]])
+        
+        m11 = n11 + n01
+        R1_global = np.block([[R00_global, np.zeros((n, m11))],
+                                    [np.zeros((m11, n)), R11_global]])
+        I1_global = np.eye(n+n01+m11)
+
+        E, R = patch_extension_restriction(V2h.spaces[0], V2h.spaces[1])
+        n0 = V2h.spaces[0].nbasis
+        n1 = V2h.spaces[1].nbasis
+        R2_global = np.block([[np.eye(n0), np.zeros((n0, n1))], 
+                [np.zeros((n1, n0)), E@R]])
+        I2_global = np.eye(n0+n0)
+
+        return R0_global, R1_global, R2_global
+
+    R0_global, R1_global, R2_global = global_matrices(V0h, V1h, V2h)
+    
+    
+    ## boundary PML
     u, v     = elements_of(derham.V1, names='u, v')
     x,y = domain.coordinates
 
@@ -96,7 +190,7 @@ def run_sim():
     v1 = dot(Tuple(1,0),v)
     v2 = dot(Tuple(0,1),v)
 
-    def heaviside(x_direction, xmin, xmax, delta, sign, domain):
+    def heaviside(x_direction, xmin, xmax, delta, sign, domain, fact):
         x,y = domain.coordinates
 
         if sign == -1:
@@ -105,9 +199,9 @@ def run_sim():
             d = xmin + delta
 
         if x_direction == True:
-            return 1/2*(erf(-sign*(x-d) *1000)+1)
+            return 1/2*(erf(-sign*(x-d) *fact)+1)
         else:
-            return 1/2*(erf(-sign*(y-d) *1000)+1)
+            return 1/2*(erf(-sign*(y-d) *fact)+1)
 
     def parabola(x_direction, xmin, xmax, delta, sign, domain):
         x,y = domain.coordinates
@@ -123,16 +217,16 @@ def run_sim():
             return ((y - d)/delta)**2
 
     def sigma_fun(x, xmin, xmax, delta, sign, sigma_m, domain):
-        return sigma_m * heaviside(x, xmin, xmax, delta, sign, domain) * parabola(x, xmin, xmax, delta, sign, domain)
+        return sigma_m * heaviside(x, xmin, xmax, delta, sign, domain, 1000) * parabola(x, xmin, xmax, delta, sign, domain)
 
     def sigma_fun_sym(x, xmin, xmax, delta, sigma_m, domain):
         return sigma_fun(x, xmin, xmax, delta, 1, sigma_m, domain) + sigma_fun(x, xmin, xmax, delta, -1, sigma_m, domain)
 
-    delta = np.pi/8
+    delta = np.pi/6
     xmin = 0
-    xmax = np.pi
+    xmax = 2*np.pi
     ymin = 0
-    ymax = np.pi 
+    ymax = 2*np.pi 
     sigma_0 = 20
 
     sigma_x = sigma_fun_sym(True, xmin, xmax, delta, sigma_0, domain)
@@ -146,19 +240,33 @@ def run_sim():
     mass = BilinearForm((v,u), integral(domain, u*v*(sigma_y + sigma_x)))
     massh = discretize(mass, domain_h, [V2h, V2h])
     M2 = massh.assemble().tosparse()
-    ####
 
-    ### Silvermueller ABC
-    # u, v     = elements_of(derham.V1, names='u, v')
-    # nn       = NormalVector('nn')
-    # boundary = domain.boundary
-    # expr_b = cross(nn, u)*cross(nn, v)
+    # interface PML at y = pi
 
-    # a = BilinearForm((u,v), integral(boundary, expr_b))
-    # ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS[backend],)
-    # A_eps = ah.assemble().tosparse()
-    ###
+    u, v     = elements_of(derham.V1, names='u, v')
+    x,y = domain.coordinates
 
+    u1 = dot(Tuple(1,0),u)
+    u2 = dot(Tuple(0,1),u)
+    v1 = dot(Tuple(1,0),v)
+    v2 = dot(Tuple(0,1),v)
+
+    delta = np.pi/6
+    ycenter = np.pi + 3/2*delta
+    
+    sigma_0 = 0.5
+    
+    sigma_x = 0#sigma_fun_sym(True, xmin, xmax, delta, sigma_0, domain)
+    sigma_y = sigma_0 * heaviside(False, ycenter-delta, ycenter, delta, -1, domain, 10) * heaviside(False, ycenter, ycenter+delta, delta, 1, domain, 10)
+    
+    mass = BilinearForm((v,u), integral(domain, u1*v1*sigma_y + u2*v2*sigma_x))
+    massh = discretize(mass, domain_h, [V1h, V1h])
+    M_int = massh.assemble().tosparse()
+
+    u, v     = elements_of(derham.V2, names='u, v')
+    mass = BilinearForm((v,u), integral(domain, u*v*(sigma_y + sigma_x)))
+    massh = discretize(mass, domain_h, [V2h, V2h])
+    M2_int = massh.assemble().tosparse()
 
     # conf_proj = GSP
     K0, K0_inv = get_K0_and_K0_inv(V0h, uniform_patches=False)
@@ -188,10 +296,11 @@ def run_sim():
     f0_c = np.zeros(V1h.nbasis)
 
 
-    E0, B0 = get_Gaussian_beam(x_0=3.14/2 , y_0=1, domain=domain)
+    #E0, B0 = get_Gaussian_beam(x_0=3.14 , y_0=0.5*3.14, domain=domain)
+    E0, B0 = get_diag_Gaussian_beam(x_0=2/3 * np.pi + np.pi, y_0=np.pi/2, domain=domain)
     E0_h = P1_phys(E0, P1, domain, mappings_list)
     E_c = E0_h.coeffs.toarray()
-
+    
     B0_h = P2_phys(B0, P2, domain, mappings_list)
     B_c = B0_h.coeffs.toarray()
 
@@ -221,20 +330,24 @@ def run_sim():
     dt = final_time / Nt
     Epml = sp.sparse.linalg.spsolve(H1_m, M)
     Bpml = sp.sparse.linalg.spsolve(H2_m, M2)
-    #H1A = H1_m + dt * A_eps
-    #A_eps = sp.sparse.linalg.spsolve(H1A, H1_m)
+
+    Epml_int = sp.sparse.linalg.spsolve(H1_m, (I1_m - R1_global).transpose()@M_int@(I1_m - R1_global))
+    Bpml_int = sp.sparse.linalg.spsolve(H2_m, (I2_m - R2_global).transpose()@M2_int@(I2_m - R2_global))
+
+    #Epml_int = sp.sparse.linalg.spsolve(H1_m, (I1_m - R1_global).transpose()@C_m.transpose()@M2_int@C_m@(I1_m - R1_global))
+
 
     f_c = np.copy(f0_c)
     for nt in range(Nt):
         print(' .. nt+1 = {}/{}'.format(nt+1, Nt))
 
         # 1/2 faraday: Bn -> Bn+1/2
-        B_c[:] -= dt/2*Bpml@B_c + (dt/2) * C_m @ E_c
+        B_c[:] -= dt/2*(Bpml @ B_c +  Bpml_int@B_c) + (dt/2) * C_m @ E_c
 
-        E_c[:] += -dt*Epml @ E_c  + dt * (dC_m @ B_c - f_c)
+        E_c[:] += -dt*(Epml @ E_c + Epml_int @ E_c)  + dt * (dC_m @ B_c - f_c)
         #E_c[:] = A_eps @ E_c + dt * (dC_m @ B_c - f_c)
 
-        B_c[:] -= dt/2*Bpml@B_c + (dt/2) * C_m @ E_c
+        B_c[:] -= dt/2*(Bpml @ B_c +  Bpml_int@B_c) + (dt/2) * C_m @ E_c
 
 
         stencil_coeffs_E = array_to_psydac(cP1_m @ E_c, V1h.vector_space)
@@ -248,15 +361,14 @@ def run_sim():
         OM2.export_fields(Bh=Bh)
 
     OM1.close()
-    OM2.close()
-    
+
     print("Do some PP")
     PM = PostProcessManager(domain=domain, space_file=plot_dir+'/spaces1.yml', fields_file=plot_dir+'/fields1.h5' )
-    PM.export_to_vtk(plot_dir+"/Eh",grid=None, npts_per_cell=4,snapshots='all', fields = 'Eh' )
+    PM.export_to_vtk(plot_dir+"/Eh",grid=None, npts_per_cell=6,snapshots='all', fields = 'Eh' )
     PM.close()
 
     PM = PostProcessManager(domain=domain, space_file=plot_dir+'/spaces2.yml', fields_file=plot_dir+'/fields2.h5' )
-    PM.export_to_vtk(plot_dir+"/Bh",grid=None, npts_per_cell=4,snapshots='all', fields = 'Bh' )
+    PM.export_to_vtk(plot_dir+"/Bh",grid=None, npts_per_cell=6,snapshots='all', fields = 'Bh' )
     PM.close()
 
 

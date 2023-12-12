@@ -45,15 +45,27 @@ from sympy.functions.special.error_functions import erf
 
 def run_sim():
     ## Minimal example for a PML implementation of the Time-Domain Maxwells equation
-    ncells  = [8, 8, 8, 8]
+    nc = 10
+    # ncells  = np.array([[nc, nc, nc],
+    #                     [nc, 2*nc, nc], 
+    #                     [nc, nc, nc]])
+
+    ncells  = np.array([[2*nc, 2*nc, 2*nc],
+                        [2*nc, nc,  2*nc], 
+                        [2*nc, 2*nc, 2*nc]])
+
     degree = [3,3]
-    plot_dir = "plots/PML/test2"
+    plot_dir = "plots/PML/pml_test2"
+    bc = 'pml' #'none', 'abc' #'pml'
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
+    
+    x_lim = np.pi
+    y_lim = np.pi
     final_time = 3
 
-    domain = build_multipatch_domain(domain_name='square_4')
-    ncells_h = {patch.name: [ncells[i], ncells[i]] for (i,patch) in enumerate(domain.interior)}
+    domain = create_square_domain(ncells, [0, x_lim], [0, y_lim])
+    ncells_h = {patch.name: [ncells[int(patch.name[2])][int(patch.name[4])], ncells[int(patch.name[2])][int(patch.name[4])]] for patch in domain.interior}
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
 
@@ -128,36 +140,37 @@ def run_sim():
     def sigma_fun_sym(x, xmin, xmax, delta, sigma_m, domain):
         return sigma_fun(x, xmin, xmax, delta, 1, sigma_m, domain) + sigma_fun(x, xmin, xmax, delta, -1, sigma_m, domain)
 
-    delta = np.pi/8
+    delta = np.pi/10
     xmin = 0
-    xmax = np.pi
+    xmax = x_lim
     ymin = 0
-    ymax = np.pi 
-    sigma_0 = 20
+    ymax = y_lim
+    sigma_0 = 15
 
     sigma_x = sigma_fun_sym(True, xmin, xmax, delta, sigma_0, domain)
     sigma_y = sigma_fun_sym(False, ymin, ymax, delta, sigma_0, domain)
-    
-    mass = BilinearForm((v,u), integral(domain, u1*v1*sigma_y + u2*v2*sigma_x))
-    massh = discretize(mass, domain_h, [V1h, V1h])
-    M = massh.assemble().tosparse()
+    if bc == 'pml':
+        mass = BilinearForm((v,u), integral(domain, u1*v1*sigma_y + u2*v2*sigma_x))
+        massh = discretize(mass, domain_h, [V1h, V1h])
+        M = massh.assemble().tosparse()
 
-    u, v     = elements_of(derham.V2, names='u, v')
-    mass = BilinearForm((v,u), integral(domain, u*v*(sigma_y + sigma_x)))
-    massh = discretize(mass, domain_h, [V2h, V2h])
-    M2 = massh.assemble().tosparse()
-    ####
+        u, v     = elements_of(derham.V2, names='u, v')
+        mass = BilinearForm((v,u), integral(domain, u*v*(sigma_y + sigma_x)))
+        massh = discretize(mass, domain_h, [V2h, V2h])
+        M2 = massh.assemble().tosparse()
 
-    ### Silvermueller ABC
-    # u, v     = elements_of(derham.V1, names='u, v')
-    # nn       = NormalVector('nn')
-    # boundary = domain.boundary
-    # expr_b = cross(nn, u)*cross(nn, v)
+    elif bc == 'abc':
+        ### Silvermueller ABC
+        
+        u, v     = elements_of(derham.V1, names='u, v')
+        nn       = NormalVector('nn')
+        boundary = domain.boundary
+        expr_b = cross(nn, u)*cross(nn, v)
 
-    # a = BilinearForm((u,v), integral(boundary, expr_b))
-    # ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS[backend],)
-    # A_eps = ah.assemble().tosparse()
-    ###
+        a = BilinearForm((u,v), integral(boundary, expr_b))
+        ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS[backend],)
+        A_eps = ah.assemble().tosparse()
+        ###
 
 
     # conf_proj = GSP
@@ -188,15 +201,34 @@ def run_sim():
     f0_c = np.zeros(V1h.nbasis)
 
 
-    E0, B0 = get_Gaussian_beam(x_0=3.14/2 , y_0=1, domain=domain)
+    E0, B0 = get_Gaussian_beam(x_0=np.pi * 1/2 , y_0=np.pi * 1/2, domain=domain)
+    #E0, B0 = get_Berenger_wave(x_0=3.14/2 , y_0=3.14/2, domain=domain)
+    
     E0_h = P1_phys(E0, P1, domain, mappings_list)
     E_c = E0_h.coeffs.toarray()
 
     B0_h = P2_phys(B0, P2, domain, mappings_list)
     B_c = B0_h.coeffs.toarray()
 
-    E_c = dC_m @ B_c
-    B_c[:] = 0
+    #plot_field(numpy_coeffs=E_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, plot_type='amplitude', filename="E_amp_before")
+
+    #plot_field(numpy_coeffs=E_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, plot_type='components', filename="E_comp_before")
+    #plot_field(numpy_coeffs=B_c, Vh=V2h, space_kind='l2', domain=domain, filename="B_before")
+
+
+    # E_c_ = dC_m @ B_c
+    # B_c[:] = 0
+    # plot_field(numpy_coeffs=E_c_, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, plot_type='components', filename="E_comp_after")
+    # plot_field(numpy_coeffs=B_c, Vh=V2h, space_kind='l2', domain=domain, filename="B_after")
+    
+    # E_c_ = E_c
+    #B_c = C_m @ E_c
+    # plot_field(numpy_coeffs=E_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, plot_type='components', filename="E_comp_after_after")
+    #plot_field(numpy_coeffs=B_c, Vh=V2h, space_kind='l2', domain=domain, filename="B_after_after")
+    #B_c[:] = 0
+    
+    
+    #exit()
 
     OM1 = OutputManager(plot_dir+'/spaces1.yml', plot_dir+'/fields1.h5')
     OM1.add_spaces(V1h=V1h)
@@ -219,23 +251,32 @@ def run_sim():
     dt = compute_stable_dt(C_m=C_m, dC_m=dC_m, cfl_max=0.8, dt_max=None)
     Nt = int(np.ceil(final_time/dt))
     dt = final_time / Nt
-    Epml = sp.sparse.linalg.spsolve(H1_m, M)
-    Bpml = sp.sparse.linalg.spsolve(H2_m, M2)
-    #H1A = H1_m + dt * A_eps
-    #A_eps = sp.sparse.linalg.spsolve(H1A, H1_m)
+    if bc == 'pml':
+        Epml = sp.sparse.linalg.spsolve(H1_m, M)
+        Bpml = sp.sparse.linalg.spsolve(H2_m, M2)
+    elif bc == 'abc':
+        H1A = H1_m + dt * A_eps
+        A_eps = sp.sparse.linalg.spsolve(H1A, H1_m)
+        dC_m =  sp.sparse.linalg.spsolve(H1A, C_m.transpose() @ H2_m)
+    elif bc == 'none':
+        A_eps = sp.sparse.linalg.spsolve(H1_m, H1_m)
 
     f_c = np.copy(f0_c)
     for nt in range(Nt):
         print(' .. nt+1 = {}/{}'.format(nt+1, Nt))
 
         # 1/2 faraday: Bn -> Bn+1/2
-        B_c[:] -= dt/2*Bpml@B_c + (dt/2) * C_m @ E_c
+        if bc == 'pml':
+            B_c[:] -= dt/2*Bpml@B_c + (dt/2) * C_m @ E_c
+            E_c[:] += -dt*Epml @ E_c  + dt * (dC_m @ B_c - f_c)
+            B_c[:] -= dt/2*Bpml@B_c + (dt/2) * C_m @ E_c
 
-        E_c[:] += -dt*Epml @ E_c  + dt * (dC_m @ B_c - f_c)
-        #E_c[:] = A_eps @ E_c + dt * (dC_m @ B_c - f_c)
+        else:
+            B_c[:] -=  (dt/2) * C_m @ E_c
+            E_c[:] = A_eps @ E_c + dt * (dC_m @ B_c - f_c)
+            B_c[:] -= (dt/2) * C_m @ E_c
 
-        B_c[:] -= dt/2*Bpml@B_c + (dt/2) * C_m @ E_c
-
+        #plot_field(numpy_coeffs=cP1_m @ E_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, plot_type='amplitude', filename=plot_dir+"/E_{}".format(nt))
 
         stencil_coeffs_E = array_to_psydac(cP1_m @ E_c, V1h.vector_space)
         Eh = FemField(V1h, coeffs=stencil_coeffs_E)
@@ -248,8 +289,7 @@ def run_sim():
         OM2.export_fields(Bh=Bh)
 
     OM1.close()
-    OM2.close()
-    
+
     print("Do some PP")
     PM = PostProcessManager(domain=domain, space_file=plot_dir+'/spaces1.yml', fields_file=plot_dir+'/fields1.h5' )
     PM.export_to_vtk(plot_dir+"/Eh",grid=None, npts_per_cell=4,snapshots='all', fields = 'Eh' )

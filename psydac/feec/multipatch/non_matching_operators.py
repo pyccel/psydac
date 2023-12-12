@@ -1406,8 +1406,6 @@ def get_moment_pres_scalar_extension_restriction(matching_interfaces, coarse_spa
 
         ER_1D = E_1D @ R_1D
         
-
-
        # id_err = np.linalg.norm(R_1D @ E_1D - sparse_eye( coarse_space_1d.nbasis, format="lil"))
     else:
         ER_1D = R_1D = E_1D = sparse_eye(
@@ -1471,7 +1469,7 @@ def calculate_mass_matrix(space_1d, spl_type):
 
 #     #domain_name = 'square_6'
 #     #domain_name = '2patch_nc_mapped'
-#     domain_name = '4patch_nc'
+#     domain_name = '2patch_nc'
 #     #domain_name = "curved_L_shape"
 
 #     if domain_name == '2patch_nc_mapped':
