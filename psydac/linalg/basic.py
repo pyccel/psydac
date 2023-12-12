@@ -240,14 +240,23 @@ class LinearOperator(ABC):
         tmp2 = self.codomain.zeros()
         
         #We need to determine if we are a blockvector or a stencilvector but we are not able to use 
-        #the BlockVectorSpace and StencilVectorSpace classes in here. So we use the following char.
-        #This char is either a b for Blockvectors or an s for Stencilvectors
-        BoS= str(self.domain)[15]
-
+        #the BlockVectorSpace and StencilVectorSpace classes in here. So we check if domain has the spaces
+        #attribute in which case the domain would be a BlockVectorSpace. If that is not the case we check
+        #if the domain has the cart atrribute, in which case it will be a StencilVectorSpace.
+        
+        if  hasattr(self.domain, 'spaces'):
+            BoS = "b"
+        elif hasattr(self.domain, 'cart'):
+            BoS = "s"
+        else:
+            raise Exception(
+                'The domain of the LinearOperator must be a BlockVectorSpace or a StencilVectorSpace.')
+        
         if BoS == "b":
             comm = self.domain.spaces[0].cart.comm
         elif BoS == "s":
             comm = self.domain.cart.comm
+        
         rank = comm.Get_rank()
         size = comm.Get_size()
         
@@ -303,12 +312,12 @@ class LinearOperator(ABC):
                 npredim = 0
                 # We iterate over the stencil vectors inside the BlockVector
                 for h in range(nsp):
-                    itterables = []
+                    iterables = []
                     for i in range(ndim[h]):
-                        itterables.append(
+                        iterables.append(
                             range(allstarts[currentrank][i+npredim], allends[currentrank][i+npredim]+1))
                     # We iterate over all the entries that belong to rank number currentrank
-                    for i in itertools.product(*itterables):
+                    for i in itertools.product(*iterables):
                         if (rank == currentrank):
                             v[h][i] = 1.0
                         v[h].update_ghost_regions()
@@ -368,12 +377,12 @@ class LinearOperator(ABC):
             currentrank = 0
             # Each rank will take care of setting to 1 each one of its entries while all other entries remain zero.
             while (currentrank < size):
-                itterables = []
+                iterables = []
                 for i in range(ndim):
-                    itterables.append(
+                    iterables.append(
                         range(allstarts[currentrank][i], allends[currentrank][i]+1))
                 # We iterate over all the entries that belong to rank number currentrank
-                for i in itertools.product(*itterables):
+                for i in itertools.product(*iterables):
                     if (rank == currentrank):
                         v[i] = 1.0
                     v.update_ghost_regions()
@@ -391,10 +400,6 @@ class LinearOperator(ABC):
                         v[i] = 0.0
                     v.update_ghost_regions()
                 currentrank += 1
-        else:
-            # I cannot conceive any situation where this error should be thrown, but I put it here just in case something unexpected happens.
-            raise Exception(
-                'Function toarray_struphy() only supports Stencil Vectors or Block Vectors.')
         
         return sparse.csr_matrix((data, (row, colarr)), shape=(numrows, numcols))
 
@@ -418,16 +423,25 @@ class LinearOperator(ABC):
         v = self.domain.zeros()
         # We define a temporal vector
         tmp2 = self.codomain.zeros()
+        
         #We need to determine if we are a blockvector or a stencilvector but we are not able to use 
-        #the BlockVectorSpace and StencilVectorSpace classes in here. So we use the following
-        #char.
-        #This char is either a b for Blockvectors or an s for Stencilvectors
-        BoS= str(self.domain)[15]
-
+        #the BlockVectorSpace and StencilVectorSpace classes in here. So we check if domain has the spaces
+        #attribute in which case the domain would be a BlockVectorSpace. If that is not the case we check
+        #if the domain has the cart atrribute, in which case it will be a StencilVectorSpace.
+        
+        if  hasattr(self.domain, 'spaces'):
+            BoS = "b"
+        elif hasattr(self.domain, 'cart'):
+            BoS = "s"
+        else:
+            raise Exception(
+                'The domain of the LinearOperator must be a BlockVectorSpace or a StencilVectorSpace.')
+            
         if BoS == "b":
             comm = self.domain.spaces[0].cart.comm
         elif BoS == "s":
             comm = self.domain.cart.comm
+        
         rank = comm.Get_rank()
         size = comm.Get_size()
 
@@ -485,12 +499,12 @@ class LinearOperator(ABC):
                 npredim = 0
                 # We iterate over the stencil vectors inside the BlockVector
                 for h in range(nsp):
-                    itterables = []
+                    iterables = []
                     for i in range(ndim[h]):
-                        itterables.append(
+                        iterables.append(
                             range(allstarts[currentrank][i+npredim], allends[currentrank][i+npredim]+1))
                     # We iterate over all the entries that belong to rank number currentrank
-                    for i in itertools.product(*itterables):
+                    for i in itertools.product(*iterables):
                         if (rank == currentrank):
                             v[h][i] = 1.0
                         v[h].update_ghost_regions()
@@ -545,12 +559,12 @@ class LinearOperator(ABC):
             currentrank = 0
             # Each rank will take care of setting to 1 each one of its entries while all other entries remain zero.
             while (currentrank < size):
-                itterables = []
+                iterables = []
                 for i in range(ndim):
-                    itterables.append(
+                    iterables.append(
                         range(allstarts[currentrank][i], allends[currentrank][i]+1))
                 # We iterate over all the entries that belong to rank number currentrank
-                for i in itertools.product(*itterables):
+                for i in itertools.product(*iterables):
                     if (rank == currentrank):
                         v[i] = 1.0
                     v.update_ghost_regions()
@@ -563,10 +577,7 @@ class LinearOperator(ABC):
                         v[i] = 0.0
                     v.update_ghost_regions()
                 currentrank += 1
-        else:
-            # I cannot conceive any situation where this error should be thrown, but I put it here just in case something unexpected happens.
-            raise Exception(
-                'Function toarray_struphy() only supports Stencil Vectors or Block Vectors.')
+       
         return out
         
 

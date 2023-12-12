@@ -93,19 +93,35 @@ def compute_global_starts_ends(domain_decomposition, npts):
 def create_equal_random_arrays(W, seedv =123):
     np.random.seed(seedv)
     arr = []
-    arr_psy = BlockVector(W)
+    if isinstance(W, BlockVectorSpace):
+        arr_psy = BlockVector(W)
 
-    for d, block in enumerate(arr_psy.blocks):
+        for d, block in enumerate(arr_psy.blocks):
 
-        dims = W.spaces[d].npts
+            dims = W.spaces[d].npts
+
+            arr += [np.random.rand(*dims)]
+
+            s = block.starts
+            e = block.ends
+
+            arr_psy[d][s[0]:e[0] + 1, s[1]:e[1] + 1] = arr[-1][s[0]:e[0] + 1, s[1]:e[1] + 1]
+        arr_psy.update_ghost_regions()
+    elif isinstance(W, StencilVectorSpace):
+        arr_psy = StencilVector(W)
+
+        dims = W.npts
 
         arr += [np.random.rand(*dims)]
 
-        s = block.starts
-        e = block.ends
+        s = arr_psy.starts
+        e = arr_psy.ends
 
-        arr_psy[d][s[0]:e[0] + 1, s[1]:e[1] + 1] = arr[-1][s[0]:e[0] + 1, s[1]:e[1] + 1]
-    arr_psy.update_ghost_regions()
+        arr_psy[s[0]:e[0] + 1, s[1]:e[1] + 1] = arr[-1][s[0]:e[0] + 1, s[1]:e[1] + 1]
+
+    else:
+        raise Exception(
+                'W must be a BlockVectorSpace or a StencilVectorSpace.')
 
     return arr, arr_psy
 
@@ -147,6 +163,10 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     # Create vector space, stencil matrix, and stencil vector
     V = StencilVectorSpace( cart, dtype=dtype )
 
+    v0arr , v0 = create_equal_random_arrays(V, seedv=4568)
+    
+    v0arr = v0arr[0].flatten()
+    
     # Create and Fill Block objects
     W = BlockVectorSpace(V, V)
     
@@ -177,7 +197,26 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     K[1,0] = N3
     K[1,1] = N4
     
-    #We take a power of the LinearOperator
+    
+    #####
+    #Testing tosparse() for LinearOperators with domain being StencilVectorSpace
+    
+    #We take a power of the Stencil Matrix N1
+    N1P = N1**3
+    #We turn our PowerLinearOperator into a sparse matrix, and then into a numpy array
+    N1arrloc = N1P.tosparse().toarray()
+    #We get the global matrix of the PowerLinearOperator
+    N1arr = np.zeros(np.shape(N1arrloc)) 
+    comm.Allreduce(N1arrloc, N1arr, op=MPI.SUM)
+    
+    assert isinstance(N1P, PowerLinearOperator)
+    assert isinstance(N1P.domain, StencilVectorSpace)
+    compare_arrays(N1P.dot(v0), N1arr.dot(v0arr), rank)
+    
+    #####
+    #Testing tosparse() for LinearOperators with domain being BlockVectorSpace
+    
+    #We take a power of the BlockLinearOperator
     KP = K**3
     #We turn our PowerLinearOperator into a sparse matrix, and then into a numpy array
     KLarrloc = KP.tosparse().toarray()
@@ -186,6 +225,7 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     comm.Allreduce(KLarrloc, KLarr, op=MPI.SUM)
 
     assert isinstance(KP, PowerLinearOperator)
+    assert isinstance(KP.domain, BlockVectorSpace)
     compare_arrays(KP.dot(v1), KLarr.dot(v1arr), rank)
     
     
