@@ -122,7 +122,7 @@ class Geometry( object ):
     # Option [2]: from a discrete mapping
     #--------------------------------------------------------------------------
     @classmethod
-    def from_discrete_mapping(cls, mapping, comm=None, name=None):
+    def from_discrete_mapping(cls, mapping, comm=None, name= ''):
         """Create a geometry from one discrete mapping.
         Parameters
         ----------
