@@ -127,10 +127,10 @@ def create_equal_random_arrays(W, seedv =123):
 
 
 
-@pytest.mark.parametrize( 'dtype', [float] )
-@pytest.mark.parametrize( 'n1', [8, 16] )
-@pytest.mark.parametrize( 'n2', [8, 32] )
-@pytest.mark.parametrize( 'p1', [1, 3] )
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [16] )
+@pytest.mark.parametrize( 'n2', [16, 32] )
+@pytest.mark.parametrize( 'p1', [1, 2] )
 @pytest.mark.parametrize( 'p2', [2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
@@ -206,7 +206,7 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     #We turn our PowerLinearOperator into a sparse matrix, and then into a numpy array
     N1arrloc = N1P.tosparse().toarray()
     #We get the global matrix of the PowerLinearOperator
-    N1arr = np.zeros(np.shape(N1arrloc)) 
+    N1arr = np.zeros(np.shape(N1arrloc), dtype=dtype) 
     comm.Allreduce(N1arrloc, N1arr, op=MPI.SUM)
     
     assert isinstance(N1P, PowerLinearOperator)
@@ -221,7 +221,7 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     #We turn our PowerLinearOperator into a sparse matrix, and then into a numpy array
     KLarrloc = KP.tosparse().toarray()
     #We get the global matrix of the operator
-    KLarr = np.zeros(np.shape(KLarrloc))
+    KLarr = np.zeros(np.shape(KLarrloc), dtype=dtype)
     comm.Allreduce(KLarrloc, KLarr, op=MPI.SUM)
 
     assert isinstance(KP, PowerLinearOperator)
