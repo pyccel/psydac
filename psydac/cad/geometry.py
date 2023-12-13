@@ -122,11 +122,23 @@ class Geometry( object ):
     # Option [2]: from a discrete mapping
     #--------------------------------------------------------------------------
     @classmethod
-    def from_discrete_mapping(cls, mapping, comm=None):
-        """Create a geometry from one discrete mapping."""
+    def from_discrete_mapping(cls, mapping, comm=None, name=None):
+        """Create a geometry from one discrete mapping.
+        Parameters
+        ----------
+        mapping : SplineMapping
+            The Mapping from the unit square to to physical domain.
+
+        comm : MPI.Comm
+            MPI intra-communicator.
+            
+        name : string
+            Optional name for the Mapping that will be created. 
+            Needed to avoid conflicts in case several mappings are created
+        """
 
         if mapping.ldim == 1:
-            M        = Mapping('mapping_0', dim=1)
+            M        = Mapping('mapping' + name, dim=1)
             domain   = M(Line(name='Omega'))
             M.set_callable_mapping(mapping)
             mappings = {domain.name: mapping}
@@ -135,7 +147,7 @@ class Geometry( object ):
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
         elif mapping.ldim == 2:
-            M        = Mapping('mapping_0', dim=2)
+            M        = Mapping('mapping_0' + name, dim=2)
             domain   = M(Square(name='Omega'))
             M.set_callable_mapping(mapping)
             mappings = {domain.name: mapping}
@@ -144,7 +156,7 @@ class Geometry( object ):
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
         elif mapping.ldim == 3:
-            M        = Mapping('mapping_0', dim=3)
+            M        = Mapping('mapping_0' + name, dim=3)
             domain   = M(Cube(name='Omega'))
             M.set_callable_mapping(mapping)
             mappings = {domain.name: mapping}

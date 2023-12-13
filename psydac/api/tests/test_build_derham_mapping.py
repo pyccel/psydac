@@ -39,7 +39,8 @@ def test_build_derham_spline_mapping_id_1d(degree, ncells, periodic):
     map_discrete.set_name("map")
 
     # Create the de Rham sequence
-    domain_h = Geometry.from_discrete_mapping(map_discrete)
+    name = '_' + str(nc1) + '_' + str(p1)
+    domain_h = Geometry.from_discrete_mapping(map_discrete, name = name)
     derham   = Derham(domain_h.domain)
     derham_h = discretize(derham, domain_h, degree=degree)
 
@@ -77,13 +78,9 @@ def test_build_derham_spline_mapping_id_1d(degree, ncells, periodic):
 @pytest.mark.parametrize('periodic', [[True,True], [True,False]])
 
 def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
-    print()
-    print()
-    print()
+
     p1 , p2 = degree
     nc1, nc2 = ncells
-    print(nc1)
-    print(nc2)
     periodic1, periodic2 = periodic
 
     # Spaces for the SplineMapping
@@ -97,10 +94,10 @@ def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
     map_symbolic = IdentityMapping(name = 'Id', dim = 2)
     map_analytic = map_symbolic.get_callable_mapping()
     map_discrete = SplineMapping.from_mapping(tensor_space, map_analytic)
-    map_discrete.set_name("map")
 
     # Create the de Rham sequence
-    domain_h = Geometry.from_discrete_mapping(map_discrete)
+    name = '_' + str(nc1) + '_' + str(nc2) + '_' + str(p1) + '_' + str(p2)
+    domain_h = Geometry.from_discrete_mapping(map_discrete, name = name)
     derham   = Derham(domain_h.domain, sequence = ['H1', 'Hdiv', 'L2'])
     derham_h = discretize(derham, domain_h, degree=degree, get_H1vec_space = True)
 
@@ -142,7 +139,7 @@ def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
 @pytest.mark.parametrize('periodic', [[True,True,True], [True,False,False]])
 
 def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
-    return
+
     p1 , p2, p3  = degree
     nc1, nc2, nc3 = ncells
     periodic1, periodic2, periodic3 = periodic
@@ -162,7 +159,8 @@ def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
     map_discrete.set_name("map")
 
     # Create the de Rham sequence
-    domain_h = Geometry.from_discrete_mapping(map_discrete)
+    name = '_' + str(nc1) + '_' + str(nc2) + '_' + str(nc3) + '_' + str(p1) + '_' + str(p2) + '_' + str(p3)
+    domain_h = Geometry.from_discrete_mapping(map_discrete, name = name)
     derham   = Derham(domain_h.domain)
     derham_h = discretize(derham, domain_h, degree=degree, get_H1vec_space = True)
 
@@ -193,6 +191,11 @@ def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
                      grid=None, npts_per_cell=2,
                      snapshots='all', fields=('f'))     
     Pm.close()
+
+    #cleanup 
+    os.remove("./export_sol.yml")
+    os.remove("./export_sol.h5")
+    os.remove("./fields_test.0000.vtu")
 
 if __name__ == '__main__':
     #test_build_derham_spline_mapping_id_1d([2], [10], [True]) 
