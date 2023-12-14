@@ -26,7 +26,7 @@ from psydac.linalg.block       import BlockVectorSpace, BlockVector
 from psydac.ddm.cart           import DomainDecomposition, MultiPatchDomainDecomposition
 
 
-from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, Mapping
+from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, Mapping, NCube
 from sympde.topology.basic import Union
 
 #==============================================================================
@@ -137,36 +137,19 @@ class Geometry( object ):
             Needed to avoid conflicts in case several mappings are created
         """
 
-        if mapping.ldim == 1:
-            M        = Mapping('mapping' + name, dim=1)
-            domain   = M(Line(name='Omega'))
-            M.set_callable_mapping(mapping)
-            mappings = {domain.name: mapping}
-            ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
-            periodic = {domain.name: mapping.space.domain_decomposition.periods}
-            return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
+        dim      = mapping.ldim        
+        M        = Mapping('mapping' + name, dim = dim)
+        domain   = M(NCube(name = 'Omega',
+                           dim  = dim,
+                           min_coords = [0.] * dim,
+                           max_coords = [1.] * dim)) 
+        M.set_callable_mapping(mapping)
+        mappings = {domain.name: mapping}
+        ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
+        periodic = {domain.name: mapping.space.domain_decomposition.periods}
 
-        elif mapping.ldim == 2:
-            M        = Mapping('mapping' + name, dim=2)
-            domain   = M(Square(name='Omega'))
-            M.set_callable_mapping(mapping)
-            mappings = {domain.name: mapping}
-            ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
-            periodic = {domain.name: mapping.space.domain_decomposition.periods}
-            return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
+        return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
-        elif mapping.ldim == 3:
-            M        = Mapping('mapping' + name, dim=3)
-            domain   = M(Cube(name='Omega'))
-            M.set_callable_mapping(mapping)
-            mappings = {domain.name: mapping}
-            ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
-            periodic = {domain.name: mapping.space.domain_decomposition.periods}
-            return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
-
-        else:
-            msg = f'Cannot create geometry from spline mapping in {mapping.ldim} dimension(s)'
-            raise NotImplementedError(msg)
 
     #--------------------------------------------------------------------------
     # Option [3]: discrete topological line/square/cube
