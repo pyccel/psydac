@@ -284,6 +284,7 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc):
     # u3vec_imat = I3inv.solve(P3._rhs)
     # assert np.allclose(u3vec.toarray(), u3vec_imat.toarray(), atol=1e-5)
 
+@pytest.mark.parallel
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
@@ -360,6 +361,7 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc):
     u1vec_imat = I1inv.solve(P1._rhs)
     assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-5)
 
+@pytest.mark.parallel
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
@@ -436,6 +438,7 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc):
     u1vec_imat = I1inv.solve(P1._rhs)
     assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-5)
 
+@pytest.mark.parallel
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
@@ -519,6 +522,7 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc):
     u3vec_imat = I3inv.solve(P3._rhs)
     assert np.allclose(u3vec.toarray(), u3vec_imat.toarray(), atol=1e-5)
 
+@pytest.mark.parallel
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
