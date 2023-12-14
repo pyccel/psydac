@@ -59,10 +59,9 @@ def define_data(n, p, matrix_data, dtype=float):
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('pc', [None])
 @pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'bicgstab', 'pbicgstab', 'minres', 'lsmr', 'gmres'])
 
-def test_solver_tridiagonal(n, p, dtype, pc, solver, verbose=False):
+def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
 
     #---------------------------------------------------------------------------
     # PARAMETERS
@@ -108,9 +107,10 @@ def test_solver_tridiagonal(n, p, dtype, pc, solver, verbose=False):
 
     #Create the solvers
     if solver in ['pcg', 'pbicgstab']:
-        solv  = inverse(A, solver, pc=pc, tol=1e-13, verbose=True)
+        pc = A.diagonal(inverse=True)
+        solv = inverse(A, solver, pc=pc, tol=1e-13, verbose=True)
     else:
-        solv  = inverse(A, solver, tol=1e-13, verbose=True)
+        solv = inverse(A, solver, tol=1e-13, verbose=True)
     solvt = solv.transpose()
     solvh = solv.H
     solv2 = inverse(A@A, solver, tol=1e-13, verbose=True, recycle=True) # Test solver of composition of operators
