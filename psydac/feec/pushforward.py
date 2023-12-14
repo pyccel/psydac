@@ -118,10 +118,6 @@ class Pushforward:
                 self.local_domain = local_domain
                 self.global_ends = global_ends
 
-        elif isinstance(mapping, SplineMapping):
-            self.mapping = mapping
-            self.local_domain = mapping.space.local_domain
-            self.global_ends = tuple(nc_i - 1 for nc_i in mapping.space.ncells)
         else:
             assert self.is_identity
             self.local_domain = local_domain
