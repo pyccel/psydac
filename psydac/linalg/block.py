@@ -777,6 +777,42 @@ class BlockLinearOperator(LinearOperator):
     #--------------------------------------
     # New properties/methods
     #--------------------------------------
+    def diagonal(self, *, inverse = False, out = None):
+        """Get the coefficients on the main diagonal as another BlockLinearOperator object.
+
+        Parameters
+        ----------
+        inverse : bool
+            If True, get the inverse of the diagonal. (Default: False).
+
+        out : BlockLinearOperator
+            If provided, write the diagonal entries into this matrix. (Default: None).
+
+        Returns
+        -------
+        BlockLinearOperator
+            The matrix which contains the main diagonal of self (or its inverse).
+
+        """
+        V, W = self.domain, self.codomain
+        if inverse:
+            V, W = W, V
+
+        if out is not None:
+            assert isinstance(out, BlockLinearOperator)
+            assert out.domain is V
+            assert out.codomain is W
+            assert all(i==j for i, j in out._blocks.keys())  # is this really needed?
+            for i in range(min(self.n_block_rows, self.n_block_cols)):
+                self[i, i].diagonal(inverse = inverse, out = out[i, i])
+        else:
+            out = BlockLinearOperator(V, W)
+            for i in range(min(self.n_block_rows, self.n_block_cols)):
+                out[i, i] = self[i, i].diagonal(inverse = inverse)
+
+        return out
+
+    # ...
     @property
     def blocks(self):
         """ Immutable 2D view (tuple of tuples) of the linear operator,
@@ -868,7 +904,8 @@ class BlockLinearOperator(LinearOperator):
             assert value.codomain is self.codomain[i]
 
         self._blocks[i,j] = value
-    
+
+    # ...
     def transform(self, operation):
         """
         Applies an operation on each block in this BlockLinearOperator.
@@ -881,6 +918,7 @@ class BlockLinearOperator(LinearOperator):
         blocks = {ij: operation(Bij) for ij, Bij in self._blocks.items()}
         return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
 
+    # ...
     def backend(self):
         return self._backend
 
@@ -909,7 +947,6 @@ class BlockLinearOperator(LinearOperator):
 
         out.set_backend(self._backend)
         
-
     # ...
     def __imul__(self, a):
         for Bij in self._blocks.values():
