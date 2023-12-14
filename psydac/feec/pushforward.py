@@ -102,8 +102,6 @@ class Pushforward:
         self.grid_type=grid_type
         grid_local=grid_local
 
-
-
         if isinstance(mapping, Mapping):
             self._mesh_grids = np.meshgrid(*grid_local, indexing='ij', sparse=True)
             # No support for non analytical mappings for now
@@ -117,6 +115,11 @@ class Pushforward:
                 self.mapping = mapping.get_callable_mapping()
                 self.local_domain = local_domain
                 self.global_ends = global_ends
+
+        elif isinstance(mapping, SplineMapping):
+            self.mapping = mapping
+            self.local_domain = mapping.space.local_domain
+            self.global_ends = tuple(nc_i - 1 for nc_i in mapping.space.ncells)
 
         else:
             assert self.is_identity
