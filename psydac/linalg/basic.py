@@ -654,7 +654,7 @@ class SumLinearOperator(LinearOperator):
     @staticmethod
     def simplify(addends):
         class_list  = [a.__class__ for a in addends]
-        unique_list = [*{c: a for c, a in zip(class_list, addends}]
+        unique_list = [*{c: a for c, a in zip(class_list, addends)}]
         if len(unique_list) == 1:
             return addends
         out = ()
