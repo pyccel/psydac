@@ -1368,30 +1368,66 @@ class StencilMatrix(LinearOperator):
 
                 # Copy data from left to right
                 idx_to   = tuple( idx_front + [slice( m*p, m*p+p)] + idx_back )
-                idx_from = tuple( idx_front + [ slice(-m*p,-m*p+p) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back )
+                idx_from = tuple( idx_front + [slice(-m*p,-m*p+p) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back )
                 self._data[idx_to] += self._data[idx_from]
 
-    def diagonal(self):
-        if self._diag_indices is None:
-            cm    = self.codomain.shifts
-            dm    = self.domain.shifts
-            ss    = self.codomain.starts
-            pp    = [compute_diag_len(p,mj,mi)-(p+1) for p,mi,mj in zip(self._pads, cm, dm)]
-            nrows = tuple(e-s+1 for s,e in zip(self.codomain.starts, self.codomain.ends))
-            indices = [np.zeros(np.product(nrows), dtype=int) for _ in range(2*len(nrows))]
-            l = 0
-            for xx in np.ndindex(*nrows):
-                ii = [m*p+x for m,p,x in zip(self.domain.shifts, self.domain.pads, xx)]
-                jj = [p+x+s-((x+s)//mi)*mj for (x,mi,mj,p,s) in zip(xx,cm,dm,pp,ss)]
-                for k in range(len(nrows)):
-                    indices[k][l] = ii[k]
-                    indices[k+len(nrows)][l] = jj[k]
-                l += 1
-            self._diag_indices = tuple(indices)
-        else:
-            nrows   = tuple(e-s+1 for s,e in zip(self.codomain.starts, self.codomain.ends))
+    # ...
+    def diagonal(self, *, inverse = False, out = None):
+        """Get the coefficients on the main diagonal as another StencilMatrix object.
 
-        return self._data[self._diag_indices].reshape(nrows)
+        Parameters
+        ----------
+        inverse : bool
+            If True, get the inverse of the diagonal. (Default: False).
+
+        out : StencilMatrix
+            If provided, write the diagonal entries into this matrix. (Default: None).
+
+        Returns
+        -------
+        StencilMatrix
+            The matrix which contains the main diagonal of self (or its inverse).
+
+        """
+
+        V, W = self.domain, self.codomain
+        if inverse:
+            V, W = W, V
+
+        if out is not None:
+            assert isinstance(out, StencilMatrix)
+            assert out.domain is V
+            assert out.codomain is W
+            assert all(p == 0 for p in out.pads)  # is this really needed?
+        else:
+            out = StencilMatrix(V, W, pads = [0] * V.ndim)
+
+        index = tuple(slice(s, e) for s, e in zip(W.starts, W.ends)) + (0,) * V.ndim
+        out[index] = 1.0 / M[index] if inverse else M[index]
+        return out
+
+
+#    def diagonal(self):
+#        if self._diag_indices is None:
+#            cm    = self.codomain.shifts
+#            dm    = self.domain.shifts
+#            ss    = self.codomain.starts
+#            pp    = [compute_diag_len(p,mj,mi)-(p+1) for p,mi,mj in zip(self._pads, cm, dm)]
+#            nrows = tuple(e-s+1 for s,e in zip(self.codomain.starts, self.codomain.ends))
+#            indices = [np.zeros(np.product(nrows), dtype=int) for _ in range(2*len(nrows))]
+#            l = 0
+#            for xx in np.ndindex(*nrows):
+#                ii = [m*p+x for m,p,x in zip(self.domain.shifts, self.domain.pads, xx)]
+#                jj = [p+x+s-((x+s)//mi)*mj for (x,mi,mj,p,s) in zip(xx,cm,dm,pp,ss)]
+#                for k in range(len(nrows)):
+#                    indices[k][l] = ii[k]
+#                    indices[k+len(nrows)][l] = jj[k]
+#                l += 1
+#            self._diag_indices = tuple(indices)
+#        else:
+#            nrows   = tuple(e-s+1 for s,e in zip(self.codomain.starts, self.codomain.ends))
+#
+#        return self._data[self._diag_indices].reshape(nrows)
 
     # ...
     def topetsc(self):
