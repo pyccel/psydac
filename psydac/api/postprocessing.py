@@ -2185,7 +2185,11 @@ class PostProcessManager:
         # Shortcut
         ldim = self._domain_h.ldim
         # Option 1 : mapping is a Spline Mapping -> Use its FemSpace
-        if hasattr(mapping, 'callable_mapping') and isinstance(mapping.get_callable_mapping(), SplineMapping):
+        if isinstance(mapping, SplineMapping):
+            local_domain = mapping.space.local_domain
+            global_ends = tuple(nc_i - 1 for nc_i in list(mapping.space.ncells))
+            breaks = mapping.space.breaks
+        elif hasattr(mapping, 'callable_mapping') and isinstance(mapping.get_callable_mapping(), SplineMapping):
             c_m = mapping.get_callable_mapping()
             local_domain = c_m.space.local_domain
             global_ends = tuple(nc_i - 1 for nc_i in list(c_m.space.ncells))

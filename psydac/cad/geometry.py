@@ -147,7 +147,7 @@ class Geometry( object ):
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
         elif mapping.ldim == 2:
-            M        = Mapping('mapping_0' + name, dim=2)
+            M        = Mapping('mapping' + name, dim=2)
             domain   = M(Square(name='Omega'))
             M.set_callable_mapping(mapping)
             mappings = {domain.name: mapping}
@@ -156,7 +156,7 @@ class Geometry( object ):
             return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
 
         elif mapping.ldim == 3:
-            M        = Mapping('mapping_0' + name, dim=3)
+            M        = Mapping('mapping' + name, dim=3)
             domain   = M(Cube(name='Omega'))
             M.set_callable_mapping(mapping)
             mappings = {domain.name: mapping}
