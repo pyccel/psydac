@@ -368,12 +368,11 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(B - B1, BlockLinearOperator)
 
     # Adding and Substracting BlockLOs and other LOs returns a SumLinearOperator object
-    # Update 21.12.: ZeroLOs and IdentityLOs from and/or to BlockVectorSpaces are now BlockLOs
-    # thus the sums/differences below should be BlockLOs again
-    assert isinstance(B + BI, BlockLinearOperator)
-    assert isinstance(BI + B, BlockLinearOperator)
-    assert isinstance(B - BI, BlockLinearOperator)
-    assert isinstance(BI - B, BlockLinearOperator)
+    # reverted changes made in #261
+    assert isinstance(B + BI, SumLinearOperator)
+    assert isinstance(BI + B, SumLinearOperator)
+    assert isinstance(B - BI, SumLinearOperator)
+    assert isinstance(BI - B, SumLinearOperator)
 
     # Negating a BlockLO works as intended
     assert isinstance(-B, BlockLinearOperator)
@@ -426,19 +425,19 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(BZ @ B, ComposedLinearOperator)
 
     # Composing a BlockLO with the IdentityOperator does not change the object
-    # due to the 21.12. change not valid anymore
-    #assert B @ BI == B
-    #assert BI @ B == B
+    # reverted changes from #261
+    assert B @ BI == B
+    assert BI @ B == B
     # but: 
-    assert array_equal((B @ BI) @ vb, B @ vb)
-    assert array_equal((BI @ B) @ vb, B @ vb)
+    # assert array_equal((B @ BI) @ vb, B @ vb)
+    # assert array_equal((BI @ B) @ vb, B @ vb)
 
     ## ___Raising to the power of 0 and 1___
 
     # Raising a BlockLO to the power of 1 or 0 does not change the object / returns an IdentityOperator
-    # 21.12. change: B**0 a BlockLO with IdentityLOs at the diagonal
+    # reverted changes from #261
     assert B**1 is B
-    assert isinstance(B**0, BlockLinearOperator)
+    assert isinstance(B**0, IdentityOperator)
     assert sparse_equal(B**0, BI)
 
 #===============================================================================
