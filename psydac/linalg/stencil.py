@@ -1402,8 +1402,8 @@ class StencilMatrix(LinearOperator):
         else:
             out = StencilMatrix(V, W, pads = [0] * V.ndim)
 
-        index = tuple(slice(s, e) for s, e in zip(W.starts, W.ends)) + (0,) * V.ndim
-        out[index] = 1.0 / M[index] if inverse else M[index]
+        index = tuple(slice(s, e+1) for s, e in zip(W.starts, W.ends)) + (0,) * V.ndim
+        out[index] = 1.0 / self[index] if inverse else self[index]
         return out
 
 
