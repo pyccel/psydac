@@ -1403,7 +1403,11 @@ class StencilMatrix(LinearOperator):
             out = StencilMatrix(V, W, pads = [0] * V.ndim)
 
         index = tuple(slice(s, e+1) for s, e in zip(W.starts, W.ends)) + (0,) * V.ndim
-        out[index] = 1.0 / self[index] if inverse else self[index]
+        if inverse:
+            np.divide(1, self[index], out=out[index])
+        else:
+            out[index] = self[index]
+
         return out
 
 
