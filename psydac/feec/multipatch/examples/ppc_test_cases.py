@@ -396,6 +396,39 @@ def get_cavity_solution(omega, kx, ky, t, domain):
 
     return E_ex, B_ex
 
+def get_polarized_solution(omega, kx, ky, kappa, t, domain):
+    """
+    dt B + curl E = 0
+    D = ((1+kappa)E_x, E_y) 
+    dt D - curl B = J
+    """
+    x,y = domain.coordinates
+    
+    E_ex = Tuple( 
+         ky * cos(kx * x) * sin(ky * y) * cos(omega * t),
+        -kx * sin(kx * x) * cos(ky * y) * cos(omega * t)
+    )
+    B_ex = cos(kx * x) * cos(ky * y) * sin(omega * t) * (kx**2 + ky**2) / omega
+
+    D_ex = Tuple(
+                (1 + kappa) * E_ex[0],
+                              E_ex[1]
+                )
+
+    J_ex = Tuple(
+        kappa * omega * ky * cos(kx * x) * sin(ky * y) * sin(omega * t),
+        0
+    )
+
+    return E_ex, B_ex, D_ex, J_ex
+
+def get_polarized_source(omega, kx, ky, kappa, t, domain):
+    x,y = domain.coordinates
+    return Tuple(
+        kappa * omega * ky * cos(kx * x) * sin(ky * y) * sin(omega * t),
+        0
+    )
+
 # dt B + curl E = (kx**2 + ky**2) + (-kx*2 - ky**2)
 
 # dt E   = (- ky * cos(kx * x) * sin(ky * y) ,  kx * sin(kx * x) * cos(ky * y) )  omega * sin(omega * t)
