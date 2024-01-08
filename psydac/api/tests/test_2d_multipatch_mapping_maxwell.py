@@ -93,7 +93,8 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
     equation_h = discretize(equation, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL)
     l2norm_h   = discretize(l2norm, domain_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL)
 
-    equation_h.set_solver('pcg', pc='jacobi', tol=1e-8)
+    jacobi_pc = equation_h.lhs.diagonal(inverse=True)
+    equation_h.set_solver('pcg', pc=jacobi_pc, tol=1e-8)
 
     uh = equation_h.solve()
 
