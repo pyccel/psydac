@@ -108,12 +108,12 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     #Create the solvers
     if solver in ['pcg', 'pbicgstab']:
         pc = A.diagonal(inverse=True)
-        solv = inverse(A, solver, pc=pc, tol=1e-13, verbose=True)
+        solv = inverse(A, solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True)
     else:
-        solv = inverse(A, solver, tol=1e-13, verbose=True)
+        solv = inverse(A, solver, tol=1e-13, verbose=verbose, recycle=True)
     solvt = solv.transpose()
     solvh = solv.H
-    solv2 = inverse(A@A, solver, tol=1e-13, verbose=True, recycle=True) # Test solver of composition of operators
+    solv2 = inverse(A@A, solver, tol=1e-13, verbose=verbose, recycle=True) # Test solver of composition of operators
 
     # Manufacture right-hand-side vector from exact solution
     be  = A @ xe
@@ -160,7 +160,6 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     if solver != 'pcg':
         bc = A @ A @ xc
 
-    
     err = b - be
     err_norm = np.linalg.norm( err.toarray() )
     err2 = b2 - be2
