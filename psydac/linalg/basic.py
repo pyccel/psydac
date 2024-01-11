@@ -986,62 +986,6 @@ class InverseLinearOperator(LinearOperator):
         options = self._options
         return inverse(At, solver, **options)
 
-    @staticmethod
-    def jacobi(A, b, out=None):
-        """
-        Jacobi preconditioner.
-
-        A : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator
-            Left-hand-side matrix A of linear system.
-
-        b : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector
-            Right-hand-side vector of linear system.
-
-        Returns
-        -------
-        x : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector
-            Preconditioner solution
-
-        """
-        from psydac.linalg.block   import BlockLinearOperator, BlockVector
-        from psydac.linalg.stencil import StencilMatrix, StencilVector
-
-        # In case A is None we return a zero vector
-        if A is None:
-            return b.space.zeros()
-
-        # Sanity checks
-        assert isinstance(A, (StencilMatrix, BlockLinearOperator))
-        assert isinstance(b, (StencilVector, BlockVector))
-        assert A.codomain.dimension == A.domain.dimension
-        assert A.codomain == b.space
-
-        #-------------------------------------------------------------
-        # Handle the case of a block linear system
-        if isinstance(A, BlockLinearOperator):
-            if out is not None:
-                for i, bi in enumerate(b.blocks):
-                    InverseLinearOperator.jacobi(A[i,i], bi, out=out[i])
-                return out
-            else:
-                x = [InverseLinearOperator.jacobi(A[i, i], bi) for i, bi in enumerate(b.blocks)]
-                y = BlockVector(b.space, blocks=x)
-                return y
-        #-------------------------------------------------------------
-
-        V = b.space
-        i = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
-
-        if out is not None:
-            b.copy(out=out)
-            out[i] /= A.diagonal()
-            out.update_ghost_regions()
-        else:
-            out = b.copy()
-            out[i] /= A.diagonal()
-            out.update_ghost_regions()
-            return out
-
 #===============================================================================
 class LinearSolver(ABC):
     """
