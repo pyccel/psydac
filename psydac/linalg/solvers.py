@@ -1078,7 +1078,7 @@ class MinimumResidual(InverseLinearOperator):
     """
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
-        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
 
         super().__init__(A, **self._options)
         
