@@ -827,9 +827,9 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
     ----------
     [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
     """
-    def __init__(self, A, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
-        self._options = { "pc": pc, "x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose}
+        self._options = {"pc": pc, "x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose, "recycle": recycle}
 
         super().__init__(A, **self._options)
 
@@ -847,9 +847,6 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
     @property
     def solver(self):
         return 'pbicgstab'
-
-    def _update_options( self ):
-        self._options = {"pc": self._pc, "x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
 
     def solve(self, b, out=None):
         """
@@ -889,6 +886,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
         tol = options["tol"]
         maxiter = options["maxiter"]
         verbose = options["verbose"]
+        recycle = options["recycle"]
 
         assert isinstance(b, Vector)
         assert b.space is domain
@@ -1023,6 +1021,9 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
         # convergence information
         self._info = {'niter': niter, 'success': res_sqr <
                 tol_sqr, 'res_norm': sqrt(res_sqr)}
+
+        if recycle:
+            x.copy(out=self._options["x0"])
 
         return x
 
