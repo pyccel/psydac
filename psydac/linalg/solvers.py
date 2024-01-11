@@ -9,12 +9,23 @@ import numpy as np
 from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator, IdentityOperator, ScaledLinearOperator
 from psydac.linalg.utilities import _sym_ortho
 
-__all__ = ('ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'BiConjugateGradientStabilized', 'MinimumResidual', 'LSMR', 'GMRES')
+__all__ = (
+    'ConjugateGradient',
+    'PConjugateGradient',
+    'BiConjugateGradient',
+    'BiConjugateGradientStabilized',
+    'PBiConjugateGradientStabilized',
+    'MinimumResidual',
+    'LSMR',
+    'GMRES'
+)
 
+#===============================================================================
 def is_real(x):
     from numbers import Number
     return isinstance(x, Number) and np.isrealobj(x) and not isinstance(x, bool)
 
+#===============================================================================
 def inverse(A, solver, **kwargs):
     """
     A function to create objects of all InverseLinearOperator subclasses.
@@ -34,21 +45,35 @@ def inverse(A, solver, **kwargs):
 
     solver : str
         Preferred iterative solver. Options are: 'cg', 'pcg', 'bicg',
-        'bicgstab', 'minres', 'lsmr', 'gmres'.
+        'bicgstab', 'pbicgstab', 'minres', 'lsmr', 'gmres'.
 
     Returns
     -------
     obj : psydac.linalg.basic.InverseLinearOperator
-        More specifically: Returns the chosen subclass, for example psydac.linalg.solvers.ConjugateGradient
-        A linear operator acting as the inverse of A.
+        A linear operator acting as the inverse of A, of the chosen subclass
+        (for example psydac.linalg.solvers.ConjugateGradient).
 
     """
+
+    # Map each possible value of the `solver` string with a specific
+    # `InverseLinearOperator` subclass in this module:
+    solvers_dict = {
+        'cg'       : ConjugateGradient,
+        'pcg'      : PConjugateGradient,
+        'bicg'     : BiConjugateGradient,
+        'bicgstab' : BiConjugateGradientStabilized,
+        'pbicgstab': PBiConjugateGradientStabilized,
+        'minres'   : MinimumResidual,
+        'lsmr'     : LSMR,
+        'gmres'    : GMRES,
+    }
+
     # Check solver input
-    solvers = ('cg', 'pcg', 'bicg', 'bicgstab', 'pbicgstab', 'minres', 'lsmr', 'gmres')
-    if solver not in solvers:
+    if solver not in solvers_dict:
         raise ValueError(f"Required solver '{solver}' not understood.")
 
     assert isinstance(A, LinearOperator)
+
     if isinstance(A, IdentityOperator):
         return A
     elif isinstance(A, ScaledLinearOperator):
@@ -57,22 +82,9 @@ def inverse(A, solver, **kwargs):
         return A.linop
 
     # Instantiate object of correct solver class
-    if solver == 'cg':
-        obj = ConjugateGradient(A, **kwargs)
-    elif solver == 'pcg':
-        obj = PConjugateGradient(A, **kwargs)
-    elif solver == 'bicg':
-        obj = BiConjugateGradient(A, **kwargs)
-    elif solver == 'bicgstab':
-        obj = BiConjugateGradientStabilized(A, **kwargs)
-    elif solver == 'pbicgstab':
-        obj = PBiConjugateGradientStabilized(A, **kwargs)
-    elif solver == 'minres':
-        obj = MinimumResidual(A, **kwargs)
-    elif solver == 'lsmr':
-        obj = LSMR(A, **kwargs)
-    elif solver == 'gmres':
-        obj = GMRES(A, **kwargs)
+    cls = solvers_dict[solver]
+    obj = cls(A, **kwargs)
+
     return obj
 
 #===============================================================================
@@ -1897,4 +1909,4 @@ class GMRES(InverseLinearOperator):
 
     def dot(self, b, out=None):
         return self.solve(b, out=out)
-    
+
