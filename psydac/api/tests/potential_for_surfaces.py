@@ -19,6 +19,7 @@ from sympde.topology import Derham
 from psydac.cad.geometry     import Geometry
 from psydac.feec.global_projectors import Projector_H1
 from psydac.feec.pushforward import Pushforward
+from psydac.feec.pull_push import push_3d_hcurl
 from psydac.fem.basic import FemField
 from psydac.fem.tensor import TensorFemSpace
 from psydac.api.discretization import discretize
@@ -40,6 +41,7 @@ class CylinderMapping(Mapping):
 
 def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
                    derham_h : DiscreteDerham, derham, domain, domain_h):
+    assert isinstance(domain, Domain)
     logger = logging.getLogger(name="find_potential")
     # log_domain = Cube(name="log_domain", bounds1=(0,1), 
     #                     bounds2=(0,2*np.pi), bounds3=(0,1))
@@ -116,12 +118,22 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
         
         
         def alpha_eval(x1, x2, x3):
-            push_forward = Pushforward([np.array([x1]), np.array([x2]), np.array([x3])])
+            # B_h_val = B_h(x1, x2, x3)
+            callable_mapping = domain.mapping.get_callable_mapping()
+            B_h1 = lambda x1, x2, x3: B_h(x1, x2, x3)[0]
+            B_h2 = lambda x1, x2, x3: B_h(x1, x2, x3)[1]
+            B_h3 = lambda x1, x2, x3: B_h(x1, x2, x3)[2]
+            B_h_cart = np.array(push_3d_hcurl(B_h1, B_h2, B_h3, x1, x2, x3, callable_mapping))
+            beta_h_grad_log = beta_h.gradient(x1,x2,x3)
+            dbeta_h_dx1 =lambda x1, x2, x3: beta_h.gradient(x1, x2, x3)[0]
+            dbeta_h_dx2 =lambda x1, x2, x3: beta_h.gradient(x1, x2, x3)[1]
+            dbeta_h_dx3 =lambda x1, x2, x3: beta_h.gradient(x1, x2, x3)[2]
+            beta_h_grad = np.array(push_3d_hcurl(dbeta_h_dx1, dbeta_h_dx2, dbeta_h_dx3, x1, x2, x3, callable_mapping))
+            return B_h_cart.dot(beta_h_grad) / np.linalg.norm(beta_h_grad)**2
 
-            
+        
 
-        alpha_eval = (lambda x1, x2, x3: 
-            np.array(B_h(x1,x2,x3)).dot(beta_h.gradient(x1,x2,x3)) / np.linalg.norm(beta_h.gradient(x1,x2,x3))**2)
+
         projector_h1 = Projector_H1(derham_h.V0)
         # TODO: Do we really have to interpolate alpha?
         alpha_h = projector_h1(alpha_eval)
