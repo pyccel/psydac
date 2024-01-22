@@ -25,7 +25,9 @@ from psydac.fem.tensor import TensorFemSpace
 from psydac.api.discretization import discretize
 from psydac.api.feec import DiscreteDerham
 from psydac.linalg.stencil import StencilVector
+from psydac.linalg.utilities import array_to_psydac
 from psydac.api.fem import DiscreteLinearForm, DiscreteBilinearForm
+from psydac.api.postprocessing import OutputManager, PostProcessManager
 
 class CylinderMapping(Mapping):
     """
@@ -52,6 +54,7 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
     # logger.debug("domain.dim: %s", domain.dim) 
 
     ncells = [6,6,6]
+    N = derham_h.V0.vector_space.dimension
     # domain_h : Geometry = discretize(domain, ncells=ncells, 
     #                                 periodic=[False, True, False])
     
@@ -61,7 +64,7 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
     assert isinstance(derham_h, DiscreteDerham)
     # V0 = ScalarFunctionSpace(name='V0', domain=domain, kind='H1')
     # V1 = VectorFunctionSpace(name='V1', domain=domain, kind='Hcurl')
-    alpha, beta, beta1 = elements_of(derham.V0, 'alpha, beta, beta1')
+    alpha, alpha1, beta, beta1 = elements_of(derham.V0, 'alpha, alpha1, beta, beta1')
     B  = element_of(derham.V1, name='B')
     # J = Norm(B - alpha*grad(beta), domain=domain, kind='l2')
 
@@ -69,28 +72,45 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
     lambda_deriv_summand2_symbolic = LinearForm( beta1, integral(domain, 2*alpha*alpha*dot(grad(beta), grad(beta1))) )
     lambda_deriv_summand1_discrete = discretize(lambda_deriv_summand1_symbolic, domain_h, derham_h.V0)
     lambda_deriv_summand2_discrete = discretize(lambda_deriv_summand2_symbolic, domain_h, derham_h.V0)
+    mu_deriv_expr = integral(domain, alpha1*dot(B - alpha*grad(beta) , grad(beta)))
+    mu_deriv_symbolic = LinearForm(alpha1, mu_deriv_expr)
+    mu_deriv_discrete = discretize(mu_deriv_symbolic, domain_h, derham_h.V0)
+    
 
     solution_is_found = False
     alpha_h = alpha0
     beta_h = beta0
-    beta_coeff = beta_h.coeffs # TODO: Name
-    assert isinstance(beta_coeff, StencilVector)
+    beta_coeff = beta_h.coeffs.toarray() # TODO: Name
+    alpha_coeff = alpha_h.coeffs.toarray()
+    alpha_beta_coeff = np.concatenate((alpha_coeff, beta_coeff))
+    assert isinstance(alpha_beta_coeff, np.ndarray)
 
     tau = 1.0 # step size
     l2_error = compute_l2_error(domain, domain_h, derham, derham_h, B_h, alpha_h, beta_h)
-    logger.debug("l2_error:%s", l2_error)
-    lambda_deriv_summand1 = lambda_deriv_summand1_discrete.assemble(B=B_h, alpha=alpha_h)
-    lambda_deriv_summand2 = lambda_deriv_summand2_discrete.assemble(beta=beta_h, alpha=alpha_h)
-    lambda_deriv = lambda_deriv_summand1 + lambda_deriv_summand2
-    assert isinstance(lambda_deriv, StencilVector)
-    if np.linalg.norm(lambda_deriv.toarray() ) < 1e-3:
-        solution_is_found = True
+    logger.debug("l2_error_squared before first gradient step:%s", l2_error)
 
-    while not solution_is_found:
-        def compute_l2_error_squared_from_coeffs(beta_coeffs):
-            beta_h = FemField(derham_h.V0, coeffs=beta_coeffs)
+    # assert isinstance(lambda_deriv, np.ndarray)
+    # if np.linalg.norm(lambda_deriv ) < 1e-3:
+    #     return alpha_h, beta_h
+
+    while True: # Repeat until the gradient is small enough
+        lambda_deriv_summand1 = lambda_deriv_summand1_discrete.assemble(B=B_h, alpha=alpha_h).toarray()
+        lambda_deriv_summand2 = lambda_deriv_summand2_discrete.assemble(beta=beta_h, alpha=alpha_h).toarray()
+        lambda_deriv = lambda_deriv_summand1 + lambda_deriv_summand2
+        mu_deriv = mu_deriv_discrete.assemble(B=B_h, beta=beta_h, alpha=alpha_h).toarray()
+        gradient = np.concatenate((mu_deriv, lambda_deriv))
+        if np.linalg.norm(gradient ) < 1e-3:
+            return alpha_h, beta_h
+
+        def compute_l2_error_squared_from_coeffs(alpha_beta_coeffs : np.ndarray):
+            alpha_coeffs = alpha_beta_coeffs[:N]
+            beta_coeffs = alpha_beta_coeffs[N:]
+
+            alpha_h = FemField(derham_h.V0, coeffs=array_to_psydac(alpha_coeffs, derham_h.V0.vector_space))
+            beta_h = FemField(derham_h.V0, coeffs=array_to_psydac(beta_coeffs, derham_h.V0.vector_space))
             return compute_l2_error(domain, domain_h, derham, derham_h, B_h, alpha_h, beta_h)**2
         # ###DEBUG###
+        # ### Test gradient w.r.t. lambda ###
         # forward_step = beta_coeff.copy()
         # backward_step = beta_coeff.copy()
         # forward_step[(2,2,2)] += 0.1
@@ -105,49 +125,43 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
 
         tau = step_size(beta=0.3, 
                         sigma=0.01, 
-                        x=beta_coeff, 
+                        x=alpha_beta_coeff, 
                         func=compute_l2_error_squared_from_coeffs,
-                        gradient=lambda_deriv
-                        )
+                        gradient=gradient
+                        ) 
 
-        beta_coeff = beta_coeff - tau*lambda_deriv
-        beta_h = FemField(derham_h.V0, coeffs=beta_coeff)
-        l2_error_before_alpha_change = compute_l2_error(domain, domain_h, derham, derham_h, B_h, alpha_h, beta_h)
-        logger.debug("l2_error_before_alpha_change:%s", l2_error_before_alpha_change)
+        alpha_beta_coeff = alpha_beta_coeff - tau*gradient
+        alpha_coeffs = alpha_beta_coeff[:N]
+        beta_coeffs = alpha_beta_coeff[N:]
+        beta_h = FemField(derham_h.V0, coeffs=array_to_psydac(beta_coeffs, derham_h.V0.vector_space))
+        alpha_h = FemField(derham_h.V0, coeffs=array_to_psydac(alpha_coeffs, derham_h.V0.vector_space))
 
-        
-        
-        def alpha_eval(x1, x2, x3):
-            # B_h_val = B_h(x1, x2, x3)
-            callable_mapping = domain.mapping.get_callable_mapping()
-            B_h1 = lambda x1, x2, x3: B_h(x1, x2, x3)[0]
-            B_h2 = lambda x1, x2, x3: B_h(x1, x2, x3)[1]
-            B_h3 = lambda x1, x2, x3: B_h(x1, x2, x3)[2]
-            B_h_cart = np.array(push_3d_hcurl(B_h1, B_h2, B_h3, x1, x2, x3, callable_mapping))
-            beta_h_grad_log = beta_h.gradient(x1,x2,x3)
-            dbeta_h_dx1 =lambda x1, x2, x3: beta_h.gradient(x1, x2, x3)[0]
-            dbeta_h_dx2 =lambda x1, x2, x3: beta_h.gradient(x1, x2, x3)[1]
-            dbeta_h_dx3 =lambda x1, x2, x3: beta_h.gradient(x1, x2, x3)[2]
-            beta_h_grad = np.array(push_3d_hcurl(dbeta_h_dx1, dbeta_h_dx2, dbeta_h_dx3, x1, x2, x3, callable_mapping))
-            return B_h_cart.dot(beta_h_grad) / np.linalg.norm(beta_h_grad)**2
+        ##DEBUG##
+        # Plot alpha_h
+        does_plot = False
+        if does_plot:
+            does_plot = False
+            output_manager = OutputManager('plot_files/spaces_potential.yml', 
+                                        'plot_files/fields_potential.h5')
+            output_manager.add_spaces(V0=derham_h.V0)
+            output_manager.export_space_info()
+            output_manager.set_static()
+            output_manager.export_fields(alpha_h = alpha_h)
+            post_processor = PostProcessManager(domain=domain, 
+                                                space_file='plot_files/spaces_potential.yml',
+                                                fields_file='plot_files/fields_potential.h5')
+            post_processor.export_to_vtk('plot_files/alpha_plot', npts_per_cell=5,
+                                            fields=("alpha_h"))
+        #########
 
-        
-
-
-        projector_h1 = Projector_H1(derham_h.V0)
-        # TODO: Do we really have to interpolate alpha?
-        alpha_h = projector_h1(alpha_eval)
         l2_error = compute_l2_error(domain, domain_h, derham, derham_h, B_h, alpha_h, beta_h)
-        logger.debug("l2_error:%s", l2_error)
-        lambda_deriv_summand1 = lambda_deriv_summand1_discrete.assemble(B=B_h, alpha=alpha_h)
-        lambda_deriv_summand2 = lambda_deriv_summand2_discrete.assemble(beta=beta_h, alpha=alpha_h)
-        lambda_deriv = lambda_deriv_summand1 + lambda_deriv_summand2
-        assert isinstance(lambda_deriv, StencilVector)
+        logger.debug("l2_error_squared after gradient step:%s", l2_error**2)
+        # lambda_deriv_summand1 = lambda_deriv_summand1_discrete.assemble(B=B_h, alpha=alpha_h)
+        # lambda_deriv_summand2 = lambda_deriv_summand2_discrete.assemble(beta=beta_h, alpha=alpha_h)
+        # lambda_deriv = lambda_deriv_summand1 + lambda_deriv_summand2
+        # assert isinstance(lambda_deriv, StencilVector)
 
-        if np.linalg.norm(lambda_deriv.toarray() ) < 1e-3:
-            solution_is_found = True
 
-    return alpha_h, beta_h
 
 # TODO: What type is gradient?
 def step_size(beta, sigma, x, 
@@ -174,19 +188,17 @@ def step_size(beta, sigma, x,
     i = 0
     func_x = func(x)
     inequality_satisfied = False
-    logger.debug("beta:%s", beta)
-    if (func(x - beta**i * gradient) <= func_x - beta**i* sigma * np.linalg.norm(gradient.toarray())**2):
+    logger.debug("i:%s", beta)
+    if (func(x - beta**i * gradient) <= func_x - beta**i* sigma * np.linalg.norm(gradient)**2):
         inequality_satisfied = True
     
     while not inequality_satisfied:
         i += 1
-        logger.debug("beta**i:%s", beta**i)
-        logger.debug("func_x:%s", func_x)
-        logger.debug("np.linalg.norm(gradient.toarray())**2:%s", np.linalg.norm(gradient.toarray())**2)
+        logger.debug("i:%s", i)
+        logger.debug("np.linalg.norm(gradient.toarray())**2:%s", np.linalg.norm(gradient)**2)
         func_val_at_new_point = func(x - beta**i * gradient)
-        logger.debug("func_val_at_new_point:%s", func_val_at_new_point)
 
-        if (func_val_at_new_point <= func_x - beta**i * sigma * np.linalg.norm(gradient.toarray())**2):
+        if (func_val_at_new_point <= func_x - beta**i * sigma * np.linalg.norm(gradient)**2):
             inequality_satisfied = True
     return beta**i
 
