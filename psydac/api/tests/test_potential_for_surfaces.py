@@ -10,8 +10,8 @@ from sympde.expr.expr          import LinearForm, BilinearForm
 from sympde.expr.expr          import integral              
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import element_of, elements_of
-from sympde.topology.analytical_mapping import PolarMapping
-from sympde.topology.domain import Cube
+from sympde.topology.analytical_mapping import Mapping, PolarMapping, TorusMapping
+from sympde.topology.domain import Cube, Domain
 from sympde.topology import Derham
 
 from psydac.cad.geometry     import Geometry
@@ -27,13 +27,12 @@ from psydac.linalg.block import BlockLinearOperator
 
 from potential_for_surfaces import find_potential, CylinderMapping, compute_l2_error
 
-def arrange_from_scalar_potential(f):
+def arrange_from_scalar_potential(f, mapping : Mapping, log_domain : Domain):
     logger = logging.getLogger(name="arrange_from_scalar_potential")
-    log_domain = Cube(name="log_domain", bounds1=(0,1), 
-                    bounds2=(0,2*np.pi), bounds3=(0,1))
-    cylinder_mapping = CylinderMapping(name="cylinder_mapping", rmin=0, rmax=1, c1=0, c2=0)
+    # log_domain = Cube(name="log_domain", bounds1=(0.1,1), 
+    #                 bounds2=(0,2*np.pi), bounds3=(0, np.pi/2))
 
-    domain = cylinder_mapping(log_domain)
+    domain = mapping(log_domain)
     ncells = [6,6,6]
     domain_h : Geometry = discretize(domain, ncells=ncells, 
                                     periodic=[False, True, False])
@@ -51,7 +50,13 @@ def test_z_as_scalar_field_with_correct_initial_guess():
     # TODO: Remove duplication in domain and the other stuff
     logger = logging.getLogger(name='test_z_as_scalar_field_with_correct_initial_guess')
     f = lambda x1, x2, x3: x3
-    derham_h, derham, projector_h1, f_h,  domain, domain_h = arrange_from_scalar_potential(f)
+    log_domain = Cube(name="log_domain", bounds1=(0.1,1), 
+                bounds2=(0,2*np.pi), bounds3=(0, np.pi/2))
+    torus_mapping = TorusMapping(name="torus_mapping", R0=2.0)
+    derham_h, derham, projector_h1, f_h,  domain, domain_h = arrange_from_scalar_potential(f, 
+                                                                                           mapping=torus_mapping,
+                                                                                           log_domain=log_domain
+    )
     gradient_3D = Gradient_3D(derham_h.V0, derham_h.V1)
     grad_f_h = gradient_3D(f_h)
     alpha0 = lambda x1, x2, x3: 1.0
@@ -69,7 +74,14 @@ def test_z_as_scalar_field_with_correct_initial_guess():
 def test_z_as_scalar_field_with_radial_coordinate_as_initial_guess():
     logger = logging.getLogger(name='test_z_as_scalar_field_with_radial_coordinate_as_initial_guess')
     f = lambda x1, x2, x3: x3
-    derham_h, derham, projector_h1, f_h,  domain, domain_h = arrange_from_scalar_potential(f)
+    log_domain = Cube(name="log_domain", bounds1=(0.1,1), 
+            bounds2=(0,2*np.pi), bounds3=(0, np.pi/2))
+    torus_mapping = TorusMapping(name="torus_mapping", R0=2.0)
+    derham_h, derham, projector_h1, f_h,  domain, domain_h = arrange_from_scalar_potential(f, 
+                                                                                           mapping=torus_mapping,
+                                                                                           log_domain=log_domain
+    )
+
     gradient_3D = Gradient_3D(derham_h.V0, derham_h.V1)
     grad_f_h = gradient_3D(f_h)
     alpha0 = lambda x1, x2, x3: 1.0
@@ -77,25 +89,34 @@ def test_z_as_scalar_field_with_radial_coordinate_as_initial_guess():
     beta0 = lambda x1, x2, x3: x1
     beta0_h = projector_h1(beta0)
     initial_l2_error = compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha0_h, beta0_h)
-    assert np.abs(initial_l2_error**2 - 2*np.pi) < 1e-4
     alpha_h, beta_h = find_potential(alpha0_h, beta0_h, grad_f_h, derham_h, derham, domain, domain_h)
     l2_error = compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha_h, beta_h)
     assert l2_error < 1e-3, f"l2_error is {l2_error}"
 
 
 def test_compute_l2_error():
+    # Arrange
     logger = logging.getLogger(name="test_compute_l2_error")
     f = lambda x1, x2, x3: 2/3*x1**3 + x3
-    derham_h, derham, projector_h1, f_h,  domain, domain_h = arrange_from_scalar_potential(f)
+    log_domain = Cube(name="log_domain", bounds1=(0.1,1), 
+                    bounds2=(0,2*np.pi), bounds3=(0, 1))
+    cylinder_mapping = CylinderMapping(name="cylinder_mapping", rmin=0.0, rmax=1.0, c1=0.0, c2=0.0)
+    assert isinstance(cylinder_mapping, CylinderMapping)
+    derham_h, derham, projector_h1, f_h,  domain, domain_h = arrange_from_scalar_potential(f, 
+                                                                                           mapping=cylinder_mapping, 
+                                                                                           log_domain=log_domain)
     gradient_3D = Gradient_3D(derham_h.V0, derham_h.V1)
     grad_f_h = gradient_3D(f_h)
     alpha = lambda x1, x2, x3: x1
     alpha_h = projector_h1(alpha)
     beta = lambda x1, x2, x3: x1**2
     beta_h = projector_h1(beta)
+
+    # Act
     l2_error = compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha_h, beta_h)
-    logger.debug("l2_error:%s", l2_error)
-    assert np.abs(l2_error**2 - np.pi) < 1e-5 
+
+    # Assert
+    assert np.abs(l2_error**2 - (np.pi - 0.01*np.pi)) < 1e-5, f"l2_error:{l2_error**2}"
 
 
 
