@@ -85,9 +85,9 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
     alpha_beta_coeff = np.concatenate((alpha_coeff, beta_coeff))
     assert isinstance(alpha_beta_coeff, np.ndarray)
 
-    tau = 1.0 # step size
+    step_exponent = 0 # Inital step size exponent
     l2_error = compute_l2_error(domain, domain_h, derham, derham_h, B_h, alpha_h, beta_h)
-    logger.debug("l2_error_squared before first gradient step:%s", l2_error)
+    logger.debug("l2_error_squared before first gradient step:%s", l2_error**2)
 
     # assert isinstance(lambda_deriv, np.ndarray)
     # if np.linalg.norm(lambda_deriv ) < 1e-3:
@@ -123,14 +123,15 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
         # logger.debug("%s lambda_deriv[(2,2,2)]:%s", type(lambda_deriv[(2,2,2)]), lambda_deriv[(2,2,2)])
         # #############
 
-        tau = step_size(beta=0.3, 
-                        sigma=0.01, 
+        step_exponent = step_size_exponent(beta=0.3, 
+                        sigma=0.1, 
+                        initial_exponent=step_exponent,
                         x=alpha_beta_coeff, 
                         func=compute_l2_error_squared_from_coeffs,
                         gradient=gradient
                         ) 
-
-        alpha_beta_coeff = alpha_beta_coeff - tau*gradient
+        beta_step = 0.3
+        alpha_beta_coeff = alpha_beta_coeff - beta_step**step_exponent * gradient
         alpha_coeffs = alpha_beta_coeff[:N]
         beta_coeffs = alpha_beta_coeff[N:]
         beta_h = FemField(derham_h.V0, coeffs=array_to_psydac(beta_coeffs, derham_h.V0.vector_space))
@@ -164,7 +165,7 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
 
 
 # TODO: What type is gradient?
-def step_size(beta, sigma, x, 
+def step_size_exponent(beta, sigma, initial_exponent, x, 
               func : Callable[[np.ndarray], float], 
               gradient : StencilVector):
     """
@@ -174,7 +175,10 @@ def step_size(beta, sigma, x,
     ----------
     beta
         The factor of how much the step is decreased
-    sigma : 
+    sigma
+        Prefactor of the gradient for the descent check
+    initial_exponent : 
+        The initial exponent i for the step size, i.e. beta**i, that is checked
     func:
         The function to be minimized
     gradient:
@@ -185,22 +189,21 @@ def step_size(beta, sigma, x,
     https://cmazzaanthony.github.io/coptim/gradient_method.html    
     """
     logger = logging.getLogger(name="step_size")
-    i = 0
+    i = initial_exponent
     func_x = func(x)
-    inequality_satisfied = False
-    logger.debug("i:%s", beta)
+    logger.debug("Initial i:%s", i)
     if (func(x - beta**i * gradient) <= func_x - beta**i* sigma * np.linalg.norm(gradient)**2):
-        inequality_satisfied = True
+        return i
     
-    while not inequality_satisfied:
+    while True: # Repeat until descent is strong enough
         i += 1
         logger.debug("i:%s", i)
         logger.debug("np.linalg.norm(gradient.toarray())**2:%s", np.linalg.norm(gradient)**2)
         func_val_at_new_point = func(x - beta**i * gradient)
 
         if (func_val_at_new_point <= func_x - beta**i * sigma * np.linalg.norm(gradient)**2):
-            inequality_satisfied = True
-    return beta**i
+            break
+    return i
 
 
 def compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha_h, beta_h):
