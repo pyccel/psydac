@@ -1373,44 +1373,58 @@ class StencilMatrix(LinearOperator):
 
     # ...
     def diagonal(self, *, inverse = False, out = None):
-        """Get the coefficients on the main diagonal as another StencilMatrix object.
+        """
+        Get the coefficients on the main diagonal as a StencilDiagonalMatrix object.
 
         Parameters
         ----------
         inverse : bool
             If True, get the inverse of the diagonal. (Default: False).
 
-        out : StencilMatrix
+        out : StencilDiagonalMatrix
             If provided, write the diagonal entries into this matrix. (Default: None).
 
         Returns
         -------
-        StencilMatrix
+        StencilDiagonalMatrix
             The matrix which contains the main diagonal of self (or its inverse).
 
         """
+        # Check `inverse` argument
+        assert isinstance(inverse, bool)
 
+        # Determine domain and codomain of the StencilDiagonalMatrix
         V, W = self.domain, self.codomain
         if inverse:
             V, W = W, V
 
+        # Check `out` argument
         if out is not None:
-            assert isinstance(out, StencilMatrix)
+            assert isinstance(out, StencilDiagonalMatrix)
             assert out.domain is V
             assert out.codomain is W
-            assert all(p == 0 for p in out.pads)  # is this really needed?
-        else:
-            out = StencilMatrix(V, W, pads = [0] * V.ndim)
 
-        index = tuple(slice(s, e+1) for s, e in zip(W.starts, W.ends)) + (0,) * V.ndim
+
+        # Extract diagonal data from self and identify output array
+        diagonal_indices = self._get_diagonal_indices()
+        diag = self._data[diagonal_indices]
+        data = out._data if out else None
+
+        # Calculate entries of StencilDiagonalMatrix
         if inverse:
-            np.divide(1, self[index], out=out[index])
+            data = np.divide(1, diag, out=data)
+        elif out:
+            np.copyto(data, diag)
         else:
-            out[index] = self[index]
+            data = diag.copy()
+
+        # If needed create a new StencilDiagonalMatrix object
+        if out is None:
+            out = StencilDiagonalMatrix(V, W, data)
 
         return out
 
-
+#    # ...
 #    def diagonal(self):
 #        if self._diag_indices is None:
 #            cm    = self.codomain.shifts
@@ -1852,6 +1866,44 @@ class StencilMatrix(LinearOperator):
             self._args.pop('pad_imp')
             self._args.pop('ndiags')
             self._func = dot.func
+
+    # ...
+    def _get_diagonal_indices(self):
+        """
+        Compute the indices which should be applied to self._data in order to
+        get the matrix entries on the main diagonal. The result is also stored
+        in self._diag_indices, and retrieved from there on successive calls.
+
+        Returns
+        -------
+        tuple[numpy.ndarray, ndim]
+            The diagonal indices as a tuple of NumPy arrays of identical shape
+            (n1, n2, n3, ...).
+
+        """
+
+        if self._diag_indices is None:
+
+            dp    = self.domain.pads
+            dm    = self.domain.shifts
+            cm    = self.codomain.shifts
+            ss    = self.codomain.starts
+            pp    = [compute_diag_len(p, mj, mi) - p - 1 for p, mi, mj in zip(self._pads, cm, dm)]
+            nrows = [e - s + 1 for s, e in zip(self.codomain.starts, self.codomain.ends)]
+            ndim  = self.domain.ndim
+
+            indices = [np.zeros(np.product(nrows), dtype=int) for _ in range(2 * ndim)]
+
+            for l, xx in enumerate(np.ndindex(*nrows)):
+                ii = [m * p + x for m, p, x in zip(dm, dp, xx)]
+                jj = [p + x + s - ((x+s) // mi) * mj for x, mi, mj, p, s in zip(xx, cm, dm, pp, ss)]
+                for k in range(ndim):
+                    indices[k][l] = ii[k]
+                    indices[k + ndim][l] = jj[k]
+
+            self._diag_indices = tuple(idx.reshape(nrows) for idx in indices)
+
+        return self._diag_indices
 
 #===============================================================================
 class StencilDiagonalMatrix(LinearOperator):
