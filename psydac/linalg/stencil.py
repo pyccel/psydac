@@ -8,7 +8,7 @@ import warnings
 import numpy as np
 
 from types        import MappingProxyType
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, diags as sp_diags
 from mpi4py       import MPI
 
 from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator
@@ -1852,6 +1852,186 @@ class StencilMatrix(LinearOperator):
             self._args.pop('pad_imp')
             self._args.pop('ndiags')
             self._func = dot.func
+
+#===============================================================================
+class StencilDiagonalMatrix(LinearOperator):
+    """
+    Linear operator which operates between stencil vector spaces, and which can
+    be represented by a matrix with non-zero entries only on its main diagonal.
+    As such this operator is completely local and requires no data communication.
+
+    We assume that the vectors in the domain and the codomain have the same
+    shape and are distributed in the same way.
+
+    Parameters
+    ----------
+    V : psydac.linalg.stencil.StencilVectorSpace
+        Domain of the new linear operator.
+
+    W : psydac.linalg.stencil.StencilVectorSpace
+        Codomain of the new linear operator.
+
+    """
+    def __init__(self, V, W, data):
+
+        # Check domain and codomain
+        assert isinstance(V, StencilVectorSpace)
+        assert isinstance(W, StencilVectorSpace)
+        assert V.starts == W.starts
+        assert V.ends   == W.ends
+
+        data = np.asarray(data)
+
+        # Check shape of provided data
+        shape = tuple(e - s + 1 for s, e in zip(V.starts, V.ends))
+        assert data.shape == shape
+
+        # Store info in object
+        self._domain   = V
+        self._codomain = W
+        self._data     = data
+
+    #--------------------------------------
+    # Abstract interface
+    #--------------------------------------
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._data.dtype
+
+    def tosparse(self):
+        return sp_diags(self._data.ravel())
+
+    def toarray(self):
+        return self._data.copy()
+
+    def dot(self, v, out=None):
+
+        assert isinstance(v, StencilVector)
+        assert v.space is self.domain
+
+        if out is not None:
+            assert isinstance(out, StencilVector)
+            assert out.space is self.codomain
+        else:
+            out = self.codomain.zeros()
+
+        V = self.domain
+        i = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+        np.multiply(self._data, v[i], out=out[i])
+
+        out.ghost_regions_in_sync = False
+
+        return out
+
+    # ...
+    # TODO [YG 22.01.2024]: idot function will require a dedicated kernel
+    # ...
+
+    def transpose(self, *, conjugate=False, out=None):
+
+        assert isinstance(conjugate, bool)
+
+        if out is not None:
+            assert isinstance(out, StencilDiagonalMatrix)
+            assert out.domain is self.codomain
+            assert out.codomain is self.domain
+
+        if not (conjugate and self.dtype is complex):
+
+            if out is None:
+                data = self._data.copy()
+            else:
+                np.copyto(out._data, self._data, casting='no')
+
+        else:
+
+            if out is None:
+                data = np.conjugate(self._data, casting='no')
+            else:
+                np.conjugate(self._data, out=out._data, casting='no')
+
+        if out is None:
+            out = StencilDiagonalMatrix(self.codomain, self.domain, data)
+
+        return out
+
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
+    def copy(self, *, out=None):
+
+        if out is self:
+            return self
+
+        if out is None:
+            data = self._data.copy()
+            out = StencilDiagonalMatrix(self.domain, self.codomain, data)
+        else:
+            assert isinstance(out, StencilDiagonalMatrix)
+            assert out.domain is self.domain
+            assert out.codomain is self.codomain
+            np.copyto(out._data, self._data, casting='no')
+
+        return out
+
+    def diagonal(self, *, inverse = False, out = None):
+        """
+        Get the coefficients on the main diagonal as a StencilDiagonalMatrix object.
+
+        In the default case (inverse=False, out=None) self is returned.
+
+        Parameters
+        ----------
+        inverse : bool
+            If True, get the inverse of the diagonal. (Default: False).
+
+        out : StencilDiagonalMatrix
+            If provided, write the diagonal entries into this matrix. (Default: None).
+
+        Returns
+        -------
+        StencilDiagonalMatrix
+            Either self, or another StencilDiagonalMatrix with the diagonal inverse.
+
+        """
+        # Check `inverse` argument
+        assert isinstance(inverse, bool)
+
+        # Determine domain and codomain of the `out` matrix
+        V, W = self.domain, self.codomain
+        if inverse:
+            V, W = W, V
+
+        # Check `out` argument and identify `data` array of output vector
+        if out is None:
+            data = None
+        else:
+            assert isinstance(out, StencilDiagonalMatrix)
+            assert out.domain is V
+            assert out.codomain is W
+            data = out._data
+
+        # Calculate entries, or set `out=self` in default case
+        if inverse:
+            data = np.divide(1, diag, out=data)
+        elif out:
+            np.copyto(data, diag)
+        else:
+            out = self
+
+        # If needed create a new StencilDiagonalMatrix object
+        if out is None:
+            out = StencilDiagonalMatrix(V, W, data)
+
+        return out
 
 #===============================================================================
 # TODO [YG, 28.01.2021]:
