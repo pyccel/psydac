@@ -794,21 +794,24 @@ class BlockLinearOperator(LinearOperator):
             The matrix which contains the main diagonal of self (or its inverse).
 
         """
+        # Determine domain and codomain of result
         V, W = self.domain, self.codomain
         if inverse:
             V, W = W, V
 
+        # Check the `out` argument, if `None` create a new BlockLinearOperator
         if out is not None:
             assert isinstance(out, BlockLinearOperator)
             assert out.domain is V
             assert out.codomain is W
             assert all(i==j for i, j in out._blocks.keys())  # is this really needed?
-            for i in range(min(self.n_block_rows, self.n_block_cols)):
-                self[i, i].diagonal(inverse = inverse, out = out[i, i])
         else:
             out = BlockLinearOperator(V, W)
-            for i in range(min(self.n_block_rows, self.n_block_cols)):
-                out[i, i] = self[i, i].diagonal(inverse = inverse)
+
+        # Store the diagonal (or its inverse) into `out`
+        for i, j in self.nonzero_block_indices:
+            if i == j:
+                out[i, i] = self[i, i].diagonal(inverse = inverse, out = out[i, i])
 
         return out
 
