@@ -123,8 +123,8 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
         # logger.debug("%s lambda_deriv[(2,2,2)]:%s", type(lambda_deriv[(2,2,2)]), lambda_deriv[(2,2,2)])
         # #############
 
-        step_exponent = step_size_exponent(beta=0.3, 
-                        sigma=0.1, 
+        step_exponent = step_size_exponent(beta=0.5, 
+                        sigma=0.5, 
                         initial_exponent=step_exponent,
                         x=alpha_beta_coeff, 
                         func=compute_l2_error_squared_from_coeffs,
@@ -192,10 +192,19 @@ def step_size_exponent(beta, sigma, initial_exponent, x,
     i = initial_exponent
     func_x = func(x)
     logger.debug("Initial i:%s", i)
+    logger.debug("np.linalg.norm(gradient.toarray())**2:%s", np.linalg.norm(gradient)**2)
     if (func(x - beta**i * gradient) <= func_x - beta**i* sigma * np.linalg.norm(gradient)**2):
+        logger.debug("Armijo condition fulfilled at first try. Make it larger?")
+        while True: # Reduce exponent until condition is violated
+            i -= 1
+            if (func(x - beta**i * gradient) > func_x - beta**i* sigma * np.linalg.norm(gradient)**2):
+                i += 1
+                break
+        logger.debug("Final step size exponent returned:%s", i)
         return i
     
-    while True: # Repeat until descent is strong enough
+    logger.debug("Armijo violated at first try. Make it smaller")
+    while True: # Increase exponent until descent is strong enough
         i += 1
         logger.debug("i:%s", i)
         logger.debug("np.linalg.norm(gradient.toarray())**2:%s", np.linalg.norm(gradient)**2)
