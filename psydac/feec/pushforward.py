@@ -104,7 +104,6 @@ class Pushforward:
 
         if isinstance(mapping, Mapping):
             self._mesh_grids = np.meshgrid(*grid_local, indexing='ij', sparse=True)
-            # No support for non analytical mappings for now
             if isinstance(mapping.get_callable_mapping(), SplineMapping):
                 c_m = mapping.get_callable_mapping()
                 self.mapping = c_m

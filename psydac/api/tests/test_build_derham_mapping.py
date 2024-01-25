@@ -199,8 +199,6 @@ def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
 
 if __name__ == '__main__':
     #test_build_derham_spline_mapping_id_1d([2], [10], [True]) 
-    import time   
     test_build_derham_spline_mapping_id_2d([2,2], [5,10], [True,True])  
-    #time.sleep(15) 
     test_build_derham_spline_mapping_id_2d([2,2], [10,10], [True,True])    
     #test_build_derham_spline_mapping_id_3d([2,3,4], [10,11,3], [True,False,False])
