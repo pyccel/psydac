@@ -162,7 +162,7 @@ class DiscreteDerham(BasicDiscrete):
         return tuple(V.diff for V in self.spaces[:-1])
 
     #--------------------------------------------------------------------------
-    def projectors(self, *, kind='global', nquads=None):
+    def projectors(self, *, kind='global', nquads=None, get_reference=False):
         """Projectors mapping callable functions of the physical coordinates to a 
         corresponding `FemField` object in the De Rham sequence.
 
