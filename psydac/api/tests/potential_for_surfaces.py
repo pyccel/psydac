@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 from sympy import ImmutableDenseMatrix
+import time
 from typing import Callable
 
 from sympde.calculus import grad, dot
@@ -94,11 +95,15 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
     #     return alpha_h, beta_h
 
     while True: # Repeat until the gradient is small enough
+        time_before_gradient_assembly = time.time()
         lambda_deriv_summand1 = lambda_deriv_summand1_discrete.assemble(B=B_h, alpha=alpha_h).toarray()
         lambda_deriv_summand2 = lambda_deriv_summand2_discrete.assemble(beta=beta_h, alpha=alpha_h).toarray()
         lambda_deriv = lambda_deriv_summand1 + lambda_deriv_summand2
         mu_deriv = mu_deriv_discrete.assemble(B=B_h, beta=beta_h, alpha=alpha_h).toarray()
         gradient = np.concatenate((mu_deriv, lambda_deriv))
+        time_after_gradient_assembly = time.time()
+        time_for_gradient_assembly = time_after_gradient_assembly - time_before_gradient_assembly
+        logger.debug("Elapsed time to assemble gradient:%s", time_for_gradient_assembly)
         if np.linalg.norm(gradient ) < 1e-3:
             return alpha_h, beta_h
 
@@ -131,6 +136,7 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
                         gradient=gradient
                         ) 
         beta_step = 0.3
+        logger.debug("Performing the gradient step.")
         alpha_beta_coeff = alpha_beta_coeff - beta_step**step_exponent * gradient
         alpha_coeffs = alpha_beta_coeff[:N]
         beta_coeffs = alpha_beta_coeff[N:]
@@ -217,6 +223,7 @@ def step_size_exponent(beta, sigma, initial_exponent, x,
 
 def compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha_h, beta_h):
     logger = logging.getLogger(name="compute_l2_error")
+    start_time = time.time()
     B, v = elements_of(derham.V1, 'B, v')
     alpha, beta, u = elements_of(derham.V0, 'alpha, beta, u')
     l2_norm_B_sym = Norm(ImmutableDenseMatrix([B[0],B[1], B[2]]), domain, kind='l2')
@@ -243,6 +250,9 @@ def compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha_h, beta
     assert isinstance(derham_h.V0, TensorFemSpace) 
 
     l2_error_squared = l2_norm_B**2 - 2* B_dot_grad.dot(beta_h.coeffs) + grad_beta_dot_grad.dot(beta_h.coeffs)
+    end_time = time.time()
+    time_elapsed = end_time - start_time
+    logger.debug("Amount of seconds to compute the L2 error:%s", time_elapsed)
     if np.abs(l2_error_squared) < 1.0e-6:
         l2_error_squared = 0.0
     return np.sqrt(l2_error_squared)
