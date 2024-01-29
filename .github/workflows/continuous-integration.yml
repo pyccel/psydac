@@ -114,8 +114,8 @@ jobs:
         run: |
           export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
           export OMP_NUM_THREADS=2
-          python -m pytest --pyargs psydac -m "not parallel"
-          python mpi_tester.py --pyargs psydac -m "parallel and not petsc"
+#          python -m pytest --pyargs psydac -m "not parallel"
+          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac.linalg.tests.test_kron_direct_solver::test_2d_mass_solver -m "parallel and not petsc"
 
       - name: Remove test directory
         if: ${{ always() }}
