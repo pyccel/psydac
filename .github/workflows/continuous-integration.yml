@@ -114,7 +114,7 @@ jobs:
         run: |
           export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
           export OMP_NUM_THREADS=2
-          python -m pytest -n auto --pyargs psydac -m "not parallel"
+          python -m pytest -n 2 --pyargs psydac -m "not parallel"
 
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
