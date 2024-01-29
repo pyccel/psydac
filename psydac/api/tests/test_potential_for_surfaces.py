@@ -71,7 +71,17 @@ def test_z_as_scalar_field_with_correct_initial_guess():
     logger.debug("l2_error:%s", l2_error)
     assert l2_error < 1e-3, f"l2_error is {l2_error}"
 
-def test_z_as_scalar_field_with_radial_coordinate_as_initial_guess():
+def test_z_as_scalar_field_with_slightly_perturbed_initial_guess():
+    logger = logging.getLogger(name='test_z_as_scalar_field_with_radial_coordinate_as_initial_guess')
+    beta0 = lambda x1, x2, x3: 0.01*x1 + x3
+    domain, domain_h, derham, derham_h, grad_f_h, alpha0_h, beta0_h = test_z_as_scalar_field_arrange(beta0)
+    initial_l2_error = compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha0_h, beta0_h)
+    alpha_h, beta_h = find_potential(alpha0_h, beta0_h, grad_f_h, derham_h, derham, domain, domain_h)
+    l2_error = compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha_h, beta_h)
+    assert l2_error < 1e-3, f"l2_error is {l2_error}"
+
+
+def test_z_as_scalar_field_arrange(beta0):
     logger = logging.getLogger(name='test_z_as_scalar_field_with_radial_coordinate_as_initial_guess')
     f = lambda x1, x2, x3: x3
     log_domain = Cube(name="log_domain", bounds1=(0.1,1), 
@@ -86,12 +96,10 @@ def test_z_as_scalar_field_with_radial_coordinate_as_initial_guess():
     grad_f_h = gradient_3D(f_h)
     alpha0 = lambda x1, x2, x3: 1.0
     alpha0_h = projector_h1(alpha0)
-    beta0 = lambda x1, x2, x3: x1
+    # beta0 = lambda x1, x2, x3: 0.01*x1 + x3
     beta0_h = projector_h1(beta0)
-    initial_l2_error = compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha0_h, beta0_h)
-    alpha_h, beta_h = find_potential(alpha0_h, beta0_h, grad_f_h, derham_h, derham, domain, domain_h)
-    l2_error = compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha_h, beta_h)
-    assert l2_error < 1e-3, f"l2_error is {l2_error}"
+    return domain, domain_h, derham, derham_h, grad_f_h, alpha0_h, beta0_h
+
 
 
 def test_compute_l2_error():
@@ -180,5 +188,5 @@ if __name__ == '__main__':
     logging.basicConfig(filename="mylog.log", filemode='w', 
                         level=logging.DEBUG,
                         format='%(name)s\n\t%(message)s')
-    test_z_as_scalar_field_with_radial_coordinate_as_initial_guess()
+    test_z_as_scalar_field_with_slightly_perturbed_initial_guess()
 
