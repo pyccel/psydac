@@ -17,6 +17,7 @@ from sympde.topology import Domain
 from sympde.topology.mapping import Mapping
 from sympde.topology import Derham
 
+from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 from psydac.cad.geometry     import Geometry
 from psydac.feec.global_projectors import Projector_H1
 from psydac.feec.pushforward import Pushforward
@@ -71,11 +72,14 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
 
     lambda_deriv_summand1_symbolic = LinearForm(beta1, integral(domain, -2*alpha*dot(B, grad(beta1))))
     lambda_deriv_summand2_symbolic = LinearForm( beta1, integral(domain, 2*alpha*alpha*dot(grad(beta), grad(beta1))) )
-    lambda_deriv_summand1_discrete = discretize(lambda_deriv_summand1_symbolic, domain_h, derham_h.V0)
-    lambda_deriv_summand2_discrete = discretize(lambda_deriv_summand2_symbolic, domain_h, derham_h.V0)
+    lambda_deriv_summand1_discrete = discretize(lambda_deriv_summand1_symbolic, domain_h, derham_h.V0, 
+                                                backend=PSYDAC_BACKEND_GPYCCEL)
+    lambda_deriv_summand2_discrete = discretize(lambda_deriv_summand2_symbolic, domain_h, derham_h.V0,
+                                                backend=PSYDAC_BACKEND_GPYCCEL)
     mu_deriv_expr = integral(domain, alpha1*dot(B - alpha*grad(beta) , grad(beta)))
     mu_deriv_symbolic = LinearForm(alpha1, mu_deriv_expr)
-    mu_deriv_discrete = discretize(mu_deriv_symbolic, domain_h, derham_h.V0)
+    mu_deriv_discrete = discretize(mu_deriv_symbolic, domain_h, derham_h.V0,
+                                   backend=PSYDAC_BACKEND_GPYCCEL)
     
 
     solution_is_found = False
@@ -86,7 +90,7 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
     alpha_beta_coeff = np.concatenate((alpha_coeff, beta_coeff))
     assert isinstance(alpha_beta_coeff, np.ndarray)
 
-    step_exponent = 0 # Inital step size exponent
+    # step_exponent = 0 # Inital step size exponent
     l2_error = compute_l2_error(domain, domain_h, derham, derham_h, B_h, alpha_h, beta_h)
     logger.debug("l2_error_squared before first gradient step:%s", l2_error**2)
 
@@ -94,18 +98,30 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
     # if np.linalg.norm(lambda_deriv ) < 1e-3:
     #     return alpha_h, beta_h
 
-    while True: # Repeat until the gradient is small enough
+    error = np.zeros((21, 3))
+    error[0,0] = 0
+    error[0,1] = l2_error**2
+    
+    for i in range(1,21): # Repeat until the gradient is small enough
         time_before_gradient_assembly = time.time()
         lambda_deriv_summand1 = lambda_deriv_summand1_discrete.assemble(B=B_h, alpha=alpha_h).toarray()
         lambda_deriv_summand2 = lambda_deriv_summand2_discrete.assemble(beta=beta_h, alpha=alpha_h).toarray()
         lambda_deriv = lambda_deriv_summand1 + lambda_deriv_summand2
-        mu_deriv = mu_deriv_discrete.assemble(B=B_h, beta=beta_h, alpha=alpha_h).toarray()
-        gradient = np.concatenate((mu_deriv, lambda_deriv))
         time_after_gradient_assembly = time.time()
         time_for_gradient_assembly = time_after_gradient_assembly - time_before_gradient_assembly
-        logger.debug("Elapsed time to assemble gradient:%s", time_for_gradient_assembly)
-        if np.linalg.norm(gradient ) < 1e-3:
-            return alpha_h, beta_h
+        logger.debug("Elapsed time to assemble gradient in beta:%s", time_for_gradient_assembly)
+
+        beta_step = 0.3**2
+        lambda_gradient_avg = 1/N * np.sum(lambda_deriv)
+        logger.debug("Performing the gradient step in beta.")
+        beta_coeff = beta_coeff - beta_step*(lambda_deriv) 
+        beta_h = FemField(derham_h.V0, coeffs=array_to_psydac(beta_coeff, derham_h.V0.vector_space))
+
+
+        mu_deriv = mu_deriv_discrete.assemble(B=B_h, beta=beta_h, alpha=alpha_h).toarray()
+        
+        # if np.linalg.norm(gradient ) < 1e-3:
+        #     return alpha_h, beta_h
 
         def compute_l2_error_squared_from_coeffs(alpha_beta_coeffs : np.ndarray):
             alpha_coeffs = alpha_beta_coeffs[:N]
@@ -128,20 +144,18 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
         # logger.debug("%s lambda_deriv[(2,2,2)]:%s", type(lambda_deriv[(2,2,2)]), lambda_deriv[(2,2,2)])
         # #############
 
-        step_exponent = step_size_exponent(beta=0.5, 
-                        sigma=0.5, 
-                        initial_exponent=step_exponent,
-                        x=alpha_beta_coeff, 
-                        func=compute_l2_error_squared_from_coeffs,
-                        gradient=gradient
-                        ) 
-        beta_step = 0.3
-        logger.debug("Performing the gradient step.")
-        alpha_beta_coeff = alpha_beta_coeff - beta_step**step_exponent * gradient
-        alpha_coeffs = alpha_beta_coeff[:N]
-        beta_coeffs = alpha_beta_coeff[N:]
-        beta_h = FemField(derham_h.V0, coeffs=array_to_psydac(beta_coeffs, derham_h.V0.vector_space))
-        alpha_h = FemField(derham_h.V0, coeffs=array_to_psydac(alpha_coeffs, derham_h.V0.vector_space))
+        # step_exponent = step_size_exponent(beta=0.5, 
+        #                 sigma=0.5, 
+        #                 initial_exponent=step_exponent,
+        #                 x=alpha_beta_coeff, 
+        #                 func=compute_l2_error_squared_from_coeffs,
+        #                 gradient=gradient
+        #                 ) 
+        logger.debug("Performing the gradient step in alpha.")
+        alpha_coeff = alpha_coeff - beta_step * mu_deriv
+        # alpha_coeffs = alpha_beta_coeff[:N]
+        # beta_coeffs = alpha_beta_coeff[N:]
+        alpha_h = FemField(derham_h.V0, coeffs=array_to_psydac(alpha_coeff, derham_h.V0.vector_space))
 
         ##DEBUG##
         # Plot alpha_h
@@ -163,10 +177,14 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
 
         l2_error = compute_l2_error(domain, domain_h, derham, derham_h, B_h, alpha_h, beta_h)
         logger.debug("l2_error_squared after gradient step:%s", l2_error**2)
+        error[i,0] = i
+        error[i,1] = l2_error**2
         # lambda_deriv_summand1 = lambda_deriv_summand1_discrete.assemble(B=B_h, alpha=alpha_h)
         # lambda_deriv_summand2 = lambda_deriv_summand2_discrete.assemble(beta=beta_h, alpha=alpha_h)
         # lambda_deriv = lambda_deriv_summand1 + lambda_deriv_summand2
         # assert isinstance(lambda_deriv, StencilVector)
+    
+    np.save("gradient_descent_error/alternatively.npy", error)
 
 
 
