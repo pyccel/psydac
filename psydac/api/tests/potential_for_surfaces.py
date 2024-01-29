@@ -102,26 +102,32 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
     error[0,0] = 0
     error[0,1] = l2_error**2
     
-    for i in range(1,21): # Repeat until the gradient is small enough
+    iteration_count = 0
+    while True: # Repeat until the gradient is small enough
         time_before_gradient_assembly = time.time()
         lambda_deriv_summand1 = lambda_deriv_summand1_discrete.assemble(B=B_h, alpha=alpha_h).toarray()
         lambda_deriv_summand2 = lambda_deriv_summand2_discrete.assemble(beta=beta_h, alpha=alpha_h).toarray()
         lambda_deriv = lambda_deriv_summand1 + lambda_deriv_summand2
+        mu_deriv = mu_deriv_discrete.assemble(B=B_h, beta=beta_h, alpha=alpha_h).toarray()
         time_after_gradient_assembly = time.time()
         time_for_gradient_assembly = time_after_gradient_assembly - time_before_gradient_assembly
-        logger.debug("Elapsed time to assemble gradient in beta:%s", time_for_gradient_assembly)
+        logger.debug("Elapsed time to assemble gradient:%s", time_for_gradient_assembly)
+
+        gradient = np.concatenate((mu_deriv, lambda_deriv))
+        if np.linalg.norm(gradient ) < 1e-5:
+            return alpha_h, beta_h
 
         beta_step = 0.3**2
-        lambda_gradient_avg = 1/N * np.sum(lambda_deriv)
         logger.debug("Performing the gradient step in beta.")
+
+        alpha_coeff = alpha_coeff - beta_step * mu_deriv
         beta_coeff = beta_coeff - beta_step*(lambda_deriv) 
+        alpha_h = FemField(derham_h.V0, coeffs=array_to_psydac(alpha_coeff, derham_h.V0.vector_space))
         beta_h = FemField(derham_h.V0, coeffs=array_to_psydac(beta_coeff, derham_h.V0.vector_space))
 
 
-        mu_deriv = mu_deriv_discrete.assemble(B=B_h, beta=beta_h, alpha=alpha_h).toarray()
         
-        # if np.linalg.norm(gradient ) < 1e-3:
-        #     return alpha_h, beta_h
+        
 
         def compute_l2_error_squared_from_coeffs(alpha_beta_coeffs : np.ndarray):
             alpha_coeffs = alpha_beta_coeffs[:N]
@@ -151,11 +157,8 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
         #                 func=compute_l2_error_squared_from_coeffs,
         #                 gradient=gradient
         #                 ) 
-        logger.debug("Performing the gradient step in alpha.")
-        alpha_coeff = alpha_coeff - beta_step * mu_deriv
         # alpha_coeffs = alpha_beta_coeff[:N]
         # beta_coeffs = alpha_beta_coeff[N:]
-        alpha_h = FemField(derham_h.V0, coeffs=array_to_psydac(alpha_coeff, derham_h.V0.vector_space))
 
         ##DEBUG##
         # Plot alpha_h
@@ -174,19 +177,20 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
             post_processor.export_to_vtk('plot_files/alpha_plot', npts_per_cell=5,
                                             fields=("alpha_h"))
         #########
-
+        iteration_count += 1
         l2_error = compute_l2_error(domain, domain_h, derham, derham_h, B_h, alpha_h, beta_h)
         logger.debug("l2_error_squared after gradient step:%s", l2_error**2)
-        error[i,0] = i
-        error[i,1] = l2_error**2
+        error[iteration_count,0] = iteration_count
+        error[iteration_count,1] = l2_error**2
+
+
+        if iteration_count % 20 == 0:
+            np.save("gradient_descent_error/alternatively.npy", error)
         # lambda_deriv_summand1 = lambda_deriv_summand1_discrete.assemble(B=B_h, alpha=alpha_h)
         # lambda_deriv_summand2 = lambda_deriv_summand2_discrete.assemble(beta=beta_h, alpha=alpha_h)
         # lambda_deriv = lambda_deriv_summand1 + lambda_deriv_summand2
         # assert isinstance(lambda_deriv, StencilVector)
-    
-    np.save("gradient_descent_error/alternatively.npy", error)
-
-
+            
 
 # TODO: What type is gradient?
 def step_size_exponent(beta, sigma, initial_exponent, x, 
