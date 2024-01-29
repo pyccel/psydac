@@ -448,7 +448,6 @@ class IdentityOperator(LinearOperator):
             return BlockLinearOperator(domain, domain, blocks)
         else:
             return super().__new__(cls)
-
     
     def __init__(self, domain, codomain=None):
 
