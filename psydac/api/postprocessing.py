@@ -2189,6 +2189,11 @@ class PostProcessManager:
             local_domain = mapping.space.local_domain
             global_ends = tuple(nc_i - 1 for nc_i in list(mapping.space.ncells))
             breaks = mapping.space.breaks
+        elif hasattr(mapping, 'callable_mapping') and isinstance(mapping.get_callable_mapping(), SplineMapping):
+            c_m = mapping.get_callable_mapping()
+            local_domain = c_m.space.local_domain
+            global_ends = tuple(nc_i - 1 for nc_i in list(c_m.space.ncells))
+            breaks = c_m.space.breaks
         # Option 2 : space_dict is not empty -> use the first space encountered there
         elif space_dict != {}:
             space = list(space_dict.keys())[0]
@@ -2295,7 +2300,10 @@ class PostProcessManager:
                 mesh = grid_local
             if isinstance(mapping, Mapping):
                 c_m = mapping.get_callable_mapping()
-                mesh = c_m(*mesh)
+                if isinstance(c_m, SplineMapping):
+                    mesh = c_m.build_mesh(grid, npts_per_cell=npts_per_cell)
+                else:
+                    mesh = c_m(*mesh)
             elif mapping is None:
                 pass
             else:
