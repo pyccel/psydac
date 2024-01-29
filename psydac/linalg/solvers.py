@@ -132,10 +132,6 @@ class ConjugateGradient(InverseLinearOperator):
         self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p")}
         self._info = None
 
-    @property
-    def solver(self):
-        return 'cg'
-
     def solve(self, b, out=None):
         """
         Conjugate gradient algorithm for solving linear system Ax=b.
@@ -289,10 +285,6 @@ class PConjugateGradient(InverseLinearOperator):
         tmps_domain = {key: self.domain.zeros() for key in ("v", "r")}
         self._tmps = {**tmps_codomain, **tmps_domain}
         self._info = None
-
-    @property
-    def solver(self):
-        return 'pcg'
 
     def solve(self, b, out=None):
         """
@@ -451,10 +443,6 @@ class BiConjugateGradient(InverseLinearOperator):
         self._Ah = A.H
         self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p", "vs", "rs", "ps")}
         self._info = None
-
-    @property
-    def solver(self):
-        return 'bicg'
 
     def solve(self, b, out=None):
         """
@@ -643,10 +631,6 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         
         self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p", "vr", "r0")}
         self._info = None
-
-    @property
-    def solver(self):
-        return 'bicgstab'
 
     def solve(self, b, out=None):
         """
@@ -843,10 +827,6 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
                                                       "pp", "av", "app", "osp", 
                                                       "rp0")}
         self._info = None
-
-    @property
-    def solver(self):
-        return 'pbicgstab'
 
     def solve(self, b, out=None):
         """
@@ -1084,10 +1064,6 @@ class MinimumResidual(InverseLinearOperator):
         
         self._tmps = {key: self.domain.zeros() for key in ("res_old", "res_new", "w_new", "w_work", "w_old", "v", "y")}
         self._info = None
-
-    @property
-    def solver(self):
-        return 'minres'
 
     def solve(self, b, out=None):
         """
@@ -1394,10 +1370,6 @@ class LSMR(InverseLinearOperator):
         tmps_domain = {key: self.domain.zeros() for key in ("u", "u_work")}
         tmps_codomain = {key: self.codomain.zeros() for key in ("v", "v_work", "h", "hbar")}
         self._tmps = {**tmps_codomain, **tmps_domain}
-
-    @property
-    def solver(self):
-        return 'lsmr'
 
     def get_success(self):
         return self._successful
@@ -1738,10 +1710,6 @@ class GMRES(InverseLinearOperator):
         self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]), dtype=A.domain.dtype)
         self._Q = []
         self._info = None
-
-    @property
-    def solver(self):
-        return 'gmres'
 
     def solve(self, b, out=None):
         """

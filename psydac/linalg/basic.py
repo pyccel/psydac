@@ -939,12 +939,6 @@ class InverseLinearOperator(LinearOperator):
     def options(self):
         return self._options
     
-    @property
-    @abstractmethod
-    def solver(self):
-        "String that identifies the solver."
-        pass
-
     def _check_options(self, **kwargs):
         for key, value in kwargs.items():
 
@@ -978,12 +972,10 @@ class InverseLinearOperator(LinearOperator):
         self._options.update(kwargs)
 
     def transpose(self, conjugate=False):
-        from psydac.linalg.solvers import inverse
-
-        At = self.linop.transpose(conjugate=conjugate)
-        solver = self.solver
+        cls     = type(self)
+        At      = self.linop.transpose(conjugate=conjugate)
         options = self._options
-        return inverse(At, solver, **options)
+        return cls(At, **options)
 
 #===============================================================================
 class LinearSolver(ABC):
