@@ -25,7 +25,7 @@ from psydac.api.fem import DiscreteLinearForm, DiscreteBilinearForm
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockLinearOperator
 
-from potential_for_surfaces import find_potential, CylinderMapping, compute_l2_error
+from psydac.api.tests.potential_for_surfaces import find_potential, CylinderMapping, compute_l2_error, ErrorFunctional
 
 def arrange_from_scalar_potential(f, mapping : Mapping, log_domain : Domain):
     logger = logging.getLogger(name="arrange_from_scalar_potential")
@@ -102,7 +102,7 @@ def test_z_as_scalar_field_arrange(beta0):
 
 
 
-def test_compute_l2_error():
+def test_ErrorFunctional():
     # Arrange
     logger = logging.getLogger(name="test_compute_l2_error")
     f = lambda x1, x2, x3: 2/3*x1**3 + x3
@@ -120,11 +120,12 @@ def test_compute_l2_error():
     beta = lambda x1, x2, x3: x1**2
     beta_h = projector_h1(beta)
 
+    error_functional = ErrorFunctional(domain, domain_h, derham, derham_h, grad_f_h)
     # Act
-    l2_error = compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha_h, beta_h)
+    error_functional_val = error_functional(alpha_h, beta_h)
 
     # Assert
-    assert np.abs(l2_error**2 - (np.pi - 0.01*np.pi)) < 1e-5, f"l2_error:{l2_error**2}"
+    assert np.abs(error_functional_val - (np.pi - 0.01*np.pi)) < 1e-5, f"l2_error:{error_functional_val}"
 
 
 
@@ -188,5 +189,5 @@ if __name__ == '__main__':
     logging.basicConfig(filename="mylog.log", filemode='w', 
                         level=logging.DEBUG,
                         format='%(name)s\n\t%(message)s')
-    test_z_as_scalar_field_with_slightly_perturbed_initial_guess()
+    test_ErrorFunctional()
 

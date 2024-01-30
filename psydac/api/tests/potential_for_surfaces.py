@@ -186,6 +186,7 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
 
         if iteration_count % 20 == 0:
             np.save("gradient_descent_error/alternatively.npy", error)
+            np.concatenate((error, np.zeros(20,3)), axis=1)
         # lambda_deriv_summand1 = lambda_deriv_summand1_discrete.assemble(B=B_h, alpha=alpha_h)
         # lambda_deriv_summand2 = lambda_deriv_summand2_discrete.assemble(beta=beta_h, alpha=alpha_h)
         # lambda_deriv = lambda_deriv_summand1 + lambda_deriv_summand2
@@ -278,4 +279,76 @@ def compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha_h, beta
     if np.abs(l2_error_squared) < 1.0e-6:
         l2_error_squared = 0.0
     return np.sqrt(l2_error_squared)
+
+class ErrorFunctional:
+    """
+    The error functional for the approximation of the magnetic field with 
+    a potential
+
+    """
+    def __init__(self, domain, domain_h, derham, derham_h, grad_f_h):
+        """
+        Defines the symbolic discrete functionals
+
+        Parameters
+        ----------
+        domain
+
+        domain_h
+
+        derham
+
+        derham_h
+
+        grad_f_h
+        
+        """
+        self._grad_f_h = grad_f_h
+        B, v = elements_of(derham.V1, 'B, v')
+        alpha, beta, u = elements_of(derham.V0, 'alpha, beta, u')
+        l2_norm_B_sym = Norm(ImmutableDenseMatrix([B[0],B[1], B[2]]), domain, kind='l2')
+        l2_norm_B_discrete = discretize(l2_norm_B_sym, domain_h, derham_h.V1)
+        self._l2_norm_B = l2_norm_B_discrete.assemble(B=grad_f_h)
+        assert isinstance(self._l2_norm_B, float)
+
+        B_dot_grad_symbolic = LinearForm(beta, integral(domain, alpha*dot(B,grad(beta))))
+        grad_beta_dot_grad_symbolic = LinearForm(u, integral(domain, alpha**2 * dot(grad(beta), grad(u))))
+        self._B_dot_grad_discrete = discretize(
+            B_dot_grad_symbolic, domain_h, derham_h.V0, backend=PSYDAC_BACKEND_GPYCCEL)
+        assert isinstance(self._B_dot_grad_discrete, DiscreteLinearForm)
+        self._grad_beta_dot_grad_discrete = discretize(
+                grad_beta_dot_grad_symbolic, domain_h, derham_h.V0, backend=PSYDAC_BACKEND_GPYCCEL)
+        assert isinstance(self._grad_beta_dot_grad_discrete, DiscreteLinearForm)
+
+    def __call__(self, alpha_h, beta_h):
+        """ Evaluate the error functional
+
+        Parameters
+        ----------
+        alpha_h
+
+        beta_h
+        """
+        logger = logging.getLogger(name='error_functional_eval')
+        time_start = time.time()
+        B_dot_grad = self._B_dot_grad_discrete.assemble(alpha=alpha_h, B=self._grad_f_h)
+        grad_beta_dot_grad = self._grad_beta_dot_grad_discrete.assemble(alpha=alpha_h, beta=beta_h)
+        current_time = time.time()
+        logger.debug("Time for assembly of parts of L2 error:%s", current_time - time_start)
+        # assert isinstance(bilinear_form_B_dot_grad, BlockLinearOperator)
+        assert isinstance(B_dot_grad, StencilVector)
+        assert isinstance(grad_beta_dot_grad, StencilVector)
+
+        # logger.debug("type(B_dot_grad):%s", type(B_dot_grad))
+        # logger.debug("type(bilinear_form_grad_beta_dot_grad):%s", type(grad_beta_dot_grad))
+        # assert isinstance(derham_h.V0, TensorFemSpace) 
+
+        l2_error_squared = self._l2_norm_B**2 - 2* B_dot_grad.dot(beta_h.coeffs) + grad_beta_dot_grad.dot(beta_h.coeffs)
+        end_time = time.time()
+        time_elapsed = end_time - time_start
+        logger.debug("Amount of seconds to compute the L2 error:%s", time_elapsed)
+        # if np.abs(l2_error_squared) < 1.0e-6:
+        #     l2_error_squared = 0.0
+        return l2_error_squared
+
 
