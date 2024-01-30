@@ -804,7 +804,11 @@ class BlockLinearOperator(LinearOperator):
             assert isinstance(out, BlockLinearOperator)
             assert out.domain is V
             assert out.codomain is W
-            assert all(i==j for i, j in out._blocks.keys())  # is this really needed?
+
+            # Set any off-diagonal blocks to zero
+            for i, j in out.nonzero_block_indices:
+                if i != j:
+                    out[i, j] = None
         else:
             out = BlockLinearOperator(V, W)
 
