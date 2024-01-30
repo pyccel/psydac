@@ -24,15 +24,15 @@ jobs:
           - { isMerge: false, python-version: '3.10' }
         include:
           - os: macos-latest
-            python-version: 3.9
+            python-version: '3.10'
 
     name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -114,7 +114,7 @@ jobs:
         run: |
           export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
           export OMP_NUM_THREADS=2
-          python -m pytest --pyargs psydac -m "not parallel"
+          python -m pytest -n auto --pyargs psydac -m "not parallel"
 
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
