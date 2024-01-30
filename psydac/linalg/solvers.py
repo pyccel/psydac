@@ -242,32 +242,41 @@ class PConjugateGradient(InverseLinearOperator):
     A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
     The .dot (and also the .solve) function are based on a preconditioned conjugate gradient method.
 
-    Preconditioned Conjugate Gradient (PCG) solves the symetric positive definte
-    system Ax = b. It assumes that pc.dot(r) returns the solution to Ps = r,
-    where P is positive definite.
+    The Preconditioned Conjugate Gradient (PCG) algorithm solves the linear
+    system A x = b where A is a symmetric and positive-definite matrix, i.e.
+    A = A^T and y A y > 0 for any vector y. The preconditioner P is a matrix
+    which approximates the inverse of A. The algorithm assumes that P is also
+    symmetric and positive definite.
+
+    Since this is a matrix-free iterative method, both A and P are provided as
+    `LinearOperator` objects which must implement the `dot` method.
 
     Parameters
     ----------
-    A : psydac.linalg.stencil.StencilMatrix
-        Left-hand-side matrix A of linear system
+    A : psydac.linalg.basic.LinearOperator
+        Left-hand-side matrix A of the linear system. This should be symmetric
+        and positive definite.
 
     pc: psydac.linalg.basic.LinearOperator
-        Preconditioner for A, it should approximate the inverse of A (can be None).
+        Preconditioner which should approximate the inverse of A (optional).
+        Like A, the preconditioner should be symmetric and positive definite.
 
     x0 : psydac.linalg.basic.Vector
         First guess of solution for iterative solver (optional).
 
     tol : float
-        Absolute tolerance for L2-norm of residual r = A*x - b.
+        Absolute tolerance for L2-norm of residual r = A x - b. (Default: 1e-6)
 
     maxiter: int
-        Maximum number of iterations.
+        Maximum number of iterations. (Default: 1000)
 
     verbose : bool
-        If True, L2-norm of residual r is printed at each iteration.
+        If True, the L2-norm of the residual r is printed at each iteration.
+        (Default: False)
 
     recycle : bool
-        Stores a copy of the output in x0 to speed up consecutive calculations of slightly altered linear systems
+        If True, a copy of the output is stored in x0 to speed up consecutive
+        calculations of slightly altered linear systems. (Default: False)
 
     """
     def __init__(self, A, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
