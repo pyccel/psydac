@@ -926,6 +926,16 @@ class InverseLinearOperator(LinearOperator):
 
     @property
     def linop(self):
+        """
+        The linear operator L of which this object is the inverse L^{-1}.
+
+        The linear operator L can be modified in place, or replaced entirely
+        through the setter. A substitution should only be made in cases where
+        no other options are viable, as it breaks the one-to-one map between
+        the original linear operator L (passed to the constructor) and the
+        current `InverseLinearOperator` object L^{-1}. Use with extreme care!
+
+        """
         return self._A
     
     @linop.setter
