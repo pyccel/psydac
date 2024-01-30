@@ -25,7 +25,7 @@ from psydac.api.fem import DiscreteLinearForm, DiscreteBilinearForm
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockLinearOperator
 
-from psydac.api.tests.potential_for_surfaces import find_potential, CylinderMapping, compute_l2_error, ErrorFunctional
+from psydac.api.tests.potential_for_surfaces import find_potential, CylinderMapping, ErrorFunctional
 
 def arrange_from_scalar_potential(f, mapping : Mapping, log_domain : Domain):
     logger = logging.getLogger(name="arrange_from_scalar_potential")
@@ -75,10 +75,11 @@ def test_z_as_scalar_field_with_slightly_perturbed_initial_guess():
     logger = logging.getLogger(name='test_z_as_scalar_field_with_radial_coordinate_as_initial_guess')
     beta0 = lambda x1, x2, x3: 0.01*x1 + x3
     domain, domain_h, derham, derham_h, grad_f_h, alpha0_h, beta0_h = test_z_as_scalar_field_arrange(beta0)
-    initial_l2_error = compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha0_h, beta0_h)
+    # initial_l2_error = compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha0_h, beta0_h)
     alpha_h, beta_h = find_potential(alpha0_h, beta0_h, grad_f_h, derham_h, derham, domain, domain_h)
-    l2_error = compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha_h, beta_h)
-    assert l2_error < 1e-3, f"l2_error is {l2_error}"
+    error_functional = ErrorFunctional(domain, domain_h, derham, derham_h, grad_f_h)
+    error_functional_val = error_functional(alpha_h, beta_h)
+    assert error_functional_val < 1e-3, f"l2_error is {error_functional_val}"
 
 
 def test_z_as_scalar_field_arrange(beta0):
@@ -121,6 +122,7 @@ def test_ErrorFunctional():
     beta_h = projector_h1(beta)
 
     error_functional = ErrorFunctional(domain, domain_h, derham, derham_h, grad_f_h)
+    
     # Act
     error_functional_val = error_functional(alpha_h, beta_h)
 
@@ -189,5 +191,5 @@ if __name__ == '__main__':
     logging.basicConfig(filename="mylog.log", filemode='w', 
                         level=logging.DEBUG,
                         format='%(name)s\n\t%(message)s')
-    test_ErrorFunctional()
+    test_z_as_scalar_field_with_slightly_perturbed_initial_guess()
 

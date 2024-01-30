@@ -70,6 +70,8 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
     B  = element_of(derham.V1, name='B')
     # J = Norm(B - alpha*grad(beta), domain=domain, kind='l2')
 
+    error_functional = ErrorFunctional(domain, domain_h, derham, derham_h, B_h)
+
     lambda_deriv_summand1_symbolic = LinearForm(beta1, integral(domain, -2*alpha*dot(B, grad(beta1))))
     lambda_deriv_summand2_symbolic = LinearForm( beta1, integral(domain, 2*alpha*alpha*dot(grad(beta), grad(beta1))) )
     lambda_deriv_summand1_discrete = discretize(lambda_deriv_summand1_symbolic, domain_h, derham_h.V0, 
@@ -90,9 +92,9 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
     alpha_beta_coeff = np.concatenate((alpha_coeff, beta_coeff))
     assert isinstance(alpha_beta_coeff, np.ndarray)
 
-    # step_exponent = 0 # Inital step size exponent
-    l2_error = compute_l2_error(domain, domain_h, derham, derham_h, B_h, alpha_h, beta_h)
-    logger.debug("l2_error_squared before first gradient step:%s", l2_error**2)
+    step_exponent = 0 # Inital step size exponent
+    error_functional_val = error_functional(alpha_h, beta_h)
+    logger.debug("l2_error_squared before first gradient step:%s", error_functional_val)
 
     # assert isinstance(lambda_deriv, np.ndarray)
     # if np.linalg.norm(lambda_deriv ) < 1e-3:
@@ -100,7 +102,7 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
 
     error = np.zeros((21, 3))
     error[0,0] = 0
-    error[0,1] = l2_error**2
+    error[0,1] = error_functional_val
     
     iteration_count = 0
     while True: # Repeat until the gradient is small enough
@@ -113,29 +115,34 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
         time_for_gradient_assembly = time_after_gradient_assembly - time_before_gradient_assembly
         logger.debug("Elapsed time to assemble gradient:%s", time_for_gradient_assembly)
 
+
         gradient = np.concatenate((mu_deriv, lambda_deriv))
-        if np.linalg.norm(gradient ) < 1e-5:
+        if np.linalg.norm(gradient ) < 1e-4:
             return alpha_h, beta_h
-
-        beta_step = 0.3**2
-        logger.debug("Performing the gradient step in beta.")
-
-        alpha_coeff = alpha_coeff - beta_step * mu_deriv
-        beta_coeff = beta_coeff - beta_step*(lambda_deriv) 
-        alpha_h = FemField(derham_h.V0, coeffs=array_to_psydac(alpha_coeff, derham_h.V0.vector_space))
-        beta_h = FemField(derham_h.V0, coeffs=array_to_psydac(beta_coeff, derham_h.V0.vector_space))
-
-
-        
-        
-
+        beta_step = 0.3
         def compute_l2_error_squared_from_coeffs(alpha_beta_coeffs : np.ndarray):
             alpha_coeffs = alpha_beta_coeffs[:N]
             beta_coeffs = alpha_beta_coeffs[N:]
 
             alpha_h = FemField(derham_h.V0, coeffs=array_to_psydac(alpha_coeffs, derham_h.V0.vector_space))
             beta_h = FemField(derham_h.V0, coeffs=array_to_psydac(beta_coeffs, derham_h.V0.vector_space))
-            return compute_l2_error(domain, domain_h, derham, derham_h, B_h, alpha_h, beta_h)**2
+            return error_functional(alpha_h, beta_h)
+
+        step_exponent = step_size_exponent(beta_step, 
+                                           sigma=0.5, 
+                                           initial_exponent=step_exponent,
+                                           func=compute_l2_error_squared_from_coeffs,
+                                           x=alpha_beta_coeff,
+                                           gradient=gradient
+                                           )
+        logger.debug("Performing the gradient step.")
+
+        alpha_coeff = alpha_coeff - beta_step**step_exponent * mu_deriv
+        beta_coeff = beta_coeff - beta_step**step_exponent * lambda_deriv
+        alpha_beta_coeff = np.concatenate((alpha_coeff, beta_coeff))
+        alpha_h = FemField(derham_h.V0, coeffs=array_to_psydac(alpha_coeff, derham_h.V0.vector_space))
+        beta_h = FemField(derham_h.V0, coeffs=array_to_psydac(beta_coeff, derham_h.V0.vector_space))
+
         # ###DEBUG###
         # ### Test gradient w.r.t. lambda ###
         # forward_step = beta_coeff.copy()
@@ -178,15 +185,15 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
                                             fields=("alpha_h"))
         #########
         iteration_count += 1
-        l2_error = compute_l2_error(domain, domain_h, derham, derham_h, B_h, alpha_h, beta_h)
-        logger.debug("l2_error_squared after gradient step:%s", l2_error**2)
+        error_functional_val = error_functional(alpha_h, beta_h)
+        logger.debug("l2_error_squared after gradient step:%s", error_functional_val)
         error[iteration_count,0] = iteration_count
-        error[iteration_count,1] = l2_error**2
+        error[iteration_count,1] = error_functional_val
 
 
         if iteration_count % 20 == 0:
-            np.save("gradient_descent_error/alternatively.npy", error)
-            np.concatenate((error, np.zeros(20,3)), axis=1)
+            np.save("gradient_descent_error/armijo_strongly_perturbed.npy", error)
+            error = np.concatenate(( error, np.zeros((20,3)) ), axis=0)
         # lambda_deriv_summand1 = lambda_deriv_summand1_discrete.assemble(B=B_h, alpha=alpha_h)
         # lambda_deriv_summand2 = lambda_deriv_summand2_discrete.assemble(beta=beta_h, alpha=alpha_h)
         # lambda_deriv = lambda_deriv_summand1 + lambda_deriv_summand2
@@ -244,42 +251,43 @@ def step_size_exponent(beta, sigma, initial_exponent, x,
     return i
 
 
-def compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha_h, beta_h):
-    logger = logging.getLogger(name="compute_l2_error")
-    start_time = time.time()
-    B, v = elements_of(derham.V1, 'B, v')
-    alpha, beta, u = elements_of(derham.V0, 'alpha, beta, u')
-    l2_norm_B_sym = Norm(ImmutableDenseMatrix([B[0],B[1], B[2]]), domain, kind='l2')
-    l2_norm_B_discrete = discretize(l2_norm_B_sym, domain_h, derham_h.V1)
-    l2_norm_B = l2_norm_B_discrete.assemble(B=grad_f_h)
-    assert isinstance(l2_norm_B, float)
+# def compute_l2_error(domain, domain_h, derham, derham_h, grad_f_h, alpha_h, beta_h):
+#     logger = logging.getLogger(name="compute_l2_error")
+#     start_time = time.time()
+#     B, v = elements_of(derham.V1, 'B, v')
+#     alpha, beta, u = elements_of(derham.V0, 'alpha, beta, u')
+#     l2_norm_B_sym = Norm(ImmutableDenseMatrix([B[0],B[1], B[2]]), domain, kind='l2')
+#     l2_norm_B_discrete = discretize(l2_norm_B_sym, domain_h, derham_h.V1)
+#     l2_norm_B = l2_norm_B_discrete.assemble(B=grad_f_h)
+#     assert isinstance(l2_norm_B, float)
 
-    B_dot_grad_symbolic = LinearForm(beta, integral(domain, alpha*dot(B,grad(beta))))
-    grad_beta_dot_grad_symbolic = LinearForm(u, integral(domain, alpha**2 * dot(grad(beta), grad(u))))
-    B_dot_grad_discrete = discretize(
-        B_dot_grad_symbolic, domain_h, derham_h.V0)
-    assert isinstance(B_dot_grad_discrete, DiscreteLinearForm)
-    grad_beta_dot_grad_discrete = discretize(
-            grad_beta_dot_grad_symbolic, domain_h, derham_h.V0)
-    assert isinstance(grad_beta_dot_grad_discrete, DiscreteLinearForm)
-    B_dot_grad = B_dot_grad_discrete.assemble(alpha=alpha_h, B=grad_f_h)
-    grad_beta_dot_grad = grad_beta_dot_grad_discrete.assemble(alpha=alpha_h, beta=beta_h)
-    # assert isinstance(bilinear_form_B_dot_grad, BlockLinearOperator)
-    assert isinstance(B_dot_grad, StencilVector)
-    assert isinstance(grad_beta_dot_grad, StencilVector)
+#     B_dot_grad_symbolic = LinearForm(beta, integral(domain, alpha*dot(B,grad(beta))))
+#     grad_beta_dot_grad_symbolic = LinearForm(u, integral(domain, alpha**2 * dot(grad(beta), grad(u))))
+#     B_dot_grad_discrete = discretize(
+#         B_dot_grad_symbolic, domain_h, derham_h.V0)
+#     assert isinstance(B_dot_grad_discrete, DiscreteLinearForm)
+#     grad_beta_dot_grad_discrete = discretize(
+#             grad_beta_dot_grad_symbolic, domain_h, derham_h.V0)
+#     assert isinstance(grad_beta_dot_grad_discrete, DiscreteLinearForm)
+#     B_dot_grad = B_dot_grad_discrete.assemble(alpha=alpha_h, B=grad_f_h)
+#     grad_beta_dot_grad = grad_beta_dot_grad_discrete.assemble(alpha=alpha_h, beta=beta_h)
+#     # assert isinstance(bilinear_form_B_dot_grad, BlockLinearOperator)
+#     assert isinstance(B_dot_grad, StencilVector)
+#     assert isinstance(grad_beta_dot_grad, StencilVector)
 
-    # logger.debug("type(B_dot_grad):%s", type(B_dot_grad))
-    # logger.debug("type(bilinear_form_grad_beta_dot_grad):%s", type(grad_beta_dot_grad))
-    assert isinstance(derham_h.V0, TensorFemSpace) 
+#     # logger.debug("type(B_dot_grad):%s", type(B_dot_grad))
+#     # logger.debug("type(bilinear_form_grad_beta_dot_grad):%s", type(grad_beta_dot_grad))
+#     assert isinstance(derham_h.V0, TensorFemSpace) 
 
-    l2_error_squared = l2_norm_B**2 - 2* B_dot_grad.dot(beta_h.coeffs) + grad_beta_dot_grad.dot(beta_h.coeffs)
-    end_time = time.time()
-    time_elapsed = end_time - start_time
-    logger.debug("Amount of seconds to compute the L2 error:%s", time_elapsed)
-    if np.abs(l2_error_squared) < 1.0e-6:
-        l2_error_squared = 0.0
-    return np.sqrt(l2_error_squared)
+#     l2_error_squared = l2_norm_B**2 - 2* B_dot_grad.dot(beta_h.coeffs) + grad_beta_dot_grad.dot(beta_h.coeffs)
+#     end_time = time.time()
+#     time_elapsed = end_time - start_time
+#     logger.debug("Amount of seconds to compute the L2 error:%s", time_elapsed)
+#     if np.abs(l2_error_squared) < 1.0e-6:
+#         l2_error_squared = 0.0
+#     return np.sqrt(l2_error_squared)
 
+# TODO: So far only gradients as input for B
 class ErrorFunctional:
     """
     The error functional for the approximation of the magnetic field with 
