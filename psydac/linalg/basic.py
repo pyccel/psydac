@@ -889,8 +889,16 @@ class PowerLinearOperator(LinearOperator):
 #===============================================================================
 class InverseLinearOperator(LinearOperator):
     """
-    Iterative solver for square linear system Ax=b, where x and b belong to (normed)
+    Abstract base class for the (approximate) inverse A_inv := A^{-1} of a
+    square matrix A. The result of A_inv.dot(b) is the (approximate) solution x
+    of the linear system A x = b, where x and b belong to the same (normed)
     vector space V.
+
+    We assume that the linear system is solved by an iterative method, which
+    needs a first guess `x0` and an exit condition based on `tol` and `maxiter`.
+
+    Concrete subclasses of this class must implement the `dot` method and take
+    care of any internal storage which might be necessary.
 
     Parameters
     ----------
