@@ -631,18 +631,27 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     # -1,T & T,-1 -> equal
     assert isinstance(C_T, ConjugateGradient)
     assert isinstance(inverse(B_T, 'cg', tol=tol), ConjugateGradient)
-    assert np.sqrt(sum(((C_T.dot(u) - inverse(B_T, 'cg', tol=tol).dot(u)).toarray())**2)) < 2*tol
+    diff = C_T @ u - inverse(B_T, 'cg', tol=tol) @ u
+    assert diff.dot(diff) == 0
+
     # -1,T,T -> equal -1
-    assert np.sqrt(sum(((C_T.T.dot(u) - C.dot(u)).toarray())**2)) < 2*tol
+    diff = C_T.T @ u - C @ u
+    assert diff.dot(diff) == 0
+
     # -1,T,-1 -> equal T
     assert isinstance(inverse(C_T, 'bicg'), BlockLinearOperator)
-    assert np.array_equal(inverse(C_T, 'bicg').dot(u).toarray(), B_T.dot(u).toarray())
+    diff = inverse(C_T, 'bicg') @ u - B_T @ u
+    assert diff.dot(diff) == 0
+
     # T,-1,-1 -> equal T
     assert isinstance(inverse(inverse(B_T, 'cg', tol=tol), 'pcg', pc=P), BlockLinearOperator)
-    assert np.array_equal(inverse(inverse(B_T, 'cg', tol=tol), 'pcg', pc=P).dot(u).toarray(), B_T.dot(u).toarray())
+    diff = inverse(inverse(B_T, 'cg', tol=tol), 'pcg', pc=P) @ u - B_T @ u
+    assert diff.dot(diff) == 0
+
     # T,-1,T -> equal -1
     assert isinstance(inverse(B_T, 'cg', tol=tol).T, ConjugateGradient)
-    assert np.sqrt(sum(((inverse(B_T, 'cg', tol=tol).dot(u) - C.dot(u)).toarray())**2)) < tol
+    diff = inverse(B_T, 'cg', tol=tol) @ u - C @ u
+    assert diff.dot(diff) == 0
 
     ###
     ### StencilMatrix Transpose - Inverse Tests
@@ -659,18 +668,27 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     # -1,T & T,-1 -> equal
     assert isinstance(C_T, ConjugateGradient)
     assert isinstance(inverse(S_T, 'cg', tol=tol), ConjugateGradient)
-    assert np.sqrt(sum(((C_T.dot(v) - inverse(S_T, 'cg', tol=tol).dot(v)).toarray())**2)) < 2*tol
+    diff = C_T @ v - inverse(S_T, 'cg', tol=tol) @ v
+    assert diff.dot(diff) == 0
+
     # -1,T,T -> equal -1
-    assert np.sqrt(sum(((C_T.T.dot(v) - C.dot(v)).toarray())**2)) < 2*tol
+    diff = C_T.T @ v - C @ v
+    assert diff.dot(diff) == 0
+
     # -1,T,-1 -> equal T
     assert isinstance(inverse(C_T, 'bicg'), StencilMatrix)
-    assert np.array_equal(inverse(C_T, 'bicg').dot(v).toarray(), S_T.dot(v).toarray())
+    diff = inverse(C_T, 'bicg') @ v - S_T @ v
+    assert diff.dot(diff) == 0
+
     # T,-1,-1 -> equal T
     assert isinstance(inverse(inverse(S_T, 'cg', tol=tol), 'pcg', pc=P), StencilMatrix)
-    assert np.array_equal(inverse(inverse(S_T, 'cg', tol=tol), 'pcg', pc=P).dot(v).toarray(), S_T.dot(v).toarray())
+    diff = inverse(inverse(S_T, 'cg', tol=tol), 'pcg', pc=P) @ v - S_T @ v
+    assert diff.dot(diff) == 0
+
     # T,-1,T -> equal -1
     assert isinstance(inverse(S_T, 'cg', tol=tol).T, ConjugateGradient)
-    assert np.sqrt(sum(((inverse(S_T, 'cg', tol=tol).dot(v) - C.dot(v)).toarray())**2)) < tol
+    diff = inverse(S_T, 'cg', tol=tol) @ v - C @ v
+    assert diff.dot(diff) == 0
 
 #===============================================================================
 @pytest.mark.parametrize('n1', [3, 5])
