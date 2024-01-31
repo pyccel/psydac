@@ -438,7 +438,7 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
             for i in range(nx):
                 for j in range(degree + 1):
                     actual_j = (spans[i] - degree + j) % nb
-                    out[i, actual_j] += basis[i, j]
+                    out[i, actual_j] = basis[i, j]
         else:
             for i in range(nx):
                 out[i, spans[i] - degree:spans[i] + 1] = basis[i, :]
