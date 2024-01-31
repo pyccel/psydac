@@ -5,6 +5,32 @@ from pyccel.decorators import template
 # Field evaluation functions
 # =============================================================================
 # -----------------------------------------------------------------------------
+# 0: Evaluation of single 3d field at single point
+# -----------------------------------------------------------------------------
+@template(name='T1', types=['float[:,:,:]', 'complex[:,:,:]'])
+@template(name='T2', types=['float[:]', 'complex[:]'])
+def eval_field_3d_once(local_coeffs: 'T1', 
+                       local_bases_0: 'T2', local_bases_1: 'T2', local_bases_2: 'T2'):
+    """
+    Parameters
+    ----------
+    local_coeffs: ndarray of floats
+        Active (local) coefficients of the fields in all directions
+
+    local_bases: list of ndarrays
+        Active (local) 1D-basis functions values at the point of evaluation. 
+    """
+    res = local_bases_0[0] - local_bases_0[0]
+
+    for i, c1 in enumerate(local_coeffs):
+        for j, c2 in enumerate(c1):
+            for k, c3 in enumerate(c2):
+                res += c3 * local_bases_0[i] * local_bases_1[j] * local_bases_2[k]
+
+    return res
+
+
+# -----------------------------------------------------------------------------
 # 1: Regular tensor grid without weight
 # -----------------------------------------------------------------------------
 @template(name='T', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
