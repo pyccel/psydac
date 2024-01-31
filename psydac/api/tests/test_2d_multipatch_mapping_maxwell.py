@@ -93,10 +93,19 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
     equation_h = discretize(equation, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL)
     l2norm_h   = discretize(l2norm, domain_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL)
 
-    equation_h.set_solver('pcg', pc='jacobi', tol=1e-8)
+    # Explicitly assemble the linear system
+    equation_h.assemble()
 
+    # Extract the matrix' diagonal to build a Jacobi preconditioner
+    jacobi_pc = equation_h.linear_system.lhs.diagonal(inverse=True)
+
+    # Choose a linear solver and pass any flags to it
+    equation_h.set_solver('pcg', pc=jacobi_pc, tol=1e-8)
+
+    # Solve the linear system and obtain the solution as a FEM field
     uh = equation_h.solve()
 
+    # Compute the L2 norm of the error
     l2_error = l2norm_h.assemble(F=uh)
 
     return l2_error, uh

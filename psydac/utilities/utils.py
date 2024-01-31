@@ -3,8 +3,31 @@
 # Copyright 2018 Yaman Güçlü
 
 import numpy as np
+from numbers import Number
 
-__all__ = ('refine_array_1d', 'unroll_edges', 'split_space', 'split_field', 'animate_field')
+__all__ = (
+    'refine_array_1d',
+    'unroll_edges',
+    'split_space',
+    'split_field',
+    'animate_field'
+)
+
+#==============================================================================
+def is_real(x):
+    """Determine whether the given input represents a real number.
+
+    Parameters
+    ----------
+    x : Any
+
+    Returns
+    -------
+    bool
+        True if x is real, False otherwise.
+
+    """
+    return isinstance(x, Number) and np.isrealobj(x) and not isinstance(x, bool)
 
 #===============================================================================
 def refine_array_1d(x, n, remove_duplicates=True):

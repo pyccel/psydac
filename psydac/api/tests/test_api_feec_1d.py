@@ -336,7 +336,8 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         step_ampere_1d = dt * ( M0_dir_inv @ D0_T_dir @ M1 )
 
     elif bc_mode == 'penalization':
-        M0_M0_bc_inv = inverse(M0+M0_bc, 'pcg', pc='jacobi', **kwargs)
+        M0_M0_bc = M0 + M0_bc
+        M0_M0_bc_inv = inverse(M0_M0_bc, 'pcg', pc = M0_M0_bc.diagonal(inverse=True), **kwargs)
         step_ampere_1d = dt * ( M0_M0_bc_inv @ D0_T @ M1 )
 
     half_step_faraday_1d = (dt/2) * D0

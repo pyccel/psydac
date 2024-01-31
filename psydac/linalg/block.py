@@ -777,6 +777,49 @@ class BlockLinearOperator(LinearOperator):
     #--------------------------------------
     # New properties/methods
     #--------------------------------------
+    def diagonal(self, *, inverse = False, out = None):
+        """Get the coefficients on the main diagonal as another BlockLinearOperator object.
+
+        Parameters
+        ----------
+        inverse : bool
+            If True, get the inverse of the diagonal. (Default: False).
+
+        out : BlockLinearOperator
+            If provided, write the diagonal entries into this matrix. (Default: None).
+
+        Returns
+        -------
+        BlockLinearOperator
+            The matrix which contains the main diagonal of self (or its inverse).
+
+        """
+        # Determine domain and codomain of result
+        V, W = self.domain, self.codomain
+        if inverse:
+            V, W = W, V
+
+        # Check the `out` argument, if `None` create a new BlockLinearOperator
+        if out is not None:
+            assert isinstance(out, BlockLinearOperator)
+            assert out.domain is V
+            assert out.codomain is W
+
+            # Set any off-diagonal blocks to zero
+            for i, j in out.nonzero_block_indices:
+                if i != j:
+                    out[i, j] = None
+        else:
+            out = BlockLinearOperator(V, W)
+
+        # Store the diagonal (or its inverse) into `out`
+        for i, j in self.nonzero_block_indices:
+            if i == j:
+                out[i, i] = self[i, i].diagonal(inverse = inverse, out = out[i, i])
+
+        return out
+
+    # ...
     @property
     def blocks(self):
         """ Immutable 2D view (tuple of tuples) of the linear operator,
@@ -868,7 +911,8 @@ class BlockLinearOperator(LinearOperator):
             assert value.codomain is self.codomain[i]
 
         self._blocks[i,j] = value
-    
+
+    # ...
     def transform(self, operation):
         """
         Applies an operation on each block in this BlockLinearOperator.
@@ -881,6 +925,7 @@ class BlockLinearOperator(LinearOperator):
         blocks = {ij: operation(Bij) for ij, Bij in self._blocks.items()}
         return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
 
+    # ...
     def backend(self):
         return self._backend
 
@@ -909,7 +954,6 @@ class BlockLinearOperator(LinearOperator):
 
         out.set_backend(self._backend)
         
-
     # ...
     def __imul__(self, a):
         for Bij in self._blocks.values():
