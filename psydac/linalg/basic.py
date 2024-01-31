@@ -492,18 +492,6 @@ class IdentityOperator(LinearOperator):
             return out
         else:
             return v.copy()
-        
-    def idot(self, v, out):
-        """
-        Implements out += self @ v with a temporary.
-        Subclasses should provide an implementation without a temporary.
-
-        """
-        assert isinstance(v, Vector)
-        assert v.space == self.domain
-        assert isinstance(out, Vector)
-        assert out.space == self.codomain
-        out += v
 
     def __matmul__(self, B):
         assert isinstance(B, (LinearOperator, Vector))
@@ -536,7 +524,6 @@ class ScaledLinearOperator(LinearOperator):
         self._scalar   = scalar
         self._domain   = domain
         self._codomain = codomain
-        self._tmp_idot = codomain.zeros()
 
     @property
     def domain(self):
@@ -584,17 +571,6 @@ class ScaledLinearOperator(LinearOperator):
             out = self._operator.dot(v)
             out *= self._scalar
             return out
-        
-    def idot(self, v, out):
-        assert isinstance(v, Vector)
-        assert v.space == self._domain
-        assert isinstance(out, Vector)
-        assert out.space == self._codomain
-        self._operator.dot(v, out = self._tmp_idot)
-        self._tmp_idot *=self._scalar
-        out += self._tmp_idot
-        return out
-        
 
 #===============================================================================
 class SumLinearOperator(LinearOperator):
@@ -752,8 +728,6 @@ class ComposedLinearOperator(LinearOperator):
         self._multiplicants = multiplicants
         self._tmp_vectors = tuple(tmp_vectors)
 
-        self._tmp_idot = codomain.zeros()
-
     @property
     def tmp_vectors(self):
         return self._tmp_vectors
@@ -797,18 +771,16 @@ class ComposedLinearOperator(LinearOperator):
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
         assert v.space == self._domain
-        from psydac.linalg.block import BlockVector
-
         if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self._codomain
+
         x = v
         for i in range(len(self._tmp_vectors)):
             y = self._tmp_vectors[-1-i]
             A = self._multiplicants[-1-i]
             A.dot(x, out=y)
             x = y
-            x.update_ghost_regions()
 
         A = self._multiplicants[0]
         if out is not None:
@@ -816,18 +788,7 @@ class ComposedLinearOperator(LinearOperator):
             A.dot(x, out=out)
         else:
             out = A.dot(x)
-        out.update_ghost_regions()
         return out
-
-    def idot(self, v, out):
-        
-        assert isinstance(v, Vector)
-        assert v.space == self.domain
-        assert isinstance(out, Vector)
-        assert out.space == self.codomain
-        self.dot(v, out=self._tmp_idot)
-        self._tmp_idot.update_ghost_regions()
-        out += self._tmp_idot
 
     def exchange_assembly_data( self ):
         for op in self._multiplicants:
