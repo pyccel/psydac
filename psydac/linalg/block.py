@@ -656,29 +656,6 @@ class BlockLinearOperator(LinearOperator):
 
         out.ghost_regions_in_sync = False
         return out
-    
-    def idot(self, v, out):
-
-        if self.n_block_cols == 1:
-            assert isinstance(v, Vector)
-        else:
-            assert isinstance(v, BlockVector)
-
-        assert v.space is self.domain
-
-        if self.n_block_rows == 1:
-            assert isinstance(out, Vector)
-        else:
-            assert isinstance(out, BlockVector)
-            assert out.space is self.codomain
-
-        if not v.ghost_regions_in_sync:
-            v.update_ghost_regions()
-
-        self._func(self._blocks_as_args, v, out, **self._args)
-
-        out.ghost_regions_in_sync = False
-        return out
 
     #...
     @staticmethod
@@ -1381,4 +1358,3 @@ class BlockLinearOperator(LinearOperator):
 
         self._func    = func
         self._backend = backend
-
