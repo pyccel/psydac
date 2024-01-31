@@ -931,8 +931,9 @@ class InverseLinearOperator(LinearOperator):
         self._A = A
         self._domain = domain
         self._codomain = codomain
+
+        self._check_options(**kwargs)
         self._options = kwargs
-        self._check_options(**self._options)
 
     @property
     def domain(self):
@@ -967,10 +968,6 @@ class InverseLinearOperator(LinearOperator):
         assert a.codomain is self.codomain
         self._A = a
 
-    @property
-    def options(self):
-        return self._options
-    
     def _check_options(self, **kwargs):
         for key, value in kwargs.items():
 
@@ -997,9 +994,13 @@ class InverseLinearOperator(LinearOperator):
         return self._info
 
     def get_options(self):
+        """Get a copy of the solver options.
+        """
         return self._options.copy()
 
     def set_options(self, **kwargs):
+        """Set the solver options by passing keyword arguments.
+        """
         self._check_options(**kwargs)
         self._options.update(kwargs)
 
