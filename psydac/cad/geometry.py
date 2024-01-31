@@ -122,12 +122,14 @@ class Geometry( object ):
     # Option [2]: from a discrete mapping
     #--------------------------------------------------------------------------
     @classmethod
-    def from_discrete_mapping(cls, mapping, comm=None, name= ''):
+    def from_discrete_mapping(cls, mapping, comm=None, name=None):
         """Create a geometry from one discrete mapping.
+
         Parameters
         ----------
         mapping : SplineMapping
-            The Mapping from the unit square to to physical domain.
+            The Mapping from the unit square to the physical domain.
+
         comm : MPI.Comm
             MPI intra-communicator.
             
@@ -136,8 +138,9 @@ class Geometry( object ):
             Needed to avoid conflicts in case several mappings are created
         """
 
+        mapping_name = name if name else 'mapping'
         dim      = mapping.ldim        
-        M        = Mapping('mapping' + name, dim = dim)
+        M        = Mapping(mapping_name, dim = dim)
         domain   = M(NCube(name = 'Omega',
                            dim  = dim,
                            min_coords = [0.] * dim,
@@ -148,6 +151,7 @@ class Geometry( object ):
         periodic = {domain.name: mapping.space.domain_decomposition.periods}
 
         return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
+
 
     #--------------------------------------------------------------------------
     # Option [3]: discrete topological line/square/cube
