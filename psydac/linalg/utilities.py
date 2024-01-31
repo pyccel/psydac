@@ -1,12 +1,18 @@
 # coding: utf-8
 
 import numpy as np
-from math                  import sqrt
+from math import sqrt
+
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from psydac.linalg.block   import BlockVector, BlockVectorSpace
 
-__all__ = ('array_to_psydac', 'petsc_to_psydac', '_sym_ortho')
+__all__ = (
+    'array_to_psydac',
+    'petsc_to_psydac',
+    '_sym_ortho'
+)
 
+#==============================================================================
 def array_to_psydac(x, Xh):
     """ converts a numpy array to StencilVector or BlockVector format"""
 
@@ -47,6 +53,7 @@ def array_to_psydac(x, Xh):
     u.update_ghost_regions()
     return u
 
+#==============================================================================
 def petsc_to_psydac(vec, Xh):
     """ converts a petsc Vec object to a StencilVector or a BlockVector format.
         We gather the petsc global vector in all the processes and extract the chunk owned by the Psydac Vector.
@@ -129,6 +136,7 @@ def petsc_to_psydac(vec, Xh):
     u.update_ghost_regions()
     return u
 
+#==============================================================================
 def _sym_ortho(a, b):
     """
     Stable implementation of Givens rotation.

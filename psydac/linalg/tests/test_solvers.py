@@ -59,7 +59,7 @@ def define_data(n, p, matrix_data, dtype=float):
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'])
+@pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'bicgstab', 'pbicgstab', 'minres', 'lsmr', 'gmres'])
 
 def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
 
@@ -67,11 +67,15 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     # PARAMETERS
     #---------------------------------------------------------------------------
 
-    if solver in ['bicg', 'bicgstab', 'lsmr']:
+    if solver in ['bicg', 'bicgstab', 'pbicgstab', 'lsmr']:
         if dtype==complex:
             diagonals = [1-10j,6+9j,3+5j]
         else:
             diagonals = [1,6,3]
+            
+        if solver == 'pbicgstab' and dtype == complex:
+            # pbicgstab only works for real matrices
+            return
     elif solver == 'gmres':
         if dtype==complex:
             diagonals = [-7-2j,-6-2j,-1-10j]
@@ -102,10 +106,14 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
         print()
 
     #Create the solvers
-    solv  = inverse(A, solver, tol=tol, verbose=False, recycle=True)
+    if solver in ['pcg', 'pbicgstab']:
+        pc = A.diagonal(inverse=True)
+        solv = inverse(A, solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True)
+    else:
+        solv = inverse(A, solver, tol=1e-13, verbose=verbose, recycle=True)
     solvt = solv.transpose()
     solvh = solv.H
-    solv2 = inverse(A@A, solver, tol=1e-13, verbose=True, recycle=True) # Test solver of composition of operators
+    solv2 = inverse(A@A, solver, tol=1e-13, verbose=verbose, recycle=True) # Test solver of composition of operators
 
     # Manufacture right-hand-side vector from exact solution
     be  = A @ xe
@@ -152,7 +160,6 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     if solver != 'pcg':
         bc = A @ A @ xc
 
-    
     err = b - be
     err_norm = np.linalg.norm( err.toarray() )
     err2 = b2 - be2
