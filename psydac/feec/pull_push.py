@@ -274,12 +274,6 @@ def pull_3d_hcurl(f, F):
 
         J_T_value = F.jacobian(eta1, eta2, eta3).T
         value_2   = J_T_value[1, 0] * a1_phys + J_T_value[1, 1] * a2_phys + J_T_value[1, 2] * a3_phys
-        
-        if False:#a1_phys>1e-12:
-            print(eta1, eta2, eta3)
-            print(J_T_value)
-            print(a1_phys,a2_phys,a3_phys)
-            print(value_2)
 
         return value_2
 
