@@ -623,23 +623,26 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
 
     tol = 1e-5
     C = inverse(B, 'cg', tol=tol)
-    pc = B.T.diagonal(inverse=True)
+    P = B.diagonal(inverse=True)
+
+    B_T = B.T
+    C_T = C.T
 
     # -1,T & T,-1 -> equal
-    assert isinstance(C.T, ConjugateGradient)
-    assert isinstance(inverse(B.T, 'cg', tol=tol), ConjugateGradient)
-    assert np.sqrt(sum(((C.T.dot(u) - inverse(B.T, 'cg', tol=tol).dot(u)).toarray())**2)) < 2*tol
+    assert isinstance(C_T, ConjugateGradient)
+    assert isinstance(inverse(B_T, 'cg', tol=tol), ConjugateGradient)
+    assert np.sqrt(sum(((C_T.dot(u) - inverse(B_T, 'cg', tol=tol).dot(u)).toarray())**2)) < 2*tol
     # -1,T,T -> equal -1
-    assert np.sqrt(sum(((C.T.T.dot(u) - C.dot(u)).toarray())**2)) < 2*tol
+    assert np.sqrt(sum(((C_T.T.dot(u) - C.dot(u)).toarray())**2)) < 2*tol
     # -1,T,-1 -> equal T
-    assert isinstance(inverse(C.T, 'bicg'), BlockLinearOperator)
-    assert np.array_equal(inverse(C.T, 'bicg').dot(u).toarray(), B.T.dot(u).toarray())
+    assert isinstance(inverse(C_T, 'bicg'), BlockLinearOperator)
+    assert np.array_equal(inverse(C_T, 'bicg').dot(u).toarray(), B_T.dot(u).toarray())
     # T,-1,-1 -> equal T
-    assert isinstance(inverse(inverse(B.T, 'cg', tol=tol), 'pcg', pc=pc), BlockLinearOperator)
-    assert np.array_equal(inverse(inverse(B.T, 'cg', tol=tol), 'pcg', pc=pc).dot(u).toarray(), B.T.dot(u).toarray())
+    assert isinstance(inverse(inverse(B_T, 'cg', tol=tol), 'pcg', pc=P), BlockLinearOperator)
+    assert np.array_equal(inverse(inverse(B_T, 'cg', tol=tol), 'pcg', pc=P).dot(u).toarray(), B_T.dot(u).toarray())
     # T,-1,T -> equal -1
-    assert isinstance(inverse(B.T, 'cg', tol=tol).T, ConjugateGradient)
-    assert np.sqrt(sum(((inverse(B.T, 'cg', tol=tol).dot(u) - C.dot(u)).toarray())**2)) < tol
+    assert isinstance(inverse(B_T, 'cg', tol=tol).T, ConjugateGradient)
+    assert np.sqrt(sum(((inverse(B_T, 'cg', tol=tol).dot(u) - C.dot(u)).toarray())**2)) < tol
 
     ###
     ### StencilMatrix Transpose - Inverse Tests
@@ -648,23 +651,26 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
 
     tol = 1e-5
     C = inverse(S, 'cg', tol=tol)
-    pc = S.T.diagonal(inverse=True)
+    P = S.diagonal(inverse=True)
+
+    S_T = S.T
+    C_T = C.T
 
     # -1,T & T,-1 -> equal
-    assert isinstance(C.T, ConjugateGradient)
-    assert isinstance(inverse(S.T, 'cg', tol=tol), ConjugateGradient)
-    assert np.sqrt(sum(((C.T.dot(v) - inverse(S.T, 'cg', tol=tol).dot(v)).toarray())**2)) < 2*tol
+    assert isinstance(C_T, ConjugateGradient)
+    assert isinstance(inverse(S_T, 'cg', tol=tol), ConjugateGradient)
+    assert np.sqrt(sum(((C_T.dot(v) - inverse(S_T, 'cg', tol=tol).dot(v)).toarray())**2)) < 2*tol
     # -1,T,T -> equal -1
-    assert np.sqrt(sum(((C.T.T.dot(v) - C.dot(v)).toarray())**2)) < 2*tol
+    assert np.sqrt(sum(((C_T.T.dot(v) - C.dot(v)).toarray())**2)) < 2*tol
     # -1,T,-1 -> equal T
-    assert isinstance(inverse(C.T, 'bicg'), StencilMatrix)
-    assert np.array_equal(inverse(C.T, 'bicg').dot(v).toarray(), S.T.dot(v).toarray())
+    assert isinstance(inverse(C_T, 'bicg'), StencilMatrix)
+    assert np.array_equal(inverse(C_T, 'bicg').dot(v).toarray(), S_T.dot(v).toarray())
     # T,-1,-1 -> equal T
-    assert isinstance(inverse(inverse(S.T, 'cg', tol=tol), 'pcg', pc=pc), StencilMatrix)
-    assert np.array_equal(inverse(inverse(S.T, 'cg', tol=tol), 'pcg', pc=pc).dot(v).toarray(), S.T.dot(v).toarray())
+    assert isinstance(inverse(inverse(S_T, 'cg', tol=tol), 'pcg', pc=P), StencilMatrix)
+    assert np.array_equal(inverse(inverse(S_T, 'cg', tol=tol), 'pcg', pc=P).dot(v).toarray(), S_T.dot(v).toarray())
     # T,-1,T -> equal -1
-    assert isinstance(inverse(S.T, 'cg', tol=tol).T, ConjugateGradient)
-    assert np.sqrt(sum(((inverse(S.T, 'cg', tol=tol).dot(v) - C.dot(v)).toarray())**2)) < tol
+    assert isinstance(inverse(S_T, 'cg', tol=tol).T, ConjugateGradient)
+    assert np.sqrt(sum(((inverse(S_T, 'cg', tol=tol).dot(v) - C.dot(v)).toarray())**2)) < tol
 
 #===============================================================================
 @pytest.mark.parametrize('n1', [3, 5])
