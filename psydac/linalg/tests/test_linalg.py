@@ -973,28 +973,26 @@ def test_x0update(solver):
         A_inv = inverse(A, solver, pc=A.diagonal(inverse=True), tol=tol)
     else:
         A_inv = inverse(A, solver, tol=tol)
-    options = A_inv.options
-    x0_init = options["x0"]
+
     # Check whether x0 is not None
+    x0_init = A_inv.get_options("x0")
     assert x0_init is not None
+
     # Apply inverse and check x0
     x = A_inv @ b
-    options = A_inv.options
-    x0_new1 = options["x0"]
+    x0_new1 = A_inv.get_options("x0")
     assert x0_new1 is x0_init
+
     # Change x0, apply A_inv and check for x0
     A_inv.set_options(x0 = b)
-    options = A_inv.options
-    assert options["x0"] is b
+    assert A_inv.get_options("x0") is b
+
     x = A_inv @ b
-    options = A_inv.options
-    x0_new2 = options["x0"]
-    assert x0_new2 is b
+    assert A_inv.get_options("x0") is b
+
     # Apply inverse using out=x0 and check for updated x0
-    x = A_inv.dot(b, out=x0_new2)
-    options = A_inv.options
-    x0_new3 = options["x0"]
-    assert x0_new3 is x
+    x = A_inv.dot(b, out=b)
+    assert A_inv.get_options('x0') is x
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY

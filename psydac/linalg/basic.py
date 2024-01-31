@@ -993,10 +993,26 @@ class InverseLinearOperator(LinearOperator):
     def get_info(self):
         return self._info
 
-    def get_options(self):
-        """Get a copy of the solver options.
+    def get_options(self, key=None):
+        """Get a copy of all the solver options, or a specific value of interest.
+
+        Parameters
+        ----------
+        x0 : str | None
+            Name of the specific option of interest (default: None).
+
+        Returns
+        -------
+        dict | type(self._options['key'] | None
+            If `key` is given, get the specific option of interest. If there is
+            no such option, `None` is returned instead. If `key` is not given,
+            get a copy of all the solver options in a dictionary.
+
         """
-        return self._options.copy()
+        if key is None:
+            return self._options.copy()
+        else:
+            return self._options.get(key)
 
     def set_options(self, **kwargs):
         """Set the solver options by passing keyword arguments.
