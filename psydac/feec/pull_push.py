@@ -274,7 +274,6 @@ def pull_3d_hcurl(f, F):
 
         J_T_value = F.jacobian(eta1, eta2, eta3).T
         value_2   = J_T_value[1, 0] * a1_phys + J_T_value[1, 1] * a2_phys + J_T_value[1, 2] * a3_phys
-
         return value_2
 
     def f3_logical(eta1, eta2, eta3):
