@@ -3,12 +3,26 @@
 # Copyright 2018 Yaman Güçlü, Jalal Lakhlili
 # Copyright 2022 Yaman Güçlü, Said Hadjout, Julian Owezarek
 
-from abc   import ABC, abstractmethod
-from scipy.sparse import coo_matrix
-import numpy as np
+from abc import ABC, abstractmethod
 
-__all__ = ('VectorSpace', 'Vector', 'LinearOperator', 'ZeroOperator', 'IdentityOperator', 'ScaledLinearOperator',
-           'SumLinearOperator', 'ComposedLinearOperator', 'PowerLinearOperator', 'InverseLinearOperator', 'LinearSolver')
+import numpy as np
+from scipy.sparse import coo_matrix
+
+from psydac.utilities.utils import is_real
+
+__all__ = (
+    'VectorSpace',
+    'Vector',
+    'LinearOperator',
+    'ZeroOperator',
+    'IdentityOperator',
+    'ScaledLinearOperator',
+    'SumLinearOperator',
+    'ComposedLinearOperator',
+    'PowerLinearOperator',
+    'InverseLinearOperator',
+    'LinearSolver'
+)
 
 #===============================================================================
 class VectorSpace(ABC):
@@ -1018,8 +1032,3 @@ class LinearSolver(ABC):
     @property
     def T(self):
         return self.transpose()
-
-    
-def is_real(x):
-    from numbers import Number
-    return isinstance(x, Number) and np.isrealobj(x) and not isinstance(x, bool)

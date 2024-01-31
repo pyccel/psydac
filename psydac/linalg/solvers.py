@@ -1,13 +1,15 @@
 # coding: utf-8
 """
-This module provides iterative solvers and precondionners.
+This module provides iterative solvers and preconditioners.
 
 """
-from math import sqrt
 import numpy as np
+from math import sqrt
 
-from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator, IdentityOperator, ScaledLinearOperator
+from psydac.utilities.utils  import is_real
 from psydac.linalg.utilities import _sym_ortho
+from psydac.linalg.basic     import (Vector, LinearOperator,
+        InverseLinearOperator, IdentityOperator, ScaledLinearOperator)
 
 __all__ = (
     'ConjugateGradient',
@@ -19,11 +21,6 @@ __all__ = (
     'LSMR',
     'GMRES'
 )
-
-#===============================================================================
-def is_real(x):
-    from numbers import Number
-    return isinstance(x, Number) and np.isrealobj(x) and not isinstance(x, bool)
 
 #===============================================================================
 def inverse(A, solver, **kwargs):
