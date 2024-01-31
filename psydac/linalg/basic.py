@@ -998,12 +998,12 @@ class InverseLinearOperator(LinearOperator):
 
         Parameters
         ----------
-        x0 : str | None
+        key : str | None
             Name of the specific option of interest (default: None).
 
         Returns
         -------
-        dict | type(self._options['key'] | None
+        dict | type(self._options['key']) | None
             If `key` is given, get the specific option of interest. If there is
             no such option, `None` is returned instead. If `key` is not given,
             get a copy of all the solver options in a dictionary.
