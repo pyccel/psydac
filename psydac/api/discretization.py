@@ -331,7 +331,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 #    We build the dictionary g_spaces for each interior domain, where it conatians the interiors as keys and the spaces as values,
 #    we then create the compatible spaces if needed with the suitable basis functions.
 
-    #store a boolean knowing if grid type was given or not for later use
+    comm = domain_h.comm
     ldim                = V.ldim
     is_rational_mapping = False
 
@@ -403,7 +403,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
             max_coords = interior.max_coords
 
             assert len(ncells) == len(periodic) == len(degree_i)  == len(multiplicity_i) == len(min_coords) == len(max_coords)
-            
+
             if knots is None:
                 # Create uniform grid
                 grids = [np.linspace(xmin, xmax, num=ne + 1)
