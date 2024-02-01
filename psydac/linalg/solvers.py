@@ -12,6 +12,7 @@ from psydac.linalg.basic     import (Vector, LinearOperator,
         InverseLinearOperator, IdentityOperator, ScaledLinearOperator)
 
 __all__ = (
+    'inverse',
     'ConjugateGradient',
     'PConjugateGradient',
     'BiConjugateGradient',
