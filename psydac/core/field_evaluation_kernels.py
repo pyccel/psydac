@@ -9,8 +9,8 @@ from pyccel.decorators import template
 # -----------------------------------------------------------------------------
 @template(name='T1', types=['float[:,:,:]', 'complex[:,:,:]'])
 @template(name='T2', types=['float[:]', 'complex[:]'])
-def eval_field_3d_once(local_coeffs: 'T1', 
-                       local_bases_0: 'T2', local_bases_1: 'T2', local_bases_2: 'T2'):
+def eval_field_3d_once(local_coeffs: 'float[:,:,:]', 
+                       local_bases_0: 'float[:]', local_bases_1: 'float[:]', local_bases_2: 'float[:]'):
     """
     Parameters
     ----------

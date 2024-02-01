@@ -129,6 +129,15 @@ class TensorFemSpace( FemSpace ):
         self._global_element_starts = domain_decomposition.global_element_starts
         self._global_element_ends   = domain_decomposition.global_element_ends
 
+        # computes once and for all ldim
+        self._ldim = sum([V.ldim for V in self.spaces])
+
+        # Dict for tmps for basis_funs call
+        self._tmp_bf = {}
+
+        # Dict for tmps for basis_funs_1st_der call
+        self._tmp_bf1d = {}
+
         self.set_refined_space(self.ncells, self)
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
@@ -137,7 +146,7 @@ class TensorFemSpace( FemSpace ):
     def ldim( self ):
         """ Parametric dimension.
         """
-        return sum([V.ldim for V in self.spaces])
+        return self._ldim
 
     @property
     def periodic(self):
@@ -191,7 +200,7 @@ class TensorFemSpace( FemSpace ):
         if not field.coeffs.ghost_regions_in_sync:
             field.coeffs.update_ghost_regions()
 
-        for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
+        for i, (x, xlim, space) in enumerate(zip( eta, self.eta_lims, self.spaces )):
 
             knots  = space.knots
             degree = space.degree
@@ -206,7 +215,9 @@ class TensorFemSpace( FemSpace ):
             if x == xlim[1] and x != knots[-1-degree]:
                 span -= 1
             #-------------------------------------------------#
-            basis = basis_funs( knots, degree, x, span)
+            if not i in self._tmp_bf:
+                self._tmp_bf[i] = np.zeros(degree + 1, dtype=float)
+            basis = basis_funs( knots, degree, x, span, out = self._tmp_bf[i])
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
@@ -622,7 +633,7 @@ class TensorFemSpace( FemSpace ):
         bases_1 = []
         index   = []
 
-        for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
+        for i, (x, xlim, space) in enumerate(zip( eta, self.eta_lims, self.spaces )):
 
             knots   = space.knots
             degree  = space.degree
@@ -636,8 +647,12 @@ class TensorFemSpace( FemSpace ):
             if x == xlim[1] and x != knots[-1-degree]:
                 span -= 1
             #-------------------------------------------------#
-            basis_0 = basis_funs(knots, degree, x, span)
-            basis_1 = basis_funs_1st_der(knots, degree, x, span)
+            if not i in self._tmp_bf:
+                self._tmp_bf[i] = np.zeros(degree + 1, dtype=float)
+            if not i in self._tmp_bf1d:
+                self._tmp_bf1d[i] = np.zeros(degree + 1, dtype=float)
+            basis_0 = basis_funs( knots, degree, x, span, out = self._tmp_bf[i])
+            basis_1 = basis_funs_1st_der(knots, degree, x, span, out = self._tmp_bf1d[i])
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
