@@ -50,3 +50,10 @@ add_module_names = False
 
 html_theme = 'pydata_sphinx_theme'
 html_static_path = ['_static']
+
+html_theme_options = {
+    "show_toc_level": 2,
+}
+
+# -- Options for autodoc extension -------------------------------------------
+autodoc_member_order = 'bysource'
