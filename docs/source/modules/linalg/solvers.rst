@@ -1,76 +1,30 @@
 linalg.solvers
 ==============
 
-   * :ref:`inverse <inverse>`
-   * :ref:`ConjugateGradient <conjugategradient>`
-   * :ref:`PConjugateGradient <pconjugategradient>`
-   * :ref:`BiConjugateGradient <biconjugategradient>`  
-   * :ref:`BiConjugateGradientStabilized <biconjugategradientstabilized>`
-   * :ref:`MinimumResidual <minimumresidual>`
-   * :ref:`LSMR <lsmr>`
-   * :ref:`GMRES <gmres>` 
+.. automodule:: psydac.linalg.solvers
 
+Overview
+--------
+.. currentmodule:: psydac.linalg.solvers
+.. autosummary::
+
+    inverse
+    ConjugateGradient
+    PConjugateGradient
+    BiConjugateGradient
+    BiConjugateGradientStabilized
+    MinimumResidual
+    LSMR
+    GMRES
+
+Class inheritance
+-----------------
 .. inheritance-diagram:: psydac.linalg.solvers
 
-.. _inverse:
-
-inverse
+Details
 -------
-
-.. autofunction:: psydac.linalg.solvers.inverse
-
-.. _conjugategradient:
-
-ConjugateGradient
------------------
-
-.. autoclass:: psydac.linalg.solvers.ConjugateGradient
-   :members:
-
-.. _pconjugategradient:
-
-PConjugateGradient
-------------------
-
-.. autoclass:: psydac.linalg.solvers.PConjugateGradient
-   :members:
-
-.. _biconjugategradient:
-
-BiConjugateGradient
--------------------
-
-.. autoclass:: psydac.linalg.solvers.BiConjugateGradient
-   :members:
-	
-.. _biconjugategradientstabilized:
-
-BiConjugateGradientStabilized
------------------------------
-
-.. autoclass:: psydac.linalg.solvers.BiConjugateGradientStabilized
-   :members:
-
-.. _minimumresidual:
-
-MinimumResidual
----------------
-
-.. autoclass:: psydac.linalg.solvers.MinimumResidual
-   :members:
-
-.. _lsmr:
-
-LSMR
-----
-
-.. autoclass:: psydac.linalg.solvers.LSMR
-   :members:
-
-.. _gmres:
-
-GMRES
------                                                
-
-.. autoclass:: psydac.linalg.solvers.GMRES
-   :members:   
+.. automodule:: psydac.linalg.solvers
+    :members:
+    :undoc-members:
+    :exclude-members:
+    :show-inheritance:
