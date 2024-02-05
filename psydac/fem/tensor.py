@@ -679,8 +679,11 @@ class TensorFemSpace( FemSpace ):
         for d in range( self.ldim ):
             bases = [(bases_1[d] if i==d else bases_0[i]) for i in range( self.ldim )]
             res   = coeffs
-            for basis in bases[::-1]:
-                res = np.dot( res, basis )
+            if len(bases) == 3:
+                res = eval_field_3d_once(coeffs, bases[0], bases[1], bases[2])
+            else :
+                for basis in bases[::-1]:
+                    res = np.dot( res, basis )
             grad.append( res )
 
         return grad
