@@ -5,37 +5,37 @@ linalg
    :maxdepth: 1
    :hidden:
 
-   linalg/basic
-   linalg/block
-   linalg/direct_solvers
-   linalg/fft
-   linalg/kernels
-   linalg/kron
-   linalg/solvers
-   linalg/stencil
-   linalg/topetsc
-   linalg/utilities
+   ../apidoc/psydac.linalg.basic
+   ../apidoc/psydac.linalg.block
+   ../apidoc/psydac.linalg.direct_solvers
+   ../apidoc/psydac.linalg.fft
+   ../apidoc/psydac.linalg.kernels
+   ../apidoc/psydac.linalg.kron
+   ../apidoc/psydac.linalg.solvers
+   ../apidoc/psydac.linalg.stencil
+   ../apidoc/psydac.linalg.topetsc
+   ../apidoc/psydac.linalg.utilities
 
 .. list-table::
    :widths: 20 80
 
-   * - :doc:`basic <linalg/basic>`
+   * - :doc:`basic <../apidoc/psydac.linalg.basic>`
      - .. automodule:: psydac.linalg.basic
-   * - :doc:`block <linalg/block>`
+   * - :doc:`block <../apidoc/psydac.linalg.block>`
      - .. automodule:: psydac.linalg.block
-   * - :doc:`direct_solvers <linalg/direct_solvers>`
+   * - :doc:`direct_solvers <../apidoc/psydac.linalg.direct_solvers>`
      - .. automodule:: psydac.linalg.direct_solvers
-   * - :doc:`fft <linalg/fft>`
+   * - :doc:`fft <../apidoc/psydac.linalg.fft>`
      - .. automodule:: psydac.linalg.fft
-   * - :doc:`kernels <linalg/kernels>`
+   * - :doc:`kernels <../apidoc/psydac.linalg.kernels>`
      - .. automodule:: psydac.linalg.kernels
-   * - :doc:`kron <linalg/kron>`
+   * - :doc:`kron <../apidoc/psydac.linalg.kron>`
      - .. automodule:: psydac.linalg.kron
-   * - :doc:`solvers <linalg/solvers>`
+   * - :doc:`solvers <../apidoc/psydac.linalg.solvers>`
      - .. automodule:: psydac.linalg.solvers
-   * - :doc:`stencil <linalg/stencil>`
+   * - :doc:`stencil <../apidoc/psydac.linalg.stencil>`
      - .. automodule:: psydac.linalg.stencil
-   * - :doc:`topetsc <linalg/topetsc>`
+   * - :doc:`topetsc <../apidoc/psydac.linalg.topetsc>`
      - .. automodule:: psydac.linalg.topetsc
-   * - :doc:`utilities <linalg/utilities>`
+   * - :doc:`utilities <../apidoc/psydac.linalg.utilities>`
      - .. automodule:: psydac.linalg.utilities

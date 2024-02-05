@@ -5,31 +5,31 @@ fem
    :maxdepth: 1
    :hidden:
 
-   fem/basic
-   fem/context
-   fem/grid
-   fem/partitioning
-   fem/projectors
-   fem/splines
-   fem/tensor
-   fem/vector
+   ../apidoc/psydac.fem.basic
+   ../apidoc/psydac.fem.context
+   ../apidoc/psydac.fem.grid
+   ../apidoc/psydac.fem.partitioning
+   ../apidoc/psydac.fem.projectors
+   ../apidoc/psydac.fem.splines
+   ../apidoc/psydac.fem.tensor
+   ../apidoc/psydac.fem.vector
 
 .. list-table::
    :widths: 20 80
 
-   * - :doc:`basic <fem/basic>`
+   * - :doc:`basic <../apidoc/psydac.fem.basic>`
      - .. automodule:: psydac.fem.basic
-   * - :doc:`context <fem/context>`
+   * - :doc:`context <../apidoc/psydac.fem.context>`
      - .. automodule:: psydac.fem.context
-   * - :doc:`grid <fem/grid>`
+   * - :doc:`grid <../apidoc/psydac.fem.grid>`
      - .. automodule:: psydac.fem.grid
-   * - :doc:`partitioning <fem/partitioning>`
+   * - :doc:`partitioning <../apidoc/psydac.fem.partitioning>`
      - .. automodule:: psydac.fem.partitioning
-   * - :doc:`projectors <fem/projectors>`
+   * - :doc:`projectors <../apidoc/psydac.fem.projectors>`
      - .. automodule:: psydac.fem.projectors
-   * - :doc:`splines <fem/splines>`
+   * - :doc:`splines <../apidoc/psydac.fem.splines>`
      - .. automodule:: psydac.fem.splines
-   * - :doc:`tensor <fem/tensor>`
+   * - :doc:`tensor <../apidoc/psydac.fem.tensor>`
      - .. automodule:: psydac.fem.tensor
-   * - :doc:`vector <fem/vector>`
+   * - :doc:`vector <../apidoc/psydac.fem.vector>`
      - .. automodule:: psydac.fem.vector

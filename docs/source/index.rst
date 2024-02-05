@@ -13,13 +13,9 @@ Contents
    
    modules
    examples
-   maintenance
 
 .. _note:
 .. note::
-
-   .. image:: wip.gif
-      :width: 400
 
    This documentation is still under construction.
    For the time being, its purpose is to assist the developers.

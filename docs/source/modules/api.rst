@@ -5,37 +5,37 @@ api
    :maxdepth: 1
    :hidden:
 
-   api/basic
-   api/discretization
-   api/equation
-   api/essential_bc
-   api/expr
-   api/feec
-   api/fem
-   api/glt
-   api/grid
-   api/postprocessing
+   ../apidoc/psydac.api.basic
+   ../apidoc/psydac.api.discretization
+   ../apidoc/psydac.api.equation
+   ../apidoc/psydac.api.essential_bc
+   ../apidoc/psydac.api.expr
+   ../apidoc/psydac.api.feec
+   ../apidoc/psydac.api.fem
+   ../apidoc/psydac.api.glt
+   ../apidoc/psydac.api.grid
+   ../apidoc/psydac.api.postprocessing
 
 .. list-table::
    :widths: 20 80
 
-   * - :doc:`basic <api/basic>`
+   * - :doc:`basic <../apidoc/psydac.api.basic>`
      - .. automodule:: psydac.api.basic
-   * - :doc:`discretization <api/discretization>`
+   * - :doc:`discretization <../apidoc/psydac.api.discretization>`
      - .. automodule:: psydac.api.discretization
-   * - :doc:`equation <api/equation>`
+   * - :doc:`equation <../apidoc/psydac.api.equation>`
      - .. automodule:: psydac.api.equation
-   * - :doc:`essential_bc <api/essential_bc>`
+   * - :doc:`essential_bc <../apidoc/psydac.api.essential_bc>`
      - .. automodule:: psydac.api.essential_bc
-   * - :doc:`expr <api/expr>`
+   * - :doc:`expr <../apidoc/psydac.api.expr>`
      - .. automodule:: psydac.api.expr
-   * - :doc:`feec <api/feec>`
+   * - :doc:`feec <../apidoc/psydac.api.feec>`
      - .. automodule:: psydac.api.feec
-   * - :doc:`fem <api/fem>`
+   * - :doc:`fem <../apidoc/psydac.api.fem>`
      - .. automodule:: psydac.api.fem
-   * - :doc:`glt <api/glt>`
+   * - :doc:`glt <../apidoc/psydac.api.glt>`
      - .. automodule:: psydac.api.glt
-   * - :doc:`grid <api/grid>`
+   * - :doc:`grid <../apidoc/psydac.api.grid>`
      - .. automodule:: psydac.api.grid
-   * - :doc:`postprocessing <api/postprocessing>`
+   * - :doc:`postprocessing <../apidoc/psydac.api.postprocessing>`
      - .. automodule:: psydac.api.postprocessing
