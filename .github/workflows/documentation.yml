@@ -36,7 +36,7 @@ jobs:
     - name: generate .rst files from templates using apidoc
       run: |
         rm -rf docs/apidoc/
-        sphinx-apidoc -o docs/source/apidoc psydac/ 'psydac/api/ast' 'psydac/api/printing' 'psydac/cad' 'psydac/cmd' 'psydac/core' 'psydac/pyccel' 'psydac/**/tests' 'psydac/feec/multipatch' 'psydac/version.py' -TeEM
+        sphinx-apidoc -o docs/source/apidoc psydac/ 'psydac/api/ast' 'psydac/api/printing' 'psydac/cad' 'psydac/cmd' 'psydac/core' 'psydac/pyccel' 'psydac/**/tests' 'psydac/feec/multipatch' 'psydac/version.py' -TeEM -t docs/_templates/
     - name: Make the sphinx doc
       run: |
         make -C docs clean
