@@ -31,6 +31,8 @@
    Classes
    -------
    .. inheritance-diagram:: {{ fullname }}
+      :parts: 1
+      :top-classes: psydac.linalg.basic.LinearOperator, psydac.linalg.basic.Vector, psydac.linalg.basic.VectorSpace, psydac.linalg.basic.LinearSolver
    .. autosummary::
    {% for item in classes %}
       {{ item }}
