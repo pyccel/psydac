@@ -2,7 +2,9 @@
 *.pyo
 .ipynb_checkpoints/
 *.so
+*.lock
 __psydac__/
+__*pyccel__/
 
 build
 *build*
@@ -18,12 +20,8 @@ doc/_static
 doc/_build
 doc/api-python
 
-
 psydac/core/bsp-f2py*
 psydac/core/bspmodule.c
-psydac/core/*.so
-psydac/core/*.lock
-__*pyccel__
 .env
 
 # pytest directories
