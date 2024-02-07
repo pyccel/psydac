@@ -6,7 +6,7 @@ feec
     :toctree: STUBDIR
     :template: autosummary/module.rst
 
-   psydac.feec.derivatives
-   psydac.feec.global_projectors
-   psydac.feec.pull_push
-   psydac.feec.pushforward
+    psydac.feec.derivatives
+    psydac.feec.global_projectors
+    psydac.feec.pull_push
+    psydac.feec.pushforward

@@ -6,11 +6,11 @@ ddm
     :toctree: STUBDIR
     :template: autosummary/module.rst
 
-   psydac.ddm.basic
-   psydac.ddm.blocking_data_exchanger
-   psydac.ddm.cart
-   psydac.ddm.interface_data_exchanger
-   psydac.ddm.nonblocking_data_exchanger
-   psydac.ddm.partition
-   psydac.ddm.petsc
-   psydac.ddm.utilities
+    psydac.ddm.basic
+    psydac.ddm.blocking_data_exchanger
+    psydac.ddm.cart
+    psydac.ddm.interface_data_exchanger
+    psydac.ddm.nonblocking_data_exchanger
+    psydac.ddm.partition
+    psydac.ddm.petsc
+    psydac.ddm.utilities
