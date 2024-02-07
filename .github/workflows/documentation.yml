@@ -33,10 +33,10 @@ jobs:
         python -m pip install pydata_sphinx_theme
         python -m pip install numpydoc
         python -m pip install tomli
-    - name: generate .rst files from templates using apidoc
+    - name: generate .rst files from templates using autogen
       run: |
         rm -rf docs/source/modules/STUBDIR
-        sphinx-autogen -o docs/source/modules/STUBDIR docs/source/modules/api.rst docs/source/modules/ddm.rst docs/source/modules/feec.rst docs/source/modules/fem.rst docs/source/modules/linalg.rst docs/source/modules/mapping.rst docs/source/modules/polar.rst docs/source/modules/utilities.rst
+        sphinx-autogen docs/source/modules/*.rst
     - name: Make the sphinx doc
       run: |
         make -C docs clean
