@@ -35,8 +35,8 @@ jobs:
         python -m pip install tomli
     - name: generate .rst files from templates using apidoc
       run: |
-        rm -rf docs/apidoc/
-        sphinx-apidoc -o docs/source/apidoc psydac/ 'psydac/api/ast' 'psydac/api/printing' 'psydac/cad' 'psydac/cmd' 'psydac/core' 'psydac/pyccel' 'psydac/**/tests' 'psydac/feec/multipatch' 'psydac/version.py' -TeEM -t docs/_templates/
+        rm -rf docs/source/modules/STUBDIR
+        sphinx-autogen -o docs/source/modules/STUBDIR docs/source/modules/api.rst docs/source/modules/ddm.rst docs/source/modules/feec.rst docs/source/modules/fem.rst docs/source/modules/linalg.rst docs/source/modules/mapping.rst docs/source/modules/polar.rst docs/source/modules/utilities.rst
     - name: Make the sphinx doc
       run: |
         make -C docs clean

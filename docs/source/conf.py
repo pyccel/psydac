@@ -49,7 +49,7 @@ add_module_names = False
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'pydata_sphinx_theme'
-html_static_path = ['_static']
+#html_static_path = ['_static']
 
 html_theme_options = {
     "show_toc_level": 2,
@@ -57,3 +57,10 @@ html_theme_options = {
 
 # -- Options for autodoc extension -------------------------------------------
 autodoc_member_order = 'bysource'
+
+# inheritance diagrams
+inheritance_graph_attrs = dict(rankdir="LR", ratio='auto',
+                               fontsize="12")
+
+inheritance_node_attrs = dict(shape='ellipse', fontsize="12", height=0.65,
+                              color='maroon4', style='filled')

@@ -1,23 +1,12 @@
 feec
 ====
 
-.. toctree::
-   :maxdepth: 1
-   :hidden:
+.. autosummary::
+    :nosignatures:
+    :toctree: STUBDIR
+    :template: autosummary/module.rst
 
-   ../apidoc/psydac.feec.derivatives
-   ../apidoc/psydac.feec.global_projectors
-   ../apidoc/psydac.feec.pull_push
-   ../apidoc/psydac.feec.pushforward
-
-.. list-table::
-   :widths: 20 80
-
-   * - :doc:`derivatives <../apidoc/psydac.feec.derivatives>`
-     - .. automodule:: psydac.feec.derivatives
-   * - :doc:`global_projectors <../apidoc/psydac.feec.global_projectors>`
-     - .. automodule:: psydac.feec.global_projectors
-   * - :doc:`pull_push <../apidoc/psydac.feec.pull_push>`
-     - .. automodule:: psydac.feec.pull_push
-   * - :doc:`pushforward <../apidoc/psydac.feec.pushforward>`
-     - .. automodule:: psydac.feec.pushforward
+   psydac.feec.derivatives
+   psydac.feec.global_projectors
+   psydac.feec.pull_push
+   psydac.feec.pushforward
