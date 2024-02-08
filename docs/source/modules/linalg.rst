@@ -1,18 +1,19 @@
 linalg
 ======
 
+.. currentmodule:: psydac
 .. autosummary::
     :nosignatures:
     :toctree: STUBDIR
     :template: autosummary/module.rst
 
-    psydac.linalg.basic
-    psydac.linalg.block
-    psydac.linalg.direct_solvers
-    psydac.linalg.fft
-    psydac.linalg.kernels
-    psydac.linalg.kron
-    psydac.linalg.solvers
-    psydac.linalg.stencil
-    psydac.linalg.topetsc
-    psydac.linalg.utilities
+    linalg.basic
+    linalg.block
+    linalg.direct_solvers
+    linalg.fft
+    linalg.kernels
+    linalg.kron
+    linalg.solvers
+    linalg.stencil
+    linalg.topetsc
+    linalg.utilities

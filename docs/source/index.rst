@@ -27,7 +27,7 @@ Contents
 |                                                                                                                                |
 |In order to use Psydac, the user provides a geometry analytically or through an input file, and then defines the model equations|
 |in symbolic form (weak formulation) using `SymPDE <https://github.com/pyccel/sympde>`_, which provides the mathematical         |
-|expressions and checks the semantic validity  of the model.                                                                     |
+|expressions and checks the semantic validity of the model.                                                                     |
 |                                                                                                                                |    
 |Once a finite element discretization has been chosen, Psydac maps the abstract concepts to concrete objects, the basic building |
 |blocks being MPI-distributed vectors and matrices.                                                                              |

@@ -1,12 +1,13 @@
 feec
 ====
 
+.. currentmodule:: psydac
 .. autosummary::
     :nosignatures:
     :toctree: STUBDIR
     :template: autosummary/module.rst
 
-    psydac.feec.derivatives
-    psydac.feec.global_projectors
-    psydac.feec.pull_push
-    psydac.feec.pushforward
+    feec.derivatives
+    feec.global_projectors
+    feec.pull_push
+    feec.pushforward

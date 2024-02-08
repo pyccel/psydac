@@ -1,10 +1,11 @@
 mapping
 =======
 
+.. currentmodule:: psydac
 .. autosummary::
     :nosignatures:
     :toctree: STUBDIR
     :template: autosummary/module.rst
 
-    psydac.mapping.discrete
-    psydac.mapping.discrete_gallery
+    mapping.discrete
+    mapping.discrete_gallery
