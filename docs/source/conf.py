@@ -9,6 +9,21 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 # add these directories to sys.path here.
+
+# Make AutosummaryRenderer have a filter (smart_fullname) that reduces psydac.module.submodule to module.submodule in the navigation part of the documentation
+from sphinx.ext.autosummary.generate import AutosummaryRenderer
+
+def smart_fullname(fullname):
+    parts = fullname.split(".")
+    return ".".join(parts[1:])
+
+def fixed_init(self, app):
+    AutosummaryRenderer.__old_init__(self, app)
+    self.env.filters["smart_fullname"] = smart_fullname
+
+AutosummaryRenderer.__old_init__ = AutosummaryRenderer.__init__
+AutosummaryRenderer.__init__ = fixed_init
+
 import pathlib
 import sys
 import tomli

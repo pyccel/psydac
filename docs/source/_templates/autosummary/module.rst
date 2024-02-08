@@ -1,4 +1,4 @@
-{{ fullname | escape | underline}}
+{{ fullname | smart_fullname | escape | underline}}
 
 .. automodule:: {{ fullname }}
 
