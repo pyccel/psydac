@@ -82,12 +82,16 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
         return '('+args+')'
 
     def _hprint_Pow(self, expr, rational=False, sqrt='math.sqrt'):
-        """Printing helper function for ``Pow``
+        """
+        Printing helper function for ``Pow``.
+        See also: sympy.printing.str.StrPrinter._print_Pow
+
         Notes
-        =====
+        -----
         This only preprocesses the ``sqrt`` as math formatter
+
         Examples
-        ========
+        --------
         >>> from sympy.functions import sqrt
         >>> from sympy.printing.pycode import PythonCodePrinter
         >>> from sympy.abc import x
@@ -106,9 +110,7 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
         'numpy.sqrt(x)'
         >>> printer._hprint_Pow(sqrt(x), sqrt='mpmath.sqrt')
         'mpmath.sqrt(x)'
-        See Also
-        ========
-        sympy.printing.str.StrPrinter._print_Pow
+
         """
         PREC = precedence(expr)
 
@@ -138,8 +140,9 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
 #==============================================================================
 def pycode(expr, **settings):
     """ Converts an expr to a string of Python code
+
     Parameters
-    ==========
+    ----------
     expr : Expr
         A SymPy expression.
     fully_qualified_modules : bool
@@ -147,8 +150,9 @@ def pycode(expr, **settings):
         (``math.sin`` vs. ``sin``). default: ``True``.
     enable_dependencies: bool
         Whether or not to print dependencies too (EvalField, Kernel, etc)
+
     Examples
-    ========
+    --------
     >>> from sympy import tan, Symbol
     >>> from sympy.printing.pycode import pycode
     >>> pycode(tan(Symbol('x')) + 1)

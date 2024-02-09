@@ -17,3 +17,10 @@ linalg
     linalg.stencil
     linalg.topetsc
     linalg.utilities
+
+linalg submodules
+-----------------
+.. toctree::
+    :maxdepth: 1
+
+    linalg.kernels

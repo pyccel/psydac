@@ -15,21 +15,19 @@ from psydac.polar.c1_linops  import LinearOperator_DenseToStencil
 __all__ = ('C1Projector',)
 
 #===============================================================================
-class C1Projector:
-    """
-         +---+---------+
-         |   |         |
-         | L |    0    |
-         |   |         |
-         +---+---------+
-    E =  |   |         |
-         |   |         |
-         | 0 |    I    |
-         |   |         |
-         |   |         |
-         +---+---------+
+class C1Projector: 
+    #     +---+---------+
+    #     |   |         |
+    #     | L |    0    |
+    #     |   |         |
+    #     +---+---------+
+    #E =  |   |         |
+    #     |   |         |
+    #     | 0 |    I    |
+    #     |   |         |
+    #     |   |         |
+    #     +---+---------+
     
-    """
     def __init__(self, mapping):
 
         assert isinstance(mapping, SplineMapping)

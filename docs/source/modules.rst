@@ -8,6 +8,9 @@ Relying solely on docstrings.
     :maxdepth: 1
 
     modules/api
+    modules/cad
+    modules/cmd
+    modules/core
     modules/ddm
     modules/feec
     modules/fem
