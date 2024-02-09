@@ -92,7 +92,9 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
     alpha_beta_coeff = np.concatenate((alpha_coeff, beta_coeff))
     assert isinstance(alpha_beta_coeff, np.ndarray)
 
+    beta_step = 0.3
     step_exponent = 0 # Inital step size exponent
+
     error_functional_val = error_functional(alpha_h, beta_h)
     logger.debug("l2_error_squared before first gradient step:%s", error_functional_val)
 
@@ -100,7 +102,11 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
     # if np.linalg.norm(lambda_deriv ) < 1e-3:
     #     return alpha_h, beta_h
 
-    error = np.zeros((21, 3))
+    error = np.zeros((21, 2))
+    step_sizes = np.zeros((21,2))
+    
+    step_sizes[0,0] = 0
+    step_sizes[0,1] = beta_step**step_exponent
     error[0,0] = 0
     error[0,1] = error_functional_val
     
@@ -119,7 +125,7 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
         gradient = np.concatenate((mu_deriv, lambda_deriv))
         if np.linalg.norm(gradient ) < 1e-4:
             return alpha_h, beta_h
-        beta_step = 0.3
+        
         def compute_l2_error_squared_from_coeffs(alpha_beta_coeffs : np.ndarray):
             alpha_coeffs = alpha_beta_coeffs[:N]
             beta_coeffs = alpha_beta_coeffs[N:]
@@ -189,11 +195,15 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
         logger.debug("l2_error_squared after gradient step:%s", error_functional_val)
         error[iteration_count,0] = iteration_count
         error[iteration_count,1] = error_functional_val
+        step_sizes[iteration_count,0] = iteration_count
+        step_sizes[iteration_count,1] = beta_step ** step_exponent
 
 
         if iteration_count % 20 == 0:
-            np.save("gradient_descent_error/armijo_strongly_perturbed.npy", error)
-            error = np.concatenate(( error, np.zeros((20,3)) ), axis=0)
+            np.save("gradient_descent/armijo_slightly_perturbed_error.npy", error)
+            error = np.concatenate(( error, np.zeros((20,2)) ), axis=0)
+            np.save("gradient_descent/armijo_slightly_perturbed_step_size.npy", step_sizes)
+            step_sizes = np.concatenate(( step_sizes, np.zeros((20,2)) ),axis=0)
         # lambda_deriv_summand1 = lambda_deriv_summand1_discrete.assemble(B=B_h, alpha=alpha_h)
         # lambda_deriv_summand2 = lambda_deriv_summand2_discrete.assemble(beta=beta_h, alpha=alpha_h)
         # lambda_deriv = lambda_deriv_summand1 + lambda_deriv_summand2
