@@ -1,6 +1,7 @@
 {{ fullname | smart_fullname | escape | underline}}
 
 .. automodule:: {{ fullname }}
+   :no-index:
 
    {% block attributes %}
    {% if attributes %}
@@ -74,4 +75,3 @@ Details
    :undoc-members:
    :exclude-members:
    :show-inheritance:
-
