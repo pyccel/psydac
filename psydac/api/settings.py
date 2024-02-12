@@ -13,7 +13,7 @@ PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python', 'openmp':False}
 
 PSYDAC_BACKEND_GPYCCEL  = {'name': 'pyccel',
                        'compiler': 'GNU',
-                       'flags'   : '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none',
+                       'flags'   : '-O3 -march=native -mtune=native -ffast-math',
                        'folder'  : '__gpyccel__',
                        'tag'     : 'gpyccel',
                        'openmp'  : False}
