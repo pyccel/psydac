@@ -2,7 +2,7 @@
 import platform
 
 
-__all__ = {'PSYDAC_DEFAULT_FOLDER', 'PSYDAC_BACKENDS'}
+__all__ = ('PSYDAC_DEFAULT_FOLDER', 'PSYDAC_BACKENDS')
 
 #==============================================================================
 
