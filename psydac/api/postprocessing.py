@@ -39,11 +39,9 @@ def get_grid_lines_2d(domain_h, V_h, *, refine=1):
     ----------
     domain_h : psydac.cad.geometry.Geometry
         2D single-patch geometry.
-
     V_h : psydac.fem.tensor.TensorFemSpace
         Spline space from which the breakpoints are extracted.
-            - TODO: remove this argument -
-
+        TODO: remove this argument
     refine : int
         Number of segments used to describe a grid curve in each element
         (minimum value is 1, which yields quadrilateral elements).
@@ -53,16 +51,18 @@ def get_grid_lines_2d(domain_h, V_h, *, refine=1):
     isolines_1 : list of dict
         Lines having constant value of 'eta1' parameter;
         each line is a dictionary with three keys:
-            - 'eta1' : value of eta1 on the curve
-            - 'x'    : x coordinates of N points along the curve
-            - 'y'    : y coordinates of N points along the curve
+
+        - 'eta1' : value of eta1 on the curve
+        - 'x'    : x coordinates of N points along the curve
+        - 'y'    : y coordinates of N points along the curve
 
     isolines_2 : list of dict
         Lines having constant value of 'eta2' parameter;
         each line is a dictionary with three keys:
-            - 'eta2' : value of eta2 on the curve
-            - 'x'    : x coordinates of N points along the curve
-            - 'y'    : y coordinates of N points along the curve
+        
+        - 'eta2' : value of eta2 on the curve
+        - 'x'    : x coordinates of N points along the curve
+        - 'y'    : y coordinates of N points along the curve
 
     """
     # Check that domain is of correct type and contains only one patch
@@ -1411,18 +1411,18 @@ class PostProcessManager:
             * If npts_per_cell and grid are None
 
             * If snapshots == 'none' and none of the provided fields
-            were static fields.
+              were static fields.
 
         Warns
         -----
         UserWarning
             * If snapshot == 'all' and none of the provided fields
-            were static fields. The exportation of static fields is then
-            skipped.
+              were static fields. The exportation of static fields is then
+              skipped.
 
             * If snapshot == 'all' and for a particular snapshot
-            none of the provided fields were present in that snapshot.
-            That snapshot is skipped.
+              none of the provided fields were present in that snapshot.
+              That snapshot is skipped.
 
         """
         # Immediatly fail if grid and npts_per_cell are None

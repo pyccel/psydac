@@ -130,9 +130,9 @@ def create_cart(domain_decomposition, spaces):
     """
     Compute the cartesian decomposition of the coefficient space.
     Two different cases are possible:
+    
     - Single patch :
         We distribute the coefficients using all the processes provided by the given communicator.
-    
     - Multiple patches :
         We decompose the provided communicator in a list of smaller disjoint intra-communicators,
         and decompose the coefficients of each patch with an assigned intra-communicator.

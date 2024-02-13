@@ -1,5 +1,5 @@
-mapping
-=======
+cad
+===
 
 .. currentmodule:: psydac
 .. autosummary::
@@ -7,5 +7,8 @@ mapping
     :toctree: STUBDIR
     :template: autosummary/module.rst
 
-    mapping.discrete
-    mapping.discrete_gallery
+    cad.cad
+    cad.gallery
+    cad.geometry
+    cad.multipatch
+    cad.utils

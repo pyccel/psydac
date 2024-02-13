@@ -1,11 +1,10 @@
-mapping
-=======
+api.printing
+============
 
-.. currentmodule:: psydac
+.. currentmodule:: psydac.api
 .. autosummary::
     :nosignatures:
     :toctree: STUBDIR
     :template: autosummary/module.rst
 
-    mapping.discrete
-    mapping.discrete_gallery
+    printing.pycode

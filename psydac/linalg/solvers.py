@@ -12,6 +12,7 @@ from psydac.linalg.basic     import (Vector, LinearOperator,
         InverseLinearOperator, IdentityOperator, ScaledLinearOperator)
 
 __all__ = (
+    'inverse',
     'ConjugateGradient',
     'PConjugateGradient',
     'BiConjugateGradient',
@@ -87,8 +88,9 @@ def inverse(A, solver, **kwargs):
 #===============================================================================
 class ConjugateGradient(InverseLinearOperator):
     """
-    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+    Conjugate Gradient (CG).
 
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
     The .dot (and also the .solve) function are based on the 
     Conjugate gradient algorithm for solving linear system Ax=b.
     Implementation from [1], page 137.
@@ -236,9 +238,10 @@ class ConjugateGradient(InverseLinearOperator):
 #===============================================================================
 class PConjugateGradient(InverseLinearOperator):
     """
+    Preconditioned Conjugate Gradient (PCG).
+
     A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
     The .dot (and also the .solve) function are based on a preconditioned conjugate gradient method.
-
     The Preconditioned Conjugate Gradient (PCG) algorithm solves the linear
     system A x = b where A is a symmetric and positive-definite matrix, i.e.
     A = A^T and y A y > 0 for any vector y. The preconditioner P is a matrix
@@ -407,8 +410,9 @@ class PConjugateGradient(InverseLinearOperator):
 #===============================================================================
 class BiConjugateGradient(InverseLinearOperator):
     """
-    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+    Biconjugate Gradient (BiCG).
 
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
     The .dot (and also the .solve) function are based on the 
     Biconjugate gradient (BCG) algorithm for solving linear system Ax=b.
     Implementation from [1], page 175.
@@ -596,8 +600,9 @@ class BiConjugateGradient(InverseLinearOperator):
 #===============================================================================
 class BiConjugateGradientStabilized(InverseLinearOperator):
     """
-    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+    Biconjugate Gradient Stabilized (BiCGStab).
 
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
     The .dot (and also the .solve) function are based on the
     Biconjugate gradient Stabilized (BCGSTAB) algorithm for solving linear system Ax=b.
     Implementation from [1], page 175.
@@ -793,10 +798,13 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
 #===============================================================================
 class PBiConjugateGradientStabilized(InverseLinearOperator):
     """
+    Preconditioned Biconjugate Gradient Stabilized (PBiCGStab).
+
     A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
     The .dot (and also the .solve) function are based on the
     preconditioned Biconjugate gradient Stabilized (PBCGSTAB) algorithm for solving linear system Ax=b.
     Implementation from [1], page 251.
+
     Parameters
     ----------
     A : psydac.linalg.basic.LinearOperator
@@ -813,6 +821,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
         Maximum number of iterations.
     verbose : bool
         If True, 2-norm of residual r is printed at each iteration.
+    
     References
     ----------
     [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
@@ -838,6 +847,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
         """
         Preconditioned biconjugate gradient stabilized method (PBCGSTAB) algorithm for solving linear system Ax=b.
         Implementation from [1], page 251.
+
         Parameters
         ----------
         b : psydac.linalg.basic.Vector
@@ -847,6 +857,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
             scalar multiplication and sum operations are available.
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
+        
         Returns
         -------
         x : psydac.linalg.basic.Vector
@@ -858,9 +869,11 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
               - 'niter'    = (int) number of iterations
               - 'success'  = (boolean) whether convergence criteria have been met
               - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+        
         References
         ----------
         [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
+        
         """
 
         A = self._A
@@ -1019,8 +1032,9 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
 #===============================================================================
 class MinimumResidual(InverseLinearOperator):
     """
-    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+    Minimum Residual (MinRes).
 
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
     The .dot (and also the .solve) function
     Use MINimum RESidual iteration to solve Ax=b
 
@@ -1298,8 +1312,9 @@ class MinimumResidual(InverseLinearOperator):
 #===============================================================================
 class LSMR(InverseLinearOperator):
     """
+    Least Squares Minimal Residual (LSMR).
+    
     A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
-
     The .dot (and also the .solve) function are based on the 
     Iterative solver for least-squares problems.
     lsmr solves the system of linear equations ``Ax = b``. If the system
@@ -1671,8 +1686,9 @@ class LSMR(InverseLinearOperator):
 #===============================================================================
 class GMRES(InverseLinearOperator):
     """
+    Generalized Minimal Residual (GMRES).
+    
     A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
-
     The .dot (and also the .solve) function are based on the 
     generalized minimal residual algorithm for solving linear system Ax=b.
     Implementation from Wikipedia
