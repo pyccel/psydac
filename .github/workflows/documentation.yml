@@ -38,7 +38,7 @@ jobs:
         rm -rf docs/source/modules/STUBDIR
         make -C docs clean
         make -C docs html
-        tree docs/build/
+        python docs/update_links.py
     - name: Setup Pages
       uses: actions/configure-pages@v3
     - name: Upload artifact
