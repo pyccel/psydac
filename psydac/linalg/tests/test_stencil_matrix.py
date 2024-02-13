@@ -5,13 +5,17 @@ import numpy as np
 from random import random
 
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.api.settings import *
+from psydac.api.settings import PSYDAC_BACKENDS
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
+
+
+# Backends
+PSYDAC_BACKEND_PYTHON  = PSYDAC_BACKENDS['python']     # Pure Python
+PSYDAC_BACKEND_GPYCCEL = PSYDAC_BACKENDS['pyccel-gcc'] # Pyccel w/ Fortran and GCC
 
 # backend to activate multi threading
 PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP           = PSYDAC_BACKEND_GPYCCEL.copy()
 PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP['openmp'] = True
-
 
 # ===============================================================================
 def compute_global_starts_ends(domain_decomposition, npts, pads):
