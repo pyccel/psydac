@@ -2,6 +2,10 @@
 #
 # Copyright 2018 Yaman Güçlü, Jalal Lakhlili
 # Copyright 2022 Yaman Güçlü, Said Hadjout, Julian Owezarek
+"""
+provides the fundamental classes for linear algebra operations.
+
+"""
 
 from abc import ABC, abstractmethod
 
@@ -88,7 +92,7 @@ class VectorSpace(ABC):
 #===============================================================================
 class Vector(ABC):
     """
-    Element of a (normed) vector space V.
+    Element of a vector space V.
 
     """
     @property
@@ -206,7 +210,7 @@ class Vector(ABC):
 #===============================================================================
 class LinearOperator(ABC):
     """
-    Linear operator acting between two (normed) vector spaces V (domain)
+    Abstract base class for all linear operators acting between two vector spaces V (domain)
     and W (codomain).
 
     """
@@ -351,6 +355,10 @@ class LinearOperator(ABC):
 
 #===============================================================================
 class ZeroOperator(LinearOperator):
+    """
+    Zero operator mapping any vector from its domain V to the zero vector of its codomain W.
+    
+    """
 
     def __new__(cls, domain, codomain=None):
 
@@ -445,6 +453,11 @@ class ZeroOperator(LinearOperator):
 
 #===============================================================================
 class IdentityOperator(LinearOperator):
+    """
+    Identity operator acting between a vector space V and itself.
+    Useful for example in custom linear operator classes together with the apply_essential_bc method to create projection operators.
+    
+    """
 
     def __new__(cls, domain, codomain=None):
 
@@ -516,12 +529,17 @@ class IdentityOperator(LinearOperator):
 
 #===============================================================================
 class ScaledLinearOperator(LinearOperator):
+    """
+    A linear operator :math:`A` scalar multiplied by a real constant :math:`c`. 
+    
+    """
 
     def __init__(self, domain, codomain, c, A):
 
         assert isinstance(domain, VectorSpace)
         assert isinstance(codomain, VectorSpace)
         assert np.isscalar(c)
+        assert np.isreal(c)
         assert isinstance(A, LinearOperator)
         assert domain   == A.domain
         assert codomain == A.codomain
@@ -588,7 +606,7 @@ class ScaledLinearOperator(LinearOperator):
 #===============================================================================
 class SumLinearOperator(LinearOperator):
     """
-    A sum of linear operatos acting between the same (normed) vector spaces V (domain) and W (codomain).
+    Sum :math:`\sum_{i=1}^n A_i` of linear operators :math:`A_1,\dots,A_n` acting between the same vector spaces V (domain) and W (codomain).
 
     """
     def __new__(cls, domain, codomain, *args):
@@ -704,6 +722,10 @@ class SumLinearOperator(LinearOperator):
 
 #===============================================================================
 class ComposedLinearOperator(LinearOperator):
+    """
+    Composition :math:`A_n\circ\dots\circ A_1` of two or more linear operators :math:`A_1,\dots,A_n`.
+    
+    """
 
     def __init__(self, domain, codomain, *args):
 
@@ -813,6 +835,10 @@ class ComposedLinearOperator(LinearOperator):
 
 #===============================================================================
 class PowerLinearOperator(LinearOperator):
+    """
+    Power :math:`A^n` of a linear operator :math:`A` for some integer :math:`n\geq 0`.
+    
+    """
 
     def __new__(cls, domain, codomain, A, n):
 
@@ -889,10 +915,9 @@ class PowerLinearOperator(LinearOperator):
 #===============================================================================
 class InverseLinearOperator(LinearOperator):
     """
-    Abstract base class for the (approximate) inverse A_inv := A^{-1} of a
-    square matrix A. The result of A_inv.dot(b) is the (approximate) solution x
-    of the linear system A x = b, where x and b belong to the same (normed)
-    vector space V.
+    Abstract base class for the (approximate) inverse :math:`A^{-1}` of a
+    square matrix :math:`A`. The result of A_inv.dot(b) is the (approximate) solution x
+    of the linear system A x = b, where x and b belong to the same vector space V.
 
     We assume that the linear system is solved by an iterative method, which
     needs a first guess `x0` and an exit condition based on `tol` and `maxiter`.
@@ -1029,8 +1054,7 @@ class InverseLinearOperator(LinearOperator):
 #===============================================================================
 class LinearSolver(ABC):
     """
-    Solver for square linear system Ax=b, where x and b belong to (normed)
-    vector space V.
+    Solver for the square linear system Ax=b, where x and b belong to the same vector space V.
 
     """
     @property
