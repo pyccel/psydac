@@ -109,8 +109,9 @@ def mat_topetsc( mat ):
     gmat.setFromOptions()
 
     rows, cols, data = mat_coo.row, mat_coo.col, mat_coo.data
-    NNZ = comm.allreduce(data.size, op=MPI.SUM)
-    gmat.setPreallocationNNZ(NNZ)
+    if comm:
+        NNZ = comm.allreduce(data.size, op=MPI.SUM)
+        gmat.setPreallocationNNZ(NNZ)
     for i in range(len(rows)):
         gmat.setValues(rows[i], cols[i], data[i])
 
