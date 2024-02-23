@@ -114,11 +114,14 @@ def petsc_to_psydac(vec, Xh):
         u          = StencilVector(Xh)
         comm       = u.space.cart.global_comm
         dtype      = u.space.dtype
-        sendcounts = np.array(comm.allgather(len(vec.array)))
+        sendcounts = np.array(comm.allgather(len(vec.array))) if comm else np.array([len(vec.array)])
         recvbuf    = np.empty(sum(sendcounts), dtype=dtype)
 
-        # gather the global array in all the procs
-        comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
+        if comm:
+            # gather the global array in all the procs
+            comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
+        else:
+            recvbuf[:] = vec.array
 
         # compute the global indices of the coefficents owned by the process using starts and ends
         starts = np.array(Xh.starts)
