@@ -5,6 +5,7 @@ from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from scipy.sparse import coo_matrix, bmat
 
 from mpi4py import MPI
+from petsc4py import PETSc
 
 __all__ = ('flatten_vec', 'vec_topetsc', 'mat_topetsc')
 
@@ -72,7 +73,6 @@ def vec_topetsc( vec ):
 
     """
 
-    from petsc4py import PETSc
     comm = vec.space.spaces[0].cart.global_comm if isinstance(vec, BlockVector) else vec.space.cart.global_comm
     globalsize = vec.space.dimension
     indices, data = flatten_vec(vec)
@@ -96,8 +96,6 @@ def mat_topetsc( mat ):
     gmat : PETSc.Mat
         Distributed PETSc matrix.
     """
-
-    from petsc4py import PETSc
 
     comm = mat.domain.spaces[0].cart.global_comm if isinstance(mat, BlockLinearOperator) else mat.domain.cart.global_comm
     mat_coo = mat.tosparse()

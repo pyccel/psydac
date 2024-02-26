@@ -3,6 +3,7 @@
 import pytest
 import numpy as np
 from random import random
+from scipy.sparse import csr_matrix
 
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.api.settings import PSYDAC_BACKENDS
@@ -488,7 +489,7 @@ def test_stencil_matrix_1d_serial_toarray( dtype, n1, p1, s1, P1):
 @pytest.mark.parametrize('n2', [8, 7])
 @pytest.mark.parametrize('p1', [1, 2])
 @pytest.mark.parametrize('p2', [1, 3])
-@pytest.mark.parametrize('s1', [1]) # NOT passing the test for s1=2
+@pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
@@ -552,7 +553,7 @@ def test_stencil_matrix_2d_serial_toarray( dtype, n1, n2, p1, p2, s1, s2, P1, P2
 @pytest.mark.parametrize('n2', [8, 7])
 @pytest.mark.parametrize('p1', [1, 2])
 @pytest.mark.parametrize('p2', [1, 3])
-@pytest.mark.parametrize('s1', [1]) # NOT passing the test for s1=2
+@pytest.mark.parametrize('s1', [1])
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
@@ -590,10 +591,9 @@ def test_stencil_matrix_2d_serial_topetsc( dtype, n1, n2, p1, p2, s1, s2, P1, P2
     M.remove_spurious_entries()
 
     # Convert stencil matrix to PETSc.Mat
-    Mpetsc = M.topetsc() #calls mat_topetsc
-    # Convert PETSc.Mat to dense matrix
-    from scipy.sparse import csr_matrix    
-    indptr, indices, data = Mpetsc.getValuesCSR() #From https://lists.mcs.anl.gov/pipermail/petsc-users/2012-May/013379.html
+    Mpetsc = M.topetsc()
+    # Convert PETSc.Mat to sparse CSR matrix   
+    indptr, indices, data = Mpetsc.getValuesCSR()
     Ma = csr_matrix((data, indices, indptr), shape=Mpetsc.size).todense()
 
     # Construct exact matrix by hand
@@ -2662,6 +2662,74 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
     # Check data
     assert abs(Ts - Ts_exact).max() < 1e-14
     assert abs(Tos - Ts_exact).max() < 1e-14
+
+# ===============================================================================
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('n1', [2, 11])
+@pytest.mark.parametrize('n2', [7, 13])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('sh1', [1])
+@pytest.mark.parametrize('sh2', [1])
+@pytest.mark.parametrize('P1', [True, False])
+@pytest.mark.parametrize('P2', [True, False])
+@pytest.mark.parallel
+def test_stencil_matrix_2d_parallel_topetsc( dtype, n1, n2, p1, p2, sh1, sh2, P1, P2):
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    # Select non-zero values based on diagonal index
+    nonzero_values = dict()
+    if dtype==complex:
+        for k1 in range(-p1, p1 + 1):
+            for k2 in range(-p2, p2 + 1):
+                nonzero_values[k1, k2] = 10j * k1 + k2
+    else:
+        for k1 in range(-p1, p1 + 1):
+            for k2 in range(-p2, p2 + 1):
+                nonzero_values[k1, k2] = 10 * k1 + k2
+
+    # Create domain decomposition
+    D = DomainDecomposition([n1, n2], periods=[P1, P2], comm=comm)
+
+    # Partition the points
+    npts = [n1, n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[sh1, sh2])
+
+    # Create vector space and stencil matrix
+    V = StencilVectorSpace(cart, dtype=dtype)
+    M = StencilMatrix(V, V)
+
+    # Fill in stencil matrix values
+    for k1 in range(-p1, p1 + 1):
+        for k2 in range(-p2, p2 + 1):
+            M[:, :, k1, k2] = nonzero_values[k1, k2]
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # Convert stencil matrix to PETSc.Mat
+    Mpetsc = M.topetsc()
+    # Convert PETSc.Mat to sparse CSR matrix   
+    indptr, indices, data = Mpetsc.getValuesCSR()
+    Ma = csr_matrix((data, indices, indptr), shape=Mpetsc.size).todense()
+
+    # Construct exact matrix by hand
+    A = np.zeros(M.shape, dtype=dtype)
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for k1 in range(-p1, p1 + 1):
+                for k2 in range(-p2, p2 + 1):
+                    j1 = (i1 + k1) % n1
+                    j2 = (i2 + k2) % n2
+                    i = i1 * (n2) + i2
+                    j = j1 * (n2) + j2
+                    if (P1 or 0 <= i1 + k1 < n1) and (P2 or 0 <= i2 + k2 < n2):
+                        A[i, j] = nonzero_values[k1, k2]
+    # Check shape and data in 2D array
+    assert Ma.shape == M.shape
+    assert np.array_equal(Ma, A)
 
 # ===============================================================================
 # PARALLEL BACKENDS TESTS

@@ -5,12 +5,10 @@ import numpy as np
 
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.utilities import array_to_psydac, petsc_to_psydac
-from psydac.linalg.topetsc   import vec_topetsc
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
 # TODO : test update ghost region interface
 # TODO : add test exchange_assembly_data
-# TODO : test topetsc with module petsc4py
 
 # ===============================================================================
 def compute_global_starts_ends(domain_decomposition, npts):
@@ -409,7 +407,7 @@ def test_stencil_vector_2d_serial_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2,
     assert np.array_equal(xa, v.toarray())
 
 # ===============================================================================
-@pytest.mark.parametrize('dtype', [float])
+@pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [1, 7])
 @pytest.mark.parametrize('n2', [1, 5])
 @pytest.mark.parametrize('p1', [1, 2])
@@ -418,7 +416,7 @@ def test_stencil_vector_2d_serial_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2,
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True])
-def test_stencil_vector_2d_serial_array_to_petsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
+def test_stencil_vector_2d_serial_to_petsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
 
@@ -442,7 +440,7 @@ def test_stencil_vector_2d_serial_array_to_petsc(dtype, n1, n2, p1, p2, s1, s2, 
             x[i1, i2] = f(i1,i2)
 
     # Convert vector to PETSc.Vec
-    xa = vec_topetsc(x) #Add method of StencilVector .topetsc ?
+    xa = x.topetsc()
 
     # Convert PETSc.Vec to StencilVector of V
     v = petsc_to_psydac(xa, V)
@@ -601,7 +599,7 @@ def test_stencil_vector_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1=True,
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True])
-def test_stencil_vector_2d_parallel_array_to_petsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
+def test_stencil_vector_2d_parallel_to_petsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     from mpi4py import MPI
     comm = MPI.COMM_WORLD
 
@@ -628,7 +626,7 @@ def test_stencil_vector_2d_parallel_array_to_petsc(dtype, n1, n2, p1, p2, s1, s2
             x[i1, i2] = f(i1,i2)
 
     # Convert vector to PETSc.Vec
-    xa = vec_topetsc(x)
+    xa = x.topetsc()
 
     # Convert PETSc.Vec to StencilVector of V
     v = petsc_to_psydac(xa, V)

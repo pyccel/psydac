@@ -113,9 +113,10 @@ def petsc_to_psydac(vec, Xh):
 
         u          = StencilVector(Xh)
         comm       = u.space.cart.global_comm
-        dtype      = u.space.dtype
+        #dtype      = u.space.dtype
         sendcounts = np.array(comm.allgather(len(vec.array))) if comm else np.array([len(vec.array)])
-        recvbuf    = np.empty(sum(sendcounts), dtype=dtype)
+        #With PETSc configuration for complex, all the numbers are complex.
+        recvbuf    = np.empty(sum(sendcounts), dtype='complex') 
 
         if comm:
             # gather the global array in all the procs
