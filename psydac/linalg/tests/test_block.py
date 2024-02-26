@@ -241,7 +241,6 @@ def test_2D_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     assert abs(LT1_sp - L1_spT).max()< 1e-14
     assert abs(LT2_sp - L1_spT).max()< 1e-14
 
-
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'ndim', [1, 2, 3] )
@@ -379,6 +378,7 @@ def test_block_serial_dimension( ndim, p, P1, P2, P3, dtype ):
 
     assert M.dtype == dtype
     assert np.allclose((M.dot(X)).toarray(), Y.toarray(),  rtol=1e-14, atol=1e-14 )
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'npts', [[6, 8, 9]] )
@@ -545,6 +545,7 @@ def test_3D_block_serial_basic_operator( dtype, npts, p, P1, P2, P3 ):
     assert np.allclose(A4.blocks[0][1]._data, (M3)._data/5,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A4.blocks[1][0]._data, (M2)._data/5,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A4.blocks[1][1]._data, (M1)._data/5,  rtol=1e-14, atol=1e-14 )
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'npts', [[6, 8]] )
@@ -732,7 +733,7 @@ def test_block_linear_operator_serial_dot( dtype, n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
 
-def test_block_2d_array_to_psydac_1( dtype, n1, n2, p1, p2, P1, P2 ):
+def test_block_2d_serial_array_to_psydac( dtype, n1, n2, p1, p2, P1, P2 ):
     #Define a factor for the data
     if dtype==complex:
         factor=1j
@@ -754,68 +755,31 @@ def test_block_2d_array_to_psydac_1( dtype, n1, n2, p1, p2, P1, P2 ):
     V2 = StencilVectorSpace( cart ,dtype=dtype)
 
     W = BlockVectorSpace(V1, V2)
+    W2 = BlockVectorSpace(W, W)
 
     x = BlockVector(W)
+    x2 = BlockVector(W2)
 
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
         for i2 in range(n2):
             x[0][i1,i2] = 2.0*factor*random() + 1.0
             x[1][i1,i2] = 5.0*factor*random() - 1.0
+            x2[0][0][i1,i2] = 2.0*factor*random() + 1.0
+            x2[0][1][i1,i2] = 5.0*factor*random() - 1.0
+            x2[1][0][i1,i2] = 2.0*factor*random() + 1.0
+            x2[1][1][i1,i2] = 5.0*factor*random() - 1.0
     x.update_ghost_regions()
+    x2.update_ghost_regions()
 
     xa = x.toarray()
+    x2a = x2.toarray()
     v  = array_to_psydac(xa, W)
+    v2  = array_to_psydac(x2a, W2)
 
     assert np.allclose( xa , v.toarray() )
-#===============================================================================
-@pytest.mark.parametrize( 'dtype', [float, complex] )
-@pytest.mark.parametrize( 'n1', [8, 16] )
-@pytest.mark.parametrize( 'n2', [8, 12] )
-@pytest.mark.parametrize( 'p1', [1, 2] )
-@pytest.mark.parametrize( 'p2', [3] )
-@pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True] )
+    assert np.allclose( x2a , v2.toarray() )
 
-def test_block_2d_array_to_psydac_2( dtype, n1, n2, p1, p2, P1, P2 ):
-    # Define a factor for the data
-    if dtype == complex:
-        factor = 1j
-    else:
-        factor = 1
-    # set seed for reproducibility
-    seed(n1*n2*p1*p2)
-
-    D = DomainDecomposition([n1,n2], periods=[P1,P2])
-
-    # Partition the points
-    npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
-
-    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
-
-    # Create vector spaces, and stencil vectors
-    V1 = StencilVectorSpace( cart ,dtype=dtype)
-    V2 = StencilVectorSpace( cart ,dtype=dtype)
-
-    W = BlockVectorSpace(V1, V2)
-    W = BlockVectorSpace(W, W)
-
-    x = BlockVector(W)
-
-    # Fill in vector with random values, then update ghost regions
-    for i1 in range(n1):
-        for i2 in range(n2):
-            x[0][0][i1,i2] = 2.0*factor*random() + 1.0
-            x[0][1][i1,i2] = 5.0*factor*random() - 1.0
-            x[1][0][i1,i2] = 2.0*factor*random() + 1.0
-            x[1][1][i1,i2] = 5.0*factor*random() - 1.0
-    x.update_ghost_regions()
-
-    xa = x.toarray()
-    v  = array_to_psydac(xa, W)
-
-    assert np.allclose( xa , v.toarray() )
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
