@@ -1,7 +1,7 @@
 import numpy as np
 
 from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockLinearOperator
-from psydac.linalg.stencil import StencilVectorSpace, StencilVector
+from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from scipy.sparse import coo_matrix, bmat
 
 from mpi4py import MPI
@@ -59,7 +59,7 @@ def flatten_vec( vec ):
     return indices, array
 
 def vec_topetsc( vec ):
-    """ Convert Psydac Vector to PETSc data structure.
+    """ Convert Psydac StencilVector or Blockvector to PETSc data structure.
 
     Parameters
     ----------
@@ -73,7 +73,13 @@ def vec_topetsc( vec ):
 
     """
 
-    comm = vec.space.spaces[0].cart.global_comm if isinstance(vec, BlockVector) else vec.space.cart.global_comm
+    if isinstance(vec, StencilVector):
+        comm = vec.space.cart.global_comm
+    elif isinstance(vec.space.spaces[0], StencilVectorSpace):
+        comm = vec.space.spaces[0].cart.global_comm
+    elif isinstance(vec.space.spaces[0], BlockVectorSpace):
+        comm = vec.space.spaces[0][0].cart.global_comm
+
     globalsize = vec.space.dimension
     indices, data = flatten_vec(vec)
     gvec  = PETSc.Vec().create(comm=comm)
@@ -97,21 +103,44 @@ def mat_topetsc( mat ):
         Distributed PETSc matrix.
     """
 
-    comm = mat.domain.spaces[0].cart.global_comm if isinstance(mat, BlockLinearOperator) else mat.domain.cart.global_comm
+    if isinstance(mat, StencilMatrix):
+        comm = mat.domain.cart.global_comm
+    elif isinstance(mat.domain.spaces[0], StencilVectorSpace):
+        comm = mat.domain.spaces[0].cart.global_comm
+    elif isinstance(mat.domain.spaces[0], BlockVectorSpace):
+        comm = mat.domain.spaces[0][0].cart.global_comm
+
     mat_coo = mat.tosparse()
-    ncols = mat.domain.dimension
-    nrows = mat.codomain.dimension
-    gmat  = PETSc.Mat().create(comm=comm)
-    gmat.setSizes((nrows, ncols))
+    mat_csr = mat_coo.tocsr()
+
+    '''
+    # Old code from Sayid for coo matrix.
+    # There is a problem with the repeated entries.
+    gmat  = PETSc.Mat().create(comm=comm) 
+    gmat.setSizes(mat.shape)
     gmat.setType("mpiaij")
     gmat.setFromOptions()
 
-    rows, cols, data = mat_coo.row, mat_coo.col, mat_coo.data
-    if comm:
-        NNZ = comm.allreduce(data.size, op=MPI.SUM)
-        gmat.setPreallocationNNZ(NNZ)
+    NNZ = comm.allreduce(data.size, op=MPI.SUM)
+    gmat.setPreallocationNNZ(NNZ)
     for i in range(len(rows)):
         gmat.setValues(rows[i], cols[i], data[i])
 
+    gmat.assemble()'''
+
+    gmat = PETSc.Mat().create(comm=comm)
+    gmat.setSizes(mat.shape)
+    gmat.setType("mpiaij")
+    gmat.setFromOptions()
+
+    if comm:
+        NNZ = comm.allreduce(mat_csr.data.size, op=MPI.SUM)
+        gmat.setPreallocationNNZ(NNZ)
+
+    for i in range(len(mat_csr.indptr)-1):
+        cols = mat_csr.indices[mat_csr.indptr[i]:mat_csr.indptr[i+1]]
+        col_data = mat_csr.data[mat_csr.indptr[i]:mat_csr.indptr[i+1]]
+        gmat.setValues(i, cols, col_data)  
+   
     gmat.assemble()
     return gmat

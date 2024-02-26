@@ -54,11 +54,17 @@ def array_to_psydac(x, Xh):
     return u
 
 #==============================================================================
-def petsc_to_psydac(vec, Xh):
-    """ converts a petsc Vec object to a StencilVector or a BlockVector format.
+def petsc_to_psydac(x, Xh):
+    """ converts a PETSc.Vec object to a StencilVector or a BlockVector format.
         We gather the petsc global vector in all the processes and extract the chunk owned by the Psydac Vector.
         .. warning: This function will not work if the global vector does not fit in the process memory.
     """
+
+    '''from petsc4py import PETSc
+
+    if isinstance(x, PETSc.Mat):
+        indptr, indices, data = x.getValuesCSR()
+        M_s = csr_matrix((data, indices, indptr), shape=x.size)'''
 
     if isinstance(Xh, BlockVectorSpace):
         u = BlockVector(Xh)
@@ -66,11 +72,14 @@ def petsc_to_psydac(vec, Xh):
 
             comm       = u[0][0].space.cart.global_comm
             dtype      = u[0][0].space.dtype
-            sendcounts = np.array(comm.allgather(len(vec.array)))
-            recvbuf    = np.empty(sum(sendcounts), dtype=dtype)
+            sendcounts = np.array(comm.allgather(len(vec.array))) if comm else np.array([len(vec.array)])
+            recvbuf    = np.empty(sum(sendcounts), dtype='complex') # PETSc installed with complex configuration only handles complex vectors
 
-            # gather the global array in all the procs
-            comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
+            if comm:
+                # gather the global array in all the procs
+                comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
+            else:
+                recvbuf[:] = vec.array
 
             inds = 0
             for d in range(len(Xh.spaces)):
@@ -84,17 +93,25 @@ def petsc_to_psydac(vec, Xh):
                     # compute the global indices of the coefficents owned by the process using starts and ends
                     indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts[i], xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
                     vals = recvbuf[indices+inds]
-                    u[d][i]._data[idx] = vals.reshape(shape)
-                    inds += np.product(npts)
+                    #With PETSc installation configuration for complex, all the numbers are by default complex. 
+                    #In the float case, the imaginary part must be truncated to avoid warning.
+                    if dtype == complex:
+                        u[d][i]._data[idx] = vals.reshape(shape)
+                    else:
+                        u[d][i]._data[idx] = vals.real.reshape(shape)
+                    inds += np.prod(npts)
 
         else:
             comm       = u[0].space.cart.global_comm
             dtype      = u[0].space.dtype
-            sendcounts = np.array(comm.allgather(len(vec.array)))
-            recvbuf    = np.empty(sum(sendcounts), dtype=dtype)
+            sendcounts = np.array(comm.allgather(len(vec.array))) if comm else np.array([len(vec.array)])
+            recvbuf    = np.empty(sum(sendcounts), dtype='complex') # PETSc installed with complex configuration only handles complex vectors
 
-            # gather the global array in all the procs
-            comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
+            if comm:
+                # gather the global array in all the procs
+                comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
+            else:
+                recvbuf[:] = vec.array
 
             inds = 0
             starts = [np.array(V.starts) for V in Xh.spaces]
@@ -106,17 +123,21 @@ def petsc_to_psydac(vec, Xh):
                 # compute the global indices of the coefficents owned by the process using starts and ends
                 indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts[i], xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
                 vals = recvbuf[indices+inds]
-                u[i]._data[idx] = vals.reshape(shape)
-                inds += np.product(npts)
+                #With PETSc installation configuration for complex, all the numbers are by default complex. 
+                #In the float case, the imaginary part must be truncated to avoid warning.
+                if dtype == complex:
+                    u[i]._data[idx] = vals.reshape(shape)
+                else:
+                    u[i]._data[idx] = vals.real.reshape(shape)
+                inds += np.prod(npts)
 
     elif isinstance(Xh, StencilVectorSpace):
 
         u          = StencilVector(Xh)
         comm       = u.space.cart.global_comm
-        #dtype      = u.space.dtype
+        dtype      = u.space.dtype
         sendcounts = np.array(comm.allgather(len(vec.array))) if comm else np.array([len(vec.array)])
-        #With PETSc configuration for complex, all the numbers are complex.
-        recvbuf    = np.empty(sum(sendcounts), dtype='complex') 
+        recvbuf    = np.empty(sum(sendcounts), dtype='complex') # PETSc installed with complex configuration only handles complex vectors 
 
         if comm:
             # gather the global array in all the procs
@@ -132,8 +153,12 @@ def petsc_to_psydac(vec, Xh):
         indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts, xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
         idx = tuple( slice(m*p,-m*p) for m,p in zip(u.space.pads, u.space.shifts) )
         vals = recvbuf[indices]
-        u._data[idx] = vals.reshape(shape)
-
+        #With PETSc installation configuration for complex, all the numbers are by default complex. 
+        #In the float case, the imaginary part must be truncated to avoid warning.
+        if dtype == complex:
+            u._data[idx] = vals.reshape(shape)
+        else:
+            u._data[idx] = vals.real.reshape(shape)
     else:
         raise ValueError('Xh must be a StencilVectorSpace or a BlockVectorSpace')
 

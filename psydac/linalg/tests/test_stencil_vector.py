@@ -416,7 +416,7 @@ def test_stencil_vector_2d_serial_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2,
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True])
-def test_stencil_vector_2d_serial_to_petsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
+def test_stencil_vector_2d_serial_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
 
@@ -440,10 +440,10 @@ def test_stencil_vector_2d_serial_to_petsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2
             x[i1, i2] = f(i1,i2)
 
     # Convert vector to PETSc.Vec
-    xa = x.topetsc()
+    v = x.topetsc()
 
     # Convert PETSc.Vec to StencilVector of V
-    v = petsc_to_psydac(xa, V)
+    v = petsc_to_psydac(v, V)
 
     # Test properties of v and data contained
     assert v.space is V
@@ -453,7 +453,7 @@ def test_stencil_vector_2d_serial_to_petsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2
     assert v.pads == (p1, p2)
     assert v._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2)
     assert v._data.dtype == dtype
-    assert np.array_equal(xa, v.toarray())
+    assert np.array_equal(x.toarray(), v.toarray())
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -599,7 +599,7 @@ def test_stencil_vector_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1=True,
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True])
-def test_stencil_vector_2d_parallel_to_petsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
+def test_stencil_vector_2d_parallel_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     from mpi4py import MPI
     comm = MPI.COMM_WORLD
 
@@ -626,10 +626,10 @@ def test_stencil_vector_2d_parallel_to_petsc(dtype, n1, n2, p1, p2, s1, s2, P1, 
             x[i1, i2] = f(i1,i2)
 
     # Convert vector to PETSc.Vec
-    xa = x.topetsc()
+    v = x.topetsc()
 
     # Convert PETSc.Vec to StencilVector of V
-    v = petsc_to_psydac(xa, V)
+    v = petsc_to_psydac(v, V)
 
     # Test properties of v and data contained
     assert v.space is V
@@ -639,7 +639,7 @@ def test_stencil_vector_2d_parallel_to_petsc(dtype, n1, n2, p1, p2, s1, s2, P1, 
     assert v.pads == (p1, p2)
     assert v._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2)
     assert v._data.dtype == dtype
-    assert np.array_equal(xa, v.toarray())
+    assert np.array_equal(x.toarray(), v.toarray())
     
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
