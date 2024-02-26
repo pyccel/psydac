@@ -3,6 +3,7 @@ import os
 import numpy as np
 from psydac.feec.multipatch.examples.td_maxwell_ssc     import solve_td_maxwell_pbm
 from psydac.feec.multipatch.examples.td_polarized_maxwell_ssc     import solve_td_polarized_maxwell_pbm
+from psydac.feec.multipatch.examples.td_polarized_polar_maxwell_ssc     import solve_td_polarized_polar_maxwell_pbm
 
 from psydac.feec.multipatch.utilities                   import time_count, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
 from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_file, write_diags_deg_nbp, write_errors_array_deg_nbc
@@ -12,11 +13,11 @@ from psydac.feec.multipatch.utils_conga_2d              import write_diags_to_fi
 t_stamp_full = time_count()
 
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
-#
+#at table profile
 # main test-cases and parameters
 
-test_case = 'polarized'
-# test_case = 'cavity'   
+test_case = 'polarized_polar'
+#test_case = 'cavity'   
 # test_case = 'E0_pulse_no_source'   
 # test_case = 'Issautier_like_source'  
 mom_pres = True 
@@ -29,23 +30,25 @@ J_proj_case = 'P_geom'
 # method:
 #   - swc = strong-weak-conga
 #   - ssc = strong-strong-conga
-method =  'ssc' # 'swc' # 
+method =  'ssc' # 'swc' 
 
 #
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
 
-nbc_s = [13] #,8,16] #,32]
+nbc_s = [12] #,8,16] #,32]
 # deg_s = [4] # ,4,5]
 # nbp_s = [2,4,8, 16]  # only for 'multipatch_rectangle' domain
 
-deg_s = [3] # ,4,5]
-nbp_s = [2]#,4,8,16]  # only for 'multipatch_rectangle' domain
-# nbp_s = [4,8,16]  # only for 'multipatch_rectangle' domain
-# nbp_s = [4]  # only for 'multipatch_rectangle' domain
+deg_s = [3]
+#patches in r- and theta direction
+nbp_arr = [[2, 4]]
+nbp_s = [ a[0]*a[1] for a in nbp_arr]
+kappa = 1.5
+alpha = 1.25
+epsilon = 0.3
 
-# domain_name = 'pretzel_f'
-# domain_name = 'square_9'  # for cavity solution, must be a square of diameter pi
-# domain_name = 'collela_square_9'  # for cavity solution, must be a square of diameter pi
+nb_tau = 2000
+
 domain_name = 'multipatch_rectangle'
 # domain_name = 'mpr_collela'
 
@@ -53,24 +56,24 @@ if test_case == 'cavity':
     a = np.pi 
     b = np.pi
     nx = 1 # 3  # mode
-    ny = 2  # mode
+    ny = 0  # mode
     kx = np.pi * nx / a
     ky = np.pi * ny / b
     omega = np.sqrt(kx**2 + ky**2)
     # c = omega / np.sqrt(kx**2 + ky**2) ## = 1 here
     sol_params = {'omega':omega, 'kx':kx, 'ky':ky}
 
-elif test_case == 'polarized':
+elif test_case == 'polarized' or test_case == 'polarized_polar':
     a = np.pi 
     b = np.pi
-    nx = 1 # 3  # mode
-    ny = 2  # mode
-    kx = np.pi * nx / a
+    nx = 6 # 3  # mode
+    ny = 0  # mode
+    kx = np.pi * nx / a # k_theta
     ky = np.pi * ny / b
-    omega = np.sqrt(kx**2 + ky**2)
-    kappa = 1
+    omega = 4# np.sqrt(kx**2 + ky**2)
+   # kappa = 1
     # c = omega / np.sqrt(kx**2 + ky**2) ## = 1 here
-    sol_params = {'omega':omega, 'kx':kx, 'ky':ky, 'kappa':kappa}
+    sol_params = {'omega':omega, 'kx':kx, 'ky':ky, 'kappa':kappa, 'alpha':alpha}
     
 else:
     # c = None
@@ -82,8 +85,8 @@ period_time = 2*np.pi/omega
 tau = 0.01 * period_time
 
 # must be integer ! (for now)
-nb_tau = 1  # final time: T = nb_tau * tau
-nb_tau = 50 # (1 period)
+  # final time: T = nb_tau * tau
+#nb_tau = 50 # (1 period)
 
 # plotting ranges:
 #   we give a list of ranges and plotting period: [[t_start, t_end], nt_plot_period]
@@ -107,7 +110,7 @@ if test_case == 'E0_pulse_no_source':
     source_is_harmonic = False
     
     nb_tau = 16 # 25 # final time: T = nb_tau * tau
-    plot_a_lot = True # False # 
+    plot_a_lot = False # False # 
     if plot_a_lot:
         plot_time_ranges = [
             [[0, nb_tau], 1]
@@ -158,7 +161,7 @@ elif test_case == 'polarized':
     #plot_variables = ["D", "B", "E"]
     plot_variables = ["D", "B", "E", "Dex", "Bex", "Eex", "divD"]
     #nb_tau = 1 # 25 # final time: T = nb_tau * tau
-    plot_a_lot = False # True # 
+    plot_a_lot = True # True # 
     if plot_a_lot:
         plot_time_ranges = [
             [[0, nb_tau], 2] 
@@ -171,6 +174,32 @@ elif test_case == 'polarized':
 
     cb_min_sol = 0
     cb_max_sol = omega
+
+elif test_case == 'polarized_polar':
+    solution_type = 'polarized'
+    source_type = 'polarized' # we lie here
+    source_is_harmonic = False
+
+    #plot_variables = ["D", "B", "E"]
+    plot_variables = ["D", "B", "E", "Dex", "Bex", "Eex", "divD"]
+    #nb_tau = 1 # 25 # final time: T = nb_tau * tau
+    plot_a_lot = False # True # 
+    if plot_a_lot:
+        plot_time_ranges = [
+            [[0, 2], 2],
+            [[3, 4], 1],
+            [[10,12], 2],
+            [[22,24], 2],
+            [[nb_tau-2, nb_tau], 2], 
+        ]
+    # else:
+    #     # plot only a few snapshots
+    #     plot_time_ranges = [
+    #         [[0, nb_tau], 1]        
+    #     ]
+
+    cb_min_sol = None
+    cb_max_sol = None
 
 elif test_case == 'Issautier_like_source':
     solution_type = 'zero'
@@ -209,7 +238,7 @@ solution_proj = 'P_geom' # 'P_L2' #
 # whether cP1 E_h is plotted instead of E_h:
 project_sol =  False #    True # 
 
-case_name = 'td_maxwell_' + test_case + '_' + method
+case_name = '01_td_maxwell/' + test_case + '_' + method
 
 # projection used for the source J
 if J_proj_case == 'P_geom':
@@ -242,8 +271,9 @@ if project_sol:
     case_name += '_E_proj'
 case_name += '_nb_tau={}'.format(nb_tau)
 
-if test_case == 'polarized':
+if test_case == 'polarized' or test_case == 'polarized_polar':
     case_name += '_kappa=_{}'.format(kappa)
+    case_name += '_alpha=_{}'.format(alpha)
 
 # diag_dtau: tau period for intermediate diags (time curves) plotting
 diag_dtau = max(1,nb_tau//10)
@@ -265,8 +295,9 @@ H_errors = [[[ None for nbc in nbc_s] for nbp in nbp_s] for deg in deg_s]
 D_errors = [[[ None for nbc in nbc_s] for nbp in nbp_s] for deg in deg_s]
 
 for i_deg, deg in enumerate(deg_s): 
-    for i_nbp, nbp in enumerate(nbp_s): 
+    for i_nbp, nbp_rtheta in enumerate(nbp_arr): 
         for i_nbc, nbc in enumerate(nbc_s): 
+            nbp = nbp_rtheta[0] * nbp_rtheta[1]
 
             params = {
                 'domain_name': domain_name,
@@ -345,7 +376,40 @@ for i_deg, deg in enumerate(deg_s):
                 cb_max_sol=cb_max_sol,
                 m_load_dir=m_load_dir,
                 )
-
+            elif test_case == 'polarized_polar':
+                diags = solve_td_polarized_polar_maxwell_pbm(
+                method=method,
+                mom_pres=mom_pres,
+                dry_run=False,
+                nbc=nbc, deg=deg,
+                Nt_pertau=Nt_pertau,
+                cfl=cfl,
+                source_is_harmonic=source_is_harmonic,
+                tau=tau,
+                nb_tau=nb_tau,
+                sol_params=sol_params,
+                domain_name=domain_name,
+                nb_patch_r=nbp_rtheta[0],
+                nb_patch_theta=nbp_rtheta[1],
+                solution_type=solution_type,
+                solution_proj=solution_proj,
+                source_type=source_type,
+                source_proj=source_proj,
+                backend_language=backend_language,
+                quad_param=quad_param,
+                plot_source=True,
+                project_sol=project_sol,
+                filter_source=filter_source,
+                plot_dir=plot_dir,
+                plot_time_ranges=plot_time_ranges,
+                plot_variables=plot_variables,
+                diag_dtau=diag_dtau,
+                hide_plots=True,
+                skip_plot_titles=True,
+                cb_min_sol=cb_min_sol, 
+                cb_max_sol=cb_max_sol,
+                m_load_dir=m_load_dir
+                )
             else:
 
                 diags = solve_td_maxwell_pbm(
@@ -406,10 +470,10 @@ if len(nbc_s) == 1:
 else:        
 
     print('with increasing nb of cells per patch (and fixed nb of patches)...')
-    write_errors_array_deg_nbc(E_errors, deg_s, nbc_s, error_dir=common_diag_dir, name="E")
-    write_errors_array_deg_nbc(B_errors, deg_s, nbc_s, error_dir=common_diag_dir, name="B")
-    write_errors_array_deg_nbc(D_errors, deg_s, nbc_s, error_dir=common_diag_dir, name="D")
-    write_errors_array_deg_nbc(H_errors, deg_s, nbc_s, error_dir=common_diag_dir, name="H")
+    write_errors_array_deg_nbc(E_errors, deg_s, nbp_s, nbc_s, error_dir=common_diag_dir, name="E")
+    write_errors_array_deg_nbc(B_errors, deg_s, nbp_s, nbc_s, error_dir=common_diag_dir, name="B")
+    write_errors_array_deg_nbc(D_errors, deg_s, nbp_s, nbc_s, error_dir=common_diag_dir, name="D")
+    write_errors_array_deg_nbc(H_errors, deg_s, nbp_s, nbc_s, error_dir=common_diag_dir, name="H")
 
 
 

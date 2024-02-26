@@ -5,9 +5,10 @@ from mpi4py import MPI
 import os
 import numpy as np
 
-from sympy import pi, cos, sin, Tuple, exp
+from sympy import pi, cos, sin, Tuple, exp, sqrt, acos, atan
 
 from sympde.topology import Derham
+from sympde.calculus  import dot
 
 from psydac.fem.basic                                   import FemField
 from psydac.feec.multipatch.api                         import discretize
@@ -435,3 +436,316 @@ def get_polarized_source(omega, kx, ky, kappa, t, domain):
 # curl B = (- ky * cos(kx * x) * sin(ky * y)  , kx * sin(kx * x) * cos(ky * y) ) * (kx**2 + ky**2) / omega * sin(omega * t)
 
 # OK IF (kx**2 + ky**2) = omega**2
+from sympy import arg, I, sign
+
+def get_polarized_annulus_potential_solution(omega, k_theta, epsilon, kappa, t, r_min, r_max, domain):
+    """<
+    dt B + curl E = 0
+    D = ((1+kappa)E_x, E_y) 
+    dt D - curl B = J
+    """
+    x,y = domain.coordinates
+    r = sqrt(x**2 + y**2)
+    theta = sign(y) * acos(x/r) #arg(x + I * y) #acos(x/r)
+
+    delta_r = r_max - r_min
+
+    # potential phi
+    phi = -(r_max - r)/delta_r - epsilon * cos(k_theta * theta) * (r_max - r)*(r - r_min) *sin(omega *t)
+    
+    
+    # E = - grad phi
+    E_hat = Tuple( 
+         1/delta_r - epsilon * cos(k_theta * theta) * (r_min + r_max - 2 * r) * sin(omega* t),
+         epsilon * k_theta * sin(k_theta * theta) * (r_max - r) * (r - r_min) * sin(omega* t)
+    )
+
+    dt_E_hat = Tuple( 
+         -omega * epsilon * cos(k_theta * theta) * (r_min + r_max - 2 * r) * cos(omega* t),
+         omega * epsilon * k_theta * sin(k_theta * theta) * (r_max - r) * (r - r_min) * cos(omega* t)
+    )
+
+    # E = DF^{-T} \hat E
+    E_phys = Tuple(
+        cos(theta) * E_hat[0] - 1/r * sin(theta) * E_hat[1],
+        sin(theta) * E_hat[0] + 1/r * cos(theta) * E_hat[1]
+    )
+
+    # B = curl E = 0
+    B_phys = 0
+
+    # D = E + kappa * (E - (b \dot E) b) 
+    D_hat = Tuple(
+                r *(1 + kappa) * E_hat[0],
+                1/r *            E_hat[1]
+                )
+
+    # D = (1/r DF) \hat D
+    D_phys = Tuple(
+      1/r *  cos(theta) * D_hat[0] -  sin(theta) * D_hat[1],
+       1/r *  sin(theta) * D_hat[0] +  cos(theta) * D_hat[1]
+    )
+
+    # J = - \partial_t D
+    J_hat = Tuple(
+        omega * r *(1 + kappa) * epsilon * cos(k_theta * theta) * (r_min + r_max - 2* r) * cos(omega* t),
+        -omega * 1/r * epsilon * k_theta * sin(k_theta * theta) * (r_max - r) * (r - r_min) * cos(omega* t)
+    )
+
+    # J = (1/r DF) \hat J
+    J_phys = Tuple(
+       1/r *  cos(theta) * J_hat[0] -  sin(theta) * J_hat[1],
+       1/r * sin(theta) * J_hat[0] +  cos(theta) * J_hat[1]
+    )
+
+    return  E_phys, B_phys, D_phys, J_phys
+
+def get_polarized_annulus_potential_source(omega, k_theta, epsilon, kappa, t, r_min, r_max, domain):
+    x,y = domain.coordinates
+    r = sqrt(x**2 + y**2)
+    theta = sign(y) * acos(x/r) #theta = arg(x + I * y) 
+    dt_E_hat = Tuple( 
+         -omega * epsilon * cos(k_theta * theta) * (r_min + r_max - 2 * r) * cos(omega* t),
+         omega * epsilon * k_theta * sin(k_theta * theta) * (r_max - r) * (r - r_min) * cos(omega* t)
+    )
+
+    return Tuple(
+       1/r *  cos(theta) * J_ex_[0] -  sin(theta) * J_ex_[1],
+       1/r * sin(theta) * J_ex_[0] +  cos(theta) * J_ex_[1]
+    )
+
+
+
+def get_polarized_annulus_potential_solution_old(b, omega, k_theta, epsilon, kappa, t, r_min, r_max, domain):
+    """<
+    dt B + curl E = 0
+    D = ((1+kappa)E_x, E_y) 
+    dt D - curl B = J
+    """
+    x,y = domain.coordinates
+    r = sqrt(x**2 + y**2)
+    theta = sign(y) * acos(x/r) #arg(x + I * y) #acos(x/r)
+
+    delta_r = r_max - r_min
+
+    # potential phi
+    #phi = -(r_max - r)/delta_r - epsilon * cos(k_theta * theta) * (r_max - r)*(r - r_min) *sin(omega *t)
+    
+    
+    # E = - grad phi
+    E_hat = Tuple( 
+         1/delta_r * cos(omega * t) - epsilon * cos(k_theta * theta) * (r_min + r_max - 2 * r) * cos(omega* t),
+         epsilon * k_theta * sin(k_theta * theta) * (r_max - r) * (r - r_min) * cos(omega* t)
+    )
+
+    dt_E_hat = Tuple( 
+         -1/delta_r * omega * sin(omega * t) +omega * epsilon * cos(k_theta * theta) * (r_min + r_max - 2 * r) * sin(omega* t),
+         -omega * epsilon * k_theta * sin(k_theta * theta) * (r_max - r) * (r - r_min) * sin(omega* t)
+    )
+
+    # E = DF^{-T} \hat E
+    E_phys = Tuple(
+        cos(theta) * E_hat[0] - 1/r * sin(theta) * E_hat[1],
+        sin(theta) * E_hat[0] + 1/r * cos(theta) * E_hat[1]
+    )
+
+    dt_E_phys = Tuple(
+        cos(theta) * dt_E_hat[0] - 1/r * sin(theta) * dt_E_hat[1],
+        sin(theta) * dt_E_hat[0] + 1/r * cos(theta) * dt_E_hat[1]
+    )
+
+    # B = curl E = 0
+    #B_phys = 100* cos((r - r_min)/delta_r * 2*pi) * sin(theta) #100 * r # = B_hat
+    B_phys = 100 * r
+    H_phys = B_phys
+
+    B_hat = r * B_phys #cos((r - r_min)/delta_r * 2*pi) # = H_phys
+    H_hat = H_phys 
+
+    # curl B
+    # 1/r DF 
+   # curl_H_hat = Tuple(100* cos((r - r_min)/delta_r * 2*pi) * cos(theta), 100* (2*pi)/delta_r * sin((r - r_min)/delta_r * 2*pi)* sin(theta))
+    curl_H_hat = Tuple(0, -100) #cos((r - r_min)/delta_r * 2*pi) - r * (2*pi)/delta_r * sin((r - r_min)/delta_r * 2*pi))
+
+    curl_H_phys = Tuple(
+        1/r * cos(theta) * curl_H_hat[0] -  sin(theta) * curl_H_hat[1],
+        1/r * sin(theta) * curl_H_hat[0] +  cos(theta) * curl_H_hat[1]
+    )
+
+    b1 = b[0]
+    b2 = b[1]
+    E1 = E_phys[0]
+    E2 = E_phys[1]
+    Eb = E1*b1 + E2*b2
+
+    # D = (1/r DF) \hat D
+    D_phys = Tuple( (1+kappa) * E1 - kappa * Eb * b1, 
+                    (1+kappa) * E2 - kappa * Eb * b2)
+
+    dtE1 = dt_E_phys[0]
+    dtE2 = dt_E_phys[1]
+    dtEb = dtE1*b1 + dtE2*b2
+
+    # J = - \partial_t D + curl H
+    J_phys = Tuple( -(1+kappa) * dtE1 + kappa * dtEb * b1 + curl_H_phys[0], 
+                    -(1+kappa) * dtE2 + kappa * dtEb * b2 + curl_H_phys[1]) #+ curl_H_phys
+
+    return   E_phys, B_phys, D_phys, J_phys
+
+def get_polarized_annulus_potential_source_old(b, omega, k_theta, epsilon, kappa, t, r_min, r_max, domain):
+    x,y = domain.coordinates
+    r = sqrt(x**2 + y**2)
+    theta = sign(y) * acos(x/r) #theta = arg(x + I * y) 
+    delta_r = r_max - r_min
+    
+    dt_E_hat = Tuple( 
+         - 1/delta_r * omega * sin(omega * t) +omega * epsilon * cos(k_theta * theta) * (r_min + r_max - 2 * r) * sin(omega* t),
+         -omega * epsilon * k_theta * sin(k_theta * theta) * (r_max - r) * (r - r_min) * sin(omega* t)
+    )
+
+    dt_E_phys = Tuple(
+        cos(theta) * dt_E_hat[0] - 1/r * sin(theta) * dt_E_hat[1],
+        sin(theta) * dt_E_hat[0] + 1/r * cos(theta) * dt_E_hat[1]
+    )
+
+    b1 = b[0]
+    b2 = b[1]
+    dtE1 = dt_E_phys[0]
+    dtE2 = dt_E_phys[1]
+    dtEb = dtE1*b1 +  dtE2*b2
+
+    #curl_H_hat = Tuple(100 * cos((r - r_min)/delta_r * 2*pi) * cos(theta), 100 * (2*pi)/delta_r * sin((r - r_min)/delta_r * 2*pi)* sin(theta))
+    curl_H_hat = Tuple(0, -100)#cos((r - r_min)/delta_r * 2*pi) - r * (2*pi)/delta_r * sin((r - r_min)/delta_r * 2*pi))
+    curl_H_phys = Tuple(
+        1/r * cos(theta) * curl_H_hat[0] -  sin(theta) * curl_H_hat[1],
+        1/r * sin(theta) * curl_H_hat[0] +  cos(theta) * curl_H_hat[1]
+    )
+
+    return Tuple( -(1+kappa) * dtE1 + kappa * dtEb * b1 + curl_H_phys[0], 
+                    -(1+kappa) * dtE2 + kappa * dtEb * b2 + curl_H_phys[1]) #+ curl_H_phys
+
+
+
+def get_polarized_annulus_potential_solution(b, omega, k_theta, epsilon, kappa, t, r_min, r_max, domain):
+    """
+    dt B + curl E = 0
+    D = ((1+kappa)E_x, E_y) 
+    dt D - curl B = J
+    """
+    x,y = domain.coordinates
+    r = sqrt(x**2 + y**2)
+    theta = sign(y) * acos(x/r) #arg(x + I * y) #acos(x/r)
+
+    delta_r = r_max - r_min
+
+    # potential phi(r, theta)
+    phi = cos(k_theta * theta) * (r_max - r)*(r - r_min) 
+    dr_phi = cos(k_theta * theta) * (r_min + r_max - 2 * r)
+    dtheta_phi = -k_theta * sin(k_theta * theta) * (r_max - r)*(r - r_min)
+    
+    barphi = (r - r_min)/delta_r 
+    dr_barphi = 1/delta_r
+    dtheta_barphi = 0
+    # E =  grad phi cos(omega t) + epsilon (phi, 0)^T sin(omega t)
+    E_hat = Tuple( 
+        cos(omega * t) * dr_barphi     + epsilon * sin(omega * t) * phi,
+        cos(omega * t) * dtheta_barphi
+    )
+
+    dt_E_hat = Tuple( 
+        - omega * sin(omega * t) * dr_barphi     + epsilon * omega * cos(omega * t) * phi,
+        - omega * sin(omega * t) * dtheta_barphi
+    )
+
+    # E = DF^{-T} \hat E
+    E_phys = Tuple(
+        cos(theta) * E_hat[0] - 1/r * sin(theta) * E_hat[1],
+        sin(theta) * E_hat[0] + 1/r * cos(theta) * E_hat[1]
+    )
+
+    dt_E_phys = Tuple(
+        cos(theta) * dt_E_hat[0] - 1/r * sin(theta) * dt_E_hat[1],
+        sin(theta) * dt_E_hat[0] + 1/r * cos(theta) * dt_E_hat[1]
+    )
+
+    # dt B = - curl E =  epsilon * sin(omega * t) * k_theta * sin(k_theta * theta) * (r_max - r)*(r - r_min)
+    # dt B = - curl E = epsilon * sin(omega * t)  * dtheta_phi 
+    # B = -1/omega * cos(omega * t) * epsilon * dtheta_phi
+    B_phys = -1/omega * cos(omega * t) * epsilon * dtheta_phi
+    H_phys = B_phys
+
+    B_hat = r * B_phys 
+    H_hat = H_phys 
+
+    # curl H =  (dtheta B, -dr B)
+    curl_H_hat = Tuple(1/omega * cos(omega * t) * epsilon * k_theta**2 * cos(k_theta * theta) * (r_max - r)*(r - r_min),
+                       -1/omega * cos(omega * t) * epsilon * k_theta * sin(k_theta * theta) * (r_max + r_min - 2 * r)
+    )
+
+    curl_H_phys = Tuple(
+        1/r * cos(theta) * curl_H_hat[0] -  sin(theta) * curl_H_hat[1],
+        1/r * sin(theta) * curl_H_hat[0] +  cos(theta) * curl_H_hat[1]
+    )
+
+    b1 = b[0]
+    b2 = b[1]
+    E1 = E_phys[0]
+    E2 = E_phys[1]
+    Eb = E1*b1 + E2*b2
+
+    # D = (1/r DF) \hat Dtheth
+    D_phys = Tuple( (1+kappa) * E1 - kappa * Eb * b1, 
+                    (1+kappa) * E2 - kappa * Eb * b2)
+
+    dtE1 = dt_E_phys[0]
+    dtE2 = dt_E_phys[1]
+    dtEb = dtE1*b1 + dtE2*b2
+
+    # J = - \partial_t D + curl H
+    J_phys = Tuple( -(1+kappa) * dtE1 + kappa * dtEb * b1 + curl_H_phys[0], 
+                    -(1+kappa) * dtE2 + kappa * dtEb * b2 + curl_H_phys[1]) 
+
+    return   E_phys, B_phys, D_phys, J_phys
+
+
+def get_polarized_annulus_potential_source(b, omega, k_theta, epsilon, kappa, t, r_min, r_max, domain):
+    x,y = domain.coordinates
+    r = sqrt(x**2 + y**2)
+    theta = sign(y) * acos(x/r) #theta = arg(x + I * y) 
+    delta_r = r_max - r_min
+    
+    phi = cos(k_theta * theta) * (r_max - r)*(r - r_min) 
+    dr_phi = cos(k_theta * theta) * (r_min + r_max - 2 * r)
+    dtheta_phi = -k_theta * sin(k_theta * theta) * (r_max - r)*(r - r_min)
+    
+    barphi = (r - r_min)/delta_r 
+    dr_barphi = 1/delta_r
+    dtheta_barphi = 0
+
+    dt_E_hat = Tuple( 
+        - omega * sin(omega * t) * dr_barphi     + epsilon * omega * cos(omega * t) * phi,
+        - omega * sin(omega * t) * dtheta_barphi
+    )
+
+    dt_E_phys = Tuple(
+        cos(theta) * dt_E_hat[0] - 1/r * sin(theta) * dt_E_hat[1],
+        sin(theta) * dt_E_hat[0] + 1/r * cos(theta) * dt_E_hat[1]
+    )
+
+    b1 = b[0]
+    b2 = b[1]
+    dtE1 = dt_E_phys[0]
+    dtE2 = dt_E_phys[1]
+    dtEb = dtE1*b1 +  dtE2*b2
+
+    curl_H_hat = Tuple(1/omega * cos(omega * t) * epsilon * k_theta**2 * cos(k_theta * theta) * (r_max - r)*(r - r_min),
+                       -1/omega * cos(omega * t) * epsilon * k_theta * sin(k_theta * theta) * (r_max + r_min - 2 * r)
+    )
+
+    curl_H_phys = Tuple(
+        1/r * cos(theta) * curl_H_hat[0] -  sin(theta) * curl_H_hat[1],
+        1/r * sin(theta) * curl_H_hat[0] +  cos(theta) * curl_H_hat[1]
+    )
+
+    return Tuple( -(1+kappa) * dtE1 + kappa * dtEb * b1 + curl_H_phys[0], 
+                    -(1+kappa) * dtE2 + kappa * dtEb * b2 + curl_H_phys[1]) 

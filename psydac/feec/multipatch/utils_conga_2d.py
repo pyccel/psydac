@@ -247,7 +247,7 @@ def write_errors_array_deg_nbc(errors, deg_s, nbp, nbc_s, error_dir, name):
         for i_deg in range(nb_deg):
             a_writer.write('{} : ['.format(deg_s[i_deg]))
             for i_nc in range(nb_nbc):
-                a_writer.write('{}, '.format(errors[i_deg][i_nc]))
+                a_writer.write('{}, '.format(errors[i_deg][0][i_nc]))
             a_writer.write('], \n')
         
         a_writer.write('} \n\n')

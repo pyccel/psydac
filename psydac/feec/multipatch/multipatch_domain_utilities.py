@@ -571,14 +571,31 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
             [domain_3.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1),1],
         ]
 
-    elif domain_name in ['annulus_3', 'annulus_4']:
+    elif domain_name in ['annulus_2', 'annulus_3', 'annulus_4']:
         # regular annulus
         if r_min is None:
             r_min=0.5 # smaller radius
         if r_max is None:
             r_max=1.  # larger radius
 
-        if domain_name == 'annulus_3':
+        if domain_name == 'annulus_2':
+            OmegaLog1 = Square('OmegaLog1',bounds1=(r_min, r_max), bounds2=(0., np.pi))
+            mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+            domain_1     = mapping_1(OmegaLog1)
+
+
+            OmegaLog2 = Square('OmegaLog2',bounds1=(r_min, r_max), bounds2=(np.pi, 2*np.pi))
+            mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+            domain_2     = mapping_2(OmegaLog2)
+
+            patches = [domain_1, domain_2]
+
+            interfaces = [
+                [domain_1.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1),1],
+                [domain_2.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1),1],
+            ]
+
+        elif domain_name == 'annulus_3':
             OmegaLog1 = Square('OmegaLog1',bounds1=(r_min, r_max), bounds2=(0., np.pi/2))
             mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
             domain_1     = mapping_1(OmegaLog1)
@@ -845,4 +862,88 @@ def get_ref_eigenvalues(domain_name, operator):
     sigma = ref_sigmas[len(ref_sigmas)//2]
 
     return sigma, ref_sigmas
+
+
+
+def build_multipatch_annulus(nb_patch_r = 2, nb_patch_theta = 2, r_min=0.25, r_max=1):
+    """
+    Create a 2D annulus domain with the prescribed number of patch in each direction.
+
+    Parameters
+    ----------
+    nb_patch_r: <int>
+     number of patch in r direction
+
+    nb_patch_theta: <int>
+     number of patch in theta direction
+    
+    r_min: <float>
+     r cordinate for the left boundary of the domain
+
+    r_max: <float>
+     r cordinate for the right boundary of the domain
+
+    Returns
+    -------
+    domain : <Sympde.topology.Domain>
+     The symbolic multipatch domain
+    """
+
+    r_diff= r_max - r_min
+    theta_diff= 2 * np.pi    
+
+    list_Omega = [[Square('OmegaLog_'+str(i)+'_'+str(j),
+                    bounds1 = (r_min+i/nb_patch_r*r_diff,r_min+(i+1)/nb_patch_r*r_diff),
+                    bounds2 = (j/nb_patch_theta*theta_diff,(j+1)/nb_patch_theta*theta_diff)) for j in range(nb_patch_theta)] for i in range(nb_patch_r)]
+
+    F = lambda name: PolarMapping(name,2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+
+
+    list_mapping = [[F('M_'+str(i)+'_'+str(j)) for j in range(nb_patch_theta)] for i in range(nb_patch_r)]
+
+    list_domain = [[list_mapping[i][j](list_Omega[i][j]) for j in range(nb_patch_theta)] for i in range(nb_patch_r)]
+
+    patches = []
+
+    for i in range(nb_patch_r):
+        patches.extend(list_domain[i])
+ 
+    # domain = union([domain_1, domain_2, domain_3, domain_4, domain_5, domain_6], name = 'domain')
+
+    # patches = [domain_1, domain_2, domain_3, domain_4, domain_5, domain_6]
+
+    # domain = union(flat_list, name='domain')
+
+    interfaces = []
+    #interfaces in x
+    list_right_bnd = []
+    list_left_bnd  = []
+    list_top_bnd = []
+    list_bottom_bnd1  = []
+    list_bottom_bnd2  = []
+    for j in range(nb_patch_theta):
+        interfaces.extend([[list_domain[i][j].get_boundary(axis=0, ext=+1), list_domain[i+1][j].get_boundary(axis=0, ext=-1), 1] for i in range(nb_patch_r-1)])
+        #periodic boundaries
+
+        list_right_bnd.append(list_domain[nb_patch_r-1][j].get_boundary(axis=0, ext=+1))
+        list_left_bnd.append(list_domain[0][j].get_boundary(axis=0, ext=-1))
+
+
+    #interfaces in y
+    for i in range(nb_patch_r):
+        interfaces.extend([[list_domain[i][j].get_boundary(axis=1, ext=+1), list_domain[i][j+1].get_boundary(axis=1, ext=-1), 1] for j in range(nb_patch_theta-1)])
+        #periodic boundariesnb_patch_theta-1
+
+        interfaces.append([list_domain[i][nb_patch_theta-1].get_boundary(axis=1, ext=+1), list_domain[i][0].get_boundary(axis=1, ext=-1), 1])
+      
+
+    domain = create_domain(patches, interfaces, name='domain')
+    
+
+    print("int: ", domain.interior)
+    print("bound: ", domain.boundary)
+    print("len(bound): ", len(domain.boundary))
+    print("interfaces: ", domain.interfaces)
+
+    return domain#, domain_h, [right_bnd, left_bnd, top_bnd, bottom_bnd1, bottom_bnd2]
 
