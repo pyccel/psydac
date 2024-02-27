@@ -88,6 +88,18 @@ jobs:
           fi
           echo $HDF5_DIR
 
+      - name: Install PETSc with complex configuration
+        run: |
+          wget https://gitlab.com/petsc/petsc/-/archive/main/petsc-main.zip
+          unzip ./"petsc-main.zip"
+          rm ./"petsc-main.zip"
+          cd petsc-main
+          ./configure --with-scalar-type=complex
+          make all check
+          cd src/binding/petsc4py
+          PETSC_ARCH=linux-gnu-complex-64
+          pip3 install .
+
       - name: Install Python dependencies
         run: |
           export CC="mpicc" HDF5_MPI="ON"
