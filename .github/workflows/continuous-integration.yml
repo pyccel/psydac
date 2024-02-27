@@ -96,6 +96,7 @@ jobs:
           cd petsc-main
           ./configure --with-scalar-type=complex
           make all check
+          cd ..
           pip install petsc4py
 
       - name: Install Python dependencies
