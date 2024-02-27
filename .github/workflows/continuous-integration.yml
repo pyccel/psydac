@@ -96,9 +96,7 @@ jobs:
           cd petsc-main
           ./configure --with-scalar-type=complex
           make all check
-          cd src/binding/petsc4py
-          PETSC_ARCH=linux-gnu-complex-64
-          pip3 install .
+          pip install petsc4py
 
       - name: Install Python dependencies
         run: |
