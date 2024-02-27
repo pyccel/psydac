@@ -96,6 +96,7 @@ jobs:
           cd petsc-main
           ./configure --with-scalar-type=complex
           make all check
+          python -m pip install Cython
           PETSC_ARCH=linux-gnu-complex-64 python -m pip install src/binding/petsc4py
 
       - name: Install Python dependencies
