@@ -5,7 +5,6 @@ from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatr
 from scipy.sparse import coo_matrix, bmat
 
 from mpi4py import MPI
-from petsc4py import PETSc
 
 __all__ = ('flatten_vec', 'vec_topetsc', 'mat_topetsc')
 
@@ -71,6 +70,7 @@ def vec_topetsc( vec ):
     gvec : PETSc.Vec
         PETSc vector
     """
+    from petsc4py import PETSc
 
     if isinstance(vec, StencilVector):
         comm = vec.space.cart.global_comm
@@ -101,6 +101,7 @@ def mat_topetsc( mat ):
     gmat : PETSc.Mat
         PETSc Matrix
     """
+    from petsc4py import PETSc
 
     if isinstance(mat, StencilMatrix):
         comm = mat.domain.cart.global_comm
