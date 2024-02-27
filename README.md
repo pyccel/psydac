@@ -39,7 +39,7 @@ sudo apt install libopenmpi-dev openmpi-bin
 sudo apt install libomp-dev libomp5
 sudo apt install libhdf5-openmpi-dev
 ```
-To install `PETSc` with configuration for complex numbers, download [source code](https://gitlab.com/petsc/petsc). After extracting the compressed file, move into folder and run:
+To install `PETSc` with configuration for complex numbers, download [source code](https://gitlab.com/petsc/petsc/-/archive/main/petsc-main.zip). After extracting the compressed file, move into folder and run:
 ```sh
 ./configure --with-scalar-type=complex
 make all check
