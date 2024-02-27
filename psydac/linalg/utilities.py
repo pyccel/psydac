@@ -55,16 +55,20 @@ def array_to_psydac(x, Xh):
 
 #==============================================================================
 def petsc_to_psydac(x, Xh):
-    """ converts a PETSc.Vec object to a StencilVector or a BlockVector format.
+    """Convert a PETSc.Vec object to a StencilVector or BlockVector. It assumes that PETSc was installed with the configuration for complex numbers.
         We gather the petsc global vector in all the processes and extract the chunk owned by the Psydac Vector.
         .. warning: This function will not work if the global vector does not fit in the process memory.
+
+    Parameters
+    ----------
+    x : PETSc.Vec
+      PETSc vector
+
+    Returns
+    -------
+    u : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector
+        Psydac vector
     """
-
-    '''from petsc4py import PETSc
-
-    if isinstance(x, PETSc.Mat):
-        indptr, indices, data = x.getValuesCSR()
-        M_s = csr_matrix((data, indices, indptr), shape=x.size)'''
 
     if isinstance(Xh, BlockVectorSpace):
         u = BlockVector(Xh)
@@ -72,14 +76,14 @@ def petsc_to_psydac(x, Xh):
 
             comm       = u[0][0].space.cart.global_comm
             dtype      = u[0][0].space.dtype
-            sendcounts = np.array(comm.allgather(len(vec.array))) if comm else np.array([len(vec.array)])
+            sendcounts = np.array(comm.allgather(len(x.array))) if comm else np.array([len(x.array)])
             recvbuf    = np.empty(sum(sendcounts), dtype='complex') # PETSc installed with complex configuration only handles complex vectors
 
             if comm:
                 # gather the global array in all the procs
-                comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
+                comm.Allgatherv(sendbuf=x.array, recvbuf=(recvbuf, sendcounts))
             else:
-                recvbuf[:] = vec.array
+                recvbuf[:] = x.array
 
             inds = 0
             for d in range(len(Xh.spaces)):
@@ -104,14 +108,14 @@ def petsc_to_psydac(x, Xh):
         else:
             comm       = u[0].space.cart.global_comm
             dtype      = u[0].space.dtype
-            sendcounts = np.array(comm.allgather(len(vec.array))) if comm else np.array([len(vec.array)])
+            sendcounts = np.array(comm.allgather(len(x.array))) if comm else np.array([len(x.array)])
             recvbuf    = np.empty(sum(sendcounts), dtype='complex') # PETSc installed with complex configuration only handles complex vectors
 
             if comm:
                 # gather the global array in all the procs
-                comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
+                comm.Allgatherv(sendbuf=x.array, recvbuf=(recvbuf, sendcounts))
             else:
-                recvbuf[:] = vec.array
+                recvbuf[:] = x.array
 
             inds = 0
             starts = [np.array(V.starts) for V in Xh.spaces]
@@ -136,14 +140,14 @@ def petsc_to_psydac(x, Xh):
         u          = StencilVector(Xh)
         comm       = u.space.cart.global_comm
         dtype      = u.space.dtype
-        sendcounts = np.array(comm.allgather(len(vec.array))) if comm else np.array([len(vec.array)])
+        sendcounts = np.array(comm.allgather(len(x.array))) if comm else np.array([len(x.array)])
         recvbuf    = np.empty(sum(sendcounts), dtype='complex') # PETSc installed with complex configuration only handles complex vectors 
 
         if comm:
             # gather the global array in all the procs
-            comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
+            comm.Allgatherv(sendbuf=x.array, recvbuf=(recvbuf, sendcounts))
         else:
-            recvbuf[:] = vec.array
+            recvbuf[:] = x.array
 
         # compute the global indices of the coefficents owned by the process using starts and ends
         starts = np.array(Xh.starts)

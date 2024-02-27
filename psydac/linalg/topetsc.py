@@ -1,6 +1,6 @@
 import numpy as np
 
-from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockLinearOperator
+from psydac.linalg.block import BlockVectorSpace, BlockVector
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from scipy.sparse import coo_matrix, bmat
 
@@ -14,13 +14,13 @@ def flatten_vec( vec ):
 
     Parameters
     ----------
-    vec : <Vector>
-      Psydac Vector to be flattened
+    vec : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector
+      Psydac vector to be flattened
 
     Returns
     -------
     indices: numpy.ndarray
-        The global indices the data array collapsed into one dimension.
+        The global indices of the data array collapsed into one dimension.
 
     array : numpy.ndarray
         A copy of the data array collapsed into one dimension.
@@ -59,18 +59,17 @@ def flatten_vec( vec ):
     return indices, array
 
 def vec_topetsc( vec ):
-    """ Convert Psydac StencilVector or Blockvector to PETSc data structure.
+    """ Convert vector from Psydac format to a PETSc.Vec object.
 
     Parameters
     ----------
-    vec : <Vector>
-      Distributed Psydac vector.
+    vec : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector
+      Psydac StencilVector or BlockVector.
 
     Returns
     -------
     gvec : PETSc.Vec
-        Distributed PETSc vector.
-
+        PETSc vector
     """
 
     if isinstance(vec, StencilVector):
@@ -90,17 +89,17 @@ def vec_topetsc( vec ):
     return gvec
 
 def mat_topetsc( mat ):
-    """ Convert Psydac Matrix to PETSc data structure.
+    """ Convert operator from Psydac format to a PETSc.Mat object.
 
     Parameters
     ----------
-    vec : <Matrix>
-      Distributed Psydac Matrix.
+    mat : psydac.linalg.stencil.StencilMatrix | psydac.linalg.basic.LinearOperator | psydac.linalg.block.BlockLinearOperator
+      Psydac operator
 
     Returns
     -------
     gmat : PETSc.Mat
-        Distributed PETSc matrix.
+        PETSc Matrix
     """
 
     if isinstance(mat, StencilMatrix):
@@ -113,25 +112,10 @@ def mat_topetsc( mat ):
     mat_coo = mat.tosparse()
     mat_csr = mat_coo.tocsr()
 
-    '''
-    # Old code from Sayid for coo matrix.
-    # There is a problem with the repeated entries.
-    gmat  = PETSc.Mat().create(comm=comm) 
-    gmat.setSizes(mat.shape)
-    gmat.setType("mpiaij")
-    gmat.setFromOptions()
-
-    NNZ = comm.allreduce(data.size, op=MPI.SUM)
-    gmat.setPreallocationNNZ(NNZ)
-    for i in range(len(rows)):
-        gmat.setValues(rows[i], cols[i], data[i])
-
-    gmat.assemble()'''
-
     gmat = PETSc.Mat().create(comm=comm)
     gmat.setSizes(mat.shape)
+    # Set sparse matrix type
     gmat.setType("mpiaij")
-    gmat.setFromOptions()
 
     if comm:
         NNZ = comm.allreduce(mat_csr.data.size, op=MPI.SUM)
@@ -142,5 +126,6 @@ def mat_topetsc( mat ):
         col_data = mat_csr.data[mat_csr.indptr[i]:mat_csr.indptr[i+1]]
         gmat.setValues(i, cols, col_data)  
    
+    # Process inserted matrix entries
     gmat.assemble()
     return gmat
