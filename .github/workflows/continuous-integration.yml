@@ -90,15 +90,15 @@ jobs:
 
       - name: Install PETSc with complex support, and test it
         run: |
-          wget https://gitlab.com/petsc/petsc/-/archive/main/petsc-main.zip
-          unzip ./"petsc-main.zip"
-          rm ./"petsc-main.zip"
-          cd petsc-main
+          wget https://gitlab.com/petsc/petsc/-/archive/v3.20.5/petsc-v3.20.5.zip -O petsc.zip
+          unzip ./"petsc.zip" -j petsc
+          rm ./"petsc.zip"
+          cd petsc
           ./configure --with-scalar-type=complex --with-fortran-bindings=0
           make all check
 
       - name: Install petsc4py
-        working-directory: ./petsc-main
+        working-directory: ./petsc
         run: |
           PETSC_ARCH=linux-gnu-complex-64 python -m pip install src/binding/petsc4py
 
