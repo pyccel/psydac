@@ -862,8 +862,6 @@ def test_block_linear_operator_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2 
     M1 = StencilMatrix( V, V)
     M2 = StencilMatrix( V, V )
     M3 = StencilMatrix( V, V )
-    x1 = StencilVector( V )
-    x2 = StencilVector( V )
 
     # Fill in stencil matrices based on diagonal index
     if dtype==complex:
@@ -881,14 +879,6 @@ def test_block_linear_operator_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2 
     M2.remove_spurious_entries()
     M3.remove_spurious_entries()
 
-    # Fill in vector with random values, then update ghost regions
-    for i1 in range(n1):
-        for i2 in range(n2):
-            x1[i1,i2] = 2.0*random() - 1.0
-            x2[i1,i2] = 5.0*random() - 1.0
-    x1.update_ghost_regions()
-    x2.update_ghost_regions()
-
     W = BlockVectorSpace(V, V)
 
     # Construct a BlockLinearOperator object containing M1, M2, M, using 3 ways
@@ -900,26 +890,14 @@ def test_block_linear_operator_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2 
 
     L = BlockLinearOperator( W, W, blocks=dict_blocks )
 
-    # Construct a BlockVector object containing x1 and x2
-    #     |x1|
-    # X = |  |
-    #     |x2|
-
-    X = BlockVector(W)
-    X[0] = x1
-    X[1] = x2
-
-    # Compute BlockLinearOperator product
-    Y = L.dot(X)
-
     Lp = L.topetsc()
     indptr, indices, data = Lp.getValuesCSR()
     if dtype == float:
         data = data.real #PETSc with installation complex configuration only handles complex dtype
-    Mp = csr_matrix((data, indices, indptr), shape=Lp.size)   
+    Lp = csr_matrix((data, indices, indptr), shape=Lp.size)   
+    L = L.tosparse().tocsr()
 
-    # Check data in 1D array
-    assert np.allclose( Y.toarray(), Mp.dot(X.toarray()), rtol=1e-13, atol=1e-13 )
+    assert (L-Lp).data.size == 0
 
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
@@ -1218,9 +1196,8 @@ def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
     from mpi4py import MPI
-    comm = MPI.COMM_WORLD
 
-    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=MPI.COMM_WORLD)
 
     # Partition the points
     npts = [n1,n2]
@@ -1233,8 +1210,6 @@ def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P
     M1 = StencilMatrix( V, V)
     M2 = StencilMatrix( V, V )
     M3 = StencilMatrix( V, V )
-    x1 = StencilVector( V )
-    x2 = StencilVector( V )
 
     # Fill in stencil matrices based on diagonal index
     if dtype==complex:
@@ -1252,14 +1227,6 @@ def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P
     M2.remove_spurious_entries()
     M3.remove_spurious_entries()
 
-    # Fill in vector with random values, then update ghost regions
-    for i1 in range(n1):
-        for i2 in range(n2):
-            x1[i1,i2] = 2.0*random() - 1.0
-            x2[i1,i2] = 5.0*random() - 1.0
-    x1.update_ghost_regions()
-    x2.update_ghost_regions()
-
     W = BlockVectorSpace(V, V)
 
     # Construct a BlockLinearOperator object containing M1, M2, M, using 3 ways
@@ -1271,26 +1238,14 @@ def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P
 
     L = BlockLinearOperator( W, W, blocks=dict_blocks )
 
-    # Construct a BlockVector object containing x1 and x2
-    #     |x1|
-    # X = |  |
-    #     |x2|
-
-    X = BlockVector(W)
-    X[0] = x1
-    X[1] = x2
-
-    # Compute BlockLinearOperator product
-    Y = L.dot(X)
-
     Lp = L.topetsc()
     indptr, indices, data = Lp.getValuesCSR()
     if dtype == float:
         data = data.real #PETSc with installation complex configuration only handles complex dtype
-    Mp = csr_matrix((data, indices, indptr), shape=Lp.size)   
+    Lp = csr_matrix((data, indices, indptr), shape=Lp.size)   
+    L = L.tosparse().tocsr()
 
-    # Check data in 1D array
-    assert np.allclose( Y.toarray(), Mp.dot(X.toarray()), rtol=1e-13, atol=1e-13 )
+    assert (L-Lp).data.size == 0
 
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )

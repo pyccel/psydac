@@ -43,9 +43,7 @@ To install `PETSc` with configuration for complex numbers, download [source code
 ```sh
 ./configure --with-scalar-type=complex
 make all check
-cd src/binding/petsc4py
-PETSC_ARCH=linux-gnu-complex-64
-pip3 install .
+PETSC_ARCH=linux-gnu-complex-64 PETSC_DIR=~/petsc-main pip install src/binding/petsc4py/setup.py
 ```
 
 ### macOS
