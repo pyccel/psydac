@@ -91,7 +91,7 @@ jobs:
       - name: Install PETSc with complex support, and test it
         run: |
           wget https://gitlab.com/petsc/petsc/-/archive/v3.20.5/petsc-v3.20.5.zip -O petsc.zip
-          unzip ./"petsc.zip" -j petsc
+          unzip ./"petsc.zip"
           rm ./"petsc.zip"
           cd petsc
           ./configure --with-scalar-type=complex --with-fortran-bindings=0
