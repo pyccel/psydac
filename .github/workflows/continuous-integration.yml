@@ -98,6 +98,7 @@ jobs:
 
       - name: Install PETSc with complex support, and test it
         working-directory: ./petsc
+        run: |
           ./configure --with-scalar-type=complex --with-fortran-bindings=0
           make all check
 
