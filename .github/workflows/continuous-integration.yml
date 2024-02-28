@@ -94,7 +94,7 @@ jobs:
           unzip ./"petsc-main.zip"
           rm ./"petsc-main.zip"
           cd petsc-main
-          ./configure --with-scalar-type=complex
+          ./configure --with-scalar-type=complex --with-fortran-bindings=0
           make all check
 
       - name: Install petsc4py
