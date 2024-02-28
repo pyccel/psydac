@@ -88,18 +88,14 @@ jobs:
           fi
           echo $HDF5_DIR
 
-      - name: Install PETSc with support for complex numbers
+      - name: Install PETSc with complex support, and test it
         run: |
           wget https://gitlab.com/petsc/petsc/-/archive/main/petsc-main.zip
           unzip ./"petsc-main.zip"
           rm ./"petsc-main.zip"
           cd petsc-main
           ./configure --with-scalar-type=complex
-          make all
-
-      - name: Test PETSc installation
-        run: |
-          make check
+          make all check
 
       - name: Install petsc4py
         run: |
