@@ -37,7 +37,7 @@ def compute_global_starts_ends(domain_decomposition, npts, pads):
     return tuple(global_starts), tuple(global_ends)
 
 
-# TODO : Add test remove_spurious_entries, update_ghost_regions, exchange-assembly_data, diagonal, topetsc,
+# TODO : Add test remove_spurious_entries, update_ghost_regions, exchange-assembly_data, diagonal,
 #        ghost_regions_in_sync
 # TODO : check if toarray() is working with a shift greater than 1 and idem for all other function that need toaaray
 
@@ -596,12 +596,48 @@ def test_stencil_matrix_2d_serial_topetsc( dtype, n1, n2, p1, p2, s1, s2, P1, P2
     indptr, indices, data = Mp.getValuesCSR()
     if dtype == float:
         data = data.real #PETSc with installation complex configuration only handles complex dtype
-    Mp = csr_matrix((data, indices, indptr), shape=Mp.size).todense()
+    Mp = csr_matrix((data, indices, indptr), shape=Mp.size)
 
-    # Check shape and data in 2D array
-    assert Mp.shape == M.shape
-    assert np.array_equal(Mp, M.toarray())
+    M = M.tosparse().tocsr()
 
+    assert (M-Mp).data.size == 0
+
+# ===============================================================================
+    
+@pytest.mark.parametrize('n1', [5])
+@pytest.mark.parametrize('n2', [7])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('p2', [1, 3])
+@pytest.mark.parametrize('P1', [True, False])
+@pytest.mark.parametrize('P2', [True, False])
+def test_mass_matrix_2d_serial_topetsc(n1, n2, p1, p2, P1, P2):
+    from sympde.topology import Square, ScalarFunctionSpace, element_of
+    from sympde.expr     import BilinearForm, integral
+    from psydac.api.settings            import PSYDAC_BACKENDS
+    from psydac.api.discretization      import discretize
+
+    domain = Square()
+    V = ScalarFunctionSpace('V', domain)
+
+    u = element_of(V, name='u')
+    v = element_of(V, name='v')    
+
+    a1 = BilinearForm((u, v), integral(domain, u * v))
+    domain_h = discretize(domain, ncells=[n1,n2], periodic=[P1,P2])
+    Vh = discretize(V, domain_h, degree=[p1,p2])
+    a1h = discretize(a1, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['pyccel-gcc'])    
+    M1 = a1h.assemble()
+
+    # Convert stencil matrix to PETSc.Mat
+    Mp = M1.topetsc()
+    # Convert PETSc.Mat to sparse CSR matrix   
+    indptr, indices, data = Mp.getValuesCSR()
+    data = data.real #PETSc with installation complex configuration only handles complex dtype
+    Mp = csr_matrix((data, indices, indptr), shape=Mp.size)
+
+    M1 = M1.tosparse().tocsr()
+
+    assert (M1-Mp).data.size == 0
 
 # ===============================================================================
 
@@ -2666,7 +2702,6 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
 @pytest.mark.parallel
 def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2):
     from mpi4py import MPI
-    comm = MPI.COMM_WORLD
     # Select non-zero values based on diagonal index
     nonzero_values = dict()
     if dtype==complex:
@@ -2679,7 +2714,7 @@ def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1,
                 nonzero_values[k1, k2] = 10 * k1 + k2 + 7
 
     # Create domain decomposition
-    D = DomainDecomposition([n1, n2], periods=[P1, P2], comm=comm)
+    D = DomainDecomposition([n1, n2], periods=[P1, P2], comm=MPI.COMM_WORLD)
 
     # Partition the points
     npts = [n1, n2]
@@ -2705,11 +2740,50 @@ def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1,
     indptr, indices, data = Mp.getValuesCSR()
     if dtype == float:
         data = data.real #PETSc with installation complex configuration only handles complex dtype
-    Mp = csr_matrix((data, indices, indptr), shape=Mp.size).todense()
+    Mp = csr_matrix((data, indices, indptr), shape=Mp.size)
 
-    # Check shape and data in 2D array
-    assert Mp.shape == M.shape
-    assert np.array_equal(Mp, M.toarray())
+    M = M.tosparse().tocsr()
+
+    assert (M-Mp).data.size == 0
+
+# ===============================================================================
+    
+@pytest.mark.parametrize('n1', [5])
+@pytest.mark.parametrize('n2', [7])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('P1', [True, False])
+@pytest.mark.parametrize('P2', [True, False])
+@pytest.mark.parallel
+def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
+    from sympde.topology import Square, ScalarFunctionSpace, element_of
+    from sympde.expr     import BilinearForm, integral
+    from psydac.api.settings            import PSYDAC_BACKENDS
+    from psydac.api.discretization      import discretize
+    from mpi4py import MPI
+
+    domain = Square()
+    V = ScalarFunctionSpace('V', domain)
+
+    u = element_of(V, name='u')
+    v = element_of(V, name='v')    
+
+    a1 = BilinearForm((u, v), integral(domain, u * v))
+    domain_h = discretize(domain, ncells=[n1,n2], periodic=[P1,P2], comm=MPI.COMM_WORLD)
+    Vh = discretize(V, domain_h, degree=[p1,p2])
+    a1h = discretize(a1, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['pyccel-gcc'])    
+    M1 = a1h.assemble()
+    
+    # Convert stencil matrix to PETSc.Mat
+    Mp = M1.topetsc()
+    # Convert PETSc.Mat to sparse CSR matrix   
+    indptr, indices, data = Mp.getValuesCSR()
+    data = data.real #PETSc with installation complex configuration only handles complex dtype
+    Mp = csr_matrix((data, indices, indptr), shape=Mp.size)
+
+    M1 = M1.tosparse().tocsr()
+
+    assert (M1-Mp).data.size == 0
 
 # ===============================================================================
 # PARALLEL BACKENDS TESTS
