@@ -88,16 +88,22 @@ jobs:
           fi
           echo $HDF5_DIR
 
-      - name: Install PETSc with complex configuration
+      - name: Install PETSc with support for complex numbers
         run: |
           wget https://gitlab.com/petsc/petsc/-/archive/main/petsc-main.zip
           unzip ./"petsc-main.zip"
           rm ./"petsc-main.zip"
           cd petsc-main
           ./configure --with-scalar-type=complex
-          make all check
+          make all
+
+      - name: Test PETSc installation 
+          make check
+
+      - name: Install petsc4py
           python -m pip install Cython
           PETSC_ARCH=linux-gnu-complex-64 python -m pip install --no-deps src/binding/petsc4py
+          cd -
 
       - name: Install Python dependencies
         run: |
