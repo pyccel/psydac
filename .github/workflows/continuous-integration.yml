@@ -105,8 +105,8 @@ jobs:
       - name: Install petsc4py
         working-directory: ./petsc
         run: |
-          python -m pip install wheel Cython numpy
-          PETSC_DIR=$(pwd) pip install src/binding/petsc4py
+          python -m pip install wheel
+          PETSC_DIR=$(pwd) pip install --no-deps src/binding/petsc4py
 
       - name: Install Python dependencies
         run: |
