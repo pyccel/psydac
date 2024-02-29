@@ -557,6 +557,8 @@ def test_stencil_matrix_2d_serial_toarray( dtype, n1, n2, p1, p2, s1, s2, P1, P2
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
+@pytest.mark.petsc
+
 def test_stencil_matrix_2d_serial_topetsc( dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     # Select non-zero values based on diagonal index
     nonzero_values = dict()
@@ -610,6 +612,8 @@ def test_stencil_matrix_2d_serial_topetsc( dtype, n1, n2, p1, p2, s1, s2, P1, P2
 @pytest.mark.parametrize('p2', [1, 3])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
+@pytest.mark.petsc
+
 def test_mass_matrix_2d_serial_topetsc(n1, n2, p1, p2, P1, P2):
     from sympde.topology import Square, ScalarFunctionSpace, element_of
     from sympde.expr     import BilinearForm, integral
@@ -2700,6 +2704,8 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
 @pytest.mark.parallel
+@pytest.mark.petsc
+
 def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2):
     from mpi4py import MPI
     # Select non-zero values based on diagonal index
@@ -2755,6 +2761,8 @@ def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1,
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
 @pytest.mark.parallel
+@pytest.mark.petsc
+
 def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
     from sympde.topology import Square, ScalarFunctionSpace, element_of
     from sympde.expr     import BilinearForm, integral

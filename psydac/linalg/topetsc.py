@@ -114,14 +114,18 @@ def mat_topetsc( mat ):
     mat_csr = mat_coo.tocsr()
 
     gmat = PETSc.Mat().create(comm=comm)
+ 
     gmat.setSizes(mat.shape)
+
     # Set sparse matrix type
-    gmat.setType("mpiaij")
+    gmat.setType("mpiaij")   
+    gmat.setFromOptions()
 
     if comm:
-        NNZ = comm.allreduce(mat_csr.data.size, op=MPI.SUM)
-        gmat.setPreallocationNNZ(NNZ)
+        # Preallocate number of nonzeros based on CSR structure
+        gmat.setPreallocationCSR((mat_csr.indptr, mat_csr.indices))
 
+    # Fill-in matrix values from CSR data
     for i in range(len(mat_csr.indptr)-1):
         cols = mat_csr.indices[mat_csr.indptr[i]:mat_csr.indptr[i+1]]
         col_data = mat_csr.data[mat_csr.indptr[i]:mat_csr.indptr[i+1]]

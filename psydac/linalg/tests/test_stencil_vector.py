@@ -416,6 +416,7 @@ def test_stencil_vector_2d_serial_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2,
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True])
+@pytest.mark.petsc
 def test_stencil_vector_2d_serial_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     # Create domain decomposition
     D = DomainDecomposition([n1, n2], periods=[P1, P2])
@@ -599,6 +600,7 @@ def test_stencil_vector_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1=True,
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True])
+@pytest.mark.petsc
 def test_stencil_vector_2d_parallel_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     from mpi4py import MPI
     comm = MPI.COMM_WORLD

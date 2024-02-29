@@ -787,6 +787,7 @@ def test_block_2d_serial_array_to_psydac( dtype, n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize( 'p2', [1, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
+@pytest.mark.petsc
 
 def test_block_vector_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
     #Define a factor for the data
@@ -844,6 +845,7 @@ def test_block_vector_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize( 'p2', [1, 2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
+@pytest.mark.petsc
 
 def test_block_linear_operator_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2  ):
     # set seed for reproducibility
@@ -1130,6 +1132,7 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
 @pytest.mark.parallel
+@pytest.mark.petsc
 
 def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
     #Define a factor for the data
@@ -1191,6 +1194,7 @@ def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
 @pytest.mark.parallel
+@pytest.mark.petsc
 
 def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2):
     # set seed for reproducibility
