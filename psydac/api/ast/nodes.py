@@ -363,46 +363,47 @@ class Mask(Basic):
 #==============================================================================
 class EvalField(BaseNode):
     """
-       This function computes atomic expressions needed
-       to evaluate  EvaluteField/VectorField final expression
+    This function computes atomic expressions needed
+    to evaluate  EvaluteField/VectorField final expression
 
-        Parameters:
-        ----------
-        domain : <Domain>
-            Sympde Domain object
+    Parameters
+    ----------
+    domain : <Domain>
+        Sympde Domain object
 
-        atoms: tuple_like (Expr)
-            The atomic expression to be evaluated
+    atoms: tuple_like (Expr)
+        The atomic expression to be evaluated
 
-        q_index: <IndexQuadrature>
-            Indices used for the quadrature loops
+    q_index: <IndexQuadrature>
+        Indices used for the quadrature loops
 
-        l_index : <IndexDofTest>
-            Indices used for the basis loops
+    l_index : <IndexDofTest>
+        Indices used for the basis loops
 
-        q_basis : <GlobalTensorQuadratureTestBasis>
-            The 1d basis function of the tensor-product space
+    q_basis : <GlobalTensorQuadratureTestBasis>
+        The 1d basis function of the tensor-product space
 
-        coeffs  : tuple_like (CoefficientBasis)
-            Coefficient of the basis function
+    coeffs  : tuple_like (CoefficientBasis)
+        Coefficient of the basis function
 
-        l_coeffs : tuple_like (MatrixLocalBasis)
-            Local coefficient of the basis functions
+    l_coeffs : tuple_like (MatrixLocalBasis)
+        Local coefficient of the basis functions
 
-        g_coeffs : tuple_like (MatrixGlobalBasis)
-            Global coefficient of the basis functions
+    g_coeffs : tuple_like (MatrixGlobalBasis)
+        Global coefficient of the basis functions
 
-        tests   : tuple_like (Variable)
-            The field to be evaluated
+    tests   : tuple_like (Variable)
+        The field to be evaluated
 
-        mapping : <Mapping>
-            Sympde Mapping object
+    mapping : <Mapping>
+        Sympde Mapping object
 
-        nderiv  : int
-            Maximum number of derivatives
+    nderiv  : int
+        Maximum number of derivatives
 
-        mask    : int,optional
-            The fixed direction in case of a boundary integral
+    mask    : int,optional
+        The fixed direction in case of a boundary integral
+    
     """
 
     def __new__(cls, domain, atoms, q_index, l_index, q_basis, coeffs, l_coeffs, g_coeffs, tests, mapping, nderiv, mask=None, dtype='real', quad_loop=None):
@@ -524,40 +525,41 @@ class RAT(Basic):
 #==============================================================================
 class EvalMapping(BaseNode):
     """
-        This function computes atomic expressions needed
-        to evaluate  EvalMapping final expression.
+    This function computes atomic expressions needed
+    to evaluate  EvalMapping final expression.
 
-        Parameters:
-        ----------
-        domain : <Domain>
-            Sympde Domain object
+    Parameters
+    ----------
+    domain : <Domain>
+        Sympde Domain object
 
-        quads: <IndexQuadrature>
-            Indices used for the quadrature loops
+    quads: <IndexQuadrature>
+        Indices used for the quadrature loops
 
-        indices_basis : <IndexDofTest>
-            Indices used for the basis loops
+    indices_basis : <IndexDofTest>
+        Indices used for the basis loops
 
-        q_basis : <GlobalTensorQuadratureTestBasis>
-            The 1d basis function of the tensor-product space
+    q_basis : <GlobalTensorQuadratureTestBasis>
+        The 1d basis function of the tensor-product space
 
-        mapping : <Mapping>
-            Sympde Mapping object
+    mapping : <Mapping>
+        Sympde Mapping object
 
-        components  : <GeometryExpressions>
-            The 1d coefficients of the mapping
+    components  : <GeometryExpressions>
+        The 1d coefficients of the mapping
 
-        mapping_space : <VectorSpace>
-            The vector space of the mapping
+    mapping_space : <VectorSpace>
+        The vector space of the mapping
 
-        nderiv  : <int>
-            Maximum number of derivatives
+    nderiv  : <int>
+        Maximum number of derivatives
 
-        mask    : int,optional
-            The fixed direction in case of a boundary integral
+    mask    : int,optional
+        The fixed direction in case of a boundary integral
 
-        is_rational: bool,optional
-            True if the mapping is rational
+    is_rational: bool,optional
+        True if the mapping is rational
+    
     """
     def __new__(cls, domain, quads, indices_basis, q_basis, mapping, components, mapping_space, nderiv, mask=None, is_rational=None, trial=None, quad_loop=None):
         mapping_atoms  = components.arguments

@@ -763,19 +763,21 @@ class CartDecomposition():
 
     #---------------------------------------------------------------------------
     def reduce_npts( self, npts, global_starts, global_ends, shifts):
-        """ Compute the cart of the reduced space.
+        """ 
+        Compute the cart of the reduced space.
+        
         Parameters
         ----------
         npts : list or tuple of int
             Number of coefficients in the global grid along each dimension.
 
-        global_starts: list of list of int
+        global_starts : list of list of int
             The starts of the global points for every process along each direction.
 
-        global_ends: list of list of int
+        global_ends : list of list of int
             The ends of the global points for every process along each direction.
 
-        shifts: list or tuple of int
+        shifts : list or tuple of int
             Shifts along each grid dimension.
             It takes values bigger or equal to one, it represents the multiplicity of each knot.
 

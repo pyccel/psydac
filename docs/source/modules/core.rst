@@ -1,5 +1,5 @@
-mapping
-=======
+core
+====
 
 .. currentmodule:: psydac
 .. autosummary::
@@ -7,5 +7,6 @@ mapping
     :toctree: STUBDIR
     :template: autosummary/module.rst
 
-    mapping.discrete
-    mapping.discrete_gallery
+    core.bsplines_kernels
+    core.bsplines
+    core.field_evaluation_kernels

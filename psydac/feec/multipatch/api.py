@@ -24,7 +24,7 @@ from psydac.feec.multipatch.operators import ConformingProjection_V1
 from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
 
 
-__all__ = ('DiscreteDerhamMultipatch', 'discretize')
+__all__ = ('DiscreteDerhamMultipatch', 'discretize', 'discretize_derham_multipatch')
 
 #==============================================================================
 class DiscreteDerhamMultipatch(DiscreteDerham):

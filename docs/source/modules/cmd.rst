@@ -1,5 +1,5 @@
-mapping
-=======
+cmd
+===
 
 .. currentmodule:: psydac
 .. autosummary::
@@ -7,5 +7,4 @@ mapping
     :toctree: STUBDIR
     :template: autosummary/module.rst
 
-    mapping.discrete
-    mapping.discrete_gallery
+    cmd.mesh
