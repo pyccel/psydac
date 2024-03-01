@@ -107,7 +107,7 @@ jobs:
         run: |
           export PETSC_CONFIGURE_OPTIONS="--with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1 --with-petsc4py=1 --with-64-bit-indices=1"
           python -m pip install build numpy
-          python -m pip install petsc --verbose
+          python -m pip install petsc --verbose --no-binary=petsc
           python -m pip list
 
       - name: Install Python dependencies
