@@ -21,7 +21,8 @@ import pytest
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
-def test_3d_commuting_pro_1(Nel, Nq, p, bc):
+@pytest.mark.parametrize('m', [1,2])
+def test_3d_commuting_pro_1(Nel, Nq, p, bc, m):
 
     fun1    = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)*np.sin(xi3)
     D1fun1  = lambda xi1, xi2, xi3 : np.cos(xi1)*np.sin(xi2)*np.sin(xi3)
@@ -32,6 +33,7 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc):
     Nq  = [Nq]*3
     p   = [p]*3
     bc  = [bc]*3
+    m   = [m]*3
 
     # Side lengths of logical cube [0, L]^3
     L = [2*np.pi, 2*np.pi , 2*np.pi]
@@ -40,7 +42,7 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc):
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
 
     # knot sequences
-    knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
+    knots = [make_knots(el_b_i, p_i, bc_i, m_i) for el_b_i, p_i, bc_i, m_i in zip(el_b, p, bc, m)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
 
@@ -79,7 +81,8 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc):
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
-def test_3d_commuting_pro_2(Nel, Nq, p, bc):
+@pytest.mark.parametrize('m', [1,2])
+def test_3d_commuting_pro_2(Nel, Nq, p, bc, m):
 
     fun1    = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)*np.sin(xi3)
     D1fun1  = lambda xi1, xi2, xi3 : np.cos(xi1)*np.sin(xi2)*np.sin(xi3)
@@ -104,6 +107,7 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc):
     Nq  = [Nq]*3
     p   = [p]*3
     bc  = [bc]*3
+    m   = [m]*3
 
     # Side lengths of logical cube [0, L]^3
     L = [2*np.pi, 2*np.pi , 2*np.pi]
@@ -112,7 +116,7 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc):
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
 
     # knot sequences
-    knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
+    knots = [make_knots(el_b_i, p_i, bc_i, m_i) for el_b_i, p_i, bc_i, m_i in zip(el_b, p, bc, m)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
 
@@ -154,7 +158,8 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc):
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
-def test_3d_commuting_pro_3(Nel, Nq, p, bc):
+@pytest.mark.parametrize('m', [1,2])
+def test_3d_commuting_pro_3(Nel, Nq, p, bc, m):
 
     fun1    = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)*np.sin(xi3)
     D1fun1  = lambda xi1, xi2, xi3 : np.cos(xi1)*np.sin(xi2)*np.sin(xi3)
@@ -171,6 +176,7 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc):
     Nq  = [Nq]*3
     p   = [p]*3
     bc  = [bc]*3
+    m   = [m]*3
 
     # Side lengths of logical cube [0, L]^3
     L = [2*np.pi, 2*np.pi , 2*np.pi]
@@ -179,7 +185,7 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc):
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
 
     # knot sequences
-    knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
+    knots = [make_knots(el_b_i, p_i, bc_i, m_i) for el_b_i, p_i, bc_i, m_i in zip(el_b, p, bc, m)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
 
@@ -219,7 +225,8 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc):
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
-def test_2d_commuting_pro_1(Nel, Nq, p, bc):
+@pytest.mark.parametrize('m', [1,2])
+def test_2d_commuting_pro_1(Nel, Nq, p, bc, m):
 
     fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
     D1fun1  = lambda xi1, xi2 : np.cos(xi1)*np.sin(xi2)
@@ -229,6 +236,7 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc):
     Nq  = [Nq]*2
     p   = [p]*2
     bc  = [bc]*2
+    m   = [m]*2
 
     # Side lengths of logical cube [0, L]^2
     L = [2*np.pi, 2*np.pi]
@@ -237,7 +245,7 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc):
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)]
 
     # knot sequences
-    knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
+    knots = [make_knots(el_b_i, p_i, bc_i, m_i) for el_b_i, p_i, bc_i, m_i in zip(el_b, p, bc, m)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
 
@@ -273,7 +281,8 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc):
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
-def test_2d_commuting_pro_2(Nel, Nq, p, bc):
+@pytest.mark.parametrize('m', [1,2])
+def test_2d_commuting_pro_2(Nel, Nq, p, bc, m):
 
     fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
     D2fun1  = lambda xi1, xi2 : np.sin(xi1)*np.cos(xi2)
@@ -283,6 +292,7 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc):
     Nq  = [Nq]*2
     p   = [p]*2
     bc  = [bc]*2
+    m   = [m]*2
 
     # Side lengths of logical cube [0, L]^2
     L = [2*np.pi, 2*np.pi]
@@ -291,7 +301,7 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc):
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)]
 
     # knot sequences
-    knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
+    knots = [make_knots(el_b_i, p_i, bc_i, m_i) for el_b_i, p_i, bc_i, m_i in zip(el_b, p, bc, m)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
 
@@ -327,7 +337,8 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc):
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
-def test_2d_commuting_pro_3(Nel, Nq, p, bc):
+@pytest.mark.parametrize('m', [1,2])
+def test_2d_commuting_pro_3(Nel, Nq, p, bc, m):
 
     fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
     D1fun1  = lambda xi1, xi2 : np.cos(xi1)*np.sin(xi2)
@@ -341,6 +352,7 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc):
     Nq  = [Nq]*2
     p   = [p]*2
     bc  = [bc]*2
+    m   = [m]*2
 
     # Side lengths of logical cube [0, L]^2
     L = [2*np.pi, 2*np.pi]
@@ -349,7 +361,7 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc):
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)]
 
     # knot sequences
-    knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
+    knots = [make_knots(el_b_i, p_i, bc_i, m_i) for el_b_i, p_i, bc_i, m_i in zip(el_b, p, bc, m)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
 
@@ -388,7 +400,8 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc):
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
-def test_2d_commuting_pro_4(Nel, Nq, p, bc):
+@pytest.mark.parametrize('m', [1,2])
+def test_2d_commuting_pro_4(Nel, Nq, p, bc, m):
 
     fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
     D2fun1  = lambda xi1, xi2 : np.sin(xi1)*np.cos(xi2)
@@ -402,6 +415,7 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc):
     Nq  = [Nq]*2
     p   = [p]*2
     bc  = [bc]*2
+    m   = [m]*2
 
     # Side lengths of logical cube [0, L]^2
     L = [2*np.pi, 2*np.pi]
@@ -410,7 +424,7 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc):
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)]
 
     # knot sequences
-    knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
+    knots = [make_knots(el_b_i, p_i, bc_i, m_i) for el_b_i, p_i, bc_i, m_i in zip(el_b, p, bc, m)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
 
@@ -449,7 +463,8 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc):
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
-def test_1d_commuting_pro_1(Nel, Nq, p, bc):
+@pytest.mark.parametrize('m', [1,2])
+def test_1d_commuting_pro_1(Nel, Nq, p, bc, m):
 
     fun1    = lambda xi1 : np.sin(xi1)
     Dfun1   = lambda xi1 : np.cos(xi1)
@@ -458,6 +473,7 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc):
     Nq  = [Nq]
     p   = [p]
     bc  = [bc]
+    m   = [m]
 
     # Side lengths of logical cube [0, L]
     L = [2*np.pi]
@@ -466,7 +482,7 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc):
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)]
 
     # knot sequences
-    knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
+    knots = [make_knots(el_b_i, p_i, bc_i, m_i) for el_b_i, p_i, bc_i, m_i in zip(el_b, p, bc, m)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
 
@@ -498,10 +514,16 @@ if __name__ == '__main__':
 
     Nel = 8
     Nq  = 8
-    p   = 3
+    p   = 2
     bc  = True
+    m   = 2
 
-    test_3d_commuting_pro_1(Nel, Nq, p, bc)
-    test_3d_commuting_pro_2(Nel, Nq, p, bc)
-    test_3d_commuting_pro_3(Nel, Nq, p, bc)
+    test_3d_commuting_pro_1(Nel, Nq, p, bc, m)
+    test_3d_commuting_pro_2(Nel, Nq, p, bc, m)
+    test_3d_commuting_pro_3(Nel, Nq, p, bc, m)
+    test_2d_commuting_pro_1(Nel, Nq, p, bc, m)
+    test_2d_commuting_pro_2(Nel, Nq, p, bc, m)
+    test_2d_commuting_pro_3(Nel, Nq, p, bc, m)
+    test_2d_commuting_pro_4(Nel, Nq, p, bc, m)
+    test_1d_commuting_pro_1(Nel, Nq, p, bc, m)
 

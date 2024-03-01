@@ -170,6 +170,17 @@ def test_2D_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     assert L1.nonzero_block_indices == ((0,0),(0,1),(1,0))
     assert L1.backend()==None
 
+    # Test copy method with an out
+    L4 = BlockLinearOperator( W, W )
+    L1.copy(out=L4)
+    assert L1.domain == W
+    assert L1.codomain == W
+    assert L1.dtype == dtype
+    assert L1.n_block_rows == 2
+    assert L1.n_block_cols == 2
+    assert L1.nonzero_block_indices == ((0,0),(0,1),(1,0))
+    assert L1.backend()==None
+
     L2 = BlockLinearOperator( W, W, blocks=list_blocks )
     L3 = BlockLinearOperator( W, W )
 
@@ -177,10 +188,11 @@ def test_2D_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     L3[0,1] = M2
     L3[1,0] = M3
 
-    # Convert L1, L2 and L3 to COO form
+    # Convert L1, L2, L3 and L4 to COO form
     coo1 = L1.tosparse().tocoo()
     coo2 = L2.tosparse().tocoo()
     coo3 = L3.tosparse().tocoo()
+    coo4 = L4.tosparse().tocoo()
 
     # Check if the data are in the same place
     assert np.array_equal( coo1.col , coo2.col  )
@@ -190,6 +202,46 @@ def test_2D_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     assert np.array_equal( coo1.col , coo3.col  )
     assert np.array_equal( coo1.row , coo3.row  )
     assert np.array_equal( coo1.data, coo3.data )
+
+    assert np.array_equal( coo1.col , coo4.col  )
+    assert np.array_equal( coo1.row , coo4.row  )
+    assert np.array_equal( coo1.data, coo4.data )
+    
+    dict_blocks = {(0,0):M1, (0,1):M2}
+
+    L1 = BlockLinearOperator( W, W, blocks=dict_blocks )
+
+    # Test transpose
+    LT1 = L1.transpose()
+    LT2 = BlockLinearOperator( W, W )
+    L1.transpose(out=LT2)
+
+    assert LT1.domain == W
+    assert LT1.codomain == W
+    assert LT1.dtype == dtype
+    assert LT1.n_block_rows == 2
+    assert LT1.n_block_cols == 2
+    assert LT1.nonzero_block_indices == ((0,0),(1,0))
+    assert LT1.backend()==None
+
+    assert LT2.domain == W
+    assert LT2.codomain == W
+    assert LT2.dtype == dtype
+    assert LT2.n_block_rows == 2
+    assert LT2.n_block_cols == 2
+    assert LT2.nonzero_block_indices == ((0,0),(1,0))
+    assert LT2.backend()==None
+
+    #convert to scipy for tests
+    LT1_sp = LT1.tosparse()
+    LT2_sp = LT2.tosparse()
+    L1_spT  = L1.tosparse().T
+
+    # Check if the data are in the same place
+    assert abs(LT1_sp - L1_spT).max()< 1e-14
+    assert abs(LT2_sp - L1_spT).max()< 1e-14
+
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'ndim', [1, 2, 3] )
@@ -937,6 +989,56 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     # Check data in 1D array
     assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
     assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+
+    # Test copy with an out 
+    # Create random matrix 
+    N1 = StencilMatrix( V, V )
+    N2 = StencilMatrix( V, V )
+    N3 = StencilMatrix( V, V )
+    N4 = StencilMatrix( V, V )
+
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            N1[:,:,k1,k2] = factor*random()
+            N2[:,:,k1,k2] = factor*random()
+            N3[:,:,k1,k2] = factor*random()
+            N4[:,:,k1,k2] = factor*random()
+
+    K = BlockLinearOperator( W, W )
+    N = BlockLinearOperator( W, W )
+
+
+    K[0,0] = N1
+    K[0,1] = N2
+    K[1,0] = N3
+    K[1,1] = N4
+
+    #replace the random entries to check they are really overwritten
+    K.copy(out=N)
+    L.copy(out=K)
+
+    # Compute Block-vector product
+    K.dot(X, out= Y)
+
+    # Check data in 1D array
+    assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
+    assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+
+    # Test transpose with an out, check that we overwrite the random entries
+    L.transpose(out = N)
+    
+    # Compute Block-vector product
+    Z = N.dot(X)
+
+    # Compute matrix-vector products for each block
+    y1 = M1.T.dot(x1) + M3.T.dot(x2)
+    y2 = M2.T.dot(x1) + M4.T.dot(x2)
+
+    # Check data in 1D array
+    assert np.allclose( Z.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
+    assert np.allclose( Z.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+    
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )

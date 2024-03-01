@@ -39,11 +39,9 @@ def get_grid_lines_2d(domain_h, V_h, *, refine=1):
     ----------
     domain_h : psydac.cad.geometry.Geometry
         2D single-patch geometry.
-
     V_h : psydac.fem.tensor.TensorFemSpace
         Spline space from which the breakpoints are extracted.
-            - TODO: remove this argument -
-
+        TODO: remove this argument
     refine : int
         Number of segments used to describe a grid curve in each element
         (minimum value is 1, which yields quadrilateral elements).
@@ -53,16 +51,18 @@ def get_grid_lines_2d(domain_h, V_h, *, refine=1):
     isolines_1 : list of dict
         Lines having constant value of 'eta1' parameter;
         each line is a dictionary with three keys:
-            - 'eta1' : value of eta1 on the curve
-            - 'x'    : x coordinates of N points along the curve
-            - 'y'    : y coordinates of N points along the curve
+
+        - 'eta1' : value of eta1 on the curve
+        - 'x'    : x coordinates of N points along the curve
+        - 'y'    : y coordinates of N points along the curve
 
     isolines_2 : list of dict
         Lines having constant value of 'eta2' parameter;
         each line is a dictionary with three keys:
-            - 'eta2' : value of eta2 on the curve
-            - 'x'    : x coordinates of N points along the curve
-            - 'y'    : y coordinates of N points along the curve
+        
+        - 'eta2' : value of eta2 on the curve
+        - 'x'    : x coordinates of N points along the curve
+        - 'y'    : y coordinates of N points along the curve
 
     """
     # Check that domain is of correct type and contains only one patch
@@ -1411,18 +1411,18 @@ class PostProcessManager:
             * If npts_per_cell and grid are None
 
             * If snapshots == 'none' and none of the provided fields
-            were static fields.
+              were static fields.
 
         Warns
         -----
         UserWarning
             * If snapshot == 'all' and none of the provided fields
-            were static fields. The exportation of static fields is then
-            skipped.
+              were static fields. The exportation of static fields is then
+              skipped.
 
             * If snapshot == 'all' and for a particular snapshot
-            none of the provided fields were present in that snapshot.
-            That snapshot is skipped.
+              none of the provided fields were present in that snapshot.
+              That snapshot is skipped.
 
         """
         # Immediatly fail if grid and npts_per_cell are None
@@ -2189,6 +2189,11 @@ class PostProcessManager:
             local_domain = mapping.space.local_domain
             global_ends = tuple(nc_i - 1 for nc_i in list(mapping.space.ncells))
             breaks = mapping.space.breaks
+        elif hasattr(mapping, 'callable_mapping') and isinstance(mapping.get_callable_mapping(), SplineMapping):
+            c_m = mapping.get_callable_mapping()
+            local_domain = c_m.space.local_domain
+            global_ends = tuple(nc_i - 1 for nc_i in list(c_m.space.ncells))
+            breaks = c_m.space.breaks
         # Option 2 : space_dict is not empty -> use the first space encountered there
         elif space_dict != {}:
             space = list(space_dict.keys())[0]
@@ -2295,7 +2300,10 @@ class PostProcessManager:
                 mesh = grid_local
             if isinstance(mapping, Mapping):
                 c_m = mapping.get_callable_mapping()
-                mesh = c_m(*mesh)
+                if isinstance(c_m, SplineMapping):
+                    mesh = c_m.build_mesh(grid, npts_per_cell=npts_per_cell)
+                else:
+                    mesh = c_m(*mesh)
             elif mapping is None:
                 pass
             else:

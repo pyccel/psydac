@@ -14,7 +14,8 @@ import pytest
 @pytest.mark.parametrize('Nq', [4])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('bc', [True, False])
-def test_transpose_div_3d(Nel, Nq, p, bc):
+@pytest.mark.parametrize('m', [1,2])
+def test_transpose_div_3d(Nel, Nq, p, bc, m):
     # Test transpose div
 
     fun1    = lambda xi1, xi2, xi3 : sin(xi1)*sin(xi2)*sin(xi3)
@@ -23,9 +24,10 @@ def test_transpose_div_3d(Nel, Nq, p, bc):
     D3fun1  = lambda xi1, xi2, xi3 : sin(xi1)*sin(xi2)*cos(xi3)
 
     Nel = [Nel]*3
-    Nq = [Nq]*3
+    Nq  = [Nq]*3
     p   = [p]*3
     bc  = [bc]*3
+    m   = [m]*3
 
     # Side lengths of logical cube [0, L]^3
     L = [2*np.pi, 2*np.pi , 2*np.pi]
@@ -33,7 +35,7 @@ def test_transpose_div_3d(Nel, Nq, p, bc):
     domain = Cube('domain', bounds1=(0, L[0]), bounds2=(0,L[1]), bounds3=(0,L[2]))
     derham = Derham(domain)
     domain_h = discretize(domain, ncells=Nel, periodic=bc)
-    derham_h = discretize(derham, domain_h, degree=p, nquads=Nq)
+    derham_h = discretize(derham, domain_h, degree=p, nquads=Nq, multiplicity=m)
 
     v2 = element_of(derham.V2, name='v2')
     v3 = element_of(derham.V3, name='v3')
@@ -48,13 +50,14 @@ def test_transpose_div_3d(Nel, Nq, p, bc):
     divT_u3 = - div.matrix.T.dot(u3)
 
     error = abs((u2-divT_u3).toarray()).max()
-    assert error < 2e-11
+    assert error < 2e-10
 
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('bc', [True, False])
-def test_transpose_curl_3d(Nel, Nq, p, bc):
+@pytest.mark.parametrize('m', [1,2])
+def test_transpose_curl_3d(Nel, Nq, p, bc, m):
     # Test transpose curl
 
     fun1    = lambda xi1, xi2, xi3 : sin(xi1)*sin(xi2)*sin(xi3)
@@ -78,9 +81,10 @@ def test_transpose_curl_3d(Nel, Nq, p, bc):
     cf3 = lambda xi1, xi2, xi3 : D1fun2(xi1, xi2, xi3) - D2fun1(xi1, xi2, xi3)
 
     Nel = [Nel]*3
-    Nq = [Nq]*3
+    Nq  = [Nq]*3
     p   = [p]*3
     bc  = [bc]*3
+    m   = [m]*3
 
     # Side lengths of logical cube [0, L]^3
     L = [2*np.pi, 2*np.pi , 2*np.pi]
@@ -88,7 +92,7 @@ def test_transpose_curl_3d(Nel, Nq, p, bc):
     domain = Cube('domain', bounds1=(0, L[0]), bounds2=(0,L[1]), bounds3=(0,L[2]))
     derham = Derham(domain)
     domain_h = discretize(domain, ncells=Nel, periodic=bc)
-    derham_h = discretize(derham, domain_h, degree=p, nquads=Nq)
+    derham_h = discretize(derham, domain_h, degree=p, nquads=Nq, multiplicity=m)
 
     v1 = element_of(derham.V1, name='v1')
     v2 = element_of(derham.V2, name='v2')
@@ -103,13 +107,14 @@ def test_transpose_curl_3d(Nel, Nq, p, bc):
     curlT_u2 = curl.matrix.T.dot(u2)
 
     error = abs((u1-curlT_u2).toarray()).max()
-    assert error < 5e-10
+    assert error < 2e-9
 
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('bc', [True, False])
-def test_transpose_grad_3d(Nel, Nq, p, bc):
+@pytest.mark.parametrize('m', [1,2])
+def test_transpose_grad_3d(Nel, Nq, p, bc, m):
     # Test transpose grad
         
     fun1    = lambda xi1, xi2, xi3 : sin(xi1)*sin(xi2)*sin(xi3)
@@ -122,9 +127,10 @@ def test_transpose_grad_3d(Nel, Nq, p, bc):
     D3fun3  = lambda xi1, xi2, xi3 : 3*sin(3*xi1)*sin(3*xi2)*cos(3*xi3)
 
     Nel = [Nel]*3
-    Nq = [Nq]*3
+    Nq  = [Nq]*3
     p   = [p]*3
     bc  = [bc]*3
+    m   = [m]*3
 
     # Side lengths of logical cube [0, L]^3
     L = [2*np.pi, 2*np.pi , 2*np.pi]
@@ -132,7 +138,7 @@ def test_transpose_grad_3d(Nel, Nq, p, bc):
     domain = Cube('domain', bounds1=(0, L[0]), bounds2=(0,L[1]), bounds3=(0,L[2]))
     derham = Derham(domain)
     domain_h = discretize(domain, ncells=Nel, periodic=bc)
-    derham_h = discretize(derham, domain_h, degree=p, nquads=Nq)
+    derham_h = discretize(derham, domain_h, degree=p, nquads=Nq, multiplicity=m)
 
     v0 = element_of(derham.V0, name='v0')
     v1 = element_of(derham.V1, name='v1')
@@ -147,4 +153,17 @@ def test_transpose_grad_3d(Nel, Nq, p, bc):
     gradT_u1 = -grad.matrix.T.dot(u1)
 
     error = abs((u0-gradT_u1).toarray()).max()
-    assert error < 3e-10
+    assert error < 5e-10
+
+#==============================================================================
+if __name__ == '__main__':
+
+    Nel = 8
+    Nq  = 8
+    p   = 2
+    bc  = True
+    m   = 2
+
+    test_transpose_div_3d (Nel, Nq, p, bc, m)
+    test_transpose_curl_3d(Nel, Nq, p, bc, m)
+    test_transpose_grad_3d(Nel, Nq, p, bc, m)

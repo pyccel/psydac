@@ -17,6 +17,11 @@ from psydac.core.bsplines import (find_span,
                                   basis_integrals,
                                   basis_ders_on_quad_grid)
 
+# The pytest-xdist plugin requires that every worker sees the same parameters
+# in the unit tests. As in this module random parameters are used, here we set
+# the same random seed for all workers.
+np.random.seed(0)
+
 ###############################################################################
 # "True" Functions
 ###############################################################################

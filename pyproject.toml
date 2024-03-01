@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 64.0", "wheel", "numpy", "pyccel >= 1.8.1"]
+requires = ["setuptools >= 64.0", "wheel", "numpy", "pyccel >= 1.9.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -27,13 +27,14 @@ dependencies = [
     'sympy >= 1.5',
     'matplotlib',
     'pytest >= 4.5',
+    'pytest-xdist >= 1.16',
     'pyyaml >= 5.1',
     'packaging',
     'pyevtk',
 
     # Our packages from PyPi
     'sympde == 0.18.1',
-    'pyccel >= 1.8.1',
+    'pyccel >= 1.11',
     'gelato == 0.12',
 
     # In addition, we depend on mpi4py and h5py (MPI version).
