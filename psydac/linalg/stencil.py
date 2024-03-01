@@ -1869,7 +1869,7 @@ class StencilMatrix(LinearOperator):
             nrows = [e - s + 1 for s, e in zip(self.codomain.starts, self.codomain.ends)]
             ndim  = self.domain.ndim
 
-            indices = [np.zeros(np.product(nrows), dtype=int) for _ in range(2 * ndim)]
+            indices = [np.zeros(np.prod(nrows), dtype=int) for _ in range(2 * ndim)]
 
             for l, xx in enumerate(np.ndindex(*nrows)):
                 ii = [m * p + x for m, p, x in zip(dm, dp, xx)]

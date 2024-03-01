@@ -1,7 +1,6 @@
 # coding: utf-8
 
 import os
-import itertools
 import numpy as np
 from itertools import product
 from mpi4py    import MPI
@@ -1530,10 +1529,10 @@ class InterfaceCartDecomposition:
                 starts[axis] = starts[axis] if ext_plus == -1 else ends[axis]-pads_plus[axis]+diff
                 ends[axis]   = starts[axis]+pads_plus[axis]-diff if ext_plus == -1 else ends[axis]
                 shape_k = [e-s+1 for s,e in zip(starts, ends)]
-                recv_counts[k] = np.product(shape_k)
+                recv_counts[k] = np.prod(shape_k)
                 ranges         = [(s+p*m, p*m+e+1) for s,e,p,m in zip(starts, ends, pads_plus, shifts_plus)]
                 ranges[axis]   = (shifts_plus[axis]*pads_plus[axis], shifts_plus[axis]*pads_plus[axis]+shape_k[axis])
-                indices       += [np.ravel_multi_index( ii, dims=recv_shape, order='C' ) for ii in itertools.product(*[range(*a) for a in ranges])]
+                indices       += [np.ravel_multi_index( ii, dims=recv_shape, order='C' ) for ii in product(*[range(*a) for a in ranges])]
 
         elif self._local_rank_plus is not None:
             rank_plus = self._local_rank_plus
@@ -1565,10 +1564,10 @@ class InterfaceCartDecomposition:
                 starts[axis] = starts[axis] if ext_minus == -1 else ends[axis]-pads_minus[axis]+diff
                 ends[axis]   = starts[axis]+pads_minus[axis]-diff if ext_minus == -1 else ends[axis]
                 shape_k = [e-s+1 for s,e in zip(starts, ends)]
-                recv_counts[k] = np.product(shape_k)
+                recv_counts[k] = np.prod(shape_k)
                 ranges       = [(s+p*m, p*m+e+1) for s,e,p,m in zip(starts, ends, pads_minus, shifts_minus)]
                 ranges[axis] = (shifts_minus[axis]*pads_minus[axis], shifts_minus[axis]*pads_minus[axis]+shape_k[axis])
-                indices     += [np.ravel_multi_index( ii, dims=recv_shape, order='C' ) for ii in itertools.product(*[range(*a) for a in ranges])]
+                indices     += [np.ravel_multi_index( ii, dims=recv_shape, order='C' ) for ii in product(*[range(*a) for a in ranges])]
 
         displacements[1:] = np.cumsum(recv_counts)
         # Store all information into dictionary
