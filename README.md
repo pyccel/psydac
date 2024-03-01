@@ -39,11 +39,14 @@ sudo apt install libopenmpi-dev openmpi-bin
 sudo apt install libomp-dev libomp5
 sudo apt install libhdf5-openmpi-dev
 ```
-To install `PETSc` with configuration for complex numbers, download [source code](https://gitlab.com/petsc/petsc/-/archive/main/petsc-main.zip). After extracting the compressed file, move into folder and run:
+To install `PETSc` with configuration for complex numbers and 64-bit indices, download [source code](https://gitlab.com/petsc/petsc/-/archive/main/petsc-main.zip). After extracting the compressed file, move into folder and run:
 ```sh
-./configure --with-scalar-type=complex
+./configure --with-scalar-type=complex --with-fortran-bindings=0 --with-petsc4py=1 --with-64-bit-indices=1
 make all check
-PETSC_ARCH=linux-gnu-complex-64 PETSC_DIR=~/petsc-main pip install src/binding/petsc4py/setup.py
+```
+Lastly, the installation path of `petsc4py` has to be added to `PYTHONPATH`:
+```sh
+python3 -c "import sys, os; sys.path.append(os.getcwd() + '/arch-linux-c-debug/lib')"
 ```
 
 ### macOS

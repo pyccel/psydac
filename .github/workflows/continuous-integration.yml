@@ -96,17 +96,12 @@ jobs:
           rm petsc-$PETSC_VERSION.zip
           mv petsc-$PETSC_VERSION petsc
 
-      - name: Install PETSc with complex support, and test it
+      - name: Install PETSc and petsc4py with complex support, and test it
         working-directory: ./petsc
         run: |
-          ./configure --with-scalar-type=complex --with-fortran-bindings=0
+          ./configure --with-scalar-type=complex --with-fortran-bindings=0 --with-petsc4py=1 --with-64-bit-indices=1
           make all check
-
-      - name: Install petsc4py
-        working-directory: ./petsc
-        run: |
-          python -m pip install wheel numpy
-          PETSC_DIR=$(pwd) pip install --no-deps src/binding/petsc4py
+          python3 -c "import sys, os; sys.path.append(os.getcwd() + '/arch-linux-c-debug/lib')"
 
       - name: Install Python dependencies
         run: |
