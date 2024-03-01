@@ -99,7 +99,7 @@ jobs:
       - name: Install PETSc and petsc4py with complex support, and test it
         working-directory: ./petsc
         run: |
-          ./configure --with-scalar-type=complex --with-fortran-bindings=0 --with-petsc4py=1 --with-64-bit-indices=1
+          ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1 --with-petsc4py=1 --with-64-bit-indices=1
           make all check
           python3 -c "import sys, os; sys.path.append(os.getcwd() + '/arch-linux-c-debug/lib')"
 
