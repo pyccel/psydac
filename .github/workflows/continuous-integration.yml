@@ -106,8 +106,8 @@ jobs:
       - name: Alternative install of PETSc and petsc4py
         run: |
           export PETSC_CONFIGURE_OPTIONS="--with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1 --with-petsc4py=1 --with-64-bit-indices=1"
-          python -m pip install wheel
-          python -m pip install petsc
+          python -m pip install wheel numpy
+          python -m pip install petsc --verbose
 
       - name: Install Python dependencies
         run: |
