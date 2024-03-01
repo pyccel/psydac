@@ -58,7 +58,8 @@ class VectorFemSpace( FemSpace ):
 
         self._symbolic_space = None
         if all(s.symbolic_space for s in spaces):
-            self._symbolic_space = reduce(lambda x,y:x.symbolic_space*y.symbolic_space, spaces)
+            symbolic_spaces = [s.symbolic_space for s in spaces]
+            self._symbolic_space = reduce(lambda x,y:x*y, symbolic_spaces)
 
         self._vector_space     = BlockVectorSpace(*[V.vector_space for V in self.spaces])
         self._refined_space    = {}

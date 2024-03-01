@@ -663,8 +663,10 @@ class ConformingProjection_V1( FemLinearOperator ):
 #===============================================================================
 def get_K0_and_K0_inv(V0h, uniform_patches=False):
     """
-    compute the change of basis matrices K0 and K0^{-1} in V0h, with
-        K0_ij = sigma^0_i(B_j) = B_jx(n_ix) * B_jy(n_iy)
+    Compute the change of basis matrices K0 and K0^{-1} in V0h.
+     
+    With 
+    K0_ij = sigma^0_i(B_j) = B_jx(n_ix) * B_jy(n_iy)
     where sigma_i is the geometric (interpolation) dof
     and B_j is the tensor-product B-spline
     """
@@ -707,12 +709,15 @@ def get_K0_and_K0_inv(V0h, uniform_patches=False):
 #===============================================================================
 def get_K1_and_K1_inv(V1h, uniform_patches=False):
     """
-    compute the change of basis matrices K1 and K1^{-1} in Hcurl space V1h, with
-        K1_ij = sigma^1_i(B_j)
-            = int_{e_ix}(M_jx) * B_jy(n_iy)   if i = horizontal edge [e_ix, n_iy] and j = (M_jx o B_jy)  x-oriented MoB spline
-            or
-            = B_jx(n_ix) * int_{e_iy}(M_jy)   if i = vertical edge [n_ix, e_iy]  and  j = (B_jx o M_jy)  y-oriented BoM spline
-        (above, 'o' denotes tensor-product for functions)
+    Compute the change of basis matrices K1 and K1^{-1} in Hcurl space V1h.
+     
+    With 
+    K1_ij = sigma^1_i(B_j) = int_{e_ix}(M_jx) * B_jy(n_iy)   
+    if i = horizontal edge [e_ix, n_iy] and j = (M_jx o B_jy)  x-oriented MoB spline
+    or
+    = B_jx(n_ix) * int_{e_iy}(M_jy)   
+    if i = vertical edge [n_ix, e_iy]  and  j = (B_jx o M_jy)  y-oriented BoM spline
+    (above, 'o' denotes tensor-product for functions)
     """
     if uniform_patches:
         print(' [[WARNING -- hack in get_K1_and_K1_inv: using copies of 1st-patch matrices in every patch ]] ')

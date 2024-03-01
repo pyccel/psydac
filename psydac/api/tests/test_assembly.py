@@ -10,6 +10,7 @@ from sympde.topology import element_of, Derham
 from sympde.core     import Constant
 from sympde.expr     import LinearForm, BilinearForm, Functional, Norm
 from sympde.expr     import integral
+from sympde.calculus import Inner
 
 from psydac.linalg.solvers     import inverse
 from psydac.api.discretization import discretize
@@ -18,7 +19,7 @@ from psydac.api.settings       import PSYDAC_BACKENDS
 from psydac.linalg.utilities   import array_to_psydac
 
 #==============================================================================
-@pytest.fixture(params=[None, 'numba', 'pyccel-gcc'])
+@pytest.fixture(params=[None, 'pyccel-gcc'])
 def backend(request):
     return request.param
 
@@ -444,6 +445,32 @@ def test_non_symmetric_BilinearForm(backend):
     print("PASSED")
 
 #==============================================================================
+def test_non_symmetric_different_space_BilinearForm(backend):
+
+    kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
+
+    domain = Square()
+    V = VectorFunctionSpace('V', domain, kind='Hdiv')
+    X = VectorFunctionSpace('X', domain, kind='h1')
+
+    u = element_of(X, name='u')    
+    w = element_of(V, name='w')
+
+    A = BilinearForm((u, w), integral(domain, Inner(u, w)))
+
+    ncells = [4, 4]
+    degree = [2, 2]
+
+    domain_h = discretize(domain, ncells=ncells)
+    Vh = discretize(V, domain_h, degree=degree)
+    Xh = discretize(X, domain_h, degree=degree)
+
+    ah = discretize(A, domain_h, (Xh, Vh), **kwargs)
+    A = ah.assemble()
+
+    print("PASSED")
+
+#==============================================================================
 def test_assembly_no_synchr_args(backend):
 
     kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
@@ -509,4 +536,5 @@ if __name__ == '__main__':
     test_multiple_fields(None)
     test_math_imports(None)
     test_non_symmetric_BilinearForm(None)
+    test_non_symmetric_different_space_BilinearForm(None)
     test_assembly_no_synchr_args(None)

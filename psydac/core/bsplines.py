@@ -7,12 +7,11 @@ Basic module that provides the means for evaluating the B-Splines basis
 functions and their derivatives. In order to simplify automatic Fortran code
 generation with Pyccel, no object-oriented features are employed.
 
-References
-----------
-.. [1] L. Piegl and W. Tiller. The NURBS Book, 2nd ed.,
-    Springer-Verlag Berlin Heidelberg GmbH, 1997.
+References:
 
-.. [2] SELALIB, Semi-Lagrangian Library. http://selalib.gforge.inria.fr
+   - [1] L. Piegl and W. Tiller. The NURBS Book, 2nd ed., Springer-Verlag Berlin Heidelberg GmbH, 1997.
+
+   - [2] SELALIB, Semi-Lagrangian Library. http://selalib.gforge.inria.fr
 
 """
 import numpy as np
@@ -77,7 +76,7 @@ def find_span(knots, degree, x):
         Location of interest.
 
     Returns
-     -------
+    -------
     span : int
         Knot span index.
     """
@@ -301,7 +300,7 @@ def basis_funs_all_ders(knots, degree, x, span, n, normalization='B', out=None):
     return out
 
 #==============================================================================
-def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None):
+def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None, multiplicity = 1):
     """Computes the collocation matrix
 
     If called with normalization='M', this uses M-splines instead of B-splines.
@@ -326,6 +325,10 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None):
     out : array, optional
         If provided, the result will be inserted into this array.
         It should be of the appropriate shape and dtype.
+        
+    multiplicity : int
+        Multiplicity of the knots in the knot sequence, we assume that the same 
+        multiplicity applies to each interior knot.
 
     Returns
     -------
@@ -342,19 +345,20 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None):
     if out is None:
         nb = len(knots) - degree - 1
         if periodic:
-            nb -= degree
+            nb -= degree + 1 - multiplicity
 
         out = np.zeros((xgrid.shape[0], nb), dtype=float)
     else:
         assert out.shape == ((xgrid.shape[0], nb)) and out.dtype == np.dtype('float')
 
     bool_normalization = normalization == "M"
+    multiplicity = int(multiplicity)
 
-    collocation_matrix_p(knots, degree, periodic, bool_normalization, xgrid, out)
+    collocation_matrix_p(knots, degree, periodic, bool_normalization, xgrid, out, multiplicity=multiplicity)
     return out
 
 #==============================================================================
-def histopolation_matrix(knots, degree, periodic, normalization, xgrid, check_boundary=True, out=None):
+def histopolation_matrix(knots, degree, periodic, normalization, xgrid, multiplicity=1, check_boundary=True, out=None):
     """Computes the histopolation matrix.
 
     If called with normalization='M', this uses M-splines instead of B-splines.
@@ -375,6 +379,10 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid, check_bo
 
     xgrid : array_like
         Grid points.
+        
+    multiplicity : int
+        Multiplicity of the knots in the knot sequence, we assume that the same 
+        multiplicity applies to each interior knot.
 
     check_boundary : bool, default=True
         If true and ``periodic``, will check the boundaries of ``xgrid``.
@@ -418,23 +426,23 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid, check_bo
 
     knots = np.ascontiguousarray(knots, dtype=float)
     xgrid = np.ascontiguousarray(xgrid, dtype=float)
-    elevated_knots = elevate_knots(knots, degree, periodic)
+    elevated_knots = elevate_knots(knots, degree, periodic, multiplicity=multiplicity)
 
     normalization = normalization == "M"
 
     if out is None:
         if periodic:
-            out = np.zeros((len(xgrid), len(knots) - 2 * degree - 1), dtype=float)
+            out = np.zeros((len(xgrid), len(knots) - 2 * degree - 2 + multiplicity), dtype=float)
         else:
             out = np.zeros((len(xgrid) - 1, len(elevated_knots) - (degree + 1) - 1 - 1), dtype=float)
     else:
         if periodic:
-            assert out.shape == (len(xgrid), len(knots) - 2 * degree - 1)
+            assert out.shape == (len(xgrid), len(knots) - 2 * degree - 2 + multiplicity)
         else:
             assert out.shape == (len(xgrid) - 1, len(elevated_knots) - (degree + 1) - 1 - 1)
         assert out.dtype == np.dtype('float')
-
-    histopolation_matrix_p(knots, degree, periodic, normalization, xgrid, check_boundary, elevated_knots, out)
+    multiplicity = int(multiplicity)
+    histopolation_matrix_p(knots, degree, periodic, normalization, xgrid, check_boundary, elevated_knots, out, multiplicity = multiplicity)
     return out
 
 #==============================================================================
@@ -472,7 +480,7 @@ def breakpoints(knots, degree, tol=1e-15, out=None):
     return out[:i_final]
 
 #==============================================================================
-def greville(knots, degree, periodic, out=None):
+def greville(knots, degree, periodic, out=None, multiplicity=1):
     """
     Compute coordinates of all Greville points.
 
@@ -490,6 +498,10 @@ def greville(knots, degree, periodic, out=None):
     out : array, optional
         If provided, the result will be inserted into this array.
         It should be of the appropriate shape and dtype.
+        
+    multiplicity : int
+        Multiplicity of the knots in the knot sequence, we assume that the same 
+        multiplicity applies to each interior knot.
 
     Returns
     -------
@@ -499,9 +511,10 @@ def greville(knots, degree, periodic, out=None):
     """
     knots = np.ascontiguousarray(knots, dtype=float)
     if out is None:
-        n = len(knots) - 2 * degree - 1 if periodic else len(knots) - degree - 1
+        n = len(knots) - 2 * degree - 2 + multiplicity if periodic else len(knots) - degree - 1
         out = np.zeros(n)
-    greville_p(knots, degree, periodic, out)
+    multiplicity = int(multiplicity)
+    greville_p(knots, degree, periodic, out, multiplicity)
     return out
 
 #===============================================================================
@@ -560,9 +573,12 @@ def elements_spans(knots, degree, out=None):
 def make_knots(breaks, degree, periodic, multiplicity=1, out=None):
     """
     Create spline knots from breakpoints, with appropriate boundary conditions.
-    Let p be spline degree. If domain is periodic, knot sequence is extended
-    by periodicity so that first p basis functions are identical to last p.
-    Otherwise, knot sequence is clamped (i.e. endpoints are repeated p times).
+    
+    If domain is periodic, knot sequence is extended by periodicity to have a 
+    total of (n_cells-1)*mult+2p+2 knots (all break points are repeated mult 
+    time and we add p+1-mult knots by periodicity at each side).
+    
+    Otherwise, knot sequence is clamped (i.e. endpoints have multiplicity p+1).
 
     Parameters
     ----------
@@ -585,7 +601,7 @@ def make_knots(breaks, degree, periodic, multiplicity=1, out=None):
         It should be of the appropriate shape and dtype.
 
     Returns
-    ------
+    -------
     T : numpy.ndarray (1D)
         Coordinates of spline knots.
 
@@ -717,8 +733,9 @@ def quadrature_grid(breaks, quad_rule_x, quad_rule_w):
     -----
     Contents of 2D output arrays 'quad_x' and 'quad_w' are accessed with two
     indices (ie,iq) where:
-      . ie is the global element index;
-      . iq is the local index of a quadrature point within the element.
+
+      - ie is the global element index;
+      - iq is the local index of a quadrature point within the element.
 
     """
     # Check that input arrays have correct size
@@ -1026,7 +1043,7 @@ def _refinement_matrix_one_stage(t, p, knots):
 #==============================================================================
 def hrefinement_matrix(ts, p, knots):
     """
-    computes the refinement matrix corresponding to the insertion of a given list of knots
+    Computes the refinement matrix corresponding to the insertion of a given list of knots.
 
     For more details see:
 

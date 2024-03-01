@@ -8,7 +8,7 @@ from random import random, seed
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.block          import BlockVectorSpace, BlockVector
-from psydac.linalg.block          import BlockLinearOperator, BlockDiagonalSolver
+from psydac.linalg.block          import BlockLinearOperator
 from psydac.linalg.utilities      import array_to_psydac
 from psydac.linalg.kron           import KroneckerLinearSolver
 from psydac.api.settings          import PSYDAC_BACKEND_GPYCCEL
@@ -170,6 +170,17 @@ def test_2D_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     assert L1.nonzero_block_indices == ((0,0),(0,1),(1,0))
     assert L1.backend()==None
 
+    # Test copy method with an out
+    L4 = BlockLinearOperator( W, W )
+    L1.copy(out=L4)
+    assert L1.domain == W
+    assert L1.codomain == W
+    assert L1.dtype == dtype
+    assert L1.n_block_rows == 2
+    assert L1.n_block_cols == 2
+    assert L1.nonzero_block_indices == ((0,0),(0,1),(1,0))
+    assert L1.backend()==None
+
     L2 = BlockLinearOperator( W, W, blocks=list_blocks )
     L3 = BlockLinearOperator( W, W )
 
@@ -177,10 +188,11 @@ def test_2D_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     L3[0,1] = M2
     L3[1,0] = M3
 
-    # Convert L1, L2 and L3 to COO form
+    # Convert L1, L2, L3 and L4 to COO form
     coo1 = L1.tosparse().tocoo()
     coo2 = L2.tosparse().tocoo()
     coo3 = L3.tosparse().tocoo()
+    coo4 = L4.tosparse().tocoo()
 
     # Check if the data are in the same place
     assert np.array_equal( coo1.col , coo2.col  )
@@ -190,114 +202,46 @@ def test_2D_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     assert np.array_equal( coo1.col , coo3.col  )
     assert np.array_equal( coo1.row , coo3.row  )
     assert np.array_equal( coo1.data, coo3.data )
-#===============================================================================
-@pytest.mark.parametrize( 'dtype', [float, complex] )
-@pytest.mark.parametrize( 'n1', [8, 16] )
-@pytest.mark.parametrize( 'n2', [8, 12] )
-@pytest.mark.parametrize( 'p1', [1, 2] )
-@pytest.mark.parametrize( 'p2', [1, 3] )
-@pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True] )
-def test_2D_block_diagonal_solver_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
-    # set seed for reproducibility
-    seed(n1*n2*p1*p2)
 
-    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+    assert np.array_equal( coo1.col , coo4.col  )
+    assert np.array_equal( coo1.row , coo4.row  )
+    assert np.array_equal( coo1.data, coo4.data )
+    
+    dict_blocks = {(0,0):M1, (0,1):M2}
 
-    # Partition the points
-    npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    L1 = BlockLinearOperator( W, W, blocks=dict_blocks )
 
-    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+    # Test transpose
+    LT1 = L1.transpose()
+    LT2 = BlockLinearOperator( W, W )
+    L1.transpose(out=LT2)
 
-    # Create vector spaces, stencil matrices, and stencil vectors
-    V = StencilVectorSpace( cart, dtype=dtype)
+    assert LT1.domain == W
+    assert LT1.codomain == W
+    assert LT1.dtype == dtype
+    assert LT1.n_block_rows == 2
+    assert LT1.n_block_cols == 2
+    assert LT1.nonzero_block_indices == ((0,0),(1,0))
+    assert LT1.backend()==None
 
-    # Fill in stencil matrices based on diagonal index
-    if dtype==complex:
-        f1=lambda k1,k2: 10j*k1+k2
-    else:
-        f1=lambda k1,k2: 10*k1+k2
+    assert LT2.domain == W
+    assert LT2.codomain == W
+    assert LT2.dtype == dtype
+    assert LT2.n_block_rows == 2
+    assert LT2.n_block_cols == 2
+    assert LT2.nonzero_block_indices == ((0,0),(1,0))
+    assert LT2.backend()==None
 
-    m11 = np.zeros((n1, n1), dtype=dtype)
-    m12 = np.zeros((n2, n2), dtype=dtype)
-    for j in range(n1):
-        for i in range(-p1,p1+1):
-            m11[j, max(0, min(n1-1, j+i))] = f1(j,i)
-    for j in range(n2):
-        for i in range(-p2,p2+1):
-            m12[j, max(0, min(n2-1, j+i))] = f1(j,5*i)+2.
+    #convert to scipy for tests
+    LT1_sp = LT1.tosparse()
+    LT2_sp = LT2.tosparse()
+    L1_spT  = L1.tosparse().T
+
+    # Check if the data are in the same place
+    assert abs(LT1_sp - L1_spT).max()< 1e-14
+    assert abs(LT2_sp - L1_spT).max()< 1e-14
 
 
-    if dtype==complex:
-        f2=lambda k1,k2: 10j*k1**2+k2**3
-    else:
-        f2=lambda k1,k2: 10*k1**2+k2**3
-
-    m21 = np.zeros((n1, n1), dtype=dtype)
-    m22 = np.zeros((n2, n2), dtype=dtype)
-
-    for j in range(n1):
-        for i in range(-p1,p1+1):
-            m21[j, max(0, min(n1-1, j+i))] = f2(j,i)
-    for j in range(n2):
-        for i in range(-p2,p2+1):
-            m22[j, max(0, min(n2-1, j+i))] = f2(j,2*i)+2.
-
-    M11 = SparseSolver( spa.csc_matrix(m11) )
-    M12 = SparseSolver( spa.csc_matrix(m12) )
-    M21 = SparseSolver( spa.csc_matrix(m21) )
-    M22 = SparseSolver( spa.csc_matrix(m22) )
-    M1 = KroneckerLinearSolver(V, [M11,M12])
-    M2 = KroneckerLinearSolver(V, [M21,M22])
-    x1 = StencilVector( V )
-    x2 = StencilVector( V )
-
-    W = BlockVectorSpace(V, V)
-
-    # Fill in vector with random values, then update ghost regions
-    for i1 in range(n1):
-        for i2 in range(n2):
-            x1[i1,i2] = 2.0*random() - 1.0
-            x2[i1,i2] = 5.0*random() - 1.0
-    x1.update_ghost_regions()
-    x2.update_ghost_regions()
-
-    # Construct a BlockVector object containing x1 and x2
-    #     |x1|
-    # X = |  |
-    #     |x2|
-
-    X = BlockVector(W)
-    X[0] = x1
-    X[1] = x2
-
-    # Construct a BlockDiagonalSolver object containing M1, M2 using 3 ways
-    #     |M1  0 |
-    # L = |      |
-    #     |0   M2|
-
-    dict_blocks = {0:M1, 1:M2}
-    list_blocks = [M1, M2]
-
-    L1 = BlockDiagonalSolver( W, blocks=dict_blocks )
-    L2 = BlockDiagonalSolver( W, blocks=list_blocks )
-
-    L3 = BlockDiagonalSolver( W )
-
-    # Test for not allowing undefinedness
-    errresult = False
-    try:
-        L3.solve(X)
-    except NotImplementedError:
-        errresult = True
-    assert errresult
-
-    L3[0] = M1
-    L3[1] = M2
-    assert L3.space == W
-    assert L3.blocks == (M1, M2)
-    assert L3.n_blocks == 2
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'ndim', [1, 2, 3] )
@@ -787,155 +731,6 @@ def test_block_linear_operator_serial_dot( dtype, n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'p2', [1, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
-def test_block_diagonal_solver_serial_dot( dtype, n1, n2, p1, p2, P1, P2 ):
-    # set seed for reproducibility
-    seed(n1*n2*p1*p2)
-
-    D = DomainDecomposition([n1,n2], periods=[P1,P2])
-
-    # Partition the points
-    npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
-
-    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
-
-    # Create vector spaces, stencil matrices, and stencil vectors
-    V = StencilVectorSpace( cart, dtype=dtype)
-
-    # Fill in stencil matrices based on diagonal index
-    if dtype==complex:
-        f1=lambda k1,k2: 10j*k1+k2
-    else:
-        f1=lambda k1,k2: 10*k1+k2
-
-    m11 = np.zeros((n1, n1), dtype=dtype)
-    m12 = np.zeros((n2, n2), dtype=dtype)
-    for j in range(n1):
-        for i in range(-p1,p1+1):
-            m11[j, max(0, min(n1-1, j+i))] = f1(j,i)
-    for j in range(n2):
-        for i in range(-p2,p2+1):
-            m12[j, max(0, min(n2-1, j+i))] = f1(j,5*i)+2.
-
-
-    if dtype==complex:
-        f2=lambda k1,k2: 10j*k1**2+k2**3
-    else:
-        f2=lambda k1,k2: 10*k1**2+k2**3
-
-    m21 = np.zeros((n1, n1), dtype=dtype)
-    m22 = np.zeros((n2, n2), dtype=dtype)
-    for j in range(n1):
-        for i in range(-p1,p1+1):
-            m21[j, max(0, min(n1-1, j+i))] = f2(j,i)
-    for j in range(n2):
-        for i in range(-p2,p2+1):
-            m22[j, max(0, min(n2-1, j+i))] = f2(j,2*i)+2.
-    
-    M11 = SparseSolver( spa.csc_matrix(m11) )
-    M12 = SparseSolver( spa.csc_matrix(m12) )
-    M21 = SparseSolver( spa.csc_matrix(m21) )
-    M22 = SparseSolver( spa.csc_matrix(m22) )
-    M1 = KroneckerLinearSolver(V, [M11,M12])
-    M2 = KroneckerLinearSolver(V, [M21,M22])
-    x1 = StencilVector( V )
-    x2 = StencilVector( V )
-
-    W = BlockVectorSpace(V, V)
-
-    # Fill in vector with random values, then update ghost regions
-    for i1 in range(n1):
-        for i2 in range(n2):
-            x1[i1,i2] = 2.0*random() - 1.0
-            x2[i1,i2] = 5.0*random() - 1.0
-    x1.update_ghost_regions()
-    x2.update_ghost_regions()
-
-    # Construct a BlockVector object containing x1 and x2
-    #     |x1|
-    # X = |  |
-    #     |x2|
-
-    X = BlockVector(W)
-    X[0] = x1
-    X[1] = x2
-
-    # Construct a BlockDiagonalSolver object containing M1, M2 using 3 ways
-    #     |M1  0 |
-    # L = |      |
-    #     |0   M2|
-
-    dict_blocks = {0:M1, 1:M2}
-    list_blocks = [M1, M2]
-
-    L1 = BlockDiagonalSolver( W, blocks=dict_blocks )
-    L2 = BlockDiagonalSolver( W, blocks=list_blocks )
-
-    L3 = BlockDiagonalSolver( W )
-
-    # Test for not allowing undefinedness
-    errresult = False
-    try:
-        L3.solve(X)
-    except NotImplementedError:
-        errresult = True
-    assert errresult
-
-    L3[0] = M1
-    L3[1] = M2
-
-    # Compute BlockDiagonalSolver product
-    Y1 = L1.solve(X)
-    Y2 = L2.solve(X)
-    Y3 = L3.solve(X)
-
-    # Transposed
-    Yt = L1.solve(X, transposed=True)
-
-    # Test other in/out methods
-    Y4a = W.zeros()
-    Y4b = L1.solve(X, out=Y4a)
-    assert Y4b is Y4a
-
-    Y5a = W.zeros()
-    Y5a[0] = x1.copy()
-    Y5a[1] = x2.copy()
-    Y5b = L1.solve(Y5a, out=Y5a)
-    assert Y5b is Y5a
-
-    # Solve linear equations for each block
-    y1 = M1.solve(x1)
-    y2 = M2.solve(x2)
-
-    y1t = M1.solve(x1, transposed=True)
-    y2t = M2.solve(x2, transposed=True)
-
-    # Check data in 1D array
-    assert np.allclose( Y1.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
-    assert np.allclose( Y1.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
-
-    assert np.allclose( Y2.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
-    assert np.allclose( Y2.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
-
-    assert np.allclose( Y3.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
-    assert np.allclose( Y3.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
-
-    assert np.allclose( Y4a.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
-    assert np.allclose( Y4a.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
-
-    assert np.allclose( Y5a.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
-    assert np.allclose( Y5a.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
-
-    assert np.allclose( Yt.blocks[0].toarray(), y1t.toarray(), rtol=1e-14, atol=1e-14 )
-    assert np.allclose( Yt.blocks[1].toarray(), y2t.toarray(), rtol=1e-14, atol=1e-14 )
-#===============================================================================
-@pytest.mark.parametrize( 'dtype', [float, complex] )
-@pytest.mark.parametrize( 'n1', [8, 16] )
-@pytest.mark.parametrize( 'n2', [8, 12] )
-@pytest.mark.parametrize( 'p1', [1, 2] )
-@pytest.mark.parametrize( 'p2', [1, 3] )
-@pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True] )
 
 def test_block_2d_array_to_psydac_1( dtype, n1, n2, p1, p2, P1, P2 ):
     #Define a factor for the data
@@ -1194,155 +989,56 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     # Check data in 1D array
     assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
     assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
-#===============================================================================
-@pytest.mark.parametrize( 'dtype', [float, complex] )
-@pytest.mark.parametrize( 'n1', [8,16] )
-@pytest.mark.parametrize( 'n2', [8,32] )
-@pytest.mark.parametrize( 'p1', [1,3] )
-@pytest.mark.parametrize( 'p2', [2] )
-@pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'P2', [True] )
-@pytest.mark.parallel
-def test_block_diagonal_solver_parallel_dot( dtype, n1, n2, p1, p2, P1, P2  ):
-    # Define a factor for the data
-    if dtype == complex:
-        factor = 1j
-    else:
-        factor = 1
-    # set seed for reproducibility
-    seed(n1*n2*p1*p2)
 
-    from mpi4py       import MPI
-    comm = MPI.COMM_WORLD
-    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
+    # Test copy with an out 
+    # Create random matrix 
+    N1 = StencilMatrix( V, V )
+    N2 = StencilMatrix( V, V )
+    N3 = StencilMatrix( V, V )
+    N4 = StencilMatrix( V, V )
 
-    # Partition the points
-    npts = [n1,n2]
-    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            N1[:,:,k1,k2] = factor*random()
+            N2[:,:,k1,k2] = factor*random()
+            N3[:,:,k1,k2] = factor*random()
+            N4[:,:,k1,k2] = factor*random()
 
-    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+    K = BlockLinearOperator( W, W )
+    N = BlockLinearOperator( W, W )
 
-    # Create vector spaces, stencil matrices, and stencil vectors
-    V = StencilVectorSpace( cart, dtype=dtype )
 
-    s1,s2 = V.starts
-    e1,e2 = V.ends
+    K[0,0] = N1
+    K[0,1] = N2
+    K[1,0] = N3
+    K[1,1] = N4
 
-    # Fill in stencil matrices based on diagonal index
-    m11 = np.zeros((n1, n1),dtype=dtype)
-    m12 = np.zeros((n2, n2),dtype=dtype)
-    for j in range(n1):
-        for i in range(-p1,p1+1):
-            m11[j, max(0, min(n1-1, j+i))] = 10*factor*j+i
-    for j in range(n2):
-        for i in range(-p2,p2+1):
-            m12[j, max(0, min(n2-1, j+i))] = 20*factor*j+5*i+2.
-    
-    m21 = np.zeros((n1, n1),dtype=dtype)
-    m22 = np.zeros((n2, n2),dtype=dtype)
-    for j in range(n1):
-        for i in range(-p1,p1+1):
-            m21[j, max(0, min(n1-1, j+i))] = 10*factor*j**2+i**3
-    for j in range(n2):
-        for i in range(-p2,p2+1):
-            m22[j, max(0, min(n2-1, j+i))] = 20*factor*j**2+i**3+2.
-    
-    M11 = SparseSolver( spa.csc_matrix(m11) )
-    M12 = SparseSolver( spa.csc_matrix(m12) )
-    M21 = SparseSolver( spa.csc_matrix(m21) )
-    M22 = SparseSolver( spa.csc_matrix(m22) )
-    M1 = KroneckerLinearSolver(V, [M11,M12])
-    M2 = KroneckerLinearSolver(V, [M21,M22])
-    x1 = StencilVector( V )
-    x2 = StencilVector( V )
+    #replace the random entries to check they are really overwritten
+    K.copy(out=N)
+    L.copy(out=K)
 
-    W = BlockVectorSpace(V, V)
-
-    # Fill in vector with random values, then update ghost regions
-    for i1 in range(s1,e1+1):
-        for i2 in range(s2,e2+1):
-            x1[i1,i2] = 2.0*factor*random() - 1.0
-            x2[i1,i2] = 5.0*factor*random() - 1.0
-    x1.update_ghost_regions()
-    x2.update_ghost_regions()
-
-    # Construct a BlockVector object containing x1 and x2
-    #     |x1|
-    # X = |  |
-    #     |x2|
-
-    X = BlockVector(W)
-    X[0] = x1
-    X[1] = x2
-
-    # Construct a BlockDiagonalSolver object containing M1, M2 using 3 ways
-    #     |M1  0 |
-    # L = |      |
-    #     |0   M2|
-
-    dict_blocks = {0:M1, 1:M2}
-    list_blocks = [M1, M2]
-
-    L1 = BlockDiagonalSolver( W, blocks=dict_blocks )
-    L2 = BlockDiagonalSolver( W, blocks=list_blocks )
-
-    L3 = BlockDiagonalSolver( W )
-
-    # Test for not allowing undefinedness
-    errresult = False
-    try:
-        L3.solve(X)
-    except NotImplementedError:
-        errresult = True
-    assert errresult
-
-    L3[0] = M1
-    L3[1] = M2
-
-    # Compute BlockDiagonalSolver product
-    Y1 = L1.solve(X)
-    Y2 = L2.solve(X)
-    Y3 = L3.solve(X)
-
-    # Transposed
-    Yt = L1.solve(X, transposed=True)
-
-    # Test other in/out methods
-    Y4a = W.zeros()
-    Y4b = L1.solve(X, out=Y4a)
-    assert Y4b is Y4a
-
-    Y5a = W.zeros()
-    Y5a[0] = x1.copy()
-    Y5a[1] = x2.copy()
-    Y5b = L1.solve(Y5a, out=Y5a)
-    assert Y5b is Y5a
-
-    # Solve linear equations for each block
-    y1 = M1.solve(x1)
-    y2 = M2.solve(x2)
-
-    y1t = M1.solve(x1, transposed=True)
-    y2t = M2.solve(x2, transposed=True)
+    # Compute Block-vector product
+    K.dot(X, out= Y)
 
     # Check data in 1D array
-    assert np.allclose( Y1.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
-    assert np.allclose( Y1.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+    assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
+    assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
 
-    assert np.allclose( Y2.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
-    assert np.allclose( Y2.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+    # Test transpose with an out, check that we overwrite the random entries
+    L.transpose(out = N)
+    
+    # Compute Block-vector product
+    Z = N.dot(X)
 
-    assert np.allclose( Y3.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
-    assert np.allclose( Y3.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+    # Compute matrix-vector products for each block
+    y1 = M1.T.dot(x1) + M3.T.dot(x2)
+    y2 = M2.T.dot(x1) + M4.T.dot(x2)
 
-    assert np.allclose( Y4a.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
-    assert np.allclose( Y4a.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+    # Check data in 1D array
+    assert np.allclose( Z.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
+    assert np.allclose( Z.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+    
 
-    assert np.allclose( Y5a.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
-    assert np.allclose( Y5a.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
-
-    assert np.allclose( Yt.blocks[0].toarray(), y1t.toarray(), rtol=1e-14, atol=1e-14 )
-    assert np.allclose( Yt.blocks[1].toarray(), y2t.toarray(), rtol=1e-14, atol=1e-14 )
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )

@@ -8,7 +8,7 @@ import warnings
 import numpy as np
 
 from types        import MappingProxyType
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, diags as sp_diags
 from mpi4py       import MPI
 
 from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator
@@ -1037,9 +1037,17 @@ class StencilMatrix(LinearOperator):
         return out
 
     # ...
-    def transpose(self, conjugate=False):
-        """ Create new StencilMatrix Mt, where domain and codomain are swapped
-            with respect to original matrix M, and Mt_{ij} = M_{ji}.
+    def transpose(self, conjugate=False, out=None):
+        """"
+        Return the transposed StencilMatrix, or the Hermitian Transpose if conjugate==True
+
+        Parameters
+        ----------
+        conjugate : Bool(optional)
+            True to get the Hermitian adjoint.
+
+        out : StencilMatrix(optional)
+            Optional out for the transpose to avoid temporaries
         """
         # For clarity rename self
         M = self
@@ -1049,14 +1057,20 @@ class StencilMatrix(LinearOperator):
             M.update_ghost_regions()
 
         # Create new matrix where domain and codomain are swapped
-        Mt = StencilMatrix(M.codomain, M.domain, pads=self._pads, backend=self._backend)
+        if out is not None :
+            assert isinstance(out, StencilMatrix)
+            assert out.codomain == M.domain
+            assert out.domain == M.codomain
+            
+        else :
+            out = StencilMatrix(M.codomain, M.domain, pads=self._pads, backend=self._backend)
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
         if conjugate:
-            self._transpose_func(np.conjugate(M._data), Mt._data, **self._transpose_args)
+            self._transpose_func(np.conjugate(M._data), out._data, **self._transpose_args)
         else:
-            self._transpose_func(M._data, Mt._data, **self._transpose_args)
-        return Mt
+            self._transpose_func(M._data, out._data, **self._transpose_args)
+        return out
 
     # ...
     def toarray(self, **kwargs):
@@ -1190,12 +1204,25 @@ class StencilMatrix(LinearOperator):
         return self._data.max()
 
     #...
-    def copy(self):
-        M = StencilMatrix( self.domain, self.codomain, self._pads, self._backend )
-        M._data[:] = self._data[:]
-        M._func    = self._func
-        M._args    = self._args
-        return M
+    def copy(self, out = None):
+        """
+        Create a copy of self, that can potentially be stored in a given StencilMatrix.
+
+        Parameters
+        ----------
+        out : StencilMatrix(optional)
+            The existing StencilMatrix in which we want to copy self.
+        """
+        if out is not None :
+            assert isinstance(out, StencilMatrix)
+            assert out.domain == self.domain
+            assert out.codomain == self.codomain
+        else :
+            out = StencilMatrix( self.domain, self.codomain, self._pads, self._backend )
+        out._data[:] = self._data[:]
+        out._func    = self._func
+        out._args    = self._args
+        return out
 
     #...
     def __imul__(self, a):
@@ -1341,30 +1368,61 @@ class StencilMatrix(LinearOperator):
 
                 # Copy data from left to right
                 idx_to   = tuple( idx_front + [slice( m*p, m*p+p)] + idx_back )
-                idx_from = tuple( idx_front + [ slice(-m*p,-m*p+p) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back )
+                idx_from = tuple( idx_front + [slice(-m*p,-m*p+p) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back )
                 self._data[idx_to] += self._data[idx_from]
 
-    def diagonal(self):
-        if self._diag_indices is None:
-            cm    = self.codomain.shifts
-            dm    = self.domain.shifts
-            ss    = self.codomain.starts
-            pp    = [compute_diag_len(p,mj,mi)-(p+1) for p,mi,mj in zip(self._pads, cm, dm)]
-            nrows = tuple(e-s+1 for s,e in zip(self.codomain.starts, self.codomain.ends))
-            indices = [np.zeros(np.product(nrows), dtype=int) for _ in range(2*len(nrows))]
-            l = 0
-            for xx in np.ndindex(*nrows):
-                ii = [m*p+x for m,p,x in zip(self.domain.shifts, self.domain.pads, xx)]
-                jj = [p+x+s-((x+s)//mi)*mj for (x,mi,mj,p,s) in zip(xx,cm,dm,pp,ss)]
-                for k in range(len(nrows)):
-                    indices[k][l] = ii[k]
-                    indices[k+len(nrows)][l] = jj[k]
-                l += 1
-            self._diag_indices = tuple(indices)
-        else:
-            nrows   = tuple(e-s+1 for s,e in zip(self.codomain.starts, self.codomain.ends))
+    # ...
+    def diagonal(self, *, inverse = False, out = None):
+        """
+        Get the coefficients on the main diagonal as a StencilDiagonalMatrix object.
 
-        return self._data[self._diag_indices].reshape(nrows)
+        Parameters
+        ----------
+        inverse : bool
+            If True, get the inverse of the diagonal. (Default: False).
+
+        out : StencilDiagonalMatrix
+            If provided, write the diagonal entries into this matrix. (Default: None).
+
+        Returns
+        -------
+        StencilDiagonalMatrix
+            The matrix which contains the main diagonal of self (or its inverse).
+
+        """
+        # Check `inverse` argument
+        assert isinstance(inverse, bool)
+
+        # Determine domain and codomain of the StencilDiagonalMatrix
+        V, W = self.domain, self.codomain
+        if inverse:
+            V, W = W, V
+
+        # Check `out` argument
+        if out is not None:
+            assert isinstance(out, StencilDiagonalMatrix)
+            assert out.domain is V
+            assert out.codomain is W
+
+
+        # Extract diagonal data from self and identify output array
+        diagonal_indices = self._get_diagonal_indices()
+        diag = self._data[diagonal_indices]
+        data = out._data if out else None
+
+        # Calculate entries of StencilDiagonalMatrix
+        if inverse:
+            data = np.divide(1, diag, out=data)
+        elif out:
+            np.copyto(data, diag)
+        else:
+            data = diag.copy()
+
+        # If needed create a new StencilDiagonalMatrix object
+        if out is None:
+            out = StencilDiagonalMatrix(V, W, data)
+
+        return out
 
     # ...
     def topetsc(self):
@@ -1786,6 +1844,224 @@ class StencilMatrix(LinearOperator):
             self._args.pop('ndiags')
             self._func = dot.func
 
+    # ...
+    def _get_diagonal_indices(self):
+        """
+        Compute the indices which should be applied to self._data in order to
+        get the matrix entries on the main diagonal. The result is also stored
+        in self._diag_indices, and retrieved from there on successive calls.
+
+        Returns
+        -------
+        tuple[numpy.ndarray, ndim]
+            The diagonal indices as a tuple of NumPy arrays of identical shape
+            (n1, n2, n3, ...).
+
+        """
+
+        if self._diag_indices is None:
+
+            dp    = self.domain.pads
+            dm    = self.domain.shifts
+            cm    = self.codomain.shifts
+            ss    = self.codomain.starts
+            pp    = [compute_diag_len(p, mj, mi) - p - 1 for p, mi, mj in zip(self._pads, cm, dm)]
+            nrows = [e - s + 1 for s, e in zip(self.codomain.starts, self.codomain.ends)]
+            ndim  = self.domain.ndim
+
+            indices = [np.zeros(np.prod(nrows), dtype=int) for _ in range(2 * ndim)]
+
+            for l, xx in enumerate(np.ndindex(*nrows)):
+                ii = [m * p + x for m, p, x in zip(dm, dp, xx)]
+                jj = [p + x + s - ((x+s) // mi) * mj for x, mi, mj, p, s in zip(xx, cm, dm, pp, ss)]
+                for k in range(ndim):
+                    indices[k][l] = ii[k]
+                    indices[k + ndim][l] = jj[k]
+
+            self._diag_indices = tuple(idx.reshape(nrows) for idx in indices)
+
+        return self._diag_indices
+
+#===============================================================================
+class StencilDiagonalMatrix(LinearOperator):
+    """
+    Linear operator which operates between stencil vector spaces, and which can
+    be represented by a matrix with non-zero entries only on its main diagonal.
+    As such this operator is completely local and requires no data communication.
+
+    We assume that the vectors in the domain and the codomain have the same
+    shape and are distributed in the same way.
+
+    Parameters
+    ----------
+    V : psydac.linalg.stencil.StencilVectorSpace
+        Domain of the new linear operator.
+
+    W : psydac.linalg.stencil.StencilVectorSpace
+        Codomain of the new linear operator.
+
+    """
+    def __init__(self, V, W, data):
+
+        # Check domain and codomain
+        assert isinstance(V, StencilVectorSpace)
+        assert isinstance(W, StencilVectorSpace)
+        assert V.starts == W.starts
+        assert V.ends   == W.ends
+
+        data = np.asarray(data)
+
+        # Check shape of provided data
+        shape = tuple(e - s + 1 for s, e in zip(V.starts, V.ends))
+        assert data.shape == shape
+
+        # Store info in object
+        self._domain   = V
+        self._codomain = W
+        self._data     = data
+
+    #--------------------------------------
+    # Abstract interface
+    #--------------------------------------
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._data.dtype
+
+    def tosparse(self):
+        return sp_diags(self._data.ravel())
+
+    def toarray(self):
+        return self._data.copy()
+
+    def dot(self, v, out=None):
+
+        assert isinstance(v, StencilVector)
+        assert v.space is self.domain
+
+        if out is not None:
+            assert isinstance(out, StencilVector)
+            assert out.space is self.codomain
+        else:
+            out = self.codomain.zeros()
+
+        V = self.domain
+        i = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+        np.multiply(self._data, v[i], out=out[i])
+
+        out.ghost_regions_in_sync = False
+
+        return out
+
+    # ...
+    # TODO [YG 22.01.2024]: idot function will require a dedicated kernel
+    # ...
+
+    def transpose(self, *, conjugate=False, out=None):
+
+        assert isinstance(conjugate, bool)
+
+        if out is not None:
+            assert isinstance(out, StencilDiagonalMatrix)
+            assert out.domain is self.codomain
+            assert out.codomain is self.domain
+
+        if not (conjugate and self.dtype is complex):
+
+            if out is None:
+                data = self._data.copy()
+            else:
+                np.copyto(out._data, self._data, casting='no')
+
+        else:
+
+            if out is None:
+                data = np.conjugate(self._data, casting='no')
+            else:
+                np.conjugate(self._data, out=out._data, casting='no')
+
+        if out is None:
+            out = StencilDiagonalMatrix(self.codomain, self.domain, data)
+
+        return out
+
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
+    def copy(self, *, out=None):
+
+        if out is self:
+            return self
+
+        if out is None:
+            data = self._data.copy()
+            out = StencilDiagonalMatrix(self.domain, self.codomain, data)
+        else:
+            assert isinstance(out, StencilDiagonalMatrix)
+            assert out.domain is self.domain
+            assert out.codomain is self.codomain
+            np.copyto(out._data, self._data, casting='no')
+
+        return out
+
+    def diagonal(self, *, inverse = False, out = None):
+        """
+        Get the coefficients on the main diagonal as a StencilDiagonalMatrix object.
+
+        In the default case (inverse=False, out=None) self is returned.
+
+        Parameters
+        ----------
+        inverse : bool
+            If True, get the inverse of the diagonal. (Default: False).
+
+        out : StencilDiagonalMatrix
+            If provided, write the diagonal entries into this matrix. (Default: None).
+
+        Returns
+        -------
+        StencilDiagonalMatrix
+            Either self, or another StencilDiagonalMatrix with the diagonal inverse.
+
+        """
+        # Check `inverse` argument
+        assert isinstance(inverse, bool)
+
+        # Determine domain and codomain of the `out` matrix
+        V, W = self.domain, self.codomain
+        if inverse:
+            V, W = W, V
+
+        # Check `out` argument and identify `data` array of output vector
+        if out is None:
+            data = None
+        else:
+            assert isinstance(out, StencilDiagonalMatrix)
+            assert out.domain is V
+            assert out.codomain is W
+            data = out._data
+
+        # Calculate entries, or set `out=self` in default case
+        if inverse:
+            data = np.divide(1, diag, out=data)
+        elif out:
+            np.copyto(data, diag)
+        else:
+            out = self
+
+        # If needed create a new StencilDiagonalMatrix object
+        if out is None:
+            out = StencilDiagonalMatrix(V, W, data)
+
+        return out
+
 #===============================================================================
 # TODO [YG, 28.01.2021]:
 # - Check if StencilMatrix should be subclassed
@@ -2020,7 +2296,7 @@ class StencilInterfaceMatrix(LinearOperator):
             new_nrows[d] += er
 
     # ...
-    def transpose( self, conjugate=False, Mt=None):
+    def transpose( self, conjugate=False, out=None):
         """ Create new StencilInterfaceMatrix Mt, where domain and codomain are swapped
             with respect to original matrix M, and Mt_{ij} = M_{ji}.
         """
@@ -2028,18 +2304,18 @@ class StencilInterfaceMatrix(LinearOperator):
         # For clarity rename self
         M = self
 
-        if Mt is None:
+        if out is None:
             # Create new matrix where domain and codomain are swapped
 
-            Mt = StencilInterfaceMatrix(M.codomain, M.domain, M.codomain_start, M.domain_start, M.codomain_axis, M.domain_axis, M.codomain_ext, M.domain_ext,
+            out = StencilInterfaceMatrix(M.codomain, M.domain, M.codomain_start, M.domain_start, M.codomain_axis, M.domain_axis, M.codomain_ext, M.domain_ext,
                                         flip=M.flip, pads=M.pads, backend=M.backend)
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
         if conjugate:
-            M._transpose_func(np.conjugate(M._data), Mt._data, **M._transpose_args)
+            M._transpose_func(np.conjugate(M._data), out._data, **M._transpose_args)
         else:
-            M._transpose_func(M._data, Mt._data, **M._transpose_args)
-        return Mt
+            M._transpose_func(M._data, out._data, **M._transpose_args)
+        return out
 
     def _prepare_transpose_args(self):
 

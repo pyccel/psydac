@@ -657,7 +657,7 @@ def get_source_and_solution_OBSOLETE(source_type=None, eta=0, mu=0, nu=0,
             else:
                 raise NotImplementedError
 
-        # note: some other currents give sympde or numba errors, see below [1]
+        # note: some other currents give sympde error, see below [1]
         phi = f_factor * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
 
         f_x = - (y-y0) * phi

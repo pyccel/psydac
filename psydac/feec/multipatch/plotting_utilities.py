@@ -15,7 +15,8 @@ from psydac.fem.basic        import FemField
 from psydac.utilities.utils  import refine_array_1d
 from psydac.feec.pull_push   import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
 
-matplotlib.rcParams['font.size'] = 15
+__all__ = ('is_vector_valued', 'get_grid_vals', 'get_grid_quad_weights', 'get_plotting_grid', 
+           'get_diag_grid', 'get_patch_knots_gridlines', 'plot_field', 'my_small_plot', 'my_small_streamplot')
 
 #==============================================================================
 def is_vector_valued(u):

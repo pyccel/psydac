@@ -185,7 +185,7 @@ def update_plot(fig, t, x, y, field_h, field_ex):
 def run_maxwell_2d_TE(*, use_spline_mapping,
         eps, ncells, degree, periodic,
         Cp, nsteps, tend,
-        splitting_order, plot_interval, diagnostics_interval, tol, verbose):
+        splitting_order, plot_interval, diagnostics_interval, tol, verbose, mult=1):
 
     import os
 
@@ -290,7 +290,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     #--------------------------------------------------------------------------
     if use_spline_mapping:
         domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD)
-        derham_h = discretize(derham, domain_h)
+        derham_h = discretize(derham, domain_h, multiplicity = [mult,mult])
 
         periodic_list = mapping.get_callable_mapping().space.periodic
         degree_list   = mapping.get_callable_mapping().space.degree
@@ -311,7 +311,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     else:
         # Discrete physical domain and discrete DeRham sequence
         domain_h = discretize(domain, ncells=[ncells, ncells], periodic=[periodic, periodic], comm=MPI.COMM_WORLD)
-        derham_h = discretize(derham, domain_h, degree=[degree, degree])
+        derham_h = discretize(derham, domain_h, degree=[degree, degree], multiplicity = [mult,mult])
 
     # Discrete bilinear forms
     a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
@@ -519,7 +519,8 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         M1_inv = inverse(M1, 'cg', **kwargs)
         step_ampere_2d = dt * (M1_inv @ D1_T @ M2)
     else:
-        M1_M1_bc_inv = inverse(M1 + M1_bc, 'pcg', pc='jacobi', **kwargs)
+        M1_M1_bc = M1 + M1_bc
+        M1_M1_bc_inv = inverse(M1_M1_bc, 'pcg', pc = M1_M1_bc.diagonal(inverse=True), **kwargs)
         step_ampere_2d = dt * (M1_M1_bc_inv @ D1_T @ M2)
 
     half_step_faraday_2d = (dt/2) * D1
@@ -709,6 +710,91 @@ def test_maxwell_2d_periodic():
     assert abs(namespace['error_Ex'] - ref['error_Ex']) / ref['error_Ex'] <= TOL
     assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
     assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
+
+def test_maxwell_2d_multiplicity():
+
+    namespace = run_maxwell_2d_TE(
+        use_spline_mapping = False,
+        eps      = 0.5,
+        ncells   = 10,
+        degree   = 5,
+        periodic = False,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        verbose = False,
+        mult = 2
+    )
+    
+    TOL = 1e-5
+    ref = dict(error_l2_Ex = 4.350041934920621e-04,
+               error_l2_Ey = 4.350041934920621e-04,
+               error_l2_Bz = 3.76106860e-03)
+
+    assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
+    assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
+    assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL
+    
+def test_maxwell_2d_periodic_multiplicity():
+
+    namespace = run_maxwell_2d_TE(
+        use_spline_mapping = False,
+        eps      = 0.5,
+        ncells   = 30,
+        degree   = 3,
+        periodic = True,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        verbose = False,
+        mult =2
+    )
+    
+    TOL = 1e-6
+    ref = dict(error_l2_Ex = 1.78557685e-04,
+               error_l2_Ey = 1.78557685e-04,
+               error_l2_Bz = 1.40582413e-04)
+
+    assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
+    assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
+    assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL
+    
+    
+def test_maxwell_2d_periodic_multiplicity_equal_deg():
+
+    namespace = run_maxwell_2d_TE(
+        use_spline_mapping = False,
+        eps      = 0.5,
+        ncells   = 10,
+        degree   = 2,
+        periodic = True,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        verbose = False,
+        mult =2
+    )
+    
+    TOL = 1e-6
+    ref = dict(error_l2_Ex = 2.50585008e-02,
+               error_l2_Ey = 2.50585008e-02,
+               error_l2_Bz = 1.58438290e-02)
+    
+    assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
+    assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
+    assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL
 
 
 def test_maxwell_2d_dirichlet():

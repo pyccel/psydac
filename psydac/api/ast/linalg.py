@@ -28,7 +28,7 @@ from psydac.pyccel.ast.datatypes import NativeInteger
 
 from psydac.api.ast.nodes     import FloorDiv
 from psydac.api.ast.utilities import variables
-from psydac.api.ast.utilities import build_pyccel_types_decorator
+from psydac.api.ast.utilities import build_pyccel_type_annotations
 from psydac.api.utilities     import flatten
 
 from psydac.api.ast.basic     import SplBasic
@@ -343,21 +343,18 @@ class LinearOperatorDot(SplBasic):
         imports    = []
         if backend:
             if backend['name'] == 'pyccel':
-                a = [String(str(i)) for i in build_pyccel_types_decorator(func_args)]
-                decorators = {'types': Function('types')(*a)}
-            elif backend['name'] == 'numba':
-                decorators = {'njit': Function('njit')(ValuedArgument(Symbol('fastmath'), backend['fastmath']))}
+                func_args = build_pyccel_type_annotations(func_args)
             elif backend['name'] == 'pythran':
                 header = build_pythran_types_header(name, func_args)
 
         if openmp:
-            shared  = ','.join(str(a) for a in shared)
-            firstprivate  = "firstprivate({})".format(','.join(str(a) for a in firstprivate)) if firstprivate else ""
+            shared = ','.join(str(a) for a in shared)
+            firstprivate = "firstprivate({})".format(','.join(str(a) for a in firstprivate)) if firstprivate else ""
             pragma1 = "#$omp parallel default(private) shared({}) {}\n".format(shared, firstprivate)
             pragma2 = "#$omp end parallel"
-            body     = [Comment(pragma1)] + body + [Comment(pragma2)]
-        func = FunctionDef(self.name, list(func_args), [], body, imports=imports, decorators=decorators)
-        return func
+            body    = [Comment(pragma1)] + body + [Comment(pragma2)]
+
+        return FunctionDef(self.name, list(func_args), [], body, imports=imports, decorators=decorators)
 
     def _initialize_folder(self, folder=None):
         # ...
@@ -386,18 +383,8 @@ class LinearOperatorDot(SplBasic):
         modname = 'dependencies_{}'.format(self.tag)
 
         if self.comm is None or self.comm.rank == 0:
-
-            if backend and backend['name'] == 'pyccel':
-                imports  = 'from pyccel.decorators import types\n'
-                imports += 'from numpy import shape'
-            elif backend and backend['name'] == 'numba':
-                imports  = 'from numba import njit\n'
-                imports += 'from numpy import shape'
-            else:
-                imports = 'from numpy import shape'
-
-            code = f'{imports}\n{pycode.pycode(self.code)}'
-            write_code(modname + '.py', code, folder=self.folder)
+            python_code = pycode.pycode(self.code)
+            write_code(modname + '.py', python_code, folder=self.folder)
 
         self._modname = modname
 
@@ -467,25 +454,25 @@ class VectorDot(SplBasic):
 
         ndim = self.ndim
 
-        indices = variables('i1:%s'%(ndim+1),'int')
-        dims    = variables('n1:%s'%(ndim+1),'int')
-        pads    = variables('p1:%s'%(ndim+1),'int')
+        indices = variables('i1:%s'%(ndim+1), 'int')
+        dims    = variables('n1:%s'%(ndim+1), 'int')
+        pads    = variables('p1:%s'%(ndim+1), 'int')
         out     = variables('out','real')
-        x1,x2   = variables('x1, x2','real',rank=ndim,cls=IndexedVariable)
+        x1,x2   = variables('x1, x2','real', rank=ndim, cls=IndexedVariable)
 
         body = []
-        ranges = [Range(p,n-p) for n,p in zip(dims,pads)]
+        ranges = [Range(p, n-p) for n, p in zip(dims, pads)]
         target = Product(*ranges)
 
         v1 = x1[indices]
         v2 = x2[indices]
 
-        body = [AugAssign(out,'+' ,Mul(v1,v2))]
+        body = [AugAssign(out, '+' , Mul(v1, v2))]
         body = [For(indices, target, body)]
-        body.insert(0,Assign(out, 0.0))
+        body.insert(0, Assign(out, 0.0))
         body.append(Return(out))
 
-        func_args =  (x1, x2) + pads + dims
+        func_args = (x1, x2) + pads + dims
 
         self._imports = [Import('itertools', 'product')]
 
@@ -493,11 +480,9 @@ class VectorDot(SplBasic):
         header = None
 
         if self.backend['name'] == 'pyccel':
-            decorators = {'types': build_pyccel_types_decorator(func_args), 'external':[]}
-        elif self.backend['name'] == 'numba':
-            decorators = {'jit':[]}
+            func_args = build_pyccel_type_annotations(func_args)
         elif self.backend['name'] == 'pythran':
             header = build_pythran_types_header(self.name, func_args)
 
         return FunctionDef(self.name, list(func_args), [], body,
-                           decorators=decorators,header=header)
+                           decorators=decorators, header=header)

@@ -1526,13 +1526,13 @@ class DiscreteFunctional(BasicDiscrete):
         This method assembles the square of the functional expression with the given arguments and then compute
         the square root of the absolute value of the result.
 
-        Example
-        --------------
-        n = SemiNorm(1.0j*v, domain, kind='l2')
-        nh = discretize(n, domain_h,      Vh , **kwargs)
-        fh = FemField(Vh)
-        fh.coeffs[:] = 1
-        n_value = nh.assemble(v=fh)
+        Examples
+        --------
+        >>> n = SemiNorm(1.0j*v, domain, kind='l2')
+        >>> nh = discretize(n, domain_h,      Vh , **kwargs)
+        >>> fh = FemField(Vh)
+        >>> fh.coeffs[:] = 1
+        >>> n_value = nh.assemble(v=fh)
 
         In n_value we have the value of np.sqrt(abs(sum((1.0jv)**2)))
         """
@@ -1541,7 +1541,7 @@ class DiscreteFunctional(BasicDiscrete):
             v = kwargs[key]
             if isinstance(v, FemField):
                 if not v.coeffs.ghost_regions_in_sync:
-                        v.coeffs.update_ghost_regions()
+                    v.coeffs.update_ghost_regions()
                 if v.space.is_product:
                     coeffs = v.coeffs
                     if self._symbolic_space.is_broken:

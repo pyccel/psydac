@@ -399,7 +399,8 @@ def run_maxwell_time_harmonic_2d_dir(uex, f, alpha, ncells, degree):
     #+++++++++++++++++++++++++++++++
 
     # Solve linear system
-    M_inv = inverse(M, 'pcg', pc='jacobi', tol=1e-8)
+    jacobi_pc = M.diagonal(inverse=True)
+    M_inv = inverse(M, 'pcg', pc=jacobi_pc, tol=1e-8)
     sol = M_inv @ b
 
     uh       = FemField( Vh, sol )

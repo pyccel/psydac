@@ -43,27 +43,37 @@ from psydac.mapping.discrete import NurbsMapping
 from psydac.linalg.stencil   import StencilVectorSpace
 from psydac.linalg.block     import BlockVectorSpace
 
-__all__ = ('discretize', 'discretize_derham', 'reduce_space_degrees', 'discretize_space', 'discretize_domain')
-
+__all__ = (
+    'discretize',
+    'discretize_derham',
+    'reduce_space_degrees',
+    'discretize_space',
+    'discretize_domain'
+)
 
 #==============================================================================
 def change_dtype(V, dtype):
     """
-    This function take a FemSpace V and create a new vector_space for it with the data type required.
+    Given a FemSpace V, change its underlying vector_space (i.e. the space of
+    its coefficients) so that it matches the required data type.
 
     Parameters
     ----------
-
     Vh : FemSpace
-        The FEM space.
+        The FEM space, which is modified in place.
 
-    dtype   : Data Type
-        float or complex
+    dtype : float or complex
+        Datatype of the new vector_space.
+
+    Returns
+    -------
+    FemSpace
+        The same FEM space passed as input, which was modified in place.
     """
     if not V.vector_space.dtype == dtype:
         if isinstance(V.vector_space, BlockVectorSpace):
             # Recreate the BlockVectorSpace
-            new_spaces=[]
+            new_spaces = []
             for v in V.spaces:
                 change_dtype(v, dtype)
                 new_spaces.append(v.vector_space)
@@ -81,15 +91,48 @@ def change_dtype(V, dtype):
 
     return V
 
-#==============================================================================
-def discretize_derham(derham, domain_h, *args, **kwargs):
+#==============================================================================           
+def discretize_derham(derham, domain_h, get_H1vec_space = False, *args, **kwargs):
+    """
+    Create a discrete De Rham sequence from a symbolic one.
+    
+    This function creates the discrete spaces from the symbolic ones, and then
+    creates a DiscreteDerham object from them.
+
+    Parameters
+    ----------
+    derham : sympde.topology.space.Derham
+        The symbolic Derham sequence.
+
+    domain_h : Geometry
+        Discrete domain where the spaces will be discretized.
+        
+    get_H1vec_space : Bool
+        True to also get the "Hvec" space discretizing (H1)^n vector fields.
+        
+    **kwargs : list
+        Optional parameters for the space discretization.
+        
+    Returns
+    -------
+    DiscreteDerham
+      The discrete De Rham sequence containing the discrete spaces, 
+      differential operators and projectors.
+    """
 
     ldim    = derham.shape
     mapping = domain_h.domain.mapping # NOTE: assuming single-patch domain!
-
     bases  = ['B'] + ldim * ['M']
     spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \
             for V, basis in zip(derham.spaces, bases)]
+
+    if get_H1vec_space:
+        X = VectorFunctionSpace('X', domain_h.domain, kind='h1')
+        V0h = spaces[0]
+        Xh  = VectorFemSpace(*([V0h]*ldim))
+        Xh.symbolic_space = X
+        #We still need to specify the symbolic space because of "_recursive_element_of" not implemented in sympde
+        spaces.append(Xh)
 
     return DiscreteDerham(mapping, *spaces)
 
@@ -144,7 +187,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
         The symbolic space.
 
     Vh : TensorFemSpace
-        The tensor product fem space.
+        The tensor product FEM space.
 
     basis: str
         The basis function of the reduced spaces, it can be either 'B' for
@@ -161,7 +204,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
     Returns
     -------
     Wh : TensorFemSpace, VectorFemSpace
-      The reduced space
+      The reduced space.
 
     """
     multiplicity = Vh.multiplicity
@@ -226,7 +269,6 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
     return Wh
 
-
 #==============================================================================
 # TODO knots
 def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, nquads=None, basis='B', sequence='DR'):
@@ -235,12 +277,11 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
     Parameters
     ----------
-
     V : <FunctionSpace>
-        the symbolic space
+        The symbolic space.
 
     domain_h   : <Geometry>
-        the discretized domain
+        The discretized domain.
 
     degree : list | dict
         The degree of the h1 space in each direction.
@@ -282,8 +323,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     Returns
     -------
     Vh : <FemSpace>
-        represents the discrete fem space
-
+        The discrete FEM space.
     """
 
 #    we have two cases, the case where we have a geometry file,

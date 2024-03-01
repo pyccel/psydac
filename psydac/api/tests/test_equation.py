@@ -16,7 +16,7 @@ from psydac.api.discretization import discretize
 from psydac.api.settings       import PSYDAC_BACKENDS
 
 #==============================================================================
-@pytest.fixture(params=[None, 'numba', 'pyccel-gcc'])
+@pytest.fixture(params=[None, 'pyccel-gcc'])
 def backend(request):
     return request.param
 

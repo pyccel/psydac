@@ -3,8 +3,31 @@
 # Copyright 2018 Yaman Güçlü
 
 import numpy as np
+from numbers import Number
 
-__all__ = ('refine_array_1d', 'unroll_edges', 'split_space', 'split_field', 'animate_field')
+__all__ = (
+    'refine_array_1d',
+    'unroll_edges',
+    'split_space',
+    'split_field',
+    'animate_field'
+)
+
+#==============================================================================
+def is_real(x):
+    """Determine whether the given input represents a real number.
+
+    Parameters
+    ----------
+    x : Any
+
+    Returns
+    -------
+    bool
+        True if x is real, False otherwise.
+
+    """
+    return isinstance(x, Number) and np.isrealobj(x) and not isinstance(x, bool)
 
 #===============================================================================
 def refine_array_1d(x, n, remove_duplicates=True):
@@ -59,6 +82,17 @@ def unroll_edges(domain, xgrid):
 
     elif xgrid[-1] != xB:
         return np.array([*xgrid, xgrid[0] + (xB-xA)])
+
+#===============================================================================
+def roll_edges(domain, points):
+    """If necessary, "roll" back intervals that cross boundary of periodic domain.
+    Changes are made in place to avoid duplicating the array
+    """
+    xA, xB = domain
+    assert xA < xB
+    points -=xA
+    points %=(xB-xA)
+    points +=xA
 #===============================================================================
 def split_space(Xh):
     """Split the flattened fem spaces into
