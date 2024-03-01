@@ -28,7 +28,7 @@ class PetscCart:
         self._local_shape = tuple( e-s+1 for s,e in zip( cart._starts, cart._ends ) )
 
         # Compute local size of local arrays in topology (without ghost regions)
-        self._local_size  = np.product(self._local_shape)
+        self._local_size  = np.prod(self._local_shape)
  
 
     @property

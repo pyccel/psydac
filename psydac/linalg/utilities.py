@@ -26,8 +26,8 @@ def array_to_psydac(x, Xh):
                 for i in range(len(starts)):
                     g = tuple(slice(s,e+1) for s,e in zip(starts[i], ends[i]))
                     shape = tuple(ends[i]-starts[i]+1)
-                    u[d][i][g] = x[:np.product(shape)].reshape(shape)
-                    x       = x[np.product(shape):]
+                    u[d][i][g] = x[:np.prod(shape) ].reshape(shape)
+                    x          = x[ np.prod(shape):]
 
         else:
             starts = [np.array(V.starts) for V in Xh.spaces]
@@ -36,8 +36,8 @@ def array_to_psydac(x, Xh):
             for i in range(len(starts)):
                 g = tuple(slice(s,e+1) for s,e in zip(starts[i], ends[i]))
                 shape = tuple(ends[i]-starts[i]+1)
-                u[i][g] = x[:np.product(shape)].reshape(shape)
-                x       = x[np.product(shape):]
+                u[i][g] = x[:np.prod(shape) ].reshape(shape)
+                x       = x[ np.prod(shape):]
 
     elif isinstance(Xh, StencilVectorSpace):
 
@@ -46,7 +46,7 @@ def array_to_psydac(x, Xh):
         ends   = np.array(Xh.ends)
         g = tuple(slice(s, e+1) for s,e in zip(starts, ends))
         shape = tuple(ends-starts+1)
-        u[g] = x[:np.product(shape)].reshape(shape)
+        u[g] = x[:np.prod(shape)].reshape(shape)
     else:
         raise ValueError('Xh must be a StencilVectorSpace or a BlockVectorSpace')
 
@@ -97,12 +97,11 @@ def petsc_to_psydac(x, Xh):
                     # compute the global indices of the coefficents owned by the process using starts and ends
                     indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts[i], xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
                     vals = recvbuf[indices+inds]
-                    #With PETSc installation configuration for complex, all the numbers are by default complex. 
-                    #In the float case, the imaginary part must be truncated to avoid warning.
-                    if dtype == complex:
-                        u[d][i]._data[idx] = vals.reshape(shape)
-                    else:
-                        u[d][i]._data[idx] = vals.real.reshape(shape)
+
+                    # With PETSc installation configuration for complex, all the numbers are by default complex. 
+                    # In the float case, the imaginary part must be truncated to avoid warnings.
+                    u[d][i]._data[idx] = (vals if dtype is complex else vals.real).reshape(shape)
+
                     inds += np.prod(npts)
 
         else:
@@ -127,12 +126,11 @@ def petsc_to_psydac(x, Xh):
                 # compute the global indices of the coefficents owned by the process using starts and ends
                 indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts[i], xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
                 vals = recvbuf[indices+inds]
-                #With PETSc installation configuration for complex, all the numbers are by default complex. 
-                #In the float case, the imaginary part must be truncated to avoid warning.
-                if dtype == complex:
-                    u[i]._data[idx] = vals.reshape(shape)
-                else:
-                    u[i]._data[idx] = vals.real.reshape(shape)
+
+                # With PETSc installation configuration for complex, all the numbers are by default complex. 
+                # In the float case, the imaginary part must be truncated to avoid warnings.
+                u[i]._data[idx] = (vals if dtype is complex else vals.real).reshape(shape)
+
                 inds += np.prod(npts)
 
     elif isinstance(Xh, StencilVectorSpace):
@@ -157,12 +155,11 @@ def petsc_to_psydac(x, Xh):
         indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts, xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
         idx = tuple( slice(m*p,-m*p) for m,p in zip(u.space.pads, u.space.shifts) )
         vals = recvbuf[indices]
-        #With PETSc installation configuration for complex, all the numbers are by default complex. 
-        #In the float case, the imaginary part must be truncated to avoid warning.
-        if dtype == complex:
-            u._data[idx] = vals.reshape(shape)
-        else:
-            u._data[idx] = vals.real.reshape(shape)
+
+        # With PETSc installation configuration for complex, all the numbers are by default complex. 
+        # In the float case, the imaginary part must be truncated to avoid warnings.
+        u._data[idx] = (vals if dtype is complex else vals.real).reshape(shape)
+
     else:
         raise ValueError('Xh must be a StencilVectorSpace or a BlockVectorSpace')
 
