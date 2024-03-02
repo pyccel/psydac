@@ -12,7 +12,8 @@ from scipy.sparse.linalg import bicg as sp_bicg
 from scipy.sparse.linalg import bicgstab as sp_bicgstab
 
 from sympde.calculus import grad, dot, inner, div, curl, cross
-from sympde.calculus import Transpose, laplace
+from sympde.calculus import laplace
+from sympde.core     import Transpose
 from sympde.topology import NormalVector
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
@@ -112,7 +113,7 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
 
     Fl = lambda u,p: Re**-1*inner(grad(u), grad(v)) - div(u)*q - p*div(v) + 1e-10*p*q
     F  = lambda u,p: dot(Transpose(grad(u))*u,v) + Fl(u,p)
-    
+
     l = LinearForm((v, q), integral(domain, dot(u,v)-dot(u0,v) + dt/2 * (F(u,p) + F(u0,p0)) ))
     a = linearize(l, (u,p), trials=(du, dp))
 

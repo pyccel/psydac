@@ -4,7 +4,8 @@ import os
 from sympy import Tuple, Matrix
 from sympy import pi, sin
 
-from sympde.calculus import grad, dot, inner, Transpose
+from sympde.calculus import grad, dot, inner
+from sympde.core     import Transpose
 from sympde.topology import VectorFunctionSpace, ScalarFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import Domain
