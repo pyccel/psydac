@@ -1,6 +1,6 @@
 import logging
 import numpy as np
-from sympy import ImmutableDenseMatrix
+from sympy import ImmutableDenseMatrix, MutableDenseMatrix
 import time
 from typing import Callable
 
@@ -72,11 +72,9 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
 
     error_functional = ErrorFunctional(domain, domain_h, derham, derham_h, B_h)
 
-    lambda_deriv_summand1_symbolic = LinearForm(beta1, integral(domain, -2*alpha*dot(B, grad(beta1))))
-    lambda_deriv_summand2_symbolic = LinearForm( beta1, integral(domain, 2*alpha*alpha*dot(grad(beta), grad(beta1))) )
-    lambda_deriv_summand1_discrete = discretize(lambda_deriv_summand1_symbolic, domain_h, derham_h.V0, 
-                                                backend=PSYDAC_BACKEND_GPYCCEL)
-    lambda_deriv_summand2_discrete = discretize(lambda_deriv_summand2_symbolic, domain_h, derham_h.V0,
+    lambda_deriv_integral_expr = -2*(alpha*dot(B, grad(beta1)) - alpha**2 * dot(grad(beta), grad(beta1)))
+    lambda_deriv_symbolic = LinearForm(beta1, integral(domain, lambda_deriv_integral_expr))
+    lambda_deriv_discrete = discretize(lambda_deriv_symbolic, domain_h, derham_h.V0, 
                                                 backend=PSYDAC_BACKEND_GPYCCEL)
     mu_deriv_expr = integral(domain, alpha1*dot(B - alpha*grad(beta) , grad(beta)))
     mu_deriv_symbolic = LinearForm(alpha1, mu_deriv_expr)
@@ -113,9 +111,9 @@ def find_potential(alpha0 : FemField, beta0 : FemField, B_h : FemField,
     iteration_count = 0
     while True: # Repeat until the gradient is small enough
         time_before_gradient_assembly = time.time()
-        lambda_deriv_summand1 = lambda_deriv_summand1_discrete.assemble(B=B_h, alpha=alpha_h).toarray()
-        lambda_deriv_summand2 = lambda_deriv_summand2_discrete.assemble(beta=beta_h, alpha=alpha_h).toarray()
-        lambda_deriv = lambda_deriv_summand1 + lambda_deriv_summand2
+        # lambda_deriv_summand1 = lambda_deriv_summand1_discrete.assemble(B=B_h, alpha=alpha_h).toarray()
+        # lambda_deriv_summand2 = lambda_deriv_summand2_discrete.assemble(beta=beta_h, alpha=alpha_h).toarray()
+        lambda_deriv = lambda_deriv_discrete.assemble(B=B_h, alpha=alpha_h, beta=beta_h).toarray()
         mu_deriv = mu_deriv_discrete.assemble(B=B_h, beta=beta_h, alpha=alpha_h).toarray()
         time_after_gradient_assembly = time.time()
         time_for_gradient_assembly = time_after_gradient_assembly - time_before_gradient_assembly
@@ -304,9 +302,9 @@ class ErrorFunctional:
     a potential
 
     """
-    def __init__(self, domain, domain_h, derham, derham_h, grad_f_h):
+    def __init__(self, domain, domain_h, derham, derham_h, B_h):
         """
-        Defines the symbolic discrete functionals
+        Defines the symbolic discrete functionals and computes L2 norm of B_h
 
         Parameters
         ----------
@@ -321,12 +319,12 @@ class ErrorFunctional:
         grad_f_h
         
         """
-        self._grad_f_h = grad_f_h
+        self._B_h = B_h
         B, v = elements_of(derham.V1, 'B, v')
         alpha, beta, u = elements_of(derham.V0, 'alpha, beta, u')
         l2_norm_B_sym = Norm(ImmutableDenseMatrix([B[0],B[1], B[2]]), domain, kind='l2')
         l2_norm_B_discrete = discretize(l2_norm_B_sym, domain_h, derham_h.V1)
-        self._l2_norm_B = l2_norm_B_discrete.assemble(B=grad_f_h)
+        self._l2_norm_B = l2_norm_B_discrete.assemble(B=B_h)
         assert isinstance(self._l2_norm_B, float)
 
         B_dot_grad_symbolic = LinearForm(beta, integral(domain, alpha*dot(B,grad(beta))))
@@ -349,7 +347,7 @@ class ErrorFunctional:
         """
         logger = logging.getLogger(name='error_functional_eval')
         time_start = time.time()
-        B_dot_grad = self._B_dot_grad_discrete.assemble(alpha=alpha_h, B=self._grad_f_h)
+        B_dot_grad = self._B_dot_grad_discrete.assemble(alpha=alpha_h, B=self._B_h)
         grad_beta_dot_grad = self._grad_beta_dot_grad_discrete.assemble(alpha=alpha_h, beta=beta_h)
         current_time = time.time()
         logger.debug("Time for assembly of parts of L2 error:%s", current_time - time_start)
