@@ -88,27 +88,29 @@ jobs:
           fi
           echo $HDF5_DIR
 
-#      - name: Download a specific release of PETSc
-#        run: |
-#          PETSC_VERSION="v3.20.5"
-#          wget https://gitlab.com/petsc/petsc/-/archive/$PETSC_VERSION/petsc-$PETSC_VERSION.zip
-#          unzip petsc-$PETSC_VERSION.zip
-#          rm petsc-$PETSC_VERSION.zip
-#          mv petsc-$PETSC_VERSION petsc
+      - name: Download a specific release of PETSc
+        run: |
+          PETSC_VERSION="v3.20.5"
+          wget https://gitlab.com/petsc/petsc/-/archive/$PETSC_VERSION/petsc-$PETSC_VERSION.zip
+          unzip petsc-$PETSC_VERSION.zip
+          rm petsc-$PETSC_VERSION.zip
+          mv petsc-$PETSC_VERSION petsc
 
-#      - name: Install PETSc and petsc4py with complex support, and test it
-#        working-directory: ./petsc
-#        run: |
-#          ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1 --with-petsc4py=1 --with-64-bit-indices=1
-#          make all check
+      - name: Install PETSc with complex support, and test it
+        working-directory: ./petsc
+        run: |
+          ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1 
+          make all check
 #          python3 -c "import sys, os; sys.path.append(os.getcwd() + '/arch-linux-c-debug/lib')"
 
-      - name: Alternative install of PETSc and petsc4py
-        run: |
-          export PETSC_CONFIGURE_OPTIONS="--with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1 --with-petsc4py=1 --with-64-bit-indices=1"
-          python -m pip install build numpy
-          python -m pip install petsc --verbose --no-binary=petsc
-          python -m pip list
+      - name: Install petsc4py
+v         PETSC_ARCH=linux-gnu-complex-64 python -m pip install /src/binding/petsc4py
+#      - name: Alternative install of PETSc and petsc4py
+#        run: |
+#          export PETSC_CONFIGURE_OPTIONS="--with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1 --with-petsc4py=1 --with-64-bit-indices=1"
+#          python -m pip install build numpy
+#          python -m pip install petsc --verbose --no-binary=petsc
+#          python -m pip list
 
       - name: Install Python dependencies
         run: |
