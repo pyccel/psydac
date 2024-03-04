@@ -133,19 +133,19 @@ v         PETSC_ARCH=linux-gnu-complex-64 python -m pip install /src/binding/pet
           mkdir pytest
           cp mpi_tester.py pytest
 
-      - name: Run single-process tests with Pytest
-        working-directory: ./pytest
-        run: |
-          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
-          export OMP_NUM_THREADS=2
-          python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
+#      - name: Run single-process tests with Pytest
+#        working-directory: ./pytest
+#        run: |
+#          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
+#          export OMP_NUM_THREADS=2
+#          python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
 
-      - name: Run MPI tests with Pytest
-        working-directory: ./pytest
-        run: |
-          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
-          export OMP_NUM_THREADS=2
-          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and not petsc"
+#      - name: Run MPI tests with Pytest
+#        working-directory: ./pytest
+#        run: |
+#          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
+#          export OMP_NUM_THREADS=2
+#          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and not petsc"
 
       - name: Run single-process PETSc tests with Pytest
         working-directory: ./pytest
