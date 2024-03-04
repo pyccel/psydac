@@ -104,6 +104,7 @@ jobs:
 #          python3 -c "import sys, os; sys.path.append(os.getcwd() + '/arch-linux-c-debug/lib')"
 
       - name: Install petsc4py
+        working-directory: ./petsc
         run: |
           PETSC_ARCH=linux-gnu-complex-64 python -m pip install /src/binding/petsc4py
 #      - name: Alternative install of PETSc and petsc4py
