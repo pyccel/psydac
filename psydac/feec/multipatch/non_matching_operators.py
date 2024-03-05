@@ -2,32 +2,16 @@ import os
 import numpy as np
 from scipy.sparse import eye as sparse_eye
 from scipy.sparse import csr_matrix
-from scipy.sparse.linalg import inv, norm
-
-from sympde.topology import Derham, Square
-from sympde.topology import IdentityMapping
-from sympde.topology import Boundary, Interface, Union
-from scipy.sparse.linalg                import norm as sp_norm
-
-from psydac.feec.multipatch.utilities import time_count
-from psydac.linalg.utilities import array_to_psydac
-from psydac.feec.multipatch.api import discretize
-from psydac.api.settings import PSYDAC_BACKENDS
+from sympde.topology import Boundary, Interface
 from psydac.fem.splines import SplineSpace
-
-from psydac.fem.basic import FemField
-from psydac.feec.multipatch.plotting_utilities import plot_field
-
-from sympde.topology import IdentityMapping, PolarMapping
-from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain, create_domain
-
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.core.bsplines import breakpoints, quadrature_grid, basis_ders_on_quad_grid, find_spans, elements_spans
 from copy import deepcopy
 
 
 def get_patch_index_from_face(domain, face):
-    """ Return the patch index of subdomain/boundary
+    """ 
+    Return the patch index of subdomain/boundary
 
     Parameters
     ----------
@@ -61,7 +45,6 @@ def get_patch_index_from_face(domain, face):
 
 class Local2GlobalIndexMap:
     def __init__(self, ndim, n_patches, n_components):
-        #        A[patch_index][component_index][i1,i2]
         self._shapes = [None]*n_patches
         self._ndofs = [None]*n_patches
         self._ndim = ndim
@@ -72,7 +55,7 @@ class Local2GlobalIndexMap:
         assert len(shapes) == self._n_components
         assert all(len(s) == self._ndim for s in shapes)
         self._shapes[patch_index] = shapes
-        self._ndofs[patch_index] = sum(np.product(s) for s in shapes)
+        self._ndofs[patch_index] = sum(np.prod(s) for s in shapes)
 
     def get_index(self, k, d, cartesian_index):
         """ Return a global scalar index.
@@ -93,7 +76,7 @@ class Local2GlobalIndexMap:
             I : int
              The global scalar index.
         """
-        sizes = [np.product(s) for s in self._shapes[k][:d]]
+        sizes = [np.prod(s) for s in self._shapes[k][:d]]
         Ipc = np.ravel_multi_index(
             cartesian_index, dims=self._shapes[k][d], order='C')
         Ip = sum(sizes) + Ipc
@@ -102,7 +85,7 @@ class Local2GlobalIndexMap:
 
 
 def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
-    #    assert len(coarse_grid)*2-2 == len(fine_grid)-1
+
     intersection = coarse_grid[(
         np.abs(fine_grid[:, None] - coarse_grid) < tol).any(0)]
     assert abs(intersection-coarse_grid).max() < tol
@@ -112,372 +95,28 @@ def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
 
 def construct_extension_operator_1D(domain, codomain):
     """
-
-    compute the matrix of the extension operator on the interface space (1D space if global space is 2D)
-
-    domain:     1d spline space on the interface (coarse grid)
-    codomain:   1d spline space on the interface (fine grid)
+    Compute the matrix of the extension operator on the interface. 
+    
+    Parameters
+    ----------
+    domain  :     1d spline space on the interface (coarse grid)
+    codomain    :   1d spline space on the interface (fine grid)
     """
-    #from psydac.core.interface import matrix_multi_stages
+
     from psydac.core.bsplines import hrefinement_matrix
     ops = []
 
     assert domain.ncells <= codomain.ncells
 
     Ts = knots_to_insert(domain.breaks, codomain.breaks)
-    #P = matrix_multi_stages(Ts, domain.nbasis, domain.degree, domain.knots)
     P = hrefinement_matrix(Ts, domain.degree, domain.knots)
+
     if domain.basis == 'M':
         assert codomain.basis == 'M'
         P = np.diag(
             1/codomain._scaling_array) @ P @ np.diag(domain._scaling_array)
 
-    return csr_matrix(P)  # kronecker of 1 term...
-
-# Legacy code
-# def construct_V0_conforming_projection(V0h, hom_bc=None):
-#     dim_tot = V0h.nbasis
-#     domain = V0h.symbolic_space.domain
-#     ndim = 2
-#     n_components = 1
-#     n_patches = len(domain)
-
-#     l2g = Local2GlobalIndexMap(ndim, len(domain), n_components)
-#     for k in range(n_patches):
-#         Vk = V0h.spaces[k]
-#         # T is a TensorFemSpace and S is a 1D SplineSpace
-#         shapes = [S.nbasis for S in Vk.spaces] 
-#         l2g.set_patch_shapes(k, shapes)
-
-#     Proj = sparse_eye(dim_tot, format="lil")
-#     Proj_vertex = sparse_eye(dim_tot, format="lil")
-
-#     Interfaces = domain.interfaces
-#     if isinstance(Interfaces, Interface):
-#         Interfaces = (Interfaces, )
-
-#     corner_indices = set()
-#     stored_indices = []
-#     corners = get_corners(domain, False)
-#     for (bd,co) in corners.items():
-
-#         c = 0
-#         indices = set()
-#         for patch in co:
-#             c += 1
-#             multi_index_i = [None]*ndim
-
-#             nbasis0 = V0h.spaces[patch].spaces[co[patch][0]].nbasis-1
-#             nbasis1 = V0h.spaces[patch].spaces[co[patch][1]].nbasis-1
-
-#             multi_index_i[0] = 0 if co[patch][0] == 0 else nbasis0
-#             multi_index_i[1] = 0 if co[patch][1] == 0 else nbasis1
-#             ig = l2g.get_index(patch, 0, multi_index_i)
-#             indices.add(ig)
-
-
-#             corner_indices.add(ig)
-        
-#         stored_indices.append(indices)
-#         for j in indices: 
-#             for i in indices:
-#                 Proj_vertex[j,i] = 1/c
-
-#     # First make all interfaces conforming
-#     # We also touch the vertices here, but change them later again
-#     for I in Interfaces:
-        
-#         axis = I.axis
-#         direction = I.ornt
-
-#         k_minus = get_patch_index_from_face(domain, I.minus)
-#         k_plus = get_patch_index_from_face(domain, I.plus)
-#         # logical directions normal to interface
-#         minus_axis, plus_axis = I.minus.axis, I.plus.axis
-#         # logical directions along the interface
-
-#         #d_minus, d_plus = 1-minus_axis, 1-plus_axis
-#         I_minus_ncells = V0h.spaces[k_minus].ncells
-#         I_plus_ncells = V0h.spaces[k_plus].ncells
-
-#         matching_interfaces = (I_minus_ncells == I_plus_ncells)
-
-#         if I_minus_ncells <= I_plus_ncells:
-#             k_fine, k_coarse = k_plus, k_minus
-#             fine_axis, coarse_axis = I.plus.axis, I.minus.axis
-#             fine_ext,  coarse_ext = I.plus.ext,  I.minus.ext
-
-#         else:
-#             k_fine, k_coarse = k_minus, k_plus
-#             fine_axis, coarse_axis = I.minus.axis, I.plus.axis
-#             fine_ext,  coarse_ext = I.minus.ext, I.plus.ext
-
-#         d_fine = 1-fine_axis
-#         d_coarse = 1-coarse_axis
-
-#         space_fine = V0h.spaces[k_fine]
-#         space_coarse = V0h.spaces[k_coarse]
-
-
-#         coarse_space_1d = space_coarse.spaces[d_coarse]
-
-#         fine_space_1d = space_fine.spaces[d_fine]
-#         grid = np.linspace(
-#             fine_space_1d.breaks[0], fine_space_1d.breaks[-1], coarse_space_1d.ncells+1)
-#         coarse_space_1d_k_plus = SplineSpace(
-#             degree=fine_space_1d.degree, grid=grid, basis=fine_space_1d.basis)
-
-#         if not matching_interfaces:
-#             E_1D = construct_extension_operator_1D(
-#                 domain=coarse_space_1d_k_plus, codomain=fine_space_1d)
-        
-#             product = (E_1D.T) @ E_1D
-#             R_1D = inv(product.tocsc()) @ E_1D.T
-#             ER_1D = E_1D @ R_1D
-#         else:
-#             ER_1D = R_1D = E_1D = sparse_eye(
-#                 fine_space_1d.nbasis, format="lil")
-
-#         # P_k_minus_k_minus
-#         multi_index = [None]*ndim
-#         multi_index[coarse_axis] = 0 if coarse_ext == - \
-#             1 else space_coarse.spaces[coarse_axis].nbasis-1
-#         for i in range(coarse_space_1d.nbasis):
-#             multi_index[d_coarse] = i
-#             ig = l2g.get_index(k_coarse, 0, multi_index)
-#             if not corner_indices.issuperset({ig}):
-#                 Proj[ig, ig] = 0.5
-
-#         # P_k_plus_k_plus
-#         multi_index_i = [None]*ndim
-#         multi_index_j = [None]*ndim
-#         multi_index_i[fine_axis] = 0 if fine_ext == - \
-#             1 else space_fine.spaces[fine_axis].nbasis-1
-#         multi_index_j[fine_axis] = 0 if fine_ext == - \
-#             1 else space_fine.spaces[fine_axis].nbasis-1
-
-#         for i in range(fine_space_1d.nbasis):
-#             multi_index_i[d_fine] = i
-#             ig = l2g.get_index(k_fine, 0, multi_index_i)
-#             for j in range(fine_space_1d.nbasis):
-#                 multi_index_j[d_fine] = j
-#                 jg = l2g.get_index(k_fine, 0, multi_index_j)
-#                 if not corner_indices.issuperset({ig}):
-#                     Proj[ig, jg] = 0.5*ER_1D[i, j]
-
-#         # P_k_plus_k_minus
-#         multi_index_i = [None]*ndim
-#         multi_index_j = [None]*ndim
-#         multi_index_i[fine_axis] = 0 if fine_ext == - \
-#             1 else space_fine   .spaces[fine_axis]  .nbasis-1
-#         multi_index_j[coarse_axis] = 0 if coarse_ext == - \
-#             1 else space_coarse.spaces[coarse_axis].nbasis-1
-
-#         for i in range(fine_space_1d.nbasis):
-#             multi_index_i[d_fine] = i
-#             ig = l2g.get_index(k_fine, 0, multi_index_i)
-#             for j in range(coarse_space_1d.nbasis):
-#                 multi_index_j[d_coarse] = j if direction == 1 else coarse_space_1d.nbasis-j-1
-#                 jg = l2g.get_index(k_coarse, 0, multi_index_j)
-#                 if not corner_indices.issuperset({ig}):
-#                     Proj[ig, jg] = 0.5*E_1D[i, j]*direction
-
-#         # P_k_minus_k_plus
-#         multi_index_i = [None]*ndim
-#         multi_index_j = [None]*ndim
-#         multi_index_i[coarse_axis] = 0 if coarse_ext == - \
-#             1 else space_coarse.spaces[coarse_axis].nbasis-1
-#         multi_index_j[fine_axis] = 0 if fine_ext == - \
-#             1 else space_fine .spaces[fine_axis]  .nbasis-1
-
-#         for i in range(coarse_space_1d.nbasis):
-#             multi_index_i[d_coarse] = i
-#             ig = l2g.get_index(k_coarse, 0, multi_index_i)
-#             for j in range(fine_space_1d.nbasis):
-#                 multi_index_j[d_fine] = j if direction == 1 else fine_space_1d.nbasis-j-1
-#                 jg = l2g.get_index(k_fine, 0, multi_index_j)
-#                 if not corner_indices.issuperset({ig}):
-#                     Proj[ig, jg] = 0.5*R_1D[i, j]*direction
-
-
-#     if hom_bc:
-#         bd_co_indices = set()
-#         for bn in domain.boundary:
-#             k = get_patch_index_from_face(domain, bn)
-#             space_k = V0h.spaces[k]
-#             axis = bn.axis
-#             d = 1-axis
-#             ext = bn.ext
-#             space_k_1d = space_k.spaces[d]  # t
-#             multi_index_i = [None]*ndim
-#             multi_index_i[axis] = 0 if ext == - \
-#                 1 else space_k.spaces[axis].nbasis-1
-
-#             for i in range(space_k_1d.nbasis):
-#                 multi_index_i[d] = i
-#                 ig = l2g.get_index(k, 0, multi_index_i)
-#                 bd_co_indices.add(ig)
-#                 Proj[ig, ig] = 0
-
-#         # properly ensure vertex continuity
-#         for ig in bd_co_indices:
-#             for jg in bd_co_indices:
-#                 Proj_vertex[ig, jg] = 0
-                    
-
-#     return Proj @ Proj_vertex
-
-# def construct_V1_conforming_projection(V1h, hom_bc=None):
-#     dim_tot = V1h.nbasis
-#     domain = V1h.symbolic_space.domain
-#     ndim = 2
-#     n_components = 2
-#     n_patches = len(domain)
-
-#     l2g = Local2GlobalIndexMap(ndim, len(domain), n_components)
-#     for k in range(n_patches):
-#         Vk = V1h.spaces[k]
-#         # T is a TensorFemSpace and S is a 1D SplineSpace
-#         shapes = [[S.nbasis for S in T.spaces] for T in Vk.spaces]
-#         l2g.set_patch_shapes(k, *shapes)
-
-#     Proj = sparse_eye(dim_tot, format="lil")
-
-#     Interfaces = domain.interfaces
-#     if isinstance(Interfaces, Interface):
-#         Interfaces = (Interfaces, )
-
-#     for I in Interfaces:
-#         axis = I.axis
-#         direction = I.ornt
-
-#         k_minus = get_patch_index_from_face(domain, I.minus)
-#         k_plus = get_patch_index_from_face(domain, I.plus)
-#         # logical directions normal to interface
-#         minus_axis, plus_axis = I.minus.axis, I.plus.axis
-#         # logical directions along the interface
-#         d_minus, d_plus = 1-minus_axis, 1-plus_axis
-#         I_minus_ncells = V1h.spaces[k_minus].spaces[d_minus].ncells[d_minus]
-#         I_plus_ncells = V1h.spaces[k_plus] .spaces[d_plus] .ncells[d_plus]
-
-#         matching_interfaces = (I_minus_ncells == I_plus_ncells)
-
-#         if I_minus_ncells <= I_plus_ncells:
-#             k_fine, k_coarse = k_plus, k_minus
-#             fine_axis, coarse_axis = I.plus.axis, I.minus.axis
-#             fine_ext,  coarse_ext = I.plus.ext,  I.minus.ext
-
-#         else:
-#             k_fine, k_coarse = k_minus, k_plus
-#             fine_axis, coarse_axis = I.minus.axis, I.plus.axis
-#             fine_ext,  coarse_ext = I.minus.ext, I.plus.ext
-
-#         d_fine = 1-fine_axis
-#         d_coarse = 1-coarse_axis
-
-#         space_fine = V1h.spaces[k_fine]
-#         space_coarse = V1h.spaces[k_coarse]
-
-#         #print("coarse = \n", space_coarse.spaces[d_coarse])
-#         #print("coarse 2 = \n", space_coarse.spaces[d_coarse].spaces[d_coarse])
-#         # todo: merge with first test above
-#         coarse_space_1d = space_coarse.spaces[d_coarse].spaces[d_coarse]
-
-#         #print("fine = \n", space_fine.spaces[d_fine])
-#         #print("fine 2 = \n", space_fine.spaces[d_fine].spaces[d_fine])
-
-#         fine_space_1d = space_fine.spaces[d_fine].spaces[d_fine]
-#         grid = np.linspace(
-#             fine_space_1d.breaks[0], fine_space_1d.breaks[-1], coarse_space_1d.ncells+1)
-#         coarse_space_1d_k_plus = SplineSpace(
-#             degree=fine_space_1d.degree, grid=grid, basis=fine_space_1d.basis)
-
-#         if not matching_interfaces:
-#             E_1D = construct_extension_operator_1D(
-#                 domain=coarse_space_1d_k_plus, codomain=fine_space_1d)
-#             product = (E_1D.T) @ E_1D
-#             R_1D = inv(product.tocsc()) @ E_1D.T
-#             ER_1D = E_1D @ R_1D
-#         else:
-#             ER_1D = R_1D = E_1D = sparse_eye(
-#                 fine_space_1d.nbasis, format="lil")
-
-#         # P_k_minus_k_minus
-#         multi_index = [None]*ndim
-#         multi_index[coarse_axis] = 0 if coarse_ext == - \
-#             1 else space_coarse.spaces[d_coarse].spaces[coarse_axis].nbasis-1
-#         for i in range(coarse_space_1d.nbasis):
-#             multi_index[d_coarse] = i
-#             ig = l2g.get_index(k_coarse, d_coarse, multi_index)
-#             Proj[ig, ig] = 0.5
-
-#         # P_k_plus_k_plus
-#         multi_index_i = [None]*ndim
-#         multi_index_j = [None]*ndim
-#         multi_index_i[fine_axis] = 0 if fine_ext == - \
-#             1 else space_fine.spaces[d_fine].spaces[fine_axis].nbasis-1
-#         multi_index_j[fine_axis] = 0 if fine_ext == - \
-#             1 else space_fine.spaces[d_fine].spaces[fine_axis].nbasis-1
-
-#         for i in range(fine_space_1d.nbasis):
-#             multi_index_i[d_fine] = i
-#             ig = l2g.get_index(k_fine, d_fine, multi_index_i)
-#             for j in range(fine_space_1d.nbasis):
-#                 multi_index_j[d_fine] = j
-#                 jg = l2g.get_index(k_fine, d_fine, multi_index_j)
-#                 Proj[ig, jg] = 0.5*ER_1D[i, j]
-
-#         # P_k_plus_k_minus
-#         multi_index_i = [None]*ndim
-#         multi_index_j = [None]*ndim
-#         multi_index_i[fine_axis] = 0 if fine_ext == - \
-#             1 else space_fine  .spaces[d_fine]  .spaces[fine_axis]  .nbasis-1
-#         multi_index_j[coarse_axis] = 0 if coarse_ext == - \
-#             1 else space_coarse.spaces[d_coarse].spaces[coarse_axis].nbasis-1
-
-#         for i in range(fine_space_1d.nbasis):
-#             multi_index_i[d_fine] = i
-#             ig = l2g.get_index(k_fine, d_fine, multi_index_i)
-#             for j in range(coarse_space_1d.nbasis):
-#                 multi_index_j[d_coarse] = j if direction == 1 else coarse_space_1d.nbasis-j-1
-#                 jg = l2g.get_index(k_coarse, d_coarse, multi_index_j)
-#                 Proj[ig, jg] = 0.5*E_1D[i, j]*direction
-
-#         # P_k_minus_k_plus
-#         multi_index_i = [None]*ndim
-#         multi_index_j = [None]*ndim
-#         multi_index_i[coarse_axis] = 0 if coarse_ext == - \
-#             1 else space_coarse.spaces[d_coarse].spaces[coarse_axis].nbasis-1
-#         multi_index_j[fine_axis] = 0 if fine_ext == - \
-#             1 else space_fine  .spaces[d_fine]  .spaces[fine_axis]  .nbasis-1
-
-#         for i in range(coarse_space_1d.nbasis):
-#             multi_index_i[d_coarse] = i
-#             ig = l2g.get_index(k_coarse, d_coarse, multi_index_i)
-#             for j in range(fine_space_1d.nbasis):
-#                 multi_index_j[d_fine] = j if direction == 1 else fine_space_1d.nbasis-j-1
-#                 jg = l2g.get_index(k_fine, d_fine, multi_index_j)
-#                 Proj[ig, jg] = 0.5*R_1D[i, j]*direction
-
-#     if hom_bc:
-#         for bn in domain.boundary:
-#             k = get_patch_index_from_face(domain, bn)
-#             space_k = V1h.spaces[k]
-#             axis = bn.axis
-#             d = 1-axis
-#             ext = bn.ext
-#             space_k_1d = space_k.spaces[d].spaces[d]  # t
-#             multi_index_i = [None]*ndim
-#             multi_index_i[axis] = 0 if ext == - \
-#                 1 else space_k.spaces[d].spaces[axis].nbasis-1
-
-#             for i in range(space_k_1d.nbasis):
-#                 multi_index_i[d] = i
-#                 ig = l2g.get_index(k, d, multi_index_i)
-#                 Proj[ig, ig] = 0
-
-#     return Proj
-
+    return csr_matrix(P)  
 
 def get_corners(domain, boundary_only):
     """
@@ -531,7 +170,31 @@ def get_corners(domain, boundary_only):
 
 
 def construct_scalar_conforming_projection(Vh, reg_orders=(0,0), p_moments=(-1,-1), nquads=None, hom_bc=(False, False)):
-    #construct conforming projection for a 2-dimensional scalar space 
+    """ Construct the conforming projection for a scalar space for a given regularity (0 continuous, -1 discontinuous). 
+        The conservation of p-moments only works for a matching TensorFemSpace. 
+
+    Parameters
+    ----------
+    Vh : TensorFemSpace
+        Finite Element Space coming from the discrete de Rham sequence.
+
+    reg_orders : tuple-like (int)
+        Regularity in each space direction -1 or 0. 
+
+    p_moments : tuple-like (int)
+        Number of moments to be preserved. 
+
+    nquads  : int | None
+        Number of quadrature points. 
+
+    hom_bc : tuple-like (bool)
+        Homogeneous boundary conditions. 
+
+    Returns
+    -------
+    cP : scipy.sparse.csr_array
+        Conforming projection as a sparse matrix.
+    """
 
     dim_tot = Vh.nbasis
 
@@ -793,8 +456,6 @@ def construct_scalar_conforming_projection(Vh, reg_orders=(0,0), p_moments=(-1,-
 
                         Proj_edge[pg, jg] += corrections[coarse_axis][1][p_ind] *R_1D[i, j]*direction
 
-    # boundary conditions
-
     # interface correction
     bd_co_indices = set()
     for bn in domain.boundary:
@@ -918,6 +579,32 @@ def construct_scalar_conforming_projection(Vh, reg_orders=(0,0), p_moments=(-1,-
     return Proj_edge @ Proj_vertex
 
 def construct_vector_conforming_projection(Vh, reg_orders= (0,0), p_moments=(-1,-1), nquads=None, hom_bc=(False, False)):
+    """ Construct the conforming projection for a scalar space for a given regularity (0 continuous, -1 discontinuous). 
+        The conservation of p-moments only works for a matching VectorFemSpace. 
+
+    Parameters
+    ----------
+    Vh : VectorFemSpace
+        Finite Element Space coming from the discrete de Rham sequence.
+
+    reg_orders : tuple-like (int)
+        Regularity in each space direction -1 or 0. 
+
+    p_moments : tuple-like (int)
+        Number of moments to be preserved. 
+
+    nquads  : int | None
+        Number of quadrature points. 
+
+    hom_bc : tuple-like (bool)
+        Homogeneous boundary conditions. 
+
+    Returns
+    -------
+    cP : scipy.sparse.csr_array
+        Conforming projection as a sparse matrix.
+    """
+    
     dim_tot = Vh.nbasis
 
     # fully discontinuous space
@@ -1123,7 +810,34 @@ def construct_vector_conforming_projection(Vh, reg_orders= (0,0), p_moments=(-1,
 
 
 def get_scalar_moment_correction(patch_space, conf_axis, reg=0, p_moments=-1, nquads=None, hom_bc=False):
+    """ 
+    Calculate the coefficients for the one-dimensional moment correction.
 
+    Parameters
+    ----------
+    patch_space : TensorFemSpace
+        Finite Element Space of an adjacent patch.
+
+    conf_axis : {0, 1}
+        Coefficients for which axis. 
+
+    reg : {-1, 0}
+        Regularity -1 or 0. 
+
+    p_moments  : int 
+        Number of moments to be preserved. 
+
+    nquads  : int | None
+        Number of quadrature points. 
+
+    hom_bc : tuple-like (bool)
+        Homogeneous boundary conditions. 
+
+    Returns
+    -------
+    coeffs : list of arrays
+        Collection of the different coefficients. 
+    """
     proj_op = 0
     #patch_space = Vh.spaces[0]
     local_shape = [patch_space.spaces[0].nbasis,patch_space.spaces[1].nbasis]
@@ -1250,7 +964,37 @@ def get_scalar_moment_correction(patch_space, conf_axis, reg=0, p_moments=-1, nq
     return a_sm, a_nb, b_sm, b_nb, Correct_coef_bnd, Correct_coef_0
 
 def get_vector_moment_correction(patch_space, conf_comp, conf_axis, reg=([0,0], [0,0]), p_moments=([-1,-1], [-1,-1]), nquads=None, hom_bc=([False, False],[False, False])):
+    """ 
+    Calculate the coefficients for the vector-valued moment correction.
 
+    Parameters
+    ----------
+    patch_space : VectorFemSpace
+        Finite Element Space of an adjacent patch.
+
+    conf_comp : {0, 1}
+        Coefficients for which vector component. 
+
+    conf_axis : {0, 1}
+        Coefficients for which axis. 
+
+    reg : tuple-like 
+        Regularity -1 or 0. 
+
+    p_moments  : tuple-like  
+        Number of moments to be preserved. 
+
+    nquads  : int | None
+        Number of quadrature points. 
+
+    hom_bc : tuple-like (bool)
+        Homogeneous boundary conditions. 
+
+    Returns
+    -------
+    coeffs : list of arrays
+        Collection of the different coefficients. 
+    """
     proj_op = 0
     local_shape = [[patch_space.spaces[comp].spaces[axis].nbasis 
                     for axis in range(2)] for comp in range(2)]
@@ -1383,6 +1127,34 @@ def get_vector_moment_correction(patch_space, conf_comp, conf_axis, reg=([0,0], 
     return a_sm, a_nb, b_sm, b_nb, Correct_coef_bnd, Correct_coef_0
 
 def get_moment_pres_scalar_extension_restriction(matching_interfaces, coarse_space_1d, fine_space_1d, spl_type):
+    """ 
+    Calculate the extension and restriction matrices for refining along an interface.
+
+    Parameters
+    ----------
+    matching_interfaces : bool
+        Do both patches have the same number of cells? 
+
+    coarse_space_1d : SplineSpace
+        Spline space of the coarse space. 
+
+    fine_space_1d : SplineSpace
+        Spline space of the fine space. 
+
+    spl_type : {'B', 'M'}
+        Spline type.  
+
+    Returns
+    -------
+    E_1D : numpy array
+        Extension matrix. 
+
+    R_1D : numpy array
+        Restriction matrix. 
+
+    ER_1D : numpy array
+        Extension-restriction matrix.
+    """
     grid = np.linspace(fine_space_1d.breaks[0], fine_space_1d.breaks[-1], coarse_space_1d.ncells+1)
     coarse_space_1d_k_plus = SplineSpace(degree=fine_space_1d.degree, grid=grid, basis=fine_space_1d.basis)
 
@@ -1406,14 +1178,32 @@ def get_moment_pres_scalar_extension_restriction(matching_interfaces, coarse_spa
 
         ER_1D = E_1D @ R_1D
         
-       # id_err = np.linalg.norm(R_1D @ E_1D - sparse_eye( coarse_space_1d.nbasis, format="lil"))
     else:
         ER_1D = R_1D = E_1D = sparse_eye(
             fine_space_1d.nbasis, format="lil")
 
     return E_1D, R_1D, ER_1D
 
+# Didn't find this utility in the code base.
 def calculate_mass_matrix(space_1d, spl_type):
+    """ 
+    Calculate the mass-matrix of a 1d spline-space.
+
+    Parameters
+    ----------
+
+    space_1d : SplineSpace
+        Spline space of the fine space. 
+
+    spl_type : {'B', 'M'}
+        Spline type.  
+
+    Returns
+    -------
+
+    Mass_mat : numpy array
+        Mass matrix.
+    """
     Nel = space_1d.ncells
     deg = space_1d.degree
     knots = space_1d.knots
@@ -1446,236 +1236,3 @@ def calculate_mass_matrix(space_1d, spl_type):
                 Mass_mat[locind1,locind2] += val
 
     return Mass_mat
-
-
-# if __name__ == '__main__':
- 
-#     nc = 5
-#     deg = 3
-#     nonconforming = True
-#     plot_dir = 'run_plots_nc={}_deg={}'.format(nc, deg)
-
-#     if plot_dir is not None and not os.path.exists(plot_dir):
-#         os.makedirs(plot_dir)
-
-#     ncells = [nc, nc]
-#     degree = [deg, deg]
-#     reg_orders=[0,0]
-#     p_moments=[3,3]
-
-#     nquads=None
-#     hom_bc=[False, False]
-#     print(' .. multi-patch domain...')
-
-#     #domain_name = 'square_6'
-#     #domain_name = '2patch_nc_mapped'
-#     domain_name = '2patch_nc'
-#     #domain_name = "curved_L_shape"
-
-#     if domain_name == '2patch_nc_mapped':
-
-#         A = Square('A', bounds1=(0.5, 1), bounds2=(0,       np.pi/2))
-#         B = Square('B', bounds1=(0.5, 1), bounds2=(np.pi/2, np.pi))
-#         M1 = PolarMapping('M1', 2, c1=0, c2=0, rmin=0., rmax=1.)
-#         M2 = PolarMapping('M2', 2, c1=0, c2=0, rmin=0., rmax=1.)
-#         A = M1(A)
-#         B = M2(B)
-
-#         domain = create_domain([A, B], [[A.get_boundary(axis=1, ext=1), B.get_boundary(axis=1, ext=-1), 1]], name='domain')
-
-#     elif domain_name == '2patch_nc':
-
-#         A = Square('A', bounds1=(0, 0.5), bounds2=(0, 1))
-#         B = Square('B', bounds1=(0.5, 1.), bounds2=(0, 1))
-#         M1 = IdentityMapping('M1', dim=2)
-#         M2 = IdentityMapping('M2', dim=2)
-#         A = M1(A)
-#         B = M2(B)
-
-#         domain = create_domain([A, B], [[A.get_boundary(axis=0, ext=1), B.get_boundary(axis=0, ext=-1), 1]], name='domain')
-#     elif domain_name == '4patch_nc':
-
-#         A = Square('A', bounds1=(0, 0.5), bounds2=(0, 0.5))
-#         B = Square('B', bounds1=(0.5, 1.), bounds2=(0, 0.5))
-#         C = Square('C', bounds1=(0, 0.5), bounds2=(0.5, 1))
-#         D = Square('D', bounds1=(0.5, 1.), bounds2=(0.5, 1))
-#         M1 = IdentityMapping('M1', dim=2)
-#         M2 = IdentityMapping('M2', dim=2)
-#         M3 = IdentityMapping('M3', dim=2)
-#         M4 = IdentityMapping('M4', dim=2)
-#         A = M1(A)
-#         B = M2(B)
-#         C = M3(C)
-#         D = M4(D)
-
-#         domain = create_domain([A, B, C, D], [[A.get_boundary(axis=0, ext=1), B.get_boundary(axis=0, ext=-1), 1], 
-#                                             [A.get_boundary(axis=1, ext=1), C.get_boundary(axis=1, ext=-1), 1],
-#                                             [C.get_boundary(axis=0, ext=1), D.get_boundary(axis=0, ext=-1), 1],
-#                                             [B.get_boundary(axis=1, ext=1), D.get_boundary(axis=1, ext=-1), 1] ], name='domain')
-#     else:
-#         domain = build_multipatch_domain(domain_name=domain_name)
-
-
-#     n_patches = len(domain)
-
-#     def levelof(k):
-#         # some random refinement level (1 or 2 here)
-#         return 1+((2*k) % 3) % 2
-#     if nonconforming:
-#         if len(domain) == 1:
-#             ncells_h = {
-#                 'M1(A)': [nc, nc],
-#             }
-
-#         elif len(domain) == 2:
-#             ncells_h = {
-#                 'M1(A)': [nc, nc],
-#                 'M2(B)': [2*nc, 2*nc],
-#             }
-
-#         else:
-#             ncells_h = {}
-#             for k, D in enumerate(domain.interior):
-#                 print(k, D.name)
-#                 ncells_h[D.name] = [2**k *nc, 2**k * nc ]
-#     else:
-#         ncells_h = {}
-#         for k, D in enumerate(domain.interior):
-#             ncells_h[D.name] = [nc, nc]
-
-#     print('ncells_h = ', ncells_h)
-#     backend_language = 'python'
-
-#     t_stamp = time_count()
-#     print(' .. derham sequence...')
-#     derham = Derham(domain, ["H1", "Hcurl", "L2"])
-
-#     t_stamp = time_count(t_stamp)
-#     print(' .. discrete domain...')
-
-#     domain_h = discretize(domain, ncells=ncells_h)   # Vh space
-#     derham_h = discretize(derham, domain_h, degree=degree)
-#     V0h = derham_h.V0
-#     V1h = derham_h.V1
-
-#    # test_extension_restriction(V1h, domain)
-
-  
-#     #cP1_m_old = construct_V1_conforming_projection(V1h, True)
-#    # cP0_m_old = construct_V0_conforming_projection(V0h,hom_bc[0])
-#     cP0_m = construct_scalar_conforming_projection(V0h, reg_orders, p_moments, nquads, hom_bc)
-#     cP1_m = construct_vector_conforming_projection(V1h, reg_orders, p_moments, nquads, hom_bc)
-
-#     #print("Error:")
-#     #print( norm(cP1_m - conf_cP1_m) )
-#     np.set_printoptions(linewidth=100000, precision=2,
-#                         threshold=100000, suppress=True)
-#     #print(cP0_m.toarray())
-     
-#     # apply cP1 on some discontinuous G
-
-#     # G_sol_log = [[lambda xi1, xi2, ii=i : ii+xi1+xi2**2 for d in [0,1]] for i in range(len(domain))]
-#     # G_sol_log = [[lambda xi1, xi2, kk=k : levelof(kk)-1  for d in [0,1]] for k in range(len(domain))]
-#     G_sol_log = [[lambda xi1, xi2, kk=k: kk for d in [0, 1]]
-#                   for k in range(len(domain))]
-#     #G_sol_log = [[lambda xi1, xi2, kk=k: np.cos(xi1)*np.sin(xi2) for d in [0, 1]]
-#     #              for k in range(len(domain))]
-#     P0, P1, P2 = derham_h.projectors()
-
-#     G1h = P1(G_sol_log)
-#     G1h_coeffs = G1h.coeffs.toarray()
-
-#     #G1h_coeffs = np.zeros(G1h_coeffs.size)
-#     #183, 182, 184
-#     #G1h_coeffs[27] = 1
-
-#     plot_field(numpy_coeffs=G1h_coeffs, Vh=V1h, space_kind='hcurl',
-#               plot_type='components',
-#               domain=domain, title='G1h', cmap='viridis',
-#               filename=plot_dir+'/G.png')
-
-   
-
-#     G1h_conf_coeffs = cP1_m @ G1h_coeffs
-    
-#     plot_field(numpy_coeffs=G1h_conf_coeffs, Vh=V1h, space_kind='hcurl',
-#                plot_type='components',
-#               domain=domain, title='PG', cmap='viridis',
-#                filename=plot_dir+'/PG.png')
-
-
-
-#     #G0_sol_log = [[lambda xi1, xi2, kk=k: kk for d in [0]]
-#     #             for k in range(len(domain))]
-#     G0_sol_log = [[lambda xi1, xi2, kk=k:kk  for d in [0]]
-#                     for k in range(len(domain))]
-#     #G0_sol_log = [[lambda xi1, xi2, kk=k: np.cos(xi1)*np.sin(xi2) for d in [0]]
-#     #            for k in range(len(domain))]
-#     G0h = P0(G0_sol_log)
-#     G0h_coeffs = G0h.coeffs.toarray()
-
-#     #G0h_coeffs = np.zeros(G0h_coeffs.size)
-#     #183, 182, 184
-#     #conforming
-#     # 30 - 24
-#     # 28 - 23
-#     #nc = 4, co: 59, co_ed:45, fi_ed:54
-#     #G0h_coeffs[54] = 1
-#     #G0h_coeffs[23] = 1
-
-#     plot_field(numpy_coeffs=G0h_coeffs, Vh=V0h, space_kind='h1',
-#               domain=domain, title='G0h', cmap='viridis',
-#               filename=plot_dir+'/G0.png')
-
-#     G0h_conf_coeffs = (cP0_m@cP0_m-cP0_m) @ G0h_coeffs
-
-#     plot_field(numpy_coeffs=G0h_conf_coeffs, Vh=V0h, space_kind='h1',
-#               domain=domain, title='PG0', cmap='viridis',
-#               filename=plot_dir+'/PG0.png')
-
-#     plot_field(numpy_coeffs=cP0_m @ G0h_coeffs, Vh=V0h, space_kind='h1',
-#               domain=domain, title='PG00', cmap='viridis',
-#               filename=plot_dir+'/PG00.png')
-
-#     if not nonconforming:
-#         cP0_martin = conf_proj_scalar_space(V0h, reg_orders, p_moments, nquads, hom_bc)
-
-#         G0h_conf_coeffs_martin = cP0_martin @ G0h_coeffs
-#         #plot_field(numpy_coeffs=G0h_conf_coeffs_martin, Vh=V0h, space_kind='h1',
-#         #        domain=domain, title='PG0_martin', cmap='viridis',
-#         #        filename=plot_dir+'/PG0_martin.png')
-
-#         import numpy as np
-#         import matplotlib.pyplot as plt
-#         reg = 0
-#         reg_orders  = [[reg-1, reg   ], [reg,    reg-1]]
-#         hom_bc_list = [[False, hom_bc[1]], [hom_bc[0], False]]
-#         deg_moments = [p_moments,p_moments]
-#         V1h = derham_h.V1
-#         V1 = V1h.symbolic_space
-#         cP1_martin = conf_proj_vector_space(V1h, reg_orders=reg_orders, deg_moments=deg_moments, nquads=None, hom_bc_list=hom_bc_list)
-
-#         #cP0_martin, cP1_martin, cP2_martin = conf_projectors_scipy(derham_h, single_space=None, reg=0, mom_pres=True, nquads=None, hom_bc=False)
-        
-#         G1h_conf_martin = cP1_martin @ G1h_coeffs
-
-#        # plot_field(numpy_coeffs=G1h_conf_martin, Vh=V1h, space_kind='hcurl',
-#        #             plot_type='components',
-#        #         domain=domain, title='PG_martin', cmap='viridis',
-#        #             filename=plot_dir+'/PG_martin.png')
-
-
-#         plt.matshow((cP1_m - cP1_martin).toarray())
-#         plt.colorbar()
-#         print(sp_norm(cP1_m - cP1_martin))
-#         #plt.matshow((cP0_m).toarray())
-
-#         #plt.matshow((cP0_martin).toarray())
-#         #plt.show()
-
-#         #print( np.sum(cP0_m - cP0_martin))
-#        # print( cP0_m - cP0_martin)
-
-#     print(sp_norm(cP0_m-    cP0_m @ cP0_m))
-#     print(sp_norm(cP1_m-    cP1_m @ cP1_m))
-

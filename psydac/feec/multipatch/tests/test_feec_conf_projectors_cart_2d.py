@@ -49,6 +49,8 @@ def get_polynomial_function(degree, hom_bc_axes, domain):
 @pytest.mark.parametrize('hom_bc', [[False, False]])
 @pytest.mark.parametrize('mom_pres', [[-1, -1]])
 @pytest.mark.parametrize('domain_name', ["4patch_nc"])
+@pytest.mark.parametrize('nonconforming', [True])
+
 
 def test_conf_projectors_2d(
         V1_type,
@@ -57,11 +59,11 @@ def test_conf_projectors_2d(
         reg,
         hom_bc,
         mom_pres,
-        domain_name,        
+        domain_name,  
+        nonconforming      
     ):
 
     nquads=None
-    nonconforming=True
     print(' .. multi-patch domain...')
 
 
@@ -168,7 +170,7 @@ def test_conf_projectors_2d(
     p_V2h = p_derham_h.V2
 
     # full moment preservation only possible if enough interior functions in a patch (<=> enough cells)
-    full_mom_pres = mom_pres and (nc >= 3 + 2*reg[0]) and (nc >= 3 + 2*reg[1])
+    full_mom_pres = (mom_pres[0] >= degree[0] and mom_pres[1] >= degree[1]) and (nc >= 3 + 2*reg[0]) and (nc >= 3 + 2*reg[1])
     # NOTE: if mom_pres but not full_mom_pres we could test reduced order moment preservation...
 
     # geometric projections (operators)
@@ -272,7 +274,7 @@ def test_conf_projectors_2d(
         G1_star_c = M1_inv @ cP1.transpose() @ tilde_G1_c
         np.allclose(G1_c, G1_star_c, 1e-12, 1e-12) # (P1_geom - P1_star) polynomial = 0 
         print(np.linalg.norm(G1_c- G1_star_c))
-        
+
     # tests on cP2 (non trivial for reg = 1):
     g2 = get_polynomial_function(degree=[degree[0]-1,degree[1]-1], hom_bc_axes=[False,False], domain=domain)        
     g2h = P_phys_l2(g2, p_geomP2, domain, mappings_list)
@@ -293,17 +295,18 @@ def test_conf_projectors_2d(
 # if __name__ == '__main__':
 #     V1_type = "Hcurl"
 #     nc = 7
-#     deg = 2
+#     deg = 3
+#     nonconforming = False
 
 #     degree = [deg, deg]
 #     reg=[0,0]
-#     mom_pres=[5,5]
+#     mom_pres=[4,4]
 #     hom_bc = [False, False]
     
 #     # domain_name = 'square_6'
 #     # domain_name = 'curved_L_shape'
 #     # domain_name = '2patch_nc_mapped'
-#     domain_name = '4patch_nc'
+#     domain_name = '2patch_nc'
 
 #     test_conf_projectors_2d(
 #         V1_type,
@@ -312,5 +315,6 @@ def test_conf_projectors_2d(
 #         reg,
 #         hom_bc,
 #         mom_pres,   
-#         domain_name     
+#         domain_name,
+#         nonconforming    
 #     )

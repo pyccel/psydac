@@ -50,12 +50,18 @@ def run_sim():
     #                     [nc, 2*nc, nc], 
     #                     [nc, nc, nc]])
 
-    ncells  = np.array([[2*nc, 2*nc, 2*nc],
-                        [2*nc, nc,  2*nc], 
-                        [2*nc, 2*nc, 2*nc]])
+    ncells  = np.array([[nc, nc, nc, nc],
+                        [nc, 2*nc,  2*nc, nc], 
+                        [nc, 2*nc,  2*nc, nc], 
+                        [nc, nc, nc, nc]])
+
+    # ncells  = np.array([[2*nc, 2*nc, 2*nc, 2*nc],
+    #                     [2*nc, nc,  nc, 2*nc], 
+    #                     [2*nc, nc,  nc, 2*nc], 
+    #                     [2*nc, 2*nc, 2*nc, 2*nc]])
 
     degree = [3,3]
-    plot_dir = "plots/PML/pml_test2"
+    plot_dir = "plots/PML/pml_test3"
     bc = 'pml' #'none', 'abc' #'pml'
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
