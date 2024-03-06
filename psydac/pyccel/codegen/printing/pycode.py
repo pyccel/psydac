@@ -363,6 +363,11 @@ class PythonCodePrinter(SympyPythonCodePrinter):
         a = self._print(expr.args[0])
         return 'not {}'.format(a)
 
+    def _print_AnnotatedArgument(self, expr):
+        name       = self._print(expr.name)
+        annotation = self._print(expr.annotation)
+        return f'{name} : {annotation}'
+
 #==============================================================================
 def pycode(expr, **settings):
     """ Converts an expr to a string of Python code

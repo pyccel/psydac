@@ -17,6 +17,11 @@ from psydac.core.bsplines import (find_span,
                                   basis_integrals,
                                   basis_ders_on_quad_grid)
 
+# The pytest-xdist plugin requires that every worker sees the same parameters
+# in the unit tests. As in this module random parameters are used, here we set
+# the same random seed for all workers.
+np.random.seed(0)
+
 ###############################################################################
 # "True" Functions
 ###############################################################################
@@ -375,21 +380,24 @@ def make_knots_true( breaks, degree, periodic, multiplicity=1 ):
 
     if periodic:
         assert len(breaks) > degree
-
-    p = degree
-    T = np.zeros( multiplicity*len(breaks[1:-1])+2+2*p )
-
-    T[p+1:-p-1] = np.repeat(breaks[1:-1], multiplicity)
-    T[p]        = breaks[ 0]
-    T[-p-1]     = breaks[-1]
-
+        
+    T = np.zeros(multiplicity * len(breaks[1:-1]) + 2 + 2 * degree)
+    ncells = len(breaks) - 1
+    
+    for i in range(0, ncells+1):
+        T[degree + 1 + (i-1) * multiplicity  :degree + 1 + i * multiplicity ] = breaks[i]
+    
+    len_out = len(T)
+    
     if periodic:
         period = breaks[-1]-breaks[0]
-        T[0:p] = [xi-period for xi in breaks[-p-1:-1 ]]
-        T[-p:] = [xi+period for xi in breaks[   1:p+1]]
+
+        T[: degree + 1 - multiplicity] = T[len_out - 2 * (degree + 1 )+ multiplicity: len_out - (degree + 1)] - period
+        T[len_out - (degree + 1 - multiplicity) :] = T[degree + 1:2*(degree + 1)- multiplicity] + period
+
     else:
-        T[0:p+1] = breaks[ 0]
-        T[-p-1:] = breaks[-1]
+        T[0:degree + 1 - multiplicity] = breaks[0]
+        T[len_out - degree - 1 + multiplicity:] = breaks[-1]
 
     return T
 
@@ -398,10 +406,10 @@ def elevate_knots_true(knots, degree, periodic, multiplicity=1, tol=1e-15):
     knots = np.array(knots)
 
     if periodic:
-        [T, p] = knots, degree
-        period = T[-1-p] - T[p]
-        left   = [T[-1-p-(p+1)] - period]
-        right  = [T[   p+(p+1)] + period]
+        T, p = knots, degree
+        period = T[len(knots) -1 - p] - T[p]
+        left   = [T[len(knots) -2 - 2 * p + multiplicity-1] - period]
+        right  = [T[2 * p + 2 - multiplicity] + period]
     else:
         left  = [knots[0],*knots[:degree+1]]
         right = [knots[-1],*knots[-degree-1:]]
@@ -491,6 +499,7 @@ ATOL = 1e-11
                           (np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]), 2),
                           (np.array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]), 3)])
 @pytest.mark.parametrize('x', (np.random.random(), np.random.random(), np.random.random()))
+
 def test_find_span(knots, degree, x):
     expected = find_span_true(knots, degree, x)
     out = find_span(knots, degree, x)

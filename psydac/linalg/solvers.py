@@ -101,12 +101,15 @@ class ConjugateGradient(InverseLinearOperator):
     verbose : bool
         If True, L2-norm of residual r is printed at each iteration.
 
+    recycle : bool
+        Stores a copy of the output in x0 to speed up consecutive calculations of slightly altered linear systems
+
     References
     ----------
     [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
 
     """
-    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
@@ -123,7 +126,7 @@ class ConjugateGradient(InverseLinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._solver = 'cg'
-        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
         self._check_options(**self._options)
         self._tmps = {key: domain.zeros() for key in ("v", "r", "p")}
         self._info = None
@@ -143,6 +146,8 @@ class ConjugateGradient(InverseLinearOperator):
                 assert value > 0, "maxiter must be positive"
             elif key == 'verbose':
                 assert isinstance(value, bool), "verbose must be a bool"
+            elif key == 'recycle':
+                assert isinstance(value, bool), "recycle must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
@@ -190,6 +195,7 @@ class ConjugateGradient(InverseLinearOperator):
         tol = options["tol"]
         maxiter = options["maxiter"]
         verbose = options["verbose"]
+        recycle = options["recycle"]
         
         assert isinstance(b, Vector)
         assert b.space is domain
@@ -247,6 +253,9 @@ class ConjugateGradient(InverseLinearOperator):
         # Convergence information
         self._info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt(am) }
 
+        if recycle:
+            x.copy(out=self._options["x0"])
+
         return x
 
     def dot(self, b, out=None):
@@ -288,8 +297,11 @@ class PConjugateGradient(InverseLinearOperator):
     verbose : bool
         If True, L2-norm of residual r is printed at each iteration.
 
+    recycle : bool
+        Stores a copy of the output in x0 to speed up consecutive calculations of slightly altered linear systems
+
     """
-    def __init__(self, A, *, pc='jacobi', x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, *, pc='jacobi', x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
@@ -306,7 +318,7 @@ class PConjugateGradient(InverseLinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._solver = 'pcg'
-        self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose}
+        self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
         self._check_options(**self._options)
         tmps_codomain = {key: codomain.zeros() for key in ("p", "s")}
         tmps_domain = {key: domain.zeros() for key in ("v", "r")}
@@ -331,6 +343,8 @@ class PConjugateGradient(InverseLinearOperator):
                 assert value > 0, "maxiter must be positive"
             elif key == 'verbose':
                 assert isinstance(value, bool), "verbose must be a bool"
+            elif key == 'recycle':
+                assert isinstance(value, bool), "recycle must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
@@ -372,6 +386,7 @@ class PConjugateGradient(InverseLinearOperator):
         tol = options["tol"]
         maxiter = options["maxiter"]
         verbose = options["verbose"]
+        recycle = options["recycle"]
 
         assert isinstance(b, Vector)
         assert b.space is domain
@@ -457,6 +472,9 @@ class PConjugateGradient(InverseLinearOperator):
         # Convergence information
         self._info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr) }
 
+        if recycle:
+            x.copy(out=self._options["x0"])
+
         return x
 
     def dot(self, b, out=None):
@@ -490,12 +508,15 @@ class BiConjugateGradient(InverseLinearOperator):
     verbose : bool
         If True, 2-norm of residual r is printed at each iteration.
 
+    recycle : bool
+        Stores a copy of the output in x0 to speed up consecutive calculations of slightly altered linear systems
+
     References
     ----------
     [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
 
     """
-    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
@@ -513,7 +534,7 @@ class BiConjugateGradient(InverseLinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._solver = 'bicg'
-        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
         self._check_options(**self._options)
         self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vs", "rs", "ps")}
         self._info = None
@@ -533,6 +554,8 @@ class BiConjugateGradient(InverseLinearOperator):
                 assert value > 0, "maxiter must be positive"
             elif key == 'verbose':
                 assert isinstance(value, bool), "verbose must be a bool"
+            elif key == 'recycle':
+                assert isinstance(value, bool), "recycle must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
@@ -580,6 +603,7 @@ class BiConjugateGradient(InverseLinearOperator):
         tol = options["tol"]
         maxiter = options["maxiter"]
         verbose = options["verbose"]
+        recycle = options["recycle"]
 
         assert isinstance(b, Vector)
         assert b.space is domain
@@ -676,6 +700,9 @@ class BiConjugateGradient(InverseLinearOperator):
         # Convergence information
         self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
 
+        if recycle:
+            x.copy(out=self._options["x0"])
+
         return x
 
     def dot(self, b, out=None):
@@ -709,12 +736,15 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
     verbose : bool
         If True, 2-norm of residual r is printed at each iteration.
 
+    recycle : bool
+        Stores a copy of the output in x0 to speed up consecutive calculations of slightly altered linear systems
+
     References
     ----------
     [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
 
     """
-    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
@@ -731,32 +761,30 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._solver = 'bicgstab'
-        self._options = {"x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose}
+        self._options = {"x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose, "recycle":recycle}
         self._check_options(**self._options)
         self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vr", "r0")}
         self._info = None
 
     def _check_options(self, **kwargs):
-        keys = ('x0', 'tol', 'maxiter', 'verbose')
         for key, value in kwargs.items():
-            idx = [key == keys[i] for i in range(len(keys))]
-            assert any(idx), "key not supported, check options"
-            true_idx = idx.index(True)
-            if true_idx == 0:
+
+            if key == 'x0':
                 if value is not None:
                     assert isinstance(value, Vector), "x0 must be a Vector or None"
                     assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif true_idx == 1:
+            elif key == 'tol':
                 assert is_real(value), "tol must be a real number"
                 assert value > 0, "tol must be positive"
-            elif true_idx == 2:
+            elif key == 'maxiter':
                 assert isinstance(value, int), "maxiter must be an int"
                 assert value > 0, "maxiter must be positive"
-            elif true_idx == 3:
+            elif key == 'verbose':
                 assert isinstance(value, bool), "verbose must be a bool"
-
-    def _update_options( self ):
-        self._options = {"x0":self._x0, "tol":self._tol, "maxiter": self._maxiter, "verbose": self._verbose}
+            elif key == 'recycle':
+                assert isinstance(value, bool), "recycle must be a bool"
+            else:
+                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
     def transpose(self, conjugate=False):
         At = self._A.transpose(conjugate=conjugate)
@@ -806,6 +834,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         tol = options["tol"]
         maxiter = options["maxiter"]
         verbose = options["verbose"]
+        recycle = options["recycle"]
 
         assert isinstance(b, Vector)
         assert b.space is domain
@@ -907,6 +936,9 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         # Convergence information
         self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
 
+        if recycle:
+            x.copy(out=self._options["x0"])
+
         return x
 
     def dot(self, b, out=None):
@@ -942,6 +974,9 @@ class MinimumResidual(InverseLinearOperator):
     verbose : bool
         If True, 2-norm of residual r is printed at each iteration.
 
+    recycle : bool
+        Stores a copy of the output in x0 to speed up consecutive calculations of slightly altered linear systems
+
     Notes
     -----
     This is an adaptation of the MINRES Solver in Scipy, where the method is modified to accept Psydac data structures,
@@ -955,11 +990,11 @@ class MinimumResidual(InverseLinearOperator):
     https://web.stanford.edu/group/SOL/software/minres/
 
     """
-    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
-        assert A.dtype == float
+        assert A.domain.dtype == float
         domain = A.codomain
         codomain = A.domain
 
@@ -973,7 +1008,7 @@ class MinimumResidual(InverseLinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._solver = 'minres'
-        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
         self._check_options(**self._options)
         self._tmps = {key: domain.zeros() for key in ("res_old", "res_new", "w_new", "w_work", "w_old", "v", "y")}
         self._info = None
@@ -993,6 +1028,8 @@ class MinimumResidual(InverseLinearOperator):
                 assert value > 0, "maxiter must be positive"
             elif key == 'verbose':
                 assert isinstance(value, bool), "verbose must be a bool"
+            elif key == 'recycle':
+                assert isinstance(value, bool), "recycle must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
@@ -1052,6 +1089,7 @@ class MinimumResidual(InverseLinearOperator):
         tol = options["tol"]
         maxiter = options["maxiter"]
         verbose = options["verbose"]
+        recycle = options["recycle"]
 
         assert isinstance(b, Vector)
         assert b.space is domain
@@ -1217,6 +1255,9 @@ class MinimumResidual(InverseLinearOperator):
         # Convergence information
         self._info = {'niter': itn, 'success': rnorm<tol, 'res_norm': rnorm }
 
+        if recycle:
+            x.copy(out=self._options["x0"])
+
         return x
 
     def dot(self, b, out=None):
@@ -1264,6 +1305,9 @@ class LSMR(InverseLinearOperator):
     verbose : bool
         If True, 2-norm of residual r is printed at each iteration.
 
+    recycle : bool
+        Stores a copy of the output in x0 to speed up consecutive calculations of slightly altered linear systems
+
     Notes
     -----
     This is an adaptation of the LSMR Solver in Scipy, where the method is modified to accept Psydac data structures,
@@ -1278,7 +1322,7 @@ class LSMR(InverseLinearOperator):
     .. [2] LSMR Software, https://web.stanford.edu/group/SOL/software/lsmr/
     
     """
-    def __init__(self, A, *, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim=1e8, verbose=False):
+    def __init__(self, A, *, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim=1e8, verbose=False, recycle=False):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
@@ -1296,7 +1340,7 @@ class LSMR(InverseLinearOperator):
         self._codomain = codomain
         self._solver = 'lsmr'
         self._options = {"x0":x0, "tol":tol, "atol":atol, "btol":btol,
-                         "maxiter":maxiter, "conlim":conlim, "verbose":verbose}
+                         "maxiter":maxiter, "conlim":conlim, "verbose":verbose, "recycle":recycle}
         self._check_options(**self._options)
         self._info = None
         self._successful = None
@@ -1330,6 +1374,8 @@ class LSMR(InverseLinearOperator):
                 assert value > 0, "conlim must be positive" # supposedly
             elif key == 'verbose':
                 assert isinstance(value, bool), "verbose must be a bool"
+            elif key == 'recycle':
+                assert isinstance(value, bool), "recycle must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
@@ -1391,6 +1437,7 @@ class LSMR(InverseLinearOperator):
         maxiter = options["maxiter"]
         conlim = options["conlim"]
         verbose = options["verbose"]
+        recycle = options["recycle"]
 
         assert isinstance(b, Vector)
         assert b.space is domain
@@ -1618,6 +1665,9 @@ class LSMR(InverseLinearOperator):
         # Seems necessary, as algorithm might terminate even though rnorm > tol.
         self._successful = istop in [1,2,3]
 
+        if recycle:
+            x.copy(out=self._options["x0"])
+
         return x
 
     def dot(self, b, out=None):
@@ -1651,12 +1701,15 @@ class GMRES(InverseLinearOperator):
     verbose : bool
         If True, L2-norm of residual r is printed at each iteration.
 
+    recycle : bool
+        Stores a copy of the output in x0 to speed up consecutive calculations of slightly altered linear systems
+
     References
     ----------
     [1] Y. Saad and M.H. Schultz, "GMRES: A generalized minimal residual algorithm for solving nonsymmetric linear systems", SIAM J. Sci. Stat. Comput., 7:856–869, 1986.
 
     """
-    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=100, verbose=False):
+    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=100, verbose=False, recycle=False):
 
         assert isinstance(A, LinearOperator)
         assert A.domain.dimension == A.codomain.dimension
@@ -1673,12 +1726,12 @@ class GMRES(InverseLinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._solver = 'gmres'
-        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose}
+        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
         self._check_options(**self._options) 
         self._tmps = {key: domain.zeros() for key in ("r", "p")}
 
         # Initialize upper Hessenberg matrix
-        self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]), dtype=A.dtype)
+        self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]), dtype=A.domain.dtype)
         self._Q = []
         self._info = None
 
@@ -1697,6 +1750,8 @@ class GMRES(InverseLinearOperator):
                 assert value > 0, "maxiter must be positive"
             elif key == 'verbose':
                 assert isinstance(value, bool), "verbose must be a bool"
+            elif key == 'recycle':
+                assert isinstance(value, bool), "recycle must be a bool"
             else:
                 raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
 
@@ -1743,6 +1798,7 @@ class GMRES(InverseLinearOperator):
         tol = options["tol"]
         maxiter = options["maxiter"]
         verbose = options["verbose"]
+        recycle = options["recycle"]
         
         assert isinstance(b, Vector)
         assert b.space is domain
@@ -1815,12 +1871,15 @@ class GMRES(InverseLinearOperator):
         # Convergence information
         self._info = {'niter': k+1, 'success': am < tol, 'res_norm': am }
         
+        if recycle:
+            x.copy(out=self._options["x0"])
+
         return x
     
     def solve_triangular(self, T, d):
         # Backwards substitution. Assumes T is upper triangular
         k = T.shape[0]
-        y = np.zeros((k,), dtype=self._A.dtype)
+        y = np.zeros((k,), dtype=self._A.domain.dtype)
 
         for k1 in range(k):
             temp = 0.

@@ -33,7 +33,7 @@ from sympde.expr import Norm, SemiNorm
 from sympde.expr import find, EssentialBC
 
 from psydac.api.discretization import discretize
-from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
+from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 
 # ... get the mesh directory
 try:
@@ -569,7 +569,7 @@ def test_poisson_2d_collela_dir0_124_neui_3():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_collela_dir0_123_neui_4(backend):
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -610,7 +610,7 @@ def test_poisson_2d_collela_dir0_123_diri_4():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_collela_dir0_13_diri_24(backend):
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -676,7 +676,7 @@ def test_poisson_2d_quarter_annulus_dir0_1234():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_quarter_annulus_dir0_12_diri_34(backend):
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
@@ -717,7 +717,7 @@ def test_poisson_2d_quarter_annulus_diri_1234():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_quarter_annulus_diri_34_neui_12(backend):
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
@@ -760,7 +760,7 @@ def test_poisson_2d_quarter_annulus_diri_12_neui_34():
 #==============================================================================
 # 2D Poisson's equation on circle
 #==============================================================================
-@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_circle_dir0(backend):
 
     filename = os.path.join(mesh_dir, 'circle.h5')
@@ -783,7 +783,7 @@ def test_poisson_2d_circle_dir0(backend):
 #==============================================================================
 # 2D Poisson's equation on pipe
 #==============================================================================
-@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_pipe_dir_1234(backend):
 
     filename = os.path.join(mesh_dir, 'pipe.h5')

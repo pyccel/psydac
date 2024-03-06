@@ -15,7 +15,7 @@ from psydac.pyccel.ast.core      import FunctionDef
 
 from .basic     import SplBasic
 from .utilities import build_pythran_types_header, variables
-from .utilities import build_pyccel_types_decorator
+from .utilities import build_pyccel_type_annotations
 from .utilities import rationalize_eval_mapping
 from .utilities import compute_atoms_expr_mapping
 from .utilities import compute_atoms_expr_field
@@ -171,15 +171,14 @@ class EvalArrayField(SplBasic):
 
         decorators = {}
         header = None
+
         if self.backend['name'] == 'pyccel':
-            decorators = {'types': build_pyccel_types_decorator(func_args)}
-        elif self.backend['name'] == 'numba':
-            decorators = {'jit':[]}
+            func_args = build_pyccel_type_annotations(func_args)
         elif self.backend['name'] == 'pythran':
             header = build_pythran_types_header(self.name, func_args)
 
         return FunctionDef(self.name, list(func_args), [], body,
-                           decorators=decorators,header=header)
+                           decorators=decorators, header=header)
 
 
 #==============================================================================
@@ -388,7 +387,6 @@ class EvalArrayMapping(SplBasic):
         if self.is_rational_mapping:
             stmts = rationalize_eval_mapping(self.mapping, self.nderiv,
                                              self.space, indices_quad)
-
             body += stmts
 
         assign_spans = []
@@ -409,9 +407,7 @@ class EvalArrayMapping(SplBasic):
         decorators = {}
         header = None
         if self.backend['name'] == 'pyccel':
-            decorators = {'types': build_pyccel_types_decorator(func_args)}
-        elif self.backend['name'] == 'numba':
-            decorators = {'jit':[]}
+            func_args = build_pyccel_type_annotations(func_args)
         elif self.backend['name'] == 'pythran':
             header = build_pythran_types_header(self.name, func_args)
 

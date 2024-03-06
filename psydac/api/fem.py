@@ -1539,7 +1539,7 @@ class DiscreteFunctional(BasicDiscrete):
             v = kwargs[key]
             if isinstance(v, FemField):
                 if not v.coeffs.ghost_regions_in_sync:
-                        v.coeffs.update_ghost_regions()
+                    v.coeffs.update_ghost_regions()
                 if v.space.is_product:
                     coeffs = v.coeffs
                     if self._symbolic_space.is_broken:

@@ -228,6 +228,10 @@ def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
     M4 = M.copy()
     M4 -= M
 
+    #check that copy works with out 
+    M5 = StencilMatrix(V, V)
+    M3.copy(out=M5)
+
     # Check that the internal basic operation return the correct StencilMatrix
     assert isinstance(M1, StencilMatrix)
     assert M1.dtype==dtype
@@ -241,6 +245,9 @@ def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
     assert isinstance(M4, StencilMatrix)
     assert M4.dtype==dtype
     assert np.array_equal(M4._data, M._data - M._data)
+    assert isinstance(M5, StencilMatrix)
+    assert M5.dtype==dtype
+    assert np.array_equal(M5._data, M._data + M._data)
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -1252,6 +1259,14 @@ def test_stencil_matrix_1d_serial_transpose(dtype, n1, p1, s1, P1):
     assert M.transpose().dtype==dtype
     assert np.array_equal(Ta, Ta_exact)
 
+    #Same test with using out of transpose
+    Mt = StencilMatrix(V, V)
+    M.transpose(out = Mt)
+    Ta = Mt.toarray()
+
+    assert Mt.dtype==dtype
+    assert np.array_equal(Ta, Ta_exact)
+
 # TODO: verify for s>1
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -1295,6 +1310,16 @@ def test_stencil_matrix_2d_serial_transpose_1(dtype, n1, n2, p1, p2, s1, s2, P1,
 
     # Check data
     assert M.transpose().dtype==dtype
+    assert Ts.dtype==dtype
+    assert abs(Ts - Ts_exact).max() < 1e-14
+    assert abs(Ts - M.T.tosparse()).max() < 1e-14
+
+    #Same test with using out of transpose
+    Mt = StencilMatrix(V, V)
+    M.transpose(out = Mt)
+    Ts = Mt.tosparse()
+
+    assert Mt.dtype==dtype
     assert Ts.dtype==dtype
     assert abs(Ts - Ts_exact).max() < 1e-14
     assert abs(Ts - M.T.tosparse()).max() < 1e-14
@@ -1767,7 +1792,7 @@ def test_stencil_matrix_3d_serial_transpose_1(dtype, n1, n2, n3, p1, p2, p3, s1,
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [False])
-@pytest.mark.parametrize('backend', [ PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_dot_1(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend):
    # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -1837,10 +1862,18 @@ def test_stencil_matrix_2d_serial_backend_dot_1(dtype, n1, n2, p1, p2, s1, s2, P
     y1a_exact = np.dot(M1a, x1a)
     y2a_exact = np.dot(M2a, x2a)
 
+    #Check that copy with out give the same result
+    Mo   = StencilMatrix(V1, V2, pads=(p1, p2), backend=backend)
+    M1.copy(out=Mo)
+    y1o  = Mo.dot(x1)
+    y1oa = y1o.toarray()
+
     # Check data in 1D array
-    assert y1.dtype==dtype
-    assert y2.dtype==dtype
+    assert y1.dtype ==dtype
+    assert y1o.dtype==dtype
+    assert y2.dtype ==dtype
     assert np.allclose(y1a, y1a_exact, rtol=1e-13, atol=1e-13)
+    assert np.allclose(y1oa, y1a_exact, rtol=1e-13, atol=1e-13)
     assert np.allclose(y2a, y2a_exact, rtol=1e-13, atol=1e-13)
 
 # ===============================================================================
@@ -1853,7 +1886,7 @@ def test_stencil_matrix_2d_serial_backend_dot_1(dtype, n1, n2, p1, p2, s1, s2, P
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_dot_2(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -1922,7 +1955,7 @@ def test_stencil_matrix_2d_serial_backend_dot_2(dtype, n1, n2, p1, p2, s1, s2, P
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [False])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_dot_3(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -2008,8 +2041,8 @@ def test_stencil_matrix_2d_serial_backend_dot_3(dtype, n1, n2, p1, p2, s1, s2, P
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
-@pytest.mark.parametrize('backend2', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend2', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend, backend2):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -2536,12 +2569,12 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
 
     # TEST: compute transpose, then convert to Scipy sparse format
     Ts = M.transpose().tosparse()
+    # Test using out option
+    To = StencilMatrix(V, V)
+    M.transpose(out=To)
+    Tos = To.tosparse()
 
-    # Exact result: convert to Scipy sparse format, then transpose
-    Ts_exact = M.tosparse().transpose()
-
-    # Exact result: convert to Scipy sparse format including padding, then
-    # transpose, hence remove entries that do not belong to current process.
+    # Exact result: convert to Scipy sparse format with padding, then transpose
     Ts_exact = M.tosparse(with_pads=True).transpose()
 
     # ...
@@ -2556,6 +2589,7 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
 
     # Check data
     assert abs(Ts - Ts_exact).max() < 1e-14
+    assert abs(Tos - Ts_exact).max() < 1e-14
 
 # ===============================================================================
 # PARALLEL BACKENDS TESTS
@@ -2565,7 +2599,7 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
 @pytest.mark.parametrize('p1', [1])
 @pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('P1', [True])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL])
 @pytest.mark.parallel
 def test_stencil_matrix_1d_parallel_backend_dot(dtype, n1, p1, sh1, P1, backend):
     from mpi4py import MPI
@@ -2625,7 +2659,7 @@ def test_stencil_matrix_1d_parallel_backend_dot(dtype, n1, p1, sh1, P1, backend)
 @pytest.mark.parametrize('sh2', [1])
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 @pytest.mark.parallel
 def test_stencil_matrix_2d_parallel_backend_dot(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2, backend):
     from mpi4py import MPI

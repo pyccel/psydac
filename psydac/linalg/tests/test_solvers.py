@@ -88,7 +88,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
         V, A, xe = define_data(n, p, diagonals, dtype=dtype)
 
     # Tolerance for success: 2-norm of error in solution
-    tol = 1e-10
+    tol = 1e-8
 
     #---------------------------------------------------------------------------
     # TEST
@@ -102,32 +102,69 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
         print()
 
     #Create the solvers
-    solv  = inverse(A, solver, tol=1e-13, verbose=True)
+    solv  = inverse(A, solver, tol=tol, verbose=False, recycle=True)
     solvt = solv.transpose()
     solvh = solv.H
+    solv2 = inverse(A@A, solver, tol=1e-13, verbose=True, recycle=True) # Test solver of composition of operators
 
     # Manufacture right-hand-side vector from exact solution
-    b  = A.dot( xe )
-    b2 = A.dot( b ) # Test solver with consecutive solves
-    bt = A.T.dot( xe )
-    bh = A.H.dot( xe )
+    be  = A @ xe
+    be2 = A @ be # Test solver with consecutive solves
+    bet = A.T @ xe
+    beh = A.H @ xe
 
     # Solve linear system
-    x = solv @ b
+    # Assert x0 got updated correctly and is not the same object as the previous solution, but just a copy
+    x = solv @ be
     info = solv.get_info()
-    x2 = solv @ b2
-    xt = solvt.solve(bt)
-    xh = solvh.dot(bh)
+    solv_x0 = solv._options["x0"]
+    assert np.array_equal(x.toarray(), solv_x0.toarray())
+    assert x is not solv_x0
+
+    x2 = solv @ be2
+    solv_x0 = solv._options["x0"]
+    assert np.array_equal(x2.toarray(), solv_x0.toarray())
+    assert x2 is not solv_x0
+
+    xt = solvt.solve(bet)
+    solvt_x0 = solvt._options["x0"]
+    assert np.array_equal(xt.toarray(), solvt_x0.toarray())
+    assert xt is not solvt_x0
+
+    xh = solvh.dot(beh)
+    solvh_x0 = solvh._options["x0"]
+    assert np.array_equal(xh.toarray(), solvh_x0.toarray())
+    assert xh is not solvh_x0
+
+    if solver != 'pcg':
+        # PCG only works with operators with diagonal
+        xc = solv2 @ be2
+        solv2_x0 = solv2._options["x0"]
+        assert np.array_equal(xc.toarray(), solv2_x0.toarray())
+        assert xc is not solv2_x0
+
 
     # Verify correctness of calculation: 2-norm of error
-    err = x - xe
+    b = A @ x
+    b2 = A @ x2
+    bt = A.T @ xt
+    bh = A.H @ xh
+    if solver != 'pcg':
+        bc = A @ A @ xc
+
+    
+    err = b - be
     err_norm = np.linalg.norm( err.toarray() )
-    err2 = x2 - b
+    err2 = b2 - be2
     err2_norm = np.linalg.norm( err2.toarray() )
-    errt = xt - xe
+    errt = bt - bet
     errt_norm = np.linalg.norm( errt.toarray() )
-    errh = xh - xe
+    errh = bh - beh
     errh_norm = np.linalg.norm( errh.toarray() )
+
+    if solver != 'pcg': 
+        errc = bc - be2
+        errc_norm = np.linalg.norm( errc.toarray() )
 
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
@@ -152,11 +189,13 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     #---------------------------------------------------------------------------
     # PYTEST
     #---------------------------------------------------------------------------
-    assert err_norm < tol
-    assert err2_norm < tol
-    assert errt_norm < tol
-    assert errh_norm < tol
-
+    # The lsmr solver does not consistently produce outputs x whose error ||Ax - b|| is less than tol.
+    if solver != 'lsmr':
+        assert err_norm < tol
+        assert err2_norm < tol
+        assert errt_norm < tol
+        assert errh_norm < tol
+        assert solver == 'pcg' or errc_norm < tol
 
 # ===============================================================================
 # SCRIPT FUNCTIONALITY

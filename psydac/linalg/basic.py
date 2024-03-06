@@ -603,7 +603,7 @@ class SumLinearOperator(LinearOperator):
             else:
                 addends = (*addends, a)
 
-        addends = SumLinearOperator.simplifiy(addends)
+        addends = SumLinearOperator.simplify(addends)
 
         self._domain = domain
         self._codomain = codomain
@@ -652,9 +652,9 @@ class SumLinearOperator(LinearOperator):
         return SumLinearOperator(self._codomain, self._domain, *t_addends)
 
     @staticmethod
-    def simplifiy(addends):
-        class_list = [addends[i].__class__.__name__ for i in range(len(addends))]
-        unique_list = list(set(class_list))
+    def simplify(addends):
+        class_list  = [a.__class__ for a in addends]
+        unique_list = [*{c: a for c, a in zip(class_list, addends)}]
         if len(unique_list) == 1:
             return addends
         out = ()
@@ -1005,5 +1005,14 @@ class LinearSolver(ABC):
         pass
 
     @abstractmethod
-    def solve(self, rhs, out=None, transposed=False):
+    def transpose(self):
+        """Return the transpose of the LinearSolver."""
         pass
+
+    @abstractmethod
+    def solve(self, rhs, out=None):
+        pass
+
+    @property
+    def T(self):
+        return self.transpose()
