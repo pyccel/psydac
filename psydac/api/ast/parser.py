@@ -9,16 +9,9 @@ from sympy import Add, And, StrictLessThan, Eq
 from sympy import Abs, Not, floor
 from sympy import Symbol, Idx
 from sympy import Basic, Function
+from sympy import MutableDenseNDimArray as MArray
 from sympy.simplify import cse_main
 from sympy.core.containers import Tuple
-
-
-from psydac.pyccel.ast.core      import Assign, Product, AugAssign, For
-from psydac.pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
-from psydac.pyccel.ast.core      import Slice, String, ValuedArgument
-from psydac.pyccel.ast.core      import EmptyNode, Import, While, Return, If
-from psydac.pyccel.ast.core      import CodeBlock, FunctionDef, Comment
-from psydac.pyccel.ast.builtins  import Range
 
 from sympde.topology import (dx1, dx2, dx3)
 from sympde.topology import SymbolicExpr
@@ -29,6 +22,18 @@ from sympde.topology import SymbolicWeightedVolume, InterfaceMapping
 from sympde.topology import Boundary, NormalVector, Interface
 
 from sympde.topology.derivatives import get_index_logical_derivatives
+
+from psydac.pyccel.ast.core      import Assign, Product, AugAssign, For
+from psydac.pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
+from psydac.pyccel.ast.core      import Slice, String, ValuedArgument
+from psydac.pyccel.ast.core      import EmptyNode, Import, While, Return, If
+from psydac.pyccel.ast.core      import CodeBlock, FunctionDef, Comment
+from psydac.pyccel.ast.builtins  import Range
+
+from psydac.api.utilities     import flatten
+from psydac.api.ast.utilities import variables, math_atoms_as_str, get_name
+from psydac.api.ast.utilities import build_pythran_types_header
+from psydac.api.ast.utilities import build_pyccel_type_annotations
 
 from .nodes import AtomicNode
 from .nodes import BasisAtom
@@ -73,10 +78,6 @@ from .nodes import index_deriv, Max, Min
 
 from .nodes import Zeros, ZerosLike, Array
 from .fem import expand, expand_hdiv_hcurl
-from psydac.api.ast.utilities import variables, math_atoms_as_str, get_name
-from psydac.api.utilities     import flatten
-from psydac.api.ast.utilities import build_pythran_types_header
-from psydac.api.ast.utilities import build_pyccel_type_annotations
 
 #==============================================================================
 # TODO move it
@@ -922,6 +923,7 @@ class Parser(object):
         target = {target: tuple(zip(*targets))}
         return target
 
+    # ....................................................
     def _visit_Pads(self, expr, **kwargs):
         dim           = self.dim
         tests         = expand(expr.tests)
@@ -932,33 +934,37 @@ class Parser(object):
 
         if expr.trials is not None:
             trials = expand(expr.trials)
-            pads = Matrix.zeros(len(tests),len(trials))
+            pads = MArray.zeros(len(tests), len(trials), dim)
             for i in range(pads.shape[0]):
                 for j in range(pads.shape[1]):
                     label1  = SymbolicExpr(tests[i]).name
                     label2  = SymbolicExpr(trials[j]).name
-                    names   = 'pad_{}_{}_1:{}'.format(label2, label1, str(dim+1))
+                    names   = f'pad_{label2}_{label1}_1:{dim+1}'
                     targets = variables(names, dtype='int')
-                    pads[i,j] = Tuple(*targets)
+                    pads[i, j, :] = targets
                     self.insert_variables(*targets)
             if expr.test_index is not None and expr.trial_index is not None:
-                if expr.dim_index is not None:return pads[expr.test_index,expr.trial_index][expr.dim_index]
-                return pads[expr.test_index,expr.trial_index]
+                if expr.dim_index is not None:
+                    return pads[expr.test_index, expr.trial_index, expr.dim_index]
+                return pads[expr.test_index, expr.trial_index]
                 
         else:
-            pads = Matrix.zeros(len(tests),1)
+            pads = MArray.zeros(len(tests), 1, dim)
             for i in range(pads.shape[0]):
-                label1    = SymbolicExpr(tests[i]).name
-                names     = 'pad_{}_1:{}'.format(label1, str(dim+1))
-                targets   = variables(names, dtype='int')
-                pads[i,0] = Tuple(*targets)
+                label1  = SymbolicExpr(tests[i]).name
+                names   = f'pad_{label1}_1:{dim+1}'
+                targets = variables(names, dtype='int')
+                pads[i, 0, :] = targets
                 self.insert_variables(*targets)
 
             if expr.test_index is not None:
-                if expr.dim_index is not None:return pads[expr.test_index,0][expr.dim_index]
-                return pads[expr.test_index,0]
+                if expr.dim_index is not None:
+                    return pads[expr.test_index, 0, expr.dim_index]
+                return pads[expr.test_index, 0]
+            #...
 
         return pads
+
     # ....................................................
     def _visit_TensorBasis(self, expr, **kwargs):
         # TODO label
@@ -997,6 +1003,7 @@ class Parser(object):
     def _visit_MatrixRankFromCoords(self, expr, **kwargs):
         var  = IndexedVariable('rank_from_coords', dtype='int', rank=self.dim)
         return var
+
     # ....................................................
     def _visit_MatrixLocalBasis(self, expr, **kwargs):
         rank   = self._visit(expr.rank)
@@ -1006,8 +1013,8 @@ class Parser(object):
         var    = IndexedVariable(name, dtype=dtype, rank=rank)
         self.insert_variables(var)
         return var
-    # ....................................................
 
+    # ....................................................
     def _visit_MatrixGlobalBasis(self, expr, **kwargs):
         rank   = self._visit(expr.rank)
         target = SymbolicExpr(expr.target)
@@ -1016,6 +1023,7 @@ class Parser(object):
         var    = IndexedVariable(name, dtype=dtype, rank=rank)
         self.insert_variables(var)
         return var
+
     # ....................................................
     def _visit_Reset(self, expr, **kwargs):
         var = expr.var
@@ -1155,6 +1163,7 @@ class Parser(object):
                 lhs = self._visit(lhs)
 
             return self._visit(expr, op=op, lhs=lhs)
+
     # ....................................................
     def _visit_ComputeLogical(self, expr, op=None, lhs=None, **kwargs):
         expr = expr.expr

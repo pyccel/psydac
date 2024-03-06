@@ -956,8 +956,9 @@ def quadrature_grid_p(breaks: 'float[:]', quad_rule_x: 'float[:]', quad_rule_w: 
     -----
     Contents of 2D output arrays 'out1' and 'out2' are accessed with two
     indices (ie,iq) where:
-      . ie is the global element index;
-      . iq is the local index of a quadrature point within the element.
+
+      - ie is the global element index;
+      - iq is the local index of a quadrature point within the element.
 
     """
     ncells = len(breaks) - 1

@@ -623,22 +623,35 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
 
     tol = 1e-5
     C = inverse(B, 'cg', tol=tol)
+    P = B.diagonal(inverse=True)
+
+    B_T = B.T
+    C_T = C.T
 
     # -1,T & T,-1 -> equal
-    assert isinstance(C.T, ConjugateGradient)
-    assert isinstance(inverse(B.T, 'cg', tol=tol), ConjugateGradient)
-    assert np.sqrt(sum(((C.T.dot(u) - inverse(B.T, 'cg', tol=tol).dot(u)).toarray())**2)) < 2*tol
+    assert isinstance(C_T, ConjugateGradient)
+    assert isinstance(inverse(B_T, 'cg', tol=tol), ConjugateGradient)
+    diff = C_T @ u - inverse(B_T, 'cg', tol=tol) @ u
+    assert diff.dot(diff) == 0
+
     # -1,T,T -> equal -1
-    assert np.sqrt(sum(((C.T.T.dot(u) - C.dot(u)).toarray())**2)) < 2*tol
+    diff = C_T.T @ u - C @ u
+    assert diff.dot(diff) == 0
+
     # -1,T,-1 -> equal T
-    assert isinstance(inverse(C.T, 'bicg'), BlockLinearOperator)
-    assert np.array_equal(inverse(C.T, 'bicg').dot(u).toarray(), B.T.dot(u).toarray())
+    assert isinstance(inverse(C_T, 'bicg'), BlockLinearOperator)
+    diff = inverse(C_T, 'bicg') @ u - B_T @ u
+    assert diff.dot(diff) == 0
+
     # T,-1,-1 -> equal T
-    assert isinstance(inverse(inverse(B.T, 'cg', tol=tol), 'pcg', pc='jacobi'), BlockLinearOperator)
-    assert np.array_equal(inverse(inverse(B.T, 'cg', tol=tol), 'pcg', pc='jacobi').dot(u).toarray(), B.T.dot(u).toarray())
+    assert isinstance(inverse(inverse(B_T, 'cg', tol=tol), 'pcg', pc=P), BlockLinearOperator)
+    diff = inverse(inverse(B_T, 'cg', tol=tol), 'pcg', pc=P) @ u - B_T @ u
+    assert diff.dot(diff) == 0
+
     # T,-1,T -> equal -1
-    assert isinstance(inverse(B.T, 'cg', tol=tol).T, ConjugateGradient)
-    assert np.sqrt(sum(((inverse(B.T, 'cg', tol=tol).dot(u) - C.dot(u)).toarray())**2)) < tol
+    assert isinstance(inverse(B_T, 'cg', tol=tol).T, ConjugateGradient)
+    diff = inverse(B_T, 'cg', tol=tol) @ u - C @ u
+    assert diff.dot(diff) == 0
 
     ###
     ### StencilMatrix Transpose - Inverse Tests
@@ -647,22 +660,35 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
 
     tol = 1e-5
     C = inverse(S, 'cg', tol=tol)
+    P = S.diagonal(inverse=True)
+
+    S_T = S.T
+    C_T = C.T
 
     # -1,T & T,-1 -> equal
-    assert isinstance(C.T, ConjugateGradient)
-    assert isinstance(inverse(S.T, 'cg', tol=tol), ConjugateGradient)
-    assert np.sqrt(sum(((C.T.dot(v) - inverse(S.T, 'cg', tol=tol).dot(v)).toarray())**2)) < 2*tol
+    assert isinstance(C_T, ConjugateGradient)
+    assert isinstance(inverse(S_T, 'cg', tol=tol), ConjugateGradient)
+    diff = C_T @ v - inverse(S_T, 'cg', tol=tol) @ v
+    assert diff.dot(diff) == 0
+
     # -1,T,T -> equal -1
-    assert np.sqrt(sum(((C.T.T.dot(v) - C.dot(v)).toarray())**2)) < 2*tol
+    diff = C_T.T @ v - C @ v
+    assert diff.dot(diff) == 0
+
     # -1,T,-1 -> equal T
-    assert isinstance(inverse(C.T, 'bicg'), StencilMatrix)
-    assert np.array_equal(inverse(C.T, 'bicg').dot(v).toarray(), S.T.dot(v).toarray())
+    assert isinstance(inverse(C_T, 'bicg'), StencilMatrix)
+    diff = inverse(C_T, 'bicg') @ v - S_T @ v
+    assert diff.dot(diff) == 0
+
     # T,-1,-1 -> equal T
-    assert isinstance(inverse(inverse(S.T, 'cg', tol=tol), 'pcg', pc='jacobi'), StencilMatrix)
-    assert np.array_equal(inverse(inverse(S.T, 'cg', tol=tol), 'pcg', pc='jacobi').dot(v).toarray(), S.T.dot(v).toarray())
+    assert isinstance(inverse(inverse(S_T, 'cg', tol=tol), 'pcg', pc=P), StencilMatrix)
+    diff = inverse(inverse(S_T, 'cg', tol=tol), 'pcg', pc=P) @ v - S_T @ v
+    assert diff.dot(diff) == 0
+
     # T,-1,T -> equal -1
-    assert isinstance(inverse(S.T, 'cg', tol=tol).T, ConjugateGradient)
-    assert np.sqrt(sum(((inverse(S.T, 'cg', tol=tol).dot(v) - C.dot(v)).toarray())**2)) < tol
+    assert isinstance(inverse(S_T, 'cg', tol=tol).T, ConjugateGradient)
+    diff = inverse(S_T, 'cg', tol=tol) @ v - C @ v
+    assert diff.dot(diff) == 0
 
 #===============================================================================
 @pytest.mark.parametrize('n1', [3, 5])
@@ -833,8 +859,8 @@ def test_operator_evaluation(n1, n2, p1, p2):
 
     S_cg = inverse(S, 'cg', tol=tol)
     B_cg = inverse(B, 'cg', tol=tol)
-    S_pcg = inverse(S, 'pcg', pc='jacobi', tol=tol)
-    B_pcg = inverse(B, 'pcg', pc='jacobi', tol=tol)
+    S_pcg = inverse(S, 'pcg', pc=S.diagonal(inverse=True), tol=tol)
+    B_pcg = inverse(B, 'pcg', pc=B.diagonal(inverse=True), tol=tol)
     S_bicg = inverse(S, 'bicg', tol=tol)
     B_bicg = inverse(B, 'bicg', tol=tol)
     S_lsmr = inverse(S, 'lsmr', tol=tol)
@@ -944,31 +970,29 @@ def test_x0update(solver):
     # Create Inverse
     tol = 1e-6
     if solver == 'pcg':
-        A_inv = inverse(A, solver, pc='jacobi', tol=tol)
+        A_inv = inverse(A, solver, pc=A.diagonal(inverse=True), tol=tol)
     else:
         A_inv = inverse(A, solver, tol=tol)
-    options = A_inv.options
-    x0_init = options["x0"]
+
     # Check whether x0 is not None
+    x0_init = A_inv.get_options("x0")
     assert x0_init is not None
+
     # Apply inverse and check x0
     x = A_inv @ b
-    options = A_inv.options
-    x0_new1 = options["x0"]
+    x0_new1 = A_inv.get_options("x0")
     assert x0_new1 is x0_init
+
     # Change x0, apply A_inv and check for x0
     A_inv.set_options(x0 = b)
-    options = A_inv.options
-    assert options["x0"] is b
+    assert A_inv.get_options("x0") is b
+
     x = A_inv @ b
-    options = A_inv.options
-    x0_new2 = options["x0"]
-    assert x0_new2 is b
+    assert A_inv.get_options("x0") is b
+
     # Apply inverse using out=x0 and check for updated x0
-    x = A_inv.dot(b, out=x0_new2)
-    options = A_inv.options
-    x0_new3 = options["x0"]
-    assert x0_new3 is x
+    x = A_inv.dot(b, out=b)
+    assert A_inv.get_options('x0') is x
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY

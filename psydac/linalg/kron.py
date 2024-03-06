@@ -107,7 +107,7 @@ class KroneckerStencilMatrix(LinearOperator):
             for jj in np.ndindex(*pnrows):
                 i_mats = [mat._data[s, j] for s,j,mat in zip(xx, jj, mats)]
                 ii_jj = tuple(i+j for i,j in zip(ii, jj))
-                v += x._data[ii_jj]*np.product(i_mats)
+                v += x._data[ii_jj] * np.prod(i_mats)
 
             out._data[xx] = v
 
@@ -145,7 +145,7 @@ class KroneckerStencilMatrix(LinearOperator):
         cols = key[self.ndim:]
         mats = self.mats
         elements = [A[i,j] for A,i,j in zip(mats, rows, cols)]
-        return np.product(elements)
+        return np.prod(elements)
 
     def tostencil(self):
 
@@ -183,7 +183,7 @@ class KroneckerStencilMatrix(LinearOperator):
             for kk in np.ndindex( *ndiags ):
 
                 values        = [mat[i,k] for mat,i,k in zip(mats, ii, kk)]
-                M[(*ii, *kk)] = np.product(values)
+                M[(*ii, *kk)] = np.prod(values)
         
         # handle partly-multiplied rows
         new_nrows = nrows.copy()
@@ -206,7 +206,7 @@ class KroneckerStencilMatrix(LinearOperator):
 
                     for kk in np.ndindex( *ndiags ):
                         values        = [mat[i,k] for mat,i,k in zip(mats, ii, kk)]
-                        M[(*ii, *kk)] = np.product(values)
+                        M[(*ii, *kk)] = np.prod(values)
             new_nrows[d] += er
 
     def tosparse(self):
@@ -442,7 +442,7 @@ class KroneckerLinearSolver(LinearOperator):
         # local and global sizes
         nglobals = self._domain.npts
         nlocals = ends - starts
-        self._localsize = np.product(nlocals)
+        self._localsize = np.prod(nlocals)
         mglobals = self._localsize // nlocals
         self._nlocals = nlocals
 

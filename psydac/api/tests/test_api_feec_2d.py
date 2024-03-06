@@ -519,7 +519,8 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         M1_inv = inverse(M1, 'cg', **kwargs)
         step_ampere_2d = dt * (M1_inv @ D1_T @ M2)
     else:
-        M1_M1_bc_inv = inverse(M1 + M1_bc, 'pcg', pc='jacobi', **kwargs)
+        M1_M1_bc = M1 + M1_bc
+        M1_M1_bc_inv = inverse(M1_M1_bc, 'pcg', pc = M1_M1_bc.diagonal(inverse=True), **kwargs)
         step_ampere_2d = dt * (M1_M1_bc_inv @ D1_T @ M2)
 
     half_step_faraday_2d = (dt/2) * D1
