@@ -548,7 +548,7 @@ class IdentityOperator(LinearOperator):
 #===============================================================================
 class ScaledLinearOperator(LinearOperator):
     """
-    A linear operator :math:`A` scalar multiplied by a real constant :math:`c`. 
+    A linear operator $A$ scalar multiplied by a real constant $c$. 
     
     """
 
@@ -626,7 +626,7 @@ class ScaledLinearOperator(LinearOperator):
 #===============================================================================
 class SumLinearOperator(LinearOperator):
     """
-    Sum :math:`\sum_{i=1}^n A_i` of linear operators :math:`A_1,\dots,A_n` acting between the same vector spaces V (domain) and W (codomain).
+    Sum $\sum_{i=1}^n A_i$ of linear operators $A_1,\dots,A_n$ acting between the same vector spaces V (domain) and W (codomain).
 
     """
     def __new__(cls, domain, codomain, *args):
@@ -740,7 +740,7 @@ class SumLinearOperator(LinearOperator):
 #===============================================================================
 class ComposedLinearOperator(LinearOperator):
     """
-    Composition :math:`A_n\circ\dots\circ A_1` of two or more linear operators :math:`A_1,\dots,A_n`.
+    Composition $A_n\circ\dots\circ A_1$ of two or more linear operators $A_1,\dots,A_n$.
     
     """
 
@@ -800,8 +800,8 @@ class ComposedLinearOperator(LinearOperator):
     @property
     def multiplicants(self):
         """
-        A tuple :math:`(A_1,\dots,A_n)` containing the multiplicants of the linear operator 
-        :math:`self = A_n\circ\dots\circ A_1`.
+        A tuple $(A_1,\dots,A_n)$ containing the multiplicants of the linear operator 
+        $self = A_n\circ\dots\circ A_1$.
         
         """
         return self._multiplicants
@@ -863,7 +863,7 @@ class ComposedLinearOperator(LinearOperator):
 #===============================================================================
 class PowerLinearOperator(LinearOperator):
     """
-    Power :math:`A^n` of a linear operator :math:`A` for some integer :math:`n\geq 0`.
+    Power $A^n$ of a linear operator $A$ for some integer $n\geq 0$.
     
     """
 
@@ -944,8 +944,8 @@ class PowerLinearOperator(LinearOperator):
 #===============================================================================
 class InverseLinearOperator(LinearOperator):
     """
-    Abstract base class for the (approximate) inverse :math:`A^{-1}` of a
-    square matrix :math:`A`. The result of A_inv.dot(b) is the (approximate) solution x
+    Abstract base class for the (approximate) inverse $A^{-1}$ of a
+    square matrix $A$. The result of A_inv.dot(b) is the (approximate) solution x
     of the linear system A x = b, where x and b belong to the same vector space V.
 
     We assume that the linear system is solved by an iterative method, which
@@ -1004,20 +1004,20 @@ class InverseLinearOperator(LinearOperator):
     @property
     def linop(self):
         """
-        The linear operator :math:`A` of which this object is the inverse :math:`A^{-1}`.
+        The linear operator $A$ of which this object is the inverse $A^{-1}$.
 
-        The linear operator :math:`A` can be modified in place, or replaced entirely
+        The linear operator $A$ can be modified in place, or replaced entirely
         through the setter. A substitution should only be made in cases where
         no other options are viable, as it breaks the one-to-one map between
-        the original linear operator :math:`A` (passed to the constructor) and the
-        current `InverseLinearOperator` object :math:`A^{-1}`. Use with extreme care!
+        the original linear operator $A$ (passed to the constructor) and the
+        current `InverseLinearOperator` object $A^{-1}$. Use with extreme care!
 
         """
         return self._A
     
     @linop.setter
     def linop(self, a):
-        """ Set the linear operator :math:`A` of which this object is the inverse :math:`A^{-1}`. """
+        """ Set the linear operator $A$ of which this object is the inverse $A^{-1}$. """
         assert isinstance(a, LinearOperator)
         assert a.domain is self.domain
         assert a.codomain is self.codomain

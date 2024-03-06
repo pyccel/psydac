@@ -33,6 +33,7 @@ jobs:
         python -m pip install pydata_sphinx_theme
         python -m pip install numpydoc
         python -m pip install tomli
+        python -m pip install sphinx-math-dollar
     - name: Make the sphinx doc
       run: |
         rm -rf docs/source/modules/STUBDIR
