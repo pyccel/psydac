@@ -316,6 +316,51 @@ def eval_fields_2d_irregular_no_weights(np1: int, np2: int, f_p1: int, f_p2: int
                     out_fields[i_p_1, i_p_2, :] += spline * coeff_fields
 
 
+@template(name='T', types=['float[:,:]', 'complex[:,:]'])
+def eval_fields_1d_irregular_no_weights(np1: int, f_p1: int,
+                                        cell_index_1: 'int[:]',
+                                        global_basis_1: 'float[:,:,:]',
+                                        global_spans_1: 'int[:]', 
+                                        glob_arr_coeff: 'T',
+                                        out_fields: 'T'):
+    """
+    Parameters
+    ----------
+    np1: int
+        Number of points in the X1 direction
+
+    f_p1: int
+        Degree in the X1 direction
+
+    cell_index_1 : ndarray of ints
+        Index of the cells in the X1 direction
+
+    global_basis_1: ndarray of floats
+        Basis functions values at each point in the X1 direction
+
+    global_spans_1: ndarray of ints
+        Spans in the X1 direction
+
+    glob_arr_coeff: ndarray of floats
+        Coefficients of the fields in the X1 direction
+
+    out_fields: ndarray of floats
+        Evaluated fields, filled with the correct values by the function
+    """
+    arr_coeff_fields = np.zeros_like(glob_arr_coeff, shape=(1 + f_p1, out_fields.shape[1]))
+
+    for i_p_1 in range(np1):
+        i_cell_1 = cell_index_1[i_p_1]
+        span_1 = global_spans_1[i_cell_1]
+
+        arr_coeff_fields[:, :] = glob_arr_coeff[span_1 - f_p1:1 + span_1, :]
+
+        for i_basis_1 in range(1 + f_p1):
+            spline_1 = global_basis_1[i_p_1, i_basis_1, 0]
+            coeff_fields = arr_coeff_fields[i_basis_1, :]
+
+            out_fields[i_p_1, :] += spline_1 * coeff_fields
+
 # -----------------------------------------------------------------------------
 # 3: Regular tensor grid with weights
 # -----------------------------------------------------------------------------
