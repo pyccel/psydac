@@ -241,9 +241,9 @@ class TensorFemSpace( FemSpace ):
         # Get contiguous copy of the spline coefficients required for evaluation
         bases = self._tmp_bf
         index  = tuple( index )
-        coeffs[:] = field.coeffs._data[index]
-        w_index = tuple(w_index)
+        coeffs[:] = field.coeffs._data[index]        
         if weights:
+            w_index = tuple(w_index)
             coeffs *= weights[w_index]
 
         # Evaluation of multi-dimensional spline
