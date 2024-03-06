@@ -26,8 +26,8 @@ def array_to_psydac(x, Xh):
                 for i in range(len(starts)):
                     g = tuple(slice(s,e+1) for s,e in zip(starts[i], ends[i]))
                     shape = tuple(ends[i]-starts[i]+1)
-                    u[d][i][g] = x[:np.product(shape)].reshape(shape)
-                    x       = x[np.product(shape):]
+                    u[d][i][g] = x[:np.prod(shape) ].reshape(shape)
+                    x          = x[ np.prod(shape):]
 
         else:
             starts = [np.array(V.starts) for V in Xh.spaces]
@@ -36,8 +36,8 @@ def array_to_psydac(x, Xh):
             for i in range(len(starts)):
                 g = tuple(slice(s,e+1) for s,e in zip(starts[i], ends[i]))
                 shape = tuple(ends[i]-starts[i]+1)
-                u[i][g] = x[:np.product(shape)].reshape(shape)
-                x       = x[np.product(shape):]
+                u[i][g] = x[:np.prod(shape) ].reshape(shape)
+                x       = x[ np.prod(shape):]
 
     elif isinstance(Xh, StencilVectorSpace):
 
@@ -46,7 +46,7 @@ def array_to_psydac(x, Xh):
         ends   = np.array(Xh.ends)
         g = tuple(slice(s, e+1) for s,e in zip(starts, ends))
         shape = tuple(ends-starts+1)
-        u[g] = x[:np.product(shape)].reshape(shape)
+        u[g] = x[:np.prod(shape)].reshape(shape)
     else:
         raise ValueError('Xh must be a StencilVectorSpace or a BlockVectorSpace')
 
@@ -85,7 +85,7 @@ def petsc_to_psydac(vec, Xh):
                     indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts[i], xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
                     vals = recvbuf[indices+inds]
                     u[d][i]._data[idx] = vals.reshape(shape)
-                    inds += np.product(npts)
+                    inds += np.prod(npts)
 
         else:
             comm       = u[0].space.cart.global_comm
@@ -107,7 +107,7 @@ def petsc_to_psydac(vec, Xh):
                 indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts[i], xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
                 vals = recvbuf[indices+inds]
                 u[i]._data[idx] = vals.reshape(shape)
-                inds += np.product(npts)
+                inds += np.prod(npts)
 
     elif isinstance(Xh, StencilVectorSpace):
 
