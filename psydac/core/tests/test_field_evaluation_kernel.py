@@ -645,3 +645,4 @@ def test_pushforwards_hcurl(ldim):
 
 if __name__ == '__main__':
     test_regular_jacobians('bent_pipe.h5', 2)
+    test_regular_evaluations([np.sort(np.concatenate((np.zeros(3), np.random.random(9), np.ones(3)))) for i in range(2)], 2, [2] * 2,2)

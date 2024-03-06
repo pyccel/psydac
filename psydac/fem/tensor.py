@@ -210,7 +210,9 @@ class TensorFemSpace( FemSpace ):
 
             knots  = space.knots
             degree = space.degree
-            span   =  find_span_p( knots, degree, x )
+            # be sure it's the right type for kernels
+            fx = float(x)
+            span   =  find_span_p( knots, degree, fx )
             vs = space.vector_space
             #-------------------------------------------------#
             # Fix span for boundaries between subdomains      #
@@ -218,19 +220,19 @@ class TensorFemSpace( FemSpace ):
             # TODO: Use local knot sequence instead of global #
             #       one to get correct span in all situations #
             #-------------------------------------------------#
-            if x == xlim[1] and x != knots[-1-degree]:
+            if fx == xlim[1] and fx != knots[-1-degree]:
                 span -= 1
             #-------------------------------------------------#
             
             basis = self._tmp_bf[i]
-            basis_funs_p( knots, degree, x, span, out = basis)
+            basis_funs_p( knots, degree, fx, span, out = basis)
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
                 basis *= space.scaling_array[span-degree : span+1]
 
             # Determine local span
-            wrap_x   = space.periodic and x > xlim[1]
+            wrap_x   = space.periodic and fx > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
             start = vs.starts[0]
             pad = vs.pads[0]
@@ -299,7 +301,9 @@ class TensorFemSpace( FemSpace ):
 
             knots  = space.knots
             degree = space.degree
-            span   =  find_span_p( knots, degree, x )
+            # be sure it's the right type for kernels
+            fx = float(x)
+            span   =  find_span_p( knots, degree, fx )
             vs = space.vector_space
 
             #-------------------------------------------------#
@@ -308,18 +312,18 @@ class TensorFemSpace( FemSpace ):
             # TODO: Use local knot sequence instead of global #
             #       one to get correct span in all situations #
             #-------------------------------------------------#
-            if x == xlim[1] and x != knots[-1-degree]:
+            if fx == xlim[1] and fx != knots[-1-degree]:
                 span -= 1
             #-------------------------------------------------#
             basis = self._tmp_bf[i]
-            basis_funs_p( knots, degree, x, span, out = basis)
+            basis_funs_p( knots, degree, fx, span, out = basis)
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
                 basis *= space.scaling_array[span-degree : span+1]
 
             # Determine local span
-            wrap_x   = space.periodic and x > xlim[1]
+            wrap_x   = space.periodic and fx > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
             start = vs.starts[0]
             pad = vs.pads[0]
@@ -732,7 +736,9 @@ class TensorFemSpace( FemSpace ):
 
             knots   = space.knots
             degree  = space.degree
-            span    =  find_span_p( knots, degree, x )
+            # be sure it's the right type for kernels
+            fx = float(x)
+            span    =  find_span_p( knots, degree, fx )
             vs = space.vector_space
             #-------------------------------------------------#
             # Fix span for boundaries between subdomains      #
@@ -740,14 +746,15 @@ class TensorFemSpace( FemSpace ):
             # TODO: Use local knot sequence instead of global #
             #       one to get correct span in all situations #
             #-------------------------------------------------#
-            if x == xlim[1] and x != knots[-1-degree]:
+            if fx == xlim[1] and fx != knots[-1-degree]:
                 span -= 1
             #-------------------------------------------------#
 
             basis_0 = self._tmp_bf[i]
             basis_1 = self._tmp_bf1d[i]
-            basis_funs_p( knots, degree, x, span, out = basis_0)
-            basis_funs_1st_der_p(knots, degree, x, span, out = basis_1)
+            
+            basis_funs_p( knots, degree, fx, span, out = basis_0)
+            basis_funs_1st_der_p(knots, degree, fx, span, out = basis_1)
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
@@ -756,7 +763,7 @@ class TensorFemSpace( FemSpace ):
                 basis_1 *= scaling
 
             # Determine local span
-            wrap_x   = space.periodic and x > xlim[1]
+            wrap_x   = space.periodic and fx > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
 
             start = vs.starts[0]
@@ -811,7 +818,9 @@ class TensorFemSpace( FemSpace ):
 
             knots   = space.knots
             degree  = space.degree
-            span    =  find_span_p( knots, degree, x )
+            # be sure it's the right type for kernels
+            fx = float(x)
+            span    =  find_span_p( knots, degree, fx )
             vs = space.vector_space
             #-------------------------------------------------#
             # Fix span for boundaries between subdomains      #
@@ -819,13 +828,13 @@ class TensorFemSpace( FemSpace ):
             # TODO: Use local knot sequence instead of global #
             #       one to get correct span in all situations #
             #-------------------------------------------------#
-            if x == xlim[1] and x != knots[-1-degree]:
+            if fx == xlim[1] and fx != knots[-1-degree]:
                 span -= 1
             #-------------------------------------------------#
             basis_0 = self._tmp_bf[i]
             basis_1 = self._tmp_bf1d[i]
-            basis_funs_p( knots, degree, x, span, out = basis_0)
-            basis_funs_1st_der_p(knots, degree, x, span, out = basis_1)
+            basis_funs_p( knots, degree, fx, span, out = basis_0)
+            basis_funs_1st_der_p(knots, degree, fx, span, out = basis_1)
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
@@ -834,7 +843,7 @@ class TensorFemSpace( FemSpace ):
                 basis_1 *= scaling
 
             # Determine local span
-            wrap_x   = space.periodic and x > xlim[1]
+            wrap_x   = space.periodic and fx > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
 
             start = vs.starts[0]
