@@ -197,7 +197,7 @@ class BasisProjectionOperator(LinearOperator):
                 out = self.dof_operator.dot(self._P.solver.solve(v, transposed=True))
             else:
                 # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
-                out = self._P.solver.solve(self.dof_operator.dot(v))
+                out = self._P.solver.dot(self.dof_operator.dot(v))
 
         else:
 

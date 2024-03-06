@@ -858,10 +858,10 @@ class TensorFemSpace( FemSpace ):
             grad_tot.append([])
             for d in range( self.ldim ):
                 bases = [(bases_1[d] if i==d else bases_0[i]) for i in range( self.ldim )]
-                res   = coeffs
                 if len(bases) == 3:
                     res = eval_field_3d_once(coeffs, bases[0], bases[1], bases[2])
                 else :
+                    res   = coeffs
                     for basis in bases[::-1]:
                         res = np.dot( res, basis )
                 grad_tot[-1].append( res )
