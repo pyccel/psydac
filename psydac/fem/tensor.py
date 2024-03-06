@@ -242,6 +242,7 @@ class TensorFemSpace( FemSpace ):
         bases = self._tmp_bf
         index  = tuple( index )
         coeffs[:] = field.coeffs._data[index]
+        w_index = tuple(w_index)
         if weights:
             coeffs *= weights[w_index]
 
