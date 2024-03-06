@@ -31,6 +31,10 @@ from psydac.core.bsplines  import (find_span,
                                    cell_index,
                                    basis_ders_on_irregular_grid)
 
+from psydac.core.bsplines_kernels import (find_span_p,
+                                          basis_funs_p,
+                                          basis_funs_1st_der_p)
+
 from psydac.core.field_evaluation_kernels import (eval_fields_2d_no_weights,
                                                   eval_fields_2d_irregular_no_weights,
                                                   eval_fields_2d_weighted,
@@ -129,6 +133,9 @@ class TensorFemSpace( FemSpace ):
         self._global_element_starts = domain_decomposition.global_element_starts
         self._global_element_ends   = domain_decomposition.global_element_ends
 
+        # computes once and for all ldim
+        self._ldim = sum([V.ldim for V in self.spaces])
+
         self.set_refined_space(self.ncells, self)
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
@@ -137,7 +144,7 @@ class TensorFemSpace( FemSpace ):
     def ldim( self ):
         """ Parametric dimension.
         """
-        return sum([V.ldim for V in self.spaces])
+        return self._ldim
 
     @property
     def periodic(self):
@@ -184,19 +191,27 @@ class TensorFemSpace( FemSpace ):
         if weights:
             assert weights.space == field.coeffs.space
 
-        bases = []
         index = []
+        if weights:
+            w_index = []
+
+        if not hasattr(self,'_tmp_coeffs'):
+            self._tmp_coeffs = np.zeros([s.degree +1 for s in self.spaces])
+        if not hasattr(self,'_tmp_bf'):
+            self._tmp_bf = [np.zeros(s.degree + 1, dtype=float) for s in self.spaces]
+
+        coeffs = self._tmp_coeffs
 
         # Necessary if vector coeffs is distributed across processes
         if not field.coeffs.ghost_regions_in_sync:
             field.coeffs.update_ghost_regions()
 
-        for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
+        for i, (x, xlim, space) in enumerate(zip( eta, self.eta_lims, self.spaces )):
 
             knots  = space.knots
             degree = space.degree
-            span   =  find_span( knots, degree, x )
-
+            span   =  find_span_p( knots, degree, x )
+            vs = space.vector_space
             #-------------------------------------------------#
             # Fix span for boundaries between subdomains      #
             #-------------------------------------------------#
@@ -206,7 +221,9 @@ class TensorFemSpace( FemSpace ):
             if x == xlim[1] and x != knots[-1-degree]:
                 span -= 1
             #-------------------------------------------------#
-            basis = basis_funs( knots, degree, x, span)
+            
+            basis = self._tmp_bf[i]
+            basis_funs_p( knots, degree, x, span, out = basis)
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
@@ -215,14 +232,18 @@ class TensorFemSpace( FemSpace ):
             # Determine local span
             wrap_x   = space.periodic and x > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
-
-            bases.append( basis )
-            index.append( slice( loc_span-degree, loc_span+1 ) )
+            start = vs.starts[0]
+            pad = vs.pads[0]
+            shift = vs.shifts[0]
+            index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
+            if weights:
+                w_index.append(slice(loc_span-degree, loc_span+1))
         # Get contiguous copy of the spline coefficients required for evaluation
+        bases = self._tmp_bf
         index  = tuple( index )
-        coeffs = field.coeffs[index].copy()
+        coeffs[:] = field.coeffs._data[index]
         if weights:
-            coeffs *= weights[index]
+            coeffs *= weights[w_index]
 
         # Evaluation of multi-dimensional spline
         # TODO: optimize
@@ -248,6 +269,82 @@ class TensorFemSpace( FemSpace ):
 #            res    += c * ndbasis
 
         return res
+    
+    def eval_fields_one_point( self, fields, *eta, weights=None):
+
+        for field in fields :
+            assert isinstance( field, FemField )
+            assert field.space is self
+            if weights:
+                assert weights.space == field.coeffs.space
+            if not field.coeffs.ghost_regions_in_sync:
+                # Necessary if vector coeffs is distributed across processes
+                field.coeffs.update_ghost_regions()
+
+        assert len( eta ) == self.ldim
+        
+        if not hasattr(self,'_tmp_coeffs'):
+            self._tmp_coeffs = np.zeros([s.degree +1 for s in self.spaces])
+        if not hasattr(self,'_tmp_bf'):
+            self._tmp_bf = [np.zeros(s.degree + 1, dtype=float) for s in self.spaces]
+
+        coeffs = self._tmp_coeffs
+
+        index = []
+        if weights:
+            w_index = []
+        
+        for i, (x, xlim, space) in enumerate(zip( eta, self.eta_lims, self.spaces )):
+
+            knots  = space.knots
+            degree = space.degree
+            span   =  find_span_p( knots, degree, x )
+            vs = space.vector_space
+
+            #-------------------------------------------------#
+            # Fix span for boundaries between subdomains      #
+            #-------------------------------------------------#
+            # TODO: Use local knot sequence instead of global #
+            #       one to get correct span in all situations #
+            #-------------------------------------------------#
+            if x == xlim[1] and x != knots[-1-degree]:
+                span -= 1
+            #-------------------------------------------------#
+            basis = self._tmp_bf[i]
+            basis_funs_p( knots, degree, x, span, out = basis)
+
+            # If needed, rescale B-splines to get M-splines
+            if space.basis == 'M':
+                basis *= space.scaling_array[span-degree : span+1]
+
+            # Determine local span
+            wrap_x   = space.periodic and x > xlim[1]
+            loc_span = span - space.nbasis if wrap_x else span
+            start = vs.starts[0]
+            pad = vs.pads[0]
+            shift = vs.shifts[0]
+            index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
+            if weights:
+                w_index.append(slice(loc_span-degree, loc_span+1))
+        
+        bases = self._tmp_bf
+        res_tot = []
+        for field in fields:
+            index  = tuple( index )
+            # Get contiguous copy of the spline coefficients required for evaluation
+            coeffs[:] = field.coeffs._data[index]
+            if weights:
+                coeffs *= weights[w_index]
+
+            if len(bases) == 3:
+                res = eval_field_3d_once(coeffs, bases[0], bases[1], bases[2])
+            else:
+                res = coeffs
+                for basis in bases[::-1]:
+                    res = np.dot( res, basis )
+            res_tot.append(res)
+
+        return res_tot
 
     # ...
     def preprocess_regular_tensor_grid(self, grid, der=0, overlap=0):
@@ -618,15 +715,24 @@ class TensorFemSpace( FemSpace ):
         assert field.space is self
         assert len( eta ) == self.ldim
 
-        bases_0 = []
-        bases_1 = []
         index   = []
+        if weights:
+            w_index = []
 
-        for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
+        if not hasattr(self,'_tmp_coeffs'):
+            self._tmp_coeffs = np.zeros([s.degree +1 for s in self.spaces])
+        if not hasattr(self,'_tmp_bf'):
+            self._tmp_bf = [np.zeros(s.degree + 1, dtype=float) for s in self.spaces]
+        if not hasattr(self,'_tmp_bf1d'):
+            self._tmp_bf1d = [np.zeros(s.degree + 1, dtype=float) for s in self.spaces]
+        coeffs = self._tmp_coeffs
+
+        for i, (x, xlim, space) in enumerate(zip( eta, self.eta_lims, self.spaces )):
 
             knots   = space.knots
             degree  = space.degree
-            span    =  find_span( knots, degree, x )
+            span    =  find_span_p( knots, degree, x )
+            vs = space.vector_space
             #-------------------------------------------------#
             # Fix span for boundaries between subdomains      #
             #-------------------------------------------------#
@@ -636,8 +742,11 @@ class TensorFemSpace( FemSpace ):
             if x == xlim[1] and x != knots[-1-degree]:
                 span -= 1
             #-------------------------------------------------#
-            basis_0 = basis_funs(knots, degree, x, span)
-            basis_1 = basis_funs_1st_der(knots, degree, x, span)
+
+            basis_0 = self._tmp_bf[i]
+            basis_1 = self._tmp_bf1d[i]
+            basis_funs_p( knots, degree, x, span, out = basis_0)
+            basis_funs_1st_der_p(knots, degree, x, span, out = basis_1)
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
@@ -649,26 +758,114 @@ class TensorFemSpace( FemSpace ):
             wrap_x   = space.periodic and x > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
 
-            bases_0.append( basis_0 )
-            bases_1.append( basis_1 )
-            index.append( slice( loc_span-degree, loc_span+1 ) )
-
+            start = vs.starts[0]
+            pad = vs.pads[0]
+            shift = vs.shifts[0]
+            index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
+            if weights:
+                w_index.append(slice( loc_span-degree, loc_span+1))
         # Get contiguous copy of the spline coefficients required for evaluation
+        bases_0 = self._tmp_bf
+        bases_1 = self._tmp_bf1d
         index  = tuple( index )
-        coeffs = field.coeffs[index].copy()
+        coeffs[:] = field.coeffs._data[index]
         if weights:
-            coeffs *=  weights[index]
+            coeffs *=  weights[w_index]
 
         # Evaluate each component of the gradient using algorithm described in "Option 1" above
         grad = []
         for d in range( self.ldim ):
             bases = [(bases_1[d] if i==d else bases_0[i]) for i in range( self.ldim )]
             res   = coeffs
-            for basis in bases[::-1]:
-                res = np.dot( res, basis )
+            if len(bases) == 3:
+                res = eval_field_3d_once(coeffs, bases[0], bases[1], bases[2])
+            else :
+                for basis in bases[::-1]:
+                    res = np.dot( res, basis )
             grad.append( res )
 
         return grad
+    
+    def eval_fields_gradient_one_point( self, fields, *eta , weights=None):
+
+        for field in fields:
+            assert isinstance( field, FemField )
+            assert field.space is self
+        assert len( eta ) == self.ldim
+
+        index   = []
+        if weights:
+            w_index = []
+
+        if not hasattr(self,'_tmp_coeffs'):
+            self._tmp_coeffs = np.zeros([s.degree +1 for s in self.spaces])
+        if not hasattr(self,'_tmp_bf'):
+            self._tmp_bf = [np.zeros(s.degree + 1, dtype=float) for s in self.spaces]
+        if not hasattr(self,'_tmp_bf1d'):
+            self._tmp_bf1d = [np.zeros(s.degree + 1, dtype=float) for s in self.spaces]
+        coeffs = self._tmp_coeffs
+
+        for i, (x, xlim, space) in enumerate(zip( eta, self.eta_lims, self.spaces )):
+
+            knots   = space.knots
+            degree  = space.degree
+            span    =  find_span_p( knots, degree, x )
+            vs = space.vector_space
+            #-------------------------------------------------#
+            # Fix span for boundaries between subdomains      #
+            #-------------------------------------------------#
+            # TODO: Use local knot sequence instead of global #
+            #       one to get correct span in all situations #
+            #-------------------------------------------------#
+            if x == xlim[1] and x != knots[-1-degree]:
+                span -= 1
+            #-------------------------------------------------#
+            basis_0 = self._tmp_bf[i]
+            basis_1 = self._tmp_bf1d[i]
+            basis_funs_p( knots, degree, x, span, out = basis_0)
+            basis_funs_1st_der_p(knots, degree, x, span, out = basis_1)
+
+            # If needed, rescale B-splines to get M-splines
+            if space.basis == 'M':
+                scaling  = space.scaling_array[span-degree : span+1]
+                basis_0 *= scaling
+                basis_1 *= scaling
+
+            # Determine local span
+            wrap_x   = space.periodic and x > xlim[1]
+            loc_span = span - space.nbasis if wrap_x else span
+
+            start = vs.starts[0]
+            pad = vs.pads[0]
+            shift = vs.shifts[0]
+            index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
+            if weights:
+                w_index.append(slice( loc_span-degree, loc_span+1))
+        
+        index  = tuple( index )
+        bases_0 = self._tmp_bf
+        bases_1 = self._tmp_bf1d
+        grad_tot = []
+
+        for field in fields:
+            # Get contiguous copy of the spline coefficients required for evaluation
+            coeffs[:] = field.coeffs._data[index]
+            if weights:
+                coeffs *=  weights[w_index]
+
+            # Evaluate each component of the gradient using algorithm described in "Option 1" above
+            
+            grad_tot.append([])
+            for d in range( self.ldim ):
+                bases = [(bases_1[d] if i==d else bases_0[i]) for i in range( self.ldim )]
+                if len(bases) == 3:
+                    res = eval_field_3d_once(coeffs, bases[0], bases[1], bases[2])
+                else :
+                    res   = coeffs
+                    for basis in bases[::-1]:
+                        res = np.dot( res, basis )
+                grad_tot[-1].append( res )
+        return grad_tot
 
     # ...
     def integral( self, f ):
