@@ -771,6 +771,7 @@ class TensorFemSpace( FemSpace ):
         index  = tuple( index )
         coeffs[:] = field.coeffs._data[index]
         if weights:
+            w_index = tuple(w_index)
             coeffs *=  weights[w_index]
 
         # Evaluate each component of the gradient using algorithm described in "Option 1" above
