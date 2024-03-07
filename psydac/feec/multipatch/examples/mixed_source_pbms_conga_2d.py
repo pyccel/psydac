@@ -159,15 +159,15 @@ def solve_magnetostatic_pbm(
     H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
     H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=2)
 
-    dH0_m = H0.get_dual_Hodge_sparse_matrix()  # = mass matrix of V0
-    H0_m  = H0.to_sparse_matrix()              # = inverse mass matrix of V0
-    dH1_m = H1.get_dual_Hodge_sparse_matrix()  # = mass matrix of V1
-    H1_m  = H1.to_sparse_matrix()              # = inverse mass matrix of V1
-    dH2_m = H2.get_dual_Hodge_sparse_matrix()  # = mass matrix of V2
-    H2_m  = H2.to_sparse_matrix()              # = inverse mass matrix of V2
+    H0_m = H0.to_sparse_matrix()                # = mass matrix of V0
+    dH0_m  = H0.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V0
+    H1_m = H1.to_sparse_matrix()                # = mass matrix of V1
+    dH1_m  = H1.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V1
+    H2_m = H2.to_sparse_matrix()                # = mass matrix of V2
+    dH2_m  = H2.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V2
 
-    M0_m = dH0_m
-    M1_m = dH1_m  # usual notation
+    M0_m = H0_m
+    M1_m = H1_m  # usual notation
 
     hom_bc = (bc_type == 'pseudo-vacuum')  #  /!\  here u = B is in H(curl), not E  /!\
     print('with hom_bc = {}'.format(hom_bc))
@@ -189,18 +189,18 @@ def solve_magnetostatic_pbm(
     # Conga (projection-based) operator matrices
     print('grad matrix...')
     G_m = bD0_m @ cP0_m
-    tG_m = dH1_m @ G_m  # grad: V0h -> tV1h
+    tG_m = H1_m @ G_m  # grad: V0h -> tV1h
 
     print('curl-curl stiffness matrix...')
     C_m = bD1_m @ cP1_m
-    CC_m = C_m.transpose() @ dH2_m @ C_m
+    CC_m = C_m.transpose() @ H2_m @ C_m
 
     # jump penalization and stabilization operators:
     JP0_m = I0_m - cP0_m
-    S0_m = JP0_m.transpose() @ dH0_m @ JP0_m
+    S0_m = JP0_m.transpose() @ H0_m @ JP0_m
 
     JP1_m = I1_m - cP1_m
-    S1_m = JP1_m.transpose() @ dH1_m @ JP1_m
+    S1_m = JP1_m.transpose() @ H1_m @ JP1_m
 
     if not hom_bc:
         # very small regularization to avoid constant p=1 in the kernel
@@ -214,9 +214,9 @@ def solve_magnetostatic_pbm(
         print('computing the harmonic fields...')
         gamma_Lh = 10  # penalization value should not change the kernel
 
-        GD_m = - tG_m @ H0_m @ G_m.transpose() @ dH1_m   # todo: check with paper
+        GD_m = - tG_m @ dH0_m @ G_m.transpose() @ H1_m   # todo: check with paper
         L_m = CC_m - GD_m + gamma_Lh * S1_m
-        eigenvalues, eigenvectors = get_eigenvalues(dim_harmonic_space+1, 1e-6, L_m, dH1_m)
+        eigenvalues, eigenvectors = get_eigenvalues(dim_harmonic_space+1, 1e-6, L_m, H1_m)
 
         for i in range(dim_harmonic_space):
             lambda_i =  eigenvalues[i]
@@ -269,7 +269,7 @@ def solve_magnetostatic_pbm(
         if source_proj == 'P_geom':
             f0_h = P0_phys(f_scal)
             f0_c = f0_h.coeffs.toarray()
-            tilde_f0_c = dH0_m.dot(f0_c)
+            tilde_f0_c = H0_m.dot(f0_c)
         else:
             # L2 proj
             tilde_f0_c = derham_h.get_dual_dofs(space='V0', f=f_scal, backend_language=backend_language, return_format='numpy_array')
@@ -289,23 +289,23 @@ def solve_magnetostatic_pbm(
         if source_proj == 'P_geom':
             f1_h = P1_phys(f_vect)
             f1_c = f1_h.coeffs.toarray()
-            tilde_f1_c = dH1_m.dot(f1_c)
+            tilde_f1_c = H1_m.dot(f1_c)
         else:
             assert source_proj == 'P_L2'
             tilde_f1_c = derham_h.get_dual_dofs(space='V1', f=f_vect, backend_language=backend_language, return_format='numpy_array')
 
     if plot_source:
         if f0_c is None:
-            f0_c = H0_m.dot(tilde_f0_c)
+            f0_c = dH0_m.dot(tilde_f0_c)
         plot_field(numpy_coeffs=f0_c, Vh=V0h, space_kind='h1', domain=domain, title='f0_h with P = '+source_proj,
                    filename=plot_dir+'f0h_'+source_proj+'.png', hide_plot=hide_plots)
         if f1_c is None:
-            f1_c = H1_m.dot(tilde_f1_c)
+            f1_c = dH1_m.dot(tilde_f1_c)
         plot_field(numpy_coeffs=f1_c, Vh=V1h, space_kind='hcurl', domain=domain, title='f1_h with P = '+source_proj,
                    filename=plot_dir+'f1h_'+source_proj+'.png', hide_plot=hide_plots)
         if source_proj == 'P_L2_wcurl_J':
             if j2_c is None:
-                j2_c = H2_m.dot(tilde_j2_c)
+                j2_c = dH2_m.dot(tilde_j2_c)
             plot_field(numpy_coeffs=j2_c, Vh=V2h, space_kind='l2', domain=domain, title='P_L2 jh in V2h',
                        filename=plot_dir+'j2h.png', hide_plot=hide_plots)
 

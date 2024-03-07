@@ -118,10 +118,10 @@ def hcurl_solve_eigen_pbm_nc(ncells=np.array([[8, 4], [4, 4]]), degree=(3,3), do
 
     #H0_m  = H0.to_sparse_matrix()           # = mass matrix of V0
     #dH0_m = H0.get_dual_sparse_matrix()     # = inverse mass matrix of V0
-    H1_m  = H1.to_sparse_matrix()           # = mass matrix of V1
-    dH1_m = H1.get_dual_Hodge_sparse_matrix()     # = inverse mass matrix of V1
-    H2_m  = H2.to_sparse_matrix()           # = mass matrix of V2
-    dH2_m = H2.get_dual_Hodge_sparse_matrix()
+    H1_m  = H1.to_sparse_matrix()            # = mass matrix of V1
+    dH1_m = H1.get_dual_Hodge_sparse_matrix()# = inverse mass matrix of V1
+    H2_m  = H2.to_sparse_matrix()            # = mass matrix of V2
+    dH2_m = H2.get_dual_Hodge_sparse_matrix()# = inverse mass matrix of V2
     
     t_stamp = time_count(t_stamp)
     print('conforming projection operators...')
@@ -157,7 +157,7 @@ def hcurl_solve_eigen_pbm_nc(ncells=np.array([[8, 4], [4, 4]]), degree=(3,3), do
         print('mu = {}'.format(mu))
         print('curl-curl stiffness matrix...')
         
-        pre_CC_m = bD1_m.transpose() @ dH2_m @ bD1_m
+        pre_CC_m = bD1_m.transpose() @ H2_m @ bD1_m
         CC_m = cP1_m.transpose() @ pre_CC_m @ cP1_m  # Conga stiffness matrix
         A_m += mu * CC_m 
 
@@ -166,13 +166,13 @@ def hcurl_solve_eigen_pbm_nc(ncells=np.array([[8, 4], [4, 4]]), degree=(3,3), do
         t_stamp = time_count(t_stamp)
         print('jump stabilization matrix...')
         jump_stab_m = I1_m - cP1_m
-        JS_m = jump_stab_m.transpose() @ dH1_m @ jump_stab_m
+        JS_m = jump_stab_m.transpose() @ H1_m @ jump_stab_m
         
     if generalized_pbm:
         print('adding jump stabilization to RHS of generalized eigenproblem...')
-        B_m = cP1_m.transpose() @ dH1_m @ cP1_m + JS_m
+        B_m = cP1_m.transpose() @ H1_m @ cP1_m + JS_m
     else:
-        B_m = dH1_m
+        B_m = H1_m
     
 
     t_stamp = time_count(t_stamp)

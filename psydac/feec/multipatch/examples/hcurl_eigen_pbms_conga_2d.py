@@ -95,11 +95,12 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
     H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=2)
 
-    dH0_m = H0.get_dual_Hodge_sparse_matrix()  # = mass matrix of V0
-    H0_m  = H0.to_sparse_matrix()              # = inverse mass matrix of V0
-    dH1_m = H1.get_dual_Hodge_sparse_matrix()  # = mass matrix of V1
-    H1_m  = H1.to_sparse_matrix()              # = inverse mass matrix of V1
-    dH2_m = H2.get_dual_Hodge_sparse_matrix()  # = mass matrix of V2
+    H0_m  = H0.to_sparse_matrix()                # = mass matrix of V0
+    dH0_m = H0.get_dual_Hodge_sparse_matrix()    # = inverse mass matrix of V0
+    H1_m  = H1.to_sparse_matrix()                # = mass matrix of V1
+    dH1_m = H1.get_dual_Hodge_sparse_matrix()    # = inverse mass matrix of V1
+    H2_m = H2.to_sparse_matrix()                 # = mass matrix of V2
+    # dH2_m = H2.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V2
 
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
@@ -117,17 +118,17 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     # Conga (projection-based) stiffness matrices
     # curl curl:
     print('curl-curl stiffness matrix...')
-    pre_CC_m = bD1_m.transpose() @ dH2_m @ bD1_m
+    pre_CC_m = bD1_m.transpose() @ H2_m @ bD1_m
     CC_m = cP1_m.transpose() @ pre_CC_m @ cP1_m  # Conga stiffness matrix
 
     # grad div:
     print('grad-div stiffness matrix...')
-    pre_GD_m = - dH1_m @ bD0_m @ cP0_m @ H0_m @ cP0_m.transpose() @ bD0_m.transpose() @ dH1_m
+    pre_GD_m = - H1_m @ bD0_m @ cP0_m @ dH0_m @ cP0_m.transpose() @ bD0_m.transpose() @ H1_m
     GD_m = cP1_m.transpose() @ pre_GD_m @ cP1_m  # Conga stiffness matrix
 
     # jump penalization in V1h:
     jump_penal_m = I1_m - cP1_m
-    JP_m = jump_penal_m.transpose() * dH1_m * jump_penal_m
+    JP_m = jump_penal_m.transpose() * H1_m * jump_penal_m
 
     print('computing the full operator matrix...')
     print('mu = {}'.format(mu))
@@ -136,9 +137,9 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
 
     if False: #gneralized problen
         print('adding jump stabilization to RHS of generalized eigenproblem...')
-        B_m = cP1_m.transpose() @ dH1_m @ cP1_m + JS_m
+        B_m = cP1_m.transpose() @ H1_m @ cP1_m + JS_m
     else:
-        B_m = dH1_m
+        B_m = H1_m
         
     print('solving matrix eigenproblem...')
     all_eigenvalues, all_eigenvectors_transp = get_eigenvalues(nb_eigs, sigma, A_m, B_m)
@@ -169,7 +170,7 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
         print('looking at emode i = {}: {}... '.format(i, lambda_i))
   
         emode_i = np.real(eigenvectors[i])
-        norm_emode_i = np.dot(emode_i,dH1_m.dot(emode_i))
+        norm_emode_i = np.dot(emode_i,H1_m.dot(emode_i))
         print('norm of computed eigenmode: ', norm_emode_i)
         eh_c = emode_i/norm_emode_i  # numpy coeffs of the normalized eigenmode
         plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='mode e_{}, lambda_{}={}'.format(i,i,lambda_i),

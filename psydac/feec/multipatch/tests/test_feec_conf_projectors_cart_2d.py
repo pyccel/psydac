@@ -175,16 +175,16 @@ def test_conf_projectors_2d(
     cP2 = construct_scalar_conforming_projection(V2h, [reg[0]- 1, reg[1]-1], mom_pres, nquads, hom_bc)
 
     HOp0   = HodgeOperator(p_V0h, domain_h)
-    M0     = HOp0.get_dual_Hodge_sparse_matrix()    # mass matrix
-    M0_inv = HOp0.to_sparse_matrix()                # inverse mass matrix
+    M0     = HOp0.to_sparse_matrix()                # mass matrix
+    M0_inv = HOp0.get_dual_Hodge_sparse_matrix()    # inverse mass matrix
 
     HOp1   = HodgeOperator(p_V1h, domain_h)
-    M1     = HOp1.get_dual_Hodge_sparse_matrix()    # mass matrix
-    M1_inv = HOp1.to_sparse_matrix()                # inverse mass matrix
+    M1     = HOp1.to_sparse_matrix()                # mass matrix
+    M1_inv = HOp1.get_dual_Hodge_sparse_matrix()    # inverse mass matrix
 
     HOp2   = HodgeOperator(p_V2h, domain_h)
-    M2     = HOp2.get_dual_Hodge_sparse_matrix()    # mass matrix
-    M2_inv = HOp2.to_sparse_matrix()                # inverse mass matrix
+    M2     = HOp2.to_sparse_matrix()                # mass matrix
+    M2_inv = HOp2.get_dual_Hodge_sparse_matrix()    # inverse mass matrix
 
     bD0, bD1 = p_derham_h.broken_derivatives_as_operators
     

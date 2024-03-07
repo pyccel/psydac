@@ -119,10 +119,10 @@ def solve_h1_source_pbm(
     H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language)
     H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language)
 
-    dH0_m = H0.get_dual_Hodge_sparse_matrix()  # = mass matrix of V0
-    H0_m  = H0.to_sparse_matrix()              # = inverse mass matrix of V0
-    dH1_m = H1.get_dual_Hodge_sparse_matrix()  # = mass matrix of V1
-    # H1_m  = H1.to_sparse_matrix()              # = inverse mass matrix of V1
+    H0_m  = H0.to_sparse_matrix()              # = mass matrix of V0
+    dH0_m = H0.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V0
+    H1_m  = H1.to_sparse_matrix()              # = mass matrix of V1
+    dH1_m = H1.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V1
 
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
@@ -149,13 +149,13 @@ def solve_h1_source_pbm(
 
     # Conga (projection-based) stiffness matrices:
     # div grad:
-    pre_DG_m = - bD0_m.transpose() @ dH1_m @ bD0_m
+    pre_DG_m = - bD0_m.transpose() @ H1_m @ bD0_m
 
     # jump penalization:
     jump_penal_m = I0_m - cP0_m
-    JP0_m = jump_penal_m.transpose() * dH0_m * jump_penal_m
+    JP0_m = jump_penal_m.transpose() * H0_m * jump_penal_m
 
-    pre_A_m = cP0_m.transpose() @ ( eta * dH0_m - mu * pre_DG_m )  # useful for the boundary condition (if present)
+    pre_A_m = cP0_m.transpose() @ ( eta * H0_m - mu * pre_DG_m )  # useful for the boundary condition (if present)
     A_m = pre_A_m @ cP0_m + gamma_h * JP0_m
 
     print('getting the source and ref solution...')
@@ -175,7 +175,7 @@ def solve_h1_source_pbm(
         f_log = [pull_2d_h1(f, m.get_callable_mapping()) for m in mappings_list]
         f_h = P0(f_log)
         f_c = f_h.coeffs.toarray()
-        b_c = dH0_m.dot(f_c)
+        b_c = H0_m.dot(f_c)
 
     elif source_proj == 'P_L2':
         print('projecting the source with L2 projection...')
@@ -186,12 +186,12 @@ def solve_h1_source_pbm(
         b  = lh.assemble()
         b_c = b.toarray()
         if plot_source:
-            f_c = H0_m.dot(b_c)
+            f_c = dH0_m.dot(b_c)
     else:
         raise ValueError(source_proj)
 
     if plot_source:
-        plot_field(numpy_coeffs=f_c, Vh=V0h, space_kind='h1', domain=domain, title='f_h with P = '+source_proj, filename=plot_dir+'/fh_'+source_proj+'.png', hide_plot=hide_plots)
+        plot_field(numpy_coeffs=f_c, Vh=V0h, space_kind='h1', domain=domain, title='f_h with P = '+source_proj, filename=plot_dir+'fh_'+source_proj+'.png', hide_plot=hide_plots)
 
     ubc_c = lift_u_bc(u_bc)
 

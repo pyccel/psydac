@@ -177,7 +177,7 @@ def solve_hcurl_source_pbm_nc(
     dH1_m = H1.get_dual_Hodge_sparse_matrix()  
 
     t_stamp = time_count(t_stamp)
-    print(' .. Hodge matrix dH2_m = M2_m ...')
+    print(' .. Hodge matrix H2_m = M2_m ...')
     H2_m = H2.to_sparse_matrix()              
     dH2_m = H2.get_dual_Hodge_sparse_matrix()              
 
@@ -220,20 +220,20 @@ def solve_hcurl_source_pbm_nc(
     t_stamp = time_count(t_stamp)
     print(' .. curl-curl stiffness matrix...')
     print(bD1_m.shape, H2_m.shape )
-    pre_CC_m = bD1_m.transpose() @ dH2_m @ bD1_m
+    pre_CC_m = bD1_m.transpose() @ H2_m @ bD1_m
     # CC_m = cP1_m.transpose() @ pre_CC_m @ cP1_m  # Conga stiffness matrix
 
     # grad div:
     t_stamp = time_count(t_stamp)
     print(' .. grad-div stiffness matrix...')
-    pre_GD_m = - dH1_m @ bD0_m @ cP0_m @ H0_m @ cP0_m.transpose() @ bD0_m.transpose() @ dH1_m
+    pre_GD_m = - H1_m @ bD0_m @ cP0_m @ dH0_m @ cP0_m.transpose() @ bD0_m.transpose() @ H1_m
     # GD_m = cP1_m.transpose() @ pre_GD_m @ cP1_m  # Conga stiffness matrix
 
     # jump stabilization:
     t_stamp = time_count(t_stamp)
     print(' .. jump stabilization matrix...')
     jump_penal_m = I1_m - cP1_m
-    JP_m = jump_penal_m.transpose() * dH1_m * jump_penal_m
+    JP_m = jump_penal_m.transpose() * H1_m * jump_penal_m
 
     t_stamp = time_count(t_stamp)
     print(' .. full operator matrix...')
@@ -241,7 +241,7 @@ def solve_hcurl_source_pbm_nc(
     print('mu = {}'.format(mu))
     print('nu = {}'.format(nu))
     print('STABILIZATION: gamma_h = {}'.format(gamma_h))
-    pre_A_m = cP1_m.transpose() @ ( eta * dH1_m + mu * pre_CC_m - nu * pre_GD_m )  # useful for the boundary condition (if present)
+    pre_A_m = cP1_m.transpose() @ ( eta * H1_m + mu * pre_CC_m - nu * pre_GD_m )  # useful for the boundary condition (if present)
     A_m = pre_A_m @ cP1_m + gamma_h * JP_m
 
     t_stamp = time_count(t_stamp)
@@ -263,7 +263,7 @@ def solve_hcurl_source_pbm_nc(
         print(' .. projecting the source with primal (geometric) commuting projection...')
         f_h = P1_phys(f_vect, P1, domain, mappings_list)
         f_c = f_h.coeffs.toarray()
-        tilde_f_c = dH1_m.dot(f_c)
+        tilde_f_c = H1_m.dot(f_c)
 
     elif source_proj in ['P_L2', 'tilde_Pi']:
         # f_h = L2 projection of f_vect, with filtering if tilde_Pi
@@ -285,7 +285,7 @@ def solve_hcurl_source_pbm_nc(
             title = 'f_h with P = '+source_proj
             title_vf = 'f_h with P = '+source_proj
         if f_c is None:
-            f_c = H1_m.dot(tilde_f_c)
+            f_c = dH1_m.dot(tilde_f_c)
         plot_field(numpy_coeffs=f_c, Vh=V1h, space_kind='hcurl', domain=domain, 
             title=title, filename=plot_dir+'/fh_'+source_proj+'.pdf', hide_plot=hide_plots)
         plot_field(numpy_coeffs=f_c, Vh=V1h, plot_type='vector_field', space_kind='hcurl', domain=domain, 
@@ -319,7 +319,7 @@ def solve_hcurl_source_pbm_nc(
         uh_c += ubc_c
     
     uh = FemField(V1h, coeffs=array_to_psydac(uh_c, V1h.vector_space))
-    f_c = H1_m.dot(tilde_f_c)
+    f_c = dH1_m.dot(tilde_f_c)
     jh = FemField(V1h, coeffs=array_to_psydac(f_c, V1h.vector_space))
 
     t_stamp = time_count(t_stamp)

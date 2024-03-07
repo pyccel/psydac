@@ -137,26 +137,26 @@ def solve_hcurl_source_pbm(
     H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=2)
 
     t_stamp = time_count(t_stamp)
-    print('building the dual Hodge matrix dH0_m = M0_m ...')
-    dH0_m = H0.get_dual_Hodge_sparse_matrix()  # = mass matrix of V0
+    print('building the primal Hodge matrix H0_m = M0_m ...')
+    H0_m = H0.to_sparse_matrix()    # = mass matrix of V0
 
     t_stamp = time_count(t_stamp)
-    print('building the primal Hodge matrix H0_m = inv_M0_m ...')
-    H0_m  = H0.to_sparse_matrix()              # = inverse mass matrix of V0
+    print('building the dual Hodge matrix dH0_m = inv_M0_m ...')
+    dH0_m  = H0.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V0
 
     t_stamp = time_count(t_stamp)
-    print('building the dual Hodge matrix dH1_m = M1_m ...')
-    dH1_m = H1.get_dual_Hodge_sparse_matrix()  # = mass matrix of V1
+    print('building the primal Hodge matrix H1_m = M1_m ...')
+    H1_m = H1.to_sparse_matrix()  # = mass matrix of V1
 
     t_stamp = time_count(t_stamp)
-    print('building the primal Hodge matrix H1_m = inv_M1_m ...')
-    H1_m  = H1.to_sparse_matrix()              # = inverse mass matrix of V1
+    print('building the dual Hodge matrix dH1_m = inv_M1_m ...')
+    dH1_m  = H1.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V1
 
     # print("dH1_m @ H1_m == I1_m: {}".format(np.allclose((dH1_m @ H1_m).todense(), I1_m.todense())) )   # CHECK: OK
 
     t_stamp = time_count(t_stamp)
-    print('building the dual Hodge matrix dH2_m = M2_m ...')
-    dH2_m = H2.get_dual_Hodge_sparse_matrix()  # = mass matrix of V2
+    print('building the primal Hodge matrix H2_m = M2_m ...')
+    H2_m = H2.to_sparse_matrix()  # = mass matrix of V2
 
     t_stamp = time_count(t_stamp)
     print('building the conforming Projection operators and matrices...')
@@ -194,28 +194,28 @@ def solve_hcurl_source_pbm(
     # curl curl:
     t_stamp = time_count(t_stamp)
     print('computing the curl-curl stiffness matrix...')
-    print(bD1_m.shape, dH2_m.shape )
-    pre_CC_m = bD1_m.transpose() @ dH2_m @ bD1_m
+    print(bD1_m.shape, H2_m.shape )
+    pre_CC_m = bD1_m.transpose() @ H2_m @ bD1_m
     # CC_m = cP1_m.transpose() @ pre_CC_m @ cP1_m  # Conga stiffness matrix
 
     # grad div:
     t_stamp = time_count(t_stamp)
     print('computing the grad-div stiffness matrix...')
-    pre_GD_m = - dH1_m @ bD0_m @ cP0_m @ H0_m @ cP0_m.transpose() @ bD0_m.transpose() @ dH1_m
+    pre_GD_m = - H1_m @ bD0_m @ cP0_m @ dH0_m @ cP0_m.transpose() @ bD0_m.transpose() @ H1_m
     # GD_m = cP1_m.transpose() @ pre_GD_m @ cP1_m  # Conga stiffness matrix
 
     # jump penalization:
     t_stamp = time_count(t_stamp)
     print('computing the jump penalization matrix...')
     jump_penal_m = I1_m - cP1_m
-    JP_m = jump_penal_m.transpose() * dH1_m * jump_penal_m
+    JP_m = jump_penal_m.transpose() * H1_m * jump_penal_m
 
     t_stamp = time_count(t_stamp)
     print('computing the full operator matrix...')
     print('eta = {}'.format(eta))
     print('mu = {}'.format(mu))
     print('nu = {}'.format(nu))
-    pre_A_m = cP1_m.transpose() @ ( eta * dH1_m + mu * pre_CC_m - nu * pre_GD_m )  # useful for the boundary condition (if present)
+    pre_A_m = cP1_m.transpose() @ ( eta * H1_m + mu * pre_CC_m - nu * pre_GD_m )  # useful for the boundary condition (if present)
     A_m = pre_A_m @ cP1_m + gamma_h * JP_m
 
     # get exact source, bc's, ref solution...
@@ -239,7 +239,7 @@ def solve_hcurl_source_pbm(
         f_log = [pull_2d_hcurl([f_x, f_y], m.get_callable_mapping()) for m in mappings_list]
         f_h = P1(f_log)
         f_c = f_h.coeffs.toarray()
-        b_c = dH1_m.dot(f_c)
+        b_c = H1_m.dot(f_c)
 
     elif source_proj == 'P_L2':
         # f_h = L2 projection of f_vect
@@ -251,7 +251,7 @@ def solve_hcurl_source_pbm(
         b  = lh.assemble()
         b_c = b.toarray()
         if plot_source:
-            f_c = H1_m.dot(b_c)
+            f_c = dH1_m.dot(b_c)
     else:
         raise ValueError(source_proj)
 
