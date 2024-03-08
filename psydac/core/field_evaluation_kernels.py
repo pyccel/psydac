@@ -7,10 +7,11 @@ from pyccel.decorators import template
 # -----------------------------------------------------------------------------
 # 0: Evaluation of single 3d field at single point
 # -----------------------------------------------------------------------------
-@template(name='T1', types=['float[:,:,:]', 'complex[:,:,:]'])
-@template(name='T2', types=['float[:]', 'complex[:]'])
-def eval_field_3d_once(local_coeffs: 'T1', 
-                       local_bases_0: 'T2', local_bases_1: 'T2', local_bases_2: 'T2'):
+@template(name='T', types=[float, complex])
+def eval_field_3d_once(local_coeffs : 'T[:,:,:]', 
+                       local_bases_0: 'float[:]',
+                       local_bases_1: 'float[:]',
+                       local_bases_2: 'float[:]'):
     """
     Parameters
     ----------
@@ -20,12 +21,16 @@ def eval_field_3d_once(local_coeffs: 'T1',
     local_bases: list of ndarrays
         Active (local) 1D-basis functions values at the point of evaluation. 
     """
-    res = local_bases_0[0] - local_bases_0[0]
+    n1, n2, n3 = local_coeffs.shape
 
-    for i, c1 in enumerate(local_coeffs):
-        for j, c2 in enumerate(c1):
-            for k, c3 in enumerate(c2):
-                res += c3 * local_bases_0[i] * local_bases_1[j] * local_bases_2[k]
+    res = local_coeffs[0, 0, 0] - local_coeffs[0, 0, 0]
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                res += (local_coeffs[i1, i2, i3] *
+                        local_bases_0[i1] *
+                        local_bases_1[i2] *
+                        local_bases_2[i3])
 
     return res
 
