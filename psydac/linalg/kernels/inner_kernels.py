@@ -7,8 +7,8 @@ from pyccel.decorators import template
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 
 #==============================================================================
-@template(name='T', types=['float[:]', 'complex[:]'])
-def inner_1d(v1: 'T', v2: 'T', nghost0: 'int64'):
+@template(name='T', types=[float, complex])
+def inner_1d(v1: 'T[:]', v2: 'T[:]', nghost0: 'int64'):
     """
     Kernel for computing the inner product (case of two 1D vectors).
 
@@ -34,8 +34,8 @@ def inner_1d(v1: 'T', v2: 'T', nghost0: 'int64'):
     return res
 
 #==============================================================================
-@template(name='T', types=['float[:,:]', 'complex[:,:]'])
-def inner_2d(v1: 'T', v2: 'T', nghost0: 'int64', nghost1: 'int64'):
+@template(name='T', types=[float, complex])
+def inner_2d(v1: 'T[:,:]', v2: 'T[:,:]', nghost0: 'int64', nghost1: 'int64'):
     """
     Kernel for computing the inner product (case of two 2D vectors).
 
@@ -65,8 +65,8 @@ def inner_2d(v1: 'T', v2: 'T', nghost0: 'int64', nghost1: 'int64'):
     return res
 
 #==============================================================================
-@template(name='T', types=['float[:,:,:]', 'complex[:,:,:]'])
-def inner_3d(v1: 'T', v2: 'T', nghost0: 'int64', nghost1: 'int64', nghost2: 'int64'):
+@template(name='T', types=[float, complex])
+def inner_3d(v1: 'T[:,:,:]', v2: 'T[:,:,:]', nghost0: 'int64', nghost1: 'int64', nghost2: 'int64'):
     """
     Kernel for computing the inner product (case of two 3D vectors).
 
