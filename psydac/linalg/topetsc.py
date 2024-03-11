@@ -70,6 +70,7 @@ def vec_topetsc( vec ):
     gvec : PETSc.Vec
         PETSc vector
     """
+
     from petsc4py import PETSc
 
     if isinstance(vec, StencilVector):
@@ -101,6 +102,7 @@ def mat_topetsc( mat ):
     gmat : PETSc.Mat
         PETSc Matrix
     """
+
     from petsc4py import PETSc
 
     if isinstance(mat, StencilMatrix):
@@ -111,26 +113,32 @@ def mat_topetsc( mat ):
         comm = mat.domain.spaces[0][0].cart.global_comm
 
     mat_coo = mat.tosparse()
-    mat_csr = mat_coo.tocsr()
-
-    gmat = PETSc.Mat().create(comm=comm)
- 
-    gmat.setSizes(mat.shape)
-
-    # Set sparse matrix type
-    gmat.setType("mpiaij")   
-    gmat.setFromOptions()
+    gmat  = PETSc.Mat().create(comm=comm)
 
     if comm:
-        # Preallocate number of nonzeros based on CSR structure
-        gmat.setPreallocationCSR((mat_csr.indptr, mat_csr.indices))
+        # Set PETSc sparse parallel matrix type
+        gmat.setType("mpiaij")
+    else:
+        # Set PETSc sequential matrix type
+        gmat.setType("seqaij")
 
-    # Fill-in matrix values from CSR data
-    for i in range(len(mat_csr.indptr)-1):
-        cols = mat_csr.indices[mat_csr.indptr[i]:mat_csr.indptr[i+1]]
-        col_data = mat_csr.data[mat_csr.indptr[i]:mat_csr.indptr[i+1]]
-        gmat.setValues(i, cols, col_data)  
-   
+    # Set GLOBAL matrix size
+    gmat.setSizes(mat.shape)        
+    gmat.setFromOptions()
+
+    rows, cols, data = mat_coo.row, mat_coo.col, mat_coo.data
+
+    if comm:
+        # Preallocate number of nonzeros
+        NNZ = comm.allreduce(data.size, op=MPI.SUM)
+        gmat.setPreallocationNNZ(NNZ)
+
+    # Fill-in matrix values
+    for i in range(rows.size):
+        # The values have to be set in "addition mode", otherwise the default just takes the new value.
+        # This is here necessary, since the COO format can contain repeated entries and they must be added.
+        gmat.setValues(rows[i], cols[i], data[i], addv=PETSc.InsertMode.ADD_VALUES)
+
     # Process inserted matrix entries
     gmat.assemble()
     return gmat
