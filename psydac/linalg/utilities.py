@@ -80,7 +80,13 @@ def petsc_to_psydac(x, Xh):
             recvbuf    = np.empty(sum(sendcounts), dtype='complex') # PETSc installed with complex configuration only handles complex vectors
 
             if comm:
-                # gather the global array in all the procs
+                # Gather the global array in all the processors
+                ################################################
+                # Note 12.03.2024:
+                # This global communication is at the moment necessary since PETSc distributes matrices and vectors different than Psydac. 
+                # In order to avoid it, we would need that PETSc uses the partition from Psydac, 
+                # which might involve passing a DM Object.
+                ################################################
                 comm.Allgatherv(sendbuf=x.array, recvbuf=(recvbuf, sendcounts))
             else:
                 recvbuf[:] = x.array
@@ -111,7 +117,8 @@ def petsc_to_psydac(x, Xh):
             recvbuf    = np.empty(sum(sendcounts), dtype='complex') # PETSc installed with complex configuration only handles complex vectors
 
             if comm:
-                # gather the global array in all the procs
+                # Gather the global array in all the procs
+                # TODO: Avoid this global communication with a DM Object (see note above).
                 comm.Allgatherv(sendbuf=x.array, recvbuf=(recvbuf, sendcounts))
             else:
                 recvbuf[:] = x.array
@@ -142,7 +149,8 @@ def petsc_to_psydac(x, Xh):
         recvbuf    = np.empty(sum(sendcounts), dtype='complex') # PETSc installed with complex configuration only handles complex vectors 
 
         if comm:
-            # gather the global array in all the procs
+            # Gather the global array in all the procs
+            # TODO: Avoid this global communication with a DM Object (see note above).
             comm.Allgatherv(sendbuf=x.array, recvbuf=(recvbuf, sendcounts))
         else:
             recvbuf[:] = x.array
