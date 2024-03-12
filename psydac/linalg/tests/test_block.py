@@ -834,6 +834,7 @@ def test_block_vector_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
     v = petsc_to_psydac(v, W)
     v2 = petsc_to_psydac(v2, W2)
 
+    # The vectors can only be compared in the serial case
     assert np.allclose( x.toarray() , v.toarray() )
     assert np.allclose( x2.toarray() , v2.toarray() )
 
@@ -899,6 +900,7 @@ def test_block_linear_operator_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2 
     Lp = csr_matrix((data, indices, indptr), shape=Lp.size)   
     L = L.tosparse().tocsr()
 
+    # The operators can only be compared in the serial case
     assert (L-Lp).data.size == 0
 
 #===============================================================================
@@ -1165,14 +1167,14 @@ def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
     x2 = BlockVector(W2)
 
     # Fill in vector with random values, then update ghost regions
-    for i1 in range(n1):
-        for i2 in range(n2):
-            x[0][i1,i2] = 2.0*factor*random() + 1.0
-            x[1][i1,i2] = 5.0*factor*random() - 1.0
-            x2[0][0][i1,i2] = 2.0*factor*random() + 1.0
-            x2[0][1][i1,i2] = 5.0*factor*random() - 1.0
-            x2[1][0][i1,i2] = 2.0*factor*random() + 1.0
-            x2[1][1][i1,i2] = 5.0*factor*random() - 1.0
+    for i0 in range(len(W.starts)):
+        for i1 in range(W.starts[i0][0], W.ends[i0][0] + 1):
+            for i2 in range(W.starts[i0][1], W.ends[i0][1] + 1):
+                x[i0][i1,i2] = 2.0*factor*random() + 1.0
+                x2[0][0][i1,i2] = 2.0*factor*random() + 1.0
+                x2[0][1][i1,i2] = 5.0*factor*random() - 1.0
+                x2[1][0][i1,i2] = 2.0*factor*random() + 1.0
+                x2[1][1][i1,i2] = 5.0*factor*random() - 1.0
 
     x.update_ghost_regions()
     x2.update_ghost_regions()
@@ -1182,8 +1184,8 @@ def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
     v = petsc_to_psydac(v, W)
     v2 = petsc_to_psydac(v2, W2)
 
-    assert np.allclose( x.toarray() , v.toarray() )
-    assert np.allclose( x2.toarray() , v2.toarray() )
+    assert np.allclose( x.toarray() , v.toarray(), rtol=1e-12, atol=1e-12 )
+    assert np.allclose( x2.toarray() , v2.toarray(), rtol=1e-12, atol=1e-12 )
 
 #===============================================================================    
 @pytest.mark.parametrize( 'dtype', [float, complex] )
@@ -1241,17 +1243,35 @@ def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P
     dict_blocks = {(0,0):M1, (0,1):M2, (1,0):M3}
 
     L = BlockLinearOperator( W, W, blocks=dict_blocks )
+    x = BlockVector(W)
 
-    print('hola')
+    # Fill in vector with random values, then update ghost regions
+    for i0 in range(len(W.starts)):
+        for i1 in range(W.starts[i0][0], W.ends[i0][0] + 1):
+            for i2 in range(W.starts[i0][1], W.ends[i0][1] + 1):
+                x[i0][i1,i2] = 2.0*random() + (1j if dtype==complex else 1.)
+    x.update_ghost_regions()
+
+    y = L.dot(x)
+
+    # Cast operator to PETSc Mat format
     Lp = L.topetsc()
-    indptr, indices, data = Lp.getValuesCSR()
-    if dtype == float:
-        data = data.real #PETSc with installation complex configuration only handles complex dtype
-    Lp = csr_matrix((data, indices, indptr), shape=Lp.size)   
-    L = L.tosparse().tocsr()
 
-    assert (L-Lp).data.size == 0
-test_block_linear_operator_2d_parallel_topetsc(complex, 16,12,1,1,False,True)
+    # Create Vec to allocate the result of the dot product
+    y_petsc = Lp.createVecRight()
+    # Compute dot product
+    Lp.mult(x.topetsc(), y_petsc)
+    # Cast result back to Psydac BlockVector format
+    y_p = petsc_to_psydac(y_petsc, W)
+    
+    ################################################
+    # Note 12.03.2024:
+    # Another possibility would be to compare y_petsc.array and y.toarray(). 
+    # However, we cannot do this because PETSc distributes matrices and vectors different than Psydac.
+    # In the future we would like that PETSc uses the partition from Psydac, 
+    # which might involve passing a DM Object.
+    ################################################
+    assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
 
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )

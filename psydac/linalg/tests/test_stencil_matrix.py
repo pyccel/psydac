@@ -2715,7 +2715,7 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
 
 def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2):
     from mpi4py import MPI
-    np.set_printoptions(linewidth=300)
+
     # Select non-zero values based on diagonal index
     nonzero_values = dict()
     if dtype==complex:
@@ -2805,7 +2805,7 @@ def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
     from psydac.api.settings            import PSYDAC_BACKENDS
     from psydac.api.discretization      import discretize
     from mpi4py import MPI
-    np.set_printoptions(linewidth=300, precision=3)
+
     domain = Square()
     V = ScalarFunctionSpace('V', domain)
 
