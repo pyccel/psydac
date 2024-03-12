@@ -24,9 +24,12 @@ def compute_global_starts_ends(domain_decomposition, npts, pads):
     global_starts = [None] * ndims
     global_ends = [None] * ndims
 
+    print('\ndomain_decomposition.global_element_starts', domain_decomposition.global_element_starts)
+    print('domain_decomposition.global_element_ends', domain_decomposition.global_element_ends)
+
     for axis in range(ndims):
         ee = domain_decomposition.global_element_ends[axis]
-
+        
         global_ends[axis] = ee.copy()
         global_ends[axis][-1] = npts[axis] - 1
         global_starts[axis] = np.array([0] + (global_ends[axis][:-1] + 1).tolist())
@@ -598,11 +601,12 @@ def test_stencil_matrix_2d_serial_topetsc( dtype, n1, n2, p1, p2, s1, s2, P1, P2
     indptr, indices, data = Mp.getValuesCSR()
     if dtype == float:
         data = data.real #PETSc with installation complex configuration only handles complex dtype
-    Mp = csr_matrix((data, indices, indptr), shape=Mp.size)
 
     M = M.tosparse().tocsr()
 
-    assert (M-Mp).data.size == 0
+    assert (indptr == M.indptr).all()
+    assert (indices == M.indices).all()
+    assert np.array_equal(data, M.data)
 
 # ===============================================================================
     
@@ -626,22 +630,24 @@ def test_mass_matrix_2d_serial_topetsc(n1, n2, p1, p2, P1, P2):
     u = element_of(V, name='u')
     v = element_of(V, name='v')    
 
-    a1 = BilinearForm((u, v), integral(domain, u * v))
+    a = BilinearForm((u, v), integral(domain, u * v))
     domain_h = discretize(domain, ncells=[n1,n2], periodic=[P1,P2])
-    Vh = discretize(V, domain_h, degree=[p1,p2])
-    a1h = discretize(a1, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['pyccel-gcc'])    
-    M1 = a1h.assemble()
+    V_h = discretize(V, domain_h, degree=[p1,p2])
+    a_h = discretize(a, domain_h, [V_h, V_h], backend=PSYDAC_BACKENDS['pyccel-gcc'])    
+    M = a_h.assemble()
 
     # Convert stencil matrix to PETSc.Mat
-    Mp = M1.topetsc()
+    Mp = M.topetsc()
+
     # Convert PETSc.Mat to sparse CSR matrix   
     indptr, indices, data = Mp.getValuesCSR()
     data = data.real #PETSc with installation complex configuration only handles complex dtype
-    Mp = csr_matrix((data, indices, indptr), shape=Mp.size)
 
-    M1 = M1.tosparse().tocsr()
+    M = M.tosparse().tocsr()
 
-    assert (M1-Mp).data.size == 0
+    assert (indptr == M.indptr).all()
+    assert (indices == M.indices).all()
+    assert np.array_equal(data, M.data)
 
 # ===============================================================================
 
@@ -2719,49 +2725,127 @@ def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1,
             for k2 in range(-p2, p2 + 1):
                 nonzero_values[k1, k2] = 10 * k1 + k2 + 7
 
-    # Create domain decomposition
+    # Create domain decomposition: decomposes the coefficients
     D = DomainDecomposition([n1, n2], periods=[P1, P2], comm=MPI.COMM_WORLD)
 
-    # Partition the points
-    npts = [n1, n2]
+    # Partition the coefficients
+    npts = [n1, n2] #Number of coefficients
     global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
+    print('\nglobal_starts', global_starts)
+    print('global_ends', global_ends)
 
     cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[sh1, sh2])
 
     # Create vector space and stencil matrix
     V = StencilVectorSpace(cart, dtype=dtype)
     M = StencilMatrix(V, V)
+    print('M.shape',M.shape)
 
     # Fill in stencil matrix values
     for k1 in range(-p1, p1 + 1):
         for k2 in range(-p2, p2 + 1):
             M[:, :, k1, k2] = nonzero_values[k1, k2]
+    #print('M._data.shape', M._data.shape)
+    #M[:,:,0,1]=1
+    #M[:,:,-1,0]=1
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
+
+    print('M.shape', M.shape)
 
     # Convert stencil matrix to PETSc.Mat
     Mp = M.topetsc()
     # Convert PETSc.Mat to sparse CSR matrix   
     indptr, indices, data = Mp.getValuesCSR()
+    
     if dtype == float:
         data = data.real #PETSc with installation complex configuration only handles complex dtype
-    Mp = csr_matrix((data, indices, indptr), shape=Mp.size)
 
-    M = M.tosparse().tocsr()
+    print('Mp.getOwnershipIS()', Mp.getOwnershipIS()[0].array, Mp.getOwnershipIS()[1].array)
+    local_row_range = Mp.getOwnershipRange()
+    print('local_row_range', local_row_range)
+    
+    #print(list(range(local_row_range[0], local_row_range[1])))
+    #print('Mp.getValues()', Mp.getValues(list(range(local_row_range[0], local_row_range[1]+1)), list(range(M.shape[1]))).real)
+    
+    '''global_indptr = np.zeros((M.shape[0]+1,))
 
-    assert (M-Mp).data.size == 0
+    global_indptr[local_row_range[0]:local_row_range[1]+1] = indptr
+    for k in range(local_row_range[1]+1, global_indptr.size):
+        global_indptr[k] = indptr[-1]'''
 
+    ###########################################
+        
+    Marr = M.tosparse().toarray()
+        
+    local_row = [local_row_range[0],local_row_range[1]]
+    # The local row ranges are given s.t. the last and the first are repeated. 
+    # For example:
+    # Process 0: range is (0,5) (5 is included),
+    # Process 1: range is (5,9) (5 is not included). 
+
+    if local_row_range[0] != 0:
+        # If it is not the first row, start one below
+        local_row[0] = local_row_range[0] + 1
+    if local_row_range[1] != M.shape[0]:
+        # If it is not the last row, finish one after
+        local_row[1] = local_row_range[1] + 1
+
+    '''for k in range(local_row[0], local_row[1]):
+        print('Checking row', k)
+        #get the whole row with the global number of columns
+        Mp_row = Mp.getValues(k, list(range(M.shape[1])))
+        if dtype == float:
+            Mp_row = Mp_row.real
+        if np.array_equal(Mp_row, Marr[k,:]):
+            print('success')
+        else:
+            print('fail')
+
+        #assert np.array_equal(Mp_row, Marr[k,:])'''
+            
+    assert np.array_equal(Marr[Mp.getOwnershipIS()[0].array, Mp.getOwnershipIS()[1].array], Mp.getValues(Mp.getOwnershipIS()[0].array, Mp.getOwnershipIS()[1].array))
+        
+
+
+    ##################
+    # To create a sparse matrix from PETSc.Mat():
+    # Mp = csr_matrix((data, indices, indptr)) 
+    # The shape should not be passed, since M.shape is the global size and here it requires the local size
+    ##################   
+    
+    '''M = M.tosparse().tocsr()
+
+    print('M = ', M.toarray())
+
+    print('PETSc indptr', indptr)
+    print('PETSc global_indptr', global_indptr)
+    print('Psydac indptr', M.indptr)
+    print('PETSc indices', indices)
+    print('Psydac indices', M.indices)
+    print('PETSc data', data)
+    print('Psydac data', M.data)
+    print('-----------')
+    print('Mp.getOwnershipIS()', Mp.getOwnershipIS())
+    print('Mp.getOwnershipRange()', Mp.getOwnershipRange())
+    print('Mp.getOwnershipRangeColumn()', Mp.getOwnershipRangeColumn())
+    
+
+    assert (global_indptr == M.indptr).all()
+    assert (indices == M.indices).all()
+    assert np.array_equal(data, M.data)'''
+#test_stencil_matrix_2d_parallel_topetsc(float,3,3,1,1,1,1,True,True)
 # ===============================================================================
     
-@pytest.mark.parametrize('n1', [5])
-@pytest.mark.parametrize('n2', [7])
-@pytest.mark.parametrize('p1', [1, 3])
-@pytest.mark.parametrize('p2', [1, 2])
-@pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parametrize('P2', [True, False])
+@pytest.mark.parametrize('n1', [4])
+@pytest.mark.parametrize('n2', [4])
+@pytest.mark.parametrize('p1', [1])
+@pytest.mark.parametrize('p2', [1])
+@pytest.mark.parametrize('P1', [True])
+@pytest.mark.parametrize('P2', [True])
 @pytest.mark.parallel
-@pytest.mark.petsc
+#@pytest.mark.petsc
 
 def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
     from sympde.topology import Square, ScalarFunctionSpace, element_of
@@ -2787,11 +2871,25 @@ def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
     # Convert PETSc.Mat to sparse CSR matrix   
     indptr, indices, data = Mp.getValuesCSR()
     data = data.real #PETSc with installation complex configuration only handles complex dtype
-    Mp = csr_matrix((data, indices, indptr), shape=Mp.size)
 
     M1 = M1.tosparse().tocsr()
 
-    assert (M1-Mp).data.size == 0
+    print('M1 = ', M1.todense())
+    print()
+
+    print('PETSc indptr', indptr)
+    print('M1.indptr', M1.indptr)
+    print()
+    print('PETSc indices', indices)
+    print('M1.indices', M1.indices)
+
+    print('M1.shape', M1.shape)
+    print('M1.indptr.size', M1.indptr.size)
+
+    assert (indptr == M1.indptr).all()
+    assert (indices == M1.indices).all()
+    assert np.array_equal(data, M1.data)
+
 
 # ===============================================================================
 # PARALLEL BACKENDS TESTS

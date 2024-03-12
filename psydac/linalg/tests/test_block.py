@@ -1233,7 +1233,7 @@ def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P
 
     W = BlockVectorSpace(V, V)
 
-    # Construct a BlockLinearOperator object containing M1, M2, M, using 3 ways
+    # Construct a BlockLinearOperator object containing M1, M2, M3: 
     #     |M1  M2|
     # L = |      |
     #     |M3  0 |
@@ -1242,6 +1242,7 @@ def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P
 
     L = BlockLinearOperator( W, W, blocks=dict_blocks )
 
+    print('hola')
     Lp = L.topetsc()
     indptr, indices, data = Lp.getValuesCSR()
     if dtype == float:
@@ -1250,6 +1251,7 @@ def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P
     L = L.tosparse().tocsr()
 
     assert (L-Lp).data.size == 0
+test_block_linear_operator_2d_parallel_topetsc(complex, 16,12,1,1,False,True)
 
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )

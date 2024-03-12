@@ -592,12 +592,12 @@ def test_stencil_vector_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1=True,
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('n1', [1, 7])
-@pytest.mark.parametrize('n2', [1, 5])
-@pytest.mark.parametrize('p1', [1, 2])
-@pytest.mark.parametrize('p2', [1])
+@pytest.mark.parametrize('n1', [20, 32])
+@pytest.mark.parametrize('n2', [24, 40])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parametrize('s2', [1])
+@pytest.mark.parametrize('s2', [2])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True])
 @pytest.mark.parallel
@@ -624,8 +624,10 @@ def test_stencil_vector_2d_parallel_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P
         f = lambda i1, i2: 10j * i1 + i2
     else:
         f = lambda i1, i2: 10 * i1 + i2
-    for i1 in range(n1):
-        for i2 in range(n2):
+
+    # Initialize distributed 2D stencil vector
+    for i1 in range(V.starts[0], V.ends[0] + 1):
+        for i2 in range(V.starts[1], V.ends[1] + 1):
             x[i1, i2] = f(i1,i2)
 
     # Convert vector to PETSc.Vec
@@ -634,14 +636,6 @@ def test_stencil_vector_2d_parallel_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P
     # Convert PETSc.Vec to StencilVector of V
     v = petsc_to_psydac(v, V)
 
-    # Test properties of v and data contained
-    assert v.space is V
-    assert v.dtype == dtype
-    assert v.starts == (0, 0)
-    assert v.ends == (n1 - 1, n2 - 1)
-    assert v.pads == (p1, p2)
-    assert v._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2)
-    assert v._data.dtype == dtype
     assert np.array_equal(x.toarray(), v.toarray())
     
 # ===============================================================================

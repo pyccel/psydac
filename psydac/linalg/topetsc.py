@@ -70,7 +70,6 @@ def vec_topetsc( vec ):
     gvec : PETSc.Vec
         PETSc vector
     """
-
     from petsc4py import PETSc
 
     if isinstance(vec, StencilVector):
@@ -113,6 +112,7 @@ def mat_topetsc( mat ):
         comm = mat.domain.spaces[0][0].cart.global_comm
 
     mat_coo = mat.tosparse()
+
     gmat  = PETSc.Mat().create(comm=comm)
 
     if comm:
@@ -142,3 +142,75 @@ def mat_topetsc( mat ):
     # Process inserted matrix entries
     gmat.assemble()
     return gmat
+
+'''def mat_topetsc( mat ):
+    """ Convert operator from Psydac format to a PETSc.Mat object.
+
+    Parameters
+    ----------
+    mat : psydac.linalg.stencil.StencilMatrix | psydac.linalg.basic.LinearOperator | psydac.linalg.block.BlockLinearOperator
+      Psydac operator
+
+    Returns
+    -------
+    gmat : PETSc.Mat
+        PETSc Matrix
+    """
+    from petsc4py import PETSc
+
+    if isinstance(mat, StencilMatrix):
+        comm = mat.domain.cart.global_comm
+    elif isinstance(mat.domain.spaces[0], StencilVectorSpace):
+        comm = mat.domain.spaces[0].cart.global_comm
+    elif isinstance(mat.domain.spaces[0], BlockVectorSpace):
+        comm = mat.domain.spaces[0][0].cart.global_comm
+
+    mat_coo = mat.tosparse() #has the shape of the global operator
+    print('global shape', mat.shape)
+    print('dense matrix', mat_coo.todense())
+    print('mat_coo.row', mat_coo.row)
+    print('mat_coo.col', mat_coo.col)
+    mat_csr = mat_coo.tocsr()
+    print('mat_csr.indptr', mat_csr.indptr)
+    print('mat_csr.indices', mat_csr.indices)
+
+    gmat = PETSc.Mat().create(comm=comm)
+
+
+ 
+    #gmat.setSizes(mat.shape)
+    #mat.setSizes([[nrl, nrg], [ncl, ncg]])
+    gmat.setSizes([[mat.shape[0]//2, mat.shape[0]], [mat.shape[1]//2, mat.shape[1]]])
+
+    #gmat.setSizes((nrows, ncols))
+
+    # Set sparse matrix type
+    gmat.setType("mpiaij")   
+    gmat.setFromOptions()
+
+    '''if comm:
+        # Preallocate number of nonzeros based on CSR structure
+        gmat.setPreallocationCSR((mat_csr.indptr, mat_csr.indices))
+        #NNZ = comm.allreduce(mat_csr.size, op=MPI.SUM)
+        #gmat.setPreallocationNNZ(NNZ)
+
+    # Fill-in matrix values from CSR data
+        #indptr: Stores accumulated number of non-zero entries
+        #indices: Stores column index of entries
+        #data: Stores non-zero entries
+
+    nrows = len(mat_csr.indptr)-1 #indptr always has a 0 in the first position to avoid void array
+    for r in range(nrows):
+        # get number of non zero entries to fill in row r
+        num_non_zero = mat_csr.indptr[r+1] - mat_csr.indptr[r]
+        for k in range(num_non_zero):
+            # set the value in correct column
+            gmat.setValues(r, mat_csr.indices[r+k], mat_csr.data[r+k])  
+        #cols = mat_csr.indices[mat_csr.indptr[i]:mat_csr.indptr[i+1]]
+        #col_data = mat_csr.data[mat_csr.indptr[i]:mat_csr.indptr[i+1]]
+        #gmat.setValues(i, cols, col_data)  
+   
+    # Process inserted matrix entries
+    gmat.assemble()
+    return gmat
+'''
