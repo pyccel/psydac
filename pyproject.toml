@@ -51,10 +51,6 @@ dependencies = [
 
     # IGAKIT - not on PyPI
     'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip'
-
-    # PETSc - needs source code for complex configuration
-    'petsc @ https://gitlab.com/petsc/petsc/-/archive/main/petsc-main.zip'
-
 ]
 
 [project.urls]
