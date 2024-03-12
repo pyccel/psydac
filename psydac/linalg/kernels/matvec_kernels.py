@@ -1,9 +1,8 @@
 from pyccel.decorators import template
 
 
-@template(name='T', types=['float[:]', 'complex[:]'])
-@template(name='Tarray', types=['float[:,:]', 'complex[:,:]'])
-def matvec_1d(mat00:'Tarray', x0:'T', out0:'T', starts: 'int64[:]', nrows: 'int64[:]', nrows_extra: 'int64[:]',
+@template(name='T', types=[float, complex])
+def matvec_1d(mat00:'T[:,:]', x0:'T[:]', out0:'T[:]', starts: 'int64[:]', nrows: 'int64[:]', nrows_extra: 'int64[:]',
                   dm:'int64[:]', cm:'int64[:]', pad_imp:'int64[:]', ndiags:'int64[:]', gpads: 'int64[:]'):
 
     nrows1   = nrows[0]
@@ -38,9 +37,9 @@ def matvec_1d(mat00:'Tarray', x0:'T', out0:'T', starts: 'int64[:]', nrows: 'int6
             out0[pxm1 + i1] = v00
 
 
-@template(name='T', types=['float[:,:]', 'complex[:,:]'])
-@template(name='Tarray', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
-def matvec_2d(mat00:'Tarray', x0:'T', out0:'T', starts:'int64[:]', nrows:'int64[:]', nrows_extra:'int64[:]',
+
+@template(name='T', types=[float, complex])
+def matvec_2d(mat00:'T[:,:,:,:]', x0:'T[:,:]', out0:'T[:,:]', starts:'int64[:]', nrows:'int64[:]', nrows_extra:'int64[:]',
                   dm:'int64[:]', cm:'int64[:]', pad_imp:'int64[:]', ndiags:'int64[:]', gpads: 'int64[:]'):
 
     nrows1   = nrows[0]
@@ -105,9 +104,8 @@ def matvec_2d(mat00:'Tarray', x0:'T', out0:'T', starts:'int64[:]', nrows:'int64[
                 out0[pxm1 + i1, pxm2 + i2] = v00
 
 
-@template(name='T', types=['float[:,:,:]', 'complex[:,:,:]'])
-@template(name='Tarray', types=['float[:,:,:,:,:,:]', 'complex[:,:,:,:,:,:]'])
-def matvec_3d(mat00:'Tarray', x0:'T', out0:'T', starts:'int64[:]', nrows:'int64[:]', nrows_extra:'int64[:]',
+@template(name='T', types=[float, complex])
+def matvec_3d(mat00:'T[:,:,:,:,:,:]', x0:'T[:,:,:]', out0:'T[:,:,:]', starts:'int64[:]', nrows:'int64[:]', nrows_extra:'int64[:]',
                   dm:'int64[:]', cm:'int64[:]', pad_imp:'int64[:]', ndiags:'int64[:]', gpads: 'int64[:]'):
 
     nrows1   = nrows[0]
