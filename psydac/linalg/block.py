@@ -940,6 +940,8 @@ class BlockLinearOperator(LinearOperator):
             The existing BlockLinearOperator in which we want to copy self.
         """
         if out is not None:
+            if out is self:
+                return self
             assert isinstance(out, BlockLinearOperator)
             assert out.domain is self.domain
             assert out.codomain is self.codomain
@@ -947,10 +949,10 @@ class BlockLinearOperator(LinearOperator):
             out = BlockLinearOperator(self.domain, self.codomain)
 
         for (i, j), Lij in self._blocks.items():
-            if out[i,j]==None:
+            if out[i, j] is None:
                 out[i, j] = Lij.copy()
             else:
-                Lij.copy(out=out[i,j])
+                Lij.copy(out = out[i, j])
 
         out.set_backend(self._backend)
 
