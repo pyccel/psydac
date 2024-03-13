@@ -106,7 +106,7 @@ jobs:
             export PETSC_ARCH=arch-darwin-c-debug
           fi
           echo $PETSC_ARCH          
-          make PETSC_DIR=$(pwd) $PETSC_ARCH all check
+          make PETSC_DIR=$(pwd) PETSC_ARCH=$PETSC_ARCH all check
 
       - name: Install petsc4py
         working-directory: ./petsc

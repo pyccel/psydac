@@ -39,17 +39,21 @@ sudo apt install libopenmpi-dev openmpi-bin
 sudo apt install libomp-dev libomp5
 sudo apt install libhdf5-openmpi-dev
 ```
-`PETSc` has to be installed from source with configuration for complex numbers:
+In order to install `PETSc`, download it from [source](https://gitlab.com/petsc/petsc) and specify a configuration for complex numbers:
 ```sh
+PETSC_VERSION="v3.20.5"
+wget https://gitlab.com/petsc/petsc/-/archive/$PETSC_VERSION/petsc-$PETSC_VERSION.zip
+unzip petsc-$PETSC_VERSION.zip
+rm petsc-$PETSC_VERSION.zip
+mv petsc-$PETSC_VERSION petsc
 ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1 
-make PETSC_DIR=$(pwd) PETSC_ARCH=petsc-complex-c-debug all check
+make PETSC_DIR=$(pwd) PETSC_ARCH=arch-linux-c-debug all check
 ```
-Lastly, `petsc4py` has to be installed:
+Once `PETSc` is installed, install the module `petsc4py` contained within the `PETSc` library:
 ```sh
 python -m pip install wheel Cython numpy
-PETSC_DIR=$(pwd) PETSC_ARCH=petsc-complex-c-debug pip install src/binding/petsc4py
+PETSC_DIR=$(pwd) PETSC_ARCH=arch-linux-c-debug pip install src/binding/petsc4py
 ```
-This installation is also valid for macOS.
 
 ### macOS
 
@@ -63,6 +67,21 @@ brew install lapack
 brew install open-mpi
 brew install libomp
 brew install hdf5-mpi
+```
+In order to install `PETSc`, download it from [source](https://gitlab.com/petsc/petsc) and specify a configuration for complex numbers:
+```sh
+PETSC_VERSION="v3.20.5"
+wget https://gitlab.com/petsc/petsc/-/archive/$PETSC_VERSION/petsc-$PETSC_VERSION.zip
+unzip petsc-$PETSC_VERSION.zip
+rm petsc-$PETSC_VERSION.zip
+mv petsc-$PETSC_VERSION petsc
+./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1 
+make PETSC_DIR=$(pwd) PETSC_ARCH=arch-darwin-c-debug all check
+```
+Once `PETSc` is installed, install the module `petsc4py` contained within the `PETSc` library:
+```sh
+python -m pip install wheel Cython numpy
+PETSC_DIR=$(pwd) PETSC_ARCH=arch-darwin-c-debug pip install src/binding/petsc4py
 ```
 
 ### Other operating systems
