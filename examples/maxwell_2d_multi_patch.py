@@ -79,7 +79,9 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
     equation_h = discretize(equation, domain_h, [Vh, Vh])
     l2norm_h   = discretize(l2norm, domain_h, Vh)
 
-    equation_h.set_solver('pcg', pc='jacobi', tol=1e-8, info=True)
+    equation_h.assemble()
+    jacobi_pc = equation_h.linear_system.lhs.diagonal(inverse=True)
+    equation_h.set_solver('pcg', pc=jacobi_pc, tol=1e-8, info=True)
 
     timing   = {}
     t0       = time.time()
