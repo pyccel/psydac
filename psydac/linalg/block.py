@@ -941,8 +941,10 @@ class BlockLinearOperator(LinearOperator):
 
         Returns
         -------
-        out : BlockLinearOperator
-            The copy of self, either stored in the given BlockLinearOperator or in a new one.
+        BlockLinearOperator
+            The copy of `self`, either stored in the given BlockLinearOperator `out`
+            (if provided) or in a new one. In the corner case where `out=self` the
+            `self` object is immediately returned.
         """
         if out is not None:
             if out is self:
