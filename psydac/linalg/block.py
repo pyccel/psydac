@@ -953,6 +953,8 @@ class BlockLinearOperator(LinearOperator):
                 Lij.copy(out=out[i,j])
 
         out.set_backend(self._backend)
+
+        return out
         
     # ...
     def __imul__(self, a):
