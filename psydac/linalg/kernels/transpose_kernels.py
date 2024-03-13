@@ -1,19 +1,20 @@
 from pyccel.decorators import template
 
 #========================================================================================================
-@template(name='T', types=['float[:,:]', 'complex[:,:]'])
-def transpose_1d( M:'T', Mt:'T',
-                 n:"int64[:]",
-                 nc:"int64[:]",
-                 gp:"int64[:]",
-                 p:"int64[:]",
-                 dm:"int64[:]",
-                 cm:"int64[:]",
-                 nd:"int64[:]",
-                 ndT:"int64[:]",
-                 si:"int64[:]",
-                 sk:"int64[:]",
-                 sl:"int64[:]"):
+@template(name='T', types=[float, complex])
+def transpose_1d(M  : "T[:,:]",
+                 Mt : "T[:,:]",
+                 n  : "int64[:]",
+                 nc : "int64[:]",
+                 gp : "int64[:]",
+                 p  : "int64[:]",
+                 dm : "int64[:]",
+                 cm : "int64[:]",
+                 nd : "int64[:]",
+                 ndT: "int64[:]",
+                 si : "int64[:]",
+                 sk : "int64[:]",
+                 sl : "int64[:]"):
 
     #$omp parallel default(private) shared(Mt,M) firstprivate( n,nc,gp,p,dm,cm,nd,ndT,si,sk,sl)
     d1 = gp[0] - p[0]
@@ -34,25 +35,28 @@ def transpose_1d( M:'T', Mt:'T',
     return
 
 #========================================================================================================
-@template(name='T', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
-def transpose_2d( M:'T', Mt:'T',
-                 n:"int64[:]",
-                 nc:"int64[:]",
-                 gp:"int64[:]",
-                 p:"int64[:]",
-                 dm:"int64[:]",
-                 cm:"int64[:]",
-                 nd:"int64[:]",
-                 ndT:"int64[:]",
-                 si:"int64[:]",
-                 sk:"int64[:]",
-                 sl:"int64[:]"):
+@template(name='T', types=[float, complex])
+def transpose_2d(M  : "T[:,:,:,:]",
+                 Mt : "T[:,:,:,:]",
+                 n  : "int64[:]",
+                 nc : "int64[:]",
+                 gp : "int64[:]",
+                 p  : "int64[:]",
+                 dm : "int64[:]",
+                 cm : "int64[:]",
+                 nd : "int64[:]",
+                 ndT: "int64[:]",
+                 si : "int64[:]",
+                 sk : "int64[:]",
+                 sl : "int64[:]"):
 
     #$omp parallel default(private) shared(Mt,M) firstprivate( n,nc,gp,p,dm,cm,nd,ndT,si,sk,sl)
-    d1 = gp[0]-p[0]
-    d2 = gp[1]-p[1]
+    d1 = gp[0] - p[0]
+    d2 = gp[1] - p[1]
+
     e1 = nd[0] - sl[0]
     e2 = nd[1] - sl[1]
+
     #$omp for schedule(static) collapse(2)
     for x1 in range(n[0]):
         for x2 in range(n[1]):
@@ -73,28 +77,32 @@ def transpose_2d( M:'T', Mt:'T',
                         Mt[j1,j2, l1 + sl[0],l2 + sl[1]] = M[i1,i2, k1,k2]
     #$omp end parallel
     return
-#========================================================================================================
-@template(name='T', types=['float[:,:,:,:,:,:]', 'complex[:,:,:,:,:,:]'])
-def transpose_3d(M:'T', Mt:'T',
-                 n:"int64[:]",
-                 nc:"int64[:]",
-                 gp:"int64[:]",
-                 p:"int64[:]",
-                 dm:"int64[:]",
-                 cm:"int64[:]",
-                 nd:"int64[:]",
-                 ndT:"int64[:]",
-                 si:"int64[:]",
-                 sk:"int64[:]",
-                 sl:"int64[:]"):
 
-    #$omp parallel default(private) shared(Mt,M) firstprivate( n,nc,gp,p,dm,cm,nd,ndT,si,sk,sl)
-    d1 = gp[0]-p[0]
-    d2 = gp[1]-p[1]
-    d3 = gp[2]-p[2]
+#========================================================================================================
+@template(name='T', types=[float, complex])
+def transpose_3d(M  : "T[:,:,:,:,:,:]",
+                 Mt : "T[:,:,:,:,:,:]",
+                 n  : "int64[:]",
+                 nc : "int64[:]",
+                 gp : "int64[:]",
+                 p  : "int64[:]",
+                 dm : "int64[:]",
+                 cm : "int64[:]",
+                 nd : "int64[:]",
+                 ndT: "int64[:]",
+                 si : "int64[:]",
+                 sk : "int64[:]",
+                 sl : "int64[:]"):
+
+    #$omp parallel default(private) shared(Mt,M) firstprivate(n,nc,gp,p,dm,cm,nd,ndT,si,sk,sl)
+    d1 = gp[0] - p[0]
+    d2 = gp[1] - p[1]
+    d3 = gp[2] - p[2]
+
     e1 = nd[0] - sl[0]
     e2 = nd[1] - sl[1]
     e3 = nd[2] - sl[2]
+
     #$omp for schedule(static) collapse(3)
     for x1 in range(n[0]):
         for x2 in range(n[1]):
@@ -123,22 +131,23 @@ def transpose_3d(M:'T', Mt:'T',
     return
 
 #========================================================================================================
-@template(name='T', types=['float[:,:]', 'complex[:,:]'])
-def interface_transpose_1d( M:'T', Mt:'T',
-                            n:"int64[:]",
-                            nc:"int64[:]",
-                            gp:"int64[:]",
-                            p:"int64[:]",
-                            dm:"int64[:]",
-                            cm:"int64[:]",
-                            nd:"int64[:]",
-                            ndT:"int64[:]",
-                            si:"int64[:]",
-                            sk:"int64[:]",
-                            sl:"int64[:]"):
+@template(name='T', types=[float, complex])
+def interface_transpose_1d(M  : "T[:,:]",
+                           Mt : "T[:,:]",
+                           n  : "int64[:]",
+                           nc : "int64[:]",
+                           gp : "int64[:]",
+                           p  : "int64[:]",
+                           dm : "int64[:]",
+                           cm : "int64[:]",
+                           nd : "int64[:]",
+                           ndT: "int64[:]",
+                           si : "int64[:]",
+                           sk : "int64[:]",
+                           sl : "int64[:]"):
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate(n,nc,gp,p,dm,cm,nd,ndT,si,sk,sl)
-    d1 = gp[0]-p[0]
+    d1 = gp[0] - p [0]
     e1 = nd[0] - sl[0]
 
     #$ omp for schedule(static) collapse(1)
@@ -159,23 +168,25 @@ def interface_transpose_1d( M:'T', Mt:'T',
     return
 
 #========================================================================================================
-@template(name='T', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
-def interface_transpose_2d( M:'T', Mt:'T',
-                            n:"int64[:]",
-                            nc:"int64[:]",
-                            gp:"int64[:]",
-                            p:"int64[:]",
-                            dm:"int64[:]",
-                            cm:"int64[:]",
-                            nd:"int64[:]",
-                            ndT:"int64[:]",
-                            si:"int64[:]",
-                            sk:"int64[:]",
-                            sl:"int64[:]"):
+@template(name='T', types=[float, complex])
+def interface_transpose_2d(M  : "T[:,:,:,:]",
+                           Mt : "T[:,:,:,:]",
+                           n  : "int64[:]",
+                           nc : "int64[:]",
+                           gp : "int64[:]",
+                           p  : "int64[:]",
+                           dm : "int64[:]",
+                           cm : "int64[:]",
+                           nd : "int64[:]",
+                           ndT: "int64[:]",
+                           si : "int64[:]",
+                           sk : "int64[:]",
+                           sl : "int64[:]"):
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate(n,nc,gp,p,dm,cm,nd,ndT,si,sk,sl)
-    d1 = gp[0]-p[0]
-    d2 = gp[1]-p[1]
+    d1 = gp[0] - p[0]
+    d2 = gp[1] - p[1]
+
     e1 = nd[0] - sl[0]
     e2 = nd[1] - sl[1]
 
@@ -203,24 +214,26 @@ def interface_transpose_2d( M:'T', Mt:'T',
     return
 
 #========================================================================================================
-@template(name='T', types=['float[:,:,:,:,:,:]', 'complex[:,:,:,:,:,:]'])
-def interface_transpose_3d( M:'T', Mt:'T',
-                            n:"int64[:]",
-                            nc:"int64[:]",
-                            gp:"int64[:]",
-                            p:"int64[:]",
-                            dm:"int64[:]",
-                            cm:"int64[:]",
-                            nd:"int64[:]",
-                            ndT:"int64[:]",
-                            si:"int64[:]",
-                            sk:"int64[:]",
-                            sl:"int64[:]"):
+@template(name='T', types=[float, complex])
+def interface_transpose_3d(M  : "T[:,:,:,:,:,:]",
+                           Mt : "T[:,:,:,:,:,:]",
+                           n  : "int64[:]",
+                           nc : "int64[:]",
+                           gp : "int64[:]",
+                           p  : "int64[:]",
+                           dm : "int64[:]",
+                           cm : "int64[:]",
+                           nd : "int64[:]",
+                           ndT: "int64[:]",
+                           si : "int64[:]",
+                           sk : "int64[:]",
+                           sl : "int64[:]"):
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate(n,nc,gp,p,dm,cm,nd,ndT,si,sk,sl)
-    d1 = gp[0]-p[0]
-    d2 = gp[1]-p[1]
-    d3 = gp[2]-p[2]
+    d1 = gp[0] - p[0]
+    d2 = gp[1] - p[1]
+    d3 = gp[2] - p[2]
+
     e1 = nd[0] - sl[0]
     e2 = nd[1] - sl[1]
     e3 = nd[2] - sl[2]

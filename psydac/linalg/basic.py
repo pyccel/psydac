@@ -290,11 +290,11 @@ class LinearOperator(ABC):
         assert np.isscalar(c)
         assert np.isreal(c)
         if c==0:
-            return ZeroOperator(self._domain, self._codomain)
+            return ZeroOperator(self.domain, self.codomain)
         elif c == 1:
             return self
         else:
-            return ScaledLinearOperator(self._domain, self._codomain, c, self)
+            return ScaledLinearOperator(self.domain, self.codomain, c, self)
 
     def __rmul__(self, c):
         """ Calls __mul__ instead. """
@@ -304,13 +304,13 @@ class LinearOperator(ABC):
         """ Creates an object of the class ComposedLinearOperator. """
         assert isinstance(B, (LinearOperator, Vector))
         if isinstance(B, LinearOperator):
-            assert self._domain == B.codomain
+            assert self.domain == B.codomain
             if isinstance(B, ZeroOperator):
-                return ZeroOperator(B.domain, self._codomain)
+                return ZeroOperator(B.domain, self.codomain)
             elif isinstance(B, IdentityOperator):
                 return self
             else:
-                return ComposedLinearOperator(B.domain, self._codomain, self, B)
+                return ComposedLinearOperator(B.domain, self.codomain, self, B)
         else:
             return self.dot(B)
 
@@ -320,7 +320,7 @@ class LinearOperator(ABC):
         if isinstance(B, ZeroOperator):
             return self
         else:
-            return SumLinearOperator(self._domain, self._codomain, self, B)
+            return SumLinearOperator(self.domain, self.codomain, self, B)
 
     def __sub__(self, B):
         """ Creates an object of the class SumLinearOperator unless B is a ZeroOperator in which case self is returned. """
@@ -328,11 +328,11 @@ class LinearOperator(ABC):
         if isinstance(B, ZeroOperator):
             return self
         else:
-            return SumLinearOperator(self._domain, self._codomain, self, -B)
+            return SumLinearOperator(self.domain, self.codomain, self, -B)
 
     def __pow__(self, n):
         """ Creates an object of class :ref:`PowerLinearOperator <powerlinearoperator>`. """
-        return PowerLinearOperator(self._domain, self._codomain, self, n)
+        return PowerLinearOperator(self.domain, self.codomain, self, n)
 
     def __truediv__(self, c):
         """ Divide by scalar. """
@@ -417,8 +417,7 @@ class ZeroOperator(LinearOperator):
         return None
 
     def copy(self):
-        """ Returns a new ZeroOperator object acting between the same vector spaces."""
-        return ZeroOperator(self._domain, self._codomain)
+        return ZeroOperator(self.domain, self.codomain)
 
     def toarray(self):
         return np.zeros(self.shape, dtype=self.dtype) 
@@ -428,17 +427,17 @@ class ZeroOperator(LinearOperator):
         return csr_matrix(self.shape, dtype=self.dtype)
 
     def transpose(self, conjugate=False):
-        return ZeroOperator(domain=self._codomain, codomain=self._domain)
+        return ZeroOperator(domain=self.codomain, codomain=self.domain)
 
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
-        assert v.space == self._domain
+        assert v.space == self.domain
         if out is not None:
             assert isinstance(out, Vector)
-            assert out.space == self._codomain
+            assert out.space == self.codomain
             out *= 0
         else:
-            out = self._codomain.zeros()
+            out = self.codomain.zeros()
         return out
 
     def __neg__(self):
@@ -446,14 +445,14 @@ class ZeroOperator(LinearOperator):
 
     def __add__(self, B):
         assert isinstance(B, LinearOperator)
-        assert self._domain == B.domain
-        assert self._codomain == B.codomain
+        assert self.domain == B.domain
+        assert self.codomain == B.codomain
         return B
 
     def __sub__(self, B):
         assert isinstance(B, LinearOperator)
-        assert self._domain == B.domain
-        assert self._codomain == B.codomain
+        assert self.domain == B.domain
+        assert self.codomain == B.codomain
         return -B
 
     def __mul__(self, c):
@@ -463,8 +462,8 @@ class ZeroOperator(LinearOperator):
     def __matmul__(self, B):
         assert isinstance(B, (LinearOperator, Vector))
         if isinstance(B, LinearOperator):
-            assert self._domain == B.codomain
-            return ZeroOperator(domain=B.domain, codomain=self._codomain)
+            assert self.domain == B.codomain
+            return ZeroOperator(domain=B.domain, codomain=self.codomain)
         else:
             return self.dot(B)
 
@@ -512,25 +511,25 @@ class IdentityOperator(LinearOperator):
 
     def copy(self):
         """ Returns a new IdentityOperator object acting between the same vector spaces."""
-        return IdentityOperator(self._domain, self._codomain)
+        return IdentityOperator(self.domain, self.codomain)
 
     def toarray(self):
-        return np.diag(np.ones(self._domain.dimension , dtype=self.dtype)) 
+        return np.diag(np.ones(self.domain.dimension , dtype=self.dtype)) 
 
     def tosparse(self):
         from scipy.sparse import identity
-        return identity(self._domain.dimension, dtype=self.dtype, format="csr")
+        return identity(self.domain.dimension, dtype=self.dtype, format="csr")
 
     def transpose(self, conjugate=False):
         """ Could return self, but by convention returns new object. """
-        return IdentityOperator(self._domain, self._codomain)
+        return IdentityOperator(self.domain, self.codomain)
 
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
-        assert v.space == self._domain
+        assert v.space == self.domain
         if out is not None:
             assert isinstance(out, Vector)
-            assert out.space == self._codomain
+            assert out.space == self.codomain
             out *= 0
             out += v
             return out
@@ -540,7 +539,7 @@ class IdentityOperator(LinearOperator):
     def __matmul__(self, B):
         assert isinstance(B, (LinearOperator, Vector))
         if isinstance(B, LinearOperator):
-            assert self._domain == B.codomain
+            assert self.domain == B.codomain
             return B
         else:
             return self.dot(B)
@@ -604,17 +603,17 @@ class ScaledLinearOperator(LinearOperator):
         return self._scalar*csr_matrix(self._operator.toarray())
 
     def transpose(self, conjugate=False):
-        return ScaledLinearOperator(domain=self._codomain, codomain=self._domain, c=self._scalar, A=self._operator.transpose(conjugate=conjugate))
+        return ScaledLinearOperator(domain=self.codomain, codomain=self.domain, c=self._scalar, A=self._operator.transpose(conjugate=conjugate))
 
     def __neg__(self):
-        return ScaledLinearOperator(domain=self._domain, codomain=self._codomain, c=-1*self._scalar, A=self._operator)
+        return ScaledLinearOperator(domain=self.domain, codomain=self.codomain, c=-1*self._scalar, A=self._operator)
 
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
-        assert v.space == self._domain
+        assert v.space == self.domain
         if out is not None:
             assert isinstance(out, Vector)
-            assert out.space == self._codomain
+            assert out.space == self.codomain
             self._operator.dot(v, out = out)
             out *= self._scalar
             return out
@@ -696,7 +695,7 @@ class SumLinearOperator(LinearOperator):
         t_addends = ()
         for a in self._addends:
             t_addends = (*t_addends, a.transpose(conjugate=conjugate))
-        return SumLinearOperator(self._codomain, self._domain, *t_addends)
+        return SumLinearOperator(self.codomain, self.domain, *t_addends)
 
     @staticmethod
     def simplify(addends):
@@ -723,16 +722,16 @@ class SumLinearOperator(LinearOperator):
     def dot(self, v, out=None):
         """ Evaluates SumLinearOperator object at a vector v element of domain. """
         assert isinstance(v, Vector)
-        assert v.space == self._domain
+        assert v.space == self.domain
         if out is not None:
             assert isinstance(out, Vector)
-            assert out.space == self._codomain
+            assert out.space == self.codomain
             out *= 0
             for a in self._addends:
                 a.idot(v, out)
             return out
         else:
-            out = self._codomain.zeros()
+            out = self.codomain.zeros()
             for a in self._addends:
                 a.idot(v, out=out)
             return out
@@ -824,18 +823,18 @@ class ComposedLinearOperator(LinearOperator):
         t_multiplicants = ()
         for a in self._multiplicants:
             t_multiplicants = (a.transpose(conjugate=conjugate), *t_multiplicants)
-        new_dom = self._codomain
-        new_cod = self._domain
+        new_dom = self.codomain
+        new_cod = self.domain
         assert isinstance(new_dom, VectorSpace)
         assert isinstance(new_cod, VectorSpace)
-        return ComposedLinearOperator(self._codomain, self._domain, *t_multiplicants)
+        return ComposedLinearOperator(self.codomain, self.domain, *t_multiplicants)
 
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
-        assert v.space == self._domain
+        assert v.space == self.domain
         if out is not None:
             assert isinstance(out, Vector)
-            assert out.space == self._codomain
+            assert out.space == self.codomain
 
         x = v
         for i in range(len(self._tmp_vectors)):
@@ -924,14 +923,14 @@ class PowerLinearOperator(LinearOperator):
         raise NotImplementedError('tosparse() is not defined for PowerLinearOperators.')
 
     def transpose(self, conjugate=False):
-        return PowerLinearOperator(domain=self._codomain, codomain=self._domain, A=self._operator.transpose(conjugate=conjugate), n=self._factorial)
+        return PowerLinearOperator(domain=self.codomain, codomain=self.domain, A=self._operator.transpose(conjugate=conjugate), n=self._factorial)
 
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
-        assert v.space == self._domain
+        assert v.space == self.domain
         if out is not None:
             assert isinstance(out, Vector)
-            assert out.space == self._codomain
+            assert out.space == self.codomain
             for i in range(self._factorial):
                 self._operator.dot(v, out=out)
                 v = out.copy()
