@@ -938,6 +938,11 @@ class BlockLinearOperator(LinearOperator):
         ----------
         out : BlockLinearOperator(optional)
             The existing BlockLinearOperator in which we want to copy self.
+
+        Returns
+        -------
+        out : BlockLinearOperator
+            The copy of self, either stored in the given BlockLinearOperator or in a new one.
         """
         if out is not None:
             assert isinstance(out, BlockLinearOperator)
