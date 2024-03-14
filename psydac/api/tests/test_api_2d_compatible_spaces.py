@@ -284,13 +284,13 @@ def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree):
         ksp.setOperators(A1)
         x1 = b1.duplicate()
         ksp.solve(b1, x1)
-        print('Boundary solution with petsc4py: success = {}'.format(ksp.converged))
+        print('Boundary solution with petsc4py: success = {}'.format(ksp.is_converged))
 
         ksp.setOperators(A0)
         b0 = b0 - A0*x1
         x0 = b0.duplicate()
         ksp.solve(b0, x0)
-        print('Interior solution with petsc4py: success = {}'.format(ksp.converged))
+        print('Interior solution with petsc4py: success = {}'.format(ksp.is_converged))
 
         # Solution is sum of boundary and interior contributions
         x = x0 + x1
@@ -300,7 +300,7 @@ def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree):
         x = b0.duplicate()
         ksp.solve(b0, x)
 
-        print('Solution with petsc4py: success = {}'.format(ksp.converged))
+        print('Solution with petsc4py: success = {}'.format(ksp.is_converged))
 
 
     x = petsc_to_psydac(x, Xh.vector_space)

@@ -82,11 +82,32 @@ jobs:
       - name: Determine directory of parallel HDF5 library
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
+            HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            export HDF5_DIR=$((h5pcc -showconfig -echo || true) | grep "Installation point:" | cut -d ":" -f2 | tr -d " ")
+            HDF5_DIR=$((h5pcc -showconfig -echo || true) | grep "Installation point:" | cut -d ":" -f2 | tr -d " ")
           fi
           echo $HDF5_DIR
+          echo "HDF5_DIR=$HDF5_DIR" >> $GITHUB_ENV
+
+      - name: Download a specific release of PETSc
+        run: |
+          git clone --depth 1 --branch v3.20.5 https://gitlab.com/petsc/petsc.git
+
+      - name: Install PETSc with complex support, and test it
+        working-directory: ./petsc
+        run: |
+          export PETSC_DIR=$(pwd)
+          export PETSC_ARCH=petsc-cmplx
+          ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1         
+          make all check
+          echo "PETSC_DIR=$PETSC_DIR" >> $GITHUB_ENV
+          echo "PETSC_ARCH=$PETSC_ARCH" >> $GITHUB_ENV
+
+      - name: Install petsc4py
+        working-directory: ./petsc
+        run: | 
+          python -m pip install wheel Cython numpy
+          python -m pip install src/binding/petsc4py
 
       - name: Install Python dependencies
         run: |
@@ -97,7 +118,7 @@ jobs:
 
       - name: Check h5py installation
         run: |
-            python3 -c "from h5py import File; print(File)"
+            python -c "from h5py import File; print(File)"
 
       - name: Install project
         run: |
@@ -114,7 +135,7 @@ jobs:
         run: |
           export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
           export OMP_NUM_THREADS=2
-          python -m pytest -n auto --pyargs psydac -m "not parallel"
+          python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
 
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
@@ -122,6 +143,20 @@ jobs:
           export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
           export OMP_NUM_THREADS=2
           python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and not petsc"
+
+      - name: Run single-process PETSc tests with Pytest
+        working-directory: ./pytest
+        run: |
+          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
+          export OMP_NUM_THREADS=2
+          python -m pytest -n auto --pyargs psydac -m "not parallel and petsc"
+
+      - name: Run MPI PETSc tests with Pytest
+        working-directory: ./pytest
+        run: |
+          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
+          export OMP_NUM_THREADS=2
+          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc"
 
       - name: Remove test directory
         if: ${{ always() }}
