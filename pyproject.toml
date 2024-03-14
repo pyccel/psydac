@@ -53,6 +53,15 @@ dependencies = [
     'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip'
 ]
 
+[project.optional-dependencies]
+docs = [
+    'sphinx',
+    'pydata_sphinx_theme',
+    'numpydoc',
+    'tomli',
+    'sphinx-math-dollar'
+]
+
 [project.urls]
 Homepage      = "https://github.com/pyccel/psydac"
 Documentation = "https://pyccel.github.io/psydac"
