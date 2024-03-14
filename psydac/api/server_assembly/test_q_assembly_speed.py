@@ -13,13 +13,13 @@ from psydac.api.settings            import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.basic               import FemField
 
 #from altered_q_assembly_code.q_1 import assemble_matrix_q_1
-from altered_q_assembly_code.q_2 import assemble_matrix_q_2
-from altered_q_assembly_code.q_3 import assemble_matrix_q_3
+from altered_code.q_2 import assemble_matrix_q_2
+from altered_code.q_3 import assemble_matrix_q_3
 #from altered_q_assembly_code.q_4 import assemble_matrix_q_4
 
 #from altered_q_assembly_code.q_1_global import assemble_matrix_q_1_global
-from altered_q_assembly_code.q_2_global import assemble_matrix_q_2_global
-from altered_q_assembly_code.q_3_global import assemble_matrix_q_3_global
+from altered_code.q_2_global import assemble_matrix_q_2_global
+from altered_code.q_3_global import assemble_matrix_q_3_global
 #from altered_q_assembly_code.q_4_global import assemble_matrix_q_4_global
 
 parallel = True
@@ -35,7 +35,7 @@ funcs_sfg = [assemble_matrix_q_2_global, assemble_matrix_q_3_global]#, assemble_
 labels = ['old', 'sf', 'sfg']
 
 degree_list = [[2, 2, 2], [3, 3, 3]]#, [4, 4, 4]] [1, 1, 1], 
-ncells_list = [[4, 4, 4], [8, 8, 8]]#, [16, 16, 16], [32, 32, 32]]
+ncells_list = [[16, 16, 16], [32, 32, 32]]
 
 new_funcs = [[funcs_sf[i], funcs_sfg[i]] for i in range(len(degree_list))]
 
@@ -67,8 +67,9 @@ def get_A_fun():
     A = (A1, A2, A3)
     return A
 
-if not os.path.isdir('data'):
-    os.makedirs('data')
+if mpi_rank == 0:
+    if not os.path.isdir('data'):
+        os.makedirs('data')
 currtime = datetime.datetime.now().strftime("%Y-%m-%d_-_%H%M%S")
 f = open(f'data/q_data_{currtime}.txt', 'w')
 f.writelines('degree list:\n')
