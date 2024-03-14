@@ -82,11 +82,12 @@ jobs:
       - name: Determine directory of parallel HDF5 library
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
+            HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            export HDF5_DIR=$((h5pcc -showconfig -echo || true) | grep "Installation point:" | cut -d ":" -f2 | tr -d " ")
+            HDF5_DIR=$((h5pcc -showconfig -echo || true) | grep "Installation point:" | cut -d ":" -f2 | tr -d " ")
           fi
           echo $HDF5_DIR
+          echo "HDF5_DIR=$HDF5_DIR" >> $GITHUB_ENV
 
       - name: Download a specific release of PETSc
         run: |
@@ -99,6 +100,8 @@ jobs:
           export PETSC_ARCH=petsc-cmplx
           ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1         
           make all check
+          echo "PETSC_DIR=$PETSC_DIR" >> $GITHUB_ENV
+          echo "PETSC_ARCH=$PETSC_ARCH" >> $GITHUB_ENV
 
       - name: Install petsc4py
         working-directory: ./petsc
