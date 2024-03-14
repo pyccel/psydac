@@ -31,7 +31,7 @@ funcs_sfg = [assemble_matrix_q_1_global, assemble_matrix_q_2_global, assemble_ma
 labels = ['old', 'sf', 'sfg']
 
 degree_list = [[1, 1, 1], [2, 2, 2], [3, 3, 3], [4, 4, 4]]
-ncells_list = [[32, 32, 32], ]
+ncells_list = [[24, 24, 24], [32, 32, 32], [40, 40, 40]]
 
 new_funcs = [[funcs_sf[i], funcs_sfg[i]] for i in range(len(degree_list))]
 
