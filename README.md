@@ -9,6 +9,7 @@
 -   [Requirements](#requirements)
 -   [Python setup and project download](#python-setup-and-project-download)
 -   [Installing the library](#installing-the-library)
+-   [Optional PETSc installation](#optional-petsc-installation)
 -   [Uninstall](#uninstall)
 -   [Running tests](#running-tests)
 -   [Speeding up Psydac's core](#speeding-up-psydacs-core)
@@ -39,21 +40,6 @@ sudo apt install libopenmpi-dev openmpi-bin
 sudo apt install libomp-dev libomp5
 sudo apt install libhdf5-openmpi-dev
 ```
-In order to install `PETSc`, download it from [source](https://gitlab.com/petsc/petsc) and specify a configuration for complex numbers:
-```sh
-PETSC_VERSION="v3.20.5"
-wget https://gitlab.com/petsc/petsc/-/archive/$PETSC_VERSION/petsc-$PETSC_VERSION.zip
-unzip petsc-$PETSC_VERSION.zip
-rm petsc-$PETSC_VERSION.zip
-mv petsc-$PETSC_VERSION petsc
-./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1 
-make PETSC_DIR=$(pwd) PETSC_ARCH=arch-linux-c-debug all check
-```
-Once `PETSc` is installed, install the module `petsc4py` contained within the `PETSc` library:
-```sh
-python -m pip install wheel Cython numpy
-PETSC_DIR=$(pwd) PETSC_ARCH=arch-linux-c-debug pip install src/binding/petsc4py
-```
 
 ### macOS
 
@@ -67,21 +53,6 @@ brew install lapack
 brew install open-mpi
 brew install libomp
 brew install hdf5-mpi
-```
-In order to install `PETSc`, download it from [source](https://gitlab.com/petsc/petsc) and specify a configuration for complex numbers:
-```sh
-PETSC_VERSION="v3.20.5"
-wget https://gitlab.com/petsc/petsc/-/archive/$PETSC_VERSION/petsc-$PETSC_VERSION.zip
-unzip petsc-$PETSC_VERSION.zip
-rm petsc-$PETSC_VERSION.zip
-mv petsc-$PETSC_VERSION petsc
-./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1 
-make PETSC_DIR=$(pwd) PETSC_ARCH=arch-darwin-c-debug all check
-```
-Once `PETSc` is installed, install the module `petsc4py` contained within the `PETSc` library:
-```sh
-python -m pip install wheel Cython numpy
-PETSC_DIR=$(pwd) PETSC_ARCH=arch-darwin-c-debug pip install src/binding/petsc4py
 ```
 
 ### Other operating systems
@@ -146,12 +117,48 @@ At this point the Psydac library may be installed in **standard mode**, which co
     python3 -m pip install --editable .
     ```
 
+## Optional PETSc installation
+
+Although Psydac provides several iterative linear solvers which work with our native matrices and vectors, it is often useful to access a dedicated library like [PETSc](https://petsc.org). To this end, our matrices and vectors have the method `topetsc()`, which converts them to the corresponding `petsc4py` objects.
+(`petsc4py` is a Python package which provides Python bindings to PETSc.) After solving the linear system with a PETSc solver, the function `petsc_to_psydac` allows converting the solution vector back to the Psydac format.
+
+In order to use these additional feature, PETSc and petsc4py must be installed as follows.
+First, we download the latest release of PETSc from its [official Git repository](https://gitlab.com/petsc/petsc):
+```sh
+git clone --depth 1 --branch v3.20.5 https://gitlab.com/petsc/petsc.git
+```
+Next, we specify a configuration for complex numbers, and install PETSc in a local directory:
+```sh
+cd petsc
+
+export PETSC_DIR=$(pwd)
+export PETSC_ARCH=petsc-cmplx
+
+./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1
+
+make all check
+
+cd -
+```
+Finally, we install the Python package `petsc4py` which is included in the `PETSc` source distribution:
+```sh
+python3 -m pip install wheel Cython numpy
+python3 -m pip install petsc/src/binding/petsc4py
+```
+
 ## Uninstall
 
 -   **Whichever the install mode**:
     ```bash
     python3 -m pip uninstall psydac
     ```
+-   **If PETSc was installed**:
+    ```bash
+    python3 -m pip uninstall petsc4py
+    ```
+
+The non-Python dependencies can be uninstalled manually using the package manager.
+In the case of PETSc, it is sufficient to remove the cloned source directory given that the installation has been performed locally.
 
 ## Running tests
 
