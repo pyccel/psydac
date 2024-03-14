@@ -162,10 +162,18 @@ In the case of PETSc, it is sufficient to remove the cloned source directory giv
 
 ## Running tests
 
+Let `<PSYDAC-PATH>` be the installation directory of Psydac.
+In order to run all serial and parallel tests which do not use PETSc, just type:
 ```bash
-export PSYDAC_MESH_DIR=/path/to/psydac/mesh/
-python3 -m pytest --pyargs psydac -m "not parallel"
-python3 /path/to/psydac/mpi_tester.py --pyargs psydac -m "parallel"
+export PSYDAC_MESH_DIR=<PSYDAC-PATH>/mesh/
+python3 -m pytest --pyargs psydac -m "not parallel and not petsc"
+python3 <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and not petsc"
+```
+
+If PETSc and petsc4py were installed, some additional tests can be run:
+```bash
+python3 -m pytest --pyargs psydac -m "not parallel and petsc"
+python3 <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and petsc"
 ```
 
 ## Speeding up **Psydac**'s core
