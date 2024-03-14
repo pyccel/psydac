@@ -95,20 +95,18 @@ jobs:
       - name: Install PETSc with complex support, and test it
         working-directory: ./petsc
         run: |
-          ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1 
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            export PETSC_ARCH=arch-linux-c-debug
-          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            export PETSC_ARCH=arch-darwin-c-debug
-          fi
-          echo $PETSC_ARCH          
-          make PETSC_DIR=$(pwd) PETSC_ARCH=$PETSC_ARCH all check
+          export PETSC_DIR=$(pwd)
+          export PETSC_ARCH=petsc-cmplx
+          ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1         
+          make all check
 
       - name: Install petsc4py
         working-directory: ./petsc
         run: |
+          echo PETSC_DIR  : $PETSC_DIR
+          echo PETSC_ARCH : $PETSC_ARCH 
           python -m pip install wheel Cython numpy
-          PETSC_DIR=$(pwd) PETSC_ARCH=$PETSC_ARCH pip install src/binding/petsc4py
+          pip install src/binding/petsc4py
 
       - name: Install Python dependencies
         run: |
