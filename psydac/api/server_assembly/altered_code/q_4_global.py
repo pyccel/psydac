@@ -122,7 +122,7 @@ def assemble_matrix_q_4_global(global_basis_v1_0_1 : "float64[:,:,:,:]", global_
     for i_1 in range(0, n_element_1 + 3, 1):
         for i_2 in range(0, n_element_2 + 4, 1):
             for i_3 in range(0, n_element_3 + 4, 1):
-                for j_1 in range(0, 5, 1):
+                for j_1 in range(0, 7, 1):
                     for j_2 in range(0, 9, 1):
                         g_mat_u1_0_v1_0[pad1 + i_1, pad2 + i_2, pad3 + i_3, j_1, j_2, :] = a1_u1_0_v1_0[i_1, j_1, i_2, j_2, i_3, :]
 
@@ -443,7 +443,7 @@ def assemble_matrix_q_4_global(global_basis_v1_0_1 : "float64[:,:,:,:]", global_
         for i_2 in range(0, n_element_2 + 3, 1):
             for i_3 in range(0, n_element_3 + 4, 1):
                 for j_1 in range(0, 9, 1):
-                    for j_2 in range(0, 5, 1):
+                    for j_2 in range(0, 7, 1):
                         g_mat_u1_1_v1_1[pad1 + i_1, pad2 + i_2, pad3 + i_3, j_1, j_2, :] = a1_u1_1_v1_1[i_1, j_1, i_2, j_2, i_3, :]
 
     for k_1 in range(0, n_element_1, 1):
