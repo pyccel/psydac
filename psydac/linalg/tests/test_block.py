@@ -2,15 +2,14 @@
 #
 import pytest
 import numpy as np
-import scipy.sparse as spa
+from scipy.sparse import csr_matrix
 from random import random, seed
 
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.block          import BlockVectorSpace, BlockVector
 from psydac.linalg.block          import BlockLinearOperator
-from psydac.linalg.utilities      import array_to_psydac
-from psydac.linalg.kron           import KroneckerLinearSolver
+from psydac.linalg.utilities      import array_to_psydac, petsc_to_psydac
 from psydac.api.settings          import PSYDAC_BACKEND_GPYCCEL
 from psydac.ddm.cart              import DomainDecomposition, CartDecomposition
 
@@ -241,7 +240,6 @@ def test_2D_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     assert abs(LT1_sp - L1_spT).max()< 1e-14
     assert abs(LT2_sp - L1_spT).max()< 1e-14
 
-
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'ndim', [1, 2, 3] )
@@ -379,6 +377,7 @@ def test_block_serial_dimension( ndim, p, P1, P2, P3, dtype ):
 
     assert M.dtype == dtype
     assert np.allclose((M.dot(X)).toarray(), Y.toarray(),  rtol=1e-14, atol=1e-14 )
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'npts', [[6, 8, 9]] )
@@ -545,6 +544,7 @@ def test_3D_block_serial_basic_operator( dtype, npts, p, P1, P2, P3 ):
     assert np.allclose(A4.blocks[0][1]._data, (M3)._data/5,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A4.blocks[1][0]._data, (M2)._data/5,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(A4.blocks[1][1]._data, (M1)._data/5,  rtol=1e-14, atol=1e-14 )
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'npts', [[6, 8]] )
@@ -732,7 +732,7 @@ def test_block_linear_operator_serial_dot( dtype, n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
 
-def test_block_2d_array_to_psydac_1( dtype, n1, n2, p1, p2, P1, P2 ):
+def test_block_2d_serial_array_to_psydac( dtype, n1, n2, p1, p2, P1, P2 ):
     #Define a factor for the data
     if dtype==complex:
         factor=1j
@@ -754,35 +754,47 @@ def test_block_2d_array_to_psydac_1( dtype, n1, n2, p1, p2, P1, P2 ):
     V2 = StencilVectorSpace( cart ,dtype=dtype)
 
     W = BlockVectorSpace(V1, V2)
+    W2 = BlockVectorSpace(W, W)
 
     x = BlockVector(W)
+    x2 = BlockVector(W2)
 
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
         for i2 in range(n2):
             x[0][i1,i2] = 2.0*factor*random() + 1.0
             x[1][i1,i2] = 5.0*factor*random() - 1.0
+            x2[0][0][i1,i2] = 2.0*factor*random() + 1.0
+            x2[0][1][i1,i2] = 5.0*factor*random() - 1.0
+            x2[1][0][i1,i2] = 2.0*factor*random() + 1.0
+            x2[1][1][i1,i2] = 5.0*factor*random() - 1.0
     x.update_ghost_regions()
+    x2.update_ghost_regions()
 
     xa = x.toarray()
+    x2a = x2.toarray()
     v  = array_to_psydac(xa, W)
+    v2  = array_to_psydac(x2a, W2)
 
     assert np.allclose( xa , v.toarray() )
+    assert np.allclose( x2a , v2.toarray() )
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
 @pytest.mark.parametrize( 'n2', [8, 12] )
 @pytest.mark.parametrize( 'p1', [1, 2] )
-@pytest.mark.parametrize( 'p2', [3] )
+@pytest.mark.parametrize( 'p2', [1, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
+@pytest.mark.petsc
 
-def test_block_2d_array_to_psydac_2( dtype, n1, n2, p1, p2, P1, P2 ):
-    # Define a factor for the data
-    if dtype == complex:
-        factor = 1j
+def test_block_vector_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
+    #Define a factor for the data
+    if dtype==complex:
+        factor=1j
     else:
-        factor = 1
+        factor=1
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
@@ -799,23 +811,98 @@ def test_block_2d_array_to_psydac_2( dtype, n1, n2, p1, p2, P1, P2 ):
     V2 = StencilVectorSpace( cart ,dtype=dtype)
 
     W = BlockVectorSpace(V1, V2)
-    W = BlockVectorSpace(W, W)
+    W2 = BlockVectorSpace(W, W)
 
     x = BlockVector(W)
+    x2 = BlockVector(W2)
 
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
         for i2 in range(n2):
-            x[0][0][i1,i2] = 2.0*factor*random() + 1.0
-            x[0][1][i1,i2] = 5.0*factor*random() - 1.0
-            x[1][0][i1,i2] = 2.0*factor*random() + 1.0
-            x[1][1][i1,i2] = 5.0*factor*random() - 1.0
+            x[0][i1,i2] = 2.0*factor*random() + 1.0
+            x[1][i1,i2] = 5.0*factor*random() - 1.0
+            x2[0][0][i1,i2] = 2.0*factor*random() + 1.0
+            x2[0][1][i1,i2] = 5.0*factor*random() - 1.0
+            x2[1][0][i1,i2] = 2.0*factor*random() + 1.0
+            x2[1][1][i1,i2] = 5.0*factor*random() - 1.0
+
     x.update_ghost_regions()
+    x2.update_ghost_regions()
 
-    xa = x.toarray()
-    v  = array_to_psydac(xa, W)
+    v = x.topetsc()
+    v2 = x2.topetsc()
+    v = petsc_to_psydac(v, W)
+    v2 = petsc_to_psydac(v2, W2)
 
-    assert np.allclose( xa , v.toarray() )
+    # The vectors can only be compared in the serial case
+    assert np.allclose( x.toarray() , v.toarray() )
+    assert np.allclose( x2.toarray() , v2.toarray() )
+
+#===============================================================================
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
+@pytest.mark.parametrize( 'p1', [1, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
+@pytest.mark.petsc
+
+def test_block_linear_operator_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2  ):
+    # set seed for reproducibility
+    seed(n1*n2*p1*p2)
+
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    # Create vector spaces, stencil matrices, and stencil vectors
+    V = StencilVectorSpace( cart, dtype=dtype )
+    M1 = StencilMatrix( V, V)
+    M2 = StencilMatrix( V, V )
+    M3 = StencilMatrix( V, V )
+
+    # Fill in stencil matrices based on diagonal index
+    if dtype==complex:
+        f=lambda k1,k2: 10j*k1+k2
+    else:
+        f=lambda k1,k2: 10*k1+k2
+
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            M1[:,:,k1,k2] = f(k1,k2)
+            M2[:,:,k1,k2] = f(k1,k2)+2.
+            M3[:,:,k1,k2] = f(k1,k2)+5.
+
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+    M3.remove_spurious_entries()
+
+    W = BlockVectorSpace(V, V)
+
+    # Construct a BlockLinearOperator object containing M1, M2, M, using 3 ways
+    #     |M1  M2|
+    # L = |      |
+    #     |M3  0 |
+
+    dict_blocks = {(0,0):M1, (0,1):M2, (1,0):M3}
+
+    L = BlockLinearOperator( W, W, blocks=dict_blocks )
+
+    Lp = L.topetsc()
+    indptr, indices, data = Lp.getValuesCSR()
+    if dtype == float:
+        data = data.real #PETSc with installation complex configuration only handles complex dtype
+    Lp = csr_matrix((data, indices, indptr), shape=Lp.size)   
+    L = L.tosparse().tocsr()
+
+    # The operators can only be compared in the serial case
+    assert (L-Lp).data.size == 0
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
@@ -1037,7 +1124,154 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     # Check data in 1D array
     assert np.allclose( Z.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
     assert np.allclose( Z.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+
+#===============================================================================    
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
+@pytest.mark.parametrize( 'p1', [1, 2] )
+@pytest.mark.parametrize( 'p2', [1, 3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
+@pytest.mark.parallel
+@pytest.mark.petsc
+
+def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
+    #Define a factor for the data
+    if dtype==complex:
+        factor=1j
+    else:
+        factor=1
+    # set seed for reproducibility
+    seed(n1*n2*p1*p2)
+
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    # Create vector spaces, and stencil vectors
+    V1 = StencilVectorSpace( cart ,dtype=dtype)
+    V2 = StencilVectorSpace( cart ,dtype=dtype)
+
+    W = BlockVectorSpace(V1, V2)
+    W2 = BlockVectorSpace(W, W)
+
+    x = BlockVector(W)
+    x2 = BlockVector(W2)
+
+    # Fill in vector with random values, then update ghost regions
+    for i0 in range(len(W.starts)):
+        for i1 in range(W.starts[i0][0], W.ends[i0][0] + 1):
+            for i2 in range(W.starts[i0][1], W.ends[i0][1] + 1):
+                x[i0][i1,i2] = 2.0*factor*random() + 1.0
+                x2[0][0][i1,i2] = 2.0*factor*random() + 1.0
+                x2[0][1][i1,i2] = 5.0*factor*random() - 1.0
+                x2[1][0][i1,i2] = 2.0*factor*random() + 1.0
+                x2[1][1][i1,i2] = 5.0*factor*random() - 1.0
+
+    x.update_ghost_regions()
+    x2.update_ghost_regions()
+
+    v = x.topetsc()
+    v2 = x2.topetsc()
+    v = petsc_to_psydac(v, W)
+    v2 = petsc_to_psydac(v2, W2)
+
+    assert np.allclose( x.toarray() , v.toarray(), rtol=1e-12, atol=1e-12 )
+    assert np.allclose( x2.toarray() , v2.toarray(), rtol=1e-12, atol=1e-12 )
+
+#===============================================================================    
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
+@pytest.mark.parametrize( 'p1', [1, 2] )
+@pytest.mark.parametrize( 'p2', [1, 3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
+@pytest.mark.parallel
+@pytest.mark.petsc
+
+def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2):
+    # set seed for reproducibility
+    seed(n1*n2*p1*p2)
+    from mpi4py import MPI
+
+    D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=MPI.COMM_WORLD)
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    # Create vector spaces, stencil matrices, and stencil vectors
+    V = StencilVectorSpace( cart, dtype=dtype )
+    M1 = StencilMatrix( V, V)
+    M2 = StencilMatrix( V, V )
+    M3 = StencilMatrix( V, V )
+
+    # Fill in stencil matrices based on diagonal index
+    if dtype==complex:
+        f=lambda k1,k2: 10j*k1+k2
+    else:
+        f=lambda k1,k2: 10*k1+k2
+
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            M1[:,:,k1,k2] = f(k1,k2)
+            M2[:,:,k1,k2] = f(k1,k2)+2.
+            M3[:,:,k1,k2] = f(k1,k2)+5.
+
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+    M3.remove_spurious_entries()
+
+    W = BlockVectorSpace(V, V)
+
+    # Construct a BlockLinearOperator object containing M1, M2, M3: 
+    #     |M1  M2|
+    # L = |      |
+    #     |M3  0 |
+
+    dict_blocks = {(0,0):M1, (0,1):M2, (1,0):M3}
+
+    L = BlockLinearOperator( W, W, blocks=dict_blocks )
+    x = BlockVector(W)
+
+    # Fill in vector with random values, then update ghost regions
+    for i0 in range(len(W.starts)):
+        for i1 in range(W.starts[i0][0], W.ends[i0][0] + 1):
+            for i2 in range(W.starts[i0][1], W.ends[i0][1] + 1):
+                x[i0][i1,i2] = 2.0*random() + (1j if dtype==complex else 1.)
+    x.update_ghost_regions()
+
+    y = L.dot(x)
+
+    # Cast operator to PETSc Mat format
+    Lp = L.topetsc()
+
+    # Create Vec to allocate the result of the dot product
+    y_petsc = Lp.createVecRight()
+    # Compute dot product
+    Lp.mult(x.topetsc(), y_petsc)
+    # Cast result back to Psydac BlockVector format
+    y_p = petsc_to_psydac(y_petsc, W)
     
+    ################################################
+    # Note 12.03.2024:
+    # Another possibility would be to compare y_petsc.array and y.toarray(). 
+    # However, we cannot do this because PETSc distributes matrices and vectors different than Psydac.
+    # In the future we would like that PETSc uses the partition from Psydac, 
+    # which might involve passing a DM Object.
+    ################################################
+    assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
 
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
