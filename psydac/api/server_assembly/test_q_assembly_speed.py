@@ -12,12 +12,12 @@ from psydac.api.discretization      import discretize
 from psydac.api.settings            import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.basic               import FemField
 
-#from altered_q_assembly_code.q_1 import assemble_matrix_q_1
+from altered_code.q_1 import assemble_matrix_q_1
 from altered_code.q_2 import assemble_matrix_q_2
 from altered_code.q_3 import assemble_matrix_q_3
 #from altered_q_assembly_code.q_4 import assemble_matrix_q_4
 
-#from altered_q_assembly_code.q_1_global import assemble_matrix_q_1_global
+from altered_code.q_1_global import assemble_matrix_q_1_global
 from altered_code.q_2_global import assemble_matrix_q_2_global
 from altered_code.q_3_global import assemble_matrix_q_3_global
 #from altered_q_assembly_code.q_4_global import assemble_matrix_q_4_global
@@ -26,11 +26,11 @@ comm = MPI.COMM_WORLD
 mpi_rank = comm.Get_rank()
 mpi_size = comm.Get_size()
 
-funcs_sf = [assemble_matrix_q_2, assemble_matrix_q_3]#, assemble_matrix_q_4] [assemble_matrix_q_1 , 
-funcs_sfg = [assemble_matrix_q_2_global, assemble_matrix_q_3_global]#, assemble_matrix_q_4_global] [assemble_matrix_q_1_global, 
+funcs_sf = [assemble_matrix_q_1 , assemble_matrix_q_2, assemble_matrix_q_3]#, assemble_matrix_q_4] 
+funcs_sfg = [assemble_matrix_q_1_global, assemble_matrix_q_2_global, assemble_matrix_q_3_global]#, assemble_matrix_q_4_global] 
 labels = ['old', 'sf', 'sfg']
 
-degree_list = [[2, 2, 2], [3, 3, 3]]#, [4, 4, 4]] [1, 1, 1], 
+degree_list = [[1, 1, 1], [2, 2, 2], [3, 3, 3]]#, [4, 4, 4]] 
 ncells_list = [[16, 16, 16], [32, 32, 32]]
 
 new_funcs = [[funcs_sf[i], funcs_sfg[i]] for i in range(len(degree_list))]
