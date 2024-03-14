@@ -22,13 +22,9 @@ from altered_code.q_2_global import assemble_matrix_q_2_global
 from altered_code.q_3_global import assemble_matrix_q_3_global
 #from altered_q_assembly_code.q_4_global import assemble_matrix_q_4_global
 
-parallel = True
-
-if parallel:
-    comm = MPI.COMM_WORLD
-    mpi_rank = comm.Get_rank()
-else:
-    mpi_rank = 0
+comm = MPI.COMM_WORLD
+mpi_rank = comm.Get_rank()
+mpi_size = comm.Get_size()
 
 funcs_sf = [assemble_matrix_q_2, assemble_matrix_q_3]#, assemble_matrix_q_4] [assemble_matrix_q_1 , 
 funcs_sfg = [assemble_matrix_q_2_global, assemble_matrix_q_3_global]#, assemble_matrix_q_4_global] [assemble_matrix_q_1_global, 
@@ -72,6 +68,7 @@ if mpi_rank == 0:
         os.makedirs('data')
 currtime = datetime.datetime.now().strftime("%Y-%m-%d_-_%H%M%S")
 f = open(f'data/q_data_{currtime}.txt', 'w')
+f.writelines([f'{mpi_size} \t']+[f'{str(labels[i])} \t' for i in range(len(labels))]+['\n'])
 f.writelines('degree list:\n')
 f.writelines([f'{str(degree[0])} \t' for degree in degree_list]+['\n'])
 f.writelines([f'{str(degree[1])} \t' for degree in degree_list]+['\n'])
@@ -93,10 +90,8 @@ for i, degree in enumerate(degree_list):
     timings_degree = [[] for label in labels] # old, sf, sfg
     new_funcs_degree = new_funcs[i] # sf_i, sfg_i
     for j, ncells in enumerate(ncells_list):
-        if parallel:
-            domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=comm)
-        else:
-            domain_h = discretize(domain, ncells=ncells, periodic=periodic)
+
+        domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=comm)
         derham_h = discretize(derham, domain_h, degree=degree)
 
         P0, P1, P2, P3  = derham_h.projectors()
@@ -125,11 +120,11 @@ for i, degree in enumerate(degree_list):
             del Q
             timings_degree[k].append(time_measured)
 
-    f = open(f'data/q_data_{currtime}.txt', 'a')
-    for k in range(len(labels)):
-        f.writelines([f'{str(timings_degree[k][i])} \t' for i in range(len(timings_degree[k]))]+['\n'])
-    f.close()
     if mpi_rank == 0:
+        f = open(f'data/q_data_{currtime}.txt', 'a')
+        for k in range(len(labels)):
+            f.writelines([f'{str(timings_degree[k][i])} \t' for i in range(len(timings_degree[k]))]+['\n'])
+        f.close()
         print()
 
 if mpi_rank == 0:
