@@ -90,11 +90,7 @@ jobs:
 
       - name: Download a specific release of PETSc
         run: |
-          PETSC_VERSION="v3.20.5"
-          wget https://gitlab.com/petsc/petsc/-/archive/$PETSC_VERSION/petsc-$PETSC_VERSION.zip
-          unzip petsc-$PETSC_VERSION.zip
-          rm petsc-$PETSC_VERSION.zip
-          mv petsc-$PETSC_VERSION petsc
+          git clone --depth 1 --branch v3.20.5 https://gitlab.com/petsc/petsc.git
 
       - name: Install PETSc with complex support, and test it
         working-directory: ./petsc
