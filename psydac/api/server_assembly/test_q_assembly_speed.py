@@ -41,7 +41,7 @@ labels = ['old', 'sf', 'sfg', 'sfg2']
 degree_list = [[1, 1, 1], [2, 2, 2], [3, 3, 3], [4, 4, 4]]
 ncells_list = [[24, 24, 24], [32, 32, 32], [40, 40, 40]]
 
-new_funcs = [[funcs_sf[i], funcs_sfg[i]] for i in range(len(degree_list))]
+new_funcs = [[funcs_sf[i], funcs_sfg[i], funcs_sfgn[i]] for i in range(len(degree_list))]
 
 periodic = [False, False, False]
 
