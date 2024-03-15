@@ -22,14 +22,16 @@ from altered_code.q_2_global import assemble_matrix_q_2_global
 from altered_code.q_3_global import assemble_matrix_q_3_global
 from altered_code.q_4_global import assemble_matrix_q_4_global
 
-from altered_code.q_1_global_new import assemble_matrix_q_1_global2
-from altered_code.q_2_global_new import assemble_matrix_q_2_global2
-from altered_code.q_3_global_new import assemble_matrix_q_3_global2
-from altered_code.q_4_global_new import assemble_matrix_q_4_global2
+from altered_code.q_1_global2 import assemble_matrix_q_1_global2
+from altered_code.q_2_global2 import assemble_matrix_q_2_global2
+from altered_code.q_3_global2 import assemble_matrix_q_3_global2
+from altered_code.q_4_global2 import assemble_matrix_q_4_global2
 
 comm = MPI.COMM_WORLD
 mpi_rank = comm.Get_rank()
 mpi_size = comm.Get_size()
+
+check_equality = False
 
 funcs_sf = [assemble_matrix_q_1 , assemble_matrix_q_2, assemble_matrix_q_3, assemble_matrix_q_4] 
 funcs_sfg = [assemble_matrix_q_1_global, assemble_matrix_q_2_global, assemble_matrix_q_3_global, assemble_matrix_q_4_global] 
@@ -133,17 +135,18 @@ for i, degree in enumerate(degree_list):
         f.close()
         print()
 
-if mpi_rank == 0:
-    print('Testing for equality of old and new matrices')
-l = int( (len(labels)-1) * len(matrices[0]))
-for i, k in enumerate(labels[1:]):
-    for j in range(len(matrices[0])):
-        old = matrices[0][j]
-        new = matrices[i+1][j]
-        diff = old[0] - new[0]
-        diffs = diff.tosparse()
-        diffs.eliminate_zeros()
-        abs_diffs = np.absolute(diffs)
-        max_diff = np.max(abs_diffs)
-        if mpi_rank == 0:
-            print(f'{len(matrices[0])*i+j+1}/{l}: max. abs. diff.: {max_diff} | {old[1]} vs. {new[1]}')
+if check_equality:
+    if mpi_rank == 0:
+        print('Testing for equality of old and new matrices')
+    l = int( (len(labels)-1) * len(matrices[0]))
+    for i, k in enumerate(labels[1:]):
+        for j in range(len(matrices[0])):
+            old = matrices[0][j]
+            new = matrices[i+1][j]
+            diff = old[0] - new[0]
+            diffs = diff.tosparse()
+            diffs.eliminate_zeros()
+            abs_diffs = np.absolute(diffs)
+            max_diff = np.max(abs_diffs)
+            if mpi_rank == 0:
+                print(f'{len(matrices[0])*i+j+1}/{l}: max. abs. diff.: {max_diff} | {old[1]} vs. {new[1]}')
