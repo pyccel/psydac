@@ -115,7 +115,9 @@ def assemble_matrix_q_2_global2(global_basis_v1_0_1 : "float64[:,:,:,:]", global
                         span_v1_1_3 = global_span_v1_1_3[k_3]
                         span_v1_2_3 = global_span_v1_2_3[k_3]
                         for q_3 in range(0, 3, 1):
-                            h_0, h_1, h_2 = h_arr[3 * k_1 + q_1, 3 * k_2 + q_2, 3 * k_3 + q_3, :]
+                            h_0 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 0]
+                            h_1 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 1]
+                            h_2 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 2]
                             a4 = h_1 ** 2 + h_2 ** 2
                             for i_3 in range(0, 3, 1):
                                 for j_3 in range(0, 3, 1):
@@ -155,7 +157,9 @@ def assemble_matrix_q_2_global2(global_basis_v1_0_1 : "float64[:,:,:,:]", global
                         span_v1_1_3 = global_span_v1_1_3[k_3]
                         span_v1_2_3 = global_span_v1_2_3[k_3]
                         for q_3 in range(0, 3, 1):
-                            h_0, h_1, h_2 = h_arr[3 * k_1 + q_1, 3 * k_2 + q_2, 3 * k_3 + q_3, :]
+                            h_0 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 0]
+                            h_1 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 1]
+                            h_2 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 2]
                             a4 = - h_0 * h_1
                             for i_3 in range(0, 3, 1):
                                 for j_3 in range(0, 3, 1):
@@ -195,7 +199,9 @@ def assemble_matrix_q_2_global2(global_basis_v1_0_1 : "float64[:,:,:,:]", global
                         span_v1_1_3 = global_span_v1_1_3[k_3]
                         span_v1_2_3 = global_span_v1_2_3[k_3]
                         for q_3 in range(0, 3, 1):
-                            h_0, h_1, h_2 = h_arr[3 * k_1 + q_1, 3 * k_2 + q_2, 3 * k_3 + q_3, :]
+                            h_0 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 0]
+                            h_1 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 1]
+                            h_2 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 2]
                             a4 = - h_0 * h_2
                             for i_3 in range(0, 3, 1):
                                 for j_3 in range(0, 2, 1):
@@ -235,7 +241,9 @@ def assemble_matrix_q_2_global2(global_basis_v1_0_1 : "float64[:,:,:,:]", global
                         span_v1_1_3 = global_span_v1_1_3[k_3]
                         span_v1_2_3 = global_span_v1_2_3[k_3]
                         for q_3 in range(0, 3, 1):
-                            h_0, h_1, h_2 = h_arr[3 * k_1 + q_1, 3 * k_2 + q_2, 3 * k_3 + q_3, :]
+                            h_0 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 0]
+                            h_1 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 1]
+                            h_2 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 2]
                             a4 = - h_0 * h_1
                             for i_3 in range(0, 3, 1):
                                 for j_3 in range(0, 3, 1):
@@ -275,7 +283,9 @@ def assemble_matrix_q_2_global2(global_basis_v1_0_1 : "float64[:,:,:,:]", global
                         span_v1_1_3 = global_span_v1_1_3[k_3]
                         span_v1_2_3 = global_span_v1_2_3[k_3]
                         for q_3 in range(0, 3, 1):
-                            h_0, h_1, h_2 = h_arr[3 * k_1 + q_1, 3 * k_2 + q_2, 3 * k_3 + q_3, :]
+                            h_0 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 0]
+                            h_1 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 1]
+                            h_2 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 2]
                             a4 = h_0 ** 2 +  h_2 ** 2
                             for i_3 in range(0, 3, 1):
                                 for j_3 in range(0, 3, 1):
@@ -315,7 +325,9 @@ def assemble_matrix_q_2_global2(global_basis_v1_0_1 : "float64[:,:,:,:]", global
                         span_v1_1_3 = global_span_v1_1_3[k_3]
                         span_v1_2_3 = global_span_v1_2_3[k_3]
                         for q_3 in range(0, 3, 1):
-                            h_0, h_1, h_2 = h_arr[3 * k_1 + q_1, 3 * k_2 + q_2, 3 * k_3 + q_3, :]
+                            h_0 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 0]
+                            h_1 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 1]
+                            h_2 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 2]
                             a4 = - h_1 * h_2
                             for i_3 in range(0, 3, 1):
                                 for j_3 in range(0, 2, 1):
@@ -355,7 +367,9 @@ def assemble_matrix_q_2_global2(global_basis_v1_0_1 : "float64[:,:,:,:]", global
                         span_v1_1_3 = global_span_v1_1_3[k_3]
                         span_v1_2_3 = global_span_v1_2_3[k_3]
                         for q_3 in range(0, 3, 1):
-                            h_0, h_1, h_2 = h_arr[3 * k_1 + q_1, 3 * k_2 + q_2, 3 * k_3 + q_3, :]
+                            h_0 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 0]
+                            h_1 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 1]
+                            h_2 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 2]
                             a4 = - h_0 * h_2
                             for i_3 in range(0, 2, 1):
                                 for j_3 in range(0, 3, 1):
@@ -395,7 +409,9 @@ def assemble_matrix_q_2_global2(global_basis_v1_0_1 : "float64[:,:,:,:]", global
                         span_v1_1_3 = global_span_v1_1_3[k_3]
                         span_v1_2_3 = global_span_v1_2_3[k_3]
                         for q_3 in range(0, 3, 1):
-                            h_0, h_1, h_2 = h_arr[3 * k_1 + q_1, 3 * k_2 + q_2, 3 * k_3 + q_3, :]
+                            h_0 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 0]
+                            h_1 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 1]
+                            h_2 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 2]
                             a4 = - h_1 * h_2
                             for i_3 in range(0, 2, 1):
                                 for j_3 in range(0, 3, 1):
@@ -435,7 +451,9 @@ def assemble_matrix_q_2_global2(global_basis_v1_0_1 : "float64[:,:,:,:]", global
                         span_v1_1_3 = global_span_v1_1_3[k_3]
                         span_v1_2_3 = global_span_v1_2_3[k_3]
                         for q_3 in range(0, 3, 1):
-                            h_0, h_1, h_2 = h_arr[3 * k_1 + q_1, 3 * k_2 + q_2, 3 * k_3 + q_3, :]
+                            h_0 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 0]
+                            h_1 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 1]
+                            h_2 = h_arr[2 * k_1 + q_1, 2 * k_2 + q_2, 2 * k_3 + q_3, 2]
                             a4 = h_0 ** 2 + h_1 ** 2
                             for i_3 in range(0, 2, 1):
                                 for j_3 in range(0, 2, 1):
