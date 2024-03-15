@@ -22,10 +22,10 @@ from altered_code.q_2_global import assemble_matrix_q_2_global
 from altered_code.q_3_global import assemble_matrix_q_3_global
 from altered_code.q_4_global import assemble_matrix_q_4_global
 
-from altered_code.q_1_global_new import assemble_matrix_q_1_global_new
-from altered_code.q_2_global_new import assemble_matrix_q_2_global_new
-from altered_code.q_3_global_new import assemble_matrix_q_3_global_new
-from altered_code.q_4_global_new import assemble_matrix_q_4_global_new
+from altered_code.q_1_global_new import assemble_matrix_q_1_global2
+from altered_code.q_2_global_new import assemble_matrix_q_2_global2
+from altered_code.q_3_global_new import assemble_matrix_q_3_global2
+from altered_code.q_4_global_new import assemble_matrix_q_4_global2
 
 comm = MPI.COMM_WORLD
 mpi_rank = comm.Get_rank()
@@ -33,7 +33,7 @@ mpi_size = comm.Get_size()
 
 funcs_sf = [assemble_matrix_q_1 , assemble_matrix_q_2, assemble_matrix_q_3, assemble_matrix_q_4] 
 funcs_sfg = [assemble_matrix_q_1_global, assemble_matrix_q_2_global, assemble_matrix_q_3_global, assemble_matrix_q_4_global] 
-funcs_sfgn = [assemble_matrix_q_1_global_new, assemble_matrix_q_2_global_new, assemble_matrix_q_3_global_new, assemble_matrix_q_4_global_new]
+funcs_sfgn = [assemble_matrix_q_1_global2, assemble_matrix_q_2_global2, assemble_matrix_q_3_global2, assemble_matrix_q_4_global2]
 labels = ['old', 'sf', 'sfg', 'sfg2']
 
 degree_list = [[1, 1, 1], [2, 2, 2], [3, 3, 3], [4, 4, 4]]
