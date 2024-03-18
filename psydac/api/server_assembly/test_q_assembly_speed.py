@@ -27,9 +27,9 @@ from altered_code.q_2_global2 import assemble_matrix_q_2_global2
 from altered_code.q_3_global2 import assemble_matrix_q_3_global2
 from altered_code.q_4_global2 import assemble_matrix_q_4_global2
 
-comm = MPI.COMM_WORLD
-mpi_rank = comm.Get_rank()
-mpi_size = comm.Get_size()
+degree_list = [[1, 1, 1], [2, 2, 2], [3, 3, 3], [4, 4, 4]]
+ncells_list = [[24, 24, 24], [32, 32, 32], [40, 40, 40]]
+periodic = [False, False, False]
 
 check_equality = False
 
@@ -37,14 +37,11 @@ funcs_sf = [assemble_matrix_q_1 , assemble_matrix_q_2, assemble_matrix_q_3, asse
 funcs_sfg = [assemble_matrix_q_1_global, assemble_matrix_q_2_global, assemble_matrix_q_3_global, assemble_matrix_q_4_global] 
 funcs_sfgn = [assemble_matrix_q_1_global2, assemble_matrix_q_2_global2, assemble_matrix_q_3_global2, assemble_matrix_q_4_global2]
 labels = ['old', 'sf', 'sfg', 'sfg2']
-
-degree_list = [[1, 1, 1], [2, 2, 2], [3, 3, 3], [4, 4, 4]]
-ncells_list = [[24, 24, 24], [32, 32, 32], [40, 40, 40]]
-
 new_funcs = [[funcs_sf[i], funcs_sfg[i], funcs_sfgn[i]] for i in range(len(degree_list))]
 
-periodic = [False, False, False]
-
+comm = MPI.COMM_WORLD
+mpi_rank = comm.Get_rank()
+mpi_size = comm.Get_size()
 backend = PSYDAC_BACKEND_GPYCCEL
 
 domain = Cube('C', bounds1=(0, 1), bounds2=(0, 1), bounds3=(0, 1))

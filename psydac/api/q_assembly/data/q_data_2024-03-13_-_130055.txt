@@ -1,0 +1,8 @@
+degree list:
+2 	3 	
+2 	3 	
+2 	3 	
+ncells list:
+4 	8 	
+4 	8 	
+4 	8 	
