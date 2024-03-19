@@ -13,6 +13,7 @@ Contents
    
    modules
    examples
+   maintenance
 
 .. _note:
 .. note::
