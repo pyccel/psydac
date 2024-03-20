@@ -1077,8 +1077,8 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:
     nbk = len(breaks)
 
     # Check if there are points outside the domain
-    if np.min(i_grid) < breaks[0] - tol: return 1
-    if np.max(i_grid) > breaks[nbk - 1] + tol: return 1
+    if np.min(i_grid) < breaks[0] - tol/2: return 1
+    if np.max(i_grid) > breaks[nbk - 1] + tol/2: return 1
 
     current_index = 0
     while current_index < nx:
