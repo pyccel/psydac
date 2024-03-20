@@ -638,7 +638,7 @@ def eval_fields_1d_weighted(nc1: int, f_p1: int, k1: int,
     out_fields: ndarray of float
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros_like(global_arr_coeff, shape=(1 + f_p1, out_fields.shape[2]))
+    arr_coeff_fields = np.zeros_like(global_arr_coeff, shape=(1 + f_p1, out_fields.shape[1]))
     arr_coeff_weights = np.zeros(1 + f_p1)
 
     arr_fields = np.zeros_like(global_arr_coeff, shape=(k1, out_fields.shape[1]))
