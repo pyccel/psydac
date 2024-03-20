@@ -31,7 +31,10 @@ from psydac.core.bsplines  import (find_span,
                                    cell_index,
                                    basis_ders_on_irregular_grid)
 
-from psydac.core.field_evaluation_kernels import (eval_fields_1d_irregular_no_weights,
+from psydac.core.field_evaluation_kernels import (eval_fields_1d_no_weights,
+                                                  eval_fields_1d_irregular_no_weights,
+                                                  eval_fields_1d_weighted,
+                                                  eval_fields_1d_irregular_weighted,
                                                   eval_fields_2d_no_weights,
                                                   eval_fields_2d_irregular_no_weights,
                                                   eval_fields_2d_weighted,
@@ -545,7 +548,12 @@ class TensorFemSpace( FemSpace ):
                                           n_eval_points[0], global_basis[0],
                                           global_spans[0], glob_arr_coeffs, out_fields)
             else:
-                raise NotImplementedError("1D with weights not Implemented")
+                global_weight_coeff = weights.coeffs._data
+
+                eval_fields_1d_weighted(ncells[0], degree[0], 
+                                        n_eval_points[0], global_basis[0], 
+                                        global_spans[0], glob_arr_coeffs, global_weight_coeff,
+                                        out_fields)
 
         return out_fields
 
@@ -609,7 +617,14 @@ class TensorFemSpace( FemSpace ):
                 eval_fields_3d_irregular_weighted(*npoints, *degree, *cell_indexes, *global_basis,
                                                   *global_spans, glob_arr_coeffs, global_weight_coeff, out_fields)
         else:
-            raise NotImplementedError("1D not Implemented")
+            if weights is None:
+                eval_fields_1d_irregular_no_weights(*npoints, *degree, *cell_indexes, *global_basis,
+                                                    *global_spans, glob_arr_coeffs, out_fields)
+            else:
+                global_weight_coeff = weights.coeffs._data
+
+                eval_fields_1d_irregular_weighted(*npoints, *degree, *cell_indexes, *global_basis,
+                                                  *global_spans, glob_arr_coeffs, global_weight_coeff, out_fields)
 
         return out_fields
 
