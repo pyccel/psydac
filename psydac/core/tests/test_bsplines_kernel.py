@@ -13,6 +13,12 @@ def test_cell_index_p():
     out = np.zeros_like(breaks, dtype=np.int64)
     tol = 1e-15
 
+    # limit case: code should decide wether point is in or out, not fall in infinite loop
+    i_grid = breaks.copy()
+    i_grid[:] += tol
+    status = cell_index_p(breaks, i_grid, tol, out)
+    assert status in [0,-1]
+
     # usual cases: points inside or outside domain
     for offset, expected_status in [(0, 0), (tol/2, 0), (2*tol, -1)]:
         i_grid = breaks.copy()
@@ -20,8 +26,3 @@ def test_cell_index_p():
         status = cell_index_p(breaks, i_grid, tol, out)
         assert status == expected_status
 
-    # limit case: code should decide wether point is in or out, not fall in infinite loop
-    i_grid = breaks.copy()
-    i_grid[:] += tol
-    status = cell_index_p(breaks, i_grid, tol, out)
-    assert status in [0,-1]
