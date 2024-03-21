@@ -200,7 +200,7 @@ def eval_fields_1d_no_weights(nc1: int, f_p1: int, k1: int,
             coeff_fields = arr_coeff_fields[i_basis_1, :]
             for i_quad_1 in range(k1):
                 spline = global_basis_1[i_cell_1, i_basis_1, 0, i_quad_1]
-                out_fields[i_cell_1 * k1 + i_quad_1:] += spline * coeff_fields
+                out_fields[i_cell_1 * k1 + i_quad_1, :] += spline * coeff_fields
 
 # -----------------------------------------------------------------------------
 # 2: Irregular tensor grid without weights
@@ -639,10 +639,10 @@ def eval_fields_1d_weighted(nc1: int, f_p1: int, k1: int,
         Evaluated fields, filled with the correct values by the function
     """
     arr_coeff_fields = np.zeros_like(global_arr_coeff, shape=(1 + f_p1, out_fields.shape[1]))
-    arr_coeff_weights = np.zeros(1 + f_p1)
+    arr_coeff_weights = np.zeros((1 + f_p1))
 
     arr_fields = np.zeros_like(global_arr_coeff, shape=(k1, out_fields.shape[1]))
-    arr_weights = np.zeros(k1)
+    arr_weights = np.zeros((k1))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -668,7 +668,7 @@ def eval_fields_1d_weighted(nc1: int, f_p1: int, k1: int,
             fields = arr_fields[i_quad_1, :]
             weight = arr_weights[i_quad_1]
 
-            out_fields[i_cell_1 * k1 + i_quad_1,:] += fields / weight
+            out_fields[i_cell_1 * k1 + i_quad_1, :] += fields / weight
 
 
 # -----------------------------------------------------------------------------
@@ -869,7 +869,7 @@ def eval_fields_2d_irregular_weighted(np1: int, np2: int, f_p1: int, f_p2: int,
 def eval_fields_1d_irregular_weighted(np1: int, f_p1: int, 
                                       cell_index_1: 'int[:]', global_basis_1: 'float[:,:,:]',
                                       global_spans_1: 'int[:]', 
-                                      global_arr_coeff: 'T', global_arr_weights: 'float[:,:]',
+                                      global_arr_coeff: 'T', global_arr_weights: 'float[:]',
                                       out_fields: 'T'):
     """
     Parameters
@@ -898,18 +898,11 @@ def eval_fields_1d_irregular_weighted(np1: int, f_p1: int,
     out_fields : ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-    arr_coeff_fields = np.zeros_like(global_arr_coeff, shape=(1 + f_p1, out_fields.shape[1]))
-    arr_coeff_weights = np.zeros(1 + f_p1)
-
     temp_fields = np.zeros_like(global_arr_coeff, shape=out_fields.shape[1])
 
     for i_p_1 in range(np1):
         i_cell_1 = cell_index_1[i_p_1]
         span_1 = global_spans_1[i_cell_1]
-
-        arr_coeff_fields[:, :] = global_arr_coeff[span_1 - f_p1:1 + span_1, :]
-
-        arr_coeff_weights[:] = global_arr_weights[span_1 - f_p1:1 + span_1]
 
         temp_fields[:] = 0.0
         temp_weight    = 0.0
@@ -917,9 +910,9 @@ def eval_fields_1d_irregular_weighted(np1: int, f_p1: int,
         for i_basis_1 in range(1 + f_p1):
             spline = global_basis_1[i_p_1, i_basis_1, 0]
 
-            coeff_fields = arr_coeff_fields[i_basis_1, :]
+            coeff_fields = global_arr_coeff[span_1 - f_p1 + i_basis_1, :]
 
-            coeff_weight = arr_coeff_weights[i_basis_1]
+            coeff_weight = global_arr_weights[span_1 - f_p1 + i_basis_1]
 
             temp_fields[:] += spline * coeff_fields * coeff_weight
 
