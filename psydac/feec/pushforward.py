@@ -102,8 +102,6 @@ class Pushforward:
         self.grid_type=grid_type
         if grid_local is None:
             grid_local=grid
-        else:
-            grid_local=grid_local
 
         if isinstance(mapping, Mapping):
             self._mesh_grids = np.meshgrid(*grid_local, indexing='ij', sparse=True)
