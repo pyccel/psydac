@@ -133,6 +133,7 @@ class TensorFemSpace( FemSpace ):
         self._global_element_ends   = domain_decomposition.global_element_ends
 
         self.set_refined_space(self.ncells, self)
+
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
@@ -511,49 +512,21 @@ class TensorFemSpace( FemSpace ):
         for i in range(len(fields)):
             glob_arr_coeffs[..., i] = fields[i].coeffs._data
 
-        if self.ldim == 2:
-            if weights is None:
-                eval_fields_2d_no_weights(ncells[0], ncells[1], degree[0], degree[1],
-                                          n_eval_points[0], n_eval_points[1], global_basis[0], global_basis[1],
-                                          global_spans[0], global_spans[1], glob_arr_coeffs, out_fields)
+        if weights is None:
+            args = (*ncells, *degree, *n_eval_points, *global_basis, *global_spans, global_arr_coeffs, out_fields)
+            if   self.ldim == 1:  eval_fields_1d_no_weights(*args)
+            elif self.ldim == 2:  eval_fields_2d_no_weights(*args)
+            elif self.ldim == 3:  eval_fields_3d_no_weights(*args)
             else:
-
-                global_weight_coeff = weights.coeffs._data
-
-                eval_fields_2d_weighted(ncells[0], ncells[1], degree[0], degree[1],
-                                        n_eval_points[0], n_eval_points[1], global_basis[0], global_basis[1],
-                                        global_spans[0], global_spans[1], glob_arr_coeffs, global_weight_coeff,
-                                        out_fields)
-
-        elif self.ldim == 3:
-            if weights is None:
-
-                eval_fields_3d_no_weights(ncells[0], ncells[1], ncells[2], degree[0],
-                                          degree[1], degree[2], n_eval_points[0], n_eval_points[1],
-                                          n_eval_points[2], global_basis[0], global_basis[1], global_basis[2],
-                                          global_spans[0], global_spans[1], global_spans[2], glob_arr_coeffs,
-                                          out_fields)
-
-            else:
-                global_weight_coeff = weights.coeffs._data
-
-                eval_fields_3d_weighted(ncells[0], ncells[1], ncells[2], degree[0],
-                                        degree[1], degree[2], n_eval_points[0], n_eval_points[1], n_eval_points[2],
-                                        global_basis[0], global_basis[1], global_basis[2], global_spans[0],
-                                        global_spans[1], global_spans[2], glob_arr_coeffs, global_weight_coeff,
-                                        out_fields)
+              raise NotImplementedError(f"eval_fields_{self.ldim}d_no_weights not implemented")
         else:
-            if weights is None:
-                eval_fields_1d_no_weights(ncells[0], degree[0],
-                                          n_eval_points[0], global_basis[0],
-                                          global_spans[0], glob_arr_coeffs, out_fields)
+            global_weight_coeff = weights.coeffs._data
+            args = (*ncells, *degree, *n_eval_points, *global_basis, *global_spans, global_arr_coeffs, global_weight_coeff, out_fields)
+            if   self.ldim == 1:  eval_fields_1d_weighted(*args)
+            elif self.ldim == 2:  eval_fields_2d_weighted(*args)
+            elif self.ldim == 3:  eval_fields_3d_weighted(*args)
             else:
-                global_weight_coeff = weights.coeffs._data
-
-                eval_fields_1d_weighted(ncells[0], degree[0], 
-                                        n_eval_points[0], global_basis[0], 
-                                        global_spans[0], glob_arr_coeffs, global_weight_coeff,
-                                        out_fields)
+              raise NotImplementedError(f"eval_fields_{self.ldim}d_weighted not implemented")
 
         return out_fields
 
