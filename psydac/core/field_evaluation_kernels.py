@@ -186,7 +186,9 @@ def eval_fields_1d_no_weights(nc1: int, f_p1: int, k1: int,
         Spans in the X1 direction
 
     glob_arr_coeff: ndarray of floats
-        Coefficients of the fields in the X1 and X2 directions
+        Coefficients of the 1D fields, stored in a 2D array.
+        The first dimension loops over the coefficients, and
+        the second dimension over the different fields.
 
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
@@ -383,7 +385,9 @@ def eval_fields_1d_irregular_no_weights(np1: int, f_p1: int,
         Spans in the X1 direction
 
     glob_arr_coeff: ndarray of floats
-        Coefficients of the fields in the X1 direction
+        Coefficients of the scalar 1D fields, stored in a 2D array.
+        The first dimension loops over the coefficients, and the
+        second dimension over the different fields.
 
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
@@ -630,10 +634,12 @@ def eval_fields_1d_weighted(nc1: int, f_p1: int, k1: int,
         Spans in the X1 direction
 
     global_arr_coeff: ndarray of float
-        Coefficients of the fields in the X1 direction
+        Coefficients of the scalar 1D fields, stored in a 2D array.
+        The first dimension loops over the coefficients, and the
+        second dimension over the different fields.
 
     global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X1 direction
+        Coefficients of the 1D scalar weight field.
 
     out_fields: ndarray of float
         Evaluated fields, filled with the correct values by the function
@@ -890,10 +896,12 @@ def eval_fields_1d_irregular_weighted(np1: int, f_p1: int,
         Spans in the X1 direction
 
     global_arr_coeff : ndarray of floats
-        Coefficients of the fields in the X1 direction
+        Coefficients of the scalar 1D fields, stored in a 2D array.
+        The first dimension loops over the coefficients, and the
+        second dimension over the different fields.
 
     global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X1 direction
+        Coefficients of the 1D scalar weight field.
 
     out_fields : ndarray of floats
         Evaluated fields, filled with the correct values by the function
