@@ -1,9 +1,8 @@
 from pyccel.decorators import template
 
 #========================================================================================================
-@template(name='Tarray', types=['float[:]', 'complex[:]'])
-@template(name='T', types=['float', 'complex'])
-def axpy_1d(alpha: 'T', x: "Tarray", y: "Tarray"):
+@template(name='T', types=[float, complex])
+def axpy_1d(alpha: 'T', x: 'T[:]', y: 'T[:]'):
     """
     Kernel for computing y = alpha * x + y.
 
@@ -20,9 +19,8 @@ def axpy_1d(alpha: 'T', x: "Tarray", y: "Tarray"):
         y[i1] += alpha * x[i1]
 
 #========================================================================================================
-@template(name='Tarray', types=['float[:,:]', 'complex[:,:]'])
-@template(name='T', types=['float', 'complex'])
-def axpy_2d(alpha: 'T', x: "Tarray", y: "Tarray"):
+@template(name='T', types=[float, complex])
+def axpy_2d(alpha: 'T', x: 'T[:,:]', y: 'T[:,:]'):
     """
     Kernel for computing y = alpha * x + y.
 
@@ -40,9 +38,8 @@ def axpy_2d(alpha: 'T', x: "Tarray", y: "Tarray"):
             y[i1, i2] += alpha * x[i1, i2]
 
 #========================================================================================================
-@template(name='Tarray', types=['float[:,:,:]', 'complex[:,:,:]'])
-@template(name='T', types=['float', 'complex'])
-def axpy_3d(alpha: 'T', x: "Tarray", y: "Tarray"):
+@template(name='T', types=[float, complex])
+def axpy_3d(alpha: 'T', x: 'T[:,:,:]', y: 'T[:,:,:]'):
     """
     Kernel for computing y = alpha * x + y.
 

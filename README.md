@@ -9,6 +9,7 @@
 -   [Requirements](#requirements)
 -   [Python setup and project download](#python-setup-and-project-download)
 -   [Installing the library](#installing-the-library)
+-   [Optional PETSc installation](#optional-petsc-installation)
 -   [Uninstall](#uninstall)
 -   [Running tests](#running-tests)
 -   [Speeding up Psydac's core](#speeding-up-psydacs-core)
@@ -116,19 +117,63 @@ At this point the Psydac library may be installed in **standard mode**, which co
     python3 -m pip install --editable .
     ```
 
+## Optional PETSc installation
+
+Although Psydac provides several iterative linear solvers which work with our native matrices and vectors, it is often useful to access a dedicated library like [PETSc](https://petsc.org). To this end, our matrices and vectors have the method `topetsc()`, which converts them to the corresponding `petsc4py` objects.
+(`petsc4py` is a Python package which provides Python bindings to PETSc.) After solving the linear system with a PETSc solver, the function `petsc_to_psydac` allows converting the solution vector back to the Psydac format.
+
+In order to use these additional feature, PETSc and petsc4py must be installed as follows.
+First, we download the latest release of PETSc from its [official Git repository](https://gitlab.com/petsc/petsc):
+```sh
+git clone --depth 1 --branch v3.20.5 https://gitlab.com/petsc/petsc.git
+```
+Next, we specify a configuration for complex numbers, and install PETSc in a local directory:
+```sh
+cd petsc
+
+export PETSC_DIR=$(pwd)
+export PETSC_ARCH=petsc-cmplx
+
+./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1
+
+make all check
+
+cd -
+```
+Finally, we install the Python package `petsc4py` which is included in the `PETSc` source distribution:
+```sh
+python3 -m pip install wheel Cython numpy
+python3 -m pip install petsc/src/binding/petsc4py
+```
+
 ## Uninstall
 
 -   **Whichever the install mode**:
     ```bash
     python3 -m pip uninstall psydac
     ```
+-   **If PETSc was installed**:
+    ```bash
+    python3 -m pip uninstall petsc4py
+    ```
+
+The non-Python dependencies can be uninstalled manually using the package manager.
+In the case of PETSc, it is sufficient to remove the cloned source directory given that the installation has been performed locally.
 
 ## Running tests
 
+Let `<PSYDAC-PATH>` be the installation directory of Psydac.
+In order to run all serial and parallel tests which do not use PETSc, just type:
 ```bash
-export PSYDAC_MESH_DIR=/path/to/psydac/mesh/
-python3 -m pytest --pyargs psydac -m "not parallel"
-python3 /path/to/psydac/mpi_tester.py --pyargs psydac -m "parallel"
+export PSYDAC_MESH_DIR=<PSYDAC-PATH>/mesh/
+python3 -m pytest --pyargs psydac -m "not parallel and not petsc"
+python3 <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and not petsc"
+```
+
+If PETSc and petsc4py were installed, some additional tests can be run:
+```bash
+python3 -m pytest --pyargs psydac -m "not parallel and petsc"
+python3 <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and petsc"
 ```
 
 ## Speeding up **Psydac**'s core
