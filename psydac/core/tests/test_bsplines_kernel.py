@@ -26,7 +26,12 @@ def test_cell_index_p():
         assert status == expected_status
 
     # checking that the values match those of searchsorted (-1) for arbitrary grid points
-    i_grid = np.random.random(30)
+    i_grid = np.array([0.14320482, 0.86569833, 0.77775327, 0.00895956, 0.074629  ,
+       0.45682646, 0.5384352 , 0.20915311, 0.73121977, 0.01057414,
+       0.33756086, 0.17839759, 0.14023414, 0.09846206, 0.79970392,
+       0.65330406, 0.82716552, 0.24185731, 0.24054685, 0.72466651,
+       0.69125033, 0.3136558 , 0.64794089, 0.47975527, 0.99802844,
+       0.64402598, 0.41263526, 0.28178414, 0.57274384, 0.73218562])
     out = np.zeros_like(i_grid, dtype=np.int64)
     status = cell_index_p(breaks, i_grid, tol, out)
     assert status == 0
