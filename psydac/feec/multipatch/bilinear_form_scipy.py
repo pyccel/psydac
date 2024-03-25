@@ -3,11 +3,19 @@ from scipy.sparse import eye as sparse_eye
 from scipy.sparse import csr_matrix, lil_matrix, kron, block_diag
 from scipy.sparse.linalg import inv as spla_inv
 
+from sympde.topology  import element_of
+from sympde.calculus  import dot
+from sympde.topology.space  import ScalarFunction
+
 from psydac.fem.tensor  import TensorFemSpace, FemSpace
 from psydac.fem.vector  import VectorFemSpace
 from psydac.core.bsplines import quadrature_grid, basis_ders_on_quad_grid
 from psydac.core.bsplines import elements_spans
 from psydac.utilities.quadratures import gauss_legendre
+from sympde.expr.expr import BilinearForm
+from sympde.expr.expr import integral
+from psydac.api.discretization       import discretize
+from psydac.api.settings             import PSYDAC_BACKENDS
 
 ### copied from devel_conga_non_conf branch:
 
@@ -66,7 +74,7 @@ def block_diag_inv(M):
     return block_diag(inv_M_blocks)
 
 
-def construct_pairing_matrix(Vh, Wh, storage_fn=None):
+def construct_pairing_matrix(Vh, Wh, domain_h, storage_fn=None):
     """
     compute a pairing (coupling) in scipy format:
 
@@ -108,7 +116,22 @@ def construct_pairing_matrix(Vh, Wh, storage_fn=None):
     
         assert isinstance(Vh.spaces[0].spaces[0], TensorFemSpace)
         assert isinstance(Vh.spaces[0].spaces[0], TensorFemSpace)
-    
+
+    V = Vh.symbolic_space
+    W = Wh.symbolic_space
+
+    # domain_h = V0h.domain:  would be nice...
+    u = element_of(W, name='ululu')
+    v = element_of(V, name='vlvlv')
+
+    if isinstance(u, ScalarFunction):
+        expr   = u*v
+    else:
+        expr   = dot(u,v)
+    a = BilinearForm((u,v), integral(domain_h.domain, expr))
+    ah = discretize(a, domain_h, [Wh, Vh], backend=PSYDAC_BACKENDS['python'])
+    K1 = ah.assemble().tosparse().tolil()
+
     K = lil_matrix((Vh.nbasis, Wh.nbasis))
 
     l2g_V = Local2GlobalIndexMap(ndim, n_patches, n_components)
@@ -199,6 +222,12 @@ def construct_pairing_matrix(Vh, Wh, storage_fn=None):
                             jg = l2g_W.get_index(k, d, multi_index_j)  
 
                             K[ig,jg] = K_1D[0][i0,j0] * K_1D[1][i1,j1]
-            
+
+    print(K[0,0], K1[0,0])
+    print(K[1,3], K1[1,3])
+    print(K[3,3], K1[3,3])   
+    print(K[25,27], K1[25,27])  
+    #print(K-K1)
+    exit()
     return K
             

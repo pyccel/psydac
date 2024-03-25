@@ -229,7 +229,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, nquads=None, basis='B', sequence='DR', grid_type=None):
+def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, nquads=None, basis='B', sequence='DR', grid_type=None, pads=None):
     """
     This function creates the discretized space starting from the symbolic space.
 
@@ -361,6 +361,8 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
             multiplicity_i = multiplicity[interior.name]
             min_coords = interior.min_coords
             max_coords = interior.max_coords
+            if pads == None:
+                pads = [None]*len(degree_i)
 
             assert len(ncells) == len(periodic) == len(degree_i)  == len(multiplicity_i) == len(min_coords) == len(max_coords)
             if knots is not None and grid_type is not None :
@@ -371,11 +373,11 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
                 grids = [xmin*(1-grid)/2+xmax*(1+grid)/2
                         for xmin, xmax, grid in zip(min_coords, max_coords, grid_type)]
                 
-                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) 
-                        for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
+                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P, pads=padsi) 
+                        for p,m,grid,P,padsi in zip(degree_i, multiplicity_i,grids, periodic, pads)]
             else:
                  # Create 1D finite element spaces and precompute quadrature data
-                spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]            
+                spaces[i] = [SplineSpace( p, knots=T , periodic=P, pads=padsi) for p,T, P,padsi in zip(degree_i, knots[interior.name], periodic, pads)]            
 
 
         carts    = create_cart(ddms, spaces)

@@ -49,7 +49,7 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
       The space kind of each space in the De Rham sequence
     """
     
-    def __init__(self, *, mapping, domain_h, spaces, sequence=None):
+    def __init__(self, *, mapping, domain_h, spaces, sequence=None, pads=None):
 
 
         dim = len(spaces) - 1
@@ -285,7 +285,6 @@ def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
 
     ldim     = derham.shape
     mapping  = derham.spaces[0].domain.mapping
-
     bases  = ['B'] + ldim * ['M']
     spaces = [discretize_space(V, domain_h, *args, basis=basis, **kwargs) \
             for V, basis in zip(derham.spaces, bases)]
@@ -294,7 +293,8 @@ def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
         mapping  = mapping,
         domain_h = domain_h,
         spaces   = spaces,
-        sequence = [V.kind.name for V in derham.spaces]
+        sequence = [V.kind.name for V in derham.spaces],
+        *args
     )
 
 #==============================================================================

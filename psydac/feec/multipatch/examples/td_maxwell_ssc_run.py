@@ -16,8 +16,8 @@ t_stamp_full = time_count()
 #at table profile
 # main test-cases and parameters
 
-test_case = 'polarized_polar'
-#test_case = 'cavity'   
+#test_case = 'polarized_polar'
+test_case = 'cavity'   
 # test_case = 'E0_pulse_no_source'   
 # test_case = 'Issautier_like_source'  
 mom_pres = True 
@@ -206,7 +206,7 @@ elif test_case == 'Issautier_like_source':
     source_type = 'Il_pulse_pp'  # 'Il_pulse' has a coarser rho
     source_is_harmonic = False
 
-    nb_tau = 100  #  # final time: T = nb_tau * tau
+    nb_tau = 1  #  # final time: T = nb_tau * tau
             
     if J_proj_case == 'P_geom':    
         cb_min_sol = None #

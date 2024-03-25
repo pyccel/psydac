@@ -212,7 +212,7 @@ def solve_td_polarized_maxwell_pbm(
         print('building dual derham sequence...')
         d_derham  = Derham(domain, ["H1", "Hdiv", "L2"])
         dual_degree = [d-1 for d in degree]
-        d_derham_h = discretize(d_derham, domain_h, degree=dual_degree, grid_type=grid_type)
+        d_derham_h = discretize(d_derham, domain_h, degree=dual_degree, grid_type=grid_type, pads=degree)
 
         d_V0h = d_derham_h.V0
         d_V1h = d_derham_h.V1
@@ -249,15 +249,15 @@ def solve_td_polarized_maxwell_pbm(
     
     basic_MM = False #True  # do not use with a mapping !!
     if basic_MM:
-        p_MM0 = construct_pairing_matrix(p_V0h,p_V0h).tocsr()  # matrix in scipy format
+        p_MM0 = construct_pairing_matrix(p_V0h,p_V0h,domain_h).tocsr()  # matrix in scipy format
         print('inverting p_MM0...')
         p_MM0_inv = spla_inv(p_MM0.tocsc())
 
-        p_MM1 = construct_pairing_matrix(p_V1h,p_V1h).tocsr()  # matrix in scipy format
+        p_MM1 = construct_pairing_matrix(p_V1h,p_V1h,domain_h).tocsr()  # matrix in scipy format
         print('inverting p_MM1...')
         p_MM1_inv = spla_inv(p_MM1.tocsc())
 
-        p_MM2 = construct_pairing_matrix(p_V2h,p_V2h).tocsr()  # matrix in scipy format
+        p_MM2 = construct_pairing_matrix(p_V2h,p_V2h,domain_h).tocsr()  # matrix in scipy format
         print('inverting p_MM2...')
         p_MM2_inv = spla_inv(p_MM2.tocsc())
 
@@ -278,15 +278,15 @@ def solve_td_polarized_maxwell_pbm(
     if method == 'ssc':
 
         if basic_MM:
-            d_MM0 = construct_pairing_matrix(d_V0h,d_V0h).tocsr()  # matrix in scipy format
+            d_MM0 = construct_pairing_matrix(d_V0h,d_V0h,domain_h).tocsr()  # matrix in scipy format
             print('inverting d_MM0...')
             d_MM0_inv = spla_inv(d_MM0.tocsc())
 
-            d_MM1 = construct_pairing_matrix(d_V1h,d_V1h).tocsr()  # matrix in scipy format
+            d_MM1 = construct_pairing_matrix(d_V1h,d_V1h,domain_h).tocsr()  # matrix in scipy format
             print('inverting d_MM1...')
             d_MM1_inv = spla_inv(d_MM1.tocsc())
 
-            d_MM2 = construct_pairing_matrix(d_V2h,d_V2h).tocsr()  # matrix in scipy format
+            d_MM2 = construct_pairing_matrix(d_V2h,d_V2h,domain_h).tocsr()  # matrix in scipy format
 
         else:   
             d_HOp0   = HodgeOperator(d_V0h, domain_h, backend_language=backend_language, load_dir=dm_load_dir, load_space_index=0)
@@ -324,7 +324,7 @@ def solve_td_polarized_maxwell_pbm(
             p_KK2 = load_npz(p_KK2_storage_fn)
         else:
             print('pairing matrix not found, computing... ')
-            p_KK2 = construct_pairing_matrix(d_V0h,p_V2h).tocsr()  # matrix in scipy format
+            p_KK2 = construct_pairing_matrix(d_V0h,p_V2h,domain_h).tocsr()  # matrix in scipy format
             t_stamp = time_count(t_stamp)
             print('storing pairing matrix in '+p_KK2_storage_fn)
             save_npz(p_KK2_storage_fn, p_KK2)
@@ -334,7 +334,7 @@ def solve_td_polarized_maxwell_pbm(
             # matrix is stored
             d_KK1 = load_npz(d_KK1_storage_fn)
         else:
-            d_KK1 = construct_pairing_matrix(p_V1h,d_V1h).tocsr()  # matrix in scipy format
+            d_KK1 = construct_pairing_matrix(p_V1h,d_V1h,domain_h).tocsr()  # matrix in scipy format
             save_npz(d_KK1_storage_fn, d_KK1)
     
         p_HH2 = d_MM0_inv @ d_PP0.transpose() @ p_KK2
