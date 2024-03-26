@@ -234,9 +234,9 @@ class TensorFemSpace( FemSpace ):
             # Determine local span
             wrap_x   = space.periodic and fx > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
-            start = vs.starts[0]
-            pad = vs.pads[0]
-            shift = vs.shifts[0]
+            start = self.vector_space.starts[i]
+            pad = self.vector_space.pads[i]
+            shift = self.vector_space.shifts[i]
             index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
             if weights:
                 w_index.append(slice(loc_span-degree, loc_span+1))
@@ -325,9 +325,9 @@ class TensorFemSpace( FemSpace ):
             # Determine local span
             wrap_x   = space.periodic and fx > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
-            start = vs.starts[0]
-            pad = vs.pads[0]
-            shift = vs.shifts[0]
+            start = self.vector_space.starts[i]
+            pad = self.vector_space.pads[i]
+            shift = self.vector_space.shifts[i]
             index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
             if weights:
                 w_index.append(slice(loc_span-degree, loc_span+1))
@@ -766,9 +766,9 @@ class TensorFemSpace( FemSpace ):
             wrap_x   = space.periodic and fx > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
 
-            start = vs.starts[0]
-            pad = vs.pads[0]
-            shift = vs.shifts[0]
+            start = self.vector_space.starts[i]
+            pad = self.vector_space.pads[i]
+            shift = self.vector_space.shifts[i]
             index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
             if weights:
                 w_index.append(slice( loc_span-degree, loc_span+1))
@@ -846,9 +846,9 @@ class TensorFemSpace( FemSpace ):
             wrap_x   = space.periodic and fx > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
 
-            start = vs.starts[0]
-            pad = vs.pads[0]
-            shift = vs.shifts[0]
+            start = self.vector_space.starts[i]
+            pad = self.vector_space.pads[i]
+            shift = self.vector_space.shifts[i]
             index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
             if weights:
                 w_index.append(slice( loc_span-degree, loc_span+1))
