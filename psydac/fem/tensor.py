@@ -87,6 +87,9 @@ class TensorFemSpace( FemSpace ):
         self._spaces = tuple(spaces)
         self._dtype   = dtype
 
+        # computes once and for all ldim
+        self._ldim = sum([V.ldim for V in self.spaces])
+
         if cart is not None:
             self._vector_space = StencilVectorSpace(cart, dtype=dtype)
         elif vector_space is not None:
@@ -132,9 +135,6 @@ class TensorFemSpace( FemSpace ):
         # ...
         self._global_element_starts = domain_decomposition.global_element_starts
         self._global_element_ends   = domain_decomposition.global_element_ends
-
-        # computes once and for all ldim
-        self._ldim = sum([V.ldim for V in self.spaces])
 
         self.set_refined_space(self.ncells, self)
     #--------------------------------------------------------------------------
