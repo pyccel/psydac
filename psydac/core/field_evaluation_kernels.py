@@ -7,10 +7,11 @@ from pyccel.decorators import template
 # -----------------------------------------------------------------------------
 # 0: Evaluation of single 3d field at single point
 # -----------------------------------------------------------------------------
-@template(name='T1', types=['float[:,:,:]', 'complex[:,:,:]'])
-@template(name='T2', types=['float[:]', 'complex[:]'])
-def eval_field_3d_once(local_coeffs: 'T1', 
-                       local_bases_0: 'T2', local_bases_1: 'T2', local_bases_2: 'T2'):
+@template(name='T', types=[float, complex])
+def eval_field_3d_once(local_coeffs : 'T[:,:,:]', 
+                       local_bases_0: 'float[:]',
+                       local_bases_1: 'float[:]',
+                       local_bases_2: 'float[:]'):
     """
     Parameters
     ----------
@@ -20,12 +21,16 @@ def eval_field_3d_once(local_coeffs: 'T1',
     local_bases: list of ndarrays
         Active (local) 1D-basis functions values at the point of evaluation. 
     """
-    res = local_bases_0[0] - local_bases_0[0]
+    n1, n2, n3 = local_coeffs.shape
 
-    for i, c1 in enumerate(local_coeffs):
-        for j, c2 in enumerate(c1):
-            for k, c3 in enumerate(c2):
-                res += c3 * local_bases_0[i] * local_bases_1[j] * local_bases_2[k]
+    res = local_coeffs[0, 0, 0] - local_coeffs[0, 0, 0]
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                res += (local_coeffs[i1, i2, i3] *
+                        local_bases_0[i1] *
+                        local_bases_1[i2] *
+                        local_bases_2[i3])
 
     return res
 
@@ -1981,13 +1986,12 @@ def eval_jac_det_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int,
 # -----------------------------------------------------------------------------
 # 1: Regular tensor grid without weights
 # -----------------------------------------------------------------------------
-@template(name='T', types=['float[:,:,:]', 'complex[:,:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:,:]', 'complex[:,:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: int,
                       k1: int, k2: int, k3: int, global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]',
                       global_basis_3: 'float[:,:,:,:]', global_spans_1: 'int[:]', global_spans_2: 'int[:]',
-                      global_spans_3: 'int[:]', global_arr_coeff_x: 'T', global_arr_coeff_y: 'T',
-                      global_arr_coeff_z: 'T', jacobians: 'T_jac'):
+                      global_spans_3: 'int[:]', global_arr_coeff_x: 'T[:,:,:]', global_arr_coeff_y: 'T[:,:,:]',
+                      global_arr_coeff_z: 'T[:,:,:]', jacobians: 'T[:,:,:,:,:]'):
     """
     Parameters
     ----------
@@ -2140,12 +2144,11 @@ def eval_jacobians_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: 
                                                         [z_x1, z_x2, z_x3]])
 
 
-@template(name='T', types=['float[:,:]', 'complex[:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_2d(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int,
                       global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]', global_spans_1: 'int[:]',
-                      global_spans_2: 'int[:]', global_arr_coeff_x: 'T', global_arr_coeff_y: 'T',
-                      jacobians: 'T_jac'):
+                      global_spans_2: 'int[:]', global_arr_coeff_x: 'T[:,:]', global_arr_coeff_y: 'T[:,:]',
+                      jacobians: 'T[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -2247,15 +2250,14 @@ def eval_jacobians_2d(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int
 # -----------------------------------------------------------------------------
 # 2: Irregular tensor grid without weights
 # -----------------------------------------------------------------------------
-@template(name='T', types=['float[:,:,:]', 'complex[:,:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:,:]', 'complex[:,:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: int,
                                 f_p3: int, cell_index_1: 'int[:]', cell_index_2: 'int[:]', cell_index_3 : 'int[:]',
                                 global_basis_1: 'float[:,:,:]', global_basis_2: 'float[:,:,:]',
                                 global_basis_3: 'float[:,:,:]', global_spans_1: 'int[:]', global_spans_2: 'int[:]',
-                                global_spans_3: 'int[:]', global_arr_coeff_x: 'T',
-                                global_arr_coeff_y: 'T', global_arr_coeff_z: 'T',
-                                jacobians: 'T_jac'):
+                                global_spans_3: 'int[:]', global_arr_coeff_x: 'T[:,:,:]',
+                                global_arr_coeff_y: 'T[:,:,:]', global_arr_coeff_z: 'T[:,:,:]',
+                                jacobians: 'T[:,:,:,:,:]'):
     """
     Parameters
     ----------
@@ -2394,12 +2396,11 @@ def eval_jacobians_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: i
                                                                  [temp_z_x1, temp_z_x2, temp_z_x3]])
 
 
-@template(name='T', types=['float[:,:]', 'complex[:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_index_1: 'int[:]',
                                 cell_index_2: 'int[:]', global_basis_1: 'float[:,:,:]', global_basis_2: 'float[:,:,:]',
-                                global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff_x: 'T',
-                                global_arr_coeff_y: 'T', jacobians: 'T_jac'):
+                                global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff_x: 'T[:,:]',
+                                global_arr_coeff_y: 'T[:,:]', jacobians: 'T[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -2492,15 +2493,14 @@ def eval_jacobians_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_i
 # -----------------------------------------------------------------------------
 # 3: Regular tensor grid with weights
 # -----------------------------------------------------------------------------
-@template(name='T', types=['float[:,:,:]', 'complex[:,:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:,:]', 'complex[:,:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: int,
                               f_p3: int, k1: int, k2: int, k3: int, global_basis_1: 'float[:,:,:,:]',
                               global_basis_2: 'float[:,:,:,:]', global_basis_3: 'float[:,:,:,:]',
                               global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_spans_3: 'int[:]',
-                              global_arr_coeff_x: 'T', global_arr_coeff_y: 'T',
-                              global_arr_coeff_z: 'T', global_arr_coeff_weights: 'float[:,:,:]',
-                              jacobians: 'T_jac'):
+                              global_arr_coeff_x: 'T[:,:,:]', global_arr_coeff_y: 'T[:,:,:]',
+                              global_arr_coeff_z: 'T[:,:,:]', global_arr_coeff_weights: 'float[:,:,:]',
+                              jacobians: 'T[:,:,:,:,:]'):
 
     """
     Parameters
@@ -2720,13 +2720,12 @@ def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: in
                                                         [z_x1, z_x2, z_x3]])
 
 
-@template(name='T', types=['float[:,:]', 'complex[:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int, k2: int,
                               global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]',
-                              global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff_x: 'T',
-                              global_arr_coeff_y: 'T', global_arr_coeff_weights: 'float[:,:]',
-                              jacobians: 'T_jac'):
+                              global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff_x: 'T[:,:]',
+                              global_arr_coeff_y: 'T[:,:]', global_arr_coeff_weights: 'float[:,:]',
+                              jacobians: 'T[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -2878,15 +2877,14 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int
 # -----------------------------------------------------------------------------
 # 4: Irregular tensor grid with weights
 # -----------------------------------------------------------------------------
-@template(name='T', types=['float[:,:,:]', 'complex[:,:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:,:]', 'complex[:,:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int, f_p2: int,
                                         f_p3: int, cell_index_1: 'int[:]', cell_index_2: 'int[:]', cell_index_3 : 'int[:]',
                                         global_basis_1: 'float[:,:,:]', global_basis_2: 'float[:,:,:]',
                                         global_basis_3: 'float[:,:,:]', global_spans_1: 'int[:]', global_spans_2: 'int[:]',
-                                        global_spans_3: 'int[:]', global_arr_coeff_x: 'T',
-                                        global_arr_coeff_y: 'T', global_arr_coeff_z: 'T',
-                                        global_arr_coeff_weights: 'float[:,:, :]', jacobians: 'T_jac'):
+                                        global_spans_3: 'int[:]', global_arr_coeff_x: 'T[:,:,:]',
+                                        global_arr_coeff_y: 'T[:,:,:]', global_arr_coeff_z: 'T[:,:,:]',
+                                        global_arr_coeff_weights: 'float[:,:, :]', jacobians: 'T[:,:,:,:,:]'):
     """
     Parameters
     ----------
@@ -3076,15 +3074,14 @@ def eval_jacobians_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int,
                                                                  [z_x1, z_x2, z_x3]])
 
 
-@template(name='T', types=['float[:,:]', 'complex[:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int,
                                         cell_index_1: 'int[:]', cell_index_2: 'int[:]',
                                         global_basis_1: 'float[:,:,:]', global_basis_2: 'float[:,:,:]',
                                         global_spans_1: 'int[:]', global_spans_2: 'int[:]',
-                                        global_arr_coeff_x: 'T', global_arr_coeff_y: 'T',
+                                        global_arr_coeff_x: 'T[:,:]', global_arr_coeff_y: 'T[:,:]',
                                         global_arr_coeff_weights: 'float[:,:]',
-                                        jacobians: 'T_jac'):
+                                        jacobians: 'T[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -3219,14 +3216,13 @@ def eval_jacobians_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int
 # -----------------------------------------------------------------------------
 # 1: Regular tensor grid without weights
 # -----------------------------------------------------------------------------
-@template(name='T', types=['float[:,:,:]', 'complex[:,:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:,:]', 'complex[:,:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_inv_3d(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: int,
                           f_p3: int, k1: int, k2: int, k3: int, global_basis_1: 'float[:,:,:,:]',
                           global_basis_2: 'float[:,:,:,:]', global_basis_3: 'float[:,:,:,:]', global_spans_1: 'int[:]',
-                          global_spans_2: 'int[:]', global_spans_3: 'int[:]', global_arr_coeff_x: 'T',
-                          global_arr_coeff_y: 'T', global_arr_coeff_z: 'T',
-                          jacobians_inv: 'T_jac'):
+                          global_spans_2: 'int[:]', global_spans_3: 'int[:]', global_arr_coeff_x: 'T[:,:,:]',
+                          global_arr_coeff_y: 'T[:,:,:]', global_arr_coeff_z: 'T[:,:,:]',
+                          jacobians_inv: 'T[:,:,:,:,:]'):
 
     """
     Parameters
@@ -3395,12 +3391,11 @@ def eval_jacobians_inv_3d(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: int,
                                                             [a_13, a_23, a_33]]) / det
 
 
-@template(name='T', types=['float[:,:]', 'complex[:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_inv_2d(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int, k2: int,
                           global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]', global_spans_1: 'int[:]',
-                          global_spans_2: 'int[:]', global_arr_coeff_x: 'T', global_arr_coeff_y: 'T',
-                          jacobians_inv: 'T_jac'):
+                          global_spans_2: 'int[:]', global_arr_coeff_x: 'T[:,:]', global_arr_coeff_y: 'T[:,:]',
+                          jacobians_inv: 'T[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -3504,15 +3499,14 @@ def eval_jacobians_inv_2d(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int, k2
 # -----------------------------------------------------------------------------
 # 2: Irregular tensor grid without weights
 # -----------------------------------------------------------------------------
-@template(name='T', types=['float[:,:,:]', 'complex[:,:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:,:]', 'complex[:,:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_inv_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: int,
                                    f_p3: int, cell_index_1: 'int[:]', cell_index_2: 'int[:]', cell_index_3 : 'int[:]',
                                    global_basis_1: 'float[:,:,:]', global_basis_2: 'float[:,:,:]',
                                    global_basis_3: 'float[:,:,:]', global_spans_1: 'int[:]', global_spans_2: 'int[:]',
-                                   global_spans_3: 'int[:]', global_arr_coeff_x: 'T',
-                                   global_arr_coeff_y: 'T', global_arr_coeff_z: 'T',
-                                   jacobians_inv: 'T_jac'):
+                                   global_spans_3: 'int[:]', global_arr_coeff_x: 'T[:,:,:]',
+                                   global_arr_coeff_y: 'T[:,:,:]', global_arr_coeff_z: 'T[:,:,:]',
+                                   jacobians_inv: 'T[:,:,:,:,:]'):
     """
     Parameters
     ----------
@@ -3673,12 +3667,11 @@ def eval_jacobians_inv_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p
                                                   [a_13, a_23, a_33]]) / det
 
 
-@template(name='T', types=['float[:,:]', 'complex[:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_inv_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_index_1: 'int[:]',
                                     cell_index_2: 'int[:]', global_basis_1: 'float[:,:,:]', global_basis_2: 'float[:,:,:]',
-                                    global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff_x: 'T',
-                                    global_arr_coeff_y: 'T', jacobians_inv: 'T_jac'):
+                                    global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff_x: 'T[:,:]',
+                                    global_arr_coeff_y: 'T[:,:]', jacobians_inv: 'T[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -3774,15 +3767,14 @@ def eval_jacobians_inv_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, ce
 # -----------------------------------------------------------------------------
 # 3: Regular tensor grid with weights
 # -----------------------------------------------------------------------------
-@template(name='T', types=['float[:,:,:]', 'complex[:,:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:,:]', 'complex[:,:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: int,
                                   f_p3: int, k1: int, k2: int, k3: int, global_basis_1: 'float[:,:,:,:]',
                                   global_basis_2: 'float[:,:,:,:]', global_basis_3: 'float[:,:,:,:]',
                                   global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_spans_3: 'int[:]',
-                                  global_arr_coeff_x: 'T', global_arr_coeff_y: 'T',
-                                  global_arr_coeff_z: 'T', global_arr_coeff_weigths: 'float[:,:,:]',
-                                  jacobians_inv: 'T_jac'):
+                                  global_arr_coeff_x: 'T[:,:,:]', global_arr_coeff_y: 'T[:,:,:]',
+                                  global_arr_coeff_z: 'T[:,:,:]', global_arr_coeff_weigths: 'float[:,:,:]',
+                                  jacobians_inv: 'T[:,:,:,:,:]'):
 
     """
     Parameters
@@ -4017,13 +4009,12 @@ def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2
                                                             [a_13, a_23, a_33]]) / det
 
 
-@template(name='T', types=['float[:,:]', 'complex[:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_inv_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int, k2: int,
                                   global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]',
-                                  global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff_x: 'T',
-                                  global_arr_coeff_y: 'T', global_arr_coeff_weights: 'float[:,:]',
-                                  jacobians_inv: 'T_jac'):
+                                  global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff_x: 'T[:,:]',
+                                  global_arr_coeff_y: 'T[:,:]', global_arr_coeff_weights: 'float[:,:]',
+                                  jacobians_inv: 'T[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -4177,15 +4168,14 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1:
 # -----------------------------------------------------------------------------
 # 4: Irregular tensor grid with weights
 # -----------------------------------------------------------------------------
-@template(name='T', types=['float[:,:,:]', 'complex[:,:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:,:]', 'complex[:,:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_inv_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int, f_p2: int,
                                             f_p3: int, cell_index_1: 'int[:]', cell_index_2: 'int[:]', cell_index_3 : 'int[:]',
                                             global_basis_1: 'float[:,:,:]', global_basis_2: 'float[:,:,:]',
                                             global_basis_3: 'float[:,:,:]', global_spans_1: 'int[:]', global_spans_2: 'int[:]',
-                                            global_spans_3: 'int[:]', global_arr_coeff_x: 'T',
-                                            global_arr_coeff_y: 'T', global_arr_coeff_z: 'T',
-                                            global_arr_coeff_weights: 'float[:,:, :]', jacobians_inv: 'T_jac'):
+                                            global_spans_3: 'int[:]', global_arr_coeff_x: 'T[:,:,:]',
+                                            global_arr_coeff_y: 'T[:,:,:]', global_arr_coeff_z: 'T[:,:,:]',
+                                            global_arr_coeff_weights: 'float[:,:,:]', jacobians_inv: 'T[:,:,:,:,:]'):
     """
     Parameters
     ----------
@@ -4393,15 +4383,14 @@ def eval_jacobians_inv_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: 
                                                 [a_13, a_23, a_33]]) / det
 
 
-@template(name='T', types=['float[:,:]', 'complex[:,:]'])
-@template(name='T_jac', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
+@template(name='T', types=[float, complex])
 def eval_jacobians_inv_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int,
                                             cell_index_1: 'int[:]', cell_index_2: 'int[:]',
                                             global_basis_1: 'float[:,:,:]', global_basis_2: 'float[:,:,:]',
                                             global_spans_1: 'int[:]', global_spans_2: 'int[:]',
-                                            global_arr_coeff_x: 'T', global_arr_coeff_y: 'T',
+                                            global_arr_coeff_x: 'T[:,:]', global_arr_coeff_y: 'T[:,:]',
                                             global_arr_coeff_weights: 'float[:,:]',
-                                            jacobians_inv: 'T_jac'):
+                                            jacobians_inv: 'T[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -4537,8 +4526,9 @@ def eval_jacobians_inv_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2:
 # --------------------------------------------------------------------------
 # 1: L2 Push-forward
 # --------------------------------------------------------------------------
-@template(name='T', types=['float[:,:,:]', 'complex[:,:,:]'])
-def pushforward_2d_l2(fields_to_push: 'T', sqrt_met_dets: 'float[:,:]', pushed_fields: 'T'):
+@template(name='T', types=[float, complex])
+def pushforward_2d_l2(fields_to_push: 'T[:,:,:]', sqrt_met_dets: 'float[:,:]',
+                       pushed_fields: 'T[:,:,:]'):
     """
     Parameters
     ----------
@@ -4559,8 +4549,8 @@ def pushforward_2d_l2(fields_to_push: 'T', sqrt_met_dets: 'float[:,:]', pushed_f
         pushed_fields[:, :, i_f] = fields_to_push[:, :, i_f] / sqrt_met_dets[:, :]
 
 
-@template(name='T', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
-def pushforward_3d_l2(fields_to_push: 'T', sqrt_met_dets: 'float[:,:,:]', pushed_fields: 'T'):
+@template(name='T', types=[float, complex])
+def pushforward_3d_l2(fields_to_push: 'T[:,:,:,:]', sqrt_met_dets: 'float[:,:,:]', pushed_fields: 'T[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -4585,9 +4575,9 @@ def pushforward_3d_l2(fields_to_push: 'T', sqrt_met_dets: 'float[:,:,:]', pushed
 # --------------------------------------------------------------------------
 # 2: Hcurl Push-forward
 # --------------------------------------------------------------------------
-@template(name='T', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
-def pushforward_2d_hcurl(fields_to_push: 'T', inv_jac_mats: 'float[:,:,:,:]',
-                         pushed_fields: 'T'):
+@template(name='T', types=[float, complex])
+def pushforward_2d_hcurl(fields_to_push: 'T[:,:,:,:]', inv_jac_mats: 'float[:,:,:,:]',
+                          pushed_fields: 'T[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -4613,9 +4603,9 @@ def pushforward_2d_hcurl(fields_to_push: 'T', inv_jac_mats: 'float[:,:,:,:]',
                                        + inv_jac_mats[:, :, 1, 1] * fields_to_push[1, :, :, i_f])
 
 
-@template(name='T', types=['float[:,:,:,:,:]', 'complex[:,:,:,:,:]'])
-def pushforward_3d_hcurl(fields_to_push: 'T', inv_jac_mats: 'float[:,:,:,:,:]',
-                         pushed_fields: 'T'):
+@template(name='T', types=[float, complex])
+def pushforward_3d_hcurl(fields_to_push: 'T[:,:,:,:,:]', inv_jac_mats: 'float[:,:,:,:,:]',
+                          pushed_fields: 'T[:,:,:,:,:]'):
     """
     Parameters
     ----------
@@ -4655,9 +4645,9 @@ def pushforward_3d_hcurl(fields_to_push: 'T', inv_jac_mats: 'float[:,:,:,:,:]',
 # --------------------------------------------------------------------------
 # 1: Hdiv Push-forward
 # --------------------------------------------------------------------------
-@template(name='T', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
-def pushforward_2d_hdiv(fields_to_push: 'T', jac_mats: 'float[:,:,:,:]',
-                        sqrt_met_dets: 'float[:, :]', pushed_fields: 'T'):
+@template(name='T', types=[float, complex])
+def pushforward_2d_hdiv(fields_to_push: 'T[:,:,:,:]', jac_mats: 'float[:,:,:,:]',
+                        sqrt_met_dets: 'float[:,:]', pushed_fields: 'T[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -4687,9 +4677,9 @@ def pushforward_2d_hdiv(fields_to_push: 'T', jac_mats: 'float[:,:,:,:]',
                                        + jac_mats[:, :, 1, 1] * fields_to_push[1, :, :, i_f]) / sqrt_met_dets[:, :]
 
 
-@template(name='T', types=['float[:,:,:,:,:]', 'complex[:,:,:,:,:]'])
-def pushforward_3d_hdiv(fields_to_push: 'T', jac_mats: 'float[:,:,:,:,:]',
-                        sqrt_met_dets: 'float[:, :, :]', pushed_fields: 'T'):
+@template(name='T', types=[float, complex])
+def pushforward_3d_hdiv(fields_to_push: 'T[:,:,:,:,:]', jac_mats: 'float[:,:,:,:,:]',
+                        sqrt_met_dets: 'float[:,:,:]', pushed_fields: 'T[:,:,:,:,:]'):
     """
     Parameters
     ----------

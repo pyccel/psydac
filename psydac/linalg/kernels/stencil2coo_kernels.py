@@ -1,16 +1,16 @@
 # coding: utf-8
 from pyccel.decorators import template
 
-#========================================================================================================
+#!!!!!!!!!!!!!
+#TODO avoid using The expensive modulo operator % in the non periodic case to make the methods faster
+#!!!!!!!!!!!!!
+
 
 #__all__ = ['stencil2coo_1d_C','stencil2coo_1d_F','stencil2coo_2d_C','stencil2coo_2d_F', 'stencil2coo_3d_C', 'stencil2coo_3d_F']
 
-# If we can create an array of a pyccel template, we should only create one template
-#       @template(name='T', types=['float', 'complex'])
-@template(name='T', types=['float[:,:]', 'complex[:,:]'])
-@template(name='data', types=['float[:]', 'complex[:]'])
-#TODO avoid using The expensive modulo operator % in the non periodic case to make the methods faster
-def stencil2coo_1d_C(A:'T', data:'data', rows:'int64[:]', cols:'int64[:]', nrl1:'int64', ncl1:'int64',
+#========================================================================================================
+@template(name='T', types=[float, complex])
+def stencil2coo_1d_C(A:'T[:,:]', data:'T[:]', rows:'int64[:]', cols:'int64[:]', nrl1:'int64', ncl1:'int64',
                      s1:'int64', nr1:'int64', nc1:'int64', dm1:'int64', cm1:'int64', p1:'int64', dp1:'int64'):
     nnz = 0
     pp1 = cm1*p1
@@ -27,11 +27,10 @@ def stencil2coo_1d_C(A:'T', data:'data', rows:'int64[:]', cols:'int64[:]', nrl1:
 
     return nnz
 
-
 #========================================================================================================
-@template(name='T', types=['float[:,:]', 'complex[:,:]'])
-@template(name='data', types=['float[:]', 'complex[:]'])
-def stencil2coo_1d_F(A:'T', data:'data', rows:'int64[:]', cols:'int64[:]', nrl1:'int64', ncl1:'int64', s1:'int64', nr1:'int64', nc1:'int64', dm1:'int64', cm1:'int64', p1:'int64', dp1:'int64'):
+@template(name='T', types=[float, complex])
+def stencil2coo_1d_F(A:'T[:,:]', data:'T[:]', rows:'int64[:]', cols:'int64[:]', nrl1:'int64', ncl1:'int64',
+                     s1:'int64', nr1:'int64', nc1:'int64', dm1:'int64', cm1:'int64', p1:'int64', dp1:'int64'):
     nnz = 0
     pp1 = cm1*p1
     for i1 in range(nrl1):
@@ -47,11 +46,9 @@ def stencil2coo_1d_F(A:'T', data:'data', rows:'int64[:]', cols:'int64[:]', nrl1:
 
     return nnz
 
-
 #========================================================================================================
-@template(name='T', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
-@template(name='data', types=['float[:]', 'complex[:]'])
-def stencil2coo_2d_C(A:'T', data:'data', rows:'int64[:]', cols:'int64[:]',
+@template(name='T', types=[float, complex])
+def stencil2coo_2d_C(A:'T[:,:,:,:]', data:'T[:]', rows:'int64[:]', cols:'int64[:]',
                      nrl1:'int64', nrl2:'int64', ncl1:'int64', ncl2:'int64',
                      s1:'int64', s2:'int64', nr1:'int64', nr2:'int64',
                      nc1:'int64', nc2:'int64', dm1:'int64', dm2:'int64',
@@ -80,11 +77,9 @@ def stencil2coo_2d_C(A:'T', data:'data', rows:'int64[:]', cols:'int64[:]',
                     nnz += 1
     return nnz
 
-
 #========================================================================================================
-@template(name='T', types=['float[:,:,:,:]', 'complex[:,:,:,:]'])
-@template(name='data', types=['float[:]', 'complex[:]'])
-def stencil2coo_2d_F(A:'T', data:'data', rows:'int64[:]', cols:'int64[:]',
+@template(name='T', types=[float, complex])
+def stencil2coo_2d_F(A:'T[:,:,:,:]', data:'T[:]', rows:'int64[:]', cols:'int64[:]',
                      nrl1:'int64', nrl2:'int64', ncl1:'int64', ncl2:'int64',
                      s1:'int64', s2:'int64', nr1:'int64', nr2:'int64',
                      nc1:'int64', nc2:'int64', dm1:'int64', dm2:'int64',
@@ -113,11 +108,9 @@ def stencil2coo_2d_F(A:'T', data:'data', rows:'int64[:]', cols:'int64[:]',
                     nnz += 1
     return nnz
 
-
 #========================================================================================================
-@template(name='T', types=['float[:,:,:,:,:,:]', 'complex[:,:,:,:,:,:]'])
-@template(name='data', types=['float[:]', 'complex[:]'])
-def stencil2coo_3d_C(A:'T', data:'data', rows:'int64[:]', cols:'int64[:]',
+@template(name='T', types=[float, complex])
+def stencil2coo_3d_C(A:'T[:,:,:,:,:,:]', data:'T[:]', rows:'int64[:]', cols:'int64[:]',
                      nrl1:'int64', nrl2:'int64', nrl3:'int64', ncl1:'int64', ncl2:'int64', ncl3:'int64',
                      s1:'int64', s2:'int64', s3:'int64', nr1:'int64', nr2:'int64', nr3:'int64',
                      nc1:'int64', nc2:'int64', nc3:'int64', dm1:'int64', dm2:'int64', dm3:'int64',
@@ -154,9 +147,8 @@ def stencil2coo_3d_C(A:'T', data:'data', rows:'int64[:]', cols:'int64[:]',
 
 
 #========================================================================================================
-@template(name='T', types=['float[:,:,:,:,:,:]', 'complex[:,:,:,:,:,:]'])
-@template(name='data', types=['float[:]', 'complex[:]'])
-def stencil2coo_3d_F(A:'T', data:'data', rows:'int64[:]', cols:'int64[:]',
+@template(name='T', types=[float, complex])
+def stencil2coo_3d_F(A:'T[:,:,:,:,:,:]', data:'T[:]', rows:'int64[:]', cols:'int64[:]',
                      nrl1:'int64', nrl2:'int64', nrl3:'int64', ncl1:'int64', ncl2:'int64', ncl3:'int64',
                      s1:'int64', s2:'int64', s3:'int64', nr1:'int64', nr2:'int64', nr3:'int64',
                      nc1:'int64', nc2:'int64', nc3:'int64', dm1:'int64', dm2:'int64', dm3:'int64',
