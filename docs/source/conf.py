@@ -50,7 +50,20 @@ extensions = [
 'sphinx.ext.autodoc',
 'sphinx.ext.autosummary',
 'sphinx.ext.githubpages',
+'sphinx_math_dollar',
+'sphinx.ext.mathjax',
 ]
+
+from docutils.nodes import FixedTextElement, literal,math
+from docutils.nodes import  comment, doctest_block, image, literal_block, math_block, paragraph, pending, raw, rubric, substitution_definition, target
+math_dollar_node_blacklist = (literal,math,doctest_block, image, literal_block,  math_block,  pending,  raw,rubric, substitution_definition,target)
+
+mathjax3_config = {
+  "tex": {
+    "inlineMath": [['\\(', '\\)']],
+    "displayMath": [["\\[", "\\]"]],
+  }
+}
 
 #numpydoc_class_members_toctree = False, nothing changed using this
 numpydoc_show_class_members = False

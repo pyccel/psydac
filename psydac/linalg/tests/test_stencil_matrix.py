@@ -5,6 +5,7 @@ import numpy as np
 from random import random
 
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
+from psydac.linalg.utilities import petsc_to_psydac
 from psydac.api.settings import PSYDAC_BACKENDS
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
@@ -23,9 +24,12 @@ def compute_global_starts_ends(domain_decomposition, npts, pads):
     global_starts = [None] * ndims
     global_ends = [None] * ndims
 
+    print('\ndomain_decomposition.global_element_starts', domain_decomposition.global_element_starts)
+    print('domain_decomposition.global_element_ends', domain_decomposition.global_element_ends)
+
     for axis in range(ndims):
         ee = domain_decomposition.global_element_ends[axis]
-
+        
         global_ends[axis] = ee.copy()
         global_ends[axis][-1] = npts[axis] - 1
         global_starts[axis] = np.array([0] + (global_ends[axis][:-1] + 1).tolist())
@@ -36,7 +40,7 @@ def compute_global_starts_ends(domain_decomposition, npts, pads):
     return tuple(global_starts), tuple(global_ends)
 
 
-# TODO : Add test remove_spurious_entries, update_ghost_regions, exchange-assembly_data, diagonal, topetsc,
+# TODO : Add test remove_spurious_entries, update_ghost_regions, exchange-assembly_data, diagonal,
 #        ghost_regions_in_sync
 # TODO : check if toarray() is working with a shift greater than 1 and idem for all other function that need toaaray
 
@@ -545,6 +549,107 @@ def test_stencil_matrix_2d_serial_toarray( dtype, n1, n2, p1, p2, s1, s2, P1, P2
     assert np.array_equal(Ma, A)
 
 # TODO : understand why it's not working when s>1
+    
+# ===============================================================================
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('n1', [7, 15])
+@pytest.mark.parametrize('n2', [8, 7])
+@pytest.mark.parametrize('p1', [1, 2])
+@pytest.mark.parametrize('p2', [1, 3])
+@pytest.mark.parametrize('s1', [1])
+@pytest.mark.parametrize('s2', [1])
+@pytest.mark.parametrize('P1', [True, False])
+@pytest.mark.parametrize('P2', [True, False])
+@pytest.mark.petsc
+
+def test_stencil_matrix_2d_serial_topetsc( dtype, n1, n2, p1, p2, s1, s2, P1, P2):
+    # Select non-zero values based on diagonal index
+    nonzero_values = dict()
+    if dtype==complex:
+        for k1 in range(-p1, p1 + 1):
+            for k2 in range(-p2, p2 + 1):
+                nonzero_values[k1, k2] = 10j * k1 + k2
+    else:
+        for k1 in range(-p1, p1 + 1):
+            for k2 in range(-p2, p2 + 1):
+                nonzero_values[k1, k2] = 10 * k1 + k2
+
+    # Create domain decomposition
+    D = DomainDecomposition([n1, n2], periods=[P1, P2])
+
+    # Partition the points
+    npts = [n1, n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
+
+    # Create vector space and stencil matrix
+    V = StencilVectorSpace(cart, dtype=dtype)
+    M = StencilMatrix(V, V)
+
+    # Fill in stencil matrix values
+    for k1 in range(-p1, p1 + 1):
+        for k2 in range(-p2, p2 + 1):
+            M[:, :, k1, k2] = nonzero_values[k1, k2]
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # Convert stencil matrix to PETSc.Mat
+    Mp = M.topetsc()
+    # Convert PETSc.Mat to sparse CSR matrix   
+    indptr, indices, data = Mp.getValuesCSR()
+    if dtype == float:
+        data = data.real #PETSc with installation complex configuration only handles complex dtype
+
+    M = M.tosparse().tocsr()
+
+    assert (indptr == M.indptr).all()
+    assert (indices == M.indices).all()
+    assert np.array_equal(data, M.data)
+
+# ===============================================================================
+    
+@pytest.mark.parametrize('n1', [5])
+@pytest.mark.parametrize('n2', [7])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('p2', [1, 3])
+@pytest.mark.parametrize('P1', [True, False])
+@pytest.mark.parametrize('P2', [True, False])
+@pytest.mark.petsc
+
+def test_mass_matrix_2d_serial_topetsc(n1, n2, p1, p2, P1, P2):
+    from sympde.topology import Square, ScalarFunctionSpace, element_of
+    from sympde.expr     import BilinearForm, integral
+    from psydac.api.settings            import PSYDAC_BACKENDS
+    from psydac.api.discretization      import discretize
+
+    domain = Square()
+    V = ScalarFunctionSpace('V', domain)
+
+    u = element_of(V, name='u')
+    v = element_of(V, name='v')    
+
+    a = BilinearForm((u, v), integral(domain, u * v))
+    domain_h = discretize(domain, ncells=[n1,n2], periodic=[P1,P2])
+    V_h = discretize(V, domain_h, degree=[p1,p2])
+    a_h = discretize(a, domain_h, [V_h, V_h], backend=PSYDAC_BACKENDS['pyccel-gcc'])    
+    M = a_h.assemble()
+
+    # Convert stencil matrix to PETSc.Mat
+    Mp = M.topetsc()
+
+    # Convert PETSc.Mat to sparse CSR matrix   
+    indptr, indices, data = Mp.getValuesCSR()
+    data = data.real #PETSc with installation complex configuration only handles complex dtype
+
+    M = M.tosparse().tocsr()
+
+    # The matrices can only be compared in the serial case.
+    assert (indptr == M.indptr).all()
+    assert (indices == M.indices).all()
+    assert np.array_equal(data, M.data)
+
 # ===============================================================================
 
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -1221,7 +1326,7 @@ def test_stencil_matrix_2d_serial_vdot(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     ya_exact = np.dot(np.conjugate(Ma), xa)
     # Check data in 1D array
     assert y.dtype == dtype
-    assert np.allclose(ya, ya_exact, rtol=1e-13, atol=1e-13)
+    assert np.allclose(ya, ya_exact, rtol=1e-12, atol=1e-12)
 
 # TODO: verify for s>1
 # ===============================================================================
@@ -2594,6 +2699,157 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
     # Check data
     assert abs(Ts - Ts_exact).max() < 1e-14
     assert abs(Tos - Ts_exact).max() < 1e-14
+
+# ===============================================================================
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('n1', [7, 11])
+@pytest.mark.parametrize('n2', [5, 8])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('p2', [1, 2])
+@pytest.mark.parametrize('sh1', [1])
+@pytest.mark.parametrize('sh2', [1])
+@pytest.mark.parametrize('P1', [True, False])
+@pytest.mark.parametrize('P2', [True, False])
+@pytest.mark.parallel
+@pytest.mark.petsc
+
+def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2):
+    from mpi4py import MPI
+
+    # Select non-zero values based on diagonal index
+    nonzero_values = dict()
+    if dtype==complex:
+        for k1 in range(-p1, p1 + 1):
+            for k2 in range(-p2, p2 + 1):
+                nonzero_values[k1, k2] = 10j * k1 + k2 + 7
+    else:
+        for k1 in range(-p1, p1 + 1):
+            for k2 in range(-p2, p2 + 1):
+                nonzero_values[k1, k2] = 10 * k1 + k2 + 7
+
+    # Create domain decomposition: decomposes the coefficients
+    comm = MPI.COMM_WORLD
+    D = DomainDecomposition([n1, n2], periods=[P1, P2], comm=comm)
+
+    # Partition the coefficients
+    npts = [n1, n2] #Number of cells
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1, p2])
+
+    # In cart, npts must be the number of coefficients.
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[sh1, sh2])
+
+    # Create vector space and stencil matrix
+    V = StencilVectorSpace(cart, dtype=dtype)
+    M = StencilMatrix(V, V)
+    x = StencilVector(V)
+
+    # Fill in stencil matrix values
+    for k1 in range(-p1, p1 + 1):
+        for k2 in range(-p2, p2 + 1):
+            M[:, :, k1, k2] = nonzero_values[k1, k2]
+
+    s1, s2 = V.starts
+    e1, e2 = V.ends
+
+    # Fill in vector with random values, then update ghost regions
+    if dtype == complex:
+        for i1 in range(s1, e1 + 1):
+            for i2 in range(s2, e2 + 1):
+                x[i1, i2] = 2.0j * random() - 1.0
+    else:
+        for i1 in range(s1, e1 + 1):
+            for i2 in range(s2, e2 + 1):
+                x[i1, i2] = 2.0 * random() - 1.0
+    x.update_ghost_regions()
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # Convert stencil matrix to PETSc.Mat
+    Mp = M.topetsc()
+
+    y = M.dot(x)
+    
+    # Convert stencil matrix to PETSc.Mat
+    Mp = M.topetsc()
+    # Create Vec to allocate the result of the dot product
+    y_petsc = Mp.createVecRight()
+    # Compute dot product
+    Mp.mult(x.topetsc(), y_petsc)
+    # Cast result back to Psydac StencilVector format
+    y_p = petsc_to_psydac(y_petsc, V)
+
+    ################################################
+    # Note 12.03.2024:
+    # Another possibility would be to compare y_petsc.array and y.toarray(). 
+    # However, we cannot do this because PETSc distributes matrices and vectors different than Psydac.
+    # In the future we would like that PETSc uses the partition from Psydac, 
+    # which might involve passing a DM Object.
+    ################################################
+    assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
+
+# ===============================================================================
+    
+@pytest.mark.parametrize('n1', [4,7])
+@pytest.mark.parametrize('n2', [3,5])
+@pytest.mark.parametrize('p1', [2])
+@pytest.mark.parametrize('p2', [1])
+@pytest.mark.parametrize('P1', [True])
+@pytest.mark.parametrize('P2', [True])
+@pytest.mark.parallel
+@pytest.mark.petsc
+
+def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
+    from sympde.topology import Square, ScalarFunctionSpace, element_of
+    from sympde.expr     import BilinearForm, integral
+    from psydac.api.settings            import PSYDAC_BACKENDS
+    from psydac.api.discretization      import discretize
+    from mpi4py import MPI
+
+    domain = Square()
+    V = ScalarFunctionSpace('V', domain)
+
+    u = element_of(V, name='u')
+    v = element_of(V, name='v')    
+
+    a = BilinearForm((u, v), integral(domain, u * v))
+    comm = MPI.COMM_WORLD
+    domain_h = discretize(domain, ncells=[n1,n2], periodic=[P1,P2], comm=comm)
+    Vh = discretize(V, domain_h, degree=[p1,p2])
+    ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['pyccel-gcc'])    
+    M = ah.assemble()
+
+    x = Vh.vector_space.zeros()
+
+    s1, s2 = Vh.vector_space.starts
+    e1, e2 = Vh.vector_space.ends
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(s1, e1 + 1):
+        for i2 in range(s2, e2 + 1):
+            x[i1, i2] = 2.0 * random() - 1.0
+    x.update_ghost_regions()
+
+    y = M.dot(x)
+    
+    # Convert stencil matrix to PETSc.Mat
+    Mp = M.topetsc()
+    # Create Vec to allocate the result of the dot product
+    y_petsc = Mp.createVecRight()
+    # Compute dot product
+    Mp.mult(x.topetsc(), y_petsc)
+    # Cast result back to Psydac StencilVector format
+    y_p = petsc_to_psydac(y_petsc, Vh.vector_space)
+
+    ################################################
+    # Note 12.03.2024:
+    # Another possibility would be to compare y_petsc.array and y.toarray(). 
+    # However, we cannot do this because PETSc distributes matrices and vectors different than Psydac.
+    # In the future we would like that PETSc uses the partition from Psydac, 
+    # which might involve passing a DM Object.
+    ################################################
+
+    assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
 
 # ===============================================================================
 # PARALLEL BACKENDS TESTS

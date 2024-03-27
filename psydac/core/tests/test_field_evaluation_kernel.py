@@ -3,16 +3,18 @@ import pytest
 import os
 import itertools as it
 
-from sympde.topology import Domain, ScalarFunctionSpace, Square, Cube
+from sympde.topology import Domain, ScalarFunctionSpace, Line, Square, Cube
 from psydac.api.discretization import discretize
 from psydac.fem.basic import FemField
 from psydac.mapping.discrete import NurbsMapping
 from psydac.core.bsplines import cell_index, basis_ders_on_irregular_grid, breakpoints, elements_spans, basis_ders_on_quad_grid
 
-from psydac.core.field_evaluation_kernels import (eval_fields_2d_no_weights, eval_fields_3d_no_weights,
-                                                  eval_fields_2d_irregular_no_weights, eval_fields_3d_irregular_no_weights,
-                                                  eval_fields_2d_weighted, eval_fields_3d_weighted,
-                                                  eval_fields_2d_irregular_weighted, eval_fields_3d_irregular_weighted,
+from psydac.core.field_evaluation_kernels import (eval_fields_1d_no_weights, eval_fields_2d_no_weights, eval_fields_3d_no_weights,
+                                                  eval_fields_1d_irregular_no_weights, eval_fields_2d_irregular_no_weights, 
+                                                  eval_fields_3d_irregular_no_weights,
+                                                  eval_fields_1d_weighted, eval_fields_2d_weighted, eval_fields_3d_weighted,
+                                                  eval_fields_1d_irregular_weighted, eval_fields_2d_irregular_weighted, 
+                                                  eval_fields_3d_irregular_weighted,
                                                   eval_jacobians_2d, eval_jacobians_3d,
                                                   eval_jacobians_irregular_2d, eval_jacobians_irregular_3d,
                                                   eval_jacobians_2d_weights, eval_jacobians_3d_weights,
@@ -333,10 +335,14 @@ def test_irregular_jacobians(geometry, npts):
 
 
 @pytest.mark.parametrize("knots, ldim, degree",
-    [([np.sort(np.concatenate((np.zeros(3), np.random.random(9), np.ones(3)))) for i in range(2)], 2, [2] * 2),
+    [([np.sort(np.concatenate((np.zeros(3), np.random.random(9), np.ones(3))))],                   1, [2]),
+     ([np.sort(np.concatenate((np.zeros(4), np.random.random(9), np.ones(4))))],                   1, [3]),
+     ([np.sort(np.concatenate((np.zeros(3), np.random.random(9), np.ones(3)))) for i in range(2)], 2, [2] * 2),
      ([np.sort(np.concatenate((np.zeros(4), np.random.random(9), np.ones(4)))) for i in range(2)], 2, [3] * 2),
      ([np.sort(np.concatenate((np.zeros(3), np.random.random(9), np.ones(3)))) for i in range(3)], 3, [2] * 3),
      ([np.sort(np.concatenate((np.zeros(4), np.random.random(9), np.ones(4)))) for i in range(3)], 3, [3] * 3),
+     ([np.array([0.0] * 3 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 3)],     1, [2]),
+     ([np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4)],     1, [3]),
      ([np.array([0.0] * 3 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 3)] * 2, 2, [2] * 2),
      ([np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4)] * 2, 2, [3] * 2),
      ([np.array([0.0] * 3 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 3)] * 3, 3, [2] * 3),
@@ -368,7 +374,9 @@ def test_irregular_jacobians(geometry, npts):
 )
 @pytest.mark.parametrize("npts_per_cell", [2, 3, 4])
 def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
-    if ldim == 2:
+    if ldim == 1:
+        domain = Line()
+    elif ldim == 2:
         domain = Square()
     else:
         domain = Cube()
@@ -398,6 +406,15 @@ def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
                     for i in range(ldim)]
 
     # Direct eval
+    if ldim == 1:
+        # No weights
+        f_direct = np.array([space_h.eval_fields([e1], field) for e1 in regular_grid[0]])
+
+        # Weighted
+        f_direct_w = np.array([np.array(space_h.eval_fields([e1], field, weights=weight))
+                                / np.array(space_h.eval_fields([e1], weight))
+                                for e1 in regular_grid[0]])
+
     if ldim == 2:
         # No weights
         f_direct = np.array([[space_h.eval_fields([e1, e2], field) for e2 in regular_grid[1]] for e1 in regular_grid[0]])
@@ -438,6 +455,15 @@ def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
     global_arr_field = field.coeffs._data.reshape(field.coeffs._data.shape + (1,))
     global_arr_w = weight.coeffs._data
 
+    if ldim == 1:
+        # No weights
+        eval_fields_1d_no_weights(*ncells, *degree, *n_eval_points, *global_basis,
+                                  *global_spans, global_arr_field, out_field)
+
+        # Weighted
+        eval_fields_1d_weighted(*ncells, *degree, *n_eval_points, *global_basis,
+                                *global_spans, global_arr_field, global_arr_w, out_field_w)
+
     if ldim == 2:
         # No weights
         eval_fields_2d_no_weights(*ncells, *degree, *n_eval_points, *global_basis,
@@ -461,10 +487,14 @@ def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
 
 
 @pytest.mark.parametrize("knots, ldim, degree",
-    [([np.sort(np.concatenate((np.zeros(3), np.random.random(9), np.ones(3)))) for i in range(2)], 2, [2] * 2),
+    [([np.sort(np.concatenate((np.zeros(3), np.random.random(9), np.ones(3))))],                   1, [2]),
+     ([np.sort(np.concatenate((np.zeros(4), np.random.random(9), np.ones(4))))],                   1, [3]),
+     ([np.sort(np.concatenate((np.zeros(3), np.random.random(9), np.ones(3)))) for i in range(2)], 2, [2] * 2),
      ([np.sort(np.concatenate((np.zeros(4), np.random.random(9), np.ones(4)))) for i in range(2)], 2, [3] * 2),
      ([np.sort(np.concatenate((np.zeros(3), np.random.random(9), np.ones(3)))) for i in range(3)], 3, [2] * 3),
      ([np.sort(np.concatenate((np.zeros(4), np.random.random(9), np.ones(4)))) for i in range(3)], 3, [3] * 3),
+     ([np.array([0.0] * 3 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 3)],     1, [2]),
+     ([np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4)],     1, [3]),
      ([np.array([0.0] * 3 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 3)] * 2, 2, [2] * 2),
      ([np.array([0.0] * 4 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 4)] * 2, 2, [3] * 2),
      ([np.array([0.0] * 3 + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] + [1.0] * 3)] * 3, 3, [2] * 3),
@@ -496,7 +526,9 @@ def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
 )
 @pytest.mark.parametrize('npts', [2, 10, 20])
 def test_irregular_evaluations(knots, ldim, degree, npts):
-    if ldim == 2:
+    if ldim == 1:
+        domain = Line()
+    elif ldim == 2:
         domain = Square()
     else:
         domain = Cube()
@@ -534,6 +566,15 @@ def test_irregular_evaluations(knots, ldim, degree, npts):
             pass
 
     # Direct eval
+    if ldim == 1:
+        # No weights
+        f_direct = np.array([space_h.eval_fields([e1], field) for e1 in irregular_grid[0]])
+
+        # Weighted
+        f_direct_w = np.array([np.array(space_h.eval_fields([e1], field, weights=weight))
+                                / np.array(space_h.eval_fields([e1], weight))
+                                for e1 in irregular_grid[0]])
+        
     if ldim == 2:
         # No weights
         f_direct = np.array([[space_h.eval_fields([e1, e2], field) for e2 in irregular_grid[1]] for e1 in irregular_grid[0]])
@@ -576,6 +617,15 @@ def test_irregular_evaluations(knots, ldim, degree, npts):
 
     global_arr_field = field.coeffs._data.reshape(field.coeffs._data.shape + (1,))
     global_arr_w = weight.coeffs._data
+
+    if ldim == 1:
+        # No weights
+        eval_fields_1d_irregular_no_weights(*npts,*degree, *cell_indexes, *global_basis,
+                                            *global_spans, global_arr_field, out_field)
+
+        # Weighted
+        eval_fields_1d_irregular_weighted(*npts, *degree, *cell_indexes, *global_basis,
+                                          *global_spans, global_arr_field, global_arr_w, out_field_w)
 
     if ldim == 2:
         # No weights

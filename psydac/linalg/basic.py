@@ -2,6 +2,10 @@
 #
 # Copyright 2018 Yaman Güçlü, Jalal Lakhlili
 # Copyright 2022 Yaman Güçlü, Said Hadjout, Julian Owezarek
+"""
+provides the fundamental classes for linear algebra operations.
+
+"""
 
 from abc import ABC, abstractmethod
 
@@ -88,7 +92,7 @@ class VectorSpace(ABC):
 #===============================================================================
 class Vector(ABC):
     """
-    Element of a (normed) vector space V.
+    Element of a vector space V.
 
     """
     @property
@@ -98,30 +102,36 @@ class Vector(ABC):
 
     @property
     def dtype(self):
+        """ The data type of the vector field V this vector belongs to. """
         return self.space.dtype
 
-    def dot(self, other):
+    def dot(self, v):
         """
-        Evaluate the scalar product with another vector of the same space.
+        Evaluate the scalar product with the vector v of the same space.
+
+        Parameters
+        ----------
+        v : Vector
+            Vector belonging to the same space as self.
 
         """
-        assert isinstance(other, Vector)
-        assert self.space is other.space
-        return self.space.dot(self, other)
+        assert isinstance(v, Vector)
+        assert self.space is v.space
+        return self.space.dot(self, v)
 
-    def mul_iadd(self, a, x):
+    def mul_iadd(self, a, v):
         """
-        Compute self += a * x, where x is another vector of the same space.
+        Compute self += a * v, where v is another vector of the same space.
 
         Parameters
         ----------
         a : scalar
             Rescaling coefficient, which can be cast to the correct dtype.
 
-        x : Vector
+        v : Vector
             Vector belonging to the same space as self.
         """
-        self.space.axpy(a, x, self)
+        self.space.axpy(a, v, self)
 
     #-------------------------------------
     # Deferred methods
@@ -206,7 +216,7 @@ class Vector(ABC):
 #===============================================================================
 class LinearOperator(ABC):
     """
-    Linear operator acting between two (normed) vector spaces V (domain)
+    Abstract base class for all linear operators acting between two vector spaces V (domain)
     and W (codomain).
 
     """
@@ -241,6 +251,7 @@ class LinearOperator(ABC):
 
     @abstractmethod
     def toarray(self):
+        """ Convert to Numpy 2D array. """
         pass
 
     @abstractmethod
@@ -263,15 +274,21 @@ class LinearOperator(ABC):
     # Magic methods
     #-------------------------------------
     def __neg__(self):
-        return ScaledLinearOperator(self.domain, self.codomain, -1.0, self)
+        """
+        Scales itself by -1 and thus returns the addititive inverse as 
+        a new object of the class ScaledLinearOperator.
+        
+        """
+        return ScaledLinearOperator(self._domain, self._codomain, -1.0, self)
 
     def __mul__(self, c):
         """
-        Scales a linear operator by c by creating an object of class :ref:`ScaledLinearOperator <scaledlinearoperator>`,
-        unless c = 0 or c = 1, in which case either a :ref:`ZeroOperator <zerooperator>` or self is returned.
+        Scales a linear operator by a real scalar c by creating an object of the class ScaledLinearOperator,
+        unless c = 0 or c = 1, in which case either a ZeroOperator or self is returned.
 
         """
         assert np.isscalar(c)
+        assert np.isreal(c)
         if c==0:
             return ZeroOperator(self.domain, self.codomain)
         elif c == 1:
@@ -280,11 +297,11 @@ class LinearOperator(ABC):
             return ScaledLinearOperator(self.domain, self.codomain, c, self)
 
     def __rmul__(self, c):
-        """ Calls :ref:`__mul__ <mul>` instead. """
+        """ Calls __mul__ instead. """
         return self * c
 
     def __matmul__(self, B):
-        """ Creates an object of class :ref:`ComposedLinearOperator <composedlinearoperator>`. """
+        """ Creates an object of the class ComposedLinearOperator. """
         assert isinstance(B, (LinearOperator, Vector))
         if isinstance(B, LinearOperator):
             assert self.domain == B.codomain
@@ -298,19 +315,20 @@ class LinearOperator(ABC):
             return self.dot(B)
 
     def __add__(self, B):
-        """ Creates an object of class :ref:`SumLinearOperator <sumlinearoperator>` unless B is a :ref:`ZeroOperator <zerooperator>` in which case self is returned. """
+        """ Creates an object of the class SumLinearOperator unless B is a ZeroOperator in which case self is returned. """
         assert isinstance(B, LinearOperator)
         if isinstance(B, ZeroOperator):
             return self
         else:
             return SumLinearOperator(self.domain, self.codomain, self, B)
 
-    def __sub__(self, m):
-        assert isinstance(m, LinearOperator)
-        if isinstance(m, ZeroOperator):
+    def __sub__(self, B):
+        """ Creates an object of the class SumLinearOperator unless B is a ZeroOperator in which case self is returned. """
+        assert isinstance(B, LinearOperator)
+        if isinstance(B, ZeroOperator):
             return self
         else:
-            return SumLinearOperator(self.domain, self.codomain, self, -m)
+            return SumLinearOperator(self.domain, self.codomain, self, -B)
 
     def __pow__(self, n):
         """ Creates an object of class :ref:`PowerLinearOperator <powerlinearoperator>`. """
@@ -331,10 +349,12 @@ class LinearOperator(ABC):
 
     @property
     def T(self):
+        """ Calls transpose method to return the transpose of self. """
         return self.transpose()
 
     @property
     def H(self):
+        """ Calls transpose method with `conjugate=True` flag to return the Hermitian transpose of self. """
         return self.transpose(conjugate=True)
 
     def idot(self, v, out):
@@ -351,6 +371,10 @@ class LinearOperator(ABC):
 
 #===============================================================================
 class ZeroOperator(LinearOperator):
+    """
+    Zero operator mapping any vector from its domain V to the zero vector of its codomain W.
+    
+    """
 
     def __new__(cls, domain, codomain=None):
 
@@ -445,6 +469,11 @@ class ZeroOperator(LinearOperator):
 
 #===============================================================================
 class IdentityOperator(LinearOperator):
+    """
+    Identity operator acting between a vector space V and itself.
+    Useful for example in custom linear operator classes together with the apply_essential_bc method to create projection operators.
+    
+    """
 
     def __new__(cls, domain, codomain=None):
 
@@ -481,6 +510,7 @@ class IdentityOperator(LinearOperator):
         return None
 
     def copy(self):
+        """ Returns a new IdentityOperator object acting between the same vector spaces."""
         return IdentityOperator(self.domain, self.codomain)
 
     def toarray(self):
@@ -516,12 +546,17 @@ class IdentityOperator(LinearOperator):
 
 #===============================================================================
 class ScaledLinearOperator(LinearOperator):
+    """
+    A linear operator $A$ scalar multiplied by a real constant $c$. 
+    
+    """
 
     def __init__(self, domain, codomain, c, A):
 
         assert isinstance(domain, VectorSpace)
         assert isinstance(codomain, VectorSpace)
         assert np.isscalar(c)
+        assert np.isreal(c)
         assert isinstance(A, LinearOperator)
         assert domain   == A.domain
         assert codomain == A.codomain
@@ -548,10 +583,12 @@ class ScaledLinearOperator(LinearOperator):
 
     @property
     def scalar(self):
+        """ Returns the scalar value by which the operator is multiplied."""
         return self._scalar
 
     @property
     def operator(self):
+        """ Returns the operator that is multiplied by the scalar."""
         return self._operator
 
     @property
@@ -588,7 +625,7 @@ class ScaledLinearOperator(LinearOperator):
 #===============================================================================
 class SumLinearOperator(LinearOperator):
     """
-    A sum of linear operatos acting between the same (normed) vector spaces V (domain) and W (codomain).
+    Sum $\sum_{i=1}^n A_i$ of linear operators $A_1,\dots,A_n$ acting between the same vector spaces V (domain) and W (codomain).
 
     """
     def __new__(cls, domain, codomain, *args):
@@ -639,10 +676,6 @@ class SumLinearOperator(LinearOperator):
 
     @property
     def dtype(self):
-        """
-        todo
-
-        """
         return None
 
     def toarray(self):
@@ -666,6 +699,7 @@ class SumLinearOperator(LinearOperator):
 
     @staticmethod
     def simplify(addends):
+        """ Simplifies a sum of linear operators by combining addends of the same class. """
         class_list  = [a.__class__ for a in addends]
         unique_list = [*{c: a for c, a in zip(class_list, addends)}]
         if len(unique_list) == 1:
@@ -704,6 +738,10 @@ class SumLinearOperator(LinearOperator):
 
 #===============================================================================
 class ComposedLinearOperator(LinearOperator):
+    """
+    Composition $A_n\circ\dots\circ A_1$ of two or more linear operators $A_1,\dots,A_n$.
+    
+    """
 
     def __init__(self, domain, codomain, *args):
 
@@ -743,6 +781,11 @@ class ComposedLinearOperator(LinearOperator):
 
     @property
     def tmp_vectors(self):
+        """
+        A tuple containing the storage vectors that are repeatedly being used upon calling the `dot` method.
+        This avoids the creation of new vectors at each call of the `dot` method.
+        
+        """
         return self._tmp_vectors
 
     @property
@@ -755,6 +798,11 @@ class ComposedLinearOperator(LinearOperator):
 
     @property
     def multiplicants(self):
+        """
+        A tuple $(A_1,\dots,A_n)$ containing the multiplicants of the linear operator 
+        $self = A_n\circ\dots\circ A_1$.
+        
+        """
         return self._multiplicants
 
     @property
@@ -803,7 +851,7 @@ class ComposedLinearOperator(LinearOperator):
             out = A.dot(x)
         return out
 
-    def exchange_assembly_data( self ):
+    def exchange_assembly_data(self):
         for op in self._multiplicants:
             op.exchange_assembly_data()
 
@@ -813,6 +861,10 @@ class ComposedLinearOperator(LinearOperator):
 
 #===============================================================================
 class PowerLinearOperator(LinearOperator):
+    """
+    Power $A^n$ of a linear operator $A$ for some integer $n\geq 0$.
+    
+    """
 
     def __new__(cls, domain, codomain, A, n):
 
@@ -856,10 +908,12 @@ class PowerLinearOperator(LinearOperator):
 
     @property
     def operator(self):
+        """ Returns the operator that is raised to the power. """
         return self._operator
 
     @property
     def factorial(self):
+        """ Returns the power to which the operator is raised. """
         return self._factorial
 
     def toarray(self):
@@ -889,10 +943,9 @@ class PowerLinearOperator(LinearOperator):
 #===============================================================================
 class InverseLinearOperator(LinearOperator):
     """
-    Abstract base class for the (approximate) inverse A_inv := A^{-1} of a
-    square matrix A. The result of A_inv.dot(b) is the (approximate) solution x
-    of the linear system A x = b, where x and b belong to the same (normed)
-    vector space V.
+    Abstract base class for the (approximate) inverse $A^{-1}$ of a
+    square matrix $A$. The result of A_inv.dot(b) is the (approximate) solution x
+    of the linear system A x = b, where x and b belong to the same vector space V.
 
     We assume that the linear system is solved by an iterative method, which
     needs a first guess `x0` and an exit condition based on `tol` and `maxiter`.
@@ -950,25 +1003,27 @@ class InverseLinearOperator(LinearOperator):
     @property
     def linop(self):
         """
-        The linear operator L of which this object is the inverse L^{-1}.
+        The linear operator $A$ of which this object is the inverse $A^{-1}$.
 
-        The linear operator L can be modified in place, or replaced entirely
+        The linear operator $A$ can be modified in place, or replaced entirely
         through the setter. A substitution should only be made in cases where
         no other options are viable, as it breaks the one-to-one map between
-        the original linear operator L (passed to the constructor) and the
-        current `InverseLinearOperator` object L^{-1}. Use with extreme care!
+        the original linear operator $A$ (passed to the constructor) and the
+        current `InverseLinearOperator` object $A^{-1}$. Use with extreme care!
 
         """
         return self._A
     
     @linop.setter
     def linop(self, a):
+        """ Set the linear operator $A$ of which this object is the inverse $A^{-1}$. """
         assert isinstance(a, LinearOperator)
         assert a.domain is self.domain
         assert a.codomain is self.codomain
         self._A = a
 
     def _check_options(self, **kwargs):
+        """ Check whether the options passed to the solver class are valid. """
         for key, value in kwargs.items():
 
             if key == 'x0':
@@ -991,6 +1046,7 @@ class InverseLinearOperator(LinearOperator):
         raise NotImplementedError('tosparse() is not defined for InverseLinearOperators.')
 
     def get_info(self):
+        """ Returns the previous convergence information. """
         return self._info
 
     def get_options(self, key=None):
@@ -1015,8 +1071,7 @@ class InverseLinearOperator(LinearOperator):
             return self._options.get(key)
 
     def set_options(self, **kwargs):
-        """Set the solver options by passing keyword arguments.
-        """
+        """ Set the solver options by passing keyword arguments. """
         self._check_options(**kwargs)
         self._options.update(kwargs)
 
@@ -1029,8 +1084,7 @@ class InverseLinearOperator(LinearOperator):
 #===============================================================================
 class LinearSolver(ABC):
     """
-    Solver for square linear system Ax=b, where x and b belong to (normed)
-    vector space V.
+    Solver for the square linear system Ax=b, where x and b belong to the same vector space V.
 
     """
     @property
