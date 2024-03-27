@@ -1097,7 +1097,6 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:
             i_cell = (low + high)//2
             it += 1
         if it >= max_it:
-            print("Warning: binary search loop is too long in cell_index_p -- aborted")
             return -2
         
         # Check were we landed with the binary search
