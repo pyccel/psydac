@@ -507,7 +507,7 @@ class TensorFemSpace( FemSpace ):
         n_eval_points = [local_shape[i][1] for i in range(self.ldim)]
         out_fields = np.zeros((*(tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim))), len(fields)), dtype=self.dtype)
 
-        glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)), dtype=self.dtype)
+        global_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)), dtype=self.dtype)
 
         for i in range(len(fields)):
             glob_arr_coeffs[..., i] = fields[i].coeffs._data
@@ -520,8 +520,8 @@ class TensorFemSpace( FemSpace ):
             else:
                 raise NotImplementedError(f"eval_fields_{self.ldim}d_no_weights not implemented")
         else:
-            global_weight_coeff = weights.coeffs._data
-            args = (*ncells, *degree, *n_eval_points, *global_basis, *global_spans, global_arr_coeffs, global_weight_coeff, out_fields)
+            global_weight_coeffs = weights.coeffs._data
+            args = (*ncells, *degree, *n_eval_points, *global_basis, *global_spans, global_arr_coeffs, global_weight_coeffs, out_fields)
             if   self.ldim == 1:  eval_fields_1d_weighted(*args)
             elif self.ldim == 2:  eval_fields_2d_weighted(*args)
             elif self.ldim == 3:  eval_fields_3d_weighted(*args)
@@ -560,12 +560,12 @@ class TensorFemSpace( FemSpace ):
             self.preprocess_irregular_tensor_grid(grid, overlap=overlap)
         out_fields = np.zeros(tuple(local_shape) + (len(fields),), dtype=self.dtype)
 
-        glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)), dtype=self.dtype)
+        global_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)), dtype=self.dtype)
 
         npoints = local_shape
 
         for i in range(len(fields)):
-            glob_arr_coeffs[..., i] = fields[i].coeffs._data
+            global_arr_coeffs[..., i] = fields[i].coeffs._data
 
         if weights is None:
             args = (*npoints, *degree, *cell_indexes, *global_basis, *global_spans, global_arr_coeffs, out_fields)
@@ -575,8 +575,8 @@ class TensorFemSpace( FemSpace ):
             else:
                 raise NotImplementedError(f"eval_fields_{self.ldim}d_irregular_no_weights not implemented")
         else:
-            global_weight_coeff = weights.coeffs._data
-            args = (*npoints, *degree, *cell_indexes, *global_basis, *global_spans, global_arr_coeffs, global_weight_coeff, out_fields)
+            global_weight_coeffs = weights.coeffs._data
+            args = (*npoints, *degree, *cell_indexes, *global_basis, *global_spans, global_arr_coeffs, global_weight_coeffs, out_fields)
             if   self.ldim == 1:  eval_fields_1d_irregular_weighted(*args)
             elif self.ldim == 2:  eval_fields_2d_irregular_weighted(*args)
             elif self.ldim == 3:  eval_fields_3d_irregular_weighted(*args)
