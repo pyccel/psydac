@@ -236,19 +236,13 @@ def get_degrees(funcs, space):
     return new_degrees
 
 #==============================================================================
-def get_nquads(Vh):
-    if isinstance(Vh, (ProductFemSpace, VectorFemSpace)):
-        return get_nquads(Vh.spaces[0])
-    return tuple([g.weights.shape[1] for g in Vh.quad_grids()])
-
-#==============================================================================
 class AST(object):
     """
     The Ast class transforms a terminal expression returned from sympde
     into a DefNode
 
     """
-    def __init__(self, expr, terminal_expr, spaces, mapping_space=None, tag=None, mapping=None, is_rational_mapping=None,
+    def __init__(self, expr, terminal_expr, spaces, *, nquads, mapping_space=None, tag=None, mapping=None, is_rational_mapping=None,
                      num_threads=1, **kwargs):
         # ... compute terminal expr
         # TODO check that we have one single domain/interface/boundary
@@ -269,6 +263,7 @@ class AST(object):
         dim                 = domain.dim
         constants           = expr.constants
         mask                = None
+        nquads              = tuple(nquads)
 
         # Define mask for different domain
         if isinstance(domain, Boundary):
@@ -292,7 +287,6 @@ class AST(object):
             tests               = expr.test_functions
             fields              = expr.fields
             is_broken           = spaces.symbolic_space.is_broken
-            nquads              = get_nquads(spaces)
             tests_degrees       = get_degrees(tests, spaces)
             multiplicity_tests  = get_multiplicity(tests, spaces.vector_space)
             is_parallel         = spaces.vector_space.parallel
@@ -308,7 +302,6 @@ class AST(object):
             atoms               = terminal_expr.expr.atoms(ScalarFunction, VectorFunction)
             fields              = tuple(i for i in atoms if i not in tests+trials)
             is_broken           = spaces[1].symbolic_space.is_broken
-            nquads              = get_nquads(spaces[1])
             tests_degrees       = get_degrees(tests, spaces[1])
             trials_degrees      = get_degrees(trials, spaces[0])
             multiplicity_tests  = get_multiplicity(tests, spaces[1].vector_space)
@@ -330,7 +323,6 @@ class AST(object):
             is_functional       = True
             fields              = tuple(expr.atoms(ScalarFunction, VectorFunction))
             is_broken           = spaces.symbolic_space.is_broken
-            nquads              = get_nquads(spaces)
             fields_degrees      = get_degrees(fields, spaces)
             multiplicity_fields = get_multiplicity(fields, spaces.vector_space)
             is_parallel         = spaces.vector_space.parallel
