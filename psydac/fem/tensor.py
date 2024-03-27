@@ -31,7 +31,11 @@ from psydac.core.bsplines  import (find_span,
                                    cell_index,
                                    basis_ders_on_irregular_grid)
 
-from psydac.core.field_evaluation_kernels import (eval_fields_2d_no_weights,
+from psydac.core.field_evaluation_kernels import (eval_fields_1d_no_weights,
+                                                  eval_fields_1d_irregular_no_weights,
+                                                  eval_fields_1d_weighted,
+                                                  eval_fields_1d_irregular_weighted,
+                                                  eval_fields_2d_no_weights,
                                                   eval_fields_2d_irregular_no_weights,
                                                   eval_fields_2d_weighted,
                                                   eval_fields_2d_irregular_weighted,
@@ -129,6 +133,7 @@ class TensorFemSpace( FemSpace ):
         self._global_element_ends   = domain_decomposition.global_element_ends
 
         self.set_refined_space(self.ncells, self)
+
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
@@ -502,48 +507,30 @@ class TensorFemSpace( FemSpace ):
         n_eval_points = [local_shape[i][1] for i in range(self.ldim)]
         out_fields = np.zeros((*(tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim))), len(fields)), dtype=self.dtype)
 
-        glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)), dtype=self.dtype)
+        global_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)), dtype=self.dtype)
 
         for i in range(len(fields)):
-            glob_arr_coeffs[..., i] = fields[i].coeffs._data
+            global_arr_coeffs[..., i] = fields[i].coeffs._data
 
-        if self.ldim == 2:
-            if weights is None:
-                eval_fields_2d_no_weights(ncells[0], ncells[1], degree[0], degree[1],
-                                          n_eval_points[0], n_eval_points[1], global_basis[0], global_basis[1],
-                                          global_spans[0], global_spans[1], glob_arr_coeffs, out_fields)
+        if weights is None:
+            args = (*ncells, *degree, *n_eval_points, *global_basis, *global_spans, global_arr_coeffs, out_fields)
+            if   self.ldim == 1:  eval_fields_1d_no_weights(*args)
+            elif self.ldim == 2:  eval_fields_2d_no_weights(*args)
+            elif self.ldim == 3:  eval_fields_3d_no_weights(*args)
             else:
-
-                global_weight_coeff = weights.coeffs._data
-
-                eval_fields_2d_weighted(ncells[0], ncells[1], degree[0], degree[1],
-                                        n_eval_points[0], n_eval_points[1], global_basis[0], global_basis[1],
-                                        global_spans[0], global_spans[1], glob_arr_coeffs, global_weight_coeff,
-                                        out_fields)
-
-        elif self.ldim == 3:
-            if weights is None:
-
-                eval_fields_3d_no_weights(ncells[0], ncells[1], ncells[2], degree[0],
-                                          degree[1], degree[2], n_eval_points[0], n_eval_points[1],
-                                          n_eval_points[2], global_basis[0], global_basis[1], global_basis[2],
-                                          global_spans[0], global_spans[1], global_spans[2], glob_arr_coeffs,
-                                          out_fields)
-
-            else:
-                global_weight_coeff = weights.coeffs._data
-
-                eval_fields_3d_weighted(ncells[0], ncells[1], ncells[2], degree[0],
-                                        degree[1], degree[2], n_eval_points[0], n_eval_points[1], n_eval_points[2],
-                                        global_basis[0], global_basis[1], global_basis[2], global_spans[0],
-                                        global_spans[1], global_spans[2], glob_arr_coeffs, global_weight_coeff,
-                                        out_fields)
+                raise NotImplementedError(f"eval_fields_{self.ldim}d_no_weights not implemented")
         else:
-            raise NotImplementedError("1D not Implemented")
+            global_weight_coeffs = weights.coeffs._data
+            args = (*ncells, *degree, *n_eval_points, *global_basis, *global_spans, global_arr_coeffs, global_weight_coeffs, out_fields)
+            if   self.ldim == 1:  eval_fields_1d_weighted(*args)
+            elif self.ldim == 2:  eval_fields_2d_weighted(*args)
+            elif self.ldim == 3:  eval_fields_3d_weighted(*args)
+            else:
+                raise NotImplementedError(f"eval_fields_{self.ldim}d_weighted not implemented")
 
         return out_fields
 
-# ...
+    # ...
     def eval_fields_irregular_tensor_grid(self, grid, *fields, weights=None, overlap=0):
         """Evaluate fields on a regular tensor grid
 
@@ -573,46 +560,37 @@ class TensorFemSpace( FemSpace ):
             self.preprocess_irregular_tensor_grid(grid, overlap=overlap)
         out_fields = np.zeros(tuple(local_shape) + (len(fields),), dtype=self.dtype)
 
-        glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)), dtype=self.dtype)
+        global_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)), dtype=self.dtype)
 
         npoints = local_shape
 
         for i in range(len(fields)):
-            glob_arr_coeffs[..., i] = fields[i].coeffs._data
+            global_arr_coeffs[..., i] = fields[i].coeffs._data
 
-        if self.ldim == 2:
-            if weights is None:
-                eval_fields_2d_irregular_no_weights(*npoints, *degree, *cell_indexes, *global_basis,
-                                                    *global_spans, glob_arr_coeffs, out_fields)
+        if weights is None:
+            args = (*npoints, *degree, *cell_indexes, *global_basis, *global_spans, global_arr_coeffs, out_fields)
+            if   self.ldim == 1:  eval_fields_1d_irregular_no_weights(*args)
+            elif self.ldim == 2:  eval_fields_2d_irregular_no_weights(*args)
+            elif self.ldim == 3:  eval_fields_3d_irregular_no_weights(*args)
             else:
-
-                global_weight_coeff = weights.coeffs._data
-
-                eval_fields_2d_irregular_weighted(*npoints, *degree, *cell_indexes, *global_basis,
-                                                  *global_spans, glob_arr_coeffs, global_weight_coeff, out_fields)
-
-        elif self.ldim == 3:
-            if weights is None:
-
-                eval_fields_3d_irregular_no_weights(*npoints, *degree, *cell_indexes, *global_basis,
-                                                    *global_spans, glob_arr_coeffs, out_fields)
-
-            else:
-                global_weight_coeff = weights.coeffs._data
-
-                eval_fields_3d_irregular_weighted(*npoints, *degree, *cell_indexes, *global_basis,
-                                                  *global_spans, glob_arr_coeffs, global_weight_coeff, out_fields)
+                raise NotImplementedError(f"eval_fields_{self.ldim}d_irregular_no_weights not implemented")
         else:
-            raise NotImplementedError("1D not Implemented")
+            global_weight_coeffs = weights.coeffs._data
+            args = (*npoints, *degree, *cell_indexes, *global_basis, *global_spans, global_arr_coeffs, global_weight_coeffs, out_fields)
+            if   self.ldim == 1:  eval_fields_1d_irregular_weighted(*args)
+            elif self.ldim == 2:  eval_fields_2d_irregular_weighted(*args)
+            elif self.ldim == 3:  eval_fields_3d_irregular_weighted(*args)
+            else:
+                raise NotImplementedError(f"eval_fields_{self.ldim}d_irregular_weighted not implemented")
 
         return out_fields
 
     # ...
-    def eval_field_gradient( self, field, *eta , weights=None):
+    def eval_field_gradient(self, field, *eta, weights=None):
 
-        assert isinstance( field, FemField )
+        assert isinstance(field, FemField)
         assert field.space is self
-        assert len( eta ) == self.ldim
+        assert len(eta) == self.ldim
 
         bases_0 = []
         bases_1 = []
@@ -667,9 +645,9 @@ class TensorFemSpace( FemSpace ):
         return grad
 
     # ...
-    def integral( self, f ):
+    def integral(self, f):
 
-        assert hasattr( f, '__call__' )
+        assert hasattr(f, '__call__')
 
         # Extract and store quadrature data
         quad_grids = self.quad_grids()
@@ -683,29 +661,29 @@ class TensorFemSpace( FemSpace ):
 
         # Iterator over multi-index k (equivalent to nested loops over each dimension)
         multi_range = lambda starts, ends: \
-                itertools.product( *[range(s,e+1) for s,e in zip(starts,ends)] )
+                itertools.product(*[range(s, e+1) for s, e in zip(starts, ends)])
 
         # Shortcut: Numpy product of all elements in a list
         np_prod = np.prod
 
         # Perform Gaussian quadrature in multiple dimensions
         c = 0.0
-        for k in multi_range( sk, ek ):
+        for k in multi_range(sk, ek):
 
-            x = [ points_i[k_i,:] for  points_i,k_i in zip( points,k)]
-            w = [weights_i[k_i,:] for weights_i,k_i in zip(weights,k)]
+            x = [ points_i[k_i, :] for  points_i, k_i in zip( points, k)]
+            w = [weights_i[k_i, :] for weights_i, k_i in zip(weights, k)]
 
             for q in np.ndindex( *nq ):
 
-                y  = [x_i[q_i] for x_i,q_i in zip(x,q)]
-                v  = [w_i[q_i] for w_i,q_i in zip(w,q)]
+                y  = [x_i[q_i] for x_i, q_i in zip(x, q)]
+                v  = [w_i[q_i] for w_i, q_i in zip(w, q)]
 
-                c += f(*y) * np_prod( v )
+                c += f(*y) * np_prod(v)
 
         # All reduce (MPI_SUM)
         if self.vector_space.parallel:
             mpi_comm = self.vector_space.cart.comm
-            c = mpi_comm.allreduce( c )
+            c = mpi_comm.allreduce(c)
 
         return c
 
@@ -754,15 +732,15 @@ class TensorFemSpace( FemSpace ):
         return [V.ncells for V in self.spaces]
 
     @property
-    def spaces( self ):
+    def spaces(self):
         return self._spaces
     
     @property
-    def nquads( self ):
+    def nquads(self):
         return self._nquads
 
     #@property
-    def quad_grids( self, *nquads ):
+    def quad_grids(self, *nquads):
         """
         Tuple of 'FemAssemblyGrid' objects (one for each direction)
         containing all 1D information local to process that is necessary
@@ -800,7 +778,7 @@ class TensorFemSpace( FemSpace ):
         return tuple(quad_grids)
 
     @property
-    def local_domain( self ):
+    def local_domain(self):
         """
         Logical domain local to the process, assuming the global domain is
         decomposed across processes without any overlapping.
@@ -820,15 +798,15 @@ class TensorFemSpace( FemSpace ):
         return self._element_starts, self._element_ends
 
     @property
-    def global_element_starts( self ):
+    def global_element_starts(self):
         return self._global_element_starts
 
     @property
-    def global_element_ends( self ):
+    def global_element_ends(self):
         return self._global_element_ends
 
     @property
-    def eta_lims( self ):
+    def eta_lims(self):
         """
         Eta limits of domain local to the process (for field evaluation).
 
@@ -841,21 +819,21 @@ class TensorFemSpace( FemSpace ):
         return self._eta_limits
 
     # ...
-    def init_interpolation( self ):
+    def init_interpolation(self):
         for V in self.spaces:
             # TODO: check if OK to access private attribute...
             if not V._interpolation_ready:
                 V.init_interpolation(dtype=self.dtype)
 
     # ...
-    def init_histopolation( self ):
+    def init_histopolation(self):
         for V in self.spaces:
             # TODO: check if OK to access private attribute...
             if not V._histopolation_ready:
                 V.init_histopolation(dtype=self.dtype)
 
     # ...
-    def compute_interpolant( self, values, field ):
+    def compute_interpolant(self, values, field):
         """
         Compute field (i.e. update its spline coefficients) such that it
         interpolates a certain function $f(x1,x2,..)$ at the Greville points.
@@ -954,35 +932,35 @@ class TensorFemSpace( FemSpace ):
         return V
 
     # ...
-    def export_fields( self, filename, **fields ):
+    def export_fields(self, filename, **fields):
         """ Write spline coefficients of given fields to HDF5 file.
         """
-        assert isinstance( filename, str )
-        assert all( field.space is self for field in fields.values() )
+        assert isinstance(filename, str)
+        assert all(field.space is self for field in fields.values())
 
         V    = self.vector_space
         comm = V.cart.comm if V.parallel else None
 
         # Multi-dimensional index range local to process
-        index = tuple( slice( s, e+1 ) for s,e in zip( V.starts, V.ends ) )
+        index = tuple(slice(s, e+1) for s,e in zip(V.starts, V.ends))
 
         # Create HDF5 file (in parallel mode if MPI communicator size > 1)
         kwargs = {}
         if comm is not None:
             if comm.size > 1:
-                kwargs.update( driver='mpio', comm=comm )
-        h5 = h5py.File( filename, mode='w', **kwargs )
+                kwargs.update(driver='mpio', comm=comm)
+        h5 = h5py.File(filename, mode='w', **kwargs)
 
         # Add field coefficients as named datasets
         for name,field in fields.items():
-            dset = h5.create_dataset( name, shape=V.npts, dtype=V.dtype )
+            dset = h5.create_dataset(name, shape=V.npts, dtype=V.dtype)
             dset[index] = field.coeffs[index]
 
         # Close HDF5 file
         h5.close()
 
     # ...
-    def import_fields( self, filename, *field_names ):
+    def import_fields(self, filename, *field_names):
         """
         Load fields from HDF5 file containing spline coefficients.
 
@@ -1000,21 +978,21 @@ class TensorFemSpace( FemSpace ):
             Distributed fields, given in the same order of the names.
 
         """
-        assert isinstance( filename, str )
-        assert all( isinstance( name, str ) for name in field_names )
+        assert isinstance(filename, str)
+        assert all(isinstance(name, str) for name in field_names)
 
         V    = self.vector_space
         comm = V.cart.comm if V.parallel else None
 
         # Multi-dimensional index range local to process
-        index = tuple( slice( s, e+1 ) for s,e in zip( V.starts, V.ends ) )
+        index = tuple(slice(s, e+1) for s,e in zip(V.starts, V.ends))
 
         # Open HDF5 file (in parallel mode if MPI communicator size > 1)
         kwargs = {}
         if comm is not None:
             if comm.size > 1:
-                kwargs.update( driver='mpio', comm=comm )
-        h5 = h5py.File( filename, mode='r', **kwargs )
+                kwargs.update(driver='mpio', comm=comm)
+        h5 = h5py.File(filename, mode='r', **kwargs)
 
         # Create fields and load their coefficients from HDF5 datasets
         fields = []
@@ -1022,11 +1000,11 @@ class TensorFemSpace( FemSpace ):
             dset = h5[name]
             if dset.shape != V.npts:
                 h5.close()
-                raise TypeError( 'Dataset not compatible with spline space.' )
-            field = FemField( self )
+                raise TypeError('Dataset not compatible with spline space.')
+            field = FemField(self)
             field.coeffs[index] = dset[index]
             field.coeffs.update_ghost_regions()
-            fields.append( field )
+            fields.append(field)
 
         # Close HDF5 file
         h5.close()
@@ -1070,7 +1048,7 @@ class TensorFemSpace( FemSpace ):
         global_starts, global_ends = partition_coefficients(v.cart.domain_decomposition, spaces)
 
         # create new CartDecomposition
-        red_cart   = v.cart.reduce_npts(npts, global_starts, global_ends, shifts=multiplicity)
+        red_cart = v.cart.reduce_npts(npts, global_starts, global_ends, shifts=multiplicity)
 
         # create new TensorFemSpace
 
@@ -1116,12 +1094,10 @@ class TensorFemSpace( FemSpace ):
             new_global_starts[-1] = np.array(new_global_starts[-1])
             new_global_ends  [-1] = np.array(new_global_ends  [-1])
 
-        domain = domain.refine(ncells, new_global_starts, new_global_ends)
+        new_domain = domain.refine(ncells, new_global_starts, new_global_ends)
+        new_space  = TensorFemSpace(new_domain, *spaces, nquads=self.nquads, dtype=self._vector_space.dtype)
 
-
-        FS     = TensorFemSpace(domain, *spaces, nquads=self.nquads, dtype=self._vector_space.dtype)
-
-        self.set_refined_space(ncells, FS)
+        self.set_refined_space(ncells, new_space)
 
     # ...
     def create_interface_space(self, axis, ext, cart):
@@ -1141,18 +1117,22 @@ class TensorFemSpace( FemSpace ):
         """
         axis = int(axis)
         ext  = int(ext)
-        assert axis<self.ldim
-        assert ext in [-1,1]
 
-        if cart.is_comm_null or self._interfaces.get((axis, ext), None): return
+        assert axis < self.ldim
+        assert ext in [-1, 1]
+
+        if cart.is_comm_null or self._interfaces.get((axis, ext), None):
+            return
+
         spaces       = self.spaces
         vector_space = self.vector_space
         nquads       = self.nquads
 
         vector_space.set_interface(axis, ext, cart)
 
-        space = TensorFemSpace( self._domain_decomposition, *spaces, vector_space=vector_space.interfaces[axis, ext],
-                                nquads=self.nquads, dtype=vector_space.dtype)
+        space = TensorFemSpace(self._domain_decomposition, *spaces,
+                               vector_space=vector_space.interfaces[axis, ext],
+                               nquads=self.nquads, dtype=vector_space.dtype)
 
         self._interfaces[axis, ext] = space
 
@@ -1164,7 +1144,7 @@ class TensorFemSpace( FemSpace ):
         self._refined_space[tuple(ncells)] = new_space
 
     # ...
-    def plot_2d_decomposition( self, mapping=None, refine=10 ):
+    def plot_2d_decomposition(self, mapping=None, refine=10):
 
         import matplotlib.pyplot as plt
         from matplotlib.patches  import Polygon, Patch
@@ -1177,16 +1157,16 @@ class TensorFemSpace( FemSpace ):
             assert mapping.pdim == self.ldim == 2
 
         assert refine >= 1
-        N = int( refine )
+        N = int(refine)
         V1, V2 = self.spaces
 
         mpi_comm = self.vector_space.cart.comm
         mpi_rank = mpi_comm.rank
 
         # Local grid, refined
-        [sk1,sk2], [ek1,ek2] = self.local_domain
-        eta1 = refine_array_1d( V1.breaks[sk1:ek1+2], N )
-        eta2 = refine_array_1d( V2.breaks[sk2:ek2+2], N )
+        [sk1, sk2], [ek1, ek2] = self.local_domain
+        eta1 = refine_array_1d(V1.breaks[sk1:ek1+2], N)
+        eta2 = refine_array_1d(V2.breaks[sk2:ek2+2], N)
         pcoords = np.array([[mapping(e1, e2) for e2 in eta2] for e1 in eta1])
 
         # Local domain as Matplotlib polygonal patch
@@ -1194,11 +1174,11 @@ class TensorFemSpace( FemSpace ):
         BC = pcoords[  -1,    :, :] # eta1 = max
         CD = pcoords[::-1,   -1, :] # eta2 = max (points must be reversed)
         DA = pcoords[   0, ::-1, :] # eta1 = min (points must be reversed)
-        xy = np.concatenate( [AB, BC, CD, DA], axis=0 )
-        poly = Polygon( xy, edgecolor='None' )
+        xy = np.concatenate([AB, BC, CD, DA], axis=0)
+        poly = Polygon(xy, edgecolor='None')
 
         # Gather polygons on master process
-        polys = mpi_comm.gather( poly )
+        polys = mpi_comm.gather(poly)
 
         #-------------------------------
         # Non-master processes stop here
@@ -1207,31 +1187,31 @@ class TensorFemSpace( FemSpace ):
         #-------------------------------
 
         # Global grid, refined
-        eta1    = refine_array_1d( V1.breaks, N )
-        eta2    = refine_array_1d( V2.breaks, N )
+        eta1    = refine_array_1d(V1.breaks, N)
+        eta2    = refine_array_1d(V2.breaks, N)
         pcoords = np.array([[mapping(e1, e2) for e2 in eta2] for e1 in eta1])
-        xx      = pcoords[:,:,0]
-        yy      = pcoords[:,:,1]
+        xx      = pcoords[:, :, 0]
+        yy      = pcoords[:, :, 1]
 
         # Plot decomposed domain
-        fig, ax = plt.subplots( 1, 1 )
-        colors  = itertools.cycle( plt.rcParams['axes.prop_cycle'].by_key()['color'] )
+        fig, ax = plt.subplots(1, 1)
+        colors  = itertools.cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
         handles = []
-        for i, (poly, color) in enumerate( zip( polys, colors ) ):
+        for i, (poly, color) in enumerate(zip(polys, colors)):
             # Add patch
-            poly.set_facecolor( color )
-            ax.add_patch( poly )
+            poly.set_facecolor(color)
+            ax.add_patch(poly)
             # Create legend entry
-            handle = Patch( color=color, label='Rank {}'.format(i) )
-            handles.append( handle )
+            handle = Patch(color=color, label='Rank {}'.format(i))
+            handles.append(handle)
 
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( 'Domain decomposition' )
-        ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
-        ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
+        ax.set_xlabel(r'$x$', rotation='horizontal')
+        ax.set_ylabel(r'$y$', rotation='horizontal')
+        ax.set_title ('Domain decomposition')
+        ax.plot(xx[:,::N]  , yy[:,::N]  , 'k')
+        ax.plot(xx[::N,:].T, yy[::N,:].T, 'k')
         ax.set_aspect('equal')
-        ax.legend( handles=handles, bbox_to_anchor=(1.05, 1), loc=2 )
+        ax.legend(handles=handles, bbox_to_anchor=(1.05, 1), loc=2)
         fig.tight_layout()
         fig.show()
 
