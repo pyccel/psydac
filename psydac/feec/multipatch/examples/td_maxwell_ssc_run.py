@@ -16,8 +16,8 @@ t_stamp_full = time_count()
 #at table profile
 # main test-cases and parameters
 
-#test_case = 'polarized_polar'
-test_case = 'cavity'   
+test_case = 'polarized_polar'
+#test_case = 'cavity'   
 # test_case = 'E0_pulse_no_source'   
 # test_case = 'Issautier_like_source'  
 mom_pres = True 
@@ -41,7 +41,7 @@ nbc_s = [12] #,8,16] #,32]
 
 deg_s = [3]
 #patches in r- and theta direction
-nbp_arr = [[2, 4]]
+nbp_arr = [[2, 2]]
 nbp_s = [ a[0]*a[1] for a in nbp_arr]
 kappa = 1.5
 alpha = 1.25

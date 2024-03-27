@@ -121,8 +121,8 @@ def construct_pairing_matrix(Vh, Wh, domain_h, storage_fn=None):
     W = Wh.symbolic_space
 
     # domain_h = V0h.domain:  would be nice...
-    u = element_of(W, name='ululu')
-    v = element_of(V, name='vlvlv')
+    u = element_of(W, name='u')
+    v = element_of(V, name='v')
 
     if isinstance(u, ScalarFunction):
         expr   = u*v
@@ -130,104 +130,98 @@ def construct_pairing_matrix(Vh, Wh, domain_h, storage_fn=None):
         expr   = dot(u,v)
     a = BilinearForm((u,v), integral(domain_h.domain, expr))
     ah = discretize(a, domain_h, [Wh, Vh], backend=PSYDAC_BACKENDS['python'])
-    K1 = ah.assemble().tosparse().tolil()
+    K = ah.assemble().tosparse().tolil()
 
-    K = lil_matrix((Vh.nbasis, Wh.nbasis))
+    # K = lil_matrix((Vh.nbasis, Wh.nbasis))
 
-    l2g_V = Local2GlobalIndexMap(ndim, n_patches, n_components)
-    l2g_W = Local2GlobalIndexMap(ndim, n_patches, n_components)
-    for k in range(n_patches):
-        Vk = Vh.spaces[k]
-        Wk = Wh.spaces[k]
-        # T is a TensorFemSpace and S is a 1D SplineSpace
-        if n_components > 1:
-            Vk_scalar_spaces = Vk.spaces
-            Wk_scalar_spaces = Wk.spaces
+    # l2g_V = Local2GlobalIndexMap(ndim, n_patches, n_components)
+    # l2g_W = Local2GlobalIndexMap(ndim, n_patches, n_components)
+    # for k in range(n_patches):
+    #     Vk = Vh.spaces[k]
+    #     Wk = Wh.spaces[k]
+    #     # T is a TensorFemSpace and S is a 1D SplineSpace
+    #     if n_components > 1:
+    #         Vk_scalar_spaces = Vk.spaces
+    #         Wk_scalar_spaces = Wk.spaces
 
-        else:
-            Vk_scalar_spaces = [Vk]
-            Wk_scalar_spaces = [Wk]
+    #     else:
+    #         Vk_scalar_spaces = [Vk]
+    #         Wk_scalar_spaces = [Wk]
 
-        V_shapes = [[S.nbasis for S in T.spaces] for T in Vk_scalar_spaces]
-        W_shapes = [[S.nbasis for S in T.spaces] for T in Wk_scalar_spaces]
+    #     V_shapes = [[S.nbasis for S in T.spaces] for T in Vk_scalar_spaces]
+    #     W_shapes = [[S.nbasis for S in T.spaces] for T in Wk_scalar_spaces]
 
-        l2g_V.set_patch_shapes(k, *V_shapes)
-        l2g_W.set_patch_shapes(k, *W_shapes)
+    #     l2g_V.set_patch_shapes(k, *V_shapes)
+    #     l2g_W.set_patch_shapes(k, *W_shapes)
 
-        for d in range(n_components):
-            # compute products Lambda_V_{d,i} . Lambda_W_{d,j}
-            # -- hard-coded assumption: Lambda_V_{c,i} . Lambda_W_{d,j} = 0 for c≠d
+    #     for d in range(n_components):
+    #         # compute products Lambda_V_{d,i} . Lambda_W_{d,j}
+    #         # -- hard-coded assumption: Lambda_V_{c,i} . Lambda_W_{d,j} = 0 for c≠d
 
-            Vk_d = Vk_scalar_spaces[d]
-            Wk_d = Wk_scalar_spaces[d]
-            assert isinstance(Vk_d, TensorFemSpace)             
+    #         Vk_d = Vk_scalar_spaces[d]
+    #         Wk_d = Wk_scalar_spaces[d]
+    #         assert isinstance(Vk_d, TensorFemSpace)             
 
-            K_1D = [None]*ndim
-            multi_index_i = [None]*ndim
-            multi_index_j = [None]*ndim
+    #         K_1D = [None]*ndim
+    #         multi_index_i = [None]*ndim
+    #         multi_index_j = [None]*ndim
 
-            for axis in range(ndim):
-                V_space_axis = Vk_d.spaces[axis]
-                W_space_axis = Wk_d.spaces[axis]
+    #         for axis in range(ndim):
+    #             V_space_axis = Vk_d.spaces[axis]
+    #             W_space_axis = Wk_d.spaces[axis]
                 
-                K_1D_axis = lil_matrix((V_space_axis.nbasis, W_space_axis.nbasis))
+    #             K_1D_axis = lil_matrix((V_space_axis.nbasis, W_space_axis.nbasis))
 
-                V_degree = V_space_axis.degree
-                W_degree = W_space_axis.degree
+    #             V_degree = V_space_axis.degree
+    #             W_degree = W_space_axis.degree
                 
-                V_knots  = V_space_axis.knots 
-                W_knots  = W_space_axis.knots 
+    #             V_knots  = V_space_axis.knots 
+    #             W_knots  = W_space_axis.knots 
                 
-                grid     = V_space_axis.breaks
-                assert all(grid  == W_space_axis.breaks)
+    #             grid     = V_space_axis.breaks
+    #             assert all(grid  == W_space_axis.breaks)
                 
-                # quad_grid = Vk_dim.quad_grids[axis]        ##   use this ?
+    #             # quad_grid = Vk_dim.quad_grids[axis]        ##   use this ?
                              
-                # Gauss-legendre quadrature rule
-                u, w = gauss_legendre( max(V_degree, W_degree) )  # degree high enough ?
+    #             # Gauss-legendre quadrature rule
+    #             u, w = gauss_legendre( max(V_degree, W_degree) )  # degree high enough ?
 
-                # invert order  ( why?)
-                u = u[::-1]
-                w = w[::-1]
+    #             # invert order  ( why?)
+    #             u = u[::-1]
+    #             w = w[::-1]
                 
-                # Lists of quadrature coordinates and weights on each element
-                quad_x, quad_w = quadrature_grid(grid, u, w)
+    #             # Lists of quadrature coordinates and weights on each element
+    #             quad_x, quad_w = quadrature_grid(grid, u, w)
 
-                V_quad_basis = basis_ders_on_quad_grid(V_knots, V_degree, quad_x, nders=0, normalization=V_space_axis.basis)
-                W_quad_basis = basis_ders_on_quad_grid(W_knots, W_degree, quad_x, nders=0, normalization=W_space_axis.basis)
+    #             V_quad_basis = basis_ders_on_quad_grid(V_knots, V_degree, quad_x, nders=0, normalization=V_space_axis.basis)
+    #             W_quad_basis = basis_ders_on_quad_grid(W_knots, W_degree, quad_x, nders=0, normalization=W_space_axis.basis)
 
-                # loop over elements and local basis functions
-                # for ie in range(sg,eg+1):
-                for ie, (V_span, W_span) in enumerate(zip(elements_spans(V_knots, V_degree), elements_spans(W_knots, W_degree))):
-                    for i_loc in range(V_degree+1):
-                        i_glob = V_span-V_degree + i_loc
-                        for j_loc in range(W_degree+1):        
-                            j_glob = W_span-W_degree + j_loc
+    #             # loop over elements and local basis functions
+    #             # for ie in range(sg,eg+1):
+    #             for ie, (V_span, W_span) in enumerate(zip(elements_spans(V_knots, V_degree), elements_spans(W_knots, W_degree))):
+    #                 for i_loc in range(V_degree+1):
+    #                     i_glob = V_span-V_degree + i_loc
+    #                     for j_loc in range(W_degree+1):        
+    #                         j_glob = W_span-W_degree + j_loc
 
-                            K_1D_axis[i_glob,j_glob] += np.dot(V_quad_basis[ie,i_loc,0,:] * W_quad_basis[ie,j_loc,0,:], quad_w[ie,:])
+    #                         K_1D_axis[i_glob,j_glob] += np.dot(V_quad_basis[ie,i_loc,0,:] * W_quad_basis[ie,j_loc,0,:], quad_w[ie,:])
                 
-                K_1D[axis] = K_1D_axis
+    #             K_1D[axis] = K_1D_axis
 
-            for i0 in range(Vk_d.spaces[0].nbasis):
-                for i1 in range(Vk_d.spaces[1].nbasis):
-                    multi_index_i[0] = i0
-                    multi_index_i[1] = i1
-                    ig = l2g_V.get_index(k, d, multi_index_i)  
+    #         for i0 in range(Vk_d.spaces[0].nbasis):
+    #             for i1 in range(Vk_d.spaces[1].nbasis):
+    #                 multi_index_i[0] = i0
+    #                 multi_index_i[1] = i1
+    #                 ig = l2g_V.get_index(k, d, multi_index_i)  
                             
-                    # note: we could localize the j loop (useful for large patches)
-                    for j0 in range(Wk_d.spaces[0].nbasis):
-                        for j1 in range(Wk_d.spaces[1].nbasis):
-                            multi_index_j[0] = j0
-                            multi_index_j[1] = j1
-                            jg = l2g_W.get_index(k, d, multi_index_j)  
+    #                 # note: we could localize the j loop (useful for large patches)
+    #                 for j0 in range(Wk_d.spaces[0].nbasis):
+    #                     for j1 in range(Wk_d.spaces[1].nbasis):
+    #                         multi_index_j[0] = j0
+    #                         multi_index_j[1] = j1
+    #                         jg = l2g_W.get_index(k, d, multi_index_j)  
 
-                            K[ig,jg] = K_1D[0][i0,j0] * K_1D[1][i1,j1]
+    #                         K[ig,jg] = K_1D[0][i0,j0] * K_1D[1][i1,j1]
 
-    print(K[0,0], K1[0,0])
-    print(K[1,3], K1[1,3])
-    print(K[3,3], K1[3,3])   
-    print(K[25,27], K1[25,27])  
-    #print(K-K1)
-    exit()
     return K
             

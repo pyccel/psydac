@@ -217,7 +217,8 @@ def solve_td_maxwell_pbm(
     t_stamp = time_count(t_stamp)
     print('building (primal) derham sequence...')
     p_derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-    p_derham_h = discretize(p_derham, domain_h, degree=degree, grid_type=grid_type)
+    nquads = [d+1 for d in degree]
+    p_derham_h = discretize(p_derham, domain_h, degree=degree, grid_type=grid_type, nquads = nquads)
 
     p_V0h = p_derham_h.V0
     p_V1h = p_derham_h.V1
@@ -228,7 +229,7 @@ def solve_td_maxwell_pbm(
         print('building dual derham sequence...')
         d_derham  = Derham(domain, ["H1", "Hdiv", "L2"])
         dual_degree = [d-1 for d in degree]
-        d_derham_h = discretize(d_derham, domain_h, degree=dual_degree, grid_type=grid_type, pads=degree)
+        d_derham_h = discretize(d_derham, domain_h, degree=dual_degree, grid_type=grid_type, pads=degree, nquads = nquads)
 
         d_V0h = d_derham_h.V0
         d_V1h = d_derham_h.V1
