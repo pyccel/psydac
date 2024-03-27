@@ -510,7 +510,7 @@ class TensorFemSpace( FemSpace ):
         global_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)), dtype=self.dtype)
 
         for i in range(len(fields)):
-            glob_arr_coeffs[..., i] = fields[i].coeffs._data
+            global_arr_coeffs[..., i] = fields[i].coeffs._data
 
         if weights is None:
             args = (*ncells, *degree, *n_eval_points, *global_basis, *global_spans, global_arr_coeffs, out_fields)
