@@ -18,10 +18,11 @@ from psydac.feec.multipatch.operators                   import HodgeOperator
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.utilities                   import time_count
+from psydac.feec.multipatch.non_matching_operators      import construct_scalar_conforming_projection, construct_vector_conforming_projection
 
-def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='python', mu=1, nu=1, gamma_h=10,
+def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='python', mu=1, nu=0, gamma_h=10,
                           sigma=None, nb_eigs=4, nb_eigs_plot=4,
-                          plot_dir=None, hide_plots=True, m_load_dir="",):
+                          plot_dir=None, hide_plots=True, m_load_dir="",skip_eigs_threshold = 1e-7,):
     """
     solver for the eigenvalue problem: find lambda in R and u in H0(curl), such that
 
@@ -71,7 +72,7 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
 
     print('building symbolic and discrete derham sequences...')
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-    derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
+    derham_h = discretize(derham, domain_h, degree=degree)
 
     V0h = derham_h.V0
     V1h = derham_h.V1
@@ -94,18 +95,17 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
     H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=2)
 
-    dH0_m = H0.get_dual_Hodge_sparse_matrix()  # = mass matrix of V0
-    H0_m  = H0.to_sparse_matrix()              # = inverse mass matrix of V0
-    dH1_m = H1.get_dual_Hodge_sparse_matrix()  # = mass matrix of V1
-    H1_m  = H1.to_sparse_matrix()              # = inverse mass matrix of V1
-    dH2_m = H2.get_dual_Hodge_sparse_matrix()  # = mass matrix of V2
+    H0_m  = H0.to_sparse_matrix()                # = mass matrix of V0
+    dH0_m = H0.get_dual_Hodge_sparse_matrix()    # = inverse mass matrix of V0
+    H1_m  = H1.to_sparse_matrix()                # = mass matrix of V1
+    dH1_m = H1.get_dual_Hodge_sparse_matrix()    # = inverse mass matrix of V1
+    H2_m = H2.to_sparse_matrix()                 # = mass matrix of V2
+    # dH2_m = H2.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V2
 
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
-    cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
-    cP0_m = cP0.to_sparse_matrix()
-    cP1_m = cP1.to_sparse_matrix()
+    cP0_m = construct_scalar_conforming_projection(V0h, hom_bc=[True, True])
+    cP1_m = construct_vector_conforming_projection(V1h, hom_bc=[True, True])
 
     print('broken differential operators...')
     bD0, bD1 = derham_h.broken_derivatives_as_operators
@@ -118,33 +118,59 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     # Conga (projection-based) stiffness matrices
     # curl curl:
     print('curl-curl stiffness matrix...')
-    pre_CC_m = bD1_m.transpose() @ dH2_m @ bD1_m
+    pre_CC_m = bD1_m.transpose() @ H2_m @ bD1_m
     CC_m = cP1_m.transpose() @ pre_CC_m @ cP1_m  # Conga stiffness matrix
 
     # grad div:
     print('grad-div stiffness matrix...')
-    pre_GD_m = - dH1_m @ bD0_m @ cP0_m @ H0_m @ cP0_m.transpose() @ bD0_m.transpose() @ dH1_m
+    pre_GD_m = - H1_m @ bD0_m @ cP0_m @ dH0_m @ cP0_m.transpose() @ bD0_m.transpose() @ H1_m
     GD_m = cP1_m.transpose() @ pre_GD_m @ cP1_m  # Conga stiffness matrix
 
     # jump penalization in V1h:
     jump_penal_m = I1_m - cP1_m
-    JP_m = jump_penal_m.transpose() * dH1_m * jump_penal_m
+    JP_m = jump_penal_m.transpose() * H1_m * jump_penal_m
 
     print('computing the full operator matrix...')
     print('mu = {}'.format(mu))
     print('nu = {}'.format(nu))
     A_m = mu * CC_m - nu * GD_m + gamma_h * JP_m
 
-    eigenvalues, eigenvectors = get_eigenvalues(nb_eigs, sigma, A_m, dH1_m)
+    if False: #gneralized problen
+        print('adding jump stabilization to RHS of generalized eigenproblem...')
+        B_m = cP1_m.transpose() @ H1_m @ cP1_m + JS_m
+    else:
+        B_m = H1_m
+        
+    print('solving matrix eigenproblem...')
+    all_eigenvalues, all_eigenvectors_transp = get_eigenvalues(nb_eigs, sigma, A_m, B_m)
+    #Eigenvalue processing
+  
+    zero_eigenvalues = []
+    if skip_eigs_threshold is not None:
+        eigenvalues = []
+        eigenvectors = []
+        for val, vect in zip(all_eigenvalues, all_eigenvectors_transp.T):
+            if abs(val) < skip_eigs_threshold: 
+                zero_eigenvalues.append(val)
+                # we skip the eigenvector
+            else:
+                eigenvalues.append(val)
+                eigenvectors.append(vect)
+    else:
+        eigenvalues = all_eigenvalues
+        eigenvectors = all_eigenvectors_transp.T
 
+
+        
     # plot first eigenvalues
 
-    for i in range(min(nb_eigs_plot, nb_eigs)):
+    for i in range(min(nb_eigs_plot, len(eigenvalues))):
 
-        print('looking at emode i = {}... '.format(i))
         lambda_i  = eigenvalues[i]
-        emode_i = np.real(eigenvectors[:,i])
-        norm_emode_i = np.dot(emode_i,dH1_m.dot(emode_i))
+        print('looking at emode i = {}: {}... '.format(i, lambda_i))
+  
+        emode_i = np.real(eigenvectors[i])
+        norm_emode_i = np.dot(emode_i,H1_m.dot(emode_i))
         print('norm of computed eigenmode: ', norm_emode_i)
         eh_c = emode_i/norm_emode_i  # numpy coeffs of the normalized eigenmode
         plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='mode e_{}, lambda_{}={}'.format(i,i,lambda_i),
@@ -203,8 +229,8 @@ if __name__ == '__main__':
 
     t_stamp_full = time_count()
 
-    quick_run = True
-    # quick_run = False
+    # quick_run = True
+    quick_run = False
 
     if quick_run:
         domain_name = 'curved_L_shape'
@@ -214,10 +240,15 @@ if __name__ == '__main__':
         nc = 8
         deg = 4
 
-    domain_name = 'pretzel_f'
-    # domain_name = 'curved_L_shape'
+    #domain_name = 'pretzel_f'
+    domain_name = 'curved_L_shape'
     nc = 10
-    deg = 2
+    deg = 3
+
+    sigma = 7
+    nb_eigs_solve = 7
+    nb_eigs_plot = 7
+    skip_eigs_threshold = 1e-7
 
     m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
     run_dir = 'eigenpbm_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
@@ -225,12 +256,16 @@ if __name__ == '__main__':
         nc=nc, deg=deg,
         nu=0,
         mu=1, #1,
-        sigma=1,
         domain_name=domain_name,
         backend_language='pyccel-gcc',
         plot_dir='./plots/tests_source_february/'+run_dir,
         hide_plots=True,
-        m_load_dir=m_load_dir,
+        m_load_dir=m_load_dir, 
+        gamma_h=0,
+        sigma=sigma, 
+        nb_eigs=nb_eigs_solve, 
+        nb_eigs_plot=nb_eigs_plot,
+        skip_eigs_threshold=skip_eigs_threshold,
     )
 
     time_count(t_stamp_full, msg='full program')

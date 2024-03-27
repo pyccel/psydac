@@ -26,11 +26,12 @@ from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_
 from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_OBSOLETE
 from psydac.feec.multipatch.utilities                   import time_count
 from psydac.feec.multipatch.non_matching_operators      import construct_scalar_conforming_projection, construct_vector_conforming_projection
+from psydac.api.postprocessing import OutputManager, PostProcessManager
 
 from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic        import FemField
 
-def solve_h1_source_pbm(
+def solve_h1_source_pbm_nc(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_L2', source_type='manu_poisson',
         eta=-10., mu=1., gamma_h=10.,
         plot_source=False, plot_dir=None, hide_plots=True
@@ -66,11 +67,14 @@ def solve_h1_source_pbm(
     :param source_type: must be implemented in get_source_and_solution()
     """
 
-    ncells = [nc, nc]
+    ncells = nc
     degree = [deg,deg]
 
     # if backend_language is None:
-    #     backend_language='python'
+    #     if domain_name in ['pretzel', 'pretzel_f'] and nc > 8:
+    #         backend_language='numba'
+    #     else:
+    #         backend_language='python'
     # print('[note: using '+backend_language+ ' backends in discretize functions]')
 
     print('---------------------------------------------------------------------------------------------------------')
@@ -86,7 +90,8 @@ def solve_h1_source_pbm(
     domain = build_multipatch_domain(domain_name=domain_name)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
-    domain_h = discretize(domain, ncells=ncells)
+    ncells_h = {patch.name: [ncells[i], ncells[i]] for (i,patch) in enumerate(domain.interior)}
+    domain_h = discretize(domain, ncells=ncells_h)
 
     print('building the symbolic and discrete deRham sequences...')
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
@@ -119,15 +124,14 @@ def solve_h1_source_pbm(
     H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language)
     H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language)
 
-    H0_m  = H0.to_sparse_matrix()              # = mass matrix of V0
-    dH0_m = H0.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V0
-    H1_m  = H1.to_sparse_matrix()              # = mass matrix of V1
-    dH1_m = H1.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V1
+    H0_m = H0.to_sparse_matrix()                # = mass matrix of V0
+    dH0_m  = H0.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V0
+    H1_m = H1.to_sparse_matrix()                # = mass matrix of V1
 
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
     cP0_m = construct_scalar_conforming_projection(V0h, hom_bc=[True,True])
-    # cP1_m = construct_vector_conforming_projection(V1h, domain_h, hom_bc=True)
+    # cP1_m = construct_vector_conforming_projection(V1h, hom_bc=[True, True])
 
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
@@ -191,7 +195,7 @@ def solve_h1_source_pbm(
         raise ValueError(source_proj)
 
     if plot_source:
-        plot_field(numpy_coeffs=f_c, Vh=V0h, space_kind='h1', domain=domain, title='f_h with P = '+source_proj, filename=plot_dir+'fh_'+source_proj+'.png', hide_plot=hide_plots)
+        plot_field(numpy_coeffs=f_c, Vh=V0h, space_kind='h1', domain=domain, title='f_h with P = '+source_proj, filename=plot_dir+'/fh_'+source_proj+'.png', hide_plot=hide_plots)
 
     ubc_c = lift_u_bc(u_bc)
 
@@ -251,20 +255,21 @@ if __name__ == '__main__':
 
     domain_name = 'pretzel_f'
     # domain_name = 'curved_L_shape'
-    nc = 10
+    nc = np.array([8, 8, 16, 16, 8, 4, 4, 4, 4, 4, 2, 2, 4, 16, 16, 8, 2, 2, 2])
+
+
     deg = 2
 
     # nc = 2
     # deg = 2
 
     run_dir = '{}_{}_nc={}_deg={}/'.format(domain_name, source_type, nc, deg)
-    solve_h1_source_pbm(
+    solve_h1_source_pbm_nc(
         nc=nc, deg=deg,
         eta=eta,
         mu=1, #1,
         domain_name=domain_name,
         source_type=source_type,
-        source_proj = 'P_geom',
         backend_language='pyccel-gcc',
         plot_source=True,
         plot_dir='./plots/h1_tests_source_february/'+run_dir,
