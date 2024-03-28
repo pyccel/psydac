@@ -1,29 +1,58 @@
 # coding: utf-8
 
-import numpy as np
-
 from functools import reduce
 
-from psydac.core.bsplines          import find_span
-from psydac.core.bsplines          import basis_funs_all_ders
-from psydac.fem.splines            import SplineSpace
-from psydac.fem.tensor             import TensorFemSpace
-from psydac.fem.vector             import ProductFemSpace, VectorFemSpace
+import numpy as np
 
-__all__ = ('get_points_weights', 'create_collocation_basis',
-           'QuadratureGrid', 'BasisValues', 'CollocationBasisValues')
+from psydac.core.bsplines import find_span
+from psydac.core.bsplines import basis_funs_all_ders
+from psydac.fem.splines   import SplineSpace
+from psydac.fem.tensor    import TensorFemSpace
+from psydac.fem.vector    import ProductFemSpace, VectorFemSpace
+
+__all__ = (
+    'get_points_weights',
+    'create_collocation_basis',
+    'QuadratureGrid',
+    'BasisValues',
+    'CollocationBasisValues',
+)
 
 #==============================================================================
-def get_points_weights(spaces, axis, e):
+def get_points_weights(spaces, axis, e, nquads):
     for s in spaces:
-        quad_grid_axis = s.quad_grid()[axis]
+        quad_grid_axis = s.get_quadrature_grids(*nquads)[axis]
         if e in quad_grid_axis.indices:
             i = np.where(quad_grid_axis.indices==e)[0][0]
             return quad_grid_axis.points[i:i+1], quad_grid_axis.weights[i:i+1]
 
 #==============================================================================
 class QuadratureGrid():
-    def __init__( self, V , axis=None, ext=None, trial_space=None):
+    """
+    Quadrature points and weights local to the current MPI process.
+
+    Local quadrature grid for assemblying functionals, linear forms,
+    and bilinear forms. A Gauss-Legendre quadrature grid is assumed.
+
+    Parameters
+    ----------
+    V : FemSpace
+        Finite element space from which we extract the breakpoints.
+
+    axis : int, optional
+        If given, the grid is constructed on the given boundary (axis, ext).
+
+    ext : {-1, +1}, optional
+        If given, the grid is constructed on the given boundary (axis, ext).
+
+    trial_space : FemSpace, optional
+        TBD.
+
+    nquads : list or tuple of int
+        Number of quadrature points along each direction.
+
+    """
+    def __init__(self, V, axis=None, ext=None, trial_space=None, nquads):
 
         n_elements          = []
         indices             = []
@@ -33,13 +62,13 @@ class QuadratureGrid():
         weights             = []
 
         if isinstance(V, (ProductFemSpace, VectorFemSpace)):
-            V1 = V.spaces[0]
+            V1 = V.spaces[0]  # NOTE: why?
             spaces = list(V.spaces)
         else:
             V1 = V
             spaces = [V]
 
-        if trial_space  and not isinstance(trial_space, (ProductFemSpace, VectorFemSpace)):
+        if trial_space and not isinstance(trial_space, (ProductFemSpace, VectorFemSpace)):
             spaces.append(trial_space)
         elif isinstance(trial_space, ProductFemSpace):
             spaces = spaces + list(trial_space.spaces)
@@ -47,26 +76,27 @@ class QuadratureGrid():
         # calculate the union of the indices in quad_grids, and make sure that all the grids match for each space.
         for i in range(len(V1.spaces)):
 
-            indices.append(reduce(np.union1d,[s.quad_grids()[i].indices for s in spaces]))
-            quad_grid_i = V1.quad_grids()[i]
+            indices.append(reduce(np.union1d, [s.get_quadrature_grids(*nquads)[i].indices for s in spaces]))  # NOTE: what is going on here?
+
+            quad_grid_i = V1.get_quadrature_grids(*nquads)[i]
             local_element_start.append(quad_grid_i.local_element_start)
-            local_element_end.append  (quad_grid_i.local_element_end)
-            points.append(quad_grid_i.points)
+            local_element_end  .append(quad_grid_i.local_element_end  )
+            points .append(quad_grid_i.points )
             weights.append(quad_grid_i.weights)
 
             for e in np.setdiff1d(indices[-1], quad_grid_i.indices):
-                if e<quad_grid_i.indices[0]:
-                    local_element_start[-1] +=1
-                    local_element_end  [-1] +=1
-                    p,w = get_points_weights(spaces, i, e)
-                    points[-1]  = np.concatenate((p, points[-1]))
+                if e < quad_grid_i.indices[0]:
+                    local_element_start[-1] += 1
+                    local_element_end  [-1] += 1
+                    p, w = get_points_weights(spaces, i, e)  # TODO: remove
+                    points [-1] = np.concatenate((p, points [-1]))
                     weights[-1] = np.concatenate((w, weights[-1]))
-                elif e>quad_grid_i.indices[-1]:
-                    p,w = get_points_weights(spaces, i, e)
-                    points[-1]  = np.concatenate((points[-1],p))
-                    weights[-1] = np.concatenate((weights[-1],w))
+                elif e > quad_grid_i.indices[-1]:
+                    p, w = get_points_weights(spaces, i, e)  # TODO: remove
+                    points [-1] = np.concatenate((points [-1], p))
+                    weights[-1] = np.concatenate((weights[-1], w))
                 else:
-                    raise ValueError("Could not contsruct indices")
+                    raise ValueError("Could not construct indices")
 
         self._n_elements          = [p.shape[0] for p in points]
         self._indices             = indices
@@ -141,21 +171,25 @@ class QuadratureGrid():
 
 #==============================================================================
 class BasisValues():
-    """ Compute the basis values and the spans.
+    """
+    Basis values and spans for a given FEM space over a quadrature grid.
 
     Parameters
     ----------
     V : FemSpace
-       the space that contains the basis values and the spans.
+        The space that contains the basis values and the spans.
 
     nderiv : int
-        the maximum number of derivatives needed for the basis values.
+        The maximum number of derivatives needed for the basis values.
 
     trial : bool, optional
-        the trial parameter indicates if the FemSpace represents the trial space or the test space.
+        The trial parameter indicates if the FemSpace represents the trial space or the test space.
 
     grid : QuadratureGrid, optional
-        needed for the basis values on the boundary to indicate the boundary over an axis.
+        Needed for the basis values on the boundary to indicate the boundary over an axis.
+
+    nquads : list or tuple of int
+        Number of quadrature points along each direction.
 
     Attributes
     ----------
@@ -165,7 +199,7 @@ class BasisValues():
         The spans of the basis functions.
 
     """
-    def __init__( self, V, nderiv , trial=False, grid=None):
+    def __init__(self, V, nderiv, trial=False, grid=None, nquads):
 
         self._space = V
         assert grid is not None
@@ -180,8 +214,8 @@ class BasisValues():
         basis = []
 
         weights = grid.weights
-        for si,Vi in zip(starts,V):
-            quad_grids  = Vi.quad_grids()
+        for si, Vi in zip(starts,V):
+            quad_grids  = Vi.get_quadrature_grids(*nquads)
             spans_i     = []
             basis_i     = []
 
@@ -203,7 +237,7 @@ class BasisValues():
 
         if grid and grid.axis is not None:
             axis = grid.axis
-            for i,Vi in enumerate(V):
+            for i, Vi in enumerate(V):
                 space  = Vi.spaces[axis]
                 points = grid.points[axis]
                 local_span = find_span(space.knots, space.degree, points[0, 0])
