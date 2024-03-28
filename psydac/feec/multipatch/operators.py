@@ -237,7 +237,7 @@ def allocate_interface_matrix(corners, test_space, trial_space):
     cs    = list(zip(*[i.coordinates for i in bi]))
     axis  = [all(i[0]==j for j in i) for i in cs].index(True)
     ext   = 1 if cs[axis][0]==1 else -1
-    s     = test_space.quad_grids()[axis].spans[-1 if ext==1 else 0] - test_space.degree[axis]
+    s     = test_space.get_quadrature_grids()[axis].spans[-1 if ext==1 else 0] - test_space.degree[axis]
 
     mat  = StencilInterfaceMatrix(trial_space.vector_space, test_space.vector_space, s, s, axis, flip=flips[0], permutation=list(permutation))
     return mat
@@ -291,7 +291,9 @@ class ConformingProjection_V0( FemLinearOperator):
             a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
             # print('[[ forcing python backend for ConformingProjection_V0]] ')
             # backend_language = 'python'
-            ah = discretize(a, domain_h, [V0h, V0h], backend=PSYDAC_BACKENDS[backend_language])
+            nquads = [p + 1 for p in V0h.spaces[0].degrees]
+            ah = discretize(a, domain_h, [V0h, V0h], nquads=nquads,
+                            backend=PSYDAC_BACKENDS[backend_language])
 
             # self._A = ah.assemble()
             self._A = ah.forms[0]._matrix
@@ -507,7 +509,9 @@ class ConformingProjection_V1( FemLinearOperator ):
             a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
             # print('[[ forcing python backend for ConformingProjection_V1]] ')
             # backend_language = 'python'
-            ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS[backend_language])
+            nquads = [p + 1 for p in V1h.spaces[0].degree]
+            ah = discretize(a, domain_h, [V1h, V1h], nquads=nquads,
+                            backend=PSYDAC_BACKENDS[backend_language])
             #
             # # self._A = ah.assemble()
             self._A = ah.forms[0]._matrix
