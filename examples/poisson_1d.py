@@ -102,7 +102,7 @@ def kernel( p1, k1, bs1, w1, mat_m, mat_s ):
             mat_s[il_1, p1+jl_1-il_1] = v_s
 
 #==============================================================================
-def assemble_matrices( V, kernel ):
+def assemble_matrices(V, kernel, *, nquads):
     """
     Assemble mass and stiffness matrices using 1D stencil format.
 
@@ -122,6 +122,8 @@ def assemble_matrices( V, kernel ):
     stiffness : StencilMatrix
         Stiffness matrix in 1D stencil format.
 
+    nquads : list or tuple of int
+        Number of quadrature points in each direction (here only one).
     """
     # Sizes
     [s1] = V.vector_space.starts
@@ -129,7 +131,7 @@ def assemble_matrices( V, kernel ):
     [p1] = V.vector_space.pads
 
     # Quadrature data
-    quad_grid = V.quad_grids()[0]
+    quad_grid = V.get_quadrature_grids(*nquads)[0]
     nk1       = quad_grid.num_elements
     nq1       = quad_grid.num_quad_pts
     spans_1   = quad_grid.spans
@@ -137,32 +139,32 @@ def assemble_matrices( V, kernel ):
     weights_1 = quad_grid.weights
 
     # Create global matrices
-    mass      = StencilMatrix( V.vector_space, V.vector_space )
-    stiffness = StencilMatrix( V.vector_space, V.vector_space )
+    mass      = StencilMatrix(V.vector_space, V.vector_space)
+    stiffness = StencilMatrix(V.vector_space, V.vector_space)
 
     # Create element matrices
-    mat_m = np.zeros( (p1+1, 2*p1+1) ) # mass
-    mat_s = np.zeros( (p1+1, 2*p1+1) ) # stiffness
+    mat_m = np.zeros((p1+1, 2*p1+1)) # mass
+    mat_s = np.zeros((p1+1, 2*p1+1)) # stiffness
 
     # Build global matrices: cycle over elements
     for k1 in range( nk1 ):
 
         # Get spline index, B-splines' values and quadrature weights
         is1 =   spans_1[k1]
-        bs1 =   basis_1[k1,:,:,:]
-        w1  = weights_1[k1,:]
+        bs1 =   basis_1[k1, :, :, :]
+        w1  = weights_1[k1, :]
 
         # Compute element matrices
-        kernel( p1, nq1, bs1, w1, mat_m, mat_s )
+        kernel(p1, nq1, bs1, w1, mat_m, mat_s)
 
         # Update global matrices
-        mass     [is1-p1:is1+1,:] += mat_m[:,:]
-        stiffness[is1-p1:is1+1,:] += mat_s[:,:]
+        mass     [is1-p1:is1+1, :] += mat_m[:, :]
+        stiffness[is1-p1:is1+1, :] += mat_s[:, :]
 
     return mass, stiffness
 
 #==============================================================================
-def assemble_rhs( V, f ):
+def assemble_rhs(V, f, *, nquads):
     """
     Assemble right-hand-side vector.
 
@@ -173,6 +175,9 @@ def assemble_rhs( V, f ):
 
     f : callable
         Right-hand side function (charge density).
+
+    nquads : list or tuple of int
+        Number of quadrature points in each direction (here only one).
 
     Returns
     -------
@@ -186,7 +191,7 @@ def assemble_rhs( V, f ):
     [p1] = V.vector_space.pads
 
     # Quadrature data
-    quad_grid = V.quad_grids()[0]
+    quad_grid = V.get_quadrature_grids(*nquads)[0]
     nk1       = quad_grid.num_elements
     nq1       = quad_grid.num_quad_pts
     spans_1   = quad_grid.spans
@@ -231,11 +236,14 @@ if __name__ == '__main__':
     p  = 3
     ne = 2**4
 
+    # Number of quadrature points for assembling of matrices and vectors
+    nquads = [p + 1]
+
     # Method of manufactured solution
     model = Poisson1D()
 
     # Create uniform grid
-    grid = np.linspace( *model.domain, num=ne+1 )
+    grid = np.linspace(*model.domain, num=ne+1)
 
     # Create finite element space
     space = SplineSpace(p, grid=grid, periodic=model.periodic)
@@ -244,19 +252,19 @@ if __name__ == '__main__':
 
     # Build mass and stiffness matrices
     t0 = time()
-    mass, stiffness = assemble_matrices( V, kernel )
+    mass, stiffness = assemble_matrices(V, kernel, nquads=nquads)
     t1 = time()
     timing['assembly'] = t1-t0
 
     # Build right-hand side vector
-    rhs = assemble_rhs( V, model.rho )
+    rhs = assemble_rhs(V, model.rho, nquads=nquads)
 
     # Apply homogeneous dirichlet boundary conditions
     s1, = V.vector_space.starts
     e1, = V.vector_space.ends
 
-    stiffness[s1,:] = 0.
-    stiffness[e1,:] = 0.
+    stiffness[s1, :] = 0.
+    stiffness[e1, :] = 0.
     rhs[s1] = 0.
     rhs[e1] = 0.
 
@@ -269,24 +277,24 @@ if __name__ == '__main__':
     timing['solution'] = t1-t0
 
     # Create potential field
-    phi = FemField( V, coeffs=x )
+    phi = FemField(V, coeffs=x)
     phi.coeffs.update_ghost_regions()
 
     # Compute L2 norm of error
     t0 = time()
-    e2 = np.sqrt( V.integral( lambda x: (phi(x)-model.phi(x))**2 ) )
+    e2 = np.sqrt(V.integral(lambda x: (phi(x)-model.phi(x))**2, nquads=[8]))
     t1 = time()
     timing['diagnostics'] = t1-t0
 
     # Print some information to terminal
-    print( '> Grid          :: {ne}'.format(ne=ne) )
-    print( '> Degree        :: {p}'.format(p=p) )
-    print( '> CG info       :: ',info )
-    print( '> L2 error      :: {:.2e}'.format( e2 ) )
-    print( '' )
-    print( '> Assembly time :: {:.2e}'.format( timing['assembly'] ) )
-    print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
-    print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
+    print('> Grid          :: {ne}'.format(ne=ne))
+    print('> Degree        :: {p}'.format(p=p))
+    print('> CG info       :: ', info)
+    print('> L2 error      :: {:.2e}'.format(e2))
+    print()
+    print('> Assembly time :: {:.2e}'.format(timing['assembly']))
+    print('> Solution time :: {:.2e}'.format(timing['solution']))
+    print('> Evaluat. time :: {:.2e}'.format(timing['diagnostics']))
 
     # Plot solution on refined grid
     y      = np.linspace( grid[0], grid[-1], 101 )
