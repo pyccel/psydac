@@ -52,7 +52,7 @@ class QuadratureGrid():
         Number of quadrature points along each direction.
 
     """
-    def __init__(self, V, axis=None, ext=None, trial_space=None, nquads):
+    def __init__(self, V, *, nquads, axis=None, ext=None, trial_space=None):
 
         n_elements          = []
         indices             = []
@@ -199,7 +199,7 @@ class BasisValues():
         The spans of the basis functions.
 
     """
-    def __init__(self, V, nderiv, trial=False, grid=None, nquads):
+    def __init__(self, V, *, nderiv, nquads, trial=False, grid=None):
 
         self._space = V
         assert grid is not None

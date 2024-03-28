@@ -123,7 +123,7 @@ class TensorFemSpace(FemSpace):
         self._global_element_ends   = domain_decomposition.global_element_ends
 
         # Extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = {}
+        self._quad_grids = [{} for _ in range(self.ldim)]
 
         # Flag: object NOT YET prepared for interpolation
         self._interpolation_ready = False
@@ -808,7 +808,7 @@ class TensorFemSpace(FemSpace):
 
         """
 
-        assert len(nquads) == self.ndims
+        assert len(nquads) == self.ldim
         assert all(isinstance(nq, int) for nq in nquads)
         assert all(nq >= 1 for nq in nquads)
 
@@ -821,8 +821,8 @@ class TensorFemSpace(FemSpace):
             # create a new FemAssemblyGrid and store it in the local dictionary.
             if nq not in quad_grids_dict_i:
                 V = self.spaces[i]
-                s = self.starts[i]
-                e = self.ends  [i]
+                s = int(self.vector_space.starts[i])
+                e = int(self.vector_space.ends  [i])
                 quad_grids_dict_i[nq] = FemAssemblyGrid(V, s, e, nderiv=V.degree, nquads=nq)
             # Store the required FemAssemblyGrid in the list
             quad_grids[i] = quad_grids_dict_i[nq]
