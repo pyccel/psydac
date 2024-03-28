@@ -92,7 +92,7 @@ def change_dtype(V, dtype):
     return V
 
 #==============================================================================           
-def discretize_derham(derham, domain_h, get_H1vec_space = False, *args, **kwargs):
+def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
     """
     Create a discrete De Rham sequence from a symbolic one.
     
@@ -107,10 +107,10 @@ def discretize_derham(derham, domain_h, get_H1vec_space = False, *args, **kwargs
     domain_h : Geometry
         Discrete domain where the spaces will be discretized.
         
-    get_H1vec_space : Bool
+    get_H1vec_space : bool, default=False
         True to also get the "Hvec" space discretizing (H1)^n vector fields.
         
-    **kwargs : list
+    **kwargs : dict
         Optional parameters for the space discretization.
         
     Returns
@@ -271,7 +271,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, nquads=None, basis='B', sequence='DR'):
+def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, basis='B', sequence='DR'):
     """
     This function creates the discretized space starting from the symbolic space.
 
@@ -291,9 +291,6 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
     knots: list | dict
         The knots sequence of the h1 space in each direction.
-
-    nquads: list
-        The number of quadrature points in each direction.
 
     basis: str
         The type of basis function can be 'B' for B-splines or 'M' for M-splines.
@@ -417,7 +414,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
 
         carts    = create_cart(ddms, spaces)
-        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], nquads=nquads, dtype=dtype) for i,inter in enumerate(interiors)}
+        g_spaces = {inter : TensorFemSpace(ddms[i], *spaces[i], cart=carts[i], dtype=dtype) for i, inter in enumerate(interiors)}
 
 
         for i,j in connectivity:
