@@ -32,10 +32,19 @@ from psydac.fem.projectors   import knot_insertion_projection_operator
 from psydac.core.bsplines    import find_span, basis_funs_all_ders
 from psydac.ddm.cart         import InterfaceCartDecomposition
 
-__all__ = ('collect_spaces', 'compute_diag_len', 'get_nquads',
-           'construct_test_space_arguments', 'construct_trial_space_arguments', 
-           'construct_quad_grids_arguments', 'reset_arrays', 'do_nothing', 'extract_stencil_mats', 
-           'DiscreteBilinearForm', 'DiscreteFunctional', 'DiscreteLinearForm', 'DiscreteSumForm'
+__all__ = (
+    'collect_spaces',
+    'compute_diag_len',
+    'construct_test_space_arguments',
+    'construct_trial_space_arguments',
+    'construct_quad_grids_arguments',
+    'reset_arrays',
+    'do_nothing',
+    'extract_stencil_mats',
+    'DiscreteBilinearForm',
+    'DiscreteFunctional',
+    'DiscreteLinearForm',
+    'DiscreteSumForm',
 )
 
 #==============================================================================
@@ -79,22 +88,12 @@ def collect_spaces(space, *args):
             args = [[e[0]] for e in args]
 
     return args
+
 #==============================================================================
 def compute_diag_len(p, md, mc):
     n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
     n = n-np.minimum(0, n-p)+p+1
     return n.astype('int')
-
-def get_nquads(Vh):
-    """
-    This function is to be deleted in the future, as we intend to make the number of
-    quadrature points a property of DiscreteLinearForms, DiscreteBilinearForms and
-    DiscreteFunctionals rather than a property of spaces.
-    
-    """
-    if isinstance(Vh, (ProductFemSpace, VectorFemSpace)):
-        return get_nquads(Vh.spaces[0])
-    return tuple([g.weights.shape[1] for g in Vh.quad_grids()])
 
 #==============================================================================
 def construct_test_space_arguments(basis_values):
@@ -157,63 +156,74 @@ def extract_stencil_mats(mats):
         elif isinstance(M, ComposedLinearOperator):
             new_mats += [i for i in M.multiplicants if isinstance(i, (StencilInterfaceMatrix, StencilMatrix))]
     return new_mats
+
 #==============================================================================
 class DiscreteBilinearForm(BasicDiscrete):
-    """ Class that represents the concept of a discrete bi-linear form.
-        This class allocates the matrix and generates the matrix assembly method.
+    """
+    Discrete bilinear form ready to be assembled into a matrix.
+
+    This class represents the concept of a discrete bilinear form in Psydac.
+    Instances of this class generate an appropriate matrix assembly kernel,
+    allocate the matrix if not provided, and prepare a list of arguments for
+    the kernel.
 
     Parameters
     ----------
 
     expr : sympde.expr.expr.BilinearForm
-        The symbolic bi-linear form.
+        The symbolic bilinear form.
 
     kernel_expr : sympde.expr.evaluation.KernelExpression
-        The atomic representation of the bi-linear form.
+        The atomic representation of the bilinear form.
 
     domain_h : Geometry
-        The discretized domain
+        The discretized domain.
 
-    spaces: list of FemSpace
-        The trial and test discrete spaces.
+    spaces : list of FemSpace
+        The discrete trial and test spaces.
 
-    matrix: Matrix
-        The matrix that we assemble into it.
-        If not provided, it will create a new Matrix of the appropriate space.
+    nquads : list or tuple of int
+        The number of quadrature points used in the assembly kernel along each
+        direction.
 
-    update_ghost_regions: bool
+    matrix : StencilMatrix or BlockLinearOperator, optional
+        The matrix that we assemble into. If not provided, a new matrix is
+        created with the appropriate domain and codomain (default: None).
+
+    update_ghost_regions : bool, default=True
         Accumulate the contributions of the neighbouring processes.
 
-    nquads: list of tuple
-        The number of quadrature points used in the assembly method.
-        This optional argument will be mandatory in the future, when quadrature grids
-        will not be property-like attributes of a TensorFemSpace anymore, but instead will only be
-        given to the constructors of DiscreteBilinearForm, DiscreteLinearForm, and DiscreteFunctional.
-
-    backend: dict
+    backend : dict, optional
         The backend used to accelerate the computing kernels.
         The backend dictionaries are defined in the file psydac/api/settings.py
 
-    assembly_backend: dict
-        The backend used to accelerate the assembly method.
+    assembly_backend : dict, optional
+        The backend used to accelerate the assembly kernel.
         The backend dictionaries are defined in the file psydac/api/settings.py
 
-    linalg_backend: dict
+    linalg_backend : dict, optional
         The backend used to accelerate the computing kernels of the linear operator.
         The backend dictionaries are defined in the file psydac/api/settings.py
 
-    symbolic_mapping: Sympde.topology.Mapping
-        The symbolic mapping which defines the physical domain of the bi-linear form.
+    symbolic_mapping : Sympde.topology.Mapping, optional
+        The symbolic mapping which defines the physical domain of the bilinear form.
+
+    See Also
+    --------
+    DiscreteLinearForm
+    DiscreteFunctional
+    DiscreteSumForm
 
     """
-    def __init__(self, expr, kernel_expr, domain_h, spaces, *, matrix=None, update_ghost_regions=True,
-                       nquads=None, backend=None, linalg_backend=None, assembly_backend=None,
-                       symbolic_mapping=None):
+    def __init__(self, expr, kernel_expr, domain_h, spaces, *, nquads,
+                 matrix=None, update_ghost_regions=True, backend=None,
+                 linalg_backend=None, assembly_backend=None,
+                 symbolic_mapping=None):
 
         if not isinstance(expr, sym_BilinearForm):
             raise TypeError('> Expecting a symbolic BilinearForm')
 
-        assert( isinstance(domain_h, Geometry) )
+        assert isinstance(domain_h, Geometry)
 
         self._spaces = spaces
 
@@ -331,11 +341,6 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         #...
         discrete_space = (trial_space, test_space)
-        space_nquads   = [qo - 1 for qo in get_nquads(test_space)]
-        nquads         = [qo + 1 for qo in (nquads or space_nquads)]
-
-        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(nquads, get_nquads(test_space))
 
         # Assuming that all vector spaces (and their Cartesian decomposition,
         # if any) are compatible with each other, extract the first available
@@ -344,10 +349,10 @@ class DiscreteBilinearForm(BasicDiscrete):
         ends   = vector_space.ends
         npts   = vector_space.npts
 
-        comm = None
-        if vector_space.parallel:
-            comm = vector_space.cart.comm
+        # MPI communicator
+        comm = vector_space.cart.comm if vector_space.parallel else None
 
+        # Backends for code generation
         assembly_backend = backend or assembly_backend
         linalg_backend   = backend or linalg_backend
 
@@ -355,11 +360,11 @@ class DiscreteBilinearForm(BasicDiscrete):
         # self._func, self._free_args, self._max_nderiv and self._backend
         BasicDiscrete.__init__(self, expr, kernel_expr, comm=comm, root=0, discrete_space=discrete_space,
                        nquads=nquads, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
-                       mapping_space=mapping_space, num_threads=self._num_threads,backend=assembly_backend)
+                       mapping_space=mapping_space, num_threads=self._num_threads, backend=assembly_backend)
 
-        #...
+        #... Handle the special case where the current MPI process does not need to do anything
         if isinstance(target, (Boundary, Interface)):
-            #...
+
             # If process does not own the boundary or interface, do not assemble anything
             if test_ext == -1:
                 if starts[axis] != 0:
@@ -369,7 +374,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 if ends[axis] != npts[axis]-1:
                     self._func = do_nothing
 
-            # In case of target==Interface, we only use the mpi ranks that are on the interface to assemble the BilinearForm
+            # In case of target==Interface, we only use the MPI ranks that are on the interface to assemble the BilinearForm
             if self._func == do_nothing and isinstance(target, Interface):
                 self._free_args = ()
                 self._args      = ()
@@ -378,10 +383,12 @@ class DiscreteBilinearForm(BasicDiscrete):
                 self._global_matrices     = ()
                 self._threads_args        = ()
                 return
+        #...
 
+        #... Build the quadrature grids
         if isinstance(target, Boundary):
-            test_grid  = QuadratureGrid( test_space, axis, test_ext)
-            trial_grid = QuadratureGrid( trial_space, axis, trial_ext)
+            test_grid  = QuadratureGrid( test_space, axis,  test_ext, nquads=nquads)
+            trial_grid = QuadratureGrid(trial_space, axis, trial_ext, nquads=nquads)
             self._grid = (test_grid,)
         elif isinstance(target, Interface):
             # this part treats the cases of:
@@ -389,22 +396,29 @@ class DiscreteBilinearForm(BasicDiscrete):
             # integral(v_plus  * u_minus)
             # the other cases, integral(v_minus * u_minus) and integral(v_plus * u_plus)
             # are converted to boundary integrals by Sympde
-            test_grid  = QuadratureGrid( test_space, axis, test_ext)
-            trial_grid = QuadratureGrid( trial_space, axis, trial_ext)
+            test_grid  = QuadratureGrid( test_space, axis,  test_ext, nquads=nquads)
+            trial_grid = QuadratureGrid(trial_space, axis, trial_ext, nquads=nquads)
             self._grid = (test_grid, trial_grid) if test_target == target.minus else (trial_grid, test_grid)
-            self._test_ext  = test_target.ext
+            self._test_ext  =  test_target.ext
             self._trial_ext = trial_target.ext
         else:
-            test_grid  = QuadratureGrid(test_space)
-            trial_grid = QuadratureGrid(trial_space)
+            test_grid  = QuadratureGrid( test_space, nquads=nquads)
+            trial_grid = QuadratureGrid(trial_space, nquads=nquads)
             self._grid = (test_grid,)
         #...
-        self._test_basis  = BasisValues( test_space, nderiv = self.max_nderiv, trial=False, grid= test_grid)
-        self._trial_basis = BasisValues(trial_space, nderiv = self.max_nderiv, trial=True , grid=trial_grid)
 
+        # Extract the basis function values on the quadrature grids
+        self._test_basis  = BasisValues( test_space, nderiv=self.max_nderiv, trial=False, grid= test_grid)
+        self._trial_basis = BasisValues(trial_space, nderiv=self.max_nderiv, trial=True , grid=trial_grid)
+
+        # Allocate the output matrix, if needed
         self.allocate_matrices(linalg_backend)
+
+        # Determine whether OpenMP instructions were generated
         with_openmp = (assembly_backend['name'] == 'pyccel' and assembly_backend['openmp']) if assembly_backend else False
-        self._args , self._threads_args = self.construct_arguments(with_openmp=with_openmp)
+
+        # Construct the arguments to be passed to the assemble() function, which is stored in self._func
+        self._args, self._threads_args = self.construct_arguments(with_openmp=with_openmp)
 
     @property
     def domain(self):
@@ -421,6 +435,10 @@ class DiscreteBilinearForm(BasicDiscrete):
     @property
     def grid(self):
         return self._grid
+
+    @property
+    def nquads(self):
+        return self._grid[0].nquads
 
     @property
     def test_basis(self):
@@ -462,7 +480,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             for key in self._free_args:
                 v = kwargs[key]
 
-                if len(self.domain)>1 and isinstance(v, FemField) and v.space.is_product:
+                if len(self.domain) > 1 and isinstance(v, FemField) and v.space.is_product:
                     i, j = self.get_space_indices_from_target(self.domain, self.target)
                     assert i == j
                     v = v[i]
@@ -500,7 +518,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         # TODO : uncomment this line when the conjugate is applied on the dot product in the complex case
         #self._matrix.conjugate(out=self._matrix)
 
-        if self._matrix: self._matrix.ghost_regions_in_sync = False
+        if self._matrix:
+            self._matrix.ghost_regions_in_sync = False
+
         return self._matrix
 
     def get_space_indices_from_target(self, domain, target):
@@ -887,15 +907,16 @@ class DiscreteSesquilinearForm(DiscreteBilinearForm):
     spaces: list of FemSpace
         The trial and test discrete spaces.
 
+    nquads : list or tuple of int
+        The number of quadrature points used in the low-level assembly function
+        along each direction.
+
     matrix: Matrix
         The matrix that we assemble into it.
         If not provided, it will create a new Matrix of the appropriate space.
 
     update_ghost_regions: bool
         Accumulate the contributions of the neighbouring processes.
-
-    nquads: list of tuple
-        The number of quadrature points used in the assembly method.
 
     backend: dict
         The backend used to accelerate the computing kernels.
@@ -917,8 +938,13 @@ class DiscreteSesquilinearForm(DiscreteBilinearForm):
 
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
-    """ Class that represents the concept of a discrete linear form.
-        This class allocates the vector and generates the vector assembly method.
+    """
+    Discrete linear form ready to be assembled into a vector.
+
+    This class represents the concept of a discrete linear form in Psydac.
+    Instances of this class generate an appropriate vector assembly kernel,
+    allocate the vector if not provided, and prepare a list of arguments for
+    the kernel.
 
     Parameters
     ----------
@@ -930,42 +956,46 @@ class DiscreteLinearForm(BasicDiscrete):
         The atomic representation of the linear form.
 
     domain_h : Geometry
-        The discretized domain
+        The discretized domain.
 
     space : FemSpace
-        The discrete space.
+        The discrete test space.
 
-    vector : Vector
-        The vector that we assemble into it.
-        If not provided, it will create a new Vector of the appropriate space.
+    nquads : list or tuple of int
+        The number of quadrature points used in the assembly kernel along each
+        direction.
 
-    update_ghost_regions : bool
+    vector : StencilVector or BlockVector, optional
+        The vector that we assemble into. If not provided, a new vector of the
+        appropriate space is created.
+
+    update_ghost_regions : bool, default=False
         Accumulate the contributions of the neighbouring processes.
 
-    nquads : list or tuple
-        The number of quadrature points used in the assembly method.
-        This optional argument will be mandatory in the future, when quadrature grids
-        will not be property-like attributes of a TensorFemSpace anymore, but instead will only be
-        given to the constructors of DiscreteBilinearForm, DiscreteLinearForm, and DiscreteFunctional.
-
-    backend : dict
+    backend : dict, optional
         The backend used to accelerate the computing kernels.
         The backend dictionaries are defined in the file psydac/api/settings.py
 
-    symbolic_mapping : Sympde.topology.Mapping
+    symbolic_mapping : Sympde.topology.Mapping, optional
         The symbolic mapping which defines the physical domain of the linear form.
 
+    See Also
+    --------
+    DiscreteBilinearForm
+    DiscreteFunctional
+    DiscreteSumForm
+
     """
-    def __init__(self, expr, kernel_expr, domain_h, space, *, vector=None,
-                       update_ghost_regions=True, nquads=None, backend=None,
-                       symbolic_mapping=None):
+    def __init__(self, expr, kernel_expr, domain_h, space, *, nquads,
+                 vector=None, update_ghost_regions=True, backend=None,
+                 symbolic_mapping=None):
 
         if not isinstance(expr, sym_LinearForm):
             raise TypeError('> Expecting a symbolic LinearForm')
 
-        assert( isinstance(domain_h, Geometry) )
+        assert isinstance(domain_h, Geometry)
 
-        self._space  = space
+        self._space = space
 
         if isinstance(kernel_expr, (tuple, list)):
             if len(kernel_expr) == 1:
@@ -982,7 +1012,7 @@ class DiscreteLinearForm(BasicDiscrete):
         domain = self.domain
         target = self.target
 
-        if len(domain)>1:
+        if len(domain) > 1:
             i = self.get_space_indices_from_target(domain, target)
             test_space  = self._space.spaces[i]
             mapping = list(domain_h.mappings.values())[i]
@@ -1016,25 +1046,18 @@ class DiscreteLinearForm(BasicDiscrete):
             self._update_ghost_regions = False
             return
 
-        is_rational_mapping = False
-        mapping_space       = None
-        if not( mapping is None ):
-            is_rational_mapping = isinstance( mapping, NurbsMapping )
+        if mapping is not None:
+            is_rational_mapping = isinstance(mapping, NurbsMapping)
             mapping_space = mapping.space
+        else:
+            is_rational_mapping = False
+            mapping_space = None
 
         self._is_rational_mapping = is_rational_mapping
         discrete_space            = test_space
 
-
-        space_nquads = [qo - 1 for qo in get_nquads(test_space)]
-        nquads       = [qo + 1 for qo in (nquads or space_nquads)]
-
-        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(nquads, get_nquads(test_space))
-
-        comm        = None
-        if vector_space.parallel:
-            comm = vector_space.cart.comm
+        # MPI communicator
+        comm = vector_space.cart.comm if vector_space.parallel else None
 
         # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
         # self._func, self._free_args, self._max_nderiv and self._backend
@@ -1042,6 +1065,7 @@ class DiscreteLinearForm(BasicDiscrete):
                               nquads=nquads, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
                               mapping_space=mapping_space, num_threads=self._num_threads, backend=backend)
 
+        #... Handle the special case where the current MPI process does not need to do anything
         if not isinstance(target, Boundary):
             ext  = None
             axis = None
@@ -1063,16 +1087,23 @@ class DiscreteLinearForm(BasicDiscrete):
                 npts = vector_space.npts[axis]
                 if end + 1 != npts:
                     self._func = do_nothing
-            #...
+        #...
 
-        grid             = QuadratureGrid( test_space, axis=axis, ext=ext )
-        self._grid       = grid
-        self._test_basis = BasisValues( test_space, nderiv = self.max_nderiv, grid=grid)
+        # Build the quadrature grids
+        test_grid  = QuadratureGrid(test_space, axis=axis, ext=ext, nquads=nquads)
+        self._grid = test_grid
 
+        # Extract the basis function values on the quadrature grid
+        self._test_basis = BasisValues(test_space, nderiv=self.max_nderiv, grid=test_grid)
+
+        # Allocate the output vector, if needed
         self.allocate_matrices()
 
-        with_openmp  = (backend['name'] == 'pyccel' and backend['openmp']) if backend else False
-        self._args , self._threads_args = self.construct_arguments(with_openmp=with_openmp)
+        # Determine whether OpenMP instructions were generated
+        with_openmp = (backend['name'] == 'pyccel' and backend['openmp']) if backend else False
+
+        # Construct the arguments to be passed to the assemble() function, which is stored in self._func
+        self._args, self._threads_args = self.construct_arguments(with_openmp=with_openmp)
 
     @property
     def domain(self):
@@ -1089,6 +1120,10 @@ class DiscreteLinearForm(BasicDiscrete):
     @property
     def grid(self):
         return self._grid
+
+    @property
+    def nquads(self):
+        return self._grid.nquads
 
     @property
     def test_basis(self):
@@ -1123,7 +1158,7 @@ class DiscreteLinearForm(BasicDiscrete):
             consts  = []
             for key in self._free_args:
                 v = kwargs[key]
-                if len(self.domain)>1 and isinstance(v, FemField) and v.space.is_product:
+                if len(self.domain) > 1 and isinstance(v, FemField) and v.space.is_product:
                     i = self.get_space_indices_from_target(self.domain, self.target)
                     v = v[i]
                 if isinstance(v, FemField):
@@ -1157,7 +1192,9 @@ class DiscreteLinearForm(BasicDiscrete):
         # TODO : uncomment this line when the conjugate is applied on the dot product in the complex case
         # self._vector.conjugate(out=self._vector)
 
-        if self._vector: self._vector.ghost_regions_in_sync = False
+        if self._vector:
+            self._vector.ghost_regions_in_sync = False
+
         return self._vector
 
     def get_space_indices_from_target(self, domain, target):
@@ -1303,50 +1340,59 @@ class DiscreteLinearForm(BasicDiscrete):
 
 
 #==============================================================================
+# NOTE: why do we pass a FemSpace to the constructor?
 class DiscreteFunctional(BasicDiscrete):
-    """ Class that represents the concept of a discrete functional form.
-        This class generates the functiona form assembly method.
+    """
+    Discrete functional ready to be assembled into a scalar (real or complex).
+
+    This class represents the concept of a discrete functional in Psydac.
+    Instances of this class generate an appropriate functional assembly kernel,
+    and prepare a list of arguments for the kernel.
 
     Parameters
     ----------
 
-    expr : sympde.expr.expr.LinearForm
+    expr : sympde.expr.expr.Functional
         The symbolic functional form.
 
     kernel_expr : sympde.expr.evaluation.KernelExpression
         The atomic representation of the functional form.
 
     domain_h : Geometry
-        The discretized domain
+        The discretized domain.
 
     space : FemSpace
         The discrete space.
 
-    update_ghost_regions : bool
-        Accumulate the contributions of the neighbouring processes.
+    nquads : list or tuple of int
+        The number of quadrature points used in the assembly kernel along each
+        direction.
 
-    nquads : list or tuple
-        The number of quadrature points used in the assembly method.
-        This optional argument will be mandatory in the future, when quadrature grids
-        will not be property-like attributes of a TensorFemSpace anymore, but instead will only be
-        given to the constructors of DiscreteBilinearForm, DiscreteLinearForm, and DiscreteFunctional.
+    update_ghost_regions : bool, default=True
+        Accumulate the contributions of the neighbouring processes.
 
     backend : dict
         The backend used to accelerate the computing kernels.
         The backend dictionaries are defined in the file psydac/api/settings.py
 
     symbolic_mapping : Sympde.topology.Mapping
-        The symbolic mapping which defines the physical domain of the functional form.
+        The symbolic mapping which defines the physical domain of the functional.
+
+    See Also
+    --------
+    DiscreteBilinearForm
+    DiscreteLinearForm
+    DiscreteSumForm
 
     """
-    def __init__(self, expr, kernel_expr, domain_h, space, *, nquads=None,
-                       backend=None, symbolic_mapping=None):
+    def __init__(self, expr, kernel_expr, domain_h, space, *, nquads,
+                 backend=None, symbolic_mapping=None):
 
         if not isinstance(expr, sym_Functional):
             raise TypeError('> Expecting a symbolic Functional')
 
         # ...
-        assert( isinstance(domain_h, Geometry) )
+        assert isinstance(domain_h, Geometry)
 
         self._space = space
 
@@ -1366,9 +1412,9 @@ class DiscreteFunctional(BasicDiscrete):
         domain = self.domain
         target = self.target
 
-        if len(domain)>1:
+        if len(domain) > 1:
             i = self.get_space_indices_from_target(domain, target)
-            self._space  = self._space.spaces[i]
+            self._space = self._space.spaces[i]
             mapping = list(domain_h.mappings.values())[i]
         else:
             mapping = list(domain_h.mappings.values())[0]
@@ -1380,8 +1426,8 @@ class DiscreteFunctional(BasicDiscrete):
         else:
             vector_space = self.space.vector_space
 
-        num_threads  = 1
-        if vector_space.parallel and vector_space.cart.num_threads>1:
+        num_threads = 1
+        if vector_space.parallel and vector_space.cart.num_threads > 1:
             num_threads = vector_space.cart._num_threads
 
         # In case of multiple patches, if the communicator is MPI_COMM_NULL, we do not generate the assembly code
@@ -1401,25 +1447,20 @@ class DiscreteFunctional(BasicDiscrete):
             ext  = None
             axis = None
 
-        is_rational_mapping = False
-        mapping_space       = None
-        if not( mapping is None ):
+        if mapping is not None:
             is_rational_mapping = isinstance( mapping, NurbsMapping )
             mapping_space = mapping.space
+        else:
+            is_rational_mapping = False
+            mapping_space = None
 
         self._mapping             = mapping
         self._is_rational_mapping = is_rational_mapping
         discrete_space            = self._space
 
-        comm = None
-        if vector_space.parallel:
-            comm = vector_space.cart.comm
-
-        space_nquads = [qo - 1 for qo in get_nquads(self._space)]
-        nquads       = [qo + 1 for qo in (nquads or space_nquads)]
-
-        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(nquads, get_nquads(self.space))
+        # MPI communicator
+        comm = vector_space.cart.comm if vector_space.parallel else None
+        self._comm = domain_h.comm  # NOTE: why?
 
         # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
         # self._func, self._free_args, self._max_nderiv and self._backend
@@ -1427,11 +1468,14 @@ class DiscreteFunctional(BasicDiscrete):
                               nquads=nquads, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
                               mapping_space=mapping_space, num_threads=num_threads, backend=backend)
 
-        self._comm       = domain_h.comm
-        grid             = QuadratureGrid( self.space,  axis=axis, ext=ext)
-        self._grid       = grid
-        self._test_basis = BasisValues( self.space, nderiv = self.max_nderiv, trial=True, grid=grid)
+        # Build the quadrature grid
+        grid       = QuadratureGrid(self.space,  axis=axis, ext=ext, nquads=nquads)
+        self._grid = grid
 
+        # Extract the basis function values on the quadrature grid
+        self._test_basis = BasisValues(self.space, nderiv=self.max_nderiv, trial=True, grid=grid)
+
+        # Construct the arguments to be passed to the assemble() function, which is stored in self._func
         self._args = self.construct_arguments()
 
     @property
@@ -1449,6 +1493,10 @@ class DiscreteFunctional(BasicDiscrete):
     @property
     def grid(self):
         return self._grid
+
+    @property
+    def nquads(self):
+        return self._grid.nquads
 
     @property
     def test_basis(self):
@@ -1567,7 +1615,6 @@ class DiscreteFunctional(BasicDiscrete):
                 raise NotImplementedError('TODO')
         return v
 
-
 #==============================================================================
 class DiscreteSumForm(BasicDiscrete):
 
@@ -1586,7 +1633,7 @@ class DiscreteSumForm(BasicDiscrete):
         self._folder = self._initialize_folder(folder)
 
         # create a module name if not given
-        tag = random_string( 8 )
+        tag = random_string(8)
 
         # ...
         forms = []
@@ -1658,5 +1705,4 @@ class DiscreteSumForm(BasicDiscrete):
             M = [form.assemble(**kwargs) for form in self.forms]
             M = np.sum(M)
             return M
-
 
