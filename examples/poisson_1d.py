@@ -16,30 +16,30 @@ class Poisson1D:
     $\frac{d^2}{dx^2}\phi(x) = -\rho(x)$
 
     """
-    def __init__( self ):
+    def __init__(self):
         from sympy import symbols, sin, pi, lambdify
         x = symbols('x')
-        phi_e = sin( 2*pi*x )
-        rho_e = -phi_e.diff(x,2)
-        self._phi = lambdify( x, phi_e )
-        self._rho = lambdify( x, rho_e )
+        phi_e = sin(2*pi*x)
+        rho_e = -phi_e.diff(x, 2)
+        self._phi = lambdify(x, phi_e)
+        self._rho = lambdify(x, rho_e)
 
-    def phi( self, x ):
-        return self._phi( x )
+    def phi(self, x):
+        return self._phi(x)
 
-    def rho( self, x ):
-        return self._rho( x )
+    def rho(self, x):
+        return self._rho(x)
 
     @property
-    def domain( self ):
+    def domain(self):
         return (0, 1)
 
     @property
-    def periodic( self ):
+    def periodic(self):
         return False
 
 #==============================================================================
-def kernel( p1, k1, bs1, w1, mat_m, mat_s ):
+def kernel(p1, k1, bs1, w1, mat_m, mat_s):
     """
     Kernel for computing the mass/stiffness element matrices.
 
@@ -66,8 +66,8 @@ def kernel( p1, k1, bs1, w1, mat_m, mat_s ):
 
     """
     # Reset element matrices
-    mat_m[:,:] = 0.
-    mat_s[:,:] = 0.
+    mat_m[:, :] = 0.
+    mat_s[:, :] = 0.
 
     # Cycle over non-zero test functions in element
     for il_1 in range(p1+1):
@@ -114,6 +114,9 @@ def assemble_matrices(V, kernel, *, nquads):
     kernel : callable
         Function that performs the assembly process on small element matrices.
 
+    nquads : list or tuple of int
+        Number of quadrature points in each direction (here only one).
+
     Returns
     -------
     mass : StencilMatrix
@@ -122,8 +125,6 @@ def assemble_matrices(V, kernel, *, nquads):
     stiffness : StencilMatrix
         Stiffness matrix in 1D stencil format.
 
-    nquads : list or tuple of int
-        Number of quadrature points in each direction (here only one).
     """
     # Sizes
     [s1] = V.vector_space.starts
@@ -147,7 +148,7 @@ def assemble_matrices(V, kernel, *, nquads):
     mat_s = np.zeros((p1+1, 2*p1+1)) # stiffness
 
     # Build global matrices: cycle over elements
-    for k1 in range( nk1 ):
+    for k1 in range(nk1):
 
         # Get spline index, B-splines' values and quadrature weights
         is1 =   spans_1[k1]
@@ -200,18 +201,18 @@ def assemble_rhs(V, f, *, nquads):
     weights_1 = quad_grid.weights
 
     # Data structure
-    rhs = StencilVector( V.vector_space )
+    rhs = StencilVector(V.vector_space)
 
     # Build RHS
-    for k1 in range( nk1 ):
+    for k1 in range(nk1):
 
         is1    =   spans_1[k1]
-        bs1    =   basis_1[k1,:,:,:]
+        bs1    =   basis_1[k1, :, :, :]
         x1     =  points_1[k1, :]
         wvol   = weights_1[k1, :]
-        f_quad = f( x1 )
+        f_quad = f(x1)
 
-        for il1 in range( p1+1 ):
+        for il1 in range(p1+1):
 
             bi_0 = bs1[il1, 0, :]
             v    = bi_0 * f_quad * wvol
@@ -259,7 +260,7 @@ if __name__ == '__main__':
     # Build right-hand side vector
     rhs = assemble_rhs(V, model.rho, nquads=nquads)
 
-    # Apply homogeneous dirichlet boundary conditions
+    # Apply homogeneous Dirichlet boundary conditions
     s1, = V.vector_space.starts
     e1, = V.vector_space.ends
 
