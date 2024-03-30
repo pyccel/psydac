@@ -92,8 +92,8 @@ class TensorFemSpace(FemSpace):
             assert isinstance(vector_space, StencilVectorSpace)
             cart = vector_space.cart
         else:
-            cart = create_cart([domain_decomposition], [spaces])
-            vector_space = StencilVectorSpace(cart[0], dtype=dtype)
+            cart = create_cart([domain_decomposition], [spaces])[0]
+            vector_space = StencilVectorSpace(cart, dtype=dtype)
 
         # Store some info
         self._domain_decomposition = domain_decomposition
