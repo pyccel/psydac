@@ -104,6 +104,10 @@ or (on macOS)
 ```sh
 brew info hdf5-mpi
 ```
+Alternatively, on Ubuntu/Debian systems, the HDF5 **installation point** can be discovered by running
+```sh
+dpkg -L libhdf5-openmpi-dev | grep libhdf5.so | xargs dirname
+```
 
 At this point the Psydac library may be installed in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the Psydac directory. The latter mode allows one to effect the behavior of Psydac by modifying the source files.
 
