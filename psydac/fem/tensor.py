@@ -21,7 +21,7 @@ from psydac.fem.basic        import FemSpace, FemField
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.grid         import FemAssemblyGrid
 from psydac.fem.partitioning import create_cart, partition_coefficients
-from psydac.ddm.cart         import DomainDecomposition
+from psydac.ddm.cart         import DomainDecomposition, CartDecomposition
 
 from psydac.core.bsplines  import (find_span,
                                    basis_funs,

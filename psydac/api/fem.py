@@ -387,8 +387,8 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         #... Build the quadrature grids
         if isinstance(target, Boundary):
-            test_grid  = QuadratureGrid( test_space, axis,  test_ext, nquads=nquads)
-            trial_grid = QuadratureGrid(trial_space, axis, trial_ext, nquads=nquads)
+            test_grid  = QuadratureGrid( test_space, axis=axis, ext= test_ext, nquads=nquads)
+            trial_grid = QuadratureGrid(trial_space, axis=axis, ext=trial_ext, nquads=nquads)
             self._grid = (test_grid,)
         elif isinstance(target, Interface):
             # this part treats the cases of:
@@ -396,8 +396,8 @@ class DiscreteBilinearForm(BasicDiscrete):
             # integral(v_plus  * u_minus)
             # the other cases, integral(v_minus * u_minus) and integral(v_plus * u_plus)
             # are converted to boundary integrals by Sympde
-            test_grid  = QuadratureGrid( test_space, axis,  test_ext, nquads=nquads)
-            trial_grid = QuadratureGrid(trial_space, axis, trial_ext, nquads=nquads)
+            test_grid  = QuadratureGrid( test_space, axis=axis, ext= test_ext, nquads=nquads)
+            trial_grid = QuadratureGrid(trial_space, axis=axis, ext=trial_ext, nquads=nquads)
             self._grid = (test_grid, trial_grid) if test_target == target.minus else (trial_grid, test_grid)
             self._test_ext  =  test_target.ext
             self._trial_ext = trial_target.ext
@@ -408,8 +408,20 @@ class DiscreteBilinearForm(BasicDiscrete):
         #...
 
         # Extract the basis function values on the quadrature grids
-        self._test_basis  = BasisValues( test_space, nderiv=self.max_nderiv, trial=False, grid= test_grid)
-        self._trial_basis = BasisValues(trial_space, nderiv=self.max_nderiv, trial=True , grid=trial_grid)
+        self._test_basis  = BasisValues(
+            test_space,
+            nderiv = self.max_nderiv,
+            nquads = nquads,
+            trial  = False,
+            grid   = test_grid
+        )
+        self._trial_basis = BasisValues(
+            trial_space,
+            nderiv = self.max_nderiv,
+            nquads = nquads,
+            trial  = True ,
+            grid   = trial_grid
+        )
 
         # Allocate the output matrix, if needed
         self.allocate_matrices(linalg_backend)
@@ -488,7 +500,13 @@ class DiscreteBilinearForm(BasicDiscrete):
                     assert len(self.grid) == 1
                     if not v.coeffs.ghost_regions_in_sync:
                         v.coeffs.update_ghost_regions()
-                    basis_v = BasisValues(v.space, nderiv = self.max_nderiv, trial=True, grid=self.grid[0])
+                    basis_v = BasisValues(
+                        v.space,
+                        nderiv = self.max_nderiv,
+                        nquads = nquads,
+                        trial  = True,
+                        grid   = self.grid[0]
+                    )
                     bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
@@ -1094,7 +1112,12 @@ class DiscreteLinearForm(BasicDiscrete):
         self._grid = test_grid
 
         # Extract the basis function values on the quadrature grid
-        self._test_basis = BasisValues(test_space, nderiv=self.max_nderiv, grid=test_grid)
+        self._test_basis = BasisValues(
+            test_space,
+            nderiv = self.max_nderiv,
+            nquads = nquads,
+            grid   = test_grid
+        )
 
         # Allocate the output vector, if needed
         self.allocate_matrices()
@@ -1164,7 +1187,13 @@ class DiscreteLinearForm(BasicDiscrete):
                 if isinstance(v, FemField):
                     if not v.coeffs.ghost_regions_in_sync:
                         v.coeffs.update_ghost_regions()
-                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, trial=True, grid=self.grid)
+                    basis_v  = BasisValues(
+                        v.space,
+                        nderiv = self.max_nderiv,
+                        nquads = nquads,
+                        trial  = True,
+                        grid   = self.grid
+                    )
                     bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
@@ -1473,7 +1502,13 @@ class DiscreteFunctional(BasicDiscrete):
         self._grid = grid
 
         # Extract the basis function values on the quadrature grid
-        self._test_basis = BasisValues(self.space, nderiv=self.max_nderiv, trial=True, grid=grid)
+        self._test_basis = BasisValues(
+            self.space,
+            nderiv = self.max_nderiv,
+            nquads = nquads,
+            trial  = True,
+            grid   = grid
+        )
 
         # Construct the arguments to be passed to the assemble() function, which is stored in self._func
         self._args = self.construct_arguments()
