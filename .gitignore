@@ -19,6 +19,9 @@ usr
 doc/_static
 doc/_build
 doc/api-python
+docs/source/modules/STUBDIR
+docs/source/auto_examples
+docs/source/sg_execution_times.rst
 
 psydac/core/bsp-f2py*
 psydac/core/bspmodule.c

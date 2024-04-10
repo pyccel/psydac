@@ -35,7 +35,7 @@ with open('../../pyproject.toml', mode='rb') as pyproject:
     pkg_meta = tomli.load(pyproject)['project']
 
 project   = str(pkg_meta['name'])
-copyright = '2018-2023, Psydac Developers'
+copyright = '2018-2024, Psydac Developers'
 author    = str(pkg_meta['authors'][0]['name'])
 release   = str(pkg_meta['version'])
 
@@ -52,6 +52,7 @@ extensions = [
 'sphinx.ext.githubpages',
 'sphinx_math_dollar',
 'sphinx.ext.mathjax',
+'sphinx_gallery.gen_gallery'
 ]
 
 from docutils.nodes import FixedTextElement, literal,math
@@ -92,3 +93,10 @@ inheritance_graph_attrs = dict(rankdir="LR", ratio='auto',
 
 inheritance_node_attrs = dict(shape='ellipse', fontsize="12", height=0.65,
                               color='maroon4', style='filled')
+
+# -- Options for sphinx_gallery ----------------------------------------------
+#     'ignore_pattern': r'maxwell_|poisson_|sample_|test_|visualize_'
+sphinx_gallery_conf = {
+     'examples_dirs': '../../examples/notebooks',   # path to your example scripts
+     'gallery_dirs': 'auto_examples'     # path to where to save gallery generated output
+}
