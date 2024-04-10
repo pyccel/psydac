@@ -1180,7 +1180,6 @@ class TensorFemSpace(FemSpace):
 
         spaces       = self.spaces
         vector_space = self.vector_space
-        nquads       = self.nquads
 
         vector_space.set_interface(axis, ext, cart)
 
