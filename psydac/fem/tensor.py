@@ -79,6 +79,8 @@ class TensorFemSpace(FemSpace):
 
         assert isinstance(domain_decomposition, DomainDecomposition)
         assert all(isinstance(s, SplineSpace) for s in spaces)
+        assert dtype in (float, complex)
+        # TODO [YG 10.04.2024]: check if dtype test is too restrictive
 
         # BEGIN NEW -------------------------------------------------------
 
@@ -98,6 +100,7 @@ class TensorFemSpace(FemSpace):
         # Store some info
         self._domain_decomposition = domain_decomposition
         self._spaces               = spaces
+        self._dtype                = dtype
         self._vector_space         = vector_space
         self._symbolic_space       = None
         self._refined_space        = {}
