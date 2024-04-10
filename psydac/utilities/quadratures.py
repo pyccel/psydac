@@ -88,7 +88,6 @@ def gauss_lobatto(k):
     return xg, w[i]
 
 
-
 def quadrature(a, k, method="legendre"):
     """
     this routine generates a quad pts on the grid linspace(a,b,N)

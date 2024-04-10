@@ -24,17 +24,18 @@ __all__ = ('GlobalProjector', 'Projector_H1', 'Projector_Hcurl', 'Projector_Hdiv
 #==============================================================================
 class GlobalProjector(metaclass=ABCMeta):
     """
-    A global projector to some TensorFemSpace or VectorFemSpace object.
-    It is constructed over a tensor-product grid in the
-    logical domain. The vertices of this grid are obtained as the tensor
-    product of the 1D splines' Greville points along each direction.
+    Projects callable functions to some scalar or vector FEM space.
 
-    This projector matches the "geometric" degrees of freedom of
-    discrete n-forms (where n depends on the underlying space).
-    This is done by projecting each component of the vector field
-    independently, by combining 1D histopolation with 1D interpolation.
+    A global projector is constructed over a tensor-product grid in the logical
+    domain. The vertices of this grid are obtained as the tensor product of the
+    1D splines' Greville points along each direction.
 
-    This class can currently not be instantiated directly (use a subclass instead).
+    This projector matches the "geometric" degrees of freedom of discrete
+    n-forms (where n depends on the underlying space).
+    This is done by projecting each component of the vector field independently,
+    by combining 1D histopolation with 1D interpolation.
+
+    This class cannot be instantiated directly (use a subclass instead).
 
     Parameters
     ----------
@@ -77,8 +78,7 @@ class GlobalProjector(metaclass=ABCMeta):
         # set up quadrature weights
         if nquads:
             assert len(nquads) == self._dim
-            uw = [gauss_legendre(k-1) for k in nquads]
-            uw = [(u[::-1], w[::-1]) for u, w in uw]
+            uw = [gauss_legendre(k) for k in nquads]
 
         # retrieve projection space structure
         # this is a 2D Python array (first level: block, second level: tensor direction)

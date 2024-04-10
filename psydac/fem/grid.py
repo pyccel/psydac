@@ -53,18 +53,14 @@ class FemAssemblyGrid:
         assert isinstance(nquads, int)
         assert isinstance(nderiv, int)
 
+        # Useful shortcuts
         T      = space.knots   # knots sequence
         degree = space.degree  # spline degree
         n      = space.nbasis  # total number of control points
         grid   = space.breaks  # breakpoints
-        k      = nquads        # number of quadrature points
 
         # Gauss-legendre quadrature rule
-        u, w = gauss_legendre(k)
-
-        # invert order
-        u = u[::-1]
-        w = w[::-1]
+        u, w = gauss_legendre(nquads)
 
         #-------------------------------------------
         # GLOBAL GRID
@@ -80,24 +76,24 @@ class FemAssemblyGrid:
         # (Span is global index of last non-vanishing basis function)
         global_spans = elements_spans(T, degree)
 
-        grid    = grid[start:end+2]
-        spans   = global_spans  [start:end+1].copy()
-        basis   = global_basis  [start:end+1].copy()
-        points  = global_points [start:end+1].copy()
-        weights = global_weights[start:end+1].copy()
+        grid    = grid[start : end + 2]
+        spans   = global_spans  [start : end + 1].copy()
+        basis   = global_basis  [start : end + 1].copy()
+        points  = global_points [start : end + 1].copy()
+        weights = global_weights[start : end + 1].copy()
 
         #-------------------------------------------
         # DATA STORAGE IN OBJECT
         #-------------------------------------------
 
         # Quadrature data on extended distributed domain
-        self._num_elements = len(grid)-1
+        self._num_elements = len(grid) - 1
         self._num_quad_pts = len(u)
         self._spans        = spans
         self._basis        = basis
         self._points       = points
         self._weights      = weights
-        self._indices      = tuple(range(start, end+1))
+        self._indices      = tuple(range(start, end + 1))
         self._quad_rule_x  = u
         self._quad_rule_w  = w
 
