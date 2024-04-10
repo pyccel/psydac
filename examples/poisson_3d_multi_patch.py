@@ -94,15 +94,16 @@ def run_poisson_3d_multi_patch(solution, f, domain, ncells, degree, comm=None, b
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
     #+++++++++++++++++++++++++++++++
+    nquads = [p + 1 for p in degree]
 
     t0 = time.time()
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     Vh       = discretize(V, domain_h, degree=degree)
 
-    equation_h = discretize(equation, domain_h, [Vh, Vh], backend=backend)
+    equation_h = discretize(equation, domain_h, [Vh, Vh], nquads=nquads, backend=backend)
 
-    l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
-    h1norm_h = discretize(h1norm, domain_h, Vh, backend=backend)
+    l2norm_h = discretize(l2norm, domain_h, Vh, nquads=nquads, backend=backend)
+    h1norm_h = discretize(h1norm, domain_h, Vh, nquads=nquads, backend=backend)
 
     equation_h.set_solver('cg', info=True, tol=1e-8)
     t1 = time.time()
@@ -136,14 +137,14 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
         formatter_class = argparse.ArgumentDefaultsHelpFormatter,
-        description     = "Solve Poisson's equation on a 3D mulipatch domain."
+        description     = "Solve Poisson's equation on a 3D multipatch domain."
     )
 
     parser.add_argument( '-d',
         type    = int,
         nargs   = 3,
-        default = [2,2,2],
-        metavar = ('P1','P2','P3'),
+        default = [2, 2, 2],
+        metavar = ('P1', 'P2', 'P3'),
         dest    = 'degree',
         help    = 'Spline degree along each dimension'
     )
@@ -151,12 +152,11 @@ if __name__ == '__main__':
     parser.add_argument( '-n',
         type    = int,
         nargs   = 3,
-        default = [10,10,10],
+        default = [10, 10, 10],
         metavar = ('N1','N2','N3'),
         dest    = 'ncells',
         help    = 'Number of grid cells (elements) along each dimension'
     )
-
 
     from collections                               import OrderedDict
     from sympy                                     import lambdify
@@ -164,33 +164,32 @@ if __name__ == '__main__':
     from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
     from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
 
-    A1 = Cube('A1',bounds1=(0, 0.5), bounds2=(0, 0.5), bounds3=(0, 1))
-    A2 = Cube('A2',bounds1=(0.5, 1), bounds2=(0, 0.5), bounds3=(0, 1))
-    A3 = Cube('A3',bounds1=(1, 1.5), bounds2=(0, 0.5), bounds3=(0, 1))
-    A4 = Cube('A4',bounds1=(0, 0.5), bounds2=(0.5, 1), bounds3=(0, 1))
-    A5 = Cube('A5',bounds1=(0.5, 1), bounds2=(0.5, 1), bounds3=(0, 1))
-    A6 = Cube('A6',bounds1=(1, 1.5), bounds2=(0.5, 1), bounds3=(0, 1))
-    A7 = Cube('A7',bounds1=(0, 0.5), bounds2=(1, 1.5), bounds3=(0, 1))
-    A8 = Cube('A8',bounds1=(0.5, 1), bounds2=(1, 1.5), bounds3=(0, 1))
-    A9 = Cube('A9',bounds1=(1, 1.5), bounds2=(1, 1.5), bounds3=(0, 1))
+    A1 = Cube('A1', bounds1=(0, 0.5), bounds2=(0, 0.5), bounds3=(0, 1))
+    A2 = Cube('A2', bounds1=(0.5, 1), bounds2=(0, 0.5), bounds3=(0, 1))
+    A3 = Cube('A3', bounds1=(1, 1.5), bounds2=(0, 0.5), bounds3=(0, 1))
+    A4 = Cube('A4', bounds1=(0, 0.5), bounds2=(0.5, 1), bounds3=(0, 1))
+    A5 = Cube('A5', bounds1=(0.5, 1), bounds2=(0.5, 1), bounds3=(0, 1))
+    A6 = Cube('A6', bounds1=(1, 1.5), bounds2=(0.5, 1), bounds3=(0, 1))
+    A7 = Cube('A7', bounds1=(0, 0.5), bounds2=(1, 1.5), bounds3=(0, 1))
+    A8 = Cube('A8', bounds1=(0.5, 1), bounds2=(1, 1.5), bounds3=(0, 1))
+    A9 = Cube('A9', bounds1=(1, 1.5), bounds2=(1, 1.5), bounds3=(0, 1))
 
+    patches = [A1, A2, A3, A4, A5, A6, A7, A8, A9]
     interfaces = [
-    [A1.get_boundary(axis=0, ext=+1), A2.get_boundary(axis=0, ext=-1),1],
-    [A2.get_boundary(axis=0, ext=+1), A3.get_boundary(axis=0, ext=-1),1],
-    [A4.get_boundary(axis=0, ext=+1), A5.get_boundary(axis=0, ext=-1),1],
-    [A5.get_boundary(axis=0, ext=+1), A6.get_boundary(axis=0, ext=-1),1],
-    [A7.get_boundary(axis=0, ext=+1), A8.get_boundary(axis=0, ext=-1),1],
-    [A8.get_boundary(axis=0, ext=+1), A9.get_boundary(axis=0, ext=-1),1],
-    [A1.get_boundary(axis=1, ext=+1), A4.get_boundary(axis=1, ext=-1),1],
-    [A2.get_boundary(axis=1, ext=+1), A5.get_boundary(axis=1, ext=-1),1],
-    [A3.get_boundary(axis=1, ext=+1), A6.get_boundary(axis=1, ext=-1),1],
-    [A4.get_boundary(axis=1, ext=+1), A7.get_boundary(axis=1, ext=-1),1],
-    [A5.get_boundary(axis=1, ext=+1), A8.get_boundary(axis=1, ext=-1),1],
-    [A6.get_boundary(axis=1, ext=+1), A9.get_boundary(axis=1, ext=-1),1],
+        ((0, 0, 1), (1, 0, -1), (1, 1, 1)),
+        ((1, 0, 1), (2, 0, -1), (1, 1, 1)),
+        ((3, 0, 1), (4, 0, -1), (1, 1, 1)),
+        ((4, 0, 1), (5, 0, -1), (1, 1, 1)),
+        ((6, 0, 1), (7, 0, -1), (1, 1, 1)),
+        ((7, 0, 1), (8, 0, -1), (1, 1, 1)),
+        ((0, 1, 1), (3, 1, -1), (1, 1, 1)),
+        ((1, 1, 1), (4, 1, -1), (1, 1, 1)),
+        ((2, 1, 1), (5, 1, -1), (1, 1, 1)),
+        ((3, 1, 1), (6, 1, -1), (1, 1, 1)),
+        ((4, 1, 1), (7, 1, -1), (1, 1, 1)),
+        ((5, 1, 1), (8, 1, -1), (1, 1, 1)),
     ]
-
-    domain = union([A1, A2, A3, A4, A5, A6, A7, A8, A9], name = 'domain')
-    domain = set_interfaces(domain, interfaces)
+    domain  = Domain.join(patches, interfaces, name='domain')
 
     x,y,z    = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)*sin(pi*z)
