@@ -96,17 +96,13 @@ python3 -m pip install --upgrade pip
 python3 -m pip install -r requirements.txt
 python3 -m pip install -r requirements_extra.txt --no-build-isolation
 ```
-where the `HDF5_DIR` environment variable should store the absolute path to the **installation point** of your parallel HDF5 library, which can be found with
+where the `HDF5_DIR` environment variable should store the absolute path to the **installation point** of your parallel HDF5 library, which can be found with command/s specific to your system:
 ```sh
-h5pcc -showconfig
-```
-or (on macOS)
-```sh
-brew info hdf5-mpi
-```
-Alternatively, on Ubuntu/Debian systems, the HDF5 **installation point** can be discovered by running
-```sh
+# HDF5_DIR on Ubuntu/Debian
 dpkg -L libhdf5-openmpi-dev | grep libhdf5.so | xargs dirname
+
+# HDF5_DIR on macOS
+brew info hdf5-mpi
 ```
 
 At this point the Psydac library may be installed in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the Psydac directory. The latter mode allows one to effect the behavior of Psydac by modifying the source files.
