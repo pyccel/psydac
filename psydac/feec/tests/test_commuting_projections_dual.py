@@ -11,7 +11,7 @@ import pytest
 
 
 @pytest.mark.parametrize('Nel', [8, 12])
-@pytest.mark.parametrize('Nq', [4])
+@pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('bc', [True, False])
 @pytest.mark.parametrize('m', [1,2])
@@ -52,8 +52,9 @@ def test_transpose_div_3d(Nel, Nq, p, bc, m):
     error = abs((u2-divT_u3).toarray()).max()
     assert error < 2e-10
 
+
 @pytest.mark.parametrize('Nel', [8, 12])
-@pytest.mark.parametrize('Nq', [5])
+@pytest.mark.parametrize('Nq', [6])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('bc', [True, False])
 @pytest.mark.parametrize('m', [1,2])
@@ -109,8 +110,9 @@ def test_transpose_curl_3d(Nel, Nq, p, bc, m):
     error = abs((u1-curlT_u2).toarray()).max()
     assert error < 2e-9
 
+
 @pytest.mark.parametrize('Nel', [8, 12])
-@pytest.mark.parametrize('Nq', [5])
+@pytest.mark.parametrize('Nq', [6])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('bc', [True, False])
 @pytest.mark.parametrize('m', [1,2])
@@ -154,6 +156,7 @@ def test_transpose_grad_3d(Nel, Nq, p, bc, m):
 
     error = abs((u0-gradT_u1).toarray()).max()
     assert error < 5e-10
+
 
 #==============================================================================
 if __name__ == '__main__':
