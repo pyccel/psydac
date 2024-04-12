@@ -291,7 +291,7 @@ class ConformingProjection_V0( FemLinearOperator):
             a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
             # print('[[ forcing python backend for ConformingProjection_V0]] ')
             # backend_language = 'python'
-            nquads = [p + 1 for p in V0h.spaces[0].degrees]
+            nquads = [p + 1 for p in V0h.spaces[0].degree]
             ah = discretize(a, domain_h, [V0h, V0h], nquads=nquads,
                             backend=PSYDAC_BACKENDS[backend_language])
 
