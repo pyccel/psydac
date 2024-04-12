@@ -503,7 +503,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     basis_v = BasisValues(
                         v.space,
                         nderiv = self.max_nderiv,
-                        nquads = nquads,
+                        nquads = self.nquads,
                         trial  = True,
                         grid   = self.grid[0]
                     )
@@ -1192,7 +1192,7 @@ class DiscreteLinearForm(BasicDiscrete):
                     basis_v  = BasisValues(
                         v.space,
                         nderiv = self.max_nderiv,
-                        nquads = nquads,
+                        nquads = self.nquads,
                         trial  = True,
                         grid   = self.grid
                     )
