@@ -592,14 +592,16 @@ class DiscreteBilinearForm(BasicDiscrete):
         # When self._target is an Interface domain len(self._grid) == 2
         # where grid contains the QuadratureGrid of both sides of the interface
         if self.mapping:
+
             if len(self.grid) == 1:
                 map_coeffs = [[e._coeffs._data for e in self.mapping._fields]]
                 spaces     = [self.mapping._fields[0].space]
                 map_degree = [sp.degree for sp in spaces]
-                map_span   = [[q.spans-s for q,s in zip(sp.quad_grids(), sp.vector_space.starts)] for sp in spaces]
-                map_basis  = [[q.basis for q in sp.quad_grids()] for sp in spaces]
+                map_span   = [[q.spans - s for q,s in zip(sp.get_quadrature_grids(*self.nquads), sp.vector_space.starts)] for sp in spaces]
+                map_basis  = [[q.basis for q in sp.get_quadrature_grids(*self.nquads)] for sp in spaces]
                 points     = [g.points for g in self.grid]
                 weights    = [self.mapping.weights_field.coeffs._data] if self.is_rational_mapping else []
+
             elif len(self.grid) == 2:
                 target = self.kernel_expr.target
                 assert isinstance(target, Interface)
@@ -636,8 +638,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                         weights_p[0] = weights_p[0]._interface_data[axis, ext]
 
                 map_degree = [sp.degree for sp in spaces]
-                map_span   = [[q.spans-s for q,s in zip(sp.quad_grids(), sp.vector_space.starts)] for sp in spaces]
-                map_basis  = [[q.basis for q in sp.quad_grids()] for sp in spaces]
+                map_span   = [[q.spans - s for q, s in zip(sp.get_quadrature_grids(*self.nquads), sp.vector_space.starts)] for sp in spaces]
+                map_basis  = [[q.basis for q in sp.get_quadrature_grids(*self.nquads)] for sp in spaces]
                 points     = [g.points for g in self.grid]
 
             nderiv = self.max_nderiv
@@ -1270,8 +1272,8 @@ class DiscreteLinearForm(BasicDiscrete):
             mapping    = [e._coeffs._data for e in self.mapping._fields]
             space      = self.mapping._fields[0].space
             map_degree = space.degree
-            map_span   = [q.spans-s for q,s in zip(space.quad_grids(), space.vector_space.starts)]
-            map_basis  = [q.basis for q in space.quad_grids()]
+            map_span   = [q.spans - s for q, s in zip(space.get_quadrature_grids(*self.nquads), space.vector_space.starts)]
+            map_basis  = [q.basis for q in space.get_quadrature_grids(*self.nquads)]
             axis       = self.grid.axis
             ext        = self.grid.ext
             points     = self.grid.points
@@ -1586,8 +1588,8 @@ class DiscreteFunctional(BasicDiscrete):
             mapping    = [e._coeffs._data for e in self.mapping._fields]
             space      = self.mapping._fields[0].space
             map_degree = space.degree
-            map_span   = [q.spans-s for q,s in zip(space.quad_grids(), space.vector_space.starts)]
-            map_basis  = [q.basis for q in space.quad_grids()]
+            map_span   = [q.spans-s for q,s in zip(space.get_quadrature_grids(*self.nquads), space.vector_space.starts)]
+            map_basis  = [q.basis for q in space.get_quadrature_grids(*self.nquads)]
 
             if self.is_rational_mapping:
                 mapping = [*mapping, self.mapping._weights_field._coeffs._data]
