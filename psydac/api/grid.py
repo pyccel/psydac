@@ -88,11 +88,11 @@ class QuadratureGrid():
                 if e < quad_grid_i.indices[0]:
                     local_element_start[-1] += 1
                     local_element_end  [-1] += 1
-                    p, w = get_points_weights(spaces, i, e)  # TODO: remove
+                    p, w = get_points_weights(spaces, i, e, nquads)  # TODO: remove
                     points [-1] = np.concatenate((p, points [-1]))
                     weights[-1] = np.concatenate((w, weights[-1]))
                 elif e > quad_grid_i.indices[-1]:
-                    p, w = get_points_weights(spaces, i, e)  # TODO: remove
+                    p, w = get_points_weights(spaces, i, e, nquads)  # TODO: remove
                     points [-1] = np.concatenate((points [-1], p))
                     weights[-1] = np.concatenate((weights[-1], w))
                 else:
