@@ -694,10 +694,19 @@ class TensorFemSpace(FemSpace):
         return grad
 
     # ...
-    def integral(self, f, *, nquads):
+    def integral(self, f, *, nquads=None):
 
         assert hasattr(f, '__call__')
-        assert hasattr(nquads, '__iter__')
+
+        if nquads is None:
+            nquads = [p + 1 for p in self.degree]
+        elif isinstance(nquads, int):
+            nquads = [nquads] * self.ldim
+        else:
+            nquads = list(nquads)
+
+        assert all(isinstance(nq, int) for nq in nquads)
+        assert all(nq >= 1 for nq in nquads)
 
         # Extract and store quadrature data
         quad_grids = self.get_quadrature_grids(*nquads)
