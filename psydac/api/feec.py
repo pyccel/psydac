@@ -188,6 +188,17 @@ class DiscreteDerham(BasicDiscrete):
         if not (kind == 'global'):
             raise NotImplementedError('only global projectors are available')
 
+        if nquads is None:
+            nquads = [p + 1 for p in self.V0.degree]
+        elif isinstance(nquads, int):
+            nquads = [nquads] * self.dim
+        else:
+            assert hasattr(nquads, '__iter__')
+            nquads = list(nquads)
+
+        assert all(isinstance(nq, int) for nq in nquads)
+        assert all(nq >= 1 for nq in nquads)
+
         if self.dim == 1:
             P0 = Projector_H1(self.V0)
             P1 = Projector_L2(self.V1, nquads)
