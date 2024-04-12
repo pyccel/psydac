@@ -35,7 +35,7 @@ def test_transpose_div_3d(Nel, Nq, p, bc, m):
     domain = Cube('domain', bounds1=(0, L[0]), bounds2=(0,L[1]), bounds3=(0,L[2]))
     derham = Derham(domain)
     domain_h = discretize(domain, ncells=Nel, periodic=bc)
-    derham_h = discretize(derham, domain_h, degree=p, nquads=Nq, multiplicity=m)
+    derham_h = discretize(derham, domain_h, degree=p, multiplicity=m)
 
     v2 = element_of(derham.V2, name='v2')
     v3 = element_of(derham.V3, name='v3')
@@ -92,7 +92,7 @@ def test_transpose_curl_3d(Nel, Nq, p, bc, m):
     domain = Cube('domain', bounds1=(0, L[0]), bounds2=(0,L[1]), bounds3=(0,L[2]))
     derham = Derham(domain)
     domain_h = discretize(domain, ncells=Nel, periodic=bc)
-    derham_h = discretize(derham, domain_h, degree=p, nquads=Nq, multiplicity=m)
+    derham_h = discretize(derham, domain_h, degree=p, multiplicity=m)
 
     v1 = element_of(derham.V1, name='v1')
     v2 = element_of(derham.V2, name='v2')
@@ -138,7 +138,7 @@ def test_transpose_grad_3d(Nel, Nq, p, bc, m):
     domain = Cube('domain', bounds1=(0, L[0]), bounds2=(0,L[1]), bounds3=(0,L[2]))
     derham = Derham(domain)
     domain_h = discretize(domain, ncells=Nel, periodic=bc)
-    derham_h = discretize(derham, domain_h, degree=p, nquads=Nq, multiplicity=m)
+    derham_h = discretize(derham, domain_h, degree=p, multiplicity=m)
 
     v0 = element_of(derham.V0, name='v0')
     v1 = element_of(derham.V1, name='v1')
