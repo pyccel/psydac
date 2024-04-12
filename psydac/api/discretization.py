@@ -91,6 +91,58 @@ def change_dtype(V, dtype):
 
     return V
 
+#==============================================================================
+def get_max_degree_of_one_space(Vh):
+    """
+    Get the maximum polynomial degree of a finite element space, along each
+    logical (parametric) coordinate.
+
+    Parameters
+    ----------
+    Vh : FemSpace
+        The finite element space under investigation.
+
+    Results
+    -------
+    list[int]
+        The maximum polynomial degre of Vh with respect to each coordinate.
+
+    """
+
+    if isinstance(Vh, TensorFemSpace):
+        return Vh.degree
+
+    elif isinstance(Vh, VectorFemSpace):
+        return [max(p) for p in zip(*Vh.degree)]
+
+    elif isinstance(Vh, ProductFemSpace):
+        degree = [get_max_degree_of_one_space(Vh_i) for Vh_i in Vh.spaces]
+        return [max(p) for p in zip(*degree)]
+
+    else:
+        raise TypeError(f'Type({V}) not understood')
+
+
+def get_max_degree(*spaces):
+    """
+    Get the maximum polynomial degree across several finite element spaces,
+    along each logical (parametric) coordinate.
+
+    Parameters
+    ----------
+    *spaces : tuple[FemSpace]
+        The finite element spaces under investigation.
+
+    Results
+    -------
+    list[int]
+        The maximum polynomial degree across all spaces, with respect to each
+        coordinate.
+
+    """
+    degree = [get_max_degree_of_one_space(Vh) for Vh in spaces]
+    return [max(p) for p in zip(*degree)]
+
 #==============================================================================           
 def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
     """
@@ -106,25 +158,30 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
 
     domain_h : Geometry
         Discrete domain where the spaces will be discretized.
-        
+
     get_H1vec_space : bool, default=False
         True to also get the "Hvec" space discretizing (H1)^n vector fields.
-        
+
     **kwargs : dict
         Optional parameters for the space discretization.
-        
+
     Returns
     -------
     DiscreteDerham
       The discrete De Rham sequence containing the discrete spaces, 
       differential operators and projectors.
+
+    See Also
+    --------
+    discretize_space
+
     """
 
     ldim    = derham.shape
     mapping = domain_h.domain.mapping # NOTE: assuming single-patch domain!
-    bases  = ['B'] + ldim * ['M']
-    spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \
-            for V, basis in zip(derham.spaces, bases)]
+    bases   = ['B'] + ldim * ['M']
+    spaces  = [discretize_space(V, domain_h, basis=basis, **kwargs)
+               for V, basis in zip(derham.spaces, bases)]
 
     if get_H1vec_space:
         X = VectorFunctionSpace('X', domain_h.domain, kind='h1')
@@ -480,6 +537,29 @@ def discretize(a, *args, **kwargs):
         domain  = domain_h.domain
         mapping = domain_h.domain.mapping
         kwargs['symbolic_mapping'] = mapping
+
+    #...
+    # In the case of Equation, BilinearForm, LinearForm, or Functional, we
+    # need the number of quadrature points along each direction.
+    #
+    # If not given, we set `nquads[i] = max_p[i] + 1`, where `max_p[i]` is the
+    # maximum polynomial degree of the spaces along direction i.
+    #
+    # If a scalar integer is passed, we use the same number of quadrature
+    # points in all directions.
+    if isinstance(a, (sym_BasicForm, sym_Equation)):
+        nquads = kwargs.get('nquads', None)
+        if nquads is None:
+            spaces = args[1]
+            if not hasattr(spaces, '__iter__'):
+                spaces = [spaces]
+            nquads = [p + 1 for p in get_max_degree(*spaces)]
+        elif not hasattr(nquads, '__iter__'):
+            assert isinstance(nquads, int)
+            domain_h = args[0]
+            nquads = [nquads] * domain_h.ldim
+        kwargs['nquads'] = nquads
+    #...
 
     if isinstance(a, sym_BasicForm):
         if isinstance(a, (sym_Norm, sym_SemiNorm)):
