@@ -88,21 +88,18 @@ The latter command requires a GitHub account.
 Psydac depends on several Python packages, which should be installed in the newly created virtual environment.
 These dependencies can be installed from the cloned directory `<ROOT-PATH>/psydac` using
 ```sh
+# Set env variables required by h5py
 export CC="mpicc"
 export HDF5_MPI="ON"
-export HDF5_DIR=/path/to/parallel/hdf5
 
+# Specify path to parallel HDF5 library. Run one command below that corresponds to your system:
+export HDF5_DIR=$(dpkg -L libhdf5-openmpi-dev | grep "libhdf5.so" | xargs dirname) # Ubuntu/Debian
+export HDF5_DIR=$(brew list hdf5-mpi | grep "libhdf5.dylib" | xargs dirname)       # macOS
+
+# Install dependencies
 python3 -m pip install --upgrade pip
 python3 -m pip install -r requirements.txt
 python3 -m pip install -r requirements_extra.txt --no-build-isolation
-```
-where the `HDF5_DIR` environment variable should store the absolute path to the **installation point** of your parallel HDF5 library, which can be found with
-```sh
-h5pcc -showconfig
-```
-or (on macOS)
-```sh
-brew info hdf5-mpi
 ```
 
 At this point the Psydac library may be installed in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the Psydac directory. The latter mode allows one to effect the behavior of Psydac by modifying the source files.
