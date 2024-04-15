@@ -35,7 +35,8 @@ def array_to_psydac(x, V):
     """
 
     assert x.ndim == 1, 'Array must be 1D.'
-    assert x.dtype == V.dtype, 'Array must be the same data type as the space.'
+    if x.dtype==complex:
+        assert V.dtype==complex, 'Complex array cannot be converted to a real StencilVector'
     assert x.size == V.dimension, 'Array must have the same global size as the space.'
 
     u = V.zeros()
@@ -53,7 +54,8 @@ def _array_to_psydac_recursive(x, u):
     V = u.space
 
     assert x.ndim == 1, 'Array must be 1D.'
-    assert x.dtype == V.dtype, 'Array must be the same data type as the space.'
+    if x.dtype==complex:
+        assert V.dtype==complex, 'Complex array cannot be converted to a real StencilVector'
     assert x.size == V.dimension, 'Array must have the same global size as the space.'    
 
     if isinstance(V, BlockVectorSpace):
