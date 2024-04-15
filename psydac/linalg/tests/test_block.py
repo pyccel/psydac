@@ -1125,6 +1125,69 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     assert np.allclose( Z.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
     assert np.allclose( Z.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
 
+
+# ===============================================================================
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('n1', [10, 17])
+@pytest.mark.parametrize('n2', [13, 7])
+@pytest.mark.parametrize('p1', [1, 2])
+@pytest.mark.parametrize('p2', [1])
+@pytest.mark.parametrize('s1', [1, 2])
+@pytest.mark.parametrize('s2', [1])
+@pytest.mark.parametrize('P1', [True, False])
+@pytest.mark.parametrize('P2', [True])
+@pytest.mark.parallel
+
+def test_block_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
+    npts = [n1, n2]   
+
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+
+    # Create domain decomposition
+    D = DomainDecomposition(npts, periods=[P1, P2], comm=comm)
+
+    # Partition the points
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[s1, s2])
+
+    # Create Vector spaces and Vectors
+    V = StencilVectorSpace(C, dtype=dtype)
+    W = BlockVectorSpace(V, V)
+    W2 = BlockVectorSpace(W, W, V)
+    x = W.zeros()
+    x2 = W2.zeros()
+
+    # Fill the vector with data
+
+    if dtype == complex:
+        f = lambda i1, i2: 10j * i1 + i2
+    else:
+        f = lambda i1, i2: 10 * i1 + i2
+    for i1 in range(V.starts[0], V.ends[0]+1):
+        for i2 in range(V.starts[1], V.ends[1]+1):
+            x[0][i1, i2] = f(i1, i2)
+            x[1][i1, i2] = f(i1, i2)
+            x2[0] = x
+            x2[1] = 2*x
+            x2[2][i1, i2] = 7*f(i1, i2)
+
+    # Convert Vectors to arrays
+    xa = x.toarray()
+    x2a = x2.toarray()
+
+    # Convert arrays to Vectors of W, W2
+    w = array_to_psydac(xa, W)
+    w2 = array_to_psydac(x2a, W2)
+
+    # Test properties and data contained
+    assert isinstance(w, BlockVector)
+    assert w.space is W
+    assert np.array_equal(xa, w.toarray())
+    assert isinstance(w2, BlockVector)
+    assert w2.space is W2
+    assert np.array_equal(x2a, w2.toarray())
+
 #===============================================================================    
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
