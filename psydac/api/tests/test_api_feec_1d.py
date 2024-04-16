@@ -63,9 +63,11 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     from psydac.api.discretization import discretize
     from psydac.linalg.solvers     import inverse
 
-    # for now, switch to the Python backend, to be able to detect out of bounds errors
-    from psydac.api.settings       import PSYDAC_BACKEND_PYTHON
+    from psydac.api.settings       import PSYDAC_BACKENDS
     from psydac.feec.pull_push     import push_1d_l2
+
+    # For now, use the Python backend, to be able to detect out of bounds errors
+    backend = PSYDAC_BACKENDS['python']
 
     #--------------------------------------------------------------------------
     # Analytical objects: SymPDE
@@ -135,8 +137,8 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     derham_h = discretize(derham, domain_h, degree=[degree], multiplicity=[mult])
 
     # Discrete bilinear forms
-    a0_h = discretize(a0, domain_h, (derham_h.V0, derham_h.V0), backend=PSYDAC_BACKEND_PYTHON)
-    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_PYTHON)
+    a0_h = discretize(a0, domain_h, (derham_h.V0, derham_h.V0), nquads=[degree+1], backend=backend)
+    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), nquads=[degree+1], backend=backend)
 
     # Mass matrices (StencilMatrix objects)
     M0 = a0_h.assemble()
@@ -171,7 +173,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
         # Option 2: Discretize and assemble penalization matrix
         elif bc_mode == 'penalization':
-            a0_bc_h = discretize(a0_bc, domain_h, (derham_h.V0, derham_h.V0), backend=PSYDAC_BACKEND_PYTHON)
+            a0_bc_h = discretize(a0_bc, domain_h, (derham_h.V0, derham_h.V0), nquads=[degree+1], backend=backend)
             M0_bc   = a0_bc_h.assemble()
 
     # Projectors
