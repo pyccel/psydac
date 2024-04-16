@@ -8,6 +8,7 @@ from scipy.sparse import coo_matrix
 import numpy as np
 import itertools
 from scipy import sparse
+from psydac.linalg.kernels.toarray_kernels import write_out_stencil_dense_3D, write_out_stencil_dense_2D, write_out_stencil_dense_1D, write_out_block_dense_3D, write_out_block_dense_2D, write_out_block_dense_1D
 
 __all__ = ('VectorSpace', 'Vector', 'LinearOperator', 'ZeroOperator', 'IdentityOperator', 'ScaledLinearOperator',
            'SumLinearOperator', 'ComposedLinearOperator', 'PowerLinearOperator', 'InverseLinearOperator', 'LinearSolver')
@@ -348,43 +349,73 @@ class LinearOperator(ABC):
             starts2 = tmp2.starts
             ends2 = tmp2.ends
             # We get the dimensions of the StencilVector
-            npts2 = self.codomain.npts
+            npts2 = np.array(self.codomain.npts)
             # We get the number of space we have
             nsp2 = 1
             # We get the number of dimensions the StencilVectorSpace has.
             ndim2 = self.codomain.ndim
             #We build our ranges of iteration
-            itterables2 = []
-            for ii in range(ndim2):
-                itterables2.append(
-                    range(starts2[ii], ends2[ii]+1))
+            if (is_sparse == False):
+                itterables2 = []
+                for ii in range(ndim2):
+                    itterables2.append([starts2[ii], ends2[ii]+1])
+                    #itterables2.append(range(starts2[ii], ends2[ii]+1))
+                itterables2 = np.array(itterables2)
+                #We also get the StencilVector's pads
+                pds = np.array(tmp2.pads)
+            else:
+                itterables2 = []
+                for ii in range(ndim2):
+                    itterables2.append(
+                        range(starts2[ii], ends2[ii]+1))
+                
         elif BoS2 == "b":
             # we collect all starts and ends in two big lists
             starts2 = [vi.starts for vi in tmp2]
             ends2 = [vi.ends for vi in tmp2]
             # We collect the dimension of the BlockVector
-            npts2 = [sp.npts for sp in self.codomain.spaces]
+            npts2 = np.array([sp.npts for sp in self.codomain.spaces])
             # We get the number of space we have
             nsp2 = len(self.codomain.spaces)
             # We get the number of dimensions each space has.
             ndim2 = [sp.ndim for sp in self.codomain.spaces]
-            #We build the range of iteration
-            itterables2 = []
-            # since the size of npts changes denpending on h we need to compute a starting point for
-            # our row index
-            spoint2 = 0
-            spoint2list = [spoint2]
-            for hh in range(nsp2):
-                itterables2aux = []
-                for ii in range(ndim2[hh]):
-                    itterables2aux.append(
-                        range(starts2[hh][ii], ends2[hh][ii]+1))
-                itterables2.append(itterables2aux)
-                cummulative2 = 1
-                for ii in range(ndim2[hh]):
-                    cummulative2 *= npts2[hh][ii]
-                spoint2 += cummulative2
-                spoint2list.append(spoint2)
+            if (is_sparse == False):
+                #We also get the BlockVector's pads
+                pds = np.array([vi.pads for vi in tmp2])
+                #We build the range of iteration
+                itterables2 = []
+                # since the size of npts changes denpending on h we need to compute a starting point for
+                # our row index
+                spoint2 = 0
+                spoint2list = [np.int64(spoint2)]
+                for hh in range(nsp2):
+                    itterables2aux = []
+                    for ii in range(ndim2[hh]):
+                        itterables2aux.append(
+                            [starts2[hh][ii], ends2[hh][ii]+1])
+                    itterables2.append(itterables2aux)
+                    cummulative2 = 1
+                    for ii in range(ndim2[hh]):
+                        cummulative2 *= npts2[hh][ii]
+                    spoint2 += cummulative2
+                    spoint2list.append(spoint2) 
+            else:
+                itterables2 = []
+                # since the size of npts changes denpending on h we need to compute a starting point for
+                # our row index
+                spoint2 = 0
+                spoint2list = [spoint2]
+                for hh in range(nsp2):
+                    itterables2aux = []
+                    for ii in range(ndim2[hh]):
+                        itterables2aux.append(
+                            range(starts2[hh][ii], ends2[hh][ii]+1))
+                    itterables2.append(itterables2aux)
+                    cummulative2 = 1
+                    for ii in range(ndim2[hh]):
+                        cummulative2 *= npts2[hh][ii]
+                    spoint2 += cummulative2
+                    spoint2list.append(spoint2)
 
 
         currentrank = 0
@@ -424,10 +455,20 @@ class LinearOperator(ABC):
                     if BoS2 == "s":
                         if is_sparse == False:
                             #We iterate over the entries of tmp2 that belong to our rank
-                            for ii in itertools.product(*itterables2):
-                                if (tmp2[ii] != 0):
-                                    out[np.ravel_multi_index(
-                                        ii, npts2), col] = tmp2[ii]
+                            #The pyccel kernels are tantamount to this for loop.
+                            #for ii in itertools.product(*itterables2):
+                                #if (tmp2[ii] != 0):
+                                    #out[np.ravel_multi_index(
+                                        #ii, npts2), col] = tmp2[ii]
+                            if (ndim2 == 3):
+                                write_out_stencil_dense_3D(itterables2, tmp2._data, out, npts2, col, pds)
+                            elif (ndim2 == 2):
+                                write_out_stencil_dense_2D(itterables2, tmp2._data, out, npts2, col, pds)
+                            elif (ndim2 == 1):
+                                write_out_stencil_dense_1D(itterables2, tmp2._data, out, npts2, col, pds)
+                            else:
+                                raise Exception("The codomain dimension must be 3, 2 or 1.")
+                            
                         else:
                             #We iterate over the entries of tmp2 that belong to our rank
                             for ii in itertools.product(*itterables2):
@@ -439,15 +480,25 @@ class LinearOperator(ABC):
                     elif BoS2 =="b":
                         # We iterate over the stencil vectors inside the BlockVector
                         for hh in range(nsp2):
-                            itterables2aux = itterables2[hh]
+                            
                             
                             if is_sparse == False:
+                                itterables2aux = np.array(itterables2[hh])
                                 # We iterate over all the tmp2 entries that belong to rank number currentrank
-                                for ii in itertools.product(*itterables2aux):
-                                    if (tmp2[hh][ii] != 0):
-                                        out[spoint2list[hh]+np.ravel_multi_index(
-                                            ii, npts2[hh]), col] = tmp2[hh][ii]
+                                #for ii in itertools.product(*itterables2aux):
+                                    #if (tmp2[hh][ii] != 0):
+                                        #out[spoint2list[hh]+np.ravel_multi_index(
+                                            #ii, npts2[hh]), col] = tmp2[hh][ii]
+                                if (ndim2[hh] == 3):
+                                    write_out_block_dense_3D(itterables2aux, tmp2[hh]._data, out, npts2[hh], col, pds[hh], spoint2list[hh])
+                                elif (ndim2[hh] == 2):
+                                    write_out_block_dense_2D(itterables2aux, tmp2[hh]._data, out, npts2[hh], col, pds[hh], spoint2list[hh])
+                                elif (ndim2[hh] == 1):
+                                    write_out_block_dense_1D(itterables2aux, tmp2[hh]._data, out, npts2[hh], col, pds[hh], spoint2list[hh])
+                                else:
+                                    raise Exception("The codomain dimension must be 3, 2 or 1.")
                             else:
+                                itterables2aux = itterables2[hh]
                                 for ii in itertools.product(*itterables2aux):
                                     if (tmp2[hh][ii] != 0):
                                         data.append(tmp2[hh][ii])
