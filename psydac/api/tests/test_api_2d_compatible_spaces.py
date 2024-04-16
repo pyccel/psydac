@@ -68,7 +68,7 @@ def run_poisson_mixed_form_2d_dir(f0, sol, ncells, degree):
     ah = discretize(equation, domain_h, [Xh, Xh])
     # ...
     # ... discretize norms
-    l2norm_F_h = discretize(l2norm_F, domain_h, V2h)
+    l2norm_F_h = discretize(l2norm_F, domain_h, V2h, nquads=[deg+1 for deg in degree])
     # ...
 
     # ...
@@ -197,7 +197,7 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
 
     # L2 error norm of the pressure, after removing the average value from the field
     l2norm_p  = Norm(pe - (p - p_avg), domain, kind='l2')
-    l2norm_ph = discretize(l2norm_p, domain_h, V2h)
+    l2norm_ph = discretize(l2norm_p, domain_h, V2h, nquads=[deg+1 for deg in degree])
 
     # Compute error norms
     l2_error_u = l2norm_uh.assemble(u = uh)
