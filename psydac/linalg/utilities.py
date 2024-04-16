@@ -16,8 +16,8 @@ __all__ = (
 #==============================================================================
 def array_to_psydac(x, V):
     """ 
-    Convert a NumPy array to a Vector of the space V. 
-    This function works in parallel but it is very costly and should be avoided if performance is a priority.
+    Convert a NumPy array to a Vector of the space V. This function is designed to be the inverse of the method .toarray() of the class Vector.
+    Note: This function works in parallel but it is very costly and should be avoided if performance is a priority.
 
     Parameters
     ----------
@@ -25,12 +25,12 @@ def array_to_psydac(x, V):
         Array to be converted. It only contains the true data, the ghost regions must not be included.
 
     V : psydac.linalg.stencil.StencilVectorSpace or psydac.linalg.block.BlockVectorSpace
-        Space where the final Psydac Vector belongs to.
+        Space of the final Psydac Vector.
 
     Returns
     -------
     u : psydac.linalg.stencil.StencilVector or psydac.linalg.block.BlockVector
-        Element of space V, the coefficients of which (excluding ghost regions) are the entries of x.
+        Element of space V, the coefficients of which (excluding ghost regions) are the entries of x. The ghost regions of u are up to date.
 
     """
 
