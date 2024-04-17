@@ -833,8 +833,8 @@ class TensorFemSpace(FemSpace):
             # create a new FemAssemblyGrid and store it in the local dictionary.
             if nq not in quad_grids_dict_i:
                 V = self.spaces[i]
-                s = int(self.vector_space.starts[i])
-                e = int(self.vector_space.ends  [i])
+                s = int(self._element_starts[i])
+                e = int(self._element_ends  [i])
                 quad_grids_dict_i[nq] = FemAssemblyGrid(V, s, e, nderiv=V.degree, nquads=nq)
             # Store the required FemAssemblyGrid in the list
             quad_grids[i] = quad_grids_dict_i[nq]
