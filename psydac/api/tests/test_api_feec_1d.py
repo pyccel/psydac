@@ -416,7 +416,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     F = mapping.get_callable_mapping()
     errE = lambda x1: (E(x1) - E_ex(t, *F(x1)))**2 * np.sqrt(F.metric_det(x1))
     errB = lambda x1: (push_1d_l2(B, x1, F) - B_ex(t, *F(x1)))**2 * np.sqrt(F.metric_det(x1))
-    error_l2_E = np.sqrt(derham_h.V1.integral(errE))
+    error_l2_E = np.sqrt(derham_h.V1.integral(errE, nquads=[degree+1]))
     error_l2_B = np.sqrt(derham_h.V0.integral(errB))
     print('L2 norm of error on E(t,x) at final time: {:.2e}'.format(error_l2_E))
     print('L2 norm of error on B(t,x) at final time: {:.2e}'.format(error_l2_B))
