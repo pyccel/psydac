@@ -783,6 +783,8 @@ def test_stencil_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s
         for i2 in range(V.starts[1], V.ends[1]+1):
             x[i1, i2] = f(i1, i2)
 
+    x.update_ghost_regions()
+
     # Convert vector to array
     xa = x.toarray()
 
@@ -792,7 +794,10 @@ def test_stencil_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s
     # Test properties of v and data contained
     assert isinstance(v, StencilVector)
     assert v.space is V
+    # Check that array_to_psydac is the inverse of toarray
     assert np.array_equal(xa, v.toarray())
+    # Check that the ghost regions are properly updated
+    assert np.array_equal(x._data, v._data)
 
 # TODO: test that ghost regions have been properly copied to 'xe' array
 # ===============================================================================

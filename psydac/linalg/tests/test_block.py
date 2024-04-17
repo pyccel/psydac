@@ -1167,7 +1167,7 @@ def test_block_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2,
     for i1 in range(V.starts[0], V.ends[0]+1):
         for i2 in range(V.starts[1], V.ends[1]+1):
             x[0][i1, i2] = f(i1, i2)
-            x[1][i1, i2] = f(i1, i2)
+            x[1][i1, i2] = -13*f(i1, i2)
             x2[0] = x
             x2[1] = 2*x
             x2[2][i1, i2] = 7*f(i1, i2)
@@ -1187,6 +1187,15 @@ def test_block_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2,
     assert isinstance(w2, BlockVector)
     assert w2.space is W2
     assert np.array_equal(x2a, w2.toarray())
+
+    # Check also ghost regions:
+    for i in range(2):
+        assert np.array_equal(x[i]._data, w[i]._data)
+        for j in range(2):
+            assert np.array_equal(x2[i][j]._data, w2[i][j]._data)
+            assert np.array_equal(x2[i][j]._data, w2[i][j]._data)
+
+    assert np.array_equal(x2[2]._data, w2[2]._data)
 
 #===============================================================================    
 @pytest.mark.parametrize( 'dtype', [float, complex] )
