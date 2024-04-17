@@ -774,7 +774,6 @@ def test_stencil_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s
     x = StencilVector(V)
 
     # Fill the vector with data
-
     if dtype == complex:
         f = lambda i1, i2: 10j * i1 + i2
     else:
@@ -788,16 +787,22 @@ def test_stencil_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s
     # Convert vector to array
     xa = x.toarray()
 
-    # Convert array to vector of V
-    v = array_to_psydac(xa, V)
+    # Apply left inverse:
+    v_l_inv = array_to_psydac(xa, V)
 
-    # Test properties of v and data contained
-    assert isinstance(v, StencilVector)
-    assert v.space is V
-    # Check that array_to_psydac is the inverse of toarray
-    assert np.array_equal(xa, v.toarray())
-    # Check that the ghost regions are properly updated
-    assert np.array_equal(x._data, v._data)
+    # Apply right inverse
+    xa_r_inv = np.array(np.random.rand(xa.size), dtype=dtype)*xa # the vector must be distributed as xa
+    x_r_inv = array_to_psydac(xa_r_inv, V)
+    x_r_inv.update_ghost_regions()
+    va_r_inv = x_r_inv.toarray()
+
+    ## Check that array_to_psydac is the inverse of .toarray():
+    # left inverse:
+    assert isinstance(v_l_inv, StencilVector)
+    assert v_l_inv.space is V    
+    assert np.array_equal(x._data, v_l_inv._data)
+    # right inverse:
+    assert np.array_equal(xa_r_inv, va_r_inv)
 
 # TODO: test that ghost regions have been properly copied to 'xe' array
 # ===============================================================================

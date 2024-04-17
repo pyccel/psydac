@@ -1159,7 +1159,6 @@ def test_block_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2,
     x2 = W2.zeros()
 
     # Fill the vector with data
-
     if dtype == complex:
         f = lambda i1, i2: 10j * i1 + i2
     else:
@@ -1172,23 +1171,35 @@ def test_block_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2,
             x2[1] = 2*x
             x2[2][i1, i2] = 7*f(i1, i2)
 
-    # Convert Vectors to arrays
+    x.update_ghost_regions()
+    x2.update_ghost_regions()
+
+    # Convert vectors to arrays
     xa = x.toarray()
     x2a = x2.toarray()
 
-    # Convert arrays to Vectors of W, W2
+    # Apply left inverse:
     w = array_to_psydac(xa, W)
     w2 = array_to_psydac(x2a, W2)
 
-    # Test properties and data contained
+
+    # Apply right inverse:
+    xa_r_inv = np.array(np.random.rand(xa.size), dtype=dtype)*xa # the vector must be distributed as xa
+    x_r_inv = array_to_psydac(xa_r_inv, W)
+    x_r_inv.update_ghost_regions()
+    va_r_inv = x_r_inv.toarray()
+
+    x2a_r_inv = np.array(np.random.rand(x2a.size), dtype=dtype)*x2a # the vector must be distributed as xa
+    x2_r_inv = array_to_psydac(x2a_r_inv, W2)
+    x2_r_inv.update_ghost_regions()
+    v2a_r_inv = x2_r_inv.toarray()
+
+    ## Check that array_to_psydac is the inverse of .toarray():
+    # left inverse:
     assert isinstance(w, BlockVector)
     assert w.space is W
-    assert np.array_equal(xa, w.toarray())
     assert isinstance(w2, BlockVector)
-    assert w2.space is W2
-    assert np.array_equal(x2a, w2.toarray())
-
-    # Check also ghost regions:
+    assert w2.space is W2    
     for i in range(2):
         assert np.array_equal(x[i]._data, w[i]._data)
         for j in range(2):
@@ -1196,6 +1207,10 @@ def test_block_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2,
             assert np.array_equal(x2[i][j]._data, w2[i][j]._data)
 
     assert np.array_equal(x2[2]._data, w2[2]._data)
+
+    # right inverse:
+    assert np.array_equal(xa_r_inv, va_r_inv)
+    assert np.array_equal(x2a_r_inv, v2a_r_inv)
 
 #===============================================================================    
 @pytest.mark.parametrize( 'dtype', [float, complex] )
