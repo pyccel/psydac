@@ -43,6 +43,7 @@ release   = str(pkg_meta['version'])
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+'sphinx_gallery.gen_gallery',
 'sphinx.ext.inheritance_diagram',
 'numpydoc',
 'sphinx.ext.viewcode',
@@ -51,9 +52,15 @@ extensions = [
 'sphinx.ext.autosummary',
 'sphinx.ext.githubpages',
 'sphinx_math_dollar',
-'sphinx.ext.mathjax',
-'sphinx_gallery.gen_gallery'
+'sphinx.ext.mathjax'
 ]
+
+# -- Options for sphinx_gallery ----------------------------------------------
+#     'ignore_pattern': r'maxwell_|poisson_|sample_|test_|visualize_'
+sphinx_gallery_conf = {
+     'examples_dirs': '../../examples/notebooks',   # path to your example scripts
+     'gallery_dirs': 'auto_examples'     # path to where to save gallery generated output
+}
 
 from docutils.nodes import FixedTextElement, literal,math
 from docutils.nodes import  comment, doctest_block, image, literal_block, math_block, paragraph, pending, raw, rubric, substitution_definition, target
@@ -93,10 +100,3 @@ inheritance_graph_attrs = dict(rankdir="LR", ratio='auto',
 
 inheritance_node_attrs = dict(shape='ellipse', fontsize="12", height=0.65,
                               color='maroon4', style='filled')
-
-# -- Options for sphinx_gallery ----------------------------------------------
-#     'ignore_pattern': r'maxwell_|poisson_|sample_|test_|visualize_'
-sphinx_gallery_conf = {
-     'examples_dirs': '../../examples/notebooks',   # path to your example scripts
-     'gallery_dirs': 'auto_examples'     # path to where to save gallery generated output
-}
