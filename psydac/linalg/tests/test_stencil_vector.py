@@ -787,10 +787,10 @@ def test_stencil_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s
     # Convert vector to array
     xa = x.toarray()
 
-    # Apply left inverse:
+    # Apply array_to_psydac as left inverse of toarray
     v_l_inv = array_to_psydac(xa, V)
 
-    # Apply right inverse
+    # Apply array_to_psydac first, and toarray next
     xa_r_inv = np.array(np.random.rand(xa.size), dtype=dtype)*xa # the vector must be distributed as xa
     x_r_inv = array_to_psydac(xa_r_inv, V)
     x_r_inv.update_ghost_regions()

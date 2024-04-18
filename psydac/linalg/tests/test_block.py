@@ -1178,12 +1178,12 @@ def test_block_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2,
     xa = x.toarray()
     x2a = x2.toarray()
 
-    # Apply left inverse:
+    # Apply array_to_psydac as left inverse of toarray
     w = array_to_psydac(xa, W)
     w2 = array_to_psydac(x2a, W2)
 
 
-    # Apply right inverse:
+    # Apply array_to_psydac first, and toarray next
     xa_r_inv = np.array(np.random.rand(xa.size), dtype=dtype)*xa # the vector must be distributed as xa
     x_r_inv = array_to_psydac(xa_r_inv, W)
     x_r_inv.update_ghost_regions()
