@@ -1491,7 +1491,6 @@ class DiscreteFunctional(BasicDiscrete):
 
         # MPI communicator
         comm = vector_space.cart.comm if vector_space.parallel else None
-        self._comm = domain_h.comm  # NOTE: why?
 
         # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
         # self._func, self._free_args, self._max_nderiv and self._backend
@@ -1511,6 +1510,10 @@ class DiscreteFunctional(BasicDiscrete):
             trial  = True,
             grid   = grid
         )
+
+        # Store MPI communicator
+        # NOTE [YG 18.04.2024]: this is not equal to the variable `comm` when we have multiple patches
+        self._comm = domain_h.comm
 
         # Construct the arguments to be passed to the assemble() function, which is stored in self._func
         self._args = self.construct_arguments()
