@@ -237,7 +237,7 @@ def allocate_interface_matrix(corners, test_space, trial_space):
     cs    = list(zip(*[i.coordinates for i in bi]))
     axis  = [all(i[0]==j for j in i) for i in cs].index(True)
     ext   = 1 if cs[axis][0]==1 else -1
-    s     = test_space.get_quadrature_grids()[axis].spans[-1 if ext==1 else 0] - test_space.degree[axis]
+    s     = test_space.get_assembly_grids()[axis].spans[-1 if ext==1 else 0] - test_space.degree[axis]
 
     mat  = StencilInterfaceMatrix(trial_space.vector_space, test_space.vector_space, s, s, axis, flip=flips[0], permutation=list(permutation))
     return mat

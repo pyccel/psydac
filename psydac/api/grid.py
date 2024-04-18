@@ -21,10 +21,10 @@ __all__ = (
 #==============================================================================
 def get_points_weights(spaces, axis, e, nquads):
     for s in spaces:
-        quad_grid_axis = s.get_quadrature_grids(*nquads)[axis]
-        if e in quad_grid_axis.indices:
-            i = np.where(quad_grid_axis.indices==e)[0][0]
-            return quad_grid_axis.points[i:i+1], quad_grid_axis.weights[i:i+1]
+        assembly_grid_axis = s.get_assembly_grids(*nquads)[axis]
+        if e in assembly_grid_axis.indices:
+            i = np.where(assembly_grid_axis.indices==e)[0][0]
+            return assembly_grid_axis.points[i:i+1], assembly_grid_axis.weights[i:i+1]
 
 #==============================================================================
 class QuadratureGrid():
@@ -62,7 +62,7 @@ class QuadratureGrid():
         weights             = []
 
         if isinstance(V, (ProductFemSpace, VectorFemSpace)):
-            V1 = V.spaces[0]  # NOTE: why?
+            V1 = V.spaces[0]
             spaces = list(V.spaces)
         else:
             V1 = V
@@ -76,23 +76,23 @@ class QuadratureGrid():
         # calculate the union of the indices in quad_grids, and make sure that all the grids match for each space.
         for i in range(len(V1.spaces)):
 
-            indices.append(reduce(np.union1d, [s.get_quadrature_grids(*nquads)[i].indices for s in spaces]))  # NOTE: what is going on here?
+            indices.append(reduce(np.union1d, [s.get_assembly_grids(*nquads)[i].indices for s in spaces]))
 
-            quad_grid_i = V1.get_quadrature_grids(*nquads)[i]
-            local_element_start.append(quad_grid_i.local_element_start)
-            local_element_end  .append(quad_grid_i.local_element_end  )
-            points .append(quad_grid_i.points )
-            weights.append(quad_grid_i.weights)
+            assembly_grid_i = V1.get_assembly_grids(*nquads)[i]
+            local_element_start.append(assembly_grid_i.local_element_start)
+            local_element_end  .append(assembly_grid_i.local_element_end  )
+            points .append(assembly_grid_i.points )
+            weights.append(assembly_grid_i.weights)
 
-            for e in np.setdiff1d(indices[-1], quad_grid_i.indices):
+            for e in np.setdiff1d(indices[-1], assembly_grid_i.indices):
                 if e < quad_grid_i.indices[0]:
                     local_element_start[-1] += 1
                     local_element_end  [-1] += 1
-                    p, w = get_points_weights(spaces, i, e, nquads)  # TODO: remove
+                    p, w = get_points_weights(spaces, i, e, nquads)
                     points [-1] = np.concatenate((p, points [-1]))
                     weights[-1] = np.concatenate((w, weights[-1]))
                 elif e > quad_grid_i.indices[-1]:
-                    p, w = get_points_weights(spaces, i, e, nquads)  # TODO: remove
+                    p, w = get_points_weights(spaces, i, e, nquads)
                     points [-1] = np.concatenate((points [-1], p))
                     weights[-1] = np.concatenate((weights[-1], w))
                 else:
@@ -214,15 +214,15 @@ class BasisValues():
         basis = []
 
         weights = grid.weights
-        for si, Vi in zip(starts,V):
-            quad_grids  = Vi.get_quadrature_grids(*nquads)
-            spans_i     = []
-            basis_i     = []
 
-            for sij,g,w,p,vij in zip(si, quad_grids, weights, Vi.vector_space.pads, Vi.spaces):
-                sp = g.spans-sij
-                bs = g.basis[:,:,:nderiv+1,:].copy()
+        for si, Vi in zip(starts, V):
+            assembly_grids = Vi.get_assembly_grids(*nquads)
+            spans_i = []
+            basis_i = []
 
+            for sij, g, w, p, vij in zip(si, assembly_grids, weights, Vi.vector_space.pads, Vi.spaces):
+                sp = g.spans - sij
+                bs = g.basis[:, :, :nderiv+1, :].copy()
                 if not trial:
                     bs  = bs.copy()
                     bs *= w[:, None, None, :]

@@ -123,8 +123,8 @@ class TensorFemSpace(FemSpace):
         self._global_element_starts = domain_decomposition.global_element_starts
         self._global_element_ends   = domain_decomposition.global_element_ends
 
-        # Extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = [{} for _ in range(self.ldim)]
+        # Extended 1D assembly grids (local to process) along each direction
+        self._assembly_grids = [{} for _ in range(self.ldim)]
 
         # Flag: object NOT YET prepared for interpolation
         self._interpolation_ready = False
@@ -658,14 +658,14 @@ class TensorFemSpace(FemSpace):
         assert all(nq >= 1 for nq in nquads)
 
         # Extract and store quadrature data
-        quad_grids = self.get_quadrature_grids(*nquads)
-        nq      = [g.num_quad_pts for g in quad_grids]
-        points  = [g.points       for g in quad_grids]
-        weights = [g.weights      for g in quad_grids]
+        assembly_grids = self.get_assembly_grids(*nquads)
+        nq      = [g.num_quad_pts for g in assembly_grids]
+        points  = [g.points       for g in assembly_grids]
+        weights = [g.weights      for g in assembly_grids]
 
         # Get local element range
-        sk = [g.local_element_start for g in quad_grids]
-        ek = [g.local_element_end   for g in quad_grids]
+        sk = [g.local_element_start for g in assembly_grids]
+        ek = [g.local_element_end   for g in assembly_grids]
 
         # Iterator over multi-index k (equivalent to nested loops over each dimension)
         multi_range = lambda starts, ends: \
@@ -743,7 +743,7 @@ class TensorFemSpace(FemSpace):
     def spaces(self):
         return self._spaces
     
-    def get_quadrature_grids(self, *nquads):
+    def get_assembly_grids(self, *nquads):
         """
         Return a tuple of `FemAssemblyGrid` objects (one for each direction).
 
@@ -773,23 +773,23 @@ class TensorFemSpace(FemSpace):
         assert all(isinstance(nq, int) for nq in nquads)
         assert all(nq >= 1 for nq in nquads)
 
-        quad_grids = [None] * len(nquads)
+        assembly_grids = [None] * len(nquads)
 
         for i, nq in enumerate(nquads):
             # Get a reference to the local dictionary of FemAssemblyGrid along direction i
-            quad_grids_dict_i = self._quad_grids[i]
+            assembly_grids_dict_i = self._assembly_grids[i]
             # If there is no FemAssemblyGrid for the required number of quadrature points,
             # create a new FemAssemblyGrid and store it in the local dictionary.
-            if nq not in quad_grids_dict_i:
+            if nq not in assembly_grids_dict_i:
                 V = self.spaces[i]
                 s = int(self._element_starts[i])
                 e = int(self._element_ends  [i])
-                quad_grids_dict_i[nq] = FemAssemblyGrid(V, s, e, nderiv=V.degree, nquads=nq)
+                assembly_grids_dict_i[nq] = FemAssemblyGrid(V, s, e, nderiv=V.degree, nquads=nq)
             # Store the required FemAssemblyGrid in the list
-            quad_grids[i] = quad_grids_dict_i[nq]
+            assembly_grids[i] = assembly_grids_dict_i[nq]
 
         # Return a tuple with the FemAssemblyGrid objects
-        return tuple(quad_grids)
+        return tuple(assembly_grids)
 
     @property
     def local_domain(self):
