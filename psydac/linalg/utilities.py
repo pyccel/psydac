@@ -3,6 +3,7 @@
 import numpy as np
 from math import sqrt
 
+from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from psydac.linalg.block   import BlockVector, BlockVectorSpace
 
@@ -13,46 +14,64 @@ __all__ = (
 )
 
 #==============================================================================
-def array_to_psydac(x, Xh):
-    """ converts a numpy array to StencilVector or BlockVector format"""
+def array_to_psydac(x, V):
+    """ 
+    Convert a NumPy array to a Vector of the space V. This function is designed to be the inverse of the method .toarray() of the class Vector.
+    Note: This function works in parallel but it is very costly and should be avoided if performance is a priority.
 
-    if isinstance(Xh, BlockVectorSpace):
-        u = BlockVector(Xh)
-        if isinstance(Xh.spaces[0], BlockVectorSpace):
-            for d in range(len(Xh.spaces)):
-                starts = [np.array(V.starts) for V in Xh.spaces[d].spaces]
-                ends   = [np.array(V.ends)   for V in Xh.spaces[d].spaces]
+    Parameters
+    ----------
+    x : numpy.ndarray
+        Array to be converted. It only contains the true data, the ghost regions must not be included.
 
-                for i in range(len(starts)):
-                    g = tuple(slice(s,e+1) for s,e in zip(starts[i], ends[i]))
-                    shape = tuple(ends[i]-starts[i]+1)
-                    u[d][i][g] = x[:np.prod(shape) ].reshape(shape)
-                    x          = x[ np.prod(shape):]
+    V : psydac.linalg.stencil.StencilVectorSpace or psydac.linalg.block.BlockVectorSpace
+        Space of the final Psydac Vector.
 
-        else:
-            starts = [np.array(V.starts) for V in Xh.spaces]
-            ends   = [np.array(V.ends)   for V in Xh.spaces]
+    Returns
+    -------
+    u : psydac.linalg.stencil.StencilVector or psydac.linalg.block.BlockVector
+        Element of space V, the coefficients of which (excluding ghost regions) are the entries of x. The ghost regions of u are up to date.
 
-            for i in range(len(starts)):
-                g = tuple(slice(s,e+1) for s,e in zip(starts[i], ends[i]))
-                shape = tuple(ends[i]-starts[i]+1)
-                u[i][g] = x[:np.prod(shape) ].reshape(shape)
-                x       = x[ np.prod(shape):]
+    """
 
-    elif isinstance(Xh, StencilVectorSpace):
+    assert x.ndim == 1, 'Array must be 1D.'
+    if x.dtype==complex:
+        assert V.dtype==complex, 'Complex array cannot be converted to a real StencilVector'
+    assert x.size == V.dimension, 'Array must have the same global size as the space.'
 
-        u =  StencilVector(Xh)
-        starts = np.array(Xh.starts)
-        ends   = np.array(Xh.ends)
-        g = tuple(slice(s, e+1) for s,e in zip(starts, ends))
-        shape = tuple(ends-starts+1)
-        u[g] = x[:np.prod(shape)].reshape(shape)
-    else:
-        raise ValueError('Xh must be a StencilVectorSpace or a BlockVectorSpace')
-
+    u = V.zeros()
+    _array_to_psydac_recursive(x, u)
     u.update_ghost_regions()
+
     return u
 
+
+def _array_to_psydac_recursive(x, u):
+    """
+    Recursive function filling in the coefficients of each block of u.
+    """
+    assert isinstance(u, Vector)
+    V = u.space
+
+    assert x.ndim == 1, 'Array must be 1D.'
+    if x.dtype==complex:
+        assert V.dtype==complex, 'Complex array cannot be converted to a real StencilVector'
+    assert x.size == V.dimension, 'Array must have the same global size as the space.'    
+
+    if isinstance(V, BlockVectorSpace):
+        for i, V_i in enumerate(V.spaces):
+            x_i = x[:V_i.dimension]
+            x   = x[V_i.dimension:]
+            u_i = u[i]
+            _array_to_psydac_recursive(x_i, u_i)
+
+    elif isinstance(V, StencilVectorSpace):
+        index_global = tuple(slice(s, e+1) for s, e in zip(V.starts, V.ends))
+        u[index_global] = x.reshape(V.npts)[index_global]
+
+    else:
+        raise NotImplementedError(f'Can only handle StencilVector or BlockVector spaces, got {type(V)} instead')
+    
 #==============================================================================
 def petsc_to_psydac(x, Xh):
     """Convert a PETSc.Vec object to a StencilVector or BlockVector. It assumes that PETSc was installed with the configuration for complex numbers.
