@@ -82,8 +82,6 @@ class TensorFemSpace(FemSpace):
         assert dtype in (float, complex)
         # TODO [YG 10.04.2024]: check if dtype test is too restrictive
 
-        # BEGIN NEW -------------------------------------------------------
-
         # Handle optional arguments
         if cart and vector_space:
             raise ValueError("Cannot provide both 'vector_space' and 'cart' to constructor")
@@ -133,55 +131,6 @@ class TensorFemSpace(FemSpace):
 
         # Store information about nested grids
         self.set_refined_space(self.ncells, self)
-
-        # END NEW -------------------------------------------------------
-
-#        self._domain_decomposition = domain_decomposition
-#        self._spaces = tuple(spaces)
-#        self._dtype  = dtype
-#
-#        if cart is not None:
-#            self._vector_space = StencilVectorSpace(cart, dtype=dtype)
-#        elif vector_space is not None:
-#            self._vector_space = vector_space
-#        else:
-#            cart               = create_cart([domain_decomposition], [self._spaces])
-#            self._vector_space = StencilVectorSpace(cart[0], dtype=dtype)
-#
-#        # Shortcut
-#        v = self._vector_space
-#
-#        self._symbolic_space = None
-#        self._refined_space  = {}
-#        self._interfaces     = {}
-#        self._interfaces_readonly = MappingProxyType(self._interfaces)
-#
-#        if self._vector_space.parallel and self._vector_space.cart.is_comm_null:
-#            return
-#
-#        starts = self._vector_space.cart.domain_decomposition.starts
-#        ends   = self._vector_space.cart.domain_decomposition.ends
-#
-#        # Extended 1D quadrature grids (local to process) along each direction
-#        self._quad_grids = {}
-#
-#        # Determine portion of logical domain local to process
-#        self._element_starts = starts
-#        self._element_ends   = ends
-#
-#        # Compute limits of eta_0, eta_1, eta_2, etc... in subdomain local to process
-#        self._eta_limits = tuple( (space.breaks[s], space.breaks[e+1])
-#           for s,e,space in zip( self._element_starts, self._element_ends, self.spaces ) )
-#
-#        # Store flag: object NOT YET prepared for interpolation
-#        self._interpolation_ready = False
-#        # Compute the local domains for every process
-#
-#        # ...
-#        self._global_element_starts = domain_decomposition.global_element_starts
-#        self._global_element_ends   = domain_decomposition.global_element_ends
-#
-#        self.set_refined_space(self.ncells, self)
 
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
