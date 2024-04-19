@@ -424,29 +424,29 @@ def elevate_knots_true(knots, degree, periodic, multiplicity=1, tol=1e-15):
     return np.array([*left, *knots, *right])
 
 #==============================================================================
-def quadrature_grid_true( breaks, quad_rule_x, quad_rule_w ):
+def quadrature_grid_true(breaks, quad_rule_x, quad_rule_w):
     # Check that input arrays have correct size
     assert len(breaks)      >= 2
     assert len(quad_rule_x) == len(quad_rule_w)
 
-    # Check that provided quadrature rule is defined on interval [-1,1]
+    # Check that provided quadrature rule is defined on interval [-1, 1]
     assert min(quad_rule_x) >= -1
     assert max(quad_rule_x) <= +1
 
-    quad_rule_x = np.asarray( quad_rule_x )
-    quad_rule_w = np.asarray( quad_rule_w )
+    quad_rule_x = np.asarray(quad_rule_x)
+    quad_rule_w = np.asarray(quad_rule_w)
 
-    ne     = len(breaks)-1
+    ne     = len(breaks) - 1
     nq     = len(quad_rule_x)
-    quad_x = np.zeros( (ne,nq) )
-    quad_w = np.zeros( (ne,nq) )
+    quad_x = np.zeros((ne, nq))
+    quad_w = np.zeros((ne, nq))
 
     # Compute location and weight of quadrature points from basic rule
-    for ie,(a,b) in enumerate(zip(breaks[:-1],breaks[1:])):
-        c0 = 0.5*(a+b)
-        c1 = 0.5*(b-a)
-        quad_x[ie,:] = c1*quad_rule_x[:] + c0
-        quad_w[ie,:] = c1*quad_rule_w[:]
+    for ie, (a, b) in enumerate(zip(breaks[:-1], breaks[1:])):
+        c0 = 0.5 * (a + b)
+        c1 = 0.5 * (b - a)
+        quad_x[ie, :] = c1 * quad_rule_x[:] + c0
+        quad_w[ie, :] = c1 * quad_rule_w[:]
 
     return quad_x, quad_w
 
@@ -703,8 +703,8 @@ def test_elevate_knots(knots, degree, periodic, multiplicity):
 @pytest.mark.parametrize('nquads', (2, 3, 4, 5))
 def test_quadrature_grid(breaks, nquads):
     quad_x, quad_w = gauss_legendre(nquads)
-    expected = quadrature_grid_true(breaks, quad_x[::-1], quad_w[::-1])
-    out = quadrature_grid(breaks, quad_x[::-1], quad_w[::-1])
+    expected = quadrature_grid_true(breaks, quad_x, quad_w)
+    out = quadrature_grid(breaks, quad_x, quad_w)
 
     assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
 
