@@ -1,16 +1,26 @@
 # -*- coding: UTF-8 -*-
 import os
-import numpy as np
 
+import numpy as np
 from mpi4py import MPI
+
 from sympde.topology import Interface
 
 from psydac.ddm.cart       import CartDecomposition, InterfaceCartDecomposition, create_interfaces_cart
 from psydac.core.bsplines  import elements_spans
 from psydac.fem.vector     import ProductFemSpace, VectorFemSpace
 
-__all__ = ('partition_coefficients', 'construct_connectivity', 'get_minus_starts_ends', 'get_plus_starts_ends',
-           'create_cart', 'construct_interface_spaces', 'construct_reduced_interface_spaces')
+
+__all__ = (
+    'partition_coefficients',
+    'construct_connectivity',
+    'get_minus_starts_ends',
+    'get_plus_starts_ends',
+    'create_cart',
+    'construct_interface_spaces',
+    'construct_reduced_interface_spaces'
+)
+
 
 def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
     """
@@ -42,8 +52,8 @@ def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
     multiplicity = [V.multiplicity for V in spaces]
 
     ndims         = len(npts)
-    global_starts = [None]*ndims
-    global_ends   = [None]*ndims
+    global_starts = [None] * ndims
+    global_ends   = [None] * ndims
 
     for axis in range(ndims):
         es = domain_decomposition.global_element_starts[axis]
@@ -55,13 +65,13 @@ def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
         global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
 
     if min_blocks is None:
-        min_blocks = [None]*ndims
+        min_blocks = [None] * ndims
 
-    for s,e,V,mb in zip(global_starts, global_ends, spaces, min_blocks):
+    for s, e, V, mb in zip(global_starts, global_ends, spaces, min_blocks):
         if V.periodic or mb is None:
-            assert all(e-s+1>=V.degree)
+            assert all(e-s+1 >= V.degree)
         else:
-            assert all(e-s+1>=mb)
+            assert all(e-s+1 >= mb)
 
     return global_starts, global_ends
 
@@ -139,7 +149,7 @@ def create_cart(domain_decomposition, spaces):
 
     Parameters
     ----------
-    domain_decomposition : DomainDecomposition|tuple of DomainDecomposition
+    domain_decomposition : DomainDecomposition | tuple of DomainDecomposition
 
     spaces : list of list of 1D global Spline spaces
         The 1D global spline spaces that will be distributed.
@@ -152,16 +162,16 @@ def create_cart(domain_decomposition, spaces):
     """
 
     if len(spaces) == 1:
+        domain_decomposition = domain_decomposition[0]
         spaces       = spaces[0]
-        domain_decomposition     = domain_decomposition[0]
-        npts         = [V.nbasis   for V in spaces]
-        pads         = [V._pads    for V in spaces]
+        npts         = [V.nbasis for V in spaces]
+        pads         = [V._pads  for V in spaces]
         multiplicity = [V.multiplicity for V in spaces]
 
         global_starts, global_ends = partition_coefficients(domain_decomposition, spaces)
 
         carts = [CartDecomposition(
-                domain_decomposition      = domain_decomposition,
+                domain_decomposition = domain_decomposition,
                 npts          = npts,
                 global_starts = global_starts,
                 global_ends   = global_ends,
@@ -170,19 +180,25 @@ def create_cart(domain_decomposition, spaces):
     else:
         carts = []
         for i in range(len(spaces)):
-            npts         = [V.nbasis   for V in spaces[i]]
-            pads         = [V._pads    for V in spaces[i]]
+            npts         = [V.nbasis for V in spaces[i]]
+            pads         = [V._pads  for V in spaces[i]]
             multiplicity = [V.multiplicity for V in spaces[i]]
 
-            global_starts, global_ends = partition_coefficients(domain_decomposition[i], spaces[i], min_blocks=[p+1 for p in pads])
+            global_starts, global_ends = partition_coefficients(
+                    domain_decomposition[i],
+                    spaces[i],
+                    min_blocks=[p+1 for p in pads])
 
-            carts.append(CartDecomposition(
-                            domain_decomposition      = domain_decomposition[i],
+            new_cart = CartDecomposition(
+                            domain_decomposition = domain_decomposition[i],
                             npts          = npts,
                             global_starts = global_starts,
                             global_ends   = global_ends,
                             pads          = pads,
-                            shifts        = multiplicity))
+                            shifts        = multiplicity)
+
+            carts.append(new_cart)
+
         carts = tuple(carts)
 
     return carts

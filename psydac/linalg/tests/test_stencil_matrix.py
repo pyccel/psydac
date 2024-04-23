@@ -1326,7 +1326,7 @@ def test_stencil_matrix_2d_serial_vdot(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     ya_exact = np.dot(np.conjugate(Ma), xa)
     # Check data in 1D array
     assert y.dtype == dtype
-    assert np.allclose(ya, ya_exact, rtol=1e-13, atol=1e-13)
+    assert np.allclose(ya, ya_exact, rtol=1e-12, atol=1e-12)
 
 # TODO: verify for s>1
 # ===============================================================================

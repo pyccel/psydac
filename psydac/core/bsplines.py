@@ -910,6 +910,8 @@ def cell_index(breaks, i_grid, tol=1e-15, out=None):
     status = cell_index_p(breaks, i_grid, tol, out)
     if status == -1:
         raise ValueError("Encountered a point that was outside of the domain")
+    elif status == -2:
+        raise ValueError("Loop too long in cell search: a point might be slightly outside of the domain")
     return out
 
 #==============================================================================

@@ -24,17 +24,18 @@ __all__ = ('GlobalProjector', 'Projector_H1', 'Projector_Hcurl', 'Projector_Hdiv
 #==============================================================================
 class GlobalProjector(metaclass=ABCMeta):
     """
-    A global projector to some TensorFemSpace or VectorFemSpace object.
-    It is constructed over a tensor-product grid in the
-    logical domain. The vertices of this grid are obtained as the tensor
-    product of the 1D splines' Greville points along each direction.
+    Projects callable functions to some scalar or vector FEM space.
 
-    This projector matches the "geometric" degrees of freedom of
-    discrete n-forms (where n depends on the underlying space).
-    This is done by projecting each component of the vector field
-    independently, by combining 1D histopolation with 1D interpolation.
+    A global projector is constructed over a tensor-product grid in the logical
+    domain. The vertices of this grid are obtained as the tensor product of the
+    1D splines' Greville points along each direction.
 
-    This class can currently not be instantiated directly (use a subclass instead).
+    This projector matches the "geometric" degrees of freedom of discrete
+    n-forms (where n depends on the underlying space).
+    This is done by projecting each component of the vector field independently,
+    by combining 1D histopolation with 1D interpolation.
+
+    This class cannot be instantiated directly (use a subclass instead).
 
     Parameters
     ----------
@@ -77,13 +78,8 @@ class GlobalProjector(metaclass=ABCMeta):
         # set up quadrature weights
         if nquads:
             assert len(nquads) == self._dim
-            uw = [gauss_legendre( k-1 ) for k in nquads]
-            uw = [(u[::-1], w[::-1]) for u,w in uw]
-        else:
-            # for now, we assume that all tensorspaces have the same quad_grids
-            # (this seems to be the case at the moment, but maybe checking it might be a good idea nontheless...)
-            uw = [(quad_grid.quad_rule_x,quad_grid.quad_rule_w) for quad_grid in tensorspaces[0].quad_grids()]
-        
+            uw = [gauss_legendre(k) for k in nquads]
+
         # retrieve projection space structure
         # this is a 2D Python array (first level: block, second level: tensor direction)
         # which indicates where to use histopolation and where interpolation
@@ -99,6 +95,9 @@ class GlobalProjector(metaclass=ABCMeta):
             for cell in block:
                 if cell == 'I': has_i = True
                 if cell == 'H': has_h = True
+
+        if has_h and nquads is None:
+            raise ValueError('The number of quadrature points `nquads` must be provided for performing histopolation')
 
         # ... and activate them.
         for space in tensorspaces:
@@ -149,14 +148,15 @@ class GlobalProjector(metaclass=ABCMeta):
                     if quad_x[j] is None:
                         u, w = uw[j]
                         global_quad_x, global_quad_w = quadrature_grid(V.histopolation_grid, u, w)
-                        #"roll" back points to the interval to ensure that the quadrature points are
-                        #in the domain. Only usefull in the periodic case (else do nothing)
-                        #if not used then you will have quadrature points outside of the domain which 
-                        #might cause problem when your function is only defined inside the domain
 
+                        # "roll" back points to the interval to ensure that the quadrature points are
+                        # in the domain. Only useful in the periodic case (else do nothing)
+                        # if not used then you will have quadrature points outside of the domain which
+                        # might cause problem when your function is only defined inside the domain.
                         roll_edges(V.domain, global_quad_x) 
                         quad_x[j] = global_quad_x[s:e+1]
                         quad_w[j] = global_quad_w[s:e+1]
+
                     local_x, local_w = quad_x[j], quad_w[j]
                     solvercells += [V._histopolator]
                 else:
