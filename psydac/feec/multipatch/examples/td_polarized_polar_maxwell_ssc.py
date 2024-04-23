@@ -161,10 +161,10 @@ def solve_td_polarized_polar_maxwell_pbm(
     print(' .. multi-patch domain...')
     
     #####
-    epsilon = 0.1
+    epsilon = 0.2
     #alpha = 1.5
     r_min = 0.25
-    r_max = 1
+    r_max = 3
 
     #####
     # if domain_name in ['multipatch_rectangle', 'mpr_collela']:
@@ -416,8 +416,8 @@ def solve_td_polarized_polar_maxwell_pbm(
 
     mass = BilinearForm((v,u), integral(domain, ((1+kappa)*Eu - kappa * bE * ub)))
     massh = discretize(mass, domain_h, [p_V1h, p_V1h])
-    #mass = BilinearForm((u,v), integral(domain, (Eu + kappa * bE * ub)/(1+kappa) ))
-    #massh = discretize(mass, domain_h, [d_V1h, d_V1h])
+    # mass = BilinearForm((u,v), integral(domain, (Eu + kappa * bE * ub)/(1+kappa) ))
+    # massh = discretize(mass, domain_h, [d_V1h, d_V1h])
 
     M = massh.assemble().tosparse().toarray()
 
@@ -427,8 +427,8 @@ def solve_td_polarized_polar_maxwell_pbm(
         #Coup_Op = p_MM1_inv @ p_PP1.transpose() @ d_KK1 @ d_MM1_inv @ M
 
     else:
-       # Coup_Op = np.linalg.inv(M) 
-        Coup_Op = p_MM1_inv @ M @ d_MM1
+       Coup_Op = np.linalg.inv(M) 
+       # Coup_Op = p_MM1_inv @ M @ d_MM1
 
     Far_Op = p_CC  
 

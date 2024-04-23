@@ -760,7 +760,7 @@ def build_multipatch_rectangle(nb_patch_x = 2, nb_patch_y = 2, x_min=0, x_max=np
                 list_bottom_bnd2.append(list_domain[i][0].get_boundary(axis=1, ext=-1))
 
     domain = create_domain(patches, interfaces, name='domain')
-    
+
     right_bnd = None
     left_bnd  = None
     top_bnd   = None
@@ -782,7 +782,7 @@ def build_multipatch_rectangle(nb_patch_x = 2, nb_patch_y = 2, x_min=0, x_max=np
     else:
         domain_h = discretize(domain, ncells=ncells, periodic=perio, comm=comm)
 
-    return domain, domain_h, [right_bnd, left_bnd, top_bnd, bottom_bnd1, bottom_bnd2]
+    return domain#, domain_h, [right_bnd, left_bnd, top_bnd, bottom_bnd1, bottom_bnd2]
 
 
 def get_ref_eigenvalues(domain_name, operator):

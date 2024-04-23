@@ -749,3 +749,37 @@ def get_polarized_annulus_potential_source(b, omega, k_theta, epsilon, kappa, t,
 
     return Tuple( -(1+kappa) * dtE1 + kappa * dtEb * b1 + curl_H_phys[0], 
                     -(1+kappa) * dtE2 + kappa * dtEb * b2 + curl_H_phys[1]) 
+
+def get_poisson_annulus_solution(r_min, r_max, domain):
+    x, y = domain.coordinates
+    r = sqrt(x**2 + y**2)
+    theta = sign(y) * acos(x/r) #theta = arg(x + I * y) 
+
+    alpha = 1
+    f = -alpha * (15 * r**2 - 8 * (r_min + r_max)*r + 3*r_min*r_max) * sin(theta)
+    phi = alpha * (r**4 - (r_min + r_max)*r**3 + r_min*r_max*r**2) * sin(theta)
+
+    return f, phi
+
+def get_poisson_solution(x_min, x_max, y_min, y_max, domain):
+    # on [0, pi] x [0, pi]
+    x, y = domain.coordinates
+   
+    
+    k_x = 2
+    k_y = 2
+
+    gamma = 1 + exp( ((x - pi/2)**2 + (y - pi/2)**2)/ (20**2) ) 
+    dxgamma = 2/(20**2) * (x - pi/2) * exp( ((x - pi/2)**2 + (y - pi/2)**2)/ 20**2 )
+    dygamma = 2/(20**2) * (y - pi/2) * exp( ((x - pi/2)**2 + (y - pi/2)**2)/ 20**2 )
+
+    phi = sin( k_x * x ) * sin( k_y * y )
+
+    dxphi = k_x * cos( k_x * x ) * sin( k_y * y)
+    dyphi = k_y * sin( k_x * x ) * cos( k_y * y)
+
+    dxxphi =  -phi * (k_x)**2
+    dyyphi =  -phi * (k_y)**2
+    # f = ((2*pi*k_x/delta_x)**2 + (2*pi*k_y/delta_y)**2) * phi
+    f = -(dxxphi * gamma + dxphi * dxgamma + dyyphi * gamma + dyphi * dygamma)
+    return f, phi

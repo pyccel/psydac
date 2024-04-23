@@ -48,7 +48,7 @@ def run(degree, ncells, nbp, primal = False, alpha = 1.25,kappa = 1.5, epsilon =
     mom_pres = True 
     C1_proj_opt = None
     r_min = 0.25 
-    r_max = 1
+    r_max = 3.25
 
 
     domain = build_multipatch_annulus(nbp[0], nbp[1], r_min, r_max)
@@ -158,7 +158,7 @@ def run(degree, ncells, nbp, primal = False, alpha = 1.25,kappa = 1.5, epsilon =
 if __name__ == '__main__':
 
 # quick run, to test 
-    plot_dir = "./02_cond_test"
+    plot_dir = "./02_cond_test_new"
     diag_file = plot_dir+'/diag.txt'
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
@@ -168,12 +168,12 @@ if __name__ == '__main__':
     ###
     alpha = 1.25
     kappa = 1.5
-    epsilon = 0.3
-    k_theta = 6
-    omega = 4
-    primal = False # Approx of the coupling operator
+    epsilon = 0.2
+    k_theta = 3
+    omega = 2
+    primal = True # Approx of the coupling operator
     deg = [3, 4, 5]
-    patches = [[1,2], [2, 4], [3, 6], [4,8]]
+    patches = [[1,2], [2, 4], [4,8]]
     ncells  = [12,12]
 
     errors = np.zeros((len(deg), len(patches)))

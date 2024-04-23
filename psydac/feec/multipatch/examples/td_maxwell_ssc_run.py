@@ -39,15 +39,19 @@ nbc_s = [12] #,8,16] #,32]
 # deg_s = [4] # ,4,5]
 # nbp_s = [2,4,8, 16]  # only for 'multipatch_rectangle' domain
 
-deg_s = [3]
+deg_s = [5]
 #patches in r- and theta direction
+<<<<<<< HEAD
 nbp_arr = [[2, 2]]
+=======
+nbp_arr = [[1, 2], [2,4], [4,8]]
+>>>>>>> 579b2e56 (adapt some examples)
 nbp_s = [ a[0]*a[1] for a in nbp_arr]
 kappa = 1.5
 alpha = 1.25
-epsilon = 0.3
+epsilon = 0.2
 
-nb_tau = 2000
+nb_tau = 1
 
 domain_name = 'multipatch_rectangle'
 # domain_name = 'mpr_collela'
@@ -66,11 +70,11 @@ if test_case == 'cavity':
 elif test_case == 'polarized' or test_case == 'polarized_polar':
     a = np.pi 
     b = np.pi
-    nx = 6 # 3  # mode
+    nx = 3 # 3  # mode
     ny = 0  # mode
     kx = np.pi * nx / a # k_theta
     ky = np.pi * ny / b
-    omega = 4# np.sqrt(kx**2 + ky**2)
+    omega = 2# np.sqrt(kx**2 + ky**2)
    # kappa = 1
     # c = omega / np.sqrt(kx**2 + ky**2) ## = 1 here
     sol_params = {'omega':omega, 'kx':kx, 'ky':ky, 'kappa':kappa, 'alpha':alpha}
@@ -82,7 +86,7 @@ else:
 # tau: run / diags time scale
 # may be relevant for oscillating sources but also for plotting
 period_time = 2*np.pi/omega
-tau = 0.01 * period_time
+tau = 0.005 * period_time
 
 # must be integer ! (for now)
   # final time: T = nb_tau * tau
@@ -94,9 +98,9 @@ tau = 0.01 * period_time
 #       t_start, t_end: in t_periods (tau) units
 #   and 
 #       nt_plots_pp: nb of plots per period
-plot_time_ranges = [
-    [[nb_tau-1, nb_tau], 4]
-    ]
+plot_time_ranges = []
+   # [[nb_tau-1, nb_tau], 4]
+   # ]
 
 plot_variables = []
 
@@ -161,7 +165,7 @@ elif test_case == 'polarized':
     #plot_variables = ["D", "B", "E"]
     plot_variables = ["D", "B", "E", "Dex", "Bex", "Eex", "divD"]
     #nb_tau = 1 # 25 # final time: T = nb_tau * tau
-    plot_a_lot = True # True # 
+    plot_a_lot = False # True # 
     if plot_a_lot:
         plot_time_ranges = [
             [[0, nb_tau], 2] 
@@ -238,7 +242,7 @@ solution_proj = 'P_geom' # 'P_L2' #
 # whether cP1 E_h is plotted instead of E_h:
 project_sol =  False #    True # 
 
-case_name = '01_td_maxwell/' + test_case + '_' + method
+case_name = '01_td_maxwell_new/' + test_case + '_' + method
 
 # projection used for the source J
 if J_proj_case == 'P_geom':
