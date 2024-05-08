@@ -21,7 +21,7 @@ class BuildPyCommand(build_py):
             sub_run([shutil.which('pyccel'), outfile,
                      '--language', 'fortran',
                      '--openmp'],
-                    shell=False, check=True)
+                    shell=False, check=True) # nosec B603
 
         return outfile, copied
 
@@ -29,7 +29,7 @@ class BuildPyCommand(build_py):
         super().run()
 
         # Remove __pyccel__ directories
-        sub_run(['pyccel-clean', self.build_lib], shell=False, check=True)
+        sub_run(['pyccel-clean', self.build_lib], shell=False, check=True) # nosec B603, B607
 
         # Remove useless .lock files
         for path, subdirs, files in os.walk(self.build_lib):
