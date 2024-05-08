@@ -1,7 +1,7 @@
 import logging
 import os
 from shutil import which
-from subprocess import PIPE, STDOUT
+from subprocess import PIPE, STDOUT  # nosec B404
 from subprocess import run as sub_run
 from setuptools import setup
 from setuptools.command.build_py import build_py
