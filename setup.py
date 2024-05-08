@@ -1,6 +1,7 @@
 import logging
 import os
-import shutil
+from shutil import which
+from subprocess import PIPE, STDOUT
 from subprocess import run as sub_run
 from setuptools import setup
 from setuptools.command.build_py import build_py
@@ -17,11 +18,11 @@ class BuildPyCommand(build_py):
         # This part check if the module is pyccelisable and pyccelise it in
         # case
         if module.endswith('_kernels'):
-            self.announce(f"\nPyccelise module: {module}", level=logging.INFO)
-            sub_run([shutil.which('pyccel'), outfile,
-                     '--language', 'fortran',
-                     '--openmp'],
-                    shell=False, check=True) # nosec B603
+            self.announce(f"\nPyccelising [{module}] ...", level=logging.INFO)
+            pyccel = sub_run([which('pyccel'), outfile, '--language', 'fortran', '--openmp'],
+                              stdout=PIPE, stderr=STDOUT,
+                              text=True, shell=False, check=True) # nosec B603
+            self.announce(pyccel.stdout, level=logging.INFO)
 
         return outfile, copied
 
@@ -29,7 +30,7 @@ class BuildPyCommand(build_py):
         super().run()
 
         # Remove __pyccel__ directories
-        sub_run(['pyccel-clean', self.build_lib], shell=False, check=True) # nosec B603, B607
+        sub_run([which('pyccel-clean'), self.build_lib], shell=False, check=True) # nosec B603, B607
 
         # Remove useless .lock files
         for path, subdirs, files in os.walk(self.build_lib):
