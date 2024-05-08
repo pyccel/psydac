@@ -47,13 +47,11 @@ jobs:
       - name: Install non-Python dependencies on macOS
         if: matrix.os == 'macos-latest'
         run: |
-          brew install gfortran
           brew install open-mpi
           brew install hdf5-mpi
           brew install libomp
           if [[ ! -f "/usr/local/bin/gfortran" ]]; then
-            gfort=$(ls /usr/local/bin/gfortran-* | tail -n 1)
-            ln -s ${gfort} /usr/local/bin/gfortran
+            ln -s $(which gfortran) /usr/local/bin/gfortran
           fi
           echo "MPI_OPTS=--oversubscribe" >> $GITHUB_ENV
 
