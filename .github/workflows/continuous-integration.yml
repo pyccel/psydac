@@ -50,8 +50,9 @@ jobs:
           brew install open-mpi
           brew install hdf5-mpi
           brew install libomp
-          if [[ ! -f "/usr/local/bin/gfortran" ]]; then
-            ln -s $(which gfortran) /usr/local/bin/gfortran
+          if ! command -v gfortran; then
+            echo "gfortran could not be found"
+            exit 1
           fi
           echo "MPI_OPTS=--oversubscribe" >> $GITHUB_ENV
 
