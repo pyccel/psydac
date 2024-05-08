@@ -49,7 +49,6 @@ def psydac_to_petsc_local(
 
     ii = ndarray_indices
 
-
     npts_local = [ e - s + 1 for s, e in zip(starts, ends)] #Number of points in each dimension within each process. Different for each process.
     
     assert all([ii[d] >= pads[d]*shifts[d] and ii[d] < shape[d] - pads[d]*shifts[d] for d in range(ndim)]), 'ndarray_indices within the ghost region'
@@ -84,6 +83,10 @@ def get_petsc_local_to_global_shift(V : VectorSpace) -> int:
 
     cart = V.cart
     comm = cart.global_comm
+
+    if comm is None:
+        return 0
+    
     gstarts = cart.global_starts # Global variable
     gends = cart.global_ends # Global variable
 
@@ -126,7 +129,7 @@ def petsc_to_psydac_local(
     else:
         raise NotImplementedError( "Cannot handle more than 3 dimensions." )
 
-    return [tuple(ii)]
+    return tuple(tuple(ii))
 
 
 def flatten_vec( vec ):
@@ -309,7 +312,7 @@ def vec_topetsc( vec ):
         for i1 in range(pads[0]*shifts[0], pads[0]*shifts[0] + npts_local[0]):
             value = vec._data[i1]
             if value != 0:
-                index = psydac_to_petsc_local(vec.space, [], (i1)) # global index starting from 0 in each process
+                index = psydac_to_petsc_local(vec.space, [], (i1,)) # global index starting from 0 in each process
                 index += index_shift #starts[0] # global index starting from NOT 0 in each process
                 petsc_indices.append(index)
                 petsc_data.append(value)        
@@ -337,21 +340,22 @@ def vec_topetsc( vec ):
                         petsc_indices.append(index)
                         petsc_data.append(value)        
 
-    gvec.setValues(petsc_indices, petsc_data, addv=PETSc.InsertMode.ADD_VALUES)
+    gvec.setValues(petsc_indices, petsc_data)#, addv=PETSc.InsertMode.ADD_VALUES)
     # Assemble vector
     gvec.assemble() # Here PETSc exchanges global communication. The block corresponding to a certain process is not necessarily the same block in the Psydac StencilVector.
-    #diff = abs(vec.toarray() - gvec.array).max()
 
-    '''vec_arr = vec.toarray()
-
-    for k in range(comm.Get_size()):
-        if k == comm.Get_rank():   
-            print('\nRank ', k)
-            print('petsc_indices=', petsc_indices)
-            print('petsc_data=', petsc_data)
-            print('\ngvec.array=', gvec.array.real)
-            print('vec.toarray()=', vec_arr)
-        comm.Barrier()'''
+    if comm is not None:
+        vec_arr = vec.toarray()
+        for k in range(comm.Get_size()):
+            if k == comm.Get_rank():   
+                print('\nRank ', k)
+                #print('petsc_indices=', petsc_indices)
+                #print('petsc_data=', petsc_data)
+                #print('\ngvec.array=', gvec.array.real)
+                print('vec.toarray()=', vec_arr)
+                #print('gvec.getSizes()=', gvec.getSizes())
+            comm.Barrier()
+        print('================================')
 
     
     return gvec

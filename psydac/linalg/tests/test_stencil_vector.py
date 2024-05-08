@@ -455,7 +455,7 @@ def test_stencil_vector_2d_serial_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2)
     assert v._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2)
     assert v._data.dtype == dtype
     assert np.array_equal(x.toarray(), v.toarray())
-
+#test_stencil_vector_2d_serial_topetsc(float, 4,5,1,1,1,1,True,True)
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 7])
@@ -619,7 +619,6 @@ def test_stencil_vector_2d_parallel_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P
     x = StencilVector(V)
 
     # Fill the vector with data
-
     if dtype == complex:
         f = lambda i1, i2: 10j * i1 + i2
     else:
@@ -638,6 +637,105 @@ def test_stencil_vector_2d_parallel_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P
 
     assert np.array_equal(x.toarray(), v.toarray())
     
+#test_stencil_vector_2d_parallel_topetsc(float, 4, 5, 1, 1, 1, 1, True, True)   
+# ===============================================================================
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('n1', [20, 32])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('s1', [1, 2])
+@pytest.mark.parametrize('P1', [True, False])
+@pytest.mark.parallel
+@pytest.mark.petsc
+def test_stencil_vector_1d_parallel_topetsc(dtype, n1, p1, s1, P1):
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+
+    # Create domain decomposition
+    D = DomainDecomposition([n1], periods=[P1], comm=comm)
+
+    # Partition the points
+    npts = [n1]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[s1])
+
+    # Create vector space and stencil vector
+    V = StencilVectorSpace(C, dtype=dtype)
+    x = StencilVector(V)
+
+    # Fill the vector with data
+    if dtype == complex:
+        f = lambda i1: 10j * i1 + 3
+    else:
+        f = lambda i1: 10 * i1 + 3
+
+    # Initialize distributed 2D stencil vector
+    for i1 in range(V.starts[0], V.ends[0] + 1):
+            x[i1] = f(i1)
+
+    # Convert vector to PETSc.Vec
+    v = x.topetsc()
+
+    # Convert PETSc.Vec to StencilVector of V
+    v = petsc_to_psydac(v, V)
+
+    assert np.array_equal(x.toarray(), v.toarray())
+#test_stencil_vector_1d_parallel_topetsc(float, 7, 2, 2, False)
+
+# ===============================================================================
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('n1', [20, 32])
+@pytest.mark.parametrize('n2', [24, 40])
+@pytest.mark.parametrize('n3', [7, 12])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('p2', [2])
+@pytest.mark.parametrize('p3', [1])
+@pytest.mark.parametrize('s1', [1, 2])
+@pytest.mark.parametrize('s2', [2])
+@pytest.mark.parametrize('s3', [1])
+@pytest.mark.parametrize('P1', [True, False])
+@pytest.mark.parametrize('P2', [True])
+@pytest.mark.parametrize('P3', [False])
+
+@pytest.mark.parallel
+@pytest.mark.petsc
+def test_stencil_vector_3d_parallel_topetsc(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1, P2, P3):
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+
+    # Create domain decomposition
+    D = DomainDecomposition([n1, n2, n3], periods=[P1, P2, P3], comm=comm)
+
+    # Partition the points
+    npts = [n1, n2, n3]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2, p3], shifts=[s1, s2, s3])
+
+    # Create vector space and stencil vector
+    V = StencilVectorSpace(C, dtype=dtype)
+    x = StencilVector(V)
+
+    # Fill the vector with data
+
+    if dtype == complex:
+        f = lambda i1, i2, i3: 10j * i1 + i2 - i3 
+    else:
+        f = lambda i1, i2, i3: 10 * i1 + i2 - i3
+
+    # Initialize distributed 2D stencil vector
+    for i1 in range(V.starts[0], V.ends[0] + 1):
+        for i2 in range(V.starts[1], V.ends[1] + 1):
+            for i3 in range(V.starts[2], V.ends[2] + 1):
+                x[i1, i2, i3] = f(i1, i2, i3)
+
+    # Convert vector to PETSc.Vec
+    v = x.topetsc()
+
+    # Convert PETSc.Vec to StencilVector of V
+    v = petsc_to_psydac(v, V)
+
+    assert np.array_equal(x.toarray(), v.toarray())
+#test_stencil_vector_3d_parallel_topetsc(float, 4, 10, 5, 1, 1, 3, 1, 2, 1, True, True, True)
+
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [6, 15])

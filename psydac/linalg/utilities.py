@@ -6,6 +6,7 @@ from math import sqrt
 from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from psydac.linalg.block   import BlockVector, BlockVectorSpace
+from psydac.linalg.topetsc import psydac_to_petsc_local, get_petsc_local_to_global_shift, petsc_to_psydac_local
 
 __all__ = (
     'array_to_psydac',
@@ -164,7 +165,29 @@ def petsc_to_psydac(x, Xh):
         u          = StencilVector(Xh)
         comm       = u.space.cart.global_comm
         dtype      = u.space.dtype
-        sendcounts = np.array(comm.allgather(len(x.array))) if comm else np.array([len(x.array)])
+        localsize, globalsize = x.getSizes()
+        assert globalsize == u.shape[0], 'Sizes of global vectors do not match'
+
+        index_shift = get_petsc_local_to_global_shift(Xh)
+        petsc_local_indices = np.arange(localsize) 
+        petsc_indices = petsc_local_indices #+ index_shift
+        psydac_indices = [petsc_to_psydac_local(Xh, petsc_index) for petsc_index in petsc_indices]
+
+        if comm is not None:
+            for k in range(comm.Get_size()):
+                if k == comm.Get_rank():
+                    print('\nRank ', k)
+                    print('petsc_indices=\n', petsc_indices)
+                    print('psydac_indices=\n', psydac_indices)
+                    print('index_shift=', index_shift)
+                comm.Barrier()
+
+        for psydac_index, petsc_index in zip(psydac_indices, petsc_indices):
+            value = x.getValue(petsc_index + index_shift)
+            if value != 0:
+                u._data[psydac_index] = value if dtype is complex else value.real
+        
+        '''sendcounts = np.array(comm.allgather(len(x.array))) if comm else np.array([len(x.array)])
         recvbuf    = np.empty(sum(sendcounts), dtype='complex') # PETSc installed with complex configuration only handles complex vectors 
 
         if comm:
@@ -185,12 +208,25 @@ def petsc_to_psydac(x, Xh):
 
         # With PETSc installation configuration for complex, all the numbers are by default complex. 
         # In the float case, the imaginary part must be truncated to avoid warnings.
-        u._data[idx] = (vals if dtype is complex else vals.real).reshape(shape)
+        u._data[idx] = (vals if dtype is complex else vals.real).reshape(shape)'''
 
     else:
         raise ValueError('Xh must be a StencilVectorSpace or a BlockVectorSpace')
 
     u.update_ghost_regions()
+
+    if comm is not None:
+        u_arr = u.toarray()
+        x_arr = x.array.real
+        for k in range(comm.Get_size()):
+            if k == comm.Get_rank():
+                print('\nRank ', k)
+                print('u.toarray()=\n', u_arr)
+                #print('x.array=\n', x_arr)
+                #print('u._data=\n', u._data)
+
+            comm.Barrier()
+
     return u
 
 #==============================================================================
