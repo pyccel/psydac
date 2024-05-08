@@ -47,13 +47,17 @@ jobs:
       - name: Install non-Python dependencies on macOS
         if: matrix.os == 'macos-latest'
         run: |
-          brew reinstall gcc
           brew install open-mpi
           brew install hdf5-mpi
           brew install libomp
-          if ! command -v gfortran; then
-            echo "gfortran could not be found"
-            exit 1
+          GFORTRAN_HOME=$(which gfortran || true)
+          echo "GFORTRAN_HOME : $GFORTRAN_HOME"
+          if [[ ! -f "$GFORTRAN_HOME" ]]; then
+            gfort=$(find ${PATH//:/\/ } -name 'gfortran-*' -exec basename {} \; | sort | tail -n 1 || true)
+            echo "Found $gfort"
+            gfort_path=$(which ${gfort})
+            folder=$(dirname ${gfort_path})
+            ln -s ${gfort_path} ${folder}/gfortran
           fi
           echo "MPI_OPTS=--oversubscribe" >> $GITHUB_ENV
 
