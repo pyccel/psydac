@@ -360,7 +360,269 @@ def vec_topetsc( vec ):
     
     return gvec
 
+
 def mat_topetsc( mat ):
+    """ Convert operator from Psydac format to a PETSc.Mat object.
+
+    Parameters
+    ----------
+    mat : psydac.linalg.stencil.StencilMatrix | psydac.linalg.basic.LinearOperator | psydac.linalg.block.BlockLinearOperator
+      Psydac operator
+
+    Returns
+    -------
+    gmat : PETSc.Mat
+        PETSc Matrix
+    """
+
+    from petsc4py import PETSc
+
+    if isinstance(mat, StencilMatrix):
+        dcart = mat.domain.cart
+        ccart = mat.codomain.cart
+    elif isinstance(mat.domain.spaces[0], StencilVectorSpace):
+        dcart = mat.domain.spaces[0].cart
+        ccart = mat.codomain.spaces[0].cart
+    elif isinstance(mat.domain.spaces[0], BlockVectorSpace):
+        dcart = mat.domain.spaces[0][0].cart
+        ccart = mat.codomain.spaces[0][0].cart
+
+    dcomm = dcart.global_comm
+    ccomm = ccart.global_comm
+
+
+    dndim = dcart.ndim
+    dstarts = dcart.starts
+    dends = dcart.ends
+    dpads = dcart.pads
+    dshifts = dcart.shifts
+    dnpts = dcart.npts
+
+    cndim = ccart.ndim
+    cstarts = ccart.starts
+    cends = ccart.ends
+    #cpads = ccart.pads
+    #cshifts = ccart.shifts
+    cnpts = ccart.npts
+
+    dnpts_local = [ e - s + 1 for s, e in zip(dstarts, dends)] #Number of points in each dimension within each process. Different for each process.
+    cnpts_local = [ e - s + 1 for s, e in zip(cstarts, cends)]
+
+    
+    dindex_shift = get_petsc_local_to_global_shift(mat.domain) #Global variable
+    cindex_shift = get_petsc_local_to_global_shift(mat.codomain) #Global variable
+
+
+    mat_dense = mat.tosparse().todense()
+    for k in range(dcomm.Get_size()):
+        if k == dcomm.Get_rank():
+            print('\nRank ', k)
+            print('dstarts=', dstarts)
+            print('dends=', dends)
+            print('cstarts=', cstarts)
+            print('cends=', cends)
+            print('dnpts=', dnpts)            
+            print('cnpts=', cnpts)
+            print('dnpts_local=', dnpts_local)
+            print('cnpts_local=', cnpts_local)
+            #print('mat_dense=\n', mat_dense)
+            print('mat._data.shape=\n', mat._data.shape)
+            #print('mat._data=\n', mat._data)
+
+        dcomm.Barrier() 
+        ccomm.Barrier()  
+
+
+    globalsize = (np.prod(dnpts), np.prod(cnpts)) #Tuple of integers
+    localsize = (np.prod(dnpts_local), np.prod(cnpts_local))
+
+    gmat  = PETSc.Mat().create(comm=dcomm)
+
+    gmat.setSizes(size=((localsize[0], globalsize[0]), (localsize[1], globalsize[1]))) #((local_rows, rows), (local_columns, columns))
+    
+    if dcomm:
+        # Set PETSc sparse parallel matrix type
+        gmat.setType("mpiaij")
+    else:
+        gmat.setType("seqaij")
+
+    gmat.setFromOptions()
+    gmat.setUp()
+
+    print('gmat.getSizes()=', gmat.getSizes())
+
+    '''mat_coo = mat.tosparse()
+    rows_coo, cols_coo, data_coo = mat_coo.row, mat_coo.col, mat_coo.data
+
+    mat_csr = mat_coo.tocsr()
+    mat_csr.eliminate_zeros()
+    data, indices, indptr = mat_csr.data, mat_csr.indices, mat_csr.indptr
+    #indptr_chunk = indptr[indptr >= dcart.starts[0] and indptr <= dcart.ends[0]]
+    #indices_chunk = indices[indices >= dcart.starts[1] and indices <= dcart.ends[1]]
+
+    mat_coo_local = mat.tocoo_local()
+    rows_coo_local, cols_coo_local, data_coo_local = mat_coo_local.row, mat_coo_local.col, mat_coo_local.data'''
+
+
+    petsc_row_indices = []
+    petsc_col_indices = []
+    petsc_data = []
+    #mat.remove_spurious_entries()
+
+    I = [0]
+    J = []
+    V = []
+    rowmap = []
+
+    dindices = [np.arange(p*m, p*m + n) for p, m, n in zip(dpads, dshifts, dnpts_local)]
+    #cindices = [np.arange(2*p*m + 1) for p, m in zip(dpads, dshifts)]
+
+    #prod_indices = np.empty((max(dnpts_local) * max(cnpts_local), 3))
+    '''prod_indices = []
+    for d in range(len(dindices)):
+        #prod_indices[:, d] = [*cartesian_prod(dindices[d], cindices[d])]
+        prod_indices.append([*cartesian_prod(dindices[d], cindices[d])])
+    '''
+
+
+    if dndim == 1 and cndim == 1:
+        for id1 in dindices[0]:
+            nnz_in_row = 0
+            for ic1 in range(2*dpads[0]*dshifts[0] + 1):
+                value = mat._data[id1, ic1]
+                
+                if value != 0:
+                    #print('id1, ic1 = ', id1, ic1)
+                    #print('value=', value)
+                    '''cindex_petsc = (id1 + ic1 - 2*dpads[0]*dshifts[0]) % (2*dpads[0]*dshifts[0] + 1)
+                    dindex_petsc = globalsize[1] * (id1 - dpads[0]*dshifts[0]) + cindex_petsc
+                    #dindex_petsc = psydac_to_petsc_local(mat.domain, [], (id1*(2*dpads[0] + 1) + ic1,)) # global index starting from 0 in each process
+                    
+                    #cindex_petsc = psydac_to_petsc_local(mat.codomain, [], (ic1 + cpads[0]*cshifts[0],)) # global index starting from 0 in each process
+                    dindex_petsc += dindex_shift # global index NOT starting from 0 in each process
+                    cindex_petsc += cindex_shift # global index NOT starting from 0 in each process
+                    petsc_row_indices.append(dindex_petsc)
+                    petsc_col_indices.append(cindex_petsc)'''
+                    #petsc_col_indices.append((id1 + ic1 - 2*dpads[0]*dshifts[0])%dnpts_local[0])
+                    if nnz_in_row == 0:
+                        rowmap.append(dindex_shift + psydac_to_petsc_local(mat.domain, [], (id1,)))                    
+                    J.append((dindex_shift + id1 + ic1 - 2*dpads[0]*dshifts[0])%dnpts[0])
+                    V.append(value)  
+
+                    nnz_in_row += 1
+                    #J.append(petsc_col_indices[-1])
+                    #V.append(value)
+
+            I.append(I[-1] + nnz_in_row)
+            '''if nnz_in_row > 0:
+                #rowmap.append(id1 - dpads[0]*dshifts[0])
+                rowmap.append(petsc_row_indices[-1])
+                I.append(I[-1] + nnz_in_row)'''
+                
+    elif dndim == 2 and cndim == 2:
+        for id1 in dindices[0]:                
+            for id2 in dindices[1]:
+
+                nnz_in_row = 0
+                local_row = psydac_to_petsc_local(mat.domain, [], (id1, id2))
+                #band_width = 4*np.prod(dpads)*np.prod(dshifts)
+                #cindices1 = [np.arange(max(0, (4*np.prod(dpads)*np.prod(dshifts) - local_row), ) for p, m, n in zip(dpads, dshifts, dnpts_local)]
+
+                for ic1 in range(2*dpads[0]*dshifts[0] + 1):                    
+                    for ic2 in range(2*dpads[1]*dshifts[1] + 1):
+
+                        value = mat._data[id1, id2, ic1, ic2]
+
+                        if value != 0:
+                            '''dindex_petsc = psydac_to_petsc_local(mat.domain, [], (id1,id2)) # global index starting from 0 in each process
+                            cindex_petsc = (id1 + ic1 - 2*dpads[0]*dshifts[0]) % (2*dpads[0]*dshifts[0]) 
+
+
+                            dindex_petsc += dindex_shift # global index NOT starting from 0 in each process
+                            cindex_petsc += cindex_shift # global index NOT starting from 0 in each process
+                            petsc_row_indices.append(dindex_petsc)
+                            petsc_col_indices.append(cindex_petsc)
+                            petsc_data.append(value)  
+
+                            nnz_in_row += 1
+                            J.append(cindex_petsc)
+                            V.append(value)'''
+                            
+                            #local_row = psydac_to_petsc_local(mat.domain, [], (id1, id2))
+
+                            if nnz_in_row == 0:
+                                rowmap.append(dindex_shift + local_row)                    
+                            #J.append( (dindex_shift + local_row + ic1*(2*dpads[1]*dshifts[1] + 1) + ic2 - 2*dpads[0]*dshifts[0] - 2*dpads[1]*dshifts[1] ) \
+                            #          % np.prod(dnpts) )
+                            num_zeros_0row = (2*dpads[0]*dshifts[0] + 1)*(2*dpads[1]*dshifts[1] + 1) // 2
+                            J.append( (dindex_shift + local_row \
+                                       + (ic1*(2*dpads[1]*dshifts[1] + 1) + ic2)
+                                       - num_zeros_0row \
+                                        ) \
+                                       % (np.prod(dnpts)-1) )
+                            V.append(value)  
+
+                            nnz_in_row += 1
+
+                I.append(I[-1] + nnz_in_row)
+
+
+    import time
+    t_prev = time.time() 
+    '''for k in range(len(rows_coo)):
+        gmat.setValues(rows_coo[k] - dcart.global_starts[0][comm.Get_rank()], cols_coo[k], data_coo[k])
+    '''
+    #gmat.setValuesCSR([r - dcart.global_starts[0][comm.Get_rank()] for r in indptr[1:]], indices, data)
+    #gmat.setValuesLocalCSR(local_indptr, indices, data)#, addv=PETSc.InsertMode.ADD_VALUES)
+    gmat.setValuesIJV(I, J, V, rowmap=rowmap)#, addv=PETSc.InsertMode.ADD_VALUES)
+
+
+    print('Rank ', dcomm.Get_rank() if dcomm else '-', ': duration of setValuesIJV :', time.time()-t_prev)
+  
+
+  
+    # Process inserted matrix entries
+    ################################################
+    # Note 12.03.2024:
+    # In the assembly PETSc uses global communication to distribute the matrix in a different way than Psydac.
+    # For this reason, at the moment we cannot compare directly each distributed 'chunck' of the Psydac and the PETSc matrices.
+    # In the future we would like that PETSc uses the partition from Psydac, 
+    # which might involve passing a DM Object.
+    ################################################
+    t_prev = time.time() 
+    gmat.assemble()
+    print('Rank ', dcomm.Get_rank() if dcomm else '-', ': duration of Mat assembly :', time.time()-t_prev)
+
+    
+    '''
+    if not dcomm:
+        gmat_dense = gmat.getDenseArray()
+    else:   
+        gmat_dense = gmat.getDenseLocalMatrix()
+        dcomm.Barrier()
+    '''
+    if not dcomm:
+        print('mat_dense=', mat_dense)
+        #print('gmat_dense=', gmat_dense)
+    else:
+        for k in range(dcomm.Get_size()):
+            if k == dcomm.Get_rank():
+                print('\n\nRank ', k)
+                print('mat_dense=\n', mat_dense)
+                #print('petsc_row_indices=\n', petsc_row_indices)
+                #print('petsc_col_indices=\n', petsc_col_indices)
+                #print('petsc_data=\n', petsc_data)
+                print('I=', I)
+                print('rowmap=', rowmap)
+                print('J=\n', J)
+                print('V=\n', V)
+                #print('gmat_dense=\n', gmat_dense)     
+                print   
+            dcomm.Barrier()        
+    return gmat
+
+
+def mat_topetsc_old( mat ):
     """ Convert operator from Psydac format to a PETSc.Mat object.
 
     Parameters
@@ -389,7 +651,6 @@ def mat_topetsc( mat ):
     comm = dcart.global_comm
 
 
-
     #print('mat.shape = ', mat.shape)
     #print('rank: ', comm.Get_rank(), ', local_ncells=', dcart.domain_decomposition.local_ncells)
     #print('rank: ', comm.Get_rank(), ', nprocs=', dcart.domain_decomposition.nprocs)
@@ -403,7 +664,7 @@ def mat_topetsc( mat ):
     ### SPLITTING DOMAIN
     #ownership_ranges = [comm.allgather(dcart.domain_decomposition.local_ncells[k]) for k in range(dcart.ndim)]
     
-    boundary_type = [(PETSc.DM.BoundaryType.PERIODIC if mat.domain.periods[k] else PETSc.DM.BoundaryType.NONE) for k in range(dcart.ndim)]
+    '''boundary_type = [(PETSc.DM.BoundaryType.PERIODIC if mat.domain.periods[k] else PETSc.DM.BoundaryType.NONE) for k in range(dcart.ndim)]
 
 
     dim = dcart.ndim
@@ -416,7 +677,7 @@ def mat_topetsc( mat ):
     print('OWNership_ranges=', ownership_ranges)
     Dmda = PETSc.DMDA().create(dim=dim, sizes=sizes, proc_sizes=proc_sizes, 
                                ownership_ranges=ownership_ranges, comm=comm, 
-                               stencil_type=PETSc.DMDA.StencilType.BOX, boundary_type=boundary_type)
+                               stencil_type=PETSc.DMDA.StencilType.BOX, boundary_type=boundary_type)'''
     
 
     '''### SPLITTING COEFFS
