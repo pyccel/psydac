@@ -222,7 +222,38 @@ def basis_funs_1st_der_p(knots: 'float[:]', degree: int, x: float, span: int, ou
     # j = degree
     out[degree] = saved
 
+# =============================================================================
+def basis_funs_1st_der_array_p(knots: 'float[:]', degree: int, x: 'float[:]', span: 'int[:]', out: 'float[:,:]'):
+    """
+    Compute the first derivative of the non-vanishing B-splines at locations in x, given the knot sequence,
+    polynomial degree and knot span. See Algorithm A2.2 in [1].
 
+    Parameters
+    ----------
+    knots : array_like of floats
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    x : array_like of floats
+        Evaluation points.
+
+    span : array_like of int
+        Knot span indexes.
+
+    out : array
+        The result will be inserted into this array.
+        It should be of the appropriate shape and dtype.
+
+    References
+    ----------
+    .. [1] L. Piegl and W. Tiller. The NURBS Book, 2nd ed.,
+        Springer-Verlag Berlin Heidelberg GmbH, 1997.
+    """
+    n = x.shape[0]
+    for i in range(n):
+        basis_funs_1st_der_p(knots, degree, x[i], span[i], out[i, :])
 # =============================================================================
 def basis_funs_all_ders_p(knots: 'float[:]', degree: int, x: float, span: int, n: int, normalization: bool,
                           out: 'float[:,:]'):

@@ -22,6 +22,7 @@ from psydac.core.bsplines_kernels import (find_span_p,
                                           basis_funs_p,
                                           basis_funs_array_p,
                                           basis_funs_1st_der_p,
+                                          basis_funs_1st_der_array_p,
                                           basis_funs_all_ders_p,
                                           collocation_matrix_p,
                                           histopolation_matrix_p,
@@ -250,6 +251,43 @@ def basis_funs_1st_der(knots, degree, x, span, out=None):
     return out
 
 #==============================================================================
+def basis_funs_1st_der_array(knots, degree, span, x, out=None):
+    """
+    Compute the first derivative of the non-vanishing B-splines at locations x.
+
+    Parameters
+    ----------
+    knots : array_like of floats
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    span : array_like of int
+        Knot span indexes.
+
+    x : array_like of floats
+        Evaluation points.
+
+    out : array, optional
+        If provided, the result will be inserted into this array.
+        It should be of the appropriate shape and dtype.
+
+    Returns
+    -------
+    array
+        2D array of shape ``(len(x), degree + 1)`` containing the values of ``degree + 1`` non-zero first derivative
+        Bsplines at each location in ``x``.
+    """
+    knots = np.ascontiguousarray(knots, dtype=float)
+    x = np.ascontiguousarray(x, dtype=float)
+    if out is None:
+        out = np.zeros(x.shape + (degree + 1,), dtype=float)
+    else:
+        assert out.shape == x.shape + (degree + 1,) and out.dtype == np.dtype('float')
+    basis_funs_1st_der_array_p(knots, degree, x, span,  out)
+    return out
+#==============================================================================
 def basis_funs_all_ders(knots, degree, x, span, n, normalization='B', out=None):
     """
     Evaluate value and n derivatives at x of all basis functions with
@@ -354,7 +392,7 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None):
     return out
 
 #==============================================================================
-def histopolation_matrix(knots, degree, periodic, normalization, xgrid, check_boundary=True, out=None):
+def histopolation_matrix(knots, degree, periodic, multiplicity, normalization, xgrid, check_boundary=True, out=None):
     """Computes the histopolation matrix.
 
     If called with normalization='M', this uses M-splines instead of B-splines.
@@ -418,7 +456,7 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid, check_bo
 
     knots = np.ascontiguousarray(knots, dtype=float)
     xgrid = np.ascontiguousarray(xgrid, dtype=float)
-    elevated_knots = elevate_knots(knots, degree, periodic)
+    elevated_knots = elevate_knots(knots, degree, periodic, multiplicity)
 
     normalization = normalization == "M"
 

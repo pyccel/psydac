@@ -132,7 +132,7 @@ class SplineSpace( FemSpace ):
         self._breaks        = grid
         self._ncells        = len(grid) - 1
         self._greville      = greville(knots, degree, periodic)
-        self._ext_greville  = greville(elevate_knots(knots, degree, periodic), degree+1, periodic)
+        self._ext_greville  = greville(elevate_knots(knots, degree, periodic, multiplicity), degree+1, periodic)
         self._scaling_array = scaling_array
 
         self._parent_multiplicity  = parent_multiplicity
@@ -211,6 +211,7 @@ class SplineSpace( FemSpace ):
             knots    = self.knots,
             degree   = self.degree,
             periodic = self.periodic,
+            multiplicity=self.multiplicity,
             normalization = self.basis,
             xgrid    = self.ext_greville
         )

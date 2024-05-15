@@ -163,10 +163,11 @@ class GlobalProjector(metaclass=ABCMeta):
 
             solverblocks += [KroneckerLinearSolver(tensorspaces[i].vector_space, solvercells)]
 
-            dataslice = tuple(slice(p, -p) for p in tensorspaces[i].vector_space.pads)
+            dataslice = tuple(slice(m*p, -m*p) for p,m in zip(tensorspaces[i].vector_space.pads,tensorspaces[i].multiplicity))
             dofs[i] = rhsblocks[i]._data[dataslice]
-        
+
         # finish arguments and create a lambda
+
         args = (*intp_x, *quad_x, *quad_w, *dofs)
         self._func = lambda *fun: func(*args, *fun)
 
