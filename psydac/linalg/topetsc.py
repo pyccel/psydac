@@ -131,6 +131,90 @@ def petsc_to_psydac_local(
 
     return tuple(tuple(ii))
 
+def psydac_to_global(V : VectorSpace, ndarray_indices : tuple[int]) -> int:
+    '''From Psydac natural multi-index (grid coordinates) to global PETSc single-index.
+    Performs a search to find the process owning the multi-index.'''
+    ndim = V.ndim
+    s = V.starts
+    e = V.ends
+    p = V.pads
+    m = V.shifts
+    dnpts = V.cart.npts
+    nprocs = V.cart.nprocs
+    #dnpts_local = [ e - s + 1 for s, e in zip(s, e)] #Number of points in each dimension within each process. Different for each process.
+
+    gs = V.cart.global_starts # Global variable
+    ge = V.cart.global_ends # Global variable
+
+    npts_local_perprocess = [ ge_i - gs_i + 1 for gs_i, ge_i in zip(gs, ge)] #Global variable
+    npts_local_perprocess = [*cartesian_prod(*npts_local_perprocess)] #Global variable
+    localsize_perprocess = [np.prod(npts_local_perprocess[k]) for k in range(V.cart.comm.Get_size())] #Global variable
+
+    jj = ndarray_indices
+    if ndim == 1:
+        global_index = (jj[0] - p[0]*m[0])%dnpts[0] 
+    elif ndim == 2:
+        proc_x = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
+        proc_y = np.nonzero(np.array([jj[1] in range(gs[1][k],ge[1][k]+1) for k in range(gs[1].size)]))[0][0]
+
+        proc_index = proc_y + proc_x*nprocs[1]#proc_x + proc_y*nprocs[0]
+        index_shift = 0 + np.sum(localsize_perprocess[0:proc_index], dtype=int) #Global variable
+        #global_index = jj[0] - gs[0][proc_x] + (jj[1] - gs[1][proc_y]) * npts_local_perprocess[proc_index][0] + index_shift 
+        global_index = jj[1] - gs[1][proc_y] + (jj[0] - gs[0][proc_x]) * npts_local_perprocess[proc_index][1] + index_shift
+
+        #x_proc_ranges = np.array([range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)])
+
+        #hola = np.where(jj[0] in x_proc_ranges)#, gs[0], -1)
+        '''for k in range(V.cart.comm.Get_size()):
+            if k == V.cart.comm.Get_rank():
+                print('\nRank', k, '\njj=', jj)
+                print('proc_x=', proc_x)
+                print('proc_y=', proc_y)
+                print('proc_index=', proc_index)
+                print('index_shift=', index_shift)
+                print('global_index=', global_index)
+                print('npts_local_perprocess=', npts_local_perprocess)
+            V.cart.comm.Barrier()'''
+
+     
+    else:
+        raise NotImplementedError( "Cannot handle more than 3 dimensions." )
+
+
+    return global_index
+
+def psydac_to_singlenatural(V : VectorSpace, ndarray_indices : tuple[int]) -> int:
+    ndim = V.ndim
+    dnpts = V.cart.npts
+
+
+    jj = ndarray_indices
+    if ndim == 1:
+        singlenatural_index = 0
+    elif ndim == 2:
+        singlenatural_index = jj[1] + jj[0] * dnpts[1] 
+        
+
+        #x_proc_ranges = np.array([range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)])
+
+        #hola = np.where(jj[0] in x_proc_ranges)#, gs[0], -1)
+        '''for k in range(V.cart.comm.Get_size()):
+            if k == V.cart.comm.Get_rank():
+                print('\nRank', k, '\njj=', jj)
+                print('proc_x=', proc_x)
+                print('proc_y=', proc_y)
+                print('proc_index=', proc_index)
+                print('index_shift=', index_shift)
+                print('global_index=', global_index)
+                print('npts_local_perprocess=', npts_local_perprocess)
+            V.cart.comm.Barrier()'''
+
+     
+    else:
+        raise NotImplementedError( "Cannot handle more than 3 dimensions." )
+
+
+    return singlenatural_index    
 
 def flatten_vec( vec ):
     """ Return the flattened 1D array values and indices owned by the process of the given vector.
@@ -344,7 +428,7 @@ def vec_topetsc( vec ):
     # Assemble vector
     gvec.assemble() # Here PETSc exchanges global communication. The block corresponding to a certain process is not necessarily the same block in the Psydac StencilVector.
 
-    if comm is not None:
+    '''if comm is not None:
         vec_arr = vec.toarray()
         for k in range(comm.Get_size()):
             if k == comm.Get_rank():   
@@ -355,7 +439,7 @@ def vec_topetsc( vec ):
                 print('vec.toarray()=', vec_arr)
                 #print('gvec.getSizes()=', gvec.getSizes())
             comm.Barrier()
-        print('================================')
+        print('================================')'''
 
     
     return gvec
@@ -390,6 +474,7 @@ def mat_topetsc( mat ):
     dcomm = dcart.global_comm
     ccomm = ccart.global_comm
 
+    mat.update_ghost_regions()
 
     dndim = dcart.ndim
     dstarts = dcart.starts
@@ -403,7 +488,7 @@ def mat_topetsc( mat ):
     cends = ccart.ends
     #cpads = ccart.pads
     #cshifts = ccart.shifts
-    cnpts = ccart.npts
+    cnpts = ccart.npts 
 
     dnpts_local = [ e - s + 1 for s, e in zip(dstarts, dends)] #Number of points in each dimension within each process. Different for each process.
     cnpts_local = [ e - s + 1 for s, e in zip(cstarts, cends)]
@@ -425,8 +510,12 @@ def mat_topetsc( mat ):
             print('cnpts=', cnpts)
             print('dnpts_local=', dnpts_local)
             print('cnpts_local=', cnpts_local)
-            #print('mat_dense=\n', mat_dense)
+            #print('mat_dense=\n', mat_dense[:3])
             print('mat._data.shape=\n', mat._data.shape)
+            print('dindex_shift=', dindex_shift)
+            print('cindex_shift=', cindex_shift)
+            print('ccart.global_starts=', ccart.global_starts)
+            print('ccart.global_ends=', ccart.global_ends)
             #print('mat._data=\n', mat._data)
 
         dcomm.Barrier() 
@@ -464,17 +553,19 @@ def mat_topetsc( mat ):
     rows_coo_local, cols_coo_local, data_coo_local = mat_coo_local.row, mat_coo_local.col, mat_coo_local.data'''
 
 
-    petsc_row_indices = []
-    petsc_col_indices = []
-    petsc_data = []
     #mat.remove_spurious_entries()
 
     I = [0]
     J = []
     V = []
+    J2 = []
     rowmap = []
+    rowmap2 = []
 
     dindices = [np.arange(p*m, p*m + n) for p, m, n in zip(dpads, dshifts, dnpts_local)]
+
+    #[[ dcomm.Get_rank()*dnpts_local[1] + n2 + dnpts[1]*n1 for n2 in np.arange(dnpts_local[1])]  for n1 in np.arange(dnpts_local[0])]
+                        
     #cindices = [np.arange(2*p*m + 1) for p, m in zip(dpads, dshifts)]
 
     #prod_indices = np.empty((max(dnpts_local) * max(cnpts_local), 3))
@@ -484,29 +575,29 @@ def mat_topetsc( mat ):
         prod_indices.append([*cartesian_prod(dindices[d], cindices[d])])
     '''
 
+    #matd = mat.tosparse().todense()
+    s = dstarts
+    p = dpads
+    m = dshifts
+   
 
     if dndim == 1 and cndim == 1:
-        for id1 in dindices[0]:
+        for i1 in dindices[0]:
             nnz_in_row = 0
-            for ic1 in range(2*dpads[0]*dshifts[0] + 1):
-                value = mat._data[id1, ic1]
+            for k1 in range(2*dpads[0]*dshifts[0] + 1):
+                value = mat._data[i1, k1]
                 
                 if value != 0:
-                    #print('id1, ic1 = ', id1, ic1)
-                    #print('value=', value)
-                    '''cindex_petsc = (id1 + ic1 - 2*dpads[0]*dshifts[0]) % (2*dpads[0]*dshifts[0] + 1)
-                    dindex_petsc = globalsize[1] * (id1 - dpads[0]*dshifts[0]) + cindex_petsc
-                    #dindex_petsc = psydac_to_petsc_local(mat.domain, [], (id1*(2*dpads[0] + 1) + ic1,)) # global index starting from 0 in each process
-                    
-                    #cindex_petsc = psydac_to_petsc_local(mat.codomain, [], (ic1 + cpads[0]*cshifts[0],)) # global index starting from 0 in each process
-                    dindex_petsc += dindex_shift # global index NOT starting from 0 in each process
-                    cindex_petsc += cindex_shift # global index NOT starting from 0 in each process
-                    petsc_row_indices.append(dindex_petsc)
-                    petsc_col_indices.append(cindex_petsc)'''
-                    #petsc_col_indices.append((id1 + ic1 - 2*dpads[0]*dshifts[0])%dnpts_local[0])
                     if nnz_in_row == 0:
-                        rowmap.append(dindex_shift + psydac_to_petsc_local(mat.domain, [], (id1,)))                    
-                    J.append((dindex_shift + id1 + ic1 - 2*dpads[0]*dshifts[0])%dnpts[0])
+                        rowmap.append(dindex_shift + psydac_to_petsc_local(mat.domain, [], (i1,)))  
+
+                    i1_n = s[0] + i1 
+                    j1_n = i1_n + k1 - p[0]*m[0]  
+
+                    global_col = psydac_to_global(mat.domain, (j1_n,))
+                    #J.append((j1_n - p[0]*m[0])%dnpts[0])
+                    J.append(global_col)           
+                    #J.append((dindex_shift + i1 + k1 - 2*p[0]*m[0])%dnpts[0])
                     V.append(value)  
 
                     nnz_in_row += 1
@@ -520,20 +611,80 @@ def mat_topetsc( mat ):
                 I.append(I[-1] + nnz_in_row)'''
                 
     elif dndim == 2 and cndim == 2:
-        for id1 in dindices[0]:                
-            for id2 in dindices[1]:
+        ghost_size = (p[0]*m[0], p[1]*m[1])
+        for i1 in np.arange(dnpts_local[0]):#dindices[0]:  #range(dpads[0]*dshifts[0] + dnpts_local[0]):               
+            for i2 in np.arange(dnpts_local[1]):#dindices[1]: #range(dpads[1]*dshifts[1] + dnpts_local[1]): 
 
                 nnz_in_row = 0
-                local_row = psydac_to_petsc_local(mat.domain, [], (id1, id2))
-                #band_width = 4*np.prod(dpads)*np.prod(dshifts)
+                #local_row = psydac_to_petsc_local(mat.domain, [], (i1, i2))
+                #local_row += (local_row // dnpts_local[1])*dnpts_local[1]
+
+                #cindices1 = np.arange( max(0, id1 - dindices[0][0] - dpads[0]*dshifts[0]), min(2*dpads[0]*dshifts[0], id1 - dindices[0][0] + dpads[0]*dshifts[0]) + 1)
+                #cindices2 = np.arange( max(0, id2 - dindices[1][0] - dpads[1]*dshifts[1]), min(2*dpads[1]*dshifts[1], id2 - dindices[1][0] + dpads[1]*dshifts[1]) + 1)
+                #cindices1 = np.arange( max(dpads[0]*dshifts[0], id1), min(2*dpads[0]*dshifts[0] + 1, id1 + 2*dpads[0]*dshifts[0]) + 1)
+                #cindices2 = np.arange( max(dpads[1]*dshifts[1], id2), min(2*dpads[1]*dshifts[1] + 1, id2 + 2*dpads[1]*dshifts[1]) + 1)
+
+                #cindices = [*cartesian_prod(cindices1, cindices2)] 
+                #cindices = [[(ic1, ic2) for ic2 in np.arange(id2 - int(np.ceil(dpads[1]*dshifts[1]/2)), id2 + int(np.floor(dpads[1]*dshifts[1]/2)) + 1) - dpads[1]*dshifts[1] ] 
+                #                        for ic1 in np.arange(id1 - int(np.ceil(dpads[0]*dshifts[0]/2)), id1 + int(np.floor(dpads[0]*dshifts[0]/2)) + 1) - dpads[0]*dshifts[0] ] 
+
+                #ravel_ind_0_col = 2*dpads[1]*dshifts[1] + 1 + 2*dpads[0]*dshifts[0] - local_row #becomes negative for large row index
+                #ravel_ind_0_col = ((2*dpads[1]*dshifts[1] + 1) * (2*dpads[0]*dshifts[0] + 1) ) // 2 - local_row #becomes negative for large row index
+
                 #cindices1 = [np.arange(max(0, (4*np.prod(dpads)*np.prod(dshifts) - local_row), ) for p, m, n in zip(dpads, dshifts, dnpts_local)]
 
-                for ic1 in range(2*dpads[0]*dshifts[0] + 1):                    
-                    for ic2 in range(2*dpads[1]*dshifts[1] + 1):
+                '''if dcomm.Get_rank() == 0:
+                    print('Rank 0: mat._data[',id1, ',' , id2 , ']=\n', mat._data[id1, id2])
+                elif dcomm.Get_rank() == 1:
+                    print('Rank 1: mat._data[',id1, ',' , id2 , ']=\n', mat._data[id1, id2])
+                #dcomm.Barrier()'''
 
-                        value = mat._data[id1, id2, ic1, ic2]
+                i1_n = s[0] + i1
+                i2_n = s[1] + i2
+                i_g = psydac_to_global(mat.codomain, (i1_n, i2_n))
+                i_n = psydac_to_singlenatural(mat.codomain, (i1_n,i2_n))
 
-                        if value != 0:
+                for k in range(dcomm.Get_size()):
+                    if k == dcomm.Get_rank():
+                        print(f'Rank {k}: ({i1_n}, {i2_n}), i_n= {i_n}, i_g= {i_g}')
+                        #print(f'global_row= {global_row}')
+                    #dcomm.Barrier()
+                    #ccomm.Barrier()
+
+
+
+
+                for k1 in range(2*p[0]*m[0] + 1):                    
+                    for k2 in range(2*p[1]*m[1] + 1):
+                    #for ic1, ic2 in cindices:
+
+                        value = mat._data[i1 + ghost_size[0], i2 + ghost_size[1], k1, k2]
+
+                        '''i1_n = s[0] + i1
+                        i2_n = s[1] + i2
+                        #(j1_n, j2_n) is the Psydac natural multi-index (like a grid)
+                        j1_n = i1_n + k1 - p[0]
+                        j2_n = i2_n + k2 - p[1]'''
+                        
+
+                        #(j1_n, j2_n) is the Psydac natural multi-index (like a grid)
+                        j1_n = i1_n + k1 - p[0]*m[0]
+                        j2_n = i2_n + k2 - p[1]*m[1]
+
+                        
+
+                        #print('i1,i2,k1,k2=', i1,i2,k1,k2)
+                        #print('i1_n,i2_n,j1_n,j2_n,value=', i1_n,i2_n,j1_n,j2_n,value)
+
+
+                    
+
+                        if (value != 0 and j1_n < dnpts[0] and j2_n < dnpts[1]):
+
+                            j_g = psydac_to_global(mat.domain, (j1_n, j2_n))
+
+                            global_col = psydac_to_global(mat.domain, (j1_n, j2_n))
+                            #print('row,id1,id2,ic1,ic2=', local_row, id1, id2, ic1, ic2)
                             '''dindex_petsc = psydac_to_petsc_local(mat.domain, [], (id1,id2)) # global index starting from 0 in each process
                             cindex_petsc = (id1 + ic1 - 2*dpads[0]*dshifts[0]) % (2*dpads[0]*dshifts[0]) 
 
@@ -551,15 +702,27 @@ def mat_topetsc( mat ):
                             #local_row = psydac_to_petsc_local(mat.domain, [], (id1, id2))
 
                             if nnz_in_row == 0:
-                                rowmap.append(dindex_shift + local_row)                    
+                                #rowmap.append(dindex_shift + local_row)  
+                                #rowmap.append(dindex_shift + local_row)   
+                                rowmap.append(i_g)     
+                                rowmap2.append(psydac_to_singlenatural(mat.domain, (i1_n,i2_n)))                 
                             #J.append( (dindex_shift + local_row + ic1*(2*dpads[1]*dshifts[1] + 1) + ic2 - 2*dpads[0]*dshifts[0] - 2*dpads[1]*dshifts[1] ) \
                             #          % np.prod(dnpts) )
-                            num_zeros_0row = (2*dpads[0]*dshifts[0] + 1)*(2*dpads[1]*dshifts[1] + 1) // 2
-                            J.append( (dindex_shift + local_row \
-                                       + (ic1*(2*dpads[1]*dshifts[1] + 1) + ic2)
-                                       - num_zeros_0row \
-                                        ) \
-                                       % (np.prod(dnpts)-1) )
+                            #num_zeros_0row = (2*dpads[0]*dshifts[0] + 1)*(2*dpads[1]*dshifts[1] + 1) // 2
+                            #J.append( (dindex_shift + local_row \
+                            #           + (ic1*(2*dpads[1]*dshifts[1] + 1) + ic2)
+                            #          - num_zeros_0row \
+                            #            ) \
+                            #           % (np.prod(dnpts)) )
+
+                            #ravel_ind = ic2 + (2*dpads[1]*dshifts[1] + 1) * ic1
+                            #col_index = ic2 - dpads[1]*dshifts[1] + (ic1 - dpads[0]*dshifts[0])*dnpts[1]
+                            #col_index = ic2 - dpads[1]*dshifts[1] + (dindex_shift+local_row) % dnpts[1] \
+                            #            + (ic1 - dpads[0]*dshifts[0] + (dindex_shift+local_row) // dnpts[1]) * dnpts[1]
+                            
+                            J.append(j_g)
+                            J2.append(psydac_to_singlenatural(mat.domain, (j1_n,j2_n)))
+
                             V.append(value)  
 
                             nnz_in_row += 1
@@ -567,6 +730,30 @@ def mat_topetsc( mat ):
                 I.append(I[-1] + nnz_in_row)
 
 
+    if not dcomm:
+        print()
+        #print('mat_dense=', mat_dense)
+        #print('gmat_dense=', gmat_dense)
+    else:
+        for k in range(dcomm.Get_size()):
+            if k == dcomm.Get_rank():
+                print('\n\nRank ', k)
+                #print('mat_dense=\n', mat_dense)
+                #print('petsc_row_indices=\n', petsc_row_indices)
+                #print('petsc_col_indices=\n', petsc_col_indices)
+                #print('petsc_data=\n', petsc_data)
+                #print('owned_rows=', owned_rows)
+                print('mat_dense=\n', mat_dense)
+                print('I=', I)
+                print('rowmap=', rowmap)
+                print('rowmap2=', rowmap2)
+                print('J=\n', J)
+                print('J2=\n', J2)
+                #print('V=\n', V)
+                #print('gmat_dense=\n', gmat_dense)     
+                print('\n\n============')   
+            dcomm.Barrier()  
+    
     import time
     t_prev = time.time() 
     '''for k in range(len(rows_coo)):
@@ -601,24 +788,7 @@ def mat_topetsc( mat ):
         gmat_dense = gmat.getDenseLocalMatrix()
         dcomm.Barrier()
     '''
-    if not dcomm:
-        print('mat_dense=', mat_dense)
-        #print('gmat_dense=', gmat_dense)
-    else:
-        for k in range(dcomm.Get_size()):
-            if k == dcomm.Get_rank():
-                print('\n\nRank ', k)
-                print('mat_dense=\n', mat_dense)
-                #print('petsc_row_indices=\n', petsc_row_indices)
-                #print('petsc_col_indices=\n', petsc_col_indices)
-                #print('petsc_data=\n', petsc_data)
-                print('I=', I)
-                print('rowmap=', rowmap)
-                print('J=\n', J)
-                print('V=\n', V)
-                #print('gmat_dense=\n', gmat_dense)     
-                print   
-            dcomm.Barrier()        
+      
     return gmat
 
 
