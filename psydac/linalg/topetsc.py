@@ -152,7 +152,11 @@ def psydac_to_global(V : VectorSpace, ndarray_indices : tuple[int]) -> int:
 
     jj = ndarray_indices
     if ndim == 1:
-        global_index = (jj[0] - p[0]*m[0])%dnpts[0] 
+        #global_index = (jj[0] - p[0]*m[0])%dnpts[0] 
+        proc_index = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
+        index_shift = 0 + np.sum(localsize_perprocess[0:proc_index], dtype=int) #Global variable
+        global_index = index_shift + jj[0] - gs[0][proc_x]
+
     elif ndim == 2:
         proc_x = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
         proc_y = np.nonzero(np.array([jj[1] in range(gs[1][k],ge[1][k]+1) for k in range(gs[1].size)]))[0][0]
@@ -160,7 +164,7 @@ def psydac_to_global(V : VectorSpace, ndarray_indices : tuple[int]) -> int:
         proc_index = proc_y + proc_x*nprocs[1]#proc_x + proc_y*nprocs[0]
         index_shift = 0 + np.sum(localsize_perprocess[0:proc_index], dtype=int) #Global variable
         #global_index = jj[0] - gs[0][proc_x] + (jj[1] - gs[1][proc_y]) * npts_local_perprocess[proc_index][0] + index_shift 
-        global_index = jj[1] - gs[1][proc_y] + (jj[0] - gs[0][proc_x]) * npts_local_perprocess[proc_index][1] + index_shift
+        global_index = index_shift + jj[1] - gs[1][proc_y] + (jj[0] - gs[0][proc_x]) * npts_local_perprocess[proc_index][1]
 
         #x_proc_ranges = np.array([range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)])
 
@@ -175,8 +179,19 @@ def psydac_to_global(V : VectorSpace, ndarray_indices : tuple[int]) -> int:
                 print('global_index=', global_index)
                 print('npts_local_perprocess=', npts_local_perprocess)
             V.cart.comm.Barrier()'''
+    elif ndim == 3:
+        proc_x = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
+        proc_y = np.nonzero(np.array([jj[1] in range(gs[1][k],ge[1][k]+1) for k in range(gs[1].size)]))[0][0]
+        proc_z = np.nonzero(np.array([jj[2] in range(gs[2][k],ge[2][k]+1) for k in range(gs[2].size)]))[0][0]
 
-     
+        proc_index = proc_z + proc_y*nprocs[2] + proc_x*nprocs[1]*nprocs[2] #proc_x + proc_y*nprocs[0]
+        index_shift = 0 + np.sum(localsize_perprocess[0:proc_index], dtype=int) #Global variable
+        global_index = index_shift \
+                     +  jj[2] - gs[2][proc_z] \
+                     + (jj[1] - gs[1][proc_y]) * npts_local_perprocess[proc_index][2] \
+                     + (jj[0] - gs[0][proc_x]) * npts_local_perprocess[proc_index][1] * npts_local_perprocess[proc_index][2]
+
+
     else:
         raise NotImplementedError( "Cannot handle more than 3 dimensions." )
 
@@ -475,6 +490,7 @@ def mat_topetsc( mat ):
     ccomm = ccart.global_comm
 
     mat.update_ghost_regions()
+    mat.remove_spurious_entries()
 
     dndim = dcart.ndim
     dstarts = dcart.starts
@@ -562,7 +578,7 @@ def mat_topetsc( mat ):
     rowmap = []
     rowmap2 = []
 
-    dindices = [np.arange(p*m, p*m + n) for p, m, n in zip(dpads, dshifts, dnpts_local)]
+    #dindices = [np.arange(p*m, p*m + n) for p, m, n in zip(dpads, dshifts, dnpts_local)]
 
     #[[ dcomm.Get_rank()*dnpts_local[1] + n2 + dnpts[1]*n1 for n2 in np.arange(dnpts_local[1])]  for n1 in np.arange(dnpts_local[0])]
                         
@@ -579,6 +595,7 @@ def mat_topetsc( mat ):
     s = dstarts
     p = dpads
     m = dshifts
+    ghost_size = [pi*mi for pi,mi in zip(p,m)]
    
 
     if dndim == 1 and cndim == 1:
@@ -611,7 +628,7 @@ def mat_topetsc( mat ):
                 I.append(I[-1] + nnz_in_row)'''
                 
     elif dndim == 2 and cndim == 2:
-        ghost_size = (p[0]*m[0], p[1]*m[1])
+        #ghost_size = (p[0]*m[0], p[1]*m[1])
         for i1 in np.arange(dnpts_local[0]):#dindices[0]:  #range(dpads[0]*dshifts[0] + dnpts_local[0]):               
             for i2 in np.arange(dnpts_local[1]):#dindices[1]: #range(dpads[1]*dshifts[1] + dnpts_local[1]): 
 
@@ -679,7 +696,7 @@ def mat_topetsc( mat ):
 
                     
 
-                        if (value != 0 and j1_n < dnpts[0] and j2_n < dnpts[1]):
+                        if value != 0 and j1_n in range(dnpts[0]) and j2_n in range(dnpts[1]):
 
                             j_g = psydac_to_global(mat.domain, (j1_n, j2_n))
 
@@ -728,6 +745,39 @@ def mat_topetsc( mat ):
                             nnz_in_row += 1
 
                 I.append(I[-1] + nnz_in_row)
+
+    elif dndim == 3 and cndim == 3:
+        for i1 in np.arange(dnpts_local[0]):             
+            for i2 in np.arange(dnpts_local[1]):
+                for i3 in np.arange(dnpts_local[2]):
+                    nnz_in_row = 0
+                    i1_n = s[0] + i1
+                    i2_n = s[1] + i2
+                    i3_n = s[2] + i3
+                    i_g = psydac_to_global(mat.codomain, (i1_n, i2_n, i3_n))
+
+                    for k1 in range(2*p[0]*m[0] + 1):                    
+                        for k2 in range(2*p[1]*m[1] + 1):
+                            for k3 in range(2*p[2]*m[2] + 1):
+                                value = mat._data[i1 + ghost_size[0], i2 + ghost_size[1], i3 + ghost_size[2], k1, k2, k3]
+
+                                j1_n = i1_n + k1 - ghost_size[0]
+                                j2_n = i2_n + k2 - ghost_size[1]
+                                j3_n = i3_n + k3 - ghost_size[2]
+
+                                if value != 0 and j1_n in range(dnpts[0]) and j2_n in range(dnpts[1]) and j3_n in range(dnpts[2]):
+                                    j_g = psydac_to_global(mat.domain, (j1_n, j2_n, j3_n))
+
+                                    if nnz_in_row == 0: 
+                                        rowmap.append(i_g)     
+                            
+                                    J.append(j_g)
+                                    V.append(value)  
+                                    nnz_in_row += 1
+
+                    I.append(I[-1] + nnz_in_row)
+
+
 
 
     if not dcomm:
