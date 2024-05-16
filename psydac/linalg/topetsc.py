@@ -155,7 +155,7 @@ def psydac_to_global(V : VectorSpace, ndarray_indices : tuple[int]) -> int:
         #global_index = (jj[0] - p[0]*m[0])%dnpts[0] 
         proc_index = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
         index_shift = 0 + np.sum(localsize_perprocess[0:proc_index], dtype=int) #Global variable
-        global_index = index_shift + jj[0] - gs[0][proc_x]
+        global_index = index_shift + jj[0] - gs[0][proc_index]
 
     elif ndim == 2:
         proc_x = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
@@ -599,33 +599,28 @@ def mat_topetsc( mat ):
    
 
     if dndim == 1 and cndim == 1:
-        for i1 in dindices[0]:
+        for i1 in np.arange(dnpts_local[0]):
             nnz_in_row = 0
-            for k1 in range(2*dpads[0]*dshifts[0] + 1):
-                value = mat._data[i1, k1]
+            i1_n = s[0] + i1
+            i_g = psydac_to_global(mat.codomain, (i1_n,))
+
+            for k1 in range(-p[0]*m[0], p[0]*m[0] + 1):
+                value = mat._data[i1 + ghost_size[0], (k1 + ghost_size[0])%(2*p[0]*m[0] + 1)]
+                j1_n = (i1_n + k1)%dnpts[0] 
                 
                 if value != 0:
+
+                    j_g = psydac_to_global(mat.domain, (j1_n, ))
+
                     if nnz_in_row == 0:
-                        rowmap.append(dindex_shift + psydac_to_petsc_local(mat.domain, [], (i1,)))  
+                        rowmap.append(i_g)  
 
-                    i1_n = s[0] + i1 
-                    j1_n = i1_n + k1 - p[0]*m[0]  
-
-                    global_col = psydac_to_global(mat.domain, (j1_n,))
-                    #J.append((j1_n - p[0]*m[0])%dnpts[0])
-                    J.append(global_col)           
-                    #J.append((dindex_shift + i1 + k1 - 2*p[0]*m[0])%dnpts[0])
+                    J.append(j_g)           
                     V.append(value)  
 
                     nnz_in_row += 1
-                    #J.append(petsc_col_indices[-1])
-                    #V.append(value)
 
             I.append(I[-1] + nnz_in_row)
-            '''if nnz_in_row > 0:
-                #rowmap.append(id1 - dpads[0]*dshifts[0])
-                rowmap.append(petsc_row_indices[-1])
-                I.append(I[-1] + nnz_in_row)'''
                 
     elif dndim == 2 and cndim == 2:
         #ghost_size = (p[0]*m[0], p[1]*m[1])
@@ -671,11 +666,11 @@ def mat_topetsc( mat ):
 
 
 
-                for k1 in range(2*p[0]*m[0] + 1):                    
-                    for k2 in range(2*p[1]*m[1] + 1):
+                for k1 in range(- p[0]*m[0], p[0]*m[0] + 1):                    
+                    for k2 in range(- p[1]*m[1], p[1]*m[1] + 1):
                     #for ic1, ic2 in cindices:
 
-                        value = mat._data[i1 + ghost_size[0], i2 + ghost_size[1], k1, k2]
+                        value = mat._data[i1 + ghost_size[0], i2 + ghost_size[1], (k1 + ghost_size[0])%(2*p[0]*m[0] + 1), (k2 + ghost_size[1])%(2*p[1]*m[1] + 1)]
 
                         '''i1_n = s[0] + i1
                         i2_n = s[1] + i2
@@ -685,8 +680,8 @@ def mat_topetsc( mat ):
                         
 
                         #(j1_n, j2_n) is the Psydac natural multi-index (like a grid)
-                        j1_n = i1_n + k1 - p[0]*m[0]
-                        j2_n = i2_n + k2 - p[1]*m[1]
+                        j1_n = (i1_n + k1)%dnpts[0] #- p[0]*m[0]
+                        j2_n = (i2_n + k2)%dnpts[1] #- p[1]*m[1]
 
                         
 
@@ -696,7 +691,7 @@ def mat_topetsc( mat ):
 
                     
 
-                        if value != 0 and j1_n in range(dnpts[0]) and j2_n in range(dnpts[1]):
+                        if value != 0: #and j1_n in range(dnpts[0]) and j2_n in range(dnpts[1]):
 
                             j_g = psydac_to_global(mat.domain, (j1_n, j2_n))
 
@@ -756,16 +751,16 @@ def mat_topetsc( mat ):
                     i3_n = s[2] + i3
                     i_g = psydac_to_global(mat.codomain, (i1_n, i2_n, i3_n))
 
-                    for k1 in range(2*p[0]*m[0] + 1):                    
-                        for k2 in range(2*p[1]*m[1] + 1):
-                            for k3 in range(2*p[2]*m[2] + 1):
-                                value = mat._data[i1 + ghost_size[0], i2 + ghost_size[1], i3 + ghost_size[2], k1, k2, k3]
+                    for k1 in range(-p[0]*m[0], p[0]*m[0] + 1):                    
+                        for k2 in range(-p[1]*m[1], p[1]*m[1] + 1):
+                            for k3 in range(-p[2]*m[2], p[2]*m[2] + 1):
+                                value = mat._data[i1 + ghost_size[0], i2 + ghost_size[1], i3 + ghost_size[2], (k1 + ghost_size[0])%(2*p[0]*m[0] + 1), (k2 + ghost_size[1])%(2*p[1]*m[1] + 1), (k3 + ghost_size[2])%(2*p[2]*m[2] + 1)]
 
-                                j1_n = i1_n + k1 - ghost_size[0]
-                                j2_n = i2_n + k2 - ghost_size[1]
-                                j3_n = i3_n + k3 - ghost_size[2]
+                                j1_n = (i1_n + k1)%dnpts[0] #- ghost_size[0]
+                                j2_n = (i2_n + k2)%dnpts[1] # - ghost_size[1]
+                                j3_n = (i3_n + k3)%dnpts[2] # - ghost_size[2]
 
-                                if value != 0 and j1_n in range(dnpts[0]) and j2_n in range(dnpts[1]) and j3_n in range(dnpts[2]):
+                                if value != 0: #and j1_n in range(dnpts[0]) and j2_n in range(dnpts[1]) and j3_n in range(dnpts[2]):
                                     j_g = psydac_to_global(mat.domain, (j1_n, j2_n, j3_n))
 
                                     if nnz_in_row == 0: 
@@ -811,7 +806,7 @@ def mat_topetsc( mat ):
     '''
     #gmat.setValuesCSR([r - dcart.global_starts[0][comm.Get_rank()] for r in indptr[1:]], indices, data)
     #gmat.setValuesLocalCSR(local_indptr, indices, data)#, addv=PETSc.InsertMode.ADD_VALUES)
-    gmat.setValuesIJV(I, J, V, rowmap=rowmap)#, addv=PETSc.InsertMode.ADD_VALUES)
+    gmat.setValuesIJV(I, J, V, rowmap=rowmap, addv=PETSc.InsertMode.ADD_VALUES) # The addition mode is necessary when periodic BC
 
 
     print('Rank ', dcomm.Get_rank() if dcomm else '-', ': duration of setValuesIJV :', time.time()-t_prev)

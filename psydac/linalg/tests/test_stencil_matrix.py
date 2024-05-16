@@ -2779,19 +2779,12 @@ def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1,
     # Cast result back to Psydac StencilVector format
     y_p = petsc_to_psydac(y_petsc, V)
 
-    ################################################
-    # Note 12.03.2024:
-    # Another possibility would be to compare y_petsc.array and y.toarray(). 
-    # However, we cannot do this because PETSc distributes matrices and vectors different than Psydac.
-    # In the future we would like that PETSc uses the partition from Psydac, 
-    # which might involve passing a DM Object.
-    ################################################
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
 
 # ===============================================================================
 
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('n1', [7, 11])
+@pytest.mark.parametrize('n1', [13, 15])
 @pytest.mark.parametrize('p1', [1, 3])
 @pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('P1', [True, False])
@@ -2860,13 +2853,6 @@ def test_stencil_matrix_1d_parallel_topetsc(dtype, n1, p1, sh1, P1):
     # Cast result back to Psydac StencilVector format
     y_p = petsc_to_psydac(y_petsc, V)
 
-    ################################################
-    # Note 12.03.2024:
-    # Another possibility would be to compare y_petsc.array and y.toarray(). 
-    # However, we cannot do this because PETSc distributes matrices and vectors different than Psydac.
-    # In the future we would like that PETSc uses the partition from Psydac, 
-    # which might involve passing a DM Object.
-    ################################################
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
 #test_stencil_matrix_1d_parallel_topetsc(float, 5, 2, 1, True)
 # ===============================================================================
@@ -2922,22 +2908,9 @@ def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
     # Cast result back to Psydac StencilVector format
     y_p = petsc_to_psydac(y_petsc, Vh.vector_space)
 
-    ################################################
-    # Note 12.03.2024:
-    # Another possibility would be to compare y_petsc.array and y.toarray(). 
-    # However, we cannot do this because PETSc distributes matrices and vectors different than Psydac.
-    # In the future we would like that PETSc uses the partition from Psydac, 
-    # which might involve passing a DM Object.
-    ################################################
-    for k in range(comm.Get_size()):
-        if k == comm.Get_rank():
-            print('rank ', comm.Get_rank(), ':y_p.toarray()=\n', y_p.toarray())
-            print('rank ', comm.Get_rank(), ': y.toarray()=\n', y.toarray())
-        comm.Barrier()
-
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
     
-test_mass_matrix_2d_parallel_topetsc(2, 3, 1, 1, True, False)
+#test_mass_matrix_2d_parallel_topetsc(10, 13, 3, 2, True, True)
 
 # ===============================================================================
 
@@ -3002,7 +2975,7 @@ def test_mass_matrix_3d_parallel_topetsc(n1, n2, n3, p1, p2, p3, P1, P2, P3):
 
 # ===============================================================================    
 
-@pytest.mark.parametrize('n1', [4,7])
+@pytest.mark.parametrize('n1', [15,17])
 @pytest.mark.parametrize('p1', [2])
 @pytest.mark.parametrize('P1', [True])
 @pytest.mark.parallel
@@ -3072,7 +3045,7 @@ def test_mass_matrix_1d_parallel_topetsc(n1, p1, P1):
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
 
-#test_mass_matrix_1d_parallel_topetsc(12, 3, True)
+#test_mass_matrix_1d_parallel_topetsc(2, 1, False)
 # ===============================================================================
 # PARALLEL BACKENDS TESTS
 # ===============================================================================
