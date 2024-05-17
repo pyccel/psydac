@@ -294,9 +294,15 @@ def get_npts_local(V : VectorSpace) -> list:
         s = V.starts
         e = V.ends        
         npts_local = [ e - s + 1 for s, e in zip(s, e)] #Number of points in each dimension within each process. Different for each process.
-        return npts_local
+        return [npts_local]
 
-    npts_local_per_block = [ get_npts_local(V.spaces[b]) for b in range(V.n_blocks) ]
+    npts_local_per_block = []
+    for b in range(V.n_blocks):
+        npts_local_b = get_npts_local(V.spaces[b])
+        if isinstance(V.spaces[b], StencilVectorSpace):
+            npts_local_b = npts_local_b[0]
+        npts_local_per_block.append(npts_local_b)
+    #npts_local_per_block = [ get_npts_local(V.spaces[b]) for b in range(V.n_blocks) ]
     return npts_local_per_block
 
 def get_block_local_shift(V : VectorSpace) -> np.ndarray:
@@ -590,7 +596,7 @@ def vec_topetsc( vec ):
     for k in range(comms[0].Get_size()):
         if k == comms[0].Get_rank():
             print(f'Rank {k}: vec={vec_arr}, petsc_indices={petsc_indices}, data={petsc_data}, s={s}, npts_local={npts_local}, gvec={gvec.array.real}')
-        comms[k].Barrier()    
+        comms[0].Barrier()    
 
     return gvec
 
