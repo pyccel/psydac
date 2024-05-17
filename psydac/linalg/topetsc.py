@@ -1,6 +1,6 @@
 import numpy as np
 
-from psydac.linalg.block import BlockVectorSpace, BlockVector
+from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.basic import VectorSpace
 from scipy.sparse import coo_matrix, bmat
@@ -131,30 +131,68 @@ def petsc_to_psydac_local(
 
     return tuple(tuple(ii))
 
-def psydac_to_global(V : VectorSpace, ndarray_indices : tuple[int]) -> int:
+def psydac_to_global(V : VectorSpace, block_indices : tuple[int], ndarray_indices : tuple[int]) -> int:
     '''From Psydac natural multi-index (grid coordinates) to global PETSc single-index.
     Performs a search to find the process owning the multi-index.'''
-    ndim = V.ndim
-    s = V.starts
-    e = V.ends
-    p = V.pads
-    m = V.shifts
-    dnpts = V.cart.npts
-    nprocs = V.cart.nprocs
-    #dnpts_local = [ e - s + 1 for s, e in zip(s, e)] #Number of points in each dimension within each process. Different for each process.
 
-    gs = V.cart.global_starts # Global variable
-    ge = V.cart.global_ends # Global variable
+    
+    #nonzero_block_indices = ((0,0)) if not isinstance(V, BlockVectorSpace) else V.
+    #s = V.starts
+    #e = V.ends
+    #p = V.pads
+    #m = V.shifts
+    #dnpts = V.cart.npts
+    
+
+    
+    #block_shift = 0
+
+    #for b in bb:
+    '''if isinstance(V, StencilVectorSpace):
+        cart = V.cart
+    elif isinstance(V, BlockVectorSpace):
+        cart = V.spaces[bb[0]].cart'''
+
+    '''# compute the block shift:
+        for b1 in range(min(len(V.spaces), bb[0])):
+            prev_npts_local = 0#np.sum(np.prod([ e - s + 1 for s, e in zip(V.spaces[b1].starts, V.spaces[b1].ends)], axis=1))
+            #for b2 in range(max(0, bb[1])):
+            block_shift += prev_npts_local'''
+
+    bb = block_indices[0]
+    npts_local_per_block_per_process = np.array(get_npts_per_block(V)) #indexed [b,k,d] for block b and process k and dimension d
+    local_sizes_per_block_per_process = np.prod(npts_local_per_block_per_process, axis=-1) #indexed [b,k] for block b and process k
+    #print(f'npts_local_per_block_per_process={npts_local_per_block_per_process}')
+    #print(f'local_sizes_per_block_per_process={local_sizes_per_block_per_process}')
+
+    #shift_per_block_per_process = np.sum(local_sizes_per_block_per_process[:][:])
+    if isinstance(V, BlockVectorSpace):
+        V = V.spaces[bb]
+
+    cart = V.cart
+    #    block_local_shift = get_block_local_shift(V)
+    #    block_shift = block_local_shift[bb[0]]
+
+    nprocs = cart.nprocs
+    ndim = cart.ndim
+    gs = cart.global_starts # Global variable
+    ge = cart.global_ends # Global variable        
+
+    '''#dnpts_local = [ e - s + 1 for s, e in zip(s, e)] #Number of points in each dimension within each process. Different for each process.
+
+    
+
 
     npts_local_perprocess = [ ge_i - gs_i + 1 for gs_i, ge_i in zip(gs, ge)] #Global variable
     npts_local_perprocess = [*cartesian_prod(*npts_local_perprocess)] #Global variable
-    localsize_perprocess = [np.prod(npts_local_perprocess[k]) for k in range(V.cart.comm.Get_size())] #Global variable
+    localsize_perprocess = [np.prod(npts_local_perprocess[k]) for k in range(cart.comm.Get_size())] #Global variable'''
 
     jj = ndarray_indices
     if ndim == 1:
-        #global_index = (jj[0] - p[0]*m[0])%dnpts[0] 
-        proc_index = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
-        index_shift = 0 + np.sum(localsize_perprocess[0:proc_index], dtype=int) #Global variable
+        #proc_index = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
+        #index_shift = 0 + np.sum(localsize_perprocess[0:proc_index], dtype=int) #Global variable
+
+        index_shift = 0 + np.sum(local_sizes_per_block_per_process[bb][0:proc_index], dtype=int) #Global variable
         global_index = index_shift + jj[0] - gs[0][proc_index]
 
     elif ndim == 2:
@@ -162,10 +200,15 @@ def psydac_to_global(V : VectorSpace, ndarray_indices : tuple[int]) -> int:
         proc_y = np.nonzero(np.array([jj[1] in range(gs[1][k],ge[1][k]+1) for k in range(gs[1].size)]))[0][0]
 
         proc_index = proc_y + proc_x*nprocs[1]#proc_x + proc_y*nprocs[0]
-        index_shift = 0 + np.sum(localsize_perprocess[0:proc_index], dtype=int) #Global variable
+        index_shift = 0#0 + np.sum(local_sizes_per_block_per_process[bb][0:proc_index], dtype=int) #Global variable
         #global_index = jj[0] - gs[0][proc_x] + (jj[1] - gs[1][proc_y]) * npts_local_perprocess[proc_index][0] + index_shift 
-        global_index = index_shift + jj[1] - gs[1][proc_y] + (jj[0] - gs[0][proc_x]) * npts_local_perprocess[proc_index][1]
+        #global_index = index_shift + jj[1] - gs[1][proc_y] + (jj[0] - gs[0][proc_x]) * npts_local_per_block_per_process[bb,proc_index,1]
 
+        #print(f'np.sum(local_sizes_per_block_per_process[:,:proc_index])={np.sum(local_sizes_per_block_per_process[:,:proc_index])}')
+        #print(f'np.sum(local_sizes_per_block_per_process[:bb,proc_index])={np.sum(local_sizes_per_block_per_process[:bb,proc_index])}')
+        shift = 0 + np.sum(local_sizes_per_block_per_process[:,:proc_index]) + np.sum(local_sizes_per_block_per_process[:bb,proc_index])
+        global_index = shift + jj[1] - gs[1][proc_y] + (jj[0] - gs[0][proc_x]) * npts_local_per_block_per_process[bb,proc_index,1]
+        #print(f'shift={shift}')
         #x_proc_ranges = np.array([range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)])
 
         #hola = np.where(jj[0] in x_proc_ranges)#, gs[0], -1)
@@ -185,18 +228,17 @@ def psydac_to_global(V : VectorSpace, ndarray_indices : tuple[int]) -> int:
         proc_z = np.nonzero(np.array([jj[2] in range(gs[2][k],ge[2][k]+1) for k in range(gs[2].size)]))[0][0]
 
         proc_index = proc_z + proc_y*nprocs[2] + proc_x*nprocs[1]*nprocs[2] #proc_x + proc_y*nprocs[0]
-        index_shift = 0 + np.sum(localsize_perprocess[0:proc_index], dtype=int) #Global variable
+        index_shift = 0 + np.sum(local_sizes_per_block_per_process[bb][0:proc_index], dtype=int) #Global variable
         global_index = index_shift \
-                     +  jj[2] - gs[2][proc_z] \
-                     + (jj[1] - gs[1][proc_y]) * npts_local_perprocess[proc_index][2] \
-                     + (jj[0] - gs[0][proc_x]) * npts_local_perprocess[proc_index][1] * npts_local_perprocess[proc_index][2]
-
+                    +  jj[2] - gs[2][proc_z] \
+                    + (jj[1] - gs[1][proc_y]) * npts_local_per_block_per_process[bb][proc_index][2] \
+                    + (jj[0] - gs[0][proc_x]) * npts_local_per_block_per_process[bb][proc_index][1] * npts_local_per_block_per_process[bb][proc_index][2]
 
     else:
         raise NotImplementedError( "Cannot handle more than 3 dimensions." )
 
+    return global_index 
 
-    return global_index
 
 def psydac_to_singlenatural(V : VectorSpace, ndarray_indices : tuple[int]) -> int:
     ndim = V.ndim
@@ -230,6 +272,150 @@ def psydac_to_singlenatural(V : VectorSpace, ndarray_indices : tuple[int]) -> in
 
 
     return singlenatural_index    
+
+def get_npts_local(V : VectorSpace) -> list:
+    """
+    Compute the local number of nodes per dimension owned by the actual process. 
+    This is a local variable, its value will be different for each process.
+
+    Parameter
+    ---------
+    V : VectorSpace
+        The distributed Psydac vector space.
+
+    Returns
+    --------
+    list
+        Local number of nodes per dimension owned by the actual process.
+        In case of a StencilVectorSpace the list has length equal the number of dimensions in the domain.
+        In case of a BlockVectorSpace the list has length equal the number of blocks.
+    """        
+    if isinstance(V, StencilVectorSpace):
+        s = V.starts
+        e = V.ends        
+        npts_local = [ e - s + 1 for s, e in zip(s, e)] #Number of points in each dimension within each process. Different for each process.
+        return npts_local
+
+    npts_local_per_block = [ get_npts_local(V.spaces[b]) for b in range(V.n_blocks) ]
+    return npts_local_per_block
+
+def get_block_local_shift(V : VectorSpace) -> np.ndarray:
+    """
+    Compute the local block shift per block. 
+    This is a local variable, its value will be different for each process.
+
+    Parameter
+    ---------
+    V : VectorSpace
+        The distributed Psydac vector space.
+
+    Returns
+    --------
+    Numpy.ndarray
+        Local block shift per block.
+        In case of a StencilVectorSpace it returns the total local number of points in the space.
+        In case of a BlockVectorSpace the returned array has the same shape as the space block structure.
+    """ 
+    if isinstance(V, StencilVectorSpace):
+        return np.prod(get_npts_local(V))
+    
+    block_local_shift_per_block = []
+    for b in range(V.n_blocks):
+        block_local_shift_per_block.append(get_block_local_shift(V.spaces[b]))
+
+    block_local_shift_per_block = np.array(block_local_shift_per_block)
+
+    block_local_shift_per_block = np.reshape(np.cumsum(block_local_shift_per_block), block_local_shift_per_block.shape)
+
+    return block_local_shift_per_block
+
+def get_npts_per_block(V : VectorSpace) -> list:
+
+    if isinstance(V, StencilVectorSpace):
+        gs = V.cart.global_starts # Global variable
+        ge = V.cart.global_ends # Global variable
+        npts_local_perprocess = [ ge_i - gs_i + 1 for gs_i, ge_i in zip(gs, ge)] #Global variable
+        
+        if V.cart.comm:
+            npts_local_perprocess = [*cartesian_prod(*npts_local_perprocess)] #Global variable
+            #localsize_perprocess = [np.prod(npts_local_perprocess[k]) for k in range(V.cart.comm.Get_size())] #Global variable
+        #else:
+        #    #localsize_perprocess = [np.prod(npts_local_perprocess)]
+        return [npts_local_perprocess]
+
+    npts_local_per_block = [] #[ get_npts_per_block(V.spaces[b]) for b in range(V.n_blocks) ]
+    for b in range(V.n_blocks):
+        npts_b = get_npts_per_block(V.spaces[b])
+        if isinstance(V.spaces[b], StencilVectorSpace):
+            npts_b = npts_b[0]
+        npts_local_per_block.append(npts_b)
+
+    return npts_local_per_block
+
+
+def get_block_shift_per_process(V : VectorSpace) -> list:
+    #shift_per_process = [0]
+    npts_local_per_block = get_npts_per_block(V)
+    local_sizes_per_block = np.prod(npts_local_per_block, axis=-1)
+
+    local_sizes_per_block = np.array(local_sizes_per_block)
+
+    # Get nested block structure:
+    n_blocks = local_sizes_per_block.shape[:-1]
+    # Assume that all the blocks have the same number of processes:
+    n_procs = local_sizes_per_block.shape[-1]
+    print(f'n_procs={n_procs}')
+    local_sizes_per_process = np.array([local_sizes_per_block[:,k] for k in range(n_procs)])
+    print(f'local_sizes_per_process={local_sizes_per_process}')
+
+    #print(f'np.sum(local_sizes_per_process[:k,1:])={np.sum(local_sizes_per_process[:1,1:])}')
+    shift_per_process = [0]+[np.sum(local_sizes_per_process[:k,1:]) for k in range(1,n_procs)]
+
+
+
+    #local_sizes_per_process = np.sum(local_sizes_per_process[1:], axis=1)
+    print(f'shift_per_process={shift_per_process}')
+
+    #shift_per_process = [0] + [ np.sum(local_sizes_per_process[:k-1]) for k in range(1, n_procs)]
+
+
+
+    '''if isinstance(V, StencilVectorSpace):
+        n_procs = 1 if not V.cart.comm else V.cart.comm.Get_size()
+
+        if V.cart.comm:
+            localsize_perprocess = [np.prod(npts_local_per_block[0][k]) for k in range(n_procs)] #Global variable
+        else:
+            localsize_perprocess = [np.prod(npts_local_per_block[k]) for k in range(n_procs)] #Global variable'''
+
+    #for b_lvl in range(len(n_blocks)):
+    #    for b in range(n_blocks[b_lvl]):
+
+    '''for k in range(n_procs):
+        shift_k = 0
+        for b in range(n_blocks[0]):
+            #npts_local_per_process = npts_local_per_block[b]
+            #shift_k += np.prod(npts_local_per_process[k])
+            #if b != len(shift_per_process):
+            shift_k += local_sizes_per_block[b][k]
+        shift_per_process.append(shift_k)'''
+    '''print(f'n_blocks={n_blocks}')
+    for k in range(n_procs):
+        shift_k = 0
+        for b in range(n_blocks[0]):
+            print(f'k={k}, b={b}, local_sizes_per_block={local_sizes_per_block[:,k]}')
+            #accumulated_local_size = local_sizes_per_block[:b]#[k]
+            
+            if b == 1:
+                accumulated_local_size = local_sizes_per_block[0][k]
+            else:
+                accumulated_local_size = local_sizes_per_block[b][k]
+            shift_k += np.sum(accumulated_local_size)
+        shift_per_process.append(shift_k)'''
+    
+    return shift_per_process
+
+
 
 def flatten_vec( vec ):
     """ Return the flattened 1D array values and indices owned by the process of the given vector.
@@ -296,110 +482,44 @@ def vec_topetsc( vec ):
     from petsc4py import PETSc
 
     if isinstance(vec, StencilVector):
-        cart = vec.space.cart
-    elif isinstance(vec.space.spaces[0], StencilVectorSpace):
-        cart = vec.space.spaces[0].cart
+        carts = [vec.space.cart]
+    elif isinstance(vec.space, BlockVectorSpace):
+        carts = []
+        for b in range(vec.n_blocks):
+            if isinstance(vec.space.spaces[b], StencilVectorSpace):
+                carts.append(vec.space.spaces[b].cart)
+
+            elif isinstance(vec.space.spaces[b], BlockVectorSpace):
+                carts2 = []
+                for b2 in range(vec.space.spaces[b].n_blocks):
+                    if isinstance(vec.space.spaces[b][b2], StencilVectorSpace):
+                        carts2.append(vec.space.spaces[b][b2].cart)
+                    else:
+                        raise NotImplementedError( "Cannot handle more than block of a block." )
+                carts.append(carts2)
+
+
+    '''elif isinstance(vec.space.spaces[0], StencilVectorSpace):
+        carts = [vec.space.spaces[b1].cart for b1 in range(len(vec.space.spaces))] 
+    
     elif isinstance(vec.space.spaces[0], BlockVectorSpace):
-        cart = vec.space.spaces[0][0].cart
+        carts = [[vec.space.spaces[b1][b2].cart for b2 in range(len(vec.space.spaces[b1]))]  for b1 in range(len(vec.space.spaces))] 
+    '''
 
-    comm = cart.global_comm
-    globalsize = vec.space.dimension #integer
-    """    print('\n\nVEC:\nglobalsize=', globalsize)    
-    gvec.setDM(Dmda)
+    npts_local = get_npts_local(vec.space) #[[ e - s + 1 for s, e in zip(cart.starts, cart.ends)] for cart in carts] #Number of points in each dimension within each process. Different for each process.
 
-    # Set local and global size
-    gvec.setSizes(size=(ownership_ranges[comm.Get_rank()], globalsize))
+    comms = [cart.global_comm for cart in carts]
 
-    '''ownership_ranges = [comm.allgather(cart.domain_decomposition.local_ncells[k]) for k in range(cart.ndim)]
-    boundary_type = [(PETSc.DM.BoundaryType.PERIODIC if cart.domain_decomposition.periods[k] else PETSc.DM.BoundaryType.NONE) for k in range(cart.ndim)]
+    ndims = [cart.ndim for cart in carts]
 
-    #ownership_ranges = [ dcart.global_ends[0][k] - dcart.global_starts[0][k] + 1 for k in range(dcart.global_starts[0].size)]
-    print('VECTOR: OWNership_ranges=', ownership_ranges)
-    #Dmda = PETSc.DMDA().create(dim=2, sizes=mat.shape, proc_sizes=(comm.Get_size(),1), ownership_ranges=(ownership_ranges, mat.shape[1]), comm=comm)
-    # proc_sizes = [ len]
-    Dmda = PETSc.DMDA().create(dim=cart.ndim, sizes=cart.domain_decomposition.ncells, proc_sizes=cart.domain_decomposition.nprocs, 
-                               ownership_ranges=ownership_ranges, comm=comm, stencil_type=PETSc.DMDA.StencilType.BOX, boundary_type=boundary_type)'''
-    
-    ### SPLITTING COEFFS
-    ownership_ranges = [ 1 + cart.global_ends[0][k] - cart.global_starts[0][k] for k in range(cart.global_starts[0].size)] 
-    #ownership_ranges = [comm.allgather(dcart.domain_decomposition.local_ncells[k]) for k in range(dcart.ndim)]
-    
-    print('OWNership_ranges=', ownership_ranges)
-    print('dcart.domain_decomposition.nprocs=', *cart.domain_decomposition.nprocs)
+        
+    #index_shift = get_petsc_local_to_global_shift(vec.space) #Global variable
 
-    boundary_type = [(PETSc.DM.BoundaryType.PERIODIC if cart.domain_decomposition.periods[k] else PETSc.DM.BoundaryType.NONE) for k in range(cart.ndim)]
+    gvec  = PETSc.Vec().create(comm=comms[0])
 
-    Dmda = PETSc.DMDA().create(dim=1, sizes=(globalsize,), proc_sizes=cart.domain_decomposition.nprocs, comm=comm, 
-                               ownership_ranges=[ownership_ranges], boundary_type=boundary_type)
-    
-
-    indices, data = flatten_vec(vec)
-    for k in range(comm.Get_size()):
-        if comm.Get_rank() == k:
-            print('Rank ', k)
-            print('vec.toarray()=\n', vec.toarray())
-            print('VEC_indices=', indices)
-            print('VEC_data=', data)
-        comm.Barrier()
-
-
-
-    gvec  = PETSc.Vec().create(comm=comm)
-
-    gvec.setDM(Dmda)
-
-    # Set local and global size
-    gvec.setSizes(size=(ownership_ranges[comm.Get_rank()], globalsize))
-
-    '''if comm:
-        cart_petsc = cart.topetsc()
-        gvec.setLGMap(cart_petsc.l2g_mapping)'''
-
-
-    gvec.setFromOptions()
-    gvec.setUp()
-    # Set values of the vector. They are stored in a cache, so the assembly is necessary to use the vector.
-    gvec.setValues(indices, data, addv=PETSc.InsertMode.ADD_VALUES)"""
-
-    ndim = vec.space.ndim
-    starts = vec.space.starts
-    ends = vec.space.ends
-    pads = vec.space.pads
-    shifts = vec.space.shifts
-    #npts = vec.space.npts
-
-    #cart = vec.space.cart
-
-    npts_local = [ e - s + 1 for s, e in zip(starts, ends)] #Number of points in each dimension within each process. Different for each process.
-    '''npts_local_perprocess = [ ge - gs + 1 for gs, ge in zip(cart.global_starts, cart.global_ends)] #Global variable
-    npts_local_perprocess = [*cartesian_prod(*npts_local_perprocess)] #Global variable
-    localsize_perprocess = [np.prod(npts_local_perprocess[k]) for k in range(comm.Get_size())] #Global variable'''
-    index_shift = get_petsc_local_to_global_shift(vec.space) #Global variable
-
-    '''for k in range(comm.Get_size()):
-        if k == comm.Get_rank():   
-            print('\nRank ', k)
-            print('starts=', starts)
-            print('ends=', ends)
-            print('npts=', npts)
-            print('pads=', pads)
-            print('shifts=', shifts)
-            print('npts_local=', npts_local)
-            print('cart.global_starts=', cart.global_starts)
-            print('cart.global_ends=', cart.global_ends)
-            print('npts_local_perprocess=', npts_local_perprocess)
-            print('localsize_perprocess=', localsize_perprocess)
-            print('index_shift=', index_shift)
-
-            print('vec._data.shape=', vec._data.shape)
-            print('vec._data=', vec._data)
-            #print('vec.toarray()=', vec.toarray())
-        comm.Barrier()'''
-
-    gvec  = PETSc.Vec().create(comm=comm)
-
-    localsize = np.prod(npts_local)
-    gvec.setSizes(size=(localsize, globalsize))#size=(ownership_ranges[comm.Get_rank()], globalsize))
+    globalsize = vec.space.dimension
+    localsize = np.sum(np.prod(npts_local, axis=1)) # Sum over all the blocks
+    gvec.setSizes(size=(localsize, globalsize))
 
     gvec.setFromOptions()
     gvec.setUp()
@@ -407,56 +527,71 @@ def vec_topetsc( vec ):
     petsc_indices = []
     petsc_data = []
 
-    if ndim == 1:
-        for i1 in range(pads[0]*shifts[0], pads[0]*shifts[0] + npts_local[0]):
-            value = vec._data[i1]
-            if value != 0:
-                index = psydac_to_petsc_local(vec.space, [], (i1,)) # global index starting from 0 in each process
-                index += index_shift #starts[0] # global index starting from NOT 0 in each process
-                petsc_indices.append(index)
-                petsc_data.append(value)        
+    s = [cart.starts for cart in carts]
+    #p = [cart.pads for cart in carts]
+    #m = [cart.shifts for cart in carts]
+    ghost_size = [[pi*mi for pi,mi in zip(cart.pads, cart.shifts)] for cart in carts]
 
-    elif ndim == 2:
-        for i1 in range(pads[0]*shifts[0], pads[0]*shifts[0] + npts_local[0]):
-            for i2 in range(pads[1]*shifts[1], pads[1]*shifts[1] + npts_local[1]):
-                value = vec._data[i1,i2]
+    n_blocks = 1 if isinstance(vec, StencilVector) else vec.n_blocks
+
+    vec_block = vec
+
+    block_shift_per_process = get_block_shift_per_process(vec.space)
+    #global_npts_per_block_per_proc = get_npts_per_block(vec.space)
+    print(f'blocks_shift={block_shift_per_process}')
+
+    for b in range(n_blocks): 
+        if isinstance(vec, BlockVector):
+            vec_block = vec.blocks[b]
+
+        index_shift = block_shift_per_process[comms[b].Get_rank()]
+
+        if ndims[b] == 1:
+            for i1 in range(npts_local[b][0]):
+                value = vec_block._data[i1 + ghost_size[b][0]]
                 if value != 0:
-                    #index = npts_local[1] * (i1 - pads[0]*shifts[0]) + i2 - pads[1]*shifts[1] # global index starting from 0 in each process
-                    index = psydac_to_petsc_local(vec.space, [], (i1,i2)) # global index starting from 0 in each process
-                    index += index_shift # global index starting from NOT 0 in each process
-                    petsc_indices.append(index)
-                    petsc_data.append(value)
+                    i1_n = s[b][0] + i1
+                    i_g = psydac_to_global(vec.space.spaces[b], (), (i1_n,)) + index_shift
+                    petsc_indices.append(i_g)
+                    petsc_data.append(value)        
 
-    elif ndim == 3:
-        for i1 in range(pads[0]*shifts[0], pads[0]*shifts[0] + npts_local[0]):
-            for i2 in range(pads[1]*shifts[1], pads[1]*shifts[1] + npts_local[1]):
-                for i3 in range(pads[2]*shifts[2], pads[2]*shifts[2] + npts_local[2]):
-                    value = vec._data[i1, i2, i3]
+        elif ndims[b] == 2:
+            for i1 in range(npts_local[b][0]):
+                for i2 in range(npts_local[b][1]):
+                    value = vec_block._data[i1 + ghost_size[b][0], i2 + ghost_size[b][1]]
                     if value != 0:
-                        #index = npts_local[1] * npts_local[2] * (i1 - pads[0]*shifts[0]) + npts_local[2] * (i2 - pads[1]*shifts[1]) + i3 - pads[2]*shifts[2]
-                        index = psydac_to_petsc_local(vec.space, [], (i1,i2,i3)) 
-                        index += index_shift # global index starting from NOT 0 in each process
-                        petsc_indices.append(index)
-                        petsc_data.append(value)        
+                        i1_n = s[b][0] + i1
+                        i2_n = s[b][1] + i2                    
+                        i_g = psydac_to_global(vec.space, (b,), (i1_n, i2_n)) #+ index_shift
+                        print(f'Rank {comms[b].Get_rank()}, Block {b}: i1_n = {i1_n}, i2_n = {i2_n}, i_g = {i_g}')
+                        petsc_indices.append(i_g)
+                        petsc_data.append(value)
 
-    gvec.setValues(petsc_indices, petsc_data)#, addv=PETSc.InsertMode.ADD_VALUES)
+        elif ndims[b] == 3:
+            for i1 in np.arange(npts_local[b][0]):             
+                for i2 in np.arange(npts_local[b][1]):
+                    for i3 in np.arange(npts_local[b][2]):
+                        value = vec_block._data[i1 + ghost_size[b][0], i2 + ghost_size[b][1], i3 + ghost_size[b][2]]
+                        if value != 0:
+                            i1_n = s[b][0] + i1
+                            i2_n = s[b][1] + i2
+                            i3_n = s[b][2] + i3    
+                            i_g = psydac_to_global(vec.space, (b,), (i1_n, i2_n, i3_n))                    
+                            petsc_indices.append(i_g)
+                            petsc_data.append(value)        
+
+
+    gvec.setValues(petsc_indices, petsc_data, addv=PETSc.InsertMode.ADD_VALUES) #Adding the values is necessary when periodic BC
+
     # Assemble vector
     gvec.assemble() # Here PETSc exchanges global communication. The block corresponding to a certain process is not necessarily the same block in the Psydac StencilVector.
 
-    '''if comm is not None:
-        vec_arr = vec.toarray()
-        for k in range(comm.Get_size()):
-            if k == comm.Get_rank():   
-                print('\nRank ', k)
-                #print('petsc_indices=', petsc_indices)
-                #print('petsc_data=', petsc_data)
-                #print('\ngvec.array=', gvec.array.real)
-                print('vec.toarray()=', vec_arr)
-                #print('gvec.getSizes()=', gvec.getSizes())
-            comm.Barrier()
-        print('================================')'''
+    vec_arr = vec.toarray()
+    for k in range(comms[0].Get_size()):
+        if k == comms[0].Get_rank():
+            print(f'Rank {k}: vec={vec_arr}, petsc_indices={petsc_indices}, data={petsc_data}, s={s}, npts_local={npts_local}, gvec={gvec.array.real}')
+        comms[k].Barrier()    
 
-    
     return gvec
 
 
@@ -481,10 +616,15 @@ def mat_topetsc( mat ):
         ccart = mat.codomain.cart
     elif isinstance(mat.domain.spaces[0], StencilVectorSpace):
         dcart = mat.domain.spaces[0].cart
-        ccart = mat.codomain.spaces[0].cart
     elif isinstance(mat.domain.spaces[0], BlockVectorSpace):
         dcart = mat.domain.spaces[0][0].cart
-        ccart = mat.codomain.spaces[0][0].cart
+
+    if isinstance(mat._codomain, StencilVectorSpace):
+        ccart = mat.codomain.cart
+    elif isinstance(mat.codomain.spaces[0], StencilVectorSpace):
+        ccart = mat.codomain.spaces[0].cart
+    elif isinstance(mat.codomain.spaces[0], BlockVectorSpace):
+        ccart = mat.codomain.spaces[0][0].cart        
 
     dcomm = dcart.global_comm
     ccomm = ccart.global_comm
@@ -510,8 +650,8 @@ def mat_topetsc( mat ):
     cnpts_local = [ e - s + 1 for s, e in zip(cstarts, cends)]
 
     
-    dindex_shift = get_petsc_local_to_global_shift(mat.domain) #Global variable
-    cindex_shift = get_petsc_local_to_global_shift(mat.codomain) #Global variable
+    #dindex_shift = get_petsc_local_to_global_shift(mat.domain) #Global variable
+    #cindex_shift = get_petsc_local_to_global_shift(mat.codomain) #Global variable
 
 
     mat_dense = mat.tosparse().todense()
@@ -527,19 +667,26 @@ def mat_topetsc( mat ):
             print('dnpts_local=', dnpts_local)
             print('cnpts_local=', cnpts_local)
             #print('mat_dense=\n', mat_dense[:3])
-            print('mat._data.shape=\n', mat._data.shape)
-            print('dindex_shift=', dindex_shift)
-            print('cindex_shift=', cindex_shift)
+            #print('mat._data.shape=\n', mat._data.shape)
+            #print('dindex_shift=', dindex_shift)
+            #print('cindex_shift=', cindex_shift)
             print('ccart.global_starts=', ccart.global_starts)
             print('ccart.global_ends=', ccart.global_ends)
             #print('mat._data=\n', mat._data)
 
         dcomm.Barrier() 
-        ccomm.Barrier()  
+        ccomm.Barrier() 
 
 
-    globalsize = (np.prod(dnpts), np.prod(cnpts)) #Tuple of integers
-    localsize = (np.prod(dnpts_local), np.prod(cnpts_local))
+    n_block_rows = 1 if not isinstance(mat, BlockLinearOperator) else mat.n_block_rows
+    n_block_cols = 1 if not isinstance(mat, BlockLinearOperator) else mat.n_block_cols
+    if isinstance(mat, StencilMatrix):
+        nonzero_block_indices = ((0,0),) 
+    else:
+        nonzero_block_indices = mat.nonzero_block_indices
+
+    globalsize = mat.shape #equivalent to (np.prod(dnpts), np.prod(cnpts)) #Tuple of integers
+    localsize = (np.prod(cnpts_local)*n_block_rows, np.prod(dnpts_local)*n_block_cols)
 
     gmat  = PETSc.Mat().create(comm=dcomm)
 
@@ -578,170 +725,86 @@ def mat_topetsc( mat ):
     rowmap = []
     rowmap2 = []
 
-    #dindices = [np.arange(p*m, p*m + n) for p, m, n in zip(dpads, dshifts, dnpts_local)]
-
-    #[[ dcomm.Get_rank()*dnpts_local[1] + n2 + dnpts[1]*n1 for n2 in np.arange(dnpts_local[1])]  for n1 in np.arange(dnpts_local[0])]
-                        
-    #cindices = [np.arange(2*p*m + 1) for p, m in zip(dpads, dshifts)]
-
-    #prod_indices = np.empty((max(dnpts_local) * max(cnpts_local), 3))
-    '''prod_indices = []
-    for d in range(len(dindices)):
-        #prod_indices[:, d] = [*cartesian_prod(dindices[d], cindices[d])]
-        prod_indices.append([*cartesian_prod(dindices[d], cindices[d])])
-    '''
-
-    #matd = mat.tosparse().todense()
     s = dstarts
     p = dpads
     m = dshifts
     ghost_size = [pi*mi for pi,mi in zip(p,m)]
-   
+
+
 
     if dndim == 1 and cndim == 1:
-        for i1 in np.arange(dnpts_local[0]):
-            nnz_in_row = 0
-            i1_n = s[0] + i1
-            i_g = psydac_to_global(mat.codomain, (i1_n,))
+        for bb in nonzero_block_indices:
 
-            for k1 in range(-p[0]*m[0], p[0]*m[0] + 1):
-                value = mat._data[i1 + ghost_size[0], (k1 + ghost_size[0])%(2*p[0]*m[0] + 1)]
-                j1_n = (i1_n + k1)%dnpts[0] 
-                
-                if value != 0:
+            if isinstance(mat, StencilMatrix):
+                data = mat._data
+            elif isinstance(mat, BlockLinearOperator):
+                data = mat.blocks[bb[0]][bb[1]]._data
 
-                    j_g = psydac_to_global(mat.domain, (j1_n, ))
-
-                    if nnz_in_row == 0:
-                        rowmap.append(i_g)  
-
-                    J.append(j_g)           
-                    V.append(value)  
-
-                    nnz_in_row += 1
-
-            I.append(I[-1] + nnz_in_row)
-                
-    elif dndim == 2 and cndim == 2:
-        #ghost_size = (p[0]*m[0], p[1]*m[1])
-        for i1 in np.arange(dnpts_local[0]):#dindices[0]:  #range(dpads[0]*dshifts[0] + dnpts_local[0]):               
-            for i2 in np.arange(dnpts_local[1]):#dindices[1]: #range(dpads[1]*dshifts[1] + dnpts_local[1]): 
-
+            for i1 in range(dnpts_local[0]):
                 nnz_in_row = 0
-                #local_row = psydac_to_petsc_local(mat.domain, [], (i1, i2))
-                #local_row += (local_row // dnpts_local[1])*dnpts_local[1]
-
-                #cindices1 = np.arange( max(0, id1 - dindices[0][0] - dpads[0]*dshifts[0]), min(2*dpads[0]*dshifts[0], id1 - dindices[0][0] + dpads[0]*dshifts[0]) + 1)
-                #cindices2 = np.arange( max(0, id2 - dindices[1][0] - dpads[1]*dshifts[1]), min(2*dpads[1]*dshifts[1], id2 - dindices[1][0] + dpads[1]*dshifts[1]) + 1)
-                #cindices1 = np.arange( max(dpads[0]*dshifts[0], id1), min(2*dpads[0]*dshifts[0] + 1, id1 + 2*dpads[0]*dshifts[0]) + 1)
-                #cindices2 = np.arange( max(dpads[1]*dshifts[1], id2), min(2*dpads[1]*dshifts[1] + 1, id2 + 2*dpads[1]*dshifts[1]) + 1)
-
-                #cindices = [*cartesian_prod(cindices1, cindices2)] 
-                #cindices = [[(ic1, ic2) for ic2 in np.arange(id2 - int(np.ceil(dpads[1]*dshifts[1]/2)), id2 + int(np.floor(dpads[1]*dshifts[1]/2)) + 1) - dpads[1]*dshifts[1] ] 
-                #                        for ic1 in np.arange(id1 - int(np.ceil(dpads[0]*dshifts[0]/2)), id1 + int(np.floor(dpads[0]*dshifts[0]/2)) + 1) - dpads[0]*dshifts[0] ] 
-
-                #ravel_ind_0_col = 2*dpads[1]*dshifts[1] + 1 + 2*dpads[0]*dshifts[0] - local_row #becomes negative for large row index
-                #ravel_ind_0_col = ((2*dpads[1]*dshifts[1] + 1) * (2*dpads[0]*dshifts[0] + 1) ) // 2 - local_row #becomes negative for large row index
-
-                #cindices1 = [np.arange(max(0, (4*np.prod(dpads)*np.prod(dshifts) - local_row), ) for p, m, n in zip(dpads, dshifts, dnpts_local)]
-
-                '''if dcomm.Get_rank() == 0:
-                    print('Rank 0: mat._data[',id1, ',' , id2 , ']=\n', mat._data[id1, id2])
-                elif dcomm.Get_rank() == 1:
-                    print('Rank 1: mat._data[',id1, ',' , id2 , ']=\n', mat._data[id1, id2])
-                #dcomm.Barrier()'''
-
                 i1_n = s[0] + i1
-                i2_n = s[1] + i2
-                i_g = psydac_to_global(mat.codomain, (i1_n, i2_n))
-                i_n = psydac_to_singlenatural(mat.codomain, (i1_n,i2_n))
+                i_g = psydac_to_global(mat.codomain, (bb[0],), (i1_n,))
 
-                for k in range(dcomm.Get_size()):
-                    if k == dcomm.Get_rank():
-                        print(f'Rank {k}: ({i1_n}, {i2_n}), i_n= {i_n}, i_g= {i_g}')
-                        #print(f'global_row= {global_row}')
-                    #dcomm.Barrier()
-                    #ccomm.Barrier()
-
-
-
-
-                for k1 in range(- p[0]*m[0], p[0]*m[0] + 1):                    
-                    for k2 in range(- p[1]*m[1], p[1]*m[1] + 1):
-                    #for ic1, ic2 in cindices:
-
-                        value = mat._data[i1 + ghost_size[0], i2 + ghost_size[1], (k1 + ghost_size[0])%(2*p[0]*m[0] + 1), (k2 + ghost_size[1])%(2*p[1]*m[1] + 1)]
-
-                        '''i1_n = s[0] + i1
-                        i2_n = s[1] + i2
-                        #(j1_n, j2_n) is the Psydac natural multi-index (like a grid)
-                        j1_n = i1_n + k1 - p[0]
-                        j2_n = i2_n + k2 - p[1]'''
-                        
-
-                        #(j1_n, j2_n) is the Psydac natural multi-index (like a grid)
-                        j1_n = (i1_n + k1)%dnpts[0] #- p[0]*m[0]
-                        j2_n = (i2_n + k2)%dnpts[1] #- p[1]*m[1]
-
-                        
-
-                        #print('i1,i2,k1,k2=', i1,i2,k1,k2)
-                        #print('i1_n,i2_n,j1_n,j2_n,value=', i1_n,i2_n,j1_n,j2_n,value)
-
-
+                for k1 in range(-p[0]*m[0], p[0]*m[0] + 1):
+                    value = data[i1 + ghost_size[0], (k1 + ghost_size[0])%(2*p[0]*m[0] + 1)]
+                    j1_n = (i1_n + k1)%dnpts[0] 
                     
+                    if value != 0:
 
-                        if value != 0: #and j1_n in range(dnpts[0]) and j2_n in range(dnpts[1]):
+                        j_g = psydac_to_global(mat.domain, (bb[1],), (j1_n, ))
 
-                            j_g = psydac_to_global(mat.domain, (j1_n, j2_n))
+                        if nnz_in_row == 0:
+                            rowmap.append(i_g)  
 
-                            global_col = psydac_to_global(mat.domain, (j1_n, j2_n))
-                            #print('row,id1,id2,ic1,ic2=', local_row, id1, id2, ic1, ic2)
-                            '''dindex_petsc = psydac_to_petsc_local(mat.domain, [], (id1,id2)) # global index starting from 0 in each process
-                            cindex_petsc = (id1 + ic1 - 2*dpads[0]*dshifts[0]) % (2*dpads[0]*dshifts[0]) 
+                        J.append(j_g)           
+                        V.append(value)  
 
-
-                            dindex_petsc += dindex_shift # global index NOT starting from 0 in each process
-                            cindex_petsc += cindex_shift # global index NOT starting from 0 in each process
-                            petsc_row_indices.append(dindex_petsc)
-                            petsc_col_indices.append(cindex_petsc)
-                            petsc_data.append(value)  
-
-                            nnz_in_row += 1
-                            J.append(cindex_petsc)
-                            V.append(value)'''
-                            
-                            #local_row = psydac_to_petsc_local(mat.domain, [], (id1, id2))
-
-                            if nnz_in_row == 0:
-                                #rowmap.append(dindex_shift + local_row)  
-                                #rowmap.append(dindex_shift + local_row)   
-                                rowmap.append(i_g)     
-                                rowmap2.append(psydac_to_singlenatural(mat.domain, (i1_n,i2_n)))                 
-                            #J.append( (dindex_shift + local_row + ic1*(2*dpads[1]*dshifts[1] + 1) + ic2 - 2*dpads[0]*dshifts[0] - 2*dpads[1]*dshifts[1] ) \
-                            #          % np.prod(dnpts) )
-                            #num_zeros_0row = (2*dpads[0]*dshifts[0] + 1)*(2*dpads[1]*dshifts[1] + 1) // 2
-                            #J.append( (dindex_shift + local_row \
-                            #           + (ic1*(2*dpads[1]*dshifts[1] + 1) + ic2)
-                            #          - num_zeros_0row \
-                            #            ) \
-                            #           % (np.prod(dnpts)) )
-
-                            #ravel_ind = ic2 + (2*dpads[1]*dshifts[1] + 1) * ic1
-                            #col_index = ic2 - dpads[1]*dshifts[1] + (ic1 - dpads[0]*dshifts[0])*dnpts[1]
-                            #col_index = ic2 - dpads[1]*dshifts[1] + (dindex_shift+local_row) % dnpts[1] \
-                            #            + (ic1 - dpads[0]*dshifts[0] + (dindex_shift+local_row) // dnpts[1]) * dnpts[1]
-                            
-                            J.append(j_g)
-                            J2.append(psydac_to_singlenatural(mat.domain, (j1_n,j2_n)))
-
-                            V.append(value)  
-
-                            nnz_in_row += 1
+                        nnz_in_row += 1
 
                 I.append(I[-1] + nnz_in_row)
+                
+    elif dndim == 2 and cndim == 2:
+        for b1,b2 in nonzero_block_indices:
+            for i1 in np.arange(dnpts_local[0]):#dindices[0]:  #range(dpads[0]*dshifts[0] + dnpts_local[0]):               
+                for i2 in np.arange(dnpts_local[1]):#dindices[1]: #range(dpads[1]*dshifts[1] + dnpts_local[1]): 
 
-    elif dndim == 3 and cndim == 3:
+                    nnz_in_row = 0
+
+                    i1_n = s[0] + i1
+                    i2_n = s[1] + i2
+                    i_g = psydac_to_global(mat.codomain, (b1, b2), (i1_n, i2_n))
+                    #i_n = psydac_to_singlenatural(mat.codomain, (i1_n,i2_n))
+
+                    for k in range(dcomm.Get_size()):
+                        if k == dcomm.Get_rank():
+                            print(f'Rank {k}: ({i1_n}, {i2_n}), i_n= {i_n}, i_g= {i_g}')
+
+                    for k1 in range(- p[0]*m[0], p[0]*m[0] + 1):                    
+                        for k2 in range(- p[1]*m[1], p[1]*m[1] + 1):
+
+                            value = mat._data[i1 + ghost_size[0], i2 + ghost_size[1], (k1 + ghost_size[0])%(2*p[0]*m[0] + 1), (k2 + ghost_size[1])%(2*p[1]*m[1] + 1)]
+
+                            #(j1_n, j2_n) is the Psydac natural multi-index (like a grid)
+                            j1_n = (i1_n + k1)%dnpts[0] #- p[0]*m[0]
+                            j2_n = (i2_n + k2)%dnpts[1] #- p[1]*m[1]
+
+                            if value != 0: #and j1_n in range(dnpts[0]) and j2_n in range(dnpts[1]):
+                                j_g = psydac_to_global(mat.domain, (b1, b2), (j1_n, j2_n))
+
+                                if nnz_in_row == 0:
+                                    rowmap.append(i_g)     
+                                    rowmap2.append(psydac_to_singlenatural(mat.domain, (i1_n,i2_n)))                 
+
+                                J.append(j_g)
+                                J2.append(psydac_to_singlenatural(mat.domain, (j1_n,j2_n)))
+
+                                V.append(value)  
+
+                                nnz_in_row += 1
+
+                    I.append(I[-1] + nnz_in_row)
+
+    elif dndim == 3 and cndim == 3: 
         for i1 in np.arange(dnpts_local[0]):             
             for i2 in np.arange(dnpts_local[1]):
                 for i3 in np.arange(dnpts_local[2]):
