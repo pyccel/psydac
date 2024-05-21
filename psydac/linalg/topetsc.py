@@ -105,13 +105,23 @@ def petsc_to_psydac_local(
     This is the inverse of `psydac_to_petsc_local`.
     """
 
+    npts_local_per_block_per_process = np.array(get_npts_per_block(V)) #indexed [b,k,d] for block b and process k and dimension d
+    local_sizes_per_block_per_process = np.prod(npts_local_per_block_per_process, axis=-1) #indexed [b,k] for block b and process k
+
+    if isinstance(V, BlockVectorSpace):
+        V = V.spaces[bb]
+
+    accumulated_local_sizes_per_block_per_process = np.cumsum(local_sizes_per_block_per_process, axis=0) #indexed [b,k] for block b and process k
+    bb = np.nonzero(np.array([petsc_index in range(accumulated_local_sizes_per_block_per_process[b-1][comm.Get_rank()], accumulated_local_sizes_per_block_per_process[b][comm.Get_rank()])]))[0][0]
+
+
     ndim = V.ndim
     starts = V.starts
     ends = V.ends
     pads = V.pads
     shifts = V.shifts    
 
-    npts_local = [ e - s + 1 for s, e in zip(starts, ends)] #Number of points in each dimension within each process. Different for each process.
+    npts_local = npts_local_per_block_per_process[bb] #Number of points in each dimension within each process. Different for each process.
 
     ii = np.zeros((ndim,), dtype=int)
     if ndim == 1:
@@ -130,6 +140,101 @@ def petsc_to_psydac_local(
         raise NotImplementedError( "Cannot handle more than 3 dimensions." )
 
     return tuple(tuple(ii))
+
+def global_to_psydac(
+    V : VectorSpace,
+    petsc_index : int) :#-> tuple(tuple[int], tuple[int]) :
+    """
+    Convert the PETSc local index to a Psydac local index.
+    This is the inverse of `psydac_to_petsc_local`.
+    """
+
+    '''npts_local_per_block_per_process = np.array(get_npts_per_block(V)) #indexed [b,k,d] for block b and process k and dimension d
+    local_sizes_per_block_per_process = np.prod(npts_local_per_block_per_process, axis=-1) #indexed [b,k] for block b and process k
+    accumulated_local_sizes_per_block_per_process = np.concatenate((np.zeros_like(local_sizes_per_block_per_process), np.cumsum(local_sizes_per_block_per_process, axis=0))) #indexed [b+1,k] for block b and process k
+    print(f'accumulated_local_sizes_per_block_per_process = {accumulated_local_sizes_per_block_per_process}' )
+    n_blocks = local_sizes_per_block_per_process.shape[0]
+    rk = comm.Get_rank()
+    bb = np.nonzero(
+            np.array(
+                [petsc_index in range(accumulated_local_sizes_per_block_per_process[b][rk], accumulated_local_sizes_per_block_per_process[b+1][rk]) 
+                    for b in range(n_blocks)]
+            ))[0][0]
+    print(f'rk={rk}, bb={bb}')
+    
+    npts_local_per_process = npts_local_per_block_per_process[bb] #indexed [k,d] for process k
+    local_sizes_per_process = np.prod(npts_local_per_process, axis=-1) #indexed [k] for process k
+    accumulated_local_sizes_per_process = np.concatenate((np.zeros((1,), dtype=int), np.cumsum(local_sizes_per_process, axis=0))) #indexed [k+1] for process k
+
+    n_procs = local_sizes_per_process.size
+
+    print(f'n_procs={n_procs}, accumulated_local_sizes_per_process={accumulated_local_sizes_per_process}')    
+    
+    rank = np.nonzero(
+            np.array(
+                [petsc_index in range(accumulated_local_sizes_per_process[k], accumulated_local_sizes_per_process[k+1]) 
+                    for k in range(n_procs)]
+            ))[0][0]
+    
+
+    npts_local = npts_local_per_block_per_process[bb][rank] #Number of points in each dimension within each process. Different for each process.
+    '''
+
+
+    npts_local_per_block = np.array(get_npts_local(V)) #indexed [b,d] for block b and dimension d
+    local_sizes_per_block = np.prod(npts_local_per_block, axis=-1)  #indexed [b] for block b
+    accumulated_local_sizes_per_block = np.concatenate((np.zeros((1,), dtype=int), np.cumsum(local_sizes_per_block, axis=0))) #indexed [b+1] for block b
+
+    n_blocks = local_sizes_per_block.size
+    # Find the block where the index belongs to:
+    bb = np.nonzero(
+            np.array(
+                [petsc_index in range(accumulated_local_sizes_per_block[b], accumulated_local_sizes_per_block[b+1]) 
+                    for b in range(n_blocks)]
+            ))[0][0]
+
+    #print(f'bb={bb}')
+
+    if isinstance(V, BlockVectorSpace):
+        V = V.spaces[bb]
+
+    ndim = V.ndim
+    p = V.pads
+    m = V.shifts    
+
+    npts_local = npts_local_per_block[bb] #Number of points in each dimension within each process. Different for each process.
+    
+    # Get the PETSc index LOCAL in the block:
+    petsc_index -= accumulated_local_sizes_per_block[bb]
+    
+    #npts_local = npts_local_per_block_per_process[bb][rk] 
+    #print(f'npts_local={npts_local}')
+
+    '''# Find shift for process k:
+    npts_local_per_block_per_process = np.array(get_npts_per_block(V)) #indexed [b,k,d] for block b and process k and dimension d
+    local_sizes_per_block_per_process = np.prod(npts_local_per_block_per_process, axis=-1) #indexed [b,k] for block b and process k
+    assert local_sizes_per_block_per_process[:,comm.Get_rank()] == np.prod(npts_local)
+    index_proc_shift = 0 + np.sum(local_sizes_per_block_per_process[bb][0:comm.Get_rank()], dtype=int) #Global variable'''
+
+
+    ii = np.zeros((ndim,), dtype=int)
+    if ndim == 1:
+        ii[0] = petsc_index + p[0]*m[0] # global index starting from 0 in each process
+
+    elif ndim == 2:
+        ii[0] = petsc_index // npts_local[1] + p[0]*m[0]
+        ii[1] = petsc_index % npts_local[1] + p[1]*m[1]
+        #print(f'rank={comm.Get_rank()}, bb={bb}, npts_local={npts_local}, local_petsc_index={petsc_index}, ii={ii}')
+
+    elif ndim == 3:
+        ii[0] = petsc_index // (npts_local[1]*npts_local[2]) + p[0]*m[0]
+        ii[1] = petsc_index // npts_local[2] + p[1]*m[1] - npts_local[1]*(ii[0] - p[0]*m[0])
+        ii[2] = petsc_index % npts_local[2] + p[2]*m[2]
+
+    else:
+        raise NotImplementedError( "Cannot handle more than 3 dimensions." )
+
+    return (bb,), tuple(ii)
 
 def psydac_to_global(V : VectorSpace, block_indices : tuple[int], ndarray_indices : tuple[int]) -> int:
     '''From Psydac natural multi-index (grid coordinates) to global PETSc single-index.
