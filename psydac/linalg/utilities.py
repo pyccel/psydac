@@ -91,6 +91,8 @@ def petsc_to_psydac(x, Xh):
     """
     
     if isinstance(Xh, BlockVectorSpace):
+        if any([isinstance(Xh.spaces[b], BlockVectorSpace) for b in range(len(Xh.spaces))]):
+            raise NotImplementedError('Block of blocks not implemented.')
         u = BlockVector(Xh)
 
         comm       = x.comm#u[0][0].space.cart.global_comm
