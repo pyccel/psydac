@@ -597,6 +597,9 @@ def vec_topetsc( vec ):
     """
     from petsc4py import PETSc
 
+    if isinstance(vec.space, BlockVectorSpace) and any([isinstance(vec.space.spaces[b], BlockVectorSpace) for b in range(len(vec.space.spaces))]):
+        raise NotImplementedError('Block of blocks not implemented.')
+
     if isinstance(vec, StencilVector):
         carts = [vec.space.cart]
     elif isinstance(vec.space, BlockVectorSpace):
@@ -615,12 +618,7 @@ def vec_topetsc( vec ):
                 carts.append(carts2)
 
 
-    '''elif isinstance(vec.space.spaces[0], StencilVectorSpace):
-        carts = [vec.space.spaces[b1].cart for b1 in range(len(vec.space.spaces))] 
-    
-    elif isinstance(vec.space.spaces[0], BlockVectorSpace):
-        carts = [[vec.space.spaces[b1][b2].cart for b2 in range(len(vec.space.spaces[b1]))]  for b1 in range(len(vec.space.spaces))] 
-    '''
+
 
     npts_local = get_npts_local(vec.space) #[[ e - s + 1 for s, e in zip(cart.starts, cart.ends)] for cart in carts] #Number of points in each dimension within each process. Different for each process.
 
@@ -628,8 +626,6 @@ def vec_topetsc( vec ):
 
     ndims = [cart.ndim for cart in carts]
 
-        
-    #index_shift = get_petsc_local_to_global_shift(vec.space) #Global variable
 
     gvec  = PETSc.Vec().create(comm=comms[0])
 
@@ -644,17 +640,11 @@ def vec_topetsc( vec ):
     petsc_data = []
 
     s = [cart.starts for cart in carts]
-    #p = [cart.pads for cart in carts]
-    #m = [cart.shifts for cart in carts]
     ghost_size = [[pi*mi for pi,mi in zip(cart.pads, cart.shifts)] for cart in carts]
 
     n_blocks = 1 if isinstance(vec, StencilVector) else vec.n_blocks
 
     vec_block = vec
-
-    #block_shift_per_process = get_block_shift_per_process(vec.space)
-    #global_npts_per_block_per_proc = get_npts_per_block(vec.space)
-    #print(f'blocks_shift={block_shift_per_process}')
 
     for b in range(n_blocks): 
         if isinstance(vec, BlockVector):
@@ -847,7 +837,7 @@ def mat_topetsc( mat ):
 
 
     if dndim == 1 and cndim == 1:
-        for bb in nonzero_block_indices:
+        for b1,b2 in nonzero_block_indices:
 
             if isinstance(mat, StencilMatrix):
                 data = mat._data
@@ -857,7 +847,7 @@ def mat_topetsc( mat ):
             for i1 in range(dnpts_local[0]):
                 nnz_in_row = 0
                 i1_n = s[0] + i1
-                i_g = psydac_to_global(mat.codomain, (bb[0],), (i1_n,))
+                i_g = psydac_to_global(mat.codomain, (b1, b2), (i1_n,))
 
                 for k1 in range(-p[0]*m[0], p[0]*m[0] + 1):
                     value = data[i1 + ghost_size[0], (k1 + ghost_size[0])%(2*p[0]*m[0] + 1)]
@@ -865,7 +855,7 @@ def mat_topetsc( mat ):
                     
                     if value != 0:
 
-                        j_g = psydac_to_global(mat.domain, (bb[1],), (j1_n, ))
+                        j_g = psydac_to_global(mat.domain, (b1, b2), (j1_n, ))
 
                         if nnz_in_row == 0:
                             rowmap.append(i_g)  
@@ -889,9 +879,9 @@ def mat_topetsc( mat ):
                     i_g = psydac_to_global(mat.codomain, (b1, b2), (i1_n, i2_n))
                     #i_n = psydac_to_singlenatural(mat.codomain, (i1_n,i2_n))
 
-                    for k in range(dcomm.Get_size()):
+                    '''for k in range(dcomm.Get_size()):
                         if k == dcomm.Get_rank():
-                            print(f'Rank {k}: ({i1_n}, {i2_n}), i_n= {i_n}, i_g= {i_g}')
+                            print(f'Rank {k}: ({i1_n}, {i2_n}), i_n= {i_n}, i_g= {i_g}')'''
 
                     for k1 in range(- p[0]*m[0], p[0]*m[0] + 1):                    
                         for k2 in range(- p[1]*m[1], p[1]*m[1] + 1):
@@ -907,10 +897,10 @@ def mat_topetsc( mat ):
 
                                 if nnz_in_row == 0:
                                     rowmap.append(i_g)     
-                                    rowmap2.append(psydac_to_singlenatural(mat.domain, (i1_n,i2_n)))                 
+                                    #rowmap2.append(psydac_to_singlenatural(mat.domain, (i1_n,i2_n)))                 
 
                                 J.append(j_g)
-                                J2.append(psydac_to_singlenatural(mat.domain, (j1_n,j2_n)))
+                                #J2.append(psydac_to_singlenatural(mat.domain, (j1_n,j2_n)))
 
                                 V.append(value)  
 
@@ -919,35 +909,36 @@ def mat_topetsc( mat ):
                     I.append(I[-1] + nnz_in_row)
 
     elif dndim == 3 and cndim == 3: 
-        for i1 in np.arange(dnpts_local[0]):             
-            for i2 in np.arange(dnpts_local[1]):
-                for i3 in np.arange(dnpts_local[2]):
-                    nnz_in_row = 0
-                    i1_n = s[0] + i1
-                    i2_n = s[1] + i2
-                    i3_n = s[2] + i3
-                    i_g = psydac_to_global(mat.codomain, (i1_n, i2_n, i3_n))
+        for b1,b2 in nonzero_block_indices:
+            for i1 in np.arange(dnpts_local[0]):             
+                for i2 in np.arange(dnpts_local[1]):
+                    for i3 in np.arange(dnpts_local[2]):
+                        nnz_in_row = 0
+                        i1_n = s[0] + i1
+                        i2_n = s[1] + i2
+                        i3_n = s[2] + i3
+                        i_g = psydac_to_global(mat.codomain, (b1, b2), (i1_n, i2_n, i3_n))
 
-                    for k1 in range(-p[0]*m[0], p[0]*m[0] + 1):                    
-                        for k2 in range(-p[1]*m[1], p[1]*m[1] + 1):
-                            for k3 in range(-p[2]*m[2], p[2]*m[2] + 1):
-                                value = mat._data[i1 + ghost_size[0], i2 + ghost_size[1], i3 + ghost_size[2], (k1 + ghost_size[0])%(2*p[0]*m[0] + 1), (k2 + ghost_size[1])%(2*p[1]*m[1] + 1), (k3 + ghost_size[2])%(2*p[2]*m[2] + 1)]
+                        for k1 in range(-p[0]*m[0], p[0]*m[0] + 1):                    
+                            for k2 in range(-p[1]*m[1], p[1]*m[1] + 1):
+                                for k3 in range(-p[2]*m[2], p[2]*m[2] + 1):
+                                    value = mat._data[i1 + ghost_size[0], i2 + ghost_size[1], i3 + ghost_size[2], (k1 + ghost_size[0])%(2*p[0]*m[0] + 1), (k2 + ghost_size[1])%(2*p[1]*m[1] + 1), (k3 + ghost_size[2])%(2*p[2]*m[2] + 1)]
 
-                                j1_n = (i1_n + k1)%dnpts[0] #- ghost_size[0]
-                                j2_n = (i2_n + k2)%dnpts[1] # - ghost_size[1]
-                                j3_n = (i3_n + k3)%dnpts[2] # - ghost_size[2]
+                                    j1_n = (i1_n + k1)%dnpts[0] #- ghost_size[0]
+                                    j2_n = (i2_n + k2)%dnpts[1] # - ghost_size[1]
+                                    j3_n = (i3_n + k3)%dnpts[2] # - ghost_size[2]
 
-                                if value != 0: #and j1_n in range(dnpts[0]) and j2_n in range(dnpts[1]) and j3_n in range(dnpts[2]):
-                                    j_g = psydac_to_global(mat.domain, (j1_n, j2_n, j3_n))
+                                    if value != 0: #and j1_n in range(dnpts[0]) and j2_n in range(dnpts[1]) and j3_n in range(dnpts[2]):
+                                        j_g = psydac_to_global(mat.domain, (b1, b2), (j1_n, j2_n, j3_n))
 
-                                    if nnz_in_row == 0: 
-                                        rowmap.append(i_g)     
-                            
-                                    J.append(j_g)
-                                    V.append(value)  
-                                    nnz_in_row += 1
+                                        if nnz_in_row == 0: 
+                                            rowmap.append(i_g)     
+                                
+                                        J.append(j_g)
+                                        V.append(value)  
+                                        nnz_in_row += 1
 
-                    I.append(I[-1] + nnz_in_row)
+                        I.append(I[-1] + nnz_in_row)
 
 
 
