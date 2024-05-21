@@ -281,7 +281,9 @@ def psydac_to_global(V : VectorSpace, block_indices : tuple[int], ndarray_indice
     nprocs = cart.nprocs
     ndim = cart.ndim
     gs = cart.global_starts # Global variable
-    ge = cart.global_ends # Global variable        
+    ge = cart.global_ends # Global variable
+
+
 
     '''#dnpts_local = [ e - s + 1 for s, e in zip(s, e)] #Number of points in each dimension within each process. Different for each process.
 
@@ -294,10 +296,11 @@ def psydac_to_global(V : VectorSpace, block_indices : tuple[int], ndarray_indice
 
     jj = ndarray_indices
     if ndim == 1:
-        #proc_index = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
+        proc_index = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
         #index_shift = 0 + np.sum(localsize_perprocess[0:proc_index], dtype=int) #Global variable
 
-        index_shift = 0 + np.sum(local_sizes_per_block_per_process[bb][0:proc_index], dtype=int) #Global variable
+        #index_shift = 0 + np.sum(local_sizes_per_block_per_process[bb][0:proc_index], dtype=int) #Global variable
+        index_shift = 0 + np.sum(local_sizes_per_block_per_process[:,:proc_index]) + np.sum(local_sizes_per_block_per_process[:bb,proc_index])
         global_index = index_shift + jj[0] - gs[0][proc_index]
 
     elif ndim == 2:
@@ -305,14 +308,15 @@ def psydac_to_global(V : VectorSpace, block_indices : tuple[int], ndarray_indice
         proc_y = np.nonzero(np.array([jj[1] in range(gs[1][k],ge[1][k]+1) for k in range(gs[1].size)]))[0][0]
 
         proc_index = proc_y + proc_x*nprocs[1]#proc_x + proc_y*nprocs[0]
-        index_shift = 0#0 + np.sum(local_sizes_per_block_per_process[bb][0:proc_index], dtype=int) #Global variable
+        index_shift = 0 + np.sum(local_sizes_per_block_per_process[:,:proc_index]) + np.sum(local_sizes_per_block_per_process[:bb,proc_index])
+        #index_shift = 0#0 + np.sum(local_sizes_per_block_per_process[bb][0:proc_index], dtype=int) #Global variable
         #global_index = jj[0] - gs[0][proc_x] + (jj[1] - gs[1][proc_y]) * npts_local_perprocess[proc_index][0] + index_shift 
         #global_index = index_shift + jj[1] - gs[1][proc_y] + (jj[0] - gs[0][proc_x]) * npts_local_per_block_per_process[bb,proc_index,1]
 
         #print(f'np.sum(local_sizes_per_block_per_process[:,:proc_index])={np.sum(local_sizes_per_block_per_process[:,:proc_index])}')
         #print(f'np.sum(local_sizes_per_block_per_process[:bb,proc_index])={np.sum(local_sizes_per_block_per_process[:bb,proc_index])}')
-        shift = 0 + np.sum(local_sizes_per_block_per_process[:,:proc_index]) + np.sum(local_sizes_per_block_per_process[:bb,proc_index])
-        global_index = shift + jj[1] - gs[1][proc_y] + (jj[0] - gs[0][proc_x]) * npts_local_per_block_per_process[bb,proc_index,1]
+        #index_shift = 0 + np.sum(local_sizes_per_block_per_process[:,:proc_index]) + np.sum(local_sizes_per_block_per_process[:bb,proc_index])
+        global_index = index_shift + jj[1] - gs[1][proc_y] + (jj[0] - gs[0][proc_x]) * npts_local_per_block_per_process[bb,proc_index,1]
         #print(f'shift={shift}')
         #x_proc_ranges = np.array([range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)])
 
@@ -333,7 +337,8 @@ def psydac_to_global(V : VectorSpace, block_indices : tuple[int], ndarray_indice
         proc_z = np.nonzero(np.array([jj[2] in range(gs[2][k],ge[2][k]+1) for k in range(gs[2].size)]))[0][0]
 
         proc_index = proc_z + proc_y*nprocs[2] + proc_x*nprocs[1]*nprocs[2] #proc_x + proc_y*nprocs[0]
-        index_shift = 0 + np.sum(local_sizes_per_block_per_process[bb][0:proc_index], dtype=int) #Global variable
+        #index_shift = 0 + np.sum(local_sizes_per_block_per_process[bb][0:proc_index], dtype=int) #Global variable
+        index_shift = 0 + np.sum(local_sizes_per_block_per_process[:,:proc_index]) + np.sum(local_sizes_per_block_per_process[:bb,proc_index])
         global_index = index_shift \
                     +  jj[2] - gs[2][proc_z] \
                     + (jj[1] - gs[1][proc_y]) * npts_local_per_block_per_process[bb][proc_index][2] \
@@ -647,22 +652,20 @@ def vec_topetsc( vec ):
 
     vec_block = vec
 
-    block_shift_per_process = get_block_shift_per_process(vec.space)
+    #block_shift_per_process = get_block_shift_per_process(vec.space)
     #global_npts_per_block_per_proc = get_npts_per_block(vec.space)
-    print(f'blocks_shift={block_shift_per_process}')
+    #print(f'blocks_shift={block_shift_per_process}')
 
     for b in range(n_blocks): 
         if isinstance(vec, BlockVector):
             vec_block = vec.blocks[b]
-
-        index_shift = block_shift_per_process[comms[b].Get_rank()]
 
         if ndims[b] == 1:
             for i1 in range(npts_local[b][0]):
                 value = vec_block._data[i1 + ghost_size[b][0]]
                 if value != 0:
                     i1_n = s[b][0] + i1
-                    i_g = psydac_to_global(vec.space.spaces[b], (), (i1_n,)) + index_shift
+                    i_g = psydac_to_global(vec.space, (b,), (i1_n,))
                     petsc_indices.append(i_g)
                     petsc_data.append(value)        
 
@@ -673,8 +676,8 @@ def vec_topetsc( vec ):
                     if value != 0:
                         i1_n = s[b][0] + i1
                         i2_n = s[b][1] + i2                    
-                        i_g = psydac_to_global(vec.space, (b,), (i1_n, i2_n)) #+ index_shift
-                        print(f'Rank {comms[b].Get_rank()}, Block {b}: i1_n = {i1_n}, i2_n = {i2_n}, i_g = {i_g}')
+                        i_g = psydac_to_global(vec.space, (b,), (i1_n, i2_n)) 
+                        #print(f'Rank {comms[b].Get_rank()}, Block {b}: i1_n = {i1_n}, i2_n = {i2_n}, i_g = {i_g}')
                         petsc_indices.append(i_g)
                         petsc_data.append(value)
 
