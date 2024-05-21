@@ -6,7 +6,7 @@ from math import sqrt
 from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from psydac.linalg.block   import BlockVector, BlockVectorSpace
-from psydac.linalg.topetsc import psydac_to_petsc_local, get_petsc_local_to_global_shift, petsc_to_psydac_local
+from psydac.linalg.topetsc import psydac_to_petsc_local, get_petsc_local_to_global_shift, petsc_to_psydac_local, global_to_psydac, get_npts_per_block
 
 __all__ = (
     'array_to_psydac',
@@ -89,76 +89,114 @@ def petsc_to_psydac(x, Xh):
     u : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector
         Psydac vector
     """
-
+    
     if isinstance(Xh, BlockVectorSpace):
         u = BlockVector(Xh)
-        if isinstance(Xh.spaces[0], BlockVectorSpace):
 
-            comm       = u[0][0].space.cart.global_comm
-            dtype      = u[0][0].space.dtype
-            sendcounts = np.array(comm.allgather(len(x.array))) if comm else np.array([len(x.array)])
-            recvbuf    = np.empty(sum(sendcounts), dtype='complex') # PETSc installed with complex configuration only handles complex vectors
+        comm       = x.comm#u[0][0].space.cart.global_comm
+        dtype      = Xh._dtype#u[0][0].space.dtype
+        n_blocks   = Xh.n_blocks
+        #sendcounts = np.array(comm.allgather(len(x.array))) if comm else np.array([len(x.array)])
+        #recvbuf    = np.empty(sum(sendcounts), dtype='complex') # PETSc installed with complex configuration only handles complex vectors
+        localsize, globalsize = x.getSizes()
+        #assert globalsize == u.shape[0], 'Sizes of global vectors do not match'
 
-            if comm:
-                # Gather the global array in all the processors
-                ################################################
-                # Note 12.03.2024:
-                # This global communication is at the moment necessary since PETSc distributes matrices and vectors different than Psydac. 
-                # In order to avoid it, we would need that PETSc uses the partition from Psydac, 
-                # which might involve passing a DM Object.
-                ################################################
-                comm.Allgatherv(sendbuf=x.array, recvbuf=(recvbuf, sendcounts))
-            else:
-                recvbuf[:] = x.array
 
-            inds = 0
-            for d in range(len(Xh.spaces)):
-                starts = [np.array(V.starts) for V in Xh.spaces[d].spaces]
-                ends   = [np.array(V.ends)   for V in Xh.spaces[d].spaces]
+        # Find shifts for process k:
+        npts_local_per_block_per_process = np.array(get_npts_per_block(Xh)) #indexed [b,k,d] for block b and process k and dimension d
+        local_sizes_per_block_per_process = np.prod(npts_local_per_block_per_process, axis=-1) #indexed [b,k] for block b and process k
 
-                for i in range(len(starts)):
-                    idx = tuple( slice(m*p,-m*p) for m,p in zip(u.space.spaces[d].spaces[i].pads, u.space.spaces[d].spaces[i].shifts) )
-                    shape = tuple(ends[i]-starts[i]+1)
-                    npts  = Xh.spaces[d].spaces[i].npts
-                    # compute the global indices of the coefficents owned by the process using starts and ends
-                    indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts[i], xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
-                    vals = recvbuf[indices+inds]
+        index_shift = 0 + np.sum(local_sizes_per_block_per_process[:,:comm.Get_rank()]) #+ np.sum(local_sizes_per_block_per_process[:b,comm.Get_rank()]) for b in range(n_blocks)]
 
-                    # With PETSc installation configuration for complex, all the numbers are by default complex. 
-                    # In the float case, the imaginary part must be truncated to avoid warnings.
-                    u[d][i]._data[idx] = (vals if dtype is complex else vals.real).reshape(shape)
+        #index_shift_per_block =  [0 + np.sum(local_sizes_per_block_per_process[b][0:x.comm.Get_rank()], dtype=int) for b in range(n_blocks)] #Global variable
 
-                    inds += np.prod(npts)
+        print(f'rk={comm.Get_rank()}, local_sizes_per_block_per_process={local_sizes_per_block_per_process}, index_shift={index_shift}, u[0]._data={u[0]._data.shape}, u[1]._data={u[1]._data.shape}')
 
+
+        local_petsc_indices = np.arange(localsize)
+        global_petsc_indices = []
+        psydac_indices = []
+        block_indices = []
+        for petsc_index in local_petsc_indices:
+
+            block_index, psydac_index = global_to_psydac(Xh, petsc_index)#, comm=x.comm)            
+            psydac_indices.append(psydac_index)
+            block_indices.append(block_index)
+
+
+            global_petsc_indices.append(petsc_index + index_shift)
+
+            print(f'rank={comm.Get_rank()}, psydac_index = {psydac_index}, local_petsc_index={petsc_index}, petsc_global_index={global_petsc_indices[-1]}')
+
+        
+        for block_index, psydac_index, petsc_index in zip(block_indices, psydac_indices, global_petsc_indices):
+            value = x.getValue(petsc_index) # Global index
+            if value != 0:
+                u[block_index[0]]._data[psydac_index] = value if dtype is complex else value.real
+        
+
+
+
+        '''if comm:
+            # Gather the global array in all the processors
+            ################################################
+            # Note 12.03.2024:
+            # This global communication is at the moment necessary since PETSc distributes matrices and vectors different than Psydac. 
+            # In order to avoid it, we would need that PETSc uses the partition from Psydac, 
+            # which might involve passing a DM Object.
+            ################################################
+            comm.Allgatherv(sendbuf=x.array, recvbuf=(recvbuf, sendcounts))
         else:
-            comm       = u[0].space.cart.global_comm
-            dtype      = u[0].space.dtype
-            sendcounts = np.array(comm.allgather(len(x.array))) if comm else np.array([len(x.array)])
-            recvbuf    = np.empty(sum(sendcounts), dtype='complex') # PETSc installed with complex configuration only handles complex vectors
+            recvbuf[:] = x.array
 
-            if comm:
-                # Gather the global array in all the procs
-                # TODO: Avoid this global communication with a DM Object (see note above).
-                comm.Allgatherv(sendbuf=x.array, recvbuf=(recvbuf, sendcounts))
-            else:
-                recvbuf[:] = x.array
+        inds = 0
+        for d in range(len(Xh.spaces)):
+            starts = [np.array(V.starts) for V in Xh.spaces[d].spaces]
+            ends   = [np.array(V.ends)   for V in Xh.spaces[d].spaces]
 
-            inds = 0
-            starts = [np.array(V.starts) for V in Xh.spaces]
-            ends   = [np.array(V.ends)   for V in Xh.spaces]
             for i in range(len(starts)):
-                idx = tuple( slice(m*p,-m*p) for m,p in zip(u.space.spaces[i].pads, u.space.spaces[i].shifts) )
+                idx = tuple( slice(m*p,-m*p) for m,p in zip(u.space.spaces[d].spaces[i].pads, u.space.spaces[d].spaces[i].shifts) )
                 shape = tuple(ends[i]-starts[i]+1)
-                npts  = Xh.spaces[i].npts
+                npts  = Xh.spaces[d].spaces[i].npts
                 # compute the global indices of the coefficents owned by the process using starts and ends
                 indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts[i], xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
                 vals = recvbuf[indices+inds]
 
                 # With PETSc installation configuration for complex, all the numbers are by default complex. 
                 # In the float case, the imaginary part must be truncated to avoid warnings.
-                u[i]._data[idx] = (vals if dtype is complex else vals.real).reshape(shape)
+                u[d][i]._data[idx] = (vals if dtype is complex else vals.real).reshape(shape)
 
                 inds += np.prod(npts)
+
+        else:
+        comm       = u[0].space.cart.global_comm
+        dtype      = u[0].space.dtype
+        sendcounts = np.array(comm.allgather(len(x.array))) if comm else np.array([len(x.array)])
+        recvbuf    = np.empty(sum(sendcounts), dtype='complex') # PETSc installed with complex configuration only handles complex vectors
+
+        if comm:
+            # Gather the global array in all the procs
+            # TODO: Avoid this global communication with a DM Object (see note above).
+            comm.Allgatherv(sendbuf=x.array, recvbuf=(recvbuf, sendcounts))
+        else:
+            recvbuf[:] = x.array
+
+        inds = 0
+        starts = [np.array(V.starts) for V in Xh.spaces]
+        ends   = [np.array(V.ends)   for V in Xh.spaces]
+        for i in range(len(starts)):
+            idx = tuple( slice(m*p,-m*p) for m,p in zip(u.space.spaces[i].pads, u.space.spaces[i].shifts) )
+            shape = tuple(ends[i]-starts[i]+1)
+            npts  = Xh.spaces[i].npts
+            # compute the global indices of the coefficents owned by the process using starts and ends
+            indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts[i], xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
+            vals = recvbuf[indices+inds]
+
+            # With PETSc installation configuration for complex, all the numbers are by default complex. 
+            # In the float case, the imaginary part must be truncated to avoid warnings.
+            u[i]._data[idx] = (vals if dtype is complex else vals.real).reshape(shape)
+
+            inds += np.prod(npts)'''
 
     elif isinstance(Xh, StencilVectorSpace):
 
@@ -168,22 +206,48 @@ def petsc_to_psydac(x, Xh):
         localsize, globalsize = x.getSizes()
         assert globalsize == u.shape[0], 'Sizes of global vectors do not match'
 
-        index_shift = get_petsc_local_to_global_shift(Xh)
+        '''index_shift = get_petsc_local_to_global_shift(Xh)
         petsc_local_indices = np.arange(localsize) 
         petsc_indices = petsc_local_indices #+ index_shift
-        psydac_indices = [petsc_to_psydac_local(Xh, petsc_index) for petsc_index in petsc_indices]
+        psydac_indices = [petsc_to_psydac_local(Xh, petsc_index) for petsc_index in petsc_indices]'''
 
-        if comm is not None:
+
+        # Find shifts for process k:
+        npts_local_per_block_per_process = np.array(get_npts_per_block(Xh)) #indexed [b,k,d] for block b and process k and dimension d
+        local_sizes_per_block_per_process = np.prod(npts_local_per_block_per_process, axis=-1) #indexed [b,k] for block b and process k
+
+        index_shift = 0 + np.sum(local_sizes_per_block_per_process[0][0:x.comm.Get_rank()], dtype=int) #Global variable
+
+
+        
+        local_petsc_indices = np.arange(localsize)
+        global_petsc_indices = []
+        psydac_indices = []
+        block_indices = []
+        for petsc_index in local_petsc_indices:
+
+            block_index, psydac_index = global_to_psydac(Xh, petsc_index)#, comm=x.comm)            
+            psydac_indices.append(psydac_index)
+            block_indices.append(block_index)
+            global_petsc_indices.append(petsc_index + index_shift)
+
+
+
+
+        #psydac_indices = [global_to_psydac(Xh, petsc_index, comm=x.comm) for petsc_index in petsc_indices]
+
+
+        '''if comm is not None:
             for k in range(comm.Get_size()):
                 if k == comm.Get_rank():
                     print('\nRank ', k)
                     print('petsc_indices=\n', petsc_indices)
                     print('psydac_indices=\n', psydac_indices)
                     print('index_shift=', index_shift)
-                comm.Barrier()
+                comm.Barrier()'''
 
-        for psydac_index, petsc_index in zip(psydac_indices, petsc_indices):
-            value = x.getValue(petsc_index + index_shift)
+        for block_index, psydac_index, petsc_index in zip(block_indices, psydac_indices, global_petsc_indices):
+            value = x.getValue(petsc_index) # Global index
             if value != 0:
                 u._data[psydac_index] = value if dtype is complex else value.real
         
@@ -215,7 +279,7 @@ def petsc_to_psydac(x, Xh):
 
     u.update_ghost_regions()
 
-    if comm is not None:
+    '''if comm is not None:
         u_arr = u.toarray()
         x_arr = x.array.real
         for k in range(comm.Get_size()):
@@ -225,7 +289,7 @@ def petsc_to_psydac(x, Xh):
                 #print('x.array=\n', x_arr)
                 #print('u._data=\n', u._data)
 
-            comm.Barrier()
+            comm.Barrier()'''
 
     return u
 
