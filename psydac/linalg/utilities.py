@@ -118,8 +118,8 @@ def petsc_to_psydac(x, Xh):
     elif isinstance(Xh, StencilVectorSpace):
 
         u          = StencilVector(Xh)
-        comm       = u.space.cart.global_comm
-        dtype      = u.space.dtype
+        comm       = x.comm
+        dtype      = Xh.dtype
         localsize, globalsize = x.getSizes()
         assert globalsize == u.shape[0], 'Sizes of global vectors do not match'
 

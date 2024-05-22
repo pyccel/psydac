@@ -132,8 +132,11 @@ def psydac_to_petsc_global(
     jj = ndarray_indices
 
     if ndim == 1:
-        # Find to which process the node belongs to:
-        proc_index = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
+        if cart.comm:
+            # Find to which process the node belongs to:
+            proc_index = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
+        else:
+            proc_index = 0
        
         # Find the index shift corresponding to the block and the owner process:
         index_shift = 0 + np.sum(local_sizes_per_block_per_process[:,:proc_index]) + np.sum(local_sizes_per_block_per_process[:bb,proc_index])
@@ -142,11 +145,15 @@ def psydac_to_petsc_global(
         global_index = index_shift + jj[0] - gs[0][proc_index]
 
     elif ndim == 2:
-        # Find to which process the node belongs to:
-        proc_x = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
-        proc_y = np.nonzero(np.array([jj[1] in range(gs[1][k],ge[1][k]+1) for k in range(gs[1].size)]))[0][0]
-        proc_index = proc_y + proc_x*nprocs[1]
+        if cart.comm:
+            # Find to which process the node belongs to:
+            proc_x = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
+            proc_y = np.nonzero(np.array([jj[1] in range(gs[1][k],ge[1][k]+1) for k in range(gs[1].size)]))[0][0]
+        else:
+            proc_x = 0
+            proc_y = 0
 
+        proc_index = proc_y + proc_x*nprocs[1]
         # Find the index shift corresponding to the block and the owner process:
         index_shift = 0 + np.sum(local_sizes_per_block_per_process[:,:proc_index]) + np.sum(local_sizes_per_block_per_process[:bb,proc_index])
 
@@ -154,10 +161,16 @@ def psydac_to_petsc_global(
         global_index = index_shift + jj[1] - gs[1][proc_y] + (jj[0] - gs[0][proc_x]) * npts_local_per_block_per_process[bb,proc_index,1]
 
     elif ndim == 3:
-        # Find to which process the node belongs to:
-        proc_x = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
-        proc_y = np.nonzero(np.array([jj[1] in range(gs[1][k],ge[1][k]+1) for k in range(gs[1].size)]))[0][0]
-        proc_z = np.nonzero(np.array([jj[2] in range(gs[2][k],ge[2][k]+1) for k in range(gs[2].size)]))[0][0]
+        if cart.comm:
+            # Find to which process the node belongs to:
+            proc_x = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
+            proc_y = np.nonzero(np.array([jj[1] in range(gs[1][k],ge[1][k]+1) for k in range(gs[1].size)]))[0][0]
+            proc_z = np.nonzero(np.array([jj[2] in range(gs[2][k],ge[2][k]+1) for k in range(gs[2].size)]))[0][0]
+        else:
+            proc_x = 0
+            proc_y = 0
+            proc_z = 0
+
         proc_index = proc_z + proc_y*nprocs[2] + proc_x*nprocs[1]*nprocs[2]
 
         # Find the index shift corresponding to the block and the owner process:
@@ -207,14 +220,27 @@ def get_npts_local(V : VectorSpace) -> list:
     return npts_local_per_block
 
 def get_npts_per_block(V : VectorSpace) -> list:
+    """
+    Compute the number of nodes per block, process and dimension. 
+    This is a global variable, its value is the same for all processes.
 
+    Parameter
+    ---------
+    V : VectorSpace
+        The distributed Psydac vector space.
+
+    Returns
+    --------
+    list
+        Number of nodes per block, process and dimension.
+    """ 
     if isinstance(V, StencilVectorSpace):
         gs = V.cart.global_starts # Global variable
         ge = V.cart.global_ends # Global variable
         npts_local_perprocess = [ ge_i - gs_i + 1 for gs_i, ge_i in zip(gs, ge)] #Global variable
         
-        if V.cart.comm:
-            npts_local_perprocess = [*cartesian_prod(*npts_local_perprocess)] #Global variable
+        #if V.cart.comm:
+        npts_local_perprocess = [*cartesian_prod(*npts_local_perprocess)] #Global variable
 
         return [npts_local_perprocess]
 
