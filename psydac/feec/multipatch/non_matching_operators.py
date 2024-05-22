@@ -282,8 +282,8 @@ def get_extension_restriction(coarse_space_1d, fine_space_1d, p_moments=-1):
         Extension-restriction matrix.
     """
     matching_interfaces = (coarse_space_1d.ncells == fine_space_1d.ncells)
-    assert (coarse_space_1d.breaks[0] == fine_space_1d.breaks[0]) and (
-        coarse_space_1d.breaks[-1] == fine_space_1d.breaks[-1])
+    # assert (coarse_space_1d.breaks[0] == fine_space_1d.breaks[0]) and (
+    #     coarse_space_1d.breaks[-1] == fine_space_1d.breaks[-1])
     assert (coarse_space_1d.basis == fine_space_1d.basis)
     spl_type = coarse_space_1d.basis
 

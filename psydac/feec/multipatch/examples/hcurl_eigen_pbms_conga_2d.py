@@ -7,32 +7,33 @@ from collections import OrderedDict
 
 from scipy.sparse.linalg import spilu, lgmres
 from scipy.sparse.linalg import LinearOperator, eigsh, minres
-from scipy.linalg        import norm
+from scipy.linalg import norm
 
-from sympde.topology     import Derham
+from sympde.topology import Derham
 
-from psydac.feec.multipatch.api                         import discretize
-from psydac.api.settings                                import PSYDAC_BACKENDS
-from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
-from psydac.feec.multipatch.operators                   import HodgeOperator
+from psydac.feec.multipatch.api import discretize
+from psydac.api.settings import PSYDAC_BACKENDS
+from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
+from psydac.feec.multipatch.operators import HodgeOperator
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.plotting_utilities          import plot_field
-from psydac.feec.multipatch.utilities                   import time_count
-from psydac.feec.multipatch.non_matching_operators      import construct_scalar_conforming_projection, construct_vector_conforming_projection
+from psydac.feec.multipatch.plotting_utilities import plot_field
+from psydac.feec.multipatch.utilities import time_count
+from psydac.feec.multipatch.non_matching_operators import construct_h1_conforming_projection, construct_hcurl_conforming_projection
+
 
 def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='python', mu=1, nu=0, gamma_h=10,
                           sigma=None, nb_eigs=4, nb_eigs_plot=4,
-                          plot_dir=None, hide_plots=True, m_load_dir="",skip_eigs_threshold = 1e-7,):
+                          plot_dir=None, hide_plots=True, m_load_dir="", skip_eigs_threshold=1e-7,):
     """
     solver for the eigenvalue problem: find lambda in R and u in H0(curl), such that
 
-      A u   = lambda * u    on \Omega
+      A u   = lambda * u    on \\Omega
 
     with an operator
 
       A u := mu * curl curl u  -  nu * grad div u
 
-    discretized as  Ah: V1h -> V1h  with a broken-FEEC approach involving a discrete sequence on a 2D multipatch domain \Omega,
+    discretized as  Ah: V1h -> V1h  with a broken-FEEC approach involving a discrete sequence on a 2D multipatch domain \\Omega,
 
       V0h  --grad->  V1h  -—curl-> V2h
 
@@ -52,7 +53,7 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     """
 
     ncells = [nc, nc]
-    degree = [deg,deg]
+    degree = [deg, deg]
     if sigma is None:
         raise ValueError('please specify a value for sigma')
 
@@ -66,12 +67,13 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
 
     print('building symbolic and discrete domain...')
     domain = build_multipatch_domain(domain_name=domain_name)
-    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    mappings = OrderedDict([(P.logical_domain, P.mapping)
+                           for P in domain.interior])
     mappings_list = list(mappings.values())
     domain_h = discretize(domain, ncells=ncells)
 
     print('building symbolic and discrete derham sequences...')
-    derham  = Derham(domain, ["H1", "Hcurl", "L2"])
+    derham = Derham(domain, ["H1", "Hcurl", "L2"])
     derham_h = discretize(derham, domain_h, degree=degree)
 
     V0h = derham_h.V0
@@ -83,7 +85,7 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
 
     print('building the discrete operators:')
     print('commuting projection operators...')
-    nquads = [4*(d + 1) for d in degree]
+    nquads = [4 * (d + 1) for d in degree]
     P0, P1, P2 = derham_h.projectors(nquads=nquads)
 
     I1 = IdLinearOperator(V1h)
@@ -91,21 +93,37 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
 
     print('Hodge operators...')
     # multi-patch (broken) linear operators / matrices
-    H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=0)
-    H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
-    H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=2)
+    H0 = HodgeOperator(
+        V0h,
+        domain_h,
+        backend_language=backend_language,
+        load_dir=m_load_dir,
+        load_space_index=0)
+    H1 = HodgeOperator(
+        V1h,
+        domain_h,
+        backend_language=backend_language,
+        load_dir=m_load_dir,
+        load_space_index=1)
+    H2 = HodgeOperator(
+        V2h,
+        domain_h,
+        backend_language=backend_language,
+        load_dir=m_load_dir,
+        load_space_index=2)
 
-    H0_m  = H0.to_sparse_matrix()                # = mass matrix of V0
+    H0_m = H0.to_sparse_matrix()                # = mass matrix of V0
     dH0_m = H0.get_dual_Hodge_sparse_matrix()    # = inverse mass matrix of V0
-    H1_m  = H1.to_sparse_matrix()                # = mass matrix of V1
+    H1_m = H1.to_sparse_matrix()                # = mass matrix of V1
     dH1_m = H1.get_dual_Hodge_sparse_matrix()    # = inverse mass matrix of V1
     H2_m = H2.to_sparse_matrix()                 # = mass matrix of V2
     # dH2_m = H2.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V2
 
     print('conforming projection operators...')
-    # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    cP0_m = construct_scalar_conforming_projection(V0h, hom_bc=[True, True])
-    cP1_m = construct_vector_conforming_projection(V1h, hom_bc=[True, True])
+    # conforming Projections (should take into account the boundary conditions
+    # of the continuous deRham sequence)
+    cP0_m = construct_h1_conforming_projection(V0h, hom_bc=True)
+    cP1_m = construct_hcurl_conforming_projection(V1h, hom_bc=True)
 
     print('broken differential operators...')
     bD0, bD1 = derham_h.broken_derivatives_as_operators
@@ -135,22 +153,23 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     print('nu = {}'.format(nu))
     A_m = mu * CC_m - nu * GD_m + gamma_h * JP_m
 
-    if False: #gneralized problen
+    if False:  # gneralized problen
         print('adding jump stabilization to RHS of generalized eigenproblem...')
         B_m = cP1_m.transpose() @ H1_m @ cP1_m + JS_m
     else:
         B_m = H1_m
-        
+
     print('solving matrix eigenproblem...')
-    all_eigenvalues, all_eigenvectors_transp = get_eigenvalues(nb_eigs, sigma, A_m, B_m)
-    #Eigenvalue processing
-  
+    all_eigenvalues, all_eigenvectors_transp = get_eigenvalues(
+        nb_eigs, sigma, A_m, B_m)
+    # Eigenvalue processing
+
     zero_eigenvalues = []
     if skip_eigs_threshold is not None:
         eigenvalues = []
         eigenvectors = []
         for val, vect in zip(all_eigenvalues, all_eigenvectors_transp.T):
-            if abs(val) < skip_eigs_threshold: 
+            if abs(val) < skip_eigs_threshold:
                 zero_eigenvalues.append(val)
                 # we skip the eigenvector
             else:
@@ -160,34 +179,35 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
         eigenvalues = all_eigenvalues
         eigenvectors = all_eigenvectors_transp.T
 
-
-        
     # plot first eigenvalues
 
     for i in range(min(nb_eigs_plot, len(eigenvalues))):
 
-        lambda_i  = eigenvalues[i]
+        lambda_i = eigenvalues[i]
         print('looking at emode i = {}: {}... '.format(i, lambda_i))
-  
+
         emode_i = np.real(eigenvectors[i])
-        norm_emode_i = np.dot(emode_i,H1_m.dot(emode_i))
+        norm_emode_i = np.dot(emode_i, H1_m.dot(emode_i))
         print('norm of computed eigenmode: ', norm_emode_i)
-        eh_c = emode_i/norm_emode_i  # numpy coeffs of the normalized eigenmode
-        plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='mode e_{}, lambda_{}={}'.format(i,i,lambda_i),
-                   filename=plot_dir+'e_{}.png'.format(i), hide_plot=hide_plots)
+        eh_c = emode_i / norm_emode_i  # numpy coeffs of the normalized eigenmode
+        plot_field(numpy_coeffs=eh_c, Vh=V1h, space_kind='hcurl', domain=domain, title='mode e_{}, lambda_{}={}'.format(i, i, lambda_i),
+                   filename=plot_dir + 'e_{}.png'.format(i), hide_plot=hide_plots)
 
     return eigenvalues, eigenvectors
 
 
 def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
     print('-----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  ----- ')
-    print('computing {0} eigenvalues (and eigenvectors) close to sigma={1} with scipy.sparse.eigsh...'.format(nb_eigs, sigma) )
+    print(
+        'computing {0} eigenvalues (and eigenvectors) close to sigma={1} with scipy.sparse.eigsh...'.format(
+            nb_eigs,
+            sigma))
     mode = 'normal'
     which = 'LM'
     # from eigsh docstring:
     #   ncv = number of Lanczos vectors generated ncv must be greater than k and smaller than n;
     #   it is recommended that ncv > 2*k. Default: min(n, max(2*k + 1, 20))
-    ncv = 4*nb_eigs
+    ncv = 4 * nb_eigs
     print('A_m.shape = ', A_m.shape)
     try_lgmres = True
     max_shape_splu = 17000
@@ -197,17 +217,20 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
         tol_eigsh = 0
     else:
 
-        OP_m = A_m - sigma*M_m
+        OP_m = A_m - sigma * M_m
         tol_eigsh = 1e-7
         if try_lgmres:
-            print('(via SPILU-preconditioned LGMRES iterative solver for A_m - sigma*M1_m)')
+            print(
+                '(via SPILU-preconditioned LGMRES iterative solver for A_m - sigma*M1_m)')
             OP_spilu = spilu(OP_m, fill_factor=15, drop_tol=5e-5)
-            preconditioner = LinearOperator(OP_m.shape, lambda x: OP_spilu.solve(x) )
+            preconditioner = LinearOperator(
+                OP_m.shape, lambda x: OP_spilu.solve(x))
             tol = tol_eigsh
             OPinv = LinearOperator(
                 matvec=lambda v: lgmres(OP_m, v, x0=None, tol=tol, atol=tol, M=preconditioner,
-                                    callback=lambda x: print('cg -- residual = ', norm(OP_m.dot(x)-v))
-                                    )[0],
+                                        callback=lambda x: print(
+                                            'cg -- residual = ', norm(OP_m.dot(x) - v))
+                                        )[0],
                 shape=M_m.shape,
                 dtype=M_m.dtype
             )
@@ -218,12 +241,20 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
             # > here, minres: MINimum RESidual iteration to solve Ax=b
             # suggested in https://github.com/scipy/scipy/issues/4170
             print('(with minres iterative solver for A_m - sigma*M1_m)')
-            OPinv = LinearOperator(matvec=lambda v: minres(OP_m, v, tol=1e-10)[0], shape=M_m.shape, dtype=M_m.dtype)
+            OPinv = LinearOperator(
+                matvec=lambda v: minres(
+                    OP_m,
+                    v,
+                    tol=1e-10)[0],
+                shape=M_m.shape,
+                dtype=M_m.dtype)
 
-    eigenvalues, eigenvectors = eigsh(A_m, k=nb_eigs, M=M_m, sigma=sigma, mode=mode, which=which, ncv=ncv, tol=tol_eigsh, OPinv=OPinv)
+    eigenvalues, eigenvectors = eigsh(
+        A_m, k=nb_eigs, M=M_m, sigma=sigma, mode=mode, which=which, ncv=ncv, tol=tol_eigsh, OPinv=OPinv)
 
     print("done: eigenvalues found: " + repr(eigenvalues))
     return eigenvalues, eigenvectors
+
 
 if __name__ == '__main__':
 
@@ -240,7 +271,7 @@ if __name__ == '__main__':
         nc = 8
         deg = 4
 
-    #domain_name = 'pretzel_f'
+    # domain_name = 'pretzel_f'
     domain_name = 'curved_L_shape'
     nc = 10
     deg = 3
@@ -255,15 +286,15 @@ if __name__ == '__main__':
     hcurl_solve_eigen_pbm(
         nc=nc, deg=deg,
         nu=0,
-        mu=1, #1,
+        mu=1,  # 1,
         domain_name=domain_name,
         backend_language='pyccel-gcc',
-        plot_dir='./plots/tests_source_february/'+run_dir,
+        plot_dir='./plots/tests_source_february/' + run_dir,
         hide_plots=True,
-        m_load_dir=m_load_dir, 
+        m_load_dir=m_load_dir,
         gamma_h=0,
-        sigma=sigma, 
-        nb_eigs=nb_eigs_solve, 
+        sigma=sigma,
+        nb_eigs=nb_eigs_solve,
         nb_eigs_plot=nb_eigs_plot,
         skip_eigs_threshold=skip_eigs_threshold,
     )
