@@ -375,6 +375,7 @@ def mat_topetsc( mat ):
     cndims = [ccart.ndim for ccart in ccarts]
     # Get global number of points per block:
     dnpts =  [dcart.npts for dcart in dcarts] # indexed [block, dimension]. Same for all processes.   
+    cnpts =  [ccart.npts for ccart in ccarts] # indexed [block, dimension]. Same for all processes.   
 
     # Get the number of points local to the current process:
     dnpts_local = get_npts_local(mat.domain) # indexed [block, dimension]. Different for each process.
@@ -411,20 +412,20 @@ def mat_topetsc( mat ):
         if isinstance(mat, BlockLinearOperator):
             mat_block = mat.blocks[bc][bd]
 
-        s = dcarts[bd].starts
-        p = dcarts[bd].pads
-        m = dcarts[bd].shifts
-        ghost_size = [pi*mi for pi,mi in zip(p, m)]
+        cs = ccarts[bc].starts
+        dp = dcarts[bd].pads
+        dm = dcarts[bd].shifts
+        cghost_size = [pi*mi for pi,mi in zip(ccarts[bc].pads, ccarts[bc].shifts)]
 
         if dndims[bd] == 1 and cndims[bc] == 1:
 
-            for i1 in range(dnpts_local[bd][0]):
+            for i1 in range(cnpts_local[bc][0]):
                 nnz_in_row = 0
-                i1_n = s[0] + i1
+                i1_n = cs[0] + i1
                 i_g = psydac_to_petsc_global(mat.codomain, (bc,), (i1_n,))
 
-                for k1 in range(-p[0]*m[0], p[0]*m[0] + 1):
-                    value = mat_block._data[i1 + ghost_size[0], (k1 + ghost_size[0])%(2*p[0]*m[0] + 1)]
+                for k1 in range(-dp[0]*dm[0], dp[0]*dm[0] + 1):
+                    value = mat_block._data[i1 + cghost_size[0], (k1 + dp[0]*dm[0])%(2*dp[0]*dm[0] + 1)]
 
                     j1_n = (i1_n + k1) % dnpts[bd][0] # modulus is necessary for periodic BC
                     
@@ -439,21 +440,22 @@ def mat_topetsc( mat ):
 
                         nnz_in_row += 1
 
-                I.append(I[-1] + nnz_in_row)
+                if nnz_in_row > 0:
+                    I.append(I[-1] + nnz_in_row)
                 
         elif dndims[bd] == 2 and cndims[bc] == 2:
-            for i1 in np.arange(dnpts_local[bd][0]):              
-                for i2 in np.arange(dnpts_local[bd][1]):
+            for i1 in np.arange(cnpts_local[bc][0]):              
+                for i2 in np.arange(cnpts_local[bc][1]):
 
                     nnz_in_row = 0
 
-                    i1_n = s[0] + i1
-                    i2_n = s[1] + i2
+                    i1_n = cs[0] + i1
+                    i2_n = cs[1] + i2
                     i_g = psydac_to_petsc_global(mat.codomain, (bc,), (i1_n, i2_n))
 
-                    for k1 in range(- p[0]*m[0], p[0]*m[0] + 1):                    
-                        for k2 in range(- p[1]*m[1], p[1]*m[1] + 1):
-                            value = mat_block._data[i1 + ghost_size[0], i2 + ghost_size[1], (k1 + ghost_size[0])%(2*p[0]*m[0] + 1), (k2 + ghost_size[1])%(2*p[1]*m[1] + 1)]
+                    for k1 in range(- dp[0]*dm[0], dp[0]*dm[0] + 1):                    
+                        for k2 in range(- dp[1]*dm[1], dp[1]*dm[1] + 1):
+                            value = mat_block._data[i1 + cghost_size[0], i2 + cghost_size[1], (k1 + dp[0]*dm[0])%(2*dp[0]*dm[0] + 1), (k2 + dp[1]*dm[1])%(2*dp[1]*dm[1] + 1)]
 
                             j1_n = (i1_n + k1) % dnpts[bd][0] # modulus is necessary for periodic BC
                             j2_n = (i2_n + k2) % dnpts[bd][1] # modulus is necessary for periodic BC
@@ -469,26 +471,27 @@ def mat_topetsc( mat ):
 
                                 nnz_in_row += 1
 
-                    I.append(I[-1] + nnz_in_row)
+                    if nnz_in_row > 0:
+                        I.append(I[-1] + nnz_in_row)
 
         elif dndims[bd] == 3 and cndims[bc] == 3: 
-            for i1 in np.arange(dnpts_local[bd][0]):             
-                for i2 in np.arange(dnpts_local[bd][1]):
-                    for i3 in np.arange(dnpts_local[bd][2]):
+            for i1 in np.arange(cnpts_local[bc][0]):             
+                for i2 in np.arange(cnpts_local[bc][1]):
+                    for i3 in np.arange(cnpts_local[bc][2]):
                         nnz_in_row = 0
-                        i1_n = s[0] + i1
-                        i2_n = s[1] + i2
-                        i3_n = s[2] + i3
+                        i1_n = cs[0] + i1
+                        i2_n = cs[1] + i2
+                        i3_n = cs[2] + i3
                         i_g = psydac_to_petsc_global(mat.codomain, (bc,), (i1_n, i2_n, i3_n))
 
-                        for k1 in range(-p[0]*m[0], p[0]*m[0] + 1):                    
-                            for k2 in range(-p[1]*m[1], p[1]*m[1] + 1):
-                                for k3 in range(-p[2]*m[2], p[2]*m[2] + 1):
-                                    value = mat_block._data[i1 + ghost_size[0], i2 + ghost_size[1], i3 + ghost_size[2], (k1 + ghost_size[0])%(2*p[0]*m[0] + 1), (k2 + ghost_size[1])%(2*p[1]*m[1] + 1), (k3 + ghost_size[2])%(2*p[2]*m[2] + 1)]
+                        for k1 in range(-dp[0]*dm[0], dp[0]*dm[0] + 1):                    
+                            for k2 in range(-dp[1]*dm[1], dp[1]*dm[1] + 1):
+                                for k3 in range(-dp[2]*dm[2], dp[2]*dm[2] + 1):
+                                    value = mat_block._data[i1 + cghost_size[0], i2 + cghost_size[1], i3 + cghost_size[2], (k1 + dp[0]*dm[0])%(2*dp[0]*dm[0] + 1), (k2 + dp[1]*dm[1])%(2*dp[1]*dm[1] + 1), (k3 + dp[2]*dm[2])%(2*dp[2]*dm[2] + 1)]
 
-                                    j1_n = (i1_n + k1)%dnpts[bd][0] # modulus is necessary for periodic BC
-                                    j2_n = (i2_n + k2)%dnpts[bd][1] # modulus is necessary for periodic BC
-                                    j3_n = (i3_n + k3)%dnpts[bd][2] # modulus is necessary for periodic BC
+                                    j1_n = (i1_n + k1) % dnpts[bd][0] # modulus is necessary for periodic BC
+                                    j2_n = (i2_n + k2) % dnpts[bd][1] # modulus is necessary for periodic BC
+                                    j3_n = (i3_n + k3) % dnpts[bd][2] # modulus is necessary for periodic BC
 
                                     if value != 0:
                                         j_g = psydac_to_petsc_global(mat.domain, (bd,), (j1_n, j2_n, j3_n))
@@ -501,7 +504,8 @@ def mat_topetsc( mat ):
 
                                         nnz_in_row += 1
 
-                        I.append(I[-1] + nnz_in_row)
+                        if nnz_in_row > 0:
+                            I.append(I[-1] + nnz_in_row)
 
     # Set the values using IJV&rowmap format. The values are stored in a cache memory.
     gmat.setValuesIJV(I, J, V, rowmap=rowmap, addv=PETSc.InsertMode.ADD_VALUES) # The addition mode is necessary when periodic BC
