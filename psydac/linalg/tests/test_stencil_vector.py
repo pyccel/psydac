@@ -431,7 +431,6 @@ def test_stencil_vector_2d_serial_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2)
     x = StencilVector(V)
 
     # Fill the vector with data
-
     if dtype == complex:
         f = lambda i1, i2: 10j * i1 + i2
     else:
@@ -455,7 +454,7 @@ def test_stencil_vector_2d_serial_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2)
     assert v._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2)
     assert v._data.dtype == dtype
     assert np.array_equal(x.toarray(), v.toarray())
-#test_stencil_vector_2d_serial_topetsc(float, 4,5,1,1,1,1,True,True)
+
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 7])
@@ -637,7 +636,6 @@ def test_stencil_vector_2d_parallel_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P
 
     assert np.array_equal(x.toarray(), v.toarray())
     
-#test_stencil_vector_2d_parallel_topetsc(float, 4, 5, 1, 1, 1, 1, True, True)   
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [20, 32])
@@ -679,7 +677,6 @@ def test_stencil_vector_1d_parallel_topetsc(dtype, n1, p1, s1, P1):
     v = petsc_to_psydac(v, V)
 
     assert np.array_equal(x.toarray(), v.toarray())
-#test_stencil_vector_1d_parallel_topetsc(float, 7, 2, 2, False)
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
