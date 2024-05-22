@@ -2854,7 +2854,7 @@ def test_stencil_matrix_1d_parallel_topetsc(dtype, n1, p1, sh1, P1):
     y_p = petsc_to_psydac(y_petsc, V)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
-#test_stencil_matrix_1d_parallel_topetsc(float, 5, 2, 1, True)
+
 # ===============================================================================
 
 @pytest.mark.parametrize('n1', [4,7])
@@ -2909,8 +2909,6 @@ def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
     y_p = petsc_to_psydac(y_petsc, Vh.vector_space)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
-    
-#test_mass_matrix_2d_parallel_topetsc(10, 13, 3, 2, True, True)
 
 # ===============================================================================
 
@@ -2971,8 +2969,6 @@ def test_mass_matrix_3d_parallel_topetsc(n1, n2, n3, p1, p2, p3, P1, P2, P3):
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
     
-#test_mass_matrix_3d_parallel_topetsc(7, 3, 5, 1, 1, 2, True, True, True)
-
 # ===============================================================================    
 
 @pytest.mark.parametrize('n1', [15,17])
@@ -3016,10 +3012,8 @@ def test_mass_matrix_1d_parallel_topetsc(n1, p1, P1):
     # Convert stencil matrix to PETSc.Mat
     Mp = M.topetsc()
 
-    #print('\nMp.getSizes()=', Mp.getSizes())
     # Create Vec to allocate the result of the dot product
     y_petsc = Mp.createVecLeft()
-    #print('y_petsc.getSizes()=', y_petsc.getSizes())
 
     x_petsc = x.topetsc()
     # Compute dot product
@@ -3027,25 +3021,8 @@ def test_mass_matrix_1d_parallel_topetsc(n1, p1, P1):
     # Cast result back to Psydac StencilVector format
     y_p = petsc_to_psydac(y_petsc, Vh.vector_space)
 
-    ################################################
-    # Note 12.03.2024:
-    # Another possibility would be to compare y_petsc.array and y.toarray(). 
-    # However, we cannot do this because PETSc distributes matrices and vectors different than Psydac.
-    # In the future we would like that PETSc uses the partition from Psydac, 
-    # which might involve passing a DM Object.
-    ################################################
-    '''for k in range(comm.Get_size()):
-        if comm.Get_rank() == k:
-            print('\n\nRank ', k)
-            print('x=\n', x.toarray())
-            print('x_petsc=\n', x_petsc.array)
-
-            print('MAX_DIFF=', abs((y-y_p).toarray()).max())
-        comm.Barrier()'''
-
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
 
-#test_mass_matrix_1d_parallel_topetsc(2, 1, False)
 # ===============================================================================
 # PARALLEL BACKENDS TESTS
 # ===============================================================================
