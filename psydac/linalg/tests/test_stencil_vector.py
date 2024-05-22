@@ -731,7 +731,6 @@ def test_stencil_vector_3d_parallel_topetsc(dtype, n1, n2, n3, p1, p2, p3, s1, s
     v = petsc_to_psydac(v, V)
 
     assert np.array_equal(x.toarray(), v.toarray())
-#test_stencil_vector_3d_parallel_topetsc(float, 4, 10, 5, 1, 1, 3, 1, 2, 1, True, True, True)
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
