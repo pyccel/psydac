@@ -1,30 +1,43 @@
 # coding: utf-8
 
 from mpi4py import MPI
-from sympy  import lambdify
+from sympy import lambdify
 
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib  import cm, colors
+from matplotlib import cm, colors
 from mpl_toolkits import mplot3d
 from collections import OrderedDict
 
 from psydac.linalg.utilities import array_to_psydac
-from psydac.fem.basic        import FemField
-from psydac.utilities.utils  import refine_array_1d
-from psydac.feec.pull_push   import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
+from psydac.fem.basic import FemField
+from psydac.utilities.utils import refine_array_1d
+from psydac.feec.pull_push import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
 
-__all__ = ('is_vector_valued', 'get_grid_vals', 'get_grid_quad_weights', 'get_plotting_grid', 
-           'get_diag_grid', 'get_patch_knots_gridlines', 'plot_field', 'my_small_plot', 'my_small_streamplot')
+__all__ = (
+    'is_vector_valued',
+    'get_grid_vals',
+    'get_grid_quad_weights',
+    'get_plotting_grid',
+    'get_diag_grid',
+    'get_patch_knots_gridlines',
+    'plot_field',
+    'my_small_plot',
+    'my_small_streamplot')
 
-#==============================================================================
+# ==============================================================================
+
+
 def is_vector_valued(u):
     # small utility function, only tested for FemFields in multi-patch spaces of the 2D grad-curl sequence
-    # todo: a proper interface returning the number of components of a general FemField would be nice
+    # todo: a proper interface returning the number of components of a general
+    # FemField would be nice
     return u.fields[0].space.is_product
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
+
 def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
     """
     get the physical field values, given the logical field and the logical grid
@@ -33,24 +46,26 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
     :param space_kind: specifies the push-forward for the physical values
     """
     n_patches = len(mappings_list)
-    vector_valued = is_vector_valued(u) if isinstance(u, FemField) else isinstance(u[0],(list, tuple))
+    vector_valued = is_vector_valued(u) if isinstance(
+        u, FemField) else isinstance(u[0], (list, tuple))
     if vector_valued:
         # WARNING: here we assume 2D !
-        u_vals_components = [n_patches*[None], n_patches*[None]]
+        u_vals_components = [n_patches * [None], n_patches * [None]]
     else:
-        u_vals_components = [n_patches*[None]]
+        u_vals_components = [n_patches * [None]]
 
     for k in range(n_patches):
         eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
         for vals in u_vals_components:
             vals[k] = np.empty_like(eta_1)
         uk_field_1 = None
-        if isinstance(u,FemField):
+        if isinstance(u, FemField):
             if vector_valued:
                 uk_field_0 = u[k].fields[0]
                 uk_field_1 = u[k].fields[1]
             else:
-                uk_field_0 = u.fields[k]   # it would be nice to just write u[k].fields[0] here...
+                # it would be nice to just write u[k].fields[0] here...
+                uk_field_0 = u.fields[k]
         else:
             # then u should be callable
             if vector_valued:
@@ -63,22 +78,48 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
         if space_kind == 'h1' or space_kind == 'V0':
             assert not vector_valued
             # todo (MCP): add 2d_hcurl_vector
-            push_field = lambda eta1, eta2: push_2d_h1(uk_field_0, eta1, eta2)
+
+            def push_field(
+                eta1, eta2): return push_2d_h1(
+                uk_field_0, eta1, eta2)
         elif space_kind == 'hcurl' or space_kind == 'V1':
             # todo (MCP): specify 2d_hcurl_scalar in push functions
-            push_field = lambda eta1, eta2: push_2d_hcurl(uk_field_0, uk_field_1, eta1, eta2, mappings_list[k].get_callable_mapping())
+            def push_field(
+                eta1,
+                eta2): return push_2d_hcurl(
+                uk_field_0,
+                uk_field_1,
+                eta1,
+                eta2,
+                mappings_list[k].get_callable_mapping())
         elif space_kind == 'hdiv' or space_kind == 'V2':
-            push_field = lambda eta1, eta2: push_2d_hdiv(uk_field_0, uk_field_1, eta1, eta2, mappings_list[k].get_callable_mapping())
+            def push_field(
+                eta1,
+                eta2): return push_2d_hdiv(
+                uk_field_0,
+                uk_field_1,
+                eta1,
+                eta2,
+                mappings_list[k].get_callable_mapping())
         elif space_kind == 'l2':
             assert not vector_valued
-            push_field = lambda eta1, eta2: push_2d_l2(uk_field_0, eta1, eta2, mappings_list[k].get_callable_mapping())
+
+            def push_field(
+                eta1,
+                eta2): return push_2d_l2(
+                uk_field_0,
+                eta1,
+                eta2,
+                mappings_list[k].get_callable_mapping())
         else:
-            raise ValueError('unknown value for space_kind = {}'.format(space_kind))
+            raise ValueError(
+                'unknown value for space_kind = {}'.format(space_kind))
 
         for i, x1i in enumerate(eta_1[:, 0]):
             for j, x2j in enumerate(eta_2[0, :]):
                 if vector_valued:
-                    u_vals_components[0][k][i, j], u_vals_components[1][k][i, j] = push_field(x1i, x2j)
+                    u_vals_components[0][k][i, j], u_vals_components[1][k][i, j] = push_field(
+                        x1i, x2j)
                 else:
                     u_vals_components[0][k][i, j] = push_field(x1i, x2j)
 
@@ -88,23 +129,26 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
     else:
         return u_vals_components
 
-#------------------------------------------------------------------------------
-def get_grid_quad_weights(etas, patch_logvols, mappings_list):  #_obj):
+# ------------------------------------------------------------------------------
+
+
+def get_grid_quad_weights(etas, patch_logvols, mappings_list):  # _obj):
     # get approximate weights for a physical quadrature, namely
     #  |J_F(xi1, xi2)| * log_weight   with uniform log_weight = h1*h2     for (xi1, xi2) in the logical grid,
-    # in the same format as the fields value in get_grid_vals_scalar and get_grid_vals_vector
+    # in the same format as the fields value in get_grid_vals_scalar and
+    # get_grid_vals_vector
 
     n_patches = len(mappings_list)
-    quad_weights    = n_patches*[None]
+    quad_weights = n_patches * [None]
     for k in range(n_patches):
         eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
         quad_weights[k] = np.empty_like(eta_1)
-        one_field = lambda xi1, xi2: 1
+        def one_field(xi1, xi2): return 1
 
         N0 = eta_1.shape[0]
         N1 = eta_1.shape[1]
 
-        log_weight = patch_logvols[k]/(N0*N1)
+        log_weight = patch_logvols[k] / (N0 * N1)
         Fk = mappings_list[k].get_callable_mapping()
         for i, x1i in enumerate(eta_1[:, 0]):
             for j, x2j in enumerate(eta_2[0, :]):
@@ -113,65 +157,90 @@ def get_grid_quad_weights(etas, patch_logvols, mappings_list):  #_obj):
 
     return quad_weights
 
-#------------------------------------------------------------------------------
-def get_plotting_grid(mappings, N, centered_nodes=False, return_patch_logvols=False):
+# ------------------------------------------------------------------------------
+
+
+def get_plotting_grid(
+        mappings,
+        N,
+        centered_nodes=False,
+        return_patch_logvols=False):
     # if centered_nodes == False, returns a regular grid with (N+1)x(N+1) nodes, starting and ending at patch boundaries
     # (useful for plotting the full patches)
     # if centered_nodes == True, returns the grid consisting of the NxN centers of the latter
     # (useful for quadratures and to avoid evaluating at patch boundaries)
-    # if return_patch_logvols == True, return the logival volume (area) of the patches
+    # if return_patch_logvols == True, return the logival volume (area) of the
+    # patches
     nb_patches = len(mappings)
     grid_min_coords = [np.array(D.min_coords) for D in mappings]
     grid_max_coords = [np.array(D.max_coords) for D in mappings]
     if return_patch_logvols:
-        patch_logvols = [(D.max_coords[1]-D.min_coords[1])*(D.max_coords[0]-D.min_coords[0]) for D in mappings]
+        patch_logvols = [(D.max_coords[1] - D.min_coords[1]) *
+                         (D.max_coords[0] - D.min_coords[0]) for D in mappings]
     else:
         patch_logvols = None
     if centered_nodes:
         for k in range(nb_patches):
             for dim in range(2):
-                h_grid = (grid_max_coords[k][dim] - grid_min_coords[k][dim])/N
-                grid_max_coords[k][dim] -= h_grid/2
-                grid_min_coords[k][dim] += h_grid/2
-        N_cells = N-1
+                h_grid = (grid_max_coords[k][dim] -
+                          grid_min_coords[k][dim]) / N
+                grid_max_coords[k][dim] -= h_grid / 2
+                grid_min_coords[k][dim] += h_grid / 2
+        N_cells = N - 1
     else:
         N_cells = N
     # etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
-    etas = [[refine_array_1d( bounds, N_cells ) for bounds in zip(grid_min_coords[k], grid_max_coords[k])] for k in range(nb_patches)]
-    mappings_lambda = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
+    etas = [[refine_array_1d(bounds, N_cells) for bounds in zip(
+        grid_min_coords[k], grid_max_coords[k])] for k in range(nb_patches)]
+    mappings_lambda = [
+        lambdify(
+            M.logical_coordinates,
+            M.expressions) for d,
+        M in mappings.items()]
 
-    pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings_lambda, etas)]
+    pcoords = [np.array([[f(e1, e2) for e2 in eta[1]] for e1 in eta[0]])
+               for f, eta in zip(mappings_lambda, etas)]
 
-    xx = [pcoords[k][:,:,0] for k in range(nb_patches)]
-    yy = [pcoords[k][:,:,1] for k in range(nb_patches)]
+    xx = [pcoords[k][:, :, 0] for k in range(nb_patches)]
+    yy = [pcoords[k][:, :, 1] for k in range(nb_patches)]
 
     if return_patch_logvols:
         return etas, xx, yy, patch_logvols
     else:
         return etas, xx, yy
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
+
 def get_diag_grid(mappings, N):
     nb_patches = len(mappings)
-    etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
-    mappings_lambda = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
+    etas = [[refine_array_1d(bounds, N) for bounds in zip(
+        D.min_coords, D.max_coords)] for D in mappings]
+    mappings_lambda = [
+        lambdify(
+            M.logical_coordinates,
+            M.expressions) for d,
+        M in mappings.items()]
 
-    pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings_lambda, etas)]
+    pcoords = [np.array([[f(e1, e2) for e2 in eta[1]] for e1 in eta[0]])
+               for f, eta in zip(mappings_lambda, etas)]
 
     # pcoords  = np.concatenate(pcoords, axis=1)
     # xx = pcoords[:,:,0]
     # yy = pcoords[:,:,1]
 
-    xx = [pcoords[k][:,:,0] for k in range(nb_patches)]
-    yy = [pcoords[k][:,:,1] for k in range(nb_patches)]
+    xx = [pcoords[k][:, :, 0] for k in range(nb_patches)]
+    yy = [pcoords[k][:, :, 1] for k in range(nb_patches)]
 
     return etas, xx, yy
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
+
 def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     # get gridlines for one patch grid
 
-    F = [M.get_callable_mapping() for d,M in mappings.items()]
+    F = [M.get_callable_mapping() for d, M in mappings.items()]
 
     if plotted_patch in range(len(mappings)):
         grid_x1 = Vh.spaces[plotted_patch].spaces[0].breaks[0]
@@ -183,7 +252,7 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
         x1, x2 = np.meshgrid(x1, x2, indexing='ij')
         x, y = F[plotted_patch](x1, x2)
 
-        gridlines_x1 = (x[:, ::N],   y[:, ::N]  )
+        gridlines_x1 = (x[:, ::N], y[:, ::N])
         gridlines_x2 = (x[::N, :].T, y[::N, :].T)
         # gridlines = (gridlines_x1, gridlines_x2)
     else:
@@ -192,20 +261,48 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
 
     return gridlines_x1, gridlines_x2
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
+
 def plot_field(
-    fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, domain=None, surface_plot=False, cb_min=None, cb_max=None,
-    plot_type='amplitude', cmap='hsv', space_kind=None, title=None, filename='dummy_plot.png', subtitles=None, N_vis=20, vf_skip=2, hide_plot=True):
+        fem_field=None,
+        stencil_coeffs=None,
+        numpy_coeffs=None,
+        Vh=None,
+        domain=None,
+        surface_plot=False,
+        cb_min=None,
+        cb_max=None,
+        plot_type='amplitude',
+        cmap='hsv',
+        space_kind=None,
+        title=None,
+        filename='dummy_plot.png',
+        subtitles=None,
+        N_vis=20,
+        vf_skip=2,
+        hide_plot=True):
     """
     plot a discrete field (given as a FemField or by its coeffs in numpy or stencil format) on the given domain
 
-    :param Vh: Fem space needed if v is given by its coeffs
-    :param space_kind: type of the push-forward defining the physical Fem Space
-    :param subtitles: in case one would like to have several subplots # todo: then v should be given as a list of fields...
-    :param N_vis: nb of visualization points per patch (per dimension)
+    Parameters
+    ----------
+    numpy_coeffs : (np.ndarray)
+        Coefficients of the field to plot
+
+    Vh : TensorFemSpace
+        Fem space needed if v is given by its coeffs
+
+    space_kind : (str)
+        type of the push-forward defining the physical Fem Space
+
+    N_vis : (int)
+        nb of visualization points per patch (per dimension)
     """
-    if not space_kind in ['h1', 'hcurl', 'l2']:
-        raise ValueError('invalid value for space_kind = {}'.format(space_kind))
+
+    if space_kind not in ['h1', 'hcurl', 'l2']:
+        raise ValueError(
+            'invalid value for space_kind = {}'.format(space_kind))
 
     vh = fem_field
     if vh is None:
@@ -214,14 +311,18 @@ def plot_field(
             stencil_coeffs = array_to_psydac(numpy_coeffs, Vh.vector_space)
         vh = FemField(Vh, coeffs=stencil_coeffs)
 
-    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    mappings = OrderedDict([(P.logical_domain, P.mapping)
+                           for P in domain.interior])
     mappings_list = list(mappings.values())
-    etas, xx, yy    = get_plotting_grid(mappings, N=N_vis)
-    grid_vals = lambda v: get_grid_vals(v, etas, mappings_list, space_kind=space_kind)
+    etas, xx, yy = get_plotting_grid(mappings, N=N_vis)
+
+    def grid_vals(v): return get_grid_vals(
+        v, etas, mappings_list, space_kind=space_kind)
 
     vh_vals = grid_vals(vh)
     if plot_type == 'vector_field' and not is_vector_valued(vh):
-        print("WARNING [plot_field]: vector_field plot is not possible with a scalar field, plotting the amplitude instead")
+        print(
+            "WARNING [plot_field]: vector_field plot is not possible with a scalar field, plotting the amplitude instead")
         plot_type = 'amplitude'
 
     if plot_type == 'vector_field':
@@ -236,29 +337,34 @@ def plot_field(
                 amp_factor=2,
                 save_fig=filename,
                 hide_plot=hide_plot,
-                dpi = 200,
+                dpi=200,
             )
 
     else:
         # computing plot_vals_list: may have several elements for several plots
-        if plot_type=='amplitude':
+        if plot_type == 'amplitude':
 
             if is_vector_valued(vh):
-                # then vh_vals[d] contains the values of the d-component of vh (as a patch-indexed list)
-                plot_vals = [np.sqrt(abs(v[0])**2 + abs(v[1])**2) for v in zip(vh_vals[0],vh_vals[1])]
+                # then vh_vals[d] contains the values of the d-component of vh
+                # (as a patch-indexed list)
+                plot_vals = [np.sqrt(abs(v[0])**2 + abs(v[1])**2)
+                             for v in zip(vh_vals[0], vh_vals[1])]
             else:
-                # then vh_vals just contains the values of vh (as a patch-indexed list)
+                # then vh_vals just contains the values of vh (as a
+                # patch-indexed list)
                 plot_vals = np.abs(vh_vals)
             plot_vals_list = [plot_vals]
 
-        elif plot_type=='components':
+        elif plot_type == 'components':
             if is_vector_valued(vh):
-                # then vh_vals[d] contains the values of the d-component of vh (as a patch-indexed list)
+                # then vh_vals[d] contains the values of the d-component of vh
+                # (as a patch-indexed list)
                 plot_vals_list = vh_vals
                 if subtitles is None:
                     subtitles = ['x-component', 'y-component']
             else:
-                # then vh_vals just contains the values of vh (as a patch-indexed list)
+                # then vh_vals just contains the values of vh (as a
+                # patch-indexed list)
                 plot_vals_list = [vh_vals]
         else:
             raise ValueError(plot_type)
@@ -273,10 +379,10 @@ def plot_field(
             cb_min=cb_min,
             cb_max=cb_max,
             save_fig=filename,
-            save_vals = False,
+            save_vals=False,
             hide_plot=hide_plot,
-            cmap=cmap, 
-            dpi = 300,
+            cmap=cmap,
+            dpi=300,
         )
 
     # if is_vector_valued(vh):
@@ -300,7 +406,9 @@ def plot_field(
     #     dpi = 400,
     # )
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
+
 def my_small_plot(
         title, vals, titles=None,
         xx=None, yy=None,
@@ -311,11 +419,31 @@ def my_small_plot(
         cb_min=None,
         cb_max=None,
         save_fig=None,
-        save_vals = False,
+        save_vals=False,
         hide_plot=False,
         dpi='figure',
         show_xylabel=True,
 ):
+    """
+        plot a list of scalar fields on a list of patches
+
+        Parameters
+        ----------
+        title : (str)
+            title of the plot
+
+        vals : (list)
+            list of scalar fields to plot
+
+        titles : (list)
+            list of titles for each plot
+
+        xx : (list)
+            list of x-coordinates of the grid points
+
+        yy : (list)
+            list of y-coordinates of the grid points
+    """
     # titles is discarded if only one plot
     # cmap = 'jet' is nice too, but not so uniform. 'plasma' or 'magma' are uniform also.
     # cmap = 'hsv' is good for singular fields, for its rapid color change
@@ -323,10 +451,11 @@ def my_small_plot(
     n_plots = len(vals)
     if n_plots > 1:
         if titles is None or n_plots != len(titles):
-            titles = n_plots*[title]
+            titles = n_plots * [title]
     else:
         if titles:
-            print('Warning [my_small_plot]: will discard argument titles for a single plot')
+            print(
+                'Warning [my_small_plot]: will discard argument titles for a single plot')
         titles = [title]
 
     n_patches = len(xx)
@@ -335,8 +464,8 @@ def my_small_plot(
     if save_vals:
         # saving as vals.npz
         np.savez('vals', xx=xx, yy=yy, vals=vals)
-        
-    fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
+
+    fig = plt.figure(figsize=(2.6 + 4.8 * n_plots, 4.8))
     fig.suptitle(title, fontsize=14)
 
     for i in range(n_plots):
@@ -351,31 +480,44 @@ def my_small_plot(
         cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
         assert n_patches == len(vals[i])
 
-        ax = fig.add_subplot(1, n_plots, i+1)
+        ax = fig.add_subplot(1, n_plots, i + 1)
         for k in range(n_patches):
-            ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap, zorder=-10) #, extend='both')
+            ax.contourf(
+                xx[k],
+                yy[k],
+                vals[i][k],
+                50,
+                norm=cnorm,
+                cmap=cmap,
+                zorder=-
+                10)  # , extend='both')
         ax.set_rasterization_zorder(0)
-        cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
+        cbar = fig.colorbar(
+            cm.ScalarMappable(
+                norm=cnorm,
+                cmap=cmap),
+            ax=ax,
+            pad=0.05)
         if gridlines_x1 is not None:
             ax.plot(*gridlines_x1, color='k')
             ax.plot(*gridlines_x2, color='k')
         if show_xylabel:
-            ax.set_xlabel( r'$x$', rotation='horizontal' )
-            ax.set_ylabel( r'$y$', rotation='horizontal' )
+            ax.set_xlabel(r'$x$', rotation='horizontal')
+            ax.set_ylabel(r'$y$', rotation='horizontal')
         if n_plots > 1:
-            ax.set_title ( titles[i] )
+            ax.set_title(titles[i])
         ax.set_aspect('equal')
 
     if save_fig:
-        print('saving contour plot in file '+save_fig)
-        plt.savefig(save_fig, bbox_inches='tight',dpi=dpi)
+        print('saving contour plot in file ' + save_fig)
+        plt.savefig(save_fig, bbox_inches='tight', dpi=dpi)
 
     if not hide_plot:
         plt.show()
 
     if surface_plot:
-        fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
-        fig.suptitle(title+' -- surface', fontsize=14)
+        fig = plt.figure(figsize=(2.6 + 4.8 * n_plots, 4.8))
+        fig.suptitle(title + ' -- surface', fontsize=14)
 
         for i in range(n_plots):
             if cb_min is None:
@@ -388,28 +530,43 @@ def my_small_plot(
                 vmax = cb_max
             cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
             assert n_patches == len(vals[i])
-            ax = fig.add_subplot(1, n_plots, i+1, projection='3d')
+            ax = fig.add_subplot(1, n_plots, i + 1, projection='3d')
             for k in range(n_patches):
-                ax.plot_surface(xx[k], yy[k], vals[i][k], norm=cnorm, rstride=10, cstride=10, cmap=cmap,
-                           linewidth=0, antialiased=False)
-            cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
+                ax.plot_surface(
+                    xx[k],
+                    yy[k],
+                    vals[i][k],
+                    norm=cnorm,
+                    rstride=10,
+                    cstride=10,
+                    cmap=cmap,
+                    linewidth=0,
+                    antialiased=False)
+            cbar = fig.colorbar(
+                cm.ScalarMappable(
+                    norm=cnorm,
+                    cmap=cmap),
+                ax=ax,
+                pad=0.05)
             if show_xylabel:
-                ax.set_xlabel( r'$x$', rotation='horizontal' )
-                ax.set_ylabel( r'$y$', rotation='horizontal' )
-            ax.set_title ( titles[i] )
+                ax.set_xlabel(r'$x$', rotation='horizontal')
+                ax.set_ylabel(r'$y$', rotation='horizontal')
+            ax.set_title(titles[i])
 
         if save_fig:
             ext = save_fig[-4:]
             if ext[0] != '.':
-                print('WARNING: extension unclear for file_name '+save_fig)
-            save_fig_surf = save_fig[:-4]+'_surf'+ext
-            print('saving surface plot in file '+save_fig_surf)
+                print('WARNING: extension unclear for file_name ' + save_fig)
+            save_fig_surf = save_fig[:-4] + '_surf' + ext
+            print('saving surface plot in file ' + save_fig_surf)
             plt.savefig(save_fig_surf, bbox_inches='tight', dpi=dpi)
-        
+
         if not hide_plot:
             plt.show()
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
+
 def my_small_streamplot(
         title, vals_x, vals_y,
         xx, yy, skip=2,
@@ -426,29 +583,37 @@ def my_small_streamplot(
     assert n_patches == len(yy)
 
     # fig = plt.figure(figsize=(2.6+4.8, 4.8))
-    
-    fig, ax = plt.subplots(1,1, figsize=(2.6+4.8, 4.8))
-    
+
+    fig, ax = plt.subplots(1, 1, figsize=(2.6 + 4.8, 4.8))
+
     fig.suptitle(title, fontsize=14)
 
     delta = 0.25
     # x = y = np.arange(-3.0, 3.01, delta)
     # X, Y = np.meshgrid(x, y)
     max_val = max(np.max(vals_x), np.max(vals_y))
-    #print('max_val = {}'.format(max_val))
-    vf_amp = amp_factor/max_val
+    # print('max_val = {}'.format(max_val))
+    vf_amp = amp_factor / max_val
     for k in range(n_patches):
-        ax.quiver(xx[k][::skip, ::skip], yy[k][::skip, ::skip], vals_x[k][::skip, ::skip], vals_y[k][::skip, ::skip],
-                   scale=1/(vf_amp*0.05), width=0.002) # width=) units='width', pivot='mid',
+        ax.quiver(xx[k][::skip,
+                        ::skip],
+                  yy[k][::skip,
+                        ::skip],
+                  vals_x[k][::skip,
+                            ::skip],
+                  vals_y[k][::skip,
+                            ::skip],
+                  scale=1 / (vf_amp * 0.05),
+                  width=0.002)  # width=) units='width', pivot='mid',
 
     if show_xylabel:
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
+        ax.set_xlabel(r'$x$', rotation='horizontal')
+        ax.set_ylabel(r'$y$', rotation='horizontal')
 
     ax.set_aspect('equal')
 
     if save_fig:
-        print('saving vector field (stream) plot in file '+save_fig)
+        print('saving vector field (stream) plot in file ' + save_fig)
         plt.savefig(save_fig, bbox_inches='tight', dpi=dpi)
 
     if not hide_plot:
