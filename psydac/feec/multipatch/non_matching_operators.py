@@ -282,8 +282,7 @@ def get_extension_restriction(coarse_space_1d, fine_space_1d, p_moments=-1):
         Extension-restriction matrix.
     """
     matching_interfaces = (coarse_space_1d.ncells == fine_space_1d.ncells)
-    # assert (coarse_space_1d.breaks[0] == fine_space_1d.breaks[0]) and (
-    #     coarse_space_1d.breaks[-1] == fine_space_1d.breaks[-1])
+    assert (coarse_space_1d.degree == fine_space_1d.degree) 
     assert (coarse_space_1d.basis == fine_space_1d.basis)
     spl_type = coarse_space_1d.basis
 
@@ -299,7 +298,7 @@ def get_extension_restriction(coarse_space_1d, fine_space_1d, p_moments=-1):
             domain=coarse_space_1d_k_plus, codomain=fine_space_1d)
 
         R_1D = construct_restriction_operator_1D(
-            coarse_space_1d, fine_space_1d, E_1D, p_moments)
+            coarse_space_1d_k_plus, fine_space_1d, E_1D, p_moments)
 
         ER_1D = E_1D @ R_1D
 
