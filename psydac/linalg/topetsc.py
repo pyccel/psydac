@@ -401,7 +401,6 @@ def mat_topetsc( mat ):
     cndims = [ccart.ndim for ccart in ccarts]
     # Get global number of points per block:
     dnpts =  [dcart.npts for dcart in dcarts] # indexed [block, dimension]. Same for all processes.   
-    cnpts =  [ccart.npts for ccart in ccarts] # indexed [block, dimension]. Same for all processes.   
 
     # Get the number of points local to the current process:
     dnpts_local = get_npts_local(mat.domain) # indexed [block, dimension]. Different for each process.
@@ -439,8 +438,6 @@ def mat_topetsc( mat ):
             mat_block = mat.blocks[bc][bd]
 
         cs = ccarts[bc].starts
-        dp = dcarts[bd].pads
-        dm = dcarts[bd].shifts
         cghost_size = [pi*mi for pi,mi in zip(ccarts[bc].pads, ccarts[bc].shifts)]
 
         if dndims[bd] == 1 and cndims[bc] == 1:
@@ -450,10 +447,12 @@ def mat_topetsc( mat ):
                 i1_n = cs[0] + i1
                 i_g = psydac_to_petsc_global(mat.codomain, (bc,), (i1_n,))
 
-                for k1 in range(-dp[0]*dm[0], dp[0]*dm[0] + 1):
-                    value = mat_block._data[i1 + cghost_size[0], (k1 + dp[0]*dm[0])%(2*dp[0]*dm[0] + 1)]
+                stencil_size = mat_block._data[i1 + cghost_size[0],:].shape
 
-                    j1_n = (i1_n + k1) % dnpts[bd][0] # modulus is necessary for periodic BC
+                for k1 in range(stencil_size[0]):
+                    value = mat_block._data[i1 + cghost_size[0], k1]
+
+                    j1_n = (i1_n + k1 - stencil_size[0]//2) % dnpts[bd][0] # modulus is necessary for periodic BC
                     
                     if value != 0:
                         j_g = psydac_to_petsc_global(mat.domain, (bd,), (j1_n, ))
@@ -479,12 +478,14 @@ def mat_topetsc( mat ):
                     i2_n = cs[1] + i2
                     i_g = psydac_to_petsc_global(mat.codomain, (bc,), (i1_n, i2_n))
 
-                    for k1 in range(- dp[0]*dm[0], dp[0]*dm[0] + 1):                    
-                        for k2 in range(- dp[1]*dm[1], dp[1]*dm[1] + 1):
-                            value = mat_block._data[i1 + cghost_size[0], i2 + cghost_size[1], (k1 + dp[0]*dm[0])%(2*dp[0]*dm[0] + 1), (k2 + dp[1]*dm[1])%(2*dp[1]*dm[1] + 1)]
+                    stencil_size = mat_block._data[i1 + cghost_size[0], i2 + cghost_size[1],:,:].shape
 
-                            j1_n = (i1_n + k1) % dnpts[bd][0] # modulus is necessary for periodic BC
-                            j2_n = (i2_n + k2) % dnpts[bd][1] # modulus is necessary for periodic BC
+                    for k1 in range(stencil_size[0]):                    
+                        for k2 in range(stencil_size[1]):
+                            value = mat_block._data[i1 + cghost_size[0], i2 + cghost_size[1], k1, k2]
+
+                            j1_n = (i1_n + k1 - stencil_size[0]//2) % dnpts[bd][0] # modulus is necessary for periodic BC
+                            j2_n = (i2_n + k2 - stencil_size[1]//2) % dnpts[bd][1] # modulus is necessary for periodic BC
 
                             if value != 0:
                                 j_g = psydac_to_petsc_global(mat.domain, (bd,), (j1_n, j2_n))
@@ -510,14 +511,16 @@ def mat_topetsc( mat ):
                         i3_n = cs[2] + i3
                         i_g = psydac_to_petsc_global(mat.codomain, (bc,), (i1_n, i2_n, i3_n))
 
-                        for k1 in range(-dp[0]*dm[0], dp[0]*dm[0] + 1):                    
-                            for k2 in range(-dp[1]*dm[1], dp[1]*dm[1] + 1):
-                                for k3 in range(-dp[2]*dm[2], dp[2]*dm[2] + 1):
-                                    value = mat_block._data[i1 + cghost_size[0], i2 + cghost_size[1], i3 + cghost_size[2], (k1 + dp[0]*dm[0])%(2*dp[0]*dm[0] + 1), (k2 + dp[1]*dm[1])%(2*dp[1]*dm[1] + 1), (k3 + dp[2]*dm[2])%(2*dp[2]*dm[2] + 1)]
+                        stencil_size = mat_block._data[i1 + cghost_size[0], i2 + cghost_size[1], i3 + cghost_size[2],:,:,:].shape
 
-                                    j1_n = (i1_n + k1) % dnpts[bd][0] # modulus is necessary for periodic BC
-                                    j2_n = (i2_n + k2) % dnpts[bd][1] # modulus is necessary for periodic BC
-                                    j3_n = (i3_n + k3) % dnpts[bd][2] # modulus is necessary for periodic BC
+                        for k1 in range(stencil_size[0]):                    
+                            for k2 in range(stencil_size[1]):
+                                for k3 in range(stencil_size[2]):
+                                    value = mat_block._data[i1 + cghost_size[0], i2 + cghost_size[1], i3 + cghost_size[2], k1, k2, k3]
+
+                                    j1_n = (i1_n + k1 - stencil_size[0]//2) % dnpts[bd][0] # modulus is necessary for periodic BC
+                                    j2_n = (i2_n + k2 - stencil_size[1]//2) % dnpts[bd][1] # modulus is necessary for periodic BC
+                                    j3_n = (i3_n + k3 - stencil_size[2]//2) % dnpts[bd][2] # modulus is necessary for periodic BC
 
                                     if value != 0:
                                         j_g = psydac_to_petsc_global(mat.domain, (bd,), (j1_n, j2_n, j3_n))
