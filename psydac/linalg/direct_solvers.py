@@ -5,7 +5,7 @@ from abc                 import abstractmethod
 import numpy               as np
 from scipy.linalg.lapack import dgbtrf, dgbtrs, sgbtrf, sgbtrs, cgbtrf, cgbtrs, zgbtrf, zgbtrs
 from scipy.sparse        import spmatrix
-from scipy.sparse.linalg import splu
+from scipy.sparse.linalg import splu,inv
 
 from psydac.linalg.basic    import LinearSolver
 
@@ -149,7 +149,7 @@ class SparseSolver ( DirectSolver ):
         assert isinstance( spmat, spmatrix )
 
         self._space = np.ndarray
-        self._splu  = splu( spmat.tocsc() )
+        self._inv  = inv( spmat.tocsc() )
 
     #--------------------------------------
     # Abstract interface
@@ -178,16 +178,16 @@ class SparseSolver ( DirectSolver ):
             If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
         """
         
-        assert rhs.T.shape[0] == self._splu.shape[1]
+        assert rhs.T.shape[0] == self._inv.shape[1]
 
         if out is None:
-            out = self._splu.solve( rhs.T, trans='T' if transposed else 'N' ).T
+            out = self._inv.dot(rhs.T).T
 
         else:
             assert out.shape == rhs.shape
             assert out.dtype == rhs.dtype
 
             # currently no in-place solve exposed
-            out[:] = self._splu.solve( rhs.T, trans='T' if transposed else 'N' ).T
+            out[:] = self._inv.dot(rhs.T).T
 
         return out

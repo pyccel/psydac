@@ -216,19 +216,7 @@ class SplineSpace( FemSpace ):
             xgrid    = self.ext_greville
         )
         self.hmat= imat
-        if self.periodic:
-            # Convert to CSC format and compute sparse LU decomposition
-            self._histopolator = SparseSolver( csc_matrix( imat ) )
-        else:
-            # Convert to LAPACK banded format (see DGBTRF function)
-            dmat = dia_matrix( imat )
-            l = abs( dmat.offsets.min() )
-            u =      dmat.offsets.max()
-            cmat = csr_matrix( dmat )
-            bmat = np.zeros( (1+u+2*l, cmat.shape[1]), dtype=dtype)
-            for i,j in zip( *cmat.nonzero() ):
-                bmat[u+l+i-j,j] = cmat[i,j]
-            self._histopolator = BandedSolver( u, l, bmat )
+        self._histopolator = SparseSolver( csc_matrix( imat ) )
 
         # Store flag
         self._histopolation_ready = True

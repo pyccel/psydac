@@ -31,7 +31,8 @@ from psydac.core.bsplines  import (find_span,
                                    cell_index,
                                    basis_ders_on_irregular_grid)
 
-from psydac.core.field_evaluation_kernels import (eval_fields_2d_no_weights,
+from psydac.core.field_evaluation_kernels import (eval_fields_1d_irregular_no_weights,
+                                                  eval_fields_2d_no_weights,
                                                   eval_fields_2d_irregular_no_weights,
                                                   eval_fields_2d_weighted,
                                                   eval_fields_2d_irregular_weighted,
@@ -603,7 +604,8 @@ class TensorFemSpace( FemSpace ):
                 eval_fields_3d_irregular_weighted(*npoints, *degree, *cell_indexes, *global_basis,
                                                   *global_spans, glob_arr_coeffs, global_weight_coeff, out_fields)
         else:
-            raise NotImplementedError("1D not Implemented")
+            eval_fields_1d_irregular_no_weights(*npoints, *degree, *cell_indexes, *global_basis,
+                                                *global_spans, glob_arr_coeffs, out_fields)
 
         return out_fields
 

@@ -19,6 +19,7 @@ __all__ = ('GlobalProjector', 'Projector_H1', 'Projector_Hcurl', 'Projector_Hdiv
            'evaluate_dofs_2d_0form', 'evaluate_dofs_2d_1form_hcurl', 'evaluate_dofs_2d_1form_hdiv', 'evaluate_dofs_2d_2form',
            'evaluate_dofs_3d_0form', 'evaluate_dofs_3d_1form', 'evaluate_dofs_3d_2form', 'evaluate_dofs_3d_3form')
 
+from psydac.core.evaluate import evaluate_dofs_1d_1form_array
 #==============================================================================
 class GlobalProjector(metaclass=ABCMeta):
     """
@@ -170,7 +171,8 @@ class GlobalProjector(metaclass=ABCMeta):
 
         args = (*intp_x, *quad_x, *quad_w, *dofs)
         self._func = lambda *fun: func(*args, *fun)
-
+        self._quad_x = [quad_x[0].ravel()]
+        self._quad_w = quad_w
         # build a BlockDiagonalSolver, if necessary
         if len(solverblocks) == 1:
             self._solver = solverblocks[0]
@@ -534,7 +536,7 @@ class Projector_L2(GlobalProjector):
         return [['H'] * dim]
     
     def _function(self, dim):
-        if   dim == 1:  return evaluate_dofs_1d_1form
+        if   dim == 1:  return evaluate_dofs_1d_1form_array
         elif dim == 2:  return evaluate_dofs_2d_2form
         elif dim == 3:  return evaluate_dofs_3d_3form
         else:
@@ -590,7 +592,6 @@ def evaluate_dofs_1d_1form(
         F[i1] = 0.0
         for g1 in range(k1):
             F[i1] += quad_w1[i1, g1] * f(quad_x1[i1, g1])
-
 #==============================================================================
 # 2D DEGREES OF FREEDOM
 #==============================================================================
