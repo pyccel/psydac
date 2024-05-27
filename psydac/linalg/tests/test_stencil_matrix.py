@@ -24,9 +24,6 @@ def compute_global_starts_ends(domain_decomposition, npts, pads):
     global_starts = [None] * ndims
     global_ends = [None] * ndims
 
-    print('\ndomain_decomposition.global_element_starts', domain_decomposition.global_element_starts)
-    print('domain_decomposition.global_element_ends', domain_decomposition.global_element_ends)
-
     for axis in range(ndims):
         ee = domain_decomposition.global_element_ends[axis]
         
