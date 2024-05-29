@@ -10,10 +10,103 @@ from mpi4py import MPI
 
 __all__ = ('petsc_local_to_psydac', 'psydac_to_petsc_global', 'get_npts_local', 'get_npts_per_block', 'vec_topetsc', 'mat_topetsc')
 
+from .kernels.stencil2IJV_kernels import stencil2IJV_1d_C, stencil2IJV_2d_C, stencil2IJV_3d_C
+# Dictionary used to select correct kernel functions based on dimensionality
+kernels = {
+    'stencil2IJV': {'F': None,
+                    'C': (None,   stencil2IJV_1d_C,   stencil2IJV_2d_C,   stencil2IJV_3d_C)}
+}
+def get_index_shift_per_block_per_process(V):
+    npts_local_per_block_per_process = np.array(get_npts_per_block(V)) #indexed [b,k,d] for block b and process k and dimension d
+    local_sizes_per_block_per_process = np.prod(npts_local_per_block_per_process, axis=-1) #indexed [b,k] for block b and process k
+
+    n_blocks = npts_local_per_block_per_process.shape[0]
+    n_procs = npts_local_per_block_per_process.shape[1]
+
+    index_shift_per_block_per_process = [[0 + np.sum(local_sizes_per_block_per_process[:,:k]) + np.sum(local_sizes_per_block_per_process[:b,k]) for k in range(n_procs)] for b in range(n_blocks)]
+
+    return index_shift_per_block_per_process #Global variable indexed as [b][k] fo block b, process k
+
+def toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, dspace, cspace, order='C'):
+
+    '''# Get the number of points per block, per process and per dimension:
+    dnpts_local_per_block_per_process = np.array(get_npts_per_block(dspace)) #indexed [b,k,d] for block b and process k and dimension d
+    cnpts_local_per_block_per_process = np.array(get_npts_per_block(cspace)) 
+    # Get the local sizes per block and per process:
+    dlocal_sizes_per_block_per_process = np.prod(dnpts_local_per_block_per_process, axis=-1) #indexed [b,k] for block b and process k
+    clocal_sizes_per_block_per_process = np.prod(cnpts_local_per_block_per_process, axis=-1)
+
+    dn_blocks = dnpts_local_per_block_per_process.shape[0]
+    dn_procs = dnpts_local_per_block_per_process.shape[1]
+    dindex_shift = [[0 + np.sum(dlocal_sizes_per_block_per_process[:,:k]) + np.sum(dlocal_sizes_per_block_per_process[:b,k]) for k in range(dn_procs)] for b in range(dn_blocks)]
+
+    cn_blocks = cnpts_local_per_block_per_process.shape[0]
+    cn_procs = cnpts_local_per_block_per_process.shape[1]
+    cindex_shift = [[0 + np.sum(clocal_sizes_per_block_per_process[:,:k]) + np.sum(clocal_sizes_per_block_per_process[:b,k]) for k in range(cn_procs)] for b in range(cn_blocks)]
+    '''
+
+    dnpts_local_per_block_per_process = np.array(get_npts_per_block(dspace))
+    cnpts_local_per_block_per_process = np.array(get_npts_per_block(cspace))
+
+    dindex_shift = get_index_shift_per_block_per_process(dspace)
+    cindex_shift = get_index_shift_per_block_per_process(cspace)
+    # Extract Cartesian decomposition of the Block where the node is:
+    dspace_block = dspace if isinstance(dspace, StencilVectorSpace) else dspace.spaces[bd]
+    cspace_block = cspace if isinstance(cspace, StencilVectorSpace) else cspace.spaces[bc]       
+
+    # Shortcuts
+    cnl = [np.int64(n) for n in get_npts_local(cspace_block)[0]] 
+    dng = [np.int64(n) for n in dspace_block.cart.npts]
+    cs = [np.int64(s) for s in cspace_block.cart.starts]
+    cp = [np.int64(p) for p in cspace_block.cart.pads]
+    cm = [np.int64(m) for m in cspace_block.cart.shifts]
+    dsh = np.array(dindex_shift[bd], dtype='int64') #[np.array(sh, dtype='int64') for sh in dindex_shift[bd]]
+    csh = np.array(cindex_shift[bc], dtype='int64') #[np.array(sh, dtype='int64') for sh in cindex_shift[bc]]
+
+    dgs = [np.array(gs, dtype='int64') for gs in dspace_block.cart.global_starts] # Global variable
+    dge = [np.array(ge, dtype='int64') for ge in dspace_block.cart.global_ends] # Global variable
+    cgs = [np.array(gs, dtype='int64') for gs in cspace_block.cart.global_starts] # Global variable
+    cge = [np.array(ge, dtype='int64') for ge in cspace_block.cart.global_ends] # Global variable
+
+    #dnlb = [np.array(n, dtype='int64') for n in dnpts_local_per_block_per_process[bd]] 
+    #cnlb = [np.array(n, dtype='int64') for n in cnpts_local_per_block_per_process[bc]] 
+
+    dnlb = [np.array([n[d] for n in dnpts_local_per_block_per_process[bd]], dtype='int64') for d in range(dspace_block.cart.ndim)] 
+    cnlb = [np.array([n[d] for n in cnpts_local_per_block_per_process[bc]] , dtype='int64') for d in range(cspace_block.cart.ndim)]
+
+    # Range of data owned by local process (no ghost regions)
+    local = tuple( [slice(m*p,-m*p) for p,m in zip(cp, cm)] + [slice(None)] * dspace_block.cart.ndim )
+    shape  = mat_block._data[local].shape
+    
+    nrows = np.prod(shape[0:dspace_block.cart.ndim])
+    nentries = np.prod(shape)
+    # I, J, V, rowmap storage
+    Ib = np.zeros(nrows + 1, dtype='int64')
+    Jb = np.zeros(nentries, dtype='int64')
+    rowmapb = np.zeros(nrows, dtype='int64')
+    Vb = np.zeros(nentries, dtype=mat_block._data.dtype)
+
+    Ib[0] += I[-1]
+
+
+    stencil2IJV = kernels['stencil2IJV'][order][dspace_block.cart.ndim]
+
+    nnz_rows, nnz = stencil2IJV(mat_block._data, Ib, Jb, Vb, rowmapb,
+                      *cnl, *dng, *cs, *cp, *cm,
+                      dsh, csh, *dgs, *dge, *cgs, *cge, *dnlb, *cnlb
+                      )
+
+    I += list(Ib[1:nnz_rows + 1])
+    rowmap += list(rowmapb[:nnz_rows])
+    J += list(Jb[:nnz])
+    V += list(Vb[:nnz])
+
+    return I, J, V, rowmap
+
 
 def petsc_local_to_psydac(
     V : VectorSpace,
-    petsc_index : int) -> tuple[tuple[int], tuple[int]]:
+    petsc_index : int):
     """
     Convert the PETSc local index (starting from 0 in each process) to a Psydac local index (natural multi-index, as grid coordinates).
 
@@ -433,16 +526,28 @@ def mat_topetsc( mat ):
 
     mat_block = mat
 
+    import time
+
+    output = open('output.txt', 'a')
+    comm=dcarts[0].global_comm
+
+    time_loop = np.empty((comm.Get_size(),))
+    time_setValues = np.empty((comm.Get_size(),)) 
+    time_assemble = np.empty((comm.Get_size(),))
+                             
+
+    t_prev = time.time()
     for bc, bd in nonzero_block_indices:
         if isinstance(mat, BlockLinearOperator):
             mat_block = mat.blocks[bc][bd]
+        I,J,V,rowmap = toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, mat.domain, mat.codomain)
 
-        cs = ccarts[bc].starts
+    """    cs = ccarts[bc].starts
         cghost_size = [pi*mi for pi,mi in zip(ccarts[bc].pads, ccarts[bc].shifts)]
 
         if dndims[bd] == 1 and cndims[bc] == 1:
-
-            for i1 in range(cnpts_local[bc][0]):
+            I,J,V,rowmap = toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, mat.domain, mat.codomain)
+            '''for i1 in range(cnpts_local[bc][0]):
                 nnz_in_row = 0
                 i1_n = cs[0] + i1
                 i_g = psydac_to_petsc_global(mat.codomain, (bc,), (i1_n,))
@@ -466,10 +571,11 @@ def mat_topetsc( mat ):
                         nnz_in_row += 1
 
                 if nnz_in_row > 0:
-                    I.append(I[-1] + nnz_in_row)
+                    I.append(I[-1] + nnz_in_row)'''
                 
         elif dndims[bd] == 2 and cndims[bc] == 2:
-            for i1 in np.arange(cnpts_local[bc][0]):              
+            I,J,V,rowmap = toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, mat.domain, mat.codomain)
+            '''for i1 in np.arange(cnpts_local[bc][0]):              
                 for i2 in np.arange(cnpts_local[bc][1]):
 
                     nnz_in_row = 0
@@ -499,7 +605,7 @@ def mat_topetsc( mat ):
                                 nnz_in_row += 1
 
                     if nnz_in_row > 0:
-                        I.append(I[-1] + nnz_in_row)
+                        I.append(I[-1] + nnz_in_row)'''
 
         elif dndims[bd] == 3 and cndims[bc] == 3: 
             for i1 in np.arange(cnpts_local[bc][0]):             
@@ -535,11 +641,41 @@ def mat_topetsc( mat ):
 
                         if nnz_in_row > 0:
                             I.append(I[-1] + nnz_in_row)
+    """
+    time_loop[comm.Get_rank()] = time.time() - t_prev
 
+    print('Time for the loop: ', time.time() - t_prev)
+    t_prev = time.time()
     # Set the values using IJV&rowmap format. The values are stored in a cache memory.
     gmat.setValuesIJV(I, J, V, rowmap=rowmap, addv=PETSc.InsertMode.ADD_VALUES) # The addition mode is necessary when periodic BC
 
+    time_setValues[comm.Get_rank()] = time.time() - t_prev
+
+    print('Time for the setValuesIJV: ', time.time() - t_prev)
+
+    t_prev = time.time()
     # Assemble the matrix with the values from the cache. Here it is where PETSc exchanges global communication.
     gmat.assemble()
+    time_assemble[comm.Get_rank()] = time.time() - t_prev
+    print('Time for the assemble: ', time.time() - t_prev)
+
+
+    if comm.Get_rank() == 0:
+        print(f'\nProcess & global size & local size & Time loop & Time setValuesIJV & Time assemble ', file=output, flush=True)
+
+    for k in range(comm.Get_size()):
+        if k == comm.Get_rank():
+            ls, gs = gmat.getSizes()[0]
+            print(f'{k} & {gs} & {ls} & {time_loop[k]:.2f} & {time_setValues[k]:.2f} & {time_assemble[k]:.2f}', file=output, flush=True)
+        comm.Barrier()
+
+    avg_time_loop = comm.reduce(time_loop)
+    avg_time_setValues = comm.reduce(time_setValues, op=MPI.SUM, root=0)
+    avg_time_assemble = comm.reduce(time_assemble, op=MPI.SUM, root=0)
+    
+    if comm.Get_rank() == 0:
+        print(f'Average & {np.mean(avg_time_loop):.2f} & {np.mean(avg_time_setValues):.2f} & {np.mean(avg_time_assemble):.2f}', file=output, flush=True)   
+
+    output.close() 
       
     return gmat
