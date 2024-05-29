@@ -177,8 +177,8 @@ def petsc_local_to_psydac(
 
 def psydac_to_petsc_global(
         V : VectorSpace, 
-        block_indices : tuple[int], 
-        ndarray_indices : tuple[int]) -> int:
+        block_indices : 'tuple[int]', 
+        ndarray_indices : 'tuple[int]') -> int:
     """
     Convert the Psydac local index (natural multi-index, as grid coordinates) to a PETSc global index. Performs a search to find the process owning the multi-index.
 
