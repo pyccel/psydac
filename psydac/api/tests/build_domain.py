@@ -189,23 +189,28 @@ def build_pretzel(domain_name='pretzel', r_min=None, r_max=None):
                     domain_14,
                     ])
 
-    interfaces = [
-        [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),  1],
-        [domain_5.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=1),   1],
-        [domain_6.get_boundary(axis=1, ext=-1), domain_2.get_boundary(axis=1, ext=-1),  1],
-        [domain_2.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1),  1],
-        [domain_7.get_boundary(axis=1, ext=+1), domain_3.get_boundary(axis=1, ext=-1),  1],
-        [domain_3.get_boundary(axis=1, ext=+1), domain_9.get_boundary(axis=1, ext=-1),  1],
-        [domain_9.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1),  1],
-        [domain_4.get_boundary(axis=1, ext=+1), domain_12.get_boundary(axis=1, ext=1),  1],
-        [domain_12.get_boundary(axis=1, ext=-1), domain_1.get_boundary(axis=1, ext=-1), 1],
-        [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=1),  1],
-        [domain_7.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=-1), 1],
-        [domain_5.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=-1), 1],
-        [domain_12.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=+1),1],
+    axis_0 = 0
+    axis_1 = 1
+    ext_0 = -1
+    ext_1 = +1
+
+    connectivity = [
+        [(domain_1,  axis_1, ext_1), (domain_5,  axis_1, ext_0), 1],
+        [(domain_5,  axis_1, ext_1), (domain_6,  axis_1, ext_1), 1],
+        [(domain_6,  axis_1, ext_0), (domain_2,  axis_1, ext_0), 1],
+        [(domain_2,  axis_1, ext_1), (domain_7,  axis_1, ext_0), 1],
+        [(domain_7,  axis_1, ext_1), (domain_3,  axis_1, ext_0), 1],
+        [(domain_3,  axis_1, ext_1), (domain_9,  axis_1, ext_0), 1],
+        [(domain_9,  axis_1, ext_1), (domain_4,  axis_1, ext_0), 1],
+        [(domain_4,  axis_1, ext_1), (domain_12, axis_1, ext_1), 1],
+        [(domain_12, axis_1, ext_0), (domain_1,  axis_1, ext_0), 1],
+        [(domain_6,  axis_0, ext_0), (domain_13, axis_0, ext_1), 1],
+        [(domain_7,  axis_0, ext_0), (domain_13, axis_0, ext_0), 1],
+        [(domain_5,  axis_0, ext_0), (domain_14, axis_0, ext_0), 1],
+        [(domain_12, axis_0, ext_0), (domain_14, axis_0, ext_1), 1],
         ]
 
+    domain = Domain.join(patches, connectivity, name=domain_name)
 
-    domain = create_domain(patches, interfaces, domain_name)
     return domain
 

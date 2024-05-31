@@ -42,35 +42,6 @@ def create_domain(patches, interfaces, name):
                     I[1].domain), I[1].axis, I[1].ext), I[2]))
     return Domain.join(patches, connectivity, name)
 
-# def get_annulus_fourpatches(r_min, r_max):
-#
-#     dom_log_1 = Square('dom1',bounds1=(r_min, r_max), bounds2=(0, np.pi/2))
-#     dom_log_2 = Square('dom2',bounds1=(r_min, r_max), bounds2=(np.pi/2, np.pi))
-#     dom_log_3 = Square('dom3',bounds1=(r_min, r_max), bounds2=(np.pi, np.pi*3/2))
-#     dom_log_4 = Square('dom4',bounds1=(r_min, r_max), bounds2=(np.pi*3/2, np.pi*2))
-#
-#     mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-#     mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-#     mapping_3 = PolarMapping('M3',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-#     mapping_4 = PolarMapping('M4',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-#
-#     domain_1     = mapping_1(dom_log_1)
-#     domain_2     = mapping_2(dom_log_2)
-#     domain_3     = mapping_3(dom_log_3)
-#     domain_4     = mapping_4(dom_log_4)
-#
-#     interfaces = [
-#         [domain_1.get_boundary(axis=1, ext=1), domain_2.get_boundary(axis=1, ext=-1), 1],
-#         [domain_2.get_boundary(axis=1, ext=1), domain_3.get_boundary(axis=1, ext=-1), 1],
-#         [domain_3.get_boundary(axis=1, ext=1), domain_4.get_boundary(axis=1, ext=-1), 1],
-#         [domain_4.get_boundary(axis=1, ext=1), domain_1.get_boundary(axis=1, ext=-1), 1]
-#         ]
-#     patches = [domain_1, domain_2, domain_3, domain_4]
-#     domain = create_domain(patches, interfaces, name='domain')
-#
-#     return domain
-
-
 def get_2D_rotation_mapping(name='no_name', c1=0., c2=0., alpha=np.pi / 2):
 
     # AffineMapping:
@@ -117,6 +88,15 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
      The symbolic multipatch domain
     """
 
+    connectivity = None
+
+    # for readability
+    axis_0 = 0
+    axis_1 = 1
+    ext_0 = -1
+    ext_1 = +1
+
+    # create the patches
     if domain_name == 'square_2':
         # reference square [0,pi]x[0,pi] with 2 patches
         # mp structure:
@@ -138,8 +118,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
 
         patches = [domain_1, domain_2]
 
-        interfaces = [[domain_1.get_boundary(
-            axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1), 1]]
+        connectivity = [[(domain_1, axis_1, ext_1), (domain_2, axis_1, ext_0), 1]]
     elif domain_name == 'square_4':
         # C D
         # A B
@@ -159,11 +138,11 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
 
         patches = [A, B, C, D]
 
-        interfaces = [
-            [A.get_boundary(axis=0, ext=1), B.get_boundary(axis=0, ext=-1), 1],
-            [A.get_boundary(axis=1, ext=1), C.get_boundary(axis=1, ext=-1), 1],
-            [C.get_boundary(axis=0, ext=1), D.get_boundary(axis=0, ext=-1), 1],
-            [B.get_boundary(axis=1, ext=1), D.get_boundary(axis=1, ext=-1), 1],
+        connectivity = [
+            [(A, axis_0, ext_1), (B, axis_0, ext_0), 1],
+            [(A, axis_1, ext_1), (C, axis_1, ext_0), 1],
+            [(C, axis_0, ext_1), (D, axis_0, ext_0), 1],
+            [(B, axis_1, ext_1), (D, axis_1, ext_0), 1],
         ]
 
     elif domain_name == 'square_6':
@@ -240,14 +219,14 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
 
         patches = [domain_1, domain_2, domain_3, domain_4, domain_5, domain_6]
 
-        interfaces = [
-            [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1), 1],
-            [domain_3.get_boundary(axis=0, ext=+1), domain_4.get_boundary(axis=0, ext=-1), 1],
-            [domain_5.get_boundary(axis=0, ext=+1), domain_6.get_boundary(axis=0, ext=-1), 1],
-            [domain_1.get_boundary(axis=1, ext=+1), domain_3.get_boundary(axis=1, ext=-1), 1],
-            [domain_3.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1), 1],
-            [domain_2.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1), 1],
-            [domain_4.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1), 1],
+        connectivity = [
+            [(domain_1, axis_0, ext_1), (domain_2, axis_0, ext_0), 1],
+            [(domain_3, axis_0, ext_1), (domain_4, axis_0, ext_0), 1],
+            [(domain_5, axis_0, ext_1), (domain_6, axis_0, ext_0), 1],
+            [(domain_1, axis_1, ext_1), (domain_3, axis_1, ext_0), 1],
+            [(domain_3, axis_1, ext_1), (domain_5, axis_1, ext_0), 1],
+            [(domain_2, axis_1, ext_1), (domain_4, axis_1, ext_0), 1],
+            [(domain_4, axis_1, ext_1), (domain_6, axis_1, ext_0), 1],
         ]
 
     elif domain_name in ['square_8', 'square_9']:
@@ -369,15 +348,15 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
                 domain_7,
                 domain_8]
 
-            interfaces = [
-                [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1), 1],
-                [domain_2.get_boundary(axis=0, ext=+1), domain_3.get_boundary(axis=0, ext=-1), 1],
-                [domain_6.get_boundary(axis=0, ext=+1), domain_7.get_boundary(axis=0, ext=-1), 1],
-                [domain_7.get_boundary(axis=0, ext=+1), domain_8.get_boundary(axis=0, ext=-1), 1],
-                [domain_1.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1), 1],
-                [domain_4.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1), 1],
-                [domain_3.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1), 1],
-                [domain_5.get_boundary(axis=1, ext=+1), domain_8.get_boundary(axis=1, ext=-1), 1],
+            connectivity = [
+                [(domain_1, axis_0, ext_1), (domain_2, axis_0, ext_0), 1],
+                [(domain_2, axis_0, ext_1), (domain_3, axis_0, ext_0), 1],
+                [(domain_6, axis_0, ext_1), (domain_7, axis_0, ext_0), 1],
+                [(domain_7, axis_0, ext_1), (domain_8, axis_0, ext_0), 1],
+                [(domain_1, axis_1, ext_1), (domain_4, axis_1, ext_0), 1],
+                [(domain_4, axis_1, ext_1), (domain_6, axis_1, ext_0), 1],
+                [(domain_3, axis_1, ext_1), (domain_5, axis_1, ext_0), 1],
+                [(domain_5, axis_1, ext_1), (domain_8, axis_1, ext_0), 1],
             ]
 
         elif domain_name == 'square_9':
@@ -397,19 +376,19 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
                 domain_8,
                 domain_9]
 
-            interfaces = [
-                [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1), 1],
-                [domain_2.get_boundary(axis=0, ext=+1), domain_3.get_boundary(axis=0, ext=-1), 1],
-                [domain_4.get_boundary(axis=0, ext=+1), domain_9.get_boundary(axis=0, ext=-1), 1],
-                [domain_9.get_boundary(axis=0, ext=+1), domain_5.get_boundary(axis=0, ext=-1), 1],
-                [domain_6.get_boundary(axis=0, ext=+1), domain_7.get_boundary(axis=0, ext=-1), 1],
-                [domain_7.get_boundary(axis=0, ext=+1), domain_8.get_boundary(axis=0, ext=-1), 1],
-                [domain_1.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1), 1],
-                [domain_4.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1), 1],
-                [domain_2.get_boundary(axis=1, ext=+1), domain_9.get_boundary(axis=1, ext=-1), 1],
-                [domain_9.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1), 1],
-                [domain_3.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1), 1],
-                [domain_5.get_boundary(axis=1, ext=+1), domain_8.get_boundary(axis=1, ext=-1), 1],
+            connectivity = [
+                [(domain_1, axis_0, ext_1), (domain_2, axis_0, ext_0), 1],
+                [(domain_2, axis_0, ext_1), (domain_3, axis_0, ext_0), 1],
+                [(domain_4, axis_0, ext_1), (domain_9, axis_0, ext_0), 1],
+                [(domain_9, axis_0, ext_1), (domain_5, axis_0, ext_0), 1],
+                [(domain_6, axis_0, ext_1), (domain_7, axis_0, ext_0), 1],
+                [(domain_7, axis_0, ext_1), (domain_8, axis_0, ext_0), 1],
+                [(domain_1, axis_1, ext_1), (domain_4, axis_1, ext_0), 1],
+                [(domain_4, axis_1, ext_1), (domain_6, axis_1, ext_0), 1],
+                [(domain_2, axis_1, ext_1), (domain_9, axis_1, ext_0), 1],
+                [(domain_9, axis_1, ext_1), (domain_7, axis_1, ext_0), 1],
+                [(domain_3, axis_1, ext_1), (domain_5, axis_1, ext_0), 1],
+                [(domain_5, axis_1, ext_1), (domain_8, axis_1, ext_0), 1],
             ]
 
         else:
@@ -668,20 +647,20 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
                 domain_14,
             ])
 
-            interfaces = [
-                [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1), 1],
-                [domain_5.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=1), 1],
-                [domain_6.get_boundary(axis=1, ext=-1), domain_2.get_boundary(axis=1, ext=-1), 1],
-                [domain_2.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1), 1],
-                [domain_7.get_boundary(axis=1, ext=+1), domain_3.get_boundary(axis=1, ext=-1), 1],
-                [domain_3.get_boundary(axis=1, ext=+1), domain_9.get_boundary(axis=1, ext=-1), 1],
-                [domain_9.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1), 1],
-                [domain_4.get_boundary(axis=1, ext=+1), domain_12.get_boundary(axis=1, ext=1), 1],
-                [domain_12.get_boundary(axis=1, ext=-1), domain_1.get_boundary(axis=1, ext=-1), 1],
-                [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=1), 1],
-                [domain_7.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=-1), 1],
-                [domain_5.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=-1), 1],
-                [domain_12.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=+1), 1],
+            connectivity = [
+                [(domain_1, axis_1, ext_1), (domain_5, axis_1, ext_0), 1],
+                [(domain_5, axis_1, ext_1), (domain_6, axis_1, ext_1), 1],
+                [(domain_6, axis_1, ext_0), (domain_2, axis_1, ext_0), 1],
+                [(domain_2, axis_1, ext_1), (domain_7, axis_1, ext_0), 1],
+                [(domain_7, axis_1, ext_1), (domain_3, axis_1, ext_0), 1],
+                [(domain_3, axis_1, ext_1), (domain_9, axis_1, ext_0), 1],
+                [(domain_9, axis_1, ext_1), (domain_4, axis_1, ext_0), 1],
+                [(domain_4, axis_1, ext_1), (domain_12, axis_1, ext_1), 1],
+                [(domain_12, axis_1, ext_0), (domain_1, axis_1, ext_0), 1],
+                [(domain_6, axis_0, ext_0), (domain_13, axis_0, ext_1), 1],
+                [(domain_7, axis_0, ext_0), (domain_13, axis_0, ext_0), 1],
+                [(domain_5, axis_0, ext_0), (domain_14, axis_0, ext_0), 1],
+                [(domain_12, axis_0, ext_0), (domain_14, axis_0, ext_1), 1],
             ]
 
         elif domain_name == 'pretzel_f':
@@ -706,30 +685,76 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
                 domain_14_2,
             ])
 
-            interfaces = [
-                [domain_1_1.get_boundary(axis=1, ext=+1), domain_1_2.get_boundary(axis=1, ext=-1), 1],
-                [domain_1_2.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1), 1],
-                [domain_5.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=1), 1],
-                [domain_6.get_boundary(axis=1, ext=-1), domain_2_1.get_boundary(axis=1, ext=-1), 1],
-                [domain_2_1.get_boundary(axis=1, ext=+1), domain_2_2.get_boundary(axis=1, ext=-1), 1],
-                [domain_2_2.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1), 1],
-                [domain_7.get_boundary(axis=1, ext=+1), domain_3_1.get_boundary(axis=1, ext=-1), 1],
-                [domain_3_1.get_boundary(axis=1, ext=+1), domain_3_2.get_boundary(axis=1, ext=-1), 1],
-                [domain_3_2.get_boundary(axis=1, ext=+1), domain_9_1.get_boundary(axis=1, ext=-1), 1],
-                [domain_9_1.get_boundary(axis=1, ext=+1), domain_9_2.get_boundary(axis=1, ext=-1), 1],
-                [domain_9_2.get_boundary(axis=1, ext=+1), domain_4_1.get_boundary(axis=1, ext=-1), 1],
-                [domain_4_1.get_boundary(axis=1, ext=+1), domain_4_2.get_boundary(axis=1, ext=-1), 1],
-                [domain_4_2.get_boundary(axis=1, ext=+1), domain_12.get_boundary(axis=1, ext=1), 1],
-                [domain_12.get_boundary(axis=1, ext=-1), domain_1_1.get_boundary(axis=1, ext=-1), 1],
-                [domain_6.get_boundary(axis=0, ext=-1), domain_13_2.get_boundary(axis=0, ext=1), 1],
-                [domain_13_2.get_boundary(axis=0, ext=-1), domain_13_1.get_boundary(axis=0, ext=1), 1],
-                [domain_7.get_boundary(axis=0, ext=-1), domain_13_1.get_boundary(axis=0, ext=-1), 1],
-                [domain_5.get_boundary(axis=0, ext=-1), domain_14_1.get_boundary(axis=0, ext=-1), 1],
-                [domain_14_1.get_boundary(axis=0, ext=+1), domain_14_2.get_boundary(axis=0, ext=-1), 1],
-                [domain_12.get_boundary(axis=0, ext=-1), domain_14_2.get_boundary(axis=0, ext=+1), 1],
+            # interfaces = [
+            #     [domain_1_1.get_boundary(axis=1, ext=+1), domain_1_2.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_1_2.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_5.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=1), 1],
+            #     [domain_6.get_boundary(axis=1, ext=-1), domain_2_1.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_2_1.get_boundary(axis=1, ext=+1), domain_2_2.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_2_2.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_7.get_boundary(axis=1, ext=+1), domain_3_1.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_3_1.get_boundary(axis=1, ext=+1), domain_3_2.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_3_2.get_boundary(axis=1, ext=+1), domain_9_1.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_9_1.get_boundary(axis=1, ext=+1), domain_9_2.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_9_2.get_boundary(axis=1, ext=+1), domain_4_1.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_4_1.get_boundary(axis=1, ext=+1), domain_4_2.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_4_2.get_boundary(axis=1, ext=+1), domain_12.get_boundary(axis=1, ext=1), 1],
+            #     [domain_12.get_boundary(axis=1, ext=-1), domain_1_1.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_6.get_boundary(axis=0, ext=-1), domain_13_2.get_boundary(axis=0, ext=1), 1],
+            #     [domain_13_2.get_boundary(axis=0, ext=-1), domain_13_1.get_boundary(axis=0, ext=1), 1],
+            #     [domain_7.get_boundary(axis=0, ext=-1), domain_13_1.get_boundary(axis=0, ext=-1), 1],
+            #     [domain_5.get_boundary(axis=0, ext=-1), domain_14_1.get_boundary(axis=0, ext=-1), 1],
+            #     [domain_14_1.get_boundary(axis=0, ext=+1), domain_14_2.get_boundary(axis=0, ext=-1), 1],
+            #     [domain_12.get_boundary(axis=0, ext=-1), domain_14_2.get_boundary(axis=0, ext=+1), 1],
+            # ]
+
+            # interfaces = [
+            #     [domain_1_1.get_boundary(axis=1, ext=+1), domain_1_2.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_1_2.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_5.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=1), 1],
+            #     [domain_6.get_boundary(axis=1, ext=-1), domain_2_1.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_2_1.get_boundary(axis=1, ext=+1), domain_2_2.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_2_2.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_7.get_boundary(axis=1, ext=+1), domain_3_1.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_3_1.get_boundary(axis=1, ext=+1), domain_3_2.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_3_2.get_boundary(axis=1, ext=+1), domain_9_1.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_9_1.get_boundary(axis=1, ext=+1), domain_9_2.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_9_2.get_boundary(axis=1, ext=+1), domain_4_1.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_4_1.get_boundary(axis=1, ext=+1), domain_4_2.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_4_2.get_boundary(axis=1, ext=+1), domain_12.get_boundary(axis=1, ext=1), 1],
+            #     [domain_12.get_boundary(axis=1, ext=-1), domain_1_1.get_boundary(axis=1, ext=-1), 1],
+            #     [domain_6, axis_0, ext=-1), domain_13_2, axis_0, ext=1), 1],
+            #     [domain_13_2, axis_0, ext=-1), domain_13_1, axis_0, ext=1), 1],
+            #     [domain_7, axis_0, ext=-1), domain_13_1, axis_0, ext=-1), 1],
+            #     [domain_5, axis_0, ext=-1), domain_14_1, axis_0, ext=-1), 1],
+            #     [domain_14_1, axis_0, ext=+1), domain_14_2, axis_0, ext=-1), 1],
+            #     [domain_12, axis_0, ext=-1), domain_14_2, axis_0, ext=+1), 1],
+            # ]
+
+            connectivity = [
+                [(domain_1_1,  axis_1, ext_1), (domain_1_2,  axis_1, ext_0), 1],
+                [(domain_1_2,  axis_1, ext_1), (domain_5,    axis_1, ext_0), 1],
+                [(domain_5,    axis_1, ext_1), (domain_6,    axis_1, ext_1), 1],
+                [(domain_6,    axis_1, ext_0), (domain_2_1,  axis_1, ext_0), 1],
+                [(domain_2_1,  axis_1, ext_1), (domain_2_2,  axis_1, ext_0), 1],
+                [(domain_2_2,  axis_1, ext_1), (domain_7,    axis_1, ext_0), 1],
+                [(domain_7,    axis_1, ext_1), (domain_3_1,  axis_1, ext_0), 1],
+                [(domain_3_1,  axis_1, ext_1), (domain_3_2,  axis_1, ext_0), 1],
+                [(domain_3_2,  axis_1, ext_1), (domain_9_1,  axis_1, ext_0), 1],
+                [(domain_9_1,  axis_1, ext_1), (domain_9_2,  axis_1, ext_0), 1],
+                [(domain_9_2,  axis_1, ext_1), (domain_4_1,  axis_1, ext_0), 1],
+                [(domain_4_1,  axis_1, ext_1), (domain_4_2,  axis_1, ext_0), 1],
+                [(domain_4_2,  axis_1, ext_1), (domain_12,   axis_1, ext_1), 1],
+                [(domain_12,   axis_1, ext_0), (domain_1_1,  axis_1, ext_0), 1],
+                [(domain_6,    axis_0, ext_0), (domain_13_2, axis_0, ext_1), 1],
+                [(domain_13_2, axis_0, ext_0), (domain_13_1, axis_0, ext_1), 1],
+                [(domain_7,    axis_0, ext_0), (domain_13_1, axis_0, ext_0), 1],
+                [(domain_5,    axis_0, ext_0), (domain_14_1, axis_0, ext_0), 1],
+                [(domain_14_1, axis_0, ext_1), (domain_14_2, axis_0, ext_0), 1],
+                [(domain_12,   axis_0, ext_0), (domain_14_2, axis_0, ext_1), 1],
             ]
 
-        # reste: 13 et 14
+            # reste: 13 et 14
 
         elif domain_name == 'pretzel_annulus':
             # only the annulus part of the pretzel (not the inner arcs)
@@ -746,16 +771,16 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
                 domain_12,
             ])
 
-            interfaces = [
-                [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1), 1],
-                [domain_5.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1), 1],
-                [domain_6.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1), 1],
-                [domain_2.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1), 1],
-                [domain_7.get_boundary(axis=1, ext=+1), domain_3.get_boundary(axis=1, ext=-1), 1],
-                [domain_3.get_boundary(axis=1, ext=+1), domain_9.get_boundary(axis=1, ext=-1), 1],
-                [domain_9.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1), 1],
-                [domain_4.get_boundary(axis=1, ext=+1), domain_12.get_boundary(axis=1, ext=-1), 1],
-                [domain_12.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1), 1],
+            connectivity = [
+                [(domain_1, axis_1, ext_1), (domain_5, axis_1, ext_0), 1],
+                [(domain_5, axis_1, ext_1), (domain_6, axis_1, ext_0), 1],
+                [(domain_6, axis_1, ext_1), (domain_2, axis_1, ext_0), 1],
+                [(domain_2, axis_1, ext_1), (domain_7, axis_1, ext_0), 1],
+                [(domain_7, axis_1, ext_1), (domain_3, axis_1, ext_0), 1],
+                [(domain_3, axis_1, ext_1), (domain_9, axis_1, ext_0), 1],
+                [(domain_9, axis_1, ext_1), (domain_4, axis_1, ext_0), 1],
+                [(domain_4, axis_1, ext_1), (domain_12, axis_1, ext_0), 1],
+                [(domain_12, axis_1, ext_1), (domain_1, axis_1, ext_0), 1],
             ]
 
         elif domain_name == 'pretzel_debug':
@@ -764,8 +789,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
                 domain_10,
             ])
 
-            interfaces = [[domain_1.get_boundary(
-                axis=1, ext=+1), domain_10.get_boundary(axis=1, ext=-1), 1], ]
+            connectivity = [[(domain_1, axis_1, ext_1), (domain_10, axis_1, ext_0), 1], ]
 
         else:
             raise NotImplementedError
@@ -797,9 +821,9 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
             domain_3,
         ])
 
-        interfaces = [
-            [domain_1.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1), 1],
-            [domain_3.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1), 1],
+        connectivity = [
+            [(domain_1, axis_1, ext_1), (domain_2, axis_1, ext_0), 1],
+            [(domain_3, axis_0, ext_1), (domain_2, axis_0, ext_0), 1],
         ]
 
     elif domain_name in ['annulus_3', 'annulus_4']:
@@ -833,10 +857,10 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
 
             patches = [domain_1, domain_2, domain_3]
 
-            interfaces = [
-                [domain_1.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1), 1],
-                [domain_2.get_boundary(axis=1, ext=+1), domain_3.get_boundary(axis=1, ext=-1), 1],
-                [domain_3.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1), 1],
+            connectivity = [
+                [(domain_1, axis_1, ext_1), (domain_2, axis_1, ext_0), 1],
+                [(domain_2, axis_1, ext_1), (domain_3, axis_1, ext_0), 1],
+                [(domain_3, axis_1, ext_1), (domain_1, axis_1, ext_0), 1],
             ]
 
         elif domain_name == 'annulus_4':
@@ -870,11 +894,11 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
 
             patches = [domain_1, domain_2, domain_3, domain_4]
 
-            interfaces = [
-                [domain_1.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1), 1],
-                [domain_2.get_boundary(axis=1, ext=+1), domain_3.get_boundary(axis=1, ext=-1), 1],
-                [domain_3.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1), 1],
-                [domain_4.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1), 1],
+            connectivity = [
+                [(domain_1, axis_1, ext_1), (domain_2, axis_1, ext_0), 1],
+                [(domain_2, axis_1, ext_1), (domain_3, axis_1, ext_0), 1],
+                [(domain_3, axis_1, ext_1), (domain_4, axis_1, ext_0), 1],
+                [(domain_4, axis_1, ext_1), (domain_1, axis_1, ext_0), 1],
             ]
         else:
             raise NotImplementedError
@@ -882,12 +906,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
     else:
         raise NotImplementedError
 
-    domain = create_domain(patches, interfaces, name='domain')
-
-    # print("int: ", domain.interior)
-    # print("bound: ", domain.boundary)
-    # print("len(bound): ", len(domain.boundary))
-    # print("interfaces: ", domain.interfaces)
+    domain = Domain.join(patches, connectivity, name='domain')
 
     return domain
 
@@ -982,12 +1001,6 @@ def build_multipatch_rectangle(
 
     for i in range(nb_patch_x):
         patches.extend(list_domain[i])
-
-    # domain = union([domain_1, domain_2, domain_3, domain_4, domain_5, domain_6], name = 'domain')
-
-    # patches = [domain_1, domain_2, domain_3, domain_4, domain_5, domain_6]
-
-    # domain = union(flat_list, name='domain')
 
     interfaces = []
     # interfaces in x
