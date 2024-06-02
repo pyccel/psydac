@@ -1,6 +1,6 @@
 from mpi4py import MPI
 import numpy as np
-from sympde.topology import Square
+from sympde.topology import Square, Domain
 from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mapping
 from sympde.topology import Boundary, Interface, Union
 
@@ -20,6 +20,8 @@ from psydac.feec.multipatch.multipatch_domain_utilities import create_domain
 
 def create_square_domain(ncells, interval_x, interval_y, mapping='identity'):
     """
+    todo: rename this function and improve docstring (see comments on PR #320)
+
     Create a 2D multipatch square domain with the prescribed number of patches in each direction.
 
     Parameters
@@ -70,25 +72,31 @@ def create_square_domain(ncells, interval_x, interval_y, mapping='identity'):
             if ncells[i, j] is not None:
                 flat_list.append(list_domain[i][j])
 
-    domains = flat_list
-    interfaces = []
+    patches = flat_list
+    axis_0 = 0
+    axis_1 = 1
+    ext_0 = -1
+    ext_1 = +1
+    connectivity = []
 
     # interfaces in y
     for j in range(nb_patchy):
-        interfaces.extend([[list_domain[i][j].get_boundary(axis=0, ext=+1), 
-        list_domain[i +1][j].get_boundary(axis=0, ext=-1), 1] 
-        for i in range(nb_patchx -1) if ncells[i][j] is not None and ncells[i +1][j] is not None])
+        connectivity.extend([
+            [(list_domain[i  ][j], axis_0, ext_1), 
+             (list_domain[i+1][j], axis_0, ext_0), 
+             1] 
+            for i in range(nb_patchx -1) if ncells[i][j] is not None and ncells[i+1][j] is not None])
 
     # interfaces in x
     for i in range(nb_patchx):
-        interfaces.extend([[list_domain[i][j].get_boundary(axis=1, ext=+
-                                                           1), list_domain[i][j +
-                                                                              1].get_boundary(axis=1, ext=-
-                                                                                              1), 1] for j in range(nb_patchy -
-                          1) if ncells[i][j] is not None and ncells[i][j +
-                                                                       1] is not None])
+        connectivity.extend([
+            [(list_domain[i][j  ], axis_1, ext_1), 
+             (list_domain[i][j+1], axis_1, ext_0), 
+             1] 
 
-    domain = create_domain(domains, interfaces, name='domain')
+            for j in range(nb_patchy -1) if ncells[i][j] is not None and ncells[i][j+1] is not None])
+
+    domain = Domain.join(patches, connectivity, name='domain')
 
     return domain
 
