@@ -3,10 +3,7 @@ import numpy as np
 from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.basic import VectorSpace
-from scipy.sparse import coo_matrix, bmat
 from itertools import product as cartesian_prod
-
-from mpi4py import MPI
 
 __all__ = ('petsc_local_to_psydac', 'psydac_to_petsc_global', 'get_npts_local', 'get_npts_per_block', 'vec_topetsc', 'mat_topetsc')
 
@@ -76,7 +73,6 @@ def toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, dspace, cspace, dnpts_block,
     V += list(Vb[:nnz])
 
     return I, J, V, rowmap
-
 
 def petsc_local_to_psydac(
     V : VectorSpace,
@@ -490,16 +486,6 @@ def mat_topetsc( mat ):
 
     mat_block = mat
 
-    import time
-
-    output = open('output.txt', 'a')
-
-    comm_size = 1 if not comm else comm.Get_size()
-    time_loop = np.empty((comm_size,))
-    time_setValues = np.empty((comm_size,)) 
-    time_assemble = np.empty((comm_size,))
-                             
-    t_prev = time.time()
     for bc, bd in nonzero_block_indices:
         if isinstance(mat, BlockLinearOperator):
             mat_block = mat.blocks[bc][bd]
@@ -510,47 +496,10 @@ def mat_topetsc( mat ):
 
         I,J,V,rowmap = toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, mat.domain, mat.codomain, dnpts_block, cnpts_block, dshift_block, cshift_block)
 
-
-    comm_rk = 0 if not comm else comm.Get_rank()
-    time_loop[comm_rk] = time.time() - t_prev
-
-    print('Time for the loop: ', time.time() - t_prev)
-    t_prev = time.time()
     # Set the values using IJV&rowmap format. The values are stored in a cache memory.
     gmat.setValuesIJV(I, J, V, rowmap=rowmap, addv=PETSc.InsertMode.ADD_VALUES) # The addition mode is necessary when periodic BC
 
-    time_setValues[comm_rk] = time.time() - t_prev
-
-    print('Time for the setValuesIJV: ', time.time() - t_prev)
-
-    t_prev = time.time()
     # Assemble the matrix with the values from the cache. Here it is where PETSc exchanges global communication.
     gmat.assemble()
-    time_assemble[comm_rk] = time.time() - t_prev
-    print('Time for the assemble: ', time.time() - t_prev)
-
-    if comm_rk == 0:
-        print(f'\nnprocs={comm_size}\nProcess & global size & local size & Time loop & Time setValuesIJV & Time assemble ', file=output, flush=True)
-
-    for k in range(comm_size):
-        if k == comm_rk:
-            ls, gs = gmat.getSizes()[0]
-            print(f'{k} & {gs} & {ls} & {time_loop[k]:.2f} & {time_setValues[k]:.2f} & {time_assemble[k]:.2f}', file=output, flush=True)
-        if comm:
-            comm.Barrier()
-
-    if comm:
-        avg_time_loop = comm.reduce(time_loop)
-        avg_time_setValues = comm.reduce(time_setValues, op=MPI.SUM, root=0)
-        avg_time_assemble = comm.reduce(time_assemble, op=MPI.SUM, root=0)
-    else:
-        avg_time_loop = time_loop
-        avg_time_setValues = time_setValues
-        avg_time_assemble = time_assemble  
-    
-    if comm_rk == 0:
-        print(f'Average & {np.mean(avg_time_loop):.2f} & {np.mean(avg_time_setValues):.2f} & {np.mean(avg_time_assemble):.2f}', file=output, flush=True)   
-
-    output.close() 
       
     return gmat
