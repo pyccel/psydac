@@ -15,8 +15,7 @@ from psydac.feec.multipatch.api import discretize
 from psydac.api.settings import PSYDAC_BACKENDS
 from psydac.fem.splines import SplineSpace
 
-from psydac.feec.multipatch.multipatch_domain_utilities import create_domain
-
+from psydac.feec.multipatch.multipatch_domain_utilities import sympde_Domain_join
 
 def create_square_domain(ncells, interval_x, interval_y, mapping='identity'):
     """
@@ -96,7 +95,9 @@ def create_square_domain(ncells, interval_x, interval_y, mapping='identity'):
 
             for j in range(nb_patchy -1) if ncells[i][j] is not None and ncells[i][j+1] is not None])
 
-    domain = Domain.join(patches, connectivity, name='domain')
+    # domain = Domain.join(patches, connectivity, name='domain')
+    domain = sympde_Domain_join(patches, connectivity, name='domain')
+
 
     return domain
 

@@ -33,6 +33,7 @@ class TransposedPolarMapping(Mapping):
 
 
 def create_domain(patches, interfaces, name):
+    # todo: remove this function and just use Domain.join
     connectivity = []
     patches_interiors = [D.interior for D in patches]
     for I in interfaces:
@@ -41,6 +42,20 @@ def create_domain(patches, interfaces, name):
                 I[0].domain), I[0].axis, I[0].ext), (patches_interiors.index(
                     I[1].domain), I[1].axis, I[1].ext), I[2]))
     return Domain.join(patches, connectivity, name)
+
+
+def sympde_Domain_join(patches, connectivity, name):
+    """
+    temporary fix while sympde PR #155 is not merged
+    """        
+    connectivity_by_indices = []
+    for I in connectivity:           
+        connectivity_by_indices.append(
+            [(patches.index(I[0][0]), I[0][1], I[0][2]), 
+             (patches.index(I[1][0]), I[1][1], I[1][2]),
+             I[2]])
+    return Domain.join(patches, connectivity_by_indices, name)
+
 
 def get_2D_rotation_mapping(name='no_name', c1=0., c2=0., alpha=np.pi / 2):
 
@@ -906,8 +921,9 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
     else:
         raise NotImplementedError
 
-    domain = Domain.join(patches, connectivity, name='domain')
-
+    # domain = Domain.join(patches, connectivity, name='domain')
+    domain = sympde_Domain_join(patches, connectivity, name='domain')
+    
     return domain
 
 

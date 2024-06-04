@@ -1,9 +1,15 @@
 # coding: utf-8
 
+# todo: this file has a lot of redundant code with psydac/feec/multipatch/multipatch_domain_utilities.py
+# it should probably be removed in the future
+
 import numpy as np
 
 from sympde.topology import Square, Domain
 from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mapping
+
+# remove after sympde PR #155 is merged and call Domain.join instead
+from psydac.feec.multipatch.multipatch_domain_utilities import sympde_Domain_join
 
 #==============================================================================
 # small extension to SymPDE:
@@ -20,6 +26,7 @@ class TransposedPolarMapping(Mapping):
     _ldim        = 2
     _pdim        = 2
 
+# todo: remove this
 def create_domain(patches, interfaces, name):
     connectivity = []
     patches_interiors = [D.interior for D in patches]
@@ -54,6 +61,8 @@ def flip_axis(name='no_name', c1=0., c2=0.):
     )
 
 #==============================================================================
+
+# todo: use build_multipatch_domain instead
 def build_pretzel(domain_name='pretzel', r_min=None, r_max=None):
     """
     design pretzel-like domain
@@ -210,7 +219,8 @@ def build_pretzel(domain_name='pretzel', r_min=None, r_max=None):
         [(domain_12, axis_0, ext_0), (domain_14, axis_0, ext_1), 1],
         ]
 
-    domain = Domain.join(patches, connectivity, name=domain_name)
+    # domain = Domain.join(patches, connectivity, name=domain_name)
+    domain = sympde_Domain_join(patches, connectivity, name=domain_name)
 
     return domain
 
