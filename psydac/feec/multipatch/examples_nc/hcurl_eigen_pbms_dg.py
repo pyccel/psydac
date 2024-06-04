@@ -1,5 +1,7 @@
 """
-    Solve the eigenvalue problem for the curl-curl operator in 2D with DG discretization
+    Solve the eigenvalue problem for the curl-curl operator in 2D with DG discretization, following
+    A. Buffa and I. Perugia, “Discontinuous Galerkin Approximation of the Maxwell Eigenproblem”
+    SIAM Journal on Numerical Analysis 44 (2006)
 """
 
 import os
