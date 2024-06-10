@@ -261,12 +261,18 @@ def solve_td_maxwell_pbm(*,
     if domain_name == 'refined_square' or domain_name == 'square_L_shape':
         int_x, int_y = domain_lims
         domain = create_square_domain(nc, int_x, int_y, mapping='identity')
-        ncells_h = {patch.name: [nc[int(patch.name[2])][int(patch.name[4])], nc[int(
-            patch.name[2])][int(patch.name[4])]] for patch in domain.interior}
+
     else:
         domain = build_multipatch_domain(domain_name=domain_name)
-        ncells_h = {patch.name: [ncells[i], ncells[i]]
+
+    if type(nc) == int:
+        ncells = [nc, nc]
+    elif ncells.ndim == 1:
+        ncells = {patch.name: [nc[i], nc[i]]
                     for (i, patch) in enumerate(domain.interior)}
+    elif ncells.ndim == 2:
+        ncells = {patch.name: [nc[int(patch.name[2])][int(patch.name[4])], 
+                nc[int(patch.name[2])][int(patch.name[4])]] for patch in domain.interior}
 
     mappings = OrderedDict([(P.logical_domain, P.mapping)
                            for P in domain.interior])
@@ -281,7 +287,7 @@ def solve_td_maxwell_pbm(*,
 
     t_stamp = time_count(t_stamp)
     print(' .. discrete domain...')
-    domain_h = discretize(domain, ncells=ncells_h)
+    domain_h = discretize(domain, ncells=ncells)
 
     t_stamp = time_count(t_stamp)
     print(' .. discrete derham sequence...')

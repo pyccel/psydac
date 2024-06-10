@@ -1,4 +1,17 @@
-# coding: utf-8
+"""
+    solver for the problem: find u in H^1, such that
+
+      A u = f             on \\Omega
+        u = u_bc          on \\partial \\Omega
+
+    where the operator
+
+      A u := eta * u  -  mu * div grad u
+
+    is discretized as  Ah: V0h -> V0h  in a broken-FEEC approach involving a discrete sequence on a 2D multipatch domain \\Omega,
+
+      V0h  --grad->  V1h  -—curl-> V2h
+"""
 
 from mpi4py import MPI
 
@@ -9,6 +22,7 @@ from collections import OrderedDict
 from sympy import lambdify
 from scipy.sparse.linalg import spsolve
 
+from sympde.calculus import dot
 from sympde.expr.expr import LinearForm
 from sympde.expr.expr import integral, Norm
 from sympde.topology import Derham
@@ -17,23 +31,26 @@ from sympde.topology import element_of
 from psydac.api.settings import PSYDAC_BACKENDS
 from psydac.feec.multipatch.api import discretize
 from psydac.feec.pull_push import pull_2d_h1
+from psydac.feec.multipatch.utils_conga_2d import P0_phys
 
 from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
 from psydac.feec.multipatch.operators import HodgeOperator
 from psydac.feec.multipatch.plotting_utilities import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution_OBSOLETE
+from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution_h1
 from psydac.feec.multipatch.utilities import time_count
 from psydac.feec.multipatch.non_matching_operators import construct_h1_conforming_projection, construct_hcurl_conforming_projection
+from psydac.api.postprocessing import OutputManager, PostProcessManager
 
 from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic import FemField
 
+from psydac.api.postprocessing import OutputManager, PostProcessManager
+
 
 def solve_h1_source_pbm(
-        nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_L2', source_type='manu_poisson',
-        eta=-10., mu=1., gamma_h=10.,
-        plot_source=False, plot_dir=None, hide_plots=True
+        nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_type='manu_poisson_elliptic',
+        eta=-10., mu=1., gamma_h=10., plot_dir=None,
 ):
     """
     solver for the problem: find u in H^1, such that
@@ -61,24 +78,22 @@ def solve_h1_source_pbm(
 
     :param nc: nb of cells per dimension, in each patch
     :param deg: coordinate degree in each patch
+    :param domain_name: name of the domain
+    :param backend_language: backend language for the operators
+    :param source_type: must be implemented in get_source_and_solution_h1
+    :param eta: coefficient of the elliptic operator
+    :param mu: coefficient of the elliptic operator
     :param gamma_h: jump penalization parameter
-    :param source_proj: approximation operator for the source, possible values are 'P_geom' or 'P_L2'
-    :param source_type: must be implemented in get_source_and_solution()
+    :param plot_dir: directory for the plots (if None, no plots are generated)
     """
 
-    ncells = [nc, nc]
     degree = [deg, deg]
-
-    # if backend_language is None:
-    #     backend_language='python'
-    # print('[note: using '+backend_language+ ' backends in discretize functions]')
 
     print('---------------------------------------------------------------------------------------------------------')
     print('Starting solve_h1_source_pbm function with: ')
-    print(' ncells = {}'.format(ncells))
+    print(' ncells = {}'.format(nc))
     print(' degree = {}'.format(degree))
     print(' domain_name = {}'.format(domain_name))
-    print(' source_proj = {}'.format(source_proj))
     print(' backend_language = {}'.format(backend_language))
     print('---------------------------------------------------------------------------------------------------------')
 
@@ -87,6 +102,13 @@ def solve_h1_source_pbm(
     mappings = OrderedDict([(P.logical_domain, P.mapping)
                            for P in domain.interior])
     mappings_list = list(mappings.values())
+
+    if type(nc) == int:
+        ncells = [nc, nc]
+    else:
+        ncells = {patch.name: [nc[i], nc[i]]
+                    for (i, patch) in enumerate(domain.interior)}
+
     domain_h = discretize(domain, ncells=ncells)
 
     print('building the symbolic and discrete deRham sequences...')
@@ -105,7 +127,6 @@ def solve_h1_source_pbm(
     # broken (patch-wise) differential operators
     bD0, bD1 = derham_h.broken_derivatives_as_operators
     bD0_m = bD0.to_sparse_matrix()
-    # bD1_m = bD1.to_sparse_matrix()
 
     print('building the discrete operators:')
     print('commuting projection operators...')
@@ -120,35 +141,21 @@ def solve_h1_source_pbm(
     H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language)
     H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language)
 
-    H0_m = H0.to_sparse_matrix()              # = mass matrix of V0
+    H0_m = H0.to_sparse_matrix()                # = mass matrix of V0
     dH0_m = H0.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V0
-    H1_m = H1.to_sparse_matrix()              # = mass matrix of V1
-    dH1_m = H1.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V1
+    H1_m = H1.to_sparse_matrix()                # = mass matrix of V1
 
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions
     # of the continuous deRham sequence)
     cP0_m = construct_h1_conforming_projection(V0h, hom_bc=True)
-    # cP1_m = construct_hcurl_conforming_projection(V1h, hom_bc=True)
-
-    if not os.path.exists(plot_dir):
-        os.makedirs(plot_dir)
 
     def lift_u_bc(u_bc):
         if u_bc is not None:
-            print(
-                'lifting the boundary condition in V0h...  [warning: Not Tested Yet!]')
-            # note: for simplicity we apply the full P1 on u_bc, but we only
-            # need to set the boundary dofs
-            u_bc = lambdify(domain.coordinates, u_bc)
-            u_bc_log = [pull_2d_h1(u_bc, m.get_callable_mapping())
-                        for m in mappings_list]
-            # it's a bit weird to apply P1 on the list of (pulled back) logical
-            # fields -- why not just apply it on u_bc ?
-            uh_bc = P0(u_bc_log)
-            ubc_c = uh_bc.coeffs.toarray()
-            # removing internal dofs (otherwise ubc_c may already be a very
-            # good approximation of uh_c ...)
+            print('lifting the boundary condition in V0h...  [warning: Not Tested Yet!]')
+            d_ubc_c = derham_h.get_dual_dofs(space='V0', f=u_bc, backend_language=backend_language, return_format='numpy_array')
+            ubc_c = dH0_m.dot(d_ubc_c)
+
             ubc_c = ubc_c - cP0_m.dot(ubc_c)
         else:
             ubc_c = None
@@ -160,58 +167,22 @@ def solve_h1_source_pbm(
 
     # jump penalization:
     jump_penal_m = I0_m - cP0_m
-    JP0_m = jump_penal_m.transpose() * H0_m * jump_penal_m
+    JP0_m = jump_penal_m.transpose() @ H0_m @ jump_penal_m
 
     # useful for the boundary condition (if present)
     pre_A_m = cP0_m.transpose() @ (eta * H0_m - mu * pre_DG_m)
     A_m = pre_A_m @ cP0_m + gamma_h * JP0_m
 
     print('getting the source and ref solution...')
-    # (not all the returned functions are useful here)
-    N_diag = 200
-    method = 'conga'
-    f_scal, f_vect, u_bc, p_ex, u_ex, phi, grad_phi = get_source_and_solution_OBSOLETE(
+    f_scal, u_bc, u_ex = get_source_and_solution_h1(
         source_type=source_type, eta=eta, mu=mu, domain=domain, domain_name=domain_name,
-        refsol_params=[N_diag, method, source_proj],
     )
 
     # compute approximate source f_h
-    b_c = f_c = None
-    if source_proj == 'P_geom':
-        print('projecting the source with commuting projection P0...')
-        f = lambdify(domain.coordinates, f_scal)
-        f_log = [pull_2d_h1(f, m.get_callable_mapping())
-                 for m in mappings_list]
-        f_h = P0(f_log)
-        f_c = f_h.coeffs.toarray()
-        b_c = H0_m.dot(f_c)
-
-    elif source_proj == 'P_L2':
-        print('projecting the source with L2 projection...')
-        v = element_of(V0h.symbolic_space, name='v')
-        expr = f_scal * v
-        l = LinearForm(v, integral(domain, expr))
-        lh = discretize(l, domain_h, V0h)
-        b = lh.assemble()
-        b_c = b.toarray()
-        if plot_source:
-            f_c = dH0_m.dot(b_c)
-    else:
-        raise ValueError(source_proj)
-
-    if plot_source:
-        plot_field(
-            numpy_coeffs=f_c,
-            Vh=V0h,
-            space_kind='h1',
-            domain=domain,
-            title='f_h with P = ' +
-            source_proj,
-            filename=plot_dir +
-            'fh_' +
-            source_proj +
-            '.png',
-            hide_plot=hide_plots)
+    b_c =  derham_h.get_dual_dofs(space='V0', f=f_scal, backend_language=backend_language, return_format='numpy_array')
+    # source in primal sequence for plotting
+    f_c = dH0_m.dot(b_c)
+    b_c = cP0_m.transpose() @ b_c
 
     ubc_c = lift_u_bc(u_bc)
 
@@ -234,57 +205,82 @@ def solve_h1_source_pbm(
         uh_c += ubc_c
 
     print('getting and plotting the FEM solution from numpy coefs array...')
-    title = r'solution $\phi_h$ (amplitude)'
-    params_str = 'eta={}_mu={}_gamma_h={}'.format(eta, mu, gamma_h)
-    plot_field(
-        numpy_coeffs=uh_c,
-        Vh=V0h,
-        space_kind='h1',
-        domain=domain,
-        title=title,
-        filename=plot_dir +
-        params_str +
-        '_phi_h.png',
-        hide_plot=hide_plots)
 
     if u_ex:
-        u = element_of(V0h.symbolic_space, name='u')
-        l2norm = Norm(u - u_ex, domain, kind='l2')
-        l2norm_h = discretize(l2norm, domain_h, V0h)
-        uh_c = array_to_psydac(uh_c, V0h.vector_space)
-        l2_error = l2norm_h.assemble(u=FemField(V0h, coeffs=uh_c))
-        return l2_error
+        u_ex_c = derham_h.get_dual_dofs(space='V0', f=u_ex, backend_language=backend_language, return_format='numpy_array')
+        u_ex_c = dH0_m.dot(u_ex_c)
+
+    if plot_dir is not None:
+        if not os.path.exists(plot_dir):
+            os.makedirs(plot_dir)
+
+        OM = OutputManager(plot_dir + '/spaces.yml', plot_dir + '/fields.h5')
+        OM.add_spaces(V0h=V0h)
+        OM.set_static()
+
+        stencil_coeffs = array_to_psydac(uh_c, V0h.vector_space)
+        vh = FemField(V0h, coeffs=stencil_coeffs)
+        OM.export_fields(vh=vh)
+
+        stencil_coeffs = array_to_psydac(f_c, V0h.vector_space)
+        fh = FemField(V0h, coeffs=stencil_coeffs)
+        OM.export_fields(fh=fh)
+        
+        if u_ex:
+            stencil_coeffs = array_to_psydac(u_ex_c, V0h.vector_space)
+            uh_ex = FemField(V0h, coeffs=stencil_coeffs)
+            OM.export_fields(uh_ex=uh_ex)
+
+        OM.export_space_info()
+        OM.close()
+
+        PM = PostProcessManager(
+            domain=domain,
+            space_file=plot_dir + '/spaces.yml',
+            fields_file=plot_dir + '/fields.h5')
+
+        PM.export_to_vtk(
+            plot_dir + "/u_h",
+            grid=None,
+            npts_per_cell=[6] * 2,
+            snapshots='all',
+            fields='vh')
+
+        PM.export_to_vtk(
+            plot_dir + "/f_h",
+            grid=None,
+            npts_per_cell=[6] * 2,
+            snapshots='all',
+            fields='fh')
+
+        if u_ex:
+            PM.export_to_vtk(
+                plot_dir + "/uh_ex",
+                grid=None,
+                npts_per_cell=[6] * 2,
+                snapshots='all',
+                fields='uh_ex')
+
+        PM.close()
+
+    if u_ex:
+        err = uh_c - u_ex_c
+        rel_err = np.sqrt(np.dot(err, H0_m.dot(err)))/np.sqrt(np.dot(u_ex_c,H0_m.dot(u_ex_c)))
+        
+        return rel_err
 
 
 if __name__ == '__main__':
 
-    t_stamp_full = time_count()
-
-    quick_run = True
-    # quick_run = False
-
     omega = np.sqrt(170)  # source
-    roundoff = 1e4
-    eta = int(-omega**2 * roundoff) / roundoff
-    # print(eta)
-    # source_type = 'elliptic_J'
-    source_type = 'manu_poisson'
+    eta = -omega**2 
 
-    # if quick_run:
-    #     domain_name = 'curved_L_shape'
-    #     nc = 4
-    #     deg = 2
-    # else:
-    #     nc = 8
-    #     deg = 4
+    source_type = 'manu_poisson_elliptic'
 
     domain_name = 'pretzel_f'
-    # domain_name = 'curved_L_shape'
+
     nc = 10
     deg = 2
-
-    # nc = 2
-    # deg = 2
 
     run_dir = '{}_{}_nc={}_deg={}/'.format(domain_name, source_type, nc, deg)
     solve_h1_source_pbm(
@@ -293,11 +289,6 @@ if __name__ == '__main__':
         mu=1,  # 1,
         domain_name=domain_name,
         source_type=source_type,
-        source_proj='P_geom',
         backend_language='pyccel-gcc',
-        plot_source=True,
-        plot_dir='./plots/h1_tests_source_february/' + run_dir,
-        hide_plots=True,
+        plot_dir='./plots/h1_source_pbms_conga_2d/' + run_dir,
     )
-
-    time_count(t_stamp_full, msg='full program')

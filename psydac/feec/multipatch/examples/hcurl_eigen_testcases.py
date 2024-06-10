@@ -5,8 +5,8 @@
 import os
 import numpy as np
 
-from psydac.feec.multipatch.examples_nc.hcurl_eigen_pbms_nc import hcurl_solve_eigen_pbm_nc
-from psydac.feec.multipatch.examples_nc.hcurl_eigen_pbms_dg import hcurl_solve_eigen_pbm_dg
+from psydac.feec.multipatch.examples.hcurl_eigen_pbms_conga_2d import hcurl_solve_eigen_pbm
+from psydac.feec.multipatch.examples.hcurl_eigen_pbms_dg_2d import hcurl_solve_eigen_pbm_dg
 from psydac.feec.multipatch.utilities import time_count, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
 from psydac.feec.multipatch.utils_conga_2d import write_diags_to_file
 from psydac.api.postprocessing import OutputManager, PostProcessManager
@@ -28,7 +28,7 @@ degree = [3, 3]  # shared across all patches
 # ncells = np.array([4 for _ in range(18)])
 
 # domain onlyneeded for square like domains
-domain = [[0, np.pi], [0, np.pi]]  # interval in x- and y-direction
+# domain = [[0, np.pi], [0, np.pi]]  # interval in x- and y-direction
 
 # refined square domain
 # domain_name = 'refined_square'
@@ -72,7 +72,7 @@ domain = [[1, 3], [0, np.pi / 4]]  # interval in x- and y-direction
 
 ncells = np.array([[None, 5],
                    [5, 10]])
-
+# ncells = 5
 
 # ncells = np.array([[None, None, 2, 2],
 #                    [None, None, 4, 2],
@@ -211,8 +211,8 @@ print(params)
 # backend_language = 'numba'
 backend_language = 'pyccel-gcc'
 
-dims = ncells.shape
-sz = ncells[ncells is not None].sum()
+dims = 1 if type(ncells) == int else ncells.shape
+sz = 1 if type(ncells) == int else ncells[ncells !=  None].sum()
 print(dims)
 # get_run_dir(domain_name, nc, deg)
 run_dir = domain_name + str(dims) + 'patches_' + 'size_{}'.format(sz)
@@ -241,42 +241,35 @@ print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
 #   - we look for nb_eigs_solve eigenvalues close to sigma (skip zero eigenvalues if skip_zero_eigs==True)
 #   - we plot nb_eigs_plot eigenvectors
 if method == 'feec':
-    diags, eigenvalues = hcurl_solve_eigen_pbm_nc(
+    diags, eigenvalues = hcurl_solve_eigen_pbm(
         ncells=ncells, degree=degree,
         gamma_h=gamma_h,
         generalized_pbm=generalized_pbm,
         nu=nu,
         mu=mu,
         sigma=sigma,
-        ref_sigmas=ref_sigmas,
         skip_eigs_threshold=skip_eigs_threshold,
         nb_eigs_solve=nb_eigs_solve,
         nb_eigs_plot=nb_eigs_plot,
         domain_name=domain_name, domain=domain,
         backend_language=backend_language,
         plot_dir=plot_dir,
-        hide_plots=True,
-        m_load_dir=m_load_dir,
-    )
-elif method == 'dg':
-    diags, eigenvalues = hcurl_solve_eigen_pbm_dg(
-        ncells=ncells, degree=degree,
-        gamma_h=gamma_h,
-        generalized_pbm=generalized_pbm,
-        nu=nu,
-        mu=mu,
-        sigma=sigma,
-        ref_sigmas=ref_sigmas,
-        skip_eigs_threshold=skip_eigs_threshold,
-        nb_eigs_solve=nb_eigs_solve,
-        nb_eigs_plot=nb_eigs_plot,
-        domain_name=domain_name, domain=domain,
-        backend_language=backend_language,
-        plot_dir=plot_dir,
-        hide_plots=True,
         m_load_dir=m_load_dir,
     )
 
+elif method == 'dg':
+    diags, eigenvalues = hcurl_solve_eigen_pbm_dg(
+        ncells=ncells, degree=degree,
+        nu=nu,
+        mu=mu,
+        sigma=sigma,
+        skip_eigs_threshold=skip_eigs_threshold,
+        nb_eigs_solve=nb_eigs_solve,
+        nb_eigs_plot=nb_eigs_plot,
+        domain_name=domain_name, domain=domain,
+        backend_language=backend_language,
+        plot_dir=plot_dir,
+    )
 
 if ref_sigmas is not None:
     errors = []

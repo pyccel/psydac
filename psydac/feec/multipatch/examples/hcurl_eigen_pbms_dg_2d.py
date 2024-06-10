@@ -31,15 +31,16 @@ from psydac.fem.basic import FemField
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.pull_push import pull_2d_hcurl
 
+from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.utilities import time_count, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
 from psydac.feec.multipatch.api import discretize
 from psydac.feec.multipatch.non_matching_multipatch_domain_utilities import create_square_domain
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
 
-def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), domain=([0, np.pi], [0, np.pi]), domain_name='refined_square', backend_language='pyccel-gcc', mu=1, nu=0, gamma_h=0,
-                             generalized_pbm=False, sigma=5, ref_sigmas=None, nb_eigs_solve=8, nb_eigs_plot=5, skip_eigs_threshold=1e-7,
-                             plot_dir=None, hide_plots=True, m_load_dir="",):
+def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), domain=([0, np.pi], [0, np.pi]), domain_name='refined_square', backend_language='pyccel-gcc', mu=1, nu=0,
+                             sigma=5, nb_eigs_solve=8, nb_eigs_plot=5, skip_eigs_threshold=1e-7,
+                             plot_dir=None,):
     """
     Solve the eigenvalue problem for the curl-curl operator in 2D with DG discretization
 
@@ -59,14 +60,8 @@ def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), d
         Coefficient in the curl-curl operator
     nu : float
         Coefficient in the curl-curl operator
-    gamma_h : float
-        Coefficient in the curl-curl operator
-    generalized_pbm : bool
-        If True, solve the generalized eigenvalue problem
     sigma : float
         Calculate eigenvalues close to sigma
-    ref_sigmas : list
-        List of reference eigenvalues
     nb_eigs_solve : int
         Number of eigenvalues to solve
     nb_eigs_plot : int
@@ -75,10 +70,6 @@ def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), d
         Threshold for the eigenvalues to skip
     plot_dir : str
         Directory for the plots
-    hide_plots : bool
-        If True, hide the plots
-    m_load_dir : str
-        Directory to save and load the matrices
     """
 
     diags = {}
@@ -97,27 +88,27 @@ def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), d
     print('building symbolic and discrete domain...')
 
     int_x, int_y = domain
+    if type(ncells) == int:
+        domain = build_multipatch_domain(domain_name=domain_name)
 
-    if domain_name == 'refined_square' or domain_name == 'square_L_shape':
+    elif domain_name == 'refined_square' or domain_name == 'square_L_shape':
         domain = create_square_domain(ncells, int_x, int_y, mapping='identity')
-        ncells_h = {patch.name: [ncells[int(patch.name[2])][int(patch.name[4])], ncells[int(
-            patch.name[2])][int(patch.name[4])]] for patch in domain.interior}
+
     elif domain_name == 'curved_L_shape':
         domain = create_square_domain(ncells, int_x, int_y, mapping='polar')
-        ncells_h = {patch.name: [ncells[int(patch.name[2])][int(patch.name[4])], ncells[int(
-            patch.name[2])][int(patch.name[4])]] for patch in domain.interior}
-    elif domain_name == 'pretzel_f':
-        domain = build_multipatch_domain(domain_name=domain_name)
-        ncells_h = {patch.name: [ncells[i], ncells[i]]
-                    for (i, patch) in enumerate(domain.interior)}
 
     else:
-        ValueError("Domain not defined.")
+        domain = build_multipatch_domain(domain_name=domain_name)
 
-   # domain = build_multipatch_domain(domain_name = 'curved_L_shape')
-   #
-   # ncells = np.array([4,8,4])
-   # ncells_h = {patch.name: [ncells[i], ncells[i]] for (i,patch) in enumerate(domain.interior)}
+    if type(ncells) == int:
+        ncells = [ncells, ncells]
+    elif ncells.ndim == 1:
+        ncells = {patch.name: [ncells[i], ncells[i]]
+                    for (i, patch) in enumerate(domain.interior)}
+    elif ncells.ndim == 2:
+        ncells = {patch.name: [ncells[int(patch.name[2])][int(patch.name[4])], 
+                ncells[int(patch.name[2])][int(patch.name[4])]] for patch in domain.interior}
+
     mappings = OrderedDict([(P.logical_domain, P.mapping)
                            for P in domain.interior])
     mappings_list = list(mappings.values())
@@ -164,7 +155,7 @@ def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), d
     # 2. Discretization
     # +++++++++++++++++++++++++++++++
 
-    domain_h = discretize(domain, ncells=ncells_h)
+    domain_h = discretize(domain, ncells=ncells)
     Vh = discretize(V, domain_h, degree=degree)
 
     ah = discretize(a, domain_h, [Vh, Vh])
@@ -182,17 +173,17 @@ def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), d
     zero_eigenvalues = []
     if skip_eigs_threshold is not None:
         eigenvalues = []
-        eigenvectors2 = []
+        eigenvectors = []
         for val, vect in zip(all_eigenvalues_2, all_eigenvectors_transp_2.T):
             if abs(val) < skip_eigs_threshold:
                 zero_eigenvalues.append(val)
                 # we skip the eigenvector
             else:
                 eigenvalues.append(val)
-                eigenvectors2.append(vect)
+                eigenvectors.append(vect)
     else:
         eigenvalues = all_eigenvalues_2
-        eigenvectors2 = all_eigenvectors_transp_2.T
+        eigenvectors = all_eigenvectors_transp_2.T
     diags['DG'] = True
     for k, val in enumerate(eigenvalues):
         diags['eigenvalue2_{}'.format(k)] = val  # eigenvalues[k]
@@ -206,46 +197,39 @@ def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), d
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
-   # OM = OutputManager('spaces.yml', 'fields.h5')
-   # OM.add_spaces(V1h=V1h)
+    OM = OutputManager(plot_dir + '/spaces.yml', plot_dir + '/fields.h5')
+    OM.add_spaces(Vh=Vh)
+    OM.export_space_info()
 
     nb_eigs = len(eigenvalues)
     for i in range(min(nb_eigs_plot, nb_eigs)):
-        OM = OutputManager(plot_dir + '/spaces2.yml', plot_dir + '/fields2.h5')
-        OM.add_spaces(V1h=Vh)
+
         print('looking at emode i = {}... '.format(i))
         lambda_i = eigenvalues[i]
-        emode_i = np.real(eigenvectors2[i])
+        emode_i = np.real(eigenvectors[i])
         norm_emode_i = np.dot(emode_i, Bh_m.dot(emode_i))
         eh_c = emode_i / norm_emode_i
+
         stencil_coeffs = array_to_psydac(eh_c, Vh.vector_space)
         vh = FemField(Vh, coeffs=stencil_coeffs)
-        OM.set_static()
-        # OM.add_snapshot(t=i , ts=0)
+        OM.add_snapshot(i, i)
         OM.export_fields(vh=vh)
 
-        # print('norm of computed eigenmode: ', norm_emode_i)
-        # plot the broken eigenmode:
-        OM.export_space_info()
-        OM.close()
+    OM.close()
 
-        PM = PostProcessManager(
-            domain=domain,
-            space_file=plot_dir +
-            '/spaces2.yml',
-            fields_file=plot_dir +
-            '/fields2.h5')
-        PM.export_to_vtk(
-            plot_dir +
-            "/eigen2_{}".format(i),
-            grid=None,
-            npts_per_cell=[6] *
-            2,
-            snapshots='all',
-            fields='vh')
-        PM.close()
+    PM = PostProcessManager(
+        domain=domain,
+        space_file=plot_dir + '/spaces.yml',
+        fields_file=plot_dir + '/fields.h5')
+    PM.export_to_vtk(
+        plot_dir + "/eigenvalues",
+        grid=None,
+        npts_per_cell=[6] * 2,
+        snapshots='all',
+        fields='vh')
+    PM.close()
 
-        t_stamp = time_count(t_stamp)
+    t_stamp = time_count(t_stamp)
 
     return diags, eigenvalues
 
