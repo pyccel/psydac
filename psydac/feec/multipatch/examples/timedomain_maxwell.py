@@ -46,7 +46,7 @@ from psydac.feec.multipatch.utilities import time_count  # , export_sol, import_
 from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic import FemField
 from psydac.feec.multipatch.non_matching_operators import construct_hcurl_conforming_projection, construct_h1_conforming_projection
-from psydac.feec.multipatch.non_matching_multipatch_domain_utilities import create_square_domain
+from psydac.feec.multipatch.multipatch_domain_utilities import build_cartesian_multipatch_domain
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
@@ -260,7 +260,7 @@ def solve_td_maxwell_pbm(*,
     print(' .. multi-patch domain...')
     if domain_name == 'refined_square' or domain_name == 'square_L_shape':
         int_x, int_y = domain_lims
-        domain = create_square_domain(nc, int_x, int_y, mapping='identity')
+        domain = build_cartesian_multipatch_domain(nc, int_x, int_y, mapping='identity')
 
     else:
         domain = build_multipatch_domain(domain_name=domain_name)

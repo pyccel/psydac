@@ -34,7 +34,7 @@ from psydac.feec.pull_push import pull_2d_hcurl
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.utilities import time_count, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
 from psydac.feec.multipatch.api import discretize
-from psydac.feec.multipatch.non_matching_multipatch_domain_utilities import create_square_domain
+from psydac.feec.multipatch.multipatch_domain_utilities import build_cartesian_multipatch_domain
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
 
@@ -92,10 +92,10 @@ def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), d
         domain = build_multipatch_domain(domain_name=domain_name)
 
     elif domain_name == 'refined_square' or domain_name == 'square_L_shape':
-        domain = create_square_domain(ncells, int_x, int_y, mapping='identity')
+        domain = build_cartesian_multipatch_domain(ncells, int_x, int_y, mapping='identity')
 
     elif domain_name == 'curved_L_shape':
-        domain = create_square_domain(ncells, int_x, int_y, mapping='polar')
+        domain = _domain(ncells, int_x, int_y, mapping='polar')
 
     else:
         domain = build_multipatch_domain(domain_name=domain_name)

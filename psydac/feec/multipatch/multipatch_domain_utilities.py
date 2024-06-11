@@ -32,18 +32,6 @@ class TransposedPolarMapping(Mapping):
     _pdim = 2
 
 
-def create_domain(patches, interfaces, name):
-    # todo: remove this function and just use Domain.join
-    connectivity = []
-    patches_interiors = [D.interior for D in patches]
-    for I in interfaces:
-        connectivity.append(
-            ((patches_interiors.index(
-                I[0].domain), I[0].axis, I[0].ext), (patches_interiors.index(
-                    I[1].domain), I[1].axis, I[1].ext), I[2]))
-    return Domain.join(patches, connectivity, name)
-
-
 def sympde_Domain_join(patches, connectivity, name):
     """
     temporary fix while sympde PR #155 is not merged
@@ -927,249 +915,95 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
     return domain
 
 
-def build_multipatch_rectangle(
-        nb_patch_x=2,
-        nb_patch_y=2,
-        x_min=0,
-        x_max=np.pi,
-        y_min=0,
-        y_max=np.pi,
-        perio=(
-            True,
-            True),
-    ncells=(
-            4,
-            4),
-        comm=None,
-        F_name='Identity'):
+def build_cartesian_multipatch_domain(ncells, log_interval_x, log_interval_y, mapping='identity'):
     """
-    Create a 2D multipatch rectangle domain with the prescribed number of patch in each direction.
-    (copied from Valentin's code)
+    Create a 2D multipatch Cartesian domain with the prescribed pattern of patches and with possible mappings.
 
     Parameters
     ----------
-    nb_patch_x: <int>
-     number of patch in x direction
+    ncells: <matrix>      
+        (Incomplete) Cartesian grid of patches, where some patches may be empty. 
+        The pattern of the multipatch domain is defined by the non-None entries of the matrix ncells. 
+        (Different numerical values will give rise to the same multipatch decompostion)
 
-    nb_patch_y: <int>
-     number of patch in y direction
+        ncells can then be used (afterwards) for discretizing the domain with ncells[i,j] being the number of cells
+        (assumed isotropic in each patch) in the patch (i,j), and None for empty patches (removed from domain).
 
-    x_min: <float>
-     x cordinate for the left boundary of the domain
+      Example:
 
-    x_max: <float>
-     x cordinate for the right boundary of the domain
+      ncells = np.array([[1, None, 5],
+                         [2,    3, 4]])
+     
+      corresponds to a domain with 5 patches as follows:
+      
+      |X| |X|
+      -------
+      |X|X|X|
 
-    y_min: <float>
-     y cordinate for the bottom boundary of the domain
-
-    y_max: <float>
-     y cordinate for the top boundary of the domain
-
-    perio: list of <bool>
-     periodicity of the domain in each direction
-
-    F_name: <string>
-     name of a (global) mapping to apply to all the patches
+    log_interval_x: <Tuple>
+        The interval in the x direction in the logical domain.
+    log_interval_y: <Tuple>
+        The interval in the y direction in the logical domain.
+    mapping: <String>
+        The type of mapping to use. Can be 'identity' or 'polar'.
 
     Returns
     -------
     domain : <Sympde.topology.Domain>
-     The symbolic multipatch domain
+        The symbolic multipatch domain
     """
+    ax, bx = log_interval_x
+    ay, by = log_interval_y
+    nb_patchx, nb_patchy = np.shape(ncells)
 
-    x_diff = x_max - x_min
-    y_diff = y_max - y_min
+    # equidistant logical patches
+    # ensure the following lists have the same shape as ncells
+    list_log_patches = [[Square('Log_' + str(j) + '_' + str(i),
+                          bounds1=(ax + j / nb_patchx * (bx - ax), ax + (j + 1) / nb_patchx * (bx - ax)),
+                          bounds2=(by - (i + 1) / nb_patchy * (by - ay), by - i / nb_patchy * (by - ay)))
+                            for i in range(nb_patchy)] for j in range(nb_patchx)]
 
-    list_Omega = [[Square('OmegaLog_' +
-                          str(i) +
-                          '_' +
-                          str(j), bounds1=(x_min +
-                                           i /
-                                           nb_patch_x *
-                                           x_diff, x_min +
-                                           (i +
-                                            1) /
-                                           nb_patch_x *
-                                           x_diff), bounds2=(y_min +
-                                                             j /
-                                                             nb_patch_y *
-                                                             y_diff, y_min +
-                                                             (j +
-                                                              1) /
-                                                             nb_patch_y *
-                                                             y_diff)) for j in range(nb_patch_y)] for i in range(nb_patch_x)]
+    # mappings
+    if mapping == 'identity':
+        list_mapping = [[IdentityMapping('M_' + str(j) + '_' + str(i), 2)
+                            for i in range(nb_patchy)] for j in range(nb_patchx)]
+    elif mapping == 'polar':
+        list_mapping = [[PolarMapping('M_' + str(j) + '_' + str(i), 2, c1=0., c2=0., rmin=0., rmax=1.) 
+                            for i in range(nb_patchy)] for j in range(nb_patchx)]
 
-    if F_name == 'Identity':
-        def F(name): return IdentityMapping(name, 2)
-    elif F_name == 'Collela':
-        def F(name): return CollelaMapping2D(name, eps=0.5)
-    else:
-        raise NotImplementedError(F_name)
+    # list of physical patches
+    list_patches = [[list_mapping[j][i](list_log_patches[j][i]) 
+                        for i in range(nb_patchy)] for j in range(nb_patchx)]
 
-    list_mapping = [[F('M_' + str(i) + '_' + str(j))
-                     for j in range(nb_patch_y)] for i in range(nb_patch_x)]
-
-    list_domain = [[list_mapping[i][j](list_Omega[i][j]) for j in range(
-        nb_patch_y)] for i in range(nb_patch_x)]
-
+    # flatten for the join function
     patches = []
+    for i in range(nb_patchx):
+        for j in range(nb_patchy):
+            if ncells[i, j] is not None:
+                patches.append(list_patches[j][i])
 
-    for i in range(nb_patch_x):
-        patches.extend(list_domain[i])
-
-    interfaces = []
-    # interfaces in x
-    list_right_bnd = []
-    list_left_bnd = []
-    list_top_bnd = []
-    list_bottom_bnd1 = []
-    list_bottom_bnd2 = []
-    for j in range(nb_patch_y):
-        interfaces.extend([[list_domain[i][j].get_boundary(axis=0,
-                                                           ext=+1),
-                            list_domain[i + 1][j].get_boundary(axis=0,
-                                                               ext=-1),
-                            1] for i in range(nb_patch_x - 1)])
-        # periodic boundaries
-        if perio[0]:
-            interfaces.append([list_domain[nb_patch_x -
-                                           1][j].get_boundary(axis=0, ext=+
-                                                              1), list_domain[0][j].get_boundary(axis=0, ext=-
-                                                                                                 1), 1])
-        else:
-            list_right_bnd.append(
-                list_domain[nb_patch_x - 1][j].get_boundary(axis=0, ext=+1))
-            list_left_bnd.append(
-                list_domain[0][j].get_boundary(
-                    axis=0, ext=-1))
+    axis_0 = 0
+    axis_1 = 1
+    ext_0 = -1
+    ext_1 = +1
+    connectivity = []
 
     # interfaces in y
-    for i in range(nb_patch_x):
-        interfaces.extend([[list_domain[i][j].get_boundary(axis=1,
-                                                           ext=+1),
-                            list_domain[i][j + 1].get_boundary(axis=1,
-                                                               ext=-1),
-                            1] for j in range(nb_patch_y - 1)])
-        # periodic boundariesnb_patch_y-1
-        if perio[1]:
-            interfaces.append([list_domain[i][nb_patch_y -
-                                              1].get_boundary(axis=1, ext=+
-                                                              1), list_domain[i][0].get_boundary(axis=1, ext=-
-                                                                                                 1), 1])
-        else:
-            list_top_bnd.append(
-                list_domain[i][nb_patch_y - 1].get_boundary(axis=1, ext=+1))
-            if i < nb_patch_x / 2:
-                list_bottom_bnd1.append(
-                    list_domain[i][0].get_boundary(
-                        axis=1, ext=-1))
-            else:
-                list_bottom_bnd2.append(
-                    list_domain[i][0].get_boundary(
-                        axis=1, ext=-1))
+    for i in range(nb_patchx):
+        connectivity.extend([
+            [(list_patches[j  ][i], axis_0, ext_1), 
+             (list_patches[j+1][i], axis_0, ext_0), 1] 
+            for j in range(nb_patchy -1) if ncells[i][j] is not None and ncells[i][j+1] is not None])
 
-    domain = create_domain(patches, interfaces, name='domain')
+    # interfaces in x
+    for j in range(nb_patchy):
+        connectivity.extend([
+            [(list_patches[j][i  ], axis_1, ext_0), 
+             (list_patches[j][i+1], axis_1, ext_1), 1] 
+            for i in range(nb_patchx -1) if ncells[i][j] is not None and ncells[i+1][j] is not None])
 
-    right_bnd = None
-    left_bnd = None
-    top_bnd = None
-    bottom_bnd1 = None
-    bottom_bnd2 = None
-    if not perio[0]:
-        right_bnd = union_bnd(list_right_bnd)
-        left_bnd = union_bnd(list_left_bnd)
-    if not perio[1]:
-        top_bnd = union_bnd(list_top_bnd)
-        bottom_bnd1 = union_bnd(list_bottom_bnd1)
-        if len(list_bottom_bnd2) > 0:
-            bottom_bnd2 = union_bnd(list_bottom_bnd2)
-        else:
-            bottom_bnd2 = None
-    if nb_patch_x > 1 and nb_patch_y > 1:
-        # domain = set_interfaces(domain, interfaces)
-        domain_h = discretize(domain, ncells=ncells, comm=comm)
-    else:
-        domain_h = discretize(domain, ncells=ncells, periodic=perio, comm=comm)
+    # domain = Domain.join(patches, connectivity, name='domain')
+    domain = sympde_Domain_join(patches, connectivity, name='domain')
 
-    return domain, domain_h, [right_bnd, left_bnd,
-                              top_bnd, bottom_bnd1, bottom_bnd2]
-
-
-def get_ref_eigenvalues(domain_name, operator):
-    # return ref_eigenvalues for the given operator and domain
-    # and 'sigma' value, around which discrete eigenvalues will be searched by eigenvalue solver such as eigsh
-    # (Note: eigsh may yield a singular error if sigma is an exact discrete eigenvalue)
-
-    assert operator in ['curl_curl', 'hodge_laplacian']
-    ref_sigmas = []
-
-    if domain_name in ['square_2', 'square_6']:
-        # todo
-        if operator == 'curl_curl':
-            ref_sigmas = [
-                1,
-                2,
-                2,
-            ]
-            raise NotImplementedError
-        else:
-            ref_sigmas = [
-                1,
-                2,
-                2,
-            ]
-            raise NotImplementedError
-    elif domain_name in ['annulus_3', 'annulus_4']:
-        if operator == 'curl_curl':
-            ref_sigmas = [
-                1,
-                2,
-                2,
-            ]
-            raise NotImplementedError
-        else:
-            ref_sigmas = [
-                1,
-                2,
-                2,
-            ]
-            raise NotImplementedError
-
-    elif domain_name == 'curved_L_shape':
-        if operator == 'curl_curl':
-            # sigma = 10
-            ref_sigmas = [
-                0.181857115231E+01,
-                0.349057623279E+01,
-                0.100656015004E+02,
-                0.101118862307E+02,
-                0.124355372484E+02,
-            ]
-        elif operator == 'hodge_laplacian':
-            raise NotImplementedError
-        else:
-            raise NotImplementedError
-
-    elif domain_name == 'pretzel':
-        if operator == 'curl_curl':
-            raise NotImplementedError
-        elif operator == 'hodge_laplacian':
-            ref_sigmas = [
-                0,
-                0,
-                0,
-                0.1795447761871659,
-                0.19922705025897117,
-                0.699286528403241,
-                0.8709410737744409,
-                1.1945444491250097,
-            ]
-        else:
-            raise NotImplementedError
-    else:
-        raise NotImplementedError
-
-    sigma = ref_sigmas[len(ref_sigmas) // 2]
-
-    return sigma, ref_sigmas
+    return domain
+    

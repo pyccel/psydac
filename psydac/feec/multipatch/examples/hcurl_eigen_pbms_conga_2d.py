@@ -30,7 +30,7 @@ from scipy.linalg import norm
 from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic import FemField
 
-from psydac.feec.multipatch.non_matching_multipatch_domain_utilities import create_square_domain
+from psydac.feec.multipatch.multipatch_domain_utilities import build_cartesian_multipatch_domain
 from psydac.feec.multipatch.non_matching_operators import construct_h1_conforming_projection, construct_hcurl_conforming_projection
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
@@ -96,14 +96,15 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
         domain = build_multipatch_domain(domain_name=domain_name)
 
     elif domain_name == 'refined_square' or domain_name == 'square_L_shape':
-        domain = create_square_domain(ncells, int_x, int_y, mapping='identity')
+        domain = build_cartesian_multipatch_domain(ncells, int_x, int_y, mapping='identity')
 
     elif domain_name == 'curved_L_shape':
-        domain = create_square_domain(ncells, int_x, int_y, mapping='polar')
+        domain = build_cartesian_multipatch_domain(ncells, int_x, int_y, mapping='polar')
 
     else:
         domain = build_multipatch_domain(domain_name=domain_name)
 
+    print(ncells)
     if type(ncells) == int:
         ncells = [ncells, ncells]
     elif ncells.ndim == 1:
@@ -112,7 +113,7 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     elif ncells.ndim == 2:
         ncells = {patch.name: [ncells[int(patch.name[2])][int(patch.name[4])], 
                 ncells[int(patch.name[2])][int(patch.name[4])]] for patch in domain.interior}
-
+    print(ncells)
     
     mappings = OrderedDict([(P.logical_domain, P.mapping)
                            for P in domain.interior])
