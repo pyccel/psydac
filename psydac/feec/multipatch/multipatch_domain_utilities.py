@@ -547,7 +547,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
 
         dom_log_12 = Square('dom12', bounds1=(-hr, hr),
                             bounds2=(-h / 2, h / 2))
-#        mapping_12 = get_2D_rotation_mapping('M12', c1=cr, c2=h/2 , alpha=0)
+        #mapping_12 = get_2D_rotation_mapping('M12', c1=cr, c2=h/2 , alpha=0)
         mapping_12 = AffineMapping(
             'M12',
             2,

@@ -5,10 +5,11 @@ import numpy as np
 from psydac.feec.multipatch.examples.hcurl_source_pbms_conga_2d import solve_hcurl_source_pbm
 from psydac.feec.multipatch.examples.hcurl_eigen_pbms_conga_2d import hcurl_solve_eigen_pbm
 from psydac.feec.multipatch.examples.hcurl_eigen_pbms_dg_2d import hcurl_solve_eigen_pbm_dg
+from psydac.feec.multipatch.examples.timedomain_maxwell import solve_td_maxwell_pbm
 
 
 def test_time_harmonic_maxwell_pretzel_f():
-    nc = 10
+    nc = 4
     deg = 2
 
     source_type = 'manu_maxwell_inhom'
@@ -27,13 +28,14 @@ def test_time_harmonic_maxwell_pretzel_f():
         source_type=source_type,
         source_proj=source_proj,
         backend_language='pyccel-gcc')
-    assert abs(diags["err"] - 0.00016729140844149693) < 1e-10
+
+    assert abs(diags["err"] - 0.007201508128407582) < 1e-10
 
 
 def test_time_harmonic_maxwell_pretzel_f_nc():
     deg = 2
-    nc = np.array([20, 20, 20, 20, 20, 10, 10, 10, 10,
-                  10, 10, 10, 10, 20, 20, 20, 10, 10])
+    nc = np.array([8, 8, 8, 8, 8, 4, 4, 4, 4,
+                   4, 4, 4, 4, 8, 8, 8, 4, 4])
 
     source_type = 'manu_maxwell_inhom'
     domain_name = 'pretzel_f'
@@ -52,14 +54,14 @@ def test_time_harmonic_maxwell_pretzel_f_nc():
         source_proj=source_proj,
         backend_language='pyccel-gcc')
 
-    assert abs(diags["err"] - 0.00012830429612706266) < 1e-10
+    assert abs(diags["err"] - 0.004849165663310541) < 1e-10
 
 
 def test_maxwell_eigen_curved_L_shape():
     domain_name = 'curved_L_shape'
     domain = [[1, 3], [0, np.pi / 4]]
     
-    ncells = 10
+    ncells = 4
     degree = [2, 2]
 
     ref_sigmas = [
@@ -95,15 +97,15 @@ def test_maxwell_eigen_curved_L_shape():
         error += (eigenvalues[k] - ref_sigmas[k])**2
     error = np.sqrt(error)
 
-    assert abs(error - 0.004697863286378944) < 1e-10
+    assert abs(error - 0.01291539899483907) < 1e-10
 
 
 def test_maxwell_eigen_curved_L_shape_nc():
     domain_name = 'curved_L_shape'
     domain = [[1, 3], [0, np.pi / 4]]
 
-    ncells = np.array([[None, 10],
-                       [10, 20]])
+    ncells = np.array([[None, 4],
+                       [4, 8]])
 
     degree = [2, 2]
 
@@ -140,15 +142,15 @@ def test_maxwell_eigen_curved_L_shape_nc():
         error += (eigenvalues[k] - ref_sigmas[k])**2
     error = np.sqrt(error)
 
-    assert abs(error - 0.004301175400024398) < 1e-10
+    assert abs(error - 0.010504876643873904) < 1e-10
 
 
 def test_maxwell_eigen_curved_L_shape_dg():
     domain_name = 'curved_L_shape'
     domain = [[1, 3], [0, np.pi / 4]]
 
-    ncells = np.array([[None, 10],
-                       [10, 20]])
+    ncells = np.array([[None, 4],
+                       [4, 8]])
 
     degree = [2, 2]
 
@@ -182,9 +184,12 @@ def test_maxwell_eigen_curved_L_shape_dg():
     for k in range(n_errs):
         error += (eigenvalues[k] - ref_sigmas[k])**2
     error = np.sqrt(error)
+    
+    assert abs(error - 0.035139029534570064) < 1e-10
 
-    assert abs(error - 0.004208158031148591) < 1e-10
 
+def test_maxwell_timedomain():
+    solve_td_maxwell_pbm(nc = 4, deg = 2, final_time = 2, domain_name = 'square_2')
 
 # ==============================================================================
 # CLEAN UP SYMPY NAMESPACE

@@ -7,7 +7,7 @@ def test_poisson_pretzel_f():
 
     source_type = 'manu_poisson_2'
     domain_name = 'pretzel_f'
-    nc = 10
+    nc = 4
     deg = 2
 
     l2_error = solve_h1_source_pbm(
@@ -19,15 +19,15 @@ def test_poisson_pretzel_f():
         backend_language='pyccel-gcc',
         plot_dir=None)
 
-    assert abs(l2_error - 7.067946606662924e-07) < 1e-10
+    assert abs(l2_error - 1.0585687717792318e-05) < 1e-10
 
 
 def test_poisson_pretzel_f_nc():
 
     source_type = 'manu_poisson_2'
     domain_name = 'pretzel_f'
-    nc = np.array([20, 20, 20, 20, 20, 10, 10, 10, 10,
-                  10, 10, 10, 10, 20, 20, 20, 10, 10])
+    nc = np.array([8, 8, 8, 8, 8, 4, 4, 4, 4,
+                   4, 4, 4, 4, 8, 8, 8, 4, 4])
     deg = 2
 
     l2_error = solve_h1_source_pbm(
@@ -39,7 +39,7 @@ def test_poisson_pretzel_f_nc():
         backend_language='pyccel-gcc',
         plot_dir=None)
 
-    assert abs(l2_error - 3.991995932404924e-07) < 1e-10
+    assert abs(l2_error - 6.051557012306659e-06) < 1e-10
 
 
 # ==============================================================================

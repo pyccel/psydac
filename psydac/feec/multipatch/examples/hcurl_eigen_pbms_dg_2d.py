@@ -95,7 +95,7 @@ def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), d
         domain = build_cartesian_multipatch_domain(ncells, int_x, int_y, mapping='identity')
 
     elif domain_name == 'curved_L_shape':
-        domain = _domain(ncells, int_x, int_y, mapping='polar')
+        domain = build_cartesian_multipatch_domain(ncells, int_x, int_y, mapping='polar')
 
     else:
         domain = build_multipatch_domain(domain_name=domain_name)

@@ -4,7 +4,7 @@
 
 import numpy as np
 
-from psydac.feec.multipatch.examples_nc.timedomain_maxwell_nc import solve_td_maxwell_pbm
+from psydac.feec.multipatch.examples.timedomain_maxwell import solve_td_maxwell_pbm
 from psydac.feec.multipatch.utilities import time_count, FEM_sol_fn, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
 from psydac.feec.multipatch.utils_conga_2d import write_diags_to_file
 

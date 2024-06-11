@@ -58,7 +58,7 @@ def solve_td_maxwell_pbm(*,
                          cfl_max=0.8,
                          dt_max=None,
                          domain_name='pretzel_f',
-                         backend=None,
+                         backend='pyccel-gcc',
                          source_type='zero',
                          source_omega=None,
                          source_proj='P_geom',
@@ -78,7 +78,7 @@ def solve_td_maxwell_pbm(*,
                          #        diag_dtau        = None,
                          cb_min_sol=None,
                          cb_max_sol=None,
-                         m_load_dir="",
+                         m_load_dir=None,
                          th_sol_filename="",
                          source_is_harmonic=False,
                          domain_lims=None
@@ -982,23 +982,24 @@ def solve_td_maxwell_pbm(*,
             GaussErr_norm2_diag[nt] = np.dot(GaussErr, H0_m.dot(GaussErr))
             GaussErrP_norm2_diag[nt] = np.dot(GaussErrP, H0_m.dot(GaussErrP))
 
-    OM1 = OutputManager(plot_dir + '/spaces1.yml', plot_dir + '/fields1.h5')
-    OM1.add_spaces(V1h=V1h)
-    OM1.export_space_info()
+    if plot_dir:
+        OM1 = OutputManager(plot_dir + '/spaces1.yml', plot_dir + '/fields1.h5')
+        OM1.add_spaces(V1h=V1h)
+        OM1.export_space_info()
 
-    OM2 = OutputManager(plot_dir + '/spaces2.yml', plot_dir + '/fields2.h5')
-    OM2.add_spaces(V2h=V2h)
-    OM2.export_space_info()
+        OM2 = OutputManager(plot_dir + '/spaces2.yml', plot_dir + '/fields2.h5')
+        OM2.add_spaces(V2h=V2h)
+        OM2.export_space_info()
 
-    stencil_coeffs_E = array_to_psydac(cP1_m @ E_c, V1h.vector_space)
-    Eh = FemField(V1h, coeffs=stencil_coeffs_E)
-    OM1.add_snapshot(t=0, ts=0)
-    OM1.export_fields(Eh=Eh)
+        stencil_coeffs_E = array_to_psydac(cP1_m @ E_c, V1h.vector_space)
+        Eh = FemField(V1h, coeffs=stencil_coeffs_E)
+        OM1.add_snapshot(t=0, ts=0)
+        OM1.export_fields(Eh=Eh)
 
-    stencil_coeffs_B = array_to_psydac(B_c, V2h.vector_space)
-    Bh = FemField(V2h, coeffs=stencil_coeffs_B)
-    OM2.add_snapshot(t=0, ts=0)
-    OM2.export_fields(Bh=Bh)
+        stencil_coeffs_B = array_to_psydac(B_c, V2h.vector_space)
+        Bh = FemField(V2h, coeffs=stencil_coeffs_B)
+        OM2.add_snapshot(t=0, ts=0)
+        OM2.export_fields(Bh=Bh)
 
     # PM = PostProcessManager(domain=domain, space_file=plot_dir+'/spaces1.yml', fields_file=plot_dir+'/fields1.h5' )
     # PM.export_to_vtk(plot_dir+"/Eh",grid=None, npts_per_cell=[6]*2, snapshots='all', fields='vh' )
@@ -1023,7 +1024,8 @@ def solve_td_maxwell_pbm(*,
             f_c[:] = f0_c + f_harmonic_c
 
         if nt == 0:
-            plot_J_source_nPlusHalf(f_c, nt=0)
+            if plot_dir:
+                plot_J_source_nPlusHalf(f_c, nt=0)
             compute_diags(E_c, B_c, f_c, nt=0)
 
         E_c[:] = dCH1_m @ E_c + dt * (dC_m @ B_c - f_c)
@@ -1077,7 +1079,7 @@ def solve_td_maxwell_pbm(*,
             divE_norm2 = np.dot(divE_c, H0_m.dot(divE_c))
             print('-- [{}]: || div E || = {}'.format(nt + 1, np.sqrt(divE_norm2)))
 
-        if is_plotting_time(nt + 1):
+        if is_plotting_time(nt + 1) and plot_dir:
             print("Plot Stuff")
             # plot_E_field(E_c, nt=nt+1, project_sol=True, plot_divE=False)
             # plot_B_field(B_c, nt=nt+1)
@@ -1098,37 +1100,37 @@ def solve_td_maxwell_pbm(*,
             # PE_norm2_diag=PE_norm2_diag, I_PE_norm2_diag=I_PE_norm2_diag, J_norm2_diag=J_norm2_diag,
             # GaussErr_norm2_diag=GaussErr_norm2_diag,
             # GaussErrP_norm2_diag=GaussErrP_norm2_diag)
+    if plot_dir:
+        OM1.close()
 
-    OM1.close()
+        print("Do some PP")
+        PM = PostProcessManager(
+            domain=domain,
+            space_file=plot_dir +
+            '/spaces1.yml',
+            fields_file=plot_dir +
+            '/fields1.h5')
+        PM.export_to_vtk(
+            plot_dir + "/Eh",
+            grid=None,
+            npts_per_cell=2,
+            snapshots='all',
+            fields='Eh')
+        PM.close()
 
-    print("Do some PP")
-    PM = PostProcessManager(
-        domain=domain,
-        space_file=plot_dir +
-        '/spaces1.yml',
-        fields_file=plot_dir +
-        '/fields1.h5')
-    PM.export_to_vtk(
-        plot_dir + "/Eh",
-        grid=None,
-        npts_per_cell=2,
-        snapshots='all',
-        fields='Eh')
-    PM.close()
-
-    PM = PostProcessManager(
-        domain=domain,
-        space_file=plot_dir +
-        '/spaces2.yml',
-        fields_file=plot_dir +
-        '/fields2.h5')
-    PM.export_to_vtk(
-        plot_dir + "/Bh",
-        grid=None,
-        npts_per_cell=2,
-        snapshots='all',
-        fields='Bh')
-    PM.close()
+        PM = PostProcessManager(
+            domain=domain,
+            space_file=plot_dir +
+            '/spaces2.yml',
+            fields_file=plot_dir +
+            '/fields2.h5')
+        PM.export_to_vtk(
+            plot_dir + "/Bh",
+            grid=None,
+            npts_per_cell=2,
+            snapshots='all',
+            fields='Bh')
+        PM.close()
 
    # plot_time_diags(time_diag, E_norm2_diag, B_norm2_diag, divE_norm2_diag, nt_start=0, nt_end=Nt,
    # PE_norm2_diag=PE_norm2_diag, I_PE_norm2_diag=I_PE_norm2_diag, J_norm2_diag=J_norm2_diag,
