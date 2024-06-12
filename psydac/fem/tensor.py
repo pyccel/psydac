@@ -21,7 +21,7 @@ from psydac.fem.basic        import FemSpace, FemField
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.grid         import FemAssemblyGrid
 from psydac.fem.partitioning import create_cart, partition_coefficients
-from psydac.ddm.cart         import DomainDecomposition
+from psydac.ddm.cart         import DomainDecomposition, CartDecomposition
 
 from psydac.core.bsplines  import (find_span,
                                    basis_funs,
@@ -47,7 +47,7 @@ from psydac.core.field_evaluation_kernels import (eval_fields_1d_no_weights,
 __all__ = ('TensorFemSpace',)
 
 #===============================================================================
-class TensorFemSpace( FemSpace ):
+class TensorFemSpace(FemSpace):
     """
     Tensor-product Finite Element space V.
 
@@ -55,20 +55,19 @@ class TensorFemSpace( FemSpace ):
     ----------
     domain_decomposition : psydac.ddm.cart.DomainDecomposition
 
-    spaces : list of psydac.fem.splines.SplineSpace
+    *spaces : psydac.fem.splines.SplineSpace
         1D finite element spaces.
 
     vector_space : psydac.linalg.stencil.StencilVectorSpace or None
+        The vector space to which the coefficients belong (optional).
 
     cart : psydac.ddm.CartDecomposition or None
         Object that contains all information about the Cartesian decomposition
         of a tensor-product grid of coefficients.
 
-    nquads : list of int or None
-        Number of quadrature points used in the Gauss-Legendre quadrature formula in each direction.
-        Used as a default value for various computations. Will be removed, once nquads will only be given 
-        to the constructors of DiscreteBilinearForm, DiscreteLinearForm, and DiscreteFunctional.
-    
+    dtype : {float, complex}
+        Data type of the coefficients.
+
     Notes
     -----
     For now we assume that this tensor-product space can ONLY be constructed
@@ -76,62 +75,61 @@ class TensorFemSpace( FemSpace ):
 
     """
 
+    def __init__(self, domain_decomposition, *spaces, vector_space=None, cart=None, dtype=float):
 
-    def __init__(self, domain_decomposition, *spaces, vector_space=None, cart=None, nquads=None, dtype=float):
-
-        """."""
         assert isinstance(domain_decomposition, DomainDecomposition)
-        assert all( isinstance( s, SplineSpace ) for s in spaces )
-        self._domain_decomposition = domain_decomposition
-        self._spaces = tuple(spaces)
-        self._dtype   = dtype
+        assert all(isinstance(s, SplineSpace) for s in spaces)
+        assert dtype in (float, complex)
+        # TODO [YG 10.04.2024]: check if dtype test is too restrictive
 
-        if cart is not None:
-            self._vector_space = StencilVectorSpace(cart, dtype=dtype)
+        # Handle optional arguments
+        if cart and vector_space:
+            raise ValueError("Cannot provide both 'vector_space' and 'cart' to constructor")
+        elif cart is not None:
+            assert isinstance(cart, CartDecomposition)
+            vector_space = StencilVectorSpace(cart, dtype=dtype)
         elif vector_space is not None:
-            self._vector_space = vector_space
+            assert isinstance(vector_space, StencilVectorSpace)
+            cart = vector_space.cart
         else:
-            cart               = create_cart([domain_decomposition], [self._spaces])
-            self._vector_space = StencilVectorSpace(cart[0], dtype=dtype)
+            cart = create_cart([domain_decomposition], [spaces])[0]
+            vector_space = StencilVectorSpace(cart, dtype=dtype)
 
-        # Shortcut
-        v = self._vector_space
+        # Store some info
+        self._domain_decomposition = domain_decomposition
+        self._spaces               = spaces
+        self._dtype                = dtype
+        self._vector_space         = vector_space
+        self._symbolic_space       = None
+        self._refined_space        = {}
+        self._interfaces           = {}
+        self._interfaces_readonly  = MappingProxyType(self._interfaces)
 
-        if nquads is None:
-            self._nquads = [sp.degree for sp in self.spaces]
-        else:
-            self._nquads = nquads
+        # If process does not own space, stop here
+        if vector_space.parallel and cart.is_comm_null:
+            return
 
-        self._symbolic_space = None
-        self._refined_space  = {}
-        self._interfaces     = {}
-        self._interfaces_readonly = MappingProxyType(self._interfaces)
-
-        if self._vector_space.parallel and self._vector_space.cart.is_comm_null:return
-
-        starts = self._vector_space.cart.domain_decomposition.starts
-        ends   = self._vector_space.cart.domain_decomposition.ends
-
-        # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple({q: FemAssemblyGrid(V, s, e, nderiv=V.degree, nquads=q)}
-                                  for V, s, e, q in zip( self.spaces, starts, ends, self._nquads))
-
-        # Determine portion of logical domain local to process
-        self._element_starts = starts
-        self._element_ends   = ends
+        # Determine portion of logical domain local to process.
+        # This corresponds to the indices of the first and last elements
+        # owned by the current process, along each direction.
+        self._element_starts = self._vector_space.cart.domain_decomposition.starts
+        self._element_ends   = self._vector_space.cart.domain_decomposition.ends
 
         # Compute limits of eta_0, eta_1, eta_2, etc... in subdomain local to process
-        self._eta_limits = tuple( (space.breaks[s], space.breaks[e+1])
-           for s,e,space in zip( self._element_starts, self._element_ends, self.spaces ) )
+        self._eta_limits = tuple((space.breaks[s], space.breaks[e+1])
+           for s, e, space in zip(self._element_starts, self._element_ends, self._spaces))
 
-        # Store flag: object NOT YET prepared for interpolation
-        self._interpolation_ready = False
-        # Compute the local domains for every process
-
-        # ...
+        # Local domains for every process
         self._global_element_starts = domain_decomposition.global_element_starts
         self._global_element_ends   = domain_decomposition.global_element_ends
 
+        # Extended 1D assembly grids (local to process) along each direction
+        self._assembly_grids = [{} for _ in range(self.ldim)]
+
+        # Flag: object NOT YET prepared for interpolation
+        self._interpolation_ready = False
+
+        # Store information about nested grids
         self.set_refined_space(self.ncells, self)
 
     #--------------------------------------------------------------------------
@@ -645,19 +643,29 @@ class TensorFemSpace( FemSpace ):
         return grad
 
     # ...
-    def integral(self, f):
+    def integral(self, f, *, nquads=None):
 
         assert hasattr(f, '__call__')
 
+        if nquads is None:
+            nquads = [p + 1 for p in self.degree]
+        elif isinstance(nquads, int):
+            nquads = [nquads] * self.ldim
+        else:
+            nquads = list(nquads)
+
+        assert all(isinstance(nq, int) for nq in nquads)
+        assert all(nq >= 1 for nq in nquads)
+
         # Extract and store quadrature data
-        quad_grids = self.quad_grids()
-        nq      = [g.num_quad_pts for g in quad_grids]
-        points  = [g.points       for g in quad_grids]
-        weights = [g.weights      for g in quad_grids]
+        assembly_grids = self.get_assembly_grids(*nquads)
+        nq      = [g.num_quad_pts for g in assembly_grids]
+        points  = [g.points       for g in assembly_grids]
+        weights = [g.weights      for g in assembly_grids]
 
         # Get local element range
-        sk = [g.local_element_start for g in quad_grids]
-        ek = [g.local_element_end   for g in quad_grids]
+        sk = [g.local_element_start for g in assembly_grids]
+        ek = [g.local_element_end   for g in assembly_grids]
 
         # Iterator over multi-index k (equivalent to nested loops over each dimension)
         multi_range = lambda starts, ends: \
@@ -673,7 +681,7 @@ class TensorFemSpace( FemSpace ):
             x = [ points_i[k_i, :] for  points_i, k_i in zip( points, k)]
             w = [weights_i[k_i, :] for weights_i, k_i in zip(weights, k)]
 
-            for q in np.ndindex( *nq ):
+            for q in np.ndindex(*nq):
 
                 y  = [x_i[q_i] for x_i, q_i in zip(x, q)]
                 v  = [w_i[q_i] for w_i, q_i in zip(w, q)]
@@ -735,47 +743,53 @@ class TensorFemSpace( FemSpace ):
     def spaces(self):
         return self._spaces
     
-    @property
-    def nquads(self):
-        return self._nquads
-
-    #@property
-    def quad_grids(self, *nquads):
+    def get_assembly_grids(self, *nquads):
         """
-        Tuple of 'FemAssemblyGrid' objects (one for each direction)
-        containing all 1D information local to process that is necessary
-        for the correct assembly of the l.h.s. matrix and r.h.s. vector
-        in a finite element method.
+        Return a tuple of `FemAssemblyGrid` objects (one for each direction).
+
+        These objects are local to the process, and contain all 1D information
+        which is necessary for the correct assembly of the l.h.s. matrix and
+        r.h.s. vector in a finite element method. This information includes
+        the coordinates and weights of all quadrature points, as well as the
+        values of the non-zero basis functions, and their derivatives, at such
+        points.     
+
+        The computed `FemAssemblyGrid` objects are stored in a dictionary in
+        `self` with `nquads` as key, and are reused if a match is found.
+
+        Parameters
+        ----------
+        *nquads : int
+            Number of quadrature points per cell, along each direction.
+
+        Returns
+        -------
+        tuple of FemAssemblyGrid
+            The 1D assembly grids along each direction.
 
         """
-        # TODO: Turn comments into docstring & add check for the case all(nquads == tuple(self._nquads))
-        if len(nquads) == 0:
-            # If *nquads is not provided, use self._nquads to convert the tuple of dictionaries self._quad_grids into a tuple of the right args
-            quad_grids = tuple(dic[nq] for dic, nq in zip(self._quad_grids, self._nquads))
-        else:
-            # If *nquads is provided, use get_quadrature_grids to compute the appropriate quadrature grids
-            quad_grids = self.get_quadrature_grids(*nquads)
-        return quad_grids
 
-    # TODO [YG 02.06.2023]: Replace nquads and quad_grids properties with this method:
-    def get_quadrature_grids(self, *nquads):
-        assert len(nquads) == self.ndims
+        assert len(nquads) == self.ldim
         assert all(isinstance(nq, int) for nq in nquads)
-        quad_grids = [None]*len(nquads)
+        assert all(nq >= 1 for nq in nquads)
+
+        assembly_grids = [None] * len(nquads)
+
         for i, nq in enumerate(nquads):
             # Get a reference to the local dictionary of FemAssemblyGrid along direction i
-            quad_grids_dict_i = self._quad_grids[i]
+            assembly_grids_dict_i = self._assembly_grids[i]
             # If there is no FemAssemblyGrid for the required number of quadrature points,
             # create a new FemAssemblyGrid and store it in the local dictionary.
-            if nq not in quad_grids_dict_i:
+            if nq not in assembly_grids_dict_i:
                 V = self.spaces[i]
-                s = self.starts[i]
-                e = self.ends  [i]
-                quad_grids_dict_i[nq] = FemAssemblyGrid(V, s, e, nderiv=V.degree, nquads=nq)
+                s = int(self._element_starts[i])
+                e = int(self._element_ends  [i])
+                assembly_grids_dict_i[nq] = FemAssemblyGrid(V, s, e, nderiv=V.degree, nquads=nq)
             # Store the required FemAssemblyGrid in the list
-            quad_grids[i] = quad_grids_dict_i[nq]
+            assembly_grids[i] = assembly_grids_dict_i[nq]
+
         # Return a tuple with the FemAssemblyGrid objects
-        return tuple(quad_grids)
+        return tuple(assembly_grids)
 
     @property
     def local_domain(self):
@@ -926,8 +940,7 @@ class TensorFemSpace( FemSpace ):
                 global_starts[axis][0] = 0
 
         cart = v._cart.reduce_grid(tuple(global_starts), tuple(global_ends))
-
-        V    = TensorFemSpace(cart.domain_decomposition, *spaces, cart=cart, nquads=self._nquads, dtype=v.dtype)
+        V    = TensorFemSpace(cart.domain_decomposition, *spaces, cart=cart, dtype=v.dtype)
 
         return V
 
@@ -1052,8 +1065,7 @@ class TensorFemSpace( FemSpace ):
 
         # create new TensorFemSpace
 
-        tensor_vec = TensorFemSpace(self._domain_decomposition, *spaces, cart=red_cart, nquads=self._nquads, dtype=v.dtype)
-
+        tensor_vec = TensorFemSpace(self._domain_decomposition, *spaces, cart=red_cart, dtype=v.dtype)
         tensor_vec._interpolation_ready = False
 
         for key in self._refined_space:
@@ -1095,7 +1107,7 @@ class TensorFemSpace( FemSpace ):
             new_global_ends  [-1] = np.array(new_global_ends  [-1])
 
         new_domain = domain.refine(ncells, new_global_starts, new_global_ends)
-        new_space  = TensorFemSpace(new_domain, *spaces, nquads=self.nquads, dtype=self._vector_space.dtype)
+        new_space  = TensorFemSpace(new_domain, *spaces, dtype=self._vector_space.dtype)
 
         self.set_refined_space(ncells, new_space)
 
@@ -1126,13 +1138,12 @@ class TensorFemSpace( FemSpace ):
 
         spaces       = self.spaces
         vector_space = self.vector_space
-        nquads       = self.nquads
 
         vector_space.set_interface(axis, ext, cart)
 
         space = TensorFemSpace(self._domain_decomposition, *spaces,
                                vector_space=vector_space.interfaces[axis, ext],
-                               nquads=self.nquads, dtype=vector_space.dtype)
+                               dtype=vector_space.dtype)
 
         self._interfaces[axis, ext] = space
 

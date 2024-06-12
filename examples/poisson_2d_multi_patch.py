@@ -76,13 +76,15 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
     #+++++++++++++++++++++++++++++++
+    nquads = [p+1 for p in degree]
+
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     Vh       = discretize(V, domain_h, degree=degree)
 
-    equation_h = discretize(equation, domain_h, [Vh, Vh])
+    equation_h = discretize(equation, domain_h, [Vh, Vh], nquads=nquads)
 
-    l2norm_h = discretize(l2norm, domain_h, Vh)
-    h1norm_h = discretize(h1norm, domain_h, Vh)
+    l2norm_h = discretize(l2norm, domain_h, Vh, nquads=nquads)
+    h1norm_h = discretize(h1norm, domain_h, Vh, nquads=nquads)
 
     equation_h.set_solver('cg', info=True, tol=1e-14)
 

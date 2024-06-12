@@ -1,27 +1,26 @@
 # coding: utf-8
-from mpi4py import MPI
-from time   import time, sleep
-from mpl_toolkits.axes_grid1 import make_axes_locatable
+from time import time, sleep
 
+from   mpi4py import MPI
 import numpy as np
 import matplotlib.pyplot as plt
+from   mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from sympde.topology.callable_mapping   import CallableMapping
 from sympde.topology.analytical_mapping import IdentityMapping, PolarMapping
 from sympde.topology.analytical_mapping import TargetMapping, CzarnyMapping
 
-from psydac.ddm.cart                   import DomainDecomposition
-from psydac.linalg.stencil             import StencilVector, StencilMatrix
-from psydac.linalg.solvers             import inverse
-from psydac.fem.splines                import SplineSpace
-from psydac.fem.tensor                 import TensorFemSpace
-from psydac.fem.basic                  import FemField
-from psydac.mapping.discrete           import SplineMapping
-from psydac.utilities.utils            import refine_array_1d
-from psydac.cad.geometry               import Geometry
-from psydac.ddm.cart                   import DomainDecomposition
-
-from psydac.polar.c1_projections       import C1Projector
+from psydac.ddm.cart             import DomainDecomposition
+from psydac.linalg.stencil       import StencilVector, StencilMatrix
+from psydac.linalg.solvers       import inverse
+from psydac.fem.splines          import SplineSpace
+from psydac.fem.tensor           import TensorFemSpace
+from psydac.fem.basic            import FemField
+from psydac.mapping.discrete     import SplineMapping
+from psydac.utilities.utils      import refine_array_1d
+from psydac.cad.geometry         import Geometry
+from psydac.ddm.cart             import DomainDecomposition
+from psydac.polar.c1_projections import C1Projector
 
 #==============================================================================
 class Laplacian:
@@ -256,6 +255,17 @@ class Poisson2D:
         return self._O_point
 
 #==============================================================================
+def mpi_print(string, *args, comm=None, **kwargs):
+    if comm is not None:
+        assert isinstance(comm, MPI.Comm)
+        if comm.rank == 0:
+            kwargs['flush'] = True
+            print(string, *args, **kwargs)
+        comm.Barrier()
+    else:
+        print(string, *args, **kwargs)
+
+#==============================================================================
 def kernel(p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s):
     """
     Kernel for computing the mass/stiffness element matrices.
@@ -358,7 +368,7 @@ def kernel(p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s):
                     mat_s[il1, il2, p1+jl1-il1, p2+jl2-il2] = v_s
 
 #==============================================================================
-def assemble_matrices(V, mapping, kernel):
+def assemble_matrices(V, mapping, kernel, *, nquads):
     """
     Assemble mass and stiffness matrices using 2D stencil format.
 
@@ -372,6 +382,9 @@ def assemble_matrices(V, mapping, kernel):
 
     kernel : callable
         Function that performs the assembly process on small element matrices.
+
+    nquads : list or tuple of int
+        Number of quadrature points in each direction (here two).
 
     Returns
     -------
@@ -388,7 +401,7 @@ def assemble_matrices(V, mapping, kernel):
     [p1, p2] = V.vector_space.pads
 
     # Quadrature data
-    quad_grids = V.quad_grids()
+    quad_grids = V.get_quadrature_grids(*nquads)
     [      nk1,       nk2] = [g.num_elements for g in quad_grids]
     [      nq1,       nq2] = [g.num_quad_pts for g in quad_grids]
     [  spans_1,   spans_2] = [g.spans        for g in quad_grids]
@@ -443,7 +456,7 @@ def assemble_matrices(V, mapping, kernel):
     return mass, stiffness
 
 #==============================================================================
-def assemble_rhs(V, mapping, f):
+def assemble_rhs(V, mapping, f, *, nquads):
     """
     Assemble right-hand-side vector.
 
@@ -470,7 +483,7 @@ def assemble_rhs(V, mapping, f):
     [p1, p2] = V.vector_space.pads
 
     # Quadrature data
-    quad_grids = V.quad_grids()
+    quad_grids = V.get_quadrature_grids(*nquads)
     [      nk1,       nk2] = [g.num_elements for g in quad_grids]
     [      nq1,       nq2] = [g.num_quad_pts for g in quad_grids]
     [  spans_1,   spans_2] = [g.spans        for g in quad_grids]
@@ -533,7 +546,8 @@ def assemble_rhs(V, mapping, f):
 
 ####################################################################################
 
-def main(*, test_case, ncells, degree, use_spline_mapping, c1_correction, distribute_viz):
+def main(*, test_case, ncells, degree, nquads,
+         use_spline_mapping, c1_correction, distribute_viz):
 
     timing = {}
     timing['assembly'   ] = 0.0
@@ -557,22 +571,27 @@ def main(*, test_case, ncells, degree, use_spline_mapping, c1_correction, distri
         raise ValueError("Only available test-cases are 'square', 'annulus', "
                          "'circle', 'target' and 'czarny'")
 
-    if c1_correction and (not model.O_point):
-        print("WARNING: cannot use C1 correction in geometry without polar singularity!")
-        print("WARNING: setting 'c1_correction' flag to False...")
-        print()
-        c1_correction = False
-
-    if c1_correction and (not use_spline_mapping):
-        print("WARNING: cannot use C1 correction without spline mapping!")
-        print("WARNING: setting 'c1_correction' flag to False...")
-        print()
-        c1_correction = False
-
     # Communicator, size, rank
     mpi_comm = MPI.COMM_WORLD
     mpi_size = mpi_comm.Get_size()
     mpi_rank = mpi_comm.Get_rank()
+
+    # If not explicitly provided, set number quadrature points to default value
+    if nquads is None:
+        nquads = [d + 1 for d in degree]
+        mpi_print(f'NOTE: Setting number of quadrature points to {nquads}', comm=mpi_comm)
+
+    if c1_correction and (not model.O_point):
+        mpi_print("WARNING: cannot use C1 correction in geometry without polar singularity!\n"
+                  "WARNING: setting 'c1_correction' flag to False...\n",
+                  comm = mpi_comm)
+        c1_correction = False
+
+    if c1_correction and (not use_spline_mapping):
+        mpi_print("WARNING: cannot use C1 correction without spline mapping!\n"
+                  "WARNING: setting 'c1_correction' flag to False...\n",
+                  comm = mpi_comm)
+        c1_correction = False
 
     # Number of elements and spline degree
     ne1, ne2 = ncells
@@ -650,8 +669,8 @@ def main(*, test_case, ncells, degree, use_spline_mapping, c1_correction, distri
 
     # Build mass and stiffness matrices, and right-hand side vector
     t0 = time()
-    M, S = assemble_matrices(V, mapping, kernel)
-    b  = assemble_rhs(V, mapping, model.rho)
+    M, S = assemble_matrices(V, mapping, kernel, nquads=nquads)
+    b  = assemble_rhs(V, mapping, model.rho, nquads=nquads)
     t1 = time()
     timing['assembly'] = t1-t0
 
@@ -702,12 +721,12 @@ def main(*, test_case, ncells, degree, use_spline_mapping, c1_correction, distri
     # Solve linear system
     t0 = time()
     if c1_correction:
-        Sp_inv = inverse(Sp, 'cg', tol=1e-7, maxiter=100, verbose=False)
+        Sp_inv = inverse(Sp, 'cg', tol=1e-7, maxiter=1000, verbose=False)
         xp     = Sp_inv @ bp
         info   = Sp_inv.get_info()
         x      = proj.convert_to_tensor_basis(xp)
     else:
-        S_inv = inverse(S, 'cg', tol=1e-7, maxiter=100, verbose=False)
+        S_inv = inverse(S, 'cg', tol=1e-7, maxiter=1000, verbose=False)
         x     = S_inv @ b
         info  = S_inv.get_info()
     t1 = time()
@@ -721,7 +740,7 @@ def main(*, test_case, ncells, degree, use_spline_mapping, c1_correction, distri
     t0 = time()
     sqrt_g    = lambda *x: np.sqrt(mapping.metric_det(*x))
     integrand = lambda *x: (phi(*x) - model.phi(*x))**2 * sqrt_g(*x)
-    err2 = np.sqrt(V.integral(integrand))
+    err2 = np.sqrt(V.integral(integrand, nquads=nquads))
     t1 = time()
     timing['diagnostics'] = t1-t0
 
@@ -862,7 +881,7 @@ def parse_input_arguments():
     import argparse
 
     parser = argparse.ArgumentParser(
-        formatter_class = argparse.ArgumentDefaultsHelpFormatter,
+        formatter_class = argparse.HelpFormatter,
         description     = "Solve Poisson's equation on a 2D domain."
     )
 
@@ -871,16 +890,7 @@ def parse_input_arguments():
         choices =('square', 'annulus', 'circle', 'target', 'czarny'),
         default = 'square',
         dest    = 'test_case',
-        help    = 'Test case'
-    )
-
-    parser.add_argument( '-d',
-        type    = int,
-        nargs   = 2,
-        default = [2, 2],
-        metavar = ('P1','P2'),
-        dest    = 'degree',
-        help    = 'Spline degree along each dimension'
+        help    = 'Test case (default: square)'
     )
 
     parser.add_argument( '-n',
@@ -889,25 +899,43 @@ def parse_input_arguments():
         default = [10, 10],
         metavar = ('N1','N2'),
         dest    = 'ncells',
-        help    = 'Number of grid cells (elements) along each dimension'
+        help    = 'Number of grid cells (elements) along each dimension (default: [10, 10])'
+    )
+
+    parser.add_argument( '-d',
+        type    = int,
+        nargs   = 2,
+        default = [2, 2],
+        metavar = ('P1','P2'),
+        dest    = 'degree',
+        help    = 'Spline degree along each dimension (default: [2, 2])'
+    )
+
+    parser.add_argument( '-q',
+        type    = int,
+        nargs   = 2,
+        default = None,
+        metavar = ('Q1','Q2'),
+        dest    = 'nquads',
+        help    = 'Number of quadrature points along each dimension (default: [P1+1, P2+1])'
     )
 
     parser.add_argument( '-s',
         action  = 'store_true',
         dest    = 'use_spline_mapping',
-        help    = 'Use spline mapping in finite element calculations'
+        help    = 'Use spline mapping in finite element calculations (default: False)'
     )
 
     parser.add_argument( '-c',
         action  = 'store_true',
         dest    = 'c1_correction',
-        help    = 'Apply C1 correction at polar singularity (O point)'
+        help    = 'Apply C1 correction at polar singularity (O point) (default: False)'
     )
 
     parser.add_argument( '--distribute_viz',
         action  = 'store_true',
         dest    = 'distribute_viz',
-        help    = 'Create separate plots for each subdomain'
+        help    = 'Create separate plots for each subdomain (default: False)'
     )
 
     return parser.parse_args()

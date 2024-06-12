@@ -290,7 +290,7 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree, mult
 
     # Discretize norms
     l2norm_u_h = discretize(l2norm_u, domain_h, V1h, backend=PSYDAC_BACKEND_GPYCCEL)
-    l2norm_p_h = discretize(l2norm_p, domain_h, V2h, backend=PSYDAC_BACKEND_GPYCCEL)
+    l2norm_p_h = discretize(l2norm_p, domain_h, V2h, backend=PSYDAC_BACKEND_GPYCCEL, nquads=[deg+1 for deg in degree])
 
     l2norm_du_h = discretize(l2norm_du, domain_h, V1h, backend=PSYDAC_BACKEND_GPYCCEL)
     l2norm_dp_h = discretize(l2norm_dp, domain_h, V2h, backend=PSYDAC_BACKEND_GPYCCEL)

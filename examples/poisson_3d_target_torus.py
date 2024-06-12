@@ -28,7 +28,7 @@ class Laplacian:
         self._metric_det = sym.metric_det_expr
 
     # ...
-    def __call__( self, phi ):
+    def __call__(self, phi):
 
         from sympy import sqrt, Matrix
 
@@ -75,16 +75,17 @@ def run_model(ncells, degree, comm=None, is_logical=False):
     from psydac.api.discretization import discretize
     from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 
-    os.environ['OMP_NUM_THREADS']    = "2"
-    # backend to activate multi threading
-    PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP           = PSYDAC_BACKEND_GPYCCEL.copy()
-    PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP['openmp'] = True
 
+    # Backend to activate multi threading
+    backend = PSYDAC_BACKEND_GPYCCEL.copy()
+#    backend['openmp'] = True
 
+    # Choose number of OpenMP threads
+    os.environ['OMP_NUM_THREADS'] = "2"
 
     # Define topological domain
-    r_in  = 0.05
-    r_out = 0.2
+    r_in    = 0.05
+    r_out   = 0.2
     A       = Cube('A', bounds1=(r_in, r_out), bounds2=(0, 2 * np.pi), bounds3=(0, 2* np.pi))
     mapping = TargetTorusMapping('M', 3, R0=1.0, Z0=0, k=0.3, D=0.2)
     Omega   = mapping(A)
@@ -137,7 +138,6 @@ def run_model(ncells, degree, comm=None, is_logical=False):
     else:
         equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
 
-
     # Define (abstract) error norms
     if is_logical:
         v2 = element_of(V, name='v2')
@@ -151,7 +151,6 @@ def run_model(ncells, degree, comm=None, is_logical=False):
 
         l2norm_e = Norm(u - u_e, Omega, kind='l2')
 
-
     print("Start discretization", flush=True)
     # Create computational domain from topological domain
     periodic = [False, False, False]
@@ -159,29 +158,28 @@ def run_model(ncells, degree, comm=None, is_logical=False):
     Omega_h = discretize(Omega, ncells=ncells, periodic=periodic, comm=comm)
     Omega_log_h = discretize(Omega_logical, ncells=ncells, periodic=periodic_log, comm=comm)
 
-    # Create discrete spline space
-    if is_logical:
-        Vh = discretize(V, Omega_log_h, degree=degree)
-    else:
-        Vh = discretize(V, Omega_h, degree=degree)
-    # Discretize equation
-    if is_logical:
-        equation_h = discretize(equation, Omega_log_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP)
-    else:
-        equation_h = discretize(equation, Omega_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP)
+    # Number of quadrature points to be used for assemblying bilinear and linear forms
+    nquads = [p + 1 for p in degree]
 
+    # Choose whether to work on logical or physical domain
+    if is_logical:
+        domain_h = Omega_log_h
+    else:
+        domain_h = Omega_h
+
+    # Create discrete spline space
+    Vh = discretize(V, domain_h, degree=degree)
+
+    # Discretize equation
+    equation_h = discretize(equation, domain_h, [Vh, Vh], nquads=nquads, backend=backend)
 
     # Discretize norms
-    if is_logical:
-        l2norm_u_e_h = discretize(l2norm_u_e, Omega_log_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP)
-        l2norm_e_h = discretize(l2norm_e, Omega_log_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP)
-    else:
-        l2norm_u_e_h = discretize(l2norm_u_e, Omega_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP)
-        l2norm_e_h = discretize(l2norm_e, Omega_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP)
+    l2norm_u_e_h = discretize(l2norm_u_e, domain_h, Vh, nquads=nquads, backend=backend)
+    l2norm_e_h   = discretize(l2norm_e  , domain_h, Vh, nquads=nquads, backend=backend)
 
     # Solve discrete equation to obtain finite element coefficients
     print('Start equation_h.solve()')
-    equation_h.set_solver('cg',tol=1e-9, maxiter=10**5, info=True, verbose=True)
+    equation_h.set_solver('cg', tol=1e-9, maxiter=10**5, info=True, verbose=True)
 
     u_h, info = equation_h.solve()
     if not info['success']:
@@ -293,7 +291,7 @@ def parse_input_arguments():
     parser.add_argument('-l',
         action = 'store_true',
         dest   = 'is_logical',
-        help   = ''
+        help   = 'Define problem in the logical domain'
     )
 
     parser.add_argument( '-p',
