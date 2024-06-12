@@ -43,6 +43,15 @@ PSYDAC_BACKEND_NVPYCCEL = {'name': 'pyccel',
 # Platform-dependent flags
 if platform.machine() == 'x86_64':
     PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mavx'
+elif platform.machine() == 'arm64' and platform.system() == "Darwin":
+    # Check specific CPU type
+    import subprocess
+    cpu = subprocess.check_output(['sysctl','-n','machdep.cpu.brand_string']).decode('utf-8')
+    if "Apple M1" in cpu:
+        PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -mcpu=apple-m1 -ffast-math'
+    else:
+        raise SystemError(f"Unsupported CPU type '{cpu}'")
+
 
 #==============================================================================
 
