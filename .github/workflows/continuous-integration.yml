@@ -38,7 +38,7 @@ jobs:
           cache: 'pip'
 
       - name: Display CPU architecture used by local runner
-        run: python -c "import platform; print(f\"CPU type: \{platform.machine()\}\")"
+        run: python -c "import platform; print(f\"CPU type: {platform.machine()}\")"
 
       - name: Install non-Python dependencies on Ubuntu
         if: matrix.os == 'ubuntu-latest'
