@@ -112,7 +112,7 @@ def solve_hcurl_source_pbm(
                            for P in domain.interior])
     mappings_list = list(mappings.values())
 
-    if isinstance(ncells, int):
+    if isinstance(nc, int):
         ncells = [nc, nc]
     else:
         ncells = {patch.name: [nc[i], nc[i]]

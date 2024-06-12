@@ -213,7 +213,7 @@ backend_language = 'pyccel-gcc'
 
 dims = 1 if isinstance(ncells, int) else ncells.shape
 sz = 1 if isinstance(ncells, int) else ncells[ncells !=  None].sum()
-print(dims)
+
 # get_run_dir(domain_name, nc, deg)
 run_dir = domain_name + str(dims) + 'patches_' + 'size_{}'.format(sz)
 plot_dir = get_plot_dir(case_dir, run_dir)

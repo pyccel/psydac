@@ -104,7 +104,6 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     else:
         domain = build_multipatch_domain(domain_name=domain_name)
 
-    print(ncells)
     if isinstance(ncells, int):
         ncells = [ncells, ncells]
     elif ncells.ndim == 1:
@@ -113,7 +112,6 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     elif ncells.ndim == 2:
         ncells = {patch.name: [ncells[int(patch.name[2])][int(patch.name[4])], 
                 ncells[int(patch.name[2])][int(patch.name[4])]] for patch in domain.interior}
-    print(ncells)
     
     mappings = OrderedDict([(P.logical_domain, P.mapping)
                            for P in domain.interior])
