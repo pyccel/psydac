@@ -103,7 +103,7 @@ def solve_h1_source_pbm(
                            for P in domain.interior])
     mappings_list = list(mappings.values())
 
-    if type(nc) == int:
+    if isinstance(ncells, int):
         ncells = [nc, nc]
     else:
         ncells = {patch.name: [nc[i], nc[i]]

@@ -211,8 +211,8 @@ print(params)
 # backend_language = 'numba'
 backend_language = 'pyccel-gcc'
 
-dims = 1 if type(ncells) == int else ncells.shape
-sz = 1 if type(ncells) == int else ncells[ncells !=  None].sum()
+dims = 1 if isinstance(ncells, int) else ncells.shape
+sz = 1 if isinstance(ncells, int) else ncells[ncells !=  None].sum()
 print(dims)
 # get_run_dir(domain_name, nc, deg)
 run_dir = domain_name + str(dims) + 'patches_' + 'size_{}'.format(sz)

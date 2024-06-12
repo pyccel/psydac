@@ -265,7 +265,7 @@ def solve_td_maxwell_pbm(*,
     else:
         domain = build_multipatch_domain(domain_name=domain_name)
 
-    if type(nc) == int:
+    if isinstance(ncells, int):
         ncells = [nc, nc]
     elif ncells.ndim == 1:
         ncells = {patch.name: [nc[i], nc[i]]

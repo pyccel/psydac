@@ -10,11 +10,10 @@ from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mappin
 
 __all__ = (
     'TransposedPolarMapping',
-    'create_domain',
     'get_2D_rotation_mapping',
     'flip_axis',
     'build_multipatch_domain',
-    'get_ref_eigenvalues')
+    'build_cartesian_multipatch_domain')
 
 # ==============================================================================
 # small extension to SymPDE:
