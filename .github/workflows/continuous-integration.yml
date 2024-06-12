@@ -70,6 +70,12 @@ jobs:
           ompi_info
           h5pcc -showconfig -echo || true
 
+      - name: Display CPU info on macOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          sysctl -n machdep.cpu.brand_string
+          gfortran --target-help
+
       - name: Upgrade pip
         run: |
           python -m pip install --upgrade pip
