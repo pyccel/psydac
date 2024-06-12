@@ -23,7 +23,7 @@ jobs:
           - { isMerge: false, python-version: 3.9 }
           - { isMerge: false, python-version: '3.10' }
         include:
-          - os: macos-latest
+          - os: macos-12
             python-version: '3.10'
 
     name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
