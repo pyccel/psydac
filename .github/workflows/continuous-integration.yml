@@ -37,8 +37,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
 
-      - name: Display CPU architecture used by local runner
-        run: python -c "import platform; print(\"CPU type:\", platform.machine())"
+      - name: Display HW information of the local runner
+        run: python -c "import platform; print(\"${{ matrix.os }} HW info:\", platform.uname())"
 
       - name: Install non-Python dependencies on Ubuntu
         if: matrix.os == 'ubuntu-latest'
