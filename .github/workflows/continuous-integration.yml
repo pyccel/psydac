@@ -90,7 +90,7 @@ jobs:
         env:
           cache-name: cache-PETSc
         with:
-          path: "~/.petsc"
+          path: "./petsc"
           key: cache-${{ matrix.os }}-${{ matrix.python-version }}
 
       - if: steps.cache-petsc.outputs.cache-hit != 'true'
