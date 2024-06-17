@@ -42,7 +42,7 @@ PSYDAC_BACKEND_NVPYCCEL = {'name': 'pyccel',
 
 # Platform-dependent flags
 if platform.system() == "Darwin" and platform.machine() == 'arm64':
-    # Apple silicon requires architecture-specific flags (see PR #2369)
+    # Apple silicon requires architecture-specific flags (see https://github.com/pyccel/psydac/pull/411)
     import subprocess # nosec B404
     cpu_brand = subprocess.check_output(['sysctl','-n','machdep.cpu.brand_string']).decode('utf-8') # nosec B603, B607
     if "Apple M1" in cpu_brand:
