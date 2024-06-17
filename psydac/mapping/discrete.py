@@ -10,17 +10,26 @@ import random
 import h5py
 import yaml
 
-from sympde.topology.callable_mapping import BasicCallableMapping
+from time   import time
+
+from abstract_mapping      import AbstractMapping
+from sympde.topology.basic import BasicDomain
+from sympde.topology.domain import Domain 
+from symbolic_mapping      import MappedDomain
+from sympy                 import Symbol
+
 from sympde.topology.datatype import (H1SpaceType, L2SpaceType,
                                       HdivSpaceType, HcurlSpaceType,
                                       UndefinedSpaceType)
 
+from psydac.cad.geometry               import Geometry
 from psydac.fem.basic    import FemField
 from psydac.fem.tensor   import TensorFemSpace
 from psydac.fem.vector   import ProductFemSpace, VectorFemSpace
 from psydac.core.field_evaluation_kernels import (pushforward_2d_l2, pushforward_3d_l2,
                                                   pushforward_2d_hdiv, pushforward_3d_hdiv,
                                                   pushforward_2d_hcurl, pushforward_3d_hcurl)
+
 
 __all__ = ('SplineMapping', 'NurbsMapping')
 
@@ -31,7 +40,7 @@ def random_string(n):
     return ''.join(selector.choice(chars) for _ in range(n))
 
 #==============================================================================
-class SplineMapping(BasicCallableMapping):
+class SplineMapping(AbstractMapping):
 
     def __init__(self, *components, name=None):
 
@@ -70,7 +79,7 @@ class SplineMapping(BasicCallableMapping):
     def from_mapping(cls, tensor_space, mapping):
 
         assert isinstance(tensor_space, TensorFemSpace)
-        assert isinstance(mapping, BasicCallableMapping)
+        assert isinstance(mapping, AbstractMapping)
         assert tensor_space.ldim == mapping.ldim
 
         # Create one separate scalar field for each physical dimension
@@ -132,25 +141,76 @@ class SplineMapping(BasicCallableMapping):
     #--------------------------------------------------------------------------
     # Abstract interface
     #--------------------------------------------------------------------------
-    def __call__(self, *eta):
+    def _evaluate_domain( self, domain ):
+        print(isinstance(domain, BasicDomain))
+        assert(isinstance(domain, BasicDomain))
+        return MappedDomain(self, domain)
+    
+    def _evaluate_point( self, *eta ):
         return [map_Xd(*eta) for map_Xd in self._fields]
-
+    
+    def _evaluate_1d_arrays(self, X, Y):
+        if X.shape != Y.shape:
+            raise ValueError("Shape mismatch between 1D arrays")
+        
+        result_X = np.zeros_like(X, dtype=np.float64)
+        result_Y = np.zeros_like(Y, dtype=np.float64)
+        
+        for i in range(X.shape[0]):
+            result_X[i], result_Y[i] = self._evaluate_point(X[i], Y[i])
+        
+        return result_X, result_Y
+    
+    def _evaluate_meshgrid(self, *args):
+        if len(args) != 2:
+            raise ValueError("Expected two arrays for meshgrid evaluation")
+        
+        X, Y = args
+        if X.shape != Y.shape:
+            raise ValueError("Shape mismatch between meshgrid arrays")
+        
+        # Create empty arrays to store results
+        result_X = np.zeros_like(X, dtype=np.float64)
+        result_Y = np.zeros_like(Y, dtype=np.float64)
+        
+        # Iterate over the meshgrid points and evaluate the mapping
+        for i in range(X.shape[0]):
+            for j in range(X.shape[1]):
+                result_X[i, j], result_Y[i, j] = self._evaluate_point(X[i, j], Y[i, j])
+        
+        return result_X, result_Y
+    
+    def __call__(self, *args):
+        if len(args) == 1 and isinstance(args[0], BasicDomain):
+            return self._evaluate_domain(args[0])
+        elif all(isinstance(arg, (int, float, Symbol)) for arg in args):
+            return self._evaluate_point(*args)
+        elif all(isinstance(arg, np.ndarray) for arg in args):
+            if (arg.shape==1 for arg in args):
+                return self._evaluate_1d_arrays(*args)
+            elif (arg.shape==2 for arg in args):
+                return self._evaluate_meshgrid(*args)
+            else :
+                raise TypeError("Invalid dimension for called object")
+        else:
+            raise TypeError("Invalid arguments for __call__")
+        
     # ...
-    def jacobian(self, *eta):
+    def jacobian_eval(self, *eta):
         return np.array([map_Xd.gradient(*eta) for map_Xd in self._fields])
 
     # ...
-    def jacobian_inv(self, *eta):
-        return np.linalg.inv(self.jacobian(*eta))
+    def jacobian_inv_eval(self, *eta):
+        return np.linalg.inv(self.jacobian_eval(*eta))
 
     # ...
-    def metric(self, *eta):
-        J = self.jacobian(*eta)
+    def metric_eval(self, *eta):
+        J = self.jacobian_eval(*eta)
         return np.dot(J.T, J)
 
     # ...
-    def metric_det(self, *eta):
-        return np.linalg.det(self.metric(*eta))
+    def metric_det_eval(self, *eta):
+        return np.linalg.det(self.metric_eval(*eta))
 
     @property
     def ldim(self):
