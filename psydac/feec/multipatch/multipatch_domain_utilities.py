@@ -930,14 +930,14 @@ def build_cartesian_multipatch_domain(ncells, log_interval_x, log_interval_y, ma
 
       Example:
 
-      ncells = np.array([[1, None, 5],
-                         [2,    3, 4]])
+      >>> ncells = np.array([[1, None, 5],
+      >>>                    [2,    3, 4]])
      
       corresponds to a domain with 5 patches as follows:
       
-      |X| |X|
-      -------
-      |X|X|X|
+      >>> |X| |X|
+      >>> -------
+      >>> |X|X|X|
 
     log_interval_x: <Tuple>
         The interval in the x direction in the logical domain.

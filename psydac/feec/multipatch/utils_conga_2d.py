@@ -91,6 +91,7 @@ class DiagGrid():
         - a diagnostic cell-centered grid
         - writing / quadrature utilities
         - a ref solution
+    
     to compare solutions from different FEM spaces on same domain
     """
 

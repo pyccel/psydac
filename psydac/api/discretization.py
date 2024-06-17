@@ -102,7 +102,7 @@ def get_max_degree_of_one_space(Vh):
     Vh : FemSpace
         The finite element space under investigation.
 
-    Results
+    Returns
     -------
     list[int]
         The maximum polynomial degre of Vh with respect to each coordinate.
@@ -133,7 +133,7 @@ def get_max_degree(*spaces):
     *spaces : tuple[FemSpace]
         The finite element spaces under investigation.
 
-    Results
+    Returns
     -------
     list[int]
         The maximum polynomial degree across all spaces, with respect to each
