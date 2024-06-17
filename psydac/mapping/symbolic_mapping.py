@@ -274,18 +274,27 @@ class AnalyticMapping(BasicMapping,AbstractMapping):
     def __call__( self, *args ):
         if len(args) == 1 and isinstance(args[0], BasicDomain):
             return self._evaluate_domain(args[0])
+        
         elif all(isinstance(arg, (int, float, Symbol)) for arg in args):
             return self._evaluate_point(*args)
+        
         elif all(isinstance(arg, np.ndarray) for arg in args):
-            if (arg.shape==1 for arg in args):
-                return self._evaluate_1d_arrays(*args)
-            elif (arg.shape==2 for arg in args):
-                return self._evaluate_meshgrid(*args)
+            if ( len(args)==2 ):
+                if ( args[0].shape == args[1].shape ):
+                    if ( len(args[0].shape) == 2):
+                        return self._evaluate_meshgrid(*args)
+                    elif ( len(args[0].shape) == 1):
+                        return self._evaluate_1d_arrays(*args)
+                    else:
+                        raise TypeError(" Invalid dimensions for called object ")
+                else:
+                    raise TypeError(" Invalid dimensions for called object ")
             else :
                 raise TypeError("Invalid dimension for called object")
         else:
             raise TypeError("Invalid arguments for __call__")
-
+        
+        
     def jacobian_eval( self, *eta ):
         variables = self._logical_coordinates
         jac = self._jac 
@@ -602,7 +611,7 @@ class MultiPatchMapping(AnalyticMapping):
 class MappedDomain(BasicDomain):
     """."""
 
-    #@cacheit
+    @cacheit
     def __new__(cls, mapping, logical_domain):
         assert(isinstance(mapping,AbstractMapping))
         assert(isinstance(logical_domain, BasicDomain))
