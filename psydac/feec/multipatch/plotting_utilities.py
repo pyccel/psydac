@@ -7,7 +7,6 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import cm, colors
-from mpl_toolkits import mplot3d
 from collections import OrderedDict
 
 from psydac.linalg.utilities import array_to_psydac
