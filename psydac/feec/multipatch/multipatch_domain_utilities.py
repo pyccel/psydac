@@ -44,13 +44,14 @@ def sympde_Domain_join(patches, connectivity, name):
     return Domain.join(patches, connectivity_by_indices, name)
 
 
-def get_2D_rotation_mapping(name='no_name', c1=0., c2=0., alpha=1.5707963267948966):
+def get_2D_rotation_mapping(name='no_name', c1=0., c2=0., alpha=None):
 
     # AffineMapping:
     # _expressions = {'x': 'c1 + a11*x1 + a12*x2 + a13*x3',
     #                 'y': 'c2 + a21*x1 + a22*x2 + a23*x3',
-    #                 'z': 'c3 + a31*x1 + a32*x2 + a33*x3'}
-
+    #                 'z': 'c3 + a31*x1 + a32*x2 + a33*x3'}    
+    if alpha is None: 
+        alpha = np.pi/2
     return AffineMapping(
         name, 2, c1=c1, c2=c2,
         a11=np.cos(alpha), a12=-np.sin(alpha),
