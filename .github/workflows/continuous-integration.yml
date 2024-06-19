@@ -35,7 +35,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
 
       - name: Display HW information of the local runner
         run: python -c "import platform; print(\"${{ matrix.os }} HW info:\", platform.uname())"
