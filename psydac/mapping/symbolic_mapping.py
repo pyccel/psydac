@@ -211,7 +211,13 @@ class AnalyticMapping(BasicMapping,AbstractMapping):
 
         obj._metric     = obj._jac.T*obj._jac
         obj._metric_det = obj._metric.det()
-
+        
+        obj._func_eval = tuple(lambdify_sympde( obj._logical_coordinates, expr) for expr in obj._expressions)
+        obj._jac_eval = lambdify_sympde( obj._logical_coordinates, obj._jac)
+        obj._inv_jac_eval = lambdify_sympde( obj._logical_coordinates, obj._inv_jac)
+        obj._metric_eval = lambdify_sympde( obj._logical_coordinates, obj._metric)
+        obj._metric_det_eval = lambdify_sympde( obj._logical_coordinates, obj._metric_det)
+        
         return obj
 
     
@@ -234,90 +240,34 @@ class AnalyticMapping(BasicMapping,AbstractMapping):
         assert(isinstance(domain, BasicDomain))
         return MappedDomain(self, domain)
     
-    def _evaluate_point( self, *eta ):
-        variables = self._logical_coordinates
-        expressions = self._expressions
-        func_eval = tuple(lambdify_sympde( variables, expr) for expr in expressions)
-        return tuple( f( *eta ) for f in func_eval)
-    
-    def _evaluate_1d_arrays(self, X, Y):
-        if X.shape != Y.shape:
-            raise ValueError("Shape mismatch between 1D arrays")
-        
-        result_X = np.zeros_like(X, dtype=np.float64)
-        result_Y = np.zeros_like(Y, dtype=np.float64)
-        
-        for i in range(X.shape[0]):
-            result_X[i], result_Y[i] = self._evaluate_point(X[i], Y[i])
-       
-        return result_X, result_Y
-    
-    def _evaluate_meshgrid(self, *args):
-        if len(args) != 2:
-            raise ValueError("Expected two arrays for meshgrid evaluation")
-        
-        X, Y = args
-        if X.shape != Y.shape:
-            raise ValueError("Shape mismatch between meshgrid arrays")
-        
-        # Create empty arrays to store results
-        result_X = np.zeros_like(X, dtype=np.float64)
-        result_Y = np.zeros_like(Y, dtype=np.float64)
-        
-        # Iterate over the meshgrid points and evaluate the mapping
-        for i in range(X.shape[0]):
-            for j in range(X.shape[1]):
-                result_X[i, j], result_Y[i, j] = self._evaluate_point(X[i, j], Y[i, j])
-        
-        return result_X, result_Y
+    def _evaluate( self, *Xs ):
+        #int, float or numpy arrays 
+        assert len(Xs)==self.ldim
+        Xshape = np.shape(Xs[0]) 
+        for X in Xs:
+            assert np.shape(X) == Xshape      
+        return tuple( f( *Xs ) for f in self._func_eval)
     
     def __call__( self, *args ):
         if len(args) == 1 and isinstance(args[0], BasicDomain):
             return self._evaluate_domain(args[0])
-        
-        elif all(isinstance(arg, (int, float, Symbol)) for arg in args):
-            return self._evaluate_point(*args)
-        
-        elif all(isinstance(arg, np.ndarray) for arg in args):
-            if ( len(args)==2 ):
-                if ( args[0].shape == args[1].shape ):
-                    if ( len(args[0].shape) == 2):
-                        return self._evaluate_meshgrid(*args)
-                    elif ( len(args[0].shape) == 1):
-                        return self._evaluate_1d_arrays(*args)
-                    else:
-                        raise TypeError(" Invalid dimensions for called object ")
-                else:
-                    raise TypeError(" Invalid dimensions for called object ")
-            else :
-                raise TypeError("Invalid dimension for called object")
+        elif all(isinstance(arg, (int, float, Symbol, np.ndarray)) for arg in args):
+            return self._evaluate(*args)
         else:
             raise TypeError("Invalid arguments for __call__")
         
         
     def jacobian_eval( self, *eta ):
-        variables = self._logical_coordinates
-        jac = self._jac 
-        jac_eval = lambdify_sympde( variables, jac)
-        return jac_eval( *eta )
+        return self._jac_eval( *eta )
         
     def jacobian_inv_eval( self, *eta ):
-        variables = self._logical_coordinates
-        inv_jac = self._inv_jac
-        inv_jac_eval = lambdify_sympde( variables, inv_jac)
-        return inv_jac_eval( *eta )
+        return self._inv_jac_eval( *eta )
     
     def metric_eval( self, *eta ):
-        variables = self._logical_coordinates
-        metric = self._metric 
-        metric_eval = lambdify_sympde( variables, metric)
-        return metric_eval( *eta )
+        return self._metric_eval( *eta )
     
     def metric_det_eval( self, *eta ):
-        variables = self._logical_coordinates
-        metric_det = self._metric_det 
-        metric_det_eval = lambdify_sympde( variables, metric_det)
-        return metric_det_eval( *eta )   
+        return self._metric_det_eval( *eta )   
 
 #--------------------------------------------------------------------------
 
