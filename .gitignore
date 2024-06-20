@@ -29,3 +29,5 @@ __test__/
 
 # pycharm directory
 .idea
+
+psydac/mapping/mapping_heritage_test.ipynb
