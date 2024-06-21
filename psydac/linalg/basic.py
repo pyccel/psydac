@@ -1111,3 +1111,46 @@ class LinearSolver(ABC):
     @property
     def T(self):
         return self.transpose()
+
+#===============================================================================
+class GeneralLinearOperator(LinearOperator):
+    """
+    General operator acting between two vector spaces V and W. It only requires a dot method.
+
+    """
+
+    def __init__(self, domain, codomain, dot):
+
+        assert isinstance(domain, VectorSpace)
+        assert isinstance(codomain, VectorSpace)
+        from types import LambdaType        
+        assert isinstance(dot, LambdaType)
+
+        self._domain = domain
+        self._codomain = codomain
+        self._dot = dot
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return None
+
+    def dot(self, v, out=None):
+        assert isinstance(v, Vector)
+        assert v.space == self.domain
+
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self.codomain
+            
+            out = self._dot(v)
+            return out
+        else:
+            return self._dot(v)
