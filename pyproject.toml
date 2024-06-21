@@ -50,7 +50,10 @@ dependencies = [
     'tblib',
 
     # IGAKIT - not on PyPI
-    'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip'
+
+    # !! WARNING !! Path to igakit below is from fork pyccel/igakit. This was done to
+    # quickly fix the numpy 2.0 issue. See https://github.com/dalcinl/igakit/pull/4
+    'igakit @ https://github.com/pyccel/igakit/archive/refs/heads/bugfix-numpy2.0.zip'
 ]
 
 [project.urls]
