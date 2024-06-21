@@ -36,21 +36,23 @@ jobs:
         make -C docs clean
         make -C docs html
         python docs/update_links.py
-    - name: Setup Pages
-      uses: actions/configure-pages@v3
-    - name: Upload artifact
-      uses: actions/upload-pages-artifact@v1
-      with:
-        path: 'docs/build/html'
 
-  deploy_docs:
-    if: github.event_name != 'pull_request'
-    needs: build_docs
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v2
+    # Disable docs deployment for now as we're in psydac fork repo
+    # - name: Setup Pages
+    #   uses: actions/configure-pages@v3
+    # - name: Upload artifact
+    #   uses: actions/upload-pages-artifact@v1
+    #   with:
+    #     path: 'docs/build/html'
+
+  # deploy_docs:
+  #   if: github.event_name != 'pull_request'
+  #   needs: build_docs
+  #   runs-on: ubuntu-latest
+  #   environment:
+  #     name: github-pages
+  #     url: ${{ steps.deployment.outputs.page_url }}
+  #   steps:
+  #   - name: Deploy to GitHub Pages
+  #     id: deployment
+  #     uses: actions/deploy-pages@v2
