@@ -1150,7 +1150,14 @@ class GeneralLinearOperator(LinearOperator):
             assert isinstance(out, Vector)
             assert out.space == self.codomain
             
-            out = self._dot(v)
-            return out
-        else:
-            return self._dot(v)
+        return self._dot(v, out=out)
+        
+    def toarray(self):
+        raise NotImplementedError('toarray() is not defined for GeneralLinearOperators.')
+
+    def tosparse(self):
+        raise NotImplementedError('tosparse() is not defined for GeneralLinearOperators.')
+    
+    def transpose(self):
+        raise NotImplementedError('transpose() is not defined for GeneralLinearOperators.')
+
