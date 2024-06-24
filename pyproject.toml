@@ -50,7 +50,7 @@ dependencies = [
     'tblib',
 
     # IGAKIT - not on PyPI
-    'igakit @ https://github.com/pyccel/igakit/archive/refs/heads/bugfix-numpy2.0.zip'
+    'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip'
 ]
 
 [project.urls]
