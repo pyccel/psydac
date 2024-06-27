@@ -15,7 +15,7 @@ from sympde.topology import element_of, elements_of
 from sympde.topology import NormalVector
 from sympde.topology import Union
 from sympde.topology import Domain, Square
-from sympde.topology import IdentityMapping, AffineMapping, PolarMapping
+from sympde.topology.analytical_mappings import IdentityMapping, AffineMapping, PolarMapping
 from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm, SemiNorm
 from sympde.expr     import find, EssentialBC
@@ -509,7 +509,6 @@ if __name__ == '__main__':
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
-    mappings_list = [mapping.get_callable_mapping() for mapping in mappings_list]
 
     Eex_x   = lambdify(domain.coordinates, Eex[0])
     Eex_y   = lambdify(domain.coordinates, Eex[1])
