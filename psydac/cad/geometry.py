@@ -366,13 +366,7 @@ class Geometry( object ):
 
         # ... close the h5 file
         h5.close()
-        # ...
-
-        # Add spline callable mappings to domain undefined mappings
-        # NOTE: We assume that interiors and mappings.values() use the same ordering
-        for patch, F in zip(interiors, mappings.values()):
-            patch.mapping.set_callable_mapping(F)
-
+        
         # ...
         self._ldim        = ldim
         self._pdim        = pdim
