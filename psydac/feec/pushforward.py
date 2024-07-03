@@ -1,6 +1,8 @@
 import numpy as np
 
-from sympde.topology.analytical_mappings import IdentityMapping
+from sympde.topology.mapping import Mapping
+from sympde.topology.callable_mapping import CallableMapping
+from sympde.topology.analytical_mapping import IdentityMapping
 from sympde.topology.datatype import UndefinedSpaceType, H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
 
 from psydac.mapping.discrete import SplineMapping
