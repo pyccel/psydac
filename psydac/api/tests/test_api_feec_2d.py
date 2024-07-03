@@ -278,14 +278,15 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         filename = os.path.join(mesh_dir, 'collela_2d.h5')
         domain   = Domain.from_file(filename)
         mapping  = domain.mapping 
-        print("here")
 
     else:
         # Logical domain is unit square [0, 1] x [0, 1]
         logical_domain = Square('Omega')
 
         mapping = CollelaMapping2D('M1', a=a, b=b, eps=eps)
+
         
+
         domain  = mapping(logical_domain)
 
     
@@ -319,7 +320,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     # Discrete objects: Psydac
     #--------------------------------------------------------------------------
     if use_spline_mapping:
-        
+
         domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD)
         
 
@@ -1055,8 +1056,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Run simulation
-    #namespace = run_maxwell_2d_TE(**vars(args))
-    test_maxwell_2d_dirichlet_spline_mapping()
+    namespace = run_maxwell_2d_TE(**vars(args))
+   
 
     # Keep matplotlib windows open
     import matplotlib.pyplot as plt
