@@ -1,7 +1,5 @@
 import numpy as np
 
-from sympde.topology.abstract_mapping import AbstractMapping
-from sympde.topology.symbolic_mapping import AnalyticMapping
 from sympde.topology.analytical_mappings import IdentityMapping
 from sympde.topology.datatype import UndefinedSpaceType, H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
 
@@ -103,17 +101,23 @@ class Pushforward:
         if grid_local is None:
             grid_local=grid
 
-        if isinstance(mapping, AbstractMapping):
+        if isinstance(mapping, Mapping):
             self._mesh_grids = np.meshgrid(*grid_local, indexing='ij', sparse=True)
-            if isinstance(mapping, SplineMapping):
-                self.mapping = mapping
-                self.local_domain = mapping.space.local_domain
-                self.global_ends = tuple(nc_i - 1 for nc_i in mapping.space.ncells)
+            if isinstance(mapping.get_callable_mapping(), SplineMapping):
+                c_m = mapping.get_callable_mapping()
+                self.mapping = c_m
+                self.local_domain = c_m.space.local_domain
+                self.global_ends = tuple(nc_i - 1 for nc_i in c_m.space.ncells)
             else : 
                 assert mapping.is_analytical
-                self.mapping = mapping
+                self.mapping = mapping.get_callable_mapping()
                 self.local_domain = local_domain
                 self.global_ends = global_ends
+
+        elif isinstance(mapping, SplineMapping):
+            self.mapping = mapping
+            self.local_domain = mapping.space.local_domain
+            self.global_ends = tuple(nc_i - 1 for nc_i in mapping.space.ncells)
 
         else:
             assert self.is_identity
@@ -123,10 +127,10 @@ class Pushforward:
         self._eval_func = self._eval_functions[self.grid_type]
 
     def jacobian(self):
-        if isinstance(self.mapping, AnalyticMapping):
+        if isinstance(self.mapping, CallableMapping):
             return np.ascontiguousarray(
                         np.moveaxis(
-                            self.mapping.jacobian_eval(*self._mesh_grids), [0, 1], [-2, -1]
+                            self.mapping.jacobian(*self._mesh_grids), [0, 1], [-2, -1]
                         )
                     )
         elif isinstance(self.mapping, SplineMapping):
@@ -136,10 +140,10 @@ class Pushforward:
                 return self.mapping.jac_mat_regular_tensor_grid(self.grid)
 
     def jacobian_inv(self):
-        if isinstance(self.mapping, AnalyticMapping):
+        if isinstance(self.mapping, CallableMapping):
             return np.ascontiguousarray(
                         np.moveaxis(
-                            self.mapping.jacobian_inv_eval(*self._mesh_grids), [0, 1], [-2, -1]
+                            self.mapping.jacobian_inv(*self._mesh_grids), [0, 1], [-2, -1]
                         )
                     )
         elif isinstance(self.mapping, SplineMapping):
@@ -149,9 +153,9 @@ class Pushforward:
                 return self.mapping.inv_jac_mat_regular_tensor_grid(self.grid)
 
     def sqrt_metric_det(self):
-        if isinstance(self.mapping, AnalyticMapping):
+        if isinstance(self.mapping, CallableMapping):
             return np.ascontiguousarray(
-                        np.sqrt(self.mapping.metric_det_eval(*self._mesh_grids))
+                        np.sqrt(self.mapping.metric_det(*self._mesh_grids))
                     )
         elif isinstance(self.mapping, SplineMapping):
             if self.grid_type == 0:
