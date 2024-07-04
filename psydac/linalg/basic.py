@@ -280,7 +280,7 @@ class LinearOperator(ABC):
         a new object of the class ScaledLinearOperator.
         
         """
-        return ScaledLinearOperator(self._domain, self._codomain, -1.0, self)
+        return ScaledLinearOperator(self.domain, self.codomain, -1.0, self)
 
     def __mul__(self, c):
         """
