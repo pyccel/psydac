@@ -25,7 +25,8 @@ __all__ = (
     'ComposedLinearOperator',
     'PowerLinearOperator',
     'InverseLinearOperator',
-    'LinearSolver'
+    'LinearSolver',
+    'MatrixFreeLinearOperator'
 )
 
 #===============================================================================
@@ -1113,9 +1114,9 @@ class LinearSolver(ABC):
         return self.transpose()
 
 #===============================================================================
-class GeneralLinearOperator(LinearOperator):
+class MatrixFreeLinearOperator(LinearOperator):
     """
-    General operator acting between two vector spaces V and W. It only requires a dot method.
+    General operator acting between two vector spaces V and W. It only requires a callable dot method.
 
     """
 
@@ -1149,7 +1150,7 @@ class GeneralLinearOperator(LinearOperator):
         if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self.codomain
-            
+
         return self._dot(v, out=out)
         
     def toarray(self):
