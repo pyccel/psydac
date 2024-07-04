@@ -27,8 +27,8 @@ def test_geometry_2d_1():
     mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
 
     # create a topological domain
-    F      = AnalyticMapping('F', dim=2)
-    domain = F(Square(name='Omega'))
+    #F      = AnalyticMapping('F', dim=2)
+    domain = mapping(Square(name='Omega'))
 
     # associate the mapping to the topological domain
     mappings = {domain.name: mapping}
@@ -74,8 +74,8 @@ def test_geometry_2d_2():
     mapping = refine( mapping, axis=0, values=[0.3, 0.6, 0.8] )
 
     # create a topological domain
-    F      = AnalyticMapping('F', dim=2)
-    domain = F(Square(name='Omega'))
+    #F      = AnalyticMapping('F', dim=2)
+    domain = mapping(Square(name='Omega'))
 
     # associate the mapping to the topological domain
     mappings = {domain.name: mapping}

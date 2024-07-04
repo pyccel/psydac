@@ -946,7 +946,7 @@ class NurbsMapping(SplineMapping):
         return np.asarray(Xd) / w
 
     # ...
-    def jacobian(self, *eta):
+    def jacobian_eval(self, *eta):
         map_W = self._weights_field
         w = map_W(*eta)
         grad_w = np.array(map_W.gradient(*eta))
@@ -954,6 +954,8 @@ class NurbsMapping(SplineMapping):
         grad_v = np.array([map_Xd.gradient(*eta, weights=map_W.coeffs) for map_Xd in self._fields])
         return grad_v / w - v[:, None] @ grad_w[None, :] / w**2
 
+    def jacobian_inv_eval(self, *eta):
+        return super().jacobian_inv_eval(*eta)
     #--------------------------------------------------------------------------
     # Fast evaluation on a grid
     #--------------------------------------------------------------------------
