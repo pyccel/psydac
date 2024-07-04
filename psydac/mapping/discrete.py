@@ -12,17 +12,16 @@ import yaml
 
 from time   import time
 
-from abstract_mapping      import AbstractMapping
+from sympde.topology.abstract_mapping      import AbstractMapping
 from sympde.topology.basic import BasicDomain
 from sympde.topology.domain import Domain 
-from symbolic_mapping      import MappedDomain
+from sympde.topology.symbolic_mapping      import MappedDomain
 from sympy                 import Symbol
 
 from sympde.topology.datatype import (H1SpaceType, L2SpaceType,
                                       HdivSpaceType, HcurlSpaceType,
                                       UndefinedSpaceType)
 
-from psydac.cad.geometry               import Geometry
 from psydac.fem.basic    import FemField
 from psydac.fem.tensor   import TensorFemSpace
 from psydac.fem.vector   import ProductFemSpace, VectorFemSpace
