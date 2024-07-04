@@ -1154,11 +1154,11 @@ class MatrixFreeLinearOperator(LinearOperator):
         return self._dot(v, out=out)
         
     def toarray(self):
-        raise NotImplementedError('toarray() is not defined for GeneralLinearOperators.')
+        raise NotImplementedError('toarray() is not defined for MatrixFreeLinearOperator.')
 
     def tosparse(self):
-        raise NotImplementedError('tosparse() is not defined for GeneralLinearOperators.')
+        raise NotImplementedError('tosparse() is not defined for MatrixFreeLinearOperator.')
     
     def transpose(self):
-        raise NotImplementedError('transpose() is not defined for GeneralLinearOperators.')
+        raise NotImplementedError('transpose() is not defined for MatrixFreeLinearOperator.')
 
