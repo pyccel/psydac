@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 from scipy.sparse import coo_matrix
+from types import LambdaType 
 
 from psydac.utilities.utils import is_real
 
@@ -1123,8 +1124,7 @@ class MatrixFreeLinearOperator(LinearOperator):
     def __init__(self, domain, codomain, dot):
 
         assert isinstance(domain, VectorSpace)
-        assert isinstance(codomain, VectorSpace)
-        from types import LambdaType        
+        assert isinstance(codomain, VectorSpace)       
         assert isinstance(dot, LambdaType)
 
         self._domain = domain
