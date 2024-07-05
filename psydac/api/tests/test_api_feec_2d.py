@@ -590,6 +590,12 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
             # ...
 
             # Update plot
+            np.savetxt('Ex_values.txt', Ex_values, delimiter=',', fmt = '%d')
+            print("Ex_values saved to Ex_values.txt")
+            np.savetxt('Ey_values.txt', Ey_values, delimiter=',', fmt = '%d')
+            print("Ey_values saved to Ey_values.txt")
+            np.savetxt('Bz_values.txt', Bz_values, delimiter=',', fmt='%d')
+            print("Bz_values saved to Bz_values.txt")
             update_plot(fig2, t, x, y, Ex_values, Ex_ex(t, x, y))
             update_plot(fig3, t, x, y, Ey_values, Ey_ex(t, x, y))
             update_plot(fig4, t, x, y, Bz_values, Bz_ex(t, x, y))
