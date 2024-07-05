@@ -306,6 +306,9 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
     # Penalization to apply homogeneous Dirichlet BCs (will only be used if domain is not periodic)
     nn = NormalVector('nn')
+    
+
+    
     a1_bc = BilinearForm((u1, v1),
                 integral(domain.boundary, 1e30 * cross(u1, nn) * cross(v1, nn)))
     
@@ -316,6 +319,8 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     if use_spline_mapping:
 
         domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD)
+        
+
         derham_h = discretize(derham, domain_h, multiplicity = [mult, mult])
 
         periodic_list = mapping.space.periodic
@@ -337,6 +342,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     else:
         # Discrete physical domain and discrete DeRham sequence
         domain_h = discretize(domain, ncells=[ncells, ncells], periodic=[periodic, periodic], comm=MPI.COMM_WORLD)
+        
         derham_h = discretize(derham, domain_h, degree=[degree, degree], multiplicity = [mult, mult])
         
 
