@@ -301,11 +301,8 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     
     # Bilinear forms that correspond to mass matrices for spaces V1 and V2
 
-    a1N = BilinearForm((u1,v1), integral(domain, dot(u1, v1)))
-    
-    
-
-    a2N = BilinearForm((u2, v2), integral(domain, u2 * v2)) 
+    a1 = BilinearForm((u1,v1), integral(domain, dot(u1, v1)))
+    a2 = BilinearForm((u2, v2), integral(domain, u2 * v2)) 
 
     # Penalization to apply homogeneous Dirichlet BCs (will only be used if domain is not periodic)
     nn = NormalVector('nn')
@@ -353,9 +350,8 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     # Discrete bilinear forms
     nquads = [degree + 1, degree + 1]
     
-    a1_h = discretize(a1N, domain_h, (derham_h.V1, derham_h.V1), nquads=nquads, backend=backend)
-    
-    a2_h = discretize(a2N, domain_h, (derham_h.V2, derham_h.V2), nquads=nquads, backend=backend)
+    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), nquads=nquads, backend=backend)
+    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), nquads=nquads, backend=backend)
         
     # Mass matrices (StencilMatrix or BlockLinearOperator objects)
     M1 = a1_h.assemble()
