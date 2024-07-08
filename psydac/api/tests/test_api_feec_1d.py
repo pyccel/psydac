@@ -53,7 +53,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     from mpi4py          import MPI
     from scipy.integrate import quad
 
-    from sympde.topology import Mapping
+    from sympde.topology import AnalyticMapping
     from sympde.topology import Line
     from sympde.topology import Derham
     from sympde.topology import elements_of
@@ -76,8 +76,8 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Logical domain: interval (0, 1)
     logical_domain = Line('Omega', bounds=(0, 1))
 
-    #... Mapping and physical domain
-    class CollelaMapping1D(Mapping):
+    #... AnalyticMapping and physical domain
+    class CollelaMapping1D(AnalyticMapping):
 
         _expressions = {'x': 'k * (x1 + eps / (2*pi) * sin(2*pi*x1))'}
         _ldim = 1
@@ -180,7 +180,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     P0, P1 = derham_h.projectors(nquads=[degree+2])
 
     # Logical and physical grids
-    F = mapping.get_callable_mapping()
+    F = mapping
     grid_x1 = derham_h.V0.breaks[0]
     grid_x  = F(grid_x1)[0]
 
@@ -413,9 +413,9 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         print('Max-norm of error on B(t,x) at final time: {:.2e}'.format(error_B))
 
     # compute L2 error as well
-    F = mapping.get_callable_mapping()
-    errE = lambda x1: (E(x1) - E_ex(t, *F(x1)))**2 * np.sqrt(F.metric_det(x1))
-    errB = lambda x1: (push_1d_l2(B, x1, F) - B_ex(t, *F(x1)))**2 * np.sqrt(F.metric_det(x1))
+    F = mapping
+    errE = lambda x1: (E(x1) - E_ex(t, *F(x1)))**2 * np.sqrt(F.metric_det_eval(x1))
+    errB = lambda x1: (push_1d_l2(B, x1, F) - B_ex(t, *F(x1)))**2 * np.sqrt(F.metric_det_eval(x1))
     error_l2_E = np.sqrt(derham_h.V1.integral(errE, nquads=[degree+1]))
     error_l2_B = np.sqrt(derham_h.V0.integral(errB))
     print('L2 norm of error on E(t,x) at final time: {:.2e}'.format(error_l2_E))
