@@ -169,7 +169,7 @@ def get_diag_grid(mappings, N):
 def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     # get gridlines for one patch grid
 
-    F = [M.get_callable_mapping() for d,M in mappings.items()]
+    F = [M for d,M in mappings.items()]
 
     if plotted_patch in range(len(mappings)):
         space   = Vh.spaces[plotted_patch]
