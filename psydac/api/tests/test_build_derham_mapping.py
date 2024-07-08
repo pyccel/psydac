@@ -6,7 +6,7 @@ from psydac.api.discretization import discretize
 from psydac.cad.geometry       import Geometry
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
-from sympde.topology.analytical_mapping import IdentityMapping
+from sympde.topology import IdentityMapping
 from sympde.topology                  import Cube, Derham
 
 from sympy      import exp, lambdify
@@ -33,8 +33,7 @@ def test_build_derham_spline_mapping_id_1d(degree, ncells, periodic):
     tensor_space = TensorFemSpace(domain_decomposition, V1)
 
     # Create the mapping
-    map_symbolic = IdentityMapping(name = 'Id', dim = 1)
-    map_analytic = map_symbolic.get_callable_mapping()
+    map_analytic = IdentityMapping(name = 'Id', dim = 1)
     map_discrete = SplineMapping.from_mapping(tensor_space, map_analytic)
     map_discrete.set_name("map")
 
@@ -91,8 +90,7 @@ def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
     tensor_space = TensorFemSpace(domain_decomposition, V1, V2)
 
     # Create the mapping
-    map_symbolic = IdentityMapping(name = 'Id', dim = 2)
-    map_analytic = map_symbolic.get_callable_mapping()
+    map_analytic = IdentityMapping(name = 'Id', dim = 2)
     map_discrete = SplineMapping.from_mapping(tensor_space, map_analytic)
 
     # Create the de Rham sequence
@@ -153,8 +151,7 @@ def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
     tensor_space = TensorFemSpace(domain_decomposition, V1, V2, V3)
 
     # Create the mapping
-    map_symbolic = IdentityMapping(name = 'Id', dim = 3)
-    map_analytic = map_symbolic.get_callable_mapping()
+    map_analytic = IdentityMapping(name = 'Id', dim = 3)
     map_discrete = SplineMapping.from_mapping(tensor_space, map_analytic)
     map_discrete.set_name("map")
 

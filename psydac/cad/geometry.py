@@ -140,12 +140,10 @@ class Geometry( object ):
 
         mapping_name = name if name else 'mapping'
         dim      = mapping.ldim        
-        M        = Mapping(mapping_name, dim = dim)
-        domain   = M(NCube(name = 'Omega',
+        domain   = mapping(NCube(name = 'Omega',
                            dim  = dim,
                            min_coords = [0.] * dim,
                            max_coords = [1.] * dim)) 
-        M.set_callable_mapping(mapping)
         mappings = {domain.name: mapping}
         ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
         periodic = {domain.name: mapping.space.domain_decomposition.periods}
