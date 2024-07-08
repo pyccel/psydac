@@ -400,12 +400,11 @@ if __name__ == '__main__':
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
 
     mappings_list = list(mappings.values())
-    mappings_list = [mapping.get_callable_mapping() for mapping in mappings_list]
 
     from sympy import lambdify
     u_ex = lambdify(domain.coordinates, solution)
     f_ex = lambdify(domain.coordinates, f)
-    F    = [f.get_callable_mapping() for f in mappings_list]
+    F    = [f for f in mappings_list]
 
     u_ex_log = [lambda xi1, xi2,ff=f : u_ex(*ff(xi1,xi2)) for f in F]
 
