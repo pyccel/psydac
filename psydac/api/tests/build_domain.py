@@ -3,11 +3,11 @@
 import numpy as np
 
 from sympde.topology import Square, Domain
-from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mapping
+from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, AnalyticMapping
 
 #==============================================================================
 # small extension to SymPDE:
-class TransposedPolarMapping(Mapping):
+class TransposedPolarMapping(AnalyticMapping):
     """
     Represents a Transposed (x1 <> x2) Polar 2D Mapping object (Annulus).
 

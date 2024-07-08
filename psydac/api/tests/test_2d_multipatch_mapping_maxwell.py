@@ -12,7 +12,7 @@ from sympde.topology      import VectorFunctionSpace
 from sympde.topology      import elements_of
 from sympde.topology      import NormalVector
 from sympde.topology      import Square, Domain
-from sympde.topology      import IdentityMapping, PolarMapping
+from sympde.topology      import  PolarMapping
 from sympde.expr.expr     import LinearForm, BilinearForm
 from sympde.expr.expr     import integral
 from sympde.expr.expr     import Norm
@@ -270,7 +270,6 @@ if __name__ == '__main__':
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
-    mappings_list = [mapping.get_callable_mapping() for mapping in mappings_list]
 
     Eex_x   = lambdify(domain.coordinates, Eex[0])
     Eex_y   = lambdify(domain.coordinates, Eex[1])
