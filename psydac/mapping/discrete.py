@@ -939,11 +939,21 @@ class NurbsMapping(SplineMapping):
     #--------------------------------------------------------------------------
     # Abstract interface
     #--------------------------------------------------------------------------
-    def __call__(self, *eta):
+    def _evaluate_point( self, *eta ):
         map_W = self._weights_field
         w = map_W(*eta)
         Xd = [map_Xd(*eta , weights=map_W.coeffs) for map_Xd in self._fields]
         return np.asarray(Xd) / w
+    
+    def _evaluate_domain(self, domain):
+        return super()._evaluate_domain(domain)
+    
+
+    def __call__(self, *args):
+        if len(args) == 1 and isinstance(args[0], BasicDomain):
+            return self._evaluate_domain(args[0])
+        elif all(isinstance(arg, (int, float, Symbol)) for arg in args):
+            return self._evaluate_point(*args)
 
     # ...
     def jacobian_eval(self, *eta):
@@ -956,6 +966,12 @@ class NurbsMapping(SplineMapping):
 
     def jacobian_inv_eval(self, *eta):
         return super().jacobian_inv_eval(*eta)
+    
+    def metric_eval(self, *eta):
+        return super().metric_eval(*eta)
+    
+    def metric_det_eval(self, *eta):
+        return super().metric_det_eval(*eta)
     #--------------------------------------------------------------------------
     # Fast evaluation on a grid
     #--------------------------------------------------------------------------

@@ -298,3 +298,6 @@ def teardown_module():
 def teardown_function():
     from sympy.core import cache
     cache.clear_cache()
+
+if __name__ == "__main__":
+    test_export_nurbs_to_hdf5([8,8],[2,2])

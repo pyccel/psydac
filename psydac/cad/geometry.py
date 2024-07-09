@@ -567,7 +567,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
         bounds2 = (float(nurbs.breaks(1)[0]), float(nurbs.breaks(1)[-1]))
         bounds3 = (float(nurbs.breaks(2)[0]), float(nurbs.breaks(2)[-1]))
         domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
-
+    print(mapping_id)
     mapping = Mapping(mapping_id, dim=nurbs.dim)
     domain  = mapping(domain)
     topo_yml = domain.todict()
