@@ -5,16 +5,16 @@ from mpi4py import MPI
 import numpy as np
 
 from sympde.topology import Square, Domain
-from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mapping #TransposedPolarMapping
+from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, AnalyticMapping #TransposedPolarMapping
 
 __all__ = ('TransposedPolarMapping', 'create_domain', 'get_2D_rotation_mapping', 'flip_axis', 
            'build_multipatch_domain', 'get_ref_eigenvalues')
 
 #==============================================================================
 # small extension to SymPDE:
-class TransposedPolarMapping(Mapping):
+class TransposedPolarMapping(AnalyticMapping):
     """
-    Represents a Transposed (x1 <> x2) Polar 2D Mapping object (Annulus).
+    Represents a Transposed (x1 <> x2) Polar 2D AnalyticMapping object (Annulus).
 
     """
     _expressions = {'x': 'c1 + (rmin*(1-x2)+rmax*x2)*cos(x1)',

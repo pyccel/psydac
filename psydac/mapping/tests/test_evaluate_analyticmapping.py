@@ -1,10 +1,10 @@
 import numpy as np 
 import pytest
-import analytical_mappings
+from sympde.topology import TorusMapping, TargetMapping, PolarMapping
 
-mapping1 = analytical_mappings.TorusMapping('T_1',R0=10.)
-mapping2 = analytical_mappings.TargetMapping('T_2', c1=1., k=2., D=3., c2=4.)
-mapping3 = analytical_mappings.PolarMapping('P_1', c1=1., c2=2., rmin=3., rmax=4.)
+mapping1 = TorusMapping('T_1',R0=10.)
+mapping2 = TargetMapping('T_2', c1=1., k=2., D=3., c2=4.)
+mapping3 = PolarMapping('P_1', c1=1., c2=2., rmin=3., rmax=4.)
 
 @pytest.mark.parametrize('mapping', [mapping1, mapping2, mapping3])
 def test_function_test_evaluate(mapping):
