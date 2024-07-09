@@ -3,11 +3,11 @@
 import numpy as np
 from mpi4py import MPI
 
-from analytical_mappings import *
+from sympde.topology import IdentityMapping, CollelaMapping2D, PolarMapping, TargetMapping, CzarnyMapping, Collela3D, SphericalMapping 
 
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
-from discrete import SplineMapping
+from .discrete import SplineMapping
 from psydac.ddm.cart         import DomainDecomposition
 
 #==============================================================================
