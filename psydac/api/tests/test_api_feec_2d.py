@@ -285,23 +285,20 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         mapping = CollelaMapping2D('M1', a=a, b=b, eps=eps)
         domain  = mapping(logical_domain)
 
-    
     # DeRham sequence
-
     derham = Derham(domain, sequence=['h1', 'hcurl', 'l2'])
 
-    #Trial and test functions
+    # Trial and test functions
     u1, v1 = elements_of(derham.V1, names='u1, v1')  # electric field E = (Ex, Ey)
     u2, v2 = elements_of(derham.V2, names='u2, v2')  # magnetic field Bz
 
-    # Bilinear forms that correspond to mass matrices for spaces V1 and V2  
-    a1 = BilinearForm((u1,v1), integral(domain, dot(u1, v1)))
+    # Bilinear forms that correspond to mass matrices for spaces V1 and V2
+    a1 = BilinearForm((u1, v1), integral(domain, dot(u1, v1)))
     a2 = BilinearForm((u2, v2), integral(domain, u2 * v2)) 
 
     # Penalization to apply homogeneous Dirichlet BCs (will only be used if domain is not periodic)
     nn = NormalVector('nn')
-    a1_bc = BilinearForm((u1, v1),
-                integral(domain.boundary, 1e30 * cross(u1, nn) * cross(v1, nn)))
+    a1_bc = BilinearForm((u1, v1), integral(domain.boundary, 1e30 * cross(u1, nn) * cross(v1, nn)))
 
     #--------------------------------------------------------------------------
     # Discrete objects: Psydac
@@ -330,12 +327,12 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         # Discrete physical domain and discrete DeRham sequence
         domain_h = discretize(domain, ncells=[ncells, ncells], periodic=[periodic, periodic], comm=MPI.COMM_WORLD)
         derham_h = discretize(derham, domain_h, degree=[degree, degree], multiplicity = [mult, mult])
-        
+
     # Discrete bilinear forms
     nquads = [degree + 1, degree + 1]
     a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), nquads=nquads, backend=backend)
     a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), nquads=nquads, backend=backend)
-        
+
     # Mass matrices (StencilMatrix or BlockLinearOperator objects)
     M1 = a1_h.assemble()
     M2 = a2_h.assemble()
@@ -1040,7 +1037,6 @@ if __name__ == '__main__':
     # Run simulation
     namespace = run_maxwell_2d_TE(**vars(args))
    
-
     # Keep matplotlib windows open
     import matplotlib.pyplot as plt
     plt.show()
