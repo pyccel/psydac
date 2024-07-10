@@ -298,7 +298,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
     # Penalization to apply homogeneous Dirichlet BCs (will only be used if domain is not periodic)
     nn = NormalVector('nn')
-    a1_bc = BilinearForm((u1, v1), 
+    a1_bc = BilinearForm((u1, v1),
                 integral(domain.boundary, 1e30 * cross(u1, nn) * cross(v1, nn)))
 
     #--------------------------------------------------------------------------
