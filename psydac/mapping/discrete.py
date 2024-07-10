@@ -144,39 +144,34 @@ class SplineMapping(AbstractMapping):
         assert(isinstance(domain, BasicDomain))
         return MappedDomain(self, domain)
     
-    def _evaluate_point( self, *eta ):
-        return [map_Xd(*eta) for map_Xd in self._fields]
     
-    def _evaluate_1d_arrays(self, X, Y):
-        if X.shape != Y.shape:
-            raise ValueError("Shape mismatch between 1D arrays")
+    def _evaluate_1d_arrays(self, *arrays):
+        assert len(arrays) == self.ldim
+        if len(arrays) == 0:
+            raise ValueError("At least one array is required")
+        shape = arrays[0].shape
+        if not all(array.shape == shape for array in arrays):
+            raise ValueError("Shape mismatch between input arrays")
         
-        result_X = np.zeros_like(X, dtype=np.float64)
-        result_Y = np.zeros_like(Y, dtype=np.float64)
-        
-        for i in range(X.shape[0]):
-            result_X[i], result_Y[i] = self._evaluate_point(X[i], Y[i])
-       
-        return result_X, result_Y
+        result_arrays = [np.zeros_like(array, dtype=np.float64) for array in arrays]
+        for i in range(shape[0]):
+            evaluated_points = self._evaluate_point(*(array[i] for array in arrays))
+            for j, value in enumerate(evaluated_points):
+                result_arrays[j][i] = value
+
+        return tuple(result_arrays)
     
-    def _evaluate_meshgrid(self, *args):
-        if len(args) != 2:
-            raise ValueError("Expected two arrays for meshgrid evaluation")
-        
-        X, Y = args
-        if X.shape != Y.shape:
-            raise ValueError("Shape mismatch between meshgrid arrays")
-        
-        # Create empty arrays to store results
-        result_X = np.zeros_like(X, dtype=np.float64)
-        result_Y = np.zeros_like(Y, dtype=np.float64)
-        
-        # Iterate over the meshgrid points and evaluate the mapping
-        for i in range(X.shape[0]):
-            for j in range(X.shape[1]):
-                result_X[i, j], result_Y[i, j] = self._evaluate_point(X[i, j], Y[i, j])
-        
-        return result_X, result_Y
+    
+    def _evaluate_meshgrid(self, *Xs):
+        reverted_arrays = []
+        assert len(Xs)==self.ldim
+        Xshape = np.shape(Xs[0]) 
+        for X in Xs:
+            assert np.shape(X) == Xshape
+            reverted_arrays.append(np.unique(X))
+
+        return self.build_mesh(reverted_arrays)
+    
     
     def __call__( self, *args ):
         if len(args) == 1 and isinstance(args[0], BasicDomain):
@@ -184,22 +179,14 @@ class SplineMapping(AbstractMapping):
         
         elif all(isinstance(arg, (int, float, Symbol)) for arg in args):
             return self._evaluate_point(*args)
-        
+
         elif all(isinstance(arg, np.ndarray) for arg in args):
-            if ( len(args)==2 ):
-                if ( args[0].shape == args[1].shape ):
-                    if ( len(args[0].shape) == 2):
-                        return self._evaluate_meshgrid(*args)
-                    elif ( len(args[0].shape) == 1):
-                        return self._evaluate_1d_arrays(*args)
-                    else:
-                        raise TypeError(" Invalid dimensions for called object ")
-                else:
-                    raise TypeError(" Invalid dimensions for called object ")
-            else :
-                raise TypeError("Invalid dimension for called object")
-        else:
-            raise TypeError("Invalid arguments for __call__")
+            if ( len(args[0].shape) == 1 ):
+                return self._evaluate_1d_arrays(*args)
+            elif (( len(args[0].shape) == 2 ) or (len(args[0].shape) == 3)):
+                return self._evaluate_meshgrid(*args)      
+            else:
+                raise TypeError(" Invalid dimensions for called object ")
         
     # ...
     def jacobian_eval(self, *eta):

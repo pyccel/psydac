@@ -218,7 +218,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     from sympde.topology import Domain
     from sympde.topology import Square
  
-    from sympde.topology.analytical_mappings import CollelaMapping2D 
+    from sympde.topology import CollelaMapping2D, AnalyticMapping
     from psydac.api.discretization import discretize 
     
     from sympde.topology import Derham
@@ -290,13 +290,11 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
     derham = Derham(domain, sequence=['h1', 'hcurl', 'l2'])
 
-    
+    #Trial and test functions
     u1, v1 = elements_of(derham.V1, names='u1, v1')  # electric field E = (Ex, Ey)
     u2, v2 = elements_of(derham.V2, names='u2, v2')  # magnetic field Bz
 
-    
-    # Bilinear forms that correspond to mass matrices for spaces V1 and V2
-
+    # Bilinear forms that correspond to mass matrices for spaces V1 and V2  
     a1 = BilinearForm((u1,v1), integral(domain, dot(u1, v1)))
     a2 = BilinearForm((u2, v2), integral(domain, u2 * v2)) 
 
@@ -304,13 +302,11 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     nn = NormalVector('nn')
     a1_bc = BilinearForm((u1, v1),
                 integral(domain.boundary, 1e30 * cross(u1, nn) * cross(v1, nn)))
-    
 
     #--------------------------------------------------------------------------
     # Discrete objects: Psydac
     #--------------------------------------------------------------------------
     if use_spline_mapping:
-
         domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD)
         derham_h = discretize(derham, domain_h, multiplicity = [mult, mult])
 
@@ -335,8 +331,6 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         domain_h = discretize(domain, ncells=[ncells, ncells], periodic=[periodic, periodic], comm=MPI.COMM_WORLD)
         derham_h = discretize(derham, domain_h, degree=[degree, degree], multiplicity = [mult, mult])
         
-
-
     # Discrete bilinear forms
     nquads = [degree + 1, degree + 1]
     a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), nquads=nquads, backend=backend)
@@ -349,7 +343,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     # Differential operators (StencilMatrix or BlockLinearOperator objects)
     D0, D1 = derham_h.derivatives_as_matrices
 
-    # discretizetemp and assemble penalization matrix
+    # Discretize and assemble penalization matrix
     if not periodic:
         a1_bc_h = discretize(a1_bc, domain_h, (derham_h.V1, derham_h.V1), nquads=nquads, backend=backend)
         M1_bc   = a1_bc_h.assemble()
@@ -364,10 +358,13 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     grid_x1 = derham_h.V0.breaks[0]
     grid_x2 = derham_h.V0.breaks[1]
 
-    grid_x, grid_y = mapping(*np.meshgrid(grid_x1, grid_x2,indexing='ij'))
+    if isinstance(mapping,(SplineMapping, NurbsMapping)):
+        grid_x, grid_y = mapping.build_mesh([grid_x1, grid_x2])
+    elif isinstance(mapping, AnalyticMapping):
+        grid_x, grid_y = mapping(*np.meshgrid(grid_x1, grid_x2,indexing='ij'))
+    else:
+        raise TypeError("mapping is not of type SplineMapping, NurbsMapping or AnalyticMapping")
 
-    
-   
     #--------------------------------------------------------------------------
     # Time integration setup
     #--------------------------------------------------------------------------
