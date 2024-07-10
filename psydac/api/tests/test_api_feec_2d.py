@@ -294,11 +294,12 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
     # Bilinear forms that correspond to mass matrices for spaces V1 and V2
     a1 = BilinearForm((u1, v1), integral(domain, dot(u1, v1)))
-    a2 = BilinearForm((u2, v2), integral(domain, u2 * v2)) 
+    a2 = BilinearForm((u2, v2), integral(domain, u2 * v2))
 
     # Penalization to apply homogeneous Dirichlet BCs (will only be used if domain is not periodic)
     nn = NormalVector('nn')
-    a1_bc = BilinearForm((u1, v1), integral(domain.boundary, 1e30 * cross(u1, nn) * cross(v1, nn)))
+    a1_bc = BilinearForm((u1, v1), 
+                integral(domain.boundary, 1e30 * cross(u1, nn) * cross(v1, nn)))
 
     #--------------------------------------------------------------------------
     # Discrete objects: Psydac
