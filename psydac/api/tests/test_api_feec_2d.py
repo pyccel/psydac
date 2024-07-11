@@ -218,7 +218,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     from sympde.topology import Domain
     from sympde.topology import Square
  
-    from sympde.topology import CollelaMapping2D, AnalyticMapping
+    from sympde.topology import CollelaMapping2D, BaseAnalyticMapping
     from psydac.api.discretization import discretize 
     
     from sympde.topology import Derham
@@ -358,10 +358,10 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
     if isinstance(mapping,(SplineMapping, NurbsMapping)):
         grid_x, grid_y = mapping.build_mesh([grid_x1, grid_x2])
-    elif isinstance(mapping, AnalyticMapping):
+    elif isinstance(mapping, BaseAnalyticMapping):
         grid_x, grid_y = mapping(*np.meshgrid(grid_x1, grid_x2,indexing='ij'))
     else:
-        raise TypeError("mapping is not of type SplineMapping, NurbsMapping or AnalyticMapping")
+        raise TypeError("mapping is not of type SplineMapping, NurbsMapping or BaseAnalyticMapping")
 
     #--------------------------------------------------------------------------
     # Time integration setup

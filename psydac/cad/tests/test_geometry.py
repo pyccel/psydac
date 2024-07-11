@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 import os
 
-from sympde.topology import Domain, Line, Square, Cube, AnalyticMapping
+from sympde.topology import Domain, Line, Square, Cube, BaseAnalyticMapping
 
 from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refine_nurbs
 from psydac.cad.geometry             import import_geopdes_to_nurbs
@@ -27,7 +27,7 @@ def test_geometry_2d_1():
     mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
 
     # create a topological domain
-    #F      = AnalyticMapping('F', dim=2)
+    #F      = BaseAnalyticMapping('F', dim=2)
     domain = mapping(Square(name='Omega'))
 
     # associate the mapping to the topological domain
@@ -74,7 +74,7 @@ def test_geometry_2d_2():
     mapping = refine( mapping, axis=0, values=[0.3, 0.6, 0.8] )
 
     # create a topological domain
-    #F      = AnalyticMapping('F', dim=2)
+    #F      = BaseAnalyticMapping('F', dim=2)
     domain = mapping(Square(name='Omega'))
 
     # associate the mapping to the topological domain
@@ -143,6 +143,7 @@ def test_geometry_2d_4():
     # create a nurbs mapping
     radius = np.sqrt(2)/2.
     degrees, knots, points, weights = circle( radius=radius, center=None )
+    print(knots)
 
     # Create tensor spline space, distributed
     spaces = [SplineSpace( knots=k, degree=p ) for k,p in zip(knots, degrees)]
@@ -192,6 +193,7 @@ def test_export_nurbs_to_hdf5(ncells, degree):
     geo = Geometry(filename=filename)
     domain = geo.domain
 
+    print(type(domain))    
     min_coords = domain.logical_domain.min_coords
     max_coords = domain.logical_domain.max_coords
 
@@ -300,4 +302,6 @@ def teardown_function():
     cache.clear_cache()
 
 if __name__ == "__main__":
-    test_export_nurbs_to_hdf5([8,8],[2,2])
+    ncells = [8,8]
+    degree = [2,2]
+    test_export_nurbs_to_hdf5(ncells, degree)

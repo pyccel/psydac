@@ -15,7 +15,7 @@ from time   import time
 from sympde.topology.abstract_mapping      import AbstractMapping
 from sympde.topology.basic import BasicDomain
 from sympde.topology.domain import Domain 
-from sympde.topology.symbolic_mapping      import MappedDomain
+from sympde.topology.base_analytic_mapping      import MappedDomain
 from sympy                 import Symbol
 
 from sympde.topology.datatype import (H1SpaceType, L2SpaceType,

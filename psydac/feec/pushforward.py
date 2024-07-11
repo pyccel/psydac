@@ -1,7 +1,7 @@
 import numpy as np
 
 
-from sympde.topology import IdentityMapping, AnalyticMapping
+from sympde.topology import IdentityMapping, BaseAnalyticMapping
 from sympde.topology.datatype import UndefinedSpaceType, H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
 
 from psydac.mapping.discrete import SplineMapping
@@ -30,7 +30,7 @@ class Pushforward:
         If it's a regular tensor grid, then it is expected to be
         a list of 2-D arrays with number of cells as the first dimension.
 
-    mapping : SplineMapping or AnalyticMapping or None
+    mapping : SplineMapping or BaseAnalyticMapping or None
         Mapping used to push-forward. None is equivalent to
         the identity mapping.
 
@@ -102,7 +102,7 @@ class Pushforward:
         if grid_local is None:
             grid_local=grid
 
-        if isinstance(mapping, AnalyticMapping):
+        if isinstance(mapping, BaseAnalyticMapping):
             self._mesh_grids = np.meshgrid(*grid_local, indexing='ij', sparse=True)
             self.mapping = mapping
             self.local_domain = local_domain
@@ -121,7 +121,7 @@ class Pushforward:
         self._eval_func = self._eval_functions[self.grid_type]
 
     def jacobian(self):
-        if isinstance(self.mapping, AnalyticMapping):
+        if isinstance(self.mapping, BaseAnalyticMapping):
             return np.ascontiguousarray(
                         np.moveaxis(
                             self.mapping.jacobian_eval(*self._mesh_grids), [0, 1], [-2, -1]
@@ -134,7 +134,7 @@ class Pushforward:
                 return self.mapping.jac_mat_regular_tensor_grid(self.grid)
 
     def jacobian_inv(self):
-        if isinstance(self.mapping, AnalyticMapping):
+        if isinstance(self.mapping, BaseAnalyticMapping):
             return np.ascontiguousarray(
                         np.moveaxis(
                             self.mapping.jacobian_inv_eval(*self._mesh_grids), [0, 1], [-2, -1]
@@ -147,7 +147,7 @@ class Pushforward:
                 return self.mapping.inv_jac_mat_regular_tensor_grid(self.grid)
 
     def sqrt_metric_det(self):
-        if isinstance(self.mapping, AnalyticMapping):
+        if isinstance(self.mapping, BaseAnalyticMapping):
             return np.ascontiguousarray(
                         np.sqrt(self.mapping.metric_det_eval(*self._mesh_grids))
                     )

@@ -26,7 +26,7 @@ from psydac.linalg.block       import BlockVectorSpace, BlockVector
 from psydac.ddm.cart           import DomainDecomposition, MultiPatchDomainDecomposition
 
 
-from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, AnalyticMapping, NCube
+from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, BaseAnalyticMapping, NCube
 from sympde.topology.basic import Union
 
 #==============================================================================
@@ -567,8 +567,25 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
         bounds2 = (float(nurbs.breaks(1)[0]), float(nurbs.breaks(1)[-1]))
         bounds3 = (float(nurbs.breaks(2)[0]), float(nurbs.breaks(2)[-1]))
         domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
-
-    mapping = Mapping(mapping_id, dim=nurbs.dim)
+    
+    degrees = nurbs.degree
+    points=nurbs.points[...,:nurbs.dim]
+    knots=[]
+    for d in range( nurbs.dim ):
+        knots.append(nurbs.knots[d])
+    if periodic is None:
+        periodic=[False for d in range( nurbs.dim )]
+    if rational:
+        weights = nurbs.weights
+    spaces=[SplineSpace(knots=k,degree=p) for k,p in zip(knots, degrees)]
+    ncells = [len(space.breaks)-1 for space in spaces]
+    domain_decomposition = DomainDecomposition(ncells,periodic,comm)
+    space=TensorFemSpace(domain_decomposition,*spaces)
+    if rational:
+        mapping = NurbsMapping.from_control_points_weights(space, points, weights)
+    else:
+        mapping=SplineMapping.from_control_points(space, points)
+    print("domain=mapping(domain)")    
     domain  = mapping(domain)
     topo_yml = domain.todict()
 
@@ -578,15 +595,15 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
     h5['topology.yml'] = np.array( geom, dtype='S' )
 
     group = h5.create_group( yml['patches'][i]['mapping_id'] )
-    group.attrs['degree'     ] = nurbs.degree
+    group.attrs['degree'     ] = degrees
     group.attrs['rational'   ] = rational
     group.attrs['periodic'   ] = tuple( False for d in range( nurbs.dim ) ) if periodic is None else periodic
     for d in range( nurbs.dim ):
-        group['knots_{}'.format( d )] = nurbs.knots[d]
+        group['knots_{}'.format( d )] = knots[d]
 
-    group['points'] = nurbs.points[...,:nurbs.dim]
+    group['points'] = points
     if rational:
-        group['weights'] = nurbs.weights
+        group['weights'] = weights
 
     h5.close()
 

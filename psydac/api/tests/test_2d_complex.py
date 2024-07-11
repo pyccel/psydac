@@ -15,7 +15,7 @@ from sympde.topology import element_of, elements_of
 from sympde.topology import NormalVector
 from sympde.topology import Union
 from sympde.topology import Domain, Square
-from sympde.topology.analytical_mappings import IdentityMapping, AffineMapping, PolarMapping
+from sympde.topology.analytic_mappings import IdentityMapping, AffineMapping, PolarMapping
 from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm, SemiNorm
 from sympde.expr     import find, EssentialBC
