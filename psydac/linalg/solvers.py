@@ -39,7 +39,7 @@ def inverse(A, solver, **kwargs):
     A : psydac.linalg.basic.LinearOperator
         Left-hand-side matrix A of linear system; individual entries A[i,j]
         can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
-        function (i.e. matrix-vector product A*p).
+        function (e.g. a matrix-vector product A*p).
 
     solver : str
         Preferred iterative solver. Options are: 'cg', 'pcg', 'bicg',
