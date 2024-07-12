@@ -53,7 +53,8 @@ dependencies = [
 
     # !! WARNING !! Path to igakit below is from fork pyccel/igakit. This was done to
     # quickly fix the numpy 2.0 issue. See https://github.com/dalcinl/igakit/pull/4
-    'igakit @ https://github.com/pyccel/igakit/archive/refs/heads/bugfix-numpy2.0.zip'
+    # !! WARNING !! commenting igakit to support python 3.12
+    # 'igakit @ https://github.com/pyccel/igakit/archive/refs/heads/bugfix-numpy2.0.zip'  
 ]
 
 [project.urls]

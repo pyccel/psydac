@@ -46,68 +46,71 @@ def elevate(mapping, axis, times):
     Note: we are using igakit for the moment, until we implement the elevation
     degree algorithm in psydac
     """
-    try:
-        from igakit.nurbs import NURBS
-    except:
-        raise ImportError('Could not find igakit.')
 
-    assert( isinstance(mapping, (SplineSpace, NurbsMapping)) )
-    assert( isinstance(times, int) )
-    assert( isinstance(axis, int) )
+    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `elevate` must be re-implemented')
 
-    space                = mapping.space
-    domain_decomposition = space.domain_decomposition
-    pdim                 = mapping.pdim
+    # try:
+    #     from igakit.nurbs import NURBS
+    # except:
+    #     raise ImportError('Could not find igakit.')
 
-    knots  = [V.knots             for V in space.spaces]
-    degree = [V.degree            for V in space.spaces]
-    shape  = [V.nbasis            for V in space.spaces]
-    points = np.zeros(shape+[mapping.pdim])
-    for i,f in enumerate( mapping._fields ):
-        points[...,i] = f._coeffs.toarray().reshape(shape)
+    # assert( isinstance(mapping, (SplineSpace, NurbsMapping)) )
+    # assert( isinstance(times, int) )
+    # assert( isinstance(axis, int) )
 
-    weights = None
-    if isinstance(mapping, NurbsMapping):
-        weights = mapping._weights_field._coeffs.toarray().reshape(shape)
+    # space                = mapping.space
+    # domain_decomposition = space.domain_decomposition
+    # pdim                 = mapping.pdim
 
-        for i in range(pdim):
-            points[...,i] /= weights[...]
+    # knots  = [V.knots             for V in space.spaces]
+    # degree = [V.degree            for V in space.spaces]
+    # shape  = [V.nbasis            for V in space.spaces]
+    # points = np.zeros(shape+[mapping.pdim])
+    # for i,f in enumerate( mapping._fields ):
+    #     points[...,i] = f._coeffs.toarray().reshape(shape)
 
-    # degree elevation using igakit
-    nrb = NURBS(knots, points, weights=weights)
-    nrb = nrb.clone().elevate(axis, times)
+    # weights = None
+    # if isinstance(mapping, NurbsMapping):
+    #     weights = mapping._weights_field._coeffs.toarray().reshape(shape)
 
-    spaces = [SplineSpace(degree=p, knots=u) for p,u in zip( nrb.degree, nrb.knots )]
-    space  = TensorFemSpace( domain_decomposition, *spaces )
-    fields = [FemField( space ) for d in range( pdim )]
+    #     for i in range(pdim):
+    #         points[...,i] /= weights[...]
 
-    # Get spline coefficients for each coordinate X_i
-    starts = space.vector_space.starts
-    ends   = space.vector_space.ends
-    idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
-    for i,field in enumerate( fields ):
-        idx_from = tuple(list(idx_to)+[i])
-        idw_from = tuple(idx_to)
-        if isinstance(mapping, NurbsMapping):
-            field.coeffs[idx_to] = nrb.points[idx_from] * nrb.weights[idw_from]
+    # # degree elevation using igakit
+    # nrb = NURBS(knots, points, weights=weights)
+    # nrb = nrb.clone().elevate(axis, times)
 
-        else:
-            field.coeffs[idx_to] = nrb.points[idx_from]
+    # spaces = [SplineSpace(degree=p, knots=u) for p,u in zip( nrb.degree, nrb.knots )]
+    # space  = TensorFemSpace( domain_decomposition, *spaces )
+    # fields = [FemField( space ) for d in range( pdim )]
 
-        field.coeffs.update_ghost_regions()
+    # # Get spline coefficients for each coordinate X_i
+    # starts = space.vector_space.starts
+    # ends   = space.vector_space.ends
+    # idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
+    # for i,field in enumerate( fields ):
+    #     idx_from = tuple(list(idx_to)+[i])
+    #     idw_from = tuple(idx_to)
+    #     if isinstance(mapping, NurbsMapping):
+    #         field.coeffs[idx_to] = nrb.points[idx_from] * nrb.weights[idw_from]
 
-    if isinstance(mapping, NurbsMapping):
-        weights_field = FemField( space )
+    #     else:
+    #         field.coeffs[idx_to] = nrb.points[idx_from]
 
-        idx_from = idx_to
-        weights_field.coeffs[idx_to] = nrb.weights[idx_from]
-        weights_field.coeffs.update_ghost_regions()
+    #     field.coeffs.update_ghost_regions()
 
-        fields.append( weights_field )
+    # if isinstance(mapping, NurbsMapping):
+    #     weights_field = FemField( space )
 
-        return NurbsMapping( *fields )
+    #     idx_from = idx_to
+    #     weights_field.coeffs[idx_to] = nrb.weights[idx_from]
+    #     weights_field.coeffs.update_ghost_regions()
 
-    return SplineMapping( *fields )
+    #     fields.append( weights_field )
+
+    #     return NurbsMapping( *fields )
+
+    # return SplineMapping( *fields )
 
 
 #==============================================================================
@@ -119,71 +122,74 @@ def refine(mapping, axis, values):
     Note: we are using igakit for the moment, until we implement the knot
     insertion algorithm in psydac
     """
-    try:
-        from igakit.nurbs import NURBS
-    except:
-        raise ImportError('Could not find igakit.')
 
-    assert( isinstance(mapping, (SplineSpace, NurbsMapping)) )
-    assert( isinstance(values, (list, tuple)) )
-    assert( isinstance(axis, int) )
+    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `refine` must be re-implemented')
 
-    space                = mapping.space
-    domain_decomposition = space.domain_decomposition
-    pdim                 = mapping.pdim
+    # try:
+    #     from igakit.nurbs import NURBS
+    # except:
+    #     raise ImportError('Could not find igakit.')
 
-    knots  = [V.knots             for V in space.spaces]
-    degree = [V.degree            for V in space.spaces]
-    shape  = [V.nbasis            for V in space.spaces]
-    points = np.zeros(shape+[mapping.pdim])
-    for i,f in enumerate( mapping._fields ):
-        points[...,i] = f._coeffs.toarray().reshape(shape)
+    # assert( isinstance(mapping, (SplineSpace, NurbsMapping)) )
+    # assert( isinstance(values, (list, tuple)) )
+    # assert( isinstance(axis, int) )
 
-    weights = None
-    if isinstance(mapping, NurbsMapping):
-        weights = mapping._weights_field._coeffs.toarray().reshape(shape)
+    # space                = mapping.space
+    # domain_decomposition = space.domain_decomposition
+    # pdim                 = mapping.pdim
 
-        for i in range(pdim):
-            points[...,i] /= weights[...]
+    # knots  = [V.knots             for V in space.spaces]
+    # degree = [V.degree            for V in space.spaces]
+    # shape  = [V.nbasis            for V in space.spaces]
+    # points = np.zeros(shape+[mapping.pdim])
+    # for i,f in enumerate( mapping._fields ):
+    #     points[...,i] = f._coeffs.toarray().reshape(shape)
 
-    # degree elevation using igakit
-    nrb = NURBS(knots, points, weights=weights)
-    nrb = nrb.clone().refine(axis, values)
+    # weights = None
+    # if isinstance(mapping, NurbsMapping):
+    #     weights = mapping._weights_field._coeffs.toarray().reshape(shape)
 
-    spaces = [SplineSpace(degree=p, knots=u) for p,u in zip( nrb.degree, nrb.knots )]
+    #     for i in range(pdim):
+    #         points[...,i] /= weights[...]
 
-    ncells = list(domain_decomposition.ncells)
-    ncells[axis] += len(values)
-    domain_decomposition = DomainDecomposition(ncells, domain_decomposition.periods, comm=domain_decomposition.comm)
+    # # degree elevation using igakit
+    # nrb = NURBS(knots, points, weights=weights)
+    # nrb = nrb.clone().refine(axis, values)
 
-    space  = TensorFemSpace( domain_decomposition, *spaces )
-    fields = [FemField( space ) for d in range( pdim )]
+    # spaces = [SplineSpace(degree=p, knots=u) for p,u in zip( nrb.degree, nrb.knots )]
 
-    # Get spline coefficients for each coordinate X_i
-    starts = space.vector_space.starts
-    ends   = space.vector_space.ends
-    idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
-    for i,field in enumerate( fields ):
-        idx_from = tuple(list(idx_to)+[i])
-        idw_from = tuple(idx_to)
-        if isinstance(mapping, NurbsMapping):
-            field.coeffs[idx_to] = nrb.points[idx_from] * nrb.weights[idw_from]
+    # ncells = list(domain_decomposition.ncells)
+    # ncells[axis] += len(values)
+    # domain_decomposition = DomainDecomposition(ncells, domain_decomposition.periods, comm=domain_decomposition.comm)
 
-        else:
-            field.coeffs[idx_to] = nrb.points[idx_from]
+    # space  = TensorFemSpace( domain_decomposition, *spaces )
+    # fields = [FemField( space ) for d in range( pdim )]
 
-    if isinstance(mapping, NurbsMapping):
-        weights_field = FemField( space )
+    # # Get spline coefficients for each coordinate X_i
+    # starts = space.vector_space.starts
+    # ends   = space.vector_space.ends
+    # idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
+    # for i,field in enumerate( fields ):
+    #     idx_from = tuple(list(idx_to)+[i])
+    #     idw_from = tuple(idx_to)
+    #     if isinstance(mapping, NurbsMapping):
+    #         field.coeffs[idx_to] = nrb.points[idx_from] * nrb.weights[idw_from]
 
-        idx_from = idx_to
-        weights_field.coeffs[idx_to] = nrb.weights[idx_from]
-        weights_field.coeffs.update_ghost_regions()
+    #     else:
+    #         field.coeffs[idx_to] = nrb.points[idx_from]
 
-        fields.append( weights_field )
+    # if isinstance(mapping, NurbsMapping):
+    #     weights_field = FemField( space )
 
-        return NurbsMapping( *fields )
+    #     idx_from = idx_to
+    #     weights_field.coeffs[idx_to] = nrb.weights[idx_from]
+    #     weights_field.coeffs.update_ghost_regions()
 
-    return SplineMapping( *fields )
+    #     fields.append( weights_field )
+
+    #     return NurbsMapping( *fields )
+
+    # return SplineMapping( *fields )
 
 
 

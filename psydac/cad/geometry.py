@@ -514,86 +514,88 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
         mpi communicator
     """
 
-    import os.path
-    import igakit
-    assert isinstance(nurbs, igakit.nurbs.NURBS)
+    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `export_nurbs_to_hdf5` must be re-implemented')
 
-    extension = os.path.splitext(filename)[-1]
-    if not extension == '.h5':
-        raise ValueError('> Only h5 extension is allowed for filename')
+    # import os.path
+    # import igakit
+    # assert isinstance(nurbs, igakit.nurbs.NURBS)
 
-    yml = {}
-    yml['ldim'] = nurbs.dim
-    yml['pdim'] = nurbs.dim
+    # extension = os.path.splitext(filename)[-1]
+    # if not extension == '.h5':
+    #     raise ValueError('> Only h5 extension is allowed for filename')
 
-    patches_info = []
-    i_mapping    = 0
-    i            = 0
+    # yml = {}
+    # yml['ldim'] = nurbs.dim
+    # yml['pdim'] = nurbs.dim
 
-    rational = not abs(nurbs.weights-1).sum()<1e-15
+    # patches_info = []
+    # i_mapping    = 0
+    # i            = 0
 
-    patch_name = 'patch_{}'.format(i)
-    name       = '{}'.format( patch_name )
-    mapping_id = 'mapping_{}'.format( i_mapping  )
-    dtype      = 'NurbsMapping' if rational else 'SplineMapping'
+    # rational = not abs(nurbs.weights-1).sum()<1e-15
 
-    patches_info += [{'name': name , 'mapping_id':mapping_id, 'type':dtype}]
+    # patch_name = 'patch_{}'.format(i)
+    # name       = '{}'.format( patch_name )
+    # mapping_id = 'mapping_{}'.format( i_mapping  )
+    # dtype      = 'NurbsMapping' if rational else 'SplineMapping'
 
-    yml['patches'] = patches_info
-    # ...
+    # patches_info += [{'name': name , 'mapping_id':mapping_id, 'type':dtype}]
 
-    # Create HDF5 file (in parallel mode if MPI communicator size > 1)
-    if not(comm is None) and comm.size > 1:
-        kwargs = dict( driver='mpio', comm=comm )
-    else:
-        kwargs = {}
+    # yml['patches'] = patches_info
+    # # ...
 
-    h5 = h5py.File( filename, mode='w', **kwargs )
+    # # Create HDF5 file (in parallel mode if MPI communicator size > 1)
+    # if not(comm is None) and comm.size > 1:
+    #     kwargs = dict( driver='mpio', comm=comm )
+    # else:
+    #     kwargs = {}
 
-    # ...
-    # Dump geometry metadata to string in YAML file format
-    geom = yaml.dump( data   = yml, sort_keys=False)
-    # Write geometry metadata as fixed-length array of ASCII characters
-    h5['geometry.yml'] = np.array( geom, dtype='S' )
-    # ...
+    # h5 = h5py.File( filename, mode='w', **kwargs )
 
-    # ... topology
-    if nurbs.dim == 1:
-        bounds1 = (float(nurbs.breaks(0)[0]), float(nurbs.breaks(0)[-1]))
-        domain  = Line(patch_name, bounds1=bounds1)
+    # # ...
+    # # Dump geometry metadata to string in YAML file format
+    # geom = yaml.dump( data   = yml, sort_keys=False)
+    # # Write geometry metadata as fixed-length array of ASCII characters
+    # h5['geometry.yml'] = np.array( geom, dtype='S' )
+    # # ...
 
-    elif nurbs.dim == 2:
-        bounds1 = (float(nurbs.breaks(0)[0]), float(nurbs.breaks(0)[-1]))
-        bounds2 = (float(nurbs.breaks(1)[0]), float(nurbs.breaks(1)[-1]))
-        domain  = Square(patch_name, bounds1=bounds1, bounds2=bounds2)
+    # # ... topology
+    # if nurbs.dim == 1:
+    #     bounds1 = (float(nurbs.breaks(0)[0]), float(nurbs.breaks(0)[-1]))
+    #     domain  = Line(patch_name, bounds1=bounds1)
 
-    elif nurbs.dim == 3:
-        bounds1 = (float(nurbs.breaks(0)[0]), float(nurbs.breaks(0)[-1]))
-        bounds2 = (float(nurbs.breaks(1)[0]), float(nurbs.breaks(1)[-1]))
-        bounds3 = (float(nurbs.breaks(2)[0]), float(nurbs.breaks(2)[-1]))
-        domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
+    # elif nurbs.dim == 2:
+    #     bounds1 = (float(nurbs.breaks(0)[0]), float(nurbs.breaks(0)[-1]))
+    #     bounds2 = (float(nurbs.breaks(1)[0]), float(nurbs.breaks(1)[-1]))
+    #     domain  = Square(patch_name, bounds1=bounds1, bounds2=bounds2)
 
-    mapping = Mapping(mapping_id, dim=nurbs.dim)
-    domain  = mapping(domain)
-    topo_yml = domain.todict()
+    # elif nurbs.dim == 3:
+    #     bounds1 = (float(nurbs.breaks(0)[0]), float(nurbs.breaks(0)[-1]))
+    #     bounds2 = (float(nurbs.breaks(1)[0]), float(nurbs.breaks(1)[-1]))
+    #     bounds3 = (float(nurbs.breaks(2)[0]), float(nurbs.breaks(2)[-1]))
+    #     domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
 
-    # Dump geometry metadata to string in YAML file format
-    geom = yaml.dump( data   = topo_yml, sort_keys=False)
-    # Write topology metadata as fixed-length array of ASCII characters
-    h5['topology.yml'] = np.array( geom, dtype='S' )
+    # mapping = Mapping(mapping_id, dim=nurbs.dim)
+    # domain  = mapping(domain)
+    # topo_yml = domain.todict()
 
-    group = h5.create_group( yml['patches'][i]['mapping_id'] )
-    group.attrs['degree'     ] = nurbs.degree
-    group.attrs['rational'   ] = rational
-    group.attrs['periodic'   ] = tuple( False for d in range( nurbs.dim ) ) if periodic is None else periodic
-    for d in range( nurbs.dim ):
-        group['knots_{}'.format( d )] = nurbs.knots[d]
+    # # Dump geometry metadata to string in YAML file format
+    # geom = yaml.dump( data   = topo_yml, sort_keys=False)
+    # # Write topology metadata as fixed-length array of ASCII characters
+    # h5['topology.yml'] = np.array( geom, dtype='S' )
 
-    group['points'] = nurbs.points[...,:nurbs.dim]
-    if rational:
-        group['weights'] = nurbs.weights
+    # group = h5.create_group( yml['patches'][i]['mapping_id'] )
+    # group.attrs['degree'     ] = nurbs.degree
+    # group.attrs['rational'   ] = rational
+    # group.attrs['periodic'   ] = tuple( False for d in range( nurbs.dim ) ) if periodic is None else periodic
+    # for d in range( nurbs.dim ):
+    #     group['knots_{}'.format( d )] = nurbs.knots[d]
 
-    h5.close()
+    # group['points'] = nurbs.points[...,:nurbs.dim]
+    # if rational:
+    #     group['weights'] = nurbs.weights
+
+    # h5.close()
 
 #==============================================================================
 def refine_nurbs(nrb, ncells=None, degree=None, multiplicity=None, tol=1e-9):
@@ -629,45 +631,47 @@ def refine_nurbs(nrb, ncells=None, degree=None, multiplicity=None, tol=1e-9):
 
     """
 
-    if multiplicity is None:
-        multiplicity = [1]*nrb.dim
+    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `refine_nurbs` must be re-implemented')
 
-    nrb = nrb.clone()
-    if ncells is not None:
+    # if multiplicity is None:
+    #     multiplicity = [1]*nrb.dim
 
-        for axis in range(0,nrb.dim):
-            ub = nrb.breaks(axis)[0]
-            ue = nrb.breaks(axis)[-1]
-            knots = np.linspace(ub,ue,ncells[axis]+1)
-            index = nrb.knots[axis].searchsorted(knots)
-            nrb_knots = nrb.knots[axis][index]
-            for m,(nrb_k, k) in enumerate(zip(nrb_knots, knots)):
-                if abs(k-nrb_k)<tol:
-                    knots[m] = np.nan
+    # nrb = nrb.clone()
+    # if ncells is not None:
 
-            knots   = knots[~np.isnan(knots)]
-            indices = np.round(np.linspace(0, len(knots) - 1, ncells[axis]+1-len(nrb.breaks(axis)))).astype(int)
+    #     for axis in range(0,nrb.dim):
+    #         ub = nrb.breaks(axis)[0]
+    #         ue = nrb.breaks(axis)[-1]
+    #         knots = np.linspace(ub,ue,ncells[axis]+1)
+    #         index = nrb.knots[axis].searchsorted(knots)
+    #         nrb_knots = nrb.knots[axis][index]
+    #         for m,(nrb_k, k) in enumerate(zip(nrb_knots, knots)):
+    #             if abs(k-nrb_k)<tol:
+    #                 knots[m] = np.nan
 
-            knots = knots[indices]
+    #         knots   = knots[~np.isnan(knots)]
+    #         indices = np.round(np.linspace(0, len(knots) - 1, ncells[axis]+1-len(nrb.breaks(axis)))).astype(int)
 
-            if len(knots)>0:
-                nrb.refine(axis, knots)
+    #         knots = knots[indices]
 
-    if degree is not None:
-        for axis in range(0,nrb.dim):
-            d = degree[axis] - nrb.degree[axis]
-            if d<0:
-                raise ValueError('The degree {} must be >= {}'.format(degree, nrb.degree))
-            nrb.elevate(axis, times=d)
+    #         if len(knots)>0:
+    #             nrb.refine(axis, knots)
 
-    for axis in range(nrb.dim):
-        decimals = abs(np.floor(np.log10(np.abs(tol))).astype(int))
-        knots, counts = np.unique(nrb.knots[axis].round(decimals=decimals), return_counts=True)
-        counts = multiplicity[axis] - counts
-        counts[counts<0] = 0
-        knots = np.repeat(knots, counts)
-        nrb = nrb.refine(axis, knots)
-    return nrb
+    # if degree is not None:
+    #     for axis in range(0,nrb.dim):
+    #         d = degree[axis] - nrb.degree[axis]
+    #         if d<0:
+    #             raise ValueError('The degree {} must be >= {}'.format(degree, nrb.degree))
+    #         nrb.elevate(axis, times=d)
+
+    # for axis in range(nrb.dim):
+    #     decimals = abs(np.floor(np.log10(np.abs(tol))).astype(int))
+    #     knots, counts = np.unique(nrb.knots[axis].round(decimals=decimals), return_counts=True)
+    #     counts = multiplicity[axis] - counts
+    #     counts[counts<0] = 0
+    #     knots = np.repeat(knots, counts)
+    #     nrb = nrb.refine(axis, knots)
+    # return nrb
 
 def refine_knots(knots, ncells, degree, multiplicity=None, tol=1e-9):
     """
@@ -700,47 +704,51 @@ def refine_knots(knots, ncells, degree, multiplicity=None, tol=1e-9):
     knots : <list>
         the refined knot sequences in each direction
     """
-    from igakit.nurbs import NURBS
-    dim = len(ncells)
 
-    if multiplicity is None:
-        multiplicity = [1]*dim
+    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `refine_knots` must be re-implemented')
 
-    assert len(knots) == dim
+    # from igakit.nurbs import NURBS
+    # dim = len(ncells)
 
-    nrb = NURBS(knots)
-    for axis in range(dim):
-        ub = nrb.breaks(axis)[0]
-        ue = nrb.breaks(axis)[-1]
-        knots = np.linspace(ub,ue,ncells[axis]+1)
-        index = nrb.knots[axis].searchsorted(knots)
-        nrb_knots = nrb.knots[axis][index]
-        for m,(nrb_k, k) in enumerate(zip(nrb_knots, knots)):
-            if abs(k-nrb_k)<tol:
-                knots[m] = np.nan
+    # if multiplicity is None:
+    #     multiplicity = [1]*dim
 
-        knots   = knots[~np.isnan(knots)]
-        indices = np.round(np.linspace(0, len(knots) - 1, ncells[axis]+1-len(nrb.breaks(axis)))).astype(int)
+    # assert len(knots) == dim
 
-        knots = knots[indices]
+    # nrb = NURBS(knots)
+    # for axis in range(dim):
+    #     ub = nrb.breaks(axis)[0]
+    #     ue = nrb.breaks(axis)[-1]
+    #     knots = np.linspace(ub,ue,ncells[axis]+1)
+    #     index = nrb.knots[axis].searchsorted(knots)
+    #     nrb_knots = nrb.knots[axis][index]
+    #     for m,(nrb_k, k) in enumerate(zip(nrb_knots, knots)):
+    #         if abs(k-nrb_k)<tol:
+    #             knots[m] = np.nan
 
-        if len(knots)>0:
-            nrb.refine(axis, knots)
+    #     knots   = knots[~np.isnan(knots)]
+    #     indices = np.round(np.linspace(0, len(knots) - 1, ncells[axis]+1-len(nrb.breaks(axis)))).astype(int)
 
-    for axis in range(dim):
-        d = degree[axis] - nrb.degree[axis]
-        if d<0:
-            raise ValueError('The degree {} must be >= {}'.format(degree, nrb.degree))
-        nrb.elevate(axis, times=d)
+    #     knots = knots[indices]
 
-    for axis in range(dim):
-        decimals = abs(np.floor(np.log10(np.abs(tol))).astype(int))
-        knots, counts = np.unique(nrb.knots[axis].round(decimals=decimals), return_counts=True)
-        counts = multiplicity[axis] - counts
-        counts[counts<0] = 0
-        knots = np.repeat(knots, counts)
-        nrb = nrb.refine(axis, knots)
-    return nrb.knots
+    #     if len(knots)>0:
+    #         nrb.refine(axis, knots)
+
+    # for axis in range(dim):
+    #     d = degree[axis] - nrb.degree[axis]
+    #     if d<0:
+    #         raise ValueError('The degree {} must be >= {}'.format(degree, nrb.degree))
+    #     nrb.elevate(axis, times=d)
+
+    # for axis in range(dim):
+    #     decimals = abs(np.floor(np.log10(np.abs(tol))).astype(int))
+    #     knots, counts = np.unique(nrb.knots[axis].round(decimals=decimals), return_counts=True)
+    #     counts = multiplicity[axis] - counts
+    #     counts[counts<0] = 0
+    #     knots = np.repeat(knots, counts)
+    #     nrb = nrb.refine(axis, knots)
+    # return nrb.knots
+
 #==============================================================================
 def import_geopdes_to_nurbs(filename):
     """
@@ -824,30 +832,32 @@ def _read_line(line):
 
 def _read_patch(lines, i_patch, n_lines_per_patch, list_begin_line):
 
-    from igakit.nurbs import NURBS
+    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `_read_patch` must be re-implemented')
 
-    i_begin_line = list_begin_line[i_patch-1]
-    data_patch = []
+    # from igakit.nurbs import NURBS
 
-    for i in range(i_begin_line+1, i_begin_line + n_lines_per_patch+1):
-        data_patch.append(_read_line(lines[i]))
+    # i_begin_line = list_begin_line[i_patch-1]
+    # data_patch = []
 
-    degree = data_patch[0]
-    shape  = data_patch[1]
+    # for i in range(i_begin_line+1, i_begin_line + n_lines_per_patch+1):
+    #     data_patch.append(_read_line(lines[i]))
 
-    xl     = [np.array(i) for i in data_patch[2:2+len(degree)] ]
-    xp     = [np.array(i) for i in data_patch[2+len(degree):2+2*len(degree)] ]
-    w      = np.array(data_patch[2+2*len(degree)])
+    # degree = data_patch[0]
+    # shape  = data_patch[1]
 
-    X = [i.reshape(shape, order='F') for i in xp]
-    W = w.reshape(shape, order='F')
+    # xl     = [np.array(i) for i in data_patch[2:2+len(degree)] ]
+    # xp     = [np.array(i) for i in data_patch[2+len(degree):2+2*len(degree)] ]
+    # w      = np.array(data_patch[2+2*len(degree)])
 
-    points = np.zeros((*shape, 3))
-    for i in range(len(shape)):
-        points[..., i] = X[i]
+    # X = [i.reshape(shape, order='F') for i in xp]
+    # W = w.reshape(shape, order='F')
 
-    knots = xl
+    # points = np.zeros((*shape, 3))
+    # for i in range(len(shape)):
+    #     points[..., i] = X[i]
 
-    nrb = NURBS(knots, control=points, weights=W)
-    return nrb
+    # knots = xl
+
+    # nrb = NURBS(knots, control=points, weights=W)
+    # return nrb
 
