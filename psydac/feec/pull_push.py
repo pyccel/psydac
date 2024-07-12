@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from sympde.topology import AbstractMapping
+from sympde.topology import BaseMapping
 
 __all__ = (
     #
@@ -38,7 +38,7 @@ __all__ = (
 #==============================================================================
 def pull_1d_h1(f, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 1
 
     def f_logical(eta1):
@@ -50,7 +50,7 @@ def pull_1d_h1(f, F):
 #==============================================================================
 def pull_1d_l2(f, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 1
 
     def f_logical(eta1):
@@ -67,7 +67,7 @@ def pull_1d_l2(f, F):
 #==============================================================================
 def pull_2d_h1vec(f, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2    
 
     f1, f2 = f
@@ -96,7 +96,7 @@ def pull_2d_h1vec(f, F):
 
 def pull_2d_h1(f, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2
 
     def f_logical(eta1, eta2):
@@ -108,7 +108,7 @@ def pull_2d_h1(f, F):
 #==============================================================================
 def pull_2d_hcurl(f, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2
 
     # Assume that f is a list/tuple of callable functions
@@ -139,7 +139,7 @@ def pull_2d_hcurl(f, F):
 #==============================================================================
 def pull_2d_hdiv(f, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2
 
     # Assume that f is a list/tuple of callable functions
@@ -172,7 +172,7 @@ def pull_2d_hdiv(f, F):
 #==============================================================================
 def pull_2d_l2(f, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2
 
     def f_logical(eta1, eta2):
@@ -193,7 +193,7 @@ def pull_2d_l2(f, F):
 
 def pull_3d_h1vec(f, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
     f1, f2, f3 = f
@@ -236,7 +236,7 @@ def pull_3d_h1vec(f, F):
 #==============================================================================
 def pull_3d_h1(f, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
     def f_logical(eta1, eta2, eta3):
@@ -248,7 +248,7 @@ def pull_3d_h1(f, F):
 #==============================================================================
 def pull_3d_hcurl(f, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
     # Assume that f is a list/tuple of callable functions
@@ -292,7 +292,7 @@ def pull_3d_hcurl(f, F):
 #==============================================================================
 def pull_3d_hdiv(f, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
     # Assume that f is a list/tuple of callable functions
@@ -339,7 +339,7 @@ def pull_3d_hdiv(f, F):
 #==============================================================================
 def pull_3d_l2(f, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
     def f_logical(eta1, eta2, eta3):
@@ -366,7 +366,7 @@ def push_1d_h1(f, eta):
 
 def push_1d_l2(f, eta, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 1
 
     return f(eta) / F.metric_det_eval(eta)**0.5
@@ -382,7 +382,7 @@ def push_2d_h1(f, eta1, eta2):
 #def push_2d_hcurl(f, eta, F):
 def push_2d_hcurl(f1, f2, eta1, eta2, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2
 
 #    # Assume that f is a list/tuple of callable functions
@@ -403,7 +403,7 @@ def push_2d_hcurl(f1, f2, eta1, eta2, F):
 #def push_2d_hdiv(f, eta, F):
 def push_2d_hdiv(f1, f2, eta1, eta2, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2
 
 #    # Assume that f is a list/tuple of callable functions
@@ -425,7 +425,7 @@ def push_2d_hdiv(f1, f2, eta1, eta2, F):
 #def push_2d_l2(f, eta, F):
 def push_2d_l2(f, eta1, eta2, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2
 
     eta = eta1, eta2
@@ -448,7 +448,7 @@ def push_3d_h1(f, eta1, eta2, eta3):
 #def push_3d_hcurl(f, eta, F):
 def push_3d_hcurl(f1, f2, f3, eta1, eta2, eta3, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
 #    # Assume that f is a list/tuple of callable functions
@@ -479,7 +479,7 @@ def push_3d_hcurl(f1, f2, f3, eta1, eta2, eta3, F):
 #def push_3d_hdiv(f, eta, F):
 def push_3d_hdiv(f1, f2, f3, eta1, eta2, eta3, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
 #    # Assume that f is a list/tuple of callable functions
@@ -510,7 +510,7 @@ def push_3d_hdiv(f1, f2, f3, eta1, eta2, eta3, F):
 #def push_3d_l2(f, eta, F):
 def push_3d_l2(f, eta1, eta2, eta3, F):
 
-    assert isinstance(F, AbstractMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
     eta = eta1, eta2, eta3

@@ -12,7 +12,7 @@ import yaml
 
 from time   import time
 
-from sympde.topology.abstract_mapping      import AbstractMapping
+from sympde.topology.abstract_mapping      import BaseMapping
 from sympde.topology.basic import BasicDomain
 from sympde.topology.domain import Domain 
 from sympde.topology.base_analytic_mapping      import MappedDomain
@@ -39,7 +39,7 @@ def random_string(n):
     return ''.join(selector.choice(chars) for _ in range(n))
 
 #==============================================================================
-class SplineMapping(AbstractMapping):
+class SplineMapping(BaseMapping):
 
     def __init__(self, *components, name=None):
 
@@ -78,7 +78,7 @@ class SplineMapping(AbstractMapping):
     def from_mapping(cls, tensor_space, mapping):
 
         assert isinstance(tensor_space, TensorFemSpace)
-        assert isinstance(mapping, AbstractMapping)
+        assert isinstance(mapping, BaseMapping)
         assert tensor_space.ldim == mapping.ldim
 
         # Create one separate scalar field for each physical dimension

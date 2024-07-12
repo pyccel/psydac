@@ -1,4 +1,4 @@
-from sympde.topology import AbstractMapping
+from sympde.topology import BaseMapping
 
 from psydac.api.basic              import BasicDiscrete
 from psydac.feec.derivatives       import Derivative_1D, Gradient_2D, Gradient_3D
@@ -20,7 +20,7 @@ class DiscreteDerham(BasicDiscrete):
 
     Parameters
     ----------
-    mapping : AbstractMapping or None
+    mapping : BaseMapping or None
         Symbolic mapping from the logical space to the physical space, if any.
 
     *spaces : list of FemSpace
@@ -28,7 +28,7 @@ class DiscreteDerham(BasicDiscrete):
 
     Notes
     -----
-    - The basic type AbstractMapping is defined in module sympde.topology.abstract_mapping
+    - The basic type BaseMapping is defined in module sympde.topology.abstract_mapping
       A discrete mapping (spline or NURBS) may be attached to it.
 
     - This constructor should not be called directly, but rather from the
@@ -39,7 +39,7 @@ class DiscreteDerham(BasicDiscrete):
     """
     def __init__(self, mapping, *spaces):
 
-        assert (mapping is None) or isinstance(mapping, AbstractMapping)
+        assert (mapping is None) or isinstance(mapping, BaseMapping)
         assert all(isinstance(space, FemSpace) for space in spaces)
 
         self.has_vec = isinstance(spaces[-1], VectorFemSpace)
