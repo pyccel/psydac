@@ -367,6 +367,9 @@ class Geometry( object ):
         # ...
 
         # Add spline callable mappings to domain undefined mappings
+        for patch, F in zip(interiors, mappings.values()):
+            patch.mapping=F
+
         
         # ...
         self._ldim        = ldim

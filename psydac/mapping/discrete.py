@@ -12,7 +12,7 @@ import yaml
 
 from time   import time
 
-from sympde.topology.abstract_mapping      import BaseMapping
+from sympde.topology.base_mapping      import BaseMapping
 from sympde.topology.basic import BasicDomain
 from sympde.topology.domain import Domain 
 from sympde.topology.base_analytic_mapping      import MappedDomain

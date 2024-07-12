@@ -928,7 +928,7 @@ def test_maxwell_2d_dirichlet_par():
 #==============================================================================
 if __name__ == '__main__':
 
-    import argparse
+    '''import argparse
 
     parser = argparse.ArgumentParser(
         formatter_class = argparse.ArgumentDefaultsHelpFormatter,
@@ -1038,6 +1038,7 @@ if __name__ == '__main__':
     # Run simulation
     namespace = run_maxwell_2d_TE(**vars(args))
    
-    # Keep matplotlib windows open
+    # Keep matplotlib windows open'''
+    test_maxwell_2d_dirichlet_spline_mapping()
     import matplotlib.pyplot as plt
     plt.show()

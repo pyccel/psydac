@@ -28,7 +28,7 @@ class DiscreteDerham(BasicDiscrete):
 
     Notes
     -----
-    - The basic type BaseMapping is defined in module sympde.topology.abstract_mapping
+    - The basic type BaseMapping is defined in module sympde.topology.base_mapping
       A discrete mapping (spline or NURBS) may be attached to it.
 
     - This constructor should not be called directly, but rather from the
