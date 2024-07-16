@@ -89,7 +89,7 @@ jobs:
           wget https://github.com/pyccel/sympde/archive/refs/heads/master.zip
           unzip ./"master.zip"
           rm ./"master.zip"
-          cd master
+          cd sympde-master
           python3 -m pip install -e .
           cd ..
 
