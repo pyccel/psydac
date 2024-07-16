@@ -33,7 +33,7 @@ dependencies = [
     'pyevtk',
 
     # Our packages from PyPi
-    'sympde == v0.18.4',
+    # 'sympde == v0.18.4',
     'pyccel >= 1.11.2',
     'gelato == 0.12',
 
@@ -48,6 +48,9 @@ dependencies = [
     # When pyccel is run in parallel with MPI, it uses tblib to pickle
     # tracebacks, which allows mpi4py to broadcast exceptions
     'tblib',
+
+    # SYMPDE - development version
+    # 'sympde @ https://github.com/pyccel/sympde/archive/refs/heads/master.zip'
 
     # IGAKIT - not on PyPI
 
