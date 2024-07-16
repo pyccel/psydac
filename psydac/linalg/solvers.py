@@ -1165,7 +1165,7 @@ class MinimumResidual(InverseLinearOperator):
         A.dot(x, out=y)
         y -= b
         y *= -1.0
-        y.copy(out=res_old)
+        y.copy(out=res_old)   # res = b - A*x
 
         beta = sqrt(res_old.dot(res_old))
 
@@ -1193,8 +1193,15 @@ class MinimumResidual(InverseLinearOperator):
             print( "+---------+---------------------+")
             template = "| {:7d} | {:19.2e} |"
 
+        # check whether solution is already converged:
+        if beta < tol:
+            istop = 1
+            rnorm = beta
+            if verbose:
+                print( template.format(itn, rnorm ))
 
-        for itn in range(1, maxiter + 1 ):
+        while istop == 0 and itn < maxiter:
+            itn += 1
 
             s = 1.0/beta
             y.copy(out=v)
