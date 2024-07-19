@@ -1,14 +1,13 @@
 import pytest
 import numpy as np
 from mpi4py import MPI
-from sympy import pi, sin, cos, tan, atan, atan2, exp, sinh, cosh, tanh, atanh, Tuple, I
-
-
+from sympy import Domain, pi, sin, cos, tan, atan, atan2, exp, sinh, cosh, tanh, atanh, Tuple, I, sqrt
+from sympy import lambdify
 from sympde.topology import Line, Square
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import element_of, Derham
+from sympde.topology import element_of, Derham, elements_of
 from sympde.core     import Constant
-from sympde.expr     import LinearForm, BilinearForm, Functional, Norm
+from sympde.expr     import LinearForm, BilinearForm, Functional, Norm, SemiNorm
 from sympde.expr     import integral
 from sympde.calculus import Inner
 
@@ -530,8 +529,238 @@ def test_assembly_no_synchr_args(backend):
     assert( abs(inte_lin) < 1.e-12)
     assert( abs(inte_norm) < 1.e-12)
 
+# def norm_projected(expr, Vh, nquads):
+#     from psydac.feec.global_projectors import Projector_L2
+#     P = Projector_L2(Vh, nquads=nquads)
+#     solution_call = lambdify(Domain.coordinates, solution)
+#     sol_h = P(solution_call)
+#     sol_c = sol_h.coeffs
+#     a = BilinearForm((u, v),  integral(domain, u*v))
+#     a_h = discretize(a, domain_h, [Vh,Vh], backend=None)
+#     M = a_h.assemble()
+#     l2_norm_psydac = np.sqrt(sol_c.dot(M.dot(sol_c)))
+
+    
+
+def test_sympde_norm(backend):
+
+    kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
+
+    domain = Square('domain', bounds1=(0, 1), bounds2=(0, 1))
+
+    U = ScalarFunctionSpace('U', domain, kind=None)
+    U.codomain_type='real'    
+    V = ScalarFunctionSpace('V', domain, kind=None)
+    V.codomain_type='complex'
+    u1, u2 = elements_of(U, names='u1, u2')
+    v1, v2 = elements_of(V, names='v1, v2')
+
+    x, y = domain.coordinates
+    kappa = 2*pi
+    rho = sin(kappa * y)    # real    
+    dx_rho = 0 * y
+    dy_rho = kappa * cos(kappa * y)
+    phi = exp(1j * kappa * x) * rho  # complex
+    # other possible expressions? also fail:
+    # phi = exp(I * kappa * x) * rho 
+    # phi = (cos(kappa * x) + 1j * sin(kappa * x)) * rho  
+    # phi = (cos(kappa * x) + 1.j * sin(kappa * x)) * rho  
+    dx_phi = 1j * kappa * phi
+    dy_phi = exp(1j * kappa * x) * dy_rho
+
+    # sympde L2 norms
+    rho_l2_sym = Norm(rho, domain, kind='l2')
+    phi_l2_sym = Norm(phi, domain, kind='l2') 
+    # sympde H1 semi-norms
+    rho_h1s_sym = SemiNorm(rho, domain, kind='h1')
+    phi_h1s_sym = SemiNorm(phi, domain, kind='h1')
+
+    # Q: can we evaluate these norms directly (in sympde)?
+    
+    # aux 
+    rho_l2_usym = Norm(rho - u1, domain, kind='l2')
+    rho_l2_vsym = Norm(rho - v1, domain, kind='l2')
+    # phi_l2_vsym = Norm(phi - v1, domain, kind='l2')
+    phi_l2_vsym = Norm(v1 - phi, domain, kind='l2')
+    rho_h1s_usym = SemiNorm(rho - u1, domain, kind='h1')
+    rho_h1s_vsym = SemiNorm(rho - v1, domain, kind='h1')
+    phi_h1s_vsym = SemiNorm(phi - v1, domain, kind='h1')
+    
+    # aux 2
+    l2_usym = Norm(u1, domain, kind='l2')
+    l2_vsym = Norm(v1, domain, kind='l2')
+    h1s_usym = SemiNorm(u1, domain, kind='h1')
+    h1s_vsym = SemiNorm(v1, domain, kind='h1')
+
+    # exact norms
+    rho_l2_ex = sqrt((1-sin(2*kappa)/(2*kappa))/2)
+    rho_h1s_ex = kappa * sqrt(1-rho_l2_ex**2) # todo
+    rho_h1_ex = sqrt(rho_l2_ex**2 + rho_h1s_ex**2)
+
+    phi_l2_ex = rho_l2_ex
+    phi_h1s_ex = kappa
+    phi_h1_ex = sqrt(phi_l2_ex**2 + phi_h1s_ex**2)
+    
+    # discretize norms
+    ncells = [8, 8]
+    degree = [4, 4]
+    domain_h = discretize(domain, ncells=ncells, periodic=[False, False])
+    Uh       = discretize(U, domain_h, degree=degree)
+    Vh       = discretize(V, domain_h, degree=degree)
+
+    # commented because currently not working. TODO: fix this
+    # rho_l2_h = discretize(rho_l2_sym, domain_h, Uh, **kwargs)  # todo: also try in Vh
+    # phi_l2_h = discretize(phi_l2_sym, domain_h, Vh, **kwargs)    
+    # rho_l2 = rho_l2_h.assemble()
+    # phi_l2 = phi_l2_h.assemble()
+    rho_l2 = 'NOT IMPLEMENTED (todo)'
+    phi_l2 = 'NOT IMPLEMENTED (todo)'
+
+    # aux 
+    rho_l2_usym_h = discretize(rho_l2_usym, domain_h, Uh, **kwargs)
+    zero_h = FemField(Uh)
+    rho_l2_u0 = rho_l2_usym_h.assemble(u1=zero_h)
+
+    rho_l2_vsym_h = discretize(rho_l2_vsym, domain_h, Vh, **kwargs)
+    zero_h = FemField(Vh)
+    rho_l2_v0 = rho_l2_vsym_h.assemble(v1=zero_h)
+
+    phi_l2_vsym_h = discretize(phi_l2_vsym, domain_h, Vh, **kwargs)
+    zero_h = FemField(Vh)
+    phi_l2_v0 = phi_l2_vsym_h.assemble(v1=zero_h)
+
+    rho_h1s_usym_h = discretize(rho_h1s_usym, domain_h, Uh, **kwargs)
+    zero_h = FemField(Uh)
+    rho_h1s_u0 = rho_h1s_usym_h.assemble(u1=zero_h)
+
+    rho_h1s_vsym_h = discretize(rho_h1s_vsym, domain_h, Vh, **kwargs)
+    zero_h = FemField(Vh)
+    rho_h1s_v0 = rho_h1s_vsym_h.assemble(v1=zero_h)
+
+    phi_h1s_vsym_h = discretize(phi_h1s_vsym, domain_h, Vh, **kwargs)
+    zero_h = FemField(Vh)
+    phi_h1s_v0 = phi_h1s_vsym_h.assemble(v1=zero_h)
+
+    # discretize norms through L2 projection
+    m_U = BilinearForm((u1, v1),  integral(domain, u1*v1))
+    m_V = BilinearForm((u2, v2),  integral(domain, u2*v2))
+    mh_U = discretize(m_U, domain_h, [Uh,Uh], **kwargs)
+    mh_V = discretize(m_V, domain_h, [Vh,Vh], **kwargs)
+    M_U = mh_U.assemble()
+    M_V = mh_V.assemble()
+    
+    from psydac.feec.global_projectors import Projector_L2
+    P_U = Projector_L2(Uh, nquads=[2*d+1 for d in degree])
+    P_V = Projector_L2(Vh, nquads=[2*d+1 for d in degree])
+
+    def proj(fun_sym, space = 'U'):
+        fun = lambdify(domain.coordinates, fun_sym)
+        if space == 'U':
+            return P_U(fun)
+        elif space == 'V':
+            return P_V(fun)
+        else:
+            raise ValueError('space must be either "U" or "V"')
+
+    rho_h = proj(rho, space = 'U') # todo: try with V
+    dx_rho_h = proj(dx_rho, space = 'U')
+    dy_rho_h = proj(dy_rho, space = 'U')
+    phi_h = proj(phi, space = 'V')
+    dx_phi_h = proj(dx_phi, space = 'V')
+    dy_phi_h = proj(dy_phi, space = 'V')
+
+    rho_c = rho_h.coeffs
+    dx_rho_c = dx_rho_h.coeffs
+    dy_rho_c = dy_rho_h.coeffs
+    phi_c = phi_h.coeffs
+    dx_phi_c = dx_phi_h.coeffs
+    dy_phi_c = dy_phi_h.coeffs
+
+    rho_h_l2  = np.sqrt(rho_c.dot(M_U.dot(rho_c)))
+    rho_h_h1s = np.sqrt(dx_rho_c.dot(M_U.dot(dx_rho_c)) + dy_rho_c.dot(M_U.dot(dy_rho_c))) 
+
+    phi_h_l2 = np.sqrt(np.real(phi_c.dot(M_V.dot(phi_c))))
+    phi_h_h1s = np.sqrt(np.real(dx_phi_c.dot(M_V.dot(dx_phi_c)) + dy_phi_c.dot(M_V.dot(dy_phi_c))))
+
+    # aux 2
+    l2_usym_h  = discretize(l2_usym, domain_h, Uh, **kwargs)   # todo: try with V
+    h1s_usym_h = discretize(h1s_usym, domain_h, Uh, **kwargs)
+    l2_vsym_h  = discretize(l2_vsym, domain_h, Vh, **kwargs)
+    h1s_vsym_h = discretize(h1s_vsym, domain_h, Vh, **kwargs)
+
+    l2_urho  = l2_usym_h.assemble(u1=rho_h)
+    h1s_urho = h1s_usym_h.assemble(u1=rho_h)
+
+    l2_vphi  = l2_vsym_h.assemble(v1=phi_h)
+    h1s_vphi = h1s_vsym_h.assemble(v1=phi_h)
+
+
+    # compare
+        
+    tol  = 1e-12
+    htol = 1e-4
+
+    print(" ---- ---- ---- ---- ---- ---- ---- ")
+    print(" ---- ---- ---- ---- ---- ---- ---- ")
+    print(" rho L2 norms: ")    
+    print(f'rho_l2     = {rho_l2}')
+    print(f'rho_l2_u0  = {rho_l2_u0}')
+    print(f'rho_l2_v0  = {rho_l2_v0}')
+    print(f'rho_l2_ex  = {rho_l2_ex.evalf()}')
+    print(f'rho_h_l2   = {rho_h_l2}')
+    print(f'l2_urho    = {l2_urho}')
+    rho_l2_ref = rho_l2_ex.evalf()    
+    # assert abs(rho_l2 - rho_l2_ref) < tol  # TODO
+    assert abs(rho_l2_u0 - rho_l2_ref) < tol
+    assert abs(rho_l2_v0 - rho_l2_ref) < tol
+    assert abs(rho_h_l2 - rho_l2_ref) < htol
+    assert abs(l2_urho - rho_l2_ref) < htol
+    print(" ---- ---- ---- ---- ---- ---- ---- ")
+    print(" phi L2 norms: ")
+    print(f'phi_l2     = {phi_l2}')
+    print(f'phi_l2_v0  = {phi_l2_v0}')
+    print(f'phi_l2_ex  = {phi_l2_ex.evalf()}')
+    print(f'phi_h_l2   = {phi_h_l2}')
+    print(f'l2_vphi    = {l2_vphi}')
+    phi_l2_ref = phi_l2_ex.evalf()
+    # assert abs(phi_l2 - phi_l2_ref) < tol  # TODO
+    assert abs(phi_l2_v0 - phi_l2_ref) < tol  # FAILS!
+    assert abs(phi_h_l2 - phi_l2_ref) < htol
+    assert abs(l2_vphi - phi_l2_ref) < htol  # FAILS!
+    print(" ---- ---- ---- ---- ---- ---- ---- ")
+    print(" ---- ---- ---- ---- ---- ---- ---- ")
+    print(" rho H1-seminorms: ")
+    print(f'rho_h1s_u0  = {rho_h1s_u0}')
+    print(f'rho_h1s_v0  = {rho_h1s_v0}')
+    print(f'rho_h1s_ex  = {rho_h1s_ex.evalf()}')
+    print(f'rho_h_h1s   = {rho_h_h1s}')
+    print(f'h1s_urho    = {h1s_urho}')
+    rho_h1s_ref = rho_h1s_ex.evalf()
+    assert abs(rho_h1s_u0 - rho_h1s_ref) < tol  # FAILS!
+    assert abs(rho_h1s_v0 - rho_h1s_ref) < tol  # FAILS!
+    assert abs(rho_h_h1s - rho_h1s_ref) < htol
+    assert abs(h1s_urho - rho_h1s_ref) < htol
+    print(" ---- ---- ---- ---- ---- ---- ---- ")
+    print(" phi H1-seminorms: ")
+    print(f'phi_h1s_v0  = {phi_h1s_v0}')
+    print(f'phi_h1s_ex  = {phi_h1s_ex.evalf()}')
+    print(f'phi_h_h1s   = {phi_h_h1s}')
+    print(f'h1s_vphi    = {h1s_vphi}')
+    phi_h1s_ref = phi_h1s_ex.evalf()
+    assert abs(phi_h1s_v0 - phi_h1s_ref) < tol # FAILS!
+    assert abs(phi_h_h1s - phi_h1s_ref) < htol
+    assert abs(h1s_vphi - phi_h1s_ref) < htol # FAILS!
+    print(" ---- ---- ---- ---- ---- ---- ---- ")
+    print(" ---- ---- ---- ---- ---- ---- ---- ")
+
+    
+
 #==============================================================================
 if __name__ == '__main__':
+
+    test_Norm_complex(None)
+    test_sympde_norm(None)
+    exit()
     test_field_and_constant(None)
     test_multiple_fields(None)
     test_math_imports(None)
