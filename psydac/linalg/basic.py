@@ -11,6 +11,8 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 from scipy.sparse import coo_matrix
+from types import LambdaType 
+from inspect import signature
 
 from psydac.utilities.utils import is_real
 
@@ -25,7 +27,8 @@ __all__ = (
     'ComposedLinearOperator',
     'PowerLinearOperator',
     'InverseLinearOperator',
-    'LinearSolver'
+    'LinearSolver',
+    'MatrixFreeLinearOperator'
 )
 
 #===============================================================================
@@ -1111,3 +1114,110 @@ class LinearSolver(ABC):
     @property
     def T(self):
         return self.transpose()
+
+#===============================================================================
+class MatrixFreeLinearOperator(LinearOperator):
+    """
+    General linear operator represented by a callable dot method.
+
+    Parameters
+    ----------
+    domain : VectorSpace
+        The domain of the linear operator.
+    
+    codomain : VectorSpace
+        The codomain of the linear operator.
+    
+    dot : Callable
+        The method of the linear operator, assumed to map from domain to codomain.    
+        This method can take out as an optional argument but this is not mandatory.
+
+    dot_transpose: Callable
+        The method of the transpose of the linear operator, assumed to map from codomain to domain.
+        This method can take out as an optional argument but this is not mandatory.
+
+    Examples
+    --------
+        # example 1: a matrix encapsulated as a (fake) matrix-free linear operator        
+        A_SM = StencilMatrix(V, W)
+        AT_SM = A_SM.transpose()
+        A = MatrixFreeLinearOperator(domain=V, codomain=W, dot=lambda v: A_SM @ v, dot_transpose=lambda v: AT_SM @ v)
+
+        # example 2: a truly matrix-free linear operator
+        A = MatrixFreeLinearOperator(domain=V, codomain=V, dot=lambda v: 2*v, dot_transpose=lambda v: 2*v)
+
+    """
+
+    def __init__(self, domain, codomain, dot, dot_transpose=None):
+
+        assert isinstance(domain, VectorSpace)
+        assert isinstance(codomain, VectorSpace)       
+        assert isinstance(dot, LambdaType)
+
+        self._domain = domain
+        self._codomain = codomain
+        self._dot = dot
+
+        sig =  signature(dot)
+        self._dot_takes_out_arg = ('out' in [p.name for p in sig.parameters.values() if p.kind == p.KEYWORD_ONLY])
+
+        if dot_transpose is not None:
+            assert isinstance(dot_transpose, LambdaType)
+            self._dot_transpose = dot_transpose
+            sig =  signature(dot_transpose)
+            self._dot_transpose_takes_out_arg = ('out' in [p.name for p in sig.parameters.values() if p.kind == p.KEYWORD_ONLY])
+        else:
+            self._dot_transpose = None
+            self._dot_transpose_takes_out_arg = False            
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return None
+
+    def dot(self, v, out=None):
+        assert isinstance(v, Vector)
+        assert v.space == self.domain
+
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self.codomain
+        else:
+            out = self.codomain.zeros()
+
+        if self._dot_takes_out_arg:
+            self._dot(v, out=out)
+        else:
+            # provided dot product does not take an out argument: we simply copy the result into out
+            self._dot(v).copy(out=out)
+                    
+        return out
+        
+    def toarray(self):
+        raise NotImplementedError('toarray() is not defined for MatrixFreeLinearOperator.')
+
+    def tosparse(self):
+        raise NotImplementedError('tosparse() is not defined for MatrixFreeLinearOperator.')
+    
+    def transpose(self, conjugate=False):
+        if self._dot_transpose is None:
+            raise NotImplementedError('no transpose dot method was given -- cannot create the transpose operator')
+        
+        if conjugate:
+            if self._dot_transpose_takes_out_arg:
+                new_dot = lambda v, out=None: self._dot_transpose(v, out=out).conjugate()
+            else:
+                new_dot = lambda v: self._dot_transpose(v).conjugate()
+        else:
+            new_dot = self._dot_transpose
+
+        return MatrixFreeLinearOperator(domain=self.codomain, codomain=self.domain, dot=new_dot, dot_transpose=self._dot)
+
+    
