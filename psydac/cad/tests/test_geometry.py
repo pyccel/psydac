@@ -55,6 +55,7 @@ def test_geometry_2d_1():
     geo_1.export('geo_1.h5')
 
 #==============================================================================
+@pytest.mark.xfail  # igakit no longer supported
 def test_geometry_2d_2():
 
     # create a nurbs mapping
@@ -105,6 +106,7 @@ def test_geometry_2d_2():
 
 #==============================================================================
 # TODO to be removed
+@pytest.mark.xfail  # igakit no longer supported
 def test_geometry_2d_3():
 
     # create a nurbs mapping
@@ -138,6 +140,7 @@ def test_geometry_2d_3():
 
 #==============================================================================
 # TODO to be removed
+@pytest.mark.xfail  # igakit no longer supported
 def test_geometry_2d_4():
 
     # create a nurbs mapping
@@ -225,6 +228,7 @@ def test_geometry_2d_4():
 #==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
+@pytest.mark.xfail  # igakit no longer supported
 def test_import_geopdes_to_nurbs(ncells, degree):
 
 
