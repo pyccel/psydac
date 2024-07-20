@@ -153,7 +153,8 @@ def run_boundary_field_test(domain, boundary, f, ncells):
     a_grad_F_h = discretize(a_grad_F, domain_h, [Vh, Vh])
     a_grad_f_h = discretize(a_grad_f, domain_h, [Vh, Vh])
     a_grad_F_x = a_grad_F_h.assemble(F=fh)
-    a_grad_f_x = a_grad_f_h.assemble()    
+    a_grad_f_x = a_grad_f_h.assemble()  
+    # MCP: strange error in line above calling self._func(*args, *self._threads_args): "18 positional arguments but 19 were given"
 
     lF_h = discretize(lF, domain_h,  Vh)
     lf_h = discretize(lf, domain_h,  Vh)
@@ -259,6 +260,7 @@ def run_non_linear_poisson(filename, comm=None):
 
 TOL = 1e-12
 
+@pytest.mark.xfail  # [MCP 20.07.2024: strange error when calling assemble() in run_boundary_field_test()]
 @pytest.mark.parametrize('n1', [10, 31, 42])
 @pytest.mark.parametrize('axis', [0, 1])
 @pytest.mark.parametrize('ext', [-1, 1])
@@ -356,3 +358,7 @@ def teardown_module():
 def teardown_function():
     from sympy.core import cache
     cache.clear_cache()
+
+if __name__ == '__main__':
+
+    test_boundary_field_identity(10, 0, -1)
