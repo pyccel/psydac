@@ -107,7 +107,7 @@ jobs:
 
       - name: Download a specific release of PETSc
         run: |
-          if [[ "${{ matrix.python-version }}" >= "3.12" ]]; then
+          if [[ ${{ matrix.python-version }} >= 3.12 ]]; then
             git clone --depth 1 --branch v3.21.3 https://gitlab.com/petsc/petsc.git
           else
             git clone --depth 1 --branch v3.20.5 https://gitlab.com/petsc/petsc.git
