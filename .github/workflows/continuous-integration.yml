@@ -138,7 +138,7 @@ jobs:
             print(h5py.File)"
 
       - name: Download a development version of sympde
-        working-directory: ./tmp
+        working-directory: /tmp
         run: |
           wget https://github.com/pyccel/sympde/archive/refs/heads/master.zip
           unzip ./master.zip
