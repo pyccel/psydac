@@ -129,13 +129,14 @@ jobs:
           python -m pip install -r requirements_extra.txt --no-build-isolation
           python -m pip list
 
-      - name: Check h5py installation
+      - name: Check parallel h5py installation
         run: |
             python -c "
             from mpi4py import MPI
             import h5py
+            # This particular instantiation of h5py.File will fail if parallel h5py isn't installed
             f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD)
-            print(h5py.File)"
+            print(f)"
 
       - name: Download a development version of sympde
         working-directory: /tmp
