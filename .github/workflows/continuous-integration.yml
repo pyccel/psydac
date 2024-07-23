@@ -92,7 +92,7 @@ jobs:
           unzip ./"master.zip"
           rm ./"master.zip"
           cd sympde-master
-          python3 -m pip install -e .
+          python3 -m pip install .
           cd ..
 
       - name: Determine directory of parallel HDF5 library
