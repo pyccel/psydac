@@ -86,15 +86,6 @@ jobs:
 #          restore-keys: |
 #            ${{ matrix.os }}-${{ matrix.python-version }}-pip-
 
-      - name: Download a development version of sympde
-        run: |
-          wget https://github.com/pyccel/sympde/archive/refs/heads/master.zip
-          unzip ./"master.zip"
-          rm ./"master.zip"
-          cd sympde-master
-          python3 -m pip install .
-          cd ..
-
       - name: Determine directory of parallel HDF5 library
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
@@ -141,6 +132,13 @@ jobs:
       - name: Check h5py installation
         run: |
             python -c "from h5py import File; print(File)"
+
+      - name: Download a development version of sympde
+        working-directory: ./tmp
+        run: |
+          wget https://github.com/pyccel/sympde/archive/refs/heads/master.zip
+          unzip ./master.zip
+          python3 -m pip install ./sympde-master
 
       - name: Install project
         run: |
