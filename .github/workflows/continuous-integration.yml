@@ -131,7 +131,11 @@ jobs:
 
       - name: Check h5py installation
         run: |
-            python -c "from h5py import File; print(File)"
+            python -c "
+            from mpi4py import MPI
+            import h5py
+            f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD)
+            print(h5py.File)"
 
       - name: Download a development version of sympde
         working-directory: ./tmp
