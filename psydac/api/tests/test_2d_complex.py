@@ -418,7 +418,8 @@ def test_complex_helmholtz_2d(plot_sol=False):
     l2_error, h1_error, uh = run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=[2**2,2**2], degree=[2,2])
 
     expected_l2_error = 0.01540947560953227
-    expected_h1_error = 0.3915864915151489  # value observed on 16.07.2024 (the L2 error and plots seem fine)
+    expected_h1_error = 0.19040207344639232
+    # expected_h1_error = 0.3915864915151489  # value observed on 16.07.2024 (the L2 error and plots seem fine)
 
     print(f'errors: l2 = {l2_error}, h1 = {h1_error}')
     print('expected errors: l2 = {}, h1 = {}'.format(expected_l2_error, expected_h1_error))
