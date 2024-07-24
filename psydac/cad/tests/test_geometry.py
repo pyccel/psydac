@@ -192,8 +192,7 @@ def test_export_nurbs_to_hdf5(ncells, degree):
    # read the geometry
     geo = Geometry(filename=filename)
     domain = geo.domain
-
-    print(type(domain))    
+    
     min_coords = domain.logical_domain.min_coords
     max_coords = domain.logical_domain.max_coords
 

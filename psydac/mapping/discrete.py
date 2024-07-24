@@ -41,8 +41,16 @@ def random_string(n):
 #==============================================================================
 class SplineMapping(BaseMapping):
 
+    def __new__(cls, *components, name=None):
+        if name is None:
+            name = 'default_name'  # or some other default name
+        
+        # Create instance using the parent class constructor
+        obj = super().__new__(cls, name=name, dim=len(components))
+        
+        return obj
+    
     def __init__(self, *components, name=None):
-
         # Sanity checks
         assert len(components) >= 1
         assert all(isinstance(c, FemField) for c in components)
