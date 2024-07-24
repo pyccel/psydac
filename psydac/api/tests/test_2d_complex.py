@@ -418,8 +418,7 @@ def test_complex_helmholtz_2d(plot_sol=False):
     l2_error, h1_error, uh = run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=[2**2,2**2], degree=[2,2])
 
     expected_l2_error = 0.01540947560953227
-    expected_h1_error = 0.19040207344639232
-    # expected_h1_error = 0.3915864915151489  # value observed on 16.07.2024 (the L2 error and plots seem fine)
+    expected_h1_error = 0.19040207344639598
 
     print(f'errors: l2 = {l2_error}, h1 = {h1_error}')
     print('expected errors: l2 = {}, h1 = {}'.format(expected_l2_error, expected_h1_error))
@@ -530,66 +529,66 @@ def teardown_function():
 
 if __name__ == '__main__':
 
+    check = 'complex_helmholtz_2d'
 
+    if check == 'complex_helmholtz_2d':
+        test_complex_helmholtz_2d(plot_sol=True)
 
-    test_complex_helmholtz_2d(plot_sol=True)
+    else:
 
+        from collections import OrderedDict
 
-    exit()
+        from sympy       import lambdify
 
-    from collections import OrderedDict
+        from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
+        from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
+        from psydac.api.tests.build_domain             import build_pretzel
+        from psydac.feec.pull_push                     import pull_2d_hcurl
+        
+        domain = build_pretzel()
+        x,y    = domain.coordinates
 
-    from sympy       import lambdify
+        omega = 1.5
+        alpha = -omega**2
+        Eex   = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+        f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                    alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
-    from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
-    from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
-    from psydac.api.tests.build_domain             import build_pretzel
-    from psydac.feec.pull_push                     import pull_2d_hcurl
-    
-    domain = build_pretzel()
-    x,y    = domain.coordinates
+        l2_error, Eh = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2,2])
 
-    omega = 1.5
-    alpha = -omega**2
-    Eex   = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
-    f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
-                  alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+        mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+        mappings_list = list(mappings.values())
+        call_mappings_list = [m.get_callable_mapping() for m in mappings_list]
 
-    l2_error, Eh = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2,2])
+        Eex_x   = lambdify(domain.coordinates, Eex[0])
+        Eex_y   = lambdify(domain.coordinates, Eex[1])
+        Eex_log = [pull_2d_hcurl([Eex_x,Eex_y], f) for f in call_mappings_list]
 
-    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-    mappings_list = list(mappings.values())
-    call_mappings_list = [m.get_callable_mapping() for m in mappings_list]
+        etas, xx, yy         = get_plotting_grid(mappings, N=20)
+        grid_vals_hcurl      = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='hcurl')
 
-    Eex_x   = lambdify(domain.coordinates, Eex[0])
-    Eex_y   = lambdify(domain.coordinates, Eex[1])
-    Eex_log = [pull_2d_hcurl([Eex_x,Eex_y], f) for f in call_mappings_list]
+        Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
+        E_x_vals, E_y_vals   = grid_vals_hcurl(Eex_log)
 
-    etas, xx, yy         = get_plotting_grid(mappings, N=20)
-    grid_vals_hcurl      = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='hcurl')
+        E_x_err              = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
+        E_y_err              = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
 
-    Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
-    E_x_vals, E_y_vals   = grid_vals_hcurl(Eex_log)
+        my_small_plot(
+            title=r'approximation of solution $u$, $x$ component',
+            vals=[E_x_vals, Eh_x_vals, E_x_err],
+            titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+            xx=xx,
+            yy=yy,
+            gridlines_x1=None,
+            gridlines_x2=None,
+        )
 
-    E_x_err              = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
-    E_y_err              = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
-
-    my_small_plot(
-        title=r'approximation of solution $u$, $x$ component',
-        vals=[E_x_vals, Eh_x_vals, E_x_err],
-        titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
-        xx=xx,
-        yy=yy,
-        gridlines_x1=None,
-        gridlines_x2=None,
-    )
-
-    my_small_plot(
-        title=r'approximation of solution $u$, $y$ component',
-        vals=[E_y_vals, Eh_y_vals, E_y_err],
-        titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
-        xx=xx,
-        yy=yy,
-        gridlines_x1=None,
-        gridlines_x2=None,
-    )
+        my_small_plot(
+            title=r'approximation of solution $u$, $y$ component',
+            vals=[E_y_vals, Eh_y_vals, E_y_err],
+            titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
+            xx=xx,
+            yy=yy,
+            gridlines_x1=None,
+            gridlines_x2=None,
+        )

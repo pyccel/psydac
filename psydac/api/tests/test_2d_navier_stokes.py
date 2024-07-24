@@ -362,17 +362,14 @@ def test_st_navier_stokes_2d():
 
     a = TerminalExpr(-mu*laplace(ue), domain)
     b = TerminalExpr(    grad(ue), domain)
-    c = TerminalExpr(    grad(pe), domain)
-    
+    c = TerminalExpr(    grad(pe), domain)    
     f = (a + b.T*ue + c).simplify()
     
     fx = -mu*(ux.diff(x, 2) + ux.diff(y, 2)) + ux*ux.diff(x) + uy*ux.diff(y) + pe.diff(x)
     fy = -mu*(uy.diff(x, 2) + uy.diff(y, 2)) + ux*uy.diff(x) + uy*uy.diff(y) + pe.diff(y)
 
-    # MCP (16.07.2024): this is currently commented because f is currently zero 
-    # (bug in TerminalExpr? see SymPDE issue #162)
-    # assert (f[0]-fx).simplify() == 0
-    # assert (f[1]-fy).simplify() == 0
+    assert (f[0]-fx).simplify() == 0
+    assert (f[1]-fy).simplify() == 0
     
     f  = Tuple(fx, fy)
     # ...
@@ -428,10 +425,8 @@ def test_st_navier_stokes_2d_parallel():
     fx = -mu*(ux.diff(x, 2) + ux.diff(y, 2)) + ux*ux.diff(x) + uy*ux.diff(y) + pe.diff(x)
     fy = -mu*(uy.diff(x, 2) - uy.diff(y, 2)) + ux*uy.diff(x) + uy*uy.diff(y) + pe.diff(y)
 
-    # MCP (23.07.2024): this is currently commented because f is currently zero 
-    # (bug in TerminalExpr? see SymPDE issue #162)
-    # assert (f[0]-fx).simplify() == 0
-    # assert (f[1]-fy).simplify() == 0
+    assert (f[0]-fx).simplify() == 0
+    assert (f[1]-fy).simplify() == 0
 
     f  = Tuple(fx, fy)
     # ...
