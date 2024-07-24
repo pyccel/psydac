@@ -141,13 +141,9 @@ jobs:
       - name: Download a development version of sympde
         working-directory: /tmp
         run: |
-          # wget https://github.com/pyccel/sympde/archive/refs/heads/master.zip
-          # unzip ./master.zip
-          # python3 -m pip install ./sympde-master
-          wget https://github.com/pyccel/sympde/archive/refs/heads/revert_real_coordinates.zip
-          unzip ./revert_real_coordinates.zip
-          python3 -m pip install ./sympde-revert_real_coordinates          
-          
+          wget https://github.com/pyccel/sympde/archive/refs/heads/master.zip
+          unzip ./master.zip
+          python3 -m pip install ./sympde-master          
 
       - name: Install project
         run: |
