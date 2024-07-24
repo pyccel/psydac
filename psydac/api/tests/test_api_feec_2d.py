@@ -308,6 +308,8 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD)
         derham_h = discretize(derham, domain_h, multiplicity = [mult, mult])
         
+        mapping = domain_h.domain.interior.mapping
+        
         periodic_list = mapping.space.periodic
         degree_list   = mapping.space.degree
 
