@@ -309,6 +309,8 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         derham_h = discretize(derham, domain_h, multiplicity = [mult, mult])
         
         mapping = domain_h.domain.interior.mapping
+        domain_h.domain.mapping = mapping
+        domain_h.mapping = mapping
         
         periodic_list = mapping.space.periodic
         degree_list   = mapping.space.degree
