@@ -420,7 +420,7 @@ def test_st_navier_stokes_2d_parallel():
     f = (a + b.T*ue + c).simplify()
 
     fx = -mu*(ux.diff(x, 2) + ux.diff(y, 2)) + ux*ux.diff(x) + uy*ux.diff(y) + pe.diff(x)
-    fy = -mu*(uy.diff(x, 2) - uy.diff(y, 2)) + ux*uy.diff(x) + uy*uy.diff(y) + pe.diff(y)
+    fy = -mu*(uy.diff(x, 2) + uy.diff(y, 2)) + ux*uy.diff(x) + uy*uy.diff(y) + pe.diff(y)
 
     assert (f[0]-fx).simplify() == 0
     assert (f[1]-fy).simplify() == 0
