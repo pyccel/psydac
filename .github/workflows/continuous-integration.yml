@@ -16,11 +16,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest ]
-        python-version: [ 3.9, '3.10', '3.11', '3.12' ]
+        python-version: [ '3.10', '3.11', '3.12' ]
         isMerge:
           - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
         exclude:
-          - { isMerge: false, python-version: 3.9 }
           - { isMerge: false, python-version: '3.10' }
         include:
           - os: macos-latest
