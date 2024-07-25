@@ -6,8 +6,6 @@ import h5py as h5
 
 from sympde.topology import Domain
 
-# from igakit.cad import circle, ruled
-
 from psydac.api.discretization import discretize
 from psydac.core.bsplines import cell_index
 from psydac.fem.tensor import TensorFemSpace
@@ -267,42 +265,45 @@ def test_parallel_jacobians_irregular(geometry, npts_irregular):
         os.remove('result_parallel.h5')
 
 
-# def test_nurbs_circle():
-#     rmin, rmax = 0.2, 1
-#     c1, c2 = 0, 0
+@pytest.mark.skip(reason='igakit no longer imported') 
+def test_nurbs_circle():
 
-#     # Igakit
-#     c_ext = circle(radius=rmax, center=(c1, c2))
-#     c_int = circle(radius=rmin, center=(c1, c2))
+    rmin, rmax = 0.2, 1
+    c1, c2 = 0, 0
 
-#     disk = ruled(c_ext, c_int).transpose()
+    # Igakit
+    from igakit.cad import circle, ruled
+    c_ext = circle(radius=rmax, center=(c1, c2))
+    c_int = circle(radius=rmin, center=(c1, c2))
 
-#     w  = disk.weights
-#     k = disk.knots
-#     control = disk.points
-#     d = disk.degree
+    disk = ruled(c_ext, c_int).transpose()
 
-#     # Psydac
-#     spaces = [SplineSpace(degree, knot) for degree, knot in zip(d, k)]
+    w  = disk.weights
+    k = disk.knots
+    control = disk.points
+    d = disk.degree
 
-#     ncells = [len(space.breaks)-1 for space in spaces]
-#     periods = [space.periodic for space in spaces]
+    # Psydac
+    spaces = [SplineSpace(degree, knot) for degree, knot in zip(d, k)]
 
-#     domain_decomposition = DomainDecomposition(ncells=ncells, periods=periods, comm=None)
-#     T = TensorFemSpace(domain_decomposition, *spaces)
-#     mapping = NurbsMapping.from_control_points_weights(T, control_points=control[..., :2], weights=w)
+    ncells = [len(space.breaks)-1 for space in spaces]
+    periods = [space.periodic for space in spaces]
 
-#     x1_pts = np.linspace(0, 1, 10)
-#     x2_pts = np.linspace(0, 1, 10)
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=periods, comm=None)
+    T = TensorFemSpace(domain_decomposition, *spaces)
+    mapping = NurbsMapping.from_control_points_weights(T, control_points=control[..., :2], weights=w)
 
-#     for x2 in x2_pts:
-#         for x1 in x1_pts:
-#             x_p, y_p = mapping(x1, x2)
-#             x_i, y_i, z_i = disk(x1, x2)
+    x1_pts = np.linspace(0, 1, 10)
+    x2_pts = np.linspace(0, 1, 10)
 
-#             assert np.allclose((x_p, y_p), (x_i, y_i), atol=ATOL, rtol=RTOL)
+    for x2 in x2_pts:
+        for x1 in x1_pts:
+            x_p, y_p = mapping(x1, x2)
+            x_i, y_i, z_i = disk(x1, x2)
 
-#             J_p = mapping.jacobian(x1, x2)
-#             J_i = disk.gradient(u=x1, v=x2)
+            assert np.allclose((x_p, y_p), (x_i, y_i), atol=ATOL, rtol=RTOL)
 
-#             assert np.allclose(J_i[:2], J_p, atol=ATOL, rtol=RTOL)
+            J_p = mapping.jacobian(x1, x2)
+            J_i = disk.gradient(u=x1, v=x2)
+
+            assert np.allclose(J_i[:2], J_p, atol=ATOL, rtol=RTOL)
