@@ -153,7 +153,7 @@ def run_boundary_field_test(domain, boundary, f, ncells):
     a_grad_F_h = discretize(a_grad_F, domain_h, [Vh, Vh])
     a_grad_f_h = discretize(a_grad_f, domain_h, [Vh, Vh])
     a_grad_F_x = a_grad_F_h.assemble(F=fh)
-    a_grad_f_x = a_grad_f_h.assemble()    
+    a_grad_f_x = a_grad_f_h.assemble()  
 
     lF_h = discretize(lF, domain_h,  Vh)
     lf_h = discretize(lf, domain_h,  Vh)
@@ -277,6 +277,7 @@ def test_boundary_field_identity(n1, axis, ext):
     assert rel_error_LinearForm < TOL
     assert rel_error_LinearForm_grad < TOL
     
+    print('PASSED')
 
 def test_field_identity_1():
 
@@ -356,3 +357,8 @@ def teardown_module():
 def teardown_function():
     from sympy.core import cache
     cache.clear_cache()
+
+if __name__ == '__main__':
+
+    print('Running a test...')
+    test_boundary_field_identity(10, 0, -1)

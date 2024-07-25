@@ -55,6 +55,7 @@ def test_geometry_2d_1():
     geo_1.export('geo_1.h5')
 
 #==============================================================================
+@pytest.mark.skip(reason='igakit no longer imported') 
 def test_geometry_2d_2():
 
     # create a nurbs mapping
@@ -105,6 +106,7 @@ def test_geometry_2d_2():
 
 #==============================================================================
 # TODO to be removed
+@pytest.mark.skip(reason='igakit no longer imported') 
 def test_geometry_2d_3():
 
     # create a nurbs mapping
@@ -138,6 +140,7 @@ def test_geometry_2d_3():
 
 #==============================================================================
 # TODO to be removed
+@pytest.mark.skip(reason='igakit no longer imported') 
 def test_geometry_2d_4():
 
     # create a nurbs mapping
@@ -170,6 +173,7 @@ def test_geometry_2d_4():
     geo.export('circle.h5')
 
 #==============================================================================
+@pytest.mark.skip(reason='igakit no longer imported') 
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
 def test_export_nurbs_to_hdf5(ncells, degree):
@@ -223,6 +227,7 @@ def test_export_nurbs_to_hdf5(ncells, degree):
     assert np.allclose(pcoords1[..., :domain.dim], pcoords2, 1e-15, 1e-15)
 
 #==============================================================================
+@pytest.mark.skip(reason='igakit no longer imported') 
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
 def test_import_geopdes_to_nurbs(ncells, degree):

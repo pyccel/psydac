@@ -46,6 +46,9 @@ def elevate(mapping, axis, times):
     Note: we are using igakit for the moment, until we implement the elevation
     degree algorithm in psydac
     """
+
+    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `elevate` must be re-implemented')
+
     try:
         from igakit.nurbs import NURBS
     except:
@@ -119,6 +122,9 @@ def refine(mapping, axis, values):
     Note: we are using igakit for the moment, until we implement the knot
     insertion algorithm in psydac
     """
+
+    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `refine` must be re-implemented')
+
     try:
         from igakit.nurbs import NURBS
     except:
