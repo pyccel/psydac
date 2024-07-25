@@ -536,10 +536,6 @@ if __name__ == '__main__':
 
     else:
 
-        from collections import OrderedDict
-
-        from sympy       import lambdify
-
         from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
         from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
         from psydac.api.tests.build_domain             import build_pretzel

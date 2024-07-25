@@ -378,9 +378,6 @@ def test_st_navier_stokes_2d():
 
     l2_error_u, l2_error_p = run_steady_state_navier_stokes_2d(domain, f, ue, pe, ncells=[2**3,2**3], degree=[2, 2], multiplicity=[2,2])
 
-    print('L2_error_norm(u) = {}'.format(l2_error_u))
-    print('L2_error_norm(p) = {}'.format(l2_error_p))
-
     # Check that expected absolute error on velocity and pressure fields
     assert abs(0.00020452836013053793 - l2_error_u ) < 1e-7
     assert abs(0.004127752838826402 - l2_error_p  ) < 1e-7
