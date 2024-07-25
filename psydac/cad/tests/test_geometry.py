@@ -55,7 +55,7 @@ def test_geometry_2d_1():
     geo_1.export('geo_1.h5')
 
 #==============================================================================
-@pytest.mark.xfail  # igakit no longer supported
+@pytest.mark.skip(reason='igakit no longer imported') 
 def test_geometry_2d_2():
 
     # create a nurbs mapping
@@ -106,7 +106,7 @@ def test_geometry_2d_2():
 
 #==============================================================================
 # TODO to be removed
-@pytest.mark.xfail  # igakit no longer supported
+@pytest.mark.skip(reason='igakit no longer imported') 
 def test_geometry_2d_3():
 
     # create a nurbs mapping
@@ -140,7 +140,7 @@ def test_geometry_2d_3():
 
 #==============================================================================
 # TODO to be removed
-@pytest.mark.xfail  # igakit no longer supported
+@pytest.mark.skip(reason='igakit no longer imported') 
 def test_geometry_2d_4():
 
     # create a nurbs mapping
@@ -173,62 +173,63 @@ def test_geometry_2d_4():
     geo.export('circle.h5')
 
 #==============================================================================
-# @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
-# @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
-# def test_export_nurbs_to_hdf5(ncells, degree):
-
-#     # create pipe geometry
-#     from igakit.cad import circle, ruled, bilinear, join
-#     C0      = circle(center=(-1,0),angle=(-np.pi/3,0))
-#     C1      = circle(radius=2,center=(-1,0),angle=(-np.pi/3,0))
-#     annulus = ruled(C0,C1).transpose()
-#     square  = bilinear(np.array([[[0,0],[0,3]],[[1,0],[1,3]]]) )
-#     pipe    = join(annulus, square, axis=1)
-
-#     # refine the nurbs object
-#     new_pipe = refine_nurbs(pipe, ncells=ncells, degree=degree)
-
-#     filename = "pipe.h5"
-#     export_nurbs_to_hdf5(filename, new_pipe)
-
-#    # read the geometry
-#     geo = Geometry(filename=filename)
-#     domain = geo.domain
-
-#     min_coords = domain.logical_domain.min_coords
-#     max_coords = domain.logical_domain.max_coords
-
-#     assert abs(min_coords[0] - pipe.breaks(0)[0])<1e-15
-#     assert abs(min_coords[1] - pipe.breaks(1)[0])<1e-15
-
-#     assert abs(max_coords[0] - pipe.breaks(0)[-1])<1e-15
-#     assert abs(max_coords[1] - pipe.breaks(1)[-1])<1e-15
-
-#     mapping = geo.mappings[domain.logical_domain.name]
-
-#     assert isinstance(mapping, NurbsMapping)
-
-#     space  = mapping.space
-#     knots  = space.knots
-#     degree = space.degree
-
-#     assert all(np.allclose(pk,k, 1e-15, 1e-15) for pk,k in zip(new_pipe.knots, knots))
-#     assert degree == list(new_pipe.degree)
-
-#     assert np.allclose(new_pipe.weights.flatten(), mapping._weights_field.coeffs.toarray(), 1e-15, 1e-15)
-
-#     eta1 = refine_array_1d(new_pipe.breaks(0), 10)
-#     eta2 = refine_array_1d(new_pipe.breaks(1), 10)
-
-#     pcoords1 = np.array([[new_pipe(e1,e2) for e2 in eta2] for e1 in eta1])
-#     pcoords2 = np.array([[mapping(e1,e2) for e2 in eta2] for e1 in eta1])
-
-#     assert np.allclose(pcoords1[..., :domain.dim], pcoords2, 1e-15, 1e-15)
-
-#==============================================================================
+@pytest.mark.skip(reason='igakit no longer imported') 
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
-@pytest.mark.xfail  # igakit no longer supported
+def test_export_nurbs_to_hdf5(ncells, degree):
+
+    # create pipe geometry
+    from igakit.cad import circle, ruled, bilinear, join
+    C0      = circle(center=(-1,0),angle=(-np.pi/3,0))
+    C1      = circle(radius=2,center=(-1,0),angle=(-np.pi/3,0))
+    annulus = ruled(C0,C1).transpose()
+    square  = bilinear(np.array([[[0,0],[0,3]],[[1,0],[1,3]]]) )
+    pipe    = join(annulus, square, axis=1)
+
+    # refine the nurbs object
+    new_pipe = refine_nurbs(pipe, ncells=ncells, degree=degree)
+
+    filename = "pipe.h5"
+    export_nurbs_to_hdf5(filename, new_pipe)
+
+   # read the geometry
+    geo = Geometry(filename=filename)
+    domain = geo.domain
+
+    min_coords = domain.logical_domain.min_coords
+    max_coords = domain.logical_domain.max_coords
+
+    assert abs(min_coords[0] - pipe.breaks(0)[0])<1e-15
+    assert abs(min_coords[1] - pipe.breaks(1)[0])<1e-15
+
+    assert abs(max_coords[0] - pipe.breaks(0)[-1])<1e-15
+    assert abs(max_coords[1] - pipe.breaks(1)[-1])<1e-15
+
+    mapping = geo.mappings[domain.logical_domain.name]
+
+    assert isinstance(mapping, NurbsMapping)
+
+    space  = mapping.space
+    knots  = space.knots
+    degree = space.degree
+
+    assert all(np.allclose(pk,k, 1e-15, 1e-15) for pk,k in zip(new_pipe.knots, knots))
+    assert degree == list(new_pipe.degree)
+
+    assert np.allclose(new_pipe.weights.flatten(), mapping._weights_field.coeffs.toarray(), 1e-15, 1e-15)
+
+    eta1 = refine_array_1d(new_pipe.breaks(0), 10)
+    eta2 = refine_array_1d(new_pipe.breaks(1), 10)
+
+    pcoords1 = np.array([[new_pipe(e1,e2) for e2 in eta2] for e1 in eta1])
+    pcoords2 = np.array([[mapping(e1,e2) for e2 in eta2] for e1 in eta1])
+
+    assert np.allclose(pcoords1[..., :domain.dim], pcoords2, 1e-15, 1e-15)
+
+#==============================================================================
+@pytest.mark.skip(reason='igakit no longer imported') 
+@pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
+@pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
 def test_import_geopdes_to_nurbs(ncells, degree):
 
 
