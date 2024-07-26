@@ -5,6 +5,7 @@
 *.lock
 __psydac__/
 __*pyccel__/
+docs/source/modules/STUBDIR/*
 
 build
 *build*

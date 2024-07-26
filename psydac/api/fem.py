@@ -767,7 +767,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                         elif use_prolongation:
                             Ps  = [knot_insertion_projection_operator(trs, trs.get_refined_space(ncells)) for trs in trial_fem_space.spaces]
                             P   = BlockLinearOperator(trial_fem_space.vector_space, trial_fem_space.get_refined_space(ncells).vector_space)
-                            for ni,Pi in enumerate(Ps):P[ni,ni] = Pi
+                            for ni,Pi in enumerate(Ps):
+                                P[ni,ni] = Pi
+
                             mat = ComposedLinearOperator(trial_space, test_space, mat, P)
 
                     self._matrix[i,j] = mat
