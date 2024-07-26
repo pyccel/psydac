@@ -141,9 +141,9 @@ jobs:
       - name: Download a development version of sympde
         working-directory: /tmp
         run: |
-          wget https://github.com/pyccel/sympde/archive/refs/heads/master.zip
-          unzip ./master.zip
-          python3 -m pip install ./sympde-master          
+          wget https://github.com/pyccel/sympde/archive/refs/heads/terminal_expressions_for_NS.zip
+          unzip ./terminal_expressions_for_NS.zip
+          python3 -m pip install ./sympde-terminal_expressions_for_NS          
 
       - name: Install project
         run: |
