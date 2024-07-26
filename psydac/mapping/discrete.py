@@ -12,10 +12,9 @@ import yaml
 
 from time   import time
 
-from sympde.topology.base_mapping      import BaseMapping
+from sympde.topology.base_mapping      import BaseMapping, MappedDomain
 from sympde.topology.basic import BasicDomain
 from sympde.topology.domain import Domain 
-from sympde.topology.base_analytic_mapping      import MappedDomain
 from sympy                 import Symbol
 
 from sympde.topology.datatype import (H1SpaceType, L2SpaceType,
@@ -42,10 +41,7 @@ def random_string(n):
 class SplineMapping(BaseMapping):
 
     def __new__(cls, *components, name=None):
-        if name is None:
-            name = 'default_name'  # or some other default name
         
-        # Create instance using the parent class constructor
         obj = super().__new__(cls, name=name, dim=len(components))
         
         return obj
@@ -212,14 +208,6 @@ class SplineMapping(BaseMapping):
     # ...
     def metric_det_eval(self, *eta):
         return np.linalg.det(self.metric_eval(*eta))
-
-    @property
-    def ldim(self):
-        return self._ldim
-
-    @property
-    def pdim(self):
-        return self._pdim
 
     #--------------------------------------------------------------------------
     # Fast evaluation on a grid
