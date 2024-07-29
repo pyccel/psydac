@@ -5,7 +5,7 @@ from sympy import lambdify
 from mpl_toolkits.mplot3d import *
 import matplotlib.pyplot as plt
 
-from sympde.topology import IdentityMapping, InteriorDomain, MultiPatchMapping, BaseAnalyticMapping
+from sympde.topology import IdentityMapping, InteriorDomain, MultiPatchMapping
 
 def lambdify_sympde(variables, expr):
     """

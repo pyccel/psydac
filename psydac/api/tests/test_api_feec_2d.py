@@ -226,8 +226,8 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     from sympde.topology import NormalVector
     from sympde.calculus import dot, cross
     from sympde.expr     import integral
-    from sympde.expr     import BilinearForm
-    from sympde.topology import InteriorDomain
+    from sympde.expr     import BilinearForm, TerminalExpr
+    from sympde.topology import InteriorDomain, LogicalExpr
 
     
     from psydac.api.settings       import PSYDAC_BACKENDS
@@ -335,6 +335,12 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
     # Discrete bilinear forms
     nquads = [degree + 1, degree + 1]
+    print('\n')
+    print(f'{LogicalExpr(a1,domain)}')
+    #print(f'{TerminalExpr(LogicalExpr(a1,domain), domain)}')
+    print('\n')
+    
+
     a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), nquads=nquads, backend=backend)
     a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), nquads=nquads, backend=backend)
 

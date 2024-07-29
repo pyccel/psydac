@@ -26,7 +26,7 @@ from psydac.linalg.block       import BlockVectorSpace, BlockVector
 from psydac.ddm.cart           import DomainDecomposition, MultiPatchDomainDecomposition
 
 
-from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, BaseAnalyticMapping, NCube
+from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, NCube
 from sympde.topology.basic import Union
 
 #==============================================================================

@@ -1,7 +1,7 @@
 from sympy import symbols, Range
 from sympy import Tuple
 
-from sympde.topology  import BaseAnalyticMapping
+from sympde.topology  import BaseMapping
 from sympde.topology             import ScalarFunction
 from sympde.topology             import SymbolicExpr
 from sympde.topology.space       import element_of
@@ -189,8 +189,8 @@ class EvalArrayMapping(SplBasic):
                 nderiv=1, is_rational_mapping=None,
                 backend=None):
 
-        if not isinstance(mapping, BaseAnalyticMapping):
-            raise TypeError('> Expecting a BaseAnalyticMapping object')
+        if not isinstance(mapping, BaseMapping):
+            raise TypeError('> Expecting a BaseMapping object')
 
         obj = SplBasic.__new__(cls, mapping, name=name,
                                prefix='eval_mapping', mapping=mapping,

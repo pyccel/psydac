@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 import os
 
-from sympde.topology import Domain, Line, Square, Cube, BaseAnalyticMapping
+from sympde.topology import Domain, Line, Square, Cube
 
 from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refine_nurbs
 from psydac.cad.geometry             import import_geopdes_to_nurbs

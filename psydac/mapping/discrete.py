@@ -41,7 +41,8 @@ def random_string(n):
 class SplineMapping(BaseMapping):
 
     def __new__(cls, *components, name=None):
-        
+        if name==None:
+            name='M'
         obj = super().__new__(cls, name=name, dim=len(components))
         
         return obj
