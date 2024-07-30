@@ -327,7 +327,7 @@ class Geometry( object ):
                                                                         patch['points'][..., :pdim],
                                                                         patch['weights'] )
 
-                mapping.set_name( item['name'] )
+                mapping.set_name( mapping_id )
                 mappings[patch_name] = mapping
 
         if n_patches>1:
