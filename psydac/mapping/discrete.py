@@ -149,6 +149,8 @@ class SplineMapping(BaseMapping):
         assert(isinstance(domain, BasicDomain))
         return MappedDomain(self, domain)
     
+    def _evaluate_point( self, *eta ):
+        return [map_Xd(*eta) for map_Xd in self._fields]
     
     def _evaluate_1d_arrays(self, *arrays):
         assert len(arrays) == self.ldim

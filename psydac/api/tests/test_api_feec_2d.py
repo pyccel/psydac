@@ -307,10 +307,12 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     if use_spline_mapping:
         domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD)
         derham_h = discretize(derham, domain_h, multiplicity = [mult, mult])
+        Smapping = domain_h.domain.interior.mapping
+        print(type(Smapping))
+        print("trying to set the derham's mapping")
+        derham_h.mapping=Smapping
         
         mapping = domain_h.domain.interior.mapping
-        domain_h.domain.mapping = mapping
-        domain_h.mapping = mapping
         
         periodic_list = mapping.space.periodic
         degree_list   = mapping.space.degree
@@ -335,12 +337,6 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
     # Discrete bilinear forms
     nquads = [degree + 1, degree + 1]
-    print('\n')
-    print(f'{LogicalExpr(a1,domain)}')
-    #print(f'{TerminalExpr(LogicalExpr(a1,domain), domain)}')
-    print('\n')
-    
-
     a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), nquads=nquads, backend=backend)
     a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), nquads=nquads, backend=backend)
 
@@ -493,7 +489,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         # Electric field, x component
         fig2 = plot_field_and_error(r'E^x', x, y, Ex_values, Ex_ex(0, x, y), *gridlines)
         fig2.show()                                             
-                                                                
+        input('\nstop')              
         # Electric field, y component                           
         fig3 = plot_field_and_error(r'E^y', x, y, Ey_values, Ey_ex(0, x, y), *gridlines)
         fig3.show()                                             

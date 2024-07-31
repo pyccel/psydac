@@ -388,12 +388,12 @@ def push_2d_hcurl(f1, f2, eta1, eta2, F):
 #    # Assume that f is a list/tuple of callable functions
 #    f1, f2 = f
     eta = eta1, eta2
-
     J_inv_value = F.jacobian_inv_eval(*eta)
-
+    
     f1_value = f1(*eta)
     f2_value = f2(*eta)
-
+    print(eta1, eta2, "\n \n",J_inv_value,"\n \n",f1_value,"\n \n",f2_value)
+    exit()
     value1 = J_inv_value[0, 0] * f1_value + J_inv_value[1, 0] * f2_value
     value2 = J_inv_value[0, 1] * f1_value + J_inv_value[1, 1] * f2_value
 

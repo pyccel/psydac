@@ -29,7 +29,6 @@ class DiscreteDerham(BasicDiscrete):
     Notes
     -----
     - The basic type BaseMapping is defined in module sympde.topology.base_mapping
-      A discrete mapping (spline or NURBS) may be attached to it.
 
     - This constructor should not be called directly, but rather from the
       `discretize_derham` function in `psydac.api.discretization`.
@@ -140,6 +139,11 @@ class DiscreteDerham(BasicDiscrete):
         """The mapping from the logical space to the physical space."""
         return self._mapping
 
+    @mapping.setter
+    def mapping(self, value):
+        assert isinstance(value, BaseMapping), "Mapping must be an instance of BaseMapping"
+        self._mapping = value
+        
     @property
     def derivatives_as_matrices(self):
         """Differential operators of the De Rham sequence as LinearOperator objects."""
