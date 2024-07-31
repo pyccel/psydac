@@ -219,17 +219,15 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     from sympde.topology import Square
  
     from sympde.topology import CollelaMapping2D, BaseAnalyticMapping
-    from psydac.api.discretization import discretize 
     
     from sympde.topology import Derham
     from sympde.topology import elements_of
     from sympde.topology import NormalVector
     from sympde.calculus import dot, cross
     from sympde.expr     import integral
-    from sympde.expr     import BilinearForm, TerminalExpr
-    from sympde.topology import InteriorDomain, LogicalExpr
+    from sympde.expr     import BilinearForm
 
-    
+    from psydac.api.discretization import discretize 
     from psydac.api.settings       import PSYDAC_BACKENDS
     from psydac.feec.pull_push     import push_2d_hcurl, push_2d_l2
     from psydac.linalg.solvers     import inverse
@@ -277,7 +275,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
         filename = os.path.join(mesh_dir, 'collela_2d.h5')
         domain   = Domain.from_file(filename)
-        mapping  = domain.mapping 
+        mapping  = domain.mapping # mapping is BaseMapping
 
     else:
         # Logical domain is unit square [0, 1] x [0, 1]
@@ -305,14 +303,13 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     # Discrete objects: Psydac
     #--------------------------------------------------------------------------
     if use_spline_mapping:
-        domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD)
+        domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD) 
         derham_h = discretize(derham, domain_h, multiplicity = [mult, mult])
-        Smapping = domain_h.domain.interior.mapping
-        print(type(Smapping))
-        print("trying to set the derham's mapping")
-        derham_h.mapping=Smapping
         
-        mapping = domain_h.domain.interior.mapping
+        # TO FIX : the way domain.from_file and discretize_domain runs make that only domain_h.domain.interior has an actual SplineMapping. The rest are BaseMapping.
+        # The trick is to now when to set exactly the BaseMapping to the SplineMapping. We could try in discretize_derham, but see if it doesn't generate any issues for other tests.
+        mapping = domain_h.domain.interior.mapping # mapping is SplineMapping now
+        derham_h.mapping=mapping
         
         periodic_list = mapping.space.periodic
         degree_list   = mapping.space.degree
@@ -489,7 +486,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         # Electric field, x component
         fig2 = plot_field_and_error(r'E^x', x, y, Ex_values, Ex_ex(0, x, y), *gridlines)
         fig2.show()                                             
-        input('\nstop')              
+            
         # Electric field, y component                           
         fig3 = plot_field_and_error(r'E^y', x, y, Ey_values, Ey_ex(0, x, y), *gridlines)
         fig3.show()                                             
@@ -857,7 +854,7 @@ def test_maxwell_2d_dirichlet_spline_mapping():
         nsteps   = 1,
         tend     = None,
         splitting_order      = 2,
-        plot_interval        = 0,
+        plot_interval        = 4,
         diagnostics_interval = 0,
         tol = 1e-6,
         verbose = False
@@ -934,7 +931,7 @@ def test_maxwell_2d_dirichlet_par():
 #==============================================================================
 if __name__ == '__main__':
 
-    '''import argparse
+    import argparse
 
     parser = argparse.ArgumentParser(
         formatter_class = argparse.ArgumentDefaultsHelpFormatter,
@@ -1044,7 +1041,6 @@ if __name__ == '__main__':
     # Run simulation
     namespace = run_maxwell_2d_TE(**vars(args))
    
-    # Keep matplotlib windows open'''
-    test_maxwell_2d_dirichlet_spline_mapping()
+    # Keep matplotlib windows open
     import matplotlib.pyplot as plt
     plt.show()
