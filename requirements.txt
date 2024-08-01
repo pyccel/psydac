@@ -2,7 +2,7 @@ wheel
 setuptools >= 61, != 67.2.0
 numpy  >= 1.16
 Cython >= 0.25, < 3.0
-mpi4py >= 3.0.0
+mpi4py >= 3.0.0, < 4
 
 # Required to build h5py from source
 pkgconfig
