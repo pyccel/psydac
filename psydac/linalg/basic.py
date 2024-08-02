@@ -8,11 +8,11 @@ provides the fundamental classes for linear algebra operations.
 """
 
 from abc import ABC, abstractmethod
+from types import LambdaType 
+from inspect import signature
 
 import numpy as np
 from scipy.sparse import coo_matrix
-from types import LambdaType 
-from inspect import signature
 
 from psydac.utilities.utils import is_real
 
@@ -1219,5 +1219,3 @@ class MatrixFreeLinearOperator(LinearOperator):
             new_dot = self._dot_transpose
 
         return MatrixFreeLinearOperator(domain=self.codomain, codomain=self.domain, dot=new_dot, dot_transpose=self._dot)
-
-    
