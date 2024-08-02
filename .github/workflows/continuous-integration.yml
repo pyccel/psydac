@@ -20,7 +20,6 @@ jobs:
         isMerge:
           - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
         exclude:
-          - { isMerge: false, python-version: 3.9 }
           - { isMerge: false, python-version: '3.10' }
         include:
           - os: macos-latest
