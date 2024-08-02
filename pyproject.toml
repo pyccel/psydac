@@ -23,7 +23,7 @@ dependencies = [
 
     # Third-party packages from PyPi
     'numpy >= 1.16',
-    'scipy >= 0.18',
+    'scipy >= 0.18, < 1.14',
     'sympy >= 1.5',
     'matplotlib',
     'pytest >= 4.5',
