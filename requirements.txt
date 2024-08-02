@@ -1,7 +1,7 @@
 wheel
 setuptools >= 61, != 67.2.0
 numpy  >= 1.16
-scipy  >= 1.14
+scipy  >= 1.12
 Cython >= 0.25, < 3.0
 mpi4py >= 3.0.0, < 4
 
