@@ -7,7 +7,7 @@ name            = "psydac"
 version         = "0.1"
 description     = "Python package for isogeometric analysis (IGA)"
 readme          = "README.md"
-requires-python = ">= 3.8, < 3.12"
+requires-python = ">= 3.9, < 3.12"
 license         = {file = "LICENSE"}
 authors         = [
     {name = "Psydac development team", email = "psydac@googlegroups.com"}
@@ -23,7 +23,7 @@ dependencies = [
 
     # Third-party packages from PyPi
     'numpy >= 1.16',
-    'scipy >= 0.18, < 1.14',
+    'scipy >= 1.12',
     'sympy >= 1.5',
     'matplotlib',
     'pytest >= 4.5',
@@ -50,10 +50,7 @@ dependencies = [
     'tblib',
 
     # IGAKIT - not on PyPI
-
-    # !! WARNING !! Path to igakit below is from fork pyccel/igakit. This was done to
-    # quickly fix the numpy 2.0 issue. See https://github.com/dalcinl/igakit/pull/4
-    'igakit @ https://github.com/pyccel/igakit/archive/refs/heads/bugfix-numpy2.0.zip'
+    'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip'
 ]
 
 [project.urls]
