@@ -130,7 +130,7 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
     # ... solve linear system using scipy.sparse.linalg or psydac
     if scipy:
 
-        tol = 1e-11
+        rtol = 1e-11
         equation_h.assemble()
         A0 = equation_h.linear_system.lhs.tosparse()
         b0 = equation_h.linear_system.rhs.toarray()
@@ -145,17 +145,17 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
             A1 = a1_h.assemble().tosparse()
             b1 = l1_h.assemble().toarray()
 
-            x1, info = sp_minres(A1, b1, tol=tol)
+            x1, info = sp_minres(A1, b1, rtol=rtol)
             print('Boundary solution with scipy.sparse: success = {}'.format(info == 0))
 
-            x0, info = sp_minres(A0, b0 - A0.dot(x1), tol=tol)
+            x0, info = sp_minres(A0, b0 - A0.dot(x1), rtol=rtol)
             print('Interior solution with scipy.sparse: success = {}'.format(info == 0))
 
             # Solution is sum of boundary and interior contributions
             x = x0 + x1
 
         else:
-            x, info = sp_minres(A0, b0, tol=tol)
+            x, info = sp_minres(A0, b0, rtol=rtol)
             print('Solution with scipy.sparse: success = {}'.format(info == 0))
 
         # Convert to stencil format
