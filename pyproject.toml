@@ -51,7 +51,7 @@ dependencies = [
     'tblib',
 
     # IGAKIT - not on PyPI
-    'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/meson.zip'
+    'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip'
 ]
 
 [project.urls]
