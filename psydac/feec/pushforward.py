@@ -103,7 +103,7 @@ class Pushforward:
             grid_local=grid
 
         if isinstance(mapping, BaseAnalyticMapping):
-            self._mesh_grids = np.meshgrid(*grid_local, indexing='ij', sparse=True)
+            self._mesh_grids = np.meshgrid(*grid_local, indexing='ij')
             self.mapping = mapping
             self.local_domain = local_domain
             self.global_ends = global_ends

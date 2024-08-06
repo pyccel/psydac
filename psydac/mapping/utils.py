@@ -214,9 +214,9 @@ def plot_3d_single_patch(patch, mapping, ax, refinement=15):
     linspace_1 = np.linspace(patch.min_coords[1], patch.max_coords[1], refinement, endpoint=True)
     linspace_2 = np.linspace(patch.min_coords[2], patch.max_coords[2], refinement, endpoint=True)
 
-    grid_01 = np.meshgrid(linspace_0, linspace_1, indexing='ij', sparse=True)
-    grid_02 = np.meshgrid(linspace_0, linspace_2, indexing='ij', sparse=True)
-    grid_12 = np.meshgrid(linspace_1, linspace_2, indexing='ij', sparse=True)
+    grid_01 = np.meshgrid(linspace_0, linspace_1, indexing='ij')
+    grid_02 = np.meshgrid(linspace_0, linspace_2, indexing='ij')
+    grid_12 = np.meshgrid(linspace_1, linspace_2, indexing='ij')
 
     full_00 = np.full((refinement, refinement), linspace_0[0])
     full_01 = np.full((refinement, refinement), linspace_0[-1])
