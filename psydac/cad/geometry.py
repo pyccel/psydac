@@ -510,6 +510,8 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
         mpi communicator
     """
 
+    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `export_nurbs_to_hdf5` must be re-implemented')
+
     import os.path
     import igakit
     assert isinstance(nurbs, igakit.nurbs.NURBS)
@@ -642,6 +644,8 @@ def refine_nurbs(nrb, ncells=None, degree=None, multiplicity=None, tol=1e-9):
 
     """
 
+    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `refine_nurbs` must be re-implemented')
+
     if multiplicity is None:
         multiplicity = [1]*nrb.dim
 
@@ -713,6 +717,9 @@ def refine_knots(knots, ncells, degree, multiplicity=None, tol=1e-9):
     knots : <list>
         the refined knot sequences in each direction
     """
+
+    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `refine_knots` must be re-implemented')
+
     from igakit.nurbs import NURBS
     dim = len(ncells)
 
@@ -754,6 +761,7 @@ def refine_knots(knots, ncells, degree, multiplicity=None, tol=1e-9):
         knots = np.repeat(knots, counts)
         nrb = nrb.refine(axis, knots)
     return nrb.knots
+
 #==============================================================================
 def import_geopdes_to_nurbs(filename):
     """
@@ -836,6 +844,8 @@ def _read_line(line):
     return data
 
 def _read_patch(lines, i_patch, n_lines_per_patch, list_begin_line):
+
+    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `_read_patch` must be re-implemented')
 
     from igakit.nurbs import NURBS
 
