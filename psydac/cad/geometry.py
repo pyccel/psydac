@@ -366,9 +366,7 @@ class Geometry( object ):
         h5.close()
         # ...
 
-        # Add spline callable mappings to domain undefined mappings
-        for patch, F in zip(interiors, mappings.values()):
-            patch.mapping=F
+
 
         
         # ...

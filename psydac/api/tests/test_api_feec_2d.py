@@ -308,7 +308,14 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         
         # TO FIX : the way domain.from_file and discretize_domain runs make that only domain_h.domain.interior has an actual SplineMapping. The rest are BaseMapping.
         # The trick is to now when to set exactly the BaseMapping to the SplineMapping. We could try in discretize_derham, but see if it doesn't generate any issues for other tests.
-        mapping = domain_h.domain.interior.mapping # mapping is SplineMapping now
+        mappings=[]
+        for elm in domain_h.mappings.values():
+            mappings.append(elm)
+        
+        if(len(mappings)>1):
+            raise TypeError("we are not doing multipatch here")
+        
+        mapping = mappings[0] # mapping is SplineMapping now
         derham_h.mapping=mapping
         
         periodic_list = mapping.space.periodic
@@ -854,7 +861,7 @@ def test_maxwell_2d_dirichlet_spline_mapping():
         nsteps   = 1,
         tend     = None,
         splitting_order      = 2,
-        plot_interval        = 4,
+        plot_interval        = 0,
         diagnostics_interval = 0,
         tol = 1e-6,
         verbose = False
@@ -931,7 +938,7 @@ def test_maxwell_2d_dirichlet_par():
 #==============================================================================
 if __name__ == '__main__':
 
-    import argparse
+    '''import argparse
 
     parser = argparse.ArgumentParser(
         formatter_class = argparse.ArgumentDefaultsHelpFormatter,
@@ -1041,6 +1048,7 @@ if __name__ == '__main__':
     # Run simulation
     namespace = run_maxwell_2d_TE(**vars(args))
    
-    # Keep matplotlib windows open
+    # Keep matplotlib windows open'''
+    test_maxwell_2d_dirichlet_spline_mapping()
     import matplotlib.pyplot as plt
     plt.show()

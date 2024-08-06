@@ -4,7 +4,7 @@ from mpi4py import MPI
 import pytest
 import numpy as np
 
-from sympde.topology import BaseAnalyticMapping
+from sympde.topology import BaseAnalyticMapping, CollelaMapping3D
 from sympde.calculus import grad, dot
 from sympde.calculus import laplace
 from sympde.topology import ScalarFunctionSpace
@@ -279,14 +279,6 @@ def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, 
 # 3D Maxwell's equations with "Collela" map
 #==============================================================================
 def test_maxwell_3d_1():
-    class CollelaMapping3D(BaseAnalyticMapping):
-
-        _expressions = {'x': 'k1*(x1 + eps*sin(2.*pi*x1)*sin(2.*pi*x2))',
-                        'y': 'k2*(x2 + eps*sin(2.*pi*x1)*sin(2.*pi*x2))',
-                        'z': 'k3*x3'}
-
-        _ldim        = 3
-        _pdim        = 3
 
     M               = CollelaMapping3D('M', k1=1, k2=1, k3=1, eps=0.1)
     logical_domain  = Cube('C', bounds1=(0, 1), bounds2=(0, 1), bounds3=(0, 1))
@@ -319,14 +311,6 @@ def test_maxwell_3d_1():
 
 #------------------------------------------------------------------------------
 def test_maxwell_3d_2():
-    class CollelaMapping3D(BaseAnalyticMapping):
-
-        _expressions = {'x': 'k1*(x1 + eps*sin(2.*pi*x1)*sin(2.*pi*x2))',
-                        'y': 'k2*(x2 + eps*sin(2.*pi*x1)*sin(2.*pi*x2))',
-                        'z': 'k3*x3'}
-
-        _ldim        = 3
-        _pdim        = 3
 
     M               = CollelaMapping3D('M', k1=1, k2=1, k3=1, eps=0.1)
     logical_domain  = Cube('C', bounds1=(0, 1), bounds2=(0, 1), bounds3=(0, 1))
@@ -359,14 +343,6 @@ def test_maxwell_3d_2():
     
 #------------------------------------------------------------------------------
 def test_maxwell_3d_2_mult():
-    class CollelaMapping3D(BaseAnalyticMapping):
-
-        _expressions = {'x': 'k1*(x1 + eps*sin(2.*pi*x1)*sin(2.*pi*x2))',
-                        'y': 'k2*(x2 + eps*sin(2.*pi*x1)*sin(2.*pi*x2))',
-                        'z': 'k3*x3'}
-
-        _ldim        = 3
-        _pdim        = 3
 
     M               = CollelaMapping3D('M', k1=1, k2=1, k3=1, eps=0.1)
     logical_domain  = Cube('C', bounds1=(0, 1), bounds2=(0, 1), bounds3=(0, 1))
