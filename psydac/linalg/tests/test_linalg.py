@@ -20,7 +20,7 @@ def array_equal(a, b):
 def sparse_equal(a, b):
     return (a.tosparse() != b.tosparse()).nnz == 0
 
-def is_pos_def(A):
+def assert_pos_def(A):
     assert isinstance(A, LinearOperator)
     A_array = A.toarray()
     assert np.all(np.linalg.eigvals(A_array) > 0)
@@ -50,7 +50,7 @@ def get_StencilVectorSpace(n1, n2, p1, p2, P1, P2):
     V = StencilVectorSpace(C)
     return V
 
-def get_positive_definite_stencilmatrix(V):
+def get_positive_definite_StencilMatrix(V):
 
     np.random.seed(2)
     assert isinstance(V, StencilVectorSpace)
@@ -700,9 +700,9 @@ def test_positive_definite_matrix(n1, n2, p1, p2):
     P1 = False
     P2 = False
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-    S = get_positive_definite_stencilmatrix(V)
+    S = get_positive_definite_StencilMatrix(V)
 
-    is_pos_def(S)
+    assert_pos_def(S)
 
 #===============================================================================
 @pytest.mark.parametrize('n1', [3, 5])
@@ -745,7 +745,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
     
     # Initiate positive definite StencilMatrices for which the cg inverse works (necessary for certain tests)
-    S = get_positive_definite_stencilmatrix(V)
+    S = get_positive_definite_StencilMatrix(V)
 
     # Initiate StencilVectors 
     v = StencilVector(V)
@@ -769,7 +769,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
 
     ### 2.1 PowerLO test
     Bmat = B.toarray()
-    is_pos_def(B)
+    assert_pos_def(B)
     uarr = u.toarray()
     b0 = ( B**0 @ u ).toarray()
     b1 = ( B**1 @ u ).toarray()
@@ -799,7 +799,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
     assert np.array_equal(zeros, z2)
 
     Smat = S.toarray()
-    is_pos_def(S)
+    assert_pos_def(S)
     varr = v.toarray()
     s0 = ( S**0 @ v ).toarray()
     s1 = ( S**1 @ v ).toarray()
@@ -960,8 +960,8 @@ def test_x0update(solver):
     P1 = False
     P2 = False
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-    A = get_positive_definite_stencilmatrix(V)
-    is_pos_def(A)
+    A = get_positive_definite_StencilMatrix(V)
+    assert_pos_def(A)
     b = StencilVector(V)
     for n in range(n1):
         b[n, :] = 1.

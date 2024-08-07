@@ -13,7 +13,7 @@ PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python', 'openmp':False}
 
 PSYDAC_BACKEND_GPYCCEL  = {'name': 'pyccel',
                        'compiler': 'GNU',
-                       'flags'   : '-O3 -march=native -mtune=native -ffast-math',
+                       'flags'   : '-O3 -ffast-math',
                        'folder'  : '__gpyccel__',
                        'tag'     : 'gpyccel',
                        'openmp'  : False}
@@ -41,8 +41,22 @@ PSYDAC_BACKEND_NVPYCCEL = {'name': 'pyccel',
 # ...
 
 # Platform-dependent flags
-if platform.machine() == 'x86_64':
-    PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mavx'
+if platform.system() == "Darwin" and platform.machine() == 'arm64':
+    # Apple silicon requires architecture-specific flags (see https://github.com/pyccel/psydac/pull/411)
+    import subprocess # nosec B404
+    cpu_brand = subprocess.check_output(['sysctl','-n','machdep.cpu.brand_string']).decode('utf-8') # nosec B603, B607
+    if "Apple M1" in cpu_brand:
+        PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mcpu=apple-m1'
+    else:
+        # TODO: Support later Apple CPU models. Perhaps the CPU naming scheme could be easily guessed
+        # based on the output of 'sysctl -n machdep.cpu.brand_string', but I wouldn't rely on this
+        # guess unless it has been manually verified. Loud errors are better than silent failures!
+        raise SystemError(f"Unsupported Apple CPU '{cpu_brand}'.")
+else:
+    # Default architecture flags
+    PSYDAC_BACKEND_GPYCCEL['flags'] += ' -march=native -mtune=native'
+    if platform.machine() == 'x86_64':
+        PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mavx'
 
 #==============================================================================
 

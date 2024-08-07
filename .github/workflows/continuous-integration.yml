@@ -16,11 +16,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest ]
-        python-version: [ 3.8, 3.9, '3.10', '3.11' ]
+        python-version: [ 3.9, '3.10', '3.11' ]
         isMerge:
           - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
         exclude:
-          - { isMerge: false, python-version: 3.9 }
           - { isMerge: false, python-version: '3.10' }
         include:
           - os: macos-latest
@@ -50,9 +49,14 @@ jobs:
           brew install open-mpi
           brew install hdf5-mpi
           brew install libomp
-          if [[ ! -f "/usr/local/bin/gfortran" ]]; then
-            gfort=$(ls /usr/local/bin/gfortran-* | tail -n 1)
-            ln -s ${gfort} /usr/local/bin/gfortran
+          GFORTRAN_HOME=$(which gfortran || true)
+          echo "GFORTRAN_HOME : $GFORTRAN_HOME"
+          if [[ ! -f "$GFORTRAN_HOME" ]]; then
+            gfort=$(find ${PATH//:/\/ } -name 'gfortran-*' -exec basename {} \; | sort | tail -n 1 || true)
+            echo "Found $gfort"
+            gfort_path=$(which ${gfort})
+            folder=$(dirname ${gfort_path})
+            ln -s ${gfort_path} ${folder}/gfortran
           fi
           echo "MPI_OPTS=--oversubscribe" >> $GITHUB_ENV
 
