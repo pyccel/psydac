@@ -454,7 +454,9 @@ if __name__ == '__main__':
     verify = 'st_navier_stokes_2d'
 
     if verify == 'st_navier_stokes_2d':
-        test_st_navier_stokes_2d()
+        print('Running test_st_navier_stokes_2d_parallel()')
+        test_st_navier_stokes_2d_parallel()
+        # test_st_navier_stokes_2d()
     
     else:
     
