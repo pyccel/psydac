@@ -75,10 +75,10 @@ def test_regular_jacobians(geometry, npts_per_cell):
 
     # Direct API
     if ldim == 2:
-        jacobian_matrix_direct = np.array([[mapping.jacobian(e1, e2) for e2 in regular_grid[1]] for e1 in regular_grid[0]])
+        jacobian_matrix_direct = np.array([[mapping.jacobian_eval(e1, e2) for e2 in regular_grid[1]] for e1 in regular_grid[0]])
 
     if ldim == 3:
-        jacobian_matrix_direct = np.array([[[mapping.jacobian(e1, e2, e3)
+        jacobian_matrix_direct = np.array([[[mapping.jacobian_eval(e1, e2, e3)
                                                 for e3 in regular_grid[2]]
                                             for e2 in regular_grid[1]]
                                             for e1 in regular_grid[0]])
@@ -213,10 +213,10 @@ def test_irregular_jacobians(geometry, npts):
 
     # Direct API
     if ldim == 2:
-        jacobian_matrix_direct = np.array([[mapping.jacobian(e1, e2) for e2 in irregular_grid[1]] for e1 in irregular_grid[0]])
+        jacobian_matrix_direct = np.array([[mapping.jacobian_eval(e1, e2) for e2 in irregular_grid[1]] for e1 in irregular_grid[0]])
 
     if ldim == 3:
-        jacobian_matrix_direct = np.array([[[mapping.jacobian(e1, e2, e3)
+        jacobian_matrix_direct = np.array([[[mapping.jacobian_eval(e1, e2, e3)
                                                 for e3 in irregular_grid[2]]
                                             for e2 in irregular_grid[1]]
                                             for e1 in irregular_grid[0]])
