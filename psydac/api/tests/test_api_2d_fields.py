@@ -153,7 +153,7 @@ def run_boundary_field_test(domain, boundary, f, ncells):
     a_grad_F_h = discretize(a_grad_F, domain_h, [Vh, Vh])
     a_grad_f_h = discretize(a_grad_f, domain_h, [Vh, Vh])
     a_grad_F_x = a_grad_F_h.assemble(F=fh)
-    a_grad_f_x = a_grad_f_h.assemble()    
+    a_grad_f_x = a_grad_f_h.assemble()
 
     lF_h = discretize(lF, domain_h,  Vh)
     lf_h = discretize(lf, domain_h,  Vh)
@@ -288,8 +288,8 @@ def test_field_identity_1():
     expected_error_1 =  4.77987181085604e-12
     expected_error_2 =  1.196388887893425e-07
 
-    assert( abs(error_1 - expected_error_1) < 1.e-7)
-    assert( abs(error_2 - expected_error_2) < 1.e-7)
+    assert abs(error_1 - expected_error_1) < 1.e-7
+    assert abs(error_2 - expected_error_2) < 1.e-7
 
 #------------------------------------------------------------------------------
 def test_field_identity_2():
@@ -302,8 +302,8 @@ def test_field_identity_2():
     expected_error_1 =  5.428295909559039e-11
     expected_error_2 =  2.9890068935570224e-11
 
-    assert( abs(error_1 - expected_error_1) < 1.e-10)
-    assert( abs(error_2 - expected_error_2) < 1.e-10)
+    assert abs(error_1 - expected_error_1) < 1.e-10
+    assert abs(error_2 - expected_error_2) < 1.e-10
 
 #------------------------------------------------------------------------------
 def test_field_collela():
@@ -316,8 +316,8 @@ def test_field_collela():
     expected_error_1 =  1.9180860719170134e-10
     expected_error_2 =  0.00010748308338081464
 
-    assert( abs(error_1 - expected_error_1) < 1.e-7)
-    assert( abs(error_2 - expected_error_2) < 1.e-7)
+    assert abs(error_1 - expected_error_1) < 1.e-7
+    assert abs(error_2 - expected_error_2) < 1.e-7
 
 #------------------------------------------------------------------------------
 def test_field_quarter_annulus():
@@ -332,8 +332,8 @@ def test_field_quarter_annulus():
     expected_error_1 =  1.1146377538410329e-10
     expected_error_2 =  9.18920469410037e-08
 
-    assert( abs(error_1 - expected_error_1) < 1.e-7)
-    assert( abs(error_2 - expected_error_2) < 1.e-7)
+    assert abs(error_1 - expected_error_1) < 1.e-7
+    assert abs(error_2 - expected_error_2) < 1.e-7
 
 #==============================================================================
 def test_nonlinear_poisson_circle():
@@ -343,7 +343,7 @@ def test_nonlinear_poisson_circle():
 
     expected_l2_error =  0.004026218710733066
 
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert abs(l2_error - expected_l2_error) < 1.e-7
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE

@@ -16,14 +16,17 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest ]
-        python-version: [ 3.9, '3.10', '3.11' ]
+        python-version: [ 3.9, '3.10', '3.11', '3.12' ]
         isMerge:
           - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
         exclude:
           - { isMerge: false, python-version: '3.10' }
+          - { isMerge: false, python-version: '3.11' }
         include:
           - os: macos-latest
             python-version: '3.10'
+          - os: macos-latest
+            python-version: '3.11'
 
     name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
 
@@ -95,7 +98,7 @@ jobs:
 
       - name: Download a specific release of PETSc
         run: |
-          git clone --depth 1 --branch v3.20.5 https://gitlab.com/petsc/petsc.git
+          git clone --depth 1 --branch v3.21.4 https://gitlab.com/petsc/petsc.git
 
       - name: Install PETSc with complex support, and test it
         working-directory: ./petsc
@@ -115,14 +118,20 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          export CC="mpicc" HDF5_MPI="ON"
+          export CC="mpicc"
+          export HDF5_MPI="ON"
           python -m pip install -r requirements.txt
           python -m pip install -r requirements_extra.txt --no-build-isolation
           python -m pip list
 
-      - name: Check h5py installation
+      - name: Check parallel h5py installation
         run: |
-            python -c "from h5py import File; print(File)"
+            python -c "
+            from mpi4py import MPI
+            import h5py
+            # This particular instantiation of h5py.File will fail if parallel h5py isn't installed
+            f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD)
+            print(f)"
 
       - name: Install project
         run: |
