@@ -693,6 +693,10 @@ class TensorFemSpace(FemSpace):
             mpi_comm = self.vector_space.cart.comm
             c = mpi_comm.allreduce(c)
 
+        # convert to native python type if numpy to avoid errors with sympify
+        if isinstance(c, np.generic):
+            c = c.item()
+        
         return c
 
     #--------------------------------------------------------------------------
