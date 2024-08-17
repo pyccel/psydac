@@ -38,9 +38,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Display HW information of the local runner
-        run: python -c "import platform; print(\"${{ matrix.os }} HW info:\", platform.uname())"
-
       - name: Install non-Python dependencies on Ubuntu
         if: matrix.os == 'ubuntu-latest'
         run: |
