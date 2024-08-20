@@ -52,9 +52,9 @@ jobs:
           execute_install_scripts: true
 
       # When loading cached apt packages, the default MPI compiler isn't set.
-      # Workaround is to 'reinstall' openmpi-bin, which doesn't actually perform install
-      # installation (since openmpi-bin already exists), but instead reruns `update-alternatives`
-      # which fixes the symlinks to mpicc/mpif90.
+      # Workaround is to 'reinstall' openmpi-bin, which doesn't actually perform
+      # installation (since openmpi-bin already exists), but instead reruns
+      # `update-alternatives` which fixes the symlinks to mpicc/mpif90.
       - name: Set default MPI and HDF5 C compilers on Ubuntu
         if: matrix.os == 'ubuntu-latest'
         run: |
