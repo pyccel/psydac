@@ -37,7 +37,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip' # Enable pip-caching
+          cache: 'pip'
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+            requirements_extra.txt
 
       - name: Install non-Python dependencies on Ubuntu
         if: matrix.os == 'ubuntu-latest'
