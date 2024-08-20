@@ -427,11 +427,14 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert B @ BI == B
     assert BI @ B == B
 
-    ## ___Raising to the power of 0 and 1___
+    ## ___Raising to the power of 1___
 
-    # Raising a BlockLO to the power of 1 or 0 does not change the object / returns an IdentityOperator
-    # reverted changes from #261
+    # Raising a BlockLO to the power of 1 does not change the object
     assert B**1 is B
+
+    ## ___Raising to the power of 0___
+
+    # Raising a BlockLO to the power of 0 returns an IdentityOperator
     assert isinstance(B**0, IdentityOperator)
     assert sparse_equal(B**0, BI)
 
