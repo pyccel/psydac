@@ -368,7 +368,6 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(B - B1, BlockLinearOperator)
 
     # Adding and Substracting BlockLOs and other LOs returns a SumLinearOperator object
-    # reverted changes made in #261
     assert isinstance(B + BI, SumLinearOperator)
     assert isinstance(BI + B, SumLinearOperator)
     assert isinstance(B - BI, SumLinearOperator)
@@ -425,12 +424,8 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(BZ @ B, ComposedLinearOperator)
 
     # Composing a BlockLO with the IdentityOperator does not change the object
-    # reverted changes from #261
     assert B @ BI == B
     assert BI @ B == B
-    # but: 
-    # assert array_equal((B @ BI) @ vb, B @ vb)
-    # assert array_equal((BI @ B) @ vb, B @ vb)
 
     ## ___Raising to the power of 0 and 1___
 
