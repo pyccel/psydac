@@ -956,8 +956,9 @@ def quadrature_grid_p(breaks: 'float[:]', quad_rule_x: 'float[:]', quad_rule_w: 
     -----
     Contents of 2D output arrays 'out1' and 'out2' are accessed with two
     indices (ie,iq) where:
-      . ie is the global element index;
-      . iq is the local index of a quadrature point within the element.
+
+      - ie is the global element index;
+      - iq is the local index of a quadrature point within the element.
 
     """
     ncells = len(breaks) - 1
@@ -1076,8 +1077,8 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:
     nbk = len(breaks)
 
     # Check if there are points outside the domain
-    if np.min(i_grid) < breaks[0] - tol: return 1
-    if np.max(i_grid) > breaks[nbk - 1] + tol: return 1
+    if np.min(i_grid) < breaks[0] - tol/2: return -1
+    if np.max(i_grid) > breaks[nbk - 1] + tol/2: return -1
 
     current_index = 0
     while current_index < nx:
@@ -1086,13 +1087,18 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:
         # Binary search
         low, high = 0, nbk - 1
         i_cell = (low + high)//2
-        while  x < breaks[i_cell] - tol or x >= breaks[i_cell + 1] + tol:
+        it = 0
+        max_it = 2*(high-low) # this number of iterations should not be reached
+        while it < max_it and (x < breaks[i_cell] - tol or x >= breaks[i_cell + 1] + tol):
             if x < breaks[i_cell]:
                 high = i_cell
             else:
                 low = i_cell
             i_cell = (low + high)//2
-
+            it += 1
+        if it >= max_it:
+            return -2
+        
         # Check were we landed with the binary search
         # Case 1: x is the left breakpoint
         if abs(x - breaks[i_cell]) < tol:

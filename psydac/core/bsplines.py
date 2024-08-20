@@ -7,12 +7,11 @@ Basic module that provides the means for evaluating the B-Splines basis
 functions and their derivatives. In order to simplify automatic Fortran code
 generation with Pyccel, no object-oriented features are employed.
 
-References
-----------
-.. [1] L. Piegl and W. Tiller. The NURBS Book, 2nd ed.,
-    Springer-Verlag Berlin Heidelberg GmbH, 1997.
+References:
 
-.. [2] SELALIB, Semi-Lagrangian Library. http://selalib.gforge.inria.fr
+   - [1] L. Piegl and W. Tiller. The NURBS Book, 2nd ed., Springer-Verlag Berlin Heidelberg GmbH, 1997.
+
+   - [2] SELALIB, Semi-Lagrangian Library. http://selalib.gforge.inria.fr
 
 """
 import numpy as np
@@ -77,7 +76,7 @@ def find_span(knots, degree, x):
         Location of interest.
 
     Returns
-     -------
+    -------
     span : int
         Knot span index.
     """
@@ -602,7 +601,7 @@ def make_knots(breaks, degree, periodic, multiplicity=1, out=None):
         It should be of the appropriate shape and dtype.
 
     Returns
-    ------
+    -------
     T : numpy.ndarray (1D)
         Coordinates of spline knots.
 
@@ -734,8 +733,9 @@ def quadrature_grid(breaks, quad_rule_x, quad_rule_w):
     -----
     Contents of 2D output arrays 'quad_x' and 'quad_w' are accessed with two
     indices (ie,iq) where:
-      . ie is the global element index;
-      . iq is the local index of a quadrature point within the element.
+
+      - ie is the global element index;
+      - iq is the local index of a quadrature point within the element.
 
     """
     # Check that input arrays have correct size
@@ -910,6 +910,8 @@ def cell_index(breaks, i_grid, tol=1e-15, out=None):
     status = cell_index_p(breaks, i_grid, tol, out)
     if status == -1:
         raise ValueError("Encountered a point that was outside of the domain")
+    elif status == -2:
+        raise ValueError("Loop too long in cell search: a point might be slightly outside of the domain")
     return out
 
 #==============================================================================
@@ -1043,7 +1045,7 @@ def _refinement_matrix_one_stage(t, p, knots):
 #==============================================================================
 def hrefinement_matrix(ts, p, knots):
     """
-    computes the refinement matrix corresponding to the insertion of a given list of knots
+    Computes the refinement matrix corresponding to the insertion of a given list of knots.
 
     For more details see:
 

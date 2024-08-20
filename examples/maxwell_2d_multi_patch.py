@@ -79,7 +79,9 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
     equation_h = discretize(equation, domain_h, [Vh, Vh])
     l2norm_h   = discretize(l2norm, domain_h, Vh)
 
-    equation_h.set_solver('pcg', pc='jacobi', tol=1e-8, info=True)
+    equation_h.assemble()
+    jacobi_pc = equation_h.linear_system.lhs.diagonal(inverse=True)
+    equation_h.set_solver('pcg', pc=jacobi_pc, tol=1e-8, info=True)
 
     timing   = {}
     t0       = time.time()
@@ -127,11 +129,12 @@ if __name__ == '__main__':
     N = 20
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-    mappings_list = [m.get_callable_mapping() for m in mappings.values()]
+    mappings_list = [m for m in mappings.values()]
+    call_mappings_list = [m.get_callable_mapping() for m in mappings_list]
 
     Eex_x   = lambdify(domain.coordinates, Eex[0])
     Eex_y   = lambdify(domain.coordinates, Eex[1])
-    Eex_log = [pull_2d_hcurl([Eex_x, Eex_y], f) for f in mappings_list]
+    Eex_log = [pull_2d_hcurl([Eex_x, Eex_y], f) for f in call_mappings_list]
 
     etas, xx, yy    = get_plotting_grid(mappings, N=20)
     grid_vals_hcurl = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='hcurl')

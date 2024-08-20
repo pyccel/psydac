@@ -1,17 +1,11 @@
 mapping
 =======
 
-.. toctree::
-   :maxdepth: 1
-   :hidden:
+.. currentmodule:: psydac
+.. autosummary::
+    :nosignatures:
+    :toctree: STUBDIR
+    :template: autosummary/module.rst
 
-   mapping/discrete
-   mapping/discrete_gallery
-
-.. list-table::
-   :widths: 20 80
-
-   * - :doc:`discrete <mapping/discrete>`
-     - .. automodule:: psydac.mapping.discrete
-   * - :doc:`discrete_gallery <mapping/discrete_gallery>`
-     - .. automodule:: psydac.mapping.discrete_gallery
+    mapping.discrete
+    mapping.discrete_gallery

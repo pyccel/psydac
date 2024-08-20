@@ -1,8 +1,7 @@
 import pytest
 import numpy as np
 from mpi4py import MPI
-from sympy import pi, sin, cos, tan, atan, atan2, exp, sinh, cosh, tanh, atanh, Tuple, I
-
+from sympy import pi, sin, cos, tan, atan, atan2, exp, sinh, cosh, tanh, atanh, Tuple, I, sqrt
 
 from sympde.topology import Line, Square
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
@@ -219,10 +218,10 @@ def test_Norm_complex(backend):
     v = element_of(V, name='v')
     c = Constant(name='c', complex=True)
 
-    res = (1.+1.j)/np.sqrt(2)
+    res = (1.+1j)/np.sqrt(2)
 
     # We try to put complex as a sympy object in the expression
-    g1  = (1.+I)/np.sqrt(2)
+    g1  = (1.+I)/sqrt(2)
 
     # We try to put complex as a python scalar in the expression
     g2  = res
@@ -532,6 +531,8 @@ def test_assembly_no_synchr_args(backend):
 
 #==============================================================================
 if __name__ == '__main__':
+    test_Norm_complex(None)
+    exit()
     test_field_and_constant(None)
     test_multiple_fields(None)
     test_math_imports(None)
