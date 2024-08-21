@@ -1,5 +1,7 @@
-sphinx
-pydata_sphinx_theme
+matplotlib
 numpydoc
-tomli
+pydata_sphinx_theme
+sphinx
+sphinx-gallery
 sphinx-math-dollar
+tomli
