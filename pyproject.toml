@@ -7,7 +7,7 @@ name            = "psydac"
 version         = "0.1"
 description     = "Python package for isogeometric analysis (IGA)"
 readme          = "README.md"
-requires-python = ">= 3.9, < 3.12"
+requires-python = ">= 3.9, < 3.13"
 license         = {file = "LICENSE"}
 authors         = [
     {name = "Psydac development team", email = "psydac@googlegroups.com"}
@@ -34,7 +34,7 @@ dependencies = [
     'pyevtk',
 
     # Our packages from PyPi
-    'sympde == 0.18.3',
+    'sympde == 0.19.0',
     'pyccel >= 1.11.2',
     'gelato == 0.12',
 
