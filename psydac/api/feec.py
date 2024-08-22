@@ -9,29 +9,39 @@ from psydac.feec.global_projectors import Projector_Hdiv, Projector_L2
 from psydac.feec.pull_push         import pull_1d_h1, pull_1d_l2
 from psydac.feec.pull_push         import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2, pull_2d_h1vec
 from psydac.feec.pull_push         import pull_3d_h1, pull_3d_hcurl, pull_3d_hdiv, pull_3d_l2, pull_3d_h1vec
+from psydac.fem.basic              import FemSpace
 from psydac.fem.vector             import VectorFemSpace
-
 
 __all__ = ('DiscreteDerham',)
 
 #==============================================================================
 class DiscreteDerham(BasicDiscrete):
-    """ Represent the discrete De Rham sequence.
-    Should be initialized via discretize_derham function in api.discretization.py
-    
+    """ A discrete de Rham sequence built over a single-patch geometry.
+
     Parameters
     ----------
+    mapping : Mapping or None
+        Symbolic mapping from the logical space to the physical space, if any.
 
-    mapping : Mapping
-        The mapping from the logical space to the physical space of the discrete De Rham.
-        
     *spaces : list of FemSpace
-        The discrete spaces of the De Rham sequence
+        The discrete spaces of the de Rham sequence.
+
+    Notes
+    -----
+    - The basic type Mapping is defined in module sympde.topology.mapping.
+      A discrete mapping (spline or NURBS) may be attached to it.
+
+    - This constructor should not be called directly, but rather from the
+      `discretize_derham` function in `psydac.api.discretization`.
+
+    - For the multipatch counterpart of this class please see
+      `MultipatchDiscreteDerham` in `psydac.feec.multipatch.api`.
     """
     def __init__(self, mapping, *spaces):
 
         assert (mapping is None) or isinstance(mapping, Mapping)
-        
+        assert all(isinstance(space, FemSpace) for space in spaces)
+
         self.has_vec = isinstance(spaces[-1], VectorFemSpace)
 
         if self.has_vec : 
@@ -86,54 +96,108 @@ class DiscreteDerham(BasicDiscrete):
     #--------------------------------------------------------------------------
     @property
     def dim(self):
+        """Dimension of the physical and logical domains, which are assumed to be the same."""
         return self._dim
 
     @property
     def V0(self):
+        """First space of the de Rham sequence : H1 space"""
         return self._spaces[0]
 
     @property
     def V1(self):
+        """Second space of the de Rham sequence :
+        - 1d : L2 space
+        - 2d : either Hdiv or Hcurl space
+        - 3d : Hcurl space"""
         return self._spaces[1]
 
     @property
     def V2(self):
+        """Third space of the de Rham sequence :
+        - 2d : L2 space
+        - 3d : Hdiv space"""
         return self._spaces[2]
 
     @property
     def V3(self):
+        """Fourth space of the de Rham sequence : L2 space in 3d"""
         return self._spaces[3]
 
     @property
     def H1vec(self):
+        """Vector-valued H1 space built as the Cartesian product of N copies of V0,
+        where N is the dimension of the (logical) domain."""
         assert self.has_vec
         return self._H1vec
 
     @property
     def spaces(self):
+        """Spaces of the proper de Rham sequence (excluding Hvec)."""
         return self._spaces
 
     @property
     def mapping(self):
+        """The mapping from the logical space to the physical space."""
         return self._mapping
 
     @property
     def callable_mapping(self):
+        """The mapping as a callable."""
         return self._callable_mapping
 
     @property
     def derivatives_as_matrices(self):
+        """Differential operators of the De Rham sequence as LinearOperator objects."""
         return tuple(V.diff.matrix for V in self.spaces[:-1])
 
     @property
-    def derivatives_as_operators(self):
+    def derivatives(self):
+        """Differential operators of the De Rham sequence as `DiffOperator` objects.
+
+        Those are objects with `domain` and `codomain` properties that are `FemSpace`, 
+        they act on `FemField` (they take a `FemField` of their `domain` as input and return 
+        a `FemField` of their `codomain`.
+        """
         return tuple(V.diff for V in self.spaces[:-1])
 
     #--------------------------------------------------------------------------
     def projectors(self, *, kind='global', nquads=None):
+        """Projectors mapping callable functions of the physical coordinates to a 
+        corresponding `FemField` object in the De Rham sequence.
+
+        Parameters
+        ----------
+        kind : str
+            Type of the projection : at the moment, only global is accepted and
+            returns geometric commuting projectors based on interpolation/histopolation 
+            for the De Rham sequence (GlobalProjector objects).
+
+        nquads : list(int) | tuple(int)
+            Number of quadrature points along each direction, to be used in Gauss
+            quadrature rule for computing the (approximated) degrees of freedom.
+
+        Returns
+        -------
+        P0, ..., Pn : callables
+            Projectors that can be called on any callable function that maps 
+            from the physical space to R (scalar case) or R^d (vector case) and
+            returns a FemField belonging to the i-th space of the De Rham sequence
+        """
 
         if not (kind == 'global'):
             raise NotImplementedError('only global projectors are available')
+
+        if nquads is None:
+            nquads = [p + 1 for p in self.V0.degree]
+        elif isinstance(nquads, int):
+            nquads = [nquads] * self.dim
+        else:
+            assert hasattr(nquads, '__iter__')
+            nquads = list(nquads)
+
+        assert all(isinstance(nq, int) for nq in nquads)
+        assert all(nq >= 1 for nq in nquads)
 
         if self.dim == 1:
             P0 = Projector_H1(self.V0)

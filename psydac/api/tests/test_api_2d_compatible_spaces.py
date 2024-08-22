@@ -68,7 +68,7 @@ def run_poisson_mixed_form_2d_dir(f0, sol, ncells, degree):
     ah = discretize(equation, domain_h, [Xh, Xh])
     # ...
     # ... discretize norms
-    l2norm_F_h = discretize(l2norm_F, domain_h, V2h)
+    l2norm_F_h = discretize(l2norm_F, domain_h, V2h, nquads=[d+1 for d in degree])
     # ...
 
     # ...
@@ -130,7 +130,7 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
     # ... solve linear system using scipy.sparse.linalg or psydac
     if scipy:
 
-        tol = 1e-11
+        rtol = 1e-11
         equation_h.assemble()
         A0 = equation_h.linear_system.lhs.tosparse()
         b0 = equation_h.linear_system.rhs.toarray()
@@ -145,17 +145,17 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
             A1 = a1_h.assemble().tosparse()
             b1 = l1_h.assemble().toarray()
 
-            x1, info = sp_minres(A1, b1, tol=tol)
+            x1, info = sp_minres(A1, b1, rtol=rtol)
             print('Boundary solution with scipy.sparse: success = {}'.format(info == 0))
 
-            x0, info = sp_minres(A0, b0 - A0.dot(x1), tol=tol)
+            x0, info = sp_minres(A0, b0 - A0.dot(x1), rtol=rtol)
             print('Interior solution with scipy.sparse: success = {}'.format(info == 0))
 
             # Solution is sum of boundary and interior contributions
             x = x0 + x1
 
         else:
-            x, info = sp_minres(A0, b0, tol=tol)
+            x, info = sp_minres(A0, b0, rtol=rtol)
             print('Solution with scipy.sparse: success = {}'.format(info == 0))
 
         # Convert to stencil format
@@ -197,7 +197,7 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
 
     # L2 error norm of the pressure, after removing the average value from the field
     l2norm_p  = Norm(pe - (p - p_avg), domain, kind='l2')
-    l2norm_ph = discretize(l2norm_p, domain_h, V2h)
+    l2norm_ph = discretize(l2norm_p, domain_h, V2h, nquads=[d+1 for d in degree])
 
     # Compute error norms
     l2_error_u = l2norm_uh.assemble(u = uh)
@@ -284,13 +284,13 @@ def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree):
         ksp.setOperators(A1)
         x1 = b1.duplicate()
         ksp.solve(b1, x1)
-        print('Boundary solution with petsc4py: success = {}'.format(ksp.converged))
+        print('Boundary solution with petsc4py: success = {}'.format(ksp.is_converged))
 
         ksp.setOperators(A0)
         b0 = b0 - A0*x1
         x0 = b0.duplicate()
         ksp.solve(b0, x0)
-        print('Interior solution with petsc4py: success = {}'.format(ksp.converged))
+        print('Interior solution with petsc4py: success = {}'.format(ksp.is_converged))
 
         # Solution is sum of boundary and interior contributions
         x = x0 + x1
@@ -300,7 +300,7 @@ def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree):
         x = b0.duplicate()
         ksp.solve(b0, x)
 
-        print('Solution with petsc4py: success = {}'.format(ksp.converged))
+        print('Solution with petsc4py: success = {}'.format(ksp.is_converged))
 
 
     x = petsc_to_psydac(x, Xh.vector_space)
@@ -334,7 +334,7 @@ def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree):
 
     # L2 error norm of the pressure, after removing the average value from the field
     l2norm_p  = Norm(pe - (p - p_avg), domain, kind='l2')
-    l2norm_ph = discretize(l2norm_p, domain_h, V2h)
+    l2norm_ph = discretize(l2norm_p, domain_h, V2h, nquads=[d+1 for d in degree])
 
     # Compute error norms
     l2_error_u = l2norm_uh.assemble(u = uh)
@@ -399,7 +399,8 @@ def run_maxwell_time_harmonic_2d_dir(uex, f, alpha, ncells, degree):
     #+++++++++++++++++++++++++++++++
 
     # Solve linear system
-    M_inv = inverse(M, 'pcg', pc='jacobi', tol=1e-8)
+    jacobi_pc = M.diagonal(inverse=True)
+    M_inv = inverse(M, 'pcg', pc=jacobi_pc, tol=1e-8)
     sol = M_inv @ b
 
     uh       = FemField( Vh, sol )

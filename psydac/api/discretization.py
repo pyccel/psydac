@@ -43,27 +43,37 @@ from psydac.mapping.discrete import NurbsMapping
 from psydac.linalg.stencil   import StencilVectorSpace
 from psydac.linalg.block     import BlockVectorSpace
 
-__all__ = ('discretize', 'discretize_derham', 'reduce_space_degrees', 'discretize_space', 'discretize_domain')
-
+__all__ = (
+    'discretize',
+    'discretize_derham',
+    'reduce_space_degrees',
+    'discretize_space',
+    'discretize_domain'
+)
 
 #==============================================================================
 def change_dtype(V, dtype):
     """
-    This function take a FemSpace V and create a new vector_space for it with the data type required.
+    Given a FemSpace V, change its underlying vector_space (i.e. the space of
+    its coefficients) so that it matches the required data type.
 
     Parameters
     ----------
-
     Vh : FemSpace
-        The FEM space.
+        The FEM space, which is modified in place.
 
-    dtype   : Data Type
-        float or complex
+    dtype : float or complex
+        Datatype of the new vector_space.
+
+    Returns
+    -------
+    FemSpace
+        The same FEM space passed as input, which was modified in place.
     """
     if not V.vector_space.dtype == dtype:
         if isinstance(V.vector_space, BlockVectorSpace):
             # Recreate the BlockVectorSpace
-            new_spaces=[]
+            new_spaces = []
             for v in V.spaces:
                 change_dtype(v, dtype)
                 new_spaces.append(v.vector_space)
@@ -81,32 +91,97 @@ def change_dtype(V, dtype):
 
     return V
 
-#==============================================================================           
-def discretize_derham(derham, domain_h, get_H1vec_space = False, *args, **kwargs):
+#==============================================================================
+def get_max_degree_of_one_space(Vh):
     """
-    Create a discrete De Rham sequence by creating the spaces and then initiating DiscreteDerham object.
+    Get the maximum polynomial degree of a finite element space, along each
+    logical (parametric) coordinate.
 
     Parameters
     ----------
+    Vh : FemSpace
+        The finite element space under investigation.
 
+    Returns
+    -------
+    list[int]
+        The maximum polynomial degre of Vh with respect to each coordinate.
+
+    """
+
+    if isinstance(Vh, TensorFemSpace):
+        return Vh.degree
+
+    elif isinstance(Vh, VectorFemSpace):
+        return [max(p) for p in zip(*Vh.degree)]
+
+    elif isinstance(Vh, ProductFemSpace):
+        degree = [get_max_degree_of_one_space(Vh_i) for Vh_i in Vh.spaces]
+        return [max(p) for p in zip(*degree)]
+
+    else:
+        raise TypeError(f'Type({V}) not understood')
+
+
+def get_max_degree(*spaces):
+    """
+    Get the maximum polynomial degree across several finite element spaces,
+    along each logical (parametric) coordinate.
+
+    Parameters
+    ----------
+    *spaces : tuple[FemSpace]
+        The finite element spaces under investigation.
+
+    Returns
+    -------
+    list[int]
+        The maximum polynomial degree across all spaces, with respect to each
+        coordinate.
+
+    """
+    degree = [get_max_degree_of_one_space(Vh) for Vh in spaces]
+    return [max(p) for p in zip(*degree)]
+
+#==============================================================================           
+def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
+    """
+    Create a discrete De Rham sequence from a symbolic one.
+    
+    This function creates the discrete spaces from the symbolic ones, and then
+    creates a DiscreteDerham object from them.
+
+    Parameters
+    ----------
     derham : sympde.topology.space.Derham
-        The symbolic Derham sequence
+        The symbolic Derham sequence.
 
-    domain_h   : Geometry
-        Discrete domain where the spaces will be discretized
-        
-    get_H1vec_space : Bool
-        True to also get the "Hvec" space discretizing (H1)^n vector fields
-        
-    **kwargs : list
-        optional parameters for the space discretization
+    domain_h : Geometry
+        Discrete domain where the spaces will be discretized.
+
+    get_H1vec_space : bool, default=False
+        True to also get the "Hvec" space discretizing (H1)^n vector fields.
+
+    **kwargs : dict
+        Optional parameters for the space discretization.
+
+    Returns
+    -------
+    DiscreteDerham
+      The discrete De Rham sequence containing the discrete spaces, 
+      differential operators and projectors.
+
+    See Also
+    --------
+    discretize_space
+
     """
 
     ldim    = derham.shape
     mapping = domain_h.domain.mapping # NOTE: assuming single-patch domain!
-    bases  = ['B'] + ldim * ['M']
-    spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \
-            for V, basis in zip(derham.spaces, bases)]
+    bases   = ['B'] + ldim * ['M']
+    spaces  = [discretize_space(V, domain_h, basis=basis, **kwargs)
+               for V, basis in zip(derham.spaces, bases)]
 
     if get_H1vec_space:
         X = VectorFunctionSpace('X', domain_h.domain, kind='h1')
@@ -117,6 +192,7 @@ def discretize_derham(derham, domain_h, get_H1vec_space = False, *args, **kwargs
         spaces.append(Xh)
 
     return DiscreteDerham(mapping, *spaces)
+
 #==============================================================================
 def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
     """
@@ -168,7 +244,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
         The symbolic space.
 
     Vh : TensorFemSpace
-        The tensor product fem space.
+        The tensor product FEM space.
 
     basis: str
         The basis function of the reduced spaces, it can be either 'B' for
@@ -185,7 +261,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
     Returns
     -------
     Wh : TensorFemSpace, VectorFemSpace
-      The reduced space
+      The reduced space.
 
     """
     multiplicity = Vh.multiplicity
@@ -250,21 +326,19 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
     return Wh
 
-
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, nquads=None, basis='B', sequence='DR'):
+def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, basis='B', sequence='DR'):
     """
     This function creates the discretized space starting from the symbolic space.
 
     Parameters
     ----------
-
     V : <FunctionSpace>
-        the symbolic space
+        The symbolic space.
 
     domain_h   : <Geometry>
-        the discretized domain
+        The discretized domain.
 
     degree : list | dict
         The degree of the h1 space in each direction.
@@ -274,9 +348,6 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
     knots: list | dict
         The knots sequence of the h1 space in each direction.
-
-    nquads: list
-        The number of quadrature points in each direction.
 
     basis: str
         The type of basis function can be 'B' for B-splines or 'M' for M-splines.
@@ -306,8 +377,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     Returns
     -------
     Vh : <FemSpace>
-        represents the discrete fem space
-
+        The discrete FEM space.
     """
 
 #    we have two cases, the case where we have a geometry file,
@@ -401,7 +471,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
 
         carts    = create_cart(ddms, spaces)
-        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i], nquads=nquads, dtype=dtype) for i,inter in enumerate(interiors)}
+        g_spaces = {inter : TensorFemSpace(ddms[i], *spaces[i], cart=carts[i], dtype=dtype) for i, inter in enumerate(interiors)}
 
 
         for i,j in connectivity:
@@ -467,6 +537,29 @@ def discretize(a, *args, **kwargs):
         domain  = domain_h.domain
         mapping = domain_h.domain.mapping
         kwargs['symbolic_mapping'] = mapping
+
+    #...
+    # In the case of Equation, BilinearForm, LinearForm, or Functional, we
+    # need the number of quadrature points along each direction.
+    #
+    # If not given, we set `nquads[i] = max_p[i] + 1`, where `max_p[i]` is the
+    # maximum polynomial degree of the spaces along direction i.
+    #
+    # If a scalar integer is passed, we use the same number of quadrature
+    # points in all directions.
+    if isinstance(a, (sym_BasicForm, sym_Equation)):
+        nquads = kwargs.get('nquads', None)
+        if nquads is None:
+            spaces = args[1]
+            if not hasattr(spaces, '__iter__'):
+                spaces = [spaces]
+            nquads = [p + 1 for p in get_max_degree(*spaces)]
+        elif not hasattr(nquads, '__iter__'):
+            assert isinstance(nquads, int)
+            domain_h = args[0]
+            nquads = [nquads] * domain_h.ldim
+        kwargs['nquads'] = nquads
+    #...
 
     if isinstance(a, sym_BasicForm):
         if isinstance(a, (sym_Norm, sym_SemiNorm)):

@@ -672,13 +672,35 @@ class BlockLinearOperator(LinearOperator):
                 out[i] += Lij.dot(v[j], out=inc[i])
 
     # ...
-    def transpose(self, conjugate=False):
-        blocks, blocks_T = self.compute_interface_matrices_transpose()
-        blocks = {(j, i): b.transpose(conjugate=conjugate) for (i, j), b in blocks.items()}
-        blocks.update(blocks_T)
-        mat = BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
-        mat.set_backend(self._backend)
-        return mat
+    def transpose(self, conjugate=False, out=None):
+        """"
+        Return the transposed BlockLinearOperator, or the Hermitian Transpose if conjugate==True
+
+        Parameters
+        ----------
+        conjugate : Bool(optional)
+            True to get the Hermitian adjoint.
+
+        out : BlockLinearOperator(optional)
+            Optional out for the transpose to avoid temporaries
+        """
+        if out is not None:
+            assert isinstance(out, BlockLinearOperator)
+            assert out.codomain is self.domain
+            assert out.domain is self.codomain
+            for (i, j), Lij in self._blocks.items():
+                if out[j,i]==None:
+                    out[j, i] = Lij.transpose(conjugate=conjugate)
+                else:
+                    Lij.transpose(conjugate=conjugate, out=out[j,i])
+        else:
+            blocks, blocks_T = self.compute_interface_matrices_transpose()
+            blocks = {(j, i): b.transpose(conjugate=conjugate) for (i, j), b in blocks.items()}
+            blocks.update(blocks_T)
+            out = BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
+
+        out.set_backend(self._backend)
+        return out
 
     #--------------------------------------
     # Overridden properties/methods
@@ -755,6 +777,49 @@ class BlockLinearOperator(LinearOperator):
     #--------------------------------------
     # New properties/methods
     #--------------------------------------
+    def diagonal(self, *, inverse = False, out = None):
+        """Get the coefficients on the main diagonal as another BlockLinearOperator object.
+
+        Parameters
+        ----------
+        inverse : bool
+            If True, get the inverse of the diagonal. (Default: False).
+
+        out : BlockLinearOperator
+            If provided, write the diagonal entries into this matrix. (Default: None).
+
+        Returns
+        -------
+        BlockLinearOperator
+            The matrix which contains the main diagonal of self (or its inverse).
+
+        """
+        # Determine domain and codomain of result
+        V, W = self.domain, self.codomain
+        if inverse:
+            V, W = W, V
+
+        # Check the `out` argument, if `None` create a new BlockLinearOperator
+        if out is not None:
+            assert isinstance(out, BlockLinearOperator)
+            assert out.domain is V
+            assert out.codomain is W
+
+            # Set any off-diagonal blocks to zero
+            for i, j in out.nonzero_block_indices:
+                if i != j:
+                    out[i, j] = None
+        else:
+            out = BlockLinearOperator(V, W)
+
+        # Store the diagonal (or its inverse) into `out`
+        for i, j in self.nonzero_block_indices:
+            if i == j:
+                out[i, i] = self[i, i].diagonal(inverse = inverse, out = out[i, i])
+
+        return out
+
+    # ...
     @property
     def blocks(self):
         """ Immutable 2D view (tuple of tuples) of the linear operator,
@@ -846,7 +911,8 @@ class BlockLinearOperator(LinearOperator):
             assert value.codomain is self.codomain[i]
 
         self._blocks[i,j] = value
-    
+
+    # ...
     def transform(self, operation):
         """
         Applies an operation on each block in this BlockLinearOperator.
@@ -859,20 +925,46 @@ class BlockLinearOperator(LinearOperator):
         blocks = {ij: operation(Bij) for ij, Bij in self._blocks.items()}
         return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
 
+    # ...
     def backend(self):
         return self._backend
 
     # ...
-    def copy(self):
-        blocks = {ij: Bij.copy() for ij, Bij in self._blocks.items()}
-        mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
-        if self._backend is not None:
-            mat._func = self._func
-            mat._args = self._args
-            mat._blocks_as_args = [mat._blocks[key]._data for key in self._blocks]
-            mat._backend = self._backend
-        return mat
+    def copy(self, out=None):
+        """
+        Create a copy of self, that can potentially be stored in a given BlockLinearOperator.
 
+        Parameters
+        ----------
+        out : BlockLinearOperator(optional)
+            The existing BlockLinearOperator in which we want to copy self.
+
+        Returns
+        -------
+        BlockLinearOperator
+            The copy of `self`, either stored in the given BlockLinearOperator `out`
+            (if provided) or in a new one. In the corner case where `out=self` the
+            `self` object is immediately returned.
+        """
+        if out is not None:
+            if out is self:
+                return self
+            assert isinstance(out, BlockLinearOperator)
+            assert out.domain is self.domain
+            assert out.codomain is self.codomain
+        else:
+            out = BlockLinearOperator(self.domain, self.codomain)
+
+        for (i, j), Lij in self._blocks.items():
+            if out[i, j] is None:
+                out[i, j] = Lij.copy()
+            else:
+                Lij.copy(out = out[i, j])
+
+        out.set_backend(self._backend)
+
+        return out
+        
     # ...
     def __imul__(self, a):
         for Bij in self._blocks.values():
@@ -999,7 +1091,7 @@ class BlockLinearOperator(LinearOperator):
                             data_exchanger.update_ghost_regions(array_minus=block_ij_k1k2._data)
 
                             if cart_i.is_comm_null:
-                                blocks_T[j,i][k2,k1] = block_ij_k1k2.transpose(Mt=block_ji_k2k1)
+                                blocks_T[j,i][k2,k1] = block_ij_k1k2.transpose(out=block_ji_k2k1)
                     else:
                         continue
 
@@ -1061,7 +1153,7 @@ class BlockLinearOperator(LinearOperator):
                             data_exchanger.update_ghost_regions(array_plus=block_ji_k2k1._data)
 
                             if cart_j.is_comm_null:
-                                blocks_T[i,j][k1,k2] = block_ji_k2k1.transpose(Mt=block_ij_k1k2)
+                                blocks_T[i,j][k1,k2] = block_ji_k2k1.transpose(out=block_ij_k1k2)
 
                     else:
                         continue
@@ -1111,7 +1203,7 @@ class BlockLinearOperator(LinearOperator):
                     data_exchanger.update_ghost_regions(array_minus=block_ij._data)
 
                     if cart_i.is_comm_null:
-                        blocks_T[j,i] = block_ij.transpose(Mt=block_ji)
+                        blocks_T[j,i] = block_ij.transpose(out=block_ji)
 
                 if not cart_j.is_comm_null:
                     if cart_ij.intercomm.rank == 0:
@@ -1138,7 +1230,7 @@ class BlockLinearOperator(LinearOperator):
                     data_exchanger.update_ghost_regions(array_plus=block_ji._data)
 
                     if cart_j.is_comm_null:
-                        blocks_T[i,j] = block_ji.transpose(Mt=block_ij)
+                        blocks_T[i,j] = block_ji.transpose(out=block_ij)
 
         return blocks, blocks_T
 

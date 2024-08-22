@@ -63,9 +63,11 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     from psydac.api.discretization import discretize
     from psydac.linalg.solvers     import inverse
 
-    # for now, switch to the Python backend, to be able to detect out of bounds errors
-    from psydac.api.settings       import PSYDAC_BACKEND_PYTHON
+    from psydac.api.settings       import PSYDAC_BACKENDS
     from psydac.feec.pull_push     import push_1d_l2
+
+    # For now, use the Python backend, to be able to detect out of bounds errors
+    backend = PSYDAC_BACKENDS['python']
 
     #--------------------------------------------------------------------------
     # Analytical objects: SymPDE
@@ -135,8 +137,8 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     derham_h = discretize(derham, domain_h, degree=[degree], multiplicity=[mult])
 
     # Discrete bilinear forms
-    a0_h = discretize(a0, domain_h, (derham_h.V0, derham_h.V0), backend=PSYDAC_BACKEND_PYTHON)
-    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_PYTHON)
+    a0_h = discretize(a0, domain_h, (derham_h.V0, derham_h.V0), nquads=[degree+1], backend=backend)
+    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), nquads=[degree+1], backend=backend)
 
     # Mass matrices (StencilMatrix objects)
     M0 = a0_h.assemble()
@@ -171,7 +173,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
         # Option 2: Discretize and assemble penalization matrix
         elif bc_mode == 'penalization':
-            a0_bc_h = discretize(a0_bc, domain_h, (derham_h.V0, derham_h.V0), backend=PSYDAC_BACKEND_PYTHON)
+            a0_bc_h = discretize(a0_bc, domain_h, (derham_h.V0, derham_h.V0), nquads=[degree+1], backend=backend)
             M0_bc   = a0_bc_h.assemble()
 
     # Projectors
@@ -336,7 +338,8 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         step_ampere_1d = dt * ( M0_dir_inv @ D0_T_dir @ M1 )
 
     elif bc_mode == 'penalization':
-        M0_M0_bc_inv = inverse(M0+M0_bc, 'pcg', pc='jacobi', **kwargs)
+        M0_M0_bc = M0 + M0_bc
+        M0_M0_bc_inv = inverse(M0_M0_bc, 'pcg', pc = M0_M0_bc.diagonal(inverse=True), **kwargs)
         step_ampere_1d = dt * ( M0_M0_bc_inv @ D0_T @ M1 )
 
     half_step_faraday_1d = (dt/2) * D0
@@ -413,7 +416,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     F = mapping.get_callable_mapping()
     errE = lambda x1: (E(x1) - E_ex(t, *F(x1)))**2 * np.sqrt(F.metric_det(x1))
     errB = lambda x1: (push_1d_l2(B, x1, F) - B_ex(t, *F(x1)))**2 * np.sqrt(F.metric_det(x1))
-    error_l2_E = np.sqrt(derham_h.V1.integral(errE))
+    error_l2_E = np.sqrt(derham_h.V1.integral(errE, nquads=[degree+1]))
     error_l2_B = np.sqrt(derham_h.V0.integral(errB))
     print('L2 norm of error on E(t,x) at final time: {:.2e}'.format(error_l2_E))
     print('L2 norm of error on B(t,x) at final time: {:.2e}'.format(error_l2_B))
