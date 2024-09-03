@@ -8,6 +8,8 @@ provides the fundamental classes for linear algebra operations.
 """
 
 from abc import ABC, abstractmethod
+from types import LambdaType 
+from inspect import signature
 
 import numpy as np
 from scipy.sparse import coo_matrix
@@ -478,24 +480,12 @@ class IdentityOperator(LinearOperator):
     
     """
 
-    def __new__(cls, domain, codomain=None):
+    def __init__(self, domain, codomain=None):
 
         assert isinstance(domain, VectorSpace)
         if codomain:
             assert isinstance(codomain, VectorSpace)
             assert domain == codomain
-
-        from psydac.linalg.block import BlockVectorSpace, BlockLinearOperator
-        if isinstance(domain, BlockVectorSpace):
-            spaces = domain.spaces
-            blocks = {}
-            for i, V in enumerate(spaces):
-                blocks[i,i] = IdentityOperator(V)
-            return BlockLinearOperator(domain, domain, blocks)
-        else:
-            return super().__new__(cls)
-    
-    def __init__(self, domain, codomain=None):
 
         self._domain = domain
         self._codomain = domain
@@ -1219,5 +1209,3 @@ class MatrixFreeLinearOperator(LinearOperator):
             new_dot = self._dot_transpose
 
         return MatrixFreeLinearOperator(domain=self.codomain, codomain=self.domain, dot=new_dot, dot_transpose=self._dot)
-
-    

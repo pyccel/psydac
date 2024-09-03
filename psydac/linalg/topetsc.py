@@ -1,18 +1,28 @@
-import numpy as np
-
-from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockLinearOperator
-from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.linalg.basic import VectorSpace
 from itertools import product as cartesian_prod
 
-__all__ = ('petsc_local_to_psydac', 'psydac_to_petsc_global', 'get_npts_local', 'get_npts_per_block', 'vec_topetsc', 'mat_topetsc')
+import numpy as np
 
-from .kernels.stencil2IJV_kernels import stencil2IJV_1d_C, stencil2IJV_2d_C, stencil2IJV_3d_C
-# Dictionary used to select correct kernel functions based on dimensionality
+from psydac.linalg.basic   import VectorSpace
+from psydac.linalg.block   import BlockVectorSpace, BlockVector, BlockLinearOperator
+from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
+from psydac.linalg.kernels.stencil2IJV_kernels import stencil2IJV_1d_C, stencil2IJV_2d_C, stencil2IJV_3d_C
+
+__all__ = (
+    'petsc_local_to_psydac',
+    'psydac_to_petsc_global',
+    'get_npts_local',
+    'get_npts_per_block',
+    'vec_topetsc',
+    'mat_topetsc'
+)
+
+# Dictionary used to select the correct kernel function based on dimensionality
 kernels = {
     'stencil2IJV': {'F': None,
                     'C': (None,   stencil2IJV_1d_C,   stencil2IJV_2d_C,   stencil2IJV_3d_C)}
 }
+
+
 def get_index_shift_per_block_per_process(V):
     npts_local_per_block_per_process = np.array(get_npts_per_block(V)) #indexed [b,k,d] for block b and process k and dimension d
     local_sizes_per_block_per_process = np.prod(npts_local_per_block_per_process, axis=-1) #indexed [b,k] for block b and process k
@@ -145,6 +155,7 @@ def petsc_local_to_psydac(
 
     return (bb,), tuple(ii)
 
+
 def psydac_to_petsc_global(
         V : VectorSpace, 
         block_indices, 
@@ -250,6 +261,7 @@ def psydac_to_petsc_global(
 
     return global_index 
 
+
 def get_npts_local(V : VectorSpace) -> list:
     """
     Compute the local number of nodes per dimension owned by the actual process. 
@@ -281,6 +293,7 @@ def get_npts_local(V : VectorSpace) -> list:
         npts_local_per_block.append(npts_local_b)
 
     return npts_local_per_block
+
 
 def get_npts_per_block(V : VectorSpace) -> list:
     """
@@ -316,7 +329,8 @@ def get_npts_per_block(V : VectorSpace) -> list:
 
     return npts_local_per_block
 
-def vec_topetsc( vec ):
+
+def vec_topetsc(vec):
     """ Convert vector from Psydac format to a PETSc.Vec object.
 
     Parameters
@@ -415,7 +429,8 @@ def vec_topetsc( vec ):
 
     return gvec
 
-def mat_topetsc( mat ):
+
+def mat_topetsc(mat):
     """ Convert operator from Psydac format to a PETSc.Mat object.
 
     Parameters

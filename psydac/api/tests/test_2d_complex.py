@@ -434,12 +434,10 @@ def test_complex_helmholtz_2d(plot_sol=False):
         # print(f'domain.logical_domain = {domain.logical_domain}')
         mappings = OrderedDict([(domain, Id_mapping)])
         mappings_list = [m for m in mappings.values()]
-        call_mappings_list = [m.get_callable_mapping() for m in mappings_list]
-
         uh = [uh]  # single-patch cast as multi-patch solution 
 
         u   = lambdify(domain.coordinates, solution)
-        u_log = [pull_2d_h1(u, f) for f in call_mappings_list]
+        u_log = [pull_2d_h1(u, f) for f in mappings_list]
 
         etas, xx, yy         = get_plotting_grid(mappings, N=20)
         grid_vals_h1         = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='h1')

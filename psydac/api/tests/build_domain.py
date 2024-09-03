@@ -11,6 +11,9 @@ from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, BaseAn
 # remove after sympde PR #155 is merged and call Domain.join instead
 from psydac.feec.multipatch.multipatch_domain_utilities import sympde_Domain_join
 
+# remove after sympde PR #155 is merged and call Domain.join instead
+from psydac.feec.multipatch.multipatch_domain_utilities import sympde_Domain_join
+
 #==============================================================================
 # small extension to SymPDE:
 class TransposedPolarMapping(BaseAnalyticMapping):
