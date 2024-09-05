@@ -1,5 +1,5 @@
 # coding: utf-8
-import subproces # nosec B404
+import subprocess # nosec B404
 import platform
 import re
 from packaging.version import Version
