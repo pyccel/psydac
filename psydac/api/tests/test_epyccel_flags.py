@@ -4,7 +4,7 @@ import pytest
 @pytest.mark.pyccel
 def test_epyccel_flags():
 
-    from pyccel import epyccel
+    from pyccel.epyccel import epyccel
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL as backend
 
     kwargs = {'language'     : 'fortran',
