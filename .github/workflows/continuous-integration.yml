@@ -159,9 +159,9 @@ jobs:
           python -m pip install .
           python -m pip freeze
 
-      - name: Test pyccel optimization flags
+      - name: Test Pyccel optimization flags
         run: |
-            pyccel --verbose ./psydac/linalg/kernels/axpy_kernels.py
+          pytest --pyargs psydac -m pyccel --capture=no
 
       - name: Initialize test directory
         run: |
