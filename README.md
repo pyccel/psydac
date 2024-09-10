@@ -108,7 +108,7 @@ export HDF5_MPI="ON"
 
 python3 -m pip install --upgrade pip
 python3 -m pip install -r requirements.txt
-python3 -m pip install -r requirements_extra.txt --no-build-isolation
+python3 -m pip install -r requirements_extra.txt --no-build-isolation --no-cache-dir
 ```
 
 At this point the Psydac library may be installed in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the Psydac directory. The latter mode allows one to effect the behavior of Psydac by modifying the source files.
