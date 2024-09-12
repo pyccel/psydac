@@ -19,9 +19,9 @@ jobs:
         python-version: [ 3.9, '3.10', '3.11', '3.12' ]
         isMerge:
           - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
-        exclude:
-          - { isMerge: false, python-version: '3.10' }
-          - { isMerge: false, python-version: '3.11' }
+        #exclude:
+        #  - { isMerge: false, python-version: '3.10' }
+        #  - { isMerge: false, python-version: '3.11' }
         include:
           - os: macos-latest
             python-version: '3.10'
