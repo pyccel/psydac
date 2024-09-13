@@ -340,7 +340,7 @@ class VectorFemSpace( FemSpace ):
         #      - shall we check the bc too?
 
         degree = [V.degree for V in self.spaces]
-        if self.pdim == 1:
+        if self.ldim == 1:
             return len(np.unique(degree)) == 1
         else:
             ns = np.asarray(degree[0])
