@@ -76,28 +76,20 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc, m):
     error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
     assert error < 1e-9
 
-    # TODO: test takes too long in 3D
     #--------------------------
     # check BlockLinearOperator
     #--------------------------
-    # build the solver from the LinearOperator
-    # imat_kronecker_P0 = P0.imat_kronecker 
-    # imat_kronecker_P1 = P1.imat_kronecker
-    # I0inv = inverse(imat_kronecker_P0, 'gmres', verbose=True)
-    # I1inv = inverse(imat_kronecker_P1, 'gmres', verbose=True)  
-    
-    # # build the rhs
-    # P0.func(fun1)
-    # P1.func(D1fun1, D2fun1, D3fun1)   
-    
-    # # solve and compare
-    # u0vec = u0.coeffs
-    # u0vec_imat = I0inv.solve(P0._rhs)
-    # assert np.allclose(u0vec.toarray(), u0vec_imat.toarray(), atol=1e-5)
+    Id_0 = IdentityLinearOperator(H1.vector_space)
+    Err_0 = P0.solver @ P0.imat_kronecker - Id_0
+    e0 = Err_0 @ u0.coeffs  # random vector could be used as well
+    norm2_e0 = sqrt(e0 @ e0)
+    assert norm2_e0 < 1e-12
 
-    # u1vec = u1.coeffs
-    # u1vec_imat = I1inv.solve(P1._rhs)
-    # assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-5)
+    Id_1 = IdentityLinearOperator(Hcurl.vector_space)
+    Err_1 = P1.solver @ P1.imat_kronecker - Id_1
+    e1 = Err_1 @ u1.coeffs  # random vector could be used as well
+    norm2_e1 = sqrt(e1 @ e1)
+    assert norm2_e1 < 1e-12
 
 #==============================================================================
 @pytest.mark.parametrize('Nel', [8, 12])
