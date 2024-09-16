@@ -89,7 +89,7 @@ def test_regular_jacobians(geometry, npts_per_cell):
 
     global_basis = [basis_ders_on_quad_grid(knots[i],
                                             degree[i],
-                                            np.reshape(regular_grid[i], (ncells[i], npts_per_cell)),
+                                            np.reshape(regular_grid[i], shape=(ncells[i], npts_per_cell)),
                                             1,
                                             space_h.spaces[i].basis) for i in range(ldim)
                     ]
@@ -441,7 +441,7 @@ def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
 
     global_basis = [basis_ders_on_quad_grid(knots[i],
                                             degree[i],
-                                            np.reshape(regular_grid[i], (ncells[i], npts_per_cell)),
+                                            np.reshape(regular_grid[i], shape=(ncells[i], npts_per_cell)),
                                             0,
                                             space_h.spaces[i].basis) for i in range(ldim)
                     ]

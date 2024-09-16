@@ -2039,7 +2039,7 @@ class PostProcessManager:
             grid_local= [grid[i][
                 local_domain[0][i] * npts_per_cell[i]:(local_domain[1][i] + 1) * npts_per_cell[i]]
                         for i in range(ldim)]
-            grid_as_arrays = [np.reshape(grid[i], (len(grid[i])//npts_per_cell[i], npts_per_cell[i]))
+            grid_as_arrays = [np.reshape(grid[i], shape=(len(grid[i])//npts_per_cell[i], npts_per_cell[i]))
                         for i in range(ldim)]
 
             cell_indexes = None
@@ -2054,7 +2054,7 @@ class PostProcessManager:
                 all(len(grid[i]) == npts_per_cell[i] * (len(breaks[i]) - 1) for i in range(len(breaks))):
                 grid_type = 1
 
-                grid_as_arrays = [np.reshape(grid[i], (len(breaks[i]) - 1, npts_per_cell[i]))
+                grid_as_arrays = [np.reshape(grid[i], shape=(len(breaks[i]) - 1, npts_per_cell[i]))
                         for i in range(ldim)]
 
                 grid_local = []
