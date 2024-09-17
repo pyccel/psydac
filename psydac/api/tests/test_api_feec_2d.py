@@ -218,7 +218,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     from sympde.topology import Domain
     from sympde.topology import Square
  
-    from sympde.topology import CollelaMapping2D, BaseAnalyticMapping
+    from sympde.topology import BaseAnalyticMapping #, CollelaMapping2D 
     
     from sympde.topology import Derham
     from sympde.topology import elements_of
@@ -280,6 +280,15 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     else:
         # Logical domain is unit square [0, 1] x [0, 1]
         logical_domain = Square('Omega')
+
+        # WARNING: this Collela mapping is not the same as in SymPDE
+        class CollelaMapping2D(BaseAnalyticMapping):
+
+            _ldim = 2
+            _pdim = 2
+            _expressions = {'x': 'a * (x1 + eps / (2*pi) * sin(2*pi*x1) * sin(2*pi*x2))',
+                            'y': 'b * (x2 + eps / (2*pi) * sin(2*pi*x1) * sin(2*pi*x2))'}
+
         mapping = CollelaMapping2D('M1', a=a, b=b, eps=eps)
         domain  = mapping(logical_domain)
 
