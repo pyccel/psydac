@@ -784,6 +784,7 @@ class BlockLinearOperator(LinearOperator):
         ----------
         inverse : bool
             If True, get the inverse of the diagonal. (Default: False).
+            Can be combined with sqrt to get the inverse square root.
 
         sqrt : bool
             If True, get the square root of the diagonal. (Default: False).
