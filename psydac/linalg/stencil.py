@@ -1384,7 +1384,7 @@ class StencilMatrix(LinearOperator):
 
         sqrt : bool
             If True, get the square root of the diagonal. (Default: False).
-            Can be combined with inverse to get the inverse square root
+            Can be combined with inverse to get the inverse square root.
 
         out : StencilDiagonalMatrix
             If provided, write the diagonal entries into this matrix. (Default: None).
