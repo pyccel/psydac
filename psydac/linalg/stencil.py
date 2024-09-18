@@ -1415,16 +1415,17 @@ class StencilMatrix(LinearOperator):
         diag = self._data[diagonal_indices]
         data = out._data if out else None
 
-        if sqrt:
-            diag = np.sqrt(diag)
 
         # Calculate entries of StencilDiagonalMatrix
         if inverse:
-            data = np.divide(1, diag, out=data)
+            np.divide(1, diag, out=data)
         elif out:
             np.copyto(data, diag)
         else:
             data = diag.copy()
+
+        if sqrt:
+            np.sqrt(data, out=data)
 
         # If needed create a new StencilDiagonalMatrix object
         if out is None:
