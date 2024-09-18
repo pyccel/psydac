@@ -9,6 +9,7 @@ from psydac.feec.derivatives import ScalarCurl_2D, VectorCurl_2D, Curl_3D
 from psydac.feec.derivatives import Divergence_2D, Divergence_3D
 from psydac.ddm.cart         import DomainDecomposition
 from psydac.linalg.solvers   import inverse
+from psydac.linalg.basic     import IdentityOperator
 
 from mpi4py import MPI
 import numpy as np
@@ -79,16 +80,16 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc, m):
     #--------------------------
     # check BlockLinearOperator
     #--------------------------
-    Id_0 = IdentityLinearOperator(H1.vector_space)
+    Id_0 = IdentityOperator(H1.vector_space)
     Err_0 = P0.solver @ P0.imat_kronecker - Id_0
     e0 = Err_0 @ u0.coeffs  # random vector could be used as well
-    norm2_e0 = sqrt(e0 @ e0)
+    norm2_e0 = np.sqrt(e0.dot(e0))
     assert norm2_e0 < 1e-12
 
-    Id_1 = IdentityLinearOperator(Hcurl.vector_space)
+    Id_1 = IdentityOperator(Hcurl.vector_space)
     Err_1 = P1.solver @ P1.imat_kronecker - Id_1
     e1 = Err_1 @ u1.coeffs  # random vector could be used as well
-    norm2_e1 = sqrt(e1 @ e1)
+    norm2_e1 = np.sqrt(e1.dot(e1))
     assert norm2_e1 < 1e-12
 
 #==============================================================================
