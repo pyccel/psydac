@@ -1415,7 +1415,6 @@ class StencilMatrix(LinearOperator):
         diag = self._data[diagonal_indices]
         data = out._data if out else None
 
-
         # Calculate entries of StencilDiagonalMatrix
         if inverse:
             np.divide(1, diag, out=data)

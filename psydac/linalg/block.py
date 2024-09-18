@@ -820,7 +820,7 @@ class BlockLinearOperator(LinearOperator):
         # Store the diagonal (or its inverse) into `out`
         for i, j in self.nonzero_block_indices:
             if i == j:
-                out[i, i] = self[i, i].diagonal(inverse = inverse, sqrt=sqrt, out = out[i, i])
+                out[i, i] = self[i, i].diagonal(inverse = inverse, sqrt = sqrt, out = out[i, i])
 
         return out
 
