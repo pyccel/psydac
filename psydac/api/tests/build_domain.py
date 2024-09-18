@@ -8,12 +8,6 @@ import numpy as np
 from sympde.topology import Square, Domain
 from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, BaseAnalyticMapping
 
-# remove after sympde PR #155 is merged and call Domain.join instead
-from psydac.feec.multipatch.multipatch_domain_utilities import sympde_Domain_join
-
-# remove after sympde PR #155 is merged and call Domain.join instead
-from psydac.feec.multipatch.multipatch_domain_utilities import sympde_Domain_join
-
 #==============================================================================
 # small extension to SymPDE:
 class TransposedPolarMapping(BaseAnalyticMapping):
@@ -223,7 +217,7 @@ def build_pretzel(domain_name='pretzel', r_min=None, r_max=None):
         ]
 
     # domain = Domain.join(patches, connectivity, name=domain_name)
-    domain = sympde_Domain_join(patches, connectivity, name=domain_name)
+    domain = Domain.join(patches, connectivity, name=domain_name)
 
     return domain
 

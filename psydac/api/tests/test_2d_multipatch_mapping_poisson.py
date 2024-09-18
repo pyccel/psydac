@@ -404,7 +404,7 @@ if __name__ == '__main__':
     from sympy import lambdify
     u_ex = lambdify(domain.coordinates, solution)
     f_ex = lambdify(domain.coordinates, f)
-    F    = [f for f in mappings_list]
+    F    = mappings_list
 
     u_ex_log = [lambda xi1, xi2,ff=f : u_ex(*ff(xi1,xi2)) for f in F]
 

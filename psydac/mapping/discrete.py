@@ -14,7 +14,7 @@ from time   import time
 
 from sympde.topology.base_mapping      import BaseMapping, MappedDomain
 from sympde.topology.basic import BasicDomain
-from sympde.topology.domain import Domain 
+from sympde.topology.domain import Domain
 from sympy                 import Symbol
 
 from sympde.topology.datatype import (H1SpaceType, L2SpaceType,
@@ -44,9 +44,9 @@ class SplineMapping(BaseMapping):
         if name==None:
             name='M'
         obj = super().__new__(cls, name=name, dim=len(components))
-        
+
         return obj
-    
+
     def __init__(self, *components, name=None):
         # Sanity checks
         assert len(components) >= 1

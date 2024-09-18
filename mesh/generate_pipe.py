@@ -1,7 +1,5 @@
 import numpy as np
 
-raise NotImplementedError("igakit is no longer imported to support python 3.12")
-
 from igakit.cad import circle, ruled, bilinear, join
 from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refine_nurbs
 

@@ -1,7 +1,5 @@
 import numpy as np
 
-raise NotImplementedError("igakit is no longer imported to support python 3.12")
-
 from psydac.cad.multipatch import export_multipatch_nurbs_to_hdf5
 from igakit.cad import bilinear
 from igakit.cad import circle
