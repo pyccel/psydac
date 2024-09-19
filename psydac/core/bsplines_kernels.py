@@ -2,7 +2,147 @@
 # This will be changed once pyccel can return arrays and can get out=None arguments
 # like Numpy functions.
 
+from pyccel.decorators import pure
+from numpy import shape
 import numpy as np
+
+@pure
+def matmul(a: 'float[:,:]', b: 'float[:,:]', c: 'float[:,:]'):
+    """
+    Performs the matrix-matrix product a*b and writes the result into c.
+
+    Parameters
+    ----------
+        a : array[float]
+            The first input array (matrix).
+
+        b : array[float]
+            The second input array (matrix).
+
+        c : array[float]
+            The output array (matrix) which is the result of the matrix-matrix product a.dot(b).
+    """
+
+    sh_a = shape(a)
+    sh_b = shape(b)
+    
+    if sh_a[0] == 0 or sh_a[1] == 0 or sh_b[0] == 0 or sh_b[1] == 0:
+        c[:, :] = 0.
+    else:
+        c[:, :] = 0.
+        for i in range(sh_a[0]):
+            for j in range(sh_b[1]):
+                for k in range(sh_a[1]):
+                    c[i, j] += a[i, k] * b[k, j] 
+                
+                
+@pure
+def sum_vec(a: 'float[:]') -> float:
+    """
+    Sum the elements of a 1D vector.
+
+    Parameters
+    ----------
+        a : array[float]
+            The 1d vector.
+    """
+
+    out = 0.
+    
+    sh_a = shape(a)
+
+    for i in range(sh_a[0]):
+        out += a[i] 
+        
+    return out
+
+@pure
+def sum_mat(a: 'float[:,:]') -> float:
+    """
+    Sum the elements of a 2D matrix.
+
+    Parameters
+    ----------
+        a : array[float]
+            The 2D matrix.
+    """
+
+    out = 0.
+    
+    sh_a = shape(a)
+
+    for i in range(sh_a[0]):
+        for j in range(sh_a[1]):
+            out += a[i, j]
+        
+    return out
+        
+        
+@pure
+def min_vec(a: 'float[:]') -> float:
+    """
+    Compute the minimum a 1D vector.
+
+    Parameters
+    ----------
+        a : array[float]
+            The 1D vector.
+    """
+
+    out = a[0]
+    
+    sh_a = shape(a)
+
+    for i in range(sh_a[0]):
+        if a[i] < out:
+            out = a[i] 
+            
+    return out
+
+
+@pure
+def max_vec(a: 'float[:]') -> float:
+    """
+    Compute the maximum a 1D vector.
+
+    Parameters
+    ----------
+        a : array[float]
+            The 1D vector.
+    """
+
+    out = a[0]
+    
+    sh_a = shape(a)
+
+    for i in range(sh_a[0]):
+        if a[i] > out:
+            out = a[i] 
+            
+    return out
+
+
+@pure
+def max_vec_int(a: 'int[:]') -> int:
+    """
+    Compute the maximum a 1D vector.
+
+    Parameters
+    ----------
+        a : array[float]
+            The 1D vector.
+    """
+
+    out = a[0]
+    
+    sh_a = shape(a)
+
+    for i in range(sh_a[0]):
+        if a[i] > out:
+            out = a[i] 
+            
+    return out
+
 
 # =============================================================================
 def find_span_p(knots: 'float[:]', degree: int, x: float):
@@ -323,7 +463,8 @@ def basis_funs_all_ders_p(knots: 'float[:]', degree: int, x: float, span: int, n
             j2 = k-1 if (r-1 <= pk) else degree-r
 
             a[s2, j1:j2 + 1] = (a[s1, j1:j2 + 1] - a[s1, j1 - 1:j2]) * ndu[pk + 1, rk + j1:rk + j2 + 1]
-            temp_d[:, :] = np.matmul(a[s2:s2 + 1, j1:j2 + 1], ndu[rk + j1:rk + j2 + 1, pk: pk + 1])
+            # temp_d[:, :] = np.matmul(a[s2:s2 + 1, j1:j2 + 1], ndu[rk + j1:rk + j2 + 1, pk: pk + 1])
+            matmul(a[s2:s2 + 1, j1:j2 + 1], ndu[rk + j1:rk + j2 + 1, pk: pk + 1],temp_d[:, :])
             d+= temp_d[0, 0]
             if r <= pk:
                a[s2, k] = - a[s1, k - 1] * ndu[pk + 1, r]
@@ -584,7 +725,8 @@ def histopolation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, norma
             jend = min(spans[i + 1], n)
             # Compute non-zero values of histopolation matrix
             for j in range(1 + jstart, jend + 1):
-                s = np.sum(colloc[i, 0:j]) - np.sum(colloc[i + 1, 0:j])
+                # s = np.sum(colloc[i, 0:j]) - np.sum(colloc[i + 1, 0:j])
+                s = sum_vec(colloc[i, 0:j]) - sum_vec(colloc[i + 1, 0:j])
                 H[i, j - 1] = s
 
     else:
@@ -596,7 +738,8 @@ def histopolation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, norma
             jend = min(spans[i + 1], n)
             # Compute non-zero values of histopolation matrix
             for j in range(1 + jstart, jend + 1):
-                s = np.sum(colloc[i, 0:j]) - np.sum(colloc[i + 1, 0:j])
+                # s = np.sum(colloc[i, 0:j]) - np.sum(colloc[i + 1, 0:j])
+                s = sum_vec(colloc[i, 0:j]) - sum_vec(colloc[i + 1, 0:j])
                 H[i, j - 1] = s * integrals[j - 1]
 
     # Mitigate round-off errors
@@ -728,10 +871,12 @@ def greville_p(knots: 'float[:]', degree: int, periodic: bool, out:'float[:]', m
     # Compute greville abscissas as average of p consecutive knot values
     if p == multiplicity-1:
         for i in range(n):
-            out[i] = sum(T[i:i + p + 2]) / (p + 2)
+            # out[i] = sum(T[i:i + p + 2]) / (p + 2)
+            out[i] = sum_vec(T[i:i + p + 2]) / (p + 2)
     else:
         for i in range(1, 1+n):
-            out[i - 1] = sum(T[i:i + p]) / p
+            # out[i - 1] = sum(T[i:i + p]) / p
+            out[i - 1] = sum_vec(T[i:i + p]) / p
 
     # Domain boundaries
     a = T[p]
@@ -885,7 +1030,8 @@ def elevate_knots_p(knots: 'float[:]', degree: int, periodic: bool, out: 'float[
         It should be of the appropriate shape and dtype.
     """
     if periodic:
-        T, p = knots, degree
+        T = knots
+        p = degree
         period = T[len(knots) -1 - p] - T[p]
         left   = T[len(knots) -2 - 2 * p + multiplicity-1] - period
         right  = T[2 * p + 2 - multiplicity] + period
@@ -1017,7 +1163,8 @@ def basis_ders_on_quad_grid_p(knots: 'float[:]', degree: int, quad_grid: 'float[
         . id: derivative             (0 <= id <= nders )
         . iq: local quadrature point (0 <= iq <  nq    )
     """
-    ne, nq = quad_grid.shape
+    ne = quad_grid.shape[0]
+    nq = quad_grid.shape[1]
     if normalization:
         integrals = np.zeros(knots.shape[0] - degree - 1)
         basis_integrals_p(knots, degree, integrals)
