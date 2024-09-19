@@ -1417,7 +1417,7 @@ class StencilMatrix(LinearOperator):
 
         # Calculate entries of StencilDiagonalMatrix
         if inverse:
-            np.divide(1, diag, out=data)
+            data = np.divide(1, diag, out=data)
         elif out:
             np.copyto(data, diag)
         else:
