@@ -872,8 +872,15 @@ class StencilMatrix(LinearOperator):
 
     W : psydac.linalg.stencil.StencilVectorSpace
         Codomain of the new linear operator.
+    
+    pads: 
+
+    backend:
+
+    precompiled : bool
+        Whether to use precompiled kernels for .dot() and .transpose()
     """
-    def __init__(self, V, W, pads=None, backend=None):
+    def __init__( self, V, W, pads=None , backend=None, precompiled=False):
 
         assert isinstance(V, StencilVectorSpace)
         assert isinstance(W, StencilVectorSpace)
@@ -893,6 +900,7 @@ class StencilMatrix(LinearOperator):
         self._codomain = W
         self._ndim     = len(dims)
         self._backend  = backend
+        self._precompiled = precompiled
         self._is_T     = False
         self._diag_indices = None
         self._requests = None
@@ -937,7 +945,9 @@ class StencilMatrix(LinearOperator):
         self._transpose_args = self._prepare_transpose_args()
         self._transpose_func = kernels['transpose'][self._ndim]
 
-        self.set_backend(backend)
+
+        if backend:
+            self.set_backend(backend, precompiled)
 
     #--------------------------------------
     # Abstract interface
@@ -1063,7 +1073,7 @@ class StencilMatrix(LinearOperator):
             assert out.domain == M.codomain
             
         else :
-            out = StencilMatrix(M.codomain, M.domain, pads=self._pads, backend=self._backend)
+            out = StencilMatrix(M.codomain, M.domain, pads=self._pads, backend=self._backend, precompiled=self._precompiled)
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
         if conjugate:
@@ -1108,7 +1118,7 @@ class StencilMatrix(LinearOperator):
 
     # ...
     def __mul__(self, a):
-        w = StencilMatrix(self._domain, self._codomain, self._pads, self._backend)
+        w = StencilMatrix(self._domain, self._codomain, self._pads, self._backend, precompiled=self._precompiled)
         w._data = self._data * a
         w._func = self._func
         w._args = self._args
@@ -1127,7 +1137,7 @@ class StencilMatrix(LinearOperator):
                 msg = 'Adding two matrices with different backends is ambiguous - defaulting to backend of first addend'
                 warnings.warn(msg, category=RuntimeWarning)
             
-            w = StencilMatrix(self._domain, self._codomain, self._pads, self._backend)
+            w = StencilMatrix(self._domain, self._codomain, self._pads, self._backend, precompiled=self._precompiled)
             w._data = self._data  +  m._data
             w._func = self._func
             w._args = self._args
@@ -1148,7 +1158,7 @@ class StencilMatrix(LinearOperator):
                 msg = 'Subtracting two matrices with different backends is ambiguous - defaulting to backend of the matrix we subtract from'
                 warnings.warn(msg, category=RuntimeWarning)
 
-            w = StencilMatrix(self._domain, self._codomain, self._pads, self._backend)
+            w = StencilMatrix(self._domain, self._codomain, self._pads, backend=self._backend, precompiled=self._precompiled)
             w._data = self._data  -  m._data
             w._func = self._func
             w._args = self._args
@@ -1168,7 +1178,7 @@ class StencilMatrix(LinearOperator):
             assert out.domain is self.domain
             assert out.codomain is self.codomain
         else:
-            out = StencilMatrix(self.domain, self.codomain, pads=self.pads)
+            out = StencilMatrix(self.domain, self.codomain, pads=self.pads, backend=self._backend, precompiled=self._precompiled)
             out._func    = self._func
             out._args    = self._args
         np.conjugate(self._data, out=out._data, casting='no')
@@ -1218,7 +1228,7 @@ class StencilMatrix(LinearOperator):
             assert out.domain == self.domain
             assert out.codomain == self.codomain
         else :
-            out = StencilMatrix( self.domain, self.codomain, self._pads, self._backend )
+            out = StencilMatrix( self.domain, self.codomain, self._pads, backend=self._backend, precompiled=self._precompiled )
         out._data[:] = self._data[:]
         out._func    = self._func
         out._args    = self._args
@@ -1257,7 +1267,7 @@ class StencilMatrix(LinearOperator):
 
     #...
     def __abs__(self):
-        w = StencilMatrix( self._domain, self._codomain, self._pads, self._backend )
+        w = StencilMatrix( self._domain, self._codomain, self._pads, backend=self._backend, precompiled=self._precompiled )
         w._data = abs(self._data)
         w._func = self._func
         w._args = self._args
@@ -1746,7 +1756,18 @@ class StencilMatrix(LinearOperator):
         return args
 
     # ...
-    def set_backend(self, backend):
+    def set_backend(self, backend, precompiled):
+        '''
+        Define which kernels are called when using .dot() and .transpose()
+        
+        Parameters
+        ----------
+        backend : str
+            Psydac backend option.
+            
+        precompiled : bool
+            Whether to use precompiled kernels.
+        '''
         from psydac.api.ast.linalg import LinearOperatorDot
         self._backend = backend
         self._args    = self._dotargs_null.copy()
@@ -1756,6 +1777,59 @@ class StencilMatrix(LinearOperator):
                 self._args[key] = np.int64(arg)
             self._func = self._dot
             self._args.pop('pads')
+        elif precompiled:
+
+            print('Using precompiled matvec and transpose kernels ...')
+
+            from struphy.linear_algebra import stencil_dot_kernels
+            from struphy.linear_algebra import stencil_transpose_kernels
+
+            # matvec kernel
+            dot_func_name = 'matvec_' + str(self._ndim) + 'd_kernel'
+            self._func = getattr(stencil_dot_kernels, dot_func_name)
+
+            # parameter for rectangular matrices
+            add = [int(end_in >= end_out) for end_in, end_out in zip(self.domain.ends, self.codomain.ends)]
+
+            self._args = {}
+            if self._ndim == 1:
+                self._args['s_in'] = int(self.domain.starts[0])
+                self._args['p_in'] = int(self.domain.pads[0])
+                self._args['add'] = int(add[0])
+                self._args['s_out'] = int(self.codomain.starts[0])
+                self._args['e_out'] = int(self.codomain.ends[0])
+                self._args['p_out'] = int(self.codomain.pads[0]) 
+            else:
+                self._args['s_in'] = np.array(self.domain.starts)
+                self._args['p_in'] = np.array(self.domain.pads)
+                self._args['add'] = np.array(add)
+                self._args['s_out'] = np.array(self.codomain.starts)
+                self._args['e_out'] = np.array(self.codomain.ends)
+                self._args['p_out'] = np.array(self.codomain.pads)
+
+            # transpose kernel
+            transp_func_name = 'transpose_' + str(self._ndim) + 'd_kernel'
+
+            self._transpose_func = getattr(stencil_transpose_kernels, transp_func_name)
+
+            # parameter for rectangular matrices
+            add = [int(end_out >= end_in) for end_in, end_out in zip(self.domain.ends, self.codomain.ends)]
+
+            self._transpose_args = {}
+            if self._ndim == 1:
+                self._transpose_args['s_in'] = int(self.codomain.starts[0])
+                self._transpose_args['p_in'] = int(self.codomain.pads[0])
+                self._transpose_args['add'] = int(add[0])
+                self._transpose_args['s_out'] = int(self.domain.starts[0])
+                self._transpose_args['e_out'] = int(self.domain.ends[0])
+                self._transpose_args['p_out'] = int(self.domain.pads[0])
+            else:
+                self._transpose_args['s_in'] = np.array(self.codomain.starts)
+                self._transpose_args['p_in'] = np.array(self.codomain.pads)
+                self._transpose_args['add'] = np.array(add)
+                self._transpose_args['s_out'] = np.array(self.domain.starts)
+                self._transpose_args['e_out'] = np.array(self.domain.ends)
+                self._transpose_args['p_out'] = np.array(self.domain.pads)
         else:
             if self.domain.parallel:
                 comm = self.codomain.cart.comm
