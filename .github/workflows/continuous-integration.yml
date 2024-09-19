@@ -58,6 +58,7 @@ jobs:
       - name: Set default MPI and HDF5 C compilers on Ubuntu
         if: matrix.os == 'ubuntu-latest'
         run: |
+          sudo apt-get update
           sudo apt-get install --reinstall openmpi-bin libhdf5-openmpi-dev
 
       - name: Install non-Python dependencies on macOS
