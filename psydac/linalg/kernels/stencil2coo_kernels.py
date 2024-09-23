@@ -3,8 +3,8 @@ from pyccel.decorators import template
 
 #!!!!!!!!!!!!!
 #TODO avoid using The expensive modulo operator % in the non periodic case to make the methods faster
+#TODO The kernels don't work properly for different shifts in the domain and the codomain
 #!!!!!!!!!!!!!
-
 
 #__all__ = ['stencil2coo_1d_C','stencil2coo_1d_F','stencil2coo_2d_C','stencil2coo_2d_F', 'stencil2coo_3d_C', 'stencil2coo_3d_F']
 
@@ -19,8 +19,11 @@ def stencil2coo_1d_C(A:'T[:,:]', data:'T[:]', rows:'int64[:]', cols:'int64[:]', 
         for j1 in range(ncl1):
             value = A[i1+pp1,j1]
             if abs(value) == 0.0:continue
-            J = ((_I//cm1)*dm1+j1-dp1)%nc1
-            rows[nnz] = _I
+            if cm1 == dm1:
+                J = (I + j1 - dp1)%nc1
+            else:
+                J = ((I//cm1)*dm1+j1-dp1)%nc1
+            rows[nnz] = I
             cols[nnz] = J
             data[nnz] = value
             nnz += 1
@@ -38,8 +41,11 @@ def stencil2coo_1d_F(A:'T[:,:]', data:'T[:]', rows:'int64[:]', cols:'int64[:]', 
         for j1 in range(ncl1):
             value = A[i1+pp1,j1]
             if abs(value) == 0.0:continue
-            J = ((_I//cm1)*dm1+j1-dp1)%nc1
-            rows[nnz] = _I
+            if cm1 == dm1:
+                J = (I + j1 - dp1)%nc1
+            else:
+                J = ((I//cm1)*dm1+j1-dp1)%nc1
+            rows[nnz] = I
             cols[nnz] = J
             data[nnz] = value
             nnz += 1
