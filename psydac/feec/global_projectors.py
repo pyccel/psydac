@@ -173,8 +173,7 @@ class GlobalProjector(metaclass=ABCMeta):
                             M._data[row_i_loc + m*p, (col_i + p - row_i)%V.imat.shape[1]] = V.imat[row_i, col_i]
 
                     # check if stencil matrix was built correctly
-                    if m == 1:
-                        assert np.allclose(M.toarray()[s:e + 1], V.imat[s:e + 1])
+                    assert np.allclose(M.toarray()[s:e + 1], V.imat[s:e + 1])
                     # TODO Fix toarray() for multiplicity m > 1
                     matrixcells += [M.copy()]
                     
@@ -207,9 +206,7 @@ class GlobalProjector(metaclass=ABCMeta):
                             M._data[row_i_loc + m*p, (col_i + p - row_i)%V.hmat.shape[1]] = V.hmat[row_i, col_i]
 
                     # check if stencil matrix was built correctly
-                    if m == 1:
-                        assert np.allclose(M.toarray()[s:e + 1], V.hmat[s:e + 1])
-                    # TODO Fix toarray() for multiplicity m > 1
+                    assert np.allclose(M.toarray()[s:e + 1], V.hmat[s:e + 1])
 
                     matrixcells += [M.copy()]
                     
