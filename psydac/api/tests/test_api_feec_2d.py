@@ -170,33 +170,33 @@ def plot_field_and_error(name, x, y, field_h, field_ex, *gridlines):
 
 def update_plot(fig, t, x, y, field_h, field_ex):
     ax0, ax1, cax0, cax1 = fig.axes
-    
+
     # Remove collections from ax0
     while ax0.collections:
         ax0.collections[0].remove()
-    
+
     # Remove collections from ax1
     while ax1.collections:
         ax1.collections[0].remove()
-    
+
     # Clear colorbars
     while cax0.collections:
         cax0.collections[0].remove()
-    
+
     while cax1.collections:
         cax1.collections[0].remove()
-    
+
     # Create new contour plots
     im0 = ax0.contourf(x, y, field_h)
     im1 = ax1.contourf(x, y, field_ex - field_h)
-    
+
     # Create new colorbars
     fig.colorbar(im0, cax=cax0)
     fig.colorbar(im1, cax=cax1)
-    
+
     # Update the title
     fig.suptitle('Time t = {:10.3e}'.format(t))
-    
+
     # Draw the updated plot
     fig.canvas.draw()
 
@@ -217,9 +217,9 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
     from sympde.topology import Domain
     from sympde.topology import Square
- 
+
     from sympde.topology import CollelaMapping2D, BaseAnalyticMapping
-    
+
     from sympde.topology import Derham
     from sympde.topology import elements_of
     from sympde.topology import NormalVector
@@ -227,7 +227,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     from sympde.expr     import integral
     from sympde.expr     import BilinearForm
 
-    from psydac.api.discretization import discretize 
+    from psydac.api.discretization import discretize
     from psydac.api.settings       import PSYDAC_BACKENDS
     from psydac.feec.pull_push     import push_2d_hcurl, push_2d_l2
     from psydac.linalg.solvers     import inverse
@@ -305,17 +305,17 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     if use_spline_mapping:
         domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD) 
         derham_h = discretize(derham, domain_h, multiplicity = [mult, mult])
-        
+
         # TO FIX : the way domain.from_file and discretize_domain runs make that only domain_h.domain.interior has an actual SplineMapping. The rest are BaseMapping.
         # The trick is to now when to set exactly the BaseMapping to the SplineMapping. We could try in discretize_derham, but see if it doesn't generate any issues for other tests.
         mappings=list(domain_h.mappings.values())
-        
+
         if(len(mappings)>1):
             raise TypeError("we are not doing multipatch here")
-        
+
         mapping = mappings[0] # mapping is SplineMapping now
         derham_h.mapping=mapping
-        
+
         periodic_list = mapping.space.periodic
         degree_list   = mapping.space.degree
 
@@ -490,13 +490,11 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
         # Electric field, x component
         fig2 = plot_field_and_error(r'E^x', x, y, Ex_values, Ex_ex(0, x, y), *gridlines)
-        fig2.show()                                             
-            
-        # Electric field, y component                           
+        fig2.show()
+        # Electric field, y component
         fig3 = plot_field_and_error(r'E^y', x, y, Ey_values, Ey_ex(0, x, y), *gridlines)
-        fig3.show()                                             
-                                                                
-        # Magnetic field, z component                           
+        fig3.show()
+        # Magnetic field, z component
         fig4 = plot_field_and_error(r'B^z', x, y, Bz_values, Bz_ex(0, x, y), *gridlines)
         fig4.show()
         # ...
@@ -751,7 +749,7 @@ def test_maxwell_2d_multiplicity():
         verbose = False,
         mult = 2
     )
-    
+
     TOL = 1e-5
     ref = dict(error_l2_Ex = 4.350041934920621e-04,
                error_l2_Ey = 4.350041934920621e-04,
@@ -760,7 +758,7 @@ def test_maxwell_2d_multiplicity():
     assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
     assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
     assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL
-    
+
 def test_maxwell_2d_periodic_multiplicity():
 
     namespace = run_maxwell_2d_TE(
@@ -779,7 +777,7 @@ def test_maxwell_2d_periodic_multiplicity():
         verbose = False,
         mult =2
     )
-    
+
     TOL = 1e-6
     ref = dict(error_l2_Ex = 1.78557685e-04,
                error_l2_Ey = 1.78557685e-04,
@@ -788,8 +786,8 @@ def test_maxwell_2d_periodic_multiplicity():
     assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
     assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
     assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL
-    
-    
+
+
 def test_maxwell_2d_periodic_multiplicity_equal_deg():
 
     namespace = run_maxwell_2d_TE(
@@ -808,12 +806,12 @@ def test_maxwell_2d_periodic_multiplicity_equal_deg():
         verbose = False,
         mult =2
     )
-    
+
     TOL = 1e-6
     ref = dict(error_l2_Ex = 2.50585008e-02,
                error_l2_Ey = 2.50585008e-02,
                error_l2_Bz = 1.58438290e-02)
-    
+
     assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
     assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
     assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL
@@ -1045,7 +1043,7 @@ if __name__ == '__main__':
 
     # Run simulation
     namespace = run_maxwell_2d_TE(**vars(args))
-   
+
     # Keep matplotlib windows open
     import matplotlib.pyplot as plt
     plt.show()

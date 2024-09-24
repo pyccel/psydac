@@ -263,7 +263,7 @@ TOL = 1e-12
 @pytest.mark.parametrize('axis', [0, 1])
 @pytest.mark.parametrize('ext', [-1, 1])
 def test_boundary_field_identity(n1, axis, ext):
-    
+
     domain = Square('domain', bounds1=(0., 0.5), bounds2=(0., 1.))
     boundary = domain.get_boundary(axis=axis, ext=ext)
 
@@ -276,7 +276,7 @@ def test_boundary_field_identity(n1, axis, ext):
     assert rel_error_BilinearForm_grad < TOL
     assert rel_error_LinearForm < TOL
     assert rel_error_LinearForm_grad < TOL
-    
+
     print('PASSED')
 
 def test_field_identity_1():

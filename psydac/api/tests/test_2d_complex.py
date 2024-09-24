@@ -422,12 +422,12 @@ def test_complex_helmholtz_2d(plot_sol=False):
 
     print(f'errors: l2 = {l2_error}, h1 = {h1_error}')
     print('expected errors: l2 = {}, h1 = {}'.format(expected_l2_error, expected_h1_error))
-    
+
     if plot_sol:
         from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
         from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
         from psydac.feec.pull_push                     import pull_2d_h1
-        
+
         Id_mapping = IdentityMapping('M', 2)
         # print(f'domain.interior = {domain.interior}')
         # domain_interior = [domain]
@@ -446,7 +446,7 @@ def test_complex_helmholtz_2d(plot_sol=False):
         u_vals  = grid_vals_h1(u_log)
 
         u_err   = [(u1 - u2) for u1, u2 in zip(u_vals, uh_vals)]
-    
+
         my_small_plot(
             title=r'approximation of solution $u$',
             vals=[u_vals, uh_vals, u_err],
@@ -538,7 +538,7 @@ if __name__ == '__main__':
         from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
         from psydac.api.tests.build_domain             import build_pretzel
         from psydac.feec.pull_push                     import pull_2d_hcurl
-        
+
         domain = build_pretzel()
         x,y    = domain.coordinates
 

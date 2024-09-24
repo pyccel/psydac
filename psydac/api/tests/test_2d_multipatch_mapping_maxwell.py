@@ -14,7 +14,7 @@ from sympde.topology      import NormalVector
 from sympde.topology      import Square, Domain
 from sympde.topology      import  PolarMapping, LogicalExpr
 from sympde.expr.evaluation import TerminalExpr
-from sympde.expr.expr     import LinearForm, BilinearForm 
+from sympde.expr.expr     import LinearForm, BilinearForm
 from sympde.expr.expr     import integral
 from sympde.expr.expr     import Norm
 from sympde.expr.equation import find, EssentialBC
@@ -94,7 +94,7 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
 
     equation_h = discretize(equation, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL )
     l2norm_h   = discretize(l2norm, domain_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL)
-    
+
     # Explicitly assemble the linear system
     equation_h.assemble()
 
@@ -171,7 +171,7 @@ def test_maxwell_2d_2_patch_dirichlet_2():
     domain   = Domain.from_file(filename)
     x,y      = domain.coordinates
 
-    omega = 1.5     
+    omega = 1.5
     alpha = -omega**2
     Eex   = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
     f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),

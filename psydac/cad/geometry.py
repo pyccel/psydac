@@ -56,11 +56,11 @@ class Geometry( object ):
 
     comm: MPI.Comm
         MPI intra-communicator.
-        
+
     mpi_dims_mask: list of bool
         True if the dimension is to be used in the domain decomposition (=default for each dimension). 
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-  
+
     """
     _ldim     = None
     _pdim     = None
@@ -78,7 +78,7 @@ class Geometry( object ):
             self.read(filename, comm=comm)
 
         elif domain is not None:
-            assert isinstance(domain, Domain) 
+            assert isinstance(domain, Domain)
             assert isinstance(ncells, dict)
             assert isinstance(mappings, dict)
             if periodic is not None:
@@ -132,18 +132,18 @@ class Geometry( object ):
 
         comm : MPI.Comm
             MPI intra-communicator.
-            
+
         name : string
-            Optional name for the Mapping that will be created. 
+            Optional name for the Mapping that will be created.
             Needed to avoid conflicts in case several mappings are created
         """
 
         mapping_name = name if name else 'mapping'
-        dim      = mapping.ldim        
+        dim      = mapping.ldim
         domain   = mapping(NCube(name = 'Omega',
                            dim  = dim,
                            min_coords = [0.] * dim,
-                           max_coords = [1.] * dim)) 
+                           max_coords = [1.] * dim))
         mappings = {domain.name: mapping}
         ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
         periodic = {domain.name: mapping.space.domain_decomposition.periods}
@@ -361,14 +361,10 @@ class Geometry( object ):
             if isinstance(mapping, NurbsMapping):
                 mapping.weights_field.coeffs.update_ghost_regions()
 
-
         # ... close the h5 file
         h5.close()
         # ...
 
-
-
-        
         # ...
         self._ldim        = ldim
         self._pdim        = pdim
@@ -510,8 +506,6 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
         mpi communicator
     """
 
-    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `export_nurbs_to_hdf5` must be re-implemented')
-
     import os.path
     import igakit
     assert isinstance(nurbs, igakit.nurbs.NURBS)
@@ -570,7 +564,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
         bounds2 = (float(nurbs.breaks(1)[0]), float(nurbs.breaks(1)[-1]))
         bounds3 = (float(nurbs.breaks(2)[0]), float(nurbs.breaks(2)[-1]))
         domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
-    
+
     degrees = nurbs.degree
     points=nurbs.points[...,:nurbs.dim]
     knots=[]
@@ -588,7 +582,6 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
         mapping = NurbsMapping.from_control_points_weights(space, points, weights)
     else:
         mapping=SplineMapping.from_control_points(space, points)
-    print("domain=mapping(domain)")    
     domain  = mapping(domain)
     topo_yml = domain.todict()
 
@@ -643,8 +636,6 @@ def refine_nurbs(nrb, ncells=None, degree=None, multiplicity=None, tol=1e-9):
         the refined geometry nurbs object
 
     """
-
-    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `refine_nurbs` must be re-implemented')
 
     if multiplicity is None:
         multiplicity = [1]*nrb.dim
@@ -717,8 +708,6 @@ def refine_knots(knots, ncells, degree, multiplicity=None, tol=1e-9):
     knots : <list>
         the refined knot sequences in each direction
     """
-
-    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `refine_knots` must be re-implemented')
 
     from igakit.nurbs import NURBS
     dim = len(ncells)
@@ -844,8 +833,6 @@ def _read_line(line):
     return data
 
 def _read_patch(lines, i_patch, n_lines_per_patch, list_begin_line):
-
-    raise NotImplementedError('Igakit dependencies commented to support python 3.12. `_read_patch` must be re-implemented')
 
     from igakit.nurbs import NURBS
 
