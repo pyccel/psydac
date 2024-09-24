@@ -20,10 +20,10 @@ def stencil2coo_1d_C(A:'T[:,:]', data:'T[:]', rows:'int64[:]', cols:'int64[:]', 
             value = A[i1+pp1,j1]
             if abs(value) == 0.0:continue
             if cm1 == dm1:
-                J = (I + j1 - dp1)%nc1
+                J = (_I + j1 - dp1)%nc1
             else:
-                J = ((I//cm1)*dm1+j1-dp1)%nc1
-            rows[nnz] = I
+                J = ((_I//cm1)*dm1+j1-dp1)%nc1
+            rows[nnz] = _I
             cols[nnz] = J
             data[nnz] = value
             nnz += 1
@@ -42,10 +42,10 @@ def stencil2coo_1d_F(A:'T[:,:]', data:'T[:]', rows:'int64[:]', cols:'int64[:]', 
             value = A[i1+pp1,j1]
             if abs(value) == 0.0:continue
             if cm1 == dm1:
-                J = (I + j1 - dp1)%nc1
+                J = (_I + j1 - dp1)%nc1
             else:
-                J = ((I//cm1)*dm1+j1-dp1)%nc1
-            rows[nnz] = I
+                J = ((_I//cm1)*dm1+j1-dp1)%nc1
+            rows[nnz] = _I
             cols[nnz] = J
             data[nnz] = value
             nnz += 1
