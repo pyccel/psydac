@@ -58,6 +58,7 @@ jobs:
       - name: Set default MPI and HDF5 C compilers on Ubuntu
         if: matrix.os == 'ubuntu-latest'
         run: |
+          sudo apt-get update
           sudo apt-get install --reinstall openmpi-bin libhdf5-openmpi-dev
 
       - name: Install non-Python dependencies on macOS
@@ -159,9 +160,9 @@ jobs:
           python -m pip install .
           python -m pip freeze
 
-      - name: Test pyccel optimization flags
+      - name: Test Pyccel optimization flags
         run: |
-            pyccel --verbose ./psydac/linalg/kernels/axpy_kernels.py
+          pytest --pyargs psydac -m pyccel --capture=no
 
       - name: Initialize test directory
         run: |
