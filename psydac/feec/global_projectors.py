@@ -355,7 +355,7 @@ class GlobalProjector(metaclass=ABCMeta):
         """
         pass
     
-    def __call__(self, fun):
+    def __call__(self, fun, dofs_only = False):
         """
         Project vector function onto the given finite element
         space by the instance of this class. This happens in the logical domain $\hat{\Omega}$.
@@ -369,6 +369,10 @@ class GlobalProjector(metaclass=ABCMeta):
 
             $fun_i : \hat{\Omega} \mapsto \mathbb{R}$ with i = 1, ..., N.
 
+        dofs_only : bool
+            Whether to just compute and return the DOFs 
+            (i.e. no inversion of the inter-/histopolation matrix needed to get the FEM coefficiens)
+        
         Returns
         -------
         field : FemField
@@ -376,17 +380,20 @@ class GlobalProjector(metaclass=ABCMeta):
             finite element space). This is also a real- or complex-valued scalar/vector function
             in the logical domain.
         """
-        # build the rhs
+        # build the rhs (degrees of freedom - DOFs)
         if self._blockcount > 1 or isinstance(fun, list) or isinstance(fun, tuple):
             # (we also support 1-tuples as argument for scalar spaces)
             assert self._blockcount == len(fun)
             self._func(*fun)
         else:
             self._func(fun)
+        if dofs_only:
+            return self._rhs.copy()
+        else:
+            # solver for FEM coefficients
+            coeffs = self._solver.dot(self._rhs)
 
-        coeffs = self._solver.dot(self._rhs)
-
-        return FemField(self._space, coeffs=coeffs)
+            return FemField(self._space, coeffs=coeffs)
 
 #==============================================================================
 class Projector_H1(GlobalProjector):
@@ -415,7 +422,7 @@ class Projector_H1(GlobalProjector):
             raise ValueError('H1 projector of dimension {} not available'.format(dim)) 
 
     #--------------------------------------------------------------------------
-    def __call__(self, fun):
+    def __call__(self, fun, dofs_only = False):
         r"""
         Project scalar function onto the H1-conforming finite element space.
         This happens in the logical domain $\hat{\Omega}$.
@@ -436,7 +443,7 @@ class Projector_H1(GlobalProjector):
             element space). This is also a real- or complex-valued scalar function in the
             logical domain.
         """
-        return super().__call__(fun)
+        return super().__call__(fun, dofs_only = dofs_only)
 
 #==============================================================================
 class Projector_Hcurl(GlobalProjector):
@@ -487,7 +494,7 @@ class Projector_Hcurl(GlobalProjector):
             raise NotImplementedError('The Hcurl projector is only available in 2D or 3D.')
 
     #--------------------------------------------------------------------------
-    def __call__(self, fun):
+    def __call__(self, fun, dofs_only = False):
         r"""
         Project vector function onto the H(curl)-conforming finite element
         space. This happens in the logical domain $\hat{\Omega}$.
@@ -509,7 +516,7 @@ class Projector_Hcurl(GlobalProjector):
             finite element space). This is also a real- or complex-valued vector function
             in the logical domain.
         """
-        return super().__call__(fun)
+        return super().__call__(fun, dofs_only = dofs_only)
 
 #==============================================================================
 class Projector_Hdiv(GlobalProjector):
@@ -563,7 +570,7 @@ class Projector_Hdiv(GlobalProjector):
             raise NotImplementedError('The Hdiv projector is only available in 2D or 3D.')
 
     #--------------------------------------------------------------------------
-    def __call__(self, fun):
+    def __call__(self, fun, dofs_only = False):
         r"""
         Project vector function onto the H(div)-conforming finite element
         space. This happens in the logical domain $\hat{\Omega}$.
@@ -586,7 +593,7 @@ class Projector_Hdiv(GlobalProjector):
             finite element space). This is also a real- or complex-valued vector function
             in the logical domain.
         """
-        return super().__call__(fun)
+        return super().__call__(fun, dofs_only = dofs_only)
 
 #==============================================================================
 class Projector_L2(GlobalProjector):
@@ -624,7 +631,7 @@ class Projector_L2(GlobalProjector):
             raise ValueError('L2 projector of dimension {} not available'.format(dim))
 
     #--------------------------------------------------------------------------
-    def __call__(self, fun):
+    def __call__(self, fun, dofs_only = False):
         r"""
         Project scalar function onto the L2-conforming finite element space.
         This happens in the logical domain $\hat{\Omega}$.
@@ -646,7 +653,7 @@ class Projector_L2(GlobalProjector):
             element space). This is also a real- or complex-valued scalar function in the
             logical domain.
         """
-        return super().__call__(fun)
+        return super().__call__(fun, dofs_only = dofs_only)
 
 class Projector_H1vec(GlobalProjector):
     """
@@ -689,7 +696,7 @@ class Projector_H1vec(GlobalProjector):
             raise NotImplementedError('The H1vec projector is only available in 2/3D.')
 
     #--------------------------------------------------------------------------
-    def __call__(self, fun):
+    def __call__(self, fun, dofs_only = False):
         r"""
         Project vector function onto the H1 x H1 x H1-conforming finite element
         space. This happens in the logical domain $\hat{\Omega}$.
@@ -710,7 +717,7 @@ class Projector_H1vec(GlobalProjector):
             finite element space). This is also a real-valued vector function
             in the logical domain.
         """
-        return super().__call__(fun)
+        return super().__call__(fun, dofs_only = dofs_only)
 
 #==============================================================================
 # 1D DEGREES OF FREEDOM
