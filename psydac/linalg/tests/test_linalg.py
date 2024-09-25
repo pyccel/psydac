@@ -528,8 +528,9 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
 @pytest.mark.parametrize('n2', n2array)
 @pytest.mark.parametrize('p1', p1array)
 @pytest.mark.parametrize('p2', p2array)
+@pytest.mark.parametrize('sqrt', [False, True])
 
-def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
+def test_inverse_transpose_interaction(n1, n2, p1, p2, sqrt, P1=False, P2=False):
 
     # 1. Initiate square LOs: S (V->V, StencilMatrix), S1 (W->W, StencilMatrix)
         #Initiate BlockLO: B (VxW -> VxW) and a BlockVector u element of VxW
@@ -617,6 +618,12 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     ### BlockLO Transpose - Inverse Tests
     ### -1,T & T,-1 --- -1,T,T --- -1,T,-1 --- T,-1,-1 --- T,-1,T (the combinations I test)
     ###
+
+    # Square root test
+    scaled_matrix = B * np.random.random() # Ensure the diagonal elements != 1
+    diagonal_values = scaled_matrix.diagonal(sqrt=False).toarray()
+    sqrt_diagonal_values = scaled_matrix.diagonal(sqrt=True).toarray()
+    assert np.allclose(sqrt_diagonal_values, np.sqrt(diagonal_values))
 
     tol = 1e-5
     C = inverse(B, 'cg', tol=tol)
