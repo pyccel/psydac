@@ -333,21 +333,6 @@ class VectorFemSpace( FemSpace ):
     def spaces( self ):
         return self._spaces
 
-    @property
-    def is_block(self):
-        """Returns True if all components are identical spaces."""
-        # TODO - improve this tests. for the moment, we only check the degree,
-        #      - shall we check the bc too?
-
-        degree = [V.degree for V in self.spaces]
-        if self.pdim == 1:
-            return len(np.unique(degree)) == 1
-        else:
-            ns = np.asarray(degree[0])
-            for ms in degree[1:]:
-                if not( np.allclose(ns, np.asarray(ms)) ): return False
-            return True
-
     # ...
     def get_refined_space(self, ncells):
         return self._refined_space[tuple(ncells)]
