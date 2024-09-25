@@ -9,3 +9,4 @@ mapping
 
     mapping.discrete
     mapping.discrete_gallery
+    mapping.utils
