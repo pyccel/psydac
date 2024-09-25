@@ -91,7 +91,7 @@ def petsc_local_to_psydac(
     Convert the PETSc local index (starting from 0 in each process) to a Psydac local index (natural multi-index, as grid coordinates).
 
     Parameters
-    -----------
+    ----------
     V : VectorSpace
         The vector space to which the Psydac vector belongs.
         This defines the number of blocks, the size of each block,
@@ -101,7 +101,7 @@ def petsc_local_to_psydac(
         The local PETSc index. The 0 index is only owned by every process.
 
     Returns
-    --------
+    -------
     block: tuple
         The block where the Psydac multi-index belongs to.
     psydac_index : tuple
@@ -164,7 +164,7 @@ def psydac_to_petsc_global(
     Convert the Psydac local index (natural multi-index, as grid coordinates) to a PETSc global index. Performs a search to find the process owning the multi-index.
 
     Parameters
-    -----------
+    ----------
     V : VectorSpace
         The vector space to which the Psydac vector belongs.
         This defines the number of blocks, the size of each block,
@@ -179,7 +179,7 @@ def psydac_to_petsc_global(
         excluding the ghost regions.
 
     Returns
-    --------
+    -------
     petsc_index : int
         The global PETSc index. The 0 index is only owned by the first process.
     """
@@ -267,13 +267,13 @@ def get_npts_local(V : VectorSpace) -> list:
     Compute the local number of nodes per dimension owned by the actual process. 
     This is a local variable, its value will be different for each process.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     V : VectorSpace
         The distributed Psydac vector space.
 
     Returns
-    --------
+    -------
     list
         Local number of nodes per dimension owned by the actual process.
         In case of a StencilVectorSpace the list contains a single list with length equal the number of dimensions in the domain.
@@ -300,13 +300,13 @@ def get_npts_per_block(V : VectorSpace) -> list:
     Compute the number of nodes per block, process and dimension. 
     This is a global variable, its value is the same for all processes.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     V : VectorSpace
         The distributed Psydac vector space.
 
     Returns
-    --------
+    -------
     list
         Number of nodes per block, process and dimension.
     """ 
