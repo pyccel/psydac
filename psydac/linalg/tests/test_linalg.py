@@ -528,9 +528,8 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
 @pytest.mark.parametrize('n2', n2array)
 @pytest.mark.parametrize('p1', p1array)
 @pytest.mark.parametrize('p2', p2array)
-@pytest.mark.parametrize('sqrt', [False, True])
 
-def test_inverse_transpose_interaction(n1, n2, p1, p2, sqrt, P1=False, P2=False):
+def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
 
     # 1. Initiate square LOs: S (V->V, StencilMatrix), S1 (W->W, StencilMatrix)
         #Initiate BlockLO: B (VxW -> VxW) and a BlockVector u element of VxW
