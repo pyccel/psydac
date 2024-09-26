@@ -3154,6 +3154,50 @@ def test_stencil_matrix_2d_parallel_backend_dot(dtype, n1, n2, p1, p2, sh1, sh2,
     assert (M + M).backend is M.backend
     assert (2 * M).backend is M.backend
 
+@pytest.mark.parametrize('dtype', [float])#, complex])
+@pytest.mark.parametrize('n1', [4,6,10])
+@pytest.mark.parametrize('p1', [3,4])
+@pytest.mark.parametrize('s1', [1,2,3])
+def test_stencil_matrix_1d_toarray(dtype, n1, p1, s1, P1=True):
+    npts   = [n1]
+    pads   = [p1]
+    shifts = [s1]
+    ndim = len(npts)
+
+    # Create domain decomposition
+    D = DomainDecomposition(npts, periods=[P1])
+
+    # Partition the points
+    global_starts, global_ends = compute_global_starts_ends(D, npts, pads)
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=pads, shifts=shifts)
+
+    # Create a vector space V and a matrix M from V to V
+    V = StencilVectorSpace(cart, dtype=dtype)
+    M = StencilMatrix(V, V)
+
+    sub = 1
+    diag = 2
+    sup = 3
+
+    M[:,-1] = sub
+    M[:,0]  = diag
+    M[:,1]  = sup
+
+    M_toarray = M.toarray()
+
+    # Create equivalent matrix with numpy
+    n = np.prod(npts)
+
+    matrix = np.identity(n) * diag
+    matrix[np.arange(1, n), np.arange(n-1)] = sub
+    matrix[np.arange(n-1), np.arange(1, n)] = sup
+
+    # Fill the first and last element of the secondary diagonals
+    matrix[0, n-1] = sub
+    matrix[n-1, 0] = sup
+
+    assert np.allclose(M.toarray(), matrix)
+
 # ===============================================================================
 # SCRIPT FUNCTIONALITY
 # ===============================================================================
