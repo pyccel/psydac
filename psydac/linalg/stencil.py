@@ -945,7 +945,8 @@ class StencilMatrix(LinearOperator):
         self._transpose_args = self._prepare_transpose_args()
         self._transpose_func = kernels['transpose'][self._ndim]
 
-
+        if backend is None:
+            backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND')) or PSYDAC_BACKENDS['python']
         if backend:
             self.set_backend(backend, precompiled)
 
@@ -2272,7 +2273,7 @@ class StencilInterfaceMatrix(LinearOperator):
         self._transpose_func = kernels['interface_transpose'][self._ndim]
 
         if backend is None:
-            backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
+            backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND')) or PSYDAC_BACKENDS['python']
 
         if backend:
             self.set_backend(backend)
