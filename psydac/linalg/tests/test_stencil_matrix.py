@@ -433,7 +433,7 @@ def test_stencil_matrix_2d_serial_spurious_entries( dtype, p1, p2, s1, s2, P1, P
 @pytest.mark.parametrize('dtype', [float])
 @pytest.mark.parametrize('n1', [7])
 @pytest.mark.parametrize('p1', [1,2])
-@pytest.mark.parametrize('s1', [1])
+@pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('P1', [True, False])
 def test_stencil_matrix_1d_serial_toarray( dtype, n1, p1, s1, P1):
     # Select non-zero values based on diagonal index
@@ -489,8 +489,8 @@ def test_stencil_matrix_1d_serial_toarray( dtype, n1, p1, s1, P1):
 @pytest.mark.parametrize('n2', [8, 7])
 @pytest.mark.parametrize('p1', [1, 2])
 @pytest.mark.parametrize('p2', [1, 3])
-@pytest.mark.parametrize('s1', [1])
-@pytest.mark.parametrize('s2', [1])
+@pytest.mark.parametrize('s1', [1, 2])
+@pytest.mark.parametrize('s2', [1, 2])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
 def test_stencil_matrix_2d_serial_toarray( dtype, n1, n2, p1, p2, s1, s2, P1, P2):
@@ -2191,7 +2191,7 @@ def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, 
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [20, 67])
 @pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('sh1', [1])
+@pytest.mark.parametrize('sh1', [1, 2])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parallel
 def test_stencil_matrix_1d_parallel_toarray(dtype, n1, p1, sh1, P1):
