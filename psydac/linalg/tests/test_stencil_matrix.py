@@ -489,8 +489,8 @@ def test_stencil_matrix_1d_serial_toarray( dtype, n1, p1, s1, P1):
 @pytest.mark.parametrize('n2', [8, 7])
 @pytest.mark.parametrize('p1', [1, 2])
 @pytest.mark.parametrize('p2', [1, 3])
-@pytest.mark.parametrize('s1', [1,2])
-@pytest.mark.parametrize('s2', [1,2])
+@pytest.mark.parametrize('s1', [1, 2])
+@pytest.mark.parametrize('s2', [1, 2])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
 def test_stencil_matrix_2d_serial_toarray( dtype, n1, n2, p1, p2, s1, s2, P1, P2):
