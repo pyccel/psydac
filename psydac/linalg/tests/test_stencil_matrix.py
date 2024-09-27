@@ -433,7 +433,7 @@ def test_stencil_matrix_2d_serial_spurious_entries( dtype, p1, p2, s1, s2, P1, P
 @pytest.mark.parametrize('dtype', [float])
 @pytest.mark.parametrize('n1', [7])
 @pytest.mark.parametrize('p1', [1,2])
-@pytest.mark.parametrize('s1', [1,2])
+@pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('P1', [True, False])
 def test_stencil_matrix_1d_serial_toarray( dtype, n1, p1, s1, P1):
     # Select non-zero values based on diagonal index
