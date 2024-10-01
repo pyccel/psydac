@@ -19,7 +19,7 @@ def stencil2coo_1d_C(A:'T[:,:]', data:'T[:]', rows:'int64[:]', cols:'int64[:]', 
         for j1 in range(ncl1):
             value = A[i1+pp1,j1]
             if abs(value) == 0.0:continue
-            J = ((I*dm1//cm1)+j1-dp1)%nc1
+            J = ((_I*dm1//cm1)+j1-dp1)%nc1
             rows[nnz] = _I
             cols[nnz] = J
             data[nnz] = value
@@ -38,7 +38,7 @@ def stencil2coo_1d_F(A:'T[:,:]', data:'T[:]', rows:'int64[:]', cols:'int64[:]', 
         for j1 in range(ncl1):
             value = A[i1+pp1,j1]
             if abs(value) == 0.0:continue
-            J = ((I*dm1//cm1)+j1-dp1)%nc1
+            J = ((_I*dm1//cm1)+j1-dp1)%nc1
             rows[nnz] = _I
             cols[nnz] = J
             data[nnz] = value
