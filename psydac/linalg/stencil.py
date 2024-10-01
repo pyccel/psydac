@@ -1383,7 +1383,7 @@ class StencilMatrix(LinearOperator):
                 self._data[idx_to] += self._data[idx_from]
 
     # ...
-    def diagonal(self, *, inverse = False, out = None):
+    def diagonal(self, *, inverse = False, sqrt = False, out = None):
         """
         Get the coefficients on the main diagonal as a StencilDiagonalMatrix object.
 
@@ -1391,6 +1391,11 @@ class StencilMatrix(LinearOperator):
         ----------
         inverse : bool
             If True, get the inverse of the diagonal. (Default: False).
+            Can be combined with sqrt to get the inverse square root.
+
+        sqrt : bool
+            If True, get the square root of the diagonal. (Default: False).
+            Can be combined with inverse to get the inverse square root.
 
         out : StencilDiagonalMatrix
             If provided, write the diagonal entries into this matrix. (Default: None).
@@ -1428,6 +1433,9 @@ class StencilMatrix(LinearOperator):
             np.copyto(data, diag)
         else:
             data = diag.copy()
+
+        if sqrt:
+            np.sqrt(data, out=data)
 
         # If needed create a new StencilDiagonalMatrix object
         if out is None:
