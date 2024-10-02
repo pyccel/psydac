@@ -5,7 +5,7 @@
 from pyccel.decorators import pure
 from numpy import shape
 import numpy as np
-from psydac.core.arrays import matmul, sum_vec
+from psydac.core.arrays_kernels import matmul, sum_vec
 
 # =============================================================================
 def find_span_p(knots: 'float[:]', degree: int, x: float):
