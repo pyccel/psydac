@@ -618,6 +618,12 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     ### -1,T & T,-1 --- -1,T,T --- -1,T,-1 --- T,-1,-1 --- T,-1,T (the combinations I test)
     ###
 
+    # Square root test
+    scaled_matrix = B * np.random.random() # Ensure the diagonal elements != 1
+    diagonal_values = scaled_matrix.diagonal(sqrt=False).toarray()
+    sqrt_diagonal_values = scaled_matrix.diagonal(sqrt=True).toarray()
+    assert np.array_equal(sqrt_diagonal_values, np.sqrt(diagonal_values))
+
     tol = 1e-5
     C = inverse(B, 'cg', tol=tol)
     P = B.diagonal(inverse=True)
