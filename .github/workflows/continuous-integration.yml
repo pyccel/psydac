@@ -177,6 +177,7 @@ jobs:
           python -m pytest -n auto --cov psydac --cov-report xml:coverage.xml --pyargs psydac -m "not parallel and not petsc"
 
       - name: Run Codacy coverage reporter
+        working-directory: ./pytest
         uses: codacy/codacy-coverage-reporter-action@v1.3.0
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
