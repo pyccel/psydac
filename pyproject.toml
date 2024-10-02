@@ -28,7 +28,6 @@ dependencies = [
     'matplotlib',
     'pytest >= 4.5',
     'pytest-xdist >= 1.16',
-    'pytest-cov',
     'pyyaml >= 5.1',
     'packaging',
     'pyevtk',
