@@ -54,6 +54,11 @@ dependencies = [
     'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip'
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest-cov >= 5.0.0",
+]
+
 [project.urls]
 Homepage      = "https://github.com/pyccel/psydac"
 Documentation = "https://pyccel.github.io/psydac"
