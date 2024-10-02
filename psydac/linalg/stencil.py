@@ -1788,7 +1788,7 @@ class StencilMatrix(LinearOperator):
             self._args.pop('pads')
         elif precompiled:
 
-            print('Using precompiled matvec and transpose kernels ...')
+            # print('Using precompiled matvec and transpose kernels ...')
 
             from struphy.linear_algebra import stencil_dot_kernels
             from struphy.linear_algebra import stencil_transpose_kernels
