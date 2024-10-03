@@ -1,5 +1,6 @@
 import logging
 import os
+import sysconfig
 from shutil import which
 from subprocess import PIPE, STDOUT  # nosec B404
 from subprocess import run as sub_run
@@ -19,6 +20,21 @@ class BuildPyCommand(build_py):
         # case
         if module.endswith('_kernels'):
             self.announce(f"\nPyccelising [{module}] ...", level=logging.INFO)
+
+            # Dynamically find the Python library directory
+            env = os.environ.copy()
+
+            # Get the library directory where libpythonX.Y.so is located
+            libdir = sysconfig.get_config_var('LIBDIR')
+
+            if libdir is None:
+                # Try to construct the path manually
+                libdir = os.path.join(sysconfig.get_config_var('LIBPL'))
+
+            if libdir:
+                # Set LDFLAGS to include the rpath
+                env['LDFLAGS'] = f'-Wl,-rpath,{libdir}'
+
             # TODO --openmp doesn't work with c-compilation
             pyccel = sub_run([which('pyccel'), outfile, '--language', 'c'],
                               stdout=PIPE, stderr=STDOUT,
