@@ -39,13 +39,13 @@ domain_name = 'refined_square'
 # use isotropic meshes (probably with a square domain)
 # 4x8= 64 patches
 # care for the transpose
-ncells = np.array([[16, 16],
-                   [16, 16]])
+# ncells = np.array([[16, 16],
+#                    [16, 16]])
 
-# ncells = np.array([[8,8,16,8],
-#                  [8,8,16,8],
-#                  [8,8,16,8],
-#                  [8,8,16,8]])
+ncells = np.array([[8,8,16,8],
+                 [8,8,16,8],
+                 [8,8,16,8],
+                 [8,8,16,8]])
 # ncells = np.array([[8,8,8,8],
 #                    [8,8,8,8],
 #                    [8,8,8,8],

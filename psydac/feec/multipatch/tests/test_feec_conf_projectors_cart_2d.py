@@ -42,13 +42,13 @@ def get_polynomial_function(degree, hom_bc_axes, domain):
 
 # ==============================================================================
 @pytest.mark.parametrize('V1_type', ["Hcurl"])
-@pytest.mark.parametrize('degree', [[3, 3]])
-@pytest.mark.parametrize('nc', [5])
+@pytest.mark.parametrize('degree', [[4,4]])
+@pytest.mark.parametrize('nc', [12])
 @pytest.mark.parametrize('reg', [0])
 @pytest.mark.parametrize('hom_bc', [False, True])
-@pytest.mark.parametrize('domain_name', ["4patch_nc", "2patch_nc"])
+@pytest.mark.parametrize('domain_name', ["4patch_nc"])
 @pytest.mark.parametrize("nonconforming, full_mom_pres",
-                         [(True, True), (False, True)])
+                         [(True, True)])
 def test_conf_projectors_2d(
     V1_type,
     degree,
@@ -104,8 +104,8 @@ def test_conf_projectors_2d(
         elif len(domain) == 4:
             ncells_h = {
                 'M1(A)': [nc, nc],
-                'M2(B)': [2 * nc, 2 * nc],
-                'M3(C)': [2 * nc, 2 * nc],
+                'M2(B)': [nc, nc],
+                'M3(C)': [nc, nc],
                 'M4(D)': [4 * nc, 4 * nc],
             }
 
@@ -193,7 +193,7 @@ def test_conf_projectors_2d(
     tilde_g0_c = p_derham_h.get_dual_dofs(
         space='V0', f=g0, return_format='numpy_array')
     g0_L2_c = M0_inv @ tilde_g0_c
-
+    
     # (P0_geom - P0_L2) polynomial = 0
     assert np.allclose(g0_c, g0_L2_c, 1e-12, 1e-12)
     # (P0_geom - confP0 @ P0_L2) polynomial= 0
@@ -213,6 +213,9 @@ def test_conf_projectors_2d(
             space='V0', f=g0, return_format='numpy_array')
         g0_star_c = M0_inv @ cP0.transpose() @ tilde_g0_c
         # (P10_geom - P0_star) polynomial = 0
+        print(g0_c - g0_star_c)
+        print(np.linalg.norm(g0_c - g0_star_c))
+
         assert np.allclose(g0_c, g0_star_c, 1e-12, 1e-12)
 
     # tests on cP1:

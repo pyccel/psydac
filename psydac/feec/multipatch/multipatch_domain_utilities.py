@@ -952,6 +952,7 @@ def build_cartesian_multipatch_domain(ncells, log_interval_x, log_interval_y, ma
     domain : <Sympde.topology.Domain>
         The symbolic multipatch domain
     """
+    ncells = ncells.transpose()
     ax, bx = log_interval_x
     ay, by = log_interval_y
     nb_patchx, nb_patchy = np.shape(ncells)
@@ -977,9 +978,9 @@ def build_cartesian_multipatch_domain(ncells, log_interval_x, log_interval_y, ma
 
     # flatten for the join function
     patches = []
-    for i in range(nb_patchx):
-        for j in range(nb_patchy):
-            if ncells[i, j] is not None:
+    for j in range(nb_patchx):
+        for i in range(nb_patchy):
+            if ncells[j, i] is not None:
                 patches.append(list_patches[j][i])
 
     axis_0 = 0
@@ -989,18 +990,18 @@ def build_cartesian_multipatch_domain(ncells, log_interval_x, log_interval_y, ma
     connectivity = []
 
     # interfaces in y
-    for i in range(nb_patchx):
+    for i in range(nb_patchy):
         connectivity.extend([
             [(list_patches[j  ][i], axis_0, ext_1), 
              (list_patches[j+1][i], axis_0, ext_0), 1] 
-            for j in range(nb_patchy -1) if ncells[i][j] is not None and ncells[i][j+1] is not None])
+            for j in range(nb_patchx -1) if ncells[j,i] is not None and ncells[j+1,i] is not None])
 
     # interfaces in x
-    for j in range(nb_patchy):
+    for j in range(nb_patchx):
         connectivity.extend([
             [(list_patches[j][i  ], axis_1, ext_0), 
              (list_patches[j][i+1], axis_1, ext_1), 1] 
-            for i in range(nb_patchx -1) if ncells[i][j] is not None and ncells[i+1][j] is not None])
+            for i in range(nb_patchy -1) if ncells[j,i] is not None and ncells[j,i+1] is not None])
 
     # domain = Domain.join(patches, connectivity, name='domain')
     domain = sympde_Domain_join(patches, connectivity, name='domain')

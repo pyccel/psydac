@@ -267,10 +267,10 @@ def solve_td_maxwell_pbm(*,
 
     if isinstance(nc, int):
         ncells = [nc, nc]
-    elif ncells.ndim == 1:
+    elif nc.ndim == 1:
         ncells = {patch.name: [nc[i], nc[i]]
                     for (i, patch) in enumerate(domain.interior)}
-    elif ncells.ndim == 2:
+    elif nc.ndim == 2:
         ncells = {patch.name: [nc[int(patch.name[2])][int(patch.name[4])], 
                 nc[int(patch.name[2])][int(patch.name[4])]] for patch in domain.interior}
 
