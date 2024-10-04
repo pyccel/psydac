@@ -178,4 +178,4 @@ def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2 ):
 # SCRIPT FUNCTIONALITY
 #===============================================================================
 if __name__ == '__main__':
-    test_SplineInterpolation2D_parallel_exact( 10, 16, 3, 5 )
+    test_SplineInterpolation2D_parallel_exact( 7, 7, 1, 1 )
