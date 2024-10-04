@@ -169,26 +169,26 @@ class TensorFemSpace(FemSpace):
         return False
 
     @property
-    def symbolic_space( self ):
+    def symbolic_space(self):
         return self._symbolic_space 
 
     @property
-    def interfaces( self ):
+    def interfaces(self):
         return self._interfaces_readonly
 
     @symbolic_space.setter
-    def symbolic_space( self, symbolic_space ):
+    def symbolic_space(self, symbolic_space):
         assert isinstance(symbolic_space, BasicFunctionSpace)
         self._symbolic_space = symbolic_space
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
-    def eval_field( self, field, *eta, weights=None):
+    def eval_field(self, field, *eta, weights=None):
 
-        assert isinstance( field, FemField )
+        assert isinstance(field, FemField)
         assert field.space is self
-        assert len( eta ) == self.ldim
+        assert len(eta) == self.ldim
         if weights:
             assert weights.space == field.coeffs.space
 
@@ -196,54 +196,68 @@ class TensorFemSpace(FemSpace):
         if weights:
             w_index = []
 
-        if not hasattr(self,'_tmp_coeffs'):
-            self._tmp_coeffs = np.zeros([s.degree +1 for s in self.spaces])
-        if not hasattr(self,'_tmp_bf'):
+        # -------------------------------
+        # Local storage for this function
+        # -------------------------------
+        # [a] One N-dim. array w/ coefficients of non-zero N-dim. tensor-product basis functions
+        if not hasattr(self, '_tmp_coeffs'):
+            self._tmp_coeffs = np.zeros([s.degree + 1 for s in self.spaces])
+        #
+        # [b] List of N 1D arrays w/ values of non-zero 1D basis functions along each direction
+        if not hasattr(self, '_tmp_bf'):
             self._tmp_bf = [np.zeros(s.degree + 1, dtype=float) for s in self.spaces]
+        # -------------------------------
 
+        # Shortcuts
         coeffs = self._tmp_coeffs
+        bases  = self._tmp_bf
 
         # Necessary if vector coeffs is distributed across processes
         if not field.coeffs.ghost_regions_in_sync:
             field.coeffs.update_ghost_regions()
 
-        for i, (x, xlim, space) in enumerate(zip( eta, self.eta_lims, self.spaces )):
+        for i, (x, xlim, space) in enumerate(zip(eta, self.eta_lims, self.spaces)):
 
+            # Shortcuts
             knots  = space.knots
             degree = space.degree
-            # be sure it's the right type for kernels
+
+            # All kernels expect the coordinate 'x' to be a Python float
             fx = float(x)
-            span   =  find_span_p( knots, degree, fx )
-            vs = space.vector_space
+
+            # Compute span, i.e. index of last non-zero B-spline
+            span = find_span_p(knots, degree, fx)
+
             #-------------------------------------------------#
             # Fix span for boundaries between subdomains      #
             #-------------------------------------------------#
             # TODO: Use local knot sequence instead of global #
             #       one to get correct span in all situations #
             #-------------------------------------------------#
-            if fx == xlim[1] and fx != knots[-1-degree]:
+            if fx == xlim[1] and fx != knots[-1 - degree]:
                 span -= 1
             #-------------------------------------------------#
-            
-            basis = self._tmp_bf[i]
-            basis_funs_p( knots, degree, fx, span, out = basis)
+
+            # Compute values of non-zero B-splines
+            basis_funs_p(knots, degree, fx, span, out = bases[i])
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
-                basis *= space.scaling_array[span-degree : span+1]
+                bases[i] *= space.scaling_array[span - degree : span + 1]
 
             # Determine local span
             wrap_x   = space.periodic and fx > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
-            start = self.vector_space.starts[i]
-            pad = self.vector_space.pads[i]
-            shift = self.vector_space.shifts[i]
-            index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
+            start    = self.vector_space.starts[i]
+            pad      = self.vector_space.pads  [i]
+            shift    = self.vector_space.shifts[i]
+            index.append(slice(loc_span - degree - start + shift * pad,
+                                    loc_span + 1 - start + shift * pad))
             if weights:
-                w_index.append(slice(loc_span-degree, loc_span+1))
+                w_index.append(slice(loc_span - degree, loc_span + 1))
+
         # Get contiguous copy of the spline coefficients required for evaluation
-        bases = self._tmp_bf
-        index  = tuple( index )
+        index = tuple(index)
         coeffs[:] = field.coeffs._data[index]        
         if weights:
             w_index = tuple(w_index)
@@ -257,19 +271,19 @@ class TensorFemSpace(FemSpace):
         #   - Cons: we create ldim-1 temporary objects of decreasing size
         #
         if len(bases) == 3:
-            res = eval_field_3d_once(coeffs, bases[0], bases[1], bases[2])
+            res = eval_field_3d_once(coeffs, *bases)
         else:
             res = coeffs
             for basis in bases[::-1]:
-                res = np.dot( res, basis )
+                res = np.dot(res, basis)
 
 #        # Option 2: cycle over each element of 'coeffs' (touched only once)
 #        #   - Pros: no temporary objects are created
 #        #   - Cons: large number of Python iterations = number of elements in 'coeffs'
 #        #
 #        res = 0.0
-#        for idx,c in np.ndenumerate( coeffs ):
-#            ndbasis = np.prod( [b[i] for i,b in zip( idx, bases )] )
+#        for idx, c in np.ndenumerate(coeffs):
+#            ndbasis = np.prod([b[i] for i, b in zip(idx, bases)])
 #            res    += c * ndbasis
 
         return res
