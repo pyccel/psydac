@@ -177,15 +177,21 @@ jobs:
         working-directory: ./pytest
         run: >- 
           python -m pytest -n auto --cov psydac
+          --cov-report term-missing
           --cov-report xml:coverage.xml
           --cov-config $GITHUB_WORKSPACE/pyproject.toml
           --pyargs psydac -m "not parallel and not petsc"
 
-      - name: Run Codacy coverage reporter
+      - name: Upload coverage report to Codacy
         uses: codacy/codacy-coverage-reporter-action@v1.3.0
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           coverage-reports: ./pytest/coverage.xml
+
+      - name: Print detailed coverage results
+        working-directory: ./pytest
+        run: |
+          coverage report --ignore-errors --show-missing --sort=cover
 
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
