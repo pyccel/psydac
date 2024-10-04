@@ -177,7 +177,6 @@ jobs:
         working-directory: ./pytest
         run: >- 
           python -m pytest -n auto --cov psydac
-          --cov-report term-missing
           --cov-report xml:coverage.xml
           --cov-config $GITHUB_WORKSPACE/pyproject.toml
           --pyargs psydac -m "not parallel and not petsc"
