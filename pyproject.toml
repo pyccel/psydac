@@ -79,6 +79,8 @@ branch = true
 omit = [
     # Exclude pyccelised kernels
     "*/__psydac__/*",
+    # Examples don't need to be covered
+    "*/examples/*",
     # Unit tests shouldn't be included too
     "*/tests/*",
     ]
