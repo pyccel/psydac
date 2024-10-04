@@ -101,7 +101,7 @@ class TensorFemSpace(FemSpace):
             vector_space = StencilVectorSpace(cart, dtype=dtype)
 
         # Store some info
-        self._ldim                 = sum(V.ldim for V in self.spaces)
+        self._ldim                 = sum(V.ldim for V in spaces)
         self._domain_decomposition = domain_decomposition
         self._spaces               = spaces
         self._dtype                = dtype
