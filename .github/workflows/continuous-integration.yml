@@ -30,6 +30,10 @@ jobs:
 
     name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
 
+    env:
+      PSYDAC_MESH_DIR: ${{ github.workspace }}/mesh
+      OMP_NUM_THREADS: 2
+
     steps:
       - uses: actions/checkout@v4
 
@@ -171,10 +175,11 @@ jobs:
 
       - name: Run single-process tests with Pytest
         working-directory: ./pytest
-        run: |
-          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
-          export OMP_NUM_THREADS=2
-          python -m pytest -n auto --cov psydac --cov-report xml:coverage.xml --pyargs psydac -m "not parallel and not petsc"
+        run: >- 
+          python -m pytest -n auto --cov psydac
+          --cov-report xml:coverage.xml
+          --cov-config $GITHUB_WORKSPACE/pyproject.toml
+          --pyargs psydac -m "not parallel and not petsc"
 
       - name: Run Codacy coverage reporter
         uses: codacy/codacy-coverage-reporter-action@v1.3.0
@@ -185,22 +190,16 @@ jobs:
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
         run: |
-          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
-          export OMP_NUM_THREADS=2
           python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and not petsc"
 
       - name: Run single-process PETSc tests with Pytest
         working-directory: ./pytest
         run: |
-          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
-          export OMP_NUM_THREADS=2
           python -m pytest -n auto --pyargs psydac -m "not parallel and petsc"
 
       - name: Run MPI PETSc tests with Pytest
         working-directory: ./pytest
         run: |
-          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
-          export OMP_NUM_THREADS=2
           python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc"
 
       - name: Remove test directory
