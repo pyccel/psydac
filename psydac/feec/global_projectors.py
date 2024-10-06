@@ -239,8 +239,12 @@ class GlobalProjector(metaclass=ABCMeta):
         if isinstance(self.space, TensorFemSpace):
             self._imat_kronecker = matrixblocks[0]
         else:
+            # self._imat_kronecker = BlockLinearOperator(self.space.vector_space, self.space.vector_space, 
+            #                                            blocks=blocks)
             self._imat_kronecker = BlockLinearOperator(self.space.vector_space, self.space.vector_space, 
-                                                       blocks=blocks)
+                                               blocks=[[matrixblocks[0], None, None], 
+                                                       [None, matrixblocks[1], None], 
+                                                       [None, None, matrixblocks[2]]])
         
         # finish arguments and create a lambda
         args = (*intp_x, *quad_x, *quad_w, *dofs)
