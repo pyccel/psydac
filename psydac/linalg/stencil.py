@@ -1789,9 +1789,9 @@ class StencilMatrix(LinearOperator):
         elif precompiled:
 
             # print('Using precompiled matvec and transpose kernels ...')
-
-            from struphy.linear_algebra import stencil_dot_kernels
-            from struphy.linear_algebra import stencil_transpose_kernels
+            
+            from psydac.linalg import stencil_dot_kernels
+            from psydac.linalg import stencil_transpose_kernels
 
             # matvec kernel
             dot_func_name = 'matvec_' + str(self._ndim) + 'd_kernel'
