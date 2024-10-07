@@ -137,7 +137,7 @@ def run_poisson_2d(filename, solution, f, dir_zero_boundary,
     # Compute error norms
     l2_error = l2norm_h.assemble(u=uh)
     h1_error = h1norm_h.assemble(u=uh)
-    
+
     return l2_error, h1_error
 
 ###############################################################################

@@ -28,7 +28,7 @@ import pathlib
 import sys
 import tomli
 
-autodoc_mock_imports = ['sympy', 'sympde', 'numpy', 'scipy', 'mpi4py', 'pyccel', 'h5py', 'yaml', 'gelato', 'pyevtk', 'matplotlib']
+autodoc_mock_imports = ['sympy', 'sympde', 'numpy', 'scipy', 'mpi4py', 'pyccel', 'h5py', 'yaml', 'gelato', 'pyevtk', 'matplotlib', 'mpl_toolkits']
 sys.path.insert(0, pathlib.Path(__file__).parents[2].resolve().as_posix())
 
 with open('../../pyproject.toml', mode='rb') as pyproject:

@@ -13,6 +13,8 @@ from inspect import signature
 
 import numpy as np
 from scipy.sparse import coo_matrix
+from types import LambdaType 
+from inspect import signature
 
 from psydac.utilities.utils import is_real
 

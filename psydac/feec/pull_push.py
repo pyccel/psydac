@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from sympde.topology.callable_mapping import BasicCallableMapping
+from sympde.topology import BaseMapping
 
 __all__ = (
     #
@@ -38,7 +38,7 @@ __all__ = (
 #==============================================================================
 def pull_1d_h1(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 1
 
     def f_logical(eta1):
@@ -50,13 +50,13 @@ def pull_1d_h1(f, F):
 #==============================================================================
 def pull_1d_l2(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 1
 
     def f_logical(eta1):
         x, = F(eta1)
 
-        det_value = F.metric_det(eta1)**0.5
+        det_value = F.metric_det_eval(eta1)**0.5
         value     = f(x)
         return det_value * value
 
@@ -67,7 +67,7 @@ def pull_1d_l2(f, F):
 #==============================================================================
 def pull_2d_h1vec(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2    
 
     f1, f2 = f
@@ -78,7 +78,7 @@ def pull_2d_h1vec(f, F):
         a1_phys = f1(x, y)
         a2_phys = f2(x, y)
 
-        J_inv_value = F.jacobian_inv(eta1, eta2)
+        J_inv_value = F.jacobian_inv_eval(eta1, eta2)
         value_1 = J_inv_value[0, 0] * a1_phys + J_inv_value[0, 1] * a2_phys
         return value_1
 
@@ -88,7 +88,7 @@ def pull_2d_h1vec(f, F):
         a1_phys = f1(x, y)
         a2_phys = f2(x, y)
 
-        J_inv_value = F.jacobian_inv(eta1, eta2)
+        J_inv_value = F.jacobian_inv_eval(eta1, eta2)
         value_2 = J_inv_value[1, 0] * a1_phys + J_inv_value[1, 1] * a2_phys
         return value_2
 
@@ -96,7 +96,7 @@ def pull_2d_h1vec(f, F):
 
 def pull_2d_h1(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2
 
     def f_logical(eta1, eta2):
@@ -108,7 +108,7 @@ def pull_2d_h1(f, F):
 #==============================================================================
 def pull_2d_hcurl(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2
 
     # Assume that f is a list/tuple of callable functions
@@ -120,7 +120,7 @@ def pull_2d_hcurl(f, F):
         a1_phys = f1(x, y)
         a2_phys = f2(x, y)
 
-        J_T_value = F.jacobian(eta1, eta2).T
+        J_T_value = F.jacobian_eval(eta1, eta2).T
         value_1   = J_T_value[0, 0] * a1_phys + J_T_value[0, 1] * a2_phys
         return value_1
 
@@ -130,7 +130,7 @@ def pull_2d_hcurl(f, F):
         a1_phys = f1(x, y)
         a2_phys = f2(x, y)
 
-        J_T_value = F.jacobian(eta1, eta2).T
+        J_T_value = F.jacobian_eval(eta1, eta2).T
         value_2   = J_T_value[1, 0] * a1_phys + J_T_value[1, 1] * a2_phys
         return value_2
 
@@ -139,7 +139,7 @@ def pull_2d_hcurl(f, F):
 #==============================================================================
 def pull_2d_hdiv(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2
 
     # Assume that f is a list/tuple of callable functions
@@ -151,8 +151,8 @@ def pull_2d_hdiv(f, F):
         a1_phys = f1(x, y)
         a2_phys = f2(x, y)
 
-        J_inv_value = F.jacobian_inv(eta1, eta2)
-        det_value   = F.metric_det(eta1, eta2)**0.5
+        J_inv_value = F.jacobian_inv_eval(eta1, eta2)
+        det_value   = F.metric_det_eval(eta1, eta2)**0.5
         value_1     = J_inv_value[0, 0] * a1_phys + J_inv_value[0, 1] * a2_phys
         return det_value * value_1
 
@@ -162,8 +162,8 @@ def pull_2d_hdiv(f, F):
         a1_phys = f1(x, y)
         a2_phys = f2(x, y)
 
-        J_inv_value = F.jacobian_inv(eta1, eta2)
-        det_value   = F.metric_det(eta1, eta2)**0.5
+        J_inv_value = F.jacobian_inv_eval(eta1, eta2)
+        det_value   = F.metric_det_eval(eta1, eta2)**0.5
         value_2     = J_inv_value[1, 0] * a1_phys + J_inv_value[1, 1] * a2_phys
         return det_value * value_2
 
@@ -172,13 +172,13 @@ def pull_2d_hdiv(f, F):
 #==============================================================================
 def pull_2d_l2(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2
 
     def f_logical(eta1, eta2):
         x, y = F(eta1, eta2)
 
-        det_value = F.metric_det(eta1, eta2)**0.5
+        det_value = F.metric_det_eval(eta1, eta2)**0.5
         value     = f(x, y)
         return det_value * value
 
@@ -193,7 +193,7 @@ def pull_2d_l2(f, F):
 
 def pull_3d_h1vec(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
     f1, f2, f3 = f
@@ -205,7 +205,7 @@ def pull_3d_h1vec(f, F):
         a2_phys = f2(x, y, z)
         a3_phys = f3(x, y, z)
 
-        J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
+        J_inv_value = F.jacobian_inv_eval(eta1, eta2, eta3)
         value_1 = J_inv_value[0, 0] * a1_phys + J_inv_value[0, 1] * a2_phys + J_inv_value[0, 2] * a3_phys
         return value_1
 
@@ -216,7 +216,7 @@ def pull_3d_h1vec(f, F):
         a2_phys = f2(x, y, z)
         a3_phys = f3(x, y, z)
 
-        J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
+        J_inv_value = F.jacobian_inv_eval(eta1, eta2, eta3)
         value_2 = J_inv_value[1, 0] * a1_phys + J_inv_value[1, 1] * a2_phys + J_inv_value[1, 2] * a3_phys
         return value_2
 
@@ -227,7 +227,7 @@ def pull_3d_h1vec(f, F):
         a2_phys = f2(x, y, z)
         a3_phys = f3(x, y, z)
 
-        J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
+        J_inv_value = F.jacobian_inv_eval(eta1, eta2, eta3)
         value_2 = J_inv_value[2, 0] * a1_phys + J_inv_value[2, 1] * a2_phys + J_inv_value[2, 2] * a3_phys
         return value_2
 
@@ -236,7 +236,7 @@ def pull_3d_h1vec(f, F):
 #==============================================================================
 def pull_3d_h1(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
     def f_logical(eta1, eta2, eta3):
@@ -248,7 +248,7 @@ def pull_3d_h1(f, F):
 #==============================================================================
 def pull_3d_hcurl(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
     # Assume that f is a list/tuple of callable functions
@@ -261,7 +261,7 @@ def pull_3d_hcurl(f, F):
         a2_phys = f2(x, y, z)
         a3_phys = f3(x, y, z)
 
-        J_T_value = F.jacobian(eta1, eta2, eta3).T
+        J_T_value = F.jacobian_eval(eta1, eta2, eta3).T
         value_1   = J_T_value[0, 0] * a1_phys + J_T_value[0, 1] * a2_phys + J_T_value[0, 2] * a3_phys
         return value_1
 
@@ -272,7 +272,7 @@ def pull_3d_hcurl(f, F):
         a2_phys = f2(x, y, z)
         a3_phys = f3(x, y, z)
 
-        J_T_value = F.jacobian(eta1, eta2, eta3).T
+        J_T_value = F.jacobian_eval(eta1, eta2, eta3).T
         value_2   = J_T_value[1, 0] * a1_phys + J_T_value[1, 1] * a2_phys + J_T_value[1, 2] * a3_phys
         return value_2
 
@@ -283,7 +283,7 @@ def pull_3d_hcurl(f, F):
         a2_phys = f2(x, y, z)
         a3_phys = f3(x, y, z)
 
-        J_T_value = F.jacobian(eta1, eta2, eta3).T
+        J_T_value = F.jacobian_eval(eta1, eta2, eta3).T
         value_3   = J_T_value[2, 0] * a1_phys + J_T_value[2, 1] * a2_phys + J_T_value[2, 2] * a3_phys
         return value_3
 
@@ -292,7 +292,7 @@ def pull_3d_hcurl(f, F):
 #==============================================================================
 def pull_3d_hdiv(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
     # Assume that f is a list/tuple of callable functions
@@ -305,8 +305,8 @@ def pull_3d_hdiv(f, F):
         a2_phys = f2(x, y, z)
         a3_phys = f3(x, y, z)
 
-        J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
-        det_value   = F.metric_det(eta1, eta2, eta3)**0.5
+        J_inv_value = F.jacobian_inv_eval(eta1, eta2, eta3)
+        det_value   = F.metric_det_eval(eta1, eta2, eta3)**0.5
         value_1     = J_inv_value[0, 0] * a1_phys + J_inv_value[0, 1] * a2_phys + J_inv_value[0, 2] * a3_phys
         return det_value * value_1
 
@@ -317,8 +317,8 @@ def pull_3d_hdiv(f, F):
         a2_phys = f2(x, y, z)
         a3_phys = f3(x, y, z)
 
-        J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
-        det_value   = F.metric_det(eta1, eta2, eta3)**0.5
+        J_inv_value = F.jacobian_inv_eval(eta1, eta2, eta3)
+        det_value   = F.metric_det_eval(eta1, eta2, eta3)**0.5
         value_2     = J_inv_value[1, 0] * a1_phys + J_inv_value[1, 1] * a2_phys + J_inv_value[1, 2] * a3_phys
         return det_value * value_2
 
@@ -329,8 +329,8 @@ def pull_3d_hdiv(f, F):
         a2_phys = f2(x, y, z)
         a3_phys = f3(x, y, z)
 
-        J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
-        det_value   = F.metric_det(eta1, eta2, eta3)**0.5
+        J_inv_value = F.jacobian_inv_eval(eta1, eta2, eta3)
+        det_value   = F.metric_det_eval(eta1, eta2, eta3)**0.5
         value_3     = J_inv_value[2, 0] * a1_phys + J_inv_value[2, 1] * a2_phys + J_inv_value[2, 2] * a3_phys
         return det_value * value_3
 
@@ -339,13 +339,13 @@ def pull_3d_hdiv(f, F):
 #==============================================================================
 def pull_3d_l2(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
     def f_logical(eta1, eta2, eta3):
         x, y, z = F(eta1, eta2, eta3)
 
-        det_value = F.metric_det(eta1, eta2, eta3)**0.5
+        det_value = F.metric_det_eval(eta1, eta2, eta3)**0.5
         value     = f(x, y, z)
         return det_value * value
 
@@ -366,10 +366,10 @@ def push_1d_h1(f, eta):
 
 def push_1d_l2(f, eta, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 1
 
-    return f(eta) / F.metric_det(eta)**0.5
+    return f(eta) / F.metric_det_eval(eta)**0.5
 
 #==============================================================================
 # 2D PUSH-FORWARDS
@@ -382,15 +382,14 @@ def push_2d_h1(f, eta1, eta2):
 #def push_2d_hcurl(f, eta, F):
 def push_2d_hcurl(f1, f2, eta1, eta2, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2
 
 #    # Assume that f is a list/tuple of callable functions
 #    f1, f2 = f
     eta = eta1, eta2
-
-    J_inv_value = F.jacobian_inv(*eta)
-
+    J_inv_value = F.jacobian_inv_eval(*eta)
+    
     f1_value = f1(*eta)
     f2_value = f2(*eta)
 
@@ -403,15 +402,15 @@ def push_2d_hcurl(f1, f2, eta1, eta2, F):
 #def push_2d_hdiv(f, eta, F):
 def push_2d_hdiv(f1, f2, eta1, eta2, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2
 
 #    # Assume that f is a list/tuple of callable functions
 #    f1, f2 = f
     eta = eta1, eta2
 
-    J_value   = F.jacobian(*eta)
-    det_value = F.metric_det(*eta)**0.5
+    J_value   = F.jacobian_eval(*eta)
+    det_value = F.metric_det_eval(*eta)**0.5
 
     f1_value = f1(*eta)
     f2_value = f2(*eta)
@@ -425,14 +424,14 @@ def push_2d_hdiv(f1, f2, eta1, eta2, F):
 #def push_2d_l2(f, eta, F):
 def push_2d_l2(f, eta1, eta2, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 2
 
     eta = eta1, eta2
 
     #    det_value = F.metric_det(eta1, eta2)**0.5
     # MCP correction: use the determinant of the mapping Jacobian
-    J_value   = F.jacobian(*eta)
+    J_value   = F.jacobian_eval(*eta)
     det_value = J_value[0, 0] * J_value[1, 1] - J_value[1, 0] * J_value[0, 1]
 
     return f(*eta) / det_value
@@ -448,7 +447,7 @@ def push_3d_h1(f, eta1, eta2, eta3):
 #def push_3d_hcurl(f, eta, F):
 def push_3d_hcurl(f1, f2, f3, eta1, eta2, eta3, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
 #    # Assume that f is a list/tuple of callable functions
@@ -459,7 +458,7 @@ def push_3d_hcurl(f1, f2, f3, eta1, eta2, eta3, F):
     f2_value = f2(*eta)
     f3_value = f3(*eta)
 
-    J_inv_value = F.jacobian_inv(*eta)
+    J_inv_value = F.jacobian_inv_eval(*eta)
 
     value1 = (J_inv_value[0, 0] * f1_value +
               J_inv_value[1, 0] * f2_value +
@@ -479,7 +478,7 @@ def push_3d_hcurl(f1, f2, f3, eta1, eta2, eta3, F):
 #def push_3d_hdiv(f, eta, F):
 def push_3d_hdiv(f1, f2, f3, eta1, eta2, eta3, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
 #    # Assume that f is a list/tuple of callable functions
@@ -489,8 +488,8 @@ def push_3d_hdiv(f1, f2, f3, eta1, eta2, eta3, F):
     f1_value  = f1(*eta)
     f2_value  = f2(*eta)
     f3_value  = f3(*eta)
-    J_value   = F.jacobian(*eta)
-    det_value = F.metric_det(*eta)**0.5
+    J_value   = F.jacobian_eval(*eta)
+    det_value = F.metric_det_eval(*eta)**0.5
 
     value1 = ( J_value[0, 0] * f1_value +
                J_value[0, 1] * f2_value +
@@ -510,11 +509,11 @@ def push_3d_hdiv(f1, f2, f3, eta1, eta2, eta3, F):
 #def push_3d_l2(f, eta, F):
 def push_3d_l2(f, eta1, eta2, eta3, F):
 
-    assert isinstance(F, BasicCallableMapping)
+    assert isinstance(F, BaseMapping)
     assert F.ldim == 3
 
     eta = eta1, eta2, eta3
 
-    det_value = F.metric_det(*eta)**0.5
+    det_value = F.metric_det_eval(*eta)**0.5
 
     return f(*eta) / det_value

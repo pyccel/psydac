@@ -10,7 +10,7 @@ import re
 import warnings
 import h5py as h5
 
-from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace, InteriorDomain, MultiPatchMapping, Mapping
+from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace, InteriorDomain, MultiPatchMapping, BaseAnalyticMapping
 from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from pyevtk.hl import unstructuredGridToVTK
@@ -686,7 +686,7 @@ class PostProcessManager:
         patch.
 
     _mappings : dict
-        Mapping on each patch.
+        BaseAnalyticMapping on each patch.
 
     _last_subdomain : list or None,
         Name of the patches that made up the last subdomain
@@ -1709,7 +1709,7 @@ class PostProcessManager:
                 i_name_i: {} for i_name_i in self._available_patches}
         for (interior_name, i_patch), space_dict in interior_to_dict_fields.items():
             mapping = self._mappings[interior_name]
-            assert isinstance(mapping, (Mapping, SplineMapping)) or mapping is None
+            assert isinstance(mapping, (BaseAnalyticMapping, SplineMapping)) or mapping is None
 
             i_mesh_info, i_point_data, i_mpi_dd = self._compute_single_patch(
                 interior_name=interior_name,
@@ -1970,8 +1970,8 @@ class PostProcessManager:
         interior_name : str
             Name of the current patch
 
-        mapping : Sympde.topology.Mapping or psydac.mapping.discrete.SplineMapping or None
-            Mapping of the patch
+        mapping : Sympde.topology.BaseAnalyticMapping or psydac.mapping.discrete.SplineMapping or None
+            BaseAnalyticMapping of the patch
 
         space_dict : dict
             Dictionary mapping spaces to the list of their fields that need to be
@@ -2161,7 +2161,7 @@ class PostProcessManager:
         interior_name : str
             Name of the current patch
 
-        mapping : SymPDE.topology.Mapping or psydac.mapping.discrete.SplineMapping or None
+        mapping : SymPDE.topology.BaseAnalyticMapping or psydac.mapping.discrete.SplineMapping or None
             Mapping of the current patch
 
         space_dict : dict
@@ -2186,11 +2186,6 @@ class PostProcessManager:
             local_domain = mapping.space.local_domain
             global_ends = tuple(nc_i - 1 for nc_i in list(mapping.space.ncells))
             breaks = mapping.space.breaks
-        elif hasattr(mapping, 'callable_mapping') and isinstance(mapping.get_callable_mapping(), SplineMapping):
-            c_m = mapping.get_callable_mapping()
-            local_domain = c_m.space.local_domain
-            global_ends = tuple(nc_i - 1 for nc_i in list(c_m.space.ncells))
-            breaks = c_m.space.breaks
         # Option 2 : space_dict is not empty -> use the first space encountered there
         elif space_dict != {}:
             space = list(space_dict.keys())[0]
@@ -2240,8 +2235,8 @@ class PostProcessManager:
 
         Parameters
         ----------
-        mapping : SymPDE.topology.Mapping or psydac.mapping.discrete.SplineMapping or None
-            Mapping of the current patch
+        mapping : SymPDE.topology.BaseAnalyticMapping or psydac.mapping.discrete.SplineMapping or None
+            BaseAnalyticMapping of the current patch
 
         grid : list of array_like
             complete grid
@@ -2295,16 +2290,12 @@ class PostProcessManager:
                 mesh = np.meshgrid(*grid_local, indexing='ij')
             else:
                 mesh = grid_local
-            if isinstance(mapping, Mapping):
-                c_m = mapping.get_callable_mapping()
-                if isinstance(c_m, SplineMapping):
-                    mesh = c_m.build_mesh(grid, npts_per_cell=npts_per_cell)
-                else:
-                    mesh = c_m(*mesh)
+            if isinstance(mapping, BaseAnalyticMapping):
+                mesh = mapping(*mesh)
             elif mapping is None:
                 pass
             else:
-                raise TypeError(f'mapping need to be SymPDE Mapping or Psydac SplineMapping and not {type(mapping)}')
+                raise TypeError(f'mapping need to be SymPDE BaseAnalyticMapping or Psydac SplineMapping and not {type(mapping)}')
         conn, off, typ, i_mpi_dd = self._compute_unstructured_mesh_info(
             local_domain,
             npts_per_cell=npts_per_cell,

@@ -12,8 +12,7 @@ def main(*, mapping, degree, ncells, name='F'):
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
 
-    from sympde.topology.analytical_mapping import (TwistedTargetSurfaceMapping,
-                                                    TorusSurfaceMapping)
+    from sympde.topology import TwistedTargetSurfaceMapping,TorusSurfaceMapping
 
     from psydac.mapping.discrete import SplineMapping
     from psydac.fem.basic        import FemField
@@ -25,14 +24,14 @@ def main(*, mapping, degree, ncells, name='F'):
     # Input parameters
     # TODO: read from mapping object
     if mapping == 'TwistedTarget':
-        map_symbolic = TwistedTargetSurfaceMapping(name, c1=0, c2=0, c3=0, k=0.3, D=0.1)
+        map_analytic = TwistedTargetSurfaceMapping(name, c1=0, c2=0, c3=0, k=0.3, D=0.1)
         lims1 = (0, 1)
         lims2 = (0, 2*np.pi)
         periodic1 = False
         periodic2 = True
 
     elif mapping == 'Torus':
-        map_symbolic = TorusSurfaceMapping(name, R0=3, a=1)
+        map_analytic = TorusSurfaceMapping(name, R0=3, a=1)
         lims1 = (0, 2*np.pi)
         lims2 = (0, 2*np.pi)
         periodic1 = True
@@ -41,7 +40,6 @@ def main(*, mapping, degree, ncells, name='F'):
     else:
         raise ValueError(f'Test case does not support mapping "{mapping}"')
 
-    map_analytic = map_symbolic.get_callable_mapping()
 
     p1 , p2  = degree
     nc1, nc2 = ncells
@@ -66,7 +64,7 @@ def main(*, mapping, degree, ncells, name='F'):
 #    xa, ya, za = [np.array(v).reshape(shape) for v in zip(*[map_analytic([ri,tj]) for ri in r for tj in t])]
 #    xd, yd, zd = [np.array(v).reshape(shape) for v in zip(*[map_discrete([ri,tj]) for ri in r for tj in t])]
 
-    xa, ya, za = map_analytic(*np.meshgrid(r, t, indexing='ij', sparse=True))
+    xa, ya, za = map_analytic(*np.meshgrid(r, t, indexing='ij'))
     xd, yd, zd = map_discrete.build_mesh([r, t])
 
     figtitle = 'Mapping: {:s}, Degree: [{:d},{:d}], Ncells: [{:d},{:d}]'.format(

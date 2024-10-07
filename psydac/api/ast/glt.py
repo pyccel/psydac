@@ -31,7 +31,7 @@ from sympde.topology.derivatives import get_max_partial_derivatives
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
 from sympde.calculus.matrices    import SymbolicDeterminant
-from sympde.topology             import IdentityMapping
+from sympde.topology.analytic_mappings import IdentityMapping
 
 from sympde.expr.evaluation import TerminalExpr
 

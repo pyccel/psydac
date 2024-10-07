@@ -6,7 +6,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from   mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from sympde.topology.callable_mapping   import CallableMapping
 from sympde.topology.analytical_mapping import IdentityMapping, PolarMapping
 from sympde.topology.analytical_mapping import TargetMapping, CzarnyMapping
 

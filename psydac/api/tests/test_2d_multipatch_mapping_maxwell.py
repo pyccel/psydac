@@ -12,7 +12,8 @@ from sympde.topology      import VectorFunctionSpace
 from sympde.topology      import elements_of
 from sympde.topology      import NormalVector
 from sympde.topology      import Square, Domain
-from sympde.topology      import IdentityMapping, PolarMapping
+from sympde.topology      import  PolarMapping, LogicalExpr
+from sympde.expr.evaluation import TerminalExpr
 from sympde.expr.expr     import LinearForm, BilinearForm
 from sympde.expr.expr     import integral
 from sympde.expr.expr     import Norm
@@ -32,6 +33,7 @@ except:
     base_dir = os.path.dirname(os.path.realpath(__file__))
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
+
 
 #==============================================================================
 def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=None, k=None, kappa=None, comm=None):
@@ -90,7 +92,7 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
         domain_h = discretize(domain, filename=filename, comm=comm)
         Vh       = discretize(V, domain_h)
 
-    equation_h = discretize(equation, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL)
+    equation_h = discretize(equation, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL )
     l2norm_h   = discretize(l2norm, domain_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL)
 
     # Explicitly assemble the linear system
@@ -270,7 +272,6 @@ if __name__ == '__main__':
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
-    mappings_list = [mapping.get_callable_mapping() for mapping in mappings_list]
 
     Eex_x   = lambdify(domain.coordinates, Eex[0])
     Eex_y   = lambdify(domain.coordinates, Eex[1])

@@ -7,7 +7,7 @@ import numpy as np
 from mpi4py import MPI
 
 from sympde.topology import Square, Cube, ScalarFunctionSpace, VectorFunctionSpace, Domain, Derham, Union
-from sympde.topology.analytical_mapping import IdentityMapping, AffineMapping, PolarMapping
+from sympde.topology import IdentityMapping, AffineMapping, PolarMapping
 
 from psydac.api.discretization import discretize
 from psydac.fem.basic import FemField

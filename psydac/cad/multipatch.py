@@ -32,7 +32,7 @@ def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict,
 
     import os.path
     import igakit
-    assert all(isinstance(n, igakit.nurbs.NURBS) for n in nurbs) 
+    assert all(isinstance(n, igakit.nurbs.NURBS) for n in nurbs)
 
     extension = os.path.splitext(filename)[-1]
     if not extension == '.h5':

@@ -18,7 +18,7 @@ from sympde.topology import ScalarFunction, VectorFunction
 from sympde.topology import VectorFunctionSpace
 from sympde.topology import IndexedVectorFunction
 from sympde.topology import H1SpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.topology import Mapping
+from sympde.topology import BaseMapping
 from sympde.topology import dx1, dx2, dx3
 from sympde.topology import get_atom_logical_derivatives
 from sympde.topology import Interface
@@ -395,8 +395,8 @@ class EvalField(BaseNode):
     tests   : tuple_like (Variable)
         The field to be evaluated
 
-    mapping : <Mapping>
-        Sympde Mapping object
+    mapping : <BaseMapping>
+        Sympde BaseMapping object
 
     nderiv  : int
         Maximum number of derivatives
@@ -542,8 +542,8 @@ class EvalMapping(BaseNode):
     q_basis : <GlobalTensorQuadratureTestBasis>
         The 1d basis function of the tensor-product space
 
-    mapping : <Mapping>
-        Sympde Mapping object
+    mapping : <BaseMapping>
+        Sympde BaseMapping object
 
     components  : <GeometryExpressions>
         The 1d coefficients of the mapping
@@ -1046,9 +1046,9 @@ class CoefficientBasis(ScalarNode):
     """
     """
     def __new__(cls, target):
-        ls = target.atoms(ScalarFunction, VectorFunction, Mapping)
+        ls = target.atoms(ScalarFunction, VectorFunction, BaseMapping)
         if not len(ls) == 1:
-            raise TypeError('Expecting a scalar/vector test function or a Mapping')
+            raise TypeError('Expecting a scalar/vector test function or a BaseMapping')
         return Basic.__new__(cls, target)
 
     @property
@@ -2029,7 +2029,7 @@ class GeometryAtom(AtomicNode):
     """
     """
     def __new__(cls, expr):
-        ls = list(expr.atoms(Mapping))
+        ls = list(expr.atoms(BaseMapping))
         if not(len(ls) == 1):
             raise ValueError('Expecting an expression with one mapping')
 

@@ -30,3 +30,6 @@ __test__/
 
 # pycharm directory
 .idea
+
+# macOS
+*/.DS_Store
