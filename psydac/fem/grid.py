@@ -60,7 +60,9 @@ class FemAssemblyGrid:
         grid   = space.breaks  # breakpoints
 
         # Gauss-legendre quadrature rule
-        u, w = gauss_legendre(nquads)
+        # print('[psy4str] here is a problem')
+        u, w = gauss_legendre(nquads) # TODO [psy4str] OLD DOESN'T WORK
+        # u, w = gauss_legendre(nquads + 1) # TODO [psy4str] NEW WORKS BUT WHY?
 
         #-------------------------------------------
         # GLOBAL GRID

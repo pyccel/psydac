@@ -144,7 +144,7 @@ class TensorFemSpace(FemSpace):
     @property
     def quad_grids( self ):
         assert self._nquads, "nquads has to be set with self._nquads = nquads"
-        return tuple({q: gag} for q, gag in zip(self.nquads, self.get_assembly_grids(*self.nquads)))
+        return tuple({q: gag} for q, gag in zip(self.nquads, self.get_assembly_grids(*[nq + 1 for nq in self.nquads])))
 
     @property
     def ldim( self ):
