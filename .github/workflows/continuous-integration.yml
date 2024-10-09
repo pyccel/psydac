@@ -174,7 +174,6 @@ jobs:
           cp mpi_tester.py pytest
 
       - name: Run single-process tests with Pytest
-        working-directory: ./pytest
         run: >- 
           coverage run
           --rcfile=$GITHUB_WORKSPACE/pyproject.toml
@@ -182,7 +181,6 @@ jobs:
           --pyargs psydac -m "not parallel and not petsc"
 
       - name: Generate coverage report for Codacy
-        working-directory: ./pytest
         run: |
           coverage xml
 
