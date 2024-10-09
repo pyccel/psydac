@@ -177,7 +177,7 @@ jobs:
         working-directory: ./pytest
         run: >- 
           coverage run
-          --rcfile=pyproject.toml
+          --rcfile=$GITHUB_WORKSPACE/pyproject.toml
           --module pytest -n auto
           --pyargs psydac -m "not parallel and not petsc"
 
