@@ -16,13 +16,13 @@ from psydac.ddm.cart      import find_mpi_type, CartDecomposition, InterfaceCart
 from psydac.ddm.utilities import get_data_exchanger
 from psydac.api.settings  import PSYDAC_BACKENDS
 
-from .kernels.axpy_kernels        import axpy_1d, axpy_2d, axpy_3d
-from .kernels.inner_kernels       import inner_1d, inner_2d, inner_3d
-from .kernels.matvec_kernels      import matvec_1d, matvec_2d, matvec_3d
-from .kernels.transpose_kernels   import transpose_1d, transpose_2d, transpose_3d
-from .kernels.transpose_kernels   import interface_transpose_1d, interface_transpose_2d, interface_transpose_3d
-from .kernels.stencil2coo_kernels import stencil2coo_1d_F, stencil2coo_2d_F, stencil2coo_3d_F
-from .kernels.stencil2coo_kernels import stencil2coo_1d_C, stencil2coo_2d_C, stencil2coo_3d_C
+from psydac.linalg.kernels.axpy_kernels        import axpy_1d, axpy_2d, axpy_3d
+from psydac.linalg.kernels.inner_kernels       import inner_1d, inner_2d, inner_3d
+from psydac.linalg.kernels.matvec_kernels      import matvec_1d, matvec_2d, matvec_3d
+from psydac.linalg.kernels.transpose_kernels   import transpose_1d, transpose_2d, transpose_3d
+from psydac.linalg.kernels.transpose_kernels   import interface_transpose_1d, interface_transpose_2d, interface_transpose_3d
+from psydac.linalg.kernels.stencil2coo_kernels import stencil2coo_1d_F, stencil2coo_2d_F, stencil2coo_3d_F
+from psydac.linalg.kernels.stencil2coo_kernels import stencil2coo_1d_C, stencil2coo_2d_C, stencil2coo_3d_C
 
 
 __all__ = (
