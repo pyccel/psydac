@@ -177,14 +177,14 @@ jobs:
         working-directory: ./pytest
         run: >- 
           coverage run
-          --data-file=$GITHUB_WORKSPACE/.coverage
           --rcfile=$GITHUB_WORKSPACE/pyproject.toml
           --module pytest -n auto
           --pyargs psydac -m "not parallel and not petsc"
 
       - name: Generate coverage report for Codacy
+        working-directory: ./pytest
         run: |
-          coverage xml --data-file=$GITHUB_WORKSPACE/.coverage
+          coverage xml
 
       - name: Upload coverage report to Codacy
         uses: codacy/codacy-coverage-reporter-action@v1.3.0
