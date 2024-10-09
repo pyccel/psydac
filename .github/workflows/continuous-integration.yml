@@ -176,9 +176,9 @@ jobs:
       - name: Run single-process tests with Pytest
         working-directory: ./pytest
         run: >- 
-          python -m pytest -n auto --cov psydac
-          --cov-config $GITHUB_WORKSPACE/pyproject.toml
-          --cov-report=""
+          coverage run
+          --rcfile=pyproject.toml
+          --module pytest -n auto
           --pyargs psydac -m "not parallel and not petsc"
 
       - name: Generate coverage report for Codacy

@@ -55,7 +55,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-    "pytest-cov >= 5.0.0",
+    "coverage",
 ]
 
 [project.urls]
