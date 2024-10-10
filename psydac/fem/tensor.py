@@ -141,6 +141,10 @@ class TensorFemSpace(FemSpace):
         assert self._nquads, "nquads has to be set with self._nquads = nquads"
         return self._nquads
 
+    @nquads.setter
+    def nquads(self, value):
+        self._nquads = value
+
     @property
     def quad_grids( self ):
         assert self._nquads, "nquads has to be set with self._nquads = nquads"
