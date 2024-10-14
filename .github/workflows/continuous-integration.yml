@@ -181,7 +181,7 @@ jobs:
           echo "import coverage; coverage.process_startup()" > sitecustomize.py
           coverage run --module pytest -n auto --pyargs psydac -m "not parallel and not petsc"
           rm sitecustomize.py
-          unset COVERAGE_PROCESS_STARTPYTHONPATH
+          unset COVERAGE_PROCESS_START PYTHONPATH
 
       - name: Generate coverage report for Codacy
         run: |
