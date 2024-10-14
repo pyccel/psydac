@@ -173,12 +173,15 @@ jobs:
           mkdir pytest
           cp mpi_tester.py pytest
 
+      # Coverage data is also collected during single process testing.
       - name: Run single-process tests with Pytest
-        run: >- 
-          coverage run
-          --rcfile=$GITHUB_WORKSPACE/pyproject.toml
-          --module pytest -n auto
-          --pyargs psydac -m "not parallel and not petsc"
+        run: | 
+          export COVERAGE_PROCESS_START="pyproject.toml"
+          export PYTHONPATH=$(pwd)
+          echo "import coverage; coverage.process_startup()" > sitecustomize.py
+          coverage run --module pytest -n auto --pyargs psydac -m "not parallel and not petsc"
+          rm sitecustomize.py
+          unset COVERAGE_PROCESS_STARTPYTHONPATH
 
       - name: Generate coverage report for Codacy
         run: |
