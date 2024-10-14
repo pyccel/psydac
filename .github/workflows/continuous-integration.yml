@@ -33,8 +33,8 @@ jobs:
     env:
       PSYDAC_MESH_DIR: ${{ github.workspace }}/mesh
       OMP_NUM_THREADS: 2
-      COVERAGE_PROCESS_START: pyproject.toml
-      PYTHONPATH: ${{ github.workspace }}
+      COVERAGE_PROCESS_START: ${{ github.workspace }}/pyproject.toml
+      PYTHONPATH: ${{ github.workspace }}/pytest
 
     steps:
       - uses: actions/checkout@v4
@@ -170,13 +170,20 @@ jobs:
         run: |
           pytest --pyargs psydac -m pyccel --capture=no
 
+      - name: Initialize test directory
+        run: |
+          mkdir pytest
+          cp mpi_tester.py pytest
+
       # Coverage data is also collected during single process testing.
       - name: Run single-process tests with Pytest
+        working-directory: ./pytest
         run: | 
           echo "import coverage; coverage.process_startup()" > sitecustomize.py
           coverage run --module pytest -n auto --pyargs psydac -m "not parallel and not petsc"
 
       - name: Generate coverage report for Codacy
+        working-directory: ./pytest
         run: |
           coverage xml
           pytest --cache-show | grep cachedir # To be removed in the next commit
@@ -188,13 +195,9 @@ jobs:
           coverage-reports: coverage.xml
 
       - name: Print detailed coverage results
+        working-directory: ./pytest
         run: |
           coverage report --ignore-errors --show-missing --sort=cover
-
-      - name: Initialize MPI test directory
-        run: |
-          mkdir pytest
-          cp mpi_tester.py pytest
 
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
