@@ -33,8 +33,6 @@ jobs:
     env:
       PSYDAC_MESH_DIR: ${{ github.workspace }}/mesh
       OMP_NUM_THREADS: 2
-      COVERAGE_PROCESS_START: ${{ github.workspace }}/pyproject.toml
-      PYTHONPATH: ${{ github.workspace }}/pytest
 
     steps:
       - uses: actions/checkout@v4
@@ -178,9 +176,11 @@ jobs:
       # Coverage data is also collected during single process testing.
       - name: Run single-process tests with Pytest
         working-directory: ./pytest
-        run: | 
-          echo "import coverage; coverage.process_startup()" > sitecustomize.py
-          coverage run --module pytest -n auto --pyargs psydac -m "not parallel and not petsc"
+        run: >- 
+          python -m pytest -n auto --cov psydac
+          --cov-config $GITHUB_WORKSPACE/pyproject.toml
+          --cov-report=""
+          --pyargs psydac -m "not parallel and not petsc"
 
       - name: Generate coverage report for Codacy
         working-directory: ./pytest
