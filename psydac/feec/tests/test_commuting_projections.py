@@ -251,7 +251,6 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc, m):
     error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
     assert error < 1e-9
 
-    # TODO: test takes too long in 3D
     #--------------------------
     # check BlockLinearOperator
     #--------------------------
