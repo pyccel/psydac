@@ -53,6 +53,11 @@ dependencies = [
     'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip'
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest-cov >= 5.0.0",
+]
+
 [project.urls]
 Homepage      = "https://github.com/pyccel/psydac"
 Documentation = "https://pyccel.github.io/psydac"
@@ -68,3 +73,41 @@ namespaces = false
 
 [tool.setuptools.package-data]
 "*" = ["*.txt"]
+
+[tool.coverage.run]
+branch = true
+omit = [
+    # Exclude pyccelised kernels
+    "*/__psydac__/*",
+
+    # Examples don't need to be covered
+    "*/examples/*",
+
+    # Unit tests shouldn't be included
+    "*/tests/*",
+    ]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    "if self\\.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if 0:",
+    "if __name__ == .__main__.:",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+    ]
+
+# Ignore source code that can’t be found, emitting a warning instead of an exception.
+ignore_errors = true
+
+[tool.coverage.html]
+directory = "coverage_html_report"
