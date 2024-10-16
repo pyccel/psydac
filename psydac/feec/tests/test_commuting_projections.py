@@ -16,7 +16,7 @@ import numpy as np
 import pytest
 
 #==============================================================================
-# Run test
+# 3D tests
 #==============================================================================
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
@@ -92,7 +92,6 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc, m):
     norm2_e1 = np.sqrt(e1.dot(e1))
     assert norm2_e1 < 1e-12
 
-#==============================================================================
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
@@ -169,30 +168,22 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc, m):
     error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
     assert error < 1e-9
 
-    # TODO: test takes too long in 3D
     #--------------------------
     # check BlockLinearOperator
     #--------------------------
-    # build the solver from the LinearOperator
-    # imat_kronecker_P1 = P1.imat_kronecker
-    # imat_kronecker_P2 = P2.imat_kronecker 
-    # I1inv = inverse(imat_kronecker_P1, 'gmres', verbose=True) 
-    # I2inv = inverse(imat_kronecker_P2, 'gmres', verbose=True)
-    
-    # # build the rhs
-    # P1.func(fun1, fun2, fun3)
-    # P2.func(cf1, cf2, cf3)
-       
-    # # solve and compare
-    # u1vec = u1.coeffs
-    # u1vec_imat = I1inv.solve(P1._rhs)
-    # assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-5)
-    
-    # u2vec = u2.coeffs
-    # u2vec_imat = I2inv.solve(P2._rhs)
-    # assert np.allclose(u2vec.toarray(), u2vec_imat.toarray(), atol=1e-5)
 
-#==============================================================================
+    Id_1 = IdentityOperator(Hcurl.vector_space)
+    Err_1 = P1.solver @ P1.imat_kronecker - Id_1
+    e1 = Err_1 @ u1.coeffs  # random vector could be used as well
+    norm2_e1 = np.sqrt(e1.dot(e1))
+    assert norm2_e1 < 1e-12
+
+    Id_2 = IdentityOperator(Hdiv.vector_space)
+    Err_2 = P2.solver @ P2.imat_kronecker - Id_2
+    e2 = Err_2 @ u2.coeffs  # random vector could be used as well
+    norm2_e2 = np.sqrt(e2.dot(e2))
+    assert norm2_e2 < 1e-12
+
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
@@ -260,29 +251,25 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc, m):
     error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
     assert error < 1e-9
 
-    # TODO: test takes too long in 3D
     #--------------------------
     # check BlockLinearOperator
     #--------------------------
-    # build the solver from the LinearOperator
-    # imat_kronecker_P2 = P2.imat_kronecker
-    # imat_kronecker_P3 = P3.imat_kronecker 
-    # I2inv = inverse(imat_kronecker_P2, 'gmres', verbose=True)
-    # I3inv = inverse(imat_kronecker_P3, 'gmres', verbose=True) 
-    
-    # # build the rhs
-    # P2.func(fun1, fun2, fun3)
-    # P3.func(difun)
-       
-    # # solve and compare
-    # u2vec = u2.coeffs
-    # u2vec_imat = I2inv.solve(P2._rhs)
-    # assert np.allclose(u2vec.toarray(), u2vec_imat.toarray(), atol=1e-5)
-    
-    # u3vec = u3.coeffs
-    # u3vec_imat = I3inv.solve(P3._rhs)
-    # assert np.allclose(u3vec.toarray(), u3vec_imat.toarray(), atol=1e-5)
 
+    Id_2 = IdentityOperator(Hdiv.vector_space)
+    Err_2 = P2.solver @ P2.imat_kronecker - Id_2
+    e2 = Err_2 @ u2.coeffs  # random vector could be used as well
+    norm2_e2 = np.sqrt(e2.dot(e2))
+    assert norm2_e2 < 1e-12
+
+    Id_3 = IdentityOperator(L2.vector_space)
+    Err_3 = P3.solver @ P3.imat_kronecker - Id_3
+    e3 = Err_3 @ u3.coeffs  # random vector could be used as well
+    norm2_e3 = np.sqrt(e3.dot(e3))
+    assert norm2_e3 < 1e-12
+
+#==============================================================================
+# 2D tests
+#==============================================================================
 @pytest.mark.parallel
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
@@ -343,24 +330,18 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc, m):
     #--------------------------
     # check BlockLinearOperator
     #--------------------------
-    # build the solver from the LinearOperator
-    imat_kronecker_P0 = P0.imat_kronecker 
-    imat_kronecker_P1 = P1.imat_kronecker
-    I0inv = inverse(imat_kronecker_P0, 'gmres', verbose=True)
-    I1inv = inverse(imat_kronecker_P1, 'gmres', verbose=True)  
-    
-    # build the rhs
-    P0.func(fun1)
-    P1.func(D1fun1, D2fun1)   
-    
-    # solve and compare
-    u0vec = u0.coeffs
-    u0vec_imat = I0inv.solve(P0._rhs)
-    assert np.allclose(u0vec.toarray(), u0vec_imat.toarray(), atol=1e-5)
-    
-    u1vec = u1.coeffs
-    u1vec_imat = I1inv.solve(P1._rhs)
-    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-5)
+
+    Id_0 = IdentityOperator(H1.vector_space)
+    Err_0 = P0.solver @ P0.imat_kronecker - Id_0
+    e0 = Err_0 @ u0.coeffs  # random vector could be used as well
+    norm2_e0 = np.sqrt(e0.dot(e0))
+    assert norm2_e0 < 1e-12
+
+    Id_1 = IdentityOperator(Hcurl.vector_space)
+    Err_1 = P1.solver @ P1.imat_kronecker - Id_1
+    e1 = Err_1 @ u1.coeffs  # random vector could be used as well
+    norm2_e1 = np.sqrt(e1.dot(e1))
+    assert norm2_e1 < 1e-12
 
 @pytest.mark.parallel
 @pytest.mark.parametrize('Nel', [8, 12])
@@ -422,24 +403,18 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc, m):
     #--------------------------
     # check BlockLinearOperator
     #--------------------------
-    # build the solver from the LinearOperator
-    imat_kronecker_P0 = P0.imat_kronecker 
-    imat_kronecker_P1 = P1.imat_kronecker
-    I0inv = inverse(imat_kronecker_P0, 'gmres', verbose=True)
-    I1inv = inverse(imat_kronecker_P1, 'gmres', verbose=True)  
-    
-    # build the rhs
-    P0.func(fun1)
-    P1.func(D2fun1, D1fun1)   
-    
-    # solve and compare
-    u0vec = u0.coeffs
-    u0vec_imat = I0inv.solve(P0._rhs)
-    assert np.allclose(u0vec.toarray(), u0vec_imat.toarray(), atol=1e-5)
-    
-    u1vec = u1.coeffs
-    u1vec_imat = I1inv.solve(P1._rhs)
-    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-5)
+
+    Id_0 = IdentityOperator(H1.vector_space)
+    Err_0 = P0.solver @ P0.imat_kronecker - Id_0
+    e0 = Err_0 @ u0.coeffs  # random vector could be used as well
+    norm2_e0 = np.sqrt(e0.dot(e0))
+    assert norm2_e0 < 1e-12
+
+    Id_1 = IdentityOperator(Hdiv.vector_space)
+    Err_1 = P1.solver @ P1.imat_kronecker - Id_1
+    e1 = Err_1 @ u1.coeffs  # random vector could be used as well
+    norm2_e1 = np.sqrt(e1.dot(e1))
+    assert norm2_e0 < 1e-12
 
 @pytest.mark.parallel
 @pytest.mark.parametrize('Nel', [8, 12])
@@ -508,24 +483,18 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc, m):
     #--------------------------
     # check BlockLinearOperator
     #--------------------------
-    # build the solver from the LinearOperator
-    imat_kronecker_P2 = P2.imat_kronecker
-    imat_kronecker_P3 = P3.imat_kronecker 
-    I2inv = inverse(imat_kronecker_P2, 'gmres', verbose=True)
-    I3inv = inverse(imat_kronecker_P3, 'gmres', verbose=True) 
-    
-    # build the rhs
-    P2.func(fun1, fun2)
-    P3.func(difun)
-       
-    # solve and compare
-    u2vec = u2.coeffs
-    u2vec_imat = I2inv.solve(P2._rhs)
-    assert np.allclose(u2vec.toarray(), u2vec_imat.toarray(), atol=1e-5)
-    
-    u3vec = u3.coeffs
-    u3vec_imat = I3inv.solve(P3._rhs)
-    assert np.allclose(u3vec.toarray(), u3vec_imat.toarray(), atol=1e-5)
+
+    Id_2 = IdentityOperator(Hdiv.vector_space)
+    Err_2 = P2.solver @ P2.imat_kronecker - Id_2
+    e2 = Err_2 @ u2.coeffs
+    norm2_e2 = np.sqrt(e2.dot(e2))
+    assert norm2_e2 < 1e-12
+
+    Id_3 = IdentityOperator(L2.vector_space)
+    Err_3 = P3.solver @ P3.imat_kronecker - Id_3
+    e3 = Err_3 @ u3.coeffs
+    norm2_e3 = np.sqrt(e3.dot(e3))
+    assert norm2_e3 < 1e-12
 
 @pytest.mark.parallel
 @pytest.mark.parametrize('Nel', [8, 12])
@@ -594,25 +563,22 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc, m):
     #--------------------------
     # check BlockLinearOperator
     #--------------------------
-    # build the solver from the LinearOperator
-    imat_kronecker_P1 = P1.imat_kronecker
-    imat_kronecker_P2 = P2.imat_kronecker 
-    I1inv = inverse(imat_kronecker_P1, 'gmres', verbose=True) 
-    I2inv = inverse(imat_kronecker_P2, 'gmres', verbose=True)
-    
-    # build the rhs
-    P1.func(fun1, fun2)
-    P2.func(difun)
-       
-    # solve and compare
-    u1vec = u1.coeffs
-    u1vec_imat = I1inv.solve(P1._rhs)
-    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-5)
-    
-    u2vec = u2.coeffs
-    u2vec_imat = I2inv.solve(P2._rhs)
-    assert np.allclose(u2vec.toarray(), u2vec_imat.toarray(), atol=1e-5)
 
+    Id_1 = IdentityOperator(Hcurl.vector_space)
+    Err_1 = P1.solver @ P1.imat_kronecker - Id_1
+    e1 = Err_1 @ u1.coeffs
+    norm2_e1 = np.sqrt(e1.dot(e1))
+    assert norm2_e1 < 1e-12
+
+    Id_2 = IdentityOperator(L2.vector_space)
+    Err_2 = P2.solver @ P2.imat_kronecker - Id_2
+    e2 = Err_2 @ u2.coeffs
+    norm2_e2 = np.sqrt(e2.dot(e2))
+    assert norm2_e2 < 1e-12
+
+#==============================================================================
+# 1D tests
+#==============================================================================
 @pytest.mark.parametrize('Nel', [16, 20])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
@@ -667,24 +633,18 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc, m):
     #--------------------------
     # check BlockLinearOperator
     #--------------------------
-    # build the solver from the LinearOperator
-    imat_kronecker_P0 = P0.imat_kronecker 
-    imat_kronecker_P1 = P1.imat_kronecker
-    I0inv = inverse(imat_kronecker_P0, 'gmres', verbose=True)
-    I1inv = inverse(imat_kronecker_P1, 'gmres', verbose=True)  
-    
-    # build the rhs
-    P0.func(fun1)
-    P1.func(Dfun1)   
-    
-    # solve and compare
-    u0vec = u0.coeffs
-    u0vec_imat = I0inv.solve(P0._rhs)
-    assert np.allclose(u0vec.toarray(), u0vec_imat.toarray(), atol=1e-5)
-    
-    u1vec = u1.coeffs
-    u1vec_imat = I1inv.solve(P1._rhs)
-    assert np.allclose(u1vec.toarray(), u1vec_imat.toarray(), atol=1e-5)
+
+    Id_0 = IdentityOperator(H1.vector_space)
+    Err_0 = P0.solver @ P0.imat_kronecker - Id_0
+    e0 = Err_0 @ u0.coeffs
+    norm2_e0 = np.sqrt(e0.dot(e0))
+    assert norm2_e0 < 1e-12
+
+    Id_1 = IdentityOperator(L2.vector_space)
+    Err_1 = P1.solver @ P1.imat_kronecker - Id_1
+    e1 = Err_1 @ u1.coeffs
+    norm2_e1 = np.sqrt(e1.dot(e1))
+    assert norm2_e1 < 1e-12
     
 #==============================================================================
 if __name__ == '__main__':

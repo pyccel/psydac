@@ -3,8 +3,8 @@ from pyccel.decorators import template
 
 #!!!!!!!!!!!!!
 #TODO avoid using The expensive modulo operator % in the non periodic case to make the methods faster
-#TODO The kernels don't work properly for different shifts in the domain and the codomain
 #!!!!!!!!!!!!!
+
 
 #__all__ = ['stencil2coo_1d_C','stencil2coo_1d_F','stencil2coo_2d_C','stencil2coo_2d_F', 'stencil2coo_3d_C', 'stencil2coo_3d_F']
 
