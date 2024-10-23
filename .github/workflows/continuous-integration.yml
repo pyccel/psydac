@@ -108,7 +108,7 @@ jobs:
           cache-name: cache-PETSc
         with:
           path: "./petsc"
-          key: cache-${{ matrix.os }}-${{ matrix.python-version }}
+          key: petsc-${{ matrix.os }}-${{ matrix.python-version }}
 
       - if: steps.cache-petsc.outputs.cache-hit != 'true'
         name: Download a specific release of PETSc
@@ -173,6 +173,13 @@ jobs:
           mkdir pytest
           cp mpi_tester.py pytest
 
+      - name: Restore Pytest cache
+        id: cache-pytest-restore
+        uses: actions/cache/restore@v4
+        with:
+          key: pytest-${{ matrix.os }}-${{ matrix.python-version }}
+          path: "./.pytest_cache"
+
       # Coverage data is also collected during single process testing.
       - name: Run single-process tests with Pytest
         working-directory: ./pytest
@@ -209,14 +216,13 @@ jobs:
         run: |
           python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc"
 
-      - name: Cache Pytest results
-        uses: actions/cache@v4
-        id: cache-pytest
-        env:
-          cache-name: cache-pytest
+      - name: Always save Pytest cache
+        id: cache-pytest-save
+        if: always() && steps.cache-pytest-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
         with:
-          path: ".pytest_cache"
-          key: cache-${{ matrix.os }}-${{ matrix.python-version }}
+          key: ${{ steps.cache-pytest-restore.outputs.cache-primary-key }}
+          path: "./.pytest_cache"
 
       - name: Remove test directory
         if: ${{ always() }}
