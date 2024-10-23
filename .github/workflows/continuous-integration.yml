@@ -174,28 +174,28 @@ jobs:
         run: |
           export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
           export OMP_NUM_THREADS=2
-          python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc" -ra
+          python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
 
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
         run: |
           export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
           export OMP_NUM_THREADS=2
-          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and not petsc" -ra
+          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and not petsc"
 
       - name: Run single-process PETSc tests with Pytest
         working-directory: ./pytest
         run: |
           export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
           export OMP_NUM_THREADS=2
-          python -m pytest -n auto --pyargs psydac -m "not parallel and petsc" -ra
+          python -m pytest -n auto --pyargs psydac -m "not parallel and petsc"
 
       - name: Run MPI PETSc tests with Pytest
-        working-directory: ./
+        working-directory: ./pytest
         run: |
           export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
           export OMP_NUM_THREADS=2
-          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc" -ra
+          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc"
 
       - name: Remove test directory
         if: ${{ always() }}
