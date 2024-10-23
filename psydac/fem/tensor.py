@@ -136,19 +136,19 @@ class TensorFemSpace(FemSpace):
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
 
-    @property
-    def nquads( self ):
-        assert self._nquads, "nquads has to be set with self._nquads = nquads"
-        return self._nquads
+    # @property
+    # def nquads( self ):
+    #     assert self._nquads, "nquads has to be set with self._nquads = nquads"
+    #     return self._nquads
 
-    @nquads.setter
-    def nquads(self, value):
-        self._nquads = value
+    # @nquads.setter
+    # def nquads(self, value):
+    #     self._nquads = value
 
-    @property
-    def quad_grids( self ):
-        assert self._nquads, "nquads has to be set with self._nquads = nquads"
-        return tuple({q: gag} for q, gag in zip(self.nquads, self.get_assembly_grids(*self.nquads)))
+    # @property
+    # def quad_grids( self ):
+    #     assert self._nquads, "nquads has to be set with self._nquads = nquads"
+    #     return tuple({q: gag} for q, gag in zip(self.nquads, self.get_assembly_grids(*self.nquads)))
 
     @property
     def ldim( self ):
