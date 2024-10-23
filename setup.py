@@ -19,7 +19,8 @@ class BuildPyCommand(build_py):
         # case
         if module.endswith('_kernels'):
             self.announce(f"\nPyccelising [{module}] ...", level=logging.INFO)
-            pyccel = sub_run([which('pyccel'), outfile, '--language', 'fortran', '--openmp'],
+            # TODO --openmp doesn't work with c-compilation
+            pyccel = sub_run([which('pyccel'), outfile, '--language', 'c'],
                               stdout=PIPE, stderr=STDOUT,
                               text=True, shell=False, check=True) # nosec B603
             self.announce(pyccel.stdout, level=logging.INFO)

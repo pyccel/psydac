@@ -2225,6 +2225,8 @@ def eval_jacobians_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: 
         Jacobian matrix on the grid
     """
 
+    jmat = np.empty((3, 3))
+
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_z = np.zeros_like(global_arr_coeff_z, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -2320,12 +2322,24 @@ def eval_jacobians_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: 
                             z_x2 = arr_z_x2[i_quad_1, i_quad_2, i_quad_3]
                             z_x3 = arr_z_x3[i_quad_1, i_quad_2, i_quad_3]
 
+                            jmat[0, 0] = x_x1
+                            jmat[0, 1] = x_x2
+                            jmat[0, 2] = x_x3
+
+                            jmat[1, 0] = y_x1
+                            jmat[1, 1] = y_x2
+                            jmat[1, 2] = y_x3
+
+                            jmat[2, 0] = z_x1
+                            jmat[2, 1] = z_x2
+                            jmat[2, 2] = z_x3
+
                             jacobians[i_cell_1 * k1 + i_quad_1,
                                       i_cell_2 * k2 + i_quad_2,
                                       i_cell_3 * k3 + i_quad_3,
-                                      :, :] = np.array([[x_x1, x_x2, x_x3],
-                                                        [y_x1, y_x2, y_x3],
-                                                        [z_x1, z_x2, z_x3]])
+                                      :, :] = jmat
+
+                            
 
 
 @template(name='T', types=[float, complex])
@@ -2369,6 +2383,8 @@ def eval_jacobians_2d(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int
     jacobians: ndarray of floats
         Jacobian matrix at every point of the grid
     """
+
+    jmat = np.empty((2, 2))
 
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
@@ -2424,11 +2440,16 @@ def eval_jacobians_2d(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int
 
                     y_x1 = arr_y_x1[i_quad_1, i_quad_2]
                     y_x2 = arr_y_x2[i_quad_1, i_quad_2]
+                    
+                    jmat[0, 0] = x_x1
+                    jmat[0, 1] = x_x2
+
+                    jmat[1, 0] = y_x1
+                    jmat[1, 1] = y_x2
 
                     jacobians[i_cell_1 * k1 + i_quad_1,
                               i_cell_2 * k2 + i_quad_2,
-                              :, :] = np.array([[x_x1, x_x2],
-                                                [y_x1, y_x2]])
+                              :, :] = jmat
 
 
 # -----------------------------------------------------------------------------
@@ -2490,6 +2511,8 @@ def eval_jacobians_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: i
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
+
+    jmat = np.empty((3, 3))
 
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -2575,10 +2598,19 @@ def eval_jacobians_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: i
                             temp_z_x2 += mapping_x2 * coeff_z
                             temp_z_x3 += mapping_x3 * coeff_z
 
-                jacobians[i_p_1, i_p_2, i_p_3, :, :] = np.array([[temp_x_x1, temp_x_x2, temp_x_x3],
-                                                                 [temp_y_x1, temp_y_x2, temp_y_x3],
-                                                                 [temp_z_x1, temp_z_x2, temp_z_x3]])
+                jmat[0, 0] = temp_x_x1
+                jmat[0, 1] = temp_x_x2
+                jmat[0, 2] = temp_x_x3
 
+                jmat[1, 0] = temp_y_x1
+                jmat[1, 1] = temp_y_x2
+                jmat[1, 2] = temp_y_x3
+
+                jmat[2, 0] = temp_z_x1
+                jmat[2, 1] = temp_z_x2
+                jmat[2, 2] = temp_z_x3
+
+                jacobians[i_p_1, i_p_2, i_p_3, :, :] = jmat
 
 @template(name='T', types=[float, complex])
 def eval_jacobians_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_index_1: 'int[:]',
@@ -2621,6 +2653,8 @@ def eval_jacobians_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_i
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
+
+    jmat = np.empty((2, 2))
 
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
@@ -2671,8 +2705,14 @@ def eval_jacobians_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_i
                     temp_y_x1 += mapping_x1 * coeff_y
                     temp_y_x2 += mapping_x2 * coeff_y
 
-            jacobians[i_p_1, i_p_2, :, :] = np.array([[temp_x_x1, temp_x_x2],
-                                                      [temp_y_x1, temp_y_x2]])
+            jmat[0, 0] = temp_x_x1
+            jmat[0, 1] = temp_x_x2
+
+            jmat[1, 0] = temp_y_x1
+            jmat[1, 1] = temp_y_x2
+
+            jacobians[i_p_1, i_p_2, :, :] = jmat
+
 
 # -----------------------------------------------------------------------------
 # 3: Regular tensor grid with weights
@@ -2737,6 +2777,8 @@ def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: in
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
+
+    jmat = np.empty((3, 3))
 
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -2896,12 +2938,22 @@ def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: in
                             z_x2 = (z_x2 - weight_x2 * z * inv_weight) * inv_weight
                             z_x3 = (z_x3 - weight_x3 * z * inv_weight) * inv_weight
 
+                            jmat[0, 0] = x_x1
+                            jmat[0, 1] = x_x2
+                            jmat[0, 2] = x_x3
+
+                            jmat[1, 0] = y_x1
+                            jmat[1, 1] = y_x2
+                            jmat[1, 2] = y_x3
+
+                            jmat[2, 0] = z_x1
+                            jmat[2, 1] = z_x2
+                            jmat[2, 2] = z_x3
+
                             jacobians[i_cell_1 * k1 + i_quad_1,
                                       i_cell_2 * k2 + i_quad_2,
                                       i_cell_3 * k3 + i_quad_3,
-                                      :, :] = np.array([[x_x1, x_x2, x_x3],
-                                                        [y_x1, y_x2, y_x3],
-                                                        [z_x1, z_x2, z_x3]])
+                                      :, :] = jmat
 
 
 @template(name='T', types=[float, complex])
@@ -2948,7 +3000,9 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int
 
     jacobians: ndarray of floats
         Jacobian matrix at every point of the grid
-       """
+    """
+
+    jmat = np.empty((2, 2))
 
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
@@ -3051,11 +3105,16 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int
 
                     y_x1 = (y_x1 - weight_x1 * y * inv_weight) * inv_weight
                     y_x2 = (y_x2 - weight_x2 * y * inv_weight) * inv_weight
+                    
+                    jmat[0, 0] = x_x1
+                    jmat[0, 1] = x_x2
+
+                    jmat[1, 0] = y_x1
+                    jmat[1, 1] = y_x2
 
                     jacobians[i_cell_1 * k1 + i_quad_1,
                               i_cell_2 * k2 + i_quad_2,
-                              :, :] = np.array([[x_x1, x_x2],
-                                                [y_x1, y_x2]])
+                              :, :] = jmat
 
 
 # -----------------------------------------------------------------------------
@@ -3120,6 +3179,8 @@ def eval_jacobians_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int,
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
+
+    jmat = np.empty((3, 3))
 
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -3252,10 +3313,20 @@ def eval_jacobians_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int,
                 z_x1 = (temp_z_x1 - temp_weight_x1 * temp_z * inv_weight) * inv_weight
                 z_x2 = (temp_z_x2 - temp_weight_x2 * temp_z * inv_weight) * inv_weight
                 z_x3 = (temp_z_x3 - temp_weight_x3 * temp_z * inv_weight) * inv_weight
+                
+                jmat[0, 0] = x_x1
+                jmat[0, 1] = x_x2
+                jmat[0, 2] = x_x3
 
-                jacobians[i_p_1, i_p_2, i_p_3, :, :] = np.array([[x_x1, x_x2, x_x3],
-                                                                 [y_x1, y_x2, y_x3],
-                                                                 [z_x1, z_x2, z_x3]])
+                jmat[1, 0] = y_x1
+                jmat[1, 1] = y_x2
+                jmat[1, 2] = y_x3
+
+                jmat[2, 0] = z_x1
+                jmat[2, 1] = z_x2
+                jmat[2, 2] = z_x3
+
+                jacobians[i_p_1, i_p_2, i_p_3, :, :] = jmat
 
 
 @template(name='T', types=[float, complex])
@@ -3305,6 +3376,8 @@ def eval_jacobians_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
+
+    jmat = np.empty((2, 2))
 
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
@@ -3390,9 +3463,13 @@ def eval_jacobians_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int
             y_x1 = (temp_y_x1 - temp_weight_x1 * temp_y * inv_weight) * inv_weight
             y_x2 = (temp_y_x2 - temp_weight_x2 * temp_y * inv_weight) * inv_weight
 
-            jacobians[i_p_1, i_p_2, :, :] = np.array([[x_x1, x_x2],
-                                                      [y_x1, y_x2]])
+            jmat[0, 0] = x_x1
+            jmat[0, 1] = x_x2
 
+            jmat[1, 0] = y_x1
+            jmat[1, 1] = y_x2
+
+            jacobians[i_p_1, i_p_2, :, :] = jmat
 
 # =============================================================================
 # Evaluation of the inverse of the Jacobian matrix
@@ -3456,6 +3533,8 @@ def eval_jacobians_inv_3d(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: int,
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix on the grid
     """
+
+    jmat = np.empty((3, 3))
 
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -3567,12 +3646,22 @@ def eval_jacobians_inv_3d(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: int,
                             a_32 = - x_x1 * y_x3 + x_x3 * y_x1
                             a_33 = x_x1 * y_x2 - x_x2 * y_x1
 
+                            jmat[0, 0] = a_11
+                            jmat[0, 1] = a_21
+                            jmat[0, 2] = a_31
+
+                            jmat[1, 0] = a_12
+                            jmat[1, 1] = a_22
+                            jmat[1, 2] = a_32
+
+                            jmat[2, 0] = a_13
+                            jmat[2, 1] = a_23
+                            jmat[2, 2] = a_33
+
                             jacobians_inv[i_cell_1 * k1 + i_quad_1,
                                           i_cell_2 * k2 + i_quad_2,
                                           i_cell_3 * k3 + i_quad_3,
-                                          :, :] = np.array([[a_11, a_21, a_31],
-                                                            [a_12, a_22, a_32],
-                                                            [a_13, a_23, a_33]]) / det
+                                          :, :] = jmat / det
 
 
 @template(name='T', types=[float, complex])
@@ -3616,6 +3705,8 @@ def eval_jacobians_inv_2d(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int, k2
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
+
+    jmat = np.empty((2, 2))
 
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
@@ -3673,11 +3764,16 @@ def eval_jacobians_inv_2d(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int, k2
                     y_x2 = arr_y_x2[i_quad_1, i_quad_2]
 
                     det = x_x1 * y_x2 - x_x2 * y_x1
+                    
+                    jmat[0, 0] = y_x2
+                    jmat[0, 1] = -x_x2
 
+                    jmat[1, 0] = -y_x1
+                    jmat[1, 1] = x_x1
+                    
                     jacobians_inv[i_cell_1 * k1 + i_quad_1,
                                   i_cell_2 * k2 + i_quad_2,
-                                  :, :] = np.array([[y_x2, - x_x2],
-                                                    [- y_x1, x_x1]]) / det
+                                  :, :] = jmat / det
 
 
 # -----------------------------------------------------------------------------
@@ -3739,6 +3835,8 @@ def eval_jacobians_inv_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
+
+    jmat = np.empty((3, 3))
 
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -3842,13 +3940,23 @@ def eval_jacobians_inv_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p
                 a_31 = temp_x_x2 * temp_y_x3 - temp_x_x3 * temp_y_x2
                 a_32 = - temp_x_x1 * temp_y_x3 + temp_x_x3 * temp_y_x1
                 a_33 = temp_x_x1 * temp_y_x2 - temp_x_x2 * temp_y_x1
+                
+                jmat[0, 0] = a_11
+                jmat[0, 1] = a_21
+                jmat[0, 2] = a_31
+
+                jmat[1, 0] = a_12
+                jmat[1, 1] = a_22
+                jmat[1, 2] = a_32
+
+                jmat[2, 0] = a_13
+                jmat[2, 1] = a_23
+                jmat[2, 2] = a_33
 
                 jacobians_inv[i_p_1,
                                 i_p_2,
                                 i_p_3,
-                                :, :] = np.array([[a_11, a_21, a_31],
-                                                  [a_12, a_22, a_32],
-                                                  [a_13, a_23, a_33]]) / det
+                                :, :] = jmat / det
 
 
 @template(name='T', types=[float, complex])
@@ -3892,6 +4000,8 @@ def eval_jacobians_inv_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, ce
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
+
+    jmat = np.empty((2, 2))
 
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
@@ -3944,9 +4054,14 @@ def eval_jacobians_inv_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, ce
                     temp_y_x2 += mapping_x2 * coeff_y
 
             det = temp_x_x1 * temp_y_x2 - temp_y_x1 * temp_x_x2
+            
+            jmat[0, 0] = temp_y_x2
+            jmat[0, 1] = -temp_x_x2
 
-            jacobians_inv[i_p_1, i_p_2, :, :] = np.array([[temp_y_x2, - temp_x_x2],
-                                                          [- temp_y_x1, temp_x_x1]]) / det
+            jmat[1, 0] = -temp_y_x1
+            jmat[1, 1] = temp_x_x1
+
+            jacobians_inv[i_p_1, i_p_2, :, :] = jmat / det
 
 # -----------------------------------------------------------------------------
 # 3: Regular tensor grid with weights
@@ -4011,6 +4126,8 @@ def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix on the grid
     """
+
+    jmat = np.empty((3, 3))
 
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -4184,14 +4301,23 @@ def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2
                             a_31 = x_x2 * y_x3 - x_x3 * y_x2
                             a_32 = - x_x1 * y_x3 + x_x3 * y_x1
                             a_33 = x_x1 * y_x2 - x_x2 * y_x1
+                            
+                            jmat[0, 0] = a_11
+                            jmat[0, 1] = a_21
+                            jmat[0, 2] = a_31
+
+                            jmat[1, 0] = a_12
+                            jmat[1, 1] = a_22
+                            jmat[1, 2] = a_32
+
+                            jmat[2, 0] = a_13
+                            jmat[2, 1] = a_23
+                            jmat[2, 2] = a_33
 
                             jacobians_inv[i_cell_1 * k1 + i_quad_1,
                                           i_cell_2 * k2 + i_quad_2,
                                           i_cell_3 * k3 + i_quad_3,
-                                          :, :] = np.array([[a_11, a_21, a_31],
-                                                            [a_12, a_22, a_32],
-                                                            [a_13, a_23, a_33]]) / det
-
+                                          :, :] = jmat / det
 
 @template(name='T', types=[float, complex])
 def eval_jacobians_inv_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int, k2: int,
@@ -4237,7 +4363,9 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1:
 
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
-       """
+    """
+
+    jmat = np.empty((2, 2))
 
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
@@ -4342,11 +4470,16 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1:
                     y_x2 = (y_x2 - weight_x2 * y * inv_weight) * inv_weight
 
                     det = x_x1 * y_x2 - x_x2 * y_x1
+                    
+                    jmat[0, 0] = y_x2
+                    jmat[0, 1] = -x_x2
+
+                    jmat[1, 0] = -y_x1
+                    jmat[1, 1] = x_x1
 
                     jacobians_inv[i_cell_1 * k1 + i_quad_1,
                                   i_cell_2 * k2 + i_quad_2,
-                                  :, :] = np.array([[y_x2, - x_x2],
-                                                    [- y_x1, x_x1]]) / det
+                                  :, :] = jmat / det
 
 
 # -----------------------------------------------------------------------------
@@ -4411,6 +4544,8 @@ def eval_jacobians_inv_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: 
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
+
+    jmat = np.empty((3, 3))
 
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -4558,13 +4693,24 @@ def eval_jacobians_inv_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: 
                 a_31 = x_x2 * y_x3 - x_x3 * y_x2
                 a_32 = - x_x1 * y_x3 + x_x3 * y_x1
                 a_33 = x_x1 * y_x2 - x_x2 * y_x1
+                
+                jmat[0, 0] = a_11
+                jmat[0, 1] = a_21
+                jmat[0, 2] = a_31
+
+                jmat[1, 0] = a_12
+                jmat[1, 1] = a_22
+                jmat[1, 2] = a_32
+
+                jmat[2, 0] = a_13
+                jmat[2, 1] = a_23
+                jmat[2, 2] = a_33
 
                 jacobians_inv[i_p_1,
                               i_p_2,
                               i_p_3,
-                              :, :] = np.array([[a_11, a_21, a_31],
-                                                [a_12, a_22, a_32],
-                                                [a_13, a_23, a_33]]) / det
+                              :, :] = jmat / det
+
 
 
 @template(name='T', types=[float, complex])
@@ -4614,6 +4760,8 @@ def eval_jacobians_inv_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2:
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
+
+    jmat = np.empty((2, 2))
 
     arr_coeffs_x = np.zeros_like(global_arr_coeff_x, shape=(1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros_like(global_arr_coeff_y, shape=(1 + f_p1, 1 + f_p2))
@@ -4700,9 +4848,13 @@ def eval_jacobians_inv_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2:
 
             det = x_x1 * y_x2 - x_x2 * y_x1
 
-            jacobians_inv[i_p_1, i_p_2, :, :] = np.array([[y_x2, - x_x2],
-                                                          [- y_x1, x_x1]]) / det
+            jmat[0, 0] = y_x2
+            jmat[0, 1] = -x_x2
 
+            jmat[1, 0] = -y_x1
+            jmat[1, 1] = x_x1
+
+            jacobians_inv[i_p_1, i_p_2, :, :] = jmat / det
 
 # ==========================================================================
 # Push forwards
