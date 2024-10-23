@@ -177,16 +177,11 @@ jobs:
       - name: Run single-process tests with Pytest
         working-directory: ./pytest
         run: >- 
-          python -m pytest -n auto --cov psydac
+          python -m pytest -n auto --failed-first
+          --cov psydac
           --cov-config $GITHUB_WORKSPACE/pyproject.toml
-          --cov-report=""
+          --cov-report xml
           --pyargs psydac -m "not parallel and not petsc"
-
-      - name: Generate coverage report for Codacy
-        working-directory: ./pytest
-        run: |
-          coverage xml
-          pytest --cache-show | grep cachedir # To be removed in the next commit
 
       - name: Upload coverage report to Codacy
         uses: codacy/codacy-coverage-reporter-action@v1.3.0
@@ -213,6 +208,15 @@ jobs:
         working-directory: ./pytest
         run: |
           python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc"
+
+      - name: Cache Pytest results
+        uses: actions/cache@v4
+        id: cache-pytest
+        env:
+          cache-name: cache-pytest
+        with:
+          path: ".pytest_cache"
+          key: cache-${{ matrix.os }}-${{ matrix.python-version }}
 
       - name: Remove test directory
         if: ${{ always() }}
