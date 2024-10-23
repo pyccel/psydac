@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from psydac.linalg.kron           import KroneckerLinearSolver
-from psydac.linalg.stencil        import StencilVector
-from psydac.linalg.block          import BlockLinearOperator, BlockVector
+from psydac.linalg.kron           import KroneckerLinearSolver, KroneckerStencilMatrix
+from psydac.linalg.stencil        import StencilMatrix, StencilVectorSpace
+from psydac.linalg.block          import BlockLinearOperator
 from psydac.core.bsplines         import quadrature_grid
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
@@ -12,6 +12,7 @@ from psydac.fem.basic             import FemField
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
 
+from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 from psydac.utilities.utils import roll_edges
 
 from abc import ABCMeta, abstractmethod
@@ -120,18 +121,34 @@ class GlobalProjector(metaclass=ABCMeta):
         self._grid_x = []
         self._grid_w = []
         solverblocks = []
+        matrixblocks = []
+        blocks = [] # for BlockLinearOperator
         for i,block in enumerate(structure):
             # do for each block (i.e. each TensorFemSpace):
-             
+            
             block_x = []
             block_w = []
             solvercells = []
+            matrixcells = []
+            blocks += [[]] 
             for j, cell in enumerate(block):
                 # for each direction in the tensor space (i.e. each SplineSpace):
 
                 V = tensorspaces[i].spaces[j]
                 s = tensorspaces[i].vector_space.starts[j]
                 e = tensorspaces[i].vector_space.ends[j]
+                p = tensorspaces[i].vector_space.pads[j]
+                n = tensorspaces[i].vector_space.npts[j]
+                m = tensorspaces[i].multiplicity[j]
+                periodic = tensorspaces[i].vector_space.periods[j]
+                ncells = tensorspaces[i].ncells[j]
+                blocks[-1] += [None] # fill blocks with None, fill the diagonals later
+
+                # create a distributed matrix for the current 1d SplineSpace
+                domain_decomp = DomainDecomposition([ncells], [periodic])
+                cart_decomp = CartDecomposition(domain_decomp, [n], [[s]], [[e]], [p], [m])
+                V_cart = StencilVectorSpace(cart_decomp)
+                M = StencilMatrix(V_cart, V_cart)
 
                 if cell == 'I':
                     # interpolation case
@@ -143,6 +160,23 @@ class GlobalProjector(metaclass=ABCMeta):
                     local_x = local_intp_x[:, np.newaxis]
                     local_w = np.ones_like(local_x)
                     solvercells += [V._interpolator]
+                    
+                    # make 1D collocation matrix in stencil format
+                    row_indices, col_indices = np.nonzero(V.imat)
+
+                    for row_i, col_i in zip(row_indices, col_indices):
+
+                        # only consider row indices on process
+                        if row_i in range(V_cart.starts[0], V_cart.ends[0] + 1):
+                            row_i_loc = row_i - s
+
+                            M._data[row_i_loc + m*p, (col_i + p - row_i)%V.imat.shape[1]] = V.imat[row_i, col_i]
+
+                    # check if stencil matrix was built correctly
+                    assert np.allclose(M.toarray()[s:e + 1], V.imat[s:e + 1])
+                    # TODO Fix toarray() for multiplicity m > 1
+                    matrixcells += [M.copy()]
+                    
                 elif cell == 'H':
                     # histopolation case
                     if quad_x[j] is None:
@@ -159,11 +193,37 @@ class GlobalProjector(metaclass=ABCMeta):
 
                     local_x, local_w = quad_x[j], quad_w[j]
                     solvercells += [V._histopolator]
+                    
+                    # make 1D collocation matrix in stencil format
+                    row_indices, col_indices = np.nonzero(V.hmat)
+
+                    for row_i, col_i in zip(row_indices, col_indices):
+
+                        # only consider row indices on process
+                        if row_i in range(V_cart.starts[0], V_cart.ends[0] + 1):
+                            row_i_loc = row_i - s
+
+                            M._data[row_i_loc + m*p, (col_i + p - row_i)%V.hmat.shape[1]] = V.hmat[row_i, col_i]
+
+                    # check if stencil matrix was built correctly
+                    assert np.allclose(M.toarray()[s:e + 1], V.hmat[s:e + 1])
+
+                    matrixcells += [M.copy()]
+                    
                 else:
                     raise NotImplementedError('Invalid entry in structure array.')
                 
                 block_x += [local_x]
                 block_w += [local_w]
+            
+            # build Kronecker out of single directions    
+            if isinstance(self.space, TensorFemSpace):
+                matrixblocks += [KroneckerStencilMatrix(self.space.vector_space, self.space.vector_space, *matrixcells)]
+            else:
+                matrixblocks += [KroneckerStencilMatrix(self.space.vector_space[i], self.space.vector_space[i], *matrixcells)]
+
+            # fill the diagonals for BlockLinearOperator
+            blocks[i][i] = matrixblocks[-1]
 
             # finish block, build solvers, get dataslice to project to
             self._grid_x += [block_x]
@@ -173,6 +233,13 @@ class GlobalProjector(metaclass=ABCMeta):
 
             dataslice = tuple(slice(p*m, -p*m) for p, m in zip(tensorspaces[i].vector_space.pads,tensorspaces[i].vector_space.shifts))
             dofs[i] = rhsblocks[i]._data[dataslice]
+            
+        # build final Inter-/Histopolation matrix (distributed)        
+        if isinstance(self.space, TensorFemSpace):
+            self._imat_kronecker = matrixblocks[0]
+        else:
+            self._imat_kronecker = BlockLinearOperator(self.space.vector_space, self.space.vector_space, 
+                                                       blocks=blocks)
         
         # finish arguments and create a lambda
         args = (*intp_x, *quad_x, *quad_w, *dofs)
@@ -237,6 +304,13 @@ class GlobalProjector(metaclass=ABCMeta):
         The solver used for transforming the DOFs in the target space into spline coefficients.
         """
         return self._solver
+    
+    @property
+    def imat_kronecker(self):
+        """
+        Inter-/Histopolation matrix in distributed format.
+        """
+        return self._imat_kronecker
     
     @abstractmethod
     def _structure(self, dim):

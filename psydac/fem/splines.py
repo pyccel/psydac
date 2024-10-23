@@ -193,7 +193,7 @@ class SplineSpace( FemSpace ):
             for i,j in zip( *cmat.nonzero() ):
                 bmat[u+l+i-j,j] = cmat[i,j]
             self._interpolator = BandedSolver( u, l, bmat )
-            self.imat = imat
+        self.imat = imat
 
         # Store flag
         self._interpolation_ready = True
