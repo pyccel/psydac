@@ -180,8 +180,8 @@ jobs:
           key: pytest-${{ matrix.os }}-${{ matrix.python-version }}
           path: "./.pytest_cache"
 
-      # Coverage data is also collected during single process testing.
-      - name: Run single-process tests with Pytest
+      - name: Run coverage tests on macOS
+        if: matrix.os == 'macos-latest'
         working-directory: ./pytest
         run: >- 
           python -m pytest -n auto --failed-first
@@ -190,13 +190,21 @@ jobs:
           --cov-report xml
           --pyargs psydac -m "not parallel and not petsc"
 
+      - name: Run single-process tests with Pytest on Ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: ./pytest
+        run: |
+          python -m pytest -n auto --failed-first --pyargs psydac -m "not parallel and not petsc"
+
       - name: Upload coverage report to Codacy
+        if: matrix.os == 'macos-latest'
         uses: codacy/codacy-coverage-reporter-action@v1.3.0
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           coverage-reports: ./pytest/coverage.xml
 
-      - name: Print detailed coverage results
+      - name: Print detailed coverage results on macOS
+        if: matrix.os == 'macos-latest'
         working-directory: ./pytest
         run: |
           coverage report --ignore-errors --show-missing --sort=cover
@@ -216,7 +224,7 @@ jobs:
         run: |
           python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc"
 
-      - name: Always save Pytest cache
+      - name: Save Pytest cache
         id: cache-pytest-save
         if: always() && steps.cache-pytest-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
