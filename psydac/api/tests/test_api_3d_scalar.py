@@ -144,7 +144,7 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
     # ...
 
     # ... compute norms
-    l2_error = l2norm_h.assemble(u = uh)
+    l2_error = l2norm_h.assemble(u = uh) + 1
     h1_error = h1norm_h.assemble(u = uh)
     # ...
 
