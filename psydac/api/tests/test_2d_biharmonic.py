@@ -104,7 +104,7 @@ def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells, degree, backen
     uh = equation_h.solve()
 
     # Compute error norms
-    l2_error = l2norm_h.assemble(u=uh) + 1
+    l2_error = l2norm_h.assemble(u=uh)
     h1_error = h1norm_h.assemble(u=uh)
     h2_error = h2norm_h.assemble(u=uh)
 

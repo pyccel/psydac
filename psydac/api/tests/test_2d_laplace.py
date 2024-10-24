@@ -106,7 +106,7 @@ def run_laplace_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary,
     uh = equation_h.solve()
 
     # Compute error norms
-    l2_error = l2norm_h.assemble(u=uh) + 1
+    l2_error = l2norm_h.assemble(u=uh)
     h1_error = h1norm_h.assemble(u=uh)
 
     return l2_error, h1_error
