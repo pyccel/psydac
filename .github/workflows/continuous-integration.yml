@@ -226,13 +226,13 @@ jobs:
 
       - name: Save Pytest cache
         id: cache-pytest-save
-        if: always() && steps.cache-pytest-restore.outputs.cache-hit != 'true'
+        if: always()
         uses: actions/cache/save@v4
         with:
           key: ${{ steps.cache-pytest-restore.outputs.cache-primary-key }}
           path: "./.pytest_cache"
 
       - name: Remove test directory
-        if: ${{ always() }}
+        if: always()
         run: |
           rm -rf pytest
