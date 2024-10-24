@@ -177,7 +177,7 @@ jobs:
         id: cache-pytest-restore
         uses: actions/cache/restore@v4
         with:
-          key: pytest-${{ matrix.os }}-${{ matrix.python-version }}
+          key: pytest-${{ matrix.os }}-${{ matrix.python-version }}-${{ hashFiles('.pytest_cache/**') }}
           path: "./.pytest_cache"
 
       - name: Run coverage tests on macOS
@@ -226,10 +226,10 @@ jobs:
 
       - name: Save Pytest cache
         id: cache-pytest-save
-        if: always()
+        if: always() && steps.cache-primes-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          key: ${{ steps.cache-pytest-restore.outputs.cache-primary-key }}
+          key: pytest-${{ matrix.os }}-${{ matrix.python-version }}-${{ hashFiles('.pytest_cache/**') }}
           path: "./.pytest_cache"
 
       - name: Remove test directory
