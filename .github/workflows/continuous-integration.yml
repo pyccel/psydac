@@ -173,18 +173,11 @@ jobs:
           mkdir pytest
           cp mpi_tester.py pytest
 
-      - name: Restore Pytest cache
-        id: cache-pytest-restore
-        uses: actions/cache/restore@v4
-        with:
-          key: pytest-${{ matrix.os }}-${{ matrix.python-version }}-${{ hashFiles('.pytest_cache/**') }}
-          path: "./.pytest_cache"
-
       - name: Run coverage tests on macOS
         if: matrix.os == 'macos-latest'
         working-directory: ./pytest
         run: >- 
-          python -m pytest -n auto --failed-first
+          python -m pytest -n auto
           --cov psydac
           --cov-config $GITHUB_WORKSPACE/pyproject.toml
           --cov-report xml
@@ -194,7 +187,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         working-directory: ./pytest
         run: |
-          python -m pytest -n auto --failed-first --pyargs psydac -m "not parallel and not petsc"
+          python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
 
       - name: Upload coverage report to Codacy
         if: matrix.os == 'macos-latest'
@@ -223,14 +216,6 @@ jobs:
         working-directory: ./pytest
         run: |
           python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc"
-
-      - name: Save Pytest cache
-        id: cache-pytest-save
-        if: always() && steps.cache-primes-restore.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          key: pytest-${{ matrix.os }}-${{ matrix.python-version }}-${{ hashFiles('.pytest_cache/**') }}
-          path: "./.pytest_cache"
 
       - name: Remove test directory
         if: always()
