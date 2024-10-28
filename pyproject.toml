@@ -26,8 +26,6 @@ dependencies = [
     'scipy >= 1.12',
     'sympy >= 1.5',
     'matplotlib',
-    'pytest >= 4.5',
-    'pytest-xdist >= 1.16',
     'pyyaml >= 5.1',
     'packaging',
     'pyevtk',
@@ -56,6 +54,8 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "pytest-cov >= 5.0.0",
+    'pytest >= 4.5',
+    'pytest-xdist >= 1.16',
 ]
 
 [project.urls]
@@ -99,7 +99,7 @@ exclude_also = [
     "raise NotImplementedError",
 
     # Don't complain if non-runnable code isn't run:
-    "if 0:",
+    "if False:",
     "if __name__ == .__main__.:",
 
     # Don't complain about abstract methods, they aren't run:
