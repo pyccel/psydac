@@ -1326,8 +1326,10 @@ class DiscreteBilinearForm(BasicDiscrete):
         threads_args = tuple(np.int64(a) if isinstance(a, int) else a for a in threads_args)
 
         self.make_file(temps, ordered_stmts, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option=mapping_option)
-        #from __test__.__psydac__.assemble import assemble_matrix
-        from __psydac__.assemble import assemble_matrix
+        try:
+            from __psydac__.assemble import assemble_matrix
+        except:
+            from __test__.__psydac__.assemble import assemble_matrix
         from pyccel.epyccel import epyccel
         new_func = epyccel(assemble_matrix, language='fortran')
         self._func = new_func
