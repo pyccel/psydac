@@ -1172,10 +1172,20 @@ class DiscreteBilinearForm(BasicDiscrete):
         n_element_1, n_element_2, n_element_3   = n_elements
         k1, k2, k3                              = quad_degrees
 
-        test_v_p        = {v:test_degrees[d*v:d*(v+1)]  for v in range(nv)}
-        trial_u_p       = {u:trial_degrees[d*u:d*(u+1)] for u in range(nu)}
-        global_basis_v  = {v:test_basis[d*v:d*(v+1)]    for v in range(nv)}
-        global_basis_u  = {u:trial_basis[d*u:d*(u+1)]   for u in range(nu)}
+        if (nu == 3) and (len(trial_basis) == 3):
+            # VectorFunction not belonging to a de Rham sequence - 3 instead of 9 variables in trial/test_degrees and trial/test_basis
+            trial_u_p   = {u:trial_degrees for u in range(nu)}
+            global_basis_u  = {u:trial_basis    for u in range(nu)}
+        else:
+            trial_u_p       = {u:trial_degrees[d*u:d*(u+1)] for u in range(nu)}
+            global_basis_u  = {u:trial_basis[d*u:d*(u+1)]    for u in range(nu)}
+        if (nv == 3) and (len(test_basis) == 3):
+            test_v_p   = {v:test_degrees for v in range(nv)}
+            global_basis_v  = {v:test_basis   for v in range(nv)}
+            spans = [*spans, *spans, *spans]
+        else:
+            test_v_p       = {v:test_degrees[d*v:d*(v+1)] for v in range(nv)}
+            global_basis_v  = {v:test_basis[d*v:d*(v+1)]   for v in range(nv)}
 
         assert len(self.grid) == 1, f'len(self.grid) is supposed to be 1 for now'
 

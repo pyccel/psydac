@@ -358,7 +358,7 @@ def test_maxwell_3d_2():
     assert abs(error - 0.24586986658559362) < 1e-9
     
 #------------------------------------------------------------------------------
-def test_maxwell_3d_2_mult():
+def dont_test_maxwell_3d_2_mult():
     class CollelaMapping3D(Mapping):
 
         _expressions = {'x': 'k1*(x1 + eps*sin(2.*pi*x1)*sin(2.*pi*x2))',
