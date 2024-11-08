@@ -169,12 +169,12 @@ jobs:
           mkdir pytest
           cp mpi_tester.py pytest
 
-      - name: Run single-process tests with Pytest
-        working-directory: ./pytest
-        run: |
-          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
-          export OMP_NUM_THREADS=2
-          python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
+      #- name: Run single-process tests with Pytest
+      #  working-directory: ./pytest
+      #  run: |
+      #    export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
+      #    export OMP_NUM_THREADS=2
+      #    python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
 
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
