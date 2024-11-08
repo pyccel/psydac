@@ -535,6 +535,9 @@ def discretize(a, *args, **kwargs):
         domain_h = args[0]
         assert isinstance(domain_h, Geometry)
         domain  = domain_h.domain
+        dim     = domain.dim
+        if ((isinstance(a, sym_BilinearForm)) and (dim == 3)):
+            kwargs['new_assembly'] = True
         mapping = domain_h.domain.mapping
         kwargs['symbolic_mapping'] = mapping
 

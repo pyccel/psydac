@@ -4,18 +4,27 @@
 #         nderiv has not been changed. shall we add nquads too?
 
 import numpy as np
-from sympy import ImmutableDenseMatrix, Matrix
+from sympy                  import ImmutableDenseMatrix, Matrix, Symbol, sympify
+from sympy.tensor.indexed   import Indexed, IndexedBase
+from sympy.simplify         import cse_main
 
 from sympde.expr          import BilinearForm as sym_BilinearForm
 from sympde.expr          import LinearForm as sym_LinearForm
 from sympde.expr          import Functional as sym_Functional
 from sympde.expr          import Norm as sym_Norm
 from sympde.expr          import SemiNorm as sym_SemiNorm
+from sympde.expr          import TerminalExpr
 from sympde.topology      import Boundary, Interface
+from sympde.topology      import LogicalExpr
 from sympde.topology      import VectorFunctionSpace
 from sympde.topology      import ProductSpace
 from sympde.topology      import H1SpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.calculus.core import PlusInterfaceOperator
+from sympde.topology             import SymbolicExpr, Mapping
+from sympde.topology.space       import ScalarFunction, VectorFunction, IndexedVectorFunction
+from sympde.topology.derivatives import get_atom_logical_derivatives
+from sympde.topology.derivatives import _logical_partial_derivatives
+from sympde.topology.derivatives import get_index_logical_derivatives
+from sympde.calculus.core        import PlusInterfaceOperator
 
 from psydac.api.basic        import BasicDiscrete
 from psydac.api.basic        import random_string
@@ -25,12 +34,13 @@ from psydac.linalg.stencil   import StencilVector, StencilMatrix, StencilInterfa
 from psydac.linalg.basic     import ComposedLinearOperator
 from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.cad.geometry     import Geometry
-from psydac.mapping.discrete import NurbsMapping
+from psydac.mapping.discrete import NurbsMapping, SplineMapping
 from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.fem.basic        import FemField
 from psydac.fem.projectors   import knot_insertion_projection_operator
 from psydac.core.bsplines    import find_span, basis_funs_all_ders
 from psydac.ddm.cart         import InterfaceCartDecomposition
+from psydac.pyccel.ast.core  import _atomic, Assign
 
 __all__ = (
     'collect_spaces',
@@ -218,7 +228,8 @@ class DiscreteBilinearForm(BasicDiscrete):
     def __init__(self, expr, kernel_expr, domain_h, spaces, *, nquads,
                  matrix=None, update_ghost_regions=True, backend=None,
                  linalg_backend=None, assembly_backend=None,
-                 symbolic_mapping=None):
+                 symbolic_mapping=None,
+                 new_assembly=False):
 
         if not isinstance(expr, sym_BilinearForm):
             raise TypeError('> Expecting a symbolic BilinearForm')
@@ -423,14 +434,24 @@ class DiscreteBilinearForm(BasicDiscrete):
             grid   = trial_grid
         )
 
+        # temporary feature that allows to choose either old or new assembly to verify whether the new assembly works
+        assert isinstance(new_assembly, bool)
+        self._new_assembly = new_assembly
+
         # Allocate the output matrix, if needed
+        # if self._remove_is_zero_statement, additional g_mats will be generated that correspond to "0 BilinearForms"
+        self._remove_is_zero_statement = True if self._new_assembly else False
         self.allocate_matrices(linalg_backend)
 
         # Determine whether OpenMP instructions were generated
         with_openmp = (assembly_backend['name'] == 'pyccel' and assembly_backend['openmp']) if assembly_backend else False
 
         # Construct the arguments to be passed to the assemble() function, which is stored in self._func
-        self._args, self._threads_args = self.construct_arguments(with_openmp=with_openmp)
+        if self._new_assembly:
+            # no openmp support yet
+            self._args, self._threads_args = self.construct_arguments_generate_assembly_file()
+        else:
+            self._args, self._threads_args = self.construct_arguments(with_openmp)
 
     @property
     def domain(self):
@@ -481,7 +502,10 @@ class DiscreteBilinearForm(BasicDiscrete):
         It should work if the complex only comes from the `rhs` in the linear form.
         """
 
-        if self._free_args:
+        if (self._free_args) and (not self._new_assembly):
+            # previously, if self._free_args, here we would overwrite self._args
+            # now, we don't want to overwrite self._args
+            # ToDo: Understand self._free_args, i.e., when is self._free_args != None
             basis   = []
             spans   = []
             degrees = []
@@ -562,6 +586,740 @@ class DiscreteBilinearForm(BasicDiscrete):
                 j = i
         return i, j
 
+    @property
+    def _assembly_template_head(self):
+        code = '''def assemble_matrix({MAPPING_PART_1}
+{SPAN}                    {MAPPING_PART_2}
+                    global_x1 : "float64[:,:]", global_x2 : "float64[:,:]", global_x3 : "float64[:,:]", 
+                    {MAPPING_PART_3}
+                    n_element_1 : "int64", n_element_2 : "int64", n_element_3 : "int64", 
+                    nq1 : "int64", nq2 : "int64", nq3 : "int64", 
+                    pad1 : "int64", pad2 : "int64", pad3 : "int64", 
+                    {MAPPING_PART_4}
+{G_MAT}{NEW_ARGS}):
+
+    from numpy import array, zeros, zeros_like, floor
+    from math import sqrt, sin, pi, cos
+'''
+        return code
+    
+    @property
+    def _assembly_template_body_bspline(self):
+        code = '''
+    arr_coeffs_x = zeros((1 + test_mapping_p1, 1 + test_mapping_p2, 1 + test_mapping_p3), dtype='float64')
+    arr_coeffs_y = zeros((1 + test_mapping_p1, 1 + test_mapping_p2, 1 + test_mapping_p3), dtype='float64')
+    arr_coeffs_z = zeros((1 + test_mapping_p1, 1 + test_mapping_p2, 1 + test_mapping_p3), dtype='float64')
+    
+{KEYS}
+    for k_1 in range(n_element_1):
+        span_mapping_1 = global_span_mapping_1[k_1]
+{LOCAL_SPAN}{A1}
+        for q_1 in range(nq1):
+            for k_2 in range(n_element_2):
+                span_mapping_2 = global_span_mapping_2[k_2]
+                for q_2 in range(nq2):
+                    for k_3 in range(n_element_3):
+                        span_mapping_3 = global_span_mapping_3[k_3]
+                        arr_coeffs_x[:,:,:] = global_arr_coeffs_x[test_mapping_p1 + span_mapping_1 - test_mapping_p1:test_mapping_p1 + 1 + span_mapping_1,test_mapping_p2 + span_mapping_2 - test_mapping_p2:test_mapping_p2 + 1 + span_mapping_2,test_mapping_p3 + span_mapping_3 - test_mapping_p3:test_mapping_p3 + 1 + span_mapping_3]
+                        arr_coeffs_y[:,:,:] = global_arr_coeffs_y[test_mapping_p1 + span_mapping_1 - test_mapping_p1:test_mapping_p1 + 1 + span_mapping_1,test_mapping_p2 + span_mapping_2 - test_mapping_p2:test_mapping_p2 + 1 + span_mapping_2,test_mapping_p3 + span_mapping_3 - test_mapping_p3:test_mapping_p3 + 1 + span_mapping_3]
+                        arr_coeffs_z[:,:,:] = global_arr_coeffs_z[test_mapping_p1 + span_mapping_1 - test_mapping_p1:test_mapping_p1 + 1 + span_mapping_1,test_mapping_p2 + span_mapping_2 - test_mapping_p2:test_mapping_p2 + 1 + span_mapping_2,test_mapping_p3 + span_mapping_3 - test_mapping_p3:test_mapping_p3 + 1 + span_mapping_3]
+                        for q_3 in range(nq3):
+                            x = 0.0
+                            y = 0.0
+                            z = 0.0
+
+                            x_x1 = 0.0
+                            x_x2 = 0.0
+                            x_x3 = 0.0
+                            y_x1 = 0.0
+                            y_x2 = 0.0
+                            y_x3 = 0.0
+                            z_x1 = 0.0
+                            z_x2 = 0.0
+                            z_x3 = 0.0
+
+                            for i_1 in range(test_mapping_p1+1):
+                                mapping_1       = global_basis_mapping_1[k_1, i_1, 0, q_1]
+                                mapping_1_x1    = global_basis_mapping_1[k_1, i_1, 1, q_1]
+                                for i_2 in range(test_mapping_p2+1):
+                                    mapping_2       = global_basis_mapping_2[k_2, i_2, 0, q_2]
+                                    mapping_2_x2    = global_basis_mapping_2[k_2, i_2, 1, q_2]
+                                    for i_3 in range(test_mapping_p3+1):
+                                        mapping_3       = global_basis_mapping_3[k_3, i_3, 0, q_3]
+                                        mapping_3_x3    = global_basis_mapping_3[k_3, i_3, 1, q_3]
+
+                                        coeff_x = arr_coeffs_x[i_1,i_2,i_3]
+                                        coeff_y = arr_coeffs_y[i_1,i_2,i_3]
+                                        coeff_z = arr_coeffs_z[i_1,i_2,i_3]
+
+                                        mapping = mapping_1*mapping_2*mapping_3
+                                        mapping_x1 = mapping_1_x1*mapping_2*mapping_3
+                                        mapping_x2 = mapping_1*mapping_2_x2*mapping_3
+                                        mapping_x3 = mapping_1*mapping_2*mapping_3_x3
+
+                                        x += mapping*coeff_x
+                                        y += mapping*coeff_y
+                                        z += mapping*coeff_z
+
+                                        x_x1 += mapping_x1*coeff_x
+                                        x_x2 += mapping_x2*coeff_x
+                                        x_x3 += mapping_x3*coeff_x
+                                        y_x1 += mapping_x1*coeff_y
+                                        y_x2 += mapping_x2*coeff_y
+                                        y_x3 += mapping_x3*coeff_y
+                                        z_x1 += mapping_x1*coeff_z
+                                        z_x2 += mapping_x2*coeff_z
+                                        z_x3 += mapping_x3*coeff_z
+                                        
+{TEMPS}
+{COUPLING_TERMS}
+'''
+        return code
+    
+    @property 
+    def _assembly_template_body_analytic(self):
+        code = '''
+    local_x1 = zeros_like(global_x1[0,:])
+    local_x2 = zeros_like(global_x2[0,:])
+    local_x3 = zeros_like(global_x3[0,:])
+
+{KEYS}
+    for k_1 in range(n_element_1):
+        local_x1[:] = global_x1[k_1,:]
+{LOCAL_SPAN}{A1}
+        for q_1 in range(nq1):
+            x1 = local_x1[q_1]
+            for k_2 in range(n_element_2):
+                local_x2[:] = global_x2[k_2,:]
+                for q_2 in range(nq2):
+                    x2 = local_x2[q_2]
+                    for k_3 in range(n_element_3):
+                        local_x3[:] = global_x3[k_3,:]
+                        for q_3 in range(nq3):
+                            x3 = local_x3[q_3]
+
+{TEMPS}
+{COUPLING_TERMS}
+'''
+        return code
+    
+    @property
+    def _assembly_template_loop(self):
+        code = '''
+            {A2}[:] = 0.0
+            for k_2 in range(n_element_2):
+                {SPAN_2} = {GLOBAL_SPAN_2}[k_2]
+                for q_2 in range(nq2):
+                    {A3}[:] = 0.0
+                    for k_3 in range(n_element_3):
+                        {SPAN_3} = {GLOBAL_SPAN_3}[k_3]
+                        for q_3 in range(nq3):
+                            a4 = {COUPLING_TERMS}[k_2, q_2, k_3, q_3, :]
+                            for i_3 in range({TEST_V_P3} + 1):
+                                for j_3 in range({TRIAL_U_P3} + 1):
+                                    for e in range({NEXPR}):
+                                        {A3}[e, {SPAN_3} - {TEST_V_P3} + i_3, {MAX_P3} - i_3 + j_3] += {TEST_TRIAL_3}[k_3, q_3, i_3, j_3, {KEYS_3}[2*e], {KEYS_3}[2*e+1]] * a4[e]
+                    for i_2 in range({TEST_V_P2} + 1):
+                        for j_2 in range({TRIAL_U_P2} + 1):
+                            for e in range({NEXPR}):
+                                {A2}[e, {SPAN_2} - {TEST_V_P2} + i_2, :, {MAX_P2} - i_2 + j_2, :] += {TEST_TRIAL_2}[k_2, q_2, i_2, j_2, {KEYS_2}[2*e], {KEYS_2}[2*e+1]] * {A3}[e,:,:]
+            for i_1 in range({TEST_V_P1} + 1):
+                for j_1 in range({TRIAL_U_P1} + 1):
+                    {A1}[i_1, :, :, {MAX_P1} - i_1 + j_1, :, :] += {A2_TEMP}
+'''
+        return code
+
+    def make_file(self, temps, ordered_stmts, *args, mapping_option=None):
+
+        verbose = False
+        if verbose: print(mapping_option)
+
+        code_head = self._assembly_template_head
+        code_loop = self._assembly_template_loop
+
+        if mapping_option == 'Bspline':
+            code_body = self._assembly_template_body_bspline
+        else:
+            code_body = self._assembly_template_body_analytic
+        
+        test_v_p, trial_u_p, keys_1, keys_2, keys_3 = args
+
+        blocks              = ordered_stmts.keys()
+        block_list          = list(blocks)
+        trial_components    = [block[0] for block in block_list]
+        test_components     = [block[1] for block in block_list]
+        nu                  = len(set(trial_components))
+        nv                  = len(set(test_components))
+        d = 3
+        assert d == 3
+
+        # Prepare strings depending on whether the trial and test function are vector-valued or not (nu, nv > 1 or == 1)
+
+        #------------------------- STRINGS HEAD -------------------------
+        global_span_v_str   = 'global_span_v_{v_j}_'  if nv > 1 else 'global_span_v_'
+        if mapping_option == 'Bspline':
+            MAPPING_PART_1 = 'global_basis_mapping_1 : "float64[:,:,:,:]", global_basis_mapping_2 : "float64[:,:,:,:]", global_basis_mapping_3 : "float64[:,:,:,:]", '
+            MAPPING_PART_2 = 'global_span_mapping_1 : "int64[:]", global_span_mapping_2 : "int64[:]", global_span_mapping_3 : "int64[:]", '
+            MAPPING_PART_3 = 'test_mapping_p1 : "int64", test_mapping_p2 : "int64", test_mapping_p3 : "int64", '
+            MAPPING_PART_4 = 'global_arr_coeffs_x : "float64[:,:,:]", global_arr_coeffs_y : "float64[:,:,:]", global_arr_coeffs_z : "float64[:,:,:]", '
+        else:
+            MAPPING_PART_1 = ''
+            MAPPING_PART_2 = ''
+            MAPPING_PART_3 = ''
+            MAPPING_PART_4 = ''
+
+        if nv > 1:
+            tt1_str     = 'test_trial_1_u_{u_i}_v_{v_j}'    if nu > 1 else 'test_trial_1_u_v_{v_j}'
+            tt2_str     = 'test_trial_2_u_{u_i}_v_{v_j}'    if nu > 1 else 'test_trial_2_u_v_{v_j}'
+            tt3_str     = 'test_trial_3_u_{u_i}_v_{v_j}'    if nu > 1 else 'test_trial_3_u_v_{v_j}'
+            a3_str      = 'a3_u_{u_i}_v_{v_j}'              if nu > 1 else 'a3_u_v_{v_j}'
+            a2_str      = 'a2_u_{u_i}_v_{v_j}'              if nu > 1 else 'a2_u_v_{v_j}'
+            ct_str      = 'coupling_terms_u_{u_i}_v_{v_j}'  if nu > 1 else 'coupling_terms_u_v_{v_j}'
+            g_mat_str   = 'g_mat_u_{u_i}_v_{v_j}'           if nu > 1 else 'g_mat_u_v_{v_j}'
+        else:
+            tt1_str     = 'test_trial_1_u_{u_i}_v'      if nu > 1 else 'test_trial_1_u_v'
+            tt2_str     = 'test_trial_2_u_{u_i}_v'      if nu > 1 else 'test_trial_2_u_v'
+            tt3_str     = 'test_trial_3_u_{u_i}_v'      if nu > 1 else 'test_trial_3_u_v'
+            a3_str      = 'a3_u_{u_i}_v'                if nu > 1 else 'a3_u_v'
+            a2_str      = 'a2_u_{u_i}_v'                if nu > 1 else 'a2_u_v'
+            ct_str      = 'coupling_terms_u_{u_i}_v'    if nu > 1 else 'coupling_terms_u_v'
+            g_mat_str   = 'g_mat_u_{u_i}_v'             if nu > 1 else 'g_mat_u_v'
+        #------------------------- STRINGS BODY -------------------------
+        span_v_1_str    = 'span_v_{v_j}_1'  if nv > 1 else 'span_v_1'
+        test_v_p1_str   = 'test_v_{v_j}_p1' if nv > 1 else 'test_v_p1'
+
+        if nv > 1:
+            keys_2_str  = 'keys_2_u_{u_i}_v_{v_j}'  if nu > 1 else 'keys_2_u_v_{v_j}'
+            keys_3_str  = 'keys_3_u_{u_i}_v_{v_j}'  if nu > 1 else 'keys_3_u_v_{v_j}'
+            a1_str      = 'a1_u_{u_i}_v_{v_j}'      if nu > 1 else 'a1_u_v_{v_j}'
+        else:
+            keys_2_str  = 'keys_2_u_{u_i}_v'    if nu > 1 else 'keys_2_u_v'
+            keys_3_str  = 'keys_3_u_{u_i}_v'    if nu > 1 else 'keys_3_u_v'
+            a1_str      = 'a1_u_{u_i}_v'        if nu > 1 else 'a1_u_v'
+        #------------------------- STRINGS LOOP -------------------------
+        span_2_str          = 'span_v_{v_j}_2'          if nv > 1 else 'span_v_2'
+        span_3_str          = 'span_v_{v_j}_3'          if nv > 1 else 'span_v_3'
+        global_span_2_str   = 'global_span_v_{v_j}_2'   if nv > 1 else 'global_span_v_2'
+        global_span_3_str   = 'global_span_v_{v_j}_3'   if nv > 1 else 'global_span_v_3'
+
+        #-------------------------------------------------------------
+
+        #------------------------- MAKE HEAD -------------------------
+        SPAN            = ''
+        G_MAT           = ''
+
+        TT1             = '                    '
+        TT2             = '                    '
+        TT3             = '                    '
+        A3              = '                    '
+        A2              = '                    '
+        CT              = '                    '
+
+        for v_j in range(nv):
+            global_span_v = global_span_v_str.format(v_j=v_j)
+            SPAN += '                    '
+            for di in range(d):
+                SPAN += f'{global_span_v}{di+1} : "int64[:]", '
+            SPAN = SPAN[:-1] + '\n'
+        
+        for v_j in range(nv):
+            for u_i in range(nu):
+                    g_mat = g_mat_str.format(u_i=u_i, v_j=v_j)
+                    G_MAT += f'                    {g_mat} : "float64[:,:,:,:,:,:]",\n'
+
+        for block in blocks:
+            u_i = block[0].indices[0] if nu > 1 else 0
+            v_j = block[1].indices[0] if nv > 1 else 0
+
+            TT1 += tt1_str.format(u_i=u_i, v_j=v_j) + ' : "float64[:,:,:,:,:,:]", '
+            TT2 += tt2_str.format(u_i=u_i, v_j=v_j) + ' : "float64[:,:,:,:,:,:]", '
+            TT3 += tt3_str.format(u_i=u_i, v_j=v_j) + ' : "float64[:,:,:,:,:,:]", '
+            A3  += a3_str.format(u_i=u_i, v_j=v_j)  + ' : "float64[:,:,:]", '
+            A2  += a2_str.format(u_i=u_i, v_j=v_j)  + ' : "float64[:,:,:,:,:]", '
+            CT  += ct_str.format(u_i=u_i, v_j=v_j)  + ' : "float64[:,:,:,:,:]", '
+
+        TT1 += '\n'
+        TT2 += '\n'
+        TT3 += '\n'
+        A3  += '\n'
+        A2  += '\n'
+        CT   = CT[:-2]
+        NEW_ARGS = TT1 + TT2 + TT3 + A3 + A2 + CT
+
+        head = code_head.format(SPAN=SPAN, 
+                                G_MAT=G_MAT, 
+                                NEW_ARGS=NEW_ARGS,
+                                MAPPING_PART_1=MAPPING_PART_1,
+                                MAPPING_PART_2=MAPPING_PART_2,
+                                MAPPING_PART_3=MAPPING_PART_3,
+                                MAPPING_PART_4=MAPPING_PART_4)
+        
+        #------------------------- MAKE BODY -------------------------
+        A1              = ''
+        KEYS_2          = ''
+        KEYS_3          = ''
+        LOCAL_SPAN      = ''
+        TEMPS           = ''
+        COUPLING_TERMS  = ''
+
+        for block in blocks:
+            u_i = block[0].indices[0] if nu > 1 else 0
+            v_j = block[1].indices[0] if nv > 1 else 0
+            
+            keys2   = keys_2[block].copy()
+            keys3   = keys_3[block].copy()
+            keys2   = ','.join(str(i) for i in keys2.flatten())
+            keys3   = ','.join(str(i) for i in keys3.flatten())
+            KEYS2   = keys_2_str.format(u_i=u_i, v_j=v_j)
+            KEYS3   = keys_3_str.format(u_i=u_i, v_j=v_j)
+            KEYS_2  += f'    {KEYS2} = array([{keys2}])\n'
+            KEYS_3  += f'    {KEYS3} = array([{keys3}])\n'
+
+            test_v_p1, test_v_p2, test_v_p3 = test_v_p[v_j]
+            a1          = a1_str.format(u_i=u_i, v_j=v_j)
+            g_mat       = g_mat_str.format(u_i=u_i, v_j=v_j)
+            TEST_V_P1   = test_v_p1_str.format(v_j=v_j)
+            SPAN_V_1    = span_v_1_str.format(v_j=v_j)
+            A1          += f'        {a1} = {g_mat}[pad1 + {SPAN_V_1} - {test_v_p1} : pad1 + {SPAN_V_1} + 1, pad2 : pad2 + n_element_2 + {test_v_p2}, pad3 : pad3 + n_element_3 + {test_v_p3}, :, :, :]\n'
+
+        for v_j in range(nv):
+            local_span_v_1 = span_v_1_str.format(v_j=v_j)
+            global_span_v = global_span_v_str.format(v_j=v_j)
+            LOCAL_SPAN += f'        {local_span_v_1} = {global_span_v}1[k_1]\n'
+
+        for temp in temps:
+            TEMPS += f'                            {temp.lhs} = {temp.rhs}\n'
+        for block in blocks:
+            for stmt in ordered_stmts[block]:
+                COUPLING_TERMS += f'                            {stmt.lhs} = {stmt.rhs}\n'
+        
+        KEYS = KEYS_2 + KEYS_3
+
+        body = code_body.format(LOCAL_SPAN=LOCAL_SPAN, 
+                                KEYS=KEYS, 
+                                A1=A1, 
+                                TEMPS=TEMPS, 
+                                COUPLING_TERMS=COUPLING_TERMS)
+        
+        #------------------------- MAKE LOOP -------------------------
+        assembly_code = head + body
+        loop_str = ''
+
+        for block in blocks:
+            u_i = block[0].indices[0] if nu > 1 else 0
+            v_j = block[1].indices[0] if nv > 1 else 0
+
+            A1              = a1_str.format(u_i=u_i, v_j=v_j)
+            A2              = a2_str.format(u_i=u_i, v_j=v_j)
+            A3              = a3_str.format(u_i=u_i, v_j=v_j)
+            TEST_TRIAL_2    = tt2_str.format(u_i=u_i, v_j=v_j)
+            TEST_TRIAL_3    = tt3_str.format(u_i=u_i, v_j=v_j)
+            SPAN_2          = span_2_str.format(u_i=u_i, v_j=v_j)
+            SPAN_3          = span_3_str.format(u_i=u_i, v_j=v_j)
+            GLOBAL_SPAN_2   = global_span_2_str.format(u_i=u_i, v_j=v_j)
+            GLOBAL_SPAN_3   = global_span_3_str.format(u_i=u_i, v_j=v_j)  
+            KEYS_3          = keys_3_str.format(u_i=u_i, v_j=v_j)
+            KEYS_2          = keys_2_str.format(u_i=u_i, v_j=v_j)
+            COUPLING_TERMS  = ct_str.format(u_i=u_i, v_j=v_j)
+            
+            TEST_V_P1, TEST_V_P2, TEST_V_P3     = test_v_p[v_j]
+            TRIAL_U_P1, TRIAL_U_P2, TRIAL_U_P3  = trial_u_p[u_i]
+            MAX_P1 = max(TEST_V_P1, TRIAL_U_P1)
+            MAX_P2 = max(TEST_V_P2, TRIAL_U_P2)
+            MAX_P3 = max(TEST_V_P3, TRIAL_U_P3)
+            NEXPR  = len(ordered_stmts[block])
+
+            keys1 = keys_1[block]
+            TEST_TRIAL_1    = tt1_str.format(u_i=u_i, v_j=v_j)
+            A2_TEMP = " + ".join([f"{TEST_TRIAL_1}[k_1, q_1, i_1, j_1, {keys1[e][0]}, {keys1[e][1]}] * {A2}[{e},:,:,:,:]" for e in range(NEXPR)])
+
+            loop = code_loop.format(A1=A1,
+                                    A2=A2,
+                                    A3=A3,
+                                    TEST_TRIAL_2=TEST_TRIAL_2,
+                                    TEST_TRIAL_3=TEST_TRIAL_3,
+                                    SPAN_2=SPAN_2,
+                                    SPAN_3=SPAN_3,
+                                    GLOBAL_SPAN_2=GLOBAL_SPAN_2,
+                                    GLOBAL_SPAN_3=GLOBAL_SPAN_3,
+                                    KEYS_2=KEYS_2,
+                                    KEYS_3=KEYS_3,
+                                    COUPLING_TERMS=COUPLING_TERMS,
+                                    TEST_V_P1=TEST_V_P1,
+                                    TEST_V_P2=TEST_V_P2,
+                                    TEST_V_P3=TEST_V_P3,
+                                    TRIAL_U_P1=TRIAL_U_P1,
+                                    TRIAL_U_P2=TRIAL_U_P2,
+                                    TRIAL_U_P3=TRIAL_U_P3,
+                                    MAX_P1=MAX_P1,
+                                    MAX_P2=MAX_P2,
+                                    MAX_P3=MAX_P3,
+                                    NEXPR=NEXPR,
+                                    A2_TEMP=A2_TEMP)
+            
+            loop_str += loop
+
+        assembly_code += loop_str
+        assembly_code += '\n    return\n'
+        
+        #------------------------- MAKE FILE -------------------------
+        filename = '__psydac__/assemble.py'
+        f = open(filename, 'w')
+        f.writelines(assembly_code)
+        f.close()
+
+    def read_BilinearForm(self):
+        
+        a = self.expr
+        verbose = False
+
+        domain = a.domain
+        mapping_option = 'Bspline' if isinstance(self._mapping, SplineMapping) else None
+
+        tests  = a.test_functions
+        trials = a.trial_functions
+        if verbose: print(f'In readBF: tests: {tests}')
+        if verbose: print(f'In readBF: tests: {trials}')
+
+        texpr  = TerminalExpr(a, domain)[0]
+        if verbose: print(f'In readBF: texpr: {texpr}')
+
+        atoms_types = (ScalarFunction, VectorFunction, IndexedVectorFunction)
+        atoms       = _atomic(texpr, cls=atoms_types+_logical_partial_derivatives)
+        if verbose: print(f'In readBF: atoms: {atoms}')
+
+        test_atoms  = {}
+        for v in tests:
+            if isinstance(v, VectorFunction):
+                for i in range(domain.dim):
+                    test_atoms[v[i]] = []
+            else:
+                test_atoms[v] = []
+
+        trial_atoms = {}
+        for u in trials:
+            if isinstance(u, VectorFunction):
+                for i in range(domain.dim):
+                    trial_atoms[u[i]] = []
+            else:
+                trial_atoms[u] = []
+
+        if verbose: print(f'In readBF: test_atoms: {test_atoms}')
+        if verbose: print(f'In readBF: trial_atoms: {trial_atoms}')
+
+        # u in trials is not get_atom_logical_derivative(a) for a in atoms and atom in trials
+
+        for a in atoms:
+            atom = get_atom_logical_derivatives(a)
+            if hasattr(atom, 'base'):
+                if verbose: print(f'In readBF: atom.__class__: {atom.__class__} --- atom.base.__class__: {atom.base.__class__}')
+            else:
+                if verbose: print(f'In readBF: atom.__class__: {atom.__class__}')
+            if not ((isinstance(atom, Indexed) and isinstance(atom.base, Mapping)) or (isinstance(atom, IndexedVectorFunction))):
+                if atom in tests:
+                    test_atoms[tests[0]].append(a) # apparently previously atom instead of tests[0]
+                elif atom in trials:
+                    trial_atoms[trials[0]].append(a) # apparently previously atom instead of trials[0]
+                else:
+                    raise NotImplementedError(f"atoms of type {str(a)} are not supported")
+            elif isinstance(atom, IndexedVectorFunction):
+                if atom.base in tests:
+                    for vi in test_atoms:
+                        if vi == atom:
+                            test_atoms[vi].append(a)
+                            break
+                elif atom.base in trials:
+                    for ui in trial_atoms:
+                        if ui == atom:
+                            trial_atoms[ui].append(a)
+                            break
+                else:
+                    raise NotImplementedError(f"atoms of type {str(a)} are not supported")
+            if verbose: print(f'In readBF: test_atoms: {test_atoms}')
+            if verbose: print(f'In readBF: trial_atoms: {trial_atoms}')
+
+        syme = False
+        if syme:
+            from symengine import sympify as syme_sympify
+            sym_test_atoms  = {k:[syme_sympify(SymbolicExpr(ai)) for ai in a] for k,a in test_atoms.items()}
+            sym_trial_atoms = {k:[syme_sympify(SymbolicExpr(ai)) for ai in a] for k,a in trial_atoms.items()}
+            sym_expr        = syme_sympify(SymbolicExpr(texpr.expr))
+        else:
+            sym_test_atoms  = {k:[SymbolicExpr(ai) for ai in a] for k,a in test_atoms.items()}
+            sym_trial_atoms = {k:[SymbolicExpr(ai) for ai in a] for k,a in trial_atoms.items()}
+            sym_expr        = SymbolicExpr(texpr.expr)
+        if verbose: print(f'In readBF: sym_test_atoms: {sym_test_atoms}')
+        if verbose: print(f'In readBF: sym_trial_atoms: {sym_trial_atoms}')
+        if verbose: print(f'In readBF: sym_expr: {sym_expr}')
+
+        trials_subs = {ui:0 for u in sym_trial_atoms for ui in sym_trial_atoms[u]}
+        tests_subs  = {vi:0 for v in sym_test_atoms  for vi in sym_test_atoms[v]}
+        sub_exprs   = {}
+
+        for u in sym_trial_atoms:
+            for v in sym_test_atoms:
+                if isinstance(u, IndexedVectorFunction) and isinstance(v, IndexedVectorFunction):
+                    sub_expr = sym_expr[v.indices[0], u.indices[0]]
+                elif isinstance(u, ScalarFunction) and isinstance(v, ScalarFunction):
+                    sub_expr = sym_expr
+                elif isinstance(u, ScalarFunction) and isinstance(v, IndexedVectorFunction):
+                    sub_expr = sym_expr[v.indices[0]]
+                elif isinstance(u, IndexedVectorFunction) and isinstance(v, ScalarFunction):
+                    sub_expr = sym_expr[u.indices[0]]
+                for ui,sui in zip(trial_atoms[u], sym_trial_atoms[u]):
+                    trcp = trials_subs.copy()
+                    trcp[sui] = 1
+                    newsub_expr = sub_expr.subs(trcp)
+                    for vi,svi in zip(test_atoms[v],sym_test_atoms[v]):
+                        tcp = tests_subs.copy()
+                        tcp[svi] = 1
+                        expr = newsub_expr.subs(tcp)
+                        sub_exprs[ui,vi] = sympify(expr)
+
+        temps, rhs = cse_main.cse(sub_exprs.values(), symbols=cse_main.numbered_symbols(prefix=f'temp_'))
+
+        element_indices    = [Symbol('k_{}'.format(i)) for i in range(2,4)]
+        quadrature_indices = [Symbol('q_{}'.format(i)) for i in range(2,4)]
+        indices = tuple(j for i in zip(element_indices, quadrature_indices) for j in i)
+
+        ordered_stmts = {}
+        ordered_sub_exprs_keys = {}
+        for key in sub_exprs.keys():
+            u_i, v_j = [get_atom_logical_derivatives(atom) for atom in key]
+            ordered_stmts[u_i, v_j] = []
+            ordered_sub_exprs_keys[u_i, v_j] = []
+        blocks = ordered_stmts.keys()
+
+        block_list          = list(blocks)
+        trial_components    = [block[0] for block in block_list]
+        test_components     = [block[1] for block in block_list]
+        nu                  = len(set(trial_components))
+        nv                  = len(set(test_components))
+
+        if nv > 1:
+            ct_str = 'coupling_terms_u_{u_i}_v_{v_j}' if nu > 1 else 'coupling_terms_u_v_{v_j}'
+        else:
+            ct_str = 'coupling_terms_u_{u_i}_v' if nu > 1 else 'coupling_terms_u_v'
+
+        lhs = {}
+        for block in blocks:
+            u_i = get_atom_logical_derivatives(block[0]).indices[0] if nu > 1 else 0
+            v_j = get_atom_logical_derivatives(block[1]).indices[0] if nv > 1 else 0
+            ct = ct_str.format(u_i=u_i, v_j=v_j)
+            lhs[block] = IndexedBase(f'{ct}')
+        
+        counts = {block:0 for block in blocks}
+
+        for r,key in zip(rhs, sub_exprs.keys()):
+            u_i, v_j = [get_atom_logical_derivatives(atom) for atom in key]
+            count = counts[u_i, v_j]
+            counts[u_i, v_j] += 1
+            ordered_stmts[u_i, v_j].append(Assign(lhs[u_i, v_j][(*indices, count)], r))
+            ordered_sub_exprs_keys[u_i, v_j].append(key)
+
+        temps = tuple(Assign(a,b) for a,b in temps)
+
+        return temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option
+
+    def construct_arguments_generate_assembly_file(self):
+        """
+        Collect the arguments used in the assembly method.
+
+        Parameters # no openmp support for now
+        ----------
+        #with_openmp : bool
+        # If set to True we collect some extra arguments used in the assembly method
+
+        Returns
+        -------
+        
+        args: tuple
+         The arguments passed to the assembly method.
+
+        threads_args: None # for now, used to be tuple
+          #Extra arguments used in the assembly method in case with_openmp=True.
+
+        """
+        verbose = False
+
+        temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option = self.read_BilinearForm()
+
+        blocks              = ordered_stmts.keys()
+        block_list          = list(blocks)
+        trial_components    = [block[0] for block in block_list]
+        test_components     = [block[1] for block in block_list]
+        trial_dim           = len(set(trial_components))
+        test_dim            = len(set(test_components))
+        
+        if verbose: print(f'blocks: {blocks}')
+        if verbose: print(f'block_list: {block_list}')
+        if verbose: print(f'trial_components: {trial_components}')
+        if verbose: print(f'test_components: {test_components}')
+        if verbose: print(f'trial_dim: {trial_dim}')
+        if verbose: print(f'test_dim: {test_dim}')
+
+        d = 3
+        assert d == 3 # dim 3 assembly method
+        nu = trial_dim # dim of trial function; 1 (scalar) or 3 (vector)
+        nv = test_dim  # dim of trial function; 1 (scalar) or 3 (vector)
+
+        test_basis, test_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
+        trial_basis, trial_degrees, pads      = construct_trial_space_arguments(self.trial_basis)
+        n_elements, quads, quad_degrees       = construct_quad_grids_arguments(self.grid[0], use_weights=False)
+
+        pads = self.test_basis.space.vector_space.pads
+
+        n_element_1, n_element_2, n_element_3   = n_elements
+        k1, k2, k3                              = quad_degrees
+
+        test_v_p        = {v:test_degrees[d*v:d*(v+1)]  for v in range(nv)}
+        trial_u_p       = {u:trial_degrees[d*u:d*(u+1)] for u in range(nu)}
+        global_basis_v  = {v:test_basis[d*v:d*(v+1)]    for v in range(nv)}
+        global_basis_u  = {u:trial_basis[d*u:d*(u+1)]   for u in range(nu)}
+
+        assert len(self.grid) == 1, f'len(self.grid) is supposed to be 1 for now'
+
+        # When self._target is an Interface domain len(self._grid) == 2
+        # where grid contains the QuadratureGrid of both sides of the interface
+        if self.mapping:
+
+            map_coeffs = [[e._coeffs._data for e in self.mapping._fields]]
+            spaces     = [self.mapping._fields[0].space]
+            map_degree = [sp.degree for sp in spaces]
+            map_span   = [[q.spans - s for q,s in zip(sp.get_assembly_grids(*self.nquads), sp.vector_space.starts)] for sp in spaces]
+            map_basis  = [[q.basis for q in sp.get_assembly_grids(*self.nquads)] for sp in spaces]
+            points     = [g.points for g in self.grid]
+            weights    = [self.mapping.weights_field.coeffs._data] if self.is_rational_mapping else []
+
+            for i in range(len(self.grid)):
+                axis   = self.grid[i].axis
+                if axis is not None:
+                    raise ValueError(f'axis is supposed to be None for now!')
+
+            map_degree = flatten(map_degree)
+            map_span   = flatten(map_span)
+            map_basis  = flatten(map_basis)
+            points     = flatten(points)
+            mapping = [*map_coeffs[0], *weights]
+        else:
+
+            mapping    = []
+            map_degree = []
+            map_span   = []
+            map_basis  = []
+
+        #--------------------
+
+        x1_trial_keys = {block:[] for block in blocks}
+        x1_test_keys  = {block:[] for block in blocks}
+        x2_trial_keys = {block:[] for block in blocks}
+        x2_test_keys  = {block:[] for block in blocks}
+        x3_trial_keys = {block:[] for block in blocks}
+        x3_test_keys  = {block:[] for block in blocks}
+
+        for block in blocks:
+            for alpha, beta in ordered_sub_exprs_keys[block]:
+                x1_trial_keys[block].append(get_index_logical_derivatives(alpha)['x1'])
+                x1_test_keys [block].append(get_index_logical_derivatives(beta) ['x1'])
+                x2_trial_keys[block].append(get_index_logical_derivatives(alpha)['x2'])
+                x2_test_keys [block].append(get_index_logical_derivatives(beta) ['x2'])
+                x3_trial_keys[block].append(get_index_logical_derivatives(alpha)['x3'])
+                x3_test_keys [block].append(get_index_logical_derivatives(beta) ['x3'])
+
+        a3 = {}
+        a2 = {}
+        coupling_terms = {}
+        test_trial_1s = {}
+        test_trial_2s = {}
+        test_trial_3s = {}
+        keys_1 = {}
+        keys_2 = {}
+        keys_3 = {}
+
+        for block in blocks:
+            u_i = block[0].indices[0] if nu > 1 else 0
+            v_j = block[1].indices[0] if nv > 1 else 0
+            
+            keys_1[block] = np.array([(alpha_1, beta_1) for alpha_1, beta_1 in zip(x1_trial_keys[block], x1_test_keys[block])])
+            keys_2[block] = np.array([(alpha_2, beta_2) for alpha_2, beta_2 in zip(x2_trial_keys[block], x2_test_keys[block])])
+            keys_3[block] = np.array([(alpha_3, beta_3) for alpha_3, beta_3 in zip(x3_trial_keys[block], x3_test_keys[block])])
+
+            global_basis_u_1, global_basis_u_2, global_basis_u_3 = global_basis_u[u_i]
+            global_basis_v_1, global_basis_v_2, global_basis_v_3 = global_basis_v[v_j]
+
+            trial_u_p1, trial_u_p2, trial_u_p3 = trial_u_p[u_i]
+            test_v_p1,  test_v_p2,  test_v_p3  = test_v_p [v_j]
+            
+            max_p_2 = max(test_v_p2, trial_u_p2)
+            max_p_3 = max(test_v_p3, trial_u_p3)
+
+            n_expr = len(ordered_stmts[block])
+
+            test_trial_1 = np.zeros((n_element_1, k1, test_v_p1 + 1, trial_u_p1 + 1, 2, 2), dtype='float64')
+            test_trial_2 = np.zeros((n_element_2, k2, test_v_p2 + 1, trial_u_p2 + 1, 2, 2), dtype='float64')
+            test_trial_3 = np.zeros((n_element_3, k3, test_v_p3 + 1, trial_u_p3 + 1, 2, 2), dtype='float64')
+
+            for k_1 in range(n_element_1):
+                for q_1 in range(k1):
+                    for i_1 in range(test_v_p1 + 1):
+                        for j_1 in range(trial_u_p1 + 1):
+                            trial   = global_basis_u_1[k_1, j_1, :, q_1]
+                            test    = global_basis_v_1[k_1, i_1, :, q_1]
+                            for alpha_1 in range(2):
+                                for beta_1 in range(2):
+                                    test_trial_1[k_1, q_1, i_1, j_1, alpha_1, beta_1] = trial[alpha_1] * test[beta_1]
+
+            for k_2 in range(n_element_2):
+                for q_2 in range(k2):
+                    for i_2 in range(test_v_p2 + 1):
+                        for j_2 in range(trial_u_p2 + 1):
+                            trial   = global_basis_u_2[k_2, j_2, :, q_2]
+                            test    = global_basis_v_2[k_2, i_2, :, q_2]
+                            for alpha_2 in range(2):
+                                for beta_2 in range(2):
+                                    test_trial_2[k_2, q_2, i_2, j_2, alpha_2, beta_2] = trial[alpha_2] * test[beta_2]
+
+            for k_3 in range(n_element_3):
+                for q_3 in range(k3):
+                    for i_3 in range(test_v_p3 + 1):
+                        for j_3 in range(trial_u_p3 + 1):
+                            trial   = global_basis_u_3[k_3, j_3, :, q_3]
+                            test    = global_basis_v_3[k_3, i_3, :, q_3]
+                            for alpha_3 in range(2):
+                                for beta_3 in range(2):
+                                    test_trial_3[k_3, q_3, i_3, j_3, alpha_3, beta_3] = trial[alpha_3] * test[beta_3]
+
+            test_trial_1s[block] = test_trial_1
+            test_trial_2s[block] = test_trial_2
+            test_trial_3s[block] = test_trial_3
+
+            a3[block] = np.zeros((n_expr, n_element_3 + test_v_p3, 2 * max_p_3 + 1), dtype='float64')
+            a2[block] = np.zeros((n_expr, n_element_2 + test_v_p2, n_element_3 + test_v_p3, 2 * max_p_2 + 1, 2 * max_p_3 + 1), dtype='float64')
+            coupling_terms[block] = np.zeros((n_element_2, k2, n_element_3, k3, n_expr), dtype='float64')
+
+        new_args = (*list(test_trial_1s.values()), 
+                    *list(test_trial_2s.values()), 
+                    *list(test_trial_3s.values()), 
+                    *list(a3.values()),
+                    *list(a2.values()),
+                    *list(coupling_terms.values()))
+        
+        args = (*map_basis, *spans, *map_span, *quads, *map_degree, *n_elements, *quad_degrees, *pads, *mapping, *self._global_matrices,
+                *new_args)
+        
+        threads_args = ()
+
+        args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
+        threads_args = tuple(np.int64(a) if isinstance(a, int) else a for a in threads_args)
+
+        self.make_file(temps, ordered_stmts, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option=mapping_option)
+        from __psydac__.assemble import assemble_matrix
+        from pyccel.epyccel import epyccel
+        new_func = epyccel(assemble_matrix, language='fortran')
+        self._func = new_func
+
+        return args, threads_args
+        
     def construct_arguments(self, with_openmp=False):
         """
         Collect the arguments used in the assembly method.
@@ -781,8 +1539,9 @@ class DiscreteBilinearForm(BasicDiscrete):
             shape = expr.shape
             for k1 in range(shape[0]):
                 for k2 in range(shape[1]):
-                    if expr[k1,k2].is_zero:
-                        continue
+                    if not self._remove_is_zero_statement:
+                        if expr[k1,k2].is_zero:
+                            continue
 
                     if isinstance(test_fem_space, VectorFemSpace):
                         ts_space = test_fem_space.get_refined_space(ncells).vector_space.spaces[k1]
