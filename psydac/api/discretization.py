@@ -536,7 +536,17 @@ def discretize(a, *args, **kwargs):
         assert isinstance(domain_h, Geometry)
         domain  = domain_h.domain
         dim     = domain.dim
-        if ((isinstance(a, sym_BilinearForm)) and (dim == 3)):
+
+        backend = kwargs.get('backend')# or None
+        #print(f'backend: {backend}')
+        assembly_backend = kwargs.get('assembly_backend')# or None
+        #print(f'assembly_backend: {assembly_backend}')
+        assembly_backend = backend or assembly_backend
+        #print(f'assembly_backend: {assembly_backend}')
+        openmp = False if assembly_backend is None else assembly_backend.get('openmp')
+        #print(f'openmp: {openmp}')
+
+        if (((isinstance(a, sym_BilinearForm)) and (dim == 3))) and not openmp:
             kwargs['new_assembly'] = True
         mapping = domain_h.domain.mapping
         kwargs['symbolic_mapping'] = mapping

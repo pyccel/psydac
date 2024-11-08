@@ -963,6 +963,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         assembly_code += '\n    return\n'
         
         #------------------------- MAKE FILE -------------------------
+        import os
+        if not os.path.isdir('__psydac__'):
+            os.makedirs('__psydac__')
         filename = '__psydac__/assemble.py'
         f = open(filename, 'w')
         f.writelines(assembly_code)
@@ -1323,6 +1326,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         threads_args = tuple(np.int64(a) if isinstance(a, int) else a for a in threads_args)
 
         self.make_file(temps, ordered_stmts, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option=mapping_option)
+        #from __test__.__psydac__.assemble import assemble_matrix
         from __psydac__.assemble import assemble_matrix
         from pyccel.epyccel import epyccel
         new_func = epyccel(assemble_matrix, language='fortran')
