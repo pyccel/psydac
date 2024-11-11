@@ -435,19 +435,17 @@ class DiscreteBilinearForm(BasicDiscrete):
         )
 
         # temporary feature that allows to choose either old or new assembly to verify whether the new assembly works
-        assert isinstance(new_assembly, bool)
+        assert ((isinstance(new_assembly, bool)) or (new_assembly == 'test'))
         self._new_assembly = new_assembly
 
         # Allocate the output matrix, if needed
-        # if self._remove_is_zero_statement, additional g_mats will be generated that correspond to "0 BilinearForms"
-        self._remove_is_zero_statement = True if self._new_assembly else False
         self.allocate_matrices(linalg_backend)
 
         # Determine whether OpenMP instructions were generated
         with_openmp = (assembly_backend['name'] == 'pyccel' and assembly_backend['openmp']) if assembly_backend else False
 
         # Construct the arguments to be passed to the assemble() function, which is stored in self._func
-        if self._new_assembly:
+        if self._new_assembly == True:
             # no openmp support yet
             self._args, self._threads_args = self.construct_arguments_generate_assembly_file()
         else:
@@ -821,15 +819,14 @@ class DiscreteBilinearForm(BasicDiscrete):
             for di in range(d):
                 SPAN += f'{global_span_v}{di+1} : "int64[:]", '
             SPAN = SPAN[:-1] + '\n'
-        
-        for v_j in range(nv):
-            for u_i in range(nu):
-                    g_mat = g_mat_str.format(u_i=u_i, v_j=v_j)
-                    G_MAT += f'                    {g_mat} : "float64[:,:,:,:,:,:]",\n'
 
         for block in blocks:
             u_i = block[0].indices[0] if nu > 1 else 0
             v_j = block[1].indices[0] if nv > 1 else 0
+
+            # reverse order intended
+            g_mat = g_mat_str.format(u_i=v_j, v_j=u_i)
+            G_MAT += f'                    {g_mat} : "float64[:,:,:,:,:,:]",\n'
 
             TT1 += tt1_str.format(u_i=u_i, v_j=v_j) + ' : "float64[:,:,:,:,:,:]", '
             TT2 += tt2_str.format(u_i=u_i, v_j=v_j) + ' : "float64[:,:,:,:,:,:]", '
@@ -1077,7 +1074,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                         tcp = tests_subs.copy()
                         tcp[svi] = 1
                         expr = newsub_expr.subs(tcp)
-                        sub_exprs[ui,vi] = sympify(expr)
+                        if not expr.is_zero:
+                            sub_exprs[ui,vi] = sympify(expr)
 
         temps, rhs = cse_main.cse(sub_exprs.values(), symbols=cse_main.numbered_symbols(prefix=f'temp_'))
 
@@ -1555,8 +1553,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             shape = expr.shape
             for k1 in range(shape[0]):
                 for k2 in range(shape[1]):
-                    if not self._remove_is_zero_statement:
-                        if expr[k1,k2].is_zero:
+                    if expr[k1,k2].is_zero:
                             continue
 
                     if isinstance(test_fem_space, VectorFemSpace):

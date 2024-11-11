@@ -547,7 +547,8 @@ def discretize(a, *args, **kwargs):
         #print(f'openmp: {openmp}')
 
         if (((isinstance(a, sym_BilinearForm)) and (dim == 3))) and not openmp:
-            kwargs['new_assembly'] = True
+            if not (kwargs.get('new_assembly') == 'test'): # enable test cases
+                kwargs['new_assembly'] = True
         mapping = domain_h.domain.mapping
         kwargs['symbolic_mapping'] = mapping
 
