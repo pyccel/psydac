@@ -1,5 +1,11 @@
 # Welcome to PSYDAC
 
+This is a fork of psydac which contains functionality needed for struphy which should be kept close to the original code.
+
+Over time, features from psydac-for-struphy will be merged with psydac/devel.
+
+Eventually, the goals is that struphy uses the real psydac/devel instead of this fork.
+
 [![devel_tests](https://github.com/pyccel/psydac/actions/workflows/continuous-integration.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/continuous-integration.yml) [![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
 
 **PSYDAC** is a Python 3 Library for isogeometric analysis.
