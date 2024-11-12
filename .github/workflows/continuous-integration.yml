@@ -205,7 +205,9 @@ jobs:
         working-directory: ./struphy
         run: |
           # Replace the Psydac dependency with a local path reference
-          sed -i "s|psydac @ git+https://github.com/pyccel/psydac.git@struphy-2024|psydac @ file://${GITHUB_WORKSPACE}|" pyproject.toml
+          cat pyproject.toml
+          # sed -i "s|psydac @ git+https://github.com/pyccel/psydac.git@struphy-2024|psydac @ file://${GITHUB_WORKSPACE}|" pyproject.toml
+          sed -i.bak "s|psydac @ git+https://github.com/pyccel/psydac.git@struphy-2024|psydac @ file://${GITHUB_WORKSPACE}|" pyproject.toml
           cat pyproject.toml
 
       - name: Install StruPhy with local Psydac
