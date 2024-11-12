@@ -1765,7 +1765,7 @@ class StencilMatrix(LinearOperator):
         return args
 
     # ...
-    def set_backend(self, backend, precompiled):
+    def set_backend(self, backend, precompiled=False):
         '''
         Define which kernels are called when using .dot() and .transpose()
         
@@ -1775,7 +1775,7 @@ class StencilMatrix(LinearOperator):
             Psydac backend option.
             
         precompiled : bool
-            Whether to use precompiled kernels.
+            Whether to use precompiled kernels. Default: False.
         '''
         from psydac.api.ast.linalg import LinearOperatorDot
         self._backend = backend
