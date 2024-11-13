@@ -59,14 +59,14 @@ def test_stencil_matrix_1d_serial_init(dtype, n1, p1, s1, P1=True):
 
     # Create a vector space V and a matrix M from V to V
     V = StencilVectorSpace(cart, dtype=dtype)
-    M = StencilMatrix(V, V)
+    M = StencilMatrix(V, V, precompiled=True)
 
     # Check properties of this matrix
     assert M.domain == V
     assert M.codomain == V
     assert M.dtype == dtype
     assert M.pads == (p1,)
-    assert M.backend == None
+    assert M.backend == PSYDAC_BACKEND_PYTHON
     assert M._data.shape == (n1 + 2 * p1 * s1, 1 + 2 * p1)
     assert M.shape == (n1 , n1 )
 
@@ -89,14 +89,14 @@ def test_stencil_matrix_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P
 
     # Create a vector space V and a matrix M from V to V
     V = StencilVectorSpace(cart, dtype=dtype)
-    M = StencilMatrix(V, V)
+    M = StencilMatrix(V, V, precompiled=True)
 
     # Check properties of this matrix
     assert M.domain == V
     assert M.codomain == V
     assert M.dtype == dtype
     assert M.pads == (p1, p2)
-    assert M.backend == None
+    assert M.backend == PSYDAC_BACKEND_PYTHON
     assert M._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, 1 + 2 * p1, 1 + 2 * p2)
     assert M.shape == (n1 * n2, n1 * n2)
 
@@ -129,7 +129,7 @@ def test_stencil_matrix_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3
     assert M.codomain == V
     assert M.dtype == dtype
     assert M.pads == (p1, p2, p3)
-    assert M.backend == None
+    assert M.backend == PSYDAC_BACKEND_PYTHON
     assert M._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, n3+2*p3*s3, 1 + 2 * p1, 1 + 2 * p2, 1+2*p3)
     assert M.shape == (n1 * n2 * n3, n1 * n2 * n3)
 
@@ -302,7 +302,7 @@ def test_stencil_matrix_2d_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False
         assert m.codomain == V
         assert m.dtype == dtype
         assert m.pads == (p1, p2)
-        assert m.backend == None
+        assert M.backend == PSYDAC_BACKEND_PYTHON
         assert m._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, 1 + 2 * p1, 1 + 2 * p2)
         assert m.shape == (n1 * n2, n1 * n2)
         assert np.allclose(m._data, m_exa)
