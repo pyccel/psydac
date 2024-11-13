@@ -456,7 +456,7 @@ class TensorFemSpace(FemSpace):
                 npts_per_cell = (npts_per_cell,) * self.ldim
             for i in range(self.ldim):
                 ncells_i = len(self.breaks[i]) - 1
-                grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
+                grid[i] = np.reshape(grid[i], (ncells_i, npts_per_cell[i]))
             out_fields = self.eval_fields_regular_tensor_grid(grid, *fields, weights=weights, overlap=overlap)
             # return a list
             return [np.ascontiguousarray(out_fields[..., i]) for i in range(len(fields))]

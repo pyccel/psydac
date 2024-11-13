@@ -243,7 +243,7 @@ class SplineMapping(BasicCallableMapping):
                 npts_per_cell = (npts_per_cell,) * self.ldim
             for i in range(self.ldim):
                 ncells_i = len(self.space.breaks[i]) - 1
-                grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
+                grid[i] = np.reshape(grid[i], (ncells_i, npts_per_cell[i]))
             jac_mats = self.jac_mat_regular_tensor_grid(grid, overlap=overlap)
             return jac_mats
 
@@ -413,7 +413,7 @@ class SplineMapping(BasicCallableMapping):
                 npts_per_cell = (npts_per_cell,) * self.ldim
             for i in range(self.ldim):
                 ncells_i = len(self.space.breaks[i]) - 1
-                grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
+                grid[i] = np.reshape(grid[i], (ncells_i, npts_per_cell[i]))
             inv_jac_mats = self.inv_jac_mat_regular_tensor_grid(grid, overlap=overlap)
             return inv_jac_mats
 
@@ -584,7 +584,7 @@ class SplineMapping(BasicCallableMapping):
                 npts_per_cell = (npts_per_cell,) * self.ldim
             for i in range(self.ldim):
                 ncells_i = len(self.space.breaks[i]) - 1
-                grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
+                grid[i] = np.reshape(grid[i], (ncells_i, npts_per_cell[i]))
             jac_dets = self.jac_det_regular_tensor_grid(grid, overlap=overlap)
             return jac_dets
 
