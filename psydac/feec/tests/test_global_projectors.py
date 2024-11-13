@@ -220,8 +220,8 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity):
     P0, P1, P2, PX = derham_h.projectors()
 
     # Function to project
-    f1  = lambda xi1, xi2 : np.sin( TWO_PI * (xi1 + 0.5) ) * np.cos( xi2 + 0.3 )
-    f2  = lambda xi1, xi2 : np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2 )
+    f1  = lambda xi1, xi2 : np.sin( TWO_PI*(xi1 + 0.5) ) * np.cos( TWO_PI*(xi2 + 0.3) )
+    f2  = lambda xi1, xi2 : np.cos( TWO_PI*(xi1 + 0.5) ) * np.sin( TWO_PI*(xi2 - 0.2) )
 
     # Compute the projection
     u0 = P0(f1)
