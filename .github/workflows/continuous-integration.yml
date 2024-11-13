@@ -220,7 +220,7 @@ jobs:
       - name: Install StruPhy with local Psydac
         working-directory: ./struphy
         run: |
-          python -m pip install .
+          python -m pip install -e .
           struphy -h
           struphy compile -y
 
