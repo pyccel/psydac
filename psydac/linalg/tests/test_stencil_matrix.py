@@ -2147,8 +2147,8 @@ def test_stencil_matrix_2d_serial_backend_dot_3(dtype, n1, n2, p1, p2, s1, s2, P
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parametrize('backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL])
-@pytest.mark.parametrize('backend2', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend', [PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL])
+@pytest.mark.parametrize('backend2', [PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL])
 def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, P1, P2, backend, backend2):
     # Create domain decomposition
     D = DomainDecomposition([n1 - 1, n2 - 1], periods=[P1, P2])
@@ -2161,7 +2161,7 @@ def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, 
 
     # Create vector space, stencil matrix, and stencil vector
     V = StencilVectorSpace(cart, dtype=dtype)
-    M = StencilMatrix(V, V, pads=(p1 - 1, p2 - 1), backend=backend)
+    M = StencilMatrix(V, V, pads=(p1 - 1, p2 - 1), backend=backend, precompiled=True)
     x = StencilVector(V)
 
     # Fill in stencil matrix values based on diagonal index (periodic!)
@@ -2180,7 +2180,7 @@ def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, 
 
     assert M.backend is backend
     M.dot(x)
-    M.set_backend(backend2)
+    M.set_backend(backend2, precompiled=True)
 
     assert M.backend is backend2
     M.dot(x)
