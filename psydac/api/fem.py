@@ -687,7 +687,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         return args, threads_args
 
-    def allocate_matrices(self, backend=None):
+    def allocate_matrices(self, backend=None, precompiled=False):
         """
         Allocate the global matrices used in the assembly method.
         In this method we allocate only the matrices that are computed in the self._target domain,
@@ -902,9 +902,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         # Set the backend of our matrices if given
         if backend is not None and is_broken:
             for mat in global_mats.values():
-                mat.set_backend(backend)
+                mat.set_backend(backend,precompiled)
         elif backend is not None:
-            self._matrix.set_backend(backend)
+            self._matrix.set_backend(backend,precompiled)
 
         self._global_matrices = [M._data for M in extract_stencil_mats(global_mats.values())]
 
