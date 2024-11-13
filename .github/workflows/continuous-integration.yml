@@ -16,6 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest ]
+        # TODO: Make sure that struphy works with python > 3.11, keep the lower bound to 3.10
         #python-version: [ 3.9, '3.10', '3.11', '3.12' ]
         python-version: [ '3.11' ]
         isMerge:
@@ -204,31 +205,38 @@ jobs:
               export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
               export OMP_NUM_THREADS=2
               python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc"
+      - name: Set up environment variables
+        run: |
+          echo "PSYDAC_DIR=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+          echo "STRUPHY_DIR=$GITHUB_WORKSPACE/struphy" >> $GITHUB_ENV
 
       - name: Clone struphy from GitLab (struphy-with-psydac-devel branch)
         run: |
-          git clone --branch struphy-with-psydac-devel https://gitlab.mpcdf.mpg.de/struphy/struphy.git
-
-      - name: Update struphy to use the current Psydac branch
-        working-directory: ./struphy
+          # TODO: Use the struphy devel branch here when it's ready
+          git clone --branch struphy-with-psydac-devel https://gitlab.mpcdf.mpg.de/struphy/struphy.git $STRUPHY_DIR
+      
+      - name: Install struphy without dependencies
+        working-directory: ${{ env.STRUPHY_DIR }}
         run: |
-          # Replace the Psydac dependency with a local path reference
-          cat pyproject.toml
-          # sed -i "s|psydac @ git+https://github.com/pyccel/psydac.git@struphy-2024|psydac @ file://${GITHUB_WORKSPACE}|" pyproject.toml
-          sed -i.bak "s|psydac @ git+https://github.com/pyccel/psydac.git@struphy-2024|psydac @ file://${GITHUB_WORKSPACE}|" pyproject.toml
-          cat pyproject.toml
-
-      - name: Install StruPhy with local Psydac
-        working-directory: ./struphy
+          python -m pip install .
+          pip show psydac
+       
+      - name: Re-install Psydac from the current branch
         run: |
-          python -m pip install -e .
-          struphy -h
+          python -m pip install -e ${{ env.PSYDAC_DIR }} --force-reinstall
+          pip show psydac
+
+      - name: Compile struphy
+        working-directory: ${{ env.STRUPHY_DIR }}
+        run: |
+          pip show psydac
           struphy compile -y
 
       - name: Run struphy tests
-        working-directory: ./struphy
-        run: struphy test unit
-
+        working-directory: ${{ env.STRUPHY_DIR }}
+        run: |
+            struphy test unit
+            struphy test models --fast
       - name: Remove test directory
         if: ${{ always() }}
         run: |
