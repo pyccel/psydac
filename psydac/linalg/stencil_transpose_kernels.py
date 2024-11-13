@@ -24,8 +24,8 @@ def transpose_1d_kernel(mat: 'float[:, :]',
 
         matT[p_out + i1_loc, d1] = mat[p_in + j1_loc, p_out + i1 - j1]
 
-def transpose_2d_kernel(mat: 'float[:, :, :, :, :]',
-                        matT: 'float[:, :, :, :, :]',
+def transpose_2d_kernel(mat: 'float[:, :, :, :]',
+                        matT: 'float[:, :, :, :]',
                         s_in: 'int[:]',  # refers to matT
                         p_in: 'int[:]',
                         add: 'int[:]',

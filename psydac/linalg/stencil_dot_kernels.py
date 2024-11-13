@@ -26,7 +26,7 @@ def matvec_1d_kernel(mat: 'float[:, :]',
     out[p_out + i1_loc] = val
 
 
-def matvec_2d_kernel(mat: 'float[:, :, :, :, :]',
+def matvec_2d_kernel(mat: 'float[:, :, :, :]',
                      x: 'float[:, :]',
                      out: 'float[:, :]',
                      s_in: 'int[:]',
@@ -112,7 +112,8 @@ def matvec_2d_kernel(mat: 'float[:, :, :, :, :]',
             val += mat[p_out[0] + i1_loc,
                        p_out[1] + i2_loc,
                        d1, d2] * x[i1 + d1 - s_in[0],
-                                   i2 + d2 - s_in[1]]
+                                    i2 + d2 - s_in[1]]
+
     out[p_out[0] + i1_loc,
         p_out[1] + i2_loc] = val
 
