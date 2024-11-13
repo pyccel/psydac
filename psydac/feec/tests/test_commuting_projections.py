@@ -15,6 +15,7 @@ from mpi4py import MPI
 import numpy as np
 import pytest
 
+# TODO: Change back the tests to other domain length and remove the asserts in global_projectors.py
 TWO_PI = 2.0 * np.pi
 
 #==============================================================================

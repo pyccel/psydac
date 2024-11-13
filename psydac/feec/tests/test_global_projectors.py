@@ -11,6 +11,7 @@ from sympde.topology               import Square, Cube
 from psydac.api.discretization     import discretize
 from sympde.topology               import element_of, Derham
 
+# TODO: Change back the tests to other domain length and remove the asserts in global_projectors.py
 TWO_PI = 2.0 * np.pi
 
 #==============================================================================
