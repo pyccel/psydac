@@ -234,17 +234,23 @@ class GlobalProjector(metaclass=ABCMeta):
 
             dataslice = tuple(slice(p*m, -p*m) for p, m in zip(tensorspaces[i].vector_space.pads,tensorspaces[i].vector_space.shifts))
             dofs[i] = rhsblocks[i]._data[dataslice]
-            
+
+        def create_block_diagonal(matrixblocks):
+            n = len(matrixblocks)
+            blocks = [[None if i != j else matrixblocks[i] for j in range(n)] for i in range(n)]
+            return blocks
         # build final Inter-/Histopolation matrix (distributed)        
         if isinstance(self.space, TensorFemSpace):
             self._imat_kronecker = matrixblocks[0]
         else:
             # self._imat_kronecker = BlockLinearOperator(self.space.vector_space, self.space.vector_space, 
-            #                                            blocks=blocks)
+            # blocks=blocks)
             self._imat_kronecker = BlockLinearOperator(self.space.vector_space, self.space.vector_space, 
-                                               blocks=[[matrixblocks[0], None, None], 
-                                                       [None, matrixblocks[1], None], 
-                                                       [None, None, matrixblocks[2]]])
+                                            #    blocks=[[matrixblocks[0], None, None],
+                                            #            [None, matrixblocks[1], None],
+                                            #            [None, None, matrixblocks[2]]],
+                                            blocks=create_block_diagonal(matrixblocks),
+                                            )
         
         # finish arguments and create a lambda
         args = (*intp_x, *quad_x, *quad_w, *dofs)
@@ -841,8 +847,8 @@ def evaluate_dofs_2d_1form_hdiv(
     
     dof_kernels.evaluate_dofs_2d_1form_hdiv(quad_w1, quad_w2, F1_temp, F2_temp, f1_pts, f2_pts)
     
-    F1[:, :, :] = F1_temp
-    F2[:, :, :] = F2_temp
+    F1[:, :] = F1_temp
+    F2[:, :] = F2_temp
 
 #------------------------------------------------------------------------------
 def evaluate_dofs_2d_2form(
@@ -884,8 +890,8 @@ def evaluate_dofs_2d_vec(
     
     dof_kernels.evaluate_dofs_2d_vec(F1_temp, F2_temp, f1_pts, f2_pts)
     
-    F1[:, :, :] = F1_temp
-    F2[:, :, :] = F2_temp
+    F1[:, :] = F1_temp
+    F2[:, :] = F2_temp
     
 #==============================================================================
 # 3D DEGREES OF FREEDOM
