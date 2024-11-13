@@ -122,7 +122,7 @@ def test_stencil_matrix_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3
 
     # Create a vector space V and a matrix M from V to V
     V = StencilVectorSpace(cart, dtype=dtype)
-    M = StencilMatrix(V, V)
+    M = StencilMatrix(V, V, precompiled=True)
 
     # Check properties of this matrix
     assert M.domain == V
@@ -152,7 +152,7 @@ def test_stencil_matrix_2d_copy(dtype, n1, n2, p1, p2,s1,s2, P1=True, P2=False):
 
     # Create a vector space V and a matrix M from V to V
     V = StencilVectorSpace(cart, dtype=dtype)
-    M = StencilMatrix(V, V)
+    M = StencilMatrix(V, V, precompiled=True)
 
     # Take random data, but determinize it
     np.random.seed(2)
@@ -170,7 +170,7 @@ def test_stencil_matrix_2d_copy(dtype, n1, n2, p1, p2,s1,s2, P1=True, P2=False):
     assert M1.codomain == V
     assert M1.dtype == dtype
     assert M1.pads == (p1, p2)
-    assert M1.backend == None
+    assert M1.backend == PSYDAC_BACKEND_PYTHON
     assert M1._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, 1 + 2 * p1, 1 + 2 * p2)
     assert M1.shape == (n1 * n2, n1 * n2)
     assert np.array_equal(M1._data, M._data)
@@ -194,7 +194,7 @@ def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
 
     # Create a vector space V and a matrix M from V to V
     V = StencilVectorSpace(cart, dtype=dtype)
-    M = StencilMatrix(V, V)
+    M = StencilMatrix(V, V, precompiled=True)
 
     # take random data, but determinize it
     np.random.seed(2)
@@ -234,7 +234,7 @@ def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
     M4 -= M
 
     #check that copy works with out 
-    M5 = StencilMatrix(V, V)
+    M5 = StencilMatrix(V, V, precompiled=True)
     M3.copy(out=M5)
 
     # Check that the internal basic operation return the correct StencilMatrix
@@ -273,7 +273,7 @@ def test_stencil_matrix_2d_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False
 
     # Create a vector space V and a matrix M from V to V
     V = StencilVectorSpace(cart, dtype=dtype)
-    M = StencilMatrix(V, V)
+    M = StencilMatrix(V, V, precompiled=True)
 
     # take random data, but determinize it
     np.random.seed(2)
@@ -334,7 +334,7 @@ def test_stencil_matrix_1d_serial_spurious_entries( dtype, n1, p1, s1, P1):
 
     # Create vector space and stencil matrix
     V = StencilVectorSpace(cart, dtype=dtype)
-    M = StencilMatrix(V, V)
+    M = StencilMatrix(V, V, precompiled=True)
 
     # Fill in stencil matrix values
     for k1 in range(-p1, p1 + 1):
@@ -393,7 +393,7 @@ def test_stencil_matrix_2d_serial_spurious_entries( dtype, p1, p2, s1, s2, P1, P
 
     # Create vector space and stencil matrix
     V = StencilVectorSpace(cart, dtype=dtype)
-    M = StencilMatrix(V, V)
+    M = StencilMatrix(V, V, precompiled=True)
 
     # Fill in stencil matrix values
     for k1 in range(-p1, p1 + 1):
@@ -456,7 +456,7 @@ def test_stencil_matrix_1d_serial_toarray( dtype, n1, p1, s1, P1):
 
     # Create vector space and stencil matrix
     V = StencilVectorSpace(cart, dtype=dtype)
-    M = StencilMatrix(V, V)
+    M = StencilMatrix(V, V, precompiled=True)
 
     # Fill in stencil matrix values
     for i1 in range(0, n1):
@@ -516,7 +516,7 @@ def test_stencil_matrix_2d_serial_toarray( dtype, n1, n2, p1, p2, s1, s2, P1, P2
 
     # Create vector space and stencil matrix
     V = StencilVectorSpace(cart, dtype=dtype)
-    M = StencilMatrix(V, V)
+    M = StencilMatrix(V, V, precompiled=True)
 
     # Fill in stencil matrix values
     for k1 in range(-p1, p1 + 1):

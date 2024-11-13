@@ -947,8 +947,6 @@ class StencilMatrix(LinearOperator):
 
         if backend is None:
             backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND')) or PSYDAC_BACKENDS['python']
-        print(backend)
-        print(precompiled)
         self.set_backend(backend, precompiled)
 
     #--------------------------------------
