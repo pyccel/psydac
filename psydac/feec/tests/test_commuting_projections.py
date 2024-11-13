@@ -15,6 +15,8 @@ from mpi4py import MPI
 import numpy as np
 import pytest
 
+TWO_PI = 2.0 * np.pi
+
 #==============================================================================
 # 3D tests
 #==============================================================================
@@ -25,10 +27,10 @@ import pytest
 @pytest.mark.parametrize('m', [1,2])
 def test_3d_commuting_pro_1(Nel, Nq, p, bc, m):
 
-    fun1    = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)*np.sin(xi3)
-    D1fun1  = lambda xi1, xi2, xi3 : np.cos(xi1)*np.sin(xi2)*np.sin(xi3)
-    D2fun1  = lambda xi1, xi2, xi3 : np.sin(xi1)*np.cos(xi2)*np.sin(xi3)
-    D3fun1  = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)*np.cos(xi3)
+    fun1    = lambda xi1, xi2, xi3 : np.sin(TWO_PI*xi1)*np.sin(TWO_PI*xi2)*np.sin(TWO_PI*xi3)
+    D1fun1  = lambda xi1, xi2, xi3 : TWO_PI*np.cos(TWO_PI*xi1)*np.sin(TWO_PI*xi2)*np.sin(TWO_PI*xi3)
+    D2fun1  = lambda xi1, xi2, xi3 : TWO_PI*np.sin(TWO_PI*xi1)*np.cos(TWO_PI*xi2)*np.sin(TWO_PI*xi3)
+    D3fun1  = lambda xi1, xi2, xi3 : TWO_PI*np.sin(TWO_PI*xi1)*np.sin(TWO_PI*xi2)*np.cos(TWO_PI*xi3)
 
     Nel = [Nel]*3
     Nq  = [Nq]*3
@@ -37,7 +39,7 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc, m):
     m   = [m]*3
 
     # Side lengths of logical cube [0, L]^3
-    L = [2*np.pi, 2*np.pi , 2*np.pi]
+    L = [1.0, 1.0, 1.0]
 
     # element boundaries
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
@@ -99,20 +101,20 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc, m):
 @pytest.mark.parametrize('m', [1,2])
 def test_3d_commuting_pro_2(Nel, Nq, p, bc, m):
 
-    fun1    = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)*np.sin(xi3)
-    D1fun1  = lambda xi1, xi2, xi3 : np.cos(xi1)*np.sin(xi2)*np.sin(xi3)
-    D2fun1  = lambda xi1, xi2, xi3 : np.sin(xi1)*np.cos(xi2)*np.sin(xi3)
-    D3fun1  = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)*np.cos(xi3)
+    fun1    = lambda xi1, xi2, xi3 : np.sin(TWO_PI*xi1)*np.sin(TWO_PI*xi2)*np.sin(TWO_PI*xi3)
+    D1fun1  = lambda xi1, xi2, xi3 : TWO_PI*np.cos(TWO_PI*xi1)*np.sin(TWO_PI*xi2)*np.sin(TWO_PI*xi3)
+    D2fun1  = lambda xi1, xi2, xi3 : TWO_PI*np.sin(TWO_PI*xi1)*np.cos(TWO_PI*xi2)*np.sin(TWO_PI*xi3)
+    D3fun1  = lambda xi1, xi2, xi3 : TWO_PI*np.sin(TWO_PI*xi1)*np.sin(TWO_PI*xi2)*np.cos(TWO_PI*xi3)
 
-    fun2    = lambda xi1, xi2, xi3 :   np.sin(2*xi1)*np.sin(2*xi2)*np.sin(2*xi3)
-    D1fun2  = lambda xi1, xi2, xi3 : 2*np.cos(2*xi1)*np.sin(2*xi2)*np.sin(2*xi3)
-    D2fun2  = lambda xi1, xi2, xi3 : 2*np.sin(2*xi1)*np.cos(2*xi2)*np.sin(2*xi3)
-    D3fun2  = lambda xi1, xi2, xi3 : 2*np.sin(2*xi1)*np.sin(2*xi2)*np.cos(2*xi3)
+    fun2    = lambda xi1, xi2, xi3 :   np.sin(TWO_PI*2*xi1)*np.sin(TWO_PI*2*xi2)*np.sin(TWO_PI*2*xi3)
+    D1fun2  = lambda xi1, xi2, xi3 : TWO_PI*2*np.cos(TWO_PI*2*xi1)*np.sin(TWO_PI*2*xi2)*np.sin(TWO_PI*2*xi3)
+    D2fun2  = lambda xi1, xi2, xi3 : TWO_PI*2*np.sin(TWO_PI*2*xi1)*np.cos(TWO_PI*2*xi2)*np.sin(TWO_PI*2*xi3)
+    D3fun2  = lambda xi1, xi2, xi3 : TWO_PI*2*np.sin(TWO_PI*2*xi1)*np.sin(TWO_PI*2*xi2)*np.cos(TWO_PI*2*xi3)
 
-    fun3    = lambda xi1, xi2, xi3 :   np.sin(3*xi1)*np.sin(3*xi2)*np.sin(3*xi3)
-    D1fun3  = lambda xi1, xi2, xi3 : 3*np.cos(3*xi1)*np.sin(3*xi2)*np.sin(3*xi3)
-    D2fun3  = lambda xi1, xi2, xi3 : 3*np.sin(3*xi1)*np.cos(3*xi2)*np.sin(3*xi3)
-    D3fun3  = lambda xi1, xi2, xi3 : 3*np.sin(3*xi1)*np.sin(3*xi2)*np.cos(3*xi3)
+    fun3    = lambda xi1, xi2, xi3 :   np.sin(TWO_PI*3*xi1)*np.sin(TWO_PI*3*xi2)*np.sin(TWO_PI*3*xi3)
+    D1fun3  = lambda xi1, xi2, xi3 : TWO_PI*3*np.cos(TWO_PI*3*xi1)*np.sin(TWO_PI*3*xi2)*np.sin(TWO_PI*3*xi3)
+    D2fun3  = lambda xi1, xi2, xi3 : TWO_PI*3*np.sin(TWO_PI*3*xi1)*np.cos(TWO_PI*3*xi2)*np.sin(TWO_PI*3*xi3)
+    D3fun3  = lambda xi1, xi2, xi3 : TWO_PI*3*np.sin(TWO_PI*3*xi1)*np.sin(TWO_PI*3*xi2)*np.cos(TWO_PI*3*xi3)
 
     cf1 = lambda xi1, xi2, xi3 : D2fun3(xi1, xi2, xi3) - D3fun2(xi1, xi2, xi3)
     cf2 = lambda xi1, xi2, xi3 : D3fun1(xi1, xi2, xi3) - D1fun3(xi1, xi2, xi3)
@@ -125,7 +127,7 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc, m):
     m   = [m]*3
 
     # Side lengths of logical cube [0, L]^3
-    L = [2*np.pi, 2*np.pi , 2*np.pi]
+    L = [1.0, 1.0, 1.0]
 
     # element boundaries
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
@@ -191,14 +193,14 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc, m):
 @pytest.mark.parametrize('m', [1,2])
 def test_3d_commuting_pro_3(Nel, Nq, p, bc, m):
 
-    fun1    = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)*np.sin(xi3)
-    D1fun1  = lambda xi1, xi2, xi3 : np.cos(xi1)*np.sin(xi2)*np.sin(xi3)
+    fun1    = lambda xi1, xi2, xi3 : np.sin(TWO_PI*xi1)*np.sin(TWO_PI*xi2)*np.sin(TWO_PI*xi3)
+    D1fun1  = lambda xi1, xi2, xi3 : TWO_PI*np.cos(TWO_PI*xi1)*np.sin(TWO_PI*xi2)*np.sin(TWO_PI*xi3)
 
-    fun2    = lambda xi1, xi2, xi3 :   np.sin(2*xi1)*np.sin(2*xi2)*np.sin(2*xi3)
-    D2fun2  = lambda xi1, xi2, xi3 : 2*np.sin(2*xi1)*np.cos(2*xi2)*np.sin(2*xi3)
+    fun2    = lambda xi1, xi2, xi3 :   np.sin(TWO_PI*2*xi1)*np.sin(TWO_PI*2*xi2)*np.sin(TWO_PI*2*xi3)
+    D2fun2  = lambda xi1, xi2, xi3 : TWO_PI*2*np.sin(TWO_PI*2*xi1)*np.cos(TWO_PI*2*xi2)*np.sin(TWO_PI*2*xi3)
 
-    fun3    = lambda xi1, xi2, xi3 :   np.sin(3*xi1)*np.sin(3*xi2)*np.sin(3*xi3)
-    D3fun3  = lambda xi1, xi2, xi3 : 3*np.sin(3*xi1)*np.sin(3*xi2)*np.cos(3*xi3)
+    fun3    = lambda xi1, xi2, xi3 :   np.sin(TWO_PI*3*xi1)*np.sin(TWO_PI*3*xi2)*np.sin(TWO_PI*3*xi3)
+    D3fun3  = lambda xi1, xi2, xi3 : TWO_PI*3*np.sin(TWO_PI*3*xi1)*np.sin(TWO_PI*3*xi2)*np.cos(TWO_PI*3*xi3)
 
     difun = lambda xi1, xi2, xi3 : D1fun1(xi1, xi2, xi3)+ D2fun2(xi1, xi2, xi3) + D3fun3(xi1, xi2, xi3)
 
@@ -209,7 +211,7 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc, m):
     m   = [m]*3
 
     # Side lengths of logical cube [0, L]^3
-    L = [2*np.pi, 2*np.pi , 2*np.pi]
+    L = [1.0, 1.0, 1.0]
 
     # element boundaries
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
@@ -278,9 +280,9 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc, m):
 @pytest.mark.parametrize('m', [1,2])
 def test_2d_commuting_pro_1(Nel, Nq, p, bc, m):
 
-    fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
-    D1fun1  = lambda xi1, xi2 : np.cos(xi1)*np.sin(xi2)
-    D2fun1  = lambda xi1, xi2 : np.sin(xi1)*np.cos(xi2)
+    fun1    = lambda xi1, xi2 : np.sin(TWO_PI*xi1)*np.sin(TWO_PI*xi2)
+    D1fun1  = lambda xi1, xi2 : TWO_PI*np.cos(TWO_PI*xi1)*np.sin(TWO_PI*xi2)
+    D2fun1  = lambda xi1, xi2 : TWO_PI*np.sin(TWO_PI*xi1)*np.cos(TWO_PI*xi2)
 
     Nel = [Nel]*2
     Nq  = [Nq]*2
@@ -289,7 +291,7 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc, m):
     m   = [m]*2
 
     # Side lengths of logical cube [0, L]^2
-    L = [2*np.pi, 2*np.pi]
+    L = [1.0, 1.0]
 
     # element boundaries
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)]
@@ -351,9 +353,9 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc, m):
 @pytest.mark.parametrize('m', [1,2])
 def test_2d_commuting_pro_2(Nel, Nq, p, bc, m):
 
-    fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
-    D2fun1  = lambda xi1, xi2 : np.sin(xi1)*np.cos(xi2)
-    D1fun1  = lambda xi1, xi2 : -np.cos(xi1)*np.sin(xi2)
+    fun1    = lambda xi1, xi2 : np.sin(TWO_PI*xi1)*np.sin(TWO_PI*xi2)
+    D2fun1  = lambda xi1, xi2 : TWO_PI*np.sin(TWO_PI*xi1)*np.cos(TWO_PI*xi2)
+    D1fun1  = lambda xi1, xi2 : -TWO_PI*np.cos(TWO_PI*xi1)*np.sin(TWO_PI*xi2)
 
     Nel = [Nel]*2
     Nq  = [Nq]*2
@@ -362,7 +364,7 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc, m):
     m   = [m]*2
 
     # Side lengths of logical cube [0, L]^2
-    L = [2*np.pi, 2*np.pi]
+    L = [1.0, 1.0]
 
     # element boundaries
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)]
@@ -424,11 +426,11 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc, m):
 @pytest.mark.parametrize('m', [1,2])
 def test_2d_commuting_pro_3(Nel, Nq, p, bc, m):
 
-    fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
-    D1fun1  = lambda xi1, xi2 : np.cos(xi1)*np.sin(xi2)
+    fun1    = lambda xi1, xi2 : np.sin(TWO_PI*xi1)*np.sin(TWO_PI*xi2)
+    D1fun1  = lambda xi1, xi2 : TWO_PI*np.cos(TWO_PI*xi1)*np.sin(TWO_PI*xi2)
 
-    fun2    = lambda xi1, xi2 :   np.sin(2*xi1)*np.sin(2*xi2)
-    D2fun2  = lambda xi1, xi2 : 2*np.sin(2*xi1)*np.cos(2*xi2)
+    fun2    = lambda xi1, xi2 : np.sin(TWO_PI*2*xi1)*np.sin(TWO_PI*2*xi2)
+    D2fun2  = lambda xi1, xi2 : TWO_PI*2*np.sin(TWO_PI*2*xi1)*np.cos(TWO_PI*2*xi2)
 
     difun = lambda xi1, xi2 : D1fun1(xi1, xi2)+ D2fun2(xi1, xi2)
 
@@ -439,7 +441,7 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc, m):
     m   = [m]*2
 
     # Side lengths of logical cube [0, L]^2
-    L = [2*np.pi, 2*np.pi]
+    L = [1.0, 1.0]
 
     # element boundaries
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)]
@@ -504,11 +506,11 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc, m):
 @pytest.mark.parametrize('m', [1,2])
 def test_2d_commuting_pro_4(Nel, Nq, p, bc, m):
 
-    fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
-    D2fun1  = lambda xi1, xi2 : np.sin(xi1)*np.cos(xi2)
+    fun1    = lambda xi1, xi2 : np.sin(TWO_PI*xi1)*np.sin(TWO_PI*xi2)
+    D2fun1  = lambda xi1, xi2 : TWO_PI*np.sin(TWO_PI*xi1)*np.cos(TWO_PI*xi2)
 
-    fun2    = lambda xi1, xi2 :   np.sin(2*xi1)*np.sin(2*xi2)
-    D1fun2  = lambda xi1, xi2 : 2*np.cos(2*xi1)*np.sin(2*xi2)
+    fun2    = lambda xi1, xi2 : np.sin(TWO_PI*2*xi1)*np.sin(TWO_PI*2*xi2)
+    D1fun2  = lambda xi1, xi2 : (TWO_PI*2)*np.cos(TWO_PI*2*xi1)*np.sin(TWO_PI*2*xi2)
 
     difun = lambda xi1, xi2 : D1fun2(xi1, xi2) - D2fun1(xi1, xi2)
 
@@ -519,7 +521,7 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc, m):
     m   = [m]*2
 
     # Side lengths of logical cube [0, L]^2
-    L = [2*np.pi, 2*np.pi]
+    L = [1.0, 1.0]
 
     # element boundaries
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)]
@@ -586,8 +588,8 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc, m):
 @pytest.mark.parametrize('m', [1,2])
 def test_1d_commuting_pro_1(Nel, Nq, p, bc, m):
 
-    fun1    = lambda xi1 : np.sin(xi1)
-    Dfun1   = lambda xi1 : np.cos(xi1)
+    fun1    = lambda xi1 : np.sin(TWO_PI*xi1)
+    Dfun1   = lambda xi1 : TWO_PI*np.cos(TWO_PI*xi1)
 
     Nel = [Nel]
     Nq  = [Nq]
@@ -596,7 +598,7 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc, m):
     m   = [m]
 
     # Side lengths of logical cube [0, L]
-    L = [2*np.pi]
+    L = [1]
 
     # element boundaries
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)]
@@ -626,7 +628,8 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc, m):
     u1        = P1(Dfun1)
     Dfun_h    = grad(u0)
     Dfun_proj = u1
-
+    Dfun_h.coeffs.update_ghost_regions()
+    Dfun_proj.coeffs.update_ghost_regions()
     error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
     assert error < 1e-9
 
