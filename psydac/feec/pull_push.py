@@ -79,7 +79,7 @@ def pull_2d_h1vec(f, F):
         a2_phys = f2(x, y)
 
         J_inv_value = F.jacobian_inv(eta1, eta2)
-        value_1 = J_inv_value[..., 0, 0] * a1_phys + J_inv_value[..., 0, 1] * a2_phys
+        value_1 = J_inv_value[..., 0, 0].T * a1_phys + J_inv_value[..., 0, 1].T * a2_phys
         return value_1
 
     def f2_logical(eta1, eta2):
@@ -89,7 +89,7 @@ def pull_2d_h1vec(f, F):
         a2_phys = f2(x, y)
 
         J_inv_value = F.jacobian_inv(eta1, eta2)
-        value_2 = J_inv_value[..., 1, 0] * a1_phys + J_inv_value[..., 1, 1] * a2_phys
+        value_2 = J_inv_value[..., 1, 0].T * a1_phys + J_inv_value[..., 1, 1].T * a2_phys
         return value_2
 
     return f1_logical, f2_logical
@@ -121,8 +121,8 @@ def pull_2d_hcurl(f, F):
         a2_phys = f2(x, y)
 
         J_T_value = F.jacobian(eta1, eta2).T
-        value_1   = J_T_value[..., 0, 0] * a1_phys.T + J_T_value[..., 0, 1] * a2_phys.T
-        return value_1.T
+        value_1   = J_T_value[..., 0, 0].T * a1_phys + J_T_value[..., 0, 1].T * a2_phys
+        return value_1
 
     def f2_logical(eta1, eta2):
         x, y = F(eta1, eta2)
@@ -131,8 +131,8 @@ def pull_2d_hcurl(f, F):
         a2_phys = f2(x, y)
 
         J_T_value = F.jacobian(eta1, eta2).T
-        value_2   = J_T_value[..., 1, 0] * a1_phys.T + J_T_value[..., 1, 1] * a2_phys.T
-        return value_2.T
+        value_2   = J_T_value[..., 1, 0].T * a1_phys + J_T_value[..., 1, 1].T * a2_phys
+        return value_2
 
     return f1_logical, f2_logical
 
@@ -153,7 +153,7 @@ def pull_2d_hdiv(f, F):
 
         J_inv_value = F.jacobian_inv(eta1, eta2)
         det_value   = F.metric_det(eta1, eta2)**0.5
-        value_1     = J_inv_value[..., 0, 0] * a1_phys + J_inv_value[..., 0, 1] * a2_phys
+        value_1     = J_inv_value[..., 0, 0].T * a1_phys + J_inv_value[..., 0, 1].T * a2_phys
         return det_value * value_1
 
     def f2_logical(eta1, eta2):
@@ -164,7 +164,7 @@ def pull_2d_hdiv(f, F):
 
         J_inv_value = F.jacobian_inv(eta1, eta2)
         det_value   = F.metric_det(eta1, eta2)**0.5
-        value_2     = J_inv_value[..., 1, 0] * a1_phys + J_inv_value[..., 1, 1] * a2_phys
+        value_2     = J_inv_value[..., 1, 0].T * a1_phys + J_inv_value[..., 1, 1].T * a2_phys
         return det_value * value_2
 
     return f1_logical, f2_logical
@@ -206,7 +206,7 @@ def pull_3d_h1vec(f, F):
         a3_phys = f3(x, y, z)
 
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
-        value_1 = J_inv_value[..., 0, 0] * a1_phys + J_inv_value[..., 0, 1] * a2_phys + J_inv_value[..., 0, 2] * a3_phys
+        value_1 = J_inv_value[..., 0, 0].T * a1_phys + J_inv_value[..., 0, 1].T * a2_phys + J_inv_value[..., 0, 2].T * a3_phys
         return value_1
 
     def f2_logical(eta1, eta2, eta3):
@@ -217,7 +217,7 @@ def pull_3d_h1vec(f, F):
         a3_phys = f3(x, y, z)
 
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
-        value_2 = J_inv_value[..., 1, 0] * a1_phys + J_inv_value[..., 1, 1] * a2_phys + J_inv_value[..., 1, 2] * a3_phys
+        value_2 = J_inv_value[..., 1, 0].T * a1_phys + J_inv_value[..., 1, 1].T * a2_phys + J_inv_value[..., 1, 2].T * a3_phys
         return value_2
 
     def f3_logical(eta1, eta2, eta3):
@@ -228,7 +228,7 @@ def pull_3d_h1vec(f, F):
         a3_phys = f3(x, y, z)
 
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
-        value_2 = J_inv_value[..., 2, 0] * a1_phys + J_inv_value[..., 2, 1] * a2_phys + J_inv_value[..., 2, 2] * a3_phys
+        value_2 = J_inv_value[..., 2, 0].T * a1_phys + J_inv_value[..., 2, 1].T * a2_phys + J_inv_value[..., 2, 2].T * a3_phys
         return value_2
 
     return f1_logical, f2_logical, f3_logical
@@ -262,7 +262,7 @@ def pull_3d_hcurl(f, F):
         a3_phys = f3(x, y, z)
 
         J_T_value = F.jacobian(eta1, eta2, eta3).T
-        value_1   = J_T_value[..., 0, 0] * a1_phys + J_T_value[..., 0, 1] * a2_phys + J_T_value[..., 0, 2] * a3_phys
+        value_1   = J_T_value[..., 0, 0].T * a1_phys + J_T_value[..., 0, 1].T * a2_phys + J_T_value[..., 0, 2].T * a3_phys
         return value_1
 
     def f2_logical(eta1, eta2, eta3):
@@ -273,7 +273,7 @@ def pull_3d_hcurl(f, F):
         a3_phys = f3(x, y, z)
 
         J_T_value = F.jacobian(eta1, eta2, eta3).T
-        value_2   = J_T_value[..., 1, 0] * a1_phys + J_T_value[..., 1, 1] * a2_phys + J_T_value[..., 1, 2] * a3_phys
+        value_2   = J_T_value[..., 1, 0].T * a1_phys + J_T_value[..., 1, 1].T * a2_phys + J_T_value[..., 1, 2].T * a3_phys
         return value_2
 
     def f3_logical(eta1, eta2, eta3):
@@ -284,7 +284,7 @@ def pull_3d_hcurl(f, F):
         a3_phys = f3(x, y, z)
 
         J_T_value = F.jacobian(eta1, eta2, eta3).T
-        value_3   = J_T_value[..., 2, 0] * a1_phys + J_T_value[..., 2, 1] * a2_phys + J_T_value[..., 2, 2] * a3_phys
+        value_3   = J_T_value[..., 2, 0].T * a1_phys + J_T_value[..., 2, 1].T * a2_phys + J_T_value[..., 2, 2].T * a3_phys
         return value_3
 
     return f1_logical, f2_logical, f3_logical
@@ -307,7 +307,7 @@ def pull_3d_hdiv(f, F):
 
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
         det_value   = F.metric_det(eta1, eta2, eta3)**0.5
-        value_1     = J_inv_value[..., 0, 0] * a1_phys + J_inv_value[..., 0, 1] * a2_phys + J_inv_value[..., 0, 2] * a3_phys
+        value_1     = J_inv_value[..., 0, 0].T * a1_phys + J_inv_value[..., 0, 1].T * a2_phys + J_inv_value[..., 0, 2].T * a3_phys
         return det_value * value_1
 
     def f2_logical(eta1, eta2, eta3):
@@ -319,7 +319,7 @@ def pull_3d_hdiv(f, F):
 
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
         det_value   = F.metric_det(eta1, eta2, eta3)**0.5
-        value_2     = J_inv_value[..., 1, 0] * a1_phys + J_inv_value[..., 1, 1] * a2_phys + J_inv_value[..., 1, 2] * a3_phys
+        value_2     = J_inv_value[..., 1, 0].T * a1_phys + J_inv_value[..., 1, 1].T * a2_phys + J_inv_value[..., 1, 2].T * a3_phys
         return det_value * value_2
 
     def f3_logical(eta1, eta2, eta3):
@@ -331,7 +331,7 @@ def pull_3d_hdiv(f, F):
 
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
         det_value   = F.metric_det(eta1, eta2, eta3)**0.5
-        value_3     = J_inv_value[..., 2, 0] * a1_phys + J_inv_value[..., 2, 1] * a2_phys + J_inv_value[..., 2, 2] * a3_phys
+        value_3     = J_inv_value[..., 2, 0].T * a1_phys + J_inv_value[..., 2, 1].T * a2_phys + J_inv_value[..., 2, 2].T * a3_phys
         return det_value * value_3
 
     return f1_logical, f2_logical, f3_logical
