@@ -500,10 +500,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         It should work if the complex only comes from the `rhs` in the linear form.
         """
 
-        if (self._free_args) and (not self._new_assembly):
-            # previously, if self._free_args, here we would overwrite self._args
-            # now, we don't want to overwrite self._args
-            # ToDo: Understand self._free_args, i.e., when is self._free_args != None
+        if self._free_args:
             basis   = []
             spans   = []
             degrees = []
@@ -594,7 +591,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     nq1 : "int64", nq2 : "int64", nq3 : "int64", 
                     pad1 : "int64", pad2 : "int64", pad3 : "int64", 
                     {MAPPING_PART_4}
-{G_MAT}{NEW_ARGS}):
+{G_MAT}{NEW_ARGS}{FIELD_ARGS}):
 
     from numpy import array, zeros, zeros_like, floor
     from math import sqrt, sin, pi, cos
@@ -607,17 +604,21 @@ class DiscreteBilinearForm(BasicDiscrete):
     arr_coeffs_x = zeros((1 + test_mapping_p1, 1 + test_mapping_p2, 1 + test_mapping_p3), dtype='float64')
     arr_coeffs_y = zeros((1 + test_mapping_p1, 1 + test_mapping_p2, 1 + test_mapping_p3), dtype='float64')
     arr_coeffs_z = zeros((1 + test_mapping_p1, 1 + test_mapping_p2, 1 + test_mapping_p3), dtype='float64')
+
+{F_COEFFS_ZEROS}
     
 {KEYS}
     for k_1 in range(n_element_1):
         span_mapping_1 = global_span_mapping_1[k_1]
-{LOCAL_SPAN}{A1}
+{LOCAL_SPAN}{F_SPAN_1}{A1}
         for q_1 in range(nq1):
             for k_2 in range(n_element_2):
                 span_mapping_2 = global_span_mapping_2[k_2]
+{F_SPAN_2}
                 for q_2 in range(nq2):
                     for k_3 in range(n_element_3):
                         span_mapping_3 = global_span_mapping_3[k_3]
+{F_SPAN_3}{F_COEFFS}
                         arr_coeffs_x[:,:,:] = global_arr_coeffs_x[test_mapping_p1 + span_mapping_1 - test_mapping_p1:test_mapping_p1 + 1 + span_mapping_1,test_mapping_p2 + span_mapping_2 - test_mapping_p2:test_mapping_p2 + 1 + span_mapping_2,test_mapping_p3 + span_mapping_3 - test_mapping_p3:test_mapping_p3 + 1 + span_mapping_3]
                         arr_coeffs_y[:,:,:] = global_arr_coeffs_y[test_mapping_p1 + span_mapping_1 - test_mapping_p1:test_mapping_p1 + 1 + span_mapping_1,test_mapping_p2 + span_mapping_2 - test_mapping_p2:test_mapping_p2 + 1 + span_mapping_2,test_mapping_p3 + span_mapping_3 - test_mapping_p3:test_mapping_p3 + 1 + span_mapping_3]
                         arr_coeffs_z[:,:,:] = global_arr_coeffs_z[test_mapping_p1 + span_mapping_1 - test_mapping_p1:test_mapping_p1 + 1 + span_mapping_1,test_mapping_p2 + span_mapping_2 - test_mapping_p2:test_mapping_p2 + 1 + span_mapping_2,test_mapping_p3 + span_mapping_3 - test_mapping_p3:test_mapping_p3 + 1 + span_mapping_3]
@@ -635,6 +636,10 @@ class DiscreteBilinearForm(BasicDiscrete):
                             z_x1 = 0.0
                             z_x2 = 0.0
                             z_x3 = 0.0
+
+{F_INIT}
+
+{F_ASSIGN_LOOP}
 
                             for i_1 in range(test_mapping_p1+1):
                                 mapping_1       = global_basis_mapping_1[k_1, i_1, 0, q_1]
@@ -681,20 +686,28 @@ class DiscreteBilinearForm(BasicDiscrete):
     local_x2 = zeros_like(global_x2[0,:])
     local_x3 = zeros_like(global_x3[0,:])
 
+{F_COEFFS_ZEROS}
+
 {KEYS}
     for k_1 in range(n_element_1):
         local_x1[:] = global_x1[k_1,:]
-{LOCAL_SPAN}{A1}
+{LOCAL_SPAN}{F_SPAN_1}{A1}
         for q_1 in range(nq1):
             x1 = local_x1[q_1]
             for k_2 in range(n_element_2):
                 local_x2[:] = global_x2[k_2,:]
+{F_SPAN_2}
                 for q_2 in range(nq2):
                     x2 = local_x2[q_2]
                     for k_3 in range(n_element_3):
                         local_x3[:] = global_x3[k_3,:]
+{F_SPAN_3}{F_COEFFS}
                         for q_3 in range(nq3):
                             x3 = local_x3[q_3]
+
+{F_INIT}
+
+{F_ASSIGN_LOOP}
 
 {TEMPS}
 {COUPLING_TERMS}
@@ -727,7 +740,76 @@ class DiscreteBilinearForm(BasicDiscrete):
 '''
         return code
 
-    def make_file(self, temps, ordered_stmts, *args, mapping_option=None):
+    def make_file(self, temps, ordered_stmts, field_derivatives, *args, mapping_option=None):
+
+        # ----- field strings -----
+        basis_args_block = [f'global_test_basis_'+'{field}'+f'_{i+1} : "float64[:,:,:,:]"' for i in range(3)]
+        basis_args_block = ", ".join(basis_args_block) + ","
+        basis_args_block = [basis_args_block.format(field=field) for field in field_derivatives]
+        basis_args = "                    " + "\n                    ".join(basis_args_block) + "\n"
+        span_args_block = [f'global_span_'+'{field}'+f'_{i+1} : "int64[:]"' for i in range(3)]
+        span_args_block = ", ".join(span_args_block) + ","
+        span_args_block = [span_args_block.format(field=field) for field in field_derivatives]
+        span_args = "                    " + "\n                    ".join(span_args_block) + "\n"
+        degree_args_block = [f'test_'+'{field}'+f'_p{i+1} : "int64"' for i in range(3)]
+        degree_args_block = ", ".join(degree_args_block) + ","
+        degree_args_block = [degree_args_block.format(field=field) for field in field_derivatives]
+        degree_args = "                    " + "\n                    ".join(degree_args_block) + "\n"
+        pad_args_block = [f'pad_'+'{field}'+f'_{i+1} : "int64"' for i in range(3)]
+        pad_args_block = ", ".join(pad_args_block) + ","
+        pad_args_block = [pad_args_block.format(field=field) for field in field_derivatives]
+        pad_args = "                    " + "\n                    ".join(pad_args_block) + "\n"
+        coeff_args_block = [f'global_arr_coeffs_{field} : "float64[:,:,:]"' for field in field_derivatives]
+        coeff_args = "                    " + ", ".join(coeff_args_block)
+        field_args = basis_args+span_args+degree_args+pad_args+coeff_args
+
+        arr_coeffs_txt = "\n".join([f"    arr_coeffs_{field} = zeros((1 + test_{field}_p1, 1 + test_{field}_p2, 1 + test_{field}_p3), dtype='float64')" for field in field_derivatives])
+        span_1_txt = "\n".join([f"        span_{field}_1 = global_span_{field}_1[k_1]" for field in field_derivatives]) + "\n"
+        span_2_txt = "\n".join([f"                span_{field}_2 = global_span_{field}_2[k_2]" for field in field_derivatives]) + "\n"
+        span_3_txt = "\n".join([f"                        span_{field}_3 = global_span_{field}_3[k_3]" for field in field_derivatives]) + "\n"
+        coeff_ranges = ", ".join([f"pad_"+"{field}"+f"_{i+1} + span_"+"{field}"+f"_{i+1} - test_"+"{field}"+f"_p{i+1}:1 + pad_"+"{field}"+f"_{i+1} + span_"+"{field}"+f"_{i+1}" for i in range(3)])
+        arr_coeffs_assign_txt = "\n".join([f"                        arr_coeffs_{field}[:,:,:] = global_arr_coeffs_{field}[{coeff_ranges.format(field=field)}]" for i, field in enumerate(field_derivatives)])
+        field_init = "\n".join([f"                            {derivative}     = 0.0" for field in field_derivatives for derivative in field_derivatives[field]])
+        assign_loop_contents = {'1':{}, '2':{}, '3':{}}
+        multiplication_info = {}
+
+        for field, derivatives in field_derivatives.items():
+            multiplication_info[field] = {}
+            assign_statements = {'1':[], '2':[], '3':[]}
+            for derivative, dxs in derivatives.items():
+                multiplication_info[field][derivative] = []
+                dx1 = dxs['x1']
+                dx2 = dxs['x2']
+                dx3 = dxs['x3']
+                for i, dx in enumerate([dx1, dx2, dx3]):
+                    name = f"{field}_{i+1}" if dx == 0 else f"{field}_{i+1}_{dx*f'x{i+1}'}"
+                    multiplication_info[field][derivative].append(name)
+                    if dx == 0:
+                        assign_statement = f"{name}     = global_test_basis_{field}_{i+1}[k_{i+1}, i_{i+1}, 0, q_{i+1}]"
+                    else:
+                        assign_statement = f"{name} = global_test_basis_{field}_{i+1}[k_{i+1}, i_{i+1}, {dx}, q_{i+1}]"
+                    if assign_statement not in assign_statements[f"{i+1}"]:
+                        assign_statements[f"{i+1}"].append(assign_statement)
+            for i in range(3):
+                content = ("\n"+(8+i)*"    ").join(assign_statements[f"{i+1}"])
+                assign_loop_contents[f"{i+1}"][field] = content
+        tab = 7*"    "
+        assign = []
+        for field in field_derivatives:
+            txt =   f"{tab}for i_1 in range(1 + test_{field}_p1):\n" + \
+                    f"{tab}    {assign_loop_contents['1'][field]}\n" + \
+                    f"{tab}    for i_2 in range(1 + test_{field}_p2):\n" + \
+                    f"{tab}        {assign_loop_contents['2'][field]}\n" + \
+                    f"{tab}        for i_3 in range(1 + test_{field}_p3):\n" + \
+                    f"{tab}            {assign_loop_contents['3'][field]}\n" + \
+                    f"{tab}            coeff_{field} = arr_coeffs_{field}[i_1, i_2, i_3]\n"
+            for derivative in multiplication_info[field]:
+                factors = " * ".join(multiplication_info[field][derivative])
+                txt += f"{tab}            {derivative} += {factors} * coeff_{field}\n"
+            txt += "\n"
+            assign.append(txt)
+        assign = "\n".join(assign)
+        # -------------------------
 
         verbose = False
         if verbose: print(mapping_option)
@@ -825,7 +907,10 @@ class DiscreteBilinearForm(BasicDiscrete):
             v_j = block[1].indices[0] if nv > 1 else 0
 
             # reverse order intended
-            g_mat = g_mat_str.format(u_i=v_j, v_j=u_i)
+            if ((nu > 1) and (nv > 1)):
+                g_mat = g_mat_str.format(u_i=v_j, v_j=u_i)
+            else:
+                g_mat = g_mat_str.format(u_i=u_i, v_j=v_j)
             G_MAT += f'                    {g_mat} : "float64[:,:,:,:,:,:]",\n'
 
             TT1 += tt1_str.format(u_i=u_i, v_j=v_j) + ' : "float64[:,:,:,:,:,:]", '
@@ -840,7 +925,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         TT3 += '\n'
         A3  += '\n'
         A2  += '\n'
-        CT   = CT[:-2]
+        CT  += '\n'
         NEW_ARGS = TT1 + TT2 + TT3 + A3 + A2 + CT
 
         head = code_head.format(SPAN=SPAN, 
@@ -849,7 +934,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                                 MAPPING_PART_1=MAPPING_PART_1,
                                 MAPPING_PART_2=MAPPING_PART_2,
                                 MAPPING_PART_3=MAPPING_PART_3,
-                                MAPPING_PART_4=MAPPING_PART_4)
+                                MAPPING_PART_4=MAPPING_PART_4,
+                                FIELD_ARGS=field_args)
         
         #------------------------- MAKE BODY -------------------------
         A1              = ''
@@ -896,7 +982,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                                 KEYS=KEYS, 
                                 A1=A1, 
                                 TEMPS=TEMPS, 
-                                COUPLING_TERMS=COUPLING_TERMS)
+                                COUPLING_TERMS=COUPLING_TERMS,
+                                F_COEFFS_ZEROS=arr_coeffs_txt,
+                                F_SPAN_1=span_1_txt,
+                                F_SPAN_2=span_2_txt,
+                                F_SPAN_3=span_3_txt,
+                                F_COEFFS=arr_coeffs_assign_txt,
+                                F_INIT=field_init,
+                                F_ASSIGN_LOOP=assign)
         
         #------------------------- MAKE LOOP -------------------------
         assembly_code = head + body
@@ -978,8 +1071,10 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         tests  = a.test_functions
         trials = a.trial_functions
+        fields = a.fields
         if verbose: print(f'In readBF: tests: {tests}')
-        if verbose: print(f'In readBF: tests: {trials}')
+        if verbose: print(f'In readBF: trials: {trials}')
+        if verbose: print(f'In readBF: fields: {fields}')
 
         texpr  = TerminalExpr(a, domain)[0]
         if verbose: print(f'In readBF: texpr: {texpr}')
@@ -1004,8 +1099,17 @@ class DiscreteBilinearForm(BasicDiscrete):
             else:
                 trial_atoms[u] = []
 
+        field_atoms = {}
+        for f in fields:
+            if isinstance(f, VectorFunction):
+                for i in range(domain.dim):
+                    field_atoms[f[i]] = []
+            else:
+                field_atoms[f] = []
+
         if verbose: print(f'In readBF: test_atoms: {test_atoms}')
         if verbose: print(f'In readBF: trial_atoms: {trial_atoms}')
+        if verbose: print(f'In readBF: field_atoms: {field_atoms}')
 
         # u in trials is not get_atom_logical_derivative(a) for a in atoms and atom in trials
 
@@ -1020,6 +1124,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                     test_atoms[tests[0]].append(a) # apparently previously atom instead of tests[0]
                 elif atom in trials:
                     trial_atoms[trials[0]].append(a) # apparently previously atom instead of trials[0]
+                elif atom in fields:
+                    field_atoms[fields[0]].append(a) # this 0 here can't always work! At least not for >1 free fields
                 else:
                     raise NotImplementedError(f"atoms of type {str(a)} are not supported")
             elif isinstance(atom, IndexedVectorFunction):
@@ -1033,10 +1139,25 @@ class DiscreteBilinearForm(BasicDiscrete):
                         if ui == atom:
                             trial_atoms[ui].append(a)
                             break
+                elif atom.base in fields:
+                    for fi in field_atoms:
+                        if fi == atom:
+                            field_atoms[fi].append(a)
+                            break
                 else:
                     raise NotImplementedError(f"atoms of type {str(a)} are not supported")
             if verbose: print(f'In readBF: test_atoms: {test_atoms}')
             if verbose: print(f'In readBF: trial_atoms: {trial_atoms}')
+            if verbose: print(f'In readBF: field_atoms: {field_atoms}')
+
+        field_derivatives = {}
+        for key in field_atoms:
+            sym_key = SymbolicExpr(key)
+            field_derivatives[sym_key] = {}
+            for f in field_atoms[key]:
+                field_derivatives[sym_key][SymbolicExpr(f)] = get_index_logical_derivatives(f)
+        
+        if verbose: print(f'In readBF: field_derivatives: {field_derivatives}')
 
         syme = False
         if syme:
@@ -1050,7 +1171,6 @@ class DiscreteBilinearForm(BasicDiscrete):
             sym_expr        = SymbolicExpr(texpr.expr)
         if verbose: print(f'In readBF: sym_test_atoms: {sym_test_atoms}')
         if verbose: print(f'In readBF: sym_trial_atoms: {sym_trial_atoms}')
-        if verbose: print(f'In readBF: sym_expr: {sym_expr}')
 
         trials_subs = {ui:0 for u in sym_trial_atoms for ui in sym_trial_atoms[u]}
         tests_subs  = {vi:0 for v in sym_test_atoms  for vi in sym_test_atoms[v]}
@@ -1120,7 +1240,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         temps = tuple(Assign(a,b) for a,b in temps)
 
-        return temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option
+        return temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option, field_derivatives
 
     def construct_arguments_generate_assembly_file(self):
         """
@@ -1143,7 +1263,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         """
         verbose = False
 
-        temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option = self.read_BilinearForm()
+        temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option, field_derivatives = self.read_BilinearForm()
 
         blocks              = ordered_stmts.keys()
         block_list          = list(blocks)
@@ -1323,11 +1443,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
         threads_args = tuple(np.int64(a) if isinstance(a, int) else a for a in threads_args)
 
-        self.make_file(temps, ordered_stmts, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option=mapping_option)
-        try:
-            from __psydac__.assemble import assemble_matrix
-        except:
-            from __test__.__psydac__.assemble import assemble_matrix
+        self.make_file(temps, ordered_stmts, field_derivatives, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option=mapping_option)
+        from __psydac__.assemble import assemble_matrix
         from pyccel.epyccel import epyccel
         new_func = epyccel(assemble_matrix, language='fortran')
         self._func = new_func
