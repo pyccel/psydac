@@ -208,6 +208,16 @@ class TensorFemSpace(FemSpace):
         if not field.coeffs.ghost_regions_in_sync:
             field.coeffs.update_ghost_regions()
 
+        # Check if `x` is iterable and loop over elements
+        if isinstance(eta[0], (list, np.ndarray)):
+            for dim in range(1, self.ldim):
+                assert len(eta[0]) == len(eta[dim])
+            res_list = []
+            for i in range(len(eta[0])):
+                x = [eta[j][i] for j in range(self.ldim)]
+                res_list.append(self.eval_field(field, *x, weights=weights))
+            return np.array(res_list)
+
         for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
 
             knots  = space.knots
@@ -433,7 +443,6 @@ class TensorFemSpace(FemSpace):
         List of ndarray of floats
             List of the evaluated fields.
         """
-
         assert all(f.space is self for f in fields)
         for f in fields:
             # Necessary if vector coeffs is distributed across processes
