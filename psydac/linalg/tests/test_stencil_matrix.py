@@ -2161,7 +2161,7 @@ def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, 
 
     # Create vector space, stencil matrix, and stencil vector
     V = StencilVectorSpace(cart, dtype=dtype)
-    M = StencilMatrix(V, V, pads=(p1 - 1, p2 - 1), backend=backend, precompiled=True)
+    M = StencilMatrix(V, V, pads=(p1 - 1, p2 - 1), backend=backend, precompiled=False)
     x = StencilVector(V)
 
     # Fill in stencil matrix values based on diagonal index (periodic!)
