@@ -2180,7 +2180,7 @@ def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, 
 
     assert M.backend is backend
     M.dot(x)
-    M.set_backend(backend2, precompiled=True)
+    M.set_backend(backend2, precompiled=False)
 
     assert M.backend is backend2
     M.dot(x)
