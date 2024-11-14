@@ -209,7 +209,7 @@ class TensorFemSpace(FemSpace):
             field.coeffs.update_ghost_regions()
 
         # Check if `x` is iterable and loop over elements
-        if isinstance(eta[0], (list, np.ndarray)):
+        if isinstance(eta[0], (list, np.ndarray)) and np.ndim(eta[0]) > 0:
             for dim in range(1, self.ldim):
                 assert len(eta[0]) == len(eta[dim])
             res_list = []
