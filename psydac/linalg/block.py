@@ -1239,7 +1239,7 @@ class BlockLinearOperator(LinearOperator):
 
         return blocks, blocks_T
 
-    def set_backend(self, backend):
+    def set_backend(self, backend, precompiled=False):
         if isinstance(self.domain, BlockVectorSpace) and isinstance(self.domain.spaces[0], BlockVectorSpace):
             return
 

@@ -846,7 +846,7 @@ class ComposedLinearOperator(LinearOperator):
         for op in self._multiplicants:
             op.exchange_assembly_data()
 
-    def set_backend(self, backend):
+    def set_backend(self, backend, precompiled=False):
         for op in self._multiplicants:
             op.set_backend(backend)
 

@@ -2786,7 +2786,7 @@ class StencilInterfaceMatrix(LinearOperator):
                 self._data[idx_to] += self._data[idx_from]
 
     # ...
-    def set_backend(self, backend):
+    def set_backend(self, backend, precompiled=False):
         from psydac.api.ast.linalg import LinearOperatorDot
 
         self._backend = backend
