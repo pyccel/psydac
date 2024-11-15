@@ -441,6 +441,14 @@ class DiscreteBilinearForm(BasicDiscrete):
         # Allocate the output matrix, if needed
         self.allocate_matrices(linalg_backend)
 
+        # ----- Uncomment only for the u*f // f*u test case -----
+        #mat = StencilMatrix(self._matrix.domain, self._matrix.codomain)
+        #self._matrix = mat
+        #self._global_matrices = [mat._data, ]
+
+        #print(self._global_matrices[0].shape)
+        # -------------------------------------------------------
+
         # Determine whether OpenMP instructions were generated
         with_openmp = (assembly_backend['name'] == 'pyccel' and assembly_backend['openmp']) if assembly_backend else False
 
@@ -542,7 +550,15 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         else:
             args = self._args
-
+        # ----- Uncomment only for the u*f // f*u test case -----
+        #if self._new_assembly != 'test':
+        #    if self._mapping_option == 'Bspline':
+        #        args = (*args[0:28], *self._global_matrices, *args[29:])
+        #    else:
+        #        args = (*args[0:15], *self._global_matrices, *args[16:])
+        #else:
+        #    args = (*args[:-1], *self._global_matrices)
+        # -------------------------------------------------------
 #        args = args + self._element_loop_starts + self._element_loop_ends
 
         if reset:
@@ -821,6 +837,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             code_body = self._assembly_template_body_bspline
         else:
             code_body = self._assembly_template_body_analytic
+        self._mapping_option = mapping_option
         
         test_v_p, trial_u_p, keys_1, keys_2, keys_3 = args
 

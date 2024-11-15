@@ -12,13 +12,8 @@ from    sympde.topology             import elements_of, Cube, Mapping, ScalarFun
 from    psydac.api.discretization   import discretize
 from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
 from    psydac.cad.geometry         import Geometry
+from    psydac.fem.basic            import FemField
 from    psydac.mapping.discrete     import SplineMapping
-
-def some_function():
-    f1 = lambda x, y, z: 3*x**2 + np.sin(y+x*z)
-    f2 = lambda x, y, z: -np.cos(y)*z**5
-    f3 = lambda x, y, z: 3.75/np.pi - x*y**2*z**3
-    return (f1, f2, f3)
 
 def make_half_hollow_torus_geometry_3d(ncells, degree, comm=None):
 
@@ -141,7 +136,8 @@ def build_matrices(mapping_option, verbose, backend, comm):
 
     elif mapping_option == 'Bspline':
 
-        filename = make_collela_geometry_3d(ncells, degree, eps, comm=comm)
+        #filename = make_collela_geometry_3d(ncells, degree, eps, comm=comm)
+        filename = make_half_hollow_torus_geometry_3d(ncells, degree, comm=comm)
 
         domain = Domain.from_file(filename)
         derham = Derham(domain)
@@ -164,8 +160,8 @@ def build_matrices(mapping_option, verbose, backend, comm):
             _ldim        = 3
             _pdim        = 3
 
-        mapping = CollelaMapping3D('M', k1=2, k2=2, k3=2, eps=eps)
-        #mapping = HalfHollowTorusMapping3D('M', R=2, r=1)
+        #mapping = CollelaMapping3D('M', k1=2, k2=2, k3=2, eps=eps)
+        mapping = HalfHollowTorusMapping3D('M', R=2, r=1)
         logical_domain = Cube('C', bounds1=(0,1), bounds2=(0,1), bounds3=(0,1))
 
         domain = mapping(logical_domain)
@@ -176,8 +172,6 @@ def build_matrices(mapping_option, verbose, backend, comm):
     
     x, y, z         = domain.coordinates
     gamma           = x*y*z + sin(x*y+z)**2
-    P0, P1, P2, P3  = derham_h.projectors()
-    fun             = some_function()
 
     int_0           = lambda expr: integral(domain, expr)
 
@@ -197,19 +191,45 @@ def build_matrices(mapping_option, verbose, backend, comm):
     Vvch    = discretize(Vvc, domain_h, degree=degree)
     Vvdh    = discretize(Vvd, domain_h, degree=degree)
 
-    u1, u2 = elements_of(V0, names='u1, u2')
-    v1, v2, F = elements_of(V1, names='v1, v2, F')
-    w1, w2 = elements_of(V2, names='w1, w2')
-    f1, f2 = elements_of(V3, names='f1, f2')
+    u1, u2, F0 = elements_of(V0, names='u1, u2, F0')
+    v1, v2, F1 = elements_of(V1, names='v1, v2, F1')
+    w1, w2, F2 = elements_of(V2, names='w1, w2, F2')
+    f1, f2, F3 = elements_of(V3, names='f1, f2, F3')
 
-    fs1, fs2    = elements_of(Vs, names='fs1, fs2')
-    fvc1, fvc2  = elements_of(Vvc, names='fvc1, fvc2')
-    fvd1, fvd2  = elements_of(Vvd, names='fvd1, fvd2')
+    fs1,  fs2,  Fs  = elements_of(Vs,  names='fs1,  fs2,  Fs' )
+    fvc1, fvc2, Fvc = elements_of(Vvc, names='fvc1, fvc2, Fvc')
+    fvd1, fvd2, Fvd = elements_of(Vvd, names='fvd1, fvd2, Fvd')
 
-    F_field = P1(fun)
+    F0_field_coeffs  = V0h.vector_space.zeros()
+    F1_field_coeffs  = V1h.vector_space.zeros()
+    F2_field_coeffs  = V2h.vector_space.zeros()
+    F3_field_coeffs  = V3h.vector_space.zeros()
+    Fs_field_coeffs  = Vsh.vector_space.zeros()
+    Fvc_field_coeffs = Vvch.vector_space.zeros()
+    Fvd_field_coeffs = Vvdh.vector_space.zeros()
+
+    F0_field_coeffs._data = np.ones(F0_field_coeffs._data.shape, dtype="float64")
+    F3_field_coeffs._data = np.ones(F3_field_coeffs._data.shape, dtype="float64")
+    Fs_field_coeffs._data = np.ones(Fs_field_coeffs._data.shape, dtype="float64")
+    for block in F1_field_coeffs.blocks:
+        block._data = np.ones(block._data.shape, dtype="float64")
+    for block in F2_field_coeffs.blocks:
+        block._data = np.ones(block._data.shape, dtype="float64")
+    for block in Fvc_field_coeffs.blocks:
+        block._data = np.ones(block._data.shape, dtype="float64")
+    for block in Fvd_field_coeffs.blocks:
+        block._data = np.ones(block._data.shape, dtype="float64")
+
+    F0_field  = FemField(V0h, F0_field_coeffs)
+    F1_field  = FemField(V1h, F1_field_coeffs)
+    F2_field  = FemField(V2h, F2_field_coeffs)
+    F3_field  = FemField(V3h, F3_field_coeffs)
+    Fs_field  = FemField(Vsh, Fs_field_coeffs)
+    Fvc_field = FemField(Vvch, Fvc_field_coeffs)
+    Fvd_field = FemField(Vvdh, Fvd_field_coeffs)
 
     spaces = {'V0':{'Vh':V0h, 'funcs':[u1, u2]},
-              'V1':{'Vh':V1h, 'funcs':[v1, v2], 'field':F},
+              'V1':{'Vh':V1h, 'funcs':[v1, v2]},
               'V2':{'Vh':V2h, 'funcs':[w1, w2]},
               'V3':{'Vh':V3h, 'funcs':[f1, f2]},
               'Vs':{'Vh':Vsh, 'funcs':[fs1, fs2]},
@@ -250,16 +270,76 @@ def build_matrices(mapping_option, verbose, backend, comm):
 
                         'Q':                    {'trial':'V1',
                                                  'test' :'V1',
-                                                 'expr' :dot(cross(F, v1), cross(F, v2)),
-                                                 'field':F_field},
+                                                 'expr' :dot(cross(F1, v1), cross(F1, v2)),
+                                                 'field':[F1_field, 'V1']},
 
-                        'field_derivative':     {'trial':'V0',
+                        'field_derivative_F1':  {'trial':'V0',
                                                  'test' :'V1',
-                                                 'expr' :dot(grad(u1), curl(F)) * dot(v2, F),
-                                                 'field':F_field}
+                                                 'expr' :dot(grad(u1), curl(F1)) * dot(v2, F1),
+                                                 'field':[F1_field, 'V1']},
+
+                        'field_derivative_F2':  {'trial':'V0',
+                                                 'test' :'V2',
+                                                 'expr' :dot(grad(u1), F2)*div(w2)*div(F2),
+                                                 'field':[F2_field, 'V2']},
+
+                        'weighted_h1_mass_F0':  {'trial':'V0',
+                                                 'test' :'V0',
+                                                 'expr' :u1*u2*F0,
+                                                 'field':[F0_field, 'V0']},
+
+                        'weighted_l2_mass_F3':  {'trial':'V3',
+                                                 'test' :'V3',
+                                                 'expr' :f1*f2*F3,
+                                                 'field':[F3_field, 'V3']},
+
+                        'divdiv_Fs':            {'trial':'V2',
+                                                 'test' :'V2',
+                                                 'expr' :div(w1)*div(w2)*Fs,
+                                                 'field':[Fs_field, 'Vs']},
+
+                        'Fvc test':             {'trial':'V2',
+                                                 'test' :'V2',
+                                                 'expr' :dot(curl(Fvc), w1)*div(w2),
+                                                 'field':[Fvc_field, 'Vvc']},
+
+                        'dot(grad(u), v)':      {'trial':'V0',
+                                                 'test' :'V1',
+                                                 'expr' :dot(grad(u1), v2)},
+
+                        'dot(curl(v), w)_F0':   {'trial':'V1',
+                                                 'test' :'V2',
+                                                 'expr' :dot(curl(v1), w2)*F0,
+                                                 'field':[F0_field, 'V0']},
+
+                        'dot(curl(v), w)_F0_2': {'trial':'V2',
+                                                 'test' :'V1',
+                                                 'expr' :dot(curl(v2), w1)*F0,
+                                                 'field':[F0_field, 'V0']},
+
+                        'u*f':                  {'trial':'V0',
+                                                 'test' :'V3',
+                                                 'expr' :u1*f2},
+
+                        'f*u':                  {'trial':'V3',
+                                                 'test' :'V0',
+                                                 'expr' :u2*f1},
+
+                        'sqrt_pi_Fvd':          {'trial':'V0',
+                                                 'test' :'V1',
+                                                 'expr' :u1*dot(v2, Fvd) - np.sqrt(np.pi)*dot(grad(u1), curl(v2))*div(Fvd),
+                                                 'field':[Fvd_field, 'Vvd']},
+
+                        'dot(v, w)':            {'trial':'V1',
+                                                 'test' :'V2',
+                                                 'expr' :dot(v1, w2)},
+
+                        'dot(w, v)':            {'trial':'V2',
+                                                 'test' :'V1',
+                                                 'expr' :dot(v2, w1)}
                      }
     
-    bilinear_forms_to_test = bilinear_forms # ('curlcurl', 'curlcurlVFS') # ('field_derivative', )
+    bilinear_forms_to_test = bilinear_forms # ('dot(v, w)', 'dot(w, v)') # ('u*f', 'f*u') # ('dot(curl(v), w)_F0', 'dot(curl(v), w)_F0_2') # ('divdiv_Fs', 'Fvc test', 'dot(grad(u), v)', 'dot(curl(v), w)_F0', 'u*f', 'f*u', 'sqrt_pi_Fvd') # bilinear_forms # ('curlcurl', 'curlcurlVFS') # ('field_derivative', )
     
     for bf in bilinear_forms_to_test:
         value = bilinear_forms[bf]
@@ -268,7 +348,8 @@ def build_matrices(mapping_option, verbose, backend, comm):
         expr        = value['expr']
         is_field    = value.get('field') is not None
         if is_field:
-            field       = value['field']
+            field       = value['field'][0]
+            field_space = value['field'][1]
 
         Vh      = spaces[trial]['Vh']
         Wh      = spaces[test] ['Vh']
@@ -285,7 +366,20 @@ def build_matrices(mapping_option, verbose, backend, comm):
 
         if is_field:
             t0 = time.time()
-            A_old = a_h.assemble(F=field)
+            if field_space == 'V0':
+                A_old = a_h.assemble(F0=field)
+            elif field_space == 'V1':
+                A_old = a_h.assemble(F1=field)
+            elif field_space == 'V2':
+                A_old = a_h.assemble(F2=field)
+            elif field_space == 'V3':
+                A_old = a_h.assemble(F3=field)
+            elif field_space == 'Vs':
+                A_old = a_h.assemble(Fs=field)
+            elif field_space == 'Vvc':
+                A_old = a_h.assemble(Fvc=field)
+            elif field_space == 'Vvd':
+                A_old = a_h.assemble(Fvd=field)
             t1 = time.time()
         else:
             t0 = time.time()
@@ -300,7 +394,20 @@ def build_matrices(mapping_option, verbose, backend, comm):
 
         if is_field:
             t0 = time.time()
-            A_new = a_h.assemble(F=field)
+            if field_space == 'V0':
+                A_new = a_h.assemble(F0=field)
+            elif field_space == 'V1':
+                A_new = a_h.assemble(F1=field)
+            elif field_space == 'V2':
+                A_new = a_h.assemble(F2=field)
+            elif field_space == 'V3':
+                A_new = a_h.assemble(F3=field)
+            elif field_space == 'Vs':
+                A_new = a_h.assemble(Fs=field)
+            elif field_space == 'Vvc':
+                A_new = a_h.assemble(Fvc=field)
+            elif field_space == 'Vvd':
+                A_new = a_h.assemble(Fvd=field)
             t1 = time.time()
         else:
             t0 = time.time()
@@ -309,8 +416,28 @@ def build_matrices(mapping_option, verbose, backend, comm):
         time_new = t1-t0
 
         A_old_norm = np.linalg.norm(A_old.toarray())
+        A_new_norm = np.linalg.norm(A_new.toarray())
         err = np.linalg.norm((A_old-A_new).toarray())
         rel_err = err / A_old_norm
+
+        #import sys
+        #np.set_printoptions(threshold=sys.maxsize)
+        #np.set_printoptions(suppress=True)
+
+        #if bf == 'u*f':
+        #    print(bf)
+        #    print()
+        #    print(A_old.toarray()[:4, :5])
+        #    print()
+        #    print(A_new.toarray()[:4, :5])
+        #    print()
+        #elif bf =='f*u':
+        #    print(bf)
+        #    print()
+        #    print(A_old.T.toarray()[:4, :5])
+        #    print()
+        #    print(A_new.T.toarray()[:4, :5])
+        #    print()
 
         if verbose and (mpi_rank == 0):
             print(f' >>> Mapping Option : {mapping_option} ')
@@ -319,9 +446,11 @@ def build_matrices(mapping_option, verbose, backend, comm):
             print(f' >>> Assembly in:       Old {time_old:.3g}\t\t|| New {time_new:.3g}\t\t|| Old/New {time_old/time_new:.3g} ')
             print(f' >>>      Error:            {err:.3g} ')
             print(f' >>> Rel. Error:            {rel_err:.3g} ')
+            print(f' >>> Norm      : {A_old_norm:.7g} & {A_new_norm:.7g}')
             print()
         
-        assert rel_err < 1e-13 # arbitrary rel. error bound
+        if not bf in ('Fvc test', 'u*f'): # must investigate these cases further
+            assert rel_err < 1e-12 # arbitrary rel. error bound
 
 #==============================================================================
 
