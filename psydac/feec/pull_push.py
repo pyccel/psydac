@@ -307,14 +307,13 @@ def pull_3d_hdiv(f, F):
         a1_phys = f1(x, y, z)
         a2_phys = f2(x, y, z)
         a3_phys = f3(x, y, z)
-        print("Shape of a1_phys:", a1_phys.shape)
-        print("Shape of a2_phys:", a2_phys.shape)
-        print("Shape of a3_phys:", a3_phys.shape)
+
         
+
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
-        print("Shape of J_inv_value:", J_inv_value.shape)
+        
         det_value   = F.metric_det(eta1, eta2, eta3)**0.5
-        print("Shape of det_value:", det_value.shape)
+        
         # Attempt the computation, isolating each part for clarity
         try:
             value_1 = (
@@ -325,6 +324,13 @@ def pull_3d_hdiv(f, F):
             print("Shape of value_1:", value_1.shape)
         except ValueError as e:
             print("Error encountered:", e)
+            print("Type of a1_phys:", type(a1_phys), "Value:", a1_phys)
+            print("Type of a2_phys:", type(a2_phys), "Value:", a2_phys)
+            print("Type of a3_phys:", type(a3_phys), "Value:", a3_phys)
+            if isinstance(a1_phys, int) or isinstance(a2_phys, int) or isinstance(a3_phys, int):
+                print("Error: One of a1_phys, a2_phys, or a3_phys is an integer, expected array.")
+            print("Shape of J_inv_value:", J_inv_value.shape)
+            print("Shape of det_value:", det_value.shape)
             print("Shape of J_inv_value[..., 0, 0].T:", J_inv_value[..., 0, 0].T.shape)
             print("Shape of J_inv_value[..., 0, 1].T:", J_inv_value[..., 0, 1].T.shape)
             print("Shape of J_inv_value[..., 0, 2].T:", J_inv_value[..., 0, 2].T.shape)
