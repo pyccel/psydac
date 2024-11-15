@@ -22,7 +22,7 @@ classifiers  = ["Programming Language :: Python :: 3"]
 dependencies = [
 
     # Third-party packages from PyPi
-    'numpy >= 1.16',
+    'numpy <2.0.0, >=1.20.0',
     'scipy >= 1.12',
     'sympy >= 1.5',
     'matplotlib',
@@ -42,7 +42,7 @@ dependencies = [
     #
     # python3 -m pip install requirements.txt
     # python3 -m pip install .
-    'mpi4py',
+    'mpi4py<4.0.0',
     'h5py',
 
     # When pyccel is run in parallel with MPI, it uses tblib to pickle
