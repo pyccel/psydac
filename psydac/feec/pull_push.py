@@ -111,7 +111,7 @@ def pull_2d_hcurl(f, F):
     assert isinstance(F, BasicCallableMapping)
     assert F.ldim == 2
 
-    # Assume that f is a list/tuple of callable functions
+    # Assume that f is a list/tuple of callable functions    
     f1, f2 = f
 
     def f1_logical(eta1, eta2):
@@ -121,9 +121,6 @@ def pull_2d_hcurl(f, F):
         a2_phys = f2(x, y)
 
         J_T_value = F.jacobian(eta1, eta2).T
-        print(f"{J_T_value.shape = }")
-        print(f"{a1_phys.shape = }")
-        print(f"{a2_phys.shape = }")
         value_1 = J_T_value[..., 0, 0].T * a1_phys + J_T_value[..., 0, 1].T * a2_phys
         return value_1
 
@@ -303,10 +300,7 @@ def pull_3d_hdiv(f, F):
 
     def f1_logical(eta1, eta2, eta3):
         x, y, z = F(eta1, eta2, eta3)
-        print("Shape of x:", x.shape)
-        print("Shape of y:", y.shape)
-        print("Shape of z:", z.shape)
-        
+
         a1_phys = f1(x, y, z)
         a2_phys = f2(x, y, z)
         a3_phys = f3(x, y, z)
