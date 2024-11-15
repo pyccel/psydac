@@ -121,7 +121,7 @@ def pull_2d_hcurl(f, F):
         a2_phys = f2(x, y)
 
         J_T_value = F.jacobian(eta1, eta2).T
-        value_1   = J_T_value[..., 0, 0].T * a1_phys + J_T_value[..., 0, 1].T * a2_phys
+        value_1 = J_T_value[0, ..., 0].T * a1_phys + J_T_value[0, ..., 1].T * a2_phys
         return value_1
 
     def f2_logical(eta1, eta2):
@@ -131,7 +131,7 @@ def pull_2d_hcurl(f, F):
         a2_phys = f2(x, y)
 
         J_T_value = F.jacobian(eta1, eta2).T
-        value_2   = J_T_value[..., 1, 0].T * a1_phys + J_T_value[..., 1, 1].T * a2_phys
+        value_2 = J_T_value[1, ..., 0].T * a1_phys + J_T_value[1, ..., 1].T * a2_phys
         return value_2
 
     return f1_logical, f2_logical
