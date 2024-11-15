@@ -112,7 +112,7 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
         assert np.allclose(p._data[slicep], s._data[slices][subslice], 1e-12, 1e-12)
 
 #==============================================================================
-@pytest.mark.parametrize('domain', [(0, 1)])
+@pytest.mark.parametrize('domain', [(0., 1.)])
 @pytest.mark.parametrize('ncells', [20, 37])
 @pytest.mark.parametrize('degree', [3])
 @pytest.mark.parametrize('periodic', [True, False])
@@ -122,7 +122,7 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
 def test_projection_parallel_1d(domain, ncells, degree, periodic, funcs, reduce):
     run_projection_comparison([domain], [ncells], [degree], [periodic], [funcs], reduce)
 
-@pytest.mark.parametrize('domain', [([-2, 3], [6, 8])])              
+@pytest.mark.parametrize('domain', [([0., 1.], [0., 1.])])
 @pytest.mark.parametrize('ncells', [(27, 40)])
 @pytest.mark.parametrize('degree', [(4, 5)])                 
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)])
@@ -133,7 +133,7 @@ def test_projection_parallel_1d(domain, ncells, degree, periodic, funcs, reduce)
 def test_projection_parallel_2d(domain, ncells, degree, periodic, funcs, reduce):
     run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce) 
 
-@pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  
+@pytest.mark.parametrize('domain', [([0., 1.], [0., 1.], [0., 1.])])
 @pytest.mark.parametrize('ncells', [(14, 14, 20)])
 @pytest.mark.parametrize('degree', [(2, 2, 3)])            
 @pytest.mark.parametrize('periodic', [( True, False, False),          
