@@ -300,13 +300,37 @@ def pull_3d_hdiv(f, F):
 
     def f1_logical(eta1, eta2, eta3):
         x, y, z = F(eta1, eta2, eta3)
+        print("Shape of x:", x.shape)
+        print("Shape of y:", y.shape)
+        print("Shape of z:", z.shape)
         
         a1_phys = f1(x, y, z)
         a2_phys = f2(x, y, z)
         a3_phys = f3(x, y, z)
-
+        print("Shape of a1_phys:", a1_phys.shape)
+        print("Shape of a2_phys:", a2_phys.shape)
+        print("Shape of a3_phys:", a3_phys.shape)
+        
         J_inv_value = F.jacobian_inv(eta1, eta2, eta3)
+        print("Shape of J_inv_value:", J_inv_value.shape)
         det_value   = F.metric_det(eta1, eta2, eta3)**0.5
+        print("Shape of det_value:", det_value.shape)
+        # Attempt the computation, isolating each part for clarity
+        try:
+            value_1 = (
+                J_inv_value[..., 0, 0].T * a1_phys
+                + J_inv_value[..., 0, 1].T * a2_phys
+                + J_inv_value[..., 0, 2].T * a3_phys
+            )
+            print("Shape of value_1:", value_1.shape)
+        except ValueError as e:
+            print("Error encountered:", e)
+            print("Shape of J_inv_value[..., 0, 0].T:", J_inv_value[..., 0, 0].T.shape)
+            print("Shape of J_inv_value[..., 0, 1].T:", J_inv_value[..., 0, 1].T.shape)
+            print("Shape of J_inv_value[..., 0, 2].T:", J_inv_value[..., 0, 2].T.shape)
+            print("Shape of a1_phys:", a1_phys.shape)
+            print("Shape of a2_phys:", a2_phys.shape)
+            print("Shape of a3_phys:", a3_phys.shape)
         value_1     = J_inv_value[..., 0, 0].T * a1_phys + J_inv_value[..., 0, 1].T * a2_phys + J_inv_value[..., 0, 2].T * a3_phys
         return det_value * value_1
 
