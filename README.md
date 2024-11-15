@@ -6,6 +6,12 @@ Over time, features from psydac-for-struphy will be merged with psydac/devel.
 
 Eventually, the goals is that struphy uses the real psydac/devel instead of this fork.
 
+## Important
+
+* Some pytests have been modified due to the requirement that we use a domain length of 1, see [this assert statement](https://github.com/max-models/psydac-for-struphy/blob/76f039ac9406675548ffd8c753b0292e2d0596b4/psydac/feec/global_projectors.py#L734).
+* All of test_feec_maxwell_multipatch_2d.py has been commented out since it is not needed for Struphy, and the domain sizes are not 1
+
+
 [![devel_tests](https://github.com/pyccel/psydac/actions/workflows/continuous-integration.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/continuous-integration.yml) [![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
 
 **PSYDAC** is a Python 3 Library for isogeometric analysis.
