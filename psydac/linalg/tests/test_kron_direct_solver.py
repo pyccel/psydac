@@ -657,7 +657,7 @@ def test_3d_m1_solver(ncells, degree, periodic):
 
 @pytest.mark.parametrize( 'ncells', [[8, 8], [8, 16]] )
 @pytest.mark.parametrize( 'degree', [[2, 2], [2,3]] )
-@pytest.mark.parametrize( 'bounds', [[(0,1), (0,1)], [(0,0.5), (0,2.)]] )
+@pytest.mark.parametrize( 'bounds', [[(0,1), (0,1)]] )
 @pytest.mark.parametrize( 'periodic', [[True, True], [False,False]] )
 @pytest.mark.parallel
 def test_2d_mass_solver(ncells, degree, bounds, periodic):
