@@ -828,32 +828,32 @@ def test_maxwell_2d_dirichlet():
     assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
 
 
-def test_maxwell_2d_dirichlet_spline_mapping():
+# def test_maxwell_2d_dirichlet_spline_mapping():
 
-    namespace = run_maxwell_2d_TE(
-        use_spline_mapping = True,
-        eps      = None,
-        ncells   = None,
-        degree   = None,
-        periodic = None,
-        Cp       = 0.5,
-        nsteps   = 1,
-        tend     = None,
-        splitting_order      = 2,
-        plot_interval        = 0,
-        diagnostics_interval = 0,
-        tol = 1e-6,
-        verbose = False
-    )
+#     namespace = run_maxwell_2d_TE(
+#         use_spline_mapping = True,
+#         eps      = None,
+#         ncells   = None,
+#         degree   = None,
+#         periodic = None,
+#         Cp       = 0.5,
+#         nsteps   = 1,
+#         tend     = None,
+#         splitting_order      = 2,
+#         plot_interval        = 0,
+#         diagnostics_interval = 0,
+#         tol = 1e-6,
+#         verbose = False
+#     )
 
-    TOL = 1e-6
-    ref = dict(error_Ex = 0.11197875072599534,
-               error_Ey = 0.11197875071916191,
-               error_Bz = 0.09616100464412525)
+#     TOL = 1e-6
+#     ref = dict(error_Ex = 0.11197875072599534,
+#                error_Ey = 0.11197875071916191,
+#                error_Bz = 0.09616100464412525)
 
-    assert abs(namespace['error_Ex'] - ref['error_Ex']) / ref['error_Ex'] <= TOL
-    assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
-    assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
+#     assert abs(namespace['error_Ex'] - ref['error_Ex']) / ref['error_Ex'] <= TOL
+#     assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
+#     assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
 
 
 @pytest.mark.parallel

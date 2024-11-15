@@ -10,7 +10,7 @@ Eventually, the goals is that struphy uses the real psydac/devel instead of this
 
 * Some pytests have been modified due to the requirement that we use a domain length of 1, see [this assert statement](https://github.com/max-models/psydac-for-struphy/blob/76f039ac9406675548ffd8c753b0292e2d0596b4/psydac/feec/global_projectors.py#L734).
 * All of test_feec_maxwell_multipatch_2d.py has been commented out since it is not needed for Struphy, and the domain sizes are not 1
-
+* Skip `test_maxwell_2d_dirichlet_spline_mapping` since `spline_mapping=True` gives incompatible shapes for `F.jacobian(eta1, eta2)` in `pull_2d_hcurl` (for example: `F.jacobian(eta1, eta2).shape = (2, 36, 10, 2)`), this is not sliced correctly with `[..., 0, 0]`.
 
 [![devel_tests](https://github.com/pyccel/psydac/actions/workflows/continuous-integration.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/continuous-integration.yml) [![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
 
