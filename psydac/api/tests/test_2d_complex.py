@@ -229,6 +229,7 @@ def run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=None, degr
     l2norm =     Norm(error, domain, kind='l2')
     h1norm = SemiNorm(error, domain, kind='h1')
 
+
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
     #+++++++++++++++++++++++++++++++
@@ -237,7 +238,6 @@ def run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=None, degr
     Vh       = discretize(V, domain_h, degree=degree)
 
     equation_h = discretize(equation, domain_h, [Vh, Vh], backend=backend)
-
     l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
     h1norm_h = discretize(h1norm, domain_h, Vh, backend=backend)
 
@@ -450,7 +450,7 @@ def test_complex_helmholtz_2d(plot_sol=False):
         u_err   = [(u1 - u2) for u1, u2 in zip(u_vals, uh_vals)]
     
         my_small_plot(
-            title=r'approximation of solution $u$',
+            title=r'Approximation of solution $u$',
             vals=[u_vals, uh_vals, u_err],
             titles=[r'$u^{ex}(x,y)$', r'$u^h(x,y)$', r'$|(u^{ex}-u^h)(x,y)|$'],
             xx=xx,
