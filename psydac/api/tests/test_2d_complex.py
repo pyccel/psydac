@@ -322,7 +322,7 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
 ###############################################################################
 def test_complex_biharmonic_2d():
     # This test solve the biharmonic problem with homogeneous dirichlet condition without a mapping
-    x, y, z = symbols('x1, x2, x3')
+    x, y, z = symbols('x1, x2, x3', real=True)
     solution = (sin(pi * x)**2 * sin(pi * y)**2 + 1j * sin(2*pi * x)**2 * sin(2*pi * y)**2) * exp(pi * 1j * (x**2+y**2))
     f        = laplace(laplace(solution))
 
@@ -343,7 +343,7 @@ def test_complex_biharmonic_2d():
 def test_complex_biharmonic_2d_mapping():
     # This test solve the biharmonic problem with homogeneous dirichlet condition with a mapping
 
-    x, y, z = symbols('x, y, z')
+    x, y, z = symbols('x, y, z', real=True)
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
 
     factor=2.5

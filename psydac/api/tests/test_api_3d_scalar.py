@@ -159,7 +159,7 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
 def test_api_poisson_3d_dir_1():
 
     from sympy import symbols
-    x1, x2, x3 = symbols('x1, x2, x3')
+    x1, x2, x3 = symbols('x1, x2, x3', real=True)
 
     solution = sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
     f        = 3*pi**2*sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
@@ -194,7 +194,7 @@ def test_api_poisson_3d_dir_1():
 def test_api_poisson_3d_dirneu_2():
 
     from sympy import symbols
-    x1, x2, x3 = symbols('x1, x2, x3')
+    x1, x2, x3 = symbols('x1, x2, x3', real=True)
 
     solution = sin(0.5*pi*x1)*sin(pi*x2)*sin(pi*x3)
     f        = (9./4.)*pi**2*solution
@@ -212,7 +212,7 @@ def test_api_poisson_3d_dirneu_2():
 def test_api_poisson_3d_dirneu_13():
 
     from sympy import symbols
-    x1, x2, x3 = symbols('x1, x2, x3')
+    x1, x2, x3 = symbols('x1, x2, x3', real=True)
 
     solution = cos(0.5*pi*x1)*cos(0.5*pi*x2)*sin(pi*x3)
     f        = (3./2.)*pi**2*solution
@@ -232,7 +232,7 @@ def test_api_poisson_3d_dirneu_13():
 def test_api_poisson_3d_dirneu_24():
 
     from sympy import symbols
-    x1, x2, x3 = symbols('x1, x2, x3')
+    x1, x2, x3 = symbols('x1, x2, x3', real=True)
 
     solution = sin(0.5*pi*x1)*sin(0.5*pi*x2)*sin(pi*x3)
     f        = (3./2.)*pi**2*solution
@@ -300,7 +300,7 @@ def test_api_poisson_3d_dirneu_24():
 def test_api_poisson_3d_dir_1_parallel():
 
     from sympy import symbols
-    x1, x2, x3 = symbols('x1, x2, x3')
+    x1, x2, x3 = symbols('x1, x2, x3', real=True)
 
     solution = sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
     f        = 3*pi**2*sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
