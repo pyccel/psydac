@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 from mpi4py import MPI
-from sympy import pi, cos, sin
+from sympy import pi, cos, sin, symbols
 import pytest
 import os
 
@@ -240,7 +240,7 @@ def test_api_poisson_3d_dir_collela():
 
     filename = os.path.join(mesh_dir, 'collela_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = sin(pi*x)*sin(pi*y)*sin(pi*z)
     f        = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
@@ -258,7 +258,7 @@ def test_api_poisson_3d_dir_collela():
 def test_api_poisson_3d_dirneu_identity_2():
     filename = os.path.join(mesh_dir, 'identity_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = sin(0.5*pi*x)*sin(pi*y)*sin(pi*z)
     f        = (9./4.)*pi**2*solution

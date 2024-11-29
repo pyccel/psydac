@@ -15,8 +15,7 @@
 #      coordinates (r, theta), but with reversed order: hence x1=theta and x2=r
 
 from mpi4py import MPI
-from sympy import pi, cos, sin, log, exp, lambdify
-from sympy.abc import x, y
+from sympy import pi, cos, sin, log, exp, lambdify, symbols
 import pytest
 import os
 
@@ -46,6 +45,7 @@ except:
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
 # ...
+x, y = symbols('x, y', real=True)
 
 #------------------------------------------------------------------------------
 def run_field_test(filename, f):
