@@ -17,8 +17,7 @@ jobs:
       matrix:
         os: [ ubuntu-latest ]
         # TODO: Make sure that struphy works with python > 3.11, keep the lower bound to 3.10
-        #python-version: [ 3.9, '3.10', '3.11', '3.12' ]
-        python-version: [ '3.11' ]
+        python-version: [ '3.10', '3.11', '3.12' ]
         isMerge:
           - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
         #exclude:
@@ -210,10 +209,10 @@ jobs:
           echo "PSYDAC_DIR=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "STRUPHY_DIR=$GITHUB_WORKSPACE/struphy" >> $GITHUB_ENV
 
-      - name: Clone struphy from GitLab (struphy-with-psydac-devel branch)
+      - name: Clone struphy from GitLab (devel branch)
         run: |
           # TODO: Use the struphy devel branch here when it's ready
-          git clone --branch struphy-with-psydac-devel https://gitlab.mpcdf.mpg.de/struphy/struphy.git $STRUPHY_DIR
+          git clone --branch devel https://gitlab.mpcdf.mpg.de/struphy/struphy.git $STRUPHY_DIR
       
       - name: Install struphy
         working-directory: ${{ env.STRUPHY_DIR }}
