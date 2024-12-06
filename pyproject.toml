@@ -60,7 +60,7 @@ Repository    = "https://github.com/pyccel/psydac.git"
 
 [project.scripts]
 psydac-mesh = "psydac.cmd.mesh:main"
-
+psydac-accelerate = "psydac.accelerate.accelerate:main"
 [tool.setuptools.packages.find]
 include = ["psydac*"]
 exclude = ["*__psydac__*"]
