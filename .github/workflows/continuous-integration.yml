@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest ]
+        os: [ ubuntu-24.04 ]
         python-version: [ 3.9, '3.10', '3.11', '3.12' ]
         isMerge:
           - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
@@ -48,7 +48,7 @@ jobs:
             requirements_extra.txt
 
       - name: Install non-Python dependencies on Ubuntu
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: gfortran openmpi-bin libopenmpi-dev libhdf5-openmpi-dev
@@ -60,7 +60,7 @@ jobs:
       # installation (since openmpi-bin already exists), but instead reruns
       # `update-alternatives` which fixes the symlinks to mpicc/mpif90.
       - name: Set default MPI and HDF5 C compilers on Ubuntu
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         run: |
           sudo apt-get update
           sudo apt-get install --reinstall openmpi-bin libhdf5-openmpi-dev
@@ -93,7 +93,7 @@ jobs:
 
       - name: Determine directory of parallel HDF5 library
         run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+          if [[ "${{ matrix.os }}" == "ubuntu-24.04" ]]; then
             HDF5_DIR=$(dpkg -L libhdf5-openmpi-dev | grep libhdf5.so | xargs dirname)
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             HDF5_DIR=$(brew list hdf5-mpi | grep "libhdf5.dylib" | xargs dirname | xargs dirname)
@@ -184,7 +184,7 @@ jobs:
           --pyargs psydac -m "not parallel and not petsc"
 
       - name: Run single-process tests with Pytest on Ubuntu
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         working-directory: ./pytest
         run: |
           python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
