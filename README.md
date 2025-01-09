@@ -143,7 +143,7 @@ Although Psydac provides several iterative linear solvers which work with our na
 In order to use these additional feature, PETSc and petsc4py must be installed as follows.
 First, we download the latest release of PETSc from its [official Git repository](https://gitlab.com/petsc/petsc):
 ```sh
-git clone --depth 1 --branch v3.21.4 https://gitlab.com/petsc/petsc.git
+git clone --depth 1 --branch v3.22.2 https://gitlab.com/petsc/petsc.git
 ```
 Next, we specify a configuration for complex numbers, and install PETSc in a local directory:
 ```sh

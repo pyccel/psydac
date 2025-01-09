@@ -117,7 +117,7 @@ jobs:
       - if: steps.cache-petsc.outputs.cache-hit != 'true'
         name: Download a specific release of PETSc
         run: |
-          git clone --depth 1 --branch v3.21.4 https://gitlab.com/petsc/petsc.git
+          git clone --depth 1 --branch v3.22.2 https://gitlab.com/petsc/petsc.git
 
       - if: steps.cache-petsc.outputs.cache-hit != 'true'
         name: Install PETSc with complex support
@@ -125,7 +125,7 @@ jobs:
         run: |
           export PETSC_DIR=$(pwd)
           export PETSC_ARCH=petsc-cmplx
-          ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1         
+          ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1 --download-fblaslapack=1
           make all
           echo "PETSC_DIR=$PETSC_DIR" > petsc.env
           echo "PETSC_ARCH=$PETSC_ARCH" >> petsc.env
