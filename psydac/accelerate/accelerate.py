@@ -6,7 +6,7 @@ from subprocess import run as sub_run, PIPE, STDOUT  # nosec B404
 
 import psydac
 # Get the absolute path to the psydac directory
-psydac_path = os.path.abspath(os.path.dirname(psydac.__path__[0]))
+psydac_path = os.path.abspath(psydac.__path__[0])
 
 def pyccelize_files(root_path: str, language: str = 'fortran', openmp: bool = False):
     """
@@ -47,8 +47,7 @@ def pyccelize_files(root_path: str, language: str = 'fortran', openmp: bool = Fa
                 elif language == 'c' and os.path.isfile(generated_file_fortran):
                     cleanup = True
     if cleanup:
-        cleanup_files(psydac_path)
-
+        cleanup_files(root_path)
     for root, _, files in os.walk(root_path):
         for name in files:
             if name.endswith('_kernels.py'):
