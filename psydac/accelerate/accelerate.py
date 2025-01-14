@@ -94,6 +94,10 @@ def cleanup_files(root_path: str):
                 file_to_remove = os.path.join(root, filename)
                 print(f"Removing lock file: {file_to_remove}")
                 os.remove(file_to_remove)
+            elif filename.endswith('.so'):
+                file_to_remove = os.path.join(root, filename)
+                print(f"Removing .so file: {file_to_remove}")
+                os.remove(file_to_remove)
 
 
 def main():

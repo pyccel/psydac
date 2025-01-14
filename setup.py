@@ -17,13 +17,13 @@ class BuildPyCommand(build_py):
 
         # This part check if the module is pyccelisable and pyccelise it in
         # case
-        if module.endswith('_kernels'):
-            self.announce(f"\nPyccelising [{module}] ...", level=logging.INFO)
-            # TODO --openmp doesn't work with c-compilation
-            pyccel = sub_run([which('pyccel'), outfile, '--language', 'c'],
-                              stdout=PIPE, stderr=STDOUT,
-                              text=True, shell=False, check=True) # nosec B603
-            self.announce(pyccel.stdout, level=logging.INFO)
+        # if module.endswith('_kernels'):
+        #     self.announce(f"\nPyccelising [{module}] ...", level=logging.INFO)
+        #     # TODO --openmp doesn't work with c-compilation
+        #     pyccel = sub_run([which('pyccel'), outfile, '--language', 'c'],
+        #                       stdout=PIPE, stderr=STDOUT,
+        #                       text=True, shell=False, check=True) # nosec B603
+        #     self.announce(pyccel.stdout, level=logging.INFO)
 
         return outfile, copied
 
