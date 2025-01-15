@@ -47,13 +47,18 @@ jobs:
             requirements.txt
             requirements_extra.txt
 
+      # - name: Install non-Python dependencies on Ubuntu
+      #   if: matrix.os == 'ubuntu-24.04'
+      #   uses: awalsh128/cache-apt-pkgs-action@latest
+      #   with:
+      #     packages: gfortran openmpi-bin libopenmpi-dev libhdf5-openmpi-dev liblapack-dev libblas-dev
+      #     version: 1.0
+      #     execute_install_scripts: true
       - name: Install non-Python dependencies on Ubuntu
         if: matrix.os == 'ubuntu-24.04'
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: gfortran openmpi-bin libopenmpi-dev libhdf5-openmpi-dev liblapack-dev libblas-dev 
-          version: 1.0
-          execute_install_scripts: true
+        run: |
+          sudo apt-get update
+          gfortran openmpi-bin libopenmpi-dev libhdf5-openmpi-dev liblapack-dev libblas-dev
 
       # When loading cached apt packages, the default MPI compiler isn't set.
       # Workaround is to 'reinstall' openmpi-bin, which doesn't actually perform
@@ -113,15 +118,7 @@ jobs:
       - if: steps.cache-petsc.outputs.cache-hit != 'true'
         name: Download a specific release of PETSc
         run: |
-          git clone --depth 1 --branch v3.21.4 https://gitlab.com/petsc/petsc.git
-
-      - name: Setup upterm session
-        uses: lhotari/action-upterm@v1
-        with:
-          ## limits ssh access and adds the ssh public key for the user which triggered the workflow
-          limit-access-to-actor: true
-          ## limits ssh access and adds the ssh public keys of the listed GitHub users
-          limit-access-to-users: kvrigor
+          git clone --depth 1 --branch v3.22.2 https://gitlab.com/petsc/petsc.git
 
       - if: steps.cache-petsc.outputs.cache-hit != 'true'
         name: Install PETSc with complex support
