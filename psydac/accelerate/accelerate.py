@@ -3,10 +3,12 @@ import os
 import sys
 from shutil import which, rmtree
 from subprocess import run as sub_run, PIPE, STDOUT  # nosec B404
+import sysconfig
 
 import psydac
 # Get the absolute path to the psydac directory
 psydac_path = os.path.abspath(psydac.__path__[0])
+libdir = sysconfig.get_config_var('LIBDIR')
 
 def pyccelize_files(root_path: str, language: str = 'fortran', openmp: bool = False):
     """
@@ -31,6 +33,9 @@ def pyccelize_files(root_path: str, language: str = 'fortran', openmp: bool = Fa
     parameters = ['--language', language]
     if openmp:
         parameters.append('--openmp')
+
+    parameters.append('--libdir')
+    parameters.append(libdir)
 
     # Cleanup if any files of the opposite language exist
     cleanup = False
