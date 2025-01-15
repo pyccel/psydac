@@ -47,18 +47,13 @@ jobs:
             requirements.txt
             requirements_extra.txt
 
-      # - name: Install non-Python dependencies on Ubuntu
-      #   if: matrix.os == 'ubuntu-24.04'
-      #   uses: awalsh128/cache-apt-pkgs-action@latest
-      #   with:
-      #     packages: gfortran openmpi-bin libopenmpi-dev libhdf5-openmpi-dev liblapack-dev libblas-dev
-      #     version: 1.0
-      #     execute_install_scripts: true
       - name: Install non-Python dependencies on Ubuntu
         if: matrix.os == 'ubuntu-24.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install gfortran openmpi-bin libopenmpi-dev libhdf5-openmpi-dev liblapack-dev libblas-dev
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: gfortran openmpi-bin libopenmpi-dev libhdf5-openmpi-dev liblapack-dev libblas-dev
+          version: 1.0
+          execute_install_scripts: true
 
       # When loading cached apt packages, the default MPI compiler isn't set.
       # Workaround is to 'reinstall' openmpi-bin, which doesn't actually perform
