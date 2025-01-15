@@ -115,6 +115,14 @@ jobs:
         run: |
           git clone --depth 1 --branch v3.21.4 https://gitlab.com/petsc/petsc.git
 
+      - name: Setup upterm session
+        uses: lhotari/action-upterm@v1
+        with:
+          ## limits ssh access and adds the ssh public key for the user which triggered the workflow
+          limit-access-to-actor: true
+          ## limits ssh access and adds the ssh public keys of the listed GitHub users
+          limit-access-to-users: kvrigor
+
       - if: steps.cache-petsc.outputs.cache-hit != 'true'
         name: Install PETSc with complex support
         working-directory: ./petsc
