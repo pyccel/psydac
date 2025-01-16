@@ -3,8 +3,8 @@ import argparse
 import os
 from subprocess import run as sub_run
 import shutil
-
-
+import sysconfig
+libdir = sysconfig.get_config_var('LIBDIR')
 
 #The purpose of this file is to be launched after an editable installation of Psydac, to pyccelise all the Psydac kernels.
 #This file is useless during a classic installation because the kernels are already pyccelised in the construction folder.
@@ -48,6 +48,10 @@ parameters = ['--language', args.language]
 # check if the flag --openmp is passed and add it to the argument if it's the case
 if args.openmp:
     parameters.append('--openmp')
+
+# Append libdir
+parameters.append('--libdir')
+parameters.append(libdir)
 
 # search in psydac/psydac folder all the files ending with the tag _kernels.py
 for path, subdirs, files in os.walk(psydac_path):
