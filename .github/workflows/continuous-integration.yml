@@ -5,9 +5,9 @@ name: Run tests
 
 on:
   push:
-    branches: [ devel ]
+    branches: [ devel, main ]
   pull_request:
-    branches: [ devel ]
+    branches: [ devel, main ]
 
 jobs:
   test:
@@ -218,7 +218,7 @@ jobs:
         working-directory: ${{ env.STRUPHY_DIR }}
         run: |
           pip uninstall psydac -y
-          python -m pip install . --no-cache-dir
+          python -m pip install .[test] --no-cache-dir
           pip show psydac
        
       - name: Re-install Psydac from the current branch
