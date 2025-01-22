@@ -312,8 +312,8 @@ for p in [2, 3, 4, 5]
 end
 savefig(plt, "conv_timeharmonic_nonmatching")
 
-
-plt = plot(dpi = 1200, legend_columns=3, scale = :log, yscale = :log, legend=:bottomleft, grid=true, xlabel = "N p.p.", ylabel= "Relative " * L"L^2" *" error", xticks = ([2, 4, 8, 16],[L"2",L"4", L"8", L"16"]));
+#plt = plot(dpi = 1200, legend_columns=1, yscale = :log, legend=:bottomright, grid=true, xticks = (ev, latexstring.(ev)), xlabel = "Index of eigenvalue", ylabel=L"| \lambda_i - \lambda_{h,i}|");
+plt = plot(dpi = 1200, legend_columns=3, scale = :log, yscale = :log, legend=:bottomleft, grid=true, xlabel = "N", ylabel= "Relative " * L"L^2" *" error", xticks = ([2, 4, 8, 16],[L"2 \times 2",L"4 \times 4", L"8 \times 8", L"16 \times 16"]));
 colors = palette(:tab10)
 ref = [2, 4, 8, 16]
 for p in [2, 3, 4, 5]
@@ -350,30 +350,97 @@ errors_matching = Dict(
     4 => [0.0002107510144635505, 1.7169675681216745e-06, 5.103829892050271e-08, 1.7912614749704403e-05, 0.0003961665654372837 ]
 )
 
-plt = plot(dpi = 1200, legend_columns=1, yscale = :log, legend=:bottomright, grid=true, xlabel = "eigenvalue number", ylabel="Error");
+plt = plot(dpi = 1200, legend_columns=1, yscale = :log, legend=:bottomright, grid=true, xticks = (ev, latexstring.(ev)), xlabel = "Index of eigenvalue", ylabel=L"| \lambda_i - \lambda_{h,i}|");
+#plt = plot(dpi = 1200, legend_columns=1, yscale = :log, legend=:bottomright, grid=true, xlabel = "eigenvalue number", ylabel="Error");
 colors = palette(:tab10)
 for n in 1:4
 
-    plot!(plt, ev, errors_nonmatching[n], label = "nc = $(dof_nonmatching[n])", color = colors[n], markershape = :circle, markerstrokewidth=0)    
+    plot!(plt, ev, errors_nonmatching[n], label = L"N_{tot} ="*" $(dof_nonmatching[n])", color = colors[n], markershape = :circle, markerstrokewidth=0)    
 
 end
 savefig(plt, "cc_ev_nm.png")
 
-
-plt = plot(dpi = 1200, legend_columns=1, yscale = :log, legend=:bottomright, grid=true, xlabel = "eigenvalue number", ylabel="Error");
+plt = plot(dpi = 1200, legend_columns=1, yscale = :log, legend=:bottomright, grid=true, xticks = (ev, latexstring.(ev)), xlabel = "Index of eigenvalue", ylabel=L"| \lambda_i - \lambda_{h,i}|");
+# plt = plot(dpi = 1200, legend_columns=1, yscale = :log, legend=:bottomright, grid=true, xlabel = "eigenvalue number", ylabel="Error");
 colors = palette(:tab10)
 for n in 1:4
-    plot!(plt, ev, errors_matching[n], label = "nc = $(dof_matching[n])", color = colors[n], markershape = :circle, markerstrokewidth=0)    
+    plot!(plt, ev, errors_matching[n], label = L"N_{tot} ="*" $(dof_matching[n])", color = colors[n], markershape = :circle, markerstrokewidth=0)    
 end
 savefig(plt, "cc_ev_m.png")
 
-plt = plot(dpi = 2400, legend_columns=2, yscale = :log, legend=:bottomright, grid=true, xlabel = "eigenvalue number", ylabel="Relative "*L"L^2"*" error");
+plt = plot(dpi = 1200, legend_columns=2, yscale = :log, legend=:bottomright, grid=true, xticks = (ev, latexstring.(ev)), xlabel = "Index of eigenvalue", ylabel=L"| \lambda_i - \lambda_{h,i}|");
+
+# plt = plot(dpi = 2400, legend_columns=2, yscale = :log, legend=:bottomright, grid=true, xlabel = "eigenvalue number", ylabel="Relative "*L"L^2"*" error");
 colors = palette(:tab10)
 for n in 1:4
-    plot!(plt, ev, errors_matching[n], label = "nc = $(dof_matching[n])", color = colors[n], markershape = :circle, markerstrokewidth=0)    
-    plot!(plt, ev, errors_nonmatching[n], label = "nc = $(dof_nonmatching[n])", color = colors[n], markershape = :xcross, markerstrokewidth=0)    
+    plot!(plt, ev, errors_matching[n], label = L"N_{tot} ="*" $(dof_matching[n])", color = colors[n], markershape = :circle, markerstrokewidth=0)    
+    plot!(plt, ev, errors_nonmatching[n], label = L"N_{tot} ="*" $(dof_nonmatching[n])", color = colors[n], markershape = :xcross, markerstrokewidth=0)    
 end
 savefig(plt, "cc_ev_both.png")
+
+# curl-curl three patch eigen 
+#==
+THREE PATCH
+ev = [1, 1, 2, 4, 4, 5, 5, 8, 9, 9]
+dof = [16, 32, 64, 128]
+
+2
+[8.155069429971462e-05, 8.178553703341862e-05, 0.000592218890899332, 0.007655373903529217, 0.008473657130132928, 0.014489260093362155, 0.017724375475160592, 0.03275112454399576, 0.09187585001448184, 0.09548894231724425]
+[4.59160228372113e-06, 4.659488307190429e-06, 3.384414445184447e-05, 0.0003825263909353893, 0.0004300259347820301, 0.0007063607885191558, 0.000854061863067912, 0.001576693918284633, 0.0049644312155692205, 0.005202652024212995]
+[2.789406901015923e-07, 2.841437694023341e-07, 2.06475249830973e-06, 2.2269415601350318e-05, 2.513785026181381e-05, 4.097194529695258e-05, 4.927559698586492e-05, 9.094147988619738e-05, 0.0002704417388930125, 0.0002840278911602212]
+[1.7307207222927445e-08, 1.7647946215504362e-08, 1.2826599737891797e-07, 1.3659880790939383e-06, 1.5435237727956519e-06, 2.5113380903718507e-06, 3.0154912806779066e-06, 5.565499066051416e-06, 1.6248487643366616e-05, 1.707301129627581e-05]
+
+3
+[1.2784760725637057e-06, 1.4184117422821885e-06, 9.337903703166006e-06, 0.00043586205390688804, 0.0004460155271388544, 0.0008881241749660873, 0.0010176573627500574, 0.002302712783230021, 0.012030529953797497, 0.012297475192575291]
+[1.83791080132778e-08, 2.065720483557243e-08, 1.3263753650960552e-07, 4.875029429030064e-06, 5.020244460141043e-06, 9.918187525492783e-06, 1.1459671348745815e-05, 2.457539133970954e-05, 0.00015267678507591143, 0.00015571097382327537]
+[2.802371668053638e-10, 3.1658586863159144e-10, 2.0286283763937263e-09, 6.714019828990558e-08, 6.947726483019778e-08, 1.3571821355640168e-07, 1.5825660248935947e-07, 3.287464771517534e-07, 1.8077361829682559e-06, 1.8495974103416302e-06]
+[3.417710559006082e-12, 6.640910044097836e-12, 3.1588953675054654e-11, 1.0159419971955685e-09, 1.0536664873939117e-09, 2.048038183488643e-09, 2.3977699825650234e-09, 4.926125285464877e-09, 2.6096271810160943e-08, 2.6732880797908365e-08]
+
+4
+[1.0057246591088642e-08, 1.0447586795692132e-08, 1.1635535601683955e-07, 2.1987133385970026e-05, 2.2344684269981485e-05, 4.607785754018323e-05, 5.143223168158073e-05, 0.00014608112613245794, 0.004203769599225637, 0.004208120073259991]
+[3.7979397404797055e-11, 3.9894310077670525e-11, 4.0291192604513526e-10, 5.6081844057587205e-08, 5.707957484446524e-08, 1.1944274902475627e-07, 1.3077798666216722e-07, 3.5776334783577113e-07, 4.9797214707325566e-06, 5.0096774533159305e-06]
+[1.4210854715202004e-14, 3.325340003357269e-12, 1.5134560271690134e-12, 1.8237589216596461e-10, 1.864535192908079e-10, 3.89282384105627e-10, 4.2576608905164903e-10, 1.1344205574914668e-09, 1.2287479478345631e-08, 1.2379363312220448e-08]
+[1.509903313490213e-14, 8.79296635503124e-13, 6.648015471455437e-13, 6.572520305780927e-13, 1.4868106745780096e-12, 1.4859224961583095e-12, 1.623590151211829e-12, 3.9541703245049575e-12, 4.135536357807723e-11, 4.370193096292496e-11]
+
+
+MATCHING 2x2 
+dof = [16, 32, 64, 128]
+
+3
+[1.0432229746726307e-07, 1.0432283747974225e-07, 2.086444257365372e-07, 3.88771363306617e-05, 3.887713666284043e-05, 3.8981459496767457e-05, 3.8981459496767457e-05, 7.775427187795003e-05, 0.0011099184468417178, 0.0011099184481135893]
+[1.7424817144728877e-09, 1.7562467036214002e-09, 3.506775314576771e-09, 5.196560151077279e-07, 5.197800554412879e-07, 5.214019056509756e-07, 5.214019056509756e-07, 1.0393411518094808e-06, 1.3182172372339096e-05, 1.3182245449883112e-05]
+[4.5342130050585183e-10, 1.5336372172214396e-09, 3.874253717839338e-08, 1.3149278110802243e-08, 8.147704733119099e-09, 7.748405472796094e-09, 7.748407249152933e-09, 2.5504396816700137e-08, 1.653340611085241e-07, 2.1309781317313536e-07]
+[1.3807888166184057e-10, 3.859648600723631e-09, 1.162551388489419e-09, 2.916529240337695e-10, 2.0192807426155923e-09, 1.1947065559070325e-10, 1.1948309008857905e-10, 5.8940337055446435e-09, 2.70726197015847e-09, 7.52376294599344e-09]
+
+==#
+ev = [1, 1, 2, 4, 4, 5, 5, 8, 9, 9]
+dof = [16, 32, 64, 128]
+
+errors_3p = Dict(
+    1 => [1.2784760725637057e-06, 1.4184117422821885e-06, 9.337903703166006e-06, 0.00043586205390688804, 0.0004460155271388544, 0.0008881241749660873, 0.0010176573627500574, 0.002302712783230021, 0.012030529953797497, 0.012297475192575291],
+    2 => [1.83791080132778e-08, 2.065720483557243e-08, 1.3263753650960552e-07, 4.875029429030064e-06, 5.020244460141043e-06, 9.918187525492783e-06, 1.1459671348745815e-05, 2.457539133970954e-05, 0.00015267678507591143, 0.00015571097382327537],
+    3 => [2.802371668053638e-10, 3.1658586863159144e-10, 2.0286283763937263e-09, 6.714019828990558e-08, 6.947726483019778e-08, 1.3571821355640168e-07, 1.5825660248935947e-07, 3.287464771517534e-07, 1.8077361829682559e-06, 1.8495974103416302e-06],
+    4 => [3.417710559006082e-12, 6.640910044097836e-12, 3.1588953675054654e-11, 1.0159419971955685e-09, 1.0536664873939117e-09, 2.048038183488643e-09, 2.3977699825650234e-09, 4.926125285464877e-09, 2.6096271810160943e-08, 2.6732880797908365e-08],
+)
+
+errors_m = Dict(
+    1 => [1.0432229746726307e-07, 1.0432283747974225e-07, 2.086444257365372e-07, 3.88771363306617e-05, 3.887713666284043e-05, 3.8981459496767457e-05, 3.8981459496767457e-05, 7.775427187795003e-05, 0.0011099184468417178, 0.0011099184481135893],
+    2 => [1.7424817144728877e-09, 1.7562467036214002e-09, 3.506775314576771e-09, 5.196560151077279e-07, 5.197800554412879e-07, 5.214019056509756e-07, 5.214019056509756e-07, 1.0393411518094808e-06, 1.3182172372339096e-05, 1.3182245449883112e-05],
+    3 => [4.5342130050585183e-10, 1.5336372172214396e-09, 3.874253717839338e-08, 1.3149278110802243e-08, 8.147704733119099e-09, 7.748405472796094e-09, 7.748407249152933e-09, 2.5504396816700137e-08, 1.653340611085241e-07, 2.1309781317313536e-07],
+    4 => [1.3807888166184057e-10, 3.859648600723631e-09, 1.162551388489419e-09, 2.916529240337695e-10, 2.0192807426155923e-09, 1.1947065559070325e-10, 1.1948309008857905e-10, 5.8940337055446435e-09, 2.70726197015847e-09, 7.52376294599344e-09]    
+)
+
+plt = plot(dpi = 1200, legend_columns=1, yscale = :log, legend=:bottomright, grid=true, xticks = (collect(1:10), latexstring.(ev)), xlabel = "Index of eigenvalue", ylabel=L"| \lambda_i - \lambda_{h,i}|");
+colors = palette(:tab10)
+
+for n in 1:4
+    plot!(plt, 1:10, errors_3p[n], label = L"N_{tot} ="*" $(dof[n])", color = colors[n], markershape = :circle, markerstrokewidth=0)    
+    #plot!(plt, 1:10, errors_m[n], label = "nc = $(dof[n])", color = colors[n], markershape = :cross, markerstrokewidth=0)    
+end
+
+savefig(plt, "cc_ev_3p.png")
+
+
 
 
 #### Update 19.09 formp notes
@@ -480,10 +547,62 @@ savefig(plt, "cc_ev_both.png")
     3=> [0.006043519994456351, 0.00022977966810808025, 9.129047623436424e-06, 3.9789419055201394e-07],
     4=> [0.0012043840167700198, 3.5162147891477066e-05, 8.902791639826253e-07, 2.030096118155681e-08]
     [24, 48, 96, 192]
+
+    without moments: 
+    ncells = np.array([[None, fac * 2**k], [fac * 2**k, fac * 2**(k+1)]])
+    N, rel_err_div = solve_weak_div(kind='div', h0div = False, ncells=ncells, deg=deg, mom_pres=False, hom_bc=True, hide_plot=True, verbose=False)
+
+    1 => [0.5355832374552137, 0.37725639227735097, 0.2657297958887675, 0.1874621772347344], 
+    2 => [0.49802684444138234, 0.34945255417918886, 0.24596099679616779, 0.17348346351699226], 
+    3 => [0.46712516242177526, 0.32766541926191045, 0.23060616256993238, 0.16265663556400228],
+    4 =>  [0.4432222909939631, 0.31022923613433073, 0.2183461267135765, 0.15402271430256034]
+    [24, 48, 96, 192]
+
+    ncells = np.array([[None, fac * 2**k], [fac * 2**k, fac * 2**(k+1)]])
+    N, rel_err_div = solve_weak_div(kind='curl', h0div = False, ncells=ncells, deg=deg, mom_pres=False, hom_bc=True, hide_plot=True, verbose=False)
+
+    1 => [0.2638233409065043, 0.19016707804841895, 0.1373697723569734, 0.09841288218722621], 
+    2 => [0.24435631746440356, 0.17747556138304385, 0.12787020506114702, 0.09137024551725771],
+    3 => [0.2311754007763034, 0.1675686141903297, 0.12038617052216177, 0.08585915867253684], 
+    4 => [0.22028732870674214, 0.15948061333612057, 0.1143302393612238, 0.08143042499883135]
+    [24, 48, 96, 192]
+
     ==#
 
 
 dof = [24, 48, 96, 192]
+
+errors = Dict(
+    1 => [0.5355832374552137, 0.37725639227735097, 0.2657297958887675, 0.1874621772347344], 
+    2 => [0.49802684444138234, 0.34945255417918886, 0.24596099679616779, 0.17348346351699226], 
+    3 => [0.46712516242177526, 0.32766541926191045, 0.23060616256993238, 0.16265663556400228],
+    4 =>  [0.4432222909939631, 0.31022923613433073, 0.2183461267135765, 0.15402271430256034]
+    )
+#plt = plot(dpi = 1200, legend_columns=2, yscale = :log, legend=:bottomright, grid=true, xticks = (ev, latexstring.(ev)), xlabel = "Index of eigenvalue", ylabel=L"| \lambda_i - \lambda_{h,i}|");
+plt = plot(dpi = 1200, legend_columns=2, yscale = :log, xscale =:log, legend=:bottomleft, grid=true, xlabel = L"N_{tot}", xticks = (dof, latexstring.(dof)), ylabel="Relative " * L"L^2" *" error");
+colors = palette(:tab10)
+for d in 1:4
+    plot!(plt, dof, errors[d], label = "deg = $d", color = colors[d], markershape = :circle, markerstrokewidth=0)    
+    plot!(plt, dof, errors[d][2]*(dof[2]^(d+1))  * (1 ./ dof).^(d+1), label = "order $(d+1)", line=:dash, color = colors[d])
+end
+savefig(plt, "/home/schnack/Downloads/wdiv_nomom_conv.png")
+
+
+
+errors = Dict(
+    1 => [0.2638233409065043, 0.19016707804841895, 0.1373697723569734, 0.09841288218722621], 
+    2 => [0.24435631746440356, 0.17747556138304385, 0.12787020506114702, 0.09137024551725771],
+    3 => [0.2311754007763034, 0.1675686141903297, 0.12038617052216177, 0.08585915867253684], 
+    4 => [0.22028732870674214, 0.15948061333612057, 0.1143302393612238, 0.08143042499883135]
+    )
+plt = plot(dpi = 1200, legend_columns=2, yscale = :log, xscale =:log, legend=:bottomleft, grid=true, xlabel = L"N_{tot}", xticks = (dof, latexstring.(dof)), ylabel="Relative " * L"L^2" *" error");
+colors = palette(:tab10)
+for d in 1:4
+    plot!(plt, dof, errors[d], label = "deg = $d", color = colors[d], markershape = :circle, markerstrokewidth=0)    
+    plot!(plt, dof, errors[d][2]*(dof[2]^(d+1))  * (1 ./ dof).^(d+1), label = "order $(d+1)", line=:dash, color = colors[d])
+end
+savefig(plt, "/home/schnack/Downloads/wcurl_nomom_conv.png")
+
 
 errors = Dict(
     1=> [0.10020966619903729, 0.018667340329043245, 0.0032760114164995424, 0.0005706486826237747], 
@@ -491,11 +610,139 @@ errors = Dict(
     3=> [0.005749269851153656, 0.0003035466818949205, 1.413981893579101e-05, 6.279995627332517e-07], 
     4=> [0.0014812300615435672, 3.173942687780366e-05, 6.18325689219852e-07, 1.2957302860337226e-08]
     )
-
-plt = plot(dpi = 2400, legend_columns=1, yscale = :log, xscale =:log, legend=:bottomleft, grid=true, xlabel = "N", xticks = (dof, latexstring.(dof)), ylabel="Error");
+plt = plot(dpi = 1200, legend_columns=2, yscale = :log, xscale =:log, legend=:bottomleft, grid=true, xlabel = L"N_{tot}", xticks = (dof, latexstring.(dof)), ylabel="Relative " * L"L^2" *" error");
 colors = palette(:tab10)
 for d in 1:4
     plot!(plt, dof, errors[d], label = "deg = $d", color = colors[d], markershape = :circle, markerstrokewidth=0)    
     plot!(plt, dof, errors[d][2]*(dof[2]^(d+1))  * (1 ./ dof).^(d+1), label = "order $(d+1)", line=:dash, color = colors[d])
 end
 savefig(plt, "/home/schnack/Downloads/wdiv_conv.png")
+
+
+errors = Dict(
+    1=> [0.07909216599888153, 0.013373946541813548, 0.0030332772941606273, 0.0008426281909444887], 
+    2=> [0.024252536584951915, 0.002615128557671429, 0.0002429735301990908, 2.2580347568328123e-05],
+    3=> [0.006043519994456351, 0.00022977966810808025, 9.129047623436424e-06, 3.9789419055201394e-07],
+    4=> [0.0012043840167700198, 3.5162147891477066e-05, 8.902791639826253e-07, 2.030096118155681e-08]
+    )
+plt = plot(dpi = 1200, legend_columns=2, yscale = :log, xscale =:log, legend=:bottomleft, grid=true, xlabel = L"N_{tot}", xticks = (dof, latexstring.(dof)), ylabel="Relative " * L"L^2" *" error");
+colors = palette(:tab10)
+for d in 1:4
+    plot!(plt, dof, errors[d], label = "deg = $d", color = colors[d], markershape = :circle, markerstrokewidth=0)    
+    plot!(plt, dof, errors[d][2]*(dof[2]^(d+1))  * (1 ./ dof).^(d+1), label = "order $(d+1)", line=:dash, color = colors[d])
+end
+savefig(plt, "/home/schnack/Downloads/wcurl_conv.png")
+
+
+#==
+Poisson refined handle
+source_type = 'manu_poisson_elliptic'
+domain_name = 'pretzel_f'
+eta = 0
+mu = 1
+for deg in [1, 2, 3, 4]:
+for k in [2, 3, 4]:
+nc = np.array([2**(k+1), 2**k, 2**k, 2**(k+1), 2**(k+1), 2**(k+1), 2**(k+1), 2**k, 2**k,
+            2**k, 2**k, 2**k, 2**k, 2**(k+1), 2**k, 2**k, 2**k, 2**k])
+
+# non-matching 
+[8 4 4 8 8 8 8 4 4 4 4 4 4 8 4 4 4 4] 1 1.5748861355959265
+[16  4  4 16 16 16 16  4  4  4  4  4  4 16  4  4  4  4] 1 0.07096073947816439
+[32  4  4 32 32 32 32  4  4  4  4  4  4 32  4  4  4  4] 1 0.021936910248964596
+[16  8  8 16 16 16 16  8  8  8  8  8  8 16  8  8  8  8] 1 0.07096073305085929
+[32 16 16 32 32 32 32 16 16 16 16 16 16 32 16 16 16 16] 1 0.02193690531730807
+
+[8 4 4 8 8 8 8 4 4 4 4 4 4 8 4 4 4 4] 2 0.1607284462003616
+[16  4  4 16 16 16 16  4  4  4  4  4  4 16  4  4  4  4] 2 0.010903111893430495
+[32  4  4 32 32 32 32  4  4  4  4  4  4 32  4  4  4  4] 2 0.0006308548872271492
+[16  8  8 16 16 16 16  8  8  8  8  8  8 16  8  8  8  8] 2 0.010903111893608637
+[32 16 16 32 32 32 32 16 16 16 16 16 16 32 16 16 16 16] 2 0.0006308548872277224
+
+[8 4 4 8 8 8 8 4 4 4 4 4 4 8 4 4 4 4] 3 0.06306654146201479
+[16  4  4 16 16 16 16  4  4  4  4  4  4 16  4  4  4  4] 3 0.003619481936214696
+[32  4  4 32 32 32 32  4  4  4  4  4  4 32  4  4  4  4] 3 6.909851491405993e-05
+[16  8  8 16 16 16 16  8  8  8  8  8  8 16  8  8  8  8] 3 0.0036194819348270065
+[32 16 16 32 32 32 32 16 16 16 16 16 16 32 16 16 16 16] 3 6.909851491406478e-05
+
+[8 4 4 8 8 8 8 4 4 4 4 4 4 8 4 4 4 4] 4 0.052897298053350854
+[16  4  4 16 16 16 16  4  4  4  4  4  4 16  4  4  4  4] 4 0.0039137100869503245
+[32  4  4 32 32 32 32  4  4  4  4  4  4 32  4  4  4  4] 4 1.581764531890776e-05
+[16  8  8 16 16 16 16  8  8  8  8  8  8 16  8  8  8  8] 4 0.003913710086952729
+[32 16 16 32 32 32 32 16 16 16 16 16 16 32 16 16 16 16] 4 1.5817645318916245e-05
+
+
+[4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4] 5 0.17112334449384317
+[8 4 4 8 8 8 8 4 4 4 4 4 4 8 4 4 4 4] 5 0.06161987921059177
+[16  4  4 16 16 16 16  4  4  4  4  4  4 16  4  4  4  4] 5 0.0025332524039157088
+[32  4  4 32 32 32 32  4  4  4  4  4  4 32  4  4  4  4] 5 5.809215794223173e-06
+
+# matching
+[4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4] 1 7.228548515219018
+[8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8] 1 1.5751013315412217
+[16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16] 1 0.07096073326157824
+[32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32] 1 0.021936905091955037
+
+[4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4] 2 4.056857775080687
+[8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8] 2 0.16073265095277703
+[16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16] 2 0.01090311188490918
+[32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32] 2 0.0006308548872275678
+
+[4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4] 3 1.2464896392753664
+[8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8] 3 0.06306655450906544
+[16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16] 3 0.00361948193090348
+[32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32] 3 6.90985149140773e-05
+
+[4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4] 4 0.28802987371505623
+[8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8] 4 0.05289728579309397
+[16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16] 4 0.003913710086757622
+[32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32] 4 1.5817645318877576e-05
+
+[4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4] 5 0.17112334449384317
+[8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8] 5 0.06161987826595325
+[16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16] 5 0.002533252403034628
+[32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32] 5 5.809215794252416e-06
+==#
+
+dof_non_matching = [96, 192, 384]
+
+errors_non_matching = Dict(
+    1=> [1.5748861355959265, 0.07096073305085929, 0.02193690531730807], 
+    2=> [0.1607284462003616, 0.010903111893608637, 0.0006308548872277224], 
+    3=> [0.06306654146201479, 0.0036194819348270065, 6.909851491406478e-05], 
+    4=> [0.052897298053350854, 0.003913710086952729, 1.5817645318916245e-05]
+    )
+
+dof_matching = [144, 288, 576]
+errors_matching = Dict(
+    1 => [1.5751013315412217, 0.07096073326157824, 0.021936905091955037],
+    2 => [0.16073265095277703, 0.01090311188490918, 0.0006308548872275678],
+    3 => [0.06306655450906544, 0.00361948193090348, 6.90985149140773e-05],
+    4 => [0.05289728579309397, 0.003913710086757622, 1.5817645318877576e-05]
+)
+
+
+plt = plot(dpi = 2400, legend_columns=1, yscale = :log, xscale =:log, legend=:bottomleft, grid=true, xlabel = "N", xticks = (dof_non_matching, latexstring.(dof_non_matching)), ylabel="Error");
+colors = palette(:tab10)
+
+for d in 1:4
+    plot!(plt, dof_non_matching, errors_non_matching[d], label = "deg = $d", color = colors[d], markershape = :circle, markerstrokewidth=0)    
+    plot!(plt, dof_non_matching, errors_non_matching[d][2]*(dof_non_matching[2]^(d+1))  * (1 ./ dof_non_matching).^(d+1), label = "order $(d+1)", line=:dash, color = colors[d])
+end
+
+for d in 1:4
+    plot!(plt, dof_matching, errors_matching[d], label = "deg = $d", color = colors[d], markershape = :circle, markerstrokewidth=0)    
+    plot!(plt, dof_matching, errors_matching[d][2]*(dof_matching[2]^(d+1))  * (1 ./ dof_matching).^(d+1), label = "order $(d+1)", line=:dash, color = colors[d])
+end
+plt
+
+
+
+dof_total = sort!(union(dof_non_matching, dof_matching))
+plt = plot(dpi = 2400, legend_columns=1, yscale = :log, xscale =:log, legend=:bottomleft, grid=true, xlabel = "N", xticks = (dof_total, latexstring.(dof_total)), ylabel="Error");
+colors = palette(:tab10)
+d = 4
+plot!(plt, dof_matching, errors_matching[d], label = "matching", color = colors[1], markershape = :circle, markerstrokewidth=0)    
+plot!(plt, dof_non_matching, errors_non_matching[d], label = "non-matching", color = colors[2], markershape = :cross, markerstrokewidth=0)    
+plot!(plt, dof_total, 1/2*errors_matching[d][2] *(dof_matching[2]^(d+1))  * (1 ./ dof_total).^(d+1), label = "order $(d+1)", line=:dash, color = colors[5])
+
+plt

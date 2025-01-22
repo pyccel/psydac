@@ -46,11 +46,12 @@ from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic import FemField
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
+from sympde.utilities.utils import plot_domain
 
 
 def solve_h1_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_type='manu_poisson_elliptic',
-        eta=-10., mu=1., gamma_h=10., plot_dir=None,
+        eta=-10., mu=1., gamma_h=1., plot_dir=None,
 ):
     """
     solver for the problem: find u in H^1, such that
@@ -99,6 +100,7 @@ def solve_h1_source_pbm(
 
     print('building the multipatch domain...')
     domain = build_multipatch_domain(domain_name=domain_name)
+
     mappings = OrderedDict([(P.logical_domain, P.mapping)
                            for P in domain.interior])
     mappings_list = list(mappings.values())
@@ -108,6 +110,10 @@ def solve_h1_source_pbm(
     else:
         ncells = {patch.name: [nc[i], nc[i]]
                     for (i, patch) in enumerate(domain.interior)}
+
+    if not os.path.exists(plot_dir):
+        os.makedirs(plot_dir)
+    plot_domain(domain, draw=False, isolines=True, ncells=ncells, path=plot_dir+'domain_'+str(np.sum(nc))+'.png')    
 
     domain_h = discretize(domain, ncells=ncells)
 
@@ -148,6 +154,7 @@ def solve_h1_source_pbm(
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions
     # of the continuous deRham sequence)
+    #cP0_m = construct_h1_conforming_projection(V0h, p_moments=deg+1, hom_bc=True)
     cP0_m = construct_h1_conforming_projection(V0h, hom_bc=True)
 
     def lift_u_bc(u_bc):
@@ -222,12 +229,12 @@ def solve_h1_source_pbm(
         vh = FemField(V0h, coeffs=stencil_coeffs)
         OM.export_fields(vh=vh)
 
-        stencil_coeffs = array_to_psydac(f_c, V0h.vector_space)
+        stencil_coeffs = array_to_psydac(cP0_m @ f_c, V0h.vector_space)
         fh = FemField(V0h, coeffs=stencil_coeffs)
         OM.export_fields(fh=fh)
         
         if u_ex:
-            stencil_coeffs = array_to_psydac(u_ex_c, V0h.vector_space)
+            stencil_coeffs = array_to_psydac(cP0_m @ u_ex_c, V0h.vector_space)
             uh_ex = FemField(V0h, coeffs=stencil_coeffs)
             OM.export_fields(uh_ex=uh_ex)
 
@@ -292,3 +299,4 @@ if __name__ == '__main__':
         backend_language='pyccel-gcc',
         plot_dir='./plots/h1_source_pbms_conga_2d/' + run_dir,
     )
+

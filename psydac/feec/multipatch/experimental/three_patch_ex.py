@@ -41,14 +41,14 @@ def get_trapez(corners, name='no_name'):
         d1=d[0], d2=d[1],
     )
 
-def three_patch_domain():
+def three_patch_domain(x=1, y=1):
     A = Square('P0', bounds1=(0, 1), bounds2=(0, 1))
-    B = Square('P1', bounds1=(0.5, 1), bounds2=(0, 0.5))
+    B = Square('P1', bounds1=(0.5 * x, y), bounds2=(0, 0.5 * y))
     C = Square('P2', bounds1=(0, 1), bounds2=(0, 1))
 
-    M1 = get_trapez(name='M0', corners=np.array([(0, 0), (0.5, 0), (0.5, 0.5), (0, 1)]))
+    M1 = get_trapez(name='M0', corners=np.array([(0, 0), (0.5 * x, 0), (0.5 * x, 0.5 * x), (0, 1 * y)]))
     M2 = IdentityMapping('M1', 2)
-    M3 = get_trapez(name='M2', corners=np.array([ (0, 1), (0.5, 0.5), (1, 0.5), (1, 1)]))
+    M3 = get_trapez(name='M2', corners=np.array([ (0, 1 * y), (0.5 * x, 0.5 * y), (1 * x, 0.5 * y), (1 * x, 1 * y)]))
 
     A = M1(A)
     B = M2(B)
@@ -70,13 +70,24 @@ def quad_domain():
     A = M1(A)
     B = M2(B)
     C = M3(C)
-    domain = Domain.join(patches=[A, B, C],
-                             connectivity=[((0, 0,  1), (1, 0, -1), 1),
-                                          ((2, 1, -1), (0, 1, 1), 1),
-                                            ((1, 1, 1), (2, 0, 1), 1),],
-                             name='domain')
 
-    ncells = [8, 4, 4]
+    B1 = Square('PP1', bounds1=(0, 0.5), bounds2=(0, 0.5))
+    M21 = IdentityMapping('MM1', 2)
+    B1 = M21(B1)
+
+    # domain = Domain.join(patches=[A, B, C],
+    #                          connectivity=[((0, 0,  1), (1, 0, -1), 1),
+    #                                       ((2, 1, -1), (0, 1, 1), 1),
+    #                                         ((1, 1, 1), (2, 0, 1), 1),],
+    #                          name='domain')
+    domain = Domain.join(patches=[B, C],
+                             connectivity=[((0, 1, 1), (1, 0, 1), 1),],
+                             name='domain')
+    # domain = Domain.join(patches=[B1, B],
+    #                          connectivity=[((0, 0, 1), (1, 0, -1), 1),],
+    #                          name='domain')
+
+    ncells = [8, 4, 16]
     ncells_h = {patch.name: [ncells[i], ncells[i]]
                     for (i, patch) in enumerate(domain.interior)}
     degree = [3,3]
@@ -100,7 +111,7 @@ def quad_domain():
     H1_m = H1.to_sparse_matrix()            # = mass matrix of V1
     dH1_m = H1.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V1
     
-    #cP0_m = construct_h1_conforming_projection(V0h, hom_bc=True)
+    cP0_m = construct_h1_conforming_projection(V0h, hom_bc=False)
     cP1_m = construct_hcurl_conforming_projection(V1h, hom_bc=False)
 
     x,y = domain.coordinates
@@ -158,6 +169,65 @@ def quad_domain():
     PM.export_to_vtk(
         plot_dir +
         "/G_h",
+        grid=None,
+        npts_per_cell=[6] *
+        2,
+        snapshots='all',
+        fields='Gh')
+
+    PM.close()
+
+
+    x,y = domain.coordinates
+    f = sin(pi*x)*sin(2*pi*y)
+
+    G = [lambda xi1, xi2, ii=i : ii for i in range(len(domain))]
+    G_log = [pull_2d_h1(G[k], m) for (k,m) in enumerate(mappings_list)]
+    cPG0h = cP0_m @geomP0(G_log).coeffs.toarray()
+    G0h =   geomP0(G_log).coeffs.toarray()
+   
+    stencil_coeffs = array_to_psydac(G0h, V0h.vector_space)
+    cPstencil_coeffs = array_to_psydac(cPG0h, V0h.vector_space)
+
+    Gh = FemField(V0h, coeffs=cPstencil_coeffs)
+
+    f_cc = derham_h.get_dual_dofs(space='V0', f=f, return_format='numpy_array')
+    f_c = dH0_m.dot(f_cc)
+    cPf_c = cP0_m @ dH0_m.dot(f_cc)
+
+    OM = OutputManager(plot_dir + '/spaces.yml', plot_dir + '/fields.h5')
+    
+    OM.add_spaces(V0h=V0h)
+    stencil_coeffs = array_to_psydac(f_c, V0h.vector_space)
+    cPstencil_coeffs = array_to_psydac(cPf_c, V0h.vector_space)
+    fh = FemField(V0h, coeffs=cPstencil_coeffs)
+
+    OM.set_static()
+    OM.export_fields(fh=fh)
+    OM.export_fields(Gh=Gh)
+
+    OM.export_space_info()
+    OM.close()
+    PM = PostProcessManager(
+        domain=domain,
+        space_file=plot_dir +
+        '/spaces.yml',
+        fields_file=plot_dir +
+        '/fields.h5')
+
+
+    PM.export_to_vtk(
+        plot_dir +
+        "/f_h",
+        grid=None,
+        npts_per_cell=[6] *
+        2,
+        snapshots='all',
+        fields='fh')
+
+    PM.export_to_vtk(
+        plot_dir +
+        "/G0_h",
         grid=None,
         npts_per_cell=[6] *
         2,

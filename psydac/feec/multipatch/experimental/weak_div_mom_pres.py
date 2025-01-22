@@ -62,7 +62,7 @@ def solve_weak_div(kind='div', h0div = True,
     else:
         domain = build_cartesian_multipatch_domain(ncells, [1, 3], [0, np.pi / 4], mapping='polar')
         if kind=='div':
-            vf, divf = get_function_H_div(domain)
+            f, divf = get_function_H_div(domain)
         elif kind=='curl':
             f, curlf = get_function_H_curl(domain)
 
@@ -177,7 +177,7 @@ def solve_weak_div(kind='div', h0div = True,
         return N, rel_err_curl
 
 if __name__ == '__main__':
-    plot_dir = "plots/"
+    plot_dir = "plots/WDIV/"
     # solve_weak_div(h0div = False, ncells=np.array([[None, 8], [16, 8]]), deg=3, mom_pres=True, hom_bc=True, hide_plot=True, verbose=False)
 
     # deg = 4
@@ -190,12 +190,12 @@ if __name__ == '__main__':
     fac = 6
     err_dict = dict()
     N_dict = dict()
-    for deg in range(3,5):
+    for deg in range(4,5):
         err_dict[deg] = []
         N_dict[deg] = []
         for k in range(0,4):
             ncells = np.array([[None, fac * 2**k], [fac * 2**k, fac * 2**(k+1)]])
-            N, rel_err_div = solve_weak_div(kind='curl', h0div = False, ncells=ncells, deg=deg, mom_pres=True, hom_bc=True, hide_plot=True, verbose=False)
+            N, rel_err_div = solve_weak_div(kind='div', h0div = False, ncells=ncells, deg=deg, mom_pres=False, hom_bc=True, hide_plot=True, verbose=False)
 
             err_dict[deg].append(rel_err_div)
             N_dict[deg].append(N)

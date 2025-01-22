@@ -26,7 +26,7 @@ from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
 from psydac.feec.multipatch.operators                   import HodgeOperator, get_K0_and_K0_inv, get_K1_and_K1_inv
 from psydac.feec.multipatch.plotting_utilities          import plot_field #, write_field_to_diag_grid, 
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_hcurl, get_div_free_pulse, get_curl_free_pulse, get_Delta_phi_pulse, get_Gaussian_beam, get_diag_Gaussian_beam#, get_praxial_Gaussian_beam_E, get_easy_Gaussian_beam_E, get_easy_Gaussian_beam_B,get_easy_Gaussian_beam_E_2, get_easy_Gaussian_beam_B_2
+from psydac.feec.multipatch.examples.ppc_test_cases     import get_Gaussian_beam_helmholtz#, get_praxial_Gaussian_beam_E, get_easy_Gaussian_beam_E, get_easy_Gaussian_beam_B,get_easy_Gaussian_beam_E_2, get_easy_Gaussian_beam_B_2
 from psydac.feec.multipatch.utils_conga_2d              import DiagGrid, P0_phys, P1_phys, P2_phys, get_Vh_diags_for
 from psydac.feec.multipatch.utilities                   import time_count #, export_sol, import_sol
 from psydac.linalg.utilities                            import array_to_psydac
@@ -46,30 +46,40 @@ from sympy.functions.special.error_functions import erf
 def run_sim():
     ## Minimal example for a PML implementation of the Time-Domain Maxwells equation
     nc = 20
-    ncells  = np.array([[2*nc, nc, 2*nc],
-                        [nc, 2*nc, nc], 
-                        [2*nc, nc, 2*nc]])
+    # ncells  = np.array([[2*nc, 2*nc, 2*nc],
+    #                     [2*nc, nc, 2*nc], 
+    #                     [2*nc, 2*nc, 2*nc]])
 
     # ncells  = np.array([[nc, nc, nc],
     #                     [2*nc, 2*nc,  2*nc], 
     #                     [nc, nc, nc],
     #                     [nc, nc, nc]])
 
-
+    domain_name = "three_patch"
+    ncells = np.array([nc, 2*nc, nc])
     degree = [3,3]
     p_moments= -1
-    GSP = True
-    plot_dir = "plots/NumKin24/time_domain_maxwell/checkerboard_no_moments"
+    no_plots = 100
+    plot_dir = "plots/helmholtz/three_patch/"
     bc = 'pml' #'none', 'abc' #'pml'
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
     
     x_lim = np.pi
     y_lim = np.pi
-    final_time = 3
+    final_time = 2
 
-    domain = build_cartesian_multipatch_domain(ncells, [0, x_lim], [0, y_lim])
-    ncells_h = {patch.name: [ncells[int(patch.name[4])][int(patch.name[2])], ncells[int(patch.name[4])][int(patch.name[2])]] for patch in domain.interior}
+    if domain_name == 'three_patch':
+        from psydac.feec.multipatch.experimental.three_patch_ex import three_patch_domain
+        domain = three_patch_domain(x_lim, y_lim)
+        ncells_h = {patch.name: [ncells[i], ncells[i]]
+                    for (i, patch) in enumerate(domain.interior)}
+    
+    else:
+        domain = build_cartesian_multipatch_domain(ncells, [0, x_lim], [0, y_lim])
+        ncells_h = {patch.name: [ncells[int(patch.name[4])][int(patch.name[2])], ncells[int(patch.name[4])][int(patch.name[2])]] for patch in domain.interior}
+
+
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
 
@@ -90,6 +100,12 @@ def run_sim():
 
     backend     = 'pyccel-gcc'
 
+    print("CONF PROJ")
+    cP0_m = construct_h1_conforming_projection(V0h, p_moments=p_moments, hom_bc=False)
+    cP1_m = construct_hcurl_conforming_projection(V1h, p_moments=p_moments, hom_bc=False)
+
+
+    print("HODGE OPERATORS")
     H0 = HodgeOperator(V0h, domain_h)
     H1 = HodgeOperator(V1h, domain_h)
     H2 = HodgeOperator(V2h, domain_h)
@@ -100,9 +116,8 @@ def run_sim():
     dH1_m = H1.get_dual_Hodge_sparse_matrix()  
     H2_m = H2.to_sparse_matrix()              
     dH2_m = H2.get_dual_Hodge_sparse_matrix()  
-    cP0_m = construct_h1_conforming_projection(V0h, p_moments=p_moments, hom_bc=False)
-    cP1_m = construct_hcurl_conforming_projection(V1h, p_moments=p_moments, hom_bc=False)
 
+    print("PML")
     ## PML
     u, v     = elements_of(derham.V1, names='u, v')
     x,y = domain.coordinates
@@ -144,7 +159,6 @@ def run_sim():
     def sigma_fun_sym(x, xmin, xmax, delta, sigma_m, domain):
         return sigma_fun(x, xmin, xmax, delta, 1, sigma_m, domain) + sigma_fun(x, xmin, xmax, delta, -1, sigma_m, domain)
 
-    #usual setup: 
     delta = np.pi/6
     xmin = 0
     xmax = x_lim
@@ -152,45 +166,20 @@ def run_sim():
     ymax = y_lim
     sigma_0 = 30
 
-    #test: 
-    # delta = 0.5
-    # sigma_0 = 100
-
-
     sigma_x = sigma_fun_sym(True, xmin, xmax, delta, sigma_0, domain)
     sigma_y = sigma_fun_sym(False, ymin, ymax, delta, sigma_0, domain)
     if bc == 'pml':
         mass = BilinearForm((v,u), integral(domain, u1*v1*sigma_y + u2*v2*sigma_x))
         massh = discretize(mass, domain_h, [V1h, V1h])
-        M = massh.assemble().tosparse()
+        M1 = massh.assemble().tosparse()
 
-        u, v     = elements_of(derham.V2, names='u, v')
+        u, v     = elements_of(derham.V0, names='u, v')
         mass = BilinearForm((v,u), integral(domain, u*v*(sigma_y + sigma_x)))
-        massh = discretize(mass, domain_h, [V2h, V2h])
-        M2 = massh.assemble().tosparse()
-
-    elif bc == 'abc':
-        ### Silvermueller ABC
-        
-        u, v     = elements_of(derham.V1, names='u, v')
-        nn       = NormalVector('nn')
-        boundary = domain.boundary
-        expr_b = cross(nn, u)*cross(nn, v)
-
-        a = BilinearForm((u,v), integral(boundary, expr_b))
-        ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS[backend],)
-        A_eps = ah.assemble().tosparse()
-        ###
+        massh = discretize(mass, domain_h, [V0h, V0h])
+        M0 = massh.assemble().tosparse()
 
 
-    # conf_proj = GSP
-    # seems to be bad for non-matching stuff!
-    if GSP:
-        K0, K0_inv = get_K0_and_K0_inv(V0h, uniform_patches=False)
-        cP0_m = K0_inv @ cP0_m @ K0
-        K1, K1_inv = get_K1_and_K1_inv(V1h, uniform_patches=False)
-        cP1_m = K1_inv @ cP1_m @ K1
-
+    print("PREPARING OPERATORS")
     bD0, bD1 = derham_h.broken_derivatives_as_operators
     bD0_m = bD0.to_sparse_matrix()
     bD1_m = bD1.to_sparse_matrix()
@@ -201,21 +190,25 @@ def run_sim():
     cP1_m = cP1_m.tocsr()
     bD1_m = bD1_m.tocsr()
 
-    C_m = bD1_m @ cP1_m
-    dC_m = dH1_m @ C_m.transpose() @ H2_m
+    G_m = bD0_m @ cP0_m
+    dD_m = dH0_m @ cP0_m.transpose() @ bD0_m.transpose() @ H1_m
 
+   # C_m = bD1_m @ cP1_m
+   # dC_m = dH1_m @ C_m.transpose() @ H2_m
+   # div_m = dH0_m @ cP0_m.transpose() @ bD0_m.transpose() @ H1_m
 
-    f0_c = np.zeros(V1h.nbasis)
+    # jump_penal_m = I1_m - cP1_m
+    # JP_m = jump_penal_m.transpose() * H1_m * jump_penal_m
 
-    #E0, B0 = get_diag_Gaussian_beam(x_0=0.3 , y_0=0.3, domain=domain)
+    f0_c = np.zeros(V0h.nbasis)
 
-    #E0, B0 = get_Gaussian_beam(x_0=0.4 , y_0=0.4, domain=domain)
-    E0, B0 = get_Gaussian_beam(x_0=np.pi * 1/2 , y_0=np.pi * 1/2, domain=domain)
-
+    eps=0.1
+    phi0, u0 = get_Gaussian_beam_helmholtz(x_0=np.pi * 1/2 , y_0=np.pi * 1/2, domain=domain)
+    #E0, B0 = get_Gaussian_beam(x_0=np.pi * 1/2 , y_0=np.pi * 1/2, domain=domain)
     #E0, B0 = get_Berenger_wave(x_0=3.14/2 , y_0=3.14/2, domain=domain)
     backend_language = 'pyccel-gcc'
-    E_c = dH1_m @ derham_h.get_dual_dofs(space='V1', f=E0, backend_language=backend_language, return_format='numpy_array')
-    B_c = dH2_m @ derham_h.get_dual_dofs(space='V2', f=B0, backend_language=backend_language, return_format='numpy_array')
+    phi_c = dH0_m @ derham_h.get_dual_dofs(space='V0', f=phi0, backend_language=backend_language, return_format='numpy_array')
+    u_c = dH1_m @ derham_h.get_dual_dofs(space='V1', f=u0, backend_language=backend_language, return_format='numpy_array')
 
     # E0_h = P1_phys(E0, P1, domain, mappings_list)
     # E_c = E0_h.coeffs.toarray()
@@ -247,30 +240,29 @@ def run_sim():
     OM1.add_spaces(V1h=V1h)
     OM1.export_space_info()
 
-    OM2 = OutputManager(plot_dir+'/spaces2.yml', plot_dir+'/fields2.h5')
-    OM2.add_spaces(V2h=V2h)
-    OM2.export_space_info()
+    OM0 = OutputManager(plot_dir+'/spaces0.yml', plot_dir+'/fields0.h5')
+    OM0.add_spaces(V0h=V0h)
+    OM0.export_space_info()
 
-    stencil_coeffs_E = array_to_psydac(cP1_m @ E_c, V1h.vector_space)
-    Eh = FemField(V1h, coeffs=stencil_coeffs_E)
+    stencil_coeffs_u = array_to_psydac(cP1_m @ u_c, V1h.vector_space)
+    uh = FemField(V1h, coeffs=stencil_coeffs_u)
     OM1.add_snapshot(t=0 , ts=0) 
-    OM1.export_fields(Eh=Eh)
+    OM1.export_fields(uh=uh)
 
-    stencil_coeffs_B = array_to_psydac(B_c, V2h.vector_space)
-    Bh = FemField(V2h, coeffs=stencil_coeffs_B)
-    OM2.add_snapshot(t=0 , ts=0) 
-    OM2.export_fields(Bh=Bh)
+    stencil_coeffs_phi = array_to_psydac(cP0_m @ phi_c, V0h.vector_space)
+    phih = FemField(V0h, coeffs=stencil_coeffs_phi)
+    OM0.add_snapshot(t=0 , ts=0) 
+    OM0.export_fields(phih=phih)
 
-    dt = compute_stable_dt(C_m=C_m, dC_m=dC_m, cfl_max=0.8, dt_max=None)
+    dt = compute_stable_dt(C_m=G_m, dC_m=dD_m, cfl_max=0.8, dt_max=None)
+    # if p_moments == -1:
+    #     dt = 1/2 * dt
+
     Nt = int(np.ceil(final_time/dt))
     dt = final_time / Nt
     if bc == 'pml':
-        Epml = sp.sparse.linalg.spsolve(H1_m, M)
-        Bpml = sp.sparse.linalg.spsolve(H2_m, M2)
-    elif bc == 'abc':
-        H1A = H1_m + dt * A_eps
-        A_eps = sp.sparse.linalg.spsolve(H1A, H1_m)
-        dC_m =  sp.sparse.linalg.spsolve(H1A, C_m.transpose() @ H2_m)
+        upml = sp.sparse.linalg.spsolve(H1_m, M1)
+        phipml = sp.sparse.linalg.spsolve(H0_m, M0)
     elif bc == 'none':
         A_eps = sp.sparse.linalg.spsolve(H1_m, H1_m)
 
@@ -280,37 +272,35 @@ def run_sim():
 
         # 1/2 faraday: Bn -> Bn+1/2
         if bc == 'pml':
-            B_c[:] -= dt/2*Bpml@B_c + (dt/2) * C_m @ E_c
-            E_c[:] += -dt*Epml @ E_c  + dt * (dC_m @ B_c - f_c)
-            B_c[:] -= dt/2*Bpml@B_c + (dt/2) * C_m @ E_c
+            u_c[:] -= dt/2* upml@u_c + (dt/2) * G_m @ phi_c
+            phi_c[:] += -dt*phipml @ phi_c  + dt * (dD_m @ u_c - f_c)
+            u_c[:] -= dt/2*upml@u_c + (dt/2) * G_m @ phi_c
 
-        else:
-            B_c[:] -=  (dt/2) * C_m @ E_c
-            E_c[:] = A_eps @ E_c + dt * (dC_m @ B_c - f_c)
-            B_c[:] -= (dt/2) * C_m @ E_c
 
         #plot_field(numpy_coeffs=cP1_m @ E_c, Vh=V1h, space_kind='hcurl', domain=domain, surface_plot=False, plot_type='amplitude', filename=plot_dir+"/E_{}".format(nt))
 
-        stencil_coeffs_E = array_to_psydac(cP1_m @ E_c, V1h.vector_space)
-        Eh = FemField(V1h, coeffs=stencil_coeffs_E)
-        OM1.add_snapshot(t=nt*dt, ts=nt) 
-        OM1.export_fields(Eh = Eh)
+        if nt % int(Nt/no_plots) == 0:
+            print("PLOT")
+            stencil_coeffs_u = array_to_psydac(cP1_m @ u_c, V1h.vector_space)
+            uh = FemField(V1h, coeffs=stencil_coeffs_u)
+            OM1.add_snapshot(t=nt*dt, ts=nt) 
+            OM1.export_fields(uh = uh)
 
-        stencil_coeffs_B = array_to_psydac(B_c, V2h.vector_space)
-        Bh = FemField(V2h, coeffs=stencil_coeffs_B)
-        OM2.add_snapshot(t=nt*dt, ts=nt) 
-        OM2.export_fields(Bh=Bh)
+            stencil_coeffs_phi = array_to_psydac(cP0_m @ phi_c, V0h.vector_space)
+            phih = FemField(V0h, coeffs=stencil_coeffs_phi)
+            OM0.add_snapshot(t=nt*dt, ts=nt) 
+            OM0.export_fields(phih=phih)
 
     OM1.close()
-    OM2.close()
+    OM0.close()
 
     print("Do some PP")
     PM = PostProcessManager(domain=domain, space_file=plot_dir+'/spaces1.yml', fields_file=plot_dir+'/fields1.h5' )
-    PM.export_to_vtk(plot_dir+"/Eh",grid=None, npts_per_cell=4,snapshots='all', fields = 'Eh' )
+    PM.export_to_vtk(plot_dir+"/uh",grid=None, npts_per_cell=4,snapshots='all', fields = 'uh' )
     PM.close()
 
-    PM = PostProcessManager(domain=domain, space_file=plot_dir+'/spaces2.yml', fields_file=plot_dir+'/fields2.h5' )
-    PM.export_to_vtk(plot_dir+"/Bh",grid=None, npts_per_cell=4,snapshots='all', fields = 'Bh' )
+    PM = PostProcessManager(domain=domain, space_file=plot_dir+'/spaces0.yml', fields_file=plot_dir+'/fields0.h5' )
+    PM.export_to_vtk(plot_dir+"/phih",grid=None, npts_per_cell=4,snapshots='all', fields = 'phih' )
     PM.close()
 
 

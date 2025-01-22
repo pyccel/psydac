@@ -62,7 +62,7 @@ else:
 
 case_dir = test_case
 
-eta = int(-omega**2 * roundoff) / roundoff
+eta = -omega**2 
 
 project_sol = True  # True #   (use conf proj of solution for visualization)
 gamma_h = 10

@@ -124,7 +124,7 @@ def get_corners(domain, boundary_only):
     cos = domain.corners
     patches = domain.interior.args
     bd = domain.boundary
-
+    print(cos)
     # corner_data[corner] = (patch_ind => local coordinates)
     corner_data = dict()
 
@@ -150,10 +150,12 @@ def get_corners(domain, boundary_only):
     else:
         for co in cos:
             corner_data[co] = dict()
-
             for cb in co.corners:
                 p_ind = patches.index(cb.domain)
                 c_coord = cb.coordinates
+                # if None in c_coord:
+                #     print("corner error")
+                #else:
                 corner_data[co][p_ind] = c_coord
 
     return corner_data
@@ -282,8 +284,7 @@ def construct_restriction_operator_1D(
         # print(np.linalg.norm(R.transpose() @ coarse_poly.transpose() - fine_poly.transpose()))
     else:
 
-        cf_mass_mat = calculate_mixed_mass_matrix(
-            coarse_space_1d, fine_space_1d).transpose()
+        cf_mass_mat = calculate_mixed_mass_matrix(coarse_space_1d, fine_space_1d).transpose()
         c_mass_mat = calculate_mass_matrix(coarse_space_1d)
 
         # if p_moments > 0:
@@ -649,9 +650,24 @@ def construct_h1_conforming_projection(
 
     corner_indices = set()
     corners = get_corners(domain, False)
+    print("corners:", corners)
 
     def get_vertex_index_from_patch(patch, coords):
         # coords = co[patch]
+
+        # print(Vh)
+        # print(Vh.spaces)
+        # print(Vh.spaces[patch])
+        # print(Vh.spaces[patch].spaces)
+        # print(Vh.spaces[patch].spaces[coords[0]])
+        
+        # if coords[0] == None:
+        #     coords = (0, coords[1])
+        #     print("corner error")
+        # if coords[1] == None:
+        #     coords = (coords[0], 0)
+        #     print("corner error")
+
         nbasis0 = Vh.spaces[patch].spaces[coords[0]].nbasis - 1
         nbasis1 = Vh.spaces[patch].spaces[coords[1]].nbasis - 1
 
@@ -672,7 +688,6 @@ def construct_h1_conforming_projection(
 
     # loop over all vertices
     for (bd, co) in corners.items():
-
         # len(co)=#v is the number of adjacent patches at a vertex
         corr = len(co)
 
@@ -687,6 +702,7 @@ def construct_h1_conforming_projection(
             for patch2 in co:
                 # local vertex coordinates in patch2
                 coords2 = co[patch2]
+
                 # global index
                 jg = get_vertex_index_from_patch(patch2, coords2)
 
@@ -758,6 +774,7 @@ def construct_h1_conforming_projection(
 
                     # local vertex coordinates in patch2
                     coords2 = co[patch2]
+
                     # global index
                     jg = get_vertex_index_from_patch(patch2, coords2)
 
@@ -1115,6 +1132,7 @@ def construct_hcurl_conforming_projection(
         return sparse_eye(dim_tot, format="lil")
 
     # moment corrections perpendicular to interfaces
+    # should be in the V^0 spaces
     gamma = [get_1d_moment_correction(
         Vh.spaces[0].spaces[1 - d].spaces[d], p_moments=p_moments) for d in range(2)]
 

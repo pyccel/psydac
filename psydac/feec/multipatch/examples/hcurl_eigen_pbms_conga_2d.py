@@ -101,6 +101,9 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     elif domain_name == 'curved_L_shape':
         domain = build_cartesian_multipatch_domain(ncells, int_x, int_y, mapping='polar')
 
+    elif domain_name == 'three_patch':
+        from psydac.feec.multipatch.experimental.three_patch_ex import three_patch_domain
+        domain = three_patch_domain(int_x[1], int_y[1])
     else:
         domain = build_multipatch_domain(domain_name=domain_name)
 
@@ -180,7 +183,8 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions
     # of the continuous deRham sequence)
-    cP0_m = construct_h1_conforming_projection(V0h, hom_bc=True)
+    if nu != 0:
+        cP0_m = construct_h1_conforming_projection(V0h, hom_bc=True)
     cP1_m = construct_hcurl_conforming_projection(V1h, hom_bc=True)
 
     t_stamp = time_count(t_stamp)
