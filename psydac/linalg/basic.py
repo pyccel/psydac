@@ -291,7 +291,6 @@ class LinearOperator(ABC):
 
         """
         assert np.isscalar(c)
-        assert np.isreal(c)
         if c==0:
             return ZeroOperator(self.domain, self.codomain)
         elif c == 1:
@@ -538,7 +537,7 @@ class IdentityOperator(LinearOperator):
 #===============================================================================
 class ScaledLinearOperator(LinearOperator):
     """
-    A linear operator $A$ scalar multiplied by a real constant $c$. 
+    A linear operator $A$ scalar multiplied by a constant $c$. 
     
     """
 
@@ -547,7 +546,7 @@ class ScaledLinearOperator(LinearOperator):
         assert isinstance(domain, VectorSpace)
         assert isinstance(codomain, VectorSpace)
         assert np.isscalar(c)
-        assert np.isreal(c)
+        assert(np.isreal(c) or np.iscomplex(c) == (codomain._dtype == complex))
         assert isinstance(A, LinearOperator)
         assert domain   == A.domain
         assert codomain == A.codomain
@@ -594,7 +593,7 @@ class ScaledLinearOperator(LinearOperator):
         return self._scalar*csr_matrix(self._operator.toarray())
 
     def transpose(self, conjugate=False):
-        return ScaledLinearOperator(domain=self.codomain, codomain=self.domain, c=self._scalar, A=self._operator.transpose(conjugate=conjugate))
+        return ScaledLinearOperator(domain=self.codomain, codomain=self.domain, c=np.conjugate(self._scalar), A=self._operator.transpose(conjugate=conjugate))
 
     def __neg__(self):
         return ScaledLinearOperator(domain=self.domain, codomain=self.codomain, c=-1*self._scalar, A=self._operator)
