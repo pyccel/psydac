@@ -23,7 +23,7 @@ parser.add_argument('--language',
                     choices=['fortran', 'c'],
                     action='store',
                     dest='language',
-                    help='Language used to pyccelise all the _kernels files'
+                    help='Language used to pyccelize all the _kernels files'
                     )
 
 # Add flag --openmp at the pyccel command
@@ -40,7 +40,7 @@ args = parser.parse_args()
 # get the absolute path to the psydac directory
 psydac_path = os.path.dirname(os.path.abspath(__file__))+'/psydac'
 
-print("\n This script should only be used if psydac was installed in editable mode.\n")
+print("\nNOTE: This script should only be used if Psydac was installed in editable mode.\n")
 
 # Define all the parameters of the command in the parameters array
 parameters = ['--language', args.language]
@@ -53,8 +53,6 @@ if args.openmp:
 for path, subdirs, files in os.walk(psydac_path):
     for name in files:
         if name.endswith('_kernels.py'):
-            print('Pyccelise file :' + os.path.join(path, name))
+            print('  Pyccelize file: ' + os.path.join(path, name))
             sub_run([shutil.which('pyccel'), os.path.join(path, name), *parameters], shell=False)
-            print('\n')
-
-
+print()

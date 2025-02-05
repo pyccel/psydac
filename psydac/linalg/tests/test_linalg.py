@@ -20,7 +20,7 @@ def array_equal(a, b):
 def sparse_equal(a, b):
     return (a.tosparse() != b.tosparse()).nnz == 0
 
-def is_pos_def(A):
+def assert_pos_def(A):
     assert isinstance(A, LinearOperator)
     A_array = A.toarray()
     assert np.all(np.linalg.eigvals(A_array) > 0)
@@ -50,7 +50,7 @@ def get_StencilVectorSpace(n1, n2, p1, p2, P1, P2):
     V = StencilVectorSpace(C)
     return V
 
-def get_positive_definite_stencilmatrix(V):
+def get_positive_definite_StencilMatrix(V):
 
     np.random.seed(2)
     assert isinstance(V, StencilVectorSpace)
@@ -368,12 +368,10 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(B - B1, BlockLinearOperator)
 
     # Adding and Substracting BlockLOs and other LOs returns a SumLinearOperator object
-    # Update 21.12.: ZeroLOs and IdentityLOs from and/or to BlockVectorSpaces are now BlockLOs
-    # thus the sums/differences below should be BlockLOs again
-    assert isinstance(B + BI, BlockLinearOperator)
-    assert isinstance(BI + B, BlockLinearOperator)
-    assert isinstance(B - BI, BlockLinearOperator)
-    assert isinstance(BI - B, BlockLinearOperator)
+    assert isinstance(B + BI, SumLinearOperator)
+    assert isinstance(BI + B, SumLinearOperator)
+    assert isinstance(B - BI, SumLinearOperator)
+    assert isinstance(BI - B, SumLinearOperator)
 
     # Negating a BlockLO works as intended
     assert isinstance(-B, BlockLinearOperator)
@@ -426,19 +424,18 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(BZ @ B, ComposedLinearOperator)
 
     # Composing a BlockLO with the IdentityOperator does not change the object
-    # due to the 21.12. change not valid anymore
-    #assert B @ BI == B
-    #assert BI @ B == B
-    # but: 
-    assert array_equal((B @ BI) @ vb, B @ vb)
-    assert array_equal((BI @ B) @ vb, B @ vb)
+    assert B @ BI == B
+    assert BI @ B == B
 
-    ## ___Raising to the power of 0 and 1___
+    ## ___Raising to the power of 1___
 
-    # Raising a BlockLO to the power of 1 or 0 does not change the object / returns an IdentityOperator
-    # 21.12. change: B**0 a BlockLO with IdentityLOs at the diagonal
+    # Raising a BlockLO to the power of 1 does not change the object
     assert B**1 is B
-    assert isinstance(B**0, BlockLinearOperator)
+
+    ## ___Raising to the power of 0___
+
+    # Raising a BlockLO to the power of 0 returns an IdentityOperator
+    assert isinstance(B**0, IdentityOperator)
     assert sparse_equal(B**0, BI)
 
 #===============================================================================
@@ -621,24 +618,43 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     ### -1,T & T,-1 --- -1,T,T --- -1,T,-1 --- T,-1,-1 --- T,-1,T (the combinations I test)
     ###
 
+    # Square root test
+    scaled_matrix = B * np.random.random() # Ensure the diagonal elements != 1
+    diagonal_values = scaled_matrix.diagonal(sqrt=False).toarray()
+    sqrt_diagonal_values = scaled_matrix.diagonal(sqrt=True).toarray()
+    assert np.array_equal(sqrt_diagonal_values, np.sqrt(diagonal_values))
+
     tol = 1e-5
     C = inverse(B, 'cg', tol=tol)
+    P = B.diagonal(inverse=True)
+
+    B_T = B.T
+    C_T = C.T
 
     # -1,T & T,-1 -> equal
-    assert isinstance(C.T, ConjugateGradient)
-    assert isinstance(inverse(B.T, 'cg', tol=tol), ConjugateGradient)
-    assert np.sqrt(sum(((C.T.dot(u) - inverse(B.T, 'cg', tol=tol).dot(u)).toarray())**2)) < 2*tol
+    assert isinstance(C_T, ConjugateGradient)
+    assert isinstance(inverse(B_T, 'cg', tol=tol), ConjugateGradient)
+    diff = C_T @ u - inverse(B_T, 'cg', tol=tol) @ u
+    assert diff.dot(diff) == 0
+
     # -1,T,T -> equal -1
-    assert np.sqrt(sum(((C.T.T.dot(u) - C.dot(u)).toarray())**2)) < 2*tol
+    diff = C_T.T @ u - C @ u
+    assert diff.dot(diff) == 0
+
     # -1,T,-1 -> equal T
-    assert isinstance(inverse(C.T, 'bicg'), BlockLinearOperator)
-    assert np.array_equal(inverse(C.T, 'bicg').dot(u).toarray(), B.T.dot(u).toarray())
+    assert isinstance(inverse(C_T, 'bicg'), BlockLinearOperator)
+    diff = inverse(C_T, 'bicg') @ u - B_T @ u
+    assert diff.dot(diff) == 0
+
     # T,-1,-1 -> equal T
-    assert isinstance(inverse(inverse(B.T, 'cg', tol=tol), 'pcg', pc='jacobi'), BlockLinearOperator)
-    assert np.array_equal(inverse(inverse(B.T, 'cg', tol=tol), 'pcg', pc='jacobi').dot(u).toarray(), B.T.dot(u).toarray())
+    assert isinstance(inverse(inverse(B_T, 'cg', tol=tol), 'pcg', pc=P), BlockLinearOperator)
+    diff = inverse(inverse(B_T, 'cg', tol=tol), 'pcg', pc=P) @ u - B_T @ u
+    assert diff.dot(diff) == 0
+
     # T,-1,T -> equal -1
-    assert isinstance(inverse(B.T, 'cg', tol=tol).T, ConjugateGradient)
-    assert np.sqrt(sum(((inverse(B.T, 'cg', tol=tol).dot(u) - C.dot(u)).toarray())**2)) < tol
+    assert isinstance(inverse(B_T, 'cg', tol=tol).T, ConjugateGradient)
+    diff = inverse(B_T, 'cg', tol=tol) @ u - C @ u
+    assert diff.dot(diff) == 0
 
     ###
     ### StencilMatrix Transpose - Inverse Tests
@@ -647,22 +663,35 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
 
     tol = 1e-5
     C = inverse(S, 'cg', tol=tol)
+    P = S.diagonal(inverse=True)
+
+    S_T = S.T
+    C_T = C.T
 
     # -1,T & T,-1 -> equal
-    assert isinstance(C.T, ConjugateGradient)
-    assert isinstance(inverse(S.T, 'cg', tol=tol), ConjugateGradient)
-    assert np.sqrt(sum(((C.T.dot(v) - inverse(S.T, 'cg', tol=tol).dot(v)).toarray())**2)) < 2*tol
+    assert isinstance(C_T, ConjugateGradient)
+    assert isinstance(inverse(S_T, 'cg', tol=tol), ConjugateGradient)
+    diff = C_T @ v - inverse(S_T, 'cg', tol=tol) @ v
+    assert diff.dot(diff) == 0
+
     # -1,T,T -> equal -1
-    assert np.sqrt(sum(((C.T.T.dot(v) - C.dot(v)).toarray())**2)) < 2*tol
+    diff = C_T.T @ v - C @ v
+    assert diff.dot(diff) == 0
+
     # -1,T,-1 -> equal T
-    assert isinstance(inverse(C.T, 'bicg'), StencilMatrix)
-    assert np.array_equal(inverse(C.T, 'bicg').dot(v).toarray(), S.T.dot(v).toarray())
+    assert isinstance(inverse(C_T, 'bicg'), StencilMatrix)
+    diff = inverse(C_T, 'bicg') @ v - S_T @ v
+    assert diff.dot(diff) == 0
+
     # T,-1,-1 -> equal T
-    assert isinstance(inverse(inverse(S.T, 'cg', tol=tol), 'pcg', pc='jacobi'), StencilMatrix)
-    assert np.array_equal(inverse(inverse(S.T, 'cg', tol=tol), 'pcg', pc='jacobi').dot(v).toarray(), S.T.dot(v).toarray())
+    assert isinstance(inverse(inverse(S_T, 'cg', tol=tol), 'pcg', pc=P), StencilMatrix)
+    diff = inverse(inverse(S_T, 'cg', tol=tol), 'pcg', pc=P) @ v - S_T @ v
+    assert diff.dot(diff) == 0
+
     # T,-1,T -> equal -1
-    assert isinstance(inverse(S.T, 'cg', tol=tol).T, ConjugateGradient)
-    assert np.sqrt(sum(((inverse(S.T, 'cg', tol=tol).dot(v) - C.dot(v)).toarray())**2)) < tol
+    assert isinstance(inverse(S_T, 'cg', tol=tol).T, ConjugateGradient)
+    diff = inverse(S_T, 'cg', tol=tol) @ v - C @ v
+    assert diff.dot(diff) == 0
 
 #===============================================================================
 @pytest.mark.parametrize('n1', [3, 5])
@@ -674,9 +703,9 @@ def test_positive_definite_matrix(n1, n2, p1, p2):
     P1 = False
     P2 = False
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-    S = get_positive_definite_stencilmatrix(V)
+    S = get_positive_definite_StencilMatrix(V)
 
-    is_pos_def(S)
+    assert_pos_def(S)
 
 #===============================================================================
 @pytest.mark.parametrize('n1', [3, 5])
@@ -719,7 +748,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
     
     # Initiate positive definite StencilMatrices for which the cg inverse works (necessary for certain tests)
-    S = get_positive_definite_stencilmatrix(V)
+    S = get_positive_definite_StencilMatrix(V)
 
     # Initiate StencilVectors 
     v = StencilVector(V)
@@ -743,7 +772,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
 
     ### 2.1 PowerLO test
     Bmat = B.toarray()
-    is_pos_def(B)
+    assert_pos_def(B)
     uarr = u.toarray()
     b0 = ( B**0 @ u ).toarray()
     b1 = ( B**1 @ u ).toarray()
@@ -773,7 +802,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
     assert np.array_equal(zeros, z2)
 
     Smat = S.toarray()
-    is_pos_def(S)
+    assert_pos_def(S)
     varr = v.toarray()
     s0 = ( S**0 @ v ).toarray()
     s1 = ( S**1 @ v ).toarray()
@@ -833,8 +862,8 @@ def test_operator_evaluation(n1, n2, p1, p2):
 
     S_cg = inverse(S, 'cg', tol=tol)
     B_cg = inverse(B, 'cg', tol=tol)
-    S_pcg = inverse(S, 'pcg', pc='jacobi', tol=tol)
-    B_pcg = inverse(B, 'pcg', pc='jacobi', tol=tol)
+    S_pcg = inverse(S, 'pcg', pc=S.diagonal(inverse=True), tol=tol)
+    B_pcg = inverse(B, 'pcg', pc=B.diagonal(inverse=True), tol=tol)
     S_bicg = inverse(S, 'bicg', tol=tol)
     B_bicg = inverse(B, 'bicg', tol=tol)
     S_lsmr = inverse(S, 'lsmr', tol=tol)
@@ -934,8 +963,8 @@ def test_x0update(solver):
     P1 = False
     P2 = False
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-    A = get_positive_definite_stencilmatrix(V)
-    is_pos_def(A)
+    A = get_positive_definite_StencilMatrix(V)
+    assert_pos_def(A)
     b = StencilVector(V)
     for n in range(n1):
         b[n, :] = 1.
@@ -944,31 +973,29 @@ def test_x0update(solver):
     # Create Inverse
     tol = 1e-6
     if solver == 'pcg':
-        A_inv = inverse(A, solver, pc='jacobi', tol=tol)
+        A_inv = inverse(A, solver, pc=A.diagonal(inverse=True), tol=tol)
     else:
         A_inv = inverse(A, solver, tol=tol)
-    options = A_inv.options
-    x0_init = options["x0"]
+
     # Check whether x0 is not None
+    x0_init = A_inv.get_options("x0")
     assert x0_init is not None
+
     # Apply inverse and check x0
     x = A_inv @ b
-    options = A_inv.options
-    x0_new1 = options["x0"]
+    x0_new1 = A_inv.get_options("x0")
     assert x0_new1 is x0_init
+
     # Change x0, apply A_inv and check for x0
     A_inv.set_options(x0 = b)
-    options = A_inv.options
-    assert options["x0"] is b
+    assert A_inv.get_options("x0") is b
+
     x = A_inv @ b
-    options = A_inv.options
-    x0_new2 = options["x0"]
-    assert x0_new2 is b
+    assert A_inv.get_options("x0") is b
+
     # Apply inverse using out=x0 and check for updated x0
-    x = A_inv.dot(b, out=x0_new2)
-    options = A_inv.options
-    x0_new3 = options["x0"]
-    assert x0_new3 is x
+    x = A_inv.dot(b, out=b)
+    assert A_inv.get_options('x0') is x
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY

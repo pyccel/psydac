@@ -34,10 +34,14 @@ def test_custom_nquads(test_nquads):
 
     domain_h = discretize(domain, ncells=ncells)
 
-    Vh = discretize(V, domain_h, degree=degree, nquads=test_nquads)
+    Vh = discretize(V, domain_h, degree=degree)
 
     # NOTE: we _need_ the Python backend here for range checking, otherwise we'd only get segfaults at best
-    _ = discretize(a, domain_h, [Vh, Vh], nquads=test_nquads, backend=PSYDAC_BACKEND_PYTHON).assemble()
-    _ = discretize(l, domain_h,      Vh , nquads=test_nquads, backend=PSYDAC_BACKEND_PYTHON).assemble()
+    ah = discretize(a, domain_h, [Vh, Vh], nquads=test_nquads, backend=PSYDAC_BACKEND_PYTHON)
+    lh = discretize(l, domain_h,      Vh , nquads=test_nquads, backend=PSYDAC_BACKEND_PYTHON)
 
-    assert np.array_equal(Vh.nquads, test_nquads)
+    ah.assemble()
+    lh.assemble()
+
+    assert np.array_equal(ah.nquads, test_nquads)
+    assert np.array_equal(lh.nquads, test_nquads)

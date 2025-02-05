@@ -216,7 +216,7 @@ if __name__ == '__main__':
     from psydac.core.bsplines import quadrature_grid, basis_ders_on_quad_grid
     from psydac.core.bsplines import elements_spans
 
-    u, w = gauss_legendre(p)
+    u, w = gauss_legendre(p + 1)
     quad_x, quad_w = quadrature_grid(grid, u, w)
     quad_basis = basis_ders_on_quad_grid(knots, p, quad_x, nders=0, normalization='B')
     integrals  = np.zeros(nb)

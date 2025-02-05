@@ -9,6 +9,7 @@
 -   [Requirements](#requirements)
 -   [Python setup and project download](#python-setup-and-project-download)
 -   [Installing the library](#installing-the-library)
+-   [Optional PETSc installation](#optional-petsc-installation)
 -   [Uninstall](#uninstall)
 -   [Running tests](#running-tests)
 -   [Speeding up Psydac's core](#speeding-up-psydacs-core)
@@ -85,23 +86,29 @@ The latter command requires a GitHub account.
 ## Installing the library
 
 Psydac depends on several Python packages, which should be installed in the newly created virtual environment.
-These dependencies can be installed from the cloned directory `<ROOT-PATH>/psydac` using
+These dependencies can be installed from the cloned directory `<ROOT-PATH>/psydac` with the following steps.
+
+First, set an environment variable with the path to the parallel HDF5 library.
+This path can be obtained with a command which depends on your system.
+
+-   **Ubuntu/Debian**:
+    ```sh
+    export HDF5_DIR=$(dpkg -L libhdf5-openmpi-dev | grep "libhdf5.so" | xargs dirname)
+    ```
+
+-   **macOS**:
+    ```sh
+    export HDF5_DIR=$(brew list hdf5-mpi | grep "libhdf5.dylib" | xargs dirname | xargs dirname)
+    ```
+
+Next, install the Python dependencies using `pip`:
 ```sh
 export CC="mpicc"
 export HDF5_MPI="ON"
-export HDF5_DIR=/path/to/parallel/hdf5
 
 python3 -m pip install --upgrade pip
 python3 -m pip install -r requirements.txt
 python3 -m pip install -r requirements_extra.txt --no-build-isolation
-```
-where the `HDF5_DIR` environment variable should store the absolute path to the **installation point** of your parallel HDF5 library, which can be found with
-```sh
-h5pcc -showconfig
-```
-or (on macOS)
-```sh
-brew info hdf5-mpi
 ```
 
 At this point the Psydac library may be installed in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the Psydac directory. The latter mode allows one to effect the behavior of Psydac by modifying the source files.
@@ -116,26 +123,70 @@ At this point the Psydac library may be installed in **standard mode**, which co
     python3 -m pip install --editable .
     ```
 
+## Optional PETSc installation
+
+Although Psydac provides several iterative linear solvers which work with our native matrices and vectors, it is often useful to access a dedicated library like [PETSc](https://petsc.org). To this end, our matrices and vectors have the method `topetsc()`, which converts them to the corresponding `petsc4py` objects.
+(`petsc4py` is a Python package which provides Python bindings to PETSc.) After solving the linear system with a PETSc solver, the function `petsc_to_psydac` allows converting the solution vector back to the Psydac format.
+
+In order to use these additional feature, PETSc and petsc4py must be installed as follows.
+First, we download the latest release of PETSc from its [official Git repository](https://gitlab.com/petsc/petsc):
+```sh
+git clone --depth 1 --branch v3.21.4 https://gitlab.com/petsc/petsc.git
+```
+Next, we specify a configuration for complex numbers, and install PETSc in a local directory:
+```sh
+cd petsc
+
+export PETSC_DIR=$(pwd)
+export PETSC_ARCH=petsc-cmplx
+
+./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1
+
+make all check
+
+cd -
+```
+Finally, we install the Python package `petsc4py` which is included in the `PETSc` source distribution:
+```sh
+python3 -m pip install wheel Cython numpy
+python3 -m pip install petsc/src/binding/petsc4py
+```
+
 ## Uninstall
 
 -   **Whichever the install mode**:
     ```bash
     python3 -m pip uninstall psydac
     ```
+-   **If PETSc was installed**:
+    ```bash
+    python3 -m pip uninstall petsc4py
+    ```
+
+The non-Python dependencies can be uninstalled manually using the package manager.
+In the case of PETSc, it is sufficient to remove the cloned source directory given that the installation has been performed locally.
 
 ## Running tests
 
+Let `<PSYDAC-PATH>` be the installation directory of Psydac.
+In order to run all serial and parallel tests which do not use PETSc, just type:
 ```bash
-export PSYDAC_MESH_DIR=/path/to/psydac/mesh/
-python3 -m pytest --pyargs psydac -m "not parallel"
-python3 /path/to/psydac/mpi_tester.py --pyargs psydac -m "parallel"
+export PSYDAC_MESH_DIR=<PSYDAC-PATH>/mesh/
+python3 -m pytest --pyargs psydac -m "not parallel and not petsc"
+python3 <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and not petsc"
+```
+
+If PETSc and petsc4py were installed, some additional tests can be run:
+```bash
+python3 -m pytest --pyargs psydac -m "not parallel and petsc"
+python3 <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and petsc"
 ```
 
 ## Speeding up **Psydac**'s core
 
 Many of Psydac's low-level Python functions can be translated to a compiled language using the [Pyccel](https://github.com/pyccel/pyccel) transpiler. Currently, all of those functions are collected in modules which follow the name pattern `[module]_kernels.py`.
 
-The classical installation translates all kernel files to Fortran without user intervention. This does not happen in the case of an editable install, but the command `psydac-accelerate` is made available to the user instead. This command applies Pyccel to all the kernel files in the source directory, and the C language may be selected instead of Fortran (which is the default).
+The classical installation translates all kernel files to Fortran without user intervention. This does not happen in the case of an editable install, but the command `psydac-accelerate` is made available to the user instead. This command applies Pyccel to all the kernel files in the source directory. The default language is currently Fortran, C should also be supported in a near future.
 
 -   **Only in development mode**:
     ```bash

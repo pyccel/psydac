@@ -1,20 +1,29 @@
 # coding: utf-8
 """
-This module provides iterative solvers and precondionners.
+This module provides iterative solvers and preconditioners.
 
 """
-from math import sqrt
 import numpy as np
+from math import sqrt
 
-from psydac.linalg.basic     import Vector, LinearOperator, InverseLinearOperator, IdentityOperator, ScaledLinearOperator
+from psydac.utilities.utils  import is_real
 from psydac.linalg.utilities import _sym_ortho
+from psydac.linalg.basic     import (Vector, LinearOperator,
+        InverseLinearOperator, IdentityOperator, ScaledLinearOperator)
 
-__all__ = ('ConjugateGradient', 'PConjugateGradient', 'BiConjugateGradient', 'BiConjugateGradientStabilized', 'MinimumResidual', 'LSMR', 'GMRES')
+__all__ = (
+    'inverse',
+    'ConjugateGradient',
+    'PConjugateGradient',
+    'BiConjugateGradient',
+    'BiConjugateGradientStabilized',
+    'PBiConjugateGradientStabilized',
+    'MinimumResidual',
+    'LSMR',
+    'GMRES'
+)
 
-def is_real(x):
-    from numbers import Number
-    return isinstance(x, Number) and np.isrealobj(x) and not isinstance(x, bool)
-
+#===============================================================================
 def inverse(A, solver, **kwargs):
     """
     A function to create objects of all InverseLinearOperator subclasses.
@@ -30,25 +39,39 @@ def inverse(A, solver, **kwargs):
     A : psydac.linalg.basic.LinearOperator
         Left-hand-side matrix A of linear system; individual entries A[i,j]
         can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
-        function (i.e. matrix-vector product A*p).
+        function (e.g. a matrix-vector product A*p).
 
     solver : str
         Preferred iterative solver. Options are: 'cg', 'pcg', 'bicg',
-        'bicgstab', 'minres', 'lsmr', 'gmres'.
+        'bicgstab', 'pbicgstab', 'minres', 'lsmr', 'gmres'.
 
     Returns
     -------
     obj : psydac.linalg.basic.InverseLinearOperator
-        More specifically: Returns the chosen subclass, for example psydac.linalg.solvers.ConjugateGradient
-        A linear operator acting as the inverse of A.
+        A linear operator acting as the inverse of A, of the chosen subclass
+        (for example psydac.linalg.solvers.ConjugateGradient).
 
     """
+
+    # Map each possible value of the `solver` string with a specific
+    # `InverseLinearOperator` subclass in this module:
+    solvers_dict = {
+        'cg'       : ConjugateGradient,
+        'pcg'      : PConjugateGradient,
+        'bicg'     : BiConjugateGradient,
+        'bicgstab' : BiConjugateGradientStabilized,
+        'pbicgstab': PBiConjugateGradientStabilized,
+        'minres'   : MinimumResidual,
+        'lsmr'     : LSMR,
+        'gmres'    : GMRES,
+    }
+
     # Check solver input
-    solvers = ('cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres')
-    if solver not in solvers:
+    if solver not in solvers_dict:
         raise ValueError(f"Required solver '{solver}' not understood.")
 
     assert isinstance(A, LinearOperator)
+
     if isinstance(A, IdentityOperator):
         return A
     elif isinstance(A, ScaledLinearOperator):
@@ -57,27 +80,17 @@ def inverse(A, solver, **kwargs):
         return A.linop
 
     # Instantiate object of correct solver class
-    if solver == 'cg':
-        obj = ConjugateGradient(A, **kwargs)
-    elif solver == 'pcg':
-        obj = PConjugateGradient(A, **kwargs)
-    elif solver == 'bicg':
-        obj = BiConjugateGradient(A, **kwargs)
-    elif solver == 'bicgstab':
-        obj = BiConjugateGradientStabilized(A, **kwargs)
-    elif solver == 'minres':
-        obj = MinimumResidual(A, **kwargs)
-    elif solver == 'lsmr':
-        obj = LSMR(A, **kwargs)
-    elif solver == 'gmres':
-        obj = GMRES(A, **kwargs)
+    cls = solvers_dict[solver]
+    obj = cls(A, **kwargs)
+
     return obj
 
 #===============================================================================
 class ConjugateGradient(InverseLinearOperator):
     """
-    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+    Conjugate Gradient (CG).
 
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
     The .dot (and also the .solve) function are based on the 
     Conjugate gradient algorithm for solving linear system Ax=b.
     Implementation from [1], page 137.
@@ -111,51 +124,12 @@ class ConjugateGradient(InverseLinearOperator):
     """
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
-        assert isinstance(A, LinearOperator)
-        assert A.domain.dimension == A.codomain.dimension
-        domain = A.codomain
-        codomain = A.domain
-
-        if x0 is not None:
-            assert isinstance(x0, Vector)
-            assert x0.space is codomain
-        else:
-            x0 = codomain.zeros()
-
-        self._A = A
-        self._domain = domain
-        self._codomain = codomain
-        self._solver = 'cg'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
-        self._check_options(**self._options)
-        self._tmps = {key: domain.zeros() for key in ("v", "r", "p")}
+        
+        super().__init__(A, **self._options)
+        
+        self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p")}
         self._info = None
-
-    def _check_options(self, **kwargs):
-        for key, value in kwargs.items():
-
-            if key == 'x0':
-                if value is not None:
-                    assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif key == 'tol':
-                assert is_real(value), "tol must be a real number"
-                assert value > 0, "tol must be positive"
-            elif key == 'maxiter':
-                assert isinstance(value, int), "maxiter must be an int"
-                assert value > 0, "maxiter must be positive"
-            elif key == 'verbose':
-                assert isinstance(value, bool), "verbose must be a bool"
-            elif key == 'recycle':
-                assert isinstance(value, bool), "recycle must be a bool"
-            else:
-                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def transpose(self, conjugate=False):
-        At = self._A.transpose(conjugate=conjugate)
-        solver = self._solver
-        options = self._options
-        return inverse(At, solver, **options)
 
     def solve(self, b, out=None):
         """
@@ -264,100 +238,67 @@ class ConjugateGradient(InverseLinearOperator):
 #===============================================================================
 class PConjugateGradient(InverseLinearOperator):
     """
+    Preconditioned Conjugate Gradient (PCG).
+
     A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
     The .dot (and also the .solve) function are based on a preconditioned conjugate gradient method.
+    The Preconditioned Conjugate Gradient (PCG) algorithm solves the linear
+    system A x = b where A is a symmetric and positive-definite matrix, i.e.
+    A = A^T and y A y > 0 for any vector y. The preconditioner P is a matrix
+    which approximates the inverse of A. The algorithm assumes that P is also
+    symmetric and positive definite.
 
-    Preconditioned Conjugate Gradient (PCG) solves the symetric positive definte
-    system Ax = b. It assumes that pc(r) returns the solution to Ps = r,
-    where P is positive definite.
+    Since this is a matrix-free iterative method, both A and P are provided as
+    `LinearOperator` objects which must implement the `dot` method.
 
     Parameters
     ----------
-    A : psydac.linalg.stencil.StencilMatrix
-        Left-hand-side matrix A of linear system
+    A : psydac.linalg.basic.LinearOperator
+        Left-hand-side matrix A of the linear system. This should be symmetric
+        and positive definite.
 
-    pc: str
-        Preconditioner for A, it should approximate the inverse of A.
-        Can currently only be:
-        * The strings 'jacobi' or 'weighted_jacobi'. (rather obsolete, supply a callable instead, if possible)(14.02.: test weighted_jacobi)
-        The following should also be possible
-        * None, i.e. not pre-conditioning (this calls the standard `cg` method)
-        * A LinearSolver object (in which case the out parameter is used)
-        * A callable with two parameters (A, r), where A is the LinearOperator from above, and r is the residual.
+    pc: psydac.linalg.basic.LinearOperator
+        Preconditioner which should approximate the inverse of A (optional).
+        Like A, the preconditioner should be symmetric and positive definite.
 
     x0 : psydac.linalg.basic.Vector
         First guess of solution for iterative solver (optional).
 
     tol : float
-        Absolute tolerance for L2-norm of residual r = A*x - b.
+        Absolute tolerance for L2-norm of residual r = A x - b. (Default: 1e-6)
 
     maxiter: int
-        Maximum number of iterations.
+        Maximum number of iterations. (Default: 1000)
 
     verbose : bool
-        If True, L2-norm of residual r is printed at each iteration.
+        If True, the L2-norm of the residual r is printed at each iteration.
+        (Default: False)
 
     recycle : bool
-        Stores a copy of the output in x0 to speed up consecutive calculations of slightly altered linear systems
+        If True, a copy of the output is stored in x0 to speed up consecutive
+        calculations of slightly altered linear systems. (Default: False)
 
     """
-    def __init__(self, A, *, pc='jacobi', x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
+    def __init__(self, A, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
-        assert isinstance(A, LinearOperator)
-        assert A.domain.dimension == A.codomain.dimension
-        domain = A.codomain
-        codomain = A.domain
-
-        if x0 is not None:
-            assert isinstance(x0, Vector)
-            assert x0.space is codomain
-        else:
-            x0 = codomain.zeros()
-
-        self._A = A
-        self._domain = domain
-        self._codomain = codomain
-        self._solver = 'pcg'
         self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
-        self._check_options(**self._options)
-        tmps_codomain = {key: codomain.zeros() for key in ("p", "s")}
-        tmps_domain = {key: domain.zeros() for key in ("v", "r")}
+        
+        super().__init__(A, **self._options)
+        
+        if pc is None:
+            self._options['pc'] = IdentityOperator(self.domain)
+        else:
+            assert isinstance(pc, LinearOperator)
+            
+        tmps_codomain = {key: self.codomain.zeros() for key in ("p", "s")}
+        tmps_domain = {key: self.domain.zeros() for key in ("v", "r")}
         self._tmps = {**tmps_codomain, **tmps_domain}
         self._info = None
-
-    def _check_options(self, **kwargs):
-        for key, value in kwargs.items():
-
-            if key == 'pc':
-                assert value is not None, "pc may not be None"
-                assert value == 'jacobi', "unsupported preconditioner"
-            elif key == 'x0':
-                if value is not None:
-                    assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif key == 'tol':
-                assert is_real(value), "tol must be a real number"
-                assert value > 0, "tol must be positive"
-            elif key == 'maxiter':
-                assert isinstance(value, int), "maxiter must be an int"
-                assert value > 0, "maxiter must be positive"
-            elif key == 'verbose':
-                assert isinstance(value, bool), "verbose must be a bool"
-            elif key == 'recycle':
-                assert isinstance(value, bool), "recycle must be a bool"
-            else:
-                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def transpose(self, conjugate=False):
-        At = self._A.transpose(conjugate=conjugate)
-        solver = self._solver
-        options = self._options
-        return inverse(At, solver, **options)
 
     def solve(self, b, out=None):
         """
         Preconditioned Conjugate Gradient (PCG) solves the symetric positive definte
-        system Ax = b. It assumes that pc(r) returns the solution to Ps = r,
+        system Ax = b. It assumes that pc.dot(r) returns the solution to Ps = r,
         where P is positive definite.
         Info can be accessed using get_info(), see :func:~`basic.InverseLinearOperator.get_info`.
 
@@ -390,6 +331,8 @@ class PConjugateGradient(InverseLinearOperator):
 
         assert isinstance(b, Vector)
         assert b.space is domain
+    
+        assert isinstance(pc, LinearOperator)
 
         # First guess of solution
         if out is not None:
@@ -397,22 +340,6 @@ class PConjugateGradient(InverseLinearOperator):
             assert out.space is codomain
 
         x = x0.copy(out=out)
-
-        # Preconditioner
-        assert pc is not None
-        if pc == 'jacobi':
-            psolve = lambda r, out: InverseLinearOperator.jacobi(A, r, out)
-        #elif pc == 'weighted_jacobi':
-        #    psolve = lambda r, out: InverseLinearOperator.weighted_jacobi(A, r, out) # allows for further specification not callable like this!
-        #elif isinstance(pc, str):
-        #    pcfun = getattr(InverseLinearOperator, str)
-        #    #pcfun = globals()[pc]
-        #    psolve = lambda r: pcfun(A, r)
-        #elif isinstance(pc, LinearSolver):
-        #    s = b.space.zeros()
-        #    psolve = lambda r: pc.solve(r, out=s)
-        #elif hasattr(pc, '__call__'):
-        #    psolve = lambda r: pc(A, r)
 
         # Extract local storage
         v = self._tmps["v"]
@@ -425,7 +352,7 @@ class PConjugateGradient(InverseLinearOperator):
         b.copy(out=r)
         r       -= v
         nrmr_sqr = r.dot(r).real
-        psolve(r, out=s)
+        pc.dot(r, out=s)
         am       = s.dot(r)
         s.copy(out=p)
 
@@ -453,7 +380,7 @@ class PConjugateGradient(InverseLinearOperator):
             r.mul_iadd(-l, v) # this is r -= l*v
 
             nrmr_sqr = r.dot(r).real
-            psolve(r, out=s)
+            pc.dot(r, out=s)
 
             am1 = s.dot(r)
 
@@ -483,8 +410,9 @@ class PConjugateGradient(InverseLinearOperator):
 #===============================================================================
 class BiConjugateGradient(InverseLinearOperator):
     """
-    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+    Biconjugate Gradient (BiCG).
 
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
     The .dot (and also the .solve) function are based on the 
     Biconjugate gradient (BCG) algorithm for solving linear system Ax=b.
     Implementation from [1], page 175.
@@ -518,52 +446,13 @@ class BiConjugateGradient(InverseLinearOperator):
     """
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
-        assert isinstance(A, LinearOperator)
-        assert A.domain.dimension == A.codomain.dimension
-        domain = A.codomain
-        codomain = A.domain
-
-        if x0 is not None:
-            assert isinstance(x0, Vector)
-            assert x0.space is codomain
-        else:
-            x0 = codomain.zeros()
-
-        self._A = A
-        self._Ah = A.H
-        self._domain = domain
-        self._codomain = codomain
-        self._solver = 'bicg'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
-        self._check_options(**self._options)
-        self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vs", "rs", "ps")}
+        
+        super().__init__(A, **self._options)
+        
+        self._Ah = A.H
+        self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p", "vs", "rs", "ps")}
         self._info = None
-
-    def _check_options(self, **kwargs):
-        for key, value in kwargs.items():
-
-            if key == 'x0':
-                if value is not None:
-                    assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif key == 'tol':
-                assert is_real(value), "tol must be a real number"
-                assert value > 0, "tol must be positive"
-            elif key == 'maxiter':
-                assert isinstance(value, int), "maxiter must be an int"
-                assert value > 0, "maxiter must be positive"
-            elif key == 'verbose':
-                assert isinstance(value, bool), "verbose must be a bool"
-            elif key == 'recycle':
-                assert isinstance(value, bool), "recycle must be a bool"
-            else:
-                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def transpose(self, conjugate=False):
-        At = self._A.transpose(conjugate=conjugate)
-        solver = self._solver
-        options = self._options
-        return inverse(At, solver, **options)
 
     def solve(self, b, out=None):
         """
@@ -711,8 +600,9 @@ class BiConjugateGradient(InverseLinearOperator):
 #===============================================================================
 class BiConjugateGradientStabilized(InverseLinearOperator):
     """
-    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+    Biconjugate Gradient Stabilized (BiCGStab).
 
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
     The .dot (and also the .solve) function are based on the
     Biconjugate gradient Stabilized (BCGSTAB) algorithm for solving linear system Ax=b.
     Implementation from [1], page 175.
@@ -746,51 +636,12 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
     """
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
-        assert isinstance(A, LinearOperator)
-        assert A.domain.dimension == A.codomain.dimension
-        domain = A.codomain
-        codomain = A.domain
-
-        if x0 is not None:
-            assert isinstance(x0, Vector)
-            assert x0.space is codomain
-        else:
-            x0 = codomain.zeros()
-
-        self._A = A
-        self._domain = domain
-        self._codomain = codomain
-        self._solver = 'bicgstab'
         self._options = {"x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose, "recycle":recycle}
-        self._check_options(**self._options)
-        self._tmps = {key: domain.zeros() for key in ("v", "r", "p", "vr", "r0")}
+        
+        super().__init__(A, **self._options)
+        
+        self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p", "vr", "r0")}
         self._info = None
-
-    def _check_options(self, **kwargs):
-        for key, value in kwargs.items():
-
-            if key == 'x0':
-                if value is not None:
-                    assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif key == 'tol':
-                assert is_real(value), "tol must be a real number"
-                assert value > 0, "tol must be positive"
-            elif key == 'maxiter':
-                assert isinstance(value, int), "maxiter must be an int"
-                assert value > 0, "maxiter must be positive"
-            elif key == 'verbose':
-                assert isinstance(value, bool), "verbose must be a bool"
-            elif key == 'recycle':
-                assert isinstance(value, bool), "recycle must be a bool"
-            else:
-                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def transpose(self, conjugate=False):
-        At = self._A.transpose(conjugate=conjugate)
-        solver = self._solver
-        options = self._options
-        return inverse(At, solver, **options)
 
     def solve(self, b, out=None):
         """
@@ -945,10 +796,245 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         return self.solve(b, out=out)
 
 #===============================================================================
+class PBiConjugateGradientStabilized(InverseLinearOperator):
+    """
+    Preconditioned Biconjugate Gradient Stabilized (PBiCGStab).
+
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+    The .dot (and also the .solve) function are based on the
+    preconditioned Biconjugate gradient Stabilized (PBCGSTAB) algorithm for solving linear system Ax=b.
+    Implementation from [1], page 251.
+
+    Parameters
+    ----------
+    A : psydac.linalg.basic.LinearOperator
+        Left-hand-side matrix A of linear system; individual entries A[i,j]
+        can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
+        function (i.e. matrix-vector product A*p).
+    pc: psydac.linalg.basic.LinearOperator
+        Preconditioner for A, it should approximate the inverse of A (can be None).
+    x0 : psydac.linalg.basic.Vector
+        First guess of solution for iterative solver (optional).
+    tol : float
+        Absolute tolerance for 2-norm of residual r = A*x - b.
+    maxiter: int
+        Maximum number of iterations.
+    verbose : bool
+        If True, 2-norm of residual r is printed at each iteration.
+    
+    References
+    ----------
+    [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
+    """
+    def __init__(self, A, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
+
+        self._options = {"pc": pc, "x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose, "recycle": recycle}
+
+        super().__init__(A, **self._options)
+
+        if pc is None:
+            self._options['pc'] = IdentityOperator(self.domain)
+        else:
+            assert isinstance(pc, LinearOperator)
+
+        self._tmps = {key: self.domain.zeros() for key in ("v", "r", "s", "t", 
+                                                      "vp", "rp", "sp", "tp",
+                                                      "pp", "av", "app", "osp", 
+                                                      "rp0")}
+        self._info = None
+
+    def solve(self, b, out=None):
+        """
+        Preconditioned biconjugate gradient stabilized method (PBCGSTAB) algorithm for solving linear system Ax=b.
+        Implementation from [1], page 251.
+
+        Parameters
+        ----------
+        b : psydac.linalg.basic.Vector
+            Right-hand-side vector of linear system. Individual entries b[i] need
+            not be accessed, but b has 'shape' attribute and provides 'copy()' and
+            'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
+            scalar multiplication and sum operations are available.
+        out : psydac.linalg.basic.Vector | NoneType
+            The output vector, or None (optional).
+        
+        Returns
+        -------
+        x : psydac.linalg.basic.Vector
+            Numerical solution of linear system. To check the convergence of the solver,
+            use the method InverseLinearOperator.get_info().
+        
+        info : dict
+            Dictionary containing convergence information:
+              - 'niter'    = (int) number of iterations
+              - 'success'  = (boolean) whether convergence criteria have been met
+              - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+        
+        References
+        ----------
+        [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
+        
+        """
+
+        A = self._A
+        domain = self._domain
+        codomain = self._codomain
+        options = self._options
+        pc = options["pc"]
+        x0 = options["x0"]
+        tol = options["tol"]
+        maxiter = options["maxiter"]
+        verbose = options["verbose"]
+        recycle = options["recycle"]
+
+        assert isinstance(b, Vector)
+        assert b.space is domain
+
+        assert isinstance(pc, LinearOperator)
+
+        # first guess of solution
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == codomain
+            out *= 0
+            if x0 is None:
+                x = out
+            else:
+                assert x0.shape == (A.shape[0],)
+                out += x0
+                x = out
+        else:
+            if x0 is None:
+                x = b.copy()
+                x *= 0.0
+            else:
+                assert x0.shape == (A.shape[0],)
+                x = x0.copy()
+
+        # preconditioner (must have a .solve method)
+        assert isinstance(pc, LinearOperator)
+
+        # extract temporary vectors
+        v = self._tmps['v']
+        r = self._tmps['r']
+        s = self._tmps['s']
+        t = self._tmps['t']
+
+        vp = self._tmps['vp']
+        rp = self._tmps['rp']
+        pp = self._tmps['pp']
+        sp = self._tmps['sp']
+        tp = self._tmps['tp']
+
+        av = self._tmps['av']
+
+        app = self._tmps['app']
+        osp = self._tmps['osp']
+
+        # first values: r = b - A @ x, rp = pp = PC @ r, rhop = |rp|^2
+        A.dot(x, out=v)
+        b.copy(out=r)
+        r -= v
+
+        pc.dot(r, out=rp)
+        rp.copy(out=pp)
+
+        rhop = rp.dot(rp)
+
+        # save initial residual vector rp0
+        rp0 = self._tmps['rp0']
+        rp.copy(out=rp0)
+
+        # squared residual norm and squared tolerance
+        res_sqr = r.dot(r)
+        tol_sqr = tol**2
+
+        if verbose:
+            print("Pre-conditioned BICGSTAB solver:")
+            print("+---------+---------------------+")
+            print("+ Iter. # | L2-norm of residual |")
+            print("+---------+---------------------+")
+            template = "| {:7d} | {:19.2e} |"
+
+        # iterate to convergence or maximum number of iterations
+        niter = 0
+
+        while res_sqr > tol_sqr and niter < maxiter:
+
+            # v = A @ pp, vp = PC @ v, alphap = rhop/(vp.rp0)
+            A.dot(pp, out=v)
+            pc.dot(v, out=vp)
+            alphap = rhop / vp.dot(rp0)
+
+            # s = r - alphap*v, sp = PC @ s
+            r.copy(out=s)
+            v.copy(out=av)
+            av *= alphap
+            s -= av
+            pc.dot(s, out=sp)
+
+            # t = A @ sp, tp = PC @ t, omegap = (tp.sp)/(tp.tp)
+            A.dot(sp, out=t)
+            pc.dot(t, out=tp)
+            omegap = tp.dot(sp) / tp.dot(tp)
+
+            # x = x + alphap*pp + omegap*sp
+            pp.copy(out=app)
+            sp.copy(out=osp)
+            app *= alphap
+            osp *= omegap
+            x += app
+            x += osp
+
+            # r = s - omegap*t, rp = sp - omegap*tp
+            s.copy(out=r)
+            t *= omegap
+            r -= t
+
+            sp.copy(out=rp)
+            tp *= omegap
+            rp -= tp
+
+            # rhop_new = rp.rp0, betap = (alphap*rhop_new)/(omegap*rhop)
+            rhop_new = rp.dot(rp0)
+            betap = (alphap*rhop_new) / (omegap*rhop)
+            rhop = 1*rhop_new
+
+            # pp = rp + betap*(pp - omegap*vp)
+            vp *= omegap
+            pp -= vp
+            pp *= betap
+            pp += rp
+
+            # new residual norm
+            res_sqr = r.dot(r).real
+
+            niter += 1
+
+            if verbose:
+                print(template.format(niter, sqrt(res_sqr)))
+
+        if verbose:
+            print("+---------+---------------------+")
+
+        # convergence information
+        self._info = {'niter': niter, 'success': res_sqr <
+                tol_sqr, 'res_norm': sqrt(res_sqr)}
+
+        if recycle:
+            x.copy(out=self._options["x0"])
+
+        return x
+
+    def dot(self, b, out=None):
+        return self.solve(b, out=out)
+
+#===============================================================================
 class MinimumResidual(InverseLinearOperator):
     """
-    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
+    Minimum Residual (MinRes).
 
+    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
     The .dot (and also the .solve) function
     Use MINimum RESidual iteration to solve Ax=b
 
@@ -992,52 +1078,12 @@ class MinimumResidual(InverseLinearOperator):
     """
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
-        assert isinstance(A, LinearOperator)
-        assert A.domain.dimension == A.codomain.dimension
-        assert A.domain.dtype == float
-        domain = A.codomain
-        codomain = A.domain
-
-        if x0 is not None:
-            assert isinstance(x0, Vector)
-            assert x0.space is codomain
-        else:
-            x0 = codomain.zeros()
-
-        self._A = A
-        self._domain = domain
-        self._codomain = codomain
-        self._solver = 'minres'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
-        self._check_options(**self._options)
-        self._tmps = {key: domain.zeros() for key in ("res_old", "res_new", "w_new", "w_work", "w_old", "v", "y")}
+
+        super().__init__(A, **self._options)
+        
+        self._tmps = {key: self.domain.zeros() for key in ("res_old", "res_new", "w_new", "w_work", "w_old", "v", "y")}
         self._info = None
-
-    def _check_options(self, **kwargs):
-        for key, value in kwargs.items():
-
-            if key == 'x0':
-                if value is not None:
-                    assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif key == 'tol':
-                assert is_real(value), "tol must be a real number"
-                assert value > 0, "tol must be positive"
-            elif key == 'maxiter':
-                assert isinstance(value, int), "maxiter must be an int"
-                assert value > 0, "maxiter must be positive"
-            elif key == 'verbose':
-                assert isinstance(value, bool), "verbose must be a bool"
-            elif key == 'recycle':
-                assert isinstance(value, bool), "recycle must be a bool"
-            else:
-                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def transpose(self, conjugate=False):
-        At = self._A.transpose(conjugate=conjugate)
-        solver = self._solver
-        options = self._options
-        return inverse(At, solver, **options)
 
     def solve(self, b, out=None):
         """
@@ -1119,7 +1165,7 @@ class MinimumResidual(InverseLinearOperator):
         A.dot(x, out=y)
         y -= b
         y *= -1.0
-        y.copy(out=res_old)
+        y.copy(out=res_old)   # res = b - A*x
 
         beta = sqrt(res_old.dot(res_old))
 
@@ -1147,8 +1193,15 @@ class MinimumResidual(InverseLinearOperator):
             print( "+---------+---------------------+")
             template = "| {:7d} | {:19.2e} |"
 
+        # check whether solution is already converged:
+        if beta < tol:
+            istop = 1
+            rnorm = beta
+            if verbose:
+                print( template.format(itn, rnorm ))
 
-        for itn in range(1, maxiter + 1 ):
+        while istop == 0 and itn < maxiter:
+            itn += 1
 
             s = 1.0/beta
             y.copy(out=v)
@@ -1266,8 +1319,9 @@ class MinimumResidual(InverseLinearOperator):
 #===============================================================================
 class LSMR(InverseLinearOperator):
     """
+    Least Squares Minimal Residual (LSMR).
+    
     A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
-
     The .dot (and also the .solve) function are based on the 
     Iterative solver for least-squares problems.
     lsmr solves the system of linear equations ``Ax = b``. If the system
@@ -1324,66 +1378,29 @@ class LSMR(InverseLinearOperator):
     """
     def __init__(self, A, *, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim=1e8, verbose=False, recycle=False):
 
-        assert isinstance(A, LinearOperator)
-        assert A.domain.dimension == A.codomain.dimension
-        domain = A.codomain
-        codomain = A.domain
-
-        if x0 is not None:
-            assert isinstance(x0, Vector)
-            assert x0.space is codomain
-        else:
-            x0 = codomain.zeros()
-
-        self._A = A
-        self._domain = domain
-        self._codomain = codomain
-        self._solver = 'lsmr'
         self._options = {"x0":x0, "tol":tol, "atol":atol, "btol":btol,
                          "maxiter":maxiter, "conlim":conlim, "verbose":verbose, "recycle":recycle}
-        self._check_options(**self._options)
+        
+        super().__init__(A, **self._options)
+
+        # check additional options
+        if atol is not None:
+            assert is_real(atol), "atol must be a real number"
+            assert atol >= 0, "atol must not be negative"
+        if btol is not None:
+            assert is_real(btol), "btol must be a real number"
+            assert btol >= 0, "btol must not be negative"
+        assert is_real(conlim), "conlim must be a real number" # actually an integer?
+        assert conlim > 0, "conlim must be positive" # supposedly
+        
         self._info = None
         self._successful = None
-        tmps_domain = {key: domain.zeros() for key in ("u", "u_work")}
-        tmps_codomain = {key: codomain.zeros() for key in ("v", "v_work", "h", "hbar")}
+        tmps_domain = {key: self.domain.zeros() for key in ("u", "u_work")}
+        tmps_codomain = {key: self.codomain.zeros() for key in ("v", "v_work", "h", "hbar")}
         self._tmps = {**tmps_codomain, **tmps_domain}
 
     def get_success(self):
         return self._successful
-
-    def _check_options(self, **kwargs):
-        for key, value in kwargs.items():
-
-            if key == 'x0':
-                if value is not None:
-                    assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif key == 'tol':
-                if value is not None:
-                    assert is_real(value), "tol must be a real number"
-                    assert value > 0, "tol must be positive" # suppose atol/btol must also be positive numbers
-            elif key == 'atol' or key == 'btol':
-                if value is not None:
-                    assert is_real(value), "atol/btol must be a real number"
-                    assert value >= 0, "atol/btol must not be negative"
-            elif key == 'maxiter':
-                assert isinstance(value, int), "maxiter must be an int"
-                assert value > 0, "maxiter must be positive"
-            elif key == 'conlim':
-                assert is_real(value), "conlim must be a real number" # actually an integer?
-                assert value > 0, "conlim must be positive" # supposedly
-            elif key == 'verbose':
-                assert isinstance(value, bool), "verbose must be a bool"
-            elif key == 'recycle':
-                assert isinstance(value, bool), "recycle must be a bool"
-            else:
-                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def transpose(self, conjugate=False):
-        At = self._A.transpose(conjugate=conjugate)
-        solver = self._solver
-        options = self._options
-        return inverse(At, solver, **options)
 
     def solve(self, b, out=None):
         """Iterative solver for least-squares problems.
@@ -1676,8 +1693,9 @@ class LSMR(InverseLinearOperator):
 #===============================================================================
 class GMRES(InverseLinearOperator):
     """
+    Generalized Minimal Residual (GMRES).
+    
     A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
-
     The .dot (and also the .solve) function are based on the 
     generalized minimal residual algorithm for solving linear system Ax=b.
     Implementation from Wikipedia
@@ -1711,55 +1729,16 @@ class GMRES(InverseLinearOperator):
     """
     def __init__(self, A, *, x0=None, tol=1e-6, maxiter=100, verbose=False, recycle=False):
 
-        assert isinstance(A, LinearOperator)
-        assert A.domain.dimension == A.codomain.dimension
-        domain = A.codomain
-        codomain = A.domain
-
-        if x0 is not None:
-            assert isinstance(x0, Vector)
-            assert x0.space is codomain
-        else:
-            x0 = codomain.zeros()
-
-        self._A = A
-        self._domain = domain
-        self._codomain = codomain
-        self._solver = 'gmres'
         self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
-        self._check_options(**self._options) 
-        self._tmps = {key: domain.zeros() for key in ("r", "p")}
+
+        super().__init__(A, **self._options)
+
+        self._tmps = {key: self.domain.zeros() for key in ("r", "p")}
 
         # Initialize upper Hessenberg matrix
         self._H = np.zeros((self._options["maxiter"] + 1, self._options["maxiter"]), dtype=A.domain.dtype)
         self._Q = []
         self._info = None
-
-    def _check_options(self, **kwargs):
-        for key, value in kwargs.items():
-
-            if key == 'x0':
-                if value is not None:
-                    assert isinstance(value, Vector), "x0 must be a Vector or None"
-                    assert value.space == self._codomain, "x0 belongs to the wrong VectorSpace"
-            elif key == 'tol':
-                assert is_real(value), "tol must be a real number"
-                assert value > 0, "tol must be positive"
-            elif key == 'maxiter':
-                assert isinstance(value, int), "maxiter must be an int"
-                assert value > 0, "maxiter must be positive"
-            elif key == 'verbose':
-                assert isinstance(value, bool), "verbose must be a bool"
-            elif key == 'recycle':
-                assert isinstance(value, bool), "recycle must be a bool"
-            else:
-                raise ValueError(f"Key '{key}' not understood. See self._options for allowed keys.")
-
-    def transpose(self, conjugate=False):
-        At = self._A.transpose(conjugate=conjugate)
-        solver = self._solver
-        options = self._options
-        return inverse(At, solver, **options)
 
     def solve(self, b, out=None):
         """
@@ -1825,6 +1804,10 @@ class GMRES(InverseLinearOperator):
         r -= b
 
         am = sqrt(r.dot(r).real)
+        if am < tol:
+            self._info = {'niter': 1, 'success': am < tol, 'res_norm': am }
+            return x
+
         beta.append(am)
         r *= - 1 / am
         
@@ -1928,4 +1911,4 @@ class GMRES(InverseLinearOperator):
 
     def dot(self, b, out=None):
         return self.solve(b, out=out)
-    
+

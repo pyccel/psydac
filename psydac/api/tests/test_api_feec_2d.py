@@ -207,11 +207,13 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     from sympde.expr     import BilinearForm
 
     from psydac.api.discretization import discretize
-    from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
+    from psydac.api.settings       import PSYDAC_BACKENDS
     from psydac.feec.pull_push     import push_2d_hcurl, push_2d_l2
     from psydac.linalg.solvers     import inverse
     from psydac.utilities.utils    import refine_array_1d
     from psydac.mapping.discrete   import SplineMapping, NurbsMapping
+
+    backend = PSYDAC_BACKENDS['pyccel-gcc']
 
     #--------------------------------------------------------------------------
     # Problem setup
@@ -290,7 +292,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     #--------------------------------------------------------------------------
     if use_spline_mapping:
         domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD)
-        derham_h = discretize(derham, domain_h, multiplicity = [mult,mult])
+        derham_h = discretize(derham, domain_h, multiplicity = [mult, mult])
 
         periodic_list = mapping.get_callable_mapping().space.periodic
         degree_list   = mapping.get_callable_mapping().space.degree
@@ -311,22 +313,23 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     else:
         # Discrete physical domain and discrete DeRham sequence
         domain_h = discretize(domain, ncells=[ncells, ncells], periodic=[periodic, periodic], comm=MPI.COMM_WORLD)
-        derham_h = discretize(derham, domain_h, degree=[degree, degree], multiplicity = [mult,mult])
+        derham_h = discretize(derham, domain_h, degree=[degree, degree], multiplicity = [mult, mult])
 
     # Discrete bilinear forms
-    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
-    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=PSYDAC_BACKEND_GPYCCEL)
+    nquads = [degree + 1, degree + 1]
+    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), nquads=nquads, backend=backend)
+    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), nquads=nquads, backend=backend)
 
-    # Mass matrices (StencilMatrix objects)
+    # Mass matrices (StencilMatrix or BlockLinearOperator objects)
     M1 = a1_h.assemble()
     M2 = a2_h.assemble()
 
-    # Differential operators
+    # Differential operators (StencilMatrix or BlockLinearOperator objects)
     D0, D1 = derham_h.derivatives_as_matrices
 
     # Discretize and assemble penalization matrix
     if not periodic:
-        a1_bc_h = discretize(a1_bc, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
+        a1_bc_h = discretize(a1_bc, domain_h, (derham_h.V1, derham_h.V1), nquads=nquads, backend=backend)
         M1_bc   = a1_bc_h.assemble()
 
     # Transpose of derivative matrix
@@ -519,7 +522,8 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         M1_inv = inverse(M1, 'cg', **kwargs)
         step_ampere_2d = dt * (M1_inv @ D1_T @ M2)
     else:
-        M1_M1_bc_inv = inverse(M1 + M1_bc, 'pcg', pc='jacobi', **kwargs)
+        M1_M1_bc = M1 + M1_bc
+        M1_M1_bc_inv = inverse(M1_M1_bc, 'pcg', pc = M1_M1_bc.diagonal(inverse=True), **kwargs)
         step_ampere_2d = dt * (M1_M1_bc_inv @ D1_T @ M2)
 
     half_step_faraday_2d = (dt/2) * D1
@@ -623,9 +627,9 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     errx = lambda x1, x2: (push_2d_hcurl(E.fields[0], E.fields[1], x1, x2, F)[0] - Ex_ex(t, *F(x1, x2)))**2 * np.sqrt(F.metric_det(x1,x2))
     erry = lambda x1, x2: (push_2d_hcurl(E.fields[0], E.fields[1], x1, x2, F)[1] - Ey_ex(t, *F(x1, x2)))**2 * np.sqrt(F.metric_det(x1,x2))
     errz = lambda x1, x2: (push_2d_l2(B, x1, x2, F) - Bz_ex(t, *F(x1, x2)))**2 * np.sqrt(F.metric_det(x1,x2))
-    error_l2_Ex = np.sqrt(derham_h.V1.spaces[0].integral(errx))
-    error_l2_Ey = np.sqrt(derham_h.V1.spaces[1].integral(erry))
-    error_l2_Bz = np.sqrt(derham_h.V0.integral(errz))
+    error_l2_Ex = np.sqrt(derham_h.V1.spaces[0].integral(errx, nquads=nquads))
+    error_l2_Ey = np.sqrt(derham_h.V1.spaces[1].integral(erry, nquads=nquads))
+    error_l2_Bz = np.sqrt(derham_h.V0.integral(errz, nquads=nquads))
     print('L2 norm of error on Ex(t,x,y) at final time: {:.2e}'.format(error_l2_Ex))
     print('L2 norm of error on Ey(t,x,y) at final time: {:.2e}'.format(error_l2_Ey))
     print('L2 norm of error on Bz(t,x,y) at final time: {:.2e}'.format(error_l2_Bz))
