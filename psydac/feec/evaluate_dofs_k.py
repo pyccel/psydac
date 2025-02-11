@@ -1,3 +1,7 @@
+#
+# Not yet pyccelizable since pyccel doesn't support Callable.
+# See https://github.com/pyccel/pyccel/issues/1900
+#
 from pyccel.decorators import template
 from collections.abc import Callable
 

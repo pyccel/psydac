@@ -14,10 +14,10 @@ from psydac.fem.vector import VectorFemSpace
 
 from psydac.utilities.utils import roll_edges
 
-from psydac.feec.evaluate_dofs_kernels import (evaluate_dofs_1d_0form, evaluate_dofs_1d_1form,
-                                               evaluate_dofs_2d_0form, evaluate_dofs_2d_1form_hcurl, evaluate_dofs_2d_1form_hdiv, evaluate_dofs_2d_2form,
-                                               evaluate_dofs_3d_0form, evaluate_dofs_3d_1form, evaluate_dofs_3d_2form, evaluate_dofs_3d_3form,
-                                               evaluate_dofs_2d_vec, evaluate_dofs_3d_vec)
+from psydac.feec.evaluate_dofs_k import (evaluate_dofs_1d_0form, evaluate_dofs_1d_1form,
+                                         evaluate_dofs_2d_0form, evaluate_dofs_2d_1form_hcurl, evaluate_dofs_2d_1form_hdiv, evaluate_dofs_2d_2form,
+                                         evaluate_dofs_3d_0form, evaluate_dofs_3d_1form, evaluate_dofs_3d_2form, evaluate_dofs_3d_3form,
+                                         evaluate_dofs_2d_vec, evaluate_dofs_3d_vec)
 
 from abc import ABCMeta, abstractmethod
 
