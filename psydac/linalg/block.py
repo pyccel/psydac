@@ -777,13 +777,18 @@ class BlockLinearOperator(LinearOperator):
     #--------------------------------------
     # New properties/methods
     #--------------------------------------
-    def diagonal(self, *, inverse = False, out = None):
+    def diagonal(self, *, inverse = False, sqrt = False, out = None):
         """Get the coefficients on the main diagonal as another BlockLinearOperator object.
 
         Parameters
         ----------
         inverse : bool
             If True, get the inverse of the diagonal. (Default: False).
+            Can be combined with sqrt to get the inverse square root.
+
+        sqrt : bool
+            If True, get the square root of the diagonal. (Default: False).
+            Can be combined with inverse to get the inverse square root.
 
         out : BlockLinearOperator
             If provided, write the diagonal entries into this matrix. (Default: None).
@@ -815,7 +820,7 @@ class BlockLinearOperator(LinearOperator):
         # Store the diagonal (or its inverse) into `out`
         for i, j in self.nonzero_block_indices:
             if i == j:
-                out[i, i] = self[i, i].diagonal(inverse = inverse, out = out[i, i])
+                out[i, i] = self[i, i].diagonal(inverse = inverse, sqrt = sqrt, out = out[i, i])
 
         return out
 

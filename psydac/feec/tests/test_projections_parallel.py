@@ -12,7 +12,9 @@ from psydac.fem.vector             import VectorFemSpace
 from psydac.feec.global_projectors import Projector_H1, Projector_L2, Projector_Hcurl, Projector_Hdiv
 from psydac.ddm.cart               import DomainDecomposition
 
+
 def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
+
     # find the appropriate reduced space (without invoking the code generation machinery)
     if len(domain) == 1:
         if reduce == 0:
@@ -21,6 +23,7 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
         else:
             opV = lambda V0: V0.reduce_degree(axes=[0], basis='M')
             opP = Projector_L2
+
     elif len(domain) == 2:
         if reduce == 0:
             opV = lambda V0: V0
@@ -37,6 +40,7 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
         else:
             opV = lambda V0: V0.reduce_degree(axes=[0,1], basis='M')
             opP = Projector_L2
+
     elif len(domain) == 3:
         if reduce == 0:
             opV = lambda V0: V0
@@ -55,8 +59,13 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
             opV = lambda V0: V0.reduce_degree(axes=[0,1,2], basis='M')
             opP = Projector_L2
 
+    # Choose number of quadrature points
+    nquads = None if reduce == 0 else [d + 1 for d in degree]
+
+    # Parallel and serial domain decompositions
     domain_decomposition_p = DomainDecomposition(ncells, periodic, comm=MPI.COMM_WORLD)
     domain_decomposition_s = DomainDecomposition(ncells, periodic)
+
     # build basic SplineSpaces
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
 
@@ -72,8 +81,8 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
     Vs = opV(V0s)
 
     # build projectors in serial and parallel
-    Pp = opP(Vp)
-    Ps = opP(Vs)
+    Pp = opP(Vp, nquads=nquads)
+    Ps = opP(Vs, nquads=nquads)
 
     # only take as many functions as necessary
     assert Pp.blockcount == Ps.blockcount

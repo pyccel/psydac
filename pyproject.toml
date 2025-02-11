@@ -7,7 +7,7 @@ name            = "psydac"
 version         = "0.1"
 description     = "Python package for isogeometric analysis (IGA)"
 readme          = "README.md"
-requires-python = ">= 3.8, < 3.12"
+requires-python = ">= 3.9, < 3.13"
 license         = {file = "LICENSE"}
 authors         = [
     {name = "Psydac development team", email = "psydac@googlegroups.com"}
@@ -23,17 +23,15 @@ dependencies = [
 
     # Third-party packages from PyPi
     'numpy >= 1.16',
-    'scipy >= 0.18',
+    'scipy >= 1.12',
     'sympy >= 1.5',
     'matplotlib',
-    'pytest >= 4.5',
-    'pytest-xdist >= 1.16',
     'pyyaml >= 5.1',
     'packaging',
     'pyevtk',
 
     # Our packages from PyPi
-    'sympde == 0.18.1',
+    'sympde == 0.19.0',
     'pyccel >= 1.11.2',
     'gelato == 0.12',
 
@@ -53,6 +51,13 @@ dependencies = [
     'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip'
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest-cov >= 5.0.0",
+    'pytest >= 4.5',
+    'pytest-xdist >= 1.16',
+]
+
 [project.urls]
 Homepage      = "https://github.com/pyccel/psydac"
 Documentation = "https://pyccel.github.io/psydac"
@@ -68,3 +73,41 @@ namespaces = false
 
 [tool.setuptools.package-data]
 "*" = ["*.txt"]
+
+[tool.coverage.run]
+branch = true
+omit = [
+    # Exclude pyccelised kernels
+    "*/__psydac__/*",
+
+    # Examples don't need to be covered
+    "*/examples/*",
+
+    # Unit tests shouldn't be included
+    "*/tests/*",
+    ]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    "if self\\.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if False:",
+    "if __name__ == .__main__.:",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+    ]
+
+# Ignore source code that can’t be found, emitting a warning instead of an exception.
+ignore_errors = true
+
+[tool.coverage.html]
+directory = "coverage_html_report"
