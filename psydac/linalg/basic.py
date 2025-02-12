@@ -1118,6 +1118,7 @@ class MatrixFreeLinearOperator(LinearOperator):
     dot : Callable
         The method of the linear operator, assumed to map from domain to codomain.    
         This method can take out as an optional argument but this is not mandatory.
+        The callable can take other keyword arguments as for instance function parameters.
 
     dot_transpose: Callable
         The method of the transpose of the linear operator, assumed to map from codomain to domain.
@@ -1169,7 +1170,7 @@ class MatrixFreeLinearOperator(LinearOperator):
     def dtype(self):
         return None
 
-    def dot(self, v, out=None):
+    def dot(self, v, out=None, **kwargs):
         assert isinstance(v, Vector)
         assert v.space == self.domain
 
@@ -1180,10 +1181,10 @@ class MatrixFreeLinearOperator(LinearOperator):
             out = self.codomain.zeros()
 
         if self._dot_takes_out_arg:
-            self._dot(v, out=out)
+            self._dot(v, out=out, **kwargs)
         else:
             # provided dot product does not take an out argument: we simply copy the result into out
-            self._dot(v).copy(out=out)
+            self._dot(v).copy(out=out, **kwargs)
                     
         return out
         
