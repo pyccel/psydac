@@ -593,7 +593,7 @@ class ScaledLinearOperator(LinearOperator):
         return self._scalar*csr_matrix(self._operator.toarray())
 
     def transpose(self, conjugate=False):
-        return ScaledLinearOperator(domain=self.codomain, codomain=self.domain, c=np.conjugate(self._scalar), A=self._operator.transpose(conjugate=conjugate))
+        return ScaledLinearOperator(domain=self.codomain, codomain=self.domain, c=self._scalar if not conjugate else np.conjugate(self._scalar), A=self._operator.transpose(conjugate=conjugate))
 
     def __neg__(self):
         return ScaledLinearOperator(domain=self.domain, codomain=self.codomain, c=-1*self._scalar, A=self._operator)
