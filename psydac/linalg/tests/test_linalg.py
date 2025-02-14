@@ -530,7 +530,7 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(Z3, StencilMatrix)
     assert isinstance(T, StencilMatrix)
     assert np.array_equal(w2.toarray(), np.dot(np.dot(2, Sa), v_array))
-test_in_place_operations(10, 10, 2, 2, P1=False, P2=False)   
+ 
 #===============================================================================
 @pytest.mark.parametrize('n1', n1array)
 @pytest.mark.parametrize('n2', n2array)
