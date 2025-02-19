@@ -170,13 +170,34 @@ def plot_field_and_error(name, x, y, field_h, field_ex, *gridlines):
 
 def update_plot(fig, t, x, y, field_h, field_ex):
     ax0, ax1, cax0, cax1 = fig.axes
-    ax0.collections.clear(); cax0.clear()
-    ax1.collections.clear(); cax1.clear()
+
+    # Remove collections from ax0
+    while ax0.collections:
+        ax0.collections[0].remove()
+
+    # Remove collections from ax1
+    while ax1.collections:
+        ax1.collections[0].remove()
+
+    # Clear colorbars
+    while cax0.collections:
+        cax0.collections[0].remove()
+
+    while cax1.collections:
+        cax1.collections[0].remove()
+
+    # Create new contour plots
     im0 = ax0.contourf(x, y, field_h)
     im1 = ax1.contourf(x, y, field_ex - field_h)
+
+    # Create new colorbars
     fig.colorbar(im0, cax=cax0)
     fig.colorbar(im1, cax=cax1)
+
+    # Update the title
     fig.suptitle('Time t = {:10.3e}'.format(t))
+
+    # Draw the updated plot
     fig.canvas.draw()
 
 #==============================================================================
@@ -196,9 +217,9 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
     from sympde.topology import Domain
     from sympde.topology import Square
-    from sympde.topology import Mapping
-    from sympde.topology import CallableMapping
-#    from sympde.topology import CollelaMapping2D
+
+    from sympde.topology import BaseAnalyticMapping #, CollelaMapping2D
+
     from sympde.topology import Derham
     from sympde.topology import elements_of
     from sympde.topology import NormalVector
@@ -212,6 +233,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     from psydac.linalg.solvers     import inverse
     from psydac.utilities.utils    import refine_array_1d
     from psydac.mapping.discrete   import SplineMapping, NurbsMapping
+
 
     backend = PSYDAC_BACKENDS['pyccel-gcc']
 
@@ -253,22 +275,21 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
         filename = os.path.join(mesh_dir, 'collela_2d.h5')
         domain   = Domain.from_file(filename)
-        mapping  = domain.mapping
+        mapping  = domain.mapping # mapping is BaseMapping
 
     else:
         # Logical domain is unit square [0, 1] x [0, 1]
         logical_domain = Square('Omega')
 
-        # Mapping and physical domain
-        class CollelaMapping2D(Mapping):
+        # WARNING: this Collela mapping is not the same as in SymPDE
+        class CollelaMapping2D(BaseAnalyticMapping):
 
             _ldim = 2
             _pdim = 2
             _expressions = {'x': 'a * (x1 + eps / (2*pi) * sin(2*pi*x1) * sin(2*pi*x2))',
                             'y': 'b * (x2 + eps / (2*pi) * sin(2*pi*x1) * sin(2*pi*x2))'}
 
-    #    mapping = CollelaMapping2D('M', k1=1, k2=1, eps=eps)
-        mapping = CollelaMapping2D('M', a=a, b=b, eps=eps)
+        mapping = CollelaMapping2D('M1', a=a, b=b, eps=eps)
         domain  = mapping(logical_domain)
 
     # DeRham sequence
@@ -285,17 +306,27 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     # Penalization to apply homogeneous Dirichlet BCs (will only be used if domain is not periodic)
     nn = NormalVector('nn')
     a1_bc = BilinearForm((u1, v1),
-               integral(domain.boundary, 1e30 * cross(u1, nn) * cross(v1, nn)))
+                integral(domain.boundary, 1e30 * cross(u1, nn) * cross(v1, nn)))
 
     #--------------------------------------------------------------------------
     # Discrete objects: Psydac
     #--------------------------------------------------------------------------
     if use_spline_mapping:
-        domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD)
+        domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD) 
         derham_h = discretize(derham, domain_h, multiplicity = [mult, mult])
 
-        periodic_list = mapping.get_callable_mapping().space.periodic
-        degree_list   = mapping.get_callable_mapping().space.degree
+        # TO FIX : the way domain.from_file and discretize_domain runs make that only domain_h.domain.interior has an actual SplineMapping. The rest are BaseMapping.
+        # The trick is to now when to set exactly the BaseMapping to the SplineMapping. We could try in discretize_derham, but see if it doesn't generate any issues for other tests.
+        mappings=list(domain_h.mappings.values())
+
+        if(len(mappings)>1):
+            raise TypeError("we are not doing multipatch here")
+
+        mapping = mappings[0] # mapping is SplineMapping now
+        derham_h.mapping=mapping
+
+        periodic_list = mapping.space.periodic
+        degree_list   = mapping.space.degree
 
         # Determine if periodic boundary conditions should be used
         if all(periodic_list):
@@ -339,17 +370,15 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     P0, P1, P2 = derham_h.projectors(nquads=[degree+2, degree+2])
 
     # Logical and physical grids
-    F = mapping.get_callable_mapping()
     grid_x1 = derham_h.V0.breaks[0]
     grid_x2 = derham_h.V0.breaks[1]
 
-    # TODO: fix for spline mapping
-    if isinstance(F, (SplineMapping, NurbsMapping)):
-        grid_x, grid_y = F.build_mesh([grid_x1, grid_x2])
-    elif isinstance(F, CallableMapping):
-        grid_x, grid_y = F(*np.meshgrid(grid_x1, grid_x2, indexing='ij'))
+    if isinstance(mapping,(SplineMapping, NurbsMapping)):
+        grid_x, grid_y = mapping.build_mesh([grid_x1, grid_x2])
+    elif isinstance(mapping, BaseAnalyticMapping):
+        grid_x, grid_y = mapping(*np.meshgrid(grid_x1, grid_x2,indexing='ij'))
     else:
-        raise TypeError(F)
+        raise TypeError("mapping is not of type SplineMapping, NurbsMapping or BaseAnalyticMapping")
 
     #--------------------------------------------------------------------------
     # Time integration setup
@@ -424,9 +453,9 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     x1, x2 = np.meshgrid(x1_a, x2_a, indexing='ij')
 
     if use_spline_mapping:
-        x, y = F.build_mesh([x1_a, x2_a])
+        x, y = mapping.build_mesh([x1_a, x2_a])
     else:
-        x, y = F(x1, x2)
+        x, y = mapping(x1, x2)
 
     gridlines_x1 = (x[:, ::N],   y[:, ::N]  )
     gridlines_x2 = (x[::N, :].T, y[::N, :].T)
@@ -443,9 +472,9 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         fig1, ax1 = plt.subplots(1, 1, figsize=(8, 6))
 
         if use_spline_mapping:
-            im = ax1.contourf(x, y, F.jac_det_grid([x1_a, x2_a]))
+            im = ax1.contourf(x, y, mapping.jac_det_grid([x1_a, x2_a]))
         else:
-            im = ax1.contourf(x, y, np.sqrt(F.metric_det(x1, x2)))
+            im = ax1.contourf(x, y, np.sqrt(mapping.metric_det_eval(x1, x2)))
 
         add_colorbar(im, ax1, label=r'Metric determinant $\sqrt{g}$ of mapping $F$')
         ax1.plot(*gridlines_x1, color='k')
@@ -464,19 +493,17 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
             for j, x2j in enumerate(x2[0, :]):
 
                 Ex_values[i, j], Ey_values[i, j] = \
-                        push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, F)
+                        push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, mapping)
 
-                Bz_values[i, j] = push_2d_l2(B, x1i, x2j, F)
+                Bz_values[i, j] = push_2d_l2(B, x1i, x2j, mapping)
 
         # Electric field, x component
         fig2 = plot_field_and_error(r'E^x', x, y, Ex_values, Ex_ex(0, x, y), *gridlines)
-        fig2.show()                                             
-                                                                
-        # Electric field, y component                           
+        fig2.show()
+        # Electric field, y component
         fig3 = plot_field_and_error(r'E^y', x, y, Ey_values, Ey_ex(0, x, y), *gridlines)
-        fig3.show()                                             
-                                                                
-        # Magnetic field, z component                           
+        fig3.show()
+        # Magnetic field, z component
         fig4 = plot_field_and_error(r'B^z', x, y, Bz_values, Bz_ex(0, x, y), *gridlines)
         fig4.show()
         # ...
@@ -562,9 +589,9 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
                 for j, x2j in enumerate(x2[0, :]):
 
                     Ex_values[i, j], Ey_values[i, j] = \
-                            push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, F)
+                            push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, mapping)
 
-                    Bz_values[i, j] = push_2d_l2(B, x1i, x2j, F)
+                    Bz_values[i, j] = push_2d_l2(B, x1i, x2j, mapping)
             # ...
 
             # Update plot
@@ -608,9 +635,9 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
             for j, x2j in enumerate(x2[0, :]):
 
                 Ex_values[i, j], Ey_values[i, j] = \
-                        push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, F)
+                        push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, mapping)
 
-                Bz_values[i, j] = push_2d_l2(B, x1i, x2j, F)
+                Bz_values[i, j] = push_2d_l2(B, x1i, x2j, mapping)
         # ...
 
         # Error at final time
@@ -623,10 +650,9 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         print('Max-norm of error on Bz(t,x) at final time: {:.2e}'.format(error_Bz))
 
     # compute L2 error as well
-    F = mapping.get_callable_mapping()
-    errx = lambda x1, x2: (push_2d_hcurl(E.fields[0], E.fields[1], x1, x2, F)[0] - Ex_ex(t, *F(x1, x2)))**2 * np.sqrt(F.metric_det(x1,x2))
-    erry = lambda x1, x2: (push_2d_hcurl(E.fields[0], E.fields[1], x1, x2, F)[1] - Ey_ex(t, *F(x1, x2)))**2 * np.sqrt(F.metric_det(x1,x2))
-    errz = lambda x1, x2: (push_2d_l2(B, x1, x2, F) - Bz_ex(t, *F(x1, x2)))**2 * np.sqrt(F.metric_det(x1,x2))
+    errx = lambda x1, x2: (push_2d_hcurl(E.fields[0], E.fields[1], x1, x2, mapping)[0] - Ex_ex(t, *mapping(x1, x2)))**2 * np.sqrt(mapping.metric_det_eval(x1,x2))
+    erry = lambda x1, x2: (push_2d_hcurl(E.fields[0], E.fields[1], x1, x2, mapping)[1] - Ey_ex(t, *mapping(x1, x2)))**2 * np.sqrt(mapping.metric_det_eval(x1,x2))
+    errz = lambda x1, x2: (push_2d_l2(B, x1, x2, mapping) - Bz_ex(t, *mapping(x1, x2)))**2 * np.sqrt(mapping.metric_det_eval(x1,x2))
     error_l2_Ex = np.sqrt(derham_h.V1.spaces[0].integral(errx, nquads=nquads))
     error_l2_Ey = np.sqrt(derham_h.V1.spaces[1].integral(erry, nquads=nquads))
     error_l2_Bz = np.sqrt(derham_h.V0.integral(errz, nquads=nquads))
@@ -732,7 +758,7 @@ def test_maxwell_2d_multiplicity():
         verbose = False,
         mult = 2
     )
-    
+
     TOL = 1e-5
     ref = dict(error_l2_Ex = 4.350041934920621e-04,
                error_l2_Ey = 4.350041934920621e-04,
@@ -741,7 +767,7 @@ def test_maxwell_2d_multiplicity():
     assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
     assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
     assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL
-    
+
 def test_maxwell_2d_periodic_multiplicity():
 
     namespace = run_maxwell_2d_TE(
@@ -760,7 +786,7 @@ def test_maxwell_2d_periodic_multiplicity():
         verbose = False,
         mult =2
     )
-    
+
     TOL = 1e-6
     ref = dict(error_l2_Ex = 1.78557685e-04,
                error_l2_Ey = 1.78557685e-04,
@@ -769,8 +795,8 @@ def test_maxwell_2d_periodic_multiplicity():
     assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
     assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
     assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL
-    
-    
+
+
 def test_maxwell_2d_periodic_multiplicity_equal_deg():
 
     namespace = run_maxwell_2d_TE(
@@ -789,12 +815,12 @@ def test_maxwell_2d_periodic_multiplicity_equal_deg():
         verbose = False,
         mult =2
     )
-    
+
     TOL = 1e-6
     ref = dict(error_l2_Ex = 2.50585008e-02,
                error_l2_Ey = 2.50585008e-02,
                error_l2_Bz = 1.58438290e-02)
-    
+
     assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
     assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
     assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL

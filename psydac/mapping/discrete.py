@@ -10,7 +10,13 @@ import random
 import h5py
 import yaml
 
-from sympde.topology.callable_mapping import BasicCallableMapping
+from time   import time
+
+from sympde.topology.base_mapping      import BaseMapping, MappedDomain
+from sympde.topology.basic import BasicDomain
+from sympde.topology.domain import Domain
+from sympy                 import Symbol
+
 from sympde.topology.datatype import (H1SpaceType, L2SpaceType,
                                       HdivSpaceType, HcurlSpaceType,
                                       UndefinedSpaceType)
@@ -22,6 +28,7 @@ from psydac.core.field_evaluation_kernels import (pushforward_2d_l2, pushforward
                                                   pushforward_2d_hdiv, pushforward_3d_hdiv,
                                                   pushforward_2d_hcurl, pushforward_3d_hcurl)
 
+
 __all__ = ('SplineMapping', 'NurbsMapping')
 
 #==============================================================================
@@ -31,10 +38,16 @@ def random_string(n):
     return ''.join(selector.choice(chars) for _ in range(n))
 
 #==============================================================================
-class SplineMapping(BasicCallableMapping):
+class SplineMapping(BaseMapping):
+
+    def __new__(cls, *components, name=None):
+        if name==None:
+            name='M'
+        obj = super().__new__(cls, name=name, dim=len(components))
+
+        return obj
 
     def __init__(self, *components, name=None):
-
         # Sanity checks
         assert len(components) >= 1
         assert all(isinstance(c, FemField) for c in components)
@@ -70,7 +83,7 @@ class SplineMapping(BasicCallableMapping):
     def from_mapping(cls, tensor_space, mapping):
 
         assert isinstance(tensor_space, TensorFemSpace)
-        assert isinstance(mapping, BasicCallableMapping)
+        assert isinstance(mapping, BaseMapping)
         assert tensor_space.ldim == mapping.ldim
 
         # Create one separate scalar field for each physical dimension
@@ -132,33 +145,72 @@ class SplineMapping(BasicCallableMapping):
     #--------------------------------------------------------------------------
     # Abstract interface
     #--------------------------------------------------------------------------
-    def __call__(self, *eta):
+    def _evaluate_domain( self, domain ):
+        assert(isinstance(domain, BasicDomain))
+        return MappedDomain(self, domain)
+
+    def _evaluate_point( self, *eta ):
         return [map_Xd(*eta) for map_Xd in self._fields]
 
+    def _evaluate_1d_arrays(self, *arrays):
+        assert len(arrays) == self.ldim
+        if len(arrays) == 0:
+            raise ValueError("At least one array is required")
+        shape = arrays[0].shape
+        if not all(array.shape == shape for array in arrays):
+            raise ValueError("Shape mismatch between input arrays")
+
+        result_arrays = [np.zeros_like(array, dtype=np.float64) for array in arrays]
+        for i in range(shape[0]):
+            evaluated_points = self._evaluate_point(*(array[i] for array in arrays))
+            for j, value in enumerate(evaluated_points):
+                result_arrays[j][i] = value
+
+        return tuple(result_arrays)
+
+
+    def _evaluate_meshgrid(self, *Xs):
+        reverted_arrays = []
+        assert len(Xs)==self.ldim
+        Xshape = np.shape(Xs[0]) 
+        for X in Xs:
+            assert np.shape(X) == Xshape
+            reverted_arrays.append(np.unique(X))
+
+        return self.build_mesh(reverted_arrays)
+
+
+    def __call__( self, *args ):
+        if len(args) == 1 and isinstance(args[0], BasicDomain):
+            return self._evaluate_domain(args[0])
+
+        elif all(isinstance(arg, (int, float, Symbol)) for arg in args):
+            return self._evaluate_point(*args)
+
+        elif all(isinstance(arg, np.ndarray) for arg in args):
+            if ( len(args[0].shape) == 1 ):
+                return self._evaluate_1d_arrays(*args)
+            elif (( len(args[0].shape) == 2 ) or (len(args[0].shape) == 3)):
+                return self._evaluate_meshgrid(*args)
+            else:
+                raise TypeError(" Invalid dimensions for called object ")
+
     # ...
-    def jacobian(self, *eta):
+    def jacobian_eval(self, *eta):
         return np.array([map_Xd.gradient(*eta) for map_Xd in self._fields])
 
     # ...
-    def jacobian_inv(self, *eta):
-        return np.linalg.inv(self.jacobian(*eta))
+    def jacobian_inv_eval(self, *eta):
+        return np.linalg.inv(self.jacobian_eval(*eta))
 
     # ...
-    def metric(self, *eta):
-        J = self.jacobian(*eta)
+    def metric_eval(self, *eta):
+        J = self.jacobian_eval(*eta)
         return np.dot(J.T, J)
 
     # ...
-    def metric_det(self, *eta):
-        return np.linalg.det(self.metric(*eta))
-
-    @property
-    def ldim(self):
-        return self._ldim
-
-    @property
-    def pdim(self):
-        return self._pdim
+    def metric_det_eval(self, *eta):
+        return np.linalg.det(self.metric_eval(*eta))
 
     #--------------------------------------------------------------------------
     # Fast evaluation on a grid
@@ -175,7 +227,7 @@ class SplineMapping(BasicCallableMapping):
         npts_per_cell: int, tuple of int or None, optional
             Number of evaluation points in each cell.
             If an integer is given, then assume that it is the same in every direction.
-        
+
         overlap : int
             How much to overlap. Only used in the distributed context.
 
@@ -321,7 +373,7 @@ class SplineMapping(BasicCallableMapping):
         ----------
         grid : List of ndarray
             List of 1D arrays representing each direction of the grid.
-            
+
         overlap : int
             How much to overlap. Only used in the distributed context.
 
@@ -639,14 +691,14 @@ class SplineMapping(BasicCallableMapping):
             global_arr_y = self._fields[1].coeffs._data
             global_arr_z = self._fields[2].coeffs._data
 
-            eval_jac_det_3d(*ncells, *degree, *n_eval_points, *global_basis, 
+            eval_jac_det_3d(*ncells, *degree, *n_eval_points, *global_basis,
                             *global_spans, global_arr_x, global_arr_y, global_arr_z, jac_dets)
 
         elif self.ldim == 2:
             global_arr_x = self._fields[0].coeffs._data
             global_arr_y = self._fields[1].coeffs._data
 
-            eval_jac_det_2d(*ncells, *degree, *n_eval_points, *global_basis, 
+            eval_jac_det_2d(*ncells, *degree, *n_eval_points, *global_basis,
                             *global_spans, global_arr_x, global_arr_y, jac_dets)
 
         else:
@@ -662,7 +714,7 @@ class SplineMapping(BasicCallableMapping):
         ----------
         grid : List of ndarray
             List of 1D arrays representing each direction of the grid.
-            
+
         overlap : int
             How much to overlap. Only used in the distributed context.
 
@@ -688,14 +740,14 @@ class SplineMapping(BasicCallableMapping):
             global_arr_y = self._fields[1].coeffs._data
             global_arr_z = self._fields[2].coeffs._data
 
-            eval_jac_det_irregular_3d(*npts, *degree, *cell_indexes, *global_basis, 
+            eval_jac_det_irregular_3d(*npts, *degree, *cell_indexes, *global_basis,
                                       *global_spans, global_arr_x, global_arr_y, global_arr_z, jac_dets)
 
         elif self.ldim == 2:
             global_arr_x = self._fields[0].coeffs._data
             global_arr_y = self._fields[1].coeffs._data
 
-            eval_jac_det_irregular_2d(*npts, *degree, *cell_indexes, *global_basis, 
+            eval_jac_det_irregular_2d(*npts, *degree, *cell_indexes, *global_basis,
                                       *global_spans, global_arr_x, global_arr_y, jac_dets)
 
         else:
@@ -873,14 +925,24 @@ class NurbsMapping(SplineMapping):
     #--------------------------------------------------------------------------
     # Abstract interface
     #--------------------------------------------------------------------------
-    def __call__(self, *eta):
+    def _evaluate_point( self, *eta ):
         map_W = self._weights_field
         w = map_W(*eta)
         Xd = [map_Xd(*eta , weights=map_W.coeffs) for map_Xd in self._fields]
         return np.asarray(Xd) / w
 
+    def _evaluate_domain(self, domain):
+        return super()._evaluate_domain(domain)
+
+
+    def __call__(self, *args):
+        if len(args) == 1 and isinstance(args[0], BasicDomain):
+            return self._evaluate_domain(args[0])
+        elif all(isinstance(arg, (int, float, Symbol)) for arg in args):
+            return self._evaluate_point(*args)
+
     # ...
-    def jacobian(self, *eta):
+    def jacobian_eval(self, *eta):
         map_W = self._weights_field
         w = map_W(*eta)
         grad_w = np.array(map_W.gradient(*eta))
@@ -888,6 +950,14 @@ class NurbsMapping(SplineMapping):
         grad_v = np.array([map_Xd.gradient(*eta, weights=map_W.coeffs) for map_Xd in self._fields])
         return grad_v / w - v[:, None] @ grad_w[None, :] / w**2
 
+    def jacobian_inv_eval(self, *eta):
+        return super().jacobian_inv_eval(*eta)
+
+    def metric_eval(self, *eta):
+        return super().metric_eval(*eta)
+
+    def metric_det_eval(self, *eta):
+        return super().metric_det_eval(*eta)
     #--------------------------------------------------------------------------
     # Fast evaluation on a grid
     #--------------------------------------------------------------------------
@@ -1010,16 +1080,16 @@ class NurbsMapping(SplineMapping):
             global_arr_y = self._fields[1].coeffs._data
             global_arr_z = self._fields[2].coeffs._data
 
-            eval_jacobians_irregular_3d_weights(*npts, *degree, *cell_indexes, *global_basis, 
-                                                *global_spans, global_arr_x, global_arr_y, global_arr_z, 
+            eval_jacobians_irregular_3d_weights(*npts, *degree, *cell_indexes, *global_basis,
+                                                *global_spans, global_arr_x, global_arr_y, global_arr_z,
                                                 global_arr_weights, jac_mats)
 
         elif self.ldim == 2:
             global_arr_x = self._fields[0].coeffs._data
             global_arr_y = self._fields[1].coeffs._data
 
-            eval_jacobians_irregular_2d_weights(*npts, *degree, *cell_indexes, *global_basis, 
-                                                *global_spans, global_arr_x, global_arr_y, 
+            eval_jacobians_irregular_2d_weights(*npts, *degree, *cell_indexes, *global_basis,
+                                                *global_spans, global_arr_x, global_arr_y,
                                                 global_arr_weights, jac_mats)
 
         else:
@@ -1120,16 +1190,16 @@ class NurbsMapping(SplineMapping):
             global_arr_y = self._fields[1].coeffs._data
             global_arr_z = self._fields[2].coeffs._data
 
-            eval_jacobians_inv_irregular_3d_weights(*npts, *degree, *cell_indexes, *global_basis, 
-                                                    *global_spans, global_arr_x, global_arr_y, global_arr_z, 
+            eval_jacobians_inv_irregular_3d_weights(*npts, *degree, *cell_indexes, *global_basis,
+                                                    *global_spans, global_arr_x, global_arr_y, global_arr_z,
                                                     global_arr_weights, inv_jac_mats)
 
         elif self.ldim == 2:
             global_arr_x = self._fields[0].coeffs._data
             global_arr_y = self._fields[1].coeffs._data
 
-            eval_jacobians_inv_irregular_2d_weights(*npts, *degree, *cell_indexes, *global_basis, 
-                                                    *global_spans, global_arr_x, global_arr_y, 
+            eval_jacobians_inv_irregular_2d_weights(*npts, *degree, *cell_indexes, *global_basis,
+                                                    *global_spans, global_arr_x, global_arr_y,
                                                     global_arr_weights, inv_jac_mats)
 
         else:
@@ -1160,7 +1230,7 @@ class NurbsMapping(SplineMapping):
             at the location corresponding to ``(x_1, ..., x_ldim)``.
         """
         from psydac.core.field_evaluation_kernels import eval_jac_det_3d_weights, eval_jac_det_2d_weights
-        
+
         degree, global_basis, global_spans, local_shape = self.space.preprocess_regular_tensor_grid(grid, der=1, overlap=overlap)
 
         ncells = [local_shape[i][0] for i in range(self.ldim)]
@@ -1235,16 +1305,16 @@ class NurbsMapping(SplineMapping):
             global_arr_y = self._fields[1].coeffs._data
             global_arr_z = self._fields[2].coeffs._data
 
-            eval_jac_det_irregular_3d_weights(*npts, *degree, *cell_indexes, *global_basis, 
-                                              *global_spans, global_arr_x, global_arr_y, global_arr_z, 
+            eval_jac_det_irregular_3d_weights(*npts, *degree, *cell_indexes, *global_basis,
+                                              *global_spans, global_arr_x, global_arr_y, global_arr_z,
                                               global_arr_weights, jac_dets)
 
         elif self.ldim == 2:
             global_arr_x = self._fields[0].coeffs._data
             global_arr_y = self._fields[1].coeffs._data
 
-            eval_jac_det_irregular_2d_weights(*npts, *degree, *cell_indexes, *global_basis, 
-                                              *global_spans, global_arr_x, global_arr_y, 
+            eval_jac_det_irregular_2d_weights(*npts, *degree, *cell_indexes, *global_basis,
+                                              *global_spans, global_arr_x, global_arr_y,
                                               global_arr_weights, jac_dets)
 
         else:

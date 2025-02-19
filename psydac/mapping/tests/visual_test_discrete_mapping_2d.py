@@ -11,8 +11,7 @@ def main(*, mapping, degree, ncells, name='F'):
     import numpy as np
     import matplotlib.pyplot as plt
 
-    from sympde.topology.analytical_mapping import (IdentityMapping,
-            TargetMapping, CzarnyMapping, PolarMapping, CollelaMapping2D)
+    from sympde.topology import IdentityMapping,TargetMapping, CzarnyMapping, PolarMapping, CollelaMapping2D
 
     from psydac.mapping.discrete import SplineMapping
     from psydac.fem.basic        import FemField
@@ -23,35 +22,35 @@ def main(*, mapping, degree, ncells, name='F'):
 
     # Input parameters
     if mapping == 'Identity':
-        map_symbolic = IdentityMapping(name, dim=2)
+        map_analytic = IdentityMapping(name, dim=2)
         lims1   = (0, 1)
         lims2   = (0, 1)
         periodic1 = False
         periodic2 = False
 
     elif mapping == 'Collela':
-        map_symbolic = CollelaMapping2D(name, eps=0.05, k1=1, k2=1)
+        map_analytic = CollelaMapping2D(name, eps=0.05, k1=1, k2=1)
         lims1   = (0, 1)
         lims2   = (0, 1)
         periodic1 = False
         periodic2 = False
 
     elif mapping == 'Polar':
-        map_symbolic = PolarMapping(name, c1=0.1, c2=0.1, rmin=0.1, rmax=1)
+        map_analytic = PolarMapping(name, c1=0.1, c2=0.1, rmin=0.1, rmax=1)
         lims1 = (0, 1)
         lims2 = (0, 2*np.pi)
         periodic1 = False
         periodic2 = True
 
     elif mapping == 'Target':
-        map_symbolic = TargetMapping(name, c1=0.0, c2=0.0, k=0.3, D=0.1)
+        map_analytic = TargetMapping(name, c1=0.0, c2=0.0, k=0.3, D=0.1)
         lims1 = (0, 1)
         lims2 = (0, 2*np.pi)
         periodic1 = False
         periodic2 = True
 
     elif mapping == 'Czarny':
-        map_symbolic = CzarnyMapping(name, eps=0.3, c2=0, b=2)
+        map_analytic = CzarnyMapping(name, eps=0.3, c2=0, b=2)
         lims1 = (0, 1)
         lims2 = (0, 2*np.pi)
         periodic1 = False
@@ -60,7 +59,6 @@ def main(*, mapping, degree, ncells, name='F'):
     else:
         raise ValueError(f'Test case does not support mapping "{mapping}"')
 
-    map_analytic = map_symbolic.get_callable_mapping()
 
     p1 , p2  = degree
     nc1, nc2 = ncells
@@ -85,11 +83,11 @@ def main(*, mapping, degree, ncells, name='F'):
 #    xa, ya = [np.array(v).reshape(shape) for v in zip(*[map_analytic(ri, tj) for ri in r for tj in t])]
 #    xd, yd = [np.array(v).reshape(shape) for v in zip(*[map_discrete(ri, tj) for ri in r for tj in t])]
 
-    xa, ya = map_analytic(*np.meshgrid(r, t, indexing='ij', sparse=True))
+    xa, ya = map_analytic(*np.meshgrid(r, t, indexing='ij'))
     xd, yd = map_discrete.build_mesh([r, t])
 
     figtitle = 'Mapping: {:s}, Degree: [{:d},{:d}], Ncells: [{:d},{:d}]'.format(
-        map_symbolic.__class__.__name__, p1, p2, nc1, nc2)
+        map_analytic.__class__.__name__, p1, p2, nc1, nc2)
 
     fig, axes = plt.subplots(1, 2, figsize=[12,5], num=figtitle)
     for ax in axes:

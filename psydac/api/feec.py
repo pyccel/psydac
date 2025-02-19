@@ -1,4 +1,4 @@
-from sympde.topology.mapping import Mapping
+from sympde.topology import BaseMapping
 
 from psydac.api.basic              import BasicDiscrete
 from psydac.feec.derivatives       import Derivative_1D, Gradient_2D, Gradient_3D
@@ -20,7 +20,7 @@ class DiscreteDerham(BasicDiscrete):
 
     Parameters
     ----------
-    mapping : Mapping or None
+    mapping : BaseMapping or None
         Symbolic mapping from the logical space to the physical space, if any.
 
     *spaces : list of FemSpace
@@ -28,8 +28,7 @@ class DiscreteDerham(BasicDiscrete):
 
     Notes
     -----
-    - The basic type Mapping is defined in module sympde.topology.mapping.
-      A discrete mapping (spline or NURBS) may be attached to it.
+    - The basic type BaseMapping is defined in module sympde.topology.base_mapping
 
     - This constructor should not be called directly, but rather from the
       `discretize_derham` function in `psydac.api.discretization`.
@@ -39,7 +38,7 @@ class DiscreteDerham(BasicDiscrete):
     """
     def __init__(self, mapping, *spaces):
 
-        assert (mapping is None) or isinstance(mapping, Mapping)
+        assert (mapping is None) or isinstance(mapping, BaseMapping)
         assert all(isinstance(space, FemSpace) for space in spaces)
 
         self.has_vec = isinstance(spaces[-1], VectorFemSpace)
@@ -55,7 +54,6 @@ class DiscreteDerham(BasicDiscrete):
 
         self._dim     = dim
         self._mapping = mapping
-        self._callable_mapping = mapping.get_callable_mapping() if mapping else None
 
         if dim == 1:
             D0 = Derivative_1D(spaces[0], spaces[1])
@@ -141,11 +139,11 @@ class DiscreteDerham(BasicDiscrete):
         """The mapping from the logical space to the physical space."""
         return self._mapping
 
-    @property
-    def callable_mapping(self):
-        """The mapping as a callable."""
-        return self._callable_mapping
-
+    @mapping.setter
+    def mapping(self, value):
+        assert isinstance(value, BaseMapping), "Mapping must be an instance of BaseMapping"
+        self._mapping = value
+        
     @property
     def derivatives_as_matrices(self):
         """Differential operators of the De Rham sequence as LinearOperator objects."""
@@ -203,8 +201,8 @@ class DiscreteDerham(BasicDiscrete):
             P0 = Projector_H1(self.V0)
             P1 = Projector_L2(self.V1, nquads)
             if self.mapping:
-                P0_m = lambda f: P0(pull_1d_h1(f, self.callable_mapping))
-                P1_m = lambda f: P1(pull_1d_l2(f, self.callable_mapping))
+                P0_m = lambda f: P0(pull_1d_h1(f, self.mapping))
+                P1_m = lambda f: P1(pull_1d_l2(f, self.mapping))
                 return P0_m, P1_m
             return P0, P1
 
@@ -224,14 +222,14 @@ class DiscreteDerham(BasicDiscrete):
                 Pvec = Projector_H1vec(self.H1vec, nquads)
 
             if self.mapping:
-                P0_m = lambda f: P0(pull_2d_h1(f, self.callable_mapping))
-                P2_m = lambda f: P2(pull_2d_l2(f, self.callable_mapping))
+                P0_m = lambda f: P0(pull_2d_h1(f, self.mapping))
+                P2_m = lambda f: P2(pull_2d_l2(f, self.mapping))
                 if kind == 'hcurl':
-                    P1_m = lambda f: P1(pull_2d_hcurl(f, self.callable_mapping))
+                    P1_m = lambda f: P1(pull_2d_hcurl(f, self.mapping))
                 elif kind == 'hdiv':
-                    P1_m = lambda f: P1(pull_2d_hdiv(f, self.callable_mapping))
+                    P1_m = lambda f: P1(pull_2d_hdiv(f, self.mapping))
                 if self.has_vec : 
-                    Pvec_m = lambda f: Pvec(pull_2d_h1vec(f, self.callable_mapping))
+                    Pvec_m = lambda f: Pvec(pull_2d_h1vec(f, self.mapping))
                     return P0_m, P1_m, P2_m, Pvec_m
                 else : 
                     return P0_m, P1_m, P2_m
@@ -249,12 +247,12 @@ class DiscreteDerham(BasicDiscrete):
             if self.has_vec : 
                 Pvec = Projector_H1vec(self.H1vec)
             if self.mapping:
-                P0_m = lambda f: P0(pull_3d_h1   (f, self.callable_mapping))
-                P1_m = lambda f: P1(pull_3d_hcurl(f, self.callable_mapping))
-                P2_m = lambda f: P2(pull_3d_hdiv (f, self.callable_mapping))
-                P3_m = lambda f: P3(pull_3d_l2   (f, self.callable_mapping))
+                P0_m = lambda f: P0(pull_3d_h1   (f, self.mapping))
+                P1_m = lambda f: P1(pull_3d_hcurl(f, self.mapping))
+                P2_m = lambda f: P2(pull_3d_hdiv (f, self.mapping))
+                P3_m = lambda f: P3(pull_3d_l2   (f, self.mapping))
                 if self.has_vec : 
-                    Pvec_m = lambda f: Pvec(pull_3d_h1vec(f, self.callable_mapping))
+                    Pvec_m = lambda f: Pvec(pull_3d_h1vec(f, self.mapping))
                     return P0_m, P1_m, P2_m, P3_m, Pvec_m
                 else : 
                     return P0_m, P1_m, P2_m, P3_m

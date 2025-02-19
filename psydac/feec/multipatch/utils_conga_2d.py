@@ -20,21 +20,21 @@ from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_gri
 # interface)
 def P0_phys(f_phys, P0, domain, mappings_list):
     f = lambdify(domain.coordinates, f_phys)
-    f_log = [pull_2d_h1(f, m.get_callable_mapping()) for m in mappings_list]
+    f_log = [pull_2d_h1(f, m) for m in mappings_list]
     return P0(f_log)
 
 
 def P1_phys(f_phys, P1, domain, mappings_list):
     f_x = lambdify(domain.coordinates, f_phys[0])
     f_y = lambdify(domain.coordinates, f_phys[1])
-    f_log = [pull_2d_hcurl([f_x, f_y], m.get_callable_mapping())
+    f_log = [pull_2d_hcurl([f_x, f_y], m)
              for m in mappings_list]
     return P1(f_log)
 
 
 def P2_phys(f_phys, P2, domain, mappings_list):
     f = lambdify(domain.coordinates, f_phys)
-    f_log = [pull_2d_l2(f, m.get_callable_mapping()) for m in mappings_list]
+    f_log = [pull_2d_l2(f, m) for m in mappings_list]
     return P2(f_log)
 
 # commuting projections on the physical domain (should probably be in the

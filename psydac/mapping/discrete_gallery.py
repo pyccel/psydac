@@ -3,22 +3,12 @@
 import numpy as np
 from mpi4py import MPI
 
-from sympde.topology.mapping import Mapping
-from sympde.topology.analytical_mapping import (IdentityMapping, PolarMapping,
-                                                TargetMapping, CzarnyMapping,
-                                                CollelaMapping2D, SphericalMapping)
+from sympde.topology import IdentityMapping, CollelaMapping2D, PolarMapping, TargetMapping, CzarnyMapping, Collela3D, SphericalMapping 
 
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
-from psydac.mapping.discrete import SplineMapping
+from .discrete import SplineMapping
 from psydac.ddm.cart         import DomainDecomposition
-
-
-class Collela3D( Mapping ):
-
-    _expressions = {'x':'2.*(x1 + 0.1*sin(2.*pi*x1)*sin(2.*pi*x2)) - 1.',
-                    'y':'2.*(x2 + 0.1*sin(2.*pi*x1)*sin(2.*pi*x2)) - 1.',
-                    'z':'2.*x3  - 1.'}
 
 #==============================================================================
 def discrete_mapping(mapping, ncells, degree, **kwargs):
@@ -92,7 +82,7 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
             periodic = ( False,  False,  False)
 
         elif mapping == 'spherical shell':
-            map_analytic = SphericalMapping('M', dim=dim)
+            map_symbolic = SphericalMapping('M', dim=dim)
             limits   = ((1, 4), (0, np.pi), (0, np.pi/2))
             periodic = ( False,  False,  False)
 
@@ -112,8 +102,7 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
     space = TensorFemSpace(domain_decomposition, *spaces_1d)
 
     # Create spline mapping by interpolating analytical one
-    map_analytic = map_symbolic.get_callable_mapping()
-    map_discrete = SplineMapping.from_mapping(space, map_analytic)
+    map_discrete = SplineMapping.from_mapping(space, map_symbolic)
 
     if return_space:
         return map_discrete, space

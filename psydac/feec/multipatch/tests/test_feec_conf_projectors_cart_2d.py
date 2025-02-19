@@ -124,7 +124,7 @@ def test_conf_projectors_2d(
 
     mappings = OrderedDict([(P.logical_domain, P.mapping)
                            for P in domain.interior])
-    mappings_list = [m.get_callable_mapping() for m in mappings.values()]
+    mappings_list = [m for m in mappings.values()]
     p_derham = Derham(domain, ["H1", V1_type, "L2"])
 
     nquads = [(d + 1) for d in degree]

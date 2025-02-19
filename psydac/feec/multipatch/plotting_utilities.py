@@ -90,7 +90,7 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
                 uk_field_1,
                 eta1,
                 eta2,
-                mappings_list[k].get_callable_mapping())
+                mappings_list[k])
         elif space_kind == 'hdiv' or space_kind == 'V2':
             def push_field(
                 eta1,
@@ -99,7 +99,7 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
                 uk_field_1,
                 eta1,
                 eta2,
-                mappings_list[k].get_callable_mapping())
+                mappings_list[k])
         elif space_kind == 'l2':
             assert not vector_valued
 
@@ -109,7 +109,7 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
                 uk_field_0,
                 eta1,
                 eta2,
-                mappings_list[k].get_callable_mapping())
+                mappings_list[k])
         else:
             raise ValueError(
                 'unknown value for space_kind = {}'.format(space_kind))
@@ -148,10 +148,10 @@ def get_grid_quad_weights(etas, patch_logvols, mappings_list):  # _obj):
         N1 = eta_1.shape[1]
 
         log_weight = patch_logvols[k] / (N0 * N1)
-        Fk = mappings_list[k].get_callable_mapping()
+        Fk = mappings_list[k]
         for i, x1i in enumerate(eta_1[:, 0]):
             for j, x2j in enumerate(eta_2[0, :]):
-                det_Fk_ij = Fk.metric_det(x1i, x2j)**0.5
+                det_Fk_ij = Fk.metric_det_eval(x1i, x2j)**0.5
                 quad_weights[k][i, j] = det_Fk_ij * log_weight
 
     return quad_weights
@@ -239,7 +239,8 @@ def get_diag_grid(mappings, N):
 def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     # get gridlines for one patch grid
 
-    F = [M.get_callable_mapping() for d, M in mappings.items()]
+
+    F = [M for d,M in mappings.items()]
 
     if plotted_patch in range(len(mappings)):
         grid_x1 = Vh.spaces[plotted_patch].spaces[0].breaks[0]

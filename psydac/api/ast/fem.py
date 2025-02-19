@@ -9,10 +9,11 @@ from sympy.core.containers import Tuple
 
 from sympde.expr                 import LinearForm, BilinearForm, Functional
 from sympde.topology.basic       import Boundary, Interface
-from sympde.topology             import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType, IdentityMapping
+from sympde.topology             import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.topology.space       import ScalarFunction, VectorFunction, IndexedVectorFunction
 from sympde.topology.derivatives import _logical_partial_derivatives, get_max_logical_partial_derivatives
-from sympde.topology.mapping     import InterfaceMapping
+from sympde.topology.analytic_mappings import IdentityMapping
+from sympde.topology.base_mapping     import InterfaceMapping
 from sympde.calculus.core        import is_zero, PlusInterfaceOperator
 
 from psydac.pyccel.ast.core import _atomic, Assign, Import, Return, Comment, Continue, Slice

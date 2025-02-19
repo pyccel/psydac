@@ -18,7 +18,7 @@ from sympde.topology import element_of, elements_of
 from sympde.topology import NormalVector
 from sympde.topology import Union
 from sympde.topology import Domain, Square
-from sympde.topology import IdentityMapping, AffineMapping, PolarMapping
+from sympde.topology.analytic_mappings import IdentityMapping, AffineMapping, PolarMapping
 from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm, SemiNorm
 from sympde.expr     import find, EssentialBC
@@ -422,24 +422,22 @@ def test_complex_helmholtz_2d(plot_sol=False):
 
     print(f'errors: l2 = {l2_error}, h1 = {h1_error}')
     print('expected errors: l2 = {}, h1 = {}'.format(expected_l2_error, expected_h1_error))
-    
+
     if plot_sol:
         from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
         from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
         from psydac.feec.pull_push                     import pull_2d_h1
-        
+
         Id_mapping = IdentityMapping('M', 2)
         # print(f'domain.interior = {domain.interior}')
         # domain_interior = [domain]
         # print(f'domain.logical_domain = {domain.logical_domain}')
         mappings = OrderedDict([(domain, Id_mapping)])
         mappings_list = [m for m in mappings.values()]
-        call_mappings_list = [m.get_callable_mapping() for m in mappings_list]
-
         uh = [uh]  # single-patch cast as multi-patch solution 
 
         u   = lambdify(domain.coordinates, solution)
-        u_log = [pull_2d_h1(u, f) for f in call_mappings_list]
+        u_log = [pull_2d_h1(u, f) for f in mappings_list]
 
         etas, xx, yy         = get_plotting_grid(mappings, N=20)
         grid_vals_h1         = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='h1')
@@ -448,7 +446,7 @@ def test_complex_helmholtz_2d(plot_sol=False):
         u_vals  = grid_vals_h1(u_log)
 
         u_err   = [(u1 - u2) for u1, u2 in zip(u_vals, uh_vals)]
-    
+
         my_small_plot(
             title=r'approximation of solution $u$',
             vals=[u_vals, uh_vals, u_err],
@@ -540,7 +538,7 @@ if __name__ == '__main__':
         from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
         from psydac.api.tests.build_domain             import build_pretzel
         from psydac.feec.pull_push                     import pull_2d_hcurl
-        
+
         domain = build_pretzel()
         x,y    = domain.coordinates
 
@@ -554,11 +552,10 @@ if __name__ == '__main__':
 
         mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
         mappings_list = list(mappings.values())
-        call_mappings_list = [m.get_callable_mapping() for m in mappings_list]
 
         Eex_x   = lambdify(domain.coordinates, Eex[0])
         Eex_y   = lambdify(domain.coordinates, Eex[1])
-        Eex_log = [pull_2d_hcurl([Eex_x,Eex_y], f) for f in call_mappings_list]
+        Eex_log = [pull_2d_hcurl([Eex_x,Eex_y], f) for f in mappings_list]
 
         etas, xx, yy         = get_plotting_grid(mappings, N=20)
         grid_vals_hcurl      = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='hcurl')

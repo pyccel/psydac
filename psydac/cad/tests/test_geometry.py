@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 import os
 
-from sympde.topology import Domain, Line, Square, Cube, Mapping
+from sympde.topology import Domain, Line, Square, Cube
 
 from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refine_nurbs
 from psydac.cad.geometry             import import_geopdes_to_nurbs
@@ -27,8 +27,8 @@ def test_geometry_2d_1():
     mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
 
     # create a topological domain
-    F      = Mapping('F', dim=2)
-    domain = F(Square(name='Omega'))
+    #F      = BaseAnalyticMapping('F', dim=2)
+    domain = mapping(Square(name='Omega'))
 
     # associate the mapping to the topological domain
     mappings = {domain.name: mapping}
@@ -55,6 +55,7 @@ def test_geometry_2d_1():
     geo_1.export('geo_1.h5')
 
 #==============================================================================
+@pytest.mark.skip(reason='igakit no longer imported') 
 def test_geometry_2d_2():
 
     # create a nurbs mapping
@@ -74,8 +75,8 @@ def test_geometry_2d_2():
     mapping = refine( mapping, axis=0, values=[0.3, 0.6, 0.8] )
 
     # create a topological domain
-    F      = Mapping('F', dim=2)
-    domain = F(Square(name='Omega'))
+    #F      = BaseAnalyticMapping('F', dim=2)
+    domain = mapping(Square(name='Omega'))
 
     # associate the mapping to the topological domain
     mappings = {domain.name: mapping}
@@ -105,6 +106,7 @@ def test_geometry_2d_2():
 
 #==============================================================================
 # TODO to be removed
+@pytest.mark.skip(reason='igakit no longer imported') 
 def test_geometry_2d_3():
 
     # create a nurbs mapping
@@ -138,11 +140,13 @@ def test_geometry_2d_3():
 
 #==============================================================================
 # TODO to be removed
+@pytest.mark.skip(reason='igakit no longer imported') 
 def test_geometry_2d_4():
 
     # create a nurbs mapping
     radius = np.sqrt(2)/2.
     degrees, knots, points, weights = circle( radius=radius, center=None )
+    print(knots)
 
     # Create tensor spline space, distributed
     spaces = [SplineSpace( knots=k, degree=p ) for k,p in zip(knots, degrees)]
@@ -170,6 +174,7 @@ def test_geometry_2d_4():
     geo.export('circle.h5')
 
 #==============================================================================
+@pytest.mark.skip(reason='igakit no longer imported') 
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
 def test_export_nurbs_to_hdf5(ncells, degree):
@@ -191,7 +196,7 @@ def test_export_nurbs_to_hdf5(ncells, degree):
    # read the geometry
     geo = Geometry(filename=filename)
     domain = geo.domain
-
+    
     min_coords = domain.logical_domain.min_coords
     max_coords = domain.logical_domain.max_coords
 
@@ -223,6 +228,7 @@ def test_export_nurbs_to_hdf5(ncells, degree):
     assert np.allclose(pcoords1[..., :domain.dim], pcoords2, 1e-15, 1e-15)
 
 #==============================================================================
+@pytest.mark.skip(reason='igakit no longer imported') 
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
 def test_import_geopdes_to_nurbs(ncells, degree):
@@ -298,3 +304,8 @@ def teardown_module():
 def teardown_function():
     from sympy.core import cache
     cache.clear_cache()
+
+if __name__ == "__main__":
+    ncells = [8,8]
+    degree = [2,2]
+    test_export_nurbs_to_hdf5(ncells, degree)
