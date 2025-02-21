@@ -15,40 +15,40 @@ from sympde.topology import Boundary, Interface
 from psydac.fem.splines import SplineSpace
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.core.bsplines import quadrature_grid, basis_ders_on_quad_grid, find_spans, elements_spans, cell_index, basis_ders_on_irregular_grid
+from psydac.feec.multipatch.operators import get_patch_index_from_face
 
+# def get_patch_index_from_face(domain, face):
+#     """
+#     Return the patch index of subdomain/boundary
 
-def get_patch_index_from_face(domain, face):
-    """
-    Return the patch index of subdomain/boundary
+#     Parameters
+#     ----------
+#     domain : <Sympde.topology.Domain>
+#      The Symbolic domain
 
-    Parameters
-    ----------
-    domain : <Sympde.topology.Domain>
-     The Symbolic domain
+#     face : <Sympde.topology.BasicDomain>
+#      A patch or a boundary of a patch
 
-    face : <Sympde.topology.BasicDomain>
-     A patch or a boundary of a patch
+#     Returns
+#     -------
+#     i : <int>
+#      The index of a subdomain/boundary in the multipatch domain
+#     """
 
-    Returns
-    -------
-    i : <int>
-     The index of a subdomain/boundary in the multipatch domain
-    """
+#     if domain.mapping:
+#         domain = domain.logical_domain
+#     if face.mapping:
+#         face = face.logical_domain
 
-    if domain.mapping:
-        domain = domain.logical_domain
-    if face.mapping:
-        face = face.logical_domain
-
-    domains = domain.interior.args
-    if isinstance(face, Interface):
-        raise NotImplementedError(
-            "This face is an interface, it has several indices -- I am a machine, I cannot choose. Help.")
-    elif isinstance(face, Boundary):
-        i = domains.index(face.domain)
-    else:
-        i = domains.index(face)
-    return i
+#     domains = domain.interior.args
+#     if isinstance(face, Interface):
+#         raise NotImplementedError(
+#             "This face is an interface, it has several indices -- I am a machine, I cannot choose. Help.")
+#     elif isinstance(face, Boundary):
+#         i = domains.index(face.domain)
+#     else:
+#         i = domains.index(face)
+#     return i
 
 
 class Local2GlobalIndexMap:
@@ -583,7 +583,7 @@ def construct_h1_conforming_projection(
     # moment corrections perpendicular to interfaces
     # assume same moments everywhere
     gamma = get_1d_moment_correction(
-        Vh.spaces[0].spaces[0], p_moments=p_moments)
+        Vh.patch_space(0).spaces[0], p_moments=p_moments)
 
     domain = Vh.symbolic_space.domain
     ndim = 2
@@ -592,7 +592,7 @@ def construct_h1_conforming_projection(
 
     l2g = Local2GlobalIndexMap(ndim, len(domain), n_components)
     for k in range(n_patches):
-        Vk = Vh.spaces[k]
+        Vk = Vh.patch_space(k)
         # T is a TensorFemSpace and S is a 1D SplineSpace
         shapes = [S.nbasis for S in Vk.spaces]
         l2g.set_patch_shapes(k, shapes)
@@ -606,8 +606,8 @@ def construct_h1_conforming_projection(
 
     def get_vertex_index_from_patch(patch, coords):
         # coords = co[patch]
-        nbasis0 = Vh.spaces[patch].spaces[coords[0]].nbasis - 1
-        nbasis1 = Vh.spaces[patch].spaces[coords[1]].nbasis - 1
+        nbasis0 = Vh.patch_space(patch).spaces[coords[0]].nbasis - 1
+        nbasis1 = Vh.patch_space(patch).spaces[coords[1]].nbasis - 1
 
         # patch local index
         multi_index = [None] * ndim
@@ -621,8 +621,8 @@ def construct_h1_conforming_projection(
         if coords[axis] == 0:
             return range(1, p_moments + 2)
         else:
-            return range(Vh.spaces[patch].spaces[coords[axis]].nbasis - 1 - 1,
-                         Vh.spaces[patch].spaces[coords[axis]].nbasis - 1 - p_moments - 2, -1)
+            return range(Vh.patch_space(patch).spaces[coords[axis]].nbasis - 1 - 1,
+                         Vh.patch_space(patch).spaces[coords[axis]].nbasis - 1 - p_moments - 2, -1)
 
     # loop over all vertices
     for (bd, co) in corners.items():
@@ -772,8 +772,13 @@ def construct_h1_conforming_projection(
     Proj_edge = sparse_eye(dim_tot, format="lil")
 
     Interfaces = domain.interfaces
-    if isinstance(Interfaces, Interface):
-        Interfaces = (Interfaces, )
+    # why is this necessary -> improve Union in sympde ??
+    if Interfaces is None:
+        iterable_Interfaces = ()
+    elif isinstance(Interfaces, Interface):
+        iterable_Interfaces = (Interfaces, )
+    else:
+        iterable_Interfaces = Interfaces
 
     def get_edge_index(j, axis, ext, space, k):
         multi_index = [None] * ndim
@@ -822,7 +827,7 @@ def construct_h1_conforming_projection(
         return mu_minus
 
     # loop over all interfaces
-    for I in Interfaces:
+    for I in iterable_Interfaces:
         axis = I.axis
         direction = I.ornt
         # for now assume the interfaces are along the same direction
@@ -830,8 +835,8 @@ def construct_h1_conforming_projection(
         k_minus = get_patch_index_from_face(domain, I.minus)
         k_plus = get_patch_index_from_face(domain, I.plus)
 
-        I_minus_ncells = Vh.spaces[k_minus].ncells
-        I_plus_ncells = Vh.spaces[k_plus].ncells
+        I_minus_ncells = Vh.patch_space(k_minus).ncells
+        I_plus_ncells = Vh.patch_space(k_plus).ncells
 
         # logical directions normal to interface
         if I_minus_ncells <= I_plus_ncells:
@@ -848,8 +853,8 @@ def construct_h1_conforming_projection(
         d_fine = 1 - fine_axis
         d_coarse = 1 - coarse_axis
 
-        space_fine = Vh.spaces[k_fine]
-        space_coarse = Vh.spaces[k_coarse]
+        space_fine = Vh.patch_space(k_fine)
+        space_coarse = Vh.patch_space(k_coarse)
 
         coarse_space_1d = space_coarse.spaces[d_coarse]
         fine_space_1d = space_fine.spaces[d_fine]
@@ -962,7 +967,7 @@ def construct_h1_conforming_projection(
     if hom_bc:
         for bn in domain.boundary:
             k = get_patch_index_from_face(domain, bn)
-            space_k = Vh.spaces[k]
+            space_k = Vh.patch_space(k)
             axis = bn.axis
 
             d = 1 - axis
@@ -1037,8 +1042,10 @@ def construct_hcurl_conforming_projection(
         return sparse_eye(dim_tot, format="lil")
 
     # moment corrections perpendicular to interfaces
+    # gamma = [get_1d_moment_correction(
+    #     Vh.spaces[0].spaces[1 - d].spaces[d], p_moments=p_moments) for d in range(2)]
     gamma = [get_1d_moment_correction(
-        Vh.spaces[0].spaces[1 - d].spaces[d], p_moments=p_moments) for d in range(2)]
+        Vh.patch_space(0).spaces[1 - d].spaces[d], p_moments=p_moments) for d in range(2)]
 
     domain = Vh.symbolic_space.domain
     ndim = 2
@@ -1047,7 +1054,7 @@ def construct_hcurl_conforming_projection(
 
     l2g = Local2GlobalIndexMap(ndim, len(domain), n_components)
     for k in range(n_patches):
-        Vk = Vh.spaces[k]
+        Vk = Vh.patch_space(k)
         # T is a TensorFemSpace and S is a 1D SplineSpace
         shapes = [[S.nbasis for S in T.spaces] for T in Vk.spaces]
         l2g.set_patch_shapes(k, *shapes)
@@ -1057,8 +1064,13 @@ def construct_hcurl_conforming_projection(
     Proj_edge = sparse_eye(dim_tot, format="lil")
 
     Interfaces = domain.interfaces
-    if isinstance(Interfaces, Interface):
-        Interfaces = (Interfaces, )
+    # why is this necessary -> improve Union in sympde ??
+    if Interfaces is None:
+        iterable_Interfaces = ()
+    elif isinstance(Interfaces, Interface):
+        iterable_Interfaces = (Interfaces, )
+    else:
+        iterable_Interfaces = Interfaces
 
     def get_edge_index(j, axis, ext, space, k):
         multi_index = [None] * ndim
@@ -1075,7 +1087,7 @@ def construct_hcurl_conforming_projection(
         return l2g.get_index(k, 1 - axis, multi_index)
 
     # loop over all interfaces
-    for I in Interfaces:
+    for I in iterable_Interfaces:
         direction = I.ornt
         # for now assume the interfaces are along the same direction
         assert direction == 1
@@ -1086,8 +1098,8 @@ def construct_hcurl_conforming_projection(
         minus_axis, plus_axis = I.minus.axis, I.plus.axis
         # logical directions along the interface
         d_minus, d_plus = 1 - minus_axis, 1 - plus_axis
-        I_minus_ncells = Vh.spaces[k_minus].spaces[d_minus].ncells[d_minus]
-        I_plus_ncells = Vh.spaces[k_plus].spaces[d_plus].ncells[d_plus]
+        I_minus_ncells = Vh.patch_space(k_minus).spaces[d_minus].ncells[d_minus]
+        I_plus_ncells = Vh.patch_space(k_plus).spaces[d_plus].ncells[d_plus]
 
         # logical directions normal to interface
         if I_minus_ncells <= I_plus_ncells:
@@ -1104,8 +1116,8 @@ def construct_hcurl_conforming_projection(
         d_fine = 1 - fine_axis
         d_coarse = 1 - coarse_axis
 
-        space_fine = Vh.spaces[k_fine]
-        space_coarse = Vh.spaces[k_coarse]
+        space_fine = Vh.patch_space(k_fine)
+        space_coarse = Vh.patch_space(k_coarse)
 
         coarse_space_1d = space_coarse.spaces[d_coarse].spaces[d_coarse]
         fine_space_1d = space_fine.spaces[d_fine].spaces[d_fine]
@@ -1164,7 +1176,7 @@ def construct_hcurl_conforming_projection(
     # boundary condition
     for bn in domain.boundary:
         k = get_patch_index_from_face(domain, bn)
-        space_k = Vh.spaces[k]
+        space_k = Vh.patch_space(k)
         axis = bn.axis
 
         if not hom_bc:

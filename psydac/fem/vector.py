@@ -95,6 +95,18 @@ class VectorFemSpace( FemSpace ):
         return True
 
     @property
+    def is_multipatch(self):
+        return False
+
+    @property
+    def is_vector_valued(self):
+        return True
+
+    def patch_space(self, i):
+        if i > 0: raise ValueError('Invalid patch index (> 0) for a single patch space')
+        return self
+
+    @property
     def symbolic_space( self ):
         return self._symbolic_space
 
@@ -414,6 +426,17 @@ class ProductFemSpace( FemSpace ):
     @property
     def is_product(self):
         return True
+
+    @property
+    def is_multipatch(self):
+        return True
+
+    @property
+    def is_vector_valued(self):
+        return self.patch_space(0).is_vector_valued
+
+    def patch_space(self, i):
+        return self.spaces[i]
 
     @property
     def symbolic_space( self ):

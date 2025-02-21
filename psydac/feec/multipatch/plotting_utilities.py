@@ -10,12 +10,12 @@ from matplotlib import cm, colors
 from collections import OrderedDict
 
 from psydac.linalg.utilities import array_to_psydac
-from psydac.fem.basic import FemField
+from psydac.fem.basic import FemField, FemSpace
 from psydac.utilities.utils import refine_array_1d
 from psydac.feec.pull_push import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
 
 __all__ = (
-    'is_vector_valued',
+    # 'is_vector_valued',
     'get_grid_vals',
     'get_grid_quad_weights',
     'get_plotting_grid',
@@ -28,11 +28,11 @@ __all__ = (
 # ==============================================================================
 
 
-def is_vector_valued(u):
-    # small utility function, only tested for FemFields in multi-patch spaces of the 2D grad-curl sequence
-    # todo: a proper interface returning the number of components of a general
-    # FemField would be nice
-    return u.fields[0].space.is_product
+# def is_vector_valued(u: FemField) -> bool:
+#     # small utility function, only tested for FemFields in multi-patch spaces of the 2D grad-curl sequence
+#     # todo: a proper interface returning the number of components of a general
+#     # FemField would be nice
+#     return u.fields[0].space.is_product
 
 # ------------------------------------------------------------------------------
 
@@ -40,13 +40,25 @@ def is_vector_valued(u):
 def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
     """
     get the physical field values, given the logical field and the logical grid
-    :param u: FemField
+    :param u: FemField or callable function
     :param etas: logical grid
     :param space_kind: specifies the push-forward for the physical values
     """
     n_patches = len(mappings_list)
-    vector_valued = is_vector_valued(u) if isinstance(
-        u, FemField) else isinstance(u[0], (list, tuple))
+    print(f' n_patches = {n_patches}')
+
+    if isinstance(u, FemField):
+        vector_valued = u.is_vector_valued 
+    else:
+        # then u should be callable
+        vector_valued = isinstance(u, (list, tuple)) # (MCP 4.02.25) before, it was isinstance(u[0], (list, tuple)) -- this needs to be tested
+
+    # print(f'is_vector_valued(u) = {is_vector_valued(u)}')
+    # print(f'isinstance(u, FemField) = {isinstance(u, FemField)}') 
+    # print(f'isinstance(u[0], (list, tuple)) = {isinstance(u[0], (list, tuple))}')
+
+    print(f'vector_valued = {vector_valued}')
+
     if vector_valued:
         # WARNING: here we assume 2D !
         u_vals_components = [n_patches * [None], n_patches * [None]]
@@ -60,11 +72,11 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
         uk_field_1 = None
         if isinstance(u, FemField):
             if vector_valued:
-                uk_field_0 = u[k].fields[0]
-                uk_field_1 = u[k].fields[1]
+                uk_field_0 = u.patch_field(k).fields[0]
+                uk_field_1 = u.patch_field(k).fields[1]
             else:
                 # it would be nice to just write u[k].fields[0] here...
-                uk_field_0 = u.fields[k]
+                uk_field_0 = u.patch_field(k)
         else:
             # then u should be callable
             if vector_valued:
@@ -242,8 +254,8 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     F = [M.get_callable_mapping() for d, M in mappings.items()]
 
     if plotted_patch in range(len(mappings)):
-        grid_x1 = Vh.spaces[plotted_patch].spaces[0].breaks[0]
-        grid_x2 = Vh.spaces[plotted_patch].spaces[0].breaks[1]
+        grid_x1 = Vh.patch_space(plotted_patch).spaces[0].breaks[0]
+        grid_x2 = Vh.patch_space(plotted_patch).spaces[0].breaks[1]
 
         x1 = refine_array_1d(grid_x1, N)
         x2 = refine_array_1d(grid_x2, N)
@@ -303,6 +315,7 @@ def plot_field(
         raise ValueError(
             'invalid value for space_kind = {}'.format(space_kind))
 
+    print(f'type(numpy_coeffs) = {type(numpy_coeffs)}, numpy_coeffs.shape = {numpy_coeffs.shape}, Vh.nbasis = {Vh.nbasis}') 
     vh = fem_field
     if vh is None:
         if numpy_coeffs is not None:
@@ -310,8 +323,9 @@ def plot_field(
             stencil_coeffs = array_to_psydac(numpy_coeffs, Vh.vector_space)
         vh = FemField(Vh, coeffs=stencil_coeffs)
 
-    mappings = OrderedDict([(P.logical_domain, P.mapping)
-                           for P in domain.interior])
+    mappings = domain.mappings
+    # mappings = OrderedDict([(P.logical_domain, P.mapping)
+    #                        for P in domain.interior])
     mappings_list = list(mappings.values())
     etas, xx, yy = get_plotting_grid(mappings, N=N_vis)
 
@@ -319,13 +333,13 @@ def plot_field(
         v, etas, mappings_list, space_kind=space_kind)
 
     vh_vals = grid_vals(vh)
-    if plot_type == 'vector_field' and not is_vector_valued(vh):
+    if plot_type == 'vector_field' and not vh.is_vector_valued:
         print(
             "WARNING [plot_field]: vector_field plot is not possible with a scalar field, plotting the amplitude instead")
         plot_type = 'amplitude'
 
     if plot_type == 'vector_field':
-        if is_vector_valued(vh):
+        if vh.is_vector_valued:
             my_small_streamplot(
                 title=title,
                 vals_x=vh_vals[0],
@@ -343,7 +357,7 @@ def plot_field(
         # computing plot_vals_list: may have several elements for several plots
         if plot_type == 'amplitude':
 
-            if is_vector_valued(vh):
+            if vh.is_vector_valued:
                 # then vh_vals[d] contains the values of the d-component of vh
                 # (as a patch-indexed list)
                 plot_vals = [np.sqrt(abs(v[0])**2 + abs(v[1])**2)
@@ -355,7 +369,7 @@ def plot_field(
             plot_vals_list = [plot_vals]
 
         elif plot_type == 'components':
-            if is_vector_valued(vh):
+            if vh.is_vector_valued:
                 # then vh_vals[d] contains the values of the d-component of vh
                 # (as a patch-indexed list)
                 plot_vals_list = vh_vals
@@ -368,15 +382,23 @@ def plot_field(
         else:
             raise ValueError(plot_type)
 
+        if isinstance(Vh, FemSpace):
+            N_gl=20
+            gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(Vh, N_gl, mappings, plotted_patch=0)
+        else:
+            gridlines_x1, gridlines_x2 = None, None
+
         my_small_plot(
             title=title,
             vals=plot_vals_list,
             titles=subtitles,
             xx=xx,
             yy=yy,
+            gridlines_x1=gridlines_x1,
+            gridlines_x2=gridlines_x2,
             surface_plot=surface_plot,
             cb_min=cb_min,
-            cb_max=cb_max,
+            cb_max=cb_max,            
             save_fig=filename,
             save_vals=False,
             hide_plot=hide_plot,

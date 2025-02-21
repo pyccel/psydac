@@ -3,17 +3,20 @@ import os
 
 from sympde.topology import Derham
 from sympde.topology  import element_of, elements_of
+from sympde.topology.mapping import MultiPatchMapping
 from sympde.topology.space  import ScalarFunction
 from sympde.calculus  import grad, dot, inner, rot, div
 from sympde.calculus  import laplace, bracket, convect
 from sympde.calculus  import jump, avg, Dn, minus, plus
 from sympde.expr.expr import LinearForm, BilinearForm, integral
 
+
 from psydac.api.settings             import PSYDAC_BACKENDS
 
 from psydac.api.discretization        import discretize as discretize_single_patch
 from psydac.api.discretization        import discretize_space
 from psydac.api.discretization        import DiscreteDerham
+from psydac.feec.pull_push            import pull_2d_h1, pull_2d_hcurl, pull_2d_l2
 from psydac.feec.multipatch.operators import BrokenGradient_2D
 from psydac.feec.multipatch.operators import BrokenScalarCurl_2D
 from psydac.feec.multipatch.operators import Multipatch_Projector_H1
@@ -89,6 +92,13 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
         else:
             raise ValueError('Dimension {} is not available'.format(dim))
 
+        if mapping:
+            assert isinstance(mapping, MultiPatchMapping)
+            mappings = mapping.args[0]
+            self._mappings_list = list(mappings.values())
+        else:
+            self._mappings_list = list([])
+
     #--------------------------------------------------------------------------
     @property
     def sequence(self):
@@ -104,6 +114,20 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
     def broken_derivatives_as_matrices(self):
         return tuple(b_diff.matrix for b_diff in self._broken_diff_ops)
 
+
+     # for compatibility with DiscreteDerham sequence:
+    @property
+    def derivatives(self): 
+        return self.broken_derivatives_as_operators
+
+    @property
+    def derivatives_as_matrices(self):
+        return self.broken_derivatives_as_matrices
+
+    @property
+    def mappings_list(self):
+        return self._mappings_list
+    
     #--------------------------------------------------------------------------
     def projectors(self, *, kind='global', nquads=None):
         """
@@ -150,6 +174,25 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
                 raise NotImplementedError('2D sequence with H-div not available yet')
 
             P2 = Multipatch_Projector_L2(self.V2, nquads=nquads)
+
+            if self.mappings_list:
+                P0_m = lambda f: P0([pull_2d_h1(f, m.get_callable_mapping())
+                    for m in self.mappings_list])
+
+                P2_m = lambda f: P2([pull_2d_l2(f, m.get_callable_mapping())
+                    for m in self.mappings_list])
+                if self.sequence[1] == 'hcurl':
+                    # f_x = lambdify(domain.coordinates, f_phys[0])
+                    # f_y = lambdify(domain.coordinates, f_phys[1])
+                    # f_log = [pull_2d_hcurl([f_x, f_y], m.get_callable_mapping())
+                    #         for m in mappings_list]
+                    P1_m = lambda f: P1([pull_2d_hcurl(f, m.get_callable_mapping())
+                        for m in self.mappings_list])
+                else:
+                    raise NotImplementedError('2D sequence with H-div not available yet')
+
+                return P0_m, P1_m, P2_m            
+            
             return P0, P1, P2
 
         elif self.dim == 3:
@@ -225,60 +268,67 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 
         return cP
 
-    def get_dual_dofs(self, space, f, backend_language="python", return_format='stencil_array'):
-        """
-        return the dual dofs tilde_sigma_i(f) = < Lambda_i, f >_{L2} i = 1, .. dim(V^k)) of a given function f, as a stencil array or numpy array
+    # def get_dual_dofs(self, space, f, backend_language="python", return_format='stencil_array'):
+    #     """
+    #     return the dual dofs tilde_sigma_i(f) = < Lambda_i, f >_{L2} i = 1, .. dim(V^k)) of a given function f, as a stencil array or numpy array
 
-        Parameters
-        ----------
-        space : <str>
-          The space of the dual dofs
+    #     Parameters
+    #     ----------
+    #     space : <str>
+    #       The space of the dual dofs
 
-        f : <sympy.Expr>
-         The function used for evaluation
+    #     f : <sympy.Expr>
+    #      The function used for evaluation
 
-        backend_language: <str>
-          The backend used to accelerate the code
+    #     backend_language: <str>
+    #       The backend used to accelerate the code
 
-        return_format: <str>
-         The format of the dofs, can be 'stencil_array' or 'numpy_array'
+    #     return_format: <str>
+    #      The format of the dofs, can be 'stencil_array' or 'numpy_array'
 
-        Returns
-        -------
-        tilde_f:<Vector|ndarray>
-         The dual dofs
-        """
-        if space == 'V0':
-            Vh = self.V0
-        elif space == 'V1':
-            Vh = self.V1
-        elif space == 'V2':
-            Vh = self.V2
-        else:
-            raise NotImplementedError("The space of kind {} is not available".format(space))
+    #     Returns
+    #     -------
+    #     tilde_f:<Vector|ndarray>
+    #      The dual dofs
+    #     """
+    #     if space == 'V0':
+    #         Vh = self.V0
+    #     elif space == 'V1':
+    #         Vh = self.V1
+    #     elif space == 'V2':
+    #         Vh = self.V2
+    #     else:
+    #         raise NotImplementedError("The space of kind {} is not available".format(space))
 
-        V  = Vh.symbolic_space
-        v  = element_of(V, name='v')
+    #     V  = Vh.symbolic_space
+    #     v  = element_of(V, name='v')
 
-        if isinstance(v, ScalarFunction):
-            expr   = f*v
-        else:
-            expr   = dot(f,v)
+    #     if isinstance(v, ScalarFunction):
+    #         expr   = f*v
+    #     else:
+    #         expr   = dot(f,v)
 
-        l        = LinearForm(v, integral( V.domain, expr))
-        lh       = discretize(l, self._domain_h, Vh, backend=PSYDAC_BACKENDS[backend_language])
-        tilde_f  = lh.assemble()
+    #     l        = LinearForm(v, integral( V.domain, expr))
+    #     lh       = discretize(l, self._domain_h, Vh, backend=PSYDAC_BACKENDS[backend_language])
+    #     tilde_f  = lh.assemble()
 
-        if return_format == 'numpy_array':
-            return tilde_f.toarray()
-        else:
-            return tilde_f
+    #     if return_format == 'numpy_array':
+    #         return tilde_f.toarray()
+    #     else:
+    #         return tilde_f
 
 #==============================================================================
 def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
 
     ldim     = derham.shape
     mapping  = derham.spaces[0].domain.mapping
+
+    print(f'[o] mapping: ', mapping)
+    print(f'[o] type(mapping): ', type(mapping))
+    print(f'[o] mapping.args: ', mapping.args)
+    # print(f'[o] type(mapping[0]): ', type(mapping[0]))
+    print(f'[o] type(mapping.args[0]): ', type(mapping.args[0]))
+    # print(f'[o] type(mapping): ', type(mapping))
 
     bases  = ['B'] + ldim * ['M']
     spaces = [discretize_space(V, domain_h, *args, basis=basis, **kwargs) \

@@ -954,8 +954,12 @@ def build_cartesian_multipatch_domain(ncells, log_interval_x, log_interval_y, ma
     """
     ax, bx = log_interval_x
     ay, by = log_interval_y
+    
+    print(f'type(ncells) = {type(ncells)}')
+    ncells = np.array(ncells)  
     nb_patchx, nb_patchy = np.shape(ncells)
-
+    print(f'type(ncells) = {type(ncells)}')
+    
     # equidistant logical patches
     # ensure the following lists have the same shape as ncells
     list_log_patches = [[Square('Log_' + str(j) + '_' + str(i),
@@ -976,10 +980,13 @@ def build_cartesian_multipatch_domain(ncells, log_interval_x, log_interval_y, ma
                         for i in range(nb_patchy)] for j in range(nb_patchx)]
 
     # flatten for the join function
+    # print(f'ncells = {ncells}, np.shape(ncells) = {np.shape(ncells)}')
     patches = []
     for i in range(nb_patchx):
         for j in range(nb_patchy):
-            if ncells[i, j] is not None:
+            # print(f'nb_patchx, nb_patchy, i, j = {nb_patchx, nb_patchy, i, j}')
+            if ncells[i, j] is not None:   # raises error (TypeError: list indices must be integers or slices, not tuple) but why now?
+            # if ncells[i][j] is not None:  
                 patches.append(list_patches[j][i])
 
     axis_0 = 0

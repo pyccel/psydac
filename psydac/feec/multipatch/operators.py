@@ -37,7 +37,8 @@ from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
 
 def get_patch_index_from_face(domain, face):
-    """ Return the patch index of subdomain/boundary
+    """ 
+    Return the patch index of subdomain/boundary
 
     Parameters
     ----------
@@ -58,7 +59,8 @@ def get_patch_index_from_face(domain, face):
     if face.mapping:
         face = face.logical_domain
 
-    domains = domain.interior.args
+    domains = domain.subdomains
+
     if isinstance(face, Interface):
         raise NotImplementedError(
             "This face is an interface, it has several indices -- I am a machine, I cannot choose. Help.")
@@ -70,7 +72,8 @@ def get_patch_index_from_face(domain, face):
 
 
 def get_interface_from_corners(corner1, corner2, domain):
-    """ Return the interface between two corners from two different patches that correspond to a single (physical) vertex.
+    """ 
+    Return the interface between two corners from two different patches that correspond to a single (physical) vertex.
 
     Parameters
     ----------
@@ -968,6 +971,10 @@ class HodgeOperator(FemLinearOperator):
         self._backend_language = backend_language
         self._dual_Hodge_sparse_matrix = None
 
+        domain = Vh.symbolic_space.domain
+        self._singlepatch = (len(domain) == 1)
+        print("self._singlepatch = ", self._singlepatch)
+
         assert metric == 'identity'
         self._metric = metric
 
@@ -1035,7 +1042,7 @@ class HodgeOperator(FemLinearOperator):
             assert Vh == self.fem_codomain
 
             V = Vh.symbolic_space
-            domain = V.domain
+            domain = V.domain            
             # domain_h = V0h.domain:  would be nice...
             u, v = elements_of(V, names='u, v')
 
@@ -1068,17 +1075,22 @@ class HodgeOperator(FemLinearOperator):
                 self.assemble_primal_Hodge_matrix()
 
             M = self._matrix  # mass matrix of the (primal) basis
-            nrows = M.n_block_rows
-            ncols = M.n_block_cols
+            
+            if self._singlepatch:
+                inv_M = inv(self._sparse_matrix.tocsc())
+                inv_M.eliminate_zeros()
 
-            inv_M_blocks = []
-            for i in range(nrows):
-                Mii = M[i, i].tosparse()
-                inv_Mii = inv(Mii.tocsc())
-                inv_Mii.eliminate_zeros()
-                inv_M_blocks.append(inv_Mii)
+            else:
+                nrows = M.n_block_rows
+                ncols = M.n_block_cols
+                inv_M_blocks = []
+                for i in range(nrows):
+                    Mii = M[i, i].tosparse()
+                    inv_Mii = inv(Mii.tocsc())
+                    inv_Mii.eliminate_zeros()
+                    inv_M_blocks.append(inv_Mii)
+                inv_M = block_diag(inv_M_blocks)
 
-            inv_M = block_diag(inv_M_blocks)
             self._dual_Hodge_sparse_matrix = inv_M
 
 # ==============================================================================

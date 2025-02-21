@@ -78,7 +78,7 @@ class FemLinearOperator( LinearOperator ):
         elif self._matrix is not None:
             return self._matrix.tosparse()
         else:
-            raise NotImplementedError('Class does not provide a get_sparse_matrix() method without a matrix')
+            raise NotImplementedError('Class does not provide a to_sparse_matrix() method without a matrix')
 
     # ...
     def __call__( self, f ):
