@@ -31,7 +31,7 @@ dependencies = [
     'pyevtk',
 
     # Our packages from PyPi
-    'sympde @ https://github.com/pyccel/sympde/archive/refs/heads/terminal_expressions_for_NS.zip,
+    'sympde @ https://github.com/pyccel/sympde/archive/refs/heads/terminal_expressions_for_NS.zip',
     'pyccel >= 1.11.2',
     'gelato == 0.12',
 
