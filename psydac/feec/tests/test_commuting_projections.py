@@ -3,19 +3,20 @@
 from psydac.feec.global_projectors import Projector_H1, Projector_L2, Projector_Hcurl, Projector_Hdiv
 from psydac.fem.tensor       import TensorFemSpace, SplineSpace
 from psydac.fem.vector       import VectorFemSpace
-from psydac.linalg.block     import BlockVector
 from psydac.core.bsplines    import make_knots
 from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
 from psydac.feec.derivatives import ScalarCurl_2D, VectorCurl_2D, Curl_3D
 from psydac.feec.derivatives import Divergence_2D, Divergence_3D
 from psydac.ddm.cart         import DomainDecomposition
+from psydac.linalg.solvers   import inverse
+from psydac.linalg.basic     import IdentityOperator
 
 from mpi4py import MPI
 import numpy as np
 import pytest
 
 #==============================================================================
-# Run test
+# 3D tests
 #==============================================================================
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
@@ -76,7 +77,21 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc, m):
     error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
     assert error < 1e-9
 
-#==============================================================================
+    #--------------------------
+    # check BlockLinearOperator
+    #--------------------------
+    Id_0 = IdentityOperator(H1.vector_space)
+    Err_0 = P0.solver @ P0.imat_kronecker - Id_0
+    e0 = Err_0 @ u0.coeffs  # random vector could be used as well
+    norm2_e0 = np.sqrt(e0.dot(e0))
+    assert norm2_e0 < 1e-12
+
+    Id_1 = IdentityOperator(Hcurl.vector_space)
+    Err_1 = P1.solver @ P1.imat_kronecker - Id_1
+    e1 = Err_1 @ u1.coeffs  # random vector could be used as well
+    norm2_e1 = np.sqrt(e1.dot(e1))
+    assert norm2_e1 < 1e-12
+
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
@@ -153,7 +168,22 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc, m):
     error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
     assert error < 1e-9
 
-#==============================================================================
+    #--------------------------
+    # check BlockLinearOperator
+    #--------------------------
+
+    Id_1 = IdentityOperator(Hcurl.vector_space)
+    Err_1 = P1.solver @ P1.imat_kronecker - Id_1
+    e1 = Err_1 @ u1.coeffs  # random vector could be used as well
+    norm2_e1 = np.sqrt(e1.dot(e1))
+    assert norm2_e1 < 1e-12
+
+    Id_2 = IdentityOperator(Hdiv.vector_space)
+    Err_2 = P2.solver @ P2.imat_kronecker - Id_2
+    e2 = Err_2 @ u2.coeffs  # random vector could be used as well
+    norm2_e2 = np.sqrt(e2.dot(e2))
+    assert norm2_e2 < 1e-12
+
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
@@ -221,6 +251,26 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc, m):
     error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
     assert error < 1e-9
 
+    #--------------------------
+    # check BlockLinearOperator
+    #--------------------------
+
+    Id_2 = IdentityOperator(Hdiv.vector_space)
+    Err_2 = P2.solver @ P2.imat_kronecker - Id_2
+    e2 = Err_2 @ u2.coeffs  # random vector could be used as well
+    norm2_e2 = np.sqrt(e2.dot(e2))
+    assert norm2_e2 < 1e-12
+
+    Id_3 = IdentityOperator(L2.vector_space)
+    Err_3 = P3.solver @ P3.imat_kronecker - Id_3
+    e3 = Err_3 @ u3.coeffs  # random vector could be used as well
+    norm2_e3 = np.sqrt(e3.dot(e3))
+    assert norm2_e3 < 1e-12
+
+#==============================================================================
+# 2D tests
+#==============================================================================
+@pytest.mark.parallel
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
@@ -277,6 +327,23 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc, m):
     error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
     assert error < 1e-9
 
+    #--------------------------
+    # check BlockLinearOperator
+    #--------------------------
+
+    Id_0 = IdentityOperator(H1.vector_space)
+    Err_0 = P0.solver @ P0.imat_kronecker - Id_0
+    e0 = Err_0 @ u0.coeffs  # random vector could be used as well
+    norm2_e0 = np.sqrt(e0.dot(e0))
+    assert norm2_e0 < 1e-12
+
+    Id_1 = IdentityOperator(Hcurl.vector_space)
+    Err_1 = P1.solver @ P1.imat_kronecker - Id_1
+    e1 = Err_1 @ u1.coeffs  # random vector could be used as well
+    norm2_e1 = np.sqrt(e1.dot(e1))
+    assert norm2_e1 < 1e-12
+
+@pytest.mark.parallel
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
@@ -333,6 +400,23 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc, m):
     error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
     assert error < 1e-9
 
+    #--------------------------
+    # check BlockLinearOperator
+    #--------------------------
+
+    Id_0 = IdentityOperator(H1.vector_space)
+    Err_0 = P0.solver @ P0.imat_kronecker - Id_0
+    e0 = Err_0 @ u0.coeffs  # random vector could be used as well
+    norm2_e0 = np.sqrt(e0.dot(e0))
+    assert norm2_e0 < 1e-12
+
+    Id_1 = IdentityOperator(Hdiv.vector_space)
+    Err_1 = P1.solver @ P1.imat_kronecker - Id_1
+    e1 = Err_1 @ u1.coeffs  # random vector could be used as well
+    norm2_e1 = np.sqrt(e1.dot(e1))
+    assert norm2_e0 < 1e-12
+
+@pytest.mark.parallel
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
@@ -396,6 +480,23 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc, m):
     error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
     assert error < 1e-9
 
+    #--------------------------
+    # check BlockLinearOperator
+    #--------------------------
+
+    Id_2 = IdentityOperator(Hdiv.vector_space)
+    Err_2 = P2.solver @ P2.imat_kronecker - Id_2
+    e2 = Err_2 @ u2.coeffs
+    norm2_e2 = np.sqrt(e2.dot(e2))
+    assert norm2_e2 < 1e-12
+
+    Id_3 = IdentityOperator(L2.vector_space)
+    Err_3 = P3.solver @ P3.imat_kronecker - Id_3
+    e3 = Err_3 @ u3.coeffs
+    norm2_e3 = np.sqrt(e3.dot(e3))
+    assert norm2_e3 < 1e-12
+
+@pytest.mark.parallel
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
@@ -451,14 +552,33 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc, m):
     # Projections and discrete derivatives
     #-------------------------------------
 
-    u2        = P1((fun1, fun2))
-    u3        = P2(difun)
-    Dfun_h    = curl(u2)
-    Dfun_proj = u3
+    u1        = P1((fun1, fun2))
+    u2        = P2(difun)
+    Dfun_h    = curl(u1)
+    Dfun_proj = u2
 
     error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
     assert error < 1e-9
 
+    #--------------------------
+    # check BlockLinearOperator
+    #--------------------------
+
+    Id_1 = IdentityOperator(Hcurl.vector_space)
+    Err_1 = P1.solver @ P1.imat_kronecker - Id_1
+    e1 = Err_1 @ u1.coeffs
+    norm2_e1 = np.sqrt(e1.dot(e1))
+    assert norm2_e1 < 1e-12
+
+    Id_2 = IdentityOperator(L2.vector_space)
+    Err_2 = P2.solver @ P2.imat_kronecker - Id_2
+    e2 = Err_2 @ u2.coeffs
+    norm2_e2 = np.sqrt(e2.dot(e2))
+    assert norm2_e2 < 1e-12
+
+#==============================================================================
+# 1D tests
+#==============================================================================
 @pytest.mark.parametrize('Nel', [16, 20])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
@@ -509,6 +629,23 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc, m):
 
     error = abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()
     assert error < 1e-9
+
+    #--------------------------
+    # check BlockLinearOperator
+    #--------------------------
+
+    Id_0 = IdentityOperator(H1.vector_space)
+    Err_0 = P0.solver @ P0.imat_kronecker - Id_0
+    e0 = Err_0 @ u0.coeffs
+    norm2_e0 = np.sqrt(e0.dot(e0))
+    assert norm2_e0 < 1e-12
+
+    Id_1 = IdentityOperator(L2.vector_space)
+    Err_1 = P1.solver @ P1.imat_kronecker - Id_1
+    e1 = Err_1 @ u1.coeffs
+    norm2_e1 = np.sqrt(e1.dot(e1))
+    assert norm2_e1 < 1e-12
+    
 #==============================================================================
 if __name__ == '__main__':
 
@@ -526,4 +663,3 @@ if __name__ == '__main__':
     test_2d_commuting_pro_3(Nel, Nq, p, bc, m)
     test_2d_commuting_pro_4(Nel, Nq, p, bc, m)
     test_1d_commuting_pro_1(Nel, Nq, p, bc, m)
-
