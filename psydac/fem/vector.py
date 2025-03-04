@@ -95,6 +95,14 @@ class VectorFemSpace( FemSpace ):
         return True
 
     @property
+    def is_multipatch(self):
+        return False
+
+    @property
+    def is_vector_valued(self):
+        return True
+
+    @property
     def symbolic_space( self ):
         return self._symbolic_space
 
@@ -415,6 +423,17 @@ class ProductFemSpace( FemSpace ):
     def is_product(self):
         return True
 
+    @property
+    def is_multipatch(self):
+        return True
+
+    @property
+    def is_vector_valued(self):
+        return False        
+        # OR ?? should we:
+        # return self.patch_spaces[0].is_vector_valued
+        # (and define the component_spaces of a multi-patch vector-valued space as a scalar-valued multi-patch space ?)
+        
     @property
     def symbolic_space( self ):
         return self._symbolic_space

@@ -65,6 +65,22 @@ class FemSpace( metaclass=ABCMeta ):
         If True, an element of this space can be decomposed into separate fields.
 
         """
+        # todo (MCP 4.03.25) try this:
+        # return self.is_vector_valued or self.is_multipatch
+
+    @property
+    @abstractmethod
+    def is_multipatch( self ):
+        """
+        Boolean flag that describes whether the space is a multi-patch space.
+        """
+
+    @property
+    @abstractmethod
+    def is_vector_valued( self ):
+        """
+        Boolean flag that describes whether the space is vector-valued.
+        """
 
     @property
     @abstractmethod
@@ -147,6 +163,27 @@ class FemSpace( metaclass=ABCMeta ):
         if a.symbolic_space and self.symbolic_space:
             space._symbolic_space =  a.symbolic_space * self.symbolic_space
         return space
+
+    @property
+    def patch_spaces(self):
+        """
+        Return the patch spaces (self if single-patch) as a tuple.
+        """
+        if self.is_multipatch:
+            return self._spaces
+        else:
+            return (self,)
+
+    @property
+    def component_spaces(self):
+        """
+        Return the component spaces (self if scalar-valued) as a tuple.
+        """
+        if self.is_vector_valued:
+            return self._spaces
+        else:
+            return (self,)
+
 
 #---------------------------------------
 # OLD STUFF
@@ -264,6 +301,26 @@ class FemField:
     @property
     def fields(self):
         return self._fields
+
+    @property
+    def is_vector_valued(self):
+        return self.space.is_vector_valued
+
+    @property
+    def patch_fields(self):
+        """ return the patch fields (self if single-patch) as a tuple """
+        if self.space.is_multipatch:
+            return self.fields
+        else:
+            return (self,)
+
+    @property
+    def component_fields(self):
+        """ return the component fields (self if scalar-valued) as a tuple """
+        if self.space.is_vector_valued:
+            return self.fields
+        else:
+            return (self,)
 
     # ...
     def __getitem__(self, key):

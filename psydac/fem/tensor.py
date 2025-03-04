@@ -163,6 +163,14 @@ class TensorFemSpace(FemSpace):
         return False
 
     @property
+    def is_multipatch(self):
+        return False
+
+    @property
+    def is_vector_valued(self):
+        return False
+
+    @property
     def symbolic_space( self ):
         return self._symbolic_space 
 
