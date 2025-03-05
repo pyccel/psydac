@@ -84,7 +84,7 @@ omit = [
 
     # Unit tests shouldn't be included
     "*/tests/*",
-    ]
+]
 
 [tool.coverage.report]
 # Regexes for lines to exclude from consideration
@@ -103,7 +103,7 @@ exclude_also = [
 
     # Don't complain about abstract methods, they aren't run:
     "@(abc\\.)?abstractmethod",
-    ]
+]
 
 # Ignore source code that can’t be found, emitting a warning instead of an exception.
 ignore_errors = true
