@@ -450,29 +450,37 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
 
     # Initiate StencilVectorSpace
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-
+    Vc = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    Vc._dtype = complex
     v = StencilVector(V)
+    vc = StencilVector(Vc)
     v_array = np.zeros(n1*n2)
 
     for i in range(n1):
         for j in range(n2):
             v[i,j] = i+1
             v_array[i*n2+j] = i+1
+            vc[i,j] = i+1       
     
     I1 = IdentityOperator(V,V)
     I2 = IdentityOperator(V,V)
     I3 = IdentityOperator(V,V)
+    I4 = IdentityOperator(Vc,Vc)
 
     I1 *= 0
     I2 *= 1
     I3 *= 3
     v3 = I3.dot(v)
+    I4 *= 3j
+    v4 = I4.dot(vc)
 
     assert np.array_equal(v.toarray(), v_array)
     assert isinstance(I1, ZeroOperator)
     assert isinstance(I2, IdentityOperator)
     assert isinstance(I3, ScaledLinearOperator)
     assert np.array_equal(v3.toarray(), np.dot(v_array, 3))
+    assert isinstance(I4, ScaledLinearOperator)
+    assert np.array_equal(v4.toarray(), np.dot(v_array, 3j))
 
     # testing __iadd__ and __isub__ although not explicitly implemented (in the LinearOperator class)
 
@@ -522,7 +530,7 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(Z3, StencilMatrix)
     assert isinstance(T, StencilMatrix)
     assert np.array_equal(w2.toarray(), np.dot(np.dot(2, Sa), v_array))
-    
+ 
 #===============================================================================
 @pytest.mark.parametrize('n1', n1array)
 @pytest.mark.parametrize('n2', n2array)
