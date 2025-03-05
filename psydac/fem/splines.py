@@ -171,17 +171,14 @@ class SplineSpace( FemSpace ):
         Greville points.
 
         """
-        if self.greville.size == 1:
-            imat = np.ones((1, 1), dtype=float)
-        else:
-            imat = collocation_matrix(
-                knots    = self.knots,
-                degree   = self.degree,
-                periodic = self.periodic,
-                normalization = self.basis,
-                xgrid    = self.greville,
-                multiplicity = self.multiplicity
-            )
+        imat = collocation_matrix(
+            knots    = self.knots,
+            degree   = self.degree,
+            periodic = self.periodic,
+            normalization = self.basis,
+            xgrid    = self.greville,
+            multiplicity = self.multiplicity
+        )
 
         if self.periodic:
             # Convert to CSC format and compute sparse LU decomposition
