@@ -180,7 +180,11 @@ class FemSpace( metaclass=ABCMeta ):
         Return the component spaces (self if scalar-valued) as a tuple.
         """
         if self.is_vector_valued:
-            return self._spaces
+            if self.is_multipatch:
+                # should we return here the multipatch scalar-valued space?
+                raise NotImplementedError('Component spaces not implemented for multipatch spaces')
+            else:
+                return self._spaces
         else:
             return (self,)
 
