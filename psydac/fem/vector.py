@@ -429,10 +429,8 @@ class ProductFemSpace( FemSpace ):
 
     @property
     def is_vector_valued(self):
-        return False        
-        # OR ?? should we:
-        # return self.patch_spaces[0].is_vector_valued
-        # (and define the component_spaces of a multi-patch vector-valued space as a scalar-valued multi-patch space ?)
+        """ Returns True if the space is vector-valued, False otherwise. """
+        return self.patch_spaces[0].is_vector_valued
         
     @property
     def symbolic_space( self ):
