@@ -253,7 +253,7 @@ def solve_magnetostatic_pbm(
         # matrix of the coefs of the harmonic fields (Lambda^H_i) in the basis (Lambda_i), in the form:
         # hf_m = (c^H_{i,j})_{i < dim_harmonic_space, j < dim_V1}  such that
         # Lambda^H_i = sum_j c^H_{i,j} Lambda^1_j
-        hf_m = bmat(hf_cs).transpose()
+        hf_m = np.array(hf_cs).transpose()
         MH_m = M1_m @ hf_m
 
         # check:
@@ -395,13 +395,13 @@ def solve_magnetostatic_pbm(
     plot_field(numpy_coeffs=hh_c, Vh=V1h, space_kind='hcurl',
                domain=domain, title=title, filename=plot_dir + params_str + '_hh.png', hide_plot=hide_plots)
     title = r'solution {} (amplitude)'.format(u_name)
-    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl',
+    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='amplitude',
                domain=domain, title=title, filename=plot_dir + params_str + '_uh.png', hide_plot=hide_plots)
     title = r'solution {} (vector field)'.format(u_name)
-    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl',
+    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='vector_field',
                domain=domain, title=title, filename=plot_dir + params_str + '_uh_vf.png', hide_plot=hide_plots)
     title = r'solution {} (components)'.format(u_name)
-    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl',
+    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='components',
                domain=domain, title=title, filename=plot_dir + params_str + '_uh_xy.png', hide_plot=hide_plots)
 
 
