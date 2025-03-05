@@ -17,7 +17,6 @@
 import os
 from mpi4py import MPI
 from sympy import pi, cos, sin, symbols
-from sympy.abc import x, y
 import pytest
 import numpy as np
 
@@ -43,6 +42,8 @@ except:
     base_dir = os.path.dirname(os.path.realpath(__file__))
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
+
+x, y = symbols('x, y', real=True)
 
 # backend to activate multi threading
 PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP           = PSYDAC_BACKEND_GPYCCEL.copy()

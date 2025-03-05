@@ -18,7 +18,7 @@ from sympde.expr     import find, EssentialBC
 
 from psydac.api.discretization import discretize
 
-x,y,z = symbols('x1, x2, x3')
+x,y,z = symbols('x1, x2, x3', real=True)
 #==============================================================================
 def get_boundaries(*args):
 

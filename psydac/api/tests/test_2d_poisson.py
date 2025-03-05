@@ -19,7 +19,7 @@ from sympde.expr     import find, EssentialBC
 from psydac.api.discretization import discretize
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 
-x,y,z = symbols('x1, x2, x3')
+x,y,z = symbols('x1, x2, x3', real=True)
 
 # backend to activate multi threading
 PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP           = PSYDAC_BACKEND_GPYCCEL.copy()
