@@ -273,8 +273,8 @@ def build_matrices(mapping_option, verbose, backend, comm):
                                                  'expr' :dot(cross(F1, v1), cross(F1, v2)),
                                                  'field':[F1_field, 'V1']},
 
-                        'field_derivative_F1':  {'trial':'V0',
-                                                 'test' :'V1',
+                        'field_derivative_F1':  {'trial':'V0',      # test fails with rel. error: 0.477, possibly only due to
+                                                 'test' :'V1',      # matrix norm being very small (~4.6e-13)!
                                                  'expr' :dot(grad(u1), curl(F1)) * dot(v2, F1),
                                                  'field':[F1_field, 'V1']},
 
