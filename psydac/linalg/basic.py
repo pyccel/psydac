@@ -585,6 +585,9 @@ class ScaledLinearOperator(LinearOperator):
     def dtype(self):
         return None
 
+    def set_scalar(self, c):
+        self._scalar = c
+
     def toarray(self):
         return self._scalar*self._operator.toarray() 
 
