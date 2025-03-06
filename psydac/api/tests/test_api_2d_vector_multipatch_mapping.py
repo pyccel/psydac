@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 import os
-from sympy import Tuple, Matrix
+from sympy import Tuple, Matrix, symbols
 from sympy import pi, sin
 
 from sympde.calculus import grad, dot, inner, Transpose
@@ -101,7 +101,7 @@ def run_vector_poisson_2d_dir(filename, solution, f):
 def test_api_vector_poisson_2d_dir_identity():
     filename = os.path.join(mesh_dir, 'multipatch/square.h5')
 
-    from sympy.abc import x,y
+    x,y = symbols('x,y', real=True)
 
     u1 = sin(pi*x)*sin(pi*y)
     u2 = sin(pi*x)*sin(pi*y)

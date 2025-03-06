@@ -413,7 +413,7 @@ def run_maxwell_time_harmonic_2d_dir(uex, f, alpha, ncells, degree):
 ###############################################################################
 def test_poisson_mixed_form_2d_dir_1():
     from sympy import symbols
-    x1, x2 = symbols('x1, x2')
+    x1, x2 = symbols('x1, x2', real=True)
 
     f0 =  -2*x1*(1-x1) -2*x2*(1-x2)
     u  = x1*(1-x1)*x2*(1-x2)
@@ -509,7 +509,7 @@ def test_stokes_2d_dir_non_homogeneous(scipy):
 #------------------------------------------------------------------------------
 def test_maxwell_time_harmonic_2d_dir_1():
     from sympy import symbols
-    x,y,z    = symbols('x1, x2, x3')
+    x,y,z    = symbols('x1, x2, x3', real=True)
 
     alpha    = 1.
     uex      = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))

@@ -127,7 +127,7 @@ def test_api_system_1_2d_dir_1():
 
     from sympy import symbols
 
-    x1,x2 = symbols('x1, x2')
+    x1,x2 = symbols('x1, x2', real=True)
 
     Fe = Tuple(sin(pi*x1)*sin(pi*x2), sin(pi*x1)*sin(pi*x2))
     f0 = Tuple(2*pi**2*sin(pi*x1)*sin(pi*x2),
