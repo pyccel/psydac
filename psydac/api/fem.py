@@ -441,10 +441,13 @@ class DiscreteBilinearForm(BasicDiscrete):
         # Allocate the output matrix, if needed
         self.allocate_matrices(linalg_backend)
 
+        from psydac.api.tests.allocate_matrix_bug import fix_bug
+        self._fix_bug = fix_bug
         # ----- Uncomment only for the u*f // f*u test case -----
-        #mat = StencilMatrix(self._matrix.domain, self._matrix.codomain)
-        #self._matrix = mat
-        #self._global_matrices = [mat._data, ]
+        if fix_bug:
+            mat = StencilMatrix(self._matrix.domain, self._matrix.codomain)
+            self._matrix = mat
+            self._global_matrices = [mat._data, ]
 
         #print(self._global_matrices[0].shape)
         # -------------------------------------------------------
@@ -551,13 +554,14 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             args = self._args
         # ----- Uncomment only for the u*f // f*u test case -----
-        #if self._new_assembly != 'test':
-        #    if self._mapping_option == 'Bspline':
-        #        args = (*args[0:28], *self._global_matrices, *args[29:])
-        #    else:
-        #        args = (*args[0:15], *self._global_matrices, *args[16:])
-        #else:
-        #    args = (*args[:-1], *self._global_matrices)
+        if self._fix_bug:
+            if self._new_assembly != 'test':
+                if self._mapping_option == 'Bspline':
+                    args = (*args[0:28], *self._global_matrices, *args[29:])
+                else:
+                    args = (*args[0:15], *self._global_matrices, *args[16:])
+            else:
+                args = (*args[:-1], *self._global_matrices)
         # -------------------------------------------------------
 #        args = args + self._element_loop_starts + self._element_loop_ends
 
