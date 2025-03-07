@@ -4,6 +4,11 @@
 #         nderiv has not been changed. shall we add nquads too?
 
 import numpy as np
+
+import string
+import random
+import importlib
+
 from sympy                  import ImmutableDenseMatrix, Matrix, Symbol, sympify
 from sympy.tensor.indexed   import Indexed, IndexedBase
 from sympy.simplify         import cse_main
@@ -122,7 +127,7 @@ def construct_test_space_arguments(basis_values):
     pads          = flatten(pads)
     multiplicity  = flatten(multiplicity)
     pads          = [p*m for p,m in zip(pads, multiplicity)]
-    return test_basis, test_degrees, spans, pads
+    return test_basis, test_degrees, spans, pads, multiplicity
 
 def construct_trial_space_arguments(basis_values):
     space          = basis_values.space
@@ -137,7 +142,7 @@ def construct_trial_space_arguments(basis_values):
     pads           = flatten(pads)
     multiplicity   = flatten(multiplicity)
     pads           = [p*m for p,m in zip(pads, multiplicity)]
-    return trial_basis, trial_degrees, pads
+    return trial_basis, trial_degrees, pads, multiplicity
 
 #==============================================================================
 def construct_quad_grids_arguments(grid, use_weights=True):
@@ -167,6 +172,8 @@ def extract_stencil_mats(mats):
             new_mats += [i for i in M.multiplicants if isinstance(i, (StencilInterfaceMatrix, StencilMatrix))]
     return new_mats
 
+def id_generator(size=8, chars=string.ascii_lowercase + string.digits):
+    return ''.join(random.choice(chars) for _ in range(size))
 #==============================================================================
 class DiscreteBilinearForm(BasicDiscrete):
     """
@@ -441,13 +448,13 @@ class DiscreteBilinearForm(BasicDiscrete):
         # Allocate the output matrix, if needed
         self.allocate_matrices(linalg_backend)
 
-        from psydac.api.tests.allocate_matrix_bug import fix_bug
-        self._fix_bug = fix_bug
+        #from psydac.api.tests.allocate_matrix_bug import fix_bug
+        #self._fix_bug = fix_bug
         # ----- Uncomment only for the u*f // f*u test case -----
-        if fix_bug:
-            mat = StencilMatrix(self._matrix.domain, self._matrix.codomain)
-            self._matrix = mat
-            self._global_matrices = [mat._data, ]
+        #if fix_bug:
+        #    mat = StencilMatrix(self._matrix.domain, self._matrix.codomain)
+        #    self._matrix = mat
+        #    self._global_matrices = [mat._data, ]
 
         #print(self._global_matrices[0].shape)
         # -------------------------------------------------------
@@ -537,7 +544,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                         trial  = True,
                         grid   = self.grid[0]
                     )
-                    bs, d, s, p = construct_test_space_arguments(basis_v)
+                    bs, d, s, p, mult = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
                     degrees += [np.int64(a) for a in d]
@@ -554,14 +561,14 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             args = self._args
         # ----- Uncomment only for the u*f // f*u test case -----
-        if self._fix_bug:
-            if self._new_assembly != 'test':
-                if self._mapping_option == 'Bspline':
-                    args = (*args[0:28], *self._global_matrices, *args[29:])
-                else:
-                    args = (*args[0:15], *self._global_matrices, *args[16:])
-            else:
-                args = (*args[:-1], *self._global_matrices)
+        #if self._fix_bug:
+        #    if self._new_assembly != 'test':
+        #        if self._mapping_option == 'Bspline':
+        #            args = (*args[0:28], *self._global_matrices, *args[29:])
+        #        else:
+        #            args = (*args[0:15], *self._global_matrices, *args[16:])
+        #    else:
+        #        args = (*args[:-1], *self._global_matrices)
         # -------------------------------------------------------
 #        args = args + self._element_loop_starts + self._element_loop_ends
 
@@ -760,7 +767,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 '''
         return code
 
-    def make_file(self, temps, ordered_stmts, field_derivatives, *args, mapping_option=None):
+    def make_file(self, temps, ordered_stmts, field_derivatives, mult, *args, mapping_option=None):
 
         # ----- field strings -----
         basis_args_block = [f'global_test_basis_'+'{field}'+f'_{i+1} : "float64[:,:,:,:]"' for i in range(3)]
@@ -984,7 +991,8 @@ class DiscreteBilinearForm(BasicDiscrete):
             g_mat       = g_mat_str.format(u_i=u_i, v_j=v_j)
             TEST_V_P1   = test_v_p1_str.format(v_j=v_j)
             SPAN_V_1    = span_v_1_str.format(v_j=v_j)
-            A1          += f'        {a1} = {g_mat}[pad1 + {SPAN_V_1} - {test_v_p1} : pad1 + {SPAN_V_1} + 1, pad2 : pad2 + n_element_2 + {test_v_p2}, pad3 : pad3 + n_element_3 + {test_v_p3}, :, :, :]\n'
+            #A1          += f'        {a1} = {g_mat}[pad1 + {SPAN_V_1} - {test_v_p1} : pad1 + {SPAN_V_1} + 1, pad2 : pad2 + n_element_2 + {test_v_p2}, pad3 : pad3 + n_element_3 + {test_v_p3}, :, :, :]\n'
+            A1          += f'        {a1} = {g_mat}[{mult[0]}*pad1 + {SPAN_V_1} - {test_v_p1} : {mult[0]}*pad1 + {SPAN_V_1} + 1, {mult[1]}*pad2 : {mult[1]}*pad2 + n_element_2 + {test_v_p2} + ({mult[1]}-1)*(n_element_2-1), {mult[2]}*pad3 : {mult[2]}*pad3 + n_element_3 + {test_v_p3} + ({mult[2]}-1)*(n_element_3-1), :, :, :]\n'
 
         for v_j in range(nv):
             local_span_v_1 = span_v_1_str.format(v_j=v_j)
@@ -1077,10 +1085,12 @@ class DiscreteBilinearForm(BasicDiscrete):
         import os
         if not os.path.isdir('__psydac__'):
             os.makedirs('__psydac__')
-        filename = '__psydac__/assemble.py'
+        id = id_generator()
+        filename = f'__psydac__/assemble_{id}.py'
         f = open(filename, 'w')
         f.writelines(assembly_code)
         f.close()
+        return id
 
     def read_BilinearForm(self):
         
@@ -1305,9 +1315,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         nu = trial_dim # dim of trial function; 1 (scalar) or 3 (vector)
         nv = test_dim  # dim of trial function; 1 (scalar) or 3 (vector)
 
-        test_basis, test_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
-        trial_basis, trial_degrees, pads      = construct_trial_space_arguments(self.trial_basis)
-        n_elements, quads, quad_degrees       = construct_quad_grids_arguments(self.grid[0], use_weights=False)
+        test_basis, test_degrees, spans, pads, mult = construct_test_space_arguments(self.test_basis)
+        trial_basis, trial_degrees, pads, mult      = construct_trial_space_arguments(self.trial_basis)
+        n_elements, quads, quad_degrees             = construct_quad_grids_arguments(self.grid[0], use_weights=False)
 
         pads = self.test_basis.space.vector_space.pads
 
@@ -1445,8 +1455,8 @@ class DiscreteBilinearForm(BasicDiscrete):
             test_trial_2s[block] = test_trial_2
             test_trial_3s[block] = test_trial_3
 
-            a3[block] = np.zeros((n_expr, n_element_3 + test_v_p3, 2 * max_p_3 + 1), dtype='float64')
-            a2[block] = np.zeros((n_expr, n_element_2 + test_v_p2, n_element_3 + test_v_p3, 2 * max_p_2 + 1, 2 * max_p_3 + 1), dtype='float64')
+            a3[block] = np.zeros((n_expr, n_element_3 + test_v_p3 + (mult[2]-1)*(n_element_3-1), 2 * max_p_3 + 1), dtype='float64')
+            a2[block] = np.zeros((n_expr, n_element_2 + test_v_p2 + (mult[1]-1)*(n_element_2-1), n_element_3 + test_v_p3 + (mult[2]-1)*(n_element_3-1), 2 * max_p_2 + 1, 2 * max_p_3 + 1), dtype='float64')
             coupling_terms[block] = np.zeros((n_element_2, k2, n_element_3, k3, n_expr), dtype='float64')
 
         new_args = (*list(test_trial_1s.values()), 
@@ -1464,10 +1474,20 @@ class DiscreteBilinearForm(BasicDiscrete):
         args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
         threads_args = tuple(np.int64(a) if isinstance(a, int) else a for a in threads_args)
 
-        self.make_file(temps, ordered_stmts, field_derivatives, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option=mapping_option)
-        from __psydac__.assemble import assemble_matrix
+        id = self.make_file(temps, ordered_stmts, field_derivatives, mult, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option=mapping_option)
+        #from psydac.api.tests.multiplicity_issue_copy import turn_off_pyccel
+        #if turn_off_pyccel:
+        #    from __psydac__.assemble import assemble_matrix
+        #    self._func = assemble_matrix
+        #else:
+        #    from __psydac__.assemble import assemble_matrix
+        #    from pyccel.epyccel import epyccel
+        #    new_func = epyccel(assemble_matrix, language='fortran')
+        #    self._func = new_func
+
+        package = importlib.import_module(f'__psydac__.assemble_{id}')
         from pyccel.epyccel import epyccel
-        new_func = epyccel(assemble_matrix, language='fortran')
+        new_func = epyccel(package.assemble_matrix, language='fortran')
         self._func = new_func
 
         return args, threads_args
@@ -1491,9 +1511,9 @@ class DiscreteBilinearForm(BasicDiscrete):
           Extra arguments used in the assembly method in case with_openmp=True.
 
         """
-        test_basis, test_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
-        trial_basis, trial_degrees, pads      = construct_trial_space_arguments(self.trial_basis)
-        n_elements, quads, quad_degrees       = construct_quad_grids_arguments(self.grid[0], use_weights=False)
+        test_basis, test_degrees, spans, pads, mult = construct_test_space_arguments(self.test_basis)
+        trial_basis, trial_degrees, pads, mult      = construct_trial_space_arguments(self.trial_basis)
+        n_elements, quads, quad_degrees             = construct_quad_grids_arguments(self.grid[0], use_weights=False)
         if len(self.grid)>1:
             quads  = [*quads, *self.grid[1].points]
 

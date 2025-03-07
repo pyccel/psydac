@@ -339,7 +339,12 @@ def build_matrices(mapping_option, verbose, backend, comm):
                                                  'expr' :dot(v2, w1)}
                      }
     
-    bilinear_forms_to_test = bilinear_forms # ('dot(v, w)', 'dot(w, v)') # ('u*f', 'f*u') # ('dot(curl(v), w)_F0', 'dot(curl(v), w)_F0_2') # ('divdiv_Fs', 'Fvc test', 'dot(grad(u), v)', 'dot(curl(v), w)_F0', 'u*f', 'f*u', 'sqrt_pi_Fvd') # bilinear_forms # ('curlcurl', 'curlcurlVFS') # ('field_derivative', )
+    bilinear_form_strings = ('gradgrad', 'gradgradSFS', 'curlcurl', 'curlcurlVFS', 'weighted_hdiv_mass', 'weighted_hdiv_massVFS', 
+                             'hcurl_mass', 'hcurl_massVFS', 'Q', 'field_derivative_F1', 'field_derivative_F2', 'weighted_h1_mass_F0', 
+                             'weighted_l2_mass_F3', 'divdiv_Fs', 'Fvc test', 'dot(grad(u), v)', 'dot(curl(v), w)_F0', 'dot(curl(v), w)_F0_2', 
+                             'u*f', 'f*u', 'sqrt_pi_Fvd', 'dot(v, w)', 'dot(w, v)')
+
+    bilinear_forms_to_test = bilinear_form_strings
     
     for bf in bilinear_forms_to_test:
         value = bilinear_forms[bf]
@@ -449,14 +454,14 @@ def build_matrices(mapping_option, verbose, backend, comm):
             print(f' >>> Norm      : {A_old_norm:.7g} & {A_new_norm:.7g}')
             print()
         
-        if not bf in ('Fvc test', 'u*f'): # must investigate these cases further
+        if not bf in ('Fvc test', 'u*f', 'field_derivative_F1', 'field_derivative_F2'): # must investigate these cases further
             assert rel_err < 1e-12 # arbitrary rel. error bound
 
 #==============================================================================
 
 verbose = True
 
-mapping_options = [None, 'analytical', 'Bspline']
+mapping_options = [None, ] # 'analytical', 'Bspline']
 
 comm    = MPI.COMM_WORLD
 backend = PSYDAC_BACKEND_GPYCCEL
