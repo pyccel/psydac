@@ -74,7 +74,7 @@ def run_vector_poisson_3d_dir(solution, f, ncells, degree):
 def test_api_vector_poisson_3d_dir_1():
 
     from sympy import symbols
-    x1, x2, x3 = symbols('x1, x2, x3')
+    x1, x2, x3 = symbols('x1, x2, x3', real=True)
 
     u1 = sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
     u2 = sin(pi*x1)*sin(pi*x2)*sin(pi*x3)

@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 import os
-from sympy import Tuple, Matrix
+from sympy import Tuple, Matrix, symbols
 from sympy import pi, sin
 
 from sympde.calculus import grad, dot, inner
@@ -24,6 +24,7 @@ except:
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
 # ...
+x,y = symbols('x,y', real=True)
 
 #==============================================================================
 def run_vector_poisson_2d_dir(filename, solution, f):
@@ -86,8 +87,6 @@ def run_vector_poisson_2d_dir(filename, solution, f):
 def test_api_vector_poisson_2d_dir_identity():
     filename = os.path.join(mesh_dir, 'identity_2d.h5')
 
-    from sympy.abc import x,y
-
     u1 = sin(pi*x)*sin(pi*y)
     u2 = sin(pi*x)*sin(pi*y)
     solution = Tuple(u1, u2)
@@ -107,8 +106,6 @@ def test_api_vector_poisson_2d_dir_identity():
 #==============================================================================
 def test_api_vector_poisson_2d_dir_collela():
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
-
-    from sympy.abc import x,y
 
     u1 = sin(pi*x)*sin(pi*y)
     u2 = sin(pi*x)*sin(pi*y)

@@ -94,19 +94,19 @@ class KroneckerStencilMatrix(LinearOperator):
         starts = self._codomain.starts
         ends   = self._codomain.ends
         pads   = self._codomain.pads
+        shifts = self._codomain.shifts
 
         mats   = self.mats
-        
         nrows  = tuple(e-s+1 for s,e in zip(starts, ends))
         pnrows = tuple(2*p+1 for p in pads)
-        
+
         for ii in np.ndindex(*nrows):
             v = 0.
-            xx = tuple(i+p for i,p in zip(ii, pads))
+            xx = tuple(i+p*s for i,p,s in zip(ii, pads, shifts))
 
             for jj in np.ndindex(*pnrows):
                 i_mats = [mat._data[s, j] for s,j,mat in zip(xx, jj, mats)]
-                ii_jj = tuple(i+j for i,j in zip(ii, jj))
+                ii_jj = tuple(i+j+(s-1)*p for i,j,p,s in zip(ii, jj, pads, shifts))
                 v += x._data[ii_jj] * np.prod(i_mats)
 
             out._data[xx] = v
