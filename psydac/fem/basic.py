@@ -141,24 +141,24 @@ class FemSpace( metaclass=ABCMeta ):
     # Concrete methods
     #----------------------
     def __mul__(self, a):
-        from psydac.fem.vector import MultipatchFemSpace
+        from psydac.fem.vector import create_product_space
 
         spaces = [*(self.spaces if self.is_product else [self]),
                   *(   a.spaces if    a.is_product else    [a])]
  
-        space = MultipatchFemSpace(*spaces)
+        space = create_product_space(*spaces)
         if a.symbolic_space and self.symbolic_space:
             space._symbolic_space =  self.symbolic_space*a.symbolic_space
         return space
 
     # ...
     def __rmul__(self, a):
-        from psydac.fem.vector import MultipatchFemSpace
+        from psydac.fem.vector import create_product_space
 
         spaces = [*(   a.spaces if    a.is_product else    [a]),
                   *(self.spaces if self.is_product else [self]),]
 
-        space = MultipatchFemSpace(*spaces)
+        space = create_product_space(*spaces)
 
         if a.symbolic_space and self.symbolic_space:
             space._symbolic_space =  a.symbolic_space * self.symbolic_space
