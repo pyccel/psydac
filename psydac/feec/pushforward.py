@@ -100,7 +100,8 @@ class Pushforward:
         self.npts_per_cell = npts_per_cell
         self.cell_indexes = cell_indexes
         self.grid_type=grid_type
-        grid_local=grid_local
+        if grid_local is None:
+            grid_local=grid
 
         if isinstance(mapping, Mapping):
             self._mesh_grids = np.meshgrid(*grid_local, indexing='ij', sparse=True)

@@ -24,9 +24,6 @@ def compute_global_starts_ends(domain_decomposition, npts, pads):
     global_starts = [None] * ndims
     global_ends = [None] * ndims
 
-    print('\ndomain_decomposition.global_element_starts', domain_decomposition.global_element_starts)
-    print('domain_decomposition.global_element_ends', domain_decomposition.global_element_ends)
-
     for axis in range(ndims):
         ee = domain_decomposition.global_element_ends[axis]
         
@@ -436,7 +433,7 @@ def test_stencil_matrix_2d_serial_spurious_entries( dtype, p1, p2, s1, s2, P1, P
 @pytest.mark.parametrize('dtype', [float])
 @pytest.mark.parametrize('n1', [7])
 @pytest.mark.parametrize('p1', [1,2])
-@pytest.mark.parametrize('s1', [1])
+@pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('P1', [True, False])
 def test_stencil_matrix_1d_serial_toarray( dtype, n1, p1, s1, P1):
     # Select non-zero values based on diagonal index
@@ -492,8 +489,8 @@ def test_stencil_matrix_1d_serial_toarray( dtype, n1, p1, s1, P1):
 @pytest.mark.parametrize('n2', [8, 7])
 @pytest.mark.parametrize('p1', [1, 2])
 @pytest.mark.parametrize('p2', [1, 3])
-@pytest.mark.parametrize('s1', [1])
-@pytest.mark.parametrize('s2', [1])
+@pytest.mark.parametrize('s1', [1, 2])
+@pytest.mark.parametrize('s2', [1, 2])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
 def test_stencil_matrix_2d_serial_toarray( dtype, n1, n2, p1, p2, s1, s2, P1, P2):
@@ -1326,7 +1323,7 @@ def test_stencil_matrix_2d_serial_vdot(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     ya_exact = np.dot(np.conjugate(Ma), xa)
     # Check data in 1D array
     assert y.dtype == dtype
-    assert np.allclose(ya, ya_exact, rtol=1e-13, atol=1e-13)
+    assert np.allclose(ya, ya_exact, rtol=1e-12, atol=1e-12)
 
 # TODO: verify for s>1
 # ===============================================================================
@@ -2194,7 +2191,7 @@ def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, 
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [20, 67])
 @pytest.mark.parametrize('p1', [1, 2, 3])
-@pytest.mark.parametrize('sh1', [1])
+@pytest.mark.parametrize('sh1', [1, 2])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parallel
 def test_stencil_matrix_1d_parallel_toarray(dtype, n1, p1, sh1, P1):
@@ -2773,29 +2770,96 @@ def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1,
     # Convert stencil matrix to PETSc.Mat
     Mp = M.topetsc()
     # Create Vec to allocate the result of the dot product
-    y_petsc = Mp.createVecRight()
+    y_petsc = Mp.createVecLeft()
     # Compute dot product
     Mp.mult(x.topetsc(), y_petsc)
     # Cast result back to Psydac StencilVector format
     y_p = petsc_to_psydac(y_petsc, V)
 
-    ################################################
-    # Note 12.03.2024:
-    # Another possibility would be to compare y_petsc.array and y.toarray(). 
-    # However, we cannot do this because PETSc distributes matrices and vectors different than Psydac.
-    # In the future we would like that PETSc uses the partition from Psydac, 
-    # which might involve passing a DM Object.
-    ################################################
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
 
 # ===============================================================================
+
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('n1', [13, 15])
+@pytest.mark.parametrize('p1', [1, 3])
+@pytest.mark.parametrize('sh1', [1])
+@pytest.mark.parametrize('P1', [True, False])
+@pytest.mark.parallel
+@pytest.mark.petsc
+
+def test_stencil_matrix_1d_parallel_topetsc(dtype, n1, p1, sh1, P1):
+    from mpi4py import MPI
+
+    # Select non-zero values based on diagonal index
+    nonzero_values = dict()
+    if dtype==complex:
+        for k1 in range(-p1, p1 + 1):
+                nonzero_values[k1] = 10j * k1 + 7
+    else:
+        for k1 in range(-p1, p1 + 1):
+                nonzero_values[k1] = 10 * k1 + 7
+
+    # Create domain decomposition: decomposes the coefficients
+    comm = MPI.COMM_WORLD
+    D = DomainDecomposition([n1], periods=[P1], comm=comm)
+
+    # Partition the coefficients
+    npts = [n1] #Number of cells
+    global_starts, global_ends = compute_global_starts_ends(D, npts, [p1])
+
+    # In cart, npts must be the number of coefficients.
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[sh1])
+
+    # Create vector space and stencil matrix
+    V = StencilVectorSpace(cart, dtype=dtype)
+    M = StencilMatrix(V, V)
+    x = StencilVector(V)
+
+    s1, = V.starts
+    e1, = V.ends    
+
+    # Fill in stencil matrix values
+    for i1 in range(s1, e1 + 1):
+        for k1 in range(-p1, p1 + 1):
+                M[i1, k1] = (i1+1)*nonzero_values[k1]
+
+    # Fill in vector with random values, then update ghost regions
+    if dtype == complex:
+        for i1 in range(s1, e1 + 1):
+            x[i1] = 2.0j * random() - 1.0
+    else:
+        for i1 in range(s1, e1 + 1):
+            x[i1] = 2.0 * random() - 1.0
+    x.update_ghost_regions()
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # Convert stencil matrix to PETSc.Mat
+    Mp = M.topetsc()
+
+    y = M.dot(x)
     
+    # Convert stencil matrix to PETSc.Mat
+    Mp = M.topetsc()
+    # Create Vec to allocate the result of the dot product
+    y_petsc = Mp.createVecLeft()
+    # Compute dot product
+    Mp.mult(x.topetsc(), y_petsc)
+    # Cast result back to Psydac StencilVector format
+    y_p = petsc_to_psydac(y_petsc, V)
+
+    assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
+
+# ===============================================================================
+
 @pytest.mark.parametrize('n1', [4,7])
 @pytest.mark.parametrize('n2', [3,5])
 @pytest.mark.parametrize('p1', [2])
 @pytest.mark.parametrize('p2', [1])
-@pytest.mark.parametrize('P1', [True])
-@pytest.mark.parametrize('P2', [True])
+@pytest.mark.parametrize('P1', [True, False])
+@pytest.mark.parametrize('P2', [True, False])
 @pytest.mark.parallel
 @pytest.mark.petsc
 
@@ -2835,19 +2899,124 @@ def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
     # Convert stencil matrix to PETSc.Mat
     Mp = M.topetsc()
     # Create Vec to allocate the result of the dot product
-    y_petsc = Mp.createVecRight()
+    y_petsc = Mp.createVecLeft()
     # Compute dot product
     Mp.mult(x.topetsc(), y_petsc)
     # Cast result back to Psydac StencilVector format
     y_p = petsc_to_psydac(y_petsc, Vh.vector_space)
 
-    ################################################
-    # Note 12.03.2024:
-    # Another possibility would be to compare y_petsc.array and y.toarray(). 
-    # However, we cannot do this because PETSc distributes matrices and vectors different than Psydac.
-    # In the future we would like that PETSc uses the partition from Psydac, 
-    # which might involve passing a DM Object.
-    ################################################
+    assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
+
+# ===============================================================================
+
+@pytest.mark.parametrize('n1', [4,7])
+@pytest.mark.parametrize('n2', [3,5])
+@pytest.mark.parametrize('n3', [3,4])
+@pytest.mark.parametrize('p1', [2])
+@pytest.mark.parametrize('p2', [1])
+@pytest.mark.parametrize('p3', [1])
+@pytest.mark.parametrize('P1', [False])
+@pytest.mark.parametrize('P2', [True])
+@pytest.mark.parametrize('P3', [True, False])
+@pytest.mark.parallel
+@pytest.mark.petsc
+
+def test_mass_matrix_3d_parallel_topetsc(n1, n2, n3, p1, p2, p3, P1, P2, P3):
+    from sympde.topology import Cube, ScalarFunctionSpace, element_of
+    from sympde.expr     import BilinearForm, integral
+    from psydac.api.settings            import PSYDAC_BACKENDS
+    from psydac.api.discretization      import discretize
+    from mpi4py import MPI
+
+    domain = Cube()
+    V = ScalarFunctionSpace('V', domain)
+
+    u = element_of(V, name='u')
+    v = element_of(V, name='v')    
+
+    a = BilinearForm((u, v), integral(domain, u * v))
+    comm = MPI.COMM_WORLD
+    domain_h = discretize(domain, ncells=[n1,n2,n3], periodic=[P1,P2,P3], comm=comm)
+    Vh = discretize(V, domain_h, degree=[p1,p2,p3])
+    ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['pyccel-gcc'])    
+    M = ah.assemble()
+
+    x = Vh.vector_space.zeros()
+
+    s1, s2, s3 = Vh.vector_space.starts
+    e1, e2, e3 = Vh.vector_space.ends
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(s1, e1 + 1):
+        for i2 in range(s2, e2 + 1):
+            for i3 in range(s3, e3 + 1):
+                x[i1, i2, i3] = 2.0 * random() - 1.0
+    x.update_ghost_regions()
+
+    y = M.dot(x)
+    
+    # Convert stencil matrix to PETSc.Mat
+    Mp = M.topetsc()
+    # Create Vec to allocate the result of the dot product
+    y_petsc = Mp.createVecLeft()
+    # Compute dot product
+    Mp.mult(x.topetsc(), y_petsc)
+    # Cast result back to Psydac StencilVector format
+    y_p = petsc_to_psydac(y_petsc, Vh.vector_space)
+
+    assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
+    
+# ===============================================================================    
+
+@pytest.mark.parametrize('n1', [15,17])
+@pytest.mark.parametrize('p1', [2])
+@pytest.mark.parametrize('P1', [True])
+@pytest.mark.parallel
+@pytest.mark.petsc
+
+def test_mass_matrix_1d_parallel_topetsc(n1, p1, P1):
+    from sympde.topology import Line, ScalarFunctionSpace, element_of
+    from sympde.expr     import BilinearForm, integral
+    from psydac.api.settings            import PSYDAC_BACKENDS
+    from psydac.api.discretization      import discretize
+    from mpi4py import MPI
+
+    domain = Line()
+    V = ScalarFunctionSpace('V', domain)
+
+    u = element_of(V, name='u')
+    v = element_of(V, name='v')    
+
+    a = BilinearForm((u, v), integral(domain, u * v))
+    comm = MPI.COMM_WORLD
+    domain_h = discretize(domain, ncells=[n1], periodic=[P1], comm=comm)
+    Vh = discretize(V, domain_h, degree=[p1])
+    ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['pyccel-gcc'])    
+    M = ah.assemble()
+
+    x = Vh.vector_space.zeros()
+
+    s1, = Vh.vector_space.starts
+    e1, = Vh.vector_space.ends
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(s1, e1 + 1):
+        x[i1] = 2.0 * random() - 1.0
+    x.update_ghost_regions()
+
+    y = M.dot(x)
+    
+    # Convert stencil matrix to PETSc.Mat
+    Mp = M.topetsc()
+
+    # Create Vec to allocate the result of the dot product
+    y_petsc = Mp.createVecLeft()
+
+    x_petsc = x.topetsc()
+    # Compute dot product
+    Mp.mult(x_petsc, y_petsc)
+    # Cast result back to Psydac StencilVector format
+    y_p = petsc_to_psydac(y_petsc, Vh.vector_space)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
 

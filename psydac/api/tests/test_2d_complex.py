@@ -1,11 +1,14 @@
 # -*- coding: UTF-8 -*-
 import os
 
+from collections import OrderedDict
+
 from mpi4py import MPI
 import pytest
 import numpy as np
 from sympy import pi, cos, sin, symbols, conjugate, exp
 from sympy import Tuple, Matrix
+from sympy import lambdify
 
 from sympde.calculus import grad, dot, cross, curl
 from sympde.calculus import minus, plus
@@ -244,7 +247,7 @@ def run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=None, degr
     l2_error = l2norm_h.assemble(u=uh)
     h1_error = h1norm_h.assemble(u=uh)
 
-    return l2_error, h1_error
+    return l2_error, h1_error, uh
 
 #==============================================================================
 def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=None, comm=None):
@@ -319,7 +322,7 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
 ###############################################################################
 def test_complex_biharmonic_2d():
     # This test solve the biharmonic problem with homogeneous dirichlet condition without a mapping
-    x, y, z = symbols('x1, x2, x3')
+    x, y, z = symbols('x1, x2, x3', real=True)
     solution = (sin(pi * x)**2 * sin(pi * y)**2 + 1j * sin(2*pi * x)**2 * sin(2*pi * y)**2) * exp(pi * 1j * (x**2+y**2))
     f        = laplace(laplace(solution))
 
@@ -340,7 +343,7 @@ def test_complex_biharmonic_2d():
 def test_complex_biharmonic_2d_mapping():
     # This test solve the biharmonic problem with homogeneous dirichlet condition with a mapping
 
-    x, y, z = symbols('x, y, z')
+    x, y, z = symbols('x, y, z', real=True)
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
 
     factor=2.5
@@ -400,7 +403,7 @@ def test_complex_poisson_2d_multipatch_mapping():
     assert abs(h1_error - expected_h1_error) < 1e-7
 
 
-def test_complex_helmholtz_2d():
+def test_complex_helmholtz_2d(plot_sol=False):
     # This test solves the homogeneous Helmhotz equation with impedance BC. 
     # In particular, we impose an incoming wave from the left and absorbing boundary conditions at the right.
     # Along y, periodic boundary conditions are considered.
@@ -412,10 +415,49 @@ def test_complex_helmholtz_2d():
     e_w_0 = sin(kappa * y) # value of incoming wave at x=0, forall y
     dx_e_w_0 = 1j*kappa*sin(kappa * y) # derivative wrt. x of incoming wave at x=0, forall y
 
-    l2_error, h1_error = run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=[2**2,2**2], degree=[2,2])
+    l2_error, h1_error, uh = run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=[2**2,2**2], degree=[2,2])
 
     expected_l2_error = 0.01540947560953227
     expected_h1_error = 0.19040207344639598
+
+    print(f'errors: l2 = {l2_error}, h1 = {h1_error}')
+    print('expected errors: l2 = {}, h1 = {}'.format(expected_l2_error, expected_h1_error))
+    
+    if plot_sol:
+        from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
+        from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
+        from psydac.feec.pull_push                     import pull_2d_h1
+        
+        Id_mapping = IdentityMapping('M', 2)
+        # print(f'domain.interior = {domain.interior}')
+        # domain_interior = [domain]
+        # print(f'domain.logical_domain = {domain.logical_domain}')
+        mappings = OrderedDict([(domain, Id_mapping)])
+        mappings_list = [m for m in mappings.values()]
+        call_mappings_list = [m.get_callable_mapping() for m in mappings_list]
+
+        uh = [uh]  # single-patch cast as multi-patch solution 
+
+        u   = lambdify(domain.coordinates, solution)
+        u_log = [pull_2d_h1(u, f) for f in call_mappings_list]
+
+        etas, xx, yy         = get_plotting_grid(mappings, N=20)
+        grid_vals_h1         = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='h1')
+
+        uh_vals = grid_vals_h1(uh)
+        u_vals  = grid_vals_h1(u_log)
+
+        u_err   = [(u1 - u2) for u1, u2 in zip(u_vals, uh_vals)]
+    
+        my_small_plot(
+            title=r'Approximation of solution $u$',
+            vals=[u_vals, uh_vals, u_err],
+            titles=[r'$u^{ex}(x,y)$', r'$u^h(x,y)$', r'$|(u^{ex}-u^h)(x,y)|$'],
+            xx=xx,
+            yy=yy,
+            gridlines_x1=None,
+            gridlines_x2=None,
+        )
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -487,59 +529,62 @@ def teardown_function():
 
 if __name__ == '__main__':
 
-    from collections import OrderedDict
+    check = 'complex_helmholtz_2d'
 
-    from sympy       import lambdify
+    if check == 'complex_helmholtz_2d':
+        test_complex_helmholtz_2d(plot_sol=True)
 
-    from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
-    from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
-    from psydac.api.tests.build_domain             import build_pretzel
-    from psydac.feec.pull_push                     import pull_2d_hcurl
+    else:
 
-    domain = build_pretzel()
-    x,y    = domain.coordinates
+        from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
+        from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
+        from psydac.api.tests.build_domain             import build_pretzel
+        from psydac.feec.pull_push                     import pull_2d_hcurl
+        
+        domain = build_pretzel()
+        x,y    = domain.coordinates
 
-    omega = 1.5
-    alpha = -omega**2
-    Eex   = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
-    f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
-                  alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+        omega = 1.5
+        alpha = -omega**2
+        Eex   = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+        f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                    alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
-    l2_error, Eh = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2,2])
+        l2_error, Eh = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2,2])
 
-    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-    mappings_list = list(mappings.values())
-    mappings_list = [mapping.get_callable_mapping() for mapping in mappings_list]
+        mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+        mappings_list = list(mappings.values())
+        call_mappings_list = [m.get_callable_mapping() for m in mappings_list]
 
-    Eex_x   = lambdify(domain.coordinates, Eex[0])
-    Eex_y   = lambdify(domain.coordinates, Eex[1])
-    Eex_log = [pull_2d_hcurl([Eex_x,Eex_y], f) for f in mappings_list]
+        Eex_x   = lambdify(domain.coordinates, Eex[0])
+        Eex_y   = lambdify(domain.coordinates, Eex[1])
+        Eex_log = [pull_2d_hcurl([Eex_x,Eex_y], f) for f in call_mappings_list]
 
-    etas, xx, yy         = get_plotting_grid(mappings, N=20)
-    grid_vals_hcurl      = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='hcurl')
+        etas, xx, yy         = get_plotting_grid(mappings, N=20)
+        grid_vals_hcurl      = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='hcurl')
 
-    Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
-    E_x_vals, E_y_vals   = grid_vals_hcurl(Eex_log)
+        Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
+        E_x_vals, E_y_vals   = grid_vals_hcurl(Eex_log)
 
-    E_x_err              = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
-    E_y_err              = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
+        E_x_err              = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
+        E_y_err              = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
 
-    my_small_plot(
-        title=r'approximation of solution $u$, $x$ component',
-        vals=[E_x_vals, Eh_x_vals, E_x_err],
-        titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
-        xx=xx,
-        yy=yy,
-        gridlines_x1=None,
-        gridlines_x2=None,
-    )
+        my_small_plot(
+            title=r'approximation of solution $u$, $x$ component',
+            vals=[E_x_vals, Eh_x_vals, E_x_err],
+            titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+            xx=xx,
+            yy=yy,
+            gridlines_x1=None,
+            gridlines_x2=None,
+        )
 
-    my_small_plot(
-        title=r'approximation of solution $u$, $y$ component',
-        vals=[E_y_vals, Eh_y_vals, E_y_err],
-        titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
-        xx=xx,
-        yy=yy,
-        gridlines_x1=None,
-        gridlines_x2=None,
-    )
+        my_small_plot(
+            title=r'approximation of solution $u$, $y$ component',
+            vals=[E_y_vals, Eh_y_vals, E_y_err],
+            titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
+            xx=xx,
+            yy=yy,
+            gridlines_x1=None,
+            gridlines_x2=None,
+        )

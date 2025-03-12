@@ -39,7 +39,7 @@ def inverse(A, solver, **kwargs):
     A : psydac.linalg.basic.LinearOperator
         Left-hand-side matrix A of linear system; individual entries A[i,j]
         can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
-        function (i.e. matrix-vector product A*p).
+        function (e.g. a matrix-vector product A*p).
 
     solver : str
         Preferred iterative solver. Options are: 'cg', 'pcg', 'bicg',
@@ -946,7 +946,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
         rp.copy(out=rp0)
 
         # squared residual norm and squared tolerance
-        res_sqr = r.dot(r)
+        res_sqr = r.dot(r).real
         tol_sqr = tol**2
 
         if verbose:
@@ -1007,7 +1007,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
             pp += rp
 
             # new residual norm
-            res_sqr = r.dot(r)
+            res_sqr = r.dot(r).real
 
             niter += 1
 
@@ -1165,7 +1165,7 @@ class MinimumResidual(InverseLinearOperator):
         A.dot(x, out=y)
         y -= b
         y *= -1.0
-        y.copy(out=res_old)
+        y.copy(out=res_old)   # res = b - A*x
 
         beta = sqrt(res_old.dot(res_old))
 
@@ -1193,8 +1193,15 @@ class MinimumResidual(InverseLinearOperator):
             print( "+---------+---------------------+")
             template = "| {:7d} | {:19.2e} |"
 
+        # check whether solution is already converged:
+        if beta < tol:
+            istop = 1
+            rnorm = beta
+            if verbose:
+                print( template.format(itn, rnorm ))
 
-        for itn in range(1, maxiter + 1 ):
+        while istop == 0 and itn < maxiter:
+            itn += 1
 
             s = 1.0/beta
             y.copy(out=v)
@@ -1797,6 +1804,10 @@ class GMRES(InverseLinearOperator):
         r -= b
 
         am = sqrt(r.dot(r).real)
+        if am < tol:
+            self._info = {'niter': 1, 'success': am < tol, 'res_norm': am }
+            return x
+
         beta.append(am)
         r *= - 1 / am
         

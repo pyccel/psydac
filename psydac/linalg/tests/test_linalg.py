@@ -20,7 +20,7 @@ def array_equal(a, b):
 def sparse_equal(a, b):
     return (a.tosparse() != b.tosparse()).nnz == 0
 
-def is_pos_def(A):
+def assert_pos_def(A):
     assert isinstance(A, LinearOperator)
     A_array = A.toarray()
     assert np.all(np.linalg.eigvals(A_array) > 0)
@@ -50,7 +50,7 @@ def get_StencilVectorSpace(n1, n2, p1, p2, P1, P2):
     V = StencilVectorSpace(C)
     return V
 
-def get_positive_definite_stencilmatrix(V):
+def get_positive_definite_StencilMatrix(V):
 
     np.random.seed(2)
     assert isinstance(V, StencilVectorSpace)
@@ -368,12 +368,10 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(B - B1, BlockLinearOperator)
 
     # Adding and Substracting BlockLOs and other LOs returns a SumLinearOperator object
-    # Update 21.12.: ZeroLOs and IdentityLOs from and/or to BlockVectorSpaces are now BlockLOs
-    # thus the sums/differences below should be BlockLOs again
-    assert isinstance(B + BI, BlockLinearOperator)
-    assert isinstance(BI + B, BlockLinearOperator)
-    assert isinstance(B - BI, BlockLinearOperator)
-    assert isinstance(BI - B, BlockLinearOperator)
+    assert isinstance(B + BI, SumLinearOperator)
+    assert isinstance(BI + B, SumLinearOperator)
+    assert isinstance(B - BI, SumLinearOperator)
+    assert isinstance(BI - B, SumLinearOperator)
 
     # Negating a BlockLO works as intended
     assert isinstance(-B, BlockLinearOperator)
@@ -426,19 +424,18 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(BZ @ B, ComposedLinearOperator)
 
     # Composing a BlockLO with the IdentityOperator does not change the object
-    # due to the 21.12. change not valid anymore
-    #assert B @ BI == B
-    #assert BI @ B == B
-    # but: 
-    assert array_equal((B @ BI) @ vb, B @ vb)
-    assert array_equal((BI @ B) @ vb, B @ vb)
+    assert B @ BI == B
+    assert BI @ B == B
 
-    ## ___Raising to the power of 0 and 1___
+    ## ___Raising to the power of 1___
 
-    # Raising a BlockLO to the power of 1 or 0 does not change the object / returns an IdentityOperator
-    # 21.12. change: B**0 a BlockLO with IdentityLOs at the diagonal
+    # Raising a BlockLO to the power of 1 does not change the object
     assert B**1 is B
-    assert isinstance(B**0, BlockLinearOperator)
+
+    ## ___Raising to the power of 0___
+
+    # Raising a BlockLO to the power of 0 returns an IdentityOperator
+    assert isinstance(B**0, IdentityOperator)
     assert sparse_equal(B**0, BI)
 
 #===============================================================================
@@ -453,29 +450,37 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
 
     # Initiate StencilVectorSpace
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-
+    Vc = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    Vc._dtype = complex
     v = StencilVector(V)
+    vc = StencilVector(Vc)
     v_array = np.zeros(n1*n2)
 
     for i in range(n1):
         for j in range(n2):
             v[i,j] = i+1
             v_array[i*n2+j] = i+1
+            vc[i,j] = i+1       
     
     I1 = IdentityOperator(V,V)
     I2 = IdentityOperator(V,V)
     I3 = IdentityOperator(V,V)
+    I4 = IdentityOperator(Vc,Vc)
 
     I1 *= 0
     I2 *= 1
     I3 *= 3
     v3 = I3.dot(v)
+    I4 *= 3j
+    v4 = I4.dot(vc)
 
     assert np.array_equal(v.toarray(), v_array)
     assert isinstance(I1, ZeroOperator)
     assert isinstance(I2, IdentityOperator)
     assert isinstance(I3, ScaledLinearOperator)
     assert np.array_equal(v3.toarray(), np.dot(v_array, 3))
+    assert isinstance(I4, ScaledLinearOperator)
+    assert np.array_equal(v4.toarray(), np.dot(v_array, 3j))
 
     # testing __iadd__ and __isub__ although not explicitly implemented (in the LinearOperator class)
 
@@ -525,7 +530,7 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(Z3, StencilMatrix)
     assert isinstance(T, StencilMatrix)
     assert np.array_equal(w2.toarray(), np.dot(np.dot(2, Sa), v_array))
-    
+ 
 #===============================================================================
 @pytest.mark.parametrize('n1', n1array)
 @pytest.mark.parametrize('n2', n2array)
@@ -621,6 +626,12 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     ### -1,T & T,-1 --- -1,T,T --- -1,T,-1 --- T,-1,-1 --- T,-1,T (the combinations I test)
     ###
 
+    # Square root test
+    scaled_matrix = B * np.random.random() # Ensure the diagonal elements != 1
+    diagonal_values = scaled_matrix.diagonal(sqrt=False).toarray()
+    sqrt_diagonal_values = scaled_matrix.diagonal(sqrt=True).toarray()
+    assert np.array_equal(sqrt_diagonal_values, np.sqrt(diagonal_values))
+
     tol = 1e-5
     C = inverse(B, 'cg', tol=tol)
     P = B.diagonal(inverse=True)
@@ -700,9 +711,9 @@ def test_positive_definite_matrix(n1, n2, p1, p2):
     P1 = False
     P2 = False
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-    S = get_positive_definite_stencilmatrix(V)
+    S = get_positive_definite_StencilMatrix(V)
 
-    is_pos_def(S)
+    assert_pos_def(S)
 
 #===============================================================================
 @pytest.mark.parametrize('n1', [3, 5])
@@ -745,7 +756,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
     
     # Initiate positive definite StencilMatrices for which the cg inverse works (necessary for certain tests)
-    S = get_positive_definite_stencilmatrix(V)
+    S = get_positive_definite_StencilMatrix(V)
 
     # Initiate StencilVectors 
     v = StencilVector(V)
@@ -769,7 +780,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
 
     ### 2.1 PowerLO test
     Bmat = B.toarray()
-    is_pos_def(B)
+    assert_pos_def(B)
     uarr = u.toarray()
     b0 = ( B**0 @ u ).toarray()
     b1 = ( B**1 @ u ).toarray()
@@ -799,7 +810,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
     assert np.array_equal(zeros, z2)
 
     Smat = S.toarray()
-    is_pos_def(S)
+    assert_pos_def(S)
     varr = v.toarray()
     s0 = ( S**0 @ v ).toarray()
     s1 = ( S**1 @ v ).toarray()
@@ -960,8 +971,8 @@ def test_x0update(solver):
     P1 = False
     P2 = False
     V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-    A = get_positive_definite_stencilmatrix(V)
-    is_pos_def(A)
+    A = get_positive_definite_StencilMatrix(V)
+    assert_pos_def(A)
     b = StencilVector(V)
     for n in range(n1):
         b[n, :] = 1.

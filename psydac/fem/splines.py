@@ -21,7 +21,6 @@ from psydac.core.bsplines         import (
         basis_integrals,
         )
 
-from psydac.utilities.quadratures import gauss_legendre
 from psydac.utilities.utils import unroll_edges, refine_array_1d
 from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
 
@@ -63,8 +62,8 @@ class SplineSpace( FemSpace ):
         Set to "M" for M-splines (have unit integrals)
 
     """
-    def __init__( self, degree, knots=None, grid=None, multiplicity=None, parent_multiplicity=None,
-                  periodic=False, dirichlet=(False, False), basis='B', pads=None ):
+    def __init__(self, degree, knots=None, grid=None, multiplicity=None, parent_multiplicity=None,
+                 periodic=False, dirichlet=(False, False), basis='B', pads=None):
 
         if basis not in ['B', 'M']:
             raise ValueError(" only options for basis functions are B or M ")
@@ -194,7 +193,7 @@ class SplineSpace( FemSpace ):
             for i,j in zip( *cmat.nonzero() ):
                 bmat[u+l+i-j,j] = cmat[i,j]
             self._interpolator = BandedSolver( u, l, bmat )
-            self.imat = imat
+        self.imat = imat
 
         # Store flag
         self._interpolation_ready = True

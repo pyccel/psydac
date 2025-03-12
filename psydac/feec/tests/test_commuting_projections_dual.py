@@ -11,7 +11,7 @@ import pytest
 
 
 @pytest.mark.parametrize('Nel', [8, 12])
-@pytest.mark.parametrize('Nq', [4])
+@pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('bc', [True, False])
 @pytest.mark.parametrize('m', [1,2])
@@ -59,7 +59,7 @@ def test_weak_gradient_3d(Nel, Nq, p, bc, m):
     domain = Cube('domain', bounds1=(0, L[0]), bounds2=(0,L[1]), bounds3=(0,L[2]))
     derham = Derham(domain)
     domain_h = discretize(domain, ncells=Nel, periodic=bc)
-    derham_h = discretize(derham, domain_h, degree=p, nquads=Nq, multiplicity=m)
+    derham_h = discretize(derham, domain_h, degree=p, multiplicity=m)
 
     v2 = element_of(derham.V2, name='v2')
     v3 = element_of(derham.V3, name='v3')
@@ -76,8 +76,9 @@ def test_weak_gradient_3d(Nel, Nq, p, bc, m):
     error = abs((u2-divT_u3).toarray()).max()
     assert error < 2e-10
 
+
 @pytest.mark.parametrize('Nel', [8, 12])
-@pytest.mark.parametrize('Nq', [5])
+@pytest.mark.parametrize('Nq', [6])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('bc', [True, False])
 @pytest.mark.parametrize('m', [1,2])
@@ -139,7 +140,7 @@ def test_weak_curl_3d(Nel, Nq, p, bc, m):
     domain = Cube('domain', bounds1=(0, L[0]), bounds2=(0,L[1]), bounds3=(0,L[2]))
     derham = Derham(domain)
     domain_h = discretize(domain, ncells=Nel, periodic=bc)
-    derham_h = discretize(derham, domain_h, degree=p, nquads=Nq, multiplicity=m)
+    derham_h = discretize(derham, domain_h, degree=p, multiplicity=m)
 
     v1 = element_of(derham.V1, name='v1')
     v2 = element_of(derham.V2, name='v2')
@@ -156,8 +157,9 @@ def test_weak_curl_3d(Nel, Nq, p, bc, m):
     error = abs((u1-curlT_u2).toarray()).max()
     assert error < 2e-9
 
+
 @pytest.mark.parametrize('Nel', [8, 12])
-@pytest.mark.parametrize('Nq', [5])
+@pytest.mark.parametrize('Nq', [6])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('bc', [True, False])
 @pytest.mark.parametrize('m', [1,2])
@@ -208,7 +210,7 @@ def test_weak_divergence_3d(Nel, Nq, p, bc, m):
     domain = Cube('domain', bounds1=(0, L[0]), bounds2=(0,L[1]), bounds3=(0,L[2]))
     derham = Derham(domain)
     domain_h = discretize(domain, ncells=Nel, periodic=bc)
-    derham_h = discretize(derham, domain_h, degree=p, nquads=Nq, multiplicity=m)
+    derham_h = discretize(derham, domain_h, degree=p, multiplicity=m)
 
     v0 = element_of(derham.V0, name='v0')
     v1 = element_of(derham.V1, name='v1')
@@ -224,6 +226,7 @@ def test_weak_divergence_3d(Nel, Nq, p, bc, m):
 
     error = abs((u0-gradT_u1).toarray()).max()
     assert error < 5e-10
+
 
 #==============================================================================
 if __name__ == '__main__':

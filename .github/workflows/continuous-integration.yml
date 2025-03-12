@@ -15,18 +15,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest ]
-        python-version: [ 3.8, 3.9, '3.10', '3.11' ]
+        os: [ ubuntu-24.04 ]
+        python-version: [ 3.9, '3.10', '3.11', '3.12' ]
         isMerge:
           - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
         exclude:
-          - { isMerge: false, python-version: 3.9 }
           - { isMerge: false, python-version: '3.10' }
+          - { isMerge: false, python-version: '3.11' }
         include:
-          - os: macos-latest
+          - os: macos-14
             python-version: '3.10'
+          - os: macos-14
+            python-version: '3.11'
 
     name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+
+    env:
+      PSYDAC_MESH_DIR: ${{ github.workspace }}/mesh
+      OMP_NUM_THREADS: 2
 
     steps:
       - uses: actions/checkout@v4
@@ -35,24 +41,44 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+            requirements_extra.txt
 
       - name: Install non-Python dependencies on Ubuntu
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: gfortran openmpi-bin libopenmpi-dev libhdf5-openmpi-dev
+          version: 1.0
+          execute_install_scripts: true
+
+      # When loading cached apt packages, the default MPI compiler isn't set.
+      # Workaround is to 'reinstall' openmpi-bin, which doesn't actually perform
+      # installation (since openmpi-bin already exists), but instead reruns
+      # `update-alternatives` which fixes the symlinks to mpicc/mpif90.
+      - name: Reconfigure non-Python dependencies on Ubuntu
+        if: matrix.os == 'ubuntu-24.04'
         run: |
           sudo apt-get update
-          sudo apt-get install gfortran
-          sudo apt-get install openmpi-bin libopenmpi-dev
-          sudo apt-get install libhdf5-openmpi-dev
+          sudo apt-get install --reinstall openmpi-bin libhdf5-openmpi-dev liblapack-dev libblas-dev
 
       - name: Install non-Python dependencies on macOS
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-14'
         run: |
           brew install open-mpi
           brew install hdf5-mpi
           brew install libomp
-          if [[ ! -f "/usr/local/bin/gfortran" ]]; then
-            gfort=$(ls /usr/local/bin/gfortran-* | tail -n 1)
-            ln -s ${gfort} /usr/local/bin/gfortran
+          GFORTRAN_HOME=$(which gfortran || true)
+          echo "GFORTRAN_HOME : $GFORTRAN_HOME"
+          if [[ ! -f "$GFORTRAN_HOME" ]]; then
+            gfort=$(find ${PATH//:/\/ } -name 'gfortran-*' -exec basename {} \; | sort | tail -n 1 || true)
+            echo "Found $gfort"
+            gfort_path=$(which ${gfort})
+            folder=$(dirname ${gfort_path})
+            ln -s ${gfort_path} ${folder}/gfortran
           fi
           echo "MPI_OPTS=--oversubscribe" >> $GITHUB_ENV
 
@@ -65,41 +91,48 @@ jobs:
         run: |
           python -m pip install --upgrade pip
 
-#      - name: Get pip cache dir
-#        id: pip-cache-dir
-#        run: |
-#          echo "::set-output name=dir::$(python -m pip cache dir)"
-#
-#      - name: pip cache
-#        uses: actions/cache@v2
-#        id: pip-cache
-#        with:
-#          path: ${{ steps.pip-cache-dir.outputs.dir }}
-#          key: ${{ matrix.os }}-${{ matrix.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
-#          restore-keys: |
-#            ${{ matrix.os }}-${{ matrix.python-version }}-pip-
-
       - name: Determine directory of parallel HDF5 library
         run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
-          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            HDF5_DIR=$((h5pcc -showconfig -echo || true) | grep "Installation point:" | cut -d ":" -f2 | tr -d " ")
+          if [[ "${{ matrix.os }}" == "ubuntu-24.04" ]]; then
+            HDF5_DIR=$(dpkg -L libhdf5-openmpi-dev | grep libhdf5.so | xargs dirname)
+          elif [[ "${{ matrix.os }}" == "macos-14" ]]; then
+            HDF5_DIR=$(brew list hdf5-mpi | grep "libhdf5.dylib" | xargs dirname | xargs dirname)
           fi
           echo $HDF5_DIR
           echo "HDF5_DIR=$HDF5_DIR" >> $GITHUB_ENV
 
-      - name: Download a specific release of PETSc
-        run: |
-          git clone --depth 1 --branch v3.20.5 https://gitlab.com/petsc/petsc.git
+      - name: Cache PETSc
+        uses: actions/cache@v4
+        id: cache-petsc
+        env:
+          cache-name: cache-PETSc
+        with:
+          path: "./petsc"
+          key: petsc-${{ matrix.os }}-${{ matrix.python-version }}
 
-      - name: Install PETSc with complex support, and test it
+      - if: steps.cache-petsc.outputs.cache-hit != 'true'
+        name: Download a specific release of PETSc
+        run: |
+          git clone --depth 1 --branch v3.22.2 https://gitlab.com/petsc/petsc.git
+
+      - if: steps.cache-petsc.outputs.cache-hit != 'true'
+        name: Install PETSc with complex support
         working-directory: ./petsc
         run: |
           export PETSC_DIR=$(pwd)
           export PETSC_ARCH=petsc-cmplx
           ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1         
-          make all check
+          make all
+          echo "PETSC_DIR=$PETSC_DIR" > petsc.env
+          echo "PETSC_ARCH=$PETSC_ARCH" >> petsc.env
+
+      # This step is not really necessary and could be combined with PETSc install
+      # step; however it's good to verify if the cached PETSc installation really works!
+      - name: Test PETSc installation
+        working-directory: ./petsc
+        run: |
+          source petsc.env
+          make check
           echo "PETSC_DIR=$PETSC_DIR" >> $GITHUB_ENV
           echo "PETSC_ARCH=$PETSC_ARCH" >> $GITHUB_ENV
 
@@ -111,54 +144,80 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          export CC="mpicc" HDF5_MPI="ON"
+          export CC="mpicc"
+          export HDF5_MPI="ON"
           python -m pip install -r requirements.txt
-          python -m pip install -r requirements_extra.txt --no-build-isolation
+          python -m pip install -r requirements_extra.txt --no-build-isolation --no-cache-dir
           python -m pip list
 
-      - name: Check h5py installation
+      - name: Check parallel h5py installation
         run: |
-            python -c "from h5py import File; print(File)"
+            python -c "
+            from mpi4py import MPI
+            import h5py
+            # This particular instantiation of h5py.File will fail if parallel h5py isn't installed
+            f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD)
+            print(f)"
 
       - name: Install project
         run: |
-          python -m pip install .
+          python -m pip install .[test]
           python -m pip freeze
+
+      - name: Test Pyccel optimization flags
+        run: |
+          pytest --pyargs psydac -m pyccel --capture=no
 
       - name: Initialize test directory
         run: |
           mkdir pytest
           cp mpi_tester.py pytest
 
-      - name: Run single-process tests with Pytest
+      - name: Run coverage tests on macOS
+        if: matrix.os == 'macos-14'
+        working-directory: ./pytest
+        run: >- 
+          python -m pytest -n auto
+          --cov psydac
+          --cov-config $GITHUB_WORKSPACE/pyproject.toml
+          --cov-report xml
+          --pyargs psydac -m "not parallel and not petsc"
+
+      - name: Run single-process tests with Pytest on Ubuntu
+        if: matrix.os == 'ubuntu-24.04'
         working-directory: ./pytest
         run: |
-          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
-          export OMP_NUM_THREADS=2
           python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
+
+      - name: Upload coverage report to Codacy
+        if: matrix.os == 'macos-14'
+        uses: codacy/codacy-coverage-reporter-action@v1.3.0
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          coverage-reports: ./pytest/coverage.xml
+
+      - name: Print detailed coverage results on macOS
+        if: matrix.os == 'macos-14'
+        working-directory: ./pytest
+        run: |
+          coverage report --ignore-errors --show-missing --sort=cover
 
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
         run: |
-          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
-          export OMP_NUM_THREADS=2
           python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and not petsc"
 
       - name: Run single-process PETSc tests with Pytest
         working-directory: ./pytest
         run: |
-          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
-          export OMP_NUM_THREADS=2
           python -m pytest -n auto --pyargs psydac -m "not parallel and petsc"
 
       - name: Run MPI PETSc tests with Pytest
         working-directory: ./pytest
         run: |
-          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
-          export OMP_NUM_THREADS=2
           python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc"
 
       - name: Remove test directory
-        if: ${{ always() }}
+        if: always()
         run: |
           rm -rf pytest
