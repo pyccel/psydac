@@ -90,9 +90,9 @@ class VectorFemSpace( FemSpace ):
         """Returns the vector space of the coefficients (mapping invariant)."""
         return self._vector_space
 
-    @property
-    def is_product(self):
-        return True
+    # @property
+    # def is_product(self):
+    #     return True
 
     @property
     def is_multipatch(self):
@@ -418,9 +418,9 @@ class MultipatchFemSpace( FemSpace ):
         """Returns the vector space of the coefficients (mapping invariant)."""
         return self._vector_space
 
-    @property
-    def is_product(self):
-        return True
+    # @property
+    # def is_product(self):
+    #     return True
 
     @property
     def is_multipatch(self):

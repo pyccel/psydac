@@ -158,9 +158,9 @@ class TensorFemSpace(FemSpace):
         """Returns the topological associated vector space."""
         return self._vector_space
 
-    @property
-    def is_product(self):
-        return False
+    # @property
+    # def is_product(self):
+    #     return False
 
     @property
     def is_multipatch(self):

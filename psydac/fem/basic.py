@@ -58,7 +58,7 @@ class FemSpace( metaclass=ABCMeta ):
         """Topologically associated vector space."""
 
     @property
-    @abstractmethod
+    # @abstractmethod
     def is_product( self ):
         """
         Boolean flag that describes whether the space is a product space.
@@ -66,7 +66,7 @@ class FemSpace( metaclass=ABCMeta ):
 
         """
         # todo (MCP 4.03.25) try this:
-        # return self.is_vector_valued or self.is_multipatch
+        return self.is_multipatch or self.is_vector_valued
 
     @property
     @abstractmethod
