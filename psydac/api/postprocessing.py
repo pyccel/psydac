@@ -426,7 +426,7 @@ class OutputManager:
         Adds a vector space to the scope.
         Parameters
         ----------
-        vector_space: psydac.fem.vector.VectorFemSpace or psydac.fem.vector.ProductFemSpace
+        vector_space: psydac.fem.vector.VectorFemSpace or psydac.fem.vector.MultipatchFemSpace  # todo [MCP 12.03.2025]: check these types
             Vector/Product FemSpace to add to the scope.
         """
 

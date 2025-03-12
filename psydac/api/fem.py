@@ -26,7 +26,7 @@ from psydac.linalg.basic     import ComposedLinearOperator
 from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
-from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
+from psydac.fem.vector       import VectorFemSpace
 from psydac.fem.basic        import FemField
 from psydac.fem.projectors   import knot_insertion_projection_operator
 from psydac.core.bsplines    import find_span, basis_funs_all_ders

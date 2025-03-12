@@ -8,7 +8,7 @@ from sympde.topology import Interface
 
 from psydac.ddm.cart       import CartDecomposition, InterfaceCartDecomposition, create_interfaces_cart
 from psydac.core.bsplines  import elements_spans
-from psydac.fem.vector     import ProductFemSpace, VectorFemSpace
+from psydac.fem.vector     import VectorFemSpace
 
 
 __all__ = (

@@ -6,7 +6,7 @@ import scipy.sparse as spa
 from psydac.linalg.stencil  import StencilVector, StencilMatrix, StencilVectorSpace
 from psydac.linalg.kron     import KroneckerStencilMatrix
 from psydac.linalg.block    import BlockVector, BlockLinearOperator
-from psydac.fem.vector      import ProductFemSpace, VectorFemSpace
+from psydac.fem.vector      import VectorFemSpace
 from psydac.fem.tensor      import TensorFemSpace
 from psydac.linalg.basic    import IdentityOperator
 from psydac.fem.basic       import FemField, FemSpace

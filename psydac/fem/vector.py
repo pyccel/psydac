@@ -18,7 +18,7 @@ from psydac.core.field_evaluation_kernels import (pushforward_2d_hdiv,
                                                   pushforward_2d_hcurl,
                                                   pushforward_3d_hcurl)
 
-__all__ = ('VectorFemSpace', 'ProductFemSpace')
+__all__ = ('VectorFemSpace', 'MultipatchFemSpace')
 
 #===============================================================================
 class VectorFemSpace( FemSpace ):
@@ -360,10 +360,9 @@ class VectorFemSpace( FemSpace ):
         return txt
 
 #===============================================================================
-class ProductFemSpace( FemSpace ):
+class MultipatchFemSpace( FemSpace ):
     """
-    Product of FEM spaces
-    this class is used to represent FEM spaces on a multi-patch domain.
+    Product of single-patch FEM spaces
     """
 
     def __new__(cls, *spaces, connectivity=None):
@@ -623,11 +622,11 @@ class ProductFemSpace( FemSpace ):
 
     # ...
     def eval_field_gradient( self, field, *eta ):
-        raise NotImplementedError( "ProductFemSpace not yet operational" )
+        raise NotImplementedError( "MultipatchFemSpace not yet operational" )
 
     # ...
     def integral( self, f ):
-        raise NotImplementedError( "ProductFemSpace not yet operational" )
+        raise NotImplementedError( "MultipatchFemSpace not yet operational" )
 
     #--------------------------------------------------------------------------
     # Other properties and methods

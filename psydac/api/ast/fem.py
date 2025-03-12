@@ -49,7 +49,7 @@ from .nodes import Block, ParallelBlock
 from psydac.api.ast.utilities import variables
 from psydac.api.utilities     import flatten
 from psydac.linalg.block      import BlockVectorSpace
-from psydac.fem.vector        import ProductFemSpace, VectorFemSpace
+from psydac.fem.vector        import VectorFemSpace
 
 #==============================================================================
 def toInteger(a):

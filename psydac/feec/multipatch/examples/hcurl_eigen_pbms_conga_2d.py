@@ -20,7 +20,6 @@ from psydac.feec.multipatch.utils_conga_2d import write_diags_to_file
 
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
-from psydac.fem.vector import ProductFemSpace
 
 from scipy.sparse.linalg import spilu, lgmres
 from scipy.sparse.linalg import LinearOperator, eigsh, minres

@@ -659,7 +659,7 @@ class Projector_H1vec(GlobalProjector):
     
     Parameters
     ----------
-    H1vec : ProductFemSpace
+    H1vec : FemSpace
         H1 x H1 x H1-conforming finite element space, codomain of the projection
         operator.
         

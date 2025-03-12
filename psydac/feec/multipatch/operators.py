@@ -748,7 +748,7 @@ def get_K0_and_K0_inv(V0h, uniform_patches=False):
     if uniform_patches:
         print(' [[WARNING -- hack in get_K0_and_K0_inv: using copies of 1st-patch matrices in every patch ]] ')
 
-    V0 = V0h.symbolic_space   # VOh is ProductFemSpace
+    V0 = V0h.symbolic_space   # VOh is FemSpace
     domain = V0.domain
     K0_blocks = []
     K0_inv_blocks = []
@@ -798,7 +798,7 @@ def get_K1_and_K1_inv(V1h, uniform_patches=False):
     if uniform_patches:
         print(' [[WARNING -- hack in get_K1_and_K1_inv: using copies of 1st-patch matrices in every patch ]] ')
 
-    V1 = V1h.symbolic_space   # V1h is ProductFemSpace
+    V1 = V1h.symbolic_space   # V1h is FemSpace
     domain = V1.domain
     K1_blocks = []
     K1_inv_blocks = []
@@ -808,7 +808,7 @@ def get_K1_and_K1_inv(V1h, uniform_patches=False):
             K1_inv_k = K1_inv_blocks[0].copy()
 
         else:
-            # fem space on patch k: (ProductFemSpace (of TensorFemSpace (s))
+            # fem space on patch k:
             V1_k = V1h.spaces[k]
             K1_k_blocks = []
             for c in [0, 1]:    # dim of component
@@ -858,7 +858,7 @@ def get_K1_and_K1_inv(V1h, uniform_patches=False):
 #     """
 #     from pprint import pprint
 #
-#     V = Vh.symbolic_space   # VOh is ProductFemSpace
+#     V = Vh.symbolic_space   # VOh is FemSpace
 #     domain = V.domain
 #     M_blocks = []
 #     M_inv_blocks = []

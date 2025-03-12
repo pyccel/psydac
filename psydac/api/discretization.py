@@ -37,7 +37,7 @@ from psydac.api.utilities    import flatten
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.partitioning import create_cart, construct_connectivity, construct_interface_spaces, construct_reduced_interface_spaces
-from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
+from psydac.fem.vector       import MultipatchFemSpace, VectorFemSpace
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 from psydac.linalg.stencil   import StencilVectorSpace
@@ -115,7 +115,7 @@ def get_max_degree_of_one_space(Vh):
     elif isinstance(Vh, VectorFemSpace):
         return [max(p) for p in zip(*Vh.degree)]
 
-    elif isinstance(Vh, ProductFemSpace):
+    elif isinstance(Vh, MultipatchFemSpace):
         degree = [get_max_degree_of_one_space(Vh_i) for Vh_i in Vh.spaces]
         return [max(p) for p in zip(*degree)]
 
@@ -504,7 +504,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
     construct_reduced_interface_spaces(g_spaces, new_g_spaces, interiors, connectivity)
 
-    Vh = ProductFemSpace(*new_g_spaces.values(), connectivity=connectivity)
+    Vh = MultipatchFemSpace(*new_g_spaces.values(), connectivity=connectivity)
     Vh.symbolic_space = V
 
     return Vh

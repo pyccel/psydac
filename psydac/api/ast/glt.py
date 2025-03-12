@@ -45,7 +45,7 @@ from .utilities  import is_mapping
 from .utilities  import math_atoms_as_str
 from .evaluation import EvalArrayMapping, EvalArrayField
 
-from psydac.fem.vector  import ProductFemSpace
+from psydac.fem.vector  import MultipatchFemSpace
 from .nodes             import Zeros
 
 #==============================================================================
@@ -178,7 +178,7 @@ class GltKernel(SplBasic):
         n_elements = Vh.ncells
         degrees    = Vh.degree
         # TODO improve
-        if isinstance(Vh, ProductFemSpace):
+        if isinstance(Vh, MultipatchFemSpace):
             degrees = degrees[0]
         # ...
 
