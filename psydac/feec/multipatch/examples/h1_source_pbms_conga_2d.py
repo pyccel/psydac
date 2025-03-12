@@ -35,7 +35,6 @@ from psydac.feec.multipatch.utils_conga_2d import P0_phys
 
 from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
 from psydac.feec.multipatch.operators import HodgeOperator
-from psydac.feec.multipatch.plotting_utilities import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution_h1
 from psydac.feec.multipatch.utilities import time_count

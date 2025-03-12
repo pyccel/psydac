@@ -20,7 +20,7 @@ __all__ = (
     'get_plotting_grid',
     'get_diag_grid',
     'get_patch_knots_gridlines',
-    'plot_field',
+    'plot_field_2d',
     'my_small_plot',
     'my_small_streamplot')
 
@@ -256,7 +256,7 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
 # ------------------------------------------------------------------------------
 
 
-def plot_field(
+def plot_field_2d(
         fem_field=None,
         stencil_coeffs=None,
         numpy_coeffs=None,
@@ -315,7 +315,7 @@ def plot_field(
     vh_vals = grid_vals(vh)
     if plot_type == 'vector_field' and not vh.is_vector_valued:
         print(
-            "WARNING [plot_field]: vector_field plot is not possible with a scalar field, plotting the amplitude instead")
+            "WARNING [plot_field_2d]: vector_field plot is not possible with a scalar field, plotting the amplitude instead")
         plot_type = 'amplitude'
 
     if plot_type == 'vector_field':

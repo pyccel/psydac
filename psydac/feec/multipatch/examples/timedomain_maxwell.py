@@ -37,7 +37,7 @@ from psydac.feec.multipatch.api import discretize
 from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
 from psydac.feec.multipatch.operators import HodgeOperator, get_K0_and_K0_inv, get_K1_and_K1_inv
 # , write_field_to_diag_grid,
-from psydac.feec.multipatch.plotting_utilities import plot_field
+from psydac.fem.plotting_utilities import plot_field_2d as plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 # , get_praxial_Gaussian_beam_E, get_easy_Gaussian_beam_E, get_easy_Gaussian_beam_B,get_easy_Gaussian_beam_E_2, get_easy_Gaussian_beam_B_2
 from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution_hcurl, get_div_free_pulse, get_curl_free_pulse, get_Delta_phi_pulse, get_Gaussian_beam
