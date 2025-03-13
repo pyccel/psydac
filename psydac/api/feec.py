@@ -12,6 +12,7 @@ from psydac.feec.pull_push         import pull_3d_h1, pull_3d_hcurl, pull_3d_hdi
 from psydac.fem.basic              import FemSpace
 from psydac.fem.vector             import VectorFemSpace
 
+
 __all__ = ('DiscreteDerham',)
 
 #==============================================================================
@@ -263,4 +264,3 @@ class DiscreteDerham(BasicDiscrete):
                 return P0, P1, P2, P3, Pvec
             else : 
                 return P0, P1, P2, P3
-

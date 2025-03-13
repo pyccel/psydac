@@ -6,6 +6,7 @@ from mpi4py import MPI
 import os
 import numpy as np
 
+from sympy import lambdify
 from sympy import pi, cos, sin, Tuple, exp, atan, atan2
 
 from sympde.topology import Derham
@@ -336,7 +337,13 @@ def get_source_and_solution_hcurl(
     else:
         raise ValueError(source_type)
 
-    # u_ex = Tuple(0, 1)  # DEBUG
+    u_bc = [lambdify(domain.coordinates, u_bc[i]) for i in [0,1]]
+    u_ex = [lambdify(domain.coordinates, u_ex[i]) for i in [0,1]]
+    
+    # f_y = lambdify(domain.coordinates, f_phys[1])
+
+    # u_bc = lambdify(domain.coordinates, u_bc)
+    # u_ex = lambdify(domain.coordinates, u_ex)
     return f_vect, u_bc, u_ex, curl_u_ex, div_u_ex  # , phi, grad_phi
 
 

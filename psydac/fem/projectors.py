@@ -1,8 +1,17 @@
 import numpy as np
 
-from psydac.linalg.kron     import KroneckerDenseMatrix
-from psydac.core.bsplines   import hrefinement_matrix
-from psydac.linalg.stencil  import StencilVectorSpace
+from sympde.topology            import element_of
+from sympde.topology.space      import ScalarFunction
+from sympde.topology.mapping    import Mapping
+from sympde.calculus            import dot
+from sympde.expr.expr           import LinearForm, integral
+
+from psydac.api.settings        import PSYDAC_BACKENDS
+
+from psydac.linalg.kron         import KroneckerDenseMatrix
+from psydac.core.bsplines       import hrefinement_matrix
+from psydac.linalg.stencil      import StencilVectorSpace
+from psydac.fem.basic           import FemSpace
 
 __all__ = ('knots_to_insert', 'knot_insertion_projection_operator')
 
@@ -100,3 +109,63 @@ def knot_insertion_projection_operator(domain, codomain):
             ops.append(np.eye(d.nbasis))
 
     return KroneckerDenseMatrix(domain.vector_space, codomain.vector_space, *ops)
+
+
+def get_dual_dofs(Vh, f, domain_h, backend_language="python", return_format='stencil_array'):
+    """
+    return the dual dofs tilde_sigma_i(f) = < Lambda_i, f >_{L2} i = 1, .. dim(Vh)) of a given function f, as a stencil array or numpy array
+
+    Parameters
+    ----------
+    Vh : FemSpace
+        The discrete space for the dual dofs
+
+    f : <sympy.Expr>
+        The function used for evaluation
+
+    domain_h : 
+        The discrete domain corresponding to Vh
+
+    backend_language: <str>
+        The backend used to accelerate the code
+
+    return_format: <str>
+        The format of the dofs, can be 'stencil_array' or 'numpy_array'
+
+    Returns
+    -------
+    tilde_f: <Vector|ndarray>
+        The dual dofs
+    """
+
+    from psydac.api.discretization  import discretize 
+
+    assert isinstance(Vh, FemSpace)
+    # if space == 'V0':
+    #     Vh = self.V0
+    # elif space == 'V1':
+    #     Vh = self.V1
+    # elif space == 'V2':
+    #     Vh = self.V2
+    # else:
+    #     raise NotImplementedError("The space of kind {} is not available".format(space))
+
+    V  = Vh.symbolic_space
+    v  = element_of(V, name='v')
+
+    print(f'Vh.is_vector_valued = {Vh.is_vector_valued} ***** isinstance(v, ScalarFunction) = {isinstance(v, ScalarFunction)}')
+    if Vh.is_vector_valued: 
+        expr   = dot(f,v)
+    else:
+        #isinstance(v, ScalarFunction):
+        expr   = f*v
+
+    l        = LinearForm(v, integral( V.domain, expr))
+    lh       = discretize(l, domain_h, Vh, backend=PSYDAC_BACKENDS[backend_language])
+    tilde_f  = lh.assemble()
+
+    if return_format == 'numpy_array':
+        return tilde_f.toarray()
+    else:
+        return tilde_f
+

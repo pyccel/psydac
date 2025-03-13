@@ -63,7 +63,30 @@ class FemSpace( metaclass=ABCMeta ):
         """
         Boolean flag that describes whether the space is a product space.
         If True, an element of this space can be decomposed into separate fields.
+        
+        """
 
+    @property
+    @abstractmethod
+    def is_multipatch( self ):
+        """
+        Boolean flag that describes whether the space is a multi-patch space.
+
+        """
+
+    @property
+    @abstractmethod
+    def is_vector_valued( self ):
+        """
+        Boolean flag that describes whether the space is vector-valued.
+
+        """
+
+    @abstractmethod
+    def patch_space(self, i):
+        """
+        Return the space of the i-th patch.
+        (If single-patch space, return self.)
         """
 
     @property
@@ -231,7 +254,7 @@ class FemField:
             coeffs = space.vector_space.zeros()
 
         # Case of a vector field, element of a ProductSpace
-        if space.is_product:
+        if space.is_product:   # (MCP 4.02.25): this should be specified as 'if space.is_vector or space.is_multipatch'
             fields = tuple(FemField(V, c) for V, c in zip(space.spaces, coeffs))
         else:
             fields = tuple()
@@ -264,6 +287,17 @@ class FemField:
     @property
     def fields(self):
         return self._fields
+
+    @property
+    def is_vector_valued(self):
+        return self.space.is_vector_valued
+
+    def patch_field(self, i):
+        """ return field of patch i (if multipatch), or self if single patch """
+        if self.space.is_multipatch:
+            return self.fields[i]
+        else:
+            return self
 
     # ...
     def __getitem__(self, key):
