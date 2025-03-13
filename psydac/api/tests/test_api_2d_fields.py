@@ -94,7 +94,7 @@ def run_field_test(filename, f, do_plot=False):
     uh = equation_h.solve()
 
     if do_plot:
-        plot_fn=f'uh_{filename}_test.pdf'
+        plot_fn=f'uh_single_patch_test.pdf'
         plot_field(fem_field=uh, Vh=Vh, domain=domain, title='uh', filename=plot_fn, hide_plot=True)
 
     #+++++++++++++++++++++++++++++++
