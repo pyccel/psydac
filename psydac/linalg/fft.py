@@ -26,6 +26,9 @@ class DistributedFFTBase(LinearOperator):
 
     def tosparse(self):
         raise NotImplementedError('tosparse() is not defined for DistributedFFTBase.')
+    
+    def copy(self):
+        raise NotImplementedError('copy() is not implemented for DistributedFFTBase.')
 
     # Possible additions for the future:
     # * split off the LinearSolver class when used with the space ndarray (as used in the KroneckerLinearSolver),
