@@ -72,6 +72,9 @@ class KroneckerStencilMatrix(LinearOperator):
     @property
     def mats( self ):
         return self._mats
+    
+    def copy(self):
+        return KroneckerStencilMatrix(self.domain, self.codomain, *self.mats)
 
     # ...
     def dot(self, x, out=None):
@@ -257,6 +260,7 @@ class KroneckerDenseMatrix(LinearOperator):
         self._codomain = W
         self._mats     = list(args)
         self._ndim     = len(args)
+        self._with_pads = with_pads
 
     #--------------------------------------
     # Abstract interface
@@ -284,6 +288,9 @@ class KroneckerDenseMatrix(LinearOperator):
     @property
     def mats(self):
         return self._mats
+    
+    def copy(self):
+        return KroneckerDenseMatrix(self.domain, self.codomain, *self.mats, self._with_pads)
 
     # ...
     def dot(self, x, out=None):

@@ -58,6 +58,9 @@ class FemLinearOperator( LinearOperator ):
     @property
     def dtype( self ):
         return self.domain.dtype
+    
+    def copy(self):
+        return FemLinearOperator(self.fem_domain, self.fem_codomain, self.matrix, self._sparse_matrix)
 
     def toarray(self):
         return self._matrix.toarray()
@@ -135,6 +138,9 @@ class ComposedLinearOperator( FemLinearOperator ):
 
         # matrix not defined by matrix product because it could break the Stencil Matrix structure
 
+    def copy(self):
+        return ComposedLinearOperator(self._operators)
+
     def to_sparse_matrix( self,  **kwargs):
         mat = self._operators[-1].to_sparse_matrix()
         for i in range(2, self._n+1):
@@ -183,6 +189,9 @@ class SumLinearOperator( FemLinearOperator ):
         self._A = A
         self._B = B
 
+    def copy(self):
+        return SumLinearOperator(self._B, self._A)
+
     def to_sparse_matrix( self, **kwargs):
         return self._A.to_sparse_matrix() + self._B.to_sparse_matrix()
 
@@ -204,6 +213,9 @@ class MultLinearOperator( FemLinearOperator ):
         )
         self._A = A
         self._c = c
+
+    def copy(self):
+        return MultLinearOperator(self._c, self._A)
 
     def to_sparse_matrix( self,  **kwargs):
         return self._c * self._A.to_sparse_matrix()
