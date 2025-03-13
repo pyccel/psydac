@@ -13,7 +13,7 @@ from psydac.feec.multipatch.api import discretize
 from psydac.feec.multipatch.utilities import time_count  # , export_sol, import_sol
 from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic import FemField
-from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_quad_weights, get_grid_vals
+from psydac.fem.plotting_utilities import get_plotting_grid, get_grid_quad_weights, get_grid_vals
 
 
 # commuting projections on the physical domain (should probably be in the

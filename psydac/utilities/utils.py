@@ -109,13 +109,14 @@ def split_space(Xh):
          List of fem spaces.
     """
     from sympde.topology.space import VectorFunctionSpace
-    from psydac.fem.vector     import MultipatchFemSpace
+    # from psydac.fem.vector     import create_product_space
     V = Xh.symbolic_space
     spaces = Xh.spaces
     Vh    = []
     for Vi in V.spaces:
         if isinstance(Vi, VectorFunctionSpace):
-            Vh.append(MultipatchFemSpace(*spaces[:Vi.ldim]))
+            # Vh.append(create_product_space(*spaces[:Vi.ldim]))
+            Vh.append(VectorFunctionSpace(*spaces[:Vi.ldim]))
             Vh[-1].symbolic_space = Vi
             spaces = spaces[Vi.ldim:]
         else:

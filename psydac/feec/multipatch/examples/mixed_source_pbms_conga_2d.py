@@ -413,8 +413,9 @@ if __name__ == '__main__':
     # bc_type = 'pseudo-vacuum'
     source_type = 'dipole_J'
 
-    source_proj = 'P_L2_wcurl_J'
-
+    # source_proj = 'P_L2_wcurl_J'
+    source_proj = 'P_geom'
+    
     domain_name = 'pretzel_f'
     dim_harmonic_space = 3
 

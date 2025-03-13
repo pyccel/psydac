@@ -26,7 +26,7 @@ __all__ = (
 
 # ==============================================================================
 
-def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
+def get_grid_vals(u, etas, mappings_list, space_kind=None):
     """
     get the physical field values, given the logical field and the logical grid
     :param u: FemField or callable function
@@ -40,6 +40,13 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
         # then u should be callable
         vector_valued = isinstance(u, (list, tuple)) # [MCP 04.03.25]: this needs to be tested
 
+    if space_kind is None:
+        # use a simple change of variable
+        if vector_valued:
+            raise NotImplementedError('use simple change of variable for vector fields [todo]')
+        else:
+            space_kind = 'h1'
+            
     if vector_valued:
         # WARNING: here we assume 2D !
         u_vals_components = [n_patches * [None], n_patches * [None]]
@@ -69,7 +76,7 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
         # computing the pushed-fwd values on the grid
         if space_kind == 'h1' or space_kind == 'V0':
             assert not vector_valued
-            # todo (MCP): add 2d_hcurl_vector
+            # todo (MCP): allow for "h1 push-forward" (single change of variable) of vector-valued fields
 
             def push_field(
                 eta1, eta2): return push_2d_h1(
@@ -184,15 +191,11 @@ def get_plotting_grid(
     # etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
     etas = [[refine_array_1d(bounds, N_cells) for bounds in zip(
         grid_min_coords[k], grid_max_coords[k])] for k in range(nb_patches)]
-    mappings_lambda = [
-        lambdify(
-            M.logical_coordinates,
-            M.expressions) for d,
-        M in mappings.items()]
+    callable_mappings = [M.get_callable_mapping() for d, M in mappings.items()]
 
     pcoords = [np.array([[f(e1, e2) for e2 in eta[1]] for e1 in eta[0]])
-               for f, eta in zip(mappings_lambda, etas)]
-
+               for f, eta in zip(callable_mappings, etas)]
+    
     xx = [pcoords[k][:, :, 0] for k in range(nb_patches)]
     yy = [pcoords[k][:, :, 1] for k in range(nb_patches)]
 
@@ -208,18 +211,9 @@ def get_diag_grid(mappings, N):
     nb_patches = len(mappings)
     etas = [[refine_array_1d(bounds, N) for bounds in zip(
         D.min_coords, D.max_coords)] for D in mappings]
-    mappings_lambda = [
-        lambdify(
-            M.logical_coordinates,
-            M.expressions) for d,
-        M in mappings.items()]
-
+    callable_mappings = [M.get_callable_mapping() for d, M in mappings.items()]
     pcoords = [np.array([[f(e1, e2) for e2 in eta[1]] for e1 in eta[0]])
-               for f, eta in zip(mappings_lambda, etas)]
-
-    # pcoords  = np.concatenate(pcoords, axis=1)
-    # xx = pcoords[:,:,0]
-    # yy = pcoords[:,:,1]
+               for f, eta in zip(callable_mappings, etas)]
 
     xx = [pcoords[k][:, :, 0] for k in range(nb_patches)]
     yy = [pcoords[k][:, :, 1] for k in range(nb_patches)]
@@ -287,14 +281,11 @@ def plot_field_2d(
 
     space_kind : (str)
         type of the push-forward defining the physical Fem Space
+        ## todo [MCP 13.03.2025]: rename this argument to something like push_kind and check other similar arguments in the code
 
     N_vis : (int)
         nb of visualization points per patch (per dimension)
     """
-
-    if space_kind not in ['h1', 'hcurl', 'l2']:
-        raise ValueError(
-            'invalid value for space_kind = {}'.format(space_kind))
 
     vh = fem_field
     if vh is None:
@@ -303,9 +294,7 @@ def plot_field_2d(
             stencil_coeffs = array_to_psydac(numpy_coeffs, Vh.vector_space)
         vh = FemField(Vh, coeffs=stencil_coeffs)
 
-    mappings = OrderedDict([(P.logical_domain, P.mapping)
-                           for P in domain.interior])
-    # mappings = domain.mappings  # todo: use this once sympde PR #173 is merged
+    mappings = domain.mappings
     mappings_list = list(mappings.values())
     etas, xx, yy = get_plotting_grid(mappings, N=N_vis)
 

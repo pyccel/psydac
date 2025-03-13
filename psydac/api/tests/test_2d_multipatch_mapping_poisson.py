@@ -22,6 +22,7 @@ from sympde.expr.equation import find, EssentialBC
 from psydac.api.discretization     import discretize
 from psydac.api.tests.build_domain import build_pretzel
 from psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
+from psydac.fem.plotting_utilities import plot_field_2d as plot_field
 
 # ... get the mesh directory
 try:
@@ -159,7 +160,8 @@ def test_poisson_2d_2_patches_dirichlet_1():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_2_patches_dirichlet_2():
+@pytest.mark.parametrize('do_plot', [False, True])
+def test_poisson_2d_2_patches_dirichlet_2(do_plot):
 
     mapping_1 = IdentityMapping('M1', 2)
     mapping_2 = PolarMapping   ('M2', 2, c1 = 0., c2 = 0.5, rmin = 0., rmax=1.)
@@ -182,6 +184,10 @@ def test_poisson_2d_2_patches_dirichlet_2():
     f         = -4
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
+
+    if do_plot:
+        plot_fn=f'uh_multi_patch_test.pdf'
+        plot_field(fem_field=uh, Vh=uh.space, domain=domain, title='uh', filename=plot_fn, hide_plot=True)
 
     expected_l2_error = 0.0019402242901236006
     expected_h1_error = 0.024759527393621895
@@ -386,8 +392,8 @@ def teardown_function():
 
 if __name__ == '__main__':
 
-    from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
-    from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
+    from psydac.fem.plotting_utilities import get_plotting_grid, get_grid_vals
+    from psydac.fem.plotting_utilities import get_patch_knots_gridlines, my_small_plot
     from collections                               import OrderedDict
 
     domain    = build_pretzel()
@@ -396,6 +402,9 @@ if __name__ == '__main__':
     f         = -4
 
     l2_error, h1_error, u_h = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
+
+    # todo: use plot_field here..
+
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
 
