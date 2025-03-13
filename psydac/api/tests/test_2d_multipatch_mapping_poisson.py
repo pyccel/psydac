@@ -403,9 +403,8 @@ if __name__ == '__main__':
 
     l2_error, h1_error, u_h = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    # todo: use plot_field here..
-
-
+    # note: one could use plot_field_2d here
+    
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
 
     mappings_list = list(mappings.values())
