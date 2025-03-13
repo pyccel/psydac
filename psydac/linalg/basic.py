@@ -249,6 +249,10 @@ class LinearOperator(ABC):
         pass
 
     @abstractmethod
+    def copy(self):
+        pass
+
+    @abstractmethod
     def tosparse(self):
         pass
 
@@ -449,7 +453,7 @@ class ZeroOperator(LinearOperator):
         assert isinstance(B, LinearOperator)
         assert self.domain == B.domain
         assert self.codomain == B.codomain
-        return B
+        return B.copy()
 
     def __sub__(self, B):
         assert isinstance(B, LinearOperator)
@@ -584,6 +588,14 @@ class ScaledLinearOperator(LinearOperator):
     @property
     def dtype(self):
         return None
+    
+    def copy(self):
+        return ScaledLinearOperator(self.domain, self.codomain, self.scalar, self.operator)
+    
+    def set_scalar(self, c):
+        assert np.isscalar(c)
+        assert np.iscomplexobj(c) == (self.codomain._dtype == complex)
+        self._scalar = c
 
     def toarray(self):
         return self._scalar*self._operator.toarray() 
@@ -667,6 +679,9 @@ class SumLinearOperator(LinearOperator):
     @property
     def dtype(self):
         return None
+    
+    def copy(self):
+        return SumLinearOperator(self.domain, self.codomain, *self.addends)
 
     def toarray(self):
         out = np.zeros(self.shape, dtype=self.dtype)
@@ -798,6 +813,9 @@ class ComposedLinearOperator(LinearOperator):
     @property
     def dtype(self):
         return None
+    
+    def copy(self):
+        return ComposedLinearOperator(self.domain, self.codomain, *self.multiplicants)
 
     def toarray(self):
         raise NotImplementedError('toarray() is not defined for ComposedLinearOperators.')
@@ -905,6 +923,9 @@ class PowerLinearOperator(LinearOperator):
     def factorial(self):
         """ Returns the power to which the operator is raised. """
         return self._factorial
+    
+    def copy(self):
+        return PowerLinearOperator(self.domain, self.codomain, self.operator, self.factorial)
 
     def toarray(self):
         raise NotImplementedError('toarray() is not defined for PowerLinearOperators.')
@@ -1169,6 +1190,9 @@ class MatrixFreeLinearOperator(LinearOperator):
     @property
     def dtype(self):
         return None
+    
+    def copy(self):
+        return MatrixFreeLinearOperator(self.domain, self.codomain, self._dot, self._dot_transpose)
 
     def dot(self, v, out=None, **kwargs):
         assert isinstance(v, Vector)

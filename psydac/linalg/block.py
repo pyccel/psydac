@@ -1254,7 +1254,8 @@ class BlockLinearOperator(LinearOperator):
 
         if not all(isinstance(b, (StencilMatrix, StencilInterfaceMatrix)) for b in self._blocks.values()):
             for b in self._blocks.values():
-                b.set_backend(backend)
+                if getattr(b, "set_backend", None) is not None:
+                    b.set_backend(backend)
             return
 
         block_shape = (self.n_block_rows, self.n_block_cols)
