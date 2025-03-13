@@ -1248,6 +1248,34 @@ class DiscreteBilinearForm(BasicDiscrete):
         nu                  = len(set(trial_components))
         nv                  = len(set(test_components))
 
+        expr = self.kernel_expr.expr
+        if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
+            g_mat_information_false = []
+            shape = expr.shape
+            for k1 in range(shape[0]):
+                for k2 in range(shape[1]):
+                    if not expr[k1,k2].is_zero:
+                        if (nu == 1) and (nv > 1):
+                            g_mat_information_false.append((k2,k1))
+                        else:
+                            g_mat_information_false.append((k1,k2))
+            if nu == 1:
+                g_mat_information_true = [(0, get_atom_logical_derivatives(block[1]).indices[0]) for block in block_list]
+            elif nv == 1:
+                g_mat_information_true = [(get_atom_logical_derivatives(block[0]).indices[0], 0) for block in block_list]
+            else:
+                g_mat_information_true = [(get_atom_logical_derivatives(block[0]).indices[0], get_atom_logical_derivatives(block[1]).indices[0]) for block in block_list]
+        else:
+            g_mat_information_false = []
+            g_mat_information_true = []
+
+        '''
+        1, 1: expr[1,1] = F0*sqrt(x1**2*(x1*cos(2*pi*x3) + 2)**2*(sin(pi*x2)**2 + cos(pi*x2)**2)**2*(sin(2*pi*x3)**2 + cos(2*pi*x3)**2)**2)*(pi*(x1*cos(2*pi*x3) + 2)*
+        (-2*pi*x1*sin(pi*x2)*sin(2*pi*x3)*dx1(v1[1]) - sin(pi*x2)*cos(2*pi*x3)*dx3(v1[1]))*cos(pi*x2)*w2[1] - pi*(x1*cos(2*pi*x3) + 2)*(-2*pi*x1*sin(2*pi*x3)*cos(pi*x2)*dx1(v1[1]) - 
+        cos(pi*x2)*cos(2*pi*x3)*dx3(v1[1]))*sin(pi*x2)*w2[1])/(2*pi**2*x1**2*(x1*cos(2*pi*x3) + 2)**2*(sin(pi*x2)**2 + cos(pi*x2)**2)**2*(sin(2*pi*x3)**2 + cos(2*pi*x3)**2)**2)
+        = 0 - but is not yet detected as 0! Hence a matrix is generated, that later is not required!
+        '''
+
         if nv > 1:
             ct_str = 'coupling_terms_u_{u_i}_v_{v_j}' if nu > 1 else 'coupling_terms_u_v_{v_j}'
         else:
@@ -1271,7 +1299,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         temps = tuple(Assign(a,b) for a,b in temps)
 
-        return temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option, field_derivatives
+        return temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option, field_derivatives, g_mat_information_false, g_mat_information_true
 
     def construct_arguments_generate_assembly_file(self):
         """
@@ -1294,7 +1322,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         """
         verbose = False
 
-        temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option, field_derivatives = self.read_BilinearForm()
+        temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option, field_derivatives, g_mat_information_false, g_mat_information_true = self.read_BilinearForm()
 
         blocks              = ordered_stmts.keys()
         block_list          = list(blocks)
@@ -1466,7 +1494,16 @@ class DiscreteBilinearForm(BasicDiscrete):
                     *list(a2.values()),
                     *list(coupling_terms.values()))
         
-        args = (*map_basis, *spans, *map_span, *quads, *map_degree, *n_elements, *quad_degrees, *pads, *mapping, *self._global_matrices,
+        expr = self.kernel_expr.expr
+        if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
+            matrices = []
+            for i, block in enumerate(g_mat_information_false):
+                if block in g_mat_information_true:
+                    matrices.append(self._global_matrices[i])
+        else:
+            matrices = self._global_matrices
+
+        args = (*map_basis, *spans, *map_span, *quads, *map_degree, *n_elements, *quad_degrees, *pads, *mapping, *matrices,
                 *new_args)
         
         threads_args = ()
