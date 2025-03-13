@@ -428,6 +428,9 @@ class KroneckerLinearSolver(LinearOperator):
 
         # for now: allocate temporary arrays here (can be removed later)
         self._temp1, self._temp2 = self._allocate_temps()
+
+    def copy(self):
+        return KroneckerLinearSolver(self.domain, self.codomain, self.solvers)
     
     def _setup_solvers(self):
         """
