@@ -254,9 +254,8 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     ## ___Addition and Substraction with ZeroOperators___
 
     # Adding a ZeroOperator does not change the StencilMatrix
-    # Update: We now return a copy now
-    #assert (S + Z) is S
-    #assert (Z + S) is S
+    assert (S + Z) is S
+    assert (Z + S) is S
 
     # Substracting a ZeroOperator and substracting from a ZeroOperator work as intended
     assert (S - Z) is S

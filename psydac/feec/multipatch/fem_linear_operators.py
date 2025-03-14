@@ -166,6 +166,9 @@ class IdLinearOperator( FemLinearOperator ):
     def __init__( self, V ):
         FemLinearOperator.__init__(self, fem_domain=V)
 
+    def copy(self):
+        return IdLinearOperator(self.fem_domain)
+
     def to_sparse_matrix( self , **kwargs):
         return sparse_id( self.fem_domain.nbasis )
 

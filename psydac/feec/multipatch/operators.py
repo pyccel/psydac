@@ -472,6 +472,9 @@ class ConformingProjection_V0(FemLinearOperator):
                     storage_fn)
                 save_npz(storage_fn, self._sparse_matrix)
 
+    def copy(self):
+        raise NotImplementedError
+
     def set_homogenous_bc(self, boundary, rhs=None):
         domain = self.symbolic_domain
         Vh = self.fem_domain
@@ -720,6 +723,9 @@ class ConformingProjection_V1(FemLinearOperator):
                     "[ConformingProjection_V1] storing operator sparse matrix in " +
                     storage_fn)
                 save_npz(storage_fn, self._sparse_matrix)
+
+    def copy(self):
+        raise NotImplementedError
 
     def set_homogenous_bc(self, boundary):
         domain = self.symbolic_domain

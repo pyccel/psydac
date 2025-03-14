@@ -324,7 +324,7 @@ class LinearOperator(ABC):
         """ Creates an object of the class SumLinearOperator unless B is a ZeroOperator in which case self is returned. """
         assert isinstance(B, LinearOperator)
         if isinstance(B, ZeroOperator):
-            return self.copy()
+            return self
         else:
             return SumLinearOperator(self.domain, self.codomain, self, B)
 
@@ -453,7 +453,7 @@ class ZeroOperator(LinearOperator):
         assert isinstance(B, LinearOperator)
         assert self.domain == B.domain
         assert self.codomain == B.codomain
-        return B.copy()
+        return B
 
     def __sub__(self, B):
         assert isinstance(B, LinearOperator)
