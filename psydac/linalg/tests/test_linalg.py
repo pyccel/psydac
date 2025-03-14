@@ -1,22 +1,17 @@
 import pytest
 import numpy as np
 
+from sympde.calculus                import dot
+from sympde.expr                    import BilinearForm, integral
+from sympde.topology                import Derham, elements_of, Square
+
+from psydac.api.discretization      import discretize
+from psydac.api.settings            import PSYDAC_BACKEND_GPYCCEL
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.basic import LinearOperator, ZeroOperator, IdentityOperator, ComposedLinearOperator, SumLinearOperator, PowerLinearOperator, ScaledLinearOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.solvers import ConjugateGradient, inverse
 from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
-
-from sympde.calculus                import dot
-from sympde.expr                    import BilinearForm, integral
-from sympde.topology                import Cube, Derham, elements_of, Square
-
-from psydac.api.discretization      import discretize
-from psydac.api.settings            import PSYDAC_BACKENDS, PSYDAC_BACKEND_GPYCCEL
-from psydac.linalg.basic            import IdentityOperator, ZeroOperator
-from psydac.linalg.block            import BlockLinearOperator
-from psydac.linalg.solvers          import inverse
-from psydac.linalg.stencil          import StencilMatrix
 
 #===============================================================================
 
