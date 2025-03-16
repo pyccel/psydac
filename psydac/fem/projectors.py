@@ -4,7 +4,9 @@ from psydac.linalg.kron     import KroneckerDenseMatrix
 from psydac.core.bsplines   import hrefinement_matrix
 from psydac.linalg.stencil  import StencilVectorSpace
 
-__all__ = ('knots_to_insert', 'knot_insertion_projection_operator')
+from psydac.fem.basic       import FemSpace
+
+__all__ = ('knots_to_insert', 'knot_insertion_projection_operator', 'get_moments_of_function')
 
 def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
     """ Compute the point difference between the fine grid and coarse grid."""
@@ -100,3 +102,49 @@ def knot_insertion_projection_operator(domain, codomain):
             ops.append(np.eye(d.nbasis))
 
     return KroneckerDenseMatrix(domain.vector_space, codomain.vector_space, *ops)
+
+def get_moments_of_function(f, Vh, backend_language="python", return_format='stencil_array'):
+    """
+    return the integrals of some analytical f (given as symbolic expression) against the basis functions of some space Vh, i.e. the values    
+        tilde_sigma_i(f) = < Lambda_i, f >_{L2}   for i = 1 .. dim(Vh)
+    
+    note: 
+     - the values tilde_sigma_i(f) correspond to the dofs of f in the dual basis of Vh
+     - the coefficients c(f) of the L2 projection of f in Vh satisfy M @ c(f) = tilde_sigma(f)
+       where M is the mass matrix of Vh, with the basis Lambda.
+
+    Parameters
+    ----------
+    Vh : FemSpace
+
+    f : <sympy.Expr>
+
+    backend_language: <str>
+        The backend used to accelerate the code
+
+    return_format: <str>
+        The format of the dofs, can be 'stencil_array' or 'numpy_array'
+
+    Returns
+    -------
+    tilde_f: <Vector|ndarray>
+        The dual dofs of f
+    """
+    assert isinstance(Vh, FemSpace)
+
+    V  = Vh.symbolic_space
+    v  = element_of(V, name='v')
+
+    if isinstance(v, ScalarFunction):
+        expr   = f*v
+    else:
+        expr   = dot(f,v)
+
+    l        = LinearForm(v, integral( V.domain, expr))
+    lh       = discretize(l, self._domain_h, Vh, backend=PSYDAC_BACKENDS[backend_language])
+    tilde_f  = lh.assemble()
+
+    if return_format == 'numpy_array':
+        return tilde_f.toarray()
+    else:
+        return tilde_f

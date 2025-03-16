@@ -1068,17 +1068,22 @@ class HodgeOperator(FemLinearOperator):
                 self.assemble_primal_Hodge_matrix()
 
             M = self._matrix  # mass matrix of the (primal) basis
-            nrows = M.n_block_rows
-            ncols = M.n_block_cols
 
-            inv_M_blocks = []
-            for i in range(nrows):
-                Mii = M[i, i].tosparse()
-                inv_Mii = inv(Mii.tocsc())
-                inv_Mii.eliminate_zeros()
-                inv_M_blocks.append(inv_Mii)
+            if self.fem_domain.is_multipatch:
+                nrows = M.n_block_rows
+                ncols = M.n_block_cols
+                inv_M_blocks = []
+                for i in range(nrows):
+                    Mii = M[i, i].tosparse()
+                    inv_Mii = inv(Mii.tocsc())
+                    inv_Mii.eliminate_zeros()
+                    inv_M_blocks.append(inv_Mii)
+                inv_M = block_diag(inv_M_blocks)
 
-            inv_M = block_diag(inv_M_blocks)
+            else:
+                inv_M = inv(self._sparse_matrix.tocsc())
+                inv_M.eliminate_zeros()
+
             self._dual_Hodge_sparse_matrix = inv_M
 
 # ==============================================================================
