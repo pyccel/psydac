@@ -37,6 +37,7 @@ def solve_magnetostatic_pbm(
         gamma0_h=10., gamma1_h=10.,
         dim_harmonic_space=0,
         project_solution=False,
+        plot_eigenmodes=False,
         plot_source=False, plot_dir=None, hide_plots=True,
         m_load_dir="",
 ):
@@ -249,6 +250,10 @@ def solve_magnetostatic_pbm(
             if abs(lambda_i) > 1e-8:
                 print(" ****** WARNING! this eigenvalue should be 0!   ****** ")
             hf_cs.append(eigenvectors[:, i])
+            
+            if plot_eigenmodes:                
+                plot_field(numpy_coeffs=eigenvectors[:, i], Vh=V1h, space_kind='hcurl', plot_type='vector_field', domain=domain, title='eigenmode {0} with lambda_{0} = {1:.4f}'.format(i,lambda_i),
+                   filename=plot_dir + f'eigmode_{i}.png', hide_plot=hide_plots)
 
         # matrix of the coefs of the harmonic fields (Lambda^H_i) in the basis (Lambda_i), in the form:
         # hf_m = (c^H_{i,j})_{i < dim_harmonic_space, j < dim_V1}  such that
@@ -442,6 +447,7 @@ if __name__ == '__main__':
         backend_language='pyccel-gcc',
         dim_harmonic_space=dim_harmonic_space,
         plot_source=True,
+        plot_eigenmodes=True,
         plot_dir='./plots/magnetostatic_runs/' + run_dir,
         hide_plots=True,
         m_load_dir=m_load_dir
