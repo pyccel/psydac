@@ -280,8 +280,31 @@ class LinearOperator(ABC):
         #if the domain has the cart atrribute, in which case it will be a StencilVectorSpace.
         if  hasattr(self.domain, 'spaces'):
             BoS = "b"
+            comm = self.domain.spaces[0].cart.comm
+            
+            # we collect all starts and ends in two big lists
+            starts = [vi.starts for vi in v]
+            ends = [vi.ends for vi in v]
+            # We collect the dimension of the BlockVector
+            npts = [sp.npts for sp in self.domain.spaces]
+            # We get the number of space we have
+            nsp = len(self.domain.spaces)
+            # We get the number of dimensions each space has.
+            ndim = [sp.ndim for sp in self.domain.spaces]
+            
         elif hasattr(self.domain, 'cart'):
             BoS = "s"
+            comm = self.domain.cart.comm
+            
+            # We get the start and endpoint for each sublist in v
+            starts = [v.starts]
+            ends = [v.ends]
+            # We get the dimensions of the StencilVector
+            npts = [self.domain.npts]
+            # We get the number of space we have
+            nsp = 1
+            # We get the number of dimensions the StencilVectorSpace has.
+            ndim = [self.domain.ndim]
         else:
             raise Exception(
                 'The domain of the LinearOperator must be a BlockVectorSpace or a StencilVectorSpace.')
@@ -289,16 +312,80 @@ class LinearOperator(ABC):
         #We also need to know if the codomain is a StencilVectorSpace or a BlockVectorSpace
         if  hasattr(self.codomain, 'spaces'):
             BoS2 = "b"
+            
+            # Before we begin computing the dot products we need to know which entries of the output vector tmp2 belong to our rank.
+            # we collect all starts and ends in two big lists
+            starts2 = [vi.starts for vi in tmp2]
+            ends2 = [vi.ends for vi in tmp2]
+            # We collect the dimension of the BlockVector
+            npts2 = np.array([sp.npts for sp in self.codomain.spaces])
+            # We get the number of space we have
+            nsp2 = len(self.codomain.spaces)
+            # We get the number of dimensions each space has.
+            ndim2 = [sp.ndim for sp in self.codomain.spaces]
+            #We build the range of iteration
+            itterables2 = []
+            # since the size of npts changes denpending on h we need to compute a starting point for
+            # our row index
+            spoint2 = 0
+            if (is_sparse == False):
+                #We also get the BlockVector's pads
+                pds = np.array([vi.pads for vi in tmp2])
+                spoint2list = [np.int64(spoint2)]
+                for hh in range(nsp2):
+                    itterables2aux = []
+                    for ii in range(ndim2[hh]):
+                        itterables2aux.append(
+                            [starts2[hh][ii], ends2[hh][ii]+1])
+                    itterables2.append(itterables2aux)
+                    cummulative2 = 1
+                    for ii in range(ndim2[hh]):
+                        cummulative2 *= npts2[hh][ii]
+                    spoint2 += cummulative2
+                    spoint2list.append(spoint2) 
+            else:
+                spoint2list = [spoint2]
+                for hh in range(nsp2):
+                    itterables2aux = []
+                    for ii in range(ndim2[hh]):
+                        itterables2aux.append(
+                            range(starts2[hh][ii], ends2[hh][ii]+1))
+                    itterables2.append(itterables2aux)
+                    cummulative2 = 1
+                    for ii in range(ndim2[hh]):
+                        cummulative2 *= npts2[hh][ii]
+                    spoint2 += cummulative2
+                    spoint2list.append(spoint2)
+                    
         elif hasattr(self.codomain, 'cart'):
             BoS2 = "s"
+            
+            # Before we begin computing the dot products we need to know which entries of the output vector tmp2 belong to our rank.
+            # We get the start and endpoint for each sublist in tmp2
+            starts2 = tmp2.starts
+            ends2 = tmp2.ends
+            # We get the dimensions of the StencilVector
+            npts2 = np.array(self.codomain.npts)
+            # We get the number of space we have
+            nsp2 = 1
+            # We get the number of dimensions the StencilVectorSpace has.
+            ndim2 = self.codomain.ndim
+            #We build our ranges of iteration
+            itterables2 = []
+            if (is_sparse == False):
+                for ii in range(ndim2):
+                    itterables2.append([starts2[ii], ends2[ii]+1])
+                itterables2 = np.array(itterables2)
+                #We also get the StencilVector's pads
+                pds = np.array(tmp2.pads)
+            else:
+                for ii in range(ndim2):
+                    itterables2.append(
+                        range(starts2[ii], ends2[ii]+1))
         else:
             raise Exception(
                 'The codomain of the LinearOperator must be a BlockVectorSpace or a StencilVectorSpace.')
-        
-        if BoS == "b":
-            comm = self.domain.spaces[0].cart.comm
-        elif BoS == "s":
-            comm = self.domain.cart.comm
+            
         rank = comm.Get_rank()
         size = comm.Get_size()
 
@@ -321,29 +408,7 @@ class LinearOperator(ABC):
             data = []
             row = []
             colarr = []
-
-        # V is either a BlockVector or a StencilVector depending on the domain of the linear operator.
-        if BoS == "b":
-            # we collect all starts and ends in two big lists
-            starts = [vi.starts for vi in v]
-            ends = [vi.ends for vi in v]
-            # We collect the dimension of the BlockVector
-            npts = [sp.npts for sp in self.domain.spaces]
-            # We get the number of space we have
-            nsp = len(self.domain.spaces)
-            # We get the number of dimensions each space has.
-            ndim = [sp.ndim for sp in self.domain.spaces]
-        elif BoS == "s":
-            # We get the start and endpoint for each sublist in v
-            starts = [v.starts]
-            ends = [v.ends]
-            # We get the dimensions of the StencilVector
-            npts = [self.domain.npts]
-            # We get the number of space we have
-            nsp = 1
-            # We get the number of dimensions the StencilVectorSpace has.
-            ndim = [self.domain.ndim]
-            
+   
         # First each rank is going to need to know the starts and ends of all other ranks
         startsarr = np.array([starts[i][j] for i in range(nsp)
                                 for j in range(ndim[i])], dtype=int)
@@ -368,82 +433,6 @@ class LinearOperator(ABC):
 
         # Reshape 'allends' to have 9 columns and 'size' rows
         allends = allends.reshape((size, len(endsarr)))
-
-        
-        # Before we begin computing the dot products we need to know which entries of the output vector tmp2 belong to our rank.
-        if BoS2 == "s":
-            # We get the start and endpoint for each sublist in tmp2
-            starts2 = tmp2.starts
-            ends2 = tmp2.ends
-            # We get the dimensions of the StencilVector
-            npts2 = np.array(self.codomain.npts)
-            # We get the number of space we have
-            nsp2 = 1
-            # We get the number of dimensions the StencilVectorSpace has.
-            ndim2 = self.codomain.ndim
-            #We build our ranges of iteration
-            if (is_sparse == False):
-                itterables2 = []
-                for ii in range(ndim2):
-                    itterables2.append([starts2[ii], ends2[ii]+1])
-                    #itterables2.append(range(starts2[ii], ends2[ii]+1))
-                itterables2 = np.array(itterables2)
-                #We also get the StencilVector's pads
-                pds = np.array(tmp2.pads)
-            else:
-                itterables2 = []
-                for ii in range(ndim2):
-                    itterables2.append(
-                        range(starts2[ii], ends2[ii]+1))
-                
-        elif BoS2 == "b":
-            # we collect all starts and ends in two big lists
-            starts2 = [vi.starts for vi in tmp2]
-            ends2 = [vi.ends for vi in tmp2]
-            # We collect the dimension of the BlockVector
-            npts2 = np.array([sp.npts for sp in self.codomain.spaces])
-            # We get the number of space we have
-            nsp2 = len(self.codomain.spaces)
-            # We get the number of dimensions each space has.
-            ndim2 = [sp.ndim for sp in self.codomain.spaces]
-            if (is_sparse == False):
-                #We also get the BlockVector's pads
-                pds = np.array([vi.pads for vi in tmp2])
-                #We build the range of iteration
-                itterables2 = []
-                # since the size of npts changes denpending on h we need to compute a starting point for
-                # our row index
-                spoint2 = 0
-                spoint2list = [np.int64(spoint2)]
-                for hh in range(nsp2):
-                    itterables2aux = []
-                    for ii in range(ndim2[hh]):
-                        itterables2aux.append(
-                            [starts2[hh][ii], ends2[hh][ii]+1])
-                    itterables2.append(itterables2aux)
-                    cummulative2 = 1
-                    for ii in range(ndim2[hh]):
-                        cummulative2 *= npts2[hh][ii]
-                    spoint2 += cummulative2
-                    spoint2list.append(spoint2) 
-            else:
-                itterables2 = []
-                # since the size of npts changes denpending on h we need to compute a starting point for
-                # our row index
-                spoint2 = 0
-                spoint2list = [spoint2]
-                for hh in range(nsp2):
-                    itterables2aux = []
-                    for ii in range(ndim2[hh]):
-                        itterables2aux.append(
-                            range(starts2[hh][ii], ends2[hh][ii]+1))
-                    itterables2.append(itterables2aux)
-                    cummulative2 = 1
-                    for ii in range(ndim2[hh]):
-                        cummulative2 *= npts2[hh][ii]
-                    spoint2 += cummulative2
-                    spoint2list.append(spoint2)
-
 
         currentrank = 0
         # Each rank will take care of setting to 1 each one of its entries while all other entries remain zero.
@@ -512,6 +501,7 @@ class LinearOperator(ABC):
                             if is_sparse == False:
                                 itterables2aux = np.array(itterables2[hh])
                                 # We iterate over all the tmp2 entries that belong to rank number currentrank
+                                #The pyccel kernels are tantamount to this for loop.
                                 #for ii in itertools.product(*itterables2aux):
                                     #if (tmp2[hh][ii] != 0):
                                         #out[spoint2list[hh]+np.ravel_multi_index(
@@ -1503,12 +1493,6 @@ class MatrixFreeLinearOperator(LinearOperator):
             self._dot(v).copy(out=out)
                     
         return out
-        
-    def toarray(self):
-        raise NotImplementedError('toarray() is not defined for MatrixFreeLinearOperator.')
-
-    def tosparse(self):
-        raise NotImplementedError('tosparse() is not defined for MatrixFreeLinearOperator.')
     
     def transpose(self, conjugate=False):
         if self._dot_transpose is None:
