@@ -946,7 +946,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
         rp.copy(out=rp0)
 
         # squared residual norm and squared tolerance
-        res_sqr = r.dot(r)
+        res_sqr = r.dot(r).real
         tol_sqr = tol**2
 
         if verbose:

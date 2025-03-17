@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 import os
-from sympy import Tuple, Matrix
+from sympy import Tuple, Matrix, symbols
 from sympy import pi, sin
 
 from sympde.calculus import grad, dot, inner
@@ -85,7 +85,7 @@ def run_vector_poisson_3d_dir(filename, solution, f):
 def test_api_vector_poisson_3d_dir_identity():
     filename = os.path.join(mesh_dir, 'identity_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     u1 = sin(pi*x)*sin(pi*y)*sin(pi*z)
     u2 = sin(pi*x)*sin(pi*y)*sin(pi*z)
@@ -109,7 +109,7 @@ def test_api_vector_poisson_3d_dir_identity():
 def test_api_vector_poisson_3d_dir_collela():
     filename = os.path.join(mesh_dir, 'collela_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     u1 = sin(pi*x)*sin(pi*y)*sin(pi*z)
     u2 = sin(pi*x)*sin(pi*y)*sin(pi*z)

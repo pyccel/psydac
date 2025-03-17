@@ -16,7 +16,6 @@
 
 from mpi4py import MPI
 from sympy import pi, cos, sin, symbols
-from sympy.abc import x, y
 import pytest
 import os
 import numpy as np
@@ -43,6 +42,8 @@ except:
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
 # ...
+x,y = symbols('x,y', real=True)
+
 #==============================================================================
 def get_boundaries(*args):
 
