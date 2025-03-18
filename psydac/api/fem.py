@@ -756,14 +756,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                             for i_3 in range({TEST_V_P3} + 1):
                                 for j_3 in range({TRIAL_U_P3} + 1):
                                     for e in range({NEXPR}):
-                                        {A3}[e, {SPAN_3} - {TEST_V_P3} + i_3, {MAX_P3} - i_3 + j_3] += {TEST_TRIAL_3}[k_3, q_3, i_3, j_3, {KEYS_3}[2*e], {KEYS_3}[2*e+1]] * a4[e]
+                                        {A3}[e, {SPAN_3} - {TEST_V_P3} + i_3, {MAX_P3} - {I_3} + j_3] += {TEST_TRIAL_3}[k_3, q_3, i_3, j_3, {KEYS_3}[2*e], {KEYS_3}[2*e+1]] * a4[e]
                     for i_2 in range({TEST_V_P2} + 1):
                         for j_2 in range({TRIAL_U_P2} + 1):
                             for e in range({NEXPR}):
-                                {A2}[e, {SPAN_2} - {TEST_V_P2} + i_2, :, {MAX_P2} - i_2 + j_2, :] += {TEST_TRIAL_2}[k_2, q_2, i_2, j_2, {KEYS_2}[2*e], {KEYS_2}[2*e+1]] * {A3}[e,:,:]
+                                {A2}[e, {SPAN_2} - {TEST_V_P2} + i_2, :, {MAX_P2} - {I_2} + j_2, :] += {TEST_TRIAL_2}[k_2, q_2, i_2, j_2, {KEYS_2}[2*e], {KEYS_2}[2*e+1]] * {A3}[e,:,:]
             for i_1 in range({TEST_V_P1} + 1):
                 for j_1 in range({TRIAL_U_P1} + 1):
-                    {A1}[i_1, :, :, {MAX_P1} - i_1 + j_1, :, :] += {A2_TEMP}
+                    {A1}[i_1, :, :, {MAX_P1} - {I_1} + j_1, :, :] += {A2_TEMP}
 '''
         return code
 
@@ -1052,6 +1052,10 @@ class DiscreteBilinearForm(BasicDiscrete):
             TEST_TRIAL_1    = tt1_str.format(u_i=u_i, v_j=v_j)
             A2_TEMP = " + ".join([f"{TEST_TRIAL_1}[k_1, q_1, i_1, j_1, {keys1[e][0]}, {keys1[e][1]}] * {A2}[{e},:,:,:,:]" for e in range(NEXPR)])
 
+            I_1 = f'int(floor(i_1/{mult[0]})*{mult[0]})' if mult[0] > 1 else 'i_1'
+            I_2 = f'int(floor(i_2/{mult[1]})*{mult[1]})' if mult[1] > 1 else 'i_2'
+            I_3 = f'int(floor(i_3/{mult[2]})*{mult[2]})' if mult[2] > 1 else 'i_3'
+
             loop = code_loop.format(A1=A1,
                                     A2=A2,
                                     A3=A3,
@@ -1074,7 +1078,10 @@ class DiscreteBilinearForm(BasicDiscrete):
                                     MAX_P2=MAX_P2,
                                     MAX_P3=MAX_P3,
                                     NEXPR=NEXPR,
-                                    A2_TEMP=A2_TEMP)
+                                    A2_TEMP=A2_TEMP,
+                                    I_1=I_1,
+                                    I_2=I_2,
+                                    I_3=I_3)
             
             loop_str += loop
 

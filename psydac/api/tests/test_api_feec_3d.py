@@ -358,7 +358,6 @@ def test_maxwell_3d_2():
     assert abs(error - 0.24586986658559362) < 1e-9
     
 #------------------------------------------------------------------------------
-@pytest.mark.skip(reason='Multiplicity higher than 1 not yet supported by new assembly algorithm')
 def test_maxwell_3d_2_mult():
     class CollelaMapping3D(Mapping):
 
