@@ -991,8 +991,10 @@ class DiscreteBilinearForm(BasicDiscrete):
             g_mat       = g_mat_str.format(u_i=u_i, v_j=v_j)
             TEST_V_P1   = test_v_p1_str.format(v_j=v_j)
             SPAN_V_1    = span_v_1_str.format(v_j=v_j)
-            #A1          += f'        {a1} = {g_mat}[pad1 + {SPAN_V_1} - {test_v_p1} : pad1 + {SPAN_V_1} + 1, pad2 : pad2 + n_element_2 + {test_v_p2}, pad3 : pad3 + n_element_3 + {test_v_p3}, :, :, :]\n'
-            A1          += f'        {a1} = {g_mat}[{mult[0]}*pad1 + {SPAN_V_1} - {test_v_p1} : {mult[0]}*pad1 + {SPAN_V_1} + 1, {mult[1]}*pad2 : {mult[1]}*pad2 + n_element_2 + {test_v_p2} + ({mult[1]}-1)*(n_element_2-1), {mult[2]}*pad3 : {mult[2]}*pad3 + n_element_3 + {test_v_p3} + ({mult[2]}-1)*(n_element_3-1), :, :, :]\n'
+            A1_1 = f'{mult[0]}*pad1 + {SPAN_V_1} - {test_v_p1} : {mult[0]}*pad1 + {SPAN_V_1} + 1'                   if mult[0] > 1 else f'pad1 + {SPAN_V_1} - {test_v_p1} : pad1 + {SPAN_V_1} + 1'
+            A1_2 = f'{mult[1]}*pad2 : {mult[1]}*pad2 + n_element_2 + {test_v_p2} + ({mult[1]}-1)*(n_element_2-1)'   if mult[1] > 1 else f'pad2 : pad2 + n_element_2 + {test_v_p2}'
+            A1_3 = f'{mult[2]}*pad3 : {mult[2]}*pad3 + n_element_3 + {test_v_p3} + ({mult[2]}-1)*(n_element_3-1)'   if mult[2] > 1 else f'pad3 : pad3 + n_element_3 + {test_v_p3}'
+            A1          += f'        {a1} = {g_mat}[{A1_1}, {A1_2}, {A1_3}, :, :, :]\n'
 
         for v_j in range(nv):
             local_span_v_1 = span_v_1_str.format(v_j=v_j)
@@ -2172,7 +2174,7 @@ class DiscreteLinearForm(BasicDiscrete):
                         trial  = True,
                         grid   = self.grid
                     )
-                    bs, d, s, p = construct_test_space_arguments(basis_v)
+                    bs, d, s, p, m = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
                     degrees += [np.int64(a) for a in d]
@@ -2239,7 +2241,7 @@ class DiscreteLinearForm(BasicDiscrete):
           Extra arguments used in the assembly method in case with_openmp=True.
 
         """
-        tests_basis, tests_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
+        tests_basis, tests_degrees, spans, pads, mult = construct_test_space_arguments(self.test_basis)
         n_elements, quads, nquads               = construct_quad_grids_arguments(self.grid, use_weights=False)
 
         global_pads   = self.space.vector_space.pads
