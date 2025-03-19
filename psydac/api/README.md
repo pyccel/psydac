@@ -57,7 +57,7 @@ Test cases
    - 3.4
      - additional analytical weight function $\gamma$
    - 3.5
-     - additional scalar free field $F\in L^2(\Omega)$
+     - additional scalar free field $F\in H^1(\Omega)$
    - 3.6
      - multiplicity vector [1, 3, 2]
 

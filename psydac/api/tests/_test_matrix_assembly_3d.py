@@ -344,7 +344,7 @@ def build_matrices(mapping_option, verbose, backend, comm):
                              'weighted_l2_mass_F3', 'divdiv_Fs', 'Fvc test', 'dot(grad(u), v)', 'dot(curl(v), w)_F0', 'dot(curl(v), w)_F0_2', 
                              'u*f', 'f*u', 'sqrt_pi_Fvd', 'dot(v, w)', 'dot(w, v)')
 
-    bilinear_forms_to_test = bilinear_form_strings
+    bilinear_forms_to_test = bilinear_form_strings[0:3]
     
     for bf in bilinear_forms_to_test:
         value = bilinear_forms[bf]
@@ -425,25 +425,6 @@ def build_matrices(mapping_option, verbose, backend, comm):
         err = np.linalg.norm((A_old-A_new).toarray())
         rel_err = err / A_old_norm
 
-        #import sys
-        #np.set_printoptions(threshold=sys.maxsize)
-        #np.set_printoptions(suppress=True)
-
-        #if bf == 'u*f':
-        #    print(bf)
-        #    print()
-        #    print(A_old.toarray()[:4, :5])
-        #    print()
-        #    print(A_new.toarray()[:4, :5])
-        #    print()
-        #elif bf =='f*u':
-        #    print(bf)
-        #    print()
-        #    print(A_old.T.toarray()[:4, :5])
-        #    print()
-        #    print(A_new.T.toarray()[:4, :5])
-        #    print()
-
         if verbose and (mpi_rank == 0):
             print(f' >>> Mapping Option : {mapping_option} ')
             print(f' >>> BF {bf} ')
@@ -461,7 +442,7 @@ def build_matrices(mapping_option, verbose, backend, comm):
 
 verbose = True
 
-mapping_options = [None, ] # 'analytical', 'Bspline']
+mapping_options = ['Bspline', ] # [None, 'analytical', 'Bspline']
 
 comm    = MPI.COMM_WORLD
 backend = PSYDAC_BACKEND_GPYCCEL
