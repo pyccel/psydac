@@ -19,7 +19,7 @@ from sympde.expr.expr import integral
 from sympde.topology import Derham
 from sympde.expr.equation import find
 
-from sympde.topology import VectorFunctionSpace, ScalarFunctionSpace
+from sympde.topology import VectorFunctionSpace, ScalarFunctionSpace, VectorFunction
 
 from psydac.api.settings import PSYDAC_BACKENDS
 
@@ -40,29 +40,29 @@ from psydac.feec.multipatch.non_matching_operators import construct_h1_conformin
 
 
 def first_eigenmodes_hlap(
-        nc=4, deg=4, domain=None, 
+        nc=4, deg=4, domain=None,
         method_type='H1_fem',
-        backend_language=None, 
-        bc_type='metallic',
+        backend_language=None,
+        bc_type='H0curl',
         gamma0_h=10., gamma1_h=10.,
         nb_eigenmodes=0,
         project_solution=False,
         plot_eigenmodes=False,
-        plot_source=False, 
+        plot_source=False,
         plot_dir=None, hide_plots=True,
         m_load_dir="",
 ):
     """
     computes the lowest eigenmodes of vector laplacian operator with H1 fem and strong differential operators
-    
-    Note: the harmonic forms (H2 in inhom sequence, or H1 in hom sequence) are 
+
+    Note: the harmonic forms (H2 in inhom sequence, or H1 in hom sequence) are
         H = {div u = curl u = 0, and nxu = 0 on B}
 
     :param nc: nb of cells per dimension, in each patch
     :param deg: coordinate degree in each patch
     :param gamma0_h: jump penalization parameter in V0h
     :param gamma1_h: jump penalization parameter in V1h
-    :param bc_type: 'metallic' or 'pseudo-vacuum' -- see details in multi-patch paper
+    :param bc_type: 'H0curl' or 'H0div'
     :param m_load_dir: directory for matrix storage
     """
 
@@ -72,7 +72,7 @@ def first_eigenmodes_hlap(
     # if backend_language is None:
     #     backend_language='python'
     # print('[note: using '+backend_language+ ' backends in discretize functions]')
-    assert bc_type in ['metallic', 'pseudo-vacuum']
+    assert bc_type in ['H0curl', 'H0div']
     assert nb_eigenmodes > 0
 
     print('---------------------------------------------------------------------------------------------------------')
@@ -81,7 +81,7 @@ def first_eigenmodes_hlap(
     print(' degree = {}'.format(degree))
     # print(' domain_name = {}'.format(domain_name))
     # print(' source_proj = {}'.format(source_proj))
-    # print(' bc_type = {}'.format(bc_type))
+    print(' bc_type = {}'.format(bc_type))
     print(' backend_language = {}'.format(backend_language))
     print('---------------------------------------------------------------------------------------------------------')
 
@@ -111,12 +111,21 @@ def first_eigenmodes_hlap(
         avr    = lambda u:0.5*plus(u)+0.5*minus(u)
         jump   = lambda u: minus(u)-plus(u)
 
+        expr = (curl(v) * curl(u)) + (div(v) * div(u))  # doesn't work
+        # expr = inner(grad(v), grad(u))
         expr_I = kappa * dot(jump(u), jump(v))
-        expr_B = kappa * (cross(nn, u)*cross(nn, v) + div(u)*div(v))
 
-        # expr = (curl(v) * curl(u)) + (div(v) * div(u))
-        expr = inner(grad(v), grad(u))        
-        a = BilinearForm((v,u), integral(domain, expr) + integral(I, expr_I) + integral(B, expr_B))
+        if bc_type == 'H0curl':
+            expr_B = kappa * (cross(nn, u)*cross(nn, v) + div(u)*div(v))
+        else:
+            print('WARNING: curl is not implemented yet so we only impose n.u = 0')
+            expr_B = kappa * (dot(nn, u)*dot(nn, v))
+            # print(f'type(u) = {type(u)}')
+            # print(f'u[0] = {u[0]}, type(u[0]) = {type(u[0])}, ')
+            # print(f'type(rotate(u)) = {type(rotate(u))}')
+            # expr_B = kappa * (dot(nn, u)*dot(nn, v) + curl(u)*curl(v))        
+
+        a = BilinearForm((v,u), integral(domain, expr) + integral(I, expr_I) + integral(B, expr_B)) #, check_linearity=False)
 
         ## Harmonic forms = kernel of A
 
@@ -145,12 +154,12 @@ def first_eigenmodes_hlap(
         # equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
         # equation_h = discretize(equation, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
         # a_h = equation_h.lhs
-        
+
         print('discretizing the bilinear form aM...')
         aM_h = discretize(aM, domain_h, [Vh, Vh], nquads=nquads, backend=PSYDAC_BACKENDS[backend_language])
         A = a_h.assemble()
         A_m = A.tosparse()
-        
+
         M = aM_h.assemble()
         M_m = M.tosparse()
 
@@ -160,7 +169,25 @@ def first_eigenmodes_hlap(
         print('--* solving with feec *--')
 
         print('building symbolic and discrete derham sequences...')
+
+        print('using grad -> curl sequence')
         derham = Derham(domain, ["H1", "Hcurl", "L2"])
+        push_kind = 'hcurl'
+
+        hom_bc = (bc_type == 'H0curl')
+        print('with hom_bc = {}'.format(hom_bc))
+
+        # if :
+        #     hom_bc = True #(bc_type == 'pseudo-vacuum')  # /!\  here u = B is in H(curl), not E  /!\
+
+        #     # print('using grad -> curl sequence')
+        #     # derham = Derham(domain, ["H1", "Hcurl", "L2"])
+        #     # push_kind = 'hcurl'
+        # else:
+            # print('using curl -> div sequence')
+            # derham = Derham(domain, ["H1", "Hdiv", "L2"])
+            # push_kind = 'hdiv'
+
         derham_h = discretize(derham, domain_h, degree=degree)
 
         V0h = derham_h.V0
@@ -209,14 +236,11 @@ def first_eigenmodes_hlap(
         M0_m = H0_m
         M1_m = H1_m  # usual notation
 
-        hom_bc = (bc_type == 'pseudo-vacuum')  # /!\  here u = B is in H(curl), not E  /!\
-        print('with hom_bc = {}'.format(hom_bc))
-
         print('conforming projection operators...')
         # conforming Projections (should take into account the boundary conditions
         # of the continuous deRham sequence)
-        cP0_m = construct_h1_conforming_projection(V0h, hom_bc=True)
-        cP1_m = construct_hcurl_conforming_projection(V1h, hom_bc=True)
+        cP0_m = construct_h1_conforming_projection(V0h, hom_bc=hom_bc)
+        cP1_m = construct_hcurl_conforming_projection(V1h, hom_bc=hom_bc)
 
         print('broken differential operators...')
         bD0, bD1 = derham_h.broken_derivatives_as_operators
@@ -224,11 +248,11 @@ def first_eigenmodes_hlap(
         bD1_m = bD1.to_sparse_matrix()
 
         # Conga (projection-based) operator matrices
-        print('grad matrix...')
+        print('grad [or curl] matrix...')
         G_m = bD0_m @ cP0_m
         tG_m = H1_m @ G_m  # grad: V0h -> tV1h
 
-        print('curl-curl stiffness matrix...')
+        print('curl-curl [or grad-div] stiffness matrix...')
         C_m = bD1_m @ cP1_m
         CC_m = C_m.transpose() @ H2_m @ C_m
 
@@ -254,7 +278,6 @@ def first_eigenmodes_hlap(
         A_m = L_m
         M_m = H1_m
         Vh = V1h
-        push_kind = 'hcurl'
 
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
@@ -275,8 +298,8 @@ def first_eigenmodes_hlap(
         if abs(lambda_i) > 1e-8:
             print(" ****** WARNING! this eigenvalue should be 0!   ****** ")
         hf_cs.append(eigenvectors[:, i])
-        
-        if plot_eigenmodes:                
+
+        if plot_eigenmodes:
             plot_field(numpy_coeffs=eigenvectors[:, i], Vh=Vh, space_kind=push_kind, plot_type='vector_field', domain=domain, title='eigenmode {0} with lambda_{0} = {1:.4f}'.format(i,lambda_i),
                 filename=plot_dir + f'eigmode_{i}_vf.png', hide_plot=hide_plots)
 
@@ -287,12 +310,12 @@ if __name__ == '__main__':
 
     t_stamp_full = time_count()
 
-    bc_type = 'metallic'
-    # bc_type = 'pseudo-vacuum'
-    
+    bc_type = 'H0curl'
+    bc_type = 'H0div'
+
     method_type = 'H1_fem'
-    method_type = 'Hcurl_feec'
-    
+    # method_type = 'feec'
+
 
     # nc = 20
     # deg = 4
@@ -303,7 +326,7 @@ if __name__ == '__main__':
     # domain_name = 'square'
     # domain_name = 'pretzel_f'
     domain_name = 'annulus_4'
-    
+
     nb_eigenmodes = 4
 
     #
@@ -311,7 +334,7 @@ if __name__ == '__main__':
 
     backend_language = 'python' # 'pyccel-gcc'
 
-    print(' .. building domain ..')
+    print(f' .. building domain {domain_name}..')
     if domain_name in ['pretzel_f', 'annulus_4']:
         domain = build_multipatch_domain(domain_name=domain_name)
     elif domain_name == 'square_mp':
@@ -327,12 +350,12 @@ if __name__ == '__main__':
                 ])
         else:
             ncells_patch_grid = np.array([
-                [2, 2],
-                [2, 2]
+                [4, 4],
+                [4, 4]
                 ])
 
         domain = build_cartesian_multipatch_domain(ncells_patch_grid, int_x, int_y, mapping='identity')
-    run_dir = f'{method_type}_{domain_name}_nc={nc}_deg={deg}/'
+    run_dir = f'{method_type}_{bc_type}_{domain_name}_nc={nc}_deg={deg}/'
     # m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
     first_eigenmodes_hlap(
         nc=nc, deg=deg,
@@ -343,7 +366,7 @@ if __name__ == '__main__':
         nb_eigenmodes=nb_eigenmodes,
         # plot_source=True,
         plot_eigenmodes=True,
-        plot_dir='./plots/magnetostatic_runs/' + run_dir,
+        plot_dir='./plots/first_eigenmodes/' + run_dir,
         hide_plots=True,
         # m_load_dir=m_load_dir
     )
