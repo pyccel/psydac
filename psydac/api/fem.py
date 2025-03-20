@@ -621,6 +621,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 {G_MAT}{NEW_ARGS}{FIELD_ARGS}):
 
     from numpy import array, zeros, zeros_like, floor
+    from numpy import abs as Abs
     from math import sqrt, sin, pi, cos
 '''
         return code
