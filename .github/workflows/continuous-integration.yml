@@ -189,7 +189,7 @@ jobs:
         if: matrix.os == 'ubuntu-24.04'
         working-directory: ./pytest
         run: |
-          python -m pytest --pyargs psydac.api.tests.test_api_feec_3d -v -m "not parallel and not petsc" -k test_maxwell_3d_1 --capture=no
+          python -m pytest --pyargs psydac.api.tests.test_api_feec_3d -v -m "not parallel and not petsc" --capture=no
         # python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
 
       - name: Upload coverage report to Codacy
