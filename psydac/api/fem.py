@@ -236,7 +236,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                  matrix=None, update_ghost_regions=True, backend=None,
                  linalg_backend=None, assembly_backend=None,
                  symbolic_mapping=None,
-                 new_assembly=False):
+                 fast_assembly=False):
 
         if not isinstance(expr, sym_BilinearForm):
             raise TypeError('> Expecting a symbolic BilinearForm')
@@ -379,7 +379,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         BasicDiscrete.__init__(self, expr, kernel_expr, comm=comm, root=0, discrete_space=discrete_space,
                        nquads=nquads, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
                        mapping_space=mapping_space, num_threads=self._num_threads, backend=assembly_backend,
-                       new_assembly=new_assembly)
+                       fast_assembly=fast_assembly)
 
         #... Handle the special case where the current MPI process does not need to do anything
         if isinstance(target, (Boundary, Interface)):
@@ -443,8 +443,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         )
 
         # temporary feature that allows to choose either old or new assembly to verify whether the new assembly works
-        assert ((isinstance(new_assembly, bool)) or (new_assembly == 'test'))
-        self._new_assembly = new_assembly
+        assert isinstance(fast_assembly, bool)
+        self._fast_assembly = fast_assembly
 
         # Allocate the output matrix, if needed
         self.allocate_matrices(linalg_backend)
@@ -464,7 +464,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         with_openmp = (assembly_backend['name'] == 'pyccel' and assembly_backend['openmp']) if assembly_backend else False
 
         # Construct the arguments to be passed to the assemble() function, which is stored in self._func
-        if self._new_assembly == True:
+        if self._fast_assembly == True:
             # no openmp support yet
             self._args, self._threads_args = self.construct_arguments_generate_assembly_file()
         else:
@@ -563,7 +563,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             args = self._args
         # ----- Uncomment only for the u*f // f*u test case -----
         #if self._fix_bug:
-        #    if self._new_assembly != 'test':
+        #    if self._fast_assembly == True:
         #        if self._mapping_option == 'Bspline':
         #            args = (*args[0:28], *self._global_matrices, *args[29:])
         #        else:

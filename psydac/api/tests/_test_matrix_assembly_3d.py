@@ -344,7 +344,7 @@ def build_matrices(mapping_option, verbose, backend, comm):
                              'weighted_l2_mass_F3', 'divdiv_Fs', 'Fvc test', 'dot(grad(u), v)', 'dot(curl(v), w)_F0', 'dot(curl(v), w)_F0_2', 
                              'u*f', 'f*u', 'sqrt_pi_Fvd', 'dot(v, w)', 'dot(w, v)')
 
-    bilinear_forms_to_test = bilinear_form_strings[0:3]
+    bilinear_forms_to_test = bilinear_form_strings[0:10] # [bilinear_form_strings[0], ]
     
     for bf in bilinear_forms_to_test:
         value = bilinear_forms[bf]
@@ -365,7 +365,7 @@ def build_matrices(mapping_option, verbose, backend, comm):
         a = BilinearForm((u, v), int_0(expr))
 
         t0 = time.time()
-        a_h = discretize(a, domain_h, (Vh, Wh), backend=backend, new_assembly='test')
+        a_h = discretize(a, domain_h, (Vh, Wh), backend=backend, fast_assembly=False)
         t1 = time.time()
         disc_time_old = t1-t0
 
@@ -442,7 +442,7 @@ def build_matrices(mapping_option, verbose, backend, comm):
 
 verbose = True
 
-mapping_options = ['Bspline', ] # [None, 'analytical', 'Bspline']
+mapping_options = [None, 'analytical'] # [None, 'analytical', 'Bspline']
 
 comm    = MPI.COMM_WORLD
 backend = PSYDAC_BACKEND_GPYCCEL

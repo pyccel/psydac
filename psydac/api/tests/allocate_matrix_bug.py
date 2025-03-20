@@ -159,7 +159,7 @@ if __name__ == '__main__':
             a = BilinearForm((u, v), int_0(expr))
 
             t0 = time.time()
-            a_h = discretize(a, domain_h, (Vh, Wh), backend=backend, new_assembly='test')
+            a_h = discretize(a, domain_h, (Vh, Wh), backend=backend, fast_assembly=False)
             t1 = time.time()
             disc_time_old = t1-t0
 
