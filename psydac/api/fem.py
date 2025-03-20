@@ -8,7 +8,7 @@ import numpy as np
 import string
 import random
 import importlib
-import inspect
+#import inspect
 
 from sympy                  import ImmutableDenseMatrix, Matrix, Symbol, sympify
 from sympy.tensor.indexed   import Indexed, IndexedBase
@@ -1537,10 +1537,10 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         package = importlib.import_module(f'__psydac__.assemble_{id}')
 
-        print("\n\n" + "#" + "-"*78)
-        print("Source code of the generated assembly method:")
-        print("#" + "-"*78 + "\n")
-        print(inspect.getsource(package.assemble_matrix))
+        # print("\n\n" + "#" + "-"*78)
+        # print("Source code of the generated assembly method:")
+        # print("#" + "-"*78 + "\n")
+        # print(inspect.getsource(package.assemble_matrix))
 
         new_func = epyccel(package.assemble_matrix, language='fortran')
         self._func = new_func
