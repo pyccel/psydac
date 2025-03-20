@@ -182,14 +182,14 @@ jobs:
           --cov psydac
           --cov-config $GITHUB_WORKSPACE/pyproject.toml
           --cov-report xml
-          --pyargs psydac.api.tests.test_api_feec_3d -v -m "not parallel and not petsc"
+          --pyargs psydac -m "not parallel and not petsc" -v
         # --pyargs psydac -m "not parallel and not petsc"
 
       - name: Run single-process tests with Pytest on Ubuntu
         if: matrix.os == 'ubuntu-24.04'
         working-directory: ./pytest
         run: |
-          python -m pytest -n auto --pyargs psydac.api.tests.test_api_feec_3d -v -m "not parallel and not petsc"
+          python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc" -v
         # python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
 
       - name: Upload coverage report to Codacy
