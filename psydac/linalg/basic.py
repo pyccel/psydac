@@ -275,8 +275,6 @@ class LinearOperator(ABC):
         """
         pass
 
-    # TODO: check if we should add a copy method!!!
-
     #-------------------------------------
     # Magic methods
     #-------------------------------------
@@ -590,7 +588,7 @@ class ScaledLinearOperator(LinearOperator):
         return None
     
     def copy(self):
-        return ScaledLinearOperator(self.domain, self.codomain, self.scalar, self.operator)
+        return ScaledLinearOperator(self.domain, self.codomain, self.scalar, self.operator.copy())
     
     def set_scalar(self, c):
         assert np.isscalar(c)
@@ -681,7 +679,8 @@ class SumLinearOperator(LinearOperator):
         return None
     
     def copy(self):
-        return SumLinearOperator(self.domain, self.codomain, *self.addends)
+        copied_addends = [addend.copy() for addend in self.addends]
+        return SumLinearOperator(self.domain, self.codomain, *copied_addends)
 
     def toarray(self):
         out = np.zeros(self.shape, dtype=self.dtype)
@@ -815,7 +814,8 @@ class ComposedLinearOperator(LinearOperator):
         return None
     
     def copy(self):
-        return ComposedLinearOperator(self.domain, self.codomain, *self.multiplicants)
+        copied_multiplicants = [multiplicant.copy() for multiplicant in self.multiplicants]
+        return ComposedLinearOperator(self.domain, self.codomain, *copied_multiplicants)
 
     def toarray(self):
         raise NotImplementedError('toarray() is not defined for ComposedLinearOperators.')
@@ -925,7 +925,7 @@ class PowerLinearOperator(LinearOperator):
         return self._factorial
     
     def copy(self):
-        return PowerLinearOperator(self.domain, self.codomain, self.operator, self.factorial)
+        return PowerLinearOperator(self.domain, self.codomain, self.operator.copy(), self.factorial)
 
     def toarray(self):
         raise NotImplementedError('toarray() is not defined for PowerLinearOperators.')
