@@ -378,7 +378,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         # self._func, self._free_args, self._max_nderiv and self._backend
         BasicDiscrete.__init__(self, expr, kernel_expr, comm=comm, root=0, discrete_space=discrete_space,
                        nquads=nquads, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
-                       mapping_space=mapping_space, num_threads=self._num_threads, backend=assembly_backend)
+                       mapping_space=mapping_space, num_threads=self._num_threads, backend=assembly_backend,
+                       new_assembly=new_assembly)
 
         #... Handle the special case where the current MPI process does not need to do anything
         if isinstance(target, (Boundary, Interface)):

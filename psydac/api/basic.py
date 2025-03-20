@@ -64,7 +64,10 @@ class BasicCodeGen:
     """
     def __init__(self, expr, *, folder=None, comm=None, root=None, discrete_space=None,
                        kernel_expr=None, nquads=None, is_rational_mapping=None, mapping=None,
-                       mapping_space=None, num_threads=None, backend=None):
+                       mapping_space=None, num_threads=None, backend=None,
+                       new_assembly=None):
+
+        new = True
 
         # Get default backend from environment, or use 'python'.
         default_backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))\
@@ -143,11 +146,21 @@ class BasicCodeGen:
         #             raise ValueError('can not find {} implementation'.format(f))
 
         if ast:
-            self._save_code(self._generate_code(), backend=self.backend['name'])
+            if new:
+                if new_assembly == 'test':
+                    self._save_code(self._generate_code(), backend=self.backend['name'])
+            else:
+                self._save_code(self._generate_code(), backend=self.backend['name'])
+
 
         if comm is not None and comm.size>1: comm.Barrier()
-        # compile code
-        self._compile()
+        if new:
+            if new_assembly == 'test':
+                # compile code
+                self._compile()
+        else:
+            # compile code
+                self._compile()
 
     @property
     def expr(self):
@@ -293,11 +306,13 @@ class BasicDiscrete(BasicCodeGen):
 
     def __init__(self, expr, kernel_expr, *, folder=None, comm=None, root=None, discrete_space=None,
                        nquads=None, is_rational_mapping=None, mapping=None,
-                       mapping_space=None, num_threads=None, backend=None):
+                       mapping_space=None, num_threads=None, backend=None,
+                       new_assembly=None):
 
         BasicCodeGen.__init__(self, expr, folder=folder, comm=comm, root=root, discrete_space=discrete_space,
                        kernel_expr=kernel_expr, nquads=nquads, is_rational_mapping=is_rational_mapping,
-                       mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend)
+                       mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend,
+                       new_assembly=new_assembly)
         # ...
         self._kernel_expr = kernel_expr
         # ...

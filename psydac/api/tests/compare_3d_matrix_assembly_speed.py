@@ -28,21 +28,19 @@ Estimated runtime: 300s + 230s + 60s = ~10min
 print('Expected runtime: 10min')
 print()
 
+class HalfHollowTorusMapping3D(Mapping):
+    _expressions = {'x': '(R + r * x1 * cos(2*pi*x3)) * cos(pi*x2)',
+                    'y': '(R + r * x1 * cos(2*pi*x3)) * sin(pi*x2)',
+                    'z': 'r * x1 * sin(2*pi*x3)'}
+    _ldim        = 3
+    _pdim        = 3
+
 def make_half_hollow_torus_geometry_3d(ncells, degree, comm=None):
 
     if comm is not None:
         mpi_rank = comm.Get_rank()
     else:
         mpi_rank = 0
-    
-    class HalfHollowTorusMapping3D(Mapping):
-
-        _expressions = {'x': '(R + r * x1 * cos(2*pi*x3)) * cos(pi*x2)',
-                        'y': '(R + r * x1 * cos(2*pi*x3)) * sin(pi*x2)',
-                        'z': 'r * x1 * sin(2*pi*x3)'}
-
-        _ldim        = 3
-        _pdim        = 3
 
     if (ncells[0] == ncells[1]) and (ncells[0] == ncells[2]):
         nc = f'{ncells[0]}'
@@ -89,13 +87,6 @@ ncells          = [32, 32, 32]
 degree_list     = [[2, 2, 2], [3, 3, 3], [4, 4, 4], [5, 5, 5]]
 degree_list2    = [[2, 2, 2], [3, 3, 3], [4, 4, 4]]
 periodic        = [False, False, False]
-
-class HalfHollowTorusMapping3D(Mapping):
-    _expressions = {'x': '(R + r * x1 * cos(2*pi*x3)) * cos(pi*x2)',
-                    'y': '(R + r * x1 * cos(2*pi*x3)) * sin(pi*x2)',
-                    'z': 'r * x1 * sin(2*pi*x3)'}
-    _ldim        = 3
-    _pdim        = 3
 
 mapping = HalfHollowTorusMapping3D('M', R=2, r=1)
 logical_domain = Cube('C', bounds1=(0,1), bounds2=(0,1), bounds3=(0,1))
@@ -214,13 +205,6 @@ bspline_derham = Derham(bspline_domain)
 
 bspline_domain_h = discretize(bspline_domain, filename=filename, comm=comm)
 bspline_derham_h = discretize(bspline_derham, bspline_domain_h, degree=bspline_domain.mapping.get_callable_mapping().space.degree)
-
-class HalfHollowTorusMapping3D(Mapping):
-    _expressions = {'x': '(R + r * x1 * cos(2*pi*x3)) * cos(pi*x2)',
-                    'y': '(R + r * x1 * cos(2*pi*x3)) * sin(pi*x2)',
-                    'z': 'r * x1 * sin(2*pi*x3)'}
-    _ldim        = 3
-    _pdim        = 3
 
 mapping = HalfHollowTorusMapping3D('M', R=2, r=1)
 
@@ -345,13 +329,6 @@ bspline_derham = Derham(bspline_domain)
 
 bspline_domain_h = discretize(bspline_domain, filename=filename, comm=comm)
 bspline_derham_h = discretize(bspline_derham, bspline_domain_h, degree=bspline_domain.mapping.get_callable_mapping().space.degree)
-
-class HalfHollowTorusMapping3D(Mapping):
-    _expressions = {'x': '(R + r * x1 * cos(2*pi*x3)) * cos(pi*x2)',
-                    'y': '(R + r * x1 * cos(2*pi*x3)) * sin(pi*x2)',
-                    'z': 'r * x1 * sin(2*pi*x3)'}
-    _ldim        = 3
-    _pdim        = 3
 
 mapping = HalfHollowTorusMapping3D('M', R=2, r=1)
 
@@ -586,32 +563,6 @@ new_ass_36 = t1-t0
 t1_3_glob = time.time()
 print(f'Part 3 out of 3 done after {(t1_3_glob-t0_3_glob)/60:.2g}min')
 # -----------------------
-
-print('--- Assembly ---')
-print(old_ass_21, new_ass_21)
-print(old_ass_22, new_ass_22)
-print(old_ass_23, new_ass_23)
-print(old_ass_311, new_ass_311)
-print(old_ass_312, new_ass_312)
-print(old_ass_313, new_ass_313)
-print(old_ass_32, new_ass_32)
-print(old_ass_33, new_ass_33)
-print(old_ass_34, new_ass_34)
-print(old_ass_35, new_ass_35)
-print(old_ass_36, new_ass_36)
-print()
-print('--- Discretization ---')
-print(old_disc_21, new_disc_21)
-print(old_disc_22, new_disc_22)
-print(old_disc_23, new_disc_23)
-print(old_disc_311, new_disc_311)
-print(old_disc_312, new_disc_312)
-print(old_disc_313, new_disc_313)
-print(old_disc_32, new_disc_32)
-print(old_disc_33, new_disc_33)
-print(old_disc_34, new_disc_34)
-print(old_disc_35, new_disc_35)
-print(old_disc_36, new_disc_36)
 
 template = '''| Test case | old assembly | new assembly | old discretization | new discretization |
 | --- | --- | --- | --- | --- |
