@@ -166,52 +166,31 @@ class FemSpace( metaclass=ABCMeta ):
     # Concrete methods
     #----------------------
     def __mul__(self, a):
-        from psydac.fem.vector import create_product_space
+    #     from psydac.fem.vector import create_product_space
 
-        spaces = [*(self.spaces if self.is_product else [self]),
-                  *(   a.spaces if    a.is_product else    [a])]
- 
-        space = create_product_space(*spaces)
-        if a.symbolic_space and self.symbolic_space:
-            space._symbolic_space =  self.symbolic_space*a.symbolic_space
-        return space
+    #     spaces = [*(self.spaces if self.is_product else [self]),
+    #               *(   a.spaces if    a.is_product else    [a])]
+
+    #     space = create_product_space(*spaces)
+    #     if a.symbolic_space and self.symbolic_space:
+    #         space._symbolic_space =  self.symbolic_space*a.symbolic_space
+    #     return space
+        raise NotImplementedError('if this method __mul__ is used, it should not be implemented like this: TODO')
 
     # ...
     def __rmul__(self, a):
-        from psydac.fem.vector import create_product_space
+    #     from psydac.fem.vector import create_product_space
 
-        spaces = [*(   a.spaces if    a.is_product else    [a]),
-                  *(self.spaces if self.is_product else [self]),]
+    #     spaces = [*(   a.spaces if    a.is_product else    [a]),
+    #               *(self.spaces if self.is_product else [self]),]
 
-        space = create_product_space(*spaces)
+    #     space = create_product_space(*spaces)
 
-        if a.symbolic_space and self.symbolic_space:
-            space._symbolic_space =  a.symbolic_space * self.symbolic_space
-        return space
+    #     if a.symbolic_space and self.symbolic_space:
+    #         space._symbolic_space =  a.symbolic_space * self.symbolic_space
+    #     return space
+        raise NotImplementedError('if this method __rmul__ is used, it should not be implemented like this: TODO')
 
-    @property
-    def patch_spaces(self):
-        """
-        Return the patch spaces (self if single-patch) as a tuple.
-        """
-        if self.is_multipatch:
-            return self._spaces
-        else:
-            return (self,)
-
-    @property
-    def component_spaces(self):
-        """
-        Return the component spaces (self if scalar-valued) as a tuple.
-        """
-        if self.is_vector_valued:
-            if self.is_multipatch:
-                # should we return here the multipatch scalar-valued space?
-                raise NotImplementedError('Component spaces not implemented for multipatch spaces')
-            else:
-                return self._spaces
-        else:
-            return (self,)
 
 
 #---------------------------------------
@@ -252,7 +231,7 @@ class FemSpace( metaclass=ABCMeta ):
 #          """
 #          Number of linearly independent elements in basis.
 #          For a tensor product space this is a tuple of integers.
-#  
+#
 #          """
 #
 #  # NOTE: why is 'degree' part of abstract interface?
@@ -325,7 +304,7 @@ class FemField:
 
         """
         return self._coeffs
-        
+
     # ...
     @property
     def fields(self):
@@ -364,7 +343,7 @@ class FemField:
     def gradient( self, *eta , weights=None):
         """Evaluate gradient of weighted field at location identified by logical coordinates eta."""
         return self._space.eval_field_gradient( self, *eta , weights=weights)
-        
+
     # ...
     def divergence(self, *eta, weights=None):
         """Evaluate divergence of weighted vector field at location identified by logical coordinates eta."""
