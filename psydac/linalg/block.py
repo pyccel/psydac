@@ -994,7 +994,14 @@ class BlockLinearOperator(LinearOperator):
 
             Bij = self[ij]
             if Bij is None:
-                self[ij] = Mij
+                # Need to investigate: Removing .copy() here causes
+                # M = BlockLinearOperator(W, W, blocks=[[M1, M2], [M3, None]])
+                # A = BlockLinearOperator(W, W)
+                # A += M
+                # A -= 2*M
+                # assert np.allclose(A.blocks[0][0]._data, -(M1)._data,  rtol=1e-14, atol=1e-14 )
+                # to fail. Possible explanation "-= 2*M" caues the entries of A to be multiplied as well, hence the result would be 0.
+                self[ij] = Mij.copy()
             else:
                 Bij += Mij
 
