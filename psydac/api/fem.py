@@ -624,9 +624,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                     {MAPPING_PART_4}
 {G_MAT}{NEW_ARGS}{FIELD_ARGS}):
 
-    from numpy import array, zeros, zeros_like, floor
     from numpy import abs as Abs
-    from math import sqrt, sin, pi, cos
+    {imports}
 '''
         return code
     
@@ -960,6 +959,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         A2  += '\n'
         CT  += '\n'
         NEW_ARGS = TT1 + TT2 + TT3 + A3 + A2 + CT
+        imports = '\n    '.join([str(i) for i in self._imports])
 
         head = code_head.format(SPAN=SPAN, 
                                 G_MAT=G_MAT, 
@@ -968,7 +968,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                                 MAPPING_PART_2=MAPPING_PART_2,
                                 MAPPING_PART_3=MAPPING_PART_3,
                                 MAPPING_PART_4=MAPPING_PART_4,
-                                FIELD_ARGS=field_args)
+                                FIELD_ARGS=field_args,
+                                imports=imports)
         
         #------------------------- MAKE BODY -------------------------
         A1              = ''
@@ -1283,12 +1284,12 @@ class DiscreteBilinearForm(BasicDiscrete):
             g_mat_information_false = []
             g_mat_information_true = []
 
-        '''
-        1, 1: expr[1,1] = F0*sqrt(x1**2*(x1*cos(2*pi*x3) + 2)**2*(sin(pi*x2)**2 + cos(pi*x2)**2)**2*(sin(2*pi*x3)**2 + cos(2*pi*x3)**2)**2)*(pi*(x1*cos(2*pi*x3) + 2)*
-        (-2*pi*x1*sin(pi*x2)*sin(2*pi*x3)*dx1(v1[1]) - sin(pi*x2)*cos(2*pi*x3)*dx3(v1[1]))*cos(pi*x2)*w2[1] - pi*(x1*cos(2*pi*x3) + 2)*(-2*pi*x1*sin(2*pi*x3)*cos(pi*x2)*dx1(v1[1]) - 
-        cos(pi*x2)*cos(2*pi*x3)*dx3(v1[1]))*sin(pi*x2)*w2[1])/(2*pi**2*x1**2*(x1*cos(2*pi*x3) + 2)**2*(sin(pi*x2)**2 + cos(pi*x2)**2)**2*(sin(2*pi*x3)**2 + cos(2*pi*x3)**2)**2)
-        = 0 - but is not yet detected as 0! Hence a matrix is generated, that later is not required!
-        '''
+        #'''
+        #1, 1: expr[1,1] = F0*sqrt(x1**2*(x1*cos(2*pi*x3) + 2)**2*(sin(pi*x2)**2 + cos(pi*x2)**2)**2*(sin(2*pi*x3)**2 + cos(2*pi*x3)**2)**2)*(pi*(x1*cos(2*pi*x3) + 2)*
+        #(-2*pi*x1*sin(pi*x2)*sin(2*pi*x3)*dx1(v1[1]) - sin(pi*x2)*cos(2*pi*x3)*dx3(v1[1]))*cos(pi*x2)*w2[1] - pi*(x1*cos(2*pi*x3) + 2)*(-2*pi*x1*sin(2*pi*x3)*cos(pi*x2)*dx1(v1[1]) - 
+        #cos(pi*x2)*cos(2*pi*x3)*dx3(v1[1]))*sin(pi*x2)*w2[1])/(2*pi**2*x1**2*(x1*cos(2*pi*x3) + 2)**2*(sin(pi*x2)**2 + cos(pi*x2)**2)**2*(sin(2*pi*x3)**2 + cos(2*pi*x3)**2)**2)
+        #= 0 - but is not yet detected as 0! Hence a matrix is generated, that later is not required!
+        #'''
 
         if nv > 1:
             ct_str = 'coupling_terms_u_{u_i}_v_{v_j}' if nu > 1 else 'coupling_terms_u_v_{v_j}'

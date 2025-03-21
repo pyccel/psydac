@@ -146,6 +146,15 @@ class BasicCodeGen:
         if ast:
             if fast_assembly == False:
                 self._save_code(self._generate_code(), backend=self.backend['name'])
+            else:
+                psydac_ast = self.ast
+                parser_settings = {
+                    'dim'    : psydac_ast.dim,
+                    'nderiv' : psydac_ast.nderiv,
+                    'mapping': psydac_ast.mapping,
+                    'target' : psydac_ast.domain
+                }
+                self._imports  = parse(psydac_ast.expr, settings=parser_settings, backend=self.backend, fast_assembly=fast_assembly)
 
 
         if comm is not None and comm.size>1: comm.Barrier()

@@ -104,7 +104,7 @@ def is_scalar_array(var):
 
 
 #==============================================================================
-def parse(expr, settings, backend=None):
+def parse(expr, settings, backend=None, fast_assembly=False):
     """
     This function takes a Psydac Ast and returns a Pyccel Ast
 
@@ -126,7 +126,11 @@ def parse(expr, settings, backend=None):
     """
     psy_parser = Parser(settings, backend)
     ast = psy_parser.doit(expr)
-    return ast
+    if not fast_assembly:
+        return ast
+    else:
+        imports = psy_parser._imports
+        return imports
 
 #==============================================================================
 class Parser(object):
@@ -548,6 +552,7 @@ class Parser(object):
         imports       = [Import('numpy', numpy_imports)] + \
                         ([Import(math_library, math_imports)] if math_imports else []) + \
                         [*expr.imports]
+        self._imports = imports
 
         results = [self._visit(a) for a in expr.results]
 
