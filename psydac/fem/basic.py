@@ -56,23 +56,16 @@ class FemSpace( metaclass=ABCMeta ):
     @abstractmethod
     def vector_space( self ):
         """Topologically associated vector space."""
-
-    @property
-    # @abstractmethod
-    def is_product( self ):
-        """
-        Boolean flag that describes whether the space is a product space.
-        If True, an element of this space can be decomposed into separate fields.
-
-        """
-        # todo (MCP 4.03.25) try this:
-        return self.is_multipatch or self.is_vector_valued
+        # question [MCP 03.2025]:
+            # rename as coeff_space ?
+            # meaning of docstring? see different one in MultipatchFemSpace
 
     @property
     @abstractmethod
     def is_multipatch( self ):
         """
         Boolean flag that describes whether the space is a multi-patch space.
+        :rtype: bool
         """
 
     @property
@@ -80,12 +73,44 @@ class FemSpace( metaclass=ABCMeta ):
     def is_vector_valued( self ):
         """
         Boolean flag that describes whether the space is vector-valued.
+        :rtype: bool
         """
+
+    @property
+    def is_product( self ):
+        """
+        Boolean flag that describes whether the space is a product space.
+        If True, an element of this space can be decomposed into separate fields.
+
+        """
+        return self.is_multipatch or self.is_vector_valued
 
     @property
     @abstractmethod
     def symbolic_space( self ):
         """Symbolic space."""
+
+    @property
+    @abstractmethod
+    def patch_spaces(self):
+        """
+        Return the patch spaces (self if single-patch) as a tuple.
+        """
+
+    @property
+    @abstractmethod
+    def component_spaces(self):
+        """
+        Return the component spaces (self if scalar-valued) as a tuple.
+        """
+
+    @property
+    @abstractmethod
+    def axis_spaces(self):
+        """
+        Return the axis spaces (self if univariate) as a tuple.
+        """
+
 
     #---------------------------------------
     # Abstract interface: evaluation methods

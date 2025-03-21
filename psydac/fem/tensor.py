@@ -158,18 +158,6 @@ class TensorFemSpace(FemSpace):
         """Returns the topological associated vector space."""
         return self._vector_space
 
-    # @property
-    # def is_product(self):
-    #     return False
-
-    @property
-    def is_multipatch(self):
-        return False
-
-    @property
-    def is_vector_valued(self):
-        return False
-
     @property
     def symbolic_space( self ):
         return self._symbolic_space 
@@ -182,6 +170,18 @@ class TensorFemSpace(FemSpace):
     def symbolic_space( self, symbolic_space ):
         assert isinstance(symbolic_space, BasicFunctionSpace)
         self._symbolic_space = symbolic_space
+
+    @property
+    def patch_spaces(self):
+        return (self,)
+
+    @property
+    def component_spaces(self):
+        return (self,)
+
+    @property
+    def axis_spaces(self):
+        return self._spaces
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
@@ -710,6 +710,16 @@ class TensorFemSpace(FemSpace):
     #--------------------------------------------------------------------------
     # Other properties and methods
     #--------------------------------------------------------------------------
+
+    @property
+    def is_multipatch(self):
+        return False
+
+    @property
+    def is_vector_valued(self):
+        return False
+
+    # question [MCP 03.2025]: this is not in the FemSpace interface, redundant with is_vector_valued. keep it ?
     @property
     def is_scalar(self):
         return True

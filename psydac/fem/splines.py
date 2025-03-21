@@ -265,18 +265,6 @@ class SplineSpace( FemSpace ):
         """Returns the topological associated vector space."""
         return self._vector_space
 
-    # @property
-    # def is_product(self):
-    #     return False
-
-    @property
-    def is_multipatch(self):
-        return False
-
-    @property
-    def is_vector_valued(self):
-        return False
-
     @property
     def symbolic_space( self ):
         return self._symbolic_space
@@ -324,10 +312,31 @@ class SplineSpace( FemSpace ):
     # Other properties
     #--------------------------------------------------------------------------
     @property
+    def is_multipatch(self):
+        return False
+
+    @property
+    def is_vector_valued(self):
+        return False
+
+    # question [MCP 03.2025]: this is not in the FemSpace interface, redundant with is_vector_valued. keep it ?
+    @property
     def is_scalar( self ):
         """ Only scalar field is implemented for now.
         """
         return True
+
+    @property
+    def patch_spaces(self):
+        return (self,)
+
+    @property
+    def component_spaces(self):
+        return (self,)
+
+    @property
+    def axis_spaces(self):
+        return (self,)
 
     @property
     def basis( self ):

@@ -112,18 +112,6 @@ class VectorFemSpace( FemSpace ):
         """Returns the vector space of the coefficients (mapping invariant)."""
         return self._vector_space
 
-    # @property
-    # def is_product(self):
-    #     return True
-
-    @property
-    def is_multipatch(self):
-        return False
-
-    @property
-    def is_vector_valued(self):
-        return True
-
     @property
     def symbolic_space( self ):
         return self._symbolic_space
@@ -132,6 +120,18 @@ class VectorFemSpace( FemSpace ):
     def symbolic_space( self, symbolic_space ):
         assert isinstance(symbolic_space, BasicFunctionSpace)
         self._symbolic_space = symbolic_space
+
+    @property
+    def patch_spaces(self):
+        return (self,)
+
+    @property
+    def component_spaces(self):
+        return self._spaces
+
+    @property
+    def axis_spaces(self):
+        raise NotImplementedError('Vector Fem space has no list of axis spaces')
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
@@ -334,6 +334,17 @@ class VectorFemSpace( FemSpace ):
     # Other properties and methods
     #--------------------------------------------------------------------------
     @property
+    def is_multipatch(self):
+        return False
+
+    @property
+    def is_vector_valued(self):
+        # question (MCP 03.2025) do we allow scalar-valued VectorFemSpaces ?
+        return True
+
+    # question [MCP 03.2025]: this is not in the FemSpace interface,
+    # and almost redundant/inconsistent with is_vector_valued. keep it ?
+    @property
     def is_scalar(self):
         return len( self.spaces ) == 1
 
@@ -434,19 +445,6 @@ class MultipatchFemSpace( FemSpace ):
         """Returns the vector space of the coefficients (mapping invariant)."""
         return self._vector_space
 
-    # @property
-    # def is_product(self):
-    #     return True
-
-    @property
-    def is_multipatch(self):
-        return True
-
-    @property
-    def is_vector_valued(self):
-        """ Returns True if the space is vector-valued, False otherwise. """
-        return self.patch_spaces[0].is_vector_valued
-        
     @property
     def symbolic_space( self ):
         return self._symbolic_space
@@ -455,6 +453,25 @@ class MultipatchFemSpace( FemSpace ):
     def symbolic_space( self, symbolic_space ):
         assert isinstance(symbolic_space, BasicFunctionSpace)
         self._symbolic_space = symbolic_space
+
+    @property
+    def patch_spaces(self):
+        return self._spaces
+
+    @property
+    def component_spaces(self):
+        """
+        Return the component spaces (self if scalar-valued) as a tuple.
+        """
+        if self.is_vector_valued:
+            # should we return here the multipatch scalar-valued space?
+            raise NotImplementedError('Component spaces not implemented for multipatch spaces')
+        else:
+            return self._spaces
+
+    @property
+    def axis_spaces(self):
+        raise NotImplementedError('Multipatch space has no list of axis spaces')
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
@@ -647,6 +664,14 @@ class MultipatchFemSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Other properties and methods
     #--------------------------------------------------------------------------
+    @property
+    def is_multipatch(self):
+        return True
+
+    @property
+    def is_vector_valued(self):
+        return self.patch_spaces[0].is_vector_valued
+
     @property
     def nbasis(self):
         dims = [V.nbasis for V in self.spaces]
