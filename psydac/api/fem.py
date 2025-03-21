@@ -1099,12 +1099,12 @@ class DiscreteBilinearForm(BasicDiscrete):
         import os
         if not os.path.isdir('__psydac__'):
             os.makedirs('__psydac__')
-        id = id_generator()
-        filename = f'__psydac__/assemble_{id}.py'
+        file_id = id_generator()
+        filename = f'__psydac__/assemble_{file_id}.py'
         f = open(filename, 'w')
         f.writelines(assembly_code)
         f.close()
-        return id
+        return file_id
 
     def read_BilinearForm(self):
         
@@ -1525,18 +1525,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
         threads_args = tuple(np.int64(a) if isinstance(a, int) else a for a in threads_args)
 
-        id = self.make_file(temps, ordered_stmts, field_derivatives, mult, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option=mapping_option)
-        #from psydac.api.tests.multiplicity_issue_copy import turn_off_pyccel
-        #if turn_off_pyccel:
-        #    from __psydac__.assemble import assemble_matrix
-        #    self._func = assemble_matrix
-        #else:
-        #    from __psydac__.assemble import assemble_matrix
-        #    from pyccel.epyccel import epyccel
-        #    new_func = epyccel(assemble_matrix, language='fortran')
-        #    self._func = new_func
+        file_id = self.make_file(temps, ordered_stmts, field_derivatives, mult, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option=mapping_option)
 
-        package = importlib.import_module(f'__psydac__.assemble_{id}')
+        package = importlib.import_module(f'__psydac__.assemble_{file_id}')
 
         # print("\n\n" + "#" + "-"*78)
         # print("Source code of the generated assembly method:")
