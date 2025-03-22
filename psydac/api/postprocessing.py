@@ -2,6 +2,10 @@
 #
 # Copyright 2019 Yaman Güçlü
 
+# TODO [MCP 03.2025]
+# - ambiguous method is_product is used in many places: it should be replaced by is_vector_valued (probably always) or is_multipatch (probably never)
+# - also, the new functions patch_spaces and component_spaces may be used instead of the ambiguous 'spaces'
+
 import os
 import mpi4py
 import numpy as np
@@ -19,6 +23,7 @@ from pyevtk.vtk import VtkHexahedron, VtkQuad, VtkVertex
 from psydac.api.discretization import discretize
 from psydac.cad.geometry import Geometry
 from psydac.fem.tensor import TensorFemSpace
+from psydac.fem.vector import VectorFemSpace
 from psydac.mapping.discrete import SplineMapping
 from psydac.core.bsplines import cell_index
 from psydac.feec.pushforward import Pushforward
@@ -59,7 +64,7 @@ def get_grid_lines_2d(domain_h, V_h, *, refine=1):
     isolines_2 : list of dict
         Lines having constant value of 'eta2' parameter;
         each line is a dictionary with three keys:
-        
+
         - 'eta2' : value of eta2 on the curve
         - 'x'    : x coordinates of N points along the curve
         - 'y'    : y coordinates of N points along the curve
@@ -299,7 +304,7 @@ class OutputManager:
         Notes
         -----
         Femspaces are added to ``self._space_info``.
-        
+
         """
         assert all(isinstance(femspace, FemSpace) for femspace in femspaces.values())
 
@@ -309,7 +314,7 @@ class OutputManager:
                 patches = femspace.symbolic_space.domain.interior.as_tuple()
                 for i in range(len(patches)):
                     if self.comm is None or self.comm.rank == 0:
-                        if femspace.spaces[i].is_product:
+                        if femspace.spaces[i].is_vector_valued:
                             self._add_vector_space(femspace.spaces[i], name=name, patch_name=patches[i].name)
                         else:
                             self._add_scalar_space(femspace.spaces[i], name=name, patch_name=patches[i].name)
@@ -319,7 +324,7 @@ class OutputManager:
 
             except AttributeError:
                 if self.comm is None or self.comm.rank == 0:
-                    if femspace.is_product:
+                    if femspace.is_vector_valued:
                         self._add_vector_space(femspace, name=name, patch_name=femspace.symbolic_space.domain.name)
                     else:
                         self._add_scalar_space(femspace, name=name, patch_name=femspace.symbolic_space.domain.name)
@@ -358,6 +363,7 @@ class OutputManager:
         """
         spaces_info = self._space_info
 
+        assert isinstance(scalar_space, TensorFemSpace)        
         scalar_space_name = name
         patch = patch_name
 
@@ -426,9 +432,10 @@ class OutputManager:
         Adds a vector space to the scope.
         Parameters
         ----------
-        vector_space: psydac.fem.vector.VectorFemSpace or psydac.fem.vector.MultipatchFemSpace  # todo [MCP 12.03.2025]: check these types
+        vector_space: psydac.fem.vector.VectorFemSpace
             Vector/Product FemSpace to add to the scope.
         """
+        assert isinstance(vector_space, VectorFemSpace)
 
         symbolic_space = vector_space.symbolic_space
         dim = symbolic_space.domain.dim
@@ -955,7 +962,7 @@ class PostProcessManager:
                 continue
 
             ncells = {interior_name: interior_names_to_ncells[interior_name] for interior_name in subdomain_names}
-    
+
             subdomain    = domain.get_subdomain(subdomain_names)
             space_name_0 = list(space_dict.keys())[0]
             periodic     = space_dict[space_name_0][2].get('periodic', None)
