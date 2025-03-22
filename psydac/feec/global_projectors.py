@@ -659,7 +659,7 @@ class Projector_H1vec(GlobalProjector):
     
     Parameters
     ----------
-    H1vec : FemSpace
+    H1vec : VectorFemSpace
         H1 x H1 x H1-conforming finite element space, codomain of the projection
         operator.
         
@@ -983,4 +983,3 @@ def evaluate_dofs_3d_vec(
         for i2 in range(n2):
             for i3 in range(n3):
                 F3[i1, i2, i3] = f3(intp_x1[i1], intp_x2[i2], intp_x3[i3])
-
