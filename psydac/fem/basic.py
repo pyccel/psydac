@@ -316,7 +316,7 @@ class FemField:
 
     @property
     def patch_fields(self):
-        """ return the patch fields (self if single-patch) as a tuple """
+        """ Return the patch fields (only self if single-patch) as a tuple """
         if self.space.is_multipatch:
             return self.fields
         else:
