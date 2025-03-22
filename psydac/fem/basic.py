@@ -324,7 +324,7 @@ class FemField:
 
     @property
     def component_fields(self):
-        """ return the component fields (self if scalar-valued) as a tuple """
+        """ Return the component fields (only self if scalar-valued) as a tuple """
         if self.space.is_vector_valued:
             return self.fields
         else:
