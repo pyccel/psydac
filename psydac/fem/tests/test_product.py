@@ -3,7 +3,7 @@
 from psydac.fem.basic   import FemField
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
-from psydac.fem.vector  import create_product_space
+from psydac.fem.vector  import VectorFemSpace
 from psydac.ddm.cart    import DomainDecomposition
 
 from numpy import linspace
@@ -30,7 +30,7 @@ def test_product_space_2d():
     Vy = TensorFemSpace(domain_decomposition, V1, V2)
     # ...
 
-    V = create_product_space(Vx, Vy)
+    V = VectorFemSpace(Vx, Vy)
     F = FemField(V)
 
 def test_product_space_3d():
@@ -67,7 +67,7 @@ def test_product_space_3d():
     Vz = TensorFemSpace(domain_decomposition, V1, V2, V3)
     # ...
 
-    V = create_product_space(Vx, Vy, Vz)
+    V = VectorFemSpace(Vx, Vy, Vz)
     F = FemField(V)
 
 
