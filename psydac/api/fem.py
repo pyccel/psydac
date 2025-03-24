@@ -1539,14 +1539,15 @@ class DiscreteBilinearForm(BasicDiscrete):
         assembly_backend = self.backend
         if assembly_backend['name'] == 'pyccel':
             kwargs = {
-                'language': 'fortran',  # hardcoded for now
-                'compiler': assembly_backend['compiler'],
-                'fflags': assembly_backend['flags'],
+                'language'    : 'fortran',  # hardcoded for now
+                'compiler'    : assembly_backend['compiler'],
+                'fflags'      : assembly_backend['flags'],
                 'accelerators': ('openmp',) if assembly_backend['openmp'] else (),
-                'folder': assembly_backend['folder'],
-                'comm': self.comm,
-                'time_execution': verbose,
-                'verbose': verbose
+                'verbose'     : True,
+                # 'folder': assembly_backend['folder'],
+                # 'comm': self.comm,
+                # 'time_execution': verbose,
+                # 'verbose': verbose
             }
             new_func = epyccel(package.assemble_matrix, **kwargs)
         else:
