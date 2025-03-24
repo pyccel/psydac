@@ -1540,7 +1540,10 @@ class DiscreteBilinearForm(BasicDiscrete):
         if assembly_backend['name'] == 'pyccel':
             kwargs = {
                 'language': assembly_backend['language'],
+                'compiler': assembly_backend['compiler'],
+                'fflags': assembly_backend['flags'],
                 'accelerators': ('openmp',) if assembly_backend['openmp'] else (),
+                'folder': assembly_backend['folder'],
                 'comm': self.comm,
                 'time_execution': verbose,
                 'verbose': verbose
