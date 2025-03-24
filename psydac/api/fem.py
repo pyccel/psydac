@@ -1535,8 +1535,16 @@ class DiscreteBilinearForm(BasicDiscrete):
         # print("#" + "-"*78 + "\n")
         # print(inspect.getsource(package.assemble_matrix))
 
-        new_func = epyccel(package.assemble_matrix, language='fortran')
-        self._func = new_func
+        assembly_backend = self.backend
+        if assembly_backend['name'] == 'pyccel':
+            kwargs = {
+                'language': assembly_backend['language'],
+                'accelerators': ('openmp',) if assembly_backend['openmp'] else (),
+                'comm': self.comm,
+                'time_execution': verbose,
+                'verbose': verbose
+            }
+            self._new_func = epyccel(package.assemble_matrix, **kwargs)
 
         return args, threads_args
         
