@@ -1535,6 +1535,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         # print("#" + "-"*78 + "\n")
         # print(inspect.getsource(package.assemble_matrix))
 
+        # If the backend is pyccel, we compile the new assembly function
         assembly_backend = self.backend
         if assembly_backend['name'] == 'pyccel':
             kwargs = {
@@ -1544,7 +1545,12 @@ class DiscreteBilinearForm(BasicDiscrete):
                 'time_execution': verbose,
                 'verbose': verbose
             }
-            self._new_func = epyccel(package.assemble_matrix, **kwargs)
+            new_func = epyccel(package.assemble_matrix, **kwargs)
+        else:
+            new_func = package.assemble_matrix
+
+        # Use the new assembly function (either compiled or not)
+        self._func = new_func
 
         return args, threads_args
         
