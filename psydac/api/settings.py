@@ -16,7 +16,8 @@ PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python', 'openmp':False}
 
 PSYDAC_BACKEND_GPYCCEL  = {'name': 'pyccel',
                        'compiler': 'GNU',
-                       'flags'   : '-O3 -ffast-math',
+#                       'flags'   : '-O3 -ffast-math',
+                       'flags'   : '-O3',  # Do not use -ffast-math, it may lead to numerical instability
                        'folder'  : '__gpyccel__',
                        'tag'     : 'gpyccel',
                        'openmp'  : False}
