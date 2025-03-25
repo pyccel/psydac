@@ -291,7 +291,6 @@ class LinearOperator(ABC):
 
         """
         assert np.isscalar(c)
-        assert np.isreal(c)
         if c==0:
             return ZeroOperator(self.domain, self.codomain)
         elif c == 1:
@@ -538,7 +537,7 @@ class IdentityOperator(LinearOperator):
 #===============================================================================
 class ScaledLinearOperator(LinearOperator):
     """
-    A linear operator $A$ scalar multiplied by a real constant $c$. 
+    A linear operator $A$ scalar multiplied by a constant $c$. 
     
     """
 
@@ -547,7 +546,7 @@ class ScaledLinearOperator(LinearOperator):
         assert isinstance(domain, VectorSpace)
         assert isinstance(codomain, VectorSpace)
         assert np.isscalar(c)
-        assert np.isreal(c)
+        assert np.iscomplexobj(c) == (codomain._dtype == complex)
         assert isinstance(A, LinearOperator)
         assert domain   == A.domain
         assert codomain == A.codomain
@@ -594,7 +593,7 @@ class ScaledLinearOperator(LinearOperator):
         return self._scalar*csr_matrix(self._operator.toarray())
 
     def transpose(self, conjugate=False):
-        return ScaledLinearOperator(domain=self.codomain, codomain=self.domain, c=self._scalar, A=self._operator.transpose(conjugate=conjugate))
+        return ScaledLinearOperator(domain=self.codomain, codomain=self.domain, c=self._scalar if not conjugate else np.conjugate(self._scalar), A=self._operator.transpose(conjugate=conjugate))
 
     def __neg__(self):
         return ScaledLinearOperator(domain=self.domain, codomain=self.codomain, c=-1*self._scalar, A=self._operator)
@@ -1119,6 +1118,7 @@ class MatrixFreeLinearOperator(LinearOperator):
     dot : Callable
         The method of the linear operator, assumed to map from domain to codomain.    
         This method can take out as an optional argument but this is not mandatory.
+        The callable can take other keyword arguments as for instance function parameters.
 
     dot_transpose: Callable
         The method of the transpose of the linear operator, assumed to map from codomain to domain.
@@ -1170,7 +1170,7 @@ class MatrixFreeLinearOperator(LinearOperator):
     def dtype(self):
         return None
 
-    def dot(self, v, out=None):
+    def dot(self, v, out=None, **kwargs):
         assert isinstance(v, Vector)
         assert v.space == self.domain
 
@@ -1181,10 +1181,10 @@ class MatrixFreeLinearOperator(LinearOperator):
             out = self.codomain.zeros()
 
         if self._dot_takes_out_arg:
-            self._dot(v, out=out)
+            self._dot(v, out=out, **kwargs)
         else:
             # provided dot product does not take an out argument: we simply copy the result into out
-            self._dot(v).copy(out=out)
+            self._dot(v).copy(out=out, **kwargs)
                     
         return out
         

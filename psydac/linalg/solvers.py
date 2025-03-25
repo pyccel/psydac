@@ -946,7 +946,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
         rp.copy(out=rp0)
 
         # squared residual norm and squared tolerance
-        res_sqr = r.dot(r)
+        res_sqr = r.dot(r).real
         tol_sqr = tol**2
 
         if verbose:
@@ -1007,7 +1007,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
             pp += rp
 
             # new residual norm
-            res_sqr = r.dot(r)
+            res_sqr = r.dot(r).real
 
             niter += 1
 
@@ -1804,6 +1804,10 @@ class GMRES(InverseLinearOperator):
         r -= b
 
         am = sqrt(r.dot(r).real)
+        if am < tol:
+            self._info = {'niter': 1, 'success': am < tol, 'res_norm': am }
+            return x
+
         beta.append(am)
         r *= - 1 / am
         

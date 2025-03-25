@@ -59,7 +59,7 @@ class CavitySolution:
 
         params = {'a': a, 'b': b, 'c': c, 'nx': nx, 'ny': ny}
         repl = [(sym_params[k], params[k]) for k in sym_params.keys()]
-        args = symbols('t, x, y')
+        args = symbols('t, x, y', real=True)
 
         # Callable functions
         fields = {k: lambdify(args   , v.subs(repl), 'numpy') for k, v in sym_fields.items()}

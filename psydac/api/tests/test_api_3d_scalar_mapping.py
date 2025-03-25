@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 from mpi4py import MPI
-from sympy import pi, cos, sin
+from sympy import pi, cos, sin, symbols
 import pytest
 import os
 
@@ -240,7 +240,7 @@ def test_api_poisson_3d_dir_collela():
 
     filename = os.path.join(mesh_dir, 'collela_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = sin(pi*x)*sin(pi*y)*sin(pi*z)
     f        = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
@@ -258,7 +258,7 @@ def test_api_poisson_3d_dir_collela():
 def test_api_poisson_3d_dirneu_identity_2():
     filename = os.path.join(mesh_dir, 'identity_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = sin(0.5*pi*x)*sin(pi*y)*sin(pi*z)
     f        = (9./4.)*pi**2*solution
@@ -276,7 +276,7 @@ def test_api_poisson_3d_dirneu_identity_2():
 def test_api_poisson_3d_dirneu_identity_13():
     filename = os.path.join(mesh_dir, 'identity_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = cos(0.5*pi*x)*cos(0.5*pi*y)*sin(pi*z)
     f        = (3./2.)*pi**2*solution
@@ -295,7 +295,7 @@ def test_api_poisson_3d_dirneu_identity_13():
 def test_api_poisson_3d_dirneu_identity_24():
     filename = os.path.join(mesh_dir, 'identity_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = sin(0.5*pi*x)*sin(0.5*pi*y)*sin(pi*z)
     f        = (3./2.)*pi**2*solution
@@ -358,7 +358,7 @@ def test_api_poisson_3d_dirneu_identity_24():
 def test_api_poisson_3d_dirneu_collela_2():
     filename = os.path.join(mesh_dir, 'collela_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = sin(0.25*pi*(x+1.))*sin(pi*y)*sin(pi*z)
     f        = (33./16.)*pi**2*solution
@@ -397,7 +397,7 @@ def test_api_poisson_3d_dirneu_collela_2():
 def test_api_poisson_3d_dirneu_collela_24():
     filename = os.path.join(mesh_dir, 'collela_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = sin(0.25*pi*(x+1.))*sin(0.25*pi*(y+1.))*sin(pi*z)
     f        = (9./8.)*pi**2*solution
@@ -459,7 +459,7 @@ def test_api_poisson_3d_dirneu_collela_24():
 def test_api_laplace_3d_neu_identity():
     filename = os.path.join(mesh_dir, 'identity_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = cos(pi*x)*cos(pi*y)*cos(pi*z)
     f        = (3.*pi**2 + 1.)*solution
@@ -500,7 +500,7 @@ def test_api_poisson_3d_dir_collela():
 
     filename = os.path.join(mesh_dir, 'collela_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = sin(pi*x)*sin(pi*y)*sin(pi*z)
     f        = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
