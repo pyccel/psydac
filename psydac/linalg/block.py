@@ -737,8 +737,8 @@ class BlockLinearOperator(LinearOperator):
         for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
             Bij = self[ij]
             Mij = M[ij]
-            if   Bij is None: blocks[ij] = Mij.copy()
-            elif Mij is None: blocks[ij] = Bij.copy()
+            if   Bij is None: blocks[ij] = Mij
+            elif Mij is None: blocks[ij] = Bij
             else            : blocks[ij] = Bij + Mij
         mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
         if len(mat._blocks) != len(self._blocks):
@@ -763,7 +763,7 @@ class BlockLinearOperator(LinearOperator):
             Bij = self[ij]
             Mij = M[ij]
             if   Bij is None: blocks[ij] = -Mij
-            elif Mij is None: blocks[ij] =  Bij.copy()
+            elif Mij is None: blocks[ij] =  Bij
             else            : blocks[ij] =  Bij - Mij
         mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
         if len(mat._blocks) != len(self._blocks):
