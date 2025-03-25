@@ -30,3 +30,8 @@ __test__/
 
 # pycharm directory
 .idea
+
+# Virtual environments
+env/
+env*/
+*env/

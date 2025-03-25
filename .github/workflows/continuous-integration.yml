@@ -167,6 +167,10 @@ jobs:
         run: |
           python -m pip install . --no-cache-dir
           python -m pip freeze
+      
+      - name: Compile psydac kernels
+        run: |
+          psydac-accelerate --language c
 
       - name: Test Pyccel optimization flags
         run: |
@@ -217,16 +221,22 @@ jobs:
       - name: Install struphy
         working-directory: ${{ env.STRUPHY_DIR }}
         run: |
+          echo "Psydac location for this branch"
+          pip show psydac
           pip uninstall psydac -y
           python -m pip install .[test] --no-cache-dir
+          echo "Psydac location after installing struphy"
           pip show psydac
-       
+          
       - name: Re-install Psydac from the current branch
         run: |
+          echo "Uninstall psydac"
+          pip show psydac
           pip uninstall psydac -y
           python -m pip install ${{ env.PSYDAC_DIR }} --force-reinstall --no-cache-dir
+          echo "Psydac location after installing psydac from the current branch (should be the same as in the previous step)"
           pip show psydac
-
+          
       - name: Compile struphy
         working-directory: ${{ env.STRUPHY_DIR }}
         run: |
