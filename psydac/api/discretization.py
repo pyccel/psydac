@@ -37,7 +37,7 @@ from psydac.api.utilities    import flatten
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.partitioning import create_cart, construct_connectivity, construct_interface_spaces, construct_reduced_interface_spaces
-from psydac.fem.vector       import MultipatchFemSpace, VectorFemSpace, create_product_space
+from psydac.fem.vector       import MultipatchFemSpace, VectorFemSpace
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 from psydac.linalg.stencil   import StencilVectorSpace
