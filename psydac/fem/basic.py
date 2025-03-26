@@ -275,7 +275,7 @@ class FemField:
         else:
             coeffs = space.vector_space.zeros()
 
-        # Case of a vector field, element of a ProductSpace
+        # Case of vector-valued or multipatch field, element of a Product Space
         if space.is_product:
             fields = tuple(FemField(V, c) for V, c in zip(space.spaces, coeffs))
         else:
