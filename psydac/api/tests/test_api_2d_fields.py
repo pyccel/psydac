@@ -36,7 +36,6 @@ from psydac.fem.basic              import FemField
 from psydac.api.discretization     import discretize
 from psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.global_projectors import Projector_H1
-from psydac.fem.plotting_utilities import plot_field_2d as plot_field
 
 # ... get the mesh directory
 try:
@@ -50,7 +49,7 @@ except:
 x, y = symbols('x, y', real=True)
 
 #------------------------------------------------------------------------------
-def run_field_test(filename, f, do_plot=False):
+def run_field_test(filename, f):
 
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
@@ -92,10 +91,6 @@ def run_field_test(filename, f, do_plot=False):
     # Solve linear system
     # uh is the L2-projection of the analytical field "f"
     uh = equation_h.solve()
-
-    if do_plot:
-        plot_fn=f'uh_single_patch_test.pdf'
-        plot_field(fem_field=uh, Vh=Vh, domain=domain, title='uh', filename=plot_fn, hide_plot=True)
 
     #+++++++++++++++++++++++++++++++
     l1   = LinearForm( v, integral(domain, F*v))
@@ -326,15 +321,14 @@ def test_field_collela():
     assert abs(error_2 - expected_error_2) < 1.e-7
 
 #------------------------------------------------------------------------------
-@pytest.mark.parametrize('do_plot', [False, True])
-def test_field_quarter_annulus(do_plot):
+def test_field_quarter_annulus():
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
     c        = pi / (1. - 0.5**2)
     r2       = 1. - x**2 - y**2
     f        = x*y*sin(c * r2)
 
-    error_1, error_2 = run_field_test(filename, f, do_plot=do_plot)
+    error_1, error_2 = run_field_test(filename, f)
 
     expected_error_1 =  1.1146377538410329e-10
     expected_error_2 =  9.18920469410037e-08
@@ -365,4 +359,4 @@ def teardown_function():
     cache.clear_cache()
 
 if __name__ == '__main__':
-    test_field_quarter_annulus(do_plot=True)
+    test_field_quarter_annulus()
