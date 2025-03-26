@@ -21,28 +21,6 @@ from psydac.core.field_evaluation_kernels import (pushforward_2d_hdiv,
 __all__ = ('VectorFemSpace', 'MultipatchFemSpace')
 
 #===============================================================================
-# def create_product_space(*spaces, connectivity=None):
-#     """
-#     Factory function that creates a product FemSpace from a list of spaces:
-#       - if the list contains a single space, this simply returns the given space as is
-#       - otherwise:  
-#         - if connectivity is None, returns a VectorFemSpace
-#         - otherwise, returns a MultipatchFemSpace with the given connectivity
-#     """
-
-#     if len(spaces) == 1:
-#         return spaces[0]
-#     else:
-#         # check that all spaces are indeed single-patch Fem spaces
-#         if connectivity is None:
-#             assert all(isinstance(V, FemSpace) for V in spaces)
-#             return VectorFemSpace(*spaces)
-        
-#         else:
-#             assert all((isinstance(V, FemSpace) and not V.is_multipatch) for V in spaces)
-#             return MultipatchFemSpace(*spaces, connectivity=connectivity)
-
-#===============================================================================
 class VectorFemSpace( FemSpace ):
     """
     FEM space with a vector basis defined on a single patch

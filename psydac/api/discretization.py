@@ -34,6 +34,7 @@ from psydac.api.glt          import DiscreteGltExpr
 from psydac.api.expr         import DiscreteExpr
 from psydac.api.equation     import DiscreteEquation
 from psydac.api.utilities    import flatten
+from psydac.fem.basic        import FemSpace
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.partitioning import create_cart, construct_connectivity, construct_interface_spaces, construct_reduced_interface_spaces
@@ -505,15 +506,15 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     construct_reduced_interface_spaces(g_spaces, new_g_spaces, interiors, connectivity)
     spaces = list(new_g_spaces.values())
 
-    if len(connectivity) == 0:
+    if connectivity:
+        assert all((isinstance(Wh, FemSpace) and not Wh.is_multipatch) for Wh in spaces)
+        Vh = MultipatchFemSpace(*spaces, connectivity=connectivity)
+    else:
         assert all(isinstance(Wh, FemSpace) for Wh in spaces)
         if  len(spaces) == 1:
             Vh = spaces[0]
         else:
             Vh = VectorFemSpace(*spaces)
-    else:
-        assert all((isinstance(Wh, FemSpace) and not Wh.is_multipatch) for Wh in spaces)
-        Vh = MultipatchFemSpace(*spaces, connectivity=connectivity)
     
     Vh.symbolic_space = V
 
