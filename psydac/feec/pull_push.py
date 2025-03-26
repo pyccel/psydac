@@ -23,6 +23,7 @@ __all__ = (
     # ----------------------
     'push_1d_h1',
     'push_1d_l2',
+    'push_2d_h1_vec',
     'push_2d_h1',
     'push_2d_hcurl',
     'push_2d_hdiv',
