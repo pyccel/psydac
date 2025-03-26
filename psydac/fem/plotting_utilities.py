@@ -12,7 +12,7 @@ from collections import OrderedDict
 from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic import FemField, FemSpace
 from psydac.utilities.utils import refine_array_1d
-from psydac.feec.pull_push import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
+from psydac.feec.pull_push import push_2d_h1_vec, push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
 
 __all__ = (
     'get_grid_vals',
@@ -42,10 +42,8 @@ def get_grid_vals(u, etas, mappings_list, space_kind=None):
 
     if space_kind is None:
         # use a simple change of variable
-        if vector_valued:
-            raise NotImplementedError('use simple change of variable for vector fields [todo]')
-        else:
-            space_kind = 'h1'
+        # todo [MCP 26.03.2025]: this information should be stored in the FemSpace object!
+        space_kind = 'h1'
             
     if vector_valued:
         # WARNING: here we assume 2D !
@@ -75,12 +73,16 @@ def get_grid_vals(u, etas, mappings_list, space_kind=None):
 
         # computing the pushed-fwd values on the grid
         if space_kind == 'h1' or space_kind == 'V0':
-            assert not vector_valued
-            # todo (MCP): allow for "h1 push-forward" (single change of variable) of vector-valued fields
 
-            def push_field(
-                eta1, eta2): return push_2d_h1(
-                uk_field_0, eta1, eta2)
+            if vector_valued:
+                def push_field(
+                    eta1, eta2): return push_2d_h1_vec(
+                    uk_field_0, uk_field_1, eta1, eta2)
+            
+            else:
+                def push_field(
+                    eta1, eta2): return push_2d_h1(
+                    uk_field_0, eta1, eta2)
         elif space_kind == 'hcurl' or space_kind == 'V1':
             # todo (MCP): specify 2d_hcurl_scalar in push functions
             def push_field(
