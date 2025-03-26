@@ -73,6 +73,7 @@ def first_eigenmodes_hlap(
     #     backend_language='python'
     # print('[note: using '+backend_language+ ' backends in discretize functions]')
     assert bc_type in ['H0curl', 'H0div']
+    assert method_type in ['H1_fem', 'feec']
     assert nb_eigenmodes > 0
 
     print('---------------------------------------------------------------------------------------------------------')
@@ -311,7 +312,7 @@ if __name__ == '__main__':
     t_stamp_full = time_count()
 
     bc_type = 'H0curl'
-    bc_type = 'H0div'
+    # bc_type = 'H0div'
 
     method_type = 'H1_fem'
     # method_type = 'feec'
@@ -319,13 +320,14 @@ if __name__ == '__main__':
 
     # nc = 20
     # deg = 4
-    nc = 10
-    deg = 2
+    nc = 50
+    deg = 3
 
-    # domain_name = 'square_mp'
+    domain_name = 'square_mp'
     # domain_name = 'square'
+    domain_name = 'curved_L_shape'
     # domain_name = 'pretzel_f'
-    domain_name = 'annulus_4'
+    # domain_name = 'annulus_4'
 
     nb_eigenmodes = 4
 
@@ -335,7 +337,7 @@ if __name__ == '__main__':
     backend_language = 'python' # 'pyccel-gcc'
 
     print(f' .. building domain {domain_name}..')
-    if domain_name in ['pretzel_f', 'annulus_4']:
+    if domain_name in ['pretzel_f', 'annulus_4', 'curved_L_shape']:
         domain = build_multipatch_domain(domain_name=domain_name)
     elif domain_name == 'square_mp':
         int_x = [0, np.pi]
