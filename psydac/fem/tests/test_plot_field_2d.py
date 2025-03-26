@@ -17,9 +17,7 @@ from psydac.fem.plotting_utilities import plot_field_2d as plot_field
 
 
 def plot_some_field(Vh):
-
     uh = FemField(Vh)
-    # uh.coeffs._data[:] = np.random.rand(uh.coeffs._data.size)
 
     domain  = Vh.symbolic_space.domain
     if Vh.is_multipatch:
@@ -40,6 +38,10 @@ def plot_some_field(Vh):
 @pytest.mark.parametrize('use_scalar_field', [True, False])
 @pytest.mark.parametrize('use_multipatch', [True, False])
 def test_plot_field(use_scalar_field, use_multipatch):
+    """
+    tests that plot_field_2d runs for various types of Fem fields
+    (the proper content of the plots is not tested here)
+    """
 
     ncells = [7, 7]
     degree = [2, 2]
