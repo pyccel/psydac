@@ -503,11 +503,22 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
         new_g_spaces[inter]   = Vh
 
     construct_reduced_interface_spaces(g_spaces, new_g_spaces, interiors, connectivity)
+    spaces = list(new_g_spaces.values())
 
-    Vh = create_product_space(*new_g_spaces.values(), connectivity=connectivity)
+    if len(connectivity) == 0:
+        assert all(isinstance(Wh, FemSpace) for Wh in spaces)
+        if  len(spaces) == 1:
+            Vh = spaces[0]
+        else:
+            Vh = VectorFemSpace(*spaces)
+    else:
+        assert all((isinstance(Wh, FemSpace) and not Wh.is_multipatch) for Wh in spaces)
+        Vh = MultipatchFemSpace(*spaces, connectivity=connectivity)
+    
     Vh.symbolic_space = V
 
     return Vh
+
 
 #==============================================================================
 def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm=None, mpi_dims_mask=None):

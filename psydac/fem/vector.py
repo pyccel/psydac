@@ -21,26 +21,26 @@ from psydac.core.field_evaluation_kernels import (pushforward_2d_hdiv,
 __all__ = ('VectorFemSpace', 'MultipatchFemSpace')
 
 #===============================================================================
-def create_product_space(*spaces, connectivity=None):
-    """
-    Factory function that creates a product FemSpace from a list of spaces:
-      - if the list contains a single space, this simply returns the given space as is
-      - otherwise:  
-        - if connectivity is None, returns a VectorFemSpace
-        - otherwise, returns a MultipatchFemSpace with the given connectivity
-    """
+# def create_product_space(*spaces, connectivity=None):
+#     """
+#     Factory function that creates a product FemSpace from a list of spaces:
+#       - if the list contains a single space, this simply returns the given space as is
+#       - otherwise:  
+#         - if connectivity is None, returns a VectorFemSpace
+#         - otherwise, returns a MultipatchFemSpace with the given connectivity
+#     """
 
-    if len(spaces) == 1:
-        return spaces[0]
-    else:
-        # check that all spaces are indeed single-patch Fem spaces
-        if connectivity is None:
-            assert all(isinstance(V, FemSpace) for V in spaces)
-            return VectorFemSpace(*spaces)
+#     if len(spaces) == 1:
+#         return spaces[0]
+#     else:
+#         # check that all spaces are indeed single-patch Fem spaces
+#         if connectivity is None:
+#             assert all(isinstance(V, FemSpace) for V in spaces)
+#             return VectorFemSpace(*spaces)
         
-        else:
-            assert all((isinstance(V, FemSpace) and not V.is_multipatch) for V in spaces)
-            return MultipatchFemSpace(*spaces, connectivity=connectivity)
+#         else:
+#             assert all((isinstance(V, FemSpace) and not V.is_multipatch) for V in spaces)
+#             return MultipatchFemSpace(*spaces, connectivity=connectivity)
 
 #===============================================================================
 class VectorFemSpace( FemSpace ):
@@ -399,13 +399,15 @@ class MultipatchFemSpace( FemSpace ):
     Product of single-patch FEM spaces
     """
 
-    def __init__( self, *spaces, connectivity=None):
+    def __init__( self, *spaces, connectivity={}):
         """
         Parameters
         ----------
         *spaces : 
             single-patch FEM spaces
         """
+        if connectivity is None:
+            connectivity = {}
 
         if len(spaces) == 1:
             return
@@ -419,7 +421,6 @@ class MultipatchFemSpace( FemSpace ):
         self._ldim = ldims[0]
         # ...
 
-        connectivity          = connectivity if connectivity is not None else {}
         self._vector_space    = BlockVectorSpace(*[V.vector_space for V in self.spaces], connectivity=connectivity)
         self._symbolic_space  = None
         self._connectivity    = connectivity.copy()
