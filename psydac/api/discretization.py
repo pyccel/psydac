@@ -177,13 +177,19 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
 
     """
 
-    ldim    = derham.shape
+    ldim    = domain_h.ldim
     mapping = domain_h.domain.mapping # NOTE: assuming single-patch domain!
     bases   = ['B'] + ldim * ['M']
+    
+    if ldim == 3:
+        derham_spaces = ['H1', 'Hcurl', 'Hdiv', 'L2']
+    else:
+        raise NotImplementedError(f'Derham sequence for {ldim = } not implemented.')
+    
     spaces  = [discretize_space(V, domain_h, basis=basis, **kwargs)
-               for V, basis in zip(derham.spaces, bases)]
+               for V, basis in zip(derham_spaces, bases)]
 
-    if get_H1vec_space:
+    if get_H1vec_space and False:
         X = VectorFunctionSpace('X', domain_h.domain, kind='h1')
         V0h = spaces[0]
         Xh  = VectorFemSpace(*([V0h]*ldim))
@@ -330,13 +336,13 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 # TODO knots
 def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, basis='B', sequence='DR'):
     """
-    This function creates the discretized space starting from the symbolic space.
+    This function creates discrete Derham spaces.
 
     Parameters
     ----------
-    V : <FunctionSpace>
-        The symbolic space.
-
+    V : str
+        H1, Hcurl, Hdiv or L2 (at the moment).
+    
     domain_h   : <Geometry>
         The discretized domain.
 
@@ -386,19 +392,10 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 #    we then create the compatible spaces if needed with the suitable basis functions.
 
     comm                = domain_h.comm
-    ldim                = V.ldim
-    is_rational_mapping = False
-
-    assert sequence in ['DR', 'TH', 'N', 'RT']
-    if sequence in ['TH', 'N', 'RT']:
-        assert isinstance(V, ProductSpace) and len(V.spaces) == 2
+    ldim                = domain_h.ldim
 
     # Define data type of our TensorFemSpace
     dtype = float
-    # TODO remove when codomain_type is implemented in SymPDE
-    if hasattr(V, 'codomain_type'):
-        if V.codomain_type == 'complex':
-            dtype = complex
 
     g_spaces   = {}
     domain     = domain_h.domain
@@ -409,7 +406,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
         interiors  = list(domain.interior.args)
 
     connectivity = construct_connectivity(domain)
-    if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
+    if False: #isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
         # from a discrete geoemtry
         if interiors[0].name in domain_h.mappings:
             mappings  = [domain_h.mappings[inter.name] for inter in interiors]
@@ -488,19 +485,35 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     new_g_spaces = {}
     for inter in g_spaces:
         Vh = g_spaces[inter]
-        if isinstance(V, ProductSpace):
-            spaces = [reduce_space_degrees(Vi, Vh, basis=basis, sequence=sequence) for Vi in V.spaces]
-            spaces = [Vh.spaces if isinstance(Vh, VectorFemSpace) else Vh for Vh in spaces]
-            spaces = flatten(spaces)
-            Vh     = VectorFemSpace(*spaces)
+        # if isinstance(V, ProductSpace):
+        #     spaces = [reduce_space_degrees(Vi, Vh, basis=basis, sequence=sequence) for Vi in V.spaces]
+        #     print(f'{spaces = }')
+        #     spaces = [Vh.spaces if isinstance(Vh, VectorFemSpace) else Vh for Vh in spaces]
+        #     spaces = flatten(spaces)
+        #     Vh     = VectorFemSpace(*spaces)
+        # else:
+        if V == 'H1':
+            Wh = Vh
+        elif V == 'Hcurl':
+            spaces = [Vh.reduce_degree(axes=[0], multiplicity=Vh.multiplicity[0:1], basis=basis),
+                      Vh.reduce_degree(axes=[1], multiplicity=Vh.multiplicity[1:2], basis=basis),
+                      Vh.reduce_degree(axes=[2], multiplicity=Vh.multiplicity[2:] , basis=basis)]
+            Wh = VectorFemSpace(*spaces)
+        elif V == 'Hdiv':
+            spaces = [Vh.reduce_degree(axes=[1,2], multiplicity=Vh.multiplicity[1:], basis=basis),
+                      Vh.reduce_degree(axes=[0,2], multiplicity=[Vh.multiplicity[0], Vh.multiplicity[2]], basis=basis),
+                      Vh.reduce_degree(axes=[0,1], multiplicity=Vh.multiplicity[:2], basis=basis)]
+            Wh = VectorFemSpace(*spaces)
+        elif V == 'L2':
+            Wh = Vh.reduce_degree(axes=[0,1,2], multiplicity=Vh.multiplicity, basis=basis)
         else:
-            Vh = reduce_space_degrees(V, Vh, basis=basis, sequence=sequence)
+            raise ValueError(f'V must be one of H1, Hcurl, Hdiv or L2, but is {V = }.')
 
-        Vh.symbolic_space = V
-        for key in Vh._refined_space:
-            Vh.get_refined_space(key).symbolic_space = V
+        Wh.symbolic_space = V
+        for key in Wh._refined_space:
+            Wh.get_refined_space(key).symbolic_space = V
 
-        new_g_spaces[inter]   = Vh
+        new_g_spaces[inter]   = Wh
 
     construct_reduced_interface_spaces(g_spaces, new_g_spaces, interiors, connectivity)
 
