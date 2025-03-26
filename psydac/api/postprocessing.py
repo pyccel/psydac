@@ -433,7 +433,7 @@ class OutputManager:
         Parameters
         ----------
         vector_space: psydac.fem.vector.VectorFemSpace
-            Vector/Product FemSpace to add to the scope.
+            Vector FemSpace to add to the scope.
         """
         assert isinstance(vector_space, VectorFemSpace)
 
