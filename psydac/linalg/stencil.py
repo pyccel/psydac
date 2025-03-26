@@ -880,7 +880,7 @@ class StencilMatrix(LinearOperator):
     precompiled : bool
         Whether to use precompiled kernels for .dot() and .transpose()
     """
-    def __init__( self, V, W, pads=None , backend=None, precompiled=False):
+    def __init__( self, V, W, pads=None , backend=None, precompiled=True):
 
         assert isinstance(V, StencilVectorSpace)
         assert isinstance(W, StencilVectorSpace)
@@ -1776,7 +1776,6 @@ class StencilMatrix(LinearOperator):
         precompiled : bool
             Whether to use precompiled kernels.
         '''
-        from psydac.api.ast.linalg import LinearOperatorDot
         self._backend = backend
         self._args    = self._dotargs_null.copy()
 
@@ -1839,6 +1838,8 @@ class StencilMatrix(LinearOperator):
                 self._transpose_args['e_out'] = np.array(self.domain.ends)
                 self._transpose_args['p_out'] = np.array(self.domain.pads)
         else:
+            raise AttributeError(f'This is the tiny-psydac version - must use precompiled kernels (but {precompiled = })!')
+            from psydac.api.ast.linalg import LinearOperatorDot
             if self.domain.parallel:
                 comm = self.codomain.cart.comm
                 if self.domain == self.codomain:

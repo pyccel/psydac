@@ -1248,7 +1248,8 @@ class BlockLinearOperator(LinearOperator):
 
         if backend is None:return
         if backend is self._backend:return
-
+        
+        raise AttributeError(f'This is the tiny-psydac version - must use precompiled kernels (but {precompiled = })!')
         from psydac.api.ast.linalg import LinearOperatorDot
         from psydac.linalg.stencil import StencilInterfaceMatrix, StencilMatrix
 
