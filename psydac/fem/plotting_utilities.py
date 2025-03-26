@@ -577,7 +577,7 @@ def my_small_streamplot(
     # X, Y = np.meshgrid(x, y)
     max_val = max(np.max(vals_x), np.max(vals_y))
     # print('max_val = {}'.format(max_val))
-    vf_amp = amp_factor / max_val
+    vf_amp = amp_factor / (max_val + 1e-20)
     for k in range(n_patches):
         ax.quiver(xx[k][::skip,
                         ::skip],
