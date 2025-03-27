@@ -11,7 +11,6 @@ from psydac.fem.vector     import ProductFemSpace, VectorFemSpace
 
 __all__ = (
     'partition_coefficients',
-    'construct_connectivity',
     'get_minus_starts_ends',
     'get_plus_starts_ends',
     'create_cart',
@@ -72,42 +71,6 @@ def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
             assert all(e-s+1 >= mb)
 
     return global_starts, global_ends
-
-
-def construct_connectivity(domain):
-    """ 
-    Compute the connectivity of the multipatch domain.
-
-    Parameters
-    ----------
-    domain : Sympde.topology.Domain
-        The multipatch domain.
-
-    Returns
-    -------
-    connectivity : dict
-        Connectivity between the patches.
-        It takes the form of {(i, j):((axis_i, ext_i),(axis_j, ext_j))} for each item of the dictionary,
-        where i,j represent the patch indices
-
-    """
-    from sympde.topology import Interface
-    
-    interfaces = domain.interfaces if domain.interfaces else []
-    if len(domain)==1:
-        interiors  = [domain.interior]
-    else:
-        interiors  = list(domain.interior.args)
-        if interfaces:
-            interfaces = [interfaces] if isinstance(interfaces, Interface) else list(interfaces.args)
-
-    connectivity = {}
-    for e in interfaces:
-        i = interiors.index(e.minus.domain)
-        j = interiors.index(e.plus.domain)
-        connectivity[i, j] = ((e.minus.axis, e.minus.ext),(e.plus.axis, e.plus.ext))
-
-    return connectivity
 
 #------------------------------------------------------------------------------
 def get_minus_starts_ends(plus_starts, plus_ends, minus_npts, plus_npts, minus_axis, plus_axis,
