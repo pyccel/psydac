@@ -377,7 +377,7 @@ class MultipatchFemSpace( FemSpace ):
     Product of single-patch FEM spaces
     """
 
-    def __init__( self, *spaces, connectivity={}):
+    def __init__( self, *spaces, connectivity=None):
         """
         Parameters
         ----------
