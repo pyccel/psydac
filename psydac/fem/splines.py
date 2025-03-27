@@ -4,8 +4,6 @@
 import numpy as np
 from scipy.sparse import csc_matrix, csr_matrix, dia_matrix
 
-#from sympde.topology.space import BasicFunctionSpace
-
 from psydac.linalg.stencil        import StencilVectorSpace
 from psydac.linalg.direct_solvers import BandedSolver, SparseSolver
 from psydac.fem.basic             import FemSpace, FemField
