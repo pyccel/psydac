@@ -4,8 +4,6 @@ import os
 import numpy as np
 from mpi4py import MPI
 
-from sympde.topology import Interface
-
 from psydac.ddm.cart       import CartDecomposition, InterfaceCartDecomposition, create_interfaces_cart
 from psydac.core.bsplines  import elements_spans
 from psydac.fem.vector     import ProductFemSpace, VectorFemSpace
@@ -93,6 +91,8 @@ def construct_connectivity(domain):
         where i,j represent the patch indices
 
     """
+    from sympde.topology import Interface
+    
     interfaces = domain.interfaces if domain.interfaces else []
     if len(domain)==1:
         interiors  = [domain.interior]

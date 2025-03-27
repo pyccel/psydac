@@ -13,7 +13,7 @@ import os
 
 from types import MappingProxyType
 
-from sympde.topology.space import BasicFunctionSpace
+#from sympde.topology.space import BasicFunctionSpace
 
 from psydac.linalg.stencil   import StencilVectorSpace
 from psydac.linalg.kron      import kronecker_solve

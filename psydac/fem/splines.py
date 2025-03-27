@@ -4,7 +4,7 @@
 import numpy as np
 from scipy.sparse import csc_matrix, csr_matrix, dia_matrix
 
-from sympde.topology.space import BasicFunctionSpace
+#from sympde.topology.space import BasicFunctionSpace
 
 from psydac.linalg.stencil        import StencilVectorSpace
 from psydac.linalg.direct_solvers import BandedSolver, SparseSolver
@@ -278,7 +278,7 @@ class SplineSpace( FemSpace ):
 
     @symbolic_space.setter
     def symbolic_space( self, symbolic_space ):
-        assert isinstance(symbolic_space, BasicFunctionSpace)
+        #assert isinstance(symbolic_space, BasicFunctionSpace)
         self._symbolic_space = symbolic_space
 
     #--------------------------------------------------------------------------

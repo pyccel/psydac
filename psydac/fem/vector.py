@@ -5,8 +5,8 @@ import numpy as np
 
 from functools import reduce
 
-from sympde.topology.space import BasicFunctionSpace
-from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
+# from sympde.topology.space import BasicFunctionSpace
+# from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVectorSpace
