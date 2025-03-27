@@ -1,5 +1,3 @@
-from sympde.topology.mapping import Mapping
-
 from psydac.api.basic              import BasicDiscrete
 from psydac.feec.derivatives       import Derivative_1D, Gradient_2D, Gradient_3D
 from psydac.feec.derivatives       import ScalarCurl_2D, VectorCurl_2D, Curl_3D
@@ -39,7 +37,7 @@ class DiscreteDerham(BasicDiscrete):
     """
     def __init__(self, mapping, *spaces):
 
-        assert (mapping is None) or isinstance(mapping, Mapping)
+        assert (mapping is None)
         assert all(isinstance(space, FemSpace) for space in spaces)
 
         self.has_vec = isinstance(spaces[-1], VectorFemSpace)
@@ -55,7 +53,7 @@ class DiscreteDerham(BasicDiscrete):
 
         self._dim     = dim
         self._mapping = mapping
-        self._callable_mapping = mapping.get_callable_mapping() if mapping else None
+        self._callable_mapping = None
 
         if dim == 1:
             D0 = Derivative_1D(spaces[0], spaces[1])

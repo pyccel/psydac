@@ -177,8 +177,7 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
 
     """
 
-    ldim    = domain_h.ldim
-    mapping = domain_h.domain.mapping # NOTE: assuming single-patch domain!
+    ldim    = 3
     bases   = ['B'] + ldim * ['M']
     
     if ldim == 3:
@@ -186,7 +185,7 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
     else:
         raise NotImplementedError(f'Derham sequence for {ldim = } not implemented.')
     
-    spaces  = [discretize_space(V, domain_h, basis=basis, **kwargs)
+    spaces  = [discretize_space(V, None, basis=basis, **kwargs)
                for V, basis in zip(derham_spaces, bases)]
 
     if get_H1vec_space and False:
@@ -197,7 +196,7 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
         #We still need to specify the symbolic space because of "_recursive_element_of" not implemented in sympde
         spaces.append(Xh)
 
-    return DiscreteDerham(mapping, *spaces)
+    return DiscreteDerham(None, *spaces)
 
 #==============================================================================
 def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
@@ -334,7 +333,13 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, basis='B', sequence='DR'):
+def discretize_space(V, domain_h, *, 
+                     basis='B', 
+                     Nel=None,
+                     degree=None, 
+                     spl_kind=None,
+                     ddm=None,
+                     ):
     """
     This function creates discrete Derham spaces.
 
@@ -386,138 +391,52 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
         The discrete FEM space.
     """
 
-#    we have two cases, the case where we have a geometry file,
-#    and the case where we have either an analytical mapping or without a mapping.
-#    We build the dictionary g_spaces for each interior domain, where it conatians the interiors as keys and the spaces as values,
-#    we then create the compatible spaces if needed with the suitable basis functions.
+    ncells     = Nel
+    periodic   = spl_kind
+    degree_i   = degree
+    multiplicity_i = (1, 1, 1)
+    min_coords = (0., 0., 0.)
+    max_coords = (1., 1., 1.)
 
-    comm                = domain_h.comm
-    ldim                = domain_h.ldim
+    assert len(ncells) == len(periodic) == len(degree_i)  == len(multiplicity_i) == len(min_coords) == len(max_coords)
 
-    # Define data type of our TensorFemSpace
-    dtype = float
+    # Create uniform grid
+    grids = [np.linspace(xmin, xmax, num=ne + 1)
+                for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
-    g_spaces   = {}
-    domain     = domain_h.domain
+    # Create 1D finite element spaces and precompute quadrature data
+    spaces = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
 
-    if len(domain)==1:
-        interiors  = [domain.interior]
+    carts    = create_cart([ddm], [spaces])
+
+    g_spaces = TensorFemSpace(ddm, *spaces, cart=carts[0]) 
+
+    Vh = g_spaces
+    
+    if V == 'H1':
+        Wh = Vh
+    elif V == 'Hcurl':
+        spaces = [Vh.reduce_degree(axes=[0], multiplicity=Vh.multiplicity[0:1], basis=basis),
+                    Vh.reduce_degree(axes=[1], multiplicity=Vh.multiplicity[1:2], basis=basis),
+                    Vh.reduce_degree(axes=[2], multiplicity=Vh.multiplicity[2:] , basis=basis)]
+        Wh = VectorFemSpace(*spaces)
+    elif V == 'Hdiv':
+        spaces = [Vh.reduce_degree(axes=[1,2], multiplicity=Vh.multiplicity[1:], basis=basis),
+                    Vh.reduce_degree(axes=[0,2], multiplicity=[Vh.multiplicity[0], Vh.multiplicity[2]], basis=basis),
+                    Vh.reduce_degree(axes=[0,1], multiplicity=Vh.multiplicity[:2], basis=basis)]
+        Wh = VectorFemSpace(*spaces)
+    elif V == 'L2':
+        Wh = Vh.reduce_degree(axes=[0,1,2], multiplicity=Vh.multiplicity, basis=basis)
     else:
-        interiors  = list(domain.interior.args)
+        raise ValueError(f'V must be one of H1, Hcurl, Hdiv or L2, but is {V = }.')
 
-    connectivity = construct_connectivity(domain)
-    if False: #isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
-        # from a discrete geoemtry
-        if interiors[0].name in domain_h.mappings:
-            mappings  = [domain_h.mappings[inter.name] for inter in interiors]
-        else:
-            mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
+    Wh.symbolic_space = V
+    for key in Wh._refined_space:
+        Wh.get_refined_space(key).symbolic_space = V
 
-        # Get all the FEM spaces from the mapping and convert their vector_space at the dtype needed
-        spaces    = [change_dtype(m.space, dtype) for m in mappings]
-        g_spaces  = dict(zip(interiors, spaces))
-        spaces    = [S.spaces for S in spaces]
+    new_g_spaces = Wh
 
-        if not( comm is None ) and ldim == 1:
-            raise NotImplementedError('must create a TensorFemSpace in 1d')
-
-    else:
-
-        if isinstance( degree, (list, tuple) ):
-            degree = {I.name:degree for I in interiors}
-        else:
-            assert isinstance(degree, dict)
-
-        if isinstance( multiplicity, (list, tuple) ):
-            multiplicity = {I.name:multiplicity for I in interiors}
-        elif multiplicity is None:
-            multiplicity = {I.name:(1,)*len(degree[I.name]) for I in interiors}
-        else:
-            assert isinstance(multiplicity, dict)
-
-        if isinstance(knots, (list, tuple)):
-            assert len(interiors) == 1
-            knots = {interiors[0].name:knots}
-
-        if len(interiors) == 1:
-            ddms = [domain_h.ddm]
-        else:
-            ddms = domain_h.ddm.domains
-
-        spaces = [None]*len(interiors)
-        for i,interior in enumerate(interiors):
-            ncells     = domain_h.ncells[interior.name]
-            periodic   = domain_h.periodic[interior.name]
-            degree_i   = degree[interior.name]
-            multiplicity_i = multiplicity[interior.name]
-            min_coords = interior.min_coords
-            max_coords = interior.max_coords
-
-            assert len(ncells) == len(periodic) == len(degree_i)  == len(multiplicity_i) == len(min_coords) == len(max_coords)
-
-            if knots is None:
-                # Create uniform grid
-                grids = [np.linspace(xmin, xmax, num=ne + 1)
-                         for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
-
-                # Create 1D finite element spaces and precompute quadrature data
-                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
-            else:
-                 # Create 1D finite element spaces and precompute quadrature data
-                spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]
-
-
-        carts    = create_cart(ddms, spaces)
-        g_spaces = {inter : TensorFemSpace(ddms[i], *spaces[i], cart=carts[i], dtype=dtype) for i, inter in enumerate(interiors)}
-
-
-        for i,j in connectivity:
-            ((axis_i, ext_i), (axis_j , ext_j)) = connectivity[i, j]
-            minus = interiors[i]
-            plus  = interiors[j]
-            max_ncells = [max(ni,nj) for ni,nj in zip(domain_h.ncells[minus.name],domain_h.ncells[plus.name])]
-            g_spaces[minus].add_refined_space(ncells=max_ncells)
-            g_spaces[plus].add_refined_space(ncells=max_ncells)
-
-        # ... construct interface spaces
-        construct_interface_spaces(domain_h.ddm, g_spaces, carts, interiors, connectivity)
-
-    new_g_spaces = {}
-    for inter in g_spaces:
-        Vh = g_spaces[inter]
-        # if isinstance(V, ProductSpace):
-        #     spaces = [reduce_space_degrees(Vi, Vh, basis=basis, sequence=sequence) for Vi in V.spaces]
-        #     print(f'{spaces = }')
-        #     spaces = [Vh.spaces if isinstance(Vh, VectorFemSpace) else Vh for Vh in spaces]
-        #     spaces = flatten(spaces)
-        #     Vh     = VectorFemSpace(*spaces)
-        # else:
-        if V == 'H1':
-            Wh = Vh
-        elif V == 'Hcurl':
-            spaces = [Vh.reduce_degree(axes=[0], multiplicity=Vh.multiplicity[0:1], basis=basis),
-                      Vh.reduce_degree(axes=[1], multiplicity=Vh.multiplicity[1:2], basis=basis),
-                      Vh.reduce_degree(axes=[2], multiplicity=Vh.multiplicity[2:] , basis=basis)]
-            Wh = VectorFemSpace(*spaces)
-        elif V == 'Hdiv':
-            spaces = [Vh.reduce_degree(axes=[1,2], multiplicity=Vh.multiplicity[1:], basis=basis),
-                      Vh.reduce_degree(axes=[0,2], multiplicity=[Vh.multiplicity[0], Vh.multiplicity[2]], basis=basis),
-                      Vh.reduce_degree(axes=[0,1], multiplicity=Vh.multiplicity[:2], basis=basis)]
-            Wh = VectorFemSpace(*spaces)
-        elif V == 'L2':
-            Wh = Vh.reduce_degree(axes=[0,1,2], multiplicity=Vh.multiplicity, basis=basis)
-        else:
-            raise ValueError(f'V must be one of H1, Hcurl, Hdiv or L2, but is {V = }.')
-
-        Wh.symbolic_space = V
-        for key in Wh._refined_space:
-            Wh.get_refined_space(key).symbolic_space = V
-
-        new_g_spaces[inter]   = Wh
-
-    construct_reduced_interface_spaces(g_spaces, new_g_spaces, interiors, connectivity)
-
-    Vh = ProductFemSpace(*new_g_spaces.values(), connectivity=connectivity)
+    Vh = ProductFemSpace(new_g_spaces)
     Vh.symbolic_space = V
 
     return Vh
