@@ -4,9 +4,11 @@
 import numpy as np
 
 from functools import reduce
+from typing import Optional
 
 from sympde.topology.space import BasicFunctionSpace
-from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
+from sympde.topology.callable_mapping import BasicCallableMapping
+# from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVectorSpace
@@ -21,53 +23,82 @@ from psydac.core.field_evaluation_kernels import (pushforward_2d_hdiv,
 __all__ = ('VectorFemSpace', 'MultipatchFemSpace')
 
 #===============================================================================
-class VectorFemSpace( FemSpace ):
+class VectorFemSpace(FemSpace):
     """
     FEM space with a vector basis defined on a single patch
     this class is used to represent either spaces of vector-valued fem fields,
     or product spaces involved in systems of equations.
     """
 
-    def __init__( self, *spaces ):
+    def __init__(self, *spaces):
 
-        # all input spaces are flattened into a single list of scalar spaces
+        # Check that all input spaces are of the correct type
+        assert all(isinstance(V, FemSpace) for V in spaces)
+
+        # We do not accept multipatch spaces yet
+        assert not any(V.is_multipatch for V in spaces)
+
+        # All input spaces are flattened into a tuple `new_spaces` of scalar spaces
         new_spaces = [sp.spaces if isinstance(sp, VectorFemSpace) else [sp] for sp in spaces]
         new_spaces = tuple(sp2 for sp1 in new_spaces for sp2 in sp1)
 
-        self._spaces = new_spaces
+        # Check that we indeed have scalar spaces only
+        assert not any(V.is_vector_valued for V in new_spaces)
 
-        # ... make sure that all spaces have the same parametric dimension
-        ldims = [V.ldim for V in self.spaces]
-        assert len(np.unique(ldims)) == 1
+        # Check that all spaces have the same parametric dimension
+        ldims = [V.ldim for V in new_spaces]
+        assert len(set(ldims)) == 1
 
-        self._ldim = ldims[0]
-        # ...
+        # Make sure that all spaces have the same periodicity along each axis
+        periodic = [V.periodic for V in new_spaces]
+        for pp in zip(*periodic):
+            assert len(set(pp)) == 1
 
-        # ... make sure that all spaces have the same number of cells
-        ncells = [V.ncells for V in self.spaces]
+        # Make sure that all spaces have the same mapping or no mapping at all
+        # Mapping must be of type BasicCallableMapping defined in SymPDE
+        # [YG, 27.03.2025]: this class was setting its mapping to None
+        mappings = [V.mapping for V in new_spaces]
+        assert len(set(mappings)) == 1
+        assert mappings[0] is None or isinstance(mappings[0], BasicCallableMapping)
 
-        if self.ldim == 1:
-            assert len(np.unique(ncells)) == 1
-        else:
-            ns = np.asarray(ncells[0])
-            for ms in ncells[1:]:
-                assert np.allclose(ns, np.asarray(ms))
+        # Make sure that all spaces have the same number of cells along each axis
+        # [YG, 27.03.2025]: This is not part of the abstract interface of
+        #       FemSpace and it assumes that all spaces are TensorFemSpaces
+        ncells = [V.ncells for V in new_spaces]
+        for nc in zip(*ncells):
+            assert len(set(nc)) == 1
 
-        self._ncells = ncells[0]
-        # ...
+        # Compute the SymPDE symbolic space from the symbolic spaces of the input spaces
+        symbolic_spaces = [V.symbolic_space for V in spaces]
+        symbolic_space = reduce(lambda x, y: x * y, symbolic_spaces) if all(symbolic_spaces) else None
 
-        self._symbolic_space = None
-        if all(s.symbolic_space for s in spaces):
-            symbolic_spaces = [s.symbolic_space for s in spaces]
-            self._symbolic_space = reduce(lambda x,y:x*y, symbolic_spaces)
+        # Compute the VectorSpace of the coefficients
+        coeff_space = BlockVectorSpace(*[V.vector_space for V in new_spaces])
 
-        self._vector_space     = BlockVectorSpace(*[V.vector_space for V in self.spaces])
-        self._refined_space    = {}
+        # Store information in private attributes
+        self._ldim           : int              = ldims[0]
+        self._periodic       : tuple[bool, ...] = periodic[0]
+        self._spaces         : tuple[FemSpace]  = new_spaces
+        self._vector_space   : BlockVectorSpace = coeff_space
+        self._ncells         : tuple[int, ...]  = ncells[0] # not used in the abstract interface
+        self._mapping        : Optional[BasicCallableMapping] = mappings[0]
+        self._symbolic_space : Optional[BasicFunctionSpace] = symbolic_space
 
-        self.set_refined_space(self._ncells, self)
+        # ++++++++++++++ Extra operations for multigrid methods ++++++++++++++
+        # Initialize the dictionary that will store the refined VectorFemSpaces
+        self._refined_space = {}
+
+        # Compute the refined VectorFemSpaces from the refined spaces of the
+        # scalar spaces `new_spaces`. The method `set_refined_space` is used to
+        # update the dictionary, and it perfoms additional checks. We also use
+        # the property `spaces` which is not part of the abstract interface.
+        self.set_refined_space(self.ncells, self)
         for key in self.spaces[0]._refined_space:
-            if key == tuple(self._ncells):continue
-            self.set_refined_space(key, VectorFemSpace(*[V._refined_space[key] for V in self.spaces]))
+            if key != tuple(self.ncells):
+                V_fine = VectorFemSpace(*[V._refined_space[key] for V in self.spaces])
+                self.set_refined_space(key, V_fine)
+        #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
@@ -79,11 +110,13 @@ class VectorFemSpace( FemSpace ):
 
     @property
     def periodic(self):
-        return [V.periodic for V in self.spaces]
+        return self._periodic
 
     @property
     def mapping(self):
-        return None
+        # [YG, 27.03.2025]: not clear why there should be no mapping here
+        #return None
+        return self._mapping
 
     @property
     def vector_space(self):
@@ -356,6 +389,9 @@ class VectorFemSpace( FemSpace ):
         return self._refined_space[tuple(ncells)]
 
     def set_refined_space(self, ncells, new_space):
+        # [YG, 27.03.2025]: It appears that this method is assuming that the
+        # refined space has ldim=2, and that the number of cells is the same
+        # along each axis. These two conditions are very strong.
         assert all(nc1==nc2 for nc1,nc2 in zip(ncells, new_space.ncells))
         self._refined_space[tuple(ncells)] = new_space
 
