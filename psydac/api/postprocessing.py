@@ -2,9 +2,7 @@
 #
 # Copyright 2019 Yaman Güçlü
 
-# TODO [MCP 03.2025]
-# - ambiguous method is_product is used in many places: it should be replaced by is_vector_valued (probably always) or is_multipatch (probably never)
-# - also, the new functions patch_spaces and component_spaces may be used instead of the ambiguous 'spaces'
+# TODO [MCP 03.2025]: the new functions patch_spaces and component_spaces may be used instead of the ambiguous 'spaces'
 
 import os
 import mpi4py
@@ -510,12 +508,11 @@ class OutputManager:
 
         # Add field coefficients as named datasets
         for name_field, field in fields.items():
-            multipatch = hasattr(field.space.symbolic_space.domain.interior, 'as_tuple')
-            
-            assert multipatch == field.space.is_multipatch   ## [MCP 27.03.2025] check: if OK, then simplify
-            
-            if multipatch:
+
+            if field.space.is_multipatch:
                 for f in field.fields:
+
+                    f_vector_valued = f.space.is_vector_valued
                     i = self._spaces.index(f.space)
 
                     name_space = self._spaces[i+1]
@@ -527,7 +524,7 @@ class OutputManager:
                             size = self.comm.Get_size()
 
 
-                            if f.space.is_product:  # [MCP 27.03.2025] always true if multipatch... todo: simplify
+                            if f_vector_valued:
                                 sp = f.space.spaces[0]
                             else:
                                 sp = f.space
@@ -538,9 +535,7 @@ class OutputManager:
                             mpi_dd_gp.create_dataset(f'{name_patch}', shape=(size, *local_domain.shape), dtype='i')
                             mpi_dd_gp[name_patch][rank] = local_domain
 
-                    assert f.space.is_product == f.space.is_vector_valued ## [MCP 27.03.2025] check: if OK, then simplify
-
-                    if f.space.is_product:  # Vector field case ([MCP 27.03.2025]: I don't understand this comment... why vector ?)
+                    if f_vector_valued:  # Vector field case ([MCP 27.03.2025]: I don't understand this comment... why vector ?)
                         for i, field_coeff in enumerate(f.coeffs):
                             name_field_i = name_field + f'[{i}]'
                             name_space_i = name_space + f'[{i}]'
@@ -564,8 +559,11 @@ class OutputManager:
                         dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
                         dset[index] = f.coeffs[index]
             else:
-                i = self._spaces.index(field.space)
+                # single-patch 
 
+                vector_valued = field.space.is_vector_valued
+                i = self._spaces.index(field.space)
+                
                 name_space = self._spaces[i+1]
                 name_patch = self._spaces[i+2]
 
@@ -574,7 +572,7 @@ class OutputManager:
                         rank = self.comm.Get_rank()
                         size = self.comm.Get_size()
 
-                        if field.space.is_product:  ## MCP 27.03.2025: simplify if above checks pass
+                        if vector_valued:
                             sp = field.space.spaces[0]
                         else:
                             sp = field.space
@@ -585,7 +583,7 @@ class OutputManager:
                         mpi_dd_gp.create_dataset(f'{name_patch}', shape=(size, *local_domain.shape), dtype='i')
                         mpi_dd_gp[name_patch][rank] = local_domain
 
-                if field.space.is_product:  # Vector field case (## MCP 27.03.2025: here indeed I would agree)
+                if vector_valued:  # Vector field case
                     for i, field_coeff in enumerate(field.coeffs):
                         name_field_i = name_field + f'[{i}]'
                         name_space_i = name_space + f'[{i}]'

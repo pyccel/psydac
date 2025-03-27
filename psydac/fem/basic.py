@@ -156,15 +156,16 @@ class FemSpace( metaclass=ABCMeta ):
     #----------------------
     # Concrete methods
     #----------------------
-    @property
-    def is_product( self ):
-        """
-        Boolean flag that describes whether the space is a product space,
-        (eg, a multipatch or vector-valued space).
-        If True, an element of this space can be decomposed into separate fields.
-        """
-        # [MCP 27.03.2025]: do we really need this method ?
-        return self.is_multipatch or self.is_vector_valued
+    
+    # [MCP 27.03.2025]: commented if still needed somewhere, but should be removed in future
+    # @property
+    # def is_product( self ):
+    #     """
+    #     Boolean flag that describes whether the space is a product space,
+    #     (eg, a multipatch or vector-valued space).
+    #     If True, an element of this space can be decomposed into separate fields.
+    #     """     
+    #     return self.is_multipatch or self.is_vector_valued
     
     def __mul__(self, a):
     # [MCP 27.03.2025]: commented because improper implementation. must be rewritten if needed
