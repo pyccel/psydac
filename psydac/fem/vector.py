@@ -321,16 +321,15 @@ class VectorFemSpace( FemSpace ):
     # Other properties and methods
     #--------------------------------------------------------------------------
     
-    # question [MCP 03.2025]: this is not in the FemSpace interface,
-    # and almost redundant/inconsistent with is_vector_valued. keep it ?
-    @property
-    def is_scalar(self):
-        return len( self.spaces ) == 1
+    # note [MCP 27.03.2025]: 
+    # this metod is not in the FemSpace interface and does not seem to be used: commented now and may be removed at some point
+    #  @property
+    # def is_scalar(self):
+    #     return len( self.spaces ) == 1
 
     @property
     def nbasis(self):
         dims = [V.nbasis for V in self.spaces]
-        # TODO [MCP, 08.03.2021]: check if we should return a tuple
         return sum(dims)
 
     @property

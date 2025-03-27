@@ -320,12 +320,13 @@ class SplineSpace( FemSpace ):
     # Other properties
     #--------------------------------------------------------------------------
 
-    # question [MCP 03.2025]: this is not in the FemSpace interface, redundant with is_vector_valued. keep it ?
-    @property
-    def is_scalar( self ):
-        """ Only scalar field is implemented for now.
-        """
-        return True
+    # note [MCP 27.03.2025]: 
+    # this metod is not in the FemSpace interface and does not seem to be used: commented now and may be removed at some point
+    # @property
+    # def is_scalar( self ):
+    #     """ Only scalar field is implemented for now.
+    #     """
+    #     return True
 
     @property
     def patch_spaces(self):
