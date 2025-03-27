@@ -1,12 +1,14 @@
 # -*- coding: UTF-8 -*-
 
+from numpy import linspace
+
 from psydac.fem.basic   import FemField
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import VectorFemSpace
 from psydac.ddm.cart    import DomainDecomposition
+from psydac.linalg.block import BlockVector, BlockVectorSpace
 
-from numpy import linspace
 
 def test_vector_space_2d():
     print ('>>> test_vector_space_2d')
@@ -32,6 +34,40 @@ def test_vector_space_2d():
 
     V = VectorFemSpace(Vx, Vy)
     F = FemField(V)
+
+    # Check properties of V from abstract interface
+    assert V.ldim == 2
+    assert V.periodic == (False, False)
+    assert V.mapping is None
+    assert isinstance(V.vector_space, BlockVectorSpace)
+    assert not V.is_multipatch
+    assert V.is_vector_valued
+    assert V.symbolic_space is None
+    assert V.patch_spaces == (V,)
+    assert V.component_spaces == (Vx, Vy)
+    with pytest.raises(NotImplementedError):
+        getattr(V, 'axis_spaces')
+    assert V.is_multipatch == False
+    assert V.is_vector_valued == True
+
+    # Check other properties of V
+    assert V.nbasis == Vx.nbasis + Vy.nbasis
+    assert V.degree == [Vx.degree, Vy.degree]
+    assert V.multiplicity == [Vx.multiplicity, Vy.multiplicity]
+    assert V.pads == [Vx.pads, Vy.pads]
+    assert V.ncells == Vx.ncells == Vy.ncells
+    assert V.spaces == (Vx, Vy)
+
+    # Check properties of F
+    assert F.space == V
+    assert isinstance(F.coeffs, BlockVector)
+    assert len(F.fields) == 2
+    assert isinstance(F.fields[0], FemField)
+    assert isinstance(F.fields[1], FemField)
+    assert F.fields[0].space == Vx
+    assert F.fields[1].space == Vy
+    assert F.patch_fields == (F,)
+    assert F.component_fields == F.fields
 
 def test_vector_space_3d():
     print ('>>> test_vector_space_3d')
