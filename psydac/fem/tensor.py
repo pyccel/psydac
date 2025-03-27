@@ -143,7 +143,10 @@ class TensorFemSpace(FemSpace):
 
     @property
     def periodic(self):
-        return [V.periodic for V in self.spaces]
+        # [YG, 27.03.2025]: according to the abstract interface of FemSpace,
+        # this property should return a tuple of `ldim` booleans. However, the
+        # spaces in self.spaces seem to be returning a single scalar value.
+        return tuple(V.periodic for V in self.spaces)
 
     @property
     def domain_decomposition(self):
