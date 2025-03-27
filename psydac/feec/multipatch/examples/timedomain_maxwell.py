@@ -991,12 +991,12 @@ def solve_td_maxwell_pbm(*,
         OM2.add_spaces(V2h=V2h)
         OM2.export_space_info()
 
-        stencil_coeffs_E = array_to_psydac(cP1_m @ E_c, V1h.vector_space)
+        stencil_coeffs_E = array_to_psydac(cP1_m @ E_c, V1h.coeff_space)
         Eh = FemField(V1h, coeffs=stencil_coeffs_E)
         OM1.add_snapshot(t=0, ts=0)
         OM1.export_fields(Eh=Eh)
 
-        stencil_coeffs_B = array_to_psydac(B_c, V2h.vector_space)
+        stencil_coeffs_B = array_to_psydac(B_c, V2h.coeff_space)
         Bh = FemField(V2h, coeffs=stencil_coeffs_B)
         OM2.add_snapshot(t=0, ts=0)
         OM2.export_fields(Bh=Bh)
@@ -1085,12 +1085,12 @@ def solve_td_maxwell_pbm(*,
             # plot_B_field(B_c, nt=nt+1)
             # plot_J_source_nPlusHalf(f_c, nt=nt)
 
-            stencil_coeffs_E = array_to_psydac(cP1_m @ E_c, V1h.vector_space)
+            stencil_coeffs_E = array_to_psydac(cP1_m @ E_c, V1h.coeff_space)
             Eh = FemField(V1h, coeffs=stencil_coeffs_E)
             OM1.add_snapshot(t=nt * dt, ts=nt)
             OM1.export_fields(Eh=Eh)
 
-            stencil_coeffs_B = array_to_psydac(B_c, V2h.vector_space)
+            stencil_coeffs_B = array_to_psydac(B_c, V2h.coeff_space)
             Bh = FemField(V2h, coeffs=stencil_coeffs_B)
             OM2.add_snapshot(t=nt * dt, ts=nt)
             OM2.export_fields(Bh=Bh)
@@ -1137,7 +1137,7 @@ def solve_td_maxwell_pbm(*,
    # GaussErr_norm2_diag=GaussErr_norm2_diag,
    # GaussErrP_norm2_diag=GaussErrP_norm2_diag)
 
-    # Eh = FemField(V1h, coeffs=array_to_stencil(E_c, V1h.vector_space))
+    # Eh = FemField(V1h, coeffs=array_to_stencil(E_c, V1h.coeff_space))
     # t_stamp = time_count(t_stamp)
 
     # if sol_filename:
@@ -1168,7 +1168,7 @@ def solve_td_maxwell_pbm(*,
     #     plot_field(numpy_coeffs=curl_uh_c, Vh=V2h, space_kind='l2', domain=domain, surface_plot=False, title=title, filename=plot_dir+'/'+params_str+'_curl_uh.png',
     # plot_type='amplitude', cb_min=None, cb_max=None, hide_plot=hide_plots)
 
-    #     curl_uh = FemField(V2h, coeffs=array_to_stencil(curl_uh_c, V2h.vector_space))
+    #     curl_uh = FemField(V2h, coeffs=array_to_stencil(curl_uh_c, V2h.coeff_space))
     #     curl_diags = diag_grid.get_diags_for(v=curl_uh, space='V2')
     #     diags['curl_error (to be checked)'] = curl_diags['rel_l2_error']
 
@@ -1177,7 +1177,7 @@ def solve_td_maxwell_pbm(*,
     #     plot_field(numpy_coeffs=div_uh_c, Vh=V0h, space_kind='h1', domain=domain, surface_plot=False, title=title, filename=plot_dir+'/'+params_str+'_div_uh.png',
     # plot_type='amplitude', cb_min=None, cb_max=None, hide_plot=hide_plots)
 
-    #     div_uh = FemField(V0h, coeffs=array_to_stencil(div_uh_c, V0h.vector_space))
+    #     div_uh = FemField(V0h, coeffs=array_to_stencil(div_uh_c, V0h.coeff_space))
     #     div_diags = diag_grid.get_diags_for(v=div_uh, space='V0')
     #     diags['div_error (to be checked)'] = div_diags['rel_l2_error']
 

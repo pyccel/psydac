@@ -55,40 +55,40 @@ __all__ = (
 #==============================================================================
 def change_dtype(V, dtype):
     """
-    Given a FemSpace V, change its underlying vector_space (i.e. the space of
+    Given a FemSpace V, change its underlying coeff_space (i.e. the space of
     its coefficients) so that it matches the required data type.
 
     Parameters
     ----------
-    Vh : FemSpace
+    V : FemSpace
         The FEM space, which is modified in place.
 
     dtype : float or complex
-        Datatype of the new vector_space.
+        Datatype of the new coeff_space.
 
     Returns
     -------
     FemSpace
         The same FEM space passed as input, which was modified in place.
     """
-    if not V.vector_space.dtype == dtype:
-        if isinstance(V.vector_space, BlockVectorSpace):
+    if not V.coeff_space.dtype == dtype:
+        if isinstance(V.coeff_space, BlockVectorSpace):
             # Recreate the BlockVectorSpace
             new_spaces = []
             for v in V.spaces:
                 change_dtype(v, dtype)
-                new_spaces.append(v.vector_space)
-            V._vector_space = BlockVectorSpace(*new_spaces, connectivity=V.vector_space.connectivity)
+                new_spaces.append(v.coeff_space)
+            V._coeff_space = BlockVectorSpace(*new_spaces, connectivity=V.coeff_space.connectivity)
 
-        # If the vector_space is a StencilVectorSpace
+        # If the coeff_space is a StencilVectorSpace
         else:
             # Recreate the StencilVectorSpace
-            interfaces = V.vector_space.interfaces
-            V._vector_space = StencilVectorSpace(V.vector_space.cart, dtype=dtype)
+            interfaces = V.coeff_space.interfaces
+            V._coeff_space = StencilVectorSpace(V.coeff_space.cart, dtype=dtype)
 
             # Recreate the interface in the StencilVectorSpace
             for (axis, ext), interface_space in interfaces.items():
-                V.vector_space.set_interface(axis, ext, interface_space.cart)
+                V.coeff_space.set_interface(axis, ext, interface_space.cart)
 
     return V
 
@@ -417,7 +417,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
         else:
             mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
 
-        # Get all the FEM spaces from the mapping and convert their vector_space at the dtype needed
+        # Get all the FEM spaces from the mapping and convert their coeff_space at the dtype needed
         spaces    = [change_dtype(m.space, dtype) for m in mappings]
         g_spaces  = dict(zip(interiors, spaces))
         spaces    = [S.spaces for S in spaces]

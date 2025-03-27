@@ -77,7 +77,7 @@ class SplineMapping(BasicCallableMapping):
         # TODO: use one unique field belonging to VectorFemSpace
         fields = [FemField(tensor_space) for d in range(mapping.pdim)]
 
-        V = tensor_space.vector_space
+        V = tensor_space.coeff_space
         values = [V.zeros() for d in range(mapping.pdim)]
         ranges = [range(s, e+1) for s, e in zip(V.starts, V.ends)]
         grids  = [space.greville for space in tensor_space.spaces]
@@ -117,8 +117,8 @@ class SplineMapping(BasicCallableMapping):
         fields = [FemField(tensor_space) for d in range(control_points.shape[-1])]
 
         # Get spline coefficients for each coordinate X_i
-        starts = tensor_space.vector_space.starts
-        ends   = tensor_space.vector_space.ends
+        starts = tensor_space.coeff_space.starts
+        ends   = tensor_space.coeff_space.ends
 
         idx_to = tuple(slice(s, e+1) for s, e in zip(starts, ends))
         for i,field in enumerate(fields):
@@ -734,7 +734,7 @@ class SplineMapping(BasicCallableMapping):
 
         """
         space = self.space
-        comm  = space.vector_space.cart.comm
+        comm  = space.coeff_space.cart.comm
 
         # Create dictionary with geometry metadata
         yml = {}
@@ -759,20 +759,20 @@ class SplineMapping(BasicCallableMapping):
 
         # Create group for patch 0
         group = h5.create_group( yml['patches'][0]['name'] )
-        group.attrs['shape'      ] = space.vector_space.npts
+        group.attrs['shape'      ] = space.coeff_space.npts
         group.attrs['degree'     ] = space.degree
         group.attrs['periodic'   ] = space.periodic
         for d in range( self.pdim ):
             group['knots_{}'.format( d )] = space.spaces[d].knots
 
         # Collective: create dataset for control points
-        shape = [n for n in space.vector_space.npts] + [self.pdim]
-        dtype = space.vector_space.dtype
+        shape = [n for n in space.coeff_space.npts] + [self.pdim]
+        dtype = space.coeff_space.dtype
         dset  = group.create_dataset( 'points', shape=shape, dtype=dtype )
 
         # Independent: write control points to dataset
-        starts = space.vector_space.starts
-        ends   = space.vector_space.ends
+        starts = space.coeff_space.starts
+        ends   = space.coeff_space.ends
         index  = [slice(s, e+1) for s, e in zip(starts, ends)] + [slice(None)]
         index  = tuple( index )
         dset[index] = self.control_points[index]
@@ -855,8 +855,8 @@ class NurbsMapping(SplineMapping):
 
         # Get spline coefficients for each coordinate X_i
         # we store w*x where w is the weight and x is the control point
-        starts = tensor_space.vector_space.starts
-        ends   = tensor_space.vector_space.ends
+        starts = tensor_space.coeff_space.starts
+        ends   = tensor_space.coeff_space.ends
         idx_to = tuple(slice(s, e+1) for s,e in zip(starts, ends))
         for i, field in enumerate(fields[:-1]):
             idx_from = (*idx_to, i)

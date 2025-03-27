@@ -374,8 +374,8 @@ class OutputManager:
             kind = kind
 
         ldim = scalar_space.ldim
-        vector_space = scalar_space.vector_space
-        dtype = str(vector_space.dtype)
+        coeff_space = scalar_space.coeff_space
+        dtype = str(coeff_space.dtype)
         periodic = scalar_space.periodic
         degree = [scalar_space.spaces[i].degree for i in range(ldim)]
         basis = [scalar_space.spaces[i].basis for i in range(ldim)]
@@ -540,7 +540,7 @@ class OutputManager:
                             name_field_i = name_field + f'[{i}]'
                             name_space_i = name_space + f'[{i}]'
 
-                            Vi = f.space.vector_space.spaces[i]
+                            Vi = f.space.coeff_space.spaces[i]
                             index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
                             try:
@@ -554,7 +554,7 @@ class OutputManager:
                             dset.attrs.create('parent_field', data=name_field)
                             dset[index] = field_coeff[index]
                     else:                        
-                        V = f.space.vector_space
+                        V = f.space.coeff_space
                         index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
                         dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
                         dset[index] = f.coeffs[index]
@@ -588,7 +588,7 @@ class OutputManager:
                         name_field_i = name_field + f'[{i}]'
                         name_space_i = name_space + f'[{i}]'
 
-                        Vi = field.space.vector_space.spaces[i]
+                        Vi = field.space.coeff_space.spaces[i]
                         index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
                         try:
@@ -602,7 +602,7 @@ class OutputManager:
                         dset.attrs.create('parent_field', data=name_field)
                         dset[index] = field_coeff[index]
                 else:
-                    V = field.space.vector_space
+                    V = field.space.coeff_space
                     index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
                     dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
                     dset[index] = field.coeffs[index]
@@ -913,7 +913,7 @@ class PostProcessManager:
 
             # Scalar Spaces
             for sc_sp in scalar_spaces:
-                # Check that it's not a component of a vector_space
+                # Check that it's not a component of a vector space
                 if sc_sp['name'] not in already_used_names:
 
                     basis = list(set(sc_sp['basis']))
@@ -1141,11 +1141,11 @@ class PostProcessManager:
                 if i != -1:
                     # Checks for empty spaces
                     if isinstance(femsp.spaces[i], TensorFemSpace):
-                        if femsp.spaces[i].vector_space.cart.comm != mpi4py.MPI.COMM_NULL:
-                            # TODO use space_f.spaces[i].vector_space.cart.is_comm_null
+                        if femsp.spaces[i].coeff_space.cart.comm != mpi4py.MPI.COMM_NULL:
+                            # TODO use space_f.spaces[i].coeff_space.cart.is_comm_null
                             available_patches.add((i_name, i_patch))
                     else:
-                        if femsp.spaces[i].spaces[0].vector_space.cart.comm != mpi4py.MPI.COMM_NULL:
+                        if femsp.spaces[i].spaces[0].coeff_space.cart.comm != mpi4py.MPI.COMM_NULL:
                             available_patches.add((i_name, i_patch))
                 else:
                     available_patches.add((i_name, i_patch))
@@ -1330,12 +1330,12 @@ class PostProcessManager:
             field = field
         if isinstance(coeff, list): # Means vector field
             for i in range(len(coeff)):
-                V = space.spaces[i].vector_space
+                V = space.spaces[i].coeff_space
                 index_coeff = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
                 field.coeffs[i][index_coeff] = coeff[i][index_coeff]
                 field.coeffs[i].update_ghost_regions()
         else:
-            V = space.vector_space
+            V = space.coeff_space
             index_coeff = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
             field.coeffs[index_coeff] = coeff[index_coeff]
             field.coeffs.update_ghost_regions()
@@ -1926,11 +1926,11 @@ class PostProcessManager:
                     if not self.comm is None: # No empty spaces in serial
                         # Checks for empty spaces
                         if isinstance(space_f.spaces[i], TensorFemSpace):
-                            if space_f.spaces[i].vector_space.cart.comm == mpi4py.MPI.COMM_NULL:
-                                # TODO use space_f.spaces[i].vector_space.cart.is_comm_null
+                            if space_f.spaces[i].coeff_space.cart.comm == mpi4py.MPI.COMM_NULL:
+                                # TODO use space_f.spaces[i].coeff_space.cart.is_comm_null
                                 continue
                         else:
-                            if space_f.spaces[i].spaces[0].vector_space.cart.comm == mpi4py.MPI.COMM_NULL:
+                            if space_f.spaces[i].spaces[0].coeff_space.cart.comm == mpi4py.MPI.COMM_NULL:
                                 continue
 
                     try:

@@ -204,10 +204,10 @@ class BasisValues():
         self._space = V
         assert grid is not None
         if isinstance(V, (MultipatchFemSpace, VectorFemSpace)):
-            starts = V.vector_space.starts
+            starts = V.coeff_space.starts
             V      = V.spaces
         else:
-            starts = [V.vector_space.starts]
+            starts = [V.coeff_space.starts]
             V      = [V]
 
         spans = []
@@ -220,7 +220,7 @@ class BasisValues():
             spans_i = []
             basis_i = []
 
-            for sij, g, w, p, vij in zip(si, assembly_grids, weights, Vi.vector_space.pads, Vi.spaces):
+            for sij, g, w, p, vij in zip(si, assembly_grids, weights, Vi.coeff_space.pads, Vi.spaces):
                 sp = g.spans - sij
                 bs = g.basis[:, :, :nderiv+1, :].copy()
                 if not trial:

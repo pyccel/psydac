@@ -7,10 +7,10 @@ from psydac.linalg.block   import BlockVectorSpace
 from psydac.polar .dense   import DenseVectorSpace
 from psydac.polar .c1_cart import C1_Cart
 
-__all__ = ('new_c1_vector_space',)
+__all__ = ('new_c1_coeff_space',)
 
 #==============================================================================
-def new_c1_vector_space(V, radial_dim=0, angle_dim=1):
+def new_c1_coeff_space(V, radial_dim=0, angle_dim=1):
     """
     Create a new product space from a given stencil vector space.
 

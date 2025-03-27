@@ -61,7 +61,7 @@ class VectorFemSpace( FemSpace ):
             symbolic_spaces = [s.symbolic_space for s in spaces]
             self._symbolic_space = reduce(lambda x,y:x*y, symbolic_spaces)
 
-        self._vector_space     = BlockVectorSpace(*[V.vector_space for V in self.spaces])
+        self._coeff_space     = BlockVectorSpace(*[V.coeff_space for V in self.spaces])
         self._refined_space    = {}
 
         self.set_refined_space(self._ncells, self)
@@ -86,9 +86,8 @@ class VectorFemSpace( FemSpace ):
         return None
 
     @property
-    def vector_space(self):
-        """Returns the vector space of the coefficients (mapping invariant)."""
-        return self._vector_space
+    def coeff_space(self):
+        return self._coeff_space
 
     @property
     def symbolic_space( self ):
@@ -398,7 +397,7 @@ class MultipatchFemSpace( FemSpace ):
         self._ldim = ldims[0]
         # ...
 
-        self._vector_space    = BlockVectorSpace(*[V.vector_space for V in self.spaces], connectivity=connectivity)
+        self._coeff_space    = BlockVectorSpace(*[V.coeff_space for V in self.spaces], connectivity=connectivity)
         self._symbolic_space  = None
         self._connectivity    = connectivity.copy()
     #--------------------------------------------------------------------------
@@ -419,9 +418,8 @@ class MultipatchFemSpace( FemSpace ):
         return None
 
     @property
-    def vector_space(self):
-        """Returns the vector space of the coefficients (mapping invariant)."""
-        return self._vector_space
+    def coeff_space(self):
+        return self._coeff_space
 
     @property
     def symbolic_space( self ):

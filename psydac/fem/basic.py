@@ -54,11 +54,9 @@ class FemSpace( metaclass=ABCMeta ):
 
     @property
     @abstractmethod
-    def vector_space( self ):
-        """Topologically associated vector space."""
-        # question [MCP 03.2025]:
-            # rename as coeff_space ?
-            # meaning of docstring? see different one in MultipatchFemSpace
+    def coeff_space( self ):
+    # def coeff_space( self ):
+        """ Coefficients space. """
 
     @property
     @abstractmethod
@@ -277,9 +275,9 @@ class FemField:
 
         if coeffs is not None:
             assert isinstance( coeffs, Vector )
-            assert space.vector_space is coeffs.space
+            assert space.coeff_space is coeffs.space
         else:
-            coeffs = space.vector_space.zeros()
+            coeffs = space.coeff_space.zeros()
 
         # Case of vector-valued or multipatch field, element of a Product Space
         if space.is_multipatch or space.is_vector_valued:
@@ -305,7 +303,7 @@ class FemField:
         the elements of the basis of a Finite element space.
 
         Coefficients are stored into one element of the vector space in
-        'self.space.vector_space', which is topologically associated to
+        'self.space.coeff_space', which is topologically associated to
         the finite element space.
 
         """

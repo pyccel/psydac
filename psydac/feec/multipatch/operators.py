@@ -150,8 +150,8 @@ def get_row_col_index(corner1, corner2, interface, axis, V1, V2):
      The StencilInterfaceMatrix index of the corner, it has the form (i1, i2, k1, k2) in 2D,
      where (i1, i2) identifies the row and (k1, k2) the diagonal.
     """
-    start = V1.vector_space.starts
-    end = V1.vector_space.ends
+    start = V1.coeff_space.starts
+    end = V1.coeff_space.ends
     degree = V2.degree
     start_end = (start, end)
 
@@ -254,8 +254,8 @@ def allocate_interface_matrix(corners, test_space, trial_space):
     )[axis].spans[-1 if ext == 1 else 0] - test_space.degree[axis]
 
     mat = StencilInterfaceMatrix(
-        trial_space.vector_space,
-        test_space.vector_space,
+        trial_space.coeff_space,
+        test_space.coeff_space,
         s,
         s,
         axis,
@@ -580,7 +580,7 @@ class ConformingProjection_V1(FemLinearOperator):
             #
             # # self._A = ah.assemble()
             self._A = ah.forms[0]._matrix
-            # C1 = V1h.vector_space
+            # C1 = V1h.coeff_space
             # self._A = BlockLinearOperator(C1, C1)
 
             for b1 in self._A.blocks:
@@ -1192,7 +1192,7 @@ class Multipatch_Projector_H1:
         """
         u0s = [P(fun) for P, fun, in zip(self._P0s, funs_log)]
 
-        u0_coeffs = BlockVector(self._V0h.vector_space,
+        u0_coeffs = BlockVector(self._V0h.coeff_space,
                                 blocks=[u0j.coeffs for u0j in u0s])
 
         return FemField(self._V0h, coeffs=u0_coeffs)
@@ -1217,7 +1217,7 @@ class Multipatch_Projector_Hcurl:
         """
         E1s = [P(fun) for P, fun, in zip(self._P1s, funs_log)]
 
-        E1_coeffs = BlockVector(self._V1h.vector_space,
+        E1_coeffs = BlockVector(self._V1h.coeff_space,
                                 blocks=[E1j.coeffs for E1j in E1s])
 
         return FemField(self._V1h, coeffs=E1_coeffs)
@@ -1242,7 +1242,7 @@ class Multipatch_Projector_L2:
         """
         B2s = [P(fun) for P, fun, in zip(self._P2s, funs_log)]
 
-        B2_coeffs = BlockVector(self._V2h.vector_space,
+        B2_coeffs = BlockVector(self._V2h.coeff_space,
                                 blocks=[B2j.coeffs for B2j in B2s])
 
         return FemField(self._V2h, coeffs=B2_coeffs)

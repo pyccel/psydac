@@ -139,7 +139,7 @@ class SplineSpace( FemSpace ):
         # Create space of spline coefficients
         domain_decomposition = DomainDecomposition([self._ncells], [periodic])
         cart     = CartDecomposition(domain_decomposition, [nbasis], [np.array([0])],[np.array([nbasis-1])], [self._pads], [multiplicity])
-        self._vector_space = StencilVectorSpace( cart )
+        self._coeff_space = StencilVectorSpace( cart )
 
         # Store flag: object NOT YET prepared for interpolation / histopolation
         self._interpolation_ready = False
@@ -261,9 +261,8 @@ class SplineSpace( FemSpace ):
         return None
 
     @property
-    def vector_space( self ):
-        """Returns the topological associated vector space."""
-        return self._vector_space
+    def coeff_space( self ):
+        return self._coeff_space
 
     @property
     def symbolic_space( self ):

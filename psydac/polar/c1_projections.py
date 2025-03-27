@@ -8,7 +8,7 @@ from psydac.mapping.discrete import SplineMapping
 from psydac.linalg.stencil   import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.block     import BlockVector, BlockLinearOperator
 from psydac.polar .dense     import DenseVector, DenseMatrix
-from psydac.polar.c1_spaces  import new_c1_vector_space
+from psydac.polar.c1_spaces  import new_c1_coeff_space
 from psydac.polar.c1_linops  import LinearOperator_StencilToDense
 from psydac.polar.c1_linops  import LinearOperator_DenseToStencil
 
@@ -32,13 +32,13 @@ class C1Projector:
 
         assert isinstance(mapping, SplineMapping)
 
-        S = mapping.space.vector_space
+        S = mapping.space.coeff_space
 
         assert isinstance(S, StencilVectorSpace)
 
-        # Vector spaces
+        # Coefficients spaces
         self._S = S
-        self._P = new_c1_vector_space(S, radial_dim=0)
+        self._P = new_c1_coeff_space(S, radial_dim=0)
 
         # Store matrix L with 3 indices
         self._L = self.compute_lambda(mapping)
@@ -46,9 +46,9 @@ class C1Projector:
     # ...
     def compute_lambda(self, mapping):
 
-        s1, s2 = mapping.space.vector_space.starts
-        e1, e2 = mapping.space.vector_space.ends
-        p1, p2 = mapping.space.vector_space.pads
+        s1, s2 = mapping.space.coeff_space.starts
+        e1, e2 = mapping.space.coeff_space.ends
+        p1, p2 = mapping.space.coeff_space.pads
 
         if s1 == 0:
 
