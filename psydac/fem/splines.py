@@ -274,6 +274,14 @@ class SplineSpace( FemSpace ):
         assert isinstance(symbolic_space, BasicFunctionSpace)
         self._symbolic_space = symbolic_space
 
+    @property
+    def is_multipatch(self):
+        return False
+
+    @property
+    def is_vector_valued(self):
+        return False
+
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
@@ -311,13 +319,6 @@ class SplineSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Other properties
     #--------------------------------------------------------------------------
-    @property
-    def is_multipatch(self):
-        return False
-
-    @property
-    def is_vector_valued(self):
-        return False
 
     # question [MCP 03.2025]: this is not in the FemSpace interface, redundant with is_vector_valued. keep it ?
     @property

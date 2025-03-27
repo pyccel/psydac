@@ -183,6 +183,14 @@ class TensorFemSpace(FemSpace):
     def axis_spaces(self):
         return self._spaces
 
+    @property
+    def is_multipatch(self):
+        return False
+
+    @property
+    def is_vector_valued(self):
+        return False
+
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
@@ -710,14 +718,6 @@ class TensorFemSpace(FemSpace):
     #--------------------------------------------------------------------------
     # Other properties and methods
     #--------------------------------------------------------------------------
-
-    @property
-    def is_multipatch(self):
-        return False
-
-    @property
-    def is_vector_valued(self):
-        return False
 
     # question [MCP 03.2025]: this is not in the FemSpace interface, redundant with is_vector_valued. keep it ?
     @property

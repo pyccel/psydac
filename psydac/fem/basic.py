@@ -77,15 +77,6 @@ class FemSpace( metaclass=ABCMeta ):
         """
 
     @property
-    def is_product( self ):
-        """
-        Boolean flag that describes whether the space is a product space.
-        If True, an element of this space can be decomposed into separate fields.
-
-        """
-        return self.is_multipatch or self.is_vector_valued
-
-    @property
     @abstractmethod
     def symbolic_space( self ):
         """Symbolic space."""
@@ -165,7 +156,19 @@ class FemSpace( metaclass=ABCMeta ):
     #----------------------
     # Concrete methods
     #----------------------
+    @property
+    def is_product( self ):
+        """
+        Boolean flag that describes whether the space is a product space,
+        (eg, a multipatch or vector-valued space).
+        If True, an element of this space can be decomposed into separate fields.
+        """
+        # [MCP 27.03.2025]: do we really need this method ?
+        return self.is_multipatch or self.is_vector_valued
+    
     def __mul__(self, a):
+    # [MCP 27.03.2025]: commented because improper implementation. must be rewritten if needed
+                      
     #     from psydac.fem.vector import create_product_space
 
     #     spaces = [*(self.spaces if self.is_product else [self]),
@@ -179,6 +182,8 @@ class FemSpace( metaclass=ABCMeta ):
 
     # ...
     def __rmul__(self, a):
+    # [MCP 27.03.2025]: commented because improper implementation. must be rewritten if needed
+    
     #     from psydac.fem.vector import create_product_space
 
     #     spaces = [*(   a.spaces if    a.is_product else    [a]),
