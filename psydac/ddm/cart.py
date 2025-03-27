@@ -265,7 +265,7 @@ class DomainDecomposition:
             # Know my coordinates in the topology
             self._rank_in_topo = self._comm_cart.Get_rank()
             self._coords       = self._comm_cart.Get_coords( rank=self._rank_in_topo )
-            self._ranks_in_topo = np.array(comm.group.Translate_ranks(self._comm_cart.group, list(range(self._comm_cart.size)), comm.group))
+            self._ranks_in_topo = np.array(comm.group.Translate_ranks(list(range(self._comm_cart.size)), self._comm_cart.group))
 
         # Start/end values of global indices (without ghost regions)
         self._starts = tuple( self._global_element_starts[axis][c] for axis,c in zip(range(self._ndims), self._coords) )
