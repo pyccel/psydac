@@ -8,8 +8,8 @@ from psydac.ddm.cart    import DomainDecomposition
 
 from numpy import linspace
 
-def test_product_space_2d():
-    print ('>>> test_product_space_2d')
+def test_vector_space_2d():
+    print ('>>> test_vector_space_2d')
 
     p = 2
     grid_1 = linspace(0., 1., 3)
@@ -33,8 +33,8 @@ def test_product_space_2d():
     V = VectorFemSpace(Vx, Vy)
     F = FemField(V)
 
-def test_product_space_3d():
-    print ('>>> test_product_space_3d')
+def test_vector_space_3d():
+    print ('>>> test_vector_space_3d')
 
     p = 2
     grid_1 = linspace(0., 1., 3)
@@ -74,5 +74,5 @@ def test_product_space_3d():
 ###############################################
 if __name__ == '__main__':
 
-    test_product_space_2d()
-    test_product_space_3d()
+    test_vector_space_2d()
+    test_vector_space_3d()
