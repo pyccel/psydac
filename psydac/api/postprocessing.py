@@ -511,7 +511,8 @@ class OutputManager:
         # Add field coefficients as named datasets
         for name_field, field in fields.items():
             multipatch = hasattr(field.space.symbolic_space.domain.interior, 'as_tuple')
-
+            assert multipatch == f.space.is_multipatch   ## [MCP 27.03.2025] check: if OK, then simplify
+            
             if multipatch:
                 for f in field.fields:
                     i = self._spaces.index(f.space)
@@ -525,7 +526,7 @@ class OutputManager:
                             size = self.comm.Get_size()
 
 
-                            if f.space.is_product:
+                            if f.space.is_product:  # [MCP 27.03.2025] always true if multipatch... todo: simplify
                                 sp = f.space.spaces[0]
                             else:
                                 sp = f.space
@@ -536,7 +537,9 @@ class OutputManager:
                             mpi_dd_gp.create_dataset(f'{name_patch}', shape=(size, *local_domain.shape), dtype='i')
                             mpi_dd_gp[name_patch][rank] = local_domain
 
-                    if f.space.is_product:  # Vector field case
+                    assert f.space.is_product ## [MCP 27.03.2025] check: if OK, then simplify
+
+                    if f.space.is_product:  # Vector field case ([MCP 27.03.2025]: I don't understand this comment... why vector ?)
                         for i, field_coeff in enumerate(f.coeffs):
                             name_field_i = name_field + f'[{i}]'
                             name_space_i = name_space + f'[{i}]'
@@ -554,7 +557,7 @@ class OutputManager:
                                                             shape=Vi.npts, dtype=Vi.dtype)
                             dset.attrs.create('parent_field', data=name_field)
                             dset[index] = field_coeff[index]
-                    else:
+                    else:                        
                         V = f.space.vector_space
                         index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
                         dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
@@ -570,7 +573,7 @@ class OutputManager:
                         rank = self.comm.Get_rank()
                         size = self.comm.Get_size()
 
-                        if field.space.is_product:
+                        if field.space.is_product:  ## MCP 27.03.2025: simplify if above checks pass
                             sp = field.space.spaces[0]
                         else:
                             sp = field.space
@@ -581,7 +584,7 @@ class OutputManager:
                         mpi_dd_gp.create_dataset(f'{name_patch}', shape=(size, *local_domain.shape), dtype='i')
                         mpi_dd_gp[name_patch][rank] = local_domain
 
-                if field.space.is_product:  # Vector field case
+                if field.space.is_product:  # Vector field case (## MCP 27.03.2025: here indeed I would agree)
                     for i, field_coeff in enumerate(field.coeffs):
                         name_field_i = name_field + f'[{i}]'
                         name_space_i = name_space + f'[{i}]'

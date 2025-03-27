@@ -492,7 +492,8 @@ class DiscreteBilinearForm(BasicDiscrete):
             for key in self._free_args:
                 v = kwargs[key]
 
-                if len(self.domain) > 1 and isinstance(v, FemField) and v.space.is_product:
+                if len(self.domain) > 1 and isinstance(v, FemField) and (v.space.is_multipatch or v.space.is_vector_valued):
+                    assert v.space.is_multipatch ## [MCP 27.03.2025] should hold since len(domain) > 1. If Ok we can simplify above if
                     i, j = self.get_space_indices_from_target(self.domain, self.target)
                     assert i == j
                     v = v[i]
@@ -512,7 +513,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     spans   += s
                     degrees += [np.int64(a) for a in d]
                     pads    += [np.int64(a) for a in p]
-                    if v.space.is_product:
+                    if v.space.is_multipatch or v.space.is_vector_valued:
                         coeffs += (e._data for e in v.coeffs)
                     else:
                         coeffs += (v.coeffs._data, )
@@ -1185,7 +1186,8 @@ class DiscreteLinearForm(BasicDiscrete):
             consts  = []
             for key in self._free_args:
                 v = kwargs[key]
-                if len(self.domain) > 1 and isinstance(v, FemField) and v.space.is_product:
+                if len(self.domain) > 1 and isinstance(v, FemField) and (v.space.is_multipatch or v.space.is_vector_valued):
+                    assert v.space.is_multipatch ## [MCP 27.03.2025] should hold since len(domain) > 1. If Ok we can simplify above if
                     i = self.get_space_indices_from_target(self.domain, self.target)
                     v = v[i]
                 if isinstance(v, FemField):
@@ -1203,7 +1205,7 @@ class DiscreteLinearForm(BasicDiscrete):
                     spans   += s
                     degrees += [np.int64(a) for a in d]
                     pads    += [np.int64(a) for a in p]
-                    if v.space.is_product:
+                    if v.space.is_multipatch or v.space.is_vector_valued:
                         coeffs += (e._data for e in v.coeffs)
                     else:
                         coeffs += (v.coeffs._data,)
@@ -1630,7 +1632,7 @@ class DiscreteFunctional(BasicDiscrete):
             if isinstance(v, FemField):
                 if not v.coeffs.ghost_regions_in_sync:
                     v.coeffs.update_ghost_regions()
-                if v.space.is_product:
+                if v.space.is_multipatch or v.space.is_vector_valued:
                     coeffs = v.coeffs
                     if self._symbolic_space.is_broken:
                         index = self.get_space_indices_from_target(self._domain, self._target)
