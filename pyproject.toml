@@ -37,7 +37,7 @@ dependencies = [
     #
     # python3 -m pip install requirements.txt
     # python3 -m pip install .
-    'mpi4py<4.0.0',
+    'mpi4py',
     'h5py',
 
     # When pyccel is run in parallel with MPI, it uses tblib to pickle
