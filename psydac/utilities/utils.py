@@ -93,36 +93,6 @@ def roll_edges(domain, points):
     points -=xA
     points %=(xB-xA)
     points +=xA
-#===============================================================================
-def split_space(Xh):
-    """Split the flattened fem spaces into
-       a list of spaces that corresponds to the symbolic function spaces.
-
-    Parameters
-    ----------
-    Xh : ProductFemSpace
-        The discrete space.
-
-    Returns
-    -------
-    Vh : <list, FemSpace>
-         List of fem spaces.
-    """
-    from sympde.topology.space import VectorFunctionSpace
-    from psydac.fem.vector     import ProductFemSpace
-    V = Xh.symbolic_space
-    spaces = Xh.spaces
-    Vh    = []
-    for Vi in V.spaces:
-        if isinstance(Vi, VectorFunctionSpace):
-            Vh.append(ProductFemSpace(*spaces[:Vi.ldim]))
-            Vh[-1].symbolic_space = Vi
-            spaces = spaces[Vi.ldim:]
-        else:
-            Vh.append(spaces[0])
-            Vh[-1].symbolic_space = Vi
-            spaces = spaces[1:]
-    return Vh
 
 #===============================================================================
 def split_field(uh, spaces, out=None):
