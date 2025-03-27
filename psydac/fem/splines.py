@@ -282,6 +282,18 @@ class SplineSpace( FemSpace ):
     def is_vector_valued(self):
         return False
 
+    @property
+    def patch_spaces(self):
+        return (self,)
+
+    @property
+    def component_spaces(self):
+        return (self,)
+
+    @property
+    def axis_spaces(self):
+        return (self,)
+
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
@@ -327,18 +339,6 @@ class SplineSpace( FemSpace ):
     #     """ Only scalar field is implemented for now.
     #     """
     #     return True
-
-    @property
-    def patch_spaces(self):
-        return (self,)
-
-    @property
-    def component_spaces(self):
-        return (self,)
-
-    @property
-    def axis_spaces(self):
-        return (self,)
 
     @property
     def basis( self ):
