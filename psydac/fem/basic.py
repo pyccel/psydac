@@ -316,10 +316,6 @@ class FemField:
         return self._fields
 
     @property
-    def is_vector_valued(self):
-        return self.space.is_vector_valued
-
-    @property
     def patch_fields(self):
         """ Return the patch fields (only self if single-patch) as a tuple """
         if self.space.is_multipatch:

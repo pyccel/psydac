@@ -117,7 +117,6 @@ class VectorFemSpace( FemSpace ):
 
     @property
     def is_vector_valued(self):
-        # question (MCP 03.2025) do we allow scalar-valued VectorFemSpaces ?
         return True
 
     #--------------------------------------------------------------------------
