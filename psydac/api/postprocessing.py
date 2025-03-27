@@ -511,7 +511,8 @@ class OutputManager:
         # Add field coefficients as named datasets
         for name_field, field in fields.items():
             multipatch = hasattr(field.space.symbolic_space.domain.interior, 'as_tuple')
-            assert multipatch == f.space.is_multipatch   ## [MCP 27.03.2025] check: if OK, then simplify
+            
+            assert multipatch == field.space.is_multipatch   ## [MCP 27.03.2025] check: if OK, then simplify
             
             if multipatch:
                 for f in field.fields:
@@ -537,7 +538,7 @@ class OutputManager:
                             mpi_dd_gp.create_dataset(f'{name_patch}', shape=(size, *local_domain.shape), dtype='i')
                             mpi_dd_gp[name_patch][rank] = local_domain
 
-                    assert f.space.is_product ## [MCP 27.03.2025] check: if OK, then simplify
+                    assert f.space.is_product == f.space.is_vector_valued ## [MCP 27.03.2025] check: if OK, then simplify
 
                     if f.space.is_product:  # Vector field case ([MCP 27.03.2025]: I don't understand this comment... why vector ?)
                         for i, field_coeff in enumerate(f.coeffs):
