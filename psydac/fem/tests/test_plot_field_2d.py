@@ -23,8 +23,7 @@ def plot_some_field(Vh):
     if Vh.is_multipatch:
         domain_type = 'multi_patch'
     else:
-        domain_type = 'single_patch'
-        '.pdf'    
+        domain_type = 'single_patch'    
     plot_types = ['amplitude']
     if Vh.is_vector_valued:
         values_type = 'vector'
