@@ -723,13 +723,6 @@ class TensorFemSpace(FemSpace):
     #--------------------------------------------------------------------------
     # Other properties and methods
     #--------------------------------------------------------------------------
-
-    # note [MCP 27.03.2025]: 
-    # this metod is not in the FemSpace interface and does not seem to be used: commented now and may be removed at some point
-    # @property
-    # def is_scalar(self):
-    #     return True
-
     @property
     def dtype(self):
         return self._dtype

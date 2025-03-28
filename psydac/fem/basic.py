@@ -156,18 +156,8 @@ class FemSpace( metaclass=ABCMeta ):
     #----------------------
     # Concrete methods
     #----------------------
-    
-    # [MCP 27.03.2025]: commented if still needed somewhere, but should be removed in future
-    # @property
-    # def is_product( self ):
-    #     """
-    #     Boolean flag that describes whether the space is a product space,
-    #     (eg, a multipatch or vector-valued space).
-    #     If True, an element of this space can be decomposed into separate fields.
-    #     """     
-    #     return self.is_multipatch or self.is_vector_valued
-    
     def __mul__(self, a):
+        raise NotImplementedError('if this method __mul__ is used, it should not be implemented like this: TODO')
     # [MCP 27.03.2025]: commented because improper implementation. must be rewritten if needed
                       
     #     from psydac.fem.vector import create_product_space
@@ -179,10 +169,9 @@ class FemSpace( metaclass=ABCMeta ):
     #     if a.symbolic_space and self.symbolic_space:
     #         space._symbolic_space =  self.symbolic_space*a.symbolic_space
     #     return space
-        raise NotImplementedError('if this method __mul__ is used, it should not be implemented like this: TODO')
 
-    # ...
     def __rmul__(self, a):
+        raise NotImplementedError('if this method __rmul__ is used, it should not be implemented like this: TODO')
     # [MCP 27.03.2025]: commented because improper implementation. must be rewritten if needed
     
     #     from psydac.fem.vector import create_product_space
@@ -195,9 +184,6 @@ class FemSpace( metaclass=ABCMeta ):
     #     if a.symbolic_space and self.symbolic_space:
     #         space._symbolic_space =  a.symbolic_space * self.symbolic_space
     #     return space
-        raise NotImplementedError('if this method __rmul__ is used, it should not be implemented like this: TODO')
-
-
 
 #---------------------------------------
 # OLD STUFF

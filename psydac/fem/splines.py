@@ -123,7 +123,7 @@ class SplineSpace( FemSpace ):
         self._degree        = degree
         self._pads          = pads or degree
         self._knots         = knots
-        self._periodic      = periodic
+        self._periodic      = periodic # this is a scalar bool
         self._multiplicity  = multiplicity
         self._dirichlet     = dirichlet
         self._basis         = basis
@@ -246,6 +246,9 @@ class SplineSpace( FemSpace ):
     def periodic( self ):
         """ True if domain is periodic, False otherwise.
         """
+        # [YG, 28.03.2025]: according to the abstract interface of FemSpace,
+        # this property should return a tuple of `ldim` booleans. Instead, this
+        # property returns a single boolean.
         return self._periodic
     
     @property
@@ -258,6 +261,8 @@ class SplineSpace( FemSpace ):
     def mapping( self ):
         """ Assume identity mapping for now.
         """
+        # [YG, 28.03.2025]: not clear why there should be no mapping here...
+        # Clearly this property is never used in Psydac.
         return None
 
     @property
@@ -331,15 +336,6 @@ class SplineSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Other properties
     #--------------------------------------------------------------------------
-
-    # note [MCP 27.03.2025]: 
-    # this metod is not in the FemSpace interface and does not seem to be used: commented now and may be removed at some point
-    # @property
-    # def is_scalar( self ):
-    #     """ Only scalar field is implemented for now.
-    #     """
-    #     return True
-
     @property
     def basis( self ):
         return self._basis

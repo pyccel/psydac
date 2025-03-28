@@ -352,13 +352,6 @@ class VectorFemSpace(FemSpace):
     #--------------------------------------------------------------------------
     # Other properties and methods
     #--------------------------------------------------------------------------
-    
-    # note [MCP 27.03.2025]: 
-    # this metod is not in the FemSpace interface and does not seem to be used: commented now and may be removed at some point
-    #  @property
-    # def is_scalar(self):
-    #     return len( self.spaces ) == 1
-
     @property
     def nbasis(self):
         dims = [V.nbasis for V in self.spaces]
