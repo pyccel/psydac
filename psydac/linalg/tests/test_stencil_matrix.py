@@ -2883,10 +2883,10 @@ def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
     ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['pyccel-gcc'])    
     M = ah.assemble()
 
-    x = Vh.vector_space.zeros()
+    x = Vh.coeff_space.zeros()
 
-    s1, s2 = Vh.vector_space.starts
-    e1, e2 = Vh.vector_space.ends
+    s1, s2 = Vh.coeff_space.starts
+    e1, e2 = Vh.coeff_space.ends
 
     # Fill in vector with random values, then update ghost regions
     for i1 in range(s1, e1 + 1):
@@ -2903,7 +2903,7 @@ def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
     # Compute dot product
     Mp.mult(x.topetsc(), y_petsc)
     # Cast result back to Psydac StencilVector format
-    y_p = petsc_to_psydac(y_petsc, Vh.vector_space)
+    y_p = petsc_to_psydac(y_petsc, Vh.coeff_space)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
 
@@ -2941,10 +2941,10 @@ def test_mass_matrix_3d_parallel_topetsc(n1, n2, n3, p1, p2, p3, P1, P2, P3):
     ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['pyccel-gcc'])    
     M = ah.assemble()
 
-    x = Vh.vector_space.zeros()
+    x = Vh.coeff_space.zeros()
 
-    s1, s2, s3 = Vh.vector_space.starts
-    e1, e2, e3 = Vh.vector_space.ends
+    s1, s2, s3 = Vh.coeff_space.starts
+    e1, e2, e3 = Vh.coeff_space.ends
 
     # Fill in vector with random values, then update ghost regions
     for i1 in range(s1, e1 + 1):
@@ -2962,7 +2962,7 @@ def test_mass_matrix_3d_parallel_topetsc(n1, n2, n3, p1, p2, p3, P1, P2, P3):
     # Compute dot product
     Mp.mult(x.topetsc(), y_petsc)
     # Cast result back to Psydac StencilVector format
-    y_p = petsc_to_psydac(y_petsc, Vh.vector_space)
+    y_p = petsc_to_psydac(y_petsc, Vh.coeff_space)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
     
@@ -2994,10 +2994,10 @@ def test_mass_matrix_1d_parallel_topetsc(n1, p1, P1):
     ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['pyccel-gcc'])    
     M = ah.assemble()
 
-    x = Vh.vector_space.zeros()
+    x = Vh.coeff_space.zeros()
 
-    s1, = Vh.vector_space.starts
-    e1, = Vh.vector_space.ends
+    s1, = Vh.coeff_space.starts
+    e1, = Vh.coeff_space.ends
 
     # Fill in vector with random values, then update ghost regions
     for i1 in range(s1, e1 + 1):
@@ -3016,7 +3016,7 @@ def test_mass_matrix_1d_parallel_topetsc(n1, p1, P1):
     # Compute dot product
     Mp.mult(x_petsc, y_petsc)
     # Cast result back to Psydac StencilVector format
-    y_p = petsc_to_psydac(y_petsc, Vh.vector_space)
+    y_p = petsc_to_psydac(y_petsc, Vh.coeff_space)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
 

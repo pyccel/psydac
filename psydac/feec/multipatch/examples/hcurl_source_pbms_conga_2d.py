@@ -308,10 +308,10 @@ def solve_hcurl_source_pbm(
         print(' .. adding the lifted boundary condition...')
         uh_c += ubc_c
 
-    uh = FemField(V1h, coeffs=array_to_psydac(uh_c, V1h.vector_space))
+    uh = FemField(V1h, coeffs=array_to_psydac(uh_c, V1h.coeff_space))
     #need cp1 here?
     f_c = dH1_m.dot(tilde_f_c)
-    jh = FemField(V1h, coeffs=array_to_psydac(f_c, V1h.vector_space))
+    jh = FemField(V1h, coeffs=array_to_psydac(f_c, V1h.coeff_space))
 
     t_stamp = time_count(t_stamp)
 

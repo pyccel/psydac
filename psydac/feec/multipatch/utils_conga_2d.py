@@ -156,7 +156,7 @@ class DiagGrid():
             print('use refined labels if several solutions are needed in the same space')
         self.sol_ref[space] = FemField(
             Vh, coeffs=array_to_psydac(
-                coeffs, Vh.vector_space))
+                coeffs, Vh.coeff_space))
 
     def write_sol_values(self, v, space='V*'):
         """

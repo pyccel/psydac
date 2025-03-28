@@ -275,7 +275,7 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
         norm_emode_i = np.dot(emode_i, H1_m.dot(emode_i))
         eh_c = emode_i / norm_emode_i
 
-        stencil_coeffs = array_to_psydac(cP1_m @ eh_c, V1h.vector_space)
+        stencil_coeffs = array_to_psydac(cP1_m @ eh_c, V1h.coeff_space)
         vh = FemField(V1h, coeffs=stencil_coeffs)
         OM.add_snapshot(i, i)
         OM.export_fields(vh=vh)

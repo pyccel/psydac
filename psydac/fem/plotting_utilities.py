@@ -293,7 +293,7 @@ def plot_field_2d(
     if vh is None:
         if numpy_coeffs is not None:
             assert stencil_coeffs is None
-            stencil_coeffs = array_to_psydac(numpy_coeffs, Vh.vector_space)
+            stencil_coeffs = array_to_psydac(numpy_coeffs, Vh.coeff_space)
         vh = FemField(Vh, coeffs=stencil_coeffs)
 
     mappings = domain.mappings

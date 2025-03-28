@@ -266,7 +266,7 @@ class SplineSpace( FemSpace ):
         return None
 
     @property
-    def vector_space( self ):
+    def coeff_space( self ):
         """Returns the topological associated vector space."""
         return self._coeff_space
 

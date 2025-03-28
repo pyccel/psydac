@@ -38,7 +38,7 @@ def test_vector_space_2d():
     assert V.ldim == 2
     assert V.periodic == (False, False)
     assert V.mapping is None
-    assert isinstance(V.vector_space, BlockVectorSpace)
+    assert isinstance(V.coeff_space, BlockVectorSpace)
     assert not V.is_multipatch
     assert V.is_vector_valued
     assert V.symbolic_space is None
@@ -108,7 +108,7 @@ def test_vector_space_3d():
     assert V.ldim == 3
     assert V.periodic == (False, False, False)
     assert V.mapping is None
-    assert isinstance(V.vector_space, BlockVectorSpace)
+    assert isinstance(V.coeff_space, BlockVectorSpace)
     assert not V.is_multipatch
     assert V.is_vector_valued
     assert V.symbolic_space is None
