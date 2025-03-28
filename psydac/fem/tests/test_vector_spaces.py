@@ -12,8 +12,6 @@ from psydac.linalg.block import BlockVector, BlockVectorSpace
 
 
 def test_vector_space_2d():
-    print ('>>> test_vector_space_2d')
-
     p = 2
     grid_1 = linspace(0., 1., 3)
     grid_2 = linspace(0., 1., 5)
@@ -70,9 +68,8 @@ def test_vector_space_2d():
     assert F.patch_fields == (F,)
     assert F.component_fields == F.fields
 
-def test_vector_space_3d():
-    print ('>>> test_vector_space_3d')
 
+def test_vector_space_3d():
     p = 2
     grid_1 = linspace(0., 1., 3)
     grid_2 = linspace(0., 1., 5)
@@ -107,9 +104,47 @@ def test_vector_space_3d():
     V = VectorFemSpace(Vx, Vy, Vz)
     F = FemField(V)
 
+    # Check properties of V from abstract interface
+    assert V.ldim == 3
+    assert V.periodic == (False, False, False)
+    assert V.mapping is None
+    assert isinstance(V.vector_space, BlockVectorSpace)
+    assert not V.is_multipatch
+    assert V.is_vector_valued
+    assert V.symbolic_space is None
+    assert V.patch_spaces == (V,)
+    assert V.component_spaces == (Vx, Vy, Vz)
+    with pytest.raises(NotImplementedError):
+        getattr(V, 'axis_spaces')
+    assert V.is_multipatch == False
+    assert V.is_vector_valued == True
+
+    # Check other properties of V
+    assert V.nbasis == Vx.nbasis + Vy.nbasis + Vz.nbasis
+    assert V.degree == [Vx.degree, Vy.degree, Vz.degree]
+    assert V.multiplicity == [Vx.multiplicity, Vy.multiplicity, Vz.multiplicity]
+    assert V.pads == [Vx.pads, Vy.pads, Vz.pads]
+    assert V.ncells == Vx.ncells == Vy.ncells == Vz.ncells
+    assert V.spaces == (Vx, Vy, Vz)
+
+    # Check properties of F
+    assert F.space == V
+    assert isinstance(F.coeffs, BlockVector)
+    assert len(F.fields) == 3
+    assert isinstance(F.fields[0], FemField)
+    assert isinstance(F.fields[1], FemField)
+    assert isinstance(F.fields[2], FemField)
+    assert F.fields[0].space == Vx
+    assert F.fields[1].space == Vy
+    assert F.fields[2].space == Vz
+    assert F.patch_fields == (F,)
+    assert F.component_fields == F.fields
 
 ###############################################
 if __name__ == '__main__':
 
+    print('>>> test_vector_space_2d')
     test_vector_space_2d()
+
+    print ('>>> test_vector_space_3d')
     test_vector_space_3d()
