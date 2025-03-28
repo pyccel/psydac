@@ -376,7 +376,9 @@ class OutputManager:
         ldim = scalar_space.ldim
         vector_space = scalar_space.vector_space
         dtype = str(vector_space.dtype)
-        periodic = scalar_space.periodic
+
+        # Use lists in YAML file instead of NumPy arrays or tuples
+        periodic = list(scalar_space.periodic)
         degree = [scalar_space.spaces[i].degree for i in range(ldim)]
         basis = [scalar_space.spaces[i].basis for i in range(ldim)]
         knots = [scalar_space.spaces[i].knots.tolist() for i in range(ldim)]
