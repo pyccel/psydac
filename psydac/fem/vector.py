@@ -79,7 +79,7 @@ class VectorFemSpace(FemSpace):
         self._ldim           : int              = ldims[0]
         self._periodic       : tuple[bool, ...] = periodic[0]
         self._spaces         : tuple[FemSpace]  = new_spaces
-        self._vector_space   : BlockVectorSpace = coeff_space
+        self._coeff_space    : BlockVectorSpace = coeff_space
         self._ncells         : tuple[int, ...]  = ncells[0] # not used in the abstract interface
         self._mapping        : Optional[BasicCallableMapping] = mappings[0]
         self._symbolic_space : Optional[BasicFunctionSpace] = symbolic_space
@@ -121,7 +121,7 @@ class VectorFemSpace(FemSpace):
     @property
     def vector_space(self):
         """Returns the vector space of the coefficients (mapping invariant)."""
-        return self._vector_space
+        return self._coeff_space
 
     @property
     def symbolic_space( self ):
@@ -434,7 +434,7 @@ class MultipatchFemSpace( FemSpace ):
         self._ldim = ldims[0]
         # ...
 
-        self._vector_space    = BlockVectorSpace(*[V.vector_space for V in self.spaces], connectivity=connectivity)
+        self._coeff_space     = BlockVectorSpace(*[V.vector_space for V in self.spaces], connectivity=connectivity)
         self._symbolic_space  = None
         self._connectivity    = connectivity.copy()
     #--------------------------------------------------------------------------
@@ -457,7 +457,7 @@ class MultipatchFemSpace( FemSpace ):
     @property
     def vector_space(self):
         """Returns the vector space of the coefficients (mapping invariant)."""
-        return self._vector_space
+        return self._coeff_space
 
     @property
     def symbolic_space( self ):

@@ -78,13 +78,13 @@ def change_dtype(V, dtype):
             for v in V.spaces:
                 change_dtype(v, dtype)
                 new_spaces.append(v.vector_space)
-            V._vector_space = BlockVectorSpace(*new_spaces, connectivity=V.vector_space.connectivity)
+            V._coeff_space = BlockVectorSpace(*new_spaces, connectivity=V.vector_space.connectivity)
 
         # If the vector_space is a StencilVectorSpace
         else:
             # Recreate the StencilVectorSpace
             interfaces = V.vector_space.interfaces
-            V._vector_space = StencilVectorSpace(V.vector_space.cart, dtype=dtype)
+            V._coeff_space = StencilVectorSpace(V.vector_space.cart, dtype=dtype)
 
             # Recreate the interface in the StencilVectorSpace
             for (axis, ext), interface_space in interfaces.items():

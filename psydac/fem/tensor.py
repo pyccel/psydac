@@ -99,7 +99,7 @@ class TensorFemSpace(FemSpace):
         self._domain_decomposition = domain_decomposition
         self._spaces               = spaces
         self._dtype                = dtype
-        self._vector_space         = vector_space
+        self._coeff_space          = vector_space
         self._symbolic_space       = None
         self._refined_space        = {}
         self._interfaces           = {}
@@ -112,8 +112,8 @@ class TensorFemSpace(FemSpace):
         # Determine portion of logical domain local to process.
         # This corresponds to the indices of the first and last elements
         # owned by the current process, along each direction.
-        self._element_starts = self._vector_space.cart.domain_decomposition.starts
-        self._element_ends   = self._vector_space.cart.domain_decomposition.ends
+        self._element_starts = self._coeff_space.cart.domain_decomposition.starts
+        self._element_ends   = self._coeff_space.cart.domain_decomposition.ends
 
         # Compute limits of eta_0, eta_1, eta_2, etc... in subdomain local to process
         self._eta_limits = tuple((space.breaks[s], space.breaks[e+1])
@@ -154,12 +154,14 @@ class TensorFemSpace(FemSpace):
 
     @property
     def mapping(self):
+        # [YG, 28.03.2025]: not clear why there should be no mapping here...
+        # Clearly this property is never used in Psydac.
         return None
 
     @property
     def vector_space(self):
         """Returns the topological associated vector space."""
-        return self._vector_space
+        return self._coeff_space
 
     @property
     def symbolic_space( self ):
@@ -928,7 +930,7 @@ class TensorFemSpace(FemSpace):
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
 
-        v = self._vector_space
+        v = self._coeff_space
         spaces = list(self.spaces)
 
         global_starts = list(v._cart._global_starts).copy()
@@ -1062,7 +1064,7 @@ class TensorFemSpace(FemSpace):
         if multiplicity is None:
             multiplicity = [self.multiplicity[i] for i in axes]
 
-        v = self._vector_space
+        v = self._coeff_space
 
         spaces = list(self.spaces)
 
@@ -1133,7 +1135,7 @@ class TensorFemSpace(FemSpace):
             new_global_ends  [-1] = np.array(new_global_ends  [-1])
 
         new_domain = domain.refine(ncells, new_global_starts, new_global_ends)
-        new_space  = TensorFemSpace(new_domain, *spaces, dtype=self._vector_space.dtype)
+        new_space  = TensorFemSpace(new_domain, *spaces, dtype=self._coeff_space.dtype)
 
         self.set_refined_space(ncells, new_space)
 
@@ -1162,14 +1164,14 @@ class TensorFemSpace(FemSpace):
         if cart.is_comm_null or self._interfaces.get((axis, ext), None):
             return
 
-        spaces       = self.spaces
-        vector_space = self.vector_space
+        spaces      = self.spaces
+        coeff_space = self.vector_space
 
-        vector_space.set_interface(axis, ext, cart)
+        coeff_space.set_interface(axis, ext, cart)
 
         space = TensorFemSpace(self._domain_decomposition, *spaces,
-                               vector_space=vector_space.interfaces[axis, ext],
-                               dtype=vector_space.dtype)
+                               vector_space=coeff_space.interfaces[axis, ext],
+                               dtype=coeff_space.dtype)
 
         self._interfaces[axis, ext] = space
 

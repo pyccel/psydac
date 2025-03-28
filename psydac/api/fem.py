@@ -274,20 +274,20 @@ class DiscreteBilinearForm(BasicDiscrete):
         # ...
 
         if isinstance(test_space.vector_space, BlockVectorSpace):
-            vector_space = test_space.vector_space.spaces[0]
+            coeff_space = test_space.vector_space.spaces[0]
         else:
-            vector_space = test_space.vector_space
+            coeff_space = test_space.vector_space
 
-        self._vector_space = vector_space
+        self._coeff_space = coeff_space
         self._num_threads  = 1
-        if vector_space.parallel and vector_space.cart.num_threads>1:
-            self._num_threads = vector_space.cart.num_threads
+        if coeff_space.parallel and coeff_space.cart.num_threads>1:
+            self._num_threads = coeff_space.cart.num_threads
 
         self._update_ghost_regions = update_ghost_regions
 
         # In case of multiple patches, if the communicator is MPI_COMM_NULL, we do not generate the assembly code
         # because the patch is not owned by the MPI rank.
-        if vector_space.parallel and vector_space.cart.is_comm_null:
+        if coeff_space.parallel and coeff_space.cart.is_comm_null:
             self._free_args = ()
             self._func      = do_nothing
             self._args      = ()
@@ -345,12 +345,12 @@ class DiscreteBilinearForm(BasicDiscrete):
         # Assuming that all vector spaces (and their Cartesian decomposition,
         # if any) are compatible with each other, extract the first available
         # vector space from which (starts, ends, npts) will be read:
-        starts = vector_space.starts
-        ends   = vector_space.ends
-        npts   = vector_space.npts
+        starts = coeff_space.starts
+        ends   = coeff_space.ends
+        npts   = coeff_space.npts
 
         # MPI communicator
-        comm = vector_space.cart.comm if vector_space.parallel else None
+        comm = coeff_space.cart.comm if coeff_space.parallel else None
 
         # Backends for code generation
         assembly_backend = backend or assembly_backend
@@ -680,7 +680,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         threads_args = ()
         if with_openmp:
-            threads_args = self._vector_space.cart.get_shared_memory_subdivision(n_elements)
+            threads_args = self._coeff_space.cart.get_shared_memory_subdivision(n_elements)
             threads_args = (threads_args[0], threads_args[1], *threads_args[2], *threads_args[3], threads_args[4])
 
         args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
@@ -1044,23 +1044,23 @@ class DiscreteLinearForm(BasicDiscrete):
             mapping = list(domain_h.mappings.values())[0]
 
         if isinstance(test_space.vector_space, BlockVectorSpace):
-            vector_space = test_space.vector_space.spaces[0]
-            if isinstance(vector_space, BlockVectorSpace):
-                vector_space = vector_space.spaces[0]
+            coeff_space = test_space.vector_space.spaces[0]
+            if isinstance(coeff_space, BlockVectorSpace):
+                coeff_space = coeff_space.spaces[0]
         else:
-            vector_space = test_space.vector_space
+            coeff_space = test_space.vector_space
 
-        self._mapping      = mapping
-        self._vector_space = vector_space
-        self._num_threads  = 1
-        if vector_space.parallel and vector_space.cart.num_threads>1:
-            self._num_threads = vector_space.cart._num_threads
+        self._mapping     = mapping
+        self._coeff_space = coeff_space
+        self._num_threads = 1
+        if coeff_space.parallel and coeff_space.cart.num_threads>1:
+            self._num_threads = coeff_space.cart._num_threads
 
         self._update_ghost_regions = update_ghost_regions
 
         # In case of multiple patches, if the communicator is MPI_COMM_NULL or the cart is an Interface cart,
         # we do not generate the assembly code, because the patch is not owned by the MPI rank.
-        if vector_space.parallel and (vector_space.cart.is_comm_null or isinstance(vector_space.cart, InterfaceCartDecomposition)):
+        if coeff_space.parallel and (coeff_space.cart.is_comm_null or isinstance(coeff_space.cart, InterfaceCartDecomposition)):
             self._free_args = ()
             self._func      = do_nothing
             self._args      = ()
@@ -1080,7 +1080,7 @@ class DiscreteLinearForm(BasicDiscrete):
         discrete_space            = test_space
 
         # MPI communicator
-        comm = vector_space.cart.comm if vector_space.parallel else None
+        comm = coeff_space.cart.comm if coeff_space.parallel else None
 
         # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
         # self._func, self._free_args, self._max_nderiv and self._backend
@@ -1101,13 +1101,13 @@ class DiscreteLinearForm(BasicDiscrete):
             # vector space from which (starts, ends, pads) will be read:
             # If process does not own the boundary or interface, do not assemble anything
             if ext == -1:
-                start = vector_space.starts[axis]
+                start = coeff_space.starts[axis]
                 if start != 0:
                     self._func = do_nothing
 
             elif ext == 1:
-                end  = vector_space.ends[axis]
-                npts = vector_space.npts[axis]
+                end  = coeff_space.ends[axis]
+                npts = coeff_space.npts[axis]
                 if end + 1 != npts:
                     self._func = do_nothing
         #...
@@ -1307,7 +1307,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         threads_args = ()
         if with_openmp:
-            threads_args = self._vector_space.cart.get_shared_memory_subdivision(n_elements)
+            threads_args = self._coeff_space.cart.get_shared_memory_subdivision(n_elements)
             threads_args = (threads_args[0], threads_args[1], *threads_args[2], *threads_args[3], threads_args[4])
 
         args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
