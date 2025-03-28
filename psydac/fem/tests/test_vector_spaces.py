@@ -1,5 +1,6 @@
 # -*- coding: UTF-8 -*-
 
+import pytest
 from numpy import linspace
 
 from psydac.fem.basic   import FemField
