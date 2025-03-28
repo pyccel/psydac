@@ -136,13 +136,18 @@ class TensorFemSpace(FemSpace):
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
     @property
-    def ldim( self ):
+    def ldim(self):
         """ Parametric dimension.
         """
         return sum([V.ldim for V in self.spaces])
 
     @property
     def periodic(self):
+        """
+        Tuple of booleans: along each logical dimension,
+        say if domain is periodic.
+        :rtype: tuple[bool]
+        """
         # [YG, 27.03.2025]: according to the abstract interface of FemSpace,
         # this property should return a tuple of `ldim` booleans. However, the
         # spaces in self.spaces seem to be returning a single scalar value.
@@ -160,7 +165,10 @@ class TensorFemSpace(FemSpace):
 
     @property
     def coeff_space(self):
-        """Returns the topological associated vector space."""
+        """
+        Vector space of the coefficients (mapping invariant).
+        :rtype: psydac.linalg.stencil.StencilVectorSpace
+        """
         return self._coeff_space
 
     @property

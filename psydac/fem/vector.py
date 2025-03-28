@@ -10,26 +10,23 @@ from sympde.topology.space import BasicFunctionSpace
 from sympde.topology.callable_mapping import BasicCallableMapping
 # from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
-from psydac.linalg.basic   import Vector
-from psydac.linalg.stencil import StencilVectorSpace
-from psydac.linalg.block   import BlockVectorSpace
-from psydac.fem.basic      import FemSpace, FemField
-
-from psydac.core.field_evaluation_kernels import (pushforward_2d_hdiv,
-                                                  pushforward_3d_hdiv,
-                                                  pushforward_2d_hcurl,
-                                                  pushforward_3d_hcurl)
+from psydac.linalg.block import BlockVectorSpace
+from psydac.fem.basic    import FemSpace, FemField
 
 __all__ = ('VectorFemSpace', 'MultipatchFemSpace')
 
 #===============================================================================
 class VectorFemSpace(FemSpace):
     """
-    FEM space with a vector basis defined on a single patch
-    this class is used to represent either spaces of vector-valued fem fields,
+    FEM space with a vector basis defined on a single patch.
+    This class is used to represent either spaces of vector-valued FEM fields,
     or product spaces involved in systems of equations.
-    """
 
+    Parameters
+    ----------
+    *spaces : FemSpace
+        Single-patch FEM spaces, either scalar or vector-valued.
+    """
     def __init__(self, *spaces):
 
         # Check that all input spaces are of the correct type
@@ -103,13 +100,18 @@ class VectorFemSpace(FemSpace):
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
     @property
-    def ldim( self ):
+    def ldim(self):
         """ Parametric dimension.
         """
         return self._ldim
 
     @property
     def periodic(self):
+        """
+        Tuple of booleans: along each logical dimension,
+        say if domain is periodic.
+        :rtype: tuple[bool]
+        """
         return self._periodic
 
     @property
@@ -120,7 +122,10 @@ class VectorFemSpace(FemSpace):
 
     @property
     def coeff_space(self):
-        """Returns the vector space of the coefficients (mapping invariant)."""
+        """
+        Vector space of the coefficients (mapping invariant).
+        :rtype: psydac.linalg.block.BlockVectorSpace
+        """
         return self._coeff_space
 
     @property
@@ -398,23 +403,24 @@ class VectorFemSpace(FemSpace):
         txt += '> nbasis :: ({dims})\n'.format(dims=dims)
         return txt
 
-
 #===============================================================================
-class MultipatchFemSpace( FemSpace ):
+class MultipatchFemSpace(FemSpace):
     """
-    Product of single-patch FEM spaces
-    """
+    Product of single-patch FEM spaces.
 
-    def __init__( self, *spaces, connectivity=None):
-        """
-        Parameters
-        ----------
-        *spaces : 
-            single-patch FEM spaces
-        """
+    Parameters
+    ----------
+    *spaces : FemSpace
+        Single-patch FEM spaces, either scalar or vector-valued.
+
+    connectivity : dict, optional
+        Dictionary representing the connectivity between the patches.
+    """
+    def __init__(self, *spaces, connectivity=None):
         if connectivity is None:
             connectivity = {}
 
+        # [YG, 28.03.2025]: What happens if we have only one space?
         if len(spaces) == 1:
             return
 
@@ -430,17 +436,21 @@ class MultipatchFemSpace( FemSpace ):
         self._coeff_space     = BlockVectorSpace(*[V.coeff_space for V in self.spaces], connectivity=connectivity)
         self._symbolic_space  = None
         self._connectivity    = connectivity.copy()
+
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
     @property
-    def ldim( self ):
+    def ldim(self):
         """ Parametric dimension.
         """
         return self._ldim
 
     @property
     def periodic(self):
+        # [YG, 28.03.2025]: this is not consistent with the abstract interface,
+        # which requires a tuple of booleans, but the periodicity of a multipatch
+        # space is not well defined in general.
         return [V.periodic for V in self.spaces]
 
     @property
@@ -449,7 +459,10 @@ class MultipatchFemSpace( FemSpace ):
 
     @property
     def coeff_space(self):
-        """Returns the vector space of the coefficients (mapping invariant)."""
+        """
+        Vector space of the coefficients (mapping invariant).
+        :rtype: psydac.linalg.basic.BlockVectorSpace
+        """
         return self._coeff_space
 
     @property

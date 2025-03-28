@@ -31,7 +31,6 @@ class FemSpace( metaclass=ABCMeta ):
         """
         Number of dimensions in logical space,
         i.e. number of scalar logical coordinates.
-
         """
 
     @property
@@ -40,7 +39,6 @@ class FemSpace( metaclass=ABCMeta ):
         """
         Tuple of booleans: along each logical dimension,
         say if domain is periodic.
-
         """
 
     @property
@@ -49,16 +47,15 @@ class FemSpace( metaclass=ABCMeta ):
         """
         Mapping from logical coordinates 'eta' to physical coordinates 'x'.
         If None, we assume identity mapping (hence x=eta).
-
         """
 
     @property
     @abstractmethod
     def coeff_space( self ):
-        """Topologically associated vector space."""
-        # question [MCP 03.2025]:
-            # rename as coeff_space ?
-            # meaning of docstring? see different one in MultipatchFemSpace
+        """
+        Vector space of the coefficients (mapping invariant).
+        :rtype: psydac.linalg.basic.VectorSpace
+        """
 
     @property
     @abstractmethod
