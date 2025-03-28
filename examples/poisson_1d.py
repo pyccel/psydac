@@ -127,9 +127,9 @@ def assemble_matrices(V, kernel, *, nquads):
 
     """
     # Sizes
-    [s1] = V.vector_space.starts
-    [e1] = V.vector_space.ends
-    [p1] = V.vector_space.pads
+    [s1] = V.coeff_space.starts
+    [e1] = V.coeff_space.ends
+    [p1] = V.coeff_space.pads
 
     # Quadrature data
     quad_grid = V.get_quadrature_grids(*nquads)[0]
@@ -140,8 +140,8 @@ def assemble_matrices(V, kernel, *, nquads):
     weights_1 = quad_grid.weights
 
     # Create global matrices
-    mass      = StencilMatrix(V.vector_space, V.vector_space)
-    stiffness = StencilMatrix(V.vector_space, V.vector_space)
+    mass      = StencilMatrix(V.coeff_space, V.coeff_space)
+    stiffness = StencilMatrix(V.coeff_space, V.coeff_space)
 
     # Create element matrices
     mat_m = np.zeros((p1+1, 2*p1+1)) # mass
@@ -187,9 +187,9 @@ def assemble_rhs(V, f, *, nquads):
 
     """
     # Sizes
-    [s1] = V.vector_space.starts
-    [e1] = V.vector_space.ends
-    [p1] = V.vector_space.pads
+    [s1] = V.coeff_space.starts
+    [e1] = V.coeff_space.ends
+    [p1] = V.coeff_space.pads
 
     # Quadrature data
     quad_grid = V.get_quadrature_grids(*nquads)[0]
@@ -201,7 +201,7 @@ def assemble_rhs(V, f, *, nquads):
     weights_1 = quad_grid.weights
 
     # Data structure
-    rhs = StencilVector(V.vector_space)
+    rhs = StencilVector(V.coeff_space)
 
     # Build RHS
     for k1 in range(nk1):
@@ -261,8 +261,8 @@ if __name__ == '__main__':
     rhs = assemble_rhs(V, model.rho, nquads=nquads)
 
     # Apply homogeneous Dirichlet boundary conditions
-    s1, = V.vector_space.starts
-    e1, = V.vector_space.ends
+    s1, = V.coeff_space.starts
+    e1, = V.coeff_space.ends
 
     stiffness[s1, :] = 0.
     stiffness[e1, :] = 0.

@@ -396,9 +396,9 @@ def assemble_matrices(V, mapping, kernel, *, nquads):
 
     """
     # Sizes
-    [s1, s2] = V.vector_space.starts
-    [e1, e2] = V.vector_space.ends
-    [p1, p2] = V.vector_space.pads
+    [s1, s2] = V.coeff_space.starts
+    [e1, e2] = V.coeff_space.ends
+    [p1, p2] = V.coeff_space.pads
 
     # Quadrature data
     quad_grids = V.get_quadrature_grids(*nquads)
@@ -410,8 +410,8 @@ def assemble_matrices(V, mapping, kernel, *, nquads):
     [weights_1, weights_2] = [g.weights      for g in quad_grids]
 
     # Create global matrices
-    mass      = StencilMatrix(V.vector_space, V.vector_space)
-    stiffness = StencilMatrix(V.vector_space, V.vector_space)
+    mass      = StencilMatrix(V.coeff_space, V.coeff_space)
+    stiffness = StencilMatrix(V.coeff_space, V.coeff_space)
 
     # Create element matrices
     mat_m = np.zeros((p1+1, p2+1, 2*p1+1, 2*p2+1)) # mass
@@ -478,9 +478,9 @@ def assemble_rhs(V, mapping, f, *, nquads):
 
     """
     # Sizes
-    [s1, s2] = V.vector_space.starts
-    [e1, e2] = V.vector_space.ends
-    [p1, p2] = V.vector_space.pads
+    [s1, s2] = V.coeff_space.starts
+    [e1, e2] = V.coeff_space.ends
+    [p1, p2] = V.coeff_space.pads
 
     # Quadrature data
     quad_grids = V.get_quadrature_grids(*nquads)
@@ -492,7 +492,7 @@ def assemble_rhs(V, mapping, f, *, nquads):
     [weights_1, weights_2] = [g.weights      for g in quad_grids]
 
     # Data structure
-    rhs = StencilVector(V.vector_space)
+    rhs = StencilVector(V.coeff_space)
 
     # Build RHS
     for k1 in range(nk1):
@@ -614,8 +614,8 @@ def main(*, test_case, ncells, degree, nquads,
     # Create 2D tensor product finite element space
     V = TensorFemSpace(dd, V1, V2)
 
-    s1, s2 = V.vector_space.starts
-    e1, e2 = V.vector_space.ends
+    s1, s2 = V.coeff_space.starts
+    e1, e2 = V.coeff_space.ends
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # Print decomposition information to terminal
@@ -627,7 +627,7 @@ def main(*, test_case, ncells, degree, nquads,
         int_tuples_to_str = lambda tuples:  ',  '.join(
                 '[{:d}, {:d}]'.format(a,b) for a,b in tuples)
 
-        cart = V.vector_space.cart
+        cart = V.coeff_space.cart
 
         block_sizes_i1     = [e1-s1+1 for s1, e1 in zip(cart.global_starts[0], cart.global_ends[0])]
         block_sizes_i2     = [e2-s2+1 for s2, e2 in zip(cart.global_starts[1], cart.global_ends[1])]

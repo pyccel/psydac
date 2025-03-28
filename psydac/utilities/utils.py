@@ -100,7 +100,7 @@ def split_space(Xh):
 
     Parameters
     ----------
-    Xh : ProductFemSpace
+    Xh : MultipatchFemSpace
         The discrete space.
 
     Returns
@@ -109,13 +109,13 @@ def split_space(Xh):
          List of fem spaces.
     """
     from sympde.topology.space import VectorFunctionSpace
-    from psydac.fem.vector     import ProductFemSpace
+    from psydac.fem.vector     import VectorFemSpace
     V = Xh.symbolic_space
     spaces = Xh.spaces
     Vh    = []
     for Vi in V.spaces:
         if isinstance(Vi, VectorFunctionSpace):
-            Vh.append(ProductFemSpace(*spaces[:Vi.ldim]))
+            Vh.append(VectorFemSpace(*spaces[:Vi.ldim]))
             Vh[-1].symbolic_space = Vi
             spaces = spaces[Vi.ldim:]
         else:

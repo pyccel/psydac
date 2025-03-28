@@ -99,4 +99,4 @@ def knot_insertion_projection_operator(domain, codomain):
         else:
             ops.append(np.eye(d.nbasis))
 
-    return KroneckerDenseMatrix(domain.vector_space, codomain.vector_space, *ops)
+    return KroneckerDenseMatrix(domain.coeff_space, codomain.coeff_space, *ops)
