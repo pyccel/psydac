@@ -217,16 +217,16 @@ def solve_h1_source_pbm(
         OM.add_spaces(V0h=V0h)
         OM.set_static()
 
-        stencil_coeffs = array_to_psydac(uh_c, V0h.vector_space)
+        stencil_coeffs = array_to_psydac(uh_c, V0h.coeff_space)
         vh = FemField(V0h, coeffs=stencil_coeffs)
         OM.export_fields(vh=vh)
 
-        stencil_coeffs = array_to_psydac(f_c, V0h.vector_space)
+        stencil_coeffs = array_to_psydac(f_c, V0h.coeff_space)
         fh = FemField(V0h, coeffs=stencil_coeffs)
         OM.export_fields(fh=fh)
         
         if u_ex:
-            stencil_coeffs = array_to_psydac(u_ex_c, V0h.vector_space)
+            stencil_coeffs = array_to_psydac(u_ex_c, V0h.coeff_space)
             uh_ex = FemField(V0h, coeffs=stencil_coeffs)
             OM.export_fields(uh_ex=uh_ex)
 

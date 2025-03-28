@@ -49,6 +49,7 @@ def get_polynomial_function(degree, hom_bc_axes, domain):
 @pytest.mark.parametrize('domain_name', ["4patch_nc", "2patch_nc"])
 @pytest.mark.parametrize("nonconforming, full_mom_pres",
                          [(True, True), (False, True)])
+# NOTE (MCP march 2025): momentum conservation fails for nc = 4 and degree = 3, why?
 def test_conf_projectors_2d(
     V1_type,
     degree,
@@ -104,7 +105,7 @@ def test_conf_projectors_2d(
         elif len(domain) == 4:
             ncells_h = {
                 'M1(A)': [nc, nc],
-                'M2(B)': [2 * nc, 2 * nc],
+                'M2(B)': [nc, nc],
                 'M3(C)': [2 * nc, 2 * nc],
                 'M4(D)': [4 * nc, 4 * nc],
             }
@@ -138,6 +139,7 @@ def test_conf_projectors_2d(
     if full_mom_pres and (nc >= degree[0] + 1):
         mom_pres = degree[0]
     else:
+        raise ValueError(f'nc = {nc} too small for moment preservation')
         mom_pres = -1
     # NOTE: if mom_pres but not full_mom_pres we could test reduced order
     # moment preservation...

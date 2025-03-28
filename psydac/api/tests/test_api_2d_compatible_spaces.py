@@ -76,7 +76,7 @@ def run_poisson_mixed_form_2d_dir(f0, sol, ncells, degree):
     rhs = ah.linear_system.rhs.toarray()
 
     x   = spsolve(M, rhs)
-    x   = array_to_psydac(x, Xh.vector_space)
+    x   = array_to_psydac(x, Xh.coeff_space)
     
     # ...
     Fh = FemField( V2h )
@@ -158,7 +158,7 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
             print('Solution with scipy.sparse: success = {}'.format(info == 0))
 
         # Convert to stencil format
-        x = array_to_psydac(x, Xh.vector_space)
+        x = array_to_psydac(x, Xh.coeff_space)
 
     else:
         equation_h.set_solver('cg', info=True)
@@ -302,7 +302,7 @@ def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree):
         print('Solution with petsc4py: success = {}'.format(ksp.is_converged))
 
 
-    x = petsc_to_psydac(x, Xh.vector_space)
+    x = petsc_to_psydac(x, Xh.coeff_space)
     # Numerical solution: velocity field
     # TODO: allow this: uh = FemField(V1h, coeffs=x[0:2]) or similar
     uh = FemField(V1h)

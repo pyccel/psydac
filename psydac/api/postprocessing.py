@@ -2,6 +2,8 @@
 #
 # Copyright 2019 Yaman Güçlü
 
+# TODO [MCP 03.2025]: the new functions patch_spaces and component_spaces may be used instead of the ambiguous 'spaces'
+
 import os
 import mpi4py
 import numpy as np
@@ -19,6 +21,7 @@ from pyevtk.vtk import VtkHexahedron, VtkQuad, VtkVertex
 from psydac.api.discretization import discretize
 from psydac.cad.geometry import Geometry
 from psydac.fem.tensor import TensorFemSpace
+from psydac.fem.vector import VectorFemSpace
 from psydac.mapping.discrete import SplineMapping
 from psydac.core.bsplines import cell_index
 from psydac.feec.pushforward import Pushforward
@@ -59,7 +62,7 @@ def get_grid_lines_2d(domain_h, V_h, *, refine=1):
     isolines_2 : list of dict
         Lines having constant value of 'eta2' parameter;
         each line is a dictionary with three keys:
-        
+
         - 'eta2' : value of eta2 on the curve
         - 'x'    : x coordinates of N points along the curve
         - 'y'    : y coordinates of N points along the curve
@@ -299,7 +302,7 @@ class OutputManager:
         Notes
         -----
         Femspaces are added to ``self._space_info``.
-        
+
         """
         assert all(isinstance(femspace, FemSpace) for femspace in femspaces.values())
 
@@ -309,7 +312,7 @@ class OutputManager:
                 patches = femspace.symbolic_space.domain.interior.as_tuple()
                 for i in range(len(patches)):
                     if self.comm is None or self.comm.rank == 0:
-                        if femspace.spaces[i].is_product:
+                        if femspace.spaces[i].is_vector_valued:
                             self._add_vector_space(femspace.spaces[i], name=name, patch_name=patches[i].name)
                         else:
                             self._add_scalar_space(femspace.spaces[i], name=name, patch_name=patches[i].name)
@@ -319,7 +322,7 @@ class OutputManager:
 
             except AttributeError:
                 if self.comm is None or self.comm.rank == 0:
-                    if femspace.is_product:
+                    if femspace.is_vector_valued:
                         self._add_vector_space(femspace, name=name, patch_name=femspace.symbolic_space.domain.name)
                     else:
                         self._add_scalar_space(femspace, name=name, patch_name=femspace.symbolic_space.domain.name)
@@ -358,6 +361,7 @@ class OutputManager:
         """
         spaces_info = self._space_info
 
+        assert isinstance(scalar_space, TensorFemSpace)        
         scalar_space_name = name
         patch = patch_name
 
@@ -370,9 +374,11 @@ class OutputManager:
             kind = kind
 
         ldim = scalar_space.ldim
-        vector_space = scalar_space.vector_space
-        dtype = str(vector_space.dtype)
-        periodic = scalar_space.periodic
+        coeff_space = scalar_space.coeff_space
+        dtype = str(coeff_space.dtype)
+
+        # Use lists in YAML file instead of NumPy arrays or tuples
+        periodic = list(scalar_space.periodic)
         degree = [scalar_space.spaces[i].degree for i in range(ldim)]
         basis = [scalar_space.spaces[i].basis for i in range(ldim)]
         knots = [scalar_space.spaces[i].knots.tolist() for i in range(ldim)]
@@ -421,22 +427,23 @@ class OutputManager:
 
         return new_space
 
-    def _add_vector_space(self, vector_space, name=None, patch_name=None):
+    def _add_vector_space(self, coeff_space, name=None, patch_name=None):
         """
         Adds a vector space to the scope.
         Parameters
         ----------
-        vector_space: psydac.fem.vector.VectorFemSpace or psydac.fem.vector.MultipatchFemSpace  # todo [MCP 12.03.2025]: check these types
-            Vector/Product FemSpace to add to the scope.
+        coeff_space: psydac.fem.vector.VectorFemSpace
+            Vector FemSpace to add to the scope.
         """
+        assert isinstance(coeff_space, VectorFemSpace)
 
-        symbolic_space = vector_space.symbolic_space
+        symbolic_space = coeff_space.symbolic_space
         dim = symbolic_space.domain.dim
         patch_name = patch_name
         kind = symbolic_space.kind
 
         scalar_spaces_info = []
-        for i, scalar_space in enumerate(vector_space.spaces):
+        for i, scalar_space in enumerate(coeff_space.spaces):
             sc_space_info = self._add_scalar_space(scalar_space,
                                                    name=name + f'[{i}]',
                                                    dim=dim,
@@ -503,10 +510,11 @@ class OutputManager:
 
         # Add field coefficients as named datasets
         for name_field, field in fields.items():
-            multipatch = hasattr(field.space.symbolic_space.domain.interior, 'as_tuple')
 
-            if multipatch:
+            if field.space.is_multipatch:
                 for f in field.fields:
+
+                    f_vector_valued = f.space.is_vector_valued
                     i = self._spaces.index(f.space)
 
                     name_space = self._spaces[i+1]
@@ -518,7 +526,7 @@ class OutputManager:
                             size = self.comm.Get_size()
 
 
-                            if f.space.is_product:
+                            if f_vector_valued:
                                 sp = f.space.spaces[0]
                             else:
                                 sp = f.space
@@ -529,12 +537,12 @@ class OutputManager:
                             mpi_dd_gp.create_dataset(f'{name_patch}', shape=(size, *local_domain.shape), dtype='i')
                             mpi_dd_gp[name_patch][rank] = local_domain
 
-                    if f.space.is_product:  # Vector field case
+                    if f_vector_valued:  # Vector field case ([MCP 27.03.2025]: I don't understand this comment... why vector ?)
                         for i, field_coeff in enumerate(f.coeffs):
                             name_field_i = name_field + f'[{i}]'
                             name_space_i = name_space + f'[{i}]'
 
-                            Vi = f.space.vector_space.spaces[i]
+                            Vi = f.space.coeff_space.spaces[i]
                             index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
                             try:
@@ -547,14 +555,17 @@ class OutputManager:
                                                             shape=Vi.npts, dtype=Vi.dtype)
                             dset.attrs.create('parent_field', data=name_field)
                             dset[index] = field_coeff[index]
-                    else:
-                        V = f.space.vector_space
+                    else:                        
+                        V = f.space.coeff_space
                         index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
                         dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
                         dset[index] = f.coeffs[index]
             else:
-                i = self._spaces.index(field.space)
+                # single-patch 
 
+                vector_valued = field.space.is_vector_valued
+                i = self._spaces.index(field.space)
+                
                 name_space = self._spaces[i+1]
                 name_patch = self._spaces[i+2]
 
@@ -563,7 +574,7 @@ class OutputManager:
                         rank = self.comm.Get_rank()
                         size = self.comm.Get_size()
 
-                        if field.space.is_product:
+                        if vector_valued:
                             sp = field.space.spaces[0]
                         else:
                             sp = field.space
@@ -574,12 +585,12 @@ class OutputManager:
                         mpi_dd_gp.create_dataset(f'{name_patch}', shape=(size, *local_domain.shape), dtype='i')
                         mpi_dd_gp[name_patch][rank] = local_domain
 
-                if field.space.is_product:  # Vector field case
+                if vector_valued:  # Vector field case
                     for i, field_coeff in enumerate(field.coeffs):
                         name_field_i = name_field + f'[{i}]'
                         name_space_i = name_space + f'[{i}]'
 
-                        Vi = field.space.vector_space.spaces[i]
+                        Vi = field.space.coeff_space.spaces[i]
                         index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
                         try:
@@ -593,7 +604,7 @@ class OutputManager:
                         dset.attrs.create('parent_field', data=name_field)
                         dset[index] = field_coeff[index]
                 else:
-                    V = field.space.vector_space
+                    V = field.space.coeff_space
                     index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
                     dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
                     dset[index] = field.coeffs[index]
@@ -904,7 +915,7 @@ class PostProcessManager:
 
             # Scalar Spaces
             for sc_sp in scalar_spaces:
-                # Check that it's not a component of a vector_space
+                # Check that it's not a component of a coeff_space
                 if sc_sp['name'] not in already_used_names:
 
                     basis = list(set(sc_sp['basis']))
@@ -955,7 +966,7 @@ class PostProcessManager:
                 continue
 
             ncells = {interior_name: interior_names_to_ncells[interior_name] for interior_name in subdomain_names}
-    
+
             subdomain    = domain.get_subdomain(subdomain_names)
             space_name_0 = list(space_dict.keys())[0]
             periodic     = space_dict[space_name_0][2].get('periodic', None)
@@ -1132,11 +1143,11 @@ class PostProcessManager:
                 if i != -1:
                     # Checks for empty spaces
                     if isinstance(femsp.spaces[i], TensorFemSpace):
-                        if femsp.spaces[i].vector_space.cart.comm != mpi4py.MPI.COMM_NULL:
-                            # TODO use space_f.spaces[i].vector_space.cart.is_comm_null
+                        if femsp.spaces[i].coeff_space.cart.comm != mpi4py.MPI.COMM_NULL:
+                            # TODO use space_f.spaces[i].coeff_space.cart.is_comm_null
                             available_patches.add((i_name, i_patch))
                     else:
-                        if femsp.spaces[i].spaces[0].vector_space.cart.comm != mpi4py.MPI.COMM_NULL:
+                        if femsp.spaces[i].spaces[0].coeff_space.cart.comm != mpi4py.MPI.COMM_NULL:
                             available_patches.add((i_name, i_patch))
                 else:
                     available_patches.add((i_name, i_patch))
@@ -1321,12 +1332,12 @@ class PostProcessManager:
             field = field
         if isinstance(coeff, list): # Means vector field
             for i in range(len(coeff)):
-                V = space.spaces[i].vector_space
+                V = space.spaces[i].coeff_space
                 index_coeff = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
                 field.coeffs[i][index_coeff] = coeff[i][index_coeff]
                 field.coeffs[i].update_ghost_regions()
         else:
-            V = space.vector_space
+            V = space.coeff_space
             index_coeff = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
             field.coeffs[index_coeff] = coeff[index_coeff]
             field.coeffs.update_ghost_regions()
@@ -1917,11 +1928,11 @@ class PostProcessManager:
                     if not self.comm is None: # No empty spaces in serial
                         # Checks for empty spaces
                         if isinstance(space_f.spaces[i], TensorFemSpace):
-                            if space_f.spaces[i].vector_space.cart.comm == mpi4py.MPI.COMM_NULL:
-                                # TODO use space_f.spaces[i].vector_space.cart.is_comm_null
+                            if space_f.spaces[i].coeff_space.cart.comm == mpi4py.MPI.COMM_NULL:
+                                # TODO use space_f.spaces[i].coeff_space.cart.is_comm_null
                                 continue
                         else:
-                            if space_f.spaces[i].spaces[0].vector_space.cart.comm == mpi4py.MPI.COMM_NULL:
+                            if space_f.spaces[i].spaces[0].coeff_space.cart.comm == mpi4py.MPI.COMM_NULL:
                                 continue
 
                     try:

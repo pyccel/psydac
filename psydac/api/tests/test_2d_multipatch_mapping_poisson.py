@@ -58,12 +58,6 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
 
     kappa  = 10**3
 
-   # expr_I =(
-   #         - dot(grad(plus(u)),nn)*minus(v)  + dot(grad(minus(v)),nn)*plus(u) - kappa*plus(u)*minus(v)
-   #         + dot(grad(minus(u)),nn)*plus(v)  - dot(grad(plus(v)),nn)*minus(u) - kappa*plus(v)*minus(u)
-   #         - dot(grad(plus(v)),nn)*plus(u)   + kappa*plus(u)*plus(v)
-   #         - dot(grad(minus(v)),nn)*minus(u) + kappa*minus(u)*minus(v))
-
     expr_I =- 0.5*dot(grad(plus(u)),nn)*minus(v)  + 0.5*dot(grad(minus(v)),nn)*plus(u)  - kappa*plus(u)*minus(v)\
             + 0.5*dot(grad(minus(u)),nn)*plus(v)  - 0.5*dot(grad(plus(v)),nn)*minus(u)  - kappa*plus(v)*minus(u)\
             - 0.5*dot(grad(minus(v)),nn)*minus(u) - 0.5*dot(grad(minus(u)),nn)*minus(v) + kappa*minus(u)*minus(v)\
@@ -185,9 +179,8 @@ def test_poisson_2d_2_patches_dirichlet_2(do_plot):
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    if do_plot:
-        plot_fn=f'uh_multi_patch_test.pdf'
-        plot_field(fem_field=uh, Vh=uh.space, domain=domain, title='uh', filename=plot_fn, hide_plot=True)
+    plot_fn=f'uh_multipatch_poisson.pdf'
+    plot_field(fem_field=uh, Vh=uh.space, domain=domain, title='uh', filename=plot_fn, hide_plot=True)
 
     expected_l2_error = 0.0019402242901236006
     expected_h1_error = 0.024759527393621895

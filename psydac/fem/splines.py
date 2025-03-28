@@ -123,7 +123,7 @@ class SplineSpace( FemSpace ):
         self._degree        = degree
         self._pads          = pads or degree
         self._knots         = knots
-        self._periodic      = periodic
+        self._periodic      = periodic # this is a scalar bool
         self._multiplicity  = multiplicity
         self._dirichlet     = dirichlet
         self._basis         = basis
@@ -139,7 +139,7 @@ class SplineSpace( FemSpace ):
         # Create space of spline coefficients
         domain_decomposition = DomainDecomposition([self._ncells], [periodic])
         cart     = CartDecomposition(domain_decomposition, [nbasis], [np.array([0])],[np.array([nbasis-1])], [self._pads], [multiplicity])
-        self._vector_space = StencilVectorSpace( cart )
+        self._coeff_space = StencilVectorSpace(cart)
 
         # Store flag: object NOT YET prepared for interpolation / histopolation
         self._interpolation_ready = False
@@ -246,6 +246,9 @@ class SplineSpace( FemSpace ):
     def periodic( self ):
         """ True if domain is periodic, False otherwise.
         """
+        # [YG, 28.03.2025]: according to the abstract interface of FemSpace,
+        # this property should return a tuple of `ldim` booleans. Instead, this
+        # property returns a single boolean.
         return self._periodic
     
     @property
@@ -258,16 +261,23 @@ class SplineSpace( FemSpace ):
     def mapping( self ):
         """ Assume identity mapping for now.
         """
+        # [YG, 28.03.2025]: not clear why there should be no mapping here...
+        # Clearly this property is never used in Psydac.
         return None
 
     @property
-    def vector_space( self ):
+    def coeff_space( self ):
         """Returns the topological associated vector space."""
-        return self._vector_space
+        return self._coeff_space
 
-    # @property
-    # def is_product(self):
-    #     return False
+    @property
+    def symbolic_space( self ):
+        return self._symbolic_space
+
+    @symbolic_space.setter
+    def symbolic_space( self, symbolic_space ):
+        assert isinstance(symbolic_space, BasicFunctionSpace)
+        self._symbolic_space = symbolic_space
 
     @property
     def is_multipatch(self):
@@ -278,13 +288,16 @@ class SplineSpace( FemSpace ):
         return False
 
     @property
-    def symbolic_space( self ):
-        return self._symbolic_space
+    def patch_spaces(self):
+        return (self,)
 
-    @symbolic_space.setter
-    def symbolic_space( self, symbolic_space ):
-        assert isinstance(symbolic_space, BasicFunctionSpace)
-        self._symbolic_space = symbolic_space
+    @property
+    def component_spaces(self):
+        return (self,)
+
+    @property
+    def axis_spaces(self):
+        return (self,)
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
@@ -323,12 +336,6 @@ class SplineSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Other properties
     #--------------------------------------------------------------------------
-    @property
-    def is_scalar( self ):
-        """ Only scalar field is implemented for now.
-        """
-        return True
-
     @property
     def basis( self ):
         return self._basis

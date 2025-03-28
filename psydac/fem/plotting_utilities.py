@@ -35,17 +35,15 @@ def get_grid_vals(u, etas, mappings_list, space_kind=None):
     """
     n_patches = len(mappings_list)
     if isinstance(u, FemField):
-        vector_valued = u.is_vector_valued 
+        vector_valued = u.space.is_vector_valued 
     else:
         # then u should be callable
         vector_valued = isinstance(u, (list, tuple)) # [MCP 04.03.25]: this needs to be tested
 
     if space_kind is None:
         # use a simple change of variable
-        if vector_valued:
-            raise NotImplementedError('use simple change of variable for vector fields [todo]')
-        else:
-            space_kind = 'h1'
+        # todo [MCP 26.03.2025]: this information should be stored in the FemSpace object!
+        space_kind = 'h1'
             
     if vector_valued:
         # WARNING: here we assume 2D !
@@ -75,8 +73,6 @@ def get_grid_vals(u, etas, mappings_list, space_kind=None):
 
         # computing the pushed-fwd values on the grid
         if space_kind == 'h1' or space_kind == 'V0':
-            # assert not vector_valued
-            # todo (MCP): allow for "h1 push-forward" (single change of variable) of vector-valued fields
 
             if vector_valued:
                 def push_field(
@@ -297,7 +293,7 @@ def plot_field_2d(
     if vh is None:
         if numpy_coeffs is not None:
             assert stencil_coeffs is None
-            stencil_coeffs = array_to_psydac(numpy_coeffs, Vh.vector_space)
+            stencil_coeffs = array_to_psydac(numpy_coeffs, Vh.coeff_space)
         vh = FemField(Vh, coeffs=stencil_coeffs)
 
     mappings = domain.mappings
@@ -308,13 +304,13 @@ def plot_field_2d(
         v, etas, mappings_list, space_kind=space_kind)
 
     vh_vals = grid_vals(vh)
-    if plot_type == 'vector_field' and not vh.is_vector_valued:
+    if plot_type == 'vector_field' and not vh.space.is_vector_valued:
         print(
             "WARNING [plot_field_2d]: vector_field plot is not possible with a scalar field, plotting the amplitude instead")
         plot_type = 'amplitude'
 
     if plot_type == 'vector_field':
-        if vh.is_vector_valued:
+        if vh.space.is_vector_valued:
             my_small_streamplot(
                 title=title,
                 vals_x=vh_vals[0],
@@ -332,7 +328,7 @@ def plot_field_2d(
         # computing plot_vals_list: may have several elements for several plots
         if plot_type == 'amplitude':
 
-            if vh.is_vector_valued:
+            if vh.space.is_vector_valued:
                 # then vh_vals[d] contains the values of the d-component of vh
                 # (as a patch-indexed list)
                 plot_vals = [np.sqrt(abs(v[0])**2 + abs(v[1])**2)
@@ -344,7 +340,7 @@ def plot_field_2d(
             plot_vals_list = [plot_vals]
 
         elif plot_type == 'components':
-            if vh.is_vector_valued:
+            if vh.space.is_vector_valued:
                 # then vh_vals[d] contains the values of the d-component of vh
                 # (as a patch-indexed list)
                 plot_vals_list = vh_vals
@@ -372,27 +368,6 @@ def plot_field_2d(
             cmap=cmap,
             dpi=300,
         )
-
-    # if is_vector_valued(vh):
-    #     # then vh_vals[d] contains the values of the d-component of vh (as a patch-indexed list)
-    #     vh_abs_vals = [np.sqrt(abs(v[0])**2 + abs(v[1])**2) for v in zip(vh_vals[0],vh_vals[1])]
-    # else:
-    #     # then vh_vals just contains the values of vh (as a patch-indexed list)
-    #     vh_abs_vals = np.abs(vh_vals)
-
-    # my_small_plot(
-    #     title=title,
-    #     vals=[vh_abs_vals],
-    #     titles=subtitles,
-    #     xx=xx,
-    #     yy=yy,
-    #     surface_plot=False,
-    #     save_fig=filename,
-    #     save_vals=False,
-    #     hide_plot=hide_plot,
-    #     cmap='hsv',
-    #     dpi = 400,
-    # )
 
 # ------------------------------------------------------------------------------
 
@@ -581,7 +556,7 @@ def my_small_streamplot(
     # X, Y = np.meshgrid(x, y)
     max_val = max(np.max(vals_x), np.max(vals_y))
     # print('max_val = {}'.format(max_val))
-    vf_amp = amp_factor / max_val
+    vf_amp = amp_factor / (max_val + 1e-20)
     for k in range(n_patches):
         ax.quiver(xx[k][::skip,
                         ::skip],

@@ -36,7 +36,6 @@ from psydac.fem.basic              import FemField
 from psydac.api.discretization     import discretize
 from psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.global_projectors import Projector_H1
-from psydac.fem.plotting_utilities import plot_field_2d as plot_field
 
 # ... get the mesh directory
 try:
@@ -107,7 +106,7 @@ def run_field_test(filename, f, do_plot=False):
     a2   = BilinearForm( (u,v), integral(domain, f*u*v))
     a1_h = discretize(a1, domain_h,  [Vh, Vh])
     a2_h = discretize(a2, domain_h,  [Vh, Vh])
-              
+
     x1 = l1_h.assemble(F=uh)
     x2 = l2_h.assemble()
 
@@ -127,7 +126,7 @@ def run_boundary_field_test(domain, boundary, f, ncells):
     F  = element_of(V, name='F')
 
     nn = NormalVector('nn')
-    
+
     # Bilinear form a: V x V --> R
     aF = BilinearForm((u, v), integral(boundary, F * u * v))
     af = BilinearForm((u, v), integral(boundary, f * u * v))
@@ -138,7 +137,7 @@ def run_boundary_field_test(domain, boundary, f, ncells):
     # Linear form l: V --> R
     lF   = LinearForm( v, integral(boundary, F*v))
     lf   = LinearForm( v, integral(boundary, f*v))
-    
+
     l_grad_F   = LinearForm( v, integral(boundary, dot(grad(F), nn) * v))
     l_grad_f   = LinearForm( v, integral(boundary, dot(grad(f), nn) * v))
 
@@ -147,14 +146,14 @@ def run_boundary_field_test(domain, boundary, f, ncells):
 
     x,y = domain.coordinates
     f_lambda = lambdify([x,y], f, 'math')
-    Pi0 = Projector_H1(Vh) 
+    Pi0 = Projector_H1(Vh)
     fh = Pi0(f_lambda)
     fh.coeffs.update_ghost_regions()
 
     aF_h = discretize(aF, domain_h, [Vh, Vh])
     af_h = discretize(af, domain_h, [Vh, Vh])
     aF_x = aF_h.assemble(F=fh)
-    af_x = af_h.assemble()    
+    af_x = af_h.assemble()
 
     a_grad_F_h = discretize(a_grad_F, domain_h, [Vh, Vh])
     a_grad_f_h = discretize(a_grad_f, domain_h, [Vh, Vh])
@@ -269,7 +268,7 @@ TOL = 1e-12
 @pytest.mark.parametrize('axis', [0, 1])
 @pytest.mark.parametrize('ext', [-1, 1])
 def test_boundary_field_identity(n1, axis, ext):
-    
+
     domain = Square('domain', bounds1=(0., 0.5), bounds2=(0., 1.))
     boundary = domain.get_boundary(axis=axis, ext=ext)
 
@@ -282,7 +281,7 @@ def test_boundary_field_identity(n1, axis, ext):
     assert rel_error_BilinearForm_grad < TOL
     assert rel_error_LinearForm < TOL
     assert rel_error_LinearForm_grad < TOL
-    
+
 
 def test_field_identity_1():
 
@@ -365,4 +364,4 @@ def teardown_function():
     cache.clear_cache()
 
 if __name__ == '__main__':
-    test_field_quarter_annulus(do_plot=True)
+    test_field_quarter_annulus()
