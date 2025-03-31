@@ -93,7 +93,7 @@ def test_regular_jacobians(geometry, npts_per_cell):
                                             1,
                                             space_h.spaces[i].basis) for i in range(ldim)
                     ]
-    v = space_h.vector_space
+    v = space_h.coeff_space
     global_spans = [elements_spans(knots[i], degree[i]) - v.starts[i] + v.shifts[i] * v.pads[i] for i in range(ldim)]
 
     shape_grid = tuple(ncells[i] * npts_per_cell for i in range(ldim))
@@ -232,7 +232,7 @@ def test_irregular_jacobians(geometry, npts):
                                                  1,
                                                  space_h.spaces[i].basis) for i in range(ldim)
                     ]
-    v = space_h.vector_space
+    v = space_h.coeff_space
     global_spans = [elements_spans(knots[i], degree[i]) - v.starts[i] + v.shifts[i] * v.pads[i] for i in range(ldim)]
 
     npts = (npts,) * ldim
@@ -445,7 +445,7 @@ def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
                                             0,
                                             space_h.spaces[i].basis) for i in range(ldim)
                     ]
-    v = space_h.vector_space
+    v = space_h.coeff_space
     global_spans = [elements_spans(knots[i], degree[i]) - v.starts[i] + v.shifts[i] * v.pads[i] for i in range(ldim)]
 
     n_eval_points = (npts_per_cell,) * ldim
@@ -607,7 +607,7 @@ def test_irregular_evaluations(knots, ldim, degree, npts):
                                                  0,
                                                  space_h.spaces[i].basis) for i in range(ldim)
                     ]
-    v = space_h.vector_space
+    v = space_h.coeff_space
     global_spans = [elements_spans(knots[i], degree[i]) - v.starts[i] + v.shifts[i] * v.pads[i] for i in range(ldim)]
 
     npts = (npts,) * ldim

@@ -152,7 +152,7 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
     e_history, b_history = splitting_integrator_scipy(e0_coeff.toarray(), b0_coeff.toarray(), M1, M2, CURL, dt, niter)
 
     # study of fields
-    b_history = [array_to_psydac(bi, derham_h.V2.vector_space) for bi in b_history]
+    b_history = [array_to_psydac(bi, derham_h.V2.coeff_space) for bi in b_history]
     b_fields  = [FemField(derham_h.V2, bi).fields for bi in b_history]
 
     bx_fields = [bi[0] for bi in b_fields]

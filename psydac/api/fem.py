@@ -42,8 +42,8 @@ from psydac.linalg.stencil   import StencilVector, StencilMatrix, StencilInterfa
 from psydac.linalg.basic     import ComposedLinearOperator
 from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.cad.geometry     import Geometry
-from psydac.mapping.discrete import NurbsMapping, SplineMapping
-from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
+from psydac.mapping.discrete import SplineMapping, NurbsMapping
+from psydac.fem.vector       import VectorFemSpace
 from psydac.fem.basic        import FemField
 from psydac.fem.projectors   import knot_insertion_projection_operator
 from psydac.core.bsplines    import find_span, basis_funs_all_ders
@@ -294,21 +294,21 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._is_rational_mapping = is_rational_mapping
         # ...
 
-        if isinstance(test_space.vector_space, BlockVectorSpace):
-            vector_space = test_space.vector_space.spaces[0]
+        if isinstance(test_space.coeff_space, BlockVectorSpace):
+            coeff_space = test_space.coeff_space.spaces[0]
         else:
-            vector_space = test_space.vector_space
+            coeff_space = test_space.coeff_space
 
-        self._vector_space = vector_space
+        self._coeff_space = coeff_space
         self._num_threads  = 1
-        if vector_space.parallel and vector_space.cart.num_threads>1:
-            self._num_threads = vector_space.cart.num_threads
+        if coeff_space.parallel and coeff_space.cart.num_threads>1:
+            self._num_threads = coeff_space.cart.num_threads
 
         self._update_ghost_regions = update_ghost_regions
 
         # In case of multiple patches, if the communicator is MPI_COMM_NULL, we do not generate the assembly code
         # because the patch is not owned by the MPI rank.
-        if vector_space.parallel and vector_space.cart.is_comm_null:
+        if coeff_space.parallel and coeff_space.cart.is_comm_null:
             self._free_args = ()
             self._func      = do_nothing
             self._args      = ()
@@ -366,12 +366,12 @@ class DiscreteBilinearForm(BasicDiscrete):
         # Assuming that all vector spaces (and their Cartesian decomposition,
         # if any) are compatible with each other, extract the first available
         # vector space from which (starts, ends, npts) will be read:
-        starts = vector_space.starts
-        ends   = vector_space.ends
-        npts   = vector_space.npts
+        starts = coeff_space.starts
+        ends   = coeff_space.ends
+        npts   = coeff_space.npts
 
         # MPI communicator
-        comm = vector_space.cart.comm if vector_space.parallel else None
+        comm = coeff_space.cart.comm if coeff_space.parallel else None
 
         # Backends for code generation
         assembly_backend = backend or assembly_backend
@@ -533,7 +533,8 @@ class DiscreteBilinearForm(BasicDiscrete):
             for key in self._free_args:
                 v = kwargs[key]
 
-                if len(self.domain) > 1 and isinstance(v, FemField) and v.space.is_product:
+                if len(self.domain) > 1 and isinstance(v, FemField) and (v.space.is_multipatch or v.space.is_vector_valued):
+                    assert v.space.is_multipatch ## [MCP 27.03.2025] should hold since len(domain) > 1. If Ok we can simplify above if
                     i, j = self.get_space_indices_from_target(self.domain, self.target)
                     assert i == j
                     v = v[i]
@@ -553,7 +554,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     spans   += s
                     degrees += [np.int64(a) for a in d]
                     pads    += [np.int64(a) for a in p]
-                    if v.space.is_product:
+                    if v.space.is_multipatch or v.space.is_vector_valued:
                         coeffs += (e._data for e in v.coeffs)
                     else:
                         coeffs += (v.coeffs._data, )
@@ -1583,7 +1584,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         if len(self.grid)>1:
             quads  = [*quads, *self.grid[1].points]
 
-        pads = self.test_basis.space.vector_space.pads
+        pads = self.test_basis.space.coeff_space.pads
 
         # When self._target is an Interface domain len(self._grid) == 2
         # where grid contains the QuadratureGrid of both sides of the interface
@@ -1593,7 +1594,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 map_coeffs = [[e._coeffs._data for e in self.mapping._fields]]
                 spaces     = [self.mapping._fields[0].space]
                 map_degree = [sp.degree for sp in spaces]
-                map_span   = [[q.spans - s for q,s in zip(sp.get_assembly_grids(*self.nquads), sp.vector_space.starts)] for sp in spaces]
+                map_span   = [[q.spans - s for q,s in zip(sp.get_assembly_grids(*self.nquads), sp.coeff_space.starts)] for sp in spaces]
                 map_basis  = [[q.basis for q in sp.get_assembly_grids(*self.nquads)] for sp in spaces]
                 points     = [g.points for g in self.grid]
                 weights    = [self.mapping.weights_field.coeffs._data] if self.is_rational_mapping else []
@@ -1634,7 +1635,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                         weights_p[0] = weights_p[0]._interface_data[axis, ext]
 
                 map_degree = [sp.degree for sp in spaces]
-                map_span   = [[q.spans - s for q, s in zip(sp.get_assembly_grids(*self.nquads), sp.vector_space.starts)] for sp in spaces]
+                map_span   = [[q.spans - s for q, s in zip(sp.get_assembly_grids(*self.nquads), sp.coeff_space.starts)] for sp in spaces]
                 map_basis  = [[q.basis for q in sp.get_assembly_grids(*self.nquads)] for sp in spaces]
                 points     = [g.points for g in self.grid]
 
@@ -1675,7 +1676,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         threads_args = ()
         if with_openmp:
-            threads_args = self._vector_space.cart.get_shared_memory_subdivision(n_elements)
+            threads_args = self._coeff_space.cart.get_shared_memory_subdivision(n_elements)
             threads_args = (threads_args[0], threads_args[1], *threads_args[2], *threads_args[3], threads_args[4])
 
         args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
@@ -1701,8 +1702,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         target          = self.kernel_expr.target
         test_degree     = np.array(self.test_basis.space.degree)
         trial_degree    = np.array(self.trial_basis.space.degree)
-        test_space      = self.spaces[1].vector_space
-        trial_space     = self.spaces[0].vector_space
+        test_space      = self.spaces[1].coeff_space
+        trial_space     = self.spaces[0].coeff_space
         test_fem_space  = self.spaces[1]
         trial_fem_space = self.spaces[0]
         domain          = self.domain
@@ -1750,11 +1751,11 @@ class DiscreteBilinearForm(BasicDiscrete):
 
             if is_broken: #multi patch
                 if not self._matrix[i,j]:
-                    mat = BlockLinearOperator(trial_fem_space.get_refined_space(ncells).vector_space, test_fem_space.get_refined_space(ncells).vector_space)
+                    mat = BlockLinearOperator(trial_fem_space.get_refined_space(ncells).coeff_space, test_fem_space.get_refined_space(ncells).coeff_space)
                     if not is_conformal and not i==j:
                         if use_restriction:
                             Ps  = [knot_insertion_projection_operator(ts.get_refined_space(ncells), ts) for ts in test_fem_space.spaces]
-                            P   = BlockLinearOperator(test_fem_space.get_refined_space(ncells).vector_space, test_fem_space.vector_space)
+                            P   = BlockLinearOperator(test_fem_space.get_refined_space(ncells).coeff_space, test_fem_space.coeff_space)
                             for ni,Pi in enumerate(Ps):
                                 P[ni,ni] = Pi
 
@@ -1762,7 +1763,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
                         elif use_prolongation:
                             Ps  = [knot_insertion_projection_operator(trs, trs.get_refined_space(ncells)) for trs in trial_fem_space.spaces]
-                            P   = BlockLinearOperator(trial_fem_space.vector_space, trial_fem_space.get_refined_space(ncells).vector_space)
+                            P   = BlockLinearOperator(trial_fem_space.coeff_space, trial_fem_space.get_refined_space(ncells).coeff_space)
                             for ni,Pi in enumerate(Ps):
                                 P[ni,ni] = Pi
 
@@ -1781,14 +1782,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                             continue
 
                     if isinstance(test_fem_space, VectorFemSpace):
-                        ts_space = test_fem_space.get_refined_space(ncells).vector_space.spaces[k1]
+                        ts_space = test_fem_space.get_refined_space(ncells).coeff_space.spaces[k1]
                     else:
-                        ts_space = test_fem_space.get_refined_space(ncells).vector_space
+                        ts_space = test_fem_space.get_refined_space(ncells).coeff_space
 
                     if isinstance(trial_fem_space, VectorFemSpace):
-                        tr_space = trial_fem_space.get_refined_space(ncells).vector_space.spaces[k2]
+                        tr_space = trial_fem_space.get_refined_space(ncells).coeff_space.spaces[k2]
                     else:
-                        tr_space = trial_fem_space.get_refined_space(ncells).vector_space
+                        tr_space = trial_fem_space.get_refined_space(ncells).coeff_space
 
                     if is_conformal and matrix[k1, k2]:
                         global_mats[k1, k2] = matrix[k1, k2]
@@ -1797,9 +1798,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                         ext_d   = self._trial_ext
                         ext_c   = self._test_ext
                         test_n  = self. test_basis.space.spaces[k1].spaces[axis].nbasis
-                        test_s  = self. test_basis.space.spaces[k1].vector_space.starts[axis]
+                        test_s  = self. test_basis.space.spaces[k1].coeff_space.starts[axis]
                         trial_n = self.trial_basis.space.spaces[k2].spaces[axis].nbasis
-                        cart    = self.trial_basis.space.spaces[k2].vector_space.cart
+                        cart    = self.trial_basis.space.spaces[k2].coeff_space.cart
                         trial_s = cart.global_starts[axis][cart._coords[axis]]
 
                         s_d = trial_n - trial_s - trial_degree[k2][axis] - 1 if ext_d == 1 else 0
@@ -1842,9 +1843,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                     ext_d  = self._trial_ext
                     ext_c  = self._test_ext
                     test_n  = self.test_basis.space.spaces[axis].nbasis
-                    test_s  = self.test_basis.space.vector_space.starts[axis]
+                    test_s  = self.test_basis.space.coeff_space.starts[axis]
                     trial_n = self.trial_basis.space.spaces[axis].nbasis
-                    cart    = self.trial_basis.space.vector_space.cart
+                    cart    = self.trial_basis.space.coeff_space.cart
                     trial_s = cart.global_starts[axis][cart._coords[axis]]
 
                     s_d = trial_n - trial_s - trial_degree[axis] - 1 if ext_d == 1 else 0
@@ -1862,8 +1863,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                     flip[axis] = 1
 
                     if self._func != do_nothing:
-                        mat = StencilInterfaceMatrix(trial_fem_space.get_refined_space(ncells).vector_space,
-                                                     test_fem_space.get_refined_space(ncells).vector_space,
+                        mat = StencilInterfaceMatrix(trial_fem_space.get_refined_space(ncells).coeff_space,
+                                                     test_fem_space.get_refined_space(ncells).coeff_space,
                                                      s_d, s_c,
                                                      axis, axis,
                                                      ext_d, ext_c,
@@ -2038,24 +2039,24 @@ class DiscreteLinearForm(BasicDiscrete):
             test_space  = self._space
             mapping = list(domain_h.mappings.values())[0]
 
-        if isinstance(test_space.vector_space, BlockVectorSpace):
-            vector_space = test_space.vector_space.spaces[0]
-            if isinstance(vector_space, BlockVectorSpace):
-                vector_space = vector_space.spaces[0]
+        if isinstance(test_space.coeff_space, BlockVectorSpace):
+            coeff_space = test_space.coeff_space.spaces[0]
+            if isinstance(coeff_space, BlockVectorSpace):
+                coeff_space = coeff_space.spaces[0]
         else:
-            vector_space = test_space.vector_space
+            coeff_space = test_space.coeff_space
 
-        self._mapping      = mapping
-        self._vector_space = vector_space
-        self._num_threads  = 1
-        if vector_space.parallel and vector_space.cart.num_threads>1:
-            self._num_threads = vector_space.cart._num_threads
+        self._mapping     = mapping
+        self._coeff_space = coeff_space
+        self._num_threads = 1
+        if coeff_space.parallel and coeff_space.cart.num_threads>1:
+            self._num_threads = coeff_space.cart._num_threads
 
         self._update_ghost_regions = update_ghost_regions
 
         # In case of multiple patches, if the communicator is MPI_COMM_NULL or the cart is an Interface cart,
         # we do not generate the assembly code, because the patch is not owned by the MPI rank.
-        if vector_space.parallel and (vector_space.cart.is_comm_null or isinstance(vector_space.cart, InterfaceCartDecomposition)):
+        if coeff_space.parallel and (coeff_space.cart.is_comm_null or isinstance(coeff_space.cart, InterfaceCartDecomposition)):
             self._free_args = ()
             self._func      = do_nothing
             self._args      = ()
@@ -2075,7 +2076,7 @@ class DiscreteLinearForm(BasicDiscrete):
         discrete_space            = test_space
 
         # MPI communicator
-        comm = vector_space.cart.comm if vector_space.parallel else None
+        comm = coeff_space.cart.comm if coeff_space.parallel else None
 
         # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
         # self._func, self._free_args, self._max_nderiv and self._backend
@@ -2096,13 +2097,13 @@ class DiscreteLinearForm(BasicDiscrete):
             # vector space from which (starts, ends, pads) will be read:
             # If process does not own the boundary or interface, do not assemble anything
             if ext == -1:
-                start = vector_space.starts[axis]
+                start = coeff_space.starts[axis]
                 if start != 0:
                     self._func = do_nothing
 
             elif ext == 1:
-                end  = vector_space.ends[axis]
-                npts = vector_space.npts[axis]
+                end  = coeff_space.ends[axis]
+                npts = coeff_space.npts[axis]
                 if end + 1 != npts:
                     self._func = do_nothing
         #...
@@ -2181,7 +2182,8 @@ class DiscreteLinearForm(BasicDiscrete):
             consts  = []
             for key in self._free_args:
                 v = kwargs[key]
-                if len(self.domain) > 1 and isinstance(v, FemField) and v.space.is_product:
+                if len(self.domain) > 1 and isinstance(v, FemField) and (v.space.is_multipatch or v.space.is_vector_valued):
+                    assert v.space.is_multipatch ## [MCP 27.03.2025] should hold since len(domain) > 1. If Ok we can simplify above if
                     i = self.get_space_indices_from_target(self.domain, self.target)
                     v = v[i]
                 if isinstance(v, FemField):
@@ -2199,7 +2201,7 @@ class DiscreteLinearForm(BasicDiscrete):
                     spans   += s
                     degrees += [np.int64(a) for a in d]
                     pads    += [np.int64(a) for a in p]
-                    if v.space.is_product:
+                    if v.space.is_multipatch or v.space.is_vector_valued:
                         coeffs += (e._data for e in v.coeffs)
                     else:
                         coeffs += (v.coeffs._data,)
@@ -2264,13 +2266,13 @@ class DiscreteLinearForm(BasicDiscrete):
         tests_basis, tests_degrees, spans, pads, mult = construct_test_space_arguments(self.test_basis)
         n_elements, quads, nquads               = construct_quad_grids_arguments(self.grid, use_weights=False)
 
-        global_pads   = self.space.vector_space.pads
+        global_pads   = self.space.coeff_space.pads
 
         if self.mapping:
             mapping    = [e._coeffs._data for e in self.mapping._fields]
             space      = self.mapping._fields[0].space
             map_degree = space.degree
-            map_span   = [q.spans - s for q, s in zip(space.get_assembly_grids(*self.nquads), space.vector_space.starts)]
+            map_span   = [q.spans - s for q, s in zip(space.get_assembly_grids(*self.nquads), space.coeff_space.starts)]
             map_basis  = [q.basis for q in space.get_assembly_grids(*self.nquads)]
             axis       = self.grid.axis
             ext        = self.grid.ext
@@ -2301,7 +2303,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         threads_args = ()
         if with_openmp:
-            threads_args = self._vector_space.cart.get_shared_memory_subdivision(n_elements)
+            threads_args = self._coeff_space.cart.get_shared_memory_subdivision(n_elements)
             threads_args = (threads_args[0], threads_args[1], *threads_args[2], *threads_args[3], threads_args[4])
 
         args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
@@ -2317,7 +2319,7 @@ class DiscreteLinearForm(BasicDiscrete):
         """
         global_mats   = {}
 
-        test_space  = self.test_basis.space.vector_space
+        test_space  = self.test_basis.space.coeff_space
         test_degree = np.array(self.test_basis.space.degree)
 
         expr        = self.kernel_expr.expr
@@ -2326,7 +2328,7 @@ class DiscreteLinearForm(BasicDiscrete):
         is_broken   = len(domain) > 1
 
         if self._vector is None and (is_broken or isinstance(expr, (ImmutableDenseMatrix, Matrix))):
-            self._vector = BlockVector(self.space.vector_space)
+            self._vector = BlockVector(self.space.coeff_space)
 
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # case system of equations
 
@@ -2448,20 +2450,20 @@ class DiscreteFunctional(BasicDiscrete):
         else:
             mapping = list(domain_h.mappings.values())[0]
 
-        if isinstance(self.space.vector_space, BlockVectorSpace):
-            vector_space = self.space.vector_space.spaces[0]
-            if isinstance(vector_space, BlockVectorSpace):
-                vector_space = vector_space.spaces[0]
+        if isinstance(self.space.coeff_space, BlockVectorSpace):
+            coeff_space = self.space.coeff_space.spaces[0]
+            if isinstance(coeff_space, BlockVectorSpace):
+                coeff_space = coeff_space.spaces[0]
         else:
-            vector_space = self.space.vector_space
+            coeff_space = self.space.coeff_space
 
         num_threads = 1
-        if vector_space.parallel and vector_space.cart.num_threads > 1:
-            num_threads = vector_space.cart._num_threads
+        if coeff_space.parallel and coeff_space.cart.num_threads > 1:
+            num_threads = coeff_space.cart._num_threads
 
         # In case of multiple patches, if the communicator is MPI_COMM_NULL, we do not generate the assembly code
         # because the patch is not owned by the MPI rank.
-        if vector_space.parallel and vector_space.cart.is_comm_null:
+        if coeff_space.parallel and coeff_space.cart.is_comm_null:
             self._free_args = ()
             self._func      = do_nothing
             self._args      = ()
@@ -2488,7 +2490,7 @@ class DiscreteFunctional(BasicDiscrete):
         discrete_space            = self._space
 
         # MPI communicator
-        comm = vector_space.cart.comm if vector_space.parallel else None
+        comm = coeff_space.cart.comm if coeff_space.parallel else None
 
         # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
         # self._func, self._free_args, self._max_nderiv and self._backend
@@ -2589,7 +2591,7 @@ class DiscreteFunctional(BasicDiscrete):
             mapping    = [e._coeffs._data for e in self.mapping._fields]
             space      = self.mapping._fields[0].space
             map_degree = space.degree
-            map_span   = [q.spans-s for q,s in zip(space.get_assembly_grids(*self.nquads), space.vector_space.starts)]
+            map_span   = [q.spans-s for q,s in zip(space.get_assembly_grids(*self.nquads), space.coeff_space.starts)]
             map_basis  = [q.basis for q in space.get_assembly_grids(*self.nquads)]
 
             if self.is_rational_mapping:
@@ -2626,7 +2628,7 @@ class DiscreteFunctional(BasicDiscrete):
             if isinstance(v, FemField):
                 if not v.coeffs.ghost_regions_in_sync:
                     v.coeffs.update_ghost_regions()
-                if v.space.is_product:
+                if v.space.is_multipatch or v.space.is_vector_valued:
                     coeffs = v.coeffs
                     if self._symbolic_space.is_broken:
                         index = self.get_space_indices_from_target(self._domain, self._target)

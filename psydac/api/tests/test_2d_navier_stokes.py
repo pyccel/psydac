@@ -451,13 +451,19 @@ def teardown_function():
 #------------------------------------------------------------------------------
 if __name__ == '__main__':
 
+    # do some handpicked tests
+
     verify = 'st_navier_stokes_2d'
+    # verify = 'st_navier_stokes_2d_parallel'
 
     if verify == 'st_navier_stokes_2d':
+        print('Running test_st_navier_stokes_2d()')
+        test_st_navier_stokes_2d()
+    
+    elif verify == 'st_navier_stokes_2d_parallel':
         print('Running test_st_navier_stokes_2d_parallel()')
         test_st_navier_stokes_2d_parallel()
-        # test_st_navier_stokes_2d()
-    
+        
     else:
     
         import matplotlib.pyplot as plt

@@ -28,8 +28,8 @@ def translate(mapping, displ):
     fields = [FemField( space ) for d in range( pdim )]
 
     # Get spline coefficients for each coordinate X_i
-    starts = space.vector_space.starts
-    ends   = space.vector_space.ends
+    starts = space.coeff_space.starts
+    ends   = space.coeff_space.ends
     idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
     for i,field in enumerate( fields ):
         idx_from = tuple(list(idx_to)+[i])
@@ -82,8 +82,8 @@ def elevate(mapping, axis, times):
     fields = [FemField( space ) for d in range( pdim )]
 
     # Get spline coefficients for each coordinate X_i
-    starts = space.vector_space.starts
-    ends   = space.vector_space.ends
+    starts = space.coeff_space.starts
+    ends   = space.coeff_space.ends
     idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
     for i,field in enumerate( fields ):
         idx_from = tuple(list(idx_to)+[i])
@@ -160,8 +160,8 @@ def refine(mapping, axis, values):
     fields = [FemField( space ) for d in range( pdim )]
 
     # Get spline coefficients for each coordinate X_i
-    starts = space.vector_space.starts
-    ends   = space.vector_space.ends
+    starts = space.coeff_space.starts
+    ends   = space.coeff_space.ends
     idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
     for i,field in enumerate( fields ):
         idx_from = tuple(list(idx_to)+[i])

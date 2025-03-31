@@ -457,7 +457,7 @@ class Geometry( object ):
 
             # Create group for patch 0
             group = h5.create_group( yml['patches'][i_mapping]['mapping_id'] )
-            group.attrs['shape'      ] = space.vector_space.npts
+            group.attrs['shape'      ] = space.coeff_space.npts
             group.attrs['degree'     ] = space.degree
             group.attrs['rational'   ] = False # TODO remove
             group.attrs['periodic'   ] = space.periodic
@@ -465,13 +465,13 @@ class Geometry( object ):
                 group['knots_{}'.format( d )] = space.spaces[d].knots
 
             # Collective: create dataset for control points
-            shape = [n for n in space.vector_space.npts] + [self.pdim]
-            dtype = space.vector_space.dtype
+            shape = [n for n in space.coeff_space.npts] + [self.pdim]
+            dtype = space.coeff_space.dtype
             dset  = group.create_dataset( 'points', shape=shape, dtype=dtype )
 
             # Independent: write control points to dataset
-            starts = space.vector_space.starts
-            ends   = space.vector_space.ends
+            starts = space.coeff_space.starts
+            ends   = space.coeff_space.ends
             index  = [slice(s, e+1) for s, e in zip(starts, ends)] + [slice(None)]
             index  = tuple( index )
             dset[index] = mapping.control_points[index]
@@ -479,13 +479,13 @@ class Geometry( object ):
             # case of NURBS
             if isinstance(mapping, NurbsMapping):
                 # Collective: create dataset for weights
-                shape = [n for n in space.vector_space.npts]
-                dtype = space.vector_space.dtype
+                shape = [n for n in space.coeff_space.npts]
+                dtype = space.coeff_space.dtype
                 dset  = group.create_dataset( 'weights', shape=shape, dtype=dtype )
 
                 # Independent: write weights to dataset
-                starts = space.vector_space.starts
-                ends   = space.vector_space.ends
+                starts = space.coeff_space.starts
+                ends   = space.coeff_space.ends
                 index  = [slice(s, e+1) for s, e in zip(starts, ends)]
                 index  = tuple( index )
                 dset[index] = mapping.weights[index]
