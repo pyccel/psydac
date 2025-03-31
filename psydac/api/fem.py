@@ -3,12 +3,14 @@
 # TODO: - init_fem is called whenever we call discretize. we should check that
 #         nderiv has not been changed. shall we add nquads too?
 
-import numpy as np
-
 import string
 import random
 import importlib
+import os
+import sys
 #import inspect
+
+import numpy as np
 
 from sympy                  import ImmutableDenseMatrix, Matrix, Symbol, sympify
 from sympy.tensor.indexed   import Indexed, IndexedBase
@@ -1529,6 +1531,12 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         file_id = self.make_file(temps, ordered_stmts, field_derivatives, mult, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option=mapping_option)
 
+        # Store the current directory and add it to the variable `sys.path`
+        # to imitate Python's import behavior
+        base_dirpath = os.getcwd()
+        sys.path.insert(0, base_dirpath)
+
+        # Import the generated assembly function
         package = importlib.import_module(f'__psydac__.assemble_{file_id}')
 
         # print("\n\n" + "#" + "-"*78)
