@@ -1363,7 +1363,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         trial_basis, trial_degrees, pads, mult      = construct_trial_space_arguments(self.trial_basis)
         n_elements, quads, quad_degrees             = construct_quad_grids_arguments(self.grid[0], use_weights=False)
 
-        pads = self.test_basis.space.vector_space.pads
+        pads = self.test_basis.space.coeff_space.pads
 
         n_element_1, n_element_2, n_element_3   = n_elements
         k1, k2, k3                              = quad_degrees
@@ -1392,7 +1392,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             map_coeffs = [[e._coeffs._data for e in self.mapping._fields]]
             spaces     = [self.mapping._fields[0].space]
             map_degree = [sp.degree for sp in spaces]
-            map_span   = [[q.spans - s for q,s in zip(sp.get_assembly_grids(*self.nquads), sp.vector_space.starts)] for sp in spaces]
+            map_span   = [[q.spans - s for q,s in zip(sp.get_assembly_grids(*self.nquads), sp.coeff_space.starts)] for sp in spaces]
             map_basis  = [[q.basis for q in sp.get_assembly_grids(*self.nquads)] for sp in spaces]
             points     = [g.points for g in self.grid]
             weights    = [self.mapping.weights_field.coeffs._data] if self.is_rational_mapping else []

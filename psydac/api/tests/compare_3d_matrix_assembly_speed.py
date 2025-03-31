@@ -224,7 +224,7 @@ V       = logical_derham.V1
 Vh      = logical_derham_h.V1
 
 F = element_of(V, name='F')
-f = Vh.vector_space.zeros()
+f = Vh.coeff_space.zeros()
 f[0]._data = np.ones(f[0]._data.shape)
 f[1]._data = np.ones(f[1]._data.shape)
 f[2]._data = np.ones(f[2]._data.shape)
@@ -511,7 +511,7 @@ new_ass_34 = t1-t0
 
 # 3.5
 F = element_of(V, name='F')
-f = Vh.vector_space.zeros()
+f = Vh.coeff_space.zeros()
 f._data = np.ones(f._data.shape)
 f_field = FemField(Vh, f)
 
