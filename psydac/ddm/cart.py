@@ -265,7 +265,7 @@ class DomainDecomposition:
             # Know my coordinates in the topology
             self._rank_in_topo = self._comm_cart.Get_rank()
             self._coords       = self._comm_cart.Get_coords( rank=self._rank_in_topo )
-            self._ranks_in_topo = np.array(comm.group.Translate_ranks(list(range(self._comm_cart.size)), self._comm_cart.group))
+            self._ranks_in_topo = np.array(self._comm_cart.group.Translate_ranks(list(range(self._comm_cart.size)), comm.group))
 
         # Start/end values of global indices (without ghost regions)
         self._starts = tuple( self._global_element_starts[axis][c] for axis,c in zip(range(self._ndims), self._coords) )
@@ -894,7 +894,7 @@ class CartDecomposition():
         if len([i for i in shift if i==0]) == 2 and rank_dest != MPI.PROC_NULL:
             direction = [i for i,s in enumerate(shift) if s != 0][0]
             comm = self._subcomm[direction]
-            local_dest_rank = comm.group.Translate_ranks(np.array([rank_dest]), self._comm_cart.group)[0]
+            local_dest_rank = self._comm_cart.group.Translate_ranks(np.array([rank_dest]), comm.group)[0]
         else:
             local_dest_rank = rank_dest
             comm = self._comm_cart
@@ -907,7 +907,7 @@ class CartDecomposition():
         if len([i for i in shift if i==0]) == 2 and rank_source != MPI.PROC_NULL:
             direction = [i for i,s in enumerate(shift) if s != 0][0]
             comm = self._subcomm[direction]
-            local_source_rank = comm.group.Translate_ranks(np.array([rank_source]), self._comm_cart.group)[0]
+            local_source_rank = self._comm_cart.group.Translate_ranks(np.array([rank_source]), comm.group)[0]
         else:
             local_source_rank = rank_source
             comm = self._comm_cart
