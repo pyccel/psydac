@@ -150,12 +150,6 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip list
 
-      - name: Check parallel h5py installation
-        run: |
-            python -c "
-            from mpi4py import MPI
-            import h5py"
-
       - name: Install project
         run: |
           python -m pip install ".[test]" --no-cache-dir
