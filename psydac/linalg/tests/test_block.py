@@ -921,10 +921,10 @@ def test_block_linear_operator_dot_backend( dtype, n1, n2, p1, p2, P1, P2, backe
     # Create vector space, stencil matrix, and stencil vector
     V = StencilVectorSpace( cart, dtype=dtype )
 
-    M1 = StencilMatrix( V, V , backend=backend, precompiled=True)
-    M2 = StencilMatrix( V, V , backend=backend, precompiled=True)
-    M3 = StencilMatrix( V, V , backend=backend, precompiled=True)
-    M4 = StencilMatrix( V, V , backend=backend, precompiled=True)
+    M1 = StencilMatrix( V, V , backend=backend)
+    M2 = StencilMatrix( V, V , backend=backend)
+    M3 = StencilMatrix( V, V , backend=backend)
+    M4 = StencilMatrix( V, V , backend=backend)
     x1 = StencilVector( V )
     x2 = StencilVector( V )
 
@@ -1441,10 +1441,10 @@ def test_block_matrix_operator_parallel_dot_backend( dtype, n1, n2, p1, p2, P1, 
 
     # Create vector space, stencil matrix, and stencil vector
     V = StencilVectorSpace( cart, dtype=dtype)
-    M1 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL, precomiled=True)
-    M2 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL, precomiled=True)
-    M3 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL, precomiled=True)
-    M4 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL, precomiled=True)
+    M1 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
+    M2 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
+    M3 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
+    M4 = StencilMatrix( V, V , backend=PSYDAC_BACKEND_GPYCCEL)
     x1 = StencilVector( V )
     x2 = StencilVector( V )
 
