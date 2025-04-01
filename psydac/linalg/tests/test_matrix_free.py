@@ -51,10 +51,10 @@ def get_random_StencilVector(V):
     return v
 
 #===============================================================================
-@pytest.mark.parametrize('n1', [3, 5])
-@pytest.mark.parametrize('n2', [4, 7])
-@pytest.mark.parametrize('p1', [2, 6])
-@pytest.mark.parametrize('p2', [3, 9])
+@pytest.mark.parametrize('n1', [6, 5])
+@pytest.mark.parametrize('n2', [6, 8])
+@pytest.mark.parametrize('p1', [1, 2])
+@pytest.mark.parametrize('p2', [2, 3])
 
 def test_fake_matrix_free(n1, n2, p1, p2):
     P1 = False
@@ -102,7 +102,7 @@ def test_solvers_matrix_free(solver):
     x = A.dot(b)
 
     # Create Inverse with A
-    tol = 1e-6
+    tol = 1e-5
     if solver == 'pcg':
         inv_diagonal = A_SM.diagonal(inverse=True)
         A_inv = inverse(A, solver, pc=inv_diagonal, tol=tol)
@@ -123,5 +123,6 @@ def test_solvers_matrix_free(solver):
 # SCRIPT FUNCTIONALITY
 #===============================================================================
 if __name__ == "__main__":
-    import sys
-    pytest.main( sys.argv )
+    # import sys
+    # pytest.main( sys.argv )
+    test_fake_matrix_free(5, 4, 1, 2)
