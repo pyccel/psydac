@@ -154,7 +154,7 @@ jobs:
         run: |
             python -c "
             from mpi4py import MPI
-            import h5py
+            import h5py"
 
       - name: Install project
         run: |
