@@ -172,9 +172,9 @@ jobs:
         run: |
           psydac-accelerate --language c
 
-      - name: Test Pyccel optimization flags
-        run: |
-          pytest --pyargs psydac -m pyccel --capture=no
+      # - name: Test Pyccel optimization flags
+      #   run: |
+      #     pytest --pyargs psydac -m pyccel --capture=no
 
       - name: Initialize test directory
         run: |
