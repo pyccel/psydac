@@ -19,7 +19,7 @@ from psydac.mapping.discrete  import SplineMapping, NurbsMapping
 
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
-from psydac.fem.vector  import ProductFemSpace
+from psydac.fem.vector  import MultipatchFemSpace
 
 from sympde.expr.basic            import BasicForm
 from psydac.api.printing.pycode   import pycode
@@ -556,7 +556,7 @@ class DiscreteGltExpr(GltBasicCodeGen):
 
         Vh = self.spaces[0]
         is_block = False
-        if isinstance(Vh, ProductFemSpace):
+        if isinstance(Vh, MultipatchFemSpace):
             Vh = Vh.spaces[0]
             is_block = True
 
@@ -645,7 +645,7 @@ class DiscreteGltExpr(GltBasicCodeGen):
         the current algorithm is based on a uniform sampling of the glt symbol.
         """
         Vh = self.spaces[0]
-        if isinstance(Vh, ProductFemSpace):
+        if isinstance(Vh, MultipatchFemSpace):
             Vh = Vh.spaces[0]
 
         if not isinstance(Vh, TensorFemSpace):

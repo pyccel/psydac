@@ -13,8 +13,7 @@ from sympde.topology import Derham
 from psydac.fem.basic import FemField
 from psydac.feec.multipatch.api import discretize
 from psydac.feec.multipatch.operators import HodgeOperator
-from psydac.feec.multipatch.plotting_utilities import plot_field
-from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
+from psydac.fem.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 
 comm = MPI.COMM_WORLD

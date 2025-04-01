@@ -57,7 +57,7 @@ class GlobalProjector(metaclass=ABCMeta):
 
     def __init__(self, space, nquads = None):
         self._space = space
-        self._rhs = space.vector_space.zeros()
+        self._rhs = space.coeff_space.zeros()
 
         if isinstance(space, TensorFemSpace):
             tensorspaces = [space]
@@ -135,12 +135,12 @@ class GlobalProjector(metaclass=ABCMeta):
                 # for each direction in the tensor space (i.e. each SplineSpace):
 
                 V = tensorspaces[i].spaces[j]
-                s = tensorspaces[i].vector_space.starts[j]
-                e = tensorspaces[i].vector_space.ends[j]
-                p = tensorspaces[i].vector_space.pads[j]
-                n = tensorspaces[i].vector_space.npts[j]
+                s = tensorspaces[i].coeff_space.starts[j]
+                e = tensorspaces[i].coeff_space.ends[j]
+                p = tensorspaces[i].coeff_space.pads[j]
+                n = tensorspaces[i].coeff_space.npts[j]
                 m = tensorspaces[i].multiplicity[j]
-                periodic = tensorspaces[i].vector_space.periods[j]
+                periodic = tensorspaces[i].coeff_space.periods[j]
                 ncells = tensorspaces[i].ncells[j]
                 blocks[-1] += [None] # fill blocks with None, fill the diagonals later
 
@@ -218,9 +218,9 @@ class GlobalProjector(metaclass=ABCMeta):
             
             # build Kronecker out of single directions    
             if isinstance(self.space, TensorFemSpace):
-                matrixblocks += [KroneckerStencilMatrix(self.space.vector_space, self.space.vector_space, *matrixcells)]
+                matrixblocks += [KroneckerStencilMatrix(self.space.coeff_space, self.space.coeff_space, *matrixcells)]
             else:
-                matrixblocks += [KroneckerStencilMatrix(self.space.vector_space[i], self.space.vector_space[i], *matrixcells)]
+                matrixblocks += [KroneckerStencilMatrix(self.space.coeff_space[i], self.space.coeff_space[i], *matrixcells)]
 
             # fill the diagonals for BlockLinearOperator
             blocks[i][i] = matrixblocks[-1]
@@ -229,16 +229,16 @@ class GlobalProjector(metaclass=ABCMeta):
             self._grid_x += [block_x]
             self._grid_w += [block_w]
 
-            solverblocks += [KroneckerLinearSolver(tensorspaces[i].vector_space, tensorspaces[i].vector_space, solvercells)]
+            solverblocks += [KroneckerLinearSolver(tensorspaces[i].coeff_space, tensorspaces[i].coeff_space, solvercells)]
 
-            dataslice = tuple(slice(p*m, -p*m) for p, m in zip(tensorspaces[i].vector_space.pads,tensorspaces[i].vector_space.shifts))
+            dataslice = tuple(slice(p*m, -p*m) for p, m in zip(tensorspaces[i].coeff_space.pads,tensorspaces[i].coeff_space.shifts))
             dofs[i] = rhsblocks[i]._data[dataslice]
             
         # build final Inter-/Histopolation matrix (distributed)        
         if isinstance(self.space, TensorFemSpace):
             self._imat_kronecker = matrixblocks[0]
         else:
-            self._imat_kronecker = BlockLinearOperator(self.space.vector_space, self.space.vector_space, 
+            self._imat_kronecker = BlockLinearOperator(self.space.coeff_space, self.space.coeff_space,
                                                        blocks=blocks)
         
         # finish arguments and create a lambda
@@ -249,7 +249,7 @@ class GlobalProjector(metaclass=ABCMeta):
         if len(solverblocks) == 1:
             self._solver = solverblocks[0]
         else:
-            domain = codomain = self._space.vector_space
+            domain = codomain = self._space.coeff_space
             blocks = {(i, i): B_i for i, B_i in enumerate(solverblocks)}
             self._solver = BlockLinearOperator(domain, codomain, blocks)
     
@@ -659,7 +659,7 @@ class Projector_H1vec(GlobalProjector):
     
     Parameters
     ----------
-    H1vec : ProductFemSpace
+    H1vec : VectorFemSpace
         H1 x H1 x H1-conforming finite element space, codomain of the projection
         operator.
         
@@ -983,4 +983,3 @@ def evaluate_dofs_3d_vec(
         for i2 in range(n2):
             for i3 in range(n3):
                 F3[i1, i2, i3] = f3(intp_x1[i1], intp_x2[i2], intp_x3[i3])
-

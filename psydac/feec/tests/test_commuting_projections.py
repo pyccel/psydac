@@ -80,13 +80,13 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc, m):
     #--------------------------
     # check BlockLinearOperator
     #--------------------------
-    Id_0 = IdentityOperator(H1.vector_space)
+    Id_0 = IdentityOperator(H1.coeff_space)
     Err_0 = P0.solver @ P0.imat_kronecker - Id_0
     e0 = Err_0 @ u0.coeffs  # random vector could be used as well
     norm2_e0 = np.sqrt(e0.dot(e0))
     assert norm2_e0 < 1e-12
 
-    Id_1 = IdentityOperator(Hcurl.vector_space)
+    Id_1 = IdentityOperator(Hcurl.coeff_space)
     Err_1 = P1.solver @ P1.imat_kronecker - Id_1
     e1 = Err_1 @ u1.coeffs  # random vector could be used as well
     norm2_e1 = np.sqrt(e1.dot(e1))
@@ -172,13 +172,13 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc, m):
     # check BlockLinearOperator
     #--------------------------
 
-    Id_1 = IdentityOperator(Hcurl.vector_space)
+    Id_1 = IdentityOperator(Hcurl.coeff_space)
     Err_1 = P1.solver @ P1.imat_kronecker - Id_1
     e1 = Err_1 @ u1.coeffs  # random vector could be used as well
     norm2_e1 = np.sqrt(e1.dot(e1))
     assert norm2_e1 < 1e-12
 
-    Id_2 = IdentityOperator(Hdiv.vector_space)
+    Id_2 = IdentityOperator(Hdiv.coeff_space)
     Err_2 = P2.solver @ P2.imat_kronecker - Id_2
     e2 = Err_2 @ u2.coeffs  # random vector could be used as well
     norm2_e2 = np.sqrt(e2.dot(e2))
@@ -255,13 +255,13 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc, m):
     # check BlockLinearOperator
     #--------------------------
 
-    Id_2 = IdentityOperator(Hdiv.vector_space)
+    Id_2 = IdentityOperator(Hdiv.coeff_space)
     Err_2 = P2.solver @ P2.imat_kronecker - Id_2
     e2 = Err_2 @ u2.coeffs  # random vector could be used as well
     norm2_e2 = np.sqrt(e2.dot(e2))
     assert norm2_e2 < 1e-12
 
-    Id_3 = IdentityOperator(L2.vector_space)
+    Id_3 = IdentityOperator(L2.coeff_space)
     Err_3 = P3.solver @ P3.imat_kronecker - Id_3
     e3 = Err_3 @ u3.coeffs  # random vector could be used as well
     norm2_e3 = np.sqrt(e3.dot(e3))
@@ -331,13 +331,13 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc, m):
     # check BlockLinearOperator
     #--------------------------
 
-    Id_0 = IdentityOperator(H1.vector_space)
+    Id_0 = IdentityOperator(H1.coeff_space)
     Err_0 = P0.solver @ P0.imat_kronecker - Id_0
     e0 = Err_0 @ u0.coeffs  # random vector could be used as well
     norm2_e0 = np.sqrt(e0.dot(e0))
     assert norm2_e0 < 1e-12
 
-    Id_1 = IdentityOperator(Hcurl.vector_space)
+    Id_1 = IdentityOperator(Hcurl.coeff_space)
     Err_1 = P1.solver @ P1.imat_kronecker - Id_1
     e1 = Err_1 @ u1.coeffs  # random vector could be used as well
     norm2_e1 = np.sqrt(e1.dot(e1))
@@ -404,13 +404,13 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc, m):
     # check BlockLinearOperator
     #--------------------------
 
-    Id_0 = IdentityOperator(H1.vector_space)
+    Id_0 = IdentityOperator(H1.coeff_space)
     Err_0 = P0.solver @ P0.imat_kronecker - Id_0
     e0 = Err_0 @ u0.coeffs  # random vector could be used as well
     norm2_e0 = np.sqrt(e0.dot(e0))
     assert norm2_e0 < 1e-12
 
-    Id_1 = IdentityOperator(Hdiv.vector_space)
+    Id_1 = IdentityOperator(Hdiv.coeff_space)
     Err_1 = P1.solver @ P1.imat_kronecker - Id_1
     e1 = Err_1 @ u1.coeffs  # random vector could be used as well
     norm2_e1 = np.sqrt(e1.dot(e1))
@@ -484,13 +484,13 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc, m):
     # check BlockLinearOperator
     #--------------------------
 
-    Id_2 = IdentityOperator(Hdiv.vector_space)
+    Id_2 = IdentityOperator(Hdiv.coeff_space)
     Err_2 = P2.solver @ P2.imat_kronecker - Id_2
     e2 = Err_2 @ u2.coeffs
     norm2_e2 = np.sqrt(e2.dot(e2))
     assert norm2_e2 < 1e-12
 
-    Id_3 = IdentityOperator(L2.vector_space)
+    Id_3 = IdentityOperator(L2.coeff_space)
     Err_3 = P3.solver @ P3.imat_kronecker - Id_3
     e3 = Err_3 @ u3.coeffs
     norm2_e3 = np.sqrt(e3.dot(e3))
@@ -564,13 +564,13 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc, m):
     # check BlockLinearOperator
     #--------------------------
 
-    Id_1 = IdentityOperator(Hcurl.vector_space)
+    Id_1 = IdentityOperator(Hcurl.coeff_space)
     Err_1 = P1.solver @ P1.imat_kronecker - Id_1
     e1 = Err_1 @ u1.coeffs
     norm2_e1 = np.sqrt(e1.dot(e1))
     assert norm2_e1 < 1e-12
 
-    Id_2 = IdentityOperator(L2.vector_space)
+    Id_2 = IdentityOperator(L2.coeff_space)
     Err_2 = P2.solver @ P2.imat_kronecker - Id_2
     e2 = Err_2 @ u2.coeffs
     norm2_e2 = np.sqrt(e2.dot(e2))
@@ -634,13 +634,13 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc, m):
     # check BlockLinearOperator
     #--------------------------
 
-    Id_0 = IdentityOperator(H1.vector_space)
+    Id_0 = IdentityOperator(H1.coeff_space)
     Err_0 = P0.solver @ P0.imat_kronecker - Id_0
     e0 = Err_0 @ u0.coeffs
     norm2_e0 = np.sqrt(e0.dot(e0))
     assert norm2_e0 < 1e-12
 
-    Id_1 = IdentityOperator(L2.vector_space)
+    Id_1 = IdentityOperator(L2.coeff_space)
     Err_1 = P1.solver @ P1.imat_kronecker - Id_1
     e1 = Err_1 @ u1.coeffs
     norm2_e1 = np.sqrt(e1.dot(e1))
