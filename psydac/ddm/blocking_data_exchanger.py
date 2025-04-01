@@ -146,7 +146,7 @@ class BlockingCartDataExchanger(CartDataExchanger):
             rank_source = info['rank_source']
 
             if self._axis is not None:
-                rank_source = comm.group.Translate_ranks(gcomm.group, np.array([rank_source]), comm.group)[0]
+                rank_source = gcomm.group.Translate_ranks(np.array([rank_source]), comm.group)[0]
             
             recv_buf = (array, 1, recv_typ)
             recv_req = comm.Irecv( recv_buf, rank_source, tag(disp) )
@@ -156,7 +156,7 @@ class BlockingCartDataExchanger(CartDataExchanger):
             rank_dest = info['rank_dest']
 
             if self._axis is not None:
-                rank_dest = comm.group.Translate_ranks(gcomm.group, np.array([rank_dest]), comm.group)[0]
+                rank_dest = gcomm.group.Translate_ranks(np.array([rank_dest]), comm.group)[0]
 
             send_buf = (array, 1, send_typ)
             send_req = comm.Isend( send_buf, rank_dest, tag(disp) )
