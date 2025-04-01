@@ -44,10 +44,10 @@ def get_StencilVectorSpace(n1, n2, p1, p2, P1, P2):
     npts = [n1, n2]
     pads = [p1, p2]
     periods = [P1, P2]
-    nbasis = [ni + pi for ni, pi in zip(npts, pads)]
+    #nbasis = [ni + pi for ni, pi in zip(npts, pads)]
     D = DomainDecomposition(npts, periods=periods)
-    global_starts, global_ends = compute_global_starts_ends(D, nbasis)
-    C = CartDecomposition(D, nbasis, global_starts, global_ends, pads=pads, shifts=[1,1])
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=pads, shifts=[1,1])
     V = StencilVectorSpace(C)
     return V
 

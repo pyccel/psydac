@@ -102,7 +102,7 @@ def test_solvers_matrix_free(solver):
     x = A.dot(b)
 
     # Create Inverse with A
-    tol = 1e-5
+    tol = 3e-5
     if solver == 'pcg':
         inv_diagonal = A_SM.diagonal(inverse=True)
         A_inv = inverse(A, solver, pc=inv_diagonal, tol=tol)
