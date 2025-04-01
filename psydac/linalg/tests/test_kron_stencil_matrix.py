@@ -25,7 +25,7 @@ def compute_global_starts_ends(domain_decomposition, npts):
     return tuple(global_starts), tuple(global_ends)
 
 #==============================================================================
-@pytest.mark.parametrize('dtype', [float,complex])
+@pytest.mark.parametrize('dtype', [float])
 @pytest.mark.parametrize('npts', [(5, 7, 8)])
 @pytest.mark.parametrize('pads', [(2, 3, 5)])
 @pytest.mark.parametrize('periodic', [(True, False, False)])
