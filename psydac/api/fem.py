@@ -962,7 +962,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         A2  += '\n'
         CT  += '\n'
         NEW_ARGS = TT1 + TT2 + TT3 + A3 + A2 + CT
-        imports = '\n    '.join([str(i) for i in self._imports])
+        imports_string = self._imports_string
 
         head = code_head.format(SPAN=SPAN, 
                                 G_MAT=G_MAT, 
@@ -972,7 +972,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                                 MAPPING_PART_3=MAPPING_PART_3,
                                 MAPPING_PART_4=MAPPING_PART_4,
                                 FIELD_ARGS=field_args,
-                                imports=imports)
+                                imports=imports_string)
         
         #------------------------- MAKE BODY -------------------------
         A1              = ''

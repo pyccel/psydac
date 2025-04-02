@@ -129,8 +129,8 @@ def parse(expr, settings, backend=None, fast_assembly=False):
     if not fast_assembly:
         return ast
     else:
-        imports = psy_parser._imports
-        return imports
+        imports_string = psy_parser._imports_string
+        return imports_string
 
 #==============================================================================
 class Parser(object):
@@ -552,7 +552,7 @@ class Parser(object):
         imports       = [Import('numpy', numpy_imports)] + \
                         ([Import(math_library, math_imports)] if math_imports else []) + \
                         [*expr.imports]
-        self._imports = imports
+        self._imports_string = '\n    '.join([str(i) for i in imports])
 
         results = [self._visit(a) for a in expr.results]
 

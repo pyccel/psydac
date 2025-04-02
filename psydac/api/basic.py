@@ -154,7 +154,7 @@ class BasicCodeGen:
                     'mapping': psydac_ast.mapping,
                     'target' : psydac_ast.domain
                 }
-                self._imports  = parse(psydac_ast.expr, settings=parser_settings, backend=self.backend, fast_assembly=fast_assembly)
+                self._imports_string = parse(psydac_ast.expr, settings=parser_settings, backend=self.backend, fast_assembly=fast_assembly)
 
 
         if comm is not None and comm.size>1: comm.Barrier()
