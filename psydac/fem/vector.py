@@ -4,92 +4,131 @@
 import numpy as np
 
 from functools import reduce
+from typing import Optional
 
 from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.block   import BlockVectorSpace
 from psydac.fem.basic      import FemSpace, FemField
 
-from psydac.core.field_evaluation_kernels import (pushforward_2d_hdiv,
-                                                  pushforward_3d_hdiv,
-                                                  pushforward_2d_hcurl,
-                                                  pushforward_3d_hcurl)
-
-__all__ = ('VectorFemSpace', 'ProductFemSpace')
+__all__ = ('VectorFemSpace', 'MultipatchFemSpace')
 
 #===============================================================================
-class VectorFemSpace( FemSpace ):
+class VectorFemSpace(FemSpace):
     """
-    FEM space with a vector basis defined on a single patch
-    this class is used to represent either spaces of vector-valued fem fields,
+    FEM space with a vector basis defined on a single patch.
+    This class is used to represent either spaces of vector-valued FEM fields,
     or product spaces involved in systems of equations.
+
+    Parameters
+    ----------
+    *spaces : FemSpace
+        Single-patch FEM spaces, either scalar or vector-valued.
     """
+    def __init__(self, *spaces):
 
-    def __init__( self, *spaces ):
+        # Check that all input spaces are of the correct type
+        assert all(isinstance(V, FemSpace) for V in spaces)
 
-        # all input spaces are flattened into a single list of scalar spaces
+        # We do not accept multipatch spaces yet
+        assert not any(V.is_multipatch for V in spaces)
+
+        # All input spaces are flattened into a tuple `new_spaces` of scalar spaces
         new_spaces = [sp.spaces if isinstance(sp, VectorFemSpace) else [sp] for sp in spaces]
         new_spaces = tuple(sp2 for sp1 in new_spaces for sp2 in sp1)
 
-        self._spaces = new_spaces
+        # Check that we indeed have scalar spaces only
+        assert not any(V.is_vector_valued for V in new_spaces)
 
-        # ... make sure that all spaces have the same parametric dimension
-        ldims = [V.ldim for V in self.spaces]
-        assert len(np.unique(ldims)) == 1
+        # Check that all spaces have the same parametric dimension
+        ldims = [V.ldim for V in new_spaces]
+        assert len(set(ldims)) == 1
 
-        self._ldim = ldims[0]
-        # ...
+        # Make sure that all spaces have the same periodicity along each axis
+        periodic = [V.periodic for V in new_spaces]
+        for pp in zip(*periodic):
+            assert len(set(pp)) == 1
 
-        # ... make sure that all spaces have the same number of cells
-        ncells = [V.ncells for V in self.spaces]
+        # Make sure that all spaces have the same mapping or no mapping at all
+        # Mapping must be of type BasicCallableMapping defined in SymPDE
+        # [YG, 27.03.2025]: this class was setting its mapping to None
+        mappings = [V.mapping for V in new_spaces]
+        assert len(set(mappings)) == 1
+        assert mappings[0] is None or isinstance(mappings[0], BasicCallableMapping)
 
-        if self.ldim == 1:
-            assert len(np.unique(ncells)) == 1
-        else:
-            ns = np.asarray(ncells[0])
-            for ms in ncells[1:]:
-                assert np.allclose(ns, np.asarray(ms))
+        # Make sure that all spaces have the same number of cells along each axis
+        # [YG, 27.03.2025]: This is not part of the abstract interface of
+        #       FemSpace and it assumes that all spaces are TensorFemSpaces
+        ncells = [V.ncells for V in new_spaces]
+        for nc in zip(*ncells):
+            assert len(set(nc)) == 1
 
-        self._ncells = ncells[0]
-        # ...
+        # Compute the SymPDE symbolic space from the symbolic spaces of the input spaces
+        # symbolic_spaces = [V.symbolic_space for V in spaces]
+        # symbolic_space = reduce(lambda x, y: x * y, symbolic_spaces) if all(symbolic_spaces) else None
 
         self._symbolic_space = None
         # if all(s.symbolic_space for s in spaces):
         #     symbolic_spaces = [s.symbolic_space for s in spaces]
         #     self._symbolic_space = reduce(lambda x,y:x*y, symbolic_spaces)
+        # Compute the VectorSpace of the coefficients
+        coeff_space = BlockVectorSpace(*[V.coeff_space for V in new_spaces])
 
-        self._vector_space     = BlockVectorSpace(*[V.vector_space for V in self.spaces])
-        self._refined_space    = {}
+        # Store information in private attributes
+        self._ldim           : int              = ldims[0]
+        self._periodic       : tuple[bool, ...] = periodic[0]
+        self._spaces         : tuple[FemSpace]  = new_spaces
+        self._coeff_space    : BlockVectorSpace = coeff_space
+        self._ncells         : tuple[int, ...]  = ncells[0] # not used in the abstract interface
+        self._mapping        : Optional[BasicCallableMapping] = mappings[0]
+        # self._symbolic_space : Optional[BasicFunctionSpace] = symbolic_space
+        
+        # ++++++++++++++ Extra operations for multigrid methods ++++++++++++++
+        # Initialize the dictionary that will store the refined VectorFemSpaces
+        self._refined_space = {}
 
-        self.set_refined_space(self._ncells, self)
+        # Compute the refined VectorFemSpaces from the refined spaces of the
+        # scalar spaces `new_spaces`. The method `set_refined_space` is used to
+        # update the dictionary, and it perfoms additional checks. We also use
+        # the property `spaces` which is not part of the abstract interface.
+        self.set_refined_space(self.ncells, self)
         for key in self.spaces[0]._refined_space:
-            if key == tuple(self._ncells):continue
-            self.set_refined_space(key, VectorFemSpace(*[V._refined_space[key] for V in self.spaces]))
+            if key != tuple(self.ncells):
+                V_fine = VectorFemSpace(*[V._refined_space[key] for V in self.spaces])
+                self.set_refined_space(key, V_fine)
+        #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
     @property
-    def ldim( self ):
+    def ldim(self):
         """ Parametric dimension.
         """
         return self._ldim
 
     @property
     def periodic(self):
-        return [V.periodic for V in self.spaces]
+        """
+        Tuple of booleans: along each logical dimension,
+        say if domain is periodic.
+        :rtype: tuple[bool]
+        """
+        return self._periodic
 
     @property
     def mapping(self):
-        return None
+        # [YG, 27.03.2025]: not clear why there should be no mapping here
+        #return None
+        return self._mapping
 
     @property
-    def vector_space(self):
-        """Returns the vector space of the coefficients (mapping invariant)."""
-        return self._vector_space
-
-    @property
-    def is_product(self):
-        return True
+    def coeff_space(self):
+        """
+        Vector space of the coefficients (mapping invariant).
+        :rtype: psydac.linalg.block.BlockVectorSpace
+        """
+        return self._coeff_space
 
     @property
     def symbolic_space( self ):
@@ -99,6 +138,26 @@ class VectorFemSpace( FemSpace ):
     def symbolic_space( self, symbolic_space ):
         #assert isinstance(symbolic_space, BasicFunctionSpace)
         self._symbolic_space = symbolic_space
+
+    @property
+    def patch_spaces(self):
+        return (self,)
+
+    @property
+    def component_spaces(self):
+        return self._spaces
+
+    @property
+    def axis_spaces(self):
+        raise NotImplementedError('Vector Fem space has no list of axis spaces')
+
+    @property
+    def is_multipatch(self):
+        return False
+
+    @property
+    def is_vector_valued(self):
+        return True
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
@@ -301,13 +360,8 @@ class VectorFemSpace( FemSpace ):
     # Other properties and methods
     #--------------------------------------------------------------------------
     @property
-    def is_scalar(self):
-        return len( self.spaces ) == 1
-
-    @property
     def nbasis(self):
         dims = [V.nbasis for V in self.spaces]
-        # TODO [MCP, 08.03.2021]: check if we should return a tuple
         return sum(dims)
 
     @property
@@ -335,6 +389,9 @@ class VectorFemSpace( FemSpace ):
         return self._refined_space[tuple(ncells)]
 
     def set_refined_space(self, ncells, new_space):
+        # [YG, 27.03.2025]: It appears that this method is assuming that the
+        # refined space has ldim=2, and that the number of cells is the same
+        # along each axis. These two conditions are very strong.
         assert all(nc1==nc2 for nc1,nc2 in zip(ncells, new_space.ncells))
         self._refined_space[tuple(ncells)] = new_space
 
@@ -349,27 +406,23 @@ class VectorFemSpace( FemSpace ):
         return txt
 
 #===============================================================================
-class ProductFemSpace( FemSpace ):
+class MultipatchFemSpace(FemSpace):
     """
-    Product of FEM spaces
-    this class is used to represent FEM spaces on a multi-patch domain.
+    Product of single-patch FEM spaces.
+
+    Parameters
+    ----------
+    *spaces : FemSpace
+        Single-patch FEM spaces, either scalar or vector-valued.
+
+    connectivity : dict, optional
+        Dictionary representing the connectivity between the patches.
     """
+    def __init__(self, *spaces, connectivity=None):
+        if connectivity is None:
+            connectivity = {}
 
-    def __new__(cls, *spaces, connectivity=None):
-
-        if len(spaces) == 1:
-            return spaces[0]
-        else:
-            return FemSpace.__new__(cls)
-
-    def __init__( self, *spaces, connectivity=None):
-        """
-        Parameters
-        ----------
-        *spaces : 
-            single-patch FEM spaces                        
-        """
-
+        # [YG, 28.03.2025]: What happens if we have only one space?
         if len(spaces) == 1:
             return
 
@@ -382,21 +435,24 @@ class ProductFemSpace( FemSpace ):
         self._ldim = ldims[0]
         # ...
 
-        connectivity          = connectivity if connectivity is not None else {}
-        self._vector_space    = BlockVectorSpace(*[V.vector_space for V in self.spaces], connectivity=connectivity)
+        self._coeff_space     = BlockVectorSpace(*[V.coeff_space for V in self.spaces], connectivity=connectivity)
         self._symbolic_space  = None
         self._connectivity    = connectivity.copy()
+
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
     @property
-    def ldim( self ):
+    def ldim(self):
         """ Parametric dimension.
         """
         return self._ldim
 
     @property
     def periodic(self):
+        # [YG, 28.03.2025]: this is not consistent with the abstract interface,
+        # which requires a tuple of booleans, but the periodicity of a multipatch
+        # space is not well defined in general.
         return [V.periodic for V in self.spaces]
 
     @property
@@ -404,13 +460,12 @@ class ProductFemSpace( FemSpace ):
         return None
 
     @property
-    def vector_space(self):
-        """Returns the vector space of the coefficients (mapping invariant)."""
-        return self._vector_space
-
-    @property
-    def is_product(self):
-        return True
+    def coeff_space(self):
+        """
+        Vector space of the coefficients (mapping invariant).
+        :rtype: psydac.linalg.basic.BlockVectorSpace
+        """
+        return self._coeff_space
 
     @property
     def symbolic_space( self ):
@@ -420,6 +475,33 @@ class ProductFemSpace( FemSpace ):
     def symbolic_space( self, symbolic_space ):
         #assert isinstance(symbolic_space, BasicFunctionSpace)
         self._symbolic_space = symbolic_space
+
+    @property
+    def patch_spaces(self):
+        return self._spaces
+
+    @property
+    def component_spaces(self):
+        """
+        Return the component spaces (self if scalar-valued) as a tuple.
+        """
+        if self.is_vector_valued:
+            # should we return here the multipatch scalar-valued space?
+            raise NotImplementedError('Component spaces not implemented for multipatch spaces')
+        else:
+            return self._spaces
+
+    @property
+    def axis_spaces(self):
+        raise NotImplementedError('Multipatch space has no list of axis spaces')
+
+    @property
+    def is_multipatch(self):
+        return True
+
+    @property
+    def is_vector_valued(self):
+        return self.patch_spaces[0].is_vector_valued
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
@@ -603,11 +685,11 @@ class ProductFemSpace( FemSpace ):
 
     # ...
     def eval_field_gradient( self, field, *eta ):
-        raise NotImplementedError( "ProductFemSpace not yet operational" )
+        raise NotImplementedError( "MultipatchFemSpace not yet operational" )
 
     # ...
     def integral( self, f ):
-        raise NotImplementedError( "ProductFemSpace not yet operational" )
+        raise NotImplementedError( "MultipatchFemSpace not yet operational" )
 
     #--------------------------------------------------------------------------
     # Other properties and methods
@@ -615,7 +697,6 @@ class ProductFemSpace( FemSpace ):
     @property
     def nbasis(self):
         dims = [V.nbasis for V in self.spaces]
-        # TODO [MCP, 08.03.2021]: check if we should return a tuple
         return sum(dims)
 
     @property

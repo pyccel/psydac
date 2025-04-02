@@ -56,7 +56,7 @@ class TensorFemSpace(FemSpace):
     *spaces : psydac.fem.splines.SplineSpace
         1D finite element spaces.
 
-    vector_space : psydac.linalg.stencil.StencilVectorSpace or None
+    coeff_space : psydac.linalg.stencil.StencilVectorSpace or None
         The vector space to which the coefficients belong (optional).
 
     cart : psydac.ddm.CartDecomposition or None
@@ -73,7 +73,7 @@ class TensorFemSpace(FemSpace):
 
     """
 
-    def __init__(self, domain_decomposition, *spaces, vector_space=None, cart=None, dtype=float):
+    def __init__(self, domain_decomposition, *spaces, coeff_space=None, cart=None, dtype=float):
 
         assert isinstance(domain_decomposition, DomainDecomposition)
         assert all(isinstance(s, SplineSpace) for s in spaces)
@@ -81,37 +81,37 @@ class TensorFemSpace(FemSpace):
         # TODO [YG 10.04.2024]: check if dtype test is too restrictive
 
         # Handle optional arguments
-        if cart and vector_space:
-            raise ValueError("Cannot provide both 'vector_space' and 'cart' to constructor")
+        if cart and coeff_space:
+            raise ValueError("Cannot provide both 'coeff_space' and 'cart' to constructor")
         elif cart is not None:
             assert isinstance(cart, CartDecomposition)
-            vector_space = StencilVectorSpace(cart, dtype=dtype)
-        elif vector_space is not None:
-            assert isinstance(vector_space, StencilVectorSpace)
-            cart = vector_space.cart
+            coeff_space = StencilVectorSpace(cart, dtype=dtype)
+        elif coeff_space is not None:
+            assert isinstance(coeff_space, StencilVectorSpace)
+            cart = coeff_space.cart
         else:
             cart = create_cart([domain_decomposition], [spaces])[0]
-            vector_space = StencilVectorSpace(cart, dtype=dtype)
+            coeff_space = StencilVectorSpace(cart, dtype=dtype)
 
         # Store some info
         self._domain_decomposition = domain_decomposition
         self._spaces               = spaces
         self._dtype                = dtype
-        self._vector_space         = vector_space
+        self._coeff_space          = coeff_space
         self._symbolic_space       = None
         self._refined_space        = {}
         self._interfaces           = {}
         self._interfaces_readonly  = MappingProxyType(self._interfaces)
 
         # If process does not own space, stop here
-        if vector_space.parallel and cart.is_comm_null:
+        if coeff_space.parallel and cart.is_comm_null:
             return
 
         # Determine portion of logical domain local to process.
         # This corresponds to the indices of the first and last elements
         # owned by the current process, along each direction.
-        self._element_starts = self._vector_space.cart.domain_decomposition.starts
-        self._element_ends   = self._vector_space.cart.domain_decomposition.ends
+        self._element_starts = self._coeff_space.cart.domain_decomposition.starts
+        self._element_ends   = self._coeff_space.cart.domain_decomposition.ends
 
         # Compute limits of eta_0, eta_1, eta_2, etc... in subdomain local to process
         self._eta_limits = tuple((space.breaks[s], space.breaks[e+1])
@@ -149,14 +149,22 @@ class TensorFemSpace(FemSpace):
     #     return tuple({q: gag} for q, gag in zip(self.nquads, self.get_assembly_grids(*self.nquads)))
 
     @property
-    def ldim( self ):
+    def ldim(self):
         """ Parametric dimension.
         """
         return sum([V.ldim for V in self.spaces])
 
     @property
     def periodic(self):
-        return [V.periodic for V in self.spaces]
+        """
+        Tuple of booleans: along each logical dimension,
+        say if domain is periodic.
+        :rtype: tuple[bool]
+        """
+        # [YG, 27.03.2025]: according to the abstract interface of FemSpace,
+        # this property should return a tuple of `ldim` booleans. However, the
+        # spaces in self.spaces seem to be returning a single scalar value.
+        return tuple(V.periodic for V in self.spaces)
 
     @property
     def domain_decomposition(self):
@@ -164,16 +172,17 @@ class TensorFemSpace(FemSpace):
 
     @property
     def mapping(self):
+        # [YG, 28.03.2025]: not clear why there should be no mapping here...
+        # Clearly this property is never used in Psydac.
         return None
 
     @property
-    def vector_space(self):
-        """Returns the topological associated vector space."""
-        return self._vector_space
-
-    @property
-    def is_product(self):
-        return False
+    def coeff_space(self):
+        """
+        Vector space of the coefficients (mapping invariant).
+        :rtype: psydac.linalg.stencil.StencilVectorSpace
+        """
+        return self._coeff_space
 
     @property
     def symbolic_space( self ):
@@ -187,6 +196,26 @@ class TensorFemSpace(FemSpace):
     def symbolic_space( self, symbolic_space ):
         #assert isinstance(symbolic_space, BasicFunctionSpace)
         self._symbolic_space = symbolic_space
+
+    @property
+    def patch_spaces(self):
+        return (self,)
+
+    @property
+    def component_spaces(self):
+        return (self,)
+
+    @property
+    def axis_spaces(self):
+        return self._spaces
+
+    @property
+    def is_multipatch(self):
+        return False
+
+    @property
+    def is_vector_valued(self):
+        return False
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
@@ -309,7 +338,7 @@ class TensorFemSpace(FemSpace):
         assert len(grid) == self.ldim
 
         # Get the local domain
-        v = self.vector_space
+        v = self.coeff_space
         starts, ends = self.local_domain
 
         # Add the overlap if we are in parallel
@@ -375,7 +404,7 @@ class TensorFemSpace(FemSpace):
         assert len(grid) == self.ldim
 
         # Get the local domain
-        v = self.vector_space
+        v = self.coeff_space
         starts, ends = self.local_domain
 
         # Add the overlap if we are in parallel
@@ -721,8 +750,8 @@ class TensorFemSpace(FemSpace):
                 c += f(*y) * np_prod(v)
 
         # All reduce (MPI_SUM)
-        if self.vector_space.parallel:
-            mpi_comm = self.vector_space.cart.comm
+        if self.coeff_space.parallel:
+            mpi_comm = self.coeff_space.cart.comm
             c = mpi_comm.allreduce(c)
 
         # convert to native python type if numpy to avoid errors with sympify
@@ -734,10 +763,6 @@ class TensorFemSpace(FemSpace):
     #--------------------------------------------------------------------------
     # Other properties and methods
     #--------------------------------------------------------------------------
-    @property
-    def is_scalar(self):
-        return True
-
     @property
     def dtype(self):
         return self._dtype
@@ -769,7 +794,7 @@ class TensorFemSpace(FemSpace):
 
     @property
     def pads(self):
-        return self.vector_space.pads
+        return self.coeff_space.pads
 
     @property
     def ncells(self):
@@ -899,7 +924,7 @@ class TensorFemSpace(FemSpace):
             values.
 
         """
-        assert values.space is self.vector_space
+        assert values.space is self.coeff_space
         assert isinstance( field, FemField )
         assert field.space is self
 
@@ -938,7 +963,7 @@ class TensorFemSpace(FemSpace):
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
 
-        v = self._vector_space
+        v = self._coeff_space
         spaces = list(self.spaces)
 
         global_starts = list(v._cart._global_starts).copy()
@@ -987,7 +1012,7 @@ class TensorFemSpace(FemSpace):
         assert isinstance(filename, str)
         assert all(field.space is self for field in fields.values())
 
-        V    = self.vector_space
+        V    = self.coeff_space
         comm = V.cart.comm if V.parallel else None
 
         # Multi-dimensional index range local to process
@@ -1030,7 +1055,7 @@ class TensorFemSpace(FemSpace):
         assert isinstance(filename, str)
         assert all(isinstance(name, str) for name in field_names)
 
-        V    = self.vector_space
+        V    = self.coeff_space
         comm = V.cart.comm if V.parallel else None
 
         # Multi-dimensional index range local to process
@@ -1072,7 +1097,7 @@ class TensorFemSpace(FemSpace):
         if multiplicity is None:
             multiplicity = [self.multiplicity[i] for i in axes]
 
-        v = self._vector_space
+        v = self._coeff_space
 
         spaces = list(self.spaces)
 
@@ -1143,7 +1168,7 @@ class TensorFemSpace(FemSpace):
             new_global_ends  [-1] = np.array(new_global_ends  [-1])
 
         new_domain = domain.refine(ncells, new_global_starts, new_global_ends)
-        new_space  = TensorFemSpace(new_domain, *spaces, dtype=self._vector_space.dtype)
+        new_space  = TensorFemSpace(new_domain, *spaces, dtype=self._coeff_space.dtype)
 
         self.set_refined_space(ncells, new_space)
 
@@ -1172,14 +1197,14 @@ class TensorFemSpace(FemSpace):
         if cart.is_comm_null or self._interfaces.get((axis, ext), None):
             return
 
-        spaces       = self.spaces
-        vector_space = self.vector_space
+        spaces      = self.spaces
+        coeff_space = self.coeff_space
 
-        vector_space.set_interface(axis, ext, cart)
+        coeff_space.set_interface(axis, ext, cart)
 
         space = TensorFemSpace(self._domain_decomposition, *spaces,
-                               vector_space=vector_space.interfaces[axis, ext],
-                               dtype=vector_space.dtype)
+                               coeff_space=coeff_space.interfaces[axis, ext],
+                               dtype=coeff_space.dtype)
 
         self._interfaces[axis, ext] = space
 
@@ -1207,7 +1232,7 @@ class TensorFemSpace(FemSpace):
         N = int(refine)
         V1, V2 = self.spaces
 
-        mpi_comm = self.vector_space.cart.comm
+        mpi_comm = self.coeff_space.cart.comm
         mpi_rank = mpi_comm.rank
 
         # Local grid, refined

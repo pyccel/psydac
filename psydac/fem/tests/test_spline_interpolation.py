@@ -124,7 +124,7 @@ def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2 ):
     x2g = space2.greville
 
     # Interpolation data on Greville points (distributed)
-    V     = tensor_space.vector_space
+    V     = tensor_space.coeff_space
     ug    = V.zeros()
     s1,s2 = V.starts
     e1,e2 = V.ends
