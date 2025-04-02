@@ -235,11 +235,16 @@ jobs:
           struphy -h
           struphy compile -y
 
-      - name: Run struphy tests
+      - name: Run struphy unit tests
         working-directory: ${{ env.STRUPHY_DIR }}
         run: |
             struphy test unit
+      
+      - name: Run struphy model tests
+        working-directory: ${{ env.STRUPHY_DIR }}
+        run: |
             struphy test models --fast
+
       - name: Remove test directory
         if: always()
         run: |
