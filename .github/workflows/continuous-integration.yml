@@ -23,9 +23,9 @@ jobs:
         #  - { isMerge: false, python-version: '3.10' }
         #  - { isMerge: false, python-version: '3.11' }
         include:
-          - os: macos-latest
+          - os: macos-14
             python-version: '3.10'
-          - os: macos-latest
+          - os: macos-14
             python-version: '3.13'
 
     name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
@@ -48,7 +48,7 @@ jobs:
             requirements_extra.txt
 
       - name: Install non-Python dependencies on Ubuntu
-        if: matrix.os == 'ubuntu-24.04'
+        if: matrix.os == 'ubuntu-latest'
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: gfortran openmpi-bin libopenmpi-dev libhdf5-openmpi-dev
@@ -60,7 +60,7 @@ jobs:
       # installation (since openmpi-bin already exists), but instead reruns
       # `update-alternatives` which fixes the symlinks to mpicc/mpif90.
       - name: Reconfigure non-Python dependencies on Ubuntu
-        if: matrix.os == 'ubuntu-24.04'
+        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install --reinstall openmpi-bin libhdf5-openmpi-dev liblapack-dev libblas-dev
@@ -100,7 +100,7 @@ jobs:
 
       - name: Determine directory of parallel HDF5 library
         run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-24.04" ]]; then
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             HDF5_DIR=$(dpkg -L libhdf5-openmpi-dev | grep libhdf5.so | xargs dirname)
           elif [[ "${{ matrix.os }}" == "macos-14" ]]; then
             HDF5_DIR=$(brew list hdf5-mpi | grep "libhdf5.dylib" | xargs dirname | xargs dirname)
@@ -195,7 +195,7 @@ jobs:
           --pyargs psydac -m "not parallel and not petsc"
 
       - name: Run single-process tests with Pytest on Ubuntu
-        if: matrix.os == 'ubuntu-24.04'
+        if: matrix.os == 'ubuntu-latest'
         working-directory: ./pytest
         run: |
           python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
