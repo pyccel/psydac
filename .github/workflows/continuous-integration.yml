@@ -188,19 +188,6 @@ jobs:
         run: |
           python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
 
-      - name: Upload coverage report to Codacy
-        if: matrix.os == 'macos-14'
-        uses: codacy/codacy-coverage-reporter-action@v1.3.0
-        with:
-          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          coverage-reports: ./pytest/coverage.xml
-
-      - name: Print detailed coverage results on macOS
-        if: matrix.os == 'macos-14'
-        working-directory: ./pytest
-        run: |
-          coverage report --ignore-errors --show-missing --sort=cover
-
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
         run: |
